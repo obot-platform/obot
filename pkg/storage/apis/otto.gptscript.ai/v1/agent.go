@@ -23,14 +23,8 @@ func (in *Agent) GetConditions() *[]metav1.Condition {
 	return &in.Status.Conditions
 }
 
-type Format string
-
-const TOMLFormat = Format("toml")
-
 type AgentSpec struct {
-	Manifest       AgentManifest `json:"manifest,omitempty"`
-	ManifestSource string        `json:"manifestSource,omitempty"`
-	Format         Format        `json:"format,omitempty"`
+	Manifest AgentManifest `json:"manifest,omitempty"`
 }
 
 type AgentStatus struct {

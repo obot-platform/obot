@@ -1,8 +1,6 @@
 package handlers
 
 import (
-	"context"
-
 	"github.com/gptscript-ai/otto/pkg/api"
 	"github.com/gptscript-ai/otto/pkg/api/types"
 	"github.com/gptscript-ai/otto/pkg/gz"
@@ -10,6 +8,10 @@ import (
 )
 
 type RunHandler struct {
+}
+
+func NewRunHandler() *RunHandler {
+	return &RunHandler{}
 }
 
 func convertRun(run v2.Run) types.Run {
@@ -26,7 +28,7 @@ func convertRun(run v2.Run) types.Run {
 	}
 }
 
-func (a *RunHandler) Debug(_ context.Context, req api.Request) error {
+func (a *RunHandler) Debug(req api.Context) error {
 	var (
 		runID = req.Request.PathValue("run")
 	)
@@ -41,10 +43,10 @@ func (a *RunHandler) Debug(_ context.Context, req api.Request) error {
 		return err
 	}
 
-	return req.JSON(calls)
+	return req.Write(calls)
 }
 
-func (a *RunHandler) List(_ context.Context, req api.Request) error {
+func (a *RunHandler) List(req api.Context) error {
 	var (
 		agentName  = req.Request.PathValue("agent")
 		threadName = req.Request.PathValue("thread")
@@ -65,5 +67,5 @@ func (a *RunHandler) List(_ context.Context, req api.Request) error {
 		resp.Items = append(resp.Items, convertRun(run))
 	}
 
-	return req.JSON(resp)
+	return req.Write(resp)
 }

@@ -1,7 +1,6 @@
 package api
 
 import (
-	"context"
 	"errors"
 	"net/http"
 	"strings"
@@ -28,7 +27,7 @@ func NewServer(client storage.Client, gptClient *gptscript.GPTScript, tokenServi
 	}
 }
 
-type HandlerFunc func(context.Context, Request) error
+type HandlerFunc func(Context) error
 
 func (s *Server) Wrap(f HandlerFunc) http.Handler {
 	return http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
@@ -50,7 +49,7 @@ func (s *Server) Wrap(f HandlerFunc) http.Handler {
 			}
 		}
 
-		err := f(req.Context(), Request{
+		err := f(Context{
 			ResponseWriter: rw,
 			Request:        req,
 			GPTClient:      s.gptClient,
@@ -68,7 +67,7 @@ func (s *Server) Wrap(f HandlerFunc) http.Handler {
 	})
 }
 
-func GetURLPrefix(req Request) string {
+func GetURLPrefix(req Context) string {
 	if req.Request.TLS == nil {
 		return "http://" + req.Request.Host
 	}

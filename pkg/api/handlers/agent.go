@@ -1,152 +1,99 @@
 package handlers
 
 import (
-	"context"
-	"errors"
 	"fmt"
 	"net/http"
 
-	"github.com/BurntSushi/toml"
 	"github.com/gptscript-ai/otto/pkg/api"
 	"github.com/gptscript-ai/otto/pkg/api/types"
 	v2 "github.com/gptscript-ai/otto/pkg/storage/apis/otto.gptscript.ai/v1"
 	"github.com/thedadams/workspace-provider/pkg/client"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 type AgentHandler struct {
-	WorkspaceClient   *client.Client
-	WorkspaceProvider string
+	workspaceClient   *client.Client
+	workspaceProvider string
 }
 
-func (a *AgentHandler) Update(ctx context.Context, req api.Request) error {
+func NewAgentHandler(wc *client.Client, wp string) *AgentHandler {
+	return &AgentHandler{
+		workspaceClient:   wc,
+		workspaceProvider: wp,
+	}
+}
+
+func (a *AgentHandler) Update(req api.Context) error {
 	var (
-		id    = req.Request.PathValue("id")
-		agent v2.Agent
+		id       = req.Request.PathValue("id")
+		agent    v2.Agent
+		manifest v2.AgentManifest
 	)
+
+	if err := req.Read(&manifest); err != nil {
+		return err
+	}
 
 	if err := req.Get(&agent, id); err != nil {
 		return err
 	}
 
-	spec, err := a.parseAgentSpec(ctx, req)
-	if err != nil {
-		return err
-	}
-
-	if spec.Manifest.ID != "" && spec.Manifest.ID != agent.Name {
-		return api.NewErrBadRequest("agent ID and ID in manifest do not match %s != %s", agent.Name, spec.Manifest.ID)
-	}
-
-	agent.Spec = *spec
+	agent.Spec.Manifest = manifest
 	if err := req.Update(&agent); err != nil {
 		return err
 	}
 
-	return req.JSON(convertAgent(agent, api.GetURLPrefix(req)))
+	return req.Write(convertAgent(agent, api.GetURLPrefix(req)))
 }
 
-func (a *AgentHandler) Delete(ctx context.Context, req api.Request) error {
+func (a *AgentHandler) Delete(req api.Context) error {
 	var (
-		id    = req.Request.PathValue("id")
-		agent v2.Agent
+		id = req.Request.PathValue("id")
 	)
 
-	var httpErr *api.ErrHTTP
-	if err := req.Get(&agent, id); errors.As(err, &httpErr) && httpErr.Code == http.StatusNotFound {
-		return nil
-	} else if err != nil {
-		return err
-	}
-
-	if err := req.Delete(&agent); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (a *AgentHandler) parseAgentSpec(ctx context.Context, req api.Request) (*v2.AgentSpec, error) {
-	data, err := req.Body()
-	if err != nil {
-		return nil, err
-	}
-
-	var manifest v2.AgentManifest
-	if err := toml.Unmarshal(data, &manifest); err != nil {
-		return nil, api.NewErrBadRequest("invalid definition: %v", err)
-	}
-
-	return &v2.AgentSpec{
-		Manifest:       manifest,
-		ManifestSource: string(data),
-		Format:         v2.TOMLFormat,
-	}, nil
-}
-
-func (a *AgentHandler) Create(ctx context.Context, req api.Request) error {
-	replace := req.Request.URL.Query().Get("replace") == "true"
-
-	spec, err := a.parseAgentSpec(ctx, req)
-	if err != nil {
-		return err
-	}
-
-	if replace && spec.Manifest.ID == "" {
-		return api.NewErrBadRequest("replace requires \"id\" in the manifest to be set")
-	}
-
-	var (
-		agent     v2.Agent
-		httpError *api.ErrHTTP
-	)
-	if err = req.Get(&agent, spec.Manifest.ID); err != nil {
-		if !errors.As(err, &httpError) || httpError.Code != http.StatusNotFound {
-			return err
-		}
-	} else if !replace {
-		return apierrors.NewAlreadyExists(v2.SchemeGroupVersion.WithResource("agents").GroupResource(), spec.Manifest.ID)
-	}
-
-	agent = v2.Agent{
+	return req.Delete(&v2.Agent{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      spec.Manifest.ID,
+			Name:      id,
 			Namespace: req.Namespace(),
 		},
-		Spec: *spec,
+	})
+}
+
+func (a *AgentHandler) Create(req api.Context) error {
+	var manifest v2.AgentManifest
+	if err := req.Read(&manifest); err != nil {
+		return err
+	}
+	agent := v2.Agent{
+		ObjectMeta: metav1.ObjectMeta{
+			GenerateName: "a1",
+			Namespace:    req.Namespace(),
+		},
+		Spec: v2.AgentSpec{
+			Manifest: manifest,
+		},
 	}
 
-	if agent.Name == "" {
-		agent.GenerateName = "a"
-	}
-
-	if err = req.Create(&agent); replace && apierrors.IsAlreadyExists(err) {
-		err = req.Update(&agent)
-		req.ResponseWriter.Header().Set("X-Otto-Replaced", "true")
-	}
-	if err != nil {
+	if err := req.Create(&agent); err != nil {
 		return err
 	}
 
 	req.WriteHeader(http.StatusCreated)
-	return req.JSON(convertAgent(agent, api.GetURLPrefix(req)))
+	return req.Write(convertAgent(agent, api.GetURLPrefix(req)))
 }
 
-func convertAgent(agent v2.Agent, prefix string) types.Agent {
-	return types.Agent{
-		ID:      agent.Name,
-		Created: agent.CreationTimestamp.Time,
-		Links: map[string]string{
-			"invoke": prefix + "/invoke/" + agent.Name,
-		},
-		Name:        agent.Spec.Manifest.Name,
-		Description: agent.Spec.Manifest.Description,
-		Manifest:    agent.Spec.Manifest,
+func convertAgent(agent v2.Agent, prefix string) *types.Agent {
+	var links []string
+	if prefix != "" {
+		links = []string{"invoke", prefix + "/invoke/" + agent.Name}
+	}
+	return &types.Agent{
+		Metadata:      types.MetadataFrom(&agent, links...),
+		AgentManifest: agent.Spec.Manifest,
 	}
 }
 
-func (a *AgentHandler) List(_ context.Context, req api.Request) error {
+func (a *AgentHandler) List(req api.Context) error {
 	var agentList v2.AgentList
 	if err := req.List(&agentList); err != nil {
 		return err
@@ -154,13 +101,13 @@ func (a *AgentHandler) List(_ context.Context, req api.Request) error {
 
 	var resp types.AgentList
 	for _, agent := range agentList.Items {
-		resp.Items = append(resp.Items, convertAgent(agent, api.GetURLPrefix(req)))
+		resp.Items = append(resp.Items, *convertAgent(agent, api.GetURLPrefix(req)))
 	}
 
-	return req.JSON(resp)
+	return req.Write(resp)
 }
 
-func (a *AgentHandler) Files(ctx context.Context, req api.Request) error {
+func (a *AgentHandler) Files(req api.Context) error {
 	var (
 		id    = req.Request.PathValue("id")
 		agent v2.Agent
@@ -169,10 +116,10 @@ func (a *AgentHandler) Files(ctx context.Context, req api.Request) error {
 		return fmt.Errorf("failed to get agent with id %s: %w", id, err)
 	}
 
-	return listFiles(ctx, req, a.WorkspaceClient, agent.Status.WorkspaceID)
+	return listFiles(req.Context(), req, a.workspaceClient, agent.Status.WorkspaceID)
 }
 
-func (a *AgentHandler) UploadFile(ctx context.Context, req api.Request) error {
+func (a *AgentHandler) UploadFile(req api.Context) error {
 	var (
 		id    = req.Request.PathValue("id")
 		agent v2.Agent
@@ -181,10 +128,10 @@ func (a *AgentHandler) UploadFile(ctx context.Context, req api.Request) error {
 		return fmt.Errorf("failed to get agent with id %s: %w", id, err)
 	}
 
-	return uploadFile(ctx, req, a.WorkspaceClient, agent.Status.WorkspaceID)
+	return uploadFile(req.Context(), req, a.workspaceClient, agent.Status.WorkspaceID)
 }
 
-func (a *AgentHandler) DeleteFile(ctx context.Context, req api.Request) error {
+func (a *AgentHandler) DeleteFile(req api.Context) error {
 	var (
 		id       = req.Request.PathValue("id")
 		filename = req.Request.PathValue("file")
@@ -195,10 +142,10 @@ func (a *AgentHandler) DeleteFile(ctx context.Context, req api.Request) error {
 		return fmt.Errorf("failed to get agent with id %s: %w", id, err)
 	}
 
-	return deleteFile(ctx, req, a.WorkspaceClient, agent.Status.WorkspaceID, filename)
+	return deleteFile(req.Context(), req, a.workspaceClient, agent.Status.WorkspaceID, filename)
 }
 
-func (a *AgentHandler) Knowledge(ctx context.Context, req api.Request) error {
+func (a *AgentHandler) Knowledge(req api.Context) error {
 	var (
 		id    = req.Request.PathValue("id")
 		agent v2.Agent
@@ -207,10 +154,10 @@ func (a *AgentHandler) Knowledge(ctx context.Context, req api.Request) error {
 		return fmt.Errorf("failed to get agent with id %s: %w", id, err)
 	}
 
-	return listFiles(ctx, req, a.WorkspaceClient, agent.Status.KnowledgeWorkspaceID)
+	return listFiles(req.Context(), req, a.workspaceClient, agent.Status.KnowledgeWorkspaceID)
 }
 
-func (a *AgentHandler) UploadKnowledge(ctx context.Context, req api.Request) error {
+func (a *AgentHandler) UploadKnowledge(req api.Context) error {
 	var (
 		id    = req.Request.PathValue("id")
 		agent v2.Agent
@@ -219,16 +166,16 @@ func (a *AgentHandler) UploadKnowledge(ctx context.Context, req api.Request) err
 		return fmt.Errorf("failed to get agent with id %s: %w", id, err)
 	}
 
-	if err := uploadFile(ctx, req, a.WorkspaceClient, agent.Status.KnowledgeWorkspaceID); err != nil {
+	if err := uploadFile(req.Context(), req, a.workspaceClient, agent.Status.KnowledgeWorkspaceID); err != nil {
 		return err
 	}
 
 	agent.Status.IngestKnowledge = true
 	agent.Status.HasKnowledge = true
-	return req.Storage.Status().Update(ctx, &agent)
+	return req.Storage.Status().Update(req.Context(), &agent)
 }
 
-func (a *AgentHandler) DeleteKnowledge(ctx context.Context, req api.Request) error {
+func (a *AgentHandler) DeleteKnowledge(req api.Context) error {
 	var (
 		id       = req.Request.PathValue("id")
 		filename = req.Request.PathValue("file")
@@ -239,15 +186,15 @@ func (a *AgentHandler) DeleteKnowledge(ctx context.Context, req api.Request) err
 		return fmt.Errorf("failed to get agent with id %s: %w", id, err)
 	}
 
-	if err := deleteFile(ctx, req, a.WorkspaceClient, agent.Status.KnowledgeWorkspaceID, filename); err != nil {
+	if err := deleteFile(req.Context(), req, a.workspaceClient, agent.Status.KnowledgeWorkspaceID, filename); err != nil {
 		return err
 	}
 
 	agent.Status.IngestKnowledge = true
-	return req.Storage.Status().Update(ctx, &agent)
+	return req.Storage.Status().Update(req.Context(), &agent)
 }
 
-func (a *AgentHandler) IngestKnowledge(ctx context.Context, req api.Request) error {
+func (a *AgentHandler) IngestKnowledge(req api.Context) error {
 	var (
 		id    = req.Request.PathValue("id")
 		agent v2.Agent
@@ -256,7 +203,7 @@ func (a *AgentHandler) IngestKnowledge(ctx context.Context, req api.Request) err
 		return fmt.Errorf("failed to get agent with id %s: %w", id, err)
 	}
 
-	files, err := a.WorkspaceClient.Ls(ctx, agent.Status.KnowledgeWorkspaceID)
+	files, err := a.workspaceClient.Ls(req.Context(), agent.Status.KnowledgeWorkspaceID)
 	if err != nil {
 		return err
 	}
@@ -268,5 +215,5 @@ func (a *AgentHandler) IngestKnowledge(ctx context.Context, req api.Request) err
 	}
 
 	agent.Status.IngestKnowledge = true
-	return req.Storage.Status().Update(ctx, &agent)
+	return req.Storage.Status().Update(req.Context(), &agent)
 }

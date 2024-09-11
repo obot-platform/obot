@@ -9,15 +9,15 @@ import (
 )
 
 type AgentManifest struct {
-	ID          string            `json:"id,omitempty"`
-	Name        string            `json:"name,omitempty"`
-	Description string            `json:"description,omitempty"`
-	Slug        string            `json:"slug,omitempty"`
-	Prompt      string            `json:"prompt,omitempty"`
-	Tools       []string          `json:"tools,omitempty"`
-	Agents      []string          `json:"agents,omitempty"`
-	Params      map[string]string `json:"params,omitempty"`
-	Metadata    map[string]string `json:"metadata,omitempty"`
+	Name            string            `json:"name,omitempty"`
+	Description     string            `json:"description,omitempty"`
+	Slug            string            `json:"slug,omitempty"`
+	Prompt          string            `json:"prompt,omitempty"`
+	Agents          []string          `json:"agents,omitempty"`
+	Tools           []string          `json:"tools,omitempty"`
+	Params          map[string]string `json:"params,omitempty"`
+	PackageJSON     string            `json:"packageJSON,omitempty"`
+	RequirementsTXT string            `json:"requirementsTXT,omitempty"`
 }
 
 func (m AgentManifest) GetParams() *openapi3.Schema {

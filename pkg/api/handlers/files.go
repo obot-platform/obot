@@ -11,16 +11,16 @@ import (
 	wclient "github.com/thedadams/workspace-provider/pkg/client"
 )
 
-func listFiles(ctx context.Context, req api.Request, wc *wclient.Client, workspaceID string) error {
+func listFiles(ctx context.Context, req api.Context, wc *wclient.Client, workspaceID string) error {
 	files, err := wc.Ls(ctx, workspaceID)
 	if err != nil {
 		return fmt.Errorf("failed to list files in workspace %q: %w", workspaceID, err)
 	}
 
-	return req.JSON(types.FileList{Items: files})
+	return req.Write(types.FileList{Items: files})
 }
 
-func uploadFile(ctx context.Context, req api.Request, wc *wclient.Client, workspaceID string) error {
+func uploadFile(ctx context.Context, req api.Context, wc *wclient.Client, workspaceID string) error {
 	file := req.Request.PathValue("file")
 	if file == "" {
 		return fmt.Errorf("file path parameter is required")
@@ -41,7 +41,7 @@ func uploadFile(ctx context.Context, req api.Request, wc *wclient.Client, worksp
 	return nil
 }
 
-func deleteFile(ctx context.Context, req api.Request, wc *wclient.Client, workspaceID, filename string) error {
+func deleteFile(ctx context.Context, req api.Context, wc *wclient.Client, workspaceID, filename string) error {
 	if err := wc.DeleteFile(ctx, workspaceID, filename); err != nil {
 		return fmt.Errorf("failed to delete file %q from workspace %q: %w", filename, workspaceID, err)
 	}

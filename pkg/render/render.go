@@ -17,6 +17,14 @@ var DefaultAgentParams = []string{
 }
 
 func Agent(ctx context.Context, db storage.Client, agent *v1.Agent, thread *v1.Thread, knowledgeTool, knowledgeBin string) (_ []gptscript.ToolDef, extraEnv []string, _ error) {
+	metadata := map[string]string{}
+	if agent.Spec.Manifest.PackageJSON != "" {
+		metadata["package.json"] = agent.Spec.Manifest.PackageJSON
+	}
+	if agent.Spec.Manifest.RequirementsTXT != "" {
+		metadata["requirements.txt"] = agent.Spec.Manifest.RequirementsTXT
+	}
+
 	t := []gptscript.ToolDef{{
 		Name:         agent.Spec.Manifest.Name,
 		Description:  agent.Spec.Manifest.Description,
@@ -24,7 +32,7 @@ func Agent(ctx context.Context, db storage.Client, agent *v1.Agent, thread *v1.T
 		Tools:        agent.Spec.Manifest.Tools,
 		Arguments:    agent.Spec.Manifest.GetParams(),
 		Instructions: agent.Spec.Manifest.Prompt,
-		MetaData:     agent.Spec.Manifest.Metadata,
+		MetaData:     metadata,
 		Type:         "agent",
 	}}
 

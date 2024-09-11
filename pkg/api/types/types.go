@@ -5,19 +5,34 @@ import (
 
 	gptscriptclient "github.com/gptscript-ai/go-gptscript"
 	"github.com/gptscript-ai/otto/pkg/storage/apis/otto.gptscript.ai/v1"
+	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type List[T any] struct {
 	Items []T `json:"items"`
 }
 
+type Metadata struct {
+	ID      string            `json:"id,omitempty"`
+	Created time.Time         `json:"created,omitempty"`
+	Links   map[string]string `json:"links,omitempty"`
+}
+
+func MetadataFrom(obj kclient.Object, linkKV ...string) Metadata {
+	m := Metadata{
+		ID:      obj.GetName(),
+		Created: obj.GetCreationTimestamp().Time,
+		Links:   map[string]string{},
+	}
+	for i := 0; i < len(linkKV); i += 2 {
+		m.Links[linkKV[i]] = linkKV[i+1]
+	}
+	return m
+}
+
 type Agent struct {
-	ID          string            `json:"id,omitempty"`
-	Created     time.Time         `json:"created,omitempty"`
-	Links       map[string]string `json:"links,omitempty"`
-	Name        string            `json:"name"`
-	Description string            `json:"description,omitempty"`
-	Manifest    v1.AgentManifest  `json:"manifest,omitempty"`
+	Metadata
+	v1.AgentManifest
 }
 
 type AgentList List[Agent]

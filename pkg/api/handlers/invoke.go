@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"context"
 	"encoding/json"
 	"slices"
 	"time"
@@ -12,10 +11,16 @@ import (
 )
 
 type InvokeHandler struct {
-	Invoker *invoke.Invoker
+	invoker *invoke.Invoker
 }
 
-func (i *InvokeHandler) Invoke(ctx context.Context, req api.Request) error {
+func NewInvokeHandler(invoker *invoke.Invoker) *InvokeHandler {
+	return &InvokeHandler{
+		invoker: invoker,
+	}
+}
+
+func (i *InvokeHandler) Invoke(req api.Context) error {
 	var (
 		agentID  = req.PathValue("agent")
 		agent    v1.Agent
@@ -31,7 +36,7 @@ func (i *InvokeHandler) Invoke(ctx context.Context, req api.Request) error {
 		return err
 	}
 
-	resp, err := i.Invoker.Agent(ctx, &agent, string(input), invoke.Options{
+	resp, err := i.invoker.Agent(req.Context(), &agent, string(input), invoke.Options{
 		ThreadName: threadID,
 	})
 	if err != nil {
@@ -50,18 +55,18 @@ func (i *InvokeHandler) Invoke(ctx context.Context, req api.Request) error {
 	var lastFlush time.Time
 	for event := range resp.Events {
 		if sendEvents {
-			if _, err := req.Write([]byte("data: ")); err != nil {
+			if err := req.Write([]byte("data: ")); err != nil {
 				return err
 			}
 			if err := json.NewEncoder(req.ResponseWriter).Encode(event); err != nil {
 				return err
 			}
-			if _, err := req.Write([]byte("\n\n")); err != nil {
+			if err := req.Write([]byte("\n\n")); err != nil {
 				return err
 			}
 			req.Flush()
 		} else {
-			if _, err := req.Write([]byte(event.Content)); err != nil {
+			if err := req.Write([]byte(event.Content)); err != nil {
 				return err
 			}
 			if lastFlush.IsZero() || time.Since(lastFlush) > 500*time.Millisecond {

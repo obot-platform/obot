@@ -218,12 +218,6 @@ func schema_storage_apis_ottogptscriptai_v1_AgentManifest(ref common.ReferenceCa
 			SchemaProps: spec.SchemaProps{
 				Type: []string{"object"},
 				Properties: map[string]spec.Schema{
-					"id": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
 					"name": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
@@ -248,7 +242,7 @@ func schema_storage_apis_ottogptscriptai_v1_AgentManifest(ref common.ReferenceCa
 							Format: "",
 						},
 					},
-					"tools": {
+					"agents": {
 						SchemaProps: spec.SchemaProps{
 							Type: []string{"array"},
 							Items: &spec.SchemaOrArray{
@@ -262,7 +256,7 @@ func schema_storage_apis_ottogptscriptai_v1_AgentManifest(ref common.ReferenceCa
 							},
 						},
 					},
-					"agents": {
+					"tools": {
 						SchemaProps: spec.SchemaProps{
 							Type: []string{"array"},
 							Items: &spec.SchemaOrArray{
@@ -291,19 +285,16 @@ func schema_storage_apis_ottogptscriptai_v1_AgentManifest(ref common.ReferenceCa
 							},
 						},
 					},
-					"metadata": {
+					"packageJSON": {
 						SchemaProps: spec.SchemaProps{
-							Type: []string{"object"},
-							AdditionalProperties: &spec.SchemaOrBool{
-								Allows: true,
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Default: "",
-										Type:    []string{"string"},
-										Format:  "",
-									},
-								},
-							},
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"requirementsTXT": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
 						},
 					},
 				},
@@ -322,18 +313,6 @@ func schema_storage_apis_ottogptscriptai_v1_AgentSpec(ref common.ReferenceCallba
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
 							Ref:     ref("github.com/gptscript-ai/otto/pkg/storage/apis/otto.gptscript.ai/v1.AgentManifest"),
-						},
-					},
-					"manifestSource": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-					"format": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
 						},
 					},
 				},

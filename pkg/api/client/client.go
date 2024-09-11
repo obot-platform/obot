@@ -173,7 +173,7 @@ func (c *Client) CreateAgent(ctx context.Context, manifest []byte, opts ...Creat
 func (c *Client) ListAgents(ctx context.Context) (result types.AgentList, err error) {
 	defer func() {
 		sort.Slice(result.Items, func(i, j int) bool {
-			return result.Items[i].Created.Before(result.Items[j].Created)
+			return result.Items[i].Metadata.Created.Before(result.Items[j].Metadata.Created)
 		})
 	}()
 
