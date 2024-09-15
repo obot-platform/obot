@@ -2,7 +2,6 @@ package cli
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/dustin/go-humanize"
 	"github.com/gptscript-ai/otto/pkg/api/client"
@@ -40,14 +39,13 @@ func (l *Threads) Run(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
-	w := newTable("ID", "AGENT", "STATE", "INPUT", "CREATED")
+	w := newTable("ID", "DESC", "AGENT", "STATE", "CREATED")
 	for _, thread := range threads.Items {
-		thread.Input = truncate(strings.Split(thread.Input, "\n")[0], l.Wide)
 		state := "running"
 		if thread.LastRunState != "running" {
 			state = "waiting"
 		}
-		w.WriteRow(thread.ID, thread.AgentID, state, thread.Input, humanize.Time(thread.Created))
+		w.WriteRow(thread.ID, thread.Description, thread.AgentID, state, humanize.Time(thread.Created))
 	}
 
 	return w.Err()

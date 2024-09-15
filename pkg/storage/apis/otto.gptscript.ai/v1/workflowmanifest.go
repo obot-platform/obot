@@ -1,43 +1,24 @@
 package v1
 
 type WorkflowManifest struct {
-	Name        string            `json:"name,omitempty"`
-	Description string            `json:"description,omitempty"`
-	Slug        string            `json:"slug,omitempty"`
-	Params      map[string]string `json:"params,omitempty"`
-	Steps       []Step            `json:"steps,omitempty"`
-	Output      WorkflowOutput    `json:"output,omitempty"`
+	AgentManifest `json:",inline"`
+	Steps         []Step `json:"steps,omitempty"`
+	Output        string `json:"output,omitempty"`
 }
 
 type Step struct {
-	Name    string    `json:"name,omitempty"`
-	Input   StepInput `json:"input,omitempty"`
-	If      *If       `json:"if,omitempty"`
-	While   *While    `json:"while,omitempty"`
-	ForEach *ForEach  `json:"forEach,omitempty"`
+	Name        string `json:"name,omitempty"`
+	Description string `json:"description,omitempty"`
+	If          *If    `json:"if,omitempty"`
+	While       *While `json:"while,omitempty"`
 
-	*AgentStep
-	*ToolStep
-	Tools            []string `json:"tools,omitempty"`
-	Temperature      *float32 `json:"temperature,omitempty"`
-	Cache            *bool    `json:"cache,omitempty"`
-	CodeDependencies string   `json:"codeDependencies,omitempty"`
+	Input       string   `json:"input,omitempty"`
+	Cache       *bool    `json:"cache,omitempty"`
+	Temperature *float32 `json:"temperature,omitempty"`
 }
 
-type AgentStep struct {
-	Prompt Body `json:"prompt,omitempty"`
-}
-
-type ToolStep struct {
-	Tool Body              `json:"tool,omitempty"`
-	Args map[string]string `json:"args,omitempty"`
-}
-
-type WorkflowOutput StepInput
-
-type StepInput struct {
-	Content string            `json:"content,omitempty"`
-	Args    map[string]string `json:"args,omitempty"`
+type SubFlow struct {
+	Workflow string `json:"workflow,omitempty"`
 }
 
 type If struct {
@@ -50,10 +31,4 @@ type While struct {
 	Condition string `json:"condition,omitempty"`
 	MaxLoops  int    `json:"maxLoops,omitempty"`
 	Steps     []Step `json:"steps,omitempty"`
-}
-
-type ForEach struct {
-	Items string `json:"items,omitempty"`
-	Var   string `json:"var,omitempty"`
-	Steps []Step `json:"steps,omitempty"`
 }

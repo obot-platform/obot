@@ -3,7 +3,6 @@ package invokeclient
 import (
 	"context"
 
-	"github.com/gptscript-ai/go-gptscript"
 	"github.com/gptscript-ai/otto/pkg/api/client"
 	"github.com/gptscript-ai/otto/pkg/api/types"
 	"github.com/gptscript-ai/otto/pkg/cli/textio"
@@ -37,15 +36,6 @@ func (d VerboseInputter) Next(ctx context.Context, previous string, resp *types.
 			return nextInput()
 		}
 		return previous, true, nil
-	}
-
-	run, err := d.client.GetRun(ctx, resp.RunID)
-	if err != nil {
-		return "", false, err
-	}
-
-	if run.State == gptscript.Finished {
-		return "", false, nil
 	}
 
 	return nextInput()

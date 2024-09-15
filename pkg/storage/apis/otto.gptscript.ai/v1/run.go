@@ -49,12 +49,15 @@ type ToolProgress struct {
 }
 
 type RunSpec struct {
+	Background       bool     `json:"background,omitempty"`
 	ThreadName       string   `json:"threadName,omitempty"`
 	AgentName        string   `json:"agentName,omitempty"`
+	WorkflowName     string   `json:"workflowName,omitempty"`
 	WorkflowStepName string   `json:"workflowStepName,omitempty"`
 	PreviousRunName  string   `json:"previousRunName,omitempty"`
 	Input            string   `json:"input"`
 	Env              []string `json:"env,omitempty"`
+	Tool             string   `json:"tool,omitempty"`
 }
 
 type RunStatus struct {

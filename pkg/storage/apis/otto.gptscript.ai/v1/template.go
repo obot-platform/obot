@@ -1,5 +1,7 @@
 //go:build ignore
 
+// TODO: MAKE SURE YOU ADD NEW TYPES TO scheme.go
+
 package v1
 
 import (

@@ -15,27 +15,27 @@ import (
 	"github.com/gptscript-ai/otto/pkg/gz"
 	"github.com/gptscript-ai/otto/pkg/jwt"
 	"github.com/gptscript-ai/otto/pkg/render"
-	"github.com/gptscript-ai/otto/pkg/storage"
 	v1 "github.com/gptscript-ai/otto/pkg/storage/apis/otto.gptscript.ai/v1"
 	"github.com/gptscript-ai/otto/pkg/system"
 	"github.com/gptscript-ai/otto/pkg/workspace"
 	wclient "github.com/thedadams/workspace-provider/pkg/client"
 	apierror "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type Invoker struct {
-	storage                 storage.Client
 	gptClient               *gptscript.GPTScript
+	uncached                kclient.Client
 	tokenService            *jwt.TokenService
 	workspaceClient         *wclient.Client
 	threadWorkspaceProvider string
 	knowledgeTool           string
 }
 
-func NewInvoker(storage storage.Client, gptClient *gptscript.GPTScript, tokenService *jwt.TokenService, workspaceClient *wclient.Client, knowledgeTool string) *Invoker {
+func NewInvoker(c kclient.Client, gptClient *gptscript.GPTScript, tokenService *jwt.TokenService, workspaceClient *wclient.Client, knowledgeTool string) *Invoker {
 	return &Invoker{
-		storage:                 storage,
+		uncached:                c,
 		gptClient:               gptClient,
 		tokenService:            tokenService,
 		workspaceClient:         workspaceClient,
@@ -51,24 +51,46 @@ type Response struct {
 }
 
 func (r *Response) Wait() {
+	if r.Events == nil {
+		return
+	}
 	for range r.Events {
 	}
 }
 
 type Options struct {
-	ThreadName string
+	Background       bool
+	ThreadName       string
+	PreviousRunName  string
+	WorkflowName     string
+	WorkflowStepName string
+	Env              []string
 }
 
-func (i *Invoker) getThread(ctx context.Context, agent *v1.Agent, input, threadName string) (*v1.Thread, error) {
+type NewThreadOptions struct {
+	AgentName             string
+	ThreadName            string
+	ThreadGenerateName    string
+	WorkflowName          string
+	WorkflowExecutionName string
+	WorkspaceIDs          []string
+	KnowledgeWorkspaceIDs []string
+}
+
+func (i *Invoker) NewThread(ctx context.Context, c kclient.Client, namespace string, opt NewThreadOptions) (*v1.Thread, error) {
 	var (
-		thread     v1.Thread
-		createName string
+		thread               v1.Thread
+		createName           string
+		workspaceID          string
+		knowledgeWorkspaceID string
+		err                  error
 	)
-	if threadName != "" {
-		err := i.storage.Get(ctx, router.Key(agent.Namespace, threadName), &thread)
+
+	if opt.ThreadName != "" {
+		err := c.Get(ctx, router.Key(namespace, opt.ThreadName), &thread)
 		if apierror.IsNotFound(err) {
-			if system.IsThreadID(threadName) {
-				createName = threadName
+			if system.IsThreadID(opt.ThreadName) {
+				createName = opt.ThreadName
 			} else {
 				return nil, err
 			}
@@ -77,38 +99,52 @@ func (i *Invoker) getThread(ctx context.Context, agent *v1.Agent, input, threadN
 		}
 	}
 
-	workspaceID, err := i.workspaceClient.Create(ctx, i.threadWorkspaceProvider, agent.Status.Workspace.WorkspaceID)
-	if err != nil {
-		return nil, err
+	if len(opt.WorkspaceIDs) > 0 {
+		workspaceID, err = i.workspaceClient.Create(ctx, i.threadWorkspaceProvider, opt.WorkspaceIDs...)
+		if err != nil {
+			return nil, err
+		}
 	}
 
-	knowledgeWorkspaceID, err := i.workspaceClient.Create(ctx, i.threadWorkspaceProvider, agent.Status.KnowledgeWorkspace.KnowledgeWorkspaceID)
-	if err != nil {
-		return nil, err
+	if len(opt.KnowledgeWorkspaceIDs) > 0 {
+		knowledgeWorkspaceID, err = i.workspaceClient.Create(ctx, i.threadWorkspaceProvider, opt.KnowledgeWorkspaceIDs...)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	thread = v1.Thread{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:         createName,
 			GenerateName: system.ThreadPrefix,
-			Namespace:    agent.Namespace,
+			Namespace:    namespace,
 			Finalizers:   []string{v1.ThreadFinalizer},
 		},
 		Spec: v1.ThreadSpec{
-			AgentName:            agent.Name,
-			Input:                input,
-			WorkspaceID:          workspaceID,
-			KnowledgeWorkspaceID: knowledgeWorkspaceID,
+			AgentName:             opt.AgentName,
+			WorkflowExecutionName: opt.WorkflowExecutionName,
+			WorkflowName:          opt.WorkflowName,
+			WorkspaceID:           workspaceID,
+			KnowledgeWorkspaceID:  knowledgeWorkspaceID,
 		},
 	}
-	if err := i.storage.Create(ctx, &thread); err != nil {
+
+	if opt.ThreadGenerateName != "" {
+		if system.IsThreadID(opt.ThreadGenerateName) {
+			thread.GenerateName = opt.ThreadGenerateName
+		} else {
+			thread.GenerateName = system.ThreadPrefix + opt.ThreadGenerateName
+		}
+	}
+
+	if err := c.Create(ctx, &thread); err != nil {
 		// If creating the thread fails, then ensure that the workspace is cleaned up, too.
 		return nil, errors.Join(err, i.workspaceClient.Rm(ctx, thread.Spec.WorkspaceID))
 	}
 	return &thread, nil
 }
 
-func (i *Invoker) getChatState(ctx context.Context, run *v1.Run) (result string, _ error) {
+func (i *Invoker) getChatState(ctx context.Context, c kclient.Client, run *v1.Run) (result string, _ error) {
 	if run.Spec.PreviousRunName == "" {
 		return "", nil
 	}
@@ -116,7 +152,7 @@ func (i *Invoker) getChatState(ctx context.Context, run *v1.Run) (result string,
 	for {
 		// look for the last valid state
 		var previousRun v1.Run
-		if err := i.storage.Get(ctx, router.Key(run.Namespace, run.Spec.PreviousRunName), &previousRun); err != nil {
+		if err := c.Get(ctx, router.Key(run.Namespace, run.Spec.PreviousRunName), &previousRun); err != nil {
 			return "", err
 		}
 		if previousRun.Status.State == gptscript.Continue {
@@ -129,7 +165,7 @@ func (i *Invoker) getChatState(ctx context.Context, run *v1.Run) (result string,
 	}
 
 	var lastRun v1.RunState
-	if err := i.storage.Get(ctx, router.Key(run.Namespace, run.Spec.PreviousRunName), &lastRun); apierror.IsNotFound(err) {
+	if err := c.Get(ctx, router.Key(run.Namespace, run.Spec.PreviousRunName), &lastRun); apierror.IsNotFound(err) {
 		return "", nil
 	} else if err != nil {
 		return "", err
@@ -139,20 +175,24 @@ func (i *Invoker) getChatState(ctx context.Context, run *v1.Run) (result string,
 	return result, err
 }
 
-func (i *Invoker) Agent(ctx context.Context, agent *v1.Agent, input string, opts ...Options) (*Response, error) {
-	var opt Options
-	for _, o := range opts {
-		if o.ThreadName != "" {
-			opt.ThreadName = o.ThreadName
-		}
+func (i *Invoker) Agent(ctx context.Context, c kclient.Client, agent *v1.Agent, input string, opt Options) (*Response, error) {
+	threadOpt := NewThreadOptions{
+		AgentName:  agent.Name,
+		ThreadName: opt.ThreadName,
+	}
+	if agent.Status.Workspace.WorkspaceID != "" {
+		threadOpt.WorkspaceIDs = append(threadOpt.WorkspaceIDs, agent.Status.Workspace.WorkspaceID)
+	}
+	if agent.Status.KnowledgeWorkspace.KnowledgeWorkspaceID != "" {
+		threadOpt.KnowledgeWorkspaceIDs = append(threadOpt.KnowledgeWorkspaceIDs, agent.Status.KnowledgeWorkspace.KnowledgeWorkspaceID)
 	}
 
-	thread, err := i.getThread(ctx, agent, input, opt.ThreadName)
+	thread, err := i.NewThread(ctx, c, agent.Namespace, threadOpt)
 	if err != nil {
 		return nil, err
 	}
 
-	tools, extraEnv, err := render.Agent(ctx, i.storage, agent, render.AgentOptions{
+	tools, extraEnv, err := render.Agent(ctx, c, agent, render.AgentOptions{
 		Thread:        thread,
 		KnowledgeTool: i.knowledgeTool,
 	})
@@ -169,30 +209,46 @@ func (i *Invoker) Agent(ctx context.Context, agent *v1.Agent, input string, opts
 		}
 	}
 
-	return i.createRunFromTools(ctx, thread, tools, input, runOptions{
-		AgentName: agent.Name,
-		Env:       extraEnv,
+	return i.createRunFromTools(ctx, c, thread, tools, input, runOptions{
+		Background:       true,
+		AgentName:        agent.Name,
+		Env:              append(opt.Env, extraEnv...),
+		PreviousRunName:  opt.PreviousRunName,
+		WorkflowName:     opt.WorkflowName,
+		WorkflowStepName: opt.WorkflowStepName,
 	})
 }
 
 type runOptions struct {
 	AgentName        string
+	Background       bool
 	WorkflowName     string
 	WorkflowStepName string
+	PreviousRunName  string
 	Env              []string
 }
 
-func (i *Invoker) createRunFromTools(ctx context.Context, thread *v1.Thread, tools []gptscript.ToolDef, input string, opts runOptions) (*Response, error) {
-	return i.createRun(ctx, thread, input, opts, tools)
+func (i *Invoker) createRunFromTools(ctx context.Context, c kclient.Client, thread *v1.Thread, tools []gptscript.ToolDef, input string, opts runOptions) (*Response, error) {
+	return i.createRun(ctx, c, thread, input, opts, tools)
 }
 
-func (i *Invoker) createRunFromRemoteTool(ctx context.Context, thread *v1.Thread, tool, input string, opts runOptions) (*Response, error) {
-	return i.createRun(ctx, thread, input, opts, tool)
+func (i *Invoker) createRunFromRemoteTool(ctx context.Context, c kclient.Client, thread *v1.Thread, tool, input string, opts runOptions) (*Response, error) {
+	return i.createRun(ctx, c, thread, input, opts, tool)
 }
 
 // createRun is a low-level method that creates a Run object from a list of tools or a remote tool.
 // Callers should use createRunFromTools or createRunFromRemoteTool instead.
-func (i *Invoker) createRun(ctx context.Context, thread *v1.Thread, input string, opts runOptions, tool any) (*Response, error) {
+func (i *Invoker) createRun(ctx context.Context, c kclient.Client, thread *v1.Thread, input string, opts runOptions, tool any) (*Response, error) {
+	previousRunName := thread.Status.LastRunName
+	if opts.PreviousRunName != "" {
+		previousRunName = opts.PreviousRunName
+	}
+
+	toolData, err := json.Marshal(tool)
+	if err != nil {
+		return nil, err
+	}
+
 	run := v1.Run{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: system.RunPrefix,
@@ -200,20 +256,34 @@ func (i *Invoker) createRun(ctx context.Context, thread *v1.Thread, input string
 			Finalizers:   []string{v1.RunFinalizer},
 		},
 		Spec: v1.RunSpec{
+			Background:       opts.Background,
 			ThreadName:       thread.Name,
 			AgentName:        opts.AgentName,
+			WorkflowName:     opts.WorkflowName,
 			WorkflowStepName: opts.WorkflowStepName,
-			PreviousRunName:  thread.Status.LastRunName,
+			PreviousRunName:  previousRunName,
 			Input:            input,
+			Tool:             string(toolData),
 			Env:              opts.Env,
 		},
 	}
 
-	if err := i.storage.Create(ctx, &run); err != nil {
+	if err := c.Create(ctx, &run); err != nil {
 		return nil, err
 	}
 
-	chatState, err := i.getChatState(ctx, &run)
+	if run.Spec.Background {
+		return &Response{
+			Run:    &run,
+			Thread: thread,
+		}, nil
+	}
+
+	return i.Resume(ctx, c, thread, &run)
+}
+
+func (i *Invoker) Resume(ctx context.Context, c kclient.Client, thread *v1.Thread, run *v1.Run) (*Response, error) {
+	chatState, err := i.getChatState(ctx, c, run)
 	if err != nil {
 		return nil, err
 	}
@@ -221,60 +291,82 @@ func (i *Invoker) createRun(ctx context.Context, thread *v1.Thread, input string
 	token, err := i.tokenService.NewToken(jwt.TokenContext{
 		RunID:          run.Name,
 		ThreadID:       thread.Name,
-		AgentID:        opts.AgentName,
-		WorkflowID:     opts.WorkflowName,
-		WorkflowStepID: opts.WorkflowStepName,
+		AgentID:        run.Spec.AgentName,
+		WorkflowID:     run.Spec.WorkflowName,
+		WorkflowStepID: run.Spec.WorkflowStepName,
 		Scope:          thread.Namespace,
 	})
 
 	options := gptscript.Options{
 		GlobalOptions: gptscript.GlobalOptions{
-			Env: append(opts.Env,
+			Env: append(run.Spec.Env,
 				"OTTO_TOKEN="+token,
 				"OTTO_RUN_ID="+run.Name,
 				"OTTO_THREAD_ID="+thread.Name,
-				"OTTO_WORKFLOW_ID="+opts.WorkflowName,
-				"OTTO_WORKFLOW_STEP_ID="+opts.WorkflowStepName,
-				"OTTO_AGENT_ID="+opts.AgentName,
+				"OTTO_WORKFLOW_ID="+run.Spec.WorkflowName,
+				"OTTO_WORKFLOW_STEP_ID="+run.Spec.WorkflowStepName,
+				"OTTO_AGENT_ID="+run.Spec.AgentName,
 			),
 		},
-		Input:           input,
+		Input:           run.Spec.Input,
 		Workspace:       workspace.GetDir(thread.Spec.WorkspaceID),
 		ChatState:       chatState,
 		IncludeEvents:   true,
 		ForceSequential: true,
 	}
 
-	var runResp *gptscript.Run
-	switch t := tool.(type) {
-	case gptscript.ToolDef:
-		runResp, err = i.gptClient.Evaluate(ctx, options, t)
-	case []gptscript.ToolDef:
-		runResp, err = i.gptClient.Evaluate(ctx, options, t...)
-	case string:
-		runResp, err = i.gptClient.Run(ctx, t, options)
-	case v1.Body:
-		runResp, err = i.gptClient.Run(ctx, string(t), options)
-	default:
-		return nil, fmt.Errorf("invalid tool type: %T", tool)
+	if len(run.Spec.Tool) == 0 {
+		return nil, fmt.Errorf("no tool specified")
 	}
-	if err != nil {
-		return nil, err
+
+	var (
+		runResp    *gptscript.Run
+		toolDef    gptscript.ToolDef
+		toolDefs   []gptscript.ToolDef
+		toolString string
+	)
+	switch run.Spec.Tool[0] {
+	case '"':
+		if err := json.Unmarshal([]byte(run.Spec.Tool), &toolString); err != nil {
+			return nil, fmt.Errorf("invalid tool definition: %s: %w", run.Spec.Tool, err)
+		}
+		runResp, err = i.gptClient.Run(ctx, toolString, options)
+		if err != nil {
+			return nil, err
+		}
+	case '[':
+		if err := json.Unmarshal([]byte(run.Spec.Tool), &toolDefs); err != nil {
+			return nil, fmt.Errorf("invalid tool definition: %s: %w", run.Spec.Tool, err)
+		}
+		runResp, err = i.gptClient.Evaluate(ctx, options, toolDefs...)
+		if err != nil {
+			return nil, err
+		}
+	case '{':
+		if err := json.Unmarshal([]byte(run.Spec.Tool), &toolDef); err != nil {
+			return nil, fmt.Errorf("invalid tool definition: %s: %w", run.Spec.Tool, err)
+		}
+		runResp, err = i.gptClient.Evaluate(ctx, options, toolDef)
+		if err != nil {
+			return nil, err
+		}
+	default:
+		return nil, fmt.Errorf("invalid tool definition: %s", run.Spec.Tool)
 	}
 
 	var events = make(chan v1.Progress)
-	go i.stream(ctx, events, thread, &run, runResp)
+	go i.stream(ctx, c, events, thread, run, runResp)
 
 	return &Response{
-		Run:    &run,
+		Run:    run,
 		Thread: thread,
 		Events: events,
 	}, nil
 }
 
-func (i *Invoker) saveState(ctx context.Context, thread *v1.Thread, run *v1.Run, runResp *gptscript.Run, retErr error) error {
+func (i *Invoker) saveState(ctx context.Context, c kclient.Client, thread *v1.Thread, run *v1.Run, runResp *gptscript.Run, retErr error) error {
 	for j := 0; j < 3; j++ {
-		err := i.doSaveState(ctx, thread, run, runResp, retErr)
+		err := i.doSaveState(ctx, c, thread, run, runResp, retErr)
 		if err == nil {
 			return retErr
 		}
@@ -282,7 +374,7 @@ func (i *Invoker) saveState(ctx context.Context, thread *v1.Thread, run *v1.Run,
 			return errors.Join(err, retErr)
 		}
 		// reload
-		if err := i.storage.Get(ctx, router.Key(run.Namespace, run.Name), run); err != nil {
+		if err := c.Get(ctx, router.Key(run.Namespace, run.Name), run); err != nil {
 			return errors.Join(err, retErr)
 		}
 		time.Sleep(500 * time.Millisecond)
@@ -290,7 +382,7 @@ func (i *Invoker) saveState(ctx context.Context, thread *v1.Thread, run *v1.Run,
 	return fmt.Errorf("failed to save state after 3 retries: %w", retErr)
 }
 
-func (i *Invoker) doSaveState(ctx context.Context, thread *v1.Thread, run *v1.Run, runResp *gptscript.Run, retErr error) error {
+func (i *Invoker) doSaveState(ctx context.Context, c kclient.Client, thread *v1.Thread, run *v1.Run, runResp *gptscript.Run, retErr error) error {
 	var (
 		runStateSpec v1.RunStateSpec
 		runChanged   bool
@@ -319,7 +411,7 @@ func (i *Invoker) doSaveState(ctx context.Context, thread *v1.Thread, run *v1.Ru
 	}
 
 	var runState v1.RunState
-	if err := i.storage.Get(ctx, router.Key(run.Namespace, run.Name), &runState); apierror.IsNotFound(err) {
+	if err := i.uncached.Get(ctx, router.Key(run.Namespace, run.Name), &runState); apierror.IsNotFound(err) {
 		runState = v1.RunState{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      run.Name,
@@ -327,7 +419,7 @@ func (i *Invoker) doSaveState(ctx context.Context, thread *v1.Thread, run *v1.Ru
 			},
 			Spec: runStateSpec,
 		}
-		if err := i.storage.Create(ctx, &runState); err != nil {
+		if err := c.Create(ctx, &runState); err != nil {
 			return err
 		}
 	} else if err != nil {
@@ -335,7 +427,7 @@ func (i *Invoker) doSaveState(ctx context.Context, thread *v1.Thread, run *v1.Ru
 	} else {
 		if !bytes.Equal(runState.Spec.CallFrame, runStateSpec.CallFrame) ||
 			!bytes.Equal(runState.Spec.ChatState, runStateSpec.ChatState) {
-			if err := i.storage.Update(ctx, &runState); err != nil {
+			if err := i.uncached.Update(ctx, &runState); err != nil {
 				return err
 			}
 		}
@@ -374,7 +466,7 @@ func (i *Invoker) doSaveState(ctx context.Context, thread *v1.Thread, run *v1.Ru
 	}
 
 	if runChanged {
-		if err := i.storage.Status().Update(ctx, run); err != nil {
+		if err := c.Status().Update(ctx, run); err != nil {
 			return err
 		}
 	}
@@ -384,7 +476,7 @@ func (i *Invoker) doSaveState(ctx context.Context, thread *v1.Thread, run *v1.Ru
 		thread.Status.LastRunState = run.Status.State
 		thread.Status.LastRunOutput = run.Status.Output
 		thread.Status.LastRunError = run.Status.Error
-		if err := i.storage.Status().Update(ctx, thread); err != nil {
+		if err := c.Status().Update(ctx, thread); err != nil {
 			return err
 		}
 	}
@@ -392,7 +484,7 @@ func (i *Invoker) doSaveState(ctx context.Context, thread *v1.Thread, run *v1.Ru
 	return retErr
 }
 
-func (i *Invoker) stream(ctx context.Context, events chan v1.Progress, thread *v1.Thread, run *v1.Run, runResp *gptscript.Run) (retErr error) {
+func (i *Invoker) stream(ctx context.Context, c kclient.Client, events chan v1.Progress, thread *v1.Thread, run *v1.Run, runResp *gptscript.Run) (retErr error) {
 	defer close(events)
 
 	var (
@@ -400,7 +492,7 @@ func (i *Invoker) stream(ctx context.Context, events chan v1.Progress, thread *v
 		wg       sync.WaitGroup
 	)
 	defer func() {
-		retErr = i.saveState(ctx, thread, run, runResp, retErr)
+		retErr = i.saveState(ctx, c, thread, run, runResp, retErr)
 	}()
 
 	defer wg.Wait()
@@ -416,7 +508,7 @@ func (i *Invoker) stream(ctx context.Context, events chan v1.Progress, thread *v
 			case <-saveCtx.Done():
 				return
 			case <-time.After(1 * time.Second):
-				_ = i.saveState(ctx, thread, run, runResp, nil)
+				_ = i.saveState(ctx, c, thread, run, runResp, nil)
 			}
 		}
 	}()

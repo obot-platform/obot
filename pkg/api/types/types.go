@@ -54,7 +54,6 @@ type Thread struct {
 	Metadata
 	Description   string                   `json:"description,omitempty"`
 	AgentID       string                   `json:"agentID,omitempty"`
-	Input         string                   `json:"input,omitempty"`
 	LastRunName   string                   `json:"lastRunName,omitempty"`
 	LastRunState  gptscriptclient.RunState `json:"lastRunState,omitempty"`
 	LastRunOutput string                   `json:"lastRunOutput,omitempty"`
@@ -66,15 +65,16 @@ type ThreadList List[Thread]
 type FileList List[string]
 
 type Run struct {
-	ID            string                   `json:"id,omitempty"`
-	Created       time.Time                `json:"created,omitempty"`
-	ThreadID      string                   `json:"threadID,omitempty"`
-	AgentID       string                   `json:"agentID,omitempty"`
-	PreviousRunID string                   `json:"previousRunID,omitempty"`
-	Input         string                   `json:"input"`
-	State         gptscriptclient.RunState `json:"state,omitempty"`
-	Output        string                   `json:"output,omitempty"`
-	Error         string                   `json:"error,omitempty"`
+	ID            string    `json:"id,omitempty"`
+	Created       time.Time `json:"created,omitempty"`
+	ThreadID      string    `json:"threadID,omitempty"`
+	AgentID       string    `json:"agentID,omitempty"`
+	WorkflowID    string    `json:"workflowID,omitempty"`
+	PreviousRunID string    `json:"previousRunID,omitempty"`
+	Input         string    `json:"input"`
+	State         string    `json:"state,omitempty"`
+	Output        string    `json:"output,omitempty"`
+	Error         string    `json:"error,omitempty"`
 }
 
 type RunList List[Run]

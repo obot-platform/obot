@@ -25,7 +25,6 @@ func convertThread(thread v1.Thread) types.Thread {
 		Metadata:      types.MetadataFrom(&thread),
 		Description:   thread.Status.Description,
 		AgentID:       thread.Spec.AgentName,
-		Input:         thread.Spec.Input,
 		LastRunName:   thread.Status.LastRunName,
 		LastRunState:  thread.Status.LastRunState,
 		LastRunOutput: thread.Status.LastRunOutput,

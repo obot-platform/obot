@@ -6,6 +6,7 @@ import (
 
 	"github.com/acorn-io/baaah/pkg/name"
 	"github.com/acorn-io/baaah/pkg/router"
+	"github.com/gptscript-ai/otto/pkg/invoke"
 	"github.com/gptscript-ai/otto/pkg/mvl"
 	v1 "github.com/gptscript-ai/otto/pkg/storage/apis/otto.gptscript.ai/v1"
 	wclient "github.com/thedadams/workspace-provider/pkg/client"
@@ -18,11 +19,13 @@ var log = mvl.Package()
 
 type Handler struct {
 	workspaceClient *wclient.Client
+	invoker         *invoke.Invoker
 }
 
-func New(wc *wclient.Client) *Handler {
+func New(wc *wclient.Client, invoker *invoke.Invoker) *Handler {
 	return &Handler{
 		workspaceClient: wc,
+		invoker:         invoker,
 	}
 }
 
@@ -30,7 +33,16 @@ func (h *Handler) Cleanup(req router.Request, resp router.Response) error {
 	var (
 		we       = req.Object.(*v1.WorkflowExecution)
 		workflow v1.Workflow
+		thread   v1.Thread
 	)
+
+	if we.Status.External.ThreadID != "" {
+		if err := req.Get(&thread, we.Namespace, we.Status.External.ThreadID); apierror.IsNotFound(err) {
+			return req.Delete(we)
+		} else if err != nil {
+			return err
+		}
+	}
 
 	if err := req.Get(&workflow, we.Namespace, we.Spec.WorkflowName); apierror.IsNotFound(err) {
 		return req.Delete(we)
@@ -55,6 +67,12 @@ func (h *Handler) Run(req router.Request, resp router.Response) error {
 		return err
 	}
 
+	// Wait for workspaces
+	if wf.Status.KnowledgeWorkspace.KnowledgeWorkspaceID == "" ||
+		wf.Status.Workspace.WorkspaceID == "" {
+		return nil
+	}
+
 	if we.Status.External.State != v1.WorkflowStateRunning {
 		we.Status.External.State = v1.WorkflowStateRunning
 		if err := req.Client.Status().Update(req.Ctx, we); err != nil {
@@ -62,107 +80,101 @@ func (h *Handler) Run(req router.Request, resp router.Response) error {
 		}
 	}
 
-	we.Status.External.Message = ""
-
-	if we.Status.WorkflowManifest == nil {
-		if err := h.loadManifest(req, we); err != nil {
-			return err
-		}
+	//if we.Status.WorkflowManifest == nil {
+	if err := h.loadManifest(req, we); err != nil {
+		return err
 	}
+	//}
 
-	if we.Status.Workspace.WorkspaceID == "" {
-		if ok, err := h.createWorkspace(req.Ctx, req.Client, we); err != nil {
+	if we.Status.External.ThreadID == "" {
+		if t, err := h.newThread(req.Ctx, req.Client, &wf, we); err != nil {
 			return err
-		} else if !ok {
-			return nil
+		} else {
+			we.Status.External.ThreadID = t.Name
+			if err := req.Client.Status().Update(req.Ctx, we); err != nil {
+				return err
+			}
 		}
-	}
-
-	if wf.Status.KnowledgeWorkspace.KnowledgeWorkspaceID == "" {
-		we.Status.External.Message = "Waiting for knowledge workflow workspace to be created"
-		return nil
 	}
 
 	var (
 		steps        []kclient.Object
-		lastStepName string
+		lastStepName = we.Spec.AfterWorkflowStepName
 	)
 
 	for i, step := range we.Status.WorkflowManifest.Steps {
-		name := name.SafeHashConcatName(we.Name, fmt.Sprint(i))
+		var ()
 		steps = append(steps, &v1.WorkflowStep{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      name,
+				Name:      name.SafeHashConcatName(we.Name, fmt.Sprint(i)),
 				Namespace: we.Namespace,
 			},
 			Spec: v1.WorkflowStepSpec{
-				AfterWorkflowStepName:                 lastStepName,
-				Step:                                  step,
-				Path:                                  []string{fmt.Sprint(i)},
-				WorkflowName:                          we.Spec.WorkflowName,
-				WorkflowExecutionName:                 we.Name,
-				WorkflowKnowledgeWorkspaceID:          wf.Status.KnowledgeWorkspace.KnowledgeWorkspaceID,
-				WorkflowExecutionKnowledgeWorkspaceID: we.Status.KnowledgeWorkspace.KnowledgeWorkspaceID,
-				WorkspaceID:                           we.Status.Workspace.WorkspaceID,
+				AfterWorkflowStepName: lastStepName,
+				Step:                  step,
+				Path:                  []string{fmt.Sprint(i)},
+				WorkflowName:          we.Spec.WorkflowName,
+				WorkflowExecutionName: we.Name,
+				ThreadName:            we.Status.External.ThreadID,
 			},
 		})
 
-		lastStepName = name
+		lastStepName = steps[len(steps)-1].(*v1.WorkflowStep).Name
 	}
 
-	newState, err := h.getState(req.Ctx, req.Client, steps)
+	if we.Status.WorkflowManifest.Output != "" {
+		steps = append(steps, &v1.WorkflowStep{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      name.SafeHashConcatName(we.Name, "output"),
+				Namespace: we.Namespace,
+			},
+			Spec: v1.WorkflowStepSpec{
+				AfterWorkflowStepName: lastStepName,
+				Step: v1.Step{
+					Input: we.Status.WorkflowManifest.Output,
+				},
+				Path:                  []string{"output"},
+				WorkflowName:          we.Spec.WorkflowName,
+				WorkflowExecutionName: we.Name,
+				ThreadName:            we.Status.External.ThreadID,
+			},
+		})
+	}
+
+	output, newState, err := h.getState(req.Ctx, req.Client, steps)
 	if err != nil {
 		return err
 	}
 
 	we.Status.External.State = newState
+	if we.Status.WorkflowManifest.Output != "" {
+		we.Status.External.Output = output
+	}
 	resp.Objects(steps...)
 	return nil
 }
 
-func (h *Handler) getState(ctx context.Context, client kclient.Client, steps []kclient.Object) (v1.WorkflowState, error) {
+func (h *Handler) getState(ctx context.Context, client kclient.Client, steps []kclient.Object) (string, v1.WorkflowState, error) {
 	for i, obj := range steps {
 		step := obj.(*v1.WorkflowStep).DeepCopy()
 		if err := client.Get(ctx, router.Key(step.Namespace, step.Name), step); apierror.IsNotFound(err) {
-			return v1.WorkflowStateRunning, nil
+			return "", v1.WorkflowStateRunning, nil
 		} else if err != nil {
-			return "", err
+			return "", "", err
 		}
 		if step.Status.State == v1.WorkflowStepStateError {
-			return v1.WorkflowStateError, nil
+			return "", v1.WorkflowStateError, nil
 		}
 		if len(steps)-1 == i && step.Status.State == v1.WorkflowStepStateComplete {
-			return v1.WorkflowStateComplete, nil
+			var run v1.Run
+			if err := client.Get(ctx, router.Key(step.Namespace, step.Status.LastRunName), &run); err != nil {
+				return "", v1.WorkflowStateError, err
+			}
+			return run.Status.Output, v1.WorkflowStateComplete, nil
 		}
 	}
 
-	return v1.WorkflowStateRunning, nil
-}
-
-func (h *Handler) createWorkspace(ctx context.Context, client kclient.Client, we *v1.WorkflowExecution) (bool, error) {
-	var workspace v1.Workflow
-	if err := client.Get(ctx, router.Key(we.Namespace, we.Spec.WorkflowName), &workspace); err != nil {
-		return false, err
-	}
-
-	if workspace.Status.Workspace.WorkspaceID == "" {
-		we.Status.External.Message = "Waiting for workflow workspace to be created"
-		return false, nil
-	}
-
-	workspaceID, err := h.workspaceClient.Create(ctx, "directory", workspace.Status.Workspace.WorkspaceID)
-	if err != nil {
-		return false, err
-	}
-	we.Status.Workspace.WorkspaceID = workspaceID
-	if err := client.Status().Update(ctx, we); err != nil {
-		// Delete workspace since we failed to update the workflow
-		if err := h.workspaceClient.Rm(ctx, workspaceID); err != nil {
-			log.Errorf("failed to delete workspace %s: %v", workspaceID, err)
-		}
-	}
-
-	return true, nil
+	return "", v1.WorkflowStateRunning, nil
 }
 
 func (h *Handler) loadManifest(req router.Request, we *v1.WorkflowExecution) error {
@@ -170,6 +182,21 @@ func (h *Handler) loadManifest(req router.Request, we *v1.WorkflowExecution) err
 	if err := req.Get(&wf, we.Namespace, we.Spec.WorkflowName); err != nil {
 		return err
 	}
+
 	we.Status.WorkflowManifest = &wf.Spec.Manifest
-	return req.Client.Status().Update(req.Ctx, we)
+	return nil
+	//return req.Client.Status().Update(req.Ctx, we)
+}
+
+func (h *Handler) newThread(ctx context.Context, c kclient.Client, wf *v1.Workflow, we *v1.WorkflowExecution) (*v1.Thread, error) {
+	workspaceID := we.Spec.WorkspaceID
+	if workspaceID == "" {
+		workspaceID = wf.Status.Workspace.WorkspaceID
+	}
+	return h.invoker.NewThread(ctx, c, wf.Namespace, invoke.NewThreadOptions{
+		WorkflowName:          we.Spec.WorkflowName,
+		WorkflowExecutionName: we.Name,
+		WorkspaceIDs:          []string{workspaceID},
+		KnowledgeWorkspaceIDs: []string{wf.Status.KnowledgeWorkspace.KnowledgeWorkspaceID},
+	})
 }

@@ -24,18 +24,15 @@ func (in *WorkflowStep) GetConditions() *[]metav1.Condition {
 }
 
 type WorkflowStepSpec struct {
-	ParentWorkflowStepName                string   `json:"parentWorkflowStepName,omitempty"`
-	AfterWorkflowStepName                 string   `json:"afterWorkflowStepName,omitempty"`
-	Step                                  Step     `json:"step,omitempty"`
-	Path                                  []string `json:"path,omitempty"`
-	GroupIndex                            *int     `json:"groupIndex,omitempty"`
-	StepIndex                             *int     `json:"stepIndex,omitempty"`
-	ForItem                               []byte   `json:"forItem,omitempty"`
-	WorkflowName                          string   `json:"workflowName,omitempty"`
-	WorkflowExecutionName                 string   `json:"workflowExecutionName,omitempty"`
-	WorkflowKnowledgeWorkspaceID          string   `json:"workflowKnowledgeWorkspaceID,omitempty"`
-	WorkflowExecutionKnowledgeWorkspaceID string   `json:"workflowExecutionKnowledgeWorkspaceId,omitempty"`
-	WorkspaceID                           string   `json:"workspaceID,omitempty"`
+	ParentWorkflowStepName string   `json:"parentWorkflowStepName,omitempty"`
+	AfterWorkflowStepName  string   `json:"afterWorkflowStepName,omitempty"`
+	NoWaitForAfterComplete bool     `json:"noWaitForAfterComplete,omitempty"`
+	Step                   Step     `json:"step,omitempty"`
+	Path                   []string `json:"path,omitempty"`
+	WorkflowName           string   `json:"workflowName,omitempty"`
+	WorkflowExecutionName  string   `json:"workflowExecutionName,omitempty"`
+	ThreadName             string   `json:"threadName,omitempty"`
+	SubFlow                *SubFlow `json:"subFlow,omitempty"`
 }
 
 type WorkflowStepState string
@@ -48,11 +45,12 @@ const (
 )
 
 type WorkflowStepStatus struct {
-	State       WorkflowStepState  `json:"state,omitempty"`
-	Error       string             `json:"message,omitempty"`
-	ThreadName  string             `json:"threadName,omitempty"`
-	LastRunName string             `json:"lastRunName,omitempty"`
-	Conditions  []metav1.Condition `json:"conditions,omitempty"`
+	State        WorkflowStepState  `json:"state,omitempty"`
+	Error        string             `json:"message,omitempty"`
+	ThreadName   string             `json:"threadName,omitempty"`
+	FirstRunName string             `json:"firstRunName,omitempty"`
+	LastRunName  string             `json:"lastRunName,omitempty"`
+	Conditions   []metav1.Condition `json:"conditions,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

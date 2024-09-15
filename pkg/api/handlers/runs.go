@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"github.com/gptscript-ai/go-gptscript"
 	"github.com/gptscript-ai/otto/pkg/api"
 	"github.com/gptscript-ai/otto/pkg/api/types"
 	"github.com/gptscript-ai/otto/pkg/gz"
@@ -15,14 +16,24 @@ func NewRunHandler() *RunHandler {
 }
 
 func convertRun(run v1.Run) types.Run {
+	state := "pending"
+	switch run.Status.State {
+	case gptscript.Creating, gptscript.Running:
+		state = "running"
+	case gptscript.Continue, gptscript.Finished:
+		state = "completed"
+	case gptscript.Error:
+		state = "error"
+	}
 	return types.Run{
 		ID:            run.Name,
 		Created:       run.CreationTimestamp.Time,
 		ThreadID:      run.Spec.ThreadName,
 		AgentID:       run.Spec.AgentName,
+		WorkflowID:    run.Spec.WorkflowName,
 		PreviousRunID: run.Spec.PreviousRunName,
 		Input:         run.Spec.Input,
-		State:         run.Status.State,
+		State:         state,
 		Output:        run.Status.Output,
 		Error:         run.Status.Error,
 	}

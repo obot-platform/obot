@@ -4,8 +4,10 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/gptscript-ai/go-gptscript"
 	"github.com/gptscript-ai/otto/pkg/api"
 	"github.com/gptscript-ai/otto/pkg/api/types"
+	"github.com/gptscript-ai/otto/pkg/render"
 	v1 "github.com/gptscript-ai/otto/pkg/storage/apis/otto.gptscript.ai/v1"
 	"github.com/gptscript-ai/otto/pkg/system"
 	"github.com/thedadams/workspace-provider/pkg/client"
@@ -203,4 +205,28 @@ func (a *WorkflowHandler) GetOnedriveLinks(req api.Context) error {
 
 func (a *WorkflowHandler) DeleteOnedriveLinks(req api.Context) error {
 	return deleteOneDriveLinks(req, req.PathValue("id"), req.PathValue("workflow_id"), new(v1.Workflow))
+}
+
+func (a *WorkflowHandler) Script(req api.Context) error {
+	var (
+		id       = req.Request.PathValue("id")
+		workflow v1.Workflow
+	)
+	if err := req.Get(&workflow, id); err != nil {
+		return fmt.Errorf("failed to get workflow with id %s: %w", id, err)
+	}
+
+	agent := render.Workflow(&workflow, render.WorkflowOptions{})
+
+	tools, _, err := render.Agent(req.Context(), req.Storage, agent, render.AgentOptions{})
+	if err != nil {
+		return err
+	}
+
+	script, err := req.GPTClient.Fmt(req.Context(), gptscript.ToolDefsToNodes(tools))
+	if err != nil {
+		return err
+	}
+
+	return req.Write(script)
 }

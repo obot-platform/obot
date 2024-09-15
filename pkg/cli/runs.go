@@ -33,7 +33,7 @@ func (l *Runs) printRunsQuiet(i iter.Seq[types.Run]) error {
 }
 
 func (l *Runs) printRuns(i iter.Seq[types.Run], flush bool) error {
-	w := newTable("ID", "AGENT", "THREAD", "STATE", "INPUT", "OUTPUT", "CREATED")
+	w := newTable("ID", "PREV", "AGENT/WF", "THREAD", "STATE", "INPUT", "OUTPUT", "CREATED")
 	for run := range i {
 		run.Input = truncate(strings.Split(run.Input, "\n")[0], l.Wide)
 		run.Output = truncate(strings.Split(run.Output, "\n")[0], l.Wide)
@@ -41,7 +41,12 @@ func (l *Runs) printRuns(i iter.Seq[types.Run], flush bool) error {
 		if run.Error != "" {
 			run.Output = run.Error
 		}
-		w.WriteRow(run.ID, run.AgentID, run.ThreadID, string(run.State), run.Input, run.Output, humanize.Time(run.Created))
+		agentWF := run.AgentID
+		if run.AgentID == "" {
+			agentWF = run.WorkflowID
+		}
+
+		w.WriteRow(run.ID, run.PreviousRunID, agentWF, run.ThreadID, string(run.State), run.Input, run.Output, humanize.Time(run.Created))
 		if flush {
 			w.Flush()
 		}

@@ -1,0 +1,49 @@
+apiVersion: otto.gptscript.ai/v1
+kind: Workflow
+metadata:
+  name: wf
+  namespace: default
+spec:
+  manifest:
+    prompt: You are a friendly assistant
+    output: The final number and the chose fruit
+    workflows:
+      - subflow
+    steps:
+      - input: Pick a number
+      - input: Now add 1 to it
+      - input: Now multiply by two
+      - if:
+          condition: The number is less than 100
+          steps:
+          - input: Subtract 2
+          - while:
+              maxLoops: 4
+              condition: Number is less than 100
+              steps:
+              - input: Multiply times two
+          - input: now invoke the workflow called subflow
+
+
+
+---
+apiVersion: otto.gptscript.ai/v1
+kind: Workflow
+metadata:
+  name: subflow
+  namespace: default
+spec:
+  manifest:
+    steps:
+      - input: What's the current number
+      - input: Mod that by 3 and then pick apple, orange, or banana, treating that list as an array and pick the index according to the modulus.
+    output: Print the chose fruit
+
+---
+apiVersion: otto.gptscript.ai/v1
+kind: WorkflowExecution
+metadata:
+  name: test
+  namespace: default
+spec:
+  workflowName: wf

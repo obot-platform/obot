@@ -23,64 +23,81 @@ func (h *Handler) RunWhile(req router.Request, resp router.Response) error {
 		count = 3
 	}
 
-	var finalState = v1.WorkflowStepStateComplete
+	var (
+		finalState  = v1.WorkflowStepStateComplete
+		lastRunName string
+		lastStep    *v1.WorkflowStep
+	)
 
-	// Do one extra iteration to check the final state
+	// Do one extra iteration to check the final state.
 	count++
 	for i := 0; i < count; i++ {
-		steps, err := h.defineWhile(i, step)
+		if i == count-1 {
+			finalState = v1.WorkflowStepStateError
+			break
+		}
+
+		conditionStep := h.defineCondition(step, lastStep, fmt.Sprintf("while-%02d", i))
+		resp.Objects(conditionStep)
+
+		runName, conditionResult, wait, err := h.conditionResult(req.Ctx, req.Client, conditionStep)
 		if err != nil {
 			return err
 		}
-		newState, err := getStateFromSteps(req.Ctx, req.Client, steps)
+		lastRunName = runName
+
+		if wait {
+			finalState = v1.WorkflowStepStateRunning
+			break
+		}
+
+		if !conditionResult {
+			finalState = v1.WorkflowStepStateComplete
+			break
+		}
+
+		steps, err := h.defineWhile(i, conditionStep, step)
 		if err != nil {
 			return err
 		}
 
-		if newState == v1.WorkflowStepStateRunning || newState == v1.WorkflowStepStateError {
-			finalState = newState
-			resp.Objects(steps...)
-			break
-		}
-
-		if newState == v1.WorkflowStepStatePending {
-			if i == count-1 {
-				finalState = v1.WorkflowStepStateError
-				break
-			}
-			ok, err := h.getCondition(req.Ctx, req.Client, step)
-			if err != nil {
-				return err
-			}
-			if !ok {
-				finalState = v1.WorkflowStepStateComplete
-			} else if i > 0 {
-				finalState = v1.WorkflowStepStateRunning
-			} else {
-				finalState = v1.WorkflowStepStatePending
-			}
-			resp.Objects(steps...)
-			break
+		if len(steps) > 0 {
+			lastWfStep := steps[len(steps)-1].(*v1.WorkflowStep)
+			lastStep = lastWfStep
+		} else {
+			lastStep = conditionStep
 		}
 
 		resp.Objects(steps...)
+
+		runName, newState, err := getStateFromSteps(req.Ctx, req.Client, steps)
+		if err != nil {
+			return err
+		}
+		lastRunName = runName
+
+		if newState != v1.WorkflowStepStateComplete {
+			finalState = newState
+			break
+		}
 	}
 
 	step.Status.State = finalState
+	step.Status.LastRunName = lastRunName
 	return nil
 }
 
-func (h *Handler) defineWhile(groupIndex int, step *v1.WorkflowStep) (result []kclient.Object, _ error) {
+func (h *Handler) defineWhile(groupIndex int, conditionStep, step *v1.WorkflowStep) (result []kclient.Object, _ error) {
 	steps := step.Spec.Step.While.Steps
 
 	var (
 		lastStepName string
 	)
 
-	for i, forStep := range steps {
+	for i, loopStep := range steps {
 		stepPath := append(step.Spec.Path, fmt.Sprint(groupIndex), fmt.Sprint(i))
 		stepName := name.SafeHashConcatName(slices.Concat([]string{step.Spec.WorkflowExecutionName}, stepPath)...)
-		afterStepName := step.Spec.AfterWorkflowStepName
+		afterStepName := conditionStep.Name
 		if i > 0 {
 			afterStepName = lastStepName
 		}
@@ -92,15 +109,15 @@ func (h *Handler) defineWhile(groupIndex int, step *v1.WorkflowStep) (result []k
 			Spec: v1.WorkflowStepSpec{
 				ParentWorkflowStepName: step.Name,
 				AfterWorkflowStepName:  afterStepName,
-				Step:                   forStep,
+				Step:                   loopStep,
 				Path:                   stepPath,
-				GroupIndex:             &groupIndex,
-				StepIndex:              &i,
 				WorkflowName:           step.Spec.WorkflowName,
 				WorkflowExecutionName:  step.Spec.WorkflowExecutionName,
-				WorkspaceID:            step.Spec.WorkspaceID,
+				ThreadName:             step.Spec.ThreadName,
 			},
 		})
+
+		lastStepName = stepName
 	}
 
 	return result, nil

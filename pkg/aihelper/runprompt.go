@@ -21,11 +21,12 @@ func New(gptscript *gptscript.GPTScript, modelName string) *AIHelper {
 }
 
 func (a *AIHelper) GenerateObject(ctx context.Context, output any, instructions, input string) error {
+	_, isString := output.(*string)
 	run, err := a.gptscript.Evaluate(ctx, gptscript.Options{
 		Input: input,
 	}, gptscript.ToolDef{
 		ModelName:    a.modelName,
-		JSONResponse: true,
+		JSONResponse: !isString,
 		Instructions: instructions,
 		Temperature:  typed.Pointer((float32)(0.7)),
 	})

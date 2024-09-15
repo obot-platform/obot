@@ -19,21 +19,15 @@ type WorkflowExecution struct {
 	Status WorkflowExecutionStatus `json:"status,omitempty"`
 }
 
-func (in *WorkflowExecution) GetKnowledgeWorkspaceStatus() *KnowledgeWorkspaceStatus {
-	return &in.Status.KnowledgeWorkspace
-}
-
-func (in *WorkflowExecution) GetWorkspaceStatus() *WorkspaceStatus {
-	return &in.Status.Workspace
-}
-
 func (in *WorkflowExecution) GetConditions() *[]metav1.Condition {
 	return &in.Status.Conditions
 }
 
 type WorkflowExecutionSpec struct {
-	Input        string `json:"input,omitempty"`
-	WorkflowName string `json:"workflowName,omitempty"`
+	Input                 string `json:"input,omitempty"`
+	WorkflowName          string `json:"workflowName,omitempty"`
+	AfterWorkflowStepName string `json:"afterWorkflowStepName,omitempty"`
+	WorkspaceID           string `json:"workspaceID,omitempty"`
 }
 
 type WorkflowState string
@@ -46,17 +40,15 @@ const (
 )
 
 type WorkflowExecutionExternalStatus struct {
-	State   WorkflowState `json:"state,omitempty"`
-	Message string        `json:"message,omitempty"`
-	Output  string        `json:"output,omitempty"`
+	State    WorkflowState `json:"state,omitempty"`
+	Output   string        `json:"output,omitempty"`
+	ThreadID string        `json:"threadID,omitempty"`
 }
 
 type WorkflowExecutionStatus struct {
-	External           WorkflowExecutionExternalStatus `json:"external,omitempty"`
-	WorkflowManifest   *WorkflowManifest               `json:"workflowManifest,omitempty"`
-	Workspace          WorkspaceStatus                 `json:"workspace,omitempty"`
-	KnowledgeWorkspace KnowledgeWorkspaceStatus        `json:"knowledgeWorkspace,omitempty"`
-	Conditions         []metav1.Condition              `json:"conditions,omitempty"`
+	External         WorkflowExecutionExternalStatus `json:"external,omitempty"`
+	WorkflowManifest *WorkflowManifest               `json:"workflowManifest,omitempty"`
+	Conditions       []metav1.Condition              `json:"conditions,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

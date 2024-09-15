@@ -22,6 +22,7 @@ type AgentManifest struct {
 	Slug             string            `json:"slug"`
 	Prompt           Body              `json:"prompt"`
 	Agents           []string          `json:"agents"`
+	Workflows        []string          `json:"workflows,omitempty"`
 	Tools            []string          `json:"tools"`
 	Params           map[string]string `json:"params,omitempty"`
 	CodeDependencies string            `json:"codeDependencies"`

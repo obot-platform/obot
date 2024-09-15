@@ -6,14 +6,13 @@ import (
 	"sort"
 
 	"github.com/gptscript-ai/go-gptscript"
-	"github.com/gptscript-ai/otto/pkg/storage"
 	v1 "github.com/gptscript-ai/otto/pkg/storage/apis/otto.gptscript.ai/v1"
 	"github.com/gptscript-ai/otto/pkg/workspace"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 var DefaultAgentParams = []string{
-	"message", "Message to send to the agent",
+	"message", "Message to send",
 }
 
 type AgentOptions struct {
@@ -35,8 +34,8 @@ func agentKnowledgeEnv(agent *v1.Agent, thread *v1.Thread) (envs []string) {
 	return envs
 }
 
-func Agent(ctx context.Context, db storage.Client, agent *v1.Agent, opts AgentOptions) (_ []gptscript.ToolDef, extraEnv []string, _ error) {
-	t := []gptscript.ToolDef{{
+func Agent(ctx context.Context, db kclient.Client, agent *v1.Agent, opts AgentOptions) (_ []gptscript.ToolDef, extraEnv []string, _ error) {
+	mainTool := gptscript.ToolDef{
 		Name:         agent.Spec.Manifest.Name,
 		Description:  agent.Spec.Manifest.Description,
 		Chat:         true,
@@ -46,20 +45,21 @@ func Agent(ctx context.Context, db storage.Client, agent *v1.Agent, opts AgentOp
 		Temperature:  agent.Spec.Manifest.Temperature,
 		Cache:        agent.Spec.Manifest.Cache,
 		Type:         "agent",
-	}}
+	}
+	var otherTools []gptscript.ToolDef
 
 	if envs := agentKnowledgeEnv(agent, opts.Thread); len(envs) > 0 {
 		extraEnv = envs
 		if opts.KnowledgeTool != "" {
-			t[0].Tools = append(t[0].Tools, opts.KnowledgeTool)
+			mainTool.Tools = append(mainTool.Tools, opts.KnowledgeTool)
 		}
 	}
 
-	if len(agent.Spec.Manifest.Agents) == 0 {
-		return t, extraEnv, nil
+	if len(agent.Spec.Manifest.Agents) == 0 && len(agent.Spec.Manifest.Workflows) == 0 {
+		return []gptscript.ToolDef{mainTool}, extraEnv, nil
 	}
 
-	agents, err := ByName(ctx, db, agent.Namespace)
+	agents, err := agentsByName(ctx, db, agent.Namespace)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -69,31 +69,61 @@ func Agent(ctx context.Context, db storage.Client, agent *v1.Agent, opts AgentOp
 		if !ok {
 			continue
 		}
-
-		toolDef := gptscript.ToolDef{
-			Name:        agent.Spec.Manifest.Name,
-			Description: agent.Spec.Manifest.Description,
-			Arguments:   agent.Spec.Manifest.GetParams(),
-		}
-		if toolDef.Name == "" {
-			toolDef.Name = agentRef
-		}
-		if toolDef.Description == "" {
-			toolDef.Description = "Send message to agent named " + toolDef.Name
-		}
-		if len(agent.Spec.Manifest.Params) == 0 {
-			toolDef.Arguments = gptscript.ObjectSchema(DefaultAgentParams...)
-		}
-		toolDef.Instructions = fmt.Sprintf(`#!${OTTO_BIN} invoke -t "${OTTO_THREAD_ID}.%s" "%s" "${GPTSCRIPT_INPUT}"`, agentRef, agent.Name)
-
-		t[0].Tools = append(t[0].Tools, toolDef.Name)
-		t = append(t, toolDef)
+		agentTool := manifestToTool(agent.Spec.Manifest, "agent", agentRef, agent.Name)
+		mainTool.Tools = append(mainTool.Tools, agentTool.Name+" as "+agentRef)
+		otherTools = append(otherTools, agentTool)
 	}
 
-	return t, extraEnv, nil
+	wfs, err := WorkflowByName(ctx, db, agent.Namespace)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	for _, wfRef := range agent.Spec.Manifest.Workflows {
+		wf, ok := wfs[wfRef]
+		if !ok {
+			continue
+		}
+		wfTool := manifestToTool(wf.Spec.Manifest.AgentManifest, "workflow", wfRef, wf.Name)
+		mainTool.Tools = append(mainTool.Tools, wfTool.Name+" as "+wfRef)
+		otherTools = append(otherTools, wfTool)
+	}
+
+	return append([]gptscript.ToolDef{mainTool}, otherTools...), extraEnv, nil
 }
 
-func ByName(ctx context.Context, db storage.Client, namespace string) (map[string]v1.Agent, error) {
+func manifestToTool(manifest v1.AgentManifest, agentType, ref, id string) gptscript.ToolDef {
+	toolDef := gptscript.ToolDef{
+		Name:        manifest.Name,
+		Description: agentType + " described as: " + manifest.Description,
+		Arguments:   manifest.GetParams(),
+		Chat:        true,
+	}
+	if toolDef.Name == "" {
+		toolDef.Name = ref
+	}
+	if manifest.Description == "" {
+		toolDef.Description = fmt.Sprintf("Invokes %s named %s", agentType, ref)
+	}
+	if agentType == "agent" {
+		if len(manifest.Params) == 0 {
+			toolDef.Arguments = gptscript.ObjectSchema(DefaultAgentParams...)
+		}
+	}
+	toolDef.Instructions = fmt.Sprintf(`#!/bin/bash
+INPUT=$(${GPTSCRIPT_BIN} getenv GPTSCRIPT_INPUT)
+if echo "${INPUT}" | grep -q '^{'; then
+	echo '{"%s":"%s","type":"OttoSubFlow",'
+	echo '"input":'"${INPUT}"
+	echo '}'
+else
+	${GPTSCRIPT_BIN} sys.chat.finish "${INPUT}"
+fi
+`, agentType, id)
+	return toolDef
+}
+
+func agentsByName(ctx context.Context, db kclient.Client, namespace string) (map[string]v1.Agent, error) {
 	var agents v1.AgentList
 	err := db.List(ctx, &agents, &kclient.ListOptions{
 		Namespace: namespace,
@@ -109,11 +139,50 @@ func ByName(ctx context.Context, db storage.Client, namespace string) (map[strin
 	result := map[string]v1.Agent{}
 	for _, agent := range agents.Items {
 		result[agent.Name] = agent
-		if _, ok := result[agent.Spec.Manifest.Slug]; !ok {
+	}
+
+	for _, agent := range agents.Items {
+		if agent.Spec.Manifest.Slug != "" {
 			result[agent.Spec.Manifest.Slug] = agent
 		}
-		if _, ok := result[agent.Spec.Manifest.Name]; !ok {
+	}
+
+	for _, agent := range agents.Items {
+		if agent.Spec.Manifest.Name != "" {
 			result[agent.Spec.Manifest.Name] = agent
+		}
+	}
+
+	return result, nil
+}
+
+func WorkflowByName(ctx context.Context, db kclient.Client, namespace string) (map[string]v1.Workflow, error) {
+	var workflows v1.WorkflowList
+	err := db.List(ctx, &workflows, &kclient.ListOptions{
+		Namespace: namespace,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	sort.Slice(workflows.Items, func(i, j int) bool {
+		return workflows.Items[i].Name < workflows.Items[i].Name
+	})
+
+	result := map[string]v1.Workflow{}
+	for _, workflow := range workflows.Items {
+		result[workflow.Name] = workflow
+	}
+
+	for _, workflow := range workflows.Items {
+		if workflow.Spec.Manifest.Slug != "" {
+			result[workflow.Spec.Manifest.Slug] = workflow
+		}
+	}
+
+	for _, workflow := range workflows.Items {
+		if workflow.Spec.Manifest.Name != "" {
+			result[workflow.Spec.Manifest.Name] = workflow
 		}
 	}
 

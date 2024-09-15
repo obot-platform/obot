@@ -42,6 +42,11 @@ func (a *AgentHandler) Suggestion(req router.Request, resp router.Response) erro
 		return nil
 	}
 
+	// Don't generate anything until we have a prompt
+	if agent.Spec.Manifest.Prompt == "" {
+		return nil
+	}
+
 	input, err := json.Marshal(agent.Spec.Manifest)
 	if err != nil {
 		return err

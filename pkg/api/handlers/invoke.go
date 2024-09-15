@@ -50,7 +50,7 @@ func (i *InvokeHandler) Invoke(req api.Context) error {
 		return err
 	}
 
-	resp, err := i.invoker.Agent(req.Context(), &agent, string(input), invoke.Options{
+	resp, err := i.invoker.Agent(req.Context(), req.Storage, &agent, string(input), invoke.Options{
 		ThreadName: threadID,
 	})
 	if err != nil {

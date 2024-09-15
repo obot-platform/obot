@@ -45,6 +45,7 @@ func Router(services *services.Services) (http.Handler, error) {
 	// Workflows
 	mux.Handle("GET /workflows", w(workflows.List))
 	mux.Handle("GET /workflows/{id}", w(workflows.ByID))
+	mux.Handle("GET /workflows/{id}/script", w(workflows.Script))
 	mux.Handle("POST /workflows", w(workflows.Create))
 	mux.Handle("PUT /workflows/{id}", w(workflows.Update))
 	mux.Handle("DELETE /workflows/{id}", w(workflows.Delete))
