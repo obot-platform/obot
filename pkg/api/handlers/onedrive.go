@@ -79,6 +79,11 @@ func updateOneDriveLinks(req api.Context, linksID, parentName string, parentObj 
 		return fmt.Errorf("failed to update OneDrive links: %w", err)
 	}
 
+	if err := createSyncRequest(req, oneDriveLinks); err != nil {
+		return fmt.Errorf("failed to create sync request: %w", err)
+	}
+
+	req.WriteHeader(http.StatusNoContent)
 	return nil
 }
 
