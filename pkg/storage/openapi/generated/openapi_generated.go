@@ -691,6 +691,12 @@ func schema_gptscript_ai_otto_apiclient_types_IngestionStatus(ref common.Referen
 							Format: "",
 						},
 					},
+					"error": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
 				},
 			},
 		},

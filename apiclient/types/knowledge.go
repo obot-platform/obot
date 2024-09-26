@@ -34,6 +34,7 @@ type IngestionStatus struct {
 	Status       string `json:"status,omitempty"`
 	Component    string `json:"component,omitempty"`
 	FileType     string `json:"filetype,omitempty"`
+	Error        string `json:"error,omitempty"`
 }
 
 type KnowledgeFileList List[KnowledgeFile]
