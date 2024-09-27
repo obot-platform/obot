@@ -7,7 +7,7 @@ type OneDriveLinks struct {
 	SharedLinks []string  `json:"sharedLinks,omitempty"`
 	ThreadID    string    `json:"threadID,omitempty"`
 	RunID       string    `json:"runID,omitempty"`
-	Status      string    `json:"output,omitempty"`
+	Status      string    `json:"status,omitempty"`
 	Error       string    `json:"error,omitempty"`
 	Folders     FolderSet `json:"folders,omitempty"`
 }

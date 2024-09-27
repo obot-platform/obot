@@ -900,7 +900,7 @@ func schema_gptscript_ai_otto_apiclient_types_OneDriveLinks(ref common.Reference
 							Format: "",
 						},
 					},
-					"output": {
+					"status": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
 							Format: "",
@@ -2440,7 +2440,7 @@ func schema_storage_apis_ottogptscriptai_v1_OneDriveLinksConnectorStatus(ref com
 			SchemaProps: spec.SchemaProps{
 				Type: []string{"object"},
 				Properties: map[string]spec.Schema{
-					"output": {
+					"status": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
 							Format: "",
@@ -2605,13 +2605,19 @@ func schema_storage_apis_ottogptscriptai_v1_OnedriveLinksStatus(ref common.Refer
 							Format: "",
 						},
 					},
-					"output": {
+					"status": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
 							Format: "",
 						},
 					},
 					"error": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"authUrl": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
 							Format: "",

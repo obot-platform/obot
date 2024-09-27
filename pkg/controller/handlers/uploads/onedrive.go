@@ -6,8 +6,10 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
+	"time"
 
 	"github.com/acorn-io/baaah/pkg/apply"
+	"github.com/acorn-io/baaah/pkg/log"
 	"github.com/acorn-io/baaah/pkg/router"
 	"github.com/acorn-io/baaah/pkg/uncached"
 	"github.com/gptscript-ai/otto/apiclient/types"
@@ -180,10 +182,50 @@ func (u *UploadHandler) RunUpload(req router.Request, _ router.Response) error {
 		return err
 	}
 
+	ctx, cancel := context.WithCancel(context.Background())
+
 	go func() {
 		// Don't care about the events here, but we need to pull them out
 		r.Wait()
+		cancel()
 	}()
+
+	go func(ctx context.Context) {
+
+		ticker := time.NewTicker(5 * time.Second)
+		defer ticker.Stop()
+
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				file, err := u.workspaceClient.OpenFile(req.Ctx, thread.Spec.WorkspaceID, ".metadata.json")
+				if err != nil {
+					log.Errorf("failed to open metadata file: %v", err)
+					continue
+				}
+				defer file.Close()
+
+				var output map[string]v1.OneDriveLinksConnectorStatus
+				if err = json.NewDecoder(file).Decode(&output); err != nil {
+					log.Errorf("failed to decode metadata file: %v", err)
+					continue
+				}
+				if err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+					if err := req.Get(oneDriveLinks, oneDriveLinks.Namespace, oneDriveLinks.Name); err != nil {
+						return err
+					}
+					oneDriveLinks.Status.Status = output["output"].Status
+					oneDriveLinks.Status.Error = output["output"].Error
+					return req.Client.Status().Update(req.Ctx, oneDriveLinks)
+				}); err != nil {
+					log.Errorf("failed to update OneDriveLinks status: %v", err)
+				}
+			}
+		}
+
+	}(ctx)
 
 	oneDriveLinks.Status.RunName = r.Run.Name
 	oneDriveLinks.Status.LastReSyncStarted = metav1.Now()

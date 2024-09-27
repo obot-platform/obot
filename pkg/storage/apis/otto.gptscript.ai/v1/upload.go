@@ -47,14 +47,15 @@ type OnedriveLinksStatus struct {
 	Conditions        []metav1.Condition `json:"conditions,omitempty"`
 	ThreadName        string             `json:"threadName,omitempty"`
 	RunName           string             `json:"runName,omitempty"`
-	Status            string             `json:"output,omitempty"`
+	Status            string             `json:"status,omitempty"`
 	Error             string             `json:"error,omitempty"`
+	AuthURL           string             `json:"authUrl,omitempty"`
 	Folders           types.FolderSet    `json:"folders,omitempty"`
 	LastReSyncStarted metav1.Time        `json:"lastReSyncStarted,omitempty"`
 }
 
 type OneDriveLinksConnectorStatus struct {
-	Status  string                       `json:"output,omitempty"`
+	Status  string                       `json:"status,omitempty"`
 	Error   string                       `json:"error,omitempty"`
 	Files   map[string]types.FileDetails `json:"files,omitempty"`
 	Folders types.FolderSet              `json:"folders,omitempty"`
