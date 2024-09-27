@@ -3,24 +3,22 @@ module github.com/gptscript-ai/otto
 go 1.23.1
 
 replace (
-github.com/gptscript-ai/otto/apiclient => ./apiclient
-github.com/gptscript-ai/otto/logger => ./logger
+	github.com/gptscript-ai/otto/apiclient => ./apiclient
+	github.com/gptscript-ai/otto/logger => ./logger
 )
 
 require (
-	github.com/gptscript-ai/otto/logger v0.0.0-00010101000000-000000000000
-	github.com/gptscript-ai/otto/apiclient v0.0.0-00010101000000-000000000000
 	github.com/acorn-io/baaah v0.0.0-20240912163758-8f7c537609d1
 	github.com/acorn-io/mink v0.0.0-20240924215355-6b3069de5d2f
 	github.com/adrg/xdg v0.5.0
 	github.com/dustin/go-humanize v1.0.1
 	github.com/fatih/color v1.17.0
-	github.com/getkin/kin-openapi v0.124.0
 	github.com/golang-jwt/jwt/v5 v5.2.1
 	github.com/gptscript-ai/cmd v0.0.0-20240907001148-ffd49061124a
-	github.com/gptscript-ai/go-gptscript v0.9.5-rc5.0.20240920232051-64eaa0ac8caf
-	github.com/gptscript-ai/gptscript v0.9.5-rc5.0.20240926003321-dd4ba0dffc5b
+	github.com/gptscript-ai/go-gptscript v0.9.5-rc5.0.20240927194651-15782507bdff
+	github.com/gptscript-ai/gptscript v0.9.5-rc5.0.20240927210051-9d9f8591a941
 	github.com/gptscript-ai/otto/apiclient v0.0.0-00010101000000-000000000000
+	github.com/gptscript-ai/otto/logger v0.0.0-00010101000000-000000000000
 	github.com/liggitt/tabwriter v0.0.0-20181228230101-89fcab3d43de
 	github.com/pterm/pterm v0.12.79
 	github.com/rs/cors v1.11.1
@@ -89,6 +87,7 @@ require (
 	github.com/exponent-io/jsonpath v0.0.0-20151013193312-d6023ce2651d // indirect
 	github.com/felixge/httpsnoop v1.0.3 // indirect
 	github.com/fsnotify/fsnotify v1.7.0 // indirect
+	github.com/getkin/kin-openapi v0.124.0 // indirect
 	github.com/go-errors/errors v1.4.2 // indirect
 	github.com/go-git/gcfg v1.5.1-0.20230307220236-3a3c6141e376 // indirect
 	github.com/go-git/go-billy/v5 v5.5.0 // indirect

@@ -73,10 +73,6 @@ func newGPTScript(ctx context.Context) (*gptscript.GPTScript, error) {
 		return nil, err
 	}
 
-	if err := os.Setenv("GPTSCRIPT_DISABLE_SERVER", "true"); err != nil {
-		return nil, err
-	}
-
 	return gptscript.NewGPTScript(gptscript.GlobalOptions{
 		URL: url,
 	})

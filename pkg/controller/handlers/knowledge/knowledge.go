@@ -54,6 +54,8 @@ func (a *Handler) IngestKnowledge(req router.Request, _ router.Response) error {
 		}
 	}
 
+	ws.Status.IngestionRunName = ""
+
 	// Get the reIngestRequests for this workspace
 	var reIngestRequests v1.IngestKnowledgeRequestList
 	if err := req.List(&reIngestRequests, &kclient.ListOptions{
@@ -137,11 +139,6 @@ func compileFileStatuses(ctx context.Context, client kclient.Client, ws *v1.Work
 				logger.Errorf("failed to update knowledge file: %s", err)
 			}
 		}
-	}
-
-	ws.Status.IngestionRunName = ""
-	if err := client.Status().Update(ctx, ws); err != nil {
-		logger.Errorf("failed to update workspace: %s", err)
 	}
 }
 
