@@ -15,8 +15,8 @@ require (
 	github.com/fatih/color v1.17.0
 	github.com/golang-jwt/jwt/v5 v5.2.1
 	github.com/gptscript-ai/cmd v0.0.0-20240907001148-ffd49061124a
-	github.com/gptscript-ai/go-gptscript v0.9.5-rc5.0.20240927194651-15782507bdff
-	github.com/gptscript-ai/gptscript v0.9.5-rc5.0.20240927210051-9d9f8591a941
+	github.com/gptscript-ai/go-gptscript v0.9.5-rc5.0.20240927213153-2af51434b93e
+	github.com/gptscript-ai/gptscript v0.9.5-rc5.0.20240928000751-cc5e5ed5463d
 	github.com/gptscript-ai/otto/apiclient v0.0.0-00010101000000-000000000000
 	github.com/gptscript-ai/otto/logger v0.0.0-00010101000000-000000000000
 	github.com/liggitt/tabwriter v0.0.0-20181228230101-89fcab3d43de
