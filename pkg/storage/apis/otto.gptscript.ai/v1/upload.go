@@ -49,7 +49,6 @@ type OnedriveLinksStatus struct {
 	RunName           string             `json:"runName,omitempty"`
 	Status            string             `json:"status,omitempty"`
 	Error             string             `json:"error,omitempty"`
-	AuthURL           string             `json:"authUrl,omitempty"`
 	Folders           types.FolderSet    `json:"folders,omitempty"`
 	LastReSyncStarted metav1.Time        `json:"lastReSyncStarted,omitempty"`
 }
