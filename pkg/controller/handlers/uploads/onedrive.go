@@ -207,15 +207,13 @@ func (u *UploadHandler) HandleUploadRun(req router.Request, resp router.Response
 	} else if err != nil {
 		return err
 	}
-	if !run.Status.State.IsTerminal() {
-		var thread v1.Thread
-		if err := req.Get(&thread, oneDriveLinks.Namespace, oneDriveLinks.Status.ThreadName); apierrors.IsNotFound(err) {
-			// Might not be in the cache yet.
-			return nil
-		} else if err != nil {
-			return err
-		}
 
+	var thread v1.Thread
+	if err := req.Get(&thread, oneDriveLinks.Namespace, oneDriveLinks.Status.ThreadName); err != nil {
+		return err
+	}
+
+	if !run.Status.State.IsTerminal() {
 		file, err := u.workspaceClient.OpenFile(req.Ctx, thread.Spec.WorkspaceID, ".metadata.json")
 		if err != nil {
 			return err
@@ -230,11 +228,6 @@ func (u *UploadHandler) HandleUploadRun(req router.Request, resp router.Response
 		oneDriveLinks.Status.Error = output["output"].Error
 		resp.RetryAfter(5 * time.Second)
 		return nil
-	}
-
-	var thread v1.Thread
-	if err := req.Get(&thread, oneDriveLinks.Namespace, oneDriveLinks.Status.ThreadName); err != nil {
-		return err
 	}
 
 	ws, err := knowledgeWorkspaceFromParent(req, oneDriveLinks)
