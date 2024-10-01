@@ -30,7 +30,7 @@ func routes(root *router.Router, svcs *services.Services) error {
 	threads := threads.New(svcs.AIHelper)
 	workspace := workspace.New(svcs.WorkspaceClient, "directory")
 	knowledge := knowledgehandler.New(svcs.WorkspaceClient, ingester, "directory")
-	uploads := uploads.New(svcs.Invoker, svcs.WorkspaceClient, "directory", svcs.SystemTools[services.SystemToolOneDrive])
+	uploads := uploads.New(svcs.Invoker, svcs.WorkspaceClient, "directory", svcs.SystemTools[services.SystemToolOneDrive], svcs.SystemTools[services.SystemToolNotion], svcs.SystemTools[services.SystemToolWebsite])
 	runs := runs.New(svcs.Invoker)
 	webHooks := webhook.New()
 	cronJobs := cronjob.New()
@@ -70,11 +70,11 @@ func routes(root *router.Router, svcs *services.Services) error {
 	root.Type(&v1.Agent{}).HandlerFunc(agents.WorkspaceObjects)
 
 	// Uploads
-	root.Type(&v1.OneDriveLinks{}).HandlerFunc(uploads.CreateThread)
-	root.Type(&v1.OneDriveLinks{}).HandlerFunc(uploads.RunUpload)
-	root.Type(&v1.OneDriveLinks{}).HandlerFunc(uploads.HandleUploadRun)
-	root.Type(&v1.OneDriveLinks{}).HandlerFunc(cleanup.Cleanup)
-	root.Type(&v1.OneDriveLinks{}).FinalizeFunc(v1.OneDriveLinksFinalizer, uploads.Cleanup)
+	root.Type(&v1.RemoteKnowledgeSource{}).HandlerFunc(uploads.CreateThread)
+	root.Type(&v1.RemoteKnowledgeSource{}).HandlerFunc(uploads.RunUpload)
+	root.Type(&v1.RemoteKnowledgeSource{}).HandlerFunc(uploads.HandleUploadRun)
+	root.Type(&v1.RemoteKnowledgeSource{}).HandlerFunc(cleanup.Cleanup)
+	root.Type(&v1.RemoteKnowledgeSource{}).FinalizeFunc(v1.RemoteKnowledgeSourceFinalizer, uploads.Cleanup)
 
 	// ReSync requests
 	root.Type(&v1.SyncUploadRequest{}).HandlerFunc(uploads.CleanupSyncRequests)

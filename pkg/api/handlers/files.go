@@ -116,14 +116,15 @@ func uploadKnowledgeToWorkspace(req api.Context, wc *wclient.Client, ws v1.Works
 
 func convertKnowledgeFile(file v1.KnowledgeFile, ws v1.Workspace) types.KnowledgeFile {
 	return types.KnowledgeFile{
-		Metadata:        MetadataFrom(&file),
-		FileName:        file.Spec.FileName,
-		AgentID:         ws.Spec.AgentName,
-		WorkflowID:      ws.Spec.WorkflowName,
-		ThreadID:        ws.Spec.ThreadName,
-		IngestionStatus: file.Status.IngestionStatus,
-		FileDetails:     file.Status.FileDetails,
-		UploadID:        file.Spec.UploadName,
+		Metadata:                  MetadataFrom(&file),
+		FileName:                  file.Spec.FileName,
+		AgentID:                   ws.Spec.AgentName,
+		WorkflowID:                ws.Spec.WorkflowName,
+		ThreadID:                  ws.Spec.ThreadName,
+		IngestionStatus:           file.Status.IngestionStatus,
+		FileDetails:               file.Status.FileDetails,
+		RemoteKnowledgeSourceID:   file.Spec.RemoteKnowledgeSourceName,
+		RemoteKnowledgeSourceType: file.Spec.RemoteKnowledgeSourceType,
 	}
 }
 

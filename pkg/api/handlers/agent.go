@@ -199,24 +199,24 @@ func (a *AgentHandler) IngestKnowledge(req api.Context) error {
 	return ingestKnowledge(req, a.workspaceClient, agent.Status.KnowledgeWorkspaceName)
 }
 
-func (a *AgentHandler) CreateOnedriveLinks(req api.Context) error {
-	return createOneDriveLinks(req, req.PathValue("agent_id"), new(v1.Agent))
+func (a *AgentHandler) CreateRemoteKnowledgeSource(req api.Context) error {
+	return createRemoteKnowledgeSource(req, req.PathValue("agent_id"), new(v1.Agent))
 }
 
-func (a *AgentHandler) UpdateOnedriveLinks(req api.Context) error {
-	return updateOneDriveLinks(req, req.PathValue("id"), req.PathValue("agent_id"), new(v1.Agent))
+func (a *AgentHandler) UpdateRemoteKnowledgeSource(req api.Context) error {
+	return updateRemoteKnowledgeSource(req, req.PathValue("id"), req.PathValue("agent_id"), new(v1.Agent))
 }
 
-func (a *AgentHandler) ReSyncOnedriveLinks(req api.Context) error {
-	return reSyncOneDriveLinks(req, req.PathValue("id"), req.PathValue("agent_id"), new(v1.Agent))
+func (a *AgentHandler) ReSyncRemoteKnowledgeSource(req api.Context) error {
+	return reSyncRemoteKnowledgeSource(req, req.PathValue("id"), req.PathValue("agent_id"), new(v1.Agent))
 }
 
-func (a *AgentHandler) GetOnedriveLinks(req api.Context) error {
-	return getOneDriveLinksForParent(req, req.PathValue("agent_id"), new(v1.Agent))
+func (a *AgentHandler) GetRemoteKnowledgeSources(req api.Context) error {
+	return getRemoteKnowledgeSourceForParent(req, req.PathValue("agent_id"), new(v1.Agent))
 }
 
-func (a *AgentHandler) DeleteOnedriveLinks(req api.Context) error {
-	return deleteOneDriveLinks(req, req.PathValue("id"), req.PathValue("agent_id"), new(v1.Agent))
+func (a *AgentHandler) DeleteRemoteKnowledgeSource(req api.Context) error {
+	return deleteRemoteKnowledgeSource(req, req.PathValue("id"), req.PathValue("agent_id"), new(v1.Agent))
 }
 
 func (a *AgentHandler) Script(req api.Context) error {

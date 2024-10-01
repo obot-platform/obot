@@ -202,24 +202,24 @@ func (a *WorkflowHandler) IngestKnowledge(req api.Context) error {
 	return ingestKnowledge(req, a.workspaceClient, wf.Status.KnowledgeWorkspaceName)
 }
 
-func (a *WorkflowHandler) CreateOnedriveLinks(req api.Context) error {
-	return createOneDriveLinks(req, req.PathValue("workflow_id"), new(v1.Workflow))
+func (a *WorkflowHandler) CreateRemoteKnowledgeSource(req api.Context) error {
+	return createRemoteKnowledgeSource(req, req.PathValue("workflow_id"), new(v1.Workflow))
 }
 
-func (a *WorkflowHandler) UpdateOnedriveLinks(req api.Context) error {
-	return updateOneDriveLinks(req, req.PathValue("id"), req.PathValue("workflow_id"), new(v1.Workflow))
+func (a *WorkflowHandler) UpdateRemoteKnowledgeSource(req api.Context) error {
+	return updateRemoteKnowledgeSource(req, req.PathValue("id"), req.PathValue("workflow_id"), new(v1.Workflow))
 }
 
-func (a *WorkflowHandler) ReSyncOnedriveLinks(req api.Context) error {
-	return reSyncOneDriveLinks(req, req.PathValue("id"), req.PathValue("workflow_id"), new(v1.Workflow))
+func (a *WorkflowHandler) ReSyncRemoteKnowledgeSource(req api.Context) error {
+	return reSyncRemoteKnowledgeSource(req, req.PathValue("id"), req.PathValue("workflow_id"), new(v1.Workflow))
 }
 
-func (a *WorkflowHandler) GetOnedriveLinks(req api.Context) error {
-	return getOneDriveLinksForParent(req, req.PathValue("workflow_id"), new(v1.Workflow))
+func (a *WorkflowHandler) GetRemoteKnowledgeSources(req api.Context) error {
+	return getRemoteKnowledgeSourceForParent(req, req.PathValue("workflow_id"), new(v1.Workflow))
 }
 
-func (a *WorkflowHandler) DeleteOnedriveLinks(req api.Context) error {
-	return deleteOneDriveLinks(req, req.PathValue("id"), req.PathValue("workflow_id"), new(v1.Workflow))
+func (a *WorkflowHandler) DeleteRemoteKnowledgeSource(req api.Context) error {
+	return deleteRemoteKnowledgeSource(req, req.PathValue("id"), req.PathValue("workflow_id"), new(v1.Workflow))
 }
 
 func (a *WorkflowHandler) Script(req api.Context) error {

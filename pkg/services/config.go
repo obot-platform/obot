@@ -34,6 +34,8 @@ import (
 const (
 	SystemToolKnowledge = "knowledge"
 	SystemToolOneDrive  = "onedrive"
+	SystemToolNotion    = "notion"
+	SystemToolWebsite   = "website"
 )
 
 type Config struct {
@@ -135,6 +137,8 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		SystemTools: map[string]string{
 			SystemToolKnowledge: config.KnowledgeTool,
 			SystemToolOneDrive:  config.OneDriveTool,
+			SystemToolWebsite:   config.WebsiteTool,
+			SystemToolNotion:    config.NotionTool,
 		},
 		AIHelper: aihelper.New(c, config.HelperModel),
 	}, nil

@@ -2,13 +2,14 @@ package types
 
 type KnowledgeFile struct {
 	Metadata
-	FileName        string          `json:"fileName"`
-	AgentID         string          `json:"agentID,omitempty"`
-	WorkflowID      string          `json:"workflowID,omitempty"`
-	ThreadID        string          `json:"threadID,omitempty"`
-	UploadID        string          `json:"uploadID,omitempty"`
-	IngestionStatus IngestionStatus `json:"ingestionStatus,omitempty"`
-	FileDetails     FileDetails     `json:"fileDetails,omitempty"`
+	FileName                  string                    `json:"fileName"`
+	AgentID                   string                    `json:"agentID,omitempty"`
+	WorkflowID                string                    `json:"workflowID,omitempty"`
+	ThreadID                  string                    `json:"threadID,omitempty"`
+	RemoteKnowledgeSourceID   string                    `json:"remoteKnowledgeSourceID,omitempty"`
+	RemoteKnowledgeSourceType RemoteKnowledgeSourceType `json:"remoteKnowledgeSourceType,omitempty"`
+	IngestionStatus           IngestionStatus           `json:"ingestionStatus,omitempty"`
+	FileDetails               FileDetails               `json:"fileDetails,omitempty"`
 }
 
 type FileDetails struct {

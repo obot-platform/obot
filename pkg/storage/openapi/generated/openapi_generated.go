@@ -37,10 +37,17 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/gptscript-ai/otto/apiclient/types.KnowledgeFile":                                      schema_gptscript_ai_otto_apiclient_types_KnowledgeFile(ref),
 		"github.com/gptscript-ai/otto/apiclient/types.KnowledgeFileList":                                  schema_gptscript_ai_otto_apiclient_types_KnowledgeFileList(ref),
 		"github.com/gptscript-ai/otto/apiclient/types.Metadata":                                           schema_gptscript_ai_otto_apiclient_types_Metadata(ref),
-		"github.com/gptscript-ai/otto/apiclient/types.OneDriveLinks":                                      schema_gptscript_ai_otto_apiclient_types_OneDriveLinks(ref),
-		"github.com/gptscript-ai/otto/apiclient/types.OneDriveLinksList":                                  schema_gptscript_ai_otto_apiclient_types_OneDriveLinksList(ref),
+		"github.com/gptscript-ai/otto/apiclient/types.NotionConfig":                                       schema_gptscript_ai_otto_apiclient_types_NotionConfig(ref),
+		"github.com/gptscript-ai/otto/apiclient/types.NotionConnectorState":                               schema_gptscript_ai_otto_apiclient_types_NotionConnectorState(ref),
+		"github.com/gptscript-ai/otto/apiclient/types.NotionPage":                                         schema_gptscript_ai_otto_apiclient_types_NotionPage(ref),
+		"github.com/gptscript-ai/otto/apiclient/types.OneDriveConfig":                                     schema_gptscript_ai_otto_apiclient_types_OneDriveConfig(ref),
+		"github.com/gptscript-ai/otto/apiclient/types.OneDriveLinksConnectorState":                        schema_gptscript_ai_otto_apiclient_types_OneDriveLinksConnectorState(ref),
 		"github.com/gptscript-ai/otto/apiclient/types.Progress":                                           schema_gptscript_ai_otto_apiclient_types_Progress(ref),
 		"github.com/gptscript-ai/otto/apiclient/types.Prompt":                                             schema_gptscript_ai_otto_apiclient_types_Prompt(ref),
+		"github.com/gptscript-ai/otto/apiclient/types.RemoteKnowledgeSource":                              schema_gptscript_ai_otto_apiclient_types_RemoteKnowledgeSource(ref),
+		"github.com/gptscript-ai/otto/apiclient/types.RemoteKnowledgeSourceInput":                         schema_gptscript_ai_otto_apiclient_types_RemoteKnowledgeSourceInput(ref),
+		"github.com/gptscript-ai/otto/apiclient/types.RemoteKnowledgeSourceList":                          schema_gptscript_ai_otto_apiclient_types_RemoteKnowledgeSourceList(ref),
+		"github.com/gptscript-ai/otto/apiclient/types.RemoteKnowledgeSourceState":                         schema_gptscript_ai_otto_apiclient_types_RemoteKnowledgeSourceState(ref),
 		"github.com/gptscript-ai/otto/apiclient/types.Run":                                                schema_gptscript_ai_otto_apiclient_types_Run(ref),
 		"github.com/gptscript-ai/otto/apiclient/types.RunList":                                            schema_gptscript_ai_otto_apiclient_types_RunList(ref),
 		"github.com/gptscript-ai/otto/apiclient/types.Step":                                               schema_gptscript_ai_otto_apiclient_types_Step(ref),
@@ -59,6 +66,8 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/gptscript-ai/otto/apiclient/types.WebhookExternalStatus":                              schema_gptscript_ai_otto_apiclient_types_WebhookExternalStatus(ref),
 		"github.com/gptscript-ai/otto/apiclient/types.WebhookList":                                        schema_gptscript_ai_otto_apiclient_types_WebhookList(ref),
 		"github.com/gptscript-ai/otto/apiclient/types.WebhookManifest":                                    schema_gptscript_ai_otto_apiclient_types_WebhookManifest(ref),
+		"github.com/gptscript-ai/otto/apiclient/types.WebsiteCrawlingConfig":                              schema_gptscript_ai_otto_apiclient_types_WebsiteCrawlingConfig(ref),
+		"github.com/gptscript-ai/otto/apiclient/types.WebsiteCrawlingConnectorState":                      schema_gptscript_ai_otto_apiclient_types_WebsiteCrawlingConnectorState(ref),
 		"github.com/gptscript-ai/otto/apiclient/types.While":                                              schema_gptscript_ai_otto_apiclient_types_While(ref),
 		"github.com/gptscript-ai/otto/apiclient/types.Workflow":                                           schema_gptscript_ai_otto_apiclient_types_Workflow(ref),
 		"github.com/gptscript-ai/otto/apiclient/types.WorkflowExternalStatus":                             schema_gptscript_ai_otto_apiclient_types_WorkflowExternalStatus(ref),
@@ -80,16 +89,16 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/gptscript-ai/otto/pkg/storage/apis/otto.gptscript.ai/v1.KnowledgeFileList":            schema_storage_apis_ottogptscriptai_v1_KnowledgeFileList(ref),
 		"github.com/gptscript-ai/otto/pkg/storage/apis/otto.gptscript.ai/v1.KnowledgeFileSpec":            schema_storage_apis_ottogptscriptai_v1_KnowledgeFileSpec(ref),
 		"github.com/gptscript-ai/otto/pkg/storage/apis/otto.gptscript.ai/v1.KnowledgeFileStatus":          schema_storage_apis_ottogptscriptai_v1_KnowledgeFileStatus(ref),
-		"github.com/gptscript-ai/otto/pkg/storage/apis/otto.gptscript.ai/v1.OneDriveLinks":                schema_storage_apis_ottogptscriptai_v1_OneDriveLinks(ref),
-		"github.com/gptscript-ai/otto/pkg/storage/apis/otto.gptscript.ai/v1.OneDriveLinksConnectorStatus": schema_storage_apis_ottogptscriptai_v1_OneDriveLinksConnectorStatus(ref),
-		"github.com/gptscript-ai/otto/pkg/storage/apis/otto.gptscript.ai/v1.OneDriveLinksList":            schema_storage_apis_ottogptscriptai_v1_OneDriveLinksList(ref),
-		"github.com/gptscript-ai/otto/pkg/storage/apis/otto.gptscript.ai/v1.OnedriveLinksSpec":            schema_storage_apis_ottogptscriptai_v1_OnedriveLinksSpec(ref),
-		"github.com/gptscript-ai/otto/pkg/storage/apis/otto.gptscript.ai/v1.OnedriveLinksStatus":          schema_storage_apis_ottogptscriptai_v1_OnedriveLinksStatus(ref),
 		"github.com/gptscript-ai/otto/pkg/storage/apis/otto.gptscript.ai/v1.Ref":                          schema_storage_apis_ottogptscriptai_v1_Ref(ref),
 		"github.com/gptscript-ai/otto/pkg/storage/apis/otto.gptscript.ai/v1.Reference":                    schema_storage_apis_ottogptscriptai_v1_Reference(ref),
 		"github.com/gptscript-ai/otto/pkg/storage/apis/otto.gptscript.ai/v1.ReferenceList":                schema_storage_apis_ottogptscriptai_v1_ReferenceList(ref),
 		"github.com/gptscript-ai/otto/pkg/storage/apis/otto.gptscript.ai/v1.ReferenceSpec":                schema_storage_apis_ottogptscriptai_v1_ReferenceSpec(ref),
 		"github.com/gptscript-ai/otto/pkg/storage/apis/otto.gptscript.ai/v1.ReferenceStatus":              schema_storage_apis_ottogptscriptai_v1_ReferenceStatus(ref),
+		"github.com/gptscript-ai/otto/pkg/storage/apis/otto.gptscript.ai/v1.RemoteConnectorStatus":        schema_storage_apis_ottogptscriptai_v1_RemoteConnectorStatus(ref),
+		"github.com/gptscript-ai/otto/pkg/storage/apis/otto.gptscript.ai/v1.RemoteKnowledgeSource":        schema_storage_apis_ottogptscriptai_v1_RemoteKnowledgeSource(ref),
+		"github.com/gptscript-ai/otto/pkg/storage/apis/otto.gptscript.ai/v1.RemoteKnowledgeSourceList":    schema_storage_apis_ottogptscriptai_v1_RemoteKnowledgeSourceList(ref),
+		"github.com/gptscript-ai/otto/pkg/storage/apis/otto.gptscript.ai/v1.RemoteKnowledgeSourceSpec":    schema_storage_apis_ottogptscriptai_v1_RemoteKnowledgeSourceSpec(ref),
+		"github.com/gptscript-ai/otto/pkg/storage/apis/otto.gptscript.ai/v1.RemoteKnowledgeSourceStatus":  schema_storage_apis_ottogptscriptai_v1_RemoteKnowledgeSourceStatus(ref),
 		"github.com/gptscript-ai/otto/pkg/storage/apis/otto.gptscript.ai/v1.Run":                          schema_storage_apis_ottogptscriptai_v1_Run(ref),
 		"github.com/gptscript-ai/otto/pkg/storage/apis/otto.gptscript.ai/v1.RunList":                      schema_storage_apis_ottogptscriptai_v1_RunList(ref),
 		"github.com/gptscript-ai/otto/pkg/storage/apis/otto.gptscript.ai/v1.RunSpec":                      schema_storage_apis_ottogptscriptai_v1_RunSpec(ref),
@@ -875,7 +884,13 @@ func schema_gptscript_ai_otto_apiclient_types_KnowledgeFile(ref common.Reference
 							Format: "",
 						},
 					},
-					"uploadID": {
+					"remoteKnowledgeSourceID": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"remoteKnowledgeSourceType": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
 							Format: "",
@@ -975,30 +990,90 @@ func schema_gptscript_ai_otto_apiclient_types_Metadata(ref common.ReferenceCallb
 	}
 }
 
-func schema_gptscript_ai_otto_apiclient_types_OneDriveLinks(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_gptscript_ai_otto_apiclient_types_NotionConfig(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
 				Type: []string{"object"},
 				Properties: map[string]spec.Schema{
-					"Metadata": {
+					"pages": {
 						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref("github.com/gptscript-ai/otto/apiclient/types.Metadata"),
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
 						},
 					},
-					"agentID": {
+				},
+			},
+		},
+	}
+}
+
+func schema_gptscript_ai_otto_apiclient_types_NotionConnectorState(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"pages": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"object"},
+							AdditionalProperties: &spec.SchemaOrBool{
+								Allows: true,
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/gptscript-ai/otto/apiclient/types.NotionPage"),
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"github.com/gptscript-ai/otto/apiclient/types.NotionPage"},
+	}
+}
+
+func schema_gptscript_ai_otto_apiclient_types_NotionPage(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"url": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
 							Format: "",
 						},
 					},
-					"workflowID": {
+					"title": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
 							Format: "",
 						},
 					},
+				},
+			},
+		},
+	}
+}
+
+func schema_gptscript_ai_otto_apiclient_types_OneDriveConfig(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
 					"sharedLinks": {
 						SchemaProps: spec.SchemaProps{
 							Type: []string{"array"},
@@ -1013,30 +1088,18 @@ func schema_gptscript_ai_otto_apiclient_types_OneDriveLinks(ref common.Reference
 							},
 						},
 					},
-					"threadID": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-					"runID": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-					"status": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-					"error": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
+				},
+			},
+		},
+	}
+}
+
+func schema_gptscript_ai_otto_apiclient_types_OneDriveLinksConnectorState(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
 					"folders": {
 						SchemaProps: spec.SchemaProps{
 							Type: []string{"object"},
@@ -1052,39 +1115,10 @@ func schema_gptscript_ai_otto_apiclient_types_OneDriveLinks(ref common.Reference
 						},
 					},
 				},
-				Required: []string{"Metadata"},
 			},
 		},
 		Dependencies: []string{
-			"github.com/gptscript-ai/otto/apiclient/types.Item", "github.com/gptscript-ai/otto/apiclient/types.Metadata"},
-	}
-}
-
-func schema_gptscript_ai_otto_apiclient_types_OneDriveLinksList(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Type: []string{"object"},
-				Properties: map[string]spec.Schema{
-					"items": {
-						SchemaProps: spec.SchemaProps{
-							Type: []string{"array"},
-							Items: &spec.SchemaOrArray{
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref("github.com/gptscript-ai/otto/apiclient/types.OneDriveLinks"),
-									},
-								},
-							},
-						},
-					},
-				},
-				Required: []string{"items"},
-			},
-		},
-		Dependencies: []string{
-			"github.com/gptscript-ai/otto/apiclient/types.OneDriveLinks"},
+			"github.com/gptscript-ai/otto/apiclient/types.Item"},
 	}
 }
 
@@ -1226,6 +1260,181 @@ func schema_gptscript_ai_otto_apiclient_types_Prompt(ref common.ReferenceCallbac
 		},
 		Dependencies: []string{
 			"github.com/gptscript-ai/otto/apiclient/types.Time"},
+	}
+}
+
+func schema_gptscript_ai_otto_apiclient_types_RemoteKnowledgeSource(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"Metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/gptscript-ai/otto/apiclient/types.Metadata"),
+						},
+					},
+					"agentID": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"workflowID": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"threadID": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"runID": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"input": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/gptscript-ai/otto/apiclient/types.RemoteKnowledgeSourceInput"),
+						},
+					},
+					"state": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/gptscript-ai/otto/apiclient/types.RemoteKnowledgeSourceState"),
+						},
+					},
+					"status": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"error": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+				},
+				Required: []string{"Metadata"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/gptscript-ai/otto/apiclient/types.Metadata", "github.com/gptscript-ai/otto/apiclient/types.RemoteKnowledgeSourceInput", "github.com/gptscript-ai/otto/apiclient/types.RemoteKnowledgeSourceState"},
+	}
+}
+
+func schema_gptscript_ai_otto_apiclient_types_RemoteKnowledgeSourceInput(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"sourceType": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"exclude": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+					"onedriveConfig": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/gptscript-ai/otto/apiclient/types.OneDriveConfig"),
+						},
+					},
+					"notionConfig": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/gptscript-ai/otto/apiclient/types.NotionConfig"),
+						},
+					},
+					"websiteCrawlingConfig": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/gptscript-ai/otto/apiclient/types.WebsiteCrawlingConfig"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"github.com/gptscript-ai/otto/apiclient/types.NotionConfig", "github.com/gptscript-ai/otto/apiclient/types.OneDriveConfig", "github.com/gptscript-ai/otto/apiclient/types.WebsiteCrawlingConfig"},
+	}
+}
+
+func schema_gptscript_ai_otto_apiclient_types_RemoteKnowledgeSourceList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/gptscript-ai/otto/apiclient/types.RemoteKnowledgeSource"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"items"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/gptscript-ai/otto/apiclient/types.RemoteKnowledgeSource"},
+	}
+}
+
+func schema_gptscript_ai_otto_apiclient_types_RemoteKnowledgeSourceState(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"onedriveState": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/gptscript-ai/otto/apiclient/types.OneDriveLinksConnectorState"),
+						},
+					},
+					"notionState": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/gptscript-ai/otto/apiclient/types.NotionConnectorState"),
+						},
+					},
+					"websiteCrawlingState": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/gptscript-ai/otto/apiclient/types.WebsiteCrawlingConnectorState"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"github.com/gptscript-ai/otto/apiclient/types.NotionConnectorState", "github.com/gptscript-ai/otto/apiclient/types.OneDriveLinksConnectorState", "github.com/gptscript-ai/otto/apiclient/types.WebsiteCrawlingConnectorState"},
 	}
 }
 
@@ -1942,6 +2151,76 @@ func schema_gptscript_ai_otto_apiclient_types_WebhookManifest(ref common.Referen
 				},
 			},
 		},
+	}
+}
+
+func schema_gptscript_ai_otto_apiclient_types_WebsiteCrawlingConfig(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"urls": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func schema_gptscript_ai_otto_apiclient_types_WebsiteCrawlingConnectorState(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"scrapeJobIds": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"object"},
+							AdditionalProperties: &spec.SchemaOrBool{
+								Allows: true,
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+					"folders": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"object"},
+							AdditionalProperties: &spec.SchemaOrBool{
+								Allows: true,
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/gptscript-ai/otto/apiclient/types.Item"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"scrapeJobIds", "folders"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/gptscript-ai/otto/apiclient/types.Item"},
 	}
 }
 
@@ -2781,7 +3060,13 @@ func schema_storage_apis_ottogptscriptai_v1_KnowledgeFileSpec(ref common.Referen
 							Format: "",
 						},
 					},
-					"uploadName": {
+					"remoteKnowledgeSourceName": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"remoteKnowledgeSourceType": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
 							Format: "",
@@ -2823,262 +3108,6 @@ func schema_storage_apis_ottogptscriptai_v1_KnowledgeFileStatus(ref common.Refer
 		},
 		Dependencies: []string{
 			"github.com/gptscript-ai/otto/apiclient/types.FileDetails", "github.com/gptscript-ai/otto/apiclient/types.IngestionStatus"},
-	}
-}
-
-func schema_storage_apis_ottogptscriptai_v1_OneDriveLinks(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Type: []string{"object"},
-				Properties: map[string]spec.Schema{
-					"kind": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"apiVersion": {
-						SchemaProps: spec.SchemaProps{
-							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"metadata": {
-						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"),
-						},
-					},
-					"spec": {
-						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref("github.com/gptscript-ai/otto/pkg/storage/apis/otto.gptscript.ai/v1.OnedriveLinksSpec"),
-						},
-					},
-					"status": {
-						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref("github.com/gptscript-ai/otto/pkg/storage/apis/otto.gptscript.ai/v1.OnedriveLinksStatus"),
-						},
-					},
-				},
-			},
-		},
-		Dependencies: []string{
-			"github.com/gptscript-ai/otto/pkg/storage/apis/otto.gptscript.ai/v1.OnedriveLinksSpec", "github.com/gptscript-ai/otto/pkg/storage/apis/otto.gptscript.ai/v1.OnedriveLinksStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
-	}
-}
-
-func schema_storage_apis_ottogptscriptai_v1_OneDriveLinksConnectorStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Type: []string{"object"},
-				Properties: map[string]spec.Schema{
-					"status": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-					"error": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-					"files": {
-						SchemaProps: spec.SchemaProps{
-							Type: []string{"object"},
-							AdditionalProperties: &spec.SchemaOrBool{
-								Allows: true,
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref("github.com/gptscript-ai/otto/apiclient/types.FileDetails"),
-									},
-								},
-							},
-						},
-					},
-					"folders": {
-						SchemaProps: spec.SchemaProps{
-							Type: []string{"object"},
-							AdditionalProperties: &spec.SchemaOrBool{
-								Allows: true,
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref("github.com/gptscript-ai/otto/apiclient/types.Item"),
-									},
-								},
-							},
-						},
-					},
-				},
-			},
-		},
-		Dependencies: []string{
-			"github.com/gptscript-ai/otto/apiclient/types.FileDetails", "github.com/gptscript-ai/otto/apiclient/types.Item"},
-	}
-}
-
-func schema_storage_apis_ottogptscriptai_v1_OneDriveLinksList(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Type: []string{"object"},
-				Properties: map[string]spec.Schema{
-					"kind": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"apiVersion": {
-						SchemaProps: spec.SchemaProps{
-							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"metadata": {
-						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"),
-						},
-					},
-					"items": {
-						SchemaProps: spec.SchemaProps{
-							Type: []string{"array"},
-							Items: &spec.SchemaOrArray{
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref("github.com/gptscript-ai/otto/pkg/storage/apis/otto.gptscript.ai/v1.OneDriveLinks"),
-									},
-								},
-							},
-						},
-					},
-				},
-				Required: []string{"items"},
-			},
-		},
-		Dependencies: []string{
-			"github.com/gptscript-ai/otto/pkg/storage/apis/otto.gptscript.ai/v1.OneDriveLinks", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
-	}
-}
-
-func schema_storage_apis_ottogptscriptai_v1_OnedriveLinksSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Type: []string{"object"},
-				Properties: map[string]spec.Schema{
-					"agentName": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-					"workflowName": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-					"sharedLinks": {
-						SchemaProps: spec.SchemaProps{
-							Type: []string{"array"},
-							Items: &spec.SchemaOrArray{
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Default: "",
-										Type:    []string{"string"},
-										Format:  "",
-									},
-								},
-							},
-						},
-					},
-				},
-			},
-		},
-	}
-}
-
-func schema_storage_apis_ottogptscriptai_v1_OnedriveLinksStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Type: []string{"object"},
-				Properties: map[string]spec.Schema{
-					"conditions": {
-						SchemaProps: spec.SchemaProps{
-							Type: []string{"array"},
-							Items: &spec.SchemaOrArray{
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.Condition"),
-									},
-								},
-							},
-						},
-					},
-					"threadName": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-					"runName": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-					"status": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-					"error": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-					"folders": {
-						SchemaProps: spec.SchemaProps{
-							Type: []string{"object"},
-							AdditionalProperties: &spec.SchemaOrBool{
-								Allows: true,
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref("github.com/gptscript-ai/otto/apiclient/types.Item"),
-									},
-								},
-							},
-						},
-					},
-					"lastReSyncStarted": {
-						SchemaProps: spec.SchemaProps{
-							Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.Time"),
-						},
-					},
-				},
-			},
-		},
-		Dependencies: []string{
-			"github.com/gptscript-ai/otto/apiclient/types.Item", "k8s.io/apimachinery/pkg/apis/meta/v1.Condition", "k8s.io/apimachinery/pkg/apis/meta/v1.Time"},
 	}
 }
 
@@ -3251,6 +3280,240 @@ func schema_storage_apis_ottogptscriptai_v1_ReferenceStatus(ref common.Reference
 		},
 		Dependencies: []string{
 			"k8s.io/apimachinery/pkg/apis/meta/v1.Condition"},
+	}
+}
+
+func schema_storage_apis_ottogptscriptai_v1_RemoteConnectorStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"status": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"error": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"files": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"object"},
+							AdditionalProperties: &spec.SchemaOrBool{
+								Allows: true,
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/gptscript-ai/otto/apiclient/types.FileDetails"),
+									},
+								},
+							},
+						},
+					},
+					"state": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/gptscript-ai/otto/apiclient/types.RemoteKnowledgeSourceState"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"github.com/gptscript-ai/otto/apiclient/types.FileDetails", "github.com/gptscript-ai/otto/apiclient/types.RemoteKnowledgeSourceState"},
+	}
+}
+
+func schema_storage_apis_ottogptscriptai_v1_RemoteKnowledgeSource(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"),
+						},
+					},
+					"spec": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/gptscript-ai/otto/pkg/storage/apis/otto.gptscript.ai/v1.RemoteKnowledgeSourceSpec"),
+						},
+					},
+					"status": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/gptscript-ai/otto/pkg/storage/apis/otto.gptscript.ai/v1.RemoteKnowledgeSourceStatus"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"github.com/gptscript-ai/otto/pkg/storage/apis/otto.gptscript.ai/v1.RemoteKnowledgeSourceSpec", "github.com/gptscript-ai/otto/pkg/storage/apis/otto.gptscript.ai/v1.RemoteKnowledgeSourceStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
+	}
+}
+
+func schema_storage_apis_ottogptscriptai_v1_RemoteKnowledgeSourceList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"),
+						},
+					},
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/gptscript-ai/otto/pkg/storage/apis/otto.gptscript.ai/v1.RemoteKnowledgeSource"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"items"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/gptscript-ai/otto/pkg/storage/apis/otto.gptscript.ai/v1.RemoteKnowledgeSource", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
+	}
+}
+
+func schema_storage_apis_ottogptscriptai_v1_RemoteKnowledgeSourceSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"agentName": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"workflowName": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"input": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/gptscript-ai/otto/apiclient/types.RemoteKnowledgeSourceInput"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"github.com/gptscript-ai/otto/apiclient/types.RemoteKnowledgeSourceInput"},
+	}
+}
+
+func schema_storage_apis_ottogptscriptai_v1_RemoteKnowledgeSourceStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"conditions": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.Condition"),
+									},
+								},
+							},
+						},
+					},
+					"threadName": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"runName": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"status": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"error": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"state": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/gptscript-ai/otto/apiclient/types.RemoteKnowledgeSourceState"),
+						},
+					},
+					"lastReSyncStarted": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.Time"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"github.com/gptscript-ai/otto/apiclient/types.RemoteKnowledgeSourceState", "k8s.io/apimachinery/pkg/apis/meta/v1.Condition", "k8s.io/apimachinery/pkg/apis/meta/v1.Time"},
 	}
 }
 
@@ -3802,7 +4065,7 @@ func schema_storage_apis_ottogptscriptai_v1_SyncUploadRequestSpec(ref common.Ref
 			SchemaProps: spec.SchemaProps{
 				Type: []string{"object"},
 				Properties: map[string]spec.Schema{
-					"uploadName": {
+					"remoteKnowledgeSourceName": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
 							Format: "",

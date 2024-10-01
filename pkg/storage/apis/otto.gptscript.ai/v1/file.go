@@ -22,7 +22,7 @@ type KnowledgeFile struct {
 func (k *KnowledgeFile) DeleteRefs() []Ref {
 	return []Ref{
 		{ObjType: new(Workspace), Name: k.Spec.WorkspaceName},
-		{ObjType: new(OneDriveLinks), Name: k.Spec.UploadName},
+		{ObjType: new(RemoteKnowledgeSource), Name: k.Spec.RemoteKnowledgeSourceName},
 	}
 }
 
@@ -38,23 +38,26 @@ func (k *KnowledgeFile) Get(field string) string {
 	switch field {
 	case "spec.workspaceName":
 		return k.Spec.WorkspaceName
-	case "spec.uploadName":
-		return k.Spec.UploadName
+	case "spec.remoteKnowledgeSourceName":
+		return k.Spec.RemoteKnowledgeSourceName
+	case "spec.remoteKnowledgeSourceType":
+		return string(k.Spec.RemoteKnowledgeSourceType)
 	}
 
 	return ""
 }
 
 func (*KnowledgeFile) FieldNames() []string {
-	return []string{"spec.workspaceName", "spec.uploadName"}
+	return []string{"spec.workspaceName", "spec.remoteKnowledgeSourceName", "spec.remoteKnowledgeSourceType"}
 }
 
 var _ fields.Fields = (*KnowledgeFile)(nil)
 
 type KnowledgeFileSpec struct {
-	FileName      string `json:"fileName"`
-	WorkspaceName string `json:"workspaceName,omitempty"`
-	UploadName    string `json:"uploadName,omitempty"`
+	FileName                  string                          `json:"fileName"`
+	WorkspaceName             string                          `json:"workspaceName,omitempty"`
+	RemoteKnowledgeSourceName string                          `json:"remoteKnowledgeSourceName,omitempty"`
+	RemoteKnowledgeSourceType types.RemoteKnowledgeSourceType `json:"remoteKnowledgeSourceType,omitempty"`
 }
 
 type KnowledgeFileStatus struct {
