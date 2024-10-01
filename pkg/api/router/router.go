@@ -17,6 +17,7 @@ func Router(services *services.Services) (http.Handler, error) {
 	threads := handlers.NewThreadHandler(services.WorkspaceClient, services.Events)
 	runs := handlers.NewRunHandler(services.Events)
 	toolRefs := handlers.NewToolReferenceHandler(services.WorkspaceClient)
+	webhooks := handlers.NewWebhookHandler()
 
 	// Agents
 	mux.Handle("GET /agents", w(agents.List))
@@ -119,6 +120,14 @@ func Router(services *services.Services) (http.Handler, error) {
 	mux.Handle("DELETE /agents/{context}/credentials/{id}", w(handlers.DeleteCredential))
 	mux.Handle("DELETE /workflows/{context}/credentials/{id}", w(handlers.DeleteCredential))
 	mux.Handle("DELETE /credentials/{id}", w(handlers.DeleteCredential))
+
+	// Webhooks
+	mux.Handle("POST /webhooks", w(webhooks.Create))
+	mux.Handle("GET /webhooks", w(webhooks.List))
+	mux.Handle("GET /webhooks/{id}", w(webhooks.ByID))
+	mux.Handle("DELETE /webhooks/{id}", w(webhooks.Delete))
+	mux.Handle("PUT /webhooks/{id}", w(webhooks.Update))
+	mux.Handle("POST /webhooks/{id}", w(webhooks.Execute))
 
 	return mux, nil
 }

@@ -10,6 +10,7 @@ import (
 	"github.com/gptscript-ai/otto/pkg/controller/handlers/threads"
 	"github.com/gptscript-ai/otto/pkg/controller/handlers/toolreference"
 	"github.com/gptscript-ai/otto/pkg/controller/handlers/uploads"
+	"github.com/gptscript-ai/otto/pkg/controller/handlers/webhookexecution"
 	"github.com/gptscript-ai/otto/pkg/controller/handlers/workflow"
 	"github.com/gptscript-ai/otto/pkg/controller/handlers/workflowexecution"
 	"github.com/gptscript-ai/otto/pkg/controller/handlers/workflowstep"
@@ -19,7 +20,7 @@ import (
 	v1 "github.com/gptscript-ai/otto/pkg/storage/apis/otto.gptscript.ai/v1"
 )
 
-func routes(router *router.Router, svcs *services.Services) error {
+func routes(root *router.Router, svcs *services.Services) error {
 	workflowExecution := workflowexecution.New(svcs.WorkspaceClient, svcs.Invoker)
 	workflowStep := workflowstep.New(svcs.Invoker)
 	ingester := knowledge.NewIngester(svcs.Invoker, svcs.SystemTools[services.SystemToolKnowledge])
@@ -30,8 +31,7 @@ func routes(router *router.Router, svcs *services.Services) error {
 	knowledge := knowledgehandler.New(svcs.WorkspaceClient, ingester, "directory")
 	uploads := uploads.New(svcs.Invoker, svcs.WorkspaceClient, "directory", svcs.SystemTools[services.SystemToolOneDrive])
 	runs := runs.New(svcs.Invoker)
-
-	root := router
+	webhookExecutions := webhookexecution.New(svcs.WorkspaceClient, svcs.Invoker)
 
 	// Runs
 	root.Type(&v1.Run{}).FinalizeFunc(v1.RunFinalizer, runs.DeleteRunState)
@@ -97,6 +97,15 @@ func routes(router *router.Router, svcs *services.Services) error {
 	root.Type(&v1.Workspace{}).HandlerFunc(workspace.CreateWorkspace)
 	root.Type(&v1.Workspace{}).HandlerFunc(knowledge.IngestKnowledge)
 	root.Type(&v1.Workspace{}).HandlerFunc(cleanup.Cleanup)
+
+	// Webhooks
+	root.Type(&v1.Webhook{}).HandlerFunc(cleanup.Cleanup)
+	root.Type(&v1.Webhook{}).HandlerFunc(reference.AssociateWebhookWithReference)
+	root.Type(&v1.WebhookReference{}).HandlerFunc(reference.Cleanup)
+
+	// Webhook executions
+	root.Type(&v1.WebhookExecution{}).HandlerFunc(cleanup.Cleanup)
+	root.Type(&v1.WebhookExecution{}).HandlerFunc(webhookExecutions.Run)
 
 	return nil
 }

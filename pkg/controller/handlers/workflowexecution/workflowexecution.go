@@ -32,12 +32,12 @@ func New(wc *wclient.Client, invoker *invoke.Invoker) *Handler {
 func (h *Handler) Cleanup(req router.Request, resp router.Response) error {
 	we := req.Object.(*v1.WorkflowExecution)
 	if we.Status.ThreadName != "" {
-		return req.Delete(&v1.Thread{
+		return kclient.IgnoreNotFound(req.Delete(&v1.Thread{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      we.Status.ThreadName,
 				Namespace: we.Namespace,
 			},
-		})
+		}))
 	}
 	return nil
 }
@@ -171,6 +171,8 @@ func (h *Handler) newThread(ctx context.Context, c kclient.Client, wf *v1.Workfl
 	return h.invoker.NewThread(ctx, c, wf.Namespace, invoke.NewThreadOptions{
 		WorkflowName:          we.Spec.WorkflowName,
 		WorkflowExecutionName: we.Name,
+		WebhookName:           we.Spec.WebhookName,
+		WebhookExecutionName:  we.Spec.WebhookExecutionName,
 		WorkspaceIDs:          []string{ws.Status.WorkspaceID},
 		KnowledgeWorkspaceIDs: []string{knowledgWs.Status.WorkspaceID},
 	})

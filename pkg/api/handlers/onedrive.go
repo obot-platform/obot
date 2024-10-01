@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -20,7 +19,7 @@ func createOneDriveLinks(req api.Context, parentName string, parentObj client.Ob
 	}
 
 	var links []string
-	if err := json.NewDecoder(req.Request.Body).Decode(&links); err != nil {
+	if err := req.Read(&links); err != nil {
 		return fmt.Errorf("failed to decode request body: %w", err)
 	}
 
@@ -69,7 +68,7 @@ func updateOneDriveLinks(req api.Context, linksID, parentName string, parentObj 
 	}
 
 	var links []string
-	if err := json.NewDecoder(req.Request.Body).Decode(&links); err != nil {
+	if err := req.Read(&links); err != nil {
 		return fmt.Errorf("failed to decode request body: %w", err)
 	}
 

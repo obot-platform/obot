@@ -30,6 +30,8 @@ type ThreadSpec struct {
 	AgentName             string               `json:"agentName,omitempty"`
 	WorkflowName          string               `json:"workflowName,omitempty"`
 	WorkflowExecutionName string               `json:"workflowExecutionName,omitempty"`
+	WebhookName           string               `json:"webhookName,omitempty"`
+	WebhookExecutionName  string               `json:"webhookExecutionName,omitempty"`
 	WorkflowStepName      string               `json:"workflowStepName,omitempty"`
 	WorkspaceID           string               `json:"workspaceID,omitempty"`
 	KnowledgeWorkspaceID  string               `json:"knowledgeWorkspaceID,omitempty"`

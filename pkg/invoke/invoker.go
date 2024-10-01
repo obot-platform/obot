@@ -91,6 +91,8 @@ type NewThreadOptions struct {
 	ThreadGenerateName    string
 	WorkflowName          string
 	WorkflowExecutionName string
+	WebhookName           string
+	WebhookExecutionName  string
 	WorkspaceIDs          []string
 	KnowledgeWorkspaceIDs []string
 }
@@ -141,6 +143,8 @@ func (i *Invoker) NewThread(ctx context.Context, c kclient.Client, namespace str
 			AgentName:             opt.AgentName,
 			WorkflowExecutionName: opt.WorkflowExecutionName,
 			WorkflowName:          opt.WorkflowName,
+			WebhookName:           opt.WebhookName,
+			WebhookExecutionName:  opt.WebhookExecutionName,
 			WorkspaceID:           workspaceID,
 			KnowledgeWorkspaceID:  knowledgeWorkspaceID,
 		},

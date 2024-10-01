@@ -37,7 +37,7 @@ func (h *Handler) SetRunning(req router.Request, resp router.Response) error {
 	if step.Spec.AfterWorkflowStepName != "" {
 		var parent v1.WorkflowStep
 		if err := req.Get(&parent, step.Namespace, step.Spec.AfterWorkflowStepName); err != nil {
-			return err
+			return kclient.IgnoreNotFound(err)
 		}
 
 		if parent.Status.State != v1.WorkflowStepStateComplete {
@@ -48,7 +48,7 @@ func (h *Handler) SetRunning(req router.Request, resp router.Response) error {
 	if step.Status.State != v1.WorkflowStepStateRunning && step.Status.State != v1.WorkflowStepStateSubCall {
 		step.Status.State = v1.WorkflowStepStateRunning
 		if err := req.Client.Status().Update(req.Ctx, step); err != nil {
-			return err
+			return kclient.IgnoreNotFound(err)
 		}
 	}
 

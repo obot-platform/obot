@@ -30,7 +30,6 @@ func (i *Invoker) Workflow(ctx context.Context, c kclient.WithWatch, wf *v1.Work
 	}
 
 	wfe := &v1.WorkflowExecution{
-		TypeMeta: metav1.TypeMeta{},
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: system.WorkflowExecutionPrefix,
 			Namespace:    wf.Namespace,
@@ -40,7 +39,6 @@ func (i *Invoker) Workflow(ctx context.Context, c kclient.WithWatch, wf *v1.Work
 			Input:        input,
 			WorkflowName: wf.Name,
 		},
-		Status: v1.WorkflowExecutionStatus{},
 	}
 
 	if err := c.Create(ctx, wfe); err != nil {

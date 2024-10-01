@@ -38,6 +38,8 @@ func (in *WorkflowExecution) GetConditions() *[]metav1.Condition {
 type WorkflowExecutionSpec struct {
 	Input                 string `json:"input,omitempty"`
 	WorkflowName          string `json:"workflowName,omitempty"`
+	WebhookName           string `json:"webhookName,omitempty"`
+	WebhookExecutionName  string `json:"webhookExecutionName,omitempty"`
 	AfterWorkflowStepName string `json:"afterWorkflowStepName,omitempty"`
 	WorkspaceName         string `json:"workspaceName,omitempty"`
 }

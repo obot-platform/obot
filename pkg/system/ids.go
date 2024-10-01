@@ -12,6 +12,8 @@ const (
 	WorkspacePrefix         = "wksp1"
 	IngestRequestPrefix     = "ik1"
 	SyncRequestPrefix       = "su1"
+	WebhookPrefix           = "wh1"
+	WebHookExecutionPrefix  = "whe1"
 )
 
 var typePrefixes = []string{
@@ -21,6 +23,11 @@ var typePrefixes = []string{
 	WorkflowPrefix,
 	WorkflowExecutionPrefix,
 	WorkflowStepPrefix,
+	WorkspacePrefix,
+	IngestRequestPrefix,
+	SyncRequestPrefix,
+	WebhookPrefix,
+	WebHookExecutionPrefix,
 }
 
 func IsThreadID(id string) bool {
@@ -37,6 +44,10 @@ func IsRunID(id string) bool {
 
 func IsWorkflowID(id string) bool {
 	return strings.HasPrefix(id, WorkflowPrefix)
+}
+
+func IsWebhookID(id string) bool {
+	return strings.HasPrefix(id, WebhookPrefix)
 }
 
 func IsWorkflowExecutionID(id string) bool {
