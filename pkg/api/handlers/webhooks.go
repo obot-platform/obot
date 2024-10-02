@@ -16,6 +16,7 @@ import (
 	"github.com/gptscript-ai/otto/pkg/system"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type WebhookHandler struct{}
@@ -39,20 +40,8 @@ func (a *WebhookHandler) Update(req api.Context) error {
 		return err
 	}
 
-	// Ensure that the WorkflowName is set and the workflow exists
-	if manifest.WorkflowName == "" {
-		return apierrors.NewBadRequest(fmt.Sprintf("webhook manifest must have a workflow name"))
-	}
-
-	var workflow v1.Workflow
-	if err := req.Get(&workflow, manifest.WorkflowName); apierrors.IsNotFound(err) {
-		return apierrors.NewBadRequest(fmt.Sprintf("workflow %s does not exist", manifest.WorkflowName))
-	} else if err != nil {
+	if err := validateManifest(req, manifest); err != nil {
 		return err
-	}
-
-	if (manifest.ValidationHeader != "") != (manifest.Secret != "") {
-		return apierrors.NewBadRequest(fmt.Sprintf("webhook must have secret and header set together"))
 	}
 
 	wh.Spec.WebhookManifest = manifest
@@ -86,20 +75,8 @@ func (a *WebhookHandler) Create(req api.Context) error {
 		return err
 	}
 
-	// Ensure that the WorkflowName is set and the workflow exists
-	if manifest.WorkflowName == "" {
-		return apierrors.NewBadRequest(fmt.Sprintf("webhook manifest must have a workflow name"))
-	}
-
-	var workflow v1.Workflow
-	if err := req.Get(&workflow, manifest.WorkflowName); apierrors.IsNotFound(err) {
-		return apierrors.NewBadRequest(fmt.Sprintf("workflow %s does not exist", manifest.WorkflowName))
-	} else if err != nil {
+	if err := validateManifest(req, manifest); err != nil {
 		return err
-	}
-
-	if (manifest.ValidationHeader != "") != (manifest.Secret != "") {
-		return apierrors.NewBadRequest(fmt.Sprintf("webhook must have secret and header set together"))
 	}
 
 	wh := v1.Webhook{
@@ -124,14 +101,10 @@ func (a *WebhookHandler) Create(req api.Context) error {
 	return req.Write(convertWebhook(wh, api.GetURLPrefix(req)))
 }
 
-func convertWebhook(webhook v1.Webhook, prefix string) *types.Webhook {
+func convertWebhook(webhook v1.Webhook, urlPrefix string) *types.Webhook {
 	var links []string
-	if prefix != "" {
-		refName := webhook.Name
-		if webhook.Status.External.RefNameAssigned && webhook.Spec.RefName != "" {
-			refName = webhook.Spec.RefName
-		}
-		links = []string{"invoke", prefix + "/webhooks/" + refName}
+	if urlPrefix != "" && webhook.Status.External.RefName != "" {
+		links = []string{"invoke", fmt.Sprintf("%s/invoke/%s", urlPrefix, webhook.Status.External.RefName)}
 	}
 
 	wh := &types.Webhook{
@@ -170,17 +143,13 @@ func (a *WebhookHandler) List(req api.Context) error {
 }
 
 func (a *WebhookHandler) Execute(req api.Context) error {
-	whID := req.PathValue("id")
-	if !system.IsWebhookID(whID) {
-		var ref v1.WebhookReference
-		if err := req.Get(&ref, whID); err != nil {
-			return err
-		}
-		whID = ref.Spec.WebhookName
+	var ref v1.WebhookReference
+	if err := req.Get(&ref, req.PathValue("id")); err != nil {
+		return err
 	}
 
 	var webhook v1.Webhook
-	if err := req.Get(&webhook, whID); err != nil {
+	if err := req.Storage.Get(req.Context(), kclient.ObjectKey{Namespace: ref.Spec.WebhookNamespace, Name: ref.Spec.WebhookName}, &webhook); err != nil {
 		return err
 	}
 
@@ -266,4 +235,27 @@ func validateSecretHeader(secret string, body []byte, values []string) error {
 	}
 
 	return fmt.Errorf("invalid secret header")
+}
+
+func validateManifest(req api.Context, manifest types.WebhookManifest) error {
+	// Ensure that the WorkflowName is set and the workflow exists
+	if manifest.WorkflowName == "" {
+		return apierrors.NewBadRequest(fmt.Sprintf("webhook manifest must have a workflow name"))
+	}
+
+	var workflow v1.Workflow
+	if err := req.Get(&workflow, manifest.WorkflowName); types.IsNotFound(err) {
+		var ref v1.Reference
+		if err = req.Get(&ref, manifest.WorkflowName); err != nil || ref.Spec.WorkflowName == "" {
+			return apierrors.NewBadRequest(fmt.Sprintf("workflow %s does not exist", manifest.WorkflowName))
+		}
+	} else if err != nil {
+		return err
+	}
+
+	if (manifest.ValidationHeader != "") != (manifest.Secret != "") {
+		return apierrors.NewBadRequest(fmt.Sprintf("webhook must have secret and header set together"))
+	}
+
+	return nil
 }

@@ -1843,6 +1843,12 @@ func schema_gptscript_ai_otto_apiclient_types_WebhookExternalStatus(ref common.R
 			SchemaProps: spec.SchemaProps{
 				Type: []string{"object"},
 				Properties: map[string]spec.Schema{
+					"refName": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
 					"refNameAssigned": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"boolean"},
@@ -4432,9 +4438,21 @@ func schema_storage_apis_ottogptscriptai_v1_WebhookReferenceSpec(ref common.Refe
 			SchemaProps: spec.SchemaProps{
 				Type: []string{"object"},
 				Properties: map[string]spec.Schema{
+					"webhookNamespace": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
 					"webhookName": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"custom": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
 							Format: "",
 						},
 					},

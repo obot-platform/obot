@@ -2,11 +2,13 @@ package v1
 
 import (
 	"github.com/acorn-io/baaah/pkg/conditions"
+	"github.com/acorn-io/baaah/pkg/fields"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 var (
 	_ conditions.Conditions = (*WebhookReference)(nil)
+	_ fields.Fields         = (*WebhookReference)(nil)
 )
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -19,12 +21,36 @@ type WebhookReference struct {
 	Status ReferenceStatus      `json:"status,omitempty"`
 }
 
+func (in *WebhookReference) Has(field string) bool {
+	return in.Get(field) != ""
+}
+
+func (in *WebhookReference) Get(field string) string {
+	switch field {
+	case "webhookNamespace":
+		return in.Spec.WebhookNamespace
+	case "webhookName":
+		return in.Spec.WebhookName
+	}
+	return ""
+}
+
+func (*WebhookReference) FieldNames() []string {
+	return []string{"webhookNamespace", "webhookName"}
+}
+
+func (*WebhookReference) NamespaceScoped() bool {
+	return false
+}
+
 func (in *WebhookReference) GetConditions() *[]metav1.Condition {
 	return &in.Status.Conditions
 }
 
 type WebhookReferenceSpec struct {
-	WebhookName string `json:"webhookName,omitempty"`
+	WebhookNamespace string `json:"webhookNamespace,omitempty"`
+	WebhookName      string `json:"webhookName,omitempty"`
+	Custom           bool   `json:"custom,omitempty"`
 }
 
 func (in *WebhookReference) DeleteRefs() []Ref {

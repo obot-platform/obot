@@ -18,7 +18,8 @@ type WebhookManifest struct {
 }
 
 type WebhookExternalStatus struct {
-	RefNameAssigned bool `json:"refNameAssigned,omitempty"`
+	RefName         string `json:"refName,omitempty"`
+	RefNameAssigned bool   `json:"refNameAssigned,omitempty"`
 }
 
 type WebhookList List[Webhook]

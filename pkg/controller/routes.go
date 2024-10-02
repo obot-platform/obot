@@ -103,8 +103,11 @@ func routes(root *router.Router, svcs *services.Services) error {
 	// Webhooks
 	root.Type(&v1.Webhook{}).HandlerFunc(cleanup.Cleanup)
 	root.Type(&v1.Webhook{}).HandlerFunc(reference.AssociateWebhookWithReference)
-	root.Type(&v1.WebhookReference{}).HandlerFunc(reference.Cleanup)
+	root.Type(&v1.Webhook{}).HandlerFunc(webHooks.AssignRefName)
 	root.Type(&v1.Webhook{}).HandlerFunc(webHooks.SetSuccessRunTime)
+
+	// Webhook references
+	root.Type(&v1.WebhookReference{}).HandlerFunc(reference.Cleanup)
 
 	// Cronjobs
 	root.Type(&v1.CronJob{}).HandlerFunc(cleanup.Cleanup)

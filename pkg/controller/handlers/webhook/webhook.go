@@ -13,6 +13,31 @@ func New() *Handler {
 	return &Handler{}
 }
 
+func (h *Handler) AssignRefName(req router.Request, _ router.Response) error {
+	wh := req.Object.(*v1.Webhook)
+	// If the refName is already assigned, then use that webhook reference.
+	if wh.Status.External.RefNameAssigned {
+		return nil
+	}
+
+	var webHookReferences v1.WebhookReferenceList
+	if err := req.List(&webHookReferences, &kclient.ListOptions{
+		FieldSelector: fields.SelectorFromSet(
+			map[string]string{
+				"spec.webhookNamespace": wh.Namespace,
+				"spec.webhookName":      wh.Name,
+			},
+		),
+		Namespace: wh.Namespace,
+	}); err != nil || len(webHookReferences.Items) != 1 {
+		return err
+	}
+
+	// If there is only one webhook reference, then it is the "standard" webhook reference that is associated to every webhook.
+	wh.Status.External.RefName = webHookReferences.Items[0].Name
+	return nil
+}
+
 func (h *Handler) SetSuccessRunTime(req router.Request, _ router.Response) error {
 	wh := req.Object.(*v1.Webhook)
 
