@@ -93,11 +93,7 @@ func (a *Handler) IngestKnowledge(req router.Request, _ router.Response) error {
 		return nil
 	}
 
-	var (
-		run *invoke.Response
-		err error
-	)
-	run, err = a.ingester.IngestKnowledge(req.Ctx, ws.Spec.AgentName, ws.GetNamespace(), ws.Status.WorkspaceID)
+	run, err := a.ingester.IngestKnowledge(req.Ctx, ws.Spec.AgentName, ws.GetNamespace(), ws.Status.WorkspaceID)
 	if err != nil {
 		return err
 	}

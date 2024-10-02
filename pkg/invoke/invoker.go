@@ -92,7 +92,7 @@ type NewThreadOptions struct {
 	WorkflowName          string
 	WorkflowExecutionName string
 	WebhookName           string
-	WebhookExecutionName  string
+	CronJobName           string
 	WorkspaceIDs          []string
 	KnowledgeWorkspaceIDs []string
 }
@@ -144,7 +144,7 @@ func (i *Invoker) NewThread(ctx context.Context, c kclient.Client, namespace str
 			WorkflowExecutionName: opt.WorkflowExecutionName,
 			WorkflowName:          opt.WorkflowName,
 			WebhookName:           opt.WebhookName,
-			WebhookExecutionName:  opt.WebhookExecutionName,
+			CronJobName:           opt.CronJobName,
 			WorkspaceID:           workspaceID,
 			KnowledgeWorkspaceID:  knowledgeWorkspaceID,
 		},

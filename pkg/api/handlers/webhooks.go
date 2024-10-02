@@ -135,9 +135,10 @@ func convertWebhook(webhook v1.Webhook, prefix string) *types.Webhook {
 	}
 
 	wh := &types.Webhook{
-		Metadata:              MetadataFrom(&webhook, links...),
-		WebhookManifest:       webhook.Spec.WebhookManifest,
-		WebhookExternalStatus: webhook.Status.External,
+		Metadata:                   MetadataFrom(&webhook, links...),
+		WebhookManifest:            webhook.Spec.WebhookManifest,
+		WebhookExternalStatus:      webhook.Status.External,
+		LastSuccessfulRunCompleted: v1.NewTime(webhook.Status.LastSuccessfulRunCompleted),
 	}
 
 	wh.Secret = fmt.Sprintf("%x", sha256.Sum256([]byte(webhook.Spec.Secret)))
@@ -183,39 +184,49 @@ func (a *WebhookHandler) Execute(req api.Context) error {
 		return err
 	}
 
-	input, err := req.Body()
+	body, err := req.Body()
 	if err != nil {
 		return fmt.Errorf("failed to read request body: %w", err)
 	}
 
 	if webhook.Spec.ValidationHeader != "" {
-		if err = validateSecretHeader(webhook.Spec.Secret, input, req.Request.Header.Values(webhook.Spec.ValidationHeader)); err != nil {
+		if err = validateSecretHeader(webhook.Spec.Secret, body, req.Request.Header.Values(webhook.Spec.ValidationHeader)); err != nil {
 			req.WriteHeader(http.StatusForbidden)
 			return nil
 		}
 	}
 
-	allHeaders := slices.Contains(webhook.Spec.Headers, "*")
-	headers := make(map[string]string, len(webhook.Spec.Headers))
-	for k := range req.Request.Header {
-		if allHeaders {
-			headers[k] = req.Request.Header.Get(k)
-		} else if slices.Contains(webhook.Spec.Headers, k) {
-			headers[k] = req.Request.Header.Get(k)
-		}
+	var input strings.Builder
+	_, _ = input.WriteString("You are being called from a webhook.\n\n")
+	if len(body) > 0 {
+		_, _ = input.WriteString("Here is the payload of the webhook:\n")
+		_, _ = input.Write(body)
 	}
 
-	if err = req.Create(&v1.WebhookExecution{
+	_, _ = input.WriteString("\nHere are the headers of the webhook:\n")
+	allHeaders := slices.Contains(webhook.Spec.Headers, "*")
+	for k := range req.Request.Header {
+		if !allHeaders && !slices.Contains(webhook.Spec.Headers, k) {
+			continue
+		}
+
+		input.WriteString("\n")
+		input.WriteString(k)
+		input.WriteString(": ")
+		input.WriteString(req.Request.Header.Get(k))
+	}
+
+	if err = req.Create(&v1.WorkflowExecution{
 		ObjectMeta: metav1.ObjectMeta{
-			// The name here is the sha256 hash of the input to handle multiple executions of the same webhook.
-			// That is, if the webhook is called twice with the same input, it will only be executed once.
-			Name:      fmt.Sprintf("%x", sha256.Sum256(input)),
+			// The name here is the sha256 hash of the body to handle multiple executions of the same webhook.
+			// That is, if the webhook is called twice with the same body, it will only be executed once.
+			Name:      system.WorkflowExecutionPrefix + fmt.Sprintf("%x", sha256.Sum256(body)),
 			Namespace: req.Namespace(),
 		},
-		Spec: v1.WebhookExecutionSpec{
-			WebhookName: webhook.Name,
-			Payload:     string(input),
-			Headers:     headers,
+		Spec: v1.WorkflowExecutionSpec{
+			WorkflowName: webhook.Spec.WebhookManifest.WorkflowName,
+			WebhookName:  webhook.Name,
+			Input:        input.String(),
 		},
 	}); err != nil && !apierrors.IsAlreadyExists(err) {
 		return err

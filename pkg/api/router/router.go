@@ -18,6 +18,7 @@ func Router(services *services.Services) (http.Handler, error) {
 	runs := handlers.NewRunHandler(services.Events)
 	toolRefs := handlers.NewToolReferenceHandler(services.WorkspaceClient)
 	webhooks := handlers.NewWebhookHandler()
+	cronJobs := handlers.NewCronJobHandler()
 
 	// Agents
 	mux.Handle("GET /agents", w(agents.List))
@@ -128,6 +129,14 @@ func Router(services *services.Services) (http.Handler, error) {
 	mux.Handle("DELETE /webhooks/{id}", w(webhooks.Delete))
 	mux.Handle("PUT /webhooks/{id}", w(webhooks.Update))
 	mux.Handle("POST /webhooks/{id}", w(webhooks.Execute))
+
+	// CronJobs
+	mux.Handle("POST /cronjobs", w(cronJobs.Create))
+	mux.Handle("GET /cronjobs", w(cronJobs.List))
+	mux.Handle("GET /cronjobs/{id}", w(cronJobs.ByID))
+	mux.Handle("DELETE /cronjobs/{id}", w(cronJobs.Delete))
+	mux.Handle("PUT /cronjobs/{id}", w(cronJobs.Update))
+	mux.Handle("POST /cronjobs/{id}", w(cronJobs.Execute))
 
 	return mux, nil
 }

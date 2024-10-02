@@ -4,6 +4,7 @@ type Webhook struct {
 	Metadata
 	WebhookManifest
 	WebhookExternalStatus
+	LastSuccessfulRunCompleted *Time `json:"lastSuccessfulRunCompleted,omitempty"`
 }
 
 type WebhookManifest struct {

@@ -13,7 +13,7 @@ const (
 	IngestRequestPrefix     = "ik1"
 	SyncRequestPrefix       = "su1"
 	WebhookPrefix           = "wh1"
-	WebHookExecutionPrefix  = "whe1"
+	CronJobPrefix           = "cj1"
 )
 
 var typePrefixes = []string{
@@ -27,7 +27,7 @@ var typePrefixes = []string{
 	IngestRequestPrefix,
 	SyncRequestPrefix,
 	WebhookPrefix,
-	WebHookExecutionPrefix,
+	CronJobPrefix,
 }
 
 func IsThreadID(id string) bool {

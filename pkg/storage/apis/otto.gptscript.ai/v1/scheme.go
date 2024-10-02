@@ -51,10 +51,10 @@ func AddToSchemeWithGV(scheme *runtime.Scheme, schemeGroupVersion schema.GroupVe
 		&SyncUploadRequestList{},
 		&Webhook{},
 		&WebhookList{},
-		&WebhookExecution{},
-		&WebhookExecutionList{},
 		&WebhookReference{},
 		&WebhookReferenceList{},
+		&CronJob{},
+		&CronJobList{},
 	); err != nil {
 		return err
 	}

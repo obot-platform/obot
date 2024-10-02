@@ -21,6 +21,7 @@ require (
 	github.com/gptscript-ai/otto/logger v0.0.0-00010101000000-000000000000
 	github.com/liggitt/tabwriter v0.0.0-20181228230101-89fcab3d43de
 	github.com/pterm/pterm v0.12.79
+	github.com/robfig/cron/v3 v3.0.1
 	github.com/rs/cors v1.11.1
 	github.com/spf13/cobra v1.8.1
 	github.com/thedadams/workspace-provider v0.0.0-20240912195139-5dc37cf34474

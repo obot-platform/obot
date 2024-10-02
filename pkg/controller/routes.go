@@ -4,13 +4,14 @@ import (
 	"github.com/acorn-io/baaah/pkg/router"
 	"github.com/gptscript-ai/otto/pkg/controller/handlers/agents"
 	"github.com/gptscript-ai/otto/pkg/controller/handlers/cleanup"
+	"github.com/gptscript-ai/otto/pkg/controller/handlers/cronjob"
 	knowledgehandler "github.com/gptscript-ai/otto/pkg/controller/handlers/knowledge"
 	"github.com/gptscript-ai/otto/pkg/controller/handlers/reference"
 	"github.com/gptscript-ai/otto/pkg/controller/handlers/runs"
 	"github.com/gptscript-ai/otto/pkg/controller/handlers/threads"
 	"github.com/gptscript-ai/otto/pkg/controller/handlers/toolreference"
 	"github.com/gptscript-ai/otto/pkg/controller/handlers/uploads"
-	"github.com/gptscript-ai/otto/pkg/controller/handlers/webhookexecution"
+	"github.com/gptscript-ai/otto/pkg/controller/handlers/webhook"
 	"github.com/gptscript-ai/otto/pkg/controller/handlers/workflow"
 	"github.com/gptscript-ai/otto/pkg/controller/handlers/workflowexecution"
 	"github.com/gptscript-ai/otto/pkg/controller/handlers/workflowstep"
@@ -31,7 +32,8 @@ func routes(root *router.Router, svcs *services.Services) error {
 	knowledge := knowledgehandler.New(svcs.WorkspaceClient, ingester, "directory")
 	uploads := uploads.New(svcs.Invoker, svcs.WorkspaceClient, "directory", svcs.SystemTools[services.SystemToolOneDrive])
 	runs := runs.New(svcs.Invoker)
-	webhookExecutions := webhookexecution.New(svcs.WorkspaceClient, svcs.Invoker)
+	webHooks := webhook.New()
+	cronJobs := cronjob.New()
 
 	// Runs
 	root.Type(&v1.Run{}).FinalizeFunc(v1.RunFinalizer, runs.DeleteRunState)
@@ -102,10 +104,12 @@ func routes(root *router.Router, svcs *services.Services) error {
 	root.Type(&v1.Webhook{}).HandlerFunc(cleanup.Cleanup)
 	root.Type(&v1.Webhook{}).HandlerFunc(reference.AssociateWebhookWithReference)
 	root.Type(&v1.WebhookReference{}).HandlerFunc(reference.Cleanup)
+	root.Type(&v1.Webhook{}).HandlerFunc(webHooks.SetSuccessRunTime)
 
-	// Webhook executions
-	root.Type(&v1.WebhookExecution{}).HandlerFunc(cleanup.Cleanup)
-	root.Type(&v1.WebhookExecution{}).HandlerFunc(webhookExecutions.Run)
+	// Cronjobs
+	root.Type(&v1.CronJob{}).HandlerFunc(cleanup.Cleanup)
+	root.Type(&v1.CronJob{}).HandlerFunc(cronJobs.SetSuccessRunTime)
+	root.Type(&v1.CronJob{}).HandlerFunc(cronJobs.Run)
 
 	return nil
 }

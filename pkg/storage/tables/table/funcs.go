@@ -16,6 +16,7 @@ import (
 var (
 	FuncMap = map[string]any{
 		"ago":          FormatCreated,
+		"agoptr":       FormatTimePointer,
 		"until":        FormatUntil,
 		"json":         FormatJSON,
 		"jsoncompact":  FormatJSONCompact,
@@ -73,6 +74,13 @@ func Pointer(data any) string {
 
 func FormatID(obj kclient.Object) (string, error) {
 	return obj.GetName(), nil
+}
+
+func FormatTimePointer(data *metav1.Time) string {
+	if data == nil {
+		return ""
+	}
+	return FormatCreated(*data)
 }
 
 func FormatCreated(data metav1.Time) string {

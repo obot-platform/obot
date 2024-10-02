@@ -2,6 +2,7 @@ package workflowexecution
 
 import (
 	"context"
+	"time"
 
 	"github.com/acorn-io/baaah/pkg/router"
 	"github.com/gptscript-ai/otto/apiclient/types"
@@ -111,6 +112,9 @@ func (h *Handler) Run(req router.Request, resp router.Response) error {
 	}
 
 	we.Status.State = newState
+	if we.Status.State == v1.WorkflowStateError || we.Status.State == v1.WorkflowStateComplete {
+		we.Status.EndTime = &metav1.Time{Time: time.Now()}
+	}
 	if we.Status.WorkflowManifest.Output != "" {
 		we.Status.Output = output
 	}
@@ -172,7 +176,7 @@ func (h *Handler) newThread(ctx context.Context, c kclient.Client, wf *v1.Workfl
 		WorkflowName:          we.Spec.WorkflowName,
 		WorkflowExecutionName: we.Name,
 		WebhookName:           we.Spec.WebhookName,
-		WebhookExecutionName:  we.Spec.WebhookExecutionName,
+		CronJobName:           we.Spec.CronJobName,
 		WorkspaceIDs:          []string{ws.Status.WorkspaceID},
 		KnowledgeWorkspaceIDs: []string{knowledgWs.Status.WorkspaceID},
 	})
