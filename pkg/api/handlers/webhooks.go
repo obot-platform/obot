@@ -216,6 +216,16 @@ func (a *WebhookHandler) Execute(req api.Context) error {
 		input.WriteString(req.Request.Header.Get(k))
 	}
 
+	workflowID := webhook.Spec.WebhookManifest.WorkflowName
+	if !system.IsWorkflowID(workflowID) {
+		var ref v1.Reference
+		if err = req.Get(&ref, workflowID); err != nil || ref.Spec.WorkflowName == "" {
+			return fmt.Errorf("failed to get workflow with ref %s: %w", workflowID, err)
+		}
+
+		workflowID = ref.Spec.WorkflowName
+	}
+
 	if err = req.Create(&v1.WorkflowExecution{
 		ObjectMeta: metav1.ObjectMeta{
 			// The name here is the sha256 hash of the body to handle multiple executions of the same webhook.
@@ -224,7 +234,7 @@ func (a *WebhookHandler) Execute(req api.Context) error {
 			Namespace: req.Namespace(),
 		},
 		Spec: v1.WorkflowExecutionSpec{
-			WorkflowName: webhook.Spec.WebhookManifest.WorkflowName,
+			WorkflowName: workflowID,
 			WebhookName:  webhook.Name,
 			Input:        input.String(),
 		},

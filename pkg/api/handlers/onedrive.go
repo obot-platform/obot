@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"errors"
 	"fmt"
 	"net/http"
 
@@ -149,11 +148,8 @@ func deleteOneDriveLinks(req api.Context, linksID, parentName string, parentObj 
 		return fmt.Errorf("failed to get parent with id %s: %w", parentName, err)
 	}
 
-	var (
-		httpErr       *types.ErrHTTP
-		oneDriveLinks v1.OneDriveLinks
-	)
-	if err := req.Get(&oneDriveLinks, linksID); errors.As(err, &httpErr) {
+	var oneDriveLinks v1.OneDriveLinks
+	if err := req.Get(&oneDriveLinks, linksID); types.IsNotFound(err) {
 		return nil
 	} else if err != nil {
 		return fmt.Errorf("failed to get OneDrive links with id %s: %w", linksID, err)

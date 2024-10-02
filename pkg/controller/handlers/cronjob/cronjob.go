@@ -37,18 +37,28 @@ func (h *Handler) Run(req router.Request, resp router.Response) error {
 		return nil
 	}
 
+	workflowID := cj.Spec.WorkflowName
+	if !system.IsWorkflowID(workflowID) {
+		var ref v1.Reference
+		if err = req.Get(&ref, cj.Namespace, workflowID); err != nil || ref.Spec.WorkflowName == "" {
+			return fmt.Errorf("failed to get workflow with ref %s: %w", workflowID, err)
+		}
+
+		workflowID = ref.Spec.WorkflowName
+	}
+
 	resp.Objects(
 		&v1.WorkflowExecution{
 			ObjectMeta: metav1.ObjectMeta{
 				GenerateName: system.WorkflowExecutionPrefix,
 				Namespace:    req.Namespace,
-				// Don't prune since we are creating one-off executions
+				// Don't prune, these will be deleted when the cronjob is deleted.
 				Annotations: map[string]string{
 					apply.AnnotationPrune: "false",
 				},
 			},
 			Spec: v1.WorkflowExecutionSpec{
-				WorkflowName: cj.Spec.WorkflowName,
+				WorkflowName: workflowID,
 				Input:        cj.Spec.Input,
 				CronJobName:  cj.Name,
 			},

@@ -1,6 +1,7 @@
 package types
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 )
@@ -29,4 +30,9 @@ func NewErrNotFound(message string, args ...any) *ErrHTTP {
 		message = fmt.Sprintf(message, args...)
 	}
 	return NewErrHttp(http.StatusNotFound, message)
+}
+
+func IsNotFound(err error) bool {
+	var errHTTP *ErrHTTP
+	return errors.As(err, &errHTTP) && errHTTP.Code == http.StatusNotFound
 }

@@ -108,13 +108,23 @@ func (a *CronJobHandler) Execute(req api.Context) error {
 		return err
 	}
 
+	workflowID := cronJob.Spec.WorkflowName
+	if !system.IsWorkflowID(workflowID) {
+		var ref v1.Reference
+		if err := req.Get(&ref, workflowID); err != nil || ref.Spec.WorkflowName == "" {
+			return fmt.Errorf("failed to get workflow with ref %s: %w", workflowID, err)
+		}
+
+		workflowID = ref.Spec.WorkflowName
+	}
+
 	if err := req.Create(&v1.WorkflowExecution{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: system.WorkflowExecutionPrefix,
 			Namespace:    req.Namespace(),
 		},
 		Spec: v1.WorkflowExecutionSpec{
-			WorkflowName: cronJob.Spec.CronJobManifest.WorkflowName,
+			WorkflowName: workflowID,
 			Input:        cronJob.Spec.Input,
 			CronJobName:  cronJob.Name,
 		},
@@ -151,13 +161,14 @@ func parseAndValidateCronManifest(req api.Context) (*types.CronJobManifest, erro
 		return nil, apierrors.NewBadRequest(fmt.Sprintf("invalid schedule %s: %v", manifest.Schedule, err))
 	}
 
-	if manifest.WorkflowName != "" {
-		var workflow v1.Workflow
-		if err := req.Get(&workflow, manifest.WorkflowName); apierrors.IsNotFound(err) {
+	var workflow v1.Workflow
+	if err := req.Get(&workflow, manifest.WorkflowName); types.IsNotFound(err) {
+		var ref v1.Reference
+		if err = req.Get(&ref, manifest.WorkflowName); err != nil || ref.Spec.WorkflowName == "" {
 			return nil, apierrors.NewBadRequest(fmt.Sprintf("workflow %s does not exist", manifest.WorkflowName))
-		} else if err != nil {
-			return nil, err
 		}
+	} else if err != nil {
+		return nil, err
 	}
 
 	return &manifest, nil
