@@ -56,7 +56,7 @@ func AssociateWebhookWithReference(req router.Request, resp router.Response) err
 	return nil
 }
 
-func Cleanup(req router.Request, _ router.Response) error {
+func CleanupWebhook(req router.Request, _ router.Response) error {
 	whr := req.Object.(*v1.WebhookReference)
 	if whr.Spec.WebhookName == "" || whr.Spec.WebhookNamespace == "" {
 		return kclient.IgnoreNotFound(req.Delete(whr))

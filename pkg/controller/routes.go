@@ -86,6 +86,7 @@ func routes(root *router.Router, svcs *services.Services) error {
 	root.Type(&v1.Reference{}).HandlerFunc(cleanup.Cleanup)
 	root.Type(&v1.Agent{}).HandlerFunc(reference.AssociateWithReference)
 	root.Type(&v1.Workflow{}).HandlerFunc(reference.AssociateWithReference)
+	root.Type(&v1.Reference{}).HandlerFunc(reference.Cleanup)
 
 	// Knowledge files
 	root.Type(&v1.KnowledgeFile{}).HandlerFunc(cleanup.Cleanup)
@@ -107,7 +108,7 @@ func routes(root *router.Router, svcs *services.Services) error {
 	root.Type(&v1.Webhook{}).HandlerFunc(webHooks.SetSuccessRunTime)
 
 	// Webhook references
-	root.Type(&v1.WebhookReference{}).HandlerFunc(reference.Cleanup)
+	root.Type(&v1.WebhookReference{}).HandlerFunc(reference.CleanupWebhook)
 
 	// Cronjobs
 	root.Type(&v1.CronJob{}).HandlerFunc(cleanup.Cleanup)
