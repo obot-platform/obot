@@ -10,14 +10,19 @@ type RemoteKnowledgeSourceType string
 
 type RemoteKnowledgeSource struct {
 	Metadata
-	AgentID    string                     `json:"agentID,omitempty"`
-	WorkflowID string                     `json:"workflowID,omitempty"`
-	ThreadID   string                     `json:"threadID,omitempty"`
-	RunID      string                     `json:"runID,omitempty"`
-	Input      RemoteKnowledgeSourceInput `json:"input,omitempty"`
-	State      RemoteKnowledgeSourceState `json:"state,omitempty"`
-	Status     string                     `json:"status,omitempty"`
-	Error      string                     `json:"error,omitempty"`
+	RemoteKnowledgeSourceManifest `json:",inline"`
+	AgentID                       string                     `json:"agentID,omitempty"`
+	WorkflowID                    string                     `json:"workflowID,omitempty"`
+	ThreadID                      string                     `json:"threadID,omitempty"`
+	RunID                         string                     `json:"runID,omitempty"`
+	State                         RemoteKnowledgeSourceState `json:"state,omitempty"`
+	Status                        string                     `json:"status,omitempty"`
+	Error                         string                     `json:"error,omitempty"`
+}
+
+type RemoteKnowledgeSourceManifest struct {
+	SyncSchedule               string `json:"syncSchedule,omitempty"`
+	RemoteKnowledgeSourceInput `json:",inline"`
 }
 
 type RemoteKnowledgeSourceList List[RemoteKnowledgeSource]

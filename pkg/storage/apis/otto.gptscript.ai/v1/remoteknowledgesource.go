@@ -39,9 +39,9 @@ func (in *RemoteKnowledgeSource) GetConditions() *[]metav1.Condition {
 }
 
 type RemoteKnowledgeSourceSpec struct {
-	AgentName    string                           `json:"agentName,omitempty"`
-	WorkflowName string                           `json:"workflowName,omitempty"`
-	Input        types.RemoteKnowledgeSourceInput `json:"input,omitempty"`
+	types.RemoteKnowledgeSourceManifest `json:",inline"`
+	AgentName                           string `json:"agentName,omitempty"`
+	WorkflowName                        string `json:"workflowName,omitempty"`
 }
 
 type RemoteKnowledgeSourceStatus struct {

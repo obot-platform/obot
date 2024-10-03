@@ -17,18 +17,18 @@ func createRemoteKnowledgeSource(req api.Context, parentName string, parentObj c
 		return fmt.Errorf("failed to get parent with id %s: %w", parentName, err)
 	}
 
-	var input types.RemoteKnowledgeSourceInput
+	var input types.RemoteKnowledgeSourceManifest
 	if err := req.Read(&input); err != nil {
 		return fmt.Errorf("failed to decode request body: %w", err)
 	}
 
 	remoteKnowledgeSource := &v1.RemoteKnowledgeSource{
 		ObjectMeta: metav1.ObjectMeta{
-			GenerateName: "remote-knowledge-source-",
+			GenerateName: system.RemoteKnowledgeSourcePrefix,
 			Namespace:    req.Namespace(),
 		},
 		Spec: v1.RemoteKnowledgeSourceSpec{
-			Input: input,
+			RemoteKnowledgeSourceManifest: input,
 		},
 	}
 
@@ -63,7 +63,7 @@ func updateRemoteKnowledgeSource(req api.Context, linksID, parentName string, pa
 	}
 
 	if remoteKnowledgeSource.Spec.AgentName != parentName && remoteKnowledgeSource.Spec.WorkflowName != parentName {
-		return fmt.Errorf("RemoteKnowledgeSource agent name %q does not match provided agent name %q", remoteKnowledgeSource.Spec.AgentName, parentName)
+		return fmt.Errorf("RemoteKnowledgeSource parent id %q does not match provided parent id %q", remoteKnowledgeSource.Spec.AgentName, parentName)
 	}
 
 	var input types.RemoteKnowledgeSourceInput
@@ -71,7 +71,7 @@ func updateRemoteKnowledgeSource(req api.Context, linksID, parentName string, pa
 		return fmt.Errorf("failed to decode request body: %w", err)
 	}
 
-	remoteKnowledgeSource.Spec.Input = input
+	remoteKnowledgeSource.Spec.RemoteKnowledgeSourceInput = input
 
 	if err := req.Update(&remoteKnowledgeSource); err != nil {
 		return fmt.Errorf("failed to update RemoteKnowledgeSource: %w", err)
@@ -96,7 +96,7 @@ func reSyncRemoteKnowledgeSource(req api.Context, linksID, parentName string, pa
 	}
 
 	if remoteKnowledgeSource.Spec.AgentName != parentName && remoteKnowledgeSource.Spec.WorkflowName != parentName {
-		return fmt.Errorf("RemoteKnowledgeSource agent name %q does not match provided agent name %q", remoteKnowledgeSource.Spec.AgentName, parentName)
+		return fmt.Errorf("RemoteKnowledgeSource parent id %q does not match provided parent id %q", remoteKnowledgeSource.Spec.AgentName, parentName)
 	}
 
 	if err := createSyncRequest(req, remoteKnowledgeSource); err != nil {
@@ -156,7 +156,7 @@ func deleteRemoteKnowledgeSource(req api.Context, remoteKnowledgeSourceID, paren
 	}
 
 	if remoteKnowledgeSource.Spec.AgentName != parentName && remoteKnowledgeSource.Spec.WorkflowName != parentName {
-		return fmt.Errorf("RemoteKnowledgeSource name %q does not match provided agent name %q", remoteKnowledgeSource.Spec.AgentName, parentName)
+		return fmt.Errorf("RemoteKnowledgeSource parent id %q does not match provided id %q", remoteKnowledgeSource.Spec.AgentName, parentName)
 	}
 
 	if err := req.Delete(&remoteKnowledgeSource); err != nil {
@@ -168,14 +168,14 @@ func deleteRemoteKnowledgeSource(req api.Context, remoteKnowledgeSourceID, paren
 
 func convertRemoteKnowledgeSource(remoteKnowledgeSource v1.RemoteKnowledgeSource) types.RemoteKnowledgeSource {
 	return types.RemoteKnowledgeSource{
-		Metadata:   MetadataFrom(&remoteKnowledgeSource),
-		AgentID:    remoteKnowledgeSource.Spec.AgentName,
-		WorkflowID: remoteKnowledgeSource.Spec.WorkflowName,
-		Input:      remoteKnowledgeSource.Spec.Input,
-		State:      remoteKnowledgeSource.Status.State,
-		ThreadID:   remoteKnowledgeSource.Status.ThreadName,
-		RunID:      remoteKnowledgeSource.Status.RunName,
-		Status:     remoteKnowledgeSource.Status.Status,
-		Error:      remoteKnowledgeSource.Status.Error,
+		Metadata:                      MetadataFrom(&remoteKnowledgeSource),
+		RemoteKnowledgeSourceManifest: remoteKnowledgeSource.Spec.RemoteKnowledgeSourceManifest,
+		AgentID:                       remoteKnowledgeSource.Spec.AgentName,
+		WorkflowID:                    remoteKnowledgeSource.Spec.WorkflowName,
+		State:                         remoteKnowledgeSource.Status.State,
+		ThreadID:                      remoteKnowledgeSource.Status.ThreadName,
+		RunID:                         remoteKnowledgeSource.Status.RunName,
+		Status:                        remoteKnowledgeSource.Status.Status,
+		Error:                         remoteKnowledgeSource.Status.Error,
 	}
 }

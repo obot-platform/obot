@@ -16,6 +16,7 @@ import (
 	v1 "github.com/gptscript-ai/otto/pkg/storage/apis/otto.gptscript.ai/v1"
 	"github.com/gptscript-ai/otto/pkg/system"
 	"github.com/gptscript-ai/otto/pkg/workspace"
+	"github.com/robfig/cron/v3"
 	wclient "github.com/thedadams/workspace-provider/pkg/client"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -48,7 +49,7 @@ func New(invoker *invoke.Invoker, wc *wclient.Client, workspaceProvider, onedriv
 // CreateThread will create a thread for the upload. This is needed so that we can supply the metadata file to the
 // connector. This will check to ensure an ingestion is not currently running to avoid adding files to a directory that
 // is currently being ingested.
-func (u *UploadHandler) CreateThread(req router.Request, _ router.Response) error {
+func (u *UploadHandler) CreateThread(req router.Request, resp router.Response) error {
 	remoteKnowledgeSource := req.Object.(*v1.RemoteKnowledgeSource)
 	if remoteKnowledgeSource.Status.ThreadName != "" {
 		return nil
@@ -66,7 +67,7 @@ func (u *UploadHandler) CreateThread(req router.Request, _ router.Response) erro
 	if ws.Status.IngestionRunName != "" {
 		// Check to see if the ingestion run is still running.
 		var run v1.Run
-		if err := req.Get(&run, ws.Namespace, ws.Status.IngestionRunName); err != nil && !apierrors.IsNotFound(err) {
+		if err = req.Get(&run, ws.Namespace, ws.Status.IngestionRunName); err != nil && !apierrors.IsNotFound(err) {
 			return err
 		} else if err == nil && !run.Status.State.IsTerminal() {
 			// An ingestion is running. Don't download files while that is happening because it may corrupt things.
@@ -74,21 +75,38 @@ func (u *UploadHandler) CreateThread(req router.Request, _ router.Response) erro
 		}
 	}
 
-	var reSyncRequests v1.SyncUploadRequestList
-	if err := req.List(&reSyncRequests, &client.ListOptions{
-		Namespace: remoteKnowledgeSource.Namespace,
-		FieldSelector: fields.SelectorFromSet(map[string]string{
-			"spec.remoteKnowledgeSourceName": remoteKnowledgeSource.Name,
-		}),
-	}); err != nil {
-		return err
+	reSyncNeeded := remoteKnowledgeSource.Status.LastReSyncStarted.IsZero()
+	// If no resync is needed and the schedule is set, check to see if it is time to run again.
+	if !reSyncNeeded && remoteKnowledgeSource.Spec.SyncSchedule != "" {
+		schedule, err := cron.ParseStandard(remoteKnowledgeSource.Spec.SyncSchedule)
+		if err != nil {
+			return err
+		}
+
+		timeUntilNext := time.Until(schedule.Next(remoteKnowledgeSource.Status.LastReSyncStarted.Time))
+		reSyncNeeded = timeUntilNext <= 0
+		if !reSyncNeeded {
+			resp.RetryAfter(timeUntilNext)
+		}
 	}
 
-	var reSyncNeeded bool
-	for _, reSyncRequest := range reSyncRequests.Items {
-		if reSyncRequest.CreationTimestamp.After(remoteKnowledgeSource.Status.LastReSyncStarted.Time) {
-			reSyncNeeded = true
-			break
+	// If no resync is needed, check to see if there are any resync requests.
+	if !reSyncNeeded {
+		var reSyncRequests v1.SyncUploadRequestList
+		if err = req.List(&reSyncRequests, &client.ListOptions{
+			Namespace: remoteKnowledgeSource.Namespace,
+			FieldSelector: fields.SelectorFromSet(map[string]string{
+				"spec.remoteKnowledgeSourceName": remoteKnowledgeSource.Name,
+			}),
+		}); err != nil {
+			return err
+		}
+
+		for _, reSyncRequest := range reSyncRequests.Items {
+			if reSyncRequest.CreationTimestamp.After(remoteKnowledgeSource.Status.LastReSyncStarted.Time) {
+				reSyncNeeded = true
+				break
+			}
 		}
 	}
 
@@ -155,25 +173,31 @@ func (u *UploadHandler) RunUpload(req router.Request, _ router.Response) error {
 		"state":  remoteKnowledgeSource.Status.State,
 	}
 
-	writer, err := u.workspaceClient.WriteFile(req.Ctx, thread.Spec.WorkspaceID, ".metadata.json")
-	if err != nil {
-		return fmt.Errorf("failed to create metadata file: %w", err)
-	}
-
 	ws, err := knowledgeWorkspaceFromParent(req, remoteKnowledgeSource)
 	if err != nil {
 		return fmt.Errorf("failed to get parent status: %w", err)
 	}
 
 	b, err := json.Marshal(map[string]any{
-		"input":     remoteKnowledgeSource.Spec.Input,
+		"input":     remoteKnowledgeSource.Spec.RemoteKnowledgeSourceInput,
 		"outputDir": filepath.Join(workspace.GetDir(ws.Status.WorkspaceID), remoteKnowledgeSource.Name),
 		"output":    output,
 	})
+	if err != nil {
+		return fmt.Errorf("failed to marshal metadata: %w", err)
+	}
+
+	writer, err := u.workspaceClient.WriteFile(req.Ctx, thread.Spec.WorkspaceID, ".metadata.json")
+	if err != nil {
+		return fmt.Errorf("failed to create metadata file: %w", err)
+	}
 
 	if _, err = writer.Write(b); err != nil {
+		_ = writer.Close()
 		return fmt.Errorf("failed to write metadata file: %w", err)
 	}
+
+	// The file has to be closed before the system action is started to ensure that the tool has the metadata file.
 	if err = writer.Close(); err != nil {
 		return fmt.Errorf("failed to close metadata file: %w", err)
 	}
@@ -194,7 +218,7 @@ func (u *UploadHandler) RunUpload(req router.Request, _ router.Response) error {
 }
 
 func (u *UploadHandler) getTool(r *v1.RemoteKnowledgeSource) string {
-	switch r.Spec.Input.SourceType {
+	switch r.Spec.SourceType {
 	case types.RemoteKnowledgeSourceTypeOneDrive:
 		return u.onedriveTool
 	case types.RemoteKnowledgeSourceTypeNotion:
@@ -218,6 +242,7 @@ func (u *UploadHandler) HandleUploadRun(req router.Request, resp router.Response
 
 	var run v1.Run
 	if err := req.Get(&run, remoteKnowledgeSource.Namespace, remoteKnowledgeSource.Status.RunName); apierrors.IsNotFound(err) {
+		// Might not be in the cache yet.
 		return nil
 	} else if err != nil {
 		return err
@@ -228,46 +253,31 @@ func (u *UploadHandler) HandleUploadRun(req router.Request, resp router.Response
 		return err
 	}
 
+	file, err := u.workspaceClient.OpenFile(req.Ctx, thread.Spec.WorkspaceID, ".metadata.json")
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	var metadata struct {
+		Output v1.RemoteConnectorStatus `json:"output,omitempty"`
+	}
+	if err = json.NewDecoder(file).Decode(&metadata); err != nil {
+		return err
+	}
+
+	remoteKnowledgeSource.Status.Status = metadata.Output.Status
+	remoteKnowledgeSource.Status.Error = metadata.Output.Error
+
 	if !run.Status.State.IsTerminal() {
-		file, err := u.workspaceClient.OpenFile(req.Ctx, thread.Spec.WorkspaceID, ".metadata.json")
-		if err != nil {
-			return err
-		}
-		defer file.Close()
-
-		var metadata struct {
-			Output v1.RemoteConnectorStatus `json:"output,omitempty"`
-		}
-		if err = json.NewDecoder(file).Decode(&metadata); err != nil {
-			return err
-		}
-
-		remoteKnowledgeSource.Status.Status = metadata.Output.Status
-		remoteKnowledgeSource.Status.Error = metadata.Output.Error
 		resp.RetryAfter(5 * time.Second)
 		return nil
 	}
 
+	// If the run is in a terminal state, then we need to compile the file statuses and pass them off to knowledge.
 	ws, err := knowledgeWorkspaceFromParent(req, remoteKnowledgeSource)
 	if err != nil {
 		return err
-	}
-
-	// Read the output metadata from the connector tool.
-	file, err := u.workspaceClient.OpenFile(req.Ctx, thread.Spec.WorkspaceID, ".metadata.json")
-	if err != nil {
-		return fmt.Errorf("failed to open metadata file: %w", err)
-	}
-
-	var metadata struct {
-		Output v1.RemoteConnectorStatus `json:"output"`
-	}
-	if err = json.NewDecoder(file).Decode(&metadata); err != nil {
-		return fmt.Errorf("failed to decode metadata file: %w", err)
-	}
-
-	if err = file.Close(); err != nil {
-		return fmt.Errorf("failed to close metadata file: %w", err)
 	}
 
 	fileMetadata, knowledgeFileNamesFromOutput, err := compileKnowledgeFilesFromOneDriveConnector(req.Ctx, req.Client, remoteKnowledgeSource, metadata.Output.Files, ws)
@@ -280,19 +290,16 @@ func (u *UploadHandler) HandleUploadRun(req router.Request, resp router.Response
 	}
 
 	// Put the metadata file in the agent knowledge workspace
-	writer, err := u.workspaceClient.WriteFile(req.Ctx, ws.Status.WorkspaceID, filepath.Join(remoteKnowledgeSource.Name, ".knowledge.json"))
+	writer, err := u.workspaceClient.WriteFile(req.Ctx, ws.Status.WorkspaceID, filepath.Join(remoteKnowledgeSource.Name, ".knowledge.json"), wclient.WriteOptions{CreateDirs: true})
 	if err != nil {
 		return fmt.Errorf("failed to create knowledge metadata file: %w", err)
 	}
+	defer writer.Close()
+
 	if err = json.NewEncoder(writer).Encode(map[string]any{"metadata": fileMetadata}); err != nil {
 		return fmt.Errorf("failed to encode metadata file: %w", err)
 	}
-	if err = writer.Close(); err != nil {
-		return fmt.Errorf("failed to close metadata file: %w", err)
-	}
 
-	remoteKnowledgeSource.Status.Error = metadata.Output.Error
-	remoteKnowledgeSource.Status.Status = metadata.Output.Status
 	remoteKnowledgeSource.Status.State = metadata.Output.State
 
 	// Reset run name to indicate that the run is no longer running
@@ -349,7 +356,7 @@ func (u *UploadHandler) Cleanup(req router.Request, resp router.Response) error 
 	}
 
 	// Delete the directory in the workspace for this onedrive link.
-	if err := u.workspaceClient.RmDir(req.Ctx, ws.Status.WorkspaceID, remoteKnowledgeSource.Name); err != nil {
+	if err = u.workspaceClient.RmDir(req.Ctx, ws.Status.WorkspaceID, remoteKnowledgeSource.Name); err != nil {
 		return fmt.Errorf("failed to delete directory %q in workspace %s: %w", remoteKnowledgeSource.Name, ws.Status.WorkspaceID, err)
 	}
 
@@ -437,7 +444,7 @@ func compileKnowledgeFilesFromOneDriveConnector(ctx context.Context, c client.Cl
 				WorkspaceName:             ws.Name,
 				FileName:                  fileRelPath,
 				RemoteKnowledgeSourceName: remoteKnowledgeSource.Name,
-				RemoteKnowledgeSourceType: remoteKnowledgeSource.Spec.Input.SourceType,
+				RemoteKnowledgeSourceType: remoteKnowledgeSource.Spec.SourceType,
 			},
 		}
 		if err := c.Create(ctx, newKnowledgeFile); err == nil || apierrors.IsAlreadyExists(err) {

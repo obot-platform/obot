@@ -39,11 +39,11 @@ func Router(services *services.Services) (http.Handler, error) {
 	mux.Handle("POST /agents/{id}/knowledge/{file}", w(agents.UploadKnowledge))
 	mux.Handle("DELETE /agents/{id}/knowledge/{file...}", w(agents.DeleteKnowledge))
 
-	mux.Handle("POST /agents/{agent_id}/remote-knowledge-source", w(agents.CreateRemoteKnowledgeSource))
-	mux.Handle("GET /agents/{agent_id}/remote-knowledge-source", w(agents.GetRemoteKnowledgeSources))
-	mux.Handle("PATCH /agents/{agent_id}/remote-knowledge-source/{id}", w(agents.ReSyncRemoteKnowledgeSource))
-	mux.Handle("PUT /agents/{agent_id}/remote-knowledge-source/{id}", w(agents.UpdateRemoteKnowledgeSource))
-	mux.Handle("DELETE /agents/{agent_id}/remote-knowledge-source/{id}", w(agents.DeleteRemoteKnowledgeSource))
+	mux.Handle("POST /agents/{agent_id}/remote-knowledge-sources", w(agents.CreateRemoteKnowledgeSource))
+	mux.Handle("GET /agents/{agent_id}/remote-knowledge-sources", w(agents.GetRemoteKnowledgeSources))
+	mux.Handle("PATCH /agents/{agent_id}/remote-knowledge-sources/{id}", w(agents.ReSyncRemoteKnowledgeSource))
+	mux.Handle("PUT /agents/{agent_id}/remote-knowledge-sources/{id}", w(agents.UpdateRemoteKnowledgeSource))
+	mux.Handle("DELETE /agents/{agent_id}/remote-knowledge-sources/{id}", w(agents.DeleteRemoteKnowledgeSource))
 
 	// Workflows
 	mux.Handle("GET /workflows", w(workflows.List))
@@ -64,11 +64,11 @@ func Router(services *services.Services) (http.Handler, error) {
 	mux.Handle("POST /workflows/{id}/knowledge/{file}", w(workflows.UploadKnowledge))
 	mux.Handle("DELETE /workflows/{id}/knowledge/{file...}", w(workflows.DeleteKnowledge))
 
-	mux.Handle("POST /workflows/{workflow_id}/remote-knowledge-source", w(workflows.CreateRemoteKnowledgeSource))
+	mux.Handle("POST /workflows/{workflow_id}/remote-knowledge-sources", w(workflows.CreateRemoteKnowledgeSource))
 	mux.Handle("GET /workflows/{workflow_id}/remote-knowledge-sources", w(workflows.GetRemoteKnowledgeSources))
-	mux.Handle("PATCH /workflows/{workflow_id}/remote-knowledge-source/{id}", w(workflows.ReSyncRemoteKnowledgeSource))
-	mux.Handle("PUT /workflows/{workflow_id}/remote-knowledge-source/{id}", w(workflows.UpdateRemoteKnowledgeSource))
-	mux.Handle("DELETE /workflows/{workflow_id}/remote-knowledge-source/{id}", w(workflows.DeleteRemoteKnowledgeSource))
+	mux.Handle("PATCH /workflows/{workflow_id}/remote-knowledge-sources/{id}", w(workflows.ReSyncRemoteKnowledgeSource))
+	mux.Handle("PUT /workflows/{workflow_id}/remote-knowledge-sources/{id}", w(workflows.UpdateRemoteKnowledgeSource))
+	mux.Handle("DELETE /workflows/{workflow_id}/remote-knowledge-sources/{id}", w(workflows.DeleteRemoteKnowledgeSource))
 
 	// Invoker
 	mux.Handle("POST /invoke/{id}", w(invoker.Invoke))

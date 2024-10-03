@@ -59,7 +59,7 @@ type WorkspaceSpec struct {
 }
 
 type WorkspaceStatus struct {
-	WorkspaceID             string      `json:"knowledgeWorkspaceID,omitempty"`
+	WorkspaceID             string      `json:"workspaceID,omitempty"`
 	HasKnowledge            bool        `json:"hasKnowledge,omitempty"`
 	LastIngestionRunStarted metav1.Time `json:"lastIngestionRunStarted,omitempty"`
 	IngestionRunName        string      `json:"ingestionRunName,omitempty"`

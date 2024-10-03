@@ -47,6 +47,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/gptscript-ai/otto/apiclient/types.RemoteKnowledgeSource":                              schema_gptscript_ai_otto_apiclient_types_RemoteKnowledgeSource(ref),
 		"github.com/gptscript-ai/otto/apiclient/types.RemoteKnowledgeSourceInput":                         schema_gptscript_ai_otto_apiclient_types_RemoteKnowledgeSourceInput(ref),
 		"github.com/gptscript-ai/otto/apiclient/types.RemoteKnowledgeSourceList":                          schema_gptscript_ai_otto_apiclient_types_RemoteKnowledgeSourceList(ref),
+		"github.com/gptscript-ai/otto/apiclient/types.RemoteKnowledgeSourceManifest":                      schema_gptscript_ai_otto_apiclient_types_RemoteKnowledgeSourceManifest(ref),
 		"github.com/gptscript-ai/otto/apiclient/types.RemoteKnowledgeSourceState":                         schema_gptscript_ai_otto_apiclient_types_RemoteKnowledgeSourceState(ref),
 		"github.com/gptscript-ai/otto/apiclient/types.Run":                                                schema_gptscript_ai_otto_apiclient_types_Run(ref),
 		"github.com/gptscript-ai/otto/apiclient/types.RunList":                                            schema_gptscript_ai_otto_apiclient_types_RunList(ref),
@@ -1295,6 +1296,47 @@ func schema_gptscript_ai_otto_apiclient_types_RemoteKnowledgeSource(ref common.R
 							Ref:     ref("github.com/gptscript-ai/otto/apiclient/types.Metadata"),
 						},
 					},
+					"syncSchedule": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"sourceType": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"exclude": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+					"onedriveConfig": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/gptscript-ai/otto/apiclient/types.OneDriveConfig"),
+						},
+					},
+					"notionConfig": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/gptscript-ai/otto/apiclient/types.NotionConfig"),
+						},
+					},
+					"websiteCrawlingConfig": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/gptscript-ai/otto/apiclient/types.WebsiteCrawlingConfig"),
+						},
+					},
 					"agentID": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
@@ -1317,12 +1359,6 @@ func schema_gptscript_ai_otto_apiclient_types_RemoteKnowledgeSource(ref common.R
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
 							Format: "",
-						},
-					},
-					"input": {
-						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref("github.com/gptscript-ai/otto/apiclient/types.RemoteKnowledgeSourceInput"),
 						},
 					},
 					"state": {
@@ -1348,7 +1384,7 @@ func schema_gptscript_ai_otto_apiclient_types_RemoteKnowledgeSource(ref common.R
 			},
 		},
 		Dependencies: []string{
-			"github.com/gptscript-ai/otto/apiclient/types.Metadata", "github.com/gptscript-ai/otto/apiclient/types.RemoteKnowledgeSourceInput", "github.com/gptscript-ai/otto/apiclient/types.RemoteKnowledgeSourceState"},
+			"github.com/gptscript-ai/otto/apiclient/types.Metadata", "github.com/gptscript-ai/otto/apiclient/types.NotionConfig", "github.com/gptscript-ai/otto/apiclient/types.OneDriveConfig", "github.com/gptscript-ai/otto/apiclient/types.RemoteKnowledgeSourceState", "github.com/gptscript-ai/otto/apiclient/types.WebsiteCrawlingConfig"},
 	}
 }
 
@@ -1426,6 +1462,61 @@ func schema_gptscript_ai_otto_apiclient_types_RemoteKnowledgeSourceList(ref comm
 		},
 		Dependencies: []string{
 			"github.com/gptscript-ai/otto/apiclient/types.RemoteKnowledgeSource"},
+	}
+}
+
+func schema_gptscript_ai_otto_apiclient_types_RemoteKnowledgeSourceManifest(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"syncSchedule": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"sourceType": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"exclude": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+					"onedriveConfig": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/gptscript-ai/otto/apiclient/types.OneDriveConfig"),
+						},
+					},
+					"notionConfig": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/gptscript-ai/otto/apiclient/types.NotionConfig"),
+						},
+					},
+					"websiteCrawlingConfig": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/gptscript-ai/otto/apiclient/types.WebsiteCrawlingConfig"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"github.com/gptscript-ai/otto/apiclient/types.NotionConfig", "github.com/gptscript-ai/otto/apiclient/types.OneDriveConfig", "github.com/gptscript-ai/otto/apiclient/types.WebsiteCrawlingConfig"},
 	}
 }
 
@@ -3509,6 +3600,47 @@ func schema_storage_apis_ottogptscriptai_v1_RemoteKnowledgeSourceSpec(ref common
 			SchemaProps: spec.SchemaProps{
 				Type: []string{"object"},
 				Properties: map[string]spec.Schema{
+					"syncSchedule": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"sourceType": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"exclude": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+					"onedriveConfig": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/gptscript-ai/otto/apiclient/types.OneDriveConfig"),
+						},
+					},
+					"notionConfig": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/gptscript-ai/otto/apiclient/types.NotionConfig"),
+						},
+					},
+					"websiteCrawlingConfig": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/gptscript-ai/otto/apiclient/types.WebsiteCrawlingConfig"),
+						},
+					},
 					"agentName": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
@@ -3521,17 +3653,11 @@ func schema_storage_apis_ottogptscriptai_v1_RemoteKnowledgeSourceSpec(ref common
 							Format: "",
 						},
 					},
-					"input": {
-						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref("github.com/gptscript-ai/otto/apiclient/types.RemoteKnowledgeSourceInput"),
-						},
-					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/gptscript-ai/otto/apiclient/types.RemoteKnowledgeSourceInput"},
+			"github.com/gptscript-ai/otto/apiclient/types.NotionConfig", "github.com/gptscript-ai/otto/apiclient/types.OneDriveConfig", "github.com/gptscript-ai/otto/apiclient/types.WebsiteCrawlingConfig"},
 	}
 }
 
@@ -5671,7 +5797,7 @@ func schema_storage_apis_ottogptscriptai_v1_WorkspaceStatus(ref common.Reference
 			SchemaProps: spec.SchemaProps{
 				Type: []string{"object"},
 				Properties: map[string]spec.Schema{
-					"knowledgeWorkspaceID": {
+					"workspaceID": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
 							Format: "",
