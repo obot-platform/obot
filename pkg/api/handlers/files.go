@@ -125,6 +125,7 @@ func convertKnowledgeFile(file v1.KnowledgeFile, ws v1.Workspace) types.Knowledg
 		FileDetails:               file.Status.FileDetails,
 		RemoteKnowledgeSourceID:   file.Spec.RemoteKnowledgeSourceName,
 		RemoteKnowledgeSourceType: file.Spec.RemoteKnowledgeSourceType,
+		UploadID:                  file.Status.UploadID,
 	}
 }
 

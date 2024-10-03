@@ -10,6 +10,7 @@ type KnowledgeFile struct {
 	RemoteKnowledgeSourceType RemoteKnowledgeSourceType `json:"remoteKnowledgeSourceType,omitempty"`
 	IngestionStatus           IngestionStatus           `json:"ingestionStatus,omitempty"`
 	FileDetails               FileDetails               `json:"fileDetails,omitempty"`
+	UploadID                  string                    `json:"uploadID,omitempty"`
 }
 
 type FileDetails struct {
