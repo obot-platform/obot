@@ -10,7 +10,7 @@ type Webhook struct {
 type WebhookManifest struct {
 	Description           string   `json:"description,omitempty"`
 	RefName               string   `json:"refName,omitempty"`
-	WorkflowName          string   `json:"workflowName,omitempty"`
+	WorkflowID            string   `json:"workflowID,omitempty"`
 	AfterWorkflowStepName string   `json:"afterWorkflowStepName,omitempty"`
 	Headers               []string `json:"headers,omitempty"`
 	Secret                string   `json:"secret,omitempty"`

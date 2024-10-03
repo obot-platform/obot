@@ -108,7 +108,7 @@ func (a *CronJobHandler) Execute(req api.Context) error {
 		return err
 	}
 
-	workflowID := cronJob.Spec.WorkflowName
+	workflowID := cronJob.Spec.WorkflowID
 	if !system.IsWorkflowID(workflowID) {
 		var ref v1.Reference
 		if err := req.Get(&ref, workflowID); err != nil || ref.Spec.WorkflowName == "" {
@@ -162,10 +162,10 @@ func parseAndValidateCronManifest(req api.Context) (*types.CronJobManifest, erro
 	}
 
 	var workflow v1.Workflow
-	if err := req.Get(&workflow, manifest.WorkflowName); types.IsNotFound(err) {
+	if err := req.Get(&workflow, manifest.WorkflowID); types.IsNotFound(err) {
 		var ref v1.Reference
-		if err = req.Get(&ref, manifest.WorkflowName); err != nil || ref.Spec.WorkflowName == "" {
-			return nil, apierrors.NewBadRequest(fmt.Sprintf("workflow %s does not exist", manifest.WorkflowName))
+		if err = req.Get(&ref, manifest.WorkflowID); err != nil || ref.Spec.WorkflowName == "" {
+			return nil, apierrors.NewBadRequest(fmt.Sprintf("workflow %s does not exist", manifest.WorkflowID))
 		}
 	} else if err != nil {
 		return nil, err

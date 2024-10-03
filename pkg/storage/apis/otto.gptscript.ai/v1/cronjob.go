@@ -22,7 +22,7 @@ type CronJob struct {
 func (*CronJob) GetColumns() [][]string {
 	return [][]string{
 		{"Name", "Name"},
-		{"Workflow", "Spec.WorkflowName"},
+		{"Workflow", "Spec.WorkflowID"},
 		{"Schedule", "Spec.Schedule"},
 		{"Last Success", "{{agoptr .Status.LastSuccessfulRunCompleted}}"},
 		{"Last Run", "{{agoptr .Status.LastRunStartedAt}}"},
@@ -33,7 +33,7 @@ func (*CronJob) GetColumns() [][]string {
 
 func (c *CronJob) DeleteRefs() []Ref {
 	return []Ref{
-		{ObjType: new(Workflow), Name: c.Spec.WorkflowName},
+		{ObjType: new(Workflow), Name: c.Spec.WorkflowID},
 	}
 }
 

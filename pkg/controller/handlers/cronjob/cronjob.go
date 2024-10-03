@@ -38,7 +38,7 @@ func (h *Handler) Run(req router.Request, resp router.Response) error {
 		return nil
 	}
 
-	workflowID := cj.Spec.WorkflowName
+	workflowID := cj.Spec.WorkflowID
 	if !system.IsWorkflowID(workflowID) {
 		var ref v1.Reference
 		if err = req.Get(&ref, cj.Namespace, workflowID); err != nil || ref.Spec.WorkflowName == "" {

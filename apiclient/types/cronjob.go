@@ -9,10 +9,10 @@ type CronJob struct {
 }
 
 type CronJobManifest struct {
-	Description  string `json:"description,omitempty"`
-	Schedule     string `json:"schedule,omitempty"`
-	WorkflowName string `json:"workflowName,omitempty"`
-	Input        string `json:"input,omitempty"`
+	Description string `json:"description,omitempty"`
+	Schedule    string `json:"schedule,omitempty"`
+	WorkflowID  string `json:"workflowID,omitempty"`
+	Input       string `json:"input,omitempty"`
 }
 
 type CronJobList List[CronJob]

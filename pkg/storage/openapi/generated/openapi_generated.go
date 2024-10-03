@@ -548,7 +548,7 @@ func schema_gptscript_ai_otto_apiclient_types_CronJobManifest(ref common.Referen
 							Format: "",
 						},
 					},
-					"workflowName": {
+					"workflowID": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
 							Format: "",
@@ -1939,7 +1939,7 @@ func schema_gptscript_ai_otto_apiclient_types_WebhookManifest(ref common.Referen
 							Format: "",
 						},
 					},
-					"workflowName": {
+					"workflowID": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
 							Format: "",
@@ -2565,7 +2565,7 @@ func schema_storage_apis_ottogptscriptai_v1_CronJobSpec(ref common.ReferenceCall
 							Format: "",
 						},
 					},
-					"workflowName": {
+					"workflowID": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
 							Format: "",
@@ -4598,7 +4598,7 @@ func schema_storage_apis_ottogptscriptai_v1_WebhookSpec(ref common.ReferenceCall
 							Format: "",
 						},
 					},
-					"workflowName": {
+					"workflowID": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
 							Format: "",

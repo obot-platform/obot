@@ -24,7 +24,7 @@ func (*Webhook) GetColumns() [][]string {
 	return [][]string{
 		{"Name", "Name"},
 		{"RefName", "Spec.RefName"},
-		{"Workflow", "Spec.WorkflowName"},
+		{"Workflow", "Spec.WorkflowID"},
 		{"Created", "{{ago .CreationTimestamp}}"},
 		{"Last Success", "{{agoptr .Status.LastSuccessfulRunCompleted}}"},
 		{"Description", "Spec.Description"},
@@ -33,7 +33,7 @@ func (*Webhook) GetColumns() [][]string {
 
 func (w *Webhook) DeleteRefs() []Ref {
 	return []Ref{
-		{ObjType: new(Workflow), Name: w.Spec.WorkflowName},
+		{ObjType: new(Workflow), Name: w.Spec.WorkflowID},
 	}
 }
 
