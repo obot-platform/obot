@@ -46,7 +46,8 @@ func (t *ThreadHandler) Description(req router.Request, _ router.Response) error
 
 	var desc string
 	err := t.aihelper.GenerateObject(req.Ctx, &desc,
-		"Given the following start of a conversation, generate a short title of the conversation",
+		`Given the following start of a conversation, generate a short title of the conversation.
+Output just your suggested title, without quotes or any other text.`,
 		fmt.Sprintf(`User: %s\n
 Assistant: %s\n`, run.Spec.Input, run.Status.Output))
 	if err != nil {
