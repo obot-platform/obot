@@ -25,11 +25,9 @@ func (h *Handler) AssignRefName(req router.Request, _ router.Response) error {
 	if err := req.List(&webHookReferences, &kclient.ListOptions{
 		FieldSelector: fields.SelectorFromSet(
 			map[string]string{
-				"spec.webhookNamespace": wh.Namespace,
-				"spec.webhookName":      wh.Name,
+				"spec.webhookName": wh.Name,
 			},
 		),
-		Namespace: wh.Namespace,
 	}); err != nil || len(webHookReferences.Items) != 1 {
 		return err
 	}

@@ -10,9 +10,9 @@ import (
 )
 
 func Router(services *services.Services) (http.Handler, error) {
-	ui := router.Init(&apiclient.Client{
+	ui := services.ProxyServer.Wrap(router.Init(&apiclient.Client{
 		BaseURL: "http://localhost:8080",
-	}, false)
+	}, false))
 
 	w := services.APIServer.Wrap
 	mux := http.NewServeMux()
@@ -143,6 +143,9 @@ func Router(services *services.Services) (http.Handler, error) {
 	mux.Handle("DELETE /cronjobs/{id}", w(cronJobs.Delete))
 	mux.Handle("PUT /cronjobs/{id}", w(cronJobs.Update))
 	mux.Handle("POST /cronjobs/{id}", w(cronJobs.Execute))
+
+	// Gateway APIs
+	services.GatewayServer.AddRoutes(w, services.APIServer.WrapNoAuth, mux)
 
 	// UI
 	mux.Handle("/", ui)

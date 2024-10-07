@@ -1,0 +1,12 @@
+package components
+
+func NewLoginComplete() templ.Component {
+    return loginComplete()
+}
+
+templ loginComplete() {
+    <div class="relative min-w-[480px] flex flex-col p-6 rounded shadow border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
+        <h1 class="flex justify-center m-4 text-3xl font-bold tracking-tight text-gray-900 dark:text-white">Login Complete</h1>
+        <p class="text-center text-gray-900 dark:text-white">You can now close this window</p>
+	</div>
+}

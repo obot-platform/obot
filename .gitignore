@@ -41,4 +41,6 @@ Thumbs.db
 # Ignore local DB files
 otto.db
 otto.db-*
+gateway.db
+gateway.db-*
 

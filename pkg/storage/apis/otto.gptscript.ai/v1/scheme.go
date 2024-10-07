@@ -55,6 +55,10 @@ func AddToSchemeWithGV(scheme *runtime.Scheme, schemeGroupVersion schema.GroupVe
 		&WebhookReferenceList{},
 		&CronJob{},
 		&CronJobList{},
+		&OAuthApp{},
+		&OAuthAppList{},
+		&OAuthAppReference{},
+		&OAuthAppReferenceList{},
 	); err != nil {
 		return err
 	}

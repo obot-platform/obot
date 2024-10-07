@@ -69,7 +69,7 @@ func CleanupWebhook(req router.Request, _ router.Response) error {
 		return err
 	}
 
-	// If the GenerateName field is set, then this is the "standard" webhook reference is that is associated to every
+	// If this is not a "custom" webhook reference, then this is the "standard" webhook reference is that is associated to every
 	// webhook. We don't want to delete it here because it will be deleted when the webhook is deleted.
 	if whr.Spec.Custom && webhook.Spec.RefName != whr.Name {
 		return kclient.IgnoreNotFound(req.Delete(whr))

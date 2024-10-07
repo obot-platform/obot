@@ -36,6 +36,7 @@ func Init(client *apiclient.Client, devMode bool) http.Handler {
 	// Threads
 	router.Handle("GET /ui/threads/{id}", errors(handlers.Thread))
 	router.Handle("GET /ui/threads/{id}/events", errors(handlers.ThreadEvents))
+	router.Handle("GET /ui/login/complete", errors(handlers.LoginComplete))
 	if devMode {
 		router.Handle("GET /static/", http.StripPrefix("/static/", http.FileServer(http.Dir("./static"))))
 	} else {
@@ -43,7 +44,7 @@ func Init(client *apiclient.Client, devMode bool) http.Handler {
 	}
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		ctx := webcontext.WithClient(r.Context(), client)
+		ctx := webcontext.WithClient(r.Context(), client.WithCookie(r.Header.Get("Cookie")))
 		router.ServeHTTP(w, r.WithContext(ctx))
 	})
 }

@@ -21,6 +21,19 @@ var log = logger.Package()
 type Client struct {
 	BaseURL string
 	Token   string
+	Cookie  string
+}
+
+func (c *Client) WithToken(token string) *Client {
+	n := *c
+	n.Token = token
+	return &n
+}
+
+func (c *Client) WithCookie(cookie string) *Client {
+	n := *c
+	n.Cookie = cookie
+	return &n
 }
 
 func (c *Client) putJSON(ctx context.Context, path string, obj any, headerKV ...string) (*http.Request, *http.Response, error) {
@@ -76,6 +89,10 @@ func (c *Client) doRequest(ctx context.Context, method, path string, body io.Rea
 	if c.Token != "" {
 		req.Header.Set("Authorization", "Bearer "+c.Token)
 	}
+	if c.Cookie != "" {
+		req.Header.Set("Cookie", c.Cookie)
+	}
+
 	if len(headerKV)%2 != 0 {
 		return nil, nil, fmt.Errorf("length of headerKV must be even")
 	}

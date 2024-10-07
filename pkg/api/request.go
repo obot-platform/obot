@@ -205,11 +205,5 @@ func (r *Context) Update(obj client.Object) error {
 }
 
 func (r *Context) Namespace() string {
-	if r.User.GetUID() != "" {
-		return "u1" + r.User.GetUID()
-	}
-	if r.User.GetName() != "" {
-		return "u1" + r.User.GetName()
-	}
 	return "default"
 }

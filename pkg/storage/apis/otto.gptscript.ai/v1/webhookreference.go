@@ -26,17 +26,19 @@ func (in *WebhookReference) Has(field string) bool {
 }
 
 func (in *WebhookReference) Get(field string) string {
-	switch field {
-	case "webhookNamespace":
-		return in.Spec.WebhookNamespace
-	case "webhookName":
-		return in.Spec.WebhookName
+	if in != nil {
+		switch field {
+		case "spec.webhookNamespace":
+			return in.Spec.WebhookNamespace
+		case "spec.webhookName":
+			return in.Spec.WebhookName
+		}
 	}
 	return ""
 }
 
 func (*WebhookReference) FieldNames() []string {
-	return []string{"webhookNamespace", "webhookName"}
+	return []string{"spec.webhookNamespace", "spec.webhookName"}
 }
 
 func (*WebhookReference) NamespaceScoped() bool {

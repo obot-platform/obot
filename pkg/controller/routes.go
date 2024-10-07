@@ -117,6 +117,13 @@ func (c *Controller) setupRoutes() error {
 	root.Type(&v1.CronJob{}).HandlerFunc(cronJobs.SetSuccessRunTime)
 	root.Type(&v1.CronJob{}).HandlerFunc(cronJobs.Run)
 
+	// OAuthApps
+	root.Type(&v1.OAuthApp{}).HandlerFunc(cleanup.Cleanup)
+	root.Type(&v1.OAuthApp{}).HandlerFunc(reference.AssociateOAuthAppWithReference)
+
+	// OAuthAppReferences
+	root.Type(&v1.OAuthAppReference{}).HandlerFunc(reference.CleanupOAuthApp)
+
 	c.toolRefHandler = toolRef
 	return nil
 }
