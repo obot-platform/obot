@@ -104,7 +104,7 @@ func (a *WebhookHandler) Create(req api.Context) error {
 func convertWebhook(webhook v1.Webhook, urlPrefix string) *types.Webhook {
 	var links []string
 	if urlPrefix != "" && webhook.Status.External.RefName != "" {
-		links = []string{"invoke", fmt.Sprintf("%s/invoke/%s", urlPrefix, webhook.Status.External.RefName)}
+		links = []string{"invoke", fmt.Sprintf("%s/webhooks/%s", urlPrefix, webhook.Status.External.RefName)}
 	}
 
 	wh := &types.Webhook{

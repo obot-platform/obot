@@ -106,7 +106,6 @@ func (c *Controller) setupRoutes() error {
 	// Webhooks
 	root.Type(&v1.Webhook{}).HandlerFunc(cleanup.Cleanup)
 	root.Type(&v1.Webhook{}).HandlerFunc(reference.AssociateWebhookWithReference)
-	root.Type(&v1.Webhook{}).HandlerFunc(webHooks.AssignRefName)
 	root.Type(&v1.Webhook{}).HandlerFunc(webHooks.SetSuccessRunTime)
 
 	// Webhook references

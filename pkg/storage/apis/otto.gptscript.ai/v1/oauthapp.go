@@ -25,27 +25,24 @@ type OAuthApp struct {
 }
 
 func (r *OAuthApp) RedirectURL(baseURL string) string {
-	name := r.Name
-	if r.Status.RefNameAssigned {
-		name = r.Spec.RefName
+	if r.Status.External.RefName == "" {
+		return ""
 	}
-	return fmt.Sprintf("%s/oauth-apps/%s/callback", baseURL, name)
+	return fmt.Sprintf("%s/oauth-apps/%s/callback", baseURL, r.Status.External.RefName)
 }
 
 func (r *OAuthApp) AuthorizeURL(baseURL string) string {
-	name := r.Name
-	if r.Status.RefNameAssigned {
-		name = r.Spec.RefName
+	if r.Status.External.RefName == "" {
+		return ""
 	}
-	return fmt.Sprintf("%s/oauth-apps/%s/authorize", baseURL, name)
+	return fmt.Sprintf("%s/oauth-apps/%s/authorize", baseURL, r.Status.External.RefName)
 }
 
 func (r *OAuthApp) RefreshURL(baseURL string) string {
-	name := r.Name
-	if r.Status.RefNameAssigned {
-		name = r.Spec.RefName
+	if r.Status.External.RefName == "" {
+		return ""
 	}
-	return fmt.Sprintf("%s/oauth-apps/%s/refresh", baseURL, name)
+	return fmt.Sprintf("%s/oauth-apps/%s/refresh", baseURL, r.Status.External.RefName)
 }
 
 func (r *OAuthApp) GetConditions() *[]metav1.Condition {
@@ -61,8 +58,8 @@ type OAuthAppSpec struct {
 }
 
 type OAuthAppStatus struct {
-	Conditions                   []metav1.Condition `json:"conditions,omitempty"`
-	types.OAuthAppExternalStatus `json:",inline"`
+	Conditions []metav1.Condition           `json:"conditions,omitempty"`
+	External   types.OAuthAppExternalStatus `json:"external,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

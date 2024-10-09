@@ -1143,6 +1143,12 @@ func schema_gptscript_ai_otto_apiclient_types_OAuthAppExternalStatus(ref common.
 							Format: "",
 						},
 					},
+					"refName": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
 				},
 			},
 		},
@@ -3893,17 +3899,17 @@ func schema_storage_apis_ottogptscriptai_v1_OAuthAppStatus(ref common.ReferenceC
 							},
 						},
 					},
-					"refNameAssigned": {
+					"external": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"boolean"},
-							Format: "",
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/gptscript-ai/otto/apiclient/types.OAuthAppExternalStatus"),
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"k8s.io/apimachinery/pkg/apis/meta/v1.Condition"},
+			"github.com/gptscript-ai/otto/apiclient/types.OAuthAppExternalStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.Condition"},
 	}
 }
 

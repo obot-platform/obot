@@ -24,6 +24,9 @@ func AssociateOAuthAppWithReference(req router.Request, resp router.Response) er
 		},
 	)
 
+	oa.Status.External.RefNameAssigned = false
+	oa.Status.External.RefName = oa.Namespace + "-" + oa.Name
+
 	if oa.Spec.RefName == "" {
 		return nil
 	}
@@ -49,7 +52,10 @@ func AssociateOAuthAppWithReference(req router.Request, resp router.Response) er
 		return nil
 	}
 
-	oa.Status.RefNameAssigned = existingRef.Spec == ref.Spec
+	oa.Status.External.RefNameAssigned = existingRef.Spec == ref.Spec
+	if oa.Status.External.RefNameAssigned {
+		oa.Status.External.RefName = existingRef.Name
+	}
 	return nil
 }
 

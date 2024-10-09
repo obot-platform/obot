@@ -501,31 +501,31 @@ func (s *Server) getTokenOAuthApp(apiContext api.Context) error {
 func convertOAuthAppRegistrationToOAuthApp(app v1.OAuthApp, baseURL string) types2.OAuthApp {
 	appManifest := app.Spec.OAuthAppManifest
 	appManifest.ClientSecret = ""
-	appManifest.Metadata = handlers.MetadataFrom(&app,
-		"redirectURL", app.RedirectURL(baseURL),
-		"authorizeURL", app.AuthorizeURL(baseURL),
-		"refreshURL", app.RefreshURL(baseURL),
-	)
+	links := make([]string, 0, 6)
+	if redirectURL := app.RedirectURL(baseURL); redirectURL != "" {
+		links = append(links, "redirectURL", redirectURL)
+	}
+	if authorizeURL := app.AuthorizeURL(baseURL); authorizeURL != "" {
+		links = append(links, "authorizeURL", authorizeURL)
+	}
+	if refreshURL := app.RefreshURL(baseURL); refreshURL != "" {
+		links = append(links, "refreshURL", refreshURL)
+	}
+	appManifest.Metadata = handlers.MetadataFrom(&app, links...)
 	return types2.OAuthApp{
 		OAuthAppManifest:       appManifest,
-		OAuthAppExternalStatus: app.Status.OAuthAppExternalStatus,
+		OAuthAppExternalStatus: app.Status.External,
 	}
 }
 
 func getOAuthAppFromName(apiContext api.Context) (*v1.OAuthApp, error) {
-	appID := apiContext.PathValue("id")
-	appNamespace := apiContext.Namespace()
-	if !system.IsOAuthAppID(appID) {
-		var ref v1.OAuthAppReference
-		if err := apiContext.Get(&ref, appID); err != nil {
-			return nil, err
-		}
-
-		appID = ref.Spec.AppName
-		appNamespace = ref.Spec.AppNamespace
+	var ref v1.OAuthAppReference
+	if err := apiContext.Get(&ref, apiContext.PathValue("id")); err != nil {
+		return nil, err
 	}
+
 	var app v1.OAuthApp
-	if err := apiContext.Storage.Get(apiContext.Context(), kclient.ObjectKey{Namespace: appNamespace, Name: appID}, &app); err != nil {
+	if err := apiContext.Storage.Get(apiContext.Context(), kclient.ObjectKey{Namespace: ref.Spec.AppNamespace, Name: ref.Spec.AppName}, &app); err != nil {
 		return nil, err
 	}
 

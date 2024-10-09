@@ -35,7 +35,8 @@ type OAuthAppManifest struct {
 }
 
 type OAuthAppExternalStatus struct {
-	RefNameAssigned bool `json:"refNameAssigned,omitempty"`
+	RefNameAssigned bool   `json:"refNameAssigned,omitempty"`
+	RefName         string `json:"refName,omitempty"`
 }
 
 type OAuthAppList List[OAuthApp]

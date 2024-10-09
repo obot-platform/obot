@@ -24,6 +24,9 @@ func AssociateWebhookWithReference(req router.Request, resp router.Response) err
 		},
 	)
 
+	wh.Status.External.RefNameAssigned = false
+	wh.Status.External.RefName = wh.Namespace + "-" + wh.Name
+
 	if wh.Spec.RefName == "" {
 		return nil
 	}
