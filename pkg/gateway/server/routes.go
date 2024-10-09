@@ -71,7 +71,7 @@ func (s *Server) AddRoutes(w func(api.HandlerFunc) http.Handler, mux *http.Serve
 	mux.Handle("GET /oauth-apps", wrap(s.authFunc(types2.RoleBasic)(s.listOAuthApps)))
 	mux.Handle("GET /oauth-apps/{id}", wrap(s.authFunc(types2.RoleBasic)(s.oauthAppByID)))
 	mux.Handle("POST /oauth-apps", wrap(s.authFunc(types2.RoleAdmin)(s.createOAuthApp)))
-	mux.Handle("PATCH /oauth-apps", wrap(s.authFunc(types2.RoleAdmin)(s.updateOAuthApp)))
+	mux.Handle("PATCH /oauth-apps/{id}", wrap(s.authFunc(types2.RoleAdmin)(s.updateOAuthApp)))
 	mux.Handle("DELETE /oauth-apps/{id}", wrap(s.authFunc(types2.RoleAdmin)(s.deleteOAuthApp)))
 
 	// Routes for OAuth authorization code flow
