@@ -10,7 +10,7 @@ import (
 	"github.com/gptscript-ai/otto/pkg/gateway/types"
 )
 
-func (s *Server) AddRoutes(authed, unAuthed func(api.HandlerFunc) http.Handler, mux *http.ServeMux) {
+func (s *Server) AddRoutes(authed func(api.HandlerFunc) http.Handler, mux *http.ServeMux) {
 	// All the routes served by the API will start with `/api`
 	apiMux := http.NewServeMux()
 	apiMux.Handle("GET /me", authed(s.authFunc(types.RoleBasic)(s.getCurrentUser)))
@@ -73,13 +73,13 @@ func (s *Server) AddRoutes(authed, unAuthed func(api.HandlerFunc) http.Handler, 
 
 	// Routes for OAuth authorization code flow
 	oauthAppsMux := http.NewServeMux()
-	oauthAppsMux.Handle("GET /{id}/authorize", unAuthed(s.authorizeOAuthApp))
-	oauthAppsMux.Handle("GET /{id}/refresh", unAuthed(s.refreshOAuthApp))
-	oauthAppsMux.Handle("GET /{id}/callback", unAuthed(s.callbackOAuthApp))
+	oauthAppsMux.Handle("GET /{id}/authorize", authed(s.authorizeOAuthApp))
+	oauthAppsMux.Handle("GET /{id}/refresh", authed(s.refreshOAuthApp))
+	oauthAppsMux.Handle("GET /{id}/callback", authed(s.callbackOAuthApp))
 	mux.Handle("/oauth-apps/", http.StripPrefix("/oauth-apps", apply(oauthAppsMux, addRequestID, addLogger, logRequest, contentType("application/json"))))
 
 	// Route for credential tools to get their OAuth tokens
-	apiMux.Handle("GET /oauth-apps/get-token", unAuthed(s.getTokenOAuthApp))
+	apiMux.Handle("GET /oauth-apps/get-token", authed(s.getTokenOAuthApp))
 
 	mux.Handle("/api/", http.StripPrefix("/api", apply(apiMux, addRequestID, addLogger, logRequest, contentType("application/json"))))
 

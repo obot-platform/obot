@@ -3,18 +3,10 @@ package db
 import (
 	"context"
 	"database/sql"
-	"fmt"
-	"log"
 	"net/http"
-	"strings"
-	"time"
 
-	"github.com/glebarez/sqlite"
 	"github.com/gptscript-ai/otto/pkg/gateway/types"
-	"gorm.io/driver/mysql"
-	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
-	"gorm.io/gorm/logger"
 )
 
 type DB struct {
@@ -23,44 +15,7 @@ type DB struct {
 	autoMigrate bool
 }
 
-func New(dsn string, autoMigrate bool) (*DB, error) {
-	var (
-		gdb   gorm.Dialector
-		conns = 1
-	)
-	switch {
-	case strings.HasPrefix(dsn, "sqlite://"):
-		gdb = sqlite.Open(strings.TrimPrefix(dsn, "sqlite://"))
-	case strings.HasPrefix(dsn, "postgres://"):
-		conns = 5
-		gdb = postgres.Open(dsn)
-	case strings.HasPrefix(dsn, "mysql://"):
-		conns = 5
-		gdb = mysql.Open(dsn)
-	default:
-		return nil, fmt.Errorf("unsupported driver: %s", dsn)
-	}
-	db, err := gorm.Open(gdb, &gorm.Config{
-		SkipDefaultTransaction: true,
-		Logger: logger.New(log.Default(), logger.Config{
-			SlowThreshold: 200 * time.Millisecond,
-			Colorful:      true,
-			LogLevel:      logger.Silent,
-		}),
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	sqlDB, err := db.DB()
-	if err != nil {
-		return nil, err
-	}
-
-	sqlDB.SetConnMaxLifetime(3 * time.Minute)
-	sqlDB.SetMaxIdleConns(conns)
-	sqlDB.SetMaxOpenConns(conns)
-
+func New(db *gorm.DB, sqlDB *sql.DB, autoMigrate bool) (*DB, error) {
 	return &DB{
 		gormDB:      db,
 		sqlDB:       sqlDB,

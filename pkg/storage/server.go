@@ -6,6 +6,7 @@ import (
 	"net"
 	"net/http"
 
+	"github.com/acorn-io/mink/pkg/db"
 	mserver "github.com/acorn-io/mink/pkg/server"
 	"github.com/gptscript-ai/otto/pkg/storage/openapi/generated"
 	"github.com/gptscript-ai/otto/pkg/storage/registry/apigroups/agent"
@@ -20,13 +21,17 @@ import (
 
 type Client client.WithWatch
 
-func Start(ctx context.Context, config services.Config) (Client, *rest.Config, error) {
+func Start(ctx context.Context, config services.Config) (Client, *rest.Config, *db.Factory, error) {
 	services, err := services.New(config)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 
-	return startMinkServer(ctx, config, services)
+	c, cfg, err := startMinkServer(ctx, config, services)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	return c, cfg, services.DB, nil
 }
 
 func startMinkServer(ctx context.Context, config services.Config, services *services.Services) (Client, *rest.Config, error) {

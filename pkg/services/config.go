@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"os"
 	"path/filepath"
 
@@ -30,6 +31,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apiserver/pkg/authentication/authenticator"
 	"k8s.io/apiserver/pkg/authentication/request/union"
+	"k8s.io/apiserver/pkg/authentication/user"
 
 	// Setup baaah logging
 	_ "github.com/acorn-io/baaah/pkg/logrus"
@@ -52,7 +54,6 @@ type Config struct {
 	DevMode         bool   `usage:"Enable development mode" default:"false" name:"dev-mode" env:"OTTO_DEV_MODE"`
 	AllowedOrigin   string `usage:"Allowed origin for CORS"`
 	ToolRegistryURL string `usage:"The url for the tool registry" default:"https://raw.githubusercontent.com/gptscript-ai/tools/refs/heads/main/index.yaml"`
-	GatewayDSN      string `usage:"DSN for Gateway database" env:"OTTO_GATEWAY_DSN" default:"sqlite://file:gateway.db?_journal=WAL&cache=shared&_busy_timeout=30000"`
 
 	AuthConfig
 	GatewayConfig
@@ -97,12 +98,36 @@ func newGPTScript(ctx context.Context) (*gptscript.GPTScript, error) {
 	})
 }
 
+type noAuth struct {
+}
+
+func (n noAuth) AuthenticateRequest(req *http.Request) (*authenticator.Response, bool, error) {
+	return &authenticator.Response{
+		User: &user.DefaultInfo{
+			Name:   "nobody",
+			Groups: []string{"admin"},
+		},
+	}, true, nil
+}
+
+type anonymous struct {
+}
+
+func (n anonymous) AuthenticateRequest(req *http.Request) (*authenticator.Response, bool, error) {
+	return &authenticator.Response{
+		User: &user.DefaultInfo{
+			UID:  "anonymous",
+			Name: "anonymous",
+		},
+	}, true, nil
+}
+
 func New(ctx context.Context, config Config) (*Services, error) {
 	system.SetBinToSelf()
 
 	config = configureDevMode(config)
 
-	storageClient, restConfig, err := storage.Start(ctx, config.Config)
+	storageClient, restConfig, dbAccess, err := storage.Start(ctx, config.Config)
 	if err != nil {
 		return nil, err
 	}
@@ -127,7 +152,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 	}
 
 	// For now, always auto-migrate.
-	gatewayDB, err := db.New(config.GatewayDSN, true)
+	gatewayDB, err := db.New(dbAccess.DB, dbAccess.SQLDB, true)
 	if err != nil {
 		return nil, err
 	}
@@ -143,18 +168,32 @@ func New(ctx context.Context, config Config) (*Services, error) {
 	}
 
 	var (
-		wh           authenticator.Request = gatewayServer
-		proxyServer  *proxy.Proxy
-		authRequired bool
+		gatewayClient                        = client.New(gatewayDB, config.AuthAdminEmails)
+		authenticators authenticator.Request = gatewayServer
+		proxyServer    *proxy.Proxy
 	)
+
 	if config.GoogleClientID != "" && config.GoogleClientSecret != "" {
-		authRequired = true
+		// "Authentication Enabled" flow
 		proxyServer, err = proxy.New(authProviderID, proxy.Config(config.AuthConfig))
 		if err != nil {
 			return nil, fmt.Errorf("failed to start auth server: %w", err)
 		}
 
-		wh = union.New(wh, proxyServer)
+		// Token Auth + OAuth auth
+		authenticators = union.New(authenticators, proxyServer)
+		// Add gateway user info
+		authenticators = client.NewUserDecorator(authenticators, gatewayClient)
+		// Add anonymous user authenticator
+		authenticators = union.New(authenticators, anonymous{})
+	} else {
+		// "Authentication Disabled" flow
+
+		// Add gateway user info if token auth worked
+		authenticators = client.NewUserDecorator(authenticators, gatewayClient)
+
+		// Add no auth authenticator
+		authenticators = union.New(authenticators, noAuth{})
 	}
 
 	var (
@@ -172,7 +211,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		StorageClient:   storageClient,
 		Router:          r,
 		GPTClient:       c,
-		APIServer:       api.NewServer(storageClient, c, client.New(gatewayDB, config.AuthAdminEmails), tokenServer, wh, authRequired),
+		APIServer:       api.NewServer(storageClient, c, gatewayClient, tokenServer, authenticators),
 		TokenServer:     tokenServer,
 		WorkspaceClient: workspaceClient,
 		Invoker:         invoke.NewInvoker(storageClient, c, tokenServer, workspaceClient, events, config.KnowledgeTool),

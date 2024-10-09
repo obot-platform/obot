@@ -145,7 +145,7 @@ func Router(services *services.Services) (http.Handler, error) {
 	mux.Handle("POST /cronjobs/{id}", w(cronJobs.Execute))
 
 	// Gateway APIs
-	services.GatewayServer.AddRoutes(w, services.APIServer.WrapNoAuth, mux)
+	services.GatewayServer.AddRoutes(w, mux)
 
 	// UI
 	mux.Handle("/", ui)

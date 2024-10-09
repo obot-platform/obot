@@ -1,6 +1,13 @@
 package jwt
 
-import "github.com/golang-jwt/jwt/v5"
+import (
+	"net/http"
+	"strings"
+
+	"github.com/golang-jwt/jwt/v5"
+	"k8s.io/apiserver/pkg/authentication/authenticator"
+	"k8s.io/apiserver/pkg/authentication/user"
+)
 
 // yeah, duh, this isn't secure, that's not the point right now.
 const secret = "this is secret"
@@ -15,6 +22,24 @@ type TokenContext struct {
 }
 
 type TokenService struct {
+}
+
+func (t *TokenService) AuthenticateRequest(req *http.Request) (*authenticator.Response, bool, error) {
+	token := strings.TrimPrefix(req.Header.Get("Authorization"), "Bearer ")
+	tokenContext, err := t.DecodeToken(token)
+	if err != nil {
+		return nil, false, nil
+	}
+	return &authenticator.Response{
+		User: &user.DefaultInfo{
+			Name: tokenContext.Scope,
+			Extra: map[string][]string{
+				"otto:runID":    {tokenContext.RunID},
+				"otto:threadID": {tokenContext.ThreadID},
+				"otto:agentID":  {tokenContext.AgentID},
+			},
+		},
+	}, true, nil
 }
 
 func (t *TokenService) DecodeToken(token string) (*TokenContext, error) {

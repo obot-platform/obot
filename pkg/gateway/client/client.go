@@ -3,16 +3,19 @@ package client
 import (
 	"context"
 	"errors"
+	"strconv"
 
 	"github.com/gptscript-ai/otto/pkg/gateway/db"
 	"github.com/gptscript-ai/otto/pkg/gateway/types"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
+	"k8s.io/apiserver/pkg/authentication/authenticator"
 )
 
 type Client struct {
 	db          *db.DB
 	adminEmails map[string]struct{}
+	nextAuth    authenticator.Request
 }
 
 func New(db *db.DB, adminEmails []string) *Client {
@@ -24,6 +27,10 @@ func New(db *db.DB, adminEmails []string) *Client {
 		db:          db,
 		adminEmails: adminEmailsSet,
 	}
+}
+
+func (c *Client) Close() error {
+	return c.db.Close()
 }
 
 // EnsureIdentity ensures that the given identity exists in the database, and returns the user associated with it.
@@ -94,4 +101,18 @@ func EnsureIdentity(tx *gorm.DB, id *types.Identity, role types.Role) (*types.Us
 	}
 
 	return user, nil
+}
+
+func firstValue(m map[string][]string, key string) string {
+	values := m[key]
+	if len(values) == 0 {
+		return ""
+	}
+	return values[0]
+}
+
+func firstValueAsInt(m map[string][]string, key string) int {
+	value := firstValue(m, key)
+	v, _ := strconv.Atoi(value)
+	return v
 }

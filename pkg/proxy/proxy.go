@@ -78,6 +78,9 @@ func New(authProviderID uint, cfg Config) (*Proxy, error) {
 }
 
 func (p *Proxy) Wrap(h http.Handler) http.Handler {
+	if p == nil {
+		return h
+	}
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if strings.HasPrefix(r.URL.Path, "/static/") || strings.HasPrefix(r.URL.Path, "/ui/login/complete") {
 			// No authentication required

@@ -7,6 +7,9 @@ apiserver.local.config/
 # Ignore the kubeconfig file
 kubeconfig
 
+# Ignore envrc
+.envrc
+
 # Ignore any compiled Go binaries
 *.exe
 *.exe~
@@ -41,6 +44,4 @@ Thumbs.db
 # Ignore local DB files
 otto.db
 otto.db-*
-gateway.db
-gateway.db-*
 

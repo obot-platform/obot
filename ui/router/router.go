@@ -44,7 +44,11 @@ func Init(client *apiclient.Client, devMode bool) http.Handler {
 	}
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		ctx := webcontext.WithClient(r.Context(), client.WithCookie(r.Header.Get("Cookie")))
+		cookie, err := r.Cookie("otto_access_token")
+		if err != nil {
+			cookie = nil
+		}
+		ctx := webcontext.WithClient(r.Context(), client.WithCookie(cookie))
 		router.ServeHTTP(w, r.WithContext(ctx))
 	})
 }

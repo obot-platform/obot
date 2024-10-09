@@ -21,7 +21,7 @@ var log = logger.Package()
 type Client struct {
 	BaseURL string
 	Token   string
-	Cookie  string
+	Cookie  *http.Cookie
 }
 
 func (c *Client) WithToken(token string) *Client {
@@ -30,7 +30,7 @@ func (c *Client) WithToken(token string) *Client {
 	return &n
 }
 
-func (c *Client) WithCookie(cookie string) *Client {
+func (c *Client) WithCookie(cookie *http.Cookie) *Client {
 	n := *c
 	n.Cookie = cookie
 	return &n
@@ -89,8 +89,8 @@ func (c *Client) doRequest(ctx context.Context, method, path string, body io.Rea
 	if c.Token != "" {
 		req.Header.Set("Authorization", "Bearer "+c.Token)
 	}
-	if c.Cookie != "" {
-		req.Header.Set("Cookie", c.Cookie)
+	if c.Cookie != nil {
+		req.AddCookie(c.Cookie)
 	}
 
 	if len(headerKV)%2 != 0 {
