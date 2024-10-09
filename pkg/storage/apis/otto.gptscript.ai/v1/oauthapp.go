@@ -28,21 +28,21 @@ func (r *OAuthApp) RedirectURL(baseURL string) string {
 	if r.Status.External.RefName == "" {
 		return ""
 	}
-	return fmt.Sprintf("%s/oauth-apps/%s/callback", baseURL, r.Status.External.RefName)
+	return fmt.Sprintf("%s/app-oauth/callback/%s", baseURL, r.Status.External.RefName)
 }
 
 func (r *OAuthApp) AuthorizeURL(baseURL string) string {
 	if r.Status.External.RefName == "" {
 		return ""
 	}
-	return fmt.Sprintf("%s/oauth-apps/%s/authorize", baseURL, r.Status.External.RefName)
+	return fmt.Sprintf("%s/app-oauth/authorize/%s", baseURL, r.Status.External.RefName)
 }
 
 func (r *OAuthApp) RefreshURL(baseURL string) string {
 	if r.Status.External.RefName == "" {
 		return ""
 	}
-	return fmt.Sprintf("%s/oauth-apps/%s/refresh", baseURL, r.Status.External.RefName)
+	return fmt.Sprintf("%s/app-oauth/refresh/%s", baseURL, r.Status.External.RefName)
 }
 
 func (r *OAuthApp) GetConditions() *[]metav1.Condition {
