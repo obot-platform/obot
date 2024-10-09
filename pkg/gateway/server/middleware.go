@@ -4,144 +4,102 @@ import (
 	"fmt"
 	"net/http"
 	"runtime/debug"
-	"strconv"
 	"time"
 
+	types2 "github.com/otto8-ai/otto8/apiclient/types"
 	"github.com/otto8-ai/otto8/pkg/api"
 	"github.com/otto8-ai/otto8/pkg/gateway/context"
 	"github.com/otto8-ai/otto8/pkg/gateway/log"
 	"github.com/otto8-ai/otto8/pkg/gateway/types"
-	"gorm.io/gorm"
 )
 
-type middleware func(http.Handler) http.HandlerFunc
-
-func (s *Server) auth(role types.Role) api.Middleware {
+func (s *Server) auth(mustBeAdmin bool) api.Middleware {
 	return func(next api.HandlerFunc) api.HandlerFunc {
 		return func(apiContext api.Context) error {
-			var (
-				authProviderID uint64
-				err            error
-
-				logger = context.GetLogger(apiContext.Context())
-			)
-			if authProviderExtra := apiContext.User.GetExtra()["auth_provider_id"]; len(authProviderExtra) > 0 {
-				authProviderID, err = strconv.ParseUint(authProviderExtra[0], 10, 64)
-				if err != nil {
-					logger.DebugContext(apiContext.Context(), "error parsing auth_provider_id", "error", err)
-					writeError(apiContext.Context(), logger, apiContext.ResponseWriter, http.StatusUnauthorized, fmt.Errorf("invalid token"))
-					return nil
-				}
+			if !apiContext.UserIsAuthenticated() {
+				return types2.NewErrHttp(http.StatusUnauthorized, "unauthenticated")
 			}
-
-			userID, err := strconv.ParseUint(apiContext.User.GetUID(), 10, 64)
-			if err != nil {
-				logger.DebugContext(apiContext.Context(), "error parsing user_id", "error", err)
-				writeError(apiContext.Context(), logger, apiContext.ResponseWriter, http.StatusUnauthorized, fmt.Errorf("invalid token"))
-				return nil
+			if mustBeAdmin && !apiContext.UserIsAdmin() {
+				return types2.NewErrHttp(http.StatusForbidden, "must be admin")
 			}
-
-			user := new(types.User)
-			identity := new(types.Identity)
-			if err = s.db.WithContext(apiContext.Context()).Transaction(func(tx *gorm.DB) error {
-				if err := tx.Where("auth_provider_id = ? AND user_id = ?", authProviderID, userID).First(identity).Error; err != nil {
-					return err
-				}
-
-				return tx.Where("id = ?", userID).First(user).Error
-			}); err != nil {
-				logger.DebugContext(apiContext.Context(), "error searching for token and user", "error", err)
-				writeError(apiContext.Context(), context.GetLogger(apiContext.Context()), apiContext.ResponseWriter, http.StatusUnauthorized, fmt.Errorf("invalid token"))
-				return nil
-			}
-
-			if !user.Role.HasRole(role) {
-				writeError(apiContext.Context(), logger, apiContext.ResponseWriter, http.StatusForbidden, fmt.Errorf("forbidden"))
-				return nil
-			}
-
-			apiContext.Request = apiContext.Request.WithContext(context.WithUser(context.WithIdentity(apiContext.Context(), identity), user))
 			return next(apiContext)
 		}
 	}
 }
 
-func (s *Server) authFunc(role types.Role) api.Middleware {
+func (s *Server) authFunc(role types2.Role) api.Middleware {
 	return func(next api.HandlerFunc) api.HandlerFunc {
-		return s.auth(role)(next)
+		return s.auth(role.HasRole(types2.RoleAdmin))(next)
 	}
 }
 
-func (s *Server) monitor(next http.Handler) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		var userName string
-		logger := context.GetLogger(r.Context())
-		if user := context.GetUser(r.Context()); user != nil {
-			userName = user.Username
-		}
-
-		if err := s.db.WithContext(r.Context()).Create(&types.Monitor{
+func (s *Server) monitor(next api.HandlerFunc) api.HandlerFunc {
+	return func(apiContext api.Context) error {
+		logger := context.GetLogger(apiContext.Context())
+		if err := s.db.WithContext(apiContext.Context()).Create(&types.Monitor{
 			CreatedAt: time.Now(),
-			Username:  userName,
-			Path:      r.URL.Path,
+			Username:  apiContext.User.GetName(),
+			Path:      apiContext.URL.Path,
 		}).Error; err != nil {
-			logger.WarnContext(r.Context(), "error creating monitor", "error", err, "user", userName, "path", r.URL.Path)
+			logger.WarnContext(apiContext.Context(), "error creating monitor", "error", err, "user", apiContext.User.GetName(), "path", apiContext.URL.Path)
 		}
 
-		next.ServeHTTP(w, r)
+		return next(apiContext)
 	}
 }
 
-func apply(h http.Handler, m ...middleware) http.Handler {
+func apply(h api.HandlerFunc, m ...api.Middleware) api.HandlerFunc {
 	for i := len(m) - 1; i >= 0; i-- {
 		h = m[i](h)
 	}
 	return h
 }
 
-func contentType(contentTypes ...string) middleware {
-	return func(h http.Handler) http.HandlerFunc {
-		return func(w http.ResponseWriter, r *http.Request) {
+func contentType(contentTypes ...string) api.Middleware {
+	return func(h api.HandlerFunc) api.HandlerFunc {
+		return func(apiContext api.Context) error {
 			for _, ct := range contentTypes {
-				w.Header().Add("Content-Type", ct)
+				apiContext.ResponseWriter.Header().Add("Content-Type", ct)
 			}
-			h.ServeHTTP(w, r)
+			return h(apiContext)
 		}
 	}
 }
 
-func logRequest(h http.Handler) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		l := context.GetLogger(r.Context())
+func logRequest(h api.HandlerFunc) api.HandlerFunc {
+	return func(apiContext api.Context) (err error) {
+		l := context.GetLogger(apiContext.Context())
 		defer func() {
-			if err := recover(); err != nil {
-				l.ErrorContext(r.Context(), "Panic", "error", err, "stack", string(debug.Stack()))
-				w.WriteHeader(http.StatusInternalServerError)
-				_, _ = w.Write([]byte(`{"error": "encountered an unexpected error"}`))
+			l.DebugContext(apiContext.Context(), "Handled request", "method", apiContext.Method, "path", apiContext.URL.Path)
+			if recErr := recover(); recErr != nil {
+				l.ErrorContext(apiContext.Context(), "Panic", "error", err, "stack", string(debug.Stack()))
+				err = fmt.Errorf("encountered an unexpected error")
 			}
 		}()
 
-		l.DebugContext(r.Context(), "Handling request", "method", r.Method, "path", r.URL.Path)
-		h.ServeHTTP(w, r)
-		l.DebugContext(r.Context(), "Handled request", "method", r.Method, "path", r.URL.Path)
+		l.DebugContext(apiContext.Context(), "Handling request", "method", apiContext.Method, "path", apiContext.URL.Path)
+		return h(apiContext)
 	}
 }
 
-func addRequestID(next http.Handler) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		next.ServeHTTP(w, r.WithContext(context.WithNewRequestID(r.Context())))
+func addRequestID(next api.HandlerFunc) api.HandlerFunc {
+	return func(apiContext api.Context) error {
+		apiContext.Request = apiContext.Request.WithContext(context.WithNewRequestID(apiContext.Request.Context()))
+		return next(apiContext)
 	}
 }
 
-func addLogger(next http.Handler) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		next.ServeHTTP(
-			w,
-			r.WithContext(context.WithLogger(
-				r.Context(),
-				log.NewWithID(context.GetRequestID(r.Context())),
-			)),
-		)
+func addLogger(next api.HandlerFunc) api.HandlerFunc {
+	return func(apiContext api.Context) error {
+		logger := log.NewWithID(context.GetRequestID(apiContext.Request.Context()))
+		if apiContext.User != nil {
+			logger = logger.With("username", apiContext.User.GetName())
+		}
+		apiContext.Request = apiContext.Request.WithContext(context.WithLogger(
+			apiContext.Request.Context(),
+			logger,
+		))
+		return next(apiContext)
 	}
 }
 

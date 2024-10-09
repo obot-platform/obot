@@ -79,8 +79,6 @@ github.com/acorn-io/broadcaster v0.0.0-20240105011354-bfadd4a7b45d h1:hfpNQkJ4I2
 github.com/acorn-io/broadcaster v0.0.0-20240105011354-bfadd4a7b45d/go.mod h1:WF6FYrEqW0+ZtY5OKb21JhSL0aeL5VJoVrm+u0d4gOE=
 github.com/acorn-io/mink v0.0.0-20240924215355-6b3069de5d2f h1:+yzGj0Iv0HV9Q/c70edDBT0zhlhFhl6cfyiJvI39zf4=
 github.com/acorn-io/mink v0.0.0-20240924215355-6b3069de5d2f/go.mod h1:EmoDPUYsPyBEhEpSC+LpRGUs2GeSI5nPOTa7WO7jwlc=
-github.com/acorn-io/z v0.0.0-20231104012607-4cab1b3ec5e5 h1:oQnpRt5KoANqwwUNzWFu+5I12Unfu/WZ330QHefxNc8=
-github.com/acorn-io/z v0.0.0-20231104012607-4cab1b3ec5e5/go.mod h1:5UO0+eOne2Zhvn7Ox5IiK4u+4dlCSLmHfTQWORRdEyo=
 github.com/adrg/xdg v0.5.0 h1:dDaZvhMXatArP1NPHhnfaQUqWBLBsmx1h1HXQdMoFCY=
 github.com/adrg/xdg v0.5.0/go.mod h1:dDdY4M4DF9Rjy4kHPeNL+ilVF+p2lK8IdM9/rTSGcI4=
 github.com/alecthomas/assert/v2 v2.2.1 h1:XivOgYcduV98QCahG8T5XTezV5bylXe+lBxLG2K2ink=

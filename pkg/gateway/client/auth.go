@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"slices"
 
+	types2 "github.com/otto8-ai/otto8/apiclient/types"
 	"github.com/otto8-ai/otto8/pkg/gateway/types"
 	"k8s.io/apiserver/pkg/authentication/authenticator"
 	"k8s.io/apiserver/pkg/authentication/user"
@@ -40,7 +41,7 @@ func (u UserDecorator) AuthenticateRequest(req *http.Request) (*authenticator.Re
 	}
 
 	groups := resp.User.GetGroups()
-	if gatewayUser.Role == types.RoleAdmin && !slices.Contains(groups, "admin") {
+	if gatewayUser.Role == types2.RoleAdmin && !slices.Contains(groups, "admin") {
 		groups = append(groups, "admin")
 	}
 
@@ -48,7 +49,7 @@ func (u UserDecorator) AuthenticateRequest(req *http.Request) (*authenticator.Re
 		Name:   gatewayUser.Username,
 		UID:    fmt.Sprintf("%d", gatewayUser.ID),
 		Extra:  resp.User.GetExtra(),
-		Groups: groups,
+		Groups: append(groups, "system:authenticated"),
 	}
 	return resp, true, nil
 }

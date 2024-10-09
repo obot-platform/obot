@@ -3,7 +3,6 @@ module github.com/otto8-ai/otto8
 go 1.23.1
 
 replace (
-
 	github.com/oauth2-proxy/oauth2-proxy/v7 => github.com/otto8-ai/oauth2-proxy/v7 v7.0.0-20241008204315-265dabe17f43
 	github.com/otto8-ai/otto8/apiclient => ./apiclient
 	github.com/otto8-ai/otto8/logger => ./logger
@@ -14,7 +13,6 @@ require (
 	github.com/MicahParks/keyfunc/v3 v3.3.5
 	github.com/acorn-io/baaah v0.0.0-20240912163758-8f7c537609d1
 	github.com/acorn-io/mink v0.0.0-20240924215355-6b3069de5d2f
-	github.com/acorn-io/z v0.0.0-20231104012607-4cab1b3ec5e5
 	github.com/adrg/xdg v0.5.0
 	github.com/dustin/go-humanize v1.0.1
 	github.com/fatih/color v1.17.0

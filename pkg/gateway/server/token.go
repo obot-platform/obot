@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	types2 "github.com/otto8-ai/otto8/apiclient/types"
 	"github.com/otto8-ai/otto8/pkg/api"
 	kcontext "github.com/otto8-ai/otto8/pkg/gateway/context"
 	ktime "github.com/otto8-ai/otto8/pkg/gateway/time"
@@ -38,10 +39,9 @@ type refreshTokenResponse struct {
 
 func (s *Server) getTokens(apiContext api.Context) error {
 	logger := kcontext.GetLogger(apiContext.Context())
-	user := kcontext.GetUser(apiContext.Context())
 
 	var tokens []types.AuthToken
-	if err := s.db.WithContext(apiContext.Context()).Where("user_id = ?", user.ID).Find(&tokens).Error; err != nil {
+	if err := s.db.WithContext(apiContext.Context()).Where("user_id = ?", apiContext.UserID()).Find(&tokens).Error; err != nil {
 		writeError(apiContext.Context(), logger, apiContext.ResponseWriter, http.StatusInternalServerError, fmt.Errorf("error getting tokens: %v", err))
 		return nil
 	}
@@ -52,14 +52,13 @@ func (s *Server) getTokens(apiContext api.Context) error {
 
 func (s *Server) deleteToken(apiContext api.Context) error {
 	logger := kcontext.GetLogger(apiContext.Context())
-	user := kcontext.GetUser(apiContext.Context())
 	id := apiContext.PathValue("id")
 	if id == "" {
 		writeError(apiContext.Context(), logger, apiContext.ResponseWriter, http.StatusBadRequest, fmt.Errorf("id path parameter is required"))
 		return nil
 	}
 
-	if err := s.db.WithContext(apiContext.Context()).Where("user_id = ? AND id = ?", user.ID, id).Delete(new(types.AuthToken)).Error; err != nil {
+	if err := s.db.WithContext(apiContext.Context()).Where("user_id = ? AND id = ?", apiContext.UserID(), id).Delete(new(types.AuthToken)).Error; err != nil {
 		status := http.StatusInternalServerError
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			status = http.StatusNotFound
@@ -79,8 +78,12 @@ type createTokenRequest struct {
 
 func (s *Server) newToken(apiContext api.Context) error {
 	logger := kcontext.GetLogger(apiContext.Context())
-	user := kcontext.GetUser(apiContext.Context())
-	identity := kcontext.GetIdentity(apiContext.Context())
+	authProviderID := apiContext.AuthProviderID()
+	userID := apiContext.UserID()
+	if authProviderID <= 0 || userID <= 0 {
+		writeError(apiContext.Context(), logger, apiContext.ResponseWriter, http.StatusForbidden, fmt.Errorf("forbidden"))
+		return nil
+	}
 
 	var customExpiration time.Duration
 	if apiContext.ContentLength != 0 {
@@ -111,14 +114,14 @@ func (s *Server) newToken(apiContext api.Context) error {
 
 	tkn := &types.AuthToken{
 		ID:          fmt.Sprintf("%x", id),
-		UserID:      user.ID,
+		UserID:      userID,
 		HashedToken: hashToken(fmt.Sprintf("%x", token)),
 		ExpiresAt:   time.Now().Add(customExpiration),
 	}
 
 	if err := s.db.WithContext(apiContext.Context()).Transaction(func(tx *gorm.DB) error {
 		provider := new(types.AuthProvider)
-		if err := tx.Where("id = ?", identity.AuthProviderID).First(provider).Error; err != nil {
+		if err := tx.Where("id = ?", authProviderID).First(provider).Error; err != nil {
 			return fmt.Errorf("error refreshing token: %v", err)
 		}
 
@@ -265,17 +268,17 @@ func (s *Server) verifyState(ctx context.Context, state string) (*types.TokenReq
 	})
 }
 
-func (s *Server) errorToken(ctx context.Context, tr *types.TokenRequest, logger *slog.Logger, w http.ResponseWriter, code int, err error) {
+func (s *Server) errorToken(ctx context.Context, tr *types.TokenRequest, code int, err error) error {
 	if tr != nil {
 		tr.Error = err.Error()
 		if err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 			return tx.Updates(tr).Error
 		}); err != nil {
-			logger.ErrorContext(ctx, "failed to set error field on token", "id", tr.ID, "error", err)
+			kcontext.GetLogger(ctx).ErrorContext(ctx, "failed to update token", "id", tr.ID, "error", err)
 		}
 	}
 
-	writeError(ctx, logger, w, code, err)
+	return types2.NewErrHttp(code, err.Error())
 }
 
 // autoCleanupTokens will delete token requests that have been retrieved and are older than the cleanupTick.

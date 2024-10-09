@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"slices"
+	"strconv"
 	"strings"
 	"time"
 
@@ -206,4 +207,33 @@ func (r *Context) Update(obj client.Object) error {
 
 func (r *Context) Namespace() string {
 	return "default"
+}
+
+func (r *Context) UserIsAdmin() bool {
+	return slices.Contains(r.User.GetGroups(), "admin")
+}
+
+func (r *Context) UserIsAuthenticated() bool {
+	return slices.Contains(r.User.GetGroups(), "system:authenticated")
+}
+
+func (r *Context) UserID() uint {
+	userID, err := strconv.ParseUint(r.User.GetUID(), 10, 64)
+	if err != nil {
+		return 0
+	}
+	return uint(userID)
+}
+
+func (r *Context) AuthProviderID() uint {
+	extraAuthProvider := r.User.GetExtra()["auth_provider_id"]
+	if len(extraAuthProvider) == 0 {
+		return 0
+	}
+	authProviderID, err := strconv.ParseUint(extraAuthProvider[0], 10, 64)
+	if err != nil {
+		return 0
+	}
+
+	return uint(authProviderID)
 }

@@ -4,93 +4,85 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"strconv"
 
-	"github.com/acorn-io/z"
+	types2 "github.com/otto8-ai/otto8/apiclient/types"
 	"github.com/otto8-ai/otto8/pkg/api"
-	kcontext "github.com/otto8-ai/otto8/pkg/gateway/context"
 	"github.com/otto8-ai/otto8/pkg/gateway/types"
 	"gorm.io/gorm"
 )
 
-type usersListResponse struct {
-	Users    []types.User `json:"users"`
-	Continue *string      `json:"continue,omitempty"`
-}
-
 func (s *Server) getCurrentUser(apiContext api.Context) error {
-	user := kcontext.GetUser(apiContext.Context())
-	writeResponse(apiContext.Context(), kcontext.GetLogger(apiContext.Context()), apiContext.ResponseWriter, user)
-	return nil
+	user, err := s.client.User(apiContext.Context(), apiContext.User.GetName())
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		// The only reason this would happen is if the user is not authenticated, but has auth turned off.
+		role := types2.RoleBasic
+		if apiContext.UserIsAdmin() {
+			role = types2.RoleAdmin
+		}
+		return apiContext.Write(types2.User{
+			Username: apiContext.User.GetName(),
+			Role:     role,
+		})
+	} else if err != nil {
+		return err
+	}
+	return apiContext.Write(types.ConvertUser(user))
 }
 
 func (s *Server) getUsers(apiContext api.Context) error {
-	logger := kcontext.GetLogger(apiContext.Context())
-	userQuery := types.NewUserQuery(apiContext.Context(), apiContext.URL.Query(), logger)
+	userQuery := types.NewUserQuery(apiContext.URL.Query())
 
 	var users []types.User
 	if err := s.db.WithContext(apiContext.Context()).Scopes(userQuery.Scope).Find(&users).Error; err != nil {
-		writeError(apiContext.Context(), logger, apiContext.ResponseWriter, http.StatusInternalServerError, err)
-		return nil
+		return fmt.Errorf("failed to get users: %v", err)
 	}
 
-	var next *string
-	if len(users) == userQuery.Limit {
-		next = z.Pointer(strconv.FormatInt(int64(users[len(users)-1].ID), 10))
-		users = users[:userQuery.Limit-1]
+	items := make([]types2.User, 0, len(users))
+	for _, user := range users {
+		items = append(items, *types.ConvertUser(&user))
 	}
 
-	writeResponse(apiContext.Context(), logger, apiContext.ResponseWriter, usersListResponse{Users: users, Continue: next})
-	return nil
+	return apiContext.Write(types2.UserList{Items: items})
 }
 
 func (s *Server) getUser(apiContext api.Context) error {
-	logger := kcontext.GetLogger(apiContext.Context())
-
 	username := apiContext.PathValue("username")
 	if username == "" {
-		writeError(apiContext.Context(), logger, apiContext.ResponseWriter, http.StatusBadRequest, errors.New("username path parameter is required"))
-		return nil
+		return types2.NewErrHttp(http.StatusBadRequest, "username path parameter is required")
 	}
 
 	user := new(types.User)
 	if err := s.db.WithContext(apiContext.Context()).Where("username = ?", username).First(user).Error; err != nil {
-		status := http.StatusInternalServerError
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			status = http.StatusNotFound
+			return types2.NewErrNotFound("user %s not found", username)
 		}
-		writeError(apiContext.Context(), logger, apiContext.ResponseWriter, status, err)
-		return nil
+		return fmt.Errorf("failed to get user: %v", err)
 	}
 
-	writeResponse(apiContext.Context(), logger, apiContext.ResponseWriter, user)
-	return nil
+	return apiContext.Write(types.ConvertUser(user))
 }
 
 func (s *Server) updateUser(apiContext api.Context) error {
-	logger := kcontext.GetLogger(apiContext.Context())
-	requestingUser := kcontext.GetUser(apiContext.Context())
+	requestingUsername := apiContext.User.GetName()
+	userIsAdmin := apiContext.UserIsAdmin()
 
 	username := apiContext.PathValue("username")
 	if username == "" {
-		writeError(apiContext.Context(), logger, apiContext.ResponseWriter, http.StatusBadRequest, errors.New("username path parameter is required"))
-		return nil
+		return types2.NewErrHttp(http.StatusBadRequest, "username path parameter is required")
 	}
 
-	if !requestingUser.Role.HasRole(types.RoleAdmin) && requestingUser.Username != username {
-		writeError(apiContext.Context(), logger, apiContext.ResponseWriter, http.StatusForbidden, errors.New("only admins can update other users"))
-		return nil
+	if !userIsAdmin && requestingUsername != username {
+		return types2.NewErrHttp(http.StatusForbidden, "only admins can update other users")
 	}
 
 	user := new(types.User)
 	if err := apiContext.Read(user); err != nil {
-		writeError(apiContext.Context(), logger, apiContext.ResponseWriter, http.StatusBadRequest, fmt.Errorf("invalid user request body: %v", err))
-		return nil
+		return types2.NewErrHttp(http.StatusBadRequest, "invalid user request body")
 	}
 
+	existingUser := new(types.User)
 	status := http.StatusInternalServerError
 	if err := s.db.WithContext(apiContext.Context()).Transaction(func(tx *gorm.DB) error {
-		existingUser := new(types.User)
 		if err := tx.Where("username = ?", username).First(existingUser).Error; err != nil {
 			return err
 		}
@@ -108,9 +100,9 @@ func (s *Server) updateUser(apiContext api.Context) error {
 		}
 
 		// Only admins can change user roles.
-		if requestingUser.Role.HasRole(types.RoleAdmin) {
+		if userIsAdmin {
 			// If the role is being changed from admin to non-admin, then ensure that this isn't the last admin.
-			if user.Role > 0 && existingUser.Role.HasRole(types.RoleAdmin) && !user.Role.HasRole(types.RoleAdmin) {
+			if user.Role > 0 && existingUser.Role.HasRole(types2.RoleAdmin) && !user.Role.HasRole(types2.RoleAdmin) {
 				var adminCount int64
 				if err := tx.Model(new(types.User)).Count(&adminCount).Error; err != nil {
 					return err
@@ -127,31 +119,26 @@ func (s *Server) updateUser(apiContext api.Context) error {
 
 		return tx.Updates(existingUser).Error
 	}); err != nil {
-		writeError(apiContext.Context(), logger, apiContext.ResponseWriter, status, fmt.Errorf("failed to update user: %v", err))
-		return nil
+		return types2.NewErrHttp(status, fmt.Sprintf("failed to update user: %v", err))
 	}
 
-	writeResponse(apiContext.Context(), logger, apiContext.ResponseWriter, user)
-	return nil
+	return apiContext.Write(types.ConvertUser(existingUser))
 }
 
 func (s *Server) deleteUser(apiContext api.Context) error {
-	logger := kcontext.GetLogger(apiContext.Context())
-
 	username := apiContext.PathValue("username")
 	if username == "" {
-		writeError(apiContext.Context(), logger, apiContext.ResponseWriter, http.StatusBadRequest, errors.New("username path parameter is required"))
-		return nil
+		return types2.NewErrHttp(http.StatusBadRequest, "username path parameter is required")
 	}
 
+	existingUser := new(types.User)
 	status := http.StatusInternalServerError
 	if err := s.db.WithContext(apiContext.Context()).Transaction(func(tx *gorm.DB) error {
-		existingUser := new(types.User)
-		if err := tx.Where("username = ?", username).Or("username = ?", username).First(existingUser).Error; err != nil {
+		if err := tx.Where("username = ?", username).First(existingUser).Error; err != nil {
 			return err
 		}
 
-		if existingUser.Role.HasRole(types.RoleAdmin) {
+		if existingUser.Role.HasRole(types2.RoleAdmin) {
 			var adminCount int64
 			if err := tx.Model(new(types.User)).Count(&adminCount).Error; err != nil {
 				return err
@@ -167,17 +154,13 @@ func (s *Server) deleteUser(apiContext api.Context) error {
 			return err
 		}
 
-		return tx.Where("username = ?", username).Delete(new(types.User)).Error
+		return tx.Delete(existingUser).Error
 	}); err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			status = http.StatusNotFound
 		}
-
-		logger.DebugContext(apiContext.Context(), "failed to delete user by username", "err", err)
-		writeError(apiContext.Context(), logger, apiContext.ResponseWriter, status, fmt.Errorf("failed to delete user: %v", err))
-		return nil
+		return types2.NewErrHttp(status, fmt.Sprintf("failed to delete user: %v", err))
 	}
 
-	writeResponse(apiContext.Context(), logger, apiContext.ResponseWriter, map[string]any{"deleted": true})
-	return nil
+	return apiContext.Write(types.ConvertUser(existingUser))
 }

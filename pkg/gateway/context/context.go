@@ -5,7 +5,6 @@ import (
 	"log/slog"
 
 	"github.com/google/uuid"
-	"github.com/otto8-ai/otto8/pkg/gateway/types"
 )
 
 type reqIDKey struct{}
@@ -32,26 +31,4 @@ func GetLogger(ctx context.Context) *slog.Logger {
 	}
 
 	return l
-}
-
-type userKey struct{}
-
-func WithUser(ctx context.Context, user *types.User) context.Context {
-	return context.WithValue(ctx, userKey{}, user)
-}
-
-func GetUser(ctx context.Context) *types.User {
-	u, _ := ctx.Value(userKey{}).(*types.User)
-	return u
-}
-
-type identityKey struct{}
-
-func WithIdentity(ctx context.Context, identity *types.Identity) context.Context {
-	return context.WithValue(ctx, identityKey{}, identity)
-}
-
-func GetIdentity(ctx context.Context) *types.Identity {
-	i, _ := ctx.Value(identityKey{}).(*types.Identity)
-	return i
 }

@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/otto8-ai/otto8/pkg/gateway/client"
 	"github.com/otto8-ai/otto8/pkg/gateway/db"
 	"github.com/otto8-ai/otto8/pkg/gateway/types"
 	"gorm.io/gorm"
@@ -24,6 +25,7 @@ type Server struct {
 	db             *db.DB
 	baseURL, uiURL string
 	httpClient     *http.Client
+	client         *client.Client
 }
 
 func New(ctx context.Context, db *db.DB, adminEmails []string, opts Options) (*Server, error) {
@@ -62,6 +64,7 @@ func New(ctx context.Context, db *db.DB, adminEmails []string, opts Options) (*S
 		baseURL:     opts.Hostname,
 		uiURL:       opts.UIHostname,
 		httpClient:  &http.Client{},
+		client:      client.New(db, adminEmails),
 	}
 
 	go s.autoCleanupTokens(ctx)

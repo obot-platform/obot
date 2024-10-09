@@ -19,7 +19,6 @@ import (
 // proxyToProvider will proxy the request based on the "provider" path parameter.
 func (s *Server) proxyToProvider(proxyRequest *httputil.ProxyRequest) {
 	logger := kcontext.GetLogger(proxyRequest.In.Context())
-	user := kcontext.GetUser(proxyRequest.In.Context())
 
 	providerSlug := proxyRequest.In.PathValue("provider")
 	path := proxyRequest.In.PathValue("path")
@@ -94,7 +93,7 @@ func (s *Server) proxyToProvider(proxyRequest *httputil.ProxyRequest) {
 	proxyRequest.Out.URL.Path = u.Path + "/" + path
 	proxyRequest.Out.URL.Host = u.Host
 
-	logger.InfoContext(proxyRequest.In.Context(), "proxy request received", "path", proxyRequest.In.RequestURI, "username", user.Username)
+	logger.InfoContext(proxyRequest.In.Context(), "proxy request received", "path", proxyRequest.In.RequestURI)
 }
 
 func (s *Server) proxyError(w http.ResponseWriter, r *http.Request, err error) {

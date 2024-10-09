@@ -101,11 +101,11 @@ func newGPTScript(ctx context.Context) (*gptscript.GPTScript, error) {
 type noAuth struct {
 }
 
-func (n noAuth) AuthenticateRequest(req *http.Request) (*authenticator.Response, bool, error) {
+func (n noAuth) AuthenticateRequest(*http.Request) (*authenticator.Response, bool, error) {
 	return &authenticator.Response{
 		User: &user.DefaultInfo{
 			Name:   "nobody",
-			Groups: []string{"admin"},
+			Groups: []string{"admin", "system:authenticated"},
 		},
 	}, true, nil
 }
@@ -113,11 +113,12 @@ func (n noAuth) AuthenticateRequest(req *http.Request) (*authenticator.Response,
 type anonymous struct {
 }
 
-func (n anonymous) AuthenticateRequest(req *http.Request) (*authenticator.Response, bool, error) {
+func (n anonymous) AuthenticateRequest(*http.Request) (*authenticator.Response, bool, error) {
 	return &authenticator.Response{
 		User: &user.DefaultInfo{
-			UID:  "anonymous",
-			Name: "anonymous",
+			UID:    "anonymous",
+			Name:   "anonymous",
+			Groups: []string{"system:unauthenticated"},
 		},
 	}, true, nil
 }

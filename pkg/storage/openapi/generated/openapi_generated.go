@@ -68,6 +68,8 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/otto8-ai/otto8/apiclient/types.ToolReference":                                      schema_otto8_ai_otto8_apiclient_types_ToolReference(ref),
 		"github.com/otto8-ai/otto8/apiclient/types.ToolReferenceList":                                  schema_otto8_ai_otto8_apiclient_types_ToolReferenceList(ref),
 		"github.com/otto8-ai/otto8/apiclient/types.ToolReferenceManifest":                              schema_otto8_ai_otto8_apiclient_types_ToolReferenceManifest(ref),
+		"github.com/otto8-ai/otto8/apiclient/types.User":                                               schema_otto8_ai_otto8_apiclient_types_User(ref),
+		"github.com/otto8-ai/otto8/apiclient/types.UserList":                                           schema_otto8_ai_otto8_apiclient_types_UserList(ref),
 		"github.com/otto8-ai/otto8/apiclient/types.Webhook":                                            schema_otto8_ai_otto8_apiclient_types_Webhook(ref),
 		"github.com/otto8-ai/otto8/apiclient/types.WebhookExternalStatus":                              schema_otto8_ai_otto8_apiclient_types_WebhookExternalStatus(ref),
 		"github.com/otto8-ai/otto8/apiclient/types.WebhookList":                                        schema_otto8_ai_otto8_apiclient_types_WebhookList(ref),
@@ -2435,6 +2437,73 @@ func schema_otto8_ai_otto8_apiclient_types_ToolReferenceManifest(ref common.Refe
 				Required: []string{"name", "toolType"},
 			},
 		},
+	}
+}
+
+func schema_otto8_ai_otto8_apiclient_types_User(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"Metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/otto8-ai/otto8/apiclient/types.Metadata"),
+						},
+					},
+					"username": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"role": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"integer"},
+							Format: "int32",
+						},
+					},
+					"email": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+				},
+				Required: []string{"Metadata"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/otto8-ai/otto8/apiclient/types.Metadata"},
+	}
+}
+
+func schema_otto8_ai_otto8_apiclient_types_UserList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/otto8-ai/otto8/apiclient/types.User"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"items"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/otto8-ai/otto8/apiclient/types.User"},
 	}
 }
 
