@@ -295,7 +295,6 @@ func (s *Server) autoCleanupTokens(ctx context.Context) {
 		case <-timer.C:
 		}
 
-		slog.DebugContext(ctx, "Cleaning up old auth tokens")
 		var (
 			errs []error
 			now  = time.Now()
@@ -309,7 +308,6 @@ func (s *Server) autoCleanupTokens(ctx context.Context) {
 			slog.ErrorContext(ctx, "error cleaning up state", "error", err)
 		}
 
-		slog.DebugContext(ctx, "Done cleaning up old auth tokens")
 		timer.Reset(cleanupTick)
 	}
 }
