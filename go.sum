@@ -614,6 +614,8 @@ github.com/onsi/gomega v1.34.2/go.mod h1:v1xfxRgk0KIsG+QOdm7p8UosrOzPYRo60fd3B/1
 github.com/opentracing/opentracing-go v1.1.0/go.mod h1:UkNAQd3GIcIGf0SeVgPpRdFStlNbqXla1AfSYxPUl2o=
 github.com/otto8-ai/oauth2-proxy/v7 v7.0.0-20241008204315-265dabe17f43 h1:zuroXr125FGRsaj9/9brmtWfkiu3XkNoB78owd8lAo4=
 github.com/otto8-ai/oauth2-proxy/v7 v7.0.0-20241008204315-265dabe17f43/go.mod h1:lxQ1wbphpjECcCoy8gfsrDHQVenNKgm+p6Oskdkl97g=
+github.com/otto8-ai/workspace-provider v0.0.0-20241009125223-cc30f394a9f0 h1:/aCCVNefI/LbeJaR1aVHYwgUhsVhU6+fDcqaE78j020=
+github.com/otto8-ai/workspace-provider v0.0.0-20241009125223-cc30f394a9f0/go.mod h1:2rPBqteaj1qejAjTZ5LoWvMY6f5oaISj1h4EFnPi/yY=
 github.com/pelletier/go-toml/v2 v2.2.3 h1:YmeHyLY8mFWbdkNWwpr+qIL2bEqT0o95WSdkNHvL12M=
 github.com/pelletier/go-toml/v2 v2.2.3/go.mod h1:MfCQTFTvCcUyyvvwm1+G6H/jORL20Xlb6rzQu9GuUkc=
 github.com/perimeterx/marshmallow v1.1.5 h1:a2LALqQ1BlHM8PZblsDdidgv1mWi1DgC2UmX50IvK2s=
@@ -732,8 +734,6 @@ github.com/stretchr/testify v1.9.0 h1:HtqpIVDClZ4nwg75+f6Lvsy/wHu+3BoSGCbBAcpTsT
 github.com/stretchr/testify v1.9.0/go.mod h1:r2ic/lqez/lEtzL7wO/rwa5dbSLXVDPFyf8C91i36aY=
 github.com/subosito/gotenv v1.6.0 h1:9NlTDc1FTs4qu0DDq7AEtTPNw6SVm7uBMsUCUjABIf8=
 github.com/subosito/gotenv v1.6.0/go.mod h1:Dk4QP5c2W3ibzajGcXpNraDfq2IrhjMIvMSWPKKo0FU=
-github.com/thedadams/workspace-provider v0.0.0-20241008154854-f58f024fc57f h1:Dqk5CVgYzNNIkrtbD2yU07enTB6otzpZU6P8ax4KbAM=
-github.com/thedadams/workspace-provider v0.0.0-20241008154854-f58f024fc57f/go.mod h1:lEWAqSBY6752x3xd1GdPUT7hWbtpkT2BcRUxvu56M/0=
 github.com/therootcompany/xz v1.0.1 h1:CmOtsn1CbtmyYiusbfmhmkpAAETj0wBIH6kCYaX+xzw=
 github.com/therootcompany/xz v1.0.1/go.mod h1:3K3UH1yCKgBneZYhuQUvJ9HPD19UEXEI0BWbMn8qNMY=
 github.com/tidwall/gjson v1.17.1 h1:wlYEnwqAHgzmhNUFfw7Xalt2JzQvsMx2Se4PcoFCT/U=

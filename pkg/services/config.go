@@ -26,7 +26,7 @@ import (
 	"github.com/gptscript-ai/otto/pkg/storage/scheme"
 	"github.com/gptscript-ai/otto/pkg/storage/services"
 	"github.com/gptscript-ai/otto/pkg/system"
-	wclient "github.com/thedadams/workspace-provider/pkg/client"
+	wclient "github.com/otto8-ai/workspace-provider/pkg/client"
 	coordinationv1 "k8s.io/api/coordination/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apiserver/pkg/authentication/authenticator"

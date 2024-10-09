@@ -3,7 +3,7 @@ package workspace
 import (
 	"github.com/acorn-io/baaah/pkg/router"
 	v1 "github.com/gptscript-ai/otto/pkg/storage/apis/otto.gptscript.ai/v1"
-	wclient "github.com/thedadams/workspace-provider/pkg/client"
+	wclient "github.com/otto8-ai/workspace-provider/pkg/client"
 )
 
 type Handler struct {

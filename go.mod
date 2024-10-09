@@ -29,11 +29,11 @@ require (
 	github.com/gptscript-ai/otto/ui v0.0.0-00010101000000-000000000000
 	github.com/liggitt/tabwriter v0.0.0-20181228230101-89fcab3d43de
 	github.com/oauth2-proxy/oauth2-proxy/v7 v7.0.0-00010101000000-000000000000
+	github.com/otto8-ai/workspace-provider v0.0.0-20241009125223-cc30f394a9f0
 	github.com/pterm/pterm v0.12.79
 	github.com/robfig/cron/v3 v3.0.1
 	github.com/rs/cors v1.11.1
 	github.com/spf13/cobra v1.8.1
-	github.com/thedadams/workspace-provider v0.0.0-20241008154854-f58f024fc57f
 	golang.org/x/exp v0.0.0-20240909161429-701f63a606c0
 	golang.org/x/oauth2 v0.23.0
 	golang.org/x/term v0.24.0
