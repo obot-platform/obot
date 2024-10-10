@@ -17,6 +17,7 @@ type FileDetails struct {
 	FilePath  string `json:"filePath,omitempty"`
 	URL       string `json:"url,omitempty"`
 	UpdatedAt string `json:"updatedAt,omitempty"`
+	Checksum  string `json:"checksum,omitempty"`
 }
 
 type IngestionStatus struct {

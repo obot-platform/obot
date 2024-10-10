@@ -307,22 +307,24 @@ func (u *UploadHandler) HandleUploadRun(req router.Request, resp router.Response
 	remoteKnowledgeSource.Status.RunName = ""
 
 	// Create object to re-ingest knowledge
-	resp.Objects(
-		&v1.IngestKnowledgeRequest{
-			ObjectMeta: metav1.ObjectMeta{
-				GenerateName: system.IngestRequestPrefix,
-				Namespace:    req.Namespace,
-				Annotations: map[string]string{
-					// Don't prune because the cleanup handler will do that.
-					apply.AnnotationPrune: "false",
+	if !remoteKnowledgeSource.Spec.DisableIngestionAfterSync {
+		resp.Objects(
+			&v1.IngestKnowledgeRequest{
+				ObjectMeta: metav1.ObjectMeta{
+					GenerateName: system.IngestRequestPrefix,
+					Namespace:    req.Namespace,
+					Annotations: map[string]string{
+						// Don't prune because the cleanup handler will do that.
+						apply.AnnotationPrune: "false",
+					},
+				},
+				Spec: v1.IngestKnowledgeRequestSpec{
+					WorkspaceName: ws.Name,
+					HasKnowledge:  len(fileMetadata) > 0,
 				},
 			},
-			Spec: v1.IngestKnowledgeRequestSpec{
-				WorkspaceName: ws.Name,
-				HasKnowledge:  len(fileMetadata) > 0,
-			},
-		},
-	)
+		)
+	}
 
 	return nil
 }

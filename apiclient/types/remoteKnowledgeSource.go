@@ -28,11 +28,12 @@ type RemoteKnowledgeSourceManifest struct {
 type RemoteKnowledgeSourceList List[RemoteKnowledgeSource]
 
 type RemoteKnowledgeSourceInput struct {
-	SourceType            RemoteKnowledgeSourceType `json:"sourceType,omitempty"`
-	Exclude               []string                  `json:"exclude,omitempty"`
-	OneDriveConfig        *OneDriveConfig           `json:"onedriveConfig,omitempty"`
-	NotionConfig          *NotionConfig             `json:"notionConfig,omitempty"`
-	WebsiteCrawlingConfig *WebsiteCrawlingConfig    `json:"websiteCrawlingConfig,omitempty"`
+	DisableIngestionAfterSync bool                      `json:"disableIngestionAfterSync,omitempty"`
+	SourceType                RemoteKnowledgeSourceType `json:"sourceType,omitempty"`
+	Exclude                   []string                  `json:"exclude,omitempty"`
+	OneDriveConfig            *OneDriveConfig           `json:"onedriveConfig,omitempty"`
+	NotionConfig              *NotionConfig             `json:"notionConfig,omitempty"`
+	WebsiteCrawlingConfig     *WebsiteCrawlingConfig    `json:"websiteCrawlingConfig,omitempty"`
 }
 
 type OneDriveConfig struct {
@@ -54,7 +55,14 @@ type RemoteKnowledgeSourceState struct {
 }
 
 type OneDriveLinksConnectorState struct {
-	Folders FolderSet `json:"folders,omitempty"`
+	Folders FolderSet            `json:"folders,omitempty"`
+	Files   map[string]FileState `json:"files,omitempty"`
+}
+
+type FileState struct {
+	FileName   string `json:"fileName,omitempty"`
+	FolderPath string `json:"folderPath,omitempty"`
+	URL        string `json:"url,omitempty"`
 }
 
 type NotionConnectorState struct {
@@ -62,11 +70,13 @@ type NotionConnectorState struct {
 }
 
 type NotionPage struct {
-	URL   string `json:"url,omitempty"`
-	Title string `json:"title,omitempty"`
+	URL        string `json:"url,omitempty"`
+	Title      string `json:"title,omitempty"`
+	FolderPath string `json:"folderPath,omitempty"`
 }
 
 type WebsiteCrawlingConnectorState struct {
 	ScrapeJobIds map[string]string `json:"scrapeJobIds"`
 	Folders      FolderSet         `json:"folders"`
+	Pages        map[string]Item   `json:"pages"`
 }

@@ -3,6 +3,7 @@ package handlers
 import (
 	"fmt"
 	"net/http"
+	"reflect"
 
 	"github.com/otto8-ai/otto8/apiclient/types"
 	"github.com/otto8-ai/otto8/pkg/api"
@@ -71,14 +72,17 @@ func updateRemoteKnowledgeSource(req api.Context, linksID, parentName string, pa
 		return fmt.Errorf("failed to decode request body: %w", err)
 	}
 
+	configChanged := checkConfigChanged(input, remoteKnowledgeSource)
 	remoteKnowledgeSource.Spec.RemoteKnowledgeSourceInput = input
 
 	if err := req.Update(&remoteKnowledgeSource); err != nil {
 		return fmt.Errorf("failed to update RemoteKnowledgeSource: %w", err)
 	}
 
-	if err := createSyncRequest(req, remoteKnowledgeSource); err != nil {
-		return fmt.Errorf("failed to create sync request: %w", err)
+	if configChanged {
+		if err := createSyncRequest(req, remoteKnowledgeSource); err != nil {
+			return fmt.Errorf("failed to create sync request: %w", err)
+		}
 	}
 
 	req.WriteHeader(http.StatusNoContent)
@@ -178,4 +182,20 @@ func convertRemoteKnowledgeSource(remoteKnowledgeSource v1.RemoteKnowledgeSource
 		Status:                        remoteKnowledgeSource.Status.Status,
 		Error:                         remoteKnowledgeSource.Status.Error,
 	}
+}
+
+func checkConfigChanged(input types.RemoteKnowledgeSourceInput, remoteKnowledgeSource v1.RemoteKnowledgeSource) bool {
+	if input.OneDriveConfig != nil && remoteKnowledgeSource.Spec.OneDriveConfig != nil {
+		return !reflect.DeepEqual(*input.OneDriveConfig, *remoteKnowledgeSource.Spec.OneDriveConfig)
+	}
+
+	if input.NotionConfig != nil && remoteKnowledgeSource.Spec.NotionConfig != nil {
+		return !reflect.DeepEqual(*input.NotionConfig, *remoteKnowledgeSource.Spec.NotionConfig)
+	}
+
+	if input.WebsiteCrawlingConfig != nil && remoteKnowledgeSource.Spec.WebsiteCrawlingConfig != nil {
+		return !reflect.DeepEqual(*input.WebsiteCrawlingConfig, *remoteKnowledgeSource.Spec.WebsiteCrawlingConfig)
+	}
+
+	return true
 }

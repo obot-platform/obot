@@ -31,6 +31,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/otto8-ai/otto8/apiclient/types.File":                                               schema_otto8_ai_otto8_apiclient_types_File(ref),
 		"github.com/otto8-ai/otto8/apiclient/types.FileDetails":                                        schema_otto8_ai_otto8_apiclient_types_FileDetails(ref),
 		"github.com/otto8-ai/otto8/apiclient/types.FileList":                                           schema_otto8_ai_otto8_apiclient_types_FileList(ref),
+		"github.com/otto8-ai/otto8/apiclient/types.FileState":                                          schema_otto8_ai_otto8_apiclient_types_FileState(ref),
 		"github.com/otto8-ai/otto8/apiclient/types.If":                                                 schema_otto8_ai_otto8_apiclient_types_If(ref),
 		"github.com/otto8-ai/otto8/apiclient/types.IngestionStatus":                                    schema_otto8_ai_otto8_apiclient_types_IngestionStatus(ref),
 		"github.com/otto8-ai/otto8/apiclient/types.Item":                                               schema_otto8_ai_otto8_apiclient_types_Item(ref),
@@ -695,6 +696,12 @@ func schema_otto8_ai_otto8_apiclient_types_FileDetails(ref common.ReferenceCallb
 							Format: "",
 						},
 					},
+					"checksum": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
 				},
 			},
 		},
@@ -726,6 +733,36 @@ func schema_otto8_ai_otto8_apiclient_types_FileList(ref common.ReferenceCallback
 		},
 		Dependencies: []string{
 			"github.com/otto8-ai/otto8/apiclient/types.File"},
+	}
+}
+
+func schema_otto8_ai_otto8_apiclient_types_FileState(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"fileName": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"folderPath": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"url": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+				},
+			},
+		},
 	}
 }
 
@@ -1135,6 +1172,12 @@ func schema_otto8_ai_otto8_apiclient_types_NotionPage(ref common.ReferenceCallba
 							Format: "",
 						},
 					},
+					"folderPath": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
 				},
 			},
 		},
@@ -1355,11 +1398,25 @@ func schema_otto8_ai_otto8_apiclient_types_OneDriveLinksConnectorState(ref commo
 							},
 						},
 					},
+					"files": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"object"},
+							AdditionalProperties: &spec.SchemaOrBool{
+								Allows: true,
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/otto8-ai/otto8/apiclient/types.FileState"),
+									},
+								},
+							},
+						},
+					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/otto8-ai/otto8/apiclient/types.Item"},
+			"github.com/otto8-ai/otto8/apiclient/types.FileState", "github.com/otto8-ai/otto8/apiclient/types.Item"},
 	}
 }
 
@@ -1561,6 +1618,12 @@ func schema_otto8_ai_otto8_apiclient_types_RemoteKnowledgeSource(ref common.Refe
 							Format: "",
 						},
 					},
+					"disableIngestionAfterSync": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
+						},
+					},
 					"sourceType": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
@@ -1653,6 +1716,12 @@ func schema_otto8_ai_otto8_apiclient_types_RemoteKnowledgeSourceInput(ref common
 			SchemaProps: spec.SchemaProps{
 				Type: []string{"object"},
 				Properties: map[string]spec.Schema{
+					"disableIngestionAfterSync": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
+						},
+					},
 					"sourceType": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
@@ -1733,6 +1802,12 @@ func schema_otto8_ai_otto8_apiclient_types_RemoteKnowledgeSourceManifest(ref com
 					"syncSchedule": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"disableIngestionAfterSync": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
 							Format: "",
 						},
 					},
@@ -2757,8 +2832,22 @@ func schema_otto8_ai_otto8_apiclient_types_WebsiteCrawlingConnectorState(ref com
 							},
 						},
 					},
+					"pages": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"object"},
+							AdditionalProperties: &spec.SchemaOrBool{
+								Allows: true,
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/otto8-ai/otto8/apiclient/types.Item"),
+									},
+								},
+							},
+						},
+					},
 				},
-				Required: []string{"scrapeJobIds", "folders"},
+				Required: []string{"scrapeJobIds", "folders", "pages"},
 			},
 		},
 		Dependencies: []string{
@@ -4361,6 +4450,12 @@ func schema_storage_apis_ottogptscriptai_v1_RemoteKnowledgeSourceSpec(ref common
 					"syncSchedule": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"disableIngestionAfterSync": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
 							Format: "",
 						},
 					},
