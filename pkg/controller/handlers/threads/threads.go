@@ -1,64 +1,16 @@
 package threads
 
 import (
-	"fmt"
+	"time"
 
 	"github.com/acorn-io/baaah/pkg/router"
-	"github.com/otto8-ai/otto8/pkg/aihelper"
+	"github.com/otto8-ai/otto8/pkg/invoke"
 	v1 "github.com/otto8-ai/otto8/pkg/storage/apis/otto.gptscript.ai/v1"
 	"github.com/otto8-ai/otto8/pkg/system"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-type ThreadHandler struct {
-	aihelper *aihelper.AIHelper
-}
-
-func New(aihelper *aihelper.AIHelper) *ThreadHandler {
-	return &ThreadHandler{
-		aihelper: aihelper,
-	}
-}
-
-func (t *ThreadHandler) Description(req router.Request, _ router.Response) error {
-	thread := req.Object.(*v1.Thread)
-
-	if thread.Spec.Manifest.Description != "" || thread.Status.LastRunName == "" {
-		return nil
-	}
-
-	var run v1.Run
-	if err := req.Get(&run, thread.Namespace, thread.Status.LastRunName); err != nil {
-		return err
-	}
-
-	for run.Spec.PreviousRunName != "" {
-		var prevRun v1.Run
-		if err := req.Get(&prevRun, thread.Namespace, run.Spec.PreviousRunName); err != nil {
-			return err
-		}
-		if prevRun.Spec.ThreadName == thread.Name {
-			run = prevRun
-		} else {
-			break
-		}
-	}
-
-	var desc string
-	err := t.aihelper.GenerateObject(req.Ctx, &desc,
-		`Given the following start of a conversation, generate a short title of the conversation.
-Output just your suggested title, without quotes or any other text.`,
-		fmt.Sprintf(`User: %s\n
-Assistant: %s\n`, run.Spec.Input, run.Status.Output))
-	if err != nil {
-		return err
-	}
-
-	thread.Spec.Manifest.Description = desc
-	return req.Client.Update(req.Ctx, thread)
-}
-
-func (t *ThreadHandler) WorkflowState(req router.Request, _ router.Response) error {
+func WorkflowState(req router.Request, _ router.Response) error {
 	var (
 		thread = req.Object.(*v1.Thread)
 		wfe    v1.WorkflowExecution
@@ -74,7 +26,21 @@ func (t *ThreadHandler) WorkflowState(req router.Request, _ router.Response) err
 	return nil
 }
 
-func (t *ThreadHandler) CreateWorkspaces(req router.Request, resp router.Response) error {
+func PurgeSystemThread(req router.Request, _ router.Response) error {
+	thread := req.Object.(*v1.Thread)
+	if thread.Labels[invoke.SystemThreadLabel] != "true" || !thread.Status.LastRunState.IsTerminal() {
+		return nil
+	}
+
+	// Delete if the thread is older than the TTL
+	if thread.CreationTimestamp.Add(invoke.SystemThreadTTL).Before(time.Now()) {
+		return req.Delete(thread)
+	}
+
+	return nil
+}
+
+func CreateWorkspaces(req router.Request, resp router.Response) error {
 	thread := req.Object.(*v1.Thread)
 	resp.Objects(
 		&v1.Workspace{
@@ -85,17 +51,6 @@ func (t *ThreadHandler) CreateWorkspaces(req router.Request, resp router.Respons
 			Spec: v1.WorkspaceSpec{
 				ThreadName:  thread.Name,
 				WorkspaceID: thread.Spec.WorkspaceID,
-			},
-		},
-		&v1.Workspace{
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace: thread.Namespace,
-				Name:      system.WorkspacePrefix + "knowledge" + thread.Name,
-			},
-			Spec: v1.WorkspaceSpec{
-				ThreadName:  thread.Name,
-				WorkspaceID: thread.Spec.KnowledgeWorkspaceID,
-				IsKnowledge: true,
 			},
 		},
 	)

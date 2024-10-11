@@ -3,6 +3,7 @@ module github.com/otto8-ai/otto8
 go 1.23.1
 
 replace (
+	github.com/gptscript-ai/go-gptscript => ../go-gptscript
 	github.com/oauth2-proxy/oauth2-proxy/v7 => github.com/otto8-ai/oauth2-proxy/v7 v7.0.0-20241008204315-265dabe17f43
 	github.com/otto8-ai/otto8/apiclient => ./apiclient
 	github.com/otto8-ai/otto8/logger => ./logger
@@ -21,7 +22,7 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/gptscript-ai/cmd v0.0.0-20240907001148-ffd49061124a
 	github.com/gptscript-ai/go-gptscript v0.9.5-rc5.0.20240927213153-2af51434b93e
-	github.com/gptscript-ai/gptscript v0.9.6-0.20241010045036-df259f9e7fc4
+	github.com/gptscript-ai/gptscript v0.9.6-0.20241014191650-2bd60f8bfd0b
 	github.com/liggitt/tabwriter v0.0.0-20181228230101-89fcab3d43de
 	github.com/oauth2-proxy/oauth2-proxy/v7 v7.0.0-00010101000000-000000000000
 	github.com/otto8-ai/otto8/apiclient v0.0.0-00010101000000-000000000000

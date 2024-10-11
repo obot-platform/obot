@@ -3,9 +3,8 @@ package toolreference
 import (
 	"context"
 	"fmt"
-	"io"
-	"net/http"
-	"os"
+	"net/url"
+	"path"
 	"strings"
 	"time"
 
@@ -28,8 +27,11 @@ type indexEntry struct {
 }
 
 type index struct {
-	Tools         map[string]indexEntry `json:"tools,omitempty"`
-	StepTemplates map[string]indexEntry `json:"stepTemplates,omitempty"`
+	Tools                    map[string]indexEntry `json:"tools,omitempty"`
+	StepTemplates            map[string]indexEntry `json:"stepTemplates,omitempty"`
+	KnowledgeDataSources     map[string]indexEntry `json:"knowledgeDataSources,omitempty"`
+	KnowledgeDocumentLoaders map[string]indexEntry `json:"knowledgeDocumentLoaders,omitempty"`
+	System                   map[string]indexEntry `json:"system,omitempty"`
 }
 
 type Handler struct {
@@ -53,6 +55,10 @@ func isValidTool(tool gptscript.Tool) bool {
 
 func (h *Handler) toolsToToolReferences(ctx context.Context, toolType types.ToolReferenceType, entries map[string]indexEntry) (result []client.Object) {
 	for name, entry := range entries {
+		if strings.HasPrefix(entry.Reference, ".") {
+			entry.Reference = h.registryURL + "/" + entry.Reference
+		}
+
 		if entry.All {
 			prg, err := h.gptClient.LoadFile(ctx, "* from "+entry.Reference)
 			if err != nil {
@@ -105,34 +111,19 @@ func (h *Handler) toolsToToolReferences(ctx context.Context, toolType types.Tool
 	return
 }
 
-func (h *Handler) readRegistry() (index, error) {
-	var input io.ReadCloser
-
-	if strings.HasPrefix(h.registryURL, "file://") {
-		file, err := os.Open(strings.TrimPrefix(h.registryURL, "file://"))
-		if err != nil {
-			return index{}, err
-		}
-		defer file.Close()
-		input = file
-	} else {
-		resp, err := http.Get(h.registryURL)
-		if err != nil {
-			return index{}, err
-		}
-		defer resp.Body.Close()
-		input = resp.Body
+func (h *Handler) readRegistry(ctx context.Context) (index, error) {
+	run, err := h.gptClient.Run(ctx, h.registryURL, gptscript.Options{})
+	if err != nil {
+		return index{}, err
 	}
 
-	data, err := io.ReadAll(input)
+	out, err := run.Text()
 	if err != nil {
-		log.Errorf("Failed to read index: %v", err)
 		return index{}, err
 	}
 
 	var index index
-
-	if err := yaml.Unmarshal(data, &index); err != nil {
+	if err := yaml.Unmarshal([]byte(out), &index); err != nil {
 		log.Errorf("Failed to decode index: %v", err)
 		return index, err
 	}
@@ -141,15 +132,18 @@ func (h *Handler) readRegistry() (index, error) {
 }
 
 func (h *Handler) readFromRegistry(ctx context.Context, c client.Client) error {
-	index, err := h.readRegistry()
+	index, err := h.readRegistry(ctx)
 	if err != nil {
 		return err
 	}
 
 	var toAdd []client.Object
 
+	toAdd = append(toAdd, h.toolsToToolReferences(ctx, types.ToolReferenceTypeSystem, index.System)...)
 	toAdd = append(toAdd, h.toolsToToolReferences(ctx, types.ToolReferenceTypeTool, index.Tools)...)
 	toAdd = append(toAdd, h.toolsToToolReferences(ctx, types.ToolReferenceTypeStepTemplate, index.StepTemplates)...)
+	toAdd = append(toAdd, h.toolsToToolReferences(ctx, types.ToolReferenceTypeKnowledgeDataSource, index.KnowledgeDataSources)...)
+	toAdd = append(toAdd, h.toolsToToolReferences(ctx, types.ToolReferenceTypeKnowledgeDocumentLoader, index.KnowledgeDocumentLoaders)...)
 
 	if len(toAdd) == 0 {
 		// Don't accidentally delete all the tool references
@@ -222,6 +216,17 @@ func (h *Handler) Populate(req router.Request, resp router.Response) error {
 			if param.Value != nil {
 				toolRef.Status.Tool.Params[name] = param.Value.Description
 			}
+		}
+	}
+	if len(tool.Credentials) == 1 {
+		if strings.HasPrefix(tool.Credentials[0], ".") {
+			refURL, err := url.Parse(toolRef.Spec.Reference)
+			if err == nil {
+				refURL.Path = path.Join(refURL.Path, tool.Credentials[0])
+				toolRef.Status.Tool.Credential = refURL.String()
+			}
+		} else {
+			toolRef.Status.Tool.Credential = tool.Credentials[0]
 		}
 	}
 

@@ -30,6 +30,8 @@ func Router(services *services.Services) (http.Handler, error) {
 	mux.Handle("GET /agents", w(agents.List))
 	mux.Handle("GET /agents/{id}", w(agents.ByID))
 	mux.Handle("GET /agents/{id}/script", w(agents.Script))
+	mux.Handle("GET /agents/{id}/script.gpt", w(agents.Script))
+	mux.Handle("GET /agents/{id}/script/tool.gpt", w(agents.Script))
 	mux.Handle("POST /agents", w(agents.Create))
 	mux.Handle("PUT /agents/{id}", w(agents.Update))
 	mux.Handle("DELETE /agents/{id}", w(agents.Delete))
@@ -41,7 +43,6 @@ func Router(services *services.Services) (http.Handler, error) {
 
 	// Agent knowledge files
 	mux.Handle("GET /agents/{id}/knowledge", w(agents.Knowledge))
-	mux.Handle("POST /agents/{id}/knowledge", w(agents.IngestKnowledge))
 	mux.Handle("POST /agents/{id}/knowledge/{file}", w(agents.UploadKnowledge))
 	mux.Handle("DELETE /agents/{id}/knowledge/{file...}", w(agents.DeleteKnowledge))
 
@@ -55,6 +56,8 @@ func Router(services *services.Services) (http.Handler, error) {
 	mux.Handle("GET /workflows", w(workflows.List))
 	mux.Handle("GET /workflows/{id}", w(workflows.ByID))
 	mux.Handle("GET /workflows/{id}/script", w(workflows.Script))
+	mux.Handle("GET /workflows/{id}/script.gpt", w(workflows.Script))
+	mux.Handle("GET /workflows/{id}/script/tool.gpt", w(workflows.Script))
 	mux.Handle("POST /workflows", w(workflows.Create))
 	mux.Handle("PUT /workflows/{id}", w(workflows.Update))
 	mux.Handle("DELETE /workflows/{id}", w(workflows.Delete))
@@ -63,18 +66,6 @@ func Router(services *services.Services) (http.Handler, error) {
 	mux.Handle("GET /workflows/{id}/files", w(workflows.Files))
 	mux.Handle("POST /workflows/{id}/files/{file}", w(workflows.UploadFile))
 	mux.Handle("DELETE /workflows/{id}/files/{file}", w(workflows.DeleteFile))
-
-	// Workflow knowledge files
-	mux.Handle("GET /workflows/{id}/knowledge", w(workflows.Knowledge))
-	mux.Handle("POST /workflows/{id}/knowledge", w(workflows.IngestKnowledge))
-	mux.Handle("POST /workflows/{id}/knowledge/{file}", w(workflows.UploadKnowledge))
-	mux.Handle("DELETE /workflows/{id}/knowledge/{file...}", w(workflows.DeleteKnowledge))
-
-	mux.Handle("POST /workflows/{workflow_id}/remote-knowledge-sources", w(workflows.CreateRemoteKnowledgeSource))
-	mux.Handle("GET /workflows/{workflow_id}/remote-knowledge-sources", w(workflows.GetRemoteKnowledgeSources))
-	mux.Handle("PATCH /workflows/{workflow_id}/remote-knowledge-sources/{id}", w(workflows.ReSyncRemoteKnowledgeSource))
-	mux.Handle("PUT /workflows/{workflow_id}/remote-knowledge-sources/{id}", w(workflows.UpdateRemoteKnowledgeSource))
-	mux.Handle("DELETE /workflows/{workflow_id}/remote-knowledge-sources/{id}", w(workflows.DeleteRemoteKnowledgeSource))
 
 	// Invoker
 	mux.Handle("POST /invoke/{id}", w(invoker.Invoke))
@@ -95,7 +86,6 @@ func Router(services *services.Services) (http.Handler, error) {
 
 	// Thread knowledge files
 	mux.Handle("GET /threads/{id}/knowledge", w(threads.Knowledge))
-	mux.Handle("POST /threads/{id}/knowledge", w(threads.IngestKnowledge))
 	mux.Handle("POST /threads/{id}/knowledge/{file}", w(threads.UploadKnowledge))
 	mux.Handle("DELETE /threads/{id}/knowledge/{file...}", w(threads.DeleteKnowledge))
 

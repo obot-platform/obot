@@ -17,7 +17,7 @@ import (
 type WorkflowOptions struct {
 	ThreadName string
 	StepID     string
-	Background bool
+	Events     bool
 }
 
 func (i *Invoker) startWorkflow(ctx context.Context, c kclient.WithWatch, wf *v1.Workflow, input string) (*v1.Thread, error) {
@@ -83,8 +83,13 @@ func (i *Invoker) Workflow(ctx context.Context, c kclient.WithWatch, wf *v1.Work
 		}
 	}
 
-	if opt.Background {
-		return &Response{Thread: thread}, nil
+	if !opt.Events {
+		closedChan := make(chan types.Progress)
+		close(closedChan)
+		return &Response{
+			Thread: thread,
+			Events: closedChan,
+		}, nil
 	}
 
 	run, prg, err := i.events.Watch(ctx, thread.Namespace, events.WatchOptions{

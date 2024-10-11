@@ -303,23 +303,3 @@ func (a *ThreadHandler) DeleteKnowledge(req api.Context) error {
 
 	return fmt.Errorf("no knowledge workspace found for thread %s", req.PathValue("id"))
 }
-
-func (a *ThreadHandler) IngestKnowledge(req api.Context) error {
-	var workspaces v1.WorkspaceList
-	if err := req.Storage.List(req.Context(), &workspaces, &client.ListOptions{
-		Namespace: req.Namespace(),
-		FieldSelector: fields.SelectorFromSet(map[string]string{
-			"spec.threadName": req.PathValue("id"),
-		}),
-	}); err != nil {
-		return err
-	}
-
-	for _, workspace := range workspaces.Items {
-		if workspace.Spec.IsKnowledge {
-			return ingestKnowledgeInWorkspace(req, a.workspaceClient, workspace)
-		}
-	}
-
-	return fmt.Errorf("no knowledge workspace found for thread %s", req.PathValue("id"))
-}

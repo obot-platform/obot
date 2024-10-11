@@ -13,7 +13,6 @@ import (
 	"github.com/otto8-ai/otto8/pkg/api"
 	v1 "github.com/otto8-ai/otto8/pkg/storage/apis/otto.gptscript.ai/v1"
 	"github.com/otto8-ai/otto8/pkg/storage/selectors"
-	"github.com/otto8-ai/otto8/pkg/system"
 	"github.com/otto8-ai/otto8/pkg/workspace"
 	wclient "github.com/otto8-ai/workspace-provider/pkg/client"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -45,9 +44,27 @@ func listFileFromWorkspace(ctx context.Context, req api.Context, wc *wclient.Cli
 	return req.Write(types.FileList{Items: resp})
 }
 
-func listKnowledgeFiles(req api.Context, workspaceName string) error {
-	var ws v1.Workspace
-	if err := req.Get(&ws, workspaceName); err != nil {
+func getWorkspaceFromKnowledgeSet(req api.Context, knowledgeSetNames ...string) (ws v1.Workspace, ok bool, err error) {
+	if len(knowledgeSetNames) == 0 {
+		return ws, false, nil
+	}
+
+	var knowledgeSet v1.KnowledgeSet
+	if err := req.Get(&knowledgeSet, knowledgeSetNames[0]); err != nil {
+		return ws, false, err
+	}
+
+	if knowledgeSet.Status.WorkspaceName == "" {
+		return ws, false, nil
+	}
+
+	err = req.Get(&ws, knowledgeSet.Status.WorkspaceName)
+	return ws, true, err
+}
+
+func listKnowledgeFiles(req api.Context, knowledgeSetNames ...string) error {
+	ws, ok, err := getWorkspaceFromKnowledgeSet(req, knowledgeSetNames...)
+	if err != nil || !ok {
 		return err
 	}
 
@@ -73,9 +90,9 @@ func listKnowledgeFilesFromWorkspace(req api.Context, ws v1.Workspace) error {
 	return req.Write(types.KnowledgeFileList{Items: resp})
 }
 
-func uploadKnowledge(req api.Context, wc *wclient.Client, workspaceName string) error {
-	var ws v1.Workspace
-	if err := req.Get(&ws, workspaceName); err != nil {
+func uploadKnowledge(req api.Context, wc *wclient.Client, knowledgeSetNames ...string) error {
+	ws, ok, err := getWorkspaceFromKnowledgeSet(req, knowledgeSetNames...)
+	if err != nil || !ok {
 		return err
 	}
 
@@ -104,10 +121,6 @@ func uploadKnowledgeToWorkspace(req api.Context, wc *wclient.Client, ws v1.Works
 
 	if err := req.Storage.Create(req.Context(), &file); err != nil && !apierrors.IsAlreadyExists(err) {
 		_ = deleteFile(req.Context(), req, wc, ws.Status.WorkspaceID)
-		return err
-	}
-
-	if err := createIngestionRequestForWorkspace(req, ws); err != nil {
 		return err
 	}
 
@@ -165,10 +178,10 @@ func uploadFileToWorkspace(ctx context.Context, req api.Context, wc *wclient.Cli
 	return nil
 }
 
-func deleteKnowledge(req api.Context, filename, workspaceName string) error {
-	var ws v1.Workspace
-	if err := req.Get(&ws, workspaceName); err != nil {
-		return fmt.Errorf("failed to get workspace with id %s: %w", workspaceName, err)
+func deleteKnowledge(req api.Context, filename string, knowledgeSetNames ...string) error {
+	ws, ok, err := getWorkspaceFromKnowledgeSet(req, knowledgeSetNames...)
+	if err != nil || !ok {
+		return err
 	}
 
 	return deleteKnowledgeFromWorkspace(req, filename, ws)
@@ -211,51 +224,6 @@ func deleteFileFromWorkspaceID(ctx context.Context, req api.Context, wc *wclient
 	}
 
 	req.WriteHeader(http.StatusNoContent)
-
-	return nil
-}
-
-func ingestKnowledge(req api.Context, wc *wclient.Client, workspaceName string) error {
-	var ws v1.Workspace
-	if err := req.Get(&ws, workspaceName); err != nil {
-		return fmt.Errorf("failed to get workspace with id %s: %w", req.PathValue("id"), err)
-	}
-
-	return ingestKnowledgeInWorkspace(req, wc, ws)
-}
-
-func ingestKnowledgeInWorkspace(req api.Context, wc *wclient.Client, ws v1.Workspace) error {
-	files, err := wc.Ls(req.Context(), ws.Status.WorkspaceID)
-	if err != nil {
-		return fmt.Errorf("failed to list files in workspace %q: %w", ws.Status.WorkspaceID, err)
-	}
-
-	if len(files) == 0 && !ws.Status.HasKnowledge {
-		req.WriteHeader(http.StatusNoContent)
-		return nil
-	}
-
-	if err = createIngestionRequestForWorkspace(req, ws); err != nil {
-		return err
-	}
-
-	req.WriteHeader(http.StatusNoContent)
-	return nil
-}
-
-func createIngestionRequestForWorkspace(req api.Context, ws v1.Workspace) error {
-	if err := req.Storage.Create(req.Context(), &v1.IngestKnowledgeRequest{
-		ObjectMeta: metav1.ObjectMeta{
-			GenerateName: system.IngestRequestPrefix,
-			Namespace:    ws.Namespace,
-		},
-		Spec: v1.IngestKnowledgeRequestSpec{
-			WorkspaceName: ws.Name,
-			HasKnowledge:  true,
-		},
-	}); err != nil {
-		return fmt.Errorf("failed to create ingest request: %w", err)
-	}
 
 	return nil
 }

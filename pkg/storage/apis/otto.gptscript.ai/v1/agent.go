@@ -31,10 +31,10 @@ type AgentSpec struct {
 }
 
 type AgentStatus struct {
-	Conditions             []metav1.Condition        `json:"conditions,omitempty"`
-	External               types.AgentExternalStatus `json:"external,omitempty"`
-	WorkspaceName          string                    `json:"workspaceName,omitempty"`
-	KnowledgeWorkspaceName string                    `json:"knowledgeWorkspaceName,omitempty"`
+	Conditions        []metav1.Condition        `json:"conditions,omitempty"`
+	External          types.AgentExternalStatus `json:"external,omitempty"`
+	KnowledgeSetNames []string                  `json:"knowledgeSetNames,omitempty"`
+	WorkspaceName     string                    `json:"workspaceName,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

@@ -16,6 +16,7 @@ const (
 	CronJobPrefix               = "cj1"
 	RemoteKnowledgeSourcePrefix = "rks1"
 	OAuthAppPrefix              = "oa1"
+	KnowledgeSetPrefix          = "ks1"
 )
 
 var typePrefixes = []string{
@@ -30,6 +31,7 @@ var typePrefixes = []string{
 	SyncRequestPrefix,
 	WebhookPrefix,
 	CronJobPrefix,
+	KnowledgeSetPrefix,
 }
 
 func IsThreadID(id string) bool {
@@ -62,6 +64,10 @@ func IsWorkflowStepID(id string) bool {
 
 func IsOAuthAppID(id string) bool {
 	return strings.HasPrefix(id, OAuthAppPrefix)
+}
+
+func IsKnowledgeSetID(id string) bool {
+	return strings.HasPrefix(id, KnowledgeSetPrefix)
 }
 
 func IsSystemID(id string) bool {

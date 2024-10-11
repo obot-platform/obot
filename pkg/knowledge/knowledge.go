@@ -2,55 +2,41 @@ package knowledge
 
 import (
 	"context"
-	"fmt"
-	"strings"
 
 	"github.com/otto8-ai/otto8/pkg/invoke"
+	"github.com/otto8-ai/otto8/pkg/system"
 	"github.com/otto8-ai/otto8/pkg/workspace"
 )
 
 type Ingester struct {
-	invoker       *invoke.Invoker
-	knowledgeTool string
+	invoker *invoke.Invoker
 }
 
-func NewIngester(invoker *invoke.Invoker, knowledgeTool string) *Ingester {
+func NewIngester(invoker *invoke.Invoker) *Ingester {
 	return &Ingester{
-		invoker:       invoker,
-		knowledgeTool: knowledgeTool,
+		invoker: invoker,
 	}
 }
 
-func (i *Ingester) IngestKnowledge(ctx context.Context, agentName, namespace, knowledgeWorkspaceID string) (*invoke.Response, error) {
+func (i *Ingester) IngestKnowledge(ctx context.Context, namespace, knowledgeSetName, workspaceID string) (*invoke.Response, error) {
 	return i.invoker.SystemAction(
 		ctx,
 		"ingest-",
-		agentName,
 		namespace,
-		fullKnowledgeTool(i.knowledgeTool, "ingest.gpt"),
-		workspace.GetDir(knowledgeWorkspaceID),
+		system.KnowledgeIngestTool,
+		workspace.GetDir(workspaceID),
 		// Below are environment variables used by the ingest tool
-		"GPTSCRIPT_DATASET="+workspace.KnowledgeIDFromWorkspaceID(knowledgeWorkspaceID),
+		"GPTSCRIPT_DATASET="+knowledgeSetName,
 		"KNOW_JSON=true",
 	)
 }
 
-func (i *Ingester) DeleteKnowledge(ctx context.Context, agentName, namespace, knowledgeWorkspaceID string) (*invoke.Response, error) {
+func (i *Ingester) DeleteKnowledge(ctx context.Context, namespace, knowledgeSetName string) (*invoke.Response, error) {
 	return i.invoker.SystemAction(
 		ctx,
 		"ingest-delete-",
-		agentName,
 		namespace,
-		fullKnowledgeTool(i.knowledgeTool, "delete.gpt"),
-		workspace.KnowledgeIDFromWorkspaceID(knowledgeWorkspaceID),
+		system.KnowledgeDeleteTool,
+		knowledgeSetName,
 	)
-}
-
-func fullKnowledgeTool(knowledgeTool, subTool string) string {
-	knowledgeTool, tag, ok := strings.Cut(knowledgeTool, "@")
-	if ok {
-		tag = "@" + tag
-	}
-
-	return fmt.Sprintf("%s/%s%s", knowledgeTool, subTool, tag)
 }

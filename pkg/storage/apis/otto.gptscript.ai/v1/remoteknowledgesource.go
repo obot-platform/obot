@@ -9,7 +9,6 @@ import (
 
 const (
 	RemoteKnowledgeSourceFinalizer = "otto.gptscript.ai/remote-knowledge-source"
-	RemoteKnowledgeSourceLabel     = "otto.gptscript.ai/remote-knowledge-source"
 )
 
 var (
@@ -27,10 +26,30 @@ type RemoteKnowledgeSource struct {
 	Status RemoteKnowledgeSourceStatus `json:"status,omitempty"`
 }
 
+func (in *RemoteKnowledgeSource) Has(field string) bool {
+	return in.Get(field) != ""
+}
+
+func (in *RemoteKnowledgeSource) Get(field string) string {
+	if in == nil {
+		return ""
+	}
+
+	switch field {
+	case "spec.knowledgeSetName":
+		return in.Spec.KnowledgeSetName
+	}
+
+	return ""
+}
+
+func (*RemoteKnowledgeSource) FieldNames() []string {
+	return []string{"spec.knowledgeSetName"}
+}
+
 func (in *RemoteKnowledgeSource) DeleteRefs() []Ref {
 	return []Ref{
-		{ObjType: &Agent{}, Name: in.Spec.AgentName},
-		{ObjType: &Workflow{}, Name: in.Spec.WorkflowName},
+		{ObjType: &KnowledgeSet{}, Name: in.Spec.KnowledgeSetName},
 	}
 }
 
@@ -39,9 +58,8 @@ func (in *RemoteKnowledgeSource) GetConditions() *[]metav1.Condition {
 }
 
 type RemoteKnowledgeSourceSpec struct {
-	types.RemoteKnowledgeSourceManifest `json:",inline"`
-	AgentName                           string `json:"agentName,omitempty"`
-	WorkflowName                        string `json:"workflowName,omitempty"`
+	Manifest         types.RemoteKnowledgeSourceManifest `json:"manifest,omitempty"`
+	KnowledgeSetName string                              `json:"knowledgeSetName,omitempty"`
 }
 
 type RemoteKnowledgeSourceStatus struct {

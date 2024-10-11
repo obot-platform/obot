@@ -3,6 +3,7 @@ package v1
 import (
 	"github.com/acorn-io/baaah/pkg/conditions"
 	gptscriptclient "github.com/gptscript-ai/go-gptscript"
+	"github.com/otto8-ai/otto8/apiclient/types"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -67,19 +68,19 @@ func (in *Run) GetConditions() *[]metav1.Condition {
 }
 
 type RunSpec struct {
-	Background            bool     `json:"background,omitempty"`
-	ThreadName            string   `json:"threadName,omitempty"`
-	AgentName             string   `json:"agentName,omitempty"`
-	WorkflowName          string   `json:"workflowName,omitempty"`
-	WorkflowExecutionName string   `json:"workflowExecutionName,omitempty"`
-	WorkflowStepName      string   `json:"workflowStepName,omitempty"`
-	WorkflowStepID        string   `json:"workflowStepID,omitempty"`
-	WorkspaceID           string   `json:"workspaceID,omitempty"`
-	PreviousRunName       string   `json:"previousRunName,omitempty"`
-	Input                 string   `json:"input"`
-	Env                   []string `json:"env,omitempty"`
-	Tool                  string   `json:"tool,omitempty"`
-	CredentialContextIDs  []string `json:"credentialContextIDs,omitempty"`
+	ThreadName            string                  `json:"threadName,omitempty"`
+	AgentName             string                  `json:"agentName,omitempty"`
+	WorkflowName          string                  `json:"workflowName,omitempty"`
+	WorkflowExecutionName string                  `json:"workflowExecutionName,omitempty"`
+	WorkflowStepName      string                  `json:"workflowStepName,omitempty"`
+	WorkflowStepID        string                  `json:"workflowStepID,omitempty"`
+	WorkspaceID           string                  `json:"workspaceID,omitempty"`
+	PreviousRunName       string                  `json:"previousRunName,omitempty"`
+	Input                 string                  `json:"input"`
+	Env                   []string                `json:"env,omitempty"`
+	Tool                  string                  `json:"tool,omitempty"`
+	ToolReferenceType     types.ToolReferenceType `json:"toolReferenceType,omitempty"`
+	CredentialContextIDs  []string                `json:"credentialContextIDs,omitempty"`
 }
 
 func (in *Run) DeleteRefs() []Ref {

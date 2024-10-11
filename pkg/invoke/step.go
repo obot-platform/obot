@@ -37,7 +37,6 @@ func (i *Invoker) Step(ctx context.Context, c kclient.Client, step *v1.WorkflowS
 	}
 
 	return i.Agent(ctx, c, &agent, input, Options{
-		Background:            true,
 		ThreadName:            wfe.Status.ThreadName,
 		ParentThreadName:      wfe.Spec.ParentThreadName,
 		PreviousRunName:       opt.PreviousRunName,

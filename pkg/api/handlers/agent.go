@@ -173,7 +173,7 @@ func (a *AgentHandler) Knowledge(req api.Context) error {
 	if err := req.Get(&agent, req.PathValue("id")); err != nil {
 		return err
 	}
-	return listKnowledgeFiles(req, agent.Status.KnowledgeWorkspaceName)
+	return listKnowledgeFiles(req, agent.Status.KnowledgeSetNames...)
 }
 
 func (a *AgentHandler) UploadKnowledge(req api.Context) error {
@@ -181,7 +181,7 @@ func (a *AgentHandler) UploadKnowledge(req api.Context) error {
 	if err := req.Get(&agent, req.PathValue("id")); err != nil {
 		return err
 	}
-	return uploadKnowledge(req, a.workspaceClient, agent.Status.KnowledgeWorkspaceName)
+	return uploadKnowledge(req, a.workspaceClient, agent.Status.KnowledgeSetNames...)
 }
 
 func (a *AgentHandler) DeleteKnowledge(req api.Context) error {
@@ -189,35 +189,27 @@ func (a *AgentHandler) DeleteKnowledge(req api.Context) error {
 	if err := req.Get(&agent, req.PathValue("id")); err != nil {
 		return err
 	}
-	return deleteKnowledge(req, req.PathValue("file"), agent.Status.KnowledgeWorkspaceName)
-}
-
-func (a *AgentHandler) IngestKnowledge(req api.Context) error {
-	var agent v1.Agent
-	if err := req.Get(&agent, req.PathValue("id")); err != nil {
-		return err
-	}
-	return ingestKnowledge(req, a.workspaceClient, agent.Status.KnowledgeWorkspaceName)
+	return deleteKnowledge(req, req.PathValue("file"), agent.Status.KnowledgeSetNames...)
 }
 
 func (a *AgentHandler) CreateRemoteKnowledgeSource(req api.Context) error {
-	return createRemoteKnowledgeSource(req, req.PathValue("agent_id"), new(v1.Agent))
+	return createRemoteKnowledgeSource(req, req.PathValue("agent_id"))
 }
 
 func (a *AgentHandler) UpdateRemoteKnowledgeSource(req api.Context) error {
-	return updateRemoteKnowledgeSource(req, req.PathValue("id"), req.PathValue("agent_id"), new(v1.Agent))
+	return updateRemoteKnowledgeSource(req, req.PathValue("id"), req.PathValue("agent_id"))
 }
 
 func (a *AgentHandler) ReSyncRemoteKnowledgeSource(req api.Context) error {
-	return reSyncRemoteKnowledgeSource(req, req.PathValue("id"), req.PathValue("agent_id"), new(v1.Agent))
+	return reSyncRemoteKnowledgeSource(req, req.PathValue("id"), req.PathValue("agent_id"))
 }
 
 func (a *AgentHandler) GetRemoteKnowledgeSources(req api.Context) error {
-	return getRemoteKnowledgeSourceForParent(req, req.PathValue("agent_id"), new(v1.Agent))
+	return getRemoteKnowledgeSourceForParent(req, req.PathValue("agent_id"))
 }
 
 func (a *AgentHandler) DeleteRemoteKnowledgeSource(req api.Context) error {
-	return deleteRemoteKnowledgeSource(req, req.PathValue("id"), req.PathValue("agent_id"), new(v1.Agent))
+	return deleteRemoteKnowledgeSource(req, req.PathValue("id"), req.PathValue("agent_id"))
 }
 
 func (a *AgentHandler) Script(req api.Context) error {

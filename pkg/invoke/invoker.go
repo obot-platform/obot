@@ -37,10 +37,9 @@ type Invoker struct {
 	workspaceClient         *wclient.Client
 	events                  *events.Emitter
 	threadWorkspaceProvider string
-	knowledgeTool           string
 }
 
-func NewInvoker(c kclient.Client, gptClient *gptscript.GPTScript, tokenService *jwt.TokenService, workspaceClient *wclient.Client, events *events.Emitter, knowledgeTool string) *Invoker {
+func NewInvoker(c kclient.Client, gptClient *gptscript.GPTScript, tokenService *jwt.TokenService, workspaceClient *wclient.Client, events *events.Emitter) *Invoker {
 	return &Invoker{
 		uncached:                c,
 		gptClient:               gptClient,
@@ -48,7 +47,6 @@ func NewInvoker(c kclient.Client, gptClient *gptscript.GPTScript, tokenService *
 		workspaceClient:         workspaceClient,
 		events:                  events,
 		threadWorkspaceProvider: "directory",
-		knowledgeTool:           knowledgeTool,
 	}
 }
 
@@ -59,24 +57,8 @@ type Response struct {
 	Events <-chan types.Progress
 }
 
-func (r *Response) Wait() error {
-	if r.Events == nil {
-		return nil
-	}
-	var errString string
-	for e := range r.Events {
-		if e.Error != "" {
-			errString = e.Error
-		}
-	}
-	if errString != "" {
-		return errors.New(errString)
-	}
-	return nil
-}
-
 type Options struct {
-	Background            bool
+	Events                bool
 	ThreadName            string
 	PreviousRunName       string
 	ForceNoResume         bool
@@ -89,6 +71,7 @@ type Options struct {
 }
 
 type NewThreadOptions struct {
+	Labels                map[string]string
 	AgentName             string
 	ThreadName            string
 	ThreadGenerateName    string
@@ -98,16 +81,14 @@ type NewThreadOptions struct {
 	WebhookName           string
 	CronJobName           string
 	WorkspaceIDs          []string
-	KnowledgeWorkspaceIDs []string
 }
 
 func (i *Invoker) NewThread(ctx context.Context, c kclient.Client, namespace string, opt NewThreadOptions) (*v1.Thread, error) {
 	var (
-		thread               v1.Thread
-		createName           string
-		workspaceID          string
-		knowledgeWorkspaceID string
-		err                  error
+		thread      v1.Thread
+		createName  string
+		workspaceID string
+		err         error
 	)
 
 	if opt.ThreadName != "" {
@@ -130,18 +111,12 @@ func (i *Invoker) NewThread(ctx context.Context, c kclient.Client, namespace str
 		}
 	}
 
-	if len(opt.KnowledgeWorkspaceIDs) > 0 {
-		knowledgeWorkspaceID, err = i.workspaceClient.Create(ctx, i.threadWorkspaceProvider, opt.KnowledgeWorkspaceIDs...)
-		if err != nil {
-			return nil, err
-		}
-	}
-
 	thread = v1.Thread{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:         createName,
 			GenerateName: system.ThreadPrefix,
 			Namespace:    namespace,
+			Labels:       opt.Labels,
 		},
 		Spec: v1.ThreadSpec{
 			ParentThreadName:      opt.ParentThreadName,
@@ -151,7 +126,6 @@ func (i *Invoker) NewThread(ctx context.Context, c kclient.Client, namespace str
 			WebhookName:           opt.WebhookName,
 			CronJobName:           opt.CronJobName,
 			WorkspaceID:           workspaceID,
-			KnowledgeWorkspaceID:  knowledgeWorkspaceID,
 		},
 	}
 
@@ -217,13 +191,6 @@ func (i *Invoker) Agent(ctx context.Context, c kclient.Client, agent *v1.Agent, 
 		}
 		threadOpt.WorkspaceIDs = append(threadOpt.WorkspaceIDs, ws.Status.WorkspaceID)
 	}
-	if agent.Status.KnowledgeWorkspaceName != "" {
-		var ws v1.Workspace
-		if err := c.Get(ctx, kclient.ObjectKey{Namespace: agent.Namespace, Name: agent.Status.KnowledgeWorkspaceName}, &ws); err != nil {
-			return nil, err
-		}
-		threadOpt.KnowledgeWorkspaceIDs = append(threadOpt.KnowledgeWorkspaceIDs, ws.Status.WorkspaceID)
-	}
 
 	thread, err := i.NewThread(ctx, c, agent.Namespace, threadOpt)
 	if err != nil {
@@ -239,8 +206,7 @@ func (i *Invoker) Agent(ctx context.Context, c kclient.Client, agent *v1.Agent, 
 	credContextIDs = append(credContextIDs, agent.Namespace)
 
 	tools, extraEnv, err := render.Agent(ctx, c, agent, render.AgentOptions{
-		Thread:        thread,
-		KnowledgeTool: i.knowledgeTool,
+		Thread: thread,
 	})
 	if err != nil {
 		return nil, err
@@ -256,7 +222,7 @@ func (i *Invoker) Agent(ctx context.Context, c kclient.Client, agent *v1.Agent, 
 	}
 
 	return i.createRunFromTools(ctx, c, thread, tools, input, runOptions{
-		Background:            opt.Background,
+		Events:                opt.Events,
 		AgentName:             agent.Name,
 		Env:                   append(opt.Env, extraEnv...),
 		PreviousRunName:       opt.PreviousRunName,
@@ -271,7 +237,7 @@ func (i *Invoker) Agent(ctx context.Context, c kclient.Client, agent *v1.Agent, 
 
 type runOptions struct {
 	AgentName             string
-	Background            bool
+	Events                bool
 	WorkflowName          string
 	WorkflowExecutionName string
 	WorkflowStepName      string
@@ -314,7 +280,6 @@ func (i *Invoker) createRun(ctx context.Context, c kclient.Client, thread *v1.Th
 			Finalizers:   []string{v1.RunFinalizer},
 		},
 		Spec: v1.RunSpec{
-			Background:            opts.Background,
 			ThreadName:            thread.Name,
 			AgentName:             opts.AgentName,
 			WorkflowName:          opts.WorkflowName,
@@ -345,10 +310,13 @@ func (i *Invoker) createRun(ctx context.Context, c kclient.Client, thread *v1.Th
 		return nil, err
 	}
 
-	if run.Spec.Background {
+	if !opts.Events {
+		noEvents := make(chan types.Progress)
+		close(noEvents)
 		return &Response{
 			Run:    &run,
 			Thread: thread,
+			Events: noEvents,
 		}, nil
 	}
 
@@ -358,8 +326,6 @@ func (i *Invoker) createRun(ctx context.Context, c kclient.Client, thread *v1.Th
 	if err != nil {
 		return nil, err
 	}
-
-	go i.Resume(ctx, c, thread, &run)
 
 	return &Response{
 		Run:    &run,
@@ -428,7 +394,11 @@ func (i *Invoker) Resume(ctx context.Context, c kclient.Client, thread *v1.Threa
 		if err := json.Unmarshal([]byte(run.Spec.Tool), &toolString); err != nil {
 			return fmt.Errorf("invalid tool definition: %s: %w", run.Spec.Tool, err)
 		}
-		runResp, err = i.gptClient.Run(ctx, toolString, options)
+		toolRef, err := render.ResolveToolReference(ctx, c, run.Spec.ToolReferenceType, run.Namespace, toolString)
+		if err != nil {
+			return err
+		}
+		runResp, err = i.gptClient.Run(ctx, toolRef, options)
 		if err != nil {
 			return err
 		}
@@ -564,10 +534,14 @@ func (i *Invoker) doSaveState(ctx context.Context, c kclient.Client, prevThreadN
 			// this should never happen because gptscript.Error would have been set
 			panic(err)
 		}
-		if run.Status.Output != text {
+		shortText := text
+		if len(shortText) > 100 {
+			shortText = shortText[:100]
+		}
+		if run.Status.Output != shortText {
 			run.Status.SubCall = toSubCall(text)
 			if run.Status.SubCall == nil {
-				run.Status.Output = text
+				run.Status.Output = shortText
 			}
 			runChanged = true
 		}

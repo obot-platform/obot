@@ -19,12 +19,12 @@ type WorkflowOptions struct {
 	Input            string
 }
 
-func isExternal(tool string) bool {
+func IsExternalTool(tool string) bool {
 	return strings.ContainsAny(tool, ".\\/")
 }
 
-func resolveToolReference(ctx context.Context, c kclient.Client, toolRefType types.ToolReferenceType, ns, name string) (string, error) {
-	if isExternal(name) {
+func ResolveToolReference(ctx context.Context, c kclient.Client, toolRefType types.ToolReferenceType, ns, name string) (string, error) {
+	if IsExternalTool(name) {
 		return name, nil
 	}
 
@@ -34,8 +34,8 @@ func resolveToolReference(ctx context.Context, c kclient.Client, toolRefType typ
 	} else if err != nil {
 		return "", err
 	}
-	if tool.Spec.Type != toolRefType {
-		return name, nil
+	if toolRefType != "" && tool.Spec.Type != toolRefType {
+		return name, fmt.Errorf("tool reference %s is not of type %s", name, toolRefType)
 	}
 	if tool.Status.Reference == "" {
 		return "", fmt.Errorf("tool reference %s has no reference", name)
@@ -61,8 +61,7 @@ func Workflow(ctx context.Context, c kclient.Client, wf *v1.Workflow, opts Workf
 			CredentialContextID: wf.Name,
 		},
 		Status: v1.AgentStatus{
-			WorkspaceName:          wf.Status.WorkspaceName,
-			KnowledgeWorkspaceName: wf.Status.KnowledgeWorkspaceName,
+			WorkspaceName: wf.Status.WorkspaceName,
 		},
 	}
 
@@ -78,7 +77,7 @@ func Workflow(ctx context.Context, c kclient.Client, wf *v1.Workflow, opts Workf
 		agent.Spec.Manifest.Agents = append(agent.Spec.Manifest.Agents, step.Agents...)
 		agent.Spec.Manifest.Workflows = append(agent.Spec.Manifest.Workflows, step.Workflows...)
 		if step.Template != nil && step.Template.Name != "" {
-			name, err := resolveToolReference(ctx, c, types.ToolReferenceTypeStepTemplate, wf.Namespace, step.Template.Name)
+			name, err := ResolveToolReference(ctx, c, types.ToolReferenceTypeStepTemplate, wf.Namespace, step.Template.Name)
 			if err != nil {
 				return nil, err
 			}

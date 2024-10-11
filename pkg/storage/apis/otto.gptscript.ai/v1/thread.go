@@ -37,15 +37,15 @@ func (in *Thread) GetConditions() *[]metav1.Condition {
 }
 
 type ThreadSpec struct {
-	Manifest              types.ThreadManifest `json:"manifest,omitempty"`
-	ParentThreadName      string               `json:"parentThreadName,omitempty"`
-	AgentName             string               `json:"agentName,omitempty"`
-	WorkflowName          string               `json:"workflowName,omitempty"`
-	WorkflowExecutionName string               `json:"workflowExecutionName,omitempty"`
-	WebhookName           string               `json:"webhookName,omitempty"`
-	CronJobName           string               `json:"cronJobName,omitempty"`
-	WorkspaceID           string               `json:"workspaceID,omitempty"`
-	KnowledgeWorkspaceID  string               `json:"knowledgeWorkspaceID,omitempty"`
+	Manifest                  types.ThreadManifest `json:"manifest,omitempty"`
+	ParentThreadName          string               `json:"parentThreadName,omitempty"`
+	AgentName                 string               `json:"agentName,omitempty"`
+	WorkflowName              string               `json:"workflowName,omitempty"`
+	WorkflowExecutionName     string               `json:"workflowExecutionName,omitempty"`
+	RemoteKnowledgeSourceName string               `json:"remoteKnowledgeSourceName,omitempty"`
+	WebhookName               string               `json:"webhookName,omitempty"`
+	CronJobName               string               `json:"cronJobName,omitempty"`
+	WorkspaceID               string               `json:"workspaceID,omitempty"`
 }
 
 func (in *Thread) DeleteRefs() []Ref {
@@ -55,6 +55,7 @@ func (in *Thread) DeleteRefs() []Ref {
 		{&CronJob{}, in.Spec.CronJobName},
 		{&Webhook{}, in.Spec.WebhookName},
 		{&Thread{}, in.Status.PreviousThreadName},
+		{&RemoteKnowledgeSource{}, in.Spec.RemoteKnowledgeSourceName},
 	}
 }
 
@@ -64,6 +65,7 @@ type ThreadStatus struct {
 	LastRunState       gptscriptclient.RunState `json:"lastRunState,omitempty"`
 	WorkflowState      types.WorkflowState      `json:"workflowState,omitempty"`
 	PreviousThreadName string                   `json:"previousThreadName,omitempty"`
+	KnowledgeSetNames  []string                 `json:"knowledgeSetNames,omitempty"`
 	Conditions         []metav1.Condition       `json:"conditions,omitempty"`
 }
 

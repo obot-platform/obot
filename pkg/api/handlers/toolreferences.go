@@ -36,6 +36,7 @@ func convertToolReference(toolRef v1.ToolReference) types.ToolReference {
 		tf.Name = toolRef.Status.Tool.Name
 		tf.Description = toolRef.Status.Tool.Description
 		tf.Metadata.Metadata = toolRef.Status.Tool.Metadata
+		tf.Credential = toolRef.Status.Tool.Credential
 	}
 	return tf
 }

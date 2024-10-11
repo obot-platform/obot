@@ -42,6 +42,10 @@ func Run(ctx context.Context, c services.Config) error {
 		log.Fatalf("Interrupted, exiting")
 	})
 
+	if c.DevMode && c.AllowedOrigin == "" {
+		c.AllowedOrigin = "*"
+	}
+
 	address := fmt.Sprintf("0.0.0.0:%d", c.HTTPListenPort)
 	log.Infof("Starting server on %s", address)
 	allowEverything := cors.New(cors.Options{

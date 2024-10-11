@@ -53,8 +53,7 @@ func (h *Handler) Run(req router.Request, resp router.Response) error {
 	}
 
 	// Wait for workspaces
-	if wf.Status.KnowledgeWorkspaceName == "" ||
-		wf.Status.WorkspaceName == "" {
+	if wf.Status.WorkspaceName == "" {
 		return nil
 	}
 
@@ -141,11 +140,6 @@ func (h *Handler) newThread(ctx context.Context, c kclient.Client, wf *v1.Workfl
 		return nil, err
 	}
 
-	var knowledgWs v1.Workspace
-	if err := c.Get(ctx, router.Key(wf.Namespace, wf.Status.KnowledgeWorkspaceName), &knowledgWs); err != nil {
-		return nil, err
-	}
-
 	return h.invoker.NewThread(ctx, c, wf.Namespace, invoke.NewThreadOptions{
 		ParentThreadName:      we.Spec.ParentThreadName,
 		WorkflowName:          we.Spec.WorkflowName,
@@ -153,6 +147,5 @@ func (h *Handler) newThread(ctx context.Context, c kclient.Client, wf *v1.Workfl
 		WebhookName:           we.Spec.WebhookName,
 		CronJobName:           we.Spec.CronJobName,
 		WorkspaceIDs:          []string{ws.Status.WorkspaceID},
-		KnowledgeWorkspaceIDs: []string{knowledgWs.Status.WorkspaceID},
 	})
 }

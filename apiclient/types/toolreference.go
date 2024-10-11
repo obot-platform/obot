@@ -3,8 +3,11 @@ package types
 type ToolReferenceType string
 
 const (
-	ToolReferenceTypeTool         ToolReferenceType = "tool"
-	ToolReferenceTypeStepTemplate ToolReferenceType = "stepTemplate"
+	ToolReferenceTypeTool                    ToolReferenceType = "tool"
+	ToolReferenceTypeStepTemplate            ToolReferenceType = "stepTemplate"
+	ToolReferenceTypeKnowledgeDataSource     ToolReferenceType = "knowledgeDataSource"
+	ToolReferenceTypeKnowledgeDocumentLoader ToolReferenceType = "knowledgeDocumentLoader"
+	ToolReferenceTypeSystem                  ToolReferenceType = "system"
 )
 
 type ToolReferenceManifest struct {
@@ -18,6 +21,7 @@ type ToolReference struct {
 	ToolReferenceManifest
 	Error       string            `json:"error,omitempty"`
 	Description string            `json:"description,omitempty"`
+	Credential  string            `json:"credential,omitempty"`
 	Params      map[string]string `json:"params,omitempty"`
 }
 

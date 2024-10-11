@@ -12,7 +12,6 @@ type RemoteKnowledgeSource struct {
 	Metadata
 	RemoteKnowledgeSourceManifest `json:",inline"`
 	AgentID                       string                     `json:"agentID,omitempty"`
-	WorkflowID                    string                     `json:"workflowID,omitempty"`
 	ThreadID                      string                     `json:"threadID,omitempty"`
 	RunID                         string                     `json:"runID,omitempty"`
 	State                         RemoteKnowledgeSourceState `json:"state,omitempty"`

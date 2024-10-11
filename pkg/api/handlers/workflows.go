@@ -171,58 +171,6 @@ func (a *WorkflowHandler) DeleteFile(req api.Context) error {
 	return deleteFile(req.Context(), req, a.workspaceClient, workflow.Status.WorkspaceName)
 }
 
-func (a *WorkflowHandler) Knowledge(req api.Context) error {
-	var wf v1.Workflow
-	if err := req.Get(&wf, req.PathValue("id")); err != nil {
-		return err
-	}
-	return listKnowledgeFiles(req, wf.Status.KnowledgeWorkspaceName)
-}
-
-func (a *WorkflowHandler) UploadKnowledge(req api.Context) error {
-	var wf v1.Workflow
-	if err := req.Get(&wf, req.PathValue("id")); err != nil {
-		return err
-	}
-	return uploadKnowledge(req, a.workspaceClient, wf.Status.KnowledgeWorkspaceName)
-}
-
-func (a *WorkflowHandler) DeleteKnowledge(req api.Context) error {
-	var wf v1.Workflow
-	if err := req.Get(&wf, req.PathValue("id")); err != nil {
-		return err
-	}
-	return deleteKnowledge(req, req.PathValue("file"), wf.Status.KnowledgeWorkspaceName)
-}
-
-func (a *WorkflowHandler) IngestKnowledge(req api.Context) error {
-	var wf v1.Workflow
-	if err := req.Get(&wf, req.PathValue("id")); err != nil {
-		return err
-	}
-	return ingestKnowledge(req, a.workspaceClient, wf.Status.KnowledgeWorkspaceName)
-}
-
-func (a *WorkflowHandler) CreateRemoteKnowledgeSource(req api.Context) error {
-	return createRemoteKnowledgeSource(req, req.PathValue("workflow_id"), new(v1.Workflow))
-}
-
-func (a *WorkflowHandler) UpdateRemoteKnowledgeSource(req api.Context) error {
-	return updateRemoteKnowledgeSource(req, req.PathValue("id"), req.PathValue("workflow_id"), new(v1.Workflow))
-}
-
-func (a *WorkflowHandler) ReSyncRemoteKnowledgeSource(req api.Context) error {
-	return reSyncRemoteKnowledgeSource(req, req.PathValue("id"), req.PathValue("workflow_id"), new(v1.Workflow))
-}
-
-func (a *WorkflowHandler) GetRemoteKnowledgeSources(req api.Context) error {
-	return getRemoteKnowledgeSourceForParent(req, req.PathValue("workflow_id"), new(v1.Workflow))
-}
-
-func (a *WorkflowHandler) DeleteRemoteKnowledgeSource(req api.Context) error {
-	return deleteRemoteKnowledgeSource(req, req.PathValue("id"), req.PathValue("workflow_id"), new(v1.Workflow))
-}
-
 func (a *WorkflowHandler) Script(req api.Context) error {
 	var (
 		id     = req.Request.PathValue("id")

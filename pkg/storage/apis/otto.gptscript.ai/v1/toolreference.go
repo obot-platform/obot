@@ -43,6 +43,7 @@ type ToolShortDescription struct {
 	Description string            `json:"description,omitempty"`
 	Params      map[string]string `json:"params,omitempty"`
 	Metadata    map[string]string `json:"metadata,omitempty"`
+	Credential  string            `json:"credential,omitempty"`
 }
 
 type ToolReferenceStatus struct {

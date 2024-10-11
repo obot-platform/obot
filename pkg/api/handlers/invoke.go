@@ -82,7 +82,7 @@ func (i *InvokeHandler) Invoke(req api.Context) error {
 	if agentID != "" {
 		resp, err = i.invoker.Agent(req.Context(), req.Storage, &agent, string(input), invoke.Options{
 			ThreadName: threadID,
-			Background: async,
+			Events:     !async,
 		})
 		if err != nil {
 			return err
@@ -90,7 +90,7 @@ func (i *InvokeHandler) Invoke(req api.Context) error {
 	} else {
 		resp, err = i.invoker.Workflow(req.Context(), req.Storage, &wf, string(input), invoke.WorkflowOptions{
 			ThreadName: threadID,
-			Background: async,
+			Events:     !async,
 			StepID:     stepID,
 		})
 		if err != nil {

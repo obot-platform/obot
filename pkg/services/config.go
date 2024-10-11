@@ -37,23 +37,16 @@ import (
 	_ "github.com/acorn-io/baaah/pkg/logrus"
 )
 
-const (
-	SystemToolKnowledge = "knowledge"
-	SystemToolOneDrive  = "onedrive"
-	SystemToolNotion    = "notion"
-	SystemToolWebsite   = "website"
-)
-
 type (
 	AuthConfig    proxy.Config
 	GatewayConfig server.Options
 )
 
 type Config struct {
-	HTTPListenPort  int    `usage:"HTTP port to listen on" default:"8080" name:"http-listen-port"`
-	DevMode         bool   `usage:"Enable development mode" default:"false" name:"dev-mode" env:"OTTO_DEV_MODE"`
-	AllowedOrigin   string `usage:"Allowed origin for CORS"`
-	ToolRegistryURL string `usage:"The url for the tool registry" default:"https://raw.githubusercontent.com/gptscript-ai/tools/refs/heads/main/index.yaml"`
+	HTTPListenPort int    `usage:"HTTP port to listen on" default:"8080" name:"http-listen-port"`
+	DevMode        bool   `usage:"Enable development mode" default:"false" name:"dev-mode" env:"OTTO_DEV_MODE"`
+	AllowedOrigin  string `usage:"Allowed origin for CORS"`
+	ToolRegistry   string `usage:"The tool reference for the tool registry" default:"github.com/gptscript-ai/tools"`
 
 	AuthConfig
 	GatewayConfig
@@ -71,7 +64,6 @@ type Services struct {
 	APIServer       *api.Server
 	WorkspaceClient *wclient.Client
 	AIHelper        *aihelper.AIHelper
-	SystemTools     map[string]string
 	Started         chan struct{}
 	ProxyServer     *proxy.Proxy
 	GatewayServer   *server.Server
@@ -207,7 +199,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 
 	// For now, always auto-migrate the gateway database
 	return &Services{
-		ToolRegistryURL: config.ToolRegistryURL,
+		ToolRegistryURL: config.ToolRegistry,
 		Events:          events,
 		StorageClient:   storageClient,
 		Router:          r,
@@ -215,16 +207,10 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		APIServer:       api.NewServer(storageClient, c, gatewayClient, tokenServer, authenticators),
 		TokenServer:     tokenServer,
 		WorkspaceClient: workspaceClient,
-		Invoker:         invoke.NewInvoker(storageClient, c, tokenServer, workspaceClient, events, config.KnowledgeTool),
-		SystemTools: map[string]string{
-			SystemToolKnowledge: config.KnowledgeTool,
-			SystemToolOneDrive:  config.OneDriveTool,
-			SystemToolWebsite:   config.WebsiteTool,
-			SystemToolNotion:    config.NotionTool,
-		},
-		AIHelper:      aihelper.New(c, config.HelperModel),
-		GatewayServer: gatewayServer,
-		ProxyServer:   proxyServer,
+		Invoker:         invoke.NewInvoker(storageClient, c, tokenServer, workspaceClient, events),
+		AIHelper:        aihelper.New(c, config.HelperModel),
+		GatewayServer:   gatewayServer,
+		ProxyServer:     proxyServer,
 	}, nil
 }
 
@@ -244,6 +230,7 @@ func configureDevMode(config Config) Config {
 		config.StorageToken = "adminpass"
 	}
 	_ = os.Setenv("BAAAH_DEV_MODE", "true")
+	_ = os.Setenv("WORKSPACE_PROVIDER_IGNORE_WORKSPACE_NOT_FOUND", "true")
 	return config
 }
 

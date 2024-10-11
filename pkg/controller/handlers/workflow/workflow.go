@@ -37,23 +37,5 @@ func WorkspaceObjects(req router.Request, _ router.Response) error {
 		workflow.Status.WorkspaceName = ws.Name
 	}
 
-	if workflow.Status.KnowledgeWorkspaceName == "" {
-		ws := &v1.Workspace{
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace:    req.Namespace,
-				GenerateName: system.WorkspacePrefix,
-			},
-			Spec: v1.WorkspaceSpec{
-				WorkflowName: workflow.Name,
-				IsKnowledge:  true,
-			},
-		}
-		if err := req.Client.Create(req.Ctx, ws); err != nil {
-			return err
-		}
-
-		workflow.Status.KnowledgeWorkspaceName = ws.Name
-	}
-
 	return nil
 }
