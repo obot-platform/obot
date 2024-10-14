@@ -32,7 +32,7 @@ func (a *Otto) PersistentPre(cmd *cobra.Command, args []string) error {
 func New() *cobra.Command {
 	root := &Otto{
 		Client: &apiclient.Client{
-			BaseURL: "http://localhost:8080",
+			BaseURL: "http://localhost:8080/api",
 			Token:   os.Getenv("OTTO_TOKEN"),
 		},
 	}
@@ -51,7 +51,8 @@ func New() *cobra.Command {
 			&StepTemplatesDelete{root: root},
 			&StepTemplateCreate{root: root},
 			&StepTemplateUpdate{root: root}),
-		&Server{})
+		&Server{},
+		&Version{})
 }
 
 func (a *Otto) Run(cmd *cobra.Command, args []string) error {

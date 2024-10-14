@@ -1,46 +1,29 @@
 # Makefile for Go project
 
-# Go parameters
-GOCMD=go
-GOBUILD=$(GOCMD) build
-GOCLEAN=$(GOCMD) clean
-GOTEST=$(GOCMD) test
-GOGET=$(GOCMD) get
-BINARY_NAME=bin/otto
-UI_BINARY_NAME=bin/otto-ui
-BINARY_UNIX=$(BINARY_NAME)_unix
-
 default: build
 
 # All target
-all: test build
+all:
+	$(MAKE) ui
+	$(MAKE) build
+
+ui:
+	cd ui/admin && \
+	npm install && \
+    touch build/client/placeholder && \
+	touch build/client/assets/_placeholder
+
+touch:
+	mkdir -p ui/admin/build/client/assets && \
+    touch ui/admin/build/client/placeholder && \
+	touch ui/admin/build/client/assets/_placeholder
+
+clean:
+	rm -rf ui/admin/build
+	$(MAKE) touch
 
 # Build the project
-build:
-	$(GOBUILD) -o $(BINARY_NAME) -v
+build: touch
+	go build -o bin/otto -v
 
-build-ui:
-	cd ./ui && $(GOBUILD) -o ../$(UI_BINARY_NAME) -v .
-
-run-ui:
-	cd ui && air
-
-gen-ui:
-	cd ui && templ generate
-
-# Run tests
-test:
-	$(GOTEST) -v ./...
-
-# Clean the project
-clean:
-	$(GOCLEAN)
-	rm -f $(BINARY_NAME)
-	rm -f $(BINARY_UNIX)
-
-# Run the project
-run:
-	$(GOBUILD) -o $(BINARY_NAME) -v ./...
-	./$(BINARY_NAME) server
-
-.PHONY: all build build-ui clean test run build-linux
+.PHONY: ui build all touch clean

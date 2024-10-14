@@ -1,0 +1,31 @@
+name: Lint & Build
+
+on:
+    pull_request:
+        branches:
+            - main
+        paths:
+            - 'ui/admin/**'
+
+jobs:
+    lint:
+        runs-on: ubuntu-latest
+
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@v3
+
+            - name: Set up Node.js
+              uses: actions/setup-node@v3
+              with:
+                  node-version: "20.17.0"
+
+            - name: Install dependencies
+              run: |
+                cd ui/admin
+                npm install
+
+            - name: Run linter
+              run: |
+                cd ui/admin
+                npm run lint

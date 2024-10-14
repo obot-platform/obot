@@ -6,7 +6,6 @@ replace (
 	github.com/oauth2-proxy/oauth2-proxy/v7 => github.com/otto8-ai/oauth2-proxy/v7 v7.0.0-20241008204315-265dabe17f43
 	github.com/otto8-ai/otto8/apiclient => ./apiclient
 	github.com/otto8-ai/otto8/logger => ./logger
-	github.com/otto8-ai/otto8/ui => ./ui
 )
 
 require (
@@ -26,7 +25,6 @@ require (
 	github.com/oauth2-proxy/oauth2-proxy/v7 v7.0.0-00010101000000-000000000000
 	github.com/otto8-ai/otto8/apiclient v0.0.0-00010101000000-000000000000
 	github.com/otto8-ai/otto8/logger v0.0.0-00010101000000-000000000000
-	github.com/otto8-ai/otto8/ui v0.0.0-00010101000000-000000000000
 	github.com/otto8-ai/workspace-provider v0.0.0-20241009125223-cc30f394a9f0
 	github.com/pterm/pterm v0.12.79
 	github.com/robfig/cron/v3 v3.0.1
