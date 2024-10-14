@@ -261,7 +261,7 @@ func (a *ThreadHandler) Knowledge(req api.Context) error {
 		}
 	}
 
-	return fmt.Errorf("no knowledge workspace found for thread %s", req.PathValue("id"))
+	return types.NewErrHttp(http.StatusNotFound, fmt.Sprintf("no knowledge workspace found for thread %s", req.PathValue("id")))
 }
 
 func (a *ThreadHandler) UploadKnowledge(req api.Context) error {
@@ -281,7 +281,7 @@ func (a *ThreadHandler) UploadKnowledge(req api.Context) error {
 		}
 	}
 
-	return fmt.Errorf("no knowledge workspace found for thread %s", req.PathValue("id"))
+	return types.NewErrHttp(http.StatusBadRequest, fmt.Sprintf("no knowledge workspace found for thread %s", req.PathValue("id")))
 }
 
 func (a *ThreadHandler) DeleteKnowledge(req api.Context) error {
@@ -301,5 +301,5 @@ func (a *ThreadHandler) DeleteKnowledge(req api.Context) error {
 		}
 	}
 
-	return fmt.Errorf("no knowledge workspace found for thread %s", req.PathValue("id"))
+	return types.NewErrHttp(http.StatusBadRequest, fmt.Sprintf("no knowledge workspace found for thread %s", req.PathValue("id")))
 }
