@@ -33,7 +33,8 @@ func SupportedOAuthAppTypeConfigs() map[types.OAuthAppType]OAuthAppTypeConfig {
 		types.OAuthAppTypeMicrosoft365: {
 			DisplayName: "Microsoft 365",
 			Parameters: map[string]string{
-				"name":         "App Name",
+				"name":         "Name",
+				"refName":      "Requested Reference Name",
 				"clientID":     "Client ID",
 				"clientSecret": "Client Secret",
 				"tenantID":     "Tenant ID",
@@ -42,7 +43,8 @@ func SupportedOAuthAppTypeConfigs() map[types.OAuthAppType]OAuthAppTypeConfig {
 		types.OAuthAppTypeSlack: {
 			DisplayName: "Slack",
 			Parameters: map[string]string{
-				"name":         "App Name",
+				"name":         "Name",
+				"refName":      "Requested Reference Name",
 				"clientID":     "Client ID",
 				"clientSecret": "Client Secret",
 			},
@@ -50,7 +52,8 @@ func SupportedOAuthAppTypeConfigs() map[types.OAuthAppType]OAuthAppTypeConfig {
 		types.OAuthAppTypeNotion: {
 			DisplayName: "Notion",
 			Parameters: map[string]string{
-				"name":         "App Name",
+				"name":         "Name",
+				"refName":      "Requested Reference Name",
 				"clientID":     "Client ID",
 				"clientSecret": "Client Secret",
 			},
@@ -58,7 +61,8 @@ func SupportedOAuthAppTypeConfigs() map[types.OAuthAppType]OAuthAppTypeConfig {
 		types.OAuthAppTypeHubSpot: {
 			DisplayName: "HubSpot",
 			Parameters: map[string]string{
-				"name":          "App Name",
+				"name":          "Name",
+				"refName":       "Requested Reference Name",
 				"clientID":      "Client ID",
 				"clientSecret":  "Client Secret",
 				"appID":         "App ID",
@@ -68,7 +72,8 @@ func SupportedOAuthAppTypeConfigs() map[types.OAuthAppType]OAuthAppTypeConfig {
 		types.OAuthAppTypeGitHub: {
 			DisplayName: "GitHub",
 			Parameters: map[string]string{
-				"name":         "App Name",
+				"name":         "Name",
+				"refName":      "Requested Reference Name",
 				"clientID":     "Client ID",
 				"clientSecret": "Client Secret",
 				"authURL":      "Authorization URL",
@@ -78,7 +83,8 @@ func SupportedOAuthAppTypeConfigs() map[types.OAuthAppType]OAuthAppTypeConfig {
 		types.OAuthAppTypeGoogle: {
 			DisplayName: "Google",
 			Parameters: map[string]string{
-				"name":         "App Name",
+				"name":         "Name",
+				"refName":      "Requested Reference Name",
 				"clientID":     "Client ID",
 				"clientSecret": "Client Secret",
 			},
@@ -86,7 +92,8 @@ func SupportedOAuthAppTypeConfigs() map[types.OAuthAppType]OAuthAppTypeConfig {
 		types.OAuthAppTypeCustom: {
 			DisplayName: "Custom",
 			Parameters: map[string]string{
-				"name":         "App Name",
+				"name":         "Name",
+				"refName":      "Requested Reference Name",
 				"clientID":     "Client ID",
 				"clientSecret": "Client Secret",
 				"authURL":      "Authorization URL",

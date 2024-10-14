@@ -20,7 +20,8 @@ type OAuthApp struct {
 type OAuthAppManifest struct {
 	Metadata
 	Type         OAuthAppType `json:"type"`
-	RefName      string       `json:"refName"`
+	Name         string       `json:"name,omitempty"`
+	RefName      string       `json:"refName,omitempty"`
 	ClientID     string       `json:"clientID"`
 	ClientSecret string       `json:"clientSecret,omitempty"`
 	// These fields are only needed for custom OAuth apps.

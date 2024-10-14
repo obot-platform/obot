@@ -69,12 +69,12 @@ func SupportedAuthTypeConfigs() map[string]AuthTypeConfig {
 		AuthTypeGitHub: {
 			DisplayName: "GitHub",
 			Required: map[string]string{
-				"serviceName":  "Service Name",
+				"name":         "Name",
 				"clientID":     "Client ID",
 				"clientSecret": "Client Secret",
 			},
 			Advanced: map[string]string{
-				"slug":       "Slug",
+				"refName":    "Requested Reference Name",
 				"oauthURL":   "OAuth URL",
 				"tokenURL":   "Token URL",
 				"scopes":     "Scopes",
@@ -84,12 +84,12 @@ func SupportedAuthTypeConfigs() map[string]AuthTypeConfig {
 		AuthTypeGoogle: {
 			DisplayName: "Google",
 			Required: map[string]string{
-				"serviceName":  "Service Name",
+				"name":         "Name",
 				"clientID":     "Client ID",
 				"clientSecret": "Client Secret",
 			},
 			Advanced: map[string]string{
-				"slug":          "Slug",
+				"refName":       "Requested Reference Name",
 				"oauthURL":      "OAuth URL",
 				"jwksURL":       "JWKS URL",
 				"scopes":        "Scopes",
@@ -101,13 +101,13 @@ func SupportedAuthTypeConfigs() map[string]AuthTypeConfig {
 		AuthTypeAzureAD: {
 			DisplayName: "Azure AD",
 			Required: map[string]string{
-				"serviceName":  "Service Name",
+				"name":         "Name",
 				"clientID":     "Client ID",
 				"clientSecret": "Client Secret",
 				"tenantID":     "Tenant ID",
 			},
 			Advanced: map[string]string{
-				"slug":          "Slug",
+				"refName":       "Requested Reference Name",
 				"oauthURL":      "OAuth URL",
 				"jwksURL":       "JWKS URL",
 				"scopes":        "Scopes",
@@ -119,7 +119,7 @@ func SupportedAuthTypeConfigs() map[string]AuthTypeConfig {
 		AuthTypeGenericOIDC: {
 			DisplayName: "Generic OIDC",
 			Required: map[string]string{
-				"serviceName":   "Service Name",
+				"name":          "Name",
 				"clientID":      "Client ID",
 				"clientSecret":  "Client Secret",
 				"scopes":        "Scopes",
@@ -129,7 +129,7 @@ func SupportedAuthTypeConfigs() map[string]AuthTypeConfig {
 				"emailClaim":    "Email Claim",
 			},
 			Advanced: map[string]string{
-				"slug":       "Slug",
+				"refName":    "Requested Reference Name",
 				"expiration": "Expiration (e.g. 3d7h30m)",
 			},
 		},

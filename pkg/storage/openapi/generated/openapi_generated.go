@@ -1284,11 +1284,16 @@ func schema_otto8_ai_otto8_apiclient_types_OAuthAppManifest(ref common.Reference
 							Format:  "",
 						},
 					},
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
 					"refName": {
 						SchemaProps: spec.SchemaProps{
-							Default: "",
-							Type:    []string{"string"},
-							Format:  "",
+							Type:   []string{"string"},
+							Format: "",
 						},
 					},
 					"clientID": {
@@ -1346,7 +1351,7 @@ func schema_otto8_ai_otto8_apiclient_types_OAuthAppManifest(ref common.Reference
 						},
 					},
 				},
-				Required: []string{"Metadata", "type", "refName", "clientID"},
+				Required: []string{"Metadata", "type", "clientID"},
 			},
 		},
 		Dependencies: []string{
