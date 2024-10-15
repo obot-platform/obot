@@ -22,6 +22,7 @@ interface DataTableProps<TData, TValue> {
     columns: ColumnDef<TData, TValue>[];
     data: TData[];
     sort?: SortingState;
+    rowClassName?: (row: TData) => string;
     classNames?: {
         row?: string;
         cell?: string;
@@ -32,6 +33,7 @@ export function DataTable<TData, TValue>({
     columns,
     data,
     sort,
+    rowClassName,
     classNames,
 }: DataTableProps<TData, TValue>) {
     const table = useReactTable({
@@ -71,7 +73,10 @@ export function DataTable<TData, TValue>({
                             <TableRow
                                 key={row.id}
                                 data-state={row.getIsSelected() && "selected"}
-                                className={classNames?.row}
+                                className={cn(
+                                    classNames?.row,
+                                    rowClassName?.(row.original)
+                                )}
                             >
                                 {row.getVisibleCells().map((cell) => (
                                     <TableCell
@@ -87,7 +92,7 @@ export function DataTable<TData, TValue>({
                             </TableRow>
                         ))
                     ) : (
-                        <TableRow className={classNames?.row}>
+                        <TableRow className={cn(classNames?.row)}>
                             <TableCell
                                 colSpan={columns.length}
                                 className={cn(

@@ -96,6 +96,16 @@ export const ApiRoutes = {
             ? buildUrl(`/invoke/${id}/threads/${threadId}`)
             : buildUrl(`/invoke/${id}`);
     },
+    oauthApps: {
+        base: () => buildUrl("/oauth-apps"),
+        getOauthApps: () => buildUrl("/oauth-apps"),
+        createOauthApp: () => buildUrl(`/oauth-apps`),
+        getOauthAppById: (id: string) => buildUrl(`/oauth-apps/${id}`),
+        updateOauthApp: (id: string) => buildUrl(`/oauth-apps/${id}`),
+        deleteOauthApp: (id: string) => buildUrl(`/oauth-apps/${id}`),
+        supportedOauthAppTypes: () => buildUrl("/supported-oauth-app-types"),
+        supportedAuthTypes: () => buildUrl("/supported-auth-types"),
+    },
 };
 
 /** revalidates the cache for all routes that match the filter callback

@@ -8,8 +8,6 @@ import { ArrowLeftIcon } from "lucide-react";
 import { $params } from "remix-routes";
 
 import { Agent } from "~/lib/model/agents";
-import { KnowledgeFile } from "~/lib/model/knowledge";
-import { WorkspaceFile } from "~/lib/model/workspace";
 import { AgentService } from "~/lib/service/api/agentService";
 import { ThreadsService } from "~/lib/service/api/threadsService";
 
@@ -36,19 +34,11 @@ export const clientLoader = async ({ params }: ClientLoaderFunctionArgs) => {
     const thread = await ThreadsService.getThreadById(id);
     if (!thread) throw redirect("/threads");
 
-    let agent: Agent | null = null;
-    let files: WorkspaceFile[] = [];
-    let knowledge: KnowledgeFile[] = [];
-
-    try {
-        agent = thread.agentID
-            ? await AgentService.getAgentById(thread.agentID)
-            : null;
-        files = await ThreadsService.getFiles(id);
-        knowledge = await ThreadsService.getKnowledge(id);
-    } catch (e) {
-        console.error(e);
-    }
+    const agent = thread.agentID
+        ? await AgentService.getAgentById(thread.agentID)
+        : null;
+    const files = await ThreadsService.getFiles(id);
+    const knowledge = await ThreadsService.getKnowledge(id);
 
     return { thread, agent, files, knowledge };
 };

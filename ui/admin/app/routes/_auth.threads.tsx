@@ -17,7 +17,7 @@ import { Workflow } from "~/lib/model/workflows";
 import { AgentService } from "~/lib/service/api/agentService";
 import { ThreadsService } from "~/lib/service/api/threadsService";
 import { WorkflowService } from "~/lib/service/api/workflowService";
-import { QueryParamSchemas } from "~/lib/service/queryParamService";
+import { QueryParamSchemas } from "~/lib/service/routeQueryParams";
 import { parseQueryParams, timeSince } from "~/lib/utils";
 
 import { TypographyP } from "~/components/Typography";
@@ -139,7 +139,6 @@ export default function Threads() {
                 (thread) => thread.description ?? "No description",
                 { header: "Description" }
             ),
-            columnHelper.accessor(() => "", { header: "User" }),
             columnHelper.accessor("created", {
                 id: "created",
                 header: "Created",

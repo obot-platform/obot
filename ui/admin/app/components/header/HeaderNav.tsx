@@ -5,7 +5,7 @@ import useSWR from "swr";
 
 import { AgentService } from "~/lib/service/api/agentService";
 import { ThreadsService } from "~/lib/service/api/threadsService";
-import { QueryParamSchemas } from "~/lib/service/queryParamService";
+import { QueryParamSchemas } from "~/lib/service/routeQueryParams";
 import { cn, parseQueryParams } from "~/lib/utils";
 
 import { TypographyH4, TypographySmall } from "~/components/Typography";

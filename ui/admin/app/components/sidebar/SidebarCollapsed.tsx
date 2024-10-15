@@ -1,4 +1,4 @@
-import { MessageSquare, User } from "lucide-react";
+import { Key, MessageSquare, User } from "lucide-react";
 import { Link } from "react-router-dom";
 import { $path } from "remix-routes";
 
@@ -16,6 +16,12 @@ export function SidebarCollapsed() {
             <Button asChild variant="ghost" size="icon" title="Threads">
                 <Link to={$path("/threads")}>
                     <MessageSquare className="w-5 h-5" />
+                </Link>
+            </Button>
+
+            <Button asChild variant="ghost" size="icon" title="OAuth Apps">
+                <Link to={$path("/oauth-apps")}>
+                    <Key className="w-5 h-5" />
                 </Link>
             </Button>
         </div>

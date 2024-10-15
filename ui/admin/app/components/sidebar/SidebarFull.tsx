@@ -1,4 +1,4 @@
-import { MessageSquare, User } from "lucide-react";
+import { Key, MessageSquare, User } from "lucide-react";
 import { $path } from "remix-routes";
 
 import { cn } from "~/lib/utils";
@@ -22,6 +22,11 @@ export function SidebarFull({ className }: SidebarFullProps) {
                         title="Threads"
                         linkTo={$path("/threads")}
                         icon={<MessageSquare className="w-5 h-5" />}
+                    />
+                    <SidebarSection
+                        title="OAuth Apps"
+                        linkTo={$path("/oauth-apps")}
+                        icon={<Key className="w-5 h-5" />}
                     />
                 </div>
             </ScrollArea>

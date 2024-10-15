@@ -78,6 +78,7 @@ export default function Threads() {
                             New Agent
                         </Button>
                     </div>
+
                     <DataTable
                         columns={getColumns()}
                         data={agents}

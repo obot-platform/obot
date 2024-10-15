@@ -206,7 +206,7 @@ export function ChatProvider({
 
     const outGeneratingMessage = useMemo<Message | null>(() => {
         if (invokeAgent.isLoading)
-            return { sender: "agent", text: "Sending request..." };
+            return { sender: "agent", text: "", isLoading: true };
 
         // slice the first character because it is always a newline for some reason
         if (!generatingMessage) {
