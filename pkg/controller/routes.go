@@ -24,14 +24,14 @@ import (
 func (c *Controller) setupRoutes() error {
 	root := c.router
 
-	workflowExecution := workflowexecution.New(c.services.WorkspaceClient, c.services.Invoker)
+	workflowExecution := workflowexecution.New(c.services.Invoker)
 	workflowStep := workflowstep.New(c.services.Invoker)
 	ingester := knowledge.NewIngester(c.services.Invoker)
 	toolRef := toolreference.New(c.services.GPTClient, c.services.ToolRegistryURL)
-	workspace := workspace.New(c.services.WorkspaceClient, "directory")
-	knowledge := knowledgehandler.New(c.services.WorkspaceClient, ingester, "directory", c.services.Events)
+	workspace := workspace.New(c.services.GPTClient, "directory")
+	knowledge := knowledgehandler.New(c.services.GPTClient, ingester, "directory", c.services.Events)
 	knowledgeset := knowledgeset.New(c.services.AIHelper)
-	uploads := uploads.New(c.services.Invoker, c.services.WorkspaceClient, "directory")
+	uploads := uploads.New(c.services.Invoker, c.services.GPTClient, "directory")
 	runs := runs.New(c.services.Invoker)
 	webHooks := webhook.New()
 	cronJobs := cronjob.New()

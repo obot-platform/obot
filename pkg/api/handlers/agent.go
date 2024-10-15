@@ -12,20 +12,19 @@ import (
 	"github.com/otto8-ai/otto8/pkg/render"
 	v1 "github.com/otto8-ai/otto8/pkg/storage/apis/otto.gptscript.ai/v1"
 	"github.com/otto8-ai/otto8/pkg/system"
-	"github.com/otto8-ai/workspace-provider/pkg/client"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type AgentHandler struct {
-	workspaceClient   *client.Client
+	gptscript         *gptscript.GPTScript
 	workspaceProvider string
 }
 
-func NewAgentHandler(wc *client.Client, wp string) *AgentHandler {
+func NewAgentHandler(gClient *gptscript.GPTScript, wp string) *AgentHandler {
 	return &AgentHandler{
-		workspaceClient:   wc,
 		workspaceProvider: wp,
+		gptscript:         gClient,
 	}
 }
 
@@ -136,7 +135,7 @@ func (a *AgentHandler) Files(req api.Context) error {
 		return fmt.Errorf("failed to get agent with id %s: %w", id, err)
 	}
 
-	return listFiles(req.Context(), req, a.workspaceClient, agent.Status.WorkspaceName)
+	return listFiles(req.Context(), req, a.gptscript, agent.Status.WorkspaceName)
 }
 
 func (a *AgentHandler) UploadFile(req api.Context) error {
@@ -148,7 +147,7 @@ func (a *AgentHandler) UploadFile(req api.Context) error {
 		return fmt.Errorf("failed to get agent with id %s: %w", id, err)
 	}
 
-	if err := uploadFile(req.Context(), req, a.workspaceClient, agent.Status.WorkspaceName); err != nil {
+	if err := uploadFile(req.Context(), req, a.gptscript, agent.Status.WorkspaceName); err != nil {
 		return err
 	}
 
@@ -166,7 +165,7 @@ func (a *AgentHandler) DeleteFile(req api.Context) error {
 		return fmt.Errorf("failed to get agent with id %s: %w", id, err)
 	}
 
-	return deleteFile(req.Context(), req, a.workspaceClient, agent.Status.WorkspaceName)
+	return deleteFile(req.Context(), req, a.gptscript, agent.Status.WorkspaceName)
 }
 
 func (a *AgentHandler) Knowledge(req api.Context) error {
@@ -182,7 +181,7 @@ func (a *AgentHandler) UploadKnowledge(req api.Context) error {
 	if err := req.Get(&agent, req.PathValue("id")); err != nil {
 		return err
 	}
-	return uploadKnowledge(req, a.workspaceClient, agent.Status.KnowledgeSetNames...)
+	return uploadKnowledge(req, a.gptscript, agent.Status.KnowledgeSetNames...)
 }
 
 func (a *AgentHandler) DeleteKnowledge(req api.Context) error {

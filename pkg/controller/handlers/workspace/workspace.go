@@ -2,18 +2,18 @@ package workspace
 
 import (
 	"github.com/acorn-io/baaah/pkg/router"
+	"github.com/gptscript-ai/go-gptscript"
 	v1 "github.com/otto8-ai/otto8/pkg/storage/apis/otto.gptscript.ai/v1"
-	wclient "github.com/otto8-ai/workspace-provider/pkg/client"
 )
 
 type Handler struct {
-	workspaceClient   *wclient.Client
+	gptscript         *gptscript.GPTScript
 	workspaceProvider string
 }
 
-func New(wc *wclient.Client, wp string) *Handler {
+func New(gClient *gptscript.GPTScript, wp string) *Handler {
 	return &Handler{
-		workspaceClient:   wc,
+		gptscript:         gClient,
 		workspaceProvider: wp,
 	}
 }
@@ -29,7 +29,7 @@ func (a *Handler) CreateWorkspace(req router.Request, _ router.Response) error {
 		return nil
 	}
 
-	workspaceID, err := a.workspaceClient.Create(req.Ctx, a.workspaceProvider, ws.Spec.FromWorkspaces...)
+	workspaceID, err := a.gptscript.CreateWorkspace(req.Ctx, a.workspaceProvider, ws.Spec.FromWorkspaces...)
 	if err != nil {
 		return err
 	}
@@ -37,7 +37,7 @@ func (a *Handler) CreateWorkspace(req router.Request, _ router.Response) error {
 	ws.Status.WorkspaceID = workspaceID
 
 	if err = req.Client.Status().Update(req.Ctx, ws); err != nil {
-		_ = a.workspaceClient.Rm(req.Ctx, workspaceID)
+		_ = a.gptscript.DeleteWorkspace(req.Ctx, workspaceID)
 		return err
 	}
 
@@ -47,11 +47,11 @@ func (a *Handler) CreateWorkspace(req router.Request, _ router.Response) error {
 func (a *Handler) RemoveWorkspace(req router.Request, _ router.Response) error {
 	ws := req.Object.(*v1.Workspace)
 	if ws.Status.WorkspaceID != "" {
-		if err := a.workspaceClient.Rm(req.Ctx, ws.Status.WorkspaceID); err != nil {
+		if err := a.gptscript.DeleteWorkspace(req.Ctx, ws.Status.WorkspaceID); err != nil {
 			return err
 		}
 	} else if ws.Spec.WorkspaceID != "" {
-		if err := a.workspaceClient.Rm(req.Ctx, ws.Spec.WorkspaceID); err != nil {
+		if err := a.gptscript.DeleteWorkspace(req.Ctx, ws.Spec.WorkspaceID); err != nil {
 			return err
 		}
 	}

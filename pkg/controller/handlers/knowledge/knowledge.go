@@ -21,7 +21,6 @@ import (
 	"github.com/otto8-ai/otto8/pkg/events"
 	"github.com/otto8-ai/otto8/pkg/knowledge"
 	v1 "github.com/otto8-ai/otto8/pkg/storage/apis/otto.gptscript.ai/v1"
-	wclient "github.com/otto8-ai/workspace-provider/pkg/client"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -29,15 +28,15 @@ import (
 )
 
 type Handler struct {
-	workspaceClient   *wclient.Client
+	gptscript         *gptscript.GPTScript
 	ingester          *knowledge.Ingester
 	events            *events.Emitter
 	workspaceProvider string
 }
 
-func New(wc *wclient.Client, ingester *knowledge.Ingester, wp string, events *events.Emitter) *Handler {
+func New(gClient *gptscript.GPTScript, ingester *knowledge.Ingester, wp string, events *events.Emitter) *Handler {
 	return &Handler{
-		workspaceClient:   wc,
+		gptscript:         gClient,
 		ingester:          ingester,
 		workspaceProvider: wp,
 		events:            events,
@@ -302,13 +301,7 @@ func (a *Handler) CleanupFile(req router.Request, resp router.Response) error {
 		return err
 	}
 
-	if err := a.workspaceClient.DeleteFile(req.Ctx, ws.Status.WorkspaceID, kFile.Spec.FileName); err != nil {
-		if errors.As(err, new(wclient.FileNotFoundError)) {
-			// It is important to return nil here and not move forward because when bulk deleting files from a remote provider
-			// (like OneDrive), the connector will remove the files from the local disk and the controller will remove the
-			// KnowledgeFile objects. We don't want to kick off (possibly) numerous ingestion runs.
-			return nil
-		}
+	if err := a.gptscript.DeleteFileInWorkspace(req.Ctx, ws.Status.WorkspaceID, kFile.Spec.FileName); err != nil {
 		return err
 	}
 

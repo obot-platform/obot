@@ -11,12 +11,12 @@ import (
 func Router(services *services.Services) (http.Handler, error) {
 	mux := services.APIServer
 
-	agents := handlers.NewAgentHandler(services.WorkspaceClient, "directory")
-	workflows := handlers.NewWorkflowHandler(services.WorkspaceClient, "directory")
+	agents := handlers.NewAgentHandler(services.GPTClient, "directory")
+	workflows := handlers.NewWorkflowHandler(services.GPTClient, "directory")
 	invoker := handlers.NewInvokeHandler(services.Invoker)
-	threads := handlers.NewThreadHandler(services.WorkspaceClient, services.Events)
+	threads := handlers.NewThreadHandler(services.GPTClient, services.Events)
 	runs := handlers.NewRunHandler(services.Events)
-	toolRefs := handlers.NewToolReferenceHandler(services.WorkspaceClient)
+	toolRefs := handlers.NewToolReferenceHandler()
 	webhooks := handlers.NewWebhookHandler()
 	cronJobs := handlers.NewCronJobHandler()
 

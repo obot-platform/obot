@@ -27,7 +27,6 @@ import (
 	"github.com/otto8-ai/otto8/pkg/storage/scheme"
 	"github.com/otto8-ai/otto8/pkg/storage/services"
 	"github.com/otto8-ai/otto8/pkg/system"
-	wclient "github.com/otto8-ai/workspace-provider/pkg/client"
 	coordinationv1 "k8s.io/api/coordination/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apiserver/pkg/authentication/authenticator"
@@ -63,7 +62,6 @@ type Services struct {
 	Invoker         *invoke.Invoker
 	TokenServer     *jwt.TokenService
 	APIServer       *server.Server
-	WorkspaceClient *wclient.Client
 	AIHelper        *aihelper.AIHelper
 	Started         chan struct{}
 	ProxyServer     *proxy.Proxy
@@ -73,7 +71,9 @@ type Services struct {
 func newGPTScript(ctx context.Context) (*gptscript.GPTScript, error) {
 	if os.Getenv("GPTSCRIPT_URL") != "" {
 		return gptscript.NewGPTScript(gptscript.GlobalOptions{
-			URL: os.Getenv("GPTSCRIPT_URL"),
+			URL:                        os.Getenv("GPTSCRIPT_URL"),
+			WorkspaceDirectoryDataHome: filepath.Join(xdg.DataHome, "otto8", "workspaces"),
+			WorkspaceTool:              "github.com/gptscript-ai/workspace-provider",
 		})
 	}
 
@@ -87,7 +87,9 @@ func newGPTScript(ctx context.Context) (*gptscript.GPTScript, error) {
 	}
 
 	return gptscript.NewGPTScript(gptscript.GlobalOptions{
-		URL: url,
+		URL:                        url,
+		WorkspaceDirectoryDataHome: filepath.Join(xdg.DataHome, "otto8", "workspaces"),
+		WorkspaceTool:              "github.com/gptscript-ai/workspace-provider",
 	})
 }
 
@@ -166,11 +168,8 @@ func New(ctx context.Context, config Config) (*Services, error) {
 	}
 
 	var (
-		tokenServer     = &jwt.TokenService{}
-		workspaceClient = wclient.New(wclient.Options{
-			DirectoryDataHome: filepath.Join(xdg.DataHome, "otto", "workspaces"),
-		})
-		events = events.NewEmitter(storageClient)
+		tokenServer = &jwt.TokenService{}
+		events      = events.NewEmitter(storageClient)
 	)
 
 	// For now, always auto-migrate the gateway database
@@ -183,8 +182,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		GPTClient:       c,
 		APIServer:       server.NewServer(storageClient, c, authn.NewAuthenticator(authenticators), authz.NewAuthorizer()),
 		TokenServer:     tokenServer,
-		WorkspaceClient: workspaceClient,
-		Invoker:         invoke.NewInvoker(storageClient, c, tokenServer, workspaceClient, events),
+		Invoker:         invoke.NewInvoker(storageClient, c, tokenServer, events),
 		AIHelper:        aihelper.New(c, config.HelperModel),
 		GatewayServer:   gatewayServer,
 		ProxyServer:     proxyServer,

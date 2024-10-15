@@ -13,18 +13,17 @@ import (
 	"github.com/otto8-ai/otto8/pkg/render"
 	v1 "github.com/otto8-ai/otto8/pkg/storage/apis/otto.gptscript.ai/v1"
 	"github.com/otto8-ai/otto8/pkg/system"
-	"github.com/otto8-ai/workspace-provider/pkg/client"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 type WorkflowHandler struct {
-	workspaceClient   *client.Client
+	gptscript         *gptscript.GPTScript
 	workspaceProvider string
 }
 
-func NewWorkflowHandler(wc *client.Client, wp string) *WorkflowHandler {
+func NewWorkflowHandler(gClient *gptscript.GPTScript, wp string) *WorkflowHandler {
 	return &WorkflowHandler{
-		workspaceClient:   wc,
+		gptscript:         gClient,
 		workspaceProvider: wp,
 	}
 }
@@ -139,7 +138,7 @@ func (a *WorkflowHandler) Files(req api.Context) error {
 		return fmt.Errorf("failed to get workflow with id %s: %w", id, err)
 	}
 
-	return listFiles(req.Context(), req, a.workspaceClient, workflow.Status.WorkspaceName)
+	return listFiles(req.Context(), req, a.gptscript, workflow.Status.WorkspaceName)
 }
 
 func (a *WorkflowHandler) UploadFile(req api.Context) error {
@@ -151,7 +150,7 @@ func (a *WorkflowHandler) UploadFile(req api.Context) error {
 		return fmt.Errorf("failed to get workflow with id %s: %w", id, err)
 	}
 
-	if err := uploadFile(req.Context(), req, a.workspaceClient, workflow.Status.WorkspaceName); err != nil {
+	if err := uploadFile(req.Context(), req, a.gptscript, workflow.Status.WorkspaceName); err != nil {
 		return err
 	}
 
@@ -169,7 +168,7 @@ func (a *WorkflowHandler) DeleteFile(req api.Context) error {
 		return fmt.Errorf("failed to get workflow with id %s: %w", id, err)
 	}
 
-	return deleteFile(req.Context(), req, a.workspaceClient, workflow.Status.WorkspaceName)
+	return deleteFile(req.Context(), req, a.gptscript, workflow.Status.WorkspaceName)
 }
 
 func (a *WorkflowHandler) Script(req api.Context) error {

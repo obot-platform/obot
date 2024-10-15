@@ -6,26 +6,20 @@ import (
 
 	"github.com/acorn-io/baaah/pkg/router"
 	"github.com/otto8-ai/otto8/apiclient/types"
-	"github.com/otto8-ai/otto8/logger"
 	"github.com/otto8-ai/otto8/pkg/controller/handlers/workflowstep"
 	"github.com/otto8-ai/otto8/pkg/invoke"
 	v1 "github.com/otto8-ai/otto8/pkg/storage/apis/otto.gptscript.ai/v1"
-	wclient "github.com/otto8-ai/workspace-provider/pkg/client"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-var log = logger.Package()
-
 type Handler struct {
-	workspaceClient *wclient.Client
-	invoker         *invoke.Invoker
+	invoker *invoke.Invoker
 }
 
-func New(wc *wclient.Client, invoker *invoke.Invoker) *Handler {
+func New(invoker *invoke.Invoker) *Handler {
 	return &Handler{
-		workspaceClient: wc,
-		invoker:         invoker,
+		invoker: invoker,
 	}
 }
 

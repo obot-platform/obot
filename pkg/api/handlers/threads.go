@@ -7,26 +7,26 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/gptscript-ai/go-gptscript"
 	"github.com/otto8-ai/otto8/apiclient/types"
 	"github.com/otto8-ai/otto8/pkg/api"
 	"github.com/otto8-ai/otto8/pkg/events"
 	v1 "github.com/otto8-ai/otto8/pkg/storage/apis/otto.gptscript.ai/v1"
 	"github.com/otto8-ai/otto8/pkg/system"
-	wclient "github.com/otto8-ai/workspace-provider/pkg/client"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type ThreadHandler struct {
-	workspaceClient *wclient.Client
-	events          *events.Emitter
+	gptscript *gptscript.GPTScript
+	events    *events.Emitter
 }
 
-func NewThreadHandler(wc *wclient.Client, events *events.Emitter) *ThreadHandler {
+func NewThreadHandler(gClient *gptscript.GPTScript, events *events.Emitter) *ThreadHandler {
 	return &ThreadHandler{
-		workspaceClient: wc,
-		events:          events,
+		gptscript: gClient,
+		events:    events,
 	}
 }
 
@@ -199,7 +199,7 @@ func (a *ThreadHandler) Files(req api.Context) error {
 
 	for _, workspace := range workspaces.Items {
 		if !workspace.Spec.IsKnowledge {
-			return listFileFromWorkspace(req.Context(), req, a.workspaceClient, workspace)
+			return listFileFromWorkspace(req.Context(), req, a.gptscript, workspace)
 		}
 	}
 
@@ -219,7 +219,7 @@ func (a *ThreadHandler) UploadFile(req api.Context) error {
 
 	for _, workspace := range workspaces.Items {
 		if !workspace.Spec.IsKnowledge {
-			if err := uploadFileToWorkspace(req.Context(), req, a.workspaceClient, workspace); err != nil {
+			if err := uploadFileToWorkspace(req.Context(), req, a.gptscript, workspace); err != nil {
 				return err
 			}
 
@@ -244,7 +244,7 @@ func (a *ThreadHandler) DeleteFile(req api.Context) error {
 
 	for _, workspace := range workspaces.Items {
 		if !workspace.Spec.IsKnowledge {
-			return deleteFileFromWorkspaceID(req.Context(), req, a.workspaceClient, workspace.Spec.WorkspaceID)
+			return deleteFileFromWorkspaceID(req.Context(), req, a.gptscript, workspace.Spec.WorkspaceID)
 		}
 	}
 
@@ -284,7 +284,7 @@ func (a *ThreadHandler) UploadKnowledge(req api.Context) error {
 
 	for _, workspace := range workspaces.Items {
 		if workspace.Spec.IsKnowledge {
-			return uploadKnowledgeToWorkspace(req, a.workspaceClient, workspace)
+			return uploadKnowledgeToWorkspace(req, a.gptscript, workspace)
 		}
 	}
 

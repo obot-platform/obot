@@ -23,7 +23,6 @@ import (
 	v1 "github.com/otto8-ai/otto8/pkg/storage/apis/otto.gptscript.ai/v1"
 	"github.com/otto8-ai/otto8/pkg/system"
 	"github.com/otto8-ai/otto8/pkg/workspace"
-	wclient "github.com/otto8-ai/workspace-provider/pkg/client"
 	apierror "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/util/retry"
@@ -36,17 +35,15 @@ type Invoker struct {
 	gptClient               *gptscript.GPTScript
 	uncached                kclient.Client
 	tokenService            *jwt.TokenService
-	workspaceClient         *wclient.Client
 	events                  *events.Emitter
 	threadWorkspaceProvider string
 }
 
-func NewInvoker(c kclient.Client, gptClient *gptscript.GPTScript, tokenService *jwt.TokenService, workspaceClient *wclient.Client, events *events.Emitter) *Invoker {
+func NewInvoker(c kclient.Client, gptClient *gptscript.GPTScript, tokenService *jwt.TokenService, events *events.Emitter) *Invoker {
 	return &Invoker{
 		uncached:                c,
 		gptClient:               gptClient,
 		tokenService:            tokenService,
-		workspaceClient:         workspaceClient,
 		events:                  events,
 		threadWorkspaceProvider: "directory",
 	}
@@ -108,7 +105,7 @@ func (i *Invoker) NewThread(ctx context.Context, c kclient.Client, namespace str
 	}
 
 	if len(opt.WorkspaceIDs) > 0 {
-		workspaceID, err = i.workspaceClient.Create(ctx, i.threadWorkspaceProvider, opt.WorkspaceIDs...)
+		workspaceID, err = i.gptClient.CreateWorkspace(ctx, i.threadWorkspaceProvider, opt.WorkspaceIDs...)
 		if err != nil {
 			return nil, err
 		}
@@ -142,7 +139,7 @@ func (i *Invoker) NewThread(ctx context.Context, c kclient.Client, namespace str
 
 	if err := c.Create(ctx, &thread); err != nil {
 		// If creating the thread fails, then ensure that the workspace is cleaned up, too.
-		return nil, errors.Join(err, i.workspaceClient.Rm(ctx, thread.Spec.WorkspaceID))
+		return nil, errors.Join(err, i.gptClient.DeleteWorkspace(ctx, thread.Spec.WorkspaceID))
 	}
 	return &thread, nil
 }

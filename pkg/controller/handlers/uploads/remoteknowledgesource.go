@@ -6,16 +6,17 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/acorn-io/baaah/pkg/router"
 	"github.com/acorn-io/baaah/pkg/uncached"
+	"github.com/gptscript-ai/go-gptscript"
 	"github.com/otto8-ai/otto8/apiclient/types"
 	"github.com/otto8-ai/otto8/pkg/invoke"
 	v1 "github.com/otto8-ai/otto8/pkg/storage/apis/otto.gptscript.ai/v1"
 	"github.com/otto8-ai/otto8/pkg/system"
 	"github.com/otto8-ai/otto8/pkg/workspace"
-	wclient "github.com/otto8-ai/workspace-provider/pkg/client"
 	"github.com/robfig/cron/v3"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -26,14 +27,14 @@ import (
 
 type UploadHandler struct {
 	invoker           *invoke.Invoker
-	workspaceClient   *wclient.Client
+	gptscript         *gptscript.GPTScript
 	workspaceProvider string
 }
 
-func New(invoker *invoke.Invoker, wc *wclient.Client, workspaceProvider string) *UploadHandler {
+func New(invoker *invoke.Invoker, gptscript *gptscript.GPTScript, workspaceProvider string) *UploadHandler {
 	return &UploadHandler{
 		invoker:           invoker,
-		workspaceClient:   wc,
+		gptscript:         gptscript,
 		workspaceProvider: workspaceProvider,
 	}
 }
@@ -86,7 +87,7 @@ func (u *UploadHandler) CreateThread(req router.Request, resp router.Response) e
 		return nil
 	}
 
-	id, err := u.workspaceClient.Create(req.Ctx, u.workspaceProvider)
+	id, err := u.gptscript.CreateWorkspace(req.Ctx, u.workspaceProvider)
 	if err != nil {
 		return fmt.Errorf("failed to create upload workspace: %w", err)
 	}
@@ -103,7 +104,7 @@ func (u *UploadHandler) CreateThread(req router.Request, resp router.Response) e
 	}
 
 	if err = req.Client.Create(req.Ctx, thread); err != nil {
-		_ = u.workspaceClient.Rm(req.Ctx, id)
+		_ = u.gptscript.DeleteWorkspace(req.Ctx, id)
 		return err
 	}
 
@@ -139,7 +140,7 @@ func (u *UploadHandler) RunUpload(req router.Request, _ router.Response) error {
 	}
 
 	// This gets set as the "output" field in the metadata file. It should be the same as what came out of the last run, if any.
-	metadata := map[string]any{
+	b, err := json.Marshal(map[string]any{
 		"input":     remoteKnowledgeSource.Spec.Manifest.RemoteKnowledgeSourceInput,
 		"outputDir": filepath.Join(workspace.GetDir(ws.Status.WorkspaceID), remoteKnowledgeSource.Name),
 		"output": map[string]any{
@@ -148,21 +149,13 @@ func (u *UploadHandler) RunUpload(req router.Request, _ router.Response) error {
 			"error":  remoteKnowledgeSource.Status.Error,
 			"state":  remoteKnowledgeSource.Status.State,
 		},
-	}
-
-	writer, err := u.workspaceClient.WriteFile(req.Ctx, thread.Spec.WorkspaceID, ".metadata.json")
+	})
 	if err != nil {
+		return fmt.Errorf("failed to marshal metadata: %w", err)
+	}
+
+	if err = u.gptscript.WriteFileInWorkspace(req.Ctx, thread.Spec.WorkspaceID, ".metadata.json", b); err != nil {
 		return fmt.Errorf("failed to create metadata file: %w", err)
-	}
-	defer writer.Close()
-
-	if err := json.NewEncoder(writer).Encode(metadata); err != nil {
-		return fmt.Errorf("failed to write metadata file: %w", err)
-	}
-
-	// The file has to be closed before the system action is started to ensure that the tool has the metadata file.
-	if err = writer.Close(); err != nil {
-		return fmt.Errorf("failed to close metadata file: %w", err)
 	}
 
 	r, err := u.invoker.SystemActionWithThread(req.Ctx, &thread, string(remoteKnowledgeSource.Spec.Manifest.SourceType)+"-data-source", "")
@@ -206,15 +199,14 @@ func (u *UploadHandler) HandleUploadRun(req router.Request, resp router.Response
 		Output v1.RemoteConnectorStatus `json:"output,omitempty"`
 	}
 
-	file, err := u.workspaceClient.OpenFile(req.Ctx, thread.Spec.WorkspaceID, ".metadata.json")
-	if fsErr := (wclient.FileNotFoundError{}); errors.As(err, &fsErr) {
-		// ignore if the file is not found, this could happen on error who knows.
-	} else if err != nil {
-		return err
+	file, err := u.gptscript.ReadFileInWorkspace(req.Ctx, thread.Spec.WorkspaceID, ".metadata.json")
+	if err != nil {
+		// Purposely ignore not found errors.
+		if !strings.HasPrefix(err.Error(), "file not found") {
+			return err
+		}
 	} else {
-		defer file.Close()
-
-		if err = json.NewDecoder(file).Decode(&metadata); err != nil {
+		if err = json.Unmarshal(file, &metadata); err != nil {
 			return err
 		}
 
@@ -255,19 +247,15 @@ func (u *UploadHandler) HandleUploadRun(req router.Request, resp router.Response
 
 func (u *UploadHandler) writeMetadataForKnowledge(ctx context.Context, files map[string]types.FileDetails,
 	ws *v1.Workspace, remoteKnowledgeSource *v1.RemoteKnowledgeSource) error {
-	fileMetadata := createFileMetadata(files, *ws)
+	b, err := json.Marshal(map[string]any{
+		"metadata": createFileMetadata(files, *ws),
+	})
+	if err != nil {
+		return fmt.Errorf("failed to marshal metadata: %w", err)
+	}
 
 	// Put the metadata file in the agent knowledge workspace
-	writer, err := u.workspaceClient.WriteFile(ctx, ws.Status.WorkspaceID,
-		filepath.Join(remoteKnowledgeSource.Name, ".knowledge.json"), wclient.WriteOptions{CreateDirs: true})
-	if err != nil {
-		return fmt.Errorf("failed to create knowledge metadata file: %w", err)
-	}
-	defer writer.Close()
-
-	return json.NewEncoder(writer).Encode(map[string]any{
-		"metadata": fileMetadata,
-	})
+	return u.gptscript.WriteFileInWorkspace(ctx, ws.Status.WorkspaceID, filepath.Join(remoteKnowledgeSource.Name, ".knowledge.json"), b)
 }
 
 func (u *UploadHandler) Cleanup(req router.Request, resp router.Response) error {
@@ -282,7 +270,7 @@ func (u *UploadHandler) Cleanup(req router.Request, resp router.Response) error 
 	}
 
 	// Delete the directory in the workspace for this onedrive link.
-	if err = u.workspaceClient.RmDir(req.Ctx, ws.Status.WorkspaceID, remoteKnowledgeSource.Name); err != nil {
+	if err = u.gptscript.RemoveAllWithPrefix(req.Ctx, ws.Status.WorkspaceID, remoteKnowledgeSource.Name); err != nil {
 		return fmt.Errorf("failed to delete directory %q in workspace %s: %w", remoteKnowledgeSource.Name, ws.Status.WorkspaceID, err)
 	}
 
