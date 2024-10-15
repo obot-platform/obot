@@ -27,7 +27,7 @@ export function DeleteOAuthApp({ id }: { id: string }) {
                 <>
                     <TooltipProvider>
                         <Tooltip>
-                            <TooltipTrigger>
+                            <TooltipTrigger asChild>
                                 <Button
                                     variant="secondary"
                                     size="icon"
@@ -43,7 +43,7 @@ export function DeleteOAuthApp({ id }: { id: string }) {
 
                     <TooltipProvider>
                         <Tooltip>
-                            <TooltipTrigger>
+                            <TooltipTrigger asChild>
                                 <Button
                                     variant="destructive"
                                     size="icon"
@@ -65,7 +65,7 @@ export function DeleteOAuthApp({ id }: { id: string }) {
                 <>
                     <TooltipProvider>
                         <Tooltip>
-                            <TooltipTrigger>
+                            <TooltipTrigger asChild>
                                 <Button
                                     variant="destructive"
                                     size="icon"
