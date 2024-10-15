@@ -82,7 +82,7 @@ function AgentContent({ className, onRefresh }: AgentProps) {
                         <AccordionTrigger>
                             <span className="flex items-center gap-2 justify-center">
                                 <LibraryIcon className="w-4 h-4" />
-                                Knowledge
+                                Dropping Knowledge
                             </span>
                         </AccordionTrigger>
 
