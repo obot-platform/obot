@@ -12,12 +12,13 @@ import {
     DialogTitle,
 } from "~/components/ui/dialog";
 import { Input } from "~/components/ui/input";
+import { Switch } from "~/components/ui/switch";
 
 type RemoteSourceSettingModalProps = {
     agentId: string;
     isOpen: boolean;
     onOpenChange: (open: boolean) => void;
-    remoteKnowledgeSource: RemoteKnowledgeSource | null;
+    remoteKnowledgeSource: RemoteKnowledgeSource;
 };
 
 const RemoteSourceSettingModal: React.FC<RemoteSourceSettingModalProps> = ({
@@ -26,7 +27,9 @@ const RemoteSourceSettingModal: React.FC<RemoteSourceSettingModalProps> = ({
     onOpenChange,
     remoteKnowledgeSource,
 }) => {
-    if (!remoteKnowledgeSource) return null;
+    const [autoApprove, setAutoApprove] = useState(
+        remoteKnowledgeSource.autoApprove || false
+    );
 
     const [syncSchedule, setSyncSchedule] = useState(
         remoteKnowledgeSource.syncSchedule || ""
@@ -44,6 +47,7 @@ const RemoteSourceSettingModal: React.FC<RemoteSourceSettingModalProps> = ({
                 {
                     ...remoteKnowledgeSource,
                     syncSchedule,
+                    autoApprove,
                 }
             );
             onOpenChange(false);
@@ -56,10 +60,13 @@ const RemoteSourceSettingModal: React.FC<RemoteSourceSettingModalProps> = ({
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
             <DialogContent>
                 <DialogHeader>
-                    <DialogTitle>Update Sync Schedule</DialogTitle>
+                    <DialogTitle>Update Source Settings</DialogTitle>
                 </DialogHeader>
-                <div className="mb-4">
-                    <label className="block text-sm font-medium text-gray-700">
+                <div className="mb-2">
+                    <label
+                        htmlFor="syncSchedule"
+                        className="block text-sm font-medium text-gray-700"
+                    >
                         Sync Schedule (Cron Syntax)
                     </label>
                     <Input
@@ -67,13 +74,35 @@ const RemoteSourceSettingModal: React.FC<RemoteSourceSettingModalProps> = ({
                         value={syncSchedule}
                         onChange={(e) => setSyncSchedule(e.target.value)}
                         placeholder="Enter cron syntax"
-                        className="w-full mt-2"
+                        className="w-full mt-2 mb-4"
                     />
+                    <div>
+                        <p className="text-sm text-gray-500">
+                            You can use a cron syntax to define the sync
+                            schedule. For example, &quot;0 0 * * *&quot; means
+                            every day at midnight.
+                        </p>
+                    </div>
                 </div>
+                <hr className="my-4" />
                 <div className="mb-4">
-                    <p className="text-sm text-gray-500">
-                        You can use a cron syntax to define the sync schedule.
-                        For example, "0 0 * * *" means every day at midnight.
+                    <div className="flex items-center">
+                        <Switch
+                            id="autoApprove"
+                            className="mr-2"
+                            checked={autoApprove}
+                            onChange={() => setAutoApprove(!autoApprove)}
+                        />
+                        <label
+                            htmlFor="autoApprove"
+                            className="text-sm text-gray-600 dark:text-gray-400 mr-2"
+                        >
+                            Include new pages
+                        </label>
+                    </div>
+                    <p className="text-sm text-gray-500 mt-4">
+                        If enabled, new pages will be added to the knowledge
+                        base automatically.
                     </p>
                 </div>
                 <DialogFooter>

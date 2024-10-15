@@ -220,12 +220,12 @@ func (u *UploadHandler) HandleUploadRun(req router.Request, resp router.Response
 		return err
 	}
 
-	if err := u.writeMetadataForKnowledge(req.Ctx, metadata.Output.Files, ws, remoteKnowledgeSource); err != nil {
+	knowledgeFileNamesFromOutput, err := compileKnowledgeFiles(req.Ctx, req.Client, remoteKnowledgeSource, metadata.Output.Files, ws)
+	if err != nil {
 		return err
 	}
 
-	knowledgeFileNamesFromOutput, err := compileKnowledgeFilesFromOneDriveConnector(req.Ctx, req.Client, remoteKnowledgeSource, metadata.Output.Files, ws)
-	if err != nil {
+	if err := u.writeMetadataForKnowledge(req.Ctx, metadata.Output.Files, ws, remoteKnowledgeSource); err != nil {
 		return err
 	}
 
@@ -313,7 +313,7 @@ func createFileMetadata(files map[string]types.FileDetails, ws v1.Workspace) map
 	return fileMetadata
 }
 
-func compileKnowledgeFilesFromOneDriveConnector(ctx context.Context, c client.Client,
+func compileKnowledgeFiles(ctx context.Context, c client.Client,
 	remoteKnowledgeSource *v1.RemoteKnowledgeSource, files map[string]types.FileDetails,
 	ws *v1.Workspace) (map[string]struct{}, error) {
 	var (
@@ -322,6 +322,7 @@ func compileKnowledgeFilesFromOneDriveConnector(ctx context.Context, c client.Cl
 		outputDir                    = workspace.GetDir(ws.Status.WorkspaceID)
 		knowledgeFileNamesFromOutput = make(map[string]struct{}, len(files))
 	)
+
 	for id, v := range files {
 		fileRelPath, err := filepath.Rel(outputDir, v.FilePath)
 		if err != nil {
@@ -342,12 +343,16 @@ func compileKnowledgeFilesFromOneDriveConnector(ctx context.Context, c client.Cl
 				RemoteKnowledgeSourceType: remoteKnowledgeSource.Spec.Manifest.SourceType,
 			},
 		}
+		if remoteKnowledgeSource.Spec.Manifest.AutoApprove != nil && *remoteKnowledgeSource.Spec.Manifest.AutoApprove {
+			newKnowledgeFile.Spec.Approved = &[]bool{true}[0]
+		}
 		if err := c.Create(ctx, newKnowledgeFile); err == nil || apierrors.IsAlreadyExists(err) {
 			// If the file was created or already existed, ensure it has the latest details from the metadata.
 			if err = retry.RetryOnConflict(retry.DefaultBackoff, func() error {
 				if err := c.Get(ctx, router.Key(newKnowledgeFile.Namespace, newKnowledgeFile.Name), uncached.Get(newKnowledgeFile)); err != nil {
 					return err
 				}
+				v.Ingested = newKnowledgeFile.Status.IngestionStatus.Status == "finished" || newKnowledgeFile.Status.IngestionStatus.Status == "skipped"
 				if newKnowledgeFile.Status.UploadID == id && newKnowledgeFile.Status.FileDetails == v {
 					// The file has the correct details, no need to update.
 					return nil
@@ -362,6 +367,7 @@ func compileKnowledgeFilesFromOneDriveConnector(ctx context.Context, c client.Cl
 		} else if err != nil {
 			errs = append(errs, err)
 		}
+
 	}
 
 	if len(errs) > 0 {

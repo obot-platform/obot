@@ -19,10 +19,7 @@ const RemoteKnowledgeSourceStatus: React.FC<
     if (source.sourceType === "onedrive" && !source.onedriveConfig) return null;
 
     return (
-        <div
-            key={source.id}
-            className="flex flex-row justify-center items-center mt-2"
-        >
+        <div key={source.id} className="flex flex-row mt-2">
             <div className="flex items-center">
                 {includeAvatar && (
                     <RemoteFileAvatar

@@ -11,6 +11,7 @@ type KnowledgeFile struct {
 	IngestionStatus           IngestionStatus           `json:"ingestionStatus,omitempty"`
 	FileDetails               FileDetails               `json:"fileDetails,omitempty"`
 	UploadID                  string                    `json:"uploadID,omitempty"`
+	Approved                  *bool                     `json:"approved,omitempty"`
 }
 
 type FileDetails struct {
@@ -18,6 +19,7 @@ type FileDetails struct {
 	URL       string `json:"url,omitempty"`
 	UpdatedAt string `json:"updatedAt,omitempty"`
 	Checksum  string `json:"checksum,omitempty"`
+	Ingested  bool   `json:"ingested,omitempty"`
 }
 
 type IngestionStatus struct {

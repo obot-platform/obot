@@ -719,6 +719,12 @@ func schema_otto8_ai_otto8_apiclient_types_FileDetails(ref common.ReferenceCallb
 							Format: "",
 						},
 					},
+					"ingested": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
+						},
+					},
 				},
 			},
 		},
@@ -1017,6 +1023,12 @@ func schema_otto8_ai_otto8_apiclient_types_KnowledgeFile(ref common.ReferenceCal
 					"uploadID": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"approved": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
 							Format: "",
 						},
 					},
@@ -1701,7 +1713,7 @@ func schema_otto8_ai_otto8_apiclient_types_RemoteKnowledgeSource(ref common.Refe
 							Format: "",
 						},
 					},
-					"disableIngestionAfterSync": {
+					"autoApprove": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"boolean"},
 							Format: "",
@@ -1711,20 +1723,6 @@ func schema_otto8_ai_otto8_apiclient_types_RemoteKnowledgeSource(ref common.Refe
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
 							Format: "",
-						},
-					},
-					"exclude": {
-						SchemaProps: spec.SchemaProps{
-							Type: []string{"array"},
-							Items: &spec.SchemaOrArray{
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Default: "",
-										Type:    []string{"string"},
-										Format:  "",
-									},
-								},
-							},
 						},
 					},
 					"onedriveConfig": {
@@ -1793,30 +1791,10 @@ func schema_otto8_ai_otto8_apiclient_types_RemoteKnowledgeSourceInput(ref common
 			SchemaProps: spec.SchemaProps{
 				Type: []string{"object"},
 				Properties: map[string]spec.Schema{
-					"disableIngestionAfterSync": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"boolean"},
-							Format: "",
-						},
-					},
 					"sourceType": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
 							Format: "",
-						},
-					},
-					"exclude": {
-						SchemaProps: spec.SchemaProps{
-							Type: []string{"array"},
-							Items: &spec.SchemaOrArray{
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Default: "",
-										Type:    []string{"string"},
-										Format:  "",
-									},
-								},
-							},
 						},
 					},
 					"onedriveConfig": {
@@ -1882,7 +1860,7 @@ func schema_otto8_ai_otto8_apiclient_types_RemoteKnowledgeSourceManifest(ref com
 							Format: "",
 						},
 					},
-					"disableIngestionAfterSync": {
+					"autoApprove": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"boolean"},
 							Format: "",
@@ -1892,20 +1870,6 @@ func schema_otto8_ai_otto8_apiclient_types_RemoteKnowledgeSourceManifest(ref com
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
 							Format: "",
-						},
-					},
-					"exclude": {
-						SchemaProps: spec.SchemaProps{
-							Type: []string{"array"},
-							Items: &spec.SchemaOrArray{
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Default: "",
-										Type:    []string{"string"},
-										Format:  "",
-									},
-								},
-							},
 						},
 					},
 					"onedriveConfig": {
@@ -3766,6 +3730,12 @@ func schema_storage_apis_ottogptscriptai_v1_KnowledgeFileSpec(ref common.Referen
 					"remoteKnowledgeSourceType": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"approved": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
 							Format: "",
 						},
 					},

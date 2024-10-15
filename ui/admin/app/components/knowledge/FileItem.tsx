@@ -1,5 +1,7 @@
-import { FileIcon, XIcon } from "lucide-react";
+import { FileIcon, PlusIcon, XIcon } from "lucide-react";
+import { useState } from "react";
 
+import { KnowledgeFile } from "~/lib/model/knowledge";
 import { cn } from "~/lib/utils";
 
 import { TypographyP } from "~/components/Typography";
@@ -12,26 +14,28 @@ import {
 } from "~/components/ui/tooltip";
 
 import { LoadingSpinner } from "../ui/LoadingSpinner";
+import FileStatusIcon from "./FileStatusIcon";
 
 type FileItemProps = {
-    fileName: string;
+    file: KnowledgeFile;
     onAction?: () => void;
     actionIcon?: React.ReactNode;
     isLoading?: boolean;
     error?: string;
-    statusIcon?: React.ReactNode;
+    approveFile: (file: KnowledgeFile, approved: boolean) => void;
 } & React.HTMLAttributes<HTMLDivElement>;
 
 function FileItem({
-    fileName,
     className,
+    file,
     onAction,
     actionIcon,
     isLoading,
     error,
-    statusIcon,
+    approveFile,
     ...props
 }: FileItemProps) {
+    const [isApproved, setIsApproved] = useState(file.approved);
     return (
         <TooltipProvider>
             <Tooltip>
@@ -42,9 +46,10 @@ function FileItem({
                         className={cn(
                             "flex justify-between flex-nowrap items-center gap-4 rounded-lg px-2 border w-full",
                             {
-                                "bg-destructive-background border-destructive text-foreground cursor-pointer":
+                                "bg-destructive-background border-destructive text-foreground":
                                     error,
-                                "grayscale opacity-60": isLoading,
+                                "grayscale opacity-60":
+                                    isLoading || !isApproved,
                             },
                             className
                         )}
@@ -54,11 +59,33 @@ function FileItem({
 
                         <div className="flex flex-col overflow-auto flex-auto">
                             <TypographyP className="flex overflow-x-auto text-ellipsis whitespace-nowrap">
-                                {fileName}
+                                {file?.fileName}
                             </TypographyP>
                         </div>
 
-                        {statusIcon}
+                        {isApproved ? (
+                            // eslint-disable-next-line
+                            <div
+                                className="hover:cursor-pointer"
+                                onClick={() => {
+                                    setIsApproved(false);
+                                    approveFile(file, false);
+                                }}
+                            >
+                                <FileStatusIcon status={file.ingestionStatus} />
+                            </div>
+                        ) : (
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => {
+                                    setIsApproved(true);
+                                    approveFile(file, true);
+                                }}
+                            >
+                                <PlusIcon className="w-4 h-4" />
+                            </Button>
+                        )}
 
                         {isLoading ? (
                             <Button disabled variant="ghost" size="icon">

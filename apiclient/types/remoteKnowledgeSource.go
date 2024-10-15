@@ -21,18 +21,17 @@ type RemoteKnowledgeSource struct {
 
 type RemoteKnowledgeSourceManifest struct {
 	SyncSchedule               string `json:"syncSchedule,omitempty"`
+	AutoApprove                *bool  `json:"autoApprove,omitempty"`
 	RemoteKnowledgeSourceInput `json:",inline"`
 }
 
 type RemoteKnowledgeSourceList List[RemoteKnowledgeSource]
 
 type RemoteKnowledgeSourceInput struct {
-	DisableIngestionAfterSync bool                      `json:"disableIngestionAfterSync,omitempty"`
-	SourceType                RemoteKnowledgeSourceType `json:"sourceType,omitempty"`
-	Exclude                   []string                  `json:"exclude,omitempty"`
-	OneDriveConfig            *OneDriveConfig           `json:"onedriveConfig,omitempty"`
-	NotionConfig              *NotionConfig             `json:"notionConfig,omitempty"`
-	WebsiteCrawlingConfig     *WebsiteCrawlingConfig    `json:"websiteCrawlingConfig,omitempty"`
+	SourceType            RemoteKnowledgeSourceType `json:"sourceType,omitempty"`
+	OneDriveConfig        *OneDriveConfig           `json:"onedriveConfig,omitempty"`
+	NotionConfig          *NotionConfig             `json:"notionConfig,omitempty"`
+	WebsiteCrawlingConfig *WebsiteCrawlingConfig    `json:"websiteCrawlingConfig,omitempty"`
 }
 
 type OneDriveConfig struct {

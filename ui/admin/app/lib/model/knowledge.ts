@@ -50,8 +50,7 @@ export type RemoteKnowledgeSource = {
 export type RemoteKnowledgeSourceInput = {
     syncSchedule?: string;
     sourceType?: RemoteKnowledgeSourceType;
-    exclude?: string[];
-    disableIngestionAfterSync?: boolean;
+    autoApprove?: boolean;
     onedriveConfig?: OneDriveConfig;
     notionConfig?: NotionConfig;
     websiteCrawlingConfig?: WebsiteCrawlingConfig;
@@ -123,6 +122,7 @@ type FileDetails = {
 };
 
 export type KnowledgeFile = {
+    id?: string;
     deleted?: string;
     fileName: string;
     agentID?: string;
@@ -133,6 +133,7 @@ export type KnowledgeFile = {
     ingestionStatus: KnowledgeIngestionStatus;
     fileDetails: FileDetails;
     uploadID?: string;
+    approved?: boolean;
 };
 
 export function getRemoteFileDisplayName(item: KnowledgeFile) {
@@ -176,7 +177,7 @@ export function getMessage(
         status === IngestionStatus.Finished ||
         status === IngestionStatus.Skipped
     ) {
-        return "Completed";
+        return "Exclude file from ingestion";
     }
 
     if (status === IngestionStatus.Failed) {

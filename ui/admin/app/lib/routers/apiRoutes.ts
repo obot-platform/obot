@@ -59,6 +59,8 @@ export const ApiRoutes = {
             buildUrl(
                 `/agents/${agentId}/remote-knowledge-sources/${remoteKnowledgeSourceId}`
             ),
+        approveKnowledgeFile: (agentId: string, fileID: string) =>
+            buildUrl(`/agents/${agentId}/knowledge/${fileID}/approve`),
     },
     workflows: {
         base: () => buildUrl("/workflows"),

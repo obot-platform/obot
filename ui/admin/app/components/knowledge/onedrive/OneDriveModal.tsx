@@ -3,12 +3,18 @@ import {
     ChevronUp,
     FileIcon,
     FolderIcon,
-    Plus,
+    PlusIcon,
+    RefreshCcwIcon,
+    SettingsIcon,
     Trash,
 } from "lucide-react";
 import { FC, useEffect, useState } from "react";
 
-import { RemoteKnowledgeSource } from "~/lib/model/knowledge";
+import {
+    KnowledgeFile,
+    RemoteKnowledgeSource,
+    RemoteKnowledgeSourceType,
+} from "~/lib/model/knowledge";
 import { KnowledgeService } from "~/lib/service/api/knowledgeService";
 
 import RemoteKnowledgeSourceStatus from "~/components/knowledge/RemoteKnowledgeSourceStatus";
@@ -16,17 +22,23 @@ import { LoadingSpinner } from "~/components/ui/LoadingSpinner";
 import { Avatar } from "~/components/ui/avatar";
 import { Button } from "~/components/ui/button";
 import { Dialog, DialogContent, DialogTitle } from "~/components/ui/dialog";
-import { Input } from "~/components/ui/input";
 import { ScrollArea } from "~/components/ui/scroll-area";
-import { Table, TableBody, TableCell, TableRow } from "~/components/ui/table";
+
+import IngestionStatusComponent from "../IngestionStatus";
+import RemoteFileItemChip from "../RemoteFileItemChip";
+import RemoteSourceSettingModal from "../RemoteSourceSettingModal";
+import AddLinkModal from "./AddLinkModal";
 
 interface OnedriveModalProps {
     agentId: string;
     isOpen: boolean;
     onOpenChange: (open: boolean) => void;
     remoteKnowledgeSources: RemoteKnowledgeSource[];
-    getRemoteKnowledgeSources: any;
     startPolling: () => void;
+    knowledgeFiles: KnowledgeFile[];
+    handleRemoteKnowledgeSourceSync: (
+        sourceType: RemoteKnowledgeSourceType
+    ) => void;
 }
 
 export const OnedriveModal: FC<OnedriveModalProps> = ({
@@ -35,138 +47,100 @@ export const OnedriveModal: FC<OnedriveModalProps> = ({
     onOpenChange,
     remoteKnowledgeSources,
     startPolling,
-    getRemoteKnowledgeSources,
+    knowledgeFiles,
+    handleRemoteKnowledgeSourceSync,
 }) => {
+    const [isSettingModalOpen, setIsSettingModalOpen] = useState(false);
+    const [isAddLinkModalOpen, setIsAddLinkModalOpen] = useState(false);
+    const [loading, setLoading] = useState(false);
     const [links, setLinks] = useState<string[]>([]);
-    const [newLink, setNewLink] = useState("");
-    const [exclude, setExclude] = useState<string[]>([]);
     const [showTable, setShowTable] = useState<{ [key: number]: boolean }>({});
+
     const onedriveSource = remoteKnowledgeSources.find(
         (source) => source.sourceType === "onedrive"
     );
-
-    const isSyncing = links.length > 0 && onedriveSource?.runID;
 
     useEffect(() => {
         setLinks(onedriveSource?.onedriveConfig?.sharedLinks || []);
     }, [onedriveSource]);
 
-    const handleAddLink = () => {
-        if (newLink) {
-            handleSave([...links, newLink], false);
-            setLinks([...links, newLink]);
-            setNewLink("");
-        }
-    };
-
     const handleRemoveLink = (index: number) => {
         setLinks(links.filter((_, i) => i !== index));
-        handleSave(
-            links.filter((_, i) => i !== index),
-            false
-        );
+        handleSave(links.filter((_, i) => i !== index));
     };
 
-    const handleSave = async (links: string[], ingest: boolean) => {
-        const remoteKnowledgeSources =
-            await KnowledgeService.getRemoteKnowledgeSource(agentId);
-        const onedriveSource = remoteKnowledgeSources.find(
-            (source) => source.sourceType === "onedrive"
-        );
-        if (!onedriveSource) {
-            return;
-        }
-        const knowledge = await KnowledgeService.getKnowledgeForAgent(agentId);
-        for (const file of knowledge) {
-            if (file.uploadID && exclude.includes(file.uploadID)) {
-                await KnowledgeService.deleteKnowledgeFromAgent(
-                    agentId,
-                    file.fileName
-                );
-            }
-        }
+    const handleSave = async (links: string[]) => {
         await KnowledgeService.updateRemoteKnowledgeSource(
             agentId,
-            onedriveSource.id,
+            onedriveSource!.id!,
             {
-                sourceType: "onedrive",
+                ...onedriveSource,
                 onedriveConfig: {
                     sharedLinks: links,
                 },
-                exclude: exclude,
-                disableIngestionAfterSync: !ingest,
             }
         );
-        const intervalId = setInterval(() => {
-            getRemoteKnowledgeSources.mutate();
-            if (onedriveSource?.runID) {
-                clearInterval(intervalId);
-            }
-        }, 1000);
-        setTimeout(() => {
-            clearInterval(intervalId);
-        }, 10000);
-        if (ingest) {
-            await KnowledgeService.triggerKnowledgeIngestion(agentId);
-            onOpenChange(false);
+        startPolling();
+    };
+
+    const handleApproveAll = async () => {
+        for (const file of knowledgeFiles) {
+            await KnowledgeService.approveKnowledgeFile(
+                agentId,
+                file.id!,
+                true
+            );
         }
         startPolling();
     };
 
-    const handleTogglePageSelection = (url: string) => {
-        if (exclude.includes(url)) {
-            setExclude(exclude.filter((u) => u !== url));
-        } else {
-            setExclude([...exclude, url]);
-        }
-    };
-
-    const handleClose = async (open: boolean) => {
-        if (!open && onedriveSource) {
-            await KnowledgeService.updateRemoteKnowledgeSource(
-                agentId,
-                onedriveSource.id,
-                {
-                    sourceType: "onedrive",
-                    onedriveConfig: {
-                        sharedLinks: onedriveSource.onedriveConfig?.sharedLinks,
-                    },
-                    exclude: onedriveSource.exclude,
-                }
-            );
-            await KnowledgeService.triggerKnowledgeIngestion(agentId);
-        }
-        onOpenChange(open);
-    };
-
     return (
-        <Dialog open={isOpen} onOpenChange={handleClose}>
+        <Dialog open={isOpen} onOpenChange={onOpenChange}>
             <DialogContent
                 aria-describedby={undefined}
                 className="bd-secondary data-[state=open]:animate-contentShow fixed top-[50%] left-[50%] max-h-[85vh] w-[90vw] max-w-[900px] translate-x-[-50%] translate-y-[-50%] rounded-[6px] bg-white dark:bg-secondary p-[25px] shadow-[hsl(206_22%_7%_/_35%)_0px_10px_38px_-10px,_hsl(206_22%_7%_/_20%)_0px_10px_20px_-15px] focus:outline-none"
             >
-                <DialogTitle className="flex flex-row items-center text-xl font-semibold mb-4">
-                    <Avatar className="flex-row items-center w-6 h-6 mr-2">
-                        <img src="/onedrive.svg" alt="OneDrive logo" />
-                    </Avatar>
-                    OneDrive
+                <DialogTitle className="flex flex-row items-center text-xl font-semibold mb-4 justify-between">
+                    <div className="flex flex-row items-center">
+                        <Avatar className="flex-row items-center w-6 h-6 mr-2">
+                            <img src="/onedrive.svg" alt="OneDrive logo" />
+                        </Avatar>
+                        OneDrive
+                    </div>
+                    <div>
+                        <Button
+                            size="sm"
+                            variant="secondary"
+                            onClick={() => setIsAddLinkModalOpen(true)}
+                            className="mr-2"
+                        >
+                            <PlusIcon className="w-4 h-4" />
+                        </Button>
+                        <Button
+                            size="sm"
+                            variant="secondary"
+                            onClick={() =>
+                                handleRemoteKnowledgeSourceSync("onedrive")
+                            }
+                            className="mr-2"
+                        >
+                            <RefreshCcwIcon className="w-4 h-4" />
+                        </Button>
+                        <Button
+                            size="sm"
+                            variant="secondary"
+                            onClick={() => setIsSettingModalOpen(true)}
+                            className="mr-2"
+                        >
+                            <SettingsIcon className="w-4 h-4" />
+                        </Button>
+                    </div>
                 </DialogTitle>
-                <div className="mb-4">
-                    <Input
-                        type="text"
-                        value={newLink}
-                        onChange={(e) => setNewLink(e.target.value)}
-                        placeholder="Enter OneDrive link"
-                        className="w-full mb-4"
-                    />
-                    <Button onClick={handleAddLink} className="w-full">
-                        <Plus className="mr-2 h-4 w-4" /> Add Link
-                    </Button>
-                </div>
                 <ScrollArea className="max-h-[800px] overflow-x-auto">
                     <div className="max-h-[400px] overflow-x-auto">
                         {links.map((link, index) => (
                             <div key={index}>
+                                {/* eslint-disable-next-line */}
                                 <div
                                     key={index}
                                     className="flex flex-row items-center justify-between overflow-x-auto pr-4 h-12 cursor-pointer"
@@ -245,105 +219,142 @@ export const OnedriveModal: FC<OnedriveModalProps> = ({
                                 </div>
                                 {showTable[index] && (
                                     <ScrollArea className="max-h-[200px] overflow-x-auto mb-2">
-                                        <Table className="min-w-full divide-y divide-gray-200">
-                                            <TableBody>
-                                                {Object.entries(
-                                                    onedriveSource?.state
-                                                        ?.onedriveState
-                                                        ?.files || {}
+                                        <div className="flex flex-col gap-2">
+                                            {knowledgeFiles
+
+                                                .filter((item) =>
+                                                    onedriveSource?.state?.onedriveState?.files?.[
+                                                        item.uploadID!
+                                                    ]?.folderPath?.startsWith(
+                                                        // eslint-disable-next-line
+                                                        onedriveSource?.state
+                                                            ?.onedriveState
+                                                            ?.links?.[link]
+                                                            ?.name!
+                                                    )
                                                 )
-                                                    .filter(([_, file]) =>
-                                                        file.folderPath?.startsWith(
+                                                .map((item) => (
+                                                    <RemoteFileItemChip
+                                                        key={item.fileName}
+                                                        file={item}
+                                                        remoteKnowledgeSourceType={
+                                                            item.remoteKnowledgeSourceType!
+                                                        }
+                                                        subTitle={
                                                             onedriveSource
                                                                 ?.state
                                                                 ?.onedriveState
-                                                                ?.links?.[link]
-                                                                ?.name!
-                                                        )
-                                                    )
-                                                    .map(
-                                                        (
-                                                            [fileID, file],
-                                                            index: number
-                                                        ) => (
-                                                            <TableRow
-                                                                key={index}
-                                                                className="border-t"
-                                                                onClick={() =>
-                                                                    handleTogglePageSelection(
-                                                                        fileID
-                                                                    )
-                                                                }
-                                                            >
-                                                                <TableCell className="px-4 py-2">
-                                                                    <input
-                                                                        type="checkbox"
-                                                                        checked={
-                                                                            !exclude.includes(
-                                                                                fileID
-                                                                            )
-                                                                        }
-                                                                        onChange={() =>
-                                                                            handleTogglePageSelection(
-                                                                                fileID
-                                                                            )
-                                                                        }
-                                                                        onClick={(
-                                                                            e
-                                                                        ) =>
-                                                                            e.stopPropagation()
-                                                                        }
-                                                                    />
-                                                                </TableCell>
-                                                                <TableCell className="px-4 py-2">
-                                                                    <a
-                                                                        href={
-                                                                            file.url
-                                                                        }
-                                                                        target="_blank"
-                                                                        rel="noopener noreferrer"
-                                                                        className="underline"
-                                                                        onClick={(
-                                                                            e
-                                                                        ) =>
-                                                                            e.stopPropagation()
-                                                                        }
-                                                                    >
-                                                                        {
-                                                                            file.fileName
-                                                                        }
-                                                                    </a>
-                                                                    {file.folderPath && (
-                                                                        <>
-                                                                            <br />
-                                                                            <span className="text-gray-400 text-xs">
-                                                                                {
-                                                                                    file.folderPath
-                                                                                }
-                                                                            </span>
-                                                                        </>
-                                                                    )}
-                                                                </TableCell>
-                                                            </TableRow>
-                                                        )
-                                                    )}
-                                            </TableBody>
-                                        </Table>
+                                                                ?.files?.[
+                                                                item.uploadID!
+                                                            ]?.folderPath
+                                                        }
+                                                        approveFile={async (
+                                                            file,
+                                                            approved
+                                                        ) => {
+                                                            await KnowledgeService.approveKnowledgeFile(
+                                                                agentId,
+                                                                file.id!,
+                                                                approved
+                                                            );
+                                                            startPolling();
+                                                        }}
+                                                    />
+                                                ))}
+                                        </div>
                                     </ScrollArea>
                                 )}
                             </div>
                         ))}
+                        <div className="flex flex-col gap-2 mt-2">
+                            {knowledgeFiles
+                                .filter(
+                                    (item) =>
+                                        !links.some(
+                                            (link) =>
+                                                onedriveSource?.state?.onedriveState?.files?.[
+                                                    item.uploadID!
+                                                ]?.folderPath?.startsWith(
+                                                    onedriveSource?.state
+                                                        ?.onedriveState
+                                                        ?.links?.[link]?.name ??
+                                                        ""
+                                                ) ?? false
+                                        )
+                                )
+                                .map((item) => (
+                                    <RemoteFileItemChip
+                                        key={item.fileName}
+                                        file={item}
+                                        remoteKnowledgeSourceType={
+                                            item.remoteKnowledgeSourceType!
+                                        }
+                                        subTitle={
+                                            // eslint-disable-next-line
+                                            onedriveSource?.state?.onedriveState
+                                                ?.files?.[item.uploadID!]
+                                                ?.folderPath!
+                                        }
+                                        approveFile={async (file, approved) => {
+                                            await KnowledgeService.approveKnowledgeFile(
+                                                agentId,
+                                                file.id!,
+                                                approved
+                                            );
+                                            startPolling();
+                                        }}
+                                    />
+                                ))}
+                        </div>
                     </div>
                 </ScrollArea>
-                {isSyncing && (
+                {knowledgeFiles?.some((item) => item.approved) && (
+                    <IngestionStatusComponent knowledge={knowledgeFiles} />
+                )}
+                {onedriveSource?.runID && (
                     <RemoteKnowledgeSourceStatus source={onedriveSource!} />
                 )}
 
-                <div className="mt-4 flex justify-end">
-                    <Button onClick={() => handleSave(links, true)}>
-                        Sync
+                <div className="mt-4 flex justify-between">
+                    <Button
+                        className="approve-button"
+                        variant="secondary"
+                        onClick={async () => {
+                            setLoading(true);
+                            await new Promise((resolve) =>
+                                setTimeout(resolve, 1000)
+                            );
+                            handleApproveAll();
+                            setLoading(false);
+                        }}
+                        disabled={loading}
+                    >
+                        {loading ? (
+                            <LoadingSpinner className="w-4 h-4" />
+                        ) : (
+                            "Add All"
+                        )}
+                    </Button>
+                    <Button
+                        variant="secondary"
+                        onClick={() => onOpenChange(false)}
+                    >
+                        Close
                     </Button>
                 </div>
+                <RemoteSourceSettingModal
+                    agentId={agentId}
+                    isOpen={isSettingModalOpen}
+                    onOpenChange={setIsSettingModalOpen}
+                    remoteKnowledgeSource={onedriveSource!}
+                />
+                <AddLinkModal
+                    agentId={agentId}
+                    onedriveSource={onedriveSource!}
+                    startPolling={startPolling}
+                    isOpen={isAddLinkModalOpen}
+                    onOpenChange={setIsAddLinkModalOpen}
+                />
             </DialogContent>
         </Dialog>
     );

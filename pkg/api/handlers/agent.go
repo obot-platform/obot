@@ -184,6 +184,27 @@ func (a *AgentHandler) UploadKnowledge(req api.Context) error {
 	return uploadKnowledge(req, a.gptscript, agent.Status.KnowledgeSetNames...)
 }
 
+func (a *AgentHandler) ApproveKnowledgeFile(req api.Context) error {
+	var body struct {
+		Approve bool `json:"approve"`
+	}
+
+	if err := req.Read(&body); err != nil {
+		return err
+	}
+	var file v1.KnowledgeFile
+	if err := req.Storage.Get(req.Context(), kclient.ObjectKey{
+		Namespace: req.Namespace(),
+		Name:      req.PathValue("file_id"),
+	}, &file); err != nil {
+		return err
+	}
+
+	file.Spec.Approved = &[]bool{body.Approve}[0]
+
+	return req.Storage.Update(req.Context(), &file)
+}
+
 func (a *AgentHandler) DeleteKnowledge(req api.Context) error {
 	var agent v1.Agent
 	if err := req.Get(&agent, req.PathValue("id")); err != nil {

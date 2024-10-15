@@ -111,6 +111,7 @@ func uploadKnowledgeToWorkspace(req api.Context, gClient *gptscript.GPTScript, w
 		Spec: v1.KnowledgeFileSpec{
 			FileName:      filename,
 			WorkspaceName: ws.Name,
+			Approved:      &[]bool{true}[0],
 		},
 	}
 
@@ -134,6 +135,7 @@ func convertKnowledgeFile(file v1.KnowledgeFile, ws v1.Workspace) types.Knowledg
 		RemoteKnowledgeSourceID:   file.Spec.RemoteKnowledgeSourceName,
 		RemoteKnowledgeSourceType: file.Spec.RemoteKnowledgeSourceType,
 		UploadID:                  file.Status.UploadID,
+		Approved:                  file.Spec.Approved,
 	}
 }
 

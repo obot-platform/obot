@@ -92,6 +92,19 @@ async function resyncRemoteKnowledgeSource(
     });
 }
 
+async function approveKnowledgeFile(
+    agentId: string,
+    fileID: string,
+    approve: boolean
+) {
+    await request({
+        url: ApiRoutes.agents.approveKnowledgeFile(agentId, fileID).url,
+        method: "PUT",
+        data: JSON.stringify({ approve }),
+        errorMessage: "Failed to approve knowledge file",
+    });
+}
+
 async function getRemoteKnowledgeSource(agentId: string) {
     const res = await request<{
         items: RemoteKnowledgeSource[];
@@ -112,6 +125,7 @@ getRemoteKnowledgeSource.key = (agentId?: Nullish<string>) => {
 };
 
 export const KnowledgeService = {
+    approveKnowledgeFile,
     getKnowledgeForAgent,
     addKnowledgeToAgent,
     deleteKnowledgeFromAgent,

@@ -58,6 +58,7 @@ type KnowledgeFileSpec struct {
 	WorkspaceName             string                          `json:"workspaceName,omitempty"`
 	RemoteKnowledgeSourceName string                          `json:"remoteKnowledgeSourceName,omitempty"`
 	RemoteKnowledgeSourceType types.RemoteKnowledgeSourceType `json:"remoteKnowledgeSourceType,omitempty"`
+	Approved                  *bool                           `json:"approved,omitempty"`
 }
 
 type KnowledgeFileStatus struct {

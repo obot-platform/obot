@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"maps"
+	"path/filepath"
 	"sort"
 	"strings"
 	"time"
@@ -21,6 +22,7 @@ import (
 	"github.com/otto8-ai/otto8/pkg/events"
 	"github.com/otto8-ai/otto8/pkg/knowledge"
 	v1 "github.com/otto8-ai/otto8/pkg/storage/apis/otto.gptscript.ai/v1"
+	"github.com/otto8-ai/otto8/pkg/workspace"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -70,28 +72,6 @@ func (a *Handler) DeleteKnowledge(req router.Request, _ router.Response) error {
 	return nil
 }
 
-func (a *Handler) isIngestionBlocked(ctx context.Context, c kclient.Client, ws *v1.Workspace) (bool, error) {
-	var ks v1.KnowledgeSet
-	if err := c.Get(ctx, router.Key(ws.Namespace, ws.Spec.KnowledgeSetName), &ks); err != nil {
-		return false, err
-	}
-
-	var rks v1.RemoteKnowledgeSourceList
-	if err := c.List(ctx, &rks, kclient.InNamespace(ws.Namespace), kclient.MatchingFields{
-		"spec.knowledgeSetName": ks.Name,
-	}); err != nil {
-		return false, err
-	}
-
-	for _, rks := range rks.Items {
-		if rks.Spec.Manifest.DisableIngestionAfterSync {
-			return true, nil
-		}
-	}
-
-	return false, nil
-}
-
 func (a *Handler) IngestKnowledge(req router.Request, resp router.Response) error {
 	ws := req.Object.(*v1.Workspace)
 	if !ws.Spec.IsKnowledge || ws.Spec.KnowledgeSetName == "" {
@@ -101,10 +81,6 @@ func (a *Handler) IngestKnowledge(req router.Request, resp router.Response) erro
 	// The status handler will clean this up
 	if ws.Status.IngestionRunName != "" {
 		return nil
-	}
-
-	if blocked, err := a.isIngestionBlocked(req.Ctx, req.Client, ws); blocked || err != nil {
-		return err
 	}
 
 	if !ws.Status.IngestionLastRunTime.IsZero() && ws.Status.IngestionLastRunTime.Add(30*time.Second).After(time.Now()) {
@@ -119,8 +95,25 @@ func (a *Handler) IngestKnowledge(req router.Request, resp router.Response) erro
 		return err
 	}
 
-	if len(files.Items) == 0 {
+	var approvedFiles v1.KnowledgeFileList
+	for _, file := range files.Items {
+		if file.Spec.Approved != nil && *file.Spec.Approved {
+			approvedFiles.Items = append(approvedFiles.Items, file)
+		}
+	}
+
+	if len(approvedFiles.Items) == 0 {
 		return nil
+	}
+
+	// Sleep for 5 seconds before invoking to fetch the files. In case when files are approved at the same time, the first invoke will
+	// have partial file approve list. It will eventually have all files but the first ingestion will be incompleted. Sleeping for 5 seconds
+	// so that we can make sure we wait for the approved file that happens at the same time
+	time.Sleep(5 * time.Second)
+	if err := req.Client.List(req.Ctx, uncached.List(&files), kclient.InNamespace(ws.Namespace), kclient.MatchingFields{
+		"spec.workspaceName": ws.Name,
+	}); err != nil {
+		return err
 	}
 
 	sort.Slice(files.Items, func(i, j int) bool {
@@ -130,10 +123,12 @@ func (a *Handler) IngestKnowledge(req router.Request, resp router.Response) erro
 	digest := sha256.New()
 
 	for _, file := range files.Items {
-		digest.Write([]byte(file.Name))
-		digest.Write([]byte{0})
-		digest.Write([]byte(file.Status.FileDetails.UpdatedAt))
-		digest.Write([]byte{0})
+		if file.Spec.Approved != nil && *file.Spec.Approved {
+			digest.Write([]byte(file.Name))
+			digest.Write([]byte{0})
+			digest.Write([]byte(file.Status.FileDetails.UpdatedAt))
+			digest.Write([]byte{0})
+		}
 	}
 	var syncNeeded bool
 
@@ -161,6 +156,32 @@ func (a *Handler) IngestKnowledge(req router.Request, resp router.Response) erro
 	}
 
 	if syncNeeded {
+		var ignoreFileContent string
+		for _, file := range files.Items {
+			if file.Spec.Approved == nil || !*file.Spec.Approved {
+				if file.Status.FileDetails.FilePath != "" {
+					rel, err := filepath.Rel(workspace.GetDir(ws.Status.WorkspaceID), file.Status.FileDetails.FilePath)
+					if err != nil {
+						return fmt.Errorf("failed to get relative path for file: %w", err)
+					}
+					ignoreFileContent += fmt.Sprintf("%s\n", rel)
+				} else {
+					ignoreFileContent += fmt.Sprintf("%s\n", file.Spec.FileName)
+				}
+			}
+		}
+
+		if ignoreFileContent != "" {
+			err := a.gptscript.WriteFileInWorkspace(req.Ctx, ws.Status.WorkspaceID, ".knowignore", []byte(ignoreFileContent))
+			if err != nil {
+				return fmt.Errorf("failed to create knowledge metadata file: %w", err)
+			}
+		} else {
+			if err := a.gptscript.DeleteFileInWorkspace(req.Ctx, ws.Status.WorkspaceID, ".knowignore"); err != nil {
+				return fmt.Errorf("failed to delete ignore file: %w", err)
+			}
+		}
+
 		run, err := a.ingester.IngestKnowledge(req.Ctx, ws.GetNamespace(), ws.Spec.KnowledgeSetName, ws.Status.WorkspaceID)
 		if err != nil {
 			return err
@@ -282,6 +303,15 @@ func compileFileStatuses(ctx context.Context, client kclient.Client, ws *v1.Work
 	return final, errors.Join(errs...)
 }
 
+func (a *Handler) BindWorkspace(req router.Request, resp router.Response) error {
+	kFile := req.Object.(*v1.KnowledgeFile)
+	// force to associate with workspace so that it can reenqueue workspace when file are changed
+	if err := req.Get(&v1.Workspace{}, kFile.Namespace, kFile.Spec.WorkspaceName); err != nil {
+		return err
+	}
+	return nil
+}
+
 func (a *Handler) CleanupFile(req router.Request, resp router.Response) error {
 	kFile := req.Object.(*v1.KnowledgeFile)
 
@@ -294,6 +324,10 @@ func (a *Handler) CleanupFile(req router.Request, resp router.Response) error {
 	}
 
 	if err := a.gptscript.DeleteFileInWorkspace(req.Ctx, ws.Status.WorkspaceID, kFile.Spec.FileName); err != nil {
+		return err
+	}
+
+	if _, err := a.ingester.DeleteKnowledgeFiles(req.Ctx, kFile.Namespace, filepath.Join(workspace.GetDir(ws.Status.WorkspaceID), kFile.Spec.FileName)); err != nil {
 		return err
 	}
 
