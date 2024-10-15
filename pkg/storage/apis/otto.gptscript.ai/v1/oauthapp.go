@@ -28,25 +28,25 @@ func (r *OAuthApp) RedirectURL(baseURL string) string {
 	if r.Status.External.RefName == "" {
 		return ""
 	}
-	return fmt.Sprintf("%s/app-oauth/callback/%s", baseURL, r.Status.External.RefName)
+	return fmt.Sprintf("%s/api/app-oauth/callback/%s", baseURL, r.Status.External.RefName)
 }
 
 func OAuthAppGetTokenURL(baseURL string) string {
-	return fmt.Sprintf("%s/app-oauth/get-token", baseURL)
+	return fmt.Sprintf("%s/api/app-oauth/get-token", baseURL)
 }
 
 func (r *OAuthApp) AuthorizeURL(baseURL string) string {
 	if r.Status.External.RefName == "" {
 		return ""
 	}
-	return fmt.Sprintf("%s/app-oauth/authorize/%s", baseURL, r.Status.External.RefName)
+	return fmt.Sprintf("%s/api/app-oauth/authorize/%s", baseURL, r.Status.External.RefName)
 }
 
 func (r *OAuthApp) RefreshURL(baseURL string) string {
 	if r.Status.External.RefName == "" {
 		return ""
 	}
-	return fmt.Sprintf("%s/app-oauth/refresh/%s", baseURL, r.Status.External.RefName)
+	return fmt.Sprintf("%s/api/app-oauth/refresh/%s", baseURL, r.Status.External.RefName)
 }
 
 func (r *OAuthApp) GetConditions() *[]metav1.Condition {
