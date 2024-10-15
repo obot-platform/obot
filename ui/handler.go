@@ -21,7 +21,7 @@ func serve(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	path := path.Join("admin/build/client/", r.URL.Path)
+	path := path.Join("admin/build/client", strings.TrimPrefix(r.URL.Path, "/admin"))
 	if _, err := fs.Stat(embedded, path); err == nil {
 		http.ServeFileFS(w, r, embedded, path)
 	} else {
