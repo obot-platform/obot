@@ -25,6 +25,6 @@ func serve(w http.ResponseWriter, r *http.Request) {
 	if _, err := fs.Stat(embedded, path); err == nil {
 		http.ServeFileFS(w, r, embedded, path)
 	} else {
-		http.ServeFileFS(w, r, embedded, "static/index.html")
+		http.ServeFileFS(w, r, embedded, "admin/build/client/index.html")
 	}
 }
