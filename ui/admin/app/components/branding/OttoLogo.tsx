@@ -1,4 +1,4 @@
-import { cn } from "~/lib/utils";
+import { assetUrl, cn } from "~/lib/utils";
 
 import { TypographyH2 } from "~/components/Typography";
 
@@ -17,7 +17,7 @@ export function OttoLogo({
             )}
         >
             <img
-                src="/logo/OttoLogo.svg"
+                src={assetUrl("/logo/OttoLogo.svg")}
                 alt="Otto Logo"
                 className={cn("w-10 h-10 dark:invert", classNames.image)}
             />

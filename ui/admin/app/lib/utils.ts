@@ -73,3 +73,5 @@ export const getErrorMessage = (error: unknown) => {
     if (typeof error === "string") return error;
     return "Something went wrong";
 };
+
+export const assetUrl = (path: string) => `${import.meta.env.BASE_URL}${path}`;

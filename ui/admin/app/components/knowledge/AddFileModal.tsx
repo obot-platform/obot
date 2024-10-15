@@ -3,6 +3,7 @@ import { RefObject, useState } from "react";
 
 import { RemoteKnowledgeSource } from "~/lib/model/knowledge";
 import { KnowledgeService } from "~/lib/service/api/knowledgeService";
+import { assetUrl } from "~/lib/utils";
 
 import { Avatar } from "~/components/ui/avatar";
 import { Button } from "~/components/ui/button";
@@ -90,7 +91,10 @@ export const AddFileModal = ({
                                 className="flex w-full items-center justify-center mt-2 gap-3 rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus-visible:ring-transparent hover:cursor-pointer"
                             >
                                 <Avatar className="h-5 w-5">
-                                    <img src="/notion.svg" alt="Notion logo" />
+                                    <img
+                                        src={assetUrl("/notion.svg")}
+                                        alt="Notion logo"
+                                    />
                                 </Avatar>
                                 Sync From Notion
                             </Button>
@@ -103,7 +107,7 @@ export const AddFileModal = ({
                             >
                                 <Avatar className="h-5 w-5">
                                     <img
-                                        src="/onedrive.svg"
+                                        src={assetUrl("/onedrive.svg")}
                                         alt="OneDrive logo"
                                     />
                                 </Avatar>

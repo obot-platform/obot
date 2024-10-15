@@ -1,6 +1,7 @@
 import { Globe } from "lucide-react";
 
 import { RemoteKnowledgeSourceType } from "~/lib/model/knowledge";
+import { assetUrl } from "~/lib/utils";
 
 import { Avatar } from "~/components/ui/avatar";
 
@@ -20,12 +21,12 @@ export default function RemoteFileAvatar({
         <>
             {isOneDrive && (
                 <Avatar className="w-4 h-4 mr-2">
-                    <img src="/onedrive.svg" alt="OneDrive logo" />
+                    <img src={assetUrl("/onedrive.svg")} alt="OneDrive logo" />
                 </Avatar>
             )}
             {isNotion && (
                 <Avatar className="w-4 h-4 mr-2">
-                    <img src="/notion.svg" alt="Notion logo" />
+                    <img src={assetUrl("/notion.svg")} alt="Notion logo" />
                 </Avatar>
             )}
             {isWebsite && (
