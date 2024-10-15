@@ -10,9 +10,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/acorn-io/baaah/pkg/router"
 	"github.com/gptscript-ai/go-gptscript"
 	"github.com/otto8-ai/otto8/apiclient/types"
+	"github.com/otto8-ai/otto8/pkg/api/authz"
 	"github.com/otto8-ai/otto8/pkg/storage"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -30,6 +30,11 @@ type Context struct {
 	Storage   storage.Client
 	User      user.Info
 }
+
+type (
+	HandlerFunc func(Context) error
+	Middleware  func(HandlerFunc) HandlerFunc
+)
 
 func (r *Context) IsStreamRequested() bool {
 	return r.Accepts("text/event-stream")
@@ -195,7 +200,7 @@ func (r *Context) Delete(obj client.Object) error {
 
 func (r *Context) Get(obj client.Object, name string) error {
 	namespace := r.Namespace()
-	err := r.Storage.Get(r.Request.Context(), router.Key(namespace, name), obj)
+	err := r.Storage.Get(r.Request.Context(), client.ObjectKey{Namespace: namespace, Name: name}, obj)
 	if apierrors.IsNotFound(err) {
 		gvk, _ := r.Storage.GroupVersionKindFor(obj)
 		return types.NewErrHttp(http.StatusNotFound, fmt.Sprintf("%s %s not found", strings.ToLower(gvk.Kind), name))
@@ -216,11 +221,11 @@ func (r *Context) Namespace() string {
 }
 
 func (r *Context) UserIsAdmin() bool {
-	return slices.Contains(r.User.GetGroups(), "admin")
+	return slices.Contains(r.User.GetGroups(), authz.AdminGroup)
 }
 
 func (r *Context) UserIsAuthenticated() bool {
-	return slices.Contains(r.User.GetGroups(), "system:authenticated")
+	return slices.Contains(r.User.GetGroups(), authz.AuthenticatedGroup)
 }
 
 func (r *Context) UserID() uint {

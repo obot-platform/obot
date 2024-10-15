@@ -38,24 +38,18 @@ type refreshTokenResponse struct {
 }
 
 func (s *Server) getTokens(apiContext api.Context) error {
-	logger := kcontext.GetLogger(apiContext.Context())
-
 	var tokens []types.AuthToken
 	if err := s.db.WithContext(apiContext.Context()).Where("user_id = ?", apiContext.UserID()).Find(&tokens).Error; err != nil {
-		writeError(apiContext.Context(), logger, apiContext.ResponseWriter, http.StatusInternalServerError, fmt.Errorf("error getting tokens: %v", err))
-		return nil
+		return types2.NewErrHttp(http.StatusInternalServerError, fmt.Sprintf("error getting tokens: %v", err))
 	}
 
-	writeResponse(apiContext.Context(), logger, apiContext.ResponseWriter, tokens)
-	return nil
+	return apiContext.Write(tokens)
 }
 
 func (s *Server) deleteToken(apiContext api.Context) error {
-	logger := kcontext.GetLogger(apiContext.Context())
 	id := apiContext.PathValue("id")
 	if id == "" {
-		writeError(apiContext.Context(), logger, apiContext.ResponseWriter, http.StatusBadRequest, fmt.Errorf("id path parameter is required"))
-		return nil
+		return types2.NewErrHttp(http.StatusBadRequest, "id path parameter is required")
 	}
 
 	if err := s.db.WithContext(apiContext.Context()).Where("user_id = ? AND id = ?", apiContext.UserID(), id).Delete(new(types.AuthToken)).Error; err != nil {
@@ -64,12 +58,10 @@ func (s *Server) deleteToken(apiContext api.Context) error {
 			status = http.StatusNotFound
 			err = fmt.Errorf("not found")
 		}
-		writeError(apiContext.Context(), logger, apiContext.ResponseWriter, status, fmt.Errorf("error deleting token: %v", err))
-		return nil
+		return types2.NewErrHttp(status, fmt.Sprintf("error deleting token: %v", err))
 	}
 
-	writeResponse(apiContext.Context(), logger, apiContext.ResponseWriter, map[string]any{"deleted": true})
-	return nil
+	return apiContext.Write(map[string]any{"deleted": true})
 }
 
 type createTokenRequest struct {
@@ -77,12 +69,10 @@ type createTokenRequest struct {
 }
 
 func (s *Server) newToken(apiContext api.Context) error {
-	logger := kcontext.GetLogger(apiContext.Context())
 	authProviderID := apiContext.AuthProviderID()
 	userID := apiContext.UserID()
 	if authProviderID <= 0 || userID <= 0 {
-		writeError(apiContext.Context(), logger, apiContext.ResponseWriter, http.StatusForbidden, fmt.Errorf("forbidden"))
-		return nil
+		return types2.NewErrHttp(http.StatusForbidden, "forbidden")
 	}
 
 	var customExpiration time.Duration
@@ -90,23 +80,20 @@ func (s *Server) newToken(apiContext api.Context) error {
 		request := new(createTokenRequest)
 		err := apiContext.Read(request)
 		if err != nil {
-			writeError(apiContext.Context(), logger, apiContext.ResponseWriter, http.StatusBadRequest, fmt.Errorf("invalid create create token request body: %v", err))
-			return nil
+			return types2.NewErrHttp(http.StatusBadRequest, fmt.Sprintf("invalid create create token request body: %v", err))
 		}
 
 		if request.ExpiresIn != "" {
 			customExpiration, err = ktime.ParseDuration(request.ExpiresIn)
 			if err != nil {
-				writeError(apiContext.Context(), logger, apiContext.ResponseWriter, http.StatusBadRequest, fmt.Errorf("invalid expiresIn duration: %v", err))
-				return nil
+				return types2.NewErrHttp(http.StatusBadRequest, fmt.Sprintf("invalid expiresIn duration: %v", err))
 			}
 		}
 	}
 
 	randBytes := make([]byte, randomTokenLength+tokenIDLength)
 	if _, err := rand.Read(randBytes); err != nil {
-		writeError(apiContext.Context(), logger, apiContext.ResponseWriter, http.StatusInternalServerError, fmt.Errorf("error refreshing token: %v", err))
-		return nil
+		return types2.NewErrHttp(http.StatusInternalServerError, fmt.Sprintf("error refreshing token: %v", err))
 	}
 
 	id := randBytes[:tokenIDLength]
@@ -131,24 +118,19 @@ func (s *Server) newToken(apiContext api.Context) error {
 		tkn.AuthProviderID = provider.ID
 		return tx.Create(tkn).Error
 	}); err != nil {
-		writeError(apiContext.Context(), logger, apiContext.ResponseWriter, http.StatusInternalServerError, fmt.Errorf("error refreshing token: %v", err))
-		return nil
+		return types2.NewErrHttp(http.StatusInternalServerError, fmt.Sprintf("error refreshing token: %v", err))
 	}
 
-	writeResponse(apiContext.Context(), logger, apiContext.ResponseWriter, refreshTokenResponse{
+	return apiContext.Write(refreshTokenResponse{
 		Token:     publicToken(id, token),
 		ExpiresAt: tkn.ExpiresAt,
 	})
-
-	return nil
 }
 
-func (s *Server) tokenRequest(w http.ResponseWriter, r *http.Request) {
-	logger := kcontext.GetLogger(r.Context())
+func (s *Server) tokenRequest(apiContext api.Context) error {
 	reqObj := new(tokenRequestRequest)
-	if err := json.NewDecoder(r.Body).Decode(reqObj); err != nil {
-		writeError(r.Context(), logger, w, http.StatusBadRequest, fmt.Errorf("invalid token request body: %v", err))
-		return
+	if err := json.NewDecoder(apiContext.Request.Body).Decode(reqObj); err != nil {
+		return types2.NewErrHttp(http.StatusBadRequest, fmt.Sprintf("invalid token request body: %v", err))
 	}
 
 	tokenReq := &types.TokenRequest{
@@ -157,7 +139,7 @@ func (s *Server) tokenRequest(w http.ResponseWriter, r *http.Request) {
 	}
 
 	oauthProvider := new(types.AuthProvider)
-	if err := s.db.WithContext(r.Context()).Transaction(func(tx *gorm.DB) error {
+	if err := s.db.WithContext(apiContext.Context()).Transaction(func(tx *gorm.DB) error {
 		if reqObj.ServiceName != "" {
 			// Ensure the OAuth provider exists, if one was provided.
 			if err := tx.Where("service_name = ?", reqObj.ServiceName).Where("disabled IS NULL OR disabled != ?", true).First(oauthProvider).Error; err != nil {
@@ -167,31 +149,25 @@ func (s *Server) tokenRequest(w http.ResponseWriter, r *http.Request) {
 
 		return tx.Create(tokenReq).Error
 	}); err != nil {
-		logger.DebugContext(r.Context(), "failed to create token", "error", err)
 		if errors.Is(err, gorm.ErrDuplicatedKey) {
-			writeError(r.Context(), logger, w, http.StatusConflict, fmt.Errorf("token request already exists"))
-		} else {
-			writeError(r.Context(), logger, w, http.StatusInternalServerError, err)
+			return types2.NewErrHttp(http.StatusConflict, "token request already exists")
 		}
-		return
+		return types2.NewErrHttp(http.StatusInternalServerError, err.Error())
 	}
 
 	if reqObj.ServiceName != "" {
-		writeResponse(r.Context(), logger, w, map[string]any{"token-path": fmt.Sprintf("%s/oauth/start/%s/%s", s.baseURL, reqObj.ID, oauthProvider.Slug)})
-		return
+		return apiContext.Write(map[string]any{"token-path": fmt.Sprintf("%s/oauth/start/%s/%s", s.baseURL, reqObj.ID, oauthProvider.Slug)})
 	}
-
-	writeResponse(r.Context(), logger, w, map[string]any{"token-path": fmt.Sprintf("%s/login?id=%s", s.uiURL, reqObj.ID)})
+	return apiContext.Write(map[string]any{"token-path": fmt.Sprintf("%s/login?id=%s", s.uiURL, reqObj.ID)})
 }
 
-func (s *Server) redirectForTokenRequest(w http.ResponseWriter, r *http.Request) {
-	logger := kcontext.GetLogger(r.Context())
-	id := r.PathValue("id")
-	service := r.PathValue("service")
+func (s *Server) redirectForTokenRequest(apiContext api.Context) error {
+	id := apiContext.PathValue("id")
+	service := apiContext.PathValue("service")
 
 	oauthProvider := new(types.AuthProvider)
 	tokenReq := new(types.TokenRequest)
-	if err := s.db.WithContext(r.Context()).Transaction(func(tx *gorm.DB) error {
+	if err := s.db.WithContext(apiContext.Context()).Transaction(func(tx *gorm.DB) error {
 		// Ensure the OAuth provider exists, if one was provided.
 		if err := tx.Where("slug = ?", service).Where("disabled IS NULL OR disabled != ?", true).First(oauthProvider).Error; err != nil {
 			return fmt.Errorf("failed to find oauth provider %q: %v", service, err)
@@ -199,23 +175,19 @@ func (s *Server) redirectForTokenRequest(w http.ResponseWriter, r *http.Request)
 
 		return tx.Where("id = ?", id).First(tokenReq).Error
 	}); err != nil {
-		logger.DebugContext(r.Context(), "failed to create token", "error", err)
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			writeError(r.Context(), logger, w, http.StatusNotFound, fmt.Errorf("token or service not found"))
-		} else {
-			writeError(r.Context(), logger, w, http.StatusInternalServerError, err)
+			return types2.NewErrNotFound("token or service not found")
 		}
-		return
+		return types2.NewErrHttp(http.StatusInternalServerError, err.Error())
 	}
 
-	writeResponse(r.Context(), logger, w, map[string]any{"token-path": fmt.Sprintf("%s/oauth/start/%s/%s", s.baseURL, tokenReq.ID, oauthProvider.Slug)})
+	return apiContext.Write(map[string]any{"token-path": fmt.Sprintf("%s/oauth/start/%s/%s", s.baseURL, tokenReq.ID, oauthProvider.Slug)})
 }
 
-func (s *Server) checkForToken(w http.ResponseWriter, r *http.Request) {
-	logger := kcontext.GetLogger(r.Context())
+func (s *Server) checkForToken(apiContext api.Context) error {
 	tr := new(types.TokenRequest)
-	if err := s.db.WithContext(r.Context()).Transaction(func(tx *gorm.DB) error {
-		if err := tx.Where("id = ?", r.PathValue("id")).First(tr).Error; err != nil {
+	if err := s.db.WithContext(apiContext.Context()).Transaction(func(tx *gorm.DB) error {
+		if err := tx.Where("id = ?", apiContext.PathValue("id")).First(tr).Error; err != nil {
 			return err
 		}
 
@@ -224,16 +196,17 @@ func (s *Server) checkForToken(w http.ResponseWriter, r *http.Request) {
 		}
 		return nil
 	}); err != nil || tr.ID == "" {
-		logger.DebugContext(r.Context(), "failed to check token retrieved", "error", err)
-		writeError(r.Context(), logger, w, http.StatusNotFound, fmt.Errorf("not found"))
-		return
+		return types2.NewErrNotFound("not found")
 	}
 
 	if tr.Error != "" {
-		writeResponse(r.Context(), logger, w, map[string]any{"error": tr.Error})
+		return apiContext.Write(map[string]any{"error": tr.Error})
 	}
 
-	writeResponse(r.Context(), logger, w, refreshTokenResponse{Token: tr.Token, ExpiresAt: tr.ExpiresAt})
+	return apiContext.Write(refreshTokenResponse{
+		Token:     tr.Token,
+		ExpiresAt: tr.ExpiresAt,
+	})
 }
 
 func (s *Server) createState(ctx context.Context, id string) (string, string, error) {

@@ -3,7 +3,6 @@ package services
 import (
 	"context"
 	"fmt"
-	"net/http"
 	"os"
 	"path/filepath"
 
@@ -14,11 +13,13 @@ import (
 	"github.com/gptscript-ai/go-gptscript"
 	"github.com/gptscript-ai/gptscript/pkg/sdkserver"
 	"github.com/otto8-ai/otto8/pkg/aihelper"
-	"github.com/otto8-ai/otto8/pkg/api"
+	"github.com/otto8-ai/otto8/pkg/api/authn"
+	"github.com/otto8-ai/otto8/pkg/api/authz"
+	"github.com/otto8-ai/otto8/pkg/api/server"
 	"github.com/otto8-ai/otto8/pkg/events"
 	"github.com/otto8-ai/otto8/pkg/gateway/client"
 	"github.com/otto8-ai/otto8/pkg/gateway/db"
-	"github.com/otto8-ai/otto8/pkg/gateway/server"
+	gserver "github.com/otto8-ai/otto8/pkg/gateway/server"
 	"github.com/otto8-ai/otto8/pkg/invoke"
 	"github.com/otto8-ai/otto8/pkg/jwt"
 	"github.com/otto8-ai/otto8/pkg/proxy"
@@ -31,15 +32,13 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apiserver/pkg/authentication/authenticator"
 	"k8s.io/apiserver/pkg/authentication/request/union"
-	"k8s.io/apiserver/pkg/authentication/user"
-
 	// Setup baaah logging
 	_ "github.com/acorn-io/baaah/pkg/logrus"
 )
 
 type (
 	AuthConfig    proxy.Config
-	GatewayConfig server.Options
+	GatewayConfig gserver.Options
 )
 
 type Config struct {
@@ -63,12 +62,12 @@ type Services struct {
 	GPTClient       *gptscript.GPTScript
 	Invoker         *invoke.Invoker
 	TokenServer     *jwt.TokenService
-	APIServer       *api.Server
+	APIServer       *server.Server
 	WorkspaceClient *wclient.Client
 	AIHelper        *aihelper.AIHelper
 	Started         chan struct{}
 	ProxyServer     *proxy.Proxy
-	GatewayServer   *server.Server
+	GatewayServer   *gserver.Server
 }
 
 func newGPTScript(ctx context.Context) (*gptscript.GPTScript, error) {
@@ -90,31 +89,6 @@ func newGPTScript(ctx context.Context) (*gptscript.GPTScript, error) {
 	return gptscript.NewGPTScript(gptscript.GlobalOptions{
 		URL: url,
 	})
-}
-
-type noAuth struct {
-}
-
-func (n noAuth) AuthenticateRequest(*http.Request) (*authenticator.Response, bool, error) {
-	return &authenticator.Response{
-		User: &user.DefaultInfo{
-			Name:   "nobody",
-			Groups: []string{"admin", "system:authenticated"},
-		},
-	}, true, nil
-}
-
-type anonymous struct {
-}
-
-func (n anonymous) AuthenticateRequest(*http.Request) (*authenticator.Response, bool, error) {
-	return &authenticator.Response{
-		User: &user.DefaultInfo{
-			UID:    "anonymous",
-			Name:   "anonymous",
-			Groups: []string{"system:unauthenticated"},
-		},
-	}, true, nil
 }
 
 func New(ctx context.Context, config Config) (*Services, error) {
@@ -152,7 +126,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		return nil, err
 	}
 
-	gatewayServer, err := server.New(ctx, gatewayDB, config.AuthAdminEmails, server.Options(config.GatewayConfig))
+	gatewayServer, err := gserver.New(ctx, gatewayDB, config.AuthAdminEmails, gserver.Options(config.GatewayConfig))
 	if err != nil {
 		return nil, err
 	}
@@ -180,7 +154,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		// Add gateway user info
 		authenticators = client.NewUserDecorator(authenticators, gatewayClient)
 		// Add anonymous user authenticator
-		authenticators = union.New(authenticators, anonymous{})
+		authenticators = union.New(authenticators, authn.Anonymous{})
 	} else {
 		// "Authentication Disabled" flow
 
@@ -188,7 +162,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		authenticators = client.NewUserDecorator(authenticators, gatewayClient)
 
 		// Add no auth authenticator
-		authenticators = union.New(authenticators, noAuth{})
+		authenticators = union.New(authenticators, authn.NoAuth{})
 	}
 
 	var (
@@ -207,7 +181,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		StorageClient:   storageClient,
 		Router:          r,
 		GPTClient:       c,
-		APIServer:       api.NewServer(storageClient, c, gatewayClient, tokenServer, authenticators),
+		APIServer:       server.NewServer(storageClient, c, authn.NewAuthenticator(authenticators), authz.NewAuthorizer()),
 		TokenServer:     tokenServer,
 		WorkspaceClient: workspaceClient,
 		Invoker:         invoke.NewInvoker(storageClient, c, tokenServer, workspaceClient, events),

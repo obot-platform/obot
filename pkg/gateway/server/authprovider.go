@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 
+	types2 "github.com/otto8-ai/otto8/apiclient/types"
 	"github.com/otto8-ai/otto8/pkg/api"
 	kcontext "github.com/otto8-ai/otto8/pkg/gateway/context"
 	ktime "github.com/otto8-ai/otto8/pkg/gateway/time"
@@ -86,13 +87,10 @@ func (s *Server) updateAuthProvider(apiContext api.Context) error {
 	return nil
 }
 
-func (s *Server) getAuthProviders(w http.ResponseWriter, r *http.Request) {
-	logger := kcontext.GetLogger(r.Context())
+func (s *Server) getAuthProviders(apiContext api.Context) error {
 	var authProviders []types.AuthProvider
-	if err := s.db.WithContext(r.Context()).Find(&authProviders).Error; err != nil {
-		logger.DebugContext(r.Context(), "failed to query auth providers", "error", err)
-		writeError(r.Context(), logger, w, http.StatusInternalServerError, err)
-		return
+	if err := s.db.WithContext(apiContext.Context()).Find(&authProviders).Error; err != nil {
+		return types2.NewErrHttp(http.StatusInternalServerError, err.Error())
 	}
 
 	resp := make([]authProviderResponse, len(authProviders))
@@ -104,31 +102,30 @@ func (s *Server) getAuthProviders(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	writeResponse(r.Context(), logger, w, resp)
+	return apiContext.Write(resp)
 }
 
-func (s *Server) getAuthProvider(w http.ResponseWriter, r *http.Request) {
-	logger := kcontext.GetLogger(r.Context())
-	slug := r.PathValue("slug")
+func (s *Server) getAuthProvider(apiContext api.Context) error {
+	slug := apiContext.PathValue("slug")
 	if slug == "" {
-		writeError(r.Context(), logger, w, http.StatusBadRequest, errors.New("id path parameter is required"))
-		return
+		return types2.NewErrHttp(http.StatusBadRequest, "id path parameter is required")
 	}
 
 	oauthProvider := new(types.AuthProvider)
-	if err := s.db.WithContext(r.Context()).Where("slug = ?", slug).Find(oauthProvider).Error; err != nil {
+	if err := s.db.WithContext(apiContext.Context()).Where("slug = ?", slug).Find(oauthProvider).Error; err != nil {
 		status := http.StatusInternalServerError
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			status = http.StatusNotFound
 		}
 
-		logger.DebugContext(r.Context(), "failed to query auth providers", "error", err)
-		writeError(r.Context(), logger, w, status, fmt.Errorf("failed to query auth provider: %v", err))
-		return
+		return types2.NewErrHttp(status, fmt.Sprintf("failed to query auth provider: %v", err))
 	}
 
 	oauthProvider.ClientSecret = ""
-	writeResponse(r.Context(), logger, w, authProviderResponse{AuthProvider: *oauthProvider, RedirectURL: oauthProvider.RedirectURL(s.baseURL)})
+	return apiContext.Write(authProviderResponse{
+		AuthProvider: *oauthProvider,
+		RedirectURL:  oauthProvider.RedirectURL(s.baseURL),
+	})
 }
 
 func (s *Server) deleteAuthProvider(apiContext api.Context) error {

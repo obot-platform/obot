@@ -8,6 +8,7 @@ import (
 	"github.com/gptscript-ai/go-gptscript"
 	"github.com/otto8-ai/otto8/apiclient/types"
 	"github.com/otto8-ai/otto8/pkg/api"
+	"github.com/otto8-ai/otto8/pkg/api/server"
 	"github.com/otto8-ai/otto8/pkg/controller/handlers/workflow"
 	"github.com/otto8-ai/otto8/pkg/render"
 	v1 "github.com/otto8-ai/otto8/pkg/storage/apis/otto.gptscript.ai/v1"
@@ -50,7 +51,7 @@ func (a *WorkflowHandler) Update(req api.Context) error {
 		return err
 	}
 
-	return req.Write(convertWorkflow(wf, api.GetURLPrefix(req)))
+	return req.Write(convertWorkflow(wf, server.GetURLPrefix(req)))
 }
 
 func (a *WorkflowHandler) Delete(req api.Context) error {
@@ -87,7 +88,7 @@ func (a *WorkflowHandler) Create(req api.Context) error {
 	}
 
 	req.WriteHeader(http.StatusCreated)
-	return req.Write(convertWorkflow(workflow, api.GetURLPrefix(req)))
+	return req.Write(convertWorkflow(workflow, server.GetURLPrefix(req)))
 }
 
 func convertWorkflow(workflow v1.Workflow, prefix string) *types.Workflow {
@@ -112,7 +113,7 @@ func (a *WorkflowHandler) ByID(req api.Context) error {
 		return err
 	}
 
-	return req.Write(convertWorkflow(workflow, api.GetURLPrefix(req)))
+	return req.Write(convertWorkflow(workflow, server.GetURLPrefix(req)))
 }
 
 func (a *WorkflowHandler) List(req api.Context) error {
@@ -123,7 +124,7 @@ func (a *WorkflowHandler) List(req api.Context) error {
 
 	var resp types.WorkflowList
 	for _, workflow := range workflowList.Items {
-		resp.Items = append(resp.Items, *convertWorkflow(workflow, api.GetURLPrefix(req)))
+		resp.Items = append(resp.Items, *convertWorkflow(workflow, server.GetURLPrefix(req)))
 	}
 
 	return req.Write(resp)

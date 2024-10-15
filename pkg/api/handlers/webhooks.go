@@ -12,6 +12,7 @@ import (
 
 	"github.com/otto8-ai/otto8/apiclient/types"
 	"github.com/otto8-ai/otto8/pkg/api"
+	"github.com/otto8-ai/otto8/pkg/api/server"
 	v1 "github.com/otto8-ai/otto8/pkg/storage/apis/otto.gptscript.ai/v1"
 	"github.com/otto8-ai/otto8/pkg/system"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -53,7 +54,7 @@ func (a *WebhookHandler) Update(req api.Context) error {
 		return err
 	}
 
-	return req.Write(convertWebhook(wh, api.GetURLPrefix(req)))
+	return req.Write(convertWebhook(wh, server.GetURLPrefix(req)))
 }
 
 func (a *WebhookHandler) Delete(req api.Context) error {
@@ -98,7 +99,7 @@ func (a *WebhookHandler) Create(req api.Context) error {
 	}
 
 	req.WriteHeader(http.StatusCreated)
-	return req.Write(convertWebhook(wh, api.GetURLPrefix(req)))
+	return req.Write(convertWebhook(wh, server.GetURLPrefix(req)))
 }
 
 func convertWebhook(webhook v1.Webhook, urlPrefix string) *types.Webhook {
@@ -125,7 +126,7 @@ func (a *WebhookHandler) ByID(req api.Context) error {
 		return err
 	}
 
-	return req.Write(convertWebhook(wh, api.GetURLPrefix(req)))
+	return req.Write(convertWebhook(wh, server.GetURLPrefix(req)))
 }
 
 func (a *WebhookHandler) List(req api.Context) error {
@@ -136,7 +137,7 @@ func (a *WebhookHandler) List(req api.Context) error {
 
 	var resp types.WebhookList
 	for _, wh := range webhookList.Items {
-		resp.Items = append(resp.Items, *convertWebhook(wh, api.GetURLPrefix(req)))
+		resp.Items = append(resp.Items, *convertWebhook(wh, server.GetURLPrefix(req)))
 	}
 
 	return req.Write(resp)

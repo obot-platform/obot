@@ -8,6 +8,7 @@ import (
 	"github.com/gptscript-ai/go-gptscript"
 	"github.com/otto8-ai/otto8/apiclient/types"
 	"github.com/otto8-ai/otto8/pkg/api"
+	"github.com/otto8-ai/otto8/pkg/api/server"
 	"github.com/otto8-ai/otto8/pkg/render"
 	v1 "github.com/otto8-ai/otto8/pkg/storage/apis/otto.gptscript.ai/v1"
 	"github.com/otto8-ai/otto8/pkg/system"
@@ -48,7 +49,7 @@ func (a *AgentHandler) Update(req api.Context) error {
 		return err
 	}
 
-	return req.Write(convertAgent(agent, api.GetURLPrefix(req)))
+	return req.Write(convertAgent(agent, server.GetURLPrefix(req)))
 }
 
 func (a *AgentHandler) Delete(req api.Context) error {
@@ -84,7 +85,7 @@ func (a *AgentHandler) Create(req api.Context) error {
 	}
 
 	req.WriteHeader(http.StatusCreated)
-	return req.Write(convertAgent(agent, api.GetURLPrefix(req)))
+	return req.Write(convertAgent(agent, server.GetURLPrefix(req)))
 }
 
 func convertAgent(agent v1.Agent, prefix string) *types.Agent {
@@ -109,7 +110,7 @@ func (a *AgentHandler) ByID(req api.Context) error {
 		return err
 	}
 
-	return req.Write(convertAgent(agent, api.GetURLPrefix(req)))
+	return req.Write(convertAgent(agent, server.GetURLPrefix(req)))
 }
 
 func (a *AgentHandler) List(req api.Context) error {
@@ -120,7 +121,7 @@ func (a *AgentHandler) List(req api.Context) error {
 
 	var resp types.AgentList
 	for _, agent := range agentList.Items {
-		resp.Items = append(resp.Items, *convertAgent(agent, api.GetURLPrefix(req)))
+		resp.Items = append(resp.Items, *convertAgent(agent, server.GetURLPrefix(req)))
 	}
 
 	return req.Write(resp)

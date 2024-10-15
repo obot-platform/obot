@@ -6,32 +6,11 @@ import (
 	"runtime/debug"
 	"time"
 
-	types2 "github.com/otto8-ai/otto8/apiclient/types"
 	"github.com/otto8-ai/otto8/pkg/api"
 	"github.com/otto8-ai/otto8/pkg/gateway/context"
 	"github.com/otto8-ai/otto8/pkg/gateway/log"
 	"github.com/otto8-ai/otto8/pkg/gateway/types"
 )
-
-func (s *Server) auth(mustBeAdmin bool) api.Middleware {
-	return func(next api.HandlerFunc) api.HandlerFunc {
-		return func(apiContext api.Context) error {
-			if !apiContext.UserIsAuthenticated() {
-				return types2.NewErrHttp(http.StatusUnauthorized, "unauthenticated")
-			}
-			if mustBeAdmin && !apiContext.UserIsAdmin() {
-				return types2.NewErrHttp(http.StatusForbidden, "must be admin")
-			}
-			return next(apiContext)
-		}
-	}
-}
-
-func (s *Server) authFunc(role types2.Role) api.Middleware {
-	return func(next api.HandlerFunc) api.HandlerFunc {
-		return s.auth(role.HasRole(types2.RoleAdmin))(next)
-	}
-}
 
 func (s *Server) monitor(next api.HandlerFunc) api.HandlerFunc {
 	return func(apiContext api.Context) error {
