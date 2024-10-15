@@ -7,18 +7,22 @@ import { OAuthAppSpec, OAuthAppType } from "~/lib/model/oauthApps";
 import { OauthAppService } from "~/lib/service/api/oauthAppService";
 
 import { Button } from "~/components/ui/button";
-import { Dialog, DialogContent, DialogTitle } from "~/components/ui/dialog";
-import { useAsync } from "~/hooks/useAsync";
-import { useDisclosure } from "~/hooks/useDisclosure";
-
 import {
     Command,
     CommandGroup,
     CommandInput,
     CommandItem,
     CommandList,
-} from "../ui/command";
-import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover";
+} from "~/components/ui/command";
+import { Dialog, DialogContent, DialogTitle } from "~/components/ui/dialog";
+import {
+    Popover,
+    PopoverContent,
+    PopoverTrigger,
+} from "~/components/ui/popover";
+import { useAsync } from "~/hooks/useAsync";
+import { useDisclosure } from "~/hooks/useDisclosure";
+
 import { OAuthAppForm } from "./OAuthAppForm";
 
 type CreateOauthAppProps = {
