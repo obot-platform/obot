@@ -19,4 +19,8 @@ clean:
 build:
 	go build -o bin/otto -v
 
-.PHONY: ui build all clean
+dev: ui
+	@echo "Starting dev otto server and admin UI..."
+	./dev.sh
+
+.PHONY: ui build all clean dev
