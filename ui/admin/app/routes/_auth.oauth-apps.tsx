@@ -15,8 +15,6 @@ export async function clientLoader() {
 export default function OauthApps() {
     const { supportedApps, oauthApps } = useLoaderData<typeof clientLoader>();
 
-    console.log("oauthApps", supportedApps);
-
     return (
         <div className="h-full flex flex-col p-8 gap-8">
             <div className="flex justify-end">

@@ -1,54 +1,66 @@
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 
-import {
-    OAuthAppParams,
-    OAuthAppSpec,
-    OAuthAppType,
-} from "~/lib/model/oauthApps";
+import { OAuthApp, OAuthAppInfo, OAuthAppParams } from "~/lib/model/oauthApps";
 
 import { ControlledInput } from "~/components/form/controlledInputs";
 import { Button } from "~/components/ui/button";
 import { Form } from "~/components/ui/form";
 
 type OAuthAppFormProps = {
-    appSpec: OAuthAppSpec[OAuthAppType];
+    appSpec: OAuthAppInfo;
     onSubmit: (data: OAuthAppParams) => void;
+    oauthApp?: OAuthApp;
 };
 
-export function OAuthAppForm({ appSpec, onSubmit }: OAuthAppFormProps) {
-    const fields = Object.entries(appSpec.parameters).map(([key, label]) => ({
-        key: key as keyof OAuthAppParams,
-        label,
-    }));
+export function OAuthAppForm({
+    appSpec,
+    onSubmit,
+    oauthApp,
+}: OAuthAppFormProps) {
+    const isEdit = !!oauthApp;
+
+    const fields = useMemo(() => {
+        return Object.entries(appSpec.parameters).map(([key, label]) => ({
+            key: key as keyof OAuthAppParams,
+            label,
+        }));
+    }, [appSpec.parameters]);
 
     const schema = useMemo(() => {
         return z.object(
-            Object.entries(appSpec.parameters).reduce(
-                (acc, [key]) => {
-                    acc[key as keyof OAuthAppParams] = z.string();
+            fields.reduce(
+                (acc, { key }) => {
+                    acc[key] = z.string();
                     return acc;
                 },
-                {} as Record<keyof OAuthAppParams, z.ZodType>
+                {} as Record<keyof OAuthAppParams, z.ZodString>
             )
         );
     }, [appSpec.parameters]);
 
     const form = useForm({
-        defaultValues: Object.entries(appSpec.parameters).reduce(
-            (acc, [key]) => {
-                acc[key as keyof OAuthAppParams] = "";
-                return acc;
-            },
-            {} as OAuthAppParams
-        ),
+        defaultValues: getDefaultValues(),
         resolver: zodResolver(schema),
     });
 
-    const handleSubmit = form.handleSubmit(onSubmit);
+    useEffect(() => {
+        form.reset(getDefaultValues());
+    }, [oauthApp]);
 
+    const handleSubmit = form.handleSubmit((data) => {
+        const { clientSecret, ...rest } = data;
+
+        // if the user skips editing the client secret, we don't want to submit an empty string
+        // because that will clear it out on the server
+        if (isEdit && clientSecret === SECRET_PLACEHOLDER) {
+            onSubmit(rest);
+        } else {
+            onSubmit(data);
+        }
+    });
     return (
         <Form {...form}>
             <form onSubmit={handleSubmit} className="flex flex-col gap-4">
@@ -58,6 +70,13 @@ export function OAuthAppForm({ appSpec, onSubmit }: OAuthAppFormProps) {
                         name={key}
                         label={label}
                         control={form.control}
+                        {...(key === "clientSecret"
+                            ? {
+                                  onBlur: onBlurClientSecret,
+                                  onFocus: onFocusClientSecret,
+                                  type: "password",
+                              }
+                            : {})}
                     />
                 ))}
 
@@ -65,4 +84,40 @@ export function OAuthAppForm({ appSpec, onSubmit }: OAuthAppFormProps) {
             </form>
         </Form>
     );
+
+    function onBlurClientSecret() {
+        if (!isEdit) return;
+
+        const { clientSecret } = form.getValues();
+
+        if (!clientSecret) {
+            form.setValue("clientSecret", SECRET_PLACEHOLDER);
+        }
+    }
+
+    function onFocusClientSecret() {
+        if (!isEdit) return;
+
+        const { clientSecret } = form.getValues();
+
+        if (clientSecret === SECRET_PLACEHOLDER) {
+            form.setValue("clientSecret", "");
+        }
+    }
+
+    function getDefaultValues() {
+        return fields.reduce((acc, { key }) => {
+            acc[key] = oauthApp?.[key] ?? "";
+
+            // if editing, use placeholder to show secret value exists
+            // use a uuid to ensure it never collides with a real secret
+            if (key === "clientSecret" && isEdit) {
+                acc.clientSecret = SECRET_PLACEHOLDER;
+            }
+
+            return acc;
+        }, {} as OAuthAppParams);
+    }
 }
+
+const SECRET_PLACEHOLDER = crypto.randomUUID();

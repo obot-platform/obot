@@ -36,7 +36,9 @@ export type OAuthAppBase = OAuthAppParams & {
 
 export type OAuthApp = EntityMeta & OAuthAppBase;
 
-export type OAuthAppSpec = Record<
-    OAuthAppType,
-    { displayName: string; parameters: Record<keyof OAuthAppParams, string> }
->;
+export type OAuthAppInfo = {
+    displayName: string;
+    parameters: Record<keyof OAuthAppParams, string>;
+};
+
+export type OAuthAppSpec = Record<OAuthAppType, OAuthAppInfo>;

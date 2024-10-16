@@ -9,6 +9,7 @@ import { cn } from "~/lib/utils";
 import { DataTable } from "~/components/composed/DataTable";
 
 import { DeleteOAuthApp } from "./DeleteOAuthApp";
+import { EditOAuthApp } from "./EditOAuthApp";
 
 type Row = OAuthApp & { created?: string; isGateway?: boolean };
 const columnHelper = createColumnHelper<Row>();
@@ -79,6 +80,10 @@ export function OAuthAppList({
                 cell: ({ row }) =>
                     !row.original.isGateway && (
                         <div className="flex justify-end gap-2">
+                            <EditOAuthApp
+                                oauthApp={row.original}
+                                appSpec={spec}
+                            />
                             <DeleteOAuthApp id={row.original.id} />
                         </div>
                     ),
