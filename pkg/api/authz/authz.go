@@ -1,6 +1,7 @@
 package authz
 
 import (
+	"maps"
 	"net/http"
 	"slices"
 
@@ -15,6 +16,41 @@ const (
 	// anyGroup is an internal group that allows access to any group
 	anyGroup = "*"
 )
+
+var staticRules = map[string][]string{
+	AdminGroup: {
+		// Yay! Everything
+		"/",
+	},
+	anyGroup: {
+		// Allow access to the UI
+		"/admin/",
+		"/{$}",
+		"/static/",
+		// Allow access to the oauth2 endpoints
+		"/oauth2/",
+
+		"POST /api/webhooks/{id}",
+		"GET /api/token-request/{id}",
+		"POST /api/token-request",
+		"GET /api/token-request/{id}/{service}",
+
+		"GET /api/auth-providers",
+		"GET /api/auth-providers/{slug}",
+
+		"GET /api/oauth/start/{id}/{service}",
+		"/api/oauth/redirect/{service}",
+
+		"GET /api/app-oauth/authorize/{id}",
+		"GET /api/app-oauth/refresh/{id}",
+		"GET /api/app-oauth/callback/{id}",
+		"GET /api/app-oauth/get-token",
+	},
+	AuthenticatedGroup: {
+		"POST /api/invoke/otto/threads/user",
+		"GET /api/threads/user/events",
+	},
+}
 
 type Authorizer struct {
 	rules []rule
@@ -50,50 +86,21 @@ func defaultRules() []rule {
 		f     = (*fake)(nil)
 	)
 
-	// Build admin mux, admins can assess any URL
-	adminMux := http.NewServeMux()
-	adminMux.Handle("/", f)
-
-	rules = append(rules, rule{
-		group: AdminGroup,
-		mux:   adminMux,
-	})
-
-	// Build mux that anyone can access
-	anyMux := http.NewServeMux()
-	// Allow access to the UI
-	anyMux.Handle("/admin/", f)
-	// Allow access to the oauth2 endpoints
-	anyMux.Handle("/oauth2/", f)
-	// Allow access to the sign-in page
-	anyMux.Handle("/sign-in", f)
-
-	anyMux.Handle("POST /api/webhooks/{id}", f)
-
-	anyMux.Handle("GET /api/token-request/{id}", f)
-	anyMux.Handle("POST /api/token-request", f)
-	anyMux.Handle("GET /api/token-request/{id}/{service}", f)
-
-	anyMux.Handle("GET /api/auth-providers", f)
-	anyMux.Handle("GET /api/auth-providers/{slug}", f)
-
-	anyMux.Handle("GET /api/oauth/start/{id}/{service}", f)
-	anyMux.Handle("/api/oauth/redirect/{service}", f)
-
-	anyMux.Handle("GET /api/app-oauth/authorize/{id}", f)
-	anyMux.Handle("GET /api/app-oauth/refresh/{id}", f)
-	anyMux.Handle("GET /api/app-oauth/callback/{id}", f)
-	anyMux.Handle("GET /api/app-oauth/get-token", f)
-
-	rules = append(rules, rule{
-		group: anyGroup,
-		mux:   anyMux,
-	})
+	for _, group := range slices.Sorted(maps.Keys(staticRules)) {
+		rule := rule{
+			group: group,
+			mux:   http.NewServeMux(),
+		}
+		for _, url := range staticRules[group] {
+			rule.mux.Handle(url, f)
+		}
+		rules = append(rules, rule)
+	}
 
 	return rules
 }
 
-// fake is a fake handler that does nothing
+// fake is a fake handler that does fake things
 type fake struct{}
 
 func (f *fake) ServeHTTP(http.ResponseWriter, *http.Request) {}
