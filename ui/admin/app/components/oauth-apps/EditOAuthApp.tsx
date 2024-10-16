@@ -1,9 +1,8 @@
-import { PencilIcon } from "lucide-react";
+import { SquarePenIcon } from "lucide-react";
 import { mutate } from "swr";
 
 import { OAuthApp, OAuthAppSpec } from "~/lib/model/oauthApps";
 import { OauthAppService } from "~/lib/service/api/oauthAppService";
-import { noop } from "~/lib/utils";
 
 import {
     Dialog,
@@ -37,7 +36,7 @@ export function EditOAuthApp({ oauthApp, appSpec }: EditOAuthAppProps) {
         <Dialog open={modal.isOpen} onOpenChange={modal.onOpenChange}>
             <DialogTrigger asChild>
                 <Button variant="ghost" size="icon">
-                    <PencilIcon />
+                    <SquarePenIcon />
                 </Button>
             </DialogTrigger>
 
