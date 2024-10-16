@@ -39,16 +39,30 @@ export function OAuthAppForm({
                 {} as Record<keyof OAuthAppParams, z.ZodString>
             )
         );
-    }, [appSpec.parameters]);
+    }, [fields]);
+
+    const defaultValues = useMemo(() => {
+        return fields.reduce((acc, { key }) => {
+            acc[key] = oauthApp?.[key] ?? "";
+
+            // if editing, use placeholder to show secret value exists
+            // use a uuid to ensure it never collides with a real secret
+            if (key === "clientSecret" && isEdit) {
+                acc.clientSecret = SECRET_PLACEHOLDER;
+            }
+
+            return acc;
+        }, {} as OAuthAppParams);
+    }, [fields, oauthApp, isEdit]);
 
     const form = useForm({
-        defaultValues: getDefaultValues(),
+        defaultValues,
         resolver: zodResolver(schema),
     });
 
     useEffect(() => {
-        form.reset(getDefaultValues());
-    }, [oauthApp]);
+        form.reset(defaultValues);
+    }, [defaultValues, form]);
 
     const handleSubmit = form.handleSubmit((data) => {
         const { clientSecret, ...rest } = data;
@@ -103,20 +117,6 @@ export function OAuthAppForm({
         if (clientSecret === SECRET_PLACEHOLDER) {
             form.setValue("clientSecret", "");
         }
-    }
-
-    function getDefaultValues() {
-        return fields.reduce((acc, { key }) => {
-            acc[key] = oauthApp?.[key] ?? "";
-
-            // if editing, use placeholder to show secret value exists
-            // use a uuid to ensure it never collides with a real secret
-            if (key === "clientSecret" && isEdit) {
-                acc.clientSecret = SECRET_PLACEHOLDER;
-            }
-
-            return acc;
-        }, {} as OAuthAppParams);
     }
 }
 

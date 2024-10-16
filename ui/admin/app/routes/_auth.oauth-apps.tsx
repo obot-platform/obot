@@ -1,4 +1,4 @@
-import { useLoaderData } from "@remix-run/react";
+import { preload } from "swr";
 
 import { OauthAppService } from "~/lib/service/api/oauthAppService";
 
@@ -6,22 +6,26 @@ import { CreateOauthApp } from "~/components/oauth-apps/CreateOauthApp";
 import { OAuthAppList } from "~/components/oauth-apps/OAuthAppList";
 
 export async function clientLoader() {
-    const oauthApps = await OauthAppService.getOauthApps();
-    const supportedApps = await OauthAppService.getSupportedOauthAppTypes();
-
-    return { oauthApps, supportedApps };
+    await Promise.all([
+        preload(
+            OauthAppService.getSupportedOauthAppTypes.key(),
+            OauthAppService.getSupportedOauthAppTypes
+        ),
+        preload(
+            OauthAppService.getOauthApps.key(),
+            OauthAppService.getOauthApps
+        ),
+    ]);
 }
 
 export default function OauthApps() {
-    const { supportedApps, oauthApps } = useLoaderData<typeof clientLoader>();
-
     return (
         <div className="h-full flex flex-col p-8 gap-8">
             <div className="flex justify-end">
-                <CreateOauthApp spec={supportedApps} />
+                <CreateOauthApp />
             </div>
 
-            <OAuthAppList defaultData={oauthApps} spec={supportedApps} />
+            <OAuthAppList />
         </div>
     );
 }

@@ -3,7 +3,6 @@ import { PlusIcon } from "lucide-react";
 import { useState } from "react";
 import { mutate } from "swr";
 
-import { OAuthAppSpec, OAuthAppType } from "~/lib/model/oauthApps";
 import { OauthAppService } from "~/lib/service/api/oauthAppService";
 
 import { Button } from "~/components/ui/button";
@@ -20,21 +19,17 @@ import {
     PopoverContent,
     PopoverTrigger,
 } from "~/components/ui/popover";
+import { useOAuthAppSpec } from "~/hooks/oauthApps/useOAuthAppSpec";
 import { useAsync } from "~/hooks/useAsync";
 import { useDisclosure } from "~/hooks/useDisclosure";
 
 import { OAuthAppForm } from "./OAuthAppForm";
 
-type CreateOauthAppProps = {
-    spec: OAuthAppSpec;
-};
-
-export function CreateOauthApp({ spec }: CreateOauthAppProps) {
+export function CreateOauthApp() {
     const selectModal = useDisclosure();
+    const spec = useOAuthAppSpec({ isPreloaded: true });
 
-    const [selectedAppKey, setSelectedAppKey] = useState<OAuthAppType | null>(
-        null
-    );
+    const [selectedAppKey, setSelectedAppKey] = useState<string | null>(null);
 
     const createApp = useAsync(OauthAppService.createOauthApp, {
         onSuccess: () => {
@@ -68,9 +63,7 @@ export function CreateOauthApp({ spec }: CreateOauthAppProps) {
                                             key={key}
                                             value={displayName}
                                             onSelect={() => {
-                                                setSelectedAppKey(
-                                                    key as OAuthAppType
-                                                );
+                                                setSelectedAppKey(key);
                                                 selectModal.onClose();
                                             }}
                                         >

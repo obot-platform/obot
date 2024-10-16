@@ -1,12 +1,14 @@
 import { ColumnDef, createColumnHelper } from "@tanstack/react-table";
+import { KeyIcon } from "lucide-react";
 import { useMemo } from "react";
 import useSWR from "swr";
 
-import { OAuthApp, OAuthAppSpec } from "~/lib/model/oauthApps";
+import { OAuthApp } from "~/lib/model/oauthApps";
 import { OauthAppService } from "~/lib/service/api/oauthAppService";
 import { cn } from "~/lib/utils";
 
 import { DataTable } from "~/components/composed/DataTable";
+import { useOAuthAppSpec } from "~/hooks/oauthApps/useOAuthAppSpec";
 
 import { DeleteOAuthApp } from "./DeleteOAuthApp";
 import { EditOAuthApp } from "./EditOAuthApp";
@@ -14,17 +16,13 @@ import { EditOAuthApp } from "./EditOAuthApp";
 type Row = OAuthApp & { created?: string; isGateway?: boolean };
 const columnHelper = createColumnHelper<Row>();
 
-export function OAuthAppList({
-    defaultData,
-    spec,
-}: {
-    defaultData: OAuthApp[];
-    spec: OAuthAppSpec;
-}) {
+export function OAuthAppList() {
+    const spec = useOAuthAppSpec({ isPreloaded: true });
+
     const { data: apps } = useSWR(
         OauthAppService.getOauthApps.key(),
         OauthAppService.getOauthApps,
-        { fallbackData: defaultData }
+        { fallbackData: [] }
     );
 
     const rows = useMemo<Row[]>(() => {
@@ -62,13 +60,31 @@ export function OAuthAppList({
 
     function getColumns(): ColumnDef<Row, string>[] {
         return [
-            columnHelper.accessor((app) => app.name ?? app.id, {
-                id: "name",
-                header: "Name / Id",
+            columnHelper.display({
+                id: "icon",
+                cell: ({ row }) => {
+                    const app = row.original;
+                    const { icon } = spec[app.type];
+                    return icon ? (
+                        <img
+                            src={icon}
+                            alt={app.type}
+                            className={cn("w-4 h-4", {
+                                invisible: !icon,
+                            })}
+                        />
+                    ) : (
+                        <KeyIcon className="w-4 h-4" />
+                    );
+                },
             }),
             columnHelper.accessor((app) => spec[app.type].displayName, {
                 id: "type",
                 header: "Type",
+            }),
+            columnHelper.accessor((app) => app.name ?? app.id, {
+                id: "name",
+                header: "Name / Id",
             }),
             columnHelper.accessor(
                 (app) =>

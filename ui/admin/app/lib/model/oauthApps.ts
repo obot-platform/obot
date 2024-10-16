@@ -1,16 +1,5 @@
 import { EntityMeta } from "./primitives";
 
-export const OAuthAppType = {
-    Microsoft365: "microsoft365",
-    Slack: "slack",
-    Notion: "notion",
-    HubSpot: "hubspot",
-    GitHub: "github",
-    Google: "google",
-    Custom: "custom",
-} as const;
-export type OAuthAppType = (typeof OAuthAppType)[keyof typeof OAuthAppType];
-
 export type OAuthAppParams = {
     refName?: string;
     name?: string;
@@ -31,14 +20,15 @@ export type OAuthAppParams = {
 };
 
 export type OAuthAppBase = OAuthAppParams & {
-    type: OAuthAppType;
+    type: string;
 };
 
 export type OAuthApp = EntityMeta & OAuthAppBase;
 
 export type OAuthAppInfo = {
     displayName: string;
+    icon?: string;
     parameters: Record<keyof OAuthAppParams, string>;
 };
 
-export type OAuthAppSpec = Record<OAuthAppType, OAuthAppInfo>;
+export type OAuthAppSpec = Record<string, OAuthAppInfo>;
