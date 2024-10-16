@@ -11,7 +11,10 @@ const buildUrl = (path: string, params?: object) => {
         ? queryString.stringify(params, { skipNull: true })
         : "";
 
-    if (process.env.NODE_ENV === "production" || import.meta.env.VITE_API_IN_BROWSER === "true") {
+    if (
+        process.env.NODE_ENV === "production" ||
+        import.meta.env.VITE_API_IN_BROWSER === "true"
+    ) {
         return {
             url: prodBaseUrl + path + (query ? "?" + query : ""),
             path,
