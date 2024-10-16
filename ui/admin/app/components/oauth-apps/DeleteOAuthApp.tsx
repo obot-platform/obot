@@ -31,7 +31,7 @@ export function DeleteOAuthApp({ id }: { id: string }) {
                     >
                         <TooltipTrigger asChild>
                             <Button
-                                variant="destructive"
+                                variant="ghost"
                                 size="icon"
                                 disabled={deleteOAuthApp.isLoading}
                             >
