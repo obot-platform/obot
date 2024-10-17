@@ -1,7 +1,7 @@
 import { SquarePenIcon } from "lucide-react";
 import { mutate } from "swr";
 
-import { OAuthApp, OAuthAppSpec } from "~/lib/model/oauthApps";
+import { OAuthApp } from "~/lib/model/oauthApps";
 import { OauthAppService } from "~/lib/service/api/oauthAppService";
 
 import {
@@ -11,6 +11,7 @@ import {
     DialogTitle,
     DialogTrigger,
 } from "~/components/ui/dialog";
+import { useOAuthAppSpec } from "~/hooks/oauthApps/useOAuthAppSpec";
 import { useAsync } from "~/hooks/useAsync";
 import { useDisclosure } from "~/hooks/useDisclosure";
 
@@ -19,10 +20,9 @@ import { OAuthAppForm } from "./OAuthAppForm";
 
 type EditOAuthAppProps = {
     oauthApp: OAuthApp;
-    appSpec: OAuthAppSpec;
 };
 
-export function EditOAuthApp({ oauthApp, appSpec }: EditOAuthAppProps) {
+export function EditOAuthApp({ oauthApp }: EditOAuthAppProps) {
     const updateApp = useAsync(OauthAppService.updateOauthApp, {
         onSuccess: async () => {
             await mutate(OauthAppService.getOauthApps.key());
@@ -31,6 +31,11 @@ export function EditOAuthApp({ oauthApp, appSpec }: EditOAuthAppProps) {
     });
 
     const modal = useDisclosure();
+
+    const { data: spec } = useOAuthAppSpec();
+
+    const typeSpec = spec.get(oauthApp.type);
+    if (!typeSpec) return null;
 
     return (
         <Dialog open={modal.isOpen} onOpenChange={modal.onOpenChange}>
@@ -48,7 +53,7 @@ export function EditOAuthApp({ oauthApp, appSpec }: EditOAuthAppProps) {
                 </DialogDescription>
 
                 <OAuthAppForm
-                    appSpec={appSpec[oauthApp.type]}
+                    appSpec={typeSpec}
                     oauthApp={oauthApp}
                     onSubmit={(data) =>
                         updateApp.execute(oauthApp.id, {

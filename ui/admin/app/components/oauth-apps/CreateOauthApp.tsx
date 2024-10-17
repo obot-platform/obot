@@ -27,7 +27,7 @@ import { OAuthAppForm } from "./OAuthAppForm";
 
 export function CreateOauthApp() {
     const selectModal = useDisclosure();
-    const spec = useOAuthAppSpec({ isPreloaded: true });
+    const { data: spec } = useOAuthAppSpec();
 
     const [selectedAppKey, setSelectedAppKey] = useState<string | null>(null);
 
@@ -37,6 +37,8 @@ export function CreateOauthApp() {
             setSelectedAppKey(null);
         },
     });
+
+    const selectedSpec = selectedAppKey ? spec.get(selectedAppKey) : null;
 
     return (
         <>
@@ -57,7 +59,7 @@ export function CreateOauthApp() {
 
                         <CommandList>
                             <CommandGroup>
-                                {Object.entries(spec).map(
+                                {Array.from(spec.entries()).map(
                                     ([key, { displayName }]) => (
                                         <CommandItem
                                             key={key}
@@ -82,20 +84,19 @@ export function CreateOauthApp() {
                 onOpenChange={() => setSelectedAppKey(null)}
             >
                 <DialogContent>
-                    {selectedAppKey && spec[selectedAppKey] && (
+                    {selectedAppKey && selectedSpec && (
                         <>
                             <DialogTitle>
-                                Create {spec[selectedAppKey].displayName} OAuth
-                                App
+                                Create {selectedSpec.displayName} OAuth App
                             </DialogTitle>
 
                             <DialogDescription>
                                 Create a new OAuth app for{" "}
-                                {spec[selectedAppKey].displayName}
+                                {selectedSpec.displayName}
                             </DialogDescription>
 
                             <OAuthAppForm
-                                appSpec={spec[selectedAppKey]}
+                                appSpec={selectedSpec}
                                 onSubmit={(data) =>
                                     createApp.execute({
                                         type: selectedAppKey,

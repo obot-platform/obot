@@ -17,7 +17,7 @@ type Row = OAuthApp & { created?: string; isGateway?: boolean };
 const columnHelper = createColumnHelper<Row>();
 
 export function OAuthAppList() {
-    const spec = useOAuthAppSpec({ isPreloaded: true });
+    const { data: spec } = useOAuthAppSpec();
 
     const { data: apps } = useSWR(
         OauthAppService.getOauthApps.key(),
@@ -26,7 +26,7 @@ export function OAuthAppList() {
     );
 
     const rows = useMemo<Row[]>(() => {
-        const typesWithNoApps = Object.entries(spec)
+        const typesWithNoApps = Array.from(spec.entries())
             .map(([type, { displayName }]) => {
                 if (apps.some((app) => app.type === type)) return null;
 
@@ -64,7 +64,7 @@ export function OAuthAppList() {
                 id: "icon",
                 cell: ({ row }) => {
                     const app = row.original;
-                    const { icon } = spec[app.type];
+                    const { icon } = spec.get(app.type) || {};
                     return icon ? (
                         <img
                             src={icon}
@@ -78,10 +78,13 @@ export function OAuthAppList() {
                     );
                 },
             }),
-            columnHelper.accessor((app) => spec[app.type].displayName, {
-                id: "type",
-                header: "Type",
-            }),
+            columnHelper.accessor(
+                (app) => spec.get(app.type)?.displayName ?? app.type,
+                {
+                    id: "type",
+                    header: "Type",
+                }
+            ),
             columnHelper.accessor((app) => app.name ?? app.id, {
                 id: "name",
                 header: "Name / Id",
@@ -96,10 +99,7 @@ export function OAuthAppList() {
                 cell: ({ row }) =>
                     !row.original.isGateway && (
                         <div className="flex justify-end gap-2">
-                            <EditOAuthApp
-                                oauthApp={row.original}
-                                appSpec={spec}
-                            />
+                            <EditOAuthApp oauthApp={row.original} />
                             <DeleteOAuthApp id={row.original.id} />
                         </div>
                     ),

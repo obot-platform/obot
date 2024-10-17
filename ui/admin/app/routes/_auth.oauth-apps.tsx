@@ -1,3 +1,4 @@
+import { useLoaderData } from "@remix-run/react";
 import { preload } from "swr";
 
 import { OauthAppService } from "~/lib/service/api/oauthAppService";
@@ -16,9 +17,13 @@ export async function clientLoader() {
             OauthAppService.getOauthApps
         ),
     ]);
+
+    return null;
 }
 
 export default function OauthApps() {
+    useLoaderData<typeof clientLoader>();
+
     return (
         <div className="h-full flex flex-col p-8 gap-8">
             <div className="flex justify-end">

@@ -64,7 +64,7 @@ const getSupportedOauthAppTypes = async () => {
         errorMessage: "Failed to get supported OAuth app types",
     });
 
-    return res.data;
+    return new Map(Object.entries(res.data));
 };
 getSupportedOauthAppTypes.key = () =>
     ({ url: ApiRoutes.oauthApps.supportedOauthAppTypes().path }) as const;
