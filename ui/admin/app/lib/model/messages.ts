@@ -1,4 +1,4 @@
-import { ChatEvent, ToolCall } from "./chatEvents";
+import { ChatEvent, Prompt, ToolCall } from "./chatEvents";
 import { Run } from "./runs";
 
 export interface Message {
@@ -32,21 +32,24 @@ export const runsToMessages = (runs: Run[]) => {
     return messages;
 };
 
-export const toolCallMessage = (toolCall: ToolCall) => {
-    return {
-        sender: "agent",
-        text: `Tool call: ${[toolCall.metadata?.category, toolCall.name].filter((x) => !!x).join(" - ")}`,
-        tools: [toolCall],
-    } as Message;
-};
+export const toolCallMessage = (toolCall: ToolCall): Message => ({
+    sender: "agent",
+    text: `Tool call: ${[toolCall.metadata?.category, toolCall.name].filter((x) => !!x).join(" - ")}`,
+    tools: [toolCall],
+});
+
+export const promptMessage = (prompt: Prompt, runID: string): Message => ({
+    sender: "agent",
+    text: prompt.message || "",
+    runId: runID,
+});
 
 export const chatEventsToMessages = (events: ChatEvent[]) => {
     const messages: Message[] = [];
 
     for (const event of events) {
-        const { content, input, toolCall, runID, error } = event;
+        const { content, input, toolCall, runID, error, prompt } = event;
 
-        // skip errors and tool inputs with no content
         if (error) {
             messages.push({
                 sender: "agent",
@@ -68,6 +71,12 @@ export const chatEventsToMessages = (events: ChatEvent[]) => {
 
         if (toolCall) {
             messages.push(toolCallMessage(toolCall));
+            continue;
+        }
+
+        // note(ryanhopperlowe) this just splits out a new message. In the future we will want to create a custom prompt message
+        if (prompt) {
+            messages.push(promptMessage(prompt, runID));
             continue;
         }
 

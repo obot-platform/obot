@@ -13,6 +13,22 @@ export type ToolCall = {
     };
 };
 
+type PromptOAuthMeta = {
+    authType: string;
+    authURL: string;
+    toolContext: string;
+    toolDisplayName: string;
+};
+
+export type Prompt = {
+    id?: string;
+    time?: Date;
+    message?: string;
+    fields?: string[];
+    sensitive?: boolean;
+    metadata?: PromptOAuthMeta;
+};
+
 // note(ryanhopperlowe) renaming this to ChatEvent to differentiate itself specifically for a chat with an agent
 // we should create a separate type for WorkflowEvents and leverage Unions to differentiate between them
 export type ChatEvent = {
@@ -24,6 +40,7 @@ export type ChatEvent = {
     waitingOnModel?: boolean;
     toolInput?: ToolInput;
     toolCall?: ToolCall;
+    prompt?: Prompt;
 };
 
 export function combineChatEvents(events: ChatEvent[]): ChatEvent[] {
@@ -39,10 +56,10 @@ export function combineChatEvents(events: ChatEvent[]): ChatEvent[] {
     };
 
     for (const event of events) {
-        const { content, input, error, runID, toolCall } = event;
+        const { content, input, error, runID, toolCall, prompt } = event;
 
         // signals the end of a content block
-        if (error || toolCall || input) {
+        if (error || toolCall || input || prompt) {
             insertBuildingEvent();
 
             combinedEvents.push(event);

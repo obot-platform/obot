@@ -14,6 +14,7 @@ import { ChatEvent, combineChatEvents } from "~/lib/model/chatEvents";
 import {
     Message,
     chatEventsToMessages,
+    promptMessage,
     toolCallMessage,
 } from "~/lib/model/messages";
 import { InvokeService } from "~/lib/service/api/invokeService";
@@ -149,7 +150,8 @@ export function ChatProvider({
                 onChunk: (chunk) =>
                     // use a transition for performance
                     startTransition(() => {
-                        const { content, toolCall, runID, input } = chunk;
+                        const { content, toolCall, runID, input, prompt } =
+                            chunk;
 
                         generatingRunIdRef.current = runID;
 
@@ -165,8 +167,13 @@ export function ChatProvider({
 
                             return;
                         }
-
                         isRunningToolCall.current = false;
+
+                        if (prompt) {
+                            insertGeneratingMessage(runID);
+                            insertMessage(promptMessage(prompt, runID));
+                            return;
+                        }
 
                         if (content && !input) {
                             appendToGeneratingMessage(content);

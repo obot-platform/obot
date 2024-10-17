@@ -40,8 +40,6 @@ const ScrollArea = React.forwardRef<
         }
     }, [startScrollAt]);
 
-    const deferredChildren = React.useDeferredValue(children);
-
     React.useEffect(() => {
         if (shouldStickToBottom && enableScrollStick === "bottom") {
             viewportRef.current?.scrollTo({
@@ -49,7 +47,7 @@ const ScrollArea = React.forwardRef<
                 behavior: "instant",
             });
         }
-    }, [shouldStickToBottom, enableScrollStick, deferredChildren]);
+    }, [enableScrollStick, shouldStickToBottom, children]);
 
     return (
         <ScrollAreaPrimitive.Root
