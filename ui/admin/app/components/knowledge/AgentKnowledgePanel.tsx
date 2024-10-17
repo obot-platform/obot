@@ -1,14 +1,10 @@
-import { CheckIcon, Info, PlusIcon, XCircleIcon } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import useSWR from "swr";
 
 import {
     IngestionStatus,
     KnowledgeFile,
-    KnowledgeIngestionStatus,
     getIngestionStatus,
-    getMessage,
-    getRemoteFileDisplayName,
 } from "~/lib/model/knowledge";
 import { ApiRoutes } from "~/lib/routers/apiRoutes";
 import { KnowledgeService } from "~/lib/service/api/knowledgeService";
@@ -16,21 +12,11 @@ import { cn, getErrorMessage } from "~/lib/utils";
 
 import { Button } from "~/components/ui/button";
 import { ScrollArea } from "~/components/ui/scroll-area";
-import {
-    Tooltip,
-    TooltipContent,
-    TooltipProvider,
-    TooltipTrigger,
-} from "~/components/ui/tooltip";
-import { useAsync } from "~/hooks/useAsync";
 import { useMultiAsync } from "~/hooks/useMultiAsync";
 
-import { LoadingSpinner } from "../ui/LoadingSpinner";
 import { Input } from "../ui/input";
-import { AddFileModal } from "./AddFileModal";
 import { FileChip } from "./FileItem";
-import RemoteFileItemChip from "./RemoteFileItemChip";
-import RemoteKnowledgeSourceStatus from "./RemoteKnowledgeSourceStatus";
+import FileSource from "./FileSource";
 
 export function AgentKnowledgePanel({
     agentId,
@@ -42,7 +28,7 @@ export function AgentKnowledgePanel({
     const [blockPolling, setBlockPolling] = useState(false);
     const [isAddFileModalOpen, setIsAddFileModalOpen] = useState(false);
 
-    const getKnowledge = useSWR(
+    const getKnowledgeFiles = useSWR(
         KnowledgeService.getKnowledgeForAgent.key(agentId),
         ({ agentId }) =>
             KnowledgeService.getKnowledgeForAgent(agentId).then((items) =>
@@ -67,7 +53,7 @@ export function AgentKnowledgePanel({
             refreshInterval: blockPolling ? undefined : 1000,
         }
     );
-    const knowledge = getKnowledge.data || [];
+    const knowledge = getKnowledgeFiles.data || [];
 
     const getRemoteKnowledgeSources = useSWR(
         KnowledgeService.getRemoteKnowledgeSource.key(agentId),
@@ -81,32 +67,6 @@ export function AgentKnowledgePanel({
         () => getRemoteKnowledgeSources.data || [],
         [getRemoteKnowledgeSources.data]
     );
-
-    const deleteKnowledge = useAsync(async (item: KnowledgeFile) => {
-        await KnowledgeService.deleteKnowledgeFromAgent(agentId, item.fileName);
-
-        const remoteKnowledgeSource = remoteKnowledgeSources?.find(
-            (source) => source.sourceType === item.remoteKnowledgeSourceType
-        );
-        if (remoteKnowledgeSource) {
-            await KnowledgeService.updateRemoteKnowledgeSource(
-                agentId,
-                remoteKnowledgeSource.id,
-                {
-                    ...remoteKnowledgeSource,
-                    exclude: [
-                        ...(remoteKnowledgeSource.exclude || []),
-                        item.uploadID || "",
-                    ],
-                }
-            );
-        }
-
-        // optomistic update without cache revalidation
-        getKnowledge.mutate((prev) =>
-            prev?.filter((prevItem) => prevItem.fileName !== item.fileName)
-        );
-    });
 
     const handleAddKnowledge = useCallback(
         async (_index: number, file: File) => {
@@ -125,7 +85,7 @@ export function AgentKnowledgePanel({
                 fileDetails: {},
             };
 
-            getKnowledge.mutate(
+            getKnowledgeFiles.mutate(
                 (prev) => {
                     const existingItemIndex = prev?.findIndex(
                         (item) => item.fileName === newItem.fileName
@@ -142,8 +102,9 @@ export function AgentKnowledgePanel({
                     revalidate: false,
                 }
             );
+            setBlockPolling(false);
         },
-        [agentId, getKnowledge]
+        [agentId, getKnowledgeFiles]
     );
 
     // use multi async to handle uploading multiple files at once
@@ -176,26 +137,19 @@ export function AgentKnowledgePanel({
     );
 
     useEffect(() => {
-        // we can assume that the knowledge is completely ingested if all items have a status of completed or skipped
-        // if that is the case, then we can block polling for updates
-        const hasCompleteIngestion = getKnowledge.data?.every((item) => {
-            const ingestionStatus = getIngestionStatus(item.ingestionStatus);
-            return (
-                ingestionStatus === IngestionStatus.Finished ||
-                ingestionStatus === IngestionStatus.Skipped
+        if (knowledge.length > 0) {
+            setBlockPolling(
+                remoteKnowledgeSources.every((source) => !source.runID) &&
+                    knowledge.every(
+                        (item) =>
+                            item.ingestionStatus?.status ===
+                                IngestionStatus.Finished ||
+                            item.ingestionStatus?.status ===
+                                IngestionStatus.Skipped
+                    )
             );
-        });
-
-        const hasIncompleteUpload = uploadKnowledge.states.some(
-            (state) => state.isLoading
-        );
-
-        setBlockPolling(
-            hasCompleteIngestion ||
-                hasIncompleteUpload ||
-                deleteKnowledge.isLoading
-        );
-    }, [uploadKnowledge.states, deleteKnowledge.isLoading, getKnowledge.data]);
+        }
+    }, [remoteKnowledgeSources, knowledge]);
 
     useEffect(() => {
         remoteKnowledgeSources?.forEach((source) => {
@@ -233,24 +187,6 @@ export function AgentKnowledgePanel({
         });
     }, [remoteKnowledgeSources]);
 
-    const handleRemoteKnowledgeSourceSync = useCallback(async () => {
-        try {
-            for (const source of remoteKnowledgeSources!) {
-                await KnowledgeService.resyncRemoteKnowledgeSource(
-                    agentId,
-                    source.id
-                );
-            }
-            setTimeout(() => {
-                getRemoteKnowledgeSources.mutate();
-            }, 1000);
-        } catch (error) {
-            console.error("Failed to resync remote knowledge source:", error);
-        } finally {
-            setBlockPolling(false);
-        }
-    }, [agentId, getRemoteKnowledgeSources, remoteKnowledgeSources]);
-
     return (
         <div className={cn("flex flex-col", className)}>
             <ScrollArea className="max-h-[400px]">
@@ -275,173 +211,27 @@ export function AgentKnowledgePanel({
                     </div>
                 )}
 
-                <div className={cn("p-2 flex flex-wrap gap-2")}>
-                    {knowledge.map((item) => {
-                        if (item.remoteKnowledgeSourceType) {
-                            return (
-                                <RemoteFileItemChip
-                                    key={item.fileName}
-                                    url={item.fileDetails.url!}
-                                    displayName={
-                                        getRemoteFileDisplayName(item)!
-                                    }
-                                    onAction={() =>
-                                        deleteKnowledge.execute(item)
-                                    }
-                                    statusIcon={renderStatusIcon(
-                                        item.ingestionStatus
-                                    )}
-                                    isLoading={
-                                        deleteKnowledge.isLoading &&
-                                        deleteKnowledge.lastCallParams?.[0]
-                                            .fileName === item.fileName
-                                    }
-                                    remoteKnowledgeSourceType={
-                                        item.remoteKnowledgeSourceType
-                                    }
-                                />
-                            );
-                        }
-                        return (
-                            <FileChip
-                                key={item.fileName}
-                                onAction={() => deleteKnowledge.execute(item)}
-                                statusIcon={renderStatusIcon(
-                                    item.ingestionStatus
-                                )}
-                                isLoading={
-                                    deleteKnowledge.isLoading &&
-                                    deleteKnowledge.lastCallParams?.[0]
-                                        .fileName === item.fileName
-                                }
-                                fileName={item.fileName}
-                            />
-                        );
-                    })}
-                </div>
+                <FileSource
+                    agentId={agentId}
+                    remoteKnowledgeSources={remoteKnowledgeSources}
+                    knowledge={knowledge}
+                    fileInputRef={fileInputRef}
+                    getRemoteKnowledgeSources={getRemoteKnowledgeSources}
+                    getKnowledge={getKnowledgeFiles}
+                    isAddFileModalOpen={isAddFileModalOpen}
+                    onAddFileModalOpen={setIsAddFileModalOpen}
+                    startPolling={() => setBlockPolling(false)}
+                />
             </ScrollArea>
-            <footer className="flex p-2 sticky bottom-0 justify-between items-center">
-                <div className="flex flex-col items-start">
-                    <div className="flex items-center">
-                        {(() => {
-                            const ingestingCount = knowledge.filter(
-                                (item) =>
-                                    item.ingestionStatus?.status ===
-                                        IngestionStatus.Starting ||
-                                    item.ingestionStatus?.status ===
-                                        IngestionStatus.Completed
-                            ).length;
-                            const queuedCount = knowledge.filter(
-                                (item) =>
-                                    item.ingestionStatus?.status ===
-                                    IngestionStatus.Queued
-                            ).length;
-                            const notSupportedCount = knowledge.filter(
-                                (item) =>
-                                    item.ingestionStatus?.status ===
-                                    IngestionStatus.Unsupported
-                            ).length;
-                            const ingestedCount = knowledge.filter(
-                                (item) =>
-                                    item.ingestionStatus?.status ===
-                                        IngestionStatus.Finished ||
-                                    item.ingestionStatus?.status ===
-                                        IngestionStatus.Skipped
-                            ).length;
-                            const totalCount = knowledge.length;
-
-                            if (ingestingCount > 0 || queuedCount > 0) {
-                                return (
-                                    <>
-                                        <TooltipProvider>
-                                            <Tooltip>
-                                                <TooltipTrigger asChild>
-                                                    <div className="flex items-center">
-                                                        <LoadingSpinner className="w-4 h-4 mr-2" />
-                                                        <span className="text-sm text-gray-500">
-                                                            Ingesting...
-                                                        </span>
-                                                    </div>
-                                                </TooltipTrigger>
-                                                <TooltipContent
-                                                    side="right"
-                                                    align="start"
-                                                    alignOffset={-8}
-                                                >
-                                                    <p className="font-semibold">
-                                                        Ingestion Status:
-                                                    </p>
-                                                    <p>
-                                                        Files ingesting:{" "}
-                                                        {ingestingCount}
-                                                    </p>
-                                                    <p>
-                                                        Files ingested:{" "}
-                                                        {ingestedCount}
-                                                    </p>
-                                                    <p>
-                                                        Files queued:{" "}
-                                                        {queuedCount}
-                                                    </p>
-                                                    <p>
-                                                        Files not supported:{" "}
-                                                        {notSupportedCount}
-                                                    </p>
-                                                </TooltipContent>
-                                            </Tooltip>
-                                        </TooltipProvider>
-                                    </>
-                                );
-                            } else if (
-                                totalCount > 0 &&
-                                queuedCount === 0 &&
-                                ingestingCount === 0
-                            ) {
-                                return (
-                                    <>
-                                        <CheckIcon className="w-4 h-4 text-green-500 mr-2" />
-                                        <span className="text-sm text-gray-500">
-                                            {ingestedCount} file
-                                            {ingestedCount !== 1
-                                                ? "s"
-                                                : ""}{" "}
-                                            ingested
-                                        </span>
-                                    </>
-                                );
-                            }
-                            return null;
-                        })()}
-                    </div>
-                    {remoteKnowledgeSources?.map((source) => {
-                        if (source.runID) {
-                            return (
-                                <RemoteKnowledgeSourceStatus
-                                    key={source.id}
-                                    source={source}
-                                />
-                            );
-                        }
-                    })}
-                </div>
+            <footer className="flex p-2 sticky bottom-0 justify-end items-center">
                 <div className="flex">
-                    {remoteKnowledgeSources &&
-                        remoteKnowledgeSources.length > 0 && (
-                            <Button
-                                onClick={handleRemoteKnowledgeSourceSync}
-                                className={cn("mr-2")}
-                            >
-                                Sync Files
-                            </Button>
-                        )}
                     <Button
                         variant="secondary"
+                        className={cn("mr-2")}
                         onClick={() => setIsAddFileModalOpen(true)}
                     >
-                        <PlusIcon className="w-4 h-4 mr-2" />
-                        Add Knowledge
+                        Add Sources
                     </Button>
-
                     <Input
                         ref={fileInputRef}
                         type="file"
@@ -454,52 +244,6 @@ export function AgentKnowledgePanel({
                     />
                 </div>
             </footer>
-            <AddFileModal
-                agentId={agentId}
-                fileInputRef={fileInputRef}
-                isOpen={isAddFileModalOpen}
-                onOpenChange={setIsAddFileModalOpen}
-                startPolling={() => {
-                    setBlockPolling(false);
-                }}
-                remoteKnowledgeSources={remoteKnowledgeSources}
-            />
         </div>
     );
 }
-
-function renderStatusIcon(status?: KnowledgeIngestionStatus) {
-    if (!status || !status.status) return null;
-    const [Icon, className] = ingestionIcons[status.status];
-
-    return (
-        <TooltipProvider>
-            <Tooltip>
-                <TooltipTrigger asChild>
-                    <div>
-                        {Icon === LoadingSpinner ? (
-                            <LoadingSpinner
-                                className={cn("w-4 h-4", className)}
-                            />
-                        ) : (
-                            <Icon className={cn("w-4 h-4", className)} />
-                        )}
-                    </div>
-                </TooltipTrigger>
-                <TooltipContent className="whitespace-normal break-words max-w-[300px] max-h-full">
-                    {getMessage(status.status, status.msg, status.error)}
-                </TooltipContent>
-            </Tooltip>
-        </TooltipProvider>
-    );
-}
-
-const ingestionIcons = {
-    [IngestionStatus.Queued]: [LoadingSpinner, ""],
-    [IngestionStatus.Finished]: [CheckIcon, "text-green-500"],
-    [IngestionStatus.Completed]: [LoadingSpinner, ""],
-    [IngestionStatus.Skipped]: [CheckIcon, "text-green-500"],
-    [IngestionStatus.Starting]: [LoadingSpinner, ""],
-    [IngestionStatus.Failed]: [XCircleIcon, "text-destructive"],
-    [IngestionStatus.Unsupported]: [Info, "text-yellow-500"],
-} as const;

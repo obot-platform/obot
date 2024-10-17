@@ -39,9 +39,7 @@ type OneDriveConfig struct {
 	SharedLinks []string `json:"sharedLinks,omitempty"`
 }
 
-type NotionConfig struct {
-	Pages []string `json:"pages,omitempty"`
-}
+type NotionConfig struct{}
 
 type WebsiteCrawlingConfig struct {
 	URLs []string `json:"urls,omitempty"`
@@ -56,6 +54,12 @@ type RemoteKnowledgeSourceState struct {
 type OneDriveLinksConnectorState struct {
 	Folders FolderSet            `json:"folders,omitempty"`
 	Files   map[string]FileState `json:"files,omitempty"`
+	Links   map[string]LinkState `json:"links,omitempty"`
+}
+
+type LinkState struct {
+	IsFolder bool   `json:"isFolder,omitempty"`
+	Name     string `json:"name,omitempty"`
 }
 
 type FileState struct {
@@ -75,7 +79,11 @@ type NotionPage struct {
 }
 
 type WebsiteCrawlingConnectorState struct {
-	ScrapeJobIds map[string]string `json:"scrapeJobIds"`
-	Folders      FolderSet         `json:"folders"`
-	Pages        map[string]Item   `json:"pages"`
+	ScrapeJobIds map[string]string      `json:"scrapeJobIds"`
+	Folders      FolderSet              `json:"folders"`
+	Pages        map[string]PageDetails `json:"pages"`
+}
+
+type PageDetails struct {
+	ParentURL string `json:"parentUrl"`
 }

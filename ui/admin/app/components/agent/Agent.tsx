@@ -1,4 +1,10 @@
-import { LibraryIcon, RotateCcw, WrenchIcon } from "lucide-react";
+import {
+    LibraryIcon,
+    PlugIcon,
+    Plus,
+    RotateCcw,
+    WrenchIcon,
+} from "lucide-react";
 import { useCallback, useState } from "react";
 
 import { Agent as AgentType } from "~/lib/model/agents";

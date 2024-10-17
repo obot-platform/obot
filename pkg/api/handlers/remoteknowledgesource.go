@@ -209,8 +209,9 @@ func checkConfigChanged(input types.RemoteKnowledgeSourceInput, remoteKnowledgeS
 		return !equality.Semantic.DeepEqual(*input.OneDriveConfig, *remoteKnowledgeSource.Spec.Manifest.OneDriveConfig)
 	}
 
-	if input.NotionConfig != nil && remoteKnowledgeSource.Spec.Manifest.NotionConfig != nil {
-		return !equality.Semantic.DeepEqual(*input.NotionConfig, *remoteKnowledgeSource.Spec.Manifest.NotionConfig)
+	if remoteKnowledgeSource.Spec.Manifest.SourceType == types.RemoteKnowledgeSourceTypeNotion {
+		// we never resync notion on update, this is because by default we sync every page that it has access to
+		return false
 	}
 
 	if input.WebsiteCrawlingConfig != nil && remoteKnowledgeSource.Spec.Manifest.WebsiteCrawlingConfig != nil {

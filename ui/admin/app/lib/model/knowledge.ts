@@ -48,6 +48,7 @@ export type RemoteKnowledgeSource = {
 } & RemoteKnowledgeSourceInput;
 
 export type RemoteKnowledgeSourceInput = {
+    syncSchedule?: string;
     sourceType?: RemoteKnowledgeSourceType;
     exclude?: string[];
     disableIngestionAfterSync?: boolean;
@@ -77,6 +78,12 @@ type RemoteKnowledgeSourceState = {
 type OneDriveLinksConnectorState = {
     folders?: FolderSet;
     files?: Record<string, FileState>;
+    links?: Record<string, LinkState>;
+};
+
+type LinkState = {
+    name?: string;
+    isFolder?: boolean;
 };
 
 type FileState = {
@@ -96,9 +103,13 @@ type NotionPage = {
 };
 
 type WebsiteCrawlingConnectorState = {
-    pages?: Record<string, unknown>;
+    pages?: Record<string, PageDetails>;
     scrapeJobIds?: Record<string, string>;
     folders?: FolderSet;
+};
+
+type PageDetails = {
+    parentUrl?: string;
 };
 
 type FolderSet = {

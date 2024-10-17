@@ -1,5 +1,4 @@
-import { Globe, Plus } from "lucide-react";
-import { RefObject, useState } from "react";
+import { CheckIcon, Globe } from "lucide-react";
 
 import { RemoteKnowledgeSource } from "~/lib/model/knowledge";
 import { KnowledgeService } from "~/lib/service/api/knowledgeService";
@@ -15,49 +14,101 @@ import {
     DialogTitle,
 } from "~/components/ui/dialog";
 
-import { NotionModal } from "./notion/NotionModal";
-import { OnedriveModal } from "./onedrive/OneDriveModal";
-import { WebsiteModal } from "./website/WebsiteModal";
-
 interface AddFileModalProps {
-    fileInputRef: RefObject<HTMLInputElement>;
     agentId: string;
     isOpen: boolean;
-    startPolling: () => void;
     onOpenChange: (open: boolean) => void;
     remoteKnowledgeSources: RemoteKnowledgeSource[];
+    onWebsiteModalOpen: (open: boolean) => void;
+    onOneDriveModalOpen: (open: boolean) => void;
+    onNotionModalOpen: (open: boolean) => void;
+    getRemoteKnowledgeSources: any;
 }
 
 export const AddFileModal = ({
-    fileInputRef,
     agentId,
     isOpen,
-    startPolling,
     onOpenChange,
     remoteKnowledgeSources,
+    onWebsiteModalOpen,
+    onOneDriveModalOpen,
+    onNotionModalOpen,
+    getRemoteKnowledgeSources,
 }: AddFileModalProps) => {
-    const [isOnedriveModalOpen, setIsOnedriveModalOpen] = useState(false);
-    const [isNotionModalOpen, setIsNotionModalOpen] = useState(false);
-    const [isWebsiteModalOpen, setIsWebsiteModalOpen] = useState(false);
-
-    const getNotionSource = async () => {
-        const notionSource = remoteKnowledgeSources.find(
-            (source) => source.sourceType === "notion"
-        );
-        return notionSource;
-    };
+    const isNotionSourceEnabled = remoteKnowledgeSources.some(
+        (source) => source.sourceType === "notion"
+    );
+    const isOnedriveSourceEnabled = remoteKnowledgeSources.some(
+        (source) => source.sourceType === "onedrive"
+    );
+    const isWebsiteSourceEnabled = remoteKnowledgeSources.some(
+        (source) => source.sourceType === "website"
+    );
+    let notionSource = remoteKnowledgeSources.find(
+        (source) => source.sourceType === "notion"
+    );
+    let onedriveSource = remoteKnowledgeSources.find(
+        (source) => source.sourceType === "onedrive"
+    );
+    let websiteSource = remoteKnowledgeSources.find(
+        (source) => source.sourceType === "website"
+    );
 
     const onClickNotion = async () => {
         // For notion, we need to ensure the remote knowledge source is created so that client can fetch a list of pages
-        const notionSource = await getNotionSource();
         if (!notionSource) {
             await KnowledgeService.createRemoteKnowledgeSource(agentId, {
                 sourceType: "notion",
+                disableIngestionAfterSync: true,
             });
+            const intervalId = setInterval(() => {
+                getRemoteKnowledgeSources.mutate();
+                notionSource = remoteKnowledgeSources.find(
+                    (source) => source.sourceType === "notion"
+                );
+                if (notionSource?.runID) {
+                    clearInterval(intervalId);
+                }
+            }, 1000);
+            setTimeout(() => {
+                clearInterval(intervalId);
+            }, 10000);
         }
         onOpenChange(false);
-        setIsNotionModalOpen(true);
-        startPolling();
+        onNotionModalOpen(true);
+    };
+
+    const onClickOnedrive = async () => {
+        if (!onedriveSource) {
+            await KnowledgeService.createRemoteKnowledgeSource(agentId, {
+                sourceType: "onedrive",
+            });
+            const intervalId = setInterval(() => {
+                getRemoteKnowledgeSources.mutate();
+                onedriveSource = remoteKnowledgeSources.find(
+                    (source) => source.sourceType === "onedrive"
+                );
+                if (onedriveSource?.runID) {
+                    clearInterval(intervalId);
+                }
+            }, 1000);
+            setTimeout(() => {
+                clearInterval(intervalId);
+            }, 10000);
+        }
+        onOpenChange(false);
+        onOneDriveModalOpen(true);
+    };
+
+    const onClickWebsite = async () => {
+        if (!websiteSource) {
+            await KnowledgeService.createRemoteKnowledgeSource(agentId, {
+                sourceType: "website",
+            });
+            getRemoteKnowledgeSources.mutate();
+        }
+        onOpenChange(false);
+        onWebsiteModalOpen(true);
     };
 
     return (
@@ -75,20 +126,13 @@ export const AddFileModal = ({
                             aria-describedby="add-files"
                         >
                             <Button
-                                onClick={() => {
-                                    fileInputRef.current?.click();
-                                    onOpenChange(false);
-                                }}
-                                className="flex w-full items-center justify-center gap-3 rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus-visible:ring-transparent hover:cursor-pointer"
-                            >
-                                <Plus className="h-5 w-5" />
-                                <span className="text-sm font-semibold leading-6">
-                                    Add Local Files
-                                </span>
-                            </Button>
-                            <Button
                                 onClick={onClickNotion}
-                                className="flex w-full items-center justify-center mt-2 gap-3 rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus-visible:ring-transparent hover:cursor-pointer"
+                                className={`flex w-full items-center justify-center mt-2 gap-3 rounded-md px-3 py-2 text-sm font-semibold shadow-sm ring-1 ring-inset ring-gray-300 focus-visible:ring-transparent hover:cursor-pointer ${
+                                    isNotionSourceEnabled
+                                        ? "bg-gray-200 text-gray-500 cursor-not-allowed"
+                                        : "bg-white text-gray-900 hover:bg-gray-50"
+                                }`}
+                                disabled={isNotionSourceEnabled}
                             >
                                 <Avatar className="h-5 w-5">
                                     <img
@@ -96,14 +140,19 @@ export const AddFileModal = ({
                                         alt="Notion logo"
                                     />
                                 </Avatar>
-                                Sync From Notion
+                                Add Notion
+                                {isNotionSourceEnabled && (
+                                    <CheckIcon className="h-5 w-5" />
+                                )}
                             </Button>
                             <Button
-                                onClick={() => {
-                                    onOpenChange(false);
-                                    setIsOnedriveModalOpen(true);
-                                }}
-                                className="flex w-full items-center justify-center mt-2 gap-3 rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus-visible:ring-transparent hover:cursor-pointer"
+                                onClick={onClickOnedrive}
+                                className={`flex w-full items-center justify-center mt-2 gap-3 rounded-md px-3 py-2 text-sm font-semibold shadow-sm ring-1 ring-inset ring-gray-300 focus-visible:ring-transparent hover:cursor-pointer ${
+                                    isOnedriveSourceEnabled
+                                        ? "bg-gray-200 text-gray-500 cursor-not-allowed"
+                                        : "bg-white text-gray-900 hover:bg-gray-50"
+                                }`}
+                                disabled={isOnedriveSourceEnabled}
                             >
                                 <Avatar className="h-5 w-5">
                                     <img
@@ -112,46 +161,33 @@ export const AddFileModal = ({
                                     />
                                 </Avatar>
                                 <span className="text-sm font-semibold leading-6">
-                                    Sync From OneDrive
+                                    Add OneDrive
                                 </span>
+                                {isOnedriveSourceEnabled && (
+                                    <CheckIcon className="h-5 w-5" />
+                                )}
                             </Button>
                             <Button
-                                onClick={() => {
-                                    onOpenChange(false);
-                                    setIsWebsiteModalOpen(true);
-                                }}
-                                className="flex w-full items-center justify-center mt-2 gap-3 rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus-visible:ring-transparent hover:cursor-pointer"
+                                onClick={onClickWebsite}
+                                className={`flex w-full items-center justify-center mt-2 gap-3 rounded-md px-3 py-2 text-sm font-semibold shadow-sm ring-1 ring-inset ring-gray-300 focus-visible:ring-transparent hover:cursor-pointer ${
+                                    isWebsiteSourceEnabled
+                                        ? "bg-gray-200 text-gray-500 cursor-not-allowed"
+                                        : "bg-white text-gray-900 hover:bg-gray-50"
+                                }`}
+                                disabled={isWebsiteSourceEnabled}
                             >
                                 <Globe className="h-5 w-5" />
                                 <span className="text-sm font-semibold leading-6">
-                                    Sync From Website
+                                    Add Website
                                 </span>
+                                {isWebsiteSourceEnabled && (
+                                    <CheckIcon className="h-5 w-5" />
+                                )}
                             </Button>
                         </div>
                     </DialogContent>
                 </DialogPortal>
             </Dialog>
-            <NotionModal
-                agentId={agentId}
-                isOpen={isNotionModalOpen}
-                onOpenChange={setIsNotionModalOpen}
-                startPolling={startPolling}
-                remoteKnowledgeSources={remoteKnowledgeSources}
-            />
-            <OnedriveModal
-                agentId={agentId}
-                isOpen={isOnedriveModalOpen}
-                onOpenChange={setIsOnedriveModalOpen}
-                startPolling={startPolling}
-                remoteKnowledgeSources={remoteKnowledgeSources}
-            />
-            <WebsiteModal
-                agentId={agentId}
-                isOpen={isWebsiteModalOpen}
-                onOpenChange={setIsWebsiteModalOpen}
-                startPolling={startPolling}
-                remoteKnowledgeSources={remoteKnowledgeSources}
-            />
         </div>
     );
 };

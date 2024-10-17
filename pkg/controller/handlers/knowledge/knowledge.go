@@ -135,7 +135,6 @@ func (a *Handler) IngestKnowledge(req router.Request, resp router.Response) erro
 		digest.Write([]byte(file.Status.FileDetails.UpdatedAt))
 		digest.Write([]byte{0})
 	}
-
 	var syncNeeded bool
 
 	hash := fmt.Sprintf("%x", digest.Sum(nil))
@@ -262,11 +261,6 @@ func compileFileStatuses(ctx context.Context, client kclient.Client, ws *v1.Work
 			continue
 		} else if err != nil {
 			errs = append(errs, fmt.Errorf("failed to get knowledge file: %s", err))
-		}
-
-		if ingestionStatus.Status == "skipped" {
-			// Don't record the rather useless skipped messages
-			continue
 		}
 
 		if ingestionStatus.Status == "finished" {

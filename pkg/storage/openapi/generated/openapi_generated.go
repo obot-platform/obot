@@ -35,6 +35,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/otto8-ai/otto8/apiclient/types.Item":                                              schema_otto8_ai_otto8_apiclient_types_Item(ref),
 		"github.com/otto8-ai/otto8/apiclient/types.KnowledgeFile":                                     schema_otto8_ai_otto8_apiclient_types_KnowledgeFile(ref),
 		"github.com/otto8-ai/otto8/apiclient/types.KnowledgeFileList":                                 schema_otto8_ai_otto8_apiclient_types_KnowledgeFileList(ref),
+		"github.com/otto8-ai/otto8/apiclient/types.LinkState":                                         schema_otto8_ai_otto8_apiclient_types_LinkState(ref),
 		"github.com/otto8-ai/otto8/apiclient/types.Metadata":                                          schema_otto8_ai_otto8_apiclient_types_Metadata(ref),
 		"github.com/otto8-ai/otto8/apiclient/types.NotionConfig":                                      schema_otto8_ai_otto8_apiclient_types_NotionConfig(ref),
 		"github.com/otto8-ai/otto8/apiclient/types.NotionConnectorState":                              schema_otto8_ai_otto8_apiclient_types_NotionConnectorState(ref),
@@ -45,6 +46,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/otto8-ai/otto8/apiclient/types.OAuthAppManifest":                                  schema_otto8_ai_otto8_apiclient_types_OAuthAppManifest(ref),
 		"github.com/otto8-ai/otto8/apiclient/types.OneDriveConfig":                                    schema_otto8_ai_otto8_apiclient_types_OneDriveConfig(ref),
 		"github.com/otto8-ai/otto8/apiclient/types.OneDriveLinksConnectorState":                       schema_otto8_ai_otto8_apiclient_types_OneDriveLinksConnectorState(ref),
+		"github.com/otto8-ai/otto8/apiclient/types.PageDetails":                                       schema_otto8_ai_otto8_apiclient_types_PageDetails(ref),
 		"github.com/otto8-ai/otto8/apiclient/types.Progress":                                          schema_otto8_ai_otto8_apiclient_types_Progress(ref),
 		"github.com/otto8-ai/otto8/apiclient/types.Prompt":                                            schema_otto8_ai_otto8_apiclient_types_Prompt(ref),
 		"github.com/otto8-ai/otto8/apiclient/types.RemoteKnowledgeSource":                             schema_otto8_ai_otto8_apiclient_types_RemoteKnowledgeSource(ref),
@@ -1055,6 +1057,30 @@ func schema_otto8_ai_otto8_apiclient_types_KnowledgeFileList(ref common.Referenc
 	}
 }
 
+func schema_otto8_ai_otto8_apiclient_types_LinkState(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"isFolder": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
+						},
+					},
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
 func schema_otto8_ai_otto8_apiclient_types_Metadata(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -1120,22 +1146,6 @@ func schema_otto8_ai_otto8_apiclient_types_NotionConfig(ref common.ReferenceCall
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
 				Type: []string{"object"},
-				Properties: map[string]spec.Schema{
-					"pages": {
-						SchemaProps: spec.SchemaProps{
-							Type: []string{"array"},
-							Items: &spec.SchemaOrArray{
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Default: "",
-										Type:    []string{"string"},
-										Format:  "",
-									},
-								},
-							},
-						},
-					},
-				},
 			},
 		},
 	}
@@ -1439,11 +1449,45 @@ func schema_otto8_ai_otto8_apiclient_types_OneDriveLinksConnectorState(ref commo
 							},
 						},
 					},
+					"links": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"object"},
+							AdditionalProperties: &spec.SchemaOrBool{
+								Allows: true,
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/otto8-ai/otto8/apiclient/types.LinkState"),
+									},
+								},
+							},
+						},
+					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/otto8-ai/otto8/apiclient/types.FileState", "github.com/otto8-ai/otto8/apiclient/types.Item"},
+			"github.com/otto8-ai/otto8/apiclient/types.FileState", "github.com/otto8-ai/otto8/apiclient/types.Item", "github.com/otto8-ai/otto8/apiclient/types.LinkState"},
+	}
+}
+
+func schema_otto8_ai_otto8_apiclient_types_PageDetails(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"parentUrl": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+				},
+				Required: []string{"parentUrl"},
+			},
+		},
 	}
 }
 
@@ -2879,7 +2923,7 @@ func schema_otto8_ai_otto8_apiclient_types_WebsiteCrawlingConnectorState(ref com
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/otto8-ai/otto8/apiclient/types.Item"),
+										Ref:     ref("github.com/otto8-ai/otto8/apiclient/types.PageDetails"),
 									},
 								},
 							},
@@ -2890,7 +2934,7 @@ func schema_otto8_ai_otto8_apiclient_types_WebsiteCrawlingConnectorState(ref com
 			},
 		},
 		Dependencies: []string{
-			"github.com/otto8-ai/otto8/apiclient/types.Item"},
+			"github.com/otto8-ai/otto8/apiclient/types.Item", "github.com/otto8-ai/otto8/apiclient/types.PageDetails"},
 	}
 }
 
