@@ -81,7 +81,7 @@ function getHeaderContent(route: string) {
     }
 
     if (new RegExp($path("/agents")).test(route)) {
-        return <AgentsContent />;
+        return <>Agents</>;
     }
 
     if (new RegExp($path("/threads")).test(route)) {
@@ -93,13 +93,9 @@ function getHeaderContent(route: string) {
     }
 
     if (new RegExp($path("/users")).test(route)) {
-        return <UsersContent />;
+        return <>Users</>;
     }
 }
-
-const UsersContent = () => <>Users</>;
-
-const AgentsContent = () => <>Agents</>;
 
 const AgentEditContent = () => {
     const params = useParams();
