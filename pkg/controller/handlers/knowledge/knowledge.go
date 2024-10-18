@@ -28,18 +28,16 @@ import (
 )
 
 type Handler struct {
-	gptscript         *gptscript.GPTScript
-	ingester          *knowledge.Ingester
-	events            *events.Emitter
-	workspaceProvider string
+	gptscript *gptscript.GPTScript
+	ingester  *knowledge.Ingester
+	events    *events.Emitter
 }
 
-func New(gClient *gptscript.GPTScript, ingester *knowledge.Ingester, wp string, events *events.Emitter) *Handler {
+func New(gClient *gptscript.GPTScript, ingester *knowledge.Ingester, events *events.Emitter) *Handler {
 	return &Handler{
-		gptscript:         gClient,
-		ingester:          ingester,
-		workspaceProvider: wp,
-		events:            events,
+		gptscript: gClient,
+		ingester:  ingester,
+		events:    events,
 	}
 }
 

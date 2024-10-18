@@ -39,13 +39,13 @@ type Invoker struct {
 	threadWorkspaceProvider string
 }
 
-func NewInvoker(c kclient.Client, gptClient *gptscript.GPTScript, tokenService *jwt.TokenService, events *events.Emitter) *Invoker {
+func NewInvoker(c kclient.Client, gptClient *gptscript.GPTScript, workspaceProviderType string, tokenService *jwt.TokenService, events *events.Emitter) *Invoker {
 	return &Invoker{
 		uncached:                c,
 		gptClient:               gptClient,
 		tokenService:            tokenService,
 		events:                  events,
-		threadWorkspaceProvider: "directory",
+		threadWorkspaceProvider: workspaceProviderType,
 	}
 }
 

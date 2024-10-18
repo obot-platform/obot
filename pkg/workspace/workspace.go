@@ -5,6 +5,9 @@ import (
 )
 
 func GetDir(workspaceID string) string {
-	_, path, _ := strings.Cut(workspaceID, "://")
-	return path
+	provider, path, _ := strings.Cut(workspaceID, "://")
+	if provider == "directory" {
+		return path
+	}
+	return ""
 }

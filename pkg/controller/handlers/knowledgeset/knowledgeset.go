@@ -90,7 +90,6 @@ func (h *Handler) CreateWorkspace(req router.Request, resp router.Response) erro
 	}
 
 	ws := &v1.Workspace{
-		TypeMeta: metav1.TypeMeta{},
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: system.WorkspacePrefix,
 			Namespace:    ks.Namespace,
@@ -101,7 +100,6 @@ func (h *Handler) CreateWorkspace(req router.Request, resp router.Response) erro
 			KnowledgeSetName: ks.Name,
 			IsKnowledge:      true,
 		},
-		Status: v1.WorkspaceStatus{},
 	}
 
 	if err := req.Client.Create(req.Ctx, ws); err != nil {

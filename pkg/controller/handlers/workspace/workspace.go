@@ -29,7 +29,13 @@ func (a *Handler) CreateWorkspace(req router.Request, _ router.Response) error {
 		return nil
 	}
 
-	workspaceID, err := a.gptscript.CreateWorkspace(req.Ctx, a.workspaceProvider, ws.Spec.FromWorkspaces...)
+	providerType := a.workspaceProvider
+	if ws.Spec.IsKnowledge {
+		// Knowledge files should be stored locally.
+		providerType = "directory"
+	}
+
+	workspaceID, err := a.gptscript.CreateWorkspace(req.Ctx, providerType, ws.Spec.FromWorkspaces...)
 	if err != nil {
 		return err
 	}

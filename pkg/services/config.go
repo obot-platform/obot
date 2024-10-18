@@ -42,11 +42,12 @@ type (
 )
 
 type Config struct {
-	HTTPListenPort int    `usage:"HTTP port to listen on" default:"8080" name:"http-listen-port"`
-	DevMode        bool   `usage:"Enable development mode" default:"false" name:"dev-mode" env:"OTTO_DEV_MODE"`
-	DevUIPort      int    `usage:"The port on localhost running the dev instance of the UI" default:"5173"`
-	AllowedOrigin  string `usage:"Allowed origin for CORS"`
-	ToolRegistry   string `usage:"The tool reference for the tool registry" default:"github.com/gptscript-ai/tools"`
+	HTTPListenPort        int    `usage:"HTTP port to listen on" default:"8080" name:"http-listen-port"`
+	DevMode               bool   `usage:"Enable development mode" default:"false" name:"dev-mode" env:"OTTO_DEV_MODE"`
+	DevUIPort             int    `usage:"The port on localhost running the dev instance of the UI" default:"5173"`
+	AllowedOrigin         string `usage:"Allowed origin for CORS"`
+	ToolRegistry          string `usage:"The tool reference for the tool registry" default:"github.com/gptscript-ai/tools"`
+	WorkspaceProviderType string `usage:"The type of workspace provider to use for non-knowledge workspaces" default:"directory" env:"OTTO_WORKSPACE_PROVIDER_TYPE"`
 
 	AuthConfig
 	GatewayConfig
@@ -54,19 +55,20 @@ type Config struct {
 }
 
 type Services struct {
-	ToolRegistryURL string
-	DevUIPort       int
-	Events          *events.Emitter
-	StorageClient   storage.Client
-	Router          *router.Router
-	GPTClient       *gptscript.GPTScript
-	Invoker         *invoke.Invoker
-	TokenServer     *jwt.TokenService
-	APIServer       *server.Server
-	AIHelper        *aihelper.AIHelper
-	Started         chan struct{}
-	ProxyServer     *proxy.Proxy
-	GatewayServer   *gserver.Server
+	ToolRegistryURL       string
+	WorkspaceProviderType string
+	DevUIPort             int
+	Events                *events.Emitter
+	StorageClient         storage.Client
+	Router                *router.Router
+	GPTClient             *gptscript.GPTScript
+	Invoker               *invoke.Invoker
+	TokenServer           *jwt.TokenService
+	APIServer             *server.Server
+	AIHelper              *aihelper.AIHelper
+	Started               chan struct{}
+	ProxyServer           *proxy.Proxy
+	GatewayServer         *gserver.Server
 }
 
 func newGPTScript(ctx context.Context) (*gptscript.GPTScript, error) {
@@ -181,18 +183,19 @@ func New(ctx context.Context, config Config) (*Services, error) {
 
 	// For now, always auto-migrate the gateway database
 	return &Services{
-		DevUIPort:       devPort,
-		ToolRegistryURL: config.ToolRegistry,
-		Events:          events,
-		StorageClient:   storageClient,
-		Router:          r,
-		GPTClient:       c,
-		APIServer:       server.NewServer(storageClient, c, authn.NewAuthenticator(authenticators), authz.NewAuthorizer()),
-		TokenServer:     tokenServer,
-		Invoker:         invoke.NewInvoker(storageClient, c, tokenServer, events),
-		AIHelper:        aihelper.New(c, config.HelperModel),
-		GatewayServer:   gatewayServer,
-		ProxyServer:     proxyServer,
+		WorkspaceProviderType: config.WorkspaceProviderType,
+		DevUIPort:             devPort,
+		ToolRegistryURL:       config.ToolRegistry,
+		Events:                events,
+		StorageClient:         storageClient,
+		Router:                r,
+		GPTClient:             c,
+		APIServer:             server.NewServer(storageClient, c, authn.NewAuthenticator(authenticators), authz.NewAuthorizer()),
+		TokenServer:           tokenServer,
+		Invoker:               invoke.NewInvoker(storageClient, c, config.WorkspaceProviderType, tokenServer, events),
+		AIHelper:              aihelper.New(c, config.HelperModel),
+		GatewayServer:         gatewayServer,
+		ProxyServer:           proxyServer,
 	}, nil
 }
 

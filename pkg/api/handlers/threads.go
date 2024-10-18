@@ -244,7 +244,7 @@ func (a *ThreadHandler) DeleteFile(req api.Context) error {
 
 	for _, workspace := range workspaces.Items {
 		if !workspace.Spec.IsKnowledge {
-			return deleteFileFromWorkspaceID(req.Context(), req, a.gptscript, workspace.Spec.WorkspaceID)
+			return deleteFileFromWorkspaceID(req.Context(), req, a.gptscript, workspace.Status.WorkspaceID)
 		}
 	}
 
