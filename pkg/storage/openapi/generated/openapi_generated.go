@@ -2798,13 +2798,6 @@ func schema_otto8_ai_otto8_apiclient_types_WebhookManifest(ref common.ReferenceC
 							Format: "",
 						},
 					},
-					"password": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Password is only sent on initial creation of the webhook. It is not stored.",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
 				},
 			},
 		},
@@ -6034,13 +6027,6 @@ func schema_storage_apis_ottogptscriptai_v1_WebhookSpec(ref common.ReferenceCall
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
 							Format: "",
-						},
-					},
-					"password": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Password is only sent on initial creation of the webhook. It is not stored.",
-							Type:        []string{"string"},
-							Format:      "",
 						},
 					},
 				},
