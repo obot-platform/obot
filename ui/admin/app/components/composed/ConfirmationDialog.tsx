@@ -17,6 +17,7 @@ export function ConfirmationDialog({
     description,
     onConfirm,
     onCancel,
+    confirmProps,
     ...dialogProps
 }: ComponentProps<typeof Dialog> & {
     children?: ReactNode;
@@ -24,6 +25,7 @@ export function ConfirmationDialog({
     description?: ReactNode;
     onConfirm: () => void;
     onCancel?: () => void;
+    confirmProps?: Omit<Partial<ComponentProps<typeof Button>>, "onClick">;
 }) {
     return (
         <Dialog {...dialogProps}>
@@ -37,7 +39,9 @@ export function ConfirmationDialog({
                         <Button variant="secondary">Cancel</Button>
                     </DialogClose>
 
-                    <Button onClick={onConfirm}>Confirm</Button>
+                    <Button {...confirmProps} onClick={onConfirm}>
+                        {confirmProps?.children ?? "Confirm"}
+                    </Button>
                 </DialogFooter>
             </DialogContent>
         </Dialog>
