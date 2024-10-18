@@ -6,6 +6,7 @@ import {
     Scripts,
     ScrollRestoration,
 } from "@remix-run/react";
+import { SWRConfig } from "swr";
 
 import { AuthProvider } from "~/components/auth/AuthContext";
 import { LayoutProvider } from "~/components/layout/LayoutProvider";
@@ -52,13 +53,15 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
 export default function App() {
     return (
-        <AuthProvider>
-            <ThemeProvider>
-                <LayoutProvider>
-                    <Outlet />
-                </LayoutProvider>
-            </ThemeProvider>
-        </AuthProvider>
+        <SWRConfig value={{ revalidateOnFocus: false }}>
+            <AuthProvider>
+                <ThemeProvider>
+                    <LayoutProvider>
+                        <Outlet />
+                    </LayoutProvider>
+                </ThemeProvider>
+            </AuthProvider>
+        </SWRConfig>
     );
 }
 

@@ -4,6 +4,7 @@ import { mutate } from "swr";
 import { OAuthApp } from "~/lib/model/oauthApps";
 import { OauthAppService } from "~/lib/service/api/oauthAppService";
 
+import { Button } from "~/components/ui/button";
 import {
     Dialog,
     DialogContent,
@@ -15,7 +16,6 @@ import { useOAuthAppSpec } from "~/hooks/oauthApps/useOAuthAppSpec";
 import { useAsync } from "~/hooks/useAsync";
 import { useDisclosure } from "~/hooks/useDisclosure";
 
-import { Button } from "../ui/button";
 import { OAuthAppForm } from "./OAuthAppForm";
 
 type EditOAuthAppProps = {
