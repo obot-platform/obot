@@ -72,9 +72,8 @@ type Services struct {
 func newGPTScript(ctx context.Context) (*gptscript.GPTScript, error) {
 	if os.Getenv("GPTSCRIPT_URL") != "" {
 		return gptscript.NewGPTScript(gptscript.GlobalOptions{
-			URL:                        os.Getenv("GPTSCRIPT_URL"),
-			WorkspaceDirectoryDataHome: filepath.Join(xdg.DataHome, "otto8", "workspaces"),
-			WorkspaceTool:              "github.com/gptscript-ai/workspace-provider",
+			URL:           os.Getenv("GPTSCRIPT_URL"),
+			WorkspaceTool: "github.com/gptscript-ai/workspace-provider",
 		})
 	}
 
@@ -86,11 +85,13 @@ func newGPTScript(ctx context.Context) (*gptscript.GPTScript, error) {
 	if err := os.Setenv("GPTSCRIPT_URL", url); err != nil {
 		return nil, err
 	}
+	if err = os.Setenv("WORKSPACE_PROVIDER_DATA_HOME", filepath.Join(xdg.DataHome, "otto8", "workspace-provider")); err != nil {
+		return nil, err
+	}
 
 	return gptscript.NewGPTScript(gptscript.GlobalOptions{
-		URL:                        url,
-		WorkspaceDirectoryDataHome: filepath.Join(xdg.DataHome, "otto8", "workspaces"),
-		WorkspaceTool:              "github.com/gptscript-ai/workspace-provider",
+		URL:           url,
+		WorkspaceTool: "github.com/gptscript-ai/workspace-provider",
 	})
 }
 
