@@ -1,113 +1,69 @@
 import { DialogDescription } from "@radix-ui/react-dialog";
-import { PlusIcon } from "lucide-react";
-import { useState } from "react";
+import { SettingsIcon } from "lucide-react";
 import { mutate } from "swr";
 
+import { OAuthProvider } from "~/lib/model/oauthApps/oauth-helpers";
 import { OauthAppService } from "~/lib/service/api/oauthAppService";
 
 import { Button } from "~/components/ui/button";
 import {
-    Command,
-    CommandGroup,
-    CommandInput,
-    CommandItem,
-    CommandList,
-} from "~/components/ui/command";
-import { Dialog, DialogContent, DialogTitle } from "~/components/ui/dialog";
-import {
-    Popover,
-    PopoverContent,
-    PopoverTrigger,
-} from "~/components/ui/popover";
-import { useOAuthAppSpec } from "~/hooks/oauthApps/useOAuthAppSpec";
+    Dialog,
+    DialogContent,
+    DialogTitle,
+    DialogTrigger,
+} from "~/components/ui/dialog";
+import { useOAuthAppInfo } from "~/hooks/oauthApps";
 import { useAsync } from "~/hooks/useAsync";
-import { useDisclosure } from "~/hooks/useDisclosure";
 
+import { ScrollArea } from "../ui/scroll-area";
 import { OAuthAppForm } from "./OAuthAppForm";
+import { OAuthAppTypeIcon } from "./OAuthAppTypeIcon";
 
-export function CreateOauthApp() {
-    const selectModal = useDisclosure();
-    const { data: spec } = useOAuthAppSpec();
-
-    const [selectedAppKey, setSelectedAppKey] = useState<string | null>(null);
+export function CreateOauthApp({ type }: { type: OAuthProvider }) {
+    const spec = useOAuthAppInfo(type);
 
     const createApp = useAsync(OauthAppService.createOauthApp, {
-        onSuccess: () => {
-            mutate(OauthAppService.getOauthApps.key());
-            setSelectedAppKey(null);
-        },
+        onSuccess: () => mutate(OauthAppService.getOauthApps.key()),
     });
 
-    const selectedSpec = selectedAppKey ? spec.get(selectedAppKey) : null;
-
     return (
-        <>
-            <Popover
-                open={selectModal.isOpen}
-                onOpenChange={selectModal.onOpenChange}
+        <Dialog>
+            <DialogTrigger asChild>
+                <Button className="w-full">
+                    <SettingsIcon className="w-4 h-4 mr-2" />
+                    Configure {spec.displayName} OAuth App
+                </Button>
+            </DialogTrigger>
+
+            <DialogContent
+                classNames={{
+                    overlay: "opacity-0",
+                }}
+                aria-describedby="create-oauth-app"
+                className="px-0"
             >
-                <PopoverTrigger asChild>
-                    <Button variant="outline">
-                        <PlusIcon className="w-4 h-4 mr-2" />
-                        New OAuth App
-                    </Button>
-                </PopoverTrigger>
+                <DialogTitle className="flex items-center gap-2 px-4">
+                    <OAuthAppTypeIcon type={type} />
+                    Configure {spec.displayName} OAuth App
+                </DialogTitle>
 
-                <PopoverContent className="p-0" side="bottom" align="end">
-                    <Command>
-                        <CommandInput placeholder="Search OAuth App..." />
+                <DialogDescription hidden>
+                    Create a new OAuth app for {spec.displayName}
+                </DialogDescription>
 
-                        <CommandList>
-                            <CommandGroup>
-                                {Array.from(spec.entries()).map(
-                                    ([key, { displayName }]) => (
-                                        <CommandItem
-                                            key={key}
-                                            value={displayName}
-                                            onSelect={() => {
-                                                setSelectedAppKey(key);
-                                                selectModal.onClose();
-                                            }}
-                                        >
-                                            {displayName}
-                                        </CommandItem>
-                                    )
-                                )}
-                            </CommandGroup>
-                        </CommandList>
-                    </Command>
-                </PopoverContent>
-            </Popover>
-
-            <Dialog
-                open={!!selectedAppKey}
-                onOpenChange={() => setSelectedAppKey(null)}
-            >
-                <DialogContent>
-                    {selectedAppKey && selectedSpec && (
-                        <>
-                            <DialogTitle>
-                                Create {selectedSpec.displayName} OAuth App
-                            </DialogTitle>
-
-                            <DialogDescription>
-                                Create a new OAuth app for{" "}
-                                {selectedSpec.displayName}
-                            </DialogDescription>
-
-                            <OAuthAppForm
-                                appSpec={selectedSpec}
-                                onSubmit={(data) =>
-                                    createApp.execute({
-                                        type: selectedAppKey,
-                                        ...data,
-                                    })
-                                }
-                            />
-                        </>
-                    )}
-                </DialogContent>
-            </Dialog>
-        </>
+                <ScrollArea className="max-h-[80vh] px-4">
+                    <OAuthAppForm
+                        type={type}
+                        onSubmit={(data) =>
+                            createApp.execute({
+                                type,
+                                refName: type,
+                                ...data,
+                            })
+                        }
+                    />
+                </ScrollArea>
+            </DialogContent>
+        </Dialog>
     );
 }

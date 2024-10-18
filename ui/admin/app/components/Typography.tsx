@@ -60,11 +60,7 @@ export function TypographyH4({ children, className }: TypographyProps) {
 }
 
 export function TypographyP({ children, className }: TypographyProps) {
-    return (
-        <p className={cn(`leading-7 [&:not(:first-child)]:mt-6`, className)}>
-            {children}
-        </p>
-    );
+    return <p className={cn(`leading-7`, className)}>{children}</p>;
 }
 
 export function TypographyBlockquote({ children, className }: TypographyProps) {

@@ -1,109 +1,27 @@
-import { ColumnDef, createColumnHelper } from "@tanstack/react-table";
-import { KeyIcon } from "lucide-react";
-import { useMemo } from "react";
-import useSWR from "swr";
+import { useOAuthAppList } from "~/hooks/oauthApps";
 
-import { OAuthApp } from "~/lib/model/oauthApps";
-import { OauthAppService } from "~/lib/service/api/oauthAppService";
-import { cn } from "~/lib/utils";
-
-import { DataTable } from "~/components/composed/DataTable";
-import { useOAuthAppSpec } from "~/hooks/oauthApps/useOAuthAppSpec";
-
-import { DeleteOAuthApp } from "./DeleteOAuthApp";
-import { EditOAuthApp } from "./EditOAuthApp";
-
-type Row = OAuthApp & { created?: string; isGateway?: boolean };
-const columnHelper = createColumnHelper<Row>();
+import { TypographyH3, TypographyP } from "../Typography";
+import { OAuthAppTile } from "./OAuthAppTile";
 
 export function OAuthAppList() {
-    const { data: spec } = useOAuthAppSpec();
-
-    const { data: apps } = useSWR(
-        OauthAppService.getOauthApps.key(),
-        OauthAppService.getOauthApps,
-        { fallbackData: [] }
-    );
-
-    const rows = useMemo<Row[]>(() => {
-        const typesWithNoApps = Array.from(spec.entries())
-            .map(([type, { displayName }]) => {
-                if (apps.some((app) => app.type === type)) return null;
-
-                return {
-                    type,
-                    name: displayName + " (Acorn Gateway)",
-                    id: type,
-                    isGateway: true,
-                } as Row;
-            })
-            .filter((x) => !!x);
-
-        return apps.concat(typesWithNoApps);
-    }, [apps, spec]);
+    const apps = useOAuthAppList();
 
     return (
-        <DataTable
-            data={rows}
-            columns={getColumns()}
-            sort={[
-                { id: "type", desc: true },
-                { id: "name", desc: true },
-            ]}
-            rowClassName={(row) => cn(row.isGateway && "opacity-60")}
-            classNames={{
-                row: "!max-h-[200px] grow-0  height-[200px]",
-                cell: "!max-h-[200px] grow-0 height-[200px]",
-            }}
-        />
-    );
+        <div className="space-y-10 w-3/4 mx-auto">
+            <div>
+                <TypographyH3>Pre-configured OAuth Apps</TypographyH3>
+                <TypographyP className="!mt-0">
+                    These apps are pre-configured and ready to use. For the most
+                    part, you should not need to configure any additional OAuth
+                    apps.
+                </TypographyP>
+            </div>
 
-    function getColumns(): ColumnDef<Row, string>[] {
-        return [
-            columnHelper.display({
-                id: "icon",
-                cell: ({ row }) => {
-                    const app = row.original;
-                    const { icon } = spec.get(app.type) || {};
-                    return icon ? (
-                        <img
-                            src={icon}
-                            alt={app.type}
-                            className={cn("w-4 h-4", {
-                                invisible: !icon,
-                            })}
-                        />
-                    ) : (
-                        <KeyIcon className="w-4 h-4" />
-                    );
-                },
-            }),
-            columnHelper.accessor(
-                (app) => spec.get(app.type)?.displayName ?? app.type,
-                {
-                    id: "type",
-                    header: "Type",
-                }
-            ),
-            columnHelper.accessor((app) => app.name ?? app.id, {
-                id: "name",
-                header: "Name / Id",
-            }),
-            columnHelper.accessor(
-                (app) =>
-                    app.created ? new Date(app.created).toLocaleString() : "-",
-                { header: "Created" }
-            ),
-            columnHelper.display({
-                id: "actions",
-                cell: ({ row }) =>
-                    !row.original.isGateway && (
-                        <div className="flex justify-end gap-2">
-                            <EditOAuthApp oauthApp={row.original} />
-                            <DeleteOAuthApp id={row.original.id} />
-                        </div>
-                    ),
-            }),
-        ];
-    }
+            <div className="grid grid-cols-2 gap-10 lg:grid-cols-3 xl:grid-cols-4">
+                {apps.map(({ type }) => (
+                    <OAuthAppTile key={type} type={type} />
+                ))}
+            </div>
+        </div>
+    );
 }

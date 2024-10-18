@@ -1,7 +1,7 @@
 import { SquarePenIcon } from "lucide-react";
 import { mutate } from "swr";
 
-import { OAuthApp } from "~/lib/model/oauthApps";
+import { OAuthProvider } from "~/lib/model/oauthApps/oauth-helpers";
 import { OauthAppService } from "~/lib/service/api/oauthAppService";
 
 import { Button } from "~/components/ui/button";
@@ -12,17 +12,23 @@ import {
     DialogTitle,
     DialogTrigger,
 } from "~/components/ui/dialog";
-import { useOAuthAppSpec } from "~/hooks/oauthApps/useOAuthAppSpec";
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipProvider,
+    TooltipTrigger,
+} from "~/components/ui/tooltip";
+import { useOAuthAppInfo } from "~/hooks/oauthApps";
 import { useAsync } from "~/hooks/useAsync";
 import { useDisclosure } from "~/hooks/useDisclosure";
 
 import { OAuthAppForm } from "./OAuthAppForm";
+import { OAuthAppTypeIcon } from "./OAuthAppTypeIcon";
 
-type EditOAuthAppProps = {
-    oauthApp: OAuthApp;
-};
+export function EditOAuthApp({ type }: { type: OAuthProvider }) {
+    const spec = useOAuthAppInfo(type);
+    const modal = useDisclosure();
 
-export function EditOAuthApp({ oauthApp }: EditOAuthAppProps) {
     const updateApp = useAsync(OauthAppService.updateOauthApp, {
         onSuccess: async () => {
             await mutate(OauthAppService.getOauthApps.key());
@@ -30,39 +36,47 @@ export function EditOAuthApp({ oauthApp }: EditOAuthAppProps) {
         },
     });
 
-    const modal = useDisclosure();
+    const { customApp } = spec;
 
-    const { data: spec } = useOAuthAppSpec();
-
-    const typeSpec = spec.get(oauthApp.type);
-    if (!typeSpec) return null;
+    if (!customApp) return null;
 
     return (
-        <Dialog open={modal.isOpen} onOpenChange={modal.onOpenChange}>
-            <DialogTrigger asChild>
-                <Button variant="ghost" size="icon">
-                    <SquarePenIcon />
-                </Button>
-            </DialogTrigger>
+        <TooltipProvider>
+            <Tooltip>
+                <Dialog>
+                    <DialogTrigger asChild>
+                        <TooltipTrigger asChild>
+                            <Button variant="ghost" size="icon">
+                                <SquarePenIcon />
+                            </Button>
+                        </TooltipTrigger>
+                    </DialogTrigger>
 
-            <DialogContent>
-                <DialogTitle>Edit OAuth App ({oauthApp.type})</DialogTitle>
+                    <DialogContent>
+                        <DialogTitle>
+                            <OAuthAppTypeIcon type={type} /> Edit{" "}
+                            {spec.displayName} OAuth Configuration
+                        </DialogTitle>
 
-                <DialogDescription hidden>
-                    Update the OAuth app settings.
-                </DialogDescription>
+                        <DialogDescription hidden>
+                            Update the OAuth app settings.
+                        </DialogDescription>
 
-                <OAuthAppForm
-                    appSpec={typeSpec}
-                    oauthApp={oauthApp}
-                    onSubmit={(data) =>
-                        updateApp.execute(oauthApp.id, {
-                            type: oauthApp.type,
-                            ...data,
-                        })
-                    }
-                />
-            </DialogContent>
-        </Dialog>
+                        <OAuthAppForm
+                            type={type}
+                            onSubmit={(data) =>
+                                updateApp.execute(customApp.id, {
+                                    type: customApp.type,
+                                    refName: customApp.refName,
+                                    ...data,
+                                })
+                            }
+                        />
+                    </DialogContent>
+                </Dialog>
+
+                <TooltipContent side="bottom">Edit</TooltipContent>
+            </Tooltip>
+        </TooltipProvider>
     );
 }

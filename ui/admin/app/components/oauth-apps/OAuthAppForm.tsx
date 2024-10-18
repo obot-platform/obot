@@ -1,49 +1,50 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useEffect, useMemo } from "react";
 import { useForm } from "react-hook-form";
-import { z } from "zod";
+import Markdown from "react-markdown";
+import rehypeExternalLinks from "rehype-external-links";
 
-import { OAuthApp, OAuthAppInfo, OAuthAppParams } from "~/lib/model/oauthApps";
+import { OAuthAppParams } from "~/lib/model/oauthApps";
+import {
+    OAuthFormStep,
+    OAuthProvider,
+} from "~/lib/model/oauthApps/oauth-helpers";
+import { OauthAppService } from "~/lib/service/api/oauthAppService";
+import { cn } from "~/lib/utils";
 
 import { ControlledInput } from "~/components/form/controlledInputs";
 import { Button } from "~/components/ui/button";
 import { Form } from "~/components/ui/form";
+import { useOAuthAppInfo } from "~/hooks/oauthApps";
+
+import { CopyText } from "../composed/CopyText";
+import { CustomMarkdownComponents } from "../react-markdown";
 
 type OAuthAppFormProps = {
-    appSpec: OAuthAppInfo;
+    type: OAuthProvider;
     onSubmit: (data: OAuthAppParams) => void;
-    oauthApp?: OAuthApp;
 };
 
-export function OAuthAppForm({
-    appSpec,
-    onSubmit,
-    oauthApp,
-}: OAuthAppFormProps) {
-    const isEdit = !!oauthApp;
+export function OAuthAppForm({ type, onSubmit }: OAuthAppFormProps) {
+    const spec = useOAuthAppInfo(type);
+    useEffect(() => {
+        OauthAppService.getSupportedOauthAppTypes();
+    }, []);
+
+    const isEdit = !!spec.customApp;
 
     const fields = useMemo(() => {
-        return Object.entries(appSpec.parameters).map(([key, label]) => ({
+        return Object.entries(spec.schema.shape).map(([key]) => ({
             key: key as keyof OAuthAppParams,
-            label,
+            label: spec.labels[key],
         }));
-    }, [appSpec.parameters]);
-
-    const schema = useMemo(() => {
-        return z.object(
-            fields.reduce(
-                (acc, { key }) => {
-                    acc[key] = z.string();
-                    return acc;
-                },
-                {} as Record<keyof OAuthAppParams, z.ZodString>
-            )
-        );
-    }, [fields]);
+    }, [spec.schema, spec.labels]);
 
     const defaultValues = useMemo(() => {
+        const app = spec.customApp;
+
         return fields.reduce((acc, { key }) => {
-            acc[key] = oauthApp?.[key] ?? "";
+            acc[key] = app?.[key] ?? "";
 
             // if editing, use placeholder to show secret value exists
             // use a uuid to ensure it never collides with a real secret
@@ -53,11 +54,11 @@ export function OAuthAppForm({
 
             return acc;
         }, {} as OAuthAppParams);
-    }, [fields, oauthApp, isEdit]);
+    }, [fields, spec.customApp, isEdit]);
 
     const form = useForm({
         defaultValues,
-        resolver: zodResolver(schema),
+        resolver: zodResolver(spec.schema),
     });
 
     useEffect(() => {
@@ -75,29 +76,59 @@ export function OAuthAppForm({
             onSubmit(data);
         }
     });
+
     return (
         <Form {...form}>
             <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-                {fields.map(({ key, label }) => (
-                    <ControlledInput
-                        key={key}
-                        name={key}
-                        label={label}
-                        control={form.control}
-                        {...(key === "clientSecret"
-                            ? {
-                                  onBlur: onBlurClientSecret,
-                                  onFocus: onFocusClientSecret,
-                                  type: "password",
-                              }
-                            : {})}
-                    />
-                ))}
+                {spec.steps.map(renderStep)}
 
                 <Button type="submit">Submit</Button>
             </form>
         </Form>
     );
+
+    function renderStep(step: OAuthFormStep) {
+        switch (step.type) {
+            case "instruction":
+                return (
+                    <Markdown
+                        className={cn(
+                            "flex-auto max-w-full prose overflow-x-auto dark:prose-invert prose-pre:whitespace-pre-wrap prose-pre:break-words prose-thead:text-left prose-img:rounded-xl prose-img:shadow-lg break-words"
+                        )}
+                        components={CustomMarkdownComponents}
+                        rehypePlugins={[
+                            [rehypeExternalLinks, { target: "_blank" }],
+                        ]}
+                    >
+                        {step.text}
+                    </Markdown>
+                );
+            case "input": {
+                const isRequired = !spec.schema.shape[step.input].isOptional();
+
+                const label = isRequired
+                    ? `${spec.labels[step.input]} *`
+                    : spec.labels[step.input];
+
+                return (
+                    <ControlledInput
+                        key={step.input}
+                        name={step.input as keyof OAuthAppParams}
+                        label={label}
+                        control={form.control}
+                        {...(step.input === "clientSecret" && {
+                            onBlur: onBlurClientSecret,
+                            onFocus: onFocusClientSecret,
+                            type: "password",
+                        })}
+                    />
+                );
+            }
+            case "copy": {
+                return <CopyText text={step.text} className="justify-center" />;
+            }
+        }
+    }
 
     function onBlurClientSecret() {
         if (!isEdit) return;
