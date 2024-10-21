@@ -135,7 +135,7 @@ export const WebsiteModal: FC<WebsiteModalProps> = ({
                         </Button>
                     </div>
                 </DialogTitle>
-                <ScrollArea className="max-h-[800px] overflow-x-auto">
+                <ScrollArea className="max-h-[45vh] overflow-x-auto">
                     <div className="max-h-[400px] overflow-x-auto">
                         {websites.map((website, index) => (
                             <ScrollArea

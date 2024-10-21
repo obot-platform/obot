@@ -100,7 +100,7 @@ export const NotionModal: FC<NotionModalProps> = ({
                         </div>
                     </DialogTitle>
                 </DialogHeader>
-                <ScrollArea className="max-h-[800px]">
+                <ScrollArea className="max-h-[45vh] flex-grow">
                     <div className="flex flex-col gap-2">
                         {knowledgeFiles.map((item) => (
                             <RemoteFileItemChip
