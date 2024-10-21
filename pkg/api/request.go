@@ -216,10 +216,6 @@ func (r *Context) Update(obj client.Object) error {
 	return r.Storage.Update(r.Request.Context(), obj)
 }
 
-func (r *Context) UpdateStatus(obj client.Object) error {
-	return r.Storage.Status().Update(r.Request.Context(), obj)
-}
-
 func (r *Context) Namespace() string {
 	return "default"
 }

@@ -78,8 +78,8 @@ func (a *WebhookHandler) Update(req api.Context) error {
 	}
 
 	if hash != nil {
-		wh.Status.PasswordHash = hash
-		if err := req.UpdateStatus(&wh); err != nil {
+		wh.Spec.PasswordHash = hash
+		if err := req.Update(&wh); err != nil {
 			return err
 		}
 	}
@@ -141,8 +141,8 @@ func (a *WebhookHandler) Create(req api.Context) error {
 	}
 
 	if hash != nil {
-		wh.Status.PasswordHash = hash
-		if err := req.UpdateStatus(&wh); err != nil {
+		wh.Spec.PasswordHash = hash
+		if err := req.Update(&wh); err != nil {
 			return err
 		}
 	}
@@ -216,13 +216,13 @@ func (a *WebhookHandler) Execute(req api.Context) error {
 		}
 	}
 
-	if webhook.Status.PasswordHash != nil {
+	if webhook.Spec.PasswordHash != nil {
 		password := req.Request.Header.Get(PasswordHTTPHeader)
 		if password == "" {
 			password = req.Request.URL.Query().Get(PasswordQueryParam)
 		}
 
-		if err := bcrypt.CompareHashAndPassword(webhook.Status.PasswordHash, []byte(password)); err != nil {
+		if err := bcrypt.CompareHashAndPassword(webhook.Spec.PasswordHash, []byte(password)); err != nil {
 			req.WriteHeader(http.StatusForbidden)
 			return nil
 		}

@@ -43,13 +43,13 @@ func (w *Webhook) GetConditions() *[]metav1.Condition {
 
 type WebhookSpec struct {
 	types.WebhookManifest `json:",inline"`
+	PasswordHash          []byte `json:"passwordHash,omitempty"`
 }
 
 type WebhookStatus struct {
 	Conditions                 []metav1.Condition          `json:"conditions,omitempty"`
 	External                   types.WebhookExternalStatus `json:"external,omitempty"`
 	LastSuccessfulRunCompleted *metav1.Time                `json:"lastSuccessfulRunCompleted,omitempty"`
-	PasswordHash               []byte                      `json:"passwordHash,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

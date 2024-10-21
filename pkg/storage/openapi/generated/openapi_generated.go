@@ -6029,6 +6029,12 @@ func schema_storage_apis_ottogptscriptai_v1_WebhookSpec(ref common.ReferenceCall
 							Format: "",
 						},
 					},
+					"passwordHash": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "byte",
+						},
+					},
 				},
 			},
 		},
@@ -6063,12 +6069,6 @@ func schema_storage_apis_ottogptscriptai_v1_WebhookStatus(ref common.ReferenceCa
 					"lastSuccessfulRunCompleted": {
 						SchemaProps: spec.SchemaProps{
 							Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.Time"),
-						},
-					},
-					"passwordHash": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "byte",
 						},
 					},
 				},
