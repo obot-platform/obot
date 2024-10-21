@@ -38,6 +38,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
                     name="viewport"
                     content="width=device-width, initial-scale=1"
                 />
+                <link rel="icon shortcut icon apple-touch-icon" href="/admin/favicon.ico" />
                 <Meta />
                 <Links />
             </head>
