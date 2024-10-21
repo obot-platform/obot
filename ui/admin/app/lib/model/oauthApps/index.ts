@@ -1,21 +1,21 @@
 import { EntityMeta } from "~/lib/model/primitives";
 
 import { GitHubOAuthApp } from "./github";
-import { OAuthProvider, OAuthSingleAppSpec } from "./oauth-helpers";
+import { OAuthAppSpec, OAuthProvider } from "./oauth-helpers";
 
-export const OAuthAppInfo = {
+export const OAuthAppSpecMap = {
     [OAuthProvider.GitHub]: GitHubOAuthApp,
 } as const;
 
-export type CombinedOAuthAppInfo = OAuthSingleAppSpec & {
+export type OAuthAppDetail = OAuthAppSpec & {
     customApp?: OAuthApp;
 };
 
 export const combinedOAuthAppInfo = (apps: OAuthApp[]) => {
-    return Object.entries(OAuthAppInfo).map(([type, defaultSpec]) => {
+    return Object.entries(OAuthAppSpecMap).map(([type, defaultSpec]) => {
         const customApp = apps.find((app) => app.type === type);
 
-        return { ...defaultSpec, customApp } as CombinedOAuthAppInfo;
+        return { ...defaultSpec, customApp } as OAuthAppDetail;
     });
 };
 
@@ -44,11 +44,3 @@ export type OAuthApp = EntityMeta &
     OAuthAppBase & {
         refNameAssigned?: boolean;
     };
-
-export type OAuthAppInfo = {
-    displayName: string;
-    icon?: string;
-    parameters: Record<keyof OAuthAppParams, string>;
-};
-
-export type OAuthAppSpec = Record<string, OAuthAppInfo>;

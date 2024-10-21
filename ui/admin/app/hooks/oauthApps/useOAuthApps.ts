@@ -1,10 +1,7 @@
 import { useMemo } from "react";
 import useSWR from "swr";
 
-import {
-    CombinedOAuthAppInfo,
-    combinedOAuthAppInfo,
-} from "~/lib/model/oauthApps";
+import { combinedOAuthAppInfo } from "~/lib/model/oauthApps";
 import { OAuthProvider } from "~/lib/model/oauthApps/oauth-helpers";
 import { OauthAppService } from "~/lib/service/api/oauthAppService";
 
@@ -26,7 +23,7 @@ export function useOAuthAppList(config?: { revalidate?: boolean }) {
 }
 useOAuthAppList.key = key;
 
-export function useOAuthAppInfo(type: OAuthProvider): CombinedOAuthAppInfo {
+export function useOAuthAppInfo(type: OAuthProvider) {
     const list = useOAuthAppList({ revalidate: false });
 
     const app = useMemo(

@@ -9,7 +9,6 @@ import {
     OAuthFormStep,
     OAuthProvider,
 } from "~/lib/model/oauthApps/oauth-helpers";
-import { OauthAppService } from "~/lib/service/api/oauthAppService";
 import { cn } from "~/lib/utils";
 
 import { CopyText } from "~/components/composed/CopyText";
@@ -28,9 +27,6 @@ type OAuthAppFormProps = {
 
 export function OAuthAppForm({ type, onSubmit, isLoading }: OAuthAppFormProps) {
     const spec = useOAuthAppInfo(type);
-    useEffect(() => {
-        OauthAppService.getSupportedOauthAppTypes();
-    }, []);
 
     const isEdit = !!spec.customApp;
 

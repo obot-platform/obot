@@ -1,10 +1,6 @@
 import { z } from "zod";
 
-import {
-    OAuthFormStep,
-    OAuthSingleAppSpec,
-    getOAuthLinks,
-} from "./oauth-helpers";
+import { OAuthAppSpec, OAuthFormStep, getOAuthLinks } from "./oauth-helpers";
 
 const schema = z.object({
     clientID: z.string(),
@@ -50,4 +46,4 @@ export const GitHubOAuthApp = {
     type: "github",
     displayName: "GitHub",
     steps,
-} satisfies OAuthSingleAppSpec;
+} satisfies OAuthAppSpec;

@@ -2,8 +2,8 @@ import { SettingsIcon } from "lucide-react";
 
 import { OAuthApp } from "~/lib/model/oauthApps";
 import {
+    OAuthAppSpec,
     OAuthProvider,
-    OAuthSingleAppSpec,
 } from "~/lib/model/oauthApps/oauth-helpers";
 import { cn } from "~/lib/utils";
 
@@ -67,7 +67,7 @@ export function OAuthAppDetail({
     );
 }
 
-function EmptyContent({ spec }: { spec: OAuthSingleAppSpec }) {
+function EmptyContent({ spec }: { spec: OAuthAppSpec }) {
     return (
         <div className="flex flex-col gap-2">
             <TypographyP>
@@ -85,7 +85,7 @@ function EmptyContent({ spec }: { spec: OAuthSingleAppSpec }) {
     );
 }
 
-function Content({ app, spec }: { app: OAuthApp; spec: OAuthSingleAppSpec }) {
+function Content({ app, spec }: { app: OAuthApp; spec: OAuthAppSpec }) {
     return (
         <div className="flex flex-col gap-2">
             <TypographyP>

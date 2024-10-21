@@ -1,4 +1,4 @@
-import { OAuthApp, OAuthAppBase, OAuthAppSpec } from "~/lib/model/oauthApps";
+import { OAuthApp, OAuthAppBase } from "~/lib/model/oauthApps";
 import { ApiRoutes } from "~/lib/routers/apiRoutes";
 
 import { request } from "./primitives";
@@ -58,17 +58,6 @@ const deleteOauthApp = async (id: string) => {
     });
 };
 
-const getSupportedOauthAppTypes = async () => {
-    const res = await request<OAuthAppSpec>({
-        url: ApiRoutes.oauthApps.supportedOauthAppTypes().url,
-        errorMessage: "Failed to get supported OAuth app types",
-    });
-
-    return new Map(Object.entries(res.data));
-};
-getSupportedOauthAppTypes.key = () =>
-    ({ url: ApiRoutes.oauthApps.supportedOauthAppTypes().path }) as const;
-
 const getSupportedAuthTypes = async () => {
     const res = await request({
         url: ApiRoutes.oauthApps.supportedAuthTypes().url,
@@ -86,6 +75,5 @@ export const OauthAppService = {
     createOauthApp,
     updateOauthApp,
     deleteOauthApp,
-    getSupportedOauthAppTypes,
     getSupportedAuthTypes,
 };
