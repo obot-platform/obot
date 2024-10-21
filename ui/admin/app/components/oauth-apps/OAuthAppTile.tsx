@@ -17,7 +17,11 @@ export function OAuthAppTile({ type }: { type: OAuthProvider }) {
 
     return (
         <Card className="relative max-w-[300px] h-[150px] p-4 flex gap-4 justify-center items-center">
-            <img src={info.logo} alt={displayName} className="dark:invert" />
+            <img
+                src={info.logo}
+                alt={displayName}
+                className="dark:invert m-4"
+            />
 
             <OAuthAppDetail type={type} className="absolute top-2 right-2" />
         </Card>

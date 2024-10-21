@@ -4,11 +4,6 @@ import { apiBaseUrl } from "~/lib/routers/apiRoutes";
 
 export const OAuthProvider = {
     GitHub: "github",
-    // Google: "google",
-    // HubSpot: "hubspot",
-    // Microsoft365: "microsoft365",
-    // Notion: "notion",
-    // Slack: "slack",
 } as const;
 export type OAuthProvider = (typeof OAuthProvider)[keyof typeof OAuthProvider];
 

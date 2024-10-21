@@ -54,6 +54,7 @@ export function CopyText({
                 size="icon"
                 onClick={() => handleCopy(text)}
                 className="aspect-square"
+                variant="secondary"
                 type="button"
             >
                 {isCopied ? (
