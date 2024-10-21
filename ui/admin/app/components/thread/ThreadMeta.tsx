@@ -41,14 +41,6 @@ export function ThreadMeta({
                         <tbody>
                             <tr className="border-foreground/25">
                                 <td className="font-medium py-2 pr-4">
-                                    Description
-                                </td>
-                                <td className="text-right">
-                                    {thread.description}
-                                </td>
-                            </tr>
-                            <tr className="border-foreground/25">
-                                <td className="font-medium py-2 pr-4">
                                     Created
                                 </td>
                                 <td className="text-right">
