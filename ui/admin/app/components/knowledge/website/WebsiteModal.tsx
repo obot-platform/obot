@@ -261,19 +261,23 @@ export const WebsiteModal: FC<WebsiteModalProps> = ({
                         Close
                     </Button>
                 </div>
-                <RemoteSourceSettingModal
-                    agentId={agentId}
-                    isOpen={isSettingModalOpen}
-                    onOpenChange={setIsSettingModalOpen}
-                    remoteKnowledgeSource={websiteSource!}
-                />
-                <AddWebsiteModal
-                    agentId={agentId}
-                    websiteSource={websiteSource!}
-                    startPolling={startPolling}
-                    isOpen={isAddWebsiteModalOpen}
-                    onOpenChange={setIsAddWebsiteModalOpen}
-                />
+                {websiteSource && (
+                    <>
+                        <RemoteSourceSettingModal
+                            agentId={agentId}
+                            isOpen={isSettingModalOpen}
+                            onOpenChange={setIsSettingModalOpen}
+                            remoteKnowledgeSource={websiteSource}
+                        />
+                        <AddWebsiteModal
+                            agentId={agentId}
+                            websiteSource={websiteSource}
+                            startPolling={startPolling}
+                            isOpen={isAddWebsiteModalOpen}
+                            onOpenChange={setIsAddWebsiteModalOpen}
+                        />
+                    </>
+                )}
             </DialogContent>
         </Dialog>
     );

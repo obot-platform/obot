@@ -160,12 +160,16 @@ export const NotionModal: FC<NotionModalProps> = ({
                     </Button>
                 </div>
             </DialogContent>
-            <RemoteSourceSettingModal
-                agentId={agentId}
-                isOpen={isSettingModalOpen}
-                onOpenChange={setIsSettingModalOpen}
-                remoteKnowledgeSource={notionSource!}
-            />
+            {notionSource && (
+                <>
+                    <RemoteSourceSettingModal
+                        agentId={agentId}
+                        isOpen={isSettingModalOpen}
+                        onOpenChange={setIsSettingModalOpen}
+                        remoteKnowledgeSource={notionSource}
+                    />
+                </>
+            )}
         </Dialog>
     );
 };

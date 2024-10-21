@@ -348,19 +348,23 @@ export const OnedriveModal: FC<OnedriveModalProps> = ({
                         Close
                     </Button>
                 </div>
-                <RemoteSourceSettingModal
-                    agentId={agentId}
-                    isOpen={isSettingModalOpen}
-                    onOpenChange={setIsSettingModalOpen}
-                    remoteKnowledgeSource={onedriveSource!}
-                />
-                <AddLinkModal
-                    agentId={agentId}
-                    onedriveSource={onedriveSource!}
-                    startPolling={startPolling}
-                    isOpen={isAddLinkModalOpen}
-                    onOpenChange={setIsAddLinkModalOpen}
-                />
+                {onedriveSource && (
+                    <>
+                        <RemoteSourceSettingModal
+                            agentId={agentId}
+                            isOpen={isSettingModalOpen}
+                            onOpenChange={setIsSettingModalOpen}
+                            remoteKnowledgeSource={onedriveSource}
+                        />
+                        <AddLinkModal
+                            agentId={agentId}
+                            onedriveSource={onedriveSource}
+                            startPolling={startPolling}
+                            isOpen={isAddLinkModalOpen}
+                            onOpenChange={setIsAddLinkModalOpen}
+                        />
+                    </>
+                )}
             </DialogContent>
         </Dialog>
     );
