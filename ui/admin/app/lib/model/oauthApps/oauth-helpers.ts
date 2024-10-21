@@ -9,7 +9,12 @@ export type OAuthProvider = (typeof OAuthProvider)[keyof typeof OAuthProvider];
 
 export type OAuthFormStep<T extends object = Record<string, string>> =
     | { type: "markdown"; text: string; copy?: string }
-    | { type: "input"; input: keyof T; label: string }
+    | {
+          type: "input";
+          input: keyof T;
+          label: string;
+          inputType?: "password" | "text";
+      }
     | { type: "copy"; text: string };
 
 export type OAuthAppSpec = {

@@ -19,9 +19,8 @@ import {
 } from "~/components/ui/dialog";
 import { useOAuthAppInfo } from "~/hooks/oauthApps/useOAuthApps";
 
-import { CreateOauthApp } from "./CreateOauthApp";
+import { ConfigureOAuthApp } from "./ConfigureOAuthApp";
 import { DeleteOAuthApp } from "./DeleteOAuthApp";
-import { EditOAuthApp } from "./EditOAuthApp";
 import { OAuthAppTypeIcon } from "./OAuthAppTypeIcon";
 
 export function OAuthAppDetail({
@@ -71,16 +70,17 @@ function EmptyContent({ spec }: { spec: OAuthAppSpec }) {
     return (
         <div className="flex flex-col gap-2">
             <TypographyP>
-                {spec.displayName} OAuth is automatically being handled by the
-                Acorn Gateway
+                {spec.displayName} OAuth is currently enabled and preconfigured
+                to use the Acorn Gateway.
             </TypographyP>
 
             <TypographyP className="mb-4">
-                If you would like Otto to use your own custom {spec.displayName}{" "}
-                OAuth App, you can configure it by clicking the button below.
+                If your current Otto instance does not have access to Acorn
+                Gateway, you can configure your own {spec.displayName} OAuth by
+                clicking the button below.
             </TypographyP>
 
-            <CreateOauthApp type={spec.type} />
+            <ConfigureOAuthApp type={spec.type} />
         </div>
     );
 }
@@ -89,7 +89,9 @@ function Content({ app, spec }: { app: OAuthApp; spec: OAuthAppSpec }) {
     return (
         <div className="flex flex-col gap-2">
             <TypographyP>
-                You have a custom configuration for {spec.displayName} OAuth.
+                Otto only supports one custom {spec.displayName} OAuth. If you
+                need to use a different configuration, you can replace the
+                current configuration with a new one.
             </TypographyP>
 
             <TypographyP>
@@ -109,8 +111,8 @@ function Content({ app, spec }: { app: OAuthApp; spec: OAuthAppSpec }) {
                 <TypographyP>****************</TypographyP>
             </div>
 
-            <EditOAuthApp type={app.type} />
-            <DeleteOAuthApp disableTooltip id={app.id} />
+            <ConfigureOAuthApp type={app.type} />
+            <DeleteOAuthApp type={app.type} disableTooltip id={app.id} />
         </div>
     );
 }

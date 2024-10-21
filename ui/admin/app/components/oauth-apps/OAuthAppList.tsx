@@ -9,11 +9,12 @@ export function OAuthAppList() {
     return (
         <div className="space-y-10 w-3/4 mx-auto">
             <div>
-                <TypographyH3>Pre-configured OAuth Apps</TypographyH3>
+                <TypographyH3>Supported OAuth Apps</TypographyH3>
+
                 <TypographyP className="!mt-0">
-                    These apps are pre-configured and ready to use. For the most
-                    part, you should not need to configure any additional OAuth
-                    apps.
+                    These are the currently supported OAuth apps for Otto. These
+                    are here to allow users to access the following services via
+                    tools.
                 </TypographyP>
             </div>
 

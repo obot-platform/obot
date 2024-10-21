@@ -28,8 +28,6 @@ type OAuthAppFormProps = {
 export function OAuthAppForm({ type, onSubmit, isLoading }: OAuthAppFormProps) {
     const spec = useOAuthAppInfo(type);
 
-    const isEdit = !!spec.customApp;
-
     const fields = useMemo(() => {
         return Object.entries(spec.schema.shape).map(([key]) => ({
             key: key as keyof OAuthAppParams,
@@ -37,20 +35,11 @@ export function OAuthAppForm({ type, onSubmit, isLoading }: OAuthAppFormProps) {
     }, [spec.schema]);
 
     const defaultValues = useMemo(() => {
-        const app = spec.customApp;
-
         return fields.reduce((acc, { key }) => {
-            acc[key] = app?.[key] ?? "";
-
-            // if editing, use placeholder to show secret value exists
-            // use a uuid to ensure it never collides with a real secret
-            if (key === "clientSecret" && isEdit) {
-                acc.clientSecret = SECRET_PLACEHOLDER;
-            }
-
+            acc[key] = "";
             return acc;
         }, {} as OAuthAppParams);
-    }, [fields, spec.customApp, isEdit]);
+    }, [fields]);
 
     const form = useForm({
         defaultValues,
@@ -61,17 +50,7 @@ export function OAuthAppForm({ type, onSubmit, isLoading }: OAuthAppFormProps) {
         form.reset(defaultValues);
     }, [defaultValues, form]);
 
-    const handleSubmit = form.handleSubmit((data) => {
-        const { clientSecret, ...rest } = data;
-
-        // if the user skips editing the client secret, we don't want to submit an empty string
-        // because that will clear it out on the server
-        if (isEdit && clientSecret === SECRET_PLACEHOLDER) {
-            onSubmit(rest);
-        } else {
-            onSubmit(data);
-        }
-    });
+    const handleSubmit = form.handleSubmit(onSubmit);
 
     return (
         <Form {...form}>
@@ -109,11 +88,7 @@ export function OAuthAppForm({ type, onSubmit, isLoading }: OAuthAppFormProps) {
                         name={step.input as keyof OAuthAppParams}
                         label={step.label}
                         control={form.control}
-                        {...(step.input === "clientSecret" && {
-                            onBlur: onBlurClientSecret,
-                            onFocus: onFocusClientSecret,
-                            type: "password",
-                        })}
+                        type={step.inputType}
                     />
                 );
             }
@@ -122,26 +97,4 @@ export function OAuthAppForm({ type, onSubmit, isLoading }: OAuthAppFormProps) {
             }
         }
     }
-
-    function onBlurClientSecret() {
-        if (!isEdit) return;
-
-        const { clientSecret } = form.getValues();
-
-        if (!clientSecret) {
-            form.setValue("clientSecret", SECRET_PLACEHOLDER);
-        }
-    }
-
-    function onFocusClientSecret() {
-        if (!isEdit) return;
-
-        const { clientSecret } = form.getValues();
-
-        if (clientSecret === SECRET_PLACEHOLDER) {
-            form.setValue("clientSecret", "");
-        }
-    }
 }
-
-const SECRET_PLACEHOLDER = crypto.randomUUID();

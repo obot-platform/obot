@@ -1,32 +1,32 @@
 import { z } from "zod";
 
+import { BaseUrl } from "~/lib/routers/baseRouter";
 import { assetUrl } from "~/lib/utils";
 
 import { OAuthAppSpec, OAuthFormStep, getOAuthLinks } from "./oauth-helpers";
 
 const schema = z.object({
-    clientID: z.string(),
-    clientSecret: z.string(),
+    clientID: z.string().min(1, "Client ID is required"),
+    clientSecret: z.string().min(1, "Client Secret is required"),
 });
 
 const steps: OAuthFormStep<typeof schema.shape>[] = [
     {
         type: "markdown",
-        text: "### Step 1: Create a new GitHub OAuth App\n",
+        text:
+            "### Step 1: Create a new GitHub OAuth App\n" +
+            "1. In [GitHub's Developer Settings](https://github.com/settings/developers), select `New OAuth App`.\n" +
+            "2. Specify an `Application name`\n" +
+            "3. Fill in the `Homepage URL` with the link below\n",
     },
     {
-        type: "markdown",
-        text:
-            "#### If you haven't already, create a new GitHub OAuth App\n" +
-            "1. Navigate to [GitHub's Developer Settings](https://github.com/settings/developers) and select `New OAuth App`.\n" +
-            "2. The form will prompt you for an `Authorization callback Url` Make sure to use the link below: \n\n",
+        type: "copy",
+        text: BaseUrl,
     },
+
     {
         type: "markdown",
-        text:
-            "#### If you already have a github OAuth app created\n" +
-            "1. you can edit it by going to [Github's Developer Settings](https://github.com/settings/developers), and selecting `Edit` on your OAuth App\n" +
-            "2. Near the bottom is the `Authorization callback URL` field. Make sure it matches the link below: \n\n",
+        text: "4. Fill in the `Authorization callback URL` with the link below\n",
     },
     {
         type: "copy",
@@ -35,11 +35,23 @@ const steps: OAuthFormStep<typeof schema.shape>[] = [
     {
         type: "markdown",
         text:
-            "### Step 2: Register OAuth App in Otto\n" +
-            "Once you've created your OAuth App in GitHub, copy the client ID and client secret into this form",
+            "5. Click `Register application` to create the OAuth app. It will now take you to the OAuth app's settings page.\n" +
+            "### Step 2: Register GitHub OAuth in Otto\n" +
+            "1. Locate the `Client ID` on the OAuth app's settings page and copy the `Client ID` into the input below\n",
     },
     { type: "input", input: "clientID", label: "Client ID" },
-    { type: "input", input: "clientSecret", label: "Client Secret" },
+    {
+        type: "markdown",
+        text:
+            "2. Locate `Client Secrets` on the OAuth app's settings page, click `Generate new client secret`, and complete the authorization flow to generate a new secret.\n" +
+            "3. Copy the newly generated `Client Secret` into the input below.",
+    },
+    {
+        type: "input",
+        input: "clientSecret",
+        label: "Client Secret",
+        inputType: "password",
+    },
 ];
 
 export const GitHubOAuthApp = {

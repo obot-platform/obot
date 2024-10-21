@@ -16,7 +16,7 @@ export function OAuthAppTile({ type }: { type: OAuthProvider }) {
     const { displayName } = info;
 
     return (
-        <Card className="relative max-w-[300px] h-[150px] p-4 flex gap-4 justify-center items-center">
+        <Card className="relative w-[300px] h-[150px] p-4 flex gap-4 justify-center items-center">
             <img
                 src={info.logo}
                 alt={displayName}

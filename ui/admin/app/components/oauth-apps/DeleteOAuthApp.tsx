@@ -1,7 +1,7 @@
-import { TrashIcon } from "lucide-react";
 import { toast } from "sonner";
 import { mutate } from "swr";
 
+import { OAuthProvider } from "~/lib/model/oauthApps/oauth-helpers";
 import { OauthAppService } from "~/lib/service/api/oauthAppService";
 
 import { ConfirmationDialog } from "~/components/composed/ConfirmationDialog";
@@ -13,21 +13,28 @@ import {
     TooltipProvider,
     TooltipTrigger,
 } from "~/components/ui/tooltip";
-import { useOAuthAppList } from "~/hooks/oauthApps/useOAuthApps";
+import {
+    useOAuthAppInfo,
+    useOAuthAppList,
+} from "~/hooks/oauthApps/useOAuthApps";
 import { useAsync } from "~/hooks/useAsync";
 
 export function DeleteOAuthApp({
     id,
     disableTooltip,
+    type,
 }: {
     id: string;
     disableTooltip?: boolean;
+    type: OAuthProvider;
 }) {
+    const spec = useOAuthAppInfo(type);
+
     const deleteOAuthApp = useAsync(async () => {
         await OauthAppService.deleteOauthApp(id);
         await mutate(useOAuthAppList.key());
 
-        toast.success("OAuth app deleted");
+        toast.success(`${spec.displayName} OAuth configuration deleted`);
     });
 
     return (
@@ -35,12 +42,12 @@ export function DeleteOAuthApp({
             <TooltipProvider>
                 <Tooltip open={getIsOpen()}>
                     <ConfirmationDialog
-                        title={`Delete OAuth App`}
-                        description="Are you sure you want to delete this OAuth app?"
+                        title={`Reset ${spec.displayName} OAuth to use Acorn Gateway`}
+                        description={`By clicking \`Reset\`, you will delete your custom ${spec.displayName} OAuth configuration and reset to use Acorn Gateway.`}
                         onConfirm={deleteOAuthApp.execute}
                         confirmProps={{
                             variant: "destructive",
-                            children: "Delete",
+                            children: "Reset",
                         }}
                     >
                         <TooltipTrigger asChild>
@@ -51,10 +58,9 @@ export function DeleteOAuthApp({
                             >
                                 {deleteOAuthApp.isLoading ? (
                                     <LoadingSpinner className="w-4 h-4 mr-2" />
-                                ) : (
-                                    <TrashIcon className="w-4 h-4 mr-2" />
-                                )}
-                                Delete OAuth App
+                                ) : null}
+                                Reset {spec.displayName} OAuth to use Acorn
+                                Gateway
                             </Button>
                         </TooltipTrigger>
                     </ConfirmationDialog>
