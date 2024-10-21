@@ -122,7 +122,7 @@ type FileDetails = {
 };
 
 export type KnowledgeFile = {
-    id?: string;
+    id: string;
     deleted?: string;
     fileName: string;
     agentID?: string;
@@ -189,4 +189,12 @@ export function getMessage(
     }
 
     return msg || "Queued";
+}
+
+export function getIngestedFilesCount(knowledge: KnowledgeFile[]) {
+    return knowledge.filter(
+        (item) =>
+            item.ingestionStatus?.status === IngestionStatus.Finished ||
+            item.ingestionStatus?.status === IngestionStatus.Skipped
+    ).length;
 }

@@ -80,7 +80,6 @@ func (c *Controller) setupRoutes() error {
 
 	// Knowledge files
 	root.Type(&v1.KnowledgeFile{}).HandlerFunc(cleanup.Cleanup)
-	root.Type(&v1.KnowledgeFile{}).HandlerFunc(knowledge.BindWorkspace)
 	root.Type(&v1.KnowledgeFile{}).FinalizeFunc(v1.KnowledgeFileFinalizer, knowledge.CleanupFile)
 
 	// Workspaces

@@ -367,7 +367,6 @@ func compileKnowledgeFiles(ctx context.Context, c client.Client,
 		} else if err != nil {
 			errs = append(errs, err)
 		}
-
 	}
 
 	if len(errs) > 0 {

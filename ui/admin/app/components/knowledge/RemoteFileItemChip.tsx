@@ -1,5 +1,4 @@
 import { PlusIcon } from "lucide-react";
-import { useEffect, useState } from "react";
 
 import {
     KnowledgeFile,
@@ -37,10 +36,6 @@ export default function RemoteFileItemChip({
     approveFile,
     ...props
 }: RemoteFileItemProps) {
-    const [isApproved, setIsApproved] = useState(false);
-    useEffect(() => {
-        setIsApproved(file.approved!);
-    }, [file.approved]);
     return (
         <TooltipProvider>
             <Tooltip>
@@ -53,7 +48,7 @@ export default function RemoteFileItemChip({
                             {
                                 "bg-destructive-background border-destructive hover:cursor-pointer":
                                     error,
-                                "grayscale opacity-60": !isApproved,
+                                "grayscale opacity-60": !file.approved,
                             },
                             className
                         )}
@@ -83,29 +78,31 @@ export default function RemoteFileItemChip({
                             </span>
                         </div>
 
-                        {isApproved ? (
-                            // eslint-disable-next-line
-                            <div
-                                className="hover:cursor-pointer"
-                                onClick={() => {
-                                    setIsApproved(false);
-                                    approveFile(file, false);
-                                }}
-                            >
-                                <FileStatusIcon status={file.ingestionStatus} />
-                            </div>
-                        ) : (
-                            <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => {
-                                    setIsApproved(true);
-                                    approveFile(file, true);
-                                }}
-                            >
-                                <PlusIcon className="w-4 h-4" />
-                            </Button>
-                        )}
+                        <div className="mr-2">
+                            {file.approved ? (
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => {
+                                        approveFile(file, false);
+                                    }}
+                                >
+                                    <FileStatusIcon
+                                        status={file.ingestionStatus}
+                                    />
+                                </Button>
+                            ) : (
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => {
+                                        approveFile(file, true);
+                                    }}
+                                >
+                                    <PlusIcon className="w-4 h-4" />
+                                </Button>
+                            )}
+                        </div>
                     </div>
                 </TooltipTrigger>
             </Tooltip>

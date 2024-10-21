@@ -13,6 +13,7 @@ import {
 } from "~/components/ui/dialog";
 import { Input } from "~/components/ui/input";
 import { Switch } from "~/components/ui/switch";
+import { useAsync } from "~/hooks/useAsync";
 
 type RemoteSourceSettingModalProps = {
     agentId: string;
@@ -27,38 +28,36 @@ const RemoteSourceSettingModal: React.FC<RemoteSourceSettingModalProps> = ({
     onOpenChange,
     remoteKnowledgeSource,
 }) => {
-    const [autoApprove, setAutoApprove] = useState(
-        remoteKnowledgeSource.autoApprove || false
-    );
-
-    const [syncSchedule, setSyncSchedule] = useState(
-        remoteKnowledgeSource.syncSchedule || ""
-    );
+    const [autoApprove, setAutoApprove] = useState(false);
 
     useEffect(() => {
-        setSyncSchedule(remoteKnowledgeSource.syncSchedule || "");
+        setAutoApprove(remoteKnowledgeSource?.autoApprove || false);
     }, [remoteKnowledgeSource]);
 
-    const handleSave = async () => {
-        try {
-            await KnowledgeService.updateRemoteKnowledgeSource(
-                agentId,
-                remoteKnowledgeSource.id,
-                {
-                    ...remoteKnowledgeSource,
-                    syncSchedule,
-                    autoApprove,
-                }
-            );
-            onOpenChange(false);
-        } catch (error) {
-            console.error("Failed to update sync schedule:", error);
-        }
+    const [syncSchedule, setSyncSchedule] = useState("");
+
+    useEffect(() => {
+        setSyncSchedule(remoteKnowledgeSource?.syncSchedule || "");
+    }, [remoteKnowledgeSource]);
+
+    const updateRemoteKnowledgeSource = async () => {
+        await KnowledgeService.updateRemoteKnowledgeSource(
+            agentId,
+            remoteKnowledgeSource.id,
+            {
+                ...remoteKnowledgeSource,
+                syncSchedule,
+                autoApprove,
+            }
+        );
+        onOpenChange(false);
     };
+
+    const handleSave = useAsync(updateRemoteKnowledgeSource);
 
     return (
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
-            <DialogContent>
+            <DialogContent aria-describedby={undefined}>
                 <DialogHeader>
                     <DialogTitle>Update Source Settings</DialogTitle>
                 </DialogHeader>
@@ -91,14 +90,9 @@ const RemoteSourceSettingModal: React.FC<RemoteSourceSettingModalProps> = ({
                             id="autoApprove"
                             className="mr-2"
                             checked={autoApprove}
-                            onChange={() => setAutoApprove(!autoApprove)}
+                            onClick={() => setAutoApprove((prev) => !prev)}
                         />
-                        <label
-                            htmlFor="autoApprove"
-                            className="text-sm text-gray-600 dark:text-gray-400 mr-2"
-                        >
-                            Include new pages
-                        </label>
+                        Include new pages
                     </div>
                     <p className="text-sm text-gray-500 mt-4">
                         If enabled, new pages will be added to the knowledge
@@ -106,7 +100,7 @@ const RemoteSourceSettingModal: React.FC<RemoteSourceSettingModalProps> = ({
                     </p>
                 </div>
                 <DialogFooter>
-                    <Button onClick={handleSave}>Save</Button>
+                    <Button onClick={handleSave.execute}>Save</Button>
                 </DialogFooter>
             </DialogContent>
         </Dialog>

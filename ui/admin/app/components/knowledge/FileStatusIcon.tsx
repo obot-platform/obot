@@ -35,7 +35,7 @@ const FileStatusIcon: React.FC<FileStatusIconProps> = ({ status }) => {
     const [Icon, className] = ingestionIcons[status.status];
 
     return (
-        <div className={cn("flex items-center mr-2", className)}>
+        <div className={cn("flex items-center", className)}>
             <TooltipProvider>
                 <Tooltip>
                     <TooltipTrigger asChild>

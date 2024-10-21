@@ -2,10 +2,10 @@ import {
     ChevronDown,
     ChevronUp,
     Globe,
-    Plus,
     RefreshCcwIcon,
     SettingsIcon,
     Trash,
+    UploadIcon,
 } from "lucide-react";
 import { FC, useEffect, useState } from "react";
 
@@ -113,7 +113,7 @@ export const WebsiteModal: FC<WebsiteModalProps> = ({
                             onClick={() => setIsAddWebsiteModalOpen(true)}
                             className="mr-2"
                         >
-                            <Plus className="w-4 h-4" />
+                            <UploadIcon className="w-4 h-4" />
                         </Button>
                         <Button
                             size="sm"
@@ -251,7 +251,7 @@ export const WebsiteModal: FC<WebsiteModalProps> = ({
                         {loading ? (
                             <LoadingSpinner className="w-4 h-4" />
                         ) : (
-                            "Add All"
+                            "Ingest All"
                         )}
                     </Button>
                     <Button

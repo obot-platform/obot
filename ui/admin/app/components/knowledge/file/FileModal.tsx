@@ -1,5 +1,6 @@
 import { UploadIcon } from "lucide-react";
 import { useCallback, useRef } from "react";
+import { SWRResponse } from "swr";
 
 import { IngestionStatus, KnowledgeFile } from "~/lib/model/knowledge";
 import { KnowledgeService } from "~/lib/service/api/knowledgeService";
@@ -23,8 +24,7 @@ import IngestionStatusComponent from "../IngestionStatus";
 
 interface FileModalProps {
     agentId: string;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    getKnowledgeFiles: any;
+    getKnowledgeFiles: SWRResponse<KnowledgeFile[], Error>;
     isOpen: boolean;
     onOpenChange: (open: boolean) => void;
     startPolling: () => void;
@@ -51,11 +51,13 @@ function FileModal({
             // Revalidating here would cause knowledge to be refreshed
             // for each file being uploaded, which is not desirable.
             const newItem: KnowledgeFile = {
+                id: "",
                 fileName: file.name,
                 agentID: agentId,
                 // set ingestion status to starting to ensure polling is enabled
                 ingestionStatus: { status: IngestionStatus.Queued },
                 fileDetails: {},
+                approved: true,
             };
 
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -100,7 +102,7 @@ function FileModal({
         await KnowledgeService.deleteKnowledgeFromAgent(agentId, item.fileName);
 
         // optomistic update without cache revalidation
-        getKnowledgeFiles.mutate((prev: KnowledgeFile[]) =>
+        getKnowledgeFiles.mutate((prev: KnowledgeFile[] | undefined) =>
             prev?.filter((prevItem) => prevItem.fileName !== item.fileName)
         );
     });
@@ -119,7 +121,7 @@ function FileModal({
                         className="mr-2"
                         onClick={() => fileInputRef.current?.click()}
                     >
-                        <UploadIcon className="upload-icon mr-2" />
+                        <UploadIcon className="upload-icon" />
                     </Button>
                 </DialogHeader>
                 <ScrollArea className="max-h-[800px] mt-4">

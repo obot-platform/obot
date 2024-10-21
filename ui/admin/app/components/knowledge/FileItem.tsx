@@ -64,16 +64,16 @@ function FileItem({
                         </div>
 
                         {isApproved ? (
-                            // eslint-disable-next-line
-                            <div
-                                className="hover:cursor-pointer"
+                            <Button
+                                variant="ghost"
+                                size="icon"
                                 onClick={() => {
                                     setIsApproved(false);
                                     approveFile(file, false);
                                 }}
                             >
                                 <FileStatusIcon status={file.ingestionStatus} />
-                            </div>
+                            </Button>
                         ) : (
                             <Button
                                 variant="ghost"

@@ -3,10 +3,10 @@ import {
     ChevronUp,
     FileIcon,
     FolderIcon,
-    PlusIcon,
     RefreshCcwIcon,
     SettingsIcon,
     Trash,
+    UploadIcon,
 } from "lucide-react";
 import { FC, useEffect, useState } from "react";
 
@@ -16,6 +16,7 @@ import {
     RemoteKnowledgeSourceType,
 } from "~/lib/model/knowledge";
 import { KnowledgeService } from "~/lib/service/api/knowledgeService";
+import { assetUrl } from "~/lib/utils";
 
 import RemoteKnowledgeSourceStatus from "~/components/knowledge/RemoteKnowledgeSourceStatus";
 import { LoadingSpinner } from "~/components/ui/LoadingSpinner";
@@ -103,7 +104,10 @@ export const OnedriveModal: FC<OnedriveModalProps> = ({
                 <DialogTitle className="flex flex-row items-center text-xl font-semibold mb-4 justify-between">
                     <div className="flex flex-row items-center">
                         <Avatar className="flex-row items-center w-6 h-6 mr-2">
-                            <img src="/onedrive.svg" alt="OneDrive logo" />
+                            <img
+                                src={assetUrl("/onedrive.svg")}
+                                alt="OneDrive logo"
+                            />
                         </Avatar>
                         OneDrive
                     </div>
@@ -114,7 +118,7 @@ export const OnedriveModal: FC<OnedriveModalProps> = ({
                             onClick={() => setIsAddLinkModalOpen(true)}
                             className="mr-2"
                         >
-                            <PlusIcon className="w-4 h-4" />
+                            <UploadIcon className="w-4 h-4" />
                         </Button>
                         <Button
                             size="sm"
@@ -173,7 +177,9 @@ export const OnedriveModal: FC<OnedriveModalProps> = ({
                                         ) : (
                                             <Avatar className="mr-2 h-4 w-4">
                                                 <img
-                                                    src="/onedrive.svg"
+                                                    src={assetUrl(
+                                                        "/onedrive.svg"
+                                                    )}
                                                     alt="OneDrive logo"
                                                 />
                                             </Avatar>
@@ -332,7 +338,7 @@ export const OnedriveModal: FC<OnedriveModalProps> = ({
                         {loading ? (
                             <LoadingSpinner className="w-4 h-4" />
                         ) : (
-                            "Add All"
+                            "Ingest All"
                         )}
                     </Button>
                     <Button

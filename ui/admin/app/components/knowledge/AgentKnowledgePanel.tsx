@@ -1,15 +1,17 @@
 import { Globe, SettingsIcon, UploadIcon } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import useSWR from "swr";
+import useSWR, { SWRResponse } from "swr";
 
 import {
     IngestionStatus,
     KnowledgeFile,
     RemoteKnowledgeSourceType,
+    getIngestedFilesCount,
     getIngestionStatus,
 } from "~/lib/model/knowledge";
 import { ApiRoutes } from "~/lib/routers/apiRoutes";
 import { KnowledgeService } from "~/lib/service/api/knowledgeService";
+import { assetUrl } from "~/lib/utils";
 
 import { Button } from "~/components/ui/button";
 
@@ -26,7 +28,7 @@ export function AgentKnowledgePanel({ agentId }: { agentId: string }) {
     const [isNotionModalOpen, setIsNotionModalOpen] = useState(false);
     const [isWebsiteModalOpen, setIsWebsiteModalOpen] = useState(false);
 
-    const getKnowledgeFiles = useSWR(
+    const getKnowledgeFiles: SWRResponse<KnowledgeFile[], Error> = useSWR(
         KnowledgeService.getKnowledgeForAgent.key(agentId),
         ({ agentId }) =>
             KnowledgeService.getKnowledgeForAgent(agentId).then((items) =>
@@ -221,72 +223,132 @@ export function AgentKnowledgePanel({ agentId }: { agentId: string }) {
         }
     };
 
+    const notionFiles = knowledge.filter(
+        (item) => item.remoteKnowledgeSourceType === "notion"
+    );
+    const onedriveFiles = knowledge.filter(
+        (item) => item.remoteKnowledgeSourceType === "onedrive"
+    );
+    const websiteFiles = knowledge.filter(
+        (item) => item.remoteKnowledgeSourceType === "website"
+    );
+    const localFiles = knowledge.filter(
+        (item) => !item.remoteKnowledgeSourceType
+    );
+
     return (
         <div className="flex flex-col gap-4 justify-center items-center">
-            <div className="flex w-full justify-between items-center px-4">
+            <div className="flex w-full items-center justify-between gap-3 rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus-visible:ring-transparent">
                 <div className="flex items-center gap-2">
                     <UploadIcon className="h-5 w-5" />
                     <span className="text-lg font-semibold">Files</span>
                 </div>
-                <Button
-                    onClick={() => setIsAddFileModalOpen(true)}
-                    className="flex items-center gap-2"
-                    variant="secondary"
-                >
-                    <SettingsIcon className="h-5 w-5" />
-                </Button>
+                <div className="flex flex-row items-center gap-2">
+                    <div className="flex items-center gap-2">
+                        {getIngestedFilesCount(localFiles) > 0 && (
+                            <span className="text-sm font-medium text-gray-500">
+                                {getIngestedFilesCount(localFiles)}{" "}
+                                {getIngestedFilesCount(localFiles) === 1
+                                    ? "file"
+                                    : "files"}{" "}
+                                ingested
+                            </span>
+                        )}
+                    </div>
+                    <Button
+                        onClick={() => setIsAddFileModalOpen(true)}
+                        className="flex items-center gap-2"
+                        variant="ghost"
+                    >
+                        <SettingsIcon className="h-5 w-5" />
+                    </Button>
+                </div>
             </div>
-            <div className="flex w-full justify-between items-center px-4">
+            <div className="flex w-full items-center justify-between gap-3 rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus-visible:ring-transparent">
                 <div className="flex items-center gap-2">
                     <Avatar className="h-5 w-5">
-                        <img src="/notion.svg" alt="Notion logo" />
+                        <img src={assetUrl("/notion.svg")} alt="Notion logo" />
                     </Avatar>
                     <span className="text-lg font-semibold">Notion</span>
                 </div>
-                <Button
-                    onClick={() => onClickNotion()}
-                    className="flex items-center gap-2"
-                    variant="secondary"
-                >
-                    <SettingsIcon className="h-5 w-5" />
-                </Button>
+                <div className="flex flex-row items-center gap-2">
+                    {getIngestedFilesCount(notionFiles) > 0 && (
+                        <span className="text-sm font-medium text-gray-500">
+                            {getIngestedFilesCount(notionFiles)}{" "}
+                            {getIngestedFilesCount(notionFiles) === 1
+                                ? "file"
+                                : "files"}{" "}
+                            ingested
+                        </span>
+                    )}
+                    <Button
+                        onClick={() => onClickNotion()}
+                        className="flex items-center gap-2"
+                        variant="ghost"
+                    >
+                        <SettingsIcon className="h-5 w-5" />
+                    </Button>
+                </div>
             </div>
-            <div className="flex w-full justify-between items-center px-4">
+            <div className="flex w-full items-center justify-between gap-3 rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus-visible:ring-transparent">
                 <div className="flex items-center gap-2">
                     <Avatar className="h-5 w-5">
-                        <img src="/onedrive.svg" alt="OneDrive logo" />
+                        <img
+                            src={assetUrl("/onedrive.svg")}
+                            alt="OneDrive logo"
+                        />
                     </Avatar>
                     <span className="text-lg font-semibold">OneDrive</span>
                 </div>
-                <Button
-                    onClick={() => onClickOnedrive()}
-                    className="flex items-center gap-2"
-                    variant="secondary"
-                >
-                    <SettingsIcon className="h-5 w-5" />
-                </Button>
+                <div className="flex flex-row items-center gap-2">
+                    {getIngestedFilesCount(onedriveFiles) > 0 && (
+                        <span className="text-sm font-medium text-gray-500">
+                            {getIngestedFilesCount(onedriveFiles)}{" "}
+                            {getIngestedFilesCount(onedriveFiles) === 1
+                                ? "file"
+                                : "files"}{" "}
+                            ingested
+                        </span>
+                    )}
+                    <Button
+                        onClick={() => onClickOnedrive()}
+                        className="flex items-center gap-2"
+                        variant="ghost"
+                    >
+                        <SettingsIcon className="h-5 w-5" />
+                    </Button>
+                </div>
             </div>
-            <div className="flex w-full justify-between items-center px-4">
+            <div className="flex w-full items-center justify-between gap-3 rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus-visible:ring-transparent">
                 <div className="flex items-center gap-2">
                     <Globe className="h-5 w-5" />
                     <span className="text-lg font-semibold">Website</span>
                 </div>
-                <Button
-                    onClick={() => onClickWebsite()}
-                    className="flex items-center gap-2"
-                    variant="secondary"
-                >
-                    <SettingsIcon className="h-5 w-5" />
-                </Button>
+                <div className="flex flex-row items-center gap-2">
+                    {getIngestedFilesCount(websiteFiles) > 0 && (
+                        <span className="text-sm font-medium text-gray-500">
+                            {getIngestedFilesCount(websiteFiles)}{" "}
+                            {getIngestedFilesCount(websiteFiles) === 1
+                                ? "file"
+                                : "files"}{" "}
+                            ingested
+                        </span>
+                    )}
+                    <Button
+                        onClick={() => onClickWebsite()}
+                        className="flex items-center gap-2"
+                        variant="ghost"
+                    >
+                        <SettingsIcon className="h-5 w-5" />
+                    </Button>
+                </div>
             </div>
             <FileModal
                 agentId={agentId}
                 isOpen={isAddFileModalOpen}
                 onOpenChange={setIsAddFileModalOpen}
                 startPolling={startPolling}
-                knowledge={knowledge.filter(
-                    (item) => !item.remoteKnowledgeSourceType
-                )}
+                knowledge={localFiles}
                 getKnowledgeFiles={getKnowledgeFiles}
             />
             <NotionModal
@@ -295,9 +357,7 @@ export function AgentKnowledgePanel({ agentId }: { agentId: string }) {
                 onOpenChange={setIsNotionModalOpen}
                 remoteKnowledgeSources={remoteKnowledgeSources}
                 startPolling={startPolling}
-                knowledgeFiles={knowledge.filter(
-                    (item) => item.remoteKnowledgeSourceType === "notion"
-                )}
+                knowledgeFiles={notionFiles}
                 handleRemoteKnowledgeSourceSync={
                     handleRemoteKnowledgeSourceSync
                 }
@@ -308,9 +368,7 @@ export function AgentKnowledgePanel({ agentId }: { agentId: string }) {
                 onOpenChange={setIsOnedriveModalOpen}
                 remoteKnowledgeSources={remoteKnowledgeSources}
                 startPolling={startPolling}
-                knowledgeFiles={knowledge.filter(
-                    (item) => item.remoteKnowledgeSourceType === "onedrive"
-                )}
+                knowledgeFiles={onedriveFiles}
                 handleRemoteKnowledgeSourceSync={
                     handleRemoteKnowledgeSourceSync
                 }
@@ -321,9 +379,7 @@ export function AgentKnowledgePanel({ agentId }: { agentId: string }) {
                 onOpenChange={setIsWebsiteModalOpen}
                 remoteKnowledgeSources={remoteKnowledgeSources}
                 startPolling={startPolling}
-                knowledgeFiles={knowledge.filter(
-                    (item) => item.remoteKnowledgeSourceType === "website"
-                )}
+                knowledgeFiles={websiteFiles}
                 handleRemoteKnowledgeSourceSync={
                     handleRemoteKnowledgeSourceSync
                 }

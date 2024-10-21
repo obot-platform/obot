@@ -200,9 +200,11 @@ func (a *AgentHandler) ApproveKnowledgeFile(req api.Context) error {
 		return err
 	}
 
-	file.Spec.Approved = &[]bool{body.Approve}[0]
-
-	return req.Storage.Update(req.Context(), &file)
+	if file.Spec.Approved == nil || *file.Spec.Approved != body.Approve {
+		file.Spec.Approved = &body.Approve
+		return req.Storage.Update(req.Context(), &file)
+	}
+	return nil
 }
 
 func (a *AgentHandler) DeleteKnowledge(req api.Context) error {

@@ -7,6 +7,7 @@ import {
     RemoteKnowledgeSourceType,
 } from "~/lib/model/knowledge";
 import { KnowledgeService } from "~/lib/service/api/knowledgeService";
+import { assetUrl } from "~/lib/utils";
 
 import RemoteFileItemChip from "~/components/knowledge/RemoteFileItemChip";
 import RemoteKnowledgeSourceStatus from "~/components/knowledge/RemoteKnowledgeSourceStatus";
@@ -54,11 +55,7 @@ export const NotionModal: FC<NotionModalProps> = ({
 
     const handleApproveAll = async () => {
         for (const file of knowledgeFiles) {
-            await KnowledgeService.approveKnowledgeFile(
-                agentId,
-                file.id!,
-                true
-            );
+            await KnowledgeService.approveKnowledgeFile(agentId, file.id, true);
         }
         startPolling();
     };
@@ -73,7 +70,10 @@ export const NotionModal: FC<NotionModalProps> = ({
                     <DialogTitle className="flex flex-row items-center text-xl font-semibold mb-4 justify-between">
                         <div className="flex flex-row items-center">
                             <Avatar className="flex-row items-center w-6 h-6 mr-2">
-                                <img src="/notion.svg" alt="Notion logo" />
+                                <img
+                                    src={assetUrl("/notion.svg")}
+                                    alt="Notion logo"
+                                />
                             </Avatar>
                             Notion
                         </div>
@@ -100,7 +100,7 @@ export const NotionModal: FC<NotionModalProps> = ({
                         </div>
                     </DialogTitle>
                 </DialogHeader>
-                <ScrollArea>
+                <ScrollArea className="max-h-[800px]">
                     <div className="flex flex-col gap-2">
                         {knowledgeFiles.map((item) => (
                             <RemoteFileItemChip
@@ -149,7 +149,7 @@ export const NotionModal: FC<NotionModalProps> = ({
                         {loading ? (
                             <LoadingSpinner className="w-4 h-4" />
                         ) : (
-                            "Add All"
+                            "Ingest All"
                         )}
                     </Button>
                     <Button

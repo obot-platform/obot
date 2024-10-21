@@ -303,15 +303,6 @@ func compileFileStatuses(ctx context.Context, client kclient.Client, ws *v1.Work
 	return final, errors.Join(errs...)
 }
 
-func (a *Handler) BindWorkspace(req router.Request, resp router.Response) error {
-	kFile := req.Object.(*v1.KnowledgeFile)
-	// force to associate with workspace so that it can reenqueue workspace when file are changed
-	if err := req.Get(&v1.Workspace{}, kFile.Namespace, kFile.Spec.WorkspaceName); err != nil {
-		return err
-	}
-	return nil
-}
-
 func (a *Handler) CleanupFile(req router.Request, resp router.Response) error {
 	kFile := req.Object.(*v1.KnowledgeFile)
 
@@ -327,7 +318,7 @@ func (a *Handler) CleanupFile(req router.Request, resp router.Response) error {
 		return err
 	}
 
-	if _, err := a.ingester.DeleteKnowledgeFiles(req.Ctx, kFile.Namespace, filepath.Join(workspace.GetDir(ws.Status.WorkspaceID), kFile.Spec.FileName)); err != nil {
+	if _, err := a.ingester.DeleteKnowledgeFiles(req.Ctx, kFile.Namespace, filepath.Join(workspace.GetDir(ws.Status.WorkspaceID), kFile.Spec.FileName), ws.Spec.KnowledgeSetName); err != nil {
 		return err
 	}
 

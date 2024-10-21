@@ -32,9 +32,11 @@ const AddLinkModal: FC<AddLinkModalProps> = ({
     const [newLink, setNewLink] = useState("");
 
     const handleSave = async () => {
+        if (!onedriveSource) return;
+
         await KnowledgeService.updateRemoteKnowledgeSource(
             agentId,
-            onedriveSource!.id!,
+            onedriveSource!.id,
             {
                 ...onedriveSource,
                 onedriveConfig: {
