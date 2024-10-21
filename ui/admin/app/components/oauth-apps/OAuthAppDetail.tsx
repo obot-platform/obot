@@ -70,13 +70,12 @@ function EmptyContent({ spec }: { spec: OAuthAppSpec }) {
     return (
         <div className="flex flex-col gap-2">
             <TypographyP>
-                {spec.displayName} OAuth is currently enabled and preconfigured
-                to use the Acorn Gateway.
+                {spec.displayName} OAuth is currently enabled. No action is
+                needed here.
             </TypographyP>
 
             <TypographyP className="mb-4">
-                If your current Otto instance does not have access to Acorn
-                Gateway, you can configure your own {spec.displayName} OAuth by
+                You can also configure your own {spec.displayName} OAuth by
                 clicking the button below.
             </TypographyP>
 

@@ -28,8 +28,8 @@ export type OAuthAppSpec = {
 
 export function getOAuthLinks(type: OAuthProvider) {
     return {
-        authorizeURL: `${apiBaseUrl}/app/oauth/authorize/${type}`,
-        redirectURL: `${apiBaseUrl}/app/oauth/callback/${type}`,
-        refreshURL: `${apiBaseUrl}/app/oauth/refresh/${type}`,
+        authorizeURL: `${apiBaseUrl}/app-oauth/authorize/${type}`,
+        redirectURL: `${apiBaseUrl}/app-oauth/callback/${type}`,
+        refreshURL: `${apiBaseUrl}/app-oauth/refresh/${type}`,
     };
 }
