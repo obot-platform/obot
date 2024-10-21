@@ -12,20 +12,21 @@ import {
 import { OauthAppService } from "~/lib/service/api/oauthAppService";
 import { cn } from "~/lib/utils";
 
+import { CopyText } from "~/components/composed/CopyText";
 import { ControlledInput } from "~/components/form/controlledInputs";
+import { CustomMarkdownComponents } from "~/components/react-markdown";
+import { LoadingSpinner } from "~/components/ui/LoadingSpinner";
 import { Button } from "~/components/ui/button";
 import { Form } from "~/components/ui/form";
-import { useOAuthAppInfo } from "~/hooks/oauthApps";
-
-import { CopyText } from "../composed/CopyText";
-import { CustomMarkdownComponents } from "../react-markdown";
+import { useOAuthAppInfo } from "~/hooks/oauthApps/useOAuthApps";
 
 type OAuthAppFormProps = {
     type: OAuthProvider;
     onSubmit: (data: OAuthAppParams) => void;
+    isLoading?: boolean;
 };
 
-export function OAuthAppForm({ type, onSubmit }: OAuthAppFormProps) {
+export function OAuthAppForm({ type, onSubmit, isLoading }: OAuthAppFormProps) {
     const spec = useOAuthAppInfo(type);
     useEffect(() => {
         OauthAppService.getSupportedOauthAppTypes();
@@ -36,9 +37,8 @@ export function OAuthAppForm({ type, onSubmit }: OAuthAppFormProps) {
     const fields = useMemo(() => {
         return Object.entries(spec.schema.shape).map(([key]) => ({
             key: key as keyof OAuthAppParams,
-            label: spec.labels[key],
         }));
-    }, [spec.schema, spec.labels]);
+    }, [spec.schema]);
 
     const defaultValues = useMemo(() => {
         const app = spec.customApp;
@@ -82,14 +82,17 @@ export function OAuthAppForm({ type, onSubmit }: OAuthAppFormProps) {
             <form onSubmit={handleSubmit} className="flex flex-col gap-4">
                 {spec.steps.map(renderStep)}
 
-                <Button type="submit">Submit</Button>
+                <Button type="submit" disabled={isLoading}>
+                    {isLoading && <LoadingSpinner className="w-4 h-4 mr-2" />}{" "}
+                    Submit
+                </Button>
             </form>
         </Form>
     );
 
     function renderStep(step: OAuthFormStep) {
         switch (step.type) {
-            case "instruction":
+            case "markdown":
                 return (
                     <Markdown
                         className={cn(
@@ -104,17 +107,11 @@ export function OAuthAppForm({ type, onSubmit }: OAuthAppFormProps) {
                     </Markdown>
                 );
             case "input": {
-                const isRequired = !spec.schema.shape[step.input].isOptional();
-
-                const label = isRequired
-                    ? `${spec.labels[step.input]} *`
-                    : spec.labels[step.input];
-
                 return (
                     <ControlledInput
                         key={step.input}
                         name={step.input as keyof OAuthAppParams}
-                        label={label}
+                        label={step.label}
                         control={form.control}
                         {...(step.input === "clientSecret" && {
                             onBlur: onBlurClientSecret,

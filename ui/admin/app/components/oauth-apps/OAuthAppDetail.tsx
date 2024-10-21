@@ -1,7 +1,4 @@
-import { QuestionMarkCircledIcon } from "@radix-ui/react-icons";
-import { CheckCircle2Icon, ClipboardIcon, SettingsIcon } from "lucide-react";
-import { ReactNode, useEffect, useState } from "react";
-import { toast } from "sonner";
+import { SettingsIcon } from "lucide-react";
 
 import { OAuthApp } from "~/lib/model/oauthApps";
 import {
@@ -10,7 +7,7 @@ import {
 } from "~/lib/model/oauthApps/oauth-helpers";
 import { cn } from "~/lib/utils";
 
-import { TypographyP, TypographySmall } from "~/components/Typography";
+import { TypographyP } from "~/components/Typography";
 import { Button } from "~/components/ui/button";
 import {
     Dialog,
@@ -20,16 +17,11 @@ import {
     DialogTitle,
     DialogTrigger,
 } from "~/components/ui/dialog";
-import {
-    Tooltip,
-    TooltipContent,
-    TooltipProvider,
-    TooltipTrigger,
-} from "~/components/ui/tooltip";
-import { useOAuthAppInfo } from "~/hooks/oauthApps";
+import { useOAuthAppInfo } from "~/hooks/oauthApps/useOAuthApps";
 
 import { CreateOauthApp } from "./CreateOauthApp";
 import { DeleteOAuthApp } from "./DeleteOAuthApp";
+import { EditOAuthApp } from "./EditOAuthApp";
 import { OAuthAppTypeIcon } from "./OAuthAppTypeIcon";
 
 export function OAuthAppDetail({
@@ -58,7 +50,7 @@ export function OAuthAppDetail({
 
             <DialogContent>
                 <DialogHeader>
-                    <DialogTitle className="flex items-start gap-2">
+                    <DialogTitle className="flex items-center gap-2">
                         <OAuthAppTypeIcon type={type} />
 
                         <span>{spec?.displayName}</span>
@@ -66,7 +58,7 @@ export function OAuthAppDetail({
                 </DialogHeader>
 
                 {spec?.customApp ? (
-                    <Content oauthApp={spec.customApp} spec={spec} />
+                    <Content app={spec.customApp} spec={spec} />
                 ) : (
                     <EmptyContent spec={spec} />
                 )}
@@ -93,152 +85,32 @@ function EmptyContent({ spec }: { spec: OAuthSingleAppSpec }) {
     );
 }
 
-function Content({
-    oauthApp,
-}: {
-    spec: OAuthSingleAppSpec;
-    oauthApp: OAuthApp;
-}) {
-    const [copied, setCopied] = useState<string | null>(null);
-
-    useEffect(() => {
-        const timeout = setTimeout(() => setCopied(null), 6000);
-        return () => clearTimeout(timeout);
-    }, [copied]);
-
+function Content({ app, spec }: { app: OAuthApp; spec: OAuthSingleAppSpec }) {
     return (
         <div className="flex flex-col gap-2">
-            <div className="flex justify-between mt-6">
-                <Item
-                    label="Reference Name"
-                    info="Advanced: Reference names can make your OAuth App's URLs easier to read by allowing you to select the text displayed in the url."
-                >
-                    <TypographyP
-                        className={cn("px-2 rounded-md w-fit", {
-                            "bg-success text-success-foreground":
-                                oauthApp.refNameAssigned && oauthApp.refName,
-                            "bg-error text-error-foreground":
-                                !oauthApp.refNameAssigned && oauthApp.refName,
-                            "bg-none text-foreground": !oauthApp.refName,
-                        })}
-                    >
-                        {oauthApp.refName ?? "None"}
-                    </TypographyP>
-                </Item>
+            <TypographyP>
+                You have a custom configuration for {spec.displayName} OAuth.
+            </TypographyP>
 
-                {oauthApp.refName && (
-                    <Item label="Assigned">
-                        <TooltipProvider>
-                            <Tooltip>
-                                <TooltipTrigger className="underline underline-offset-2 decoration-dotted text-end">
-                                    {oauthApp.refNameAssigned ? "Yes" : "No"}
-                                </TooltipTrigger>
+            <TypographyP>
+                When {spec.displayName} OAuth is used, Otto will use your custom
+                OAuth app.
+            </TypographyP>
 
-                                <TooltipContent>
-                                    {oauthApp.refNameAssigned
-                                        ? "The reference name is currently active"
-                                        : "The reference name is not assigned because another OAuth App is using it"}
-                                </TooltipContent>
-                            </Tooltip>
-                        </TooltipProvider>
-                    </Item>
-                )}
+            <div className="grid grid-cols-2 gap-2 px-8 py-4">
+                <TypographyP>
+                    <strong>Client ID</strong>
+                </TypographyP>
+                <TypographyP>{app.clientID}</TypographyP>
+
+                <TypographyP>
+                    <strong>Client Secret</strong>
+                </TypographyP>
+                <TypographyP>****************</TypographyP>
             </div>
 
-            {Object.entries(oauthApp.links).map(([key, value]) => {
-                // "camelCase" to "Display Name"
-                const displayName =
-                    key
-                        .split("URL")[0]
-                        .replace(/([A-Z])/g, " $1")
-                        .replace(/^./, (str) => str.toUpperCase()) + " URL";
-
-                return (
-                    <Item key={key} label={displayName} className="mt-4 gap-0">
-                        <div className="flex items-center gap-2 w-full">
-                            <TooltipProvider>
-                                <Tooltip>
-                                    <TooltipTrigger
-                                        onClick={() => copyToClipboard(value)}
-                                        className="flex-auto decoration-dotted underline-offset-4 underline text-ellipsis overflow-hidden text-nowrap"
-                                    >
-                                        {value}
-                                    </TooltipTrigger>
-
-                                    <TooltipContent>{value}</TooltipContent>
-                                </Tooltip>
-                            </TooltipProvider>
-
-                            <Button
-                                size="icon"
-                                onClick={() => copyToClipboard(value)}
-                                className="aspect-square"
-                            >
-                                {copied === value ? (
-                                    <CheckCircle2Icon className="text-success" />
-                                ) : (
-                                    <ClipboardIcon />
-                                )}
-                            </Button>
-                        </div>
-                    </Item>
-                );
-            })}
-
-            <DeleteOAuthApp id={oauthApp.id} disableTooltip>
-                <Button variant="destructive" className="w-full mt-4">
-                    Delete OAuth App
-                </Button>
-            </DeleteOAuthApp>
-        </div>
-    );
-
-    async function copyToClipboard(value: string) {
-        try {
-            await navigator.clipboard.writeText(value);
-
-            toast.success("Copied to clipboard");
-            setCopied(value);
-        } catch (_) {
-            toast.error("Failed to copy");
-        }
-    }
-}
-
-function Item({
-    label,
-    children,
-    className,
-    info,
-}: {
-    label: string;
-    children: ReactNode;
-    className?: string;
-    info?: string;
-}) {
-    return (
-        <div className={cn("flex flex-col gap-1", className)}>
-            <div className="flex gap-2">
-                <TypographySmall>
-                    <b>{label}</b>
-                </TypographySmall>
-
-                {info && (
-                    <TooltipProvider>
-                        <Tooltip>
-                            <TooltipTrigger>
-                                <QuestionMarkCircledIcon />
-                            </TooltipTrigger>
-
-                            <TooltipContent className="max-w-[300px]">
-                                {info}
-                            </TooltipContent>
-                        </Tooltip>
-                    </TooltipProvider>
-                )}
-            </div>
-
-            {children}
+            <EditOAuthApp type={app.type} />
+            <DeleteOAuthApp disableTooltip id={app.id} />
         </div>
     );
 }

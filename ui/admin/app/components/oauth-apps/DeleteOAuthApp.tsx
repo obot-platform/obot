@@ -1,5 +1,5 @@
 import { TrashIcon } from "lucide-react";
-import { ReactNode } from "react";
+import { toast } from "sonner";
 import { mutate } from "swr";
 
 import { OauthAppService } from "~/lib/service/api/oauthAppService";
@@ -13,19 +13,21 @@ import {
     TooltipProvider,
     TooltipTrigger,
 } from "~/components/ui/tooltip";
+import { useOAuthAppList } from "~/hooks/oauthApps/useOAuthApps";
 import { useAsync } from "~/hooks/useAsync";
 
 export function DeleteOAuthApp({
     id,
-    children,
     disableTooltip,
 }: {
     id: string;
-    children?: ReactNode;
     disableTooltip?: boolean;
 }) {
-    const deleteOAuthApp = useAsync(OauthAppService.deleteOauthApp, {
-        onSuccess: () => mutate(OauthAppService.getOauthApps.key()),
+    const deleteOAuthApp = useAsync(async () => {
+        await OauthAppService.deleteOauthApp(id);
+        await mutate(useOAuthAppList.key());
+
+        toast.success("OAuth app deleted");
     });
 
     return (
@@ -35,26 +37,25 @@ export function DeleteOAuthApp({
                     <ConfirmationDialog
                         title={`Delete OAuth App`}
                         description="Are you sure you want to delete this OAuth app?"
-                        onConfirm={() => deleteOAuthApp.execute(id)}
+                        onConfirm={deleteOAuthApp.execute}
                         confirmProps={{
                             variant: "destructive",
                             children: "Delete",
                         }}
                     >
                         <TooltipTrigger asChild>
-                            {children || (
-                                <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    disabled={deleteOAuthApp.isLoading}
-                                >
-                                    {deleteOAuthApp.isLoading ? (
-                                        <LoadingSpinner />
-                                    ) : (
-                                        <TrashIcon />
-                                    )}
-                                </Button>
-                            )}
+                            <Button
+                                variant="destructive"
+                                className="w-full"
+                                disabled={deleteOAuthApp.isLoading}
+                            >
+                                {deleteOAuthApp.isLoading ? (
+                                    <LoadingSpinner className="w-4 h-4 mr-2" />
+                                ) : (
+                                    <TrashIcon className="w-4 h-4 mr-2" />
+                                )}
+                                Delete OAuth App
+                            </Button>
                         </TooltipTrigger>
                     </ConfirmationDialog>
 

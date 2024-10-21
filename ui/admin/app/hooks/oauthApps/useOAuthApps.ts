@@ -8,22 +8,23 @@ import {
 import { OAuthProvider } from "~/lib/model/oauthApps/oauth-helpers";
 import { OauthAppService } from "~/lib/service/api/oauthAppService";
 
+const key = () => ({
+    ...OauthAppService.getOauthApps.key(),
+    modifier: "combinedList",
+});
+
 export function useOAuthAppList(config?: { revalidate?: boolean }) {
     const { revalidate = true } = config ?? {};
 
-    const key = {
-        ...OauthAppService.getOauthApps.key(),
-        modifier: "combinedList",
-    };
-
     const { data: apps } = useSWR(
-        key,
+        key(),
         async () => combinedOAuthAppInfo(await OauthAppService.getOauthApps()),
         { fallbackData: [], revalidateOnMount: revalidate }
     );
 
     return apps;
 }
+useOAuthAppList.key = key;
 
 export function useOAuthAppInfo(type: OAuthProvider): CombinedOAuthAppInfo {
     const list = useOAuthAppList({ revalidate: false });

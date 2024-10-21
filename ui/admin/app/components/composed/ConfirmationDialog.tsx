@@ -39,9 +39,11 @@ export function ConfirmationDialog({
                         <Button variant="secondary">Cancel</Button>
                     </DialogClose>
 
-                    <Button {...confirmProps} onClick={onConfirm}>
-                        {confirmProps?.children ?? "Confirm"}
-                    </Button>
+                    <DialogClose onClick={onConfirm}>
+                        <Button {...confirmProps}>
+                            {confirmProps?.children ?? "Confirm"}
+                        </Button>
+                    </DialogClose>
                 </DialogFooter>
             </DialogContent>
         </Dialog>

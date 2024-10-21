@@ -2,7 +2,7 @@ import { OAuthProvider } from "~/lib/model/oauthApps/oauth-helpers";
 
 import { TypographyH3 } from "~/components/Typography";
 import { Card } from "~/components/ui/card";
-import { useOAuthAppInfo } from "~/hooks/oauthApps";
+import { useOAuthAppInfo } from "~/hooks/oauthApps/useOAuthApps";
 
 import { OAuthAppDetail } from "./OAuthAppDetail";
 import { OAuthAppTypeIcon } from "./OAuthAppTypeIcon";
