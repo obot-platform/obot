@@ -135,10 +135,6 @@ export default function Threads() {
                 },
                 { header: "Agent" }
             ),
-            columnHelper.accessor(
-                (thread) => thread.description ?? "No description",
-                { header: "Description" }
-            ),
             columnHelper.accessor("created", {
                 id: "created",
                 header: "Created",
