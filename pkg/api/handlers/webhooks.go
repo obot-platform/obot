@@ -56,25 +56,18 @@ func (a *WebhookHandler) Update(req api.Context) error {
 		return err
 	}
 
-	var (
-		hash []byte
-		err  error
-	)
 	if webhookReq.Password != "" {
-		hash, err = bcrypt.GenerateFromPassword([]byte(webhookReq.Password), bcrypt.DefaultCost)
+		hash, err := bcrypt.GenerateFromPassword([]byte(webhookReq.Password), bcrypt.DefaultCost)
 		if err != nil {
 			return fmt.Errorf("failed to hash password: %w", err)
 		}
+		wh.Spec.PasswordHash = hash
 		webhookReq.Password = ""
 	}
 
 	wh.Spec.WebhookManifest = webhookReq.WebhookManifest
 	for i, h := range wh.Spec.Headers {
 		wh.Spec.Headers[i] = textproto.CanonicalMIMEHeaderKey(h)
-	}
-
-	if hash != nil {
-		wh.Spec.PasswordHash = hash
 	}
 
 	if err := req.Update(&wh); err != nil {
@@ -107,18 +100,6 @@ func (a *WebhookHandler) Create(req api.Context) error {
 		return err
 	}
 
-	var (
-		hash []byte
-		err  error
-	)
-	if webhookReq.Password != "" {
-		hash, err = bcrypt.GenerateFromPassword([]byte(webhookReq.Password), bcrypt.DefaultCost)
-		if err != nil {
-			return fmt.Errorf("failed to hash password: %w", err)
-		}
-		webhookReq.Password = ""
-	}
-
 	wh := v1.Webhook{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: system.WebhookPrefix,
@@ -129,12 +110,17 @@ func (a *WebhookHandler) Create(req api.Context) error {
 		},
 	}
 
-	for i, h := range wh.Spec.Headers {
-		wh.Spec.Headers[i] = textproto.CanonicalMIMEHeaderKey(h)
+	if webhookReq.Password != "" {
+		hash, err := bcrypt.GenerateFromPassword([]byte(webhookReq.Password), bcrypt.DefaultCost)
+		if err != nil {
+			return fmt.Errorf("failed to hash password: %w", err)
+		}
+		webhookReq.Password = ""
+		wh.Spec.PasswordHash = hash
 	}
 
-	if hash != nil {
-		wh.Spec.PasswordHash = hash
+	for i, h := range wh.Spec.Headers {
+		wh.Spec.Headers[i] = textproto.CanonicalMIMEHeaderKey(h)
 	}
 
 	if err := req.Create(&wh); err != nil {
