@@ -117,7 +117,7 @@ export const NotionModal: FC<NotionModalProps> = ({
                                 approveFile={async (file, approved) => {
                                     await KnowledgeService.approveKnowledgeFile(
                                         agentId,
-                                        file.id!,
+                                        file.id,
                                         approved
                                     );
                                     startPolling();
