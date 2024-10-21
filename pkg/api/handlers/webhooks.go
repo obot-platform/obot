@@ -73,15 +73,12 @@ func (a *WebhookHandler) Update(req api.Context) error {
 		wh.Spec.Headers[i] = textproto.CanonicalMIMEHeaderKey(h)
 	}
 
-	if err := req.Update(&wh); err != nil {
-		return err
-	}
-
 	if hash != nil {
 		wh.Spec.PasswordHash = hash
-		if err := req.Update(&wh); err != nil {
-			return err
-		}
+	}
+
+	if err := req.Update(&wh); err != nil {
+		return err
 	}
 
 	return req.Write(convertWebhook(wh, server.GetURLPrefix(req)))
@@ -136,15 +133,12 @@ func (a *WebhookHandler) Create(req api.Context) error {
 		wh.Spec.Headers[i] = textproto.CanonicalMIMEHeaderKey(h)
 	}
 
-	if err := req.Create(&wh); err != nil {
-		return err
-	}
-
 	if hash != nil {
 		wh.Spec.PasswordHash = hash
-		if err := req.Update(&wh); err != nil {
-			return err
-		}
+	}
+
+	if err := req.Create(&wh); err != nil {
+		return err
 	}
 
 	req.WriteHeader(http.StatusCreated)
