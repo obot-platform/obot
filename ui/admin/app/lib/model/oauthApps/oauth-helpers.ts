@@ -22,6 +22,7 @@ export type OAuthAppSpec = {
     displayName: string;
     refName: string;
     type: OAuthProvider;
+    logo: string;
     steps: OAuthFormStep[];
 };
 

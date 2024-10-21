@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { assetUrl } from "~/lib/utils";
+
 import { OAuthAppSpec, OAuthFormStep, getOAuthLinks } from "./oauth-helpers";
 
 const schema = z.object({
@@ -45,5 +47,6 @@ export const GitHubOAuthApp = {
     refName: "github",
     type: "github",
     displayName: "GitHub",
+    logo: assetUrl("/assets/github_logo.svg"),
     steps,
 } satisfies OAuthAppSpec;
