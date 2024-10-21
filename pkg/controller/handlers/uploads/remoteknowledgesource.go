@@ -104,7 +104,7 @@ func (u *UploadHandler) CreateThread(req router.Request, resp router.Response) e
 	}
 
 	if err = req.Client.Create(req.Ctx, thread); err != nil {
-		_ = u.gptscript.DeleteWorkspace(req.Ctx, id)
+		_ = u.gptscript.DeleteWorkspace(req.Ctx, gptscript.DeleteWorkspaceOptions{WorkspaceID: id})
 		return err
 	}
 
@@ -154,7 +154,7 @@ func (u *UploadHandler) RunUpload(req router.Request, _ router.Response) error {
 		return fmt.Errorf("failed to marshal metadata: %w", err)
 	}
 
-	if err = u.gptscript.WriteFileInWorkspace(req.Ctx, thread.Spec.WorkspaceID, ".metadata.json", b); err != nil {
+	if err = u.gptscript.WriteFileInWorkspace(req.Ctx, ".metadata.json", b, gptscript.WriteFileInWorkspaceOptions{WorkspaceID: thread.Spec.WorkspaceID}); err != nil {
 		return fmt.Errorf("failed to create metadata file: %w", err)
 	}
 
@@ -199,7 +199,7 @@ func (u *UploadHandler) HandleUploadRun(req router.Request, resp router.Response
 		Output v1.RemoteConnectorStatus `json:"output,omitempty"`
 	}
 
-	file, err := u.gptscript.ReadFileInWorkspace(req.Ctx, thread.Spec.WorkspaceID, ".metadata.json")
+	file, err := u.gptscript.ReadFileInWorkspace(req.Ctx, ".metadata.json", gptscript.ReadFileInWorkspaceOptions{WorkspaceID: thread.Spec.WorkspaceID})
 	if err != nil {
 		// Purposely ignore not found errors.
 		if !strings.HasPrefix(err.Error(), "not found") {
@@ -255,7 +255,7 @@ func (u *UploadHandler) writeMetadataForKnowledge(ctx context.Context, files map
 	}
 
 	// Put the metadata file in the agent knowledge workspace
-	return u.gptscript.WriteFileInWorkspace(ctx, ws.Status.WorkspaceID, filepath.Join(remoteKnowledgeSource.Name, ".knowledge.json"), b)
+	return u.gptscript.WriteFileInWorkspace(ctx, filepath.Join(remoteKnowledgeSource.Name, ".knowledge.json"), b, gptscript.WriteFileInWorkspaceOptions{WorkspaceID: ws.Status.WorkspaceID})
 }
 
 func (u *UploadHandler) Cleanup(req router.Request, resp router.Response) error {
@@ -270,7 +270,7 @@ func (u *UploadHandler) Cleanup(req router.Request, resp router.Response) error 
 	}
 
 	// Delete the directory in the workspace for this onedrive link.
-	if err = u.gptscript.RemoveAllWithPrefix(req.Ctx, ws.Status.WorkspaceID, remoteKnowledgeSource.Name); err != nil {
+	if err = u.gptscript.RemoveAll(req.Ctx, gptscript.RemoveAllOptions{WorkspaceID: ws.Status.WorkspaceID, WithPrefix: remoteKnowledgeSource.Name}); err != nil {
 		return fmt.Errorf("failed to delete directory %q in workspace %s: %w", remoteKnowledgeSource.Name, ws.Status.WorkspaceID, err)
 	}
 

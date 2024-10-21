@@ -201,8 +201,9 @@ func (a *ThreadHandler) Files(req api.Context) error {
 
 	for _, workspace := range workspaces.Items {
 		if !workspace.Spec.IsKnowledge {
-			return listFileFromWorkspace(req.Context(), req, a.gptscript, workspace, gptscript.ListFilesInWorkspaceOptions{
-				Prefix: "files/",
+			return listFileFromWorkspace(req.Context(), req, a.gptscript, gptscript.ListFilesInWorkspaceOptions{
+				WorkspaceID: workspace.Status.WorkspaceID,
+				Prefix:      "files/",
 			})
 		}
 	}
@@ -223,7 +224,7 @@ func (a *ThreadHandler) UploadFile(req api.Context) error {
 
 	for _, workspace := range workspaces.Items {
 		if !workspace.Spec.IsKnowledge {
-			if err := uploadFileToWorkspace(req.Context(), req, a.gptscript, workspace, "files/"); err != nil {
+			if err := uploadFileToWorkspace(req.Context(), req, a.gptscript, workspace.Status.WorkspaceID, "files/"); err != nil {
 				return err
 			}
 
