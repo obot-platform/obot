@@ -1,6 +1,7 @@
 import "@radix-ui/react-tooltip";
 import { WrenchIcon } from "lucide-react";
 import { useMemo } from "react";
+import React from "react";
 import Markdown, { defaultUrlTransform } from "react-markdown";
 import rehypeExternalLinks from "rehype-external-links";
 import remarkGfm from "remark-gfm";
@@ -31,7 +32,7 @@ const urlTransformAllowFiles = (u: string) => {
 
 const OpenMarkdownLinkRegex = new RegExp(/\[([^\]]+)\]\(https?:\/\/[^)]*$/);
 
-export function Message({ message }: MessageProps) {
+export const Message = React.memo(({ message }: MessageProps) => {
     const isUser = message.sender === "user";
 
     // note(ryanhopperlowe) we only support one tool call per message for now
@@ -121,4 +122,6 @@ export function Message({ message }: MessageProps) {
             </div>
         </div>
     );
-}
+});
+
+Message.displayName = "Message";
