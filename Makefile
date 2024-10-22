@@ -20,8 +20,7 @@ build:
 	go build -o bin/otto8 -v
 
 dev: ui
-	@echo "Starting dev otto8 server and admin UI..."
-	./dev.sh
+	./tools/dev.sh
 
 # Lint the project
 lint: lint-admin
