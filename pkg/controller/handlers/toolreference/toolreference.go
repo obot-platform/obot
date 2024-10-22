@@ -68,9 +68,13 @@ func (h *Handler) toolsToToolReferences(ctx context.Context, toolType types.Tool
 
 			tool := prg.ToolSet[prg.EntryToolID]
 			if isValidTool(tool) {
+				toolName := tool.Name
+				if tool.MetaData["bundle"] == "true" {
+					toolName = "bundle"
+				}
 				result = append(result, &v1.ToolReference{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:      normalize(name, tool.Name),
+						Name:      normalize(name, toolName),
 						Namespace: "default",
 					},
 					Spec: v1.ToolReferenceSpec{
@@ -80,11 +84,20 @@ func (h *Handler) toolsToToolReferences(ctx context.Context, toolType types.Tool
 				})
 			}
 			for _, peerToolID := range tool.LocalTools {
+				// If this is the entry tool, then we already added it or skipped it above.
+				if peerToolID == prg.EntryToolID {
+					continue
+				}
+
 				peerTool := prg.ToolSet[peerToolID]
 				if isValidTool(peerTool) {
+					toolName := peerTool.Name
+					if peerTool.MetaData["bundle"] == "true" {
+						toolName += "-bundle"
+					}
 					result = append(result, &v1.ToolReference{
 						ObjectMeta: metav1.ObjectMeta{
-							Name:      normalize(name, peerTool.Name),
+							Name:      normalize(name, toolName),
 							Namespace: "default",
 						},
 						Spec: v1.ToolReferenceSpec{
