@@ -34,6 +34,7 @@ interface ChatContextType {
     generatingMessage: Message | null;
     invoke: (prompt?: string) => void;
     readOnly?: boolean;
+    isRunning: boolean;
 }
 
 const ChatContext = createContext<ChatContextType | undefined>(undefined);
@@ -57,6 +58,7 @@ export function ChatProvider({
     const [generatingMessage, setGeneratingMessage] = useState<string | null>(
         null
     );
+    const [isRunning, setIsRunning] = useState(false);
     const isRunningToolCall = useRef(false);
     // todo(tylerslaton): this is a huge hack to get the generating message and runId to be
     // interactable during workflow invokes. take a look at invokeWorkflow to see why this is
@@ -145,6 +147,8 @@ export function ChatProvider({
         onSuccess: ({ reader, threadId: responseThreadId }) => {
             clearGeneratingMessage();
 
+            setIsRunning(true);
+
             readStream<ChatEvent>({
                 reader,
                 onChunk: (chunk) =>
@@ -206,6 +210,7 @@ export function ChatProvider({
 
                     invokeAgent.clear();
                     generatingRunIdRef.current = null;
+                    setIsRunning(false);
                 },
             });
         },
@@ -215,7 +220,6 @@ export function ChatProvider({
         if (invokeAgent.isLoading)
             return { sender: "agent", text: "", isLoading: true };
 
-        // slice the first character because it is always a newline for some reason
         if (!generatingMessage) {
             if (invokeAgent.data?.reader && !isRunningToolCall.current) {
                 return {
@@ -250,6 +254,7 @@ export function ChatProvider({
                 threadId,
                 generatingMessage: outGeneratingMessage,
                 invoke,
+                isRunning,
                 readOnly,
             }}
         >

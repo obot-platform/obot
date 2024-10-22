@@ -13,10 +13,13 @@ type ChatbarProps = {
 
 export function Chatbar({ className }: ChatbarProps) {
     const [input, setInput] = useState("");
-    const { processUserMessage } = useChat();
+    const { processUserMessage, isRunning } = useChat();
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
+
+        if (isRunning) return;
+
         if (input.trim()) {
             processUserMessage(input, "user");
             setInput("");
@@ -50,7 +53,7 @@ export function Chatbar({ className }: ChatbarProps) {
                 variant="secondary"
                 className="rounded-full"
                 type="submit"
-                disabled={!input}
+                disabled={!input || isRunning}
             >
                 <CircleArrowUpIcon />
             </Button>
