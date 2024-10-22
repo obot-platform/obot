@@ -124,7 +124,7 @@ function FileModal({
                         <UploadIcon className="upload-icon" />
                     </Button>
                 </DialogHeader>
-                <ScrollArea className="max-h-[800px] mt-4">
+                <ScrollArea className="max-h-[45vh] mt-4">
                     <div className={cn("p-2 flex flex-wrap gap-2")}>
                         {knowledge?.map((item) => (
                             <FileChip
