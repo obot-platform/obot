@@ -21,6 +21,12 @@ import { Avatar } from "~/components/ui/avatar";
 import { Button } from "~/components/ui/button";
 import { Dialog, DialogContent, DialogTitle } from "~/components/ui/dialog";
 import { ScrollArea } from "~/components/ui/scroll-area";
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipProvider,
+    TooltipTrigger,
+} from "~/components/ui/tooltip";
 
 import IngestionStatusComponent from "../IngestionStatus";
 import RemoteFileItemChip from "../RemoteFileItemChip";
@@ -93,6 +99,8 @@ export const WebsiteModal: FC<WebsiteModalProps> = ({
         startPolling();
     };
 
+    const hasKnowledgeFiles = knowledgeFiles.length > 0;
+
     return (
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
             <DialogContent
@@ -107,32 +115,59 @@ export const WebsiteModal: FC<WebsiteModalProps> = ({
                         Website
                     </div>
                     <div>
-                        <Button
-                            size="sm"
-                            variant="secondary"
-                            onClick={() => setIsAddWebsiteModalOpen(true)}
-                            className="mr-2"
-                        >
-                            <UploadIcon className="w-4 h-4" />
-                        </Button>
-                        <Button
-                            size="sm"
-                            variant="secondary"
-                            onClick={() =>
-                                handleRemoteKnowledgeSourceSync("website")
-                            }
-                            className="mr-2"
-                        >
-                            <RefreshCcwIcon className="w-4 h-4" />
-                        </Button>
-                        <Button
-                            size="sm"
-                            variant="secondary"
-                            onClick={() => setIsSettingModalOpen(true)}
-                            className="mr-2"
-                        >
-                            <SettingsIcon className="w-4 h-4" />
-                        </Button>
+                        <TooltipProvider>
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <Button
+                                        size="sm"
+                                        variant="secondary"
+                                        onClick={() =>
+                                            setIsAddWebsiteModalOpen(true)
+                                        }
+                                        className="mr-2"
+                                        tabIndex={-1}
+                                    >
+                                        <UploadIcon className="w-4 h-4" />
+                                    </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>Add</TooltipContent>
+                            </Tooltip>
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <Button
+                                        size="sm"
+                                        variant="secondary"
+                                        onClick={() =>
+                                            handleRemoteKnowledgeSourceSync(
+                                                "website"
+                                            )
+                                        }
+                                        className="mr-2"
+                                        tabIndex={-1}
+                                        disabled={!hasKnowledgeFiles}
+                                    >
+                                        <RefreshCcwIcon className="w-4 h-4" />
+                                    </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>Refresh</TooltipContent>
+                            </Tooltip>
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <Button
+                                        size="sm"
+                                        variant="secondary"
+                                        onClick={() =>
+                                            setIsSettingModalOpen(true)
+                                        }
+                                        className="mr-2"
+                                        tabIndex={-1}
+                                    >
+                                        <SettingsIcon className="w-4 h-4" />
+                                    </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>Settings</TooltipContent>
+                            </Tooltip>
+                        </TooltipProvider>
                     </div>
                 </DialogTitle>
                 <ScrollArea className="max-h-[45vh] overflow-x-auto">
@@ -246,7 +281,7 @@ export const WebsiteModal: FC<WebsiteModalProps> = ({
                             handleApproveAll();
                             setLoading(false);
                         }}
-                        disabled={loading}
+                        disabled={loading || !hasKnowledgeFiles}
                     >
                         {loading ? (
                             <LoadingSpinner className="w-4 h-4" />

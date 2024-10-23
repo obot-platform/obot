@@ -22,6 +22,12 @@ import {
     DialogTitle,
 } from "~/components/ui/dialog";
 import { ScrollArea } from "~/components/ui/scroll-area";
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipProvider,
+    TooltipTrigger,
+} from "~/components/ui/tooltip";
 
 import IngestionStatusComponent from "../IngestionStatus";
 
@@ -60,6 +66,8 @@ export const NotionModal: FC<NotionModalProps> = ({
         startPolling();
     };
 
+    const hasKnowledgeFiles = knowledgeFiles.length > 0;
+
     return (
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
             <DialogContent
@@ -78,25 +86,44 @@ export const NotionModal: FC<NotionModalProps> = ({
                             Notion
                         </div>
 
-                        <div>
-                            <Button
-                                size="sm"
-                                variant="secondary"
-                                onClick={() =>
-                                    handleRemoteKnowledgeSourceSync("notion")
-                                }
-                                className="mr-2"
-                            >
-                                <RefreshCcwIcon className="w-4 h-4" />
-                            </Button>
-                            <Button
-                                size="sm"
-                                variant="secondary"
-                                onClick={() => setIsSettingModalOpen(true)}
-                                className="mr-2"
-                            >
-                                <SettingsIcon className="w-4 h-4" />
-                            </Button>
+                        <div className="flex flex-row items-center">
+                            <TooltipProvider>
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <Button
+                                            size="sm"
+                                            variant="secondary"
+                                            onClick={() =>
+                                                handleRemoteKnowledgeSourceSync(
+                                                    "notion"
+                                                )
+                                            }
+                                            className="mr-2"
+                                            tabIndex={-1}
+                                            disabled={!hasKnowledgeFiles}
+                                        >
+                                            <RefreshCcwIcon className="w-4 h-4" />
+                                        </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent>Refresh</TooltipContent>
+                                </Tooltip>
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <Button
+                                            size="sm"
+                                            variant="secondary"
+                                            onClick={() =>
+                                                setIsSettingModalOpen(true)
+                                            }
+                                            className="mr-2"
+                                            tabIndex={-1}
+                                        >
+                                            <SettingsIcon className="w-4 h-4" />
+                                        </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent>Settings</TooltipContent>
+                                </Tooltip>
+                            </TooltipProvider>
                         </div>
                     </DialogTitle>
                 </DialogHeader>
@@ -109,7 +136,7 @@ export const NotionModal: FC<NotionModalProps> = ({
                                 subTitle={
                                     notionSource?.state?.notionState?.pages?.[
                                         item.uploadID!
-                                    ]?.title
+                                    ]?.folderPath
                                 }
                                 remoteKnowledgeSourceType={
                                     item.remoteKnowledgeSourceType!

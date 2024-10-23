@@ -46,6 +46,16 @@ const AddWebsiteModal: FC<AddWebsiteModalProps> = ({
                     },
                 }
             );
+            const intervalId = setInterval(() => {
+                startPolling();
+                if (websiteSource?.runID) {
+                    clearInterval(intervalId);
+                }
+            }, 1000);
+            setTimeout(() => {
+                clearInterval(intervalId);
+            }, 10000);
+
             startPolling();
             setNewWebsite("");
             onOpenChange(false);

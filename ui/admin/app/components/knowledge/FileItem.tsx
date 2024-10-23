@@ -1,4 +1,4 @@
-import { FileIcon, PlusIcon, XIcon } from "lucide-react";
+import { FileIcon, PlusIcon, TrashIcon } from "lucide-react";
 import { useState } from "react";
 
 import { KnowledgeFile } from "~/lib/model/knowledge";
@@ -101,7 +101,7 @@ function FileItem({
                                     {actionIcon ? (
                                         actionIcon
                                     ) : (
-                                        <XIcon className="w-4 h-4" />
+                                        <TrashIcon className="w-4 h-4" />
                                     )}
                                 </Button>
                             )

@@ -24,6 +24,12 @@ import { Avatar } from "~/components/ui/avatar";
 import { Button } from "~/components/ui/button";
 import { Dialog, DialogContent, DialogTitle } from "~/components/ui/dialog";
 import { ScrollArea } from "~/components/ui/scroll-area";
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipProvider,
+    TooltipTrigger,
+} from "~/components/ui/tooltip";
 
 import IngestionStatusComponent from "../IngestionStatus";
 import RemoteFileItemChip from "../RemoteFileItemChip";
@@ -95,6 +101,7 @@ export const OnedriveModal: FC<OnedriveModalProps> = ({
         startPolling();
     };
 
+    const hasKnowledgeFiles = knowledgeFiles.length > 0;
     return (
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
             <DialogContent
@@ -112,42 +119,69 @@ export const OnedriveModal: FC<OnedriveModalProps> = ({
                         OneDrive
                     </div>
                     <div>
-                        <Button
-                            size="sm"
-                            variant="secondary"
-                            onClick={() => setIsAddLinkModalOpen(true)}
-                            className="mr-2"
-                        >
-                            <UploadIcon className="w-4 h-4" />
-                        </Button>
-                        <Button
-                            size="sm"
-                            variant="secondary"
-                            onClick={() =>
-                                handleRemoteKnowledgeSourceSync("onedrive")
-                            }
-                            className="mr-2"
-                        >
-                            <RefreshCcwIcon className="w-4 h-4" />
-                        </Button>
-                        <Button
-                            size="sm"
-                            variant="secondary"
-                            onClick={() => setIsSettingModalOpen(true)}
-                            className="mr-2"
-                        >
-                            <SettingsIcon className="w-4 h-4" />
-                        </Button>
+                        <TooltipProvider>
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <Button
+                                        size="sm"
+                                        variant="secondary"
+                                        onClick={() =>
+                                            setIsAddLinkModalOpen(true)
+                                        }
+                                        className="mr-2"
+                                        tabIndex={-1}
+                                    >
+                                        <UploadIcon className="w-4 h-4" />
+                                    </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>Add</TooltipContent>
+                            </Tooltip>
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <Button
+                                        size="sm"
+                                        variant="secondary"
+                                        onClick={() =>
+                                            handleRemoteKnowledgeSourceSync(
+                                                "onedrive"
+                                            )
+                                        }
+                                        className="mr-2"
+                                        tabIndex={-1}
+                                        disabled={!hasKnowledgeFiles}
+                                    >
+                                        <RefreshCcwIcon className="w-4 h-4" />
+                                    </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>Refresh</TooltipContent>
+                            </Tooltip>
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <Button
+                                        size="sm"
+                                        variant="secondary"
+                                        onClick={() =>
+                                            setIsSettingModalOpen(true)
+                                        }
+                                        className="mr-2"
+                                        tabIndex={-1}
+                                    >
+                                        <SettingsIcon className="w-4 h-4" />
+                                    </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>Settings</TooltipContent>
+                            </Tooltip>
+                        </TooltipProvider>
                     </div>
                 </DialogTitle>
                 <ScrollArea className="max-h-[45vh] overflow-x-auto">
                     <div className="max-h-[400px] overflow-x-auto">
                         {links.map((link, index) => (
                             <div key={index}>
-                                {/* eslint-disable-next-line */}
-                                <div
+                                <Button
                                     key={index}
-                                    className="flex flex-row items-center justify-between overflow-x-auto pr-4 h-12 cursor-pointer"
+                                    variant="ghost"
+                                    className="flex flex-row w-full items-center justify-between overflow-x-auto pr-4 h-12 cursor-pointer"
                                     onClick={() => {
                                         if (
                                             showTable[index] === undefined ||
@@ -222,12 +256,11 @@ export const OnedriveModal: FC<OnedriveModalProps> = ({
                                         ) : (
                                             <ChevronDown className="h-4 w-4" />
                                         ))}
-                                </div>
+                                </Button>
                                 {showTable[index] && (
                                     <ScrollArea className="max-h-[200px] overflow-x-auto mb-2">
                                         <div className="flex flex-col gap-2">
                                             {knowledgeFiles
-
                                                 .filter((item) =>
                                                     onedriveSource?.state?.onedriveState?.files?.[
                                                         item.uploadID!
@@ -274,19 +307,22 @@ export const OnedriveModal: FC<OnedriveModalProps> = ({
                         ))}
                         <div className="flex flex-col gap-2 mt-2">
                             {knowledgeFiles
-                                .filter(
-                                    (item) =>
-                                        !links.some(
-                                            (link) =>
-                                                onedriveSource?.state?.onedriveState?.files?.[
-                                                    item.uploadID!
-                                                ]?.folderPath?.startsWith(
-                                                    onedriveSource?.state
-                                                        ?.onedriveState
-                                                        ?.links?.[link]?.name ??
-                                                        ""
-                                                ) ?? false
-                                        )
+                                .filter((item) =>
+                                    links.every((link) => {
+                                        // If we have file state and find out that file doesn't belong to any link, then we should it as separate files as this link is pointing to a file
+                                        const fileState =
+                                            onedriveSource?.state?.onedriveState
+                                                ?.files?.[item.uploadID!];
+                                        return (
+                                            fileState &&
+                                            !fileState?.folderPath?.startsWith(
+                                                onedriveSource?.state
+                                                    ?.onedriveState?.links?.[
+                                                    link
+                                                ]?.name ?? ""
+                                            )
+                                        );
+                                    })
                                 )
                                 .map((item) => (
                                     <RemoteFileItemChip
@@ -317,9 +353,10 @@ export const OnedriveModal: FC<OnedriveModalProps> = ({
                 {knowledgeFiles?.some((item) => item.approved) && (
                     <IngestionStatusComponent knowledge={knowledgeFiles} />
                 )}
-                {onedriveSource?.runID && (
-                    <RemoteKnowledgeSourceStatus source={onedriveSource!} />
-                )}
+                {onedriveSource?.state?.onedriveState?.links &&
+                    onedriveSource?.runID && (
+                        <RemoteKnowledgeSourceStatus source={onedriveSource!} />
+                    )}
 
                 <div className="mt-4 flex justify-between">
                     <Button
@@ -333,7 +370,7 @@ export const OnedriveModal: FC<OnedriveModalProps> = ({
                             handleApproveAll();
                             setLoading(false);
                         }}
-                        disabled={loading}
+                        disabled={loading || !hasKnowledgeFiles}
                     >
                         {loading ? (
                             <LoadingSpinner className="w-4 h-4" />

@@ -125,7 +125,7 @@ export function AgentKnowledgePanel({ agentId }: { agentId: string }) {
     let notionSource = remoteKnowledgeSources.find(
         (source) => source.sourceType === "notion"
     );
-    let onedriveSource = remoteKnowledgeSources.find(
+    const onedriveSource = remoteKnowledgeSources.find(
         (source) => source.sourceType === "onedrive"
     );
     const websiteSource = remoteKnowledgeSources.find(
@@ -133,7 +133,6 @@ export function AgentKnowledgePanel({ agentId }: { agentId: string }) {
     );
 
     const onClickNotion = async () => {
-        // For notion, we need to ensure the remote knowledge source is created so that client can fetch a list of pages
         if (!notionSource) {
             await KnowledgeService.createRemoteKnowledgeSource(agentId, {
                 sourceType: "notion",
@@ -159,18 +158,6 @@ export function AgentKnowledgePanel({ agentId }: { agentId: string }) {
             await KnowledgeService.createRemoteKnowledgeSource(agentId, {
                 sourceType: "onedrive",
             });
-            const intervalId = setInterval(() => {
-                getRemoteKnowledgeSources.mutate();
-                onedriveSource = remoteKnowledgeSources.find(
-                    (source) => source.sourceType === "onedrive"
-                );
-                if (onedriveSource?.runID) {
-                    clearInterval(intervalId);
-                }
-            }, 1000);
-            setTimeout(() => {
-                clearInterval(intervalId);
-            }, 10000);
         }
         setIsOnedriveModalOpen(true);
     };

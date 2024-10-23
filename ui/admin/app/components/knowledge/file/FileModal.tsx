@@ -16,6 +16,12 @@ import {
 } from "~/components/ui/dialog";
 import { Input } from "~/components/ui/input";
 import { ScrollArea } from "~/components/ui/scroll-area";
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipProvider,
+    TooltipTrigger,
+} from "~/components/ui/tooltip";
 import { useAsync } from "~/hooks/useAsync";
 import { useMultiAsync } from "~/hooks/useMultiAsync";
 
@@ -115,14 +121,24 @@ function FileModal({
             >
                 <DialogHeader className="flex flex-row justify-between items-center">
                     <DialogTitle>Manage Files</DialogTitle>
-                    <Button
-                        variant="secondary"
-                        size="sm"
-                        className="mr-2"
-                        onClick={() => fileInputRef.current?.click()}
-                    >
-                        <UploadIcon className="upload-icon" />
-                    </Button>
+                    <TooltipProvider>
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <Button
+                                    variant="secondary"
+                                    size="sm"
+                                    className="mr-2"
+                                    onClick={() =>
+                                        fileInputRef.current?.click()
+                                    }
+                                    tabIndex={-1}
+                                >
+                                    <UploadIcon className="upload-icon" />
+                                </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>Upload</TooltipContent>
+                        </Tooltip>
+                    </TooltipProvider>
                 </DialogHeader>
                 <ScrollArea className="max-h-[45vh] mt-4">
                     <div className={cn("p-2 flex flex-wrap gap-2")}>
