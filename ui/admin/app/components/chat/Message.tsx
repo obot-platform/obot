@@ -1,7 +1,6 @@
 import "@radix-ui/react-tooltip";
 import { WrenchIcon } from "lucide-react";
-import { useMemo } from "react";
-import React from "react";
+import React, { useMemo } from "react";
 import Markdown, { defaultUrlTransform } from "react-markdown";
 import rehypeExternalLinks from "rehype-external-links";
 import remarkGfm from "remark-gfm";
