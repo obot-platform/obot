@@ -6,6 +6,7 @@ export const OAuthProvider = {
     GitHub: "github",
     Google: "google",
     Microsoft365: "microsoft365",
+    Slack: "slack",
 } as const;
 export type OAuthProvider = (typeof OAuthProvider)[keyof typeof OAuthProvider];
 
@@ -25,6 +26,7 @@ export type OAuthAppSpec = {
     refName: string;
     type: OAuthProvider;
     logo: string;
+    darkLogo?: string;
     steps: OAuthFormStep[];
     disableConfiguration?: boolean;
     invertDark?: boolean;

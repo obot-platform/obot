@@ -1,6 +1,7 @@
 import { OAuthProvider } from "~/lib/model/oauthApps/oauth-helpers";
 import { cn } from "~/lib/utils";
 
+import { useTheme } from "~/components/theme";
 import { Card } from "~/components/ui/card";
 import { useOAuthAppInfo } from "~/hooks/oauthApps/useOAuthApps";
 
@@ -14,6 +15,7 @@ export function OAuthAppTile({
     className?: string;
 }) {
     const info = useOAuthAppInfo(type);
+    const { isDark } = useTheme();
 
     if (!info) {
         console.error(`OAuth app ${type} not found`);
@@ -22,17 +24,22 @@ export function OAuthAppTile({
 
     const { displayName } = info;
 
+    const getSrc = () => {
+        if (isDark) return info.darkLogo ?? info.logo;
+        return info.logo;
+    };
+
     return (
         <Card
             className={cn(
-                "self-center relative w-[300px] h-[150px] p-4 flex gap-4 justify-center items-center",
+                "self-center relative w-[300px] h-[150px] px-6 flex gap-4 justify-center items-center",
                 className
             )}
         >
             <img
-                src={info.logo}
+                src={getSrc()}
                 alt={displayName}
-                className={cn("m-4", {
+                className={cn("m-4 aspect-auto", {
                     "dark:invert": info.invertDark,
                 })}
             />
