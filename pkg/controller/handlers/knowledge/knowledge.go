@@ -318,7 +318,8 @@ func (a *Handler) CleanupFile(req router.Request, resp router.Response) error {
 		return err
 	}
 
-	if err := a.gptscript.DeleteFileInWorkspace(req.Ctx, kFile.Spec.FileName, gptscript.DeleteFileInWorkspaceOptions{WorkspaceID: ws.Status.WorkspaceID}); err != nil {
+	var notFoundErr *gptscript.NotFoundInWorkspaceError
+	if err := a.gptscript.DeleteFileInWorkspace(req.Ctx, kFile.Spec.FileName, gptscript.DeleteFileInWorkspaceOptions{WorkspaceID: ws.Status.WorkspaceID}); err != nil && !errors.As(err, &notFoundErr) {
 		return err
 	}
 
