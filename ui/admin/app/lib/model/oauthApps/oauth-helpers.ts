@@ -5,6 +5,7 @@ import { apiBaseUrl } from "~/lib/routers/apiRoutes";
 export const OAuthProvider = {
     GitHub: "github",
     Google: "google",
+    Microsoft365: "microsoft365",
 } as const;
 export type OAuthProvider = (typeof OAuthProvider)[keyof typeof OAuthProvider];
 
