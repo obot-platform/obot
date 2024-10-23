@@ -2,7 +2,6 @@ package v1
 
 import (
 	"github.com/acorn-io/baaah/pkg/fields"
-	"github.com/otto8-ai/otto8/apiclient/types"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -64,16 +63,16 @@ type WorkspaceSpec struct {
 }
 
 type WorkspaceStatus struct {
-	WorkspaceID          string                `json:"workspaceID,omitempty"`
-	IngestionGeneration  int64                 `json:"ingestionGeneration,omitempty"`
-	IngestionRunHash     string                `json:"ingestionRunHash,omitempty"`
-	IngestionRunName     string                `json:"ingestionRunName,omitempty"`
-	IngestionLastRunTime metav1.Time           `json:"ingestionLastRunTime,omitempty"`
-	LastNotFinished      map[string]types.Item `json:"lastNotFinished,omitempty"`
-	NotFinished          map[string]types.Item `json:"notFinished,omitempty"`
-	RetryCount           int                   `json:"retryCount,omitempty"`
-	PendingApproval      []string              `json:"pendingApproval,omitempty"`
-	PendingRejections    []string              `json:"pendingRejections,omitempty"`
+	WorkspaceID          string            `json:"workspaceID,omitempty"`
+	IngestionGeneration  int64             `json:"ingestionGeneration,omitempty"`
+	IngestionRunHash     string            `json:"ingestionRunHash,omitempty"`
+	IngestionRunName     string            `json:"ingestionRunName,omitempty"`
+	IngestionLastRunTime metav1.Time       `json:"ingestionLastRunTime,omitempty"`
+	LastNotFinished      map[string]string `json:"lastNotFinished,omitempty"`
+	NotFinished          map[string]string `json:"notFinished,omitempty"`
+	RetryCount           int               `json:"retryCount,omitempty"`
+	PendingApproval      []string          `json:"pendingApproval,omitempty"`
+	PendingRejections    []string          `json:"pendingRejections,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

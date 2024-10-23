@@ -7001,8 +7001,9 @@ func schema_storage_apis_ottogptscriptai_v1_WorkspaceStatus(ref common.Reference
 								Allows: true,
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref("github.com/otto8-ai/otto8/apiclient/types.Item"),
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
 									},
 								},
 							},
@@ -7015,8 +7016,9 @@ func schema_storage_apis_ottogptscriptai_v1_WorkspaceStatus(ref common.Reference
 								Allows: true,
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref("github.com/otto8-ai/otto8/apiclient/types.Item"),
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
 									},
 								},
 							},
@@ -7060,7 +7062,7 @@ func schema_storage_apis_ottogptscriptai_v1_WorkspaceStatus(ref common.Reference
 			},
 		},
 		Dependencies: []string{
-			"github.com/otto8-ai/otto8/apiclient/types.Item", "k8s.io/apimachinery/pkg/apis/meta/v1.Time"},
+			"k8s.io/apimachinery/pkg/apis/meta/v1.Time"},
 	}
 }
 

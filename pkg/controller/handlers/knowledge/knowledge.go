@@ -301,19 +301,19 @@ func updateIngestionError(req router.Request, ws *v1.Workspace, runName string) 
 		}
 	}
 
-	if run.Status.State == gptscript.Finished || run.Status.State == gptscript.Error {
+	if run.Status.State.IsTerminal() {
 		return true, nil
 	}
 
 	return false, nil
 }
 
-func compileFileStatuses(ctx context.Context, client kclient.Client, ws *v1.Workspace, progress <-chan types.Progress) (map[string]types.Item, error) {
+func compileFileStatuses(ctx context.Context, client kclient.Client, ws *v1.Workspace, progress <-chan types.Progress) (map[string]string, error) {
 	input := toStream(progress)
 	defer input.Close()
 	scanner := bufio.NewScanner(input)
 
-	final := map[string]types.Item{}
+	final := map[string]string{}
 
 	var errs []error
 	for scanner.Scan() {
@@ -340,7 +340,7 @@ func compileFileStatuses(ctx context.Context, client kclient.Client, ws *v1.Work
 		} else if err != nil {
 			errs = append(errs, fmt.Errorf("failed to get knowledge file: %s", err))
 		}
-		final[file.Name] = struct{}{}
+		final[file.Name] = ingestionStatus.Status
 
 		if ingestionStatus.Status == "finished" {
 			delete(final, file.Name)
