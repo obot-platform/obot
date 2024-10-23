@@ -100,7 +100,6 @@ func convertAgent(agent v1.Agent, prefix string, knowledgeSets ...v1.KnowledgeSe
 	}
 
 	var knowledgeSetsStatus types.AgentKnowledgeSetStatus
-
 	for _, knowledge := range knowledgeSets {
 		knowledgeSetsStatus.KnowledgeSetStatues = append(knowledgeSetsStatus.KnowledgeSetStatues, types.KnowledgeSetStatus{
 			Error:            knowledge.Status.IngestionError,

@@ -4,7 +4,6 @@ import (
 	"github.com/acorn-io/baaah/pkg/router"
 	v1 "github.com/otto8-ai/otto8/pkg/storage/apis/otto.gptscript.ai/v1"
 	"github.com/otto8-ai/otto8/pkg/system"
-	"github.com/sirupsen/logrus"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -28,7 +27,6 @@ func WorkspaceObjects(req router.Request, _ router.Response) error {
 	}
 
 	if len(agent.Status.KnowledgeSetNames) == 0 {
-		logrus.Info("Created default knowledge set")
 		ws := &v1.KnowledgeSet{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace:    req.Namespace,

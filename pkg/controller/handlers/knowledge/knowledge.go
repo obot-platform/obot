@@ -207,7 +207,7 @@ func (a *Handler) IngestKnowledge(req router.Request, resp router.Response) erro
 		ws.Status.IngestionRunHash = hash
 		ws.Status.IngestionRunName = run.Run.Name
 		ws.Status.IngestionGeneration++
-		return nil
+		return req.Client.Status().Update(req.Ctx, ws)
 	}
 
 	return nil
