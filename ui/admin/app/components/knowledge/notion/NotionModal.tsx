@@ -41,6 +41,7 @@ type NotionModalProps = {
     handleRemoteKnowledgeSourceSync: (
         knowledgeSourceType: RemoteKnowledgeSourceType
     ) => void;
+    ingestionError?: string;
 };
 
 export const NotionModal: FC<NotionModalProps> = ({
@@ -51,6 +52,7 @@ export const NotionModal: FC<NotionModalProps> = ({
     knowledgeFiles,
     startPolling,
     handleRemoteKnowledgeSourceSync,
+    ingestionError,
 }) => {
     const [loading, setLoading] = useState(false);
     const [isSettingModalOpen, setIsSettingModalOpen] = useState(false);
@@ -154,7 +156,10 @@ export const NotionModal: FC<NotionModalProps> = ({
                     </div>
                 </ScrollArea>
                 {knowledgeFiles?.some((item) => item.approved) && (
-                    <IngestionStatusComponent knowledge={knowledgeFiles} />
+                    <IngestionStatusComponent
+                        knowledge={knowledgeFiles}
+                        ingestionError={ingestionError}
+                    />
                 )}
                 {notionSource?.runID && (
                     <RemoteKnowledgeSourceStatus source={notionSource!} />

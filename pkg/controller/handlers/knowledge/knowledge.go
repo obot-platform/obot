@@ -192,10 +192,22 @@ func (a *Handler) IngestKnowledge(req router.Request, resp router.Response) erro
 			return err
 		}
 
+		// Reset knowledge set error before ingestion
+		var knowledgeSet v1.KnowledgeSet
+		if err := req.Get(&knowledgeSet, ws.Namespace, ws.Spec.KnowledgeSetName); err != nil {
+			return err
+		}
+		if knowledgeSet.Status.IngestionError != "" {
+			knowledgeSet.Status.IngestionError = ""
+			if err := req.Client.Status().Update(req.Ctx, &knowledgeSet); err != nil {
+				return err
+			}
+		}
+
 		ws.Status.IngestionRunHash = hash
 		ws.Status.IngestionRunName = run.Run.Name
 		ws.Status.IngestionGeneration++
-		return req.Client.Status().Update(req.Ctx, ws)
+		return nil
 	}
 
 	return nil
@@ -249,19 +261,59 @@ func (a *Handler) UpdateFileStatus(req router.Request, _ router.Response) error 
 		return err
 	}
 
-	// All good
+	// Fetch ingestion error from run.status in go routine so that we don't block
+	runName := ws.Status.IngestionRunName
+	go func() {
+		for {
+			stop, err := updateIngestionError(req, ws, runName)
+			if err != nil {
+				logger.Errorf("failed to update ingestion error: %s", err)
+				break
+			}
+
+			if stop {
+				break
+			}
+			time.Sleep(time.Second * 5)
+		}
+	}()
+
 	ws.Status.IngestionRunName = ""
 	ws.Status.NotFinished = NotFinished
 	ws.Status.IngestionLastRunTime = metav1.Now()
 	return nil
 }
 
-func compileFileStatuses(ctx context.Context, client kclient.Client, ws *v1.Workspace, progress <-chan types.Progress) (map[string]string, error) {
+func updateIngestionError(req router.Request, ws *v1.Workspace, runName string) (bool, error) {
+	var run v1.Run
+	if err := req.Get(uncached.Get(&run), ws.Namespace, runName); err != nil && !apierrors.IsNotFound(err) {
+		return false, err
+	} else if err == nil {
+		var knowledgeSet v1.KnowledgeSet
+		if err := req.Get(&knowledgeSet, ws.Namespace, ws.Spec.KnowledgeSetName); err != nil {
+			return false, err
+		}
+		if run.Status.Error != knowledgeSet.Status.IngestionError {
+			knowledgeSet.Status.IngestionError = run.Status.Error
+			if err := req.Client.Status().Update(req.Ctx, &knowledgeSet); err != nil {
+				return false, err
+			}
+		}
+	}
+
+	if run.Status.State == gptscript.Finished || run.Status.State == gptscript.Error {
+		return true, nil
+	}
+
+	return false, nil
+}
+
+func compileFileStatuses(ctx context.Context, client kclient.Client, ws *v1.Workspace, progress <-chan types.Progress) (map[string]types.Item, error) {
 	input := toStream(progress)
 	defer input.Close()
 	scanner := bufio.NewScanner(input)
 
-	final := map[string]string{}
+	final := map[string]types.Item{}
 
 	var errs []error
 	for scanner.Scan() {
@@ -288,6 +340,7 @@ func compileFileStatuses(ctx context.Context, client kclient.Client, ws *v1.Work
 		} else if err != nil {
 			errs = append(errs, fmt.Errorf("failed to get knowledge file: %s", err))
 		}
+		final[file.Name] = struct{}{}
 
 		if ingestionStatus.Status == "finished" {
 			delete(final, file.Name)
@@ -322,6 +375,12 @@ func (a *Handler) CleanupFile(req router.Request, resp router.Response) error {
 	var notFoundErr *gptscript.NotFoundInWorkspaceError
 	if err := a.gptscript.DeleteFileInWorkspace(req.Ctx, kFile.Spec.FileName, gptscript.DeleteFileInWorkspaceOptions{WorkspaceID: ws.Status.WorkspaceID}); err != nil && !errors.As(err, &notFoundErr) {
 		return err
+	}
+
+	var knowledgeSet v1.KnowledgeSet
+	if err := req.Get(uncached.Get(&knowledgeSet), kFile.Namespace, ws.Spec.KnowledgeSetName); apierrors.IsNotFound(err) {
+		// if knowledge set has been deleted already, then we don't need to run delete file
+		return nil
 	}
 
 	if _, err := a.ingester.DeleteKnowledgeFiles(req.Ctx, kFile.Namespace, filepath.Join(workspace.GetDir(ws.Status.WorkspaceID), kFile.Spec.FileName), ws.Spec.KnowledgeSetName); err != nil {

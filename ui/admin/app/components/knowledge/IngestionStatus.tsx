@@ -13,9 +13,13 @@ import { LoadingSpinner } from "../ui/LoadingSpinner";
 
 interface IngestionStatusProps {
     knowledge: KnowledgeFile[];
+    ingestionError?: string;
 }
 
-const IngestionStatusComponent = ({ knowledge }: IngestionStatusProps) => {
+const IngestionStatusComponent = ({
+    knowledge,
+    ingestionError,
+}: IngestionStatusProps) => {
     const approvedKnowledge = knowledge.filter(
         (item) => item.approved === true
     );
@@ -24,6 +28,16 @@ const IngestionStatusComponent = ({ knowledge }: IngestionStatusProps) => {
         <div className="flex flex-col items-start mt-4">
             <div className="flex items-center">
                 {(() => {
+                    if (ingestionError) {
+                        return (
+                            <div className="flex items-center gap-2 max-w-[200px]">
+                                <span className="text-xs text-destructive">
+                                    {ingestionError}
+                                </span>
+                            </div>
+                        );
+                    }
+
                     const ingestingCount = approvedKnowledge.filter(
                         (item) =>
                             item.ingestionStatus?.status ===

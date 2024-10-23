@@ -11,8 +11,10 @@ import (
 	"github.com/otto8-ai/otto8/pkg/api/server"
 	"github.com/otto8-ai/otto8/pkg/render"
 	v1 "github.com/otto8-ai/otto8/pkg/storage/apis/otto.gptscript.ai/v1"
+	"github.com/otto8-ai/otto8/pkg/storage/selectors"
 	"github.com/otto8-ai/otto8/pkg/system"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/fields"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -87,7 +89,7 @@ func (a *AgentHandler) Create(req api.Context) error {
 	return req.Write(convertAgent(agent, server.GetURLPrefix(req)))
 }
 
-func convertAgent(agent v1.Agent, prefix string) *types.Agent {
+func convertAgent(agent v1.Agent, prefix string, knowledgeSets ...v1.KnowledgeSet) *types.Agent {
 	var links []string
 	if prefix != "" {
 		refName := agent.Name
@@ -96,10 +98,21 @@ func convertAgent(agent v1.Agent, prefix string) *types.Agent {
 		}
 		links = []string{"invoke", prefix + "/invoke/" + refName}
 	}
+
+	var knowledgeSetsStatus types.AgentKnowledgeSetStatus
+
+	for _, knowledge := range knowledgeSets {
+		knowledgeSetsStatus.KnowledgeSetStatues = append(knowledgeSetsStatus.KnowledgeSetStatues, types.KnowledgeSetStatus{
+			Error:            knowledge.Status.IngestionError,
+			KnowledgeSetName: knowledge.Name,
+		})
+	}
+
 	return &types.Agent{
-		Metadata:            MetadataFrom(&agent, links...),
-		AgentManifest:       agent.Spec.Manifest,
-		AgentExternalStatus: agent.Status.External,
+		Metadata:                MetadataFrom(&agent, links...),
+		AgentManifest:           agent.Spec.Manifest,
+		AgentExternalStatus:     agent.Status.External,
+		AgentKnowledgeSetStatus: knowledgeSetsStatus,
 	}
 }
 
@@ -109,7 +122,12 @@ func (a *AgentHandler) ByID(req api.Context) error {
 		return err
 	}
 
-	return req.Write(convertAgent(agent, server.GetURLPrefix(req)))
+	knowledgeSets, err := getKnowledgeSetsFromAgent(req, agent)
+	if err != nil {
+		return err
+	}
+
+	return req.Write(convertAgent(agent, server.GetURLPrefix(req), knowledgeSets...))
 }
 
 func (a *AgentHandler) List(req api.Context) error {
@@ -120,10 +138,27 @@ func (a *AgentHandler) List(req api.Context) error {
 
 	var resp types.AgentList
 	for _, agent := range agentList.Items {
-		resp.Items = append(resp.Items, *convertAgent(agent, server.GetURLPrefix(req)))
+		knowledgeSets, err := getKnowledgeSetsFromAgent(req, agent)
+		if err != nil {
+			return err
+		}
+		resp.Items = append(resp.Items, *convertAgent(agent, server.GetURLPrefix(req), knowledgeSets...))
 	}
 
 	return req.Write(resp)
+}
+
+func getKnowledgeSetsFromAgent(req api.Context, agent v1.Agent) ([]v1.KnowledgeSet, error) {
+	var knowledgeSets v1.KnowledgeSetList
+	if err := req.Storage.List(req.Context(), &knowledgeSets, &kclient.ListOptions{
+		FieldSelector: fields.SelectorFromSet(selectors.RemoveEmpty(map[string]string{
+			"spec.agentName": agent.Name,
+		})),
+		Namespace: agent.Namespace,
+	}); err != nil {
+		return nil, err
+	}
+	return knowledgeSets.Items, nil
 }
 
 func (a *AgentHandler) Files(req api.Context) error {

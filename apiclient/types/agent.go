@@ -12,6 +12,7 @@ type Agent struct {
 	Metadata
 	AgentManifest
 	AgentExternalStatus
+	AgentKnowledgeSetStatus
 }
 
 type AgentList List[Agent]
@@ -45,4 +46,13 @@ func (m AgentManifest) GetParams() *openapi3.Schema {
 
 type AgentExternalStatus struct {
 	RefNameAssigned bool `json:"refNameAssigned,omitempty"`
+}
+
+type AgentKnowledgeSetStatus struct {
+	KnowledgeSetStatues []KnowledgeSetStatus `json:"knowledgeSetStatues,omitempty"`
+}
+
+type KnowledgeSetStatus struct {
+	KnowledgeSetName string `json:"knowledgeSetName,omitempty"`
+	Error            string `json:"error,omitempty"`
 }

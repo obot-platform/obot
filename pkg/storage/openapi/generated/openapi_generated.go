@@ -18,6 +18,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 	return map[string]common.OpenAPIDefinition{
 		"github.com/otto8-ai/otto8/apiclient/types.Agent":                                             schema_otto8_ai_otto8_apiclient_types_Agent(ref),
 		"github.com/otto8-ai/otto8/apiclient/types.AgentExternalStatus":                               schema_otto8_ai_otto8_apiclient_types_AgentExternalStatus(ref),
+		"github.com/otto8-ai/otto8/apiclient/types.AgentKnowledgeSetStatus":                           schema_otto8_ai_otto8_apiclient_types_AgentKnowledgeSetStatus(ref),
 		"github.com/otto8-ai/otto8/apiclient/types.AgentList":                                         schema_otto8_ai_otto8_apiclient_types_AgentList(ref),
 		"github.com/otto8-ai/otto8/apiclient/types.AgentManifest":                                     schema_otto8_ai_otto8_apiclient_types_AgentManifest(ref),
 		"github.com/otto8-ai/otto8/apiclient/types.Credential":                                        schema_otto8_ai_otto8_apiclient_types_Credential(ref),
@@ -35,6 +36,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/otto8-ai/otto8/apiclient/types.Item":                                              schema_otto8_ai_otto8_apiclient_types_Item(ref),
 		"github.com/otto8-ai/otto8/apiclient/types.KnowledgeFile":                                     schema_otto8_ai_otto8_apiclient_types_KnowledgeFile(ref),
 		"github.com/otto8-ai/otto8/apiclient/types.KnowledgeFileList":                                 schema_otto8_ai_otto8_apiclient_types_KnowledgeFileList(ref),
+		"github.com/otto8-ai/otto8/apiclient/types.KnowledgeSetStatus":                                schema_otto8_ai_otto8_apiclient_types_KnowledgeSetStatus(ref),
 		"github.com/otto8-ai/otto8/apiclient/types.LinkState":                                         schema_otto8_ai_otto8_apiclient_types_LinkState(ref),
 		"github.com/otto8-ai/otto8/apiclient/types.Metadata":                                          schema_otto8_ai_otto8_apiclient_types_Metadata(ref),
 		"github.com/otto8-ai/otto8/apiclient/types.NotionConfig":                                      schema_otto8_ai_otto8_apiclient_types_NotionConfig(ref),
@@ -251,12 +253,18 @@ func schema_otto8_ai_otto8_apiclient_types_Agent(ref common.ReferenceCallback) c
 							Ref:     ref("github.com/otto8-ai/otto8/apiclient/types.AgentExternalStatus"),
 						},
 					},
+					"AgentKnowledgeSetStatus": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/otto8-ai/otto8/apiclient/types.AgentKnowledgeSetStatus"),
+						},
+					},
 				},
-				Required: []string{"Metadata", "AgentManifest", "AgentExternalStatus"},
+				Required: []string{"Metadata", "AgentManifest", "AgentExternalStatus", "AgentKnowledgeSetStatus"},
 			},
 		},
 		Dependencies: []string{
-			"github.com/otto8-ai/otto8/apiclient/types.AgentExternalStatus", "github.com/otto8-ai/otto8/apiclient/types.AgentManifest", "github.com/otto8-ai/otto8/apiclient/types.Metadata"},
+			"github.com/otto8-ai/otto8/apiclient/types.AgentExternalStatus", "github.com/otto8-ai/otto8/apiclient/types.AgentKnowledgeSetStatus", "github.com/otto8-ai/otto8/apiclient/types.AgentManifest", "github.com/otto8-ai/otto8/apiclient/types.Metadata"},
 	}
 }
 
@@ -275,6 +283,33 @@ func schema_otto8_ai_otto8_apiclient_types_AgentExternalStatus(ref common.Refere
 				},
 			},
 		},
+	}
+}
+
+func schema_otto8_ai_otto8_apiclient_types_AgentKnowledgeSetStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"knowledgeSetStatues": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/otto8-ai/otto8/apiclient/types.KnowledgeSetStatus"),
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"github.com/otto8-ai/otto8/apiclient/types.KnowledgeSetStatus"},
 	}
 }
 
@@ -1066,6 +1101,30 @@ func schema_otto8_ai_otto8_apiclient_types_KnowledgeFileList(ref common.Referenc
 		},
 		Dependencies: []string{
 			"github.com/otto8-ai/otto8/apiclient/types.KnowledgeFile"},
+	}
+}
+
+func schema_otto8_ai_otto8_apiclient_types_KnowledgeSetStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"knowledgeSetName": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"error": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+				},
+			},
+		},
 	}
 }
 
@@ -3954,6 +4013,12 @@ func schema_storage_apis_ottogptscriptai_v1_KnowledgeSetStatus(ref common.Refere
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"integer"},
 							Format: "int64",
+						},
+					},
+					"ingestionError": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
 						},
 					},
 					"suggestedDataDescription": {
@@ -6936,9 +7001,8 @@ func schema_storage_apis_ottogptscriptai_v1_WorkspaceStatus(ref common.Reference
 								Allows: true,
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Default: "",
-										Type:    []string{"string"},
-										Format:  "",
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/otto8-ai/otto8/apiclient/types.Item"),
 									},
 								},
 							},
@@ -6951,9 +7015,8 @@ func schema_storage_apis_ottogptscriptai_v1_WorkspaceStatus(ref common.Reference
 								Allows: true,
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Default: "",
-										Type:    []string{"string"},
-										Format:  "",
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/otto8-ai/otto8/apiclient/types.Item"),
 									},
 								},
 							},
@@ -6997,7 +7060,7 @@ func schema_storage_apis_ottogptscriptai_v1_WorkspaceStatus(ref common.Reference
 			},
 		},
 		Dependencies: []string{
-			"k8s.io/apimachinery/pkg/apis/meta/v1.Time"},
+			"github.com/otto8-ai/otto8/apiclient/types.Item", "k8s.io/apimachinery/pkg/apis/meta/v1.Time"},
 	}
 }
 

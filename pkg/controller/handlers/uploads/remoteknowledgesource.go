@@ -239,6 +239,10 @@ func (u *UploadHandler) HandleUploadRun(req router.Request, resp router.Response
 		// Reset run name to indicate that the run is no longer running
 		remoteKnowledgeSource.Status.ThreadName = ""
 		remoteKnowledgeSource.Status.RunName = ""
+		if run.Status.Error != "" {
+			remoteKnowledgeSource.Status.Error = run.Status.Error
+		}
+
 		return req.Client.Status().Update(req.Ctx, remoteKnowledgeSource)
 	}
 

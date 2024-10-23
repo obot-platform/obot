@@ -60,7 +60,7 @@ func CreateWorkspaces(req router.Request, resp router.Response) error {
 
 func CreateKnowledgeSet(req router.Request, _ router.Response) error {
 	thread := req.Object.(*v1.Thread)
-	if len(thread.Status.KnowledgeSetNames) == 0 {
+	if len(thread.Status.KnowledgeSetNames) == 0 && thread.Labels[invoke.SystemThreadLabel] != "true" {
 		ws := &v1.KnowledgeSet{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace:    req.Namespace,

@@ -35,6 +35,7 @@ interface FileModalProps {
     onOpenChange: (open: boolean) => void;
     startPolling: () => void;
     knowledge: KnowledgeFile[];
+    ingestionError?: string;
 }
 
 function FileModal({
@@ -44,6 +45,7 @@ function FileModal({
     knowledge,
     isOpen,
     onOpenChange,
+    ingestionError,
 }: FileModalProps) {
     const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -165,7 +167,10 @@ function FileModal({
                     </div>
                 </ScrollArea>
                 {knowledge.some((item) => item.approved) && (
-                    <IngestionStatusComponent knowledge={knowledge} />
+                    <IngestionStatusComponent
+                        knowledge={knowledge}
+                        ingestionError={ingestionError}
+                    />
                 )}
                 <DialogFooter className="flex justify-center">
                     <Input

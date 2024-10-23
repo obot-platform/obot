@@ -41,6 +41,7 @@ func Router(services *services.Services) (http.Handler, error) {
 	mux.HandleFunc("PUT /api/agents/{id}/knowledge/{file_id}/approve", agents.ApproveKnowledgeFile)
 	mux.HandleFunc("DELETE /api/agents/{id}/knowledge/{file...}", agents.DeleteKnowledge)
 
+	// Remote Knowledge Sources
 	mux.HandleFunc("POST /api/agents/{agent_id}/remote-knowledge-sources", agents.CreateRemoteKnowledgeSource)
 	mux.HandleFunc("GET /api/agents/{agent_id}/remote-knowledge-sources", agents.GetRemoteKnowledgeSources)
 	mux.HandleFunc("PATCH /api/agents/{agent_id}/remote-knowledge-sources/{id}", agents.ReSyncRemoteKnowledgeSource)

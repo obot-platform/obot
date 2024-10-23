@@ -2029,14 +2029,14 @@ func (in *WorkspaceStatus) DeepCopyInto(out *WorkspaceStatus) {
 	in.IngestionLastRunTime.DeepCopyInto(&out.IngestionLastRunTime)
 	if in.LastNotFinished != nil {
 		in, out := &in.LastNotFinished, &out.LastNotFinished
-		*out = make(map[string]string, len(*in))
+		*out = make(map[string]types.Item, len(*in))
 		for key, val := range *in {
 			(*out)[key] = val
 		}
 	}
 	if in.NotFinished != nil {
 		in, out := &in.NotFinished, &out.NotFinished
-		*out = make(map[string]string, len(*in))
+		*out = make(map[string]types.Item, len(*in))
 		for key, val := range *in {
 			(*out)[key] = val
 		}

@@ -13,6 +13,12 @@ export type AgentBase = {
     workflows?: string[];
     tools?: string[];
     params?: Record<string, string>;
+    knowledgeSetStatues: KnowledgeSetStatus[];
+};
+
+export type KnowledgeSetStatus = {
+    knowledgeSetName: string;
+    error?: string;
 };
 
 export type Agent = EntityMeta &

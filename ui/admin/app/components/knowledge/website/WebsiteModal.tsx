@@ -44,6 +44,7 @@ interface WebsiteModalProps {
     handleRemoteKnowledgeSourceSync: (
         sourceType: RemoteKnowledgeSourceType
     ) => void;
+    ingestionError?: string;
 }
 
 export const WebsiteModal: FC<WebsiteModalProps> = ({
@@ -54,6 +55,7 @@ export const WebsiteModal: FC<WebsiteModalProps> = ({
     startPolling,
     knowledgeFiles,
     handleRemoteKnowledgeSourceSync,
+    ingestionError,
 }) => {
     const [isSettingModalOpen, setIsSettingModalOpen] = useState(false);
     const [isAddWebsiteModalOpen, setIsAddWebsiteModalOpen] = useState(false);
@@ -264,7 +266,10 @@ export const WebsiteModal: FC<WebsiteModalProps> = ({
                 </ScrollArea>
 
                 {knowledgeFiles?.some((item) => item.approved) && (
-                    <IngestionStatusComponent knowledge={knowledgeFiles} />
+                    <IngestionStatusComponent
+                        knowledge={knowledgeFiles}
+                        ingestionError={ingestionError}
+                    />
                 )}
                 {websiteSource?.runID && (
                     <RemoteKnowledgeSourceStatus source={websiteSource!} />

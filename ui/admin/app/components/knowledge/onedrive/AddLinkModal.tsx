@@ -47,6 +47,7 @@ const AddLinkModal: FC<AddLinkModalProps> = ({
                 },
             }
         );
+        setNewLink("");
         startPolling();
         onOpenChange(false);
     };

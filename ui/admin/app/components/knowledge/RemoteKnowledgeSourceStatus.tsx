@@ -7,16 +7,19 @@ import { LoadingSpinner } from "~/components/ui/LoadingSpinner";
 import RemoteFileAvatar from "./RemoteFileAvatar";
 
 interface RemoteKnowledgeSourceStatusProps {
-    source: RemoteKnowledgeSource;
+    source: RemoteKnowledgeSource | undefined;
     includeAvatar?: boolean;
 }
 
 const RemoteKnowledgeSourceStatus: React.FC<
     RemoteKnowledgeSourceStatusProps
 > = ({ source, includeAvatar = true }) => {
-    if (!source || !source.runID) return null;
+    if (!source || (!source.runID && !source.error)) return null;
 
     if (source.sourceType === "onedrive" && !source.onedriveConfig) return null;
+
+    if (source.sourceType === "website" && !source.websiteCrawlingConfig)
+        return null;
 
     return (
         <div key={source.id} className="flex flex-row mt-2">
@@ -26,10 +29,12 @@ const RemoteKnowledgeSourceStatus: React.FC<
                         remoteKnowledgeSourceType={source.sourceType!}
                     />
                 )}
-                <span className="text-sm text-gray-500 mr-2">
-                    {source?.status || "Syncing Files..."}
+                <span
+                    className={`text-sm mr-2 ${source?.error ? "text-destructive" : "text-gray-500"}`}
+                >
+                    {source?.error || source?.status || "Syncing Files..."}
                 </span>
-                <LoadingSpinner className="w-4 h-4" />
+                {!source.error && <LoadingSpinner className="w-4 h-4" />}
             </div>
         </div>
     );

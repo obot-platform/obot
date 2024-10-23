@@ -46,6 +46,7 @@ interface OnedriveModalProps {
     handleRemoteKnowledgeSourceSync: (
         sourceType: RemoteKnowledgeSourceType
     ) => void;
+    ingestionError?: string;
 }
 
 export const OnedriveModal: FC<OnedriveModalProps> = ({
@@ -56,6 +57,7 @@ export const OnedriveModal: FC<OnedriveModalProps> = ({
     startPolling,
     knowledgeFiles,
     handleRemoteKnowledgeSourceSync,
+    ingestionError,
 }) => {
     const [isSettingModalOpen, setIsSettingModalOpen] = useState(false);
     const [isAddLinkModalOpen, setIsAddLinkModalOpen] = useState(false);
@@ -351,11 +353,14 @@ export const OnedriveModal: FC<OnedriveModalProps> = ({
                     </div>
                 </ScrollArea>
                 {knowledgeFiles?.some((item) => item.approved) && (
-                    <IngestionStatusComponent knowledge={knowledgeFiles} />
+                    <IngestionStatusComponent
+                        knowledge={knowledgeFiles}
+                        ingestionError={ingestionError}
+                    />
                 )}
                 {onedriveSource?.state?.onedriveState?.links &&
                     onedriveSource?.runID && (
-                        <RemoteKnowledgeSourceStatus source={onedriveSource!} />
+                        <RemoteKnowledgeSourceStatus source={onedriveSource} />
                     )}
 
                 <div className="mt-4 flex justify-between">

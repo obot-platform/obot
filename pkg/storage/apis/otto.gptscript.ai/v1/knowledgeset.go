@@ -30,6 +30,27 @@ func (in *KnowledgeSet) DeleteRefs() []Ref {
 	}
 }
 
+func (in *KnowledgeSet) Has(field string) bool {
+	return in.Get(field) != ""
+}
+
+func (in *KnowledgeSet) Get(field string) string {
+	if in == nil {
+		return ""
+	}
+
+	switch field {
+	case "spec.agentName":
+		return in.Spec.AgentName
+	}
+
+	return ""
+}
+
+func (*KnowledgeSet) FieldNames() []string {
+	return []string{"spec.agentName"}
+}
+
 // KnowledgeSetManifest should be moved to types once we expose this API
 type KnowledgeSetManifest struct {
 	DataDescription string `json:"dataDescription,omitempty"`
@@ -44,6 +65,7 @@ type KnowledgeSource struct {
 
 type KnowledgeSetStatus struct {
 	ObservedIngestionGeneration int64  `json:"observedIngestionGeneration,omitempty"`
+	IngestionError              string `json:"ingestionError,omitempty"`
 	SuggestedDataDescription    string `json:"suggestedDataDescription,omitempty"`
 	WorkspaceName               string `json:"workspaceName,omitempty"`
 	IsEmpty                     bool   `json:"isEmpty,omitempty"`

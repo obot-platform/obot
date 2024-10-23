@@ -10,6 +10,7 @@ import {
     getIngestionStatus,
 } from "~/lib/model/knowledge";
 import { ApiRoutes } from "~/lib/routers/apiRoutes";
+import { AgentService } from "~/lib/service/api/agentService";
 import { KnowledgeService } from "~/lib/service/api/knowledgeService";
 import { assetUrl } from "~/lib/utils";
 
@@ -69,6 +70,29 @@ export function AgentKnowledgePanel({ agentId }: { agentId: string }) {
     const remoteKnowledgeSources = useMemo(
         () => getRemoteKnowledgeSources.data || [],
         [getRemoteKnowledgeSources.data]
+    );
+
+    const fetchAgentKnowledgeSetStatus = useSWR(
+        AgentService.getAgentById.key(agentId),
+        ({ agentId }) =>
+            AgentService.getAgentById(agentId).then((agent) => {
+                if (
+                    agent?.knowledgeSetStatues &&
+                    agent.knowledgeSetStatues.length > 0
+                ) {
+                    return agent.knowledgeSetStatues[0];
+                }
+                return null;
+            }),
+        {
+            revalidateOnFocus: false,
+            refreshInterval: blockPolling ? undefined : 5000,
+        }
+    );
+
+    const knowledgeSetStatus = useMemo(
+        () => fetchAgentKnowledgeSetStatus.data,
+        [fetchAgentKnowledgeSetStatus.data]
     );
 
     useEffect(() => {
@@ -337,6 +361,7 @@ export function AgentKnowledgePanel({ agentId }: { agentId: string }) {
                 startPolling={startPolling}
                 knowledge={localFiles}
                 getKnowledgeFiles={getKnowledgeFiles}
+                ingestionError={knowledgeSetStatus?.error}
             />
             <NotionModal
                 agentId={agentId}
@@ -345,6 +370,7 @@ export function AgentKnowledgePanel({ agentId }: { agentId: string }) {
                 remoteKnowledgeSources={remoteKnowledgeSources}
                 startPolling={startPolling}
                 knowledgeFiles={notionFiles}
+                ingestionError={knowledgeSetStatus?.error}
                 handleRemoteKnowledgeSourceSync={
                     handleRemoteKnowledgeSourceSync
                 }
@@ -359,6 +385,7 @@ export function AgentKnowledgePanel({ agentId }: { agentId: string }) {
                 handleRemoteKnowledgeSourceSync={
                     handleRemoteKnowledgeSourceSync
                 }
+                ingestionError={knowledgeSetStatus?.error}
             />
             <WebsiteModal
                 agentId={agentId}
@@ -370,6 +397,7 @@ export function AgentKnowledgePanel({ agentId }: { agentId: string }) {
                 handleRemoteKnowledgeSourceSync={
                     handleRemoteKnowledgeSourceSync
                 }
+                ingestionError={knowledgeSetStatus?.error}
             />
         </div>
     );
