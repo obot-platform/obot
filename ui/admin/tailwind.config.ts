@@ -51,6 +51,10 @@ export default {
                     DEFAULT: "hsl(var(--popover))",
                     foreground: "hsl(var(--popover-foreground))",
                 },
+                dialog: {
+                    DEFAULT: "hsl(var(--dialog))",
+                    foreground: "hsl(var(--dialog-foreground))",
+                },
                 primary: {
                     DEFAULT: "hsl(var(--primary))",
                     foreground: "hsl(var(--primary-foreground))",
