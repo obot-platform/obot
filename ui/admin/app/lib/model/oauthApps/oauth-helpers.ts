@@ -7,6 +7,7 @@ export const OAuthProvider = {
     Google: "google",
     Microsoft365: "microsoft365",
     Slack: "slack",
+    Notion: "notion",
 } as const;
 export type OAuthProvider = (typeof OAuthProvider)[keyof typeof OAuthProvider];
 

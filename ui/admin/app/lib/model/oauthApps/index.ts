@@ -4,6 +4,7 @@ import { OAuthAppSpec, OAuthProvider } from "./oauth-helpers";
 import { GitHubOAuthApp } from "./providers/github";
 import { GoogleOAuthApp } from "./providers/google";
 import { Microsoft365OAuthApp } from "./providers/microsoft365";
+import { NotionOAuthApp } from "./providers/notion";
 import { SlackOAuthApp } from "./providers/slack";
 
 export const OAuthAppSpecMap = {
@@ -11,6 +12,7 @@ export const OAuthAppSpecMap = {
     [OAuthProvider.Google]: GoogleOAuthApp,
     [OAuthProvider.Microsoft365]: Microsoft365OAuthApp,
     [OAuthProvider.Slack]: SlackOAuthApp,
+    [OAuthProvider.Notion]: NotionOAuthApp,
 } as const;
 
 export type OAuthAppDetail = OAuthAppSpec & {
