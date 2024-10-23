@@ -20,9 +20,13 @@ export function OAuthAppList() {
                 </TypographyP>
             </div>
 
-            <div className="grid grid-cols-2 gap-10 lg:grid-cols-3 xl:grid-cols-4">
+            <div className="grid grid-cols-2 gap-10 xl:grid-cols-3">
                 {apps.map(({ type }) => (
-                    <OAuthAppTile key={type} type={type} />
+                    <OAuthAppTile
+                        key={type}
+                        type={type}
+                        className="justify-self-center"
+                    />
                 ))}
             </div>
         </div>

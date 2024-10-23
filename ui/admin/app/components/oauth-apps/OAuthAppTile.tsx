@@ -1,11 +1,18 @@
 import { OAuthProvider } from "~/lib/model/oauthApps/oauth-helpers";
+import { cn } from "~/lib/utils";
 
 import { Card } from "~/components/ui/card";
 import { useOAuthAppInfo } from "~/hooks/oauthApps/useOAuthApps";
 
 import { OAuthAppDetail } from "./OAuthAppDetail";
 
-export function OAuthAppTile({ type }: { type: OAuthProvider }) {
+export function OAuthAppTile({
+    type,
+    className,
+}: {
+    type: OAuthProvider;
+    className?: string;
+}) {
     const info = useOAuthAppInfo(type);
 
     if (!info) {
@@ -16,14 +23,26 @@ export function OAuthAppTile({ type }: { type: OAuthProvider }) {
     const { displayName } = info;
 
     return (
-        <Card className="relative w-[300px] h-[150px] p-4 flex gap-4 justify-center items-center">
+        <Card
+            className={cn(
+                "self-center relative w-[300px] h-[150px] p-4 flex gap-4 justify-center items-center",
+                className
+            )}
+        >
             <img
                 src={info.logo}
                 alt={displayName}
-                className="dark:invert m-4"
+                className={cn("m-4", {
+                    "dark:invert": info.invertDark,
+                })}
             />
 
-            <OAuthAppDetail type={type} className="absolute top-2 right-2" />
+            {!info.disableConfiguration && (
+                <OAuthAppDetail
+                    type={type}
+                    className="absolute top-2 right-2"
+                />
+            )}
         </Card>
     );
 }

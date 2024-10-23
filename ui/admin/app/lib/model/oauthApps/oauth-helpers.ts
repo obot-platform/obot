@@ -4,6 +4,7 @@ import { apiBaseUrl } from "~/lib/routers/apiRoutes";
 
 export const OAuthProvider = {
     GitHub: "github",
+    Google: "google",
 } as const;
 export type OAuthProvider = (typeof OAuthProvider)[keyof typeof OAuthProvider];
 
@@ -24,6 +25,8 @@ export type OAuthAppSpec = {
     type: OAuthProvider;
     logo: string;
     steps: OAuthFormStep[];
+    disableConfiguration?: boolean;
+    invertDark?: boolean;
 };
 
 export function getOAuthLinks(type: OAuthProvider) {

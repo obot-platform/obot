@@ -3,7 +3,7 @@ import { z } from "zod";
 import { BaseUrl } from "~/lib/routers/baseRouter";
 import { assetUrl } from "~/lib/utils";
 
-import { OAuthAppSpec, OAuthFormStep, getOAuthLinks } from "./oauth-helpers";
+import { OAuthAppSpec, OAuthFormStep, getOAuthLinks } from "../oauth-helpers";
 
 const schema = z.object({
     clientID: z.string().min(1, "Client ID is required"),
@@ -61,4 +61,5 @@ export const GitHubOAuthApp = {
     displayName: "GitHub",
     logo: assetUrl("/assets/github_logo.svg"),
     steps,
+    invertDark: true,
 } satisfies OAuthAppSpec;

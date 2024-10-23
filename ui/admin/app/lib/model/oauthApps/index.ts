@@ -1,10 +1,12 @@
 import { EntityMeta } from "~/lib/model/primitives";
 
-import { GitHubOAuthApp } from "./github";
 import { OAuthAppSpec, OAuthProvider } from "./oauth-helpers";
+import { GitHubOAuthApp } from "./providers/github";
+import { GoogleOAuthApp } from "./providers/google";
 
 export const OAuthAppSpecMap = {
     [OAuthProvider.GitHub]: GitHubOAuthApp,
+    [OAuthProvider.Google]: GoogleOAuthApp,
 } as const;
 
 export type OAuthAppDetail = OAuthAppSpec & {
