@@ -55,6 +55,11 @@ const items = [
         url: $path("/users"),
         icon: User,
     },
+    {
+        title: "OAuth Apps",
+        url: $path("/oauth-apps"),
+        icon: KeyIcon,
+    },
 ];
 
 export function AppSidebar() {
@@ -80,8 +85,8 @@ export function AppSidebar() {
             </SidebarHeader>
             <SidebarContent
                 className={cn(
-                    "bg-background",
-                    state === "collapsed" ? "" : "px-2"
+                    "bg-background transition-all duration-300 ease-in-out",
+                    state === "collapsed" ? "" : "px-2 w-fit"
                 )}
             >
                 <SidebarGroup>
@@ -110,31 +115,39 @@ export function AppSidebar() {
                     </SidebarGroupContent>
                 </SidebarGroup>
             </SidebarContent>
-            <SidebarFooter
-                className={cn(
-                    "pb-4 bg-background",
-                    state === "collapsed" ? "" : "px-2"
-                )}
-            >
-                <Popover>
-                    <PopoverTrigger asChild>
-                        <SidebarMenuButton className="w-full flex items-center">
-                            <SettingsIcon className="mr-2" /> Settings
-                        </SidebarMenuButton>
-                    </PopoverTrigger>
-                    <PopoverContent side="right" align="end">
-                        <Button variant="secondary" asChild className="w-full">
-                            <Link
-                                to={$path("/oauth-apps")}
-                                className="flex items-center p-2 hover:bg-accent rounded-md"
-                            >
-                                <KeyIcon className="mr-2 h-4 w-4" />
-                                <span>Manage OAuth Apps</span>
-                            </Link>
-                        </Button>
-                    </PopoverContent>
-                </Popover>
-            </SidebarFooter>
         </Sidebar>
+    );
+}
+
+// disabling this because this will inevitably be used in the future
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+function AppSidebarFooter() {
+    const { state } = useSidebar();
+    return (
+        <SidebarFooter
+            className={cn(
+                "pb-4 bg-background",
+                state === "collapsed" ? "" : "px-2"
+            )}
+        >
+            <Popover>
+                <PopoverTrigger asChild>
+                    <SidebarMenuButton className="w-full flex items-center">
+                        <SettingsIcon className="mr-2" /> Settings
+                    </SidebarMenuButton>
+                </PopoverTrigger>
+                <PopoverContent side="right" align="end">
+                    <Button variant="secondary" asChild className="w-full">
+                        <Link
+                            to={$path("/oauth-apps")}
+                            className="flex items-center p-2 hover:bg-accent rounded-md"
+                        >
+                            <KeyIcon className="mr-2 h-4 w-4" />
+                            <span>Manage OAuth Apps</span>
+                        </Link>
+                    </Button>
+                </PopoverContent>
+            </Popover>
+        </SidebarFooter>
     );
 }
