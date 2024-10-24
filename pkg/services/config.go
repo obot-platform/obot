@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
@@ -118,6 +119,26 @@ func New(ctx context.Context, config Config) (*Services, error) {
 	if config.DevMode {
 		startDevMode(ctx, storageClient)
 		config.GatewayDebug = true
+	}
+
+	if config.GatewayDebug {
+		slog.SetLogLoggerLevel(slog.LevelDebug)
+	}
+
+	if config.Hostname == "" {
+		config.Hostname = "http://localhost:8080"
+	}
+	if config.UIHostname == "" {
+		config.UIHostname = config.Hostname
+	}
+
+	if strings.HasPrefix(config.Hostname, "localhost") || strings.HasPrefix(config.Hostname, "127.0.0.1") {
+		config.Hostname = "http://" + config.Hostname
+	} else if !strings.HasPrefix(config.Hostname, "http") {
+		config.Hostname = "https://" + config.Hostname
+	}
+	if !strings.HasPrefix(config.UIHostname, "http") {
+		config.UIHostname = "https://" + config.UIHostname
 	}
 
 	c, err := newGPTScript(ctx, config.WorkspaceTool)

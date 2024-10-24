@@ -4,9 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log/slog"
 	"net/http"
-	"strings"
 	"time"
 
 	"github.com/otto8-ai/otto8/pkg/gateway/client"
@@ -31,26 +29,6 @@ type Server struct {
 func New(ctx context.Context, db *db.DB, adminEmails []string, opts Options) (*Server, error) {
 	if err := db.AutoMigrate(); err != nil {
 		return nil, fmt.Errorf("auto migrate failed: %w", err)
-	}
-
-	if opts.GatewayDebug {
-		slog.SetLogLoggerLevel(slog.LevelDebug)
-	}
-
-	if opts.Hostname == "" {
-		opts.Hostname = "http://localhost:8080"
-	}
-	if opts.UIHostname == "" {
-		opts.UIHostname = opts.Hostname
-	}
-
-	if strings.HasPrefix(opts.Hostname, "localhost") || strings.HasPrefix(opts.Hostname, "127.0.0.1") {
-		opts.Hostname = "http://" + opts.Hostname
-	} else if !strings.HasPrefix(opts.Hostname, "http") {
-		opts.Hostname = "https://" + opts.Hostname
-	}
-	if !strings.HasPrefix(opts.UIHostname, "http") {
-		opts.UIHostname = "https://" + opts.UIHostname
 	}
 
 	adminEmailsSet := make(map[string]struct{}, len(adminEmails))
