@@ -30,9 +30,15 @@ const RemoteKnowledgeSourceStatus: React.FC<
                     />
                 )}
                 <span
-                    className={`text-sm mr-2 ${source?.error ? "text-destructive" : "text-gray-500"}`}
+                    className={`text-sm mr-2 ${
+                        !source.runID && source.error
+                            ? "text-destructive"
+                            : "text-gray-500"
+                    }`}
                 >
-                    {source?.error || source?.status || "Syncing Files..."}
+                    {(!source?.runID && source?.error) ||
+                        source?.status ||
+                        "Syncing Files..."}
                 </span>
                 {!source.error && <LoadingSpinner className="w-4 h-4" />}
             </div>

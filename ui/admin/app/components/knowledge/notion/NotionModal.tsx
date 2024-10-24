@@ -161,7 +161,7 @@ export const NotionModal: FC<NotionModalProps> = ({
                         ingestionError={ingestionError}
                     />
                 )}
-                {notionSource?.runID && (
+                {(notionSource?.runID || notionSource?.error) && (
                     <RemoteKnowledgeSourceStatus source={notionSource!} />
                 )}
                 <div className="mt-4 flex justify-between">

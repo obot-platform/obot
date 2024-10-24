@@ -358,10 +358,11 @@ export const OnedriveModal: FC<OnedriveModalProps> = ({
                         ingestionError={ingestionError}
                     />
                 )}
-                {onedriveSource?.state?.onedriveState?.links &&
-                    onedriveSource?.runID && (
-                        <RemoteKnowledgeSourceStatus source={onedriveSource} />
-                    )}
+                {((onedriveSource?.state?.onedriveState?.links &&
+                    onedriveSource?.runID) ||
+                    onedriveSource?.error) && (
+                    <RemoteKnowledgeSourceStatus source={onedriveSource} />
+                )}
 
                 <div className="mt-4 flex justify-between">
                     <Button

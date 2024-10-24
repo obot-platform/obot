@@ -271,7 +271,7 @@ export const WebsiteModal: FC<WebsiteModalProps> = ({
                         ingestionError={ingestionError}
                     />
                 )}
-                {websiteSource?.runID && (
+                {(websiteSource?.runID || websiteSource?.error) && (
                     <RemoteKnowledgeSourceStatus source={websiteSource!} />
                 )}
                 <div className="mt-4 flex justify-between">
