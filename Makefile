@@ -7,7 +7,9 @@ all:
 	$(MAKE) ui
 	$(MAKE) build
 
-ui:
+ui: ui-admin ui-user
+
+ui-admin:
 	cd ui/admin && \
 	pnpm install
 
@@ -24,7 +26,7 @@ clean:
 build:
 	go build -o bin/otto8 -v
 
-dev: ui
+dev:
 	./tools/dev.sh
 
 # Lint the project
@@ -39,7 +41,6 @@ package-tools:
 	./tools/package-tools.sh
 
 in-docker-build:
-	$(MAKE) ui-user
 	$(MAKE) all
 	$(MAKE) package-tools
 
@@ -51,4 +52,4 @@ no-changes:
 		exit 1; \
 	fi
 
-.PHONY: ui build all clean dev lint lint-admin lint-api no-changes fmt tidy
+.PHONY: ui ui-admin ui-user build all clean dev lint lint-admin lint-api no-changes fmt tidy
