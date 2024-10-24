@@ -4,6 +4,7 @@ import { toast } from "sonner";
 
 import { cn } from "~/lib/utils";
 
+import { TypographyP } from "~/components/Typography";
 import { Button } from "~/components/ui/button";
 import {
     Tooltip,
@@ -32,7 +33,12 @@ export function CopyText({
     }, [isCopied]);
 
     return (
-        <div className={cn("flex items-center gap-2 w-full", className)}>
+        <div
+            className={cn(
+                "flex items-center gap-2 bg-secondary rounded-md w-fit",
+                className
+            )}
+        >
             <TooltipProvider>
                 <Tooltip>
                     <TooltipTrigger
@@ -40,7 +46,9 @@ export function CopyText({
                         onClick={() => handleCopy(text)}
                         className="decoration-dotted underline-offset-4 underline text-ellipsis overflow-hidden text-nowrap"
                     >
-                        {displayText}
+                        <TypographyP className="truncate break-words p-2">
+                            {displayText}
+                        </TypographyP>
                     </TooltipTrigger>
 
                     <TooltipContent>
@@ -54,7 +62,7 @@ export function CopyText({
                 size="icon"
                 onClick={() => handleCopy(text)}
                 className="aspect-square"
-                variant="secondary"
+                variant="ghost"
                 type="button"
             >
                 {isCopied ? (

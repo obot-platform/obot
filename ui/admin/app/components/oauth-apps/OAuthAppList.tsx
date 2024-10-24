@@ -20,7 +20,7 @@ export function OAuthAppList() {
                 </TypographyP>
             </div>
 
-            <div className="grid grid-cols-2 gap-10 xl:grid-cols-3">
+            <div className="flex flex-wrap gap-10">
                 {apps.map(({ type }) => (
                     <OAuthAppTile
                         key={type}

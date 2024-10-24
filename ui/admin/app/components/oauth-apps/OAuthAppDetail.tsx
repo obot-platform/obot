@@ -19,6 +19,12 @@ import {
 } from "~/components/ui/dialog";
 import { useOAuthAppInfo } from "~/hooks/oauthApps/useOAuthApps";
 
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipProvider,
+    TooltipTrigger,
+} from "../ui/tooltip";
 import { ConfigureOAuthApp } from "./ConfigureOAuthApp";
 import { DeleteOAuthApp } from "./DeleteOAuthApp";
 import { OAuthAppTypeIcon } from "./OAuthAppTypeIcon";
@@ -102,7 +108,15 @@ function Content({ app, spec }: { app: OAuthApp; spec: OAuthAppSpec }) {
                 <TypographyP>
                     <strong>Client ID</strong>
                 </TypographyP>
-                <TypographyP>{app.clientID}</TypographyP>
+                <TooltipProvider>
+                    <Tooltip>
+                        <TooltipTrigger className="truncate underline decoration-dotted">
+                            {app.clientID}
+                        </TooltipTrigger>
+
+                        <TooltipContent>{app.clientID}</TooltipContent>
+                    </Tooltip>
+                </TooltipProvider>
 
                 <TypographyP>
                     <strong>Client Secret</strong>

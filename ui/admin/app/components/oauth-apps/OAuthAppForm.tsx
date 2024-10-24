@@ -19,6 +19,13 @@ import { Button } from "~/components/ui/button";
 import { Form } from "~/components/ui/form";
 import { useOAuthAppInfo } from "~/hooks/oauthApps/useOAuthApps";
 
+import {
+    Accordion,
+    AccordionContent,
+    AccordionItem,
+    AccordionTrigger,
+} from "../ui/accordion";
+
 type OAuthAppFormProps = {
     type: OAuthProvider;
     onSubmit: (data: OAuthAppParams) => void;
@@ -93,7 +100,30 @@ export function OAuthAppForm({ type, onSubmit, isLoading }: OAuthAppFormProps) {
                 );
             }
             case "copy": {
-                return <CopyText text={step.text} className="justify-center" />;
+                return (
+                    <div className="w-full flex justify-center">
+                        <CopyText
+                            text={step.text}
+                            className="mx-8 w-auto max-w-fit justify-center"
+                        />
+                    </div>
+                );
+            }
+            case "sectionGroup": {
+                return (
+                    <Accordion type="single" collapsible>
+                        {step.sections.map((section, index) => (
+                            <AccordionItem key={index} value={index.toString()}>
+                                <AccordionTrigger>
+                                    {section.title}
+                                </AccordionTrigger>
+                                <AccordionContent>
+                                    {section.steps.map(renderStep)}
+                                </AccordionContent>
+                            </AccordionItem>
+                        ))}
+                    </Accordion>
+                );
             }
         }
     }

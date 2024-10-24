@@ -19,7 +19,11 @@ export type OAuthFormStep<T extends object = Record<string, string>> =
           label: string;
           inputType?: "password" | "text";
       }
-    | { type: "copy"; text: string };
+    | { type: "copy"; text: string }
+    | {
+          type: "sectionGroup";
+          sections: { title: string; steps: OAuthFormStep[] }[];
+      };
 
 export type OAuthAppSpec = {
     schema: ZodObject<Record<string, ZodType>>;
