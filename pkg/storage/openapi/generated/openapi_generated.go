@@ -6983,7 +6983,13 @@ func schema_storage_apis_ottogptscriptai_v1_WorkspaceStatus(ref common.Reference
 							Format: "",
 						},
 					},
-					"ingestionRunName": {
+					"currentIngestionRunName": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"lastIngestionRunName": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
 							Format: "",
