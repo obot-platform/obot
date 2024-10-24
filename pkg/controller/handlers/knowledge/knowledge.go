@@ -180,9 +180,10 @@ func (a *Handler) IngestKnowledge(req router.Request, resp router.Response) erro
 				return fmt.Errorf("failed to create knowledge metadata file: %w", err)
 			}
 		} else {
+			var notFoundErr *gptscript.NotFoundInWorkspaceError
 			if err := a.gptscript.DeleteFileInWorkspace(req.Ctx, ".knowignore", gptscript.DeleteFileInWorkspaceOptions{
 				WorkspaceID: ws.Status.WorkspaceID,
-			}); err != nil {
+			}); err != nil && !errors.As(err, &notFoundErr) {
 				return fmt.Errorf("failed to delete ignore file: %w", err)
 			}
 		}
