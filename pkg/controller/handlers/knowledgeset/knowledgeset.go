@@ -42,7 +42,7 @@ func (h *Handler) GenerateDataDescription(req router.Request, resp router.Respon
 	}
 
 	// Ignore if running
-	if ws.Status.IngestionRunName != "" {
+	if ws.Status.CurrentIngestionRunName != "" {
 		return nil
 	}
 

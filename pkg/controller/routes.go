@@ -88,6 +88,7 @@ func (c *Controller) setupRoutes() error {
 	root.Type(&v1.Workspace{}).HandlerFunc(workspace.CreateWorkspace)
 	root.Type(&v1.Workspace{}).HandlerFunc(knowledge.IngestKnowledge)
 	root.Type(&v1.Workspace{}).HandlerFunc(knowledge.UpdateFileStatus)
+	root.Type(&v1.Workspace{}).HandlerFunc(knowledge.UpdateIngestionError)
 
 	// KnowledgeSets
 	root.Type(&v1.KnowledgeSet{}).HandlerFunc(cleanup.Cleanup)

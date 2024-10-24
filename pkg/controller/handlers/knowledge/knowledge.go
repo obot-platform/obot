@@ -79,7 +79,7 @@ func (a *Handler) IngestKnowledge(req router.Request, resp router.Response) erro
 	}
 
 	// The status handler will clean this up
-	if ws.Status.IngestionRunName != "" {
+	if ws.Status.CurrentIngestionRunName != "" {
 		return nil
 	}
 
@@ -205,7 +205,7 @@ func (a *Handler) IngestKnowledge(req router.Request, resp router.Response) erro
 		}
 
 		ws.Status.IngestionRunHash = hash
-		ws.Status.IngestionRunName = run.Run.Name
+		ws.Status.CurrentIngestionRunName = run.Run.Name
 		ws.Status.IngestionGeneration++
 		return req.Client.Status().Update(req.Ctx, ws)
 	}
@@ -234,28 +234,19 @@ func toStream(events <-chan types.Progress) io.ReadCloser {
 func (a *Handler) UpdateFileStatus(req router.Request, _ router.Response) error {
 	ws := req.Object.(*v1.Workspace)
 
-	if ws.Status.IngestionRunName == "" {
+	if ws.Status.CurrentIngestionRunName == "" {
 		return nil
 	}
 
 	var run v1.Run
-	if err := req.Get(&run, ws.Namespace, ws.Status.IngestionRunName); apierrors.IsNotFound(err) {
-		if err := req.Get(uncached.Get(&run), ws.Namespace, ws.Status.IngestionRunName); apierrors.IsNotFound(err) {
+	if err := req.Get(&run, ws.Namespace, ws.Status.CurrentIngestionRunName); apierrors.IsNotFound(err) {
+		if err := req.Get(uncached.Get(&run), ws.Namespace, ws.Status.CurrentIngestionRunName); apierrors.IsNotFound(err) {
 			// Orphaned? User deleted the run? Solar flare?
-			ws.Status.IngestionRunName = ""
+			ws.Status.CurrentIngestionRunName = ""
 		}
 		return nil
 	} else if err != nil {
 		return err
-	}
-
-	if run.Status.State.IsTerminal() {
-		if err := updateIngestionError(req, ws, &run); err != nil {
-			return err
-		}
-
-		ws.Status.IngestionRunName = ""
-		return nil
 	}
 
 	_, progress, err := a.events.Watch(req.Ctx, ws.Namespace, events.WatchOptions{
@@ -270,8 +261,33 @@ func (a *Handler) UpdateFileStatus(req router.Request, _ router.Response) error 
 		return err
 	}
 
+	ws.Status.LastIngestionRunName = ws.Status.CurrentIngestionRunName
+	ws.Status.CurrentIngestionRunName = ""
 	ws.Status.NotFinished = notFinished
 	ws.Status.IngestionLastRunTime = metav1.Now()
+	return nil
+}
+
+func (a *Handler) UpdateIngestionError(req router.Request, _ router.Response) error {
+	ws := req.Object.(*v1.Workspace)
+
+	if ws.Status.LastIngestionRunName == "" {
+		return nil
+	}
+
+	var run v1.Run
+	if err := req.Get(&run, ws.Namespace, ws.Status.LastIngestionRunName); apierrors.IsNotFound(err) {
+		return nil
+	} else if err != nil {
+		return err
+	}
+
+	if run.Status.State.IsTerminal() {
+		if err := updateIngestionError(req, ws, &run); err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
@@ -323,7 +339,7 @@ func compileFileStatuses(ctx context.Context, client kclient.Client, ws *v1.Work
 		}
 		final[file.Name] = ingestionStatus.Status
 
-		if ingestionStatus.Status == "finished" {
+		if ingestionStatus.Status == "finished" || ingestionStatus.Status == "skipped" {
 			delete(final, file.Name)
 		}
 

@@ -63,16 +63,17 @@ type WorkspaceSpec struct {
 }
 
 type WorkspaceStatus struct {
-	WorkspaceID          string            `json:"workspaceID,omitempty"`
-	IngestionGeneration  int64             `json:"ingestionGeneration,omitempty"`
-	IngestionRunHash     string            `json:"ingestionRunHash,omitempty"`
-	IngestionRunName     string            `json:"ingestionRunName,omitempty"`
-	IngestionLastRunTime metav1.Time       `json:"ingestionLastRunTime,omitempty"`
-	LastNotFinished      map[string]string `json:"lastNotFinished,omitempty"`
-	NotFinished          map[string]string `json:"notFinished,omitempty"`
-	RetryCount           int               `json:"retryCount,omitempty"`
-	PendingApproval      []string          `json:"pendingApproval,omitempty"`
-	PendingRejections    []string          `json:"pendingRejections,omitempty"`
+	WorkspaceID             string            `json:"workspaceID,omitempty"`
+	IngestionGeneration     int64             `json:"ingestionGeneration,omitempty"`
+	IngestionRunHash        string            `json:"ingestionRunHash,omitempty"`
+	CurrentIngestionRunName string            `json:"currentIngestionRunName,omitempty"`
+	LastIngestionRunName    string            `json:"lastIngestionRunName,omitempty"`
+	IngestionLastRunTime    metav1.Time       `json:"ingestionLastRunTime,omitempty"`
+	LastNotFinished         map[string]string `json:"lastNotFinished,omitempty"`
+	NotFinished             map[string]string `json:"notFinished,omitempty"`
+	RetryCount              int               `json:"retryCount,omitempty"`
+	PendingApproval         []string          `json:"pendingApproval,omitempty"`
+	PendingRejections       []string          `json:"pendingRejections,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
