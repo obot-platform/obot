@@ -3,7 +3,8 @@ import { mutate } from "swr";
 
 import { ToolReferenceType } from "~/lib/model/toolReferences";
 
-export const apiBaseUrl = "http://localhost:8080/api" as const;
+// todo: We need to have a discussion on using https in dev
+export const apiBaseUrl = "https://localhost:8080/api" as const;
 const prodBaseUrl = new URL(apiBaseUrl).pathname;
 
 const buildUrl = (path: string, params?: object) => {

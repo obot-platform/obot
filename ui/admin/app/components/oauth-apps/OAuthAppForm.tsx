@@ -101,23 +101,34 @@ export function OAuthAppForm({ type, onSubmit, isLoading }: OAuthAppFormProps) {
             }
             case "copy": {
                 return (
-                    <div className="w-full flex justify-center">
+                    <div className="flex justify-center">
                         <CopyText
                             text={step.text}
-                            className="mx-8 w-auto max-w-fit justify-center"
+                            className="w-auto max-w-fit justify-center"
                         />
                     </div>
                 );
             }
             case "sectionGroup": {
                 return (
-                    <Accordion type="single" collapsible>
+                    <Accordion
+                        type="multiple"
+                        defaultValue={step.sections
+                            .filter((s) => s.defaultOpen)
+                            .map((_, i) => i.toString())}
+                    >
                         {step.sections.map((section, index) => (
                             <AccordionItem key={index} value={index.toString()}>
                                 <AccordionTrigger>
                                     {section.title}
                                 </AccordionTrigger>
-                                <AccordionContent>
+
+                                <AccordionContent
+                                    className={cn("flex flex-col gap-1", {
+                                        "flex-row justify-center flex-wrap gap-2":
+                                            section.displayStepsInline,
+                                    })}
+                                >
                                     {section.steps.map(renderStep)}
                                 </AccordionContent>
                             </AccordionItem>

@@ -39,6 +39,8 @@ export function ConfigureOAuthApp({ type }: { type: OAuthProvider }) {
         await OauthAppService.createOauthApp({
             type,
             refName: type,
+            global: true,
+            integration: type,
             ...data,
         });
 
@@ -55,6 +57,8 @@ export function ConfigureOAuthApp({ type }: { type: OAuthProvider }) {
         await OauthAppService.updateOauthApp(customApp.id, {
             type: customApp.type,
             refName: customApp.refName,
+            global: customApp.global,
+            integration: customApp.integration,
             ...data,
         });
 

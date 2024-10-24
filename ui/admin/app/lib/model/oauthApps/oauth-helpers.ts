@@ -22,7 +22,12 @@ export type OAuthFormStep<T extends object = Record<string, string>> =
     | { type: "copy"; text: string }
     | {
           type: "sectionGroup";
-          sections: { title: string; steps: OAuthFormStep[] }[];
+          sections: {
+              title: string;
+              steps: OAuthFormStep[];
+              displayStepsInline?: boolean;
+              defaultOpen?: boolean;
+          }[];
       };
 
 export type OAuthAppSpec = {

@@ -17,20 +17,22 @@ export function CopyText({
     text,
     displayText = text,
     className,
+    holdStatusDelay,
 }: {
     text: string;
     displayText?: string;
     className?: string;
+    holdStatusDelay?: number;
 }) {
     const [isCopied, setIsCopied] = useState(false);
 
     useEffect(() => {
-        if (!isCopied) return;
+        if (!isCopied || !holdStatusDelay) return;
 
-        const timeout = setTimeout(() => setIsCopied(false), 10000);
+        const timeout = setTimeout(() => setIsCopied(false), holdStatusDelay);
 
         return () => clearTimeout(timeout);
-    }, [isCopied]);
+    }, [isCopied, holdStatusDelay]);
 
     return (
         <div

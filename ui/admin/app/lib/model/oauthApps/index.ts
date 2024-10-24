@@ -46,6 +46,7 @@ export type OAuthAppParams = {
 export type OAuthAppBase = OAuthAppParams & {
     type: OAuthProvider;
     refName: string;
+    global: boolean;
 };
 
 export type OAuthApp = EntityMeta &
