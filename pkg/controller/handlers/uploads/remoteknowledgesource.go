@@ -261,7 +261,7 @@ func (u *UploadHandler) HandleUploadRun(req router.Request, resp router.Response
 func (u *UploadHandler) writeMetadataForKnowledge(ctx context.Context, files map[string]types.FileDetails,
 	ws *v1.Workspace, remoteKnowledgeSource *v1.RemoteKnowledgeSource) error {
 	b, err := json.Marshal(map[string]any{
-		"metadata": createFileMetadata(files, *ws),
+		"metadata": createFileMetadata(files, filepath.Join(workspace.GetDir(ws.Status.WorkspaceID), remoteKnowledgeSource.Name)),
 	})
 	if err != nil {
 		return fmt.Errorf("failed to marshal metadata: %w", err)
@@ -307,14 +307,13 @@ func knowledgeFilesForUploadName(req router.Request, namespace, name string) (v1
 	})
 }
 
-func createFileMetadata(files map[string]types.FileDetails, ws v1.Workspace) map[string]any {
+func createFileMetadata(files map[string]types.FileDetails, runDir string) map[string]any {
 	var (
 		// fileMetadata is the metadata for the knowledge tool, translated from the connector output.
 		fileMetadata = make(map[string]any, len(files))
-		outputDir    = workspace.GetDir(ws.Status.WorkspaceID)
 	)
 	for _, v := range files {
-		fileRelPath, err := filepath.Rel(outputDir, v.FilePath)
+		fileRelPath, err := filepath.Rel(runDir, v.FilePath)
 		if err != nil {
 			fileRelPath = v.FilePath
 		}
