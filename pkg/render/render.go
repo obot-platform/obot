@@ -79,10 +79,6 @@ func Agent(ctx context.Context, db kclient.Client, agent *v1.Agent, oauthServerU
 }
 
 func setupOAuthApps(ctx context.Context, db kclient.Client, agent *v1.Agent, serverURL string) (extraEnv []string, _ error) {
-	if len(agent.Spec.Manifest.OAuthApps) == 0 {
-		return nil, nil
-	}
-
 	apps, err := oauthAppsByName(ctx, db, agent.Namespace)
 	if err != nil {
 		return nil, err
