@@ -1,2 +1,2 @@
-export const BaseUrl = window.location.host + "/admin";
-export const DomainUrl = window.location.host;
+export const BaseUrl = window.location.origin + "/admin";
+export const DomainUrl = window.location.origin;
