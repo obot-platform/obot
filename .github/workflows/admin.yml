@@ -20,10 +20,15 @@ jobs:
         with:
           node-version: "20.17.0"
 
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
       - name: Install dependencies
         run: |
           cd ui/admin
-          npm install
+          pnpm install
 
       - name: Run linter
         run: make lint-admin
