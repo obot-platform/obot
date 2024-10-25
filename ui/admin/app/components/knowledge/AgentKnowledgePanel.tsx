@@ -149,12 +149,6 @@ export function AgentKnowledgePanel({ agentId }: { agentId: string }) {
     let notionSource = remoteKnowledgeSources.find(
         (source) => source.sourceType === "notion"
     );
-    const onedriveSource = remoteKnowledgeSources.find(
-        (source) => source.sourceType === "onedrive"
-    );
-    const websiteSource = remoteKnowledgeSources.find(
-        (source) => source.sourceType === "website"
-    );
 
     const onClickNotion = async () => {
         if (!notionSource) {
@@ -178,21 +172,10 @@ export function AgentKnowledgePanel({ agentId }: { agentId: string }) {
     };
 
     const onClickOnedrive = async () => {
-        if (!onedriveSource) {
-            await KnowledgeService.createRemoteKnowledgeSource(agentId, {
-                sourceType: "onedrive",
-            });
-        }
         setIsOnedriveModalOpen(true);
     };
 
     const onClickWebsite = async () => {
-        if (!websiteSource) {
-            await KnowledgeService.createRemoteKnowledgeSource(agentId, {
-                sourceType: "website",
-            });
-            getRemoteKnowledgeSources.mutate();
-        }
         setIsWebsiteModalOpen(true);
     };
 

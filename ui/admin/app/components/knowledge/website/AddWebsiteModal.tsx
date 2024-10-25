@@ -32,20 +32,30 @@ const AddWebsiteModal: FC<AddWebsiteModalProps> = ({
                 newWebsite.startsWith("https://")
                     ? newWebsite
                     : `https://${newWebsite}`;
-            await KnowledgeService.updateRemoteKnowledgeSource(
-                agentId,
-                websiteSource.id!,
-                {
+
+            if (!websiteSource) {
+                await KnowledgeService.createRemoteKnowledgeSource(agentId, {
                     sourceType: "website",
                     websiteCrawlingConfig: {
-                        urls: [
-                            ...(websiteSource.websiteCrawlingConfig?.urls ||
-                                []),
-                            formattedWebsite,
-                        ],
+                        urls: [formattedWebsite],
                     },
-                }
-            );
+                });
+            } else {
+                await KnowledgeService.updateRemoteKnowledgeSource(
+                    agentId,
+                    websiteSource.id!,
+                    {
+                        sourceType: "website",
+                        websiteCrawlingConfig: {
+                            urls: [
+                                ...(websiteSource.websiteCrawlingConfig?.urls ||
+                                    []),
+                                formattedWebsite,
+                            ],
+                        },
+                    }
+                );
+            }
             const intervalId = setInterval(() => {
                 startPolling();
                 if (websiteSource?.runID) {

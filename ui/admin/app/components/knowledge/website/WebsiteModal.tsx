@@ -301,23 +301,19 @@ export const WebsiteModal: FC<WebsiteModalProps> = ({
                         Close
                     </Button>
                 </div>
-                {websiteSource && (
-                    <>
-                        <RemoteSourceSettingModal
-                            agentId={agentId}
-                            isOpen={isSettingModalOpen}
-                            onOpenChange={setIsSettingModalOpen}
-                            remoteKnowledgeSource={websiteSource}
-                        />
-                        <AddWebsiteModal
-                            agentId={agentId}
-                            websiteSource={websiteSource}
-                            startPolling={startPolling}
-                            isOpen={isAddWebsiteModalOpen}
-                            onOpenChange={setIsAddWebsiteModalOpen}
-                        />
-                    </>
-                )}
+                <RemoteSourceSettingModal
+                    agentId={agentId}
+                    isOpen={isSettingModalOpen}
+                    onOpenChange={setIsSettingModalOpen}
+                    remoteKnowledgeSource={websiteSource!}
+                />
+                <AddWebsiteModal
+                    agentId={agentId}
+                    websiteSource={websiteSource!}
+                    startPolling={startPolling}
+                    isOpen={isAddWebsiteModalOpen}
+                    onOpenChange={setIsAddWebsiteModalOpen}
+                />
             </DialogContent>
         </Dialog>
     );

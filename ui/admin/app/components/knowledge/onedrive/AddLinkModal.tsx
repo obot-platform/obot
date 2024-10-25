@@ -32,21 +32,30 @@ const AddLinkModal: FC<AddLinkModalProps> = ({
     const [newLink, setNewLink] = useState("");
 
     const handleSave = async () => {
-        if (!onedriveSource) return;
-
-        await KnowledgeService.updateRemoteKnowledgeSource(
-            agentId,
-            onedriveSource!.id,
-            {
-                ...onedriveSource,
+        if (!onedriveSource) {
+            await KnowledgeService.createRemoteKnowledgeSource(agentId, {
+                sourceType: "onedrive",
                 onedriveConfig: {
-                    sharedLinks: [
-                        ...(onedriveSource.onedriveConfig?.sharedLinks || []),
-                        newLink,
-                    ],
+                    sharedLinks: [newLink],
                 },
-            }
-        );
+            });
+        } else {
+            await KnowledgeService.updateRemoteKnowledgeSource(
+                agentId,
+                onedriveSource!.id,
+                {
+                    ...onedriveSource,
+                    onedriveConfig: {
+                        sharedLinks: [
+                            ...(onedriveSource.onedriveConfig?.sharedLinks ||
+                                []),
+                            newLink,
+                        ],
+                    },
+                }
+            );
+        }
+
         setNewLink("");
         startPolling();
         onOpenChange(false);
