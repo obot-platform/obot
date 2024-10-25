@@ -114,7 +114,7 @@ const steps: OAuthFormStep<typeof schema.shape>[] = [
     },
     {
         type: "copy",
-        text: DomainUrl,
+        text: DomainUrl(),
     },
     {
         type: "markdown",
