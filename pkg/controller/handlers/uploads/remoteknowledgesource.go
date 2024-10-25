@@ -180,7 +180,7 @@ func (u *UploadHandler) HandleUploadRun(req router.Request, resp router.Response
 	}
 
 	var run v1.Run
-	if err := req.Get(&run, remoteKnowledgeSource.Namespace, remoteKnowledgeSource.Status.RunName); err != nil {
+	if err := req.Get(uncached.Get(&run), remoteKnowledgeSource.Namespace, remoteKnowledgeSource.Status.RunName); err != nil {
 		return err
 	}
 
