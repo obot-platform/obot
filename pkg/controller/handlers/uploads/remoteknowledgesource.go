@@ -139,6 +139,10 @@ func (u *UploadHandler) RunUpload(req router.Request, _ router.Response) error {
 		return fmt.Errorf("failed to get parent status: %w", err)
 	}
 
+	if ws.Status.WorkspaceID == "" {
+		return fmt.Errorf("WorkspaceID is empty, re-enqueue")
+	}
+
 	// This gets set as the "output" field in the metadata file. It should be the same as what came out of the last run, if any.
 	b, err := json.Marshal(map[string]any{
 		"input":     remoteKnowledgeSource.Spec.Manifest.RemoteKnowledgeSourceInput,
