@@ -14,7 +14,7 @@ ui:
 ui-user:
 	cd ui/user && \
 	pnpm install && \
-	npm run build
+	pnpm run build
 
 clean:
 	rm -rf ui/admin/build
@@ -32,8 +32,8 @@ lint: lint-admin
 
 lint-admin:
 	cd ui/admin && \
-	npm run format && \
-	npm run lint
+	pnpm run format && \
+	pnpm run lint
 
 package-tools:
 	./tools/package-tools.sh
