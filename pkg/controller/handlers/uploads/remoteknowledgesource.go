@@ -140,7 +140,7 @@ func (u *UploadHandler) RunUpload(req router.Request, _ router.Response) error {
 	}
 
 	if ws.Status.WorkspaceID == "" {
-		return fmt.Errorf("WorkspaceID is empty, re-enqueue")
+		return nil
 	}
 
 	// This gets set as the "output" field in the metadata file. It should be the same as what came out of the last run, if any.
@@ -184,8 +184,13 @@ func (u *UploadHandler) HandleUploadRun(req router.Request, resp router.Response
 	}
 
 	var run v1.Run
-	if err := req.Get(uncached.Get(&run), remoteKnowledgeSource.Namespace, remoteKnowledgeSource.Status.RunName); err != nil {
-		return err
+	if err := req.Get(&run, remoteKnowledgeSource.Namespace, remoteKnowledgeSource.Status.RunName); err != nil {
+		if apierrors.IsNotFound(err) {
+			err = req.Get(uncached.Get(&run), remoteKnowledgeSource.Namespace, remoteKnowledgeSource.Status.RunName)
+		}
+		if err != nil {
+			return err
+		}
 	}
 
 	defer func() {
