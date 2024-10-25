@@ -5,6 +5,7 @@ import Markdown, { defaultUrlTransform } from "react-markdown";
 import rehypeExternalLinks from "rehype-external-links";
 import remarkGfm from "remark-gfm";
 
+import { OAuthPrompt } from "~/lib/model/chatEvents";
 import { Message as MessageType } from "~/lib/model/messages";
 import { cn } from "~/lib/utils";
 
@@ -15,6 +16,7 @@ import { Button } from "~/components/ui/button";
 import { Card } from "~/components/ui/card";
 import { TypingDots } from "~/components/ui/typing-spinner";
 
+import { TypographyP } from "../Typography";
 import { ToolCallInfo } from "./ToolCallInfo";
 
 interface MessageProps {
@@ -76,21 +78,30 @@ export const Message = React.memo(({ message }: MessageProps) => {
                                 />
                             )}
 
-                            <Markdown
-                                className={cn(
-                                    "flex-auto max-w-full prose overflow-x-auto dark:prose-invert prose-pre:whitespace-pre-wrap prose-pre:break-words prose-thead:text-left prose-img:rounded-xl prose-img:shadow-lg break-words",
-                                    { "text-white prose-invert": isUser }
-                                )}
-                                remarkPlugins={[remarkGfm]}
-                                rehypePlugins={[
-                                    [rehypeExternalLinks, { target: "_blank" }],
-                                ]}
-                                urlTransform={urlTransformAllowFiles}
-                                components={CustomMarkdownComponents}
-                            >
-                                {parsedMessage ||
-                                    "Waiting for more information..."}
-                            </Markdown>
+                            {message.prompt ? (
+                                <PromptMessage prompt={message.prompt} />
+                            ) : (
+                                <Markdown
+                                    className={cn(
+                                        "flex-auto max-w-full prose overflow-x-auto dark:prose-invert prose-pre:whitespace-pre-wrap prose-pre:break-words prose-thead:text-left prose-img:rounded-xl prose-img:shadow-lg break-words",
+                                        {
+                                            "text-white prose-invert": isUser,
+                                        }
+                                    )}
+                                    remarkPlugins={[remarkGfm]}
+                                    rehypePlugins={[
+                                        [
+                                            rehypeExternalLinks,
+                                            { target: "_blank" },
+                                        ],
+                                    ]}
+                                    urlTransform={urlTransformAllowFiles}
+                                    components={CustomMarkdownComponents}
+                                >
+                                    {parsedMessage ||
+                                        "Waiting for more information..."}
+                                </Markdown>
+                            )}
 
                             {toolCall && (
                                 <ToolCallInfo tool={toolCall}>
@@ -124,3 +135,37 @@ export const Message = React.memo(({ message }: MessageProps) => {
 });
 
 Message.displayName = "Message";
+
+function PromptMessage({ prompt }: { prompt: OAuthPrompt }) {
+    return (
+        <div className="flex-auto flex flex-col flex-wrap gap-2 w-fit">
+            <TypographyP className="min-w-fit">
+                <b>
+                    {[prompt.metadata?.category, prompt.name]
+                        .filter(Boolean)
+                        .join(" - ")}
+                </b>
+                {": "}
+                Tool Call requires authentication
+            </TypographyP>
+
+            <Button asChild>
+                <a
+                    rel="noreferrer"
+                    target="_blank"
+                    href={prompt.metadata?.authURL}
+                    className="flex items-center gap-2 w-fit"
+                >
+                    <ToolIcon
+                        icon={prompt.metadata?.icon}
+                        category={prompt.metadata?.category}
+                        name={prompt.name}
+                        className="w-5 h-5 invert dark:invert-0"
+                        disableTooltip
+                    />
+                    Authenticate with {prompt.metadata?.category}
+                </a>
+            </Button>
+        </div>
+    );
+}

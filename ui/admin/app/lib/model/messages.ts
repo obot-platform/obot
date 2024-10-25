@@ -1,4 +1,4 @@
-import { ChatEvent, Prompt, ToolCall } from "./chatEvents";
+import { ChatEvent, OAuthPrompt, ToolCall } from "./chatEvents";
 import { Run } from "./runs";
 
 export interface Message {
@@ -6,6 +6,7 @@ export interface Message {
     sender: "user" | "agent";
     // note(ryanhopperlowe) we only support one tool call per message for now
     // leaving it as an array case that changes in the future
+    prompt?: OAuthPrompt;
     tools?: ToolCall[];
     runId?: string;
     isLoading?: boolean;
@@ -38,9 +39,10 @@ export const toolCallMessage = (toolCall: ToolCall): Message => ({
     tools: [toolCall],
 });
 
-export const promptMessage = (prompt: Prompt, runID: string): Message => ({
+export const promptMessage = (prompt: OAuthPrompt, runID: string): Message => ({
     sender: "agent",
-    text: prompt.message || "",
+    text: "",
+    prompt,
     runId: runID,
 });
 
@@ -74,7 +76,6 @@ export const chatEventsToMessages = (events: ChatEvent[]) => {
             continue;
         }
 
-        // note(ryanhopperlowe) this just splits out a new message. In the future we will want to create a custom prompt message
         if (prompt) {
             messages.push(promptMessage(prompt, runID));
             continue;

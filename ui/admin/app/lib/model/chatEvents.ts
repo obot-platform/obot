@@ -14,14 +14,17 @@ export type ToolCall = {
 };
 
 type PromptOAuthMeta = {
-    authType: string;
+    authType: "oauth";
     authURL: string;
+    category: string;
+    icon: string;
     toolContext: string;
     toolDisplayName: string;
 };
 
-export type Prompt = {
+export type OAuthPrompt = {
     id?: string;
+    name: string;
     time?: Date;
     message?: string;
     fields?: string[];
@@ -40,7 +43,7 @@ export type ChatEvent = {
     waitingOnModel?: boolean;
     toolInput?: ToolInput;
     toolCall?: ToolCall;
-    prompt?: Prompt;
+    prompt?: OAuthPrompt;
 };
 
 export function combineChatEvents(events: ChatEvent[]): ChatEvent[] {
