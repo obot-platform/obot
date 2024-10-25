@@ -26,7 +26,7 @@ export type OAuthPrompt = {
     id?: string;
     name: string;
     time?: Date;
-    message?: string;
+    message: string;
     fields?: string[];
     sensitive?: boolean;
     metadata?: PromptOAuthMeta;

@@ -41,7 +41,7 @@ export const toolCallMessage = (toolCall: ToolCall): Message => ({
 
 export const promptMessage = (prompt: OAuthPrompt, runID: string): Message => ({
     sender: "agent",
-    text: "",
+    text: prompt.message,
     prompt,
     runId: runID,
 });

@@ -78,7 +78,7 @@ export const Message = React.memo(({ message }: MessageProps) => {
                                 />
                             )}
 
-                            {message.prompt ? (
+                            {message.prompt?.metadata ? (
                                 <PromptMessage prompt={message.prompt} />
                             ) : (
                                 <Markdown
@@ -137,6 +137,8 @@ export const Message = React.memo(({ message }: MessageProps) => {
 Message.displayName = "Message";
 
 function PromptMessage({ prompt }: { prompt: OAuthPrompt }) {
+    if (!prompt.metadata) return null;
+
     return (
         <div className="flex-auto flex flex-col flex-wrap gap-2 w-fit">
             <TypographyP className="min-w-fit">
