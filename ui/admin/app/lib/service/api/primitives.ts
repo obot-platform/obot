@@ -2,7 +2,6 @@
 import axios, { AxiosRequestConfig, AxiosResponse } from "axios";
 
 export const ResponseHeaders = {
-    RunId: "x-otto-run-id",
     ThreadId: "x-otto-thread-id",
 } as const;
 
@@ -17,9 +16,13 @@ export async function request<T, R = AxiosResponse<T>, D = unknown>({
     errorMessage = "Request failed",
     ...config
 }: ExtendedAxiosRequestConfig<D>): Promise<R> {
-    console.error(errorMessage);
-    return await internalFetch<T, R, D>({
-        adapter: "fetch",
-        ...config,
-    });
+    try {
+        return await internalFetch<T, R, D>({
+            adapter: "fetch",
+            ...config,
+        });
+    } catch (error) {
+        console.error(errorMessage);
+        throw error;
+    }
 }
