@@ -1,5 +1,5 @@
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useEffect, useMemo } from "react";
+import { Fragment, useEffect, useMemo } from "react";
 import { useForm } from "react-hook-form";
 import Markdown from "react-markdown";
 import rehypeExternalLinks from "rehype-external-links";
@@ -62,7 +62,9 @@ export function OAuthAppForm({ type, onSubmit, isLoading }: OAuthAppFormProps) {
     return (
         <Form {...form}>
             <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-                {spec.steps.map(renderStep)}
+                {spec.steps.map((s, i) => (
+                    <Fragment key={i}>{renderStep(s)}</Fragment>
+                ))}
 
                 <Button type="submit" disabled={isLoading}>
                     {isLoading && <LoadingSpinner className="w-4 h-4 mr-2" />}{" "}
@@ -129,7 +131,11 @@ export function OAuthAppForm({ type, onSubmit, isLoading }: OAuthAppFormProps) {
                                             section.displayStepsInline,
                                     })}
                                 >
-                                    {section.steps.map(renderStep)}
+                                    {section.steps.map((s, i) => (
+                                        <Fragment key={i}>
+                                            {renderStep(s)}
+                                        </Fragment>
+                                    ))}
                                 </AccordionContent>
                             </AccordionItem>
                         ))}
