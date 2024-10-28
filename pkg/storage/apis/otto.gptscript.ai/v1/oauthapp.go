@@ -128,3 +128,40 @@ type OAuthAppReferenceList struct {
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []OAuthAppReference `json:"items"`
 }
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+type OAuthAppLogin struct {
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+	Spec              OAuthAppLoginSpec   `json:"spec,omitempty"`
+	Status            OAuthAppLoginStatus `json:"status,omitempty"`
+}
+
+func (o *OAuthAppLogin) DeleteRefs() []Ref {
+	return nil
+}
+
+func (o *OAuthAppLogin) GetConditions() *[]metav1.Condition {
+	return &o.Status.Conditions
+}
+
+type OAuthAppLoginSpec struct {
+	CredentialContext string `json:"credentialContext,omitempty"`
+	CredentialTool    string `json:"credentialTool,omitempty"`
+}
+
+type OAuthAppLoginStatus struct {
+	Conditions []metav1.Condition `json:"conditions,omitempty"`
+	URL        string             `json:"url,omitempty"`
+	LoggedIn   bool               `json:"loggedIn,omitempty"`
+	Error      string             `json:"error,omitempty"`
+}
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+type OAuthAppLoginList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []OAuthAppLogin `json:"items"`
+}

@@ -105,6 +105,10 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/otto8-ai/otto8/pkg/storage/apis/otto.gptscript.ai/v1.KnowledgeSource":             schema_storage_apis_ottogptscriptai_v1_KnowledgeSource(ref),
 		"github.com/otto8-ai/otto8/pkg/storage/apis/otto.gptscript.ai/v1.OAuthApp":                    schema_storage_apis_ottogptscriptai_v1_OAuthApp(ref),
 		"github.com/otto8-ai/otto8/pkg/storage/apis/otto.gptscript.ai/v1.OAuthAppList":                schema_storage_apis_ottogptscriptai_v1_OAuthAppList(ref),
+		"github.com/otto8-ai/otto8/pkg/storage/apis/otto.gptscript.ai/v1.OAuthAppLogin":               schema_storage_apis_ottogptscriptai_v1_OAuthAppLogin(ref),
+		"github.com/otto8-ai/otto8/pkg/storage/apis/otto.gptscript.ai/v1.OAuthAppLoginList":           schema_storage_apis_ottogptscriptai_v1_OAuthAppLoginList(ref),
+		"github.com/otto8-ai/otto8/pkg/storage/apis/otto.gptscript.ai/v1.OAuthAppLoginSpec":           schema_storage_apis_ottogptscriptai_v1_OAuthAppLoginSpec(ref),
+		"github.com/otto8-ai/otto8/pkg/storage/apis/otto.gptscript.ai/v1.OAuthAppLoginStatus":         schema_storage_apis_ottogptscriptai_v1_OAuthAppLoginStatus(ref),
 		"github.com/otto8-ai/otto8/pkg/storage/apis/otto.gptscript.ai/v1.OAuthAppReference":           schema_storage_apis_ottogptscriptai_v1_OAuthAppReference(ref),
 		"github.com/otto8-ai/otto8/pkg/storage/apis/otto.gptscript.ai/v1.OAuthAppReferenceList":       schema_storage_apis_ottogptscriptai_v1_OAuthAppReferenceList(ref),
 		"github.com/otto8-ai/otto8/pkg/storage/apis/otto.gptscript.ai/v1.OAuthAppReferenceSpec":       schema_storage_apis_ottogptscriptai_v1_OAuthAppReferenceSpec(ref),
@@ -4189,6 +4193,169 @@ func schema_storage_apis_ottogptscriptai_v1_OAuthAppList(ref common.ReferenceCal
 		},
 		Dependencies: []string{
 			"github.com/otto8-ai/otto8/pkg/storage/apis/otto.gptscript.ai/v1.OAuthApp", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
+	}
+}
+
+func schema_storage_apis_ottogptscriptai_v1_OAuthAppLogin(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"),
+						},
+					},
+					"spec": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/otto8-ai/otto8/pkg/storage/apis/otto.gptscript.ai/v1.OAuthAppLoginSpec"),
+						},
+					},
+					"status": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/otto8-ai/otto8/pkg/storage/apis/otto.gptscript.ai/v1.OAuthAppLoginStatus"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"github.com/otto8-ai/otto8/pkg/storage/apis/otto.gptscript.ai/v1.OAuthAppLoginSpec", "github.com/otto8-ai/otto8/pkg/storage/apis/otto.gptscript.ai/v1.OAuthAppLoginStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
+	}
+}
+
+func schema_storage_apis_ottogptscriptai_v1_OAuthAppLoginList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"),
+						},
+					},
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/otto8-ai/otto8/pkg/storage/apis/otto.gptscript.ai/v1.OAuthAppLogin"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"items"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/otto8-ai/otto8/pkg/storage/apis/otto.gptscript.ai/v1.OAuthAppLogin", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
+	}
+}
+
+func schema_storage_apis_ottogptscriptai_v1_OAuthAppLoginSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"credentialContext": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"credentialTool": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func schema_storage_apis_ottogptscriptai_v1_OAuthAppLoginStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"conditions": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.Condition"),
+									},
+								},
+							},
+						},
+					},
+					"url": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"loggedIn": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
+						},
+					},
+					"error": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/apimachinery/pkg/apis/meta/v1.Condition"},
 	}
 }
 

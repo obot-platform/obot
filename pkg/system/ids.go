@@ -17,6 +17,7 @@ const (
 	RemoteKnowledgeSourcePrefix = "rks1"
 	OAuthAppPrefix              = "oa1"
 	KnowledgeSetPrefix          = "ks1"
+	OAuthAppLoginPrefix         = "oal1"
 )
 
 var typePrefixes = []string{

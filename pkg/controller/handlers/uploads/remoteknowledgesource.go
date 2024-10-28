@@ -162,7 +162,10 @@ func (u *UploadHandler) RunUpload(req router.Request, _ router.Response) error {
 		return fmt.Errorf("failed to create metadata file: %w", err)
 	}
 
-	r, err := u.invoker.SystemActionWithThread(req.Ctx, &thread, string(remoteKnowledgeSource.Spec.Manifest.SourceType)+"-data-source", "")
+	r, err := u.invoker.SystemActionWithThread(req.Ctx, &thread, invoke.SystemActionOptions{
+		RemoteTool:   string(remoteKnowledgeSource.Spec.Manifest.SourceType) + "-data-source",
+		CredContexts: []string{remoteKnowledgeSource.Name},
+	})
 	if err != nil {
 		return err
 	}

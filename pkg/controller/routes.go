@@ -7,6 +7,7 @@ import (
 	"github.com/otto8-ai/otto8/pkg/controller/handlers/cronjob"
 	knowledgehandler "github.com/otto8-ai/otto8/pkg/controller/handlers/knowledge"
 	"github.com/otto8-ai/otto8/pkg/controller/handlers/knowledgeset"
+	"github.com/otto8-ai/otto8/pkg/controller/handlers/oauthapp"
 	"github.com/otto8-ai/otto8/pkg/controller/handlers/reference"
 	"github.com/otto8-ai/otto8/pkg/controller/handlers/runs"
 	"github.com/otto8-ai/otto8/pkg/controller/handlers/threads"
@@ -35,6 +36,7 @@ func (c *Controller) setupRoutes() error {
 	runs := runs.New(c.services.Invoker)
 	webHooks := webhook.New()
 	cronJobs := cronjob.New()
+	oauthLogins := oauthapp.NewLogin(c.services.Invoker)
 
 	// Runs
 	root.Type(&v1.Run{}).FinalizeFunc(v1.RunFinalizer, runs.DeleteRunState)
@@ -114,6 +116,10 @@ func (c *Controller) setupRoutes() error {
 
 	// OAuthAppReferences
 	root.Type(&v1.OAuthAppReference{}).HandlerFunc(reference.CleanupOAuthApp)
+
+	// OAuthAppLogins
+	root.Type(&v1.OAuthAppLogin{}).HandlerFunc(cleanup.Cleanup)
+	root.Type(&v1.OAuthAppLogin{}).HandlerFunc(oauthLogins.RunTool)
 
 	// WorkflowSteps
 	steps := root.Type(&v1.WorkflowStep{})
