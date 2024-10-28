@@ -142,6 +142,8 @@ github.com/charmbracelet/lipgloss v0.13.1 h1:Oik/oqDTMVA01GetT4JdEC033dNzWoQHdWn
 github.com/charmbracelet/lipgloss v0.13.1/go.mod h1:zaYVJ2xKSKEnTEEbX6uAHabh2d975RJ+0yfkFpRBz5U=
 github.com/charmbracelet/x/ansi v0.3.2 h1:wsEwgAN+C9U06l9dCVMX0/L3x7ptvY1qmjMwyfE6USY=
 github.com/charmbracelet/x/ansi v0.3.2/go.mod h1:dk73KoMTT5AX5BsX0KrqhsTqAnhZZoCBjs7dGWp4Ktw=
+github.com/charmbracelet/x/ansi v0.4.0 h1:NqwHA4B23VwsDn4H3VcNX1W1tOmgnvY1NDx5tOXdnOU=
+github.com/charmbracelet/x/ansi v0.4.0/go.mod h1:dk73KoMTT5AX5BsX0KrqhsTqAnhZZoCBjs7dGWp4Ktw=
 github.com/charmbracelet/x/exp/golden v0.0.0-20240806155701-69247e0abc2a h1:G99klV19u0QnhiizODirwVksQB91TJKV/UaTnACcG30=
 github.com/charmbracelet/x/exp/golden v0.0.0-20240806155701-69247e0abc2a/go.mod h1:wDlXFlCrmJ8J+swcL/MnGUuYnqgQdW9rhSD61oNMb6U=
 github.com/chzyer/logex v1.1.10/go.mod h1:+Ywpsq7O8HXn0nuIou7OrIPyXbp3wmkHB+jjWRnGsAI=
@@ -365,8 +367,12 @@ github.com/gptscript-ai/cmd v0.0.0-20240907001148-ffd49061124a h1:LX7AOcbBoTnUk/
 github.com/gptscript-ai/cmd v0.0.0-20240907001148-ffd49061124a/go.mod h1:DJAo1xTht1LDkNYFNydVjTHd576TC7MlpsVRl3oloVw=
 github.com/gptscript-ai/go-gptscript v0.9.6-0.20241023195750-c09e0f56b39b h1:EDd5OCtZ43YVSzKuQlXLiXCIQ6qhsrqLqY5Ows5ohlY=
 github.com/gptscript-ai/go-gptscript v0.9.6-0.20241023195750-c09e0f56b39b/go.mod h1:/FVuLwhz+sIfsWUgUHWKi32qT0i6+IXlUlzs70KKt/Q=
+github.com/gptscript-ai/go-gptscript v0.9.6-0.20241028114905-1fce3cceae35 h1:ljdLe1+L7+NR/W4+wXM9xOJULGQfa+Y5v0W40bGdRtk=
+github.com/gptscript-ai/go-gptscript v0.9.6-0.20241028114905-1fce3cceae35/go.mod h1:/FVuLwhz+sIfsWUgUHWKi32qT0i6+IXlUlzs70KKt/Q=
 github.com/gptscript-ai/gptscript v0.9.6-0.20241025230610-2d1632ceaecb h1:NUh8W9or/AjUrhNurZpakyW8g8jcKyldx9Lvbw3Zf7Y=
 github.com/gptscript-ai/gptscript v0.9.6-0.20241025230610-2d1632ceaecb/go.mod h1:+CC86EbcmMMBgvv5NBqHzep63SobtB5vhNOq4i6aPrA=
+github.com/gptscript-ai/gptscript v0.9.6-0.20241028112107-9d30b268e346 h1:oK+fINhkoVLcjpjpVNhZmiZdc+piCewyxnA+DLYgaVs=
+github.com/gptscript-ai/gptscript v0.9.6-0.20241028112107-9d30b268e346/go.mod h1:+CC86EbcmMMBgvv5NBqHzep63SobtB5vhNOq4i6aPrA=
 github.com/gptscript-ai/tui v0.0.0-20240923192013-172e51ccf1d6 h1:vkgNZVWQgbE33VD3z9WKDwuu7B/eJVVMMPM62ixfCR8=
 github.com/gptscript-ai/tui v0.0.0-20240923192013-172e51ccf1d6/go.mod h1:frrl/B+ZH3VSs3Tqk2qxEIIWTONExX3tuUa4JsVnqx4=
 github.com/gregjones/httpcache v0.0.0-20180305231024-9cad4c3443a7 h1:pdN6V1QBWetyv/0+wjACpqVH+eVULgEjkurDLq3goeM=
@@ -525,6 +531,8 @@ github.com/nightlyone/lockfile v1.0.0 h1:RHep2cFKK4PonZJDdEl4GmkabuhbsRMgk/k3uAm
 github.com/nightlyone/lockfile v1.0.0/go.mod h1:rywoIealpdNse2r832aiD9jRk8ErCatROs6LzC841CI=
 github.com/nwaples/rardecode/v2 v2.0.0-beta.3 h1:evQTW0IjM2GAL5AaPHiQrT+laWohkt5zHKA3yCsGQGU=
 github.com/nwaples/rardecode/v2 v2.0.0-beta.3/go.mod h1:yntwv/HfMc/Hbvtq9I19D1n58te3h6KsqCf3GxyfBGY=
+github.com/nwaples/rardecode/v2 v2.0.0-beta.4 h1:sdiJxQdPjECn2lh9nLFFhgLCf+0ulDU5rODbtERTlUY=
+github.com/nwaples/rardecode/v2 v2.0.0-beta.4/go.mod h1:yntwv/HfMc/Hbvtq9I19D1n58te3h6KsqCf3GxyfBGY=
 github.com/nxadm/tail v1.4.11 h1:8feyoE3OzPrcshW5/MJ4sGESc5cqmGkGCWlco4l0bqY=
 github.com/nxadm/tail v1.4.11/go.mod h1:OTaG3NK980DZzxbRq6lEuzgU+mug70nY11sMd4JXXHc=
 github.com/oauth2-proxy/mockoidc v0.0.0-20240214162133-caebfff84d25 h1:9bCMuD3TcnjeqjPT2gSlha4asp8NvgcFRYExCaikCxk=

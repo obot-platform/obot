@@ -104,7 +104,7 @@ func (u *UploadHandler) CreateThread(req router.Request, resp router.Response) e
 	}
 
 	if err = req.Client.Create(req.Ctx, thread); err != nil {
-		_ = u.gptscript.DeleteWorkspace(req.Ctx, gptscript.DeleteWorkspaceOptions{WorkspaceID: id})
+		_ = u.gptscript.DeleteWorkspace(req.Ctx, id)
 		return err
 	}
 

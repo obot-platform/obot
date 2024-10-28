@@ -19,8 +19,8 @@ require (
 	github.com/google/go-github/v62 v62.0.0
 	github.com/google/uuid v1.6.0
 	github.com/gptscript-ai/cmd v0.0.0-20240907001148-ffd49061124a
-	github.com/gptscript-ai/go-gptscript v0.9.6-0.20241023195750-c09e0f56b39b
-	github.com/gptscript-ai/gptscript v0.9.6-0.20241025230610-2d1632ceaecb
+	github.com/gptscript-ai/go-gptscript v0.9.6-0.20241028114905-1fce3cceae35
+	github.com/gptscript-ai/gptscript v0.9.6-0.20241028112107-9d30b268e346
 	github.com/liggitt/tabwriter v0.0.0-20181228230101-89fcab3d43de
 	github.com/oauth2-proxy/oauth2-proxy/v7 v7.0.0-00010101000000-000000000000
 	github.com/otto8-ai/otto8/apiclient v0.0.0-00010101000000-000000000000
@@ -85,7 +85,7 @@ require (
 	github.com/chai2010/gettext-go v1.0.2 // indirect
 	github.com/charmbracelet/glamour v0.8.0 // indirect
 	github.com/charmbracelet/lipgloss v0.13.1 // indirect
-	github.com/charmbracelet/x/ansi v0.3.2 // indirect
+	github.com/charmbracelet/x/ansi v0.4.0 // indirect
 	github.com/chzyer/readline v1.5.1 // indirect
 	github.com/cloudflare/circl v1.5.0 // indirect
 	github.com/containerd/console v1.0.4 // indirect
@@ -194,7 +194,7 @@ require (
 	github.com/muesli/termenv v0.15.3-0.20240618155329-98d742f6907a // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
 	github.com/mxk/go-flowrate v0.0.0-20140419014527-cca7078d478f // indirect
-	github.com/nwaples/rardecode/v2 v2.0.0-beta.3 // indirect
+	github.com/nwaples/rardecode/v2 v2.0.0-beta.4 // indirect
 	github.com/ohler55/ojg v1.24.1 // indirect
 	github.com/olekukonko/tablewriter v0.0.6-0.20230925090304-df64c4bbad77 // indirect
 	github.com/pelletier/go-toml/v2 v2.2.3 // indirect

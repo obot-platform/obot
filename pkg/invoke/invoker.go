@@ -140,7 +140,7 @@ func (i *Invoker) NewThread(ctx context.Context, c kclient.Client, namespace str
 
 	if err := c.Create(ctx, &thread); err != nil {
 		// If creating the thread fails, then ensure that the workspace is cleaned up, too.
-		return nil, errors.Join(err, i.gptClient.DeleteWorkspace(ctx, gptscript.DeleteWorkspaceOptions{WorkspaceID: thread.Spec.WorkspaceID}))
+		return nil, errors.Join(err, i.gptClient.DeleteWorkspace(ctx, thread.Spec.WorkspaceID))
 	}
 	return &thread, nil
 }

@@ -43,7 +43,7 @@ func (a *Handler) CreateWorkspace(req router.Request, _ router.Response) error {
 	ws.Status.WorkspaceID = workspaceID
 
 	if err = req.Client.Status().Update(req.Ctx, ws); err != nil {
-		_ = a.gptscript.DeleteWorkspace(req.Ctx, gptscript.DeleteWorkspaceOptions{WorkspaceID: workspaceID})
+		_ = a.gptscript.DeleteWorkspace(req.Ctx, workspaceID)
 		return err
 	}
 
@@ -53,11 +53,11 @@ func (a *Handler) CreateWorkspace(req router.Request, _ router.Response) error {
 func (a *Handler) RemoveWorkspace(req router.Request, _ router.Response) error {
 	ws := req.Object.(*v1.Workspace)
 	if ws.Status.WorkspaceID != "" {
-		if err := a.gptscript.DeleteWorkspace(req.Ctx, gptscript.DeleteWorkspaceOptions{WorkspaceID: ws.Status.WorkspaceID}); err != nil {
+		if err := a.gptscript.DeleteWorkspace(req.Ctx, ws.Status.WorkspaceID); err != nil {
 			return err
 		}
 	} else if ws.Spec.WorkspaceID != "" {
-		if err := a.gptscript.DeleteWorkspace(req.Ctx, gptscript.DeleteWorkspaceOptions{WorkspaceID: ws.Spec.WorkspaceID}); err != nil {
+		if err := a.gptscript.DeleteWorkspace(req.Ctx, ws.Spec.WorkspaceID); err != nil {
 			return err
 		}
 	}
