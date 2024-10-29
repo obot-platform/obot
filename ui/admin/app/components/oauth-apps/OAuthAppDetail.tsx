@@ -59,10 +59,16 @@ export function OAuthAppDetail({
                         <OAuthAppTypeIcon type={type} />
 
                         <span>{spec?.displayName}</span>
+
+                        {spec.disableConfiguration && (
+                            <span>is not configurable</span>
+                        )}
                     </DialogTitle>
                 </DialogHeader>
 
-                {spec?.customApp ? (
+                {spec.disableConfiguration ? (
+                    <DisabledContent spec={spec} />
+                ) : spec?.customApp ? (
                     <Content app={spec.customApp} spec={spec} />
                 ) : (
                     <EmptyContent spec={spec} />
@@ -70,6 +76,10 @@ export function OAuthAppDetail({
             </DialogContent>
         </Dialog>
     );
+}
+
+function DisabledContent({ spec }: { spec: OAuthAppSpec }) {
+    return <TypographyP>{spec.disabledReason}</TypographyP>;
 }
 
 function EmptyContent({ spec }: { spec: OAuthAppSpec }) {

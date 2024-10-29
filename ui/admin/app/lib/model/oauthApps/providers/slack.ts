@@ -26,7 +26,6 @@ const scopes = [
     "mpim:write",
     "im:write",
 ];
-// any changes to the OAuth & Permissions section will require the user to click `Reinstall to <Slack App Name>`
 
 const steps: OAuthFormStep<typeof schema.shape>[] = [
     {
@@ -116,6 +115,9 @@ const steps: OAuthFormStep<typeof schema.shape>[] = [
     },
 ];
 
+const disableConfiguration = !getOAuthLinks("slack")
+    .redirectURL.toLowerCase()
+    .startsWith("https");
 export const SlackOAuthApp = {
     schema,
     refName: "slack",
@@ -124,4 +126,8 @@ export const SlackOAuthApp = {
     logo: assetUrl("/assets/slack_logo_light.png"),
     darkLogo: assetUrl("/assets/slack_logo_dark.png"),
     steps,
+    disableConfiguration,
+    disabledReason: disableConfiguration
+        ? "Slack requires that redirect URLs start with `https`. Since this application is running on `http`, you will need to redeploy Otto using `https` in order to configure a custom Slack OAuth app."
+        : undefined,
 } satisfies OAuthAppSpec;

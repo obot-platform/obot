@@ -24,6 +24,10 @@ export function OAuthAppTile({
 
     const { displayName } = info;
 
+    if (info.type == "slack") {
+        console.log(info);
+    }
+
     const getSrc = () => {
         if (isDark) return info.darkLogo ?? info.logo;
         return info.logo;
@@ -44,12 +48,7 @@ export function OAuthAppTile({
                 })}
             />
 
-            {!info.disableConfiguration && (
-                <OAuthAppDetail
-                    type={type}
-                    className="absolute top-2 right-2"
-                />
-            )}
+            <OAuthAppDetail type={type} className="absolute top-2 right-2" />
         </Card>
     );
 }

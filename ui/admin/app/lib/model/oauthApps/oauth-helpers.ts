@@ -39,6 +39,7 @@ export type OAuthAppSpec = {
     darkLogo?: string;
     steps: OAuthFormStep[];
     disableConfiguration?: boolean;
+    disabledReason?: string;
     invertDark?: boolean;
 };
 
