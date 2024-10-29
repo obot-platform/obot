@@ -5,23 +5,29 @@ import { combinedOAuthAppInfo } from "~/lib/model/oauthApps";
 import { OAuthProvider } from "~/lib/model/oauthApps/oauth-helpers";
 import { OauthAppService } from "~/lib/service/api/oauthAppService";
 
-const key = () => ({
-    ...OauthAppService.getOauthApps.key(),
-    modifier: "combinedList",
-});
-
 export function useOAuthAppList(config?: { revalidate?: boolean }) {
     const { revalidate = true } = config ?? {};
 
     const { data: apps } = useSWR(
-        key(),
-        async () => combinedOAuthAppInfo(await OauthAppService.getOauthApps()),
+        OauthAppService.getOauthApps.key(),
+        OauthAppService.getOauthApps,
         { fallbackData: [], revalidateOnMount: revalidate }
     );
 
-    return apps;
+    const combinedApps = useMemo(() => combinedOAuthAppInfo(apps), [apps]);
+
+    return combinedApps;
 }
-useOAuthAppList.key = key;
+
+export function useCustomOAuthAppInfo() {
+    const { data: apps } = useSWR(
+        OauthAppService.getOauthApps.key(),
+        OauthAppService.getOauthApps,
+        { fallbackData: [] }
+    );
+
+    return apps.filter((app) => app.type === OAuthProvider.Custom);
+}
 
 export function useOAuthAppInfo(type: OAuthProvider) {
     const list = useOAuthAppList({ revalidate: false });

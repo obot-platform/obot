@@ -13,6 +13,8 @@ export const OAuthAppSpecMap = {
     [OAuthProvider.Microsoft365]: Microsoft365OAuthApp,
     [OAuthProvider.Slack]: SlackOAuthApp,
     [OAuthProvider.Notion]: NotionOAuthApp,
+    // Custom OAuth apps are intentionally omitted from the map.
+    // They are handled separately
 } as const;
 
 export type OAuthAppDetail = OAuthAppSpec & {

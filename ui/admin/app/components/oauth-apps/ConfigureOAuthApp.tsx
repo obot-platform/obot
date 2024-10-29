@@ -17,10 +17,7 @@ import {
     DialogTrigger,
 } from "~/components/ui/dialog";
 import { ScrollArea } from "~/components/ui/scroll-area";
-import {
-    useOAuthAppInfo,
-    useOAuthAppList,
-} from "~/hooks/oauthApps/useOAuthApps";
+import { useOAuthAppInfo } from "~/hooks/oauthApps/useOAuthApps";
 import { useAsync } from "~/hooks/useAsync";
 import { useDisclosure } from "~/hooks/useDisclosure";
 
@@ -44,7 +41,7 @@ export function ConfigureOAuthApp({ type }: { type: OAuthProvider }) {
             ...data,
         });
 
-        await mutate(useOAuthAppList.key());
+        await mutate(OauthAppService.getOauthApps.key());
 
         modal.onClose();
         successModal.onOpen();
@@ -62,7 +59,7 @@ export function ConfigureOAuthApp({ type }: { type: OAuthProvider }) {
             ...data,
         });
 
-        await mutate(useOAuthAppList.key());
+        await mutate(OauthAppService.getOauthApps.key());
 
         modal.onClose();
         successModal.onOpen();
