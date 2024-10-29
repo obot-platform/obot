@@ -13,6 +13,7 @@ import (
 	v1 "github.com/otto8-ai/otto8/pkg/storage/apis/otto.gptscript.ai/v1"
 	"github.com/otto8-ai/otto8/pkg/storage/selectors"
 	"github.com/otto8-ai/otto8/pkg/system"
+	"github.com/otto8-ai/otto8/pkg/wait"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
@@ -296,7 +297,16 @@ func (a *AgentHandler) CreateKnowledgeSource(req api.Context) error {
 		return types.NewErrBadRequest("failed to create RemoteKnowledgeSource: %w", err)
 	}
 
-	return req.Write(convertRemoteKnowledgeSource(agent.Name, "", source))
+	_, required, err := source.CredentialTool(req.Context(), req.Storage)
+	if err != nil {
+		return err
+	}
+
+	// Set the required field in the status so that the caller knows if the knowledge source needs to be authenticated.
+	// This value will be persisted in the status in a controller.
+	source.Status.Auth.Required = &required
+
+	return req.Write(convertRemoteKnowledgeSource(agent.Name, source))
 }
 
 func (a *AgentHandler) UpdateRemoteKnowledgeSource(req api.Context) error {
@@ -336,7 +346,7 @@ func (a *AgentHandler) UpdateRemoteKnowledgeSource(req api.Context) error {
 		return err
 	}
 
-	return req.Write(convertRemoteKnowledgeSource(agent.Name, "", knowledgeSource))
+	return req.Write(convertRemoteKnowledgeSource(agent.Name, knowledgeSource))
 }
 
 func (a *AgentHandler) ReIngestKnowledgeFile(req api.Context) error {
@@ -423,7 +433,7 @@ func (a *AgentHandler) GetRemoteKnowledgeSources(req api.Context) error {
 
 	var resp []types.KnowledgeSource
 	for _, source := range knowledgeSourceList.Items {
-		resp = append(resp, convertRemoteKnowledgeSource(agent.Name, "", source))
+		resp = append(resp, convertRemoteKnowledgeSource(agent.Name, source))
 	}
 
 	return req.Write(types.KnowledgeSourceList{Items: resp})
@@ -454,6 +464,74 @@ func (a *AgentHandler) DeleteRemoteKnowledgeSource(req api.Context) error {
 			Namespace: req.Namespace(),
 		},
 	})
+}
+
+func (a *AgentHandler) EnsureCredentialForKnowledgeSource(req api.Context) error {
+	var agent v1.Agent
+	if err := req.Get(&agent, req.PathValue("agent_id")); err != nil {
+		return err
+	}
+
+	if len(agent.Status.KnowledgeSetNames) == 0 {
+		return types.NewErrHttp(http.StatusTooEarly, fmt.Sprintf("agent %q knowledge set is not created yet", agent.Name))
+	}
+
+	var knowledgeSource v1.KnowledgeSource
+	if err := req.Get(&knowledgeSource, req.PathValue("id")); err != nil {
+		return err
+	}
+
+	if knowledgeSource.Spec.KnowledgeSetName != agent.Status.KnowledgeSetNames[0] {
+		return types.NewErrBadRequest("knowledgeSource %q does not belong to agent %q", knowledgeSource.Name, agent.Name)
+	}
+
+	// If auth is not required, then don't continue.
+	if knowledgeSource.Status.Auth.Required != nil && !*knowledgeSource.Status.Auth.Required {
+		return req.Write(convertRemoteKnowledgeSource(agent.Name, knowledgeSource))
+	}
+
+	credentialTool, required, err := knowledgeSource.CredentialTool(req.Context(), req.Storage)
+	if err != nil {
+		return err
+	}
+
+	if !required {
+		// The only way to get here is if the controller hasn't set the field yet.
+		knowledgeSource.Status.Auth.Required = &required
+		return req.Write(convertRemoteKnowledgeSource(agent.Name, knowledgeSource))
+	}
+
+	if credentialTool == "" {
+		return types.NewErrHttp(http.StatusTooEarly, fmt.Sprintf("knowledge source %q does not have credential tool", knowledgeSource.Name))
+	}
+
+	oauthLogin := &v1.OAuthAppLogin{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      system.OAuthAppLoginPrefix + knowledgeSource.Name,
+			Namespace: req.Namespace(),
+		},
+		Spec: v1.OAuthAppLoginSpec{
+			CredentialContext: knowledgeSource.Name,
+			CredentialTool:    credentialTool,
+		},
+	}
+
+	if err = req.Delete(oauthLogin); err != nil {
+		return err
+	}
+
+	oauthLogin, err = wait.For(req.Context(), req.Storage, oauthLogin, func(obj *v1.OAuthAppLogin) bool {
+		return obj.Status.Authenticated || obj.Status.Error != "" || obj.Status.URL != ""
+	}, wait.Option{
+		Create: true,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to ensure credential for knowledge source %q: %w", knowledgeSource.Name, err)
+	}
+
+	// Don't need to actually update the knowledge source, there is a controller that will do that.
+	knowledgeSource.Status.Auth = oauthLogin.Status.OAuthAppLoginAuthStatus
+	return req.Write(convertRemoteKnowledgeSource(agent.Name, knowledgeSource))
 }
 
 func (a *AgentHandler) Script(req api.Context) error {

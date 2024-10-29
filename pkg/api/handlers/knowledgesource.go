@@ -9,7 +9,7 @@ import (
 	v1 "github.com/otto8-ai/otto8/pkg/storage/apis/otto.gptscript.ai/v1"
 )
 
-func convertRemoteKnowledgeSource(agentName, threadName string, knowledgeSource v1.KnowledgeSource) types.KnowledgeSource {
+func convertRemoteKnowledgeSource(agentName string, knowledgeSource v1.KnowledgeSource) types.KnowledgeSource {
 	var syncDetails []byte
 	if len(knowledgeSource.Status.SyncState) > 0 {
 		_ = gz.Decompress(syncDetails, knowledgeSource.Status.SyncDetails)
@@ -20,9 +20,9 @@ func convertRemoteKnowledgeSource(agentName, threadName string, knowledgeSource 
 		AgentID:                 agentName,
 		State:                   knowledgeSource.PublicState(),
 		SyncDetails:             syncDetails,
-		ThreadID:                threadName,
 		Status:                  knowledgeSource.Status.Status,
 		Error:                   knowledgeSource.Status.Error,
+		AuthStatus:              knowledgeSource.Status.Auth,
 	}
 }
 

@@ -152,10 +152,8 @@ type OAuthAppLoginSpec struct {
 }
 
 type OAuthAppLoginStatus struct {
-	Conditions []metav1.Condition `json:"conditions,omitempty"`
-	URL        string             `json:"url,omitempty"`
-	LoggedIn   bool               `json:"loggedIn,omitempty"`
-	Error      string             `json:"error,omitempty"`
+	Conditions                    []metav1.Condition `json:"conditions,omitempty"`
+	types.OAuthAppLoginAuthStatus `json:",inline"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

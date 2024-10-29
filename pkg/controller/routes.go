@@ -62,6 +62,7 @@ func (c *Controller) setupRoutes() error {
 	root.Type(&v1.KnowledgeSource{}).HandlerFunc(cleanup.Cleanup)
 	root.Type(&v1.KnowledgeSource{}).HandlerFunc(knowledgesource.Reschedule)
 	root.Type(&v1.KnowledgeSource{}).HandlerFunc(knowledgesource.Sync)
+	root.Type(&v1.KnowledgeSource{}).HandlerFunc(knowledgesource.BackPopulateAuthStatus)
 
 	// ToolReference
 	root.Type(&v1.ToolReference{}).HandlerFunc(toolRef.Populate)

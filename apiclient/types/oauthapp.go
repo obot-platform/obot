@@ -45,3 +45,10 @@ type OAuthAppExternalStatus struct {
 }
 
 type OAuthAppList List[OAuthApp]
+
+type OAuthAppLoginAuthStatus struct {
+	URL           string `json:"url,omitempty"`
+	Authenticated bool   `json:"authenticated,omitempty"`
+	Required      *bool  `json:"required,omitempty"`
+	Error         string `json:"error,omitempty"`
+}

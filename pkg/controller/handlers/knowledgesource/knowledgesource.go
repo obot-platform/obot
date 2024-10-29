@@ -3,6 +3,7 @@ package knowledgesource
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/acorn-io/baaah/pkg/apply"
@@ -150,6 +151,11 @@ func getThread(ctx context.Context, c kclient.WithWatch, source *v1.KnowledgeSou
 
 func (k *Handler) Sync(req router.Request, _ router.Response) error {
 	source := req.Object.(*v1.KnowledgeSource)
+
+	if source.Status.Auth.Required == nil || (*source.Status.Auth.Required && !source.Status.Auth.Authenticated) {
+		return nil
+	}
+
 	invokeOpts := invoke.SystemTaskOptions{
 		CredentialContextIDs: []string{source.Name},
 	}
@@ -232,4 +238,35 @@ forLoop:
 		source.Status.SyncState = types.KnowledgeSourceStateError
 	}
 	return safeStatusSave(req.Ctx, req.Client, source)
+}
+
+func (k *Handler) BackPopulateAuthStatus(req router.Request, _ router.Response) error {
+	source := req.Object.(*v1.KnowledgeSource)
+	if source.Status.Auth.Authenticated || (source.Status.Auth.Required != nil && !*source.Status.Auth.Required) {
+		return nil
+	}
+
+	_, required, err := source.CredentialTool(req.Ctx, req.Client)
+	if err != nil {
+		return fmt.Errorf("failed to get credential tool for knowledge source [%s]: %w", source.Name, err)
+	}
+	if !required {
+		source.Status.Auth = types.OAuthAppLoginAuthStatus{
+			Required: &required,
+		}
+		return req.Client.Status().Update(req.Ctx, source)
+	}
+
+	var oauthAppLogin v1.OAuthAppLogin
+	if err := req.Get(&oauthAppLogin, source.Namespace, system.OAuthAppLoginPrefix+source.Name); apierror.IsNotFound(err) {
+		source.Status.Auth = types.OAuthAppLoginAuthStatus{
+			Required: &required,
+		}
+		return nil
+	} else if err != nil {
+		return err
+	}
+
+	source.Status.Auth = oauthAppLogin.Status.OAuthAppLoginAuthStatus
+	return req.Client.Status().Update(req.Ctx, source)
 }

@@ -1,6 +1,8 @@
 package types
 
-import "encoding/json"
+import (
+	"encoding/json"
+)
 
 var (
 	KnowledgeSourceTypeOneDrive KnowledgeSourceType = "onedrive"
@@ -26,12 +28,12 @@ type KnowledgeSourceType string
 type KnowledgeSource struct {
 	Metadata
 	KnowledgeSourceManifest `json:",inline"`
-	AgentID                 string               `json:"agentID,omitempty"`
-	ThreadID                string               `json:"threadID,omitempty"`
-	State                   KnowledgeSourceState `json:"state,omitempty"`
-	SyncDetails             json.RawMessage      `json:"syncDetails,omitempty"`
-	Status                  string               `json:"status,omitempty"`
-	Error                   string               `json:"error,omitempty"`
+	AgentID                 string                  `json:"agentID,omitempty"`
+	State                   KnowledgeSourceState    `json:"state,omitempty"`
+	SyncDetails             json.RawMessage         `json:"syncDetails,omitempty"`
+	Status                  string                  `json:"status,omitempty"`
+	Error                   string                  `json:"error,omitempty"`
+	AuthStatus              OAuthAppLoginAuthStatus `json:"authStatus,omitempty"`
 }
 
 type KnowledgeSourceManifest struct {

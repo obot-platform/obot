@@ -365,6 +365,9 @@ func (i *Invoker) Resume(ctx context.Context, c kclient.WithWatch, thread *v1.Th
 	thread, err := wait.For(ctx, c, thread, func(thread *v1.Thread) bool {
 		return thread.Status.WorkspaceID != ""
 	})
+	if err != nil {
+		return fmt.Errorf("failed to wait for thread to be ready: %w", err)
+	}
 
 	chatState, prevThreadName, err := i.getChatState(ctx, c, run)
 	if err != nil {
