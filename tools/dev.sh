@@ -2,6 +2,17 @@
 
 set -e # Exit on any command failure
 
+# Parse arguments for opening the user and admin UIs
+open_uis=false
+
+for arg in "$@"; do
+  case $arg in
+    --open-uis)
+      open_uis=true
+      ;;
+  esac
+done
+
 print_with_color() {
   local color_code=$1
   local color_message=$2
@@ -21,16 +32,15 @@ print_section_header() {
 }
 
 open_browser_tabs() {
-  if command -v open >/dev/null; then
-    echo "$@" | xargs -n 1 open
-  elif command -v xdg-open >/dev/null; then
-    echo "$@" | xargs -n 1 xdg-open
-  else
-    print_with_color 120 "Please open your browser to the following URLs: $(printf '%s ' "$@")"
-    return
+  if $open_uis; then
+    if command -v open >/dev/null; then
+      echo "$@" | xargs -n 1 open
+    elif command -v xdg-open >/dev/null; then
+      echo "$@" | xargs -n 1 xdg-open
+    fi
   fi
 
-  print_with_color 120 "The following URLs have been opened in your browser: [$(printf '%s ' "$@")]"
+  print_with_color 120 "UIs are accessible at: $(printf '%s ' "$@")"
 }
 
 cleanup() {

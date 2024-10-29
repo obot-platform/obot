@@ -26,8 +26,12 @@ clean:
 build:
 	CGO_ENABLED=0 go build -ldflags="-s -w" -o bin/otto8 .
 
+
 dev:
-	./tools/dev.sh
+	./tools/dev.sh $(ARGS)
+
+dev-open: ARGS=--open-uis
+dev-open: dev
 
 # Lint the project
 lint: lint-admin
@@ -52,4 +56,4 @@ no-changes:
 		exit 1; \
 	fi
 
-.PHONY: ui ui-admin ui-user build all clean dev lint lint-admin lint-api no-changes fmt tidy
+.PHONY: ui ui-admin ui-user build all clean dev dev-open lint lint-admin lint-api no-changes fmt tidy
