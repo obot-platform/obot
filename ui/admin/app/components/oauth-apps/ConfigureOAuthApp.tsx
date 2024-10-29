@@ -29,8 +29,8 @@ import { OAuthAppTypeIcon } from "./OAuthAppTypeIcon";
 
 export function ConfigureOAuthApp({ type }: { type: OAuthProvider }) {
     const spec = useOAuthAppInfo(type);
-    const { customApp } = spec;
-    const isEdit = !!customApp;
+    const { appOverride } = spec;
+    const isEdit = !!appOverride;
 
     const modal = useDisclosure();
     const successModal = useDisclosure();
@@ -52,13 +52,13 @@ export function ConfigureOAuthApp({ type }: { type: OAuthProvider }) {
     });
 
     const updateApp = useAsync(async (data: OAuthAppParams) => {
-        if (!customApp) throw new Error("Custom app not found");
+        if (!appOverride) throw new Error("Custom app not found");
 
-        await OauthAppService.updateOauthApp(customApp.id, {
-            type: customApp.type,
-            refName: customApp.refName,
-            global: customApp.global,
-            integration: customApp.integration,
+        await OauthAppService.updateOauthApp(appOverride.id, {
+            type: appOverride.type,
+            refName: appOverride.refName,
+            global: appOverride.global,
+            integration: appOverride.integration,
             ...data,
         });
 

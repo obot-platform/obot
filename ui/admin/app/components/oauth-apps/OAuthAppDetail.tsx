@@ -68,8 +68,8 @@ export function OAuthAppDetail({
 
                 {spec.disableConfiguration ? (
                     <DisabledContent spec={spec} />
-                ) : spec?.customApp ? (
-                    <Content app={spec.customApp} spec={spec} />
+                ) : spec?.appOverride ? (
+                    <Content app={spec.appOverride} spec={spec} />
                 ) : (
                     <EmptyContent spec={spec} />
                 )}

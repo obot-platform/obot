@@ -16,14 +16,14 @@ export const OAuthAppSpecMap = {
 } as const;
 
 export type OAuthAppDetail = OAuthAppSpec & {
-    customApp?: OAuthApp;
+    appOverride?: OAuthApp;
 };
 
 export const combinedOAuthAppInfo = (apps: OAuthApp[]) => {
     return Object.entries(OAuthAppSpecMap).map(([type, defaultSpec]) => {
-        const customApp = apps.find((app) => app.type === type);
+        const appOverride = apps.find((app) => app.type === type);
 
-        return { ...defaultSpec, customApp } as OAuthAppDetail;
+        return { ...defaultSpec, appOverride } as OAuthAppDetail;
     });
 };
 
