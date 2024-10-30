@@ -5,16 +5,19 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/gptscript-ai/gptscript/pkg/mvl"
 	types2 "github.com/otto8-ai/otto8/apiclient/types"
 	"github.com/otto8-ai/otto8/pkg/api"
 	"github.com/otto8-ai/otto8/pkg/gateway/types"
 	"gorm.io/gorm"
 )
 
+var pkgLog = mvl.Package()
+
 func (s *Server) getCurrentUser(apiContext api.Context) error {
 	user, err := s.client.User(apiContext.Context(), apiContext.User.GetName())
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		// The only reason this would happen is if the user is not authenticated, but has auth turned off.
+		// The only reason this would happen is if auth is turned off.
 		role := types2.RoleBasic
 		if apiContext.UserIsAdmin() {
 			role = types2.RoleAdmin
@@ -26,6 +29,11 @@ func (s *Server) getCurrentUser(apiContext api.Context) error {
 	} else if err != nil {
 		return err
 	}
+
+	if err = s.client.UpdateProfileIconIfNeeded(apiContext.Context(), user, apiContext.AuthProviderID()); err != nil {
+		pkgLog.Warnf("failed to update profile icon for user %s: %v", user.Username, err)
+	}
+
 	return apiContext.Write(types.ConvertUser(user))
 }
 

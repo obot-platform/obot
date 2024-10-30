@@ -38,7 +38,7 @@ export const UserMenu: React.FC<UserMenuProps> = ({
                     )}
                 >
                     <Avatar className={cn("mr-4", { "w-full": avatarOnly })}>
-                        <AvatarImage />
+                        <AvatarImage src={me?.iconURL} />
                         <AvatarFallback>
                             <User className="w-5 h-5" />
                         </AvatarFallback>

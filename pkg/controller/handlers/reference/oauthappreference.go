@@ -22,5 +22,6 @@ func CreateGlobalOAuthAppReference(req router.Request, resp router.Response) err
 			},
 		},
 	)
+
 	return nil
 }

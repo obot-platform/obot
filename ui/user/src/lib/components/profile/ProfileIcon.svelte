@@ -14,8 +14,8 @@
 	}
 </script>
 
-{#if $profile.icon}
-	<img class="h-8 w-8 rounded-full" src={$profile.icon} alt="profile" />
+{#if $profile.iconURL}
+	<img class="h-8 w-8 rounded-full" src={$profile.profileIconURL} alt="profile" />
 {:else}
 	<div class="flex h-8 w-8 items-center justify-center rounded-full bg-gray-600 text-white">
 		{initials}

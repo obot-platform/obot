@@ -1,6 +1,7 @@
 package proxy
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/http"
@@ -88,8 +89,17 @@ func (p *Proxy) Wrap(h http.Handler) http.Handler {
 			return
 		}
 
-		_, err := p.proxy.LoadCookiedSession(r)
-		if strings.HasPrefix(r.URL.Path, "/oauth2") || err != nil && !errors.Is(err, http.ErrNoCookie) {
+		// If this header is set, then the session was deemed to be invalid and the request has come back around through the proxy.
+		// The cookie on the request is still invalid because the new one has not been sent back to the browser.
+		// Therefore, respond with a redirect so that the browser will redirect back to the original request with the new cookie.
+		if r.Header.Get("X-Otto-Auth-Required") != "" {
+			http.Redirect(w, r, r.URL.RawPath, http.StatusFound)
+			return
+		}
+
+		state, err := p.proxy.LoadCookiedSession(r)
+		if strings.HasPrefix(r.URL.Path, "/oauth2") || err != nil && !errors.Is(err, http.ErrNoCookie) || state != nil && state.IsExpired() {
+			r.Header.Add("X-Otto-Auth-Required", "true")
 			p.proxy.ServeHTTP(w, r)
 		} else {
 			h.ServeHTTP(w, r)
@@ -99,7 +109,7 @@ func (p *Proxy) Wrap(h http.Handler) http.Handler {
 
 func (p *Proxy) AuthenticateRequest(req *http.Request) (*authenticator.Response, bool, error) {
 	state, err := p.proxy.LoadCookiedSession(req)
-	if err != nil || state == nil {
+	if err != nil || state == nil || state.IsExpired() {
 		return nil, false, err
 	}
 
@@ -109,6 +119,11 @@ func (p *Proxy) AuthenticateRequest(req *http.Request) (*authenticator.Response,
 		if userName == "" {
 			userName = state.Email
 		}
+	}
+
+	if req.URL.Path == "/api/me" {
+		// Put the access token on the context so that the profile icon can be fetched.
+		*req = *req.WithContext(contextWithAccessToken(req.Context(), state.AccessToken))
 	}
 
 	return &authenticator.Response{
@@ -121,4 +136,15 @@ func (p *Proxy) AuthenticateRequest(req *http.Request) (*authenticator.Response,
 			},
 		},
 	}, true, nil
+}
+
+type accessTokenKey struct{}
+
+func contextWithAccessToken(ctx context.Context, accessToken string) context.Context {
+	return context.WithValue(ctx, accessTokenKey{}, accessToken)
+}
+
+func GetAccessToken(ctx context.Context) string {
+	accessToken, _ := ctx.Value(accessTokenKey{}).(string)
+	return accessToken
 }

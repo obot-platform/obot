@@ -19,6 +19,7 @@ type User struct {
 	Username string `json:"username,omitempty"`
 	Role     Role   `json:"role,omitempty"`
 	Email    string `json:"email,omitempty"`
+	IconURL  string `json:"iconURL,omitempty"`
 }
 
 type UserList List[User]

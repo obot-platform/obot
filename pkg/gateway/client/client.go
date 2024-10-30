@@ -4,13 +4,11 @@ import (
 	"strconv"
 
 	"github.com/otto8-ai/otto8/pkg/gateway/db"
-	"k8s.io/apiserver/pkg/authentication/authenticator"
 )
 
 type Client struct {
 	db          *db.DB
 	adminEmails map[string]struct{}
-	nextAuth    authenticator.Request
 }
 
 func New(db *db.DB, adminEmails []string) *Client {

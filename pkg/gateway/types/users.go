@@ -16,6 +16,7 @@ type User struct {
 	Username  string      `json:"username" gorm:"unique"`
 	Email     string      `json:"email"`
 	Role      types2.Role `json:"role"`
+	IconURL   string      `json:"iconURL"`
 }
 
 func ConvertUser(u *User) *types2.User {
@@ -31,6 +32,7 @@ func ConvertUser(u *User) *types2.User {
 		Username: u.Username,
 		Email:    u.Email,
 		Role:     u.Role,
+		IconURL:  u.IconURL,
 	}
 }
 

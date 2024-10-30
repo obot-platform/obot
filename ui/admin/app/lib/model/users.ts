@@ -4,6 +4,7 @@ export type User = {
     username: string;
     email: string;
     role: Role;
+    iconURL: string;
 };
 
 export const Role = {

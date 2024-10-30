@@ -104,7 +104,7 @@ export interface Messages {
 
 export interface Profile {
 	email: string;
-	icon: string;
+	iconURL: string;
 	role: number;
 	isAdmin?: () => boolean;
 }

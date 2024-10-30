@@ -4,7 +4,7 @@ import { storeWithInit } from './storeinit';
 
 const store = writable<Profile>({
 	email: '',
-	icon: '',
+	iconURL: '',
 	role: 0
 });
 

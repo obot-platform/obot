@@ -2249,6 +2249,12 @@ func schema_otto8_ai_otto8_apiclient_types_User(ref common.ReferenceCallback) co
 							Format: "",
 						},
 					},
+					"iconURL": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
 				},
 				Required: []string{"Metadata"},
 			},
