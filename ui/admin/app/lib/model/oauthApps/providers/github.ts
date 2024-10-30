@@ -59,7 +59,7 @@ export const GitHubOAuthApp = {
     refName: "github",
     type: "github",
     displayName: "GitHub",
-    logo: assetUrl("/assets/github_logo.svg"),
+    logo: assetUrl("assets/github_logo.png"),
     steps,
     invertDark: true,
 } satisfies OAuthAppSpec;

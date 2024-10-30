@@ -11,6 +11,7 @@ const IconMap = {
     [OAuthProvider.Google]: FaGoogle,
     [OAuthProvider.Microsoft365]: FaMicrosoft,
     [OAuthProvider.Notion]: NotionLogoIcon,
+    [OAuthProvider.Custom]: KeyIcon,
 };
 
 export function OAuthAppTypeIcon({

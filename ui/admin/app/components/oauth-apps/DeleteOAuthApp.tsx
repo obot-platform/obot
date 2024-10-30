@@ -13,10 +13,7 @@ import {
     TooltipProvider,
     TooltipTrigger,
 } from "~/components/ui/tooltip";
-import {
-    useOAuthAppInfo,
-    useOAuthAppList,
-} from "~/hooks/oauthApps/useOAuthApps";
+import { useOAuthAppInfo } from "~/hooks/oauthApps/useOAuthApps";
 import { useAsync } from "~/hooks/useAsync";
 
 export function DeleteOAuthApp({
@@ -32,7 +29,7 @@ export function DeleteOAuthApp({
 
     const deleteOAuthApp = useAsync(async () => {
         await OauthAppService.deleteOauthApp(id);
-        await mutate(useOAuthAppList.key());
+        await mutate(OauthAppService.getOauthApps.key());
 
         toast.success(`${spec.displayName} OAuth configuration deleted`);
     });

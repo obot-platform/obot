@@ -39,7 +39,7 @@ export function ConfirmationDialog({
                         <Button variant="secondary">Cancel</Button>
                     </DialogClose>
 
-                    <DialogClose onClick={onConfirm}>
+                    <DialogClose onClick={onConfirm} asChild>
                         <Button {...confirmProps}>
                             {confirmProps?.children ?? "Confirm"}
                         </Button>

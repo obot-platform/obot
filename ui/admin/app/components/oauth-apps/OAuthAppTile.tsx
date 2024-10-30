@@ -1,15 +1,22 @@
 import { OAuthProvider } from "~/lib/model/oauthApps/oauth-helpers";
 import { cn } from "~/lib/utils";
 
+import { TypographyH3 } from "~/components/Typography";
 import { useTheme } from "~/components/theme";
-import { Card } from "~/components/ui/card";
+import { Badge } from "~/components/ui/badge";
+import { Card, CardContent, CardHeader } from "~/components/ui/card";
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipProvider,
+    TooltipTrigger,
+} from "~/components/ui/tooltip";
 import { useOAuthAppInfo } from "~/hooks/oauthApps/useOAuthApps";
 
 import { OAuthAppDetail } from "./OAuthAppDetail";
 
 export function OAuthAppTile({
     type,
-    className,
 }: {
     type: OAuthProvider;
     className?: string;
@@ -24,10 +31,6 @@ export function OAuthAppTile({
 
     const { displayName } = info;
 
-    if (info.type == "slack") {
-        console.log(info);
-    }
-
     const getSrc = () => {
         if (isDark) return info.darkLogo ?? info.logo;
         return info.logo;
@@ -35,20 +38,59 @@ export function OAuthAppTile({
 
     return (
         <Card
-            className={cn(
-                "self-center relative w-[300px] h-[150px] px-6 flex gap-4 justify-center items-center",
-                className
-            )}
+            className={cn("w-full flex flex-col", {
+                "border-2 border-primary": info.appOverride,
+            })}
         >
-            <img
-                src={getSrc()}
-                alt={displayName}
-                className={cn("m-4 aspect-auto", {
-                    "dark:invert": info.invertDark,
-                })}
-            />
+            <CardHeader className="flex flex-row justify-between pb-2">
+                <div className="flex flex-wrap gap-2 items-center">
+                    <TypographyH3 className="min-w-fit">
+                        {displayName}
+                    </TypographyH3>
 
-            <OAuthAppDetail type={type} className="absolute top-2 right-2" />
+                    {info.appOverride ? (
+                        <TooltipProvider>
+                            <Tooltip>
+                                <TooltipTrigger>
+                                    <Badge>Custom</Badge>
+                                </TooltipTrigger>
+
+                                <TooltipContent>
+                                    OAuth for {displayName} is configured by
+                                    your organization.
+                                </TooltipContent>
+                            </Tooltip>
+                        </TooltipProvider>
+                    ) : (
+                        <TooltipProvider>
+                            <Tooltip>
+                                <TooltipTrigger>
+                                    <Badge variant="secondary">Default</Badge>
+                                </TooltipTrigger>
+
+                                <TooltipContent>
+                                    OAuth for {displayName} is handled by
+                                    default by the Acorn Gateway
+                                </TooltipContent>
+                            </Tooltip>
+                        </TooltipProvider>
+                    )}
+                </div>
+
+                <OAuthAppDetail type={type} />
+            </CardHeader>
+
+            <CardContent className="flex-grow flex items-center justify-center">
+                <div className="h-[100px] flex justify-center items-center overflow-clip">
+                    <img
+                        src={getSrc()}
+                        alt={displayName}
+                        className={cn("max-w-full max-h-[100px] aspect-auto", {
+                            "dark:invert": info.invertDark,
+                        })}
+                    />
+                </div>
+            </CardContent>
         </Card>
     );
 }

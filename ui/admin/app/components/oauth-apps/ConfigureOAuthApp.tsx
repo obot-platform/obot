@@ -34,11 +34,11 @@ export function ConfigureOAuthApp({ type }: { type: OAuthProvider }) {
 
     const createApp = useAsync(async (data: OAuthAppParams) => {
         await OauthAppService.createOauthApp({
+            ...data,
             type,
             refName: type,
             global: true,
             integration: type,
-            ...data,
         });
 
         await mutate(OauthAppService.getOauthApps.key());
@@ -52,11 +52,11 @@ export function ConfigureOAuthApp({ type }: { type: OAuthProvider }) {
         if (!appOverride) throw new Error("Custom app not found");
 
         await OauthAppService.updateOauthApp(appOverride.id, {
+            ...data,
             type: appOverride.type,
             refName: appOverride.refName,
             global: appOverride.global,
             integration: appOverride.integration,
-            ...data,
         });
 
         await mutate(OauthAppService.getOauthApps.key());

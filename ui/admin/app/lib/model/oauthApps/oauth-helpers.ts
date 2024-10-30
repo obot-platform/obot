@@ -36,7 +36,7 @@ export type OAuthAppSpec = {
     displayName: string;
     refName: string;
     type: OAuthProvider;
-    logo: string;
+    logo?: string;
     darkLogo?: string;
     steps: OAuthFormStep[];
     disableConfiguration?: boolean;

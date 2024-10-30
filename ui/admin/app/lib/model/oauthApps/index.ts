@@ -42,10 +42,11 @@ export type OAuthAppParams = {
     // This field is optional for HubSpot OAuth apps.
     optionalScope?: string;
     // This field is required, it correlates to the integration name in the gptscript oauth cred tool
-    integration?: string;
+    integration: string;
 };
 
 export type OAuthAppBase = OAuthAppParams & {
+    name?: string;
     type: OAuthProvider;
     refName: string;
     global: boolean;

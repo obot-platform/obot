@@ -1,4 +1,4 @@
-import { TypographyH2, TypographyP } from "~/components/Typography";
+import { TypographyH3 } from "~/components/Typography";
 import { useOAuthAppList } from "~/hooks/oauthApps/useOAuthApps";
 
 import { OAuthAppTile } from "./OAuthAppTile";
@@ -7,20 +7,10 @@ export function OAuthAppList() {
     const apps = useOAuthAppList();
 
     return (
-        <div className="space-y-10">
-            <div>
-                <TypographyH2 className="mb-4">
-                    Supported OAuth Apps
-                </TypographyH2>
+        <div className="space-y-4">
+            <TypographyH3>Default OAuth Apps</TypographyH3>
 
-                <TypographyP className="!mt-0">
-                    These are the currently supported OAuth apps for Otto. These
-                    are here to allow users to access the following services via
-                    tools.
-                </TypographyP>
-            </div>
-
-            <div className="flex flex-wrap gap-10">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-4">
                 {apps.map(({ type }) => (
                     <OAuthAppTile
                         key={type}
