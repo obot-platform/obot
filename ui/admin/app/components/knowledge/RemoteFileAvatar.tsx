@@ -6,17 +6,15 @@ import { assetUrl } from "~/lib/utils";
 import { Avatar } from "~/components/ui/avatar";
 
 export default function RemoteFileAvatar({
-    remoteKnowledgeSourceType,
+    knowledgeSourceType,
 }: {
-    remoteKnowledgeSourceType: RemoteKnowledgeSourceType | "files";
+    knowledgeSourceType: RemoteKnowledgeSourceType | "files";
 }): React.ReactNode {
     const isOneDrive =
-        remoteKnowledgeSourceType === RemoteKnowledgeSourceType.OneDrive;
-    const isNotion =
-        remoteKnowledgeSourceType === RemoteKnowledgeSourceType.Notion;
-    const isWebsite =
-        remoteKnowledgeSourceType === RemoteKnowledgeSourceType.Website;
-    const isUpload = remoteKnowledgeSourceType === "files";
+        knowledgeSourceType === RemoteKnowledgeSourceType.OneDrive;
+    const isNotion = knowledgeSourceType === RemoteKnowledgeSourceType.Notion;
+    const isWebsite = knowledgeSourceType === RemoteKnowledgeSourceType.Website;
+    const isUpload = knowledgeSourceType === "files";
 
     return (
         <>

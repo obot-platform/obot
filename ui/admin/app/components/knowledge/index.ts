@@ -1,1 +1,3 @@
-export { AgentKnowledgePanel } from "./AgentKnowledgePanel";
+import AgentKnowledgePanel from "./AgentKnowledgePanel";
+
+export { AgentKnowledgePanel };

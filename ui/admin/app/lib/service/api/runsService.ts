@@ -26,6 +26,15 @@ getRunDebugById.key = (runId?: Nullish<string>) => {
     return { url: ApiRoutes.runs.getDebugById(runId).path, runId };
 };
 
+const getRunById = async (runId: string) => {
+    const res = await request<Run>({
+        url: ApiRoutes.runs.getRunById(runId).url,
+        errorMessage: "Failed to fetch run",
+    });
+
+    return res.data;
+};
+
 const getRunsByThread = async (threadId: string) => {
     const res = await request<{ items: Run[] }>({
         url: ApiRoutes.runs.getByThread(threadId).url,
@@ -48,4 +57,5 @@ export const RunsService = {
     getRunsByThread,
     revalidateRuns,
     getRunDebugById,
+    getRunById,
 };

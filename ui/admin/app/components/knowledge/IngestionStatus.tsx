@@ -1,6 +1,6 @@
 import { CheckIcon } from "lucide-react";
 
-import { IngestionStatus, KnowledgeFile } from "~/lib/model/knowledge";
+import { KnowledgeFile, KnowledgeFileState } from "~/lib/model/knowledge";
 
 import {
     Tooltip,
@@ -12,18 +12,14 @@ import {
 import { LoadingSpinner } from "../ui/LoadingSpinner";
 
 interface IngestionStatusProps {
-    knowledge: KnowledgeFile[];
+    files: KnowledgeFile[];
     ingestionError?: string;
 }
 
 const IngestionStatusComponent = ({
-    knowledge,
+    files,
     ingestionError,
 }: IngestionStatusProps) => {
-    const approvedKnowledge = knowledge.filter(
-        (item) => item.approved === true
-    );
-
     return (
         <div className="flex flex-col items-start mt-4">
             <div className="flex items-center">
@@ -38,31 +34,16 @@ const IngestionStatusComponent = ({
                         );
                     }
 
-                    const ingestingCount = approvedKnowledge.filter(
-                        (item) =>
-                            item.ingestionStatus?.status ===
-                                IngestionStatus.Starting ||
-                            item.ingestionStatus?.status ===
-                                IngestionStatus.Completed
+                    const ingestingCount = files.filter(
+                        (item) => item.state === KnowledgeFileState.Ingesting
                     ).length;
-                    const queuedCount = approvedKnowledge.filter(
-                        (item) =>
-                            item.ingestionStatus?.status ===
-                            IngestionStatus.Queued
+                    const queuedCount = files.filter(
+                        (item) => item.state === KnowledgeFileState.Pending
                     ).length;
-                    const notSupportedCount = approvedKnowledge.filter(
-                        (item) =>
-                            item.ingestionStatus?.status ===
-                            IngestionStatus.Unsupported
+                    const ingestedCount = files.filter(
+                        (item) => item.state === KnowledgeFileState.Ingested
                     ).length;
-                    const ingestedCount = approvedKnowledge.filter(
-                        (item) =>
-                            item.ingestionStatus?.status ===
-                                IngestionStatus.Finished ||
-                            item.ingestionStatus?.status ===
-                                IngestionStatus.Skipped
-                    ).length;
-                    const totalCount = approvedKnowledge.length;
+                    const totalCount = files.length;
 
                     if (ingestingCount > 0 || queuedCount > 0) {
                         return (
@@ -93,10 +74,6 @@ const IngestionStatusComponent = ({
                                                 Files ingested: {ingestedCount}
                                             </p>
                                             <p>Files queued: {queuedCount}</p>
-                                            <p>
-                                                Files not supported:{" "}
-                                                {notSupportedCount}
-                                            </p>
                                         </TooltipContent>
                                     </Tooltip>
                                 </TooltipProvider>

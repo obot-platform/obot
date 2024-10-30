@@ -12,7 +12,8 @@ import { FC, useEffect, useState } from "react";
 
 import {
     KnowledgeFile,
-    RemoteKnowledgeSource,
+    KnowledgeFileState,
+    KnowledgeSource,
     RemoteKnowledgeSourceType,
 } from "~/lib/model/knowledge";
 import { KnowledgeService } from "~/lib/service/api/knowledgeService";
@@ -40,38 +41,44 @@ interface OnedriveModalProps {
     agentId: string;
     isOpen: boolean;
     onOpenChange: (open: boolean) => void;
-    remoteKnowledgeSources: RemoteKnowledgeSource[];
+    knowledgeSource: KnowledgeSource | undefined;
     startPolling: () => void;
-    knowledgeFiles: KnowledgeFile[];
-    handleRemoteKnowledgeSourceSync: (
-        sourceType: RemoteKnowledgeSourceType
-    ) => void;
-    ingestionError?: string;
+    files: KnowledgeFile[];
+    handleRemoteKnowledgeSourceSync: (id: string) => void;
 }
 
 export const OnedriveModal: FC<OnedriveModalProps> = ({
     agentId,
     isOpen,
     onOpenChange,
-    remoteKnowledgeSources,
+    knowledgeSource,
     startPolling,
-    knowledgeFiles,
+    files,
     handleRemoteKnowledgeSourceSync,
-    ingestionError,
 }) => {
     const [isSettingModalOpen, setIsSettingModalOpen] = useState(false);
     const [isAddLinkModalOpen, setIsAddLinkModalOpen] = useState(false);
     const [loading, setLoading] = useState(false);
     const [links, setLinks] = useState<string[]>([]);
     const [showTable, setShowTable] = useState<{ [key: number]: boolean }>({});
+    const [authUrl, setAuthUrl] = useState<string>("");
+    useEffect(() => {
+        if (!knowledgeSource) return;
 
-    const onedriveSource = remoteKnowledgeSources.find(
-        (source) => source.sourceType === "onedrive"
-    );
+        const postLogin = async () => {
+            const authUrl = await KnowledgeService.getAuthUrlForKnowledgeSource(
+                agentId,
+                knowledgeSource!.id!
+            );
+            console.log(authUrl);
+            setAuthUrl(authUrl);
+        };
+        postLogin();
+    }, []);
 
     useEffect(() => {
-        setLinks(onedriveSource?.onedriveConfig?.sharedLinks || []);
-    }, [onedriveSource]);
+        setLinks(knowledgeSource?.onedriveConfig?.sharedLinks || []);
+    }, [knowledgeSource]);
 
     const handleRemoveLink = (index: number) => {
         setLinks(links.filter((_, i) => i !== index));
@@ -79,11 +86,11 @@ export const OnedriveModal: FC<OnedriveModalProps> = ({
     };
 
     const handleSave = async (links: string[]) => {
-        await KnowledgeService.updateRemoteKnowledgeSource(
+        await KnowledgeService.updateKnowledgeSource(
             agentId,
-            onedriveSource!.id!,
+            knowledgeSource!.id!,
             {
-                ...onedriveSource,
+                ...knowledgeSource!,
                 onedriveConfig: {
                     sharedLinks: links,
                 },
@@ -93,17 +100,24 @@ export const OnedriveModal: FC<OnedriveModalProps> = ({
     };
 
     const handleApproveAll = async () => {
-        for (const file of knowledgeFiles) {
-            await KnowledgeService.approveKnowledgeFile(
-                agentId,
-                file.id!,
-                true
-            );
+        for (const file of files) {
+            if (
+                file.state === KnowledgeFileState.PendingApproval ||
+                file.state === KnowledgeFileState.Unapproved
+            ) {
+                await KnowledgeService.approveFile(agentId, file.id, true);
+            } else if (file.state === KnowledgeFileState.Error) {
+                await KnowledgeService.reingestFile(
+                    agentId,
+                    knowledgeSource!.id!,
+                    file.id
+                );
+            }
         }
         startPolling();
     };
 
-    const hasKnowledgeFiles = knowledgeFiles.length > 0;
+    const hasKnowledgeFiles = files.length > 0;
     return (
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
             <DialogContent
@@ -143,11 +157,13 @@ export const OnedriveModal: FC<OnedriveModalProps> = ({
                                     <Button
                                         size="sm"
                                         variant="secondary"
-                                        onClick={() =>
-                                            handleRemoteKnowledgeSourceSync(
-                                                "onedrive"
-                                            )
-                                        }
+                                        onClick={() => {
+                                            if (knowledgeSource) {
+                                                handleRemoteKnowledgeSourceSync(
+                                                    knowledgeSource.id
+                                                );
+                                            }
+                                        }}
                                         className="mr-2"
                                         tabIndex={-1}
                                         disabled={!hasKnowledgeFiles}
@@ -176,6 +192,21 @@ export const OnedriveModal: FC<OnedriveModalProps> = ({
                         </TooltipProvider>
                     </div>
                 </DialogTitle>
+
+                {authUrl && (
+                    <div className="flex items-center mt-4">
+                        <span className="text-sm mr-2 text-gray-500">
+                            Please sign in to continue.
+                        </span>
+                        <a
+                            href={authUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                        >
+                            Sign In
+                        </a>
+                    </div>
+                )}
                 <ScrollArea className="max-h-[45vh] overflow-x-auto">
                     <div className="max-h-[400px] overflow-x-auto">
                         {links.map((link, index) => (
@@ -202,10 +233,12 @@ export const OnedriveModal: FC<OnedriveModalProps> = ({
                                     }}
                                 >
                                     <span className="flex-1 mr-2 overflow-x-auto whitespace-nowrap pr-10 scrollbar-hide flex flex-row items-center">
-                                        {onedriveSource?.state?.onedriveState
-                                            ?.links?.[link]?.name ? (
-                                            onedriveSource?.state?.onedriveState
-                                                ?.links?.[link]?.isFolder ? (
+                                        {knowledgeSource?.syncDetails
+                                            ?.onedriveState?.links?.[link]
+                                            ?.name ? (
+                                            knowledgeSource?.syncDetails
+                                                ?.onedriveState?.links?.[link]
+                                                ?.isFolder ? (
                                                 <FolderIcon className="mr-2 h-4 w-4 align-middle" />
                                             ) : (
                                                 <FileIcon className="mr-2 h-4 w-4" />
@@ -221,8 +254,9 @@ export const OnedriveModal: FC<OnedriveModalProps> = ({
                                             </Avatar>
                                         )}
 
-                                        {onedriveSource?.state?.onedriveState
-                                            ?.links?.[link]?.name ? (
+                                        {knowledgeSource?.syncDetails
+                                            ?.onedriveState?.links?.[link]
+                                            ?.name ? (
                                             <a
                                                 href={link}
                                                 target="_blank"
@@ -230,7 +264,7 @@ export const OnedriveModal: FC<OnedriveModalProps> = ({
                                                 className="underline align-middle"
                                             >
                                                 {
-                                                    onedriveSource?.state
+                                                    knowledgeSource?.syncDetails
                                                         ?.onedriveState
                                                         ?.links?.[link]?.name
                                                 }
@@ -251,7 +285,7 @@ export const OnedriveModal: FC<OnedriveModalProps> = ({
                                     >
                                         <Trash className="h-4 w-4" />
                                     </Button>
-                                    {onedriveSource?.state?.onedriveState
+                                    {knowledgeSource?.syncDetails?.onedriveState
                                         ?.links?.[link]?.isFolder &&
                                         (showTable[index] ? (
                                             <ChevronUp className="h-4 w-4" />
@@ -262,13 +296,14 @@ export const OnedriveModal: FC<OnedriveModalProps> = ({
                                 {showTable[index] && (
                                     <ScrollArea className="max-h-[200px] overflow-x-auto mb-2">
                                         <div className="flex flex-col gap-2">
-                                            {knowledgeFiles
+                                            {files
                                                 .filter((item) =>
-                                                    onedriveSource?.state?.onedriveState?.files?.[
-                                                        item.uploadID!
+                                                    knowledgeSource?.syncDetails?.onedriveState?.files?.[
+                                                        item.url!
                                                     ]?.folderPath?.startsWith(
                                                         // eslint-disable-next-line
-                                                        onedriveSource?.state
+                                                        knowledgeSource
+                                                            ?.syncDetails
                                                             ?.onedriveState
                                                             ?.links?.[link]
                                                             ?.name!
@@ -278,25 +313,35 @@ export const OnedriveModal: FC<OnedriveModalProps> = ({
                                                     <RemoteFileItemChip
                                                         key={item.fileName}
                                                         file={item}
-                                                        remoteKnowledgeSourceType={
-                                                            item.remoteKnowledgeSourceType!
+                                                        knowledgeSourceType={
+                                                            RemoteKnowledgeSourceType.OneDrive
                                                         }
                                                         subTitle={
-                                                            onedriveSource
-                                                                ?.state
+                                                            knowledgeSource
+                                                                ?.syncDetails
                                                                 ?.onedriveState
                                                                 ?.files?.[
-                                                                item.uploadID!
+                                                                item.url!
                                                             ]?.folderPath
                                                         }
                                                         approveFile={async (
                                                             file,
                                                             approved
                                                         ) => {
-                                                            await KnowledgeService.approveKnowledgeFile(
+                                                            await KnowledgeService.approveFile(
                                                                 agentId,
                                                                 file.id!,
                                                                 approved
+                                                            );
+                                                            startPolling();
+                                                        }}
+                                                        reingestFile={async (
+                                                            file
+                                                        ) => {
+                                                            await KnowledgeService.reingestFile(
+                                                                file.agentID,
+                                                                file.knowledgeSourceID,
+                                                                file.id
                                                             );
                                                             startPolling();
                                                         }}
@@ -308,17 +353,19 @@ export const OnedriveModal: FC<OnedriveModalProps> = ({
                             </div>
                         ))}
                         <div className="flex flex-col gap-2 mt-2">
-                            {knowledgeFiles
+                            {files
                                 .filter((item) =>
                                     links.every((link) => {
                                         // If we have file state and find out that file doesn't belong to any link, then we should it as separate files as this link is pointing to a file
                                         const fileState =
-                                            onedriveSource?.state?.onedriveState
-                                                ?.files?.[item.uploadID!];
+                                            knowledgeSource?.syncDetails
+                                                ?.onedriveState?.files?.[
+                                                item.url!
+                                            ];
                                         return (
                                             fileState &&
                                             !fileState?.folderPath?.startsWith(
-                                                onedriveSource?.state
+                                                knowledgeSource?.syncDetails
                                                     ?.onedriveState?.links?.[
                                                     link
                                                 ]?.name ?? ""
@@ -330,20 +377,29 @@ export const OnedriveModal: FC<OnedriveModalProps> = ({
                                     <RemoteFileItemChip
                                         key={item.fileName}
                                         file={item}
-                                        remoteKnowledgeSourceType={
-                                            item.remoteKnowledgeSourceType!
+                                        knowledgeSourceType={
+                                            RemoteKnowledgeSourceType.OneDrive
                                         }
                                         subTitle={
                                             // eslint-disable-next-line
-                                            onedriveSource?.state?.onedriveState
-                                                ?.files?.[item.uploadID!]
-                                                ?.folderPath!
+                                            knowledgeSource?.syncDetails
+                                                ?.onedriveState?.files?.[
+                                                item.url!
+                                            ]?.folderPath!
                                         }
                                         approveFile={async (file, approved) => {
-                                            await KnowledgeService.approveKnowledgeFile(
+                                            await KnowledgeService.approveFile(
                                                 agentId,
                                                 file.id!,
                                                 approved
+                                            );
+                                            startPolling();
+                                        }}
+                                        reingestFile={async (file) => {
+                                            await KnowledgeService.reingestFile(
+                                                file.agentID,
+                                                file.knowledgeSourceID,
+                                                file.id
                                             );
                                             startPolling();
                                         }}
@@ -352,17 +408,13 @@ export const OnedriveModal: FC<OnedriveModalProps> = ({
                         </div>
                     </div>
                 </ScrollArea>
-                {knowledgeFiles?.some((item) => item.approved) && (
-                    <IngestionStatusComponent
-                        knowledge={knowledgeFiles}
-                        ingestionError={ingestionError}
-                    />
+                {files?.some((item) => item.approved) && (
+                    <IngestionStatusComponent files={files} />
                 )}
-                {onedriveSource?.state?.onedriveState?.links &&
-                    onedriveSource?.runID && (
-                        <RemoteKnowledgeSourceStatus source={onedriveSource} />
-                    )}
-
+                <RemoteKnowledgeSourceStatus
+                    source={knowledgeSource}
+                    sourceType={RemoteKnowledgeSourceType.OneDrive}
+                />
                 <div className="mt-4 flex justify-between">
                     <Button
                         className="approve-button"
@@ -394,11 +446,11 @@ export const OnedriveModal: FC<OnedriveModalProps> = ({
                     agentId={agentId}
                     isOpen={isSettingModalOpen}
                     onOpenChange={setIsSettingModalOpen}
-                    remoteKnowledgeSource={onedriveSource!}
+                    knowledgeSource={knowledgeSource}
                 />
                 <AddLinkModal
                     agentId={agentId}
-                    onedriveSource={onedriveSource!}
+                    knowledgeSource={knowledgeSource}
                     startPolling={startPolling}
                     isOpen={isAddLinkModalOpen}
                     onOpenChange={setIsAddLinkModalOpen}

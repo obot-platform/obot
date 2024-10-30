@@ -383,6 +383,11 @@ func (a *AgentHandler) ReIngestKnowledgeFile(req api.Context) error {
 		return err
 	}
 
+	knowledgeFile.Status.State = types.KnowledgeFileStatePending
+	if err := req.Storage.Status().Update(req.Context(), &knowledgeFile); err != nil {
+		return err
+	}
+
 	return req.Write(convertKnowledgeFile(agent.Name, "", knowledgeFile))
 }
 
@@ -407,6 +412,12 @@ func (a *AgentHandler) ReSyncKnowledgeSource(req api.Context) error {
 
 	knowledgeSource.Spec.SyncGeneration++
 	if err := req.Update(&knowledgeSource); err != nil {
+		return err
+	}
+
+	knowledgeSource.Status.SyncState = types.KnowledgeSourceStatePending
+	knowledgeSource.Status.Status = ""
+	if err := req.Storage.Status().Update(req.Context(), &knowledgeSource); err != nil {
 		return err
 	}
 

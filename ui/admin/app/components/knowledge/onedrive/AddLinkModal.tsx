@@ -1,7 +1,7 @@
 import { Plus } from "lucide-react";
 import { FC, useState } from "react";
 
-import { RemoteKnowledgeSource } from "~/lib/model/knowledge";
+import { KnowledgeSource } from "~/lib/model/knowledge";
 import { KnowledgeService } from "~/lib/service/api/knowledgeService";
 
 import { Button } from "~/components/ui/button";
@@ -16,7 +16,7 @@ import { Input } from "~/components/ui/input";
 
 type AddLinkModalProps = {
     agentId: string;
-    onedriveSource: RemoteKnowledgeSource;
+    knowledgeSource: KnowledgeSource | undefined;
     startPolling: () => void;
     isOpen: boolean;
     onOpenChange: (open: boolean) => void;
@@ -24,7 +24,7 @@ type AddLinkModalProps = {
 
 const AddLinkModal: FC<AddLinkModalProps> = ({
     agentId,
-    onedriveSource,
+    knowledgeSource,
     startPolling,
     isOpen,
     onOpenChange,
@@ -32,22 +32,21 @@ const AddLinkModal: FC<AddLinkModalProps> = ({
     const [newLink, setNewLink] = useState("");
 
     const handleSave = async () => {
-        if (!onedriveSource) {
-            await KnowledgeService.createRemoteKnowledgeSource(agentId, {
-                sourceType: "onedrive",
+        if (!knowledgeSource) {
+            await KnowledgeService.createKnowledgeSource(agentId, {
                 onedriveConfig: {
                     sharedLinks: [newLink],
                 },
             });
         } else {
-            await KnowledgeService.updateRemoteKnowledgeSource(
+            await KnowledgeService.updateKnowledgeSource(
                 agentId,
-                onedriveSource!.id,
+                knowledgeSource!.id,
                 {
-                    ...onedriveSource,
+                    ...knowledgeSource,
                     onedriveConfig: {
                         sharedLinks: [
-                            ...(onedriveSource.onedriveConfig?.sharedLinks ||
+                            ...(knowledgeSource.onedriveConfig?.sharedLinks ||
                                 []),
                             newLink,
                         ],

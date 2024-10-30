@@ -2,7 +2,7 @@ import { UploadIcon } from "lucide-react";
 import { useCallback, useRef } from "react";
 import { SWRResponse } from "swr";
 
-import { IngestionStatus, KnowledgeFile } from "~/lib/model/knowledge";
+import { KnowledgeFile, KnowledgeFileState } from "~/lib/model/knowledge";
 import { KnowledgeService } from "~/lib/service/api/knowledgeService";
 import { cn } from "~/lib/utils";
 
@@ -30,29 +30,27 @@ import IngestionStatusComponent from "../IngestionStatus";
 
 interface FileModalProps {
     agentId: string;
-    getKnowledgeFiles: SWRResponse<KnowledgeFile[], Error>;
+    getLocalFiles: SWRResponse<KnowledgeFile[], Error>;
     isOpen: boolean;
     onOpenChange: (open: boolean) => void;
     startPolling: () => void;
-    knowledge: KnowledgeFile[];
-    ingestionError?: string;
+    files: KnowledgeFile[];
 }
 
 function FileModal({
     agentId,
-    getKnowledgeFiles,
+    getLocalFiles,
     startPolling,
-    knowledge,
+    files,
     isOpen,
     onOpenChange,
-    ingestionError,
 }: FileModalProps) {
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     const handleAddKnowledge = useCallback(
         async (_index: number, file: File) => {
             await new Promise((resolve) => setTimeout(resolve, 1000));
-            await KnowledgeService.addKnowledgeToAgent(agentId, file);
+            await KnowledgeService.addKnowledgeFilesToAgent(agentId, file);
 
             // once added, we can immediately mutate the cache value
             // without revalidating.
@@ -63,13 +61,19 @@ function FileModal({
                 fileName: file.name,
                 agentID: agentId,
                 // set ingestion status to starting to ensure polling is enabled
-                ingestionStatus: { status: IngestionStatus.Queued },
-                fileDetails: {},
                 approved: true,
+                created: new Date().toISOString(),
+                state: KnowledgeFileState.PendingApproval,
+                knowledgeSetID: "",
+                knowledgeSourceID: "",
+                url: "",
+                updatedAt: "",
+                checksum: "",
+                lastRunID: "",
             };
 
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            getKnowledgeFiles.mutate(
+            getLocalFiles.mutate(
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 (prev: any) => {
                     const existingItemIndex = prev?.findIndex(
@@ -90,7 +94,7 @@ function FileModal({
             );
             startPolling();
         },
-        [agentId, getKnowledgeFiles, startPolling]
+        [agentId, getLocalFiles, startPolling]
     );
 
     // use multi async to handle uploading multiple files at once
@@ -107,10 +111,13 @@ function FileModal({
     };
 
     const deleteKnowledge = useAsync(async (item: KnowledgeFile) => {
-        await KnowledgeService.deleteKnowledgeFromAgent(agentId, item.fileName);
+        await KnowledgeService.deleteKnowledgeFileFromAgent(
+            agentId,
+            item.fileName
+        );
 
         // optomistic update without cache revalidation
-        getKnowledgeFiles.mutate((prev: KnowledgeFile[] | undefined) =>
+        getLocalFiles.mutate((prev: KnowledgeFile[] | undefined) =>
             prev?.filter((prevItem) => prevItem.fileName !== item.fileName)
         );
     });
@@ -144,12 +151,12 @@ function FileModal({
                 </DialogHeader>
                 <ScrollArea className="max-h-[45vh] mt-4">
                     <div className={cn("p-2 flex flex-wrap gap-2")}>
-                        {knowledge?.map((item) => (
+                        {files?.map((item) => (
                             <FileChip
                                 key={item.fileName}
                                 file={item}
                                 approveFile={async (file, approved) => {
-                                    await KnowledgeService.approveKnowledgeFile(
+                                    await KnowledgeService.approveFile(
                                         agentId,
                                         file.id!,
                                         approved
@@ -166,11 +173,8 @@ function FileModal({
                         ))}
                     </div>
                 </ScrollArea>
-                {knowledge.some((item) => item.approved) && (
-                    <IngestionStatusComponent
-                        knowledge={knowledge}
-                        ingestionError={ingestionError}
-                    />
+                {files.some((item) => item.approved) && (
+                    <IngestionStatusComponent files={files} />
                 )}
                 <DialogFooter className="flex justify-center">
                     <Input

@@ -11,7 +11,8 @@ import { FC, useEffect, useState } from "react";
 
 import {
     KnowledgeFile,
-    RemoteKnowledgeSource,
+    KnowledgeFileState,
+    KnowledgeSource,
     RemoteKnowledgeSourceType,
 } from "~/lib/model/knowledge";
 import { KnowledgeService } from "~/lib/service/api/knowledgeService";
@@ -38,24 +39,20 @@ interface WebsiteModalProps {
     agentId: string;
     isOpen: boolean;
     onOpenChange: (open: boolean) => void;
-    remoteKnowledgeSources: RemoteKnowledgeSource[];
+    knowledgeSource: KnowledgeSource | undefined;
     startPolling: () => void;
-    knowledgeFiles: KnowledgeFile[];
-    handleRemoteKnowledgeSourceSync: (
-        sourceType: RemoteKnowledgeSourceType
-    ) => void;
-    ingestionError?: string;
+    files: KnowledgeFile[];
+    handleRemoteKnowledgeSourceSync: (id: string) => void;
 }
 
 export const WebsiteModal: FC<WebsiteModalProps> = ({
     agentId,
     isOpen,
     onOpenChange,
-    remoteKnowledgeSources,
+    knowledgeSource,
     startPolling,
-    knowledgeFiles,
+    files,
     handleRemoteKnowledgeSourceSync,
-    ingestionError,
 }) => {
     const [isSettingModalOpen, setIsSettingModalOpen] = useState(false);
     const [isAddWebsiteModalOpen, setIsAddWebsiteModalOpen] = useState(false);
@@ -63,20 +60,16 @@ export const WebsiteModal: FC<WebsiteModalProps> = ({
     const [websites, setWebsites] = useState<string[]>([]);
     const [showTable, setShowTable] = useState<{ [key: number]: boolean }>({});
 
-    const websiteSource = remoteKnowledgeSources.find(
-        (source) => source.sourceType === "website"
-    );
-
     useEffect(() => {
-        setWebsites(websiteSource?.websiteCrawlingConfig?.urls ?? []);
-    }, [websiteSource?.websiteCrawlingConfig]);
+        setWebsites(knowledgeSource?.websiteCrawlingConfig?.urls ?? []);
+    }, [knowledgeSource?.websiteCrawlingConfig]);
 
     const handleSave = async (websites: string[]) => {
-        await KnowledgeService.updateRemoteKnowledgeSource(
+        await KnowledgeService.updateKnowledgeSource(
             agentId,
-            websiteSource!.id!,
+            knowledgeSource!.id!,
             {
-                ...websiteSource,
+                ...knowledgeSource,
                 websiteCrawlingConfig: {
                     urls: websites,
                 },
@@ -91,17 +84,24 @@ export const WebsiteModal: FC<WebsiteModalProps> = ({
     };
 
     const handleApproveAll = async () => {
-        for (const file of knowledgeFiles) {
-            await KnowledgeService.approveKnowledgeFile(
-                agentId,
-                file.id!,
-                true
-            );
+        for (const file of files) {
+            if (
+                file.state === KnowledgeFileState.PendingApproval ||
+                file.state === KnowledgeFileState.Unapproved
+            ) {
+                await KnowledgeService.approveFile(agentId, file.id, true);
+            } else if (file.state === KnowledgeFileState.Error) {
+                await KnowledgeService.reingestFile(
+                    agentId,
+                    knowledgeSource!.id!,
+                    file.id
+                );
+            }
         }
         startPolling();
     };
 
-    const hasKnowledgeFiles = knowledgeFiles.length > 0;
+    const hasKnowledgeFiles = files.length > 0;
 
     return (
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
@@ -139,11 +139,13 @@ export const WebsiteModal: FC<WebsiteModalProps> = ({
                                     <Button
                                         size="sm"
                                         variant="secondary"
-                                        onClick={() =>
-                                            handleRemoteKnowledgeSourceSync(
-                                                "website"
-                                            )
-                                        }
+                                        onClick={() => {
+                                            if (knowledgeSource) {
+                                                handleRemoteKnowledgeSourceSync(
+                                                    knowledgeSource.id
+                                                );
+                                            }
+                                        }}
                                         className="mr-2"
                                         tabIndex={-1}
                                         disabled={!hasKnowledgeFiles}
@@ -229,30 +231,41 @@ export const WebsiteModal: FC<WebsiteModalProps> = ({
                                 </div>
                                 {showTable[index] && (
                                     <div className="flex flex-col gap-2">
-                                        {knowledgeFiles
-                                            .filter(
-                                                (item) =>
-                                                    websiteSource?.state
+                                        {files
+                                            .filter((item) => {
+                                                return (
+                                                    knowledgeSource?.syncDetails
                                                         ?.websiteCrawlingState
-                                                        ?.pages?.[
-                                                        item.uploadID!
-                                                    ]?.parentUrl === website
+                                                        ?.pages?.[item.url!]
+                                                        ?.parentURL === website
+                                                );
+                                            })
+                                            .sort((a, b) =>
+                                                a.url!.localeCompare(b.url!)
                                             )
                                             .map((item) => (
                                                 <RemoteFileItemChip
                                                     key={item.fileName}
                                                     file={item}
-                                                    remoteKnowledgeSourceType={
-                                                        item.remoteKnowledgeSourceType!
+                                                    knowledgeSourceType={
+                                                        RemoteKnowledgeSourceType.Website
                                                     }
                                                     approveFile={async (
                                                         file,
                                                         approved
                                                     ) => {
-                                                        await KnowledgeService.approveKnowledgeFile(
+                                                        await KnowledgeService.approveFile(
                                                             agentId,
-                                                            file.id!,
+                                                            file.id,
                                                             approved
+                                                        );
+                                                        startPolling();
+                                                    }}
+                                                    reingestFile={(file) => {
+                                                        KnowledgeService.reingestFile(
+                                                            file.agentID,
+                                                            file.knowledgeSourceID,
+                                                            file.id
                                                         );
                                                         startPolling();
                                                     }}
@@ -265,15 +278,13 @@ export const WebsiteModal: FC<WebsiteModalProps> = ({
                     </div>
                 </ScrollArea>
 
-                {knowledgeFiles?.some((item) => item.approved) && (
-                    <IngestionStatusComponent
-                        knowledge={knowledgeFiles}
-                        ingestionError={ingestionError}
-                    />
-                )}
-                {websiteSource?.runID && (
-                    <RemoteKnowledgeSourceStatus source={websiteSource!} />
-                )}
+                {files?.some(
+                    (item) => item.state === KnowledgeFileState.Ingesting
+                ) && <IngestionStatusComponent files={files} />}
+                <RemoteKnowledgeSourceStatus
+                    source={knowledgeSource}
+                    sourceType={RemoteKnowledgeSourceType.Website}
+                />
                 <div className="mt-4 flex justify-between">
                     <Button
                         className="approve-button"
@@ -305,11 +316,11 @@ export const WebsiteModal: FC<WebsiteModalProps> = ({
                     agentId={agentId}
                     isOpen={isSettingModalOpen}
                     onOpenChange={setIsSettingModalOpen}
-                    remoteKnowledgeSource={websiteSource!}
+                    knowledgeSource={knowledgeSource!}
                 />
                 <AddWebsiteModal
                     agentId={agentId}
-                    websiteSource={websiteSource!}
+                    knowledgeSource={knowledgeSource!}
                     startPolling={startPolling}
                     isOpen={isAddWebsiteModalOpen}
                     onOpenChange={setIsAddWebsiteModalOpen}

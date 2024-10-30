@@ -1,7 +1,6 @@
-import { PlusIcon } from "lucide-react";
-
 import {
     KnowledgeFile,
+    KnowledgeFileState,
     RemoteKnowledgeSourceType,
     getRemoteFileDisplayName,
 } from "~/lib/model/knowledge";
@@ -22,8 +21,9 @@ import RemoteFileAvatar from "./RemoteFileAvatar";
 type RemoteFileItemProps = {
     file: KnowledgeFile;
     error?: string;
-    remoteKnowledgeSourceType: RemoteKnowledgeSourceType;
+    knowledgeSourceType: RemoteKnowledgeSourceType;
     approveFile: (file: KnowledgeFile, approved: boolean) => void;
+    reingestFile: (file: KnowledgeFile) => void;
     subTitle?: string;
 } & React.HTMLAttributes<HTMLDivElement>;
 
@@ -31,9 +31,10 @@ export default function RemoteFileItemChip({
     file,
     className,
     error,
-    remoteKnowledgeSourceType,
+    knowledgeSourceType,
     subTitle,
     approveFile,
+    reingestFile,
     ...props
 }: RemoteFileItemProps) {
     return (
@@ -48,20 +49,22 @@ export default function RemoteFileItemChip({
                             {
                                 "bg-destructive-background border-destructive hover:cursor-pointer":
                                     error,
-                                "grayscale opacity-60": !file.approved,
+                                "grayscale opacity-60":
+                                    file.state ===
+                                        KnowledgeFileState.PendingApproval ||
+                                    file.state ===
+                                        KnowledgeFileState.Unapproved,
                             },
                             className
                         )}
                         {...props}
                     >
                         <RemoteFileAvatar
-                            remoteKnowledgeSourceType={
-                                remoteKnowledgeSourceType
-                            }
+                            knowledgeSourceType={knowledgeSourceType}
                         />
                         <div className="flex flex-col overflow-hidden flex-auto">
                             <a
-                                href={file.fileDetails.url}
+                                href={file.url}
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="flex flex-col overflow-hidden flex-auto hover:underline"
@@ -79,29 +82,34 @@ export default function RemoteFileItemChip({
                         </div>
 
                         <div className="mr-2">
-                            {file.approved ? (
-                                <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    onClick={() => {
-                                        approveFile(file, false);
-                                    }}
-                                >
-                                    <FileStatusIcon
-                                        status={file.ingestionStatus}
-                                    />
-                                </Button>
-                            ) : (
-                                <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    onClick={() => {
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => {
+                                    if (
+                                        file.state ===
+                                        KnowledgeFileState.PendingApproval
+                                    ) {
                                         approveFile(file, true);
-                                    }}
-                                >
-                                    <PlusIcon className="w-4 h-4" />
-                                </Button>
-                            )}
+                                    }
+
+                                    if (
+                                        file.state ===
+                                        KnowledgeFileState.Ingested
+                                    ) {
+                                        approveFile(file, false);
+                                    }
+
+                                    if (
+                                        file.state === KnowledgeFileState.Error
+                                    ) {
+                                        reingestFile(file);
+                                        return;
+                                    }
+                                }}
+                            >
+                                <FileStatusIcon file={file} />
+                            </Button>
                         </div>
                     </div>
                 </TooltipTrigger>

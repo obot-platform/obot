@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 
-import { RemoteKnowledgeSource } from "~/lib/model/knowledge";
+import { KnowledgeSource } from "~/lib/model/knowledge";
 import { KnowledgeService } from "~/lib/service/api/knowledgeService";
 
 import { Button } from "~/components/ui/button";
@@ -19,33 +19,33 @@ type RemoteSourceSettingModalProps = {
     agentId: string;
     isOpen: boolean;
     onOpenChange: (open: boolean) => void;
-    remoteKnowledgeSource: RemoteKnowledgeSource;
+    knowledgeSource: KnowledgeSource | undefined;
 };
 
 const RemoteSourceSettingModal: React.FC<RemoteSourceSettingModalProps> = ({
     agentId,
     isOpen,
     onOpenChange,
-    remoteKnowledgeSource,
+    knowledgeSource,
 }) => {
     const [autoApprove, setAutoApprove] = useState(false);
 
     useEffect(() => {
-        setAutoApprove(remoteKnowledgeSource?.autoApprove || false);
-    }, [remoteKnowledgeSource]);
+        setAutoApprove(knowledgeSource?.autoApprove || false);
+    }, [knowledgeSource]);
 
     const [syncSchedule, setSyncSchedule] = useState("");
 
     useEffect(() => {
-        setSyncSchedule(remoteKnowledgeSource?.syncSchedule || "");
-    }, [remoteKnowledgeSource]);
+        setSyncSchedule(knowledgeSource?.syncSchedule || "");
+    }, [knowledgeSource]);
 
     const updateRemoteKnowledgeSource = async () => {
-        await KnowledgeService.updateRemoteKnowledgeSource(
+        await KnowledgeService.updateKnowledgeSource(
             agentId,
-            remoteKnowledgeSource.id,
+            knowledgeSource!.id,
             {
-                ...remoteKnowledgeSource,
+                ...knowledgeSource,
                 syncSchedule,
                 autoApprove,
             }

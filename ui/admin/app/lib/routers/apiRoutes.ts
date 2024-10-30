@@ -34,44 +34,50 @@ export const ApiRoutes = {
     agents: {
         base: () => buildUrl("/agents"),
         getById: (agentId: string) => buildUrl(`/agents/${agentId}`),
-        getKnowledge: (agentId: string) =>
-            buildUrl(`/agents/${agentId}/knowledge`),
-        addKnowledge: (agentId: string, fileName: string) =>
-            buildUrl(`/agents/${agentId}/knowledge/${fileName}`),
-        deleteKnowledge: (agentId: string, fileName: string) =>
-            buildUrl(`/agents/${agentId}/knowledge/${fileName}`),
-        triggerKnowledgeIngestion: (agentId: string) =>
-            buildUrl(`/agents/${agentId}/knowledge`),
-        createRemoteKnowledgeSource: (agentId: string) =>
-            buildUrl(`/agents/${agentId}/remote-knowledge-sources`),
-        getRemoteKnowledgeSource: (agentId: string) =>
-            buildUrl(`/agents/${agentId}/remote-knowledge-sources`),
-        updateRemoteKnowledgeSource: (
-            agentId: string,
-            remoteKnowledgeSourceId: string
-        ) =>
+        getLocalKnowledgeFiles: (agentId: string) =>
+            buildUrl(`/agents/${agentId}/knowledge-files`),
+        addKnowledgeFiles: (agentId: string, fileName: string) =>
+            buildUrl(`/agents/${agentId}/knowledge-files/${fileName}`),
+        deleteKnowledgeFiles: (agentId: string, fileName: string) =>
+            buildUrl(`/agents/${agentId}/knowledge-files/${fileName}`),
+        createKnowledgeSource: (agentId: string) =>
+            buildUrl(`/agents/${agentId}/knowledge-sources`),
+        getKnowledgeSource: (agentId: string) =>
+            buildUrl(`/agents/${agentId}/knowledge-sources`),
+        updateKnowledgeSource: (agentId: string, knowledgeSourceId: string) =>
             buildUrl(
-                `/agents/${agentId}/remote-knowledge-sources/${remoteKnowledgeSourceId}`
+                `/agents/${agentId}/knowledge-sources/${knowledgeSourceId}`
             ),
-        deleteRemoteKnowledgeSource: (
-            agentId: string,
-            remoteKnowledgeSourceId: string
-        ) =>
+        syncKnowledgeSource: (agentId: string, knowledgeSourceId: string) =>
             buildUrl(
-                `/agents/${agentId}/remote-knowledge-sources/${remoteKnowledgeSourceId}`
+                `/agents/${agentId}/knowledge-sources/${knowledgeSourceId}/sync`
             ),
-        approveKnowledgeFile: (agentId: string, fileID: string) =>
-            buildUrl(`/agents/${agentId}/knowledge/${fileID}/approve`),
+        getAuthUrlForKnowledgeSource: (agentId: string, sourceId: string) =>
+            buildUrl(`/agents/${agentId}/knowledge-sources/${sourceId}/login`),
+        deleteKnowledgeSource: (agentId: string, knowledgeSourceId: string) =>
+            buildUrl(
+                `/agents/${agentId}/knowledge-sources/${knowledgeSourceId}`
+            ),
+        getFilesForKnowledgeSource: (agentId: string, sourceId: string) =>
+            buildUrl(
+                `/agents/${agentId}/knowledge-sources/${sourceId}/knowledge-files`
+            ),
+        approveFile: (agentId: string, fileID: string) =>
+            buildUrl(`/agents/${agentId}/approve-file/${fileID}`),
+        reingestFile: (agentId: string, sourceId: string, fileID: string) =>
+            buildUrl(
+                `/agents/${agentId}/knowledge-sources/${sourceId}/knowledge-files/${fileID}/ingest`
+            ),
     },
     workflows: {
         base: () => buildUrl("/workflows"),
         getById: (workflowId: string) => buildUrl(`/workflows/${workflowId}`),
         getKnowledge: (workflowId: string) =>
-            buildUrl(`/workflows/${workflowId}/knowledge`),
+            buildUrl(`/workflows/${workflowId}/files`),
         addKnowledge: (workflowId: string, fileName: string) =>
-            buildUrl(`/workflows/${workflowId}/knowledge/${fileName}`),
+            buildUrl(`/workflows/${workflowId}/files/${fileName}`),
         deleteKnowledge: (workflowId: string, fileName: string) =>
-            buildUrl(`/workflows/${workflowId}/knowledge/${fileName}`),
+            buildUrl(`/workflows/${workflowId}/files/${fileName}`),
     },
     threads: {
         base: () => buildUrl("/threads"),
@@ -87,6 +93,7 @@ export const ApiRoutes = {
     },
     runs: {
         base: () => buildUrl("/runs"),
+        getRunById: (runId: string) => buildUrl(`/runs/${runId}`),
         getDebugById: (runId: string) => buildUrl(`/runs/${runId}/debug`),
         getByThread: (threadId: string) =>
             buildUrl(`/threads/${threadId}/runs`),

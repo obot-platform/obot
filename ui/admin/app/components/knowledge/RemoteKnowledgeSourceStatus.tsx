@@ -1,41 +1,38 @@
 import React from "react";
 
-import { RemoteKnowledgeSource } from "~/lib/model/knowledge";
+import {
+    KnowledgeSource,
+    RemoteKnowledgeSourceType,
+} from "~/lib/model/knowledge";
 
 import { LoadingSpinner } from "~/components/ui/LoadingSpinner";
 
 import RemoteFileAvatar from "./RemoteFileAvatar";
 
 interface RemoteKnowledgeSourceStatusProps {
-    source: RemoteKnowledgeSource | undefined;
-    includeAvatar?: boolean;
+    source: KnowledgeSource | undefined;
+    sourceType: RemoteKnowledgeSourceType;
 }
 
 const RemoteKnowledgeSourceStatus: React.FC<
     RemoteKnowledgeSourceStatusProps
-> = ({ source, includeAvatar = true }) => {
-    if (!source || (!source.runID && !source.error)) return null;
-
-    if (source.sourceType === "onedrive" && !source.onedriveConfig) return null;
-
-    if (source.sourceType === "website" && !source.websiteCrawlingConfig)
-        return null;
-
+> = ({ source, sourceType }) => {
     return (
-        <div key={source.id} className="flex flex-row mt-2">
-            <div className="flex items-center">
-                {includeAvatar && (
-                    <RemoteFileAvatar
-                        remoteKnowledgeSourceType={source.sourceType!}
-                    />
-                )}
-                <span
-                    className={`text-sm mr-2 ${source?.error ? "text-destructive" : "text-gray-500"}`}
-                >
-                    {source?.error || source?.status || "Syncing Files..."}
+        <div className="flex flex-row mt-2 flex items-center">
+            {source?.state === "syncing" && (
+                <>
+                    <RemoteFileAvatar knowledgeSourceType={sourceType} />
+                    <span className="text-sm mr-2 text-gray-500">
+                        {source.status || "Syncing Files..."}
+                    </span>
+                    <LoadingSpinner className="w-4 h-4" />
+                </>
+            )}
+            {source?.state === "error" && (
+                <span className="text-sm mr-2 text-destructive">
+                    {source.error}
                 </span>
-                {!source.error && <LoadingSpinner className="w-4 h-4" />}
-            </div>
+            )}
         </div>
     );
 };

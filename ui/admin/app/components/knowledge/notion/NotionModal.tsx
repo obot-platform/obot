@@ -1,9 +1,11 @@
 import { RefreshCcwIcon, SettingsIcon } from "lucide-react";
-import { FC, useState } from "react";
+import { FC, useEffect, useState } from "react";
 
 import {
     KnowledgeFile,
-    RemoteKnowledgeSource,
+    KnowledgeFileState,
+    KnowledgeSource,
+    KnowledgeSourceStatus,
     RemoteKnowledgeSourceType,
 } from "~/lib/model/knowledge";
 import { KnowledgeService } from "~/lib/service/api/knowledgeService";
@@ -35,40 +37,59 @@ type NotionModalProps = {
     agentId: string;
     isOpen: boolean;
     onOpenChange: (open: boolean) => void;
-    remoteKnowledgeSources: RemoteKnowledgeSource[];
-    knowledgeFiles: KnowledgeFile[];
+    knowledgeSource: KnowledgeSource | undefined;
+    files: KnowledgeFile[];
     startPolling: () => void;
-    handleRemoteKnowledgeSourceSync: (
-        knowledgeSourceType: RemoteKnowledgeSourceType
-    ) => void;
-    ingestionError?: string;
+    handleRemoteKnowledgeSourceSync: (id: string) => void;
 };
 
 export const NotionModal: FC<NotionModalProps> = ({
     agentId,
     isOpen,
     onOpenChange,
-    remoteKnowledgeSources,
-    knowledgeFiles,
+    knowledgeSource,
+    files,
     startPolling,
     handleRemoteKnowledgeSourceSync,
-    ingestionError,
 }) => {
     const [loading, setLoading] = useState(false);
     const [isSettingModalOpen, setIsSettingModalOpen] = useState(false);
+    const [authUrl, setAuthUrl] = useState<string>("");
+    console.log(knowledgeSource);
 
-    const notionSource = remoteKnowledgeSources.find(
-        (source) => source.sourceType === "notion"
-    );
+    useEffect(() => {
+        if (!knowledgeSource) return;
+
+        const postLogin = async () => {
+            const authUrl = await KnowledgeService.getAuthUrlForKnowledgeSource(
+                agentId,
+                knowledgeSource!.id!
+            );
+            console.log(authUrl);
+            setAuthUrl(authUrl);
+        };
+        postLogin();
+    }, [knowledgeSource]);
 
     const handleApproveAll = async () => {
-        for (const file of knowledgeFiles) {
-            await KnowledgeService.approveKnowledgeFile(agentId, file.id, true);
+        for (const file of files) {
+            if (
+                file.state === KnowledgeFileState.PendingApproval ||
+                file.state === KnowledgeFileState.Unapproved
+            ) {
+                await KnowledgeService.approveFile(agentId, file.id, true);
+            } else if (file.state === KnowledgeFileState.Error) {
+                await KnowledgeService.reingestFile(
+                    agentId,
+                    knowledgeSource!.id!,
+                    file.id
+                );
+            }
         }
         startPolling();
     };
 
-    const hasKnowledgeFiles = knowledgeFiles.length > 0;
+    const hasKnowledgeFiles = files.length > 0;
 
     return (
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
@@ -95,11 +116,13 @@ export const NotionModal: FC<NotionModalProps> = ({
                                         <Button
                                             size="sm"
                                             variant="secondary"
-                                            onClick={() =>
-                                                handleRemoteKnowledgeSourceSync(
-                                                    "notion"
-                                                )
-                                            }
+                                            onClick={() => {
+                                                if (knowledgeSource) {
+                                                    handleRemoteKnowledgeSourceSync(
+                                                        knowledgeSource.id
+                                                    );
+                                                }
+                                            }}
                                             className="mr-2"
                                             tabIndex={-1}
                                             disabled={!hasKnowledgeFiles}
@@ -129,40 +152,62 @@ export const NotionModal: FC<NotionModalProps> = ({
                         </div>
                     </DialogTitle>
                 </DialogHeader>
+                {authUrl && (
+                    <div className="flex flex-col items-center justify-center mt-4">
+                        <span className="text-sm text-gray-500">
+                            Please{" "}
+                            <a
+                                href={authUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-gray-500 underline"
+                            >
+                                Sign In
+                            </a>{" "}
+                            to continue.
+                        </span>
+                    </div>
+                )}
                 <ScrollArea className="max-h-[45vh] flex-grow">
                     <div className="flex flex-col gap-2">
-                        {knowledgeFiles.map((item) => (
+                        {files.map((item) => (
                             <RemoteFileItemChip
                                 key={item.fileName}
                                 file={item}
                                 subTitle={
-                                    notionSource?.state?.notionState?.pages?.[
-                                        item.uploadID!
-                                    ]?.folderPath
+                                    knowledgeSource?.syncDetails?.notionState
+                                        ?.pages?.[item.url!]?.folderPath
                                 }
-                                remoteKnowledgeSourceType={
-                                    item.remoteKnowledgeSourceType!
+                                knowledgeSourceType={
+                                    RemoteKnowledgeSourceType.Notion
                                 }
                                 approveFile={async (file, approved) => {
-                                    await KnowledgeService.approveKnowledgeFile(
+                                    await KnowledgeService.approveFile(
                                         agentId,
                                         file.id,
                                         approved
                                     );
                                     startPolling();
                                 }}
+                                reingestFile={(file) => {
+                                    KnowledgeService.reingestFile(
+                                        file.agentID,
+                                        file.knowledgeSourceID,
+                                        file.id
+                                    );
+                                }}
                             />
                         ))}
                     </div>
                 </ScrollArea>
-                {knowledgeFiles?.some((item) => item.approved) && (
-                    <IngestionStatusComponent
-                        knowledge={knowledgeFiles}
-                        ingestionError={ingestionError}
+                {files?.some(
+                    (item) => item.state === KnowledgeFileState.Ingesting
+                ) && <IngestionStatusComponent files={files} />}
+                {knowledgeSource?.state === KnowledgeSourceStatus.Syncing && (
+                    <RemoteKnowledgeSourceStatus
+                        source={knowledgeSource}
+                        sourceType={RemoteKnowledgeSourceType.Notion}
                     />
-                )}
-                {notionSource?.runID && (
-                    <RemoteKnowledgeSourceStatus source={notionSource!} />
                 )}
                 <div className="mt-4 flex justify-between">
                     <Button
@@ -192,13 +237,13 @@ export const NotionModal: FC<NotionModalProps> = ({
                     </Button>
                 </div>
             </DialogContent>
-            {notionSource && (
+            {knowledgeSource && (
                 <>
                     <RemoteSourceSettingModal
                         agentId={agentId}
                         isOpen={isSettingModalOpen}
                         onOpenChange={setIsSettingModalOpen}
-                        remoteKnowledgeSource={notionSource}
+                        knowledgeSource={knowledgeSource}
                     />
                 </>
             )}

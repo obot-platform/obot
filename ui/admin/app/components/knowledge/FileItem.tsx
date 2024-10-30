@@ -1,7 +1,7 @@
 import { FileIcon, PlusIcon, TrashIcon } from "lucide-react";
-import { useState } from "react";
 
-import { KnowledgeFile } from "~/lib/model/knowledge";
+import { KnowledgeFile, KnowledgeFileState } from "~/lib/model/knowledge";
+import { KnowledgeService } from "~/lib/service/api/knowledgeService";
 import { cn } from "~/lib/utils";
 
 import { TypographyP } from "~/components/Typography";
@@ -31,25 +31,18 @@ function FileItem({
     onAction,
     actionIcon,
     isLoading,
-    error,
     approveFile,
     ...props
 }: FileItemProps) {
-    const [isApproved, setIsApproved] = useState(file.approved);
     return (
         <TooltipProvider>
             <Tooltip>
-                {error && <TooltipContent>{error}</TooltipContent>}
-
                 <TooltipTrigger asChild>
                     <div
                         className={cn(
                             "flex justify-between flex-nowrap items-center gap-4 rounded-lg px-2 border w-full",
                             {
-                                "bg-destructive-background border-destructive text-foreground":
-                                    error,
-                                "grayscale opacity-60":
-                                    isLoading || !isApproved,
+                                "grayscale opacity-60": isLoading,
                             },
                             className
                         )}
@@ -63,29 +56,26 @@ function FileItem({
                             </TypographyP>
                         </div>
 
-                        {isApproved ? (
+                        <div className="mr-2">
                             <Button
                                 variant="ghost"
                                 size="icon"
                                 onClick={() => {
-                                    setIsApproved(false);
-                                    approveFile(file, false);
+                                    if (
+                                        file.state === KnowledgeFileState.Error
+                                    ) {
+                                        KnowledgeService.reingestFile(
+                                            file.agentID,
+                                            file.knowledgeSourceID,
+                                            file.id
+                                        );
+                                        return;
+                                    }
                                 }}
                             >
-                                <FileStatusIcon status={file.ingestionStatus} />
+                                <FileStatusIcon file={file} />
                             </Button>
-                        ) : (
-                            <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => {
-                                    setIsApproved(true);
-                                    approveFile(file, true);
-                                }}
-                            >
-                                <PlusIcon className="w-4 h-4" />
-                            </Button>
-                        )}
+                        </div>
 
                         {isLoading ? (
                             <Button disabled variant="ghost" size="icon">

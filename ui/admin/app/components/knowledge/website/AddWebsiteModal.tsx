@@ -1,7 +1,7 @@
 import { Plus } from "lucide-react";
 import { FC, useState } from "react";
 
-import { RemoteKnowledgeSource } from "~/lib/model/knowledge";
+import { KnowledgeSource } from "~/lib/model/knowledge";
 import { KnowledgeService } from "~/lib/service/api/knowledgeService";
 
 import { Button } from "~/components/ui/button";
@@ -10,7 +10,7 @@ import { Input } from "~/components/ui/input";
 
 interface AddWebsiteModalProps {
     agentId: string;
-    websiteSource: RemoteKnowledgeSource;
+    knowledgeSource: KnowledgeSource | undefined;
     startPolling: () => void;
     isOpen: boolean;
     onOpenChange: (open: boolean) => void;
@@ -18,7 +18,7 @@ interface AddWebsiteModalProps {
 
 const AddWebsiteModal: FC<AddWebsiteModalProps> = ({
     agentId,
-    websiteSource,
+    knowledgeSource,
     startPolling,
     isOpen,
     onOpenChange,
@@ -33,38 +33,27 @@ const AddWebsiteModal: FC<AddWebsiteModalProps> = ({
                     ? newWebsite
                     : `https://${newWebsite}`;
 
-            if (!websiteSource) {
-                await KnowledgeService.createRemoteKnowledgeSource(agentId, {
-                    sourceType: "website",
+            if (!knowledgeSource) {
+                await KnowledgeService.createKnowledgeSource(agentId, {
                     websiteCrawlingConfig: {
                         urls: [formattedWebsite],
                     },
                 });
             } else {
-                await KnowledgeService.updateRemoteKnowledgeSource(
+                await KnowledgeService.updateKnowledgeSource(
                     agentId,
-                    websiteSource.id!,
+                    knowledgeSource.id!,
                     {
-                        sourceType: "website",
                         websiteCrawlingConfig: {
                             urls: [
-                                ...(websiteSource.websiteCrawlingConfig?.urls ||
-                                    []),
+                                ...(knowledgeSource.websiteCrawlingConfig
+                                    ?.urls || []),
                                 formattedWebsite,
                             ],
                         },
                     }
                 );
             }
-            const intervalId = setInterval(() => {
-                startPolling();
-                if (websiteSource?.runID) {
-                    clearInterval(intervalId);
-                }
-            }, 1000);
-            setTimeout(() => {
-                clearInterval(intervalId);
-            }, 10000);
 
             startPolling();
             setNewWebsite("");

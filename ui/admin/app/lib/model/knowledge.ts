@@ -1,15 +1,3 @@
-export const IngestionStatus = {
-    Queued: "queued",
-    Completed: "completed",
-    Finished: "finished",
-    Skipped: "skipped",
-    Failed: "failed",
-    Starting: "starting",
-    Unsupported: "unsupported",
-} as const;
-export type IngestionStatus =
-    (typeof IngestionStatus)[keyof typeof IngestionStatus];
-
 export const RemoteKnowledgeSourceType = {
     OneDrive: "onedrive",
     Notion: "notion",
@@ -18,38 +6,45 @@ export const RemoteKnowledgeSourceType = {
 export type RemoteKnowledgeSourceType =
     (typeof RemoteKnowledgeSourceType)[keyof typeof RemoteKnowledgeSourceType];
 
-export type KnowledgeIngestionStatus = {
-    count?: number;
-    reason?: string;
-    absolute_path?: string;
-    basePath?: string;
-    filename?: string;
-    vectorstore?: string;
-    msg?: string;
-    flow?: string;
-    rootPath?: string;
-    filepath?: string;
-    phase?: string;
-    num_documents?: number;
-    stage?: string;
-    status?: IngestionStatus;
-    component?: string;
-    filetype?: string;
+export const KnowledgeFileState = {
+    Pending: "pending",
+    Ingesting: "ingesting",
+    Ingested: "ingested",
+    Error: "error",
+    Unapproved: "unapproved",
+    PendingApproval: "pending-approval",
+} as const;
+export type KnowledgeFileState =
+    (typeof KnowledgeFileState)[keyof typeof KnowledgeFileState];
+
+export const KnowledgeSourceStatus = {
+    Pending: "pending",
+    Syncing: "syncing",
+    Synced: "synced",
+    Error: "error",
+} as const;
+export type KnowledgeSourceStatus =
+    (typeof KnowledgeSourceStatus)[keyof typeof KnowledgeSourceStatus];
+
+export type KnowledgeSource = {
+    id: string;
+    agentID: string;
+    state?: KnowledgeSourceStatus;
+    syncDetails?: RemoteKnowledgeSourceState;
+    status?: string;
+    error?: string;
+    authStatus?: AuthStatus;
+} & KnowledgeSourceInput;
+
+type AuthStatus = {
+    url?: string;
+    authenticated?: boolean;
+    required?: boolean;
     error?: string;
 };
 
-export type RemoteKnowledgeSource = {
-    id: string;
-    runID?: string;
-    threadID?: string;
-    status?: string;
-    error?: string;
-    state: RemoteKnowledgeSourceState;
-} & RemoteKnowledgeSourceInput;
-
-export type RemoteKnowledgeSourceInput = {
+export type KnowledgeSourceInput = {
     syncSchedule?: string;
-    sourceType?: RemoteKnowledgeSourceType;
     autoApprove?: boolean;
     onedriveConfig?: OneDriveConfig;
     notionConfig?: NotionConfig;
@@ -108,93 +103,40 @@ type WebsiteCrawlingConnectorState = {
 };
 
 type PageDetails = {
-    parentUrl?: string;
+    parentURL?: string;
 };
 
 type FolderSet = {
     [key: string]: undefined;
 };
 
-type FileDetails = {
-    filePath?: string;
-    url?: string;
-    updatedAd?: string; // date
-};
-
 export type KnowledgeFile = {
     id: string;
-    deleted?: string;
+    created: string;
     fileName: string;
-    agentID?: string;
-    workflowName?: string;
-    threadName?: string;
-    remoteKnowledgeSourceType?: RemoteKnowledgeSourceType;
-    remoteKnowledgeSourceID?: string;
-    ingestionStatus: KnowledgeIngestionStatus;
-    fileDetails: FileDetails;
-    uploadID?: string;
-    approved?: boolean;
+    state: KnowledgeFileState;
+    agentID: string;
+    knowledgeSetID: string;
+    knowledgeSourceID: string;
+    url: string;
+    updatedAt: string;
+    checksum: string;
+    approved: boolean;
+    lastRunID: string;
 };
 
 export function getRemoteFileDisplayName(item: KnowledgeFile) {
-    if (item.remoteKnowledgeSourceType === RemoteKnowledgeSourceType.OneDrive) {
-        return item.fileName.split("/").pop()!;
-    }
-    if (item.remoteKnowledgeSourceType === RemoteKnowledgeSourceType.Notion) {
-        return item.fileName.split("/").pop()!.replace(/\.md$/, "");
-    }
-    if (item.remoteKnowledgeSourceType === RemoteKnowledgeSourceType.Website) {
-        return item.fileDetails.url;
-    }
     return item.fileName;
 }
 
-export function getIngestionStatus(
-    status?: KnowledgeIngestionStatus
-): IngestionStatus {
-    if (!status) {
-        return IngestionStatus.Queued;
+export function getMessage(state: KnowledgeFileState, error?: string) {
+    if (state === KnowledgeFileState.Error) {
+        return error ?? "Ingestion failed";
     }
 
-    if (
-        status.status === IngestionStatus.Skipped &&
-        status.reason === "unsupported"
-    ) {
-        return IngestionStatus.Unsupported;
+    if (state === KnowledgeFileState.PendingApproval) {
+        return "Pending approval, click to approve";
     }
 
-    return status.status || IngestionStatus.Queued;
-}
-
-export function getMessage(
-    status?: IngestionStatus,
-    msg?: string,
-    error?: string
-) {
-    if (!status) return "Queued";
-
-    if (
-        status === IngestionStatus.Finished ||
-        status === IngestionStatus.Skipped
-    ) {
-        return "Exclude file from ingestion";
-    }
-
-    if (status === IngestionStatus.Failed) {
-        return error || msg || "Failed";
-    }
-
-    if (status === IngestionStatus.Unsupported) {
-        return "This file type is not supported for ingestion.";
-    }
-
-    return msg || "Queued";
-}
-
-export function getIngestedFilesCount(knowledge: KnowledgeFile[]) {
-    return knowledge.filter(
-        (item) =>
-            item.ingestionStatus?.status === IngestionStatus.Finished ||
-            item.ingestionStatus?.status === IngestionStatus.Skipped
-    ).length;
+    return state;
 }

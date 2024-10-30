@@ -1,10 +1,12 @@
-import { CheckIcon, InfoIcon, XIcon } from "lucide-react";
+import { CheckIcon, PlusIcon, RotateCcwIcon } from "lucide-react";
+import { useEffect, useState } from "react";
 
 import {
-    IngestionStatus,
-    KnowledgeIngestionStatus,
+    KnowledgeFile,
+    KnowledgeFileState,
     getMessage,
 } from "~/lib/model/knowledge";
+import { RunsService } from "~/lib/service/api/runsService";
 import { cn } from "~/lib/utils";
 
 import {
@@ -16,23 +18,33 @@ import {
 
 import { LoadingSpinner } from "../ui/LoadingSpinner";
 
-const ingestionIcons = {
-    [IngestionStatus.Queued]: [LoadingSpinner, ""],
-    [IngestionStatus.Finished]: [CheckIcon, "text-green-500"],
-    [IngestionStatus.Completed]: [LoadingSpinner, ""],
-    [IngestionStatus.Skipped]: [CheckIcon, "text-green-500"],
-    [IngestionStatus.Starting]: [LoadingSpinner, ""],
-    [IngestionStatus.Failed]: [XIcon, "text-destructive"],
-    [IngestionStatus.Unsupported]: [InfoIcon, "text-yellow-500"],
-} as const;
+const fileStateIcons: Record<KnowledgeFileState, [React.ElementType, string]> =
+    {
+        [KnowledgeFileState.PendingApproval]: [PlusIcon, ""],
+        [KnowledgeFileState.Pending]: [LoadingSpinner, ""],
+        [KnowledgeFileState.Ingesting]: [LoadingSpinner, ""],
+        [KnowledgeFileState.Ingested]: [CheckIcon, "text-green-500"],
+        [KnowledgeFileState.Error]: [RotateCcwIcon, "text-destructive"],
+        [KnowledgeFileState.Unapproved]: [PlusIcon, "text-warning"],
+    } as const;
 
 type FileStatusIconProps = {
-    status?: KnowledgeIngestionStatus;
-} & React.HTMLAttributes<HTMLDivElement>;
+    file: KnowledgeFile;
+};
 
-const FileStatusIcon: React.FC<FileStatusIconProps> = ({ status }) => {
-    if (!status || !status.status) return null;
-    const [Icon, className] = ingestionIcons[status.status];
+const FileStatusIcon: React.FC<FileStatusIconProps> = ({ file }) => {
+    const [Icon, className] = fileStateIcons[file.state];
+    const [errorMessage, setErrorMessage] = useState("");
+
+    useEffect(() => {
+        async function fetchErrorMessage() {
+            const { error } = await RunsService.getRunById(file.lastRunID);
+            setErrorMessage(error ?? "");
+        }
+        if (file.state === KnowledgeFileState.Error) {
+            fetchErrorMessage();
+        }
+    }, [file.state]);
 
     return (
         <div className={cn("flex items-center", className)}>
@@ -50,7 +62,7 @@ const FileStatusIcon: React.FC<FileStatusIconProps> = ({ status }) => {
                         </div>
                     </TooltipTrigger>
                     <TooltipContent className="whitespace-normal break-words max-w-[300px] max-h-full">
-                        {getMessage(status.status, status.msg, status.error)}
+                        {getMessage(file.state, errorMessage)}
                     </TooltipContent>
                 </Tooltip>
             </TooltipProvider>
