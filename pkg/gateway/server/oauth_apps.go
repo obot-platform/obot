@@ -21,10 +21,12 @@ import (
 	"github.com/otto8-ai/otto8/pkg/gateway/types"
 	"github.com/otto8-ai/otto8/pkg/mvl"
 	v1 "github.com/otto8-ai/otto8/pkg/storage/apis/otto.gptscript.ai/v1"
+	"github.com/otto8-ai/otto8/pkg/storage/selectors"
 	"github.com/otto8-ai/otto8/pkg/system"
 	"gorm.io/gorm"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/fields"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -104,6 +106,21 @@ func (s *Server) createOAuthApp(apiContext api.Context) error {
 
 	if err := types.ValidateAndSetDefaultsOAuthAppManifest(appManifest); err != nil {
 		return apierrors.NewBadRequest(fmt.Sprintf("invalid OAuth app: %s", err))
+	}
+
+	// Ensure that the integration is unique.
+	var existingApps v1.OAuthAppList
+	if err := apiContext.Storage.List(apiContext.Context(), &existingApps, &kclient.ListOptions{
+		FieldSelector: fields.SelectorFromSet(selectors.RemoveEmpty(map[string]string{
+			"spec.manifest.integration": appManifest.Integration,
+		})),
+		Namespace: apiContext.Namespace(),
+	}); err != nil {
+		return err
+	}
+
+	if len(existingApps.Items) > 0 {
+		return types2.NewErrHttp(http.StatusConflict, fmt.Sprintf("OAuth app with integration %s already exists", appManifest.Integration))
 	}
 
 	app := v1.OAuthApp{
@@ -514,7 +531,6 @@ func convertOAuthAppRegistrationToOAuthApp(app v1.OAuthApp, baseURL string) type
 	appManifest.Metadata = handlers.MetadataFrom(&app, links...)
 	return types2.OAuthApp{
 		OAuthAppManifest: appManifest,
-		RefNameAssigned:  app.Status.External.RefNameAssigned,
 	}
 }
 

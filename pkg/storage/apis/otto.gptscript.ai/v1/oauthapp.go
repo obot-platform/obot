@@ -11,6 +11,7 @@ import (
 
 var (
 	_ conditions.Conditions = (*OAuthApp)(nil)
+	_ fields.Fields         = (*OAuthApp)(nil)
 	_ conditions.Conditions = (*OAuthAppReference)(nil)
 	_ fields.Fields         = (*OAuthAppReference)(nil)
 )
@@ -24,11 +25,27 @@ type OAuthApp struct {
 	Status            OAuthAppStatus `json:"status,omitempty"`
 }
 
-func (r *OAuthApp) RedirectURL(baseURL string) string {
-	if r.Status.External.RefName == "" {
-		return ""
+func (r *OAuthApp) Has(field string) bool {
+	return r.Get(field) != ""
+}
+
+func (r *OAuthApp) Get(field string) string {
+	if r != nil {
+		switch field {
+		case "spec.manifest.integration":
+			return r.Spec.Manifest.Integration
+		}
 	}
-	return fmt.Sprintf("%s/api/app-oauth/callback/%s", baseURL, r.Status.External.RefName)
+
+	return ""
+}
+
+func (r *OAuthApp) FieldNames() []string {
+	return []string{"spec.manifest.integration"}
+}
+
+func (r *OAuthApp) RedirectURL(baseURL string) string {
+	return fmt.Sprintf("%s/api/app-oauth/callback/%s", baseURL, r.Spec.Manifest.Integration)
 }
 
 func OAuthAppGetTokenURL(baseURL string) string {
@@ -36,17 +53,11 @@ func OAuthAppGetTokenURL(baseURL string) string {
 }
 
 func (r *OAuthApp) AuthorizeURL(baseURL string) string {
-	if r.Status.External.RefName == "" {
-		return ""
-	}
-	return fmt.Sprintf("%s/api/app-oauth/authorize/%s", baseURL, r.Status.External.RefName)
+	return fmt.Sprintf("%s/api/app-oauth/authorize/%s", baseURL, r.Spec.Manifest.Integration)
 }
 
 func (r *OAuthApp) RefreshURL(baseURL string) string {
-	if r.Status.External.RefName == "" {
-		return ""
-	}
-	return fmt.Sprintf("%s/api/app-oauth/refresh/%s", baseURL, r.Status.External.RefName)
+	return fmt.Sprintf("%s/api/app-oauth/refresh/%s", baseURL, r.Spec.Manifest.Integration)
 }
 
 func (r *OAuthApp) GetConditions() *[]metav1.Condition {
@@ -62,8 +73,7 @@ type OAuthAppSpec struct {
 }
 
 type OAuthAppStatus struct {
-	Conditions []metav1.Condition           `json:"conditions,omitempty"`
-	External   types.OAuthAppExternalStatus `json:"external,omitempty"`
+	Conditions []metav1.Condition `json:"conditions,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -112,7 +122,6 @@ func (r *OAuthAppReference) GetConditions() *[]metav1.Condition {
 }
 
 type OAuthAppReferenceSpec struct {
-	Custom       bool   `json:"custom,omitempty"`
 	AppName      string `json:"appName,omitempty"`
 	AppNamespace string `json:"appNamespace,omitempty"`
 }

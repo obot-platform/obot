@@ -102,9 +102,6 @@ func setupOAuthApps(ctx context.Context, db kclient.Client, agent *v1.Agent, ser
 			return nil, fmt.Errorf("oauth app %s has no integration name", app.Name)
 		}
 
-		if !app.Status.External.RefNameAssigned {
-			return nil, fmt.Errorf("oauth app %s has no ref name assigned", app.Name)
-		}
 		activeIntegrations[app.Spec.Manifest.Integration] = app
 	}
 
@@ -296,8 +293,8 @@ func oauthAppsByName(ctx context.Context, c kclient.Client, namespace string) (m
 	}
 
 	for _, app := range apps.Items {
-		if app.Spec.Manifest.RefName != "" {
-			result[app.Spec.Manifest.RefName] = app
+		if app.Spec.Manifest.Integration != "" {
+			result[app.Spec.Manifest.Integration] = app
 		}
 	}
 

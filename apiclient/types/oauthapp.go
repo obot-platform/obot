@@ -14,14 +14,12 @@ type OAuthAppType string
 
 type OAuthApp struct {
 	OAuthAppManifest
-	RefNameAssigned bool `json:"refNameAssigned,omitempty"`
 }
 
 type OAuthAppManifest struct {
 	Metadata
 	Type         OAuthAppType `json:"type"`
 	Name         string       `json:"name,omitempty"`
-	RefName      string       `json:"refName,omitempty"`
 	ClientID     string       `json:"clientID"`
 	ClientSecret string       `json:"clientSecret,omitempty"`
 	// These fields are only needed for custom OAuth apps.
@@ -37,11 +35,6 @@ type OAuthAppManifest struct {
 	Integration string `json:"integration,omitempty"`
 	// Global indicates if the OAuth app is globally applied to all agents.
 	Global bool `json:"global,omitempty"`
-}
-
-type OAuthAppExternalStatus struct {
-	RefNameAssigned bool   `json:"refNameAssigned,omitempty"`
-	RefName         string `json:"refName,omitempty"`
 }
 
 type OAuthAppList List[OAuthApp]

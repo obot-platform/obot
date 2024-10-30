@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
+	"regexp"
 	"time"
 
 	"github.com/otto8-ai/otto8/apiclient/types"
@@ -24,6 +25,10 @@ const (
 
 	GitHubAuthorizeUrl = "https://github.com/login/oauth/authorize"
 	GitHubTokenURL     = "https://github.com/login/oauth/access_token"
+)
+
+var (
+	alphaNumericRegexp = regexp.MustCompile(`^[a-zA-Z0-9\-]*$`)
 )
 
 type OAuthAppTypeConfig struct {
@@ -120,6 +125,11 @@ func ValidateAndSetDefaultsOAuthAppManifest(r *types.OAuthAppManifest) error {
 	} else if r.Type == types.OAuthAppTypeHubSpot && r.AppID == "" {
 		errs = append(errs, fmt.Errorf("missing appID"))
 	}
+	if r.Integration == "" {
+		errs = append(errs, fmt.Errorf("missing integration"))
+	} else if !alphaNumericRegexp.MatchString(r.Integration) {
+		errs = append(errs, fmt.Errorf("integration name can only contain alphanumeric characters and hyphens: %s", r.Integration))
+	}
 
 	switch r.Type {
 	case types.OAuthAppTypeMicrosoft365:
@@ -155,9 +165,6 @@ func ValidateAndSetDefaultsOAuthAppManifest(r *types.OAuthAppManifest) error {
 func MergeOAuthAppManifests(r, other types.OAuthAppManifest) types.OAuthAppManifest {
 	retVal := r
 
-	if other.RefName != "" {
-		retVal.RefName = other.RefName
-	}
 	if other.ClientID != "" {
 		retVal.ClientID = other.ClientID
 	}
@@ -175,6 +182,15 @@ func MergeOAuthAppManifests(r, other types.OAuthAppManifest) types.OAuthAppManif
 	}
 	if other.Name != "" {
 		retVal.Name = other.Name
+	}
+	if other.Integration != "" {
+		retVal.Integration = other.Integration
+	}
+	if other.AppID != "" {
+		retVal.AppID = other.AppID
+	}
+	if other.OptionalScope != "" {
+		retVal.OptionalScope = other.OptionalScope
 	}
 
 	return retVal
