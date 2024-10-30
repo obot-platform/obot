@@ -2,7 +2,6 @@ import {
     KnowledgeFile,
     KnowledgeFileState,
     RemoteKnowledgeSourceType,
-    getRemoteFileDisplayName,
 } from "~/lib/model/knowledge";
 import { cn } from "~/lib/utils";
 
@@ -20,6 +19,7 @@ import RemoteFileAvatar from "./RemoteFileAvatar";
 
 type RemoteFileItemProps = {
     file: KnowledgeFile;
+    fileName: string;
     error?: string;
     knowledgeSourceType: RemoteKnowledgeSourceType;
     approveFile: (file: KnowledgeFile, approved: boolean) => void;
@@ -29,6 +29,7 @@ type RemoteFileItemProps = {
 
 export default function RemoteFileItemChip({
     file,
+    fileName,
     className,
     error,
     knowledgeSourceType,
@@ -73,7 +74,7 @@ export default function RemoteFileItemChip({
                                 }}
                             >
                                 <TypographyP className="w-full overflow-hidden text-ellipsis">
-                                    {getRemoteFileDisplayName(file)}
+                                    {fileName}
                                 </TypographyP>
                             </a>
                             <span className="text-gray-400 text-xs">
@@ -88,7 +89,9 @@ export default function RemoteFileItemChip({
                                 onClick={() => {
                                     if (
                                         file.state ===
-                                        KnowledgeFileState.PendingApproval
+                                            KnowledgeFileState.PendingApproval ||
+                                        file.state ===
+                                            KnowledgeFileState.Unapproved
                                     ) {
                                         approveFile(file, true);
                                     }

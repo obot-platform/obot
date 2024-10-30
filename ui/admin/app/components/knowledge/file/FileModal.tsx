@@ -70,6 +70,7 @@ function FileModal({
                 updatedAt: "",
                 checksum: "",
                 lastRunID: "",
+                error: "",
             };
 
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -155,14 +156,6 @@ function FileModal({
                             <FileChip
                                 key={item.fileName}
                                 file={item}
-                                approveFile={async (file, approved) => {
-                                    await KnowledgeService.approveFile(
-                                        agentId,
-                                        file.id!,
-                                        approved
-                                    );
-                                    startPolling();
-                                }}
                                 onAction={() => deleteKnowledge.execute(item)}
                                 isLoading={
                                     deleteKnowledge.isLoading &&

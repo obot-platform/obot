@@ -68,11 +68,11 @@ export default function AgentKnowledgePanel({ agentId }: { agentId: string }) {
         [getKnowledgeSources.data]
     );
 
-    let notionSource = knowledgeSources.find((source) => source.notionConfig);
-    let onedriveSource = knowledgeSources.find(
+    const notionSource = knowledgeSources.find((source) => source.notionConfig);
+    const onedriveSource = knowledgeSources.find(
         (source) => source.onedriveConfig
     );
-    let websiteSource = knowledgeSources.find(
+    const websiteSource = knowledgeSources.find(
         (source) => source.websiteCrawlingConfig
     );
 

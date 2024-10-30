@@ -148,7 +148,6 @@ export const WebsiteModal: FC<WebsiteModalProps> = ({
                                         }}
                                         className="mr-2"
                                         tabIndex={-1}
-                                        disabled={!hasKnowledgeFiles}
                                     >
                                         <RefreshCcwIcon className="w-4 h-4" />
                                     </Button>
@@ -247,6 +246,7 @@ export const WebsiteModal: FC<WebsiteModalProps> = ({
                                                 <RemoteFileItemChip
                                                     key={item.fileName}
                                                     file={item}
+                                                    fileName={item.fileName}
                                                     knowledgeSourceType={
                                                         RemoteKnowledgeSourceType.Website
                                                     }
@@ -278,9 +278,9 @@ export const WebsiteModal: FC<WebsiteModalProps> = ({
                     </div>
                 </ScrollArea>
 
-                {files?.some(
-                    (item) => item.state === KnowledgeFileState.Ingesting
-                ) && <IngestionStatusComponent files={files} />}
+                {files?.some((item) => item.approved) && (
+                    <IngestionStatusComponent files={files} />
+                )}
                 <RemoteKnowledgeSourceStatus
                     source={knowledgeSource}
                     sourceType={RemoteKnowledgeSourceType.Website}

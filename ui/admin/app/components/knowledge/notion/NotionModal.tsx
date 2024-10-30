@@ -55,7 +55,6 @@ export const NotionModal: FC<NotionModalProps> = ({
     const [loading, setLoading] = useState(false);
     const [isSettingModalOpen, setIsSettingModalOpen] = useState(false);
     const [authUrl, setAuthUrl] = useState<string>("");
-    console.log(knowledgeSource);
 
     useEffect(() => {
         if (!knowledgeSource) return;
@@ -69,7 +68,7 @@ export const NotionModal: FC<NotionModalProps> = ({
             setAuthUrl(authUrl);
         };
         postLogin();
-    }, [knowledgeSource]);
+    }, [agentId, knowledgeSource]);
 
     const handleApproveAll = async () => {
         for (const file of files) {
@@ -88,8 +87,6 @@ export const NotionModal: FC<NotionModalProps> = ({
         }
         startPolling();
     };
-
-    const hasKnowledgeFiles = files.length > 0;
 
     return (
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
@@ -125,7 +122,6 @@ export const NotionModal: FC<NotionModalProps> = ({
                                             }}
                                             className="mr-2"
                                             tabIndex={-1}
-                                            disabled={!hasKnowledgeFiles}
                                         >
                                             <RefreshCcwIcon className="w-4 h-4" />
                                         </Button>
@@ -174,6 +170,7 @@ export const NotionModal: FC<NotionModalProps> = ({
                             <RemoteFileItemChip
                                 key={item.fileName}
                                 file={item}
+                                fileName={item.fileName}
                                 subTitle={
                                     knowledgeSource?.syncDetails?.notionState
                                         ?.pages?.[item.url!]?.folderPath

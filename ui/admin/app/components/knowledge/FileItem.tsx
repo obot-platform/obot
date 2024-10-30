@@ -1,4 +1,4 @@
-import { FileIcon, PlusIcon, TrashIcon } from "lucide-react";
+import { FileIcon, TrashIcon } from "lucide-react";
 
 import { KnowledgeFile, KnowledgeFileState } from "~/lib/model/knowledge";
 import { KnowledgeService } from "~/lib/service/api/knowledgeService";
@@ -8,7 +8,6 @@ import { TypographyP } from "~/components/Typography";
 import { Button } from "~/components/ui/button";
 import {
     Tooltip,
-    TooltipContent,
     TooltipProvider,
     TooltipTrigger,
 } from "~/components/ui/tooltip";
@@ -22,7 +21,6 @@ type FileItemProps = {
     actionIcon?: React.ReactNode;
     isLoading?: boolean;
     error?: string;
-    approveFile: (file: KnowledgeFile, approved: boolean) => void;
 } & React.HTMLAttributes<HTMLDivElement>;
 
 function FileItem({
@@ -31,7 +29,6 @@ function FileItem({
     onAction,
     actionIcon,
     isLoading,
-    approveFile,
     ...props
 }: FileItemProps) {
     return (

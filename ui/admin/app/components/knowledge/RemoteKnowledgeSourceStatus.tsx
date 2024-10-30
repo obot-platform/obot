@@ -2,6 +2,7 @@ import React from "react";
 
 import {
     KnowledgeSource,
+    KnowledgeSourceStatus,
     RemoteKnowledgeSourceType,
 } from "~/lib/model/knowledge";
 
@@ -19,7 +20,8 @@ const RemoteKnowledgeSourceStatus: React.FC<
 > = ({ source, sourceType }) => {
     return (
         <div className="flex flex-row mt-2 flex items-center">
-            {source?.state === "syncing" && (
+            {(source?.state === KnowledgeSourceStatus.Syncing ||
+                source?.state === KnowledgeSourceStatus.Pending) && (
                 <>
                     <RemoteFileAvatar knowledgeSourceType={sourceType} />
                     <span className="text-sm mr-2 text-gray-500">

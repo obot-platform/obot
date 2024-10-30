@@ -123,6 +123,7 @@ export type KnowledgeFile = {
     checksum: string;
     approved: boolean;
     lastRunID: string;
+    error: string;
 };
 
 export function getRemoteFileDisplayName(item: KnowledgeFile) {
