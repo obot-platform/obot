@@ -20,6 +20,9 @@ func Router(services *services.Services) (http.Handler, error) {
 	webhooks := handlers.NewWebhookHandler()
 	cronJobs := handlers.NewCronJobHandler()
 
+	// Version
+	mux.HandleFunc("GET /api/version", handlers.GetVersion)
+
 	// Agents
 	mux.HandleFunc("GET /api/agents", agents.List)
 	mux.HandleFunc("GET /api/agents/{id}", agents.ByID)
