@@ -1,4 +1,4 @@
-import { CheckIcon, PlusIcon, RotateCcwIcon } from "lucide-react";
+import { CheckIcon, FileClock, PlusIcon, RotateCcwIcon } from "lucide-react";
 
 import {
     KnowledgeFile,
@@ -19,7 +19,7 @@ import { LoadingSpinner } from "../ui/LoadingSpinner";
 const fileStateIcons: Record<KnowledgeFileState, [React.ElementType, string]> =
     {
         [KnowledgeFileState.PendingApproval]: [PlusIcon, ""],
-        [KnowledgeFileState.Pending]: [LoadingSpinner, ""],
+        [KnowledgeFileState.Pending]: [FileClock, ""],
         [KnowledgeFileState.Ingesting]: [LoadingSpinner, ""],
         [KnowledgeFileState.Ingested]: [CheckIcon, "text-green-500"],
         [KnowledgeFileState.Error]: [RotateCcwIcon, "text-destructive"],

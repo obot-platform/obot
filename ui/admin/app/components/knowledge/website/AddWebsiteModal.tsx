@@ -44,6 +44,7 @@ const AddWebsiteModal: FC<AddWebsiteModalProps> = ({
                     agentId,
                     knowledgeSource.id!,
                     {
+                        ...knowledgeSource,
                         websiteCrawlingConfig: {
                             urls: [
                                 ...(knowledgeSource.websiteCrawlingConfig

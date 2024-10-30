@@ -64,7 +64,6 @@ export const NotionModal: FC<NotionModalProps> = ({
                 agentId,
                 knowledgeSource!.id!
             );
-            console.log(authUrl);
             setAuthUrl(authUrl);
         };
         postLogin();

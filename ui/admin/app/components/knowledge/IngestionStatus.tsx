@@ -82,7 +82,8 @@ const IngestionStatusComponent = ({
                     } else if (
                         totalCount > 0 &&
                         queuedCount === 0 &&
-                        ingestingCount === 0
+                        ingestingCount === 0 &&
+                        ingestedCount > 0
                     ) {
                         return (
                             <>

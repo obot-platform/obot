@@ -70,7 +70,6 @@ export const OnedriveModal: FC<OnedriveModalProps> = ({
                 agentId,
                 knowledgeSource!.id!
             );
-            console.log(authUrl);
             setAuthUrl(authUrl);
         };
         postLogin();
