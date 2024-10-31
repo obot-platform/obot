@@ -20,7 +20,6 @@ export function CopyText({
     holdStatusDelay,
 }: {
     text: string;
-    label?: string;
     displayText?: string;
     className?: string;
     holdStatusDelay?: number;
@@ -38,7 +37,7 @@ export function CopyText({
     return (
         <div
             className={cn(
-                "flex items-center gap-2 bg-secondary rounded-md overflow-hidden",
+                "flex items-center gap-2 bg-secondary rounded-md w-fit overflow-hidden",
                 className
             )}
         >
