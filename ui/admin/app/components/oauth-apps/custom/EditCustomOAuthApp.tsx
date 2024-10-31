@@ -1,9 +1,7 @@
 import { PenBoxIcon } from "lucide-react";
 import { useState } from "react";
-import { mutate } from "swr";
 
 import { OAuthApp } from "~/lib/model/oauthApps";
-import { OauthAppService } from "~/lib/service/api/oauthAppService";
 
 import { Button } from "~/components/ui/button";
 import {
@@ -38,10 +36,7 @@ export function EditCustomOAuthApp({ app }: EditCustomOAuthAppProps) {
 
                 <CustomOAuthAppForm
                     defaultData={app}
-                    onComplete={() => {
-                        mutate(OauthAppService.getOauthApps.key());
-                        setIsOpen(false);
-                    }}
+                    onComplete={() => setIsOpen(false)}
                     onCancel={() => setIsOpen(false)}
                 />
             </DialogContent>

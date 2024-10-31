@@ -1,8 +1,5 @@
 import { PlusIcon } from "lucide-react";
 import { useState } from "react";
-import { mutate } from "swr";
-
-import { OauthAppService } from "~/lib/service/api/oauthAppService";
 
 import { Button } from "~/components/ui/button";
 import {
@@ -37,10 +34,7 @@ export function CreateCustomOAuthApp() {
                 </DialogDescription>
 
                 <CustomOAuthAppForm
-                    onComplete={() => {
-                        setIsOpen(false);
-                        mutate(OauthAppService.getOauthApps.key());
-                    }}
+                    onComplete={() => setIsOpen(false)}
                     onCancel={() => setIsOpen(false)}
                 />
             </DialogContent>

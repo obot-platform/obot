@@ -1,14 +1,16 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
-import { toast } from "sonner";
+import { mutate } from "swr";
 import { z } from "zod";
 
 import { OAuthApp } from "~/lib/model/oauthApps";
 import { OAuthProvider } from "~/lib/model/oauthApps/oauth-helpers";
+import { ConflictError } from "~/lib/service/api/apiErrors";
 import { OauthAppService } from "~/lib/service/api/oauthAppService";
 import { ErrorService } from "~/lib/service/errorService";
 
+import { TypographySmall } from "~/components/Typography";
 import { CopyText } from "~/components/composed/CopyText";
 import { ControlledInput } from "~/components/form/controlledInputs";
 import { Button } from "~/components/ui/button";
@@ -30,13 +32,13 @@ const nameSchema = z.object({
             /^[a-z0-9-]+$/,
             "Must contain only lowercase letters, numbers, and dashes (-)"
         ),
+    authURL: z.string().min(1, "Required"),
+    tokenURL: z.string().min(1, "Required"),
 });
 
 const finalSchema = nameSchema.extend({
     clientID: z.string().min(1, "Required"),
     clientSecret: z.string().min(1, "Required"),
-    authURL: z.string().min(1, "Required"),
-    tokenURL: z.string().min(1, "Required"),
 });
 
 const SchemaMap = {
@@ -59,10 +61,15 @@ export function CustomOAuthAppForm({
     onCancel,
     defaultStep = Step.NAME,
 }: CustomOAuthAppFormProps) {
-    const createApp = useAsync(OauthAppService.createOauthApp);
+    const createApp = useAsync(OauthAppService.createOauthApp, {
+        onSuccess: () => mutate(OauthAppService.getOauthApps.key()),
+    });
 
     const updateApp = useAsync(OauthAppService.updateOauthApp, {
-        onSuccess: onComplete,
+        onSuccess: () => {
+            mutate(OauthAppService.getOauthApps.key());
+            onComplete();
+        },
         onError: ErrorService.toastError,
     });
 
@@ -73,10 +80,11 @@ export function CustomOAuthAppForm({
     const isEdit = !!app;
 
     const [step, setStep] = useState<Step>(defaultStep);
-    const { isFinal, nextLabel, prevLabel, onBack, onNext } = getStepInfo(step);
+    const { isFinalStep, nextLabel, prevLabel, onBack, onNext, isLoading } =
+        getStepInfo(step);
 
     const defaultValues = useMemo(() => {
-        if (defaultData) return defaultData;
+        if (defaultData) return { ...defaultData, clientSecret: "" };
 
         return Object.keys(finalSchema.shape).reduce((acc, _key) => {
             const key = _key as keyof FormData;
@@ -108,32 +116,28 @@ export function CustomOAuthAppForm({
         if (step === Step.NAME) {
             // try creating the app if there is no existing app
             if (!isEdit) {
-                const result = await createApp.executeAsync({
+                const { error } = await createApp.executeAsync({
                     type: OAuthProvider.Custom,
                     global: true,
                     ...data,
                 });
 
-                if (result.error) {
-                    toast.error("Failed to create OAuth app");
-                    form.setError("integration", {
-                        message: "Integration name already taken",
-                    });
+                if (error instanceof ConflictError)
+                    form.setError("integration", { message: error.message });
 
-                    // do not proceed to the next step if there's an error
-                    return;
-                }
+                // do not proceed to the next step if there's an error
+                if (error) return;
             }
         }
 
-        if (!isFinal) {
+        if (!isFinalStep) {
             onNext();
             return;
         }
 
         if (!app) {
             // should never happen
-            // indicates that step 1 was not completed
+            // indicates that step 1 was not completed yet somehow we're on step 2
             throw new Error("App is required");
         }
 
@@ -146,7 +150,10 @@ export function CustomOAuthAppForm({
 
     return (
         <Form {...form}>
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <form
+                onSubmit={handleSubmit}
+                className="space-y-4 overflow-x-hidden"
+            >
                 {step === Step.NAME && (
                     <>
                         <ControlledInput
@@ -169,15 +176,31 @@ export function CustomOAuthAppForm({
                             name="integration"
                             label="Integration"
                         />
+
+                        <ControlledInput
+                            control={form.control}
+                            name="authURL"
+                            label="Authorization URL"
+                        />
+
+                        <ControlledInput
+                            control={form.control}
+                            name="tokenURL"
+                            label="Token URL"
+                        />
                     </>
                 )}
 
-                {step === Step.INFO && (
+                {step === Step.INFO && app && (
                     <>
-                        <CopyText
-                            text={app!.links.redirectURL}
-                            label="Redirect URL"
-                        />
+                        <div className="flex flex-col gap-2">
+                            <TypographySmall>Redirect URL</TypographySmall>
+
+                            <CopyText
+                                text={app.links.redirectURL}
+                                className="w-full justify-between"
+                            />
+                        </div>
 
                         <ControlledInput
                             control={form.control}
@@ -195,18 +218,6 @@ export function CustomOAuthAppForm({
                                 initialIsEdit ? "(Unchanged)" : undefined
                             }
                         />
-
-                        <ControlledInput
-                            control={form.control}
-                            name="authURL"
-                            label="Authorization URL"
-                        />
-
-                        <ControlledInput
-                            control={form.control}
-                            name="tokenURL"
-                            label="Token URL"
-                        />
                     </>
                 )}
 
@@ -220,7 +231,11 @@ export function CustomOAuthAppForm({
                         {prevLabel}
                     </Button>
 
-                    <Button className="flex-1 w-full" type="submit">
+                    <Button
+                        loading={isLoading}
+                        className="flex-1 w-full"
+                        type="submit"
+                    >
                         {nextLabel}
                     </Button>
                 </div>
@@ -231,10 +246,11 @@ export function CustomOAuthAppForm({
     function getStepInfo(step: Step) {
         if (step === Step.INFO) {
             return {
-                isFinal: true,
+                isFinalStep: true,
                 nextLabel: "Submit",
                 prevLabel: "Back",
                 onBack: () => setStep((prev) => (prev - 1) as Step),
+                isLoading: updateApp.isLoading,
             } as const;
         }
 
@@ -242,9 +258,8 @@ export function CustomOAuthAppForm({
             nextLabel: "Next",
             prevLabel: "Cancel",
             onBack: onCancel,
-            onNext: () => {
-                return setStep((prev) => (prev + 1) as Step);
-            },
+            onNext: () => setStep((prev) => (prev + 1) as Step),
+            isLoading: createApp.isLoading,
         } as const;
     }
 }

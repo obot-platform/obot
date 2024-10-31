@@ -1,5 +1,7 @@
 // TODO: Add default configurations with auth tokens, etc. When ready
-import axios, { AxiosRequestConfig, AxiosResponse } from "axios";
+import axios, { AxiosRequestConfig, AxiosResponse, isAxiosError } from "axios";
+
+import { ConflictError } from "./apiErrors";
 
 export const ResponseHeaders = {
     ThreadId: "x-otto-thread-id",
@@ -23,6 +25,11 @@ export async function request<T, R = AxiosResponse<T>, D = unknown>({
         });
     } catch (error) {
         console.error(errorMessage);
+
+        if (isAxiosError(error) && error.response?.status === 409) {
+            throw new ConflictError(error.response.data);
+        }
+
         throw error;
     }
 }
