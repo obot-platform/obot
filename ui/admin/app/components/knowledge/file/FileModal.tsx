@@ -1,8 +1,7 @@
 import { UploadIcon } from "lucide-react";
 import { useCallback, useRef } from "react";
-import { SWRResponse } from "swr";
 
-import { KnowledgeFile, KnowledgeFileState } from "~/lib/model/knowledge";
+import { KnowledgeFile } from "~/lib/model/knowledge";
 import { KnowledgeService } from "~/lib/service/api/knowledgeService";
 import { cn } from "~/lib/utils";
 
@@ -30,7 +29,6 @@ import IngestionStatusComponent from "../IngestionStatus";
 
 interface FileModalProps {
     agentId: string;
-    getLocalFiles: SWRResponse<KnowledgeFile[], Error>;
     isOpen: boolean;
     onOpenChange: (open: boolean) => void;
     startPolling: () => void;
@@ -39,7 +37,6 @@ interface FileModalProps {
 
 function FileModal({
     agentId,
-    getLocalFiles,
     startPolling,
     files,
     isOpen,
@@ -51,51 +48,9 @@ function FileModal({
         async (_index: number, file: File) => {
             await new Promise((resolve) => setTimeout(resolve, 1000));
             await KnowledgeService.addKnowledgeFilesToAgent(agentId, file);
-
-            // once added, we can immediately mutate the cache value
-            // without revalidating.
-            // Revalidating here would cause knowledge to be refreshed
-            // for each file being uploaded, which is not desirable.
-            const newItem: KnowledgeFile = {
-                id: "",
-                fileName: file.name,
-                agentID: agentId,
-                // set ingestion status to starting to ensure polling is enabled
-                approved: true,
-                created: new Date().toISOString(),
-                state: KnowledgeFileState.PendingApproval,
-                knowledgeSetID: "",
-                knowledgeSourceID: "",
-                url: "",
-                updatedAt: "",
-                checksum: "",
-                lastRunID: "",
-                error: "",
-            };
-
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            getLocalFiles.mutate(
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                (prev: any) => {
-                    const existingItemIndex = prev?.findIndex(
-                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                        (item: any) => item.fileName === newItem.fileName
-                    );
-                    if (existingItemIndex !== -1 && prev) {
-                        const updatedPrev = [...prev];
-                        updatedPrev[existingItemIndex!] = newItem;
-                        return updatedPrev;
-                    } else {
-                        return [newItem, ...(prev || [])];
-                    }
-                },
-                {
-                    revalidate: false,
-                }
-            );
             startPolling();
         },
-        [agentId, getLocalFiles, startPolling]
+        [agentId, startPolling]
     );
 
     // use multi async to handle uploading multiple files at once
@@ -116,11 +71,7 @@ function FileModal({
             agentId,
             item.fileName
         );
-
-        // optomistic update without cache revalidation
-        getLocalFiles.mutate((prev: KnowledgeFile[] | undefined) =>
-            prev?.filter((prevItem) => prevItem.fileName !== item.fileName)
-        );
+        startPolling();
     });
 
     return (

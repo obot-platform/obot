@@ -47,6 +47,7 @@ export default function AgentKnowledgePanel({ agentId }: { agentId: string }) {
                                     ...item,
                                 }) as KnowledgeFile
                         )
+                        .filter((item) => !item.deleted)
             ),
         {
             revalidateOnFocus: false,
@@ -84,10 +85,10 @@ export default function AgentKnowledgePanel({ agentId }: { agentId: string }) {
     );
 
     let notionSource = knowledgeSources.find((source) => source.notionConfig);
-    let onedriveSource = knowledgeSources.find(
+    const onedriveSource = knowledgeSources.find(
         (source) => source.onedriveConfig
     );
-    let websiteSource = knowledgeSources.find(
+    const websiteSource = knowledgeSources.find(
         (source) => source.websiteCrawlingConfig
     );
 
@@ -258,7 +259,7 @@ export default function AgentKnowledgePanel({ agentId }: { agentId: string }) {
         } else {
             setBlockPollingNotionFiles(false);
         }
-    }, [notionFiles]);
+    }, [notionFiles, notionSource?.state]);
 
     useEffect(() => {
         if (
@@ -280,7 +281,7 @@ export default function AgentKnowledgePanel({ agentId }: { agentId: string }) {
         } else {
             setBlockPollingOneDriveFiles(false);
         }
-    }, [onedriveFiles]);
+    }, [onedriveFiles, onedriveSource?.state]);
 
     useEffect(() => {
         if (
@@ -302,10 +303,9 @@ export default function AgentKnowledgePanel({ agentId }: { agentId: string }) {
         } else {
             setBlockPollingWebsiteFiles(false);
         }
-    }, [websiteFiles]);
+    }, [websiteFiles, websiteSource?.state]);
 
     useEffect(() => {
-        notionSource = knowledgeSources.find((source) => source.notionConfig);
         if (
             !notionSource ||
             notionSource?.state === KnowledgeSourceStatus.Synced
@@ -316,9 +316,6 @@ export default function AgentKnowledgePanel({ agentId }: { agentId: string }) {
             setBlockPollingNotion(false);
         }
 
-        onedriveSource = knowledgeSources.find(
-            (source) => source.onedriveConfig
-        );
         if (
             !onedriveSource ||
             onedriveSource?.state === KnowledgeSourceStatus.Synced
@@ -329,9 +326,6 @@ export default function AgentKnowledgePanel({ agentId }: { agentId: string }) {
             setBlockPollingOneDrive(false);
         }
 
-        websiteSource = knowledgeSources.find(
-            (source) => source.websiteCrawlingConfig
-        );
         if (
             !websiteSource ||
             websiteSource?.state === KnowledgeSourceStatus.Synced
@@ -341,7 +335,15 @@ export default function AgentKnowledgePanel({ agentId }: { agentId: string }) {
         } else {
             setBlockPollingWebsite(false);
         }
-    }, [getKnowledgeSources]);
+    }, [
+        getKnowledgeSources,
+        notionSource,
+        onedriveSource,
+        websiteSource,
+        getNotionFiles,
+        getOnedriveFiles,
+        getWebsiteFiles,
+    ]);
 
     return (
         <div className="flex flex-col gap-4 justify-center items-center">
@@ -456,7 +458,6 @@ export default function AgentKnowledgePanel({ agentId }: { agentId: string }) {
                 onOpenChange={setIsAddFileModalOpen}
                 startPolling={startPollingLocalFiles}
                 files={localFiles}
-                getLocalFiles={getLocalFiles}
             />
             <NotionModal
                 agentId={agentId}

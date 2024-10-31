@@ -113,6 +113,7 @@ type FolderSet = {
 export type KnowledgeFile = {
     id: string;
     created: string;
+    deleted: string;
     fileName: string;
     state: KnowledgeFileState;
     agentID: string;
