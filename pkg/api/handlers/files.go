@@ -13,7 +13,6 @@ import (
 	"github.com/otto8-ai/otto8/pkg/api"
 	v1 "github.com/otto8-ai/otto8/pkg/storage/apis/otto.gptscript.ai/v1"
 	"github.com/otto8-ai/otto8/pkg/storage/selectors"
-	"github.com/otto8-ai/otto8/pkg/workspace"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
@@ -98,7 +97,7 @@ func uploadKnowledgeToWorkspace(req api.Context, gClient *gptscript.GPTScript, w
 	file := v1.KnowledgeFile{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: v1.ObjectNameFromAbsolutePath(
-				filepath.Join(workspace.GetDir(ws.Status.WorkspaceID), filename),
+				filepath.Join(ws.Status.WorkspaceID, filename),
 			),
 			Namespace: ws.Namespace,
 		},
@@ -212,12 +211,10 @@ func deleteKnowledge(req api.Context, filename string, knowledgeSetName string) 
 }
 
 func deleteKnowledgeFromWorkspace(req api.Context, filename string, ws *v1.Workspace) error {
-	fileObjectName := v1.ObjectNameFromAbsolutePath(filepath.Join(workspace.GetDir(ws.Status.WorkspaceID), filename))
-
 	if err := req.Delete(&v1.KnowledgeFile{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: ws.Namespace,
-			Name:      fileObjectName,
+			Name:      v1.ObjectNameFromAbsolutePath(filepath.Join(ws.Status.WorkspaceID, filename)),
 		},
 	}); err != nil {
 		return err
