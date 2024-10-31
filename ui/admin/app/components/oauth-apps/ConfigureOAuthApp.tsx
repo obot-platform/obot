@@ -36,7 +36,6 @@ export function ConfigureOAuthApp({ type }: { type: OAuthProvider }) {
         await OauthAppService.createOauthApp({
             ...data,
             type,
-            refName: type,
             global: true,
             integration: type,
         });
@@ -54,7 +53,6 @@ export function ConfigureOAuthApp({ type }: { type: OAuthProvider }) {
         await OauthAppService.updateOauthApp(appOverride.id, {
             ...data,
             type: appOverride.type,
-            refName: appOverride.refName,
             global: appOverride.global,
             integration: appOverride.integration,
         });

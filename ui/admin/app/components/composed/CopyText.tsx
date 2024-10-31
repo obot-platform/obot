@@ -4,7 +4,7 @@ import { toast } from "sonner";
 
 import { cn } from "~/lib/utils";
 
-import { TypographyP } from "~/components/Typography";
+import { TypographyP, TypographySmall } from "~/components/Typography";
 import { Button } from "~/components/ui/button";
 import {
     Tooltip,
@@ -18,8 +18,10 @@ export function CopyText({
     displayText = text,
     className,
     holdStatusDelay,
+    label,
 }: {
     text: string;
+    label?: string;
     displayText?: string;
     className?: string;
     holdStatusDelay?: number;
@@ -35,44 +37,47 @@ export function CopyText({
     }, [isCopied, holdStatusDelay]);
 
     return (
-        <div
-            className={cn(
-                "flex items-center gap-2 bg-secondary rounded-md w-fit overflow-hidden",
-                className
-            )}
-        >
-            <TooltipProvider>
-                <Tooltip>
-                    <TooltipTrigger
-                        type="button"
-                        onClick={() => handleCopy(text)}
-                        className="decoration-dotted underline-offset-4 underline text-ellipsis overflow-hidden text-nowrap"
-                    >
-                        <TypographyP className="truncate break-words p-2">
-                            {displayText}
-                        </TypographyP>
-                    </TooltipTrigger>
+        <div className={cn("flex flex-col gap-2", className)}>
+            {label && <TypographySmall>{label}</TypographySmall>}
 
-                    <TooltipContent>
-                        <b>Copy: </b>
-                        {text}
-                    </TooltipContent>
-                </Tooltip>
-            </TooltipProvider>
-
-            <Button
-                size="icon"
-                onClick={() => handleCopy(text)}
-                className="aspect-square"
-                variant="ghost"
-                type="button"
-            >
-                {isCopied ? (
-                    <ClipboardCheckIcon className="text-success" />
-                ) : (
-                    <ClipboardIcon />
+            <div
+                className={cn(
+                    "flex items-center gap-2 bg-secondary rounded-md w-fit overflow-hidden"
                 )}
-            </Button>
+            >
+                <TooltipProvider>
+                    <Tooltip>
+                        <TooltipTrigger
+                            type="button"
+                            onClick={() => handleCopy(text)}
+                            className="decoration-dotted underline-offset-4 underline text-ellipsis overflow-hidden text-nowrap"
+                        >
+                            <TypographyP className="truncate break-words p-2">
+                                {displayText}
+                            </TypographyP>
+                        </TooltipTrigger>
+
+                        <TooltipContent>
+                            <b>Copy: </b>
+                            {text}
+                        </TooltipContent>
+                    </Tooltip>
+                </TooltipProvider>
+
+                <Button
+                    size="icon"
+                    onClick={() => handleCopy(text)}
+                    className="aspect-square"
+                    variant="ghost"
+                    type="button"
+                >
+                    {isCopied ? (
+                        <ClipboardCheckIcon className="text-success" />
+                    ) : (
+                        <ClipboardIcon />
+                    )}
+                </Button>
+            </div>
         </div>
     );
 

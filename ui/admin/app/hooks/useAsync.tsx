@@ -1,5 +1,6 @@
 import { useCallback, useState } from "react";
 
+import { handlePromise } from "~/lib/service/async";
 import { noop } from "~/lib/utils";
 
 type Config<TData, TParams extends unknown[]> = {
@@ -40,7 +41,7 @@ export function useAsync<TData, TParams extends unknown[]>(
                     onSettled?.({ params });
                 });
 
-            return promise;
+            return handlePromise(promise);
         },
         [callback, onSuccess, onError, onSettled]
     );

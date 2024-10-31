@@ -1,5 +1,6 @@
 import { useCallback, useState } from "react";
 
+import { handlePromise } from "~/lib/service/async";
 import { noop } from "~/lib/utils";
 
 type MultiConfig<TData, TParams extends unknown[]> = {
@@ -77,6 +78,8 @@ export function useMultiAsync<TData, TParams extends unknown[]>(
             } finally {
                 onSettled?.({ params: paramsList });
             }
+
+            return await Promise.all(promises.map((p) => handlePromise(p)));
         },
         [callback, onSuccess, onError, onSettled]
     );

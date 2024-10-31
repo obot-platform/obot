@@ -33,8 +33,7 @@ type BaseProps<
 export type ControlledInputProps<
     TValues extends FieldValues,
     TName extends FieldPath<TValues>,
-> = Omit<InputProps, keyof ControllerRenderProps<TValues, TName>> &
-    BaseProps<TValues, TName>;
+> = InputProps & BaseProps<TValues, TName>;
 
 export function ControlledInput<
     TValues extends FieldValues,
@@ -45,6 +44,7 @@ export function ControlledInput<
     label,
     className,
     description,
+    onChange,
     ...inputProps
 }: ControlledInputProps<TValues, TName>) {
     return (
@@ -55,14 +55,14 @@ export function ControlledInput<
                 <FormItem>
                     {label && <FormLabel>{label}</FormLabel>}
 
-                    {description && (
-                        <FormDescription hidden>{description}</FormDescription>
-                    )}
-
                     <FormControl>
                         <Input
                             {...field}
                             {...inputProps}
+                            onChange={(e) => {
+                                field.onChange(e);
+                                onChange?.(e);
+                            }}
                             className={cn(
                                 getFieldStateClasses(fieldState),
                                 className
@@ -71,6 +71,10 @@ export function ControlledInput<
                     </FormControl>
 
                     <FormMessage />
+
+                    {description && (
+                        <FormDescription>{description}</FormDescription>
+                    )}
                 </FormItem>
             )}
         />

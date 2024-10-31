@@ -48,11 +48,20 @@ export type OAuthAppParams = {
 export type OAuthAppBase = OAuthAppParams & {
     name?: string;
     type: OAuthProvider;
-    refName: string;
     global: boolean;
+};
+
+export type CreateOAuthApp = Partial<OAuthAppBase> & {
+    type: OAuthProvider;
+    integration: string;
 };
 
 export type OAuthApp = EntityMeta &
     OAuthAppBase & {
         refNameAssigned?: boolean;
+        links: {
+            authURL: string;
+            tokenURL: string;
+            redirectURL: string;
+        };
     };

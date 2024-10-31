@@ -1,4 +1,4 @@
-import { OAuthApp, OAuthAppBase } from "~/lib/model/oauthApps";
+import { CreateOAuthApp, OAuthApp, OAuthAppBase } from "~/lib/model/oauthApps";
 import { ApiRoutes } from "~/lib/routers/apiRoutes";
 
 import { request } from "./primitives";
@@ -28,7 +28,7 @@ getOauthAppById.key = (id?: Nullish<string>) => {
     return { url: ApiRoutes.oauthApps.getOauthAppById(id).path, id };
 };
 
-const createOauthApp = async (oauthApp: OAuthAppBase) => {
+const createOauthApp = async (oauthApp: CreateOAuthApp) => {
     const res = await request<OAuthApp>({
         url: ApiRoutes.oauthApps.createOauthApp().url,
         method: "POST",
@@ -39,7 +39,7 @@ const createOauthApp = async (oauthApp: OAuthAppBase) => {
     return res.data;
 };
 
-const updateOauthApp = async (id: string, oauthApp: OAuthAppBase) => {
+const updateOauthApp = async (id: string, oauthApp: Partial<OAuthAppBase>) => {
     const res = await request<OAuthApp>({
         url: ApiRoutes.oauthApps.updateOauthApp(id).url,
         method: "PATCH",
