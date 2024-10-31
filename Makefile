@@ -3,8 +3,7 @@
 default: build
 
 # All target
-all:
-	$(MAKE) ui
+all: ui
 	$(MAKE) build
 
 ui: ui-admin ui-user
@@ -44,9 +43,7 @@ lint-admin:
 package-tools:
 	./tools/package-tools.sh
 
-in-docker-build:
-	$(MAKE) all
-	$(MAKE) package-tools
+in-docker-build: all package-tools
 
 no-changes:
 	@if [ -n "$$(git status --porcelain)" ]; then \
