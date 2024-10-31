@@ -32,8 +32,8 @@ const nameSchema = z.object({
             /^[a-z0-9-]+$/,
             "Must contain only lowercase letters, numbers, and dashes (-)"
         ),
-    authURL: z.string().min(1, "Required"),
-    tokenURL: z.string().min(1, "Required"),
+    authURL: z.string().url("Invalid URL").min(1, "Required"),
+    tokenURL: z.string().url("Invalid URL").min(1, "Required"),
 });
 
 const finalSchema = nameSchema.extend({
@@ -80,8 +80,6 @@ export function CustomOAuthAppForm({
     const isEdit = !!app;
 
     const [step, setStep] = useState<Step>(defaultStep);
-    const { isFinalStep, nextLabel, prevLabel, onBack, onNext, isLoading } =
-        getStepInfo(step);
 
     const defaultValues = useMemo(() => {
         if (defaultData) return { ...defaultData, clientSecret: "" };
@@ -98,7 +96,9 @@ export function CustomOAuthAppForm({
         if (step === Step.INFO && initialIsEdit)
             // clientSecret is not required for editing
             // leaving secret empty indicates that it's unchanged
-            return finalSchema.partial({ clientSecret: true });
+            return finalSchema.extend({
+                clientSecret: z.string(),
+            });
 
         return SchemaMap[step];
     };
@@ -107,6 +107,16 @@ export function CustomOAuthAppForm({
         resolver: zodResolver(getStepSchema(step)),
         defaultValues,
     });
+
+    const {
+        isFinalStep,
+        nextLabel,
+        prevLabel,
+        onBack,
+        onNext,
+        isLoading,
+        disableSubmit,
+    } = getStepInfo(step);
 
     useEffect(() => {
         form.reset(defaultValues);
@@ -235,6 +245,7 @@ export function CustomOAuthAppForm({
                         loading={isLoading}
                         className="flex-1 w-full"
                         type="submit"
+                        disabled={disableSubmit}
                     >
                         {nextLabel}
                     </Button>
@@ -251,6 +262,8 @@ export function CustomOAuthAppForm({
                 prevLabel: "Back",
                 onBack: () => setStep((prev) => (prev - 1) as Step),
                 isLoading: updateApp.isLoading,
+                disableSubmit:
+                    !form.formState.isValid || !form.formState.isDirty,
             } as const;
         }
 
