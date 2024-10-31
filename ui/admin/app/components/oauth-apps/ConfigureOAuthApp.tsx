@@ -9,10 +9,8 @@ import { OauthAppService } from "~/lib/service/api/oauthAppService";
 import { Button } from "~/components/ui/button";
 import {
     Dialog,
-    DialogClose,
     DialogContent,
     DialogDescription,
-    DialogFooter,
     DialogTitle,
     DialogTrigger,
 } from "~/components/ui/dialog";
@@ -24,13 +22,18 @@ import { useDisclosure } from "~/hooks/useDisclosure";
 import { OAuthAppForm } from "./OAuthAppForm";
 import { OAuthAppTypeIcon } from "./OAuthAppTypeIcon";
 
-export function ConfigureOAuthApp({ type }: { type: OAuthProvider }) {
+export function ConfigureOAuthApp({
+    type,
+    onSuccess,
+}: {
+    type: OAuthProvider;
+    onSuccess: () => void;
+}) {
     const spec = useOAuthAppInfo(type);
     const { appOverride } = spec;
     const isEdit = !!appOverride;
 
     const modal = useDisclosure();
-    const successModal = useDisclosure();
 
     const createApp = useAsync(async (data: OAuthAppParams) => {
         await OauthAppService.createOauthApp({
@@ -44,8 +47,8 @@ export function ConfigureOAuthApp({ type }: { type: OAuthProvider }) {
         await mutate(OauthAppService.getOauthApps.key());
 
         modal.onClose();
-        successModal.onOpen();
         toast.success(`${spec.displayName} OAuth configuration created`);
+        onSuccess();
     });
 
     const updateApp = useAsync(async (data: OAuthAppParams) => {
@@ -62,8 +65,8 @@ export function ConfigureOAuthApp({ type }: { type: OAuthProvider }) {
         await mutate(OauthAppService.getOauthApps.key());
 
         modal.onClose();
-        successModal.onOpen();
         toast.success(`${spec.displayName} OAuth configuration updated`);
+        onSuccess();
     });
 
     return (
@@ -107,28 +110,6 @@ export function ConfigureOAuthApp({ type }: { type: OAuthProvider }) {
                             }
                         />
                     </ScrollArea>
-                </DialogContent>
-            </Dialog>
-
-            <Dialog
-                open={successModal.isOpen}
-                onOpenChange={successModal.onOpenChange}
-            >
-                <DialogContent>
-                    <DialogTitle>
-                        Successfully Configured {spec.displayName} OAuth App
-                    </DialogTitle>
-
-                    <DialogDescription>
-                        Otto will now use your custom {spec.displayName} OAuth
-                        app to authenticate users.
-                    </DialogDescription>
-
-                    <DialogFooter>
-                        <DialogClose asChild>
-                            <Button className="w-full">Close</Button>
-                        </DialogClose>
-                    </DialogFooter>
                 </DialogContent>
             </Dialog>
         </>

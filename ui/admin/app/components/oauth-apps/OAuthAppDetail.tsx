@@ -1,4 +1,5 @@
 import { SettingsIcon } from "lucide-react";
+import { useState } from "react";
 
 import { OAuthApp } from "~/lib/model/oauthApps";
 import {
@@ -11,8 +12,10 @@ import { TypographyP } from "~/components/Typography";
 import { Button } from "~/components/ui/button";
 import {
     Dialog,
+    DialogClose,
     DialogContent,
     DialogDescription,
+    DialogFooter,
     DialogHeader,
     DialogTitle,
     DialogTrigger,
@@ -38,43 +41,77 @@ export function OAuthAppDetail({
 }) {
     const spec = useOAuthAppInfo(type);
 
+    const [successModalOpen, setSuccessModalOpen] = useState(false);
+
     if (!spec) {
         console.error(`OAuth app ${type} not found`);
         return null;
     }
 
     return (
-        <Dialog>
-            <DialogTrigger asChild>
-                <Button size="icon" variant="ghost" className={cn(className)}>
-                    <SettingsIcon />
-                </Button>
-            </DialogTrigger>
+        <>
+            <Dialog>
+                <DialogTrigger asChild>
+                    <Button
+                        size="icon"
+                        variant="ghost"
+                        className={cn(className)}
+                    >
+                        <SettingsIcon />
+                    </Button>
+                </DialogTrigger>
 
-            <DialogDescription hidden>OAuth App Details</DialogDescription>
+                <DialogDescription hidden>OAuth App Details</DialogDescription>
 
-            <DialogContent>
-                <DialogHeader>
-                    <DialogTitle className="flex items-center gap-2">
-                        <OAuthAppTypeIcon type={type} />
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2">
+                            <OAuthAppTypeIcon type={type} />
 
-                        <span>{spec?.displayName}</span>
+                            <span>{spec?.displayName}</span>
 
-                        {spec.disableConfiguration && (
-                            <span>is not configurable</span>
-                        )}
+                            {spec.disableConfiguration && (
+                                <span>is not configurable</span>
+                            )}
+                        </DialogTitle>
+                    </DialogHeader>
+
+                    {spec.disableConfiguration ? (
+                        <DisabledContent spec={spec} />
+                    ) : spec?.appOverride ? (
+                        <Content
+                            app={spec.appOverride}
+                            spec={spec}
+                            onSuccess={() => setSuccessModalOpen(true)}
+                        />
+                    ) : (
+                        <EmptyContent
+                            spec={spec}
+                            onSuccess={() => setSuccessModalOpen(true)}
+                        />
+                    )}
+                </DialogContent>
+            </Dialog>
+
+            <Dialog open={successModalOpen} onOpenChange={setSuccessModalOpen}>
+                <DialogContent>
+                    <DialogTitle>
+                        Successfully Configured {spec.displayName} OAuth App
                     </DialogTitle>
-                </DialogHeader>
 
-                {spec.disableConfiguration ? (
-                    <DisabledContent spec={spec} />
-                ) : spec?.appOverride ? (
-                    <Content app={spec.appOverride} spec={spec} />
-                ) : (
-                    <EmptyContent spec={spec} />
-                )}
-            </DialogContent>
-        </Dialog>
+                    <DialogDescription>
+                        Otto will now use your custom {spec.displayName} OAuth
+                        app to authenticate users.
+                    </DialogDescription>
+
+                    <DialogFooter>
+                        <DialogClose asChild>
+                            <Button className="w-full">Close</Button>
+                        </DialogClose>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+        </>
     );
 }
 
@@ -82,7 +119,13 @@ function DisabledContent({ spec }: { spec: OAuthAppSpec }) {
     return <TypographyP>{spec.disabledReason}</TypographyP>;
 }
 
-function EmptyContent({ spec }: { spec: OAuthAppSpec }) {
+function EmptyContent({
+    spec,
+    onSuccess,
+}: {
+    spec: OAuthAppSpec;
+    onSuccess: () => void;
+}) {
     return (
         <div className="flex flex-col gap-2">
             <TypographyP>
@@ -95,12 +138,20 @@ function EmptyContent({ spec }: { spec: OAuthAppSpec }) {
                 clicking the button below.
             </TypographyP>
 
-            <ConfigureOAuthApp type={spec.type} />
+            <ConfigureOAuthApp type={spec.type} onSuccess={onSuccess} />
         </div>
     );
 }
 
-function Content({ app, spec }: { app: OAuthApp; spec: OAuthAppSpec }) {
+function Content({
+    app,
+    spec,
+    onSuccess,
+}: {
+    app: OAuthApp;
+    spec: OAuthAppSpec;
+    onSuccess: () => void;
+}) {
     return (
         <div className="flex flex-col gap-2">
             <TypographyP>
@@ -134,7 +185,7 @@ function Content({ app, spec }: { app: OAuthApp; spec: OAuthAppSpec }) {
                 <TypographyP>****************</TypographyP>
             </div>
 
-            <ConfigureOAuthApp type={app.type} />
+            <ConfigureOAuthApp type={app.type} onSuccess={onSuccess} />
             <DeleteOAuthApp type={app.type} disableTooltip id={app.id} />
         </div>
     );
