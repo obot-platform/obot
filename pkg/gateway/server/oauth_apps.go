@@ -104,7 +104,7 @@ func (s *Server) createOAuthApp(apiContext api.Context) error {
 		return apierrors.NewBadRequest(fmt.Sprintf("invalid OAuth app: %s", err))
 	}
 
-	if err := types.ValidateAndSetDefaultsOAuthAppManifest(appManifest); err != nil {
+	if err := types.ValidateAndSetDefaultsOAuthAppManifest(appManifest, true); err != nil {
 		return apierrors.NewBadRequest(fmt.Sprintf("invalid OAuth app: %s", err))
 	}
 
@@ -153,7 +153,7 @@ func (s *Server) updateOAuthApp(apiContext api.Context) error {
 	}
 
 	merged := types.MergeOAuthAppManifests(originalApp.Spec.Manifest, appManifest)
-	if err := types.ValidateAndSetDefaultsOAuthAppManifest(&merged); err != nil {
+	if err := types.ValidateAndSetDefaultsOAuthAppManifest(&merged, false); err != nil {
 		return apierrors.NewBadRequest(fmt.Sprintf("invalid OAuth app: %s", err))
 	}
 

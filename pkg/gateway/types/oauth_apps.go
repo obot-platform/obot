@@ -111,20 +111,8 @@ func SupportedOAuthAppTypeConfigs() map[types.OAuthAppType]OAuthAppTypeConfig {
 	}
 }
 
-func ValidateAndSetDefaultsOAuthAppManifest(r *types.OAuthAppManifest) error {
+func ValidateAndSetDefaultsOAuthAppManifest(r *types.OAuthAppManifest, create bool) error {
 	var errs []error
-	// Check for missing fields.
-	if r.ClientID == "" {
-		errs = append(errs, fmt.Errorf("missing clientID"))
-	} else if r.Type == types.OAuthAppTypeCustom && r.AuthURL == "" {
-		errs = append(errs, fmt.Errorf("missing authURL"))
-	} else if r.Type == types.OAuthAppTypeCustom && r.TokenURL == "" {
-		errs = append(errs, fmt.Errorf("missing tokenURL"))
-	} else if r.Type == types.OAuthAppTypeMicrosoft365 && r.TenantID == "" {
-		errs = append(errs, fmt.Errorf("missing tenantID"))
-	} else if r.Type == types.OAuthAppTypeHubSpot && r.AppID == "" {
-		errs = append(errs, fmt.Errorf("missing appID"))
-	}
 	if r.Integration == "" {
 		errs = append(errs, fmt.Errorf("missing integration"))
 	} else if !alphaNumericRegexp.MatchString(r.Integration) {
@@ -152,11 +140,38 @@ func ValidateAndSetDefaultsOAuthAppManifest(r *types.OAuthAppManifest) error {
 		r.TokenURL = GitHubTokenURL
 	}
 
-	// Validate URLs.
-	if _, err := url.Parse(r.AuthURL); err != nil {
-		errs = append(errs, fmt.Errorf("invalid authURL: %w", err))
-	} else if _, err := url.Parse(r.TokenURL); err != nil {
-		errs = append(errs, fmt.Errorf("invalid tokenURL: %w", err))
+	if r.AuthURL == "" {
+		errs = append(errs, fmt.Errorf("missing authURL"))
+	}
+	if r.TokenURL == "" {
+		errs = append(errs, fmt.Errorf("missing tokenURL"))
+	}
+
+	if r.AuthURL != "" && r.TokenURL != "" {
+		// Validate URLs.
+		// If the URLs are empty, then we don't need to validate them and an error would already be returned.
+		if _, err := url.Parse(r.AuthURL); err != nil {
+			errs = append(errs, fmt.Errorf("invalid authURL: %w", err))
+		} else if _, err := url.Parse(r.TokenURL); err != nil {
+			errs = append(errs, fmt.Errorf("invalid tokenURL: %w", err))
+		}
+	}
+
+	// Users are allowed to create OAuth Apps without specifying the fields that they would get from the provider.
+	// Things like client ID, client secret, app ID, tenant ID, etc.
+	// They will then have to update the Oauth App to add these fields.
+	if !create {
+		if r.ClientID == "" {
+			errs = append(errs, fmt.Errorf("missing clientID"))
+		}
+		if r.ClientSecret == "" {
+			errs = append(errs, fmt.Errorf("missing clientSecret"))
+		}
+		if r.Type == types.OAuthAppTypeHubSpot && r.AppID == "" {
+			errs = append(errs, fmt.Errorf("missing appID"))
+		} else if r.Type == types.OAuthAppTypeMicrosoft365 && r.TenantID == "" {
+			errs = append(errs, fmt.Errorf("missing tenantID"))
+		}
 	}
 
 	return errors.Join(errs...)
@@ -167,6 +182,9 @@ func MergeOAuthAppManifests(r, other types.OAuthAppManifest) types.OAuthAppManif
 
 	if other.ClientID != "" {
 		retVal.ClientID = other.ClientID
+	}
+	if other.ClientSecret != "" {
+		retVal.ClientSecret = other.ClientSecret
 	}
 	if other.AuthURL != "" {
 		retVal.AuthURL = other.AuthURL
@@ -191,6 +209,9 @@ func MergeOAuthAppManifests(r, other types.OAuthAppManifest) types.OAuthAppManif
 	}
 	if other.OptionalScope != "" {
 		retVal.OptionalScope = other.OptionalScope
+	}
+	if other.Global != nil {
+		retVal.Global = other.Global
 	}
 
 	return retVal

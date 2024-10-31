@@ -34,7 +34,7 @@ type OAuthAppManifest struct {
 	// This field is required, it correlates to the integration name in the gptscript oauth cred tool
 	Integration string `json:"integration,omitempty"`
 	// Global indicates if the OAuth app is globally applied to all agents.
-	Global bool `json:"global,omitempty"`
+	Global *bool `json:"global,omitempty"`
 }
 
 type OAuthAppList List[OAuthApp]
