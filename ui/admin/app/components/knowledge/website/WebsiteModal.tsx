@@ -173,110 +173,106 @@ export const WebsiteModal: FC<WebsiteModalProps> = ({
                         </TooltipProvider>
                     </div>
                 </DialogTitle>
-                <ScrollArea className="max-h-[45vh] overflow-x-auto">
-                    <div className="max-h-[400px] overflow-x-auto">
-                        {websites.map((website, index) => (
-                            <ScrollArea
+                <div className="max-h-[600px] overflow-x-auto">
+                    {websites.map((website, index) => (
+                        <ScrollArea
+                            key={index}
+                            className="max-h-[400px] overflow-x-auto"
+                        >
+                            {/* eslint-disable-next-line */}
+                            <div
                                 key={index}
-                                className="max-h-[400px] overflow-x-auto"
+                                className="flex items-center justify-between mb-2 overflow-x-auto"
+                                onClick={() => {
+                                    if (
+                                        showTable[index] === undefined ||
+                                        showTable[index] === false
+                                    ) {
+                                        setShowTable((prev) => ({
+                                            ...prev,
+                                            [index]: true,
+                                        }));
+                                    } else {
+                                        setShowTable((prev) => ({
+                                            ...prev,
+                                            [index]: false,
+                                        }));
+                                    }
+                                }}
                             >
-                                {/* eslint-disable-next-line */}
-                                <div
-                                    key={index}
-                                    className="flex items-center justify-between mb-2 overflow-x-auto"
-                                    onClick={() => {
-                                        if (
-                                            showTable[index] === undefined ||
-                                            showTable[index] === false
-                                        ) {
-                                            setShowTable((prev) => ({
-                                                ...prev,
-                                                [index]: true,
-                                            }));
-                                        } else {
-                                            setShowTable((prev) => ({
-                                                ...prev,
-                                                [index]: false,
-                                            }));
-                                        }
-                                    }}
-                                >
-                                    <span className="flex-1 mr-2 overflow-x-auto whitespace-nowrap dark:text-white">
-                                        <div className="flex items-center flex-r">
-                                            <Globe className="mr-2 h-4 w-4" />
-                                            <a
-                                                href={website}
-                                                target="_blank"
-                                                rel="noopener noreferrer"
-                                                className="underline"
-                                            >
-                                                {website}
-                                            </a>
-                                        </div>
-                                    </span>
-                                    <Button
-                                        variant="ghost"
-                                        onClick={() =>
-                                            handleRemoveWebsite(index)
-                                        }
-                                    >
-                                        <Trash className="h-4 w-4 dark:text-white" />
-                                    </Button>
-                                    {showTable[index] ? (
-                                        <ChevronUp className="h-4 w-4" />
-                                    ) : (
-                                        <ChevronDown className="h-4 w-4" />
-                                    )}
-                                </div>
-                                {showTable[index] && (
-                                    <div className="flex flex-col gap-2">
-                                        {files
-                                            .filter((item) => {
-                                                return (
-                                                    knowledgeSource?.syncDetails
-                                                        ?.websiteCrawlingState
-                                                        ?.pages?.[item.url!]
-                                                        ?.parentURL === website
-                                                );
-                                            })
-                                            .sort((a, b) =>
-                                                a.url!.localeCompare(b.url!)
-                                            )
-                                            .map((item) => (
-                                                <RemoteFileItemChip
-                                                    key={item.fileName}
-                                                    file={item}
-                                                    fileName={item.fileName}
-                                                    knowledgeSourceType={
-                                                        RemoteKnowledgeSourceType.Website
-                                                    }
-                                                    approveFile={async (
-                                                        file,
-                                                        approved
-                                                    ) => {
-                                                        await KnowledgeService.approveFile(
-                                                            agentId,
-                                                            file.id,
-                                                            approved
-                                                        );
-                                                        startPolling();
-                                                    }}
-                                                    reingestFile={(file) => {
-                                                        KnowledgeService.reingestFile(
-                                                            file.agentID,
-                                                            file.knowledgeSourceID,
-                                                            file.id
-                                                        );
-                                                        startPolling();
-                                                    }}
-                                                />
-                                            ))}
+                                <span className="flex-1 mr-2 overflow-x-auto whitespace-nowrap dark:text-white">
+                                    <div className="flex items-center flex-r">
+                                        <Globe className="mr-2 h-4 w-4" />
+                                        <a
+                                            href={website}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="underline"
+                                        >
+                                            {website}
+                                        </a>
                                     </div>
+                                </span>
+                                <Button
+                                    variant="ghost"
+                                    onClick={() => handleRemoveWebsite(index)}
+                                >
+                                    <Trash className="h-4 w-4 dark:text-white" />
+                                </Button>
+                                {showTable[index] ? (
+                                    <ChevronUp className="h-4 w-4" />
+                                ) : (
+                                    <ChevronDown className="h-4 w-4" />
                                 )}
-                            </ScrollArea>
-                        ))}
-                    </div>
-                </ScrollArea>
+                            </div>
+                            {showTable[index] && (
+                                <div className="flex flex-col gap-2">
+                                    {files
+                                        .filter((item) => {
+                                            return (
+                                                knowledgeSource?.syncDetails
+                                                    ?.websiteCrawlingState
+                                                    ?.pages?.[item.url!]
+                                                    ?.parentURL === website
+                                            );
+                                        })
+                                        .sort((a, b) =>
+                                            a.url!.localeCompare(b.url!)
+                                        )
+                                        .map((item) => (
+                                            <RemoteFileItemChip
+                                                key={item.fileName}
+                                                file={item}
+                                                fileName={item.fileName}
+                                                knowledgeSourceType={
+                                                    RemoteKnowledgeSourceType.Website
+                                                }
+                                                approveFile={async (
+                                                    file,
+                                                    approved
+                                                ) => {
+                                                    await KnowledgeService.approveFile(
+                                                        agentId,
+                                                        file.id,
+                                                        approved
+                                                    );
+                                                    startPolling();
+                                                }}
+                                                reingestFile={(file) => {
+                                                    KnowledgeService.reingestFile(
+                                                        file.agentID,
+                                                        file.knowledgeSourceID,
+                                                        file.id
+                                                    );
+                                                    startPolling();
+                                                }}
+                                            />
+                                        ))}
+                                </div>
+                            )}
+                        </ScrollArea>
+                    ))}
+                </div>
 
                 {files?.some((item) => item.approved) && (
                     <IngestionStatusComponent files={files} />

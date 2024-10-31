@@ -2,7 +2,11 @@ import { Globe, SettingsIcon, UploadIcon } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import useSWR, { SWRResponse } from "swr";
 
-import { KnowledgeFile, KnowledgeFileState } from "~/lib/model/knowledge";
+import {
+    KnowledgeFile,
+    KnowledgeFileState,
+    KnowledgeSourceStatus,
+} from "~/lib/model/knowledge";
 import { KnowledgeService } from "~/lib/service/api/knowledgeService";
 import { assetUrl } from "~/lib/utils";
 
@@ -60,7 +64,12 @@ export default function AgentKnowledgePanel({ agentId }: { agentId: string }) {
         ({ agentId }) => KnowledgeService.getKnowledgeSourcesForAgent(agentId),
         {
             revalidateOnFocus: false,
-            refreshInterval: 5000,
+            refreshInterval:
+                blockPollingNotion &&
+                blockPollingOneDrive &&
+                blockPollingWebsite
+                    ? undefined
+                    : 1000,
         }
     );
     const knowledgeSources = useMemo(
@@ -68,11 +77,11 @@ export default function AgentKnowledgePanel({ agentId }: { agentId: string }) {
         [getKnowledgeSources.data]
     );
 
-    const notionSource = knowledgeSources.find((source) => source.notionConfig);
-    const onedriveSource = knowledgeSources.find(
+    let notionSource = knowledgeSources.find((source) => source.notionConfig);
+    let onedriveSource = knowledgeSources.find(
         (source) => source.onedriveConfig
     );
-    const websiteSource = knowledgeSources.find(
+    let websiteSource = knowledgeSources.find(
         (source) => source.websiteCrawlingConfig
     );
 
@@ -155,6 +164,10 @@ export default function AgentKnowledgePanel({ agentId }: { agentId: string }) {
             await KnowledgeService.createKnowledgeSource(agentId, {
                 notionConfig: {},
             });
+            getKnowledgeSources.mutate();
+            notionSource = getKnowledgeSources.data?.find(
+                (source) => source.notionConfig
+            );
         }
         setIsNotionModalOpen(true);
     };
@@ -174,16 +187,19 @@ export default function AgentKnowledgePanel({ agentId }: { agentId: string }) {
 
     const startPollingNotion = () => {
         getNotionFiles.mutate();
+        getKnowledgeSources.mutate();
         setBlockPollingNotion(false);
     };
 
     const startPollingOneDrive = () => {
         getOnedriveFiles.mutate();
+        getKnowledgeSources.mutate();
         setBlockPollingOneDrive(false);
     };
 
     const startPollingWebsite = () => {
         getWebsiteFiles.mutate();
+        getKnowledgeSources.mutate();
         setBlockPollingWebsite(false);
     };
 
@@ -231,6 +247,45 @@ export default function AgentKnowledgePanel({ agentId }: { agentId: string }) {
             setBlockPollingWebsite(true);
         }
     }, [websiteFiles]);
+
+    useEffect(() => {
+        notionSource = knowledgeSources.find((source) => source.notionConfig);
+        if (
+            !notionSource ||
+            notionSource?.state === KnowledgeSourceStatus.Synced
+        ) {
+            getNotionFiles.mutate();
+            setBlockPollingNotion(true);
+        } else {
+            setBlockPollingNotion(false);
+        }
+
+        onedriveSource = knowledgeSources.find(
+            (source) => source.onedriveConfig
+        );
+        if (
+            !onedriveSource ||
+            onedriveSource?.state === KnowledgeSourceStatus.Synced
+        ) {
+            getOnedriveFiles.mutate();
+            setBlockPollingOneDrive(true);
+        } else {
+            setBlockPollingOneDrive(false);
+        }
+
+        websiteSource = knowledgeSources.find(
+            (source) => source.websiteCrawlingConfig
+        );
+        if (
+            !websiteSource ||
+            websiteSource?.state === KnowledgeSourceStatus.Synced
+        ) {
+            getWebsiteFiles.mutate();
+            setBlockPollingWebsite(true);
+        } else {
+            setBlockPollingWebsite(false);
+        }
+    }, [getKnowledgeSources]);
 
     return (
         <div className="flex flex-col gap-4 justify-center items-center">

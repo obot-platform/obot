@@ -19,18 +19,18 @@ const RemoteKnowledgeSourceStatus: React.FC<
     RemoteKnowledgeSourceStatusProps
 > = ({ source, sourceType }) => {
     return (
-        <div className="flex flex-row mt-2 flex items-center">
+        <div className="flex flex-row mt-2 flex items-center max-w-[80%]">
             {(source?.state === KnowledgeSourceStatus.Syncing ||
                 source?.state === KnowledgeSourceStatus.Pending) && (
-                <>
+                <div className="flex flex-row items-center">
                     <RemoteFileAvatar knowledgeSourceType={sourceType} />
-                    <span className="text-sm mr-2 text-gray-500">
+                    <span className="text-sm mr-2 text-gray-500 flex items-center">
                         {source.status || "Syncing Files..."}
+                        <LoadingSpinner className="w-4 h-4 ml-2" />
                     </span>
-                    <LoadingSpinner className="w-4 h-4" />
-                </>
+                </div>
             )}
-            {source?.state === "error" && (
+            {source?.state === KnowledgeSourceStatus.Error && (
                 <span className="text-sm mr-2 text-destructive">
                     {source.error}
                 </span>

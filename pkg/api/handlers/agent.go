@@ -417,12 +417,6 @@ func (a *AgentHandler) ReSyncKnowledgeSource(req api.Context) error {
 		return err
 	}
 
-	knowledgeSource.Status.SyncState = types.KnowledgeSourceStatePending
-	knowledgeSource.Status.Status = ""
-	if err := req.Storage.Status().Update(req.Context(), &knowledgeSource); err != nil {
-		return err
-	}
-
 	req.WriteHeader(http.StatusNoContent)
 	return nil
 }

@@ -5,7 +5,6 @@ import {
     KnowledgeFile,
     KnowledgeFileState,
     KnowledgeSource,
-    KnowledgeSourceStatus,
     RemoteKnowledgeSourceType,
 } from "~/lib/model/knowledge";
 import { KnowledgeService } from "~/lib/service/api/knowledgeService";
@@ -199,7 +198,7 @@ export const NotionModal: FC<NotionModalProps> = ({
                 {files?.some(
                     (item) => item.state === KnowledgeFileState.Ingesting
                 ) && <IngestionStatusComponent files={files} />}
-                {knowledgeSource?.state === KnowledgeSourceStatus.Syncing && (
+                {!authUrl && (
                     <RemoteKnowledgeSourceStatus
                         source={knowledgeSource}
                         sourceType={RemoteKnowledgeSourceType.Notion}

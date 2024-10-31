@@ -294,7 +294,6 @@ export const OnedriveModal: FC<OnedriveModalProps> = ({
                                             ) : (
                                                 <span className="flex items-center">
                                                     Processing OneDrive link...
-                                                    <LoadingSpinner className="ml-2 h-4 w-4" />
                                                 </span>
                                             )}
                                         </span>
@@ -444,10 +443,12 @@ export const OnedriveModal: FC<OnedriveModalProps> = ({
                 {files?.some((item) => item.approved) && (
                     <IngestionStatusComponent files={files} />
                 )}
-                <RemoteKnowledgeSourceStatus
-                    source={knowledgeSource}
-                    sourceType={RemoteKnowledgeSourceType.OneDrive}
-                />
+                {!authUrl && (
+                    <RemoteKnowledgeSourceStatus
+                        source={knowledgeSource}
+                        sourceType={RemoteKnowledgeSourceType.OneDrive}
+                    />
+                )}
                 <div className="mt-4 flex justify-between">
                     <Button
                         className="approve-button"
