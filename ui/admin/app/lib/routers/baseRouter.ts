@@ -8,3 +8,9 @@ export const DomainUrl = () => {
 
     return window.location.origin;
 };
+
+export const ApiUrl = () => {
+    if (typeof window === "undefined") return "";
+
+    return window.location.origin + "/api";
+};

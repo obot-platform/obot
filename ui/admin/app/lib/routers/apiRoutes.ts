@@ -3,9 +3,9 @@ import { mutate } from "swr";
 
 import { ToolReferenceType } from "~/lib/model/toolReferences";
 
-// todo: We need to have a discussion on using https in dev
-export const apiBaseUrl = "http://localhost:8080/api" as const;
-const prodBaseUrl = new URL(apiBaseUrl).pathname;
+import { ApiUrl } from "./baseRouter";
+
+const prodBaseUrl = () => new URL(ApiUrl()).pathname;
 
 const buildUrl = (path: string, params?: object) => {
     const query = params
@@ -17,12 +17,12 @@ const buildUrl = (path: string, params?: object) => {
         import.meta.env.VITE_API_IN_BROWSER === "true"
     ) {
         return {
-            url: prodBaseUrl + path + (query ? "?" + query : ""),
+            url: prodBaseUrl() + path + (query ? "?" + query : ""),
             path,
         };
     }
 
-    const urlObj = new URL(apiBaseUrl + path + (query ? "?" + query : ""));
+    const urlObj = new URL(ApiUrl() + path + (query ? "?" + query : ""));
 
     return {
         url: urlObj.toString(),

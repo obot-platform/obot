@@ -1,6 +1,6 @@
 import { ZodObject, ZodType } from "zod";
 
-import { apiBaseUrl } from "~/lib/routers/apiRoutes";
+import { ApiUrl } from "~/lib/routers/baseRouter";
 
 export const OAuthProvider = {
     GitHub: "github",
@@ -46,8 +46,8 @@ export type OAuthAppSpec = {
 
 export function getOAuthLinks(type: OAuthProvider) {
     return {
-        authorizeURL: `${apiBaseUrl}/app-oauth/authorize/${type}`,
-        redirectURL: `${apiBaseUrl}/app-oauth/callback/${type}`,
-        refreshURL: `${apiBaseUrl}/app-oauth/refresh/${type}`,
+        authorizeURL: `${ApiUrl()}/app-oauth/authorize/${type}`,
+        redirectURL: `${ApiUrl()}/app-oauth/callback/${type}`,
+        refreshURL: `${ApiUrl()}/app-oauth/refresh/${type}`,
     };
 }
