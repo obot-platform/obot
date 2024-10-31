@@ -21,7 +21,6 @@ import { LoadingSpinner } from "~/components/ui/LoadingSpinner";
 import { Avatar } from "~/components/ui/avatar";
 import { Button } from "~/components/ui/button";
 import { Dialog, DialogContent, DialogTitle } from "~/components/ui/dialog";
-import { ScrollArea } from "~/components/ui/scroll-area";
 import {
     Tooltip,
     TooltipContent,
@@ -58,7 +57,7 @@ export const WebsiteModal: FC<WebsiteModalProps> = ({
     const [isAddWebsiteModalOpen, setIsAddWebsiteModalOpen] = useState(false);
     const [loading, setLoading] = useState(false);
     const [websites, setWebsites] = useState<string[]>([]);
-    const [showTable, setShowTable] = useState<{ [key: number]: boolean }>({});
+    const [hideTable, setHideTable] = useState<{ [key: number]: boolean }>({});
 
     useEffect(() => {
         setWebsites(knowledgeSource?.websiteCrawlingConfig?.urls ?? []);
@@ -107,16 +106,16 @@ export const WebsiteModal: FC<WebsiteModalProps> = ({
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
             <DialogContent
                 aria-describedby={undefined}
-                className="data-[state=open]:animate-contentShow fixed top-[50%] left-[50%] max-h-[85vh] w-[90vw] max-w-[900px] translate-x-[-50%] translate-y-[-50%] rounded-[6px] bg-white dark:bg-secondary p-[25px] shadow-[hsl(206_22%_7%_/_35%)_0px_10px_38px_-10px,_hsl(206_22%_7%_/_20%)_0px_10px_20px_-15px] focus:outline-none"
+                className="max-h-[85vh] max-w-[85vw] bg-white dark:bg-secondary"
             >
-                <DialogTitle className="flex flex-row items-center text-xl font-semibold mb-4 justify-between">
-                    <div className="flex flex-row items-center">
+                <DialogTitle className="flex flex-row items-center text-xl font-semibold mb-4 justify-between overflow-hidden">
+                    <div className="flex flex-row items-center overflow-hidden">
                         <Avatar className="flex-row items-center w-6 h-6 mr-2">
                             <Globe className="w-4 h-4" />
                         </Avatar>
-                        Website
+                        <span className="truncate">Website</span>
                     </div>
-                    <div>
+                    <div className="flex flex-row items-center overflow-hidden">
                         <TooltipProvider>
                             <Tooltip>
                                 <TooltipTrigger asChild>
@@ -164,6 +163,7 @@ export const WebsiteModal: FC<WebsiteModalProps> = ({
                                         }
                                         className="mr-2"
                                         tabIndex={-1}
+                                        disabled={!knowledgeSource}
                                     >
                                         <SettingsIcon className="w-4 h-4" />
                                     </Button>
@@ -173,27 +173,27 @@ export const WebsiteModal: FC<WebsiteModalProps> = ({
                         </TooltipProvider>
                     </div>
                 </DialogTitle>
-                <div className="max-h-[600px] overflow-x-auto">
+                <div className="flex flex-col gap-2 max-h-[90%] overflow-x-auto">
                     {websites.map((website, index) => (
-                        <ScrollArea
+                        <div
                             key={index}
-                            className="max-h-[400px] overflow-x-auto"
+                            className="flex flex-col gap-2 overflow-x-auto max-h-full"
                         >
-                            {/* eslint-disable-next-line */}
-                            <div
+                            <Button
                                 key={index}
-                                className="flex items-center justify-between mb-2 overflow-x-auto"
+                                variant="ghost"
+                                className="flex w-full items-center justify-between mb-2 overflow-x-auto"
                                 onClick={() => {
                                     if (
-                                        showTable[index] === undefined ||
-                                        showTable[index] === false
+                                        hideTable[index] === undefined ||
+                                        hideTable[index] === false
                                     ) {
-                                        setShowTable((prev) => ({
+                                        setHideTable((prev) => ({
                                             ...prev,
                                             [index]: true,
                                         }));
                                     } else {
-                                        setShowTable((prev) => ({
+                                        setHideTable((prev) => ({
                                             ...prev,
                                             [index]: false,
                                         }));
@@ -213,20 +213,41 @@ export const WebsiteModal: FC<WebsiteModalProps> = ({
                                         </a>
                                     </div>
                                 </span>
+                                <span className="mr-2 dark:text-white">
+                                    {
+                                        files.filter(
+                                            (item) =>
+                                                knowledgeSource?.syncDetails
+                                                    ?.websiteCrawlingState
+                                                    ?.pages?.[item.url!]
+                                                    ?.parentURL === website
+                                        ).length
+                                    }{" "}
+                                    {files.filter(
+                                        (item) =>
+                                            knowledgeSource?.syncDetails
+                                                ?.websiteCrawlingState?.pages?.[
+                                                item.url!
+                                            ]?.parentURL === website
+                                    ).length === 1
+                                        ? "file"
+                                        : "files"}
+                                </span>
                                 <Button
                                     variant="ghost"
                                     onClick={() => handleRemoveWebsite(index)}
                                 >
                                     <Trash className="h-4 w-4 dark:text-white" />
                                 </Button>
-                                {showTable[index] ? (
-                                    <ChevronUp className="h-4 w-4" />
-                                ) : (
+                                {hideTable[index] ? (
                                     <ChevronDown className="h-4 w-4" />
+                                ) : (
+                                    <ChevronUp className="h-4 w-4" />
                                 )}
-                            </div>
-                            {showTable[index] && (
-                                <div className="flex flex-col gap-2">
+                            </Button>
+                            {(hideTable[index] === false ||
+                                hideTable[index] === undefined) && (
+                                <div className="flex flex-col gap-2 max-h-[250px] overflow-y-auto">
                                     {files
                                         .filter((item) => {
                                             return (
@@ -270,7 +291,7 @@ export const WebsiteModal: FC<WebsiteModalProps> = ({
                                         ))}
                                 </div>
                             )}
-                        </ScrollArea>
+                        </div>
                     ))}
                 </div>
 
@@ -280,6 +301,19 @@ export const WebsiteModal: FC<WebsiteModalProps> = ({
                 <RemoteKnowledgeSourceStatus
                     source={knowledgeSource}
                     sourceType={RemoteKnowledgeSourceType.Website}
+                />
+                <RemoteSourceSettingModal
+                    agentId={agentId}
+                    isOpen={isSettingModalOpen}
+                    onOpenChange={setIsSettingModalOpen}
+                    knowledgeSource={knowledgeSource!}
+                />
+                <AddWebsiteModal
+                    agentId={agentId}
+                    knowledgeSource={knowledgeSource!}
+                    startPolling={startPolling}
+                    isOpen={isAddWebsiteModalOpen}
+                    onOpenChange={setIsAddWebsiteModalOpen}
                 />
                 <div className="mt-4 flex justify-between">
                     <Button
@@ -308,19 +342,6 @@ export const WebsiteModal: FC<WebsiteModalProps> = ({
                         Close
                     </Button>
                 </div>
-                <RemoteSourceSettingModal
-                    agentId={agentId}
-                    isOpen={isSettingModalOpen}
-                    onOpenChange={setIsSettingModalOpen}
-                    knowledgeSource={knowledgeSource!}
-                />
-                <AddWebsiteModal
-                    agentId={agentId}
-                    knowledgeSource={knowledgeSource!}
-                    startPolling={startPolling}
-                    isOpen={isAddWebsiteModalOpen}
-                    onOpenChange={setIsAddWebsiteModalOpen}
-                />
             </DialogContent>
         </Dialog>
     );

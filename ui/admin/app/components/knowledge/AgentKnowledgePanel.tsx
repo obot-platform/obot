@@ -23,6 +23,12 @@ export default function AgentKnowledgePanel({ agentId }: { agentId: string }) {
     const [blockPollingOneDrive, setBlockPollingOneDrive] = useState(false);
     const [blockPollingNotion, setBlockPollingNotion] = useState(false);
     const [blockPollingWebsite, setBlockPollingWebsite] = useState(false);
+    const [blockPollingOneDriveFiles, setBlockPollingOneDriveFiles] =
+        useState(false);
+    const [blockPollingNotionFiles, setBlockPollingNotionFiles] =
+        useState(false);
+    const [blockPollingWebsiteFiles, setBlockPollingWebsiteFiles] =
+        useState(false);
     const [isAddFileModalOpen, setIsAddFileModalOpen] = useState(false);
     const [isOnedriveModalOpen, setIsOnedriveModalOpen] = useState(false);
     const [isNotionModalOpen, setIsNotionModalOpen] = useState(false);
@@ -91,10 +97,13 @@ export default function AgentKnowledgePanel({ agentId }: { agentId: string }) {
             notionSource?.id
         ),
         ({ agentId, sourceId }) =>
-            KnowledgeService.getFilesForKnowledgeSource(agentId, sourceId),
+            KnowledgeService.getFilesForKnowledgeSource(agentId, sourceId).then(
+                (files) =>
+                    files.sort((a, b) => a.fileName.localeCompare(b.fileName))
+            ),
         {
             revalidateOnFocus: false,
-            refreshInterval: blockPollingNotion ? undefined : 1000,
+            refreshInterval: blockPollingNotionFiles ? undefined : 1000,
         }
     );
 
@@ -116,10 +125,13 @@ export default function AgentKnowledgePanel({ agentId }: { agentId: string }) {
             onedriveSource?.id
         ),
         ({ agentId, sourceId }) =>
-            KnowledgeService.getFilesForKnowledgeSource(agentId, sourceId),
+            KnowledgeService.getFilesForKnowledgeSource(agentId, sourceId).then(
+                (files) =>
+                    files.sort((a, b) => a.fileName.localeCompare(b.fileName))
+            ),
         {
             revalidateOnFocus: false,
-            refreshInterval: blockPollingOneDrive ? undefined : 1000,
+            refreshInterval: blockPollingOneDriveFiles ? undefined : 1000,
         }
     );
     const onedriveFiles = useMemo(
@@ -140,10 +152,13 @@ export default function AgentKnowledgePanel({ agentId }: { agentId: string }) {
             websiteSource?.id
         ),
         ({ agentId, sourceId }) =>
-            KnowledgeService.getFilesForKnowledgeSource(agentId, sourceId),
+            KnowledgeService.getFilesForKnowledgeSource(agentId, sourceId).then(
+                (files) =>
+                    files.sort((a, b) => a.fileName.localeCompare(b.fileName))
+            ),
         {
             revalidateOnFocus: false,
-            refreshInterval: blockPollingWebsite ? undefined : 1000,
+            refreshInterval: blockPollingWebsiteFiles ? undefined : 1000,
         }
     );
 
@@ -188,18 +203,21 @@ export default function AgentKnowledgePanel({ agentId }: { agentId: string }) {
     const startPollingNotion = () => {
         getNotionFiles.mutate();
         getKnowledgeSources.mutate();
+        setBlockPollingNotionFiles(false);
         setBlockPollingNotion(false);
     };
 
     const startPollingOneDrive = () => {
         getOnedriveFiles.mutate();
         getKnowledgeSources.mutate();
+        setBlockPollingOneDriveFiles(false);
         setBlockPollingOneDrive(false);
     };
 
     const startPollingWebsite = () => {
         getWebsiteFiles.mutate();
         getKnowledgeSources.mutate();
+        setBlockPollingWebsiteFiles(false);
         setBlockPollingWebsite(false);
     };
 
@@ -215,36 +233,74 @@ export default function AgentKnowledgePanel({ agentId }: { agentId: string }) {
             )
         ) {
             setBlockPollingLocalFiles(true);
+        } else {
+            setBlockPollingLocalFiles(false);
         }
     }, [localFiles]);
 
     useEffect(() => {
         if (
-            notionFiles.every(
-                (file) => file.state === KnowledgeFileState.Ingested
-            )
+            notionFiles.length > 0 &&
+            notionFiles
+                .filter(
+                    (file) =>
+                        file.state !== KnowledgeFileState.PendingApproval &&
+                        file.state !== KnowledgeFileState.Unapproved
+                )
+                .every(
+                    (file) =>
+                        file.state === KnowledgeFileState.Ingested ||
+                        file.state === KnowledgeFileState.Error
+                ) &&
+            notionSource?.state !== KnowledgeSourceStatus.Syncing
         ) {
-            setBlockPollingNotion(true);
+            setBlockPollingNotionFiles(true);
+        } else {
+            setBlockPollingNotionFiles(false);
         }
     }, [notionFiles]);
 
     useEffect(() => {
         if (
-            onedriveFiles.every(
-                (file) => file.state === KnowledgeFileState.Ingested
-            )
+            onedriveFiles.length > 0 &&
+            onedriveFiles
+                .filter(
+                    (file) =>
+                        file.state !== KnowledgeFileState.PendingApproval &&
+                        file.state !== KnowledgeFileState.Unapproved
+                )
+                .every(
+                    (file) =>
+                        file.state === KnowledgeFileState.Ingested ||
+                        file.state === KnowledgeFileState.Error
+                ) &&
+            onedriveSource?.state !== KnowledgeSourceStatus.Syncing
         ) {
-            setBlockPollingOneDrive(true);
+            setBlockPollingOneDriveFiles(true);
+        } else {
+            setBlockPollingOneDriveFiles(false);
         }
     }, [onedriveFiles]);
 
     useEffect(() => {
         if (
-            websiteFiles.every(
-                (file) => file.state === KnowledgeFileState.Ingested
-            )
+            websiteFiles.length > 0 &&
+            websiteFiles
+                .filter(
+                    (file) =>
+                        file.state !== KnowledgeFileState.PendingApproval &&
+                        file.state !== KnowledgeFileState.Unapproved
+                )
+                .every(
+                    (file) =>
+                        file.state === KnowledgeFileState.Ingested ||
+                        file.state === KnowledgeFileState.Error
+                ) &&
+            websiteSource?.state !== KnowledgeSourceStatus.Syncing
         ) {
-            setBlockPollingWebsite(true);
+            setBlockPollingWebsiteFiles(true);
+        } else {
+            setBlockPollingWebsiteFiles(false);
         }
     }, [websiteFiles]);
 

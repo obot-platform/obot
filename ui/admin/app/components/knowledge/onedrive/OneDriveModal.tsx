@@ -60,7 +60,7 @@ export const OnedriveModal: FC<OnedriveModalProps> = ({
     const [isAddLinkModalOpen, setIsAddLinkModalOpen] = useState(false);
     const [loading, setLoading] = useState(false);
     const [links, setLinks] = useState<string[]>([]);
-    const [showTable, setShowTable] = useState<{ [key: number]: boolean }>({});
+    const [hideTable, setHideTable] = useState<{ [key: number]: boolean }>({});
     const [authUrl, setAuthUrl] = useState<string>("");
     useEffect(() => {
         if (!knowledgeSource) return;
@@ -139,7 +139,7 @@ export const OnedriveModal: FC<OnedriveModalProps> = ({
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
             <DialogContent
                 aria-describedby={undefined}
-                className="bd-secondary data-[state=open]:animate-contentShow fixed top-[50%] left-[50%] max-h-[85vh] w-[90vw] max-w-[900px] translate-x-[-50%] translate-y-[-50%] rounded-[6px] bg-white dark:bg-secondary p-[25px] shadow-[hsl(206_22%_7%_/_35%)_0px_10px_38px_-10px,_hsl(206_22%_7%_/_20%)_0px_10px_20px_-15px] focus:outline-none"
+                className="max-h-[85vh] max-w-[85vw] bg-white dark:bg-secondary"
             >
                 <DialogTitle className="flex flex-row items-center text-xl font-semibold mb-4 justify-between">
                     <div className="flex flex-row items-center">
@@ -199,6 +199,7 @@ export const OnedriveModal: FC<OnedriveModalProps> = ({
                                         }
                                         className="mr-2"
                                         tabIndex={-1}
+                                        disabled={!knowledgeSource}
                                     >
                                         <SettingsIcon className="w-4 h-4" />
                                     </Button>
@@ -225,8 +226,8 @@ export const OnedriveModal: FC<OnedriveModalProps> = ({
                         </span>
                     </div>
                 ) : (
-                    <ScrollArea className="max-h-[45vh] overflow-x-auto">
-                        <div className="max-h-[400px] overflow-x-auto">
+                    <div className="flex flex-col gap-2 overflow-x-auto">
+                        <div className="overflow-x-auto">
                             {links.map((link, index) => (
                                 <div key={index}>
                                     <Button
@@ -235,16 +236,16 @@ export const OnedriveModal: FC<OnedriveModalProps> = ({
                                         className="flex flex-row w-full items-center justify-between overflow-x-auto pr-4 h-12 cursor-pointer"
                                         onClick={() => {
                                             if (
-                                                showTable[index] ===
+                                                hideTable[index] ===
                                                     undefined ||
-                                                showTable[index] === false
+                                                hideTable[index] === false
                                             ) {
-                                                setShowTable((prev) => ({
+                                                setHideTable((prev) => ({
                                                     ...prev,
                                                     [index]: true,
                                                 }));
                                             } else {
-                                                setShowTable((prev) => ({
+                                                setHideTable((prev) => ({
                                                     ...prev,
                                                     [index]: false,
                                                 }));
@@ -297,6 +298,44 @@ export const OnedriveModal: FC<OnedriveModalProps> = ({
                                                 </span>
                                             )}
                                         </span>
+                                        {knowledgeSource?.syncDetails
+                                            ?.onedriveState?.links?.[link]
+                                            ?.isFolder && (
+                                            <span className="mr-2 dark:text-white">
+                                                {
+                                                    files.filter((item) => {
+                                                        const { rootFolder } =
+                                                            getFolderAndName(
+                                                                item.fileName
+                                                            );
+                                                        return (
+                                                            rootFolder ===
+                                                            knowledgeSource
+                                                                ?.syncDetails
+                                                                ?.onedriveState
+                                                                ?.links?.[link]
+                                                                ?.name
+                                                        );
+                                                    }).length
+                                                }{" "}
+                                                {files.filter((item) => {
+                                                    const { rootFolder } =
+                                                        getFolderAndName(
+                                                            item.fileName
+                                                        );
+                                                    return (
+                                                        rootFolder ===
+                                                        knowledgeSource
+                                                            ?.syncDetails
+                                                            ?.onedriveState
+                                                            ?.links?.[link]
+                                                            ?.name
+                                                    );
+                                                }).length === 1
+                                                    ? "file"
+                                                    : "files"}
+                                            </span>
+                                        )}
                                         <Button
                                             variant="ghost"
                                             onClick={(e) => {
@@ -306,17 +345,19 @@ export const OnedriveModal: FC<OnedriveModalProps> = ({
                                         >
                                             <Trash className="h-4 w-4" />
                                         </Button>
+
                                         {knowledgeSource?.syncDetails
                                             ?.onedriveState?.links?.[link]
                                             ?.isFolder &&
-                                            (showTable[index] ? (
-                                                <ChevronUp className="h-4 w-4" />
-                                            ) : (
+                                            (hideTable[index] ? (
                                                 <ChevronDown className="h-4 w-4" />
+                                            ) : (
+                                                <ChevronUp className="h-4 w-4" />
                                             ))}
                                     </Button>
-                                    {showTable[index] && (
-                                        <ScrollArea className="max-h-[200px] overflow-x-auto mb-2">
+                                    {(hideTable[index] === false ||
+                                        hideTable[index] === undefined) && (
+                                        <ScrollArea className="max-h-[30vh] overflow-x-auto mb-2">
                                             <div className="flex flex-col gap-2">
                                                 {files
                                                     .filter((item) => {
@@ -437,12 +478,14 @@ export const OnedriveModal: FC<OnedriveModalProps> = ({
                                     ))}
                             </div>
                         </div>
-                    </ScrollArea>
+                    </div>
                 )}
 
-                {files?.some((item) => item.approved) && (
-                    <IngestionStatusComponent files={files} />
-                )}
+                {files?.some(
+                    (item) =>
+                        item.state !== KnowledgeFileState.PendingApproval &&
+                        item.state !== KnowledgeFileState.Unapproved
+                ) && <IngestionStatusComponent files={files} />}
                 {!authUrl && (
                     <RemoteKnowledgeSourceStatus
                         source={knowledgeSource}
