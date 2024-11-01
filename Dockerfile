@@ -42,6 +42,11 @@ set -e
 mkdir -p /run/sshd
 /usr/sbin/sshd -D &
 mkdir -p /data/cache
+export OTTO_SERVER_VERSIONS="$(cat <<VERSIONS
+Tools: $(cd /otto8-tools && git rev-parse HEAD)
+WorkspaceProvider: $(cd /otto8-tools/workspace-provider && git rev-parse HEAD)
+VERSIONS
+)"
 exec tini -- otto8 server
 EOF
 

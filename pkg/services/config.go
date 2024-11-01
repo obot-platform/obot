@@ -35,6 +35,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apiserver/pkg/authentication/authenticator"
 	"k8s.io/apiserver/pkg/authentication/request/union"
+
 	// Setup baaah logging
 	_ "github.com/otto8-ai/nah/pkg/logrus"
 )
@@ -49,7 +50,7 @@ type Config struct {
 	DevMode               bool   `usage:"Enable development mode" default:"false" name:"dev-mode" env:"OTTO_DEV_MODE"`
 	DevUIPort             int    `usage:"The port on localhost running the dev instance of the UI" default:"5173"`
 	AllowedOrigin         string `usage:"Allowed origin for CORS"`
-	ToolRegistry          string `usage:"The tool reference for the tool registry" default:"github.com/gptscript-ai/tools"`
+	ToolRegistry          string `usage:"The tool reference for the tool registry" default:"github.com/otto8-ai/tools"`
 	WorkspaceProviderType string `usage:"The type of workspace provider to use for non-knowledge workspaces" default:"directory" env:"OTTO_WORKSPACE_PROVIDER_TYPE"`
 	WorkspaceTool         string `usage:"The tool reference for the workspace provider" default:"github.com/gptscript-ai/workspace-provider"`
 	HelperModel           string `usage:"The model used to generate names and descriptions" default:"gpt-4o-mini"`
