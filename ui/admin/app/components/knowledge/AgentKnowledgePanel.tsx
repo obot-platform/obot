@@ -2,6 +2,7 @@ import { Globe, SettingsIcon, UploadIcon } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import useSWR, { SWRResponse } from "swr";
 
+import { Agent } from "~/lib/model/agents";
 import {
     KnowledgeFile,
     KnowledgeFileState,
@@ -13,12 +14,24 @@ import { assetUrl } from "~/lib/utils";
 import { Button } from "~/components/ui/button";
 
 import { Avatar } from "../ui/avatar";
+import { Label } from "../ui/label";
+import { Textarea } from "../ui/textarea";
 import FileModal from "./file/FileModal";
 import { NotionModal } from "./notion/NotionModal";
 import { OnedriveModal } from "./onedrive/OneDriveModal";
 import { WebsiteModal } from "./website/WebsiteModal";
 
-export default function AgentKnowledgePanel({ agentId }: { agentId: string }) {
+type AgentKnowledgePanelProps = {
+    agentId: string;
+    agent: Agent;
+    updateAgent: (updatedAgent: Agent) => void;
+};
+
+export default function AgentKnowledgePanel({
+    agentId,
+    agent,
+    updateAgent,
+}: AgentKnowledgePanelProps) {
     const [blockPollingLocalFiles, setBlockPollingLocalFiles] = useState(false);
     const [blockPollingOneDrive, setBlockPollingOneDrive] = useState(false);
     const [blockPollingNotion, setBlockPollingNotion] = useState(false);
@@ -33,6 +46,10 @@ export default function AgentKnowledgePanel({ agentId }: { agentId: string }) {
     const [isOnedriveModalOpen, setIsOnedriveModalOpen] = useState(false);
     const [isNotionModalOpen, setIsNotionModalOpen] = useState(false);
     const [isWebsiteModalOpen, setIsWebsiteModalOpen] = useState(false);
+
+    const [knowledgeDescription, setKnowledgeDescription] = useState(
+        agent.knowledgeDescription
+    );
 
     const getLocalFiles: SWRResponse<KnowledgeFile[], Error> = useSWR(
         KnowledgeService.getLocalKnowledgeFilesForAgent.key(agentId),
@@ -347,6 +364,22 @@ export default function AgentKnowledgePanel({ agentId }: { agentId: string }) {
 
     return (
         <div className="flex flex-col gap-4 justify-center items-center">
+            <div className="grid w-full gap-2">
+                <Label htmlFor="message">Knowledge Description</Label>
+                <Textarea
+                    placeholder="Provide a brief description of the information contained in this knowledge base. Example: A collection of documents about the human resources policies and procedures for Acme Corporation."
+                    id="message"
+                    value={knowledgeDescription ?? ""}
+                    onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => {
+                        setKnowledgeDescription(e.target.value);
+                        updateAgent({
+                            ...agent,
+                            knowledgeDescription: e.target.value,
+                        });
+                    }}
+                />
+            </div>
+
             <div className="flex w-full items-center justify-between gap-3 rounded-md bg-background px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-muted-foreground/20 focus-visible:ring-transparent">
                 <div className="flex items-center gap-2 text-foreground">
                     <UploadIcon className="h-5 w-5" />

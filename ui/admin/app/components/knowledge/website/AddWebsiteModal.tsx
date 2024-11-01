@@ -30,8 +30,8 @@ const AddWebsiteModal: FC<AddWebsiteModalProps> = ({
             const formattedWebsite =
                 newWebsite.startsWith("http://") ||
                 newWebsite.startsWith("https://")
-                    ? newWebsite
-                    : `https://${newWebsite}`;
+                    ? newWebsite.trim()
+                    : `https://${newWebsite.trim()}`;
 
             if (!knowledgeSource) {
                 await KnowledgeService.createKnowledgeSource(agentId, {
@@ -47,8 +47,10 @@ const AddWebsiteModal: FC<AddWebsiteModalProps> = ({
                         ...knowledgeSource,
                         websiteCrawlingConfig: {
                             urls: [
-                                ...(knowledgeSource.websiteCrawlingConfig
-                                    ?.urls || []),
+                                ...(
+                                    knowledgeSource.websiteCrawlingConfig
+                                        ?.urls || []
+                                ).filter((url) => url !== formattedWebsite),
                                 formattedWebsite,
                             ],
                         },

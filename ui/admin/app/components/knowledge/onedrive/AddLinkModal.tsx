@@ -35,7 +35,7 @@ const AddLinkModal: FC<AddLinkModalProps> = ({
         if (!knowledgeSource) {
             await KnowledgeService.createKnowledgeSource(agentId, {
                 onedriveConfig: {
-                    sharedLinks: [newLink],
+                    sharedLinks: [newLink.trim()],
                 },
             });
         } else {
@@ -46,9 +46,11 @@ const AddLinkModal: FC<AddLinkModalProps> = ({
                     ...knowledgeSource,
                     onedriveConfig: {
                         sharedLinks: [
-                            ...(knowledgeSource.onedriveConfig?.sharedLinks ||
-                                []),
-                            newLink,
+                            ...(
+                                knowledgeSource.onedriveConfig?.sharedLinks ||
+                                []
+                            ).filter((url) => url !== newLink.trim()),
+                            newLink.trim(),
                         ],
                     },
                 }

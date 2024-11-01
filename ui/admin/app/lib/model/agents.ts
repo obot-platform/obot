@@ -13,7 +13,7 @@ export type AgentBase = {
     workflows?: string[];
     tools?: string[];
     params?: Record<string, string>;
-    knowledgeSetStatues: KnowledgeSetStatus[];
+    knowledgeDescription?: string;
 };
 
 export type KnowledgeSetStatus = {

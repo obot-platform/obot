@@ -89,7 +89,11 @@ function AgentContent({ className, onRefresh }: AgentProps) {
                         website, or external links in order to give it context
                         about various topics.
                     </TypographyP>
-                    <AgentKnowledgePanel agentId={agent.id} />
+                    <AgentKnowledgePanel
+                        agentId={agent.id}
+                        agent={agent}
+                        updateAgent={debouncedSetAgentInfo}
+                    />
                 </div>
             </ScrollArea>
 

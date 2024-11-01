@@ -264,7 +264,7 @@ export const WebsiteModal: FC<WebsiteModalProps> = ({
                                             <RemoteFileItemChip
                                                 key={item.fileName}
                                                 file={item}
-                                                fileName={item.fileName}
+                                                fileName={item.url}
                                                 knowledgeSourceType={
                                                     RemoteKnowledgeSourceType.Website
                                                 }
