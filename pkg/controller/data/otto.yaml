@@ -1,4 +1,4 @@
-apiVersion: otto.gptscript.ai/v1
+apiVersion: otto.otto8.ai/v1
 kind: Agent
 metadata:
   name: a1-otto
