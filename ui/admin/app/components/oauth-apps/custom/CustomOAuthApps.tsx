@@ -5,6 +5,8 @@ import { useCustomOAuthAppInfo } from "~/hooks/oauthApps/useOAuthApps";
 export function CustomOAuthApps() {
     const apps = useCustomOAuthAppInfo();
 
+    if (apps.length === 0) return null;
+
     return (
         <div className="space-y-4">
             <TypographyH3>Custom OAuth Apps</TypographyH3>
