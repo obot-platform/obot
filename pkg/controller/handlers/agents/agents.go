@@ -2,12 +2,16 @@ package agents
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/otto8-ai/nah/pkg/name"
 	"github.com/otto8-ai/nah/pkg/router"
+	"github.com/otto8-ai/otto8/apiclient/types"
 	"github.com/otto8-ai/otto8/pkg/create"
 	v1 "github.com/otto8-ai/otto8/pkg/storage/apis/otto.otto8.ai/v1"
 	"github.com/otto8-ai/otto8/pkg/system"
+	"k8s.io/apimachinery/pkg/api/equality"
+	apierror "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -66,4 +70,53 @@ func CreateWorkspaceAndKnowledgeSet(req router.Request, _ router.Response) error
 	}
 
 	return createKnowledgeSet(req.Ctx, req.Client, agent)
+}
+
+func BackPopulateAuthStatus(req router.Request, _ router.Response) error {
+	var updateRequired bool
+	agent := req.Object.(*v1.Agent)
+
+	var logins v1.OAuthAppLoginList
+	if err := req.List(&logins, &kclient.ListOptions{Namespace: agent.Namespace}); err != nil {
+		return err
+	}
+
+	for _, login := range logins.Items {
+		if login.Status.Authenticated || (login.Status.Required != nil && !*login.Status.Required) {
+			continue
+		}
+
+		credentialTool, err := v1.CredentialTool(req.Ctx, req.Client, agent.Namespace, login.Spec.ToolReference)
+		if err != nil {
+			login.Status.Error = fmt.Sprintf("failed to get credential tool for knowledge source [%s]: %v", agent.Name, err)
+		}
+
+		required := credentialTool != ""
+		updateRequired = updateRequired || login.Status.Required == nil || *login.Status.Required != required
+		login.Status.Required = &required
+
+		if required {
+			var oauthAppLogin v1.OAuthAppLogin
+			if err = req.Get(&oauthAppLogin, agent.Namespace, system.OAuthAppLoginPrefix+agent.Name+login.Spec.ToolReference); apierror.IsNotFound(err) {
+				updateRequired = updateRequired || login.Status.Error != ""
+				login.Status.Error = ""
+			} else if err != nil {
+				login.Status.Error = fmt.Sprintf("failed to get oauth app login for agent [%s]: %v", agent.Name, err)
+			} else {
+				updateRequired = updateRequired || equality.Semantic.DeepEqual(login.Status, oauthAppLogin.Status.OAuthAppLoginAuthStatus)
+				login.Status.OAuthAppLoginAuthStatus = oauthAppLogin.Status.OAuthAppLoginAuthStatus
+			}
+		}
+
+		if agent.Status.External.AuthStatus == nil {
+			agent.Status.External.AuthStatus = make(map[string]types.OAuthAppLoginAuthStatus)
+		}
+		agent.Status.External.AuthStatus[login.Spec.ToolReference] = login.Status.OAuthAppLoginAuthStatus
+	}
+
+	if updateRequired {
+		return req.Client.Status().Update(req.Ctx, agent)
+	}
+
+	return nil
 }

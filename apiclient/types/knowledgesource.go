@@ -28,12 +28,11 @@ type KnowledgeSourceType string
 type KnowledgeSource struct {
 	Metadata
 	KnowledgeSourceManifest `json:",inline"`
-	AgentID                 string                  `json:"agentID,omitempty"`
-	State                   KnowledgeSourceState    `json:"state,omitempty"`
-	SyncDetails             json.RawMessage         `json:"syncDetails,omitempty"`
-	Status                  string                  `json:"status,omitempty"`
-	Error                   string                  `json:"error,omitempty"`
-	AuthStatus              OAuthAppLoginAuthStatus `json:"authStatus,omitempty"`
+	AgentID                 string               `json:"agentID,omitempty"`
+	State                   KnowledgeSourceState `json:"state,omitempty"`
+	SyncDetails             json.RawMessage      `json:"syncDetails,omitempty"`
+	Status                  string               `json:"status,omitempty"`
+	Error                   string               `json:"error,omitempty"`
 }
 
 type KnowledgeSourceManifest struct {

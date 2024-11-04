@@ -3,7 +3,6 @@ package knowledgesource
 import (
 	"bytes"
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/gptscript-ai/go-gptscript"
@@ -153,7 +152,27 @@ func getThread(ctx context.Context, c kclient.WithWatch, source *v1.KnowledgeSou
 func (k *Handler) Sync(req router.Request, _ router.Response) error {
 	source := req.Object.(*v1.KnowledgeSource)
 
-	if source.Status.Auth.Required == nil || (*source.Status.Auth.Required && !source.Status.Auth.Authenticated) {
+	var knowledgeSet v1.KnowledgeSet
+	if err := req.Get(&knowledgeSet, source.Namespace, source.Spec.KnowledgeSetName); err != nil {
+		return err
+	}
+
+	var agent v1.Agent
+	if err := req.Get(&agent, knowledgeSet.Namespace, knowledgeSet.Spec.AgentName); err != nil {
+		return err
+	}
+
+	sourceType := source.Spec.Manifest.GetType()
+	if sourceType == "" {
+		source.Status.Error = "unknown knowledge source type"
+		source.Status.SyncState = types.KnowledgeSourceStateError
+		return req.Client.Status().Update(req.Ctx, source)
+	}
+
+	toolReferenceName := string(sourceType) + "-data-source"
+
+	authStatus := agent.Status.External.AuthStatus[toolReferenceName]
+	if authStatus.Required == nil || (*authStatus.Required && !authStatus.Authenticated) {
 		return nil
 	}
 
@@ -175,14 +194,7 @@ func (k *Handler) Sync(req router.Request, _ router.Response) error {
 		return nil
 	}
 
-	sourceType := source.Spec.Manifest.GetType()
-	if sourceType == "" {
-		source.Status.Error = "unknown knowledge source type"
-		source.Status.SyncState = types.KnowledgeSourceStateError
-		return req.Client.Status().Update(req.Ctx, source)
-	}
-
-	task, err := k.invoker.SystemTask(req.Ctx, thread, string(sourceType)+"-data-source", source.Spec.Manifest.KnowledgeSourceInput, invokeOpts)
+	task, err := k.invoker.SystemTask(req.Ctx, thread, toolReferenceName, source.Spec.Manifest.KnowledgeSourceInput, invokeOpts)
 	if err != nil {
 		return err
 	}
@@ -236,37 +248,6 @@ forLoop:
 		source.Status.Error = taskErr.Error()
 	}
 	return safeStatusSave(req.Ctx, req.Client, source)
-}
-
-func (k *Handler) BackPopulateAuthStatus(req router.Request, _ router.Response) error {
-	source := req.Object.(*v1.KnowledgeSource)
-	if source.Status.Auth.Authenticated || (source.Status.Auth.Required != nil && !*source.Status.Auth.Required) {
-		return nil
-	}
-
-	_, required, err := source.CredentialTool(req.Ctx, req.Client)
-	if err != nil {
-		return fmt.Errorf("failed to get credential tool for knowledge source [%s]: %w", source.Name, err)
-	}
-	if !required {
-		source.Status.Auth = types.OAuthAppLoginAuthStatus{
-			Required: &required,
-		}
-		return req.Client.Status().Update(req.Ctx, source)
-	}
-
-	var oauthAppLogin v1.OAuthAppLogin
-	if err := req.Get(&oauthAppLogin, source.Namespace, system.OAuthAppLoginPrefix+source.Name); apierror.IsNotFound(err) {
-		source.Status.Auth = types.OAuthAppLoginAuthStatus{
-			Required: &required,
-		}
-		return nil
-	} else if err != nil {
-		return err
-	}
-
-	source.Status.Auth = oauthAppLogin.Status.OAuthAppLoginAuthStatus
-	return req.Client.Status().Update(req.Ctx, source)
 }
 
 func (k *Handler) Cleanup(req router.Request, resp router.Response) error {

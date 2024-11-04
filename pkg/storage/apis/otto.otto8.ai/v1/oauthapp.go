@@ -11,6 +11,7 @@ import (
 var (
 	_ fields.Fields = (*OAuthApp)(nil)
 	_ fields.Fields = (*OAuthAppReference)(nil)
+	_ fields.Fields = (*OAuthAppLogin)(nil)
 )
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -134,13 +135,31 @@ type OAuthAppLogin struct {
 	Status            OAuthAppLoginStatus `json:"status,omitempty"`
 }
 
+func (o *OAuthAppLogin) Has(field string) bool {
+	return o.Get(field) != ""
+}
+
+func (o *OAuthAppLogin) Get(field string) string {
+	if o != nil {
+		switch field {
+		case "spec.credentialContext":
+			return o.Spec.CredentialContext
+		}
+	}
+	return ""
+}
+
+func (o *OAuthAppLogin) FieldNames() []string {
+	return []string{"spec.credentialContext"}
+}
+
 func (o *OAuthAppLogin) DeleteRefs() []Ref {
 	return nil
 }
 
 type OAuthAppLoginSpec struct {
 	CredentialContext string `json:"credentialContext,omitempty"`
-	CredentialTool    string `json:"credentialTool,omitempty"`
+	ToolReference     string `json:"toolReference,omitempty"`
 }
 
 type OAuthAppLoginStatus struct {

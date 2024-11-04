@@ -11,11 +11,9 @@ import (
 	"github.com/otto8-ai/otto8/pkg/api/server"
 	"github.com/otto8-ai/otto8/pkg/render"
 	v1 "github.com/otto8-ai/otto8/pkg/storage/apis/otto.otto8.ai/v1"
-	"github.com/otto8-ai/otto8/pkg/storage/selectors"
 	"github.com/otto8-ai/otto8/pkg/system"
 	"github.com/otto8-ai/otto8/pkg/wait"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/fields"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -90,20 +88,20 @@ func (a *AgentHandler) Create(req api.Context) error {
 	return req.Write(convertAgent(agent, server.GetURLPrefix(req)))
 }
 
-func convertAgent(agent v1.Agent, prefix string, knowledgeSets ...v1.KnowledgeSet) *types.Agent {
+func convertAgent(agent v1.Agent, prefix string) *types.Agent {
 	var links []string
 	if prefix != "" {
 		refName := agent.Name
-		if agent.Status.RefNameAssigned && agent.Spec.Manifest.RefName != "" {
+		if agent.Status.External.RefNameAssigned && agent.Spec.Manifest.RefName != "" {
 			refName = agent.Spec.Manifest.RefName
 		}
 		links = []string{"invoke", prefix + "/invoke/" + refName}
 	}
 
 	return &types.Agent{
-		Metadata:        MetadataFrom(&agent, links...),
-		AgentManifest:   agent.Spec.Manifest,
-		RefNameAssigned: agent.Status.RefNameAssigned,
+		Metadata:            MetadataFrom(&agent, links...),
+		AgentManifest:       agent.Spec.Manifest,
+		AgentExternalStatus: agent.Status.External,
 	}
 }
 
@@ -113,12 +111,7 @@ func (a *AgentHandler) ByID(req api.Context) error {
 		return err
 	}
 
-	knowledgeSets, err := getKnowledgeSetsFromAgent(req, agent)
-	if err != nil {
-		return err
-	}
-
-	return req.Write(convertAgent(agent, server.GetURLPrefix(req), knowledgeSets...))
+	return req.Write(convertAgent(agent, server.GetURLPrefix(req)))
 }
 
 func (a *AgentHandler) List(req api.Context) error {
@@ -129,27 +122,10 @@ func (a *AgentHandler) List(req api.Context) error {
 
 	var resp types.AgentList
 	for _, agent := range agentList.Items {
-		knowledgeSets, err := getKnowledgeSetsFromAgent(req, agent)
-		if err != nil {
-			return err
-		}
-		resp.Items = append(resp.Items, *convertAgent(agent, server.GetURLPrefix(req), knowledgeSets...))
+		resp.Items = append(resp.Items, *convertAgent(agent, server.GetURLPrefix(req)))
 	}
 
 	return req.Write(resp)
-}
-
-func getKnowledgeSetsFromAgent(req api.Context, agent v1.Agent) ([]v1.KnowledgeSet, error) {
-	var knowledgeSets v1.KnowledgeSetList
-	if err := req.Storage.List(req.Context(), &knowledgeSets, &kclient.ListOptions{
-		FieldSelector: fields.SelectorFromSet(selectors.RemoveEmpty(map[string]string{
-			"spec.agentName": agent.Name,
-		})),
-		Namespace: agent.Namespace,
-	}); err != nil {
-		return nil, err
-	}
-	return knowledgeSets.Items, nil
 }
 
 func (a *AgentHandler) ListFiles(req api.Context) error {
@@ -298,15 +274,6 @@ func (a *AgentHandler) CreateKnowledgeSource(req api.Context) error {
 	if err := req.Create(&source); err != nil {
 		return types.NewErrBadRequest("failed to create RemoteKnowledgeSource: %w", err)
 	}
-
-	_, required, err := source.CredentialTool(req.Context(), req.Storage)
-	if err != nil {
-		return err
-	}
-
-	// Set the required field in the status so that the caller knows if the knowledge source needs to be authenticated.
-	// This value will be persisted in the status in a controller.
-	source.Status.Auth.Required = &required
 
 	return req.Write(convertKnowledgeSource(agent.Name, source))
 }
@@ -480,47 +447,38 @@ func (a *AgentHandler) EnsureCredentialForKnowledgeSource(req api.Context) error
 		return err
 	}
 
-	if len(agent.Status.KnowledgeSetNames) == 0 {
-		return types.NewErrHttp(http.StatusTooEarly, fmt.Sprintf("agent %q knowledge set is not created yet", agent.Name))
-	}
-
-	var knowledgeSource v1.KnowledgeSource
-	if err := req.Get(&knowledgeSource, req.PathValue("id")); err != nil {
-		return err
-	}
-
-	if knowledgeSource.Spec.KnowledgeSetName != agent.Status.KnowledgeSetNames[0] {
-		return types.NewErrBadRequest("knowledgeSource %q does not belong to agent %q", knowledgeSource.Name, agent.Name)
-	}
+	ref := req.PathValue("ref")
+	authStatus := agent.Status.External.AuthStatus[ref]
 
 	// If auth is not required, then don't continue.
-	if knowledgeSource.Status.Auth.Required != nil && !*knowledgeSource.Status.Auth.Required {
-		return req.Write(convertKnowledgeSource(agent.Name, knowledgeSource))
+	if authStatus.Required != nil && !*authStatus.Required {
+		return req.Write(convertAgent(agent, server.GetURLPrefix(req)))
 	}
 
-	credentialTool, required, err := knowledgeSource.CredentialTool(req.Context(), req.Storage)
+	credentialTool, err := v1.CredentialTool(req.Context(), req.Storage, req.Namespace(), ref)
 	if err != nil {
 		return err
 	}
 
-	if !required {
-		// The only way to get here is if the controller hasn't set the field yet.
-		knowledgeSource.Status.Auth.Required = &required
-		return req.Write(convertKnowledgeSource(agent.Name, knowledgeSource))
-	}
-
 	if credentialTool == "" {
-		return types.NewErrHttp(http.StatusTooEarly, fmt.Sprintf("knowledge source %q does not have credential tool", knowledgeSource.Name))
+		// The only way to get here is if the controller hasn't set the field yet.
+		if agent.Status.External.AuthStatus == nil {
+			agent.Status.External.AuthStatus = make(map[string]types.OAuthAppLoginAuthStatus)
+		}
+
+		authStatus.Required = &[]bool{false}[0]
+		agent.Status.External.AuthStatus[ref] = authStatus
+		return req.Write(convertAgent(agent, server.GetURLPrefix(req)))
 	}
 
 	oauthLogin := &v1.OAuthAppLogin{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      system.OAuthAppLoginPrefix + knowledgeSource.Name,
+			Name:      system.OAuthAppLoginPrefix + agent.Name + ref,
 			Namespace: req.Namespace(),
 		},
 		Spec: v1.OAuthAppLoginSpec{
-			CredentialContext: knowledgeSource.Name,
-			CredentialTool:    credentialTool,
+			CredentialContext: agent.Name,
+			ToolReference:     ref,
 		},
 	}
 
@@ -534,12 +492,15 @@ func (a *AgentHandler) EnsureCredentialForKnowledgeSource(req api.Context) error
 		Create: true,
 	})
 	if err != nil {
-		return fmt.Errorf("failed to ensure credential for knowledge source %q: %w", knowledgeSource.Name, err)
+		return fmt.Errorf("failed to ensure credential for agent %q: %w", agent.Name, err)
 	}
 
-	// Don't need to actually update the knowledge source, there is a controller that will do that.
-	knowledgeSource.Status.Auth = oauthLogin.Status.OAuthAppLoginAuthStatus
-	return req.Write(convertKnowledgeSource(agent.Name, knowledgeSource))
+	// Don't need to actually update the knowledge ref, there is a controller that will do that.
+	if agent.Status.External.AuthStatus == nil {
+		agent.Status.External.AuthStatus = make(map[string]types.OAuthAppLoginAuthStatus)
+	}
+	agent.Status.External.AuthStatus[ref] = oauthLogin.Status.OAuthAppLoginAuthStatus
+	return req.Write(convertAgent(agent, server.GetURLPrefix(req)))
 }
 
 func (a *AgentHandler) Script(req api.Context) error {

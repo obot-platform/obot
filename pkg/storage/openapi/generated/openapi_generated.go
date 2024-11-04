@@ -17,6 +17,7 @@ import (
 func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenAPIDefinition {
 	return map[string]common.OpenAPIDefinition{
 		"github.com/otto8-ai/otto8/apiclient/types.Agent":                                     schema_otto8_ai_otto8_apiclient_types_Agent(ref),
+		"github.com/otto8-ai/otto8/apiclient/types.AgentExternalStatus":                       schema_otto8_ai_otto8_apiclient_types_AgentExternalStatus(ref),
 		"github.com/otto8-ai/otto8/apiclient/types.AgentList":                                 schema_otto8_ai_otto8_apiclient_types_AgentList(ref),
 		"github.com/otto8-ai/otto8/apiclient/types.AgentManifest":                             schema_otto8_ai_otto8_apiclient_types_AgentManifest(ref),
 		"github.com/otto8-ai/otto8/apiclient/types.Credential":                                schema_otto8_ai_otto8_apiclient_types_Credential(ref),
@@ -229,18 +230,52 @@ func schema_otto8_ai_otto8_apiclient_types_Agent(ref common.ReferenceCallback) c
 							Ref:     ref("github.com/otto8-ai/otto8/apiclient/types.AgentManifest"),
 						},
 					},
+					"AgentExternalStatus": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/otto8-ai/otto8/apiclient/types.AgentExternalStatus"),
+						},
+					},
+				},
+				Required: []string{"Metadata", "AgentManifest", "AgentExternalStatus"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/otto8-ai/otto8/apiclient/types.AgentExternalStatus", "github.com/otto8-ai/otto8/apiclient/types.AgentManifest", "github.com/otto8-ai/otto8/apiclient/types.Metadata"},
+	}
+}
+
+func schema_otto8_ai_otto8_apiclient_types_AgentExternalStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
 					"refNameAssigned": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"boolean"},
 							Format: "",
 						},
 					},
+					"authStatus": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"object"},
+							AdditionalProperties: &spec.SchemaOrBool{
+								Allows: true,
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/otto8-ai/otto8/apiclient/types.OAuthAppLoginAuthStatus"),
+									},
+								},
+							},
+						},
+					},
 				},
-				Required: []string{"Metadata", "AgentManifest"},
 			},
 		},
 		Dependencies: []string{
-			"github.com/otto8-ai/otto8/apiclient/types.AgentManifest", "github.com/otto8-ai/otto8/apiclient/types.Metadata"},
+			"github.com/otto8-ai/otto8/apiclient/types.OAuthAppLoginAuthStatus"},
 	}
 }
 
@@ -948,18 +983,12 @@ func schema_otto8_ai_otto8_apiclient_types_KnowledgeSource(ref common.ReferenceC
 							Format: "",
 						},
 					},
-					"authStatus": {
-						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref("github.com/otto8-ai/otto8/apiclient/types.OAuthAppLoginAuthStatus"),
-						},
-					},
 				},
 				Required: []string{"Metadata"},
 			},
 		},
 		Dependencies: []string{
-			"github.com/otto8-ai/otto8/apiclient/types.Metadata", "github.com/otto8-ai/otto8/apiclient/types.NotionConfig", "github.com/otto8-ai/otto8/apiclient/types.OAuthAppLoginAuthStatus", "github.com/otto8-ai/otto8/apiclient/types.OneDriveConfig", "github.com/otto8-ai/otto8/apiclient/types.WebsiteCrawlingConfig"},
+			"github.com/otto8-ai/otto8/apiclient/types.Metadata", "github.com/otto8-ai/otto8/apiclient/types.NotionConfig", "github.com/otto8-ai/otto8/apiclient/types.OneDriveConfig", "github.com/otto8-ai/otto8/apiclient/types.WebsiteCrawlingConfig"},
 	}
 }
 
@@ -2973,12 +3002,6 @@ func schema_storage_apis_ottootto8ai_v1_AgentStatus(ref common.ReferenceCallback
 			SchemaProps: spec.SchemaProps{
 				Type: []string{"object"},
 				Properties: map[string]spec.Schema{
-					"refNameAssigned": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"boolean"},
-							Format: "",
-						},
-					},
 					"knowledgeSetNames": {
 						SchemaProps: spec.SchemaProps{
 							Type: []string{"array"},
@@ -2999,9 +3022,17 @@ func schema_storage_apis_ottootto8ai_v1_AgentStatus(ref common.ReferenceCallback
 							Format: "",
 						},
 					},
+					"external": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/otto8-ai/otto8/apiclient/types.AgentExternalStatus"),
+						},
+					},
 				},
 			},
 		},
+		Dependencies: []string{
+			"github.com/otto8-ai/otto8/apiclient/types.AgentExternalStatus"},
 	}
 }
 
@@ -3775,17 +3806,11 @@ func schema_storage_apis_ottootto8ai_v1_KnowledgeSourceStatus(ref common.Referen
 							Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.Time"),
 						},
 					},
-					"auth": {
-						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref("github.com/otto8-ai/otto8/apiclient/types.OAuthAppLoginAuthStatus"),
-						},
-					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/otto8-ai/otto8/apiclient/types.OAuthAppLoginAuthStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.Time"},
+			"k8s.io/apimachinery/pkg/apis/meta/v1.Time"},
 	}
 }
 
@@ -3989,7 +4014,7 @@ func schema_storage_apis_ottootto8ai_v1_OAuthAppLoginSpec(ref common.ReferenceCa
 							Format: "",
 						},
 					},
-					"credentialTool": {
+					"toolReference": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
 							Format: "",

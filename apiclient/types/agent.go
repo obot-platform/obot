@@ -11,7 +11,7 @@ import (
 type Agent struct {
 	Metadata
 	AgentManifest
-	RefNameAssigned bool `json:"refNameAssigned,omitempty"`
+	AgentExternalStatus
 }
 
 type AgentList List[Agent]
@@ -32,6 +32,11 @@ type AgentManifest struct {
 	OAuthApps            []string          `json:"oauthApps"`
 	MaxThreadTools       int               `json:"maxThreadTools"`
 	Params               map[string]string `json:"params,omitempty"`
+}
+
+type AgentExternalStatus struct {
+	RefNameAssigned bool                               `json:"refNameAssigned,omitempty"`
+	AuthStatus      map[string]OAuthAppLoginAuthStatus `json:"authStatus,omitempty"`
 }
 
 func (m AgentManifest) GetParams() *openapi3.Schema {

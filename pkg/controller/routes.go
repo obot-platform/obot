@@ -57,13 +57,13 @@ func (c *Controller) setupRoutes() error {
 
 	// Agents
 	root.Type(&v1.Agent{}).HandlerFunc(agents.CreateWorkspaceAndKnowledgeSet)
+	root.Type(&v1.Agent{}).HandlerFunc(agents.BackPopulateAuthStatus)
 
 	// Uploads
 	root.Type(&v1.KnowledgeSource{}).HandlerFunc(cleanup.Cleanup)
 	root.Type(&v1.KnowledgeSource{}).FinalizeFunc(v1.KnowledgeSourceFinalizer, knowledgesource.Cleanup)
 	root.Type(&v1.KnowledgeSource{}).HandlerFunc(knowledgesource.Reschedule)
 	root.Type(&v1.KnowledgeSource{}).HandlerFunc(knowledgesource.Sync)
-	root.Type(&v1.KnowledgeSource{}).HandlerFunc(knowledgesource.BackPopulateAuthStatus)
 
 	// ToolReference
 	root.Type(&v1.ToolReference{}).HandlerFunc(toolRef.Populate)

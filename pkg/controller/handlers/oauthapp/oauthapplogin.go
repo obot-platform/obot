@@ -27,8 +27,13 @@ func NewLogin(invoker *invoke.Invoker) *LoginHandler {
 
 func (h *LoginHandler) RunTool(req router.Request, _ router.Response) error {
 	login := req.Object.(*v1.OAuthAppLogin)
-	if login.Status.Authenticated || login.Status.Error != "" || login.Spec.CredentialTool == "" {
+	if login.Status.Authenticated || login.Status.Error != "" || login.Spec.ToolReference == "" {
 		return nil
+	}
+
+	credentialTool, err := v1.CredentialTool(req.Ctx, req.Client, login.Namespace, login.Spec.ToolReference)
+	if err != nil || credentialTool == "" {
+		return err
 	}
 
 	thread := v1.Thread{
@@ -47,7 +52,7 @@ func (h *LoginHandler) RunTool(req router.Request, _ router.Response) error {
 
 	task, err := h.invoker.SystemTask(req.Ctx, &thread, []gptscript.ToolDef{
 		{
-			Credentials:  []string{login.Spec.CredentialTool},
+			Credentials:  []string{credentialTool},
 			Instructions: "#!sys.echo DONE",
 		},
 	}, "", invoke.SystemTaskOptions{

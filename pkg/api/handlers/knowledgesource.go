@@ -22,7 +22,6 @@ func convertKnowledgeSource(agentName string, knowledgeSource v1.KnowledgeSource
 		SyncDetails:             syncDetails,
 		Status:                  knowledgeSource.Status.Status,
 		Error:                   knowledgeSource.Status.Error,
-		AuthStatus:              knowledgeSource.Status.Auth,
 	}
 }
 

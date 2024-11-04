@@ -32,6 +32,7 @@ func Router(services *services.Services) (http.Handler, error) {
 	mux.HandleFunc("POST /api/agents", agents.Create)
 	mux.HandleFunc("PUT /api/agents/{id}", agents.Update)
 	mux.HandleFunc("DELETE /api/agents/{id}", agents.Delete)
+	mux.HandleFunc("POST /api/agents/{agent_id}/oauth-credentials/{ref}/login", agents.EnsureCredentialForKnowledgeSource)
 
 	// Agent files
 	mux.HandleFunc("GET /api/agents/{id}/files", agents.ListFiles)
@@ -50,7 +51,6 @@ func Router(services *services.Services) (http.Handler, error) {
 	mux.HandleFunc("POST /api/agents/{agent_id}/knowledge-sources", agents.CreateKnowledgeSource)
 	mux.HandleFunc("GET /api/agents/{agent_id}/knowledge-sources", agents.ListKnowledgeSources)
 	mux.HandleFunc("POST /api/agents/{agent_id}/knowledge-sources/{id}/sync", agents.ReSyncKnowledgeSource)
-	mux.HandleFunc("POST /api/agents/{agent_id}/knowledge-sources/{id}/login", agents.EnsureCredentialForKnowledgeSource)
 	mux.HandleFunc("PUT /api/agents/{agent_id}/knowledge-sources/{id}", agents.UpdateKnowledgeSource)
 	mux.HandleFunc("DELETE /api/agents/{agent_id}/knowledge-sources/{id}", agents.DeleteKnowledgeSource)
 	mux.HandleFunc("GET /api/agents/{agent_id}/knowledge-sources/{knowledge_source_id}/knowledge-files", agents.ListKnowledgeFiles)

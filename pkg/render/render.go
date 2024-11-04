@@ -326,7 +326,7 @@ func agentsByName(ctx context.Context, db kclient.Client, namespace string) (map
 	}
 
 	for _, agent := range agents.Items {
-		if agent.Spec.Manifest.RefName != "" && agent.Status.RefNameAssigned {
+		if agent.Spec.Manifest.RefName != "" && agent.Status.External.RefNameAssigned {
 			result[agent.Spec.Manifest.RefName] = agent
 		}
 	}
