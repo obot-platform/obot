@@ -13,7 +13,21 @@ import (
 //go:embed otto.yaml
 var ottoData []byte
 
+//go:embed default-models.yaml
+var defaultModelsData []byte
+
 func Data(ctx context.Context, c kclient.Client) error {
+	var defaultModels v1.ModelList
+	if err := yaml.Unmarshal(defaultModelsData, &defaultModels); err != nil {
+		return err
+	}
+
+	for _, model := range defaultModels.Items {
+		if err := kclient.IgnoreAlreadyExists(c.Create(ctx, &model)); err != nil {
+			return err
+		}
+	}
+
 	var otto v1.Agent
 	if err := yaml.Unmarshal(ottoData, &otto); err != nil {
 		return err

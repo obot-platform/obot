@@ -9,8 +9,12 @@ import (
 
 	"github.com/otto8-ai/otto8/pkg/gateway/client"
 	"github.com/otto8-ai/otto8/pkg/gateway/db"
+	"github.com/otto8-ai/otto8/pkg/gateway/server/dispatcher"
 	"github.com/otto8-ai/otto8/pkg/gateway/types"
+	"github.com/otto8-ai/otto8/pkg/invoke"
+	"github.com/otto8-ai/otto8/pkg/jwt"
 	"gorm.io/gorm"
+	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type Options struct {
@@ -19,14 +23,16 @@ type Options struct {
 }
 
 type Server struct {
-	adminEmails    map[string]struct{}
-	db             *db.DB
-	baseURL, uiURL string
-	httpClient     *http.Client
-	client         *client.Client
+	adminEmails     map[string]struct{}
+	db              *db.DB
+	baseURL, uiURL  string
+	httpClient      *http.Client
+	client          *client.Client
+	tokenService    *jwt.TokenService
+	modelDispatcher *dispatcher.Dispatcher
 }
 
-func New(ctx context.Context, db *db.DB, adminEmails []string, opts Options) (*Server, error) {
+func New(ctx context.Context, db *db.DB, c kclient.Client, invoker *invoke.Invoker, tokenService *jwt.TokenService, adminEmails []string, opts Options) (*Server, error) {
 	if err := db.AutoMigrate(); err != nil {
 		return nil, fmt.Errorf("auto migrate failed: %w", err)
 	}
@@ -37,12 +43,14 @@ func New(ctx context.Context, db *db.DB, adminEmails []string, opts Options) (*S
 	}
 
 	s := &Server{
-		adminEmails: adminEmailsSet,
-		db:          db,
-		baseURL:     opts.Hostname,
-		uiURL:       opts.UIHostname,
-		httpClient:  &http.Client{},
-		client:      client.New(db, adminEmails),
+		adminEmails:     adminEmailsSet,
+		db:              db,
+		baseURL:         opts.Hostname,
+		uiURL:           opts.UIHostname,
+		httpClient:      &http.Client{},
+		client:          client.New(db, adminEmails),
+		tokenService:    tokenService,
+		modelDispatcher: dispatcher.New(invoker, c),
 	}
 
 	go s.autoCleanupTokens(ctx)

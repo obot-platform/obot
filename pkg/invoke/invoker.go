@@ -25,6 +25,7 @@ import (
 	"github.com/otto8-ai/otto8/pkg/wait"
 	apierror "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/client-go/util/retry"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -240,9 +241,32 @@ func (i *Invoker) Agent(ctx context.Context, c kclient.WithWatch, agent *v1.Agen
 		}
 	}
 
+	defaultModel := agent.Spec.Manifest.Model
+	if defaultModel == "" {
+		var models v1.ModelList
+		if err := c.List(ctx, &models, &kclient.ListOptions{
+			FieldSelector: fields.SelectorFromSet(map[string]string{
+				"spec.manifest.default": "true",
+			}),
+			Namespace: agent.Namespace,
+		}); err != nil {
+			return nil, err
+		}
+
+		if len(models.Items) > 0 {
+			for _, model := range models.Items {
+				if model.Spec.Manifest.Active {
+					defaultModel = model.Name
+					break
+				}
+			}
+		}
+	}
+
 	return i.createRun(ctx, c, thread, tools, input, runOptions{
 		Synchronous:          opt.Synchronous,
 		AgentName:            agent.Name,
+		DefaultModel:         defaultModel,
 		Env:                  extraEnv,
 		CredentialContextIDs: credContextIDs,
 		WorkflowStepName:     opt.WorkflowStepName,
@@ -263,6 +287,7 @@ type runOptions struct {
 	ForceNoResume         bool
 	Env                   []string
 	CredentialContextIDs  []string
+	DefaultModel          string
 }
 
 var (
@@ -311,6 +336,7 @@ func (i *Invoker) createRun(ctx context.Context, c kclient.WithWatch, thread *v1
 			Tool:                  string(toolData),
 			Env:                   opts.Env,
 			CredentialContextIDs:  opts.CredentialContextIDs,
+			DefaultModel:          opts.DefaultModel,
 		},
 	}
 
@@ -414,9 +440,17 @@ func (i *Invoker) Resume(ctx context.Context, c kclient.WithWatch, thread *v1.Th
 		return err
 	}
 
+	modelProvider, err := render.ResolveToolReference(ctx, c, types.ToolReferenceTypeSystem, thread.Namespace, system.ModelProviderTool)
+	if err != nil {
+		return fmt.Errorf("failed to resolve model provider: %w", err)
+	}
+
 	options := gptscript.Options{
 		GlobalOptions: gptscript.GlobalOptions{
 			Env: append(run.Spec.Env,
+				fmt.Sprintf("GPTSCRIPT_MODEL_PROVIDER_PROXY_URL=%s/api/llm-proxy", i.serverURL),
+				"GPTSCRIPT_MODEL_PROVIDER_PROXY_TOKEN="+token,
+				"GPTSCRIPT_MODEL_PROVIDER_TOKEN="+token,
 				"OTTO_TOKEN="+token,
 				"OTTO_RUN_ID="+run.Name,
 				"OTTO_THREAD_ID="+thread.Name,
@@ -424,6 +458,8 @@ func (i *Invoker) Resume(ctx context.Context, c kclient.WithWatch, thread *v1.Th
 				"OTTO_WORKFLOW_STEP_ID="+run.Spec.WorkflowStepID,
 				"OTTO_AGENT_ID="+run.Spec.AgentName,
 			),
+			DefaultModel:         run.Spec.DefaultModel,
+			DefaultModelProvider: modelProvider,
 		},
 		Input:              run.Spec.Input,
 		Workspace:          thread.Status.WorkspaceID,

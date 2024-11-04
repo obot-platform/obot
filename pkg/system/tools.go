@@ -8,6 +8,7 @@ const (
 	KnowledgeRetrievalTool  = "knowledge-retrieval"
 	WebsiteCleanTool        = "website-cleaner"
 	ResultFormatterTool     = "result-formatter"
+	ModelProviderTool       = "otto8-model-provider"
 
 	DefaultNamespace = "default"
 )

@@ -40,7 +40,7 @@ func (db *DB) AutoMigrate() (err error) {
 	return tx.AutoMigrate(
 		types.AuthToken{},
 		types.TokenRequest{},
-		types.Monitor{},
+		types.LLMProxyActivity{},
 		types.AuthProvider{},
 		types.LLMProvider{},
 		types.Model{},

@@ -44,6 +44,10 @@ func convertToolReference(toolRef v1.ToolReference) types.ToolReference {
 		tf.Metadata.Metadata = toolRef.Status.Tool.Metadata
 		tf.Credential = toolRef.Status.Tool.Credential
 	}
+
+	if toolRef.Spec.Type == types.ToolReferenceTypeModelProvider {
+		tf.ModelProviderStatus = convertModelProviderToolRef(toolRef)
+	}
 	return tf
 }
 

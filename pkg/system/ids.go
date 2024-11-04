@@ -10,31 +10,14 @@ const (
 	WorkflowExecutionPrefix = "we1"
 	WorkflowStepPrefix      = "ws1"
 	WorkspacePrefix         = "wksp1"
-	IngestRequestPrefix     = "ik1"
-	SyncRequestPrefix       = "su1"
 	WebhookPrefix           = "wh1"
 	CronJobPrefix           = "cj1"
 	KnowledgeSourcePrefix   = "ks1"
 	OAuthAppPrefix          = "oa1"
 	KnowledgeSetPrefix      = "kst1"
 	OAuthAppLoginPrefix     = "oal1"
+	ModelPrefix             = "m1"
 )
-
-var typePrefixes = []string{
-	ThreadPrefix,
-	AgentPrefix,
-	RunPrefix,
-	WorkflowPrefix,
-	WorkflowExecutionPrefix,
-	WorkflowStepPrefix,
-	WorkspacePrefix,
-	IngestRequestPrefix,
-	SyncRequestPrefix,
-	WebhookPrefix,
-	CronJobPrefix,
-	KnowledgeSetPrefix,
-	KnowledgeSourcePrefix,
-}
 
 func IsThreadID(id string) bool {
 	return strings.HasPrefix(id, ThreadPrefix)

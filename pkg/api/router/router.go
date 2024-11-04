@@ -19,6 +19,7 @@ func Router(services *services.Services) (http.Handler, error) {
 	toolRefs := handlers.NewToolReferenceHandler()
 	webhooks := handlers.NewWebhookHandler()
 	cronJobs := handlers.NewCronJobHandler()
+	models := handlers.NewModelHandler()
 
 	// Version
 	mux.HandleFunc("GET /api/version", handlers.GetVersion)
@@ -142,6 +143,13 @@ func Router(services *services.Services) (http.Handler, error) {
 
 	// debug
 	mux.HTTPHandle("GET /debug/pprof/", http.DefaultServeMux)
+
+	// Models
+	mux.HandleFunc("POST /api/models", models.Create)
+	mux.HandleFunc("PUT /api/models/{id}", models.Update)
+	mux.HandleFunc("DELETE /api/models/{id}", models.Delete)
+	mux.HandleFunc("GET /api/models", models.List)
+	mux.HandleFunc("GET /api/models/{id}", models.ByID)
 
 	// Gateway APIs
 	services.GatewayServer.AddRoutes(services.APIServer)

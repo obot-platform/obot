@@ -32,6 +32,7 @@ type AgentManifest struct {
 	OAuthApps            []string          `json:"oauthApps"`
 	MaxThreadTools       int               `json:"maxThreadTools"`
 	Params               map[string]string `json:"params,omitempty"`
+	Model                string            `json:"model,omitempty"`
 }
 
 type AgentExternalStatus struct {

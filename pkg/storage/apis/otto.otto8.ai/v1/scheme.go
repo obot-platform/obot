@@ -59,6 +59,8 @@ func AddToSchemeWithGV(scheme *runtime.Scheme, schemeGroupVersion schema.GroupVe
 		&OAuthAppReferenceList{},
 		&OAuthAppLogin{},
 		&OAuthAppLoginList{},
+		&Model{},
+		&ModelList{},
 	); err != nil {
 		return err
 	}

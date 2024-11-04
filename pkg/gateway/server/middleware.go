@@ -4,28 +4,11 @@ import (
 	"fmt"
 	"net/http"
 	"runtime/debug"
-	"time"
 
 	"github.com/otto8-ai/otto8/pkg/api"
 	"github.com/otto8-ai/otto8/pkg/gateway/context"
 	"github.com/otto8-ai/otto8/pkg/gateway/log"
-	"github.com/otto8-ai/otto8/pkg/gateway/types"
 )
-
-func (s *Server) monitor(next api.HandlerFunc) api.HandlerFunc {
-	return func(apiContext api.Context) error {
-		logger := context.GetLogger(apiContext.Context())
-		if err := s.db.WithContext(apiContext.Context()).Create(&types.Monitor{
-			CreatedAt: time.Now(),
-			Username:  apiContext.User.GetName(),
-			Path:      apiContext.URL.Path,
-		}).Error; err != nil {
-			logger.WarnContext(apiContext.Context(), "error creating monitor", "error", err, "user", apiContext.User.GetName(), "path", apiContext.URL.Path)
-		}
-
-		return next(apiContext)
-	}
-}
 
 func apply(h api.HandlerFunc, m ...api.Middleware) api.HandlerFunc {
 	for i := len(m) - 1; i >= 0; i-- {

@@ -21,8 +21,7 @@ type TokenContext struct {
 	Scope          string
 }
 
-type TokenService struct {
-}
+type TokenService struct{}
 
 func (t *TokenService) AuthenticateRequest(req *http.Request) (*authenticator.Response, bool, error) {
 	token := strings.TrimPrefix(req.Header.Get("Authorization"), "Bearer ")

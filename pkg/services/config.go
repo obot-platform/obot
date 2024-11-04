@@ -145,6 +145,11 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		_ = os.Setenv("KNOW_INDEX_DSN", config.DSN)
 	}
 
+	// Set the OpenAI model provider API key, just for consistency
+	if os.Getenv("OTTO_OPENAI_MODEL_PROVIDER_API_KEY") == "" {
+		_ = os.Setenv("OTTO_OPENAI_MODEL_PROVIDER_API_KEY", os.Getenv("OPENAI_API_KEY"))
+	}
+
 	if err := credstores.Init(ctx, config.ToolRegistry, config.DSN, credstores.Options{
 		AWSKMSKeyARN:         config.AWSKMSKeyARN,
 		EncryptionConfigFile: config.EncryptionConfigFile,
@@ -203,7 +208,16 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		return nil, err
 	}
 
-	gatewayServer, err := gserver.New(ctx, gatewayDB, config.AuthAdminEmails, gserver.Options(config.GatewayConfig))
+	var (
+		tokenServer   = &jwt.TokenService{}
+		events        = events.NewEmitter(storageClient)
+		gatewayClient = client.New(gatewayDB, config.AuthAdminEmails)
+		invoker       = invoke.NewInvoker(storageClient, c, config.Hostname, config.WorkspaceProviderType, tokenServer, events)
+
+		proxyServer *proxy.Proxy
+	)
+
+	gatewayServer, err := gserver.New(ctx, gatewayDB, storageClient, invoker, tokenServer, config.AuthAdminEmails, gserver.Options(config.GatewayConfig))
 	if err != nil {
 		return nil, err
 	}
@@ -213,12 +227,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		return nil, err
 	}
 
-	var (
-		gatewayClient                        = client.New(gatewayDB, config.AuthAdminEmails)
-		authenticators authenticator.Request = gatewayServer
-		proxyServer    *proxy.Proxy
-	)
-
+	var authenticators authenticator.Request = gatewayServer
 	if config.GoogleClientID != "" && config.GoogleClientSecret != "" {
 		// "Authentication Enabled" flow
 		proxyServer, err = proxy.New(config.Hostname, authProviderID, proxy.Config(config.AuthConfig))
@@ -242,11 +251,6 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		authenticators = union.New(authenticators, authn.NoAuth{})
 	}
 
-	var (
-		tokenServer = &jwt.TokenService{}
-		events      = events.NewEmitter(storageClient)
-	)
-
 	// For now, always auto-migrate the gateway database
 	return &Services{
 		WorkspaceProviderType: config.WorkspaceProviderType,
@@ -259,7 +263,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		GPTClient:             c,
 		APIServer:             server.NewServer(storageClient, c, authn.NewAuthenticator(authenticators), authz.NewAuthorizer(), proxyServer),
 		TokenServer:           tokenServer,
-		Invoker:               invoke.NewInvoker(storageClient, c, config.Hostname, config.WorkspaceProviderType, tokenServer, events),
+		Invoker:               invoker,
 		AIHelper:              aihelper.New(c, config.HelperModel),
 		GatewayServer:         gatewayServer,
 		ProxyServer:           proxyServer,

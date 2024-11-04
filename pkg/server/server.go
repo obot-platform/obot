@@ -21,7 +21,7 @@ func Run(ctx context.Context, c services.Config) error {
 	}
 
 	go func() {
-		c, err := controller.New(ctx, svcs)
+		c, err := controller.New(svcs)
 		if err != nil {
 			log.Fatalf("Failed to start controller: %v", err)
 		}

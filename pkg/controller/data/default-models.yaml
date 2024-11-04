@@ -1,0 +1,52 @@
+items:
+  - apiVersion: otto.otto8.ai/v1
+    kind: Model
+    metadata:
+      name: gpt-4o
+      namespace: default
+    spec:
+      manifest:
+        targetModel: gpt-4o
+        modelProvider: openai-model-provider
+        default: true
+        active: true
+  - apiVersion: otto.otto8.ai/v1
+    kind: Model
+    metadata:
+      name: text-embedding-ada-002
+      namespace: default
+    spec:
+      manifest:
+        targetModel: text-embedding-ada-002
+        modelProvider: openai-model-provider
+        active: true
+  - apiVersion: otto.otto8.ai/v1
+    kind: Model
+    metadata:
+      name: dall-e-3
+      namespace: default
+    spec:
+      manifest:
+        targetModel: dall-e-3
+        modelProvider: openai-model-provider
+        active: true
+  - apiVersion: otto.otto8.ai/v1
+    kind: Model
+    metadata:
+      name: gpt-4o-mini
+      namespace: default
+    spec:
+      manifest:
+        targetModel: gpt-4o-mini
+        modelProvider: openai-model-provider
+        active: true
+  - apiVersion: otto.otto8.ai/v1
+    kind: Model
+    metadata:
+      name: gpt-3.5-turbo
+      namespace: default
+    spec:
+      manifest:
+        targetModel: gpt-3.5-turbo
+        modelProvider: openai-model-provider
+        active: true

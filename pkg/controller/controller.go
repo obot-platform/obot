@@ -18,7 +18,7 @@ type Controller struct {
 	toolRefHandler *toolreference.Handler
 }
 
-func New(ctx context.Context, services *services.Services) (*Controller, error) {
+func New(services *services.Services) (*Controller, error) {
 	c := &Controller{
 		router:   services.Router,
 		services: services,

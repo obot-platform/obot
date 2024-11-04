@@ -35,6 +35,7 @@ func Agent(ctx context.Context, db kclient.Client, agent *v1.Agent, oauthServerU
 		Temperature:  agent.Spec.Manifest.Temperature,
 		Cache:        agent.Spec.Manifest.Cache,
 		Type:         "agent",
+		ModelName:    agent.Spec.Manifest.Model,
 	}
 
 	if mainTool.Instructions == "" {

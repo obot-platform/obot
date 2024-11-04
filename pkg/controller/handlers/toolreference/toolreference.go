@@ -33,6 +33,7 @@ type index struct {
 	KnowledgeDataSources     map[string]indexEntry `json:"knowledgeDataSources,omitempty"`
 	KnowledgeDocumentLoaders map[string]indexEntry `json:"knowledgeDocumentLoaders,omitempty"`
 	System                   map[string]indexEntry `json:"system,omitempty"`
+	ModelProviders           map[string]indexEntry `json:"modelProviders,omitempty"`
 }
 
 type Handler struct {
@@ -157,6 +158,7 @@ func (h *Handler) readFromRegistry(ctx context.Context, c client.Client) error {
 	var toAdd []client.Object
 
 	toAdd = append(toAdd, h.toolsToToolReferences(ctx, types.ToolReferenceTypeSystem, index.System)...)
+	toAdd = append(toAdd, h.toolsToToolReferences(ctx, types.ToolReferenceTypeModelProvider, index.ModelProviders)...)
 	toAdd = append(toAdd, h.toolsToToolReferences(ctx, types.ToolReferenceTypeTool, index.Tools)...)
 	toAdd = append(toAdd, h.toolsToToolReferences(ctx, types.ToolReferenceTypeStepTemplate, index.StepTemplates)...)
 	toAdd = append(toAdd, h.toolsToToolReferences(ctx, types.ToolReferenceTypeKnowledgeDataSource, index.KnowledgeDataSources)...)
@@ -181,13 +183,13 @@ func (h *Handler) PollRegistry(ctx context.Context, c client.Client) {
 
 	for {
 		if err := c.List(ctx, &v1.ToolReferenceList{}, client.InNamespace(system.DefaultNamespace)); err != nil {
-			time.Sleep(1 * time.Second)
+			time.Sleep(time.Second)
 			continue
 		}
 		break
 	}
 
-	t := time.NewTicker(1 * time.Hour)
+	t := time.NewTicker(time.Hour)
 	defer t.Stop()
 	for {
 		if err := h.readFromRegistry(ctx, c); err != nil {

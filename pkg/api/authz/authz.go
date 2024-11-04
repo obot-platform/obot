@@ -56,6 +56,8 @@ var staticRules = map[string][]string{
 		"POST /api/threads/user/knowledge/{file}",
 		"DELETE /api/threads/user/knowledge/{file}",
 		"GET /api/me",
+		"POST /api/llm-proxy/",
+		"GET /api/models",
 	},
 }
 
