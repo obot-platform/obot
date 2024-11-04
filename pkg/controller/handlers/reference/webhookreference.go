@@ -10,9 +10,11 @@ import (
 
 func AssociateWebhookWithReference(req router.Request, resp router.Response) error {
 	wh := req.Object.(*v1.Webhook)
+
 	// Always create a webhook reference for this webhook.
-	resp.Objects(
-		&v1.WebhookReference{
+	var standardWebhookRef v1.WebhookReference
+	if err := req.Get(&standardWebhookRef, "", wh.Namespace+"-"+wh.Name); apierrors.IsNotFound(err) {
+		if err = req.Client.Create(req.Ctx, &v1.WebhookReference{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: wh.Namespace + "-" + wh.Name,
 			},
@@ -21,8 +23,12 @@ func AssociateWebhookWithReference(req router.Request, resp router.Response) err
 				WebhookName:      wh.Name,
 				WebhookNamespace: wh.Namespace,
 			},
-		},
-	)
+		}); err != nil && !apierrors.IsAlreadyExists(err) {
+			return err
+		}
+	} else if err != nil {
+		return err
+	}
 
 	wh.Status.External.RefNameAssigned = false
 	wh.Status.External.RefName = wh.Namespace + "-" + wh.Name
@@ -39,7 +45,6 @@ func AssociateWebhookWithReference(req router.Request, resp router.Response) err
 		Spec: v1.WebhookReferenceSpec{
 			WebhookName:      wh.Name,
 			WebhookNamespace: wh.Namespace,
-			Custom:           true,
 		},
 	}
 
@@ -72,8 +77,7 @@ func CleanupWebhook(req router.Request, _ router.Response) error {
 		return err
 	}
 
-	// If this is not a "custom" webhook reference, then this is the "standard" webhook reference is that is associated to every
-	// webhook. We don't want to delete it here because it will be deleted when the webhook is deleted.
+	// If the reference no longer matches this webhook, then delete it.
 	if whr.Spec.Custom && webhook.Spec.RefName != whr.Name {
 		return kclient.IgnoreNotFound(req.Delete(whr))
 	}

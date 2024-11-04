@@ -34,8 +34,8 @@ func (in *KnowledgeSet) GetColumns() [][]string {
 
 func (in *KnowledgeSet) DeleteRefs() []Ref {
 	return []Ref{
-		{&Agent{}, in.Spec.AgentName},
-		{&Thread{}, in.Spec.ThreadName},
+		{ObjType: &Agent{}, Name: in.Spec.AgentName},
+		{ObjType: &Thread{}, Name: in.Spec.ThreadName},
 	}
 }
 

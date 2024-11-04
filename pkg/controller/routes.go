@@ -109,6 +109,9 @@ func (c *Controller) setupRoutes() error {
 	root.Type(&v1.OAuthApp{}).HandlerFunc(cleanup.Cleanup)
 	root.Type(&v1.OAuthApp{}).HandlerFunc(reference.CreateGlobalOAuthAppReference)
 
+	// OAuthAppReferences
+	root.Type(&v1.OAuthAppReference{}).HandlerFunc(cleanup.Cleanup)
+
 	// OAuthAppLogins
 	root.Type(&v1.OAuthAppLogin{}).HandlerFunc(cleanup.Cleanup)
 	root.Type(&v1.OAuthAppLogin{}).HandlerFunc(oauthLogins.RunTool)

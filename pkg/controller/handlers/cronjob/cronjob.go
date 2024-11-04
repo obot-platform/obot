@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/otto8-ai/nah/pkg/apply"
 	"github.com/otto8-ai/nah/pkg/router"
 	"github.com/otto8-ai/otto8/apiclient/types"
 	"github.com/otto8-ai/otto8/pkg/storage/apis/otto.otto8.ai/v1"
@@ -48,15 +47,11 @@ func (h *Handler) Run(req router.Request, resp router.Response) error {
 		workflowID = ref.Spec.WorkflowName
 	}
 
-	resp.Objects(
+	if err = req.Client.Create(req.Ctx,
 		&v1.WorkflowExecution{
 			ObjectMeta: metav1.ObjectMeta{
 				GenerateName: system.WorkflowExecutionPrefix,
 				Namespace:    req.Namespace,
-				// Don't prune, these will be deleted when the cronjob is deleted.
-				Annotations: map[string]string{
-					apply.AnnotationPrune: "false",
-				},
 			},
 			Spec: v1.WorkflowExecutionSpec{
 				WorkflowName: workflowID,
@@ -64,7 +59,9 @@ func (h *Handler) Run(req router.Request, resp router.Response) error {
 				CronJobName:  cj.Name,
 			},
 		},
-	)
+	); err != nil {
+		return err
+	}
 
 	cj.Status.LastRunStartedAt = &[]metav1.Time{metav1.Now()}[0]
 

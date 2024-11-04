@@ -54,18 +54,18 @@ type ThreadSpec struct {
 
 func (in *Thread) DeleteRefs() []Ref {
 	refs := []Ref{
-		{&WorkflowExecution{}, in.Spec.WorkflowExecutionName},
-		{&Workflow{}, in.Spec.WorkflowName},
-		{&CronJob{}, in.Spec.CronJobName},
-		{&Webhook{}, in.Spec.WebhookName},
-		{&Thread{}, in.Status.PreviousThreadName},
-		{&KnowledgeSource{}, in.Spec.KnowledgeSourceName},
-		{&KnowledgeSet{}, in.Spec.KnowledgeSetName},
-		{&Workspace{}, in.Spec.WorkspaceName},
-		{&OAuthAppLogin{}, in.Spec.OAuthAppLoginName},
+		{ObjType: &WorkflowExecution{}, Name: in.Spec.WorkflowExecutionName},
+		{ObjType: &Workflow{}, Name: in.Spec.WorkflowName},
+		{ObjType: &CronJob{}, Name: in.Spec.CronJobName},
+		{ObjType: &Webhook{}, Name: in.Spec.WebhookName},
+		{ObjType: &Thread{}, Name: in.Status.PreviousThreadName},
+		{ObjType: &KnowledgeSource{}, Name: in.Spec.KnowledgeSourceName},
+		{ObjType: &KnowledgeSet{}, Name: in.Spec.KnowledgeSetName},
+		{ObjType: &Workspace{}, Name: in.Spec.WorkspaceName},
+		{ObjType: &OAuthAppLogin{}, Name: in.Spec.OAuthAppLoginName},
 	}
 	for _, name := range in.Spec.FromWorkspaceNames {
-		refs = append(refs, Ref{&Workspace{}, name})
+		refs = append(refs, Ref{ObjType: &Workspace{}, Name: name})
 	}
 	return refs
 }

@@ -32,9 +32,15 @@ func Cleanup(req router.Request, _ router.Response) error {
 				ref.ObjType = new(v1.Reference)
 			}
 		}
-		if err := req.Get(ref.ObjType, req.Namespace, ref.Name); apierrors.IsNotFound(err) {
-			if err := req.Get(uncached.Get(ref.ObjType), req.Namespace, ref.Name); apierrors.IsNotFound(err) {
-				log.Infof("Deleting %s/%s due to missing %s", req.Namespace, req.Name, ref.Name)
+
+		namespace := req.Namespace
+		if namespace == "" && ref.Namespace != "" {
+			namespace = ref.Namespace
+		}
+
+		if err := req.Get(ref.ObjType, namespace, ref.Name); apierrors.IsNotFound(err) {
+			if err := req.Get(uncached.Get(ref.ObjType), namespace, ref.Name); apierrors.IsNotFound(err) {
+				log.Infof("Deleting %s/%s due to missing %s", namespace, req.Name, ref.Name)
 				return req.Delete(req.Object)
 			}
 		}

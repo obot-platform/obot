@@ -4261,6 +4261,13 @@ func schema_storage_apis_ottootto8ai_v1_Ref(ref common.ReferenceCallback) common
 							Ref: ref("sigs.k8s.io/controller-runtime/pkg/client.Object"),
 						},
 					},
+					"Namespace": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
 					"Name": {
 						SchemaProps: spec.SchemaProps{
 							Default: "",
@@ -4269,7 +4276,7 @@ func schema_storage_apis_ottootto8ai_v1_Ref(ref common.ReferenceCallback) common
 						},
 					},
 				},
-				Required: []string{"ObjType", "Name"},
+				Required: []string{"ObjType", "Namespace", "Name"},
 			},
 		},
 		Dependencies: []string{

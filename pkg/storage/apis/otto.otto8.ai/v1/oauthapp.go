@@ -97,6 +97,12 @@ func (*OAuthAppReference) NamespaceScoped() bool {
 	return false
 }
 
+func (r *OAuthAppReference) DeleteRefs() []Ref {
+	return []Ref{
+		{ObjType: new(OAuthApp), Name: r.Spec.AppName, Namespace: r.Spec.AppNamespace},
+	}
+}
+
 func (r *OAuthAppReference) Has(field string) bool {
 	return r.Get(field) != ""
 }
