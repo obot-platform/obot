@@ -53,6 +53,7 @@ type Config struct {
 	ToolRegistry          string `usage:"The tool reference for the tool registry" default:"github.com/otto8-ai/tools"`
 	WorkspaceProviderType string `usage:"The type of workspace provider to use for non-knowledge workspaces" default:"directory" env:"OTTO_WORKSPACE_PROVIDER_TYPE"`
 	WorkspaceTool         string `usage:"The tool reference for the workspace provider" default:"github.com/gptscript-ai/workspace-provider"`
+	DatasetTool           string `usage:"The tool reference for the dataset provider" default:"github.com/gptscript-ai/datasets"`
 	HelperModel           string `usage:"The model used to generate names and descriptions" default:"gpt-4o-mini"`
 
 	AuthConfig
@@ -78,11 +79,12 @@ type Services struct {
 	GatewayServer         *gserver.Server
 }
 
-func newGPTScript(ctx context.Context, workspaceTool string) (*gptscript.GPTScript, error) {
+func newGPTScript(ctx context.Context, workspaceTool, datasetsTool string) (*gptscript.GPTScript, error) {
 	if os.Getenv("GPTSCRIPT_URL") != "" {
 		return gptscript.NewGPTScript(gptscript.GlobalOptions{
-			URL:           os.Getenv("GPTSCRIPT_URL"),
-			WorkspaceTool: workspaceTool,
+			URL:             os.Getenv("GPTSCRIPT_URL"),
+			WorkspaceTool:   workspaceTool,
+			DatasetToolRepo: datasetsTool,
 		})
 	}
 
@@ -155,7 +157,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		config.UIHostname = "https://" + config.UIHostname
 	}
 
-	c, err := newGPTScript(ctx, config.WorkspaceTool)
+	c, err := newGPTScript(ctx, config.WorkspaceTool, config.DatasetTool)
 	if err != nil {
 		return nil, err
 	}
