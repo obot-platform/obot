@@ -2,7 +2,6 @@ package proxy
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -78,33 +77,8 @@ func New(serverURL string, authProviderID uint, cfg Config) (*Proxy, error) {
 	}, nil
 }
 
-func (p *Proxy) Wrap(h http.Handler) http.Handler {
-	if p == nil {
-		return h
-	}
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if strings.HasPrefix(r.URL.Path, "/static/") || strings.HasPrefix(r.URL.Path, "/ui/login/complete") {
-			// No authentication required
-			h.ServeHTTP(w, r)
-			return
-		}
-
-		// If this header is set, then the session was deemed to be invalid and the request has come back around through the proxy.
-		// The cookie on the request is still invalid because the new one has not been sent back to the browser.
-		// Therefore, respond with a redirect so that the browser will redirect back to the original request with the new cookie.
-		if r.Header.Get("X-Otto-Auth-Required") != "" {
-			http.Redirect(w, r, r.URL.RawPath, http.StatusFound)
-			return
-		}
-
-		state, err := p.proxy.LoadCookiedSession(r)
-		if strings.HasPrefix(r.URL.Path, "/oauth2") || err != nil && !errors.Is(err, http.ErrNoCookie) || state != nil && state.IsExpired() {
-			r.Header.Add("X-Otto-Auth-Required", "true")
-			p.proxy.ServeHTTP(w, r)
-		} else {
-			h.ServeHTTP(w, r)
-		}
-	})
+func (p *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	p.proxy.ServeHTTP(w, r)
 }
 
 func (p *Proxy) AuthenticateRequest(req *http.Request) (*authenticator.Response, bool, error) {

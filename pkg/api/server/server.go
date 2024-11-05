@@ -3,12 +3,14 @@ package server
 import (
 	"errors"
 	"net/http"
+	"strings"
 
 	"github.com/gptscript-ai/go-gptscript"
 	"github.com/otto8-ai/otto8/apiclient/types"
 	"github.com/otto8-ai/otto8/pkg/api"
 	"github.com/otto8-ai/otto8/pkg/api/authn"
 	"github.com/otto8-ai/otto8/pkg/api/authz"
+	"github.com/otto8-ai/otto8/pkg/proxy"
 	"github.com/otto8-ai/otto8/pkg/storage"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 )
@@ -18,16 +20,18 @@ type Server struct {
 	gptClient     *gptscript.GPTScript
 	authenticator *authn.Authenticator
 	authorizer    *authz.Authorizer
+	proxyServer   *proxy.Proxy
 
 	mux *http.ServeMux
 }
 
-func NewServer(storageClient storage.Client, gptClient *gptscript.GPTScript, authn *authn.Authenticator, authz *authz.Authorizer) *Server {
+func NewServer(storageClient storage.Client, gptClient *gptscript.GPTScript, authn *authn.Authenticator, authz *authz.Authorizer, proxyServer *proxy.Proxy) *Server {
 	return &Server{
 		storageClient: storageClient,
 		gptClient:     gptClient,
 		authenticator: authn,
 		authorizer:    authz,
+		proxyServer:   proxyServer,
 
 		mux: http.NewServeMux(),
 	}
@@ -50,14 +54,29 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) wrap(f api.HandlerFunc) http.HandlerFunc {
 	return func(rw http.ResponseWriter, req *http.Request) {
+		// If this header is set, then the session was deemed to be invalid and the request has come back around through the proxy.
+		// The cookie on the request is still invalid because the new one has not been sent back to the browser.
+		// Therefore, respond with a redirect so that the browser will redirect back to the original request with the new cookie.
+		if req.Header.Get("X-Otto-Auth-Required") == "true" {
+			http.Redirect(rw, req, req.RequestURI, http.StatusFound)
+			return
+		}
+
 		user, err := s.authenticator.Authenticate(req)
 		if err != nil {
 			http.Error(rw, err.Error(), http.StatusUnauthorized)
 			return
 		}
 
-		if !s.authorizer.Authorize(req, user) {
-			http.Error(rw, "forbidden", http.StatusForbidden)
+		if !s.authorizer.Authorize(req, user) || strings.HasPrefix(req.URL.Path, "/oauth2/") {
+			// If this is not a request coming from browser or the proxy is not enabled, then return 403.
+			if s.proxyServer == nil || req.Method != http.MethodGet || !strings.Contains(strings.ToLower(req.UserAgent()), "mozilla") {
+				http.Error(rw, "forbidden", http.StatusForbidden)
+				return
+			}
+
+			req.Header.Set("X-Otto-Auth-Required", "true")
+			s.proxyServer.ServeHTTP(rw, req)
 			return
 		}
 
