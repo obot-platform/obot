@@ -27,8 +27,7 @@ func New(invoker *invoke.Invoker) *Handler {
 
 func (h *Handler) Run(req router.Request, _ router.Response) error {
 	var (
-		objects []kclient.Object
-		we      = req.Object.(*v1.WorkflowExecution)
+		we = req.Object.(*v1.WorkflowExecution)
 	)
 
 	if we.Status.State.IsTerminal() {
@@ -106,7 +105,7 @@ func (h *Handler) Run(req router.Request, _ router.Response) error {
 		we.Status.EndTime = &metav1.Time{Time: time.Now()}
 	}
 
-	return apply.New(req.Client).Apply(req.Ctx, req.Object, objects...)
+	return apply.New(req.Client).Apply(req.Ctx, req.Object, steps...)
 }
 
 func (h *Handler) loadManifest(req router.Request, we *v1.WorkflowExecution) error {
