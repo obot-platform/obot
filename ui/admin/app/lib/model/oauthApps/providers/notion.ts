@@ -82,7 +82,7 @@ const steps: OAuthFormStep<z.infer<typeof schema>>[] = [
         type: "markdown",
         text:
             "### Step 3: Register your integration with Otto\n" +
-            "- Or navigate to the **Configuration** tab from the top of the integration's settings page.\n" +
+            "- Navigate to the **Configuration** tab from the top of the integration's settings page.\n" +
             "- Copy the **Client ID** and **Client Secret** and paste them into the respective fields below.\n",
     },
     { type: "input", input: "clientID", label: "Client ID" },
