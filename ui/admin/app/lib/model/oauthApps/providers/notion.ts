@@ -75,10 +75,6 @@ const steps: OAuthFormStep<z.infer<typeof schema>>[] = [
             "- Click **Save** at the bottom to continue.\n",
     },
     {
-        type: "copy",
-        text: getOAuthLinks("notion").redirectURL,
-    },
-    {
         type: "markdown",
         text:
             "### Step 3: Register your integration with Otto\n" +
