@@ -42,6 +42,6 @@ vendor/
 Thumbs.db
 
 # Ignore local DB files
-otto8.db
-otto8.db-*
+otto8*.db*
+
 
