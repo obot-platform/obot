@@ -212,6 +212,11 @@ func (a *AgentHandler) UploadKnowledgeFile(req api.Context) error {
 }
 
 func (a *AgentHandler) ApproveKnowledgeFile(req api.Context) error {
+	var agent v1.Agent
+	if err := req.Get(&agent, req.PathValue("agent_id")); err != nil {
+		return err
+	}
+
 	var body struct {
 		Approved bool `json:"approved"`
 	}
@@ -226,7 +231,11 @@ func (a *AgentHandler) ApproveKnowledgeFile(req api.Context) error {
 	}
 
 	file.Spec.Approved = &body.Approved
-	return req.Update(&file)
+	if err := req.Update(&file); err != nil {
+		return err
+	}
+
+	return req.Write(convertKnowledgeFile(agent.Name, "", file))
 }
 
 func (a *AgentHandler) DeleteKnowledgeFile(req api.Context) error {
@@ -328,22 +337,24 @@ func (a *AgentHandler) ReIngestKnowledgeFile(req api.Context) error {
 		return types.NewErrHttp(http.StatusTooEarly, fmt.Sprintf("agent %q knowledge set is not created yet", agent.Name))
 	}
 
-	var knowledgeSource v1.KnowledgeSource
-	if err := req.Get(&knowledgeSource, req.PathValue("knowledge_source_id")); err != nil {
-		return err
-	}
-
-	if knowledgeSource.Spec.KnowledgeSetName != agent.Status.KnowledgeSetNames[0] {
-		return types.NewErrBadRequest("knowledgeSource %q does not belong to agent %q", knowledgeSource.Name, agent.Name)
-	}
-
 	var knowledgeFile v1.KnowledgeFile
-	if err := req.Get(&knowledgeFile, req.PathValue("id")); err != nil {
+	if err := req.Get(&knowledgeFile, req.PathValue("file_id")); err != nil {
 		return err
 	}
 
-	if knowledgeFile.Spec.KnowledgeSourceName != knowledgeSource.Name {
-		return types.NewErrBadRequest("knowledgeFile %q does not belong to knowledgeSource %q", knowledgeFile.Name, knowledgeSource.Name)
+	if req.PathValue("knowledge_source_id") != "" {
+		var knowledgeSource v1.KnowledgeSource
+		if err := req.Get(&knowledgeSource, req.PathValue("knowledge_source_id")); err != nil {
+			return err
+		}
+
+		if knowledgeSource.Spec.KnowledgeSetName != agent.Status.KnowledgeSetNames[0] {
+			return types.NewErrBadRequest("knowledgeSource %q does not belong to agent %q", knowledgeSource.Name, agent.Name)
+		}
+
+		if knowledgeFile.Spec.KnowledgeSourceName != knowledgeSource.Name {
+			return types.NewErrBadRequest("knowledgeFile %q does not belong to knowledgeSource %q", knowledgeFile.Name, knowledgeSource.Name)
+		}
 	}
 
 	knowledgeFile.Spec.IngestGeneration++
@@ -384,8 +395,12 @@ func (a *AgentHandler) ReSyncKnowledgeSource(req api.Context) error {
 		return err
 	}
 
-	req.WriteHeader(http.StatusNoContent)
-	return nil
+	knowledgeSource.Status.SyncState = types.KnowledgeSourceStatePending
+	if err := req.Storage.Status().Update(req.Context(), &knowledgeSource); err != nil {
+		return err
+	}
+
+	return req.Write(convertKnowledgeSource(agent.Name, knowledgeSource))
 }
 
 func (a *AgentHandler) ListKnowledgeSources(req api.Context) error {
@@ -500,6 +515,7 @@ func (a *AgentHandler) EnsureCredentialForKnowledgeSource(req api.Context) error
 		agent.Status.External.AuthStatus = make(map[string]types.OAuthAppLoginAuthStatus)
 	}
 	agent.Status.External.AuthStatus[ref] = oauthLogin.Status.External
+
 	return req.Write(convertAgent(agent, server.GetURLPrefix(req)))
 }
 

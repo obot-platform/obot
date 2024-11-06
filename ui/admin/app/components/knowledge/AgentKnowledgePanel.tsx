@@ -1,24 +1,52 @@
-import { Globe, SettingsIcon, UploadIcon } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { Avatar } from "@radix-ui/react-avatar";
+import {
+    Edit,
+    FileIcon,
+    GlobeIcon,
+    PlusIcon,
+    RefreshCcw,
+    Trash,
+    UploadIcon,
+} from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import useSWR, { SWRResponse } from "swr";
 
 import { Agent } from "~/lib/model/agents";
 import {
     KnowledgeFile,
     KnowledgeFileState,
+    KnowledgeSource,
     KnowledgeSourceStatus,
+    KnowledgeSourceType,
+    getKnowledgeSourceDisplayName,
+    getKnowledgeSourceType,
 } from "~/lib/model/knowledge";
 import { KnowledgeService } from "~/lib/service/api/knowledgeService";
 import { assetUrl } from "~/lib/utils";
 
-import FileModal from "~/components/knowledge/file/FileModal";
-import { NotionModal } from "~/components/knowledge/notion/NotionModal";
-import { OnedriveModal } from "~/components/knowledge/onedrive/OneDriveModal";
-import { WebsiteModal } from "~/components/knowledge/website/WebsiteModal";
-import { Avatar } from "~/components/ui/avatar";
+import AddSourceModal from "~/components/knowledge/AddSourceModal";
+import FileStatusIcon from "~/components/knowledge/FileStatusIcon";
+import RemoteFileAvatar from "~/components/knowledge/KnowledgeSourceAvatar";
+import KnowledgeSourceDetail from "~/components/knowledge/KnowledgeSourceDetail";
+import { LoadingSpinner } from "~/components/ui/LoadingSpinner";
 import { Button } from "~/components/ui/button";
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from "~/components/ui/dropdown-menu";
+import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
 import { AutosizeTextarea } from "~/components/ui/textarea";
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipProvider,
+    TooltipTrigger,
+} from "~/components/ui/tooltip";
+import { useAsync } from "~/hooks/useAsync";
+import { useMultiAsync } from "~/hooks/useMultiAsync";
 
 type AgentKnowledgePanelProps = {
     agentId: string;
@@ -31,24 +59,21 @@ export default function AgentKnowledgePanel({
     agent,
     updateAgent,
 }: AgentKnowledgePanelProps) {
+    const fileInputRef = useRef<HTMLInputElement>(null);
     const [blockPollingLocalFiles, setBlockPollingLocalFiles] = useState(false);
-    const [blockPollingOneDrive, setBlockPollingOneDrive] = useState(false);
-    const [blockPollingNotion, setBlockPollingNotion] = useState(false);
-    const [blockPollingWebsite, setBlockPollingWebsite] = useState(false);
-    const [blockPollingOneDriveFiles, setBlockPollingOneDriveFiles] =
-        useState(false);
-    const [blockPollingNotionFiles, setBlockPollingNotionFiles] =
-        useState(false);
-    const [blockPollingWebsiteFiles, setBlockPollingWebsiteFiles] =
-        useState(false);
-    const [isAddFileModalOpen, setIsAddFileModalOpen] = useState(false);
-    const [isOnedriveModalOpen, setIsOnedriveModalOpen] = useState(false);
-    const [isNotionModalOpen, setIsNotionModalOpen] = useState(false);
-    const [isWebsiteModalOpen, setIsWebsiteModalOpen] = useState(false);
-
+    const [blockPollingSources, setBlockPollingSources] = useState(false);
+    const [isAddSourceModalOpen, setIsAddSourceModalOpen] = useState(false);
     const [knowledgeDescription, setKnowledgeDescription] = useState(
         agent.knowledgeDescription
     );
+    const [sourceType, setSourceType] = useState<KnowledgeSourceType>(
+        KnowledgeSourceType.Website
+    );
+    const [selectedKnowledgeSourceId, setSelectedKnowledgeSourceId] = useState<
+        string | undefined
+    >(undefined);
+    const [isEditKnowledgeSourceModalOpen, setIsEditKnowledgeSourceModalOpen] =
+        useState(false);
 
     const getLocalFiles: SWRResponse<KnowledgeFile[], Error> = useSWR(
         KnowledgeService.getLocalKnowledgeFilesForAgent.key(agentId),
@@ -74,25 +99,13 @@ export default function AgentKnowledgePanel({
         () => getLocalFiles.data || [],
         [getLocalFiles.data]
     );
-    const ingestedLocalFiles = useMemo(
-        () =>
-            localFiles.filter(
-                (file) => file.state === KnowledgeFileState.Ingested
-            ),
-        [localFiles]
-    );
 
     const getKnowledgeSources = useSWR(
         KnowledgeService.getKnowledgeSourcesForAgent.key(agentId),
         ({ agentId }) => KnowledgeService.getKnowledgeSourcesForAgent(agentId),
         {
             revalidateOnFocus: false,
-            refreshInterval:
-                blockPollingNotion &&
-                blockPollingOneDrive &&
-                blockPollingWebsite
-                    ? undefined
-                    : 1000,
+            refreshInterval: blockPollingSources ? undefined : 1000,
         }
     );
     const knowledgeSources = useMemo(
@@ -100,153 +113,29 @@ export default function AgentKnowledgePanel({
         [getKnowledgeSources.data]
     );
 
-    let notionSource = knowledgeSources.find((source) => source.notionConfig);
-    const onedriveSource = knowledgeSources.find(
-        (source) => source.onedriveConfig
-    );
-    const websiteSource = knowledgeSources.find(
-        (source) => source.websiteCrawlingConfig
-    );
-
-    const getNotionFiles: SWRResponse<KnowledgeFile[], Error> = useSWR(
-        KnowledgeService.getFilesForKnowledgeSource.key(
-            agentId,
-            notionSource?.id
-        ),
-        ({ agentId, sourceId }) =>
-            KnowledgeService.getFilesForKnowledgeSource(agentId, sourceId).then(
-                (files) =>
-                    files.sort((a, b) => a.fileName.localeCompare(b.fileName))
-            ),
-        {
-            revalidateOnFocus: false,
-            refreshInterval: blockPollingNotionFiles ? undefined : 1000,
-        }
-    );
-
-    const notionFiles = useMemo(
-        () => getNotionFiles.data || [],
-        [getNotionFiles.data]
-    );
-    const ingestedNotionFiles = useMemo(
-        () =>
-            notionFiles.filter(
-                (file) => file.state === KnowledgeFileState.Ingested
-            ),
-        [notionFiles]
-    );
-
-    const getOnedriveFiles: SWRResponse<KnowledgeFile[], Error> = useSWR(
-        KnowledgeService.getFilesForKnowledgeSource.key(
-            agentId,
-            onedriveSource?.id
-        ),
-        ({ agentId, sourceId }) =>
-            KnowledgeService.getFilesForKnowledgeSource(agentId, sourceId).then(
-                (files) =>
-                    files.sort((a, b) => a.fileName.localeCompare(b.fileName))
-            ),
-        {
-            revalidateOnFocus: false,
-            refreshInterval: blockPollingOneDriveFiles ? undefined : 1000,
-        }
-    );
-    const onedriveFiles = useMemo(
-        () => getOnedriveFiles.data || [],
-        [getOnedriveFiles.data]
-    );
-    const ingestedOnedriveFiles = useMemo(
-        () =>
-            onedriveFiles.filter(
-                (file) => file.state === KnowledgeFileState.Ingested
-            ),
-        [onedriveFiles]
-    );
-
-    const getWebsiteFiles: SWRResponse<KnowledgeFile[], Error> = useSWR(
-        KnowledgeService.getFilesForKnowledgeSource.key(
-            agentId,
-            websiteSource?.id
-        ),
-        ({ agentId, sourceId }) =>
-            KnowledgeService.getFilesForKnowledgeSource(agentId, sourceId).then(
-                (files) =>
-                    files.sort((a, b) => a.fileName.localeCompare(b.fileName))
-            ),
-        {
-            revalidateOnFocus: false,
-            refreshInterval: blockPollingWebsiteFiles ? undefined : 1000,
-        }
-    );
-
-    const websiteFiles = useMemo(
-        () => getWebsiteFiles.data || [],
-        [getWebsiteFiles.data]
-    );
-    const ingestedWebsiteFiles = useMemo(
-        () =>
-            websiteFiles.filter(
-                (file) => file.state === KnowledgeFileState.Ingested
-            ),
-        [websiteFiles]
-    );
-
-    const onClickNotion = async () => {
-        if (!notionSource) {
-            await KnowledgeService.createKnowledgeSource(agentId, {
-                notionConfig: {},
-            });
-            getKnowledgeSources.mutate();
-            notionSource = getKnowledgeSources.data?.find(
-                (source) => source.notionConfig
-            );
-        }
-        setIsNotionModalOpen(true);
-    };
-
-    const onClickOnedrive = async () => {
-        setIsOnedriveModalOpen(true);
-    };
-
-    const onClickWebsite = async () => {
-        setIsWebsiteModalOpen(true);
-    };
-
-    const startPollingLocalFiles = () => {
-        getLocalFiles.mutate();
-        setBlockPollingLocalFiles(false);
-    };
-
-    const startPollingNotion = () => {
-        getNotionFiles.mutate();
-        getKnowledgeSources.mutate();
-        setBlockPollingNotionFiles(false);
-        setBlockPollingNotion(false);
-    };
-
-    const startPollingOneDrive = () => {
-        getOnedriveFiles.mutate();
-        getKnowledgeSources.mutate();
-        setBlockPollingOneDriveFiles(false);
-        setBlockPollingOneDrive(false);
-    };
-
-    const startPollingWebsite = () => {
-        getWebsiteFiles.mutate();
-        getKnowledgeSources.mutate();
-        setBlockPollingWebsiteFiles(false);
-        setBlockPollingWebsite(false);
-    };
-
     const handleRemoteKnowledgeSourceSync = async (id: string) => {
-        await KnowledgeService.resyncKnowledgeSource(agentId, id);
+        const syncedSource = await KnowledgeService.resyncKnowledgeSource(
+            agentId,
+            id
+        );
+        getKnowledgeSources.mutate((prev) =>
+            prev?.map((source) =>
+                source.id === syncedSource.id ? syncedSource : source
+            )
+        );
+    };
+
+    const handleDeleteKnowledgeSource = async (id: string) => {
+        await KnowledgeService.deleteKnowledgeSource(agentId, id);
         getKnowledgeSources.mutate();
     };
 
     useEffect(() => {
         if (
             localFiles.every(
-                (file) => file.state === KnowledgeFileState.Ingested
+                (file) =>
+                    file.state === KnowledgeFileState.Ingested ||
+                    file.state === KnowledgeFileState.Error
             )
         ) {
             setBlockPollingLocalFiles(true);
@@ -257,109 +146,68 @@ export default function AgentKnowledgePanel({
 
     useEffect(() => {
         if (
-            notionFiles.length > 0 &&
-            notionFiles
-                .filter(
-                    (file) =>
-                        file.state !== KnowledgeFileState.PendingApproval &&
-                        file.state !== KnowledgeFileState.Unapproved
-                )
-                .every(
-                    (file) =>
-                        file.state === KnowledgeFileState.Ingested ||
-                        file.state === KnowledgeFileState.Error
-                ) &&
-            notionSource?.state !== KnowledgeSourceStatus.Syncing
+            knowledgeSources.length === 0 ||
+            knowledgeSources.every(
+                (source) =>
+                    source.state === KnowledgeSourceStatus.Synced ||
+                    source.state === KnowledgeSourceStatus.Error
+            )
         ) {
-            setBlockPollingNotionFiles(true);
+            setBlockPollingSources(true);
         } else {
-            setBlockPollingNotionFiles(false);
+            setBlockPollingSources(false);
         }
-    }, [notionFiles, notionSource?.state]);
+    }, [knowledgeSources]);
 
-    useEffect(() => {
-        if (
-            onedriveFiles.length > 0 &&
-            onedriveFiles
-                .filter(
-                    (file) =>
-                        file.state !== KnowledgeFileState.PendingApproval &&
-                        file.state !== KnowledgeFileState.Unapproved
-                )
-                .every(
-                    (file) =>
-                        file.state === KnowledgeFileState.Ingested ||
-                        file.state === KnowledgeFileState.Error
-                ) &&
-            onedriveSource?.state !== KnowledgeSourceStatus.Syncing
-        ) {
-            setBlockPollingOneDriveFiles(true);
-        } else {
-            setBlockPollingOneDriveFiles(false);
-        }
-    }, [onedriveFiles, onedriveSource?.state]);
+    const onSaveKnowledgeSource = (updatedSource: KnowledgeSource) => {
+        getKnowledgeSources.mutate((prev) =>
+            prev?.map((source) =>
+                source.id === updatedSource.id ? updatedSource : source
+            )
+        );
+    };
 
-    useEffect(() => {
-        if (
-            websiteFiles.length > 0 &&
-            websiteFiles
-                .filter(
-                    (file) =>
-                        file.state !== KnowledgeFileState.PendingApproval &&
-                        file.state !== KnowledgeFileState.Unapproved
-                )
-                .every(
-                    (file) =>
-                        file.state === KnowledgeFileState.Ingested ||
-                        file.state === KnowledgeFileState.Error
-                ) &&
-            websiteSource?.state !== KnowledgeSourceStatus.Syncing
-        ) {
-            setBlockPollingWebsiteFiles(true);
-        } else {
-            setBlockPollingWebsiteFiles(false);
-        }
-    }, [websiteFiles, websiteSource?.state]);
+    //Local file upload
+    const handleAddKnowledge = useCallback(
+        async (_index: number, file: File) => {
+            const addedFile = await KnowledgeService.addKnowledgeFilesToAgent(
+                agentId,
+                file
+            );
+            getLocalFiles.mutate((prev) =>
+                prev ? [...prev, addedFile] : [addedFile]
+            );
+            return addedFile;
+        },
+        [agentId, getLocalFiles]
+    );
 
-    useEffect(() => {
-        if (
-            !notionSource ||
-            notionSource?.state === KnowledgeSourceStatus.Synced
-        ) {
-            getNotionFiles.mutate();
-            setBlockPollingNotion(true);
-        } else {
-            setBlockPollingNotion(false);
-        }
+    // use multi async to handle uploading multiple files at once
+    const uploadKnowledge = useMultiAsync(handleAddKnowledge);
 
-        if (
-            !onedriveSource ||
-            onedriveSource?.state === KnowledgeSourceStatus.Synced
-        ) {
-            getOnedriveFiles.mutate();
-            setBlockPollingOneDrive(true);
-        } else {
-            setBlockPollingOneDrive(false);
-        }
+    const startUpload = (files: FileList) => {
+        if (!files.length) return;
 
-        if (
-            !websiteSource ||
-            websiteSource?.state === KnowledgeSourceStatus.Synced
-        ) {
-            getWebsiteFiles.mutate();
-            setBlockPollingWebsite(true);
-        } else {
-            setBlockPollingWebsite(false);
-        }
-    }, [
-        getKnowledgeSources,
-        notionSource,
-        onedriveSource,
-        websiteSource,
-        getNotionFiles,
-        getOnedriveFiles,
-        getWebsiteFiles,
-    ]);
+        uploadKnowledge.execute(
+            Array.from(files).map((file) => [file] as const)
+        );
+
+        if (fileInputRef.current) fileInputRef.current.value = "";
+    };
+
+    const deleteKnowledge = useAsync(async (item: KnowledgeFile) => {
+        await KnowledgeService.deleteKnowledgeFileFromAgent(
+            agentId,
+            item.fileName
+        );
+        getLocalFiles.mutate((prev) => prev?.filter((f) => f.id !== item.id));
+    });
+
+    const selectedKnowledgeSource = useMemo(() => {
+        return knowledgeSources.find(
+            (source) => source.id === selectedKnowledgeSourceId
+        );
+    }, [knowledgeSources, selectedKnowledgeSourceId]);
 
     return (
         <div className="flex flex-col gap-4 justify-center items-center">
@@ -377,153 +225,278 @@ export default function AgentKnowledgePanel({
                             knowledgeDescription: e.target.value,
                         });
                     }}
+                    className="max-h-[400px]"
                 />
             </div>
+            <div className="flex justify-end w-full">
+                <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                        <Button
+                            variant="secondary"
+                            className="flex items-center gap-2"
+                        >
+                            <PlusIcon className="h-5 w-5 text-foreground" />
+                            Add Knowledge
+                        </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent side="top">
+                        <DropdownMenuItem
+                            onClick={() => fileInputRef.current?.click()}
+                            className="cursor-pointer"
+                        >
+                            <div className="flex items-center">
+                                <UploadIcon className="w-4 h-4 mr-2" />
+                                Local Files
+                            </div>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                            onClick={() => {
+                                setSourceType(KnowledgeSourceType.OneDrive);
+                                setIsAddSourceModalOpen(true);
+                            }}
+                            className="cursor-pointer"
+                        >
+                            <div className="flex flex-row justify-center">
+                                <div className="flex flex-row justify-center">
+                                    <div className="flex items-center justify-center">
+                                        <Avatar className="h-4 w-4 mr-2">
+                                            <img
+                                                src={assetUrl("/onedrive.svg")}
+                                                alt="OneDrive logo"
+                                            />
+                                        </Avatar>
+                                    </div>
+                                    <span>OneDrive</span>
+                                </div>
+                            </div>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                            onClick={() => {
+                                setSourceType(KnowledgeSourceType.Notion);
+                                setIsAddSourceModalOpen(true);
+                            }}
+                            className="cursor-pointer"
+                            disabled={knowledgeSources.some(
+                                (source) =>
+                                    getKnowledgeSourceType(source) ===
+                                    KnowledgeSourceType.Notion
+                            )}
+                        >
+                            <div className="flex flex-row justify-center">
+                                <Avatar className="h-4 w-4 mr-2">
+                                    <img
+                                        src={assetUrl("/notion.svg")}
+                                        alt="Notion logo"
+                                    />
+                                </Avatar>
+                                Notion
+                            </div>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                            onClick={() => {
+                                setSourceType(KnowledgeSourceType.Website);
+                                setIsAddSourceModalOpen(true);
+                            }}
+                            className="cursor-pointer"
+                        >
+                            <div className="flex justify-center">
+                                <GlobeIcon className="w-4 h-4 mr-2" />
+                                Website
+                            </div>
+                        </DropdownMenuItem>
+                    </DropdownMenuContent>
+                </DropdownMenu>
+            </div>
 
-            <div className="flex w-full items-center justify-between gap-3 rounded-md bg-background px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-muted-foreground/20 focus-visible:ring-transparent">
-                <div className="flex items-center gap-2 text-foreground">
-                    <UploadIcon className="h-5 w-5" />
-                    <span className="text-lg font-semibold">Files</span>
-                </div>
-                <div className="flex flex-row items-center gap-2">
-                    <div className="flex items-center gap-2">
-                        {ingestedLocalFiles.length > 0 && (
-                            <span className="text-sm font-medium text-gray-500">
-                                {ingestedLocalFiles.length}{" "}
-                                {ingestedLocalFiles.length === 1
-                                    ? "file"
-                                    : "files"}{" "}
-                                ingested
-                            </span>
-                        )}
+            <div className="flex flex-col gap-2 w-full">
+                {localFiles.map((file) => (
+                    <div
+                        key={file.fileName}
+                        className="w-full flex items-center justify-between border px-2 rounded-md"
+                    >
+                        <div className="flex items-center">
+                            <FileIcon className="w-4 h-4 mr-2" />
+                            <span>{file.fileName}</span>
+                        </div>
+                        <div className="flex items-center">
+                            <div>
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={async () => {
+                                        if (
+                                            file.state ===
+                                            KnowledgeFileState.Error
+                                        ) {
+                                            const reingestedFile =
+                                                await KnowledgeService.reingestFile(
+                                                    agentId,
+                                                    file.id!
+                                                );
+                                            getLocalFiles.mutate((prev) =>
+                                                prev?.map((f) =>
+                                                    f.id === reingestedFile.id
+                                                        ? reingestedFile
+                                                        : f
+                                                )
+                                            );
+                                            return;
+                                        }
+                                    }}
+                                >
+                                    <FileStatusIcon file={file} />
+                                </Button>
+                            </div>
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => deleteKnowledge.execute(file)}
+                            >
+                                <Trash className="w-4 h-4" />
+                            </Button>
+                        </div>
                     </div>
-                    <Button
-                        onClick={() => setIsAddFileModalOpen(true)}
-                        className="flex items-center gap-2"
-                        variant="ghost"
+                ))}
+                {knowledgeSources.map((source) => (
+                    <div
+                        key={source.id}
+                        className="flex items-center justify-between w-full border px-2 rounded-md"
                     >
-                        <SettingsIcon className="h-5 w-5 text-foreground" />
-                    </Button>
-                </div>
+                        <div className="flex items-center">
+                            <RemoteFileAvatar
+                                knowledgeSourceType={getKnowledgeSourceType(
+                                    source
+                                )}
+                                className="w-4 h-4"
+                            />
+                            <span>{getKnowledgeSourceDisplayName(source)}</span>
+                        </div>
+                        <div className="flex items-center">
+                            <TooltipProvider>
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            onClick={() =>
+                                                handleRemoteKnowledgeSourceSync(
+                                                    source.id
+                                                )
+                                            }
+                                            onMouseEnter={() => {
+                                                if (
+                                                    source.state ===
+                                                        KnowledgeSourceStatus.Syncing ||
+                                                    source.state ===
+                                                        KnowledgeSourceStatus.Pending
+                                                ) {
+                                                    return;
+                                                }
+                                            }}
+                                        >
+                                            {source.state ===
+                                                KnowledgeSourceStatus.Syncing ||
+                                            source.state ===
+                                                KnowledgeSourceStatus.Pending ? (
+                                                <LoadingSpinner className="w-4 h-4" />
+                                            ) : (
+                                                <RefreshCcw className="w-4 h-4" />
+                                            )}
+                                        </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                        {source.state ===
+                                            KnowledgeSourceStatus.Syncing ||
+                                        source.state ===
+                                            KnowledgeSourceStatus.Pending
+                                            ? (source.status ?? "Syncing...")
+                                            : "Sync"}
+                                    </TooltipContent>
+                                </Tooltip>
+                            </TooltipProvider>
+                            <TooltipProvider>
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            onClick={() => {
+                                                setSelectedKnowledgeSourceId(
+                                                    source.id
+                                                );
+                                                setIsEditKnowledgeSourceModalOpen(
+                                                    true
+                                                );
+                                            }}
+                                        >
+                                            <Edit className="w-4 h-4" />
+                                        </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent>Edit</TooltipContent>
+                                </Tooltip>
+                            </TooltipProvider>
+                            <TooltipProvider>
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            onClick={() =>
+                                                handleDeleteKnowledgeSource(
+                                                    source.id
+                                                )
+                                            }
+                                        >
+                                            <Trash className="w-4 h-4" />
+                                        </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent>Delete</TooltipContent>
+                                </Tooltip>
+                            </TooltipProvider>
+                        </div>
+                    </div>
+                ))}
             </div>
-            <div className="flex w-full items-center justify-between gap-3 rounded-md bg-background px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-muted-foreground/20 focus-visible:ring-transparent">
-                <div className="flex items-center gap-2 text-foreground">
-                    <Avatar className="h-5 w-5">
-                        <img src={assetUrl("/notion.svg")} alt="Notion logo" />
-                    </Avatar>
-                    <span className="text-lg font-semibold">Notion</span>
-                </div>
-                <div className="flex flex-row items-center gap-2">
-                    {ingestedNotionFiles.length > 0 && (
-                        <span className="text-sm font-medium text-gray-500">
-                            {ingestedNotionFiles.length}{" "}
-                            {ingestedNotionFiles.length === 1
-                                ? "file"
-                                : "files"}{" "}
-                            ingested
-                        </span>
-                    )}
-                    <Button
-                        onClick={() => onClickNotion()}
-                        className="flex items-center gap-2"
-                        variant="ghost"
-                    >
-                        <SettingsIcon className="h-5 w-5 text-foreground" />
-                    </Button>
-                </div>
-            </div>
-            <div className="flex w-full items-center justify-between gap-3 rounded-md bg-background px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-muted-foreground/20 focus-visible:ring-transparent">
-                <div className="flex items-center gap-2 text-foreground">
-                    <Avatar className="h-5 w-5">
-                        <img
-                            src={assetUrl("/onedrive.svg")}
-                            alt="OneDrive logo"
-                        />
-                    </Avatar>
-                    <span className="text-lg font-semibold">OneDrive</span>
-                </div>
-                <div className="flex flex-row items-center gap-2">
-                    {ingestedOnedriveFiles.length > 0 && (
-                        <span className="text-sm font-medium text-gray-500">
-                            {ingestedOnedriveFiles.length}{" "}
-                            {ingestedOnedriveFiles.length === 1
-                                ? "file"
-                                : "files"}{" "}
-                            ingested
-                        </span>
-                    )}
-                    <Button
-                        onClick={() => onClickOnedrive()}
-                        className="flex items-center gap-2"
-                        variant="ghost"
-                    >
-                        <SettingsIcon className="h-5 w-5 text-foreground" />
-                    </Button>
-                </div>
-            </div>
-            <div className="flex w-full items-center justify-between gap-3 rounded-md bg-background px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-muted-foreground/20 focus-visible:ring-transparent">
-                <div className="flex items-center gap-2 text-foreground">
-                    <Globe className="h-5 w-5" />
-                    <span className="text-lg font-semibold">Website</span>
-                </div>
-                <div className="flex flex-row items-center gap-2">
-                    {ingestedWebsiteFiles.length > 0 && (
-                        <span className="text-sm font-medium text-gray-500">
-                            {ingestedWebsiteFiles.length}{" "}
-                            {ingestedWebsiteFiles.length === 1
-                                ? "file"
-                                : "files"}{" "}
-                            ingested
-                        </span>
-                    )}
-                    <Button
-                        onClick={() => onClickWebsite()}
-                        className="flex items-center gap-2"
-                        variant="ghost"
-                    >
-                        <SettingsIcon className="h-5 w-5 text-foreground" />
-                    </Button>
-                </div>
-            </div>
-            <FileModal
+
+            <AddSourceModal
                 agentId={agentId}
-                isOpen={isAddFileModalOpen}
-                onOpenChange={setIsAddFileModalOpen}
-                startPolling={startPollingLocalFiles}
-                files={localFiles}
+                isOpen={isAddSourceModalOpen}
+                sourceType={sourceType}
+                onOpenChange={setIsAddSourceModalOpen}
+                startPolling={() => {
+                    getKnowledgeSources.mutate();
+                }}
+                onSave={(knowledgeSourceId) => {
+                    setSelectedKnowledgeSourceId(knowledgeSourceId);
+                    setIsEditKnowledgeSourceModalOpen(true);
+                }}
             />
-            <NotionModal
-                agentId={agentId}
-                isOpen={isNotionModalOpen}
-                onOpenChange={setIsNotionModalOpen}
-                knowledgeSource={notionSource}
-                startPolling={startPollingNotion}
-                files={notionFiles}
-                handleRemoteKnowledgeSourceSync={
-                    handleRemoteKnowledgeSourceSync
-                }
-            />
-            <OnedriveModal
-                agentId={agentId}
-                isOpen={isOnedriveModalOpen}
-                onOpenChange={setIsOnedriveModalOpen}
-                knowledgeSource={onedriveSource}
-                startPolling={startPollingOneDrive}
-                files={onedriveFiles}
-                handleRemoteKnowledgeSourceSync={
-                    handleRemoteKnowledgeSourceSync
-                }
-            />
-            <WebsiteModal
-                agentId={agentId}
-                isOpen={isWebsiteModalOpen}
-                onOpenChange={setIsWebsiteModalOpen}
-                knowledgeSource={websiteSource}
-                startPolling={startPollingWebsite}
-                files={websiteFiles}
-                handleRemoteKnowledgeSourceSync={
-                    handleRemoteKnowledgeSourceSync
-                }
+            {selectedKnowledgeSourceId && selectedKnowledgeSource && (
+                <KnowledgeSourceDetail
+                    agentId={agentId}
+                    knowledgeSource={selectedKnowledgeSource}
+                    isOpen={isEditKnowledgeSourceModalOpen}
+                    onOpenChange={setIsEditKnowledgeSourceModalOpen}
+                    onSyncNow={() =>
+                        handleRemoteKnowledgeSourceSync(
+                            selectedKnowledgeSourceId
+                        )
+                    }
+                    onDelete={() =>
+                        handleDeleteKnowledgeSource(selectedKnowledgeSourceId)
+                    }
+                    onSave={onSaveKnowledgeSource}
+                />
+            )}
+            <Input
+                ref={fileInputRef}
+                type="file"
+                className="hidden"
+                multiple
+                onChange={(e) => {
+                    if (!e.target.files) return;
+                    startUpload(e.target.files);
+                }}
             />
         </div>
     );

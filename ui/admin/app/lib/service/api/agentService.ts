@@ -58,6 +58,16 @@ async function deleteAgent(id: string) {
     });
 }
 
+async function getAuthUrlForAgent(agentId: string, toolRef: string) {
+    const res = await request<Agent>({
+        url: ApiRoutes.agents.getAuthUrlForAgent(agentId, toolRef).url,
+        errorMessage: "Failed to get auth url for agent",
+        method: "POST",
+    });
+
+    return res.data.authStatus?.[toolRef];
+}
+
 const revalidateAgents = () =>
     revalidateWhere((url) => url.includes(ApiRoutes.agents.base().path));
 
@@ -67,5 +77,6 @@ export const AgentService = {
     createAgent,
     updateAgent,
     deleteAgent,
+    getAuthUrlForAgent,
     revalidateAgents,
 };

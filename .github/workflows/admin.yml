@@ -23,7 +23,7 @@ jobs:
       - name: Set up pnpm
         uses: pnpm/action-setup@v4
         with:
-          version: 9
+          version: 9.12.3
 
       - name: Install dependencies
         run: |

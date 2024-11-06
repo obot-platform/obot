@@ -127,7 +127,7 @@ func convertKnowledgeFile(agentName, threadName string, file v1.KnowledgeFile) t
 		UpdatedAt:              file.Spec.UpdatedAt,
 		Checksum:               file.Spec.Checksum,
 		LastIngestionStartTime: types.NewTime(file.Status.LastIngestionStartTime.Time),
-		LastIngestionEndTime:   types.NewTime(file.Status.LastIngestionStartTime.Time),
+		LastIngestionEndTime:   types.NewTime(file.Status.LastIngestionEndTime.Time),
 		AgentID:                agentName,
 		ThreadID:               threadName,
 		KnowledgeSetID:         file.Spec.KnowledgeSetName,

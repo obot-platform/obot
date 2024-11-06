@@ -24,13 +24,14 @@ getLocalKnowledgeFilesForAgent.key = (agentId?: Nullish<string>) => {
 };
 
 async function addKnowledgeFilesToAgent(agentId: string, file: File) {
-    await request({
+    const res = await request<KnowledgeFile>({
         url: ApiRoutes.agents.addKnowledgeFiles(agentId, file.name).url,
         method: "POST",
         data: await file.arrayBuffer(),
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
         errorMessage: "Failed to add knowledge to agent",
     });
+    return res.data;
 }
 
 async function deleteKnowledgeFileFromAgent(agentId: string, fileName: string) {
@@ -59,34 +60,37 @@ async function updateKnowledgeSource(
     knowledgeSourceId: string,
     input: KnowledgeSourceInput
 ) {
-    await request({
+    const res = await request<KnowledgeSource>({
         url: ApiRoutes.agents.updateKnowledgeSource(agentId, knowledgeSourceId)
             .url,
         method: "PUT",
         data: JSON.stringify(input),
         errorMessage: "Failed to update remote knowledge source",
     });
+    return res.data;
 }
 
 async function resyncKnowledgeSource(
     agentId: string,
     knowledgeSourceId: string
 ) {
-    await request({
+    const res = await request<KnowledgeSource>({
         url: ApiRoutes.agents.syncKnowledgeSource(agentId, knowledgeSourceId)
             .url,
         method: "POST",
         errorMessage: "Failed to resync remote knowledge source",
     });
+    return res.data;
 }
 
 async function approveFile(agentId: string, fileID: string, approve: boolean) {
-    await request({
+    const res = await request<KnowledgeFile>({
         url: ApiRoutes.agents.approveFile(agentId, fileID).url,
         method: "POST",
         data: JSON.stringify({ Approved: approve }),
         errorMessage: "Failed to approve knowledge file",
     });
+    return res.data;
 }
 
 async function getKnowledgeSourcesForAgent(agentId: string) {
@@ -107,16 +111,6 @@ getKnowledgeSourcesForAgent.key = (agentId?: Nullish<string>) => {
         agentId,
     };
 };
-
-async function getAuthUrlForKnowledgeSource(agentId: string, sourceId: string) {
-    const res = await request<{ authStatus: { url: string } }>({
-        url: ApiRoutes.agents.getAuthUrlForKnowledgeSource(agentId, sourceId)
-            .url,
-        method: "POST",
-        errorMessage: "Failed to fetch auth url for knowledge source",
-    });
-    return res.data.authStatus.url;
-}
 
 async function getFilesForKnowledgeSource(agentId: string, sourceId: string) {
     if (!sourceId) return [];
@@ -141,11 +135,24 @@ getFilesForKnowledgeSource.key = (
     };
 };
 
-async function reingestFile(agentId: string, sourceId: string, fileID: string) {
-    await request({
-        url: ApiRoutes.agents.reingestFile(agentId, sourceId, fileID).url,
+async function reingestFile(
+    agentId: string,
+    fileID: string,
+    sourceId?: string
+) {
+    const rest = await request<KnowledgeFile>({
+        url: ApiRoutes.agents.reingestFile(agentId, fileID, sourceId).url,
         method: "POST",
         errorMessage: "Failed to reingest knowledge file",
+    });
+    return rest.data;
+}
+
+async function deleteKnowledgeSource(agentId: string, sourceId: string) {
+    await request({
+        url: ApiRoutes.agents.deleteKnowledgeSource(agentId, sourceId).url,
+        method: "DELETE",
+        errorMessage: "Failed to delete knowledge source",
     });
 }
 
@@ -160,5 +167,5 @@ export const KnowledgeService = {
     getKnowledgeSourcesForAgent,
     getFilesForKnowledgeSource,
     reingestFile,
-    getAuthUrlForKnowledgeSource,
+    deleteKnowledgeSource,
 };

@@ -91,7 +91,7 @@ export function ToolCard({ tool, onDelete }: ToolCardProps) {
                             children: "Delete",
                         }}
                     >
-                        <Button variant="muted" size="icon">
+                        <Button variant="ghost" size="icon">
                             <Trash className="w-5 h-5" />
                         </Button>
                     </ConfirmationDialog>

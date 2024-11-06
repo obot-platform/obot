@@ -182,7 +182,7 @@ func (k *Handler) Sync(req router.Request, _ router.Response) error {
 	}
 
 	invokeOpts := invoke.SystemTaskOptions{
-		CredentialContextIDs: []string{source.Name},
+		CredentialContextIDs: []string{agent.Name},
 	}
 
 	thread, err := getThread(req.Ctx, req.Client, source)

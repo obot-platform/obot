@@ -18,14 +18,18 @@ export type AgentBase = {
     knowledgeDescription?: string;
 };
 
-export type KnowledgeSetStatus = {
-    knowledgeSetName: string;
+export type AgentOAuthStatus = {
+    url?: string;
+    authenticated?: boolean;
+    required?: boolean | null;
     error?: string;
 };
 
 export type Agent = EntityMeta &
     AgentBase & {
         slugAssigned: boolean;
+    } & {
+        authStatus?: Record<string, AgentOAuthStatus>;
     };
 
 export type CreateAgent = AgentBase;

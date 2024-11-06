@@ -108,15 +108,8 @@ export function CustomOAuthAppForm({
         defaultValues,
     });
 
-    const {
-        isFinalStep,
-        nextLabel,
-        prevLabel,
-        onBack,
-        onNext,
-        isLoading,
-        disableSubmit,
-    } = getStepInfo(step);
+    const { isFinalStep, nextLabel, prevLabel, onBack, onNext, disableSubmit } =
+        getStepInfo(step);
 
     useEffect(() => {
         form.reset(defaultValues);
@@ -242,7 +235,6 @@ export function CustomOAuthAppForm({
                     </Button>
 
                     <Button
-                        loading={isLoading}
                         className="flex-1 w-full"
                         type="submit"
                         disabled={disableSubmit}

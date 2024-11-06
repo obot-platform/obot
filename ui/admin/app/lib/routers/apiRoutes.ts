@@ -51,8 +51,8 @@ export const ApiRoutes = {
             buildUrl(
                 `/agents/${agentId}/knowledge-sources/${knowledgeSourceId}/sync`
             ),
-        getAuthUrlForKnowledgeSource: (agentId: string, sourceId: string) =>
-            buildUrl(`/agents/${agentId}/knowledge-sources/${sourceId}/login`),
+        getAuthUrlForAgent: (agentId: string, toolRef: string) =>
+            buildUrl(`/agents/${agentId}/oauth-credentials/${toolRef}/login`),
         deleteKnowledgeSource: (agentId: string, knowledgeSourceId: string) =>
             buildUrl(
                 `/agents/${agentId}/knowledge-sources/${knowledgeSourceId}`
@@ -63,9 +63,11 @@ export const ApiRoutes = {
             ),
         approveFile: (agentId: string, fileID: string) =>
             buildUrl(`/agents/${agentId}/approve-file/${fileID}`),
-        reingestFile: (agentId: string, sourceId: string, fileID: string) =>
+        reingestFile: (agentId: string, fileID: string, sourceId?: string) =>
             buildUrl(
-                `/agents/${agentId}/knowledge-sources/${sourceId}/knowledge-files/${fileID}/ingest`
+                sourceId
+                    ? `/agents/${agentId}/knowledge-sources/${sourceId}/knowledge-files/${fileID}/ingest`
+                    : `/agents/${agentId}/knowledge-files/${fileID}/ingest`
             ),
     },
     workflows: {

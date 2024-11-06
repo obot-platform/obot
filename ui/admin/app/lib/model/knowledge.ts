@@ -1,10 +1,10 @@
-export const RemoteKnowledgeSourceType = {
-    OneDrive: "onedrive",
-    Notion: "notion",
-    Website: "website",
+export const KnowledgeSourceType = {
+    OneDrive: "OneDrive",
+    Notion: "Notion",
+    Website: "Website",
 } as const;
-export type RemoteKnowledgeSourceType =
-    (typeof RemoteKnowledgeSourceType)[keyof typeof RemoteKnowledgeSourceType];
+export type KnowledgeSourceType =
+    (typeof KnowledgeSourceType)[keyof typeof KnowledgeSourceType];
 
 export const KnowledgeFileState = {
     Pending: "pending",
@@ -28,12 +28,16 @@ export type KnowledgeSourceStatus =
 
 export type KnowledgeSource = {
     id: string;
+    name: string;
     agentID: string;
-    state?: KnowledgeSourceStatus;
+    state: KnowledgeSourceStatus;
     syncDetails?: RemoteKnowledgeSourceState;
     status?: string;
     error?: string;
     authStatus?: AuthStatus;
+    lastSyncStartTime?: string;
+    lastSyncEndTime?: string;
+    lastRunID?: string;
 } & KnowledgeSourceInput;
 
 type AuthStatus = {
@@ -112,19 +116,21 @@ type FolderSet = {
 
 export type KnowledgeFile = {
     id: string;
-    created: string;
-    deleted: string;
     fileName: string;
     state: KnowledgeFileState;
-    agentID: string;
-    knowledgeSetID: string;
-    knowledgeSourceID: string;
-    url: string;
-    updatedAt: string;
-    checksum: string;
-    approved: boolean;
-    lastRunID: string;
-    error: string;
+    error?: string;
+    agentID?: string;
+    threadID?: string;
+    knowledgeSetID?: string;
+    knowledgeSourceID?: string;
+    approved?: boolean;
+    url?: string;
+    updatedAt?: string;
+    checksum?: string;
+    lastIngestionStartTime?: Date;
+    lastIngestionEndTime?: Date;
+    lastRunIDs?: string[];
+    deleted?: string;
 };
 
 export function getRemoteFileDisplayName(item: KnowledgeFile) {
@@ -141,4 +147,65 @@ export function getMessage(state: KnowledgeFileState, error?: string) {
     }
 
     return state;
+}
+
+export function getKnowledgeSourceType(source: KnowledgeSource) {
+    if (source.notionConfig) {
+        return KnowledgeSourceType.Notion;
+    }
+
+    if (source.onedriveConfig) {
+        return KnowledgeSourceType.OneDrive;
+    }
+
+    return KnowledgeSourceType.Website;
+}
+
+export function getKnowledgeSourceDisplayName(source: KnowledgeSource) {
+    if (source.notionConfig) {
+        return "Notion";
+    }
+
+    if (source.onedriveConfig) {
+        if (
+            source.syncDetails?.onedriveState?.links &&
+            source.onedriveConfig.sharedLinks &&
+            source.onedriveConfig.sharedLinks.length > 0
+        ) {
+            return source.syncDetails?.onedriveState?.links[
+                source.onedriveConfig.sharedLinks[0]
+            ].name;
+        }
+
+        return "OneDrive";
+    }
+
+    if (source.websiteCrawlingConfig) {
+        if (
+            source.websiteCrawlingConfig.urls &&
+            source.websiteCrawlingConfig.urls.length > 0
+        ) {
+            return source.websiteCrawlingConfig.urls[0];
+        }
+
+        return "Website";
+    }
+
+    return source.name;
+}
+
+export function getToolRefForKnowledgeSource(sourceType: KnowledgeSourceType) {
+    if (sourceType === KnowledgeSourceType.OneDrive) {
+        return "onedrive-data-source";
+    }
+
+    if (sourceType === KnowledgeSourceType.Notion) {
+        return "notion-data-source";
+    }
+
+    if (sourceType === KnowledgeSourceType.Website) {
+        return "website-data-source";
+    }
+
+    return "";
 }
