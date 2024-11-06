@@ -159,6 +159,9 @@ func (h *Handler) ingest(ctx context.Context, client kclient.Client, file *v1.Kn
 			defer task.Close()
 
 			file.Status.RunNames = append(file.Status.RunNames, task.Run.Name)
+			if err := client.Status().Update(ctx, file); err != nil {
+				return err
+			}
 
 			result, err := task.Result(ctx)
 			if err != nil {
@@ -185,12 +188,15 @@ func (h *Handler) ingest(ctx context.Context, client kclient.Client, file *v1.Kn
 	}
 	defer loadTask.Close()
 
+	file.Status.RunNames = append(file.Status.RunNames, loadTask.Run.Name)
+	if err := client.Status().Update(ctx, file); err != nil {
+		return err
+	}
+
 	_, err = loadTask.Result(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to convert file: %v", err)
 	}
-
-	file.Status.RunNames = append(file.Status.RunNames, loadTask.Run.Name)
 
 	stat, err := h.gptScript.StatFileInWorkspace(ctx, outputFile(file.Spec.FileName), gptscript.StatFileInWorkspaceOptions{
 		WorkspaceID: thread.Status.WorkspaceID,
