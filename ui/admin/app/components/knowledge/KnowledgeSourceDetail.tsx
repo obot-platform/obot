@@ -498,6 +498,8 @@ const KnowledgeSourceDetail: FC<KnowledgeSourceDetailProps> = ({
                                                         ""
                                                 ) &&
                                                 knowledgeSource.syncSchedule !==
+                                                    undefined &&
+                                                knowledgeSource.syncSchedule !==
                                                     ""
                                             }
                                         />

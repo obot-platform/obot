@@ -23,11 +23,11 @@ const ErrorDialog: React.FC<ErrorDialogProps> = ({
 }) => {
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
-            <DialogContent>
+            <DialogContent className="max-w-[850px]">
                 <DialogHeader>
                     <DialogTitle>Error</DialogTitle>
                 </DialogHeader>
-                <DialogDescription className="whitespace-normal overflow-y-auto break-words max-h-full text-destructive">
+                <DialogDescription className="w-[800px] max-h-[800px] overflow-x-auto break-words whitespace-normal text-destructive">
                     {error}
                 </DialogDescription>
                 <DialogFooter>
