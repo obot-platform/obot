@@ -21,19 +21,19 @@ func (h *Handler) RunIf(req router.Request, resp router.Response) (err error) {
 	}
 
 	var completeResponse bool
-	objects := &[]kclient.Object{}
+	objects := []kclient.Object{}
 	defer func() {
 		apply := apply.New(req.Client)
 		if !completeResponse {
 			apply.WithNoPrune()
 		}
-		if applyErr := apply.Apply(req.Ctx, req.Object, *objects...); applyErr != nil && err == nil {
+		if applyErr := apply.Apply(req.Ctx, req.Object, objects...); applyErr != nil && err == nil {
 			err = applyErr
 		}
 	}()
 
 	conditionStep := h.defineCondition(step, nil, 0)
-	*objects = append(*objects, conditionStep)
+	objects = append(objects, conditionStep)
 
 	if _, errorMsg, state, err := GetStateFromSteps(req.Ctx, req.Client, step.Spec.WorkflowGeneration, conditionStep); err != nil {
 		return err
@@ -54,7 +54,7 @@ func (h *Handler) RunIf(req router.Request, resp router.Response) (err error) {
 	if err != nil {
 		return err
 	}
-	*objects = append(*objects, steps...)
+	objects = append(objects, steps...)
 	completeResponse = true
 
 	if len(steps) == 0 {

@@ -18,13 +18,13 @@ func (h *Handler) RunWhile(req router.Request, _ router.Response) (err error) {
 	}
 
 	var completeResponse bool
-	objects := &[]kclient.Object{}
+	var objects []kclient.Object
 	defer func() {
 		apply := apply.New(req.Client)
 		if !completeResponse {
 			apply.WithNoPrune()
 		}
-		if applyErr := apply.Apply(req.Ctx, req.Object, *objects...); applyErr != nil && err == nil {
+		if applyErr := apply.Apply(req.Ctx, req.Object, objects...); applyErr != nil && err == nil {
 			err = applyErr
 		}
 	}()
@@ -52,7 +52,7 @@ func (h *Handler) RunWhile(req router.Request, _ router.Response) (err error) {
 		}
 
 		conditionStep := h.defineCondition(step, lastStep, i)
-		*objects = append(*objects, conditionStep)
+		objects = append(objects, conditionStep)
 
 		if _, errMsg, state, err := GetStateFromSteps(req.Ctx, req.Client, step.Spec.WorkflowGeneration, conditionStep); err != nil {
 			return err
@@ -74,6 +74,7 @@ func (h *Handler) RunWhile(req router.Request, _ router.Response) (err error) {
 		}
 
 		if !conditionResult {
+			completeResponse = true
 			step.Status.State = types.WorkflowStateComplete
 			step.Status.LastRunName = lastRunName
 			return nil
@@ -91,7 +92,7 @@ func (h *Handler) RunWhile(req router.Request, _ router.Response) (err error) {
 			lastStep = conditionStep
 		}
 
-		*objects = append(*objects, steps...)
+		objects = append(objects, steps...)
 
 		runName, errMsg, newState, err := GetStateFromSteps(req.Ctx, req.Client, step.Spec.WorkflowGeneration, steps...)
 		if err != nil {
@@ -111,6 +112,7 @@ func (h *Handler) RunWhile(req router.Request, _ router.Response) (err error) {
 		}
 	}
 
+	completeResponse = true
 	step.Status.State = types.WorkflowStateComplete
 	step.Status.LastRunName = lastRunName
 	return nil
