@@ -202,11 +202,44 @@ const AddSourceModal: FC<AddSourceModalProps> = ({
                                 </DropdownMenuItem>
                                 <DropdownMenuItem
                                     className="cursor-pointer"
+                                    onClick={() => setSyncSchedule("0 * * * *")}
+                                >
+                                    Hourly
+                                    <DropdownMenuCheckboxItem
+                                        checked={syncSchedule === "0 * * * *"}
+                                    />
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                    className="cursor-pointer"
+                                    onClick={() => setSyncSchedule("0 0 * * *")}
+                                >
+                                    Daily
+                                    <DropdownMenuCheckboxItem
+                                        checked={syncSchedule === "0 0 * * *"}
+                                    />
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                    className="cursor-pointer"
+                                    onClick={() => setSyncSchedule("0 0 * * 0")}
+                                >
+                                    Weekly
+                                    <DropdownMenuCheckboxItem
+                                        checked={syncSchedule === "0 0 * * 0"}
+                                    />
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                    className="cursor-pointer"
                                     onClick={() => setIsCronDialogOpen(true)}
                                 >
-                                    <span>Cron</span>
+                                    <span>Custom</span>
                                     <DropdownMenuCheckboxItem
-                                        checked={syncSchedule !== ""}
+                                        checked={
+                                            ![
+                                                "0 * * * *",
+                                                "0 0 * * *",
+                                                "0 0 * * 0",
+                                            ].includes(syncSchedule ?? "")
+                                        }
                                     />
                                 </DropdownMenuItem>
                             </DropdownMenuContent>
@@ -214,7 +247,7 @@ const AddSourceModal: FC<AddSourceModalProps> = ({
                     </div>
                     <div className="w-full grid grid-cols-2 items-center justify-center gap-2 mb-4">
                         <Label className="block text-sm font-medium mt-4 text-center">
-                            Ingestion Policy:
+                            New Files Ingestion Policy:
                         </Label>
                         <RadioGroup
                             value={autoApprove ? "auto-approve" : "default"}
@@ -227,7 +260,7 @@ const AddSourceModal: FC<AddSourceModalProps> = ({
                                         onClick={() => setAutoApprove(false)}
                                     />
                                     <Label htmlFor="r1" className="text-sm">
-                                        Let me pick
+                                        Manual
                                     </Label>
                                 </div>
                                 <div className="flex items-center space-x-2">
@@ -237,7 +270,7 @@ const AddSourceModal: FC<AddSourceModalProps> = ({
                                         onClick={() => setAutoApprove(true)}
                                     />
                                     <Label htmlFor="r2" className=" text-sm">
-                                        Automatically add to knowledge
+                                        Automatic
                                     </Label>
                                 </div>
                             </div>

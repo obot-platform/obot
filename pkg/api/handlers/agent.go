@@ -470,6 +470,11 @@ func (a *AgentHandler) EnsureCredentialForKnowledgeSource(req api.Context) error
 		return req.Write(convertAgent(agent, server.GetURLPrefix(req)))
 	}
 
+	// if auth is already authenticated, then don't continue.
+	if authStatus.Authenticated {
+		return req.Write(convertAgent(agent, server.GetURLPrefix(req)))
+	}
+
 	credentialTool, err := v1.CredentialTool(req.Context(), req.Storage, req.Namespace(), ref)
 	if err != nil {
 		return err

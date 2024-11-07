@@ -1,10 +1,12 @@
 import { Avatar } from "@radix-ui/react-avatar";
 import {
     Edit,
+    EyeIcon,
     FileIcon,
     GlobeIcon,
     PlusIcon,
     RefreshCcw,
+    RotateCcwIcon,
     Trash,
     UploadIcon,
 } from "lucide-react";
@@ -25,6 +27,7 @@ import { KnowledgeService } from "~/lib/service/api/knowledgeService";
 import { assetUrl } from "~/lib/utils";
 
 import AddSourceModal from "~/components/knowledge/AddSourceModal";
+import ErrorDialog from "~/components/knowledge/ErrorDialog";
 import FileStatusIcon from "~/components/knowledge/FileStatusIcon";
 import RemoteFileAvatar from "~/components/knowledge/KnowledgeSourceAvatar";
 import KnowledgeSourceDetail from "~/components/knowledge/KnowledgeSourceDetail";
@@ -74,6 +77,9 @@ export default function AgentKnowledgePanel({
     >(undefined);
     const [isEditKnowledgeSourceModalOpen, setIsEditKnowledgeSourceModalOpen] =
         useState(false);
+
+    const [errorDialogOpen, setErrorDialogOpen] = useState(false);
+    const [errorDialogError, setErrorDialogError] = useState("");
 
     const getLocalFiles: SWRResponse<KnowledgeFile[], Error> = useSWR(
         KnowledgeService.getLocalKnowledgeFilesForAgent.key(agentId),
@@ -320,32 +326,70 @@ export default function AgentKnowledgePanel({
                         </div>
                         <div className="flex items-center">
                             <div>
-                                <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    onClick={async () => {
-                                        if (
-                                            file.state ===
-                                            KnowledgeFileState.Error
-                                        ) {
-                                            const reingestedFile =
-                                                await KnowledgeService.reingestFile(
-                                                    agentId,
-                                                    file.id!
-                                                );
-                                            getLocalFiles.mutate((prev) =>
-                                                prev?.map((f) =>
-                                                    f.id === reingestedFile.id
-                                                        ? reingestedFile
-                                                        : f
-                                                )
-                                            );
-                                            return;
-                                        }
-                                    }}
-                                >
-                                    <FileStatusIcon file={file} />
-                                </Button>
+                                {file.state === KnowledgeFileState.Error ? (
+                                    <div className="flex items-center">
+                                        <TooltipProvider>
+                                            <Tooltip>
+                                                <TooltipTrigger asChild>
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        onClick={async () => {
+                                                            const reingestedFile =
+                                                                await KnowledgeService.reingestFile(
+                                                                    agentId,
+                                                                    file.id!
+                                                                );
+                                                            getLocalFiles.mutate(
+                                                                (prev) =>
+                                                                    prev?.map(
+                                                                        (f) =>
+                                                                            f.id ===
+                                                                            reingestedFile.id
+                                                                                ? reingestedFile
+                                                                                : f
+                                                                    )
+                                                            );
+                                                            return;
+                                                        }}
+                                                    >
+                                                        <RotateCcwIcon className="w-4 h-4 text-destructive" />
+                                                    </Button>
+                                                </TooltipTrigger>
+                                                <TooltipContent>
+                                                    Reingest
+                                                </TooltipContent>
+                                            </Tooltip>
+                                        </TooltipProvider>
+                                        <TooltipProvider>
+                                            <Tooltip>
+                                                <TooltipTrigger asChild>
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        onClick={() => {
+                                                            setErrorDialogError(
+                                                                file.error ?? ""
+                                                            );
+                                                            setErrorDialogOpen(
+                                                                true
+                                                            );
+                                                        }}
+                                                    >
+                                                        <EyeIcon className="w-4 h-4 text-destructive" />
+                                                    </Button>
+                                                </TooltipTrigger>
+                                                <TooltipContent>
+                                                    View Error
+                                                </TooltipContent>
+                                            </Tooltip>
+                                        </TooltipProvider>
+                                    </div>
+                                ) : (
+                                    <div className="flex items-center mr-2">
+                                        <FileStatusIcon file={file} />
+                                    </div>
+                                )}
                             </div>
                             <Button
                                 variant="ghost"
@@ -470,6 +514,11 @@ export default function AgentKnowledgePanel({
                     setSelectedKnowledgeSourceId(knowledgeSourceId);
                     setIsEditKnowledgeSourceModalOpen(true);
                 }}
+            />
+            <ErrorDialog
+                error={errorDialogError}
+                isOpen={errorDialogOpen}
+                onClose={() => setErrorDialogOpen(false)}
             />
             {selectedKnowledgeSourceId && selectedKnowledgeSource && (
                 <KnowledgeSourceDetail

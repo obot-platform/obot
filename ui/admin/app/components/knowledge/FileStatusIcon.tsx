@@ -1,10 +1,6 @@
 import { CheckIcon, FileClock, PlusIcon, RotateCcwIcon } from "lucide-react";
 
-import {
-    KnowledgeFile,
-    KnowledgeFileState,
-    getMessage,
-} from "~/lib/model/knowledge";
+import { KnowledgeFile, KnowledgeFileState } from "~/lib/model/knowledge";
 import { cn } from "~/lib/utils";
 
 import { LoadingSpinner } from "~/components/ui/LoadingSpinner";
@@ -48,7 +44,8 @@ const FileStatusIcon: React.FC<FileStatusIconProps> = ({ file }) => {
                         </div>
                     </TooltipTrigger>
                     <TooltipContent className="whitespace-normal break-words max-w-[300px] max-h-full">
-                        {getMessage(file.state, file.error)}
+                        {file.state.charAt(0).toUpperCase() +
+                            file.state.slice(1).toLowerCase()}
                     </TooltipContent>
                 </Tooltip>
             </TooltipProvider>
