@@ -33,14 +33,9 @@ const OauthSignDialog: FC<OauthSignDialogProps> = ({
     const isAuthInitiated = useRef(false);
 
     useEffect(() => {
-        if (
-            !authChecked &&
-            knowledgeSource.state === KnowledgeFileState.Pending
-        ) {
-            setIsAuthCheckingDialogOpen(true);
-        } else {
-            setIsAuthCheckingDialogOpen(false);
-        }
+        setIsAuthCheckingDialogOpen(
+            !authChecked && knowledgeSource.state === KnowledgeFileState.Pending
+        );
     }, [authChecked, knowledgeSource.state]);
 
     useEffect(() => {

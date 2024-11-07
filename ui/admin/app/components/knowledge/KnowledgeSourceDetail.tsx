@@ -95,7 +95,6 @@ const KnowledgeSourceDetail: FC<KnowledgeSourceDetailProps> = ({
     const [isCronDialogOpen, setIsCronDialogOpen] = useState(false);
     const [cronDescription, setCronDescription] = useState("");
 
-    const [errorDialogOpen, setErrorDialogOpen] = useState(false);
     const [errorDialogError, setErrorDialogError] = useState("");
     const [enableSorting, setEnableSorting] = useState(false);
 
@@ -497,7 +496,9 @@ const KnowledgeSourceDetail: FC<KnowledgeSourceDetailProps> = ({
                                                 ].includes(
                                                     knowledgeSource.syncSchedule ??
                                                         ""
-                                                )
+                                                ) &&
+                                                knowledgeSource.syncSchedule !==
+                                                    ""
                                             }
                                         />
                                     </DropdownMenuItem>
@@ -571,9 +572,6 @@ const KnowledgeSourceDetail: FC<KnowledgeSourceDetailProps> = ({
                                                         setErrorDialogError(
                                                             knowledgeSource.error ??
                                                                 ""
-                                                        );
-                                                        setErrorDialogOpen(
-                                                            true
                                                         );
                                                     }}
                                                     className="items-center justify-center flex"
@@ -881,9 +879,6 @@ const KnowledgeSourceDetail: FC<KnowledgeSourceDetailProps> = ({
                                                                                     file.error ??
                                                                                         ""
                                                                                 );
-                                                                                setErrorDialogOpen(
-                                                                                    true
-                                                                                );
                                                                             }}
                                                                         >
                                                                             <Eye className="h-4 w-4 text-destructive m-auto" />
@@ -945,8 +940,8 @@ const KnowledgeSourceDetail: FC<KnowledgeSourceDetailProps> = ({
                     />
                     <ErrorDialog
                         error={errorDialogError}
-                        isOpen={errorDialogOpen}
-                        onClose={() => setErrorDialogOpen(false)}
+                        isOpen={errorDialogError !== ""}
+                        onClose={() => setErrorDialogError("")}
                     />
                 </div>
             </DialogContent>

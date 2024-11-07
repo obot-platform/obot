@@ -238,7 +238,8 @@ const AddSourceModal: FC<AddSourceModalProps> = ({
                                                 "0 * * * *",
                                                 "0 0 * * *",
                                                 "0 0 * * 0",
-                                            ].includes(syncSchedule ?? "")
+                                            ].includes(syncSchedule ?? "") &&
+                                            syncSchedule !== ""
                                         }
                                     />
                                 </DropdownMenuItem>

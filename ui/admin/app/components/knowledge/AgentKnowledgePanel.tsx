@@ -78,7 +78,6 @@ export default function AgentKnowledgePanel({
     const [isEditKnowledgeSourceModalOpen, setIsEditKnowledgeSourceModalOpen] =
         useState(false);
 
-    const [errorDialogOpen, setErrorDialogOpen] = useState(false);
     const [errorDialogError, setErrorDialogError] = useState("");
 
     const getLocalFiles: SWRResponse<KnowledgeFile[], Error> = useSWR(
@@ -371,9 +370,6 @@ export default function AgentKnowledgePanel({
                                                             setErrorDialogError(
                                                                 file.error ?? ""
                                                             );
-                                                            setErrorDialogOpen(
-                                                                true
-                                                            );
                                                         }}
                                                     >
                                                         <EyeIcon className="w-4 h-4 text-destructive" />
@@ -517,8 +513,8 @@ export default function AgentKnowledgePanel({
             />
             <ErrorDialog
                 error={errorDialogError}
-                isOpen={errorDialogOpen}
-                onClose={() => setErrorDialogOpen(false)}
+                isOpen={errorDialogError !== ""}
+                onClose={() => setErrorDialogError("")}
             />
             {selectedKnowledgeSourceId && selectedKnowledgeSource && (
                 <KnowledgeSourceDetail
