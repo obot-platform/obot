@@ -13,17 +13,27 @@ import (
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func (h *Handler) RunIf(req router.Request, resp router.Response) error {
+func (h *Handler) RunIf(req router.Request, resp router.Response) (err error) {
 	step := req.Object.(*v1.WorkflowStep)
 
 	if step.Spec.Step.If == nil {
 		return nil
 	}
 
-	var objects []kclient.Object
+	var completeResponse bool
+	objects := &[]kclient.Object{}
+	defer func() {
+		apply := apply.New(req.Client)
+		if !completeResponse {
+			apply.WithNoPrune()
+		}
+		if applyErr := apply.Apply(req.Ctx, req.Object, *objects...); applyErr != nil && err == nil {
+			err = applyErr
+		}
+	}()
 
 	conditionStep := h.defineCondition(step, nil, 0)
-	objects = append(objects, conditionStep)
+	*objects = append(*objects, conditionStep)
 
 	if _, errorMsg, state, err := GetStateFromSteps(req.Ctx, req.Client, step.Spec.WorkflowGeneration, conditionStep); err != nil {
 		return err
@@ -44,11 +54,8 @@ func (h *Handler) RunIf(req router.Request, resp router.Response) error {
 	if err != nil {
 		return err
 	}
-	objects = append(objects, steps...)
-
-	if err := apply.New(req.Client).Apply(req.Ctx, req.Object, objects...); err != nil {
-		return err
-	}
+	*objects = append(*objects, steps...)
+	completeResponse = true
 
 	if len(steps) == 0 {
 		step.Status.State = types.WorkflowStateComplete
