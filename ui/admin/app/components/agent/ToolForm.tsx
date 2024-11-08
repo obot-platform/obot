@@ -136,16 +136,18 @@ export function ToolForm({
                     ))}
                 </div>
 
-                <ToolCatalogDialog
-                    tools={allTools}
-                    onAddTool={(tool) =>
-                        toolFields.append({
-                            tool,
-                            variant: ToolVariant.FIXED,
-                        })
-                    }
-                    onRemoveTools={removeTools}
-                />
+                <div className="flex justify-end">
+                    <ToolCatalogDialog
+                        tools={allTools}
+                        onAddTool={(tool) =>
+                            toolFields.append({
+                                tool,
+                                variant: ToolVariant.FIXED,
+                            })
+                        }
+                        onRemoveTools={removeTools}
+                    />
+                </div>
 
                 <TypographyP className="flex justify-between items-end font-normal mt-4">
                     User Tools
@@ -192,16 +194,19 @@ export function ToolForm({
                     ))}
                 </div>
 
-                <ToolCatalogDialog
-                    tools={allTools}
-                    onAddTool={(tool) =>
-                        toolFields.append({
-                            tool,
-                            variant: ToolVariant.DEFAULT,
-                        })
-                    }
-                    onRemoveTools={removeTools}
-                />
+                <div className="flex justify-end">
+                    <ToolCatalogDialog
+                        tools={allTools}
+                        onAddTool={(tool) =>
+                            toolFields.append({
+                                tool,
+                                variant: ToolVariant.DEFAULT,
+                            })
+                        }
+                        onRemoveTools={removeTools}
+                        className="w-auto"
+                    />
+                </div>
             </form>
         </Form>
     );
