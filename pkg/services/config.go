@@ -222,13 +222,13 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		return nil, err
 	}
 
-	authProviderID, err := gatewayServer.UpsertAuthProvider(ctx, config.GoogleClientID, config.GoogleClientSecret)
+	authProviderID, err := gatewayServer.UpsertAuthProvider(ctx, config.AuthConfigType, config.AuthClientID, config.AuthClientSecret)
 	if err != nil {
 		return nil, err
 	}
 
 	var authenticators authenticator.Request = gatewayServer
-	if config.GoogleClientID != "" && config.GoogleClientSecret != "" {
+	if config.AuthClientID != "" && config.AuthClientSecret != "" {
 		// "Authentication Enabled" flow
 		proxyServer, err = proxy.New(config.Hostname, authProviderID, proxy.Config(config.AuthConfig))
 		if err != nil {

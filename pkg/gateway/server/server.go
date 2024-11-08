@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/otto8-ai/otto8/pkg/gateway/client"
@@ -18,8 +19,9 @@ import (
 )
 
 type Options struct {
-	Hostname, UIHostname string
-	GatewayDebug         bool
+	Hostname     string
+	UIHostname   string `name:"ui-hostname" env:"OTTO_SERVER_UI_HOSTNAME"`
+	GatewayDebug bool
 }
 
 type Server struct {
@@ -59,22 +61,23 @@ func New(ctx context.Context, db *db.DB, c kclient.Client, invoker *invoke.Invok
 	return s, nil
 }
 
-func (s *Server) UpsertAuthProvider(ctx context.Context, clientID, clientSecret string) (uint, error) {
+func (s *Server) UpsertAuthProvider(ctx context.Context, configType, clientID, clientSecret string) (uint, error) {
 	if clientID == "" || clientSecret == "" {
 		return 0, nil
 	}
 
 	authProvider := &types.AuthProvider{
-		Type:          types.AuthTypeGoogle,
+		Type:          configType,
 		ClientID:      clientID,
 		ClientSecret:  clientSecret,
-		OAuthURL:      types.GoogleOAuthURL,
-		JWKSURL:       types.GoogleJWKSURL,
-		ServiceName:   "Google",
-		Scopes:        "openid profile email",
-		UsernameClaim: "username",
-		EmailClaim:    "email",
-		Slug:          "google",
+		OAuthURL:      types.OAuthURLByType(configType),
+		JWKSURL:       types.JWKSURLByType(configType),
+		TokenURL:      types.TokenURLByType(configType),
+		ServiceName:   strings.ToTitle(string(configType[0])) + configType[1:],
+		Scopes:        types.ScopesByType(configType),
+		UsernameClaim: types.UsernameClaimByType(configType),
+		EmailClaim:    types.EmailClaimByType(configType),
+		Slug:          strings.ToLower(configType),
 		Expiration:    "7d",
 		ExpirationDur: 7 * 24 * time.Hour,
 	}

@@ -46,7 +46,7 @@ func (c *Client) UpdateProfileIconIfNeeded(ctx context.Context, user *types.User
 		return nil
 	}
 
-	profileIconURL, err := c.fetchProfileIconURL(ctx, authProvider, accessToken)
+	profileIconURL, err := c.fetchProfileIconURL(ctx, authProvider, user.Username, accessToken)
 	if err != nil {
 		return err
 	}
@@ -63,10 +63,12 @@ func (c *Client) UpdateProfileIconIfNeeded(ctx context.Context, user *types.User
 	})
 }
 
-func (c *Client) fetchProfileIconURL(ctx context.Context, authProvider types.AuthProvider, accessToken string) (string, error) {
+func (c *Client) fetchProfileIconURL(ctx context.Context, authProvider types.AuthProvider, username, accessToken string) (string, error) {
 	switch authProvider.Type {
 	case types.AuthTypeGoogle:
 		return c.fetchGoogleProfileIconURL(ctx, accessToken)
+	case types.AuthTypeGitHub:
+		return c.fetchGitHubProfileIconURL(ctx, username)
 	default:
 		return "", fmt.Errorf("unsupported auth provider type for icon fetch: %s", authProvider.Type)
 	}
@@ -101,4 +103,28 @@ func (c *Client) fetchGoogleProfileIconURL(ctx context.Context, accessToken stri
 	}
 
 	return profile.Picture, nil
+}
+
+func (c *Client) fetchGitHubProfileIconURL(ctx context.Context, username string) (string, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, fmt.Sprintf("https://github.com/%s.png", username), nil)
+	if err != nil {
+		return "", err
+	}
+
+	resp, err := (&http.Client{
+		CheckRedirect: func(*http.Request, []*http.Request) error {
+			return http.ErrUseLastResponse
+		},
+	}).Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+
+	u, err := resp.Location()
+	if err != nil || u == nil {
+		return "", err
+	}
+
+	return u.String(), nil
 }

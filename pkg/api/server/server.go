@@ -3,6 +3,7 @@ package server
 import (
 	"errors"
 	"net/http"
+	"slices"
 	"strings"
 
 	"github.com/gptscript-ai/go-gptscript"
@@ -68,9 +69,10 @@ func (s *Server) wrap(f api.HandlerFunc) http.HandlerFunc {
 			return
 		}
 
-		if !s.authorizer.Authorize(req, user) || strings.HasPrefix(req.URL.Path, "/oauth2/") {
+		isOAuthPath := strings.HasPrefix(req.URL.Path, "/oauth2/")
+		if !s.authorizer.Authorize(req, user) || isOAuthPath {
 			// If this is not a request coming from browser or the proxy is not enabled, then return 403.
-			if s.proxyServer == nil || req.Method != http.MethodGet || !strings.Contains(strings.ToLower(req.UserAgent()), "mozilla") {
+			if !isOAuthPath && (s.proxyServer == nil || req.Method != http.MethodGet || slices.Contains(user.GetGroups(), authz.AuthenticatedGroup) || !strings.Contains(strings.ToLower(req.UserAgent()), "mozilla")) {
 				http.Error(rw, "forbidden", http.StatusForbidden)
 				return
 			}

@@ -13,7 +13,7 @@ import (
 
 const (
 	GitHubOAuthURL = "https://github.com/login/oauth/authorize"
-	GithubTokenURL = "https://github.com/login/oauth/access_token"
+	GitHubTokenURL = "https://github.com/login/oauth/access_token"
 
 	GoogleOAuthURL = "https://accounts.google.com/o/oauth2/auth"
 	GoogleJWKSURL  = "https://www.googleapis.com/oauth2/v3/certs"
@@ -28,7 +28,8 @@ const (
 )
 
 var tokenURLByType = map[string]string{
-	AuthTypeGitHub: GithubTokenURL,
+	AuthTypeGitHub: GitHubTokenURL,
+	AuthTypeGoogle: GoogleTokenURL,
 }
 
 var oauthURLByType = map[string]string{
@@ -58,82 +59,34 @@ var defaultEmailClaimByType = map[string]string{
 	AuthTypeGoogle:  "email",
 }
 
+func OAuthURLByType(t string) string {
+	return oauthURLByType[t]
+}
+
+func JWKSURLByType(t string) string {
+	return jwksURLByType[t]
+}
+
+func TokenURLByType(t string) string {
+	return tokenURLByType[t]
+}
+
+func ScopesByType(t string) string {
+	return defaultScopesByType[t]
+}
+
+func UsernameClaimByType(t string) string {
+	return defaultUsernameClaimByType[t]
+}
+
+func EmailClaimByType(t string) string {
+	return defaultEmailClaimByType[t]
+}
+
 type AuthTypeConfig struct {
 	DisplayName string            `json:"displayName"`
 	Required    map[string]string `json:"required"`
 	Advanced    map[string]string `json:"advanced"`
-}
-
-func SupportedAuthTypeConfigs() map[string]AuthTypeConfig {
-	return map[string]AuthTypeConfig{
-		AuthTypeGitHub: {
-			DisplayName: "GitHub",
-			Required: map[string]string{
-				"name":         "Name",
-				"clientID":     "Client ID",
-				"clientSecret": "Client Secret",
-			},
-			Advanced: map[string]string{
-				"refName":    "Requested Reference Name",
-				"oauthURL":   "OAuth URL",
-				"tokenURL":   "Token URL",
-				"scopes":     "Scopes",
-				"expiration": "Expiration (e.g. 3d7h30m)",
-			},
-		},
-		AuthTypeGoogle: {
-			DisplayName: "Google",
-			Required: map[string]string{
-				"name":         "Name",
-				"clientID":     "Client ID",
-				"clientSecret": "Client Secret",
-			},
-			Advanced: map[string]string{
-				"refName":       "Requested Reference Name",
-				"oauthURL":      "OAuth URL",
-				"jwksURL":       "JWKS URL",
-				"scopes":        "Scopes",
-				"usernameClaim": "Username Claim",
-				"emailClaim":    "Email Claim",
-				"expiration":    "Expiration (e.g. 3d7h30m)",
-			},
-		},
-		AuthTypeAzureAD: {
-			DisplayName: "Azure AD",
-			Required: map[string]string{
-				"name":         "Name",
-				"clientID":     "Client ID",
-				"clientSecret": "Client Secret",
-				"tenantID":     "Tenant ID",
-			},
-			Advanced: map[string]string{
-				"refName":       "Requested Reference Name",
-				"oauthURL":      "OAuth URL",
-				"jwksURL":       "JWKS URL",
-				"scopes":        "Scopes",
-				"usernameClaim": "Username Claim",
-				"emailClaim":    "Email Claim",
-				"expiration":    "Expiration (e.g. 3d7h30m)",
-			},
-		},
-		AuthTypeGenericOIDC: {
-			DisplayName: "Generic OIDC",
-			Required: map[string]string{
-				"name":          "Name",
-				"clientID":      "Client ID",
-				"clientSecret":  "Client Secret",
-				"scopes":        "Scopes",
-				"oauthURL":      "OAuth URL",
-				"jwksURL":       "JWKS URL",
-				"usernameClaim": "Username Claim",
-				"emailClaim":    "Email Claim",
-			},
-			Advanced: map[string]string{
-				"refName":    "Requested Reference Name",
-				"expiration": "Expiration (e.g. 3d7h30m)",
-			},
-		},
-	}
 }
 
 type AuthProvider struct {

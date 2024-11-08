@@ -18,11 +18,23 @@ import (
 var log = mvl.Package()
 
 type Config struct {
-	AuthCookieSecret   string   `usage:"Secret used to encrypt cookie"`
-	AuthEmailDomains   string   `usage:"Email domains allowed for authentication" default:"*"`
-	AuthAdminEmails    []string `usage:"Emails admin users"`
-	GoogleClientID     string   `usage:"Google client ID"`
-	GoogleClientSecret string   `usage:"Google client secret"`
+	AuthCookieSecret string   `usage:"Secret used to encrypt cookie"`
+	AuthEmailDomains string   `usage:"Email domains allowed for authentication" default:"*"`
+	AuthAdminEmails  []string `usage:"Emails admin users"`
+	AuthConfigType   string   `usage:"Type of OAuth configuration" default:"google"`
+	AuthClientID     string   `usage:"Client ID for OAuth"`
+	AuthClientSecret string   `usage:"Client secret for OAuth"`
+
+	// Type-specific config
+	GithubConfig
+}
+
+type GithubConfig struct {
+	AuthGithubOrg        string   `usage:"Restrict logins to members of this organization"`
+	AuthGithubTeams      []string `usage:"Restrict logins to members of any of these teams (slug)"`
+	AuthGithubRepo       string   `usage:"Restrict logins to collaborators of this repository formatted as org/repo"`
+	AuthGithubToken      string   `usage:"The token to use when verifying repository collaborators (must have push access to the repository)"`
+	AuthGithubAllowUsers []string `usage:"Users allowed to login even if they don't belong to the organization or team(s)"`
 }
 
 type Proxy struct {
@@ -31,7 +43,18 @@ type Proxy struct {
 }
 
 func New(serverURL string, authProviderID uint, cfg Config) (*Proxy, error) {
-	oauthProxyOpts, err := options.NewLegacyOptions().ToOptions()
+	legacyOpts := options.NewLegacyOptions()
+	legacyOpts.LegacyProvider.ProviderType = cfg.AuthConfigType
+	legacyOpts.LegacyProvider.ProviderName = cfg.AuthConfigType
+	legacyOpts.LegacyProvider.ClientID = cfg.AuthClientID
+	legacyOpts.LegacyProvider.ClientSecret = cfg.AuthClientSecret
+	legacyOpts.LegacyProvider.GitHubTeam = strings.Join(cfg.AuthGithubTeams, ",")
+	legacyOpts.LegacyProvider.GitHubOrg = cfg.AuthGithubOrg
+	legacyOpts.LegacyProvider.GitHubRepo = cfg.AuthGithubRepo
+	legacyOpts.LegacyProvider.GitHubToken = cfg.AuthGithubToken
+	legacyOpts.LegacyProvider.GitHubUsers = cfg.AuthGithubAllowUsers
+
+	oauthProxyOpts, err := legacyOpts.ToOptions()
 	if err != nil {
 		return nil, err
 	}
@@ -55,8 +78,6 @@ func New(serverURL string, authProviderID uint, cfg Config) (*Proxy, error) {
 	}
 
 	oauthProxyOpts.RawRedirectURL = serverURL + "/oauth2/callback"
-	oauthProxyOpts.Providers[0].ClientID = cfg.GoogleClientID
-	oauthProxyOpts.Providers[0].ClientSecret = cfg.GoogleClientSecret
 	oauthProxyOpts.ReverseProxy = true
 	if cfg.AuthEmailDomains != "" {
 		oauthProxyOpts.EmailDomains = strings.Split(cfg.AuthEmailDomains, ",")

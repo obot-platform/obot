@@ -24,7 +24,6 @@ const (
 	GoogleTokenURL     = "https://oauth2.googleapis.com/token"
 
 	GitHubAuthorizeUrl = "https://github.com/login/oauth/authorize"
-	GitHubTokenURL     = "https://github.com/login/oauth/access_token"
 )
 
 var (
@@ -34,81 +33,6 @@ var (
 type OAuthAppTypeConfig struct {
 	DisplayName string            `json:"displayName"`
 	Parameters  map[string]string `json:"parameters"`
-}
-
-func SupportedOAuthAppTypeConfigs() map[types.OAuthAppType]OAuthAppTypeConfig {
-	return map[types.OAuthAppType]OAuthAppTypeConfig{
-		types.OAuthAppTypeMicrosoft365: {
-			DisplayName: "Microsoft 365",
-			Parameters: map[string]string{
-				"name":         "Name",
-				"refName":      "Requested Reference Name",
-				"clientID":     "Client ID",
-				"clientSecret": "Client Secret",
-				"tenantID":     "Tenant ID",
-			},
-		},
-		types.OAuthAppTypeSlack: {
-			DisplayName: "Slack",
-			Parameters: map[string]string{
-				"name":         "Name",
-				"refName":      "Requested Reference Name",
-				"clientID":     "Client ID",
-				"clientSecret": "Client Secret",
-			},
-		},
-		types.OAuthAppTypeNotion: {
-			DisplayName: "Notion",
-			Parameters: map[string]string{
-				"name":         "Name",
-				"refName":      "Requested Reference Name",
-				"clientID":     "Client ID",
-				"clientSecret": "Client Secret",
-			},
-		},
-		types.OAuthAppTypeHubSpot: {
-			DisplayName: "HubSpot",
-			Parameters: map[string]string{
-				"name":          "Name",
-				"refName":       "Requested Reference Name",
-				"clientID":      "Client ID",
-				"clientSecret":  "Client Secret",
-				"appID":         "App ID",
-				"optionalScope": "Optional Scope",
-			},
-		},
-		types.OAuthAppTypeGitHub: {
-			DisplayName: "GitHub",
-			Parameters: map[string]string{
-				"name":         "Name",
-				"refName":      "Requested Reference Name",
-				"clientID":     "Client ID",
-				"clientSecret": "Client Secret",
-				"authURL":      "Authorization URL",
-				"tokenURL":     "Token URL",
-			},
-		},
-		types.OAuthAppTypeGoogle: {
-			DisplayName: "Google",
-			Parameters: map[string]string{
-				"name":         "Name",
-				"refName":      "Requested Reference Name",
-				"clientID":     "Client ID",
-				"clientSecret": "Client Secret",
-			},
-		},
-		types.OAuthAppTypeCustom: {
-			DisplayName: "Custom",
-			Parameters: map[string]string{
-				"name":         "Name",
-				"refName":      "Requested Reference Name",
-				"clientID":     "Client ID",
-				"clientSecret": "Client Secret",
-				"authURL":      "Authorization URL",
-				"tokenURL":     "Token URL",
-			},
-		},
-	}
 }
 
 func ValidateAndSetDefaultsOAuthAppManifest(r *types.OAuthAppManifest, create bool) error {
