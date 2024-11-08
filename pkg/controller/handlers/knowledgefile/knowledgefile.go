@@ -221,7 +221,7 @@ func (h *Handler) ingest(ctx context.Context, client kclient.Client, file *v1.Kn
 		WorkspaceID: thread.Status.WorkspaceID,
 	})
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to stat files in workspace ID %s, error: %w", thread.Status.WorkspaceID, err)
 	}
 
 	ingestTask, err := h.invoker.SystemTask(ctx, thread, system.KnowledgeIngestTool, map[string]any{
@@ -235,7 +235,7 @@ func (h *Handler) ingest(ctx context.Context, client kclient.Client, file *v1.Kn
 		},
 	})
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to invoke ingestion task, error: %w", err)
 	}
 	defer ingestTask.Close()
 
