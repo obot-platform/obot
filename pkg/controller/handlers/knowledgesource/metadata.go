@@ -15,10 +15,11 @@ import (
 )
 
 type fileDetails struct {
-	FilePath  string `json:"filePath,omitempty"`
-	URL       string `json:"url,omitempty"`
-	UpdatedAt string `json:"updatedAt,omitempty"`
-	Checksum  string `json:"checksum,omitempty"`
+	FilePath    string `json:"filePath,omitempty"`
+	URL         string `json:"url,omitempty"`
+	UpdatedAt   string `json:"updatedAt,omitempty"`
+	Checksum    string `json:"checksum,omitempty"`
+	SizeInBytes int64  `json:"sizeInBytes,omitempty"`
 }
 
 func (k *Handler) getWorkspaceID(ctx context.Context, c kclient.WithWatch, source *v1.KnowledgeSource) (string, error) {
@@ -72,6 +73,7 @@ func (k *Handler) getMetadata(ctx context.Context, source *v1.KnowledgeSource, t
 				URL:                 file.URL,
 				UpdatedAt:           file.UpdatedAt,
 				Checksum:            file.Checksum,
+				SizeInBytes:         file.SizeInBytes,
 			},
 		})
 	}

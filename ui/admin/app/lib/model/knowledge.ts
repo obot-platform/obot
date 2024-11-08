@@ -13,6 +13,7 @@ export const KnowledgeFileState = {
     Error: "error",
     Unapproved: "unapproved",
     PendingApproval: "pending-approval",
+    Unsupported: "unsupported",
 } as const;
 export type KnowledgeFileState =
     (typeof KnowledgeFileState)[keyof typeof KnowledgeFileState];
@@ -131,6 +132,7 @@ export type KnowledgeFile = {
     lastIngestionEndTime?: Date;
     lastRunIDs?: string[];
     deleted?: string;
+    sizeInBytes?: number;
 };
 
 export function getRemoteFileDisplayName(item: KnowledgeFile) {
@@ -208,4 +210,25 @@ export function getToolRefForKnowledgeSource(sourceType: KnowledgeSourceType) {
     }
 
     return "";
+}
+
+export function getKnowledgeFileDisplayName(
+    file: KnowledgeFile,
+    source: KnowledgeSource
+) {
+    let displayName = file.fileName;
+    let subTitle;
+    const sourceType = getKnowledgeSourceType(source);
+    if (sourceType === KnowledgeSourceType.Notion) {
+        displayName = file.fileName.split("/").pop()!;
+        subTitle =
+            source.syncDetails?.notionState?.pages?.[file.url!]?.folderPath;
+    } else if (sourceType === KnowledgeSourceType.OneDrive) {
+        const parts = file.fileName.split("/");
+        displayName = parts.pop()!;
+        subTitle = parts.join("/");
+    } else if (sourceType === KnowledgeSourceType.Website) {
+        displayName = file.url ?? "";
+    }
+    return { displayName, subTitle };
 }

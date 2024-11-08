@@ -1,6 +1,7 @@
 import { DialogDescription } from "@radix-ui/react-dialog";
 import cronstrue from "cronstrue";
 import {
+    ArrowDownUp,
     ArrowUpDown,
     CheckIcon,
     CircleX,
@@ -10,6 +11,7 @@ import {
     MinusIcon,
     Plus,
     RefreshCcw,
+    ShieldAlert,
     Trash,
 } from "lucide-react";
 import { FC, useEffect, useMemo, useState } from "react";
@@ -24,6 +26,7 @@ import {
     getKnowledgeSourceDisplayName,
     getKnowledgeSourceType,
 } from "~/lib/model/knowledge";
+import { getKnowledgeFileDisplayName } from "~/lib/model/knowledge";
 import { KnowledgeService } from "~/lib/service/api/knowledgeService";
 
 import { TypographyP } from "~/components/Typography";
@@ -96,8 +99,10 @@ const KnowledgeSourceDetail: FC<KnowledgeSourceDetailProps> = ({
     const [cronDescription, setCronDescription] = useState("");
 
     const [errorDialogError, setErrorDialogError] = useState("");
-    const [enableSorting, setEnableSorting] = useState(false);
-
+    const [sortingOrder, setSortingOrder] = useState<"asc" | "desc">("asc");
+    const [sortingColumn, setSortingColumn] = useState<"fileName" | "state">(
+        "fileName"
+    );
     const sourceType = getKnowledgeSourceType(knowledgeSource);
 
     useEffect(() => {
@@ -134,32 +139,49 @@ const KnowledgeSourceDetail: FC<KnowledgeSourceDetailProps> = ({
     );
 
     const files = useMemo(() => {
-        const sortedFiles = enableSorting
-            ? (getFiles.data || []).sort((a, b) => {
-                  const stateOrder = {
-                      [KnowledgeFileState.Ingesting]: 1,
-                      [KnowledgeFileState.Ingested]: 2,
-                      [KnowledgeFileState.Pending]: 3,
-                      [KnowledgeFileState.Error]: 4,
-                      [KnowledgeFileState.Unapproved]: 5,
-                      [KnowledgeFileState.PendingApproval]: 6,
-                  };
+        if (!getFiles.data) return [];
+        if (!sortingOrder) return getFiles.data;
 
-                  const stateA = stateOrder[a.state];
-                  const stateB = stateOrder[b.state];
+        return [...getFiles.data].sort((a, b) => {
+            const stateOrder = {
+                [KnowledgeFileState.Ingesting]: 1,
+                [KnowledgeFileState.Ingested]: 2,
+                [KnowledgeFileState.Pending]: 3,
+                [KnowledgeFileState.Error]: 4,
+                [KnowledgeFileState.Unsupported]: 5,
+                [KnowledgeFileState.Unapproved]: 6,
+                [KnowledgeFileState.PendingApproval]: 7,
+            };
+            const { displayName: aDisplayName } = getKnowledgeFileDisplayName(
+                a,
+                knowledgeSource
+            );
+            const { displayName: bDisplayName } = getKnowledgeFileDisplayName(
+                b,
+                knowledgeSource
+            );
 
-                  if (stateA !== stateB) {
-                      return stateA - stateB;
-                  }
+            if (sortingColumn === "state") {
+                const stateA = stateOrder[a.state];
+                const stateB = stateOrder[b.state];
 
-                  return a.url?.localeCompare(b.url ?? "") ?? 0;
-              })
-            : getFiles.data?.sort((a, b) => {
-                  return a.fileName.localeCompare(b.fileName);
-              }) || [];
-
-        return sortedFiles;
-    }, [getFiles.data, enableSorting]);
+                if (stateA !== stateB) {
+                    return sortingOrder === "asc"
+                        ? stateA - stateB
+                        : stateB - stateA;
+                }
+                return sortingOrder === "asc"
+                    ? (aDisplayName?.localeCompare(bDisplayName ?? "") ?? 0)
+                    : ((bDisplayName ?? "").localeCompare(aDisplayName ?? "") ??
+                          0);
+            } else {
+                return sortingOrder === "asc"
+                    ? (aDisplayName?.localeCompare(bDisplayName ?? "") ?? 0)
+                    : ((bDisplayName ?? "").localeCompare(aDisplayName ?? "") ??
+                          0);
+            }
+        });
+    }, [getFiles.data, sortingOrder, sortingColumn]);
 
     useEffect(() => {
         if (files.length === 0) {
@@ -247,21 +269,10 @@ const KnowledgeSourceDetail: FC<KnowledgeSourceDetailProps> = ({
         file: KnowledgeFile,
         source: KnowledgeSource
     ) => {
-        let displayName = file.fileName;
-        let subTitle;
-        const sourceType = getKnowledgeSourceType(source);
-        if (sourceType === KnowledgeSourceType.Notion) {
-            displayName = file.fileName.split("/").pop()!;
-            subTitle =
-                knowledgeSource?.syncDetails?.notionState?.pages?.[file.url!]
-                    ?.folderPath;
-        } else if (sourceType === KnowledgeSourceType.OneDrive) {
-            const parts = file.fileName.split("/");
-            displayName = parts.pop()!;
-            subTitle = parts.join("/");
-        } else if (sourceType === KnowledgeSourceType.Website) {
-            displayName = file.url ?? "";
-        }
+        const { displayName, subTitle } = getKnowledgeFileDisplayName(
+            file,
+            source
+        );
 
         return (
             <div className="flex flex-col overflow-hidden flex-auto">
@@ -671,8 +682,44 @@ const KnowledgeSourceDetail: FC<KnowledgeSourceDetailProps> = ({
                                         </div>
                                     </TableHead>
                                     <TableHead>
-                                        <div className="ml-2 flex flex-row items-center w-[600px]">
-                                            Document
+                                        <div className="ml-2 flex flex-row items-center w-[700px]">
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                onClick={() => {
+                                                    setSortingOrder(
+                                                        sortingOrder === "asc"
+                                                            ? "desc"
+                                                            : "asc"
+                                                    );
+                                                    setSortingColumn(
+                                                        "fileName"
+                                                    );
+                                                }}
+                                            >
+                                                <Label>Document</Label>
+                                                {sortingOrder === "asc" ? (
+                                                    <ArrowUpDown
+                                                        className="h-4 w-4"
+                                                        strokeWidth={
+                                                            sortingColumn ===
+                                                            "fileName"
+                                                                ? 2.5
+                                                                : 1.5
+                                                        }
+                                                    />
+                                                ) : (
+                                                    <ArrowDownUp
+                                                        className="h-4 w-4"
+                                                        strokeWidth={
+                                                            sortingColumn ===
+                                                            "fileName"
+                                                                ? 2.5
+                                                                : 1.5
+                                                        }
+                                                    />
+                                                )}
+                                            </Button>
                                         </div>
                                     </TableHead>
                                     <TableHead>
@@ -681,23 +728,48 @@ const KnowledgeSourceDetail: FC<KnowledgeSourceDetailProps> = ({
                                                 variant="ghost"
                                                 size="sm"
                                                 onClick={() => {
-                                                    setEnableSorting(
-                                                        !enableSorting
+                                                    setSortingColumn("state");
+                                                    setSortingOrder(
+                                                        sortingOrder === "asc"
+                                                            ? "desc"
+                                                            : "asc"
                                                     );
                                                 }}
                                             >
                                                 <Label>State</Label>
-                                                <ArrowUpDown
-                                                    className="h-4 w-4"
-                                                    strokeWidth={
-                                                        enableSorting ? 3 : 1.5
-                                                    }
-                                                />
+                                                {sortingOrder === "asc" ? (
+                                                    <ArrowUpDown
+                                                        className="h-4 w-4"
+                                                        strokeWidth={
+                                                            sortingColumn ===
+                                                            "state"
+                                                                ? 2.5
+                                                                : 1.5
+                                                        }
+                                                    />
+                                                ) : (
+                                                    <ArrowDownUp
+                                                        className="h-4 w-4"
+                                                        strokeWidth={
+                                                            sortingColumn ===
+                                                            "state"
+                                                                ? 2.5
+                                                                : 1.5
+                                                        }
+                                                    />
+                                                )}
                                             </Button>
                                         </div>
                                     </TableHead>
-                                    <TableHead className="flex items-center justify-center">
-                                        <Label>Ingestion Time</Label>
+                                    <TableHead>
+                                        <div className="flex items-center justify-center">
+                                            <Label>Ingestion Time</Label>
+                                        </div>
+                                    </TableHead>
+                                    <TableHead>
+                                        <div className="flex items-center justify-center">
+                                            <Label>File Size</Label>
+                                        </div>
                                     </TableHead>
                                 </TableRow>
                             </TableHeader>
@@ -792,6 +864,14 @@ const KnowledgeSourceDetail: FC<KnowledgeSourceDetailProps> = ({
                                                                 </TooltipContent>
                                                             </Tooltip>
                                                         </TooltipProvider>
+                                                    ) : file.state ===
+                                                      KnowledgeFileState.Unsupported ? (
+                                                        <>
+                                                            <ShieldAlert className="w-4 h-4 text-danger group-hover:hidden" />
+                                                            <div className="flex justify-center items-center hidden group-hover:block">
+                                                                <MinusIcon className="w-4 h-4 text-danger" />
+                                                            </div>
+                                                        </>
                                                     ) : null}
                                                 </Button>
                                             </div>
@@ -897,6 +977,24 @@ const KnowledgeSourceDetail: FC<KnowledgeSourceDetailProps> = ({
                                                     <div className="flex justify-center items-center text-success">
                                                         <Label>Ingested</Label>
                                                     </div>
+                                                ) : file.state ===
+                                                  KnowledgeFileState.Unsupported ? (
+                                                    <div className="flex justify-center items-center">
+                                                        <TooltipProvider>
+                                                            <Tooltip>
+                                                                <TooltipTrigger
+                                                                    asChild
+                                                                >
+                                                                    <Label className="cursor-pointer">
+                                                                        Unsupported
+                                                                    </Label>
+                                                                </TooltipTrigger>
+                                                                <TooltipContent className="text-warning">
+                                                                    {file.error}
+                                                                </TooltipContent>
+                                                            </Tooltip>
+                                                        </TooltipProvider>
+                                                    </div>
                                                 ) : null}
                                             </div>
                                         </TableCell>
@@ -912,6 +1010,25 @@ const KnowledgeSourceDetail: FC<KnowledgeSourceDetailProps> = ({
                                                           ).getTime()) /
                                                           1000 +
                                                       " seconds"
+                                                    : ""}
+                                            </div>
+                                        </TableCell>
+                                        <TableCell>
+                                            <div className="flex items-center justify-center">
+                                                {file.sizeInBytes
+                                                    ? file.sizeInBytes > 1000000
+                                                        ? (
+                                                              file.sizeInBytes /
+                                                              1000000
+                                                          ).toFixed(2) + " MB"
+                                                        : file.sizeInBytes >
+                                                            1000
+                                                          ? (
+                                                                file.sizeInBytes /
+                                                                1000
+                                                            ).toFixed(2) + " KB"
+                                                          : file.sizeInBytes +
+                                                            " Bytes"
                                                     : ""}
                                             </div>
                                         </TableCell>
