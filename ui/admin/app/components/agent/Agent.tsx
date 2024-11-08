@@ -117,7 +117,7 @@ export function Agent({ className, onRefresh }: AgentProps) {
                 </Card>
             </ScrollArea>
 
-            <footer className="flex justify-between items-center p-8 gap-4 text-muted-foreground">
+            <footer className="flex justify-between items-center px-8 py-4 gap-4 text-muted-foreground">
                 {isUpdating ? (
                     <TypographyP>Saving...</TypographyP>
                 ) : lastUpdated ? (
