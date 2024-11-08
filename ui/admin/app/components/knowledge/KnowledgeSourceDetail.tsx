@@ -14,7 +14,7 @@ import {
     ShieldAlert,
     Trash,
 } from "lucide-react";
-import { FC, useEffect, useMemo, useState } from "react";
+import { FC, useEffect, useMemo, useRef, useState } from "react";
 import useSWR, { SWRResponse } from "swr";
 
 import {
@@ -103,6 +103,9 @@ const KnowledgeSourceDetail: FC<KnowledgeSourceDetailProps> = ({
         "fileName"
     );
     const sourceType = getKnowledgeSourceType(knowledgeSource);
+
+    const tableContainerRef = useRef<HTMLDivElement>(null);
+    const scrollPosition = useRef(0);
 
     useEffect(() => {
         setSyncSchedule(knowledgeSource.syncSchedule);
@@ -208,6 +211,17 @@ const KnowledgeSourceDetail: FC<KnowledgeSourceDetailProps> = ({
     }, [files]);
 
     useEffect(() => {
+        const container = tableContainerRef.current;
+        if (container) {
+            container.scrollTop = scrollPosition.current;
+        }
+    }, [files]);
+
+    const handleScroll = () => {
+        scrollPosition.current = tableContainerRef?.current?.scrollTop ?? 0;
+    };
+
+    useEffect(() => {
         if (
             knowledgeSource.state === KnowledgeSourceStatus.Syncing ||
             knowledgeSource.state === KnowledgeSourceStatus.Pending
@@ -300,7 +314,11 @@ const KnowledgeSourceDetail: FC<KnowledgeSourceDetailProps> = ({
     return (
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
             <DialogContent className=" h-[80vh] w-[80vw] max-w-none max-h-none">
-                <div className="sticky top-0 bg-white z-10 overflow-y-auto mr-2">
+                <div
+                    className=" sticky top-0 bg-white z-10 overflow-y-auto mr-2"
+                    ref={tableContainerRef}
+                    onScroll={handleScroll}
+                >
                     <DialogDescription></DialogDescription>
                     <DialogTitle className="flex justify-between items-center">
                         <div className="flex flex-row items-center">
@@ -682,8 +700,12 @@ const KnowledgeSourceDetail: FC<KnowledgeSourceDetailProps> = ({
                                                 size="sm"
                                                 onClick={() => {
                                                     setSortingOrder(
-                                                        sortingOrder === "asc"
-                                                            ? "desc"
+                                                        sortingColumn ===
+                                                            "fileName"
+                                                            ? sortingOrder ===
+                                                              "asc"
+                                                                ? "desc"
+                                                                : "asc"
                                                             : "asc"
                                                     );
                                                     setSortingColumn(
@@ -724,8 +746,12 @@ const KnowledgeSourceDetail: FC<KnowledgeSourceDetailProps> = ({
                                                 onClick={() => {
                                                     setSortingColumn("state");
                                                     setSortingOrder(
-                                                        sortingOrder === "asc"
-                                                            ? "desc"
+                                                        sortingColumn ===
+                                                            "state"
+                                                            ? sortingOrder ===
+                                                              "asc"
+                                                                ? "desc"
+                                                                : "asc"
                                                             : "asc"
                                                     );
                                                 }}
@@ -994,7 +1020,7 @@ const KnowledgeSourceDetail: FC<KnowledgeSourceDetailProps> = ({
                                             </div>
                                         </TableCell>
                                         <TableCell>
-                                            <div className="flex items-center justify-center">
+                                            <div className="flex items-center justify-center text-gray-400">
                                                 {file.sizeInBytes
                                                     ? file.sizeInBytes > 1000000
                                                         ? (
