@@ -15,7 +15,6 @@ import { ToolCallInfo } from "~/components/chat/ToolCallInfo";
 import { CustomMarkdownComponents } from "~/components/react-markdown";
 import { ToolIcon } from "~/components/tools/ToolIcon";
 import { Button } from "~/components/ui/button";
-import { Card } from "~/components/ui/card";
 
 interface MessageProps {
     message: MessageType;
@@ -54,12 +53,13 @@ export const Message = React.memo(({ message }: MessageProps) => {
             <div
                 className={cn("flex", isUser ? "justify-end" : "justify-start")}
             >
-                <Card
+                <div
                     className={cn(
-                        message.error &&
-                            "border border-error bg-error-foreground",
-                        "break-words overflow-hidden",
-                        isUser ? "max-w-[80%] bg-blue-500" : "w-full max-w-full"
+                        "break-words overflow-hidden flex flex-col justify-start rounded-2xl",
+                        message.error && "bg-error-foreground",
+                        isUser
+                            ? "max-w-[80%] bg-secondary"
+                            : "w-full max-w-full"
                     )}
                 >
                     <div className="max-w-full overflow-hidden p-4 flex gap-2 items-center pl-[20px]">
@@ -79,7 +79,8 @@ export const Message = React.memo(({ message }: MessageProps) => {
                                 className={cn(
                                     "flex-auto max-w-full prose overflow-x-auto dark:prose-invert prose-pre:whitespace-pre-wrap prose-pre:break-words prose-thead:text-left prose-img:rounded-xl prose-img:shadow-lg break-words",
                                     {
-                                        "text-white prose-invert": isUser,
+                                        "text-secondary-foreground prose-invert":
+                                            isUser,
                                     }
                                 )}
                                 remarkPlugins={[remarkGfm]}
@@ -118,7 +119,7 @@ export const Message = React.memo(({ message }: MessageProps) => {
                             </div>
                         )}
                     </div>
-                </Card>
+                </div>
             </div>
         </div>
     );
@@ -130,7 +131,7 @@ function PromptMessage({ prompt }: { prompt: OAuthPrompt }) {
     if (!prompt.metadata) return null;
 
     return (
-        <div className="flex-auto flex flex-col flex-wrap gap-2 w-fit">
+        <div className="flex-auto flex flex-col flex-wrap items-start gap-2 w-fit">
             <TypographyP className="min-w-fit">
                 <b>
                     {[prompt.metadata?.category, prompt.name]

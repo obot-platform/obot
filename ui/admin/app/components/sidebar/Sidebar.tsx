@@ -4,10 +4,10 @@ import {
     BrainIcon,
     KeyIcon,
     MessageSquare,
+    PuzzleIcon,
     SettingsIcon,
     User,
     Wrench,
-    PuzzleIcon,
 } from "lucide-react";
 import { $path } from "remix-routes";
 
