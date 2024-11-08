@@ -16,7 +16,7 @@ const (
 )
 
 func (k KnowledgeFileState) IsTerminal() bool {
-	return k == KnowledgeFileStateIngested || k == KnowledgeFileStateError
+	return k == KnowledgeFileStateIngested || k == KnowledgeFileStateError || k == KnowledgeFileStateUnsupported
 }
 
 type KnowledgeFile struct {

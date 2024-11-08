@@ -197,7 +197,8 @@ func (a *AssistantHandler) UploadFile(req api.Context) error {
 		return types.NewErrHttp(http.StatusTooEarly, fmt.Sprintf("no workspace found for assistant %s", id))
 	}
 
-	return uploadFileToWorkspace(req.Context(), req, a.gptScript, thread.Status.WorkspaceID, "files/")
+	_, err := uploadFileToWorkspace(req.Context(), req, a.gptScript, thread.Status.WorkspaceID, "files/")
+	return err
 }
 
 func (a *AssistantHandler) DeleteFile(req api.Context) error {
