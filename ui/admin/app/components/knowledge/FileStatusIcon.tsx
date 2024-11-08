@@ -1,4 +1,10 @@
-import { CheckIcon, FileClock, PlusIcon, RotateCcwIcon } from "lucide-react";
+import {
+    CheckIcon,
+    FileClock,
+    PlusIcon,
+    RotateCcwIcon,
+    ShieldAlert,
+} from "lucide-react";
 
 import { KnowledgeFile, KnowledgeFileState } from "~/lib/model/knowledge";
 import { cn } from "~/lib/utils";
@@ -18,6 +24,7 @@ const fileStateIcons: Record<KnowledgeFileState, [React.ElementType, string]> =
         [KnowledgeFileState.Ingested]: [CheckIcon, "text-green-500"],
         [KnowledgeFileState.Error]: [RotateCcwIcon, "text-destructive"],
         [KnowledgeFileState.Unapproved]: [PlusIcon, "text-warning"],
+        [KnowledgeFileState.Unsupported]: [ShieldAlert, "text-warning"],
     } as const;
 
 type FileStatusIconProps = {

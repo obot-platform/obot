@@ -45,6 +45,7 @@ import { AutosizeTextarea } from "~/components/ui/textarea";
 import {
     Tooltip,
     TooltipContent,
+    TooltipProvider,
     TooltipTrigger,
 } from "~/components/ui/tooltip";
 import { useAsync } from "~/hooks/useAsync";
@@ -323,6 +324,16 @@ export default function AgentKnowledgePanel({
                             <span>{file.fileName}</span>
                         </div>
                         <div className="flex items-center">
+                            <div className="text-gray-400 text-xs mr-2">
+                                {file.sizeInBytes
+                                    ? file.sizeInBytes > 1000000
+                                        ? (file.sizeInBytes / 1000000).toFixed(
+                                              2
+                                          ) + " MB"
+                                        : (file.sizeInBytes / 1000).toFixed(2) +
+                                          " KB"
+                                    : "0 Bytes"}
+                            </div>
                             <div>
                                 {file.state === KnowledgeFileState.Error ? (
                                     <div className="flex items-center">
@@ -383,13 +394,22 @@ export default function AgentKnowledgePanel({
                                     </div>
                                 )}
                             </div>
-                            <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => deleteKnowledge.execute(file)}
-                            >
-                                <Trash className="w-4 h-4" />
-                            </Button>
+                            <TooltipProvider>
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            onClick={() =>
+                                                deleteKnowledge.execute(file)
+                                            }
+                                        >
+                                            <Trash className="w-4 h-4" />
+                                        </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent>Delete</TooltipContent>
+                                </Tooltip>
+                            </TooltipProvider>
                         </div>
                     </div>
                 ))}

@@ -82,10 +82,11 @@ type KnowledgeFileSpec struct {
 	KnowledgeSourceName string `json:"knowledgeSourceName,omitempty"`
 	Approved            *bool  `json:"approved,omitempty"`
 
-	FileName  string `json:"fileName,omitempty"`
-	URL       string `json:"url,omitempty"`
-	UpdatedAt string `json:"updatedAt,omitempty"`
-	Checksum  string `json:"checksum,omitempty"`
+	FileName    string `json:"fileName,omitempty"`
+	URL         string `json:"url,omitempty"`
+	UpdatedAt   string `json:"updatedAt,omitempty"`
+	Checksum    string `json:"checksum,omitempty"`
+	SizeInBytes int64  `json:"sizeInBytes,omitempty"`
 
 	IngestGeneration int64 `json:"ingestGeneration,omitempty"`
 }

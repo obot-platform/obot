@@ -2,6 +2,8 @@ package knowledgefile
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"path"
 	"strings"
@@ -16,6 +18,14 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
+
+type UnsupportedError struct {
+	UnsupportedFiletype string `json:"unsupportedFiletype"`
+}
+
+func (u *UnsupportedError) Error() string {
+	return fmt.Sprintf("unsupported filetype: %s", u.UnsupportedFiletype)
+}
 
 type Handler struct {
 	invoker   *invoke.Invoker
@@ -115,7 +125,12 @@ func (h *Handler) IngestFile(req router.Request, _ router.Response) error {
 	}
 
 	if err := h.ingest(req.Ctx, req.Client, file, &ks, &source, thread); err != nil {
-		file.Status.State = types.KnowledgeFileStateError
+		var unsupportedErr *UnsupportedError
+		if errors.As(err, &unsupportedErr) {
+			file.Status.State = types.KnowledgeFileStateUnsupported
+		} else {
+			file.Status.State = types.KnowledgeFileStateError
+		}
 		file.Status.Error = err.Error()
 	} else {
 		file.Status.State = types.KnowledgeFileStateIngested
@@ -193,9 +208,13 @@ func (h *Handler) ingest(ctx context.Context, client kclient.Client, file *v1.Kn
 		return err
 	}
 
-	_, err = loadTask.Result(ctx)
+	loadResult, err := loadTask.Result(ctx)
 	if err != nil {
-		return fmt.Errorf("failed to convert file: %v", err)
+		return err
+	}
+	var unsupportedErr UnsupportedError
+	if json.Unmarshal([]byte(loadResult.Output), &unsupportedErr) == nil && unsupportedErr.UnsupportedFiletype != "" {
+		return &unsupportedErr
 	}
 
 	stat, err := h.gptScript.StatFileInWorkspace(ctx, outputFile(file.Spec.FileName), gptscript.StatFileInWorkspaceOptions{

@@ -229,7 +229,8 @@ func (a *ThreadHandler) UploadFile(req api.Context) error {
 		return types.NewErrHttp(http.StatusTooEarly, fmt.Sprintf("no workspace found for thread %s", req.PathValue("id")))
 	}
 
-	return uploadFileToWorkspace(req.Context(), req, a.gptscript, thread.Status.WorkspaceID, "files/")
+	_, err := uploadFileToWorkspace(req.Context(), req, a.gptscript, thread.Status.WorkspaceID, "files/")
+	return err
 }
 
 func (a *ThreadHandler) DeleteFile(req api.Context) error {

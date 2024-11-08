@@ -4,6 +4,7 @@ import {
     KnowledgeFileState,
     KnowledgeSource,
     KnowledgeSourceType,
+    getKnowledgeSourceType,
     getToolRefForKnowledgeSource,
 } from "~/lib/model/knowledge";
 import { AgentService } from "~/lib/service/api/agentService";
@@ -34,9 +35,14 @@ const OauthSignDialog: FC<OauthSignDialogProps> = ({
 
     useEffect(() => {
         setIsAuthCheckingDialogOpen(
-            !authChecked && knowledgeSource.state === KnowledgeFileState.Pending
+            !authChecked &&
+                knowledgeSource.state === KnowledgeFileState.Pending &&
+                (getKnowledgeSourceType(knowledgeSource) ===
+                    KnowledgeSourceType.Notion ||
+                    getKnowledgeSourceType(knowledgeSource) ===
+                        KnowledgeSourceType.OneDrive)
         );
-    }, [authChecked, knowledgeSource.state]);
+    }, [authChecked, knowledgeSource]);
 
     useEffect(() => {
         if (isAuthInitiated.current) {

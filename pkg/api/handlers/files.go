@@ -90,7 +90,8 @@ func listKnowledgeFiles(req api.Context, agentName, threadName, knowledgeSetName
 func uploadKnowledgeToWorkspace(req api.Context, gClient *gptscript.GPTScript, ws *v1.Workspace, agentName, threadName, knowledgeSetName string) error {
 	filename := req.PathValue("file")
 
-	if err := uploadFileToWorkspace(req.Context(), req, gClient, ws.Status.WorkspaceID, ""); err != nil {
+	size, err := uploadFileToWorkspace(req.Context(), req, gClient, ws.Status.WorkspaceID, "")
+	if err != nil {
 		return err
 	}
 
@@ -105,6 +106,7 @@ func uploadKnowledgeToWorkspace(req api.Context, gClient *gptscript.GPTScript, w
 			FileName:         filename,
 			KnowledgeSetName: knowledgeSetName,
 			Approved:         &[]bool{true}[0],
+			SizeInBytes:      int64(size),
 		},
 	}
 
@@ -133,6 +135,7 @@ func convertKnowledgeFile(agentName, threadName string, file v1.KnowledgeFile) t
 		KnowledgeSetID:         file.Spec.KnowledgeSetName,
 		KnowledgeSourceID:      file.Spec.KnowledgeSourceName,
 		LastRunIDs:             file.Status.RunNames,
+		SizeInBytes:            file.Spec.SizeInBytes,
 	}
 }
 
@@ -157,7 +160,8 @@ func uploadFile(ctx context.Context, req api.Context, gClient *gptscript.GPTScri
 		return fmt.Errorf("failed to get workspace with id %s: %w", workspaceName, err)
 	}
 
-	return uploadFileToWorkspace(ctx, req, gClient, ws.Status.WorkspaceID, "files/")
+	_, err := uploadFileToWorkspace(ctx, req, gClient, ws.Status.WorkspaceID, "files/")
+	return err
 }
 
 func getFileInWorkspace(ctx context.Context, req api.Context, gClient *gptscript.GPTScript, workspaceID, prefix string) error {
@@ -176,24 +180,24 @@ func getFileInWorkspace(ctx context.Context, req api.Context, gClient *gptscript
 	return err
 }
 
-func uploadFileToWorkspace(ctx context.Context, req api.Context, gClient *gptscript.GPTScript, workspaceID, prefix string) error {
+func uploadFileToWorkspace(ctx context.Context, req api.Context, gClient *gptscript.GPTScript, workspaceID, prefix string) (int, error) {
 	file := req.PathValue("file")
 	if file == "" {
-		return fmt.Errorf("file path parameter is required")
+		return 0, fmt.Errorf("file path parameter is required")
 	}
 
 	contents, err := io.ReadAll(req.Request.Body)
 	if err != nil {
-		return fmt.Errorf("failed to read request body: %w", err)
+		return 0, fmt.Errorf("failed to read request body: %w", err)
 	}
 
 	if err = gClient.WriteFileInWorkspace(ctx, prefix+file, contents, gptscript.WriteFileInWorkspaceOptions{WorkspaceID: workspaceID}); err != nil {
-		return fmt.Errorf("failed to upload file %q to workspace %q: %w", file, workspaceID, err)
+		return 0, fmt.Errorf("failed to upload file %q to workspace %q: %w", file, workspaceID, err)
 	}
 
 	req.WriteHeader(http.StatusCreated)
 
-	return nil
+	return len(contents), nil
 }
 
 func deleteKnowledge(req api.Context, filename string, knowledgeSetName string) error {
