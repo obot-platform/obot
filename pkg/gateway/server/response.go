@@ -42,5 +42,5 @@ func writeError(ctx context.Context, logger *slog.Logger, w http.ResponseWriter,
 }
 
 func (s *Server) authCompleteURL() string {
-	return fmt.Sprintf("%s/ui/login/complete", s.uiURL)
+	return fmt.Sprintf("%s/login_complete", s.uiURL)
 }

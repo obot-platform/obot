@@ -5,13 +5,13 @@ import (
 
 	"github.com/fatih/color"
 	"github.com/gptscript-ai/cmd"
+	"github.com/gptscript-ai/gptscript/pkg/env"
 	"github.com/otto8-ai/otto8/apiclient"
 	"github.com/otto8-ai/otto8/logger"
+	"github.com/otto8-ai/otto8/pkg/cli/internal"
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
 )
-
-var log = logger.Package()
 
 type Otto struct {
 	Debug  bool `usage:"Enable debug logging"`
@@ -26,13 +26,23 @@ func (a *Otto) PersistentPre(cmd *cobra.Command, args []string) error {
 	if a.Debug {
 		logger.SetDebug()
 	}
+
+	if a.Client.Token == "" && cmd.Use != "server" {
+		token, err := internal.Token(cmd.Context(), a.Client.BaseURL, "otto8")
+		if err != nil {
+			return err
+		}
+
+		a.Client = a.Client.WithToken(token)
+	}
+
 	return nil
 }
 
 func New() *cobra.Command {
 	root := &Otto{
 		Client: &apiclient.Client{
-			BaseURL: "http://localhost:8080/api",
+			BaseURL: env.VarOrDefault("OTTO_BASE_URL", "http://localhost:8080/api"),
 			Token:   os.Getenv("OTTO_TOKEN"),
 		},
 	}
@@ -52,7 +62,8 @@ func New() *cobra.Command {
 			&StepTemplateCreate{root: root},
 			&StepTemplateUpdate{root: root}),
 		&Server{},
-		&Version{})
+		&Version{},
+	)
 }
 
 func (a *Otto) Run(cmd *cobra.Command, args []string) error {

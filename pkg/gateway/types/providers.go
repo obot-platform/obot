@@ -194,7 +194,7 @@ func (ap *AuthProvider) ValidateAndSetDefaults() error {
 }
 
 func (ap *AuthProvider) RedirectURL(baseURL string) string {
-	return fmt.Sprintf("%s/oauth/redirect/%s", baseURL, ap.Slug)
+	return fmt.Sprintf("%s/api/oauth/redirect/%s", baseURL, ap.Slug)
 }
 
 func (ap *AuthProvider) AuthURL(baseURL string, state, nonce string) string {

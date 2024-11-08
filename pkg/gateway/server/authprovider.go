@@ -89,7 +89,7 @@ func (s *Server) updateAuthProvider(apiContext api.Context) error {
 
 func (s *Server) getAuthProviders(apiContext api.Context) error {
 	var authProviders []types.AuthProvider
-	if err := s.db.WithContext(apiContext.Context()).Find(&authProviders).Error; err != nil {
+	if err := s.db.WithContext(apiContext.Context()).Order("id ASC").Find(&authProviders).Error; err != nil {
 		return types2.NewErrHttp(http.StatusInternalServerError, err.Error())
 	}
 

@@ -156,7 +156,7 @@ func (s *Server) tokenRequest(apiContext api.Context) error {
 	}
 
 	if reqObj.ServiceName != "" {
-		return apiContext.Write(map[string]any{"token-path": fmt.Sprintf("%s/oauth/start/%s/%s", s.baseURL, reqObj.ID, oauthProvider.Slug)})
+		return apiContext.Write(map[string]any{"token-path": fmt.Sprintf("%s/api/oauth/start/%s/%s", s.baseURL, reqObj.ID, oauthProvider.Slug)})
 	}
 	return apiContext.Write(map[string]any{"token-path": fmt.Sprintf("%s/login?id=%s", s.uiURL, reqObj.ID)})
 }
@@ -181,7 +181,7 @@ func (s *Server) redirectForTokenRequest(apiContext api.Context) error {
 		return types2.NewErrHttp(http.StatusInternalServerError, err.Error())
 	}
 
-	return apiContext.Write(map[string]any{"token-path": fmt.Sprintf("%s/oauth/start/%s/%s", s.baseURL, tokenReq.ID, oauthProvider.Slug)})
+	return apiContext.Write(map[string]any{"token-path": fmt.Sprintf("%s/api/oauth/start/%s/%s", s.baseURL, tokenReq.ID, oauthProvider.Slug)})
 }
 
 func (s *Server) checkForToken(apiContext api.Context) error {
@@ -209,9 +209,8 @@ func (s *Server) checkForToken(apiContext api.Context) error {
 	})
 }
 
-func (s *Server) createState(ctx context.Context, id string) (string, string, error) {
+func (s *Server) createState(ctx context.Context, id string) (string, error) {
 	state := strings.ReplaceAll(uuid.NewString(), "-", "")
-	nonce := strings.ReplaceAll(uuid.NewString(), "-", "")
 
 	if err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		tr := new(types.TokenRequest)
@@ -219,12 +218,12 @@ func (s *Server) createState(ctx context.Context, id string) (string, string, er
 			return err
 		}
 
-		return tx.Model(tr).Updates(map[string]any{"state": state, "nonce": nonce, "error": ""}).Error
+		return tx.Model(tr).Updates(map[string]any{"state": state, "error": ""}).Error
 	}); err != nil {
-		return "", "", fmt.Errorf("failed to create state: %w", err)
+		return "", fmt.Errorf("failed to create state: %w", err)
 	}
 
-	return state, nonce, nil
+	return state, nil
 }
 
 func (s *Server) verifyState(ctx context.Context, state string) (*types.TokenRequest, error) {
