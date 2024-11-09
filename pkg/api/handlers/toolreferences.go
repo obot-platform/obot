@@ -1,8 +1,8 @@
 package handlers
 
 import (
-	"errors"
 	"fmt"
+	"net/http"
 	"regexp"
 	"strconv"
 	"strings"
@@ -83,8 +83,7 @@ func (a *ToolReferenceHandler) pickNameForReference(req api.Context, reference s
 		if i > 0 {
 			testName = name.SafeConcatName(newName, strconv.Itoa(i))
 		}
-		var errNotFound *types.ErrHTTP
-		if err := req.Get(&v1.ToolReference{}, testName); errors.As(err, &errNotFound) && errNotFound.Code == 404 {
+		if err := req.Get(&v1.ToolReference{}, testName); api.IsHTTPCode(err, http.StatusNotFound) {
 			return testName, nil
 		} else if err != nil {
 			return "", err
