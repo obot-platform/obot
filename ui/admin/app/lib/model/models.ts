@@ -8,6 +8,7 @@ export type ModelManifest = {
     modelProvider: string;
     active: boolean;
     default: boolean;
+    usage?: string;
 };
 
 export type ModelProviderStatus = {

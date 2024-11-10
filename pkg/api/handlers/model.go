@@ -70,7 +70,7 @@ func (a *ModelHandler) Update(req api.Context) error {
 
 	existing.Spec.Manifest = model
 
-	if err := validateModelManifest(req.Context(), req.Storage, existing); err != nil {
+	if err := validateModelManifestAndSetDefaults(req.Context(), req.Storage, &existing); err != nil {
 		return err
 	}
 
@@ -115,7 +115,7 @@ func (a *ModelHandler) Create(req api.Context) error {
 		},
 	}
 
-	if err := validateModelManifest(req.Context(), req.Storage, model); err != nil {
+	if err := validateModelManifestAndSetDefaults(req.Context(), req.Storage, &model); err != nil {
 		return err
 	}
 
@@ -184,13 +184,17 @@ func convertModelProviderToolRef(toolRef v1.ToolReference) *types.ModelProviderS
 	}
 }
 
-func validateModelManifest(ctx context.Context, c kclient.Client, newModel v1.Model) error {
+func validateModelManifestAndSetDefaults(ctx context.Context, c kclient.Client, newModel *v1.Model) error {
 	var errs []error
 	if newModel.Spec.Manifest.TargetModel == "" {
 		errs = append(errs, fmt.Errorf("field targetModel is required"))
 	}
 	if newModel.Spec.Manifest.ModelProvider == "" {
 		errs = append(errs, fmt.Errorf("field modelProvider is required"))
+	}
+
+	if newModel.Spec.Manifest.Usage == "" {
+		newModel.Spec.Manifest.Usage = types.ModelUsageAgent
 	}
 
 	if newModel.Spec.Manifest.Default && newModel.Spec.Manifest.Active {

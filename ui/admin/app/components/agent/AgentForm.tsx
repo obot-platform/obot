@@ -126,11 +126,15 @@ export function AgentForm({ agent, onSubmit, onChange }: AgentFormProps) {
                                 <SelectEmptyItem>
                                     Use System Default
                                 </SelectEmptyItem>
-                                {models?.map((m) => (
-                                    <SelectItem key={m.id} value={m.id}>
-                                        {m.name || m.id}
-                                    </SelectItem>
-                                ))}
+                                {models
+                                    ?.filter(
+                                        (m) => !m.usage || m.usage === "agent"
+                                    )
+                                    .map((m) => (
+                                        <SelectItem key={m.id} value={m.id}>
+                                            {m.name || m.id}
+                                        </SelectItem>
+                                    ))}
                             </SelectContent>
                         </Select>
                     )}

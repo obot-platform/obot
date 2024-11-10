@@ -10,6 +10,7 @@ items:
         modelProvider: openai-model-provider
         default: true
         active: true
+        usage: agent
   - apiVersion: otto.otto8.ai/v1
     kind: Model
     metadata:
@@ -20,6 +21,7 @@ items:
         targetModel: text-embedding-ada-002
         modelProvider: openai-model-provider
         active: true
+        usage: text-embedding
   - apiVersion: otto.otto8.ai/v1
     kind: Model
     metadata:
@@ -30,6 +32,7 @@ items:
         targetModel: text-embedding-3-small
         modelProvider: openai-model-provider
         active: true
+        usage: text-embedding
   - apiVersion: otto.otto8.ai/v1
     kind: Model
     metadata:
@@ -40,6 +43,7 @@ items:
         targetModel: dall-e-3
         modelProvider: openai-model-provider
         active: true
+        usage: image-generation
   - apiVersion: otto.otto8.ai/v1
     kind: Model
     metadata:
@@ -50,6 +54,7 @@ items:
         targetModel: gpt-4o-mini
         modelProvider: openai-model-provider
         active: true
+        usage: agent
   - apiVersion: otto.otto8.ai/v1
     kind: Model
     metadata:
@@ -60,3 +65,4 @@ items:
         targetModel: gpt-3.5-turbo
         modelProvider: openai-model-provider
         active: true
+        usage: agent

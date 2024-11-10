@@ -6,6 +6,7 @@ import (
 
 	"github.com/otto8-ai/nah/pkg/apply"
 	v1 "github.com/otto8-ai/otto8/pkg/storage/apis/otto.otto8.ai/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/yaml"
 )
@@ -23,8 +24,21 @@ func Data(ctx context.Context, c kclient.Client) error {
 	}
 
 	for _, model := range defaultModels.Items {
-		if err := kclient.IgnoreAlreadyExists(c.Create(ctx, &model)); err != nil {
+		var existing v1.Model
+		if err := c.Get(ctx, kclient.ObjectKey{Namespace: model.Namespace, Name: model.Name}, &existing); err == nil {
+			// If the usage is different, update the existing model.
+			if model.Spec.Manifest.Usage != existing.Spec.Manifest.Usage {
+				existing.Spec.Manifest.Usage = model.Spec.Manifest.Usage
+				if err := c.Update(ctx, &existing); err != nil {
+					return err
+				}
+			}
+		} else if !apierrors.IsNotFound(err) {
 			return err
+		} else {
+			if err = kclient.IgnoreAlreadyExists(c.Create(ctx, &model)); err != nil {
+				return err
+			}
 		}
 	}
 

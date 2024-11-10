@@ -1500,6 +1500,12 @@ func schema_otto8_ai_otto8_apiclient_types_ModelManifest(ref common.ReferenceCal
 							Format:  "",
 						},
 					},
+					"usage": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
 				},
 				Required: []string{"active", "default"},
 			},
