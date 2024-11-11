@@ -9,7 +9,7 @@ RUN --mount=type=cache,id=pnpm,target=/root/.local/share/pnpm/store \
     make in-docker-build
 
 FROM cgr.dev/chainguard/wolfi-base AS final
-RUN apk add --no-cache git python-3.13 py3.13-pip openssh-server npm bash tini procps
+RUN apk add --no-cache git python-3.13 py3.13-pip openssh-server npm bash tini procps libreoffice
 COPY --chmod=0755 /tools/package-chrome.sh /
 RUN /package-chrome.sh && rm /package-chrome.sh
 RUN sed -E 's/^#(PermitRootLogin)no/\1yes/' /etc/ssh/sshd_config -i
@@ -47,6 +47,8 @@ exec tini -- otto8 server
 EOF
 
 EXPOSE 22
+# libreoffice executables
+ENV PATH=$PATH:/usr/lib/libreoffice/program
 ENV HOME=/data
 ENV XDG_CACHE_HOME=/data/cache
 ENV GPTSCRIPT_SYSTEM_TOOLS_DIR=/otto8-tools/
