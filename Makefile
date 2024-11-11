@@ -21,6 +21,11 @@ clean:
 	rm -rf ui/admin/build
 	rm -rf ui/user/build
 
+serve-docs:
+	cd docs && \
+	npm install && \
+	npm run start
+
 # Build the project
 build:
 	go build -ldflags="-s -w" -o bin/otto8 .
