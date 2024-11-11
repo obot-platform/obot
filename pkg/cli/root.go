@@ -27,7 +27,7 @@ func (a *Otto) PersistentPre(cmd *cobra.Command, args []string) error {
 		logger.SetDebug()
 	}
 
-	if a.Client.Token == "" && cmd.Use != "server" {
+	if a.Client.Token == "" && cmd.Use != "server" && cmd.Use != "otto" {
 		token, err := internal.Token(cmd.Context(), a.Client.BaseURL, "otto8")
 		if err != nil {
 			return err
