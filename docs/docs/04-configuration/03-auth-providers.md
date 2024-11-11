@@ -12,7 +12,7 @@ The following environment variables are required for all authentication provider
 - `OTTO_AUTH_ADMIN_EMAILS`: A comma-separated list of the email addresses of the admin users.
 
 The following environment variables are optional for all authentication providers:
-- `OTTO_AUTH_EMAIL_DOMAINS`: The email domains allowed for authentication. Defaults to `*`.
+- `OTTO_AUTH_EMAIL_DOMAINS`: A comma-separated list of email domains allowed for authentication. Ignored if not set.
 - `OTTO_AUTH_CONFIG_TYPE`: The type of the authentication provider. For example, `google` or `github`. Defaults to `google`.
 
 ## Google
@@ -23,8 +23,8 @@ Google is the default authentication provider. There are currently no additional
 
 GitHub authentication has the following optional configuration:
 
-- `OTTO_AUTH_GITHUB_ORG`: The name of the organization allowed for authentication. Defaults to `*`.
-- `OTTO_AUTH_GITHUB_TEAM`: The name of the team allowed for authentication. Defaults to `*`.
-- `OTTO_AUTH_GITHUB_REPOS`: A comma-separated list of the names of the repositories allowed for authentication, in the format `org/repo`. Defaults to `*`.
+- `OTTO_AUTH_GITHUB_ORG`: The name of the organization allowed for authentication. Ignored if not set.
+- `OTTO_AUTH_GITHUB_TEAM`: The name of the team allowed for authentication. Ignored if not set.
+- `OTTO_AUTH_GITHUB_REPOS`: A comma-separated list of the names of the repositories allowed for authentication, in the format `org/repo`. Ignored if not set.
 - `OTTO_AUTH_GITHUB_TOKEN`: The token to use when verifying repository collaborators (must have push access to the repository).
-- `OTTO_AUTH_GITHUB_ALLOW_USERS`: A comma-separated list of users allowed to login even if they don't belong to the organization or team(s).
+- `OTTO_AUTH_GITHUB_ALLOW_USERS`: A comma-separated list of users allowed to login even if they don't belong to the organization or team.

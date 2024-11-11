@@ -1,6 +1,6 @@
 # Model Providers
 
-Each package model provider is configured slightly differently, but, at least, the `OTTO_*_MODEL_PROVIDER_API_KEY` environment variable are required, where `*` stands in for the name of the provider (e.g. `OTTO_AZURE_OPENAI_MODEL_PROVIDER_API_KEY`).
+Each packaged model provider has a slightly different, but all require at least, the `OTTO_*_MODEL_PROVIDER_API_KEY` environment variable are required, where `*` stands in for the name of the provider (e.g. `OTTO_AZURE_OPENAI_MODEL_PROVIDER_API_KEY`).
 
 Below is a summary of the configuration options for each provider. However, the packaged model providers are configured to indicate which environment variables are required and which ones are not set in the current environment. For example, `/api/tool-references/azure-openai-model-provider` would indicate the status of the Azure OpenAI model provider. If the environment variables are not set, then the API would return something like:
 
@@ -13,7 +13,7 @@ Below is a summary of the configuration options for each provider. However, the 
   },
   "name": "Azure OpenAI Provider",
   "toolType": "modelProvider",
-  "reference": "github.com/otto8-ai/tools/./azure-openai-model-provider",
+  "reference": "github.com/otto8-ai/tools/azure-openai-model-provider",
   "active": true,
   "builtin": true,
   "description": "Model provider for Azure OpenAI hosted models",
@@ -40,7 +40,7 @@ Once all the required environment variables are set, then the API would return s
   },
   "name": "Azure OpenAI Provider",
   "toolType": "modelProvider",
-  "reference": "github.com/otto8-ai/tools/./azure-openai-model-provider",
+  "reference": "github.com/otto8-ai/tools/azure-openai-model-provider",
   "active": true,
   "builtin": true,
   "description": "Model provider for Azure OpenAI hosted models",
