@@ -56,11 +56,12 @@ const AddSourceModal: FC<AddSourceModalProps> = ({
 
     const handleAddWebsite = async () => {
         if (newWebsite) {
+            const trimmedWebsite = newWebsite.trim();
             const formattedWebsite =
-                newWebsite.startsWith("http://") ||
-                newWebsite.startsWith("https://")
-                    ? newWebsite.trim()
-                    : `https://${newWebsite.trim()}`;
+                trimmedWebsite.startsWith("http://") ||
+                trimmedWebsite.startsWith("https://")
+                    ? trimmedWebsite
+                    : `https://${trimmedWebsite}`;
 
             const res = await KnowledgeService.createKnowledgeSource(agentId, {
                 websiteCrawlingConfig: {
