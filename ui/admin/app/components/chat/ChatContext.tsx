@@ -20,7 +20,7 @@ type Mode = "agent" | "workflow";
 interface ChatContextType {
     messages: Message[];
     mode: Mode;
-    processUserMessage: (text: string, sender: "user" | "agent") => void;
+    processUserMessage: (text: string) => void;
     id: string;
     threadId: Nullish<string>;
     invoke: (prompt?: string) => void;
@@ -46,38 +46,17 @@ export function ChatProvider({
     onCreateThreadId?: (threadId: string) => void;
     readOnly?: boolean;
 }) {
-    /**
-     * processUserMessage is responsible for adding the user's message to the chat and
-     * triggering the agent to respond to it.
-     */
-    const processUserMessage = (text: string, sender: "user" | "agent") => {
-        if (mode === "workflow" || readOnly) return;
-        const newMessage: Message = { text, sender };
-
-        // insertMessage(newMessage);
-        handlePrompt(newMessage.text);
-    };
-
     const invoke = (prompt?: string) => {
-        if (prompt && mode === "agent" && !readOnly) {
-            handlePrompt(prompt);
-        }
-    };
+        if (readOnly) return;
 
-    const handlePrompt = (prompt: string) => {
-        if (prompt && mode === "agent" && !readOnly) {
-            invokeAgent.execute({
-                slug: id,
-                prompt: prompt,
-                thread: threadId,
-            });
-        }
-        // do nothing if the mode is workflow
+        if (mode === "workflow") invokeAgent.execute({ slug: id });
+        else if (mode === "agent")
+            invokeAgent.execute({ slug: id, prompt: prompt, thread: threadId });
     };
 
     const invokeAgent = useAsync(InvokeService.invokeAgentWithStream, {
         onSuccess: ({ threadId: responseThreadId }) => {
-            if (responseThreadId && !threadId) {
+            if (responseThreadId && responseThreadId !== threadId) {
                 // persist the threadId
                 onCreateThreadId?.(responseThreadId);
 
@@ -93,7 +72,7 @@ export function ChatProvider({
         <ChatContext.Provider
             value={{
                 messages,
-                processUserMessage,
+                processUserMessage: invoke,
                 mode,
                 id,
                 threadId,

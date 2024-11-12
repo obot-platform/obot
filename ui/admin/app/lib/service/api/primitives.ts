@@ -24,7 +24,7 @@ interface ExtendedAxiosRequestConfig<D = unknown>
 }
 
 export async function request<T, R = AxiosResponse<T>, D = unknown>({
-    errorMessage = "Request failed",
+    errorMessage: _,
     disableTokenRefresh,
     ...config
 }: ExtendedAxiosRequestConfig<D>): Promise<R> {
@@ -34,8 +34,6 @@ export async function request<T, R = AxiosResponse<T>, D = unknown>({
             ...config,
         });
     } catch (error) {
-        console.error(errorMessage);
-
         if (isAxiosError(error) && error.response?.status === 400) {
             throw new BadRequestError(error.response.data);
         }

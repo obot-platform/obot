@@ -6,10 +6,6 @@ import { Button } from "~/components/ui/button";
 export function NoMessages() {
     const { processUserMessage, isInvoking } = useChat();
 
-    const handleAddMessage = (content: string) => {
-        processUserMessage(content, "user");
-    };
-
     return (
         <div className="flex flex-col items-center justify-center space-y-4 text-center p-4 h-full">
             <h2 className="text-2xl font-semibold">Start the conversation!</h2>
@@ -22,7 +18,7 @@ export function NoMessages() {
                     shape="pill"
                     disabled={isInvoking}
                     onClick={() =>
-                        handleAddMessage(
+                        processUserMessage(
                             "Tell me who you are and what your objectives are."
                         )
                     }
@@ -35,7 +31,7 @@ export function NoMessages() {
                     shape="pill"
                     disabled={isInvoking}
                     onClick={() =>
-                        handleAddMessage(
+                        processUserMessage(
                             "Tell me what tools you have available."
                         )
                     }
@@ -48,7 +44,7 @@ export function NoMessages() {
                     shape="pill"
                     disabled={isInvoking}
                     onClick={() =>
-                        handleAddMessage(
+                        processUserMessage(
                             "Using your knowledge tools, tell me about your knowledge set."
                         )
                     }

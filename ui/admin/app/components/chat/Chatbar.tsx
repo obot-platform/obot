@@ -22,7 +22,7 @@ export function Chatbar({ className }: ChatbarProps) {
         if (isRunning) return;
 
         if (input.trim()) {
-            processUserMessage(input, "user");
+            processUserMessage(input);
             setInput("");
         }
     };

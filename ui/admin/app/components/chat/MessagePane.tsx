@@ -24,9 +24,9 @@ export function MessagePane({
     className,
     classNames = {},
 }: MessagePaneProps) {
-    const { readOnly, isRunning } = useChat();
+    const { readOnly, isRunning, mode } = useChat();
 
-    const isEmpty = messages.length === 0 && !readOnly;
+    const isEmpty = messages.length === 0 && !readOnly && mode === "agent";
 
     return (
         <div className={cn("flex flex-col h-full", className, classNames.root)}>
