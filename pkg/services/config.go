@@ -121,8 +121,11 @@ func newGPTScript(ctx context.Context, workspaceTool, datasetsTool, toolsRegistr
 	if err := os.Setenv("GPTSCRIPT_URL", url); err != nil {
 		return nil, err
 	}
-	if err = os.Setenv("WORKSPACE_PROVIDER_DATA_HOME", filepath.Join(xdg.DataHome, "otto8", "workspace-provider")); err != nil {
-		return nil, err
+
+	if os.Getenv("WORKSPACE_PROVIDER_DATA_HOME") == "" {
+		if err = os.Setenv("WORKSPACE_PROVIDER_DATA_HOME", filepath.Join(xdg.DataHome, "otto8", "workspace-provider")); err != nil {
+			return nil, err
+		}
 	}
 
 	return gptscript.NewGPTScript(gptscript.GlobalOptions{
