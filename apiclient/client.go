@@ -19,9 +19,16 @@ import (
 var log = logger.Package()
 
 type Client struct {
-	BaseURL string
-	Token   string
-	Cookie  *http.Cookie
+	BaseURL      string
+	Token        string
+	Cookie       *http.Cookie
+	tokenFetcher func(context.Context, string) (string, error)
+}
+
+func (c *Client) WithTokenFetcher(f func(context.Context, string) (string, error)) *Client {
+	n := *c
+	n.tokenFetcher = f
+	return &n
 }
 
 func (c *Client) WithToken(token string) *Client {
@@ -86,6 +93,15 @@ func (c *Client) doRequest(ctx context.Context, method, path string, body io.Rea
 	if err != nil {
 		return nil, nil, err
 	}
+
+	if c.Token == "" && c.tokenFetcher != nil {
+		token, err := c.tokenFetcher(ctx, c.BaseURL)
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to fetch token: %w", err)
+		}
+		c.Token = token
+	}
+
 	if c.Token != "" {
 		req.Header.Set("Authorization", "Bearer "+c.Token)
 	}

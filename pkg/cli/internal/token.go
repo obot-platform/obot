@@ -39,7 +39,7 @@ func enter(ctx context.Context) error {
 	}
 }
 
-func Token(ctx context.Context, baseURL, appName string) (string, error) {
+func Token(ctx context.Context, baseURL string) (string, error) {
 	// Check to see if authentication is required for this baseURL
 	if testToken(ctx, baseURL, "") {
 		return "", nil
@@ -53,7 +53,7 @@ func Token(ctx context.Context, baseURL, appName string) (string, error) {
 	ctx, sigCancel := signal.NotifyContext(ctx, os.Interrupt)
 	defer sigCancel()
 
-	tokenFile, err := xdg.ConfigFile(filepath.Join(appName, "token"))
+	tokenFile, err := xdg.ConfigFile(filepath.Join("otto8", "token"))
 	if err != nil {
 		return "", err
 	}
