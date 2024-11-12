@@ -18,7 +18,7 @@ Specify the directory where workspaces are nested. The default is `$XDG_CONFIG_H
 
 #### `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION`, `WORKSPACE_PROVIDER_S3_BUCKET`
 
-These variables configure the s3 or s3-compatible access and bucket to use with the workspace provider.
+Specifying these variables allows you to configure access to an s3 or s3-compatible bucket for the workspace provider to use. If the `OTTO8_WORKSPACE_PROVIDER_TYPE` is `s3`, then all of these variables are required for proper configuration.
 
 #### `WORKSPACE_PROVIDER_S3_BASE_ENDPOINT`
 

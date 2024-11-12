@@ -22,4 +22,4 @@ Otto8 uses a database backend. By default, it will use a sqlite3 local database.
 
 #### `OTTO8_SERVER_HOSTNAME`
 
-Tell Otto what its server URL is so that things like OAuth, LLM proxying, and invoke URLs are handled correctly.
+Tell Otto8 what its server URL is so that things like OAuth, LLM proxying, and invoke URLs are handled correctly.

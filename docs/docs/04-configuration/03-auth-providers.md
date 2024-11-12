@@ -1,6 +1,6 @@
 # Auth Providers
 
-Authentication providers allow your Otto installation to authenticate users with the identity provider of your choice. All authentication providers are configured using environment variables.
+Authentication providers allow your Otto8 installation to authenticate users with the identity provider of your choice. All authentication providers are configured using environment variables.
 
 ## Common Environment Variables
 
