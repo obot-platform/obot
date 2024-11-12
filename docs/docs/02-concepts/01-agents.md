@@ -11,7 +11,7 @@ Instructions let you guide your agent's behavior. You should use this field to s
 > You are an HR assistant for Acme Corporation. Employees of Acme Corporation will chat with you to get answers to HR related questions. If an employee seems unsatisfied with your answers, you can direct them to email hr@acmecorp.com. 
 
 ### Model
-You can specify the model each agent will use. If you make no selection, the system default will be used. For more on models, see our [Models concept](concepts/models).
+You can specify the model each agent will use. If you make no selection, the system default will be used. For more on models, see our [Models concept](models).
 
 ### Tools
 Tools dictate what an agent can do and how it can interact with the rest of the world. The tools shipped with Otto8 help make their purpose clear. A few examples include:
