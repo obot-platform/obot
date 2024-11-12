@@ -6,9 +6,11 @@ import (
 	"errors"
 	"fmt"
 	"path"
+	"strconv"
 	"strings"
 
 	"github.com/gptscript-ai/go-gptscript"
+	"github.com/gptscript-ai/gptscript/pkg/env"
 	"github.com/otto8-ai/nah/pkg/router"
 	"github.com/otto8-ai/nah/pkg/typed"
 	"github.com/otto8-ai/otto8/apiclient/types"
@@ -30,12 +32,19 @@ func (u *UnsupportedError) Error() string {
 type Handler struct {
 	invoker   *invoke.Invoker
 	gptScript *gptscript.GPTScript
+	limit     int
 }
 
 func New(invoker *invoke.Invoker, gptScript *gptscript.GPTScript) *Handler {
+	defaultLimit := env.VarOrDefault("OTTO_KS_INGESTION_LIMIT", "1000")
+	v, _ := strconv.Atoi(defaultLimit)
+	if v == 0 {
+		v = 1000
+	}
 	return &Handler{
 		invoker:   invoker,
 		gptScript: gptScript,
+		limit:     v,
 	}
 }
 
@@ -122,6 +131,25 @@ func (h *Handler) IngestFile(req router.Request, _ router.Response) error {
 	if file.Spec.Approved == nil || !*file.Spec.Approved {
 		// Not approved, wait for user action
 		return nil
+	}
+
+	// If files have been approved, check whether the current knowledge set's approved files has exceeded limit
+	var files v1.KnowledgeFileList
+	if err := req.Client.List(req.Ctx, &files, kclient.InNamespace(ks.Namespace), kclient.MatchingFields{
+		"spec.knowledgeSetName": ks.Name,
+	}); err != nil {
+		return err
+	}
+	ingestedFilesCount := 0
+	for _, f := range files.Items {
+		if f.Spec.Approved != nil && *f.Spec.Approved {
+			ingestedFilesCount++
+		}
+	}
+	if ingestedFilesCount >= h.limit {
+		file.Status.State = types.KnowledgeFileStateError
+		file.Status.Error = "You have reached the maximum of files you can ingest"
+		return req.Client.Status().Update(req.Ctx, file)
 	}
 
 	if err := h.ingest(req.Ctx, req.Client, file, &ks, &source, thread); err != nil {
