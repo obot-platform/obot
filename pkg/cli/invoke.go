@@ -17,7 +17,7 @@ type Invoke struct {
 	Quiet   *bool  `usage:"Only print output characters" short:"q"`
 	Verbose bool   `usage:"Print more information" short:"v"`
 	Async   bool   `usage:"Run the agent asynchronously" short:"a"`
-	root    *Otto
+	root    *Otto8
 }
 
 func (l *Invoke) GetQuiet() bool {

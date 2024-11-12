@@ -49,15 +49,15 @@ type (
 
 type Config struct {
 	HTTPListenPort        int    `usage:"HTTP port to listen on" default:"8080" name:"http-listen-port"`
-	DevMode               bool   `usage:"Enable development mode" default:"false" name:"dev-mode" env:"OTTO_DEV_MODE"`
+	DevMode               bool   `usage:"Enable development mode" default:"false" name:"dev-mode" env:"OTTO8_DEV_MODE"`
 	DevUIPort             int    `usage:"The port on localhost running the dev instance of the UI" default:"5173"`
 	AllowedOrigin         string `usage:"Allowed origin for CORS"`
 	ToolRegistry          string `usage:"The tool reference for the tool registry" default:"github.com/otto8-ai/tools"`
-	WorkspaceProviderType string `usage:"The type of workspace provider to use for non-knowledge workspaces" default:"directory" env:"OTTO_WORKSPACE_PROVIDER_TYPE"`
+	WorkspaceProviderType string `usage:"The type of workspace provider to use for non-knowledge workspaces" default:"directory" env:"OTTO8_WORKSPACE_PROVIDER_TYPE"`
 	WorkspaceTool         string `usage:"The tool reference for the workspace provider" default:"github.com/gptscript-ai/workspace-provider"`
 	DatasetsTool          string `usage:"The tool reference for the dataset provider" default:"github.com/gptscript-ai/datasets"`
 	HelperModel           string `usage:"The model used to generate names and descriptions" default:"gpt-4o-mini"`
-	AWSKMSKeyARN          string `usage:"The ARN of the AWS KMS key to use for encrypting credential storage" env:"OTTO_AWS_KMS_KEY_ARN" name:"aws-kms-key-arn"`
+	AWSKMSKeyARN          string `usage:"The ARN of the AWS KMS key to use for encrypting credential storage" env:"OTTO8_AWS_KMS_KEY_ARN" name:"aws-kms-key-arn"`
 	EncryptionConfigFile  string `usage:"The path to the encryption configuration file" default:"./encryption.yaml"`
 
 	AuthConfig
@@ -146,8 +146,8 @@ func New(ctx context.Context, config Config) (*Services, error) {
 	}
 
 	// Set the OpenAI model provider API key, just for consistency
-	if os.Getenv("OTTO_OPENAI_MODEL_PROVIDER_API_KEY") == "" {
-		_ = os.Setenv("OTTO_OPENAI_MODEL_PROVIDER_API_KEY", os.Getenv("OPENAI_API_KEY"))
+	if os.Getenv("OTTO8_OPENAI_MODEL_PROVIDER_API_KEY") == "" {
+		_ = os.Setenv("OTTO8_OPENAI_MODEL_PROVIDER_API_KEY", os.Getenv("OPENAI_API_KEY"))
 	}
 
 	if err := credstores.Init(ctx, config.ToolRegistry, config.DSN, credstores.Options{

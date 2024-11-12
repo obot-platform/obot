@@ -13,7 +13,7 @@ import (
 )
 
 type Runs struct {
-	root   *Otto
+	root   *Otto8
 	Wide   bool `usage:"Print more information" short:"w"`
 	Quiet  bool `usage:"Only print IDs of runs" short:"q"`
 	Follow bool `usage:"Follow the output of runs" short:"f"`

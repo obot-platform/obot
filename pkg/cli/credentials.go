@@ -11,7 +11,7 @@ import (
 )
 
 type Credentials struct {
-	root     *Otto
+	root     *Otto8
 	Wide     bool   `usage:"Print more information" short:"w"`
 	Quiet    bool   `usage:"Only print IDs of credentials" short:"q"`
 	ThreadID string `usage:"Specific thread list credentials for" short:"t"`

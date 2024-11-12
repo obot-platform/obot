@@ -31,7 +31,7 @@ type Dispatcher struct {
 
 func New(invoker *invoke.Invoker, c kclient.Client) *Dispatcher {
 	return &Dispatcher{
-		openAIAPIKey: os.Getenv("OTTO_OPENAI_MODEL_PROVIDER_API_KEY"),
+		openAIAPIKey: os.Getenv("OTTO8_OPENAI_MODEL_PROVIDER_API_KEY"),
 		invoker:      invoker,
 		client:       c,
 		lock:         new(sync.RWMutex),

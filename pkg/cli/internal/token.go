@@ -84,7 +84,7 @@ func Token(ctx context.Context, baseURL, appName string) (string, error) {
 		fmt.Println(color.GreenString("========================"))
 		fmt.Println()
 		fmt.Println(color.CyanString(serviceName) + " is used for authentication using the browser. This can be bypassed by setting")
-		fmt.Println("the env var " + color.CyanString("OTTO_API_KEY") + " to your API key.")
+		fmt.Println("the env var " + color.CyanString("OTTO8_API_KEY") + " to your API key.")
 		fmt.Println()
 		fmt.Println(color.GreenString("Press ENTER to continue (CTRL+C to exit)"))
 		if err := enter(ctx); err != nil {

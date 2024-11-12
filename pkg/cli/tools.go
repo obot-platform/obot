@@ -8,7 +8,7 @@ import (
 )
 
 type Tools struct {
-	root  *Otto
+	root  *Otto8
 	Quiet bool `usage:"Only print IDs of tools" short:"q"`
 }
 

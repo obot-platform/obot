@@ -9,7 +9,7 @@ import (
 )
 
 type Delete struct {
-	root *Otto
+	root *Otto8
 }
 
 func (l *Delete) Customize(cmd *cobra.Command) {

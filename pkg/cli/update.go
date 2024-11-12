@@ -11,7 +11,7 @@ import (
 )
 
 type Update struct {
-	root  *Otto
+	root  *Otto8
 	Quiet bool `usage:"Only print IDs of updated agent/workflow" short:"q"`
 }
 

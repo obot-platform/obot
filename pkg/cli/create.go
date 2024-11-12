@@ -18,7 +18,7 @@ import (
 
 type Create struct {
 	Quiet bool `usage:"Only print ID after successful creation." short:"q"`
-	root  *Otto
+	root  *Otto8
 }
 
 func (l *Create) Customize(cmd *cobra.Command) {

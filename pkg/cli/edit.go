@@ -12,7 +12,7 @@ import (
 )
 
 type Edit struct {
-	root   *Otto
+	root   *Otto8
 	Prompt bool `usage:"Edit just the prompt for the agent" short:"p"`
 }
 

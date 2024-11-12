@@ -10,7 +10,7 @@ import (
 )
 
 type CredentialsDelete struct {
-	root  *Otto
+	root  *Otto8
 	Quiet bool `usage:"Only print IDs of credentials" short:"q"`
 }
 

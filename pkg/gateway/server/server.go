@@ -20,7 +20,7 @@ import (
 
 type Options struct {
 	Hostname     string
-	UIHostname   string `name:"ui-hostname" env:"OTTO_SERVER_UI_HOSTNAME"`
+	UIHostname   string `name:"ui-hostname" env:"OTTO8_SERVER_UI_HOSTNAME"`
 	GatewayDebug bool
 }
 

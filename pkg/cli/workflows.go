@@ -9,7 +9,7 @@ import (
 )
 
 type Workflows struct {
-	root  *Otto
+	root  *Otto8
 	Quiet bool `usage:"Only print IDs of agents" short:"q"`
 	Wide  bool `usage:"Print more information" short:"w"`
 }

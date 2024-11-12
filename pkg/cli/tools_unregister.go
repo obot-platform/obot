@@ -8,7 +8,7 @@ import (
 )
 
 type ToolUnregister struct {
-	root  *Otto
+	root  *Otto8
 	Quiet bool `usage:"Only print IDs of unregistered tool references" short:"q"`
 }
 

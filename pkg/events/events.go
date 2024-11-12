@@ -702,7 +702,7 @@ func (e *Emitter) printCall(ctx context.Context, namespace, runID string, prg *g
 
 func isSubCallTargetIDs(tool gptscript.Tool) (agentID string, workflowID string) {
 	for _, line := range strings.Split(tool.Instructions, "\n") {
-		suffix, ok := strings.CutPrefix(line, "#OTTO_SUBCALL: TARGET: ")
+		suffix, ok := strings.CutPrefix(line, "#OTTO8_SUBCALL: TARGET: ")
 		if !ok {
 			continue
 		}

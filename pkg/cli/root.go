@@ -13,12 +13,12 @@ import (
 	"golang.org/x/term"
 )
 
-type Otto struct {
+type Otto8 struct {
 	Debug  bool `usage:"Enable debug logging"`
 	Client *apiclient.Client
 }
 
-func (a *Otto) PersistentPre(cmd *cobra.Command, args []string) error {
+func (a *Otto8) PersistentPre(cmd *cobra.Command, args []string) error {
 	if os.Getenv("NO_COLOR") != "" || !term.IsTerminal(int(os.Stdout.Fd())) {
 		color.NoColor = true
 	}
@@ -27,7 +27,7 @@ func (a *Otto) PersistentPre(cmd *cobra.Command, args []string) error {
 		logger.SetDebug()
 	}
 
-	if a.Client.Token == "" && cmd.Use != "server" && cmd.Use != "otto" {
+	if a.Client.Token == "" && cmd.Use != "server" && cmd.Use != "otto8" && cmd.Use != "version" {
 		token, err := internal.Token(cmd.Context(), a.Client.BaseURL, "otto8")
 		if err != nil {
 			return err
@@ -40,10 +40,10 @@ func (a *Otto) PersistentPre(cmd *cobra.Command, args []string) error {
 }
 
 func New() *cobra.Command {
-	root := &Otto{
+	root := &Otto8{
 		Client: &apiclient.Client{
-			BaseURL: env.VarOrDefault("OTTO_BASE_URL", "http://localhost:8080/api"),
-			Token:   os.Getenv("OTTO_TOKEN"),
+			BaseURL: env.VarOrDefault("OTTO8_BASE_URL", "http://localhost:8080/api"),
+			Token:   os.Getenv("OTTO8_TOKEN"),
 		},
 	}
 	return cmd.Command(root,
@@ -67,6 +67,6 @@ func New() *cobra.Command {
 	)
 }
 
-func (a *Otto) Run(cmd *cobra.Command, args []string) error {
+func (a *Otto8) Run(cmd *cobra.Command, args []string) error {
 	return cmd.Help()
 }

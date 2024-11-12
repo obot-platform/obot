@@ -2,7 +2,7 @@ package system
 
 import "os"
 
-const BinEnvVar = "OTTO_BIN"
+const BinEnvVar = "OTTO8_BIN"
 
 func SetBinToSelf() {
 	if err := os.Setenv(BinEnvVar, Bin()); err != nil {

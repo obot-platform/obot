@@ -7,7 +7,7 @@ import (
 )
 
 type StepTemplateUpdate struct {
-	root  *Otto
+	root  *Otto8
 	Quiet bool `usage:"Only print IDs of updated step template" short:"q"`
 }
 

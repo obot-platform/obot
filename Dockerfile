@@ -34,7 +34,7 @@ mkdir -p /run/sshd
 /usr/sbin/sshd -D &
 mkdir -p /data/cache
 # This is YAML
-export OTTO_SERVER_VERSIONS="$(cat <<VERSIONS
+export OTTO8_SERVER_VERSIONS="$(cat <<VERSIONS
 "github.com/otto8-ai/tools": "$(cd /otto8-tools && git rev-parse HEAD)"
 "github.com/gptscript-ai/workspace-provider": "$(cd /otto8-tools/workspace-provider && git rev-parse HEAD)"
 "github.com/gptscript-ai/datasets": "$(cd /otto8-tools/datasets && git rev-parse HEAD)"
@@ -52,10 +52,10 @@ ENV PATH=$PATH:/usr/lib/libreoffice/program
 ENV HOME=/data
 ENV XDG_CACHE_HOME=/data/cache
 ENV GPTSCRIPT_SYSTEM_TOOLS_DIR=/otto8-tools/
-ENV OTTO_SERVER_WORKSPACE_TOOL=/otto8-tools/workspace-provider
-ENV OTTO_SERVER_DATASETS_TOOL=/otto8-tools/datasets
-ENV OTTO_SERVER_TOOL_REGISTRY=/otto8-tools
-ENV OTTO_SERVER_ENCRYPTION_CONFIG_FILE=/encryption.yaml
+ENV OTTO8_SERVER_WORKSPACE_TOOL=/otto8-tools/workspace-provider
+ENV OTTO8_SERVER_DATASETS_TOOL=/otto8-tools/datasets
+ENV OTTO8_SERVER_TOOL_REGISTRY=/otto8-tools
+ENV OTTO8_SERVER_ENCRYPTION_CONFIG_FILE=/encryption.yaml
 ENV GOMEMLIMIT=1GiB
 ENV TERM=vt100
 WORKDIR /data

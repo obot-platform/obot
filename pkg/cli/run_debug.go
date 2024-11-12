@@ -8,7 +8,7 @@ import (
 )
 
 type Debug struct {
-	root *Otto
+	root *Otto8
 }
 
 func (l *Debug) Customize(cmd *cobra.Command) {

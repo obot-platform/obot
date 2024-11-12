@@ -14,7 +14,7 @@ func GetVersion(req api.Context) error {
 
 func getVersionResponse() map[string]string {
 	values := make(map[string]string)
-	versions := os.Getenv("OTTO_SERVER_VERSIONS")
+	versions := os.Getenv("OTTO8_SERVER_VERSIONS")
 	if versions != "" {
 		if err := yaml.Unmarshal([]byte(versions), &values); err != nil {
 			values["error"] = err.Error()

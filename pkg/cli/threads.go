@@ -9,7 +9,7 @@ import (
 )
 
 type Threads struct {
-	root  *Otto
+	root  *Otto8
 	Quiet bool `usage:"Only print IDs of threads" short:"q"`
 	Wide  bool `usage:"Print more information" short:"w"`
 }
