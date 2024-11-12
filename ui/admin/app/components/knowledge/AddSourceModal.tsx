@@ -1,24 +1,13 @@
-import cronstrue from "cronstrue";
-import { ChevronDown } from "lucide-react";
-import { FC, useEffect, useState } from "react";
+import { FC, useState } from "react";
 
 import { KnowledgeSourceType } from "~/lib/model/knowledge";
 import { KnowledgeService } from "~/lib/service/api/knowledgeService";
 
-import CronDialog from "~/components/knowledge/CronDialog";
 import KnowledgeSourceAvatar from "~/components/knowledge/KnowledgeSourceAvatar";
 import { Button } from "~/components/ui/button";
 import { Dialog, DialogContent, DialogTitle } from "~/components/ui/dialog";
-import {
-    DropdownMenu,
-    DropdownMenuCheckboxItem,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuTrigger,
-} from "~/components/ui/dropdown-menu";
 import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
-import { RadioGroup, RadioGroupItem } from "~/components/ui/radio-group";
 
 interface AddSourceModalProps {
     agentId: string;
@@ -124,7 +113,7 @@ const AddSourceModal: FC<AddSourceModalProps> = ({
                                         ? "Enter website URL"
                                         : "Enter OneDrive folder link"
                                 }
-                                className="w-[250px] dark:bg-secondar"
+                                className="w-[250px] dark:bg-secondary"
                             />
                         </div>
                     )}

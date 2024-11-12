@@ -408,10 +408,10 @@ const KnowledgeSourceDetail: FC<KnowledgeSourceDetailProps> = ({
                                         <TooltipTrigger asChild>
                                             <Button
                                                 variant="ghost"
-                                                size="icon"
-                                                className="h-1 w-1 ml-4"
+                                                size="sm"
+                                                className="h-2 w-2"
                                             >
-                                                <InfoIcon className="h-0.5 w-0.5" />
+                                                <InfoIcon className="h-2 w-2" />
                                             </Button>
                                         </TooltipTrigger>
                                         <TooltipContent>

@@ -30,7 +30,7 @@ func (c *Controller) setupRoutes() error {
 	workspace := workspace.New(c.services.GPTClient, c.services.WorkspaceProviderType)
 	knowledgeset := knowledgeset.New(c.services.AIHelper, c.services.Invoker)
 	knowledgesource := knowledgesource.NewHandler(c.services.Invoker, c.services.GPTClient)
-	knowledgefile := knowledgefile.New(c.services.Invoker, c.services.GPTClient)
+	knowledgefile := knowledgefile.New(c.services.Invoker, c.services.GPTClient, c.services.KnowledgeSetIngestionLimit)
 	runs := runs.New(c.services.Invoker)
 	webHooks := webhook.New()
 	cronJobs := cronjob.New()

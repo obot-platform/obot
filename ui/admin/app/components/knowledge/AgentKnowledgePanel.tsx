@@ -26,6 +26,7 @@ import {
 import { KnowledgeService } from "~/lib/service/api/knowledgeService";
 import { assetUrl } from "~/lib/utils";
 
+import AddSourceModal from "~/components/knowledge/AddSourceModal";
 import ErrorDialog from "~/components/knowledge/ErrorDialog";
 import FileStatusIcon from "~/components/knowledge/FileStatusIcon";
 import RemoteFileAvatar from "~/components/knowledge/KnowledgeSourceAvatar";
@@ -49,8 +50,6 @@ import {
 } from "~/components/ui/tooltip";
 import { useAsync } from "~/hooks/useAsync";
 import { useMultiAsync } from "~/hooks/useMultiAsync";
-
-import AddSourceModal from "./AddSourceModal";
 
 type AgentKnowledgePanelProps = {
     agentId: string;

@@ -48,17 +48,18 @@ type (
 )
 
 type Config struct {
-	HTTPListenPort        int    `usage:"HTTP port to listen on" default:"8080" name:"http-listen-port"`
-	DevMode               bool   `usage:"Enable development mode" default:"false" name:"dev-mode" env:"OTTO8_DEV_MODE"`
-	DevUIPort             int    `usage:"The port on localhost running the dev instance of the UI" default:"5173"`
-	AllowedOrigin         string `usage:"Allowed origin for CORS"`
-	ToolRegistry          string `usage:"The tool reference for the tool registry" default:"github.com/otto8-ai/tools"`
-	WorkspaceProviderType string `usage:"The type of workspace provider to use for non-knowledge workspaces" default:"directory" env:"OTTO8_WORKSPACE_PROVIDER_TYPE"`
-	WorkspaceTool         string `usage:"The tool reference for the workspace provider" default:"github.com/gptscript-ai/workspace-provider"`
-	DatasetsTool          string `usage:"The tool reference for the dataset provider" default:"github.com/gptscript-ai/datasets"`
-	HelperModel           string `usage:"The model used to generate names and descriptions" default:"gpt-4o-mini"`
-	AWSKMSKeyARN          string `usage:"The ARN of the AWS KMS key to use for encrypting credential storage" env:"OTTO8_AWS_KMS_KEY_ARN" name:"aws-kms-key-arn"`
-	EncryptionConfigFile  string `usage:"The path to the encryption configuration file" default:"./encryption.yaml"`
+	HTTPListenPort             int    `usage:"HTTP port to listen on" default:"8080" name:"http-listen-port"`
+	DevMode                    bool   `usage:"Enable development mode" default:"false" name:"dev-mode" env:"OTTO8_DEV_MODE"`
+	DevUIPort                  int    `usage:"The port on localhost running the dev instance of the UI" default:"5173"`
+	AllowedOrigin              string `usage:"Allowed origin for CORS"`
+	ToolRegistry               string `usage:"The tool reference for the tool registry" default:"github.com/otto8-ai/tools"`
+	WorkspaceProviderType      string `usage:"The type of workspace provider to use for non-knowledge workspaces" default:"directory" env:"OTTO8_WORKSPACE_PROVIDER_TYPE"`
+	WorkspaceTool              string `usage:"The tool reference for the workspace provider" default:"github.com/gptscript-ai/workspace-provider"`
+	DatasetsTool               string `usage:"The tool reference for the dataset provider" default:"github.com/gptscript-ai/datasets"`
+	HelperModel                string `usage:"The model used to generate names and descriptions" default:"gpt-4o-mini"`
+	AWSKMSKeyARN               string `usage:"The ARN of the AWS KMS key to use for encrypting credential storage" env:"OTTO8_AWS_KMS_KEY_ARN" name:"aws-kms-key-arn"`
+	EncryptionConfigFile       string `usage:"The path to the encryption configuration file" default:"./encryption.yaml"`
+	KnowledgeSetIngestionLimit int    `usage:"The maximum number of files to ingest into a knowledge set" default:"1000" env:"OTTO_KNOWLEDGESET_INGESTION_LIMIT" name:"knowledge-set-ingestion-limit"`
 
 	AuthConfig
 	GatewayConfig
@@ -66,21 +67,22 @@ type Config struct {
 }
 
 type Services struct {
-	ToolRegistryURL       string
-	WorkspaceProviderType string
-	ServerURL             string
-	DevUIPort             int
-	Events                *events.Emitter
-	StorageClient         storage.Client
-	Router                *router.Router
-	GPTClient             *gptscript.GPTScript
-	Invoker               *invoke.Invoker
-	TokenServer           *jwt.TokenService
-	APIServer             *server.Server
-	AIHelper              *aihelper.AIHelper
-	Started               chan struct{}
-	ProxyServer           *proxy.Proxy
-	GatewayServer         *gserver.Server
+	ToolRegistryURL            string
+	WorkspaceProviderType      string
+	ServerURL                  string
+	DevUIPort                  int
+	Events                     *events.Emitter
+	StorageClient              storage.Client
+	Router                     *router.Router
+	GPTClient                  *gptscript.GPTScript
+	Invoker                    *invoke.Invoker
+	TokenServer                *jwt.TokenService
+	APIServer                  *server.Server
+	AIHelper                   *aihelper.AIHelper
+	Started                    chan struct{}
+	ProxyServer                *proxy.Proxy
+	GatewayServer              *gserver.Server
+	KnowledgeSetIngestionLimit int
 }
 
 const (
@@ -255,20 +257,21 @@ func New(ctx context.Context, config Config) (*Services, error) {
 
 	// For now, always auto-migrate the gateway database
 	return &Services{
-		WorkspaceProviderType: config.WorkspaceProviderType,
-		ServerURL:             config.Hostname,
-		DevUIPort:             devPort,
-		ToolRegistryURL:       config.ToolRegistry,
-		Events:                events,
-		StorageClient:         storageClient,
-		Router:                r,
-		GPTClient:             c,
-		APIServer:             server.NewServer(storageClient, c, authn.NewAuthenticator(authenticators), authz.NewAuthorizer(), proxyServer),
-		TokenServer:           tokenServer,
-		Invoker:               invoker,
-		AIHelper:              aihelper.New(c, config.HelperModel),
-		GatewayServer:         gatewayServer,
-		ProxyServer:           proxyServer,
+		WorkspaceProviderType:      config.WorkspaceProviderType,
+		ServerURL:                  config.Hostname,
+		DevUIPort:                  devPort,
+		ToolRegistryURL:            config.ToolRegistry,
+		Events:                     events,
+		StorageClient:              storageClient,
+		Router:                     r,
+		GPTClient:                  c,
+		APIServer:                  server.NewServer(storageClient, c, authn.NewAuthenticator(authenticators), authz.NewAuthorizer(), proxyServer),
+		TokenServer:                tokenServer,
+		Invoker:                    invoker,
+		AIHelper:                   aihelper.New(c, config.HelperModel),
+		GatewayServer:              gatewayServer,
+		ProxyServer:                proxyServer,
+		KnowledgeSetIngestionLimit: config.KnowledgeSetIngestionLimit,
 	}, nil
 }
 

@@ -6,11 +6,9 @@ import (
 	"errors"
 	"fmt"
 	"path"
-	"strconv"
 	"strings"
 
 	"github.com/gptscript-ai/go-gptscript"
-	"github.com/gptscript-ai/gptscript/pkg/env"
 	"github.com/otto8-ai/nah/pkg/router"
 	"github.com/otto8-ai/nah/pkg/typed"
 	"github.com/otto8-ai/otto8/apiclient/types"
@@ -35,16 +33,11 @@ type Handler struct {
 	limit     int
 }
 
-func New(invoker *invoke.Invoker, gptScript *gptscript.GPTScript) *Handler {
-	defaultLimit := env.VarOrDefault("OTTO_KS_INGESTION_LIMIT", "1000")
-	v, _ := strconv.Atoi(defaultLimit)
-	if v == 0 {
-		v = 1000
-	}
+func New(invoker *invoke.Invoker, gptScript *gptscript.GPTScript, limit int) *Handler {
 	return &Handler{
 		invoker:   invoker,
 		gptScript: gptScript,
-		limit:     v,
+		limit:     limit,
 	}
 }
 
@@ -142,7 +135,7 @@ func (h *Handler) IngestFile(req router.Request, _ router.Response) error {
 	}
 	ingestedFilesCount := 0
 	for _, f := range files.Items {
-		if f.Spec.Approved != nil && *f.Spec.Approved {
+		if f.Status.State == types.KnowledgeFileStateIngested {
 			ingestedFilesCount++
 		}
 	}
