@@ -37,6 +37,10 @@ const config: Config = {
     ],
   ],
 
+  plugins: [
+    require.resolve('./src/plugins/fetch-snippets'),
+  ],
+
   themeConfig: {
     // Replace with your project's social card
     image: 'img/otto8-logo-blue-black-text.svg',
