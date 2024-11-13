@@ -1,16 +1,15 @@
 import fs from 'fs';
 import path from 'path';
 import axios from 'axios';
+import crypto from 'crypto';
 import { LoadContext, Plugin } from '@docusaurus/types';
 
-// Array of permalinks to raw files in different repositories
 const FILE_URLS = [
   'https://raw.githubusercontent.com/otto8-ai/python-hash-tool/main/README.md',
   'https://raw.githubusercontent.com/otto8-ai/go-hash-tool/main/README.md',
   'https://raw.githubusercontent.com/otto8-ai/node-hash-tool/main/README.md',
 ];
 
-// Mapping of file extensions to code block languages for syntax highlighting
 const EXTENSION_LANGUAGE_MAP: Record<string, string> = {
   '.py': 'python',
   '.go': 'go',
@@ -46,10 +45,13 @@ async function fetchFiles(outputDir: string) {
         const ext = path.extname(filePath);
         const language = EXTENSION_LANGUAGE_MAP[ext] || '';  // Default to plain text if extension is unknown
 
-        // Wrap content in a Markdown code block for supported file types
         let wrappedContent = data;
-        if (language != 'markdown') {
+        if (language !== 'markdown') {
+          // Wrap content in a Markdown code block for supported file types
           wrappedContent = language ? `\`\`\`${language}\n${data}\n\`\`\`` : data;
+        } else {
+          // Add unique and explicit IDs to all headers in Markdown content
+          wrappedContent = addUniqueHeaderIds(url, data);
         }
 
         const outputFilePath = path.join(outputDir, `${repoName}-${filePath}.mdx`);
@@ -60,6 +62,25 @@ async function fetchFiles(outputDir: string) {
       }
     })
   );
+}
+
+// Function to add unique IDs to Markdown headers
+function addUniqueHeaderIds(url, markdown: string): string {
+  const urlHash = crypto.createHash('sha256').update(url).digest('hex').substring(0, 8);
+
+  let headerCounts: Record<string, number> = {};
+  return markdown.replace(/^(#{1,6})\s+(.+)$/gm, (match, hashes, title) => {
+    const slugBase = title.toLowerCase().replace(/[^\w]+/g, '-').replace(/^-|-$/g, '');
+    const count = headerCounts[slugBase] || 0;
+    const uniqueSlug = count ? `${slugBase}-${urlHash}-${count}` : `${slugBase}-${urlHash}`;
+    headerCounts[slugBase] = count + 1;
+
+    return `${hashes} ${title} {#${uniqueSlug}}`;
+  });
+}
+
+function getShortHash(input: string): string {
+  return crypto.createHash('sha256').update(input).digest('hex').substring(0, 8);
 }
 
 export default function pluginFetchSnippets(context: LoadContext): Plugin {

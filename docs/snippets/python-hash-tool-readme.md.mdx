@@ -1,4 +1,4 @@
-## Writing your first tool in Python
+## Writing your first tool in Python {#writing-your-first-tool-in-python-28572835}
 
 [python-hash-tool](https://github.com/otto8-ai/python-hash-tool) contains a reference `Python` implementation of the `Hash` Tool.
 
@@ -12,7 +12,7 @@ git clone git@github.com:otto8-ai/python-hash-tool
 
 <br/>
 
-## Tool Repo Structure
+## Tool Repo Structure {#tool-repo-structure-28572835}
 
 The directory tree below highlights the files required to implement `Hash` in Python and package it for `Otto8`.
 
@@ -24,7 +24,7 @@ python-hash-tool
 ```
 <br/>
 
-## Defining the `Hash` Tool
+## Defining the `Hash` Tool {#defining-the-hash-tool-28572835}
 
 The `tool.gpt` file contains [GPTScript Tool Definitions](https://docs.gptscript.ai/tools/gpt-file-reference) which describe a set of Tools that can be used by Agents in `Otto8`.
 Every Tool repository must have a `tool.gpt` file in its root directory.
@@ -84,7 +84,7 @@ Param: algo: The algorithm to generate a hash with. Default is "sha256". Support
 
 <br/>
 
-## Tool Metadata
+## Tool Metadata {#tool-metadata-28572835}
 
 The `tool.gpt` file also provides the following metadata for use in `Otto8`:
 
@@ -144,7 +144,7 @@ https://cdn.jsdelivr.net/npm/@phosphor-icons/core@2/assets/duotone/fingerprint-d
 
 <br/>
 
-## Implementing Business Logic
+## Implementing Business Logic {#implementing-business-logic-28572835}
 
 The `hash.py` file executed by the `Tool Body` is the concrete implementation of the Tool's business logic.
 
@@ -261,7 +261,7 @@ if __name__ == '__main__':
 
 <br/>
 
-## Testing `hash.py` Locally
+## Testing `hash.py` Locally {#testing-hash-py-locally-28572835}
 
 Before adding a Tool to `Otto8`, verify that the Python business logic works on your machine.
 
@@ -298,7 +298,7 @@ To do this, run through the following steps in the root of your local fork:
 
 <br/>
 
-## Adding The `Hash` Tool to `Otto8`
+## Adding The `Hash` Tool to `Otto8` {#adding-the-hash-tool-to-otto8-28572835}
 
 Before a Tool can be used by an Agent, an admin must first add the Tool to `Otto8` by performing the steps below:
 
@@ -336,7 +336,7 @@ Before a Tool can be used by an Agent, an admin must first add the Tool to `Otto
     </div>
 </details>
 
-## Using The `Hash` Tool in an Agent
+## Using The `Hash` Tool in an Agent {#using-the-hash-tool-in-an-agent-28572835}
 
 To use the `Hash` Tool in an Agent, open the Agent's Edit page, then:
 

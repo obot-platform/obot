@@ -1,4 +1,4 @@
-## Writing your first tool in Go
+## Writing your first tool in Go {#writing-your-first-tool-in-go-eb5bb8c4}
 
 [go-hash-tool](https://github.com/otto8-ai/go-hash-tool) contains a reference `Go` implementation of the `Hash` Tool.
 
@@ -12,7 +12,7 @@ git clone git@github.com:otto8-ai/go-hash-tool
 
 <br/>
 
-## Tool Repo Structure
+## Tool Repo Structure {#tool-repo-structure-eb5bb8c4}
 
 The directory tree below highlights the files required to implement `Hash` in Go and package it for `Otto8`.
 
@@ -30,7 +30,7 @@ go-hash-tool
 
 <br/>
 
-## Defining the `Hash` Tool
+## Defining the `Hash` Tool {#defining-the-hash-tool-eb5bb8c4}
 
 The `tool.gpt` file contains [GPTScript Tool Definitions](https://docs.gptscript.ai/tools/gpt-file-reference) which describe a set of Tools that can be used by Agents in `Otto8`.
 Every Tool repository must have a `tool.gpt` file in its root directory.
@@ -89,7 +89,7 @@ Param: algo: The algorithm to generate a hash with. Default is "sha256". Support
 
 <br/>
 
-## Tool Metadata
+## Tool Metadata {#tool-metadata-eb5bb8c4}
 
 The `tool.gpt` file also provides the following metadata for use in `Otto8`:
 
@@ -150,7 +150,7 @@ https://cdn.jsdelivr.net/npm/@phosphor-icons/core@2/assets/duotone/fingerprint-d
 
 <br/>
 
-## Implementing Business Logic
+## Implementing Business Logic {#implementing-business-logic-eb5bb8c4}
 
 The `main.go` file is the entry point of the `gptscript-go-tool` binary that is executed by `Otto8` when the `Hash` Tool is called.
 
@@ -202,7 +202,7 @@ The Body of the `Verify` Tool definition would then simply pass `verify` to `gpt
 
 ```yaml
 Name: Verify
-# ...
+# ... {#-eb5bb8c4}
 
 #!{GPTSCRIPT_TOOL_DIR}/bin/gptscript-go-tool verify
 ```
@@ -371,7 +371,7 @@ func keys[V any](m map[string]V) []string {
 
 <br/>
 
-## Testing `main.go` Locally
+## Testing `main.go` Locally {#testing-main-go-locally-eb5bb8c4}
 
 Before adding a Tool to `Otto8`, verify that the Go business logic works on your machine.
 
@@ -394,7 +394,7 @@ To do this, run through the following steps in the root of your local fork:
 
 <br/>
 
-## Adding The `Hash` Tool to `Otto8`
+## Adding The `Hash` Tool to `Otto8` {#adding-the-hash-tool-to-otto8-eb5bb8c4}
 
 Before a Tool can be used by an Agent, an admin must first add the Tool to `Otto8` by performing the steps below:
 
@@ -432,7 +432,7 @@ Before a Tool can be used by an Agent, an admin must first add the Tool to `Otto
     </div>
 </details>
 
-## Using The `Hash` Tool in an Agent
+## Using The `Hash` Tool in an Agent {#using-the-hash-tool-in-an-agent-eb5bb8c4}
 
 To use the `Hash` Tool in an Agent, open the Agent's Edit page, then:
 

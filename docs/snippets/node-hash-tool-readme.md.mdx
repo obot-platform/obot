@@ -1,4 +1,4 @@
-## Writing your first tool in Node.js (with Typescript)
+## Writing your first tool in Node.js (with Typescript) {#writing-your-first-tool-in-node-js-with-typescript-aeed7f15}
 
 [node-hash-tool](https://github.com/otto8-ai/node-hash-tool) contains a reference Typescript `Node.js` implementation of the `Hash` Tool.
 
@@ -11,7 +11,7 @@ git clone git@github.com:otto8-ai/node-hash-tool
 ```
 <br/>
 
-## Tool Repo Structure
+## Tool Repo Structure {#tool-repo-structure-aeed7f15}
 
 The directory tree below highlights the files required to implement `Hash` in Typescript and package it for `Otto8`.
 
@@ -31,7 +31,7 @@ node-hash-tool
 
 <br/>
 
-## Defining the `Hash` Tool
+## Defining the `Hash` Tool {#defining-the-hash-tool-aeed7f15}
 
 The `tool.gpt` file contains [GPTScript Tool Definitions](https://docs.gptscript.ai/tools/gpt-file-reference) which describe a set of Tools that can be used by Agents in `Otto8`.
 Every Tool repository must have a `tool.gpt` file in its root directory.
@@ -90,7 +90,7 @@ Param: algo: The algorithm to generate a hash with. Default is "sha256". Support
 
 <br/>
 
-## Tool Metadata
+## Tool Metadata {#tool-metadata-aeed7f15}
 
 The `tool.gpt` file also provides the following metadata for use in `Otto8`:
 
@@ -151,7 +151,7 @@ https://cdn.jsdelivr.net/npm/@phosphor-icons/core@2/assets/duotone/fingerprint-d
 
 <br/>
 
-## Implementing Business Logic
+## Implementing Business Logic {#implementing-business-logic-aeed7f15}
 
 As we saw earlier, the `npm` command invoked by the `Tool Body` passes `hash` as an argument to the `tool` script.
 
@@ -226,7 +226,7 @@ And the Body of the `Verify` Tool would pass `verify` to the `tool` script inste
 
 ```yaml
 Name: Verify
-# ...
+# ... {#-aeed7f15}
 
 #!/usr/bin/env npm --silent --prefix ${GPTSCRIPT_TOOL_DIR} run tool -- verify
 ```
@@ -351,7 +351,7 @@ export function hash(data: string = '', algo = 'sha256'): string {
 
 <br/>
 
-## Testing `src/tools.ts` and `src/hash.ts` Locally
+## Testing `src/tools.ts` and `src/hash.ts` Locally {#testing-src-tools-ts-and-src-hash-ts-locally-aeed7f15}
 
 Before adding a Tool to `Otto8`, verify that the Typescript business logic works on your machine.
 
@@ -374,7 +374,7 @@ To do this, run through the following steps in the root of your local fork:
 
 <br/>
 
-## Adding The `Hash` Tool to `Otto8`
+## Adding The `Hash` Tool to `Otto8` {#adding-the-hash-tool-to-otto8-aeed7f15}
 
 Before a Tool can be used by an Agent, an admin must first add the Tool to `Otto8` by performing the steps below:
 
@@ -412,7 +412,7 @@ Before a Tool can be used by an Agent, an admin must first add the Tool to `Otto
     </div>
 </details>
 
-## Using The `Hash` Tool in an Agent
+## Using The `Hash` Tool in an Agent {#using-the-hash-tool-in-an-agent-aeed7f15}
 
 To use the `Hash` Tool in an Agent, open the Agent's Edit page, then:
 
