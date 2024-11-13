@@ -13,7 +13,7 @@ export function Unauthorized() {
         <div className="flex min-h-screen w-full items-center justify-center p-4">
             <Card className="w-96">
                 <CardHeader className="mx-4">
-                    <OttoLogo classNames={{ image: "h-10 w-10" }} />
+                    <OttoLogo />
                 </CardHeader>
                 <CardContent className="space-y-2 text-center border-b mb-4">
                     <CardDescription className="text-center">

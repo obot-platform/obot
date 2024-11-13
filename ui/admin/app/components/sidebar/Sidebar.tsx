@@ -85,13 +85,7 @@ export function AppSidebar() {
                 )}
             >
                 <div className={cn("flex items-center justify-center h-full")}>
-                    <OttoLogo
-                        classNames={{
-                            image: "w-8 h-8",
-                            root: "text-foreground",
-                        }}
-                        hideText={state === "collapsed"}
-                    />
+                    <OttoLogo hideText={state === "collapsed"} />
                 </div>
             </SidebarHeader>
             <SidebarContent

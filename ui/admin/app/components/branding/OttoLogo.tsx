@@ -1,6 +1,7 @@
 import { assetUrl, cn } from "~/lib/utils";
 
 import { TypographyH2 } from "~/components/Typography";
+import { useTheme } from "~/components/theme";
 
 export function OttoLogo({
     hideText = false,
@@ -9,6 +10,13 @@ export function OttoLogo({
     hideText?: boolean;
     classNames?: { root?: string; image?: string };
 }) {
+    const { isDark } = useTheme();
+    let logo = isDark
+        ? "/logo/otto8-logo-blue-white-text.svg"
+        : "/logo/otto8-logo-blue-black-text.svg";
+    if (hideText) {
+        logo = "/logo/otto8-icon-blue.svg";
+    }
     return (
         <TypographyH2
             className={cn(
@@ -17,11 +25,10 @@ export function OttoLogo({
             )}
         >
             <img
-                src={assetUrl("/logo/OttoLogo.svg")}
+                src={assetUrl(logo)}
                 alt="Otto Logo"
-                className={cn("w-10 h-10 dark:invert", classNames.image)}
+                className={cn("h-8", classNames.image)}
             />
-            {!hideText && "Otto"}
         </TypographyH2>
     );
 }
