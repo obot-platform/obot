@@ -1,6 +1,6 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { BrainIcon } from "lucide-react";
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { useForm } from "react-hook-form";
 import useSWR from "swr";
 import { z } from "zod";
@@ -41,10 +41,16 @@ type AgentFormProps = {
 };
 
 export function AgentForm({ agent, onSubmit, onChange }: AgentFormProps) {
-    const { data: models } = useSWR(
+    const getModels = useSWR(
         ModelApiService.getModels.key(),
         ModelApiService.getModels
     );
+
+    const models = useMemo(() => {
+        if (!getModels.data) return [];
+
+        return getModels.data.filter((m) => !m.usage || m.usage === "agent");
+    }, [getModels.data]);
 
     const form = useForm<AgentInfoFormValues>({
         resolver: zodResolver(formSchema),
@@ -125,15 +131,12 @@ export function AgentForm({ agent, onSubmit, onChange }: AgentFormProps) {
                                 <SelectEmptyItem>
                                     Use System Default
                                 </SelectEmptyItem>
-                                {models
-                                    ?.filter(
-                                        (m) => !m.usage || m.usage === "agent"
-                                    )
-                                    .map((m) => (
-                                        <SelectItem key={m.id} value={m.id}>
-                                            {m.name || m.id}
-                                        </SelectItem>
-                                    ))}
+
+                                {models.map((m) => (
+                                    <SelectItem key={m.id} value={m.id}>
+                                        {m.name || m.id}
+                                    </SelectItem>
+                                ))}
                             </SelectContent>
                         </Select>
                     )}

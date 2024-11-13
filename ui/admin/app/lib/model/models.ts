@@ -2,13 +2,32 @@ import { z } from "zod";
 
 import { EntityMeta } from "~/lib/model/primitives";
 
+export const ModelUsage = {
+    Agent: "agent",
+    TextEmbedding: "text-embedding",
+    ImageGeneration: "image-generation",
+} as const;
+export type ModelUsage = (typeof ModelUsage)[keyof typeof ModelUsage];
+
+const ModelUsageLabels = {
+    [ModelUsage.Agent]: "Agent",
+    [ModelUsage.TextEmbedding]: "Text Embedding",
+    [ModelUsage.ImageGeneration]: "Image Generation",
+} as const;
+
+export const getModelUsageLabel = (usage: string) => {
+    if (!(usage in ModelUsageLabels)) return usage;
+
+    return ModelUsageLabels[usage as ModelUsage];
+};
+
 export type ModelManifest = {
     name?: string;
     targetModel?: string;
     modelProvider: string;
     active: boolean;
     default: boolean;
-    usage?: string;
+    usage: ModelUsage;
 };
 
 export type ModelProviderStatus = {
@@ -24,6 +43,7 @@ export const ModelManifestSchema = z.object({
     modelProvider: z.string().min(1, "Required"),
     active: z.boolean(),
     default: z.boolean(),
+    usage: z.nativeEnum(ModelUsage),
 });
 
 export type ModelProvider = EntityMeta & {

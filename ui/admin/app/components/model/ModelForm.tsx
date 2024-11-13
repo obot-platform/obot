@@ -10,6 +10,8 @@ import {
     ModelManifest,
     ModelManifestSchema,
     ModelProvider,
+    ModelUsage,
+    getModelUsageLabel,
     getModelsForProvider,
 } from "~/lib/model/models";
 import { BadRequestError } from "~/lib/service/api/apiErrors";
@@ -70,6 +72,7 @@ export function ModelForm(props: ModelFormProps) {
             modelProvider: model?.modelProvider ?? "",
             active: model?.active ?? true,
             default: model?.default ?? false,
+            usage: model?.usage ?? "agent",
         };
     }, [model]);
 
@@ -155,6 +158,30 @@ export function ModelForm(props: ModelFormProps) {
                             </Select>
                         );
                     }}
+                </ControlledCustomInput>
+
+                <ControlledCustomInput
+                    control={form.control}
+                    name="usage"
+                    label="Usage"
+                >
+                    {({ field: { ref: _, ...field }, className }) => (
+                        <Select {...field} onValueChange={field.onChange}>
+                            <SelectTrigger className={className}>
+                                <SelectValue placeholder="Select Usage" />
+                            </SelectTrigger>
+
+                            <SelectContent>
+                                {Object.entries(ModelUsage).map(
+                                    ([key, value]) => (
+                                        <SelectItem key={key} value={value}>
+                                            {getModelUsageLabel(value)}
+                                        </SelectItem>
+                                    )
+                                )}
+                            </SelectContent>
+                        </Select>
+                    )}
                 </ControlledCustomInput>
 
                 <ControlledCheckbox
