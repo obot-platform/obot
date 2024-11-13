@@ -29,6 +29,7 @@ export function OttoLogo({
                 alt="Otto Logo"
                 className={cn("h-8", classNames.image)}
             />
+            {!hideText && "Otto8"}
         </TypographyH2>
     );
 }
