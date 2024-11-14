@@ -80,6 +80,7 @@ const ModelToProviderMap = {
         "claude-3-5-sonnet-latest",
         "claude-3-5-haiku-latest",
     ],
+    "ollama-model-provider": ["llama3.2"],
 };
 
 export function getModelsForProvider(providerId: string) {
