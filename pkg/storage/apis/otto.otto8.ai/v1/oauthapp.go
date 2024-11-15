@@ -5,6 +5,7 @@ import (
 
 	"github.com/otto8-ai/nah/pkg/fields"
 	"github.com/otto8-ai/otto8/apiclient/types"
+	"github.com/otto8-ai/otto8/pkg/system"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -154,6 +155,11 @@ func (o *OAuthAppLogin) FieldNames() []string {
 }
 
 func (o *OAuthAppLogin) DeleteRefs() []Ref {
+	if system.IsAgentID(o.Spec.CredentialContext) {
+		return []Ref{{ObjType: new(Agent), Name: o.Spec.CredentialContext}}
+	} else if system.IsWorkflowID(o.Spec.CredentialContext) {
+		return []Ref{{ObjType: new(Workflow), Name: o.Spec.CredentialContext}}
+	}
 	return nil
 }
 
