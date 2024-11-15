@@ -1,110 +1,209 @@
 import queryString from "query-string";
 import { $params, $path, Routes, RoutesWithParams } from "remix-routes";
-import { ZodSchema, z } from "zod";
+import { ZodNull, ZodSchema, ZodType, z } from "zod";
 
-const QueryParamSchemaMap = {
-    "": z.undefined(),
-    "/": z.undefined(),
-    "/agents": z.undefined(),
-    "/agents/:agent": z.object({
+const QuerySchemas = {
+    agentSchema: z.object({
         threadId: z.string().optional(),
         from: z.string().optional(),
     }),
-    "/debug": z.undefined(),
-    "/home": z.undefined(),
-    "/models": z.undefined(),
-    "/oauth-apps": z.undefined(),
-    "/thread/:id": z.undefined(),
-    "/threads": z.object({
+    threadsListSchema: z.object({
         agentId: z.string().optional(),
         userId: z.string().optional(),
         workflowId: z.string().optional(),
     }),
-    "/workflows": z.undefined(),
-    "/workflows/:workflow": z.undefined(),
-    "/tools": z.undefined(),
-    "/users": z.undefined(),
-} satisfies Record<keyof Routes, ZodSchema | null>;
+} as const;
 
-function parseSearchParams<T extends keyof Routes>(route: T, search: string) {
-    if (!QueryParamSchemaMap[route])
-        throw new Error(`No schema found for route: ${route}`);
+function parseQuery<T extends ZodType>(search: string, schema: T) {
+    if (schema instanceof ZodNull) return null;
 
     const obj = queryString.parse(search);
-    const { data, success } = QueryParamSchemaMap[route].safeParse(obj);
+    const { data, success } = schema.safeParse(obj);
 
     if (!success) {
-        console.error("Failed to parse query params", route, search);
-        return undefined;
+        console.error("Failed to parse query params", search);
+        return null;
     }
 
-    return data as z.infer<(typeof QueryParamSchemaMap)[T]>;
+    return data;
 }
 
-type QueryParamInfo<T extends keyof Routes> = {
-    path: T;
-    query?: z.infer<(typeof QueryParamSchemaMap)[T]>;
+const exactRegex = (path: string) => new RegExp(`^${path}$`);
+
+type RouteHelper = {
+    regex: RegExp;
+    path: keyof Routes;
+    schema: ZodSchema;
 };
 
-function getUnknownQueryParams(pathname: string, search: string) {
-    if (new RegExp($path("/agents/:agent", { agent: "(.*)" })).test(pathname)) {
-        return {
-            path: "/agents/:agent",
-            query: parseSearchParams("/agents/:agent", search),
-        } satisfies QueryParamInfo<"/agents/:agent">;
+export const RouteHelperMap = {
+    "": {
+        regex: exactRegex($path("")),
+        path: "/",
+        schema: z.null(),
+    },
+    "/": {
+        regex: exactRegex($path("/")),
+        path: "/",
+        schema: z.null(),
+    },
+    "/agents": {
+        regex: exactRegex($path("/agents")),
+        path: "/agents",
+        schema: z.null(),
+    },
+    "/agents/:agent": {
+        regex: exactRegex($path("/agents/:agent", { agent: "(.+)" })),
+        path: "/agents/:agent",
+        schema: QuerySchemas.agentSchema,
+    },
+    "/debug": {
+        regex: exactRegex($path("/debug")),
+        path: "/debug",
+        schema: z.null(),
+    },
+    "/home": {
+        regex: exactRegex($path("/home")),
+        path: "/home",
+        schema: z.null(),
+    },
+    "/models": {
+        regex: exactRegex($path("/models")),
+        path: "/models",
+        schema: z.null(),
+    },
+    "/oauth-apps": {
+        regex: exactRegex($path("/oauth-apps")),
+        path: "/oauth-apps",
+        schema: z.null(),
+    },
+    "/thread/:id": {
+        regex: exactRegex($path("/thread/:id", { id: "(.+)" })),
+        path: "/thread/:id",
+        schema: z.null(),
+    },
+    "/threads": {
+        regex: exactRegex($path("/threads")),
+        path: "/threads",
+        schema: QuerySchemas.threadsListSchema,
+    },
+    "/tools": {
+        regex: exactRegex($path("/tools")),
+        path: "/tools",
+        schema: z.null(),
+    },
+    "/users": {
+        regex: exactRegex($path("/users")),
+        path: "/users",
+        schema: z.null(),
+    },
+    "/workflows": {
+        regex: exactRegex($path("/workflows")),
+        path: "/workflows",
+        schema: z.null(),
+    },
+    "/workflows/:workflow": {
+        regex: exactRegex($path("/workflows/:workflow", { workflow: "(.+)" })),
+        path: "/workflows/:workflow",
+        schema: z.null(),
+    },
+} satisfies Record<keyof Routes, RouteHelper>;
+
+type QueryInfo<T extends keyof Routes> = z.infer<
+    (typeof RouteHelperMap)[T]["schema"]
+>;
+
+type PathInfo<T extends keyof RoutesWithParams> = ReturnType<
+    typeof $params<T, Routes[T]["params"]>
+>;
+
+type RouteInfo<T extends keyof Routes = keyof Routes> = {
+    path: T;
+    query: QueryInfo<T> | null;
+    pathParams: T extends keyof RoutesWithParams ? PathInfo<T> : unknown;
+};
+
+function getRouteHelper(
+    url: URL,
+    params: Record<string, string | undefined>
+): RouteInfo | null {
+    for (const route of Object.values(RouteHelperMap)) {
+        if (route.regex.test(url.pathname))
+            return {
+                path: route.path,
+                query: parseQuery(url.search, route.schema as ZodSchema),
+                pathParams: $params(
+                    route.path as keyof RoutesWithParams,
+                    params
+                ),
+            };
     }
 
-    if (new RegExp($path("/threads")).test(pathname)) {
-        return {
-            path: "/threads",
-            query: parseSearchParams("/threads", search),
-        } satisfies QueryParamInfo<"/threads">;
-    }
-
-    return {};
+    return null;
 }
 
-type PathParamInfo<T extends keyof RoutesWithParams> = {
-    path: T;
-    pathParams: ReturnType<typeof $params<T, Routes[T]["params"]>>;
-};
+function getRouteInfo<T extends keyof Routes>(
+    path: T,
+    url: URL,
+    params: Record<string, string | undefined>
+): RouteInfo<T> {
+    const helper = RouteHelperMap[path];
 
-function getUnknownPathParams(
-    pathname: string,
+    return {
+        path,
+        query: parseQuery(url.search, helper.schema),
+        pathParams: $params(path as keyof RoutesWithParams, params) as Todo,
+    };
+}
+
+function getUnknownRouteInfo(
+    url: URL,
     params: Record<string, string | undefined>
 ) {
-    if (new RegExp($path("/agents/:agent", { agent: "(.*)" })).test(pathname)) {
-        return {
-            path: "/agents/:agent",
-            pathParams: $params("/agents/:agent", params),
-        } satisfies PathParamInfo<"/agents/:agent">;
-    }
+    const routeInfo = getRouteHelper(url, params);
 
-    if (new RegExp($path("/thread/:id", { id: "(.*)" })).test(pathname)) {
-        return {
-            path: "/thread/:id",
-            pathParams: $params("/thread/:id", params),
-        } satisfies PathParamInfo<"/thread/:id">;
+    switch (routeInfo?.path) {
+        case "/":
+            return routeInfo as RouteInfo<"/">;
+        case "/agents":
+            return routeInfo as RouteInfo<"/agents">;
+        case "/agents/:agent":
+            return routeInfo as RouteInfo<"/agents/:agent">;
+        case "/debug":
+            return routeInfo as RouteInfo<"/debug">;
+        case "/home":
+            return routeInfo as RouteInfo<"/home">;
+        case "/models":
+            return routeInfo as RouteInfo<"/models">;
+        case "/oauth-apps":
+            return routeInfo as RouteInfo<"/oauth-apps">;
+        case "/thread/:id":
+            return routeInfo as RouteInfo<"/thread/:id">;
+        case "/threads":
+            return routeInfo as RouteInfo<"/threads">;
+        case "/tools":
+            return routeInfo as RouteInfo<"/tools">;
+        case "/users":
+            return routeInfo as RouteInfo<"/users">;
+        case "/workflows":
+            return routeInfo as RouteInfo<"/workflows">;
+        case "/workflows/:workflow":
+            return routeInfo as RouteInfo<"/workflows/:workflow">;
+        default:
+            return null;
     }
-
-    if (
-        new RegExp($path("/workflows/:workflow", { workflow: "(.*)" })).test(
-            pathname
-        )
-    ) {
-        return {
-            path: "/workflows/:workflow",
-            pathParams: $params("/workflows/:workflow", params),
-        } satisfies PathParamInfo<"/workflows/:workflow">;
-    }
-
-    return {};
 }
 
+export type RouteQueryParams<T extends keyof typeof QuerySchemas> = z.infer<
+    (typeof QuerySchemas)[T]
+>;
+
+const getQueryParams = <T extends keyof Routes>(path: T, search: string) =>
+    parseQuery(search, RouteHelperMap[path].schema) as RouteInfo<T>["query"];
+
 export const RouteService = {
-    getPathParams: $params,
-    getUnknownPathParams,
-    getUnknownQueryParams,
-    getQueryParams: parseSearchParams,
-    schemas: QueryParamSchemaMap,
+    schemas: QuerySchemas,
+    getUnknownRouteInfo,
+    getRouteInfo,
+    getQueryParams,
 };

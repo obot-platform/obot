@@ -11,7 +11,6 @@ import { PuzzleIcon, Trash, XIcon } from "lucide-react";
 import { useCallback, useMemo } from "react";
 import { $path } from "remix-routes";
 import useSWR, { preload } from "swr";
-import { z } from "zod";
 
 import { Agent } from "~/lib/model/agents";
 import { Thread } from "~/lib/model/threads";
@@ -21,7 +20,7 @@ import { AgentService } from "~/lib/service/api/agentService";
 import { ThreadsService } from "~/lib/service/api/threadsService";
 import { UserService } from "~/lib/service/api/userService";
 import { WorkflowService } from "~/lib/service/api/workflowService";
-import { RouteService } from "~/lib/service/routeService";
+import { RouteQueryParams, RouteService } from "~/lib/service/routeService";
 import { timeSince } from "~/lib/utils";
 
 import { TypographyH2, TypographyP } from "~/components/Typography";
@@ -34,11 +33,12 @@ import {
 } from "~/components/ui/tooltip";
 import { useAsync } from "~/hooks/useAsync";
 
-export type SearchParams = z.infer<(typeof RouteService.schemas)["/threads"]>;
+export type SearchParams = RouteQueryParams<"threadsListSchema">;
 
-export async function clientLoader({ request }: ClientLoaderFunctionArgs) {
-    const search = new URL(request.url).search;
-
+export async function clientLoader({
+    params,
+    request,
+}: ClientLoaderFunctionArgs) {
     await Promise.all([
         preload(AgentService.getAgents.key(), AgentService.getAgents),
         preload(
@@ -48,7 +48,13 @@ export async function clientLoader({ request }: ClientLoaderFunctionArgs) {
         preload(ThreadsService.getThreads.key(), ThreadsService.getThreads),
     ]);
 
-    return RouteService.getQueryParams("/threads", search) ?? {};
+    const { query } = RouteService.getRouteInfo(
+        "/threads",
+        new URL(request.url),
+        params
+    );
+
+    return query ?? {};
 }
 
 export default function Threads() {

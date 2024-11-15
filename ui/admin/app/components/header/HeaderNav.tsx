@@ -1,4 +1,4 @@
-import { Link, Params, useLocation, useParams } from "@remix-run/react";
+import { Link } from "@remix-run/react";
 import { $path } from "remix-routes";
 import useSWR from "swr";
 
@@ -18,10 +18,9 @@ import {
 } from "~/components/ui/breadcrumb";
 import { SidebarTrigger } from "~/components/ui/sidebar";
 import { UserMenu } from "~/components/user/UserMenu";
+import { useUnknownPathParams } from "~/hooks/useRouteInfo";
 
 export function HeaderNav() {
-    const { pathname } = useLocation();
-    const params = useParams();
     const headerHeight = "h-[60px]";
 
     return (
@@ -36,7 +35,7 @@ export function HeaderNav() {
                     <div className="flex-grow flex justify-start items-center p-4">
                         <SidebarTrigger className="h-4 w-4" />
                         <div className="border-r h-4 mx-4" />
-                        {getBreadcrumbs(pathname, params)}
+                        <RouteBreadcrumbs />
                     </div>
 
                     <div className="flex items-center justify-center p-4 mr-4">
@@ -49,7 +48,9 @@ export function HeaderNav() {
     );
 }
 
-function getBreadcrumbs(route: string, params: Readonly<Params<string>>) {
+function RouteBreadcrumbs() {
+    const routeInfo = useUnknownPathParams();
+
     return (
         <Breadcrumb>
             <BreadcrumbList>
@@ -59,9 +60,7 @@ function getBreadcrumbs(route: string, params: Readonly<Params<string>>) {
                     </BreadcrumbLink>
                 </BreadcrumbItem>
                 <BreadcrumbSeparator />
-                {new RegExp($path("/agents/:agent", { agent: "(.*)" })).test(
-                    route
-                ) ? (
+                {routeInfo?.path === "/agents/:agent" ? (
                     <>
                         <BreadcrumbItem>
                             <BreadcrumbLink asChild>
@@ -71,25 +70,25 @@ function getBreadcrumbs(route: string, params: Readonly<Params<string>>) {
                         <BreadcrumbSeparator />
                         <BreadcrumbItem>
                             <BreadcrumbPage>
-                                <AgentName agentId={params.agent || ""} />
+                                <AgentName
+                                    agentId={routeInfo.pathParams.agent || ""}
+                                />
                             </BreadcrumbPage>
                         </BreadcrumbItem>
                     </>
                 ) : (
-                    new RegExp($path("/agents")).test(route) && (
+                    routeInfo?.path === "/agents" && (
                         <BreadcrumbItem>
                             <BreadcrumbPage>Agents</BreadcrumbPage>
                         </BreadcrumbItem>
                     )
                 )}
-                {new RegExp($path("/threads")).test(route) && (
+                {routeInfo?.path === "/threads" && (
                     <BreadcrumbItem>
                         <BreadcrumbPage>Threads</BreadcrumbPage>
                     </BreadcrumbItem>
                 )}
-                {new RegExp($path("/thread/:id", { id: "(.*)" })).test(
-                    route
-                ) && (
+                {routeInfo?.path === "/thread/:id" && (
                     <>
                         <BreadcrumbItem>
                             <BreadcrumbLink asChild>
@@ -99,14 +98,14 @@ function getBreadcrumbs(route: string, params: Readonly<Params<string>>) {
                         <BreadcrumbSeparator />
                         <BreadcrumbItem>
                             <BreadcrumbPage>
-                                <ThreadName threadId={params.id || ""} />
+                                <ThreadName
+                                    threadId={routeInfo.pathParams.id || ""}
+                                />
                             </BreadcrumbPage>
                         </BreadcrumbItem>
                     </>
                 )}
-                {new RegExp(
-                    $path("/workflows/:workflow", { workflow: "(.*)" })
-                ).test(route) && (
+                {routeInfo?.path === "/workflows/:workflow" && (
                     <>
                         <BreadcrumbItem>
                             <BreadcrumbLink asChild>
@@ -117,23 +116,25 @@ function getBreadcrumbs(route: string, params: Readonly<Params<string>>) {
                         <BreadcrumbItem>
                             <BreadcrumbPage>
                                 <WorkflowName
-                                    workflowId={params.workflow || ""}
+                                    workflowId={
+                                        routeInfo.pathParams.workflow || ""
+                                    }
                                 />
                             </BreadcrumbPage>
                         </BreadcrumbItem>
                     </>
                 )}
-                {new RegExp($path("/tools")).test(route) && (
+                {routeInfo?.path === "/tools" && (
                     <BreadcrumbItem>
                         <BreadcrumbPage>Tools</BreadcrumbPage>
                     </BreadcrumbItem>
                 )}
-                {new RegExp($path("/users")).test(route) && (
+                {routeInfo?.path === "/users" && (
                     <BreadcrumbItem>
                         <BreadcrumbPage>Users</BreadcrumbPage>
                     </BreadcrumbItem>
                 )}
-                {new RegExp($path("/oauth-apps")).test(route) && (
+                {routeInfo?.path === "/oauth-apps" && (
                     <BreadcrumbItem>
                         <BreadcrumbPage>OAuth Apps</BreadcrumbPage>
                     </BreadcrumbItem>

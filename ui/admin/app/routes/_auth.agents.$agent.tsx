@@ -6,10 +6,9 @@ import {
 } from "@remix-run/react";
 import { useCallback } from "react";
 import { $path } from "remix-routes";
-import { z } from "zod";
 
 import { AgentService } from "~/lib/service/api/agentService";
-import { RouteService } from "~/lib/service/routeService";
+import { RouteQueryParams, RouteService } from "~/lib/service/routeService";
 import { noop } from "~/lib/utils";
 
 import { Agent } from "~/components/agent";
@@ -21,9 +20,7 @@ import {
     ResizablePanelGroup,
 } from "~/components/ui/resizable";
 
-export type SearchParams = z.infer<
-    (typeof RouteService.schemas)["/agents/:agent"]
->;
+export type SearchParams = RouteQueryParams<"agentSchema">;
 
 export const clientLoader = async ({
     params,
@@ -31,13 +28,10 @@ export const clientLoader = async ({
 }: ClientLoaderFunctionArgs) => {
     const url = new URL(request.url);
 
-    const { agent: agentId } = RouteService.getPathParams(
-        "/agents/:agent",
-        params
-    );
+    const routeInfo = RouteService.getRouteInfo("/agents/:agent", url, params);
 
-    const { threadId, from } =
-        RouteService.getQueryParams("/agents/:agent", url.search) ?? {};
+    const { agent: agentId } = routeInfo.pathParams;
+    const { threadId, from } = routeInfo.query ?? {};
 
     if (!agentId) {
         throw redirect("/agents");

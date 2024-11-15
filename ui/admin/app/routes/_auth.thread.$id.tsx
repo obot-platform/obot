@@ -28,8 +28,17 @@ import {
     TooltipTrigger,
 } from "~/components/ui/tooltip";
 
-export const clientLoader = async ({ params }: ClientLoaderFunctionArgs) => {
-    const { id } = RouteService.getPathParams("/thread/:id", params);
+export const clientLoader = async ({
+    params,
+    request,
+}: ClientLoaderFunctionArgs) => {
+    const routeInfo = RouteService.getRouteInfo(
+        "/thread/:id",
+        new URL(request.url),
+        params
+    );
+
+    const { id } = routeInfo.pathParams;
 
     if (!id) {
         throw redirect("/threads");
