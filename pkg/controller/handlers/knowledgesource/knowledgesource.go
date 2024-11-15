@@ -66,14 +66,15 @@ func safeStatusSave(ctx context.Context, c kclient.Client, source *v1.KnowledgeS
 }
 func (k *Handler) saveProgress(ctx context.Context, c kclient.Client, source *v1.KnowledgeSource, thread *v1.Thread, complete bool) error {
 	files, syncMetadata, err := k.getMetadata(ctx, source, thread)
-	if err != nil {
+	if err != nil || syncMetadata == nil {
 		return err
 	}
+
 	apply := apply.New(c)
 	if !complete {
 		apply = apply.WithNoPrune()
 	}
-	if err := apply.Apply(ctx, source, files...); err != nil {
+	if err = apply.Apply(ctx, source, files...); err != nil {
 		return err
 	}
 
@@ -226,7 +227,7 @@ func (k *Handler) Sync(req router.Request, _ router.Response) error {
 	source.Status.SyncState = types.KnowledgeSourceStateSyncing
 	source.Status.ThreadName = task.Thread.Name
 	source.Status.RunName = task.Run.Name
-	if err := req.Client.Status().Update(req.Ctx, source); err != nil {
+	if err = req.Client.Status().Update(req.Ctx, source); err != nil {
 		return err
 	}
 
@@ -242,7 +243,7 @@ forLoop:
 				break forLoop
 			}
 		case <-ticker.C:
-			if err := k.saveProgress(req.Ctx, req.Client, source, thread, false); err != nil {
+			if err = k.saveProgress(req.Ctx, req.Client, source, thread, false); err != nil {
 				// Ignore these errors, hopefully transient
 				log.Errorf("failed to get files for knowledgesource [%s]: %v", source.Name, err)
 			}
@@ -251,7 +252,7 @@ forLoop:
 
 	_, taskErr := task.Result(req.Ctx)
 
-	if err := k.saveProgress(req.Ctx, req.Client, source, thread, taskErr == nil); err != nil {
+	if err = k.saveProgress(req.Ctx, req.Client, source, thread, taskErr == nil); err != nil {
 		log.Errorf("failed to save files for knowledgesource [%s]: %v", source.Name, err)
 		if taskErr == nil {
 			taskErr = err

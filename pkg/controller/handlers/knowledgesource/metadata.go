@@ -47,7 +47,7 @@ func (k *Handler) getMetadata(ctx context.Context, source *v1.KnowledgeSource, t
 	data, err := k.gptClient.ReadFileInWorkspace(ctx, ".metadata.json", gptscript.ReadFileInWorkspaceOptions{
 		WorkspaceID: thread.Status.WorkspaceID,
 	})
-	if errNotFound := new(gptscript.ErrNotFound); errors.As(err, &errNotFound) {
+	if errNotFound := new(gptscript.NotFoundInWorkspaceError); errors.As(err, &errNotFound) {
 		return nil, nil, nil
 	} else if err != nil {
 		return nil, nil, fmt.Errorf("failed to read metadata.json: %w", err)
