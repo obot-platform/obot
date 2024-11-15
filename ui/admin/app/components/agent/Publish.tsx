@@ -22,11 +22,7 @@ type PublishProps = {
     onPublish: (alias: string) => void;
 };
 
-export function Publish({
-    className,
-    alias: _alias,
-    onPublish,
-}: PublishProps) {
+export function Publish({ className, alias: _alias, onPublish }: PublishProps) {
     const [alias, setAlias] = useState(_alias);
 
     const handlePublish = () => onPublish(alias);

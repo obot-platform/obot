@@ -8,7 +8,7 @@ import {
 } from "@remix-run/react";
 import { ColumnDef, createColumnHelper } from "@tanstack/react-table";
 import { PuzzleIcon, Trash, XIcon } from "lucide-react";
-import { useCallback, useMemo } from "react";
+import { useMemo } from "react";
 import { $path } from "remix-routes";
 import useSWR, { preload } from "swr";
 
@@ -278,43 +278,45 @@ function ThreadFilters({
     agentMap: Record<string, Agent>;
     workflowMap: Record<string, Workflow>;
 }) {
-    const [searchParams, setSearchParams] = useSearchParams();
-
-    const removeParam = useCallback(
-        (key: string) =>
-            setSearchParams((prev) => {
-                const params = new URLSearchParams(prev);
-                params.delete(key);
-                return params;
-            }),
-        [setSearchParams]
-    );
+    const [searchParams] = useSearchParams();
+    const navigate = useNavigate();
 
     const filters = useMemo(() => {
-        const threadFilters = {
-            agentId: (value: string) => agentMap[value]?.name ?? value,
-            userId: (value: string) => userMap[value]?.email ?? "-",
-            workflowId: (value: string) => workflowMap[value]?.name ?? value,
+        const query =
+            RouteService.getQueryParams("/threads", searchParams.toString()) ??
+            {};
+        const { from: _, ...filters } = query;
+
+        const updateFilters = (param: keyof typeof filters) => {
+            // note(ryanhopperlowe) this is a hack because setting a param to null/undefined
+            // appends "null" to the query string.
+            const newQuery = structuredClone(query);
+            delete newQuery[param];
+            return navigate($path("/threads", newQuery));
         };
 
-        const labels = {
-            agentId: "Agent",
-            userId: "User",
-            workflowId: "Workflow",
-        };
-
-        const query = RouteService.getQueryParams(
-            "/threads",
-            searchParams.toString()
-        );
-
-        return Object.entries(query ?? {}).map(([key, value]) => ({
-            key,
-            label: labels[key as keyof SearchParams],
-            value: threadFilters[key as keyof SearchParams](value),
-            onRemove: () => removeParam(key),
-        }));
-    }, [agentMap, removeParam, searchParams, userMap, workflowMap]);
+        return [
+            filters.agentId && {
+                key: "agentId",
+                label: "Agent",
+                value: agentMap[filters.agentId]?.name ?? filters.agentId,
+                onRemove: () => updateFilters("agentId"),
+            },
+            filters.userId && {
+                key: "userId",
+                label: "User",
+                value: userMap[filters.userId]?.email ?? filters.userId,
+                onRemove: () => updateFilters("userId"),
+            },
+            filters.workflowId && {
+                key: "workflowId",
+                label: "Workflow",
+                value:
+                    workflowMap[filters.workflowId]?.name ?? filters.workflowId,
+                onRemove: () => updateFilters("workflowId"),
+            },
+        ].filter((x) => !!x);
+    }, [agentMap, navigate, searchParams, userMap, workflowMap]);
 
     return (
         <div className="flex gap-2">

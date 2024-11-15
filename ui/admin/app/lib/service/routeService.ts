@@ -4,13 +4,14 @@ import { ZodNull, ZodSchema, ZodType, z } from "zod";
 
 const QuerySchemas = {
     agentSchema: z.object({
-        threadId: z.string().optional(),
-        from: z.string().optional(),
+        threadId: z.string().nullish(),
+        from: z.string().nullish(),
     }),
     threadsListSchema: z.object({
-        agentId: z.string().optional(),
-        userId: z.string().optional(),
-        workflowId: z.string().optional(),
+        agentId: z.string().nullish(),
+        userId: z.string().nullish(),
+        workflowId: z.string().nullish(),
+        from: z.enum(["workflows", "agents", "users"]).nullish().catch(null),
     }),
 } as const;
 
@@ -117,7 +118,7 @@ type PathInfo<T extends keyof RoutesWithParams> = ReturnType<
     typeof $params<T, Routes[T]["params"]>
 >;
 
-type RouteInfo<T extends keyof Routes = keyof Routes> = {
+export type RouteInfo<T extends keyof Routes = keyof Routes> = {
     path: T;
     query: QueryInfo<T> | null;
     pathParams: T extends keyof RoutesWithParams ? PathInfo<T> : unknown;

@@ -127,6 +127,7 @@ export default function Agents() {
                                 <Link
                                     to={$path("/threads", {
                                         agentId: info.row.original.id,
+                                        from: "agents",
                                     })}
                                     className="px-0"
                                 >

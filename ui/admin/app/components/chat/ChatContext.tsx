@@ -22,7 +22,7 @@ interface ChatContextType {
     mode: Mode;
     processUserMessage: (text: string, sender: "user" | "agent") => void;
     id: string;
-    threadId: string | undefined;
+    threadId: Nullish<string>;
     invoke: (prompt?: string) => void;
     readOnly?: boolean;
     isRunning: boolean;
@@ -42,7 +42,7 @@ export function ChatProvider({
     children: ReactNode;
     mode?: Mode;
     id: string;
-    threadId?: string;
+    threadId?: Nullish<string>;
     onCreateThreadId?: (threadId: string) => void;
     readOnly?: boolean;
 }) {
@@ -116,7 +116,7 @@ export function useChat() {
     return context;
 }
 
-function useMessageSource(threadId?: string) {
+function useMessageSource(threadId?: Nullish<string>) {
     const [messages, setMessages] = useState<Message[]>([]);
     const [isRunning, setIsRunning] = useState(false);
 

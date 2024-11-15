@@ -79,6 +79,7 @@ export default function Users() {
                             <Link
                                 to={$path("/threads", {
                                     userId: row.original.id,
+                                    from: "users",
                                 })}
                                 className="underline"
                             >

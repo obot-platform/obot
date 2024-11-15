@@ -118,6 +118,7 @@ export default function Workflows() {
                                 <Link
                                     to={$path("/threads", {
                                         workflowId: info.row.original.id,
+                                        from: "workflows",
                                     })}
                                     className="px-0"
                                 >

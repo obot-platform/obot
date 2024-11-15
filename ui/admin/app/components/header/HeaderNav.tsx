@@ -60,7 +60,8 @@ function RouteBreadcrumbs() {
                     </BreadcrumbLink>
                 </BreadcrumbItem>
                 <BreadcrumbSeparator />
-                {routeInfo?.path === "/agents/:agent" ? (
+
+                {routeInfo?.path === "/agents/:agent" && (
                     <>
                         <BreadcrumbItem>
                             <BreadcrumbLink asChild>
@@ -76,18 +77,34 @@ function RouteBreadcrumbs() {
                             </BreadcrumbPage>
                         </BreadcrumbItem>
                     </>
-                ) : (
-                    routeInfo?.path === "/agents" && (
-                        <BreadcrumbItem>
-                            <BreadcrumbPage>Agents</BreadcrumbPage>
-                        </BreadcrumbItem>
-                    )
                 )}
-                {routeInfo?.path === "/threads" && (
+
+                {routeInfo?.path === "/agents" && (
                     <BreadcrumbItem>
-                        <BreadcrumbPage>Threads</BreadcrumbPage>
+                        <BreadcrumbPage>Agents</BreadcrumbPage>
                     </BreadcrumbItem>
                 )}
+
+                {routeInfo?.path === "/threads" && (
+                    <>
+                        {routeInfo.query?.from && (
+                            <>
+                                <BreadcrumbItem>
+                                    <BreadcrumbLink asChild>
+                                        {renderThreadFrom(routeInfo.query.from)}
+                                    </BreadcrumbLink>
+                                </BreadcrumbItem>
+
+                                <BreadcrumbSeparator />
+                            </>
+                        )}
+
+                        <BreadcrumbItem>
+                            <BreadcrumbPage>Threads</BreadcrumbPage>
+                        </BreadcrumbItem>
+                    </>
+                )}
+
                 {routeInfo?.path === "/thread/:id" && (
                     <>
                         <BreadcrumbItem>
@@ -143,6 +160,15 @@ function RouteBreadcrumbs() {
         </Breadcrumb>
     );
 }
+
+const renderThreadFrom = (from: "agents" | "workflows" | "users") => {
+    if (from === "agents") return <Link to={$path("/agents")}>Agents</Link>;
+
+    if (from === "workflows")
+        return <Link to={$path("/workflows")}>Workflows</Link>;
+
+    if (from === "users") return <Link to={$path("/users")}>Users</Link>;
+};
 
 const AgentName = ({ agentId }: { agentId: string }) => {
     const { data: agent } = useSWR(
