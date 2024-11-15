@@ -204,9 +204,17 @@ func validateModelManifestAndSetDefaults(ctx context.Context, c kclient.Client, 
 			return err
 		}
 
+		if newModel.Spec.Manifest.Default && !newModel.Spec.Manifest.Active {
+			return types.NewErrBadRequest("model must be active to be set as default model")
+		}
+
 		for _, model := range modelList.Items {
 			if model.Spec.Manifest.Default && model.Spec.Manifest.Active && model.Name != newModel.Name {
-				return types.NewErrBadRequest("model %s is already the default model", model.Name)
+				model.Spec.Manifest.Default = false
+
+				if err := c.Update(ctx, &model); err != nil {
+					return err
+				}
 			}
 		}
 	}

@@ -188,6 +188,11 @@ export function ModelForm(props: ModelFormProps) {
                     control={form.control}
                     name="default"
                     label="Default Model"
+                    description={
+                        form.watch("default")
+                            ? "Checking this box will override the existing default model for all assistants."
+                            : null
+                    }
                 />
 
                 <Button
