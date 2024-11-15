@@ -9,11 +9,13 @@ import (
 
 type SystemTaskOptions struct {
 	CredentialContextIDs []string
+	Env                  []string
 }
 
 func complete(opts []SystemTaskOptions) (result SystemTaskOptions) {
 	for _, opt := range opts {
 		result.CredentialContextIDs = append(result.CredentialContextIDs, opt.CredentialContextIDs...)
+		result.Env = append(result.Env, opt.Env...)
 	}
 	return
 }
@@ -42,6 +44,7 @@ func (i *Invoker) SystemTask(ctx context.Context, thread *v1.Thread, tool, input
 	}
 
 	return i.createRun(ctx, i.uncached, thread, tool, inputString, runOptions{
+		Env:                  opt.Env,
 		CredentialContextIDs: opt.CredentialContextIDs,
 		Synchronous:          true,
 	})

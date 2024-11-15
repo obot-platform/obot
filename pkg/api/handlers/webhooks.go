@@ -283,7 +283,7 @@ func validateSecretHeader(secret string, body []byte, values []string) error {
 func validateManifest(req api.Context, manifest types.WebhookManifest) error {
 	// Ensure that the WorkflowID is set and the workflow exists
 	if manifest.WorkflowID == "" {
-		return apierrors.NewBadRequest(fmt.Sprintf("webhook manifest must have a workflow name"))
+		return apierrors.NewBadRequest("webhook manifest must have a workflow name")
 	}
 
 	var workflow v1.Workflow
@@ -297,7 +297,7 @@ func validateManifest(req api.Context, manifest types.WebhookManifest) error {
 	}
 
 	if (manifest.ValidationHeader != "") != (manifest.Secret != "") {
-		return apierrors.NewBadRequest(fmt.Sprintf("webhook must have secret and header set together"))
+		return apierrors.NewBadRequest("webhook must have secret and header set together")
 	}
 
 	return nil

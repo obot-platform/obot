@@ -34,7 +34,7 @@ func (c *Controller) setupRoutes() error {
 	runs := runs.New(c.services.Invoker)
 	webHooks := webhook.New()
 	cronJobs := cronjob.New()
-	oauthLogins := oauthapp.NewLogin(c.services.Invoker)
+	oauthLogins := oauthapp.NewLogin(c.services.Invoker, c.services.ServerURL)
 
 	// Runs
 	root.Type(&v1.Run{}).FinalizeFunc(v1.RunFinalizer, runs.DeleteRunState)

@@ -8,6 +8,7 @@ import (
 	"github.com/otto8-ai/nah/pkg/router"
 	"github.com/otto8-ai/otto8/apiclient/types"
 	"github.com/otto8-ai/otto8/pkg/invoke"
+	"github.com/otto8-ai/otto8/pkg/render"
 	v1 "github.com/otto8-ai/otto8/pkg/storage/apis/otto.otto8.ai/v1"
 	"github.com/otto8-ai/otto8/pkg/system"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -16,12 +17,14 @@ import (
 )
 
 type LoginHandler struct {
-	invoker *invoke.Invoker
+	invoker   *invoke.Invoker
+	serverURL string
 }
 
-func NewLogin(invoker *invoke.Invoker) *LoginHandler {
+func NewLogin(invoker *invoke.Invoker, serverURL string) *LoginHandler {
 	return &LoginHandler{
-		invoker: invoker,
+		invoker:   invoker,
+		serverURL: serverURL,
 	}
 }
 
@@ -50,6 +53,11 @@ func (h *LoginHandler) RunTool(req router.Request, _ router.Response) error {
 		return err
 	}
 
+	oauthAppEnv, err := render.OAuthAppEnv(req.Ctx, req.Client, login.Spec.OAuthApps, login.Namespace, h.serverURL)
+	if err != nil {
+		return err
+	}
+
 	task, err := h.invoker.SystemTask(req.Ctx, &thread, []gptscript.ToolDef{
 		{
 			Credentials:  []string{credentialTool},
@@ -57,6 +65,7 @@ func (h *LoginHandler) RunTool(req router.Request, _ router.Response) error {
 		},
 	}, "", invoke.SystemTaskOptions{
 		CredentialContextIDs: []string{login.Spec.CredentialContext},
+		Env:                  oauthAppEnv,
 	})
 	if err != nil {
 		return err

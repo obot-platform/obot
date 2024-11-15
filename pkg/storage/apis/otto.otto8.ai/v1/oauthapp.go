@@ -158,8 +158,9 @@ func (o *OAuthAppLogin) DeleteRefs() []Ref {
 }
 
 type OAuthAppLoginSpec struct {
-	CredentialContext string `json:"credentialContext,omitempty"`
-	ToolReference     string `json:"toolReference,omitempty"`
+	CredentialContext string   `json:"credentialContext,omitempty"`
+	ToolReference     string   `json:"toolReference,omitempty"`
+	OAuthApps         []string `json:"oauthApps,omitempty"`
 }
 
 type OAuthAppLoginStatus struct {

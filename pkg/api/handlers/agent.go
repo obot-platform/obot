@@ -292,7 +292,7 @@ func (a *AgentHandler) CreateKnowledgeSource(req api.Context) error {
 
 	var input types.KnowledgeSourceManifest
 	if err := req.Read(&input); err != nil {
-		return types.NewErrBadRequest("failed to decode request body: %w", err)
+		return types.NewErrBadRequest("failed to decode request body: %v", err)
 	}
 
 	if err := input.Validate(); err != nil {
@@ -312,7 +312,7 @@ func (a *AgentHandler) CreateKnowledgeSource(req api.Context) error {
 	}
 
 	if err := req.Create(&source); err != nil {
-		return types.NewErrBadRequest("failed to create RemoteKnowledgeSource: %w", err)
+		return types.NewErrBadRequest("failed to create RemoteKnowledgeSource: %v", err)
 	}
 
 	return req.Write(convertKnowledgeSource(agentName, source))
@@ -326,7 +326,7 @@ func (a *AgentHandler) UpdateKnowledgeSource(req api.Context) error {
 
 	var manifest types.KnowledgeSourceManifest
 	if err := req.Read(&manifest); err != nil {
-		return types.NewErrBadRequest("failed to decode request body: %w", err)
+		return types.NewErrBadRequest("failed to decode request body: %v", err)
 	}
 
 	if err := manifest.Validate(); err != nil {
@@ -535,6 +535,7 @@ func (a *AgentHandler) EnsureCredentialForKnowledgeSource(req api.Context) error
 		Spec: v1.OAuthAppLoginSpec{
 			CredentialContext: agent.Name,
 			ToolReference:     ref,
+			OAuthApps:         agent.Spec.Manifest.OAuthApps,
 		},
 	}
 
@@ -566,7 +567,7 @@ func (a *AgentHandler) Script(req api.Context) error {
 		agent v1.Agent
 	)
 	if err := req.Get(&agent, id); err != nil {
-		return types.NewErrBadRequest("failed to get agent with id %s: %w", id, err)
+		return types.NewErrBadRequest("failed to get agent with id %s: %v", id, err)
 	}
 
 	tools, extraEnv, err := render.Agent(req.Context(), req.Storage, &agent, a.serverURL, render.AgentOptions{})

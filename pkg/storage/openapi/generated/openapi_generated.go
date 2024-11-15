@@ -4706,6 +4706,20 @@ func schema_storage_apis_ottootto8ai_v1_OAuthAppLoginSpec(ref common.ReferenceCa
 							Format: "",
 						},
 					},
+					"oauthApps": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
 				},
 			},
 		},

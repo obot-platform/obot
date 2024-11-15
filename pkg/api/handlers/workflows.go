@@ -209,6 +209,7 @@ func (a *WorkflowHandler) EnsureCredentialForKnowledgeSource(req api.Context) er
 		Spec: v1.OAuthAppLoginSpec{
 			CredentialContext: wf.Name,
 			ToolReference:     ref,
+			OAuthApps:         wf.Spec.Manifest.OAuthApps,
 		},
 	}
 

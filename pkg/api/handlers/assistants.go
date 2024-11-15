@@ -345,7 +345,7 @@ func (a *AssistantHandler) DeleteKnowledge(req api.Context) error {
 	}
 
 	if len(thread.Status.KnowledgeSetNames) == 0 {
-		return types.NewErrHttp(http.StatusTooEarly, fmt.Sprintf("knowledge set is not created yet"))
+		return types.NewErrHttp(http.StatusTooEarly, "knowledge set is not created yet")
 	}
 
 	return deleteKnowledge(req, req.PathValue("file"), thread.Status.KnowledgeSetNames[0])

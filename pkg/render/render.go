@@ -78,7 +78,7 @@ func Agent(ctx context.Context, db kclient.Client, agent *v1.Agent, oauthServerU
 		return nil, nil, err
 	}
 
-	if oauthEnv, err := setupOAuthApps(ctx, db, agent, oauthServerURL); err != nil {
+	if oauthEnv, err := OAuthAppEnv(ctx, db, agent.Spec.Manifest.OAuthApps, agent.Namespace, oauthServerURL); err != nil {
 		return nil, nil, err
 	} else {
 		extraEnv = append(extraEnv, oauthEnv...)
@@ -87,8 +87,8 @@ func Agent(ctx context.Context, db kclient.Client, agent *v1.Agent, oauthServerU
 	return append([]gptscript.ToolDef{mainTool}, otherTools...), extraEnv, nil
 }
 
-func setupOAuthApps(ctx context.Context, db kclient.Client, agent *v1.Agent, serverURL string) (extraEnv []string, _ error) {
-	apps, err := oauthAppsByName(ctx, db, agent.Namespace)
+func OAuthAppEnv(ctx context.Context, db kclient.Client, oauthAppNames []string, namespace, serverURL string) (extraEnv []string, _ error) {
+	apps, err := oauthAppsByName(ctx, db, namespace)
 	if err != nil {
 		return nil, err
 	}
@@ -102,7 +102,7 @@ func setupOAuthApps(ctx context.Context, db kclient.Client, agent *v1.Agent, ser
 		activeIntegrations[app.Spec.Manifest.Integration] = app
 	}
 
-	for _, appRef := range agent.Spec.Manifest.OAuthApps {
+	for _, appRef := range oauthAppNames {
 		app, ok := apps[appRef]
 		if !ok {
 			return nil, fmt.Errorf("oauth app %s not found", appRef)
