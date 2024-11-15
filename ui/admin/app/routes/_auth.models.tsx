@@ -81,6 +81,10 @@ export default function Models() {
                 id: "id",
                 header: "Model",
             }),
+            columnHelper.accessor((model) => model.usage as string, {
+                id: "usage",
+                header: "Usage",
+            }),
             columnHelper.accessor(
                 (model) =>
                     providerMap[model.modelProvider] ?? model.modelProvider,
