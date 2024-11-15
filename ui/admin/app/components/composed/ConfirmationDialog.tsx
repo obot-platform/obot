@@ -23,7 +23,7 @@ export function ConfirmationDialog({
     children?: ReactNode;
     title: ReactNode;
     description?: ReactNode;
-    onConfirm: () => void;
+    onConfirm: (e: React.MouseEvent) => void;
     onCancel?: () => void;
     confirmProps?: Omit<Partial<ComponentProps<typeof Button>>, "onClick">;
 }) {

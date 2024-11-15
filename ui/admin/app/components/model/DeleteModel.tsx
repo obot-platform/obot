@@ -28,7 +28,10 @@ export function DeleteModel(props: DeleteModelProps) {
                 <ConfirmationDialog
                     title="Are you sure you want to delete this model?"
                     description="Doing so will break any tools or agents currently using it."
-                    onConfirm={() => deleteModel.execute(props.id)}
+                    onConfirm={(e) => {
+                        e.stopPropagation();
+                        deleteModel.execute(props.id);
+                    }}
                     confirmProps={{
                         variant: "destructive",
                         children: "Delete",
