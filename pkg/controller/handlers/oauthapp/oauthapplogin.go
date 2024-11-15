@@ -3,6 +3,7 @@ package oauthapp
 import (
 	"context"
 	"errors"
+	"time"
 
 	"github.com/gptscript-ai/go-gptscript"
 	"github.com/otto8-ai/nah/pkg/router"
@@ -10,6 +11,7 @@ import (
 	"github.com/otto8-ai/otto8/pkg/invoke"
 	v1 "github.com/otto8-ai/otto8/pkg/storage/apis/otto.otto8.ai/v1"
 	"github.com/otto8-ai/otto8/pkg/system"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/util/retry"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
@@ -61,29 +63,51 @@ func (h *LoginHandler) RunTool(req router.Request, _ router.Response) error {
 	if err != nil {
 		return err
 	}
+	// Ensure the task is stopped when this handler returns.
 	defer task.Close()
 
 	if err = updateLoginExternalStatus(req.Ctx, req.Client, login, v1.OAuthAppLoginStatus{}); err != nil {
 		return err
 	}
 
-	for frame := range task.Events {
-		if frame.Prompt != nil && frame.Prompt.Metadata["authURL"] != "" {
-			if err = updateLoginExternalStatus(req.Ctx, req.Client, login, v1.OAuthAppLoginStatus{
-				External: types.OAuthAppLoginAuthStatus{
-					URL:      frame.Prompt.Metadata["authURL"],
-					Required: &[]bool{true}[0],
-				},
-			}); err != nil {
-				if setErrorErr := updateLoginExternalStatus(req.Ctx, req.Client, login, v1.OAuthAppLoginStatus{
-					External: types.OAuthAppLoginAuthStatus{
-						Error: err.Error(),
-					},
-				}); setErrorErr != nil {
-					err = errors.Join(err, setErrorErr)
-				}
+	originalUID := login.UID
+	tick := time.NewTicker(5 * time.Second)
+	defer tick.Stop()
+
+outer:
+	for {
+		select {
+		case <-tick.C:
+			if err = req.Get(login, req.Namespace, req.Name); apierrors.IsNotFound(err) || login.UID != originalUID {
+				// If the login is deleted and possibly recreated, stop blocking and retry.
+				return nil
+			} else if err != nil {
 				return err
 			}
+		case frame, ok := <-task.Events:
+			if !ok {
+				break outer
+			}
+
+			if frame.Prompt != nil && frame.Prompt.Metadata["authURL"] != "" {
+				if err = updateLoginExternalStatus(req.Ctx, req.Client, login, v1.OAuthAppLoginStatus{
+					External: types.OAuthAppLoginAuthStatus{
+						URL:      frame.Prompt.Metadata["authURL"],
+						Required: &[]bool{true}[0],
+					},
+				}); err != nil {
+					if setErrorErr := updateLoginExternalStatus(req.Ctx, req.Client, login, v1.OAuthAppLoginStatus{
+						External: types.OAuthAppLoginAuthStatus{
+							Error: err.Error(),
+						},
+					}); setErrorErr != nil {
+						err = errors.Join(err, setErrorErr)
+					}
+					return err
+				}
+			}
+
+			tick.Reset(5 * time.Second)
 		}
 	}
 
