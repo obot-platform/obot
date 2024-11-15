@@ -44,7 +44,7 @@ getModelProviders.key = () => ({
 async function createModel(manifest: ModelManifest) {
     await new Promise((resolve) => setTimeout(resolve, 1000));
     const { data } = await request<Model>({
-        url: ApiRoutes.models.createModel().url,
+        url: ApiRoutes.models.createModel({ updateDefaults: true }).url,
         method: "POST",
         data: manifest,
     });
@@ -56,7 +56,8 @@ async function updateModel(modelId: string, manifest: ModelManifest) {
     await new Promise((resolve) => setTimeout(resolve, 1000));
 
     const { data } = await request<Model>({
-        url: ApiRoutes.models.updateModel(modelId).url,
+        url: ApiRoutes.models.updateModel(modelId, { updateDefaults: true })
+            .url,
         method: "PUT",
         data: manifest,
     });

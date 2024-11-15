@@ -21,6 +21,8 @@ export const getModelUsageLabel = (usage: string) => {
     return ModelUsageLabels[usage as ModelUsage];
 };
 
+export type ModelUpdateParams = { updateDefaults?: boolean };
+
 export type ModelManifest = {
     name?: string;
     targetModel?: string;

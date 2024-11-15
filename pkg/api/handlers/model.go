@@ -58,6 +58,8 @@ func (a *ModelHandler) ByID(req api.Context) error {
 }
 
 func (a *ModelHandler) Update(req api.Context) error {
+	var updateDefaults = req.URL.Query().Get("updateDefaults") == "true"
+
 	var model types.ModelManifest
 	if err := req.Read(&model); err != nil {
 		return err
@@ -70,7 +72,7 @@ func (a *ModelHandler) Update(req api.Context) error {
 
 	existing.Spec.Manifest = model
 
-	if err := validateModelManifestAndSetDefaults(req.Context(), req.Storage, &existing); err != nil {
+	if err := validateModelManifestAndSetDefaults(req.Context(), req.Storage, &existing, updateDefaults); err != nil {
 		return err
 	}
 
@@ -87,6 +89,8 @@ func (a *ModelHandler) Update(req api.Context) error {
 }
 
 func (a *ModelHandler) Create(req api.Context) error {
+	var updateDefaults = req.URL.Query().Get("updateDefaults") == "true"
+
 	var modelManifest types.ModelManifest
 	if err := req.Read(&modelManifest); err != nil {
 		return err
@@ -115,7 +119,7 @@ func (a *ModelHandler) Create(req api.Context) error {
 		},
 	}
 
-	if err := validateModelManifestAndSetDefaults(req.Context(), req.Storage, &model); err != nil {
+	if err := validateModelManifestAndSetDefaults(req.Context(), req.Storage, &model, updateDefaults); err != nil {
 		return err
 	}
 
@@ -184,7 +188,7 @@ func convertModelProviderToolRef(toolRef v1.ToolReference) *types.ModelProviderS
 	}
 }
 
-func validateModelManifestAndSetDefaults(ctx context.Context, c kclient.Client, newModel *v1.Model) error {
+func validateModelManifestAndSetDefaults(ctx context.Context, c kclient.Client, newModel *v1.Model, updateDefaults bool) error {
 	var errs []error
 	if newModel.Spec.Manifest.TargetModel == "" {
 		errs = append(errs, fmt.Errorf("field targetModel is required"))
@@ -204,12 +208,12 @@ func validateModelManifestAndSetDefaults(ctx context.Context, c kclient.Client, 
 			return err
 		}
 
-		if newModel.Spec.Manifest.Default && !newModel.Spec.Manifest.Active {
-			return types.NewErrBadRequest("model must be active to be set as default model")
-		}
-
 		for _, model := range modelList.Items {
 			if model.Spec.Manifest.Default && model.Spec.Manifest.Active && model.Name != newModel.Name {
+				if !updateDefaults {
+					return types.NewErrBadRequest("model %s is already the default model", model.Name)
+				}
+
 				model.Spec.Manifest.Default = false
 
 				if err := c.Update(ctx, &model); err != nil {

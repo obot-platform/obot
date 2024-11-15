@@ -1,6 +1,7 @@
 import queryString from "query-string";
 import { mutate } from "swr";
 
+import { ModelUpdateParams } from "~/lib/model/models";
 import { ToolReferenceType } from "~/lib/model/toolReferences";
 import { ApiUrl } from "~/lib/routers/baseRouter";
 
@@ -163,8 +164,10 @@ export const ApiRoutes = {
         base: () => buildUrl("/models"),
         getModels: () => buildUrl("/models"),
         getModelById: (modelId: string) => buildUrl(`/models/${modelId}`),
-        createModel: () => buildUrl(`/models`),
-        updateModel: (modelId: string) => buildUrl(`/models/${modelId}`),
+        createModel: (params?: ModelUpdateParams) =>
+            buildUrl(`/models`, params),
+        updateModel: (modelId: string, params?: ModelUpdateParams) =>
+            buildUrl(`/models/${modelId}`, params),
         deleteModel: (modelId: string) => buildUrl(`/models/${modelId}`),
     },
 };
