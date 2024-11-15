@@ -4,6 +4,7 @@ import { $path } from "remix-routes";
 import useSWR from "swr";
 
 import { AgentBase } from "~/lib/model/agents";
+import { ConsumptionUrl } from "~/lib/routers/baseRouter";
 import { AssistantApiService } from "~/lib/service/api/assistantApiService";
 
 import { TypographySmall } from "~/components/Typography";
@@ -86,12 +87,26 @@ export function AgentPublishStatus({
 
         if (!agent.refNameAssigned) return <div />;
 
+        const agentUrl = ConsumptionUrl(`/${agent.refName}`);
+
         return (
-            <CopyText
-                className="h-8 text-muted-foreground text-sm bg-background flex-row-reverse"
-                holdStatusDelay={10000}
-                text={`${window.location.protocol}//${window.location.host}/${agent.refName}`}
-            />
+            <div className="flex items-center gap-2">
+                <CopyText
+                    className="h-8 text-muted-foreground text-sm bg-background flex-row-reverse"
+                    holdStatusDelay={6000}
+                    text={agentUrl}
+                    iconOnly
+                />
+
+                <Link
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-muted-foreground underline"
+                    to={agentUrl}
+                >
+                    {agentUrl}
+                </Link>
+            </div>
         );
     }
 }

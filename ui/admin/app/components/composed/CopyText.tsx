@@ -17,11 +17,13 @@ export function CopyText({
     displayText = text,
     className,
     holdStatusDelay,
+    iconOnly,
 }: {
     text: string;
     displayText?: string;
     className?: string;
     holdStatusDelay?: number;
+    iconOnly?: boolean;
 }) {
     const [isCopied, setIsCopied] = useState(false);
 
@@ -40,22 +42,24 @@ export function CopyText({
                 className
             )}
         >
-            <Tooltip>
-                <TooltipTrigger
-                    type="button"
-                    onClick={() => handleCopy(text)}
-                    className="decoration-dotted underline-offset-4 underline text-ellipsis overflow-hidden text-nowrap"
-                >
-                    <TypographyP className="truncate break-words p-2">
-                        {displayText}
-                    </TypographyP>
-                </TooltipTrigger>
+            {!iconOnly && (
+                <Tooltip>
+                    <TooltipTrigger
+                        type="button"
+                        onClick={() => handleCopy(text)}
+                        className="decoration-dotted underline-offset-4 underline text-ellipsis overflow-hidden text-nowrap"
+                    >
+                        <TypographyP className="truncate break-words p-2">
+                            {displayText}
+                        </TypographyP>
+                    </TooltipTrigger>
 
-                <TooltipContent>
-                    <b>Copy: </b>
-                    {text}
-                </TooltipContent>
-            </Tooltip>
+                    <TooltipContent>
+                        <b>Copy: </b>
+                        {text}
+                    </TooltipContent>
+                </Tooltip>
+            )}
 
             <Button
                 size="icon"
