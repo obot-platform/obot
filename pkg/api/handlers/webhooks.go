@@ -22,8 +22,8 @@ import (
 )
 
 const (
-	PasswordHTTPHeader = "X-Otto8-Webhook-Password"
-	PasswordQueryParam = "webhookPassword"
+	WebhookTokenHTTPHeader = "X-Otto8-Webhook-Token"
+	WebhookTokenQueryParam = "token"
 )
 
 type WebhookHandler struct{}
@@ -61,7 +61,7 @@ func (a *WebhookHandler) Update(req api.Context) error {
 		if err != nil {
 			return fmt.Errorf("failed to hash password: %w", err)
 		}
-		wh.Spec.PasswordHash = hash
+		wh.Spec.TokenHash = hash
 		webhookReq.Password = ""
 	}
 
@@ -116,7 +116,7 @@ func (a *WebhookHandler) Create(req api.Context) error {
 			return fmt.Errorf("failed to hash password: %w", err)
 		}
 		webhookReq.Password = ""
-		wh.Spec.PasswordHash = hash
+		wh.Spec.TokenHash = hash
 	}
 
 	for i, h := range wh.Spec.Headers {
@@ -196,13 +196,13 @@ func (a *WebhookHandler) Execute(req api.Context) error {
 		}
 	}
 
-	if webhook.Spec.PasswordHash != nil {
-		password := req.Request.Header.Get(PasswordHTTPHeader)
+	if webhook.Spec.TokenHash != nil {
+		password := req.Request.Header.Get(WebhookTokenHTTPHeader)
 		if password == "" {
-			password = req.Request.URL.Query().Get(PasswordQueryParam)
+			password = req.Request.URL.Query().Get(WebhookTokenQueryParam)
 		}
 
-		if err := bcrypt.CompareHashAndPassword(webhook.Spec.PasswordHash, []byte(password)); err != nil {
+		if err := bcrypt.CompareHashAndPassword(webhook.Spec.TokenHash, []byte(password)); err != nil {
 			req.WriteHeader(http.StatusForbidden)
 			return nil
 		}

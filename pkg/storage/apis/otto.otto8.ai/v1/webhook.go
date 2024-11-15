@@ -34,7 +34,7 @@ func (w *Webhook) DeleteRefs() []Ref {
 
 type WebhookSpec struct {
 	types.WebhookManifest `json:",inline"`
-	PasswordHash          []byte `json:"passwordHash,omitempty"`
+	TokenHash             []byte `json:"tokenHash,omitempty"`
 }
 
 type WebhookStatus struct {

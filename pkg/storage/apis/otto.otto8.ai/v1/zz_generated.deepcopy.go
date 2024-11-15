@@ -1550,8 +1550,8 @@ func (in *WebhookReferenceStatus) DeepCopy() *WebhookReferenceStatus {
 func (in *WebhookSpec) DeepCopyInto(out *WebhookSpec) {
 	*out = *in
 	in.WebhookManifest.DeepCopyInto(&out.WebhookManifest)
-	if in.PasswordHash != nil {
-		in, out := &in.PasswordHash, &out.PasswordHash
+	if in.TokenHash != nil {
+		in, out := &in.TokenHash, &out.TokenHash
 		*out = make([]byte, len(*in))
 		copy(*out, *in)
 	}
