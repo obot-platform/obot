@@ -9,6 +9,7 @@ import (
 	types2 "github.com/otto8-ai/otto8/apiclient/types"
 	"github.com/otto8-ai/otto8/pkg/api"
 	"github.com/otto8-ai/otto8/pkg/gateway/types"
+	v1 "github.com/otto8-ai/otto8/pkg/storage/apis/otto.otto8.ai/v1"
 )
 
 func (s *Server) llmProxy(req api.Context) error {
@@ -28,16 +29,22 @@ func (s *Server) llmProxy(req api.Context) error {
 		return fmt.Errorf("failed to create monitor: %w", err)
 	}
 
+	// Get the run so that we know what the namespace of the model provider is
+	var run v1.Run
+	if err = req.Get(&run, token.RunID); err != nil {
+		return fmt.Errorf("failed to get run: %w", err)
+	}
+
 	errChan := make(chan error, 1)
 	(&httputil.ReverseProxy{
-		Director: s.newDirector(errChan),
+		Director: s.newDirector(run.Namespace, errChan),
 	}).ServeHTTP(req.ResponseWriter, req.Request)
 
 	return <-errChan
 }
 
-func (s *Server) newDirector(errChan chan<- error) func(req *http.Request) {
+func (s *Server) newDirector(namespace string, errChan chan<- error) func(req *http.Request) {
 	return func(req *http.Request) {
-		errChan <- s.modelDispatcher.TransformRequest(req)
+		errChan <- s.modelDispatcher.TransformRequest(req, namespace)
 	}
 }

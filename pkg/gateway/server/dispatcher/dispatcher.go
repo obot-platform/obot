@@ -17,6 +17,7 @@ import (
 	"github.com/otto8-ai/otto8/pkg/invoke"
 	v1 "github.com/otto8-ai/otto8/pkg/storage/apis/otto.otto8.ai/v1"
 	"github.com/otto8-ai/otto8/pkg/system"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -39,7 +40,7 @@ func New(invoker *invoke.Invoker, c kclient.Client) *Dispatcher {
 	}
 }
 
-func (d *Dispatcher) TransformRequest(req *http.Request) error {
+func (d *Dispatcher) TransformRequest(req *http.Request, namespace string) error {
 	body, err := readBody(req)
 	if err != nil {
 		return fmt.Errorf("failed to read body: %w", err)
@@ -50,7 +51,7 @@ func (d *Dispatcher) TransformRequest(req *http.Request) error {
 		return fmt.Errorf("missing model in body")
 	}
 
-	model, err := d.getModelProviderForModel(req.Context(), modelStr)
+	model, err := d.getModelProviderForModel(req.Context(), namespace, modelStr)
 	if err != nil {
 		return fmt.Errorf("failed to get model: %w", err)
 	}
@@ -79,9 +80,9 @@ func (d *Dispatcher) TransformRequest(req *http.Request) error {
 	return d.transformRequest(req, *u, body, model.Spec.Manifest.TargetModel)
 }
 
-func (d *Dispatcher) getModelProviderForModel(ctx context.Context, model string) (*v1.Model, error) {
+func (d *Dispatcher) getModelProviderForModel(ctx context.Context, namespace, model string) (*v1.Model, error) {
 	var m v1.Model
-	if err := d.client.Get(ctx, kclient.ObjectKey{Namespace: system.DefaultNamespace, Name: model}, &m); err != nil {
+	if err := d.client.Get(ctx, kclient.ObjectKey{Namespace: namespace, Name: model}, &m); err != nil {
 		return nil, err
 	}
 
@@ -91,15 +92,20 @@ func (d *Dispatcher) getModelProviderForModel(ctx context.Context, model string)
 func (d *Dispatcher) startModelProvider(ctx context.Context, model *v1.Model) (*url.URL, error) {
 	thread := &v1.Thread{
 		ObjectMeta: metav1.ObjectMeta{
-			GenerateName: system.ThreadPrefix,
-			Namespace:    system.DefaultNamespace,
+			Name:      system.ThreadPrefix + model.Name,
+			Namespace: model.Namespace,
 		},
 		Spec: v1.ThreadSpec{
 			SystemTask: true,
 		},
 	}
-	if err := d.client.Create(ctx, thread); err != nil {
-		return nil, err
+
+	if err := d.client.Get(ctx, kclient.ObjectKey{Namespace: thread.Namespace, Name: thread.Name}, thread); apierrors.IsNotFound(err) {
+		if err = d.client.Create(ctx, thread); err != nil {
+			return nil, fmt.Errorf("failed to create thread: %w", err)
+		}
+	} else if err != nil {
+		return nil, fmt.Errorf("failed to get thread: %w", err)
 	}
 
 	task, err := d.invoker.SystemTask(ctx, thread, model.Spec.Manifest.ModelProvider, "")
