@@ -5,6 +5,7 @@ type Webhook struct {
 	WebhookManifest
 	AliasAssigned              bool  `json:"aliasAssigned,omitempty"`
 	LastSuccessfulRunCompleted *Time `json:"lastSuccessfulRunCompleted,omitempty"`
+	HasToken                   bool  `json:"hasToken,omitempty"`
 }
 
 type WebhookManifest struct {

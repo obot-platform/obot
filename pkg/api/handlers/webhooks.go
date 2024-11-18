@@ -34,7 +34,7 @@ func NewWebhookHandler() *WebhookHandler {
 
 type webhookRequest struct {
 	types.WebhookManifest `json:",inline"`
-	Password              string `json:"password"`
+	Token                 string `json:"token"`
 }
 
 func (a *WebhookHandler) Update(req api.Context) error {
@@ -56,13 +56,13 @@ func (a *WebhookHandler) Update(req api.Context) error {
 		return err
 	}
 
-	if webhookReq.Password != "" {
-		hash, err := bcrypt.GenerateFromPassword([]byte(webhookReq.Password), bcrypt.DefaultCost)
+	if webhookReq.Token != "" {
+		hash, err := bcrypt.GenerateFromPassword([]byte(webhookReq.Token), bcrypt.DefaultCost)
 		if err != nil {
 			return fmt.Errorf("failed to hash password: %w", err)
 		}
 		wh.Spec.TokenHash = hash
-		webhookReq.Password = ""
+		webhookReq.Token = ""
 	}
 
 	wh.Spec.WebhookManifest = webhookReq.WebhookManifest
@@ -110,12 +110,12 @@ func (a *WebhookHandler) Create(req api.Context) error {
 		},
 	}
 
-	if webhookReq.Password != "" {
-		hash, err := bcrypt.GenerateFromPassword([]byte(webhookReq.Password), bcrypt.DefaultCost)
+	if webhookReq.Token != "" {
+		hash, err := bcrypt.GenerateFromPassword([]byte(webhookReq.Token), bcrypt.DefaultCost)
 		if err != nil {
 			return fmt.Errorf("failed to hash password: %w", err)
 		}
-		webhookReq.Password = ""
+		webhookReq.Token = ""
 		wh.Spec.TokenHash = hash
 	}
 
@@ -143,6 +143,7 @@ func convertWebhook(webhook v1.Webhook, urlPrefix string) *types.Webhook {
 		WebhookManifest:            manifest,
 		AliasAssigned:              webhook.Status.AliasAssigned,
 		LastSuccessfulRunCompleted: v1.NewTime(webhook.Status.LastSuccessfulRunCompleted),
+		HasToken:                   len(webhook.Spec.TokenHash) > 0,
 	}
 
 	wh.Secret = fmt.Sprintf("%x", sha256.Sum256([]byte(webhook.Spec.Secret)))
