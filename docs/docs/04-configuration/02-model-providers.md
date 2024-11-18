@@ -60,8 +60,11 @@ The OpenAI model provider is the default and is configured by either setting `OP
 
 The Azure OpenAI model provider requires setting the following environment variables:
 - `OTTO8_AZURE_OPENAI_MODEL_PROVIDER_API_KEY`: Found on the "Home" page of the Azure OpenAI Studio.
-- `OTTO8_AZURE_OPENAI_MODEL_PROVIDER_DEPLOYMENT_NAME`: The name of the deployment to use, found on the "Deployments" page of the Azure OpenAI Studio.
 - `OTTO8_AZURE_OPENAI_MODEL_PROVIDER_ENDPOINT`:  The endpoint to use, found by clicking on the "Deployment" name from the "Deployments" page of the Azure OpenAI Studio.
+
+:::note
+When configuring models with the Azure OpenAI provider in Otto8, the "Target Model" should be the "Deployment" from Azure.
+:::
 
 ## Anthropic
 
