@@ -63,6 +63,7 @@ const getThreadEventSource = (threadId: string) => {
         ApiRoutes.threads.events(threadId, {
             waitForThread: true,
             follow: true,
+            maxRuns: 100,
         }).url
     );
 };
