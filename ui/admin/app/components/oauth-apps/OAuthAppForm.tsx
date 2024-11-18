@@ -60,7 +60,7 @@ export function OAuthAppForm({ type, onSubmit, isLoading }: OAuthAppFormProps) {
 
     return (
         <Form {...form}>
-            <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+            <form onSubmit={handleSubmit} className="flex flex-col gap-4 p-1">
                 {spec.steps.map((s, i) => (
                     <Fragment key={i}>{renderStep(s)}</Fragment>
                 ))}
