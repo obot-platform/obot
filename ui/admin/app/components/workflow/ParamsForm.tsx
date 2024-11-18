@@ -1,47 +1,81 @@
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Plus, TrashIcon } from "lucide-react";
-import { useEffect, useState } from "react";
-import { useForm } from "react-hook-form";
+import { PlusIcon, TrashIcon } from "lucide-react";
+import { useEffect, useMemo } from "react";
+import { useFieldArray, useForm } from "react-hook-form";
 import { z } from "zod";
 
 import { Workflow } from "~/lib/model/workflows";
-import { noop } from "~/lib/utils";
 
+import { ControlledInput } from "~/components/form/controlledInputs";
 import { Button } from "~/components/ui/button";
-import { Form, FormField, FormItem, FormMessage } from "~/components/ui/form";
-import { Input } from "~/components/ui/input";
+import { Form } from "~/components/ui/form";
 
 const formSchema = z.object({
-    params: z.record(z.string(), z.string()).optional(),
+    params: z.array(
+        z.object({
+            name: z.string(),
+            description: z.string(),
+        })
+    ),
 });
 
 export type ParamFormValues = z.infer<typeof formSchema>;
 
+type ParamValues = Workflow["params"];
+
+const convertFrom = (params: ParamValues) => {
+    const converted = Object.entries(params || {}).map(
+        ([name, description]) => ({
+            name,
+            description,
+        })
+    );
+
+    return {
+        params: converted.length ? converted : [{ name: "", description: "" }],
+    };
+};
+
+const convertTo = (params: ParamFormValues["params"]) => {
+    if (!params?.length) return undefined;
+
+    return params.reduce((acc, param) => {
+        if (!param.name) return acc;
+
+        acc[param.name] = param.description;
+        return acc;
+    }, {} as NonNullable<ParamValues>);
+};
+
 export function ParamsForm({
     workflow,
-    onSubmit,
     onChange,
 }: {
     workflow: Workflow;
-    onSubmit?: (values: ParamFormValues) => void;
-    onChange?: (values: ParamFormValues) => void;
+    onChange?: (values: { params?: ParamValues }) => void;
 }) {
+    const defaultValues = useMemo(
+        () => convertFrom(workflow.params),
+        [workflow.params]
+    );
+
     const form = useForm<ParamFormValues>({
         resolver: zodResolver(formSchema),
-        defaultValues: { params: workflow.params || {} },
+        defaultValues,
     });
 
-    const handleSubmit = form.handleSubmit(onSubmit || noop);
-
-    const [newParamKey, setNewParamKey] = useState("");
-    const [newParamValue, setNewParamValue] = useState("");
+    const paramFields = useFieldArray({
+        control: form.control,
+        name: "params",
+    });
 
     useEffect(() => {
         const subscription = form.watch((value, { name, type }) => {
             if (name === "params" || type === "change") {
                 const { data, success } = formSchema.safeParse(value);
+
                 if (success) {
-                    onChange?.(data);
+                    onChange?.({ params: convertTo(data.params) });
                 }
             }
         });
@@ -50,103 +84,47 @@ export function ParamsForm({
 
     return (
         <Form {...form}>
-            <form onSubmit={handleSubmit}>
-                <FormField
-                    control={form.control}
-                    name="params"
-                    render={({ field }) => (
-                        <FormItem>
-                            <div className="flex space-x-2">
-                                <Input
-                                    placeholder="Name"
-                                    value={newParamKey}
-                                    onChange={(e) =>
-                                        setNewParamKey(e.target.value)
-                                    }
-                                    className="flex-grow"
-                                />
-                                <Input
-                                    placeholder="Description"
-                                    value={newParamValue}
-                                    onChange={(e) =>
-                                        setNewParamValue(e.target.value)
-                                    }
-                                    className="flex-grow"
-                                />
-                                <Button
-                                    type="button"
-                                    size="icon"
-                                    className="flex-shrink-0"
-                                    variant="secondary"
-                                    onClick={() => {
-                                        if (newParamKey && newParamValue) {
-                                            const updatedParams = {
-                                                ...field.value,
-                                            };
-                                            updatedParams[newParamKey] =
-                                                newParamValue;
-                                            field.onChange(updatedParams);
-                                            setNewParamKey("");
-                                            setNewParamValue("");
-                                        }
-                                    }}
-                                >
-                                    <Plus className="w-4 h-4" />
-                                </Button>
-                            </div>
+            <div className="flex flex-col gap-4">
+                {paramFields.fields.map((field, i) => (
+                    <div
+                        className="flex gap-2 p-2 bg-secondary rounded-md"
+                        key={field.id}
+                    >
+                        <ControlledInput
+                            control={form.control}
+                            name={`params.${i}.name`}
+                            placeholder="Name"
+                            classNames={{ wrapper: "flex-auto bg-background" }}
+                        />
 
-                            <div className="mt-2 w-full">
-                                {Object.entries(field.value || {}).map(
-                                    ([key, value], index) => (
-                                        <div
-                                            key={index}
-                                            className="flex items-center space-x-2 justify-between mt-2"
-                                        >
-                                            <Input
-                                                disabled
-                                                className="cursor-not-allowed"
-                                                value={key}
-                                            />
-                                            <Input
-                                                value={value}
-                                                onChange={(e) => {
-                                                    const updatedParams = {
-                                                        ...field.value,
-                                                    };
-                                                    updatedParams[key] =
-                                                        e.target.value;
-                                                    field.onChange(
-                                                        updatedParams
-                                                    );
-                                                }}
-                                                className="flex-grow"
-                                            />
-                                            <Button
-                                                type="button"
-                                                variant="destructive"
-                                                size="icon"
-                                                className="flex-shrink-0"
-                                                onClick={() => {
-                                                    const updatedParams = {
-                                                        ...field.value,
-                                                    };
-                                                    delete updatedParams[key];
-                                                    field.onChange(
-                                                        updatedParams
-                                                    );
-                                                }}
-                                            >
-                                                <TrashIcon className="w-4 h-4" />
-                                            </Button>
-                                        </div>
-                                    )
-                                )}
-                            </div>
-                            <FormMessage />
-                        </FormItem>
-                    )}
-                />
-            </form>
+                        <ControlledInput
+                            control={form.control}
+                            name={`params.${i}.description`}
+                            placeholder="Description"
+                            classNames={{ wrapper: "flex-auto bg-background" }}
+                        />
+
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => paramFields.remove(i)}
+                        >
+                            <TrashIcon />
+                        </Button>
+                    </div>
+                ))}
+
+                <Button
+                    variant="secondary"
+                    className="self-end"
+                    startContent={<PlusIcon />}
+                    onClick={() =>
+                        paramFields.append({ name: "", description: "" })
+                    }
+                >
+                    Add Parameter
+                </Button>
+            </div>
         </Form>
     );
 }

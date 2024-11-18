@@ -43,8 +43,14 @@ export type ControlledInputProps<
     TName extends FieldPath<TValues>,
 > = InputProps &
     BaseProps<TValues, TName> & {
-        classNames?: { wrapper?: string };
         onChangeConversion?: (value: string) => string;
+        classNames?: {
+            wrapper?: string;
+            label?: string;
+            input?: string;
+            description?: string;
+            message?: string;
+        };
     };
 
 export function ControlledInput<

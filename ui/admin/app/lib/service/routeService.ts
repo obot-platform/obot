@@ -13,6 +13,9 @@ const QuerySchemas = {
         workflowId: z.string().nullish(),
         from: z.enum(["workflows", "agents", "users"]).nullish().catch(null),
     }),
+    workflowSchema: z.object({
+        threadId: z.string().nullish(),
+    }),
 } as const;
 
 function parseQuery<T extends ZodType>(search: string, schema: T) {
@@ -121,7 +124,7 @@ export const RouteHelperMap = {
     "/workflows/:workflow": {
         regex: exactRegex($path("/workflows/:workflow", { workflow: "(.+)" })),
         path: "/workflows/:workflow",
-        schema: z.null(),
+        schema: QuerySchemas.workflowSchema,
     },
 } satisfies Record<keyof Routes, RouteHelper>;
 
