@@ -32,7 +32,7 @@ export function HeaderNav() {
             )}
         >
             <div className="h-full flex-auto flex">
-                <div className="flex flex-grow border-b">
+                <div className="flex flex-grow z-20">
                     <div className="flex-grow flex justify-start items-center p-4">
                         <SidebarTrigger className="h-4 w-4" />
                         <div className="border-r h-4 mx-4" />

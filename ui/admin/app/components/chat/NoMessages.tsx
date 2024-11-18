@@ -18,7 +18,8 @@ export function NoMessages() {
             </p>
             <div className="flex flex-wrap justify-center gap-2">
                 <Button
-                    variant="secondary"
+                    variant="outline"
+                    shape="pill"
                     disabled={isInvoking}
                     onClick={() =>
                         handleAddMessage(
@@ -30,7 +31,8 @@ export function NoMessages() {
                     Objectives
                 </Button>
                 <Button
-                    variant="secondary"
+                    variant="outline"
+                    shape="pill"
                     disabled={isInvoking}
                     onClick={() =>
                         handleAddMessage(
@@ -42,7 +44,8 @@ export function NoMessages() {
                     Tools
                 </Button>
                 <Button
-                    variant="secondary"
+                    variant="outline"
+                    shape="pill"
                     disabled={isInvoking}
                     onClick={() =>
                         handleAddMessage(

@@ -325,7 +325,7 @@ function ThreadFilters({
                     key={filter.key}
                     size="badge"
                     onClick={filter.onRemove}
-                    variant="secondary"
+                    variant="accent"
                     shape="pill"
                     endContent={<XIcon />}
                 >

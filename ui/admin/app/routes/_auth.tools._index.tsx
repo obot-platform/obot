@@ -17,6 +17,7 @@ import {
     DialogTrigger,
 } from "~/components/ui/dialog";
 import { Input } from "~/components/ui/input";
+import { ScrollArea } from "~/components/ui/scroll-area";
 
 export async function clientLoader() {
     await Promise.all([
@@ -49,7 +50,7 @@ export default function Tools() {
     };
 
     return (
-        <div className="h-full p-8 flex flex-col gap-4">
+        <ScrollArea className="h-full p-8 flex flex-col gap-4">
             <div className="flex justify-between items-center">
                 <TypographyH2>Tools</TypographyH2>
                 <div className="flex items-center space-x-2">
@@ -93,6 +94,6 @@ export default function Tools() {
                     onDelete={handleDelete}
                 />
             )}
-        </div>
+        </ScrollArea>
     );
 }

@@ -85,10 +85,7 @@ export function AppSidebar() {
         <Sidebar collapsible="icon">
             <SidebarRail />
             <SidebarHeader
-                className={cn(
-                    "border-b h-[60px]",
-                    state === "collapsed" ? "" : "px-4"
-                )}
+                className={cn("h-[60px]", state === "collapsed" ? "" : "px-4")}
             >
                 <div className={cn("flex items-center justify-center h-full")}>
                     <OttoLogo hideText={state === "collapsed"} />

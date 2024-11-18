@@ -29,6 +29,6 @@ export const runStateToBadgeColor = (state: RunState | undefined) => {
         case "error":
             return "bg-error";
         default:
-            return "bg-info";
+            return "bg-secondary";
     }
 };

@@ -37,7 +37,7 @@ export function OAuthAppTile({
     return (
         <Card
             className={cn("w-full flex flex-col", {
-                "border-2 border-primary": info.appOverride,
+                "border-2 border-accent-bold": info.appOverride,
             })}
         >
             <CardHeader className="flex flex-row justify-between items-start pb-2 space-y-0">
@@ -49,7 +49,7 @@ export function OAuthAppTile({
                     {info.appOverride ? (
                         <Tooltip>
                             <TooltipTrigger>
-                                <Badge>Custom</Badge>
+                                <Badge variant="bold">Custom</Badge>
                             </TooltipTrigger>
 
                             <TooltipContent>

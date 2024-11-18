@@ -50,9 +50,9 @@ export function DataTable<TData, TValue>({
     });
 
     return (
-        <div className="rounded-md border max-h-full overflow-auto">
+        <div className="rounded-md max-h-full overflow-auto">
             <Table className="h-full">
-                <TableHeader className="sticky top-0 bg-secondary">
+                <TableHeader className="sticky top-0">
                     {table.getHeaderGroups().map((headerGroup) => (
                         <TableRow key={headerGroup.id} className="p-4">
                             {headerGroup.headers.map((header) => {

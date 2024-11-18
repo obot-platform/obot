@@ -433,7 +433,7 @@ export default function AgentKnowledgePanel({
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                             <Button
-                                variant="secondary"
+                                variant="ghost"
                                 className="flex items-center gap-2"
                             >
                                 <PlusIcon className="h-5 w-5 text-foreground" />

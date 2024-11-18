@@ -40,7 +40,7 @@ export function ThreadMeta({
     return (
         <Card className={cn("h-full bg-0", className)}>
             <CardContent className="space-y-4 pt-6">
-                <div className="border dark:bg-secondary/25 rounded-md p-4 overflow-hidden">
+                <div className="bg-muted rounded-md p-4 overflow-hidden">
                     <table className="w-full">
                         <tbody>
                             <tr className="border-foreground/25">

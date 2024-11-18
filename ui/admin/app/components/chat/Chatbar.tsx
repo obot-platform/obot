@@ -1,4 +1,4 @@
-import { CircleArrowUpIcon } from "lucide-react";
+import { ArrowUpIcon } from "lucide-react";
 import { useState } from "react";
 
 import { cn } from "~/lib/utils";
@@ -34,7 +34,7 @@ export function Chatbar({ className }: ChatbarProps) {
         >
             <div className="relative flex-grow">
                 <AutosizeTextarea
-                    className="resize-none rounded-xl h-[2.5rem] line-height-[1.25rem] min-h-[2.5rem]"
+                    className="resize-none rounded-xl h-[2.5rem] line-height-[1.25rem] min-h-[2.5rem] bg-background"
                     value={input}
                     onKeyDown={(e) => {
                         if (e.key === "Enter" && !e.shiftKey) {
@@ -51,12 +51,11 @@ export function Chatbar({ className }: ChatbarProps) {
 
             <Button
                 size="icon"
-                variant="secondary"
                 className="rounded-full"
                 type="submit"
                 disabled={!input || isRunning || isInvoking}
             >
-                {isInvoking ? <LoadingSpinner /> : <CircleArrowUpIcon />}
+                {isInvoking ? <LoadingSpinner /> : <ArrowUpIcon />}
             </Button>
         </form>
     );

@@ -18,7 +18,6 @@ import { ControlledInput } from "~/components/form/controlledInputs";
 import { CustomMarkdownComponents } from "~/components/react-markdown";
 import { ToolIcon } from "~/components/tools/ToolIcon";
 import { Button } from "~/components/ui/button";
-import { Card } from "~/components/ui/card";
 import {
     Dialog,
     DialogContent,
@@ -67,13 +66,13 @@ export const Message = React.memo(({ message }: MessageProps) => {
             <div
                 className={cn("flex", isUser ? "justify-end" : "justify-start")}
             >
-                <Card
-                    className={cn(
-                        message.error &&
-                            "border border-error bg-error-foreground",
-                        "break-words overflow-hidden",
-                        isUser ? "max-w-[80%] bg-blue-500" : "w-full max-w-full"
-                    )}
+                <div
+                    className={cn({
+                        "border border-error bg-error-foreground":
+                            message.error,
+                        "rounded-2xl max-w-[80%] bg-accent-bold": isUser,
+                        "w-full max-w-full": !isUser,
+                    })}
                 >
                     <div className="max-w-full overflow-hidden p-4 flex gap-2 items-center pl-[20px]">
                         {toolCall?.metadata?.icon && (
@@ -92,7 +91,8 @@ export const Message = React.memo(({ message }: MessageProps) => {
                                 className={cn(
                                     "flex-auto max-w-full prose overflow-x-auto dark:prose-invert prose-pre:whitespace-pre-wrap prose-pre:break-words prose-thead:text-left prose-img:rounded-xl prose-img:shadow-lg break-words",
                                     {
-                                        "text-white prose-invert": isUser,
+                                        "text-accent-bold-foreground prose-invert":
+                                            isUser,
                                     }
                                 )}
                                 remarkPlugins={[remarkGfm]}
@@ -131,7 +131,7 @@ export const Message = React.memo(({ message }: MessageProps) => {
                             </div>
                         )}
                     </div>
-                </Card>
+                </div>
             </div>
         </div>
     );

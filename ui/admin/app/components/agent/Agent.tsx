@@ -12,7 +12,7 @@ import { PastThreads } from "~/components/agent/PastThreads";
 import { ToolForm } from "~/components/agent/ToolForm";
 import { AgentKnowledgePanel } from "~/components/knowledge";
 import { Button } from "~/components/ui/button";
-import { Card } from "~/components/ui/card";
+import { CardDescription } from "~/components/ui/card";
 import { ScrollArea } from "~/components/ui/scroll-area";
 import { useDebounce } from "~/hooks/useDebounce";
 
@@ -55,24 +55,24 @@ export function Agent({ className, onRefresh }: AgentProps) {
                     onChange={partialSetAgent}
                 />
 
-                <Card className="p-4 m-4 lg:mx-6 xl:mx-8">
+                <div className="p-4 m-4 lg:mx-6 xl:mx-8">
                     <AgentForm
                         agent={agentUpdates}
                         onChange={debouncedSetAgentInfo}
                     />
-                </Card>
+                </div>
 
-                <Card className="p-4 m-4 space-y-4 lg:mx-6 xl:mx-8">
+                <div className="p-4 m-4 space-y-4 lg:mx-6 xl:mx-8">
                     <TypographyH4 className="flex items-center gap-2 border-b pb-2">
                         <WrenchIcon className="w-5 h-5" />
                         Tools
                     </TypographyH4>
 
-                    <TypographyP className="text-muted-foreground flex items-center gap-2">
+                    <CardDescription>
                         Add tools the allow the agent to perform useful actions
                         such as searching the web, reading files, or interacting
                         with other systems.
-                    </TypographyP>
+                    </CardDescription>
 
                     <ToolForm
                         agent={agentUpdates}
@@ -80,44 +80,47 @@ export function Agent({ className, onRefresh }: AgentProps) {
                             debouncedSetAgentInfo(convertTools(tools))
                         }
                     />
-                </Card>
+                </div>
 
-                <Card className="p-4 m-4 space-y-4 lg:mx-6 xl:mx-8">
+                <div className="p-4 m-4 space-y-4 lg:mx-6 xl:mx-8">
                     <TypographyH4 className="flex items-center gap-2 border-b pb-2">
                         <LibraryIcon className="w-6 h-6" />
                         Knowledge
                     </TypographyH4>
-                    <TypographyP className="text-muted-foreground flex items-center gap-2">
+                    <CardDescription>
                         Provide knowledge to the agent in the form of files,
                         website, or external links in order to give it context
                         about various topics.
-                    </TypographyP>
+                    </CardDescription>
                     <AgentKnowledgePanel
                         agentId={agent.id}
                         agent={agent}
                         updateAgent={debouncedSetAgentInfo}
                     />
-                </Card>
+                </div>
             </ScrollArea>
 
-            <footer className="flex justify-between items-center px-8 py-4 gap-4 text-muted-foreground shadow-inner">
-                {error ? (
-                    <TypographyP>Error saving agent</TypographyP>
-                ) : isUpdating ? (
-                    <TypographyP>Saving...</TypographyP>
-                ) : lastUpdated ? (
-                    <TypographyP>Saved</TypographyP>
-                ) : (
-                    <div />
-                )}
+            <footer className="flex justify-between items-center px-8 py-4 gap-4 shadow-inner">
+                <div className="text-muted-foreground">
+                    {error ? (
+                        <TypographyP>Error saving agent</TypographyP>
+                    ) : isUpdating ? (
+                        <TypographyP>Saving...</TypographyP>
+                    ) : lastUpdated ? (
+                        <TypographyP>Saved</TypographyP>
+                    ) : (
+                        <div />
+                    )}
+                </div>
 
                 <div className="flex gap-2">
                     <PastThreads
                         agentId={agent.id}
                         onThreadSelect={handleThreadSelect}
                     />
+
                     <Button
-                        variant="secondary"
+                        variant="outline"
                         className="flex gap-2"
                         onClick={() => {
                             onRefresh?.(null);

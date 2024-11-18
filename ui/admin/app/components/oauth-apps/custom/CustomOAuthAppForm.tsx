@@ -235,7 +235,7 @@ export function CustomOAuthAppForm({
                     <Button
                         className="flex-1 w-full"
                         type="button"
-                        variant="outline"
+                        variant="secondary"
                         onClick={onBack}
                     >
                         {prevLabel}

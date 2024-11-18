@@ -60,15 +60,17 @@ export const PastThreads: React.FC<PastThreadsProps> = ({
 
     return (
         <Tooltip>
+            <TooltipContent>Switch threads</TooltipContent>
+
             <Popover open={open} onOpenChange={handleOpenChange}>
                 <PopoverTrigger asChild>
                     <TooltipTrigger asChild>
-                        <Button variant="secondary" size="icon">
+                        <Button variant="ghost" size="icon">
                             <ChevronUpIcon className="w-4 h-4" />
                         </Button>
                     </TooltipTrigger>
                 </PopoverTrigger>
-                <TooltipContent>Switch threads</TooltipContent>
+
                 <PopoverContent className="w-80 p-0">
                     <Command className="flex-col-reverse">
                         <CommandInput placeholder="Search threads..." />

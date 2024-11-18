@@ -99,7 +99,7 @@ export function TypographyPAccent({
     ...props
 }: TypographyProps<"p">) {
     return (
-        <TypographyP className={cn(`text-info-muted`, className)} {...props}>
+        <TypographyP className={cn(`text-secondary`, className)} {...props}>
             {children}
         </TypographyP>
     );

@@ -7,6 +7,9 @@ export default {
     content: ["./app/**/{**,.client,.server}/**/*.{js,jsx,ts,tsx}"],
     theme: {
         extend: {
+            boxShadow: {
+                t: "0 -2px 3px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)",
+            },
             fontFamily: {
                 sans: [
                     "Inter",
@@ -37,11 +40,10 @@ export default {
                     DEFAULT: "hsl(var(--error))",
                     foreground: "hsl(var(--error-foreground))",
                 },
-                info: {
-                    DEFAULT: "hsl(var(--info))",
-                    foreground: "hsl(var(--info-foreground))",
+                background: {
+                    DEFAULT: "hsl(var(--background))",
+                    secondary: "hsl(var(--background-secondary))",
                 },
-                background: "hsl(var(--background))",
                 foreground: "hsl(var(--foreground))",
                 card: {
                     DEFAULT: "hsl(var(--card))",
@@ -70,11 +72,14 @@ export default {
                 accent: {
                     DEFAULT: "hsl(var(--accent))",
                     foreground: "hsl(var(--accent-foreground))",
+                    bold: {
+                        DEFAULT: "hsl(var(--accent-bold))",
+                        foreground: "hsl(var(--accent-bold-foreground))",
+                    },
                 },
                 destructive: {
                     DEFAULT: "hsl(var(--destructive))",
                     foreground: "hsl(var(--destructive-foreground))",
-                    background: "hsl(var(--destructive-background))",
                 },
                 border: "hsl(var(--border))",
                 input: "hsl(var(--input))",

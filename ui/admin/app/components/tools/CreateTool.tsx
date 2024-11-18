@@ -22,10 +22,6 @@ export function CreateTool({ onSuccess }: CreateToolProps) {
             });
             reset();
             onSuccess();
-        },
-        {
-            onError: (error) =>
-                console.error("Failed to create tool reference:", error),
         }
     );
 
@@ -41,7 +37,7 @@ export function CreateTool({ onSuccess }: CreateToolProps) {
                 />
             </div>
             <div className="flex justify-end">
-                <Button type="submit" variant="secondary" disabled={isLoading}>
+                <Button type="submit" disabled={isLoading}>
                     <PlusCircle className="w-4 h-4 mr-2" />
                     {isLoading ? "Creating..." : "Register Tool"}
                 </Button>

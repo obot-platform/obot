@@ -63,7 +63,7 @@ export function StepComponent({
                         )}
                     </Button>
 
-                    <div className="flex items-center justify-center p-2 w-24 bg-background border rounded-md mr-2">
+                    <div className="flex items-center justify-center p-2 w-24 bg-background-secondary border rounded-md mr-2">
                         <ArrowRight className="w-4 h-4 mr-1" />
                         <span className="text-sm font-medium">Step</span>
                     </div>
@@ -77,7 +77,7 @@ export function StepComponent({
                     placeholder="Step"
                     maxHeight={100}
                     minHeight={0}
-                    className="flex-grow bg-background"
+                    className="flex-grow bg-background-secondary"
                     onClick={(e) => e.stopPropagation()}
                 />
 

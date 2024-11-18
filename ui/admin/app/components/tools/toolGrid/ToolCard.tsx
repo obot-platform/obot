@@ -34,7 +34,7 @@ export function ToolCard({ tool, onDelete }: ToolCardProps) {
     return (
         <Card
             className={cn("flex flex-col h-full", {
-                "border-2 border-info": tool.metadata?.bundle,
+                "border-2 border-accent-bold": tool.metadata?.bundle,
                 "border-2 border-error": tool.error,
             })}
         >
@@ -59,7 +59,10 @@ export function ToolCard({ tool, onDelete }: ToolCardProps) {
                         </Tooltip>
                     )}
                     {tool.metadata?.bundle && (
-                        <Badge className="ml-2 bg-info pointer-events-none">
+                        <Badge
+                            variant="bold"
+                            className="ml-2 pointer-events-none"
+                        >
                             Bundle
                         </Badge>
                     )}

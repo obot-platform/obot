@@ -26,7 +26,7 @@ export function ToolEntry({
 
     return (
         <div className="flex items-center space-x-2 justify-between mt-1">
-            <div className="border text-sm px-3 shadow-sm rounded-md p-2 w-full flex items-center justify-between gap-2">
+            <div className="text-sm px-3 shadow-sm rounded-md p-2 w-full flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
                     {isLoading ? (
                         <LoadingSpinner className="w-5 h-5" />
@@ -46,7 +46,7 @@ export function ToolEntry({
 
                     <Button
                         type="button"
-                        variant="secondary"
+                        variant="ghost"
                         size="icon"
                         onClick={() => onDelete()}
                     >
