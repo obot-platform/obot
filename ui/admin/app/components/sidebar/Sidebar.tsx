@@ -7,6 +7,7 @@ import {
     PuzzleIcon,
     SettingsIcon,
     User,
+    WebhookIcon,
     Wrench,
 } from "lucide-react";
 import { $path } from "remix-routes";
@@ -70,6 +71,11 @@ const items = [
         title: "Models",
         url: $path("/models"),
         icon: BrainIcon,
+    },
+    {
+        title: "Webhooks",
+        url: $path("/webhooks"),
+        icon: WebhookIcon,
     },
 ];
 
