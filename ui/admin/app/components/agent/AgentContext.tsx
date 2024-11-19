@@ -17,6 +17,7 @@ interface AgentContextType {
     agentId: string;
     updateAgent: (agent: Agent) => void;
     isUpdating: boolean;
+    error?: unknown;
     lastUpdated?: Date;
 }
 
@@ -61,6 +62,7 @@ export function AgentProvider({
                 updateAgent: updateAgent.execute,
                 isUpdating: updateAgent.isLoading,
                 lastUpdated,
+                error: updateAgent.error,
             }}
         >
             {children}

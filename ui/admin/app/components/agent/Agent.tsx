@@ -23,7 +23,7 @@ type AgentProps = {
 };
 
 export function Agent({ className, onRefresh }: AgentProps) {
-    const { agent, updateAgent, isUpdating, lastUpdated } = useAgent();
+    const { agent, updateAgent, isUpdating, lastUpdated, error } = useAgent();
 
     const [agentUpdates, setAgentUpdates] = useState(agent);
 
@@ -100,8 +100,10 @@ export function Agent({ className, onRefresh }: AgentProps) {
                 </Card>
             </ScrollArea>
 
-            <footer className="flex justify-between items-center px-8 py-4 gap-4 text-muted-foreground">
-                {isUpdating ? (
+            <footer className="flex justify-between items-center px-8 py-4 gap-4 text-muted-foreground shadow-inner">
+                {error ? (
+                    <TypographyP>Error saving agent</TypographyP>
+                ) : isUpdating ? (
                     <TypographyP>Saving...</TypographyP>
                 ) : lastUpdated ? (
                     <TypographyP>Saved</TypographyP>
