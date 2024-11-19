@@ -82,6 +82,7 @@ interface MultiSelectProps {
     >;
     /** hide the clear all button. */
     hideClearAllButton?: boolean;
+    side?: "top" | "bottom";
 }
 
 export interface MultiSelectRef {
@@ -204,6 +205,7 @@ const MultiSelect = React.forwardRef<MultiSelectRef, MultiSelectProps>(
             commandProps,
             inputProps,
             hideClearAllButton = false,
+            side = "bottom",
         }: MultiSelectProps,
         ref: React.Ref<MultiSelectRef>
     ) => {
@@ -465,6 +467,8 @@ const MultiSelect = React.forwardRef<MultiSelectRef, MultiSelectProps>(
                 } // When onSearch is provided, we don't want to filter the options. You can still override it.
                 filter={commandFilter()}
             >
+                {side === "top" && renderDropdown()}
+
                 <ClickableDiv
                     className={cn(
                         "min-h-10 rounded-md border border-input text-sm ring-offset-background focus-within:ring-1 focus-within:ring-ring focus-within:ring-offset-1",
@@ -573,10 +577,20 @@ const MultiSelect = React.forwardRef<MultiSelectRef, MultiSelectProps>(
                         </button>
                     </div>
                 </ClickableDiv>
+
+                {side === "bottom" && renderDropdown()}
+            </Command>
+        );
+
+        function renderDropdown() {
+            return (
                 <div className="relative">
                     {open && (
                         <CommandList
-                            className="absolute top-1 z-10 w-full rounded-md border bg-popover text-popover-foreground shadow-md outline-none animate-in"
+                            className={cn(
+                                "absolute top-1 z-10 w-full rounded-md border bg-popover text-popover-foreground shadow-md outline-none animate-in",
+                                { "top-auto bottom-1": side === "top" }
+                            )}
                             onMouseLeave={() => {
                                 setOnScrollbar(false);
                             }}
@@ -669,8 +683,8 @@ const MultiSelect = React.forwardRef<MultiSelectRef, MultiSelectProps>(
                         </CommandList>
                     )}
                 </div>
-            </Command>
-        );
+            );
+        }
     }
 );
 

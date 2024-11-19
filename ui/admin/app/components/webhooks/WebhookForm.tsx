@@ -129,6 +129,7 @@ export function WebhookFormContent() {
                         onChange={(value) =>
                             field.onChange(value.map((v) => v.value))
                         }
+                        side="top"
                     />
                 )}
             </ControlledCustomInput>
