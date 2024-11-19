@@ -103,6 +103,11 @@ export const RouteHelperMap = {
         path: "/webhooks",
         schema: z.null(),
     },
+    "/webhooks/:webhook": {
+        regex: exactRegex($path("/webhooks/:webhook", { webhook: "(.+)" })),
+        path: "/webhooks/:webhook",
+        schema: z.null(),
+    },
     "/webhooks/create": {
         regex: exactRegex($path("/webhooks/create")),
         path: "/webhooks/create",

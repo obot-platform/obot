@@ -3,6 +3,10 @@ declare global {
     type Todo = any;
 
     type Nullish<T> = T | null | undefined;
+
+    type NullishPartial<T> = {
+        [P in keyof T]?: Nullish<T[P]>;
+    };
 }
 
 export {};

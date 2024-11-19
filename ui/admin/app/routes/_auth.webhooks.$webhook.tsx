@@ -1,0 +1,48 @@
+import {
+    ClientLoaderFunctionArgs,
+    useLoaderData,
+    useNavigate,
+} from "@remix-run/react";
+import { $path } from "remix-routes";
+import useSWR, { preload } from "swr";
+
+import { WebhookApiService } from "~/lib/service/api/webhookApiService";
+import { RouteService } from "~/lib/service/routeService";
+
+import { WebhookForm } from "~/components/webhooks/WebhookForm";
+
+export async function clientLoader({
+    request,
+    params,
+}: ClientLoaderFunctionArgs) {
+    const { pathParams } = RouteService.getRouteInfo(
+        "/webhooks/:webhook",
+        new URL(request.url),
+        params
+    );
+
+    await preload(
+        WebhookApiService.getWebhookById.key(pathParams.webhook),
+        () => WebhookApiService.getWebhookById(pathParams.webhook)
+    );
+
+    return { webhookId: pathParams.webhook };
+}
+
+export default function Webhook() {
+    const { webhookId } = useLoaderData<typeof clientLoader>();
+    const navigate = useNavigate();
+
+    const { data: webhook } = useSWR(
+        WebhookApiService.getWebhookById.key(webhookId),
+        () => WebhookApiService.getWebhookById(webhookId)
+    );
+
+    return (
+        <WebhookForm
+            defaultValues={webhook}
+            webhookId={webhookId}
+            onSuccess={() => navigate($path("/webhooks"))}
+        />
+    );
+}

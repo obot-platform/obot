@@ -1,3 +1,4 @@
+import { useNavigate } from "@remix-run/react";
 import { ColumnDef, createColumnHelper } from "@tanstack/react-table";
 import { EllipsisIcon, PlusIcon } from "lucide-react";
 import { useMemo } from "react";
@@ -38,6 +39,8 @@ export default function WebhooksPage() {
         WebhookApiService.getWebhooks()
     );
 
+    const navigate = useNavigate();
+
     const getWorkflows = useSWR(WorkflowService.getWorkflows.key(), () =>
         WorkflowService.getWorkflows()
     );
@@ -70,7 +73,15 @@ export default function WebhooksPage() {
             </div>
 
             <div className="flex flex-col gap-4">
-                <DataTable columns={getColumns()} data={webhooks ?? []} />
+                <DataTable
+                    onRowClick={(row) =>
+                        navigate(
+                            $path("/webhooks/:webhook", { webhook: row.id })
+                        )
+                    }
+                    columns={getColumns()}
+                    data={webhooks ?? []}
+                />
             </div>
         </div>
     );
@@ -99,10 +110,20 @@ export default function WebhooksPage() {
                                 </PopoverTrigger>
 
                                 <PopoverContent
-                                    className="w-48 p-2"
+                                    className="w-48 p-2 flex flex-col gap-1"
                                     side="top"
                                     align="end"
                                 >
+                                    <Link
+                                        to={$path("/webhooks/:webhook", {
+                                            webhook: row.id,
+                                        })}
+                                        as="button"
+                                        buttonSize="sm"
+                                    >
+                                        Edit
+                                    </Link>
+
                                     <DeleteWebhook id={row.original.id}>
                                         <Button
                                             variant="destructive"

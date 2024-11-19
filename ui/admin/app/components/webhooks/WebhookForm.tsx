@@ -33,7 +33,7 @@ export function WebhookForm(props: WebhookFormProps) {
 }
 
 export function WebhookFormContent() {
-    const { form, handleSubmit } = useWebhookFormContext();
+    const { form, handleSubmit, isLoading, isEdit } = useWebhookFormContext();
 
     const getWorkflows = useSWR(WorkflowService.getWorkflows.key(), () =>
         WorkflowService.getWorkflows()
@@ -110,8 +110,13 @@ export function WebhookFormContent() {
                 description="Optionally provide a token to add an extra layer of security."
             />
 
-            <Button className="w-full" type="submit">
-                Create Webhook
+            <Button
+                className="w-full"
+                type="submit"
+                disabled={isLoading}
+                loading={isLoading}
+            >
+                {isEdit ? "Update Webhook" : "Create Webhook"}
             </Button>
         </form>
     );
