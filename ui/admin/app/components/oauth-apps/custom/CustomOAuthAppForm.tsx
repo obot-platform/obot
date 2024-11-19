@@ -162,7 +162,7 @@ export function CustomOAuthAppForm({
         <Form {...form}>
             <form
                 onSubmit={handleSubmit}
-                className="space-y-4 overflow-x-hidden"
+                className="space-y-4 overflow-x-hidden p-1"
             >
                 {step === Step.NAME && (
                     <>
