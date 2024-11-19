@@ -167,6 +167,19 @@ export const ApiRoutes = {
         updateModel: (modelId: string) => buildUrl(`/models/${modelId}`),
         deleteModel: (modelId: string) => buildUrl(`/models/${modelId}`),
     },
+    webhooks: {
+        base: () => buildUrl("/webhooks"),
+        getWebhooks: () => buildUrl("/webhooks"),
+        createWebhook: () => buildUrl(`/webhooks`),
+        getWebhookById: (webhookId: string) =>
+            buildUrl(`/webhooks/${webhookId}`),
+        updateWebhook: (webhookId: string) =>
+            buildUrl(`/webhooks/${webhookId}`),
+        deleteWebhook: (webhookId: string) =>
+            buildUrl(`/webhooks/${webhookId}`),
+        executeWebhook: (webhookId: string) =>
+            buildUrl(`/webhooks/${webhookId}`),
+    },
 };
 
 /** revalidates the cache for all routes that match the filter callback

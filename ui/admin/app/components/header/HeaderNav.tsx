@@ -141,6 +141,27 @@ function RouteBreadcrumbs() {
                         </BreadcrumbItem>
                     </>
                 )}
+
+                {routeInfo?.path === "/webhooks" && (
+                    <BreadcrumbItem>
+                        <BreadcrumbPage>Webhooks</BreadcrumbPage>
+                    </BreadcrumbItem>
+                )}
+
+                {routeInfo?.path === "/webhooks/create" && (
+                    <>
+                        <BreadcrumbItem>
+                            <BreadcrumbLink asChild>
+                                <Link to={$path("/webhooks")}>Webhooks</Link>
+                            </BreadcrumbLink>
+                        </BreadcrumbItem>
+                        <BreadcrumbSeparator />
+                        <BreadcrumbItem>
+                            <BreadcrumbPage>Create Webhook</BreadcrumbPage>
+                        </BreadcrumbItem>
+                    </>
+                )}
+
                 {routeInfo?.path === "/tools" && (
                     <BreadcrumbItem>
                         <BreadcrumbPage>Tools</BreadcrumbPage>

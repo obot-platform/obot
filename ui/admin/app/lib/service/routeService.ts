@@ -103,6 +103,11 @@ export const RouteHelperMap = {
         path: "/webhooks",
         schema: z.null(),
     },
+    "/webhooks/create": {
+        regex: exactRegex($path("/webhooks/create")),
+        path: "/webhooks/create",
+        schema: z.null(),
+    },
     "/workflows": {
         regex: exactRegex($path("/workflows")),
         path: "/workflows",
@@ -193,6 +198,8 @@ function getUnknownRouteInfo(
             return routeInfo as RouteInfo<"/users">;
         case "/webhooks":
             return routeInfo as RouteInfo<"/webhooks">;
+        case "/webhooks/create":
+            return routeInfo as RouteInfo<"/webhooks/create">;
         case "/workflows":
             return routeInfo as RouteInfo<"/workflows">;
         case "/workflows/:workflow":

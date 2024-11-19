@@ -19,7 +19,7 @@ export async function clientLoader() {
 export default function OauthApps() {
     return (
         <div className="relative space-y-10 px-8 pb-8">
-            <div className="sticky top-0 bg-background border-b pt-8 pb-4 flex items-center justify-between">
+            <div className="sticky top-0 bg-background pt-8 pb-4 flex items-center justify-between">
                 <TypographyH2 className="mb-4">OAuth Apps</TypographyH2>
 
                 <CreateCustomOAuthApp />
