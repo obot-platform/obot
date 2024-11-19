@@ -10,6 +10,7 @@ import {
 } from "~/components/form/controlledInputs";
 import { Button } from "~/components/ui/button";
 import { FormItem, FormLabel } from "~/components/ui/form";
+import { MultiSelect } from "~/components/ui/multi-select";
 import {
     Select,
     SelectContent,
@@ -114,6 +115,24 @@ export function WebhookFormContent() {
                 placeholder={hasToken ? "(unchanged)" : ""}
             />
 
+            <ControlledCustomInput
+                control={form.control}
+                name="headers"
+                label="Headers"
+            >
+                {({ field }) => (
+                    <MultiSelect
+                        {...field}
+                        options={GithubHeaderOptions}
+                        value={field.value.map((v) => ({ label: v, value: v }))}
+                        creatable
+                        onChange={(value) =>
+                            field.onChange(value.map((v) => v.value))
+                        }
+                    />
+                )}
+            </ControlledCustomInput>
+
             <Button
                 className="w-full"
                 type="submit"
@@ -143,3 +162,17 @@ export function WebhookFormContent() {
         ));
     }
 }
+
+const GithubHeaderOptions = [
+    "X-GitHub-Hook-ID",
+    "X-GitHub-Event",
+    "X-GitHub-Delivery",
+    "X-Hub-Signature",
+    "X-Hub-Signature-Ed25519",
+    "User-Agent",
+    "X-GitHub-Hook-Installation-Target-Type",
+    "X-GitHub-Hook-Installation-Target-ID",
+].map((header) => ({
+    label: header,
+    value: header,
+}));

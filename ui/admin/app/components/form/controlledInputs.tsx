@@ -40,7 +40,10 @@ type BaseProps<
 export type ControlledInputProps<
     TValues extends FieldValues,
     TName extends FieldPath<TValues>,
-> = InputProps & BaseProps<TValues, TName>;
+> = InputProps &
+    BaseProps<TValues, TName> & {
+        classNames?: { wrapper?: string };
+    };
 
 export function ControlledInput<
     TValues extends FieldValues,
@@ -52,6 +55,7 @@ export function ControlledInput<
     className,
     description,
     onChange,
+    classNames = {},
     ...inputProps
 }: ControlledInputProps<TValues, TName>) {
     return (
@@ -59,7 +63,7 @@ export function ControlledInput<
             control={control}
             name={name}
             render={({ field, fieldState }) => (
-                <FormItem>
+                <FormItem className={classNames.wrapper}>
                     {label && <FormLabel>{label}</FormLabel>}
 
                     <FormControl>

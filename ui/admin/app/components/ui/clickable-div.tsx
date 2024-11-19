@@ -36,6 +36,6 @@ const ClickableDiv = React.forwardRef<HTMLDivElement, ButtonDivProps>(
     }
 );
 
-ClickableDiv.displayName = "ButtonDiv";
+ClickableDiv.displayName = "ClickableDiv";
 
-export { ClickableDiv as ButtonDiv };
+export { ClickableDiv };

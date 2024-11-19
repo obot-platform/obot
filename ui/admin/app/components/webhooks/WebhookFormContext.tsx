@@ -19,6 +19,7 @@ export type WebhookFormContextProps = {
 type WebhookFormContextType = {
     handleSubmit: ReturnType<UseFormHandleSubmit<WebhookFormType>>;
     isLoading: boolean;
+    error?: unknown;
     isEdit: boolean;
     hasToken: boolean;
     hasSecret: boolean;
@@ -73,8 +74,16 @@ export function WebhookFormContextProvider({
     }, [defaultValues, form]);
 
     const handleSubmit = form.handleSubmit(async (values) => {
-        if (webhookId) await updateWebhook.executeAsync(webhookId, values);
-        else await createWebhook.executeAsync(values);
+        const { error } = webhookId
+            ? await updateWebhook.executeAsync(webhookId, values)
+            : await createWebhook.executeAsync(values);
+
+        if (error) {
+            if (error instanceof Error) toast.error(error.message);
+            else toast.error("Failed to save webhook");
+
+            return;
+        }
 
         mutate(WebhookApiService.getWebhooks.key());
         onSuccess?.();
@@ -84,6 +93,7 @@ export function WebhookFormContextProvider({
         <Form {...form}>
             <Context.Provider
                 value={{
+                    error: updateWebhook.error || createWebhook.error,
                     isEdit: !!webhookId,
                     hasSecret: !!webhookId,
                     hasToken: !!webhook?.hasToken,

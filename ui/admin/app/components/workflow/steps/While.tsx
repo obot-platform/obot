@@ -5,7 +5,7 @@ import { Step, While } from "~/lib/model/workflows";
 import { cn } from "~/lib/utils";
 
 import { Button } from "~/components/ui/button";
-import { ButtonDiv } from "~/components/ui/clickable-div";
+import { ClickableDiv } from "~/components/ui/clickable-div";
 import { Input } from "~/components/ui/input";
 import { AutosizeTextarea } from "~/components/ui/textarea";
 import { AddStepButton } from "~/components/workflow/steps/AddStep";
@@ -51,7 +51,7 @@ export function WhileComponent({
 
     return (
         <div className={cn("border rounded-md", className)}>
-            <ButtonDiv
+            <ClickableDiv
                 className={cn(
                     "flex items-start p-3 bg-secondary",
                     isExpanded ? "rounded-t-md" : "rounded-md"
@@ -103,7 +103,7 @@ export function WhileComponent({
                 >
                     <Trash className="w-4 h-4" />
                 </Button>
-            </ButtonDiv>
+            </ClickableDiv>
 
             {isExpanded && (
                 <div className="p-3 space-y-4">

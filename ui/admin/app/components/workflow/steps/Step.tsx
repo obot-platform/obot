@@ -22,7 +22,7 @@ import {
     AccordionTrigger,
 } from "~/components/ui/accordion";
 import { Button } from "~/components/ui/button";
-import { ButtonDiv } from "~/components/ui/clickable-div";
+import { ClickableDiv } from "~/components/ui/clickable-div";
 import { Input } from "~/components/ui/input";
 import { Switch } from "~/components/ui/switch";
 import { AutosizeTextarea } from "~/components/ui/textarea";
@@ -43,7 +43,7 @@ export function StepComponent({
 
     return (
         <div className={cn("border rounded-md", className)}>
-            <ButtonDiv
+            <ClickableDiv
                 className={cn(
                     "flex items-start p-3 bg-secondary",
                     isExpanded ? "rounded-t-md" : "rounded-md"
@@ -92,7 +92,7 @@ export function StepComponent({
                 >
                     <Trash className="w-4 h-4" />
                 </Button>
-            </ButtonDiv>
+            </ClickableDiv>
 
             {isExpanded && (
                 <div className="p-3 space-y-4 px-8">
