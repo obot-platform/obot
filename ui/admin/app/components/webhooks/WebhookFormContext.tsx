@@ -1,10 +1,11 @@
 import { zodResolver } from "@hookform/resolvers/zod";
-import { createContext, useContext, useMemo } from "react";
+import { createContext, useContext, useEffect, useMemo } from "react";
 import { UseFormHandleSubmit, useForm, useFormContext } from "react-hook-form";
 import { toast } from "sonner";
 import { mutate } from "swr";
+import { z } from "zod";
 
-import { WebhookFormType, WebhookSchema } from "~/lib/model/webhooks";
+import { Webhook, WebhookFormType, WebhookSchema } from "~/lib/model/webhooks";
 import { WebhookApiService } from "~/lib/service/api/webhookApiService";
 
 import { Form } from "~/components/ui/form";
@@ -12,24 +13,31 @@ import { useAsync } from "~/hooks/useAsync";
 
 export type WebhookFormContextProps = {
     onSuccess?: () => void;
-    defaultValues?: NullishPartial<WebhookFormType>;
-    webhookId?: string;
+    webhook?: Webhook;
 };
 
 type WebhookFormContextType = {
     handleSubmit: ReturnType<UseFormHandleSubmit<WebhookFormType>>;
     isLoading: boolean;
     isEdit: boolean;
+    hasToken: boolean;
+    hasSecret: boolean;
 };
 
 const Context = createContext<WebhookFormContextType | null>(null);
 
+const CreateSchema = WebhookSchema;
+const EditSchema = WebhookSchema.omit({ token: true }).extend({
+    secret: z.string(),
+});
+
 export function WebhookFormContextProvider({
     children,
-    defaultValues: _defaultValues,
-    webhookId,
+    webhook,
     onSuccess,
 }: WebhookFormContextProps & { children: React.ReactNode }) {
+    const webhookId = webhook?.id;
+
     const updateWebhook = useAsync(WebhookApiService.updateWebhook, {
         onSuccess: () => {
             toast.success("Webhook updated");
@@ -43,22 +51,26 @@ export function WebhookFormContextProvider({
 
     const defaultValues = useMemo<WebhookFormType>(
         () => ({
-            name: _defaultValues?.name ?? "",
-            description: _defaultValues?.description ?? "",
-            alias: _defaultValues?.alias ?? "",
-            workflow: _defaultValues?.workflow ?? "",
-            headers: _defaultValues?.headers ?? [],
-            secret: _defaultValues?.secret ?? "",
-            validationHeader: _defaultValues?.validationHeader ?? "",
-            token: _defaultValues?.token ?? "",
+            name: webhook?.name ?? "",
+            description: webhook?.description ?? "",
+            alias: webhook?.alias ?? "",
+            workflow: webhook?.workflow ?? "",
+            headers: webhook?.headers ?? [],
+            secret: "",
+            validationHeader: webhook?.validationHeader ?? "",
+            token: "",
         }),
-        [_defaultValues]
+        [webhook]
     );
 
     const form = useForm<WebhookFormType>({
-        resolver: zodResolver(WebhookSchema),
+        resolver: zodResolver(webhookId ? EditSchema : CreateSchema),
         defaultValues,
     });
+
+    useEffect(() => {
+        form.reset(defaultValues);
+    }, [defaultValues, form]);
 
     const handleSubmit = form.handleSubmit(async (values) => {
         if (webhookId) await updateWebhook.executeAsync(webhookId, values);
@@ -73,6 +85,8 @@ export function WebhookFormContextProvider({
             <Context.Provider
                 value={{
                     isEdit: !!webhookId,
+                    hasSecret: !!webhookId,
+                    hasToken: !!webhook?.hasToken,
                     handleSubmit,
                     isLoading:
                         updateWebhook.isLoading || createWebhook.isLoading,

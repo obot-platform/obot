@@ -35,13 +35,12 @@ export default function Webhook() {
 
     const { data: webhook } = useSWR(
         WebhookApiService.getWebhookById.key(webhookId),
-        () => WebhookApiService.getWebhookById(webhookId)
+        ({ id }) => WebhookApiService.getWebhookById(id)
     );
 
     return (
         <WebhookForm
-            defaultValues={webhook}
-            webhookId={webhookId}
+            webhook={webhook}
             onSuccess={() => navigate($path("/webhooks"))}
         />
     );

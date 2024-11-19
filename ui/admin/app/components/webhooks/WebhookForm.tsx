@@ -1,7 +1,9 @@
+import { useEffect } from "react";
 import useSWR from "swr";
 
 import { WorkflowService } from "~/lib/service/api/workflowService";
 
+import { TypographyH4 } from "~/components/Typography";
 import {
     ControlledCustomInput,
     ControlledInput,
@@ -33,7 +35,8 @@ export function WebhookForm(props: WebhookFormProps) {
 }
 
 export function WebhookFormContent() {
-    const { form, handleSubmit, isLoading, isEdit } = useWebhookFormContext();
+    const { form, handleSubmit, isLoading, isEdit, hasToken, hasSecret } =
+        useWebhookFormContext();
 
     const getWorkflows = useSWR(WorkflowService.getWorkflows.key(), () =>
         WorkflowService.getWorkflows()
@@ -42,26 +45,25 @@ export function WebhookFormContent() {
     const workflows = getWorkflows.data;
 
     // note(ryanhopperlowe): this will change depending on webhook type
-    if (!form.watch("validationHeader")) {
-        form.setValue("validationHeader", "X-Hub-Signature-256");
-    }
+    const validationHeader = form.watch("validationHeader");
+    useEffect(() => {
+        if (!validationHeader) {
+            form.setValue("validationHeader", "X-Hub-Signature-256");
+        }
+    }, [form, validationHeader]);
 
     return (
         <form onSubmit={handleSubmit} className="space-y-8 p-8">
-            <ControlledInput
-                control={form.control}
-                name="name"
-                className="text-3xl"
-                placeholder="Enter the name of the webhook"
-                variant="ghost"
-            />
+            <TypographyH4>
+                {isEdit ? "Edit Webhook" : "Create Webhook"}
+            </TypographyH4>
+
+            <ControlledInput control={form.control} name="name" label="Name" />
 
             <ControlledInput
                 control={form.control}
                 name="description"
-                placeholder="Enter the description of the webhook"
-                className="text-xl"
-                variant="ghost"
+                label="Description"
             />
 
             <FormItem>
@@ -101,6 +103,7 @@ export function WebhookFormContent() {
                 name="secret"
                 label="Secret"
                 description="This secret should match the secret you provide to GitHub."
+                placeholder={hasSecret ? "(unchanged)" : ""}
             />
 
             <ControlledInput
@@ -108,6 +111,7 @@ export function WebhookFormContent() {
                 name="token"
                 label="Token (optional)"
                 description="Optionally provide a token to add an extra layer of security."
+                placeholder={hasToken ? "(unchanged)" : ""}
             />
 
             <Button

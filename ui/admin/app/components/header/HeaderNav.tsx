@@ -4,6 +4,7 @@ import useSWR from "swr";
 
 import { AgentService } from "~/lib/service/api/agentService";
 import { ThreadsService } from "~/lib/service/api/threadsService";
+import { WebhookApiService } from "~/lib/service/api/webhookApiService";
 import { WorkflowService } from "~/lib/service/api/workflowService";
 import { cn } from "~/lib/utils";
 
@@ -122,6 +123,7 @@ function RouteBreadcrumbs() {
                         </BreadcrumbItem>
                     </>
                 )}
+
                 {routeInfo?.path === "/workflows/:workflow" && (
                     <>
                         <BreadcrumbItem>
@@ -158,6 +160,26 @@ function RouteBreadcrumbs() {
                         <BreadcrumbSeparator />
                         <BreadcrumbItem>
                             <BreadcrumbPage>Create Webhook</BreadcrumbPage>
+                        </BreadcrumbItem>
+                    </>
+                )}
+
+                {routeInfo?.path === "/webhooks/:webhook" && (
+                    <>
+                        <BreadcrumbItem>
+                            <BreadcrumbLink asChild>
+                                <Link to={$path("/webhooks")}>Webhooks</Link>
+                            </BreadcrumbLink>
+                        </BreadcrumbItem>
+                        <BreadcrumbSeparator />
+                        <BreadcrumbItem>
+                            <BreadcrumbPage>
+                                <WebhookName
+                                    webhookId={
+                                        routeInfo.pathParams.webhook || ""
+                                    }
+                                />
+                            </BreadcrumbPage>
                         </BreadcrumbItem>
                     </>
                 )}
@@ -216,4 +238,13 @@ const ThreadName = ({ threadId }: { threadId: string }) => {
     );
 
     return <>{thread?.description || threadId}</>;
+};
+
+const WebhookName = ({ webhookId }: { webhookId: string }) => {
+    const { data } = useSWR(
+        WebhookApiService.getWebhookById.key(webhookId),
+        ({ id }) => WebhookApiService.getWebhookById(id)
+    );
+
+    return <>{data?.name || webhookId}</>;
 };
