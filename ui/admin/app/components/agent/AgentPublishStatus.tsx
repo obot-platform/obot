@@ -3,7 +3,7 @@ import { useMemo } from "react";
 import { $path } from "remix-routes";
 import useSWR from "swr";
 
-import { AgentBase } from "~/lib/model/agents";
+import { Agent } from "~/lib/model/agents";
 import { ConsumptionUrl } from "~/lib/routers/baseRouter";
 import { AssistantApiService } from "~/lib/service/api/assistantApiService";
 
@@ -13,8 +13,8 @@ import { Unpublish } from "~/components/agent/Unpublish";
 import { CopyText } from "~/components/composed/CopyText";
 
 type AgentPublishStatusProps = {
-    agent: AgentBase;
-    onChange: (agent: Partial<AgentBase>) => void;
+    agent: Agent;
+    onChange: (agent: Partial<Agent>) => void;
 };
 
 export function AgentPublishStatus({
@@ -53,7 +53,7 @@ export function AgentPublishStatus({
     function renderAgentRef() {
         if (!agent.alias) return <div />;
 
-        if (refAgent) {
+        if (refAgent && refAgent.id !== agent.id) {
             const route =
                 refAgent.type === "agent"
                     ? $path("/agents/:agent", {
