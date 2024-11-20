@@ -151,7 +151,13 @@ export default function FileTreeNode({
         <div className={cn("border-l", level > 0 && "ml-4")}>
             <Collapsible open={isOpen} onOpenChange={setIsOpen}>
                 <CollapsibleTrigger asChild>
-                    <div className="flex flex-row p-2 hover:bg-accent hover:text-accent-foreground justify-between hover:cursor-pointer group">
+                    <div
+                        className={cn(
+                            "flex flex-row p-2 hover:bg-accent hover:text-accent-foreground justify-between",
+                            !isFile && "hover:cursor-pointer",
+                            "group"
+                        )}
+                    >
                         <div className="flex flex-1 justify-between items-center truncate">
                             <div className="flex items-center justify-center">
                                 {hasChildren ? (
