@@ -73,6 +73,7 @@ func (c *Controller) setupRoutes() error {
 	// Reference
 	root.Type(&v1.Agent{}).HandlerFunc(alias.AssignAlias)
 	root.Type(&v1.Workflow{}).HandlerFunc(alias.AssignAlias)
+	root.Type(&v1.Model{}).HandlerFunc(alias.AssignAlias)
 
 	// Knowledge files
 	root.Type(&v1.KnowledgeFile{}).HandlerFunc(cleanup.Cleanup)

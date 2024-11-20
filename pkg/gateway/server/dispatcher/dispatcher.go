@@ -14,6 +14,7 @@ import (
 	"sync"
 
 	"github.com/gptscript-ai/gptscript/pkg/engine"
+	"github.com/otto8-ai/otto8/pkg/alias"
 	"github.com/otto8-ai/otto8/pkg/invoke"
 	v1 "github.com/otto8-ai/otto8/pkg/storage/apis/otto.otto8.ai/v1"
 	"github.com/otto8-ai/otto8/pkg/system"
@@ -82,7 +83,7 @@ func (d *Dispatcher) TransformRequest(req *http.Request, namespace string) error
 
 func (d *Dispatcher) getModelProviderForModel(ctx context.Context, namespace, model string) (*v1.Model, error) {
 	var m v1.Model
-	if err := d.client.Get(ctx, kclient.ObjectKey{Namespace: namespace, Name: model}, &m); err != nil {
+	if err := alias.Get(ctx, d.client, &m, namespace, model); err != nil {
 		return nil, err
 	}
 

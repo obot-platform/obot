@@ -21,6 +21,18 @@ type Model struct {
 	Status            ModelStatus `json:"status,omitempty"`
 }
 
+func (m *Model) IsAssigned() bool {
+	return m.Status.AliasAssigned
+}
+
+func (m *Model) GetAliasName() string {
+	return m.Spec.Manifest.Alias
+}
+
+func (m *Model) SetAssigned(assigned bool) {
+	m.Status.AliasAssigned = assigned
+}
+
 func (m *Model) Has(field string) bool {
 	return m.Get(field) != ""
 }
@@ -44,7 +56,9 @@ type ModelSpec struct {
 	Manifest types.ModelManifest `json:"manifest,omitempty"`
 }
 
-type ModelStatus struct{}
+type ModelStatus struct {
+	AliasAssigned bool `json:"aliasAssigned,omitempty"`
+}
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 

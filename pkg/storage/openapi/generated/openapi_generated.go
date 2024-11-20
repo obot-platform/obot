@@ -48,6 +48,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/otto8-ai/otto8/apiclient/types.ModelList":                                 schema_otto8_ai_otto8_apiclient_types_ModelList(ref),
 		"github.com/otto8-ai/otto8/apiclient/types.ModelManifest":                             schema_otto8_ai_otto8_apiclient_types_ModelManifest(ref),
 		"github.com/otto8-ai/otto8/apiclient/types.ModelProviderStatus":                       schema_otto8_ai_otto8_apiclient_types_ModelProviderStatus(ref),
+		"github.com/otto8-ai/otto8/apiclient/types.ModelStatus":                               schema_otto8_ai_otto8_apiclient_types_ModelStatus(ref),
 		"github.com/otto8-ai/otto8/apiclient/types.NotionConfig":                              schema_otto8_ai_otto8_apiclient_types_NotionConfig(ref),
 		"github.com/otto8-ai/otto8/apiclient/types.OAuthApp":                                  schema_otto8_ai_otto8_apiclient_types_OAuthApp(ref),
 		"github.com/otto8-ai/otto8/apiclient/types.OAuthAppList":                              schema_otto8_ai_otto8_apiclient_types_OAuthAppList(ref),
@@ -1533,18 +1534,18 @@ func schema_otto8_ai_otto8_apiclient_types_Model(ref common.ReferenceCallback) c
 							Ref:     ref("github.com/otto8-ai/otto8/apiclient/types.ModelManifest"),
 						},
 					},
-					"ModelProviderStatus": {
+					"ModelStatus": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/otto8-ai/otto8/apiclient/types.ModelProviderStatus"),
+							Ref:     ref("github.com/otto8-ai/otto8/apiclient/types.ModelStatus"),
 						},
 					},
 				},
-				Required: []string{"Metadata", "ModelManifest", "ModelProviderStatus"},
+				Required: []string{"Metadata", "ModelManifest", "ModelStatus"},
 			},
 		},
 		Dependencies: []string{
-			"github.com/otto8-ai/otto8/apiclient/types.Metadata", "github.com/otto8-ai/otto8/apiclient/types.ModelManifest", "github.com/otto8-ai/otto8/apiclient/types.ModelProviderStatus"},
+			"github.com/otto8-ai/otto8/apiclient/types.Metadata", "github.com/otto8-ai/otto8/apiclient/types.ModelManifest", "github.com/otto8-ai/otto8/apiclient/types.ModelStatus"},
 	}
 }
 
@@ -1595,6 +1596,12 @@ func schema_otto8_ai_otto8_apiclient_types_ModelManifest(ref common.ReferenceCal
 						},
 					},
 					"modelProvider": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"alias": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
 							Format: "",
@@ -1658,6 +1665,33 @@ func schema_otto8_ai_otto8_apiclient_types_ModelProviderStatus(ref common.Refere
 				Required: []string{"configured"},
 			},
 		},
+	}
+}
+
+func schema_otto8_ai_otto8_apiclient_types_ModelStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"ModelProviderStatus": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/otto8-ai/otto8/apiclient/types.ModelProviderStatus"),
+						},
+					},
+					"aliasAssigned": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
+						},
+					},
+				},
+				Required: []string{"ModelProviderStatus"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/otto8-ai/otto8/apiclient/types.ModelProviderStatus"},
 	}
 }
 
@@ -2925,6 +2959,12 @@ func schema_otto8_ai_otto8_apiclient_types_Webhook(ref common.ReferenceCallback)
 					"lastSuccessfulRunCompleted": {
 						SchemaProps: spec.SchemaProps{
 							Ref: ref("github.com/otto8-ai/otto8/apiclient/types.Time"),
+						},
+					},
+					"hasToken": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
 						},
 					},
 				},
@@ -4898,6 +4938,14 @@ func schema_storage_apis_ottootto8ai_v1_ModelStatus(ref common.ReferenceCallback
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
 				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"aliasAssigned": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
+						},
+					},
+				},
 			},
 		},
 	}

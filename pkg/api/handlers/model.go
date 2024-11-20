@@ -162,9 +162,12 @@ func convertModel(ctx context.Context, c kclient.Client, model v1.Model) (types.
 	}
 
 	return types.Model{
-		Metadata:            MetadataFrom(&model),
-		ModelManifest:       model.Spec.Manifest,
-		ModelProviderStatus: *convertModelProviderToolRef(toolRef),
+		Metadata:      MetadataFrom(&model),
+		ModelManifest: model.Spec.Manifest,
+		ModelStatus: types.ModelStatus{
+			ModelProviderStatus: *convertModelProviderToolRef(toolRef),
+			AliasAssigned:       model.Status.AliasAssigned,
+		},
 	}, nil
 }
 
