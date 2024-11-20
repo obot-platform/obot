@@ -77,6 +77,9 @@ export default function FileTreeNode({
     const ingestedFiles = allFiles.filter(
         (file) => file.state === KnowledgeFileState.Ingested
     ).length;
+    const excludedFiles = allFiles.filter(
+        (file) => file.state === KnowledgeFileState.Unapproved
+    ).length;
     const selectedFiles = allFiles.filter((file) => file.approved).length;
     const errorFiles = allFiles.filter(
         (file) => file.state === KnowledgeFileState.Error
@@ -263,7 +266,7 @@ export default function FileTreeNode({
                                                 });
                                             }
                                         }}
-                                        className="justify-start items-center group ml-2 hidden group-hover:block"
+                                        className="justify-start items-center group ml-2 invisible group-hover:visible hover:bg-gray-200"
                                     >
                                         <Tooltip>
                                             <TooltipTrigger asChild>
@@ -400,34 +403,30 @@ export default function FileTreeNode({
                         ) : (
                             <div className="flex items-center text-muted-foreground justify-center space-x-2">
                                 <div className="whitespace-nowrap text-xs mr-2 items-center justify-center">
-                                    <span className="font-medium">
+                                    <span className="font-medium text-xs">
                                         {ingestingFiles > 0 && (
                                             <>
-                                                <span className="text-warning">
-                                                    {ingestingFiles}
-                                                </span>
+                                                <span className="text-warning">{`${ingestingFiles}`}</span>
                                                 <span>{` Ingesting, `}</span>
                                             </>
                                         )}
+                                        {ingestedFiles > 0 && (
+                                            <>
+                                                <span className="text-success">{`${ingestedFiles}`}</span>
+                                                <span>{` Ingested, `}</span>
+                                            </>
+                                        )}
+                                        {errorFiles > 0 && (
+                                            <>
+                                                <span className="text-destructive">{`${errorFiles}`}</span>
+                                                <span>{` Err, `}</span>
+                                            </>
+                                        )}
                                         {selectedFiles > 0 && (
-                                            <span>
-                                                <span className="text-success">
-                                                    {ingestedFiles}
-                                                </span>
-                                                <span>
-                                                    {`/${selectedFiles} Ingested, `}
-                                                </span>
-                                                {errorFiles > 0 && (
-                                                    <>
-                                                        <span className="text-error">
-                                                            {errorFiles}
-                                                        </span>
-                                                        <span>
-                                                            {` Error, `}
-                                                        </span>
-                                                    </>
-                                                )}
-                                            </span>
+                                            <span>{`${selectedFiles} Inc, `}</span>
+                                        )}
+                                        {excludedFiles > 0 && (
+                                            <span>{`${excludedFiles} Exc, `}</span>
                                         )}
                                         <span>{`${totalFiles} Total`}</span>
                                     </span>

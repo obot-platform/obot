@@ -100,26 +100,19 @@ func (h *Handler) IngestFile(req router.Request, _ router.Response) error {
 	}
 
 	// Check approval
-	matchInclude := isFileMatchIncludePattern(file.Spec.FileName, source.Spec.Manifest.FilePathPrefixInclude)
-	matchExclude := isFileMatchExcludePattern(file.Spec.FileName, source.Spec.Manifest.FilePathPrefixExclude)
 	if file.Spec.Approved == nil {
-		if source.Spec.Manifest.AutoApprove != nil && *source.Spec.Manifest.AutoApprove {
+		matchInclude := isFileMatchPrefixPattern(file.Spec.FileName, source.Spec.Manifest.FilePathPrefixInclude)
+		matchExclude := isFileMatchPrefixPattern(file.Spec.FileName, source.Spec.Manifest.FilePathPrefixExclude)
+		switch {
+		case source.Spec.Manifest.AutoApprove != nil && *source.Spec.Manifest.AutoApprove:
 			file.Spec.Approved = typed.Pointer(true)
-			if err := req.Client.Update(req.Ctx, file); err != nil {
-				return err
-			}
-		}
-
-		if matchInclude && !matchExclude {
+		case matchInclude && !matchExclude:
 			file.Spec.Approved = typed.Pointer(true)
-			if err := req.Client.Update(req.Ctx, file); err != nil {
-				return err
-			}
-		} else if matchExclude {
+		case matchExclude:
 			file.Spec.Approved = typed.Pointer(false)
-			if err := req.Client.Update(req.Ctx, file); err != nil {
-				return err
-			}
+		}
+		if err := req.Client.Update(req.Ctx, file); err != nil {
+			return err
 		}
 	}
 
@@ -410,19 +403,9 @@ func (h *Handler) Cleanup(req router.Request, _ router.Response) error {
 	return nil
 }
 
-func isFileMatchIncludePattern(filePath string, filePathPrefixInclude []string) bool {
-	for _, include := range filePathPrefixInclude {
-		if strings.HasPrefix(filePath, include) {
-			return true
-		}
-	}
-
-	return false
-}
-
-func isFileMatchExcludePattern(filePath string, filePathPrefixExclude []string) bool {
-	for _, exclude := range filePathPrefixExclude {
-		if strings.HasPrefix(filePath, exclude) {
+func isFileMatchPrefixPattern(filePath string, patterns []string) bool {
+	for _, pattern := range patterns {
+		if strings.HasPrefix(filePath, pattern) {
 			return true
 		}
 	}
