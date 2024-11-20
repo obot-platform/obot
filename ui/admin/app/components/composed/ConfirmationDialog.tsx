@@ -24,8 +24,8 @@ export function ConfirmationDialog({
     children?: ReactNode;
     title: ReactNode;
     description?: ReactNode;
-    onConfirm: () => void;
-    onCancel?: () => void;
+    onConfirm: (e: React.MouseEvent<HTMLButtonElement>) => void;
+    onCancel?: (e: React.MouseEvent<HTMLButtonElement>) => void;
     confirmProps?: Omit<Partial<ComponentProps<typeof Button>>, "onClick">;
     closeOnConfirm?: boolean;
 }) {
@@ -33,7 +33,7 @@ export function ConfirmationDialog({
         <Dialog {...dialogProps}>
             {children && <DialogTrigger asChild>{children}</DialogTrigger>}
 
-            <DialogContent>
+            <DialogContent onClick={(e) => e.stopPropagation()}>
                 <DialogTitle>{title}</DialogTitle>
                 <DialogDescription>{description}</DialogDescription>
                 <DialogFooter>

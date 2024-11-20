@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { EntityMeta } from "~/lib/model/primitives";
+import { EntityMeta, MetaLinks, Metadata } from "~/lib/model/primitives";
 
 export type WebhookBase = {
     name: string;
@@ -18,7 +18,9 @@ export type WebhookDetail = WebhookBase & {
     hasToken?: boolean;
 };
 
-export type Webhook = EntityMeta & WebhookDetail;
+type WebhookLinks = { invoke: string } & MetaLinks;
+
+export type Webhook = EntityMeta<Metadata, WebhookLinks> & WebhookDetail;
 
 type WebhookPayload = WebhookBase & {
     token: Nullish<string>;

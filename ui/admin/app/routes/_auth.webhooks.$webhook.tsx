@@ -1,9 +1,4 @@
-import {
-    ClientLoaderFunctionArgs,
-    useLoaderData,
-    useNavigate,
-} from "@remix-run/react";
-import { $path } from "remix-routes";
+import { ClientLoaderFunctionArgs, useLoaderData } from "@remix-run/react";
 import useSWR, { preload } from "swr";
 
 import { WebhookApiService } from "~/lib/service/api/webhookApiService";
@@ -31,17 +26,11 @@ export async function clientLoader({
 
 export default function Webhook() {
     const { webhookId } = useLoaderData<typeof clientLoader>();
-    const navigate = useNavigate();
 
     const { data: webhook } = useSWR(
         WebhookApiService.getWebhookById.key(webhookId),
         ({ id }) => WebhookApiService.getWebhookById(id)
     );
 
-    return (
-        <WebhookForm
-            webhook={webhook}
-            onSuccess={() => navigate($path("/webhooks"))}
-        />
-    );
+    return <WebhookForm webhook={webhook} />;
 }

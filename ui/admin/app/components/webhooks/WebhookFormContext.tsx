@@ -1,5 +1,5 @@
 import { zodResolver } from "@hookform/resolvers/zod";
-import { createContext, useContext, useEffect, useMemo } from "react";
+import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { UseFormHandleSubmit, useForm, useFormContext } from "react-hook-form";
 import { toast } from "sonner";
 import { mutate } from "swr";
@@ -9,10 +9,13 @@ import { Webhook, WebhookFormType, WebhookSchema } from "~/lib/model/webhooks";
 import { WebhookApiService } from "~/lib/service/api/webhookApiService";
 
 import { Form } from "~/components/ui/form";
+import {
+    WebhookConfirmation,
+    WebhookConfirmationProps,
+} from "~/components/webhooks/WebhookConfirmation";
 import { useAsync } from "~/hooks/useAsync";
 
 export type WebhookFormContextProps = {
-    onSuccess?: () => void;
     webhook?: Webhook;
 };
 
@@ -35,9 +38,11 @@ const EditSchema = WebhookSchema.omit({ token: true }).extend({
 export function WebhookFormContextProvider({
     children,
     webhook,
-    onSuccess,
 }: WebhookFormContextProps & { children: React.ReactNode }) {
     const webhookId = webhook?.id;
+
+    const [webhookConfirmation, showWebhookConfirmation] =
+        useState<WebhookConfirmationProps | null>(null);
 
     const updateWebhook = useAsync(WebhookApiService.updateWebhook, {
         onSuccess: () => {
@@ -74,7 +79,7 @@ export function WebhookFormContextProvider({
     }, [defaultValues, form]);
 
     const handleSubmit = form.handleSubmit(async (values) => {
-        const { error } = webhookId
+        const { error, data } = webhookId
             ? await updateWebhook.executeAsync(webhookId, values)
             : await createWebhook.executeAsync(values);
 
@@ -86,7 +91,11 @@ export function WebhookFormContextProvider({
         }
 
         mutate(WebhookApiService.getWebhooks.key());
-        onSuccess?.();
+        showWebhookConfirmation({
+            webhook: data,
+            secret: values.secret,
+            token: values.token,
+        });
     });
 
     return (
@@ -103,6 +112,10 @@ export function WebhookFormContextProvider({
                 }}
             >
                 {children}
+
+                {webhookConfirmation && (
+                    <WebhookConfirmation {...webhookConfirmation} />
+                )}
             </Context.Provider>
         </Form>
     );
