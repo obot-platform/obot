@@ -99,6 +99,30 @@ func (h *Handler) IngestFile(req router.Request, _ router.Response) error {
 		}
 	}
 
+	// Check approval
+	matchInclude := isFileMatchIncludePattern(file.Spec.FileName, source.Spec.Manifest.FilePathPrefixInclude)
+	matchExclude := isFileMatchExcludePattern(file.Spec.FileName, source.Spec.Manifest.FilePathPrefixExclude)
+	if file.Spec.Approved == nil {
+		if source.Spec.Manifest.AutoApprove != nil && *source.Spec.Manifest.AutoApprove {
+			file.Spec.Approved = typed.Pointer(true)
+			if err := req.Client.Update(req.Ctx, file); err != nil {
+				return err
+			}
+		}
+
+		if matchInclude && !matchExclude {
+			file.Spec.Approved = typed.Pointer(true)
+			if err := req.Client.Update(req.Ctx, file); err != nil {
+				return err
+			}
+		} else if matchExclude {
+			file.Spec.Approved = typed.Pointer(false)
+			if err := req.Client.Update(req.Ctx, file); err != nil {
+				return err
+			}
+		}
+	}
+
 	if file.Status.State.IsTerminal() && !shouldReIngest(file) {
 		return nil
 	}
@@ -108,16 +132,6 @@ func (h *Handler) IngestFile(req router.Request, _ router.Response) error {
 		file.Status.State = types.KnowledgeFileStatePending
 		if err := req.Client.Status().Update(req.Ctx, file); err != nil {
 			return err
-		}
-	}
-
-	// Check approval
-	if file.Spec.Approved == nil {
-		if source.Spec.Manifest.AutoApprove != nil && *source.Spec.Manifest.AutoApprove {
-			file.Spec.Approved = typed.Pointer(true)
-			if err := req.Client.Update(req.Ctx, file); err != nil {
-				return err
-			}
 		}
 	}
 
@@ -394,4 +408,24 @@ func (h *Handler) Cleanup(req router.Request, _ router.Response) error {
 		return fmt.Errorf("failed to delete knowledge file: %w", err)
 	}
 	return nil
+}
+
+func isFileMatchIncludePattern(filePath string, filePathPrefixInclude []string) bool {
+	for _, include := range filePathPrefixInclude {
+		if strings.HasPrefix(filePath, include) {
+			return true
+		}
+	}
+
+	return false
+}
+
+func isFileMatchExcludePattern(filePath string, filePathPrefixExclude []string) bool {
+	for _, exclude := range filePathPrefixExclude {
+		if strings.HasPrefix(filePath, exclude) {
+			return true
+		}
+	}
+
+	return false
 }

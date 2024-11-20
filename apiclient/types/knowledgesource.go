@@ -36,12 +36,16 @@ type KnowledgeSource struct {
 	LastSyncStartTime       *Time                `json:"lastSyncStartTime,omitempty"`
 	LastSyncEndTime         *Time                `json:"lastSyncEndTime,omitempty"`
 	LastRunID               string               `json:"lastRunID,omitempty"`
+	FilePathPrefixInclude   []string             `json:"filePathPrefixInclude,omitempty"`
+	FilePathPrefixExclude   []string             `json:"filePathPrefixExclude,omitempty"`
 }
 
 type KnowledgeSourceManifest struct {
-	SyncSchedule         string `json:"syncSchedule,omitempty"`
-	AutoApprove          *bool  `json:"autoApprove,omitempty"`
-	KnowledgeSourceInput `json:",inline"`
+	SyncSchedule          string   `json:"syncSchedule,omitempty"`
+	AutoApprove           *bool    `json:"autoApprove,omitempty"`
+	FilePathPrefixInclude []string `json:"filePathPrefixInclude,omitempty"`
+	FilePathPrefixExclude []string `json:"filePathPrefixExclude,omitempty"`
+	KnowledgeSourceInput  `json:",inline"`
 }
 
 type KnowledgeSourceList List[KnowledgeSource]

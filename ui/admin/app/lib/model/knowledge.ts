@@ -54,6 +54,8 @@ export type KnowledgeSourceInput = {
     onedriveConfig?: OneDriveConfig;
     notionConfig?: NotionConfig;
     websiteCrawlingConfig?: WebsiteCrawlingConfig;
+    filePathPrefixInclude?: string[];
+    filePathPrefixExclude?: string[];
 };
 
 type OneDriveConfig = {
@@ -231,4 +233,24 @@ export function getKnowledgeFileDisplayName(
         displayName = file.url ?? "";
     }
     return { displayName, subTitle };
+}
+
+export function getKnowledgeFilePathNameForFileTree(
+    file: KnowledgeFile,
+    source: KnowledgeSource
+) {
+    const sourceType = getKnowledgeSourceType(source);
+    if (sourceType === KnowledgeSourceType.Notion) {
+        // For Notion, we need to remove the last folder from the path as it is usually page ID which is not useful to user
+        // The reason we have ID in the path to make sure we can uniquely identify the file because file name can be same for different pages
+        const parts = file.fileName.split("/");
+        if (parts.length > 2) {
+            parts.splice(-2, 1);
+        } else if (parts.length === 2) {
+            return parts[1];
+        }
+        return parts.join("/");
+    }
+
+    return file.fileName.replace(/^\//, "");
 }

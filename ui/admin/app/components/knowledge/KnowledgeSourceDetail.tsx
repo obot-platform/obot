@@ -1,20 +1,6 @@
 import cronstrue from "cronstrue";
-import {
-    ArrowDownUp,
-    ArrowUpDown,
-    CheckIcon,
-    CircleX,
-    EditIcon,
-    Eye,
-    FileClock,
-    InfoIcon,
-    MinusIcon,
-    Plus,
-    RefreshCcw,
-    ShieldAlert,
-    Trash,
-} from "lucide-react";
-import { FC, useEffect, useMemo, useRef, useState } from "react";
+import { EditIcon, Eye, InfoIcon, Trash } from "lucide-react";
+import { FC, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import useSWR, { SWRResponse } from "swr";
 
 import {
@@ -23,29 +9,18 @@ import {
     KnowledgeSource,
     KnowledgeSourceStatus,
     KnowledgeSourceType,
-    getKnowledgeFileDisplayName,
+    getKnowledgeFilePathNameForFileTree,
     getKnowledgeSourceDisplayName,
     getKnowledgeSourceType,
 } from "~/lib/model/knowledge";
 import { KnowledgeService } from "~/lib/service/api/knowledgeService";
 
-import { TypographyP } from "~/components/Typography";
 import CronDialog from "~/components/knowledge/CronDialog";
 import ErrorDialog from "~/components/knowledge/ErrorDialog";
+import FileTreeNode, { FileNode } from "~/components/knowledge/FileTree";
 import KnowledgeSourceAvatar from "~/components/knowledge/KnowledgeSourceAvatar";
 import OauthSignDialog from "~/components/knowledge/OAuthSignDialog";
 import { LoadingSpinner } from "~/components/ui/LoadingSpinner";
-import {
-    AlertDialog,
-    AlertDialogAction,
-    AlertDialogCancel,
-    AlertDialogContent,
-    AlertDialogDescription,
-    AlertDialogFooter,
-    AlertDialogHeader,
-    AlertDialogTitle,
-    AlertDialogTrigger,
-} from "~/components/ui/alert-dialog";
 import { Button } from "~/components/ui/button";
 import { Dialog, DialogContent, DialogTitle } from "~/components/ui/dialog";
 import {
@@ -56,14 +31,6 @@ import {
     DropdownMenuTrigger,
 } from "~/components/ui/dropdown-menu";
 import { Label } from "~/components/ui/label";
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from "~/components/ui/table";
 import {
     Tooltip,
     TooltipContent,
@@ -93,15 +60,10 @@ const KnowledgeSourceDetail: FC<KnowledgeSourceDetailProps> = ({
     const [syncSchedule, setSyncSchedule] = useState(
         knowledgeSource.syncSchedule
     );
-    const [autoApprove, setAutoApprove] = useState(knowledgeSource.autoApprove);
     const [isCronDialogOpen, setIsCronDialogOpen] = useState(false);
     const [cronDescription, setCronDescription] = useState("");
 
     const [errorDialogError, setErrorDialogError] = useState("");
-    const [sortingOrder, setSortingOrder] = useState<"asc" | "desc">("asc");
-    const [sortingColumn, setSortingColumn] = useState<"fileName" | "state">(
-        "fileName"
-    );
     const sourceType = getKnowledgeSourceType(knowledgeSource);
 
     const tableContainerRef = useRef<HTMLDivElement>(null);
@@ -109,7 +71,6 @@ const KnowledgeSourceDetail: FC<KnowledgeSourceDetailProps> = ({
 
     useEffect(() => {
         setSyncSchedule(knowledgeSource.syncSchedule);
-        setAutoApprove(knowledgeSource.autoApprove);
     }, [knowledgeSource]);
 
     useEffect(() => {
@@ -140,50 +101,13 @@ const KnowledgeSourceDetail: FC<KnowledgeSourceDetailProps> = ({
         }
     );
 
-    const files = useMemo(() => {
-        if (!getFiles.data) return [];
-        if (!sortingOrder) return getFiles.data;
-
-        return [...getFiles.data].sort((a, b) => {
-            const stateOrder = {
-                [KnowledgeFileState.Ingesting]: 1,
-                [KnowledgeFileState.Ingested]: 2,
-                [KnowledgeFileState.Pending]: 3,
-                [KnowledgeFileState.Error]: 4,
-                [KnowledgeFileState.Unsupported]: 5,
-                [KnowledgeFileState.Unapproved]: 6,
-                [KnowledgeFileState.PendingApproval]: 7,
-            };
-            const { displayName: aDisplayName } = getKnowledgeFileDisplayName(
-                a,
-                knowledgeSource
-            );
-            const { displayName: bDisplayName } = getKnowledgeFileDisplayName(
-                b,
-                knowledgeSource
-            );
-
-            if (sortingColumn === "state") {
-                const stateA = stateOrder[a.state];
-                const stateB = stateOrder[b.state];
-
-                if (stateA !== stateB) {
-                    return sortingOrder === "asc"
-                        ? stateA - stateB
-                        : stateB - stateA;
-                }
-                return sortingOrder === "asc"
-                    ? (aDisplayName?.localeCompare(bDisplayName ?? "") ?? 0)
-                    : ((bDisplayName ?? "").localeCompare(aDisplayName ?? "") ??
-                          0);
-            } else {
-                return sortingOrder === "asc"
-                    ? (aDisplayName?.localeCompare(bDisplayName ?? "") ?? 0)
-                    : ((bDisplayName ?? "").localeCompare(aDisplayName ?? "") ??
-                          0);
-            }
-        });
-    }, [getFiles.data, sortingOrder, sortingColumn, knowledgeSource]);
+    const files = useMemo(
+        () =>
+            getFiles.data?.sort((a, b) =>
+                a.fileName.localeCompare(b.fileName)
+            ) ?? [],
+        [getFiles.data]
+    );
 
     useEffect(() => {
         if (files.length === 0) {
@@ -234,17 +158,13 @@ const KnowledgeSourceDetail: FC<KnowledgeSourceDetailProps> = ({
         }
     }, [knowledgeSource, getFiles]);
 
-    const onSourceUpdate = async (
-        syncSchedule: string,
-        autoApprove: boolean
-    ) => {
+    const onSourceUpdate = async (syncSchedule: string) => {
         const updatedSource = await KnowledgeService.updateKnowledgeSource(
             agentId,
             knowledgeSource.id,
             {
                 ...knowledgeSource,
                 syncSchedule: syncSchedule,
-                autoApprove: autoApprove,
             }
         );
         onSave(updatedSource);
@@ -261,9 +181,19 @@ const KnowledgeSourceDetail: FC<KnowledgeSourceDetailProps> = ({
         );
     };
 
-    const onApproveAllFiles = async (approved: boolean) => {
-        for (const file of files) {
-            await onApproveFile(file, approved);
+    const onApproveFileNode = async (approved: boolean, fileNode: FileNode) => {
+        if (fileNode.file) {
+            try {
+                await onApproveFile(fileNode.file, approved);
+            } catch (e) {
+                console.error("failed to approve file", fileNode.file, e);
+            }
+            return;
+        }
+        if (fileNode.children) {
+            for (const child of fileNode.children) {
+                await onApproveFileNode(approved, child);
+            }
         }
     };
 
@@ -278,38 +208,71 @@ const KnowledgeSourceDetail: FC<KnowledgeSourceDetailProps> = ({
         );
     };
 
-    const renderFileElement = (
-        file: KnowledgeFile,
-        source: KnowledgeSource
-    ) => {
-        const { displayName, subTitle } = getKnowledgeFileDisplayName(
-            file,
-            source
-        );
+    const constructFileTree = useCallback(
+        (files: KnowledgeFile[]): FileNode[] => {
+            const roots: FileNode[] = [];
 
-        return (
-            <div className="flex flex-col overflow-hidden flex-auto">
-                <a
-                    href={file.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex flex-col overflow-hidden flex-auto hover:underline"
-                    onClick={(e) => {
-                        e.stopPropagation();
-                    }}
-                >
-                    <TypographyP className="w-full overflow-hidden text-ellipsis">
-                        {displayName}
-                    </TypographyP>
-                </a>
-                <TypographyP className="text-gray-400 text-xs">
-                    {subTitle}
-                </TypographyP>
-            </div>
-        );
+            function addPathToTree(
+                parts: string[],
+                file: KnowledgeFile,
+                currentNode: FileNode
+            ) {
+                if (parts.length === 0) return;
 
-        return null;
-    };
+                const currentPart = parts[0];
+                const isFile = parts.length === 1;
+                let childNode = currentNode.children?.find(
+                    (child) => child.name === currentPart
+                );
+
+                if (!childNode) {
+                    childNode = {
+                        name: currentPart,
+                        file: isFile ? file : null,
+                        children: isFile ? [] : [],
+                        path: currentNode.path + currentPart + "/",
+                    };
+                    currentNode.children?.push(childNode);
+                }
+
+                addPathToTree(parts.slice(1), file, childNode);
+            }
+
+            for (const file of files) {
+                const pathName = getKnowledgeFilePathNameForFileTree(
+                    file,
+                    knowledgeSource
+                );
+                const pathParts = pathName.split("/");
+                let root = roots.find((r) => r.name === pathParts[0]);
+                if (!root) {
+                    root = {
+                        name: pathParts[0],
+                        file: null,
+                        children: [],
+                        path: pathParts[0] + "/",
+                    };
+                    if (pathParts.length === 1) {
+                        root.file = file;
+                        root.path = pathParts[0];
+                    }
+                    roots.push(root);
+                }
+                addPathToTree(pathParts.slice(1), file, root);
+            }
+
+            return roots.sort((a, b) => {
+                if (a.file === null && b.file !== null) return -1;
+                if (a.file !== null && b.file === null) return 1;
+                return a.path.localeCompare(b.path);
+            });
+        },
+        [knowledgeSource]
+    );
+
+    const fileNodes = useMemo(() => {
+        return constructFileTree(files);
+    }, [files, constructFileTree]);
 
     return (
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
@@ -455,10 +418,7 @@ const KnowledgeSourceDetail: FC<KnowledgeSourceDetailProps> = ({
                                     className="cursor-pointer"
                                     onClick={() => {
                                         setSyncSchedule("");
-                                        onSourceUpdate(
-                                            "",
-                                            autoApprove ?? false
-                                        );
+                                        onSourceUpdate("");
                                     }}
                                 >
                                     On-Demand
@@ -470,10 +430,7 @@ const KnowledgeSourceDetail: FC<KnowledgeSourceDetailProps> = ({
                                     className="cursor-pointer"
                                     onClick={() => {
                                         setSyncSchedule("0 * * * *");
-                                        onSourceUpdate(
-                                            "0 * * * *",
-                                            autoApprove ?? false
-                                        );
+                                        onSourceUpdate("0 * * * *");
                                     }}
                                 >
                                     Hourly
@@ -488,10 +445,7 @@ const KnowledgeSourceDetail: FC<KnowledgeSourceDetailProps> = ({
                                     className="cursor-pointer"
                                     onClick={() => {
                                         setSyncSchedule("0 0 * * *");
-                                        onSourceUpdate(
-                                            "0 0 * * *",
-                                            autoApprove ?? false
-                                        );
+                                        onSourceUpdate("0 0 * * *");
                                     }}
                                 >
                                     Daily
@@ -506,10 +460,7 @@ const KnowledgeSourceDetail: FC<KnowledgeSourceDetailProps> = ({
                                     className="cursor-pointer"
                                     onClick={() => {
                                         setSyncSchedule("0 0 * * 0");
-                                        onSourceUpdate(
-                                            "0 0 * * 0",
-                                            autoApprove ?? false
-                                        );
+                                        onSourceUpdate("0 0 * * 0");
                                     }}
                                 >
                                     Weekly
@@ -536,55 +487,6 @@ const KnowledgeSourceDetail: FC<KnowledgeSourceDetailProps> = ({
                                                     ""
                                             ) && !!knowledgeSource.syncSchedule
                                         }
-                                    />
-                                </DropdownMenuItem>
-                            </DropdownMenuContent>
-                        </DropdownMenu>
-                    </div>
-                    <div className="flex justify-between items-center h-[20px]">
-                        <Label>New Files Ingestion Policy:</Label>
-                        <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                                <div className="flex items-center">
-                                    <Button variant="ghost" size="icon">
-                                        <EditIcon className="h-2 w-2" />
-                                    </Button>
-                                    <Label className="flex-grow">
-                                        {knowledgeSource.autoApprove
-                                            ? "Automatic"
-                                            : "Manual"}
-                                    </Label>
-                                </div>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent className="w-[250px]">
-                                <DropdownMenuItem
-                                    className="cursor-pointer"
-                                    onClick={() => {
-                                        setAutoApprove(false);
-                                        onSourceUpdate(
-                                            syncSchedule ?? "",
-                                            false
-                                        );
-                                    }}
-                                >
-                                    Manual
-                                    <DropdownMenuCheckboxItem
-                                        checked={!knowledgeSource.autoApprove}
-                                    />
-                                </DropdownMenuItem>
-                                <DropdownMenuItem
-                                    className="cursor-pointer"
-                                    onClick={() => {
-                                        setAutoApprove(true);
-                                        onSourceUpdate(
-                                            syncSchedule ?? "",
-                                            true
-                                        );
-                                    }}
-                                >
-                                    Automatic
-                                    <DropdownMenuCheckboxItem
-                                        checked={knowledgeSource.autoApprove}
                                     />
                                 </DropdownMenuItem>
                             </DropdownMenuContent>
@@ -652,389 +554,27 @@ const KnowledgeSourceDetail: FC<KnowledgeSourceDetailProps> = ({
                         )}
                     </div>
                 </div>
-
-                <div className="mt-4 max-h-96">
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead className="w-[15px]">
-                                    <div className="flex justify-center items-center">
-                                        <AlertDialog>
-                                            <AlertDialogTrigger asChild>
-                                                <Button
-                                                    variant="ghost"
-                                                    size="icon"
-                                                >
-                                                    <Plus className="h-4 w-4" />
-                                                </Button>
-                                            </AlertDialogTrigger>
-                                            <AlertDialogContent>
-                                                <AlertDialogHeader>
-                                                    <AlertDialogTitle>
-                                                        Include All Files
-                                                    </AlertDialogTitle>
-                                                    <AlertDialogDescription>
-                                                        This will immediately
-                                                        ingest all files in the
-                                                        knowledge base
-                                                    </AlertDialogDescription>
-                                                </AlertDialogHeader>
-                                                <AlertDialogFooter>
-                                                    <AlertDialogCancel>
-                                                        Cancel
-                                                    </AlertDialogCancel>
-                                                    <AlertDialogAction
-                                                        onClick={() => {
-                                                            onApproveAllFiles(
-                                                                true
-                                                            );
-                                                        }}
-                                                    >
-                                                        Continue
-                                                    </AlertDialogAction>
-                                                </AlertDialogFooter>
-                                            </AlertDialogContent>
-                                        </AlertDialog>
-                                    </div>
-                                </TableHead>
-                                <TableHead>
-                                    <div className="ml-2 flex flex-row items-center w-[700px]">
-                                        <Button
-                                            variant="ghost"
-                                            size="sm"
-                                            onClick={() => {
-                                                setSortingOrder(
-                                                    sortingColumn === "fileName"
-                                                        ? sortingOrder === "asc"
-                                                            ? "desc"
-                                                            : "asc"
-                                                        : "asc"
-                                                );
-                                                setSortingColumn("fileName");
-                                            }}
-                                        >
-                                            <Label>Document</Label>
-                                            {sortingOrder === "asc" ? (
-                                                <ArrowUpDown
-                                                    className="h-4 w-4"
-                                                    strokeWidth={
-                                                        sortingColumn ===
-                                                        "fileName"
-                                                            ? 2.5
-                                                            : 1.5
-                                                    }
-                                                />
-                                            ) : (
-                                                <ArrowDownUp
-                                                    className="h-4 w-4"
-                                                    strokeWidth={
-                                                        sortingColumn ===
-                                                        "fileName"
-                                                            ? 2.5
-                                                            : 1.5
-                                                    }
-                                                />
-                                            )}
-                                        </Button>
-                                    </div>
-                                </TableHead>
-                                <TableHead>
-                                    <div className="flex items-center justify-center w-[50px]">
-                                        <Button
-                                            variant="ghost"
-                                            size="sm"
-                                            onClick={() => {
-                                                setSortingColumn("state");
-                                                setSortingOrder(
-                                                    sortingColumn === "state"
-                                                        ? sortingOrder === "asc"
-                                                            ? "desc"
-                                                            : "asc"
-                                                        : "asc"
-                                                );
-                                            }}
-                                        >
-                                            <Label>State</Label>
-                                            {sortingOrder === "asc" ? (
-                                                <ArrowUpDown
-                                                    className="h-4 w-4"
-                                                    strokeWidth={
-                                                        sortingColumn ===
-                                                        "state"
-                                                            ? 2.5
-                                                            : 1.5
-                                                    }
-                                                />
-                                            ) : (
-                                                <ArrowDownUp
-                                                    className="h-4 w-4"
-                                                    strokeWidth={
-                                                        sortingColumn ===
-                                                        "state"
-                                                            ? 2.5
-                                                            : 1.5
-                                                    }
-                                                />
-                                            )}
-                                        </Button>
-                                    </div>
-                                </TableHead>
-                                <TableHead>
-                                    <div className="flex items-center justify-center">
-                                        <Label>Ingestion Time</Label>
-                                    </div>
-                                </TableHead>
-                                <TableHead>
-                                    <div className="flex items-center justify-center">
-                                        <Label>File Size</Label>
-                                    </div>
-                                </TableHead>
-                            </TableRow>
-                        </TableHeader>
-
-                        <TableBody>
-                            {files.map((file) => (
-                                <TableRow key={file.id} className="group">
-                                    <TableCell>
-                                        <div className="flex justify-center items-center group">
-                                            <Button
-                                                variant="ghost"
-                                                size="icon"
-                                                onClick={() => {
-                                                    const approved =
-                                                        !file.approved;
-                                                    onApproveFile(
-                                                        file,
-                                                        approved
-                                                    );
-                                                }}
-                                                aria-label={
-                                                    file.approved
-                                                        ? "Disapprove"
-                                                        : "Approve"
-                                                }
-                                                className="justify-center items-center"
-                                            >
-                                                {file.state ===
-                                                KnowledgeFileState.Ingesting ? (
-                                                    <LoadingSpinner className="w-4 h-4" />
-                                                ) : file.state ===
-                                                  KnowledgeFileState.Ingested ? (
-                                                    <>
-                                                        <CheckIcon className="w-4 h-4 text-success group-hover:hidden" />
-
-                                                        <Tooltip>
-                                                            <TooltipTrigger
-                                                                asChild
-                                                            >
-                                                                <div className="hidden group-hover:flex justify-center items-center">
-                                                                    <MinusIcon className="w-4 h-4 text-danger" />
-                                                                </div>
-                                                            </TooltipTrigger>
-                                                            <TooltipContent>
-                                                                Exclude from
-                                                                Knowledge
-                                                            </TooltipContent>
-                                                        </Tooltip>
-                                                    </>
-                                                ) : file.state ===
-                                                  KnowledgeFileState.Pending ? (
-                                                    <FileClock className="w-4 h-4" />
-                                                ) : file.state ===
-                                                  KnowledgeFileState.Error ? (
-                                                    <>
-                                                        <CircleX className="w-4 h-4 text-destructive group-hover:hidden" />
-
-                                                        <Tooltip>
-                                                            <TooltipTrigger
-                                                                asChild
-                                                            >
-                                                                <div className="hidden group-hover:flex justify-center items-center">
-                                                                    <MinusIcon className="w-4 h-4 text-danger" />
-                                                                </div>
-                                                            </TooltipTrigger>
-                                                            <TooltipContent>
-                                                                Exclude from
-                                                                Knowledge
-                                                            </TooltipContent>
-                                                        </Tooltip>
-                                                    </>
-                                                ) : file.state ===
-                                                      KnowledgeFileState.PendingApproval ||
-                                                  file.state ===
-                                                      KnowledgeFileState.Unapproved ? (
-                                                    <Tooltip>
-                                                        <TooltipTrigger asChild>
-                                                            <div className="hidden group-hover:flex justify-center items-center">
-                                                                <Plus className="w-4 h-4 text-danger" />
-                                                            </div>
-                                                        </TooltipTrigger>
-                                                        <TooltipContent>
-                                                            Add to Knowledge
-                                                        </TooltipContent>
-                                                    </Tooltip>
-                                                ) : file.state ===
-                                                  KnowledgeFileState.Unsupported ? (
-                                                    <>
-                                                        <ShieldAlert className="w-4 h-4 text-danger group-hover:hidden" />
-                                                        <div className="hidden group-hover:flex justify-center items-center">
-                                                            <MinusIcon className="w-4 h-4 text-danger" />
-                                                        </div>
-                                                    </>
-                                                ) : null}
-                                            </Button>
-                                        </div>
-                                    </TableCell>
-                                    <TableCell>
-                                        <div
-                                            className={`ml-2 w-[600px] group ${
-                                                file.state ===
-                                                    KnowledgeFileState.PendingApproval ||
-                                                file.state ===
-                                                    KnowledgeFileState.Unapproved
-                                                    ? "text-gray-400"
-                                                    : ""
-                                            }`}
-                                        >
-                                            {renderFileElement(
-                                                file,
-                                                knowledgeSource
-                                            )}
-                                        </div>
-                                    </TableCell>
-                                    <TableCell>
-                                        <div className="flex items-center justify-center w-[50px]">
-                                            {file.state ===
-                                                KnowledgeFileState.PendingApproval ||
-                                            file.state ===
-                                                KnowledgeFileState.Unapproved ? (
-                                                <div className="flex justify-center">
-                                                    <Label className="text-center text-gray-400">
-                                                        Excluded
-                                                    </Label>
-                                                </div>
-                                            ) : file.state ===
-                                              KnowledgeFileState.Ingesting ? (
-                                                <div className="flex justify-center items-center">
-                                                    <Label>Ingesting</Label>
-                                                </div>
-                                            ) : file.state ===
-                                              KnowledgeFileState.Pending ? (
-                                                <div className="flex justify-center items-center">
-                                                    <Label>Pending</Label>
-                                                </div>
-                                            ) : file.state ===
-                                              KnowledgeFileState.Error ? (
-                                                <div className="flex items-center justify-center group text-destructive">
-                                                    <>
-                                                        <Label className="text-destructive group-hover:hidden">
-                                                            Error
-                                                        </Label>
-
-                                                        <Tooltip>
-                                                            <TooltipTrigger
-                                                                asChild
-                                                            >
-                                                                <Button
-                                                                    variant="ghost"
-                                                                    size="icon"
-                                                                    className="hidden justify-center items-center group-hover:block text-destructive"
-                                                                    onClick={async () => {
-                                                                        await onReingestFile(
-                                                                            file
-                                                                        );
-                                                                    }}
-                                                                >
-                                                                    <RefreshCcw className="h-4 w-4 text-destructive m-auto" />
-                                                                </Button>
-                                                            </TooltipTrigger>
-                                                            <TooltipContent>
-                                                                Reingest
-                                                            </TooltipContent>
-                                                        </Tooltip>
-                                                        <Tooltip>
-                                                            <TooltipTrigger
-                                                                asChild
-                                                            >
-                                                                <Button
-                                                                    variant="ghost"
-                                                                    size="icon"
-                                                                    className="hidden justify-center items-center group-hover:block text-destructive"
-                                                                    onClick={() => {
-                                                                        setErrorDialogError(
-                                                                            file.error ??
-                                                                                ""
-                                                                        );
-                                                                    }}
-                                                                >
-                                                                    <Eye className="h-4 w-4 text-destructive m-auto" />
-                                                                </Button>
-                                                            </TooltipTrigger>
-                                                            <TooltipContent>
-                                                                View Error
-                                                            </TooltipContent>
-                                                        </Tooltip>
-                                                    </>
-                                                </div>
-                                            ) : file.state ===
-                                              KnowledgeFileState.Ingested ? (
-                                                <div className="flex justify-center items-center text-success">
-                                                    <Label>Ingested</Label>
-                                                </div>
-                                            ) : file.state ===
-                                              KnowledgeFileState.Unsupported ? (
-                                                <div className="flex justify-center items-center">
-                                                    <Tooltip>
-                                                        <TooltipTrigger asChild>
-                                                            <Label className="cursor-pointer">
-                                                                Unsupported
-                                                            </Label>
-                                                        </TooltipTrigger>
-                                                        <TooltipContent className="text-warning">
-                                                            {file.error}
-                                                        </TooltipContent>
-                                                    </Tooltip>
-                                                </div>
-                                            ) : null}
-                                        </div>
-                                    </TableCell>
-                                    <TableCell>
-                                        <div className="flex items-center justify-center">
-                                            {file.lastIngestionEndTime &&
-                                            file.lastIngestionStartTime
-                                                ? (new Date(
-                                                      file.lastIngestionEndTime
-                                                  ).getTime() -
-                                                      new Date(
-                                                          file.lastIngestionStartTime
-                                                      ).getTime()) /
-                                                      1000 +
-                                                  " seconds"
-                                                : ""}
-                                        </div>
-                                    </TableCell>
-                                    <TableCell>
-                                        <div className="flex items-center justify-center text-gray-400">
-                                            {file.sizeInBytes
-                                                ? file.sizeInBytes > 1000000
-                                                    ? (
-                                                          file.sizeInBytes /
-                                                          1000000
-                                                      ).toFixed(2) + " MB"
-                                                    : file.sizeInBytes > 1000
-                                                      ? (
-                                                            file.sizeInBytes /
-                                                            1000
-                                                        ).toFixed(2) + " KB"
-                                                      : file.sizeInBytes +
-                                                        " Bytes"
-                                                : ""}
-                                        </div>
-                                    </TableCell>
-                                </TableRow>
-                            ))}
-                        </TableBody>
-                    </Table>
+                <div className="flex flex-col gap-2 mt-2 max-h-96">
+                    {fileNodes.map((node) => (
+                        <FileTreeNode
+                            key={node.path}
+                            node={node}
+                            level={0}
+                            source={knowledgeSource}
+                            onApproveFile={onApproveFileNode}
+                            onReingestFile={onReingestFile}
+                            setErrorDialogError={setErrorDialogError}
+                            updateKnowledgeSource={async (source) => {
+                                const res =
+                                    await KnowledgeService.updateKnowledgeSource(
+                                        agentId,
+                                        knowledgeSource.id,
+                                        source
+                                    );
+                                onSave(res);
+                            }}
+                        />
+                    ))}
                 </div>
 
                 <CronDialog
@@ -1043,10 +583,7 @@ const KnowledgeSourceDetail: FC<KnowledgeSourceDetailProps> = ({
                     cronExpression={syncSchedule || ""}
                     setCronExpression={setSyncSchedule}
                     onSubmit={() => {
-                        onSourceUpdate(
-                            syncSchedule ?? "",
-                            autoApprove ?? false
-                        );
+                        onSourceUpdate(syncSchedule ?? "");
                     }}
                 />
                 <OauthSignDialog
