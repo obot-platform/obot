@@ -26,7 +26,7 @@ const buttonVariants = cva(
                 badge: "text-xs py-0.5 px-2",
                 sm: "h-8 px-3 text-xs",
                 lg: "h-10 px-8",
-                icon: "h-9 w-9 [&_svg]:size-[1.375rem]",
+                icon: "h-9 w-9 min-w-9 [&_svg]:size-[1.375rem]",
             },
             shape: {
                 default: "rounded-md",

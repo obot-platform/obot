@@ -13,6 +13,7 @@ import { useState } from "react";
 import { Step } from "~/lib/model/workflows";
 import { cn } from "~/lib/utils";
 
+import { AgentSelectModule } from "~/components/agent/shared/AgentSelect";
 import { BasicToolForm } from "~/components/tools/BasicToolForm";
 import {
     Accordion,
@@ -25,7 +26,7 @@ import { ButtonDiv } from "~/components/ui/clickable-div";
 import { Input } from "~/components/ui/input";
 import { Switch } from "~/components/ui/switch";
 import { AutosizeTextarea } from "~/components/ui/textarea";
-import { StringArrayForm } from "~/components/workflow/StringArrayForm";
+import { WorkflowSelectModule } from "~/components/workflow/WorkflowSelectModule";
 
 export function StepComponent({
     step,
@@ -123,16 +124,11 @@ export function StepComponent({
                             </AccordionTrigger>
 
                             <AccordionContent className="p-1 pb-6">
-                                <StringArrayForm
-                                    initialItems={step.workflows || []}
-                                    onChange={(values) =>
-                                        onUpdate({
-                                            ...step,
-                                            workflows: values.items,
-                                        })
+                                <WorkflowSelectModule
+                                    onChange={(workflows) =>
+                                        onUpdate({ ...step, workflows })
                                     }
-                                    itemName="Workflow"
-                                    placeholder="Add a workflow"
+                                    selection={step.workflows || []}
                                 />
                             </AccordionContent>
                         </AccordionItem>
@@ -146,16 +142,11 @@ export function StepComponent({
                             </AccordionTrigger>
 
                             <AccordionContent className="p-1 pb-6">
-                                <StringArrayForm
-                                    initialItems={step.agents || []}
-                                    onChange={(values) =>
-                                        onUpdate({
-                                            ...step,
-                                            agents: values.items,
-                                        })
+                                <AgentSelectModule
+                                    onChange={(agents) =>
+                                        onUpdate({ ...step, agents })
                                     }
-                                    itemName="Agent"
-                                    placeholder="Add an agent"
+                                    selection={step.agents || []}
                                 />
                             </AccordionContent>
                         </AccordionItem>
