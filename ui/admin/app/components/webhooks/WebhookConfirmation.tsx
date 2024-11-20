@@ -29,7 +29,7 @@ export const WebhookConfirmation = ({
 }: WebhookConfirmationProps) => {
     return (
         <Dialog open>
-            <DialogContent className="max-w-[700px]">
+            <DialogContent className="max-w-[700px]" hideCloseButton>
                 <DialogHeader>
                     <DialogTitle>Webhook Saved</DialogTitle>
                 </DialogHeader>
