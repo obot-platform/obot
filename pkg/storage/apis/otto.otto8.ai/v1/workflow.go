@@ -24,8 +24,8 @@ func (in *Workflow) GetAliasName() string {
 	return in.Spec.Manifest.Alias
 }
 
-func (in *Workflow) SetAssigned() {
-	in.Status.AliasAssigned = true
+func (in *Workflow) SetAssigned(assigned bool) {
+	in.Status.AliasAssigned = assigned
 }
 
 func (in *Workflow) IsAssigned() bool {

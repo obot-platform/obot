@@ -24,8 +24,8 @@ func (in *EmailReceiver) GetAliasName() string {
 	return in.Spec.EmailReceiverManifest.User
 }
 
-func (in *EmailReceiver) SetAssigned() {
-	in.Status.AliasAssigned = true
+func (in *EmailReceiver) SetAssigned(assigned bool) {
+	in.Status.AliasAssigned = assigned
 }
 
 func (in *EmailReceiver) IsAssigned() bool {

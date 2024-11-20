@@ -24,8 +24,8 @@ func (w *Webhook) GetAliasName() string {
 	return w.Spec.WebhookManifest.Alias
 }
 
-func (w *Webhook) SetAssigned() {
-	w.Status.AliasAssigned = true
+func (w *Webhook) SetAssigned(assigned bool) {
+	w.Status.AliasAssigned = assigned
 }
 
 func (w *Webhook) IsAssigned() bool {

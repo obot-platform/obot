@@ -28,7 +28,7 @@ func (r *OAuthApp) GetAliasName() string {
 	return r.Spec.Manifest.Integration
 }
 
-func (r *OAuthApp) SetAssigned() {
+func (r *OAuthApp) SetAssigned(bool) {
 }
 
 func (r *OAuthApp) IsAssigned() bool {

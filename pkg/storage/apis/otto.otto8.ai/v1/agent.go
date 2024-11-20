@@ -32,8 +32,8 @@ func (a *Agent) GetAliasName() string {
 	return a.Spec.Manifest.Alias
 }
 
-func (a *Agent) SetAssigned() {
-	a.Status.AliasAssigned = true
+func (a *Agent) SetAssigned(assigned bool) {
+	a.Status.AliasAssigned = assigned
 }
 
 func (a *Agent) Has(field string) bool {

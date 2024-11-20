@@ -43,7 +43,7 @@ type AliasSpec struct {
 
 type Aliasable interface {
 	GetAliasName() string
-	SetAssigned()
+	SetAssigned(bool)
 	IsAssigned() bool
 }
 
