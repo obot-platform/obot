@@ -36,8 +36,6 @@ type KnowledgeSource struct {
 	LastSyncStartTime       *Time                `json:"lastSyncStartTime,omitempty"`
 	LastSyncEndTime         *Time                `json:"lastSyncEndTime,omitempty"`
 	LastRunID               string               `json:"lastRunID,omitempty"`
-	FilePathPrefixInclude   []string             `json:"filePathPrefixInclude,omitempty"`
-	FilePathPrefixExclude   []string             `json:"filePathPrefixExclude,omitempty"`
 }
 
 type KnowledgeSourceManifest struct {

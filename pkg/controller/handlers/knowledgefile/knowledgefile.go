@@ -101,14 +101,12 @@ func (h *Handler) IngestFile(req router.Request, _ router.Response) error {
 
 	// Check approval
 	if file.Spec.Approved == nil {
-		matchInclude := isFileMatchPrefixPattern(file.Spec.FileName, source.Spec.Manifest.FilePathPrefixInclude)
-		matchExclude := isFileMatchPrefixPattern(file.Spec.FileName, source.Spec.Manifest.FilePathPrefixExclude)
 		switch {
 		case source.Spec.Manifest.AutoApprove != nil && *source.Spec.Manifest.AutoApprove:
 			file.Spec.Approved = typed.Pointer(true)
-		case matchExclude:
+		case isFileMatchPrefixPattern(file.Spec.FileName, source.Spec.Manifest.FilePathPrefixExclude):
 			file.Spec.Approved = typed.Pointer(false)
-		case matchInclude:
+		case isFileMatchPrefixPattern(file.Spec.FileName, source.Spec.Manifest.FilePathPrefixInclude):
 			file.Spec.Approved = typed.Pointer(true)
 		}
 

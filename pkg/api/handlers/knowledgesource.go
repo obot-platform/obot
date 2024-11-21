@@ -25,8 +25,6 @@ func convertKnowledgeSource(agentName string, knowledgeSource v1.KnowledgeSource
 		LastSyncStartTime:       types.NewTime(knowledgeSource.Status.LastSyncStartTime.Time),
 		LastSyncEndTime:         types.NewTime(knowledgeSource.Status.LastSyncEndTime.Time),
 		LastRunID:               knowledgeSource.Status.RunName,
-		FilePathPrefixExclude:   knowledgeSource.Spec.Manifest.FilePathPrefixExclude,
-		FilePathPrefixInclude:   knowledgeSource.Spec.Manifest.FilePathPrefixInclude,
 	}
 }
 

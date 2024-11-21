@@ -158,8 +158,8 @@ export default function FileTreeNode({
                             "group"
                         )}
                     >
-                        <div className="flex flex-1 justify-between items-center truncate">
-                            <div className="flex items-center justify-center">
+                        <div className="flex justify-between items-center flex-1 truncate">
+                            <div className="flex items-center justify-center overflow-hidden">
                                 {hasChildren ? (
                                     isOpen ? (
                                         <>
@@ -176,40 +176,57 @@ export default function FileTreeNode({
                                     <File className="h-4 w-4 mr-2 flex-shrink-0" />
                                 )}
                                 {isFile ? (
-                                    <div
-                                        className={cn(
-                                            "font-medium truncate flex",
-                                            (file.state ===
-                                                KnowledgeFileState.Unapproved ||
-                                                file.state ===
-                                                    KnowledgeFileState.PendingApproval) &&
-                                                "text-muted-foreground"
-                                        )}
-                                    >
-                                        <a
-                                            href={file.url}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            className="hover:underline"
-                                        >
+                                    <Tooltip>
+                                        <TooltipTrigger asChild>
+                                            <a
+                                                href={file.url}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className={cn(
+                                                    "hover:underline truncate flex flex-1 overflow-hidden",
+                                                    (file.state ===
+                                                        KnowledgeFileState.Unapproved ||
+                                                        file.state ===
+                                                            KnowledgeFileState.PendingApproval) &&
+                                                        "text-muted-foreground"
+                                                )}
+                                            >
+                                                <span className="truncate">
+                                                    {
+                                                        getKnowledgeFileDisplayName(
+                                                            file,
+                                                            source
+                                                        ).displayName
+                                                    }
+                                                </span>
+                                            </a>
+                                        </TooltipTrigger>
+                                        <TooltipContent>
                                             {
                                                 getKnowledgeFileDisplayName(
                                                     file,
                                                     source
                                                 ).displayName
                                             }
-                                        </a>
-                                    </div>
+                                        </TooltipContent>
+                                    </Tooltip>
                                 ) : (
-                                    <span
-                                        className={cn(
-                                            "font-medium truncate flex",
-                                            selectedFiles === 0 &&
-                                                "text-muted-foreground"
-                                        )}
-                                    >
-                                        {node.name}
-                                    </span>
+                                    <Tooltip>
+                                        <TooltipTrigger asChild>
+                                            <span
+                                                className={cn(
+                                                    "font-medium truncate flex",
+                                                    selectedFiles === 0 &&
+                                                        "text-muted-foreground"
+                                                )}
+                                            >
+                                                {node.name}
+                                            </span>
+                                        </TooltipTrigger>
+                                        <TooltipContent>
+                                            {node.name}
+                                        </TooltipContent>
+                                    </Tooltip>
                                 )}
                                 {isFile ? (
                                     <div className="flex flex-row items-center justify-center ml-2">
@@ -248,7 +265,7 @@ export default function FileTreeNode({
                                 )}
                             </div>
                             {!disableToggleButton && (
-                                <div className="flex flex-row items-center group mr-2">
+                                <div className="flex items-center group mr-2 ml-2">
                                     <Button
                                         variant="ghost"
                                         size="icon"
@@ -272,11 +289,11 @@ export default function FileTreeNode({
                                                 });
                                             }
                                         }}
-                                        className="justify-start items-center group ml-2 invisible group-hover:visible hover:bg-gray-200"
+                                        className="justify-center items-center group invisible group-hover:visible hover:bg-gray-200"
                                     >
                                         <Tooltip>
                                             <TooltipTrigger asChild>
-                                                <div className="flex justify-center items-center ml-2">
+                                                <div className="flex justify-center items-center">
                                                     {included ? (
                                                         <MinusIcon className="w-4 h-4 text-destructive" />
                                                     ) : (
