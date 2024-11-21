@@ -180,6 +180,7 @@ func (h *Handler) ingest(ctx context.Context, client kclient.Client, file *v1.Kn
 
 	inputName := file.Spec.FileName
 
+	// Clean website content (remove headers, footers, etc.)
 	if source.Spec.Manifest.GetType() == types.KnowledgeSourceTypeWebsite && strings.HasSuffix(file.Spec.FileName, ".md") {
 		content, err := h.gptScript.ReadFileInWorkspace(ctx, file.Spec.FileName, gptscript.ReadFileInWorkspaceOptions{
 			WorkspaceID: thread.Status.WorkspaceID,
@@ -238,13 +239,6 @@ func (h *Handler) ingest(ctx context.Context, client kclient.Client, file *v1.Kn
 		return &unsupportedErr
 	}
 
-	stat, err := h.gptScript.StatFileInWorkspace(ctx, outputFile(file.Spec.FileName), gptscript.StatFileInWorkspaceOptions{
-		WorkspaceID: thread.Status.WorkspaceID,
-	})
-	if err != nil {
-		return fmt.Errorf("failed to stat files in workspace ID %s, error: %w", thread.Status.WorkspaceID, err)
-	}
-
 	ingestTask, err := h.invoker.SystemTask(ctx, thread, system.KnowledgeIngestTool, map[string]any{
 		"input":   outputFile(file.Spec.FileName),
 		"dataset": ks.Namespace + "/" + ks.Name,
@@ -252,7 +246,6 @@ func (h *Handler) ingest(ctx context.Context, client kclient.Client, file *v1.Kn
 			"url":               file.Spec.URL,
 			"workspaceID":       thread.Status.WorkspaceID,
 			"workspaceFileName": outputFile(file.Spec.FileName),
-			"fileSize":          fmt.Sprintf("%d", stat.Size),
 		},
 	})
 	if err != nil {
