@@ -81,6 +81,14 @@ const ModelToProviderMap = {
         "claude-3-5-haiku-latest",
     ],
     "ollama-model-provider": ["llama3.2"],
+    "voyage-model-provider": [
+        "voyage-3",
+        "voyage-3-lite",
+        "voyage-finance-2",
+        "voyage-multilingual-2",
+        "voyage-law-2",
+        "voyage-code-2",
+    ],
 };
 
 export function getModelsForProvider(providerId: string) {
