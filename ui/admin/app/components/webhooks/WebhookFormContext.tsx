@@ -31,7 +31,7 @@ type WebhookFormContextType = {
 const Context = createContext<WebhookFormContextType | null>(null);
 
 const CreateSchema = WebhookSchema;
-const EditSchema = WebhookSchema.omit({ token: true }).extend({
+const EditSchema = WebhookSchema.extend({
     secret: z.string(),
 });
 
@@ -90,11 +90,14 @@ export function WebhookFormContextProvider({
             return;
         }
 
+        console.log("values", values);
+
         mutate(WebhookApiService.getWebhooks.key());
         showWebhookConfirmation({
             webhook: data,
             secret: values.secret,
             token: values.token,
+            original: webhook,
         });
     });
 
@@ -104,7 +107,7 @@ export function WebhookFormContextProvider({
                 value={{
                     error: updateWebhook.error || createWebhook.error,
                     isEdit: !!webhookId,
-                    hasSecret: !!webhookId,
+                    hasSecret: !!webhook?.secret,
                     hasToken: !!webhook?.hasToken,
                     handleSubmit,
                     isLoading:

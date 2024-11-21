@@ -1,9 +1,9 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import useSWR from "swr";
 
 import { WorkflowService } from "~/lib/service/api/workflowService";
 
-import { TypographyH4 } from "~/components/Typography";
+import { TypographyH3, TypographyH4 } from "~/components/Typography";
 import {
     ControlledCustomInput,
     ControlledInput,
@@ -11,10 +11,10 @@ import {
 import { Button } from "~/components/ui/button";
 import { FormItem, FormLabel } from "~/components/ui/form";
 import { MultiSelect } from "~/components/ui/multi-select";
+import { ScrollArea } from "~/components/ui/scroll-area";
 import {
     Select,
     SelectContent,
-    SelectEmptyItem,
     SelectItem,
     SelectTrigger,
     SelectValue,
@@ -54,109 +54,132 @@ export function WebhookFormContent() {
     }, [form, validationHeader]);
 
     return (
-        <form
-            onSubmit={handleSubmit}
-            className="space-y-8 p-8 max-w-3xl mx-auto"
-        >
-            <TypographyH4>
-                {isEdit ? "Edit Webhook" : "Create Webhook"}
-            </TypographyH4>
-
-            <ControlledInput control={form.control} name="name" label="Name" />
-
-            <ControlledInput
-                control={form.control}
-                name="description"
-                label="Description"
-            />
-
-            <FormItem>
-                <FormLabel>Type</FormLabel>
-                <Select value="Github" disabled>
-                    <SelectTrigger>
-                        <SelectValue />
-                    </SelectTrigger>
-
-                    <SelectContent>
-                        <SelectItem value="Github">Github</SelectItem>
-                    </SelectContent>
-                </Select>
-            </FormItem>
-
-            {/* Extract to custom github component */}
-
-            <ControlledCustomInput
-                control={form.control}
-                name="workflow"
-                label="Workflow"
-                description="The workflow that will be triggered when the webhook is called."
+        <ScrollArea className="h-full">
+            <form
+                className="space-y-8 p-8 max-w-3xl mx-auto"
+                onSubmit={handleSubmit}
             >
-                {({ field: { ref: _, ...field }, className }) => (
-                    <Select {...field} onValueChange={field.onChange}>
-                        <SelectTrigger className={className}>
-                            <SelectValue placeholder="Select a workflow" />
+                <TypographyH3>
+                    {isEdit ? "Edit Webhook" : "Create Webhook"}
+                </TypographyH3>
+
+                <ControlledInput
+                    control={form.control}
+                    name="name"
+                    label="Name"
+                />
+
+                <ControlledInput
+                    control={form.control}
+                    name="description"
+                    label="Description"
+                />
+
+                <FormItem>
+                    <FormLabel>Type</FormLabel>
+                    <Select value="GitHub" disabled>
+                        <SelectTrigger>
+                            <SelectValue />
                         </SelectTrigger>
 
-                        <SelectContent>{getWorkflowOptions()}</SelectContent>
+                        <SelectContent>
+                            <SelectItem value="GitHub">GitHub</SelectItem>
+                        </SelectContent>
                     </Select>
-                )}
-            </ControlledCustomInput>
+                </FormItem>
 
-            <ControlledInput
-                control={form.control}
-                name="secret"
-                label="Secret"
-                description="This secret should match the secret you provide to GitHub."
-                placeholder={hasSecret ? "(unchanged)" : ""}
-            />
+                {/* Extract to custom github component */}
 
-            <ControlledInput
-                control={form.control}
-                name="token"
-                label="Token (optional)"
-                description="Optionally provide a token to add an extra layer of security."
-                placeholder={hasToken ? "(unchanged)" : ""}
-            />
+                <ControlledCustomInput
+                    control={form.control}
+                    name="workflow"
+                    label="Workflow"
+                    description="The workflow that will be triggered when the webhook is called."
+                >
+                    {({ field: { ref: _, ...field }, className }) => (
+                        <Select
+                            defaultValue={field.value}
+                            onValueChange={field.onChange}
+                            key={field.value}
+                        >
+                            <SelectTrigger className={className}>
+                                <SelectValue placeholder="Select a workflow" />
+                            </SelectTrigger>
 
-            <ControlledCustomInput
-                control={form.control}
-                name="headers"
-                label="Headers"
-            >
-                {({ field }) => (
-                    <MultiSelect
-                        {...field}
-                        options={GithubHeaderOptions}
-                        value={field.value.map((v) => ({ label: v, value: v }))}
-                        creatable
-                        onChange={(value) =>
-                            field.onChange(value.map((v) => v.value))
-                        }
-                        side="top"
-                    />
-                )}
-            </ControlledCustomInput>
+                            <SelectContent>
+                                {getWorkflowOptions()}
+                            </SelectContent>
+                        </Select>
+                    )}
+                </ControlledCustomInput>
 
-            <Button
-                className="w-full"
-                type="submit"
-                disabled={isLoading}
-                loading={isLoading}
-            >
-                {isEdit ? "Update Webhook" : "Create Webhook"}
-            </Button>
-        </form>
+                <ControlledInput
+                    control={form.control}
+                    name="secret"
+                    label="Secret"
+                    description="This secret should match the secret you provide to GitHub."
+                    placeholder={hasSecret ? "(unchanged)" : ""}
+                />
+
+                <TypographyH4>Advanced</TypographyH4>
+
+                <ControlledInput
+                    control={form.control}
+                    name="token"
+                    label="Token (optional)"
+                    description="Optionally provide a token to filter out unauthorized webhook requests."
+                    placeholder={hasToken ? "(unchanged)" : ""}
+                />
+
+                <ControlledCustomInput
+                    control={form.control}
+                    name="headers"
+                    label="Headers"
+                >
+                    {({ field }) => (
+                        <MultiSelect
+                            {...field}
+                            options={GithubHeaderOptions}
+                            value={field.value.map((v) => ({
+                                label: v,
+                                value: v,
+                            }))}
+                            creatable
+                            onChange={(value) =>
+                                field.onChange(value.map((v) => v.value))
+                            }
+                            side="top"
+                        />
+                    )}
+                </ControlledCustomInput>
+
+                <Button
+                    className="w-full"
+                    type="submit"
+                    disabled={isLoading}
+                    loading={isLoading}
+                >
+                    {isEdit ? "Update Webhook" : "Create Webhook"}
+                </Button>
+            </form>
+        </ScrollArea>
     );
 
     function getWorkflowOptions() {
+        const workflow = form.watch("workflow");
+
         if (getWorkflows.isLoading)
             return (
-                <SelectEmptyItem disabled>Loading workflows...</SelectEmptyItem>
+                <SelectItem value={workflow || "loading"} disabled>
+                    Loading workflows...
+                </SelectItem>
             );
 
         if (!workflows?.length)
             return (
-                <SelectEmptyItem disabled>No workflows found</SelectEmptyItem>
+                <SelectItem value={workflow || "empty"} disabled>
+                    No workflows found
+                </SelectItem>
             );
 
         return workflows.map((workflow) => (

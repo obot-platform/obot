@@ -1,3 +1,5 @@
+// todo(ryanhopperlowe): this needs to get rewritten to use a popover with a command inside of it
+// the dropdown is absolutely positioned and gets cut off when it's container is smaller
 import { Command as CommandPrimitive, useCommandState } from "cmdk";
 import { X } from "lucide-react";
 import * as React from "react";

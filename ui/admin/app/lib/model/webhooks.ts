@@ -8,7 +8,7 @@ export type WebhookBase = {
     alias?: Nullish<string>;
     workflow: string;
     headers?: Nullish<string[]>;
-    secret: string;
+    secret?: string;
     validationHeader: string;
 };
 
@@ -32,10 +32,10 @@ export type UpdateWebhook = WebhookPayload;
 export const WebhookSchema = z.object({
     name: z.string().min(1, "Name is required").default(""),
     description: z.string().min(1, "Description is required").default(""),
-    alias: z.string().default("").default(""),
+    alias: z.string().default(""),
     workflow: z.string().min(1, "Workflow is required").default(""),
     headers: z.array(z.string()).default([]),
-    secret: z.string().min(1, "Secret is required").default(""),
+    secret: z.string().default(""),
     validationHeader: z
         .string()
         .min(1, "Validation header is required")

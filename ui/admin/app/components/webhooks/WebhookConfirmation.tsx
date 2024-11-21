@@ -1,6 +1,7 @@
 import { $path } from "remix-routes";
 
 import { Webhook } from "~/lib/model/webhooks";
+import { cn } from "~/lib/utils";
 
 import { TypographyP } from "~/components/Typography";
 import { CopyText } from "~/components/composed/CopyText";
@@ -16,6 +17,7 @@ import { Link } from "~/components/ui/link";
 
 export type WebhookConfirmationProps = {
     webhook: Webhook;
+    original?: Webhook;
     token?: string;
     secret: string;
     type?: "github";
@@ -23,10 +25,16 @@ export type WebhookConfirmationProps = {
 
 export const WebhookConfirmation = ({
     webhook,
-    token: _token,
+    original,
+    token,
     secret,
     type: _ = "github",
 }: WebhookConfirmationProps) => {
+    const showUrlChange =
+        !original ||
+        original.links?.invoke !== webhook.links?.invoke ||
+        !!token;
+
     return (
         <Dialog open>
             <DialogContent className="max-w-[700px]" hideCloseButton>
@@ -35,29 +43,49 @@ export const WebhookConfirmation = ({
                 </DialogHeader>
 
                 <DialogDescription>
-                    Your webhook has been saved in Otto. Make sure to copy
-                    payload url and secret to your webhook provider.
+                    Your webhook has been saved in Otto8. Make sure to copy the
+                    payload URL and secret to your webhook provider.
                 </DialogDescription>
 
                 <DialogDescription>
                     This information will not be shown again.
                 </DialogDescription>
 
-                <div className="flex items-center justify-between">
+                <div
+                    className={cn("flex flex-col gap-1", {
+                        "flex-row gap-2": !showUrlChange,
+                    })}
+                >
                     <TypographyP>Payload URL: </TypographyP>
-                    <CopyText
-                        text={webhook.links?.invoke ?? ""}
-                        className="min-w-fit"
-                    />
+                    {showUrlChange ? (
+                        <CopyText
+                            text={getWebhookUrl(webhook, token)}
+                            className="min-w-fit"
+                        />
+                    ) : (
+                        <TypographyP className="text-muted-foreground">
+                            (Unchanged)
+                        </TypographyP>
+                    )}
                 </div>
 
-                <div className="flex items-center justify-between">
+                <div
+                    className={cn("flex flex-col gap-1", {
+                        "flex-row gap-2": !secret,
+                    })}
+                >
                     <TypographyP>Secret: </TypographyP>
-                    <CopyText
-                        className="min-w-fit"
-                        displayText={secret}
-                        text={secret ?? ""}
-                    />
+                    {secret ? (
+                        <CopyText
+                            className="min-w-fit"
+                            displayText={secret}
+                            text={secret ?? ""}
+                        />
+                    ) : (
+                        <TypographyP className="text-muted-foreground">
+                            (Unchanged)
+                        </TypographyP>
+                    )}
                 </div>
 
                 <DialogFooter>
@@ -73,3 +101,12 @@ export const WebhookConfirmation = ({
         </Dialog>
     );
 };
+
+function getWebhookUrl(webhook: Webhook, token?: string) {
+    if (!token) return webhook.links?.invoke ?? "";
+
+    const url = new URL(webhook.links?.invoke ?? "");
+    url.searchParams.set("token", token);
+
+    return url.toString();
+}
