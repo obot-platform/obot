@@ -5,10 +5,10 @@ import {
     useNavigate,
 } from "@remix-run/react";
 import { $path } from "remix-routes";
+import { preload } from "swr";
 
 import { WorkflowService } from "~/lib/service/api/workflowService";
 import { RouteQueryParams, RouteService } from "~/lib/service/routeService";
-import { noop } from "~/lib/utils";
 
 import { Chat } from "~/components/chat";
 import { ChatProvider } from "~/components/chat/ChatContext";
@@ -31,19 +31,16 @@ export const clientLoader = async ({
         params
     );
 
-    if (!pathParams.workflow) {
-        throw redirect($path("/workflows"));
-    }
+    if (!pathParams.workflow) throw redirect($path("/workflows"));
 
-    const workflow = await WorkflowService.getWorkflowById(
-        pathParams.workflow
-    ).catch(noop);
+    const workflow = await preload(
+        WorkflowService.getWorkflowById.key(pathParams.workflow),
+        () => WorkflowService.getWorkflowById(pathParams.workflow)
+    );
 
     if (!workflow) throw redirect($path("/workflows"));
 
-    const { threadId } = query ?? {};
-
-    return { workflow, threadId };
+    return { workflow, threadId: query?.threadId };
 };
 
 export default function ChatAgent() {
@@ -57,7 +54,6 @@ export default function ChatAgent() {
                 id={workflow.id}
                 mode="workflow"
                 threadId={threadId}
-                params={workflow.params}
                 onCreateThreadId={(threadId) =>
                     navigate(
                         $path(

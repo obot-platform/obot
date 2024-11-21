@@ -13,6 +13,7 @@ type ChatProps = React.HTMLAttributes<HTMLDivElement> & {
 
 export function Chat({ className }: ChatProps) {
     const {
+        id,
         messages,
         threadId,
         mode,
@@ -20,7 +21,6 @@ export function Chat({ className }: ChatProps) {
         readOnly,
         isInvoking,
         isRunning,
-        params,
     } = useChat();
     const [runTriggered, setRunTriggered] = useState(false);
 
@@ -50,7 +50,7 @@ export function Chat({ className }: ChatProps) {
                     })}
                 >
                     <RunWorkflow
-                        params={params}
+                        workflowId={id}
                         onSubmit={(params) => {
                             setRunTriggered(true);
                             invoke(params && JSON.stringify(params));

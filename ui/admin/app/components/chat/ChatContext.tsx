@@ -27,7 +27,6 @@ interface ChatContextType {
     readOnly?: boolean;
     isRunning: boolean;
     isInvoking: boolean;
-    params?: Record<string, string>;
 }
 
 const ChatContext = createContext<ChatContextType | undefined>(undefined);
@@ -39,7 +38,6 @@ export function ChatProvider({
     threadId,
     onCreateThreadId,
     readOnly,
-    params,
 }: {
     children: ReactNode;
     mode?: Mode;
@@ -47,7 +45,6 @@ export function ChatProvider({
     threadId?: Nullish<string>;
     onCreateThreadId?: (threadId: string) => void;
     readOnly?: boolean;
-    params?: Record<string, string>;
 }) {
     const invoke = (prompt?: string) => {
         if (readOnly) return;
@@ -83,7 +80,6 @@ export function ChatProvider({
                 isRunning,
                 isInvoking: invokeAgent.isLoading,
                 readOnly,
-                params,
             }}
         >
             {children}

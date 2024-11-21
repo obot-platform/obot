@@ -1,4 +1,7 @@
 import { useState } from "react";
+import useSWR from "swr";
+
+import { WorkflowService } from "~/lib/service/api/workflowService";
 
 import { RunWorkflowForm } from "~/components/chat/RunWorkflowForm";
 import { Button, ButtonProps } from "~/components/ui/button";
@@ -9,24 +12,31 @@ import {
 } from "~/components/ui/popover";
 
 type RunWorkflowProps = {
-    params?: Record<string, string>;
     onSubmit: (params?: Record<string, string>) => void;
+    workflowId: string;
 };
 
 export function RunWorkflow({
-    params,
+    workflowId,
     onSubmit,
-    disabled,
     ...props
 }: RunWorkflowProps & ButtonProps) {
     const [open, setOpen] = useState(false);
 
-    if (!params)
+    const { data: workflow, isLoading } = useSWR(
+        WorkflowService.getWorkflowById.key(workflowId),
+        ({ workflowId }) => WorkflowService.getWorkflowById(workflowId)
+    );
+
+    const params = workflow?.params;
+
+    if (!params || isLoading)
         return (
             <Button
                 onClick={() => onSubmit()}
                 {...props}
-                disabled={open || disabled}
+                disabled={props.disabled || isLoading}
+                loading={isLoading || props.loading}
             >
                 Run Workflow
             </Button>
@@ -35,7 +45,11 @@ export function RunWorkflow({
     return (
         <Popover open={open} onOpenChange={setOpen}>
             <PopoverTrigger asChild>
-                <Button {...props} disabled={open || disabled}>
+                <Button
+                    {...props}
+                    disabled={props.disabled || open || isLoading}
+                    loading={props.loading || isLoading}
+                >
                     Run Workflow
                 </Button>
             </PopoverTrigger>
