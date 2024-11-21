@@ -38,6 +38,7 @@ export const WebhookSchema = z.object({
     secret: z.string().default(""),
     validationHeader: z.string().default(""),
     token: z.string().default(""),
+    removeToken: z.boolean().default(false),
     type: z.enum(["GitHub"]),
 });
 export type WebhookFormType = z.infer<typeof WebhookSchema>;

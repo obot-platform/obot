@@ -4,6 +4,7 @@ import { WorkflowService } from "~/lib/service/api/workflowService";
 
 import { TypographyH3, TypographyH4 } from "~/components/Typography";
 import {
+    ControlledCheckbox,
     ControlledCustomInput,
     ControlledInput,
 } from "~/components/form/controlledInputs";
@@ -149,13 +150,24 @@ export function WebhookFormContent() {
 
                 <TypographyH4>Advanced</TypographyH4>
 
-                <ControlledInput
-                    control={form.control}
-                    name="token"
-                    label="Token (optional)"
-                    description="Optionally provide a token to filter out unauthorized webhook requests."
-                    placeholder={hasToken ? "(unchanged)" : ""}
-                />
+                <div className="space-y-2">
+                    <ControlledInput
+                        control={form.control}
+                        name="token"
+                        label="Token (optional)"
+                        description="Optionally provide a token to filter out unauthorized webhook requests."
+                        placeholder={hasToken ? "(unchanged)" : ""}
+                        disabled={watch("removeToken")}
+                    />
+
+                    {hasToken && (
+                        <ControlledCheckbox
+                            control={form.control}
+                            name="removeToken"
+                            label="Remove Token"
+                        />
+                    )}
+                </div>
 
                 <ControlledCustomInput
                     control={form.control}

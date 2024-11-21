@@ -44,16 +44,7 @@ export function WebhookFormContextProvider({
     const [webhookConfirmation, showWebhookConfirmation] =
         useState<WebhookConfirmationProps | null>(null);
 
-    const updateWebhook = useAsync(WebhookApiService.updateWebhook, {
-        onSuccess: () => {
-            toast.success("Webhook updated");
-        },
-    });
-    const createWebhook = useAsync(WebhookApiService.createWebhook, {
-        onSuccess: () => {
-            toast.success("Webhook created");
-        },
-    });
+    const action = useAsync(handler);
 
     const defaultValues = useMemo<WebhookFormType>(
         () => ({
@@ -66,6 +57,7 @@ export function WebhookFormContextProvider({
             secret: "",
             token: "",
             type: "GitHub",
+            removeToken: false,
         }),
         [webhook]
     );
@@ -80,9 +72,7 @@ export function WebhookFormContextProvider({
     }, [defaultValues, form]);
 
     const handleSubmit = form.handleSubmit(async (values) => {
-        const { error, data } = webhookId
-            ? await updateWebhook.executeAsync(webhookId, values)
-            : await createWebhook.executeAsync(values);
+        const { data, error } = await action.executeAsync(webhookId, values);
 
         if (error) {
             if (error instanceof Error) toast.error(error.message);
@@ -90,8 +80,6 @@ export function WebhookFormContextProvider({
 
             return;
         }
-
-        console.log("values", values);
 
         mutate(WebhookApiService.getWebhooks.key());
         showWebhookConfirmation({
@@ -106,13 +94,12 @@ export function WebhookFormContextProvider({
         <Form {...form}>
             <Context.Provider
                 value={{
-                    error: updateWebhook.error || createWebhook.error,
+                    error: action.error,
                     isEdit: !!webhookId,
                     hasSecret: !!webhook?.secret,
                     hasToken: !!webhook?.hasToken,
                     handleSubmit,
-                    isLoading:
-                        updateWebhook.isLoading || createWebhook.isLoading,
+                    isLoading: action.isLoading,
                 }}
             >
                 {children}
@@ -143,4 +130,30 @@ export function useWebhookFormContext() {
     }
 
     return { form, ...helpers };
+}
+
+async function handleRemoveToken(threadId: string) {
+    const res = await WebhookApiService.removeWebhookToken(threadId);
+    toast.success("Token removed");
+    return res;
+}
+
+async function handler(
+    threadId: string | undefined,
+    { removeToken, ...values }: WebhookFormType
+) {
+    if (threadId) {
+        const res = await WebhookApiService.updateWebhook(threadId, values);
+        toast.success("Webhook updated");
+
+        if (removeToken) return await handleRemoveToken(threadId);
+
+        return res;
+    }
+
+    const res = await WebhookApiService.createWebhook(values);
+
+    toast.success("Webhook created");
+
+    return res;
 }

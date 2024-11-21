@@ -50,6 +50,15 @@ async function updateWebhook(webhookId: string, payload: UpdateWebhook) {
     return data;
 }
 
+async function removeWebhookToken(webhookId: string) {
+    const { data } = await request<Webhook>({
+        url: ApiRoutes.webhooks.removeWebhookToken(webhookId).url,
+        method: "POST",
+    });
+
+    return data;
+}
+
 async function deleteWebhook(webhookId: string) {
     await request({
         url: ApiRoutes.webhooks.deleteWebhook(webhookId).url,
@@ -63,4 +72,5 @@ export const WebhookApiService = {
     createWebhook,
     updateWebhook,
     deleteWebhook,
+    removeWebhookToken,
 };
