@@ -62,9 +62,10 @@ export function WebhookFormContextProvider({
             alias: webhook?.alias ?? "",
             workflow: webhook?.workflow ?? "",
             headers: webhook?.headers ?? [],
-            secret: "",
             validationHeader: webhook?.validationHeader ?? "",
+            secret: "",
             token: "",
+            type: "GitHub",
         }),
         [webhook]
     );

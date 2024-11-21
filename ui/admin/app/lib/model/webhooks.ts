@@ -36,10 +36,8 @@ export const WebhookSchema = z.object({
     workflow: z.string().min(1, "Workflow is required").default(""),
     headers: z.array(z.string()).default([]),
     secret: z.string().default(""),
-    validationHeader: z
-        .string()
-        .min(1, "Validation header is required")
-        .default(""),
+    validationHeader: z.string().default(""),
     token: z.string().default(""),
+    type: z.enum(["GitHub"]),
 });
 export type WebhookFormType = z.infer<typeof WebhookSchema>;

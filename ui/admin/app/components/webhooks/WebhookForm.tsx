@@ -1,4 +1,3 @@
-import { useEffect, useState } from "react";
 import useSWR from "swr";
 
 import { WorkflowService } from "~/lib/service/api/workflowService";
@@ -9,7 +8,8 @@ import {
     ControlledInput,
 } from "~/components/form/controlledInputs";
 import { Button } from "~/components/ui/button";
-import { FormItem, FormLabel } from "~/components/ui/form";
+import { Checkbox } from "~/components/ui/checkbox";
+import { FormControl, FormItem, FormLabel } from "~/components/ui/form";
 import { MultiSelect } from "~/components/ui/multi-select";
 import { ScrollArea } from "~/components/ui/scroll-area";
 import {
@@ -39,19 +39,25 @@ export function WebhookFormContent() {
     const { form, handleSubmit, isLoading, isEdit, hasToken, hasSecret } =
         useWebhookFormContext();
 
+    const { setValue, watch } = form;
+
     const getWorkflows = useSWR(WorkflowService.getWorkflows.key(), () =>
         WorkflowService.getWorkflows()
     );
 
     const workflows = getWorkflows.data;
 
-    // note(ryanhopperlowe): this will change depending on webhook type
-    const validationHeader = form.watch("validationHeader");
-    useEffect(() => {
-        if (!validationHeader) {
-            form.setValue("validationHeader", "X-Hub-Signature-256");
-        }
-    }, [form, validationHeader]);
+    const validationHeader = watch("validationHeader");
+    const secret = watch("secret");
+
+    const removeSecret = () => {
+        setValue("secret", "");
+        setValue("validationHeader", "");
+    };
+
+    const addSecret = () => setValue("validationHeader", "X-Hub-Signature-256");
+
+    const secretIsRemoved = hasSecret && !validationHeader && !secret;
 
     return (
         <ScrollArea className="h-full">
@@ -113,13 +119,33 @@ export function WebhookFormContent() {
                     )}
                 </ControlledCustomInput>
 
-                <ControlledInput
-                    control={form.control}
-                    name="secret"
-                    label="Secret"
-                    description="This secret should match the secret you provide to GitHub."
-                    placeholder={hasSecret ? "(unchanged)" : ""}
-                />
+                <div className="space-y-2">
+                    <ControlledInput
+                        control={form.control}
+                        name="secret"
+                        label="Secret"
+                        description="This secret should match the secret you provide to GitHub."
+                        placeholder={hasSecret ? "(unchanged)" : ""}
+                        disabled={secretIsRemoved}
+                        onChange={(e) => {
+                            if (!hasSecret && e.target.value) addSecret();
+                        }}
+                    />
+
+                    <FormItem className="flex items-center gap-2 space-y-0">
+                        <FormControl>
+                            <Checkbox
+                                checked={secretIsRemoved}
+                                onCheckedChange={(val) => {
+                                    if (val) removeSecret();
+                                    else addSecret();
+                                }}
+                            />
+                        </FormControl>
+
+                        <FormLabel>No Secret</FormLabel>
+                    </FormItem>
+                </div>
 
                 <TypographyH4>Advanced</TypographyH4>
 
