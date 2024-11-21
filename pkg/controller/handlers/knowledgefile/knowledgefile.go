@@ -106,10 +106,10 @@ func (h *Handler) IngestFile(req router.Request, _ router.Response) error {
 		switch {
 		case source.Spec.Manifest.AutoApprove != nil && *source.Spec.Manifest.AutoApprove:
 			file.Spec.Approved = typed.Pointer(true)
-		case matchInclude && !matchExclude:
-			file.Spec.Approved = typed.Pointer(true)
 		case matchExclude:
 			file.Spec.Approved = typed.Pointer(false)
+		case matchInclude:
+			file.Spec.Approved = typed.Pointer(true)
 		}
 
 		if file.Spec.Approved != nil {
