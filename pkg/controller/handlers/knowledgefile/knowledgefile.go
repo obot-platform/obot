@@ -111,8 +111,11 @@ func (h *Handler) IngestFile(req router.Request, _ router.Response) error {
 		case matchExclude:
 			file.Spec.Approved = typed.Pointer(false)
 		}
-		if err := req.Client.Update(req.Ctx, file); err != nil {
-			return err
+
+		if file.Spec.Approved != nil {
+			if err := req.Client.Update(req.Ctx, file); err != nil {
+				return err
+			}
 		}
 	}
 
