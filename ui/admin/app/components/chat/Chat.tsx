@@ -5,7 +5,7 @@ import { cn } from "~/lib/utils";
 import { useChat } from "~/components/chat/ChatContext";
 import { Chatbar } from "~/components/chat/Chatbar";
 import { MessagePane } from "~/components/chat/MessagePane";
-import { Button } from "~/components/ui/button";
+import { RunWorkflow } from "~/components/chat/RunWorkflow";
 
 type ChatProps = React.HTMLAttributes<HTMLDivElement> & {
     showStartButton?: boolean;
@@ -20,6 +20,7 @@ export function Chat({ className }: ChatProps) {
         readOnly,
         isInvoking,
         isRunning,
+        params,
     } = useChat();
     const [runTriggered, setRunTriggered] = useState(false);
 
@@ -48,11 +49,11 @@ export function Chat({ className }: ChatProps) {
                         "flex justify-center items-center h-full": !threadId,
                     })}
                 >
-                    <Button
-                        variant="secondary"
-                        onClick={() => {
+                    <RunWorkflow
+                        params={params}
+                        onSubmit={(params) => {
                             setRunTriggered(true);
-                            invoke();
+                            invoke(params && JSON.stringify(params));
                         }}
                         className={cn({
                             "w-full": threadId,
@@ -61,7 +62,7 @@ export function Chat({ className }: ChatProps) {
                         disabled={isInvoking || isRunning}
                     >
                         Run
-                    </Button>
+                    </RunWorkflow>
                 </div>
             )}
         </div>

@@ -27,6 +27,7 @@ interface ChatContextType {
     readOnly?: boolean;
     isRunning: boolean;
     isInvoking: boolean;
+    params?: Record<string, string>;
 }
 
 const ChatContext = createContext<ChatContextType | undefined>(undefined);
@@ -38,6 +39,7 @@ export function ChatProvider({
     threadId,
     onCreateThreadId,
     readOnly,
+    params,
 }: {
     children: ReactNode;
     mode?: Mode;
@@ -45,13 +47,14 @@ export function ChatProvider({
     threadId?: Nullish<string>;
     onCreateThreadId?: (threadId: string) => void;
     readOnly?: boolean;
+    params?: Record<string, string>;
 }) {
     const invoke = (prompt?: string) => {
         if (readOnly) return;
 
-        if (mode === "workflow") invokeAgent.execute({ slug: id });
+        if (mode === "workflow") invokeAgent.execute({ slug: id, prompt });
         else if (mode === "agent")
-            invokeAgent.execute({ slug: id, prompt: prompt, thread: threadId });
+            invokeAgent.execute({ slug: id, prompt, thread: threadId });
     };
 
     const invokeAgent = useAsync(InvokeService.invokeAgentWithStream, {
@@ -80,6 +83,7 @@ export function ChatProvider({
                 isRunning,
                 isInvoking: invokeAgent.isLoading,
                 readOnly,
+                params,
             }}
         >
             {children}

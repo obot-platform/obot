@@ -57,6 +57,7 @@ export default function ChatAgent() {
                 id={workflow.id}
                 mode="workflow"
                 threadId={threadId}
+                params={workflow.params}
                 onCreateThreadId={(threadId) =>
                     navigate(
                         $path(
