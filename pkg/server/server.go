@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	_ "net/http/pprof"
+	"os"
 
 	"github.com/otto8-ai/otto8/logger"
 	"github.com/otto8-ai/otto8/pkg/api/router"
@@ -15,6 +17,13 @@ import (
 var log = logger.Package()
 
 func Run(ctx context.Context, c services.Config) error {
+	if os.Getenv("OTTO8_PPROF_ENABLED") == "true" {
+		go func() {
+			log.Infof("Starting pprof on :6060")
+			log.Errorf(http.ListenAndServe("localhost:6060", nil).Error())
+		}()
+	}
+
 	svcs, err := services.New(ctx, c)
 	if err != nil {
 		return err
