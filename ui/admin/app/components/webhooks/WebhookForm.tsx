@@ -54,7 +54,10 @@ export function WebhookFormContent() {
     }, [form, validationHeader]);
 
     return (
-        <form onSubmit={handleSubmit} className="space-y-8 p-8">
+        <form
+            onSubmit={handleSubmit}
+            className="space-y-8 p-8 max-w-3xl mx-auto"
+        >
             <TypographyH4>
                 {isEdit ? "Edit Webhook" : "Create Webhook"}
             </TypographyH4>
