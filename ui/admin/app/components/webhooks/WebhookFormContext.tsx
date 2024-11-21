@@ -87,6 +87,8 @@ export function WebhookFormContextProvider({
             secret: values.secret,
             token: values.token,
             original: webhook,
+            tokenRemoved: values.removeToken,
+            secretRemoved: !values.secret && !values.validationHeader,
         });
     });
 

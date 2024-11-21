@@ -21,6 +21,8 @@ export type WebhookConfirmationProps = {
     token?: string;
     secret: string;
     type?: "github";
+    tokenRemoved: boolean;
+    secretRemoved: boolean;
 };
 
 export const WebhookConfirmation = ({
@@ -29,11 +31,14 @@ export const WebhookConfirmation = ({
     token,
     secret,
     type: _ = "github",
+    tokenRemoved,
+    secretRemoved,
 }: WebhookConfirmationProps) => {
     const showUrlChange =
         !original ||
         original.links?.invoke !== webhook.links?.invoke ||
-        !!token;
+        !!token ||
+        tokenRemoved;
 
     return (
         <Dialog open>
@@ -83,7 +88,7 @@ export const WebhookConfirmation = ({
                         />
                     ) : (
                         <TypographyP className="text-muted-foreground">
-                            (Unchanged)
+                            ({secretRemoved ? "None" : "Unchanged"})
                         </TypographyP>
                     )}
                 </div>
