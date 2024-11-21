@@ -27,18 +27,19 @@ export type WebhookConfirmationProps = {
 
 export const WebhookConfirmation = ({
     webhook,
-    original,
+    original: _original,
     token,
     secret,
-    type: _ = "github",
-    tokenRemoved,
+    type: _type = "github",
+    tokenRemoved: _tokenRemoved,
     secretRemoved,
 }: WebhookConfirmationProps) => {
-    const showUrlChange =
-        !original ||
-        original.links?.invoke !== webhook.links?.invoke ||
-        !!token ||
-        tokenRemoved;
+    // note(ryanhopperlowe): commenting out as to not lose the logic here
+    // const showUrlChange =
+    //     !original ||
+    //     original.links?.invoke !== webhook.links?.invoke ||
+    //     !!token ||
+    //     tokenRemoved;
 
     return (
         <Dialog open>
@@ -56,22 +57,12 @@ export const WebhookConfirmation = ({
                     This information will not be shown again.
                 </DialogDescription>
 
-                <div
-                    className={cn("flex flex-col gap-1", {
-                        "flex-row gap-2": !showUrlChange,
-                    })}
-                >
+                <div className={cn("flex flex-col gap-1")}>
                     <TypographyP>Payload URL: </TypographyP>
-                    {showUrlChange ? (
-                        <CopyText
-                            text={getWebhookUrl(webhook, token)}
-                            className="min-w-fit"
-                        />
-                    ) : (
-                        <TypographyP className="text-muted-foreground">
-                            (Unchanged)
-                        </TypographyP>
-                    )}
+                    <CopyText
+                        text={getWebhookUrl(webhook, token)}
+                        className="min-w-fit"
+                    />
                 </div>
 
                 <div

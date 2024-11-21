@@ -179,8 +179,7 @@ export const ApiRoutes = {
             buildUrl(`/webhooks/${webhookId}/remove-token`),
         deleteWebhook: (webhookId: string) =>
             buildUrl(`/webhooks/${webhookId}`),
-        executeWebhook: (webhookId: string) =>
-            buildUrl(`/webhooks/${webhookId}`),
+        invoke: (webhookId: string) => buildUrl(`/webhooks/${webhookId}`),
     },
 };
 

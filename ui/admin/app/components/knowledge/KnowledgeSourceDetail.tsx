@@ -827,7 +827,7 @@ const KnowledgeSourceDetail: FC<KnowledgeSourceDetailProps> = ({
                                                             <TooltipTrigger
                                                                 asChild
                                                             >
-                                                                <div className="flex justify-center items-center hidden group-hover:block">
+                                                                <div className="hidden group-hover:flex justify-center items-center">
                                                                     <MinusIcon className="w-4 h-4 text-danger" />
                                                                 </div>
                                                             </TooltipTrigger>
@@ -849,7 +849,7 @@ const KnowledgeSourceDetail: FC<KnowledgeSourceDetailProps> = ({
                                                             <TooltipTrigger
                                                                 asChild
                                                             >
-                                                                <div className="flex justify-center items-center hidden group-hover:block">
+                                                                <div className="hidden group-hover:flex justify-center items-center">
                                                                     <MinusIcon className="w-4 h-4 text-danger" />
                                                                 </div>
                                                             </TooltipTrigger>
@@ -865,7 +865,7 @@ const KnowledgeSourceDetail: FC<KnowledgeSourceDetailProps> = ({
                                                       KnowledgeFileState.Unapproved ? (
                                                     <Tooltip>
                                                         <TooltipTrigger asChild>
-                                                            <div className="flex justify-center items-center hidden group-hover:block">
+                                                            <div className="hidden group-hover:flex justify-center items-center">
                                                                 <Plus className="w-4 h-4 text-danger" />
                                                             </div>
                                                         </TooltipTrigger>
@@ -877,7 +877,7 @@ const KnowledgeSourceDetail: FC<KnowledgeSourceDetailProps> = ({
                                                   KnowledgeFileState.Unsupported ? (
                                                     <>
                                                         <ShieldAlert className="w-4 h-4 text-danger group-hover:hidden" />
-                                                        <div className="flex justify-center items-center hidden group-hover:block">
+                                                        <div className="hidden group-hover:flex justify-center items-center">
                                                             <MinusIcon className="w-4 h-4 text-danger" />
                                                         </div>
                                                     </>

@@ -31,7 +31,7 @@ export type UpdateWebhook = WebhookPayload;
 
 export const WebhookSchema = z.object({
     name: z.string().min(1, "Name is required").default(""),
-    description: z.string().min(1, "Description is required").default(""),
+    description: z.string().default(""),
     alias: z.string().default(""),
     workflow: z.string().min(1, "Workflow is required").default(""),
     headers: z.array(z.string()).default([]),

@@ -1,10 +1,11 @@
 import useSWR from "swr";
 
+import { ApiRoutes } from "~/lib/routers/apiRoutes";
 import { WorkflowService } from "~/lib/service/api/workflowService";
+import { getAliasFrom } from "~/lib/utils";
 
 import { TypographyH3, TypographyH4 } from "~/components/Typography";
 import {
-    ControlledCheckbox,
     ControlledCustomInput,
     ControlledInput,
 } from "~/components/form/controlledInputs";
@@ -37,7 +38,7 @@ export function WebhookForm(props: WebhookFormProps) {
 }
 
 export function WebhookFormContent() {
-    const { form, handleSubmit, isLoading, isEdit, hasToken, hasSecret } =
+    const { form, handleSubmit, isLoading, isEdit, hasSecret } =
         useWebhookFormContext();
 
     const { setValue, watch } = form;
@@ -59,6 +60,7 @@ export function WebhookFormContent() {
     const addSecret = () => setValue("validationHeader", "X-Hub-Signature-256");
 
     const secretIsRemoved = hasSecret && !validationHeader && !secret;
+    const alias = watch("alias");
 
     return (
         <ScrollArea className="h-full">
@@ -78,8 +80,20 @@ export function WebhookFormContent() {
 
                 <ControlledInput
                     control={form.control}
+                    name="alias"
+                    label="Alias (Optional)"
+                    description={
+                        alias
+                            ? `Aliased URL: ${ApiRoutes.webhooks.invoke(alias).url}`
+                            : "An alias is a short name for the webhook to make it easier to identify."
+                    }
+                    onChangeConversion={getAliasFrom}
+                />
+
+                <ControlledInput
+                    control={form.control}
                     name="description"
-                    label="Description"
+                    label="Description (Optional)"
                 />
 
                 <FormItem>
@@ -124,7 +138,7 @@ export function WebhookFormContent() {
                     <ControlledInput
                         control={form.control}
                         name="secret"
-                        label="Secret"
+                        label="Secret (Optional)"
                         description="This secret should match the secret you provide to GitHub."
                         placeholder={hasSecret ? "(unchanged)" : ""}
                         disabled={secretIsRemoved}
@@ -150,29 +164,10 @@ export function WebhookFormContent() {
 
                 <TypographyH4>Advanced</TypographyH4>
 
-                <div className="space-y-2">
-                    <ControlledInput
-                        control={form.control}
-                        name="token"
-                        label="Token (optional)"
-                        description="Optionally provide a token to filter out unauthorized webhook requests."
-                        placeholder={hasToken ? "(unchanged)" : ""}
-                        disabled={watch("removeToken")}
-                    />
-
-                    {hasToken && (
-                        <ControlledCheckbox
-                            control={form.control}
-                            name="removeToken"
-                            label="Remove Token"
-                        />
-                    )}
-                </div>
-
                 <ControlledCustomInput
                     control={form.control}
                     name="headers"
-                    label="Headers"
+                    label="Headers (Optional)"
                 >
                     {({ field }) => (
                         <MultiSelect
