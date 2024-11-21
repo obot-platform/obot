@@ -168,8 +168,6 @@ const GithubHeaderOptions = [
     "X-GitHub-Hook-ID",
     "X-GitHub-Event",
     "X-GitHub-Delivery",
-    "X-Hub-Signature",
-    "X-Hub-Signature-Ed25519",
     "User-Agent",
     "X-GitHub-Hook-Installation-Target-Type",
     "X-GitHub-Hook-Installation-Target-ID",
