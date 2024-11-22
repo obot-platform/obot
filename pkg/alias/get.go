@@ -53,6 +53,44 @@ func Get(ctx context.Context, c kclient.Client, obj v1.Aliasable, namespace stri
 	return c.Get(ctx, router.Key(alias.Spec.TargetNamespace, alias.Spec.TargetName), obj.(kclient.Object))
 }
 
+func GetFromScope(ctx context.Context, c kclient.Client, scope, namespace, name string) (kclient.Object, error) {
+	gvk := schema.GroupVersionKind{
+		Group:   v1.SchemeGroupVersion.Group,
+		Version: v1.Version,
+		Kind:    scope,
+	}
+
+	obj, err := c.Scheme().New(gvk)
+	if err != nil {
+		return nil, apierrors.NewNotFound(schema.GroupResource{
+			Group:    gvk.Group,
+			Resource: gvk.Kind,
+		}, name)
+	}
+
+	cObj := obj.(kclient.Object)
+
+	var alias v1.Alias
+	if err := c.Get(ctx, router.Key("", KeyFromScopeID(scope, name)), &alias); apierrors.IsNotFound(err) {
+		return cObj, c.Get(ctx, router.Key(namespace, name), cObj)
+	} else if err != nil {
+		return nil, err
+	}
+
+	gvk.Kind = alias.Spec.TargetKind
+	obj, err = c.Scheme().New(gvk)
+	if err != nil {
+		return nil, apierrors.NewNotFound(schema.GroupResource{
+			Group:    gvk.Group,
+			Resource: gvk.Kind,
+		}, name)
+	}
+
+	cObj = obj.(kclient.Object)
+
+	return cObj, c.Get(ctx, router.Key(alias.Spec.TargetNamespace, alias.Spec.TargetName), cObj)
+}
+
 func KeyFromScopeID(scope, id string) string {
 	return system.AliasPrefix + hash.String(name.SafeHashConcatName(id, scope))[:8]
 }

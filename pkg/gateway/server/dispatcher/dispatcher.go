@@ -82,12 +82,23 @@ func (d *Dispatcher) TransformRequest(req *http.Request, namespace string) error
 }
 
 func (d *Dispatcher) getModelProviderForModel(ctx context.Context, namespace, model string) (*v1.Model, error) {
-	var m v1.Model
-	if err := alias.Get(ctx, d.client, &m, namespace, model); err != nil {
+	m, err := alias.GetFromScope(ctx, d.client, "Model", namespace, model)
+	if err != nil {
 		return nil, err
 	}
 
-	return &m, nil
+	switch m := m.(type) {
+	case *v1.DefaultModelAlias:
+		var model v1.Model
+		if err := alias.Get(ctx, d.client, &model, namespace, m.Spec.Manifest.Model); err != nil {
+			return nil, err
+		}
+		return &model, nil
+	case *v1.Model:
+		return m, nil
+	}
+
+	return nil, fmt.Errorf("model %q not found", model)
 }
 
 func (d *Dispatcher) startModelProvider(ctx context.Context, model *v1.Model) (*url.URL, error) {

@@ -3,14 +3,14 @@ import { z } from "zod";
 import { EntityMeta } from "~/lib/model/primitives";
 
 export const ModelUsage = {
-    Agent: "agent",
+    LLM: "llm",
     TextEmbedding: "text-embedding",
     ImageGeneration: "image-generation",
 } as const;
 export type ModelUsage = (typeof ModelUsage)[keyof typeof ModelUsage];
 
 const ModelUsageLabels = {
-    [ModelUsage.Agent]: "Agent",
+    [ModelUsage.LLM]: "LLM",
     [ModelUsage.TextEmbedding]: "Text Embedding",
     [ModelUsage.ImageGeneration]: "Image Generation",
 } as const;

@@ -12,7 +12,6 @@ type ModelManifest struct {
 	ModelProvider string     `json:"modelProvider,omitempty"`
 	Alias         string     `json:"alias,omitempty"`
 	Active        bool       `json:"active"`
-	Default       bool       `json:"default"`
 	Usage         ModelUsage `json:"usage,omitempty"`
 }
 
@@ -31,7 +30,7 @@ type ModelProviderStatus struct {
 type ModelUsage string
 
 const (
-	ModelUsageAgent     ModelUsage = "agent"
+	ModelUsageLLM       ModelUsage = "llm"
 	ModelUsageEmbedding ModelUsage = "text-embedding"
 	ModelUsageImage     ModelUsage = "image-generation"
 )

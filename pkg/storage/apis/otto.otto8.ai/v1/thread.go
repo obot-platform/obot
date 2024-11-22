@@ -63,6 +63,7 @@ type ThreadSpec struct {
 	FromWorkspaceNames    []string             `json:"fromWorkspaceNames,omitempty"`
 	OAuthAppLoginName     string               `json:"oAuthAppLoginName,omitempty"`
 	UserUID               string               `json:"userUID,omitempty"`
+	TextEmbeddingModel    string               `json:"textEmbeddingModel,omitempty"`
 	SystemTask            bool                 `json:"systemTask,omitempty"`
 }
 

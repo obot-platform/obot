@@ -5,6 +5,7 @@ import { useForm } from "react-hook-form";
 import useSWR from "swr";
 import { z } from "zod";
 
+import { ModelUsage } from "~/lib/model/models";
 import { ModelApiService } from "~/lib/service/api/modelApiService";
 
 import { TypographyH4 } from "~/components/Typography";
@@ -49,7 +50,9 @@ export function AgentForm({ agent, onSubmit, onChange }: AgentFormProps) {
     const models = useMemo(() => {
         if (!getModels.data) return [];
 
-        return getModels.data.filter((m) => !m.usage || m.usage === "agent");
+        return getModels.data.filter(
+            (m) => !m.usage || m.usage === ModelUsage.LLM
+        );
     }, [getModels.data]);
 
     const form = useForm<AgentInfoFormValues>({

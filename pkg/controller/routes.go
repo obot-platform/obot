@@ -74,6 +74,7 @@ func (c *Controller) setupRoutes() error {
 	root.Type(&v1.Agent{}).HandlerFunc(alias.AssignAlias)
 	root.Type(&v1.Workflow{}).HandlerFunc(alias.AssignAlias)
 	root.Type(&v1.Model{}).HandlerFunc(alias.AssignAlias)
+	root.Type(&v1.DefaultModelAlias{}).HandlerFunc(alias.AssignAlias)
 
 	// Knowledge files
 	root.Type(&v1.KnowledgeFile{}).HandlerFunc(cleanup.Cleanup)
@@ -89,9 +90,13 @@ func (c *Controller) setupRoutes() error {
 	// KnowledgeSets
 	root.Type(&v1.KnowledgeSet{}).HandlerFunc(cleanup.Cleanup)
 	root.Type(&v1.KnowledgeSet{}).FinalizeFunc(v1.KnowledgeSetFinalizer, knowledgeset.Cleanup)
+	// Also cleanup the dataset when there is no content.
+	// This will allow the user to switch the embedding model implicitly.
+	root.Type(&v1.KnowledgeSet{}).HandlerFunc(knowledgeset.Cleanup)
 	root.Type(&v1.KnowledgeSet{}).HandlerFunc(knowledgeset.GenerateDataDescription)
 	root.Type(&v1.KnowledgeSet{}).HandlerFunc(knowledgeset.CreateWorkspace)
 	root.Type(&v1.KnowledgeSet{}).HandlerFunc(knowledgeset.CheckHasContent)
+	root.Type(&v1.KnowledgeSet{}).HandlerFunc(knowledgeset.SetEmbeddingModel)
 
 	// Webhooks
 	root.Type(&v1.Webhook{}).HandlerFunc(cleanup.Cleanup)

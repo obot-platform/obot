@@ -200,12 +200,17 @@ func CreateThreadForAgent(ctx context.Context, c kclient.WithWatch, agent *v1.Ag
 
 	if agent.Name != "" {
 		agent, err = wait.For(ctx, c, agent, func(agent *v1.Agent) bool {
-			return agent.Status.WorkspaceName != ""
+			return agent.Status.WorkspaceName != "" && len(agent.Status.KnowledgeSetNames) > 0
 		})
 		if err != nil {
 			return nil, err
 		}
 		fromWorkspaceNames = []string{agent.Status.WorkspaceName}
+	}
+
+	var agentKnowledgeSet v1.KnowledgeSet
+	if err = c.Get(ctx, router.Key(agent.Namespace, agent.Status.KnowledgeSetNames[0]), &agentKnowledgeSet); err != nil {
+		return nil, err
 	}
 
 	thread := v1.Thread{
@@ -222,6 +227,7 @@ func CreateThreadForAgent(ctx context.Context, c kclient.WithWatch, agent *v1.Ag
 			FromWorkspaceNames: fromWorkspaceNames,
 			UserUID:            userUID,
 			AgentAlias:         agentAlias,
+			TextEmbeddingModel: agentKnowledgeSet.Spec.TextEmbeddingModel,
 		},
 	}
 	return &thread, c.Create(ctx, &thread)

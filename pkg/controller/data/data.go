@@ -17,6 +17,9 @@ var ottoData []byte
 //go:embed default-models.yaml
 var defaultModelsData []byte
 
+//go:embed default-model-aliases.yaml
+var defaultModelAliasesData []byte
+
 func Data(ctx context.Context, c kclient.Client) error {
 	var defaultModels v1.ModelList
 	if err := yaml.Unmarshal(defaultModelsData, &defaultModels); err != nil {
@@ -39,6 +42,22 @@ func Data(ctx context.Context, c kclient.Client) error {
 			if err = kclient.IgnoreAlreadyExists(c.Create(ctx, &model)); err != nil {
 				return err
 			}
+		}
+	}
+
+	var defaultModelAliases v1.DefaultModelAliasList
+	if err := yaml.Unmarshal(defaultModelAliasesData, &defaultModelAliases); err != nil {
+		return err
+	}
+
+	for _, alias := range defaultModelAliases.Items {
+		var existing v1.DefaultModelAlias
+		if err := c.Get(ctx, kclient.ObjectKey{Namespace: alias.Namespace, Name: alias.Name}, &existing); apierrors.IsNotFound(err) {
+			if err := c.Create(ctx, &alias); err != nil {
+				return err
+			}
+		} else if err != nil {
+			return err
 		}
 	}
 

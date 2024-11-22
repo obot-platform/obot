@@ -7,6 +7,7 @@ import (
 
 	"github.com/otto8-ai/nah/pkg/name"
 	"github.com/otto8-ai/nah/pkg/router"
+	"github.com/otto8-ai/otto8/apiclient/types"
 	"github.com/otto8-ai/otto8/pkg/aihelper"
 	"github.com/otto8-ai/otto8/pkg/create"
 	"github.com/otto8-ai/otto8/pkg/invoke"
@@ -105,13 +106,62 @@ func (h *Handler) createThread(ctx context.Context, c kclient.Client, ks *v1.Kno
 
 func (h *Handler) CheckHasContent(req router.Request, _ router.Response) error {
 	ks := req.Object.(*v1.KnowledgeSet)
-	files := &v1.KnowledgeFileList{}
-	if err := req.Client.List(req.Ctx, files, kclient.InNamespace(ks.Namespace), kclient.MatchingFields{
+
+	// This is a hack to track exactly when the knowledge set has no more content.
+	// The issue is triggers. Triggers on field or label selectors work fine, but not for deleted objects.
+	// When an object is deleted, there is no way to tell if it matches the field selector because the object is gone.
+	// Therefore, field and label selector triggers don't trigger on deletion.
+	// However, it is important that we clean up the dataset when the knowledge set is empty.
+	// So, we track a single file because this will be triggered when the file is deleted. Once the last file is deleted, then the knowledge set is empty,
+	// and we can clean up the dataset.
+	if ks.Status.ExistingFile != "" {
+		var file v1.KnowledgeFile
+		if err := req.Get(&file, req.Namespace, ks.Status.ExistingFile); err == nil {
+			return nil
+		} else if !apierrors.IsNotFound(err) {
+			return err
+		}
+	}
+
+	var files v1.KnowledgeFileList
+	if err := req.Client.List(req.Ctx, &files, kclient.InNamespace(ks.Namespace), kclient.MatchingFields{
 		"spec.knowledgeSetName": ks.Name,
-	}, kclient.Limit(1)); err != nil {
+	}); err != nil {
 		return err
 	}
+
 	ks.Status.HasContent = len(files.Items) > 0
+	if !ks.Status.HasContent {
+		// Reset the embedding model so it can be implicitly updated when knowledge is added.
+		ks.Status.TextEmbeddingModel = ""
+		ks.Status.ExistingFile = ""
+	} else {
+		ks.Status.ExistingFile = files.Items[0].Name
+	}
+
+	return nil
+}
+
+func (h *Handler) SetEmbeddingModel(req router.Request, _ router.Response) error {
+	ks := req.Object.(*v1.KnowledgeSet)
+	if !ks.Status.HasContent || ks.Status.TextEmbeddingModel != "" {
+		return nil
+	}
+
+	if ks.Spec.TextEmbeddingModel != "" {
+		ks.Status.TextEmbeddingModel = ks.Spec.TextEmbeddingModel
+		return nil
+	}
+
+	var defaultEmbeddingModel v1.DefaultModelAlias
+	if err := req.Get(&defaultEmbeddingModel, req.Namespace, string(types.DefaultModelAliasTypeTextEmbedding)); err == nil {
+		ks.Status.TextEmbeddingModel = defaultEmbeddingModel.Spec.Manifest.Model
+	} else if apierrors.IsNotFound(err) {
+		ks.Status.TextEmbeddingModel = "text-embedding-3-small"
+	} else if err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -127,7 +177,7 @@ func (h *Handler) CreateWorkspace(req router.Request, _ router.Response) error {
 
 func (h *Handler) Cleanup(req router.Request, _ router.Response) error {
 	ks := req.Object.(*v1.KnowledgeSet)
-	if ks.Status.ThreadName == "" {
+	if ks.Status.ThreadName == "" || (ks.DeletionTimestamp.IsZero() && ks.Status.HasContent) {
 		return nil
 	}
 
@@ -138,9 +188,7 @@ func (h *Handler) Cleanup(req router.Request, _ router.Response) error {
 		return err
 	}
 
-	task, err := h.invoker.SystemTask(req.Ctx, &thread, system.KnowledgeDeleteTool, map[string]any{
-		"dataset": ks.Namespace + "/" + ks.Name,
-	})
+	task, err := h.invoker.SystemTask(req.Ctx, &thread, system.KnowledgeDeleteTool, ks.Namespace+"/"+ks.Name)
 	if err != nil {
 		return err
 	}

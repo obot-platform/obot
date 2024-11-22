@@ -1,0 +1,37 @@
+items:
+  - apiVersion: otto.otto8.ai/v1
+    kind: DefaultModelAlias
+    metadata:
+      name: llm
+      namespace: default
+    spec:
+      manifest:
+        alias: llm
+        model: gpt-4o
+  - apiVersion: otto.otto8.ai/v1
+    kind: DefaultModelAlias
+    metadata:
+      name: llm-mini
+      namespace: default
+    spec:
+      manifest:
+        alias: llm-mini
+        model: gpt-4o-mini
+  - apiVersion: otto.otto8.ai/v1
+    kind: DefaultModelAlias
+    metadata:
+      name: text-embedding
+      namespace: default
+    spec:
+      manifest:
+        alias: text-embedding
+        model: text-embedding-3-small
+  - apiVersion: otto.otto8.ai/v1
+    kind: DefaultModelAlias
+    metadata:
+      name: image-generation
+      namespace: default
+    spec:
+      manifest:
+        alias: image-generation
+        model: dall-e-3

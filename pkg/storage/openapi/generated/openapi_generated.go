@@ -29,6 +29,9 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/otto8-ai/otto8/apiclient/types.CronJob":                                   schema_otto8_ai_otto8_apiclient_types_CronJob(ref),
 		"github.com/otto8-ai/otto8/apiclient/types.CronJobList":                               schema_otto8_ai_otto8_apiclient_types_CronJobList(ref),
 		"github.com/otto8-ai/otto8/apiclient/types.CronJobManifest":                           schema_otto8_ai_otto8_apiclient_types_CronJobManifest(ref),
+		"github.com/otto8-ai/otto8/apiclient/types.DefaultModelAlias":                         schema_otto8_ai_otto8_apiclient_types_DefaultModelAlias(ref),
+		"github.com/otto8-ai/otto8/apiclient/types.DefaultModelAliasList":                     schema_otto8_ai_otto8_apiclient_types_DefaultModelAliasList(ref),
+		"github.com/otto8-ai/otto8/apiclient/types.DefaultModelAliasManifest":                 schema_otto8_ai_otto8_apiclient_types_DefaultModelAliasManifest(ref),
 		"github.com/otto8-ai/otto8/apiclient/types.EmailReceiver":                             schema_otto8_ai_otto8_apiclient_types_EmailReceiver(ref),
 		"github.com/otto8-ai/otto8/apiclient/types.EmailReceiverList":                         schema_otto8_ai_otto8_apiclient_types_EmailReceiverList(ref),
 		"github.com/otto8-ai/otto8/apiclient/types.EmailReceiverManifest":                     schema_otto8_ai_otto8_apiclient_types_EmailReceiverManifest(ref),
@@ -63,6 +66,11 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/otto8-ai/otto8/apiclient/types.Step":                                      schema_otto8_ai_otto8_apiclient_types_Step(ref),
 		"github.com/otto8-ai/otto8/apiclient/types.StepTemplateInvoke":                        schema_otto8_ai_otto8_apiclient_types_StepTemplateInvoke(ref),
 		"github.com/otto8-ai/otto8/apiclient/types.SubFlow":                                   schema_otto8_ai_otto8_apiclient_types_SubFlow(ref),
+		"github.com/otto8-ai/otto8/apiclient/types.Task":                                      schema_otto8_ai_otto8_apiclient_types_Task(ref),
+		"github.com/otto8-ai/otto8/apiclient/types.TaskIf":                                    schema_otto8_ai_otto8_apiclient_types_TaskIf(ref),
+		"github.com/otto8-ai/otto8/apiclient/types.TaskList":                                  schema_otto8_ai_otto8_apiclient_types_TaskList(ref),
+		"github.com/otto8-ai/otto8/apiclient/types.TaskManifest":                              schema_otto8_ai_otto8_apiclient_types_TaskManifest(ref),
+		"github.com/otto8-ai/otto8/apiclient/types.TaskStep":                                  schema_otto8_ai_otto8_apiclient_types_TaskStep(ref),
 		"github.com/otto8-ai/otto8/apiclient/types.Template":                                  schema_otto8_ai_otto8_apiclient_types_Template(ref),
 		"github.com/otto8-ai/otto8/apiclient/types.Thread":                                    schema_otto8_ai_otto8_apiclient_types_Thread(ref),
 		"github.com/otto8-ai/otto8/apiclient/types.ThreadList":                                schema_otto8_ai_otto8_apiclient_types_ThreadList(ref),
@@ -96,6 +104,10 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/otto8-ai/otto8/pkg/storage/apis/otto.otto8.ai/v1.CronJobList":             schema_storage_apis_ottootto8ai_v1_CronJobList(ref),
 		"github.com/otto8-ai/otto8/pkg/storage/apis/otto.otto8.ai/v1.CronJobSpec":             schema_storage_apis_ottootto8ai_v1_CronJobSpec(ref),
 		"github.com/otto8-ai/otto8/pkg/storage/apis/otto.otto8.ai/v1.CronJobStatus":           schema_storage_apis_ottootto8ai_v1_CronJobStatus(ref),
+		"github.com/otto8-ai/otto8/pkg/storage/apis/otto.otto8.ai/v1.DefaultModelAlias":       schema_storage_apis_ottootto8ai_v1_DefaultModelAlias(ref),
+		"github.com/otto8-ai/otto8/pkg/storage/apis/otto.otto8.ai/v1.DefaultModelAliasList":   schema_storage_apis_ottootto8ai_v1_DefaultModelAliasList(ref),
+		"github.com/otto8-ai/otto8/pkg/storage/apis/otto.otto8.ai/v1.DefaultModelAliasSpec":   schema_storage_apis_ottootto8ai_v1_DefaultModelAliasSpec(ref),
+		"github.com/otto8-ai/otto8/pkg/storage/apis/otto.otto8.ai/v1.DefaultModelAliasStatus": schema_storage_apis_ottootto8ai_v1_DefaultModelAliasStatus(ref),
 		"github.com/otto8-ai/otto8/pkg/storage/apis/otto.otto8.ai/v1.EmailReceiver":           schema_storage_apis_ottootto8ai_v1_EmailReceiver(ref),
 		"github.com/otto8-ai/otto8/pkg/storage/apis/otto.otto8.ai/v1.EmailReceiverList":       schema_storage_apis_ottootto8ai_v1_EmailReceiverList(ref),
 		"github.com/otto8-ai/otto8/pkg/storage/apis/otto.otto8.ai/v1.EmailReceiverSpec":       schema_storage_apis_ottootto8ai_v1_EmailReceiverSpec(ref),
@@ -261,6 +273,12 @@ func schema_otto8_ai_otto8_apiclient_types_Agent(ref common.ReferenceCallback) c
 									},
 								},
 							},
+						},
+					},
+					"textEmbeddingModel": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
 						},
 					},
 				},
@@ -856,6 +874,82 @@ func schema_otto8_ai_otto8_apiclient_types_CronJobManifest(ref common.ReferenceC
 						},
 					},
 				},
+			},
+		},
+	}
+}
+
+func schema_otto8_ai_otto8_apiclient_types_DefaultModelAlias(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"DefaultModelAliasManifest": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/otto8-ai/otto8/apiclient/types.DefaultModelAliasManifest"),
+						},
+					},
+				},
+				Required: []string{"DefaultModelAliasManifest"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/otto8-ai/otto8/apiclient/types.DefaultModelAliasManifest"},
+	}
+}
+
+func schema_otto8_ai_otto8_apiclient_types_DefaultModelAliasList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/otto8-ai/otto8/apiclient/types.DefaultModelAlias"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"items"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/otto8-ai/otto8/apiclient/types.DefaultModelAlias"},
+	}
+}
+
+func schema_otto8_ai_otto8_apiclient_types_DefaultModelAliasManifest(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"alias": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"model": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+				},
+				Required: []string{"alias", "model"},
 			},
 		},
 	}
@@ -1614,13 +1708,6 @@ func schema_otto8_ai_otto8_apiclient_types_ModelManifest(ref common.ReferenceCal
 							Format:  "",
 						},
 					},
-					"default": {
-						SchemaProps: spec.SchemaProps{
-							Default: false,
-							Type:    []string{"boolean"},
-							Format:  "",
-						},
-					},
 					"usage": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
@@ -1628,7 +1715,7 @@ func schema_otto8_ai_otto8_apiclient_types_ModelManifest(ref common.ReferenceCal
 						},
 					},
 				},
-				Required: []string{"active", "default"},
+				Required: []string{"active"},
 			},
 		},
 	}
@@ -2440,6 +2527,180 @@ func schema_otto8_ai_otto8_apiclient_types_SubFlow(ref common.ReferenceCallback)
 	}
 }
 
+func schema_otto8_ai_otto8_apiclient_types_Task(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"Metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/otto8-ai/otto8/apiclient/types.Metadata"),
+						},
+					},
+					"TaskManifest": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/otto8-ai/otto8/apiclient/types.TaskManifest"),
+						},
+					},
+				},
+				Required: []string{"Metadata", "TaskManifest"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/otto8-ai/otto8/apiclient/types.Metadata", "github.com/otto8-ai/otto8/apiclient/types.TaskManifest"},
+	}
+}
+
+func schema_otto8_ai_otto8_apiclient_types_TaskIf(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"condition": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"steps": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/otto8-ai/otto8/apiclient/types.TaskStep"),
+									},
+								},
+							},
+						},
+					},
+					"else": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/otto8-ai/otto8/apiclient/types.TaskStep"),
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"github.com/otto8-ai/otto8/apiclient/types.TaskStep"},
+	}
+}
+
+func schema_otto8_ai_otto8_apiclient_types_TaskList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/otto8-ai/otto8/apiclient/types.Task"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"items"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/otto8-ai/otto8/apiclient/types.Task"},
+	}
+}
+
+func schema_otto8_ai_otto8_apiclient_types_TaskManifest(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"description": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"steps": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/otto8-ai/otto8/apiclient/types.TaskStep"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"name", "description", "steps"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/otto8-ai/otto8/apiclient/types.TaskStep"},
+	}
+}
+
+func schema_otto8_ai_otto8_apiclient_types_TaskStep(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"id": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"if": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/otto8-ai/otto8/apiclient/types.TaskIf"),
+						},
+					},
+					"step": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"github.com/otto8-ai/otto8/apiclient/types.TaskIf"},
+	}
+}
+
 func schema_otto8_ai_otto8_apiclient_types_Template(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -3174,6 +3435,12 @@ func schema_otto8_ai_otto8_apiclient_types_Workflow(ref common.ReferenceCallback
 									},
 								},
 							},
+						},
+					},
+					"textEmbeddingModel": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
 						},
 					},
 				},
@@ -4016,6 +4283,142 @@ func schema_storage_apis_ottootto8ai_v1_CronJobStatus(ref common.ReferenceCallba
 	}
 }
 
+func schema_storage_apis_ottootto8ai_v1_DefaultModelAlias(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"),
+						},
+					},
+					"spec": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/otto8-ai/otto8/pkg/storage/apis/otto.otto8.ai/v1.DefaultModelAliasSpec"),
+						},
+					},
+					"status": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/otto8-ai/otto8/pkg/storage/apis/otto.otto8.ai/v1.DefaultModelAliasStatus"),
+						},
+					},
+				},
+				Required: []string{"spec", "status"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/otto8-ai/otto8/pkg/storage/apis/otto.otto8.ai/v1.DefaultModelAliasSpec", "github.com/otto8-ai/otto8/pkg/storage/apis/otto.otto8.ai/v1.DefaultModelAliasStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
+	}
+}
+
+func schema_storage_apis_ottootto8ai_v1_DefaultModelAliasList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"),
+						},
+					},
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/otto8-ai/otto8/pkg/storage/apis/otto.otto8.ai/v1.DefaultModelAlias"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"items"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/otto8-ai/otto8/pkg/storage/apis/otto.otto8.ai/v1.DefaultModelAlias", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
+	}
+}
+
+func schema_storage_apis_ottootto8ai_v1_DefaultModelAliasSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"manifest": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/otto8-ai/otto8/apiclient/types.DefaultModelAliasManifest"),
+						},
+					},
+				},
+				Required: []string{"manifest"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/otto8-ai/otto8/apiclient/types.DefaultModelAliasManifest"},
+	}
+}
+
+func schema_storage_apis_ottootto8ai_v1_DefaultModelAliasStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"setAliasName": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+				},
+				Required: []string{"setAliasName"},
+			},
+		},
+	}
+}
+
 func schema_storage_apis_ottootto8ai_v1_EmailReceiver(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -4572,6 +4975,13 @@ func schema_storage_apis_ottootto8ai_v1_KnowledgeSetSpec(ref common.ReferenceCal
 							Format:      "",
 						},
 					},
+					"textEmbeddingModel": {
+						SchemaProps: spec.SchemaProps{
+							Description: "TextEmbeddingModel is set when the model is predetermined on creation. For example, agent threads.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 				},
 			},
 		},
@@ -4605,6 +5015,18 @@ func schema_storage_apis_ottootto8ai_v1_KnowledgeSetStatus(ref common.ReferenceC
 						},
 					},
 					"threadName": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"existingFile": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"textEmbeddingModel": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
 							Format: "",
@@ -5899,6 +6321,12 @@ func schema_storage_apis_ottootto8ai_v1_ThreadSpec(ref common.ReferenceCallback)
 							Format: "",
 						},
 					},
+					"textEmbeddingModel": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
 					"systemTask": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"boolean"},
@@ -6727,6 +7155,18 @@ func schema_storage_apis_ottootto8ai_v1_WorkflowSpec(ref common.ReferenceCallbac
 			SchemaProps: spec.SchemaProps{
 				Type: []string{"object"},
 				Properties: map[string]spec.Schema{
+					"agentName": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"userID": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
 					"manifest": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},

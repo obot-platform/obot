@@ -5,8 +5,9 @@ import "strings"
 type Workflow struct {
 	Metadata
 	WorkflowManifest
-	AliasAssigned bool                               `json:"aliasAssigned,omitempty"`
-	AuthStatus    map[string]OAuthAppLoginAuthStatus `json:"authStatus,omitempty"`
+	AliasAssigned      bool                               `json:"aliasAssigned,omitempty"`
+	AuthStatus         map[string]OAuthAppLoginAuthStatus `json:"authStatus,omitempty"`
+	TextEmbeddingModel string                             `json:"textEmbeddingModel,omitempty"`
 }
 
 type WorkflowList List[Workflow]

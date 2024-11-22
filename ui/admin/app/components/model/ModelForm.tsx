@@ -72,7 +72,7 @@ export function ModelForm(props: ModelFormProps) {
             modelProvider: model?.modelProvider ?? "",
             active: model?.active ?? true,
             default: model?.default ?? false,
-            usage: model?.usage ?? "agent",
+            usage: model?.usage ?? ModelUsage.LLM,
         };
     }, [model]);
 

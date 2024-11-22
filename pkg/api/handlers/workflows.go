@@ -87,7 +87,12 @@ func (a *WorkflowHandler) Update(req api.Context) error {
 		return err
 	}
 
-	return req.Write(convertWorkflow(wf, server.GetURLPrefix(req)))
+	resp, err := convertWorkflow(wf, req)
+	if err != nil {
+		return err
+	}
+
+	return req.WriteCreated(resp)
 }
 
 func (a *WorkflowHandler) Delete(req api.Context) error {
@@ -123,24 +128,40 @@ func (a *WorkflowHandler) Create(req api.Context) error {
 		return err
 	}
 
-	return req.WriteCreated(convertWorkflow(workflow, server.GetURLPrefix(req)))
+	resp, err := convertWorkflow(workflow, req)
+	if err != nil {
+		return err
+	}
+
+	return req.WriteCreated(resp)
 }
 
-func convertWorkflow(workflow v1.Workflow, prefix string) *types.Workflow {
+func convertWorkflow(workflow v1.Workflow, req api.Context) (*types.Workflow, error) {
 	var links []string
-	if prefix != "" {
+	if prefix := server.GetURLPrefix(req); prefix != "" {
 		alias := workflow.Name
 		if workflow.Status.AliasAssigned && workflow.Spec.Manifest.Alias != "" {
 			alias = workflow.Spec.Manifest.Alias
 		}
 		links = []string{"invoke", prefix + "/invoke/" + alias}
 	}
-	return &types.Workflow{
-		Metadata:         MetadataFrom(&workflow, links...),
-		WorkflowManifest: workflow.Spec.Manifest,
-		AliasAssigned:    workflow.Status.AliasAssigned,
-		AuthStatus:       workflow.Status.AuthStatus,
+
+	var embeddingModel string
+	if len(workflow.Status.KnowledgeSetNames) > 0 {
+		var ks v1.KnowledgeSet
+		if err := req.Get(&ks, workflow.Status.KnowledgeSetNames[0]); err != nil {
+			return nil, fmt.Errorf("failed to get KnowledgeSet %q: %v", workflow.Status.KnowledgeSetNames[0], err)
+		}
+		embeddingModel = ks.Status.TextEmbeddingModel
 	}
+
+	return &types.Workflow{
+		Metadata:           MetadataFrom(&workflow, links...),
+		WorkflowManifest:   workflow.Spec.Manifest,
+		AliasAssigned:      workflow.Status.AliasAssigned,
+		AuthStatus:         workflow.Status.AuthStatus,
+		TextEmbeddingModel: embeddingModel,
+	}, nil
 }
 
 func (a *WorkflowHandler) ByID(req api.Context) error {
@@ -153,7 +174,12 @@ func (a *WorkflowHandler) ByID(req api.Context) error {
 		return err
 	}
 
-	return req.Write(convertWorkflow(workflow, server.GetURLPrefix(req)))
+	resp, err := convertWorkflow(workflow, req)
+	if err != nil {
+		return err
+	}
+
+	return req.WriteCreated(resp)
 }
 
 func (a *WorkflowHandler) List(req api.Context) error {
@@ -164,7 +190,12 @@ func (a *WorkflowHandler) List(req api.Context) error {
 
 	var resp types.WorkflowList
 	for _, workflow := range workflowList.Items {
-		resp.Items = append(resp.Items, *convertWorkflow(workflow, server.GetURLPrefix(req)))
+		convertedWorkflow, err := convertWorkflow(workflow, req)
+		if err != nil {
+			return err
+		}
+
+		resp.Items = append(resp.Items, *convertedWorkflow)
 	}
 
 	return req.Write(resp)
@@ -181,12 +212,22 @@ func (a *WorkflowHandler) EnsureCredentialForKnowledgeSource(req api.Context) er
 
 	// If auth is not required, then don't continue.
 	if authStatus.Required != nil && !*authStatus.Required {
-		return req.Write(convertWorkflow(wf, server.GetURLPrefix(req)))
+		resp, err := convertWorkflow(wf, req)
+		if err != nil {
+			return err
+		}
+
+		return req.WriteCreated(resp)
 	}
 
 	// if auth is already authenticated, then don't continue.
 	if authStatus.Authenticated {
-		return req.Write(convertWorkflow(wf, server.GetURLPrefix(req)))
+		resp, err := convertWorkflow(wf, req)
+		if err != nil {
+			return err
+		}
+
+		return req.WriteCreated(resp)
 	}
 
 	credentialTool, err := v1.CredentialTool(req.Context(), req.Storage, req.Namespace(), ref)
@@ -202,7 +243,12 @@ func (a *WorkflowHandler) EnsureCredentialForKnowledgeSource(req api.Context) er
 
 		authStatus.Required = &[]bool{false}[0]
 		wf.Status.AuthStatus[ref] = authStatus
-		return req.Write(convertWorkflow(wf, server.GetURLPrefix(req)))
+		resp, err := convertWorkflow(wf, req)
+		if err != nil {
+			return err
+		}
+
+		return req.WriteCreated(resp)
 	}
 
 	oauthLogin := &v1.OAuthAppLogin{
@@ -236,7 +282,12 @@ func (a *WorkflowHandler) EnsureCredentialForKnowledgeSource(req api.Context) er
 	}
 	wf.Status.AuthStatus[ref] = oauthLogin.Status.External
 
-	return req.Write(convertWorkflow(wf, server.GetURLPrefix(req)))
+	resp, err := convertWorkflow(wf, req)
+	if err != nil {
+		return err
+	}
+
+	return req.WriteCreated(resp)
 }
 
 func (a *WorkflowHandler) Script(req api.Context) error {

@@ -55,7 +55,6 @@ func AssignAlias(req router.Request, _ router.Response) error {
 			TargetNamespace: req.Object.GetNamespace(),
 			TargetKind:      gvk.Kind,
 		},
-		Status: v1.EmptyStatus{},
 	}
 	if err := create.IfNotExists(req.Ctx, req.Client, alias); err != nil {
 		return err

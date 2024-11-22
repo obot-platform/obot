@@ -23,6 +23,8 @@ type KnowledgeSetSpec struct {
 	WorkflowName string `json:"workflowName,omitempty"`
 	// ThreadName is the name of the thread that created and owns this knowledge set
 	ThreadName string `json:"threadName,omitempty"`
+	// TextEmbeddingModel is set when the model is predetermined on creation. For example, agent threads.
+	TextEmbeddingModel string `json:"textEmbeddingModel,omitempty"`
 }
 
 func (in *KnowledgeSet) GetColumns() [][]string {
@@ -73,6 +75,8 @@ type KnowledgeSetStatus struct {
 	SuggestedDataDescription string `json:"suggestedDataDescription,omitempty"`
 	WorkspaceName            string `json:"workspaceName,omitempty"`
 	ThreadName               string `json:"threadName,omitempty"`
+	ExistingFile             string `json:"existingFile,omitempty"`
+	TextEmbeddingModel       string `json:"textEmbeddingModel,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

@@ -70,7 +70,7 @@ func (a *ModelHandler) Update(req api.Context) error {
 
 	existing.Spec.Manifest = model
 
-	if err := validateModelManifestAndSetDefaults(req.Context(), req.Storage, &existing); err != nil {
+	if err := validateModelManifestAndSetDefaults(&existing); err != nil {
 		return err
 	}
 
@@ -115,7 +115,7 @@ func (a *ModelHandler) Create(req api.Context) error {
 		},
 	}
 
-	if err := validateModelManifestAndSetDefaults(req.Context(), req.Storage, &model); err != nil {
+	if err := validateModelManifestAndSetDefaults(&model); err != nil {
 		return err
 	}
 
@@ -187,7 +187,7 @@ func convertModelProviderToolRef(toolRef v1.ToolReference) *types.ModelProviderS
 	}
 }
 
-func validateModelManifestAndSetDefaults(ctx context.Context, c kclient.Client, newModel *v1.Model) error {
+func validateModelManifestAndSetDefaults(newModel *v1.Model) error {
 	var errs []error
 	if newModel.Spec.Manifest.TargetModel == "" {
 		errs = append(errs, fmt.Errorf("field targetModel is required"))
@@ -197,21 +197,7 @@ func validateModelManifestAndSetDefaults(ctx context.Context, c kclient.Client, 
 	}
 
 	if newModel.Spec.Manifest.Usage == "" {
-		newModel.Spec.Manifest.Usage = types.ModelUsageAgent
-	}
-
-	if newModel.Spec.Manifest.Default && newModel.Spec.Manifest.Active {
-		// Ensure only one default model exists
-		var modelList v1.ModelList
-		if err := c.List(ctx, &modelList); err != nil {
-			return err
-		}
-
-		for _, model := range modelList.Items {
-			if model.Spec.Manifest.Default && model.Spec.Manifest.Active && model.Name != newModel.Name {
-				return types.NewErrBadRequest("model %s is already the default model", model.Name)
-			}
-		}
+		newModel.Spec.Manifest.Usage = types.ModelUsageLLM
 	}
 
 	return errors.Join(errs...)

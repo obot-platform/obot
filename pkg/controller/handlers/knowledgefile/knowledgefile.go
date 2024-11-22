@@ -81,6 +81,11 @@ func (h *Handler) IngestFile(req router.Request, _ router.Response) error {
 		return kclient.IgnoreNotFound(err)
 	}
 
+	if ks.Status.TextEmbeddingModel == "" {
+		// Wait for the embedding model to be set
+		return nil
+	}
+
 	thread, err := getThread(req.Ctx, req.Client, &ks, &source)
 	if err != nil {
 		return err
@@ -255,6 +260,8 @@ func (h *Handler) ingest(ctx context.Context, client kclient.Client, file *v1.Kn
 			"workspaceID":       thread.Status.WorkspaceID,
 			"workspaceFileName": outputFile(file.Spec.FileName),
 		},
+	}, invoke.SystemTaskOptions{
+		Env: []string{"OPENAI_EMBEDDING_MODEL=" + ks.Status.TextEmbeddingModel},
 	})
 	if err != nil {
 		return fmt.Errorf("failed to invoke ingestion task, error: %w", err)

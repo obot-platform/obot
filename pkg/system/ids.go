@@ -19,6 +19,7 @@ const (
 	EmailReceiverPrefix     = "er1"
 	ModelPrefix             = "m1"
 	AliasPrefix             = "al1"
+	DefaultModelAliasPrefix = "dma1"
 )
 
 func IsThreadID(id string) bool {

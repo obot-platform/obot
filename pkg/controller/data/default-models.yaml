@@ -8,9 +8,8 @@ items:
       manifest:
         targetModel: gpt-4o
         modelProvider: openai-model-provider
-        default: true
         active: true
-        usage: agent
+        usage: llm
   - apiVersion: otto.otto8.ai/v1
     kind: Model
     metadata:
@@ -54,7 +53,7 @@ items:
         targetModel: gpt-4o-mini
         modelProvider: openai-model-provider
         active: true
-        usage: agent
+        usage: llm
   - apiVersion: otto.otto8.ai/v1
     kind: Model
     metadata:
@@ -65,4 +64,4 @@ items:
         targetModel: gpt-3.5-turbo
         modelProvider: openai-model-provider
         active: true
-        usage: agent
+        usage: llm

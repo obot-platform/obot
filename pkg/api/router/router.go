@@ -24,6 +24,7 @@ func Router(services *services.Services) (http.Handler, error) {
 	models := handlers.NewModelHandler()
 	prompt := handlers.NewPromptHandler(services.GPTClient)
 	emailreceiver := handlers.NewEmailReceiverHandler(services.EmailServerName)
+	defaultModelAliases := handlers.NewDefaultModelAliasHandler()
 
 	// Version
 	mux.HandleFunc("GET /api/version", handlers.GetVersion)
@@ -216,6 +217,13 @@ func Router(services *services.Services) (http.Handler, error) {
 	mux.HandleFunc("DELETE /api/models/{id}", models.Delete)
 	mux.HandleFunc("GET /api/models", models.List)
 	mux.HandleFunc("GET /api/models/{id}", models.ByID)
+
+	// Default Model Aliases
+	mux.HandleFunc("GET /api/default-model-aliases", defaultModelAliases.List)
+	mux.HandleFunc("GET /api/default-model-aliases/{id}", defaultModelAliases.GetByID)
+	mux.HandleFunc("POST /api/default-model-aliases", defaultModelAliases.Create)
+	mux.HandleFunc("PUT /api/default-model-aliases/{id}", defaultModelAliases.Update)
+	mux.HandleFunc("DELETE /api/default-model-aliases/{id}", defaultModelAliases.Delete)
 
 	// Prompt
 	mux.HandleFunc("POST /api/prompt", prompt.Prompt)

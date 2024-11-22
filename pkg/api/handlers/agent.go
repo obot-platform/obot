@@ -54,17 +54,17 @@ func (a *AgentHandler) Update(req api.Context) error {
 		return err
 	}
 
-	return req.Write(convertAgent(agent, server.GetURLPrefix(req)))
+	resp, err := convertAgent(agent, req)
+	if err != nil {
+		return err
+	}
+	return req.WriteCreated(resp)
 }
 
 func (a *AgentHandler) Delete(req api.Context) error {
-	var (
-		id = req.PathValue("id")
-	)
-
 	return req.Delete(&v1.Agent{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      id,
+			Name:      req.PathValue("id"),
 			Namespace: req.Namespace(),
 		},
 	})
@@ -89,12 +89,16 @@ func (a *AgentHandler) Create(req api.Context) error {
 		return err
 	}
 
-	return req.WriteCreated(convertAgent(agent, server.GetURLPrefix(req)))
+	resp, err := convertAgent(agent, req)
+	if err != nil {
+		return err
+	}
+	return req.WriteCreated(resp)
 }
 
-func convertAgent(agent v1.Agent, prefix string) *types.Agent {
+func convertAgent(agent v1.Agent, req api.Context) (*types.Agent, error) {
 	var links []string
-	if prefix != "" {
+	if prefix := server.GetURLPrefix(req); prefix != "" {
 		alias := agent.Name
 		if agent.Status.AliasAssigned && agent.Spec.Manifest.Alias != "" {
 			alias = agent.Spec.Manifest.Alias
@@ -102,12 +106,22 @@ func convertAgent(agent v1.Agent, prefix string) *types.Agent {
 		links = []string{"invoke", prefix + "/invoke/" + alias}
 	}
 
-	return &types.Agent{
-		Metadata:      MetadataFrom(&agent, links...),
-		AgentManifest: agent.Spec.Manifest,
-		AliasAssigned: agent.Status.AliasAssigned,
-		AuthStatus:    agent.Status.AuthStatus,
+	var embeddingModel string
+	if len(agent.Status.KnowledgeSetNames) > 0 {
+		var ks v1.KnowledgeSet
+		if err := req.Get(&ks, agent.Status.KnowledgeSetNames[0]); err != nil {
+			return nil, fmt.Errorf("failed to get KnowledgeSet %q: %v", agent.Status.KnowledgeSetNames[0], err)
+		}
+		embeddingModel = ks.Status.TextEmbeddingModel
 	}
+
+	return &types.Agent{
+		Metadata:           MetadataFrom(&agent, links...),
+		AgentManifest:      agent.Spec.Manifest,
+		AliasAssigned:      agent.Status.AliasAssigned,
+		AuthStatus:         agent.Status.AuthStatus,
+		TextEmbeddingModel: embeddingModel,
+	}, nil
 }
 
 func (a *AgentHandler) ByID(req api.Context) error {
@@ -115,7 +129,12 @@ func (a *AgentHandler) ByID(req api.Context) error {
 	if err := alias.Get(req.Context(), req.Storage, &agent, req.Namespace(), req.PathValue("id")); err != nil {
 		return err
 	}
-	return req.Write(convertAgent(agent, server.GetURLPrefix(req)))
+
+	resp, err := convertAgent(agent, req)
+	if err != nil {
+		return err
+	}
+	return req.WriteCreated(resp)
 }
 
 func (a *AgentHandler) List(req api.Context) error {
@@ -126,7 +145,11 @@ func (a *AgentHandler) List(req api.Context) error {
 
 	var resp types.AgentList
 	for _, agent := range agentList.Items {
-		resp.Items = append(resp.Items, *convertAgent(agent, server.GetURLPrefix(req)))
+		convertedAgent, err := convertAgent(agent, req)
+		if err != nil {
+			return err
+		}
+		resp.Items = append(resp.Items, *convertedAgent)
 	}
 
 	return req.Write(resp)
@@ -503,12 +526,20 @@ func (a *AgentHandler) EnsureCredentialForKnowledgeSource(req api.Context) error
 
 	// If auth is not required, then don't continue.
 	if authStatus.Required != nil && !*authStatus.Required {
-		return req.Write(convertAgent(agent, server.GetURLPrefix(req)))
+		resp, err := convertAgent(agent, req)
+		if err != nil {
+			return err
+		}
+		return req.WriteCreated(resp)
 	}
 
 	// if auth is already authenticated, then don't continue.
 	if authStatus.Authenticated {
-		return req.Write(convertAgent(agent, server.GetURLPrefix(req)))
+		resp, err := convertAgent(agent, req)
+		if err != nil {
+			return err
+		}
+		return req.WriteCreated(resp)
 	}
 
 	credentialTool, err := v1.CredentialTool(req.Context(), req.Storage, req.Namespace(), ref)
@@ -524,7 +555,11 @@ func (a *AgentHandler) EnsureCredentialForKnowledgeSource(req api.Context) error
 
 		authStatus.Required = &[]bool{false}[0]
 		agent.Status.AuthStatus[ref] = authStatus
-		return req.Write(convertAgent(agent, server.GetURLPrefix(req)))
+		resp, err := convertAgent(agent, req)
+		if err != nil {
+			return err
+		}
+		return req.WriteCreated(resp)
 	}
 
 	oauthLogin := &v1.OAuthAppLogin{
@@ -558,7 +593,11 @@ func (a *AgentHandler) EnsureCredentialForKnowledgeSource(req api.Context) error
 	}
 	agent.Status.AuthStatus[ref] = oauthLogin.Status.External
 
-	return req.Write(convertAgent(agent, server.GetURLPrefix(req)))
+	resp, err := convertAgent(agent, req)
+	if err != nil {
+		return err
+	}
+	return req.WriteCreated(resp)
 }
 
 func (a *AgentHandler) Script(req api.Context) error {

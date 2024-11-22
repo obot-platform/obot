@@ -87,11 +87,21 @@ func CreateKnowledgeSet(req router.Request, _ router.Response) error {
 			Finalizers: []string{v1.KnowledgeSetFinalizer},
 		},
 		Spec: v1.KnowledgeSetSpec{
-			ThreadName: thread.Name,
+			ThreadName:         thread.Name,
+			TextEmbeddingModel: thread.Spec.TextEmbeddingModel,
 		},
 	}
+
 	if err := create.OrGet(req.Ctx, req.Client, ws); err != nil {
 		return err
+	}
+
+	if ws.Spec.TextEmbeddingModel != thread.Spec.TextEmbeddingModel {
+		// The thread knowledge set must have the same text embedding model as its agent.
+		ws.Spec.TextEmbeddingModel = thread.Spec.TextEmbeddingModel
+		if err := req.Client.Update(req.Ctx, ws); err != nil {
+			return err
+		}
 	}
 
 	thread.Status.KnowledgeSetNames = append(thread.Status.KnowledgeSetNames, ws.Name)
