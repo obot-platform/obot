@@ -1,8 +1,6 @@
 import useSWR from "swr";
 
-import { ApiRoutes } from "~/lib/routers/apiRoutes";
 import { WorkflowService } from "~/lib/service/api/workflowService";
-import { getAliasFrom } from "~/lib/utils";
 
 import { TypographyH3, TypographyH4 } from "~/components/Typography";
 import {
@@ -41,7 +39,7 @@ export function WebhookFormContent() {
     const { form, handleSubmit, isLoading, isEdit, hasSecret } =
         useWebhookFormContext();
 
-    const { setValue, watch } = form;
+    const { setValue, watch, control } = form;
 
     const getWorkflows = useSWR(WorkflowService.getWorkflows.key(), () =>
         WorkflowService.getWorkflows()
@@ -60,7 +58,6 @@ export function WebhookFormContent() {
     const addSecret = () => setValue("validationHeader", "X-Hub-Signature-256");
 
     const secretIsRemoved = hasSecret && !validationHeader && !secret;
-    const alias = watch("alias");
 
     return (
         <ScrollArea className="h-full">
@@ -72,13 +69,10 @@ export function WebhookFormContent() {
                     {isEdit ? "Edit Webhook" : "Create Webhook"}
                 </TypographyH3>
 
-                <ControlledInput
-                    control={form.control}
-                    name="name"
-                    label="Name"
-                />
+                <ControlledInput control={control} name="name" label="Name" />
 
-                <ControlledInput
+                {/* todo(ryanhopperlowe): Re-enable alias after go ahead is given */}
+                {/* <ControlledInput
                     control={form.control}
                     name="alias"
                     label="Alias (Optional)"
@@ -88,10 +82,10 @@ export function WebhookFormContent() {
                             : "An alias is a short name for the webhook to make it easier to identify."
                     }
                     onChangeConversion={getAliasFrom}
-                />
+                /> */}
 
                 <ControlledInput
-                    control={form.control}
+                    control={control}
                     name="description"
                     label="Description (Optional)"
                 />
@@ -112,7 +106,7 @@ export function WebhookFormContent() {
                 {/* Extract to custom github component */}
 
                 <ControlledCustomInput
-                    control={form.control}
+                    control={control}
                     name="workflow"
                     label="Workflow"
                     description="The workflow that will be triggered when the webhook is called."
@@ -136,7 +130,7 @@ export function WebhookFormContent() {
 
                 <div className="space-y-2">
                     <ControlledInput
-                        control={form.control}
+                        control={control}
                         name="secret"
                         label="Secret (Optional)"
                         description="This secret should match the secret you provide to GitHub."
@@ -147,27 +141,30 @@ export function WebhookFormContent() {
                         }}
                     />
 
-                    <FormItem className="flex items-center gap-2 space-y-0">
-                        <FormControl>
-                            <Checkbox
-                                checked={secretIsRemoved}
-                                onCheckedChange={(val) => {
-                                    if (val) removeSecret();
-                                    else addSecret();
-                                }}
-                            />
-                        </FormControl>
+                    {hasSecret && (
+                        <FormItem className="flex items-center gap-2 space-y-0">
+                            <FormControl>
+                                <Checkbox
+                                    checked={secretIsRemoved}
+                                    onCheckedChange={(val) => {
+                                        if (val) removeSecret();
+                                        else addSecret();
+                                    }}
+                                />
+                            </FormControl>
 
-                        <FormLabel>No Secret</FormLabel>
-                    </FormItem>
+                            <FormLabel>No Secret</FormLabel>
+                        </FormItem>
+                    )}
                 </div>
 
                 <TypographyH4>Advanced</TypographyH4>
 
                 <ControlledCustomInput
-                    control={form.control}
+                    control={control}
                     name="headers"
                     label="Headers (Optional)"
+                    description={`Add "*" to include all headers.`}
                 >
                     {({ field }) => (
                         <MultiSelect
@@ -199,7 +196,7 @@ export function WebhookFormContent() {
     );
 
     function getWorkflowOptions() {
-        const workflow = form.watch("workflow");
+        const workflow = watch("workflow");
 
         if (getWorkflows.isLoading)
             return (
