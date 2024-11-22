@@ -134,7 +134,13 @@ export function WebhookFormContent() {
                         name="secret"
                         label="Secret (Optional)"
                         description="This secret should match the secret you provide to GitHub."
-                        placeholder={hasSecret ? "(unchanged)" : ""}
+                        placeholder={
+                            secretIsRemoved
+                                ? "(removed)"
+                                : hasSecret
+                                  ? "(unchanged)"
+                                  : ""
+                        }
                         disabled={secretIsRemoved}
                         onChange={(e) => {
                             if (!hasSecret && e.target.value) addSecret();
