@@ -158,12 +158,10 @@ function PromptMessage({ prompt }: { prompt: AuthPrompt }) {
 
             {prompt.metadata.authType === "oauth" && (
                 <Link
-                    buttonVariant="secondary"
                     as="button"
                     rel="noreferrer"
                     target="_blank"
                     to={prompt.metadata.authURL}
-                    className="w-fit"
                 >
                     <ToolIcon
                         icon={prompt.metadata.icon}
@@ -179,7 +177,6 @@ function PromptMessage({ prompt }: { prompt: AuthPrompt }) {
                 <Dialog open={open} onOpenChange={setOpen}>
                     <DialogTrigger asChild>
                         <Button
-                            variant="secondary"
                             startContent={
                                 <ToolIcon
                                     icon={prompt.metadata.icon}
