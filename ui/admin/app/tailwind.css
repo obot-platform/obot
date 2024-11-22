@@ -14,7 +14,7 @@ body {
 @layer base {
     :root {
         --main-surface-primary: 0 0% 98%;
-        --main-surface-secondary: 223 13% 96%;
+        --main-surface-secondary: 223 5% 95%;
 
         --accent-surface-primary: 0 0% 91%;
         --accent-surface-secondary: 223 87% 91%;
@@ -67,6 +67,7 @@ body {
         --accent: var(--accent-surface-secondary);
         --accent-foreground: var(--text-secondary);
 
+        --link: var(--accent-bold);
         --border: var(--border-light);
         --input: var(--border-normal);
         --ring: var(--accent-secondary);
@@ -83,7 +84,7 @@ body {
         --sidebar-primary: var(--accent-primary);
         --sidebar-primary-foreground: var(--text-inverted);
         --sidebar-accent: var(--accent-surface-secondary);
-        --sidebar-accent-foreground: var(--text-secondary);
+        --sidebar-accent-foreground: var(--text-primary);
         --sidebar-border: var(--border-light);
         --sidebar-ring: var(--accent-secondary);
     }
@@ -94,9 +95,9 @@ body {
         --main-surface-secondary: 223 20% 5%;
 
         --accent-surface-primary: 223 5% 15%;
-        --accent-surface-secondary: 223 87% 30%;
+        --accent-surface-secondary: 223 87% 25%;
 
-        --text-primary: 223 5% 92%;
+        --text-primary: 223 5% 85%;
         --text-secondary: 223 5% 75%;
         --text-muted: 223 5% 55%;
         --text-inverted: 0 0% 10%;
@@ -104,12 +105,15 @@ body {
         --border-light: 223 5% 20%;
         --border-normal: 223 5% 30%;
 
-        --accent-primary: 223 0% 100%;
+        --accent-primary: 223 5% 85%;
         --accent-secondary: 223 87% 63%;
 
         --background: var(--main-surface-primary);
         --background-secondary: var(--main-surface-secondary);
         --foreground: var(--text-primary);
+
+        --error: 0 84% 20%;
+        --error-foreground: 0 100% 7%;
 
         --card: var(--main-surface-secondary);
         --card-foreground: var(--text-primary);
@@ -128,15 +132,20 @@ body {
         --accent-bold-foreground: var(--text-inverted);
         --accent: var(--accent-surface-secondary);
         --accent-foreground: var(--text-primary);
+
+        --link: var(--accent-bold);
         --border: var(--border-light);
         --input: var(--border-normal);
         --ring: var(--accent-secondary);
+
         --chart-1: 12 76% 61%;
         --chart-2: 173 58% 39%;
         --chart-3: 197 37% 24%;
         --chart-4: 43 74% 66%;
         --chart-5: 27 87% 67%;
+
         --radius: 0.5rem;
+
         --sidebar-background: var(--main-surface-secondary);
         --sidebar-foreground: var(--text-primary);
         --sidebar-primary: var(--accent-primary);

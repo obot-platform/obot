@@ -12,7 +12,7 @@ const linkVariants = cva("", {
     variants: {
         as: {
             button: cn(ButtonClasses.base, "flex flex-row items-center gap-2"),
-            default: "text-primary underline-offset-4 underline",
+            default: ButtonClasses.variants.variant.link,
             div: "",
         },
         buttonVariant: ButtonClasses.variants.variant,

@@ -68,9 +68,9 @@ export const Message = React.memo(({ message }: MessageProps) => {
             >
                 <div
                     className={cn({
-                        "border border-error bg-error-foreground":
+                        "border border-error bg-error-foreground rounded-xl":
                             message.error,
-                        "rounded-2xl max-w-[80%] bg-accent-bold": isUser,
+                        "rounded-2xl max-w-[80%] bg-accent": isUser,
                         "w-full max-w-full": !isUser,
                     })}
                 >
@@ -91,7 +91,7 @@ export const Message = React.memo(({ message }: MessageProps) => {
                                 className={cn(
                                     "flex-auto max-w-full prose overflow-x-auto dark:prose-invert prose-pre:whitespace-pre-wrap prose-pre:break-words prose-thead:text-left prose-img:rounded-xl prose-img:shadow-lg break-words",
                                     {
-                                        "text-accent-bold-foreground prose-invert":
+                                        "text-accent-foreground prose-invert":
                                             isUser,
                                     }
                                 )}
