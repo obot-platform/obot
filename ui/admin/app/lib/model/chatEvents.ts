@@ -13,23 +13,30 @@ export type ToolCall = {
     };
 };
 
-type PromptOAuthMeta = {
-    authType: "oauth";
-    authURL: string;
+type PromptAuthMetaBase = {
     category: string;
     icon: string;
     toolContext: string;
     toolDisplayName: string;
 };
 
-export type OAuthPrompt = {
+type PromptOAuthMeta = PromptAuthMetaBase & {
+    authType: "oauth";
+    authURL: string;
+};
+
+type PromptAuthBasicMeta = PromptAuthMetaBase & {
+    authType: "basic";
+};
+
+export type AuthPrompt = {
     id?: string;
     name: string;
     time?: Date;
     message: string;
     fields?: string[];
     sensitive?: boolean;
-    metadata?: PromptOAuthMeta;
+    metadata?: PromptOAuthMeta | PromptAuthBasicMeta;
 };
 
 // note(ryanhopperlowe) renaming this to ChatEvent to differentiate itself specifically for a chat with an agent
@@ -45,7 +52,7 @@ export type ChatEvent = {
     waitingOnModel?: boolean;
     toolInput?: ToolInput;
     toolCall?: ToolCall;
-    prompt?: OAuthPrompt;
+    prompt?: AuthPrompt;
 };
 
 export function combineChatEvents(events: ChatEvent[]): ChatEvent[] {

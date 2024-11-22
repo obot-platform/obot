@@ -1,4 +1,4 @@
-import { ChatEvent, OAuthPrompt, ToolCall } from "~/lib/model/chatEvents";
+import { AuthPrompt, ChatEvent, ToolCall } from "~/lib/model/chatEvents";
 import { Run } from "~/lib/model/runs";
 
 export interface Message {
@@ -6,7 +6,7 @@ export interface Message {
     sender: "user" | "agent";
     // note(ryanhopperlowe) we only support one tool call per message for now
     // leaving it as an array case that changes in the future
-    prompt?: OAuthPrompt;
+    prompt?: AuthPrompt;
     tools?: ToolCall[];
     runId?: string;
     isLoading?: boolean;
@@ -40,7 +40,7 @@ export const toolCallMessage = (toolCall: ToolCall): Message => ({
     tools: [toolCall],
 });
 
-export const promptMessage = (prompt: OAuthPrompt, runID: string): Message => ({
+export const promptMessage = (prompt: AuthPrompt, runID: string): Message => ({
     sender: "agent",
     text: prompt.message,
     prompt,

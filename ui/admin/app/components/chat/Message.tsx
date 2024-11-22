@@ -1,21 +1,34 @@
 import "@radix-ui/react-tooltip";
 import { WrenchIcon } from "lucide-react";
-import React, { useMemo } from "react";
+import React, { useMemo, useState } from "react";
+import { useForm } from "react-hook-form";
 import Markdown, { defaultUrlTransform } from "react-markdown";
 import rehypeExternalLinks from "rehype-external-links";
 import remarkGfm from "remark-gfm";
 
-import { OAuthPrompt } from "~/lib/model/chatEvents";
+import { AuthPrompt } from "~/lib/model/chatEvents";
 import { Message as MessageType } from "~/lib/model/messages";
+import { PromptApiService } from "~/lib/service/api/PromptApi";
 import { cn } from "~/lib/utils";
 
 import { TypographyP } from "~/components/Typography";
 import { MessageDebug } from "~/components/chat/MessageDebug";
 import { ToolCallInfo } from "~/components/chat/ToolCallInfo";
+import { ControlledInput } from "~/components/form/controlledInputs";
 import { CustomMarkdownComponents } from "~/components/react-markdown";
 import { ToolIcon } from "~/components/tools/ToolIcon";
 import { Button } from "~/components/ui/button";
 import { Card } from "~/components/ui/card";
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+    DialogTrigger,
+} from "~/components/ui/dialog";
+import { Form } from "~/components/ui/form";
+import { Link } from "~/components/ui/link";
+import { useAsync } from "~/hooks/useAsync";
 
 interface MessageProps {
     message: MessageType;
@@ -126,7 +139,9 @@ export const Message = React.memo(({ message }: MessageProps) => {
 
 Message.displayName = "Message";
 
-function PromptMessage({ prompt }: { prompt: OAuthPrompt }) {
+function PromptMessage({ prompt }: { prompt: AuthPrompt }) {
+    const [open, setOpen] = useState(false);
+
     if (!prompt.metadata) return null;
 
     return (
@@ -141,23 +156,107 @@ function PromptMessage({ prompt }: { prompt: OAuthPrompt }) {
                 Tool Call requires authentication
             </TypographyP>
 
-            <Button asChild variant="secondary">
-                <a
+            {prompt.metadata.authType === "oauth" && (
+                <Link
+                    buttonVariant="secondary"
+                    as="button"
                     rel="noreferrer"
                     target="_blank"
-                    href={prompt.metadata?.authURL}
-                    className="flex items-center gap-2 w-fit"
+                    to={prompt.metadata.authURL}
+                    className="w-fit"
                 >
                     <ToolIcon
-                        icon={prompt.metadata?.icon}
-                        category={prompt.metadata?.category}
+                        icon={prompt.metadata.icon}
+                        category={prompt.metadata.category}
                         name={prompt.name}
-                        className="w-5 h-5"
                         disableTooltip
                     />
-                    Authenticate with {prompt.metadata?.category}
-                </a>
-            </Button>
+                    Authenticate with {prompt.metadata.category}
+                </Link>
+            )}
+
+            {prompt.metadata.authType === "basic" && prompt.fields && (
+                <Dialog open={open} onOpenChange={setOpen}>
+                    <DialogTrigger asChild>
+                        <Button
+                            variant="secondary"
+                            startContent={
+                                <ToolIcon
+                                    icon={prompt.metadata.icon}
+                                    category={prompt.metadata.category}
+                                    name={prompt.name}
+                                    disableTooltip
+                                />
+                            }
+                        >
+                            Authenticate with {prompt.metadata.category}
+                        </Button>
+                    </DialogTrigger>
+
+                    <DialogContent>
+                        <DialogHeader>
+                            <DialogTitle>
+                                Authenticate with {prompt.metadata.category}
+                            </DialogTitle>
+                        </DialogHeader>
+
+                        <PromptAuthForm
+                            prompt={prompt}
+                            onSuccess={() => setOpen(false)}
+                        />
+                    </DialogContent>
+                </Dialog>
+            )}
         </div>
+    );
+}
+
+function PromptAuthForm({
+    prompt,
+    onSuccess,
+}: {
+    prompt: AuthPrompt;
+    onSuccess: () => void;
+}) {
+    const authenticate = useAsync(PromptApiService.promptResponse, {
+        onSuccess,
+    });
+
+    const form = useForm<Record<string, string>>({
+        defaultValues: prompt.fields?.reduce(
+            (acc, field) => {
+                acc[field] = "";
+                return acc;
+            },
+            {} as Record<string, string>
+        ),
+    });
+
+    const handleSubmit = form.handleSubmit(async (values) =>
+        authenticate.execute({ id: prompt.id, response: values })
+    );
+
+    return (
+        <Form {...form}>
+            <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+                {prompt.fields?.map((field) => (
+                    <ControlledInput
+                        key={field}
+                        control={form.control}
+                        name={field}
+                        label={field}
+                        type={field.includes("password") ? "password" : "text"}
+                    />
+                ))}
+
+                <Button
+                    disabled={authenticate.isLoading}
+                    loading={authenticate.isLoading}
+                    type="submit"
+                >
+                    Authenticate
+                </Button>
+            </form>
+        </Form>
     );
 }

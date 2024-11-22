@@ -127,6 +127,10 @@ export const ApiRoutes = {
             buildUrl(`/threads/${threadId}/knowledge`),
         getFiles: (threadId: string) => buildUrl(`/threads/${threadId}/files`),
     },
+    prompt: {
+        base: () => buildUrl("/prompt"),
+        promptResponse: () => buildUrl("/prompt"),
+    },
     runs: {
         base: () => buildUrl("/runs"),
         getRunById: (runId: string) => buildUrl(`/runs/${runId}`),
