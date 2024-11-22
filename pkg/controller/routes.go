@@ -37,9 +37,11 @@ func (c *Controller) setupRoutes() error {
 	oauthLogins := oauthapp.NewLogin(c.services.Invoker, c.services.ServerURL)
 
 	// Runs
-	root.Type(&v1.Run{}).FinalizeFunc(v1.RunFinalizer, runs.DeleteRunState)
 	root.Type(&v1.Run{}).HandlerFunc(cleanup.Cleanup)
 	root.Type(&v1.Run{}).HandlerFunc(runs.Resume)
+
+	// RunStates
+	root.Type(&v1.RunState{}).HandlerFunc(cleanup.Cleanup)
 
 	// Threads
 	root.Type(&v1.Thread{}).HandlerFunc(cleanup.Cleanup)

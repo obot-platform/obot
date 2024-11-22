@@ -25,7 +25,9 @@ type RunStateSpec struct {
 }
 
 func (in *RunState) DeleteRefs() []Ref {
-	return []Ref{}
+	return []Ref{
+		{ObjType: &Run{}, Name: in.Name, Namespace: in.Namespace},
+	}
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

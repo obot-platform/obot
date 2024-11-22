@@ -9,8 +9,6 @@ import (
 	"github.com/otto8-ai/otto8/pkg/invoke"
 	v1 "github.com/otto8-ai/otto8/pkg/storage/apis/otto.otto8.ai/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 var log = logger.Package()
@@ -21,16 +19,6 @@ type Handler struct {
 
 func New(invoker *invoke.Invoker) *Handler {
 	return &Handler{invoker: invoker}
-}
-
-func (*Handler) DeleteRunState(req router.Request, resp router.Response) error {
-	run := req.Object.(*v1.Run)
-	return client.IgnoreNotFound(req.Delete(&v1.RunState{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      run.Name,
-			Namespace: run.Namespace,
-		},
-	}))
 }
 
 func (h *Handler) Resume(req router.Request, _ router.Response) error {
