@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { ComponentProps, useState } from "react";
 import useSWR from "swr";
 
 import { WorkflowService } from "~/lib/service/api/workflowService";
@@ -14,6 +14,7 @@ import {
 type RunWorkflowProps = {
     onSubmit: (params?: Record<string, string>) => void;
     workflowId: string;
+    popoverContentProps?: ComponentProps<typeof PopoverContent>;
 };
 
 export function RunWorkflow({
@@ -49,12 +50,16 @@ export function RunWorkflow({
                     {...props}
                     disabled={props.disabled || open || isLoading}
                     loading={props.loading || isLoading}
+                    onClick={() => setOpen((prev) => !prev)}
                 >
                     Run Workflow
                 </Button>
             </PopoverTrigger>
 
-            <PopoverContent className="min-w-full" side="bottom" align="center">
+            <PopoverContent
+                {...props.popoverContentProps}
+                className="min-w-full"
+            >
                 <RunWorkflowForm
                     params={params}
                     onSubmit={(params) => {
