@@ -195,7 +195,7 @@ func (a *WebhookHandler) RemoveToken(req api.Context) error {
 
 func (a *WebhookHandler) Execute(req api.Context) error {
 	var webhook v1.Webhook
-	if err := alias.Get(req.Context(), req.Storage, &webhook, "", req.PathValue("id")); err != nil {
+	if err := alias.Get(req.Context(), req.Storage, &webhook, req.Namespace(), req.PathValue("id")); err != nil {
 		return err
 	}
 
