@@ -2,6 +2,7 @@ package runs
 
 import (
 	"fmt"
+	"slices"
 
 	"github.com/gptscript-ai/go-gptscript"
 	"github.com/otto8-ai/nah/pkg/router"
@@ -57,4 +58,22 @@ func (h *Handler) Resume(req router.Request, _ router.Response) error {
 	}
 
 	return h.invoker.Resume(req.Ctx, req.Client, &thread, run)
+}
+
+// MigrateRemoveRunFinalizer (to be removed) removes the run finalizer from the run object which was used to cascade delete the run state,
+// which was moved to its own cleanup handler.
+func (h *Handler) MigrateRemoveRunFinalizer(req router.Request, _ router.Response) error {
+	run := req.Object.(*v1.Run)
+	changed := false
+	run.Finalizers = slices.DeleteFunc(run.ObjectMeta.Finalizers, func(i string) bool {
+		if i == v1.RunFinalizer {
+			changed = true
+			return true
+		}
+		return false
+	})
+	if changed {
+		return req.Client.Update(req.Ctx, run)
+	}
+	return nil
 }

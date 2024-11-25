@@ -345,7 +345,6 @@ func (i *Invoker) createRun(ctx context.Context, c kclient.WithWatch, thread *v1
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: system.RunPrefix,
 			Namespace:    thread.Namespace,
-			Finalizers:   []string{v1.RunFinalizer},
 		},
 		Spec: v1.RunSpec{
 			Synchronous:           opts.Synchronous,
