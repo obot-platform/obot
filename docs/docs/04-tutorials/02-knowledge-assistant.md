@@ -17,7 +17,7 @@ This is a prompt that explains what you would like it to do for you.
 Tell it about the documents that you will give to it, and what it should do with them.
 Here is an example:
 
-![Agent configuration](../../static/img/guides/knowledge-agent/agent-config.png)
+![Agent configuration](../../static/img/tutorials/knowledge-agent/agent-config.png)
 
 ## 2. Adding documents
 
@@ -27,14 +27,14 @@ Then, click on the **+ Add Knowledge** button.
 You can then upload files directly from your computer, sync with Notion or OneDrive, or scrape a website.
 The example below uses some HR policies from Acorn Labs.
 
-![Knowledge configuration](../../static/img/guides/knowledge-agent/knowledge-config.png)
+![Knowledge configuration](../../static/img/tutorials/knowledge-agent/knowledge-config.png)
 
 ## 3. Testing the agent
 
 You can now begin chatting with the agent in the chat interface to the right.
 Start by asking it a simple question that can be answered by at least one of the documents you provided.
 
-![Example chat](../../static/img/guides/knowledge-agent/chat-example.png)
+![Example chat](../../static/img/tutorials/knowledge-agent/chat-example.png)
 
 ## 4. Publishing the agent (optional)
 

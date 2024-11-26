@@ -28,11 +28,11 @@ Click on the **+ Add Tool** button and search for `GitHub`.
 You should see a whole category of tools for GitHub.
 Click on the toggle button at the right side of the category name to add all the GitHub tools to the agent.
 
-![GitHub tools toggle](../../static/img/guides/github-agent/github-tools.png)
+![GitHub tools toggle](../../static/img/tutorials/github-agent/github-tools.png)
 
 When you are finished configuring the agent, it should look something like this:
 
-![GitHub agent configuration](../../static/img/guides/github-agent/github-agent-config.png)
+![GitHub agent configuration](../../static/img/tutorials/github-agent/github-agent-config.png)
 
 ## 3. Testing the agent
 
@@ -42,7 +42,7 @@ When it makes its first tool call, you will have to sign in to GitHub to authori
 Then, try having it interact with things specific to your account.
 If you gave your agent instructions about a "status update", ask for one and see what it does.
 
-![Example chat](../../static/img/guides/github-agent/github-chat-example.png)
+![Example chat](../../static/img/tutorials/github-agent/github-chat-example.png)
 
 ## 4. Publishing the agent (optional)
 
