@@ -39,17 +39,19 @@ export function ToolCard({ tool, onDelete }: ToolCardProps) {
             })}
         >
             <CardHeader className="pb-2">
-                <TypographyH4 className="truncate flex items-center">
-                    <ToolIcon
-                        className="w-5 h-5 mr-2"
-                        name={tool.name}
-                        icon={tool.metadata?.icon}
-                    />
-                    {tool.name}
+                <TypographyH4 className="truncate flex flex-wrap items-center gap-x-2">
+                    <div className="flex flex-nowrap gap-x-2">
+                        <ToolIcon
+                            className="w-5 min-w-5 h-5"
+                            name={tool.name}
+                            icon={tool.metadata?.icon}
+                        />
+                        {tool.name}
+                    </div>
                     {tool.error && (
                         <Tooltip>
                             <TooltipTrigger>
-                                <Badge className="ml-2 bg-error mb-1 pointer-events-none">
+                                <Badge className="bg-error mb-1 pointer-events-none">
                                     Failed
                                 </Badge>
                             </TooltipTrigger>
@@ -59,9 +61,7 @@ export function ToolCard({ tool, onDelete }: ToolCardProps) {
                         </Tooltip>
                     )}
                     {tool.metadata?.bundle && (
-                        <Badge className="ml-2 pointer-events-none">
-                            Bundle
-                        </Badge>
+                        <Badge className="pointer-events-none">Bundle</Badge>
                     )}
                 </TypographyH4>
             </CardHeader>
