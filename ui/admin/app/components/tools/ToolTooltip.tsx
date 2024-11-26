@@ -2,6 +2,7 @@ import { WrenchIcon } from "lucide-react";
 
 import { ToolReference } from "~/lib/model/toolReferences";
 
+import { ToolIcon } from "~/components/tools/ToolIcon";
 import {
     Tooltip,
     TooltipContent,
@@ -28,10 +29,12 @@ export function ToolTooltip({
                 className="w-[300px] p-4 flex items-center bg-background text-foreground border"
             >
                 {tool.metadata?.icon ? (
-                    <img
-                        alt={tool.name}
-                        src={tool.metadata.icon}
-                        className="w-10 h-10 mr-4 dark:invert"
+                    <ToolIcon
+                        icon={tool.metadata?.icon}
+                        category={tool.metadata?.category}
+                        name={tool.name}
+                        className="w-10 h-10 mr-4"
+                        disableTooltip
                     />
                 ) : (
                     <WrenchIcon className="w-4 h-4 mr-2" />
