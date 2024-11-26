@@ -21,7 +21,25 @@ RUN --mount=type=cache,id=pnpm,target=/root/.local/share/pnpm/store \
     --mount=type=cache,target=/root/go/pkg/mod \
     UV_LINK_MODE=copy BIN_DIR=/bin make package-tools
 
-FROM cgr.dev/chainguard/wolfi-base AS final
+FROM cgr.dev/chainguard/postgres:latest-dev AS build-pgvector
+RUN apk add build-base git postgresql-dev
+RUN git clone --branch v0.8.0 https://github.com/pgvector/pgvector.git && \
+    cd pgvector && \
+    make clean && \
+    make OPTFLAGS="" && \
+    make install && \
+    cd .. && \
+    rm -rf pgvector
+
+FROM cgr.dev/chainguard/postgres:latest-dev AS final
+ENV POSTGRES_USER=otto8
+ENV POSTGRES_PASSWORD=otto8
+ENV POSTGRES_DB=otto8
+ENV PGDATA=/data/postgresql
+
+COPY --from=build-pgvector /usr/lib/postgresql17/vector.so /usr/lib/postgresql17/
+COPY --from=build-pgvector /usr/share/postgresql17/extension/vector* /usr/share/postgresql17/extension/
+
 RUN apk add --no-cache git python-3.13 py3.13-pip openssh-server npm bash tini procps libreoffice
 COPY --chmod=0755 /tools/package-chrome.sh /
 RUN /package-chrome.sh && rm /package-chrome.sh
@@ -29,28 +47,7 @@ RUN sed -E 's/^#(PermitRootLogin)no/\1yes/' /etc/ssh/sshd_config -i
 RUN ssh-keygen -A
 RUN mkdir /run/sshd && /usr/sbin/sshd
 COPY encryption.yaml /
-COPY --chmod=0755 <<EOF /bin/run.sh
-#!/bin/bash
-set -e
-if [ "\$OPENAI_API_KEY" = "" ]; then
-    echo OPENAI_API_KEY env is required to be set
-    exit 1
-fi
-mkdir -p /run/sshd
-/usr/sbin/sshd -D &
-mkdir -p /data/cache
-# This is YAML
-export OTTO8_SERVER_VERSIONS="$(cat <<VERSIONS
-"github.com/otto8-ai/tools": "$(cd /otto8-tools && git rev-parse HEAD)"
-"github.com/gptscript-ai/workspace-provider": "$(cd /otto8-tools/workspace-provider && git rev-parse HEAD)"
-"github.com/gptscript-ai/datasets": "$(cd /otto8-tools/datasets && git rev-parse HEAD)"
-"github.com/kubernetes-sigs/aws-encryption-provider": "$(cd /otto8-tools/aws-encryption-provider && git rev-parse HEAD)"
-# double echo to remove trailing whitespace
-"chrome": "$(echo $(/opt/google/chrome/chrome --version))"
-VERSIONS
-)"
-exec tini -- otto8 server
-EOF
+COPY --chmod=0755 run.sh /bin/run.sh
 
 COPY --link --from=tools /app/otto8-tools /otto8-tools
 COPY --from=bin /app/bin/otto8 /bin/
@@ -69,4 +66,4 @@ ENV GOMEMLIMIT=1GiB
 ENV TERM=vt100
 WORKDIR /data
 VOLUME /data
-CMD ["run.sh"]
+ENTRYPOINT ["run.sh"]
