@@ -410,14 +410,14 @@ export default function FileTreeNode({
                                 </div>
                                 <span className="text-xs flex items-center justify-center text-muted-foreground">
                                     {node.file.sizeInBytes
-                                        ? node.file.sizeInBytes > 1000000
+                                        ? node.file.sizeInBytes > 1024 * 1024
                                             ? (
                                                   node.file.sizeInBytes /
-                                                  1000000
+                                                  (1024 * 1024)
                                               ).toFixed(2) + " MB"
-                                            : node.file.sizeInBytes > 1000
+                                            : node.file.sizeInBytes > 1024
                                               ? (
-                                                    node.file.sizeInBytes / 1000
+                                                    node.file.sizeInBytes / 1024
                                                 ).toFixed(2) + " KB"
                                               : node.file.sizeInBytes + " Bytes"
                                         : "0 Bytes"}
@@ -455,11 +455,12 @@ export default function FileTreeNode({
                                     </span>
                                 </div>
                                 <div className="whitespace-nowrap text-xs">
-                                    {totalSize > 1000000
-                                        ? (totalSize / 1000000).toFixed(2) +
-                                          " MB"
-                                        : totalSize > 1000
-                                          ? (totalSize / 1000).toFixed(2) +
+                                    {totalSize > 1024 * 1024
+                                        ? ((totalSize / 1024) * 1024).toFixed(
+                                              2
+                                          ) + " MB"
+                                        : totalSize > 1024
+                                          ? (totalSize / 1024).toFixed(2) +
                                             " KB"
                                           : totalSize + " Bytes"}
                                 </div>
