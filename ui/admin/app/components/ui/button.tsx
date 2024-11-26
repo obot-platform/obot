@@ -19,7 +19,7 @@ export const ButtonClasses = {
                 "bg-secondary text-secondary-foreground shadow-sm hover:bg-secondary/80",
             ghost: "hover:bg-secondary hover:text-secondary-foreground",
             accent: "bg-accent text-accent-foreground shadow-sm hover:bg-accent/80",
-            link: "text-accent-bold hover:text-accent-bold/70 underline-offset-4 hover:underline shadow-none hover:shadow-none",
+            link: "text-primary hover:text-primary/70 underline-offset-4 hover:underline shadow-none hover:shadow-none",
         },
         size: {
             default: "h-9 px-4 py-2",

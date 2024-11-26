@@ -29,8 +29,7 @@ body {
         --border-light: 223 5% 85%;
         --border-normal: 223 5% 75%;
 
-        --accent-primary: 223 5% 10%;
-        --accent-secondary: 223 87% 63%;
+        --accent-primary: 223 87% 63%;
 
         /* Start colors provided to Tailwind */
 
@@ -66,15 +65,13 @@ body {
         --secondary-foreground: var(--text-primary);
         --muted: var(--accent-surface-primary);
         --muted-foreground: var(--text-muted);
-        --accent-bold: var(--accent-secondary);
-        --accent-bold-foreground: var(--text-inverted);
         --accent: var(--accent-surface-secondary);
         --accent-foreground: var(--text-secondary);
 
-        --link: var(--accent-bold);
+        --link: var(--accent-primary);
         --border: var(--border-light);
         --input: var(--border-normal);
-        --ring: var(--accent-secondary);
+        --ring: var(--accent-primary);
 
         --chart-1: 12 76% 61%;
         --chart-2: 173 58% 39%;
@@ -90,7 +87,7 @@ body {
         --sidebar-accent: var(--accent-surface-secondary);
         --sidebar-accent-foreground: var(--text-primary);
         --sidebar-border: var(--border-light);
-        --sidebar-ring: var(--accent-secondary);
+        --sidebar-ring: var(--accent-primary);
     }
     .dark {
         color-scheme: dark;
@@ -111,8 +108,7 @@ body {
         --border-light: 223 5% 20%;
         --border-normal: 223 5% 30%;
 
-        --accent-primary: 223 5% 85%;
-        --accent-secondary: 223 87% 63%;
+        --accent-primary: 223 87% 63%;
 
         --background: var(--main-surface-primary);
         --background-secondary: var(--main-surface-secondary);
@@ -136,15 +132,13 @@ body {
         --secondary-foreground: var(--text-primary);
         --muted: var(--accent-surface-primary);
         --muted-foreground: var(--text-muted);
-        --accent-bold: var(--accent-secondary);
-        --accent-bold-foreground: var(--text-inverted);
         --accent: var(--accent-surface-secondary);
         --accent-foreground: var(--text-primary);
 
-        --link: var(--accent-bold);
+        --link: var(--accent-primary);
         --border: var(--border-light);
         --input: var(--border-normal);
-        --ring: var(--accent-secondary);
+        --ring: var(--accent-primary);
 
         --chart-1: 12 76% 61%;
         --chart-2: 173 58% 39%;
@@ -161,7 +155,7 @@ body {
         --sidebar-accent: var(--accent-surface-secondary);
         --sidebar-accent-foreground: var(--text-primary);
         --sidebar-border: var(--border-light);
-        --sidebar-ring: var(--accent-secondary);
+        --sidebar-ring: var(--accent-primary);
     }
 }
 
