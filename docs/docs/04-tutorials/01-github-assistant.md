@@ -1,6 +1,6 @@
-# Tutorial: Create a GitHub Agent
+# Create a Personal GitHub Task Agent
 
-This is a short tutorial demonstrating how to create an Otto8 agent that interacts with GitHub.
+This is a short tutorial demonstrating how to create an Otto8 agent that interacts with GitHub. The agent will help you keep track of the work assigned to you in GitHub.
 
 :::note
 As you configure the agent, changes will be saved and applied automatically.

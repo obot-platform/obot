@@ -7,4 +7,4 @@ Tools define an agent's capabilities and determine how it interacts with the wor
 
 The **Tools** page displays all built-in tools available in Otto8, along with any custom tools you've added. The built-in tools are open source and can be accessed [here](https://github.com/otto8-ai/tools).
 
-For instructions on creating your own tools, refer to our [Tool Authoring Guide](/guides/first-tool).
+For instructions on creating your own tools, refer to our [Tool Authoring Guide](/tools/first-tool).

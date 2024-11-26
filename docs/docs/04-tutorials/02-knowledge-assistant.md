@@ -1,4 +1,4 @@
-# Tutorial: Create a Knowledge Agent
+# Create an HR Q&A Agent
 
 Otto8 makes it easy to create an agent to answer questions about a set of documents, using its built-in RAG feature.
 This tutorial will demonstrate how to do this.

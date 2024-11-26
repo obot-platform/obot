@@ -9,7 +9,7 @@ If an Otto8 tool needs to talk to an external service and wants to use Oauth to 
 Because configuring an OAuth integration can be complicated, Otto8's built-in Oauth Apps are pre-configured to use a public gateway and ran by Acorn Labs. We've configured a corresponding OAuth application in each service provider (ie, GitHub, Google, and Microsoft) so that you can start using the tools without any additional configuration.  Any of these integrations can be overridden to use your own custom integration. Each service provider is different, but you just need to follow the in-app instructions to configure them properly.
 
 ### Custom OAuth Apps
-You can configure a custom OAuth app to integrate with any service provider that supports OAuth. You can then use this when authoring your own custom tools that call that service. For more details, see our [Tool Authoring Guide](/guides/integrating-oauth).
+You can configure a custom OAuth app to integrate with any service provider that supports OAuth. You can then use this when authoring your own custom tools that call that service. For more details, see our [Tool Authoring Guide](/tools/integrating-oauth).
 
 When configuring a custom OAuth App, you'll first be asked to provide the following values:
 - **Name** - This is just the friendly name you'll use to identify your app
