@@ -137,7 +137,10 @@ export function AgentForm({ agent, onSubmit, onChange }: AgentFormProps) {
 
                                 {models.map((m) => (
                                     <SelectItem key={m.id} value={m.id}>
-                                        {m.name || m.id}
+                                        {m.name || m.id}{" "}
+                                        <span className="text-muted-foreground">
+                                            ({m.modelProvider})
+                                        </span>
                                     </SelectItem>
                                 ))}
                             </SelectContent>
