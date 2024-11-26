@@ -28,12 +28,16 @@ export function Agent({ className, onRefresh }: AgentProps) {
     const [agentUpdates, setAgentUpdates] = useState(agent);
 
     useEffect(() => {
-        if (agent.id === agentUpdates.id) {
-            setAgentUpdates({
-                ...agentUpdates,
-                aliasAssigned: agent.aliasAssigned ?? false,
-            });
-        }
+        setAgentUpdates((prev) => {
+            if (agent.id === prev.id) {
+                return {
+                    ...prev,
+                    aliasAssigned: agent.aliasAssigned ?? false,
+                };
+            }
+
+            return agent;
+        });
     }, [agent]);
 
     const partialSetAgent = useCallback(
