@@ -456,7 +456,7 @@ export default function FileTreeNode({
                                 </div>
                                 <div className="whitespace-nowrap text-xs">
                                     {totalSize > 1024 * 1024
-                                        ? ((totalSize / 1024) * 1024).toFixed(
+                                        ? (totalSize / (1024 * 1024)).toFixed(
                                               2
                                           ) + " MB"
                                         : totalSize > 1024
