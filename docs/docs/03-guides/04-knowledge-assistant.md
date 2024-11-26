@@ -3,6 +3,10 @@
 Otto8 makes it easy to create an agent to answer questions about a set of documents, using its built-in RAG feature.
 This tutorial will demonstrate how to do this.
 
+:::note
+As you configure the agent, changes will be saved and applied automatically.
+:::
+
 ## 1. Setting up the agent
 
 Start by going to the Agents page in the admin UI and clicking **+ New Agent**.

@@ -2,6 +2,10 @@
 
 This is a short tutorial demonstrating how to create an Otto8 agent that interacts with GitHub.
 
+:::note
+As you configure the agent, changes will be saved and applied automatically.
+:::
+
 ## 1. Setting up the agent
 
 Start by going to the Agents page in the admin UI and clicking **+ New Agent**.
