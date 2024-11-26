@@ -1,7 +1,7 @@
 import useSWR from "swr";
 
 import { WorkflowService } from "~/lib/service/api/workflowService";
-import { cn } from "~/lib/utils";
+import { cn, getAliasFrom } from "~/lib/utils";
 
 import { TypographyH2 } from "~/components/Typography";
 import {
@@ -67,18 +67,13 @@ export function WebhookFormContent() {
 
                 <ControlledInput control={control} name="name" label="Name" />
 
-                {/* todo(ryanhopperlowe): Re-enable alias after go ahead is given */}
-                {/* <ControlledInput
+                <ControlledInput
                     control={form.control}
                     name="alias"
                     label="Alias (Optional)"
-                    description={
-                        alias
-                            ? `Aliased URL: ${ApiRoutes.webhooks.invoke(alias).url}`
-                            : "An alias is a short name for the webhook to make it easier to identify."
-                    }
+                    description="This will be used to construct the webhook URL."
                     onChangeConversion={getAliasFrom}
-                /> */}
+                />
 
                 <ControlledInput
                     control={control}

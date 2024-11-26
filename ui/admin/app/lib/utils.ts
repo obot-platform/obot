@@ -65,5 +65,5 @@ export const assetUrl = (path: string) => `${import.meta.env.BASE_URL}${path}`;
 export const getAliasFrom = (text: Nullish<string>) => {
     if (!text) return "";
 
-    return text.toLowerCase().replace(/[^a-z0-9]+/g, "-");
+    return text.toLowerCase().replace(/[^a-z0-9-]+/g, "-");
 };
