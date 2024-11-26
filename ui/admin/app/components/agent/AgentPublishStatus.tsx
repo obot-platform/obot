@@ -29,7 +29,7 @@ export function AgentPublishStatus({
         () => AssistantApiService.getAssistants()
     );
 
-    const refAgent = useMemo(() => {
+    const refAssistant = useMemo(() => {
         if (!getAssistants.data) return null;
 
         return getAssistants.data.find(({ id }) => id === agent.alias);
@@ -53,14 +53,14 @@ export function AgentPublishStatus({
     function renderAgentRef() {
         if (!agent.alias) return <div />;
 
-        if (refAgent && refAgent.id !== agent.id) {
+        if (refAssistant && refAssistant.entityID !== agent.id) {
             const route =
-                refAgent.type === "agent"
+                refAssistant.type === "agent"
                     ? $path("/agents/:agent", {
-                          agent: refAgent.entityID,
+                          agent: refAssistant.entityID,
                       })
                     : $path("/workflows/:workflow", {
-                          workflow: refAgent.entityID,
+                          workflow: refAssistant.entityID,
                       });
 
             return (
@@ -72,13 +72,13 @@ export function AgentPublishStatus({
 
                     <TypographySmall className="pb-0 text-muted-foreground">
                         <span className="min-w-fit">
-                            Ref name <b>{refAgent.id}</b> used by{" "}
+                            Ref name <b>{refAssistant.id}</b> used by{" "}
                         </span>
                         <Link
                             className="text-accent-foreground underline"
                             to={route}
                         >
-                            {refAgent.name}
+                            {refAssistant.name}
                         </Link>
                     </TypographySmall>
                 </div>

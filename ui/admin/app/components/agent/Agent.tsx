@@ -1,5 +1,5 @@
 import { LibraryIcon, PlusIcon, WrenchIcon } from "lucide-react";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import { Agent as AgentType } from "~/lib/model/agents";
 import { cn } from "~/lib/utils";
@@ -26,6 +26,15 @@ export function Agent({ className, onRefresh }: AgentProps) {
     const { agent, updateAgent, isUpdating, lastUpdated, error } = useAgent();
 
     const [agentUpdates, setAgentUpdates] = useState(agent);
+
+    useEffect(() => {
+        if (agent.id === agentUpdates.id) {
+            setAgentUpdates({
+                ...agentUpdates,
+                aliasAssigned: agent.aliasAssigned ?? false,
+            });
+        }
+    }, [agent]);
 
     const partialSetAgent = useCallback(
         (changes: Partial<typeof agent>) => {

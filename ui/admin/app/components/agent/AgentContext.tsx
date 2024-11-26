@@ -58,7 +58,7 @@ export function AgentProvider({
         <AgentContext.Provider
             value={{
                 agentId,
-                agent,
+                agent: getAgent.data ?? agent,
                 updateAgent: updateAgent.execute,
                 isUpdating: updateAgent.isLoading,
                 lastUpdated,
