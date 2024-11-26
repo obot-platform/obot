@@ -205,6 +205,7 @@ function useMessageSource(threadId?: Nullish<string>) {
 
         return () => {
             source.close();
+            setIsRunning(false);
         };
     }, [threadId, addContent]);
 

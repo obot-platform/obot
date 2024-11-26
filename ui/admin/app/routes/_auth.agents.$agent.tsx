@@ -65,30 +65,27 @@ export default function ChatAgent() {
 
     return (
         <div className="h-full flex flex-col overflow-hidden relative">
-            <ChatProvider
-                id={agent.id}
-                threadId={threadId}
-                onCreateThreadId={updateThreadId}
-            >
-                <AgentProvider agent={agent}>
-                    <ResizablePanelGroup
-                        direction="horizontal"
-                        className="flex-auto"
+            <ResizablePanelGroup direction="horizontal" className="flex-auto">
+                <ResizablePanel className="">
+                    <AgentProvider agent={agent}>
+                        <Agent
+                            agent={agent}
+                            onRefresh={updateThreadId}
+                            key={agent.id}
+                        />
+                    </AgentProvider>
+                </ResizablePanel>
+                <ResizableHandle withHandle />
+                <ResizablePanel>
+                    <ChatProvider
+                        id={agent.id}
+                        threadId={threadId}
+                        onCreateThreadId={updateThreadId}
                     >
-                        <ResizablePanel className="">
-                            <Agent
-                                agent={agent}
-                                onRefresh={updateThreadId}
-                                key={agent.id}
-                            />
-                        </ResizablePanel>
-                        <ResizableHandle withHandle />
-                        <ResizablePanel>
-                            <Chat className="bg-sidebar" />
-                        </ResizablePanel>
-                    </ResizablePanelGroup>
-                </AgentProvider>
-            </ChatProvider>
+                        <Chat className="bg-sidebar" />
+                    </ChatProvider>
+                </ResizablePanel>
+            </ResizablePanelGroup>
         </div>
     );
 }
