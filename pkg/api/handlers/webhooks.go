@@ -137,7 +137,7 @@ func convertWebhook(webhook v1.Webhook, urlPrefix string) *types.Webhook {
 		if webhook.Status.AliasAssigned {
 			path = webhook.Spec.Alias
 		}
-		links = []string{"invoke", fmt.Sprintf("%s/webhooks/%s", urlPrefix, path)}
+		links = []string{"invoke", fmt.Sprintf("%s/webhooks/%s/%s", urlPrefix, webhook.Namespace, path)}
 	}
 
 	manifest := webhook.Spec.WebhookManifest
@@ -195,7 +195,7 @@ func (a *WebhookHandler) RemoveToken(req api.Context) error {
 
 func (a *WebhookHandler) Execute(req api.Context) error {
 	var webhook v1.Webhook
-	if err := alias.Get(req.Context(), req.Storage, &webhook, req.Namespace(), req.PathValue("id")); err != nil {
+	if err := alias.Get(req.Context(), req.Storage, &webhook, req.PathValue("namespace"), req.PathValue("id")); err != nil {
 		return err
 	}
 

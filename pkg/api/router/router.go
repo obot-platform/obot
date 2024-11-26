@@ -186,8 +186,8 @@ func Router(services *services.Services) (http.Handler, error) {
 	mux.HandleFunc("GET /api/webhooks/{id}", webhooks.ByID)
 	mux.HandleFunc("DELETE /api/webhooks/{id}", webhooks.Delete)
 	mux.HandleFunc("PUT /api/webhooks/{id}", webhooks.Update)
-	mux.HandleFunc("POST /api/webhooks/{id}", webhooks.Execute)
 	mux.HandleFunc("POST /api/webhooks/{id}/remove-token", webhooks.RemoveToken)
+	mux.HandleFunc("POST /api/webhooks/{namespace}/{id}", webhooks.Execute)
 
 	// Email Receivers
 	mux.HandleFunc("POST /api/email-receivers", emailreceiver.Create)
