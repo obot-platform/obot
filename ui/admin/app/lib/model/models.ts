@@ -26,7 +26,6 @@ export type ModelManifest = {
     targetModel?: string;
     modelProvider: string;
     active: boolean;
-    default: boolean;
     usage: ModelUsage;
 };
 
@@ -42,7 +41,6 @@ export const ModelManifestSchema = z.object({
     targetModel: z.string().min(1, "Required"),
     modelProvider: z.string().min(1, "Required"),
     active: z.boolean(),
-    default: z.boolean(),
     usage: z.nativeEnum(ModelUsage),
 });
 

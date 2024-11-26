@@ -7,10 +7,7 @@ async function getModels() {
         url: ApiRoutes.models.getModels().url,
     });
 
-    // Place default models first
-    return (
-        data.items?.sort((a, b) => (a.default ? -1 : b.default ? 1 : 0)) ?? []
-    );
+    return data.items ?? [];
 }
 getModels.key = () => ({ url: ApiRoutes.models.getModels().path });
 

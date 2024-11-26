@@ -7,7 +7,7 @@ import { Model } from "~/lib/model/models";
 import { DefaultModelAliasApiService } from "~/lib/service/api/defaultModelAliasApiService";
 import { ModelApiService } from "~/lib/service/api/modelApiService";
 
-import { TypographyH2, TypographySmall } from "~/components/Typography";
+import { TypographyH2 } from "~/components/Typography";
 import { DataTable } from "~/components/composed/DataTable";
 import { AddModel } from "~/components/model/AddModel";
 import { DefaultModelAliasFormDialog } from "~/components/model/DefaultModelAliasForm";
@@ -94,26 +94,8 @@ export default function Models() {
             columnHelper.accessor(
                 (model) =>
                     providerMap[model.modelProvider] ?? model.modelProvider,
-                {
-                    id: "provider",
-                    header: "Provider",
-                }
+                { id: "provider", header: "Provider" }
             ),
-            columnHelper.display({
-                id: "default",
-                cell: ({ row }) => {
-                    const value = row.original.default;
-
-                    if (!value) return null;
-
-                    return (
-                        <TypographySmall className="text-muted-foreground flex items-center gap-2">
-                            <div className="size-2 bg-success rounded-full" />
-                            Default
-                        </TypographySmall>
-                    );
-                },
-            }),
             columnHelper.display({
                 id: "actions",
                 cell: ({ row }) => (
