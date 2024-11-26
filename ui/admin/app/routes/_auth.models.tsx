@@ -4,11 +4,13 @@ import { useMemo, useState } from "react";
 import useSWR, { preload } from "swr";
 
 import { Model } from "~/lib/model/models";
+import { DefaultModelAliasApiService } from "~/lib/service/api/defaultModelAliasApiService";
 import { ModelApiService } from "~/lib/service/api/modelApiService";
 
 import { TypographyH2, TypographySmall } from "~/components/Typography";
 import { DataTable } from "~/components/composed/DataTable";
 import { AddModel } from "~/components/model/AddModel";
+import { DefaultModelAliasFormDialog } from "~/components/model/DefaultModelAliasForm";
 import { DeleteModel } from "~/components/model/DeleteModel";
 import { UpdateModelDialog } from "~/components/model/UpdateModel";
 import { Button } from "~/components/ui/button";
@@ -24,6 +26,10 @@ export async function clientLoader() {
         preload(
             ModelApiService.getModelProviders.key(),
             ModelApiService.getModelProviders
+        ),
+        preload(
+            DefaultModelAliasApiService.getAliases.key(),
+            DefaultModelAliasApiService.getAliases
         ),
     ]);
     return null;
@@ -57,7 +63,11 @@ export default function Models() {
         <div className="h-full flex flex-col p-8 space-y-4">
             <div className="flex items-center justify-between">
                 <TypographyH2>Models</TypographyH2>
-                <AddModel />
+
+                <div className="flex items-center gap-2">
+                    <AddModel />
+                    <DefaultModelAliasFormDialog />
+                </div>
             </div>
 
             <DataTable

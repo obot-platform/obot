@@ -91,6 +91,19 @@ const ModelToProviderMap = {
     ],
 };
 
+export const ModelAliasToUsageMap = {
+    llm: ModelUsage.LLM,
+    "llm-mini": ModelUsage.LLM,
+    "text-embedding": ModelUsage.TextEmbedding,
+    "image-generation": ModelUsage.ImageGeneration,
+} as const;
+
+export function getModelUsageFromAlias(alias: string) {
+    if (!(alias in ModelAliasToUsageMap)) return null;
+
+    return ModelAliasToUsageMap[alias as keyof typeof ModelAliasToUsageMap];
+}
+
 export function getModelsForProvider(providerId: string) {
     if (!providerId || !(providerId in ModelToProviderMap)) return [];
     return ModelToProviderMap[providerId as keyof typeof ModelToProviderMap];

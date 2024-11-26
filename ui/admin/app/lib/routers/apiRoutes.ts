@@ -171,6 +171,17 @@ export const ApiRoutes = {
         updateModel: (modelId: string) => buildUrl(`/models/${modelId}`),
         deleteModel: (modelId: string) => buildUrl(`/models/${modelId}`),
     },
+    defaultModelAliases: {
+        base: () => buildUrl("/default-model-aliases"),
+        getAliases: () => buildUrl("/default-model-aliases"),
+        createAlias: () => buildUrl("/default-model-aliases"),
+        getAliasById: (aliasId: string) =>
+            buildUrl(`/default-model-aliases/${aliasId}`),
+        updateAlias: (aliasId: string) =>
+            buildUrl(`/default-model-aliases/${aliasId}`),
+        deleteAlias: (aliasId: string) =>
+            buildUrl(`/default-model-aliases/${aliasId}`),
+    },
     webhooks: {
         base: () => buildUrl("/webhooks"),
         getWebhooks: () => buildUrl("/webhooks"),

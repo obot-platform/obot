@@ -10,7 +10,10 @@ import {
 
 import { cn } from "~/lib/utils";
 
-import { BasicInputItem } from "~/components/form/BasicInputItem";
+import {
+    BasicInputItem,
+    BasicInputItemProps,
+} from "~/components/form/BasicInputItem";
 import { Checkbox } from "~/components/ui/checkbox";
 import {
     FormControl,
@@ -232,6 +235,7 @@ export type ControlledCustomInputProps<
     TValues extends FieldValues,
     TName extends FieldPath<TValues>,
 > = BaseProps<TValues, TName> & {
+    classNames?: BasicInputItemProps["classNames"];
     children: (props: {
         field: ControllerRenderProps<TValues, TName>;
         fieldState: ControllerFieldState;
@@ -248,6 +252,7 @@ export function ControlledCustomInput<
     name,
     label,
     description,
+    classNames,
     children,
 }: ControlledCustomInputProps<TValues, TName>) {
     return (
@@ -255,7 +260,11 @@ export function ControlledCustomInput<
             control={control}
             name={name}
             render={(args) => (
-                <BasicInputItem label={label} description={description}>
+                <BasicInputItem
+                    classNames={classNames}
+                    label={label}
+                    description={description}
+                >
                     {children({
                         ...args,
                         className: getFieldStateClasses(args.fieldState),

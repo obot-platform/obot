@@ -8,12 +8,7 @@ import {
     FormMessage,
 } from "~/components/ui/form";
 
-export function BasicInputItem({
-    children,
-    classNames = {},
-    label,
-    description,
-}: {
+export type BasicInputItemProps = {
     children: ReactNode;
     classNames?: {
         wrapper?: string;
@@ -23,7 +18,14 @@ export function BasicInputItem({
     };
     label?: ReactNode;
     description?: ReactNode;
-}) {
+};
+
+export function BasicInputItem({
+    children,
+    classNames = {},
+    label,
+    description,
+}: BasicInputItemProps) {
     return (
         <FormItem className={classNames.wrapper}>
             {label && (
