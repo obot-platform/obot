@@ -70,6 +70,10 @@ When configuring models with the Azure OpenAI provider in Otto8, the "Target Mod
 
 The Anthropic model provider requires setting the `OTTO8_ANTHROPIC_MODEL_PROVIDER_API_KEY` environment variable. You can get an API key for your Anthropic account [here](https://console.anthropic.com/settings/keys).
 
+## Voyage AI
+
+Voyage is Anthropic's recommended text-embedding provider. The Voyage model provider requires setting the `OTTO8_VOYAGE_MODEL_PROVIDER_API_KEY` environment variable. You can get an API key for your Voyage account [here](https://dash.voyageai.com/api-keys).
+
 ## Ollama
 
 The Ollama model provider requires the `OTTO8_OLLAMA_MODEL_PROVIDER_HOST` environment variable. This host must point to a running instance of Ollama. For your reference, the default host and port for Ollama is `127.0.0.1:11434`. Otto8 doesn't set this by default.
