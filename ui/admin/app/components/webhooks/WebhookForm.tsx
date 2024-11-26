@@ -1,15 +1,21 @@
 import useSWR from "swr";
 
 import { WorkflowService } from "~/lib/service/api/workflowService";
+import { cn } from "~/lib/utils";
 
-import { TypographyH3, TypographyH4 } from "~/components/Typography";
+import { TypographyH2 } from "~/components/Typography";
 import {
     ControlledCustomInput,
     ControlledInput,
 } from "~/components/form/controlledInputs";
 import { Button } from "~/components/ui/button";
 import { Checkbox } from "~/components/ui/checkbox";
-import { FormControl, FormItem, FormLabel } from "~/components/ui/form";
+import {
+    FormControl,
+    FormField,
+    FormItem,
+    FormLabel,
+} from "~/components/ui/form";
 import { MultiSelect } from "~/components/ui/multi-select";
 import { ScrollArea } from "~/components/ui/scroll-area";
 import {
@@ -39,7 +45,7 @@ export function WebhookFormContent() {
     const { form, handleSubmit, isLoading, isEdit, hasSecret } =
         useWebhookFormContext();
 
-    const { setValue, watch, control } = form;
+    const { watch, control } = form;
 
     const getWorkflows = useSWR(WorkflowService.getWorkflows.key(), () =>
         WorkflowService.getWorkflows()
@@ -47,17 +53,7 @@ export function WebhookFormContent() {
 
     const workflows = getWorkflows.data;
 
-    const validationHeader = watch("validationHeader");
-    const secret = watch("secret");
-
-    const removeSecret = () => {
-        setValue("secret", "");
-        setValue("validationHeader", "");
-    };
-
-    const addSecret = () => setValue("validationHeader", "X-Hub-Signature-256");
-
-    const secretIsRemoved = hasSecret && !validationHeader && !secret;
+    const removeSecret = watch("removeSecret");
 
     return (
         <ScrollArea className="h-full">
@@ -65,9 +61,9 @@ export function WebhookFormContent() {
                 className="space-y-8 p-8 max-w-3xl mx-auto"
                 onSubmit={handleSubmit}
             >
-                <TypographyH3>
+                <TypographyH2>
                     {isEdit ? "Edit Webhook" : "Create Webhook"}
-                </TypographyH3>
+                </TypographyH2>
 
                 <ControlledInput control={control} name="name" label="Name" />
 
@@ -89,21 +85,6 @@ export function WebhookFormContent() {
                     name="description"
                     label="Description (Optional)"
                 />
-
-                <FormItem>
-                    <FormLabel>Type</FormLabel>
-                    <Select value="GitHub" disabled>
-                        <SelectTrigger>
-                            <SelectValue />
-                        </SelectTrigger>
-
-                        <SelectContent>
-                            <SelectItem value="GitHub">GitHub</SelectItem>
-                        </SelectContent>
-                    </Select>
-                </FormItem>
-
-                {/* Extract to custom github component */}
 
                 <ControlledCustomInput
                     control={control}
@@ -132,39 +113,48 @@ export function WebhookFormContent() {
                     <ControlledInput
                         control={control}
                         name="secret"
-                        label="Secret (Optional)"
-                        description="This secret should match the secret you provide to GitHub."
+                        label="Payload Signature Secret (Optional)"
+                        description="This should match the secret you provide to the webhook provider."
                         placeholder={
-                            secretIsRemoved
+                            removeSecret
                                 ? "(removed)"
                                 : hasSecret
                                   ? "(unchanged)"
                                   : ""
                         }
-                        disabled={secretIsRemoved}
-                        onChange={(e) => {
-                            if (!hasSecret && e.target.value) addSecret();
-                        }}
+                        disabled={removeSecret}
                     />
 
                     {hasSecret && (
-                        <FormItem className="flex items-center gap-2 space-y-0">
-                            <FormControl>
-                                <Checkbox
-                                    checked={secretIsRemoved}
-                                    onCheckedChange={(val) => {
-                                        if (val) removeSecret();
-                                        else addSecret();
-                                    }}
-                                />
-                            </FormControl>
+                        <FormField
+                            control={control}
+                            name="removeSecret"
+                            render={({
+                                field: { value, onChange, ...field },
+                            }) => (
+                                <FormItem className="flex items-center gap-2 space-y-0">
+                                    <FormControl>
+                                        <Checkbox
+                                            {...field}
+                                            checked={value}
+                                            onCheckedChange={onChange}
+                                        />
+                                    </FormControl>
 
-                            <FormLabel>No Secret</FormLabel>
-                        </FormItem>
+                                    <FormLabel>No Secret</FormLabel>
+                                </FormItem>
+                            )}
+                        />
                     )}
                 </div>
 
-                <TypographyH4>Advanced</TypographyH4>
+                <ControlledInput
+                    classNames={{ wrapper: cn({ hidden: removeSecret }) }}
+                    control={control}
+                    name="validationHeader"
+                    label="Payload Signature Header (Optional)"
+                    description="The webhook receiver will calculate an HMAC digest of the payload using the supplied secret and compare it to the value sent in this header."
+                />
 
                 <ControlledCustomInput
                     control={control}
@@ -175,7 +165,7 @@ export function WebhookFormContent() {
                     {({ field }) => (
                         <MultiSelect
                             {...field}
-                            options={GithubHeaderOptions}
+                            options={[]}
                             value={field.value.map((v) => ({
                                 label: v,
                                 value: v,
@@ -225,15 +215,3 @@ export function WebhookFormContent() {
         ));
     }
 }
-
-const GithubHeaderOptions = [
-    "X-GitHub-Hook-ID",
-    "X-GitHub-Event",
-    "X-GitHub-Delivery",
-    "User-Agent",
-    "X-GitHub-Hook-Installation-Target-Type",
-    "X-GitHub-Hook-Installation-Target-ID",
-].map((header) => ({
-    label: header,
-    value: header,
-}));

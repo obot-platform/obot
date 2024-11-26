@@ -52,12 +52,12 @@ export function WebhookFormContextProvider({
             description: webhook?.description ?? "",
             alias: webhook?.alias ?? "",
             workflow: webhook?.workflow ?? "",
-            headers: webhook?.headers ?? [],
+            headers: webhook?.headers ?? ["User-Agent", "X-GitHub-Event"],
             validationHeader: webhook?.validationHeader ?? "",
             secret: "",
             token: "",
-            type: "GitHub",
             removeToken: false,
+            removeSecret: false,
         }),
         [webhook]
     );
@@ -142,10 +142,13 @@ async function handleRemoveToken(threadId: string) {
 
 async function handler(
     threadId: string | undefined,
-    { removeToken, ...values }: WebhookFormType
+    { removeToken, removeSecret, ...values }: WebhookFormType
 ) {
     if (threadId) {
-        const res = await WebhookApiService.updateWebhook(threadId, values);
+        const res = await WebhookApiService.updateWebhook(threadId, {
+            ...values,
+            ...(removeSecret ? { secret: "", validationHeader: "" } : {}),
+        });
         toast.success("Webhook updated");
 
         if (removeToken) return await handleRemoveToken(threadId);
