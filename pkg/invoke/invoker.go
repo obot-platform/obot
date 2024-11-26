@@ -383,8 +383,13 @@ func (i *Invoker) createRun(ctx context.Context, c kclient.WithWatch, thread *v1
 
 	if !thread.Spec.SystemTask {
 		err = retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+			// Ensure that, regardless of which client is being used, we get an uncached version of the thread for updating.
+			// The first uncached.Get method ensures that we get an uncached version when calling this from a controller.
+			// That will fail when calling this outside a controller, so try a "bare" get in that case.
 			if err := c.Get(ctx, kclient.ObjectKeyFromObject(thread), uncached.Get(thread)); err != nil {
-				return err
+				if err := c.Get(ctx, kclient.ObjectKeyFromObject(thread), thread); err != nil {
+					return err
+				}
 			}
 			thread.Status.CurrentRunName = run.Name
 			return c.Status().Update(ctx, thread)

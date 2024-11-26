@@ -693,6 +693,16 @@ func (in *KnowledgeSourceManifest) DeepCopyInto(out *KnowledgeSourceManifest) {
 		*out = new(bool)
 		**out = **in
 	}
+	if in.FilePathPrefixInclude != nil {
+		in, out := &in.FilePathPrefixInclude, &out.FilePathPrefixInclude
+		*out = make([]string, len(*in))
+		copy(*out, *in)
+	}
+	if in.FilePathPrefixExclude != nil {
+		in, out := &in.FilePathPrefixExclude, &out.FilePathPrefixExclude
+		*out = make([]string, len(*in))
+		copy(*out, *in)
+	}
 	in.KnowledgeSourceInput.DeepCopyInto(&out.KnowledgeSourceInput)
 }
 
