@@ -13,6 +13,8 @@ body {
 
 @layer base {
     :root {
+        /* Start theme colors (Not accessible by Tailwind) */
+
         --main-surface-primary: 0 0% 98%;
         --main-surface-secondary: 223 5% 95%;
 
@@ -29,6 +31,8 @@ body {
 
         --accent-primary: 223 5% 10%;
         --accent-secondary: 223 87% 63%;
+
+        /* Start colors provided to Tailwind */
 
         --black: 0 0% 0%;
         --white: 0 0% 100%;
@@ -91,6 +95,8 @@ body {
     .dark {
         color-scheme: dark;
 
+        /* Start theme colors (Not accessible by Tailwind) */
+
         --main-surface-primary: 223 20% 10%;
         --main-surface-secondary: 223 20% 5%;
 
@@ -111,6 +117,8 @@ body {
         --background: var(--main-surface-primary);
         --background-secondary: var(--main-surface-secondary);
         --foreground: var(--text-primary);
+
+        /* Start colors provided to Tailwind */
 
         --error: 0 84% 20%;
         --error-foreground: 0 100% 7%;
