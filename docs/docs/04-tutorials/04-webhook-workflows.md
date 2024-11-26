@@ -1,4 +1,4 @@
-# Create a Kubernetes Troubleshooting Workflow 
+# Create a Kubernetes Troubleshooting Workflow
 
 ## Overview
 
@@ -123,7 +123,7 @@ This will take you to a form which will list the pages on the website. Select al
 
 On PagerDuty side, click integrations > Developer Tools > Generic Webhooks (v3)
 
-Put the URL in it should be \<OTTO8_BASE URL>/api/webhooks/pd-hook
+Put the URL in it should be \<OTTO8_BASE URL>/api/webhooks/default/pd-hook
 
 Select the Scope type, In the demo setup, I had Scope Type = Service and Scope = Default Service
 
