@@ -2,6 +2,7 @@ package v1
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 var (
@@ -42,9 +43,12 @@ type AliasSpec struct {
 // +k8s:deepcopy-gen=false
 
 type Aliasable interface {
+	kclient.Object
 	GetAliasName() string
 	SetAssigned(bool)
 	IsAssigned() bool
+	GetAliasObservedGeneration() int64
+	SetAliasObservedGeneration(int64)
 }
 
 // +k8s:deepcopy-gen=false

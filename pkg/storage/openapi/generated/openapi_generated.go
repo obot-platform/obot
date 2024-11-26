@@ -4047,6 +4047,12 @@ func schema_storage_apis_ottootto8ai_v1_AgentStatus(ref common.ReferenceCallback
 							},
 						},
 					},
+					"aliasProcessed": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"integer"},
+							Format: "int64",
+						},
+					},
 				},
 			},
 		},
@@ -4633,6 +4639,12 @@ func schema_storage_apis_ottootto8ai_v1_EmailReceiverStatus(ref common.Reference
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"boolean"},
 							Format: "",
+						},
+					},
+					"aliasProcessed": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"integer"},
+							Format: "int64",
 						},
 					},
 				},
@@ -5421,6 +5433,12 @@ func schema_storage_apis_ottootto8ai_v1_ModelStatus(ref common.ReferenceCallback
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"boolean"},
 							Format: "",
+						},
+					},
+					"aliasProcessed": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"integer"},
+							Format: "int64",
 						},
 					},
 				},
@@ -6877,6 +6895,12 @@ func schema_storage_apis_ottootto8ai_v1_WebhookStatus(ref common.ReferenceCallba
 							Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.Time"),
 						},
 					},
+					"aliasProcessed": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"integer"},
+							Format: "int64",
+						},
+					},
 				},
 			},
 		},
@@ -7281,6 +7305,12 @@ func schema_storage_apis_ottootto8ai_v1_WorkflowStatus(ref common.ReferenceCallb
 									},
 								},
 							},
+						},
+					},
+					"aliasProcessed": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"integer"},
+							Format: "int64",
 						},
 					},
 				},

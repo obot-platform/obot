@@ -26,12 +26,21 @@ func (m *Model) SetAssigned(assigned bool) {
 	m.Status.AliasAssigned = assigned
 }
 
+func (m *Model) GetAliasObservedGeneration() int64 {
+	return m.Status.AliasObservedGeneration
+}
+
+func (m *Model) SetAliasObservedGeneration(gen int64) {
+	m.Status.AliasObservedGeneration = gen
+}
+
 type ModelSpec struct {
 	Manifest types.ModelManifest `json:"manifest,omitempty"`
 }
 
 type ModelStatus struct {
-	AliasAssigned bool `json:"aliasAssigned,omitempty"`
+	AliasAssigned           bool  `json:"aliasAssigned,omitempty"`
+	AliasObservedGeneration int64 `json:"aliasProcessed,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

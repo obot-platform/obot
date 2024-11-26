@@ -1,11 +1,14 @@
 package handlers
 
 import (
+	"fmt"
+
 	"github.com/otto8-ai/otto8/apiclient/types"
 	"github.com/otto8-ai/otto8/pkg/alias"
 	"github.com/otto8-ai/otto8/pkg/api"
 	v1 "github.com/otto8-ai/otto8/pkg/storage/apis/otto.otto8.ai/v1"
 	"github.com/otto8-ai/otto8/pkg/system"
+	"github.com/otto8-ai/otto8/pkg/wait"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -35,12 +38,18 @@ func (e *EmailReceiverHandler) Update(req api.Context) error {
 	}
 
 	er.Spec.EmailReceiverManifest = manifest
-
 	if err := req.Update(&er); err != nil {
 		return err
 	}
 
-	return req.Write(convertEmailReceiver(er, e.hostname))
+	processedEr, err := wait.For(req.Context(), req.Storage, &er, func(er *v1.EmailReceiver) bool {
+		return er.Generation == er.Status.AliasObservedGeneration
+	})
+	if err != nil {
+		return fmt.Errorf("failed to update email receiver: %w", err)
+	}
+
+	return req.Write(convertEmailReceiver(*processedEr, e.hostname))
 }
 
 func (e *EmailReceiverHandler) Delete(req api.Context) error {
@@ -62,7 +71,7 @@ func (e *EmailReceiverHandler) Create(req api.Context) error {
 		return err
 	}
 
-	er := v1.EmailReceiver{
+	er := &v1.EmailReceiver{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: system.EmailReceiverPrefix,
 			Namespace:    req.Namespace(),
@@ -72,11 +81,14 @@ func (e *EmailReceiverHandler) Create(req api.Context) error {
 		},
 	}
 
-	if err := req.Create(&er); err != nil {
-		return err
+	er, err := wait.For(req.Context(), req.Storage, er, func(er *v1.EmailReceiver) bool {
+		return er.Generation == er.Status.AliasObservedGeneration
+	}, wait.Option{Create: true})
+	if err != nil {
+		return fmt.Errorf("failed to create email receiver: %w", err)
 	}
 
-	return req.WriteCreated(convertEmailReceiver(er, e.hostname))
+	return req.WriteCreated(convertEmailReceiver(*er, e.hostname))
 }
 
 func convertEmailReceiver(emailReceiver v1.EmailReceiver, hostname string) *types.EmailReceiver {

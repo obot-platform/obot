@@ -36,6 +36,14 @@ func (a *Agent) SetAssigned(assigned bool) {
 	a.Status.AliasAssigned = assigned
 }
 
+func (a *Agent) GetAliasObservedGeneration() int64 {
+	return a.Status.AliasObservedGeneration
+}
+
+func (a *Agent) SetAliasObservedGeneration(gen int64) {
+	a.Status.AliasObservedGeneration = gen
+}
+
 func (a *Agent) Has(field string) bool {
 	return a.Get(field) != ""
 }
@@ -64,10 +72,11 @@ type AgentSpec struct {
 }
 
 type AgentStatus struct {
-	KnowledgeSetNames []string                                 `json:"knowledgeSetNames,omitempty"`
-	WorkspaceName     string                                   `json:"workspaceName,omitempty"`
-	AliasAssigned     bool                                     `json:"aliasAssigned,omitempty"`
-	AuthStatus        map[string]types.OAuthAppLoginAuthStatus `json:"authStatus,omitempty"`
+	KnowledgeSetNames       []string                                 `json:"knowledgeSetNames,omitempty"`
+	WorkspaceName           string                                   `json:"workspaceName,omitempty"`
+	AliasAssigned           bool                                     `json:"aliasAssigned,omitempty"`
+	AuthStatus              map[string]types.OAuthAppLoginAuthStatus `json:"authStatus,omitempty"`
+	AliasObservedGeneration int64                                    `json:"aliasProcessed,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

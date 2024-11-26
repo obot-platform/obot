@@ -34,18 +34,20 @@ func load(ctx context.Context, c kclient.Client, obj kclient.Object, create bool
 		return nil
 	}
 
-	err := c.Get(ctx, kclient.ObjectKeyFromObject(obj), obj)
-	if err == nil {
-		return nil
-	} else if err := kclient.IgnoreNotFound(err); err != nil {
-		return err
+	if obj.GetName() != "" {
+		err := c.Get(ctx, kclient.ObjectKeyFromObject(obj), obj)
+		if err == nil {
+			return nil
+		} else if err := kclient.IgnoreNotFound(err); err != nil {
+			return err
+		}
+
+		if !create {
+			return err
+		}
 	}
 
-	if !create {
-		return err
-	}
-
-	err = c.Create(ctx, obj)
+	err := c.Create(ctx, obj)
 	if err == nil {
 		return nil
 	} else if apierrors.IsAlreadyExists(err) {

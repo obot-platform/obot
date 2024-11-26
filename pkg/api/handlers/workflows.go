@@ -90,7 +90,14 @@ func (a *WorkflowHandler) Update(req api.Context) error {
 		return err
 	}
 
-	resp, err := convertWorkflow(wf, req)
+	processedWf, err := wait.For(req.Context(), req.Storage, &wf, func(wf *v1.Workflow) bool {
+		return wf.Generation == wf.Status.AliasObservedGeneration
+	})
+	if err != nil {
+		return fmt.Errorf("failed to update workflow: %w", err)
+	}
+
+	resp, err := convertWorkflow(*processedWf, req)
 	if err != nil {
 		return err
 	}
@@ -116,8 +123,9 @@ func (a *WorkflowHandler) Create(req api.Context) error {
 	if err := req.Read(&manifest); err != nil {
 		return err
 	}
+
 	manifest = workflow.PopulateIDs(manifest)
-	workflow := v1.Workflow{
+	wf := &v1.Workflow{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: system.WorkflowPrefix,
 			Namespace:    req.Namespace(),
@@ -127,11 +135,14 @@ func (a *WorkflowHandler) Create(req api.Context) error {
 		},
 	}
 
-	if err := req.Create(&workflow); err != nil {
-		return err
+	wf, err := wait.For(req.Context(), req.Storage, wf, func(wf *v1.Workflow) bool {
+		return wf.Generation == wf.Status.AliasObservedGeneration
+	}, wait.Option{Create: true})
+	if err != nil {
+		return fmt.Errorf("failed to create workflow: %w", err)
 	}
 
-	resp, err := convertWorkflow(workflow, req)
+	resp, err := convertWorkflow(*wf, req)
 	if err != nil {
 		return err
 	}

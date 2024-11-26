@@ -54,7 +54,14 @@ func (a *AgentHandler) Update(req api.Context) error {
 		return err
 	}
 
-	resp, err := convertAgent(agent, req)
+	processedAgent, err := wait.For(req.Context(), req.Storage, &agent, func(agent *v1.Agent) bool {
+		return agent.Generation == agent.Status.AliasObservedGeneration
+	})
+	if err != nil {
+		return fmt.Errorf("failed to update agent: %w", err)
+	}
+
+	resp, err := convertAgent(*processedAgent, req)
 	if err != nil {
 		return err
 	}
@@ -75,7 +82,7 @@ func (a *AgentHandler) Create(req api.Context) error {
 	if err := req.Read(&manifest); err != nil {
 		return err
 	}
-	agent := v1.Agent{
+	agent := &v1.Agent{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: system.AgentPrefix,
 			Namespace:    req.Namespace(),
@@ -85,11 +92,14 @@ func (a *AgentHandler) Create(req api.Context) error {
 		},
 	}
 
-	if err := req.Create(&agent); err != nil {
-		return err
+	agent, err := wait.For(req.Context(), req.Storage, agent, func(agent *v1.Agent) bool {
+		return agent.Generation == agent.Status.AliasObservedGeneration
+	}, wait.Option{Create: true})
+	if err != nil {
+		return fmt.Errorf("failed to create agent: %w", err)
 	}
 
-	resp, err := convertAgent(agent, req)
+	resp, err := convertAgent(*agent, req)
 	if err != nil {
 		return err
 	}

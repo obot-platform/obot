@@ -27,8 +27,9 @@ func AssignAlias(req router.Request, _ router.Response) error {
 	aliasable := req.Object.(v1.Aliasable)
 
 	if aliasable.GetAliasName() == "" {
-		if aliasable.IsAssigned() {
+		if aliasable.IsAssigned() || aliasable.GetGeneration() != aliasable.GetAliasObservedGeneration() {
 			aliasable.SetAssigned(false)
+			aliasable.SetAliasObservedGeneration(aliasable.GetGeneration())
 			return req.Client.Status().Update(req.Ctx, req.Object)
 		}
 
@@ -60,8 +61,9 @@ func AssignAlias(req router.Request, _ router.Response) error {
 		return err
 	}
 
-	if assigned := matches(alias, req.Object); assigned != aliasable.IsAssigned() {
+	if assigned := matches(alias, req.Object); assigned != aliasable.IsAssigned() || aliasable.GetGeneration() != aliasable.GetAliasObservedGeneration() {
 		aliasable.SetAssigned(assigned)
+		aliasable.SetAliasObservedGeneration(aliasable.GetGeneration())
 		return req.Client.Status().Update(req.Ctx, req.Object)
 	}
 

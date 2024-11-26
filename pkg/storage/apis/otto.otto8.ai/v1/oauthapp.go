@@ -28,12 +28,17 @@ func (r *OAuthApp) GetAliasName() string {
 	return r.Spec.Manifest.Integration
 }
 
-func (r *OAuthApp) SetAssigned(bool) {
-}
+func (r *OAuthApp) SetAssigned(bool) {}
 
 func (r *OAuthApp) IsAssigned() bool {
 	return true
 }
+
+func (r *OAuthApp) GetAliasObservedGeneration() int64 {
+	return r.Generation
+}
+
+func (r *OAuthApp) SetAliasObservedGeneration(int64) {}
 
 func (r *OAuthApp) Has(field string) bool {
 	return r.Get(field) != ""

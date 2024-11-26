@@ -32,6 +32,14 @@ func (w *Webhook) IsAssigned() bool {
 	return w.Status.AliasAssigned
 }
 
+func (w *Webhook) GetAliasObservedGeneration() int64 {
+	return w.Status.AliasObservedGeneration
+}
+
+func (w *Webhook) SetAliasObservedGeneration(gen int64) {
+	w.Status.AliasObservedGeneration = gen
+}
+
 func (*Webhook) GetColumns() [][]string {
 	return [][]string{
 		{"Name", "Name"},
@@ -60,6 +68,7 @@ type WebhookSpec struct {
 type WebhookStatus struct {
 	AliasAssigned              bool         `json:"aliasAssigned,omitempty"`
 	LastSuccessfulRunCompleted *metav1.Time `json:"lastSuccessfulRunCompleted,omitempty"`
+	AliasObservedGeneration    int64        `json:"aliasProcessed,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

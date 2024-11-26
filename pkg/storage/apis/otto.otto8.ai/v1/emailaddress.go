@@ -32,6 +32,14 @@ func (in *EmailReceiver) IsAssigned() bool {
 	return in.Status.AliasAssigned
 }
 
+func (in *EmailReceiver) GetAliasObservedGeneration() int64 {
+	return in.Status.AliasObservedGeneration
+}
+
+func (in *EmailReceiver) SetAliasObservedGeneration(gen int64) {
+	in.Status.AliasObservedGeneration = gen
+}
+
 func (*EmailReceiver) GetColumns() [][]string {
 	return [][]string{
 		{"Name", "Name"},
@@ -42,10 +50,10 @@ func (*EmailReceiver) GetColumns() [][]string {
 	}
 }
 
-func (w *EmailReceiver) DeleteRefs() []Ref {
-	if system.IsWorkflowID(w.Spec.Workflow) {
+func (in *EmailReceiver) DeleteRefs() []Ref {
+	if system.IsWorkflowID(in.Spec.Workflow) {
 		return []Ref{
-			{ObjType: new(Workflow), Name: w.Spec.Workflow},
+			{ObjType: new(Workflow), Name: in.Spec.Workflow},
 		}
 	}
 	return nil
@@ -56,7 +64,8 @@ type EmailReceiverSpec struct {
 }
 
 type EmailReceiverStatus struct {
-	AliasAssigned bool `json:"aliasAssigned,omitempty"`
+	AliasAssigned           bool  `json:"aliasAssigned,omitempty"`
+	AliasObservedGeneration int64 `json:"aliasProcessed,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

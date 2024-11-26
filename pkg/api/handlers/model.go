@@ -13,6 +13,7 @@ import (
 	v1 "github.com/otto8-ai/otto8/pkg/storage/apis/otto.otto8.ai/v1"
 	"github.com/otto8-ai/otto8/pkg/storage/selectors"
 	"github.com/otto8-ai/otto8/pkg/system"
+	"github.com/otto8-ai/otto8/pkg/wait"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
@@ -78,7 +79,14 @@ func (a *ModelHandler) Update(req api.Context) error {
 		return err
 	}
 
-	resp, err := convertModel(req.Context(), req.Storage, existing)
+	processedModel, err := wait.For(req.Context(), req.Storage, &existing, func(model *v1.Model) bool {
+		return model.Generation == model.Status.AliasObservedGeneration
+	})
+	if err != nil {
+		return fmt.Errorf("failed to update model: %w", err)
+	}
+
+	resp, err := convertModel(req.Context(), req.Storage, *processedModel)
 	if err != nil {
 		return err
 	}
@@ -105,7 +113,7 @@ func (a *ModelHandler) Create(req api.Context) error {
 		return types.NewErrBadRequest("model provider %s must be of type %s not %s", modelManifest.ModelProvider, types.ToolReferenceTypeModelProvider, toolRef.Spec.Type)
 	}
 
-	model := v1.Model{
+	model := &v1.Model{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: system.ModelPrefix,
 			Namespace:    req.Namespace(),
@@ -115,15 +123,18 @@ func (a *ModelHandler) Create(req api.Context) error {
 		},
 	}
 
-	if err := validateModelManifestAndSetDefaults(&model); err != nil {
+	if err := validateModelManifestAndSetDefaults(model); err != nil {
 		return err
 	}
 
-	if err := req.Create(&model); err != nil {
-		return err
+	model, err := wait.For(req.Context(), req.Storage, model, func(model *v1.Model) bool {
+		return model.Generation == model.Status.AliasObservedGeneration
+	}, wait.Option{Create: true})
+	if err != nil {
+		return fmt.Errorf("failed to create model: %w", err)
 	}
 
-	resp, err := convertModel(req.Context(), req.Storage, model)
+	resp, err := convertModel(req.Context(), req.Storage, *model)
 	if err != nil {
 		return err
 	}

@@ -16,6 +16,7 @@ import (
 	"github.com/otto8-ai/otto8/pkg/api/server"
 	v1 "github.com/otto8-ai/otto8/pkg/storage/apis/otto.otto8.ai/v1"
 	"github.com/otto8-ai/otto8/pkg/system"
+	"github.com/otto8-ai/otto8/pkg/wait"
 	"golang.org/x/crypto/bcrypt"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -78,7 +79,14 @@ func (a *WebhookHandler) Update(req api.Context) error {
 		return err
 	}
 
-	return req.Write(convertWebhook(wh, server.GetURLPrefix(req)))
+	processedWh, err := wait.For(req.Context(), req.Storage, &wh, func(wh *v1.Webhook) bool {
+		return wh.Generation == wh.Status.AliasObservedGeneration
+	})
+	if err != nil {
+		return fmt.Errorf("failed to update webhook: %w", err)
+	}
+
+	return req.Write(convertWebhook(*processedWh, server.GetURLPrefix(req)))
 }
 
 func (a *WebhookHandler) Delete(req api.Context) error {
@@ -100,7 +108,7 @@ func (a *WebhookHandler) Create(req api.Context) error {
 		return err
 	}
 
-	wh := v1.Webhook{
+	wh := &v1.Webhook{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: system.WebhookPrefix,
 			Namespace:    req.Namespace(),
@@ -123,11 +131,14 @@ func (a *WebhookHandler) Create(req api.Context) error {
 		wh.Spec.Headers[i] = textproto.CanonicalMIMEHeaderKey(h)
 	}
 
-	if err := req.Create(&wh); err != nil {
-		return err
+	wh, err := wait.For(req.Context(), req.Storage, wh, func(wh *v1.Webhook) bool {
+		return wh.Generation == wh.Status.AliasObservedGeneration
+	}, wait.Option{Create: true})
+	if err != nil {
+		return fmt.Errorf("failed to create webhook: %w", err)
 	}
 
-	return req.WriteCreated(convertWebhook(wh, server.GetURLPrefix(req)))
+	return req.WriteCreated(convertWebhook(*wh, server.GetURLPrefix(req)))
 }
 
 func convertWebhook(webhook v1.Webhook, urlPrefix string) *types.Webhook {

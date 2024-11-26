@@ -29,6 +29,12 @@ func (a *DefaultModelAlias) GetAliasScope() string {
 	return "Model"
 }
 
+func (a *DefaultModelAlias) GetAliasObservedGeneration() int64 {
+	return a.Generation
+}
+
+func (a *DefaultModelAlias) SetAliasObservedGeneration(int64) {}
+
 type DefaultModelAliasSpec struct {
 	Manifest types.DefaultModelAliasManifest `json:"manifest"`
 }

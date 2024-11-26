@@ -61,6 +61,14 @@ func (in *Workflow) GetAliasScope() string {
 	return "Agent"
 }
 
+func (in *Workflow) GetAliasObservedGeneration() int64 {
+	return in.Status.AliasObservedGeneration
+}
+
+func (in *Workflow) SetAliasObservedGeneration(gen int64) {
+	in.Status.AliasObservedGeneration = gen
+}
+
 type WorkflowSpec struct {
 	AgentName string                 `json:"agentName,omitempty"`
 	UserID    string                 `json:"userID,omitempty"`
@@ -68,10 +76,11 @@ type WorkflowSpec struct {
 }
 
 type WorkflowStatus struct {
-	WorkspaceName     string                                   `json:"workspaceName,omitempty"`
-	KnowledgeSetNames []string                                 `json:"knowledgeSetNames,omitempty"`
-	AliasAssigned     bool                                     `json:"aliasAssigned,omitempty"`
-	AuthStatus        map[string]types.OAuthAppLoginAuthStatus `json:"authStatus,omitempty"`
+	WorkspaceName           string                                   `json:"workspaceName,omitempty"`
+	KnowledgeSetNames       []string                                 `json:"knowledgeSetNames,omitempty"`
+	AliasAssigned           bool                                     `json:"aliasAssigned,omitempty"`
+	AuthStatus              map[string]types.OAuthAppLoginAuthStatus `json:"authStatus,omitempty"`
+	AliasObservedGeneration int64                                    `json:"aliasProcessed,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
