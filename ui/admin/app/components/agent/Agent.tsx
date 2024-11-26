@@ -17,7 +17,6 @@ import { ScrollArea } from "~/components/ui/scroll-area";
 import { useDebounce } from "~/hooks/useDebounce";
 
 type AgentProps = {
-    agent: AgentType;
     className?: string;
     onRefresh?: (threadId: string | null) => void;
 };
