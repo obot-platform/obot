@@ -20,6 +20,7 @@ type RunWorkflowProps = {
 export function RunWorkflow({
     workflowId,
     onSubmit,
+    popoverContentProps,
     ...props
 }: RunWorkflowProps & ButtonProps) {
     const [open, setOpen] = useState(false);
@@ -56,10 +57,7 @@ export function RunWorkflow({
                 </Button>
             </PopoverTrigger>
 
-            <PopoverContent
-                {...props.popoverContentProps}
-                className="min-w-full"
-            >
+            <PopoverContent {...popoverContentProps} className="min-w-full">
                 <RunWorkflowForm
                     params={params}
                     onSubmit={(params) => {

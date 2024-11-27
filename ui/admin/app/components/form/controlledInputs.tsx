@@ -95,7 +95,8 @@ export function ControlledInput<
                         }}
                         className={cn(
                             getFieldStateClasses(fieldState),
-                            className
+                            className,
+                            classNames.input
                         )}
                     />
                 </BasicInputItem>
