@@ -9,7 +9,7 @@ Below is a summary of the configuration options for each provider. However, the 
   "id": "azure-openai-model-provider",
   "created": "2024-11-08T16:03:21-05:00",
   "metadata": {
-    "envVars": "OTTO8_AZURE_OPENAI_MODEL_PROVIDER_API_KEY,OTTO8_AZURE_OPENAI_MODEL_PROVIDER_ENDPOINT,OTTO8_AZURE_OPENAI_MODEL_PROVIDER_DEPLOYMENT_NAME"
+    "envVars": "OTTO8_AZURE_OPENAI_MODEL_PROVIDER_API_KEY,OTTO8_AZURE_OPENAI_MODEL_PROVIDER_ENDPOINT"
   },
   "name": "Azure OpenAI Provider",
   "toolType": "modelProvider",
@@ -20,8 +20,7 @@ Below is a summary of the configuration options for each provider. However, the 
   "modelProviderStatus": {
     "missingEnvVars": [
       "OTTO8_AZURE_OPENAI_MODEL_PROVIDER_API_KEY",
-      "OTTO8_AZURE_OPENAI_MODEL_PROVIDER_ENDPOINT",
-      "OTTO8_AZURE_OPENAI_MODEL_PROVIDER_DEPLOYMENT_NAME"
+      "OTTO8_AZURE_OPENAI_MODEL_PROVIDER_ENDPOINT"
     ],  
     "configured": false
   }
@@ -36,7 +35,7 @@ Once all the required environment variables are set, then the API would return s
   "id": "azure-openai-model-provider",
   "created": "2024-11-08T16:03:21-05:00",
   "metadata": {
-    "envVars": "OTTO8_AZURE_OPENAI_MODEL_PROVIDER_API_KEY,OTTO8_AZURE_OPENAI_MODEL_PROVIDER_ENDPOINT,OTTO8_AZURE_OPENAI_MODEL_PROVIDER_DEPLOYMENT_NAME"
+    "envVars": "OTTO8_AZURE_OPENAI_MODEL_PROVIDER_API_KEY,OTTO8_AZURE_OPENAI_MODEL_PROVIDER_ENDPOINT"
   },
   "name": "Azure OpenAI Provider",
   "toolType": "modelProvider",
@@ -61,6 +60,10 @@ The OpenAI model provider is the default and is configured by either setting `OP
 The Azure OpenAI model provider requires setting the following environment variables:
 - `OTTO8_AZURE_OPENAI_MODEL_PROVIDER_API_KEY`: Found on the "Home" page of the Azure OpenAI Studio.
 - `OTTO8_AZURE_OPENAI_MODEL_PROVIDER_ENDPOINT`:  The endpoint to use, found by clicking on the "Deployment" name from the "Deployments" page of the Azure OpenAI Studio.
+
+:::note
+The provider endpoint must be in the format `https://<your-custom-name>.openai.azure.com` - if your Azure OpenAI resource does not have an endpoint that looks like this, you need to create one. 
+:::
 
 :::note
 When configuring models with the Azure OpenAI provider in Otto8, the "Target Model" should be the "Deployment" from Azure.
