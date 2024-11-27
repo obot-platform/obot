@@ -97,7 +97,7 @@ const KnowledgeSourceDetail: FC<KnowledgeSourceDetailProps> = ({
             ),
         {
             revalidateOnFocus: false,
-            refreshInterval: blockPollingFiles ? undefined : 1000,
+            refreshInterval: blockPollingFiles ? undefined : 5000,
         }
     );
 
@@ -156,7 +156,7 @@ const KnowledgeSourceDetail: FC<KnowledgeSourceDetailProps> = ({
         if (knowledgeSource.state === KnowledgeSourceStatus.Synced) {
             getFiles.mutate();
         }
-    }, [knowledgeSource, getFiles]);
+    }, [knowledgeSource]);
 
     const onSourceUpdate = async (syncSchedule: string) => {
         const updatedSource = await KnowledgeService.updateKnowledgeSource(
@@ -176,8 +176,9 @@ const KnowledgeSourceDetail: FC<KnowledgeSourceDetailProps> = ({
             file.id,
             approved
         );
-        getFiles.mutate((files) =>
-            files?.map((f) => (f.id === file.id ? updatedFile : f))
+        getFiles.mutate(
+            (files) => files?.map((f) => (f.id === file.id ? updatedFile : f)),
+            false
         );
     };
 
@@ -203,8 +204,9 @@ const KnowledgeSourceDetail: FC<KnowledgeSourceDetailProps> = ({
             file.id,
             knowledgeSource.id
         );
-        getFiles.mutate((files) =>
-            files?.map((f) => (f.id === file.id ? updatedFile : f))
+        getFiles.mutate(
+            (files) => files?.map((f) => (f.id === file.id ? updatedFile : f)),
+            false
         );
     };
 

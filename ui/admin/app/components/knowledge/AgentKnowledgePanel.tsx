@@ -97,7 +97,7 @@ export default function AgentKnowledgePanel({
             ),
         {
             revalidateOnFocus: false,
-            refreshInterval: blockPollingLocalFiles ? undefined : 1000,
+            refreshInterval: blockPollingLocalFiles ? undefined : 5000,
         }
     );
     const localFiles = useMemo(
@@ -110,7 +110,7 @@ export default function AgentKnowledgePanel({
         ({ agentId }) => KnowledgeService.getKnowledgeSourcesForAgent(agentId),
         {
             revalidateOnFocus: false,
-            refreshInterval: blockPollingSources ? undefined : 1000,
+            refreshInterval: blockPollingSources ? undefined : 5000,
         }
     );
     const knowledgeSources = useMemo(
