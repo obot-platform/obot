@@ -64,6 +64,7 @@ export function Agent({ className, onRefresh }: AgentProps) {
             <ScrollArea className={cn("h-full", className)}>
                 <AgentPublishStatus
                     agent={agentUpdates}
+                    isUpdating={isUpdating}
                     onChange={partialSetAgent}
                 />
 

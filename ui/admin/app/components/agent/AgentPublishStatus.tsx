@@ -11,14 +11,17 @@ import { TypographySmall } from "~/components/Typography";
 import { Publish } from "~/components/agent/Publish";
 import { Unpublish } from "~/components/agent/Unpublish";
 import { CopyText } from "~/components/composed/CopyText";
+import { LoadingSpinner } from "~/components/ui/LoadingSpinner";
 
 type AgentPublishStatusProps = {
     agent: Agent;
+    isUpdating: boolean;
     onChange: (agent: Partial<Agent>) => void;
 };
 
 export function AgentPublishStatus({
     agent,
+    isUpdating,
     onChange,
 }: AgentPublishStatusProps) {
     const getAssistants = useSWR(
@@ -84,6 +87,9 @@ export function AgentPublishStatus({
                 </div>
             );
         }
+
+        if (isUpdating)
+            return <LoadingSpinner className="m-l-2 text-muted-foreground" />;
 
         if (!agent.aliasAssigned) return <div />;
 
