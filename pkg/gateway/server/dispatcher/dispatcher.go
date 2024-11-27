@@ -8,7 +8,6 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"os"
 	"path"
 	"strings"
 	"sync"
@@ -24,21 +23,44 @@ import (
 )
 
 type Dispatcher struct {
-	openAIAPIKey string
-	invoker      *invoke.Invoker
-	client       kclient.Client
-	lock         *sync.RWMutex
-	urls         map[string]*url.URL
+	invoker *invoke.Invoker
+	client  kclient.Client
+	lock    *sync.RWMutex
+	urls    map[string]*url.URL
 }
 
 func New(invoker *invoke.Invoker, c kclient.Client) *Dispatcher {
 	return &Dispatcher{
-		openAIAPIKey: os.Getenv("OTTO8_OPENAI_MODEL_PROVIDER_API_KEY"),
-		invoker:      invoker,
-		client:       c,
-		lock:         new(sync.RWMutex),
-		urls:         make(map[string]*url.URL),
+		invoker: invoker,
+		client:  c,
+		lock:    new(sync.RWMutex),
+		urls:    make(map[string]*url.URL),
 	}
+}
+
+func (d *Dispatcher) URLForModelProvider(ctx context.Context, namespace, modelProviderName string) (*url.URL, error) {
+	d.lock.RLock()
+	u, ok := d.urls[modelProviderName]
+	d.lock.RUnlock()
+	if ok && (u.Scheme == "https" || engine.IsDaemonRunning(u.String())) {
+		return u, nil
+	}
+
+	d.lock.Lock()
+	defer d.lock.Unlock()
+
+	u, ok = d.urls[modelProviderName]
+	if ok && (u.Scheme == "https" || engine.IsDaemonRunning(u.String())) {
+		return u, nil
+	}
+
+	u, err := d.startModelProvider(ctx, namespace, modelProviderName)
+	if err != nil {
+		return nil, err
+	}
+
+	d.urls[modelProviderName] = u
+	return u, nil
 }
 
 func (d *Dispatcher) TransformRequest(req *http.Request, namespace string) error {
@@ -57,27 +79,11 @@ func (d *Dispatcher) TransformRequest(req *http.Request, namespace string) error
 		return fmt.Errorf("failed to get model: %w", err)
 	}
 
-	d.lock.RLock()
-	u, ok := d.urls[model.Spec.Manifest.ModelProvider]
-	d.lock.RUnlock()
-	if ok && (u.Scheme == "https" || engine.IsDaemonRunning(u.String())) {
-		return d.transformRequest(req, *u, body, model.Spec.Manifest.TargetModel)
-	}
-
-	d.lock.Lock()
-	defer d.lock.Unlock()
-
-	u, ok = d.urls[model.Spec.Manifest.ModelProvider]
-	if ok && (u.Scheme == "https" || engine.IsDaemonRunning(u.String())) {
-		return d.transformRequest(req, *u, body, model.Spec.Manifest.TargetModel)
-	}
-
-	u, err = d.startModelProvider(req.Context(), model)
+	u, err := d.URLForModelProvider(req.Context(), namespace, model.Spec.Manifest.ModelProvider)
 	if err != nil {
-		return fmt.Errorf("failed to start model provider: %w", err)
+		return fmt.Errorf("failed to get model provider: %w", err)
 	}
 
-	d.urls[model.Spec.Manifest.ModelProvider] = u
 	return d.transformRequest(req, *u, body, model.Spec.Manifest.TargetModel)
 }
 
@@ -101,11 +107,11 @@ func (d *Dispatcher) getModelProviderForModel(ctx context.Context, namespace, mo
 	return nil, fmt.Errorf("model %q not found", model)
 }
 
-func (d *Dispatcher) startModelProvider(ctx context.Context, model *v1.Model) (*url.URL, error) {
+func (d *Dispatcher) startModelProvider(ctx context.Context, namespace, modelProviderName string) (*url.URL, error) {
 	thread := &v1.Thread{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      system.ThreadPrefix + model.Name,
-			Namespace: model.Namespace,
+			Name:      system.ThreadPrefix + modelProviderName,
+			Namespace: namespace,
 		},
 		Spec: v1.ThreadSpec{
 			SystemTask: true,
@@ -120,7 +126,7 @@ func (d *Dispatcher) startModelProvider(ctx context.Context, model *v1.Model) (*
 		return nil, fmt.Errorf("failed to get thread: %w", err)
 	}
 
-	task, err := d.invoker.SystemTask(ctx, thread, model.Spec.Manifest.ModelProvider, "")
+	task, err := d.invoker.SystemTask(ctx, thread, modelProviderName, "")
 	if err != nil {
 		return nil, err
 	}
@@ -140,11 +146,6 @@ func (d *Dispatcher) transformRequest(req *http.Request, u url.URL, body map[str
 	u.Path = path.Join(u.Path, req.PathValue("path"))
 	req.URL = &u
 	req.Host = u.Host
-
-	// OpenAI is special, and we need to set the API key
-	if u.Host == "api.openai.com" {
-		req.Header.Set("Authorization", "Bearer "+d.openAIAPIKey)
-	}
 
 	body["model"] = targetModel
 	b, err := json.Marshal(body)

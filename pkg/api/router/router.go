@@ -22,6 +22,7 @@ func Router(services *services.Services) (http.Handler, error) {
 	webhooks := handlers.NewWebhookHandler()
 	cronJobs := handlers.NewCronJobHandler()
 	models := handlers.NewModelHandler()
+	availableModels := handlers.NewAvailableModelsHandler(services.ModelProviderDispatcher)
 	prompt := handlers.NewPromptHandler(services.GPTClient)
 	emailreceiver := handlers.NewEmailReceiverHandler(services.EmailServerName)
 	defaultModelAliases := handlers.NewDefaultModelAliasHandler()
@@ -225,6 +226,10 @@ func Router(services *services.Services) (http.Handler, error) {
 	mux.HandleFunc("DELETE /api/models/{id}", models.Delete)
 	mux.HandleFunc("GET /api/models", models.List)
 	mux.HandleFunc("GET /api/models/{id}", models.ByID)
+
+	// Available Models
+	mux.HandleFunc("GET /api/available-models", availableModels.List)
+	mux.HandleFunc("GET /api/available-models/{model_provider}", availableModels.ListForModelProvider)
 
 	// Default Model Aliases
 	mux.HandleFunc("GET /api/default-model-aliases", defaultModelAliases.List)

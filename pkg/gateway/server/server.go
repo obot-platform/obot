@@ -12,10 +12,8 @@ import (
 	"github.com/otto8-ai/otto8/pkg/gateway/db"
 	"github.com/otto8-ai/otto8/pkg/gateway/server/dispatcher"
 	"github.com/otto8-ai/otto8/pkg/gateway/types"
-	"github.com/otto8-ai/otto8/pkg/invoke"
 	"github.com/otto8-ai/otto8/pkg/jwt"
 	"gorm.io/gorm"
-	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type Options struct {
@@ -34,7 +32,7 @@ type Server struct {
 	modelDispatcher *dispatcher.Dispatcher
 }
 
-func New(ctx context.Context, db *db.DB, c kclient.Client, invoker *invoke.Invoker, tokenService *jwt.TokenService, adminEmails []string, opts Options) (*Server, error) {
+func New(ctx context.Context, db *db.DB, tokenService *jwt.TokenService, modelProviderDispatcher *dispatcher.Dispatcher, adminEmails []string, opts Options) (*Server, error) {
 	if err := db.AutoMigrate(); err != nil {
 		return nil, fmt.Errorf("auto migrate failed: %w", err)
 	}
@@ -52,7 +50,7 @@ func New(ctx context.Context, db *db.DB, c kclient.Client, invoker *invoke.Invok
 		httpClient:      &http.Client{},
 		client:          client.New(db, adminEmails),
 		tokenService:    tokenService,
-		modelDispatcher: dispatcher.New(invoker, c),
+		modelDispatcher: modelProviderDispatcher,
 	}
 
 	go s.autoCleanupTokens(ctx)

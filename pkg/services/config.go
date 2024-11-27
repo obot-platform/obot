@@ -26,6 +26,7 @@ import (
 	"github.com/otto8-ai/otto8/pkg/gateway/client"
 	"github.com/otto8-ai/otto8/pkg/gateway/db"
 	gserver "github.com/otto8-ai/otto8/pkg/gateway/server"
+	"github.com/otto8-ai/otto8/pkg/gateway/server/dispatcher"
 	"github.com/otto8-ai/otto8/pkg/invoke"
 	"github.com/otto8-ai/otto8/pkg/jwt"
 	"github.com/otto8-ai/otto8/pkg/proxy"
@@ -85,6 +86,7 @@ type Services struct {
 	Started                    chan struct{}
 	ProxyServer                *proxy.Proxy
 	GatewayServer              *gserver.Server
+	ModelProviderDispatcher    *dispatcher.Dispatcher
 	KnowledgeSetIngestionLimit int
 }
 
@@ -217,15 +219,16 @@ func New(ctx context.Context, config Config) (*Services, error) {
 	}
 
 	var (
-		tokenServer   = &jwt.TokenService{}
-		events        = events.NewEmitter(storageClient)
-		gatewayClient = client.New(gatewayDB, config.AuthAdminEmails)
-		invoker       = invoke.NewInvoker(storageClient, c, config.Hostname, config.WorkspaceProviderType, tokenServer, events)
+		tokenServer             = &jwt.TokenService{}
+		events                  = events.NewEmitter(storageClient)
+		gatewayClient           = client.New(gatewayDB, config.AuthAdminEmails)
+		invoker                 = invoke.NewInvoker(storageClient, c, config.Hostname, config.WorkspaceProviderType, tokenServer, events)
+		modelProviderDispatcher = dispatcher.New(invoker, storageClient)
 
 		proxyServer *proxy.Proxy
 	)
 
-	gatewayServer, err := gserver.New(ctx, gatewayDB, storageClient, invoker, tokenServer, config.AuthAdminEmails, gserver.Options(config.GatewayConfig))
+	gatewayServer, err := gserver.New(ctx, gatewayDB, tokenServer, modelProviderDispatcher, config.AuthAdminEmails, gserver.Options(config.GatewayConfig))
 	if err != nil {
 		return nil, err
 	}
@@ -283,6 +286,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		ProxyServer:                proxyServer,
 		KnowledgeSetIngestionLimit: config.KnowledgeSetIngestionLimit,
 		EmailServerName:            config.EmailServerName,
+		ModelProviderDispatcher:    modelProviderDispatcher,
 	}, nil
 }
 

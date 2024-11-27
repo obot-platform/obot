@@ -14,6 +14,7 @@ require (
 	github.com/fatih/color v1.18.0
 	github.com/golang-jwt/jwt/v5 v5.2.1
 	github.com/google/uuid v1.6.0
+	github.com/gptscript-ai/chat-completion-client v0.0.0-20241127005108-02b41e1cd02e
 	github.com/gptscript-ai/cmd v0.0.0-20240907001148-ffd49061124a
 	github.com/gptscript-ai/go-gptscript v0.9.6-0.20241115201052-7efb3409cfcc
 	github.com/gptscript-ai/gptscript v0.9.6-0.20241121180135-e5fe428c6858
@@ -138,7 +139,6 @@ require (
 	github.com/gorilla/mux v1.8.1 // indirect
 	github.com/gorilla/websocket v1.5.0 // indirect
 	github.com/gptscript-ai/broadcaster v0.0.0-20240625175512-c43682019b86 // indirect
-	github.com/gptscript-ai/chat-completion-client v0.0.0-20241104122544-5fe75f07c131 // indirect
 	github.com/gptscript-ai/tui v0.0.0-20240923192013-172e51ccf1d6 // indirect
 	github.com/gregjones/httpcache v0.0.0-20180305231024-9cad4c3443a7 // indirect
 	github.com/grpc-ecosystem/go-grpc-prometheus v1.2.0 // indirect

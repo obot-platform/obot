@@ -1,8 +1,13 @@
 package v1
 
 import (
+	"github.com/otto8-ai/nah/pkg/fields"
 	"github.com/otto8-ai/otto8/apiclient/types"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+)
+
+var (
+	_ fields.Fields = (*ToolReference)(nil)
 )
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -13,6 +18,25 @@ type ToolReference struct {
 
 	Spec   ToolReferenceSpec   `json:"spec,omitempty"`
 	Status ToolReferenceStatus `json:"status,omitempty"`
+}
+
+func (in *ToolReference) Has(field string) bool {
+	return in.Get(field) != ""
+}
+
+func (in *ToolReference) Get(field string) string {
+	if in != nil {
+		switch field {
+		case "spec.type":
+			return string(in.Spec.Type)
+		}
+	}
+
+	return ""
+}
+
+func (in *ToolReference) FieldNames() []string {
+	return []string{"spec.type"}
 }
 
 func (in *ToolReference) GetColumns() [][]string {
