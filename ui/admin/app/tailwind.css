@@ -94,8 +94,8 @@ body {
 
         /* Start theme colors (Not accessible by Tailwind) */
 
-        --main-surface-primary: 223 20% 10%;
-        --main-surface-secondary: 223 20% 5%;
+        --main-surface-secondary: 223 20% 10%;
+        --main-surface-primary: 223 20% 5%;
 
         --accent-surface-primary: 223 5% 15%;
         --accent-surface-secondary: 223 87% 25%;
