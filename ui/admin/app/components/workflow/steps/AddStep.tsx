@@ -6,7 +6,7 @@ import {
     ToolReference,
     toolReferenceToTemplate,
 } from "~/lib/model/toolReferences";
-import { Step } from "~/lib/model/workflows";
+import { Step, getDefaultStep } from "~/lib/model/workflows";
 import { ToolReferenceService } from "~/lib/service/api/toolreferenceService";
 
 import { Button } from "~/components/ui/button";
@@ -49,17 +49,7 @@ export function AddStepButton({ onAddStep, className }: AddStepButtonProps) {
         if (type === "template") {
             setIsTemplateModalOpen(true);
         } else {
-            const newStep: Step = {
-                id: Date.now().toString(),
-                name: "",
-                description: "",
-                step: "",
-                cache: false,
-                temperature: 0,
-                tools: [],
-                agents: [],
-                workflows: [],
-            };
+            const newStep = getDefaultStep();
 
             if (type === "if") {
                 newStep.if = { condition: "", steps: [], else: [] };
@@ -93,20 +83,15 @@ export function AddStepButton({ onAddStep, className }: AddStepButtonProps) {
             <Popover open={open} onOpenChange={setOpen}>
                 <PopoverTrigger asChild>
                     <Button variant="ghost" className={className}>
-                        <Plus className="w-4 h-4 mr-2" /> Add
+                        <Plus /> Add Step
                     </Button>
                 </PopoverTrigger>
+
                 <PopoverContent
                     className="w-22 bg-secondary dark:bg-zinc-800 shadow-2xl"
                     side="top"
                 >
                     <div className="grid gap-4">
-                        {/* <Button
-                            className="dark:bg-zinc-600 dark:text-white"
-                            onClick={() => createNewStep("template")}
-                        >
-                            <FileText className="w-4 h-4 mr-2" /> Template
-                        </Button> */}
                         <Button
                             className="dark:bg-zinc-600 dark:text-white"
                             onClick={() => createNewStep("while")}

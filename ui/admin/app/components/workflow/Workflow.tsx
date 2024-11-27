@@ -1,4 +1,4 @@
-import { Library, List, PuzzleIcon, WrenchIcon } from "lucide-react";
+import { Library, List, PuzzleIcon, Variable, WrenchIcon } from "lucide-react";
 import { useCallback, useState } from "react";
 
 import { Workflow as WorkflowType } from "~/lib/model/workflows";
@@ -8,13 +8,14 @@ import { TypographyH4, TypographyP } from "~/components/Typography";
 import { AgentForm } from "~/components/agent";
 import { AgentKnowledgePanel } from "~/components/knowledge";
 import { BasicToolForm } from "~/components/tools/BasicToolForm";
-import { Card, CardDescription } from "~/components/ui/card";
+import { CardDescription } from "~/components/ui/card";
 import { ScrollArea } from "~/components/ui/scroll-area";
 import { ParamsForm } from "~/components/workflow/ParamsForm";
 import {
     WorkflowProvider,
     useWorkflow,
 } from "~/components/workflow/WorkflowContext";
+import { WorkflowEnvForm } from "~/components/workflow/WorkflowEnvForm";
 import { StepsForm } from "~/components/workflow/steps/StepsForm";
 import { useDebounce } from "~/hooks/useDebounce";
 
@@ -56,14 +57,14 @@ function WorkflowContent({ className }: WorkflowProps) {
     return (
         <div className="h-full flex flex-col">
             <ScrollArea className={cn("h-full", className)}>
-                <Card className="p-4 m-4">
+                <div className="p-4 m-4">
                     <AgentForm
                         agent={workflowUpdates}
                         onChange={debouncedSetWorkflowInfo}
                     />
-                </Card>
+                </div>
 
-                <Card className="p-4 m-4 flex flex-col gap-4">
+                <div className="p-4 m-4 flex flex-col gap-4">
                     <TypographyH4 className="flex items-center gap-2">
                         <WrenchIcon className="w-5 h-5" />
                         Tools
@@ -79,9 +80,21 @@ function WorkflowContent({ className }: WorkflowProps) {
                         defaultValues={workflow}
                         onChange={debouncedSetWorkflowInfo}
                     />
-                </Card>
+                </div>
 
-                <Card className="p-4 m-4 flex flex-col gap-4">
+                <div className="p-4 m-4 flex flex-col gap-4">
+                    <TypographyH4 className="flex items-center gap-2">
+                        <Variable className="w-4 h-4" />
+                        Environment Variables
+                    </TypographyH4>
+
+                    <WorkflowEnvForm
+                        workflow={workflow}
+                        onChange={debouncedSetWorkflowInfo}
+                    />
+                </div>
+
+                <div className="p-4 m-4 flex flex-col gap-4">
                     <TypographyH4 className="flex items-center gap-2">
                         <List className="w-4 h-4" />
                         Parameters
@@ -95,9 +108,9 @@ function WorkflowContent({ className }: WorkflowProps) {
                             })
                         }
                     />
-                </Card>
+                </div>
 
-                <Card className="p-4 m-4 flex flex-col gap-4">
+                <div className="p-4 m-4 flex flex-col gap-4">
                     <TypographyH4 className="flex items-center gap-2">
                         <PuzzleIcon className="w-4 h-4" />
                         Steps
@@ -109,9 +122,9 @@ function WorkflowContent({ className }: WorkflowProps) {
                             debouncedSetWorkflowInfo({ steps: values.steps })
                         }
                     />
-                </Card>
+                </div>
 
-                <Card className="p-4 m-4 flex flex-col gap-4">
+                <div className="p-4 m-4 flex flex-col gap-4">
                     <TypographyH4 className="flex items-center gap-2">
                         <Library className="w-4 h-4" />
                         Knowledge
@@ -128,7 +141,7 @@ function WorkflowContent({ className }: WorkflowProps) {
                         agentId={workflow.id}
                         updateAgent={debouncedSetWorkflowInfo}
                     />
-                </Card>
+                </div>
             </ScrollArea>
 
             <footer className="flex justify-between items-center p-4 gap-4 text-muted-foreground">

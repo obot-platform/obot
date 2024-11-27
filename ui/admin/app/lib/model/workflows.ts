@@ -1,9 +1,17 @@
 import { AgentBase } from "~/lib/model/agents";
 import { EntityMeta } from "~/lib/model/primitives";
 
+export type WorkflowEnv = {
+    name: string;
+    value: string;
+    description: string;
+};
+
 export type WorkflowBase = AgentBase & {
     steps: Step[];
     output: string;
+    env?: WorkflowEnv[];
+    credentials: string[];
 };
 
 export type Step = {
@@ -49,3 +57,15 @@ export type Workflow = EntityMeta &
 
 export type CreateWorkflow = Partial<WorkflowBase> & Pick<WorkflowBase, "name">;
 export type UpdateWorkflow = WorkflowBase;
+
+export const getDefaultStep = (): Step => ({
+    id: crypto.randomUUID(),
+    name: "",
+    description: "",
+    step: "",
+    cache: false,
+    temperature: 0,
+    tools: [],
+    agents: [],
+    workflows: [],
+});

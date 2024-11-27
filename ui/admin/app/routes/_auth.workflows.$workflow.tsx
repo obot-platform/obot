@@ -73,7 +73,7 @@ export default function ChatAgent() {
                     </ResizablePanel>
                     <ResizableHandle withHandle />
                     <ResizablePanel>
-                        <Chat />
+                        <Chat className="bg-background-secondary" />
                     </ResizablePanel>
                 </ResizablePanelGroup>
             </ChatProvider>
