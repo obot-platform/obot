@@ -166,7 +166,7 @@ export function ToolForm({
                             onDelete={() => removeTools([field.tool])}
                             actions={
                                 <Tooltip>
-                                    <TooltipTrigger asChild>
+                                    <TooltipTrigger>
                                         <Switch
                                             checked={
                                                 field.variant ===
