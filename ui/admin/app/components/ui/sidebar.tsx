@@ -415,7 +415,7 @@ const SidebarContent = React.forwardRef<
             ref={ref}
             data-sidebar="content"
             className={cn(
-                "flex min-h-0 flex-1 flex-col gap-2 overflow-auto group-data-[collapsible=icon]:overflow-hidden",
+                "flex min-h-0 flex-1 flex-col gap-2 overflow-hidden group-data-[collapsible=icon]:overflow-hidden",
                 className
             )}
             {...props}
@@ -534,6 +534,7 @@ const sidebarMenuButtonVariants = cva(
                     "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
                 outline:
                     "bg-background shadow-[0_0_0_1px_hsl(var(--sidebar-border))] hover:bg-sidebar-accent hover:text-sidebar-accent-foreground hover:shadow-[0_0_0_1px_hsl(var(--sidebar-accent))]",
+                spill: "w-full group-data-[collapsible=icon]:data-[active=true]:!bg-background group-data-[collapsible=icon]:data-[active=true]:!w-[calc(100%+20px)] hover:bg-background hover:w-[calc(100%+20px)] data-[active=true]:bg-background data-[active=true]:w-[calc(100%+20px)] pr-[10px]",
             },
             size: {
                 default: "h-8 text-sm",

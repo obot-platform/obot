@@ -1,4 +1,4 @@
-import { Link } from "@remix-run/react";
+import { Link, useLocation } from "@remix-run/react";
 import {
     BotIcon,
     BrainIcon,
@@ -81,6 +81,7 @@ const items = [
 
 export function AppSidebar() {
     const { state } = useSidebar();
+    const location = useLocation();
     return (
         <Sidebar collapsible="icon">
             <SidebarRail />
@@ -108,12 +109,25 @@ export function AppSidebar() {
                                     <SidebarMenuButton
                                         asChild
                                         className="w-full"
+                                        isActive={location.pathname.startsWith(
+                                            item.url
+                                        )}
+                                        variant="spill"
                                     >
                                         <Link
                                             to={item.url}
                                             className="w-full flex items-center"
                                         >
-                                            <item.icon className="mr-2" />
+                                            <item.icon
+                                                className={cn(
+                                                    "mr-2",
+                                                    location.pathname.startsWith(
+                                                        item.url
+                                                    )
+                                                        ? "text-primary"
+                                                        : ""
+                                                )}
+                                            />
                                             <span>{item.title}</span>
                                         </Link>
                                     </SidebarMenuButton>
