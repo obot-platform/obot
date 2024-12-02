@@ -13,20 +13,13 @@ export type ToolCall = {
     };
 };
 
-type PromptAuthMetaBase = {
-    category: string;
-    icon: string;
-    toolContext: string;
-    toolDisplayName: string;
-};
-
-type PromptOAuthMeta = PromptAuthMetaBase & {
-    authType: "oauth";
-    authURL: string;
-};
-
-type PromptAuthBasicMeta = PromptAuthMetaBase & {
-    authType: "basic";
+type PromptAuthMeta = {
+    authURL?: string;
+    category?: string;
+    icon?: string;
+    toolContext?: string;
+    toolDisplayName?: string;
+    authType: "oauth" | "basic";
 };
 
 export type AuthPrompt = {
@@ -36,7 +29,7 @@ export type AuthPrompt = {
     message: string;
     fields?: string[];
     sensitive?: boolean;
-    metadata?: PromptOAuthMeta | PromptAuthBasicMeta;
+    metadata?: PromptAuthMeta;
 };
 
 // note(ryanhopperlowe) renaming this to ChatEvent to differentiate itself specifically for a chat with an agent

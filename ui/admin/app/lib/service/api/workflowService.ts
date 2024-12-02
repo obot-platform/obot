@@ -4,7 +4,7 @@ import {
     Workflow,
 } from "~/lib/model/workflows";
 import { ApiRoutes, revalidateWhere } from "~/lib/routers/apiRoutes";
-import { request } from "~/lib/service/api/primitives";
+import { ResponseHeaders, request } from "~/lib/service/api/primitives";
 
 async function getWorkflows() {
     const res = await request<{ items: Workflow[] }>({
@@ -69,6 +69,24 @@ async function deleteWorkflow(id: string) {
 const revalidateWorkflows = () =>
     revalidateWhere((url) => url.includes(ApiRoutes.workflows.base().path));
 
+async function authenticateWorkflow(workflowId: string) {
+    const response = await request<ReadableStream>({
+        url: ApiRoutes.workflows.authenticate(workflowId).url,
+        method: "POST",
+        headers: { Accept: "text/event-stream" },
+        responseType: "stream",
+        errorMessage: "Failed to invoke agenticate workflow",
+    });
+
+    const reader = response.data
+        ?.pipeThrough(new TextDecoderStream())
+        .getReader();
+
+    const threadId = response.headers[ResponseHeaders.ThreadId] as string;
+
+    return { reader, threadId };
+}
+
 export const WorkflowService = {
     getWorkflows,
     getWorkflowById,
@@ -76,4 +94,5 @@ export const WorkflowService = {
     updateWorkflow,
     deleteWorkflow,
     revalidateWorkflows,
+    authenticateWorkflow,
 };

@@ -4,6 +4,7 @@ import {
     useLoaderData,
     useNavigate,
 } from "@remix-run/react";
+import { useCallback } from "react";
 import { $path } from "remix-routes";
 import { preload } from "swr";
 
@@ -48,28 +49,35 @@ export default function ChatAgent() {
 
     const navigate = useNavigate();
 
+    const onPersistThreadId = useCallback(
+        (threadId: string) =>
+            navigate(
+                $path(
+                    "/workflows/:workflow",
+                    { workflow: workflow.id },
+                    { threadId }
+                )
+            ),
+        [navigate, workflow.id]
+    );
+
     return (
         <div className="h-full flex flex-col overflow-hidden relative">
             <ChatProvider
                 id={workflow.id}
                 mode="workflow"
                 threadId={threadId}
-                onCreateThreadId={(threadId) =>
-                    navigate(
-                        $path(
-                            "/workflows/:workflow",
-                            { workflow: workflow.id },
-                            { threadId }
-                        )
-                    )
-                }
+                onCreateThreadId={onPersistThreadId}
             >
                 <ResizablePanelGroup
                     direction="horizontal"
                     className="flex-auto"
                 >
                     <ResizablePanel className="">
-                        <Workflow workflow={workflow} />
+                        <Workflow
+                            workflow={workflow}
+                            onPersistThreadId={onPersistThreadId}
+                        />
                     </ResizablePanel>
                     <ResizableHandle withHandle />
                     <ResizablePanel>

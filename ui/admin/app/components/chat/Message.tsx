@@ -21,6 +21,7 @@ import { Button } from "~/components/ui/button";
 import {
     Dialog,
     DialogContent,
+    DialogDescription,
     DialogHeader,
     DialogTitle,
     DialogTrigger,
@@ -84,7 +85,7 @@ export const Message = React.memo(({ message }: MessageProps) => {
                             />
                         )}
 
-                        {message.prompt?.metadata ? (
+                        {message.prompt ? (
                             <PromptMessage prompt={message.prompt} />
                         ) : (
                             <Markdown
@@ -141,26 +142,51 @@ Message.displayName = "Message";
 
 function PromptMessage({ prompt }: { prompt: AuthPrompt }) {
     const [open, setOpen] = useState(false);
+    const [isSubmitted, setIsSubmitted] = useState(false);
 
-    if (!prompt.metadata) return null;
+    const getMessage = () => {
+        if (prompt.metadata?.authURL || prompt.metadata?.authType)
+            return `${prompt.metadata.category || "Tool call"} requires Authentication`;
+
+        return prompt.message;
+    };
+
+    const getCtaText = () => {
+        if (prompt.metadata?.authURL || prompt.metadata?.authType)
+            return ["Authenticate", prompt.metadata.category]
+                .filter(Boolean)
+                .join(" with ");
+
+        return "Submit Parameters";
+    };
+
+    const getSubmittedText = () => {
+        if (prompt.metadata?.authURL || prompt.metadata?.authType)
+            return "Authenticated";
+
+        return "Parameters Submitted";
+    };
+
+    if (isSubmitted) {
+        return (
+            <div className="flex-auto flex flex-col flex-wrap gap-2 w-fit">
+                <TypographyP className="min-w-fit">
+                    {getSubmittedText()}
+                </TypographyP>
+            </div>
+        );
+    }
 
     return (
         <div className="flex-auto flex flex-col flex-wrap gap-2 w-fit">
-            <TypographyP className="min-w-fit">
-                <b>
-                    {[prompt.metadata?.category, prompt.name]
-                        .filter(Boolean)
-                        .join(" - ")}
-                </b>
-                {": "}
-                Tool Call requires authentication
-            </TypographyP>
+            <TypographyP className="min-w-fit">{getMessage()}</TypographyP>
 
-            {prompt.metadata.authType === "oauth" && (
+            {prompt.metadata?.authURL && (
                 <Link
                     as="button"
                     rel="noreferrer"
                     target="_blank"
+                    onClick={() => setIsSubmitted(true)}
                     to={prompt.metadata.authURL}
                 >
                     <ToolIcon
@@ -169,37 +195,41 @@ function PromptMessage({ prompt }: { prompt: AuthPrompt }) {
                         name={prompt.name}
                         disableTooltip
                     />
-                    Authenticate with {prompt.metadata.category}
+
+                    {getCtaText()}
                 </Link>
             )}
 
-            {prompt.metadata.authType === "basic" && prompt.fields && (
+            {prompt.fields && (
                 <Dialog open={open} onOpenChange={setOpen}>
-                    <DialogTrigger asChild>
+                    <DialogTrigger disabled={isSubmitted} asChild>
                         <Button
                             startContent={
                                 <ToolIcon
-                                    icon={prompt.metadata.icon}
-                                    category={prompt.metadata.category}
+                                    icon={prompt.metadata?.icon}
+                                    category={prompt.metadata?.category}
                                     name={prompt.name}
                                     disableTooltip
                                 />
                             }
                         >
-                            Authenticate with {prompt.metadata.category}
+                            {getCtaText()}
                         </Button>
                     </DialogTrigger>
 
                     <DialogContent>
                         <DialogHeader>
-                            <DialogTitle>
-                                Authenticate with {prompt.metadata.category}
-                            </DialogTitle>
+                            <DialogTitle>{getCtaText()}</DialogTitle>
                         </DialogHeader>
+
+                        <DialogDescription>{prompt.message}</DialogDescription>
 
                         <PromptAuthForm
                             prompt={prompt}
-                            onSuccess={() => setOpen(false)}
+                            onSuccess={() => {
+                                setOpen(false);
+                                setIsSubmitted(true);
+                            }}
                         />
                     </DialogContent>
                 </Dialog>
@@ -242,7 +272,7 @@ function PromptAuthForm({
                         control={form.control}
                         name={field}
                         label={field}
-                        type={field.includes("password") ? "password" : "text"}
+                        type={prompt.sensitive ? "password" : "text"}
                     />
                 ))}
 
@@ -251,7 +281,7 @@ function PromptAuthForm({
                     loading={authenticate.isLoading}
                     type="submit"
                 >
-                    Authenticate
+                    Submit
                 </Button>
             </form>
         </Form>

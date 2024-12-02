@@ -109,6 +109,8 @@ export const ApiRoutes = {
             buildUrl(`/workflows/${workflowId}/files/${fileName}`),
         deleteKnowledge: (workflowId: string, fileName: string) =>
             buildUrl(`/workflows/${workflowId}/files/${fileName}`),
+        authenticate: (workflowId: string) =>
+            buildUrl(`/workflows/${workflowId}/authenticate`),
     },
     threads: {
         base: () => buildUrl("/threads"),
