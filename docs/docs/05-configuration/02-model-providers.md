@@ -9,7 +9,7 @@ Below is a summary of the configuration options for each provider. However, the 
   "id": "azure-openai-model-provider",
   "created": "2024-11-08T16:03:21-05:00",
   "metadata": {
-    "envVars": "OTTO8_AZURE_OPENAI_MODEL_PROVIDER_API_KEY,OTTO8_AZURE_OPENAI_MODEL_PROVIDER_ENDPOINT,OTTO8_AZURE_OPENAI_MODEL_PROVIDER_DEPLOYMENT_NAME"
+    "envVars": "OTTO8_AZURE_OPENAI_MODEL_PROVIDER_ENDPOINT,OTTO8_AZURE_OPENAI_MODEL_PROVIDER_CLIENT_ID,OTTO8_AZURE_OPENAI_MODEL_PROVIDER_CLIENT_SECRET,OTTO8_AZURE_OPENAI_MODEL_PROVIDER_TENANT_ID,OTTO8_AZURE_OPENAI_MODEL_PROVIDER_SUBSCRIPTION_ID,OTTO8_AZURE_OPENAI_MODEL_PROVIDER_RESOURCE_GROUP"
   },
   "name": "Azure OpenAI Provider",
   "toolType": "modelProvider",
@@ -19,9 +19,12 @@ Below is a summary of the configuration options for each provider. However, the 
   "description": "Model provider for Azure OpenAI hosted models",
   "modelProviderStatus": {
     "missingEnvVars": [
-      "OTTO8_AZURE_OPENAI_MODEL_PROVIDER_API_KEY",
-      "OTTO8_AZURE_OPENAI_MODEL_PROVIDER_ENDPOINT",
-      "OTTO8_AZURE_OPENAI_MODEL_PROVIDER_DEPLOYMENT_NAME"
+		"OTTO8_AZURE_OPENAI_MODEL_PROVIDER_ENDPOINT",
+		"OTTO8_AZURE_OPENAI_MODEL_PROVIDER_CLIENT_ID",
+		"OTTO8_AZURE_OPENAI_MODEL_PROVIDER_CLIENT_SECRET",
+		"OTTO8_AZURE_OPENAI_MODEL_PROVIDER_TENANT_ID",
+		"OTTO8_AZURE_OPENAI_MODEL_PROVIDER_SUBSCRIPTION_ID",
+		"OTTO8_AZURE_OPENAI_MODEL_PROVIDER_RESOURCE_GROUP"
     ],  
     "configured": false
   }
@@ -36,7 +39,7 @@ Once all the required environment variables are set, then the API would return s
   "id": "azure-openai-model-provider",
   "created": "2024-11-08T16:03:21-05:00",
   "metadata": {
-    "envVars": "OTTO8_AZURE_OPENAI_MODEL_PROVIDER_API_KEY,OTTO8_AZURE_OPENAI_MODEL_PROVIDER_ENDPOINT,OTTO8_AZURE_OPENAI_MODEL_PROVIDER_DEPLOYMENT_NAME"
+    "envVars": "OTTO8_AZURE_OPENAI_MODEL_PROVIDER_ENDPOINT,OTTO8_AZURE_OPENAI_MODEL_PROVIDER_CLIENT_ID,OTTO8_AZURE_OPENAI_MODEL_PROVIDER_CLIENT_SECRET,OTTO8_AZURE_OPENAI_MODEL_PROVIDER_TENANT_ID,OTTO8_AZURE_OPENAI_MODEL_PROVIDER_SUBSCRIPTION_ID,OTTO8_AZURE_OPENAI_MODEL_PROVIDER_RESOURCE_GROUP"
   },
   "name": "Azure OpenAI Provider",
   "toolType": "modelProvider",
@@ -59,7 +62,7 @@ The OpenAI model provider is the default and is configured by either setting `OP
 ## Azure OpenAI
 
 The Azure OpenAI model provider requires setting the following environment variables:
-- `OTTO8_AZURE_OPENAI_MODEL_PROVIDER_ENDPOINT`:  The endpoint to use, found by clicking on the "Deployment" name from the "Deployments" page of the Azure OpenAI Studio.
+- `OTTO8_AZURE_OPENAI_MODEL_PROVIDER_ENDPOINT`:  The endpoint to use, found by clicking on the "Deployment" name from the "Deployments" page of the Azure OpenAI Studio. The provider endpoint must be in the format `https://<your-custom-name>.openai.azure.com` - if your Azure OpenAI resource doesn't have an endpoint that looks like this, you need to create one.
 - `OTTO8_AZURE_OPENAI_MODEL_PROVIDER_RESOURCE_GROUP`: The resource group name for the Azure OpenAI resource, found by clicking on the resource name in the top-right of the Azure OpenAI Studio.
 
 A service principal must be created with the (equivalent permissions of the) `Cognitive Services OpenAI User`.  After this service principal is created, the following environment variables configure the model provider in Otto8:
