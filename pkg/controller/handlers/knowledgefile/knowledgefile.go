@@ -5,8 +5,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math/rand"
 	"path"
 	"strings"
+	"time"
 
 	"github.com/gptscript-ai/go-gptscript"
 	"github.com/otto8-ai/nah/pkg/router"
@@ -179,6 +181,13 @@ func (h *Handler) IngestFile(req router.Request, _ router.Response) error {
 	return req.Client.Status().Update(req.Ctx, file)
 }
 
+// ugly hardcoded list of error keywords that allow a retry for website-cleaning
+var websiteCleanerRetryErrorKeywords = []string{
+	"failed calling model for completion",         // generic error part from our end
+	"unexpected EOF",                              // stream error, likely on model provider's site
+	"server had an error processing your request", // 5xx err on model provider's site
+}
+
 func (h *Handler) ingest(ctx context.Context, client kclient.Client, file *v1.KnowledgeFile,
 	ks *v1.KnowledgeSet, source *v1.KnowledgeSource, thread *v1.Thread) error {
 
@@ -202,20 +211,38 @@ func (h *Handler) ingest(ctx context.Context, client kclient.Client, file *v1.Kn
 			return err
 		}
 		if len(content) < 100_000 {
-			task, err := h.invoker.SystemTask(ctx, thread, system.WebsiteCleanTool, string(content))
-			if err != nil {
-				return err
-			}
-			defer task.Close()
+			var result invoke.TaskResult
+			for attempt := 1; attempt <= 3; attempt++ {
+				task, err := h.invoker.SystemTask(ctx, thread, system.WebsiteCleanTool, string(content))
+				if err != nil {
+					return err
+				}
+				defer task.Close()
 
-			file.Status.RunNames = append(file.Status.RunNames, task.Run.Name)
-			if err := client.Status().Update(ctx, file); err != nil {
-				return err
-			}
+				file.Status.RunNames = append(file.Status.RunNames, task.Run.Name)
+				if err := client.Status().Update(ctx, file); err != nil {
+					return err
+				}
 
-			result, err := task.Result(ctx)
-			if err != nil {
-				return fmt.Errorf("failed to clean website content: %v", err)
+				result, err = task.Result(ctx)
+				if err != nil {
+					shouldRetry := false
+					for _, keyword := range websiteCleanerRetryErrorKeywords {
+						if strings.Contains(err.Error(), keyword) {
+							shouldRetry = true
+							break
+						}
+					}
+					if shouldRetry && attempt < 3 {
+						// simple implementation of exponential backoff with random jitter between 0 and 200ms
+						sleep := 500 * time.Millisecond * time.Duration(1<<uint(attempt-1))
+						jitter := time.Duration(rand.Intn(200)) * time.Millisecond
+						time.Sleep(sleep + jitter)
+						continue // retry
+					}
+					return fmt.Errorf("failed to clean website content (3 tries): %v", err)
+				}
+				break // success
 			}
 
 			if result.Output != "" {
