@@ -87,7 +87,7 @@ func (a *AvailableModelsHandler) ListForModelProvider(req api.Context) error {
 func (a *AvailableModelsHandler) getAvailableModelsForProvider(ctx context.Context, modelProviderNamespace, modelProviderName string) (*openai.ModelsList, error) {
 	u, err := a.dispatcher.URLForModelProvider(ctx, modelProviderNamespace, modelProviderName)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get URL for model provider: %w", err)
+		return nil, fmt.Errorf("failed to get URL for model provider %q: %w", modelProviderName, err)
 	}
 
 	r, err := http.NewRequestWithContext(ctx, http.MethodGet, u.String()+"/v1/models", nil)

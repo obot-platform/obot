@@ -59,29 +59,15 @@ The OpenAI model provider is the default and is configured by either setting `OP
 ## Azure OpenAI
 
 The Azure OpenAI model provider requires setting the following environment variables:
-- `OTTO8_AZURE_OPENAI_MODEL_PROVIDER_API_KEY`: Found on the "Home" page of the Azure OpenAI Studio.
 - `OTTO8_AZURE_OPENAI_MODEL_PROVIDER_ENDPOINT`:  The endpoint to use, found by clicking on the "Deployment" name from the "Deployments" page of the Azure OpenAI Studio.
-- `OTTO8_AZURE_OPENAI_MODEL_PROVIDER_RESOURCE_ID`: The resource group name for the Azure OpenAI resource, found by clicking on the resource name in the top-right of the Azure OpenAI Studio.
+- `OTTO8_AZURE_OPENAI_MODEL_PROVIDER_RESOURCE_GROUP`: The resource group name for the Azure OpenAI resource, found by clicking on the resource name in the top-right of the Azure OpenAI Studio.
 
-The remainder of these environment variables are used to list the available deployments in Azure. A service principal must be created with read permission to the `Microsoft.CognitiveServices`. At the time of this writing, a built-in role doesn't exist in Azure. One can be created with the following permissions:
-```json
-"permissions": [
-	{
-		"actions": [
-			"Microsoft.CognitiveServices/*/read"
-		], 
-		"notActions": [],
-		"dataActions": [],
-		"notDataActions": []
-	}
-]
-```
-
-After this service principal is created, the following environment variables are required to configure the model provider in Otto8:
+A service principal must be created with the (equivalent permissions of the) `Cognitive Services OpenAI User`.  After this service principal is created, the following environment variables configure the model provider in Otto8:
 - `OTTO8_AZURE_OPENAI_MODEL_PROVIDER_CLIENT_ID`: The client ID for the app registration.
 - `OTTO8_AZURE_OPENAI_MODEL_PROVIDER_CLIENT_SECRET`: The client secret for the app registration.
 - `OTTO8_AZURE_OPENAI_MODEL_PROVIDER_TENANT_ID`: The tenant ID for the app registration.
 - `OTTO8_AZURE_OPENAI_MODEL_PROVIDER_SUBSCRIPTION_ID`: The subscription ID for the Azure account.
+- `OTTO8_AZURE_OPENAI_MODEL_PROVIDER_API_VERSION`: (optional) Specify the API version to use with Azure OpenAI instead of `2024-10-21`.
 
 :::note
 When configuring models with the Azure OpenAI provider in Otto8, the "Target Model" should be the "Deployment" from Azure.
