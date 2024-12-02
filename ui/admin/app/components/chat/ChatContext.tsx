@@ -181,10 +181,11 @@ function useMessageSource(threadId?: Nullish<string>) {
 
         if (!threadId) return;
 
-        const source = ThreadsService.getThreadEventSource(threadId);
-
         let replayComplete = false;
         let replayMessages: ChatEvent[] = [];
+
+        const source = ThreadsService.getThreadEventSource(threadId);
+        source.addEventListener("close", source.close);
 
         source.onmessage = (chunk) => {
             const event = JSON.parse(chunk.data) as ChatEvent;
