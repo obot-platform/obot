@@ -1,7 +1,7 @@
 import cronstrue from "cronstrue";
 import { EditIcon, Eye, InfoIcon, Trash } from "lucide-react";
 import { FC, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import useSWR, { SWRResponse } from "swr";
+import useSWR from "swr";
 
 import {
     KnowledgeFile,
@@ -85,7 +85,7 @@ const KnowledgeSourceDetail: FC<KnowledgeSourceDetailProps> = ({
         }
     }, [syncSchedule]);
 
-    const getFiles: SWRResponse<KnowledgeFile[], Error> = useSWR(
+    const getFiles = useSWR(
         KnowledgeService.getFilesForKnowledgeSource.key(
             agentId,
             knowledgeSource.id
@@ -145,6 +145,7 @@ const KnowledgeSourceDetail: FC<KnowledgeSourceDetailProps> = ({
         scrollPosition.current = tableContainerRef?.current?.scrollTop ?? 0;
     };
 
+    const refreshFiles = getFiles.mutate;
     useEffect(() => {
         if (
             knowledgeSource.state === KnowledgeSourceStatus.Syncing ||
@@ -154,9 +155,9 @@ const KnowledgeSourceDetail: FC<KnowledgeSourceDetailProps> = ({
         }
 
         if (knowledgeSource.state === KnowledgeSourceStatus.Synced) {
-            getFiles.mutate();
+            refreshFiles();
         }
-    }, [knowledgeSource]);
+    }, [knowledgeSource, refreshFiles]);
 
     const onSourceUpdate = async (syncSchedule: string) => {
         const updatedSource = await KnowledgeService.updateKnowledgeSource(
