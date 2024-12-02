@@ -59,7 +59,7 @@ export function Chat({ className }: ChatProps) {
                             "w-full": threadId,
                         })}
                         popoverContentProps={{
-                            sideOffset: !threadId ? -150 : undefined,
+                            className: cn({ "translate-y-[-50%]": !threadId }),
                         }}
                         loading={isInvoking || isRunning}
                         disabled={isInvoking || isRunning}

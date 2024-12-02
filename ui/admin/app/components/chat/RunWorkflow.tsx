@@ -2,6 +2,7 @@ import { ComponentProps, useState } from "react";
 import useSWR from "swr";
 
 import { WorkflowService } from "~/lib/service/api/workflowService";
+import { cn } from "~/lib/utils";
 
 import { RunWorkflowForm } from "~/components/chat/RunWorkflowForm";
 import { Button, ButtonProps } from "~/components/ui/button";
@@ -57,7 +58,10 @@ export function RunWorkflow({
                 </Button>
             </PopoverTrigger>
 
-            <PopoverContent {...popoverContentProps} className="min-w-full">
+            <PopoverContent
+                {...popoverContentProps}
+                className={cn("min-w-full", popoverContentProps?.className)}
+            >
                 <RunWorkflowForm
                     params={params}
                     onSubmit={(params) => {
