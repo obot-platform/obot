@@ -25,10 +25,11 @@ jobs:
         with:
           version: 9.12.3
 
-      - name: Install dependencies
+      - name: Install and Build
         run: |
           cd ui/admin
           pnpm install
+          pnpm run build
 
       - name: Run linter
         run: make lint-admin

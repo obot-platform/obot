@@ -8,8 +8,7 @@
         "dev": "remix vite:dev",
         "lint": "eslint --ignore-path .gitignore --cache --cache-location ./node_modules/.cache/eslint . && tsc --noEmit",
         "preview": "vite preview",
-        "format": "prettier --write .",
-        "postinstall": "npm run build"
+        "format": "prettier --write ."
     },
     "dependencies": {
         "@gptscript-ai/gptscript": "^0.9.5-rc5",
