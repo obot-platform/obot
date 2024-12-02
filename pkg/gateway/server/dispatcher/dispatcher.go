@@ -39,6 +39,7 @@ func New(invoker *invoke.Invoker, c kclient.Client) *Dispatcher {
 }
 
 func (d *Dispatcher) URLForModelProvider(ctx context.Context, namespace, modelProviderName string) (*url.URL, error) {
+	// Check the map with the read lock.
 	d.lock.RLock()
 	u, ok := d.urls[modelProviderName]
 	d.lock.RUnlock()
@@ -49,11 +50,14 @@ func (d *Dispatcher) URLForModelProvider(ctx context.Context, namespace, modelPr
 	d.lock.Lock()
 	defer d.lock.Unlock()
 
+	// If we didn't find anything with the read lock, check with the write lock.
+	// It could be that another thread beat us to the write lock and added the model provider we desire.
 	u, ok = d.urls[modelProviderName]
 	if ok && (u.Scheme == "https" || engine.IsDaemonRunning(u.String())) {
 		return u, nil
 	}
 
+	// We didn't find the model provider (or the daemon stopped for some reason), so start it and add it to the map.
 	u, err := d.startModelProvider(ctx, namespace, modelProviderName)
 	if err != nil {
 		return nil, err

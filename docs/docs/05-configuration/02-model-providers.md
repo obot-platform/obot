@@ -61,7 +61,7 @@ The OpenAI model provider is the default and is configured by either setting `OP
 The Azure OpenAI model provider requires setting the following environment variables:
 - `OTTO8_AZURE_OPENAI_MODEL_PROVIDER_API_KEY`: Found on the "Home" page of the Azure OpenAI Studio.
 - `OTTO8_AZURE_OPENAI_MODEL_PROVIDER_ENDPOINT`:  The endpoint to use, found by clicking on the "Deployment" name from the "Deployments" page of the Azure OpenAI Studio.
-- `OTTO8_AZURE_OPENAI_MODEL_PROVIDER_RESOURCE_ID`: The resource group name for the Azure OpenAI resource, found by click on the resource name in the top-right of the Azure OpenAI Studio.
+- `OTTO8_AZURE_OPENAI_MODEL_PROVIDER_RESOURCE_ID`: The resource group name for the Azure OpenAI resource, found by clicking on the resource name in the top-right of the Azure OpenAI Studio.
 
 The remainder of these environment variables are used to list the available deployments in Azure. A service principal must be created with read permission to the `Microsoft.CognitiveServices`. At the time of this writing, a built-in role doesn't exist in Azure. One can be created with the following permissions:
 ```json
