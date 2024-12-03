@@ -40,7 +40,6 @@ getModelProviders.key = () => ({
 });
 
 async function getAvailableModelsByProvider(provider: string) {
-    await new Promise((resolve) => setTimeout(resolve, 3000));
     const { data } = await request<{ data?: AvailableModel[] }>({
         url: ApiRoutes.models.getAvailableModelsByProvider(provider).url,
     });
@@ -57,7 +56,6 @@ getAvailableModelsByProvider.key = (provider?: Nullish<string>) => {
 };
 
 async function createModel(manifest: ModelManifest) {
-    await new Promise((resolve) => setTimeout(resolve, 1000));
     const { data } = await request<Model>({
         url: ApiRoutes.models.createModel().url,
         method: "POST",
@@ -68,8 +66,6 @@ async function createModel(manifest: ModelManifest) {
 }
 
 async function updateModel(modelId: string, manifest: ModelManifest) {
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-
     const { data } = await request<Model>({
         url: ApiRoutes.models.updateModel(modelId).url,
         method: "PUT",
