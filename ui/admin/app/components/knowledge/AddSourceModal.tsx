@@ -85,36 +85,57 @@ const AddSourceModal: FC<AddSourceModalProps> = ({
                 </DialogTitle>
                 <div className="mb-4">
                     {sourceType !== KnowledgeSourceType.Notion && (
-                        <div className="w-full grid grid-cols-2 items-center justify-center gap-2 mb-8">
-                            <Label
-                                htmlFor="site"
-                                className="block text-sm font-medium text-center"
-                            >
-                                {sourceType === KnowledgeSourceType.Website &&
-                                    "Site"}
-                                {sourceType === KnowledgeSourceType.OneDrive &&
-                                    "Link URL"}
-                            </Label>
-                            <Input
-                                id="site"
-                                type="text"
-                                value={
-                                    sourceType === KnowledgeSourceType.Website
-                                        ? newWebsite
-                                        : newLink
-                                }
-                                onChange={(e) =>
-                                    sourceType === KnowledgeSourceType.Website
-                                        ? setNewWebsite(e.target.value)
-                                        : setNewLink(e.target.value)
-                                }
-                                placeholder={
-                                    sourceType === KnowledgeSourceType.Website
-                                        ? "Enter website URL"
-                                        : "Enter OneDrive folder link"
-                                }
-                                className="w-[250px] dark:bg-secondary"
-                            />
+                        <div className="flex flex-col items-center justify-center mb-8">
+                            <div className="w-full grid grid-cols-2 items-center justify-center gap-2">
+                                <Label
+                                    htmlFor="site"
+                                    className="block text-sm font-medium text-center"
+                                >
+                                    {sourceType ===
+                                        KnowledgeSourceType.Website && "Site"}
+                                    {sourceType ===
+                                        KnowledgeSourceType.OneDrive &&
+                                        "Link URL"}
+                                </Label>
+                                <Input
+                                    id="site"
+                                    type="text"
+                                    value={
+                                        sourceType ===
+                                        KnowledgeSourceType.Website
+                                            ? newWebsite
+                                            : newLink
+                                    }
+                                    onChange={(e) =>
+                                        sourceType ===
+                                        KnowledgeSourceType.Website
+                                            ? setNewWebsite(e.target.value)
+                                            : setNewLink(e.target.value)
+                                    }
+                                    placeholder={
+                                        sourceType ===
+                                        KnowledgeSourceType.Website
+                                            ? "Enter website URL"
+                                            : "Enter OneDrive folder link"
+                                    }
+                                    className="w-[250px] dark:bg-secondary"
+                                />
+                            </div>
+                            {sourceType === KnowledgeSourceType.OneDrive && (
+                                <p className="text-xs text-gray-500 mt-4">
+                                    For instructions on obtaining a OneDrive
+                                    link, see{" "}
+                                    <a
+                                        href="https://support.microsoft.com/en-us/office/share-onedrive-files-and-folders-9fcc2f7d-de0c-4cec-93b0-a82024800c07#ID0EDBJ=Share_with_%22Copy_link%22"
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="underline"
+                                    >
+                                        this document
+                                    </a>
+                                    .
+                                </p>
+                            )}
                         </div>
                     )}
                     <div className="flex justify-end gap-2">
