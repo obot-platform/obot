@@ -21,6 +21,7 @@ type ToolReferenceManifest struct {
 type ToolReference struct {
 	Metadata
 	ToolReferenceManifest
+	Resolved            bool                 `json:"resolved,omitempty"`
 	Error               string               `json:"error,omitempty"`
 	Builtin             bool                 `json:"builtin,omitempty"`
 	Description         string               `json:"description,omitempty"`

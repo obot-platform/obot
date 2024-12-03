@@ -3286,6 +3286,12 @@ func schema_otto8_ai_otto8_apiclient_types_ToolReference(ref common.ReferenceCal
 							Ref:     ref("github.com/otto8-ai/otto8/apiclient/types.ToolReferenceManifest"),
 						},
 					},
+					"resolved": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
+						},
+					},
 					"error": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},

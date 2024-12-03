@@ -29,8 +29,9 @@ func convertToolReference(toolRef v1.ToolReference) types.ToolReference {
 			ToolType:  toolRef.Spec.Type,
 			Reference: toolRef.Spec.Reference,
 		},
-		Builtin: toolRef.Spec.Builtin,
-		Error:   toolRef.Status.Error,
+		Builtin:  toolRef.Spec.Builtin,
+		Error:    toolRef.Status.Error,
+		Resolved: toolRef.Generation == toolRef.Status.ObservedGeneration,
 	}
 	if toolRef.Spec.Active == nil {
 		tf.Active = true
