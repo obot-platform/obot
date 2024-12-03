@@ -1,7 +1,9 @@
 import { PlusCircle } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
+import useSWR, { SWRResponse } from "swr";
 
-import { CreateToolReference } from "~/lib/model/toolReferences";
+import { CreateToolReference, ToolReference } from "~/lib/model/toolReferences";
 import { ToolReferenceService } from "~/lib/service/api/toolreferenceService";
 
 import { Button } from "~/components/ui/button";
@@ -9,22 +11,61 @@ import { Input } from "~/components/ui/input";
 import { useAsync } from "~/hooks/useAsync";
 
 interface CreateToolProps {
+    onError: (error: string) => void;
     onSuccess: () => void;
 }
 
-export function CreateTool({ onSuccess }: CreateToolProps) {
+export function CreateTool({ onError, onSuccess }: CreateToolProps) {
     const { register, handleSubmit, reset } = useForm<CreateToolReference>();
 
-    const { execute: onSubmit, isLoading } = useAsync(
-        async (data: CreateToolReference) => {
-            await ToolReferenceService.createToolReference({
-                toolReference: { ...data, toolType: "tool" },
-            });
-            reset();
-            onSuccess();
+    const [loadingToolId, setLoadingToolId] = useState("");
+    const getLoadingTool: SWRResponse<ToolReference, Error> = useSWR(
+        loadingToolId
+            ? ToolReferenceService.getToolReferenceById.key(loadingToolId)
+            : null,
+        ({ toolReferenceId }) =>
+            ToolReferenceService.getToolReferenceById(toolReferenceId),
+        {
+            revalidateOnFocus: false,
+            refreshInterval: 2000,
         }
     );
 
+    const handleCreatedTool = useCallback(
+        (loadedTool: ToolReference) => {
+            setLoadingToolId("");
+            reset();
+            if (loadedTool.error) {
+                onError(loadedTool.error);
+            } else {
+                onSuccess();
+            }
+        },
+        [onError, reset, onSuccess]
+    );
+
+    useEffect(() => {
+        if (!loadingToolId) return;
+
+        const { isLoading, data } = getLoadingTool;
+        if (isLoading) return;
+
+        if (data?.resolved) {
+            handleCreatedTool(data);
+        }
+    }, [getLoadingTool, handleCreatedTool, loadingToolId]);
+
+    const { execute: onSubmit, isLoading } = useAsync(
+        async (data: CreateToolReference) => {
+            const response = await ToolReferenceService.createToolReference({
+                toolReference: { ...data, toolType: "tool" },
+            });
+
+            setLoadingToolId(response.id);
+        }
+    );
+
+    const pending = isLoading || !!loadingToolId;
     return (
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
             <div>
@@ -37,9 +78,9 @@ export function CreateTool({ onSuccess }: CreateToolProps) {
                 />
             </div>
             <div className="flex justify-end">
-                <Button type="submit" disabled={isLoading}>
+                <Button type="submit" disabled={pending}>
                     <PlusCircle className="w-4 h-4 mr-2" />
-                    {isLoading ? "Creating..." : "Register Tool"}
+                    {pending ? "Creating..." : "Register Tool"}
                 </Button>
             </div>
         </form>

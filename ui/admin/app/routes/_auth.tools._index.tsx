@@ -5,6 +5,7 @@ import useSWR, { preload } from "swr";
 import { ToolReferenceService } from "~/lib/service/api/toolreferenceService";
 
 import { TypographyH2 } from "~/components/Typography";
+import ErrorDialog from "~/components/knowledge/ErrorDialog";
 import { CreateTool } from "~/components/tools/CreateTool";
 import { ToolGrid } from "~/components/tools/toolGrid";
 import { Button } from "~/components/ui/button";
@@ -38,6 +39,7 @@ export default function Tools() {
 
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [searchQuery, setSearchQuery] = useState("");
+    const [errorDialogError, setErrorDialogError] = useState("");
 
     const handleCreateSuccess = () => {
         mutate();
@@ -47,6 +49,12 @@ export default function Tools() {
     const handleDelete = async (id: string) => {
         await ToolReferenceService.deleteToolReference(id);
         mutate();
+    };
+
+    const handleErrorDialogError = (error: string) => {
+        mutate();
+        setErrorDialogError(error);
+        setIsDialogOpen(false);
     };
 
     return (
@@ -81,9 +89,17 @@ export default function Tools() {
                                     agents.
                                 </DialogDescription>
                             </DialogHeader>
-                            <CreateTool onSuccess={handleCreateSuccess} />
+                            <CreateTool
+                                onError={handleErrorDialogError}
+                                onSuccess={handleCreateSuccess}
+                            />
                         </DialogContent>
                     </Dialog>
+                    <ErrorDialog
+                        error={errorDialogError}
+                        isOpen={errorDialogError !== ""}
+                        onClose={() => setErrorDialogError("")}
+                    />
                 </div>
             </div>
 

@@ -5,6 +5,7 @@ export type ToolReferenceBase = {
     name: string;
     toolType: ToolReferenceType;
     reference: string;
+    resolved?: boolean;
     metadata?: Record<string, string>;
 };
 
