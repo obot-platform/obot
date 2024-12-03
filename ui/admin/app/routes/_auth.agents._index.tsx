@@ -15,6 +15,7 @@ import { timeSince } from "~/lib/utils";
 import { TypographyH2, TypographyP } from "~/components/Typography";
 import { DeleteAgent } from "~/components/agent/DeleteAgent";
 import { DataTable } from "~/components/composed/DataTable";
+import { useModelProviders } from "~/components/model-providers/ModelProviderContext";
 import { Button } from "~/components/ui/button";
 import {
     Tooltip,
@@ -36,6 +37,7 @@ export default function Agents() {
     const getThreads = useSWR(ThreadsService.getThreads.key(), () =>
         ThreadsService.getThreads()
     );
+    const { configured: modelProviderConfigured } = useModelProviders();
 
     const threadCounts = useMemo(() => {
         if (!getThreads.data) return {};
@@ -65,6 +67,7 @@ export default function Agents() {
                         <Button
                             variant="outline"
                             className="justify-start"
+                            disabled={!modelProviderConfigured}
                             onClick={() => {
                                 AgentService.createAgent({
                                     agent: {

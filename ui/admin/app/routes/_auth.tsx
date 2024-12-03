@@ -7,6 +7,8 @@ import { UserService } from "~/lib/service/api/userService";
 import { useAuth } from "~/components/auth/AuthContext";
 import { Error, RouteError, Unauthorized } from "~/components/errors";
 import { HeaderNav } from "~/components/header/HeaderNav";
+import { FirstModelProviderBanner } from "~/components/model-providers/FirstModelProviderBanner";
+import { ModelProviderProvider } from "~/components/model-providers/ModelProviderContext";
 import { Sidebar } from "~/components/sidebar";
 import { SignIn } from "~/components/signin/SignIn";
 
@@ -24,7 +26,10 @@ export default function AuthLayout() {
             <div className="flex flex-col flex-grow overflow-hidden">
                 <HeaderNav />
                 <main className="flex-grow overflow-auto">
-                    <Outlet />
+                    <ModelProviderProvider>
+                        <FirstModelProviderBanner />
+                        <Outlet />
+                    </ModelProviderProvider>
                 </main>
             </div>
         </div>

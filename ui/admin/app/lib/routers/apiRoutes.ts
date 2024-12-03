@@ -173,6 +173,16 @@ export const ApiRoutes = {
         updateModel: (modelId: string) => buildUrl(`/models/${modelId}`),
         deleteModel: (modelId: string) => buildUrl(`/models/${modelId}`),
     },
+    modelProviders: {
+        base: () => buildUrl("/model-providers"),
+        getModelProviders: () => buildUrl("/model-providers"),
+        getModelProviderById: (modelProviderKey: string) =>
+            buildUrl(`/model-providers/${modelProviderKey}`),
+        configureModelProviderById: (modelProviderKey: string) =>
+            buildUrl(`/model-providers/${modelProviderKey}/configure`),
+        revealModelProviderById: (modelProviderKey: string) =>
+            buildUrl(`/model-providers/${modelProviderKey}/reveal`),
+    },
     defaultModelAliases: {
         base: () => buildUrl("/default-model-aliases"),
         getAliases: () => buildUrl("/default-model-aliases"),

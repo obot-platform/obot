@@ -116,10 +116,15 @@ func convertToolReferenceToModelProvider(ctx context.Context, gClient *gptscript
 		return types.ModelProvider{}, err
 	}
 
+	name := ref.Status.Tool.Name
+	if name == "" {
+		name = ref.Name
+	}
+
 	mp := types.ModelProvider{
 		Metadata: MetadataFrom(&ref),
 		ModelProviderManifest: types.ModelProviderManifest{
-			Name:          ref.Name,
+			Name:          name,
 			ToolReference: ref.Spec.Reference,
 		},
 		ModelProviderStatus: *status,
