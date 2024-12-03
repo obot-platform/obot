@@ -147,25 +147,6 @@ export type RouteInfo<T extends keyof Routes = keyof Routes> = {
     pathParams: T extends keyof RoutesWithParams ? PathInfo<T> : unknown;
 };
 
-function getRouteHelper(
-    url: URL,
-    params: Record<string, string | undefined>
-): RouteInfo | null {
-    for (const route of Object.values(RouteHelperMap)) {
-        if (route.regex.test(url.pathname))
-            return {
-                path: route.path,
-                query: parseQuery(url.search, route.schema as ZodSchema),
-                pathParams: $params(
-                    route.path as keyof RoutesWithParams,
-                    params
-                ),
-            };
-    }
-
-    return null;
-}
-
 function getRouteInfo<T extends keyof Routes>(
     path: T,
     url: URL,
@@ -180,48 +161,31 @@ function getRouteInfo<T extends keyof Routes>(
     };
 }
 
+// note: this is a ✨fancy✨ way of saying
+// type UnknownRouteInfo = RouteInfo<keyof Routes>
+// but it is needed to discriminate between the different routes
+// via the `path` property
+type UnknownRouteInfo = {
+    [key in keyof Routes]: RouteInfo<key>;
+}[keyof Routes];
+
 function getUnknownRouteInfo(
     url: URL,
     params: Record<string, string | undefined>
 ) {
-    const routeInfo = getRouteHelper(url, params);
-
-    switch (routeInfo?.path) {
-        case "/":
-            return routeInfo as RouteInfo<"/">;
-        case "/agents":
-            return routeInfo as RouteInfo<"/agents">;
-        case "/agents/:agent":
-            return routeInfo as RouteInfo<"/agents/:agent">;
-        case "/debug":
-            return routeInfo as RouteInfo<"/debug">;
-        case "/home":
-            return routeInfo as RouteInfo<"/home">;
-        case "/models":
-            return routeInfo as RouteInfo<"/models">;
-        case "/oauth-apps":
-            return routeInfo as RouteInfo<"/oauth-apps">;
-        case "/thread/:id":
-            return routeInfo as RouteInfo<"/thread/:id">;
-        case "/threads":
-            return routeInfo as RouteInfo<"/threads">;
-        case "/tools":
-            return routeInfo as RouteInfo<"/tools">;
-        case "/users":
-            return routeInfo as RouteInfo<"/users">;
-        case "/webhooks":
-            return routeInfo as RouteInfo<"/webhooks">;
-        case "/webhooks/create":
-            return routeInfo as RouteInfo<"/webhooks/create">;
-        case "/webhooks/:webhook":
-            return routeInfo as RouteInfo<"/webhooks/:webhook">;
-        case "/workflows":
-            return routeInfo as RouteInfo<"/workflows">;
-        case "/workflows/:workflow":
-            return routeInfo as RouteInfo<"/workflows/:workflow">;
-        default:
-            return null;
+    for (const route of Object.values(RouteHelperMap)) {
+        if (route.regex.test(url.pathname))
+            return {
+                path: route.path,
+                query: parseQuery(url.search, route.schema as ZodSchema),
+                pathParams: $params(
+                    route.path as keyof RoutesWithParams,
+                    params
+                ),
+            } as UnknownRouteInfo;
     }
+
+    return null;
 }
 
 export type RouteQueryParams<T extends keyof typeof QuerySchemas> = z.infer<
