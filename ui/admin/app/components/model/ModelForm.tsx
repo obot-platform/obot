@@ -79,7 +79,9 @@ export function ModelForm(props: ModelFormProps) {
         ModelApiService.getAvailableModelsByProvider.key(
             form.watch("modelProvider")
         ),
-        ({ provider }) => ModelApiService.getAvailableModelsByProvider(provider)
+        ({ provider }) =>
+            ModelApiService.getAvailableModelsByProvider(provider),
+        { revalidateIfStale: false }
     );
 
     const { loading, submit } = getSubmitInfo();
