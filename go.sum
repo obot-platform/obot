@@ -515,8 +515,8 @@ github.com/onsi/ginkgo/v2 v2.20.2 h1:7NVCeyIWROIAheY21RLS+3j2bb52W0W82tkberYytp4
 github.com/onsi/ginkgo/v2 v2.20.2/go.mod h1:K9gyxPIlb+aIvnZ8bd9Ak+YP18w3APlR+5coaZoE2ag=
 github.com/onsi/gomega v1.34.2 h1:pNCwDkzrsv7MS9kpaQvVb1aVLahQXyJ/Tv5oAZMI3i8=
 github.com/onsi/gomega v1.34.2/go.mod h1:v1xfxRgk0KIsG+QOdm7p8UosrOzPYRo60fd3B/1Dukc=
-github.com/otto8-ai/kinm v0.0.0-20241106213623-2a34e5d88241 h1:pR1P/rTKR2egA6JtU8sv6YiE4BwszMbxmm3WoEagy9s=
-github.com/otto8-ai/kinm v0.0.0-20241106213623-2a34e5d88241/go.mod h1:DOegE8RKFYiE0nmLdkJ3YDR668njuEmmqHE4q5qVNqU=
+github.com/otto8-ai/kinm v0.0.0-20241203180213-3f112c11b3cb h1:2OF6cmWaAC6mslDQzYlv7ow+uK34xSG9Gr/Yarygbds=
+github.com/otto8-ai/kinm v0.0.0-20241203180213-3f112c11b3cb/go.mod h1:DOegE8RKFYiE0nmLdkJ3YDR668njuEmmqHE4q5qVNqU=
 github.com/otto8-ai/nah v0.0.0-20241103035236-f2497c45ddb0 h1:I+4dYCCPY58dbABkbtEGtLQTx/tJvbZgkfcLj889yQM=
 github.com/otto8-ai/nah v0.0.0-20241103035236-f2497c45ddb0/go.mod h1:mo2Dz5pAyZhAVvo+kQEzXZlLzb0SaNzhIate7BQs4Vg=
 github.com/otto8-ai/namegenerator v0.0.0-20241115024503-63dbbe8f03f4 h1:w/VS6mtnVWy6iDxF4P8W66OuTk8dudWTJZzEtInegLU=

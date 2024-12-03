@@ -21,7 +21,7 @@ require (
 	github.com/liggitt/tabwriter v0.0.0-20181228230101-89fcab3d43de
 	github.com/mhale/smtpd v0.8.3
 	github.com/oauth2-proxy/oauth2-proxy/v7 v7.0.0-00010101000000-000000000000
-	github.com/otto8-ai/kinm v0.0.0-20241106213623-2a34e5d88241
+	github.com/otto8-ai/kinm v0.0.0-20241203180213-3f112c11b3cb
 	github.com/otto8-ai/nah v0.0.0-20241103035236-f2497c45ddb0
 	github.com/otto8-ai/namegenerator v0.0.0-20241115024503-63dbbe8f03f4
 	github.com/otto8-ai/otto8/apiclient v0.0.0-00010101000000-000000000000
