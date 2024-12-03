@@ -14,6 +14,7 @@ import {
     getModelUsageLabel,
 } from "~/lib/model/models";
 import { ModelApiService } from "~/lib/service/api/modelApiService";
+import { ModelProviderApiService } from "~/lib/service/api/modelProviderApiService";
 
 import { ControlledCustomInput } from "~/components/form/controlledInputs";
 import { Button } from "~/components/ui/button";
@@ -38,8 +39,8 @@ export function ModelForm(props: ModelFormProps) {
     const { model, onSubmit } = props;
 
     const { data: modelProviders } = useSWR(
-        ModelApiService.getModelProviders.key(),
-        ModelApiService.getModelProviders
+        ModelProviderApiService.getModelProviders.key(),
+        () => ModelProviderApiService.getModelProviders()
     );
 
     const updateModel = useAsync(ModelApiService.updateModel, {
@@ -93,8 +94,7 @@ export function ModelForm(props: ModelFormProps) {
     const providerName = (provider: ModelProvider) => {
         let text = provider.name || provider.id;
 
-        if (!provider.modelProviderStatus.configured)
-            text += " (not configured)";
+        if (!provider.configured) text += " (not configured)";
 
         return text;
     };
@@ -118,10 +118,7 @@ export function ModelForm(props: ModelFormProps) {
                                     <SelectItem
                                         key={provider.id}
                                         value={provider.id}
-                                        disabled={
-                                            !provider.modelProviderStatus
-                                                .configured
-                                        }
+                                        disabled={!provider.configured}
                                     >
                                         {providerName(provider)}
                                     </SelectItem>

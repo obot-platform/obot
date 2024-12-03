@@ -6,6 +6,7 @@ import useSWR, { preload } from "swr";
 import { Model } from "~/lib/model/models";
 import { DefaultModelAliasApiService } from "~/lib/service/api/defaultModelAliasApiService";
 import { ModelApiService } from "~/lib/service/api/modelApiService";
+import { ModelProviderApiService } from "~/lib/service/api/modelProviderApiService";
 
 import { TypographyH2 } from "~/components/Typography";
 import { DataTable } from "~/components/composed/DataTable";
@@ -24,8 +25,8 @@ export async function clientLoader() {
     await Promise.all([
         preload(ModelApiService.getModels.key(), ModelApiService.getModels),
         preload(
-            ModelApiService.getModelProviders.key(),
-            ModelApiService.getModelProviders
+            ModelProviderApiService.getModelProviders.key(),
+            ModelProviderApiService.getModelProviders
         ),
         preload(
             DefaultModelAliasApiService.getAliases.key(),
@@ -44,8 +45,8 @@ export default function Models() {
     );
 
     const { data: providers } = useSWR(
-        ModelApiService.getModelProviders.key(),
-        ModelApiService.getModelProviders
+        ModelProviderApiService.getModelProviders.key(),
+        ModelProviderApiService.getModelProviders
     );
 
     const providerMap = useMemo(() => {

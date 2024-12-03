@@ -176,6 +176,9 @@ export const ApiRoutes = {
         getAvailableModelsByProvider: (provider: string) =>
             buildUrl(`/available-models/${provider}`),
     },
+    modelProviders: {
+        getModelProviders: () => buildUrl("/model-providers"),
+    },
     defaultModelAliases: {
         base: () => buildUrl("/default-model-aliases"),
         getAliases: () => buildUrl("/default-model-aliases"),

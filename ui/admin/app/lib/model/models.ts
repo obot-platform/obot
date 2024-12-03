@@ -47,15 +47,14 @@ export const ModelManifestSchema = z.object({
     usage: z.nativeEnum(ModelUsage),
 });
 
-export type ModelProvider = EntityMeta & {
-    description?: string;
-    builtin: boolean;
-    active: boolean;
-    modelProviderStatus: ModelProviderStatus;
+type ModelProviderManifest = {
     name: string;
-    reference: string;
-    toolType: "modelProvider";
+    toolReference: string;
 };
+
+export type ModelProvider = EntityMeta &
+    ModelProviderManifest &
+    ModelProviderStatus;
 
 export const ModelAliasToUsageMap = {
     llm: ModelUsage.LLM,
