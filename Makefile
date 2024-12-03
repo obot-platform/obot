@@ -10,7 +10,8 @@ ui: ui-admin ui-user
 
 ui-admin:
 	cd ui/admin && \
-	pnpm install
+	pnpm install && \
+	pnpm run build
 
 ui-user:
 	cd ui/user && \
