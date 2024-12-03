@@ -26,8 +26,8 @@ import {
 import { KnowledgeService } from "~/lib/service/api/knowledgeService";
 import { assetUrl } from "~/lib/utils";
 
+import { ErrorDialog } from "~/components/composed/ErrorDialog";
 import AddSourceModal from "~/components/knowledge/AddSourceModal";
-import ErrorDialog from "~/components/knowledge/ErrorDialog";
 import FileStatusIcon from "~/components/knowledge/FileStatusIcon";
 import RemoteFileAvatar from "~/components/knowledge/KnowledgeSourceAvatar";
 import KnowledgeSourceDetail from "~/components/knowledge/KnowledgeSourceDetail";

@@ -15,8 +15,8 @@ import {
 } from "~/lib/model/knowledge";
 import { KnowledgeService } from "~/lib/service/api/knowledgeService";
 
+import { ErrorDialog } from "~/components/composed/ErrorDialog";
 import CronDialog from "~/components/knowledge/CronDialog";
-import ErrorDialog from "~/components/knowledge/ErrorDialog";
 import FileTreeNode, { FileNode } from "~/components/knowledge/FileTree";
 import KnowledgeSourceAvatar from "~/components/knowledge/KnowledgeSourceAvatar";
 import OauthSignDialog from "~/components/knowledge/OAuthSignDialog";

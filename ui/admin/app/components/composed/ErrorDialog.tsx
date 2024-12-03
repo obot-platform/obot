@@ -1,5 +1,3 @@
-import React from "react";
-
 import { Button } from "~/components/ui/button";
 import {
     Dialog,
@@ -16,11 +14,7 @@ type ErrorDialogProps = {
     onClose: () => void;
 };
 
-const ErrorDialog: React.FC<ErrorDialogProps> = ({
-    error,
-    isOpen,
-    onClose,
-}) => {
+export function ErrorDialog({ error, isOpen, onClose }: ErrorDialogProps) {
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
             <DialogContent className="max-w-[850px]">
@@ -36,6 +30,4 @@ const ErrorDialog: React.FC<ErrorDialogProps> = ({
             </DialogContent>
         </Dialog>
     );
-};
-
-export default ErrorDialog;
+}

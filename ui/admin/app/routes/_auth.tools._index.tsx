@@ -5,7 +5,7 @@ import useSWR, { preload } from "swr";
 import { ToolReferenceService } from "~/lib/service/api/toolreferenceService";
 
 import { TypographyH2 } from "~/components/Typography";
-import ErrorDialog from "~/components/knowledge/ErrorDialog";
+import { ErrorDialog } from "~/components/composed/ErrorDialog";
 import { CreateTool } from "~/components/tools/CreateTool";
 import { ToolGrid } from "~/components/tools/toolGrid";
 import { Button } from "~/components/ui/button";

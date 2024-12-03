@@ -1,7 +1,7 @@
 import { PlusCircle } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
-import useSWR, { SWRResponse } from "swr";
+import useSWR from "swr";
 
 import { CreateToolReference, ToolReference } from "~/lib/model/toolReferences";
 import { ToolReferenceService } from "~/lib/service/api/toolreferenceService";
@@ -19,7 +19,7 @@ export function CreateTool({ onError, onSuccess }: CreateToolProps) {
     const { register, handleSubmit, reset } = useForm<CreateToolReference>();
 
     const [loadingToolId, setLoadingToolId] = useState("");
-    const getLoadingTool: SWRResponse<ToolReference, Error> = useSWR(
+    const getLoadingTool = useSWR(
         loadingToolId
             ? ToolReferenceService.getToolReferenceById.key(loadingToolId)
             : null,
@@ -78,9 +78,13 @@ export function CreateTool({ onError, onSuccess }: CreateToolProps) {
                 />
             </div>
             <div className="flex justify-end">
-                <Button type="submit" disabled={pending}>
-                    <PlusCircle className="w-4 h-4 mr-2" />
-                    {pending ? "Creating..." : "Register Tool"}
+                <Button
+                    type="submit"
+                    disabled={pending}
+                    loading={pending}
+                    startContent={<PlusCircle />}
+                >
+                    Register Tool
                 </Button>
             </div>
         </form>
