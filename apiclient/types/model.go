@@ -23,8 +23,9 @@ type ModelStatus struct {
 }
 
 type ModelProviderStatus struct {
-	Configured     bool     `json:"configured"`
-	MissingEnvVars []string `json:"missingEnvVars,omitempty"`
+	Configured                      bool     `json:"configured"`
+	RequiredConfigurationParameters []string `json:"requiredConfigurationParameters,omitempty"`
+	MissingConfigurationParameters  []string `json:"missingConfigurationParameters,omitempty"`
 }
 
 type ModelUsage string

@@ -12,7 +12,9 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/gptscript-ai/go-gptscript"
 	"github.com/gptscript-ai/gptscript/pkg/engine"
+	"github.com/otto8-ai/otto8/apiclient/types"
 	"github.com/otto8-ai/otto8/pkg/alias"
 	"github.com/otto8-ai/otto8/pkg/invoke"
 	v1 "github.com/otto8-ai/otto8/pkg/storage/apis/otto.otto8.ai/v1"
@@ -23,18 +25,20 @@ import (
 )
 
 type Dispatcher struct {
-	invoker *invoke.Invoker
-	client  kclient.Client
-	lock    *sync.RWMutex
-	urls    map[string]*url.URL
+	invoker   *invoke.Invoker
+	gptscript *gptscript.GPTScript
+	client    kclient.Client
+	lock      *sync.RWMutex
+	urls      map[string]*url.URL
 }
 
-func New(invoker *invoke.Invoker, c kclient.Client) *Dispatcher {
+func New(invoker *invoke.Invoker, c kclient.Client, gClient *gptscript.GPTScript) *Dispatcher {
 	return &Dispatcher{
-		invoker: invoker,
-		client:  c,
-		lock:    new(sync.RWMutex),
-		urls:    make(map[string]*url.URL),
+		invoker:   invoker,
+		gptscript: gClient,
+		client:    c,
+		lock:      new(sync.RWMutex),
+		urls:      make(map[string]*url.URL),
 	}
 }
 
@@ -130,7 +134,38 @@ func (d *Dispatcher) startModelProvider(ctx context.Context, namespace, modelPro
 		return nil, fmt.Errorf("failed to get thread: %w", err)
 	}
 
-	task, err := d.invoker.SystemTask(ctx, thread, modelProviderName, "")
+	var modelProvider v1.ToolReference
+	if err := d.client.Get(ctx, kclient.ObjectKey{Namespace: namespace, Name: modelProviderName}, &modelProvider); err != nil || modelProvider.Spec.Type != types.ToolReferenceTypeModelProvider {
+		return nil, fmt.Errorf("failed to get model provider: %w", err)
+	}
+
+	credCtx := []string{string(modelProvider.UID)}
+	if modelProvider.Status.Tool == nil {
+		return nil, fmt.Errorf("model provider %q has not been resolved", modelProviderName)
+	}
+
+	// Ensure that the model provider has been configured so that we don't get stuck waiting on a prompt.
+	if modelProvider.Status.Tool.Metadata["envVars"] != "" {
+		cred, err := d.gptscript.RevealCredential(ctx, credCtx, modelProviderName)
+		if err != nil {
+			return nil, fmt.Errorf("model provider is not configured: %w", err)
+		}
+
+		var missingEnvVars []string
+		for _, envVar := range strings.Split(modelProvider.Status.Tool.Metadata["envVars"], ",") {
+			if cred.Env[envVar] == "" {
+				missingEnvVars = append(missingEnvVars, envVar)
+			}
+		}
+
+		if len(missingEnvVars) > 0 {
+			return nil, fmt.Errorf("model provider is not configured: missing env vars %q", strings.Join(missingEnvVars, ", "))
+		}
+	}
+
+	task, err := d.invoker.SystemTask(ctx, thread, modelProviderName, "", invoke.SystemTaskOptions{
+		CredentialContextIDs: credCtx,
+	})
 	if err != nil {
 		return nil, err
 	}

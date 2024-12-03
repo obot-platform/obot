@@ -155,11 +155,6 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		_ = os.Setenv("KNOW_INDEX_DSN", config.DSN)
 	}
 
-	// Set the OpenAI model provider API key, just for consistency
-	if os.Getenv("OTTO8_OPENAI_MODEL_PROVIDER_API_KEY") == "" {
-		_ = os.Setenv("OTTO8_OPENAI_MODEL_PROVIDER_API_KEY", os.Getenv("OPENAI_API_KEY"))
-	}
-
 	if err := credstores.Init(ctx, config.ToolRegistry, config.DSN, credstores.Options{
 		AWSKMSKeyARN:         config.AWSKMSKeyARN,
 		EncryptionConfigFile: config.EncryptionConfigFile,
@@ -223,7 +218,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		events                  = events.NewEmitter(storageClient)
 		gatewayClient           = client.New(gatewayDB, config.AuthAdminEmails)
 		invoker                 = invoke.NewInvoker(storageClient, c, config.Hostname, config.WorkspaceProviderType, tokenServer, events)
-		modelProviderDispatcher = dispatcher.New(invoker, storageClient)
+		modelProviderDispatcher = dispatcher.New(invoker, storageClient, c)
 
 		proxyServer *proxy.Proxy
 	)

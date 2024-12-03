@@ -7,12 +7,12 @@ import (
 )
 
 const (
-	RunFinalizer               = "otto.otto8.ai/run" // to be removed
-	KnowledgeFileFinalizer     = "otto.otto8.ai/knowledge-file"
-	WorkspaceFinalizer         = "otto.otto8.ai/workspace"
-	KnowledgeSetFinalizer      = "otto.otto8.ai/knowledge-set"
-	KnowledgeSourceFinalizer   = "otto.otto8.ai/knowledge-source"
-	DefaultModelAliasFinalizer = "otto.otto8.ai/default-model-alias"
+	RunFinalizer             = "otto.otto8.ai/run" // to be removed
+	KnowledgeFileFinalizer   = "otto.otto8.ai/knowledge-file"
+	WorkspaceFinalizer       = "otto.otto8.ai/workspace"
+	KnowledgeSetFinalizer    = "otto.otto8.ai/knowledge-set"
+	KnowledgeSourceFinalizer = "otto.otto8.ai/knowledge-source"
+	ToolReferenceFinalizer   = "otto.otto8.ai/tool-reference"
 )
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

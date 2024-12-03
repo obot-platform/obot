@@ -14,10 +14,6 @@ check_postgres_active() {
   exit 1
 }
 
-if [ "$OPENAI_API_KEY" = "" ]; then
-    echo OPENAI_API_KEY env is required to be set
-    exit 1
-fi
 mkdir -p /run/sshd
 /usr/sbin/sshd -D &
 mkdir -p /data/cache

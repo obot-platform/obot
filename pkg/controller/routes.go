@@ -72,6 +72,7 @@ func (c *Controller) setupRoutes() error {
 
 	// ToolReference
 	root.Type(&v1.ToolReference{}).HandlerFunc(toolRef.Populate)
+	root.Type(&v1.ToolReference{}).FinalizeFunc(v1.ToolReferenceFinalizer, toolRef.RemoveModelProviderCredential)
 
 	// Reference
 	root.Type(&v1.Agent{}).HandlerFunc(alias.AssignAlias)

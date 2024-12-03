@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/url"
+	"os"
 	"path"
 	"strings"
 	"time"
@@ -76,8 +77,9 @@ func (h *Handler) toolsToToolReferences(ctx context.Context, toolType types.Tool
 				}
 				result = append(result, &v1.ToolReference{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:      normalize(name, toolName),
-						Namespace: system.DefaultNamespace,
+						Name:       normalize(name, toolName),
+						Namespace:  system.DefaultNamespace,
+						Finalizers: []string{v1.ToolReferenceFinalizer},
 					},
 					Spec: v1.ToolReferenceSpec{
 						Type:      toolType,
@@ -100,8 +102,9 @@ func (h *Handler) toolsToToolReferences(ctx context.Context, toolType types.Tool
 					}
 					result = append(result, &v1.ToolReference{
 						ObjectMeta: metav1.ObjectMeta{
-							Name:      normalize(name, toolName),
-							Namespace: system.DefaultNamespace,
+							Name:       normalize(name, toolName),
+							Namespace:  system.DefaultNamespace,
+							Finalizers: []string{v1.ToolReferenceFinalizer},
 						},
 						Spec: v1.ToolReferenceSpec{
 							Type:      toolType,
@@ -114,8 +117,9 @@ func (h *Handler) toolsToToolReferences(ctx context.Context, toolType types.Tool
 		} else {
 			result = append(result, &v1.ToolReference{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      name,
-					Namespace: system.DefaultNamespace,
+					Name:       name,
+					Namespace:  system.DefaultNamespace,
+					Finalizers: []string{v1.ToolReferenceFinalizer},
 				},
 				Spec: v1.ToolReferenceSpec{
 					Type:      toolType,
@@ -189,11 +193,51 @@ func (h *Handler) PollRegistry(ctx context.Context, c client.Client) {
 		break
 	}
 
+	var openAICredentialSet bool
 	t := time.NewTicker(time.Hour)
 	defer t.Stop()
 	for {
 		if err := h.readFromRegistry(ctx, c); err != nil {
 			log.Errorf("Failed to read from registry: %v", err)
+		}
+
+		// If the openai-model-provider exists and the OPENAI_API_KEY environment variable is set, then ensure the credential exists.
+		if !openAICredentialSet && os.Getenv("OPENAI_API_KEY") != "" {
+			var openAIModelProvider v1.ToolReference
+
+			// Not reporting errors here, best-effort only.
+			if err := c.Get(ctx, client.ObjectKey{Namespace: system.DefaultNamespace, Name: "openai-model-provider"}, &openAIModelProvider); err == nil {
+				if cred, err := h.gptClient.RevealCredential(ctx, []string{string(openAIModelProvider.UID)}, "openai-model-provider"); err != nil && strings.HasSuffix(err.Error(), "credential not found") {
+					// The credential doesn't exist, so create it.
+					err = h.gptClient.CreateCredential(ctx, gptscript.Credential{
+						Context:  string(openAIModelProvider.UID),
+						ToolName: "openai-model-provider",
+						Type:     gptscript.CredentialTypeModelProvider,
+						Env: map[string]string{
+							"OTTO8_OPENAI_MODEL_PROVIDER_API_KEY": os.Getenv("OPENAI_API_KEY"),
+						},
+					})
+
+					openAICredentialSet = err == nil
+				} else if err == nil && cred.Env["OTTO8_OPENAI_MODEL_PROVIDER_API_KEY"] != os.Getenv("OPENAI_API_KEY") {
+					// If the credential exists, but has a different value, then update it.
+					// The only way to update it is to delete the existing credential and recreate it.
+					if err = h.gptClient.DeleteCredential(ctx, string(openAIModelProvider.UID), "openai-model-provider"); err == nil {
+						err = h.gptClient.CreateCredential(ctx, gptscript.Credential{
+							Context:  string(openAIModelProvider.UID),
+							ToolName: "openai-model-provider",
+							Type:     gptscript.CredentialTypeModelProvider,
+							Env: map[string]string{
+								"OTTO8_OPENAI_MODEL_PROVIDER_API_KEY": os.Getenv("OPENAI_API_KEY"),
+							},
+						})
+
+						openAICredentialSet = err == nil
+					}
+				} else {
+					openAICredentialSet = true
+				}
+			}
 		}
 
 		select {
@@ -202,7 +246,6 @@ func (h *Handler) PollRegistry(ctx context.Context, c client.Client) {
 			return
 		}
 	}
-
 }
 
 func (h *Handler) Populate(req router.Request, resp router.Response) error {
@@ -249,6 +292,19 @@ func (h *Handler) Populate(req router.Request, resp router.Response) error {
 		} else {
 			toolRef.Status.Tool.Credential = tool.Credentials[0]
 		}
+	}
+
+	return nil
+}
+
+func (h *Handler) RemoveModelProviderCredential(req router.Request, _ router.Response) error {
+	toolRef := req.Object.(*v1.ToolReference)
+	if toolRef.Spec.Type != types.ToolReferenceTypeModelProvider || toolRef.Status.Tool == nil || toolRef.Status.Tool.Metadata["envVars"] == "" {
+		return nil
+	}
+
+	if err := h.gptClient.DeleteCredential(req.Ctx, string(toolRef.UID), toolRef.Name); err != nil && !strings.Contains(err.Error(), "credential not found") {
+		return err
 	}
 
 	return nil

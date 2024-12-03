@@ -50,6 +50,9 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/otto8-ai/otto8/apiclient/types.Model":                                     schema_otto8_ai_otto8_apiclient_types_Model(ref),
 		"github.com/otto8-ai/otto8/apiclient/types.ModelList":                                 schema_otto8_ai_otto8_apiclient_types_ModelList(ref),
 		"github.com/otto8-ai/otto8/apiclient/types.ModelManifest":                             schema_otto8_ai_otto8_apiclient_types_ModelManifest(ref),
+		"github.com/otto8-ai/otto8/apiclient/types.ModelProvider":                             schema_otto8_ai_otto8_apiclient_types_ModelProvider(ref),
+		"github.com/otto8-ai/otto8/apiclient/types.ModelProviderList":                         schema_otto8_ai_otto8_apiclient_types_ModelProviderList(ref),
+		"github.com/otto8-ai/otto8/apiclient/types.ModelProviderManifest":                     schema_otto8_ai_otto8_apiclient_types_ModelProviderManifest(ref),
 		"github.com/otto8-ai/otto8/apiclient/types.ModelProviderStatus":                       schema_otto8_ai_otto8_apiclient_types_ModelProviderStatus(ref),
 		"github.com/otto8-ai/otto8/apiclient/types.ModelStatus":                               schema_otto8_ai_otto8_apiclient_types_ModelStatus(ref),
 		"github.com/otto8-ai/otto8/apiclient/types.NotionConfig":                              schema_otto8_ai_otto8_apiclient_types_NotionConfig(ref),
@@ -1808,6 +1811,94 @@ func schema_otto8_ai_otto8_apiclient_types_ModelManifest(ref common.ReferenceCal
 	}
 }
 
+func schema_otto8_ai_otto8_apiclient_types_ModelProvider(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"Metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/otto8-ai/otto8/apiclient/types.Metadata"),
+						},
+					},
+					"ModelProviderManifest": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/otto8-ai/otto8/apiclient/types.ModelProviderManifest"),
+						},
+					},
+					"ModelProviderStatus": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/otto8-ai/otto8/apiclient/types.ModelProviderStatus"),
+						},
+					},
+				},
+				Required: []string{"Metadata", "ModelProviderManifest", "ModelProviderStatus"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/otto8-ai/otto8/apiclient/types.Metadata", "github.com/otto8-ai/otto8/apiclient/types.ModelProviderManifest", "github.com/otto8-ai/otto8/apiclient/types.ModelProviderStatus"},
+	}
+}
+
+func schema_otto8_ai_otto8_apiclient_types_ModelProviderList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/otto8-ai/otto8/apiclient/types.ModelProvider"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"items"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/otto8-ai/otto8/apiclient/types.ModelProvider"},
+	}
+}
+
+func schema_otto8_ai_otto8_apiclient_types_ModelProviderManifest(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"toolReference": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+				},
+				Required: []string{"name", "toolReference"},
+			},
+		},
+	}
+}
+
 func schema_otto8_ai_otto8_apiclient_types_ModelProviderStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -1821,7 +1912,21 @@ func schema_otto8_ai_otto8_apiclient_types_ModelProviderStatus(ref common.Refere
 							Format:  "",
 						},
 					},
-					"missingEnvVars": {
+					"requiredConfigurationParameters": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+					"missingConfigurationParameters": {
 						SchemaProps: spec.SchemaProps{
 							Type: []string{"array"},
 							Items: &spec.SchemaOrArray{

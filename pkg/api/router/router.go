@@ -18,11 +18,12 @@ func Router(services *services.Services) (http.Handler, error) {
 	invoker := handlers.NewInvokeHandler(services.Invoker)
 	threads := handlers.NewThreadHandler(services.GPTClient, services.Events)
 	runs := handlers.NewRunHandler(services.Events)
-	toolRefs := handlers.NewToolReferenceHandler()
+	toolRefs := handlers.NewToolReferenceHandler(services.GPTClient)
 	webhooks := handlers.NewWebhookHandler()
 	cronJobs := handlers.NewCronJobHandler()
-	models := handlers.NewModelHandler()
-	availableModels := handlers.NewAvailableModelsHandler(services.ModelProviderDispatcher)
+	models := handlers.NewModelHandler(services.GPTClient)
+	availableModels := handlers.NewAvailableModelsHandler(services.GPTClient, services.ModelProviderDispatcher)
+	modelProviders := handlers.NewModelProviderHandler(services.GPTClient)
 	prompt := handlers.NewPromptHandler(services.GPTClient)
 	emailreceiver := handlers.NewEmailReceiverHandler(services.EmailServerName)
 	defaultModelAliases := handlers.NewDefaultModelAliasHandler()
@@ -219,6 +220,12 @@ func Router(services *services.Services) (http.Handler, error) {
 
 	// debug
 	mux.HTTPHandle("GET /debug/pprof/", http.DefaultServeMux)
+
+	// Model providers
+	mux.HandleFunc("GET /api/model-providers", modelProviders.List)
+	mux.HandleFunc("GET /api/model-providers/{id}", modelProviders.ByID)
+	mux.HandleFunc("POST /api/model-providers/{id}/configure", modelProviders.Configure)
+	mux.HandleFunc("POST /api/model-providers/{id}/reveal", modelProviders.Reveal)
 
 	// Models
 	mux.HandleFunc("POST /api/models", models.Create)

@@ -33,7 +33,8 @@ export type ModelManifest = {
 
 export type ModelProviderStatus = {
     configured: boolean;
-    missingEnvVars?: string[];
+    requiredConfigurationParameters?: string[];
+    missingConfigurationParameters?: string[];
 };
 
 export type Model = EntityMeta & ModelManifest & ModelProviderStatus;
