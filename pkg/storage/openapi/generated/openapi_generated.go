@@ -3092,6 +3092,12 @@ func schema_otto8_ai_otto8_apiclient_types_Thread(ref common.ReferenceCallback) 
 							Format: "",
 						},
 					},
+					"abort": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
+						},
+					},
 				},
 				Required: []string{"Metadata", "ThreadManifest"},
 			},
@@ -6651,6 +6657,12 @@ func schema_storage_apis_ottootto8ai_v1_ThreadSpec(ref common.ReferenceCallback)
 						},
 					},
 					"systemTask": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
+						},
+					},
+					"abort": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"boolean"},
 							Format: "",

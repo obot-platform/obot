@@ -19,7 +19,7 @@ type ModelList List[Model]
 
 type ModelStatus struct {
 	ModelProviderStatus
-	AliasAssigned bool `json:"aliasAssigned,omitempty"`
+	AliasAssigned *bool `json:"aliasAssigned,omitempty"`
 }
 
 type ModelProviderStatus struct {

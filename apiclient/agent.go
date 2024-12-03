@@ -63,7 +63,7 @@ func (c *Client) ListAgents(ctx context.Context, opts ListAgentsOptions) (result
 	if opts.Alias != "" {
 		var filtered types.AgentList
 		for _, agent := range result.Items {
-			if agent.Alias == opts.Alias && agent.AliasAssigned {
+			if agent.Alias == opts.Alias && agent.AliasAssigned != nil && *agent.AliasAssigned {
 				filtered.Items = append(filtered.Items, agent)
 			}
 		}

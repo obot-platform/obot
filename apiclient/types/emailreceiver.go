@@ -3,7 +3,7 @@ package types
 type EmailReceiver struct {
 	Metadata
 	EmailReceiverManifest
-	AddressAssigned bool   `json:"aliasAssigned,omitempty"`
+	AddressAssigned *bool  `json:"aliasAssigned,omitempty"`
 	EmailAddress    string `json:"emailAddress,omitempty"`
 }
 

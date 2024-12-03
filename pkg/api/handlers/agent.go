@@ -53,14 +53,7 @@ func (a *AgentHandler) Update(req api.Context) error {
 		return err
 	}
 
-	processedAgent, err := wait.For(req.Context(), req.Storage, &agent, func(agent *v1.Agent) (bool, error) {
-		return agent.Generation == agent.Status.AliasObservedGeneration, nil
-	})
-	if err != nil {
-		return fmt.Errorf("failed to update agent: %w", err)
-	}
-
-	resp, err := convertAgent(*processedAgent, req)
+	resp, err := convertAgent(agent, req)
 	if err != nil {
 		return err
 	}
@@ -91,17 +84,15 @@ func (a *AgentHandler) Create(req api.Context) error {
 		},
 	}
 
-	agent, err := wait.For(req.Context(), req.Storage, agent, func(agent *v1.Agent) (bool, error) {
-		return agent.Generation == agent.Status.AliasObservedGeneration, nil
-	}, wait.Option{Create: true})
-	if err != nil {
-		return fmt.Errorf("failed to create agent: %w", err)
+	if err := req.Create(agent); err != nil {
+		return err
 	}
 
 	resp, err := convertAgent(*agent, req)
 	if err != nil {
 		return err
 	}
+
 	return req.WriteCreated(resp)
 }
 
@@ -125,10 +116,15 @@ func convertAgent(agent v1.Agent, req api.Context) (*types.Agent, error) {
 		}
 	}
 
+	var aliasAssigned *bool
+	if agent.Generation == agent.Status.AliasObservedGeneration {
+		aliasAssigned = &agent.Status.AliasAssigned
+	}
+
 	return &types.Agent{
 		Metadata:           MetadataFrom(&agent, links...),
 		AgentManifest:      agent.Spec.Manifest,
-		AliasAssigned:      agent.Status.AliasAssigned,
+		AliasAssigned:      aliasAssigned,
 		AuthStatus:         agent.Status.AuthStatus,
 		TextEmbeddingModel: embeddingModel,
 	}, nil

@@ -15,7 +15,6 @@ import (
 	"github.com/otto8-ai/otto8/pkg/api"
 	v1 "github.com/otto8-ai/otto8/pkg/storage/apis/otto.otto8.ai/v1"
 	"github.com/otto8-ai/otto8/pkg/system"
-	"github.com/otto8-ai/otto8/pkg/wait"
 	"golang.org/x/crypto/bcrypt"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -78,14 +77,7 @@ func (a *WebhookHandler) Update(req api.Context) error {
 		return err
 	}
 
-	processedWh, err := wait.For(req.Context(), req.Storage, &wh, func(wh *v1.Webhook) (bool, error) {
-		return wh.Generation == wh.Status.AliasObservedGeneration, nil
-	})
-	if err != nil {
-		return fmt.Errorf("failed to update webhook: %w", err)
-	}
-
-	return req.Write(convertWebhook(*processedWh, req.APIBaseURL))
+	return req.Write(convertWebhook(wh, req.APIBaseURL))
 }
 
 func (a *WebhookHandler) Delete(req api.Context) error {
@@ -130,11 +122,8 @@ func (a *WebhookHandler) Create(req api.Context) error {
 		wh.Spec.Headers[i] = textproto.CanonicalMIMEHeaderKey(h)
 	}
 
-	wh, err := wait.For(req.Context(), req.Storage, wh, func(wh *v1.Webhook) (bool, error) {
-		return wh.Generation == wh.Status.AliasObservedGeneration, nil
-	}, wait.Option{Create: true})
-	if err != nil {
-		return fmt.Errorf("failed to create webhook: %w", err)
+	if err := req.Create(wh); err != nil {
+		return err
 	}
 
 	return req.WriteCreated(convertWebhook(*wh, req.APIBaseURL))
@@ -150,11 +139,16 @@ func convertWebhook(webhook v1.Webhook, urlPrefix string) *types.Webhook {
 		links = []string{"invoke", fmt.Sprintf("%s/webhooks/%s/%s", urlPrefix, webhook.Namespace, path)}
 	}
 
+	var aliasAssigned *bool
+	if webhook.Generation == webhook.Status.AliasObservedGeneration {
+		aliasAssigned = &webhook.Status.AliasAssigned
+	}
+
 	manifest := webhook.Spec.WebhookManifest
 	wh := &types.Webhook{
 		Metadata:                   MetadataFrom(&webhook, links...),
 		WebhookManifest:            manifest,
-		AliasAssigned:              webhook.Status.AliasAssigned,
+		AliasAssigned:              aliasAssigned,
 		LastSuccessfulRunCompleted: v1.NewTime(webhook.Status.LastSuccessfulRunCompleted),
 		HasToken:                   len(webhook.Spec.TokenHash) > 0,
 	}

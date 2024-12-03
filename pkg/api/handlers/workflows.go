@@ -89,14 +89,7 @@ func (a *WorkflowHandler) Update(req api.Context) error {
 		return err
 	}
 
-	processedWf, err := wait.For(req.Context(), req.Storage, &wf, func(wf *v1.Workflow) (bool, error) {
-		return wf.Generation == wf.Status.AliasObservedGeneration, nil
-	})
-	if err != nil {
-		return fmt.Errorf("failed to update workflow: %w", err)
-	}
-
-	resp, err := convertWorkflow(*processedWf, req)
+	resp, err := convertWorkflow(wf, req)
 	if err != nil {
 		return err
 	}
@@ -134,11 +127,8 @@ func (a *WorkflowHandler) Create(req api.Context) error {
 		},
 	}
 
-	wf, err := wait.For(req.Context(), req.Storage, wf, func(wf *v1.Workflow) (bool, error) {
-		return wf.Generation == wf.Status.AliasObservedGeneration, nil
-	}, wait.Option{Create: true})
-	if err != nil {
-		return fmt.Errorf("failed to create workflow: %w", err)
+	if err := req.Create(wf); err != nil {
+		return err
 	}
 
 	resp, err := convertWorkflow(*wf, req)
@@ -169,10 +159,15 @@ func convertWorkflow(workflow v1.Workflow, req api.Context) (*types.Workflow, er
 		}
 	}
 
+	var aliasAssigned *bool
+	if workflow.Generation == workflow.Status.AliasObservedGeneration {
+		aliasAssigned = &workflow.Status.AliasAssigned
+	}
+
 	return &types.Workflow{
 		Metadata:           MetadataFrom(&workflow, links...),
 		WorkflowManifest:   workflow.Spec.Manifest,
-		AliasAssigned:      workflow.Status.AliasAssigned,
+		AliasAssigned:      aliasAssigned,
 		AuthStatus:         workflow.Status.AuthStatus,
 		TextEmbeddingModel: embeddingModel,
 	}, nil

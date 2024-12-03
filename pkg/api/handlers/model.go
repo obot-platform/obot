@@ -13,7 +13,6 @@ import (
 	v1 "github.com/otto8-ai/otto8/pkg/storage/apis/otto.otto8.ai/v1"
 	"github.com/otto8-ai/otto8/pkg/storage/selectors"
 	"github.com/otto8-ai/otto8/pkg/system"
-	"github.com/otto8-ai/otto8/pkg/wait"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
@@ -79,14 +78,7 @@ func (a *ModelHandler) Update(req api.Context) error {
 		return err
 	}
 
-	processedModel, err := wait.For(req.Context(), req.Storage, &existing, func(model *v1.Model) (bool, error) {
-		return model.Generation == model.Status.AliasObservedGeneration, nil
-	})
-	if err != nil {
-		return fmt.Errorf("failed to update model: %w", err)
-	}
-
-	resp, err := convertModel(req.Context(), req.Storage, *processedModel)
+	resp, err := convertModel(req.Context(), req.Storage, existing)
 	if err != nil {
 		return err
 	}
@@ -127,11 +119,8 @@ func (a *ModelHandler) Create(req api.Context) error {
 		return err
 	}
 
-	model, err := wait.For(req.Context(), req.Storage, model, func(model *v1.Model) (bool, error) {
-		return model.Generation == model.Status.AliasObservedGeneration, nil
-	}, wait.Option{Create: true})
-	if err != nil {
-		return fmt.Errorf("failed to create model: %w", err)
+	if err := req.Create(model); err != nil {
+		return err
 	}
 
 	resp, err := convertModel(req.Context(), req.Storage, *model)
@@ -172,12 +161,17 @@ func convertModel(ctx context.Context, c kclient.Client, model v1.Model) (types.
 		return types.Model{}, err
 	}
 
+	var aliasAssigned *bool
+	if model.Generation == model.Status.AliasObservedGeneration {
+		aliasAssigned = &model.Status.AliasAssigned
+	}
+
 	return types.Model{
 		Metadata:      MetadataFrom(&model),
 		ModelManifest: model.Spec.Manifest,
 		ModelStatus: types.ModelStatus{
 			ModelProviderStatus: *convertModelProviderToolRef(toolRef),
-			AliasAssigned:       model.Status.AliasAssigned,
+			AliasAssigned:       aliasAssigned,
 		},
 	}, nil
 }

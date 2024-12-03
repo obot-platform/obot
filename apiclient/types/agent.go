@@ -11,7 +11,7 @@ import (
 type Agent struct {
 	Metadata
 	AgentManifest
-	AliasAssigned      bool                               `json:"aliasAssigned,omitempty"`
+	AliasAssigned      *bool                              `json:"aliasAssigned,omitempty"`
 	AuthStatus         map[string]OAuthAppLoginAuthStatus `json:"authStatus,omitempty"`
 	TextEmbeddingModel string                             `json:"textEmbeddingModel,omitempty"`
 }

@@ -63,7 +63,7 @@ func (c *Client) ListWorkflows(ctx context.Context, opts ListWorkflowsOptions) (
 	if opts.Alias != "" {
 		var filtered types.WorkflowList
 		for _, workflow := range result.Items {
-			if workflow.Alias == opts.Alias && workflow.AliasAssigned {
+			if workflow.Alias == opts.Alias && workflow.AliasAssigned != nil && *workflow.AliasAssigned {
 				filtered.Items = append(filtered.Items, workflow)
 			}
 		}

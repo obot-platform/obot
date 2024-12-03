@@ -1,14 +1,11 @@
 package handlers
 
 import (
-	"fmt"
-
 	"github.com/otto8-ai/otto8/apiclient/types"
 	"github.com/otto8-ai/otto8/pkg/alias"
 	"github.com/otto8-ai/otto8/pkg/api"
 	v1 "github.com/otto8-ai/otto8/pkg/storage/apis/otto.otto8.ai/v1"
 	"github.com/otto8-ai/otto8/pkg/system"
-	"github.com/otto8-ai/otto8/pkg/wait"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -42,14 +39,7 @@ func (e *EmailReceiverHandler) Update(req api.Context) error {
 		return err
 	}
 
-	processedEr, err := wait.For(req.Context(), req.Storage, &er, func(er *v1.EmailReceiver) (bool, error) {
-		return er.Generation == er.Status.AliasObservedGeneration, nil
-	})
-	if err != nil {
-		return fmt.Errorf("failed to update email receiver: %w", err)
-	}
-
-	return req.Write(convertEmailReceiver(*processedEr, e.hostname))
+	return req.Write(convertEmailReceiver(er, e.hostname))
 }
 
 func (e *EmailReceiverHandler) Delete(req api.Context) error {
@@ -81,11 +71,8 @@ func (e *EmailReceiverHandler) Create(req api.Context) error {
 		},
 	}
 
-	er, err := wait.For(req.Context(), req.Storage, er, func(er *v1.EmailReceiver) (bool, error) {
-		return er.Generation == er.Status.AliasObservedGeneration, nil
-	}, wait.Option{Create: true})
-	if err != nil {
-		return fmt.Errorf("failed to create email receiver: %w", err)
+	if err := req.Create(er); err != nil {
+		return err
 	}
 
 	return req.WriteCreated(convertEmailReceiver(*er, e.hostname))
@@ -93,12 +80,17 @@ func (e *EmailReceiverHandler) Create(req api.Context) error {
 
 func convertEmailReceiver(emailReceiver v1.EmailReceiver, hostname string) *types.EmailReceiver {
 	manifest := emailReceiver.Spec.EmailReceiverManifest
+
+	var aliasAssigned *bool
+	if emailReceiver.Generation == emailReceiver.Status.AliasObservedGeneration {
+		aliasAssigned = &emailReceiver.Status.AliasAssigned
+	}
 	er := &types.EmailReceiver{
 		Metadata:              MetadataFrom(&emailReceiver),
 		EmailReceiverManifest: manifest,
-		AddressAssigned:       emailReceiver.Status.AliasAssigned,
+		AddressAssigned:       aliasAssigned,
 	}
-	if hostname != "" && er.AddressAssigned {
+	if hostname != "" && er.AddressAssigned != nil && *er.AddressAssigned {
 		er.EmailAddress = emailReceiver.Spec.User + "@" + hostname
 	}
 	return er
