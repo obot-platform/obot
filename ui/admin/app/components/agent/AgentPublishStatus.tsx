@@ -15,13 +15,11 @@ import { LoadingSpinner } from "~/components/ui/LoadingSpinner";
 
 type AgentPublishStatusProps = {
     agent: Agent;
-    isUpdating: boolean;
     onChange: (agent: Partial<Agent>) => void;
 };
 
 export function AgentPublishStatus({
     agent,
-    isUpdating,
     onChange,
 }: AgentPublishStatusProps) {
     const getAssistants = useSWR(
@@ -88,7 +86,8 @@ export function AgentPublishStatus({
             );
         }
 
-        if (isUpdating)
+        // if aliasAssigned is undefined, it is still resolving
+        if (agent.aliasAssigned === undefined)
             return <LoadingSpinner className="m-l-2 text-muted-foreground" />;
 
         if (!agent.aliasAssigned) return <div />;

@@ -31,7 +31,7 @@ export function Agent({ className, onRefresh }: AgentProps) {
             if (agent.id === prev.id) {
                 return {
                     ...prev,
-                    aliasAssigned: agent.aliasAssigned ?? false,
+                    aliasAssigned: agent.aliasAssigned,
                 };
             }
 
@@ -64,7 +64,6 @@ export function Agent({ className, onRefresh }: AgentProps) {
             <ScrollArea className={cn("h-full", className)}>
                 <AgentPublishStatus
                     agent={agentUpdates}
-                    isUpdating={isUpdating}
                     onChange={partialSetAgent}
                 />
 
