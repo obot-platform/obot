@@ -1,3 +1,4 @@
+import { AvailableModel } from "~/lib/model/availableModels";
 import { Model, ModelManifest, ModelProvider } from "~/lib/model/models";
 import { ApiRoutes } from "~/lib/routers/apiRoutes";
 import { request } from "~/lib/service/api/primitives";
@@ -38,6 +39,23 @@ getModelProviders.key = () => ({
     url: ApiRoutes.toolReferences.base({ type: "modelProvider" }).path,
 });
 
+async function getAvailableModelsByProvider(provider: string) {
+    await new Promise((resolve) => setTimeout(resolve, 3000));
+    const { data } = await request<{ data?: AvailableModel[] }>({
+        url: ApiRoutes.models.getAvailableModelsByProvider(provider).url,
+    });
+
+    return data.data ?? [];
+}
+getAvailableModelsByProvider.key = (provider?: Nullish<string>) => {
+    if (!provider) return null;
+
+    return {
+        url: ApiRoutes.models.getAvailableModelsByProvider(provider).path,
+        provider,
+    };
+};
+
 async function createModel(manifest: ModelManifest) {
     await new Promise((resolve) => setTimeout(resolve, 1000));
     const { data } = await request<Model>({
@@ -72,6 +90,7 @@ export const ModelApiService = {
     getModels,
     getModelById,
     getModelProviders,
+    getAvailableModelsByProvider,
     createModel,
     updateModel,
     deleteModel,
