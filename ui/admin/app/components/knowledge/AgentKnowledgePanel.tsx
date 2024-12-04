@@ -83,41 +83,37 @@ export default function AgentKnowledgePanel({
     const getLocalFiles: SWRResponse<KnowledgeFile[], Error> = useSWR(
         KnowledgeService.getLocalKnowledgeFilesForAgent.key(agentId),
         ({ agentId }) =>
-            KnowledgeService.getLocalKnowledgeFilesForAgent(agentId).then(
-                (items) =>
-                    items
-                        .sort((a, b) => a.fileName.localeCompare(b.fileName))
-                        .map(
-                            (item) =>
-                                ({
-                                    ...item,
-                                }) as KnowledgeFile
-                        )
-                        .filter((item) => !item.deleted)
-            ),
+            KnowledgeService.getLocalKnowledgeFilesForAgent(agentId),
         {
             revalidateOnFocus: false,
             refreshInterval: blockPollingLocalFiles ? undefined : 5000,
         }
     );
     const localFiles = useMemo(
-        () => getLocalFiles.data || [],
+        () =>
+            getLocalFiles.data
+                ?.sort((a, b) => a.fileName.localeCompare(b.fileName))
+                .map(
+                    (item) =>
+                        ({
+                            ...item,
+                        }) as KnowledgeFile
+                )
+                .filter((item) => !item.deleted) || [],
         [getLocalFiles.data]
     );
 
     const getKnowledgeSources = useSWR(
         KnowledgeService.getKnowledgeSourcesForAgent.key(agentId),
-        ({ agentId }) =>
-            KnowledgeService.getKnowledgeSourcesForAgent(agentId).then(
-                (sources) => sources.filter((item) => !item.deleted)
-            ),
+        ({ agentId }) => KnowledgeService.getKnowledgeSourcesForAgent(agentId),
         {
             revalidateOnFocus: false,
             refreshInterval: blockPollingSources ? undefined : 5000,
         }
     );
     const knowledgeSources = useMemo(
-        () => getKnowledgeSources.data || [],
+        () =>
+            getKnowledgeSources.data?.filter((source) => !source.deleted) || [],
         [getKnowledgeSources.data]
     );
 
