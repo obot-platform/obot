@@ -6321,10 +6321,17 @@ func schema_storage_apis_ottootto8ai_v1_RunSpec(ref common.ReferenceCallback) co
 							Format: "",
 						},
 					},
+					"timeout": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.Duration"),
+						},
+					},
 				},
 				Required: []string{"input"},
 			},
 		},
+		Dependencies: []string{
+			"k8s.io/apimachinery/pkg/apis/meta/v1.Duration"},
 	}
 }
 
