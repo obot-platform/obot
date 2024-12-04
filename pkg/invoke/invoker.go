@@ -907,7 +907,15 @@ func (i *Invoker) stream(ctx context.Context, c kclient.WithWatch, prevThreadNam
 					Time:      types.NewTime(time.Now()),
 					Prompt:    prompt,
 				})
+
+				var (
+					timeoutMsg = "timeout waiting for prompt response from user"
+					timeout    = 5 * time.Minute
+				)
 				if len(frame.Prompt.Fields) == 0 {
+					// In this case, we're waiting for an OAuth prompt
+					timeoutMsg = "timeout waiting for oauth"
+					timeout = 90 * time.Second
 					err := i.gptClient.PromptResponse(runCtx, gptscript.PromptResponse{
 						ID: frame.Prompt.ID,
 						Responses: map[string]string{
@@ -924,8 +932,8 @@ func (i *Invoker) stream(ctx context.Context, c kclient.WithWatch, prevThreadNam
 					defer timoutCancel()
 					select {
 					case <-timeoutCtx.Done():
-					case <-time.After(5 * time.Minute):
-						cancelRun(fmt.Errorf("timeout waiting for prompt response from user"))
+					case <-time.After(timeout):
+						cancelRun(errors.New(timeoutMsg))
 					}
 				}()
 			}
