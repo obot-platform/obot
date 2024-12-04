@@ -11,8 +11,8 @@ export const ModelUsage = {
 export type ModelUsage = (typeof ModelUsage)[keyof typeof ModelUsage];
 
 const ModelUsageLabels = {
-    [ModelUsage.LLM]: "LLM",
-    [ModelUsage.TextEmbedding]: "Text Embedding",
+    [ModelUsage.LLM]: "Language Model (Chat)",
+    [ModelUsage.TextEmbedding]: "Text Embedding (Knowledge)",
     [ModelUsage.ImageGeneration]: "Image Generation",
     [ModelUsage.Other]: "Other",
 } as const;
@@ -22,6 +22,34 @@ export const getModelUsageLabel = (usage: string) => {
 
     return ModelUsageLabels[usage as ModelUsage];
 };
+
+export const ModelAlias = {
+    Llm: "llm",
+    LlmMini: "llm-mini",
+    TextEmbedding: "text-embedding",
+    ImageGeneration: "image-generation",
+} as const;
+export type ModelAlias = (typeof ModelAlias)[keyof typeof ModelAlias];
+
+const ModelAliasLabels = {
+    [ModelAlias.Llm]: "Language Model (Chat)",
+    [ModelAlias.LlmMini]: "Language Model (Chat - Fast)",
+    [ModelAlias.TextEmbedding]: "Text Embedding (Knowledge)",
+    [ModelAlias.ImageGeneration]: "Image Generation",
+} as const;
+
+export const getModelAliasLabel = (alias: string) => {
+    if (!(alias in ModelAliasLabels)) return alias;
+
+    return ModelAliasLabels[alias as ModelAlias];
+};
+
+export const ModelAliasToUsageMap = {
+    [ModelAlias.Llm]: ModelUsage.LLM,
+    [ModelAlias.LlmMini]: ModelUsage.LLM,
+    [ModelAlias.TextEmbedding]: ModelUsage.TextEmbedding,
+    [ModelAlias.ImageGeneration]: ModelUsage.ImageGeneration,
+} as const;
 
 export type ModelManifest = {
     name?: string;
@@ -55,13 +83,6 @@ type ModelProviderManifest = {
 export type ModelProvider = EntityMeta &
     ModelProviderManifest &
     ModelProviderStatus;
-
-export const ModelAliasToUsageMap = {
-    llm: ModelUsage.LLM,
-    "llm-mini": ModelUsage.LLM,
-    "text-embedding": ModelUsage.TextEmbedding,
-    "image-generation": ModelUsage.ImageGeneration,
-} as const;
 
 export function getModelUsageFromAlias(alias: string) {
     if (!(alias in ModelAliasToUsageMap)) return null;

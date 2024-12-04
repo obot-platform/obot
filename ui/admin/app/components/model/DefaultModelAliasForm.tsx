@@ -4,7 +4,12 @@ import { toast } from "sonner";
 import useSWR from "swr";
 
 import { UpdateDefaultModelAlias } from "~/lib/model/defaultModelAliases";
-import { Model, getModelUsageFromAlias } from "~/lib/model/models";
+import {
+    Model,
+    ModelAlias,
+    getModelAliasLabel,
+    getModelUsageFromAlias,
+} from "~/lib/model/models";
 import { DefaultModelAliasApiService } from "~/lib/service/api/defaultModelAliasApiService";
 import { ModelApiService } from "~/lib/service/api/modelApiService";
 
@@ -43,6 +48,17 @@ export function DefaultModelAliasForm({
         DefaultModelAliasApiService.getAliases.key(),
         DefaultModelAliasApiService.getAliases
     );
+
+    const sortedDefaultAliases = useMemo(() => {
+        if (!defaultAliases) return null;
+        return Object.values(ModelAlias)
+            .map((alias) =>
+                defaultAliases.find(
+                    (defaultAlias) => defaultAlias.alias === alias
+                )
+            )
+            .filter((x) => !!x);
+    }, [defaultAliases]);
 
     const { data: models } = useSWR(
         ModelApiService.getModels.key(),
@@ -118,7 +134,7 @@ export function DefaultModelAliasForm({
     return (
         <Form {...form}>
             <form onSubmit={handleSubmit} className="space-y-6">
-                {defaultAliases?.map(({ alias, model: defaultModel }) => (
+                {sortedDefaultAliases?.map(({ alias, model: defaultModel }) => (
                     <FormField
                         control={form.control}
                         name={alias}
@@ -131,7 +147,9 @@ export function DefaultModelAliasForm({
 
                             return (
                                 <FormItem className="flex justify-between items-center space-y-0">
-                                    <FormLabel>{alias}</FormLabel>
+                                    <FormLabel>
+                                        {getModelAliasLabel(alias)}
+                                    </FormLabel>
 
                                     <div className="flex flex-col gap-2 w-[50%]">
                                         <FormControl>
@@ -141,7 +159,7 @@ export function DefaultModelAliasForm({
                                                 value={field.value || ""}
                                                 onValueChange={field.onChange}
                                             >
-                                                <SelectTrigger className="w-full">
+                                                <SelectTrigger>
                                                     <SelectValue
                                                         placeholder={
                                                             defaultModel
@@ -150,27 +168,9 @@ export function DefaultModelAliasForm({
                                                 </SelectTrigger>
 
                                                 <SelectContent>
-                                                    {modelOptions ? (
-                                                        modelOptions.map(
-                                                            (model) => (
-                                                                <SelectItem
-                                                                    key={
-                                                                        model.id
-                                                                    }
-                                                                    value={
-                                                                        model.id
-                                                                    }
-                                                                >
-                                                                    {model.id}
-                                                                </SelectItem>
-                                                            )
-                                                        )
-                                                    ) : (
-                                                        <SelectItem
-                                                            value={defaultModel}
-                                                        >
-                                                            {defaultModel}
-                                                        </SelectItem>
+                                                    {renderSelectContent(
+                                                        modelOptions,
+                                                        defaultModel
                                                     )}
                                                 </SelectContent>
                                             </Select>
@@ -195,6 +195,20 @@ export function DefaultModelAliasForm({
             </form>
         </Form>
     );
+
+    function renderSelectContent(
+        modelOptions: Model[] | undefined,
+        defaultModel: string
+    ) {
+        if (!modelOptions)
+            return <SelectItem value={defaultModel}>{defaultModel}</SelectItem>;
+
+        return modelOptions.map((model) => (
+            <SelectItem key={model.id} value={model.id}>
+                {model.name || model.id}
+            </SelectItem>
+        ));
+    }
 }
 
 export function DefaultModelAliasFormDialog() {
@@ -203,7 +217,7 @@ export function DefaultModelAliasFormDialog() {
     return (
         <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
-                <Button>Default Model Aliases</Button>
+                <Button>Default Model</Button>
             </DialogTrigger>
 
             <DialogContent>
