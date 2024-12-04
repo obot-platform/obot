@@ -1,4 +1,3 @@
-import { Link } from "@remix-run/react";
 import { EditIcon, ExternalLink, FileIcon, FilesIcon } from "lucide-react";
 import { $path } from "remix-routes";
 
@@ -17,8 +16,8 @@ import {
     AccordionTrigger,
 } from "~/components/ui/accordion";
 import { Badge } from "~/components/ui/badge";
-import { Button } from "~/components/ui/button";
 import { Card, CardContent } from "~/components/ui/card";
+import { Link } from "~/components/ui/link";
 
 interface ThreadMetaProps {
     for: Agent | Workflow;
@@ -34,8 +33,12 @@ export function ThreadMeta({
     files,
     className,
 }: ThreadMetaProps) {
-    const from = $path("/thread/:id", { id: thread.id });
+    const from = $path("/threads/:id", { id: thread.id });
     const isAgent = entity.id.startsWith("a");
+
+    const assistantLink = isAgent
+        ? $path("/agents/:agent", { agent: entity.id }, { from })
+        : $path("/workflows/:workflow", { workflow: entity.id });
 
     return (
         <Card className={cn("h-full bg-0", className)}>
@@ -58,27 +61,19 @@ export function ThreadMeta({
                                 <td className="text-right">
                                     <div className="flex items-center justify-end gap-2">
                                         <span>{entity.name}</span>
-                                        <Button
-                                            variant="ghost"
-                                            size="icon"
-                                            asChild
+
+                                        <Link
+                                            to={assistantLink}
+                                            as="button"
+                                            buttonVariant="ghost"
+                                            buttonSize="icon"
                                         >
-                                            <Link
-                                                to={$path(
-                                                    isAgent
-                                                        ? "/agents/:agent"
-                                                        : "/workflows/:workflow",
-                                                    { workflow: entity.id },
-                                                    { from }
-                                                )}
-                                            >
-                                                {isAgent ? (
-                                                    <EditIcon className="w-4 h-4" />
-                                                ) : (
-                                                    <ExternalLink className="w-4 h-4" />
-                                                )}
-                                            </Link>
-                                        </Button>
+                                            {isAgent ? (
+                                                <EditIcon className="w-4 h-4" />
+                                            ) : (
+                                                <ExternalLink className="w-4 h-4" />
+                                            )}
+                                        </Link>
                                     </div>
                                 </td>
                             </tr>

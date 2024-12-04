@@ -170,7 +170,7 @@ export default function Threads() {
                         cell.id.includes("actions")
                     }
                     onRowClick={(row) => {
-                        navigate($path("/thread/:id", { id: row.id }));
+                        navigate($path("/threads/:id", { id: row.id }));
                     }}
                 />
             </div>
@@ -231,7 +231,7 @@ export default function Threads() {
                             <TooltipTrigger asChild>
                                 <Button variant="ghost" size="icon" asChild>
                                     <Link
-                                        to={$path("/thread/:id", {
+                                        to={$path("/threads/:id", {
                                             id: row.original.id,
                                         })}
                                     >
