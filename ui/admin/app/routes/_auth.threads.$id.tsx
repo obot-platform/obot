@@ -71,51 +71,50 @@ export default function ChatAgent() {
         throw new Error("Trying to view a thread with an unsupported parent.");
     };
 
-    return (
-        <ChatProvider
-            id={agent?.id || ""}
-            mode="agent"
-            threadId={thread.id}
-            readOnly
-        >
-            <div className="h-full flex flex-col overflow-hidden relative">
-                <Tooltip>
-                    <Button
-                        variant="outline"
-                        size="icon"
-                        className="absolute top-4 left-4 z-10"
-                        asChild
-                    >
-                        <TooltipTrigger>
-                            <Link to="/threads">
-                                <ArrowLeftIcon className="h-4 w-4" />
-                            </Link>
-                        </TooltipTrigger>
-                    </Button>
-                    <TooltipContent>Go Back</TooltipContent>
-                </Tooltip>
+    const [isAgent, entity] = [agent !== null, getEntity()];
 
-                <ResizablePanelGroup
-                    direction="horizontal"
-                    className="flex-auto"
+    return (
+        <div className="h-full flex flex-col overflow-hidden relative">
+            <Tooltip>
+                <Button
+                    variant="outline"
+                    size="icon"
+                    className="absolute top-4 left-4 z-10"
+                    asChild
                 >
-                    <ResizablePanel defaultSize={70} minSize={25}>
+                    <TooltipTrigger>
+                        <Link to="/threads">
+                            <ArrowLeftIcon className="h-4 w-4" />
+                        </Link>
+                    </TooltipTrigger>
+                </Button>
+                <TooltipContent>Go Back</TooltipContent>
+            </Tooltip>
+
+            <ResizablePanelGroup direction="horizontal" className="flex-auto">
+                <ResizablePanel defaultSize={70} minSize={25}>
+                    <ChatProvider
+                        id={entity.id}
+                        mode="agent"
+                        threadId={thread.id}
+                        readOnly={!isAgent}
+                    >
                         <Chat />
-                    </ResizablePanel>
-                    <ResizableHandle />
-                    <ResizablePanel defaultSize={30} minSize={25}>
-                        <ScrollArea className="h-full">
-                            <ThreadMeta
-                                className="rounded-none border-none"
-                                thread={thread}
-                                for={getEntity()}
-                                files={files}
-                                knowledge={knowledge}
-                            />
-                        </ScrollArea>
-                    </ResizablePanel>
-                </ResizablePanelGroup>
-            </div>
-        </ChatProvider>
+                    </ChatProvider>
+                </ResizablePanel>
+                <ResizableHandle />
+                <ResizablePanel defaultSize={30} minSize={25}>
+                    <ScrollArea className="h-full">
+                        <ThreadMeta
+                            className="rounded-none border-none"
+                            thread={thread}
+                            for={entity}
+                            files={files}
+                            knowledge={knowledge}
+                        />
+                    </ScrollArea>
+                </ResizablePanel>
+            </ResizablePanelGroup>
+        </div>
     );
 }
