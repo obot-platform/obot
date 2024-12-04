@@ -92,12 +92,7 @@ export function AppSidebar() {
                     <OttoLogo hideText={state === "collapsed"} />
                 </div>
             </SidebarHeader>
-            <SidebarContent
-                className={cn(
-                    "transition-all duration-300 ease-in-out",
-                    state === "collapsed" ? "" : "px-2 w-fit"
-                )}
-            >
+            <SidebarContent>
                 <SidebarGroup>
                     <SidebarGroupContent>
                         <SidebarMenu className="w-full">
@@ -112,7 +107,6 @@ export function AppSidebar() {
                                         isActive={location.pathname.startsWith(
                                             item.url
                                         )}
-                                        variant="spill"
                                     >
                                         <Link
                                             to={item.url}
