@@ -43,11 +43,12 @@ func New(invoker *invoke.Invoker, c kclient.Client, gClient *gptscript.GPTScript
 }
 
 func (d *Dispatcher) URLForModelProvider(ctx context.Context, namespace, modelProviderName string) (*url.URL, error) {
+	key := namespace + "/" + modelProviderName
 	// Check the map with the read lock.
 	d.lock.RLock()
-	u, ok := d.urls[modelProviderName]
+	u, ok := d.urls[key]
 	d.lock.RUnlock()
-	if ok && (u.Scheme == "https" || engine.IsDaemonRunning(u.String())) {
+	if ok && (u.Hostname() == "127.0.0.1" || engine.IsDaemonRunning(u.String())) {
 		return u, nil
 	}
 
@@ -56,8 +57,8 @@ func (d *Dispatcher) URLForModelProvider(ctx context.Context, namespace, modelPr
 
 	// If we didn't find anything with the read lock, check with the write lock.
 	// It could be that another thread beat us to the write lock and added the model provider we desire.
-	u, ok = d.urls[modelProviderName]
-	if ok && (u.Scheme == "https" || engine.IsDaemonRunning(u.String())) {
+	u, ok = d.urls[key]
+	if ok && (u.Hostname() != "127.0.0.1" || engine.IsDaemonRunning(u.String())) {
 		return u, nil
 	}
 
@@ -67,8 +68,21 @@ func (d *Dispatcher) URLForModelProvider(ctx context.Context, namespace, modelPr
 		return nil, err
 	}
 
-	d.urls[modelProviderName] = u
+	d.urls[key] = u
 	return u, nil
+}
+
+func (d *Dispatcher) StopModelProvider(namespace, modelProviderName string) {
+	key := namespace + "/" + modelProviderName
+	d.lock.Lock()
+	defer d.lock.Unlock()
+
+	u := d.urls[key]
+	if u != nil && u.Hostname() == "127.0.0.1" && engine.IsDaemonRunning(u.String()) {
+		engine.StopDaemon(u.String())
+	}
+
+	delete(d.urls, key)
 }
 
 func (d *Dispatcher) TransformRequest(req *http.Request, namespace string) error {

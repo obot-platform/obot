@@ -8,18 +8,21 @@ import (
 	"github.com/gptscript-ai/go-gptscript"
 	"github.com/otto8-ai/otto8/apiclient/types"
 	"github.com/otto8-ai/otto8/pkg/api"
+	"github.com/otto8-ai/otto8/pkg/gateway/server/dispatcher"
 	v1 "github.com/otto8-ai/otto8/pkg/storage/apis/otto.otto8.ai/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type ModelProviderHandler struct {
-	gptscript *gptscript.GPTScript
+	gptscript  *gptscript.GPTScript
+	dispatcher *dispatcher.Dispatcher
 }
 
-func NewModelProviderHandler(gClient *gptscript.GPTScript) *ModelProviderHandler {
+func NewModelProviderHandler(gClient *gptscript.GPTScript, dispatcher *dispatcher.Dispatcher) *ModelProviderHandler {
 	return &ModelProviderHandler{
-		gptscript: gClient,
+		gptscript:  gClient,
+		dispatcher: dispatcher,
 	}
 }
 
@@ -92,6 +95,8 @@ func (mp *ModelProviderHandler) Configure(req api.Context) error {
 	}); err != nil {
 		return fmt.Errorf("failed to create credential: %w", err)
 	}
+
+	mp.dispatcher.StopModelProvider(ref.Namespace, ref.Name)
 
 	return nil
 }

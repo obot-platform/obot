@@ -16,6 +16,7 @@ import (
 	"github.com/otto8-ai/otto8/logger"
 	v1 "github.com/otto8-ai/otto8/pkg/storage/apis/otto.otto8.ai/v1"
 	"github.com/otto8-ai/otto8/pkg/system"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/yaml"
@@ -193,51 +194,11 @@ func (h *Handler) PollRegistry(ctx context.Context, c client.Client) {
 		break
 	}
 
-	var openAICredentialSet bool
 	t := time.NewTicker(time.Hour)
 	defer t.Stop()
 	for {
 		if err := h.readFromRegistry(ctx, c); err != nil {
 			log.Errorf("Failed to read from registry: %v", err)
-		}
-
-		// If the openai-model-provider exists and the OPENAI_API_KEY environment variable is set, then ensure the credential exists.
-		if !openAICredentialSet && os.Getenv("OPENAI_API_KEY") != "" {
-			var openAIModelProvider v1.ToolReference
-
-			// Not reporting errors here, best-effort only.
-			if err := c.Get(ctx, client.ObjectKey{Namespace: system.DefaultNamespace, Name: "openai-model-provider"}, &openAIModelProvider); err == nil {
-				if cred, err := h.gptClient.RevealCredential(ctx, []string{string(openAIModelProvider.UID)}, "openai-model-provider"); err != nil && strings.HasSuffix(err.Error(), "credential not found") {
-					// The credential doesn't exist, so create it.
-					err = h.gptClient.CreateCredential(ctx, gptscript.Credential{
-						Context:  string(openAIModelProvider.UID),
-						ToolName: "openai-model-provider",
-						Type:     gptscript.CredentialTypeModelProvider,
-						Env: map[string]string{
-							"OTTO8_OPENAI_MODEL_PROVIDER_API_KEY": os.Getenv("OPENAI_API_KEY"),
-						},
-					})
-
-					openAICredentialSet = err == nil
-				} else if err == nil && cred.Env["OTTO8_OPENAI_MODEL_PROVIDER_API_KEY"] != os.Getenv("OPENAI_API_KEY") {
-					// If the credential exists, but has a different value, then update it.
-					// The only way to update it is to delete the existing credential and recreate it.
-					if err = h.gptClient.DeleteCredential(ctx, string(openAIModelProvider.UID), "openai-model-provider"); err == nil {
-						err = h.gptClient.CreateCredential(ctx, gptscript.Credential{
-							Context:  string(openAIModelProvider.UID),
-							ToolName: "openai-model-provider",
-							Type:     gptscript.CredentialTypeModelProvider,
-							Env: map[string]string{
-								"OTTO8_OPENAI_MODEL_PROVIDER_API_KEY": os.Getenv("OPENAI_API_KEY"),
-							},
-						})
-
-						openAICredentialSet = err == nil
-					}
-				} else {
-					openAICredentialSet = true
-				}
-			}
 		}
 
 		select {
@@ -295,6 +256,60 @@ func (h *Handler) Populate(req router.Request, resp router.Response) error {
 	}
 
 	return nil
+}
+
+func (h *Handler) EnsureOpenAIEnvCredential(ctx context.Context, c client.Client) error {
+	if os.Getenv("OPENAI_API_KEY") == "" {
+		return nil
+	}
+
+	for {
+		select {
+		case <-time.After(2 * time.Second):
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+
+		// If the openai-model-provider exists and the OPENAI_API_KEY environment variable is set, then ensure the credential exists.
+		var openAIModelProvider v1.ToolReference
+		if err := c.Get(ctx, client.ObjectKey{Namespace: system.DefaultNamespace, Name: "openai-model-provider"}, &openAIModelProvider); apierrors.IsNotFound(err) {
+			continue
+		} else if err != nil {
+			return err
+		}
+
+		if cred, err := h.gptClient.RevealCredential(ctx, []string{string(openAIModelProvider.UID)}, "openai-model-provider"); err != nil {
+			if strings.HasSuffix(err.Error(), "credential not found") {
+				// The credential doesn't exist, so create it.
+				return h.gptClient.CreateCredential(ctx, gptscript.Credential{
+					Context:  string(openAIModelProvider.UID),
+					ToolName: "openai-model-provider",
+					Type:     gptscript.CredentialTypeModelProvider,
+					Env: map[string]string{
+						"OTTO8_OPENAI_MODEL_PROVIDER_API_KEY": os.Getenv("OPENAI_API_KEY"),
+					},
+				})
+			}
+
+			return fmt.Errorf("failed to check OpenAI credential: %w", err)
+		} else if cred.Env["OTTO8_OPENAI_MODEL_PROVIDER_API_KEY"] != os.Getenv("OPENAI_API_KEY") {
+			// If the credential exists, but has a different value, then update it.
+			// The only way to update it is to delete the existing credential and recreate it.
+			if err = h.gptClient.DeleteCredential(ctx, string(openAIModelProvider.UID), "openai-model-provider"); err != nil {
+				return fmt.Errorf("failed to delete credential: %w", err)
+			}
+			return h.gptClient.CreateCredential(ctx, gptscript.Credential{
+				Context:  string(openAIModelProvider.UID),
+				ToolName: "openai-model-provider",
+				Type:     gptscript.CredentialTypeModelProvider,
+				Env: map[string]string{
+					"OTTO8_OPENAI_MODEL_PROVIDER_API_KEY": os.Getenv("OPENAI_API_KEY"),
+				},
+			})
+		}
+
+		return nil
+	}
 }
 
 func (h *Handler) RemoveModelProviderCredential(req router.Request, _ router.Response) error {

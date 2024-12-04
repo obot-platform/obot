@@ -37,7 +37,7 @@ func (c *Controller) PostStart(ctx context.Context) error {
 		return fmt.Errorf("failed to apply data: %w", err)
 	}
 	go c.toolRefHandler.PollRegistry(ctx, c.services.Router.Backend())
-	return nil
+	return c.toolRefHandler.EnsureOpenAIEnvCredential(ctx, c.services.Router.Backend())
 }
 
 func (c *Controller) Start(ctx context.Context) error {

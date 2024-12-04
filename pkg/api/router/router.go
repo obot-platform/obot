@@ -23,7 +23,7 @@ func Router(services *services.Services) (http.Handler, error) {
 	cronJobs := handlers.NewCronJobHandler()
 	models := handlers.NewModelHandler(services.GPTClient)
 	availableModels := handlers.NewAvailableModelsHandler(services.GPTClient, services.ModelProviderDispatcher)
-	modelProviders := handlers.NewModelProviderHandler(services.GPTClient)
+	modelProviders := handlers.NewModelProviderHandler(services.GPTClient, services.ModelProviderDispatcher)
 	prompt := handlers.NewPromptHandler(services.GPTClient)
 	emailreceiver := handlers.NewEmailReceiverHandler(services.EmailServerName)
 	defaultModelAliases := handlers.NewDefaultModelAliasHandler()
