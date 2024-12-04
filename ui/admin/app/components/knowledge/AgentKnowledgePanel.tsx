@@ -107,7 +107,10 @@ export default function AgentKnowledgePanel({
 
     const getKnowledgeSources = useSWR(
         KnowledgeService.getKnowledgeSourcesForAgent.key(agentId),
-        ({ agentId }) => KnowledgeService.getKnowledgeSourcesForAgent(agentId),
+        ({ agentId }) =>
+            KnowledgeService.getKnowledgeSourcesForAgent(agentId).then(
+                (sources) => sources.filter((item) => !item.deleted)
+            ),
         {
             revalidateOnFocus: false,
             refreshInterval: blockPollingSources ? undefined : 5000,
@@ -132,7 +135,10 @@ export default function AgentKnowledgePanel({
 
     const handleDeleteKnowledgeSource = async (id: string) => {
         await KnowledgeService.deleteKnowledgeSource(agentId, id);
-        getKnowledgeSources.mutate();
+        getKnowledgeSources.mutate(
+            (prev) => prev?.filter((source) => source.id !== id),
+            false
+        );
     };
 
     useEffect(() => {

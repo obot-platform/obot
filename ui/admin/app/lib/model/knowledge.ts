@@ -31,6 +31,7 @@ export type KnowledgeSource = {
     id: string;
     name: string;
     agentID: string;
+    deleted?: string;
     state: KnowledgeSourceStatus;
     syncDetails?: RemoteKnowledgeSourceState;
     status?: string;
