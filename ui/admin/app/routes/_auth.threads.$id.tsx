@@ -33,7 +33,7 @@ export const clientLoader = async ({
     request,
 }: ClientLoaderFunctionArgs) => {
     const routeInfo = RouteService.getRouteInfo(
-        "/thread/:id",
+        "/threads/:id",
         new URL(request.url),
         params
     );

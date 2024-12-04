@@ -106,7 +106,7 @@ function RouteBreadcrumbs() {
                     </>
                 )}
 
-                {routeInfo?.path === "/thread/:id" && (
+                {routeInfo?.path === "/threads/:id" && (
                     <>
                         <BreadcrumbItem>
                             <BreadcrumbLink asChild>

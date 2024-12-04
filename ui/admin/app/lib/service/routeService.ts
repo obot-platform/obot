@@ -86,9 +86,9 @@ export const RouteHelperMap = {
         path: "/oauth-apps",
         schema: z.null(),
     },
-    "/thread/:id": {
-        regex: exactRegex($path("/thread/:id", { id: "(.+)" })),
-        path: "/thread/:id",
+    "/threads/:id": {
+        regex: exactRegex($path("/threads/:id", { id: "(.+)" })),
+        path: "/threads/:id",
         schema: z.null(),
     },
     "/threads": {
