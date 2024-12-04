@@ -2,7 +2,7 @@ import { ComponentProps, useMemo } from "react";
 
 import { Workflow } from "~/lib/model/workflows";
 
-import { NameDescriptionForm } from "~/components/workflow/NameDescriptionForm";
+import { NameDescriptionForm } from "~/components/composed/NameDescriptionForm";
 
 type ParamValues = Workflow["params"];
 

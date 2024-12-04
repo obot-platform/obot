@@ -14,6 +14,7 @@ export async function clientLoader() {
     const me = await preload(UserService.getMe.key(), () =>
         UserService.getMe()
     );
+
     return { me };
 }
 

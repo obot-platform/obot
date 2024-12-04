@@ -199,6 +199,11 @@ function RouteBreadcrumbs() {
                         <BreadcrumbPage>OAuth Apps</BreadcrumbPage>
                     </BreadcrumbItem>
                 )}
+                {routeInfo?.path === "/model-providers" && (
+                    <BreadcrumbItem>
+                        <BreadcrumbPage>Model Providers</BreadcrumbPage>
+                    </BreadcrumbItem>
+                )}
             </BreadcrumbList>
         </Breadcrumb>
     );

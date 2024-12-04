@@ -1,6 +1,7 @@
 import { Link, useLocation } from "@remix-run/react";
 import {
     BotIcon,
+    BoxesIcon,
     BrainIcon,
     KeyIcon,
     MessageSquare,
@@ -71,6 +72,11 @@ const items = [
         title: "Models",
         url: $path("/models"),
         icon: BrainIcon,
+    },
+    {
+        title: "Model Providers",
+        url: $path("/model-providers"),
+        icon: BoxesIcon,
     },
     {
         title: "Webhooks",

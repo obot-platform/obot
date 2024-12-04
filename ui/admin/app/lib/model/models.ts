@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { ModelProviderStatus } from "~/lib/model/modelProviders";
 import { EntityMeta } from "~/lib/model/primitives";
 
 export const ModelUsage = {
@@ -62,12 +63,6 @@ export type ModelManifest = {
     modelProvider: string;
     active: boolean;
     usage: ModelUsage;
-};
-
-export type ModelProviderStatus = {
-    configured: boolean;
-    requiredConfigurationParameters?: string[];
-    missingConfigurationParameters?: string[];
 };
 
 export type Model = EntityMeta & ModelManifest & ModelProviderStatus;
