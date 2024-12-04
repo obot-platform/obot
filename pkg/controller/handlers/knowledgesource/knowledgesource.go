@@ -199,7 +199,7 @@ func (k *Handler) Sync(req router.Request, _ router.Response) error {
 
 	invokeOpts := invoke.SystemTaskOptions{
 		CredentialContextIDs: []string{credentialContextID},
-		Timeout:              30 * time.Minute,
+		Timeout:              1 * time.Hour,
 	}
 
 	thread, err := getThread(req.Ctx, req.Client, source)
