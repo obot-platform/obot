@@ -8,12 +8,14 @@ import useSWR, { mutate, preload } from "swr";
 
 import { Agent } from "~/lib/model/agents";
 import { AgentService } from "~/lib/service/api/agentService";
+import { ModelProviderApiService } from "~/lib/service/api/modelProviderApiService";
 import { ThreadsService } from "~/lib/service/api/threadsService";
 import { generateRandomName } from "~/lib/service/nameGenerator";
 import { timeSince } from "~/lib/utils";
 
 import { TypographyH2, TypographyP } from "~/components/Typography";
 import { DeleteAgent } from "~/components/agent/DeleteAgent";
+import { FirstModelProviderBanner } from "~/components/agent/FirstModelProviderBanner";
 import { DataTable } from "~/components/composed/DataTable";
 import { Button } from "~/components/ui/button";
 import {
@@ -27,6 +29,10 @@ export async function clientLoader() {
     await Promise.all([
         preload(AgentService.getAgents.key(), AgentService.getAgents),
         preload(ThreadsService.getThreads.key(), ThreadsService.getThreads),
+        preload(
+            ModelProviderApiService.getModelProviders.key(),
+            ModelProviderApiService.getModelProviders
+        ),
     ]);
     return null;
 }
@@ -35,6 +41,11 @@ export default function Agents() {
     const navigate = useNavigate();
     const getThreads = useSWR(ThreadsService.getThreads.key(), () =>
         ThreadsService.getThreads()
+    );
+
+    const { data: modelProviders } = useSWR(
+        ModelProviderApiService.getModelProviders.key(),
+        () => ModelProviderApiService.getModelProviders()
     );
 
     const threadCounts = useMemo(() => {
@@ -55,9 +66,13 @@ export default function Agents() {
     );
 
     const agents = getAgents.data || [];
+    const modelProviderConfigured = modelProviders?.some(
+        (modelProvider) => modelProvider.configured
+    );
 
     return (
         <div>
+            <FirstModelProviderBanner />
             <div className="h-full p-8 flex flex-col gap-4">
                 <div className="flex-auto overflow-hidden">
                     <div className="flex space-x-2 width-full justify-between mb-8">
@@ -65,6 +80,7 @@ export default function Agents() {
                         <Button
                             variant="outline"
                             className="justify-start"
+                            disabled={!modelProviderConfigured}
                             onClick={() => {
                                 AgentService.createAgent({
                                     agent: {
