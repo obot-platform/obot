@@ -1,4 +1,3 @@
-import { Link } from "@remix-run/react";
 import { ArrowLeft, HomeIcon } from "lucide-react";
 
 import { OttoLogo } from "~/components/branding/OttoLogo";
@@ -11,6 +10,7 @@ import {
     CardHeader,
     CardTitle,
 } from "~/components/ui/card";
+import { Link } from "~/components/ui/link";
 
 export function Error({ error }: { error: Error }) {
     return (
@@ -28,19 +28,21 @@ export function Error({ error }: { error: Error }) {
                     </p>
                 </CardContent>
                 <CardFooter className="flex gap-4">
-                    <Button className="w-full" variant="secondary" asChild>
-                        <Link to="/">
-                            <HomeIcon className="mr-2" /> Go home
-                        </Link>
-                    </Button>
+                    <Link
+                        as="button"
+                        className="w-full"
+                        buttonVariant="secondary"
+                        to="/"
+                    >
+                        <HomeIcon /> Go home
+                    </Link>
                     <Button
                         className="w-full"
                         variant="secondary"
-                        onClick={() => {
-                            window.location.reload();
-                        }}
+                        onClick={() => window.location.reload()}
+                        startContent={<ArrowLeft />}
                     >
-                        <ArrowLeft className="mr-2" /> Go back
+                        Go back
                     </Button>
                 </CardFooter>
             </Card>
