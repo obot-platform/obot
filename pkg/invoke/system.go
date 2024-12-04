@@ -3,6 +3,7 @@ package invoke
 import (
 	"context"
 	"encoding/json"
+	"time"
 
 	v1 "github.com/otto8-ai/otto8/pkg/storage/apis/otto.otto8.ai/v1"
 )
@@ -10,12 +11,16 @@ import (
 type SystemTaskOptions struct {
 	CredentialContextIDs []string
 	Env                  []string
+	Timeout              time.Duration
 }
 
 func complete(opts []SystemTaskOptions) (result SystemTaskOptions) {
 	for _, opt := range opts {
 		result.CredentialContextIDs = append(result.CredentialContextIDs, opt.CredentialContextIDs...)
 		result.Env = append(result.Env, opt.Env...)
+		if opt.Timeout > result.Timeout {
+			result.Timeout = opt.Timeout // highest timeout wins
+		}
 	}
 	return
 }
@@ -51,5 +56,6 @@ func (i *Invoker) SystemTask(ctx context.Context, thread *v1.Thread, tool, input
 		Env:                  opt.Env,
 		CredentialContextIDs: opt.CredentialContextIDs,
 		Synchronous:          true,
+		Timeout:              opt.Timeout,
 	})
 }

@@ -325,6 +325,7 @@ type runOptions struct {
 	ForceNoResume         bool
 	Env                   []string
 	CredentialContextIDs  []string
+	Timeout               time.Duration
 }
 
 var (
@@ -373,6 +374,7 @@ func (i *Invoker) createRun(ctx context.Context, c kclient.WithWatch, thread *v1
 			Env:                   opts.Env,
 			CredentialContextIDs:  opts.CredentialContextIDs,
 			DefaultModel:          string(types.DefaultModelAliasTypeLLM),
+			Timeout:               metav1.Duration{Duration: opts.Timeout},
 		},
 	}
 
@@ -842,7 +844,11 @@ func (i *Invoker) stream(ctx context.Context, c kclient.WithWatch, prevThreadNam
 	runCtx, cancelRun := context.WithCancelCause(ctx)
 	defer cancelRun(retErr)
 
-	go timeoutAfter(runCtx, cancelRun, 10*time.Minute)
+	timeout := 10 * time.Minute
+	if run.Spec.Timeout.Duration > 0 {
+		timeout = run.Spec.Timeout.Duration
+	}
+	go timeoutAfter(runCtx, cancelRun, timeout)
 	go watchThreadAbort(runCtx, c, thread, cancelRun)
 
 	var (

@@ -74,6 +74,7 @@ type RunSpec struct {
 	ToolReferenceType     types.ToolReferenceType `json:"toolReferenceType,omitempty"`
 	CredentialContextIDs  []string                `json:"credentialContextIDs,omitempty"`
 	DefaultModel          string                  `json:"defaultModel,omitempty"`
+	Timeout               metav1.Duration         `json:"timeout,omitempty"`
 }
 
 func (in *Run) DeleteRefs() []Ref {
