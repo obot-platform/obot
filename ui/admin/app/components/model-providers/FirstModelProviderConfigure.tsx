@@ -15,7 +15,11 @@ import {
     DialogTrigger,
 } from "~/components/ui/dialog";
 
-export function FirstModelProviderConfigure() {
+export function FirstModelProviderConfigure({
+    onSuccess,
+}: {
+    onSuccess: () => void;
+}) {
     const { modelProviders } = useModelProviders();
     const [dialogIsOpen, setDialogIsOpen] = useState(false);
 
@@ -26,10 +30,17 @@ export function FirstModelProviderConfigure() {
         setDialogIsOpen(false);
         setSelectedModelProvider(null);
     };
+
     const handleOpenChange = (open: boolean) => {
         if (!open) {
             handleClose();
         }
+    };
+
+    const handleSuccessClose = () => {
+        console.log("C");
+        handleClose();
+        onSuccess();
     };
 
     return (
@@ -54,7 +65,7 @@ export function FirstModelProviderConfigure() {
                 >
                     <ModelProviderConfigureContent
                         modelProvider={selectedModelProvider}
-                        onSuccess={handleClose}
+                        onSuccess={handleSuccessClose}
                     />
                 </DialogContent>
             ) : (

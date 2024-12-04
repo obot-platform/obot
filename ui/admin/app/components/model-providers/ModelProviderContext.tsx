@@ -28,8 +28,6 @@ const ModelProviderContext = createContext<
     ModelProviderContextType | undefined
 >(undefined);
 
-type ModelProviderName = keyof typeof readableNameMapToModelProvider;
-
 export const readableNameMapToModelProvider = {
     "ollama-model-provider": "Ollama",
     "anthropic-model-provider": "Anthropic",

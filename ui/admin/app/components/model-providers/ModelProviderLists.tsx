@@ -14,7 +14,6 @@ export function ModelProviderList() {
                     <Card key={modelProvider.id}>
                         <CardHeader className="pb-0 flex flex-row justify-end">
                             <ModelProviderConfigure
-                                variant="cog"
                                 modelProvider={modelProvider}
                             />
                         </CardHeader>
