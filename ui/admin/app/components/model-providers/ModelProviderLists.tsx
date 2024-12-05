@@ -1,11 +1,17 @@
 import { BoxesIcon, CircleCheckIcon, CircleSlashIcon } from "lucide-react";
+import useSWR from "swr";
+
+import { ModelProviderApiService } from "~/lib/service/api/modelProviderApiService";
 
 import { ModelProviderConfigure } from "~/components/model-providers/ModelProviderConfigure";
-import { useModelProviders } from "~/components/model-providers/ModelProviderContext";
 import { Card, CardContent, CardHeader } from "~/components/ui/card";
 
 export function ModelProviderList() {
-    const { modelProviders } = useModelProviders();
+    const { data: modelProviders } = useSWR(
+        ModelProviderApiService.getModelProviders.key(),
+        () => ModelProviderApiService.getModelProviders(),
+        { fallbackData: [] }
+    );
 
     return (
         <div className="space-y-4">

@@ -1,8 +1,10 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useFieldArray, useForm } from "react-hook-form";
+import { mutate } from "swr";
 import { z } from "zod";
 
 import { ModelProviderConfig } from "~/lib/model/modelProviders";
+import { ModelProviderApiService } from "~/lib/service/api/modelProviderApiService";
 
 import { TypographyH4 } from "~/components/Typography";
 import {
@@ -10,7 +12,6 @@ import {
     ParamFormValues,
 } from "~/components/composed/NameDescriptionForm";
 import { ControlledInput } from "~/components/form/controlledInputs";
-import { useModelProviders } from "~/components/model-providers/ModelProviderContext";
 import { Button } from "~/components/ui/button";
 import { Form } from "~/components/ui/form";
 import { Separator } from "~/components/ui/separator";
@@ -75,7 +76,13 @@ export function ModelProviderForm({
     parameters: ModelProviderConfig;
     requiredParameters: string[];
 }) {
-    const { configureModelProvider } = useModelProviders();
+    const configureModelProvider = useAsync(
+        ModelProviderApiService.configureModelProviderById,
+        {
+            onSuccess: () =>
+                mutate(ModelProviderApiService.getModelProviders.key()),
+        }
+    );
 
     const form = useForm<ModelProviderFormValues>({
         resolver: zodResolver(formSchema),
@@ -111,7 +118,10 @@ export function ModelProviderForm({
                 }
             );
 
-            await configureModelProvider(modelProviderId, allConfigParams);
+            await configureModelProvider.execute(
+                modelProviderId,
+                allConfigParams
+            );
             onSuccess(allConfigParams);
         }
     );
