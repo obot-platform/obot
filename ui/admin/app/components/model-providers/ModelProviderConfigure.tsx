@@ -1,11 +1,12 @@
-import { BoxesIcon, SettingsIcon } from "lucide-react";
 import { useState } from "react";
 import useSWR from "swr";
 
 import { ModelProvider, ModelProviderConfig } from "~/lib/model/modelProviders";
 import { ModelProviderApiService } from "~/lib/service/api/modelProviderApiService";
 
+import { DefaultModelAliasForm } from "~/components/composed/DefaultModelAliasForm";
 import { ModelProviderForm } from "~/components/model-providers/ModelProviderForm";
+import { ModelProviderIcon } from "~/components/model-providers/ModelProviderIcon";
 import { LoadingSpinner } from "~/components/ui/LoadingSpinner";
 import { Button } from "~/components/ui/button";
 import {
@@ -25,12 +26,22 @@ export function ModelProviderConfigure({
     modelProvider,
 }: ModelProviderConfigureProps) {
     const [dialogIsOpen, setDialogIsOpen] = useState(false);
+    const [showDefaultModelAliasForm, setShowDefaultModelAliasForm] =
+        useState(false);
+
+    const handleDone = () => {
+        setDialogIsOpen(false);
+        setShowDefaultModelAliasForm(false);
+    };
 
     return (
         <Dialog open={dialogIsOpen} onOpenChange={setDialogIsOpen}>
             <DialogTrigger asChild>
-                <Button size="icon" variant="ghost" className="mt-0">
-                    <SettingsIcon />
+                <Button
+                    variant={modelProvider.configured ? "secondary" : "accent"}
+                    className="mt-0 w-full"
+                >
+                    {modelProvider.configured ? "Modify" : "Configure"}
                 </Button>
             </DialogTrigger>
 
@@ -38,11 +49,22 @@ export function ModelProviderConfigure({
                 Configure Model Provider
             </DialogDescription>
 
-            <DialogContent>
-                <ModelProviderConfigureContent
-                    modelProvider={modelProvider}
-                    onSuccess={() => setDialogIsOpen(false)}
-                />
+            <DialogContent className="p-0 gap-0">
+                {showDefaultModelAliasForm ? (
+                    <div className="p-6">
+                        <DialogHeader>
+                            <DialogTitle className="flex items-center gap-2 pb-4">
+                                Configure Default Model Aliases
+                            </DialogTitle>
+                        </DialogHeader>
+                        <DefaultModelAliasForm onSuccess={handleDone} />
+                    </div>
+                ) : (
+                    <ModelProviderConfigureContent
+                        modelProvider={modelProvider}
+                        onSuccess={() => setShowDefaultModelAliasForm(true)}
+                    />
+                )}
             </DialogContent>
         </Dialog>
     );
@@ -72,9 +94,9 @@ export function ModelProviderConfigureContent({
 
     return (
         <>
-            <DialogHeader>
-                <DialogTitle className="mb-4 flex items-center gap-2">
-                    <BoxesIcon />{" "}
+            <DialogHeader className="space-y-0 border-b-secondary border-b">
+                <DialogTitle className="flex items-center gap-2 px-6 py-4">
+                    <ModelProviderIcon modelProvider={modelProvider} />{" "}
                     {modelProvider.configured
                         ? `Configure ${modelProvider.name}`
                         : `Set Up ${modelProvider.name}`}
@@ -83,14 +105,12 @@ export function ModelProviderConfigureContent({
             {revealModelProvider.isLoading ? (
                 <LoadingSpinner />
             ) : (
-                <>
-                    <ModelProviderForm
-                        modelProviderId={modelProvider.id}
-                        onSuccess={handleSuccess}
-                        parameters={parameters ?? {}}
-                        requiredParameters={requiredParameters ?? []}
-                    />
-                </>
+                <ModelProviderForm
+                    modelProvider={modelProvider}
+                    onSuccess={handleSuccess}
+                    parameters={parameters ?? {}}
+                    requiredParameters={requiredParameters ?? []}
+                />
             )}
         </>
     );

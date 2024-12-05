@@ -216,13 +216,17 @@ export function DefaultModelAliasForm({
     }
 }
 
-export function DefaultModelAliasFormDialog() {
+export function DefaultModelAliasFormDialog({
+    disabled,
+}: {
+    disabled?: boolean;
+}) {
     const [open, setOpen] = useState(false);
 
     return (
         <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
-                <Button>Default Model</Button>
+                <Button disabled={disabled}>Default Model</Button>
             </DialogTrigger>
 
             <DialogContent>

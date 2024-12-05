@@ -1,58 +1,60 @@
-import { BoxesIcon, CircleCheckIcon, CircleSlashIcon } from "lucide-react";
-import useSWR from "swr";
+import { Link } from "@remix-run/react";
+import { CircleCheckIcon, CircleSlashIcon } from "lucide-react";
 
-import { ModelProviderApiService } from "~/lib/service/api/modelProviderApiService";
-import { cn } from "~/lib/utils";
+import { ModelProvider } from "~/lib/model/modelProviders";
 
 import { ModelProviderConfigure } from "~/components/model-providers/ModelProviderConfigure";
+import { ModelProviderIcon } from "~/components/model-providers/ModelProviderIcon";
+import { ModelProviderLinks } from "~/components/model-providers/constants";
+import { Badge } from "~/components/ui/badge";
 import { Card, CardContent, CardHeader } from "~/components/ui/card";
 
-export function ModelProviderList() {
-    const { data: modelProviders } = useSWR(
-        ModelProviderApiService.getModelProviders.key(),
-        () => ModelProviderApiService.getModelProviders(),
-        { fallbackData: [] }
-    );
-
+export function ModelProviderList({
+    modelProviders,
+}: {
+    modelProviders: ModelProvider[];
+}) {
     return (
         <div className="space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-4">
                 {modelProviders.map((modelProvider) => (
                     <Card key={modelProvider.id}>
-                        <CardHeader className="pb-0 flex flex-row justify-end">
-                            <ModelProviderConfigure
-                                modelProvider={modelProvider}
-                            />
-                        </CardHeader>
+                        <CardHeader className="pb-0 flex flex-row justify-end"></CardHeader>
                         <CardContent className="flex flex-col items-center gap-4">
-                            <div className="w-16 h-16">
-                                {modelProvider.icon ? (
-                                    <img
-                                        src={modelProvider.icon}
-                                        alt={modelProvider.name}
-                                        className={cn("w-16 h-16", {
-                                            "dark:invert":
-                                                modelProvider.name !==
-                                                "Azure OpenAI",
-                                        })}
-                                    />
-                                ) : (
-                                    <BoxesIcon className="w-16 h-16 color-primary" />
-                                )}
-                            </div>
+                            <Link to={ModelProviderLinks[modelProvider.id]}>
+                                <ModelProviderIcon
+                                    modelProvider={modelProvider}
+                                    size="lg"
+                                />
+                            </Link>
                             <div className="text-lg font-semibold">
                                 {modelProvider.name}
                             </div>
-                            <div className="w-full flex flex-row items-center justify-center gap-1 text-sm bg-secondary rounded-sm p-2">
+                            <Badge
+                                className="pointer-events-none"
+                                variant="outline"
+                            >
                                 {modelProvider.configured ? (
-                                    <CircleCheckIcon className="w-4 h-4 text-success" />
+                                    <span className="flex gap-1 items-center">
+                                        <CircleCheckIcon
+                                            size={18}
+                                            className="text-success"
+                                        />{" "}
+                                        Configured
+                                    </span>
                                 ) : (
-                                    <CircleSlashIcon className="w-4 h-4 text-destructive" />
-                                )}{" "}
-                                {modelProvider.configured
-                                    ? "Configured"
-                                    : "Not Configured"}
-                            </div>
+                                    <span className="flex gap-1 items-center">
+                                        <CircleSlashIcon
+                                            size={18}
+                                            className="text-destructive"
+                                        />
+                                        Not Configured
+                                    </span>
+                                )}
+                            </Badge>
+                            <ModelProviderConfigure
+                                modelProvider={modelProvider}
+                            />
                         </CardContent>
                     </Card>
                 ))}

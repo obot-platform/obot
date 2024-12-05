@@ -10,8 +10,8 @@ import { ModelProviderApiService } from "~/lib/service/api/modelProviderApiServi
 
 import { TypographyH2 } from "~/components/Typography";
 import { DataTable } from "~/components/composed/DataTable";
+import { DefaultModelAliasFormDialog } from "~/components/composed/DefaultModelAliasForm";
 import { AddModel } from "~/components/model/AddModel";
-import { DefaultModelAliasFormDialog } from "~/components/model/DefaultModelAliasForm";
 import { DeleteModel } from "~/components/model/DeleteModel";
 import { UpdateModelDialog } from "~/components/model/UpdateModel";
 import { Button } from "~/components/ui/button";
