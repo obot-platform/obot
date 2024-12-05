@@ -34,5 +34,6 @@ const (
 	ModelUsageLLM       ModelUsage = "llm"
 	ModelUsageEmbedding ModelUsage = "text-embedding"
 	ModelUsageImage     ModelUsage = "image-generation"
+	ModelUsageVision    ModelUsage = "vision"
 	ModelUsageOther     ModelUsage = "other"
 )

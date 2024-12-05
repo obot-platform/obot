@@ -6,6 +6,7 @@ export const ModelUsage = {
     LLM: "llm",
     TextEmbedding: "text-embedding",
     ImageGeneration: "image-generation",
+    Vision: "vision",
     Other: "other",
 } as const;
 export type ModelUsage = (typeof ModelUsage)[keyof typeof ModelUsage];
@@ -14,6 +15,7 @@ const ModelUsageLabels = {
     [ModelUsage.LLM]: "Language Model (Chat)",
     [ModelUsage.TextEmbedding]: "Text Embedding (Knowledge)",
     [ModelUsage.ImageGeneration]: "Image Generation",
+    [ModelUsage.Vision]: "Vision",
     [ModelUsage.Other]: "Other",
 } as const;
 
@@ -28,6 +30,7 @@ export const ModelAlias = {
     LlmMini: "llm-mini",
     TextEmbedding: "text-embedding",
     ImageGeneration: "image-generation",
+    Vision: "vision",
 } as const;
 export type ModelAlias = (typeof ModelAlias)[keyof typeof ModelAlias];
 
@@ -36,6 +39,7 @@ const ModelAliasLabels = {
     [ModelAlias.LlmMini]: "Language Model (Chat - Fast)",
     [ModelAlias.TextEmbedding]: "Text Embedding (Knowledge)",
     [ModelAlias.ImageGeneration]: "Image Generation",
+    [ModelAlias.Vision]: "Vision",
 } as const;
 
 export const getModelAliasLabel = (alias: string) => {
@@ -49,6 +53,7 @@ export const ModelAliasToUsageMap = {
     [ModelAlias.LlmMini]: ModelUsage.LLM,
     [ModelAlias.TextEmbedding]: ModelUsage.TextEmbedding,
     [ModelAlias.ImageGeneration]: ModelUsage.ImageGeneration,
+    [ModelAlias.Vision]: ModelUsage.Vision,
 } as const;
 
 export type ModelManifest = {

@@ -7,6 +7,7 @@ const (
 	DefaultModelAliasTypeLLM             DefaultModelAliasType = "llm"
 	DefaultModelAliasTypeLLMMini         DefaultModelAliasType = "llm-mini"
 	DefaultModelAliasTypeImageGeneration DefaultModelAliasType = "image-generation"
+	DefaultModelAliasTypeVision          DefaultModelAliasType = "vision"
 )
 
 type DefaultModelAlias struct {
