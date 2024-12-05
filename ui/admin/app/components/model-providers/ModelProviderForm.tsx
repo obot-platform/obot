@@ -158,68 +158,75 @@ export function ModelProviderForm({
         modelProvider.id === "azure-openai-model-provider";
     return (
         <div className="flex flex-col">
-            <ScrollArea className="h-[50vh] flex flex-col gap-4 p-4">
-                <TypographyH4 className="font-semibold text-md">
-                    Required Configuration
-                </TypographyH4>
-                <Form {...form}>
-                    <form
-                        id={FORM_ID}
-                        onSubmit={form.handleSubmit(onSubmit)}
-                        className="flex flex-col gap-4"
-                    >
-                        {requiredConfigParamFields.fields.map((field, i) => (
-                            <ControlledInput
-                                key={field.id}
-                                label={field.label}
-                                control={form.control}
-                                name={`requiredConfigParams.${i}.value`}
-                                classNames={{
-                                    wrapper: "flex-auto bg-background",
-                                }}
-                            />
-                        ))}
-                    </form>
-                </Form>
-
-                {showCustomConfiguration ? (
-                    <>
-                        <Separator className="my-4" />
-
-                        <div className="flex items-center gap-2">
-                            <TypographyH4 className="font-semibold text-md">
-                                Custom Configuration (Optional)
-                            </TypographyH4>
-                            {ModelProviderConfigurationLinks[
-                                modelProvider.id
-                            ] ? (
-                                <Link
-                                    as="button"
-                                    variant="ghost"
-                                    size="icon"
-                                    to={
-                                        ModelProviderConfigurationLinks[
-                                            modelProvider.id
-                                        ]
-                                    }
-                                >
-                                    <CircleHelpIcon className="text-muted-foreground" />
-                                </Link>
-                            ) : null}
-                        </div>
-                        <NameDescriptionForm
-                            defaultValues={form.watch(
-                                "additionalConfirmParams"
+            <ScrollArea className="max-h-[50vh] flex flex-col gap-4">
+                <div className="p-4">
+                    <TypographyH4 className="font-semibold text-md">
+                        Required Configuration
+                    </TypographyH4>
+                    <Form {...form}>
+                        <form
+                            id={FORM_ID}
+                            onSubmit={form.handleSubmit(onSubmit)}
+                            className="flex flex-col gap-4"
+                        >
+                            {requiredConfigParamFields.fields.map(
+                                (field, i) => (
+                                    <ControlledInput
+                                        key={field.id}
+                                        label={field.label}
+                                        control={form.control}
+                                        name={`requiredConfigParams.${i}.value`}
+                                        classNames={{
+                                            wrapper: "flex-auto bg-background",
+                                        }}
+                                    />
+                                )
                             )}
-                            onChange={(values) =>
-                                form.setValue("additionalConfirmParams", values)
-                            }
-                        />
-                    </>
-                ) : null}
+                        </form>
+                    </Form>
+
+                    {showCustomConfiguration ? (
+                        <>
+                            <Separator className="my-4" />
+
+                            <div className="flex items-center gap-2">
+                                <TypographyH4 className="font-semibold text-md">
+                                    Custom Configuration (Optional)
+                                </TypographyH4>
+                                {ModelProviderConfigurationLinks[
+                                    modelProvider.id
+                                ] ? (
+                                    <Link
+                                        as="button"
+                                        variant="ghost"
+                                        size="icon"
+                                        to={
+                                            ModelProviderConfigurationLinks[
+                                                modelProvider.id
+                                            ]
+                                        }
+                                    >
+                                        <CircleHelpIcon className="text-muted-foreground" />
+                                    </Link>
+                                ) : null}
+                            </div>
+                            <NameDescriptionForm
+                                defaultValues={form.watch(
+                                    "additionalConfirmParams"
+                                )}
+                                onChange={(values) =>
+                                    form.setValue(
+                                        "additionalConfirmParams",
+                                        values
+                                    )
+                                }
+                            />
+                        </>
+                    ) : null}
+                </div>
             </ScrollArea>
 
-            <div className="flex justify-end px-6 py-4 border-t border-t-secondary">
+            <div className="flex justify-end px-6 py-4">
                 <Button
                     form={FORM_ID}
                     disabled={isLoading}
