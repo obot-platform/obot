@@ -35,3 +35,12 @@ items:
       manifest:
         alias: image-generation
         model: dall-e-3
+  - apiVersion: otto.otto8.ai/v1
+    kind: DefaultModelAlias
+    metadata:
+      name: vision
+      namespace: default
+    spec:
+      manifest:
+        alias: vision
+        model: gpt-4o

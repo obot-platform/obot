@@ -7,6 +7,7 @@ import { UpdateDefaultModelAlias } from "~/lib/model/defaultModelAliases";
 import {
     Model,
     ModelAlias,
+    ModelUsage,
     getModelAliasLabel,
     getModelUsageFromAlias,
 } from "~/lib/model/models";
@@ -142,7 +143,11 @@ export function DefaultModelAliasForm({
                         render={({ field: { ref: _, ...field } }) => {
                             const usage = getModelUsageFromAlias(alias);
                             const modelOptions = usage
-                                ? modelUsageMap.get(usage)
+                                ? modelUsageMap.get(
+                                      usage === ModelUsage.Vision
+                                          ? ModelUsage.LLM
+                                          : usage
+                                  )
                                 : [];
 
                             return (
