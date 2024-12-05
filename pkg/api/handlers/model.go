@@ -188,25 +188,31 @@ func convertModel(ctx context.Context, c kclient.Client, gClient *gptscript.GPTS
 func convertModelProviderToolRef(ctx context.Context, gptscript *gptscript.GPTScript, toolRef v1.ToolReference) (*types.ModelProviderStatus, error) {
 	var (
 		requiredEnvVars, missingEnvVars []string
+		icon                            string
 	)
-	if toolRef.Status.Tool != nil && toolRef.Status.Tool.Metadata["envVars"] != "" {
-		cred, err := gptscript.RevealCredential(ctx, []string{string(toolRef.UID)}, toolRef.Name)
-		if err != nil && !strings.HasSuffix(err.Error(), "credential not found") {
-			return nil, fmt.Errorf("failed to reveal credential for model provider %q: %w", toolRef.Name, err)
-		}
-
+	if toolRef.Status.Tool != nil {
 		if toolRef.Status.Tool.Metadata["envVars"] != "" {
-			requiredEnvVars = strings.Split(toolRef.Status.Tool.Metadata["envVars"], ",")
-		}
+			cred, err := gptscript.RevealCredential(ctx, []string{string(toolRef.UID)}, toolRef.Name)
+			if err != nil && !strings.HasSuffix(err.Error(), "credential not found") {
+				return nil, fmt.Errorf("failed to reveal credential for model provider %q: %w", toolRef.Name, err)
+			}
 
-		for _, envVar := range requiredEnvVars {
-			if cred.Env[envVar] == "" {
-				missingEnvVars = append(missingEnvVars, envVar)
+			if toolRef.Status.Tool.Metadata["envVars"] != "" {
+				requiredEnvVars = strings.Split(toolRef.Status.Tool.Metadata["envVars"], ",")
+			}
+
+			for _, envVar := range requiredEnvVars {
+				if cred.Env[envVar] == "" {
+					missingEnvVars = append(missingEnvVars, envVar)
+				}
 			}
 		}
+
+		icon = toolRef.Status.Tool.Metadata["icon"]
 	}
 
 	return &types.ModelProviderStatus{
+		Icon:                            icon,
 		Configured:                      toolRef.Status.Tool != nil && len(missingEnvVars) == 0,
 		RequiredConfigurationParameters: requiredEnvVars,
 		MissingConfigurationParameters:  missingEnvVars,

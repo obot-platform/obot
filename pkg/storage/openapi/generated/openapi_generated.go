@@ -1905,6 +1905,12 @@ func schema_otto8_ai_otto8_apiclient_types_ModelProviderStatus(ref common.Refere
 			SchemaProps: spec.SchemaProps{
 				Type: []string{"object"},
 				Properties: map[string]spec.Schema{
+					"icon": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
 					"configured": {
 						SchemaProps: spec.SchemaProps{
 							Default: false,

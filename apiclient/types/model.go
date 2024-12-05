@@ -23,6 +23,7 @@ type ModelStatus struct {
 }
 
 type ModelProviderStatus struct {
+	Icon                            string   `json:"icon,omitempty"`
 	Configured                      bool     `json:"configured"`
 	RequiredConfigurationParameters []string `json:"requiredConfigurationParameters,omitempty"`
 	MissingConfigurationParameters  []string `json:"missingConfigurationParameters,omitempty"`
