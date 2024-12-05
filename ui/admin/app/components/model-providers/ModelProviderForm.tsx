@@ -158,8 +158,8 @@ export function ModelProviderForm({
         modelProvider.id === "azure-openai-model-provider";
     return (
         <div className="flex flex-col">
-            <ScrollArea className="max-h-[50vh] flex flex-col gap-4">
-                <div className="p-4">
+            <ScrollArea className="max-h-[50vh]">
+                <div className="flex flex-col gap-4 p-4">
                     <TypographyH4 className="font-semibold text-md">
                         Required Configuration
                     </TypographyH4>
