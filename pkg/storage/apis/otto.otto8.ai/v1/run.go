@@ -7,7 +7,7 @@ import (
 )
 
 const (
-	RunFinalizer             = "otto.otto8.ai/run" // to be removed
+	RunFinalizer             = "otto.otto8.ai/run"
 	KnowledgeFileFinalizer   = "otto.otto8.ai/knowledge-file"
 	WorkspaceFinalizer       = "otto.otto8.ai/workspace"
 	KnowledgeSetFinalizer    = "otto.otto8.ai/knowledge-set"
