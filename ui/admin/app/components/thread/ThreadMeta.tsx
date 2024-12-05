@@ -65,8 +65,8 @@ export function ThreadMeta({
                                         <Link
                                             to={assistantLink}
                                             as="button"
-                                            buttonVariant="ghost"
-                                            buttonSize="icon"
+                                            variant="ghost"
+                                            size="icon"
                                         >
                                             {isAgent ? (
                                                 <EditIcon className="w-4 h-4" />

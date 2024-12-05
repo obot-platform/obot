@@ -1,4 +1,3 @@
-import { Link } from "@remix-run/react";
 import { ColumnDef, createColumnHelper } from "@tanstack/react-table";
 import { useMemo } from "react";
 import { $path } from "remix-routes";
@@ -12,6 +11,7 @@ import { pluralize, timeSince } from "~/lib/utils";
 
 import { TypographyH2, TypographyP } from "~/components/Typography";
 import { DataTable } from "~/components/composed/DataTable";
+import { Link } from "~/components/ui/link";
 
 export async function clientLoader() {
     const users = await preload(

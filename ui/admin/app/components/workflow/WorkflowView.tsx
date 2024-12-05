@@ -29,7 +29,7 @@ export function WorkflowViewYaml({ workflow }: WorkflowViewProps) {
     return (
         <Tooltip>
             <Dialog>
-                <DialogTrigger asChild>
+                <DialogTrigger asChild onClick={(e) => e.stopPropagation()}>
                     <TooltipTrigger asChild>
                         <Button variant="ghost" size="icon">
                             <ReaderIcon />
@@ -37,7 +37,10 @@ export function WorkflowViewYaml({ workflow }: WorkflowViewProps) {
                     </TooltipTrigger>
                 </DialogTrigger>
 
-                <DialogContent className="h-[80vh] max-w-[80vw]">
+                <DialogContent
+                    className="h-[80vh] max-w-[80vw]"
+                    onClick={(e) => e.stopPropagation()}
+                >
                     <DialogTitle>{workflow.name}</DialogTitle>
                     <DialogDescription>Workflow</DialogDescription>
 

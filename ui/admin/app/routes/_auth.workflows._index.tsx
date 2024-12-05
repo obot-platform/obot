@@ -1,4 +1,4 @@
-import { Link, useNavigate } from "@remix-run/react";
+import { useNavigate } from "@remix-run/react";
 import { ColumnDef, createColumnHelper } from "@tanstack/react-table";
 import { PenSquareIcon } from "lucide-react";
 import { useMemo } from "react";
@@ -13,6 +13,7 @@ import { timeSince } from "~/lib/utils";
 import { TypographyH2, TypographyP } from "~/components/Typography";
 import { DataTable } from "~/components/composed/DataTable";
 import { Button } from "~/components/ui/button";
+import { Link } from "~/components/ui/link";
 import {
     Tooltip,
     TooltipContent,
@@ -79,9 +80,6 @@ export default function Workflows() {
                         columns={getColumns()}
                         data={getWorkflows.data || []}
                         sort={[{ id: "created", desc: true }]}
-                        disableClickPropagation={(cell) =>
-                            cell.id.includes("action")
-                        }
                         onRowClick={(row) => {
                             navigate(
                                 $path("/workflows/:workflow", {
@@ -110,23 +108,17 @@ export default function Workflows() {
                     header: "Threads",
                     cell: (info) => (
                         <div className="flex gap-2 items-center">
-                            <Button
-                                asChild
-                                variant="link"
-                                className="underline"
+                            <Link
+                                to={$path("/threads", {
+                                    workflowId: info.row.original.id,
+                                    from: "workflows",
+                                })}
+                                className="px-0"
                             >
-                                <Link
-                                    to={$path("/threads", {
-                                        workflowId: info.row.original.id,
-                                        from: "workflows",
-                                    })}
-                                    className="px-0"
-                                >
-                                    <TypographyP>
-                                        {info.getValue() || 0} Threads
-                                    </TypographyP>
-                                </Link>
-                            </Button>
+                                <TypographyP>
+                                    {info.getValue() || 0} Threads
+                                </TypographyP>
+                            </Link>
                         </div>
                     ),
                 }
@@ -148,14 +140,8 @@ export default function Workflows() {
 
                         <Tooltip>
                             <TooltipTrigger asChild>
-                                <Button variant="ghost" size="icon" asChild>
-                                    <Link
-                                        to={$path("/workflows/:workflow", {
-                                            workflow: row.original.id,
-                                        })}
-                                    >
-                                        <PenSquareIcon />
-                                    </Link>
+                                <Button size="icon" variant="ghost">
+                                    <PenSquareIcon />
                                 </Button>
                             </TooltipTrigger>
 

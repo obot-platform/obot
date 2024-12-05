@@ -1,6 +1,6 @@
 import { useNavigate } from "@remix-run/react";
 import { ColumnDef, createColumnHelper } from "@tanstack/react-table";
-import { EllipsisIcon, PlusIcon } from "lucide-react";
+import { PlusIcon } from "lucide-react";
 import { useMemo } from "react";
 import { $path } from "remix-routes";
 import useSWR, { preload } from "swr";
@@ -12,14 +12,8 @@ import { WorkflowService } from "~/lib/service/api/workflowService";
 
 import { TypographyH2 } from "~/components/Typography";
 import { DataTable } from "~/components/composed/DataTable";
-import { Button } from "~/components/ui/button";
 import { Link } from "~/components/ui/link";
-import {
-    Popover,
-    PopoverContent,
-    PopoverTrigger,
-} from "~/components/ui/popover";
-import { DeleteWebhook } from "~/components/webhooks/DeleteWebhook";
+import { WebhookActions } from "~/components/webhooks/WebhookActions";
 
 export async function clientLoader() {
     await Promise.all([
@@ -66,7 +60,7 @@ export default function WebhooksPage() {
                 <Link
                     to={$path("/webhooks/create")}
                     as="button"
-                    buttonVariant="outline"
+                    variant="outline"
                 >
                     <PlusIcon /> Create Webhook
                 </Link>
@@ -95,50 +89,11 @@ export default function WebhooksPage() {
             ),
             columnHelper.display({
                 id: "actions",
-                cell: ({ row }) => {
-                    return (
-                        <div className="flex items-center justify-end">
-                            <Popover>
-                                <PopoverTrigger asChild>
-                                    <Button
-                                        variant="ghost"
-                                        size="icon"
-                                        onClick={(e) => e.stopPropagation()}
-                                    >
-                                        <EllipsisIcon />
-                                    </Button>
-                                </PopoverTrigger>
-
-                                <PopoverContent
-                                    className="w-48 p-2 flex flex-col gap-1"
-                                    side="top"
-                                    align="end"
-                                >
-                                    <Link
-                                        to={$path("/webhooks/:webhook", {
-                                            webhook: row.id,
-                                        })}
-                                        as="button"
-                                        buttonSize="sm"
-                                    >
-                                        Edit
-                                    </Link>
-
-                                    <DeleteWebhook id={row.original.id}>
-                                        <Button
-                                            variant="destructive"
-                                            size="sm"
-                                            className="w-full"
-                                            onClick={(e) => e.stopPropagation()}
-                                        >
-                                            Delete
-                                        </Button>
-                                    </DeleteWebhook>
-                                </PopoverContent>
-                            </Popover>
-                        </div>
-                    );
-                },
+                cell: ({ row }) => (
+                    <div className="flex items-center justify-end ">
+                        <WebhookActions webhook={row.original} />
+                    </div>
+                ),
             }),
         ];
     }

@@ -31,7 +31,7 @@ export function Error({ error }: { error: Error }) {
                     <Link
                         as="button"
                         className="w-full"
-                        buttonVariant="secondary"
+                        variant="secondary"
                         to="/"
                     >
                         <HomeIcon /> Go home

@@ -3,21 +3,23 @@ import {
     LinkProps as RemixLinkProps,
 } from "@remix-run/react";
 import { VariantProps, cva } from "class-variance-authority";
+import { forwardRef } from "react";
 
 import { cn } from "~/lib/utils";
 
-import { ButtonClasses } from "~/components/ui/button";
+import { buttonVariants } from "~/components/ui/button";
 
 const linkVariants = cva("", {
     variants: {
         as: {
-            button: cn(ButtonClasses.base, "flex flex-row items-center gap-2"),
-            default: ButtonClasses.variants.variant.link,
+            default: buttonVariants({
+                variant: "link",
+                size: "none",
+                shape: "none",
+            }),
+            button: "flex flex-row items-center gap-2",
             div: "",
         },
-        buttonVariant: ButtonClasses.variants.variant,
-        buttonSize: ButtonClasses.variants.size,
-        buttonShape: ButtonClasses.variants.shape,
     },
     defaultVariants: {
         as: "default",
@@ -25,40 +27,22 @@ const linkVariants = cva("", {
 });
 
 type LinkVariants = VariantProps<typeof linkVariants>;
+type ButtonVariants = VariantProps<typeof buttonVariants>;
 
-export type LinkProps = RemixLinkProps & LinkVariants;
+export type LinkProps = RemixLinkProps & LinkVariants & ButtonVariants;
 
-export function Link({
-    as,
-    buttonVariant,
-    buttonSize,
-    buttonShape,
-    className,
-    ...rest
-}: LinkProps) {
-    const buttonVariants = getButtonVariants({
-        as,
-        buttonVariant,
-        buttonSize,
-        buttonShape,
-    });
-
-    return (
+export const Link = forwardRef<HTMLAnchorElement, LinkProps>(
+    ({ as, variant, size, shape, className, ...rest }, ref) => (
         <RemixLink
             {...rest}
-            className={linkVariants({ as, ...buttonVariants, className })}
+            ref={ref}
+            className={cn(
+                linkVariants({ as }),
+                as === "button" && buttonVariants({ variant, size, shape }),
+                className
+            )}
         />
-    );
+    )
+);
 
-    function getButtonVariants(props: LinkVariants) {
-        if (props.as !== "button") return {};
-
-        return {
-            buttonVariant:
-                props.buttonVariant ?? ButtonClasses.defaultVariants.variant,
-            buttonSize: props.buttonSize ?? ButtonClasses.defaultVariants.size,
-            buttonShape:
-                props.buttonShape ?? ButtonClasses.defaultVariants.shape,
-        };
-    }
-}
+Link.displayName = "Link";

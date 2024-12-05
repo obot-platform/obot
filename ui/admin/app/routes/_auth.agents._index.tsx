@@ -1,5 +1,5 @@
 import { PlusIcon } from "@radix-ui/react-icons";
-import { Link, useNavigate } from "@remix-run/react";
+import { useNavigate } from "@remix-run/react";
 import { ColumnDef, createColumnHelper } from "@tanstack/react-table";
 import { SquarePen } from "lucide-react";
 import { useMemo } from "react";
@@ -16,6 +16,7 @@ import { TypographyH2, TypographyP } from "~/components/Typography";
 import { DeleteAgent } from "~/components/agent/DeleteAgent";
 import { DataTable } from "~/components/composed/DataTable";
 import { Button } from "~/components/ui/button";
+import { Link } from "~/components/ui/link";
 import {
     Tooltip,
     TooltipContent,
@@ -119,23 +120,15 @@ export default function Agents() {
                     header: "Threads",
                     cell: (info) => (
                         <div className="flex gap-2 items-center">
-                            <Button
-                                asChild
-                                variant="link"
-                                className="underline"
+                            <Link
+                                to={$path("/threads", {
+                                    agentId: info.row.original.id,
+                                    from: "agents",
+                                })}
+                                className="px-0"
                             >
-                                <Link
-                                    to={$path("/threads", {
-                                        agentId: info.row.original.id,
-                                        from: "agents",
-                                    })}
-                                    className="px-0"
-                                >
-                                    <TypographyP>
-                                        {info.getValue() || 0} Threads
-                                    </TypographyP>
-                                </Link>
-                            </Button>
+                                {info.getValue() || 0} Threads
+                            </Link>
                         </div>
                     ),
                 }
@@ -155,15 +148,16 @@ export default function Agents() {
                     <div className="flex gap-2 justify-end">
                         <Tooltip>
                             <TooltipTrigger asChild>
-                                <Button variant="ghost" size="icon" asChild>
-                                    <Link
-                                        to={$path("/agents/:agent", {
-                                            agent: row.original.id,
-                                        })}
-                                    >
-                                        <SquarePen />
-                                    </Link>
-                                </Button>
+                                <Link
+                                    to={$path("/agents/:agent", {
+                                        agent: row.original.id,
+                                    })}
+                                    as="button"
+                                    size="icon"
+                                    variant="ghost"
+                                >
+                                    <SquarePen />
+                                </Link>
                             </TooltipTrigger>
 
                             <TooltipContent>
