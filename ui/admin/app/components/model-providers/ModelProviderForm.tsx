@@ -1,5 +1,4 @@
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Link } from "@remix-run/react";
 import { CircleHelpIcon } from "lucide-react";
 import { useFieldArray, useForm } from "react-hook-form";
 import { toast } from "sonner";
@@ -18,6 +17,8 @@ import { ControlledInput } from "~/components/form/controlledInputs";
 import { ModelProviderConfigurationLinks } from "~/components/model-providers/constants";
 import { Button } from "~/components/ui/button";
 import { Form } from "~/components/ui/form";
+import { Link } from "~/components/ui/link";
+import { ScrollArea } from "~/components/ui/scroll-area";
 import { Separator } from "~/components/ui/separator";
 import { useAsync } from "~/hooks/useAsync";
 
@@ -157,7 +158,7 @@ export function ModelProviderForm({
         modelProvider.id === "azure-openai-model-provider";
     return (
         <div className="flex flex-col">
-            <div className="flex flex-col gap-4 p-4 max-h-[50vh] overflow-y-auto">
+            <ScrollArea className="h-[50vh] flex flex-col gap-4 p-4">
                 <TypographyH4 className="font-semibold text-md">
                     Required Configuration
                 </TypographyH4>
@@ -192,17 +193,18 @@ export function ModelProviderForm({
                             {ModelProviderConfigurationLinks[
                                 modelProvider.id
                             ] ? (
-                                <Button variant="ghost" size="icon">
-                                    <Link
-                                        to={
-                                            ModelProviderConfigurationLinks[
-                                                modelProvider.id
-                                            ]
-                                        }
-                                    >
-                                        <CircleHelpIcon className="text-muted-foreground" />
-                                    </Link>
-                                </Button>
+                                <Link
+                                    as="button"
+                                    variant="ghost"
+                                    size="icon"
+                                    to={
+                                        ModelProviderConfigurationLinks[
+                                            modelProvider.id
+                                        ]
+                                    }
+                                >
+                                    <CircleHelpIcon className="text-muted-foreground" />
+                                </Link>
                             ) : null}
                         </div>
                         <NameDescriptionForm
@@ -215,7 +217,7 @@ export function ModelProviderForm({
                         />
                     </>
                 ) : null}
-            </div>
+            </ScrollArea>
 
             <div className="flex justify-end px-6 py-4 border-t border-t-secondary">
                 <Button

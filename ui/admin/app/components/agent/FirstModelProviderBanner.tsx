@@ -1,7 +1,7 @@
 import { Link } from "@remix-run/react";
 import { $path } from "remix-routes";
 
-import { TypographyP } from "~/components/Typography";
+import { TypographyH3, TypographyP } from "~/components/Typography";
 import { OttoLogo } from "~/components/branding/OttoLogo";
 import { Button } from "~/components/ui/button";
 
@@ -18,9 +18,9 @@ export function FirstModelProviderBanner() {
                         }}
                     />
                     <div className="flex flex-col pl-48">
-                        <TypographyP className="font-semibold text-2xl mb-0.5">
+                        <TypographyH3 className="mb-0.5">
                             Ready to create your first Agent?
-                        </TypographyP>
+                        </TypographyH3>
                         <TypographyP className="text-sm font-light mb-2">
                             You&apos;re almost there! To start creating or using{" "}
                             agents, you&apos;ll need access to a LLM (Large

@@ -4,9 +4,9 @@ import useSWR from "swr";
 import { ModelProvider, ModelProviderConfig } from "~/lib/model/modelProviders";
 import { ModelProviderApiService } from "~/lib/service/api/modelProviderApiService";
 
-import { DefaultModelAliasForm } from "~/components/composed/DefaultModelAliasForm";
 import { ModelProviderForm } from "~/components/model-providers/ModelProviderForm";
 import { ModelProviderIcon } from "~/components/model-providers/ModelProviderIcon";
+import { DefaultModelAliasForm } from "~/components/model/shared/DefaultModelAliasForm";
 import { LoadingSpinner } from "~/components/ui/LoadingSpinner";
 import { Button } from "~/components/ui/button";
 import {
