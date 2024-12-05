@@ -2,6 +2,7 @@ import { EntityMeta } from "~/lib/model/primitives";
 
 export type ModelProviderStatus = {
     configured: boolean;
+    icon?: string;
     requiredConfigurationParameters?: string[];
     missingConfigurationParameters?: string[];
 };

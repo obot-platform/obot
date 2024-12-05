@@ -2,6 +2,7 @@ import { BoxesIcon, CircleCheckIcon, CircleSlashIcon } from "lucide-react";
 import useSWR from "swr";
 
 import { ModelProviderApiService } from "~/lib/service/api/modelProviderApiService";
+import { cn } from "~/lib/utils";
 
 import { ModelProviderConfigure } from "~/components/model-providers/ModelProviderConfigure";
 import { Card, CardContent, CardHeader } from "~/components/ui/card";
@@ -25,7 +26,19 @@ export function ModelProviderList() {
                         </CardHeader>
                         <CardContent className="flex flex-col items-center gap-4">
                             <div className="w-16 h-16">
-                                <BoxesIcon className="w-16 h-16 color-primary" />
+                                {modelProvider.icon ? (
+                                    <img
+                                        src={modelProvider.icon}
+                                        alt={modelProvider.name}
+                                        className={cn("w-16 h-16", {
+                                            "dark:invert":
+                                                modelProvider.name !==
+                                                "Azure OpenAI",
+                                        })}
+                                    />
+                                ) : (
+                                    <BoxesIcon className="w-16 h-16 color-primary" />
+                                )}
                             </div>
                             <div className="text-lg font-semibold">
                                 {modelProvider.name}
