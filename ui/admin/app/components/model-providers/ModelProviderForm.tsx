@@ -79,7 +79,6 @@ export function ModelProviderForm({
 
     const form = useForm<ModelProviderFormValues>({
         resolver: zodResolver(formSchema),
-        mode: "onChange",
         defaultValues: {
             requiredConfigParams: getInitialRequiredParams(
                 requiredParameters,
@@ -117,6 +116,7 @@ export function ModelProviderForm({
         }
     );
 
+    const FORM_ID = "model-provider-form";
     return (
         <div className="flex flex-col gap-4">
             <TypographyH4 className="font-semibold text-md">
@@ -124,6 +124,7 @@ export function ModelProviderForm({
             </TypographyH4>
             <Form {...form}>
                 <form
+                    id={FORM_ID}
                     onSubmit={form.handleSubmit(onSubmit)}
                     className="flex flex-col gap-8"
                 >
@@ -155,9 +156,10 @@ export function ModelProviderForm({
 
             <div className="flex justify-end">
                 <Button
-                    onClick={form.handleSubmit(onSubmit)}
+                    form={FORM_ID}
                     disabled={isLoading}
                     loading={isLoading}
+                    type="submit"
                 >
                     Confirm
                 </Button>

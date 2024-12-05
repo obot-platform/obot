@@ -5,7 +5,7 @@ import {
     useContext,
     useState,
 } from "react";
-import useSWR, { mutate } from "swr";
+import useSWR from "swr";
 
 import { ModelProvider } from "~/lib/model/modelProviders";
 import { ModelProviderApiService } from "~/lib/service/api/modelProviderApiService";
@@ -45,7 +45,6 @@ export function ModelProviderProvider({ children }: { children: ReactNode }) {
             )
                 .then(() => {
                     getModelProviders.mutate();
-                    mutate(ModelProviderApiService.getModelProviders.key());
                     setLastSaved(new Date());
                 })
                 .catch(console.error),

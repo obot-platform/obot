@@ -50,16 +50,6 @@ const configureModelProviderById = async (
 
     return res.data;
 };
-configureModelProviderById.key = (modelProviderId?: string) => {
-    if (!modelProviderId) return null;
-
-    return {
-        url: ApiRoutes.modelProviders.configureModelProviderById(
-            modelProviderId
-        ).path,
-        modelProviderId,
-    };
-};
 
 const revealModelProviderById = async (modelProviderKey: string) => {
     const res = await request<ModelProviderConfig>({

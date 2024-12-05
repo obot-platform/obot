@@ -25,21 +25,11 @@ export function ModelProviderConfigure({
     modelProvider,
 }: ModelProviderConfigureProps) {
     const [dialogIsOpen, setDialogIsOpen] = useState(false);
-    const handleOpenChange = (open: boolean) => {
-        if (!open) {
-            setDialogIsOpen(false);
-        }
-    };
 
     return (
-        <Dialog open={dialogIsOpen} onOpenChange={handleOpenChange}>
+        <Dialog open={dialogIsOpen} onOpenChange={setDialogIsOpen}>
             <DialogTrigger asChild>
-                <Button
-                    size="icon"
-                    variant="ghost"
-                    className="mt-0"
-                    onClick={() => setDialogIsOpen(true)}
-                >
+                <Button size="icon" variant="ghost" className="mt-0">
                     <SettingsIcon />
                 </Button>
             </DialogTrigger>
