@@ -192,8 +192,9 @@ export function ModelProviderForm({
                         <CircleAlertIcon className="w-4 h-4" />
                         <AlertTitle>An error occurred!</AlertTitle>
                         <AlertDescription>
-                            Couldn&apos;t connect to model provider. Please
-                            check your configuration and try again
+                            Your configuration was saved, but we were not able
+                            to connect to the model provider. Please check your
+                            configuration and try again.
                         </AlertDescription>
                     </Alert>
                 </div>
