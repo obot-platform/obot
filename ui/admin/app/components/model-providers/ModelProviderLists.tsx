@@ -40,7 +40,7 @@ export function ModelProviderList({
                                 ) && (
                                     <Badge
                                         variant="faded"
-                                        className="absolute bottom-[-0.5rem] left-1/2 transform -translate-x-1/2 opacity-90"
+                                        className="absolute bottom-[-0.5rem] left-1/2 z-10 transform -translate-x-1/2"
                                     >
                                         <TypographySmall>REC</TypographySmall>
                                     </Badge>
