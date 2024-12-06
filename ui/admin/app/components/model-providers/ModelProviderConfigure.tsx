@@ -6,6 +6,7 @@ import { ModelProviderApiService } from "~/lib/service/api/modelProviderApiServi
 
 import { ModelProviderForm } from "~/components/model-providers/ModelProviderForm";
 import { ModelProviderIcon } from "~/components/model-providers/ModelProviderIcon";
+import { CommonModelProviderIds } from "~/components/model-providers/constants";
 import { DefaultModelAliasForm } from "~/components/model/DefaultModelAliasForm";
 import { LoadingSpinner } from "~/components/ui/LoadingSpinner";
 import { Button } from "~/components/ui/button";
@@ -17,6 +18,7 @@ import {
     DialogTitle,
     DialogTrigger,
 } from "~/components/ui/dialog";
+import { Link } from "~/components/ui/link";
 
 type ModelProviderConfigureProps = {
     modelProvider: ModelProvider;
@@ -146,6 +148,16 @@ export function ModelProviderConfigureContent({
                         : `Set Up ${modelProvider.name}`}
                 </DialogTitle>
             </DialogHeader>
+
+            {modelProvider.id === CommonModelProviderIds.ANTHROPIC && (
+                <DialogDescription className="px-4">
+                    Note: Anthropic does not have an embeddings model and{" "}
+                    <Link to="https://docs.anthropic.com/en/docs/build-with-claude/embeddings">
+                        recommends
+                    </Link>{" "}
+                    Voyage AI.
+                </DialogDescription>
+            )}
             {revealModelProvider.isLoading ? (
                 <LoadingSpinner />
             ) : (
