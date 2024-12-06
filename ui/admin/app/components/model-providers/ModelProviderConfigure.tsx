@@ -6,7 +6,7 @@ import { ModelProviderApiService } from "~/lib/service/api/modelProviderApiServi
 
 import { ModelProviderForm } from "~/components/model-providers/ModelProviderForm";
 import { ModelProviderIcon } from "~/components/model-providers/ModelProviderIcon";
-import { DefaultModelAliasForm } from "~/components/model/shared/DefaultModelAliasForm";
+import { DefaultModelAliasForm } from "~/components/model/DefaultModelAliasForm";
 import { LoadingSpinner } from "~/components/ui/LoadingSpinner";
 import { Button } from "~/components/ui/button";
 import {
@@ -91,7 +91,15 @@ export function ModelProviderConfigure({
                                 Configure Default Model Aliases
                             </DialogTitle>
                         </DialogHeader>
-                        <DefaultModelAliasForm onSuccess={handleDone} />
+                        <DialogDescription>
+                            When no model is specified, a default model is used
+                            for creating a new agent, workflow, or working with
+                            some tools, etc. Select your default models for the
+                            usage types below.
+                        </DialogDescription>
+                        <div className="mt-4">
+                            <DefaultModelAliasForm onSuccess={handleDone} />
+                        </div>
                     </div>
                 ) : (
                     <ModelProviderConfigureContent

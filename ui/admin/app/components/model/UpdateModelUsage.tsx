@@ -1,4 +1,4 @@
-import { memo, useCallback, useState } from "react";
+import { memo, useState } from "react";
 
 import { Model, ModelUsage, getModelUsageLabel } from "~/lib/model/models";
 import { ModelApiService } from "~/lib/service/api/modelApiService";
@@ -19,18 +19,15 @@ export const UpdateModelUsage = memo(function UpdateModelUsage({
     onChange?: (usage: ModelUsage) => void;
 }) {
     const [usage, setUsage] = useState(model.usage);
-    const handleModelUsageChange = useCallback(
-        (value: string) => {
-            const updatedUsage = value as ModelUsage;
-            ModelApiService.updateModel(model.id, {
-                ...model,
-                usage: updatedUsage,
-            });
-            setUsage(updatedUsage);
-            onChange?.(updatedUsage);
-        },
-        [model, onChange]
-    );
+    const handleModelUsageChange = (value: string) => {
+        const updatedUsage = value as ModelUsage;
+        ModelApiService.updateModel(model.id, {
+            ...model,
+            usage: updatedUsage,
+        });
+        setUsage(updatedUsage);
+        onChange?.(updatedUsage);
+    };
 
     return (
         <Select onValueChange={handleModelUsageChange} value={usage}>

@@ -1,5 +1,5 @@
 import { ColumnDef, createColumnHelper } from "@tanstack/react-table";
-import { SettingsIcon } from "lucide-react";
+import { PictureInPicture2Icon } from "lucide-react";
 import { useMemo } from "react";
 import useSWR from "swr";
 
@@ -9,8 +9,8 @@ import { ModelApiService } from "~/lib/service/api/modelApiService";
 
 import { DataTable } from "~/components/composed/DataTable";
 import { ModelProviderIcon } from "~/components/model-providers/ModelProviderIcon";
-import { UpdateModelActive } from "~/components/model/shared/UpdateModelActive";
-import { UpdateModelUsage } from "~/components/model/shared/UpdateModelUsage";
+import { UpdateModelActive } from "~/components/model/UpdateModelActive";
+import { UpdateModelUsage } from "~/components/model/UpdateModelUsage";
 import { Button } from "~/components/ui/button";
 import {
     Dialog,
@@ -42,13 +42,13 @@ export function ModelProvidersModels({ modelProvider }: ModelsConfigureProps) {
         revalidateOnFocus: false,
     });
 
-    const models = useMemo(
-        () =>
+    const models = useMemo(() => {
+        return (
             modelsData?.filter(
                 (model) => model.modelProvider === modelProvider.id
-            ) ?? [],
-        [modelsData, modelProvider.id]
-    );
+            ) ?? []
+        );
+    }, [modelsData, modelProvider.id]);
 
     const handleModelActiveChange = (id: string, active: boolean) => {
         const updatedModelIndex = modelsData?.findIndex(
@@ -76,7 +76,7 @@ export function ModelProvidersModels({ modelProvider }: ModelsConfigureProps) {
                 <TooltipTrigger asChild>
                     <DialogTrigger asChild>
                         <Button size="icon" variant="ghost">
-                            <SettingsIcon />
+                            <PictureInPicture2Icon />
                         </Button>
                     </DialogTrigger>
                 </TooltipTrigger>
@@ -104,7 +104,7 @@ export function ModelProvidersModels({ modelProvider }: ModelsConfigureProps) {
                         <DataTable
                             columns={getColumns()}
                             data={models}
-                            sort={[{ id: "usage", desc: true }]}
+                            sort={[{ id: "name", desc: false }]}
                         />
                     )}
                 </ScrollArea>
@@ -123,22 +123,27 @@ export function ModelProvidersModels({ modelProvider }: ModelsConfigureProps) {
                 {
                     id: "usage",
                     header: "Usage",
-                    cell: ({ row }) => (
-                        <UpdateModelUsage
-                            model={row.original}
-                            key={row.original.id}
-                            onChange={(usage) =>
-                                handleModelUsageChange(row.original.id, usage)
-                            }
-                        />
-                    ),
+                    cell: ({ row }) => {
+                        return (
+                            <UpdateModelUsage
+                                model={row.original}
+                                key={row.original.id}
+                                onChange={(usage) =>
+                                    handleModelUsageChange(
+                                        row.original.id,
+                                        usage
+                                    )
+                                }
+                            />
+                        );
+                    },
                 }
             ),
             columnHelper.display({
                 id: "active",
-                header: "Enabled",
+                header: "Active",
                 cell: ({ row }) => (
-                    <div className="flex justify-end">
+                    <div className="flex justify-center">
                         <UpdateModelActive
                             model={row.original}
                             key={row.original.id}

@@ -9,7 +9,7 @@ import { ModelProviderApiService } from "~/lib/service/api/modelProviderApiServi
 import { TypographyH2 } from "~/components/Typography";
 import { ModelProviderList } from "~/components/model-providers/ModelProviderLists";
 import { CommonModelProviderIds } from "~/components/model-providers/constants";
-import { DefaultModelAliasFormDialog } from "~/components/model/shared/DefaultModelAliasForm";
+import { DefaultModelAliasFormDialog } from "~/components/model/DefaultModelAliasForm";
 import { Alert, AlertDescription, AlertTitle } from "~/components/ui/alert";
 
 export async function clientLoader() {
