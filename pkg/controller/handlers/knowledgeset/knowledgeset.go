@@ -166,6 +166,25 @@ func (h *Handler) SetEmbeddingModel(req router.Request, _ router.Response) error
 	return nil
 }
 
+func (h *Handler) UpdateAgentTextEmbedding(req router.Request, _ router.Response) error {
+	ks := req.Object.(*v1.KnowledgeSet)
+
+	if ks.Spec.AgentName == "" {
+		return nil
+	}
+
+	var agent v1.Agent
+	if err := req.Get(&agent, req.Namespace, ks.Spec.AgentName); err != nil {
+		return err
+	}
+	if agent.Status.TextEmbeddingModel != ks.Status.TextEmbeddingModel {
+		agent.Status.TextEmbeddingModel = ks.Status.TextEmbeddingModel
+		return req.Client.Status().Update(req.Ctx, &agent)
+	}
+
+	return nil
+}
+
 func (h *Handler) CreateWorkspace(req router.Request, _ router.Response) error {
 	ks := req.Object.(*v1.KnowledgeSet)
 

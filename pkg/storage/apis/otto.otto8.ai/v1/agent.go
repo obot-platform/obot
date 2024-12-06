@@ -77,6 +77,7 @@ type AgentStatus struct {
 	AliasAssigned           bool                                     `json:"aliasAssigned,omitempty"`
 	AuthStatus              map[string]types.OAuthAppLoginAuthStatus `json:"authStatus,omitempty"`
 	AliasObservedGeneration int64                                    `json:"aliasProcessed,omitempty"`
+	TextEmbeddingModel      string                                   `json:"textEmbeddingModel,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

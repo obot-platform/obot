@@ -100,6 +100,7 @@ func (c *Controller) setupRoutes() error {
 	root.Type(&v1.KnowledgeSet{}).HandlerFunc(knowledgeset.CreateWorkspace)
 	root.Type(&v1.KnowledgeSet{}).HandlerFunc(knowledgeset.CheckHasContent)
 	root.Type(&v1.KnowledgeSet{}).HandlerFunc(knowledgeset.SetEmbeddingModel)
+	root.Type(&v1.KnowledgeSet{}).HandlerFunc(knowledgeset.UpdateAgentTextEmbedding)
 
 	// Webhooks
 	root.Type(&v1.Webhook{}).HandlerFunc(cleanup.Cleanup)

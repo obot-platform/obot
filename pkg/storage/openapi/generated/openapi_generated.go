@@ -4403,6 +4403,12 @@ func schema_storage_apis_ottootto8ai_v1_AgentStatus(ref common.ReferenceCallback
 							Format: "int64",
 						},
 					},
+					"textEmbeddingModel": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
 				},
 			},
 		},

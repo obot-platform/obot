@@ -106,16 +106,6 @@ func convertAgent(agent v1.Agent, req api.Context) (*types.Agent, error) {
 		links = []string{"invoke", req.APIBaseURL + "/invoke/" + alias}
 	}
 
-	var embeddingModel string
-	if len(agent.Status.KnowledgeSetNames) > 0 {
-		var ks v1.KnowledgeSet
-		if err := req.Get(&ks, agent.Status.KnowledgeSetNames[0]); err == nil {
-			embeddingModel = ks.Status.TextEmbeddingModel
-		} else {
-			log.Warnf("failed to get KnowledgeSet %q for agent %q: %v", agent.Status.KnowledgeSetNames[0], agent.Name, err)
-		}
-	}
-
 	var aliasAssigned *bool
 	if agent.Generation == agent.Status.AliasObservedGeneration {
 		aliasAssigned = &agent.Status.AliasAssigned
@@ -126,7 +116,7 @@ func convertAgent(agent v1.Agent, req api.Context) (*types.Agent, error) {
 		AgentManifest:      agent.Spec.Manifest,
 		AliasAssigned:      aliasAssigned,
 		AuthStatus:         agent.Status.AuthStatus,
-		TextEmbeddingModel: embeddingModel,
+		TextEmbeddingModel: agent.Status.TextEmbeddingModel,
 	}, nil
 }
 
