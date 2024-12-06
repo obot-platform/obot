@@ -14,12 +14,20 @@ import {
     ParamFormValues,
 } from "~/components/composed/NameDescriptionForm";
 import { ControlledInput } from "~/components/form/controlledInputs";
-import { ModelProviderConfigurationLinks } from "~/components/model-providers/constants";
+import {
+    ModelProviderConfigurationLinks,
+    ModelProviderRequiredTooltips,
+} from "~/components/model-providers/constants";
 import { Button } from "~/components/ui/button";
 import { Form } from "~/components/ui/form";
 import { Link } from "~/components/ui/link";
 import { ScrollArea } from "~/components/ui/scroll-area";
 import { Separator } from "~/components/ui/separator";
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipTrigger,
+} from "~/components/ui/tooltip";
 import { useAsync } from "~/hooks/useAsync";
 
 const formSchema = z.object({
@@ -59,7 +67,8 @@ const translateUserFriendlyLabel = (label: string) => {
         }, label)
         .toLowerCase()
         .replace(/_/g, " ")
-        .replace(/\b\w/g, (char: string) => char.toUpperCase());
+        .replace(/\b\w/g, (char: string) => char.toUpperCase())
+        .trim();
 };
 
 const getInitialRequiredParams = (
@@ -171,15 +180,23 @@ export function ModelProviderForm({
                         >
                             {requiredConfigParamFields.fields.map(
                                 (field, i) => (
-                                    <ControlledInput
+                                    <div
                                         key={field.id}
-                                        label={field.label}
-                                        control={form.control}
-                                        name={`requiredConfigParams.${i}.value`}
-                                        classNames={{
-                                            wrapper: "flex-auto bg-background",
-                                        }}
-                                    />
+                                        className="flex gap-2 items-center justify-center"
+                                    >
+                                        <ControlledInput
+                                            key={field.id}
+                                            label={renderLabelWithTooltip(
+                                                field.label
+                                            )}
+                                            control={form.control}
+                                            name={`requiredConfigParams.${i}.value`}
+                                            classNames={{
+                                                wrapper:
+                                                    "flex-auto bg-background",
+                                            }}
+                                        />
+                                    </div>
                                 )
                             )}
                         </form>
@@ -189,26 +206,17 @@ export function ModelProviderForm({
                         <>
                             <Separator className="my-4" />
 
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center">
                                 <TypographyH4 className="font-semibold text-md">
                                     Custom Configuration (Optional)
                                 </TypographyH4>
                                 {ModelProviderConfigurationLinks[
                                     modelProvider.id
-                                ] ? (
-                                    <Link
-                                        as="button"
-                                        variant="ghost"
-                                        size="icon"
-                                        to={
-                                            ModelProviderConfigurationLinks[
-                                                modelProvider.id
-                                            ]
-                                        }
-                                    >
-                                        <CircleHelpIcon className="text-muted-foreground" />
-                                    </Link>
-                                ) : null}
+                                ]
+                                    ? renderCustomConfigTooltip(
+                                          modelProvider.id
+                                      )
+                                    : null}
                             </div>
                             <NameDescriptionForm
                                 defaultValues={form.watch(
@@ -238,4 +246,55 @@ export function ModelProviderForm({
             </div>
         </div>
     );
+
+    function renderCustomConfigTooltip(modelProviderId: string) {
+        const link = ModelProviderConfigurationLinks[modelProviderId];
+        return (
+            <Tooltip>
+                <TooltipTrigger asChild>
+                    <Link to={link} size="icon" variant="ghost" as="button">
+                        <CircleHelpIcon className="text-muted-foreground" />
+                    </Link>
+                </TooltipTrigger>
+
+                <TooltipContent
+                    side="right"
+                    className="bg-secondary text-foreground max-w-80"
+                >
+                    This model provider supports additional environment variable
+                    configurations. Click to learn more.
+                </TooltipContent>
+            </Tooltip>
+        );
+    }
+
+    function renderLabelWithTooltip(label: string) {
+        const tooltip =
+            ModelProviderRequiredTooltips[modelProvider.id]?.[label];
+        return (
+            <div className="flex items-center">
+                {label}
+                {tooltip && (
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                            <Button
+                                size="icon"
+                                variant="ghost"
+                                onClick={(e) => e.preventDefault()}
+                            >
+                                <CircleHelpIcon className="text-muted-foreground" />
+                            </Button>
+                        </TooltipTrigger>
+
+                        <TooltipContent
+                            side="right"
+                            className="bg-secondary text-foreground max-w-80"
+                        >
+                            {tooltip}
+                        </TooltipContent>
+                    </Tooltip>
+                )}
+            </div>
+        );
+    }
 }

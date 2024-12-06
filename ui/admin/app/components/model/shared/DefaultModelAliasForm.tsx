@@ -237,7 +237,9 @@ export function DefaultModelAliasFormDialog({
                 </DialogHeader>
 
                 <DialogDescription>
-                    Set the default model for each usage.
+                    When no model is specified, a default model is used for
+                    creating a new agent, workflow, or working with some tools,
+                    etc. Select your default models for the usage types below.
                 </DialogDescription>
 
                 <DefaultModelAliasForm onSuccess={() => setOpen(false)} />
