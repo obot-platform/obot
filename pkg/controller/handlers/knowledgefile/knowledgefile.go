@@ -49,7 +49,7 @@ func shouldReIngest(file *v1.KnowledgeFile) bool {
 }
 
 func cleanInput(filename string) string {
-	return path.Join(".conversion", filename)
+	return strings.TrimSuffix(path.Join(".conversion", filename), ".md") + ".md" // migration - before, the cleaning step accepted md and outputted md, now it's html -> md
 }
 
 func outputFile(filename string) string {
@@ -194,39 +194,29 @@ func (h *Handler) ingest(ctx context.Context, client kclient.Client, file *v1.Kn
 	inputName := file.Spec.FileName
 
 	// Clean website content (remove headers, footers, etc.)
-	if source.Spec.Manifest.GetType() == types.KnowledgeSourceTypeWebsite && strings.HasSuffix(file.Spec.FileName, ".md") {
-		content, err := h.gptScript.ReadFileInWorkspace(ctx, file.Spec.FileName, gptscript.ReadFileInWorkspaceOptions{
-			WorkspaceID: thread.Status.WorkspaceID,
+	if source.Spec.Manifest.GetType() == types.KnowledgeSourceTypeWebsite && strings.HasSuffix(inputName, ".html") {
+		mdOutput := cleanInput(file.Spec.FileName) + ".md"
+		task, err := h.invoker.SystemTask(ctx, thread, system.WebsiteCleanTool, map[string]any{
+			"input":  inputName,
+			"output": mdOutput,
 		})
 		if err != nil {
 			return err
 		}
-		if len(content) < 100_000 {
-			task, err := h.invoker.SystemTask(ctx, thread, system.WebsiteCleanTool, string(content))
-			if err != nil {
-				return err
-			}
-			defer task.Close()
+		defer task.Close()
 
-			file.Status.RunNames = append(file.Status.RunNames, task.Run.Name)
-			if err := client.Status().Update(ctx, file); err != nil {
-				return err
-			}
-
-			result, err := task.Result(ctx)
-			if err != nil {
-				return fmt.Errorf("failed to clean website content: %v", err)
-			}
-
-			if result.Output != "" {
-				inputName = cleanInput(file.Spec.FileName)
-				if err := h.gptScript.WriteFileInWorkspace(ctx, inputName, []byte(result.Output), gptscript.WriteFileInWorkspaceOptions{
-					WorkspaceID: thread.Status.WorkspaceID,
-				}); err != nil {
-					return err
-				}
-			}
+		file.Status.RunNames = append(file.Status.RunNames, task.Run.Name)
+		if err := client.Status().Update(ctx, file); err != nil {
+			return err
 		}
+
+		_, err = task.Result(ctx)
+		if err != nil {
+			return fmt.Errorf("failed to clean website content: %v", err)
+		}
+
+		inputName = mdOutput
+
 	}
 
 	loadTask, err := h.invoker.SystemTask(ctx, thread, system.KnowledgeLoadTool, map[string]any{
