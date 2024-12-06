@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"path"
 	"strings"
+	"time"
 
 	"github.com/gptscript-ai/go-gptscript"
 	"github.com/otto8-ai/nah/pkg/router"
@@ -263,7 +264,8 @@ func (h *Handler) ingest(ctx context.Context, client kclient.Client, file *v1.Kn
 			"workspaceFileName": outputFile(file.Spec.FileName),
 		},
 	}, invoke.SystemTaskOptions{
-		Env: []string{"OPENAI_EMBEDDING_MODEL=" + ks.Status.TextEmbeddingModel},
+		Env:     []string{"OPENAI_EMBEDDING_MODEL=" + ks.Status.TextEmbeddingModel},
+		Timeout: 1 * time.Hour,
 	})
 	if err != nil {
 		return fmt.Errorf("failed to invoke ingestion task, error: %w", err)
