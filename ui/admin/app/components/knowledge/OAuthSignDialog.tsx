@@ -116,9 +116,7 @@ const OauthSignDialog: FC<OauthSignDialogProps> = ({
                     <DialogContent>
                         <DialogTitle>Checking Authentication</DialogTitle>
                         <div className="flex flex-row items-center justify-center">
-                            <p>
-                                Please wait while we check authentication.
-                            </p>
+                            <p>Please wait while we check authentication.</p>
                             <LoadingSpinner className="ml-2" />
                         </div>
                     </DialogContent>
