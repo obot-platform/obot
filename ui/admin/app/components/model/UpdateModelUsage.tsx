@@ -1,4 +1,4 @@
-import { memo, useState } from "react";
+import { useState } from "react";
 
 import { Model, ModelUsage, getModelUsageLabel } from "~/lib/model/models";
 import { ModelApiService } from "~/lib/service/api/modelApiService";
@@ -11,7 +11,7 @@ import {
     SelectValue,
 } from "~/components/ui/select";
 
-export const UpdateModelUsage = memo(function UpdateModelUsage({
+export function UpdateModelUsage({
     model,
     onChange,
 }: {
@@ -35,7 +35,7 @@ export const UpdateModelUsage = memo(function UpdateModelUsage({
                 <SelectValue placeholder="Select Usage..." />
             </SelectTrigger>
 
-            <SelectContent>
+            <SelectContent position="item-aligned">
                 {Object.entries(ModelUsage).map(([key, value]) =>
                     value === ModelUsage.Unknown ? null : (
                         <SelectItem key={key} value={value}>
@@ -46,4 +46,4 @@ export const UpdateModelUsage = memo(function UpdateModelUsage({
             </SelectContent>
         </Select>
     );
-});
+}

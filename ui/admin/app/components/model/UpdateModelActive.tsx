@@ -1,11 +1,11 @@
-import { memo, useState } from "react";
+import { useState } from "react";
 
 import { Model } from "~/lib/model/models";
 import { ModelApiService } from "~/lib/service/api/modelApiService";
 
 import { Switch } from "~/components/ui/switch";
 
-export const UpdateModelActive = memo(function UpdateModelActive({
+export function UpdateModelActive({
     model,
     onChange,
 }: {
@@ -25,4 +25,4 @@ export const UpdateModelActive = memo(function UpdateModelActive({
     return (
         <Switch checked={active} onCheckedChange={handleModelStatusChange} />
     );
-});
+}

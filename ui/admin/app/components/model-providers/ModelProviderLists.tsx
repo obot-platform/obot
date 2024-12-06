@@ -3,6 +3,7 @@ import { CircleCheckIcon, CircleSlashIcon } from "lucide-react";
 
 import { ModelProvider } from "~/lib/model/modelProviders";
 
+import { TypographySmall } from "~/components/Typography";
 import { ModelProviderConfigure } from "~/components/model-providers/ModelProviderConfigure";
 import { ModelProviderIcon } from "~/components/model-providers/ModelProviderIcon";
 import { ModelProvidersModels } from "~/components/model-providers/ModelProviderModels";
@@ -41,7 +42,7 @@ export function ModelProviderList({
                                         variant="faded"
                                         className="absolute bottom-[-0.5rem] left-1/2 transform -translate-x-1/2 opacity-90"
                                     >
-                                        REC
+                                        <TypographySmall>REC</TypographySmall>
                                     </Badge>
                                 )}
                                 <Link to={ModelProviderLinks[modelProvider.id]}>
