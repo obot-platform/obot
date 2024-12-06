@@ -92,6 +92,7 @@ export function ModelProvidersModels({ modelProvider }: ModelsConfigureProps) {
                 classNames={{
                     content: "max-w-4xl",
                 }}
+                noAnimation
             >
                 <DialogHeader className="space-y-0 border-b-secondary border-b">
                     <DialogTitle className="flex items-center gap-2 px-6 py-4">
