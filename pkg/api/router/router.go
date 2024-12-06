@@ -253,7 +253,7 @@ func Router(services *services.Services) (http.Handler, error) {
 	services.GatewayServer.AddRoutes(services.APIServer)
 
 	// UI
-	services.APIServer.HTTPHandle("/", ui.Handler(services.DevUIPort))
+	services.APIServer.HTTPHandle("/", ui.Handler(services.DevUIPort, services.StorageClient))
 
 	return services.APIServer, nil
 }

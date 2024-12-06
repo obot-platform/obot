@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"context"
 	"embed"
 	"fmt"
 	"io/fs"
@@ -8,14 +9,23 @@ import (
 	"net/http/httputil"
 	"path"
 	"strings"
+	"sync"
+
+	v1 "github.com/otto8-ai/otto8/pkg/storage/apis/otto.otto8.ai/v1"
+	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 //go:embed all:admin/*build all:user/*build
 var embedded embed.FS
 
-func Handler(devPort int) http.Handler {
+func Handler(devPort int, client kclient.Client) http.Handler {
+	server := &uiServer{
+		client: client,
+		lock:   new(sync.RWMutex),
+	}
+
 	if devPort == 0 {
-		return http.HandlerFunc(serve)
+		return server
 	}
 	rp := httputil.ReverseProxy{
 		Director: func(r *http.Request) {
@@ -30,7 +40,13 @@ func Handler(devPort int) http.Handler {
 	return &rp
 }
 
-func serve(w http.ResponseWriter, r *http.Request) {
+type uiServer struct {
+	lock       *sync.RWMutex
+	configured bool
+	client     kclient.Client
+}
+
+func (s *uiServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if !strings.Contains(strings.ToLower(r.UserAgent()), "mozilla") {
 		http.NotFound(w, r)
 		return
@@ -40,6 +56,10 @@ func serve(w http.ResponseWriter, r *http.Request) {
 	adminPath := path.Join("admin/build/client", strings.TrimPrefix(r.URL.Path, "/admin"))
 
 	if r.URL.Path == "/" {
+		if !s.hasModelProviderConfigured(r.Context()) {
+			http.Redirect(w, r, "/admin/", http.StatusFound)
+			return
+		}
 		http.ServeFileFS(w, r, embedded, "user/build/index.html")
 	} else if _, err := fs.Stat(embedded, userPath); err == nil {
 		http.ServeFileFS(w, r, embedded, userPath)
@@ -50,4 +70,27 @@ func serve(w http.ResponseWriter, r *http.Request) {
 	} else {
 		http.ServeFileFS(w, r, embedded, "user/build/fallback.html")
 	}
+}
+
+func (s *uiServer) hasModelProviderConfigured(ctx context.Context) bool {
+	s.lock.RLock()
+	configured := s.configured
+	s.lock.RUnlock()
+	if configured {
+		return configured
+	}
+
+	s.lock.Lock()
+	defer s.lock.Unlock()
+	if s.configured {
+		return s.configured
+	}
+
+	var models v1.ModelList
+	if err := s.client.List(ctx, &models); err != nil {
+		return false
+	}
+
+	s.configured = len(models.Items) > 0
+	return s.configured
 }
