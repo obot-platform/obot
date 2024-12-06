@@ -1,10 +1,12 @@
 import { zodResolver } from "@hookform/resolvers/zod";
+import { CircleAlertIcon } from "lucide-react";
 import { useFieldArray, useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { mutate } from "swr";
 import { z } from "zod";
 
 import { ModelProvider, ModelProviderConfig } from "~/lib/model/modelProviders";
+import { ModelApiService } from "~/lib/service/api/modelApiService";
 import { ModelProviderApiService } from "~/lib/service/api/modelProviderApiService";
 
 import { TypographyH4 } from "~/components/Typography";
@@ -21,6 +23,7 @@ import {
     ModelProviderConfigurationLinks,
     ModelProviderRequiredTooltips,
 } from "~/components/model-providers/constants";
+import { Alert, AlertDescription, AlertTitle } from "~/components/ui/alert";
 import { Button } from "~/components/ui/button";
 import { Form } from "~/components/ui/form";
 import { ScrollArea } from "~/components/ui/scroll-area";
@@ -103,16 +106,31 @@ export function ModelProviderForm({
     requiredParameters,
 }: {
     modelProvider: ModelProvider;
-    onSuccess: (config: ModelProviderConfig) => void;
+    onSuccess: () => void;
     parameters: ModelProviderConfig;
     requiredParameters: string[];
 }) {
-    const configureModelProvider = useAsync(
-        ModelProviderApiService.configureModelProviderById,
+    const fetchAvailableModels = useAsync(
+        ModelApiService.getAvailableModelsByProvider,
         {
             onSuccess: () => {
                 mutate(ModelProviderApiService.getModelProviders.key());
+                mutate(
+                    ModelProviderApiService.revealModelProviderById.key(
+                        modelProvider.id
+                    )
+                );
                 toast.success(`${modelProvider.name} configured successfully.`);
+                onSuccess();
+            },
+        }
+    );
+
+    const configureModelProvider = useAsync(
+        ModelProviderApiService.configureModelProviderById,
+        {
+            onSuccess: async () => {
+                await fetchAvailableModels.execute(modelProvider.id);
             },
         }
     );
@@ -155,15 +173,31 @@ export function ModelProviderForm({
                 modelProvider.id,
                 allConfigParams
             );
-            onSuccess(allConfigParams);
         }
     );
 
     const FORM_ID = "model-provider-form";
     const showCustomConfiguration =
         modelProvider.id === "azure-openai-model-provider";
+
+    const loading =
+        fetchAvailableModels.isLoading ||
+        configureModelProvider.isLoading ||
+        isLoading;
     return (
         <div className="flex flex-col">
+            {fetchAvailableModels.error !== null && (
+                <div className="px-4">
+                    <Alert variant="destructive">
+                        <CircleAlertIcon className="w-4 h-4" />
+                        <AlertTitle>An error occurred!</AlertTitle>
+                        <AlertDescription>
+                            Couldn&apos;t connect to model provider. Please
+                            check your configuration and try again
+                        </AlertDescription>
+                    </Alert>
+                </div>
+            )}
             <ScrollArea className="max-h-[50vh]">
                 <div className="flex flex-col gap-4 p-4">
                     <TypographyH4 className="font-semibold text-md">
@@ -206,8 +240,8 @@ export function ModelProviderForm({
             <div className="flex justify-end px-6 py-4">
                 <Button
                     form={FORM_ID}
-                    disabled={isLoading}
-                    loading={isLoading}
+                    disabled={loading}
+                    loading={loading}
                     type="submit"
                 >
                     Confirm

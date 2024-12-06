@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import useSWR from "swr";
 
-import { ModelProvider, ModelProviderConfig } from "~/lib/model/modelProviders";
+import { ModelProvider } from "~/lib/model/modelProviders";
 import { ModelProviderApiService } from "~/lib/service/api/modelProviderApiService";
 
 import { ModelProviderForm } from "~/components/model-providers/ModelProviderForm";
@@ -130,11 +130,6 @@ export function ModelProviderConfigureContent({
         { keepPreviousData: true }
     );
 
-    const handleSuccess = (config: ModelProviderConfig) => {
-        revealModelProvider.mutate(config, false);
-        onSuccess();
-    };
-
     const requiredParameters = modelProvider.requiredConfigurationParameters;
     const parameters = revealModelProvider.data;
 
@@ -163,7 +158,7 @@ export function ModelProviderConfigureContent({
             ) : (
                 <ModelProviderForm
                     modelProvider={modelProvider}
-                    onSuccess={handleSuccess}
+                    onSuccess={onSuccess}
                     parameters={parameters ?? {}}
                     requiredParameters={requiredParameters ?? []}
                 />
