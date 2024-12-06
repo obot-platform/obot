@@ -32,11 +32,9 @@ export function ModelProviderConfigure({
     const [loadingModelProviderId, setLoadingModelProviderId] = useState("");
 
     const getLoadingModelProviderModels = useSWR(
-        loadingModelProviderId
-            ? ModelProviderApiService.getModelProviderById.key(
-                  loadingModelProviderId
-              )
-            : null,
+        ModelProviderApiService.getModelProviderById.key(
+            loadingModelProviderId
+        ),
         ({ modelProviderId }) =>
             ModelProviderApiService.getModelProviderById(modelProviderId),
         {

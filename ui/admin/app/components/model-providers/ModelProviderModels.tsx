@@ -75,7 +75,7 @@ export function ModelProvidersModels({ modelProvider }: ModelsConfigureProps) {
                     <DataTable
                         columns={getColumns()}
                         data={models}
-                        sort={[{ id: "name", desc: false }]}
+                        sort={[{ id: "usage", desc: true }]}
                     />
                 </ScrollArea>
             </DialogContent>
@@ -88,16 +88,17 @@ export function ModelProvidersModels({ modelProvider }: ModelsConfigureProps) {
                 id: "name",
                 header: "Model",
             }),
-            columnHelper.display({
-                id: "usage",
-                header: "Usage",
-                cell: ({ row }) =>
-                    getModelUsageLabel(row.original.usage) ? (
-                        <Badge variant="outline">
-                            {getModelUsageLabel(row.original.usage)}
-                        </Badge>
-                    ) : null,
-            }),
+            columnHelper.accessor(
+                (model) => getModelUsageLabel(model.usage) || "",
+                {
+                    id: "usage",
+                    header: "Usage",
+                    cell: ({ getValue }) =>
+                        getValue() ? (
+                            <Badge variant="outline">{getValue()}</Badge>
+                        ) : null,
+                }
+            ),
             columnHelper.display({
                 id: "actions",
                 cell: ({ row }) => (

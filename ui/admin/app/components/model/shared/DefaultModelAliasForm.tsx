@@ -14,6 +14,7 @@ import {
 import { DefaultModelAliasApiService } from "~/lib/service/api/defaultModelAliasApiService";
 import { ModelApiService } from "~/lib/service/api/modelApiService";
 
+import { TypographyP } from "~/components/Typography";
 import { Button } from "~/components/ui/button";
 import {
     Dialog,
@@ -208,9 +209,9 @@ export function DefaultModelAliasForm({
         if (!modelOptions) {
             if (!defaultModel)
                 return (
-                    <div className="p-2 text-sm text-muted-foreground">
+                    <TypographyP className="p-2 text-muted-foreground">
                         No Models Available.
-                    </div>
+                    </TypographyP>
                 );
             return <SelectItem value={defaultModel}>{defaultModel}</SelectItem>;
         }
