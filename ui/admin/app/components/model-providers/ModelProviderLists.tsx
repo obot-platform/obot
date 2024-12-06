@@ -42,7 +42,7 @@ export function ModelProviderList({
                                         variant="faded"
                                         className="absolute bottom-[-0.5rem] left-1/2 z-10 transform -translate-x-1/2"
                                     >
-                                        <TypographySmall>REC</TypographySmall>
+                                        Recommended
                                     </Badge>
                                 )}
                                 <Link to={ModelProviderLinks[modelProvider.id]}>
