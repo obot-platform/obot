@@ -206,7 +206,12 @@ export function DefaultModelAliasForm({
         defaultModel: string
     ) {
         if (!modelOptions) {
-            if (!defaultModel) return null;
+            if (!defaultModel)
+                return (
+                    <div className="p-2 text-sm text-muted-foreground">
+                        No Models Available.
+                    </div>
+                );
             return <SelectItem value={defaultModel}>{defaultModel}</SelectItem>;
         }
 
