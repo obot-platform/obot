@@ -50,58 +50,52 @@ export function DataTable<TData, TValue>({
     });
 
     return (
-        <div className="rounded-md max-h-full overflow-auto">
-            <Table className="h-full">
-                <TableHeader className="sticky top-0">
-                    {table.getHeaderGroups().map((headerGroup) => (
-                        <TableRow key={headerGroup.id} className="p-4">
-                            {headerGroup.headers.map((header) => {
-                                return (
-                                    <TableHead key={header.id}>
-                                        {header.isPlaceholder
-                                            ? null
-                                            : flexRender(
-                                                  header.column.columnDef
-                                                      .header,
-                                                  header.getContext()
-                                              )}
-                                    </TableHead>
-                                );
-                            })}
-                        </TableRow>
-                    ))}
-                </TableHeader>
+        <Table className="h-full">
+            <TableHeader className="sticky top-0 bg-background">
+                {table.getHeaderGroups().map((headerGroup) => (
+                    <TableRow key={headerGroup.id} className="p-4">
+                        {headerGroup.headers.map((header) => {
+                            return (
+                                <TableHead key={header.id}>
+                                    {header.isPlaceholder
+                                        ? null
+                                        : flexRender(
+                                              header.column.columnDef.header,
+                                              header.getContext()
+                                          )}
+                                </TableHead>
+                            );
+                        })}
+                    </TableRow>
+                ))}
+            </TableHeader>
 
-                <TableBody>
-                    {table.getRowModel().rows?.length ? (
-                        table.getRowModel().rows.map((row) => (
-                            <TableRow
-                                key={row.id}
-                                data-state={row.getIsSelected() && "selected"}
-                                className={cn(
-                                    classNames?.row,
-                                    rowClassName?.(row.original)
-                                )}
-                            >
-                                {row.getVisibleCells().map(renderCell)}
-                            </TableRow>
-                        ))
-                    ) : (
-                        <TableRow className={cn(classNames?.row)}>
-                            <TableCell
-                                colSpan={columns.length}
-                                className={cn(
-                                    "h-24 text-center",
-                                    classNames?.row
-                                )}
-                            >
-                                No results.
-                            </TableCell>
+            <TableBody>
+                {table.getRowModel().rows?.length ? (
+                    table.getRowModel().rows.map((row) => (
+                        <TableRow
+                            key={row.id}
+                            data-state={row.getIsSelected() && "selected"}
+                            className={cn(
+                                classNames?.row,
+                                rowClassName?.(row.original)
+                            )}
+                        >
+                            {row.getVisibleCells().map(renderCell)}
                         </TableRow>
-                    )}
-                </TableBody>
-            </Table>
-        </div>
+                    ))
+                ) : (
+                    <TableRow className={cn(classNames?.row)}>
+                        <TableCell
+                            colSpan={columns.length}
+                            className={cn("h-24 text-center", classNames?.row)}
+                        >
+                            No results.
+                        </TableCell>
+                    </TableRow>
+                )}
+            </TableBody>
+        </Table>
     );
 
     function renderCell(cell: Cell<TData, TValue>) {

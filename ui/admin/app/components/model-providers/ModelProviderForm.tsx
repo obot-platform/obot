@@ -1,5 +1,4 @@
 import { zodResolver } from "@hookform/resolvers/zod";
-import { CircleHelpIcon } from "lucide-react";
 import { useFieldArray, useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { mutate } from "swr";
@@ -9,6 +8,10 @@ import { ModelProvider, ModelProviderConfig } from "~/lib/model/modelProviders";
 import { ModelProviderApiService } from "~/lib/service/api/modelProviderApiService";
 
 import { TypographyH4 } from "~/components/Typography";
+import {
+    HelperTooltipLabel,
+    HelperTooltipLink,
+} from "~/components/composed/HelperTooltip";
 import {
     NameDescriptionForm,
     ParamFormValues,
@@ -20,14 +23,8 @@ import {
 } from "~/components/model-providers/constants";
 import { Button } from "~/components/ui/button";
 import { Form } from "~/components/ui/form";
-import { Link } from "~/components/ui/link";
 import { ScrollArea } from "~/components/ui/scroll-area";
 import { Separator } from "~/components/ui/separator";
-import {
-    Tooltip,
-    TooltipContent,
-    TooltipTrigger,
-} from "~/components/ui/tooltip";
 import { useAsync } from "~/hooks/useAsync";
 
 const formSchema = z.object({
@@ -202,35 +199,7 @@ export function ModelProviderForm({
                         </form>
                     </Form>
 
-                    {showCustomConfiguration ? (
-                        <>
-                            <Separator className="my-4" />
-
-                            <div className="flex items-center">
-                                <TypographyH4 className="font-semibold text-md">
-                                    Custom Configuration (Optional)
-                                </TypographyH4>
-                                {ModelProviderConfigurationLinks[
-                                    modelProvider.id
-                                ]
-                                    ? renderCustomConfigTooltip(
-                                          modelProvider.id
-                                      )
-                                    : null}
-                            </div>
-                            <NameDescriptionForm
-                                defaultValues={form.watch(
-                                    "additionalConfirmParams"
-                                )}
-                                onChange={(values) =>
-                                    form.setValue(
-                                        "additionalConfirmParams",
-                                        values
-                                    )
-                                }
-                            />
-                        </>
-                    ) : null}
+                    {showCustomConfiguration && renderCustomConfiguration()}
                 </div>
             </ScrollArea>
 
@@ -247,54 +216,37 @@ export function ModelProviderForm({
         </div>
     );
 
+    function renderCustomConfiguration() {
+        return (
+            <>
+                <Separator className="my-4" />
+
+                <div className="flex items-center">
+                    <TypographyH4 className="font-semibold text-md">
+                        Custom Configuration (Optional)
+                    </TypographyH4>
+                    {ModelProviderConfigurationLinks[modelProvider.id]
+                        ? renderCustomConfigTooltip(modelProvider.id)
+                        : null}
+                </div>
+                <NameDescriptionForm
+                    defaultValues={form.watch("additionalConfirmParams")}
+                    onChange={(values) =>
+                        form.setValue("additionalConfirmParams", values)
+                    }
+                />
+            </>
+        );
+    }
+
     function renderCustomConfigTooltip(modelProviderId: string) {
         const link = ModelProviderConfigurationLinks[modelProviderId];
-        return (
-            <Tooltip>
-                <TooltipTrigger asChild>
-                    <Link to={link} size="icon" variant="ghost" as="button">
-                        <CircleHelpIcon className="text-muted-foreground" />
-                    </Link>
-                </TooltipTrigger>
-
-                <TooltipContent
-                    side="right"
-                    className="bg-secondary text-foreground max-w-80"
-                >
-                    This model provider supports additional environment variable
-                    configurations. Click to learn more.
-                </TooltipContent>
-            </Tooltip>
-        );
+        return <HelperTooltipLink link={link} />;
     }
 
     function renderLabelWithTooltip(label: string) {
         const tooltip =
             ModelProviderRequiredTooltips[modelProvider.id]?.[label];
-        return (
-            <div className="flex items-center">
-                {label}
-                {tooltip && (
-                    <Tooltip>
-                        <TooltipTrigger asChild>
-                            <Button
-                                size="icon"
-                                variant="ghost"
-                                onClick={(e) => e.preventDefault()}
-                            >
-                                <CircleHelpIcon className="text-muted-foreground" />
-                            </Button>
-                        </TooltipTrigger>
-
-                        <TooltipContent
-                            side="right"
-                            className="bg-secondary text-foreground max-w-80"
-                        >
-                            {tooltip}
-                        </TooltipContent>
-                    </Tooltip>
-                )}
-            </div>
-        );
+        return <HelperTooltipLabel label={label} tooltip={tooltip} />;
     }
 }
