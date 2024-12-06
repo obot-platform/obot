@@ -26,6 +26,7 @@ import { timeSince } from "~/lib/utils";
 import { TypographyH2, TypographyP } from "~/components/Typography";
 import { DataTable } from "~/components/composed/DataTable";
 import { Button } from "~/components/ui/button";
+import { ScrollArea } from "~/components/ui/scroll-area";
 import {
     Tooltip,
     TooltipContent,
@@ -148,33 +149,25 @@ export default function Threads() {
     });
 
     return (
-        <div className="h-full flex flex-col">
-            <div className="flex-auto flex flex-col overflow-hidden p-8 gap-4">
-                <TypographyH2>Threads</TypographyH2>
+        <ScrollArea className="max-h-full p-8 flex flex-col gap-4">
+            <TypographyH2>Threads</TypographyH2>
 
-                <ThreadFilters
-                    userMap={userMap}
-                    agentMap={agentMap}
-                    workflowMap={workflowMap}
-                />
+            <ThreadFilters
+                userMap={userMap}
+                agentMap={agentMap}
+                workflowMap={workflowMap}
+            />
 
-                <DataTable
-                    columns={getColumns()}
-                    data={threads}
-                    sort={[{ id: "created", desc: true }]}
-                    classNames={{
-                        row: "!max-h-[200px] grow-0 height-[200px]",
-                        cell: "!max-h-[200px] grow-0 height-[200px]",
-                    }}
-                    disableClickPropagation={(cell) =>
-                        cell.id.includes("actions")
-                    }
-                    onRowClick={(row) => {
-                        navigate($path("/threads/:id", { id: row.id }));
-                    }}
-                />
-            </div>
-        </div>
+            <DataTable
+                columns={getColumns()}
+                data={threads}
+                sort={[{ id: "created", desc: true }]}
+                disableClickPropagation={(cell) => cell.id.includes("actions")}
+                onRowClick={(row) => {
+                    navigate($path("/threads/:id", { id: row.id }));
+                }}
+            />
+        </ScrollArea>
     );
 
     function getColumns(): ColumnDef<Thread, string>[] {
