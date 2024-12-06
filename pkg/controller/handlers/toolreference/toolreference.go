@@ -264,11 +264,13 @@ func (h *Handler) Populate(req router.Request, resp router.Response) error {
 	return nil
 }
 
-func (h *Handler) EnsureOpenAIEnvCredential(ctx context.Context, c client.Client) error {
+func (h *Handler) EnsureOpenAIEnvCredentialAndDefaults(ctx context.Context, c client.Client) error {
 	if os.Getenv("OPENAI_API_KEY") == "" {
 		return nil
 	}
 
+	// If the openai-model-provider exists and the OPENAI_API_KEY environment variable is set, then ensure the credential exists.
+	var openAIModelProvider v1.ToolReference
 	for {
 		select {
 		case <-time.After(2 * time.Second):
@@ -276,44 +278,83 @@ func (h *Handler) EnsureOpenAIEnvCredential(ctx context.Context, c client.Client
 			return ctx.Err()
 		}
 
-		// If the openai-model-provider exists and the OPENAI_API_KEY environment variable is set, then ensure the credential exists.
-		var openAIModelProvider v1.ToolReference
-		if err := c.Get(ctx, client.ObjectKey{Namespace: system.DefaultNamespace, Name: "openai-model-provider"}, &openAIModelProvider); err != nil {
+		if err := c.Get(ctx, client.ObjectKey{Namespace: system.DefaultNamespace, Name: "openai-model-provider"}, &openAIModelProvider); err == nil {
+			break
+		}
+	}
+
+	if cred, err := h.gptClient.RevealCredential(ctx, []string{string(openAIModelProvider.UID)}, "openai-model-provider"); err != nil {
+		if !strings.HasSuffix(err.Error(), "credential not found") {
+			return fmt.Errorf("failed to check OpenAI credential: %w", err)
+		}
+
+		// The credential doesn't exist, so create it.
+		if err = h.gptClient.CreateCredential(ctx, gptscript.Credential{
+			Context:  string(openAIModelProvider.UID),
+			ToolName: "openai-model-provider",
+			Type:     gptscript.CredentialTypeModelProvider,
+			Env: map[string]string{
+				"OTTO8_OPENAI_MODEL_PROVIDER_API_KEY": os.Getenv("OPENAI_API_KEY"),
+			},
+		}); err != nil {
+			return err
+		}
+	} else if cred.Env["OTTO8_OPENAI_MODEL_PROVIDER_API_KEY"] != os.Getenv("OPENAI_API_KEY") {
+		// If the credential exists, but has a different value, then update it.
+		// The only way to update it is to delete the existing credential and recreate it.
+		if err = h.gptClient.DeleteCredential(ctx, string(openAIModelProvider.UID), "openai-model-provider"); err != nil {
+			return fmt.Errorf("failed to delete credential: %w", err)
+		}
+		return h.gptClient.CreateCredential(ctx, gptscript.Credential{
+			Context:  string(openAIModelProvider.UID),
+			ToolName: "openai-model-provider",
+			Type:     gptscript.CredentialTypeModelProvider,
+			Env: map[string]string{
+				"OTTO8_OPENAI_MODEL_PROVIDER_API_KEY": os.Getenv("OPENAI_API_KEY"),
+			},
+		})
+	}
+
+	// Since the user is setting up the OpenAI model provider with an environment variable, we should set the default model aliases to something reasonable.
+	openAIDefaultModelAliasMapping := map[types.DefaultModelAliasType]string{
+		types.DefaultModelAliasTypeLLM:             "gpt-4o",
+		types.DefaultModelAliasTypeLLMMini:         "gpt-4o-mini",
+		types.DefaultModelAliasTypeVision:          "gpt-4o",
+		types.DefaultModelAliasTypeImageGeneration: "dall-e-3",
+		types.DefaultModelAliasTypeTextEmbedding:   "text-embedding-3-large",
+	}
+
+	var modelAliases v1.DefaultModelAliasList
+	if err := c.List(ctx, &modelAliases); err != nil {
+		return fmt.Errorf("failed to list model aliases: %w", err)
+	}
+
+	for _, alias := range modelAliases.Items {
+		if alias.Spec.Manifest.Model != "" {
 			continue
 		}
 
-		if cred, err := h.gptClient.RevealCredential(ctx, []string{string(openAIModelProvider.UID)}, "openai-model-provider"); err != nil {
-			if strings.HasSuffix(err.Error(), "credential not found") {
-				// The credential doesn't exist, so create it.
-				return h.gptClient.CreateCredential(ctx, gptscript.Credential{
-					Context:  string(openAIModelProvider.UID),
-					ToolName: "openai-model-provider",
-					Type:     gptscript.CredentialTypeModelProvider,
-					Env: map[string]string{
-						"OTTO8_OPENAI_MODEL_PROVIDER_API_KEY": os.Getenv("OPENAI_API_KEY"),
-					},
-				})
-			}
-
-			return fmt.Errorf("failed to check OpenAI credential: %w", err)
-		} else if cred.Env["OTTO8_OPENAI_MODEL_PROVIDER_API_KEY"] != os.Getenv("OPENAI_API_KEY") {
-			// If the credential exists, but has a different value, then update it.
-			// The only way to update it is to delete the existing credential and recreate it.
-			if err = h.gptClient.DeleteCredential(ctx, string(openAIModelProvider.UID), "openai-model-provider"); err != nil {
-				return fmt.Errorf("failed to delete credential: %w", err)
-			}
-			return h.gptClient.CreateCredential(ctx, gptscript.Credential{
-				Context:  string(openAIModelProvider.UID),
-				ToolName: "openai-model-provider",
-				Type:     gptscript.CredentialTypeModelProvider,
-				Env: map[string]string{
-					"OTTO8_OPENAI_MODEL_PROVIDER_API_KEY": os.Getenv("OPENAI_API_KEY"),
-				},
-			})
+		alias.Spec.Manifest.Model = modelName(openAIModelProvider.Name, openAIDefaultModelAliasMapping[types.DefaultModelAliasType(alias.Spec.Manifest.Alias)])
+		if err := c.Update(ctx, &alias); err != nil {
+			return fmt.Errorf("failed to update model alias %q: %w", alias.Name, err)
 		}
+	}
 
+	// Lastly, ensure that the models are populated from the model provider
+	if err := c.Get(ctx, client.ObjectKey{Namespace: openAIModelProvider.Namespace, Name: openAIModelProvider.Name}, &openAIModelProvider); err != nil {
 		return nil
 	}
+
+	if openAIModelProvider.Annotations[v1.ModelProviderSyncAnnotation] != "" {
+		delete(openAIModelProvider.Annotations, v1.ModelProviderSyncAnnotation)
+	} else {
+		if openAIModelProvider.Annotations == nil {
+			openAIModelProvider.Annotations = make(map[string]string)
+		}
+		openAIModelProvider.Annotations[v1.ModelProviderSyncAnnotation] = "true"
+	}
+
+	return c.Update(ctx, &openAIModelProvider)
 }
 
 func (h *Handler) BackPopulateModels(req router.Request, _ router.Response) error {
@@ -352,7 +393,7 @@ func (h *Handler) BackPopulateModels(req router.Request, _ router.Response) erro
 		models = append(models, &v1.Model{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: req.Namespace,
-				Name:      name.SafeConcatName(system.ModelPrefix, toolRef.Name, fmt.Sprintf("%x", sha256.Sum256([]byte(model.ID)))),
+				Name:      modelName(toolRef.Name, model.ID),
 				Annotations: map[string]string{
 					apply.AnnotationUpdate: "false",
 				},
@@ -405,4 +446,8 @@ func (h *Handler) CleanupModelProvider(req router.Request, _ router.Response) er
 	}
 
 	return nil
+}
+
+func modelName(modelProviderName, modelName string) string {
+	return name.SafeConcatName(system.ModelPrefix, modelProviderName, fmt.Sprintf("%x", sha256.Sum256([]byte(modelName))))
 }
