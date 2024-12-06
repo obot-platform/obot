@@ -65,7 +65,7 @@ export type ModelManifest = {
     usage: ModelUsage;
 };
 
-export type Model = EntityMeta & ModelManifest & ModelProviderStatus;
+export type Model = EntityMeta & ModelManifest;
 
 export const ModelManifestSchema = z.object({
     name: z.string(),

@@ -7,7 +7,6 @@ items:
     spec:
       manifest:
         alias: llm
-        model: gpt-4o
   - apiVersion: otto.otto8.ai/v1
     kind: DefaultModelAlias
     metadata:
@@ -16,7 +15,6 @@ items:
     spec:
       manifest:
         alias: llm-mini
-        model: gpt-4o-mini
   - apiVersion: otto.otto8.ai/v1
     kind: DefaultModelAlias
     metadata:
@@ -25,7 +23,6 @@ items:
     spec:
       manifest:
         alias: text-embedding
-        model: text-embedding-3-large
   - apiVersion: otto.otto8.ai/v1
     kind: DefaultModelAlias
     metadata:
@@ -34,7 +31,6 @@ items:
     spec:
       manifest:
         alias: image-generation
-        model: dall-e-3
   - apiVersion: otto.otto8.ai/v1
     kind: DefaultModelAlias
     metadata:
@@ -43,4 +39,3 @@ items:
     spec:
       manifest:
         alias: vision
-        model: gpt-4o

@@ -26,7 +26,7 @@ func (c *Controller) setupRoutes() error {
 
 	workflowExecution := workflowexecution.New(c.services.Invoker)
 	workflowStep := workflowstep.New(c.services.Invoker)
-	toolRef := toolreference.New(c.services.GPTClient, c.services.ToolRegistryURL)
+	toolRef := toolreference.New(c.services.GPTClient, c.services.ModelProviderDispatcher, c.services.ToolRegistryURL)
 	workspace := workspace.New(c.services.GPTClient, c.services.WorkspaceProviderType)
 	knowledgeset := knowledgeset.New(c.services.AIHelper, c.services.Invoker)
 	knowledgesource := knowledgesource.NewHandler(c.services.Invoker, c.services.GPTClient)
@@ -69,8 +69,9 @@ func (c *Controller) setupRoutes() error {
 	root.Type(&v1.KnowledgeSource{}).HandlerFunc(knowledgesource.Sync)
 
 	// ToolReference
+	root.Type(&v1.ToolReference{}).HandlerFunc(toolRef.BackPopulateModels)
 	root.Type(&v1.ToolReference{}).HandlerFunc(toolRef.Populate)
-	root.Type(&v1.ToolReference{}).FinalizeFunc(v1.ToolReferenceFinalizer, toolRef.RemoveModelProviderCredential)
+	root.Type(&v1.ToolReference{}).FinalizeFunc(v1.ToolReferenceFinalizer, toolRef.CleanupModelProvider)
 
 	// Reference
 	root.Type(&v1.Agent{}).HandlerFunc(alias.AssignAlias)

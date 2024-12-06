@@ -77,6 +77,10 @@ func (mp *ModelProviderHandler) Configure(req api.Context) error {
 		return err
 	}
 
+	if ref.Spec.Type != types.ToolReferenceTypeModelProvider {
+		return types.NewErrBadRequest("%q is not a model provider", ref.Name)
+	}
+
 	var envVars map[string]string
 	if err := req.Read(&envVars); err != nil {
 		return err
@@ -98,7 +102,16 @@ func (mp *ModelProviderHandler) Configure(req api.Context) error {
 
 	mp.dispatcher.StopModelProvider(ref.Namespace, ref.Name)
 
-	return nil
+	if ref.Annotations[v1.ModelProviderSyncAnnotation] == "" {
+		if ref.Annotations == nil {
+			ref.Annotations = make(map[string]string, 1)
+		}
+		ref.Annotations[v1.ModelProviderSyncAnnotation] = "true"
+	} else {
+		delete(ref.Annotations, v1.ModelProviderSyncAnnotation)
+	}
+
+	return req.Update(&ref)
 }
 
 func (mp *ModelProviderHandler) Reveal(req api.Context) error {
@@ -113,6 +126,41 @@ func (mp *ModelProviderHandler) Reveal(req api.Context) error {
 	}
 
 	return req.Write(cred.Env)
+}
+
+func (mp *ModelProviderHandler) RefreshModels(req api.Context) error {
+	var ref v1.ToolReference
+	if err := req.Get(&ref, req.PathValue("id")); err != nil {
+		return err
+	}
+
+	if ref.Spec.Type != types.ToolReferenceTypeModelProvider {
+		return types.NewErrBadRequest("%q is not a model provider", ref.Name)
+	}
+
+	modelProvider, err := convertToolReferenceToModelProvider(req.Context(), mp.gptscript, ref)
+	if err != nil {
+		return err
+	}
+
+	if !modelProvider.Configured {
+		return types.NewErrBadRequest("model provider %s is not configured, missing configuration parameters: %s", modelProvider.ModelProviderManifest.Name, strings.Join(modelProvider.MissingConfigurationParameters, ", "))
+	}
+
+	if ref.Annotations[v1.ModelProviderSyncAnnotation] == "" {
+		if ref.Annotations == nil {
+			ref.Annotations = make(map[string]string, 1)
+		}
+		ref.Annotations[v1.ModelProviderSyncAnnotation] = "true"
+	} else {
+		delete(ref.Annotations, v1.ModelProviderSyncAnnotation)
+	}
+
+	if err = req.Update(&ref); err != nil {
+		return fmt.Errorf("failed to sync models for model provider %q: %w", ref.Name, err)
+	}
+
+	return req.Write(modelProvider)
 }
 
 func convertToolReferenceToModelProvider(ctx context.Context, gClient *gptscript.GPTScript, ref v1.ToolReference) (types.ModelProvider, error) {
@@ -138,4 +186,46 @@ func convertToolReferenceToModelProvider(ctx context.Context, gClient *gptscript
 	mp.Type = "modelprovider"
 
 	return mp, nil
+}
+
+func convertModelProviderToolRef(ctx context.Context, gptscript *gptscript.GPTScript, toolRef v1.ToolReference) (*types.ModelProviderStatus, error) {
+	var (
+		requiredEnvVars, missingEnvVars []string
+		icon                            string
+	)
+	if toolRef.Status.Tool != nil {
+		if toolRef.Status.Tool.Metadata["envVars"] != "" {
+			cred, err := gptscript.RevealCredential(ctx, []string{string(toolRef.UID)}, toolRef.Name)
+			if err != nil && !strings.HasSuffix(err.Error(), "credential not found") {
+				return nil, fmt.Errorf("failed to reveal credential for model provider %q: %w", toolRef.Name, err)
+			}
+
+			if toolRef.Status.Tool.Metadata["envVars"] != "" {
+				requiredEnvVars = strings.Split(toolRef.Status.Tool.Metadata["envVars"], ",")
+			}
+
+			for _, envVar := range requiredEnvVars {
+				if cred.Env[envVar] == "" {
+					missingEnvVars = append(missingEnvVars, envVar)
+				}
+			}
+		}
+
+		icon = toolRef.Status.Tool.Metadata["icon"]
+	}
+
+	var modelsPopulated *bool
+	configured := toolRef.Status.Tool != nil && len(missingEnvVars) == 0
+	if configured {
+		modelsPopulated = new(bool)
+		*modelsPopulated = toolRef.Status.ObservedGeneration == toolRef.Generation
+	}
+
+	return &types.ModelProviderStatus{
+		Icon:                            icon,
+		Configured:                      configured,
+		ModelsBackPopulated:             modelsPopulated,
+		RequiredConfigurationParameters: requiredEnvVars,
+		MissingConfigurationParameters:  missingEnvVars,
+	}, nil
 }

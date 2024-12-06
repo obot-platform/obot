@@ -173,7 +173,7 @@ func (d *Dispatcher) startModelProvider(ctx context.Context, namespace, modelPro
 		}
 
 		if len(missingEnvVars) > 0 {
-			return nil, fmt.Errorf("model provider is not configured: missing env vars %q", strings.Join(missingEnvVars, ", "))
+			return nil, fmt.Errorf("model provider is not configured: missing configuration parameters %s", strings.Join(missingEnvVars, ", "))
 		}
 	}
 

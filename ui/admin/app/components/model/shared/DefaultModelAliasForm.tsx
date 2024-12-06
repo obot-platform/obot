@@ -205,8 +205,10 @@ export function DefaultModelAliasForm({
         modelOptions: Model[] | undefined,
         defaultModel: string
     ) {
-        if (!modelOptions)
+        if (!modelOptions) {
+            if (!defaultModel) return null;
             return <SelectItem value={defaultModel}>{defaultModel}</SelectItem>;
+        }
 
         return modelOptions.map((model) => (
             <SelectItem key={model.id} value={model.id}>

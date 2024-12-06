@@ -5,9 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"strings"
 
-	"github.com/gptscript-ai/go-gptscript"
 	"github.com/otto8-ai/otto8/apiclient/types"
 	"github.com/otto8-ai/otto8/pkg/api"
 	v1 "github.com/otto8-ai/otto8/pkg/storage/apis/otto.otto8.ai/v1"
@@ -18,14 +16,10 @@ import (
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-type ModelHandler struct {
-	gptscript *gptscript.GPTScript
-}
+type ModelHandler struct{}
 
-func NewModelHandler(gClient *gptscript.GPTScript) *ModelHandler {
-	return &ModelHandler{
-		gptscript: gClient,
-	}
+func NewModelHandler() *ModelHandler {
+	return &ModelHandler{}
 }
 
 func (a *ModelHandler) List(req api.Context) error {
@@ -36,7 +30,7 @@ func (a *ModelHandler) List(req api.Context) error {
 
 	respList := make([]types.Model, 0, len(modelList.Items))
 	for _, model := range modelList.Items {
-		resp, err := convertModel(req.Context(), req.Storage, a.gptscript, model)
+		resp, err := convertModel(req.Context(), req.Storage, model)
 		if err != nil {
 			return err
 		}
@@ -53,7 +47,7 @@ func (a *ModelHandler) ByID(req api.Context) error {
 		return err
 	}
 
-	resp, err := convertModel(req.Context(), req.Storage, a.gptscript, model)
+	resp, err := convertModel(req.Context(), req.Storage, model)
 	if err != nil {
 		return err
 	}
@@ -82,7 +76,7 @@ func (a *ModelHandler) Update(req api.Context) error {
 		return err
 	}
 
-	resp, err := convertModel(req.Context(), req.Storage, a.gptscript, existing)
+	resp, err := convertModel(req.Context(), req.Storage, existing)
 	if err != nil {
 		return err
 	}
@@ -127,7 +121,7 @@ func (a *ModelHandler) Create(req api.Context) error {
 		return err
 	}
 
-	resp, err := convertModel(req.Context(), req.Storage, a.gptscript, *model)
+	resp, err := convertModel(req.Context(), req.Storage, *model)
 	if err != nil {
 		return err
 	}
@@ -159,7 +153,7 @@ func (a *ModelHandler) Delete(req api.Context) error {
 	})
 }
 
-func convertModel(ctx context.Context, c kclient.Client, gClient *gptscript.GPTScript, model v1.Model) (types.Model, error) {
+func convertModel(ctx context.Context, c kclient.Client, model v1.Model) (types.Model, error) {
 	var toolRef v1.ToolReference
 	if err := c.Get(ctx, kclient.ObjectKey{Namespace: model.Namespace, Name: model.Spec.Manifest.ModelProvider}, &toolRef); err != nil {
 		return types.Model{}, err
@@ -170,52 +164,12 @@ func convertModel(ctx context.Context, c kclient.Client, gClient *gptscript.GPTS
 		aliasAssigned = &model.Status.AliasAssigned
 	}
 
-	modelProviderStatus, err := convertModelProviderToolRef(ctx, gClient, toolRef)
-	if err != nil {
-		return types.Model{}, err
-	}
-
 	return types.Model{
 		Metadata:      MetadataFrom(&model),
 		ModelManifest: model.Spec.Manifest,
 		ModelStatus: types.ModelStatus{
-			ModelProviderStatus: *modelProviderStatus,
-			AliasAssigned:       aliasAssigned,
+			AliasAssigned: aliasAssigned,
 		},
-	}, nil
-}
-
-func convertModelProviderToolRef(ctx context.Context, gptscript *gptscript.GPTScript, toolRef v1.ToolReference) (*types.ModelProviderStatus, error) {
-	var (
-		requiredEnvVars, missingEnvVars []string
-		icon                            string
-	)
-	if toolRef.Status.Tool != nil {
-		if toolRef.Status.Tool.Metadata["envVars"] != "" {
-			cred, err := gptscript.RevealCredential(ctx, []string{string(toolRef.UID)}, toolRef.Name)
-			if err != nil && !strings.HasSuffix(err.Error(), "credential not found") {
-				return nil, fmt.Errorf("failed to reveal credential for model provider %q: %w", toolRef.Name, err)
-			}
-
-			if toolRef.Status.Tool.Metadata["envVars"] != "" {
-				requiredEnvVars = strings.Split(toolRef.Status.Tool.Metadata["envVars"], ",")
-			}
-
-			for _, envVar := range requiredEnvVars {
-				if cred.Env[envVar] == "" {
-					missingEnvVars = append(missingEnvVars, envVar)
-				}
-			}
-		}
-
-		icon = toolRef.Status.Tool.Metadata["icon"]
-	}
-
-	return &types.ModelProviderStatus{
-		Icon:                            icon,
-		Configured:                      toolRef.Status.Tool != nil && len(missingEnvVars) == 0,
-		RequiredConfigurationParameters: requiredEnvVars,
-		MissingConfigurationParameters:  missingEnvVars,
 	}, nil
 }
 

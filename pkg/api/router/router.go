@@ -21,7 +21,7 @@ func Router(services *services.Services) (http.Handler, error) {
 	toolRefs := handlers.NewToolReferenceHandler(services.GPTClient)
 	webhooks := handlers.NewWebhookHandler()
 	cronJobs := handlers.NewCronJobHandler()
-	models := handlers.NewModelHandler(services.GPTClient)
+	models := handlers.NewModelHandler()
 	availableModels := handlers.NewAvailableModelsHandler(services.GPTClient, services.ModelProviderDispatcher)
 	modelProviders := handlers.NewModelProviderHandler(services.GPTClient, services.ModelProviderDispatcher)
 	prompt := handlers.NewPromptHandler(services.GPTClient)
@@ -226,6 +226,7 @@ func Router(services *services.Services) (http.Handler, error) {
 	mux.HandleFunc("GET /api/model-providers/{id}", modelProviders.ByID)
 	mux.HandleFunc("POST /api/model-providers/{id}/configure", modelProviders.Configure)
 	mux.HandleFunc("POST /api/model-providers/{id}/reveal", modelProviders.Reveal)
+	mux.HandleFunc("POST /api/model-providers/{id}/refresh-models", modelProviders.RefreshModels)
 
 	// Models
 	mux.HandleFunc("POST /api/models", models.Create)

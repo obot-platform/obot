@@ -1918,6 +1918,12 @@ func schema_otto8_ai_otto8_apiclient_types_ModelProviderStatus(ref common.Refere
 							Format:  "",
 						},
 					},
+					"modelsBackPopulated": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
+						},
+					},
 					"requiredConfigurationParameters": {
 						SchemaProps: spec.SchemaProps{
 							Type: []string{"array"},
@@ -1959,12 +1965,6 @@ func schema_otto8_ai_otto8_apiclient_types_ModelStatus(ref common.ReferenceCallb
 			SchemaProps: spec.SchemaProps{
 				Type: []string{"object"},
 				Properties: map[string]spec.Schema{
-					"ModelProviderStatus": {
-						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref("github.com/otto8-ai/otto8/apiclient/types.ModelProviderStatus"),
-						},
-					},
 					"aliasAssigned": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"boolean"},
@@ -1972,11 +1972,8 @@ func schema_otto8_ai_otto8_apiclient_types_ModelStatus(ref common.ReferenceCallb
 						},
 					},
 				},
-				Required: []string{"ModelProviderStatus"},
 			},
 		},
-		Dependencies: []string{
-			"github.com/otto8-ai/otto8/apiclient/types.ModelProviderStatus"},
 	}
 }
 

@@ -2,6 +2,7 @@ package toolreference
 
 import (
 	"context"
+	"crypto/sha256"
 	"fmt"
 	"net/url"
 	"os"
@@ -11,12 +12,16 @@ import (
 
 	"github.com/gptscript-ai/go-gptscript"
 	"github.com/otto8-ai/nah/pkg/apply"
+	"github.com/otto8-ai/nah/pkg/name"
 	"github.com/otto8-ai/nah/pkg/router"
 	"github.com/otto8-ai/otto8/apiclient/types"
 	"github.com/otto8-ai/otto8/logger"
+	"github.com/otto8-ai/otto8/pkg/availablemodels"
+	"github.com/otto8-ai/otto8/pkg/gateway/server/dispatcher"
 	v1 "github.com/otto8-ai/otto8/pkg/storage/apis/otto.otto8.ai/v1"
 	"github.com/otto8-ai/otto8/pkg/system"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/fields"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/yaml"
 )
@@ -39,12 +44,14 @@ type index struct {
 
 type Handler struct {
 	gptClient   *gptscript.GPTScript
+	dispatcher  *dispatcher.Dispatcher
 	registryURL string
 }
 
-func New(gptClient *gptscript.GPTScript, registryURL string) *Handler {
+func New(gptClient *gptscript.GPTScript, dispatcher *dispatcher.Dispatcher, registryURL string) *Handler {
 	return &Handler{
 		gptClient:   gptClient,
+		dispatcher:  dispatcher,
 		registryURL: registryURL,
 	}
 }
@@ -309,14 +316,92 @@ func (h *Handler) EnsureOpenAIEnvCredential(ctx context.Context, c client.Client
 	}
 }
 
-func (h *Handler) RemoveModelProviderCredential(req router.Request, _ router.Response) error {
+func (h *Handler) BackPopulateModels(req router.Request, _ router.Response) error {
 	toolRef := req.Object.(*v1.ToolReference)
-	if toolRef.Spec.Type != types.ToolReferenceTypeModelProvider || toolRef.Status.Tool == nil || toolRef.Status.Tool.Metadata["envVars"] == "" {
+	if toolRef.Spec.Type != types.ToolReferenceTypeModelProvider || toolRef.Status.Tool == nil {
 		return nil
 	}
 
-	if err := h.gptClient.DeleteCredential(req.Ctx, string(toolRef.UID), toolRef.Name); err != nil && !strings.Contains(err.Error(), "credential not found") {
-		return err
+	if toolRef.Status.Tool.Metadata["envVars"] != "" {
+		cred, err := h.gptClient.RevealCredential(req.Ctx, []string{string(toolRef.UID)}, toolRef.Name)
+		if err != nil {
+			if strings.Contains(err.Error(), "credential not found") {
+				// Model provider is not configured, don't error
+				return nil
+			}
+			return err
+		}
+
+		for _, envVar := range strings.Split(toolRef.Status.Tool.Metadata["envVars"], ",") {
+			if _, ok := cred.Env[envVar]; !ok {
+				// Model provider is not configured, don't error
+				return nil
+			}
+		}
+	}
+
+	availableModels, err := availablemodels.ForProvider(req.Ctx, h.dispatcher, req.Namespace, req.Name)
+	if err != nil {
+		// Don't error and retry because it will likely fail again. Log the error, and the user can re-sync manually.
+		log.Errorf("Failed to get available models for model provider %q: %v", toolRef.Name, err)
+		return nil
+	}
+
+	models := make([]client.Object, 0, len(availableModels.Models))
+	for _, model := range availableModels.Models {
+		models = append(models, &v1.Model{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: req.Namespace,
+				Name:      name.SafeConcatName(system.ModelPrefix, toolRef.Name, fmt.Sprintf("%x", sha256.Sum256([]byte(model.ID)))),
+				Annotations: map[string]string{
+					apply.AnnotationUpdate: "false",
+				},
+			},
+			Spec: v1.ModelSpec{
+				Manifest: types.ModelManifest{
+					Name:          model.ID,
+					TargetModel:   model.ID,
+					ModelProvider: toolRef.Name,
+					Active:        true,
+					Usage:         types.ModelUsage(model.Metadata["usage"]),
+				},
+			},
+		})
+	}
+
+	if err = apply.New(req.Client).Apply(req.Ctx, toolRef, models...); err != nil {
+		return fmt.Errorf("failed to create models for model provider %q: %w", toolRef.Name, err)
+	}
+
+	return nil
+}
+
+func (h *Handler) CleanupModelProvider(req router.Request, _ router.Response) error {
+	toolRef := req.Object.(*v1.ToolReference)
+	if toolRef.Spec.Type != types.ToolReferenceTypeModelProvider || toolRef.Status.Tool == nil {
+		return nil
+	}
+
+	if toolRef.Status.Tool.Metadata["envVars"] != "" {
+		if err := h.gptClient.DeleteCredential(req.Ctx, string(toolRef.UID), toolRef.Name); err != nil && !strings.Contains(err.Error(), "credential not found") {
+			return err
+		}
+	}
+
+	var models v1.ModelList
+	if err := req.List(&models, &client.ListOptions{
+		Namespace: req.Namespace,
+		FieldSelector: fields.SelectorFromSet(fields.Set{
+			"spec.manifest.modelProvider": toolRef.Name,
+		}),
+	}); err != nil {
+		return fmt.Errorf("failed to list models for model provider %q for cleanup: %w", toolRef.Name, err)
+	}
+
+	for _, model := range models.Items {
+		if err := client.IgnoreNotFound(req.Delete(&model)); err != nil {
+			return fmt.Errorf("failed to delete model %q for cleanup: %w", model.Name, err)
+		}
 	}
 
 	return nil

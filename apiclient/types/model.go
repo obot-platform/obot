@@ -18,15 +18,7 @@ type ModelManifest struct {
 type ModelList List[Model]
 
 type ModelStatus struct {
-	ModelProviderStatus
 	AliasAssigned *bool `json:"aliasAssigned,omitempty"`
-}
-
-type ModelProviderStatus struct {
-	Icon                            string   `json:"icon,omitempty"`
-	Configured                      bool     `json:"configured"`
-	RequiredConfigurationParameters []string `json:"requiredConfigurationParameters,omitempty"`
-	MissingConfigurationParameters  []string `json:"missingConfigurationParameters,omitempty"`
 }
 
 type ModelUsage string

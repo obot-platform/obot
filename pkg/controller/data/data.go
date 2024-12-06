@@ -27,21 +27,9 @@ func Data(ctx context.Context, c kclient.Client) error {
 	}
 
 	for _, model := range defaultModels.Items {
-		var existing v1.Model
-		if err := c.Get(ctx, kclient.ObjectKey{Namespace: model.Namespace, Name: model.Name}, &existing); err == nil {
-			// If the usage is different, update the existing model.
-			if model.Spec.Manifest.Usage != existing.Spec.Manifest.Usage {
-				existing.Spec.Manifest.Usage = model.Spec.Manifest.Usage
-				if err := c.Update(ctx, &existing); err != nil {
-					return err
-				}
-			}
-		} else if !apierrors.IsNotFound(err) {
+		// Delete these old default models
+		if err := kclient.IgnoreNotFound(c.Delete(ctx, &model)); err != nil {
 			return err
-		} else {
-			if err = kclient.IgnoreAlreadyExists(c.Create(ctx, &model)); err != nil {
-				return err
-			}
 		}
 	}
 
