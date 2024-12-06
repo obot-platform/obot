@@ -147,7 +147,11 @@ export function ModelProviderConfigureContent({
             {modelProvider.id === CommonModelProviderIds.ANTHROPIC && (
                 <DialogDescription className="px-4">
                     Note: Anthropic does not have an embeddings model and{" "}
-                    <Link to="https://docs.anthropic.com/en/docs/build-with-claude/embeddings">
+                    <Link
+                        target="_blank"
+                        rel="noreferrer"
+                        to="https://docs.anthropic.com/en/docs/build-with-claude/embeddings"
+                    >
                         recommends
                     </Link>{" "}
                     Voyage AI.

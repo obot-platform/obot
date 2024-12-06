@@ -101,11 +101,13 @@ export function ModelProvidersModels({ modelProvider }: ModelsConfigureProps) {
                 </DialogHeader>
                 <ScrollArea className="h-[50vh]">
                     {!isLoading && (
-                        <DataTable
-                            columns={getColumns()}
-                            data={models}
-                            sort={[{ id: "name", desc: false }]}
-                        />
+                        <div className="px-6">
+                            <DataTable
+                                columns={getColumns()}
+                                data={models}
+                                sort={[{ id: "name", desc: false }]}
+                            />
+                        </div>
                     )}
                 </ScrollArea>
             </DialogContent>
