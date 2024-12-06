@@ -3,7 +3,6 @@ import { CircleCheckIcon, CircleSlashIcon } from "lucide-react";
 
 import { ModelProvider } from "~/lib/model/modelProviders";
 
-import { TypographySmall } from "~/components/Typography";
 import { ModelProviderConfigure } from "~/components/model-providers/ModelProviderConfigure";
 import { ModelProviderIcon } from "~/components/model-providers/ModelProviderIcon";
 import { ModelProvidersModels } from "~/components/model-providers/ModelProviderModels";
