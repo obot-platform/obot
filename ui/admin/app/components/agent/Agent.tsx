@@ -1,7 +1,9 @@
 import { LibraryIcon, PlusIcon, WrenchIcon } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
+import useSWR from "swr";
 
 import { Agent as AgentType } from "~/lib/model/agents";
+import { AgentService } from "~/lib/service/api/agentService";
 import { cn } from "~/lib/utils";
 
 import { TypographyH4, TypographyP } from "~/components/Typography";
@@ -25,6 +27,7 @@ export function Agent({ className, onRefresh }: AgentProps) {
     const { agent, updateAgent, isUpdating, lastUpdated, error } = useAgent();
 
     const [agentUpdates, setAgentUpdates] = useState(agent);
+    const [loadingAgentId, setLoadingAgentId] = useState("");
 
     useEffect(() => {
         setAgentUpdates((prev) => {
@@ -39,6 +42,32 @@ export function Agent({ className, onRefresh }: AgentProps) {
         });
     }, [agent]);
 
+    const getLoadingAgent = useSWR(
+        AgentService.getAgentById.key(loadingAgentId),
+        ({ agentId }) => AgentService.getAgentById(agentId),
+        {
+            revalidateOnFocus: false,
+            refreshInterval: 2000,
+        }
+    );
+
+    useEffect(() => {
+        if (!loadingAgentId) return;
+
+        const { isLoading, data } = getLoadingAgent;
+        if (isLoading) return;
+
+        if (data?.aliasAssigned) {
+            setAgentUpdates((prev) => {
+                return {
+                    ...prev,
+                    aliasAssigned: data.aliasAssigned,
+                };
+            });
+            setLoadingAgentId("");
+        }
+    }, [getLoadingAgent, loadingAgentId]);
+
     const partialSetAgent = useCallback(
         (changes: Partial<typeof agent>) => {
             const updatedAgent = { ...agent, ...agentUpdates, ...changes };
@@ -46,6 +75,7 @@ export function Agent({ className, onRefresh }: AgentProps) {
             updateAgent(updatedAgent);
 
             setAgentUpdates(updatedAgent);
+            setLoadingAgentId(updatedAgent.id);
         },
         [agentUpdates, updateAgent, agent]
     );
