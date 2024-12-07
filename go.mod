@@ -22,7 +22,7 @@ require (
 	github.com/mhale/smtpd v0.8.3
 	github.com/oauth2-proxy/oauth2-proxy/v7 v7.0.0-00010101000000-000000000000
 	github.com/otto8-ai/kinm v0.0.0-20241206174928-11e2e7ac3cfc
-	github.com/otto8-ai/nah v0.0.0-20241103035236-f2497c45ddb0
+	github.com/otto8-ai/nah v0.0.0-20241207061352-8dac36960968
 	github.com/otto8-ai/namegenerator v0.0.0-20241115024503-63dbbe8f03f4
 	github.com/otto8-ai/otto8/apiclient v0.0.0-00010101000000-000000000000
 	github.com/otto8-ai/otto8/logger v0.0.0-00010101000000-000000000000

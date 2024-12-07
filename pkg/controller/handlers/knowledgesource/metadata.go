@@ -43,7 +43,7 @@ type syncMetadata struct {
 	State  map[string]any         `json:"state,omitempty"`
 }
 
-func (k *Handler) getMetadata(ctx context.Context, source *v1.KnowledgeSource, thread *v1.Thread) (result []kclient.Object, _ *syncMetadata, _ error) {
+func (k *Handler) getMetadata(ctx context.Context, source *v1.KnowledgeSource, thread *v1.Thread) (result []v1.KnowledgeFile, _ *syncMetadata, _ error) {
 	data, err := k.gptClient.ReadFileInWorkspace(ctx, ".metadata.json", gptscript.ReadFileInWorkspaceOptions{
 		WorkspaceID: thread.Status.WorkspaceID,
 	})
@@ -60,7 +60,7 @@ func (k *Handler) getMetadata(ctx context.Context, source *v1.KnowledgeSource, t
 	}
 
 	for _, file := range output.Files {
-		result = append(result, &v1.KnowledgeFile{
+		result = append(result, v1.KnowledgeFile{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:       v1.ObjectNameFromAbsolutePath(filepath.Join(thread.Status.WorkspaceID, file.FilePath)),
 				Namespace:  source.Namespace,

@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/gptscript-ai/go-gptscript"
-	"github.com/otto8-ai/nah/pkg/apply"
 	"github.com/otto8-ai/nah/pkg/name"
 	"github.com/otto8-ai/nah/pkg/router"
 	"github.com/otto8-ai/otto8/apiclient/types"
@@ -64,17 +63,77 @@ func safeStatusSave(ctx context.Context, c kclient.Client, source *v1.KnowledgeS
 	// This should be the error from the last loop, which should be a conflict
 	return err
 }
+
+func reconcileFiles(ctx context.Context, c kclient.Client, existingFiles, newFiles []v1.KnowledgeFile, complete bool) error {
+	existingNames := map[string]v1.KnowledgeFile{}
+	for _, file := range existingFiles {
+		existingNames[file.Name] = file
+	}
+
+	newNames := map[string]v1.KnowledgeFile{}
+	for _, file := range newFiles {
+		newNames[file.Name] = file
+	}
+
+	for newName, newFile := range newNames {
+		existingFile, ok := existingNames[newName]
+		if !ok {
+			if err := c.Create(ctx, &newFile); apierror.IsAlreadyExists(err) {
+				if err := c.Get(ctx, kclient.ObjectKeyFromObject(&newFile), &existingFile); err != nil {
+					return err
+				}
+			} else if err != nil {
+				return err
+			} else {
+				continue
+			}
+		}
+		delete(existingNames, newName)
+
+		if existingFile.Spec.FileName != newFile.Spec.FileName ||
+			existingFile.Spec.URL != newFile.Spec.URL ||
+			existingFile.Spec.UpdatedAt != newFile.Spec.UpdatedAt ||
+			existingFile.Spec.Checksum != newFile.Spec.Checksum ||
+			existingFile.Spec.SizeInBytes != newFile.Spec.SizeInBytes {
+
+			existingFile.Spec.FileName = newFile.Spec.FileName
+			existingFile.Spec.URL = newFile.Spec.URL
+			existingFile.Spec.UpdatedAt = newFile.Spec.UpdatedAt
+			existingFile.Spec.Checksum = newFile.Spec.Checksum
+			existingFile.Spec.SizeInBytes = newFile.Spec.SizeInBytes
+
+			if err := c.Update(ctx, &existingFile); err != nil {
+				return err
+			}
+		}
+	}
+
+	if complete {
+		for _, existingFile := range existingNames {
+			if err := c.Delete(ctx, &existingFile); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
 func (k *Handler) saveProgress(ctx context.Context, c kclient.Client, source *v1.KnowledgeSource, thread *v1.Thread, complete bool) error {
 	files, syncMetadata, err := k.getMetadata(ctx, source, thread)
 	if err != nil || syncMetadata == nil {
 		return err
 	}
 
-	apply := apply.New(c)
-	if !complete {
-		apply = apply.WithNoPrune()
+	var existing v1.KnowledgeFileList
+	err = c.List(ctx, &existing, kclient.InNamespace(source.Namespace), kclient.MatchingFields{
+		"spec.knowledgeSourceName": source.Name,
+	})
+	if err != nil {
+		return err
 	}
-	if err = apply.Apply(ctx, source, files...); err != nil {
+
+	if err := reconcileFiles(ctx, c, existing.Items, files, complete); err != nil {
 		return err
 	}
 

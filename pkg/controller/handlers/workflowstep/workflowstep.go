@@ -89,7 +89,6 @@ func (h *Handler) Preconditions(next router.Handler) router.Handler {
 			return next.Handle(req, resp)
 		}
 
-		resp.DisablePrune()
 		return nil
 	})
 }
