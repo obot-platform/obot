@@ -48,3 +48,23 @@ export const ModelProviderRequiredTooltips: {
             "Container that holds related Azure resources. Can typically be found in Azure Portal > Resource Groups > [OpenAI Resource Group] > Overview",
     },
 };
+
+export const ModelProviderSensitiveFields: Record<string, boolean | undefined> =
+    {
+        // OpenAI
+        OTTO8_OPENAI_MODEL_PROVIDER_API_KEY: true,
+
+        // Azure OpenAI
+        OTTO8_AZURE_OPENAI_MODEL_PROVIDER_ENDPOINT: false,
+        OTTO8_AZURE_OPENAI_MODEL_PROVIDER_CLIENT_ID: false,
+        OTTO8_AZURE_OPENAI_MODEL_PROVIDER_CLIENT_SECRET: true,
+        OTTO8_AZURE_OPENAI_MODEL_PROVIDER_TENANT_ID: false,
+        OTTO8_AZURE_OPENAI_MODEL_PROVIDER_SUBSCRIPTION_ID: false,
+        OTTO8_AZURE_OPENAI_MODEL_PROVIDER_RESOURCE_GROUP: false,
+
+        // Anthropic
+        OTTO8_ANTHROPIC_MODEL_PROVIDER_API_KEY: true,
+
+        // Voyage
+        OTTO8_VOYAGE_MODEL_PROVIDER_API_KEY: true,
+    };
