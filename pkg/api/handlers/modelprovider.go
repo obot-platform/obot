@@ -190,8 +190,8 @@ func convertToolReferenceToModelProvider(ctx context.Context, gClient *gptscript
 
 func convertModelProviderToolRef(ctx context.Context, gptscript *gptscript.GPTScript, toolRef v1.ToolReference) (*types.ModelProviderStatus, error) {
 	var (
-		requiredEnvVars, missingEnvVars []string
-		icon                            string
+		requiredEnvVars, missingEnvVars, sensitiveEnvVars []string
+		icon                                              string
 	)
 	if toolRef.Status.Tool != nil {
 		if toolRef.Status.Tool.Metadata["envVars"] != "" {
@@ -200,14 +200,25 @@ func convertModelProviderToolRef(ctx context.Context, gptscript *gptscript.GPTSc
 				return nil, fmt.Errorf("failed to reveal credential for model provider %q: %w", toolRef.Name, err)
 			}
 
-			if toolRef.Status.Tool.Metadata["envVars"] != "" {
-				requiredEnvVars = strings.Split(toolRef.Status.Tool.Metadata["envVars"], ",")
-			}
+			envVars := strings.Split(toolRef.Status.Tool.Metadata["envVars"], ",")
+			requiredEnvVars = make([]string, 0, len(envVars))
+			for _, envVar := range envVars {
+				// Sensitive environment variables are prefixed with !
+				if strings.HasPrefix(envVar, "!") {
+					// Trim the sensitive prefix to get the environment variable name
+					if envVar = strings.TrimPrefix(envVar, "!"); envVar == "" {
+						// Invalid environment variable name; was just a !
+						continue
+					}
 
-			for _, envVar := range requiredEnvVars {
+					sensitiveEnvVars = append(sensitiveEnvVars, envVar)
+				}
+
 				if cred.Env[envVar] == "" {
 					missingEnvVars = append(missingEnvVars, envVar)
 				}
+
+				requiredEnvVars = append(requiredEnvVars, envVar)
 			}
 		}
 
@@ -222,10 +233,11 @@ func convertModelProviderToolRef(ctx context.Context, gptscript *gptscript.GPTSc
 	}
 
 	return &types.ModelProviderStatus{
-		Icon:                            icon,
-		Configured:                      configured,
-		ModelsBackPopulated:             modelsPopulated,
-		RequiredConfigurationParameters: requiredEnvVars,
-		MissingConfigurationParameters:  missingEnvVars,
+		Icon:                             icon,
+		Configured:                       configured,
+		ModelsBackPopulated:              modelsPopulated,
+		RequiredConfigurationParameters:  requiredEnvVars,
+		MissingConfigurationParameters:   missingEnvVars,
+		SensitiveConfigurationParameters: sensitiveEnvVars,
 	}, nil
 }

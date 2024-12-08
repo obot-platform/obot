@@ -6,6 +6,7 @@ export type ModelProviderStatus = {
     icon?: string;
     requiredConfigurationParameters?: string[];
     missingConfigurationParameters?: string[];
+    sensitiveConfigurationParameters?: string[];
 };
 
 export type ModelProvider = EntityMeta &

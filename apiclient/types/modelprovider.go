@@ -12,11 +12,12 @@ type ModelProviderManifest struct {
 }
 
 type ModelProviderStatus struct {
-	Icon                            string   `json:"icon,omitempty"`
-	Configured                      bool     `json:"configured"`
-	ModelsBackPopulated             *bool    `json:"modelsBackPopulated,omitempty"`
-	RequiredConfigurationParameters []string `json:"requiredConfigurationParameters,omitempty"`
-	MissingConfigurationParameters  []string `json:"missingConfigurationParameters,omitempty"`
+	Icon                             string   `json:"icon,omitempty"`
+	Configured                       bool     `json:"configured"`
+	ModelsBackPopulated              *bool    `json:"modelsBackPopulated,omitempty"`
+	RequiredConfigurationParameters  []string `json:"requiredConfigurationParameters,omitempty"`
+	MissingConfigurationParameters   []string `json:"missingConfigurationParameters,omitempty"`
+	SensitiveConfigurationParameters []string `json:"sensitiveConfigurationParameters,omitempty"`
 }
 
 type ModelProviderList List[ModelProvider]

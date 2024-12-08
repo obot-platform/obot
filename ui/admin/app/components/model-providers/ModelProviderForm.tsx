@@ -104,11 +104,13 @@ export function ModelProviderForm({
     onSuccess,
     parameters,
     requiredParameters,
+    sensitiveParameters,
 }: {
     modelProvider: ModelProvider;
     onSuccess: () => void;
     parameters: ModelProviderConfig;
     requiredParameters: string[];
+    sensitiveParameters: string[];
 }) {
     const fetchAvailableModels = useAsync(
         ModelApiService.getAvailableModelsByProvider,
@@ -223,7 +225,13 @@ export function ModelProviderForm({
                                             )}
                                             control={form.control}
                                             name={`requiredConfigParams.${i}.value`}
-                                            type="password"
+                                            type={
+                                                sensitiveParameters.includes(
+                                                    field.name
+                                                )
+                                                    ? "password"
+                                                    : "text"
+                                            }
                                             classNames={{
                                                 wrapper:
                                                     "flex-auto bg-background",

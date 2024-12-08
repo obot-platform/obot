@@ -131,6 +131,7 @@ export function ModelProviderConfigureContent({
     );
 
     const requiredParameters = modelProvider.requiredConfigurationParameters;
+    const sensitiveParameters = modelProvider.sensitiveConfigurationParameters;
     const parameters = revealModelProvider.data;
 
     return (
@@ -165,6 +166,7 @@ export function ModelProviderConfigureContent({
                     onSuccess={onSuccess}
                     parameters={parameters ?? {}}
                     requiredParameters={requiredParameters ?? []}
+                    sensitiveParameters={sensitiveParameters ?? []}
                 />
             )}
         </>
