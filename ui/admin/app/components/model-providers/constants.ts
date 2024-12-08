@@ -67,4 +67,7 @@ export const ModelProviderSensitiveFields: Record<string, boolean | undefined> =
 
         // Voyage
         OTTO8_VOYAGE_MODEL_PROVIDER_API_KEY: true,
+
+        // Ollama
+        OTTO8_OLLAMA_MODEL_PROVIDER_HOST: true,
     };
