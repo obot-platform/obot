@@ -22,6 +22,7 @@ import { ControlledInput } from "~/components/form/controlledInputs";
 import {
     ModelProviderConfigurationLinks,
     ModelProviderRequiredTooltips,
+    ModelProviderSensitiveFields,
 } from "~/components/model-providers/constants";
 import { Alert, AlertDescription, AlertTitle } from "~/components/ui/alert";
 import { Button } from "~/components/ui/button";
@@ -211,26 +212,34 @@ export function ModelProviderForm({
                             className="flex flex-col gap-4"
                         >
                             {requiredConfigParamFields.fields.map(
-                                (field, i) => (
-                                    <div
-                                        key={field.id}
-                                        className="flex gap-2 items-center justify-center"
-                                    >
-                                        <ControlledInput
+                                (field, i) => {
+                                    const type = ModelProviderSensitiveFields[
+                                        field.name
+                                    ]
+                                        ? "password"
+                                        : "text";
+
+                                    return (
+                                        <div
                                             key={field.id}
-                                            label={renderLabelWithTooltip(
-                                                field.label
-                                            )}
-                                            control={form.control}
-                                            name={`requiredConfigParams.${i}.value`}
-                                            type="password"
-                                            classNames={{
-                                                wrapper:
-                                                    "flex-auto bg-background",
-                                            }}
-                                        />
-                                    </div>
-                                )
+                                            className="flex gap-2 items-center justify-center"
+                                        >
+                                            <ControlledInput
+                                                key={field.id}
+                                                label={renderLabelWithTooltip(
+                                                    field.label
+                                                )}
+                                                control={form.control}
+                                                name={`requiredConfigParams.${i}.value`}
+                                                type={type}
+                                                classNames={{
+                                                    wrapper:
+                                                        "flex-auto bg-background",
+                                                }}
+                                            />
+                                        </div>
+                                    );
+                                }
                             )}
                         </form>
                     </Form>
