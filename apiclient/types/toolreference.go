@@ -21,13 +21,12 @@ type ToolReferenceManifest struct {
 type ToolReference struct {
 	Metadata
 	ToolReferenceManifest
-	Resolved            bool                 `json:"resolved,omitempty"`
-	Error               string               `json:"error,omitempty"`
-	Builtin             bool                 `json:"builtin,omitempty"`
-	Description         string               `json:"description,omitempty"`
-	Credential          string               `json:"credential,omitempty"`
-	Params              map[string]string    `json:"params,omitempty"`
-	ModelProviderStatus *ModelProviderStatus `json:"modelProviderStatus,omitempty"`
+	Resolved    bool              `json:"resolved,omitempty"`
+	Error       string            `json:"error,omitempty"`
+	Builtin     bool              `json:"builtin,omitempty"`
+	Description string            `json:"description,omitempty"`
+	Credential  string            `json:"credential,omitempty"`
+	Params      map[string]string `json:"params,omitempty"`
 }
 
 type ToolReferenceList List[ToolReference]

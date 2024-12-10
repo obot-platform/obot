@@ -3440,17 +3440,12 @@ func schema_otto8_ai_otto8_apiclient_types_ToolReference(ref common.ReferenceCal
 							},
 						},
 					},
-					"modelProviderStatus": {
-						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/otto8-ai/otto8/apiclient/types.ModelProviderStatus"),
-						},
-					},
 				},
 				Required: []string{"Metadata", "ToolReferenceManifest"},
 			},
 		},
 		Dependencies: []string{
-			"github.com/otto8-ai/otto8/apiclient/types.Metadata", "github.com/otto8-ai/otto8/apiclient/types.ModelProviderStatus", "github.com/otto8-ai/otto8/apiclient/types.ToolReferenceManifest"},
+			"github.com/otto8-ai/otto8/apiclient/types.Metadata", "github.com/otto8-ai/otto8/apiclient/types.ToolReferenceManifest"},
 	}
 }
 

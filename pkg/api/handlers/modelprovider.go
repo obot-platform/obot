@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"context"
 	"fmt"
 	"strings"
 
@@ -39,12 +38,19 @@ func (mp *ModelProviderHandler) ByID(req api.Context) error {
 		)
 	}
 
-	modelProvider, err := convertToolReferenceToModelProvider(req.Context(), mp.gptscript, ref)
-	if err != nil {
-		return err
+	var credEnvVars map[string]string
+	if ref.Status.Tool != nil {
+		if envVars := ref.Status.Tool.Metadata["envVars"]; envVars != "" {
+			cred, err := mp.gptscript.RevealCredential(req.Context(), []string{string(ref.UID)}, ref.Name)
+			if err != nil && !strings.HasSuffix(err.Error(), "credential not found") {
+				return fmt.Errorf("failed to reveal credential for model provider %q: %w", ref.Name, err)
+			} else if err == nil {
+				credEnvVars = cred.Env
+			}
+		}
 	}
 
-	return req.Write(modelProvider)
+	return req.Write(convertToolReferenceToModelProvider(ref, credEnvVars))
 }
 
 func (mp *ModelProviderHandler) List(req api.Context) error {
@@ -58,14 +64,26 @@ func (mp *ModelProviderHandler) List(req api.Context) error {
 		return err
 	}
 
+	credCtxs := make([]string, 0, len(refList.Items))
+	for _, ref := range refList.Items {
+		credCtxs = append(credCtxs, string(ref.UID))
+	}
+
+	creds, err := mp.gptscript.ListCredentials(req.Context(), gptscript.ListCredentialsOptions{
+		CredentialContexts: credCtxs,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to list model provider credentials: %w", err)
+	}
+
+	credMap := make(map[string]map[string]string, len(creds))
+	for _, cred := range creds {
+		credMap[cred.Context+cred.ToolName] = cred.Env
+	}
+
 	resp := make([]types.ModelProvider, 0, len(refList.Items))
 	for _, ref := range refList.Items {
-		modelProvider, err := convertToolReferenceToModelProvider(req.Context(), mp.gptscript, ref)
-		if err != nil {
-			return fmt.Errorf("failed to determine model provider status: %w", err)
-		}
-
-		resp = append(resp, modelProvider)
+		resp = append(resp, convertToolReferenceToModelProvider(ref, credMap[string(ref.UID)+ref.Name]))
 	}
 
 	return req.Write(types.ModelProviderList{Items: resp})
@@ -89,6 +107,12 @@ func (mp *ModelProviderHandler) Configure(req api.Context) error {
 	// Allow for updating credentials. The only way to update a credential is to delete the existing one and recreate it.
 	if err := mp.gptscript.DeleteCredential(req.Context(), string(ref.UID), ref.Name); err != nil && !strings.HasSuffix(err.Error(), "credential not found") {
 		return fmt.Errorf("failed to update credential: %w", err)
+	}
+
+	for key, val := range envVars {
+		if val == "" {
+			delete(envVars, key)
+		}
 	}
 
 	if err := mp.gptscript.CreateCredential(req.Context(), gptscript.Credential{
@@ -120,12 +144,18 @@ func (mp *ModelProviderHandler) Reveal(req api.Context) error {
 		return err
 	}
 
+	if ref.Spec.Type != types.ToolReferenceTypeModelProvider {
+		return types.NewErrBadRequest("%q is not a model provider", ref.Name)
+	}
+
 	cred, err := mp.gptscript.RevealCredential(req.Context(), []string{string(ref.UID)}, ref.Name)
 	if err != nil && !strings.HasSuffix(err.Error(), "credential not found") {
 		return fmt.Errorf("failed to reveal credential: %w", err)
+	} else if err == nil {
+		return req.Write(cred.Env)
 	}
 
-	return req.Write(cred.Env)
+	return types.NewErrNotFound("no credential found for %q", ref.Name)
 }
 
 func (mp *ModelProviderHandler) RefreshModels(req api.Context) error {
@@ -138,11 +168,19 @@ func (mp *ModelProviderHandler) RefreshModels(req api.Context) error {
 		return types.NewErrBadRequest("%q is not a model provider", ref.Name)
 	}
 
-	modelProvider, err := convertToolReferenceToModelProvider(req.Context(), mp.gptscript, ref)
-	if err != nil {
-		return err
+	var credEnvVars map[string]string
+	if ref.Status.Tool != nil {
+		if envVars := ref.Status.Tool.Metadata["envVars"]; envVars != "" {
+			cred, err := mp.gptscript.RevealCredential(req.Context(), []string{string(ref.UID)}, ref.Name)
+			if err != nil && !strings.HasSuffix(err.Error(), "credential not found") {
+				return fmt.Errorf("failed to reveal credential for model provider %q: %w", ref.Name, err)
+			} else if err == nil {
+				credEnvVars = cred.Env
+			}
+		}
 	}
 
+	modelProvider := convertToolReferenceToModelProvider(ref, credEnvVars)
 	if !modelProvider.Configured {
 		return types.NewErrBadRequest("model provider %s is not configured, missing configuration parameters: %s", modelProvider.ModelProviderManifest.Name, strings.Join(modelProvider.MissingConfigurationParameters, ", "))
 	}
@@ -156,19 +194,14 @@ func (mp *ModelProviderHandler) RefreshModels(req api.Context) error {
 		delete(ref.Annotations, v1.ModelProviderSyncAnnotation)
 	}
 
-	if err = req.Update(&ref); err != nil {
+	if err := req.Update(&ref); err != nil {
 		return fmt.Errorf("failed to sync models for model provider %q: %w", ref.Name, err)
 	}
 
 	return req.Write(modelProvider)
 }
 
-func convertToolReferenceToModelProvider(ctx context.Context, gClient *gptscript.GPTScript, ref v1.ToolReference) (types.ModelProvider, error) {
-	status, err := convertModelProviderToolRef(ctx, gClient, ref)
-	if err != nil {
-		return types.ModelProvider{}, err
-	}
-
+func convertToolReferenceToModelProvider(ref v1.ToolReference, credEnvVars map[string]string) types.ModelProvider {
 	name := ref.Name
 	if ref.Status.Tool != nil {
 		name = ref.Status.Tool.Name
@@ -180,34 +213,27 @@ func convertToolReferenceToModelProvider(ctx context.Context, gClient *gptscript
 			Name:          name,
 			ToolReference: ref.Spec.Reference,
 		},
-		ModelProviderStatus: *status,
+		ModelProviderStatus: *convertModelProviderToolRef(ref, credEnvVars),
 	}
 
 	mp.Type = "modelprovider"
 
-	return mp, nil
+	return mp
 }
 
-func convertModelProviderToolRef(ctx context.Context, gptscript *gptscript.GPTScript, toolRef v1.ToolReference) (*types.ModelProviderStatus, error) {
+func convertModelProviderToolRef(toolRef v1.ToolReference, cred map[string]string) *types.ModelProviderStatus {
 	var (
 		requiredEnvVars, missingEnvVars []string
 		icon                            string
 	)
 	if toolRef.Status.Tool != nil {
 		if toolRef.Status.Tool.Metadata["envVars"] != "" {
-			cred, err := gptscript.RevealCredential(ctx, []string{string(toolRef.UID)}, toolRef.Name)
-			if err != nil && !strings.HasSuffix(err.Error(), "credential not found") {
-				return nil, fmt.Errorf("failed to reveal credential for model provider %q: %w", toolRef.Name, err)
-			}
+			requiredEnvVars = strings.Split(toolRef.Status.Tool.Metadata["envVars"], ",")
+		}
 
-			if toolRef.Status.Tool.Metadata["envVars"] != "" {
-				requiredEnvVars = strings.Split(toolRef.Status.Tool.Metadata["envVars"], ",")
-			}
-
-			for _, envVar := range requiredEnvVars {
-				if cred.Env[envVar] == "" {
-					missingEnvVars = append(missingEnvVars, envVar)
-				}
+		for _, envVar := range requiredEnvVars {
+			if _, ok := cred[envVar]; !ok {
+				missingEnvVars = append(missingEnvVars, envVar)
 			}
 		}
 
@@ -227,5 +253,5 @@ func convertModelProviderToolRef(ctx context.Context, gptscript *gptscript.GPTSc
 		ModelsBackPopulated:             modelsPopulated,
 		RequiredConfigurationParameters: requiredEnvVars,
 		MissingConfigurationParameters:  missingEnvVars,
-	}, nil
+	}
 }
