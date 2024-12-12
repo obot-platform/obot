@@ -2,13 +2,15 @@ import {
     ClientLoaderFunctionArgs,
     redirect,
     useLoaderData,
+    useMatch,
     useNavigate,
 } from "@remix-run/react";
 import { useCallback } from "react";
 import { $path } from "remix-routes";
-import { preload } from "swr";
+import useSWR, { preload } from "swr";
 
 import { WorkflowService } from "~/lib/service/api/workflowService";
+import { RouteHandle } from "~/lib/service/routeHandles";
 import { RouteQueryParams, RouteService } from "~/lib/service/routeService";
 
 import { Chat } from "~/components/chat";
@@ -88,3 +90,18 @@ export default function ChatAgent() {
         </div>
     );
 }
+
+const WorkflowBreadcrumb = () => {
+    const match = useMatch("/workflows/:workflow");
+
+    const { data: workflow } = useSWR(
+        WorkflowService.getWorkflowById.key(match?.params.workflow || ""),
+        ({ workflowId }) => WorkflowService.getWorkflowById(workflowId)
+    );
+
+    return workflow?.name;
+};
+
+export const handle: RouteHandle = {
+    breadcrumb: () => [{ content: <WorkflowBreadcrumb /> }],
+};

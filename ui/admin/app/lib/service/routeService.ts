@@ -200,4 +200,5 @@ export const RouteService = {
     getUnknownRouteInfo,
     getRouteInfo,
     getQueryParams,
+    getPathParams: $params,
 };

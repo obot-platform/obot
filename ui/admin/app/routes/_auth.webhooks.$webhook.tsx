@@ -1,7 +1,12 @@
-import { ClientLoaderFunctionArgs, useLoaderData } from "@remix-run/react";
+import {
+    ClientLoaderFunctionArgs,
+    useLoaderData,
+    useMatch,
+} from "@remix-run/react";
 import useSWR, { preload } from "swr";
 
 import { WebhookApiService } from "~/lib/service/api/webhookApiService";
+import { RouteHandle } from "~/lib/service/routeHandles";
 import { RouteService } from "~/lib/service/routeService";
 
 import { WebhookForm } from "~/components/webhooks/WebhookForm";
@@ -34,3 +39,18 @@ export default function Webhook() {
 
     return <WebhookForm webhook={webhook} />;
 }
+
+const WebhookBreadcrumb = () => {
+    const match = useMatch("/webhooks/:webhook");
+
+    const { data: webhook } = useSWR(
+        WebhookApiService.getWebhookById.key(match?.params.webhook || ""),
+        ({ id }) => WebhookApiService.getWebhookById(id)
+    );
+
+    return webhook?.name || webhook?.id || "Edit";
+};
+
+export const handle: RouteHandle = {
+    breadcrumb: () => [{ content: <WebhookBreadcrumb /> }],
+};

@@ -20,6 +20,7 @@ import { AgentService } from "~/lib/service/api/agentService";
 import { ThreadsService } from "~/lib/service/api/threadsService";
 import { UserService } from "~/lib/service/api/userService";
 import { WorkflowService } from "~/lib/service/api/workflowService";
+import { RouteHandle } from "~/lib/service/routeHandles";
 import { RouteQueryParams, RouteService } from "~/lib/service/routeService";
 import { timeSince } from "~/lib/utils";
 
@@ -330,3 +331,30 @@ function ThreadFilters({
 }
 
 const columnHelper = createColumnHelper<Thread>();
+
+const getFromBreadcrumb = (search: string) => {
+    const { from } = RouteService.getQueryParams("/threads", search) || {};
+
+    if (from === "agents")
+        return {
+            content: "Agents",
+            href: $path("/agents"),
+        };
+
+    if (from === "users")
+        return {
+            content: "Users",
+            href: $path("/users"),
+        };
+
+    if (from === "workflows")
+        return {
+            content: "Workflows",
+            href: $path("/workflows"),
+        };
+};
+
+export const handle: RouteHandle = {
+    breadcrumb: ({ search }) =>
+        [getFromBreadcrumb(search), { content: "Threads" }].filter((x) => !!x),
+};

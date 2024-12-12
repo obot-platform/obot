@@ -4,6 +4,7 @@ import { ModelProvider } from "~/lib/model/modelProviders";
 import { DefaultModelAliasApiService } from "~/lib/service/api/defaultModelAliasApiService";
 import { ModelApiService } from "~/lib/service/api/modelApiService";
 import { ModelProviderApiService } from "~/lib/service/api/modelProviderApiService";
+import { RouteHandle } from "~/lib/service/routeHandles";
 
 import { TypographyH2 } from "~/components/Typography";
 import { WarningAlert } from "~/components/composed/WarningAlert";
@@ -90,3 +91,7 @@ export default function ModelProviders() {
         </div>
     );
 }
+
+export const handle: RouteHandle = {
+    breadcrumb: () => [{ content: "Model Providers" }],
+};

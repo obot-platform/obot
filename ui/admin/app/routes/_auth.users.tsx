@@ -7,6 +7,7 @@ import { Thread } from "~/lib/model/threads";
 import { User, roleToString } from "~/lib/model/users";
 import { ThreadsService } from "~/lib/service/api/threadsService";
 import { UserService } from "~/lib/service/api/userService";
+import { RouteHandle } from "~/lib/service/routeHandles";
 import { pluralize, timeSince } from "~/lib/utils";
 
 import { TypographyH2, TypographyP } from "~/components/Typography";
@@ -112,3 +113,7 @@ export default function Users() {
 }
 
 const columnHelper = createColumnHelper<User>();
+
+export const handle: RouteHandle = {
+    breadcrumb: () => [{ content: "Users" }],
+};

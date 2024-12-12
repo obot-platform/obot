@@ -3,6 +3,7 @@ import { useState } from "react";
 import useSWR, { preload } from "swr";
 
 import { ToolReferenceService } from "~/lib/service/api/toolreferenceService";
+import { RouteHandle } from "~/lib/service/routeHandles";
 
 import { TypographyH2 } from "~/components/Typography";
 import { ErrorDialog } from "~/components/composed/ErrorDialog";
@@ -113,3 +114,7 @@ export default function Tools() {
         </ScrollArea>
     );
 }
+
+export const handle: RouteHandle = {
+    breadcrumb: () => [{ content: "Tools" }],
+};
