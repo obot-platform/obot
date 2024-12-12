@@ -110,13 +110,6 @@ export default function FileTreeNode({
         excluded && !source.filePathPrefixExclude?.includes(node.path);
 
     const toggleIncludeExcludeList = async () => {
-        // We should manually approve/unapprove all files in the folder at once so that we don't rely on backend reconciliation logic as it will cause delay in updating the UI.
-        try {
-            await onApproveFile(!included, node);
-        } catch (e) {
-            console.error("failed to approve files", e);
-        }
-
         // After files are approved/unapproved, we need to update the include/exclude list so that new files will be included/excluded from future syncs.
         let filePathPrefixInclude = source.filePathPrefixInclude;
         let filePathPrefixExclude = source.filePathPrefixExclude;
@@ -145,6 +138,13 @@ export default function FileTreeNode({
             filePathPrefixInclude,
             filePathPrefixExclude,
         });
+
+        // We should manually approve/unapprove all files in the folder at once so that we don't rely on backend reconciliation logic as it will cause delay in updating the UI.
+        try {
+            await onApproveFile(!included, node);
+        } catch (e) {
+            console.error("failed to approve files", e);
+        }
     };
 
     return (
