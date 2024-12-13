@@ -153,7 +153,8 @@ function useMessageSource(threadId?: Nullish<string>) {
                 return copy;
             }
 
-            if (toolCall) {
+            // skip tool call output events
+            if (toolCall && !toolCall.output) {
                 copy.push(toolCallMessage(toolCall));
                 return copy;
             }
