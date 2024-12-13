@@ -109,9 +109,10 @@ function useMessageSource(threadId?: Nullish<string>) {
             error,
             runID,
             contentID,
+            replayComplete,
         } = event;
 
-        setIsRunning(!runComplete);
+        setIsRunning(!runComplete && !replayComplete);
 
         setMessages((prev) => {
             const copy = [...prev];
