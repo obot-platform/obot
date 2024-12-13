@@ -258,7 +258,10 @@ export function DefaultModelAliasForm({
 
                         {otherModels.map((model) => (
                             <SelectItem key={model.id} value={model.id}>
-                                {model.name || model.id}
+                                {model.name || model.id}{" "}
+                                <span className="text-muted-foreground">
+                                    ({model.modelProvider})
+                                </span>
                             </SelectItem>
                         ))}
                     </SelectGroup>
@@ -271,16 +274,17 @@ export function DefaultModelAliasForm({
 function getModelOptionLabel(model: Model, aliasFor: ModelAlias) {
     // if the model name is the same as the suggested model name, show that it's suggested
     const suggestionName = SUGGESTED_MODEL_SELECTIONS[aliasFor];
-    if (suggestionName === model.name) {
-        return (
-            <>
-                {model.name || model.id}{" "}
+    return (
+        <>
+            {model.name || model.id}{" "}
+            {suggestionName === model.name && (
                 <span className="text-muted-foreground">(Suggested)</span>
-            </>
-        );
-    }
-
-    return model.name || model.id;
+            )}{" "}
+            <span className="text-muted-foreground">
+                ({model.modelProvider})
+            </span>
+        </>
+    );
 }
 
 export function DefaultModelAliasFormDialog({
