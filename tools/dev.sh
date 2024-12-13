@@ -118,7 +118,7 @@ user_ui_pid=$!
 
 (
   for _ in {1..60}; do # ~1 minute timeout
-    if curl -s -H 'User-Agent: Mozilla/5.0' --head http://localhost:8080/unknown | head -n 1 | grep "200 OK" > /dev/null; then
+    if curl -s --head http://localhost:8080/favicon.ico | head -n 1 | grep "200 OK" > /dev/null; then
       print_section_header 217 "User UI ready!"
       exit
     fi
