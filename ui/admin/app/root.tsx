@@ -6,6 +6,7 @@ import {
     Scripts,
     ScrollRestoration,
 } from "@remix-run/react";
+import { CircleCheckIcon } from "lucide-react";
 import { SWRConfig } from "swr";
 
 import { AuthProvider } from "~/components/auth/AuthContext";
@@ -48,7 +49,17 @@ export function Layout({ children }: { children: React.ReactNode }) {
             </head>
             <body>
                 {children}
-                <Toaster closeButton />
+                <Toaster
+                    closeButton
+                    icons={{
+                        success: (
+                            <CircleCheckIcon
+                                className="text-success"
+                                size={20}
+                            />
+                        ),
+                    }}
+                />
                 <ScrollRestoration />
                 <Scripts />
             </body>
