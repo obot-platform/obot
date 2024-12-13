@@ -6,6 +6,7 @@ import {
     useMatch,
 } from "@remix-run/react";
 import { ArrowLeftIcon } from "lucide-react";
+import { $path } from "remix-routes";
 
 import { AgentService } from "~/lib/service/api/agentService";
 import { ThreadsService } from "~/lib/service/api/threadsService";
@@ -124,5 +125,8 @@ export default function ChatAgent() {
 const ThreadBreadcrumb = () => useMatch("/threads/:id")?.params.id;
 
 export const handle: RouteHandle = {
-    breadcrumb: () => [{ content: <ThreadBreadcrumb /> }],
+    breadcrumb: () => [
+        { content: "Threads", href: $path("/threads") },
+        { content: <ThreadBreadcrumb /> },
+    ],
 };
