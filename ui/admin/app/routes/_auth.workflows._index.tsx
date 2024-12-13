@@ -1,7 +1,7 @@
-import { useNavigate } from "@remix-run/react";
 import { ColumnDef, createColumnHelper } from "@tanstack/react-table";
 import { PenSquareIcon } from "lucide-react";
 import { useMemo } from "react";
+import { useNavigate } from "react-router";
 import { $path } from "remix-routes";
 import useSWR, { mutate, preload } from "swr";
 

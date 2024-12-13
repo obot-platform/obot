@@ -1,11 +1,11 @@
+import { useCallback } from "react";
 import {
     ClientLoaderFunctionArgs,
     redirect,
     useLoaderData,
     useMatch,
     useNavigate,
-} from "@remix-run/react";
-import { useCallback } from "react";
+} from "react-router";
 import { $path } from "remix-routes";
 import useSWR, { preload } from "swr";
 

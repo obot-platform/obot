@@ -1,4 +1,3 @@
-import { Link, useLocation } from "@remix-run/react";
 import {
     BotIcon,
     BoxesIcon,
@@ -10,6 +9,7 @@ import {
     WebhookIcon,
     Wrench,
 } from "lucide-react";
+import { Link, useLocation } from "react-router";
 import { $path } from "remix-routes";
 
 import { cn } from "~/lib/utils";

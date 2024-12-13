@@ -1,4 +1,4 @@
-import { redirect, useLoaderData } from "@remix-run/react";
+import { redirect, useLoaderData } from "react-router";
 import { $path } from "remix-routes";
 
 export const clientLoader = async () => {

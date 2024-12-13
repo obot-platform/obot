@@ -1,5 +1,5 @@
-import { Link } from "@remix-run/react";
 import { useMemo } from "react";
+import { Link } from "react-router";
 import { $path } from "remix-routes";
 import useSWR from "swr";
 

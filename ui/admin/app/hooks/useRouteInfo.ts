@@ -1,5 +1,5 @@
-import { Location, useLocation, useParams } from "@remix-run/react";
 import { useMemo } from "react";
+import { Location, useLocation, useParams } from "react-router";
 
 import { RouteService } from "~/lib/service/routeService";
 

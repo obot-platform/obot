@@ -1,4 +1,4 @@
-import { Outlet, isRouteErrorResponse, useRouteError } from "@remix-run/react";
+import { Outlet, isRouteErrorResponse, useRouteError } from "react-router";
 import { preload } from "swr";
 
 import { ForbiddenError, UnauthorizedError } from "~/lib/service/api/apiErrors";

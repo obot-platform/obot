@@ -1,9 +1,6 @@
-import {
-    Link as RemixLink,
-    LinkProps as RemixLinkProps,
-} from "@remix-run/react";
 import { VariantProps, cva } from "class-variance-authority";
 import { forwardRef } from "react";
+import { Link as RemixLink, LinkProps as RemixLinkProps } from "react-router";
 
 import { cn } from "~/lib/utils";
 
