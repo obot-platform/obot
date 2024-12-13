@@ -133,6 +133,6 @@ user_ui_ready_pid=$!
 wait "${server_ready_pid}" "${admin_ui_ready_pid}" "${user_ui_ready_pid}"
 print_section_header 120 "All components ready!"
 
-open_browser_tabs http://localhost:8080/admin/ http://localhost:8080/
+open_browser_tabs http://localhost:8080/
 
 wait "${server_pid}" "${admin_ui_pid}" "${user_ui_pid}"
