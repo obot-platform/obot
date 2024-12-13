@@ -1,4 +1,3 @@
-import { CircleAlertIcon } from "lucide-react";
 import useSWR, { preload } from "swr";
 
 import { ModelProvider } from "~/lib/model/modelProviders";
@@ -7,10 +6,10 @@ import { ModelApiService } from "~/lib/service/api/modelApiService";
 import { ModelProviderApiService } from "~/lib/service/api/modelProviderApiService";
 
 import { TypographyH2 } from "~/components/Typography";
+import { WarningAlert } from "~/components/composed/WarningAlert";
 import { ModelProviderList } from "~/components/model-providers/ModelProviderLists";
 import { CommonModelProviderIds } from "~/components/model-providers/constants";
 import { DefaultModelAliasFormDialog } from "~/components/model/DefaultModelAliasForm";
-import { Alert, AlertDescription, AlertTitle } from "~/components/ui/alert";
 
 export async function clientLoader() {
     await Promise.all([
@@ -75,17 +74,12 @@ export default function ModelProviders() {
                         <DefaultModelAliasFormDialog disabled={!configured} />
                     </div>
                     {configured ? null : (
-                        <Alert variant="default">
-                            <CircleAlertIcon className="w-4 h-4 !text-warning" />
-                            <AlertTitle>
-                                No Model Providers Configured!
-                            </AlertTitle>
-                            <AlertDescription>
-                                To use Otto&apos;s features, you&apos;ll need to
+                        <WarningAlert
+                            title="No Model Providers Configured!"
+                            description="To use Otto's features, you'll need to
                                 set up a Model Provider. Select and configure
-                                one below to get started!
-                            </AlertDescription>
-                        </Alert>
+                                one below to get started!"
+                        />
                     )}
                 </div>
 

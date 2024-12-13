@@ -6,8 +6,10 @@ import {
 } from "@remix-run/react";
 import { useCallback } from "react";
 import { $path } from "remix-routes";
+import { preload } from "swr";
 
 import { AgentService } from "~/lib/service/api/agentService";
+import { DefaultModelAliasApiService } from "~/lib/service/api/defaultModelAliasApiService";
 import { RouteQueryParams, RouteService } from "~/lib/service/routeService";
 import { noop } from "~/lib/utils";
 
@@ -36,6 +38,11 @@ export const clientLoader = async ({
     if (!agentId) {
         throw redirect("/agents");
     }
+
+    await preload(
+        DefaultModelAliasApiService.getAliases.key(),
+        DefaultModelAliasApiService.getAliases
+    );
 
     // preload the agent
     const agent = await AgentService.getAgentById(agentId).catch(noop);
