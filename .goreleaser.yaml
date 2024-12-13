@@ -13,7 +13,7 @@ builds:
       - amd64
       - arm64
     ldflags:
-      - -X "github.com/gptscript-ai/otto8/pkg/version.Tag=v{{ .Version }}"
+      - -X "github.com/otto8-ai/otto8/pkg/version.Tag=v{{ .Version }}"
 
 archives:
   - format: tar.gz
