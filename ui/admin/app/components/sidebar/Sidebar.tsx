@@ -10,7 +10,7 @@ import {
     Wrench,
 } from "lucide-react";
 import { Link, useLocation } from "react-router";
-import { $path } from "remix-routes";
+import { $path } from "safe-routes";
 
 import { cn } from "~/lib/utils";
 

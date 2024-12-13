@@ -1,5 +1,5 @@
 import { redirect, useLoaderData } from "react-router";
-import { $path } from "remix-routes";
+import { $path } from "safe-routes";
 
 export const clientLoader = async () => {
     throw redirect($path("/agents"));

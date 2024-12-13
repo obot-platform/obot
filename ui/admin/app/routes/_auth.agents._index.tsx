@@ -3,7 +3,7 @@ import { ColumnDef, createColumnHelper } from "@tanstack/react-table";
 import { SquarePen } from "lucide-react";
 import { useMemo } from "react";
 import { useNavigate } from "react-router";
-import { $path } from "remix-routes";
+import { $path } from "safe-routes";
 import useSWR, { mutate, preload } from "swr";
 
 import { Agent } from "~/lib/model/agents";

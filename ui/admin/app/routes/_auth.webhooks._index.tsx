@@ -2,7 +2,7 @@ import { ColumnDef, createColumnHelper } from "@tanstack/react-table";
 import { PlusIcon } from "lucide-react";
 import { useMemo } from "react";
 import { useNavigate } from "react-router";
-import { $path } from "remix-routes";
+import { $path } from "safe-routes";
 import useSWR, { preload } from "swr";
 
 import { Webhook } from "~/lib/model/webhooks";

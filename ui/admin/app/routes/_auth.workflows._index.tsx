@@ -2,7 +2,7 @@ import { ColumnDef, createColumnHelper } from "@tanstack/react-table";
 import { PenSquareIcon } from "lucide-react";
 import { useMemo } from "react";
 import { useNavigate } from "react-router";
-import { $path } from "remix-routes";
+import { $path } from "safe-routes";
 import useSWR, { mutate, preload } from "swr";
 
 import { Workflow } from "~/lib/model/workflows";

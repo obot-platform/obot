@@ -1,4 +1,4 @@
-import { $path } from "remix-routes";
+import { $path } from "safe-routes";
 
 import { Webhook } from "~/lib/model/webhooks";
 import { cn } from "~/lib/utils";

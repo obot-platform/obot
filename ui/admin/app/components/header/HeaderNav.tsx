@@ -1,6 +1,6 @@
 import React from "react";
 import { Link, UIMatch, useLocation, useMatches } from "react-router";
-import { $path } from "remix-routes";
+import { $path } from "safe-routes";
 
 import { RouteHandle } from "~/lib/service/routeHandles";
 import { cn } from "~/lib/utils";

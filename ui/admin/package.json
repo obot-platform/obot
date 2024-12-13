@@ -6,8 +6,9 @@
     "scripts": {
         "build": "react-router build",
         "dev": "react-router dev",
-        "typecheck": "react-router typegen && tsc --noEmit",
-        "lint": "eslint --ignore-path .gitignore --cache --cache-location ./node_modules/.cache/eslint . && react-router typegen && tsc --noEmit",
+        "typegen": "react-router typegen && safe-routes typegen",
+        "typecheck": "react-router typegen && safe-routes typegen && tsc --noEmit",
+        "lint": "eslint --ignore-path .gitignore --cache --cache-location ./node_modules/.cache/eslint . && react-router typegen && safe-routes typegen && tsc --noEmit",
         "preview": "vite preview",
         "format": "prettier --write ."
     },
@@ -57,6 +58,7 @@
         "rehype-external-links": "^3.0.0",
         "remark-gfm": "^4.0.0",
         "remix-routes": "^1.7.7",
+        "safe-routes": "^1.0.2",
         "sonner": "1.4.3",
         "swr": "^2.2.5",
         "tailwind-merge": "^2.5.2",

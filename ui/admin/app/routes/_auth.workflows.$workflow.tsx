@@ -6,7 +6,7 @@ import {
     useMatch,
     useNavigate,
 } from "react-router";
-import { $path } from "remix-routes";
+import { $path } from "safe-routes";
 import useSWR, { preload } from "swr";
 
 import { WorkflowService } from "~/lib/service/api/workflowService";

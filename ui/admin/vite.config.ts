@@ -1,9 +1,9 @@
 import { reactRouter } from "@react-router/dev/vite";
-import { remixRoutes } from "remix-routes/vite";
+import { safeRoutes } from "safe-routes/vite";
 import { defineConfig } from "vite";
 import tsconfigPaths from "vite-tsconfig-paths";
 
 export default defineConfig({
-    plugins: [reactRouter(), remixRoutes(), tsconfigPaths()],
+    plugins: [reactRouter(), tsconfigPaths(), safeRoutes()],
     base: "/admin/",
 });

@@ -6,7 +6,7 @@ import {
     useMatch,
     useNavigate,
 } from "react-router";
-import { $path } from "remix-routes";
+import { $path } from "safe-routes";
 import useSWR, { preload } from "swr";
 
 import { AgentService } from "~/lib/service/api/agentService";
