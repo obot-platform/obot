@@ -7,7 +7,7 @@ export function WarningAlert({
     description,
 }: {
     title: string;
-    description: string | React.ReactNode;
+    description: React.ReactNode;
 }) {
     return (
         <Alert variant="default">
