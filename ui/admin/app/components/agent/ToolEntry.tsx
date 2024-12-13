@@ -14,7 +14,7 @@ export function ToolEntry({
     actions,
 }: {
     tool: string;
-    onDelete: () => void;
+    onDelete?: () => void;
     actions?: React.ReactNode;
 }) {
     const { data: toolReference, isLoading } = useSWR(
@@ -26,7 +26,7 @@ export function ToolEntry({
 
     return (
         <div className="flex items-center space-x-2 justify-between mt-1">
-            <div className="text-sm px-3 shadow-sm rounded-md p-2 w-full flex items-center justify-between gap-2">
+            <div className="text-sm px-3 rounded-md p-2 w-full flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
                     {isLoading ? (
                         <LoadingSpinner className="w-5 h-5" />
@@ -44,14 +44,16 @@ export function ToolEntry({
                 <div className="flex items-center gap-2">
                     {actions}
 
-                    <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => onDelete()}
-                    >
-                        <TrashIcon className="w-5 h-5" />
-                    </Button>
+                    {onDelete && (
+                        <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => onDelete()}
+                        >
+                            <TrashIcon className="w-5 h-5" />
+                        </Button>
+                    )}
                 </div>
             </div>
         </div>

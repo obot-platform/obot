@@ -30,7 +30,7 @@ export function Chatbar({ className }: ChatbarProps) {
     return (
         <form
             onSubmit={handleSubmit}
-            className={cn("flex items-end gap-2 pb-10", className)}
+            className={cn("flex items-end gap-2", className)}
         >
             <div className="relative flex-grow">
                 <AutosizeTextarea
