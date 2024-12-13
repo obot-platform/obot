@@ -28,9 +28,11 @@ serve-docs:
 	npm run start
 
 # Build the project
-build:
-	go build -ldflags="-s -w" -o bin/otto8 .
 
+GIT_TAG := $(shell git describe --tags --exact-match 2>/dev/null | xargs -I {} echo -X 'github.com/otto8-ai/otto8/pkg/version.Tag={}')
+GO_LD_FLAGS := "-s -w $(GIT_TAG)"
+build:
+	go build -ldflags=$(GO_LD_FLAGS) -o bin/otto8 .
 
 dev:
 	./tools/dev.sh $(ARGS)
