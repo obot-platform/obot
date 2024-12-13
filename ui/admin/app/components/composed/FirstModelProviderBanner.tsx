@@ -1,4 +1,4 @@
-import { Link, useLocation } from "@remix-run/react";
+import { Link, useLocation } from "react-router";
 import { $path } from "remix-routes";
 
 import { assetUrl } from "~/lib/utils";

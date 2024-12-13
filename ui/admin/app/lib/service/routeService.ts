@@ -1,5 +1,5 @@
 import queryString from "query-string";
-import { $path, Routes, RoutesWithParams } from "safe-routes";
+import { $path, type Routes, type RoutesWithParams } from "safe-routes";
 import { ZodNull, ZodSchema, ZodType, z } from "zod";
 
 // note: If you see a linter error related to `Routes`, or `RoutesWithParams`,
@@ -148,7 +148,7 @@ type RoutePathInfo<T extends keyof Routes> = T extends keyof RoutesWithParams
 export type RouteInfo<T extends keyof Routes = keyof Routes> = {
     path: T;
     query: QueryInfo<T> | null;
-    pathParams: T extends keyof RoutesWithParams ? PathInfo<T> : unknown;
+    pathParams: RoutePathInfo<T>;
 };
 
 function convertToStringObject(obj: object) {
@@ -207,5 +207,4 @@ export const RouteService = {
     getUnknownRouteInfo,
     getRouteInfo,
     getQueryParams,
-    getPathParams: $params,
 };
