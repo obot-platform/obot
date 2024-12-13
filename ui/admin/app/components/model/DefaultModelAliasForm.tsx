@@ -258,9 +258,10 @@ export function DefaultModelAliasForm({
 
                         {otherModels.map((model) => (
                             <SelectItem key={model.id} value={model.id}>
-                                {model.name || model.id}{" "}
+                                {model.name || model.id}
+                                {" - "}
                                 <span className="text-muted-foreground">
-                                    ({model.modelProvider})
+                                    {model.modelProvider}
                                 </span>
                             </SelectItem>
                         ))}
@@ -279,10 +280,9 @@ function getModelOptionLabel(model: Model, aliasFor: ModelAlias) {
             {model.name || model.id}{" "}
             {suggestionName === model.name && (
                 <span className="text-muted-foreground">(Suggested)</span>
-            )}{" "}
-            <span className="text-muted-foreground">
-                ({model.modelProvider})
-            </span>
+            )}
+            {" - "}
+            <span className="text-muted-foreground">{model.modelProvider}</span>
         </>
     );
 }
