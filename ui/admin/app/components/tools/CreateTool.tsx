@@ -1,6 +1,7 @@
 import { PlusCircle } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
+import { toast } from "sonner";
 import useSWR from "swr";
 
 import { CreateToolReference, ToolReference } from "~/lib/model/toolReferences";
@@ -38,6 +39,9 @@ export function CreateTool({ onError, onSuccess }: CreateToolProps) {
             if (loadedTool.error) {
                 onError(loadedTool.error);
             } else {
+                toast.success(
+                    `"${loadedTool.reference}" registered successfully.`
+                );
                 onSuccess();
             }
         },

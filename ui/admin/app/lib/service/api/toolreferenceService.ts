@@ -24,6 +24,8 @@ export type ToolCategory = {
     bundleTool?: ToolReference;
     tools: ToolReference[];
 };
+export const UncategorizedToolCategory = "Uncategorized";
+export const YourToolsToolCategory = "Your Tools";
 export type ToolCategoryMap = Record<string, ToolCategory>;
 async function getToolReferencesCategoryMap(type?: ToolReferenceType) {
     const res = await request<{ items: ToolReference[] }>({
@@ -35,7 +37,9 @@ async function getToolReferencesCategoryMap(type?: ToolReferenceType) {
     const result: ToolCategoryMap = {};
 
     for (const toolReference of toolReferences) {
-        const category = toolReference.metadata?.category || "Uncategorized";
+        const category = !toolReference.builtin
+            ? YourToolsToolCategory
+            : toolReference.metadata?.category || UncategorizedToolCategory;
 
         if (!result[category]) {
             result[category] = {
