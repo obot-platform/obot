@@ -84,6 +84,9 @@ export default function FileTreeNode({
     const errorFiles = allFiles.filter(
         (file) => file.state === KnowledgeFileState.Error
     ).length;
+    const unsupportedFiles = allFiles.filter(
+        (file) => file.state === KnowledgeFileState.Unsupported
+    ).length;
     const totalSize = allFiles.reduce(
         (acc, file) => acc + (file.sizeInBytes || 0),
         0
@@ -443,6 +446,12 @@ export default function FileTreeNode({
                                             <>
                                                 <span className="text-destructive">{`${errorFiles}`}</span>
                                                 <span>{` Err, `}</span>
+                                            </>
+                                        )}
+                                        {unsupportedFiles > 0 && (
+                                            <>
+                                                <span className="text-warning">{`${unsupportedFiles}`}</span>
+                                                <span>{` Unsupported, `}</span>
                                             </>
                                         )}
                                         {selectedFiles > 0 && (
