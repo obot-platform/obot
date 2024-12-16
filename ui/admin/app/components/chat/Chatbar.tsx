@@ -4,6 +4,7 @@ import { useState } from "react";
 import { cn } from "~/lib/utils";
 
 import { useChat } from "~/components/chat/ChatContext";
+import { ChatHelpers } from "~/components/chat/ChatHelpers";
 import { LoadingSpinner } from "~/components/ui/LoadingSpinner";
 import { Button } from "~/components/ui/button";
 import { AutosizeTextarea } from "~/components/ui/textarea";
@@ -34,7 +35,8 @@ export function Chatbar({ className }: ChatbarProps) {
         >
             <div className="relative flex-grow">
                 <AutosizeTextarea
-                    className="rounded-xl bg-background"
+                    className="rounded-3xl p-2"
+                    variant="flat"
                     value={input}
                     onKeyDown={(e) => {
                         if (e.key === "Enter" && !e.shiftKey) {
@@ -46,17 +48,27 @@ export function Chatbar({ className }: ChatbarProps) {
                     minHeight={0}
                     onChange={(e) => setInput(e.target.value)}
                     placeholder="Type your message..."
+                    bottomContent={
+                        <div className="flex flex-row-reverse items-center justify-between">
+                            <Button
+                                size="icon-sm"
+                                className="m-2"
+                                color="primary"
+                                type="submit"
+                                disabled={!input || isRunning || isInvoking}
+                            >
+                                {isInvoking ? (
+                                    <LoadingSpinner />
+                                ) : (
+                                    <ArrowUpIcon />
+                                )}
+                            </Button>
+
+                            <ChatHelpers className="p-2" />
+                        </div>
+                    }
                 />
             </div>
-
-            <Button
-                size="icon"
-                className="rounded-full"
-                type="submit"
-                disabled={!input || isRunning || isInvoking}
-            >
-                {isInvoking ? <LoadingSpinner /> : <ArrowUpIcon />}
-            </Button>
         </form>
     );
 }

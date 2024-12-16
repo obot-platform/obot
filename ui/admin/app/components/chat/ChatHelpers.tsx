@@ -19,7 +19,7 @@ import {
 } from "~/components/ui/popover";
 import { Switch } from "~/components/ui/switch";
 
-export function ChatHelpers() {
+export function ChatHelpers({ className }: { className?: string }) {
     const { threadId } = useChat();
 
     const { data: thread } = useSWR(
@@ -39,10 +39,8 @@ export function ChatHelpers() {
 
     const tools = thread?.tools;
 
-    console.log(knowledge);
-
     return (
-        <div className="w-full flex items-center px-20 py-2">
+        <div className={cn("w-full flex items-center", className)}>
             <div className="flex items-center gap-2">
                 <ToolsInfo
                     tools={tools ?? []}
@@ -100,7 +98,7 @@ function ToolsInfo({
             <PopoverTrigger asChild>
                 <Button
                     size="sm"
-                    variant="secondary"
+                    variant="outline"
                     className={cn("gap-2", className)}
                     startContent={<WrenchIcon />}
                     disabled={disabled}
@@ -161,7 +159,7 @@ function KnowledgeInfo({
             <PopoverTrigger asChild>
                 <Button
                     size="sm"
-                    variant="secondary"
+                    variant="outline"
                     className={cn("gap-2", className)}
                     startContent={<LibraryIcon />}
                     disabled={disabled}
