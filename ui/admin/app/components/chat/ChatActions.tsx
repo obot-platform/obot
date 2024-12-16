@@ -1,16 +1,18 @@
 import { LibraryIcon, WrenchIcon } from "lucide-react";
 import { useMemo } from "react";
-import useSWR from "swr";
 
 import { Agent } from "~/lib/model/agents";
 import { KnowledgeFile } from "~/lib/model/knowledge";
-import { AgentService } from "~/lib/service/api/agentService";
-import { ThreadsService } from "~/lib/service/api/threadsService";
 import { cn } from "~/lib/utils";
 
 import { TypographyMuted, TypographySmall } from "~/components/Typography";
 import { ToolEntry } from "~/components/agent/ToolEntry";
 import { useChat } from "~/components/chat/ChatContext";
+import {
+    useOptimisticThread,
+    useThreadAgents as useThreadAgent,
+    useThreadKnowledge,
+} from "~/components/chat/thread-helpers";
 import { Button } from "~/components/ui/button";
 import {
     Popover,
@@ -19,23 +21,12 @@ import {
 } from "~/components/ui/popover";
 import { Switch } from "~/components/ui/switch";
 
-export function ChatHelpers({ className }: { className?: string }) {
+export function ChatActions({ className }: { className?: string }) {
     const { threadId } = useChat();
 
-    const { data: thread } = useSWR(
-        ThreadsService.getThreadById.key(threadId),
-        ({ threadId }) => ThreadsService.getThreadById(threadId)
-    );
-
-    const { data: knowledge } = useSWR(
-        ThreadsService.getKnowledge.key(threadId),
-        ({ threadId }) => ThreadsService.getKnowledge(threadId)
-    );
-
-    const { data: agent } = useSWR(
-        AgentService.getAgentById.key(thread?.agentID),
-        ({ agentId }) => AgentService.getAgentById(agentId)
-    );
+    const { data: knowledge } = useThreadKnowledge(threadId);
+    const { data: agent } = useThreadAgent(threadId);
+    const { thread, updateThread } = useOptimisticThread(threadId);
 
     const tools = thread?.tools;
 
@@ -44,6 +35,7 @@ export function ChatHelpers({ className }: { className?: string }) {
             <div className="flex items-center gap-2">
                 <ToolsInfo
                     tools={tools ?? []}
+                    onChange={(tools) => updateThread({ tools })}
                     agent={agent}
                     disabled={!thread}
                 />
@@ -54,18 +46,26 @@ export function ChatHelpers({ className }: { className?: string }) {
     );
 }
 
+type ToolItem = {
+    tool: string;
+    isToggleable: boolean;
+    isEnabled: boolean;
+};
+
 function ToolsInfo({
     tools,
     className,
     agent,
     disabled,
+    onChange,
 }: {
     tools: string[];
     className?: string;
     agent: Nullish<Agent>;
     disabled?: boolean;
+    onChange: (tools: string[]) => void;
 }) {
-    const toolItems = useMemo(() => {
+    const toolItems = useMemo<ToolItem[]>(() => {
         if (!agent)
             return tools.map((tool) => ({
                 tool,
@@ -93,6 +93,11 @@ function ToolsInfo({
         return [...agentTools, ...toggleableTools];
     }, [tools, agent]);
 
+    const handleToggleTool = (tool: string, checked: boolean) => {
+        console.log("toggle tool", tool, checked);
+        onChange(checked ? [...tools, tool] : tools.filter((t) => t !== tool));
+    };
+
     return (
         <Popover>
             <PopoverTrigger asChild>
@@ -114,27 +119,7 @@ function ToolsInfo({
                             Available Tools
                         </TypographySmall>
                         <div className="space-y-1">
-                            {toolItems.map(
-                                ({ tool, isToggleable, isEnabled }) => (
-                                    <ToolEntry
-                                        key={tool}
-                                        tool={tool}
-                                        actions={
-                                            isToggleable ? (
-                                                <Switch
-                                                    checked={isEnabled}
-                                                    disabled
-                                                    onCheckedChange={() => {}}
-                                                />
-                                            ) : (
-                                                <TypographyMuted>
-                                                    On
-                                                </TypographyMuted>
-                                            )
-                                        }
-                                    />
-                                )
-                            )}
+                            {toolItems.map(renderToolItem)}
                         </div>
                     </div>
                 ) : (
@@ -143,6 +128,27 @@ function ToolsInfo({
             </PopoverContent>
         </Popover>
     );
+
+    function renderToolItem({ isEnabled, isToggleable, tool }: ToolItem) {
+        return (
+            <ToolEntry
+                key={tool}
+                tool={tool}
+                actions={
+                    isToggleable ? (
+                        <Switch
+                            checked={isEnabled}
+                            onCheckedChange={(checked) =>
+                                handleToggleTool(tool, checked)
+                            }
+                        />
+                    ) : (
+                        <TypographyMuted>On</TypographyMuted>
+                    )
+                }
+            />
+        );
+    }
 }
 
 function KnowledgeInfo({

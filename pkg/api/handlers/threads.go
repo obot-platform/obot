@@ -230,7 +230,9 @@ func (a *ThreadHandler) Update(req api.Context) error {
 			return err
 		}
 		for _, newTool := range newThread.Tools {
-			if !slices.Contains(agent.Spec.Manifest.AvailableThreadTools, newTool) {
+			possibleTools := slices.Concat(agent.Spec.Manifest.AvailableThreadTools, agent.Spec.Manifest.DefaultThreadTools)
+
+			if !slices.Contains(possibleTools, newTool) {
 				return types.NewErrBadRequest("tool %s is not available for agent %s", newTool, agent.Name)
 			}
 		}

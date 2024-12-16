@@ -1,6 +1,6 @@
 import { ChatEvent } from "~/lib/model/chatEvents";
 import { KnowledgeFile } from "~/lib/model/knowledge";
-import { Thread } from "~/lib/model/threads";
+import { Thread, UpdateThread } from "~/lib/model/threads";
 import { WorkspaceFile } from "~/lib/model/workspace";
 import { ApiRoutes, revalidateWhere } from "~/lib/routers/apiRoutes";
 import { request } from "~/lib/service/api/primitives";
@@ -27,6 +27,17 @@ getThreadById.key = (threadId?: Nullish<string>) => {
     if (!threadId) return null;
 
     return { url: ApiRoutes.threads.getById(threadId).path, threadId };
+};
+
+const updateThreadById = async (threadId: string, thread: UpdateThread) => {
+    const { data } = await request<Thread>({
+        url: ApiRoutes.threads.updateById(threadId).url,
+        method: "PUT",
+        data: thread,
+        errorMessage: "Failed to update thread",
+    });
+
+    return data;
 };
 
 const getThreadsByAgent = async (agentId: string) => {
@@ -125,6 +136,7 @@ export const ThreadsService = {
     getThreadsByAgent,
     getThreadEvents,
     getThreadEventSource,
+    updateThreadById,
     deleteThread,
     revalidateThreads,
     getKnowledge,

@@ -18,3 +18,5 @@ export type Thread = EntityMeta &
         | { agentID: string; workflowID?: never }
         | { agentID?: never; workflowID: string }
     );
+
+export type UpdateThread = ThreadBase;
