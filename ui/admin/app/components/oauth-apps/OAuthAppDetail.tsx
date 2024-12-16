@@ -124,7 +124,22 @@ function EmptyContent({
     spec: OAuthAppSpec;
     onSuccess: () => void;
 }) {
-    return (
+    return spec.noGatewayIntegration ? (
+        <div className="flex flex-col gap-2">
+            <TypographyP>
+                {spec.displayName} OAuth is not configured. You must configure
+                it to enable tools that interact with protected{" "}
+                {spec.displayName} APIs.
+            </TypographyP>
+
+            <TypographyP className="mb-4">
+                You can also configure {spec.displayName} OAuth by clicking the
+                button below.
+            </TypographyP>
+
+            <ConfigureOAuthApp type={spec.type} onSuccess={onSuccess} />
+        </div>
+    ) : (
         <div className="flex flex-col gap-2">
             <TypographyP>
                 {spec.displayName} OAuth is currently enabled. No action is

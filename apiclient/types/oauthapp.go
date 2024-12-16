@@ -1,6 +1,7 @@
 package types
 
 const (
+	OAuthAppTypeAtlassian    OAuthAppType = "atlassian"
 	OAuthAppTypeMicrosoft365 OAuthAppType = "microsoft365"
 	OAuthAppTypeSlack        OAuthAppType = "slack"
 	OAuthAppTypeNotion       OAuthAppType = "notion"

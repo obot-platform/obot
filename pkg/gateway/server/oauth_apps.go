@@ -246,6 +246,14 @@ func (s *Server) authorizeOAuthApp(apiContext api.Context) error {
 		q.Set("optional_scope", app.Spec.Manifest.OptionalScope)
 	}
 
+	// Atlassian requires the audience and prompt parameters to be set.
+	// See https://developer.atlassian.com/cloud/jira/platform/oauth-2-3lo-apps/#1--direct-the-user-to-the-authorization-url-to-get-an-authorization-code
+	// for details.
+	if app.Spec.Manifest.Type == types2.OAuthAppTypeAtlassian {
+		q.Set("audience", "api.atlassian.com")
+		q.Set("prompt", "consent")
+	}
+
 	// For Google: access_type=offline instructs Google to return a refresh token and an access token on the initial authorization.
 	// This can be used to refresh the access token when a user is not present at the browser
 	// prompt=consent instructs Google to show the consent screen every time the authorization flow happens so that we get a new refresh token.

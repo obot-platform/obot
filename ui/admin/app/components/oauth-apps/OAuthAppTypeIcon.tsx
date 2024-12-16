@@ -1,11 +1,18 @@
 import { NotionLogoIcon } from "@radix-ui/react-icons";
 import { KeyIcon } from "lucide-react";
-import { FaGithub, FaGoogle, FaMicrosoft, FaSlack } from "react-icons/fa";
+import {
+    FaAtlassian,
+    FaGithub,
+    FaGoogle,
+    FaMicrosoft,
+    FaSlack,
+} from "react-icons/fa";
 
 import { OAuthProvider } from "~/lib/model/oauthApps/oauth-helpers";
 import { cn } from "~/lib/utils";
 
 const IconMap = {
+    [OAuthProvider.Atlassian]: FaAtlassian,
     [OAuthProvider.GitHub]: FaGithub,
     [OAuthProvider.Slack]: FaSlack,
     [OAuthProvider.Google]: FaGoogle,

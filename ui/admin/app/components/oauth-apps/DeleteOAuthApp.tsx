@@ -33,16 +33,28 @@ export function DeleteOAuthApp({
         toast.success(`${spec.displayName} OAuth configuration deleted`);
     });
 
+    const title = spec.noGatewayIntegration
+        ? `Delete ${spec.displayName} OAuth`
+        : `Reset ${spec.displayName} OAuth to use Obot Gateway`;
+
+    const description = spec.noGatewayIntegration
+        ? `By clicking \`Delete\`, you will delete your ${spec.displayName} OAuth configuration.`
+        : `By clicking \`Reset\`, you will delete your custom ${spec.displayName} OAuth configuration and reset to use Obot Gateway.`;
+
+    const buttonText = spec.noGatewayIntegration
+        ? `Delete ${spec.displayName} OAuth`
+        : `Reset ${spec.displayName} OAuth to use Obot Gateway`;
+
     return (
         <div className="flex gap-2">
             <Tooltip open={getIsOpen()}>
                 <ConfirmationDialog
-                    title={`Reset ${spec.displayName} OAuth to use Obot Gateway`}
-                    description={`By clicking \`Reset\`, you will delete your custom ${spec.displayName} OAuth configuration and reset to use Obot Gateway.`}
+                    title={title}
+                    description={description}
                     onConfirm={deleteOAuthApp.execute}
                     confirmProps={{
                         variant: "destructive",
-                        children: "Reset",
+                        children: buttonText,
                     }}
                 >
                     <TooltipTrigger asChild>
@@ -54,7 +66,7 @@ export function DeleteOAuthApp({
                             {deleteOAuthApp.isLoading ? (
                                 <LoadingSpinner className="w-4 h-4 mr-2" />
                             ) : null}
-                            Reset {spec.displayName} OAuth to use Obot Gateway
+                            {buttonText}
                         </Button>
                     </TooltipTrigger>
                 </ConfirmationDialog>

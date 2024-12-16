@@ -3,6 +3,7 @@ import { ZodObject, ZodType } from "zod";
 import { ApiUrl } from "~/lib/routers/baseRouter";
 
 export const OAuthProvider = {
+    Atlassian: "atlassian",
     GitHub: "github",
     Google: "google",
     Microsoft365: "microsoft365",
@@ -42,6 +43,7 @@ export type OAuthAppSpec = {
     disableConfiguration?: boolean;
     disabledReason?: string;
     invertDark?: boolean;
+    noGatewayIntegration?: boolean;
 };
 
 export function getOAuthLinks(type: OAuthProvider) {

@@ -31,7 +31,7 @@ const steps: OAuthFormStep<typeof schema.shape>[] = [
         type: "markdown",
         text:
             "### Step 1: Create a new Google Project\n" +
-            "- Navigate to the [Credentials](https://console.cloud.google.com/apis/credentials) section of the APIs & Serivces page in your [Google API Dashboard](https://console.cloud.google.com).\n" +
+            "- Navigate to the [Credentials](https://console.cloud.google.com/apis/credentials) section of the APIs & Services page in your [Google API Dashboard](https://console.cloud.google.com).\n" +
             "- If you already have a Google Project Setup, skip to Step 2.",
     },
     {

@@ -11,6 +11,9 @@ import (
 )
 
 const (
+	AtlassianAuthorizeURL = "https://auth.atlassian.com/authorize"
+	AtlassianTokenURL     = "https://auth.atlassian.com/oauth/token"
+
 	SlackAuthorizeURL = "https://slack.com/oauth/v2/authorize"
 	SlackTokenURL     = "https://slack.com/api/oauth.v2.access"
 
@@ -44,6 +47,9 @@ func ValidateAndSetDefaultsOAuthAppManifest(r *types.OAuthAppManifest, create bo
 	}
 
 	switch r.Type {
+	case types.OAuthAppTypeAtlassian:
+		r.AuthURL = AtlassianAuthorizeURL
+		r.TokenURL = AtlassianTokenURL
 	case types.OAuthAppTypeMicrosoft365:
 		r.AuthURL = fmt.Sprintf("https://login.microsoftonline.com/%s/oauth2/v2.0/authorize", r.TenantID)
 		r.TokenURL = fmt.Sprintf("https://login.microsoftonline.com/%s/oauth2/v2.0/token", r.TenantID)
