@@ -2,7 +2,7 @@ import { Link } from "@remix-run/react";
 import { $path } from "remix-routes";
 
 import { TypographyH3, TypographyP } from "~/components/Typography";
-import { OttoLogo } from "~/components/branding/OttoLogo";
+import { AcornLogo } from "~/components/branding/AcornLogo";
 import { Button } from "~/components/ui/button";
 
 export function FirstModelProviderBanner() {
@@ -10,7 +10,7 @@ export function FirstModelProviderBanner() {
         <div className="w-full">
             <div className="flex justify-center mx-8 mt-4 py-4 bg-secondary overflow-hidden rounded-xl">
                 <div className="flex flex-row min-h-36 items-center justify-between w-[calc(100%-4rem)] rounded-sm relative gap-4 max-w-screen-md">
-                    <OttoLogo
+                    <AcornLogo
                         hideText
                         classNames={{
                             root: "absolute opacity-45 top-[-5rem] left-[-7.5rem]",

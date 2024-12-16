@@ -1,6 +1,6 @@
 import { ErrorResponse } from "@remix-run/react";
 
-import { OttoLogo } from "~/components/branding/OttoLogo";
+import { AcornLogo } from "~/components/branding/AcornLogo";
 import { Button } from "~/components/ui/button";
 import {
     Card,
@@ -16,7 +16,7 @@ export function RouteError({ error }: { error: ErrorResponse }) {
         <div className="flex min-h-screen w-full items-center justify-center p-4">
             <Card className="w-96">
                 <CardHeader className="mx-4">
-                    <OttoLogo />
+                    <AcornLogo />
                 </CardHeader>
                 <CardContent className="space-y-2 text-center border-b mb-4">
                     <CardTitle>Oops! {error.status}</CardTitle>
