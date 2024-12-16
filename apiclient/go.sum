@@ -1,3 +1,5 @@
+github.com/acorn-io/acorn/logger v0.0.0-20241216130324-9a09554e0785 h1:nOyU2uk23fpVxfUh/s+5syXbvqpE2tHPl5chkUEFbg4=
+github.com/acorn-io/acorn/logger v0.0.0-20241216130324-9a09554e0785/go.mod h1:p1+KVqMIAMjKoQoYiNwG9uNlkdCP3pw85lFLI/+tsYE=
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc h1:U9qPSI2PIWSS1VwoXQT9A3Wy9MM3WgvqSxFWenqJduM=
@@ -24,8 +26,6 @@ github.com/mailru/easyjson v0.7.7 h1:UGYAvKxe3sBsEDzO8ZeWOSlIQfWFlxbzLZe7hwFURr0
 github.com/mailru/easyjson v0.7.7/go.mod h1:xzfreul335JAWq5oZzymOObrkdz5UnU4kGfJJLY9Nlc=
 github.com/mohae/deepcopy v0.0.0-20170929034955-c48cc78d4826 h1:RWengNIwukTxcDr9M+97sNutRR1RKhG96O6jWumTTnw=
 github.com/mohae/deepcopy v0.0.0-20170929034955-c48cc78d4826/go.mod h1:TaXosZuwdSHYgviHp1DAtfrULt5eUgsSMsZf+YrPgl8=
-github.com/acorn-io/acorn/logger v0.0.0-20241210141510-f6d8aba1961a h1:GB3y6++/0o3FV6hsP8Z05ITYzq0VxP7J8gSc1wx6UP8=
-github.com/acorn-io/acorn/logger v0.0.0-20241210141510-f6d8aba1961a/go.mod h1:Pc72R5/iuITWNUVFX3T01JDxW53WUkDup8jGYR1n2l4=
 github.com/perimeterx/marshmallow v1.1.5 h1:a2LALqQ1BlHM8PZblsDdidgv1mWi1DgC2UmX50IvK2s=
 github.com/perimeterx/marshmallow v1.1.5/go.mod h1:dsXbUu8CRzfYP5a87xpp0xq9S3u0Vchtcl8we9tYaXw=
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
