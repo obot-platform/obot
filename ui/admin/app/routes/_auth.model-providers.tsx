@@ -77,7 +77,7 @@ export default function ModelProviders() {
                     {configured ? null : (
                         <WarningAlert
                             title="No Model Providers Configured!"
-                            description="To use Otto's features, you'll need to
+                            description="To use Acorn's features, you'll need to
                                 set up a Model Provider. Select and configure
                                 one below to get started!"
                         />

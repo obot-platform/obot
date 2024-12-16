@@ -147,7 +147,7 @@ If you do not have a multi-tenant application, you can skip this step.\n
     {
         type: "markdown",
         text: `
-- Click **Submit** to finish registering your Application with Otto.\n
+- Click **Submit** to finish registering your Application with Acorn.\n
         `,
     },
 ];
