@@ -5,24 +5,17 @@ import { useForm } from "react-hook-form";
 import useSWR from "swr";
 import { z } from "zod";
 
-import { ModelUsage } from "~/lib/model/models";
+import { Model, ModelUsage } from "~/lib/model/models";
 import { ModelApiService } from "~/lib/service/api/modelApiService";
 
 import { TypographyH4 } from "~/components/Typography";
+import { ComboBox } from "~/components/composed/ComboBox";
 import {
     ControlledAutosizeTextarea,
     ControlledCustomInput,
     ControlledInput,
 } from "~/components/form/controlledInputs";
 import { Form } from "~/components/ui/form";
-import {
-    Select,
-    SelectContent,
-    SelectEmptyItem,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from "~/components/ui/select";
 
 const formSchema = z.object({
     name: z.string().min(1, {
@@ -86,6 +79,7 @@ export function AgentForm({ agent, onSubmit, onChange }: AgentFormProps) {
         onSubmit?.({ ...agent, ...values })
     );
 
+    const modelOptionsByGroup = getModelOptionsByModelProvider(models);
     return (
         <Form {...form}>
             <form onSubmit={handleSubmit} className="space-y-4">
@@ -125,30 +119,42 @@ export function AgentForm({ agent, onSubmit, onChange }: AgentFormProps) {
                     name="model"
                 >
                     {({ field: { ref: _, ...field } }) => (
-                        <Select {...field} onValueChange={field.onChange}>
-                            <SelectTrigger>
-                                <SelectValue placeholder="Use System Default" />
-                            </SelectTrigger>
-
-                            <SelectContent>
-                                <SelectEmptyItem>
-                                    Use System Default
-                                </SelectEmptyItem>
-
-                                {models.map((m) => (
-                                    <SelectItem key={m.id} value={m.id}>
-                                        {m.name || m.id}
-                                        {" - "}
-                                        <span className="text-muted-foreground">
-                                            {m.modelProvider}
-                                        </span>
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
+                        <ComboBox
+                            allowClear
+                            clearLabel="Use System Default"
+                            placeholder="Use System Default"
+                            value={models.find((m) => m.id === field.value)}
+                            onChange={(value) =>
+                                field.onChange(value?.id ?? "")
+                            }
+                            options={modelOptionsByGroup}
+                        />
                     )}
                 </ControlledCustomInput>
             </form>
         </Form>
     );
+
+    function getModelOptionsByModelProvider(models: Model[]) {
+        const byModelProviderGroups = models.reduce(
+            (acc, model) => {
+                acc[model.modelProvider] = acc[model.modelProvider] || [];
+                acc[model.modelProvider].push(model);
+                return acc;
+            },
+            {} as Record<string, Model[]>
+        );
+
+        return Object.entries(byModelProviderGroups).map(
+            ([modelProvider, models]) => {
+                const sorted = models.sort((a, b) =>
+                    (a.name ?? "").localeCompare(b.name ?? "")
+                );
+                return {
+                    heading: modelProvider,
+                    value: sorted,
+                };
+            }
+        );
+    }
 }
