@@ -43,6 +43,7 @@ type AgentManifest struct {
 	MaxThreadTools       int               `json:"maxThreadTools"`
 	Params               map[string]string `json:"params"`
 	Model                string            `json:"model"`
+	Env                  []EnvVar          `json:"env"`
 }
 
 func (m AgentManifest) GetParams() *openapi3.Schema {

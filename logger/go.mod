@@ -1,4 +1,4 @@
-module github.com/otto8-ai/otto8/logger
+module github.com/acorn-io/acorn/logger
 
 go 1.23.1
 

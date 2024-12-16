@@ -1,24 +1,24 @@
 package controller
 
 import (
-	"github.com/otto8-ai/nah/pkg/handlers"
-	"github.com/otto8-ai/otto8/pkg/controller/handlers/agents"
-	"github.com/otto8-ai/otto8/pkg/controller/handlers/alias"
-	"github.com/otto8-ai/otto8/pkg/controller/handlers/cleanup"
-	"github.com/otto8-ai/otto8/pkg/controller/handlers/cronjob"
-	"github.com/otto8-ai/otto8/pkg/controller/handlers/knowledgefile"
-	"github.com/otto8-ai/otto8/pkg/controller/handlers/knowledgeset"
-	"github.com/otto8-ai/otto8/pkg/controller/handlers/knowledgesource"
-	"github.com/otto8-ai/otto8/pkg/controller/handlers/oauthapp"
-	"github.com/otto8-ai/otto8/pkg/controller/handlers/runs"
-	"github.com/otto8-ai/otto8/pkg/controller/handlers/threads"
-	"github.com/otto8-ai/otto8/pkg/controller/handlers/toolreference"
-	"github.com/otto8-ai/otto8/pkg/controller/handlers/webhook"
-	"github.com/otto8-ai/otto8/pkg/controller/handlers/workflow"
-	"github.com/otto8-ai/otto8/pkg/controller/handlers/workflowexecution"
-	"github.com/otto8-ai/otto8/pkg/controller/handlers/workflowstep"
-	"github.com/otto8-ai/otto8/pkg/controller/handlers/workspace"
-	v1 "github.com/otto8-ai/otto8/pkg/storage/apis/otto.otto8.ai/v1"
+	"github.com/acorn-io/acorn/pkg/controller/handlers/agents"
+	"github.com/acorn-io/acorn/pkg/controller/handlers/alias"
+	"github.com/acorn-io/acorn/pkg/controller/handlers/cleanup"
+	"github.com/acorn-io/acorn/pkg/controller/handlers/cronjob"
+	"github.com/acorn-io/acorn/pkg/controller/handlers/knowledgefile"
+	"github.com/acorn-io/acorn/pkg/controller/handlers/knowledgeset"
+	"github.com/acorn-io/acorn/pkg/controller/handlers/knowledgesource"
+	"github.com/acorn-io/acorn/pkg/controller/handlers/oauthapp"
+	"github.com/acorn-io/acorn/pkg/controller/handlers/runs"
+	"github.com/acorn-io/acorn/pkg/controller/handlers/threads"
+	"github.com/acorn-io/acorn/pkg/controller/handlers/toolreference"
+	"github.com/acorn-io/acorn/pkg/controller/handlers/webhook"
+	"github.com/acorn-io/acorn/pkg/controller/handlers/workflow"
+	"github.com/acorn-io/acorn/pkg/controller/handlers/workflowexecution"
+	"github.com/acorn-io/acorn/pkg/controller/handlers/workflowstep"
+	"github.com/acorn-io/acorn/pkg/controller/handlers/workspace"
+	v1 "github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1"
+	"github.com/acorn-io/nah/pkg/handlers"
 )
 
 func (c *Controller) setupRoutes() error {
@@ -49,14 +49,15 @@ func (c *Controller) setupRoutes() error {
 	root.Type(&v1.Thread{}).HandlerFunc(threads.WorkflowState)
 
 	// Workflows
-	root.Type(&v1.Workflow{}).HandlerFunc(workflow.WorkspaceObjects)
 	root.Type(&v1.Workflow{}).HandlerFunc(workflow.EnsureIDs)
 	root.Type(&v1.Workflow{}).HandlerFunc(workflow.CreateWorkspaceAndKnowledgeSet)
 	root.Type(&v1.Workflow{}).HandlerFunc(workflow.BackPopulateAuthStatus)
+	root.Type(&v1.Workflow{}).HandlerFunc(cleanup.Cleanup)
 
 	// WorkflowExecutions
 	root.Type(&v1.WorkflowExecution{}).HandlerFunc(cleanup.Cleanup)
 	root.Type(&v1.WorkflowExecution{}).HandlerFunc(workflowExecution.Run)
+	root.Type(&v1.WorkflowExecution{}).HandlerFunc(workflowExecution.ReassignThread)
 
 	// Agents
 	root.Type(&v1.Agent{}).HandlerFunc(agents.CreateWorkspaceAndKnowledgeSet)
@@ -75,6 +76,7 @@ func (c *Controller) setupRoutes() error {
 
 	// Reference
 	root.Type(&v1.Agent{}).HandlerFunc(alias.AssignAlias)
+	root.Type(&v1.EmailReceiver{}).HandlerFunc(alias.AssignAlias)
 	root.Type(&v1.Workflow{}).HandlerFunc(alias.AssignAlias)
 	root.Type(&v1.Model{}).HandlerFunc(alias.AssignAlias)
 	root.Type(&v1.DefaultModelAlias{}).HandlerFunc(alias.AssignAlias)
@@ -96,7 +98,6 @@ func (c *Controller) setupRoutes() error {
 	// Also cleanup the dataset when there is no content.
 	// This will allow the user to switch the embedding model implicitly.
 	root.Type(&v1.KnowledgeSet{}).HandlerFunc(knowledgeset.Cleanup)
-	root.Type(&v1.KnowledgeSet{}).HandlerFunc(knowledgeset.GenerateDataDescription)
 	root.Type(&v1.KnowledgeSet{}).HandlerFunc(knowledgeset.CreateWorkspace)
 	root.Type(&v1.KnowledgeSet{}).HandlerFunc(knowledgeset.CheckHasContent)
 	root.Type(&v1.KnowledgeSet{}).HandlerFunc(knowledgeset.SetEmbeddingModel)

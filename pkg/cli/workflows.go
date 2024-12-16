@@ -3,14 +3,14 @@ package cli
 import (
 	"fmt"
 
+	"github.com/acorn-io/acorn/apiclient"
+	"github.com/acorn-io/acorn/apiclient/types"
 	"github.com/dustin/go-humanize"
-	"github.com/otto8-ai/otto8/apiclient"
-	"github.com/otto8-ai/otto8/apiclient/types"
 	"github.com/spf13/cobra"
 )
 
 type Workflows struct {
-	root   *Otto8
+	root   *Acorn
 	Quiet  bool   `usage:"Only print IDs of agents" short:"q"`
 	Wide   bool   `usage:"Print more information" short:"w"`
 	Output string `usage:"Output format (table, json, yaml)" short:"o" default:"table"`

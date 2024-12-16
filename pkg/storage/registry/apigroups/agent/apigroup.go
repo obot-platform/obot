@@ -3,12 +3,12 @@ package agent
 import (
 	"strings"
 
-	"github.com/otto8-ai/kinm/pkg/apigroup"
-	"github.com/otto8-ai/nah/pkg/typed"
-	"github.com/otto8-ai/otto8/pkg/storage/apis/otto.otto8.ai/v1"
-	"github.com/otto8-ai/otto8/pkg/storage/registry/generic"
-	"github.com/otto8-ai/otto8/pkg/storage/scheme"
-	"github.com/otto8-ai/otto8/pkg/storage/services"
+	v1 "github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1"
+	"github.com/acorn-io/acorn/pkg/storage/registry/generic"
+	"github.com/acorn-io/acorn/pkg/storage/scheme"
+	"github.com/acorn-io/acorn/pkg/storage/services"
+	"github.com/acorn-io/kinm/pkg/apigroup"
+	"github.com/acorn-io/nah/pkg/typed"
 	coordinationv1 "k8s.io/api/coordination/v1"
 	"k8s.io/apiserver/pkg/registry/rest"
 	genericapiserver "k8s.io/apiserver/pkg/server"

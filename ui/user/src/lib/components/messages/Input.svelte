@@ -1,24 +1,24 @@
 <script lang="ts">
-	import { ChatService, type InvokeInput } from '$lib/services';
+	import { type InvokeInput } from '$lib/services';
 	import { editor } from '$lib/stores';
 	import { autoHeight } from '$lib/actions/textarea';
-	import { ArrowUp } from 'lucide-svelte';
+	import { ArrowUp, LoaderCircle } from 'lucide-svelte';
 
 	interface Props {
-		onError?: (err: Error) => void;
 		onFocus?: () => void;
 		onSubmit?: (input: InvokeInput) => void | Promise<void>;
+		onAbort?: () => Promise<void>;
 		placeholder?: string;
 		readonly?: boolean;
-		assistant?: string;
+		pending?: boolean;
 	}
 
 	let {
-		onError,
 		onFocus,
 		onSubmit,
-		assistant = '',
+		onAbort,
 		readonly,
+		pending,
 		placeholder = 'Your message...'
 	}: Props = $props();
 
@@ -44,23 +44,11 @@
 			}
 		}
 
-		try {
-			if (readonly) {
-				await ChatService.abort(assistant);
-			} else {
-				if (onSubmit) {
-					await onSubmit?.(input);
-				} else {
-					await ChatService.invoke(assistant, input);
-				}
-			}
-		} catch (err) {
-			if (err instanceof Error) {
-				onError?.(err);
-			} else {
-				onError?.(new Error(String(err)));
-			}
+		if (readonly || pending) {
+			await onAbort?.();
 			return;
+		} else {
+			await onSubmit?.(input);
 		}
 
 		if (input.changedFiles) {
@@ -103,7 +91,7 @@
 			id="chat"
 			rows="1"
 			bind:value
-			{readonly}
+			readonly={readonly || pending}
 			onkeydown={onKey}
 			bind:this={chat}
 			onfocus={onFocus}
@@ -125,6 +113,8 @@
 		>
 			{#if readonly}
 				<div class="m-1.5 h-3 w-3 place-self-center rounded-sm bg-blue"></div>
+			{:else if pending}
+				<LoaderCircle class="animate-spin" />
 			{:else}
 				<ArrowUp />
 			{/if}

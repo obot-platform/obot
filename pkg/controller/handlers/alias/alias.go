@@ -3,12 +3,12 @@ package alias
 import (
 	"fmt"
 
-	"github.com/otto8-ai/nah/pkg/router"
-	"github.com/otto8-ai/nah/pkg/uncached"
-	"github.com/otto8-ai/otto8/logger"
-	"github.com/otto8-ai/otto8/pkg/alias"
-	"github.com/otto8-ai/otto8/pkg/create"
-	v1 "github.com/otto8-ai/otto8/pkg/storage/apis/otto.otto8.ai/v1"
+	"github.com/acorn-io/acorn/logger"
+	"github.com/acorn-io/acorn/pkg/alias"
+	"github.com/acorn-io/acorn/pkg/create"
+	v1 "github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1"
+	"github.com/acorn-io/nah/pkg/router"
+	"github.com/acorn-io/nah/pkg/uncached"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"

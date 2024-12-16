@@ -1,13 +1,13 @@
 import items from '$lib/stores/editor.svelte';
 import type { Explain, InputMessage, Message, Messages, Progress } from './types';
 
-const ottoAIIcon = 'Otto';
+const assistantIcon = 'Assistant';
 const profileIcon = 'Profile';
 
 function toMessageFromInput(s: string): string {
 	try {
 		const input = JSON.parse(s) as InputMessage;
-		if (input.type === 'otto-prompt') {
+		if (input.type === 'assistant-prompt') {
 			return input.prompt;
 		}
 	} catch {
@@ -54,6 +54,8 @@ function reformatInputMessage(msg: Message) {
 			} else {
 				msg.message = [input.prompt];
 			}
+		} else if (input.prompt === '') {
+			msg.message = [''];
 		}
 		if (input.explain) {
 			msg.explain = input.explain;
@@ -66,16 +68,34 @@ function reformatInputMessage(msg: Message) {
 	}
 }
 
+function getFilenameAndContent(content: string) {
+	let testContent = content;
+	while (testContent) {
+		try {
+			if (!testContent.endsWith('"}')) {
+				return JSON.parse(testContent + '"}');
+			}
+			return JSON.parse(testContent);
+		} catch {
+			testContent = testContent.slice(0, -1);
+		}
+	}
+	return {
+		filename: '',
+		content: ''
+	}
+}
+
 function reformatWriteMessage(msg: Message, last: boolean) {
-	msg.icon = 'stock:Pencil';
-	msg.done = !last || msg.toolCall;
+	msg.icon = 'Pencil';
+	msg.done = !last || msg.toolCall !== undefined;
 	msg.sourceName = msg.done ? 'Wrote to Workspace' : 'Writing to Workspace';
 	let content = msg.message.join('').trim();
 	if (!content.endsWith('"}')) {
 		content += '"}';
 	}
 	try {
-		const obj = JSON.parse(content);
+		const obj = getFilenameAndContent(content);
 		if (obj.filename) {
 			msg.file = {
 				filename: obj.filename,
@@ -92,7 +112,7 @@ function reformatWriteMessage(msg: Message, last: boolean) {
 	}
 
 	if (last && msg.file?.filename && msg.file?.content) {
-		setFileContent(msg.file.filename, msg.file.content, msg.toolCall);
+		setFileContent(msg.file.filename, msg.file.content, msg.toolCall !== undefined);
 	}
 }
 
@@ -132,6 +152,7 @@ export function buildMessagesFromProgress(progresses: Progress[]): Messages {
 function toMessages(progresses: Progress[]): Messages {
 	let messages: Message[] = [];
 	let lastRunID: string | undefined;
+	let parentRunID: string | undefined;
 	let inProgress = false;
 
 	for (const [i, progress] of progresses.entries()) {
@@ -153,6 +174,14 @@ function toMessages(progresses: Progress[]): Messages {
 		} else {
 			// if it doesn't have a runID we don't know what do to with it, so ignore
 			continue;
+		}
+
+		if (progress.parentRunID) {
+			if (progress.runID === lastRunID) {
+				parentRunID = progress.parentRunID;
+			} else {
+				parentRunID = undefined;
+			}
 		}
 
 		if (progress.runComplete) {
@@ -180,7 +209,7 @@ function toMessages(progresses: Progress[]): Messages {
 		} else if (progress.input) {
 			// delete the current runID, this is to avoid duplicate messages
 			messages = messages.filter((m) => m.runID !== progress.runID);
-			messages.push(newInputMessage(progress));
+			messages.push(newInputMessage(progress, parentRunID));
 		} else if (progress.content) {
 			const found = messages.findLast(
 				(m) => m.contentID === progress.contentID && progress.contentID
@@ -203,9 +232,9 @@ function toMessages(progresses: Progress[]): Messages {
 				messages.push(newContentMessage(progress));
 			}
 		} else if (progress.toolCall) {
-			// once we see a toolCall ignore all previous toolInputs
+			// once we see a toolCall ignore all previous toolInputs or toolCall
 			for (const msg of messages) {
-				if (msg.runID === progress.runID && msg.toolInput) {
+				if (msg.runID === progress.runID && (msg.toolInput || msg.toolCall)) {
 					msg.ignore = true;
 				}
 			}
@@ -220,9 +249,10 @@ function toMessages(progresses: Progress[]): Messages {
 	};
 }
 
-function newInputMessage(progress: Progress): Message {
+function newInputMessage(progress: Progress, parentRunID?: string): Message {
 	return {
 		runID: progress.runID || '',
+		parentRunID: parentRunID,
 		time: new Date(progress.time),
 		icon: profileIcon,
 		sourceName: 'You',
@@ -237,8 +267,8 @@ function newOAuthMessage(progress: Progress): Message {
 	return {
 		runID: progress.runID || '',
 		time: new Date(progress.time),
-		icon: progress.prompt?.metadata?.icon || ottoAIIcon,
-		sourceName: progress.prompt?.name || 'Otto',
+		icon: progress.prompt?.metadata?.icon || assistantIcon,
+		sourceName: progress.prompt?.name || 'Assistant',
 		sourceDescription: progress.prompt?.description,
 		oauthURL: progress.prompt?.metadata?.authURL || '',
 		message: progress.prompt?.message ? [progress.prompt?.message] : []
@@ -249,8 +279,8 @@ function newWaitingOnModelMessage(progress: Progress): Message {
 	return {
 		runID: progress.runID || '',
 		time: new Date(progress.time),
-		icon: ottoAIIcon,
-		sourceName: 'Otto',
+		icon: assistantIcon,
+		sourceName: 'Assistant',
 		message: ['Thinking really hard...']
 	};
 }
@@ -259,8 +289,8 @@ function newContentMessage(progress: Progress): Message {
 	const result: Message = {
 		time: new Date(progress.time),
 		runID: progress.runID || '',
-		icon: ottoAIIcon,
-		sourceName: 'Otto',
+		icon: assistantIcon,
+		sourceName: 'Assistant',
 		message: [progress.toolInput?.input ?? progress.content],
 		contentID: progress.contentID
 	};
@@ -287,7 +317,7 @@ function newContentMessage(progress: Progress): Message {
 			result.icon = progress.toolCall.metadata.icon;
 		}
 		result.message = progress.toolCall.input ? [progress.toolCall.input] : [];
-		result.toolCall = true;
+		result.toolCall = progress.toolCall;
 		result.tool = true;
 	}
 

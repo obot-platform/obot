@@ -3,6 +3,7 @@ import { useState } from "react";
 import useSWR, { preload } from "swr";
 
 import { ToolReferenceService } from "~/lib/service/api/toolreferenceService";
+import { RouteHandle } from "~/lib/service/routeHandles";
 
 import { TypographyH2 } from "~/components/Typography";
 import { ErrorDialog } from "~/components/composed/ErrorDialog";
@@ -58,7 +59,7 @@ export default function Tools() {
     };
 
     return (
-        <ScrollArea className="h-full p-8 flex flex-col gap-4">
+        <ScrollArea className="p-8 flex flex-col gap-4">
             <div className="flex justify-between items-center">
                 <TypographyH2>Tools</TypographyH2>
                 <div className="flex items-center space-x-2">
@@ -113,3 +114,7 @@ export default function Tools() {
         </ScrollArea>
     );
 }
+
+export const handle: RouteHandle = {
+    breadcrumb: () => [{ content: "Tools" }],
+};

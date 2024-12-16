@@ -1,8 +1,8 @@
 <script lang="ts">
-	import Otto from '$lib/icons/Otto.svelte';
 	import ProfileIcon from '$lib/components/profile/ProfileIcon.svelte';
 	import type { Message } from '$lib/services';
 	import { Pencil } from '$lib/icons';
+	import AssistantIcon from '$lib/icons/AssistantIcon.svelte';
 
 	interface Props {
 		msg: Message;
@@ -13,10 +13,10 @@
 
 {#if !msg.icon}
 	<!-- Nothing -->
-{:else if msg.icon === 'stock:Pencil'}
+{:else if msg.icon === 'Pencil'}
 	<Pencil class="h-8 w-8" />
-{:else if msg.icon === 'Otto'}
-	<Otto />
+{:else if msg.icon === 'Assistant'}
+	<AssistantIcon />
 {:else if msg.icon === 'Profile'}
 	<ProfileIcon />
 {:else}

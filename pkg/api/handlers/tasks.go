@@ -6,15 +6,15 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"github.com/otto8-ai/nah/pkg/name"
-	"github.com/otto8-ai/nah/pkg/randomtoken"
-	"github.com/otto8-ai/otto8/apiclient/types"
-	"github.com/otto8-ai/otto8/pkg/api"
-	"github.com/otto8-ai/otto8/pkg/events"
-	"github.com/otto8-ai/otto8/pkg/invoke"
-	v1 "github.com/otto8-ai/otto8/pkg/storage/apis/otto.otto8.ai/v1"
-	"github.com/otto8-ai/otto8/pkg/system"
-	"github.com/otto8-ai/otto8/pkg/wait"
+	"github.com/acorn-io/acorn/apiclient/types"
+	"github.com/acorn-io/acorn/pkg/api"
+	"github.com/acorn-io/acorn/pkg/events"
+	"github.com/acorn-io/acorn/pkg/invoke"
+	v1 "github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1"
+	"github.com/acorn-io/acorn/pkg/system"
+	"github.com/acorn-io/acorn/pkg/wait"
+	"github.com/acorn-io/nah/pkg/name"
+	"github.com/acorn-io/nah/pkg/randomtoken"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
@@ -35,7 +35,7 @@ func NewTaskHandler(invoker *invoke.Invoker, events *events.Emitter) *TaskHandle
 func (t *TaskHandler) Abort(req api.Context) error {
 	var taskRunID = req.PathValue("run_id")
 
-	workflow, err := t.getTask(req)
+	workflow, userThread, err := t.getTask(req)
 	if err != nil {
 		return err
 	}
@@ -56,6 +56,10 @@ func (t *TaskHandler) Abort(req api.Context) error {
 		return err
 	}
 
+	if wfe.Spec.ThreadName != userThread.Name && workflow.Name != wfe.Spec.WorkflowName {
+		return types.NewErrHttp(http.StatusForbidden, "task run does not belong to the thread")
+	}
+
 	var thread v1.Thread
 	if err := req.Get(&thread, wfe.Status.ThreadName); err != nil {
 		return err
@@ -67,7 +71,7 @@ func (t *TaskHandler) Abort(req api.Context) error {
 func (t *TaskHandler) Events(req api.Context) error {
 	var taskRunID = req.PathValue("run_id")
 
-	workflow, err := t.getTask(req)
+	workflow, thread, err := t.getTask(req)
 	if err != nil {
 		return err
 	}
@@ -91,7 +95,7 @@ func (t *TaskHandler) Events(req api.Context) error {
 		return err
 	}
 
-	if wfe.Spec.UserID != req.User.GetUID() && workflow.Name != wfe.Spec.WorkflowName {
+	if wfe.Spec.ThreadName != thread.Name && workflow.Name != wfe.Spec.WorkflowName {
 		return types.NewErrHttp(http.StatusForbidden, "task run does not belong to the user")
 	}
 
@@ -113,8 +117,61 @@ func editorWFE(req api.Context, workflowName string) string {
 	return name.SafeHashConcatName(system.ThreadPrefix, workflowName, req.User.GetUID())
 }
 
+func (t *TaskHandler) AbortRun(req api.Context) error {
+	workflow, _, err := t.getTask(req)
+	if err != nil {
+		return err
+	}
+
+	var (
+		wfe   v1.WorkflowExecution
+		runID = req.PathValue("run_id")
+	)
+
+	if runID == "editor" {
+		runID = editorWFE(req, workflow.Name)
+	}
+
+	if err := req.Get(&wfe, runID); err != nil {
+		return err
+	}
+
+	if wfe.Spec.WorkflowName != workflow.Name {
+		return types.NewErrNotFound("task run not found")
+	}
+
+	var thread v1.Thread
+	if err := req.Get(&thread, wfe.Status.ThreadName); err != nil {
+		return err
+	}
+
+	return abortThread(req, &thread)
+}
+
+func (t *TaskHandler) GetRun(req api.Context) error {
+	workflow, _, err := t.getTask(req)
+	if err != nil {
+		return err
+	}
+
+	var (
+		wfe   v1.WorkflowExecution
+		runID = req.PathValue("run_id")
+	)
+	if runID == "editor" {
+		runID = editorWFE(req, workflow.Name)
+	}
+	if err := req.Get(&wfe, runID); err != nil {
+		return err
+	}
+	if wfe.Spec.WorkflowName != workflow.Name {
+		return types.NewErrNotFound("task run not found")
+	}
+	return req.Write(convertTaskRun(workflow, &wfe))
+}
+
 func (t *TaskHandler) DeleteRun(req api.Context) error {
-	workflow, err := t.getTask(req)
+	workflow, userThread, err := t.getTask(req)
 	if err != nil {
 		return err
 	}
@@ -126,7 +183,7 @@ func (t *TaskHandler) DeleteRun(req api.Context) error {
 		return err
 	}
 
-	if wfe.Spec.UserID != req.User.GetUID() || wfe.Spec.WorkflowName != workflow.Name {
+	if wfe.Spec.ThreadName != userThread.Name || wfe.Spec.WorkflowName != workflow.Name {
 		return types.NewErrHttp(http.StatusForbidden, "task run does not belong to the user")
 	}
 
@@ -134,7 +191,7 @@ func (t *TaskHandler) DeleteRun(req api.Context) error {
 }
 
 func (t *TaskHandler) ListRuns(req api.Context) error {
-	workflow, err := t.getTask(req)
+	workflow, userThread, err := t.getTask(req)
 	if err != nil {
 		return err
 	}
@@ -142,7 +199,7 @@ func (t *TaskHandler) ListRuns(req api.Context) error {
 	var wfeList v1.WorkflowExecutionList
 	if err := req.List(&wfeList, kclient.MatchingFields{
 		"spec.workflowName": workflow.Name,
-		"spec.userID":       req.User.GetUID(),
+		"spec.threadName":   userThread.Name,
 	}); err != nil {
 		return err
 	}
@@ -180,7 +237,7 @@ func (t *TaskHandler) Run(req api.Context) error {
 		input = nil
 	}
 
-	workflow, err := t.getTask(req)
+	workflow, userThread, err := t.getTask(req)
 	if err != nil {
 		return err
 	}
@@ -195,7 +252,7 @@ func (t *TaskHandler) Run(req api.Context) error {
 			},
 			Spec: v1.WorkflowExecutionSpec{
 				Input:        string(input),
-				UserID:       req.User.GetUID(),
+				ThreadName:   userThread.Name,
 				WorkflowName: workflow.Name,
 			},
 			Status: v1.WorkflowExecutionStatus{},
@@ -206,7 +263,7 @@ func (t *TaskHandler) Run(req api.Context) error {
 	} else {
 		resp, err := t.invoker.Workflow(req.Context(), req.Storage, workflow, string(input), invoke.WorkflowOptions{
 			WorkflowExecutionName: editorWFE(req, workflow.Name),
-			UserID:                req.User.GetUID(),
+			OwningThreadName:      userThread.Name,
 			StepID:                stepID,
 		})
 		if err != nil {
@@ -219,15 +276,22 @@ func (t *TaskHandler) Run(req api.Context) error {
 }
 
 func convertTaskRun(workflow *v1.Workflow, wfe *v1.WorkflowExecution) types.TaskRun {
+	var endTime *types.Time
+	if wfe.Status.EndTime != nil {
+		endTime = types.NewTime(wfe.Status.EndTime.Time)
+	}
 	return types.TaskRun{
-		Metadata: MetadataFrom(wfe),
-		TaskID:   workflow.Name,
-		Task:     convertTask(*workflow, nil).TaskManifest,
+		Metadata:  MetadataFrom(wfe),
+		TaskID:    workflow.Name,
+		Input:     wfe.Spec.Input,
+		Task:      convertTaskManifest(wfe.Status.WorkflowManifest),
+		StartTime: types.NewTime(wfe.CreationTimestamp.Time),
+		EndTime:   endTime,
 	}
 }
 
 func (t *TaskHandler) Delete(req api.Context) error {
-	workflow, err := t.getTask(req)
+	workflow, _, err := t.getTask(req)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			return nil
@@ -239,12 +303,12 @@ func (t *TaskHandler) Delete(req api.Context) error {
 }
 
 func (t *TaskHandler) Update(req api.Context) error {
-	workflow, err := t.getTask(req)
+	workflow, _, err := t.getTask(req)
 	if err != nil {
 		return err
 	}
 
-	_, manifest, task, err := t.getAssistantAndManifestFromRequest(req)
+	_, _, manifest, task, err := t.getAssistantThreadAndManifestFromRequest(req)
 	if err != nil {
 		return err
 	}
@@ -345,8 +409,8 @@ func (t *TaskHandler) updateEmail(req api.Context, workflow *v1.Workflow, task t
 				EmailReceiverManifest: types.EmailReceiverManifest{
 					User:     workflow.Spec.Manifest.Alias,
 					Workflow: workflow.Name,
-					UserID:   req.User.GetUID(),
 				},
+				ThreadName: workflow.Spec.ThreadName,
 			},
 		}
 		if err := req.Create(&email); err != nil {
@@ -383,8 +447,8 @@ func (t *TaskHandler) updateWebhook(req api.Context, workflow *v1.Workflow, task
 				WebhookManifest: types.WebhookManifest{
 					Alias:    workflow.Spec.Manifest.Alias,
 					Workflow: workflow.Name,
-					UserID:   req.User.GetUID(),
 				},
+				ThreadName: workflow.Spec.ThreadName,
 			},
 		}
 		if err := req.Create(&webhook); err != nil {
@@ -420,9 +484,9 @@ func (t *TaskHandler) updateCron(req api.Context, workflow *v1.Workflow, task ty
 			Spec: v1.CronJobSpec{
 				CronJobManifest: types.CronJobManifest{
 					Workflow:     workflow.Name,
-					UserID:       req.User.GetUID(),
 					TaskSchedule: task.Schedule,
 				},
+				ThreadName: workflow.Spec.ThreadName,
 			},
 		}
 		if err := req.Create(&cron); err != nil {
@@ -441,31 +505,47 @@ func (t *TaskHandler) updateCron(req api.Context, workflow *v1.Workflow, task ty
 	return nil
 }
 
-func (t *TaskHandler) getAssistantAndManifestFromRequest(req api.Context) (*v1.Agent, types.WorkflowManifest, types.TaskManifest, error) {
+func (t *TaskHandler) getAssistantThreadAndManifestFromRequest(req api.Context) (*v1.Agent, *v1.Thread, types.WorkflowManifest, types.TaskManifest, error) {
 	assistantID := req.PathValue("assistant_id")
 
 	assistant, err := getAssistant(req, assistantID)
 	if err != nil {
-		return nil, types.WorkflowManifest{}, types.TaskManifest{}, err
+		return nil, nil, types.WorkflowManifest{}, types.TaskManifest{}, err
 	}
 
 	thread, err := getUserThread(req, assistantID)
 	if err != nil {
-		return nil, types.WorkflowManifest{}, types.TaskManifest{}, err
+		return nil, nil, types.WorkflowManifest{}, types.TaskManifest{}, err
 	}
 
 	var manifest types.TaskManifest
 	if err := req.Read(&manifest); err != nil {
-		return nil, types.WorkflowManifest{}, types.TaskManifest{}, err
+		return nil, nil, types.WorkflowManifest{}, types.TaskManifest{}, err
 	}
 
-	return assistant, toWorkflowManifest(assistant, thread, manifest), manifest, nil
+	return assistant, thread, toWorkflowManifest(assistant, thread, manifest), manifest, nil
 }
 
 func (t *TaskHandler) Create(req api.Context) error {
-	assistant, workflowManifest, taskManifest, err := t.getAssistantAndManifestFromRequest(req)
+	_, thread, workflowManifest, taskManifest, err := t.getAssistantThreadAndManifestFromRequest(req)
 	if err != nil {
 		return err
+	}
+
+	var workspaces v1.WorkspaceList
+	err = req.List(&workspaces, kclient.MatchingFields{
+		"status.workspaceID": thread.Status.WorkspaceID,
+	})
+	if err != nil {
+		return err
+	}
+
+	if len(workspaces.Items) == 0 {
+		return types.NewErrBadRequest("no workspace found for the thread")
+	}
+
+	if len(workspaces.Items) != 1 {
+		return types.NewErrBadRequest("multiple workspaces found for the thread")
 	}
 
 	workflowManifest.Alias, err = randomtoken.Generate()
@@ -480,9 +560,10 @@ func (t *TaskHandler) Create(req api.Context) error {
 			Namespace:    req.Namespace(),
 		},
 		Spec: v1.WorkflowSpec{
-			AgentName: assistant.Name,
-			UserID:    req.User.GetUID(),
-			Manifest:  workflowManifest,
+			ThreadName:        thread.Name,
+			Manifest:          workflowManifest,
+			KnowledgeSetNames: thread.Status.KnowledgeSetNames,
+			WorkspaceName:     workspaces.Items[0].Name,
 		},
 	}
 
@@ -503,6 +584,11 @@ func toWorkflowManifest(agent *v1.Agent, thread *v1.Thread, manifest types.TaskM
 	workflowManifest := types.WorkflowManifest{
 		AgentManifest: agent.Spec.Manifest,
 	}
+
+	workflowManifest.AgentManifest.Env = append(workflowManifest.AgentManifest.Env, types.EnvVar{
+		Name:  "DATABASE_WORKSPACE_ID",
+		Value: thread.Status.WorkspaceID,
+	})
 
 	for _, tool := range thread.Spec.Manifest.Tools {
 		if !slices.Contains(workflowManifest.Tools, tool) {
@@ -545,7 +631,7 @@ func toWorkflowIf(ifStep *types.TaskIf) *types.If {
 }
 
 func (t *TaskHandler) Get(req api.Context) error {
-	task, err := t.getTask(req)
+	task, _, err := t.getTask(req)
 	if err != nil {
 		return err
 	}
@@ -572,35 +658,37 @@ func (t *TaskHandler) Get(req api.Context) error {
 	}))
 }
 
-func (t *TaskHandler) getTask(req api.Context) (*v1.Workflow, error) {
+func (t *TaskHandler) getTask(req api.Context) (*v1.Workflow, *v1.Thread, error) {
 	assistantID := req.PathValue("assistant_id")
 
 	var workflow v1.Workflow
 	if err := req.Get(&workflow, req.PathValue("id")); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	assistant, err := getAssistant(req, assistantID)
+	thread, err := getUserThread(req, assistantID)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	if workflow.Spec.AgentName != assistant.Name || workflow.Spec.UserID != req.User.GetUID() {
-		return nil, types.NewErrHttp(http.StatusForbidden, "task does not belong to the user")
+	if workflow.Spec.ThreadName != thread.Name {
+		return nil, nil, types.NewErrHttp(http.StatusForbidden, "task does not belong to the thread")
 	}
 
-	return &workflow, nil
+	return &workflow, thread, nil
 }
 
 func (t *TaskHandler) List(req api.Context) error {
-	assistant, err := getAssistant(req, req.PathValue("assistant_id"))
+	assistantID := req.PathValue("assistant_id")
+
+	thread, err := getUserThread(req, assistantID)
 	if err != nil {
 		return err
 	}
 
 	var crons v1.CronJobList
 	if err := req.List(&crons, kclient.MatchingFields{
-		"spec.userID": req.User.GetUID(),
+		"spec.threadName": thread.Name,
 	}); err != nil {
 		return err
 	}
@@ -612,7 +700,7 @@ func (t *TaskHandler) List(req api.Context) error {
 
 	var webhooks v1.WebhookList
 	if err := req.List(&webhooks, kclient.MatchingFields{
-		"spec.userID": req.User.GetUID(),
+		"spec.threadName": thread.Name,
 	}); err != nil {
 		return err
 	}
@@ -624,7 +712,7 @@ func (t *TaskHandler) List(req api.Context) error {
 
 	var emailReceivers v1.EmailReceiverList
 	if err := req.List(&emailReceivers, kclient.MatchingFields{
-		"spec.userID": req.User.GetUID(),
+		"spec.threadName": thread.Name,
 	}); err != nil {
 		return err
 	}
@@ -636,8 +724,7 @@ func (t *TaskHandler) List(req api.Context) error {
 
 	var workflows v1.WorkflowList
 	if err := req.List(&workflows, kclient.MatchingFields{
-		"spec.agentName": assistant.Name,
-		"spec.userID":    req.User.GetUID(),
+		"spec.threadName": thread.Name,
 	}); err != nil {
 		return err
 	}
@@ -655,16 +742,23 @@ func (t *TaskHandler) List(req api.Context) error {
 	return req.Write(taskList)
 }
 
+func convertTaskManifest(manifest *types.WorkflowManifest) types.TaskManifest {
+	if manifest == nil {
+		return types.TaskManifest{}
+	}
+	return types.TaskManifest{
+		Name:        manifest.Name,
+		Description: manifest.Description,
+		Steps:       toTaskSteps(manifest.Steps),
+	}
+}
+
 func convertTask(workflow v1.Workflow, trigger *triggers) types.Task {
 	task := types.Task{
-		Metadata: MetadataFrom(&workflow),
-		TaskManifest: types.TaskManifest{
-			Name:        workflow.Spec.Manifest.Name,
-			Description: workflow.Spec.Manifest.Description,
-		},
-		Alias: workflow.Spec.Manifest.Alias,
+		Metadata:     MetadataFrom(&workflow),
+		TaskManifest: convertTaskManifest(&workflow.Spec.Manifest),
+		Alias:        workflow.Namespace + "/" + workflow.Spec.Manifest.Alias,
 	}
-	task.Steps = toTaskSteps(workflow.Spec.Manifest.Steps)
 	if trigger != nil && trigger.CronJob != nil && trigger.CronJob.Name != "" {
 		task.Schedule = trigger.CronJob.Spec.TaskSchedule
 	}

@@ -118,7 +118,7 @@ user_ui_pid=$!
 
 (
   for _ in {1..60}; do # ~1 minute timeout
-    if curl -s --head http://localhost:8080/ | head -n 1 | grep "200 OK" > /dev/null; then
+    if curl -s --head http://localhost:8080/favicon.ico | head -n 1 | grep "200 OK" > /dev/null; then
       print_section_header 217 "User UI ready!"
       exit
     fi
@@ -133,6 +133,6 @@ user_ui_ready_pid=$!
 wait "${server_ready_pid}" "${admin_ui_ready_pid}" "${user_ui_ready_pid}"
 print_section_header 120 "All components ready!"
 
-open_browser_tabs http://localhost:8080/admin/ http://localhost:8080/
+open_browser_tabs http://localhost:8080/
 
 wait "${server_pid}" "${admin_ui_pid}" "${user_ui_pid}"

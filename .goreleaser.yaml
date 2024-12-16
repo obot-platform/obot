@@ -1,6 +1,6 @@
 version: 2
 
-project_name: "otto8"
+project_name: "acorn"
 
 builds:
   - id: build
@@ -13,7 +13,7 @@ builds:
       - amd64
       - arm64
     ldflags:
-      - -X "github.com/gptscript-ai/otto8/pkg/version.Tag=v{{ .Version }}"
+      - -X "github.com/acorn-io/acorn/pkg/version.Tag=v{{ .Version }}"
 
 archives:
   - format: tar.gz
@@ -24,20 +24,20 @@ archives:
 
 release:
   github:
-    owner: "otto8-ai"
-    name: "otto8"
+    owner: "acorn-io"
+    name: "acorn"
   make_latest: false
   prerelease: auto
 
 brews:
-  - name: otto8
-    description: "Otto8 CLI"
+  - name: acorn
+    description: "Acorn CLI"
     install: |
-      bin.install "otto8"
-    homepage: "https://github.com/otto8-ai/otto8"
+      bin.install "acorn"
+    homepage: "https://github.com/acorn-io/acorn"
     skip_upload: false
     directory: "Formula"
     repository:
-      owner: otto8-ai
+      owner: acorn-io
       name: homebrew-tap
       token: "{{ .Env.TAP_GITHUB_TOKEN }}"

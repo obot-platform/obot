@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/otto8-ai/otto8/logger"
-	"github.com/otto8-ai/otto8/pkg/api/router"
-	"github.com/otto8-ai/otto8/pkg/controller"
-	"github.com/otto8-ai/otto8/pkg/services"
+	"github.com/acorn-io/acorn/logger"
+	"github.com/acorn-io/acorn/pkg/api/router"
+	"github.com/acorn-io/acorn/pkg/controller"
+	"github.com/acorn-io/acorn/pkg/services"
 	"github.com/rs/cors"
 )
 

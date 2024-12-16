@@ -1,0 +1,72 @@
+<script lang="ts">
+	import Input from '$lib/components/messages/Input.svelte';
+	import { autoscroll } from '$lib/actions/div';
+	import { Thread } from '$lib/services/chat/thread.svelte';
+	import { errors } from '$lib/stores';
+	import { EditorService, type Messages } from '$lib/services';
+	import Message from '$lib/components/messages/Message.svelte';
+	import { fade } from 'svelte/transition';
+	import { onDestroy } from 'svelte';
+
+	interface Props {
+		assistant?: string;
+	}
+
+	let { assistant = '' }: Props = $props();
+	let messages: Messages = $state({ messages: [], inProgress: false });
+	let thread: Thread | undefined = $state<Thread>();
+
+	$effect(() => {
+		if (!assistant || thread) {
+			return;
+		}
+
+		const newThread = new Thread(assistant, {
+			onError: errors.append
+		});
+
+		newThread.onMessages = (newMessages) => {
+			messages = newMessages;
+		};
+
+		thread = newThread;
+	});
+
+	onDestroy(() => {
+		thread?.close?.();
+	});
+
+	function onLoadFile(filename: string) {
+		if (assistant) {
+			EditorService.load(assistant, filename);
+		}
+	}
+</script>
+
+<div>
+	<div
+		class="flex h-screen w-full justify-center overflow-auto transition-all scrollbar-none"
+		use:autoscroll
+	>
+		<div class="flex w-full max-w-[900px] flex-col px-8 pt-24 transition-all">
+			<div in:fade|global class="flex flex-col gap-8">
+				{#each messages.messages as msg}
+					<Message {msg} {onLoadFile} />
+				{/each}
+			</div>
+			<div class="h-28 w-full flex-shrink-0"></div>
+		</div>
+	</div>
+	<div
+		class="absolute inset-x-0 bottom-0 z-30 flex justify-center bg-gradient-to-t from-white px-3 pb-8 pt-10 dark:from-black"
+	>
+		<Input
+			readonly={messages.inProgress}
+			pending={thread?.pending}
+			onAbort={async () => {
+				await thread?.abort();
+			}}
+			onSubmit={async (i) => await thread?.invoke(i)}
+		/>
+	</div>
+</div>

@@ -7,14 +7,15 @@ import (
 	"fmt"
 	"path"
 	"strings"
+	"time"
 
+	"github.com/acorn-io/acorn/apiclient/types"
+	"github.com/acorn-io/acorn/pkg/invoke"
+	v1 "github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1"
+	"github.com/acorn-io/acorn/pkg/system"
+	"github.com/acorn-io/nah/pkg/router"
+	"github.com/acorn-io/nah/pkg/typed"
 	"github.com/gptscript-ai/go-gptscript"
-	"github.com/otto8-ai/nah/pkg/router"
-	"github.com/otto8-ai/nah/pkg/typed"
-	"github.com/otto8-ai/otto8/apiclient/types"
-	"github.com/otto8-ai/otto8/pkg/invoke"
-	v1 "github.com/otto8-ai/otto8/pkg/storage/apis/otto.otto8.ai/v1"
-	"github.com/otto8-ai/otto8/pkg/system"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -179,9 +180,7 @@ func (h *Handler) IngestFile(req router.Request, _ router.Response) error {
 	return req.Client.Status().Update(req.Ctx, file)
 }
 
-func (h *Handler) ingest(ctx context.Context, client kclient.Client, file *v1.KnowledgeFile,
-	ks *v1.KnowledgeSet, source *v1.KnowledgeSource, thread *v1.Thread) error {
-
+func (h *Handler) ingest(ctx context.Context, client kclient.Client, file *v1.KnowledgeFile, ks *v1.KnowledgeSet, source *v1.KnowledgeSource, thread *v1.Thread) error {
 	file.Status.State = types.KnowledgeFileStateIngesting
 	file.Status.Error = ""
 	file.Status.LastIngestionStartTime = metav1.Now()
@@ -253,7 +252,8 @@ func (h *Handler) ingest(ctx context.Context, client kclient.Client, file *v1.Kn
 			"workspaceFileName": outputFile(file.Spec.FileName),
 		},
 	}, invoke.SystemTaskOptions{
-		Env: []string{"OPENAI_EMBEDDING_MODEL=" + ks.Status.TextEmbeddingModel},
+		Env:     []string{"OPENAI_EMBEDDING_MODEL=" + ks.Status.TextEmbeddingModel},
+		Timeout: 1 * time.Hour,
 	})
 	if err != nil {
 		return fmt.Errorf("failed to invoke ingestion task, error: %w", err)

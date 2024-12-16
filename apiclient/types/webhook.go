@@ -16,7 +16,6 @@ type WebhookManifest struct {
 	Headers          []string `json:"headers"`
 	Secret           string   `json:"secret"`
 	ValidationHeader string   `json:"validationHeader"`
-	UserID           string   `json:"userID,omitempty"`
 }
 
 type WebhookList List[Webhook]

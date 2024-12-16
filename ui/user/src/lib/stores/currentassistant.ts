@@ -1,7 +1,7 @@
+import { page } from '$app/stores';
 import type { Assistant } from '$lib/services';
 import assistants from './assistants';
-import { storeWithInit } from './storeinit';
-import { writable } from 'svelte/store';
+import { get, writable } from 'svelte/store';
 
 const def: Assistant = {
 	id: '',
@@ -11,14 +11,34 @@ const def: Assistant = {
 
 const store = writable<Assistant>(def);
 
-export default storeWithInit(store, async () => {
-	assistants.subscribe(async (assistants) => {
-		for (const assistant of assistants) {
-			if (assistant.current) {
-				store.set(assistant);
-				return;
-			}
+function assignSelected(currentAssistants: Assistant[], selectedName: string): Assistant {
+	let changed = false;
+	for (let i = 0; i < currentAssistants.length; i++) {
+		const assistant = currentAssistants[i];
+		const isCurrent = selectedName !== '' && assistant.id === selectedName;
+		if (assistant.current != isCurrent) {
+			assistant.current = isCurrent;
+			changed = true;
 		}
-		store.set(def);
-	});
-});
+	}
+	if (changed) {
+		assistants.set(currentAssistants);
+	}
+	return currentAssistants.find((value) => value.current) ?? def;
+}
+
+function init() {
+	const p = get(page);
+	const a = get(assistants);
+	if (p && a.length > 0) {
+		const selectedName = p.params?.agent ?? '';
+		store.set(assignSelected(a, selectedName));
+	}
+}
+
+if (typeof window !== 'undefined') {
+	page.subscribe(init);
+	assistants.subscribe(init);
+}
+
+export default store;

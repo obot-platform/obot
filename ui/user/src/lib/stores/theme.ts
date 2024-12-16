@@ -1,4 +1,3 @@
-import { storeWithInit } from '$lib/stores/storeinit';
 import { writable } from 'svelte/store';
 
 export type Theme = 'light' | 'dark' | 'system';
@@ -21,7 +20,8 @@ function init() {
 	});
 }
 
-export default {
-	...storeWithInit(store, init),
-	init
-};
+if (typeof window !== 'undefined') {
+	init();
+}
+
+export default store;

@@ -4,17 +4,18 @@ import (
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/textproto"
 	"slices"
 	"strings"
 
-	"github.com/otto8-ai/otto8/apiclient/types"
-	"github.com/otto8-ai/otto8/pkg/alias"
-	"github.com/otto8-ai/otto8/pkg/api"
-	v1 "github.com/otto8-ai/otto8/pkg/storage/apis/otto.otto8.ai/v1"
-	"github.com/otto8-ai/otto8/pkg/system"
+	"github.com/acorn-io/acorn/apiclient/types"
+	"github.com/acorn-io/acorn/pkg/alias"
+	"github.com/acorn-io/acorn/pkg/api"
+	v1 "github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1"
+	"github.com/acorn-io/acorn/pkg/system"
 	"golang.org/x/crypto/bcrypt"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -233,24 +234,28 @@ func (a *WebhookHandler) Execute(req api.Context) error {
 		}
 	}
 
-	var input strings.Builder
-	_, _ = input.WriteString("You are being called from a webhook.\n\n")
-	if len(body) > 0 {
-		_, _ = input.WriteString("Here is the payload of the webhook:\n")
-		_, _ = input.Write(body)
+	var input struct {
+		Type    string            `json:"type"`
+		Payload string            `json:"payload"`
+		Headers map[string]string `json:"headers"`
 	}
 
-	_, _ = input.WriteString("\nHere are the headers of the webhook:\n")
+	input.Type = "webhook"
+	input.Payload = string(body)
+	input.Headers = make(map[string]string)
+
 	allHeaders := slices.Contains(webhook.Spec.Headers, "*")
 	for k := range req.Request.Header {
 		if !allHeaders && !slices.Contains(webhook.Spec.Headers, k) {
 			continue
 		}
 
-		input.WriteString("\n")
-		input.WriteString(k)
-		input.WriteString(": ")
-		input.WriteString(req.Request.Header.Get(k))
+		input.Headers[k] = req.Request.Header.Get(k)
+	}
+
+	inputText, err := json.Marshal(input)
+	if err != nil {
+		return fmt.Errorf("failed to marshal input: %w", err)
 	}
 
 	var workflow v1.Workflow
@@ -260,15 +265,14 @@ func (a *WebhookHandler) Execute(req api.Context) error {
 
 	if err = req.Create(&v1.WorkflowExecution{
 		ObjectMeta: metav1.ObjectMeta{
-			// The name here is the sha256 hash of the body to handle multiple executions of the same webhook.
-			// That is, if the webhook is called twice with the same body, it will only be executed once.
-			Name:      system.WorkflowExecutionPrefix + fmt.Sprintf("%x", sha256.Sum256(body)),
-			Namespace: req.Namespace(),
+			GenerateName: system.WorkflowExecutionPrefix,
+			Namespace:    req.Namespace(),
 		},
 		Spec: v1.WorkflowExecutionSpec{
 			WorkflowName: workflow.Name,
 			WebhookName:  webhook.Name,
-			Input:        input.String(),
+			ThreadName:   webhook.Spec.ThreadName,
+			Input:        string(inputText),
 		},
 	}); err != nil && !apierrors.IsAlreadyExists(err) {
 		return err

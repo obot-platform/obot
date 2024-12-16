@@ -5,7 +5,7 @@ import (
 	"database/sql"
 	"net/http"
 
-	"github.com/otto8-ai/otto8/pkg/gateway/types"
+	"github.com/acorn-io/acorn/pkg/gateway/types"
 	"gorm.io/gorm"
 )
 

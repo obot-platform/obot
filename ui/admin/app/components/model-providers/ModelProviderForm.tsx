@@ -1,23 +1,32 @@
 import { zodResolver } from "@hookform/resolvers/zod";
-import { CircleHelpIcon } from "lucide-react";
+import { CircleAlertIcon } from "lucide-react";
 import { useFieldArray, useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { mutate } from "swr";
 import { z } from "zod";
 
 import { ModelProvider, ModelProviderConfig } from "~/lib/model/modelProviders";
+import { ModelApiService } from "~/lib/service/api/modelApiService";
 import { ModelProviderApiService } from "~/lib/service/api/modelProviderApiService";
 
 import { TypographyH4 } from "~/components/Typography";
+import {
+    HelperTooltipLabel,
+    HelperTooltipLink,
+} from "~/components/composed/HelperTooltip";
 import {
     NameDescriptionForm,
     ParamFormValues,
 } from "~/components/composed/NameDescriptionForm";
 import { ControlledInput } from "~/components/form/controlledInputs";
-import { ModelProviderConfigurationLinks } from "~/components/model-providers/constants";
+import {
+    ModelProviderConfigurationLinks,
+    ModelProviderRequiredTooltips,
+    ModelProviderSensitiveFields,
+} from "~/components/model-providers/constants";
+import { Alert, AlertDescription, AlertTitle } from "~/components/ui/alert";
 import { Button } from "~/components/ui/button";
 import { Form } from "~/components/ui/form";
-import { Link } from "~/components/ui/link";
 import { ScrollArea } from "~/components/ui/scroll-area";
 import { Separator } from "~/components/ui/separator";
 import { useAsync } from "~/hooks/useAsync";
@@ -46,11 +55,11 @@ export type ModelProviderFormValues = z.infer<typeof formSchema>;
 
 const translateUserFriendlyLabel = (label: string) => {
     const fieldsToStrip = [
-        "OTTO8_OPENAI_MODEL_PROVIDER",
-        "OTTO8_AZURE_OPENAI_MODEL_PROVIDER",
-        "OTTO8_ANTHROPIC_MODEL_PROVIDER",
-        "OTTO8_OLLAMA_MODEL_PROVIDER",
-        "OTTO8_VOYAGE_MODEL_PROVIDER",
+        "ACORN_OPENAI_MODEL_PROVIDER",
+        "ACORN_AZURE_OPENAI_MODEL_PROVIDER",
+        "ACORN_ANTHROPIC_MODEL_PROVIDER",
+        "ACORN_OLLAMA_MODEL_PROVIDER",
+        "ACORN_VOYAGE_MODEL_PROVIDER",
     ];
 
     return fieldsToStrip
@@ -59,7 +68,8 @@ const translateUserFriendlyLabel = (label: string) => {
         }, label)
         .toLowerCase()
         .replace(/_/g, " ")
-        .replace(/\b\w/g, (char: string) => char.toUpperCase());
+        .replace(/\b\w/g, (char: string) => char.toUpperCase())
+        .trim();
 };
 
 const getInitialRequiredParams = (
@@ -97,16 +107,31 @@ export function ModelProviderForm({
     requiredParameters,
 }: {
     modelProvider: ModelProvider;
-    onSuccess: (config: ModelProviderConfig) => void;
+    onSuccess: () => void;
     parameters: ModelProviderConfig;
     requiredParameters: string[];
 }) {
-    const configureModelProvider = useAsync(
-        ModelProviderApiService.configureModelProviderById,
+    const fetchAvailableModels = useAsync(
+        ModelApiService.getAvailableModelsByProvider,
         {
             onSuccess: () => {
                 mutate(ModelProviderApiService.getModelProviders.key());
+                mutate(
+                    ModelProviderApiService.revealModelProviderById.key(
+                        modelProvider.id
+                    )
+                );
                 toast.success(`${modelProvider.name} configured successfully.`);
+                onSuccess();
+            },
+        }
+    );
+
+    const configureModelProvider = useAsync(
+        ModelProviderApiService.configureModelProviderById,
+        {
+            onSuccess: async () => {
+                await fetchAvailableModels.execute(modelProvider.id);
             },
         }
     );
@@ -149,15 +174,32 @@ export function ModelProviderForm({
                 modelProvider.id,
                 allConfigParams
             );
-            onSuccess(allConfigParams);
         }
     );
 
     const FORM_ID = "model-provider-form";
     const showCustomConfiguration =
         modelProvider.id === "azure-openai-model-provider";
+
+    const loading =
+        fetchAvailableModels.isLoading ||
+        configureModelProvider.isLoading ||
+        isLoading;
     return (
         <div className="flex flex-col">
+            {fetchAvailableModels.error !== null && (
+                <div className="px-4">
+                    <Alert variant="destructive">
+                        <CircleAlertIcon className="w-4 h-4" />
+                        <AlertTitle>An error occurred!</AlertTitle>
+                        <AlertDescription>
+                            Your configuration was saved, but we were not able
+                            to connect to the model provider. Please check your
+                            configuration and try again.
+                        </AlertDescription>
+                    </Alert>
+                </div>
+            )}
             <ScrollArea className="max-h-[50vh]">
                 <div className="flex flex-col gap-4 p-4">
                     <TypographyH4 className="font-semibold text-md">
@@ -170,67 +212,47 @@ export function ModelProviderForm({
                             className="flex flex-col gap-4"
                         >
                             {requiredConfigParamFields.fields.map(
-                                (field, i) => (
-                                    <ControlledInput
-                                        key={field.id}
-                                        label={field.label}
-                                        control={form.control}
-                                        name={`requiredConfigParams.${i}.value`}
-                                        classNames={{
-                                            wrapper: "flex-auto bg-background",
-                                        }}
-                                    />
-                                )
+                                (field, i) => {
+                                    const type = ModelProviderSensitiveFields[
+                                        field.name
+                                    ]
+                                        ? "password"
+                                        : "text";
+
+                                    return (
+                                        <div
+                                            key={field.id}
+                                            className="flex gap-2 items-center justify-center"
+                                        >
+                                            <ControlledInput
+                                                key={field.id}
+                                                label={renderLabelWithTooltip(
+                                                    field.label
+                                                )}
+                                                control={form.control}
+                                                name={`requiredConfigParams.${i}.value`}
+                                                type={type}
+                                                classNames={{
+                                                    wrapper:
+                                                        "flex-auto bg-background",
+                                                }}
+                                            />
+                                        </div>
+                                    );
+                                }
                             )}
                         </form>
                     </Form>
 
-                    {showCustomConfiguration ? (
-                        <>
-                            <Separator className="my-4" />
-
-                            <div className="flex items-center gap-2">
-                                <TypographyH4 className="font-semibold text-md">
-                                    Custom Configuration (Optional)
-                                </TypographyH4>
-                                {ModelProviderConfigurationLinks[
-                                    modelProvider.id
-                                ] ? (
-                                    <Link
-                                        as="button"
-                                        variant="ghost"
-                                        size="icon"
-                                        to={
-                                            ModelProviderConfigurationLinks[
-                                                modelProvider.id
-                                            ]
-                                        }
-                                    >
-                                        <CircleHelpIcon className="text-muted-foreground" />
-                                    </Link>
-                                ) : null}
-                            </div>
-                            <NameDescriptionForm
-                                defaultValues={form.watch(
-                                    "additionalConfirmParams"
-                                )}
-                                onChange={(values) =>
-                                    form.setValue(
-                                        "additionalConfirmParams",
-                                        values
-                                    )
-                                }
-                            />
-                        </>
-                    ) : null}
+                    {showCustomConfiguration && renderCustomConfiguration()}
                 </div>
             </ScrollArea>
 
             <div className="flex justify-end px-6 py-4">
                 <Button
                     form={FORM_ID}
-                    disabled={isLoading}
-                    loading={isLoading}
+                    disabled={loading}
+                    loading={loading}
                     type="submit"
                 >
                     Confirm
@@ -238,4 +260,39 @@ export function ModelProviderForm({
             </div>
         </div>
     );
+
+    function renderCustomConfiguration() {
+        return (
+            <>
+                <Separator className="my-4" />
+
+                <div className="flex items-center">
+                    <TypographyH4 className="font-semibold text-md">
+                        Custom Configuration (Optional)
+                    </TypographyH4>
+                    {ModelProviderConfigurationLinks[modelProvider.id]
+                        ? renderCustomConfigTooltip(modelProvider.id)
+                        : null}
+                </div>
+                <NameDescriptionForm
+                    descriptionFieldProps={{ type: "password" }}
+                    defaultValues={form.watch("additionalConfirmParams")}
+                    onChange={(values) =>
+                        form.setValue("additionalConfirmParams", values)
+                    }
+                />
+            </>
+        );
+    }
+
+    function renderCustomConfigTooltip(modelProviderId: string) {
+        const link = ModelProviderConfigurationLinks[modelProviderId];
+        return <HelperTooltipLink link={link} />;
+    }
+
+    function renderLabelWithTooltip(label: string) {
+        const tooltip =
+            ModelProviderRequiredTooltips[modelProvider.id]?.[label];
+        return <HelperTooltipLabel label={label} tooltip={tooltip} />;
+    }
 }

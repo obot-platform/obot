@@ -1,0 +1,28 @@
+<script lang="ts" >
+	import type { EditorItem } from '$lib/stores/editor.svelte';
+
+	interface Props {
+		file: EditorItem;
+	}
+
+	async function toDataURL(blob: Blob): Promise<string> {
+		return new Promise<string>((resolve, reject) => {
+			const reader = new FileReader();
+			reader.onload = () => resolve(reader.result as string);
+			reader.onerror = reject;
+			reader.readAsDataURL(blob);
+		});
+	}
+
+	let { file }: Props = $props();
+	let src: Promise<string> | undefined = $derived.by(() => {
+		if (file?.blob) {
+			return toDataURL(file.blob);
+		}
+	});
+
+</script>
+
+{#await src then src}
+	<img src={src} alt="AI generated, content unknown"/>
+{/await}

@@ -5,11 +5,12 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/otto8-ai/otto8/apiclient/types"
-	"github.com/otto8-ai/otto8/pkg/alias"
-	"github.com/otto8-ai/otto8/pkg/api"
-	"github.com/otto8-ai/otto8/pkg/storage/apis/otto.otto8.ai/v1"
-	"github.com/otto8-ai/otto8/pkg/system"
+	"github.com/acorn-io/acorn/apiclient/types"
+	"github.com/acorn-io/acorn/pkg/alias"
+	"github.com/acorn-io/acorn/pkg/api"
+	"github.com/acorn-io/acorn/pkg/controller/handlers/cronjob"
+	v1 "github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1"
+	"github.com/acorn-io/acorn/pkg/system"
 	"github.com/robfig/cron/v3"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -133,7 +134,7 @@ func (a *CronJobHandler) Execute(req api.Context) error {
 
 func convertCronJob(cronJob v1.CronJob) types.CronJob {
 	var nextRunAt *time.Time
-	if sched, err := cron.ParseStandard(cronJob.Spec.Schedule); err == nil {
+	if sched, err := cron.ParseStandard(cronjob.GetSchedule(cronJob)); err == nil {
 		nextRunAt = new(time.Time)
 		*nextRunAt = sched.Next(time.Now())
 	}

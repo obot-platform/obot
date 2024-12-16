@@ -1,8 +1,8 @@
 package v1
 
 import (
-	"github.com/otto8-ai/nah/pkg/fields"
-	OTTO8_gptscript_ai "github.com/otto8-ai/otto8/pkg/storage/apis/otto.otto8.ai"
+	otto8_gptscript_ai "github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai"
+	"github.com/acorn-io/nah/pkg/fields"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -11,7 +11,7 @@ import (
 const Version = "v1"
 
 var SchemeGroupVersion = schema.GroupVersion{
-	Group:   OTTO8_gptscript_ai.Group,
+	Group:   otto8_gptscript_ai.Group,
 	Version: Version,
 }
 

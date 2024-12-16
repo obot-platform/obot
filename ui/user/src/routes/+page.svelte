@@ -43,7 +43,7 @@
 		<a href="https://docs.otto8.ai" class="icon-button" rel="external">
 			<Book />
 		</a>
-		<a href="https://github.com/otto8-ai/otto8" class="icon-button text-white hover:text-blue-50">
+		<a href="https://github.com/acorn-io/acorn" class="icon-button text-white hover:text-blue-50">
 			{#if $darkMode}
 				<img src="/images/github-mark/github-mark-white.svg" alt="GitHub" class="h-8" />
 			{:else}
@@ -54,13 +54,13 @@
 	<div class="mx-auto flex flex-col items-center gap-8">
 		<div class="flex items-end gap-4">
 			{#if $darkMode}
-				<img src="/images/otto8-logo-blue-white-text.svg" alt="otto8 icon" class="h-64 pb-4" />
+				<img src="/images/acorn-logo-blue-white-text.svg" alt="acorn icon" class="h-64 pb-4" />
 			{:else}
-				<img src="/images/otto8-logo-blue-black-text.svg" alt="otto8 icon" class="h-64 pb-4" />
+				<img src="/images/acorn-logo-blue-black-text.svg" alt="acorn icon" class="h-64 pb-4" />
 			{/if}
 		</div>
 		<h1 class="text-7xl text-blue-50">
-			Friendly. <span class="text-black dark:text-white">Open Source.</span> Assistant.
+			<span class="text-black dark:text-white">Friendly. Open Source. Assistant.</span>
 		</h1>
 
 		<div class="mt-32 flex items-center gap-4">
@@ -79,13 +79,6 @@
 					alt="Google"
 				/>
 			</a>
-			<h3 class="text-lg">or</h3>
-			<pre><code
-					class="rounded-full bg-gray-100 dark:bg-gray-900"
-					style="padding: 16px 32px 16px 32px"
-					data-language="shell">docker run -p 80:8080 -e OPENAI_API_KEY otto8/otto8</code
-				></pre>
 		</div>
-		<h2 class="text-2xl">Talk to me here or run me yourself.</h2>
 	</div>
 </div>

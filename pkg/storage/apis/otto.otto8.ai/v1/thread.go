@@ -1,8 +1,8 @@
 package v1
 
 import (
+	"github.com/acorn-io/acorn/apiclient/types"
 	gptscriptclient "github.com/gptscript-ai/go-gptscript"
-	"github.com/otto8-ai/otto8/apiclient/types"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -66,6 +66,7 @@ type ThreadSpec struct {
 	TextEmbeddingModel    string               `json:"textEmbeddingModel,omitempty"`
 	SystemTask            bool                 `json:"systemTask,omitempty"`
 	Abort                 bool                 `json:"abort,omitempty"`
+	Env                   []string             `json:"env,omitempty"`
 }
 
 func (in *Thread) DeleteRefs() []Ref {

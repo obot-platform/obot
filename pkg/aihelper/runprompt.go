@@ -4,8 +4,8 @@ import (
 	"context"
 	"encoding/json"
 
+	"github.com/acorn-io/nah/pkg/typed"
 	"github.com/gptscript-ai/go-gptscript"
-	"github.com/otto8-ai/nah/pkg/typed"
 )
 
 type AIHelper struct {

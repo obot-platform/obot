@@ -4,14 +4,14 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/acorn-io/acorn/apiclient"
+	"github.com/acorn-io/acorn/apiclient/types"
 	"github.com/dustin/go-humanize"
-	"github.com/otto8-ai/otto8/apiclient"
-	"github.com/otto8-ai/otto8/apiclient/types"
 	"github.com/spf13/cobra"
 )
 
 type Credentials struct {
-	root     *Otto8
+	root     *Acorn
 	Wide     bool   `usage:"Print more information" short:"w"`
 	Quiet    bool   `usage:"Only print IDs of credentials" short:"q"`
 	ThreadID string `usage:"Specific thread list credentials for" short:"t"`
@@ -42,7 +42,7 @@ func (l *Credentials) printCredentials(i types.CredentialList) error {
 	return w.Err()
 }
 
-func (l *Credentials) Run(cmd *cobra.Command, args []string) error {
+func (l *Credentials) Run(cmd *cobra.Command, _ []string) error {
 	creds, err := l.root.Client.ListCredentials(cmd.Context(), apiclient.ListCredentialsOptions{
 		ThreadID: l.ThreadID,
 	})

@@ -5,13 +5,13 @@ BIN_DIR=${BIN_DIR:-./bin}
 
 cd $(dirname $0)/..
 
-if [ ! -e otto8-tools ]; then
-    git clone --depth=1 https://github.com/otto8-ai/tools otto8-tools
+if [ ! -e acorn-tools ]; then
+    git clone --depth=1 https://github.com/acorn-io/tools acorn-tools
 fi
 
-./otto8-tools/scripts/build.sh
+./acorn-tools/scripts/build.sh
 
-for pj in $(find otto8-tools -name package.json | grep -v node_modules); do
+for pj in $(find acorn-tools -name package.json | grep -v node_modules); do
     if [ $(basename $(dirname $pj)) == common ]; then
         continue
     fi
@@ -22,7 +22,7 @@ for pj in $(find otto8-tools -name package.json | grep -v node_modules); do
     )
 done
 
-cd otto8-tools
+cd acorn-tools
 if [ ! -e workspace-provider ]; then
     git clone --depth=1 https://github.com/gptscript-ai/workspace-provider
 fi
@@ -54,11 +54,11 @@ if ! command -v uv; then
     pip install uv
 fi
 
-if [ ! -e otto8-tools/venv ]; then
-    uv venv otto8-tools/venv
+if [ ! -e acorn-tools/venv ]; then
+    uv venv acorn-tools/venv
 fi
 
-source otto8-tools/venv/bin/activate
+source acorn-tools/venv/bin/activate
 
-find otto8-tools -name requirements.txt -exec cat {} \; -exec echo \; | sort -u > requirements.txt
+find acorn-tools -name requirements.txt -exec cat {} \; -exec echo \; | sort -u > requirements.txt
 uv pip install -r requirements.txt

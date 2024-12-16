@@ -4,12 +4,12 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/otto8-ai/otto8/pkg/system"
+	"github.com/acorn-io/acorn/pkg/system"
 	"github.com/spf13/cobra"
 )
 
 type Delete struct {
-	root *Otto8
+	root *Acorn
 }
 
 func (l *Delete) Customize(cmd *cobra.Command) {

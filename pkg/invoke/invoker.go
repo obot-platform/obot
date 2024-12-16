@@ -7,23 +7,24 @@ import (
 	"errors"
 	"fmt"
 	"maps"
+	"slices"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/acorn-io/acorn/apiclient/types"
+	"github.com/acorn-io/acorn/logger"
+	"github.com/acorn-io/acorn/pkg/events"
+	"github.com/acorn-io/acorn/pkg/gz"
+	"github.com/acorn-io/acorn/pkg/hash"
+	"github.com/acorn-io/acorn/pkg/jwt"
+	"github.com/acorn-io/acorn/pkg/render"
+	v1 "github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1"
+	"github.com/acorn-io/acorn/pkg/system"
+	"github.com/acorn-io/acorn/pkg/wait"
+	"github.com/acorn-io/nah/pkg/router"
+	"github.com/acorn-io/nah/pkg/uncached"
 	"github.com/gptscript-ai/go-gptscript"
-	"github.com/otto8-ai/nah/pkg/router"
-	"github.com/otto8-ai/nah/pkg/uncached"
-	"github.com/otto8-ai/otto8/apiclient/types"
-	"github.com/otto8-ai/otto8/logger"
-	"github.com/otto8-ai/otto8/pkg/events"
-	"github.com/otto8-ai/otto8/pkg/gz"
-	"github.com/otto8-ai/otto8/pkg/hash"
-	"github.com/otto8-ai/otto8/pkg/jwt"
-	"github.com/otto8-ai/otto8/pkg/render"
-	v1 "github.com/otto8-ai/otto8/pkg/storage/apis/otto.otto8.ai/v1"
-	"github.com/otto8-ai/otto8/pkg/system"
-	"github.com/otto8-ai/otto8/pkg/wait"
 	apierror "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/util/retry"
@@ -69,6 +70,7 @@ type TaskResult struct {
 
 func (r *Response) Close() {
 	r.cancel()
+	//nolint:revive
 	for range r.Events {
 	}
 }
@@ -85,6 +87,7 @@ func (r *Response) Result(ctx context.Context) (TaskResult, error) {
 	if r.uncached == nil {
 		panic("can not get resource of asynchronous task")
 	}
+	//nolint:revive
 	for range r.Events {
 	}
 
@@ -102,6 +105,10 @@ func (r *Response) Result(ctx context.Context) (TaskResult, error) {
 		}
 	} else if err != nil {
 		return TaskResult{}, err
+	}
+
+	if runState.Name != r.Run.Name {
+		panic("runState doesnt match")
 	}
 
 	if runState.Spec.Error != "" {
@@ -233,7 +240,7 @@ func CreateThreadForAgent(ctx context.Context, c kclient.WithWatch, agent *v1.Ag
 	return &thread, c.Create(ctx, &thread)
 }
 
-func (i *Invoker) updateThreadFields(ctx context.Context, c kclient.WithWatch, agent *v1.Agent, thread *v1.Thread, opt Options) error {
+func (i *Invoker) updateThreadFields(ctx context.Context, c kclient.WithWatch, agent *v1.Agent, thread *v1.Thread, extraEnv []string, opt Options) error {
 	var updated bool
 	if opt.AgentAlias != "" && thread.Spec.AgentAlias != opt.AgentAlias {
 		thread.Spec.AgentAlias = opt.AgentAlias
@@ -241,6 +248,10 @@ func (i *Invoker) updateThreadFields(ctx context.Context, c kclient.WithWatch, a
 	}
 	if thread.Spec.AgentName != agent.Name {
 		thread.Spec.AgentName = agent.Name
+		updated = true
+	}
+	if !slices.Equal(thread.Spec.Env, extraEnv) {
+		thread.Spec.Env = extraEnv
 		updated = true
 	}
 	if updated {
@@ -262,10 +273,6 @@ func (i *Invoker) Agent(ctx context.Context, c kclient.WithWatch, agent *v1.Agen
 		return nil, err
 	}
 
-	if err := i.updateThreadFields(ctx, c, agent, thread, opt); err != nil {
-		return nil, err
-	}
-
 	credContextIDs := []string{thread.Name}
 	if opt.ThreadCredentialScope != nil && !*opt.ThreadCredentialScope {
 		credContextIDs = nil
@@ -281,6 +288,10 @@ func (i *Invoker) Agent(ctx context.Context, c kclient.WithWatch, agent *v1.Agen
 		Thread: thread,
 	})
 	if err != nil {
+		return nil, err
+	}
+
+	if err := i.updateThreadFields(ctx, c, agent, thread, extraEnv, opt); err != nil {
 		return nil, err
 	}
 
@@ -328,18 +339,6 @@ type runOptions struct {
 	Timeout               time.Duration
 }
 
-var (
-	synchronousPending = map[string]struct{}{}
-	synchrounousLock   sync.Mutex
-)
-
-func (i *Invoker) IsSynchronousPending(runName string) bool {
-	synchrounousLock.Lock()
-	defer synchrounousLock.Unlock()
-	_, ok := synchronousPending[runName]
-	return ok
-}
-
 func (i *Invoker) createRun(ctx context.Context, c kclient.WithWatch, thread *v1.Thread, tool any, input string, opts runOptions) (_ *Response, retErr error) {
 	previousRunName := thread.Status.LastRunName
 	if opts.PreviousRunName != "" {
@@ -382,20 +381,6 @@ func (i *Invoker) createRun(ctx context.Context, c kclient.WithWatch, thread *v1
 	if err := c.Create(ctx, &run); err != nil {
 		return nil, err
 	}
-
-	if opts.Synchronous {
-		synchrounousLock.Lock()
-		synchronousPending[run.Name] = struct{}{}
-		synchrounousLock.Unlock()
-	}
-
-	defer func() {
-		if retErr != nil {
-			synchrounousLock.Lock()
-			delete(synchronousPending, run.Name)
-			synchrounousLock.Unlock()
-		}
-	}()
 
 	if !thread.Spec.SystemTask {
 		err = retry.RetryOnConflict(retry.DefaultBackoff, func() error {
@@ -499,19 +484,19 @@ func (i *Invoker) Resume(ctx context.Context, c kclient.WithWatch, thread *v1.Th
 				fmt.Sprintf("GPTSCRIPT_MODEL_PROVIDER_PROXY_URL=%s/api/llm-proxy", i.serverURL),
 				"GPTSCRIPT_MODEL_PROVIDER_PROXY_TOKEN="+token,
 				"GPTSCRIPT_MODEL_PROVIDER_TOKEN="+token,
-				"OTTO8_SERVER_URL="+i.serverURL,
-				"OTTO8_TOKEN="+token,
-				"OTTO8_RUN_ID="+run.Name,
-				"OTTO8_THREAD_ID="+thread.Name,
-				"OTTO8_WORKFLOW_ID="+run.Spec.WorkflowName,
-				"OTTO8_WORKFLOW_STEP_ID="+run.Spec.WorkflowStepID,
-				"OTTO8_AGENT_ID="+run.Spec.AgentName,
-				"OTTO8_DEFAULT_LLM_MODEL="+string(types.DefaultModelAliasTypeLLM),
-				"OTTO8_DEFAULT_LLM_MINI_MODEL="+string(types.DefaultModelAliasTypeLLMMini),
-				"OTTO8_DEFAULT_TEXT_EMBEDDING_MODEL="+string(types.DefaultModelAliasTypeTextEmbedding),
-				"OTTO8_DEFAULT_IMAGE_GENERATION_MODEL="+string(types.DefaultModelAliasTypeImageGeneration),
-				"OTTO8_DEFAULT_VISION_MODEL="+string(types.DefaultModelAliasTypeVision),
-				"GPTSCRIPT_HTTP_ENV=OTTO8_TOKEN,OTTO8_RUN_ID,OTTO8_THREAD_ID,OTTO8_WORKFLOW_ID,OTTO8_WORKFLOW_STEP_ID,OTTO8_AGENT_ID",
+				"ACORN_SERVER_URL="+i.serverURL,
+				"ACORN_TOKEN="+token,
+				"ACORN_RUN_ID="+run.Name,
+				"ACORN_THREAD_ID="+thread.Name,
+				"ACORN_WORKFLOW_ID="+run.Spec.WorkflowName,
+				"ACORN_WORKFLOW_STEP_ID="+run.Spec.WorkflowStepID,
+				"ACORN_AGENT_ID="+run.Spec.AgentName,
+				"ACORN_DEFAULT_LLM_MODEL="+string(types.DefaultModelAliasTypeLLM),
+				"ACORN_DEFAULT_LLM_MINI_MODEL="+string(types.DefaultModelAliasTypeLLMMini),
+				"ACORN_DEFAULT_TEXT_EMBEDDING_MODEL="+string(types.DefaultModelAliasTypeTextEmbedding),
+				"ACORN_DEFAULT_IMAGE_GENERATION_MODEL="+string(types.DefaultModelAliasTypeImageGeneration),
+				"ACORN_DEFAULT_VISION_MODEL="+string(types.DefaultModelAliasTypeVision),
+				"GPTSCRIPT_HTTP_ENV=ACORN_TOKEN,ACORN_RUN_ID,ACORN_THREAD_ID,ACORN_WORKFLOW_ID,ACORN_WORKFLOW_STEP_ID,ACORN_AGENT_ID",
 			),
 			DefaultModel:         run.Spec.DefaultModel,
 			DefaultModelProvider: modelProvider,
@@ -842,7 +827,8 @@ func (i *Invoker) stream(ctx context.Context, c kclient.WithWatch, prevThreadNam
 
 	defer func() {
 		_ = runResp.Close()
-		// drain the events in situation of an error
+		// drain the events on error
+		//nolint:revive
 		for range runEvent {
 		}
 	}()

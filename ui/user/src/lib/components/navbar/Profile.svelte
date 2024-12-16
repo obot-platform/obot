@@ -1,101 +1,54 @@
 <script lang="ts">
 	import ProfileIcon from '$lib/components/profile/ProfileIcon.svelte';
 	import { profile, currentAssistant } from '$lib/stores';
-	import { popover } from '$lib/actions';
 	import { ChatService, type CredentialList } from '$lib/services';
 	import { Trash } from '$lib/icons';
-	import Loading from '$lib/icons/Loading.svelte';
+	import Menu from '$lib/components/navbar/Menu.svelte';
 
-	const { ref, tooltip, toggle } = popover({
-		placement: 'bottom-end'
-	});
-
-	let credPromise = $state<Promise<CredentialList>>();
+	let credentials: CredentialList | undefined = $state();
 
 	async function deleteCred(name: string) {
 		await ChatService.deleteCredential($currentAssistant.id, name);
-		credPromise = ChatService.listCredentials($currentAssistant.id);
+		await load();
 	}
 
-	function loadCredsAndToggle() {
-		if ($currentAssistant.id) {
-			credPromise = ChatService.listCredentials($currentAssistant.id);
-		}
-		toggle();
+	async function load() {
+		credentials = await ChatService.listCredentials($currentAssistant.id);
 	}
 </script>
 
-<!-- Profile -->
-<div class="ml-1 flex items-center" use:ref>
-	<button
-		onclick={loadCredsAndToggle}
-		type="button"
-		class="flex rounded-full bg-gray-800 text-sm focus:ring-4 focus:ring-gray-300 dark:focus:ring-gray-600"
-	>
-		<span class="sr-only">Open user menu</span>
+<Menu title={$profile.email || 'Anonymous'} onLoad={load}>
+	{#snippet icon()}
 		<ProfileIcon />
-	</button>
-	<!-- Dropdown menu -->
-	<div
-		use:tooltip
-		class="mt-2 list-none divide-y divide-gray-100 rounded bg-white text-base shadow dark:divide-gray-600 dark:bg-gray-700"
-	>
-		<div class="px-4 py-3" role="none">
-			<p class="truncate text-sm font-medium text-gray-900 dark:text-white" role="none">
-				{$profile.email || 'Anonymous'}
-			</p>
-		</div>
-		<div class="px-4 py-3" role="none">
-			{#if credPromise !== undefined}
-				{#await credPromise}
-					<p class="mb-1 truncate text-sm text-gray-900 dark:text-white" role="none">
-						Credentials <Loading class="mb-0.5 ms-1 h-3 w-3" />
-					</p>
-				{:then credentials}
-					<p class="mb-1 truncate text-sm text-gray-900 dark:text-white" role="none">Credentials</p>
-					{#if credentials?.items.length > 0}
-						<ul class="py-1" role="none">
-							{#each credentials.items as cred}
-								<li class="flex">
-									<span class="flex-1 py-2 text-sm text-black dark:text-white">{cred.name}</span>
-									<button>
-										<Trash
-											class="h-5 w-5 text-gray-400"
-											onclick={() => {
-												deleteCred(cred.name);
-											}}
-										/>
-									</button>
-								</li>
-							{/each}
-						</ul>
-					{:else}
-						<span class="flex-1 py-2 text-sm text-black dark:text-white">No credentials</span>
-					{/if}
-				{/await}
+	{/snippet}
+	{#snippet body()}
+		<div class="py-2">
+			{#if credentials && credentials?.items.length > 0}
+				<span class="mb-2">Credentials</span>
+				{#each credentials.items as cred}
+					<div class="flex justify-between">
+						<span>{cred.name}</span>
+						<button>
+							<Trash
+								class="h-5 w-5 text-gray"
+								onclick={() => {
+									deleteCred(cred.name);
+								}}
+							/>
+						</button>
+					</div>
+				{/each}
+			{:else}
+				<span>No credentials</span>
 			{/if}
 		</div>
-		<ul class="py-1" role="none">
+		<div class="flex flex-col gap-2 py-2">
 			{#if $profile.role === 1}
-				<li>
-					<a
-						href="/admin/"
-						rel="external"
-						class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:text-white dark:hover:bg-gray-600 dark:hover:text-white"
-						role="menuitem">Settings</a
-					>
-				</li>
+				<a href="/admin/" rel="external" role="menuitem">Settings</a>
 			{/if}
 			{#if $profile.email}
-				<li>
-					<a
-						href="/oauth2/sign_out?rd=/"
-						rel="external"
-						class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:text-white dark:hover:bg-gray-600 dark:hover:text-white"
-						role="menuitem">Sign out</a
-					>
-				</li>
+				<a href="/oauth2/sign_out?rd=/" rel="external" role="menuitem">Sign out</a>
 			{/if}
-		</ul>
-	</div>
-</div>
+		</div>
+	{/snippet}
+</Menu>

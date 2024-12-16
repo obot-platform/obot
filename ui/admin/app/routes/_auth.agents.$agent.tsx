@@ -2,12 +2,16 @@ import {
     ClientLoaderFunctionArgs,
     redirect,
     useLoaderData,
+    useMatch,
     useNavigate,
 } from "@remix-run/react";
 import { useCallback } from "react";
 import { $path } from "remix-routes";
+import useSWR, { preload } from "swr";
 
 import { AgentService } from "~/lib/service/api/agentService";
+import { DefaultModelAliasApiService } from "~/lib/service/api/defaultModelAliasApiService";
+import { RouteHandle } from "~/lib/service/routeHandles";
 import { RouteQueryParams, RouteService } from "~/lib/service/routeService";
 import { noop } from "~/lib/utils";
 
@@ -36,6 +40,11 @@ export const clientLoader = async ({
     if (!agentId) {
         throw redirect("/agents");
     }
+
+    await preload(
+        DefaultModelAliasApiService.getAliases.key(),
+        DefaultModelAliasApiService.getAliases
+    );
 
     // preload the agent
     const agent = await AgentService.getAgentById(agentId).catch(noop);
@@ -85,3 +94,18 @@ export default function ChatAgent() {
         </div>
     );
 }
+
+const AgentBreadcrumb = () => {
+    const match = useMatch("/agents/:agent");
+
+    const { data: agent } = useSWR(
+        AgentService.getAgentById.key(match?.params.agent),
+        ({ agentId }) => AgentService.getAgentById(agentId)
+    );
+
+    return <>{agent?.name || "New Agent"}</>;
+};
+
+export const handle: RouteHandle = {
+    breadcrumb: () => [{ content: <AgentBreadcrumb /> }],
+};

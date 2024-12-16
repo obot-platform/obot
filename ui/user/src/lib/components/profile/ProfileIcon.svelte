@@ -6,9 +6,12 @@
 	$effect(() => {
 		if ($profile.email) {
 			const parts = $profile.email.split('@')[0].split(/[.-]/);
-			initials = parts[0].charAt(0).toUpperCase();
+			let newInitials = parts[0].charAt(0).toUpperCase();
 			if (parts.length > 1) {
-				initials += parts[parts.length - 1].charAt(0).toUpperCase();
+				newInitials += parts[parts.length - 1].charAt(0).toUpperCase();
+			}
+			if (newInitials !== initials) {
+				initials = newInitials;
 			}
 		}
 	});

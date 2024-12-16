@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"net/http"
 
+	types2 "github.com/acorn-io/acorn/apiclient/types"
+	"github.com/acorn-io/acorn/pkg/api"
+	"github.com/acorn-io/acorn/pkg/gateway/types"
 	"github.com/gptscript-ai/gptscript/pkg/mvl"
-	types2 "github.com/otto8-ai/otto8/apiclient/types"
-	"github.com/otto8-ai/otto8/pkg/api"
-	"github.com/otto8-ai/otto8/pkg/gateway/types"
 	"gorm.io/gorm"
 )
 

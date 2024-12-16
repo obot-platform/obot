@@ -1,9 +1,7 @@
 <script lang="ts">
 	import { ChatService, type Task, type Version } from '$lib/services';
-	import Dropdown from '$lib/components/tasks/Dropdown.svelte';
 	import Schedule from '$lib/components/tasks/Schedule.svelte';
 	import { onMount } from 'svelte';
-	import { Copy } from 'lucide-svelte';
 	import OnDemand from '$lib/components/tasks/OnDemand.svelte';
 
 	interface Props {
@@ -25,28 +23,21 @@
 	let version: Version = $state({});
 	let email = $derived.by(() => {
 		if (version.emailDomain && task.alias) {
-			return `${task.alias}@${version.emailDomain}`;
+			return `${task.alias.replace('/', '.')}@${version.emailDomain}`;
 		}
 		return '';
 	});
 	let webhook = $derived.by(() => {
 		if (typeof window !== 'undefined' && task.alias) {
-			return window.location.protocol + '//' + window.location.host + '/api/webhook/' + task.alias;
+			return window.location.protocol + '//' + window.location.host + '/api/webhooks/' + task.alias;
 		}
 		return '';
 	});
-	let options = $derived.by(() => {
-		const options: Record<string, string> = {
-			schedule: 'on interval',
-			webhook: 'on webhook',
-			onDemand: 'on demand'
-		};
-		if (version.emailDomain) {
-			options['email'] = 'on email';
+	let visible: boolean = $derived.by(() => {
+		if (task.webhook || task.schedule || task.email) {
+			return true;
 		}
-		// assigned later so it's rendered last
-		options['onDemand'] = 'on demand';
-		return options;
+		return Object.keys(task.onDemand?.params ?? {}).length > 0;
 	});
 	let lastParamsSeen: Record<string, string> = $state({});
 
@@ -79,69 +70,11 @@
 		}
 		return 'onDemand';
 	}
-
-	async function selected(value: string) {
-		if (value === 'schedule') {
-			await onChanged?.({
-				...task,
-				schedule: {
-					interval: 'hourly',
-					hour: 0,
-					minute: 0,
-					day: 0,
-					weekday: 0
-				},
-				webhook: undefined,
-				email: undefined,
-				onDemand: undefined
-			});
-		}
-		if (value === 'webhook') {
-			await onChanged?.({
-				...task,
-				schedule: undefined,
-				webhook: {},
-				email: undefined,
-				onDemand: undefined
-			});
-		}
-		if (value === 'email') {
-			await onChanged?.({
-				...task,
-				schedule: undefined,
-				webhook: undefined,
-				onDemand: undefined,
-				email: {}
-			});
-		}
-		if (value === 'onDemand') {
-			await onChanged?.({
-				...task,
-				schedule: undefined,
-				webhook: undefined,
-				email: undefined,
-				onDemand: undefined
-			});
-		}
-	}
 </script>
 
-{#if editMode || selectedTrigger() !== 'onDemand' || Object.keys(task?.onDemand?.params ?? {}).length > 0}
+{#if visible}
 	<div class="mt-8 rounded-3xl bg-gray-50 p-5 dark:bg-gray-950">
 		<div class="flex items-center justify-between">
-			{#if editMode}
-				<h4 class="text-xl font-semibold">Trigger</h4>
-				<div class="flex">
-					<Dropdown
-						disabled={!editMode}
-						selected={selectedTrigger()}
-						values={options}
-						onSelected={selected}
-					/>
-				</div>
-			{:else}
-				<h4 class="text-xl font-semibold capitalize">{options[selectedTrigger()]}</h4>
-			{/if}
 			{#if selectedTrigger() === 'schedule'}
 				<Schedule
 					schedule={task.schedule}
@@ -156,22 +89,20 @@
 			{/if}
 		</div>
 		{#if selectedTrigger() === 'webhook'}
-			<div class="mt-3 flex justify-between pr-5">
-				URL
+			<div class="flex justify-between pr-5">
+				<h3 class="text-lg font-semibold">Webhook URL</h3>
 				<div class="flex">
 					{webhook}
-					<Copy class="ml-2 h-5 w-5" />
 				</div>
 			</div>
 		{/if}
 		{#if selectedTrigger() === 'email' && email}
-			<div class="mt-3 flex justify-between pr-5">
-				{#if editMode}Email{/if}
-				Address
-				<div class="flex">
-					{email}
-					<Copy class="ml-2 h-5 w-5" />
-				</div>
+			<div class="flex justify-between pr-5">
+				<h3 class="text-lg font-semibold">
+					{#if editMode}Email{/if}
+					Address
+				</h3>
+				{email}
 			</div>
 		{/if}
 		{#if selectedTrigger() === 'onDemand'}

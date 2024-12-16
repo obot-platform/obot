@@ -4,20 +4,20 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/acorn-io/acorn/apiclient/types"
+	"github.com/acorn-io/acorn/pkg/invoke"
+	"github.com/acorn-io/acorn/pkg/render"
+	v1 "github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1"
+	"github.com/acorn-io/acorn/pkg/system"
+	"github.com/acorn-io/nah/pkg/apply"
+	"github.com/acorn-io/nah/pkg/name"
+	"github.com/acorn-io/nah/pkg/router"
 	"github.com/gptscript-ai/go-gptscript"
-	"github.com/otto8-ai/nah/pkg/apply"
-	"github.com/otto8-ai/nah/pkg/name"
-	"github.com/otto8-ai/nah/pkg/router"
-	"github.com/otto8-ai/otto8/apiclient/types"
-	"github.com/otto8-ai/otto8/pkg/invoke"
-	"github.com/otto8-ai/otto8/pkg/render"
-	v1 "github.com/otto8-ai/otto8/pkg/storage/apis/otto.otto8.ai/v1"
-	"github.com/otto8-ai/otto8/pkg/system"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func (h *Handler) RunSubflow(req router.Request, resp router.Response) error {
+func (h *Handler) RunSubflow(req router.Request, _ router.Response) error {
 	step := req.Object.(*v1.WorkflowStep)
 
 	if step.Status.State != types.WorkflowStateSubCall {
@@ -115,21 +115,6 @@ func (h *Handler) RunSubflow(req router.Request, resp router.Response) error {
 	}
 
 	return nil
-}
-
-func (h *Handler) getLastRun(req router.Request, step *v1.WorkflowStep) (string, error) {
-	var check v1.WorkflowStep
-	if err := req.Get(&check, step.Namespace, step.Name); apierrors.IsNotFound(err) {
-		return "", nil
-	} else if err != nil {
-		return "", err
-	}
-
-	if check.Status.State != types.WorkflowStateComplete {
-		return "", nil
-	}
-
-	return check.Status.LastRunName, nil
 }
 
 func (h *Handler) getSubflowOutput(req router.Request, wfe *v1.WorkflowExecution) (string, bool, bool, error) {

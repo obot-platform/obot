@@ -1,11 +1,11 @@
 package services
 
 import (
-	"github.com/otto8-ai/kinm/pkg/db"
-	"github.com/otto8-ai/nah/pkg/randomtoken"
-	"github.com/otto8-ai/otto8/pkg/storage/authn"
-	"github.com/otto8-ai/otto8/pkg/storage/authz"
-	"github.com/otto8-ai/otto8/pkg/storage/scheme"
+	"github.com/acorn-io/acorn/pkg/storage/authn"
+	"github.com/acorn-io/acorn/pkg/storage/authz"
+	"github.com/acorn-io/acorn/pkg/storage/scheme"
+	"github.com/acorn-io/kinm/pkg/db"
+	"github.com/acorn-io/nah/pkg/randomtoken"
 	"k8s.io/apiserver/pkg/authentication/authenticator"
 	"k8s.io/apiserver/pkg/authorization/authorizer"
 )
@@ -13,7 +13,7 @@ import (
 type Config struct {
 	StorageListenPort int    `usage:"Port to storage backend will listen on (default: random port)"`
 	StorageToken      string `usage:"Token for storage access, will be generated if not passed"`
-	DSN               string `usage:"Database dsn in driver://connection_string format" default:"sqlite://file:otto8.db?_journal=WAL&cache=shared&_busy_timeout=30000"`
+	DSN               string `usage:"Database dsn in driver://connection_string format" default:"sqlite://file:acorn.db?_journal=WAL&cache=shared&_busy_timeout=30000"`
 }
 
 type Services struct {

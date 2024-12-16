@@ -3,7 +3,7 @@ import { assetUrl, cn } from "~/lib/utils";
 import { TypographyH2 } from "~/components/Typography";
 import { useTheme } from "~/components/theme";
 
-export function OttoLogo({
+export function AcornLogo({
     hideText = false,
     classNames = {},
 }: {
@@ -12,10 +12,10 @@ export function OttoLogo({
 }) {
     const { isDark } = useTheme();
     let logo = isDark
-        ? "/logo/otto8-logo-blue-white-text.svg"
-        : "/logo/otto8-logo-blue-black-text.svg";
+        ? "/logo/acorn-logo-blue-white-text.svg"
+        : "/logo/acorn-logo-blue-black-text.svg";
     if (hideText) {
-        logo = "/logo/otto8-icon-blue.svg";
+        logo = "/logo/acorn-icon-blue.svg";
     }
     return (
         <TypographyH2
@@ -26,7 +26,7 @@ export function OttoLogo({
         >
             <img
                 src={assetUrl(logo)}
-                alt="Otto Logo"
+                alt="Acorn Logo"
                 className={cn("h-8", classNames.image)}
             />
         </TypographyH2>

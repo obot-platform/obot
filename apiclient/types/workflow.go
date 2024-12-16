@@ -14,13 +14,11 @@ type WorkflowList List[Workflow]
 
 type WorkflowManifest struct {
 	AgentManifest `json:",inline"`
-	Credentials   []string      `json:"credentials"`
-	Env           []WorkflowEnv `json:"env"`
-	Steps         []Step        `json:"steps"`
-	Output        string        `json:"output"`
+	Steps         []Step `json:"steps"`
+	Output        string `json:"output"`
 }
 
-type WorkflowEnv struct {
+type EnvVar struct {
 	Name        string `json:"name"`
 	Value       string `json:"value"`
 	Description string `json:"description"`
@@ -86,15 +84,15 @@ func (s Step) Display() string {
 	}
 	if s.While != nil {
 		preamble.WriteString(" while ")
-		preamble.WriteString(oneline(s.While.Condition))
+		preamble.WriteString(oneLine(s.While.Condition))
 	}
 	if s.If != nil {
 		preamble.WriteString(" if ")
-		preamble.WriteString(oneline(s.If.Condition))
+		preamble.WriteString(oneLine(s.If.Condition))
 	}
 	if s.Step != "" {
 		preamble.WriteString(" ")
-		preamble.WriteString(oneline(s.Step))
+		preamble.WriteString(oneLine(s.Step))
 	}
 	return preamble.String()
 }
@@ -116,103 +114,12 @@ type While struct {
 	Steps     []Step `json:"steps,omitempty"`
 }
 
-func oneline(s string) string {
+func oneLine(s string) string {
 	l := strings.Split(s, "\n")[0]
 	if len(l) > 80 {
 		return l[:80] + "..."
 	}
 	return l
-}
-
-func DeleteStep(manifest *WorkflowManifest, id string) *WorkflowManifest {
-	if manifest == nil || id == "" {
-		return nil
-	}
-
-	result := manifest.DeepCopy()
-	lookupID, _, _ := strings.Cut(id, "{")
-	result.Steps = deleteStep(manifest.Steps, lookupID)
-	return result
-}
-
-func deleteStep(steps []Step, id string) []Step {
-	newSteps := make([]Step, 0, len(steps))
-	for _, step := range steps {
-		if step.ID != id {
-			if step.While != nil {
-				step.While.Steps = deleteStep(step.While.Steps, id)
-			}
-			if step.If != nil {
-				step.If.Steps = deleteStep(step.If.Steps, id)
-				step.If.Else = deleteStep(step.If.Else, id)
-			}
-			newSteps = append(newSteps, step)
-		}
-	}
-	return newSteps
-}
-
-func AppendStep(manifest *WorkflowManifest, parentID string, step Step) *WorkflowManifest {
-	if manifest == nil {
-		return nil
-	}
-
-	parentID, addToElse := strings.CutSuffix(parentID, "::else")
-
-	result := manifest.DeepCopy()
-	if parentID == "" {
-		result.Steps = append(result.Steps, step)
-		return result
-	}
-
-	lookupID, _, _ := strings.Cut(parentID, "{")
-	result.Steps = appendStep(result.Steps, lookupID, addToElse, step)
-	return result
-}
-
-func appendStep(steps []Step, id string, addToElse bool, stepToAdd Step) []Step {
-	result := make([]Step, 0, len(steps))
-
-	for _, step := range steps {
-		if step.ID != id {
-			if step.If != nil {
-				step.If.Steps = appendStep(step.If.Steps, id, addToElse, stepToAdd)
-				step.If.Else = appendStep(step.If.Else, id, addToElse, stepToAdd)
-			}
-			if step.While != nil {
-				step.While.Steps = appendStep(step.While.Steps, id, addToElse, stepToAdd)
-			}
-			result = append(result, step)
-			continue
-		}
-
-		if step.If != nil {
-			if addToElse {
-				step.If.Else = append(step.If.Else, stepToAdd)
-			} else {
-				step.If.Steps = append(step.If.Steps, stepToAdd)
-			}
-		} else if step.While != nil {
-			step.While.Steps = append(step.While.Steps, stepToAdd)
-		}
-
-		result = append(result, step)
-	}
-
-	return result
-}
-
-func SetStep(manifest *WorkflowManifest, step Step) {
-	id := step.ID
-	if manifest == nil || id == "" {
-		return
-	}
-	lookupID, _, _ := strings.Cut(id, "{")
-	found, _ := findInSteps("", manifest.Steps, lookupID)
-	if found != nil {
-		*found = step
-	}
-	return
 }
 
 func FindStep(manifest *WorkflowManifest, id string) (_ *Step, parentID string) {

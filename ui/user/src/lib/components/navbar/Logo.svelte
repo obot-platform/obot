@@ -5,6 +5,7 @@
 	import type { Assistant } from '$lib/services';
 	import { popover } from '$lib/actions';
 	import { fade } from 'svelte/transition';
+	import AssistantIcon from '$lib/icons/AssistantIcon.svelte';
 
 	const selected = $derived($assistants.find((a) => a.current));
 
@@ -61,7 +62,7 @@
 	<!-- Dropdown menu -->
 	<div
 		use:tooltip
-		class="mt-4 w-60 divide-y divide-gray-100 rounded-lg bg-white shadow dark:divide-gray-600 dark:bg-gray-700"
+		class="mt-4 w-60 divide-y divide-gray-100 rounded-3xl bg-gray-50 shadow dark:bg-gray-950"
 	>
 		<ul
 			class="space-y-1 p-3 text-sm text-gray-700 dark:text-gray-200"
@@ -72,18 +73,10 @@
 					<a
 						href={'/' + assistant.id}
 						data-sveltekit-reload
-						class="flex rounded p-2 hover:bg-gray-100 dark:hover:bg-gray-600"
+						class="flex rounded-3xl p-2 hover:bg-gray-70 dark:hover:bg-gray-900"
 					>
 						<div class="flex h-5 items-center">
-							{#if icon(assistant)}
-								<img src={icon(assistant)} alt="assistant icon" class="h-5 w-5 rounded-full" />
-							{:else}
-								<div
-									class="flex h-5 w-5 items-center justify-center rounded-full bg-gray-200 dark:bg-gray"
-								>
-									{assistant.name ? assistant.name[0].toUpperCase() : '?'}
-								</div>
-							{/if}
+							<AssistantIcon id={assistant.id} />
 						</div>
 						<div class="ms-2 text-sm">
 							<label

@@ -27,13 +27,14 @@ async function remove(id: string) {
 	items.delete(id);
 }
 
-async function update(task: Task) {
+async function update(task: Task): Promise<Task> {
 	const assistantID = get(currentAssistant)?.id;
 	if (!assistantID) {
-		return;
+		return task;
 	}
 	const newTask = await saveTask(assistantID, task);
 	items.set(newTask.id, newTask);
+	return newTask;
 }
 
 async function create(): Promise<Task> {
@@ -53,7 +54,7 @@ async function create(): Promise<Task> {
 export interface TaskStore {
 	items: Map<string, Task>;
 	reload: () => Promise<void>;
-	update: (task: Task) => Promise<void>;
+	update: (task: Task) => Promise<Task>;
 	remove: (id: string) => Promise<void>;
 	create: () => Promise<Task>;
 }

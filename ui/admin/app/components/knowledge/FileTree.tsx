@@ -84,6 +84,9 @@ export default function FileTreeNode({
     const errorFiles = allFiles.filter(
         (file) => file.state === KnowledgeFileState.Error
     ).length;
+    const unsupportedFiles = allFiles.filter(
+        (file) => file.state === KnowledgeFileState.Unsupported
+    ).length;
     const totalSize = allFiles.reduce(
         (acc, file) => acc + (file.sizeInBytes || 0),
         0
@@ -110,13 +113,6 @@ export default function FileTreeNode({
         excluded && !source.filePathPrefixExclude?.includes(node.path);
 
     const toggleIncludeExcludeList = async () => {
-        // We should manually approve/unapprove all files in the folder at once so that we don't rely on backend reconciliation logic as it will cause delay in updating the UI.
-        try {
-            await onApproveFile(!included, node);
-        } catch (e) {
-            console.error("failed to approve files", e);
-        }
-
         // After files are approved/unapproved, we need to update the include/exclude list so that new files will be included/excluded from future syncs.
         let filePathPrefixInclude = source.filePathPrefixInclude;
         let filePathPrefixExclude = source.filePathPrefixExclude;
@@ -145,6 +141,13 @@ export default function FileTreeNode({
             filePathPrefixInclude,
             filePathPrefixExclude,
         });
+
+        // We should manually approve/unapprove all files in the folder at once so that we don't rely on backend reconciliation logic as it will cause delay in updating the UI.
+        try {
+            await onApproveFile(!included, node);
+        } catch (e) {
+            console.error("failed to approve files", e);
+        }
     };
 
     return (
@@ -443,6 +446,12 @@ export default function FileTreeNode({
                                             <>
                                                 <span className="text-destructive">{`${errorFiles}`}</span>
                                                 <span>{` Err, `}</span>
+                                            </>
+                                        )}
+                                        {unsupportedFiles > 0 && (
+                                            <>
+                                                <span className="text-warning">{`${unsupportedFiles}`}</span>
+                                                <span>{` Unsupported, `}</span>
                                             </>
                                         )}
                                         {selectedFiles > 0 && (

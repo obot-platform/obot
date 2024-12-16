@@ -8,40 +8,40 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/acorn-io/acorn/pkg/aihelper"
+	"github.com/acorn-io/acorn/pkg/api/authn"
+	"github.com/acorn-io/acorn/pkg/api/authz"
+	"github.com/acorn-io/acorn/pkg/api/server"
+	"github.com/acorn-io/acorn/pkg/credstores"
+	"github.com/acorn-io/acorn/pkg/events"
+	"github.com/acorn-io/acorn/pkg/gateway/client"
+	"github.com/acorn-io/acorn/pkg/gateway/db"
+	gserver "github.com/acorn-io/acorn/pkg/gateway/server"
+	"github.com/acorn-io/acorn/pkg/gateway/server/dispatcher"
+	"github.com/acorn-io/acorn/pkg/invoke"
+	"github.com/acorn-io/acorn/pkg/jwt"
+	"github.com/acorn-io/acorn/pkg/proxy"
+	"github.com/acorn-io/acorn/pkg/smtp"
+	"github.com/acorn-io/acorn/pkg/storage"
+	"github.com/acorn-io/acorn/pkg/storage/scheme"
+	"github.com/acorn-io/acorn/pkg/storage/services"
+	"github.com/acorn-io/acorn/pkg/system"
+	baaah "github.com/acorn-io/nah"
+	"github.com/acorn-io/nah/pkg/leader"
+	"github.com/acorn-io/nah/pkg/router"
 	"github.com/adrg/xdg"
 	"github.com/gptscript-ai/go-gptscript"
 	"github.com/gptscript-ai/gptscript/pkg/cache"
 	gptscriptai "github.com/gptscript-ai/gptscript/pkg/gptscript"
 	"github.com/gptscript-ai/gptscript/pkg/loader"
 	"github.com/gptscript-ai/gptscript/pkg/sdkserver"
-	"github.com/otto8-ai/nah"
-	"github.com/otto8-ai/nah/pkg/leader"
-	"github.com/otto8-ai/nah/pkg/router"
-	"github.com/otto8-ai/otto8/pkg/aihelper"
-	"github.com/otto8-ai/otto8/pkg/api/authn"
-	"github.com/otto8-ai/otto8/pkg/api/authz"
-	"github.com/otto8-ai/otto8/pkg/api/server"
-	"github.com/otto8-ai/otto8/pkg/credstores"
-	"github.com/otto8-ai/otto8/pkg/events"
-	"github.com/otto8-ai/otto8/pkg/gateway/client"
-	"github.com/otto8-ai/otto8/pkg/gateway/db"
-	gserver "github.com/otto8-ai/otto8/pkg/gateway/server"
-	"github.com/otto8-ai/otto8/pkg/gateway/server/dispatcher"
-	"github.com/otto8-ai/otto8/pkg/invoke"
-	"github.com/otto8-ai/otto8/pkg/jwt"
-	"github.com/otto8-ai/otto8/pkg/proxy"
-	"github.com/otto8-ai/otto8/pkg/smtp"
-	"github.com/otto8-ai/otto8/pkg/storage"
-	"github.com/otto8-ai/otto8/pkg/storage/scheme"
-	"github.com/otto8-ai/otto8/pkg/storage/services"
-	"github.com/otto8-ai/otto8/pkg/system"
 	coordinationv1 "k8s.io/api/coordination/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apiserver/pkg/authentication/authenticator"
 	"k8s.io/apiserver/pkg/authentication/request/union"
 
-	// Setup baaah logging
-	_ "github.com/otto8-ai/nah/pkg/logrus"
+	// Setup nah logging
+	_ "github.com/acorn-io/nah/pkg/logrus"
 )
 
 type (
@@ -51,17 +51,17 @@ type (
 
 type Config struct {
 	HTTPListenPort             int    `usage:"HTTP port to listen on" default:"8080" name:"http-listen-port"`
-	DevMode                    bool   `usage:"Enable development mode" default:"false" name:"dev-mode" env:"OTTO8_DEV_MODE"`
+	DevMode                    bool   `usage:"Enable development mode" default:"false" name:"dev-mode" env:"ACORN_DEV_MODE"`
 	DevUIPort                  int    `usage:"The port on localhost running the dev instance of the UI" default:"5173"`
 	AllowedOrigin              string `usage:"Allowed origin for CORS"`
-	ToolRegistry               string `usage:"The tool reference for the tool registry" default:"github.com/otto8-ai/tools"`
-	WorkspaceProviderType      string `usage:"The type of workspace provider to use for non-knowledge workspaces" default:"directory" env:"OTTO8_WORKSPACE_PROVIDER_TYPE"`
+	ToolRegistry               string `usage:"The tool reference for the tool registry" default:"github.com/acorn-io/tools"`
+	WorkspaceProviderType      string `usage:"The type of workspace provider to use for non-knowledge workspaces" default:"directory" env:"ACORN_WORKSPACE_PROVIDER_TYPE"`
 	WorkspaceTool              string `usage:"The tool reference for the workspace provider" default:"github.com/gptscript-ai/workspace-provider"`
 	DatasetsTool               string `usage:"The tool reference for the dataset provider" default:"github.com/gptscript-ai/datasets"`
 	HelperModel                string `usage:"The model used to generate names and descriptions" default:"gpt-4o-mini"`
-	AWSKMSKeyARN               string `usage:"The ARN of the AWS KMS key to use for encrypting credential storage" env:"OTTO8_AWS_KMS_KEY_ARN" name:"aws-kms-key-arn"`
+	AWSKMSKeyARN               string `usage:"The ARN of the AWS KMS key to use for encrypting credential storage" env:"ACORN_AWS_KMS_KEY_ARN" name:"aws-kms-key-arn"`
 	EncryptionConfigFile       string `usage:"The path to the encryption configuration file" default:"./encryption.yaml"`
-	KnowledgeSetIngestionLimit int    `usage:"The maximum number of files to ingest into a knowledge set" default:"1000" env:"OTTO_KNOWLEDGESET_INGESTION_LIMIT" name:"knowledge-set-ingestion-limit"`
+	KnowledgeSetIngestionLimit int    `usage:"The maximum number of files to ingest into a knowledge set" default:"1000" env:"ACORN_KNOWLEDGESET_INGESTION_LIMIT" name:"knowledge-set-ingestion-limit"`
 	EmailServerName            string `usage:"The name of the email server to display for email receivers (default: ui-hostname value)"`
 
 	AuthConfig
@@ -92,7 +92,7 @@ type Services struct {
 
 const (
 	defaultDatasetsTool  = "github.com/gptscript-ai/datasets"
-	defaultToolsRegistry = "github.com/otto8-ai/tools"
+	defaultToolsRegistry = "github.com/acorn-io/tools"
 )
 
 func newGPTScript(ctx context.Context, workspaceTool, datasetsTool, toolsRegistry string) (*gptscript.GPTScript, error) {
@@ -130,7 +130,7 @@ func newGPTScript(ctx context.Context, workspaceTool, datasetsTool, toolsRegistr
 	}
 
 	if os.Getenv("WORKSPACE_PROVIDER_DATA_HOME") == "" {
-		if err = os.Setenv("WORKSPACE_PROVIDER_DATA_HOME", filepath.Join(xdg.DataHome, "otto8", "workspace-provider")); err != nil {
+		if err = os.Setenv("WORKSPACE_PROVIDER_DATA_HOME", filepath.Join(xdg.DataHome, "acorn", "workspace-provider")); err != nil {
 			return nil, err
 		}
 	}

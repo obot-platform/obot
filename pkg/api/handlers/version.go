@@ -3,8 +3,8 @@ package handlers
 import (
 	"os"
 
-	"github.com/otto8-ai/otto8/pkg/api"
-	"github.com/otto8-ai/otto8/pkg/version"
+	"github.com/acorn-io/acorn/pkg/api"
+	"github.com/acorn-io/acorn/pkg/version"
 	"sigs.k8s.io/yaml"
 )
 
@@ -24,7 +24,7 @@ func (v *VersionHandler) GetVersion(req api.Context) error {
 
 func (v *VersionHandler) getVersionResponse() map[string]string {
 	values := make(map[string]string)
-	versions := os.Getenv("OTTO8_SERVER_VERSIONS")
+	versions := os.Getenv("ACORN_SERVER_VERSIONS")
 	if versions != "" {
 		if err := yaml.Unmarshal([]byte(versions), &values); err != nil {
 			values["error"] = err.Error()

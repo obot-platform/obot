@@ -1,11 +1,11 @@
 package handlers
 
 import (
-	"github.com/otto8-ai/otto8/pkg/alias"
-	"github.com/otto8-ai/otto8/pkg/api"
-	"github.com/otto8-ai/otto8/pkg/invoke"
-	"github.com/otto8-ai/otto8/pkg/storage/apis/otto.otto8.ai/v1"
-	"github.com/otto8-ai/otto8/pkg/system"
+	"github.com/acorn-io/acorn/pkg/alias"
+	"github.com/acorn-io/acorn/pkg/api"
+	"github.com/acorn-io/acorn/pkg/invoke"
+	v1 "github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1"
+	"github.com/acorn-io/acorn/pkg/system"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 )
 

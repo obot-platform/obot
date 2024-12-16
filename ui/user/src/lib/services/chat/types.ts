@@ -1,5 +1,6 @@
 export interface Progress {
 	runID?: string;
+	parentRunID?: string;
 	time: string;
 	content: string;
 	contentID?: string;
@@ -50,6 +51,7 @@ type ToolCall = {
 	name?: string;
 	description?: string;
 	input?: string;
+	output?: string;
 	metadata?: { [key: string]: string };
 };
 
@@ -63,12 +65,13 @@ type WorkflowCall = {
 
 export interface Message {
 	runID: string;
+	parentRunID?: string;
 	time?: Date;
 	sent?: boolean;
 	aborted?: boolean;
 	icon?: string;
 	tool?: boolean;
-	toolCall?: boolean;
+	toolCall?: ToolCall;
 	toolInput?: boolean;
 	sourceName: string;
 	sourceDescription?: string;
@@ -195,13 +198,6 @@ export interface CredentialList {
 export interface TaskStep {
 	id: string;
 	step?: string;
-	if?: TaskIfStep;
-}
-
-export interface TaskIfStep {
-	condition: string;
-	steps?: TaskStep[];
-	else?: TaskStep[];
 }
 
 export interface Task {
@@ -239,8 +235,22 @@ export interface TaskRun {
 	task: Task;
 	startTime?: string;
 	endTime?: string;
+	input?: string;
 }
 
 export interface TaskRunList {
 	items: TaskRun[];
+}
+
+export interface TableList {
+	tables: Table[];
+}
+
+export interface Table {
+	name: string;
+}
+
+export interface Rows {
+	columns: string[];
+	rows: Record<string, unknown>[];
 }

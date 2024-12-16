@@ -5,9 +5,13 @@ import { ModelProvider } from "~/lib/model/modelProviders";
 
 import { ModelProviderConfigure } from "~/components/model-providers/ModelProviderConfigure";
 import { ModelProviderIcon } from "~/components/model-providers/ModelProviderIcon";
-import { ModelProviderLinks } from "~/components/model-providers/constants";
+import { ModelProvidersModels } from "~/components/model-providers/ModelProviderModels";
+import {
+    ModelProviderLinks,
+    RecommendedModelProviders,
+} from "~/components/model-providers/constants";
 import { Badge } from "~/components/ui/badge";
-import { Card, CardContent } from "~/components/ui/card";
+import { Card, CardContent, CardHeader } from "~/components/ui/card";
 
 export function ModelProviderList({
     modelProviders,
@@ -19,16 +23,38 @@ export function ModelProviderList({
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-4">
                 {modelProviders.map((modelProvider) => (
                     <Card key={modelProvider.id}>
-                        <CardContent className="flex flex-col items-center gap-4 pt-6">
-                            <Link to={ModelProviderLinks[modelProvider.id]}>
-                                <ModelProviderIcon
+                        <CardHeader className="pb-0 flex flex-row justify-end items-center">
+                            {modelProvider.configured ? (
+                                <ModelProvidersModels
                                     modelProvider={modelProvider}
-                                    size="lg"
                                 />
-                            </Link>
+                            ) : (
+                                <div className="w-9 h-9" />
+                            )}
+                        </CardHeader>
+                        <CardContent className="flex flex-col items-center gap-4">
+                            <div className="relative">
+                                {RecommendedModelProviders.includes(
+                                    modelProvider.id
+                                ) && (
+                                    <Badge
+                                        variant="faded"
+                                        className="absolute bottom-[-0.5rem] left-1/2 z-10 transform -translate-x-1/2"
+                                    >
+                                        Recommended
+                                    </Badge>
+                                )}
+                                <Link to={ModelProviderLinks[modelProvider.id]}>
+                                    <ModelProviderIcon
+                                        modelProvider={modelProvider}
+                                        size="lg"
+                                    />
+                                </Link>
+                            </div>
                             <div className="text-lg font-semibold">
                                 {modelProvider.name}
                             </div>
+
                             <Badge
                                 className="pointer-events-none"
                                 variant="outline"

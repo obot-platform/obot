@@ -1,8 +1,8 @@
 package handlers
 
 import (
+	"github.com/acorn-io/acorn/pkg/api"
 	"github.com/gptscript-ai/go-gptscript"
-	"github.com/otto8-ai/otto8/pkg/api"
 )
 
 type PromptHandler struct {

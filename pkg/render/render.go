@@ -8,10 +8,9 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/acorn-io/acorn/apiclient/types"
+	v1 "github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1"
 	"github.com/gptscript-ai/go-gptscript"
-	"github.com/otto8-ai/otto8/apiclient/types"
-	v1 "github.com/otto8-ai/otto8/pkg/storage/apis/otto.otto8.ai/v1"
-	"github.com/otto8-ai/otto8/pkg/system"
 	apierror "k8s.io/apimachinery/pkg/api/errors"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -25,6 +24,10 @@ type AgentOptions struct {
 }
 
 func Agent(ctx context.Context, db kclient.Client, agent *v1.Agent, oauthServerURL string, opts AgentOptions) (_ []gptscript.ToolDef, extraEnv []string, _ error) {
+	defer func() {
+		sort.Strings(extraEnv)
+	}()
+
 	mainTool := gptscript.ToolDef{
 		Name:         agent.Spec.Manifest.Name,
 		Description:  agent.Spec.Manifest.Description,
@@ -39,6 +42,22 @@ func Agent(ctx context.Context, db kclient.Client, agent *v1.Agent, oauthServerU
 	}
 
 	extraEnv = append(extraEnv, agent.Spec.Env...)
+
+	for _, env := range agent.Spec.Manifest.Env {
+		if env.Name == "" {
+			continue
+		}
+		if !validEnv.MatchString(env.Name) {
+			return nil, nil, fmt.Errorf("invalid env var %s, must match %s", env.Name, validEnv.String())
+		}
+		if env.Value == "" {
+			agent.Spec.Credentials = append(agent.Spec.Credentials,
+				fmt.Sprintf(`github.com/gptscript-ai/credential as %s with "%s" as message and "%s" as env and %s as field`,
+					env.Name, env.Description, env.Name, env.Name))
+		} else {
+			extraEnv = append(extraEnv, fmt.Sprintf("%s=%s", env.Name, env.Value))
+		}
+	}
 
 	if mainTool.Instructions == "" {
 		mainTool.Instructions = v1.DefaultAgentPrompt
@@ -63,6 +82,14 @@ func Agent(ctx context.Context, db kclient.Client, agent *v1.Agent, oauthServerU
 		mainTool.Tools = append(mainTool.Tools, name)
 	}
 
+	for _, tool := range agent.Spec.SystemTools {
+		name, err := ResolveToolReference(ctx, db, "", agent.Namespace, tool)
+		if err != nil {
+			return nil, nil, err
+		}
+		mainTool.Tools = append(mainTool.Tools, name)
+	}
+
 	mainTool, otherTools, err := addAgentTools(ctx, db, agent, mainTool, otherTools)
 	if err != nil {
 		return nil, nil, err
@@ -73,16 +100,17 @@ func Agent(ctx context.Context, db kclient.Client, agent *v1.Agent, oauthServerU
 		return nil, nil, err
 	}
 
-	mainTool, otherTools, err = addKnowledgeTools(ctx, db, agent, opts.Thread, mainTool, otherTools)
+	extraEnv, err = addKnowledgeTools(ctx, db, agent, opts.Thread, extraEnv)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	if oauthEnv, err := OAuthAppEnv(ctx, db, agent.Spec.Manifest.OAuthApps, agent.Namespace, oauthServerURL); err != nil {
+	oauthEnv, err := OAuthAppEnv(ctx, db, agent.Spec.Manifest.OAuthApps, agent.Namespace, oauthServerURL)
+	if err != nil {
 		return nil, nil, err
-	} else {
-		extraEnv = append(extraEnv, oauthEnv...)
 	}
+
+	extraEnv = append(extraEnv, oauthEnv...)
 
 	return append([]gptscript.ToolDef{mainTool}, otherTools...), extraEnv, nil
 }
@@ -130,7 +158,7 @@ func OAuthAppEnv(ctx context.Context, db kclient.Client, oauthAppNames []string,
 	return extraEnv, nil
 }
 
-func addKnowledgeTools(ctx context.Context, db kclient.Client, agent *v1.Agent, thread *v1.Thread, mainTool gptscript.ToolDef, otherTools []gptscript.ToolDef) (_ gptscript.ToolDef, _ []gptscript.ToolDef, _ error) {
+func addKnowledgeTools(ctx context.Context, db kclient.Client, agent *v1.Agent, thread *v1.Thread, extraEnv []string) ([]string, error) {
 	var knowledgeSetNames []string
 	knowledgeSetNames = append(knowledgeSetNames, agent.Status.KnowledgeSetNames...)
 	if thread != nil {
@@ -138,25 +166,15 @@ func addKnowledgeTools(ctx context.Context, db kclient.Client, agent *v1.Agent, 
 	}
 
 	if len(knowledgeSetNames) == 0 {
-		return mainTool, otherTools, nil
+		return extraEnv, nil
 	}
 
-	knowledgeTool, err := ResolveToolReference(ctx, db, types.ToolReferenceTypeSystem, agent.Namespace, system.KnowledgeRetrievalTool)
-	if err != nil {
-		return mainTool, nil, err
-	}
-
-	resultFormatter, err := ResolveToolReference(ctx, db, types.ToolReferenceTypeSystem, agent.Namespace, system.ResultFormatterTool)
-	if err != nil {
-		return mainTool, nil, err
-	}
-
-	for i, knowledgeSetName := range knowledgeSetNames {
+	for _, knowledgeSetName := range knowledgeSetNames {
 		var ks v1.KnowledgeSet
 		if err := db.Get(ctx, kclient.ObjectKey{Namespace: agent.Namespace, Name: knowledgeSetName}, &ks); apierror.IsNotFound(err) {
 			continue
 		} else if err != nil {
-			return mainTool, nil, err
+			return nil, err
 		}
 
 		if !ks.Status.HasContent {
@@ -175,44 +193,13 @@ func addKnowledgeTools(ctx context.Context, db kclient.Client, agent *v1.Agent, 
 			dataDescription = "No data description available"
 		}
 
-		toolName := "knowledge_set_query"
-		if i > 0 {
-			toolName = fmt.Sprintf("knowledge_set_%d_query", i)
-		}
-
-		tool := gptscript.ToolDef{
-			Name:         toolName,
-			Description:  fmt.Sprintf("Obtain search result from the knowledge set known as %s", ks.Name),
-			Instructions: "#!sys.echo",
-			Arguments: gptscript.ObjectSchema(
-				"query", "A search query that will be evaluated against the knowledge set"),
-			OutputFilters: []string{
-				knowledgeTool + fmt.Sprintf(fmt.Sprintf(" with %s/%s as datasets and ${query} as query", ks.Namespace, ks.Name)),
-				resultFormatter,
-			},
-		}
-
-		contentTool := gptscript.ToolDef{
-			Name: toolName + "_context",
-			Instructions: strings.ReplaceAll(strings.ReplaceAll(strings.ReplaceAll(`
-#!sys.echo
-# START INSTRUCTIONS: KNOWLEDGE SET: %n%
-
-Use the tool %k% to query knowledge set %n% to assist in Retrieval-Augmented Generation (RAG).
-The knowledge set %n% contains data described as:
-
-%d%
-
-# END INSTRUCTIONS: KNOWLEDGE SET: %n%
-`, "%k%", toolName), "%d%", dataDescription), "%n%", ks.Name),
-		}
-
-		mainTool.Tools = append(mainTool.Tools, tool.Name)
-		mainTool.Context = append(mainTool.Context, contentTool.Name)
-		otherTools = append(otherTools, tool, contentTool)
+		return append(extraEnv,
+			fmt.Sprintf("KNOW_DATASETS=%s/%s", ks.Namespace, ks.Name),
+			fmt.Sprintf("KNOW_DATASET_DESCRIPTION=%s", dataDescription),
+		), nil
 	}
 
-	return mainTool, otherTools, nil
+	return extraEnv, nil
 }
 
 func addWorkflowTools(ctx context.Context, db kclient.Client, agent *v1.Agent, mainTool gptscript.ToolDef, otherTools []gptscript.ToolDef) (_ gptscript.ToolDef, _ []gptscript.ToolDef, _ error) {
@@ -280,7 +267,7 @@ func manifestToTool(manifest types.AgentManifest, agentType, ref, id string) gpt
 		}
 	}
 	toolDef.Instructions = fmt.Sprintf(`#!/bin/bash
-#OTTO8_SUBCALL: TARGET: %s
+#ACORN_SUBCALL: TARGET: %s
 INPUT=$(${GPTSCRIPT_BIN} getenv GPTSCRIPT_INPUT)
 if echo "${INPUT}" | grep -q '^{'; then
 	echo '{"%s":"%s","type":"OttoSubFlow",'
@@ -326,7 +313,7 @@ func agentsByName(ctx context.Context, db kclient.Client, namespace string) (map
 	}
 
 	sort.Slice(agents.Items, func(i, j int) bool {
-		return agents.Items[i].Name < agents.Items[i].Name
+		return agents.Items[i].Name < agents.Items[j].Name
 	})
 
 	result := map[string]v1.Agent{}
@@ -359,7 +346,7 @@ func WorkflowByName(ctx context.Context, db kclient.Client, namespace string) (m
 	}
 
 	sort.Slice(workflows.Items, func(i, j int) bool {
-		return workflows.Items[i].Name < workflows.Items[i].Name
+		return workflows.Items[i].Name < workflows.Items[j].Name
 	})
 
 	result := map[string]v1.Workflow{}

@@ -26,9 +26,6 @@ func (s *SpinnerPrinter) EnsureNewline() {
 	}
 }
 
-func (s *SpinnerPrinter) tick() {
-}
-
 func (s *SpinnerPrinter) Start() {
 	if !s.running {
 		// Hide the cursor

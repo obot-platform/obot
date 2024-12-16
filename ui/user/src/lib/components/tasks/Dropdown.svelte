@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { ChevronDown } from '$lib/icons';
 	import { popover } from '$lib/actions';
-	import { fade } from 'svelte/transition';
 
 	interface Props {
 		values: Record<string, string>;
@@ -21,50 +20,45 @@
 	}
 </script>
 
-<button
-	use:ref
-	onclick={() => {
-		if (!disabled) {
+{#if disabled}
+	<span class="flex items-center gap-2 rounded-3xl p-3 px-4 capitalize">
+		{selected ? values[selected] : values[''] || ''}
+	</span>
+{:else}
+	<button
+		use:ref
+		onclick={() => {
 			toggle();
-		}
-	}}
-	class="flex items-center gap-2 capitalize"
->
-	{selected ? values[selected] : values[''] || ''}
-	{#if !disabled}
-		<div transition:fade={{ duration: 300 }}>
-			<ChevronDown />
-		</div>
-	{/if}
-</button>
-
-<div use:tooltip class="z-30 rounded-lg bg-white shadow dark:bg-gray-700">
-	<ul>
-		{#each Object.keys(values) as key}
-			{@const value = values[key]}
-			<li class:selected={selected === key}>
-				<button class="w-full text-start capitalize" onclick={() => select(key)}>
-					{value}
-				</button>
-			</li>
-		{/each}
-	</ul>
-</div>
+		}}
+		class="flex items-center gap-2 rounded-3xl p-3 px-4 capitalize hover:bg-gray-70 dark:hover:bg-gray-900"
+	>
+		{selected ? values[selected] : values[''] || ''}
+		<ChevronDown />
+	</button>
+	<div use:tooltip class="z-30 min-w-[150px] rounded-3xl bg-white shadow dark:bg-gray-900">
+		<ul>
+			{#each Object.keys(values) as key}
+				{@const value = values[key]}
+				<li>
+					<button
+						class:bg-gray-70={selected === key}
+						class:dark:bg-gray-800={selected === key}
+						class="w-full px-6 py-2.5 text-start capitalize hover:bg-gray-100 dark:hover:bg-gray-800"
+						onclick={() => select(key)}
+					>
+						{value}
+					</button>
+				</li>
+			{/each}
+		</ul>
+	</div>
+{/if}
 
 <style lang="postcss">
-	button {
-		@apply px-4 py-1 hover:bg-gray-100;
+	li:first-child button {
+		@apply rounded-t-3xl pt-4;
 	}
-
-	.selected {
-		@apply bg-gray-50;
-	}
-
-	li:first-of-type {
-		@apply rounded-t-lg pt-2;
-	}
-
-	li:last-of-type {
-		@apply rounded-b-lg pb-2;
+	li:last-child button {
+		@apply rounded-b-3xl pb-4;
 	}
 </style>

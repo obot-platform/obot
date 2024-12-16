@@ -4,12 +4,13 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/otto8-ai/nah/pkg/router"
-	"github.com/otto8-ai/otto8/pkg/controller/data"
-	"github.com/otto8-ai/otto8/pkg/controller/handlers/toolreference"
-	"github.com/otto8-ai/otto8/pkg/services"
+	"github.com/acorn-io/acorn/pkg/controller/data"
+	"github.com/acorn-io/acorn/pkg/controller/handlers/toolreference"
+	"github.com/acorn-io/acorn/pkg/services"
+	"github.com/acorn-io/nah/pkg/router"
+
 	// Enable logrus logging in nah
-	_ "github.com/otto8-ai/nah/pkg/logrus"
+	_ "github.com/acorn-io/nah/pkg/logrus"
 )
 
 type Controller struct {
@@ -37,7 +38,7 @@ func (c *Controller) PostStart(ctx context.Context) error {
 		return fmt.Errorf("failed to apply data: %w", err)
 	}
 	go c.toolRefHandler.PollRegistry(ctx, c.services.Router.Backend())
-	return c.toolRefHandler.EnsureOpenAIEnvCredential(ctx, c.services.Router.Backend())
+	return c.toolRefHandler.EnsureOpenAIEnvCredentialAndDefaults(ctx, c.services.Router.Backend())
 }
 
 func (c *Controller) Start(ctx context.Context) error {

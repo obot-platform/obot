@@ -1,13 +1,13 @@
 package cli
 
 import (
-	"github.com/otto8-ai/otto8/apiclient"
-	"github.com/otto8-ai/otto8/pkg/cli/events"
+	"github.com/acorn-io/acorn/apiclient"
+	"github.com/acorn-io/acorn/pkg/cli/events"
 	"github.com/spf13/cobra"
 )
 
 type ThreadPrint struct {
-	root    *Otto8
+	root    *Acorn
 	Quiet   bool `usage:"Only print response content of threads" short:"q"`
 	Follow  bool `usage:"Follow the thread and print new events" short:"f"`
 	Verbose bool `usage:"Print more information" short:"v"`
@@ -30,5 +30,5 @@ func (l *ThreadPrint) Run(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	return printer.Print("", events)
+	return printer.Print(events)
 }

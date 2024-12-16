@@ -1,11 +1,11 @@
 package generic
 
 import (
-	"github.com/otto8-ai/kinm/pkg/db"
-	"github.com/otto8-ai/kinm/pkg/stores"
-	"github.com/otto8-ai/kinm/pkg/strategy"
-	"github.com/otto8-ai/otto8/pkg/storage/scheme"
-	"github.com/otto8-ai/otto8/pkg/storage/tables"
+	"github.com/acorn-io/acorn/pkg/storage/scheme"
+	"github.com/acorn-io/acorn/pkg/storage/tables"
+	"github.com/acorn-io/kinm/pkg/db"
+	"github.com/acorn-io/kinm/pkg/stores"
+	"github.com/acorn-io/kinm/pkg/strategy"
 	"k8s.io/apiserver/pkg/registry/rest"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )

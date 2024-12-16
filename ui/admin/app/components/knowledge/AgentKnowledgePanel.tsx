@@ -11,6 +11,7 @@ import {
     UploadIcon,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { $path } from "remix-routes";
 import useSWR, { SWRResponse } from "swr";
 
 import { Agent } from "~/lib/model/agents";
@@ -23,10 +24,14 @@ import {
     getKnowledgeSourceDisplayName,
     getKnowledgeSourceType,
 } from "~/lib/model/knowledge";
+import { ModelAlias } from "~/lib/model/models";
+import { DefaultModelAliasApiService } from "~/lib/service/api/defaultModelAliasApiService";
 import { KnowledgeService } from "~/lib/service/api/knowledgeService";
 import { assetUrl } from "~/lib/utils";
 
+import { TypographyP } from "~/components/Typography";
 import { ErrorDialog } from "~/components/composed/ErrorDialog";
+import { WarningAlert } from "~/components/composed/WarningAlert";
 import AddSourceModal from "~/components/knowledge/AddSourceModal";
 import FileStatusIcon from "~/components/knowledge/FileStatusIcon";
 import RemoteFileAvatar from "~/components/knowledge/KnowledgeSourceAvatar";
@@ -41,6 +46,7 @@ import {
 } from "~/components/ui/dropdown-menu";
 import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
+import { Link } from "~/components/ui/link";
 import { AutosizeTextarea } from "~/components/ui/textarea";
 import {
     Tooltip,
@@ -79,6 +85,11 @@ export default function AgentKnowledgePanel({
         useState(false);
 
     const [errorDialogError, setErrorDialogError] = useState("");
+
+    const { data: defaultAliases } = useSWR(
+        DefaultModelAliasApiService.getAliases.key(),
+        DefaultModelAliasApiService.getAliases
+    );
 
     const getLocalFiles: SWRResponse<KnowledgeFile[], Error> = useSWR(
         KnowledgeService.getLocalKnowledgeFilesForAgent.key(agentId),
@@ -216,11 +227,29 @@ export default function AgentKnowledgePanel({
         );
     }, [knowledgeSources, selectedKnowledgeSourceId]);
 
+    const hasDefaultTextEmbedding = defaultAliases?.some(
+        (alias) => alias.alias === ModelAlias.TextEmbedding && !!alias.model
+    );
     return (
         <div className="flex flex-col gap-4 justify-center items-center">
+            {!hasDefaultTextEmbedding && (
+                <WarningAlert
+                    title="Default Text Embedding Model Required!"
+                    description={
+                        <TypographyP>
+                            In order to process the knowledge base for your
+                            agent, you&apos;ll need to set up a default text
+                            embedding model. Click{" "}
+                            <Link to={$path("/model-providers")}>here</Link> to
+                            update your model provider and/or default models.
+                        </TypographyP>
+                    }
+                />
+            )}
             <div className="grid w-full gap-2">
                 <Label htmlFor="message">Knowledge Description</Label>
                 <AutosizeTextarea
+                    disabled={!hasDefaultTextEmbedding}
                     maxHeight={200}
                     placeholder="Provide a brief description of the information contained in this knowledge base. Example: A collection of documents about the human resources policies and procedures for Acme Corporation."
                     id="message"
@@ -437,6 +466,7 @@ export default function AgentKnowledgePanel({
                             <Button
                                 variant="ghost"
                                 className="flex items-center gap-2"
+                                disabled={!hasDefaultTextEmbedding}
                             >
                                 <PlusIcon className="h-5 w-5 text-foreground" />
                                 Add Knowledge

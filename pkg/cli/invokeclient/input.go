@@ -1,17 +1,15 @@
 package invokeclient
 
 import (
-	"context"
-
-	"github.com/otto8-ai/otto8/apiclient"
-	"github.com/otto8-ai/otto8/apiclient/types"
-	"github.com/otto8-ai/otto8/pkg/cli/textio"
+	"github.com/acorn-io/acorn/apiclient"
+	"github.com/acorn-io/acorn/apiclient/types"
+	"github.com/acorn-io/acorn/pkg/cli/textio"
 )
 
 type QuietInputter struct {
 }
 
-func (d QuietInputter) Next(_ context.Context, previous string, resp *types.InvokeResponse) (string, bool, error) {
+func (d QuietInputter) Next(previous string, resp *types.InvokeResponse) (string, bool, error) {
 	if resp == nil {
 		return previous, true, nil
 	}
@@ -30,7 +28,7 @@ func nextInput() (string, bool, error) {
 	return x, true, nil
 }
 
-func (d VerboseInputter) Next(ctx context.Context, previous string, resp *types.InvokeResponse) (string, bool, error) {
+func (d VerboseInputter) Next(previous string, resp *types.InvokeResponse) (string, bool, error) {
 	if resp == nil {
 		if previous == "" {
 			return nextInput()

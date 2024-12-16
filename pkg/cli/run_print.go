@@ -1,12 +1,12 @@
 package cli
 
 import (
-	"github.com/otto8-ai/otto8/pkg/cli/events"
+	"github.com/acorn-io/acorn/pkg/cli/events"
 	"github.com/spf13/cobra"
 )
 
 type RunPrint struct {
-	root    *Otto8
+	root    *Acorn
 	Quiet   bool `usage:"Only print the response content of the runs" short:"q"`
 	Verbose bool `usage:"Print more information" short:"v"`
 }
@@ -23,5 +23,5 @@ func (l *RunPrint) Run(cmd *cobra.Command, args []string) error {
 	}
 
 	printer := events.NewPrinter(cmd.Context(), l.root.Client, l.Quiet, l.Verbose)
-	return printer.Print("", debug)
+	return printer.Print(debug)
 }

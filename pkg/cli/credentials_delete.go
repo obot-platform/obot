@@ -4,13 +4,13 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/otto8-ai/otto8/apiclient"
-	"github.com/otto8-ai/otto8/pkg/system"
+	"github.com/acorn-io/acorn/apiclient"
+	"github.com/acorn-io/acorn/pkg/system"
 	"github.com/spf13/cobra"
 )
 
 type CredentialsDelete struct {
-	root  *Otto8
+	root  *Acorn
 	Quiet bool `usage:"Only print IDs of credentials" short:"q"`
 }
 

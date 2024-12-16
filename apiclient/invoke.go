@@ -7,7 +7,7 @@ import (
 	"io"
 	"net/http"
 
-	"github.com/otto8-ai/otto8/apiclient/types"
+	"github.com/acorn-io/acorn/apiclient/types"
 )
 
 type InvokeOptions struct {
@@ -35,7 +35,10 @@ func (c *Client) Invoke(ctx context.Context, agentID string, input string, opts 
 	if opts.Async {
 		_, _ = io.Copy(io.Discard, resp.Body)
 		resp.Body.Close()
+		events := make(chan types.Progress)
+		close(events)
 		return &types.InvokeResponse{
+			Events:   events,
 			ThreadID: resp.Header.Get("X-Otto-Thread-Id"),
 		}, nil
 	}

@@ -6,13 +6,26 @@
 	import Files from '$lib/components/navbar/Files.svelte';
 	import KnowledgeFile from '$lib/components/navbar/KnowledgeFiles.svelte';
 	import Tasks from '$lib/components/navbar/Tasks.svelte';
-	import { onMount } from 'svelte';
+	import Tables from '$lib/components/navbar/Tables.svelte';
+	import { tools } from '$lib/stores';
 
-	let showTasks = $state(false);
+	function hasOptionalTools() {
+		for (const tool of $tools.items) {
+			if (!tool.builtin) {
+				return true;
+			}
+		}
+		return false;
+	}
 
-	onMount(() => {
-		showTasks = window.location.href.split('?')[1]?.includes('tasks=1');
-	});
+	function hasTool(tool: string) {
+		for (const t of $tools.items) {
+			if (t.id === tool) {
+				return t.enabled || t.builtin;
+			}
+		}
+		return false;
+	}
 </script>
 
 <nav
@@ -24,12 +37,21 @@ via-80%"
 		<div class="flex items-center justify-between">
 			<Logo />
 			<div class="flex items-center gap-1 pr-2">
-				{#if showTasks}
+				{#if hasTool('tasks')}
 					<Tasks />
 				{/if}
-				<KnowledgeFile />
-				<Files />
-				<Tools />
+				{#if hasTool('database')}
+					<Tables />
+				{/if}
+				{#if hasTool('knowledge')}
+					<KnowledgeFile />
+				{/if}
+				{#if hasTool('workspace-files')}
+					<Files />
+				{/if}
+				{#if hasOptionalTools()}
+					<Tools />
+				{/if}
 				<DarkModeToggle />
 				<Profile />
 			</div>

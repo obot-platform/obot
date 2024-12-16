@@ -15,6 +15,6 @@ func Ask(text, def string) (string, error) {
 		WithDefaultValue(def).Show(text)
 }
 
-func Select(text string, options map[string]string, def string) (string, error) {
+func Select(string, map[string]string, string) (string, error) {
 	return "", nil
 }

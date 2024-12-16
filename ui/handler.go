@@ -14,10 +14,12 @@ import (
 var embedded embed.FS
 
 func Handler(devPort int) http.Handler {
+	server := &uiServer{}
+
 	if devPort == 0 {
-		return http.HandlerFunc(serve)
+		return server
 	}
-	rp := httputil.ReverseProxy{
+	return &httputil.ReverseProxy{
 		Director: func(r *http.Request) {
 			r.URL.Scheme = "http"
 			if strings.HasPrefix(r.URL.Path, "/admin") {
@@ -27,10 +29,11 @@ func Handler(devPort int) http.Handler {
 			}
 		},
 	}
-	return &rp
 }
 
-func serve(w http.ResponseWriter, r *http.Request) {
+type uiServer struct{}
+
+func (s *uiServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if !strings.Contains(strings.ToLower(r.UserAgent()), "mozilla") {
 		http.NotFound(w, r)
 		return
@@ -39,9 +42,7 @@ func serve(w http.ResponseWriter, r *http.Request) {
 	userPath := path.Join("user/build/", r.URL.Path)
 	adminPath := path.Join("admin/build/client", strings.TrimPrefix(r.URL.Path, "/admin"))
 
-	if r.URL.Path == "/" {
-		http.ServeFileFS(w, r, embedded, "user/build/index.html")
-	} else if _, err := fs.Stat(embedded, userPath); err == nil {
+	if _, err := fs.Stat(embedded, userPath); err == nil {
 		http.ServeFileFS(w, r, embedded, userPath)
 	} else if _, err := fs.Stat(embedded, adminPath); err == nil {
 		http.ServeFileFS(w, r, embedded, adminPath)

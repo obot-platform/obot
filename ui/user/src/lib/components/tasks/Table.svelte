@@ -3,13 +3,14 @@
 
 	interface Props {
 		header: string[];
+		placeholders?: string[];
 		rows: string[][];
 		buttons?: Snippet<[string[]]>;
 		onCellBlur?: (value: string, row: number, col: number) => void | Promise<void>;
 		editable?: boolean;
 	}
 
-	let { header, rows, buttons, editable, onCellBlur }: Props = $props();
+	let { header, placeholders, rows, buttons, editable, onCellBlur }: Props = $props();
 </script>
 
 {#snippet drawCell(value: string, row: number, col: number)}
@@ -17,12 +18,13 @@
 		<input
 			type="text"
 			{value}
-			class="w-full"
+			class="w-full bg-gray-50 dark:bg-gray-950"
 			onblur={(e) => {
 				if (e.target instanceof HTMLInputElement) {
 					onCellBlur?.(e.target.value, row, col);
 				}
 			}}
+			placeholder={placeholders?.[col] ?? ''}
 			onkeydown={(e) => {
 				if (e.key === 'Enter' && e.target instanceof HTMLInputElement) {
 					e.target.blur();
@@ -34,11 +36,11 @@
 	{/if}
 {/snippet}
 
-<table class="w-full">
-	<thead>
+<table class="w-full text-left">
+	<thead class="font-semibold">
 		<tr>
 			{#each header as key}
-				<th>
+				<th class="">
 					{key}
 				</th>
 			{/each}
@@ -67,16 +69,4 @@
 </table>
 
 <style lang="postcss">
-	thead > tr > th {
-		@apply bg-gray-100 font-semibold;
-	}
-
-	thead:dark > tr:dark > th:dark {
-		@apply bg-gray-950;
-	}
-
-	th,
-	td {
-		@apply bg-gray-50 p-2 ps-5 text-left;
-	}
 </style>

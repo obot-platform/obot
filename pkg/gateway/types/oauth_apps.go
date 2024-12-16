@@ -7,7 +7,7 @@ import (
 	"regexp"
 	"time"
 
-	"github.com/otto8-ai/otto8/apiclient/types"
+	"github.com/acorn-io/acorn/apiclient/types"
 )
 
 const (
@@ -23,7 +23,7 @@ const (
 	GoogleAuthorizeURL = "https://accounts.google.com/o/oauth2/v2/auth"
 	GoogleTokenURL     = "https://oauth2.googleapis.com/token"
 
-	GitHubAuthorizeUrl = "https://github.com/login/oauth/authorize"
+	GitHubAuthorizeURL = "https://github.com/login/oauth/authorize"
 )
 
 var (
@@ -60,7 +60,7 @@ func ValidateAndSetDefaultsOAuthAppManifest(r *types.OAuthAppManifest, create bo
 		r.AuthURL = GoogleAuthorizeURL
 		r.TokenURL = GoogleTokenURL
 	case types.OAuthAppTypeGitHub:
-		r.AuthURL = GitHubAuthorizeUrl
+		r.AuthURL = GitHubAuthorizeURL
 		r.TokenURL = GitHubTokenURL
 	}
 

@@ -7,6 +7,7 @@ import { z } from "zod";
 import { ControlledInput } from "~/components/form/controlledInputs";
 import { Button } from "~/components/ui/button";
 import { Form } from "~/components/ui/form";
+import { InputProps } from "~/components/ui/input";
 
 const formSchema = z.object({
     params: z.array(
@@ -28,10 +29,14 @@ export function NameDescriptionForm({
     defaultValues,
     onChange,
     addLabel = "Add",
+    nameFieldProps,
+    descriptionFieldProps,
 }: {
     defaultValues: Item[];
     onChange: (values: Item[]) => void;
     addLabel?: string;
+    nameFieldProps?: InputProps;
+    descriptionFieldProps?: InputProps;
 }) {
     const form = useForm<ParamFormValues>({
         resolver: zodResolver(formSchema),
@@ -63,6 +68,7 @@ export function NameDescriptionForm({
                         key={field.id}
                     >
                         <ControlledInput
+                            {...nameFieldProps}
                             control={form.control}
                             name={`params.${i}.name`}
                             placeholder="Name"
@@ -70,6 +76,7 @@ export function NameDescriptionForm({
                         />
 
                         <ControlledInput
+                            {...descriptionFieldProps}
                             control={form.control}
                             name={`params.${i}.description`}
                             placeholder="Description"

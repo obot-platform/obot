@@ -8,17 +8,17 @@ import (
 	"strings"
 	"time"
 
-	"github.com/otto8-ai/otto8/pkg/gateway/client"
-	"github.com/otto8-ai/otto8/pkg/gateway/db"
-	"github.com/otto8-ai/otto8/pkg/gateway/server/dispatcher"
-	"github.com/otto8-ai/otto8/pkg/gateway/types"
-	"github.com/otto8-ai/otto8/pkg/jwt"
+	"github.com/acorn-io/acorn/pkg/gateway/client"
+	"github.com/acorn-io/acorn/pkg/gateway/db"
+	"github.com/acorn-io/acorn/pkg/gateway/server/dispatcher"
+	"github.com/acorn-io/acorn/pkg/gateway/types"
+	"github.com/acorn-io/acorn/pkg/jwt"
 	"gorm.io/gorm"
 )
 
 type Options struct {
 	Hostname     string
-	UIHostname   string `name:"ui-hostname" env:"OTTO8_SERVER_UI_HOSTNAME"`
+	UIHostname   string `name:"ui-hostname" env:"ACORN_SERVER_UI_HOSTNAME"`
 	GatewayDebug bool
 }
 

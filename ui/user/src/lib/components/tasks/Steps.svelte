@@ -1,100 +1,149 @@
 <script lang="ts">
-	import { ChatService, type Task, type TaskStep } from '$lib/services';
-	import { createStepMessages, currentAssistant, type StepMessages } from '$lib/stores';
+	import { type Messages, type Task, type TaskStep } from '$lib/services';
+	import { currentAssistant, errors } from '$lib/stores';
 	import { onDestroy } from 'svelte';
 	import Step from '$lib/components/tasks/Step.svelte';
-	import { Play } from 'lucide-svelte';
-	import { autoHeight } from '$lib/actions/textarea';
+	import { LoaderCircle, OctagonX, Play } from 'lucide-svelte';
+	import { SvelteMap } from 'svelte/reactivity';
+	import { Thread } from '$lib/services/chat/thread.svelte';
+	import Input from '$lib/components/tasks/Input.svelte';
+	import Type from '$lib/components/tasks/Type.svelte';
 
 	interface Props {
 		task: Task;
 		editMode?: boolean;
+		onChanged?: (task: Task) => void | Promise<void>;
 		save?: (steps: TaskStep[]) => void | Promise<void>;
+		selectedRun?: string;
 	}
 
-	let { task, editMode = false, save }: Props = $props();
+	let { task, editMode = false, save, onChanged, selectedRun }: Props = $props();
 
-	let stepMessages = $state<StepMessages>();
-	let steps = $derived(task.steps ?? []);
+	let stepMessages = new SvelteMap<string, Messages>();
+	let allMessages = $state<Messages>({ messages: [], inProgress: false });
 	let input = $state('');
+	let thread: Thread | undefined = $state<Thread>();
+	let pending = $derived(thread?.pending ?? false);
+	let running = $derived(allMessages.inProgress);
+	let nextStep: Step | undefined = $state();
+	let displayedRun = $state<string>('');
 
-	onDestroy(() => {
-		if (stepMessages) {
-			stepMessages.close();
-		}
-	});
+	onDestroy(closeThread);
+	$effect(resetThread);
 
-	$effect(() => {
-		if (!editMode && stepMessages) {
-			stepMessages.close();
-			stepMessages = undefined;
-		}
-	});
-
-	function listen() {
-		stepMessages = createStepMessages($currentAssistant.id, {
-			task: {
-				id: task.id,
-				follow: true
-			},
-			onClose: () => {
-				stepMessages = undefined;
-				setTimeout(listen, 2000);
+	function resetThread() {
+		if (editMode) {
+			if (displayedRun) {
+				closeThread();
 			}
-		});
+			if (!thread) {
+				newThread();
+			}
+		} else {
+			if (selectedRun) {
+				if (displayedRun !== selectedRun) {
+					newThread(selectedRun);
+				}
+			} else {
+				closeThread();
+			}
+		}
 	}
 
-	async function run(step?: TaskStep, steps?: TaskStep[]) {
-		if (!stepMessages) {
-			listen();
+	function closeThread() {
+		if (!thread) {
+			return;
 		}
 
-		if (steps) {
-			await save?.(steps);
+		thread.close();
+		thread = undefined;
+		stepMessages.clear();
+		allMessages = { messages: [], inProgress: false };
+		displayedRun = '';
+	}
+
+	function newThread(runID?: string) {
+		closeThread();
+		thread = new Thread($currentAssistant.id, {
+			onError: errors.append,
+			task: task,
+			runID: runID
+		});
+		stepMessages.clear();
+		thread.onStepMessages = (stepID, messages) => {
+			stepMessages.set(stepID, messages);
+		};
+		thread.onMessages = (messages) => {
+			allMessages = messages;
+		};
+		displayedRun = runID || '';
+	}
+
+	async function click() {
+		if (running || pending) {
+			errors.append(new Error('Abort is not implemented for tasks'));
+		}
+		if (nextStep) {
+			await nextStep.saveAll();
+		}
+		await run();
+	}
+
+	async function run(step?: TaskStep, saveSteps?: TaskStep[]) {
+		if (!thread || !task.id) {
+			return;
 		}
 
-		const resp = await ChatService.runTask($currentAssistant.id, task.id, {
+		if (saveSteps) {
+			await save?.(saveSteps);
+		}
+
+		await thread.runTask(task.id, {
 			stepID: step?.id || '*',
 			input: input
 		});
-
-		console.log(`running task ${task.id} step ${step?.id} on runID ${resp.id}`);
 	}
 </script>
 
-{#if editMode}
-	<div class="mt-8 rounded-3xl bg-gray-50 p-5 dark:bg-gray-950">
-		<h4 class="text-xl font-semibold">Test Input</h4>
-		<textarea
-			bind:value={input}
-			use:autoHeight
-			rows="1"
-			class="mt-2 w-full resize-none rounded-md bg-gray-50 p-2 outline-none dark:bg-gray-950"
-			placeholder="Enter input"
-		></textarea>
-	</div>
-{/if}
+<Input {editMode} bind:input {task} displayRunID={selectedRun} />
 
 <div class="mt-8 rounded-3xl bg-gray-50 p-5 dark:bg-gray-950">
 	<div class="flex items-center justify-between">
 		<h4 class="text-xl font-semibold">Steps</h4>
+		<Type {task} {editMode} {onChanged} />
 		{#if editMode}
-			<button
-				class="flex items-center gap-2 rounded-3xl bg-blue px-5 py-2 text-white hover:bg-blue-400"
-				onclick={async () => {
-					await run();
-				}}
-			>
-				Run now
-				<Play class="h-5 w-5" />
-			</button>
+			<div>
+				<button
+					class="ml-2 flex items-center gap-2 rounded-3xl bg-blue px-5 py-2 text-white hover:bg-blue-400"
+					onclick={click}
+				>
+					{#if running}
+						Stop
+						<OctagonX class="h-4 w-4" />
+					{:else if pending}
+						Cancel
+						<LoaderCircle class="h-4 w-4 animate-spin" />
+					{:else}
+						<Play class="h-4 w-4" />
+					{/if}
+				</button>
+			</div>
 		{/if}
 	</div>
 
 	<ol class="list-decimal pt-2 opacity-100">
-		{#if steps.length > 0}
-			{#key steps[0].id}
-				<Step {run} onChange={save} {steps} index={0} {stepMessages} {editMode} />
+		{#if task.steps.length > 0}
+			{#key task.steps[0].id}
+				<Step
+					bind:this={nextStep}
+					{run}
+					onChange={save}
+					{task}
+					index={0}
+					{stepMessages}
+					{editMode}
+					{pending}
+				/>
 			{/key}
 		{/if}
 	</ol>

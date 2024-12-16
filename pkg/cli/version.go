@@ -3,15 +3,13 @@ package cli
 import (
 	"fmt"
 
-	"github.com/otto8-ai/otto8/pkg/version"
+	"github.com/acorn-io/acorn/pkg/version"
 	"github.com/spf13/cobra"
 )
 
-type Version struct {
-	root *Otto8
-}
+type Version struct{}
 
-func (l *Version) Run(cmd *cobra.Command, args []string) error {
+func (l *Version) Run(*cobra.Command, []string) error {
 	fmt.Println("Version: ", version.Get())
 	return nil
 }

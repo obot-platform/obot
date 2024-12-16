@@ -1,6 +1,7 @@
 import { preload } from "swr";
 
 import { OauthAppService } from "~/lib/service/api/oauthAppService";
+import { RouteHandle } from "~/lib/service/routeHandles";
 
 import { TypographyH2 } from "~/components/Typography";
 import { OAuthAppList } from "~/components/oauth-apps/OAuthAppList";
@@ -33,3 +34,7 @@ export default function OauthApps() {
         </div>
     );
 }
+
+export const handle: RouteHandle = {
+    breadcrumb: () => [{ content: "OAuth Apps" }],
+};

@@ -1,83 +1,81 @@
 <script lang="ts">
 	import Self from './Step.svelte';
-	import type { TaskStep } from '$lib/services';
-	import type { StepMessages } from '$lib/stores';
+	import { ChatService, type Messages, type Task, type TaskStep } from '$lib/services';
 	import Message from '$lib/components/messages/Message.svelte';
-	import { X } from '$lib/icons';
-	import { CheckCircle, RefreshCcw, Save, Undo, XCircle } from 'lucide-svelte';
+	import { Plus, Trash } from '$lib/icons';
+	import { LoaderCircle, OctagonX, Play, RefreshCcw, Save, Undo } from 'lucide-svelte';
 	import { tick } from 'svelte';
 	import { autoHeight } from '$lib/actions/textarea';
+	import Modal from '$lib/components/Modal.svelte';
+	import { currentAssistant } from '$lib/stores';
 
 	interface Props {
 		parentStale?: boolean;
 		onChange?: (steps: TaskStep[]) => void | Promise<void>;
 		run?: (step: TaskStep, steps?: TaskStep[]) => Promise<void>;
-		steps: TaskStep[];
+		task: Task;
 		index: number;
+		pending?: boolean;
 		editMode?: boolean;
-		stepMessages?: StepMessages;
+		stepMessages?: Map<string, Messages>;
 	}
 
 	let {
 		parentStale,
 		onChange,
 		run,
-		steps,
+		task,
 		index,
 		editMode = false,
+		pending,
 		stepMessages
 	}: Props = $props();
 
-	let step = $derived(steps[index]);
-	let messages = $derived(stepMessages?.messages.get(step.id)?.messages ?? []);
-	let currentValue = $state(textValue(steps[index]));
-	let dirty = $derived(textValue(steps[index]) !== currentValue);
-	let stale: boolean = $derived(dirty || parentStale || false);
-	let isIf: boolean = $derived(currentValue?.startsWith('If ') || false);
-	let isThenPath: boolean = $derived.by(() => {
-		for (const message of messages) {
-			return message.message.join('').trim().toLowerCase() == 'true';
-		}
-		return false;
-	});
-	let isElsePath: boolean = $derived.by(() => {
-		for (const message of messages) {
-			return message.message.join('').trim().toLowerCase() == 'false';
-		}
-		return false;
-	});
+	let step = $derived(task.steps[index]);
+	let messages = $derived(stepMessages?.get(step.id)?.messages ?? []);
+	let lastSeenValue: string | undefined = $state();
+	let currentValue = $state(task.steps[index].step);
+	let dirty = $derived(task.steps[index].step !== currentValue);
+	let stale: boolean = $derived(dirty || parentStale || !parentMatches());
+	let running = $derived(stepMessages?.get(step.id)?.inProgress ?? false);
+	let toDelete: boolean | undefined = $state();
+	let nextStep: Self | undefined = $state();
 
 	$effect(() => {
-		if (!currentValue?.trimStart().toLowerCase().startsWith('if ')) {
-			return;
-		}
-
-		const newValue = currentValue.trimStart().replace(/^[iI][fF]/, 'If');
-		if (newValue !== currentValue) {
-			currentValue = newValue;
-		}
-
-		if (steps.length < index + 2) {
-			console.log('if detected');
-			steps.push(createStep());
-		}
-
-		if (!step.if) {
-			console.log('creating if');
-			step.if = {
-				condition: '',
-				steps: [createStep()],
-				else: [createStep()]
-			};
+		if (editMode) {
+			if (lastSeenValue !== step.step) {
+				currentValue = step.step;
+				lastSeenValue = step.step;
+			}
+		} else {
+			if (currentValue !== step.step) {
+				currentValue = step.step;
+			}
+			if (lastSeenValue !== '') {
+				lastSeenValue = '';
+			}
 		}
 	});
 
-	function textValue(step: TaskStep) {
-		return step.if ? 'If ' + step.if.condition : step.step;
+	function parentMatches() {
+		if (running) {
+			return true;
+		}
+		if (index === 0) {
+			return true;
+		}
+		const lastRun = stepMessages
+			?.get(task.steps[index - 1].id)
+			?.messages.findLast((msg) => msg.runID);
+		const currentRun = stepMessages
+			?.get(task.steps[index].id)
+			?.messages.find((msg) => msg.parentRunID);
+		return lastRun?.runID === currentRun?.parentRunID;
 	}
 
 	async function deleteStep() {
-		const newSteps = [...steps];
+		toDelete = undefined;
+		const newSteps = [...task.steps];
 		newSteps.splice(index, 1);
 		await onChange?.(newSteps);
 	}
@@ -88,54 +86,27 @@
 		}
 	}
 
-	function firstLine(e: KeyboardEvent) {
-		return (
-			e.target instanceof HTMLTextAreaElement &&
-			e.target.value.lastIndexOf('\n', e.target.selectionStart - 1) === -1 &&
-			e.target.selectionStart === e.target.selectionEnd
-		);
-	}
-
-	function lastLine(e: KeyboardEvent) {
-		return (
-			e.target instanceof HTMLTextAreaElement &&
-			e.target.value.indexOf('\n', e.target.selectionStart) === -1 &&
-			e.target.selectionStart === e.target.selectionEnd
-		);
-	}
-
-	function lastChar(e: KeyboardEvent) {
-		return (
-			e.target instanceof HTMLTextAreaElement &&
-			e.target.selectionStart === e.target.value.length &&
-			e.target.selectionStart === e.target.selectionEnd
-		);
-	}
-
 	function synchronized(newSteps?: TaskStep[]): TaskStep[] | undefined {
 		if (!newSteps && !dirty) {
 			return;
 		}
 
-		const retSteps = newSteps ?? [...steps];
+		const retSteps = newSteps ?? [...task.steps];
 		if (dirty) {
-			const newStep = { ...step };
-			if (currentValue?.startsWith('If ')) {
-				newStep.step = '';
-				if (!newStep.if) {
-					newStep.if = {
-						condition: ''
-					};
-				}
-				newStep.if.condition = currentValue.replace(/^If /, '').trim();
-			} else {
-				newStep.step = currentValue;
-				newStep.if = undefined;
-			}
-			retSteps[index] = newStep;
+			retSteps[index] = {
+				...step,
+				step: currentValue
+			};
 		}
 
 		return retSteps;
+	}
+
+	export async function saveAll() {
+		await save();
+		if (nextStep) {
+			await nextStep.saveAll();
+		}
 	}
 
 	async function save(steps?: TaskStep[]) {
@@ -145,76 +116,23 @@
 		}
 	}
 
-	async function onkeydown(e: KeyboardEvent) {
-		if (e.key === 'Enter' && e.ctrlKey) {
-			e.preventDefault();
-			await doRun();
-		} else if (e.key === 'ArrowUp' && firstLine(e) && e.target instanceof HTMLTextAreaElement) {
-			const oldIndex = e.target.selectionStart;
-			setTimeout(() => {
-				if (e.target instanceof HTMLTextAreaElement && e.target.selectionStart === 0) {
-					const prevNode = document.getElementById('step' + steps[index - 1]?.id);
-					if (prevNode) {
-						e.target.selectionStart = oldIndex;
-						e.target.selectionEnd = oldIndex;
-						prevNode.focus();
-					}
-				}
-			});
-		} else if (e.key === 'ArrowDown' && lastLine(e) && e.target instanceof HTMLTextAreaElement) {
-			const oldIndex = e.target.selectionStart;
-			setTimeout(() => {
-				if (
-					e.target instanceof HTMLTextAreaElement &&
-					e.target.selectionStart === e.target.value.length
-				) {
-					const nextNode = document.getElementById('step' + steps[index + 1]?.id);
-					if (nextNode) {
-						e.target.selectionStart = oldIndex;
-						e.target.selectionEnd = oldIndex;
-						nextNode.focus();
-					}
-				}
-			});
-		} else if (
-			e.key === 'Enter' &&
-			!e.ctrlKey &&
-			!e.shiftKey &&
-			lastChar(e) &&
-			e.target instanceof HTMLTextAreaElement &&
-			e.target.value.trim() !== ''
-		) {
-			const newStep = createStep();
-			const newSteps = [...steps];
-			newSteps.splice(index + 1, 0, newStep);
-			e.preventDefault();
-			await save(newSteps);
-			await tick();
-			document.getElementById('step' + newStep.id)?.focus();
-		} else if (
-			e.key === 'Backspace' &&
-			e.target instanceof HTMLTextAreaElement &&
-			e.target.value === '' &&
-			steps.length > 1
-		) {
-			e.preventDefault();
-			await deleteStep();
-			document.getElementById('step' + steps[index - 1]?.id)?.focus();
-		}
+	async function addStep() {
+		const newStep = createStep();
+		const newSteps = [...task.steps];
+		newSteps.splice(index + 1, 0, newStep);
+		await save(newSteps);
+		await tick();
+		document.getElementById('step' + newStep.id)?.focus();
 	}
 
-	function setIfSteps(ifSteps?: TaskStep[], elseSteps?: TaskStep[]): TaskStep[] {
-		const newStep: TaskStep = {
-			...step,
-			if: {
-				...(step.if ?? { condition: '' }),
-				steps: ifSteps,
-				else: elseSteps
-			}
-		};
-		const newSteps = [...steps];
-		newSteps[index] = newStep;
-		return newSteps;
+	async function onkeydown(e: KeyboardEvent) {
+		if (e.key === 'Enter' && !e.ctrlKey && !e.shiftKey) {
+			e.preventDefault();
+			await doRun();
+		} else if (e.key === 'Enter' && e.ctrlKey && !e.shiftKey) {
+			e.preventDefault();
+			await addStep();
+		}
 	}
 
 	function createStep(): TaskStep {
@@ -222,16 +140,23 @@
 	}
 
 	async function doRun() {
+		if ((running || pending) && editMode) {
+			await ChatService.abort($currentAssistant.id, {
+				taskID: task.id,
+				runID: 'editor'
+			});
+			return;
+		}
+		if (running || pending || !currentValue || currentValue?.trim() === '') {
+			return;
+		}
 		await run?.(step, synchronized());
 	}
 </script>
 
-<li>
+<li class="ms-6 marker:font-semibold">
 	<div class="flex items-center justify-between">
 		{#if editMode}
-			{#if isIf}
-				<span class="keyword z-10 -mr-3 uppercase">If</span>
-			{/if}
 			<textarea
 				{onkeydown}
 				rows="1"
@@ -243,7 +168,15 @@
 			></textarea>
 			<div class="flex gap-2 p-2">
 				<button class="rounded-lg p-2 hover:bg-gray-50 dark:hover:bg-gray-950" onclick={doRun}>
-					<RefreshCcw class="h-4 w-4" />
+					{#if running}
+						<OctagonX class="h-4 w-4" />
+					{:else if pending}
+						<LoaderCircle class="h-4 w-4 animate-spin" />
+					{:else if messages.length > 0}
+						<RefreshCcw class="h-4 w-4" />
+					{:else}
+						<Play class="h-4 w-4" />
+					{/if}
 				</button>
 				{#if dirty}
 					<button
@@ -263,93 +196,58 @@
 				{/if}
 				<button
 					class="-ml-3 rounded-lg p-2 hover:bg-gray-50 dark:hover:bg-gray-950"
-					onclick={deleteStep}
+					onclick={() => {
+						if (currentValue?.trim() === '') {
+							deleteStep();
+						} else {
+							toDelete = true;
+						}
+					}}
 				>
-					<X class="h-4 w-4" />
+					<Trash class="h-4 w-4" />
 				</button>
-			</div>
-		{:else if isIf}
-			<div>
-				<span class="keyword uppercase">If</span>
-				<span>{currentValue?.slice(3)}</span>
+				{#if currentValue?.trim() !== ''}
+					<button
+						class="-ml-3 rounded-lg p-2 hover:bg-gray-50 dark:hover:bg-gray-950"
+						onclick={addStep}
+					>
+						<Plus class="h-4 w-4" />
+					</button>
+				{/if}
 			</div>
 		{:else}
 			<span>{currentValue}</span>
 		{/if}
 	</div>
 	{#if messages.length > 0}
-		<div class="-mx-11 bg-white p-5">
+		<div
+			class="relative -ml-6 rounded-3xl bg-white p-5 transition-transform dark:bg-black"
+			class:border-2={running}
+			class:border-blue={running}
+		>
 			{#each messages as msg}
-				<Message {msg} />
+				{#if !msg.sent}
+					<Message {msg} />
+				{/if}
 			{/each}
+			{#if stale}
+				<div
+					class="absolute inset-0 h-full w-full rounded-3xl bg-white opacity-80 dark:bg-black"
+				></div>
+			{/if}
 		</div>
-	{/if}
-
-	{#if steps.length > index + 1 && isIf}
-		{#if step?.if?.steps?.length}
-			{#key step.id + ' then'}
-				<ol class="then-else">
-					<span class="keyword">Then</span>
-					{#if isThenPath}
-						<CheckCircle class="h-5 w-5" />
-					{/if}
-					<Self
-						onChange={async (steps) => {
-							await onChange?.(setIfSteps(steps, step?.if?.else));
-						}}
-						run={async (step, steps) => {
-							if (steps) {
-								await run?.(step, setIfSteps(steps, step?.if?.else));
-							} else {
-								await run?.(step, steps);
-							}
-						}}
-						{editMode}
-						steps={step.if.steps}
-						index={0}
-						{stepMessages}
-						parentStale={stale}
-					/>
-				</ol>
-			{/key}
-		{/if}
-		{#if step?.if?.else?.length}
-			{#key step.id + ' else'}
-				<ol class="then-else">
-					<span class="keyword">Else</span>
-					{#if isElsePath}
-						<XCircle class="h-5 w-5" />
-					{/if}
-					<Self
-						onChange={async (steps) => {
-							await onChange?.(setIfSteps(step?.if?.steps, steps));
-						}}
-						run={async (step, steps) => {
-							if (steps) {
-								await run?.(step, setIfSteps(step?.if?.steps, steps));
-							} else {
-								await run?.(step, steps);
-							}
-						}}
-						{editMode}
-						steps={step.if.else}
-						index={0}
-						{stepMessages}
-						parentStale={stale}
-					/>
-				</ol>
-			{/key}
-		{/if}
 	{/if}
 </li>
 
-{#if steps.length > index + 1}
-	{#key steps[index + 1].id}
+{#if task.steps.length > index + 1}
+	{#key task.steps[index + 1].id}
 		<Self
+			bind:this={nextStep}
 			{onChange}
 			{run}
+			{pending}
 			{editMode}
-			{steps}
+			{task}
 			index={index + 1}
 			{stepMessages}
 			parentStale={stale}
@@ -357,24 +255,9 @@
 	{/key}
 {/if}
 
-<style lang="postcss">
-	ol {
-		@apply list-[lower-alpha] pl-2;
-	}
-
-	li {
-		@apply ms-6;
-	}
-
-	li::marker {
-		@apply font-semibold;
-	}
-
-	.keyword {
-		@apply rounded-md bg-blue px-2 text-white shadow-md;
-	}
-
-	.then-else {
-		@apply mb-2 mt-3 p-4;
-	}
-</style>
+<Modal
+	show={toDelete !== undefined}
+	msg={`Are you sure you want to delete this step`}
+	onsuccess={deleteStep}
+	oncancel={() => (toDelete = undefined)}
+/>

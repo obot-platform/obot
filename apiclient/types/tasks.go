@@ -52,6 +52,7 @@ type TaskIf struct {
 type TaskRun struct {
 	Metadata
 	TaskID    string       `json:"taskID,omitempty"`
+	Input     string       `json:"input,omitempty"`
 	Task      TaskManifest `json:"task,omitempty"`
 	StartTime *Time        `json:"startTime,omitempty"`
 	EndTime   *Time        `json:"endTime,omitempty"`

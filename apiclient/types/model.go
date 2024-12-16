@@ -12,7 +12,7 @@ type ModelManifest struct {
 	ModelProvider string     `json:"modelProvider,omitempty"`
 	Alias         string     `json:"alias,omitempty"`
 	Active        bool       `json:"active"`
-	Usage         ModelUsage `json:"usage,omitempty"`
+	Usage         ModelUsage `json:"usage"`
 }
 
 type ModelList List[Model]

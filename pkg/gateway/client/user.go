@@ -7,8 +7,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/otto8-ai/otto8/pkg/gateway/types"
-	"github.com/otto8-ai/otto8/pkg/proxy"
+	"github.com/acorn-io/acorn/pkg/gateway/types"
+	"github.com/acorn-io/acorn/pkg/proxy"
 	"gorm.io/gorm"
 )
 

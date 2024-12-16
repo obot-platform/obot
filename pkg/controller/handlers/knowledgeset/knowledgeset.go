@@ -3,16 +3,15 @@ package knowledgeset
 import (
 	"context"
 	"fmt"
-	"strings"
 
-	"github.com/otto8-ai/nah/pkg/name"
-	"github.com/otto8-ai/nah/pkg/router"
-	"github.com/otto8-ai/otto8/apiclient/types"
-	"github.com/otto8-ai/otto8/pkg/aihelper"
-	"github.com/otto8-ai/otto8/pkg/create"
-	"github.com/otto8-ai/otto8/pkg/invoke"
-	v1 "github.com/otto8-ai/otto8/pkg/storage/apis/otto.otto8.ai/v1"
-	"github.com/otto8-ai/otto8/pkg/system"
+	"github.com/acorn-io/acorn/apiclient/types"
+	"github.com/acorn-io/acorn/pkg/aihelper"
+	"github.com/acorn-io/acorn/pkg/create"
+	"github.com/acorn-io/acorn/pkg/invoke"
+	v1 "github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1"
+	"github.com/acorn-io/acorn/pkg/system"
+	"github.com/acorn-io/nah/pkg/name"
+	"github.com/acorn-io/nah/pkg/router"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
@@ -28,31 +27,6 @@ func New(aiHelper *aihelper.AIHelper, invoker *invoke.Invoker) *Handler {
 		aiHelper: aiHelper,
 		invoker:  invoker,
 	}
-}
-
-func (h *Handler) GenerateDataDescription(req router.Request, _ router.Response) error {
-	return nil
-}
-
-func generatePrompt(files v1.KnowledgeFileList) string {
-	var (
-		prompt    string
-		fileNames = make([]string, 0, len(files.Items))
-	)
-
-	for _, file := range files.Items {
-		fileNames = append(fileNames, "- "+file.Spec.FileName)
-	}
-
-	fileText := strings.Join(fileNames, "\n")
-	if len(fileText) > 50000 {
-		fileText = fileText[:50000]
-	}
-
-	prompt = "The following files are in this knowledge set:\n" + fileText
-	prompt += "\n\nGenerate a 50 word description of the data in the knowledge set that would help a" +
-		" reader understand why they might want to search this knowledge set. Be precise and concise."
-	return prompt
 }
 
 func createWorkspace(ctx context.Context, c kclient.Client, ks *v1.KnowledgeSet) error {

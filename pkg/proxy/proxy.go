@@ -7,10 +7,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/acorn-io/acorn/pkg/mvl"
 	oauth2proxy "github.com/oauth2-proxy/oauth2-proxy/v7"
 	"github.com/oauth2-proxy/oauth2-proxy/v7/pkg/apis/options"
 	"github.com/oauth2-proxy/oauth2-proxy/v7/pkg/validation"
-	"github.com/otto8-ai/otto8/pkg/mvl"
 	"k8s.io/apiserver/pkg/authentication/authenticator"
 	"k8s.io/apiserver/pkg/authentication/user"
 )
@@ -63,7 +63,7 @@ func New(serverURL string, authProviderID uint, cfg Config) (*Proxy, error) {
 	oauthProxyOpts.Server.BindAddress = ""
 	oauthProxyOpts.MetricsServer.BindAddress = ""
 	oauthProxyOpts.Cookie.Refresh = time.Hour
-	oauthProxyOpts.Cookie.Name = "otto_access_token"
+	oauthProxyOpts.Cookie.Name = "acorn_access_token"
 	oauthProxyOpts.Cookie.Secret = cfg.AuthCookieSecret
 	oauthProxyOpts.Cookie.Secure = strings.HasPrefix(serverURL, "https://")
 	oauthProxyOpts.UpstreamServers = options.UpstreamConfig{

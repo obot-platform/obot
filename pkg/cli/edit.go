@@ -4,15 +4,15 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/otto8-ai/otto8/apiclient/types"
-	"github.com/otto8-ai/otto8/pkg/cli/edit"
-	"github.com/otto8-ai/otto8/pkg/system"
+	"github.com/acorn-io/acorn/apiclient/types"
+	"github.com/acorn-io/acorn/pkg/cli/edit"
+	"github.com/acorn-io/acorn/pkg/system"
 	"github.com/spf13/cobra"
 	"sigs.k8s.io/yaml"
 )
 
 type Edit struct {
-	root   *Otto8
+	root   *Acorn
 	Prompt bool `usage:"Edit just the prompt for the agent" short:"p"`
 }
 
@@ -39,7 +39,7 @@ func (l *Edit) editWorkflow(ctx context.Context, id string) error {
 		return err
 	}
 
-	err = edit.Edit(ctx, data, ".yaml", func(data []byte) error {
+	err = edit.Edit(data, ".yaml", func(data []byte) error {
 		var newManifest types.WorkflowManifest
 		if err := yaml.Unmarshal(data, &newManifest); err != nil {
 			return err
@@ -62,7 +62,7 @@ func (l *Edit) editAgent(ctx context.Context, id string) error {
 	}
 
 	if l.Prompt {
-		err = edit.Edit(ctx, []byte(agent.Prompt), ".txt", func(data []byte) error {
+		err = edit.Edit([]byte(agent.Prompt), ".txt", func(data []byte) error {
 			agent.Prompt = string(data)
 			_, err := l.root.Client.UpdateAgent(ctx, agent.ID, agent.AgentManifest)
 			return err
@@ -79,7 +79,7 @@ func (l *Edit) editAgent(ctx context.Context, id string) error {
 		return err
 	}
 
-	err = edit.Edit(ctx, data, ".yaml", func(data []byte) error {
+	err = edit.Edit(data, ".yaml", func(data []byte) error {
 		var newManifest types.AgentManifest
 		if err := yaml.Unmarshal(data, &newManifest); err != nil {
 			return err

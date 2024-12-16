@@ -5,15 +5,15 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/otto8-ai/nah/pkg/apply"
-	"github.com/otto8-ai/nah/pkg/router"
-	"github.com/otto8-ai/otto8/apiclient/types"
-	v1 "github.com/otto8-ai/otto8/pkg/storage/apis/otto.otto8.ai/v1"
+	"github.com/acorn-io/acorn/apiclient/types"
+	v1 "github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1"
+	"github.com/acorn-io/nah/pkg/apply"
+	"github.com/acorn-io/nah/pkg/router"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func (h *Handler) RunIf(req router.Request, resp router.Response) (err error) {
+func (h *Handler) RunIf(req router.Request, _ router.Response) (err error) {
 	step := req.Object.(*v1.WorkflowStep)
 
 	if step.Spec.Step.If == nil {

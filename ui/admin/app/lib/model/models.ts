@@ -59,6 +59,21 @@ export const ModelAliasToUsageMap = {
     [ModelAlias.Vision]: ModelUsage.Vision,
 } as const;
 
+export function filterModelsByUsage(
+    models: Model[],
+    usages: ModelUsage | ModelUsage[],
+    sort = (a: Model, b: Model) => (b.name ?? "").localeCompare(a.name ?? "")
+) {
+    const _usages = Array.isArray(usages) ? usages : [usages];
+
+    // Vision models are LLMs
+    if (_usages.includes(ModelUsage.Vision)) {
+        _usages.push(ModelUsage.LLM);
+    }
+
+    return models.filter((model) => _usages.includes(model.usage)).sort(sort);
+}
+
 export type ModelManifest = {
     name?: string;
     targetModel?: string;

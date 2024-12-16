@@ -6,14 +6,14 @@ import (
 	"reflect"
 	"strings"
 
+	"github.com/acorn-io/acorn/apiclient/types"
+	"github.com/acorn-io/acorn/pkg/alias"
+	"github.com/acorn-io/acorn/pkg/api"
+	"github.com/acorn-io/acorn/pkg/render"
+	v1 "github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1"
+	"github.com/acorn-io/acorn/pkg/system"
+	"github.com/acorn-io/acorn/pkg/wait"
 	"github.com/gptscript-ai/go-gptscript"
-	"github.com/otto8-ai/otto8/apiclient/types"
-	"github.com/otto8-ai/otto8/pkg/alias"
-	"github.com/otto8-ai/otto8/pkg/api"
-	"github.com/otto8-ai/otto8/pkg/render"
-	v1 "github.com/otto8-ai/otto8/pkg/storage/apis/otto.otto8.ai/v1"
-	"github.com/otto8-ai/otto8/pkg/system"
-	"github.com/otto8-ai/otto8/pkg/wait"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -48,12 +48,31 @@ func (a *AgentHandler) Update(req api.Context) error {
 		return err
 	}
 
+	if agent.Spec.Manifest.Model != manifest.Model && manifest.Model != "" {
+		// Get the model to ensure it is active
+		var model v1.Model
+		if err := req.Get(&model, manifest.Model); err != nil {
+			return err
+		}
+
+		if !model.Spec.Manifest.Active {
+			return types.NewErrBadRequest("agent cannot use inactive model %q", manifest.Model)
+		}
+	}
+
 	agent.Spec.Manifest = manifest
 	if err := req.Update(&agent); err != nil {
 		return err
 	}
 
-	resp, err := convertAgent(agent, req)
+	var knowledgeSet v1.KnowledgeSet
+	if len(agent.Status.KnowledgeSetNames) > 0 {
+		if err := req.Get(&knowledgeSet, agent.Status.KnowledgeSetNames[0]); err != nil {
+			return fmt.Errorf("failed to get agent knowledge set: %w", err)
+		}
+	}
+
+	resp, err := convertAgent(agent, knowledgeSet.Status.TextEmbeddingModel, req.APIBaseURL)
 	if err != nil {
 		return err
 	}
@@ -74,6 +93,19 @@ func (a *AgentHandler) Create(req api.Context) error {
 	if err := req.Read(&manifest); err != nil {
 		return err
 	}
+
+	if manifest.Model != "" {
+		// Get the model to ensure it is active
+		var model v1.Model
+		if err := req.Get(&model, manifest.Model); err != nil {
+			return err
+		}
+
+		if !model.Spec.Manifest.Active {
+			return types.NewErrBadRequest("agent cannot use inactive model %q", manifest.Model)
+		}
+	}
+
 	agent := &v1.Agent{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: system.AgentPrefix,
@@ -88,7 +120,8 @@ func (a *AgentHandler) Create(req api.Context) error {
 		return err
 	}
 
-	resp, err := convertAgent(*agent, req)
+	// The agent won't have a knowledge set associated to it on create, so set the text embedding model to an empty string.
+	resp, err := convertAgent(*agent, "", req.APIBaseURL)
 	if err != nil {
 		return err
 	}
@@ -96,24 +129,14 @@ func (a *AgentHandler) Create(req api.Context) error {
 	return req.WriteCreated(resp)
 }
 
-func convertAgent(agent v1.Agent, req api.Context) (*types.Agent, error) {
+func convertAgent(agent v1.Agent, textEmbeddingModel, baseURL string) (*types.Agent, error) {
 	var links []string
-	if req.APIBaseURL != "" {
+	if baseURL != "" {
 		alias := agent.Name
 		if agent.Status.AliasAssigned && agent.Spec.Manifest.Alias != "" {
 			alias = agent.Spec.Manifest.Alias
 		}
-		links = []string{"invoke", req.APIBaseURL + "/invoke/" + alias}
-	}
-
-	var embeddingModel string
-	if len(agent.Status.KnowledgeSetNames) > 0 {
-		var ks v1.KnowledgeSet
-		if err := req.Get(&ks, agent.Status.KnowledgeSetNames[0]); err == nil {
-			embeddingModel = ks.Status.TextEmbeddingModel
-		} else {
-			log.Warnf("failed to get KnowledgeSet %q for agent %q: %v", agent.Status.KnowledgeSetNames[0], agent.Name, err)
-		}
+		links = []string{"invoke", baseURL + "/invoke/" + alias}
 	}
 
 	var aliasAssigned *bool
@@ -126,7 +149,7 @@ func convertAgent(agent v1.Agent, req api.Context) (*types.Agent, error) {
 		AgentManifest:      agent.Spec.Manifest,
 		AliasAssigned:      aliasAssigned,
 		AuthStatus:         agent.Status.AuthStatus,
-		TextEmbeddingModel: embeddingModel,
+		TextEmbeddingModel: textEmbeddingModel,
 	}, nil
 }
 
@@ -136,7 +159,14 @@ func (a *AgentHandler) ByID(req api.Context) error {
 		return err
 	}
 
-	resp, err := convertAgent(agent, req)
+	var knowledgeSet v1.KnowledgeSet
+	if len(agent.Status.KnowledgeSetNames) > 0 {
+		if err := req.Get(&knowledgeSet, agent.Status.KnowledgeSetNames[0]); err != nil {
+			return fmt.Errorf("failed to get agent knowledge set: %w", err)
+		}
+	}
+
+	resp, err := convertAgent(agent, knowledgeSet.Status.TextEmbeddingModel, req.APIBaseURL)
 	if err != nil {
 		return err
 	}
@@ -149,16 +179,32 @@ func (a *AgentHandler) List(req api.Context) error {
 		return err
 	}
 
-	var resp types.AgentList
+	var knowledgeSets v1.KnowledgeSetList
+	if err := req.List(&knowledgeSets); err != nil {
+		return fmt.Errorf("failed to get agent knowledge sets: %w", err)
+	}
+
+	textEmbeddingModels := make(map[string]string, len(knowledgeSets.Items))
+	for _, knowledgeSet := range knowledgeSets.Items {
+		textEmbeddingModels[knowledgeSet.Name] = knowledgeSet.Status.TextEmbeddingModel
+	}
+
+	var textEmbeddingModel string
+	resp := make([]types.Agent, 0, len(agentList.Items))
 	for _, agent := range agentList.Items {
-		convertedAgent, err := convertAgent(agent, req)
+		if len(agent.Status.KnowledgeSetNames) != 0 {
+			textEmbeddingModel = textEmbeddingModels[agent.Status.KnowledgeSetNames[0]]
+		} else {
+			textEmbeddingModel = ""
+		}
+		convertedAgent, err := convertAgent(agent, textEmbeddingModel, req.APIBaseURL)
 		if err != nil {
 			return err
 		}
-		resp.Items = append(resp.Items, *convertedAgent)
+		resp = append(resp, *convertedAgent)
 	}
 
-	return req.Write(resp)
+	return req.Write(types.AgentList{Items: resp})
 }
 
 func (a *AgentHandler) getWorkspaceName(req api.Context, agentOrWorkflowName string) (string, error) {
@@ -527,12 +573,19 @@ func (a *AgentHandler) EnsureCredentialForKnowledgeSource(req api.Context) error
 		return err
 	}
 
+	var knowledgeSet v1.KnowledgeSet
+	if len(agent.Status.KnowledgeSetNames) != 0 {
+		if err := req.Get(&knowledgeSet, agent.Status.KnowledgeSetNames[0]); err != nil {
+			return err
+		}
+	}
+
 	ref := req.PathValue("ref")
 	authStatus := agent.Status.AuthStatus[ref]
 
 	// If auth is not required, then don't continue.
 	if authStatus.Required != nil && !*authStatus.Required {
-		resp, err := convertAgent(agent, req)
+		resp, err := convertAgent(agent, knowledgeSet.Status.TextEmbeddingModel, req.APIBaseURL)
 		if err != nil {
 			return err
 		}
@@ -541,7 +594,7 @@ func (a *AgentHandler) EnsureCredentialForKnowledgeSource(req api.Context) error
 
 	// if auth is already authenticated, then don't continue.
 	if authStatus.Authenticated {
-		resp, err := convertAgent(agent, req)
+		resp, err := convertAgent(agent, knowledgeSet.Status.TextEmbeddingModel, req.APIBaseURL)
 		if err != nil {
 			return err
 		}
@@ -561,7 +614,7 @@ func (a *AgentHandler) EnsureCredentialForKnowledgeSource(req api.Context) error
 
 		authStatus.Required = &[]bool{false}[0]
 		agent.Status.AuthStatus[ref] = authStatus
-		resp, err := convertAgent(agent, req)
+		resp, err := convertAgent(agent, knowledgeSet.Status.TextEmbeddingModel, req.APIBaseURL)
 		if err != nil {
 			return err
 		}
@@ -599,7 +652,7 @@ func (a *AgentHandler) EnsureCredentialForKnowledgeSource(req api.Context) error
 	}
 	agent.Status.AuthStatus[ref] = oauthLogin.Status.External
 
-	resp, err := convertAgent(agent, req)
+	resp, err := convertAgent(agent, knowledgeSet.Status.TextEmbeddingModel, req.APIBaseURL)
 	if err != nil {
 		return err
 	}

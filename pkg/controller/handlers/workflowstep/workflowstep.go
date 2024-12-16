@@ -5,12 +5,12 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/otto8-ai/nah/pkg/name"
-	"github.com/otto8-ai/nah/pkg/router"
-	"github.com/otto8-ai/otto8/apiclient/types"
-	"github.com/otto8-ai/otto8/pkg/invoke"
-	v1 "github.com/otto8-ai/otto8/pkg/storage/apis/otto.otto8.ai/v1"
-	"github.com/otto8-ai/otto8/pkg/system"
+	"github.com/acorn-io/acorn/apiclient/types"
+	"github.com/acorn-io/acorn/pkg/invoke"
+	v1 "github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1"
+	"github.com/acorn-io/acorn/pkg/system"
+	"github.com/acorn-io/nah/pkg/name"
+	"github.com/acorn-io/nah/pkg/router"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
@@ -89,12 +89,11 @@ func (h *Handler) Preconditions(next router.Handler) router.Handler {
 			return next.Handle(req, resp)
 		}
 
-		resp.DisablePrune()
 		return nil
 	})
 }
 
-func (h *Handler) checkPreconditions(req router.Request, resp router.Response) (proceed bool, err error) {
+func (h *Handler) checkPreconditions(req router.Request, _ router.Response) (proceed bool, err error) {
 	step := req.Object.(*v1.WorkflowStep)
 
 	if step.Status.State.IsTerminal() {
@@ -137,7 +136,7 @@ func (h *Handler) checkPreconditions(req router.Request, resp router.Response) (
 		return false, err
 	}
 
-	if WorkflowStepMatchesStepID(&parent, wf.Spec.RunUntilStep) {
+	if matchesStepID(&parent, wf.Spec.RunUntilStep) {
 		// We are blocked because the workflow is supposed to only run until the parent step
 		step.Status.State = types.WorkflowStateBlocked
 		return false, nil
@@ -174,7 +173,7 @@ func normalizeStepID(stepID string) string {
 	return id
 }
 
-func WorkflowStepMatchesStepID(step *v1.WorkflowStep, stepID string) bool {
+func matchesStepID(step *v1.WorkflowStep, stepID string) bool {
 	return normalizeStepID(step.Spec.Step.ID) == normalizeStepID(stepID)
 }
 

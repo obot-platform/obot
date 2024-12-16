@@ -7,6 +7,7 @@ export type ToolCall = {
     name: string;
     description: string;
     input: string;
+    output: string;
     metadata?: {
         category?: string;
         icon?: string;

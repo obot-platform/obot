@@ -1,18 +1,17 @@
 package handlers
 
 import (
-	"context"
 	"fmt"
 	"net/http"
 	"regexp"
 	"strconv"
 	"strings"
 
+	"github.com/acorn-io/acorn/apiclient/types"
+	"github.com/acorn-io/acorn/pkg/api"
+	v1 "github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1"
+	"github.com/acorn-io/nah/pkg/name"
 	"github.com/gptscript-ai/go-gptscript"
-	"github.com/otto8-ai/nah/pkg/name"
-	"github.com/otto8-ai/otto8/apiclient/types"
-	"github.com/otto8-ai/otto8/pkg/api"
-	v1 "github.com/otto8-ai/otto8/pkg/storage/apis/otto.otto8.ai/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -27,7 +26,7 @@ func NewToolReferenceHandler(gClient *gptscript.GPTScript) *ToolReferenceHandler
 	}
 }
 
-func convertToolReference(ctx context.Context, gClient *gptscript.GPTScript, toolRef v1.ToolReference) (types.ToolReference, error) {
+func convertToolReference(toolRef v1.ToolReference) types.ToolReference {
 	tf := types.ToolReference{
 		Metadata: MetadataFrom(&toolRef),
 		ToolReferenceManifest: types.ToolReferenceManifest{
@@ -52,11 +51,7 @@ func convertToolReference(ctx context.Context, gClient *gptscript.GPTScript, too
 		tf.Credential = toolRef.Status.Tool.Credential
 	}
 
-	var err error
-	if toolRef.Spec.Type == types.ToolReferenceTypeModelProvider {
-		tf.ModelProviderStatus, err = convertModelProviderToolRef(ctx, gClient, toolRef)
-	}
-	return tf, err
+	return tf
 }
 
 func (a *ToolReferenceHandler) ByID(req api.Context) error {
@@ -69,12 +64,7 @@ func (a *ToolReferenceHandler) ByID(req api.Context) error {
 		return err
 	}
 
-	tr, err := convertToolReference(req.Context(), a.gptscript, toolRef)
-	if err != nil {
-		return err
-	}
-
-	return req.Write(tr)
+	return req.Write(convertToolReference(toolRef))
 }
 
 var validCharsRegexp = regexp.MustCompile(`[^a-zA-Z0-9-]+`)
@@ -148,12 +138,7 @@ func (a *ToolReferenceHandler) Create(req api.Context) (err error) {
 		return err
 	}
 
-	tr, err := convertToolReference(req.Context(), a.gptscript, *toolRef)
-	if err != nil {
-		return err
-	}
-
-	return req.Write(tr)
+	return req.Write(convertToolReference(*toolRef))
 }
 
 func (a *ToolReferenceHandler) Delete(req api.Context) error {
@@ -213,12 +198,7 @@ func (a *ToolReferenceHandler) Update(req api.Context) error {
 		return err
 	}
 
-	tr, err := convertToolReference(req.Context(), a.gptscript, existing)
-	if err != nil {
-		return err
-	}
-
-	return req.Write(tr)
+	return req.Write(convertToolReference(existing))
 }
 
 func (a *ToolReferenceHandler) List(req api.Context) error {
@@ -234,11 +214,7 @@ func (a *ToolReferenceHandler) List(req api.Context) error {
 	var resp types.ToolReferenceList
 	for _, toolRef := range toolRefList.Items {
 		if toolType == "" || toolRef.Spec.Type == toolType {
-			tr, err := convertToolReference(req.Context(), a.gptscript, toolRef)
-			if err != nil {
-				return err
-			}
-			resp.Items = append(resp.Items, tr)
+			resp.Items = append(resp.Items, convertToolReference(toolRef))
 		}
 	}
 

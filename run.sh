@@ -18,25 +18,25 @@ mkdir -p /run/sshd
 /usr/sbin/sshd -D &
 mkdir -p /data/cache
 # This is YAML
-export OTTO8_SERVER_VERSIONS="$(cat <<VERSIONS
-"github.com/otto8-ai/tools": "$(cd /otto8-tools && git rev-parse HEAD)"
-"github.com/gptscript-ai/workspace-provider": "$(cd /otto8-tools/workspace-provider && git rev-parse HEAD)"
-"github.com/gptscript-ai/datasets": "$(cd /otto8-tools/datasets && git rev-parse HEAD)"
-"github.com/kubernetes-sigs/aws-encryption-provider": "$(cd /otto8-tools/aws-encryption-provider && git rev-parse HEAD)"
+export ACORN_SERVER_VERSIONS="$(cat <<VERSIONS
+"github.com/otto8-ai/tools": "$(cd /acorn-tools && git rev-parse HEAD)"
+"github.com/gptscript-ai/workspace-provider": "$(cd /acorn-tools/workspace-provider && git rev-parse HEAD)"
+"github.com/gptscript-ai/datasets": "$(cd /acorn-tools/datasets && git rev-parse HEAD)"
+"github.com/kubernetes-sigs/aws-encryption-provider": "$(cd /acorn-tools/aws-encryption-provider && git rev-parse HEAD)"
 # double echo to remove trailing whitespace
 "chrome": "$(echo $(/opt/google/chrome/chrome --version))"
 VERSIONS
 )"
 
-if [ -z "$OTTO8_SERVER_DSN" ]; then
-  echo "OTTO8_SERVER_DSN is not set. Starting PostgreSQL process..."
+if [ -z "$ACORN_SERVER_DSN" ]; then
+  echo "ACORN_SERVER_DSN is not set. Starting PostgreSQL process..."
 
   # Start PostgreSQL in the background
   echo "Starting PostgreSQL server..."
   /usr/bin/docker-entrypoint.sh postgres &
 
   check_postgres_active
-  export OTTO8_SERVER_DSN="postgresql://otto8:otto8@localhost:5432/otto8"
+  export ACORN_SERVER_DSN="postgresql://acorn:acorn@localhost:5432/acorn"
 fi
 
-exec tini -- otto8 server
+exec tini -- acorn server

@@ -3,9 +3,9 @@ package v1
 import (
 	"slices"
 
-	"github.com/otto8-ai/nah/pkg/fields"
-	"github.com/otto8-ai/otto8/apiclient/types"
-	"github.com/otto8-ai/otto8/pkg/system"
+	"github.com/acorn-io/acorn/apiclient/types"
+	"github.com/acorn-io/acorn/pkg/system"
+	"github.com/acorn-io/nah/pkg/fields"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -26,14 +26,14 @@ func (c *CronJob) Has(field string) (exists bool) {
 
 func (c *CronJob) Get(field string) (value string) {
 	switch field {
-	case "spec.userID":
-		return c.Spec.UserID
+	case "spec.threadName":
+		return c.Spec.ThreadName
 	}
 	return ""
 }
 
 func (c *CronJob) FieldNames() []string {
-	return []string{"spec.userID"}
+	return []string{"spec.threadName"}
 }
 
 func (*CronJob) GetColumns() [][]string {
@@ -59,6 +59,7 @@ func (c *CronJob) DeleteRefs() []Ref {
 
 type CronJobSpec struct {
 	types.CronJobManifest `json:",inline"`
+	ThreadName            string `json:"threadName,omitempty"`
 }
 
 type CronJobStatus struct {

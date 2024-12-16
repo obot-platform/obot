@@ -1,12 +1,13 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import useSWR from "swr";
 
-import { ModelProvider, ModelProviderConfig } from "~/lib/model/modelProviders";
+import { ModelProvider } from "~/lib/model/modelProviders";
 import { ModelProviderApiService } from "~/lib/service/api/modelProviderApiService";
 
 import { ModelProviderForm } from "~/components/model-providers/ModelProviderForm";
 import { ModelProviderIcon } from "~/components/model-providers/ModelProviderIcon";
-import { DefaultModelAliasForm } from "~/components/model/shared/DefaultModelAliasForm";
+import { CommonModelProviderIds } from "~/components/model-providers/constants";
+import { DefaultModelAliasForm } from "~/components/model/DefaultModelAliasForm";
 import { LoadingSpinner } from "~/components/ui/LoadingSpinner";
 import { Button } from "~/components/ui/button";
 import {
@@ -17,6 +18,7 @@ import {
     DialogTitle,
     DialogTrigger,
 } from "~/components/ui/dialog";
+import { Link } from "~/components/ui/link";
 
 type ModelProviderConfigureProps = {
     modelProvider: ModelProvider;
@@ -28,6 +30,32 @@ export function ModelProviderConfigure({
     const [dialogIsOpen, setDialogIsOpen] = useState(false);
     const [showDefaultModelAliasForm, setShowDefaultModelAliasForm] =
         useState(false);
+
+    const [loadingModelProviderId, setLoadingModelProviderId] = useState("");
+
+    const getLoadingModelProviderModels = useSWR(
+        ModelProviderApiService.getModelProviderById.key(
+            loadingModelProviderId
+        ),
+        ({ modelProviderId }) =>
+            ModelProviderApiService.getModelProviderById(modelProviderId),
+        {
+            revalidateOnFocus: false,
+            refreshInterval: 2000,
+        }
+    );
+
+    useEffect(() => {
+        if (!loadingModelProviderId) return;
+
+        const { isLoading, data } = getLoadingModelProviderModels;
+        if (isLoading) return;
+
+        if (data?.modelsBackPopulated) {
+            setShowDefaultModelAliasForm(true);
+            setLoadingModelProviderId("");
+        }
+    }, [getLoadingModelProviderModels, loadingModelProviderId]);
 
     const handleDone = () => {
         setDialogIsOpen(false);
@@ -49,20 +77,38 @@ export function ModelProviderConfigure({
                 Configure Model Provider
             </DialogDescription>
 
-            <DialogContent className="p-0 gap-0">
-                {showDefaultModelAliasForm ? (
+            <DialogContent
+                className="p-0 gap-0 max-w-2xl"
+                hideCloseButton={loadingModelProviderId !== ""}
+            >
+                {loadingModelProviderId ? (
+                    <div className="flex items-center justify-center gap-1 p-2">
+                        <LoadingSpinner /> Loading {modelProvider.name}{" "}
+                        Models...
+                    </div>
+                ) : showDefaultModelAliasForm ? (
                     <div className="p-6">
                         <DialogHeader>
                             <DialogTitle className="flex items-center gap-2 pb-4">
                                 Configure Default Model Aliases
                             </DialogTitle>
                         </DialogHeader>
-                        <DefaultModelAliasForm onSuccess={handleDone} />
+                        <DialogDescription>
+                            When no model is specified, a default model is used
+                            for creating a new agent, workflow, or working with
+                            some tools, etc. Select your default models for the
+                            usage types below.
+                        </DialogDescription>
+                        <div className="mt-4">
+                            <DefaultModelAliasForm onSuccess={handleDone} />
+                        </div>
                     </div>
                 ) : (
                     <ModelProviderConfigureContent
                         modelProvider={modelProvider}
-                        onSuccess={() => setShowDefaultModelAliasForm(true)}
+                        onSuccess={() =>
+                            setLoadingModelProviderId(modelProvider.id)
+                        }
                     />
                 )}
             </DialogContent>
@@ -84,11 +130,6 @@ export function ModelProviderConfigureContent({
         { keepPreviousData: true }
     );
 
-    const handleSuccess = (config: ModelProviderConfig) => {
-        revealModelProvider.mutate(config, false);
-        onSuccess();
-    };
-
     const requiredParameters = modelProvider.requiredConfigurationParameters;
     const parameters = revealModelProvider.data;
 
@@ -102,12 +143,26 @@ export function ModelProviderConfigureContent({
                         : `Set Up ${modelProvider.name}`}
                 </DialogTitle>
             </DialogHeader>
+
+            {modelProvider.id === CommonModelProviderIds.ANTHROPIC && (
+                <DialogDescription className="px-4">
+                    Note: Anthropic does not have an embeddings model and{" "}
+                    <Link
+                        target="_blank"
+                        rel="noreferrer"
+                        to="https://docs.anthropic.com/en/docs/build-with-claude/embeddings"
+                    >
+                        recommends
+                    </Link>{" "}
+                    Voyage AI.
+                </DialogDescription>
+            )}
             {revealModelProvider.isLoading ? (
                 <LoadingSpinner />
             ) : (
                 <ModelProviderForm
                     modelProvider={modelProvider}
-                    onSuccess={handleSuccess}
+                    onSuccess={onSuccess}
                     parameters={parameters ?? {}}
                     requiredParameters={requiredParameters ?? []}
                 />

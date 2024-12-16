@@ -4,14 +4,14 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/acorn-io/acorn/apiclient/types"
+	"github.com/acorn-io/acorn/pkg/api"
+	"github.com/acorn-io/acorn/pkg/availablemodels"
+	"github.com/acorn-io/acorn/pkg/gateway/server/dispatcher"
+	v1 "github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1"
+	"github.com/acorn-io/acorn/pkg/system"
 	openai "github.com/gptscript-ai/chat-completion-client"
 	"github.com/gptscript-ai/go-gptscript"
-	"github.com/otto8-ai/otto8/apiclient/types"
-	"github.com/otto8-ai/otto8/pkg/api"
-	"github.com/otto8-ai/otto8/pkg/availablemodels"
-	"github.com/otto8-ai/otto8/pkg/gateway/server/dispatcher"
-	"github.com/otto8-ai/otto8/pkg/storage/apis/otto.otto8.ai/v1"
-	"github.com/otto8-ai/otto8/pkg/system"
 	"k8s.io/apimachinery/pkg/fields"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -29,8 +29,8 @@ func NewAvailableModelsHandler(gClient *gptscript.GPTScript, dispatcher *dispatc
 }
 
 func (a *AvailableModelsHandler) List(req api.Context) error {
-	var modelProviderReference v1.ToolReferenceList
-	if err := req.List(&modelProviderReference, &kclient.ListOptions{
+	var modelProviderReferences v1.ToolReferenceList
+	if err := req.List(&modelProviderReferences, &kclient.ListOptions{
 		Namespace: req.Namespace(),
 		FieldSelector: fields.SelectorFromSet(map[string]string{
 			"spec.type": string(types.ToolReferenceTypeModelProvider),
@@ -39,11 +39,27 @@ func (a *AvailableModelsHandler) List(req api.Context) error {
 		return err
 	}
 
+	credCtxs := make([]string, 0, len(modelProviderReferences.Items))
+	for _, ref := range modelProviderReferences.Items {
+		credCtxs = append(credCtxs, string(ref.UID))
+	}
+
+	creds, err := a.gptscript.ListCredentials(req.Context(), gptscript.ListCredentialsOptions{
+		CredentialContexts: credCtxs,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to list model provider credentials: %w", err)
+	}
+
+	credMap := make(map[string]map[string]string, len(creds))
+	for _, cred := range creds {
+		credMap[cred.Context+cred.ToolName] = cred.Env
+	}
+
 	var oModels openai.ModelsList
-	for _, modelProvider := range modelProviderReference.Items {
-		if convertedModelProvider, err := convertModelProviderToolRef(req.Context(), a.gptscript, modelProvider); err != nil {
-			return fmt.Errorf("failed to determine if model provider %q is configured: %w", modelProvider.Name, err)
-		} else if !convertedModelProvider.Configured || modelProvider.Name == system.ModelProviderTool {
+	for _, modelProvider := range modelProviderReferences.Items {
+		convertedModelProvider := convertModelProviderToolRef(modelProvider, credMap[string(modelProvider.UID)+modelProvider.Name])
+		if !convertedModelProvider.Configured || modelProvider.Name == system.ModelProviderTool {
 			continue
 		}
 
@@ -74,9 +90,19 @@ func (a *AvailableModelsHandler) ListForModelProvider(req api.Context) error {
 		return types.NewErrBadRequest("%s is not a model provider", modelProviderReference.Name)
 	}
 
-	if modelProvider, err := convertModelProviderToolRef(req.Context(), a.gptscript, modelProviderReference); err != nil {
-		return fmt.Errorf("failed to determine if model provider is configured: %w", err)
-	} else if !modelProvider.Configured {
+	var credEnvVars map[string]string
+	if modelProviderReference.Status.Tool != nil {
+		if envVars := modelProviderReference.Status.Tool.Metadata["envVars"]; envVars != "" {
+			cred, err := a.gptscript.RevealCredential(req.Context(), []string{string(modelProviderReference.UID)}, modelProviderReference.Name)
+			if err != nil && !strings.HasSuffix(err.Error(), "credential not found") {
+				return fmt.Errorf("failed to reveal credential for model provider %q: %w", modelProviderReference.Name, err)
+			} else if err == nil {
+				credEnvVars = cred.Env
+			}
+		}
+	}
+
+	if modelProvider := convertModelProviderToolRef(modelProviderReference, credEnvVars); !modelProvider.Configured {
 		return types.NewErrBadRequest("model provider %s is not configured, missing configuration parameters: %s", modelProviderReference.Name, strings.Join(modelProvider.MissingConfigurationParameters, ", "))
 	}
 

@@ -4,17 +4,14 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/acorn-io/acorn/pkg/invoke"
+	v1 "github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1"
+	"github.com/acorn-io/nah/pkg/router"
 	"github.com/gptscript-ai/go-gptscript"
-	"github.com/otto8-ai/nah/pkg/router"
-	"github.com/otto8-ai/otto8/logger"
-	"github.com/otto8-ai/otto8/pkg/invoke"
-	v1 "github.com/otto8-ai/otto8/pkg/storage/apis/otto.otto8.ai/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
-
-var log = logger.Package()
 
 type Handler struct {
 	invoker *invoke.Invoker
@@ -24,7 +21,7 @@ func New(invoker *invoke.Invoker) *Handler {
 	return &Handler{invoker: invoker}
 }
 
-func (*Handler) DeleteRunState(req router.Request, resp router.Response) error {
+func (*Handler) DeleteRunState(req router.Request, _ router.Response) error {
 	run := req.Object.(*v1.Run)
 	return client.IgnoreNotFound(req.Delete(&v1.RunState{
 		ObjectMeta: metav1.ObjectMeta{
@@ -58,7 +55,7 @@ func (h *Handler) Resume(req router.Request, _ router.Response) error {
 
 	if run.Spec.PreviousRunName != "" {
 		if err := req.Get(&v1.Run{}, run.Namespace, run.Spec.PreviousRunName); apierrors.IsNotFound(err) {
-			run.Status.Error = fmt.Sprintf("run %s not found", run.Spec.PreviousRunName)
+			run.Status.Error = fmt.Sprintf("run %s not found: %s", run.Spec.PreviousRunName, run.Status.Error)
 			run.Status.State = gptscript.Error
 			return nil
 		} else if err != nil {
@@ -67,12 +64,7 @@ func (h *Handler) Resume(req router.Request, _ router.Response) error {
 	}
 
 	if run.Spec.Synchronous {
-		if h.invoker.IsSynchronousPending(run.Name) {
-			return nil
-		}
-		run.Status.Error = "run was interrupted most likely due to a system reset"
-		run.Status.State = gptscript.Error
-		return req.Client.Status().Update(req.Ctx, run)
+		return nil
 	}
 
 	return h.invoker.Resume(req.Ctx, req.Client, &thread, run)

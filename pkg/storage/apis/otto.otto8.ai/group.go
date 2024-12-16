@@ -1,3 +1,3 @@
-package otto_otto8_ai
+package ottootto8ai
 
 var Group = "otto.otto8.ai"

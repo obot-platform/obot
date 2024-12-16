@@ -8,7 +8,7 @@ if (typeof window !== 'undefined') {
 }
 
 interface GetOptions {
-	text?: boolean;
+	blob?: boolean;
 }
 
 export async function doGet(path: string, opts?: GetOptions): Promise<unknown> {
@@ -20,8 +20,8 @@ export async function doGet(path: string, opts?: GetOptions): Promise<unknown> {
 		throw e;
 	}
 
-	if (opts?.text) {
-		return await resp.text();
+	if (opts?.blob) {
+		return await resp.blob();
 	}
 
 	return await resp.json();

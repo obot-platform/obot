@@ -7,12 +7,13 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/acorn-io/acorn/apiclient/types"
+	"github.com/acorn-io/acorn/pkg/api"
+	"github.com/acorn-io/acorn/pkg/events"
+	v1 "github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1"
 	"github.com/gptscript-ai/go-gptscript"
-	"github.com/otto8-ai/otto8/apiclient/types"
-	"github.com/otto8-ai/otto8/pkg/api"
-	"github.com/otto8-ai/otto8/pkg/events"
-	v1 "github.com/otto8-ai/otto8/pkg/storage/apis/otto.otto8.ai/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 const DefaultMaxUserThreadTools = 5
@@ -55,6 +56,7 @@ func convertThread(thread v1.Thread) types.Thread {
 		AgentAlias:      thread.Spec.AgentAlias,
 		UserID:          thread.Spec.UserUID,
 		Abort:           thread.Spec.Abort,
+		Env:             thread.Spec.Env,
 	}
 }
 
@@ -73,6 +75,71 @@ func (a *ThreadHandler) Abort(req api.Context) error {
 	}
 
 	return req.Write(thread)
+}
+
+func (a *ThreadHandler) WorkflowExecutions(req api.Context) error {
+	var (
+		id         = req.PathValue("id")
+		workflowID = req.PathValue("workflow_id")
+	)
+
+	var workflowExecutions v1.WorkflowExecutionList
+	if err := req.List(&workflowExecutions, kclient.MatchingFields{
+		"spec.threadName":   id,
+		"spec.workflowName": workflowID,
+	}); err != nil {
+		return err
+	}
+
+	var resp types.WorkflowExecutionList
+	for _, we := range workflowExecutions.Items {
+		resp.Items = append(resp.Items, convertWorkflowExecution(we))
+	}
+
+	return req.Write(resp)
+}
+
+func convertWorkflowExecution(we v1.WorkflowExecution) types.WorkflowExecution {
+	var w types.WorkflowManifest
+	if we.Status.WorkflowManifest != nil {
+		w = *we.Status.WorkflowManifest
+	}
+	var endTime *types.Time
+	if we.Status.EndTime != nil {
+		endTime = types.NewTime(we.Status.EndTime.Time)
+	}
+	return types.WorkflowExecution{
+		Metadata:  MetadataFrom(&we),
+		Workflow:  w,
+		Input:     we.Spec.Input,
+		Error:     we.Status.Error,
+		StartTime: *types.NewTime(we.CreationTimestamp.Time),
+		EndTime:   endTime,
+	}
+}
+
+func (a *ThreadHandler) Workflows(req api.Context) error {
+	var (
+		id = req.PathValue("id")
+	)
+
+	var workflows v1.WorkflowList
+	if err := req.List(&workflows, kclient.MatchingFields{
+		"spec.threadName": id,
+	}); err != nil {
+		return err
+	}
+
+	var resp types.WorkflowList
+	for _, workflow := range workflows.Items {
+		wf, err := convertWorkflow(workflow, "", req.APIBaseURL)
+		if err != nil {
+			return err
+		}
+		resp.Items = append(resp.Items, *wf)
+	}
+
+	return req.Write(resp)
 }
 
 func (a *ThreadHandler) Events(req api.Context) error {
@@ -167,12 +234,12 @@ func (a *ThreadHandler) Update(req api.Context) error {
 				return types.NewErrBadRequest("tool %s is not available for agent %s", newTool, agent.Name)
 			}
 		}
-		max := agent.Spec.Manifest.MaxThreadTools
-		if max == 0 {
-			max = DefaultMaxUserThreadTools
+		maxThreadTools := agent.Spec.Manifest.MaxThreadTools
+		if maxThreadTools == 0 {
+			maxThreadTools = DefaultMaxUserThreadTools
 		}
-		if len(newThread.Tools) > max {
-			return types.NewErrBadRequest("too many tools, max %d", max)
+		if len(newThread.Tools) > maxThreadTools {
+			return types.NewErrBadRequest("too many tools, max %d", maxThreadTools)
 		}
 	}
 

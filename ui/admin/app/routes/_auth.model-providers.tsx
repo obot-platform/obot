@@ -1,21 +1,29 @@
-import { CircleAlertIcon } from "lucide-react";
 import useSWR, { preload } from "swr";
 
 import { ModelProvider } from "~/lib/model/modelProviders";
+import { DefaultModelAliasApiService } from "~/lib/service/api/defaultModelAliasApiService";
+import { ModelApiService } from "~/lib/service/api/modelApiService";
 import { ModelProviderApiService } from "~/lib/service/api/modelProviderApiService";
+import { RouteHandle } from "~/lib/service/routeHandles";
 
 import { TypographyH2 } from "~/components/Typography";
+import { WarningAlert } from "~/components/composed/WarningAlert";
 import { ModelProviderList } from "~/components/model-providers/ModelProviderLists";
 import { CommonModelProviderIds } from "~/components/model-providers/constants";
-import { DefaultModelAliasFormDialog } from "~/components/model/shared/DefaultModelAliasForm";
-import { Alert, AlertDescription, AlertTitle } from "~/components/ui/alert";
+import { DefaultModelAliasFormDialog } from "~/components/model/DefaultModelAliasForm";
 
 export async function clientLoader() {
-    await preload(
-        ModelProviderApiService.getModelProviders.key(),
-        ModelProviderApiService.getModelProviders
-    );
-
+    await Promise.all([
+        preload(ModelApiService.getModels.key(), ModelApiService.getModels),
+        preload(
+            ModelProviderApiService.getModelProviders.key(),
+            ModelProviderApiService.getModelProviders
+        ),
+        preload(
+            DefaultModelAliasApiService.getAliases.key(),
+            DefaultModelAliasApiService.getAliases
+        ),
+    ]);
     return null;
 }
 
@@ -59,24 +67,22 @@ export default function ModelProviders() {
     return (
         <div>
             <div className="relative space-y-10 px-8 pb-8">
-                <div className="sticky top-0 bg-background pt-8 flex items-center justify-between">
-                    <TypographyH2 className="mb-0 pb-0">
-                        Model Providers
-                    </TypographyH2>
-                    <DefaultModelAliasFormDialog disabled={!configured} />
+                <div className="sticky top-0 bg-background pt-8 flex flex-col gap-4">
+                    <div className="flex items-center justify-between">
+                        <TypographyH2 className="mb-0 pb-0">
+                            Model Providers
+                        </TypographyH2>
+                        <DefaultModelAliasFormDialog disabled={!configured} />
+                    </div>
+                    {configured ? null : (
+                        <WarningAlert
+                            title="No Model Providers Configured!"
+                            description="To use Acorn's features, you'll need to
+                                set up a Model Provider. Select and configure
+                                one below to get started!"
+                        />
+                    )}
                 </div>
-
-                {configured ? null : (
-                    <Alert variant="default">
-                        <CircleAlertIcon className="w-4 h-4 !text-warning" />
-                        <AlertTitle>No Model Providers Configured!</AlertTitle>
-                        <AlertDescription>
-                            To use Otto&apos;s features, you&apos;ll need to set
-                            up a Model Provider. Select and configure one below
-                            to get started!
-                        </AlertDescription>
-                    </Alert>
-                )}
 
                 <div className="h-full flex flex-col gap-8 overflow-hidden">
                     <ModelProviderList modelProviders={modelProviders ?? []} />
@@ -85,3 +91,7 @@ export default function ModelProviders() {
         </div>
     );
 }
+
+export const handle: RouteHandle = {
+    breadcrumb: () => [{ content: "Model Providers" }],
+};

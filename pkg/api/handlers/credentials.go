@@ -5,9 +5,9 @@ import (
 	"maps"
 	"slices"
 
+	"github.com/acorn-io/acorn/apiclient/types"
+	"github.com/acorn-io/acorn/pkg/api"
 	"github.com/gptscript-ai/go-gptscript"
-	"github.com/otto8-ai/otto8/apiclient/types"
-	"github.com/otto8-ai/otto8/pkg/api"
 )
 
 func ListCredentials(req api.Context) error {

@@ -1,6 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
 
-import { ToolCategoryMap } from "~/lib/service/api/toolreferenceService";
+import { ToolReference } from "~/lib/model/toolReferences";
+import {
+    ToolCategoryMap,
+    YourToolsToolCategory,
+} from "~/lib/service/api/toolreferenceService";
 
 import { TypographyP } from "~/components/Typography";
 import { CategoryHeader } from "~/components/tools/toolGrid/CategoryHeader";
@@ -58,27 +62,42 @@ export function ToolGrid({ toolCategories, filter, onDelete }: ToolGridProps) {
         return <TypographyP>No tools found...</TypographyP>;
     }
 
+    const yourToolsCategory = filteredResults[YourToolsToolCategory];
     return (
         <div className="space-y-8 pb-16">
+            {yourToolsCategory &&
+                renderToolCategory(
+                    YourToolsToolCategory,
+                    yourToolsCategory.tools
+                )}
             {Object.entries(filteredResults).map(
                 ([category, { tools, bundleTool }]) => {
-                    if (tools.length) {
-                        return (
-                            <div key={category} className="space-y-4">
-                                <CategoryHeader
-                                    category={category}
-                                    description={bundleTool?.description || ""}
-                                    tools={tools}
-                                />
-                                <CategoryTools
-                                    tools={tools}
-                                    onDelete={onDelete}
-                                />
-                            </div>
-                        );
-                    }
+                    if (category === YourToolsToolCategory) return null;
+                    return renderToolCategory(
+                        category,
+                        tools,
+                        bundleTool?.description
+                    );
                 }
             )}
         </div>
     );
+
+    function renderToolCategory(
+        category: string,
+        tools: ToolReference[],
+        description = ""
+    ) {
+        if (!tools.length) return null;
+        return (
+            <div key={category} className="space-y-4">
+                <CategoryHeader
+                    category={category}
+                    description={description}
+                    tools={tools}
+                />
+                <CategoryTools tools={tools} onDelete={onDelete} />
+            </div>
+        );
+    }
 }

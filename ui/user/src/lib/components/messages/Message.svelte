@@ -1,25 +1,3 @@
-<script module lang="ts">
-	export function formatTime(time: Date) {
-		const now = new Date();
-		if (
-			time.getDate() == now.getDate() &&
-			time.getMonth() == now.getMonth() &&
-			time.getFullYear() == now.getFullYear()
-		) {
-			return time.toLocaleTimeString(undefined, {
-				hour: 'numeric',
-				minute: 'numeric'
-			});
-		}
-		return time.toLocaleDateString(undefined, {
-			month: 'short',
-			day: 'numeric',
-			hour: 'numeric',
-			minute: 'numeric'
-		});
-	}
-</script>
-
 <script lang="ts">
 	import type { Message } from '$lib/services';
 	import Loading from '$lib/icons/Loading.svelte';
@@ -28,7 +6,9 @@
 	import { FileText, Pencil } from '$lib/icons';
 	import { toHTMLFromMarkdown } from '$lib/markdown.js';
 	import { currentAssistant } from '$lib/stores';
-	import { Paperclip } from 'lucide-svelte';
+	import { Paperclip, X } from 'lucide-svelte';
+	import { formatTime } from '$lib/time';
+	import { popover } from '$lib/actions';
 
 	interface Props {
 		msg: Message;
@@ -41,6 +21,9 @@
 	let fullWidth = !msg.sent && !msg.oauthURL && !msg.tool;
 	let showBubble = msg.sent;
 	let renderMarkdown = !msg.sent && !msg.oauthURL && !msg.tool;
+	let toolTT = popover({
+		placement: 'bottom-start',
+	});
 
 	$effect(() => {
 		// this is a hack to make sure this effect is run after the content is updated
@@ -80,7 +63,7 @@
 	<div class="mb-1 flex items-center space-x-2">
 		{#if msg.sourceName}
 			<span class="text-sm font-semibold"
-				>{msg.sourceName === 'Otto' ? $currentAssistant.name : msg.sourceName}</span
+				>{msg.sourceName === 'Assistant' ? $currentAssistant.name : msg.sourceName}</span
 			>
 		{/if}
 		{#if msg.time}
@@ -100,6 +83,8 @@
 			{@render oauth()}
 		{:else if content}
 			{@render messageContent()}
+		{:else if msg.toolCall}
+			{@render toolContent()}
 		{/if}
 
 		{@render files()}
@@ -173,6 +158,37 @@
 	{/if}
 {/snippet}
 
+{#snippet toolContent()}
+	<button
+		use:toolTT.ref
+		class="text-left text-xs text-gray underline opacity-0 transition-opacity group-hover:opacity-100"
+		onclick={() => {
+			toolTT.toggle();
+		}}>Details</button
+	>
+	<div
+		use:toolTT.tooltip
+		class="z-40 flex flex-col gap-2 rounded-3xl bg-gray-70 p-5 dark:bg-gray-900 dark:text-gray-50"
+	>
+		<div class="flex text-xl font-semibold">
+			<span class="flex-1">Input</span>
+			<button
+				class="self-end rounded-lg p-2 hover:bg-white dark:hover:bg-black"
+				onclick={() => {
+					toolTT.toggle();
+				}}
+			>
+				<X class="h-4 w-4" />
+			</button>
+		</div>
+		<pre class="max-w-[500px] overflow-auto rounded-lg bg-white p-5 dark:bg-black">{msg.toolCall
+				?.input ?? 'None'}</pre>
+		<div class="text-xl font-semibold">Output</div>
+		<pre class="max-w-[500px] overflow-auto rounded-lg bg-white p-5 dark:bg-black">{msg.toolCall
+				?.output ?? 'None'}</pre>
+	</div>
+{/snippet}
+
 {#snippet messageContent()}
 	{#if msg.sent}
 		{content}
@@ -206,28 +222,30 @@
 	{/if}
 {/snippet}
 
-<div class="relative flex items-start gap-3" class:justify-end={msg.sent}>
-	{#if !msg.sent}
-		<MessageIcon {msg} />
-	{/if}
-
-	<div class="flex w-full flex-col" class:w-full={fullWidth}>
+{#if !msg.ignore}
+	<div class="group relative flex items-start gap-3" class:justify-end={msg.sent}>
 		{#if !msg.sent}
-			{@render nameAndTime()}
+			<MessageIcon {msg} />
 		{/if}
-		{@render messageBody()}
-		{#if msg.sent}
-			{@render time()}
+
+		<div class="flex w-full flex-col" class:w-full={fullWidth}>
+			{#if !msg.sent}
+				{@render nameAndTime()}
+			{/if}
+			{@render messageBody()}
+			{#if msg.sent}
+				{@render time()}
+			{/if}
+		</div>
+		{#if msg.aborted}
+			<div
+				class="absolute bottom-0 z-20 flex h-full w-full items-center justify-center bg-white bg-opacity-60 text-xl font-semibold text-black text-opacity-30 dark:bg-black dark:bg-opacity-60 dark:text-white dark:text-opacity-30"
+			>
+				Aborted
+			</div>
 		{/if}
 	</div>
-	{#if msg.aborted}
-		<div
-			class="absolute bottom-0 z-20 flex h-full w-full items-center justify-center bg-white bg-opacity-60 text-xl font-semibold text-black text-opacity-30 dark:bg-black dark:bg-opacity-60 dark:text-white dark:text-opacity-30"
-		>
-			Aborted
-		</div>
-	{/if}
-</div>
+{/if}
 
 <style lang="postcss">
 	/* The :global is to get rid of warnings about the selector not being found */

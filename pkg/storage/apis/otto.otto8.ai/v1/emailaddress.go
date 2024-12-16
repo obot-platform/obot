@@ -3,9 +3,9 @@ package v1
 import (
 	"slices"
 
-	"github.com/otto8-ai/nah/pkg/fields"
-	"github.com/otto8-ai/otto8/apiclient/types"
-	"github.com/otto8-ai/otto8/pkg/system"
+	"github.com/acorn-io/acorn/apiclient/types"
+	"github.com/acorn-io/acorn/pkg/system"
+	"github.com/acorn-io/nah/pkg/fields"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -30,14 +30,14 @@ func (in *EmailReceiver) Has(field string) (exists bool) {
 
 func (in *EmailReceiver) Get(field string) (value string) {
 	switch field {
-	case "spec.userID":
-		return in.Spec.UserID
+	case "spec.threadName":
+		return in.Spec.ThreadName
 	}
 	return ""
 }
 
 func (in *EmailReceiver) FieldNames() []string {
-	return []string{"spec.userID"}
+	return []string{"spec.threadName"}
 }
 
 func (in *EmailReceiver) GetAliasName() string {
@@ -81,6 +81,7 @@ func (in *EmailReceiver) DeleteRefs() []Ref {
 
 type EmailReceiverSpec struct {
 	types.EmailReceiverManifest `json:",inline"`
+	ThreadName                  string `json:"threadName,omitempty"`
 }
 
 type EmailReceiverStatus struct {

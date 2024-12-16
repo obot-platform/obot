@@ -9,9 +9,9 @@ import (
 	"net/url"
 	"time"
 
-	types2 "github.com/otto8-ai/otto8/apiclient/types"
-	"github.com/otto8-ai/otto8/pkg/api"
-	"github.com/otto8-ai/otto8/pkg/gateway/types"
+	types2 "github.com/acorn-io/acorn/apiclient/types"
+	"github.com/acorn-io/acorn/pkg/api"
+	"github.com/acorn-io/acorn/pkg/gateway/types"
 	"gorm.io/gorm"
 )
 

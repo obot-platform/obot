@@ -5,8 +5,8 @@ import (
 	"os"
 	"strings"
 
-	"github.com/otto8-ai/otto8/pkg/cli/invokeclient"
-	"github.com/otto8-ai/otto8/pkg/system"
+	"github.com/acorn-io/acorn/pkg/cli/invokeclient"
+	"github.com/acorn-io/acorn/pkg/system"
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
 )
@@ -17,7 +17,7 @@ type Invoke struct {
 	Quiet   *bool  `usage:"Only print output characters" short:"q"`
 	Verbose bool   `usage:"Print more information" short:"v"`
 	Async   bool   `usage:"Run the agent asynchronously" short:"a"`
-	root    *Otto8
+	root    *Acorn
 }
 
 func (l *Invoke) GetQuiet() bool {
@@ -27,7 +27,7 @@ func (l *Invoke) GetQuiet() bool {
 	return *l.Quiet
 }
 
-func (l *Invoke) Pre(cmd *cobra.Command, args []string) error {
+func (l *Invoke) Pre(*cobra.Command, []string) error {
 	if l.Quiet == nil && term.IsTerminal(int(os.Stdout.Fd())) {
 		l.Quiet = new(bool)
 	}

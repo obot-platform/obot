@@ -3,15 +3,19 @@ package render
 import (
 	"context"
 	"fmt"
+	"regexp"
 	"strings"
 
-	"github.com/otto8-ai/nah/pkg/router"
-	"github.com/otto8-ai/otto8/apiclient/types"
-	v1 "github.com/otto8-ai/otto8/pkg/storage/apis/otto.otto8.ai/v1"
+	"github.com/acorn-io/acorn/apiclient/types"
+	v1 "github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1"
+	"github.com/acorn-io/acorn/pkg/system"
+	"github.com/acorn-io/nah/pkg/router"
 	apierror "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
+
+var validEnv = regexp.MustCompile("^[a-zA-Z_][a-zA-Z0-9_]*$")
 
 type WorkflowOptions struct {
 	Step             *types.Step
@@ -58,26 +62,12 @@ func Workflow(ctx context.Context, c kclient.Client, wf *v1.Workflow, opts Workf
 		},
 		Spec: v1.AgentSpec{
 			Manifest:            agentManifest,
-			Credentials:         wf.Spec.Manifest.Credentials,
 			CredentialContextID: wf.Name,
 		},
 		Status: v1.AgentStatus{
 			WorkspaceName:     wf.Status.WorkspaceName,
 			KnowledgeSetNames: wf.Status.KnowledgeSetNames,
 		},
-	}
-
-	for _, env := range wf.Spec.Manifest.Env {
-		if env.Name == "" {
-			continue
-		}
-		if env.Value == "" {
-			agent.Spec.Credentials = append(agent.Spec.Credentials,
-				fmt.Sprintf(`github.com/gptscript-ai/credential as %s with "%s" as message and "%s" as env and %s as field`,
-					env.Name, env.Description, env.Name, env.Name))
-		} else {
-			agent.Spec.Env = append(agent.Spec.Env, fmt.Sprintf("%s=%s", env.Name, env.Value))
-		}
 	}
 
 	if step := opts.Step; step != nil {
@@ -104,9 +94,7 @@ func Workflow(ctx context.Context, c kclient.Client, wf *v1.Workflow, opts Workf
 		agent.Spec.Manifest.Prompt = v1.DefaultWorkflowAgentPrompt
 	}
 
-	if opts.Input != "" {
-		agent.Spec.Manifest.Prompt = fmt.Sprintf("WORKFLOW INPUT: %s\nEND WORKFLOW INPUT\n\n%s", opts.Input, agent.Spec.Manifest.Prompt)
-	}
-
+	agent.Spec.Env = append(agent.Spec.Env, "WORKFLOW_INPUT="+opts.Input)
+	agent.Spec.SystemTools = append(agent.Spec.SystemTools, system.WorkflowTool)
 	return &agent, nil
 }

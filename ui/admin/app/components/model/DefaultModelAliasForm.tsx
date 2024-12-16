@@ -8,12 +8,16 @@ import {
     Model,
     ModelAlias,
     ModelUsage,
+    filterModelsByUsage,
     getModelAliasLabel,
     getModelUsageFromAlias,
+    getModelUsageLabel,
 } from "~/lib/model/models";
 import { DefaultModelAliasApiService } from "~/lib/service/api/defaultModelAliasApiService";
 import { ModelApiService } from "~/lib/service/api/modelApiService";
 
+import { TypographyP } from "~/components/Typography";
+import { SUGGESTED_MODEL_SELECTIONS } from "~/components/model/constants";
 import { Button } from "~/components/ui/button";
 import {
     Dialog,
@@ -34,7 +38,9 @@ import {
 import {
     Select,
     SelectContent,
+    SelectGroup,
     SelectItem,
+    SelectLabel,
     SelectTrigger,
     SelectValue,
 } from "~/components/ui/select";
@@ -66,14 +72,23 @@ export function DefaultModelAliasForm({
         ModelApiService.getModels
     );
 
-    const modelUsageMap = useMemo(() => {
-        return (models ?? []).reduce((acc, model) => {
-            if (!acc.has(model.usage)) acc.set(model.usage, []);
+    const defaultAliasMap = useMemo(() => {
+        return Object.entries(SUGGESTED_MODEL_SELECTIONS).reduce(
+            (acc, [alias, modelName]) => {
+                acc[alias] = models?.find((model) => model.name === modelName);
+                return acc;
+            },
+            {} as Record<string, Model | undefined>
+        );
+    }, [models]);
 
-            acc.get(model.usage)?.push(model);
+    const otherModels = useMemo(() => {
+        if (!models) return [];
 
-            return acc;
-        }, new Map<string, Model[]>());
+        return filterModelsByUsage(models, [
+            ModelUsage.Unknown,
+            ModelUsage.Other,
+        ]);
     }, [models]);
 
     const update = useAsync(
@@ -98,30 +113,36 @@ export function DefaultModelAliasForm({
     const defaultValues = useMemo(() => {
         return defaultAliases?.reduce(
             (acc, alias) => {
-                acc[alias.alias] = alias.model;
+                // if a default model is not set, suggest the model from the SUGGESTED_MODEL_SELECTIONS
+                acc[alias.alias] =
+                    alias.model || defaultAliasMap[alias.alias]?.id || "";
+
                 return acc;
             },
             {} as Record<string, string>
         );
-    }, [defaultAliases]);
+    }, [defaultAliases, defaultAliasMap]);
 
-    const form = useForm<Record<string, string>>({ defaultValues });
+    const form = useForm<Record<string, string>>({
+        defaultValues,
+    });
+    const { reset, watch, handleSubmit, control } = form;
 
     useEffect(() => {
-        return form.watch((values) => {
+        return watch((values) => {
             const changedItems = defaultAliases?.filter(({ alias, model }) => {
                 return values[alias] !== model;
             });
 
             if (!changedItems?.length) return;
         }).unsubscribe;
-    }, [defaultAliases, form]);
+    }, [defaultAliases, watch]);
 
     useEffect(() => {
-        form.reset(defaultValues);
-    }, [defaultValues, form]);
+        reset(defaultValues);
+    }, [defaultValues, reset]);
 
-    const handleSubmit = form.handleSubmit((values) => {
+    const handleFormSubmit = handleSubmit((values) => {
         const updates = defaultAliases
             ?.filter(({ alias, model }) => values[alias] !== model)
             .map(({ alias }) => ({
@@ -134,21 +155,21 @@ export function DefaultModelAliasForm({
 
     return (
         <Form {...form}>
-            <form onSubmit={handleSubmit} className="space-y-6">
+            <form onSubmit={handleFormSubmit} className="space-y-6">
                 {sortedDefaultAliases?.map(({ alias, model: defaultModel }) => (
                     <FormField
-                        control={form.control}
+                        control={control}
                         name={alias}
                         key={alias}
                         render={({ field: { ref: _, ...field } }) => {
-                            const usage = getModelUsageFromAlias(alias);
-                            const modelOptions = usage
-                                ? modelUsageMap.get(
-                                      usage === ModelUsage.Vision
-                                          ? ModelUsage.LLM
-                                          : usage
-                                  )
-                                : [];
+                            const usage =
+                                getModelUsageFromAlias(alias) ??
+                                ModelUsage.Unknown;
+
+                            const modelOptions = filterModelsByUsage(
+                                models ?? [],
+                                usage
+                            );
 
                             return (
                                 <FormItem className="flex justify-between items-center space-y-0">
@@ -175,7 +196,9 @@ export function DefaultModelAliasForm({
                                                 <SelectContent>
                                                     {renderSelectContent(
                                                         modelOptions,
-                                                        defaultModel
+                                                        defaultModel,
+                                                        usage,
+                                                        alias
                                                     )}
                                                 </SelectContent>
                                             </Select>
@@ -203,19 +226,65 @@ export function DefaultModelAliasForm({
 
     function renderSelectContent(
         modelOptions: Model[] | undefined,
-        defaultModel: string
+        defaultModel: string,
+        usage: ModelUsage,
+        aliasFor: ModelAlias
     ) {
         if (!modelOptions) {
-            if (!defaultModel) return null;
+            if (!defaultModel)
+                return (
+                    <TypographyP className="p-2 text-muted-foreground">
+                        No Models Available.
+                    </TypographyP>
+                );
             return <SelectItem value={defaultModel}>{defaultModel}</SelectItem>;
         }
 
-        return modelOptions.map((model) => (
-            <SelectItem key={model.id} value={model.id}>
-                {model.name || model.id}
-            </SelectItem>
-        ));
+        return (
+            <>
+                <SelectGroup className="relative">
+                    <SelectLabel>{getModelUsageLabel(usage)}</SelectLabel>
+
+                    {modelOptions.map((model) => (
+                        <SelectItem key={model.id} value={model.id}>
+                            {getModelOptionLabel(model, aliasFor)}
+                        </SelectItem>
+                    ))}
+                </SelectGroup>
+
+                {otherModels.length > 0 && (
+                    <SelectGroup>
+                        <SelectLabel>Other</SelectLabel>
+
+                        {otherModels.map((model) => (
+                            <SelectItem key={model.id} value={model.id}>
+                                {model.name || model.id}
+                                {" - "}
+                                <span className="text-muted-foreground">
+                                    {model.modelProvider}
+                                </span>
+                            </SelectItem>
+                        ))}
+                    </SelectGroup>
+                )}
+            </>
+        );
     }
+}
+
+function getModelOptionLabel(model: Model, aliasFor: ModelAlias) {
+    // if the model name is the same as the suggested model name, show that it's suggested
+    const suggestionName = SUGGESTED_MODEL_SELECTIONS[aliasFor];
+    return (
+        <>
+            {model.name || model.id}{" "}
+            {suggestionName === model.name && (
+                <span className="text-muted-foreground">(Suggested)</span>
+            )}
+            {" - "}
+            <span className="text-muted-foreground">{model.modelProvider}</span>
+        </>
+    );
 }
 
 export function DefaultModelAliasFormDialog({
@@ -228,16 +297,18 @@ export function DefaultModelAliasFormDialog({
     return (
         <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
-                <Button disabled={disabled}>Default Model</Button>
+                <Button disabled={disabled}>Set Default Models</Button>
             </DialogTrigger>
 
-            <DialogContent>
+            <DialogContent className="max-w-2xl">
                 <DialogHeader>
                     <DialogTitle>Default Model Aliases</DialogTitle>
                 </DialogHeader>
 
                 <DialogDescription>
-                    Set the default model for each usage.
+                    When no model is specified, a default model is used for
+                    creating a new agent, workflow, or working with some tools,
+                    etc. Select your default models for the usage types below.
                 </DialogDescription>
 
                 <DefaultModelAliasForm onSuccess={() => setOpen(false)} />

@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"sort"
 
-	"github.com/otto8-ai/otto8/apiclient/types"
+	"github.com/acorn-io/acorn/apiclient/types"
 )
 
 func (c *Client) UpdateAgent(ctx context.Context, id string, manifest types.AgentManifest) (*types.Agent, error) {

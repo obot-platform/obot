@@ -2,7 +2,6 @@ import { Link, useLocation } from "@remix-run/react";
 import {
     BotIcon,
     BoxesIcon,
-    BrainIcon,
     KeyIcon,
     MessageSquare,
     PuzzleIcon,
@@ -15,7 +14,7 @@ import { $path } from "remix-routes";
 
 import { cn } from "~/lib/utils";
 
-import { OttoLogo } from "~/components/branding/OttoLogo";
+import { AcornLogo } from "~/components/branding/AcornLogo";
 import { Button } from "~/components/ui/button";
 import {
     Popover,
@@ -69,11 +68,6 @@ const items = [
         icon: PuzzleIcon,
     },
     {
-        title: "Models",
-        url: $path("/models"),
-        icon: BrainIcon,
-    },
-    {
         title: "Model Providers",
         url: $path("/model-providers"),
         icon: BoxesIcon,
@@ -95,7 +89,7 @@ export function AppSidebar() {
                 className={cn("h-[60px]", state === "collapsed" ? "" : "px-4")}
             >
                 <div className={cn("flex items-center justify-center h-full")}>
-                    <OttoLogo hideText={state === "collapsed"} />
+                    <AcornLogo hideText={state === "collapsed"} />
                 </div>
             </SidebarHeader>
             <SidebarContent>

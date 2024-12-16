@@ -4,14 +4,14 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/otto8-ai/otto8/apiclient/types"
-	"github.com/otto8-ai/otto8/pkg/system"
+	"github.com/acorn-io/acorn/apiclient/types"
+	"github.com/acorn-io/acorn/pkg/system"
 	"github.com/spf13/cobra"
 	"sigs.k8s.io/yaml"
 )
 
 type Update struct {
-	root  *Otto8
+	root  *Acorn
 	Quiet bool `usage:"Only print IDs of updated agent/workflow" short:"q"`
 }
 

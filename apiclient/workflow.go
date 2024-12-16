@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"sort"
 
-	"github.com/otto8-ai/otto8/apiclient/types"
+	"github.com/acorn-io/acorn/apiclient/types"
 )
 
 func (c *Client) UpdateWorkflow(ctx context.Context, id string, manifest types.WorkflowManifest) (*types.Workflow, error) {
@@ -38,8 +38,35 @@ func (c *Client) CreateWorkflow(ctx context.Context, workflow types.WorkflowMani
 	return toObject(resp, &types.Workflow{})
 }
 
+type ListWorkflowExecutionsOptions struct {
+	ThreadID string
+}
+
+func (c *Client) ListWorkflowExecutions(ctx context.Context, workflowID string, opts ListWorkflowExecutionsOptions) (result types.WorkflowExecutionList, err error) {
+	defer func() {
+		sort.Slice(result.Items, func(i, j int) bool {
+			return result.Items[i].Metadata.Created.Time.Before(result.Items[j].Metadata.Created.Time)
+		})
+	}()
+
+	url := fmt.Sprintf("/workflows/%s/executions", workflowID)
+	if opts.ThreadID != "" {
+		url = fmt.Sprintf("/threads/%s/workflows/%s/executions", opts.ThreadID, workflowID)
+	}
+
+	_, resp, err := c.doRequest(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return
+	}
+	defer resp.Body.Close()
+
+	_, err = toObject(resp, &result)
+	return
+}
+
 type ListWorkflowsOptions struct {
-	Alias string
+	Alias    string
+	ThreadID string
 }
 
 func (c *Client) ListWorkflows(ctx context.Context, opts ListWorkflowsOptions) (result types.WorkflowList, err error) {
@@ -49,7 +76,12 @@ func (c *Client) ListWorkflows(ctx context.Context, opts ListWorkflowsOptions) (
 		})
 	}()
 
-	_, resp, err := c.doRequest(ctx, http.MethodGet, "/workflows", nil)
+	url := "/workflows"
+	if opts.ThreadID != "" {
+		url = fmt.Sprintf("/threads/%s/workflows", opts.ThreadID)
+	}
+
+	_, resp, err := c.doRequest(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return
 	}

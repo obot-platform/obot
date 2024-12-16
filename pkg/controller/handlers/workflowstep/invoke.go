@@ -1,16 +1,16 @@
 package workflowstep
 
 import (
+	"github.com/acorn-io/acorn/apiclient/types"
+	"github.com/acorn-io/acorn/pkg/invoke"
+	v1 "github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1"
+	"github.com/acorn-io/nah/pkg/router"
+	"github.com/acorn-io/nah/pkg/uncached"
 	"github.com/gptscript-ai/go-gptscript"
-	"github.com/otto8-ai/nah/pkg/router"
-	"github.com/otto8-ai/nah/pkg/uncached"
-	"github.com/otto8-ai/otto8/apiclient/types"
-	"github.com/otto8-ai/otto8/pkg/invoke"
-	v1 "github.com/otto8-ai/otto8/pkg/storage/apis/otto.otto8.ai/v1"
 	"k8s.io/client-go/util/retry"
 )
 
-func (h *Handler) RunInvoke(req router.Request, resp router.Response) error {
+func (h *Handler) RunInvoke(req router.Request, _ router.Response) error {
 	var (
 		ctx         = req.Ctx
 		client      = req.Client

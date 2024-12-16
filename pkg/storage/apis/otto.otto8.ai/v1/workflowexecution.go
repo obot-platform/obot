@@ -1,8 +1,8 @@
 package v1
 
 import (
-	"github.com/otto8-ai/nah/pkg/fields"
-	"github.com/otto8-ai/otto8/apiclient/types"
+	"github.com/acorn-io/acorn/apiclient/types"
+	"github.com/acorn-io/nah/pkg/fields"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -27,8 +27,8 @@ func (in *WorkflowExecution) Has(field string) bool {
 func (in *WorkflowExecution) Get(field string) string {
 	if in != nil {
 		switch field {
-		case "spec.userID":
-			return in.Spec.UserID
+		case "spec.threadName":
+			return in.Spec.ThreadName
 		case "spec.webhookName":
 			return in.Spec.WebhookName
 		case "spec.cronJobName":
@@ -44,7 +44,13 @@ func (in *WorkflowExecution) Get(field string) string {
 }
 
 func (in *WorkflowExecution) FieldNames() []string {
-	return []string{"spec.userID", "spec.webhookName", "spec.cronJobName", "spec.workflowName", "spec.parentRunName"}
+	return []string{
+		"spec.threadName",
+		"spec.webhookName",
+		"spec.cronJobName",
+		"spec.workflowName",
+		"spec.parentRunName",
+	}
 }
 
 func (in *WorkflowExecution) GetColumns() [][]string {
@@ -59,8 +65,9 @@ func (in *WorkflowExecution) GetColumns() [][]string {
 }
 
 type WorkflowExecutionSpec struct {
-	Input                 string `json:"input,omitempty"`
-	UserID                string `json:"userID,omitempty"`
+	Input string `json:"input,omitempty"`
+	// ThreadName is the name of the thread that owns this execution, which is the same as the owning thread of the workflow.
+	ThreadName            string `json:"threadName,omitempty"`
 	WorkflowName          string `json:"workflowName,omitempty"`
 	WebhookName           string `json:"webhookName,omitempty"`
 	EmailReceiverName     string `json:"emailReceiverName,omitempty"`

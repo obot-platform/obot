@@ -5,15 +5,15 @@ import (
 	"iter"
 	"strings"
 
+	"github.com/acorn-io/acorn/apiclient"
+	"github.com/acorn-io/acorn/apiclient/types"
 	"github.com/dustin/go-humanize"
-	"github.com/otto8-ai/otto8/apiclient"
-	"github.com/otto8-ai/otto8/apiclient/types"
 	"github.com/pterm/pterm"
 	"github.com/spf13/cobra"
 )
 
 type Runs struct {
-	root   *Otto8
+	root   *Acorn
 	Wide   bool   `usage:"Print more information" short:"w"`
 	Quiet  bool   `usage:"Only print IDs of runs" short:"q"`
 	Output string `usage:"Output format (table, json, yaml)" short:"o" default:"table"`
@@ -66,6 +66,7 @@ func chanToIter[T any](c <-chan T) iter.Seq[T] {
 			if !yield(item) {
 				go func() {
 					// drain
+					//nolint:revive
 					for range c {
 					}
 				}()

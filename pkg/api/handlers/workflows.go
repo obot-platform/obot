@@ -4,21 +4,19 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/acorn-io/acorn/apiclient/types"
+	"github.com/acorn-io/acorn/pkg/alias"
+	"github.com/acorn-io/acorn/pkg/api"
+	"github.com/acorn-io/acorn/pkg/controller/handlers/workflow"
+	"github.com/acorn-io/acorn/pkg/invoke"
+	"github.com/acorn-io/acorn/pkg/render"
+	v1 "github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1"
+	"github.com/acorn-io/acorn/pkg/system"
+	"github.com/acorn-io/acorn/pkg/wait"
 	"github.com/gptscript-ai/go-gptscript"
-	"github.com/gptscript-ai/gptscript/pkg/mvl"
-	"github.com/otto8-ai/otto8/apiclient/types"
-	"github.com/otto8-ai/otto8/pkg/alias"
-	"github.com/otto8-ai/otto8/pkg/api"
-	"github.com/otto8-ai/otto8/pkg/controller/handlers/workflow"
-	"github.com/otto8-ai/otto8/pkg/invoke"
-	"github.com/otto8-ai/otto8/pkg/render"
-	v1 "github.com/otto8-ai/otto8/pkg/storage/apis/otto.otto8.ai/v1"
-	"github.com/otto8-ai/otto8/pkg/system"
-	"github.com/otto8-ai/otto8/pkg/wait"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
-
-var log = mvl.Package()
 
 type WorkflowHandler struct {
 	gptscript *gptscript.GPTScript
@@ -84,12 +82,31 @@ func (a *WorkflowHandler) Update(req api.Context) error {
 		return err
 	}
 
+	if wf.Spec.Manifest.Model != manifest.Model && manifest.Model != "" {
+		// Get the model to ensure it is active
+		var model v1.Model
+		if err := req.Get(&model, manifest.Model); err != nil {
+			return err
+		}
+
+		if !model.Spec.Manifest.Active {
+			return types.NewErrBadRequest("workflow cannot use inactive model %q", manifest.Model)
+		}
+	}
+
 	wf.Spec.Manifest = manifest
 	if err := req.Update(&wf); err != nil {
 		return err
 	}
 
-	resp, err := convertWorkflow(wf, req)
+	var knowledgeSet v1.KnowledgeSet
+	if len(wf.Status.KnowledgeSetNames) > 0 {
+		if err := req.Get(&knowledgeSet, wf.Status.KnowledgeSetNames[0]); err != nil {
+			return fmt.Errorf("failed to get workflow knowledge set: %w", err)
+		}
+	}
+
+	resp, err := convertWorkflow(wf, knowledgeSet.Status.TextEmbeddingModel, req.APIBaseURL)
 	if err != nil {
 		return err
 	}
@@ -116,6 +133,18 @@ func (a *WorkflowHandler) Create(req api.Context) error {
 		return err
 	}
 
+	if manifest.Model != "" {
+		// Get the model to ensure it is active
+		var model v1.Model
+		if err := req.Get(&model, manifest.Model); err != nil {
+			return err
+		}
+
+		if !model.Spec.Manifest.Active {
+			return types.NewErrBadRequest("workflow cannot use inactive model %q", manifest.Model)
+		}
+	}
+
 	manifest = workflow.PopulateIDs(manifest)
 	wf := &v1.Workflow{
 		ObjectMeta: metav1.ObjectMeta{
@@ -131,7 +160,8 @@ func (a *WorkflowHandler) Create(req api.Context) error {
 		return err
 	}
 
-	resp, err := convertWorkflow(*wf, req)
+	// The workflow won't have a knowledge set associated to it on create, so send the text embedding model as an empty string.
+	resp, err := convertWorkflow(*wf, "", req.APIBaseURL)
 	if err != nil {
 		return err
 	}
@@ -139,24 +169,14 @@ func (a *WorkflowHandler) Create(req api.Context) error {
 	return req.WriteCreated(resp)
 }
 
-func convertWorkflow(workflow v1.Workflow, req api.Context) (*types.Workflow, error) {
+func convertWorkflow(workflow v1.Workflow, textEmbeddingModel, baseURL string) (*types.Workflow, error) {
 	var links []string
-	if req.APIBaseURL != "" {
+	if baseURL != "" {
 		alias := workflow.Name
 		if workflow.Status.AliasAssigned && workflow.Spec.Manifest.Alias != "" {
 			alias = workflow.Spec.Manifest.Alias
 		}
-		links = []string{"invoke", req.APIBaseURL + "/invoke/" + alias}
-	}
-
-	var embeddingModel string
-	if len(workflow.Status.KnowledgeSetNames) > 0 {
-		var ks v1.KnowledgeSet
-		if err := req.Get(&ks, workflow.Status.KnowledgeSetNames[0]); err == nil {
-			embeddingModel = ks.Status.TextEmbeddingModel
-		} else {
-			log.Warnf("failed to get KnowledgeSet %q for workflow %q: %v", workflow.Status.KnowledgeSetNames[0], workflow.Name, err)
-		}
+		links = []string{"invoke", baseURL + "/invoke/" + alias}
 	}
 
 	var aliasAssigned *bool
@@ -169,7 +189,7 @@ func convertWorkflow(workflow v1.Workflow, req api.Context) (*types.Workflow, er
 		WorkflowManifest:   workflow.Spec.Manifest,
 		AliasAssigned:      aliasAssigned,
 		AuthStatus:         workflow.Status.AuthStatus,
-		TextEmbeddingModel: embeddingModel,
+		TextEmbeddingModel: textEmbeddingModel,
 	}, nil
 }
 
@@ -183,7 +203,14 @@ func (a *WorkflowHandler) ByID(req api.Context) error {
 		return err
 	}
 
-	resp, err := convertWorkflow(workflow, req)
+	var knowledgeSet v1.KnowledgeSet
+	if len(workflow.Status.KnowledgeSetNames) > 0 {
+		if err := req.Get(&knowledgeSet, workflow.Status.KnowledgeSetNames[0]); err != nil {
+			return fmt.Errorf("failed to get workflow knowledge set: %w", err)
+		}
+	}
+
+	resp, err := convertWorkflow(workflow, knowledgeSet.Status.TextEmbeddingModel, req.APIBaseURL)
 	if err != nil {
 		return err
 	}
@@ -197,17 +224,33 @@ func (a *WorkflowHandler) List(req api.Context) error {
 		return err
 	}
 
-	var resp types.WorkflowList
+	var knowledgeSets v1.KnowledgeSetList
+	if err := req.List(&knowledgeSets); err != nil {
+		return fmt.Errorf("failed to get agent knowledge sets: %w", err)
+	}
+
+	textEmbeddingModels := make(map[string]string, len(knowledgeSets.Items))
+	for _, knowledgeSet := range knowledgeSets.Items {
+		textEmbeddingModels[knowledgeSet.Name] = knowledgeSet.Status.TextEmbeddingModel
+	}
+
+	var textEmbeddingModel string
+	resp := make([]types.Workflow, 0, len(workflowList.Items))
 	for _, workflow := range workflowList.Items {
-		convertedWorkflow, err := convertWorkflow(workflow, req)
+		if len(workflow.Status.KnowledgeSetNames) > 0 {
+			textEmbeddingModel = textEmbeddingModels[workflow.Status.KnowledgeSetNames[0]]
+		} else {
+			textEmbeddingModel = ""
+		}
+		convertedWorkflow, err := convertWorkflow(workflow, textEmbeddingModel, req.APIBaseURL)
 		if err != nil {
 			return err
 		}
 
-		resp.Items = append(resp.Items, *convertedWorkflow)
+		resp = append(resp, *convertedWorkflow)
 	}
 
-	return req.Write(resp)
+	return req.Write(types.WorkflowList{Items: resp})
 }
 
 func (a *WorkflowHandler) EnsureCredentialForKnowledgeSource(req api.Context) error {
@@ -216,12 +259,19 @@ func (a *WorkflowHandler) EnsureCredentialForKnowledgeSource(req api.Context) er
 		return err
 	}
 
+	var knowledgeSet v1.KnowledgeSet
+	if len(wf.Status.KnowledgeSetNames) > 0 {
+		if err := req.Get(&knowledgeSet, wf.Status.KnowledgeSetNames[0]); err != nil {
+			return fmt.Errorf("failed to get workflow knowledge set: %w", err)
+		}
+	}
+
 	ref := req.PathValue("ref")
 	authStatus := wf.Status.AuthStatus[ref]
 
 	// If auth is not required, then don't continue.
 	if authStatus.Required != nil && !*authStatus.Required {
-		resp, err := convertWorkflow(wf, req)
+		resp, err := convertWorkflow(wf, knowledgeSet.Status.TextEmbeddingModel, req.APIBaseURL)
 		if err != nil {
 			return err
 		}
@@ -231,7 +281,7 @@ func (a *WorkflowHandler) EnsureCredentialForKnowledgeSource(req api.Context) er
 
 	// if auth is already authenticated, then don't continue.
 	if authStatus.Authenticated {
-		resp, err := convertWorkflow(wf, req)
+		resp, err := convertWorkflow(wf, knowledgeSet.Status.TextEmbeddingModel, req.APIBaseURL)
 		if err != nil {
 			return err
 		}
@@ -252,7 +302,7 @@ func (a *WorkflowHandler) EnsureCredentialForKnowledgeSource(req api.Context) er
 
 		authStatus.Required = &[]bool{false}[0]
 		wf.Status.AuthStatus[ref] = authStatus
-		resp, err := convertWorkflow(wf, req)
+		resp, err := convertWorkflow(wf, knowledgeSet.Status.TextEmbeddingModel, req.APIBaseURL)
 		if err != nil {
 			return err
 		}
@@ -291,12 +341,32 @@ func (a *WorkflowHandler) EnsureCredentialForKnowledgeSource(req api.Context) er
 	}
 	wf.Status.AuthStatus[ref] = oauthLogin.Status.External
 
-	resp, err := convertWorkflow(wf, req)
+	resp, err := convertWorkflow(wf, knowledgeSet.Status.TextEmbeddingModel, req.APIBaseURL)
 	if err != nil {
 		return err
 	}
 
 	return req.WriteCreated(resp)
+}
+
+func (a *WorkflowHandler) WorkflowExecutions(req api.Context) error {
+	var (
+		id = req.PathValue("id")
+	)
+
+	var wfes v1.WorkflowExecutionList
+	if err := req.List(&wfes, kclient.MatchingFields{
+		"spec.workflowName": id,
+	}); err != nil {
+		return err
+	}
+
+	var resp types.WorkflowExecutionList
+	for _, we := range wfes.Items {
+		resp.Items = append(resp.Items, convertWorkflowExecution(we))
+	}
+
+	return req.Write(resp)
 }
 
 func (a *WorkflowHandler) Script(req api.Context) error {

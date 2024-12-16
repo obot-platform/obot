@@ -12,7 +12,9 @@ import {
 	type TaskList,
 	type TaskRun,
 	type TaskRunList,
-	type Version
+	type Version,
+	type TableList,
+	type Rows
 } from './types';
 
 export async function getProfile(): Promise<Profile> {
@@ -44,10 +46,10 @@ export async function deleteFile(assistant: string, filename: string) {
 	return doDelete(`/assistants/${assistant}/files/${filename}`);
 }
 
-export async function getFile(assistant: string, filename: string): Promise<string> {
+export async function getFile(assistant: string, filename: string): Promise<Blob> {
 	return (await doGet(`/assistants/${assistant}/file/${filename}`, {
-		text: true
-	})) as string;
+		blob: true
+	})) as Blob;
 }
 
 export async function uploadKnowledge(assistant: string, file: File): Promise<KnowledgeFile> {
@@ -105,7 +107,19 @@ export async function invoke(assistant: string, msg: string | InvokeInput) {
 	await doPost(`/assistants/${assistant}/invoke`, msg);
 }
 
-export async function abort(assistant: string) {
+export async function abort(
+	assistant: string,
+	opts?: {
+		taskID?: string;
+		runID?: string;
+	}
+) {
+	if (opts?.taskID && opts?.runID) {
+		return await doPost(
+			`/assistants/${assistant}/tasks/${opts.taskID}/runs/${opts.runID}/abort`,
+			{}
+		);
+	}
 	await doPost(`/assistants/${assistant}/abort`, {});
 }
 
@@ -158,15 +172,16 @@ export function newMessageEventSource(
 	opts?: {
 		task?: {
 			id: string;
-			follow?: boolean;
 		};
+		runID?: string;
 	}
 ): EventSource {
 	if (opts?.task) {
-		return new EventSource(
-			baseURL +
-				`/assistants/${assistant}/tasks/${opts.task.id}/events${opts.task.follow ? '?follow=true' : ''}`
-		);
+		let url = `/assistants/${assistant}/tasks/${opts.task.id}/events`;
+		if (opts.runID) {
+			url = `/assistants/${assistant}/tasks/${opts.task.id}/runs/${opts.runID}/events`;
+		}
+		return new EventSource(baseURL + `${url}`);
 	}
 	return new EventSource(baseURL + `/assistants/${assistant}/events`);
 }
@@ -196,6 +211,14 @@ export async function getTask(assistant: string, id: string): Promise<Task> {
 	return (await doGet(`/assistants/${assistant}/tasks/${id}`)) as Task;
 }
 
+export async function getTaskRun(
+	assistant: string,
+	taskID: string,
+	runID: string
+): Promise<TaskRun> {
+	return (await doGet(`/assistants/${assistant}/tasks/${taskID}/runs/${runID}`)) as TaskRun;
+}
+
 export async function deleteTaskRun(assistant: string, id: string, runID: string) {
 	return doDelete(`/assistants/${assistant}/tasks/${id}/runs/${runID}`);
 }
@@ -206,4 +229,12 @@ export async function listTaskRuns(assistant: string, id: string): Promise<TaskR
 		list.items = [];
 	}
 	return list;
+}
+
+export async function listTables(assistant: string) {
+	return (await doGet(`/assistants/${assistant}/tables`)) as TableList;
+}
+
+export async function getRows(assistant: string, table: string) {
+	return (await doGet(`/assistants/${assistant}/tables/${table}/rows`)) as Rows;
 }

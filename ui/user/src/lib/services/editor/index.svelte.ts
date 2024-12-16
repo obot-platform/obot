@@ -1,14 +1,13 @@
 import items, { type EditorItem } from '$lib/stores/editor.svelte';
 import tasks from '$lib/stores/tasks.svelte';
 import ChatService from '../chat';
-import { get, type Writable, writable } from 'svelte/store';
+import { type Writable, writable } from 'svelte/store';
 
 const visible = writable(false);
 const maxSize = writable(false);
 
 const editor: Editor = {
 	remove,
-	init,
 	load,
 	select,
 	items,
@@ -20,22 +19,9 @@ export interface Editor {
 	load: (assistant: string, id: string) => Promise<void>;
 	remove: (name: string) => void;
 	select: (name: string) => void;
-	init: (assistant: string) => Promise<void>;
 	items: EditorItem[];
 	visible: Writable<boolean>;
 	maxSize: Writable<boolean>;
-}
-
-async function init(assistant: string) {
-	let currentID = window.location.href.split('#editor:')[1];
-	const maxSize = currentID?.search(',maxSize');
-	currentID = currentID?.split(',maxSize')[0];
-	if (maxSize > 0) {
-		editor.maxSize.set(true);
-	}
-	if (currentID && assistant) {
-		return load(assistant, currentID);
-	}
 }
 
 function hasItem(id: string): boolean {
@@ -44,8 +30,18 @@ function hasItem(id: string): boolean {
 }
 
 async function load(assistant: string, id: string) {
+	if (hasItem(id)) {
+		select(id);
+		visible.set(true);
+		return;
+	}
 	if (id.startsWith('w1')) {
 		await loadTask(assistant, id);
+		visible.set(true);
+		return;
+	}
+	if (id.startsWith('table://')) {
+		await loadTable(id);
 		visible.set(true);
 		return;
 	}
@@ -53,12 +49,22 @@ async function load(assistant: string, id: string) {
 	visible.set(true);
 }
 
-async function loadTask(assistant: string, taskID: string) {
-	if (hasItem(taskID)) {
-		select(taskID);
-		return;
-	}
+async function loadTable(id: string) {
+	const tableName = id.split('table://')[1];
+	const targetFile: EditorItem = {
+		id: id,
+		name: tableName,
+		contents: '',
+		buffer: '',
+		modified: false,
+		selected: true,
+		table: tableName
+	};
+	items.push(targetFile);
+	select(id);
+}
 
+async function loadTask(assistant: string, taskID: string) {
 	try {
 		let task = tasks.items.get(taskID);
 		if (!task) {
@@ -82,17 +88,14 @@ async function loadTask(assistant: string, taskID: string) {
 }
 
 async function loadFile(assistant: string, file: string) {
-	if (hasItem(file)) {
-		select(file);
-		return;
-	}
-
 	try {
-		const contents = await ChatService.getFile(assistant, file);
+		const blob = await ChatService.getFile(assistant, file);
+		const contents = await blob.text()
 		const targetFile = {
 			id: file,
 			name: file,
 			contents,
+			blob: blob,
 			buffer: '',
 			modified: false,
 			selected: true
@@ -114,13 +117,6 @@ function select(id: string) {
 		if (item.id === id) {
 			item.selected = true;
 			matched = true;
-			if (typeof window !== 'undefined') {
-				if (get(maxSize)) {
-					window.location.href = `#editor:${item.id},maxSize`;
-				} else {
-					window.location.href = `#editor:${item.id}`;
-				}
-			}
 		} else {
 			item.selected = false;
 		}
@@ -134,15 +130,13 @@ function select(id: string) {
 function remove(id: string) {
 	for (let i = 0; i < items.length; i++) {
 		if (items[i].id === id) {
-			if (items[i].selected) {
-				if (i > 0) {
-					select(items[i - 1].id);
-				} else if (items.length > 1) {
-					select(items[i + 1].id);
-				}
-				items.splice(i, 1);
-				break;
+			if (i > 0) {
+				select(items[i - 1].id);
+			} else if (items.length > 1) {
+				select(items[i + 1].id);
 			}
+			items.splice(i, 1);
+			break;
 		}
 	}
 

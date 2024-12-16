@@ -36,7 +36,7 @@
 {#snippet buttons(row: string[])}
 	{#if editMode}
 		<button
-			class="icon-button hover:bg-gray-50"
+			class="icon-button hover:bg-gray-70"
 			onclick={() => {
 				const newParams = { ...(onDemand.params ?? {}) };
 				delete newParams[row[0]];
@@ -48,14 +48,9 @@
 		>
 			<Minus class="h-5 w-5" />
 		</button>
-	{/if}
-{/snippet}
-
-<div class="mt-4 flex flex-col gap-4">
-	{#if Object.keys(onDemand.params ?? {}).length > 0 || editMode}
-		{#if editMode}
+		{#if row[0] !== ''}
 			<button
-				class="flex items-center text-gray-400 hover:text-black"
+				class="icon-button hover:bg-gray-70"
 				onclick={() => {
 					const newParams = { ...(onDemand.params ?? {}) };
 					newParams[''] = '';
@@ -65,45 +60,45 @@
 					});
 				}}
 			>
-				Add Input Parameters
-				<Plus class="ml-1 h-5 w-5" />
+				<Plus class="h-5 w-5" />
 			</button>
-		{:else}
-			<h4>Input Parameters</h4>
 		{/if}
-		{#if Object.keys(onDemand.params ?? {}).length > 0}
-			<div class="-mx-5">
-				<Table
-					editable={editMode}
-					header={['Name', 'Description']}
-					{rows}
-					{buttons}
-					onCellBlur={(value, row, col) => {
-						if (rows[row][col] !== value) {
-							const newParams = { ...(onDemand.params ?? {}) };
-							const oldKey = rows[row][0];
-							const newKey = col === 0 ? value : rows[row][0];
-							const newValue = col === 1 ? value : rows[row][1];
+	{/if}
+{/snippet}
 
-							const newOrder = rows.map((row) => row[0]);
-							if (col === 0) {
-								newOrder[row] = value;
-							}
-							order = newOrder;
+<div class="flex flex-col gap-4">
+	{#if Object.keys(onDemand.params ?? {}).length > 0}
+		<h4 class="text-xl font-semibold">Input Parameters</h4>
+		<Table
+			editable={editMode}
+			header={['Name', 'Description']}
+			placeholders={['Enter name', 'Description...']}
+			{rows}
+			{buttons}
+			onCellBlur={(value, row, col) => {
+				if (rows[row][col] !== value) {
+					const newParams = { ...(onDemand.params ?? {}) };
+					const oldKey = rows[row][0];
+					const newKey = col === 0 ? value : rows[row][0];
+					const newValue = col === 1 ? value : rows[row][1];
 
-							if (newKey !== oldKey) {
-								delete newParams[oldKey];
-							}
-							newParams[newKey] = newValue;
+					const newOrder = rows.map((row) => row[0]);
+					if (col === 0) {
+						newOrder[row] = value;
+					}
+					order = newOrder;
 
-							onChanged?.({
-								...onDemand,
-								params: newParams
-							});
-						}
-					}}
-				/>
-			</div>
-		{/if}
+					if (newKey !== oldKey) {
+						delete newParams[oldKey];
+					}
+					newParams[newKey] = newValue;
+
+					onChanged?.({
+						...onDemand,
+						params: newParams
+					});
+				}
+			}}
+		/>
 	{/if}
 </div>

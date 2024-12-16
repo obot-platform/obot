@@ -75,7 +75,7 @@ func (a *Authorizer) Authorize(req *http.Request, user user.Info) bool {
 		}
 	}
 
-	return false
+	return authorizeThread(req, user)
 }
 
 type rule struct {

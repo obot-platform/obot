@@ -3,9 +3,9 @@ package v1
 import (
 	"slices"
 
-	"github.com/otto8-ai/nah/pkg/fields"
-	"github.com/otto8-ai/otto8/apiclient/types"
-	"github.com/otto8-ai/otto8/pkg/system"
+	"github.com/acorn-io/acorn/apiclient/types"
+	"github.com/acorn-io/acorn/pkg/system"
+	"github.com/acorn-io/nah/pkg/fields"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -25,7 +25,7 @@ type Webhook struct {
 }
 
 func (w *Webhook) FieldNames() []string {
-	return []string{"spec.userID"}
+	return []string{"spec.threadName"}
 }
 
 func (w *Webhook) Has(field string) (exists bool) {
@@ -34,8 +34,8 @@ func (w *Webhook) Has(field string) (exists bool) {
 
 func (w *Webhook) Get(field string) (value string) {
 	switch field {
-	case "spec.userID":
-		return w.Spec.UserID
+	case "spec.threadName":
+		return w.Spec.ThreadName
 	}
 	return ""
 }
@@ -83,6 +83,7 @@ func (w *Webhook) DeleteRefs() []Ref {
 type WebhookSpec struct {
 	types.WebhookManifest `json:",inline"`
 	TokenHash             []byte `json:"tokenHash,omitempty"`
+	ThreadName            string
 }
 
 type WebhookStatus struct {

@@ -50,11 +50,8 @@ func load(ctx context.Context, c kclient.Client, obj kclient.Object, create bool
 	}
 
 	err := c.Create(ctx, obj)
-	if err == nil {
-		return nil
-	} else if apierrors.IsAlreadyExists(err) {
+	if !apierrors.IsAlreadyExists(err) {
 		// If the object already exists, we can retrieve it
-	} else {
 		return err
 	}
 
@@ -80,9 +77,10 @@ func For[T kclient.Object](ctx context.Context, c kclient.WithWatch, obj T, cond
 		return def, err
 	}
 
-	if err := load(ctx, c, obj, opt.Create); apierrors.IsNotFound(err) && opt.WaitForExists {
-	} else if err != nil {
-		return def, err
+	if err = load(ctx, c, obj, opt.Create); err != nil {
+		if !apierrors.IsNotFound(err) || !opt.WaitForExists {
+			return def, err
+		}
 	}
 
 	if obj.GetName() != "" {
@@ -107,6 +105,7 @@ func For[T kclient.Object](ctx context.Context, c kclient.WithWatch, obj T, cond
 	}
 	defer func() {
 		w.Stop()
+		//nolint:revive
 		for range w.ResultChan() {
 		}
 	}()

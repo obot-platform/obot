@@ -16,7 +16,7 @@ const (
 type Authorizer struct {
 }
 
-func (*Authorizer) Authorize(ctx context.Context, a authorizer.Attributes) (authorized authorizer.Decision, reason string, err error) {
+func (*Authorizer) Authorize(_ context.Context, a authorizer.Attributes) (authorized authorizer.Decision, reason string, err error) {
 	if slices.Contains(a.GetUser().GetGroups(), AdminGroup) {
 		return authorizer.DecisionAllow, "", nil
 	}

@@ -4,14 +4,14 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/otto8-ai/otto8/apiclient"
-	"github.com/otto8-ai/otto8/apiclient/types"
-	"github.com/otto8-ai/otto8/pkg/cli/events"
-	"github.com/otto8-ai/otto8/pkg/system"
+	"github.com/acorn-io/acorn/apiclient"
+	"github.com/acorn-io/acorn/apiclient/types"
+	"github.com/acorn-io/acorn/pkg/cli/events"
+	"github.com/acorn-io/acorn/pkg/system"
 )
 
 type inputter interface {
-	Next(ctx context.Context, previous string, resp *types.InvokeResponse) (string, bool, error)
+	Next(previous string, resp *types.InvokeResponse) (string, bool, error)
 }
 
 type Options struct {
@@ -36,7 +36,7 @@ func Invoke(ctx context.Context, c *apiclient.Client, id, input string, opts Opt
 
 	if !system.IsWorkflowID(id) {
 		var ok bool
-		input, ok, err = inputter.Next(ctx, input, nil)
+		input, ok, err = inputter.Next(input, nil)
 		if err != nil {
 			return err
 		}
@@ -66,7 +66,7 @@ func Invoke(ctx context.Context, c *apiclient.Client, id, input string, opts Opt
 			return nil
 		}
 
-		if err := printer.Print(input, resp.Events); err != nil {
+		if err := printer.Print(resp.Events); err != nil {
 			return err
 		}
 
@@ -74,7 +74,7 @@ func Invoke(ctx context.Context, c *apiclient.Client, id, input string, opts Opt
 			return nil
 		}
 
-		nextInput, cont, err := inputter.Next(ctx, input, resp)
+		nextInput, cont, err := inputter.Next(input, resp)
 		if err != nil {
 			return err
 		} else if !cont {

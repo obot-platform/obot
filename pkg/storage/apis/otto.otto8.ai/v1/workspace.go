@@ -1,7 +1,7 @@
 package v1
 
 import (
-	"github.com/otto8-ai/nah/pkg/fields"
+	"github.com/acorn-io/nah/pkg/fields"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -44,13 +44,15 @@ func (in *Workspace) Get(field string) string {
 		return in.Spec.ThreadName
 	case "spec.knowledgeSetName":
 		return in.Spec.KnowledgeSetName
+	case "status.workspaceID":
+		return in.Status.WorkspaceID
 	}
 
 	return ""
 }
 
 func (*Workspace) FieldNames() []string {
-	return []string{"spec.agentName", "spec.workflowName", "spec.threadName", "spec.knowledgeSetName"}
+	return []string{"spec.agentName", "spec.workflowName", "spec.threadName", "spec.knowledgeSetName", "status.workspaceID"}
 }
 
 var _ fields.Fields = (*Workspace)(nil)

@@ -5,12 +5,12 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/otto8-ai/nah/pkg/router"
-	"github.com/otto8-ai/otto8/apiclient/types"
-	"github.com/otto8-ai/otto8/pkg/events"
-	v1 "github.com/otto8-ai/otto8/pkg/storage/apis/otto.otto8.ai/v1"
-	"github.com/otto8-ai/otto8/pkg/system"
-	"github.com/otto8-ai/otto8/pkg/wait"
+	"github.com/acorn-io/acorn/apiclient/types"
+	"github.com/acorn-io/acorn/pkg/events"
+	v1 "github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1"
+	"github.com/acorn-io/acorn/pkg/system"
+	"github.com/acorn-io/acorn/pkg/wait"
+	"github.com/acorn-io/nah/pkg/router"
 	apierror "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/util/retry"
@@ -20,7 +20,7 @@ import (
 type WorkflowOptions struct {
 	ThreadName            string
 	StepID                string
-	UserID                string
+	OwningThreadName      string
 	WorkflowExecutionName string
 	Events                bool
 }
@@ -33,7 +33,7 @@ func (i *Invoker) startWorkflow(ctx context.Context, c kclient.WithWatch, wf *v1
 			Namespace:    wf.Namespace,
 		},
 		Spec: v1.WorkflowExecutionSpec{
-			UserID:       opt.UserID,
+			ThreadName:   opt.OwningThreadName,
 			Input:        input,
 			WorkflowName: wf.Name,
 		},
@@ -50,6 +50,7 @@ func (i *Invoker) startWorkflow(ctx context.Context, c kclient.WithWatch, wf *v1
 
 	defer func() {
 		w.Stop()
+		//nolint:revive
 		for range w.ResultChan() {
 		}
 	}()
@@ -83,11 +84,9 @@ func (i *Invoker) Workflow(ctx context.Context, c kclient.WithWatch, wf *v1.Work
 	)
 
 	if opt.WorkflowExecutionName != "" {
-		if err := c.Get(ctx, router.Key(wf.Namespace, opt.WorkflowExecutionName), wfe); apierror.IsNotFound(err) {
-			// Workflow execution does not exist, run with given wfe name
-		} else if err != nil {
+		if err := c.Get(ctx, router.Key(wf.Namespace, opt.WorkflowExecutionName), wfe); err != nil && !apierror.IsNotFound(err) {
 			return nil, err
-		} else {
+		} else if err == nil {
 			wfe, err = wait.For(ctx, c, wfe, func(wfe *v1.WorkflowExecution) (bool, error) {
 				return wfe.Status.ThreadName != "", nil
 			})
@@ -183,7 +182,7 @@ func (i *Invoker) rerunThread(ctx context.Context, c kclient.WithWatch, wf *v1.W
 		return nil, nil, err
 	}
 
-	if input != "" && wfe.Spec.Input != input {
+	if wfe.Spec.Input != input {
 		if stepID == "" {
 			// If input doesn't match, delete all steps and rerun
 			stepID = "*"

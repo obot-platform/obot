@@ -109,9 +109,10 @@ function useMessageSource(threadId?: Nullish<string>) {
             error,
             runID,
             contentID,
+            replayComplete,
         } = event;
 
-        setIsRunning(!runComplete);
+        setIsRunning(!runComplete && !replayComplete);
 
         setMessages((prev) => {
             const copy = [...prev];
@@ -152,7 +153,8 @@ function useMessageSource(threadId?: Nullish<string>) {
                 return copy;
             }
 
-            if (toolCall) {
+            // skip tool call output events
+            if (toolCall && !toolCall.output) {
                 copy.push(toolCallMessage(toolCall));
                 return copy;
             }

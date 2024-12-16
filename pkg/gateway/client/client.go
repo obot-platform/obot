@@ -3,7 +3,7 @@ package client
 import (
 	"strconv"
 
-	"github.com/otto8-ai/otto8/pkg/gateway/db"
+	"github.com/acorn-io/acorn/pkg/gateway/db"
 )
 
 type Client struct {

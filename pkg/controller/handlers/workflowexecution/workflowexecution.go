@@ -4,13 +4,13 @@ import (
 	"context"
 	"time"
 
-	"github.com/otto8-ai/nah/pkg/apply"
-	"github.com/otto8-ai/nah/pkg/router"
-	"github.com/otto8-ai/otto8/apiclient/types"
-	"github.com/otto8-ai/otto8/pkg/controller/handlers/workflowstep"
-	"github.com/otto8-ai/otto8/pkg/invoke"
-	v1 "github.com/otto8-ai/otto8/pkg/storage/apis/otto.otto8.ai/v1"
-	"github.com/otto8-ai/otto8/pkg/system"
+	"github.com/acorn-io/acorn/apiclient/types"
+	"github.com/acorn-io/acorn/pkg/controller/handlers/workflowstep"
+	"github.com/acorn-io/acorn/pkg/invoke"
+	v1 "github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1"
+	"github.com/acorn-io/acorn/pkg/system"
+	"github.com/acorn-io/nah/pkg/apply"
+	"github.com/acorn-io/nah/pkg/router"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -53,13 +53,14 @@ func (h *Handler) Run(req router.Request, _ router.Response) error {
 	}
 
 	if we.Status.ThreadName == "" {
-		if t, err := h.newThread(req.Ctx, req.Client, &wf, we); err != nil {
+		t, err := h.newThread(req.Ctx, req.Client, &wf, we)
+		if err != nil {
 			return err
-		} else {
-			we.Status.ThreadName = t.Name
-			if err := req.Client.Status().Update(req.Ctx, we); err != nil {
-				return err
-			}
+		}
+
+		we.Status.ThreadName = t.Name
+		if err = req.Client.Status().Update(req.Ctx, we); err != nil {
+			return err
 		}
 	}
 
@@ -141,4 +142,26 @@ func (h *Handler) newThread(ctx context.Context, c kclient.Client, wf *v1.Workfl
 	}
 
 	return &thread, c.Create(ctx, &thread)
+}
+
+func (h *Handler) ReassignThread(req router.Request, _ router.Response) error {
+	var (
+		wfe = req.Object.(*v1.WorkflowExecution)
+	)
+
+	if wfe.Status.ThreadName != "" || wfe.Spec.WorkflowName == "" {
+		return nil
+	}
+
+	var we v1.Workflow
+	if err := req.Get(&we, wfe.Namespace, wfe.Spec.WorkflowName); err != nil {
+		return kclient.IgnoreNotFound(err)
+	}
+
+	if we.Spec.ThreadName != "" {
+		wfe.Spec.ThreadName = we.Spec.ThreadName
+		return req.Client.Update(req.Ctx, wfe)
+	}
+
+	return nil
 }

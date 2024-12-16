@@ -13,7 +13,6 @@ type CronJobManifest struct {
 	Schedule     string    `json:"schedule,omitempty"`
 	Workflow     string    `json:"workflow,omitempty"`
 	Input        string    `json:"input,omitempty"`
-	UserID       string    `json:"userID,omitempty"`
 	TaskSchedule *Schedule `json:"taskSchedule,omitempty"`
 }
 

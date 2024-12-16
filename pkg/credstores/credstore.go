@@ -7,7 +7,7 @@ import (
 	"os/exec"
 	"strings"
 
-	"github.com/otto8-ai/otto8/logger"
+	"github.com/acorn-io/acorn/logger"
 )
 
 type Options struct {

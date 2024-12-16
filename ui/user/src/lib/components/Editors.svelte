@@ -1,11 +1,13 @@
 <script lang="ts">
 	import { FileText, X } from '$lib/icons';
 	import Milkdown from '$lib/components/editor/Milkdown.svelte';
+	import Table from '$lib/components/editor/Table.svelte';
 	import Codemirror from '$lib/components/editor/Codemirror.svelte';
 	import { ChatService, EditorService, type InvokeInput } from '$lib/services';
 	import Task from '$lib/components/tasks/Task.svelte';
 	import Controls from '$lib/components/editor/Controls.svelte';
 	import { currentAssistant } from '$lib/stores';
+	import Image from '$lib/components/editor/Image.svelte';
 
 	function onFileChanged(name: string, contents: string) {
 		for (const item of EditorService.items) {
@@ -21,32 +23,21 @@
 			await ChatService.invoke($currentAssistant.id, invoke);
 		}
 	}
-
-	let init = false;
-
-	$effect(() => {
-		if (typeof window === 'undefined' || !$currentAssistant.id || init) {
-			return;
-		}
-		EditorService.init($currentAssistant.id);
-		init = true;
-	});
 </script>
 
 <div class="flex h-full flex-col">
-	{#if EditorService.items.length > 1 || !EditorService.items[0].task}
+	{#if EditorService.items.length > 1 || (!EditorService.items[0].task && !EditorService.items[0].table)}
 		<div class="flex rounded-3xl border-gray-100 pt-2">
 			<ul class="flex flex-1 flex-wrap text-center text-sm">
 				{#each EditorService.items as item}
 					<li class="pb-2 pl-2">
-						<a
-							href={`#editor:${item.name}`}
+						<div
+							role="none"
 							class:selected={item.selected}
 							onclick={() => {
 								EditorService.select(item.id);
 							}}
 							class="active group flex rounded-3xl bg-gray-70 px-4 py-3 text-black dark:bg-gray-950 dark:text-gray-50"
-							aria-current="page"
 						>
 							<div class="flex flex-1 items-center gap-2 ps-2">
 								<FileText class="h-5 w-5" />
@@ -64,7 +55,7 @@
 										: 'text-gray'} opacity-0 transition-all group-hover:opacity-100"
 								/>
 							</button>
-						</a>
+						</div>
 					</li>
 				{/each}
 			</ul>
@@ -76,6 +67,8 @@
 		<div class:hidden={!file.selected} class="flex-1 overflow-auto">
 			{#if file.name.toLowerCase().endsWith('.md')}
 				<Milkdown {file} {onFileChanged} {onInvoke} />
+			{:else if file.table}
+				<Table tableName={file.table} />
 			{:else if file.task}
 				<Task
 					id={file.id}
@@ -84,6 +77,8 @@
 						file.name = task.name || file.name;
 					}}
 				/>
+			{:else if file.name.toLowerCase().endsWith('.png')}
+				<Image mime="image/png" {file} />
 			{:else}
 				<Codemirror {file} {onFileChanged} {onInvoke} />
 			{/if}

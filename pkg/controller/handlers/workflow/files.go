@@ -3,17 +3,22 @@ package workflow
 import (
 	"context"
 
-	"github.com/otto8-ai/nah/pkg/name"
-	"github.com/otto8-ai/nah/pkg/router"
-	"github.com/otto8-ai/otto8/pkg/create"
-	v1 "github.com/otto8-ai/otto8/pkg/storage/apis/otto.otto8.ai/v1"
-	"github.com/otto8-ai/otto8/pkg/system"
+	"github.com/acorn-io/acorn/pkg/create"
+	v1 "github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1"
+	"github.com/acorn-io/acorn/pkg/system"
+	"github.com/acorn-io/nah/pkg/name"
+	"github.com/acorn-io/nah/pkg/router"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 func createWorkspace(ctx context.Context, c kclient.Client, workflow *v1.Workflow) error {
 	if workflow.Status.WorkspaceName != "" {
+		return nil
+	}
+
+	if workflow.Spec.WorkspaceName != "" {
+		workflow.Status.WorkspaceName = workflow.Spec.WorkspaceName
 		return nil
 	}
 
@@ -37,6 +42,11 @@ func createWorkspace(ctx context.Context, c kclient.Client, workflow *v1.Workflo
 
 func createKnowledgeSet(ctx context.Context, c kclient.Client, workflow *v1.Workflow) error {
 	if len(workflow.Status.KnowledgeSetNames) > 0 {
+		return nil
+	}
+
+	if len(workflow.Spec.KnowledgeSetNames) > 0 {
+		workflow.Status.KnowledgeSetNames = workflow.Spec.KnowledgeSetNames
 		return nil
 	}
 

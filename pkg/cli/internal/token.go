@@ -13,11 +13,11 @@ import (
 	"path/filepath"
 	"time"
 
+	types2 "github.com/acorn-io/acorn/apiclient/types"
+	"github.com/acorn-io/acorn/pkg/gateway/types"
 	"github.com/adrg/xdg"
 	"github.com/fatih/color"
 	"github.com/google/uuid"
-	types2 "github.com/otto8-ai/otto8/apiclient/types"
-	"github.com/otto8-ai/otto8/pkg/gateway/types"
 	"github.com/pkg/browser"
 )
 
@@ -53,7 +53,7 @@ func Token(ctx context.Context, baseURL string) (string, error) {
 	ctx, sigCancel := signal.NotifyContext(ctx, os.Interrupt)
 	defer sigCancel()
 
-	tokenFile, err := xdg.ConfigFile(filepath.Join("otto8", "token"))
+	tokenFile, err := xdg.ConfigFile(filepath.Join("acorn", "token"))
 	if err != nil {
 		return "", err
 	}
@@ -88,7 +88,7 @@ func Token(ctx context.Context, baseURL string) (string, error) {
 		fmt.Println(color.GreenString("========================"))
 		fmt.Println()
 		fmt.Println(color.CyanString(serviceName) + " is used for authentication using the browser. This can be bypassed by setting")
-		fmt.Println("the env var " + color.CyanString("OTTO8_API_KEY") + " to your API key.")
+		fmt.Println("the env var " + color.CyanString("ACORN_API_KEY") + " to your API key.")
 		fmt.Println()
 		fmt.Println(color.GreenString("Press ENTER to continue (CTRL+C to exit)"))
 		if err := enter(ctx); err != nil {

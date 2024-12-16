@@ -1,8 +1,8 @@
 package cli
 
 import (
-	"github.com/otto8-ai/otto8/pkg/server"
-	"github.com/otto8-ai/otto8/pkg/services"
+	"github.com/acorn-io/acorn/pkg/server"
+	"github.com/acorn-io/acorn/pkg/services"
 	"github.com/spf13/cobra"
 )
 
@@ -10,6 +10,6 @@ type Server struct {
 	services.Config
 }
 
-func (s *Server) Run(cmd *cobra.Command, args []string) error {
+func (s *Server) Run(cmd *cobra.Command, _ []string) error {
 	return server.Run(cmd.Context(), s.Config)
 }

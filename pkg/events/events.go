@@ -11,15 +11,15 @@ import (
 	"sync"
 	"time"
 
+	"github.com/acorn-io/acorn/apiclient/types"
+	"github.com/acorn-io/acorn/logger"
+	"github.com/acorn-io/acorn/pkg/gz"
+	v1 "github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1"
+	"github.com/acorn-io/acorn/pkg/system"
+	"github.com/acorn-io/acorn/pkg/wait"
+	"github.com/acorn-io/nah/pkg/router"
+	"github.com/acorn-io/nah/pkg/typed"
 	"github.com/gptscript-ai/go-gptscript"
-	"github.com/otto8-ai/nah/pkg/router"
-	"github.com/otto8-ai/nah/pkg/typed"
-	"github.com/otto8-ai/otto8/apiclient/types"
-	"github.com/otto8-ai/otto8/logger"
-	"github.com/otto8-ai/otto8/pkg/gz"
-	v1 "github.com/otto8-ai/otto8/pkg/storage/apis/otto.otto8.ai/v1"
-	"github.com/otto8-ai/otto8/pkg/system"
-	"github.com/otto8-ai/otto8/pkg/wait"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
@@ -71,7 +71,7 @@ type callFramePrintState struct {
 
 type printState struct {
 	frames          map[string]callFramePrintState
-	toolCalls       map[string]struct{}
+	toolCalls       map[string]string
 	lastStepPrinted string
 }
 
@@ -85,7 +85,7 @@ func newPrintState(oldState *printState) *printState {
 	}
 	return &printState{
 		frames:    map[string]callFramePrintState{},
-		toolCalls: map[string]struct{}{},
+		toolCalls: map[string]string{},
 	}
 }
 
@@ -141,6 +141,7 @@ func (e *Emitter) findRunByThreadName(ctx context.Context, threadNamespace, thre
 	}
 	defer func() {
 		w.Stop()
+		//nolint:revive
 		for range w.ResultChan() {
 		}
 	}()
@@ -148,18 +149,16 @@ func (e *Emitter) findRunByThreadName(ctx context.Context, threadNamespace, thre
 	for event := range w.ResultChan() {
 		if thread, ok := event.Object.(*v1.Thread); ok {
 			if thread.Status.CurrentRunName != "" {
-				if err := e.client.Get(ctx, router.Key(thread.Namespace, thread.Status.CurrentRunName), &run); apierrors.IsNotFound(err) {
-				} else if err != nil {
+				if err := e.client.Get(ctx, router.Key(thread.Namespace, thread.Status.CurrentRunName), &run); err != nil && !apierrors.IsNotFound(err) {
 					return nil, err
-				} else {
+				} else if err == nil {
 					return &run, nil
 				}
 			}
 			if thread.Status.LastRunName != "" {
-				if err := e.client.Get(ctx, router.Key(thread.Namespace, thread.Status.LastRunName), &run); apierrors.IsNotFound(err) {
-				} else if err != nil {
+				if err := e.client.Get(ctx, router.Key(thread.Namespace, thread.Status.LastRunName), &run); err != nil && !apierrors.IsNotFound(err) {
 					return nil, err
-				} else {
+				} else if err == nil {
 					return &run, nil
 				}
 			}
@@ -178,6 +177,7 @@ func (e *Emitter) getThread(ctx context.Context, namespace, name string, wait bo
 		}
 		defer func() {
 			w.Stop()
+			//nolint:revive
 			for range w.ResultChan() {
 			}
 		}()
@@ -260,10 +260,16 @@ func (e *Emitter) printRun(ctx context.Context, state *printState, run v1.Run, r
 			return err
 		}
 		step, _ := types.FindStep(wfe.Status.WorkflowManifest, run.Spec.WorkflowStepID)
+		if run.Spec.WorkflowStepID != "" && step == nil {
+			step = &types.Step{
+				ID: run.Spec.WorkflowStepID,
+			}
+		}
 		result <- types.Progress{
-			RunID: run.Name,
-			Time:  types.NewTime(wfe.CreationTimestamp.Time),
-			Step:  step,
+			RunID:       run.Name,
+			ParentRunID: run.Spec.PreviousRunName,
+			Time:        types.NewTime(wfe.CreationTimestamp.Time),
+			Step:        step,
 		}
 		state.lastStepPrinted = run.Spec.WorkflowStepID
 	}
@@ -295,6 +301,7 @@ func (e *Emitter) printRun(ctx context.Context, state *printState, run v1.Run, r
 	defer func() {
 		if w != nil {
 			w.Stop()
+			//nolint:revive
 			for range w.ResultChan() {
 			}
 		}
@@ -395,15 +402,15 @@ func (e *Emitter) printParent(ctx context.Context, remaining int, state *printSt
 	)
 	if err := e.client.Get(ctx, kclient.ObjectKey{Namespace: run.Namespace, Name: run.Spec.PreviousRunName}, &parent); err != nil {
 		return err
-	} else {
-		if parent.Spec.ThreadName != "" && run.Spec.ThreadName != "" && parent.Spec.ThreadName != run.Spec.ThreadName {
-			return nil
-		}
-		if err := e.printParent(ctx, remaining-1, state, parent, result); apierrors.IsNotFound(err) {
-			errNotFound = err
-		} else if err != nil {
-			return err
-		}
+	}
+
+	if parent.Spec.ThreadName != "" && run.Spec.ThreadName != "" && parent.Spec.ThreadName != run.Spec.ThreadName {
+		return nil
+	}
+	if err := e.printParent(ctx, remaining-1, state, parent, result); apierrors.IsNotFound(err) {
+		errNotFound = err
+	} else if err != nil {
+		return err
 	}
 
 	return errors.Join(errNotFound, e.printRun(ctx, state, parent, result, true))
@@ -432,8 +439,10 @@ func (e *Emitter) streamEvents(ctx context.Context, run v1.Run, opts WatchOption
 			if err := e.printParent(ctx, opts.MaxRuns-1, state, run, result); !apierrors.IsNotFound(err) && err != nil {
 				return err
 			}
-			result <- types.Progress{
-				ReplayComplete: true,
+			if run.Status.EndTime.IsZero() {
+				result <- types.Progress{
+					ReplayComplete: true,
+				}
 			}
 		}
 
@@ -442,6 +451,12 @@ func (e *Emitter) streamEvents(ctx context.Context, run v1.Run, opts WatchOption
 		} else {
 			if err := e.printRun(ctx, state, run, result, false); err != nil {
 				return err
+			}
+		}
+
+		if opts.History && !run.Status.EndTime.IsZero() {
+			result <- types.Progress{
+				ReplayComplete: true,
 			}
 		}
 
@@ -469,6 +484,7 @@ func (e *Emitter) getThreadID(ctx context.Context, namespace, runName, workflowN
 	}
 	defer func() {
 		w.Stop()
+		//nolint:revive
 		for range w.ResultChan() {
 		}
 	}()
@@ -528,6 +544,7 @@ func (e *Emitter) isWorkflowDone(ctx context.Context, run v1.Run, opts WatchOpti
 	cancel := func() {
 		w.Stop()
 		go func() {
+			//nolint:revive
 			for range w.ResultChan() {
 			}
 		}()
@@ -586,6 +603,7 @@ func (e *Emitter) findNextRun(ctx context.Context, run v1.Run, opts WatchOptions
 	}
 	defer func() {
 		w.Stop()
+		//nolint:revive
 		for range w.ResultChan() {
 		}
 	}()
@@ -609,7 +627,6 @@ func (e *Emitter) findNextRun(ctx context.Context, run v1.Run, opts WatchOptions
 			return run, nil
 		}
 	}
-
 }
 
 func (e *Emitter) callToEvents(ctx context.Context, namespace, runID string, prg *gptscript.Program, frames gptscript.CallFrames, printed *printState, out chan types.Progress) error {
@@ -694,8 +711,9 @@ func (e *Emitter) printCall(ctx context.Context, namespace, runID string, prg *g
 
 		for _, callID := range slices.Sorted(maps.Keys(currentOutput.SubCalls)) {
 			subCall := currentOutput.SubCalls[callID]
-			if _, ok := last.SubCalls[callID]; !ok {
-				if _, seenTool := lastPrint.toolCalls[callID]; !seenTool {
+			output := getToolCallOutput(frames, callID)
+			if _, ok := last.SubCalls[callID]; !ok || lastPrint.toolCalls[callID] != output {
+				if lastOutput, seenTool := lastPrint.toolCalls[callID]; !seenTool || lastOutput != output {
 					if tool, ok := prg.ToolSet[subCall.ToolID]; ok {
 						_, workflowID := isSubCallTargetIDs(tool)
 						var (
@@ -707,6 +725,7 @@ func (e *Emitter) printCall(ctx context.Context, namespace, runID string, prg *g
 								Name:        tool.Name,
 								Description: tool.Description,
 								Input:       subCall.Input,
+								Output:      output,
 								Metadata:    tool.MetaData,
 							}
 						} else {
@@ -729,7 +748,7 @@ func (e *Emitter) printCall(ctx context.Context, namespace, runID string, prg *g
 							WorkflowCall: wc,
 						}
 					}
-					lastPrint.toolCalls[callID] = struct{}{}
+					lastPrint.toolCalls[callID] = output
 				}
 			}
 		}
@@ -743,9 +762,18 @@ func (e *Emitter) printCall(ctx context.Context, namespace, runID string, prg *g
 	return nil
 }
 
+func getToolCallOutput(frames gptscript.CallFrames, callID string) string {
+	frame := frames[callID]
+	out := frame.Output
+	if len(out) == 1 && frame.Type == gptscript.EventTypeCallFinish {
+		return out[0].Content
+	}
+	return ""
+}
+
 func isSubCallTargetIDs(tool gptscript.Tool) (agentID string, workflowID string) {
 	for _, line := range strings.Split(tool.Instructions, "\n") {
-		suffix, ok := strings.CutPrefix(line, "#OTTO8_SUBCALL: TARGET: ")
+		suffix, ok := strings.CutPrefix(line, "#ACORN_SUBCALL: TARGET: ")
 		if !ok {
 			continue
 		}

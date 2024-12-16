@@ -4,7 +4,7 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/otto8-ai/otto8/apiclient/types"
+	"github.com/acorn-io/acorn/apiclient/types"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 )
 
@@ -12,8 +12,8 @@ func IsHTTPCode(err error, code int) bool {
 	if err == nil {
 		return false
 	}
-	if errHttp := (*types.ErrHTTP)(nil); errors.As(err, &errHttp) {
-		return errHttp.Code == code
+	if errHTTP := (*types.ErrHTTP)(nil); errors.As(err, &errHTTP) {
+		return errHTTP.Code == code
 	} else if errMeta := (*apierrors.StatusError)(nil); errors.As(err, &errMeta) {
 		return errMeta.ErrStatus.Code == int32(code)
 	}

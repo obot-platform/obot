@@ -16,7 +16,7 @@
 	import { Bold, Italic, Strikethrough } from 'lucide-svelte';
 	import { TooltipProvider } from '@milkdown/plugin-tooltip';
 	import { tooltipFactory } from '@milkdown/plugin-tooltip';
-	import { Ctx } from '@milkdown/ctx';
+	import { type Ctx } from '@milkdown/ctx';
 	import { toggleStrongCommand, toggleEmphasisCommand } from '@milkdown/kit/preset/commonmark';
 	import { toggleStrikethroughCommand } from '@milkdown/kit/preset/gfm';
 
@@ -44,7 +44,7 @@
 	});
 	let ttVisible = $state(false);
 	let ttImprove = $state(false);
-	const tooltip = tooltipFactory('otto-tooltip');
+	const tooltip = tooltipFactory('assistant-tooltip');
 	let input: ReturnType<typeof Input> | undefined = $state();
 	let lastSetValue = '';
 	let focused = $state(false);

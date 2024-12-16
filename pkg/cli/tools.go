@@ -3,13 +3,13 @@ package cli
 import (
 	"fmt"
 
-	"github.com/otto8-ai/otto8/apiclient"
-	"github.com/otto8-ai/otto8/apiclient/types"
+	"github.com/acorn-io/acorn/apiclient"
+	"github.com/acorn-io/acorn/apiclient/types"
 	"github.com/spf13/cobra"
 )
 
 type Tools struct {
-	root   *Otto8
+	root   *Acorn
 	Quiet  bool   `usage:"Only print IDs of tools" short:"q"`
 	Output string `usage:"Output format (table, json, yaml)" short:"o" default:"table"`
 }

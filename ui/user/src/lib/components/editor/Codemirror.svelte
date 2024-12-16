@@ -34,9 +34,9 @@
 	import { sass } from '@codemirror/lang-sass';
 	import { rust } from '@codemirror/lang-rust';
 	import { java } from '@codemirror/lang-java';
-	import { EditorState, Transaction } from '@codemirror/state';
+	import { EditorState, type Transaction } from '@codemirror/state';
 	import { EditorView } from '@codemirror/view';
-	import { LanguageSupport } from '@codemirror/language';
+	import { type LanguageSupport } from '@codemirror/language';
 	import type { Tooltip, TooltipView } from '@codemirror/view';
 	import { showTooltip } from '@codemirror/view';
 	import { StateField } from '@codemirror/state';

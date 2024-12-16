@@ -1,12 +1,12 @@
 package cli
 
 import (
-	"github.com/otto8-ai/otto8/pkg/cli/events"
+	"github.com/acorn-io/acorn/pkg/cli/events"
 	"github.com/spf13/cobra"
 )
 
 type WorkflowAuth struct {
-	root *Otto8
+	root *Acorn
 }
 
 func (l *WorkflowAuth) Customize(cmd *cobra.Command) {
@@ -22,5 +22,5 @@ func (l *WorkflowAuth) Run(cmd *cobra.Command, args []string) error {
 	}
 
 	printer := events.NewPrinter(cmd.Context(), l.root.Client, false, false)
-	return printer.Print("", resp.Events)
+	return printer.Print(resp.Events)
 }

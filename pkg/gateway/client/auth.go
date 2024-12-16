@@ -5,9 +5,9 @@ import (
 	"net/http"
 	"slices"
 
-	types2 "github.com/otto8-ai/otto8/apiclient/types"
-	"github.com/otto8-ai/otto8/pkg/api/authz"
-	"github.com/otto8-ai/otto8/pkg/gateway/types"
+	types2 "github.com/acorn-io/acorn/apiclient/types"
+	"github.com/acorn-io/acorn/pkg/api/authz"
+	"github.com/acorn-io/acorn/pkg/gateway/types"
 	"k8s.io/apiserver/pkg/authentication/authenticator"
 	"k8s.io/apiserver/pkg/authentication/user"
 )

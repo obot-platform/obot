@@ -14,16 +14,16 @@ import (
 	"strings"
 	"time"
 
-	types2 "github.com/otto8-ai/otto8/apiclient/types"
-	"github.com/otto8-ai/otto8/pkg/alias"
-	"github.com/otto8-ai/otto8/pkg/api"
-	"github.com/otto8-ai/otto8/pkg/api/handlers"
-	kcontext "github.com/otto8-ai/otto8/pkg/gateway/context"
-	"github.com/otto8-ai/otto8/pkg/gateway/types"
-	"github.com/otto8-ai/otto8/pkg/mvl"
-	v1 "github.com/otto8-ai/otto8/pkg/storage/apis/otto.otto8.ai/v1"
-	"github.com/otto8-ai/otto8/pkg/storage/selectors"
-	"github.com/otto8-ai/otto8/pkg/system"
+	types2 "github.com/acorn-io/acorn/apiclient/types"
+	"github.com/acorn-io/acorn/pkg/alias"
+	"github.com/acorn-io/acorn/pkg/api"
+	"github.com/acorn-io/acorn/pkg/api/handlers"
+	kcontext "github.com/acorn-io/acorn/pkg/gateway/context"
+	"github.com/acorn-io/acorn/pkg/gateway/types"
+	"github.com/acorn-io/acorn/pkg/mvl"
+	v1 "github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1"
+	"github.com/acorn-io/acorn/pkg/storage/selectors"
+	"github.com/acorn-io/acorn/pkg/system"
 	"gorm.io/gorm"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -193,11 +193,11 @@ func (s *Server) authorizeOAuthApp(apiContext api.Context) error {
 		challenge = apiContext.URL.Query().Get("challenge")
 	)
 	if state == "" {
-		return apierrors.NewBadRequest(fmt.Sprintf("missing state query parameter"))
+		return apierrors.NewBadRequest("missing state query parameter")
 	} else if len(state) < 64 || len(state) > 256 {
-		return apierrors.NewBadRequest(fmt.Sprintf("invalid state length - must be between 64 and 256 characters"))
+		return apierrors.NewBadRequest("invalid state length - must be between 64 and 256 characters")
 	} else if challenge == "" {
-		return apierrors.NewBadRequest(fmt.Sprintf("missing challenge query parameter"))
+		return apierrors.NewBadRequest("missing challenge query parameter")
 	}
 
 	c := new(types.OAuthTokenRequestChallenge)
@@ -307,11 +307,7 @@ func (s *Server) refreshOAuthApp(apiContext api.Context) error {
 	if resp.StatusCode != http.StatusOK {
 		bodyBuf := new(bytes.Buffer)
 		_, _ = bodyBuf.ReadFrom(resp.Body)
-		var str string
-		if bodyBuf != nil {
-			str = bodyBuf.String()
-		}
-		return fmt.Errorf("failed to get tokens: %d %s", resp.StatusCode, str)
+		return fmt.Errorf("failed to get tokens: %d %s", resp.StatusCode, bodyBuf.String())
 	}
 
 	tokenResp := new(types.OAuthTokenResponse)
@@ -382,11 +378,7 @@ func (s *Server) callbackOAuthApp(apiContext api.Context) error {
 	if resp.StatusCode != http.StatusOK {
 		bodyBuf := new(bytes.Buffer)
 		_, _ = bodyBuf.ReadFrom(resp.Body)
-		var str string
-		if bodyBuf != nil {
-			str = bodyBuf.String()
-		}
-		return fmt.Errorf("failed to get tokens: %d %s", resp.StatusCode, str)
+		return fmt.Errorf("failed to get tokens: %d %s", resp.StatusCode, bodyBuf.String())
 	}
 
 	// Get the response and save it to the db so that the cred tool can acquire it.

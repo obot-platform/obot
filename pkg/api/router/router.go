@@ -3,9 +3,9 @@ package router
 import (
 	"net/http"
 
-	"github.com/otto8-ai/otto8/pkg/api/handlers"
-	"github.com/otto8-ai/otto8/pkg/services"
-	"github.com/otto8-ai/otto8/ui"
+	"github.com/acorn-io/acorn/pkg/api/handlers"
+	"github.com/acorn-io/acorn/pkg/services"
+	"github.com/acorn-io/acorn/ui"
 )
 
 func Router(services *services.Services) (http.Handler, error) {
@@ -28,6 +28,7 @@ func Router(services *services.Services) (http.Handler, error) {
 	emailreceiver := handlers.NewEmailReceiverHandler(services.EmailServerName)
 	defaultModelAliases := handlers.NewDefaultModelAliasHandler()
 	version := handlers.NewVersionHandler(services.EmailServerName)
+	tables := handlers.NewTableHandler(services.GPTClient)
 
 	// Version
 	mux.HandleFunc("GET /api/version", version.GetVersion)
@@ -72,11 +73,17 @@ func Router(services *services.Services) (http.Handler, error) {
 	mux.HandleFunc("DELETE /api/assistants/{assistant_id}/tasks/{id}", tasks.Delete)
 	mux.HandleFunc("POST /api/assistants/{assistant_id}/tasks/{id}/run", tasks.Run)
 	mux.HandleFunc("GET /api/assistants/{assistant_id}/tasks/{id}/runs", tasks.ListRuns)
+	mux.HandleFunc("GET /api/assistants/{assistant_id}/tasks/{id}/runs/{run_id}", tasks.GetRun)
+	mux.HandleFunc("POST /api/assistants/{assistant_id}/tasks/{id}/runs/{run_id}/abort", tasks.AbortRun)
 	mux.HandleFunc("DELETE /api/assistants/{assistant_id}/tasks/{id}/runs/{run_id}", tasks.DeleteRun)
 	mux.HandleFunc("GET /api/assistants/{assistant_id}/tasks/{id}/events", tasks.Events)
 	mux.HandleFunc("POST /api/assistants/{assistant_id}/tasks/{id}/events", tasks.Abort)
 	mux.HandleFunc("GET /api/assistants/{assistant_id}/tasks/{id}/runs/{run_id}/events", tasks.Events)
 	mux.HandleFunc("POST /api/assistants/{assistant_id}/tasks/{id}/runs/{run_id}/events", tasks.Abort)
+
+	// Tables
+	mux.HandleFunc("GET /api/assistants/{assistant_id}/tables", tables.ListTables)
+	mux.HandleFunc("GET /api/assistants/{assistant_id}/tables/{table_name}/rows", tables.GetRows)
 
 	// Agent files
 	mux.HandleFunc("GET /api/agents/{id}/files", agents.ListFiles)
@@ -104,6 +111,7 @@ func Router(services *services.Services) (http.Handler, error) {
 	// Workflows
 	mux.HandleFunc("GET /api/workflows", workflows.List)
 	mux.HandleFunc("GET /api/workflows/{id}", workflows.ByID)
+	mux.HandleFunc("GET /api/workflows/{id}/executions", workflows.WorkflowExecutions)
 	mux.HandleFunc("GET /api/workflows/{id}/script", workflows.Script)
 	mux.HandleFunc("GET /api/workflows/{id}/script.gpt", workflows.Script)
 	mux.HandleFunc("GET /api/workflows/{id}/script/tool.gpt", workflows.Script)
@@ -146,6 +154,8 @@ func Router(services *services.Services) (http.Handler, error) {
 	mux.HandleFunc("GET /api/threads/{id}", threads.ByID)
 	mux.HandleFunc("POST /api/threads/{id}/abort", threads.Abort)
 	mux.HandleFunc("GET /api/threads/{id}/events", threads.Events)
+	mux.HandleFunc("GET /api/threads/{id}/workflows", threads.Workflows)
+	mux.HandleFunc("GET /api/threads/{id}/workflows/{workflow_id}/executions", threads.WorkflowExecutions)
 	mux.HandleFunc("DELETE /api/threads/{id}", threads.Delete)
 	mux.HandleFunc("PUT /api/threads/{id}", threads.Update)
 	mux.HandleFunc("GET /api/agents/{agent}/threads", threads.List)
@@ -252,7 +262,6 @@ func Router(services *services.Services) (http.Handler, error) {
 	// Gateway APIs
 	services.GatewayServer.AddRoutes(services.APIServer)
 
-	// UI
 	services.APIServer.HTTPHandle("/", ui.Handler(services.DevUIPort))
 
 	return services.APIServer, nil

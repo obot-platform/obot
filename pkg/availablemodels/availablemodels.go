@@ -7,8 +7,8 @@ import (
 	"io"
 	"net/http"
 
+	"github.com/acorn-io/acorn/pkg/gateway/server/dispatcher"
 	openai "github.com/gptscript-ai/chat-completion-client"
-	"github.com/otto8-ai/otto8/pkg/gateway/server/dispatcher"
 )
 
 func ForProvider(ctx context.Context, dispatcher *dispatcher.Dispatcher, modelProviderNamespace, modelProviderName string) (*openai.ModelsList, error) {

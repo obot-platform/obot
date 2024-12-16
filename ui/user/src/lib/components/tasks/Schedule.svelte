@@ -21,10 +21,10 @@
 	}: Props = $props();
 </script>
 
+<h3 class="text-lg font-semibold">Schedule</h3>
 <div class="flex">
 	<Dropdown
 		values={{
-			'': 'on demand',
 			hourly: 'hourly',
 			daily: 'daily',
 			weekly: 'weekly',

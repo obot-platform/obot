@@ -3,8 +3,8 @@ package v1
 import (
 	"context"
 
-	"github.com/otto8-ai/nah/pkg/fields"
-	"github.com/otto8-ai/otto8/apiclient/types"
+	"github.com/acorn-io/acorn/apiclient/types"
+	"github.com/acorn-io/nah/pkg/fields"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -65,6 +65,8 @@ func (a *Agent) FieldNames() []string {
 
 type AgentSpec struct {
 	Manifest            types.AgentManifest `json:"manifest,omitempty"`
+	SystemTools         []string            `json:"systemTools,omitempty"`
+	ContextInput        string              `json:"contextInput,omitempty"`
 	InputFilters        []string            `json:"inputFilters,omitempty"`
 	Credentials         []string            `json:"credentials,omitempty"`
 	CredentialContextID string              `json:"credentialContextID,omitempty"`

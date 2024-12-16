@@ -17,7 +17,9 @@
 	}
 
 	async function newTask() {
-		await tasks.create();
+		const task = await tasks.create();
+		await EditorService.load($currentAssistant.id, task.id);
+		menu?.open.set(false);
 	}
 
 	let taskToDelete = $state<Task | undefined>();

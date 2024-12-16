@@ -1,7 +1,6 @@
 import { listTools } from '$lib/services/chat/operations';
 import { type AssistantToolList } from '$lib/services/chat/types';
 import assistants from '$lib/stores/assistants';
-import { storeWithInit } from '$lib/stores/storeinit';
 import { writable } from 'svelte/store';
 
 const store = writable<AssistantToolList>({
@@ -9,13 +8,21 @@ const store = writable<AssistantToolList>({
 	items: []
 });
 
-export default storeWithInit(store, async () => {
+let initialized = false;
+
+if (typeof window !== 'undefined') {
 	assistants.subscribe(async (assistants) => {
+		if (initialized) {
+			return;
+		}
 		for (const assistant of assistants) {
 			if (assistant.current && assistant.id) {
 				store.set(await listTools(assistant.id));
+				initialized = true;
 				break;
 			}
 		}
 	});
-});
+}
+
+export default store;
