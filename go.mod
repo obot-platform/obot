@@ -19,10 +19,10 @@ require (
 	github.com/fatih/color v1.18.0
 	github.com/golang-jwt/jwt/v5 v5.2.1
 	github.com/google/uuid v1.6.0
-	github.com/gptscript-ai/chat-completion-client v0.0.0-20241127005108-02b41e1cd02e
+	github.com/gptscript-ai/chat-completion-client v0.0.0-20241216203633-5c0178fb89ed
 	github.com/gptscript-ai/cmd v0.0.0-20240907001148-ffd49061124a
 	github.com/gptscript-ai/go-gptscript v0.9.6-0.20241115201052-7efb3409cfcc
-	github.com/gptscript-ai/gptscript v0.9.6-0.20241213170304-e758b54cf59d
+	github.com/gptscript-ai/gptscript v0.9.6-0.20241216210744-eb036809105c
 	github.com/liggitt/tabwriter v0.0.0-20181228230101-89fcab3d43de
 	github.com/mhale/smtpd v0.8.3
 	github.com/oauth2-proxy/oauth2-proxy/v7 v7.0.0-00010101000000-000000000000
