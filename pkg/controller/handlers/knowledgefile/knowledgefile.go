@@ -215,7 +215,6 @@ func (h *Handler) ingest(ctx context.Context, client kclient.Client, file *v1.Kn
 		}
 
 		inputName = mdOutput
-
 	}
 
 	loadTask, err := h.invoker.SystemTask(ctx, thread, system.KnowledgeLoadTool, map[string]any{
