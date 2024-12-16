@@ -404,7 +404,7 @@ func (h *Handler) Cleanup(req router.Request, _ router.Response) error {
 
 func isFileMatchPrefixPattern(filePath string, patterns []string) bool {
 	for _, pattern := range patterns {
-		if strings.HasPrefix(filePath, pattern) {
+		if strings.HasPrefix(strings.TrimPrefix(filePath, "/"), pattern) {
 			return true
 		}
 	}
