@@ -14,7 +14,7 @@ Instructions let you guide your agent's behavior. You should use this field to s
 You can specify the model each agent will use. If you make no selection, the system default will be used. For more on models, see our [Models concept](models).
 
 ### Tools
-Tools dictate what an agent can do and how it can interact with the rest of the world. The tools shipped with Otto8 help make their purpose clear. A few examples include:
+Tools dictate what an agent can do and how it can interact with the rest of the world. The tools shipped with Acorn help make their purpose clear. A few examples include:
 - Creating an email draft
 - Sending a Slack message
 - Getting the contents of a web page
@@ -37,6 +37,6 @@ When creating an agent, you can chat with it to see how it behaves based on how 
 ### Publishing
 When you publish an agent, you make it available for end-users to chat with. You'll first be asked to specify an alias for the agent. This alias will be used to generate a unique URL for the agent. Only alphanumeric characters and hyphens are allowed.  Once you've picked an alias and hit the publish button, the agent will immediately be available for users to discover and chat with.
 
-The end-user chat interface is available at the root of the domain on which otto8 is running. For example, if you accessed the admin UI at `https://otto8.acmecorp.com/admin`, the end-user chat UI is available at `https://otto8.acmecorp.com/`. A publish agent will be available in the agent dropdown on this page as well as at its own dedicated page based on its alias. For example, if you gave your agent the alias `hr-assistant`, it would be available at https://otto8.acmecorp.com/hr-assistant`.
+The end-user chat interface is available at the root of the domain on which Acorn is running. For example, if you accessed the admin UI at `https://acorn.acmecorp.com/admin`, the end-user chat UI is available at `https://acorn.acmecorp.com/`. A publish agent will be available in the agent dropdown on this page as well as at its own dedicated page based on its alias. For example, if you gave your agent the alias `hr-assistant`, it would be available at https://acorn.acmecorp.com/hr-assistant`.
 
-It is possible to request the same alias for two agents. This is to allow you to seamlessly swap agents out without your users noticing. For example, suppose you've published your first agent with the alias `hr-assistant` and it's available at `https://otto8.acmecorp.com/hr-assistant`. If you want to experiment with a new version of your agent, you can create a brand new one, refine its behavior, and when you're ready, set its alias to `hr-assistant` as well. When you're ready to switch your users to the new agent, just unpublish your first agent. Users will be swapped over to the new agent without losing any of their chat history.
+It is possible to request the same alias for two agents. This is to allow you to seamlessly swap agents out without your users noticing. For example, suppose you've published your first agent with the alias `hr-assistant` and it's available at `https://acorn.acmecorp.com/hr-assistant`. If you want to experiment with a new version of your agent, you can create a brand new one, refine its behavior, and when you're ready, set its alias to `hr-assistant` as well. When you're ready to switch your users to the new agent, just unpublish your first agent. Users will be swapped over to the new agent without losing any of their chat history.

@@ -1,6 +1,6 @@
 # Create an HR Q&A Agent
 
-Otto8 makes it easy to create an agent to answer questions about a set of documents, using its built-in RAG feature.
+Acorn makes it easy to create an agent to answer questions about a set of documents, using its built-in RAG feature.
 This tutorial will demonstrate how to do this.
 
 :::note
@@ -38,6 +38,6 @@ Start by asking it a simple question that can be answered by at least one of the
 
 ## 4. Publishing the agent (optional)
 
-If you're happy with the agent and want other users on your Otto8 instance to be able to use it,
+If you're happy with the agent and want other users on your Acorn instance to be able to use it,
 you can click the **Publish** button on the agent configuration page.
 This will make it available in the user UI for all users to chat with.

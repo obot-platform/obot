@@ -2,7 +2,7 @@
 
 [node-hash-tool](https://github.com/otto8-ai/node-hash-tool) contains a reference Typescript `Node.js` implementation of the `Hash` Tool.
 
-This guide walks through the structure and design of the Tool and outlines the packaging requirements for [Otto8](https://docs.otto8.ai/concepts/agents)
+This guide walks through the structure and design of the Tool and outlines the packaging requirements for [Acorn](https://docs.otto8.ai/concepts/agents)
 
 To clone this repo and follow along, run the following command:
 
@@ -13,7 +13,7 @@ git clone git@github.com:otto8-ai/node-hash-tool
 
 ## Tool Repo Structure {#tool-repo-structure-aeed7f15}
 
-The directory tree below highlights the files required to implement `Hash` in Typescript and package it for `Otto8`.
+The directory tree below highlights the files required to implement `Hash` in Typescript and package it for `Acorn`.
 
 ```
 node-hash-tool
@@ -33,7 +33,7 @@ node-hash-tool
 
 ## Defining the `Hash` Tool {#defining-the-hash-tool-aeed7f15}
 
-The `tool.gpt` file contains [GPTScript Tool Definitions](https://docs.gptscript.ai/tools/gpt-file-reference) which describe a set of Tools that can be used by Agents in `Otto8`.
+The `tool.gpt` file contains [GPTScript Tool Definitions](https://docs.gptscript.ai/tools/gpt-file-reference) which describe a set of Tools that can be used by Agents in `Acorn`.
 Every Tool repository must have a `tool.gpt` file in its root directory.
 
 The Tools defined in this file must have a descriptive `Name` and `Description` that will help Agents understand what the Tool does, what it returns (if anything), and all the `Parameters` it takes.
@@ -59,7 +59,7 @@ Breaking this down a bit:
 
 <br/>
 
-Immediately below the `Preamble` is the `Tool Body`, which tells `Otto8` how to execute the Tool:
+Immediately below the `Preamble` is the `Tool Body`, which tells `Acorn` how to execute the Tool:
 
 ```bash
 #!/usr/bin/env npm --silent --prefix ${GPTSCRIPT_TOOL_DIR} run tool -- hash
@@ -67,7 +67,7 @@ Immediately below the `Preamble` is the `Tool Body`, which tells `Otto8` how to 
 
 This is where the magic happens.
 
-To oversimplify, when an Agent calls the `Hash` Tool, `Otto8` reads this line and then:
+To oversimplify, when an Agent calls the `Hash` Tool, `Acorn` reads this line and then:
 
 1. Downloads the appropriate `Node.js` tool chain (`node` and `npm`)
 2. Sets up a working directory for the Tool
@@ -92,7 +92,7 @@ Param: algo: The algorithm to generate a hash with. Default is "sha256". Support
 
 ## Tool Metadata {#tool-metadata-aeed7f15}
 
-The `tool.gpt` file also provides the following metadata for use in `Otto8`:
+The `tool.gpt` file also provides the following metadata for use in `Acorn`:
 
 - `!metadata:*:category` which tags Tools with the `Crypto` category to promote organization and discovery
 - `!metadata:*:icon` which assigns `https://cdn.jsdelivr.net/npm/@phosphor-icons/core@2/assets/duotone/fingerprint-duotone.svg` as the Tool icon
@@ -353,7 +353,7 @@ export function hash(data: string = '', algo = 'sha256'): string {
 
 ## Testing `src/tools.ts` and `src/hash.ts` Locally {#testing-src-tools-ts-and-src-hash-ts-locally-aeed7f15}
 
-Before adding a Tool to `Otto8`, verify that the Typescript business logic works on your machine.
+Before adding a Tool to `Acorn`, verify that the Typescript business logic works on your machine.
 
 To do this, run through the following steps in the root of your local fork:
 
@@ -374,12 +374,12 @@ To do this, run through the following steps in the root of your local fork:
 
 <br/>
 
-## Adding The `Hash` Tool to `Otto8` {#adding-the-hash-tool-to-otto8-aeed7f15}
+## Adding The `Hash` Tool to `Acorn` {#adding-the-hash-tool-to-otto8-aeed7f15}
 
-Before a Tool can be used by an Agent, an admin must first add the Tool to `Otto8` by performing the steps below:
+Before a Tool can be used by an Agent, an admin must first add the Tool to `Acorn` by performing the steps below:
 
 1. <details>
-       <summary>Navigate to the <code>Otto8</code> admin UI in a browser and open the Tools page by clicking the <em>Tools</em> button in the left drawer</summary>
+       <summary>Navigate to the <code>Acorn</code> admin UI in a browser and open the Tools page by clicking the <em>Tools</em> button in the left drawer</summary>
        <div align="left">
            <img src="https://raw.githubusercontent.com/otto8-ai/node-hash-tool/refs/heads/main/docs/add-tools-step-0.png"
                 alt="Open The Tools Page" width="200"/>

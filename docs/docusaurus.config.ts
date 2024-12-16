@@ -5,13 +5,13 @@ import type * as Preset from '@docusaurus/preset-classic';
 // This runs in Node.js - Don't use client-side code here (browser APIs, JSX...)
 
 const config: Config = {
-  title: 'Otto8 Docs',
+  title: 'Acorn Docs',
   tagline: '',
   favicon: 'img/favicon.ico',
-  url: 'https://docs.otto8.ai',
+  url: 'https://docs.acorn.io',
   baseUrl: '/',
-  organizationName: 'otto8-ai',
-  projectName: 'otto8',
+  organizationName: 'acorn-io',
+  projectName: 'acorn',
   onBrokenLinks: 'throw',
   onBrokenMarkdownLinks: 'warn',
 
@@ -26,7 +26,7 @@ const config: Config = {
       {
         docs: {
           sidebarPath: './sidebars.ts',
-          editUrl: 'https://github.com/otto8-ai/otto8/tree/main/docs',
+          editUrl: 'https://github.com/acorn-io/acorn/tree/main/docs',
           routeBasePath: "/", // Serve the docs at the site's root
         },
         theme: {
@@ -43,16 +43,16 @@ const config: Config = {
 
   themeConfig: {
     // Replace with your project's social card
-    image: 'img/otto8-logo-blue-black-text.svg',
+    image: 'img/acorn-logo-blue-black-text.svg',
     navbar: {
       logo: {
-        alt: 'Otto8 Logo',
-        src: 'img/otto8-logo-blue-black-text.svg',
-        srcDark: 'img/otto8-logo-blue-white-text.svg',
+        alt: 'Acorn Logo',
+        src: 'img/acorn-logo-blue-black-text.svg',
+        srcDark: 'img/acorn-logo-blue-white-text.svg',
       },
       items: [
         {
-          href: "https://github.com/otto8-ai/otto8",
+          href: "https://github.com/acorn-io/acorn",
           label: "GitHub",
           position: "right",
         },
@@ -68,7 +68,7 @@ const config: Config = {
       links: [
         {
           label: "GitHub",
-          to: "https://github.com/otto8-ai/otto8",
+          to: "https://github.com/acorn-io/acorn",
         },
         {
           label: "Discord",
