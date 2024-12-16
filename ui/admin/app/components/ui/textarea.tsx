@@ -27,39 +27,61 @@ interface UseAutosizeTextAreaProps {
     textAreaRef: HTMLTextAreaElement | null;
     minHeight?: number;
     maxHeight?: number;
-    triggerAutoSize: string;
 }
 
 const useAutosizeTextArea = ({
     textAreaRef,
-    triggerAutoSize,
     maxHeight = Number.MAX_SAFE_INTEGER,
     minHeight = 0,
 }: UseAutosizeTextAreaProps) => {
     const [init, setInit] = React.useState(true);
-    React.useEffect(() => {
-        // We need to reset the height momentarily to get the correct scrollHeight for the textarea
-        const offsetBorder = 2;
-        if (textAreaRef) {
+
+    const resize = React.useCallback(
+        (node: HTMLTextAreaElement) => {
+            // Reset the height to auto to get the correct scrollHeight
+            node.style.height = "auto";
+
+            const offsetBorder = 2;
+
             if (init) {
-                textAreaRef.style.minHeight = `${minHeight + offsetBorder}px`;
+                node.style.minHeight = `${minHeight + offsetBorder}px`;
                 if (maxHeight > minHeight) {
-                    textAreaRef.style.maxHeight = `${maxHeight}px`;
+                    node.style.maxHeight = `${maxHeight}px`;
                 }
+                node.style.height = `${minHeight + offsetBorder}px`;
                 setInit(false);
             }
-            textAreaRef.style.height = `${minHeight + offsetBorder}px`;
-            const scrollHeight = textAreaRef.scrollHeight;
-            // We then set the height directly, outside of the render loop
-            // Trying to set this with state or a ref will product an incorrect value.
-            if (scrollHeight > maxHeight) {
-                textAreaRef.style.height = `${maxHeight}px`;
-            } else {
-                textAreaRef.style.height = `${scrollHeight + offsetBorder}px`;
-            }
-        }
+
+            node.style.height = `${
+                Math.min(Math.max(node.scrollHeight, minHeight), maxHeight) +
+                offsetBorder
+            }px`;
+        },
+        // disable exhaustive deps because we don't want to rerun this after init is set to false
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [textAreaRef, triggerAutoSize]);
+        [maxHeight, minHeight]
+    );
+
+    const initResizer = React.useCallback(
+        (node: HTMLTextAreaElement) => {
+            node.onkeyup = () => resize(node);
+            node.onfocus = () => resize(node);
+            node.oninput = () => resize(node);
+            node.onresize = () => resize(node);
+            node.onchange = () => resize(node);
+            resize(node);
+        },
+        [resize]
+    );
+
+    React.useEffect(() => {
+        if (textAreaRef) {
+            initResizer(textAreaRef);
+            resize(textAreaRef);
+        }
+    }, [resize, initResizer, textAreaRef]);
+
+    return { initResizer };
 };
 
 export type AutosizeTextAreaRef = {
@@ -89,36 +111,38 @@ const AutosizeTextarea = React.forwardRef<
         ref: React.Ref<AutosizeTextAreaRef>
     ) => {
         const textAreaRef = React.useRef<HTMLTextAreaElement | null>(null);
-        const [triggerAutoSize, setTriggerAutoSize] = React.useState("");
-
-        useAutosizeTextArea({
-            textAreaRef: textAreaRef.current,
-            triggerAutoSize: triggerAutoSize,
-            maxHeight,
-            minHeight,
-        });
 
         useImperativeHandle(ref, () => ({
             textArea: textAreaRef.current as HTMLTextAreaElement,
-            focus: () => textAreaRef?.current?.focus(),
+            focus: textAreaRef?.current?.focus,
             maxHeight,
             minHeight,
         }));
 
-        React.useEffect(() => {
-            setTriggerAutoSize(value as string);
-        }, [props?.defaultValue, value]);
+        const { initResizer } = useAutosizeTextArea({
+            textAreaRef: textAreaRef.current,
+            maxHeight,
+            minHeight,
+        });
+
+        const initRef = React.useCallback(
+            (node: HTMLTextAreaElement | null) => {
+                textAreaRef.current = node;
+
+                if (!node) return;
+
+                initResizer(node);
+            },
+            [initResizer]
+        );
 
         return (
             <Textarea
                 {...props}
                 value={value}
-                ref={textAreaRef}
-                className={cn(className)}
-                onChange={(e) => {
-                    setTriggerAutoSize(e.target.value);
-                    onChange?.(e);
-                }}
+                ref={initRef}
+                className={cn("resize-none", className)}
+                onChange={onChange}
             />
         );
     }
