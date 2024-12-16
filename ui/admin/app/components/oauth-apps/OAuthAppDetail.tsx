@@ -98,7 +98,7 @@ export function OAuthAppDetail({
                     </DialogTitle>
 
                     <DialogDescription>
-                        Otto will now use your custom {spec.displayName} OAuth
+                        Acorn will now use your custom {spec.displayName} OAuth
                         app to authenticate users.
                     </DialogDescription>
 
@@ -153,14 +153,14 @@ function Content({
     return (
         <div className="flex flex-col gap-2">
             <TypographyP>
-                Otto only supports one custom {spec.displayName} OAuth. If you
+                Acorn only supports one custom {spec.displayName} OAuth. If you
                 need to use a different configuration, you can replace the
                 current configuration with a new one.
             </TypographyP>
 
             <TypographyP>
-                When {spec.displayName} OAuth is used, Otto will use your custom
-                OAuth app.
+                When {spec.displayName} OAuth is used, Acorn will use your
+                custom OAuth app.
             </TypographyP>
 
             <div className="grid grid-cols-2 gap-2 px-8 py-4">
