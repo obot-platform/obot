@@ -88,6 +88,7 @@ func reconcileFiles(ctx context.Context, c kclient.Client, existingFiles, newFil
 				continue
 			}
 		}
+
 		delete(existingNames, newName)
 
 		if existingFile.Spec.FileName != newFile.Spec.FileName ||
@@ -95,7 +96,6 @@ func reconcileFiles(ctx context.Context, c kclient.Client, existingFiles, newFil
 			existingFile.Spec.UpdatedAt != newFile.Spec.UpdatedAt ||
 			existingFile.Spec.Checksum != newFile.Spec.Checksum ||
 			existingFile.Spec.SizeInBytes != newFile.Spec.SizeInBytes {
-
 			existingFile.Spec.FileName = newFile.Spec.FileName
 			existingFile.Spec.URL = newFile.Spec.URL
 			existingFile.Spec.UpdatedAt = newFile.Spec.UpdatedAt

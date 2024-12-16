@@ -23,5 +23,5 @@ func (l *RunPrint) Run(cmd *cobra.Command, args []string) error {
 	}
 
 	printer := events.NewPrinter(cmd.Context(), l.root.Client, l.Quiet, l.Verbose)
-	return printer.Print("", debug)
+	return printer.Print(debug)
 }

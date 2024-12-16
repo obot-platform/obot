@@ -96,7 +96,7 @@ func (t *TableHandler) GetRows(req api.Context) error {
 		}
 	)
 
-	if validTableName.MatchString(tableName) == false {
+	if !validTableName.MatchString(tableName) {
 		return types.NewErrBadRequest("invalid table name %s", tableName)
 	}
 

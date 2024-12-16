@@ -122,7 +122,7 @@ func newName() string {
 	return caser.String(strings.ReplaceAll(namegenerator.NewNameGenerator(time.Now().UnixNano()).Generate(), "-", " "))
 }
 
-func (l *Create) fromTemplate(ctx context.Context) (string, error) {
+func (l *Create) fromTemplate() (string, error) {
 	sel, err := pterm.DefaultInteractiveSelect.
 		WithDefaultText("Select a type to create").
 		WithOptions([]string{
@@ -142,7 +142,7 @@ func (l *Create) fromTemplate(ctx context.Context) (string, error) {
 
 	template = bytes.ReplaceAll(template, []byte("%NAME%"), []byte(newName()))
 
-	err = edit.Edit(ctx, template, ".yaml", func(data []byte) error {
+	err = edit.Edit(template, ".yaml", func(data []byte) error {
 		template = data
 		return nil
 	})
@@ -157,7 +157,7 @@ func (l *Create) Run(cmd *cobra.Command, args []string) error {
 	var input io.ReadCloser
 
 	if len(args) == 0 {
-		template, err := l.fromTemplate(cmd.Context())
+		template, err := l.fromTemplate()
 		if err != nil {
 			return err
 		}

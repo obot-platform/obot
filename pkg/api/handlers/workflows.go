@@ -14,12 +14,9 @@ import (
 	"github.com/acorn-io/acorn/pkg/system"
 	"github.com/acorn-io/acorn/pkg/wait"
 	"github.com/gptscript-ai/go-gptscript"
-	"github.com/gptscript-ai/gptscript/pkg/mvl"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
-
-var log = mvl.Package()
 
 type WorkflowHandler struct {
 	gptscript *gptscript.GPTScript

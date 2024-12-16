@@ -66,6 +66,7 @@ func chanToIter[T any](c <-chan T) iter.Seq[T] {
 			if !yield(item) {
 				go func() {
 					// drain
+					//nolint:revive
 					for range c {
 					}
 				}()

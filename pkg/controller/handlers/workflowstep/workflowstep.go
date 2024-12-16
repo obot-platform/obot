@@ -93,7 +93,7 @@ func (h *Handler) Preconditions(next router.Handler) router.Handler {
 	})
 }
 
-func (h *Handler) checkPreconditions(req router.Request, resp router.Response) (proceed bool, err error) {
+func (h *Handler) checkPreconditions(req router.Request, _ router.Response) (proceed bool, err error) {
 	step := req.Object.(*v1.WorkflowStep)
 
 	if step.Status.State.IsTerminal() {
@@ -136,7 +136,7 @@ func (h *Handler) checkPreconditions(req router.Request, resp router.Response) (
 		return false, err
 	}
 
-	if WorkflowStepMatchesStepID(&parent, wf.Spec.RunUntilStep) {
+	if matchesStepID(&parent, wf.Spec.RunUntilStep) {
 		// We are blocked because the workflow is supposed to only run until the parent step
 		step.Status.State = types.WorkflowStateBlocked
 		return false, nil
@@ -173,7 +173,7 @@ func normalizeStepID(stepID string) string {
 	return id
 }
 
-func WorkflowStepMatchesStepID(step *v1.WorkflowStep, stepID string) bool {
+func matchesStepID(step *v1.WorkflowStep, stepID string) bool {
 	return normalizeStepID(step.Spec.Step.ID) == normalizeStepID(stepID)
 }
 

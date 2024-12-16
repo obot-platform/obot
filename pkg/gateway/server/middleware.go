@@ -2,7 +2,6 @@ package server
 
 import (
 	"fmt"
-	"net/http"
 	"runtime/debug"
 
 	"github.com/acorn-io/acorn/pkg/api"
@@ -62,12 +61,5 @@ func addLogger(next api.HandlerFunc) api.HandlerFunc {
 			logger,
 		))
 		return next(apiContext)
-	}
-}
-
-func httpToApiHandlerFunc(handler http.Handler) api.HandlerFunc {
-	return func(apiContext api.Context) error {
-		handler.ServeHTTP(apiContext.ResponseWriter, apiContext.Request)
-		return nil
 	}
 }

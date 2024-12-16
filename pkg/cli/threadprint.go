@@ -30,5 +30,5 @@ func (l *ThreadPrint) Run(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	return printer.Print("", events)
+	return printer.Print(events)
 }

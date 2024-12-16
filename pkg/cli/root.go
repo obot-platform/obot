@@ -18,7 +18,7 @@ type Acorn struct {
 	Client *apiclient.Client
 }
 
-func (a *Acorn) PersistentPre(cmd *cobra.Command, args []string) error {
+func (a *Acorn) PersistentPre(*cobra.Command, []string) error {
 	if os.Getenv("NO_COLOR") != "" || !term.IsTerminal(int(os.Stdout.Fd())) {
 		color.NoColor = true
 	}
@@ -63,6 +63,6 @@ func New() *cobra.Command {
 	)
 }
 
-func (a *Acorn) Run(cmd *cobra.Command, args []string) error {
+func (a *Acorn) Run(cmd *cobra.Command, _ []string) error {
 	return cmd.Help()
 }

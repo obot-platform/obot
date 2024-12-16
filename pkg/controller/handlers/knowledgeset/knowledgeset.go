@@ -3,7 +3,6 @@ package knowledgeset
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	"github.com/acorn-io/acorn/apiclient/types"
 	"github.com/acorn-io/acorn/pkg/aihelper"
@@ -28,31 +27,6 @@ func New(aiHelper *aihelper.AIHelper, invoker *invoke.Invoker) *Handler {
 		aiHelper: aiHelper,
 		invoker:  invoker,
 	}
-}
-
-func (h *Handler) GenerateDataDescription(req router.Request, _ router.Response) error {
-	return nil
-}
-
-func generatePrompt(files v1.KnowledgeFileList) string {
-	var (
-		prompt    string
-		fileNames = make([]string, 0, len(files.Items))
-	)
-
-	for _, file := range files.Items {
-		fileNames = append(fileNames, "- "+file.Spec.FileName)
-	}
-
-	fileText := strings.Join(fileNames, "\n")
-	if len(fileText) > 50000 {
-		fileText = fileText[:50000]
-	}
-
-	prompt = "The following files are in this knowledge set:\n" + fileText
-	prompt += "\n\nGenerate a 50 word description of the data in the knowledge set that would help a" +
-		" reader understand why they might want to search this knowledge set. Be precise and concise."
-	return prompt
 }
 
 func createWorkspace(ctx context.Context, c kclient.Client, ks *v1.KnowledgeSet) error {

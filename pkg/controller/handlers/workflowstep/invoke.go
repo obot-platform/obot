@@ -10,7 +10,7 @@ import (
 	"k8s.io/client-go/util/retry"
 )
 
-func (h *Handler) RunInvoke(req router.Request, resp router.Response) error {
+func (h *Handler) RunInvoke(req router.Request, _ router.Response) error {
 	var (
 		ctx         = req.Ctx
 		client      = req.Client

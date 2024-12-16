@@ -105,11 +105,12 @@ func Agent(ctx context.Context, db kclient.Client, agent *v1.Agent, oauthServerU
 		return nil, nil, err
 	}
 
-	if oauthEnv, err := OAuthAppEnv(ctx, db, agent.Spec.Manifest.OAuthApps, agent.Namespace, oauthServerURL); err != nil {
+	oauthEnv, err := OAuthAppEnv(ctx, db, agent.Spec.Manifest.OAuthApps, agent.Namespace, oauthServerURL)
+	if err != nil {
 		return nil, nil, err
-	} else {
-		extraEnv = append(extraEnv, oauthEnv...)
 	}
+
+	extraEnv = append(extraEnv, oauthEnv...)
 
 	return append([]gptscript.ToolDef{mainTool}, otherTools...), extraEnv, nil
 }
@@ -312,7 +313,7 @@ func agentsByName(ctx context.Context, db kclient.Client, namespace string) (map
 	}
 
 	sort.Slice(agents.Items, func(i, j int) bool {
-		return agents.Items[i].Name < agents.Items[i].Name
+		return agents.Items[i].Name < agents.Items[j].Name
 	})
 
 	result := map[string]v1.Agent{}
@@ -345,7 +346,7 @@ func WorkflowByName(ctx context.Context, db kclient.Client, namespace string) (m
 	}
 
 	sort.Slice(workflows.Items, func(i, j int) bool {
-		return workflows.Items[i].Name < workflows.Items[i].Name
+		return workflows.Items[i].Name < workflows.Items[j].Name
 	})
 
 	result := map[string]v1.Workflow{}

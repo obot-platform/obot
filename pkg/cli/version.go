@@ -7,11 +7,9 @@ import (
 	"github.com/spf13/cobra"
 )
 
-type Version struct {
-	root *Acorn
-}
+type Version struct{}
 
-func (l *Version) Run(cmd *cobra.Command, args []string) error {
+func (l *Version) Run(*cobra.Command, []string) error {
 	fmt.Println("Version: ", version.Get())
 	return nil
 }

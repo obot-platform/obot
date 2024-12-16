@@ -17,7 +17,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func (h *Handler) RunSubflow(req router.Request, resp router.Response) error {
+func (h *Handler) RunSubflow(req router.Request, _ router.Response) error {
 	step := req.Object.(*v1.WorkflowStep)
 
 	if step.Status.State != types.WorkflowStateSubCall {
@@ -115,21 +115,6 @@ func (h *Handler) RunSubflow(req router.Request, resp router.Response) error {
 	}
 
 	return nil
-}
-
-func (h *Handler) getLastRun(req router.Request, step *v1.WorkflowStep) (string, error) {
-	var check v1.WorkflowStep
-	if err := req.Get(&check, step.Namespace, step.Name); apierrors.IsNotFound(err) {
-		return "", nil
-	} else if err != nil {
-		return "", err
-	}
-
-	if check.Status.State != types.WorkflowStateComplete {
-		return "", nil
-	}
-
-	return check.Status.LastRunName, nil
 }
 
 func (h *Handler) getSubflowOutput(req router.Request, wfe *v1.WorkflowExecution) (string, bool, bool, error) {

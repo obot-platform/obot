@@ -6,7 +6,7 @@ import (
 
 	"github.com/acorn-io/acorn/apiclient/types"
 	"github.com/acorn-io/acorn/pkg/alias"
-	"github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1"
+	v1 "github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1"
 	"github.com/acorn-io/acorn/pkg/system"
 	"github.com/acorn-io/nah/pkg/router"
 	"github.com/robfig/cron/v3"

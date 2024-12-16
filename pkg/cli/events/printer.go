@@ -23,7 +23,7 @@ type Quiet struct {
 	Ctx    context.Context
 }
 
-func (q *Quiet) Print(input string, events <-chan types.Progress) error {
+func (q *Quiet) Print(events <-chan types.Progress) error {
 	var lastContent string
 	for event := range events {
 		if event.Error != "" {
@@ -51,7 +51,7 @@ type Verbose struct {
 	Ctx     context.Context
 }
 
-func (v *Verbose) Print(input string, events <-chan types.Progress) error {
+func (v *Verbose) Print(events <-chan types.Progress) error {
 	var (
 		out       = textio.NewSpinnerPrinter()
 		lastType  string
@@ -141,10 +141,9 @@ func handlePrompt(ctx context.Context, c *apiclient.Client, prompt *types.Prompt
 		}
 		if strings.HasPrefix(v, "@") {
 			data, err := os.ReadFile(v[1:])
-			if errors.Is(err, fs.ErrNotExist) {
-			} else if err != nil {
+			if err != nil && !errors.Is(err, fs.ErrNotExist) {
 				return err
-			} else {
+			} else if err == nil {
 				v = string(data)
 			}
 		}

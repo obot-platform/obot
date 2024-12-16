@@ -96,8 +96,8 @@ func (s *Server) wrap(f api.HandlerFunc) http.HandlerFunc {
 			User:           user,
 			APIBaseURL:     s.baseURL,
 		})
-		if errHttp := (*types.ErrHTTP)(nil); errors.As(err, &errHttp) {
-			http.Error(rw, errHttp.Message, errHttp.Code)
+		if errHTTP := (*types.ErrHTTP)(nil); errors.As(err, &errHTTP) {
+			http.Error(rw, errHTTP.Message, errHTTP.Code)
 		} else if errStatus := (*apierrors.StatusError)(nil); errors.As(err, &errStatus) {
 			http.Error(rw, errStatus.Error(), int(errStatus.ErrStatus.Code))
 		} else if err != nil {

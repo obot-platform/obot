@@ -141,6 +141,7 @@ func (e *Emitter) findRunByThreadName(ctx context.Context, threadNamespace, thre
 	}
 	defer func() {
 		w.Stop()
+		//nolint:revive
 		for range w.ResultChan() {
 		}
 	}()
@@ -148,18 +149,16 @@ func (e *Emitter) findRunByThreadName(ctx context.Context, threadNamespace, thre
 	for event := range w.ResultChan() {
 		if thread, ok := event.Object.(*v1.Thread); ok {
 			if thread.Status.CurrentRunName != "" {
-				if err := e.client.Get(ctx, router.Key(thread.Namespace, thread.Status.CurrentRunName), &run); apierrors.IsNotFound(err) {
-				} else if err != nil {
+				if err := e.client.Get(ctx, router.Key(thread.Namespace, thread.Status.CurrentRunName), &run); err != nil && !apierrors.IsNotFound(err) {
 					return nil, err
-				} else {
+				} else if err == nil {
 					return &run, nil
 				}
 			}
 			if thread.Status.LastRunName != "" {
-				if err := e.client.Get(ctx, router.Key(thread.Namespace, thread.Status.LastRunName), &run); apierrors.IsNotFound(err) {
-				} else if err != nil {
+				if err := e.client.Get(ctx, router.Key(thread.Namespace, thread.Status.LastRunName), &run); err != nil && !apierrors.IsNotFound(err) {
 					return nil, err
-				} else {
+				} else if err == nil {
 					return &run, nil
 				}
 			}
@@ -178,6 +177,7 @@ func (e *Emitter) getThread(ctx context.Context, namespace, name string, wait bo
 		}
 		defer func() {
 			w.Stop()
+			//nolint:revive
 			for range w.ResultChan() {
 			}
 		}()
@@ -301,6 +301,7 @@ func (e *Emitter) printRun(ctx context.Context, state *printState, run v1.Run, r
 	defer func() {
 		if w != nil {
 			w.Stop()
+			//nolint:revive
 			for range w.ResultChan() {
 			}
 		}
@@ -401,15 +402,15 @@ func (e *Emitter) printParent(ctx context.Context, remaining int, state *printSt
 	)
 	if err := e.client.Get(ctx, kclient.ObjectKey{Namespace: run.Namespace, Name: run.Spec.PreviousRunName}, &parent); err != nil {
 		return err
-	} else {
-		if parent.Spec.ThreadName != "" && run.Spec.ThreadName != "" && parent.Spec.ThreadName != run.Spec.ThreadName {
-			return nil
-		}
-		if err := e.printParent(ctx, remaining-1, state, parent, result); apierrors.IsNotFound(err) {
-			errNotFound = err
-		} else if err != nil {
-			return err
-		}
+	}
+
+	if parent.Spec.ThreadName != "" && run.Spec.ThreadName != "" && parent.Spec.ThreadName != run.Spec.ThreadName {
+		return nil
+	}
+	if err := e.printParent(ctx, remaining-1, state, parent, result); apierrors.IsNotFound(err) {
+		errNotFound = err
+	} else if err != nil {
+		return err
 	}
 
 	return errors.Join(errNotFound, e.printRun(ctx, state, parent, result, true))
@@ -483,6 +484,7 @@ func (e *Emitter) getThreadID(ctx context.Context, namespace, runName, workflowN
 	}
 	defer func() {
 		w.Stop()
+		//nolint:revive
 		for range w.ResultChan() {
 		}
 	}()
@@ -542,6 +544,7 @@ func (e *Emitter) isWorkflowDone(ctx context.Context, run v1.Run, opts WatchOpti
 	cancel := func() {
 		w.Stop()
 		go func() {
+			//nolint:revive
 			for range w.ResultChan() {
 			}
 		}()
@@ -600,6 +603,7 @@ func (e *Emitter) findNextRun(ctx context.Context, run v1.Run, opts WatchOptions
 	}
 	defer func() {
 		w.Stop()
+		//nolint:revive
 		for range w.ResultChan() {
 		}
 	}()
@@ -623,7 +627,6 @@ func (e *Emitter) findNextRun(ctx context.Context, run v1.Run, opts WatchOptions
 			return run, nil
 		}
 	}
-
 }
 
 func (e *Emitter) callToEvents(ctx context.Context, namespace, runID string, prg *gptscript.Program, frames gptscript.CallFrames, printed *printState, out chan types.Progress) error {

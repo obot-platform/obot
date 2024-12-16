@@ -42,7 +42,7 @@ func (l *Credentials) printCredentials(i types.CredentialList) error {
 	return w.Err()
 }
 
-func (l *Credentials) Run(cmd *cobra.Command, args []string) error {
+func (l *Credentials) Run(cmd *cobra.Command, _ []string) error {
 	creds, err := l.root.Client.ListCredentials(cmd.Context(), apiclient.ListCredentialsOptions{
 		ThreadID: l.ThreadID,
 	})

@@ -53,13 +53,14 @@ func (h *Handler) Run(req router.Request, _ router.Response) error {
 	}
 
 	if we.Status.ThreadName == "" {
-		if t, err := h.newThread(req.Ctx, req.Client, &wf, we); err != nil {
+		t, err := h.newThread(req.Ctx, req.Client, &wf, we)
+		if err != nil {
 			return err
-		} else {
-			we.Status.ThreadName = t.Name
-			if err := req.Client.Status().Update(req.Ctx, we); err != nil {
-				return err
-			}
+		}
+
+		we.Status.ThreadName = t.Name
+		if err = req.Client.Status().Update(req.Ctx, we); err != nil {
+			return err
 		}
 	}
 

@@ -5,7 +5,7 @@ import (
 	"github.com/acorn-io/acorn/pkg/api"
 	"github.com/acorn-io/acorn/pkg/events"
 	"github.com/acorn-io/acorn/pkg/gz"
-	"github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1"
+	v1 "github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1"
 	"github.com/gptscript-ai/go-gptscript"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )

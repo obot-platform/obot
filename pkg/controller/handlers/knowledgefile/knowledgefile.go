@@ -180,9 +180,7 @@ func (h *Handler) IngestFile(req router.Request, _ router.Response) error {
 	return req.Client.Status().Update(req.Ctx, file)
 }
 
-func (h *Handler) ingest(ctx context.Context, client kclient.Client, file *v1.KnowledgeFile,
-	ks *v1.KnowledgeSet, source *v1.KnowledgeSource, thread *v1.Thread) error {
-
+func (h *Handler) ingest(ctx context.Context, client kclient.Client, file *v1.KnowledgeFile, ks *v1.KnowledgeSet, source *v1.KnowledgeSource, thread *v1.Thread) error {
 	file.Status.State = types.KnowledgeFileStateIngesting
 	file.Status.Error = ""
 	file.Status.LastIngestionStartTime = metav1.Now()

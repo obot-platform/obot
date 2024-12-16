@@ -70,6 +70,7 @@ type TaskResult struct {
 
 func (r *Response) Close() {
 	r.cancel()
+	//nolint:revive
 	for range r.Events {
 	}
 }
@@ -86,6 +87,7 @@ func (r *Response) Result(ctx context.Context) (TaskResult, error) {
 	if r.uncached == nil {
 		panic("can not get resource of asynchronous task")
 	}
+	//nolint:revive
 	for range r.Events {
 	}
 
@@ -825,7 +827,8 @@ func (i *Invoker) stream(ctx context.Context, c kclient.WithWatch, prevThreadNam
 
 	defer func() {
 		_ = runResp.Close()
-		// drain the events in situation of an error
+		// drain the events on error
+		//nolint:revive
 		for range runEvent {
 		}
 	}()

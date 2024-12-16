@@ -98,7 +98,6 @@ func (c *Controller) setupRoutes() error {
 	// Also cleanup the dataset when there is no content.
 	// This will allow the user to switch the embedding model implicitly.
 	root.Type(&v1.KnowledgeSet{}).HandlerFunc(knowledgeset.Cleanup)
-	root.Type(&v1.KnowledgeSet{}).HandlerFunc(knowledgeset.GenerateDataDescription)
 	root.Type(&v1.KnowledgeSet{}).HandlerFunc(knowledgeset.CreateWorkspace)
 	root.Type(&v1.KnowledgeSet{}).HandlerFunc(knowledgeset.CheckHasContent)
 	root.Type(&v1.KnowledgeSet{}).HandlerFunc(knowledgeset.SetEmbeddingModel)

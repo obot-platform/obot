@@ -8,6 +8,7 @@ import (
 	"github.com/acorn-io/acorn/pkg/controller/handlers/toolreference"
 	"github.com/acorn-io/acorn/pkg/services"
 	"github.com/acorn-io/nah/pkg/router"
+
 	// Enable logrus logging in nah
 	_ "github.com/acorn-io/nah/pkg/logrus"
 )

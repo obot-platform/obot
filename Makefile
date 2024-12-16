@@ -41,7 +41,7 @@ dev-open: ARGS=--open-uis
 dev-open: dev
 
 # Lint the project
-lint: lint-admin
+lint: lint-admin lint-go
 
 lint-admin:
 	cd ui/admin && \
@@ -50,6 +50,25 @@ lint-admin:
 
 package-tools:
 	./tools/package-tools.sh
+
+tidy:
+	go mod tidy
+
+GOLANGCI_LINT_VERSION ?= v1.62.2
+setup-env:
+	if ! command -v golangci-lint &> /dev/null; then \
+  		echo "Could not find golangci-lint, installing version $(GOLANGCI_LINT_VERSION)."; \
+		curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $$(go env GOPATH)/bin $(GOLANGCI_LINT_VERSION); \
+	fi
+
+lint-go: setup-env
+	golangci-lint run
+
+generate:
+	go generate
+
+# Runs Go linters and validates that all generated code is committed.
+validate-go-code: tidy generate lint-go no-changes
 
 no-changes:
 	@if [ -n "$$(git status --porcelain)" ]; then \

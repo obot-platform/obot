@@ -234,12 +234,12 @@ func (a *ThreadHandler) Update(req api.Context) error {
 				return types.NewErrBadRequest("tool %s is not available for agent %s", newTool, agent.Name)
 			}
 		}
-		max := agent.Spec.Manifest.MaxThreadTools
-		if max == 0 {
-			max = DefaultMaxUserThreadTools
+		maxThreadTools := agent.Spec.Manifest.MaxThreadTools
+		if maxThreadTools == 0 {
+			maxThreadTools = DefaultMaxUserThreadTools
 		}
-		if len(newThread.Tools) > max {
-			return types.NewErrBadRequest("too many tools, max %d", max)
+		if len(newThread.Tools) > maxThreadTools {
+			return types.NewErrBadRequest("too many tools, max %d", maxThreadTools)
 		}
 	}
 

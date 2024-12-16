@@ -8,19 +8,13 @@ import (
 	"net/http/httputil"
 	"path"
 	"strings"
-	"sync"
-
-	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 //go:embed all:admin/*build all:user/*build
 var embedded embed.FS
 
-func Handler(devPort int, client kclient.Client) http.Handler {
-	server := &uiServer{
-		client: client,
-		lock:   new(sync.RWMutex),
-	}
+func Handler(devPort int) http.Handler {
+	server := &uiServer{}
 
 	if devPort == 0 {
 		return server
@@ -44,11 +38,7 @@ func Handler(devPort int, client kclient.Client) http.Handler {
 	})
 }
 
-type uiServer struct {
-	lock       *sync.RWMutex
-	configured bool
-	client     kclient.Client
-}
+type uiServer struct{}
 
 func (s *uiServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if !strings.Contains(strings.ToLower(r.UserAgent()), "mozilla") {

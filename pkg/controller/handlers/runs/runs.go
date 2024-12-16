@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/acorn-io/acorn/logger"
 	"github.com/acorn-io/acorn/pkg/invoke"
 	v1 "github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1"
 	"github.com/acorn-io/nah/pkg/router"
@@ -14,8 +13,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-var log = logger.Package()
-
 type Handler struct {
 	invoker *invoke.Invoker
 }
@@ -24,7 +21,7 @@ func New(invoker *invoke.Invoker) *Handler {
 	return &Handler{invoker: invoker}
 }
 
-func (*Handler) DeleteRunState(req router.Request, resp router.Response) error {
+func (*Handler) DeleteRunState(req router.Request, _ router.Response) error {
 	run := req.Object.(*v1.Run)
 	return client.IgnoreNotFound(req.Delete(&v1.RunState{
 		ObjectMeta: metav1.ObjectMeta{

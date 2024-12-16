@@ -43,16 +43,6 @@ type UserQuery struct {
 }
 
 func NewUserQuery(u url.Values) UserQuery {
-	limit, err := strconv.Atoi(u.Get("limit"))
-	if err != nil || limit <= 0 {
-		limit = 0
-	}
-
-	offset, err := strconv.Atoi(u.Get("continue"))
-	if err != nil || offset < 0 {
-		offset = 0
-	}
-
 	role, err := strconv.Atoi(u.Get("role"))
 	if err != nil || role < 0 {
 		role = 0

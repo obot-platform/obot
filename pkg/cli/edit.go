@@ -39,7 +39,7 @@ func (l *Edit) editWorkflow(ctx context.Context, id string) error {
 		return err
 	}
 
-	err = edit.Edit(ctx, data, ".yaml", func(data []byte) error {
+	err = edit.Edit(data, ".yaml", func(data []byte) error {
 		var newManifest types.WorkflowManifest
 		if err := yaml.Unmarshal(data, &newManifest); err != nil {
 			return err
@@ -62,7 +62,7 @@ func (l *Edit) editAgent(ctx context.Context, id string) error {
 	}
 
 	if l.Prompt {
-		err = edit.Edit(ctx, []byte(agent.Prompt), ".txt", func(data []byte) error {
+		err = edit.Edit([]byte(agent.Prompt), ".txt", func(data []byte) error {
 			agent.Prompt = string(data)
 			_, err := l.root.Client.UpdateAgent(ctx, agent.ID, agent.AgentManifest)
 			return err
@@ -79,7 +79,7 @@ func (l *Edit) editAgent(ctx context.Context, id string) error {
 		return err
 	}
 
-	err = edit.Edit(ctx, data, ".yaml", func(data []byte) error {
+	err = edit.Edit(data, ".yaml", func(data []byte) error {
 		var newManifest types.AgentManifest
 		if err := yaml.Unmarshal(data, &newManifest); err != nil {
 			return err

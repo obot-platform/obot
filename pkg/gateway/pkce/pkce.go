@@ -8,7 +8,7 @@ import (
 	"strings"
 )
 
-type PKCEInfo struct {
+type Info struct {
 	CodeVerifier, CodeChallenge, Method string
 }
 
@@ -46,14 +46,14 @@ func base64URLEncode(input []byte) string {
 	return encoded
 }
 
-func GetPKCE() (PKCEInfo, error) {
+func GetPKCE() (Info, error) {
 	codeVerifier, err := generateCodeVerifier(pkceLength)
 	if err != nil {
-		return PKCEInfo{}, fmt.Errorf("failed to generate code verifier: %w", err)
+		return Info{}, fmt.Errorf("failed to generate code verifier: %w", err)
 	}
 
 	codeChallenge := generateCodeChallengeS256(codeVerifier)
-	return PKCEInfo{
+	return Info{
 		CodeVerifier:  codeVerifier,
 		CodeChallenge: codeChallenge,
 		Method:        pkceMethod,

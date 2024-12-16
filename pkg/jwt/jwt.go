@@ -46,7 +46,7 @@ func (t *TokenService) AuthenticateRequest(req *http.Request) (*authenticator.Re
 }
 
 func (t *TokenService) DecodeToken(token string) (*TokenContext, error) {
-	tk, err := jwt.Parse(token, func(token *jwt.Token) (interface{}, error) {
+	tk, err := jwt.Parse(token, func(*jwt.Token) (interface{}, error) {
 		return []byte(secret), nil
 	})
 	if err != nil {

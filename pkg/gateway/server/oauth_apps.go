@@ -193,11 +193,11 @@ func (s *Server) authorizeOAuthApp(apiContext api.Context) error {
 		challenge = apiContext.URL.Query().Get("challenge")
 	)
 	if state == "" {
-		return apierrors.NewBadRequest(fmt.Sprintf("missing state query parameter"))
+		return apierrors.NewBadRequest("missing state query parameter")
 	} else if len(state) < 64 || len(state) > 256 {
-		return apierrors.NewBadRequest(fmt.Sprintf("invalid state length - must be between 64 and 256 characters"))
+		return apierrors.NewBadRequest("invalid state length - must be between 64 and 256 characters")
 	} else if challenge == "" {
-		return apierrors.NewBadRequest(fmt.Sprintf("missing challenge query parameter"))
+		return apierrors.NewBadRequest("missing challenge query parameter")
 	}
 
 	c := new(types.OAuthTokenRequestChallenge)
@@ -307,11 +307,7 @@ func (s *Server) refreshOAuthApp(apiContext api.Context) error {
 	if resp.StatusCode != http.StatusOK {
 		bodyBuf := new(bytes.Buffer)
 		_, _ = bodyBuf.ReadFrom(resp.Body)
-		var str string
-		if bodyBuf != nil {
-			str = bodyBuf.String()
-		}
-		return fmt.Errorf("failed to get tokens: %d %s", resp.StatusCode, str)
+		return fmt.Errorf("failed to get tokens: %d %s", resp.StatusCode, bodyBuf.String())
 	}
 
 	tokenResp := new(types.OAuthTokenResponse)
@@ -382,11 +378,7 @@ func (s *Server) callbackOAuthApp(apiContext api.Context) error {
 	if resp.StatusCode != http.StatusOK {
 		bodyBuf := new(bytes.Buffer)
 		_, _ = bodyBuf.ReadFrom(resp.Body)
-		var str string
-		if bodyBuf != nil {
-			str = bodyBuf.String()
-		}
-		return fmt.Errorf("failed to get tokens: %d %s", resp.StatusCode, str)
+		return fmt.Errorf("failed to get tokens: %d %s", resp.StatusCode, bodyBuf.String())
 	}
 
 	// Get the response and save it to the db so that the cred tool can acquire it.

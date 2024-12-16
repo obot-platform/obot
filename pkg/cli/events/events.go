@@ -8,7 +8,7 @@ import (
 )
 
 type Printer interface {
-	Print(input string, events <-chan types.Progress) error
+	Print(events <-chan types.Progress) error
 }
 
 func NewPrinter(ctx context.Context, c *apiclient.Client, quiet, details bool) Printer {

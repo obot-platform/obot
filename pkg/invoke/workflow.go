@@ -50,6 +50,7 @@ func (i *Invoker) startWorkflow(ctx context.Context, c kclient.WithWatch, wf *v1
 
 	defer func() {
 		w.Stop()
+		//nolint:revive
 		for range w.ResultChan() {
 		}
 	}()
@@ -83,11 +84,9 @@ func (i *Invoker) Workflow(ctx context.Context, c kclient.WithWatch, wf *v1.Work
 	)
 
 	if opt.WorkflowExecutionName != "" {
-		if err := c.Get(ctx, router.Key(wf.Namespace, opt.WorkflowExecutionName), wfe); apierror.IsNotFound(err) {
-			// Workflow execution does not exist, run with given wfe name
-		} else if err != nil {
+		if err := c.Get(ctx, router.Key(wf.Namespace, opt.WorkflowExecutionName), wfe); err != nil && !apierror.IsNotFound(err) {
 			return nil, err
-		} else {
+		} else if err == nil {
 			wfe, err = wait.For(ctx, c, wfe, func(wfe *v1.WorkflowExecution) (bool, error) {
 				return wfe.Status.ThreadName != "", nil
 			})

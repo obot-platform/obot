@@ -9,7 +9,7 @@ import (
 	"github.com/acorn-io/acorn/pkg/alias"
 	"github.com/acorn-io/acorn/pkg/api"
 	"github.com/acorn-io/acorn/pkg/controller/handlers/cronjob"
-	"github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1"
+	v1 "github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1"
 	"github.com/acorn-io/acorn/pkg/system"
 	"github.com/robfig/cron/v3"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"

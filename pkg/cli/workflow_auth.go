@@ -22,5 +22,5 @@ func (l *WorkflowAuth) Run(cmd *cobra.Command, args []string) error {
 	}
 
 	printer := events.NewPrinter(cmd.Context(), l.root.Client, false, false)
-	return printer.Print("", resp.Events)
+	return printer.Print(resp.Events)
 }

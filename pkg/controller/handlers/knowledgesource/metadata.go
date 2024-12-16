@@ -8,10 +8,8 @@ import (
 	"path/filepath"
 
 	v1 "github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1"
-	"github.com/acorn-io/acorn/pkg/wait"
 	"github.com/gptscript-ai/go-gptscript"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type fileDetails struct {
@@ -20,21 +18,6 @@ type fileDetails struct {
 	UpdatedAt   string `json:"updatedAt,omitempty"`
 	Checksum    string `json:"checksum,omitempty"`
 	SizeInBytes int64  `json:"sizeInBytes,omitempty"`
-}
-
-func (k *Handler) getWorkspaceID(ctx context.Context, c kclient.WithWatch, source *v1.KnowledgeSource) (string, error) {
-	ws, err := wait.For(ctx, c, &v1.Workspace{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      source.Status.WorkspaceName,
-			Namespace: source.Namespace,
-		},
-	}, func(ws *v1.Workspace) (bool, error) {
-		return ws.Status.WorkspaceID != "", nil
-	})
-	if err != nil {
-		return "", err
-	}
-	return ws.Status.WorkspaceID, nil
 }
 
 type syncMetadata struct {

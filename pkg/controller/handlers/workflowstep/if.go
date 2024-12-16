@@ -13,7 +13,7 @@ import (
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func (h *Handler) RunIf(req router.Request, resp router.Response) (err error) {
+func (h *Handler) RunIf(req router.Request, _ router.Response) (err error) {
 	step := req.Object.(*v1.WorkflowStep)
 
 	if step.Spec.Step.If == nil {

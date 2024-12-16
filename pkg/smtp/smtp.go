@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"mime"
@@ -127,15 +128,16 @@ func getBody(message *mail.Message) (string, error) {
 		return "", err
 	}
 
-	var (
-		html string
-	)
-
+	var html string
 	if strings.HasPrefix(mediaType, "multipart/") {
 		mr := multipart.NewReader(message.Body, params["boundary"])
 		for {
 			p, err := mr.NextPart()
 			if err != nil {
+				if errors.Is(err, io.EOF) {
+					// Break and return whatever html is found or an error.
+					break
+				}
 				return "", err
 			}
 			if strings.HasPrefix(p.Header.Get("Content-Type"), "text/plain") {

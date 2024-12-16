@@ -26,7 +26,7 @@ import (
 	"github.com/acorn-io/acorn/pkg/storage/scheme"
 	"github.com/acorn-io/acorn/pkg/storage/services"
 	"github.com/acorn-io/acorn/pkg/system"
-	"github.com/acorn-io/nah"
+	baaah "github.com/acorn-io/nah"
 	"github.com/acorn-io/nah/pkg/leader"
 	"github.com/acorn-io/nah/pkg/router"
 	"github.com/adrg/xdg"
@@ -40,7 +40,7 @@ import (
 	"k8s.io/apiserver/pkg/authentication/authenticator"
 	"k8s.io/apiserver/pkg/authentication/request/union"
 
-	// Setup baaah logging
+	// Setup nah logging
 	_ "github.com/acorn-io/nah/pkg/logrus"
 )
 

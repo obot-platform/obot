@@ -8,7 +8,7 @@ import (
 	"github.com/acorn-io/acorn/pkg/api"
 	"github.com/acorn-io/acorn/pkg/availablemodels"
 	"github.com/acorn-io/acorn/pkg/gateway/server/dispatcher"
-	"github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1"
+	v1 "github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1"
 	"github.com/acorn-io/acorn/pkg/system"
 	openai "github.com/gptscript-ai/chat-completion-client"
 	"github.com/gptscript-ai/go-gptscript"
