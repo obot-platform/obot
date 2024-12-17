@@ -8,6 +8,7 @@ import {
     BadRequestError,
     ConflictError,
     ForbiddenError,
+    NotFoundError,
     UnauthorizedError,
 } from "~/lib/service/api/apiErrors";
 
@@ -62,6 +63,10 @@ export async function request<T, R = AxiosResponse<T>, D = unknown>({
                 ...config,
                 disableTokenRefresh: true,
             });
+        }
+
+        if (isAxiosError(error) && error.response?.status === 404) {
+            throw new NotFoundError(error.response.data);
         }
 
         if (isAxiosError(error) && error.response?.status === 409) {
