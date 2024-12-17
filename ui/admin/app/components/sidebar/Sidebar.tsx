@@ -14,7 +14,7 @@ import { $path } from "remix-routes";
 
 import { cn } from "~/lib/utils";
 
-import { AcornLogo } from "~/components/branding/AcornLogo";
+import { ObotLogo } from "~/components/branding/ObotLogo";
 import { Button } from "~/components/ui/button";
 import {
     Popover,
@@ -89,7 +89,7 @@ export function AppSidebar() {
                 className={cn("h-[60px]", state === "collapsed" ? "" : "px-4")}
             >
                 <div className={cn("flex items-center justify-center h-full")}>
-                    <AcornLogo hideText={state === "collapsed"} />
+                    <ObotLogo hideText={state === "collapsed"} />
                 </div>
             </SidebarHeader>
             <SidebarContent>

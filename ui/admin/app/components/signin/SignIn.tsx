@@ -2,7 +2,7 @@ import { FaGoogle } from "react-icons/fa";
 
 import { cn } from "~/lib/utils";
 
-import { AcornLogo } from "~/components/branding/AcornLogo";
+import { ObotLogo } from "~/components/branding/ObotLogo";
 import { Button } from "~/components/ui/button";
 import {
     Card,
@@ -24,7 +24,7 @@ export function SignIn({ className }: SignInProps) {
             >
                 <CardHeader>
                     <CardTitle className="flex items-center justify-center">
-                        <AcornLogo />
+                        <ObotLogo />
                     </CardTitle>
                     <CardDescription className="text-center w-3/4 mx-auto pt-4">
                         Please sign in using the button below.

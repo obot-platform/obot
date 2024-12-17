@@ -3,7 +3,7 @@ import { assetUrl, cn } from "~/lib/utils";
 import { TypographyH2 } from "~/components/Typography";
 import { useTheme } from "~/components/theme";
 
-export function AcornLogo({
+export function ObotLogo({
     hideText = false,
     classNames = {},
 }: {
@@ -12,10 +12,10 @@ export function AcornLogo({
 }) {
     const { isDark } = useTheme();
     let logo = isDark
-        ? "/logo/acorn-logo-blue-white-text.svg"
-        : "/logo/acorn-logo-blue-black-text.svg";
+        ? "/logo/obot-logo-blue-white-text.svg"
+        : "/logo/obot-logo-blue-black-text.svg";
     if (hideText) {
-        logo = "/logo/acorn-icon-blue.svg";
+        logo = "/logo/obot-icon-blue.svg";
     }
     return (
         <TypographyH2
@@ -26,7 +26,7 @@ export function AcornLogo({
         >
             <img
                 src={assetUrl(logo)}
-                alt="Acorn Logo"
+                alt="Obot Logo"
                 className={cn("h-8", classNames.image)}
             />
         </TypographyH2>
