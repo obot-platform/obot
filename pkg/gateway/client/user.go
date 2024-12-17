@@ -17,6 +17,11 @@ func (c *Client) User(ctx context.Context, username string) (*types.User, error)
 	return u, c.db.WithContext(ctx).Where("username = ?", username).First(u).Error
 }
 
+func (c *Client) UserByID(ctx context.Context, id string) (*types.User, error) {
+	u := new(types.User)
+	return u, c.db.WithContext(ctx).Where("id = ?", id).First(u).Error
+}
+
 func (c *Client) UpdateProfileIconIfNeeded(ctx context.Context, user *types.User, authProviderID uint) error {
 	if authProviderID == 0 {
 		return nil

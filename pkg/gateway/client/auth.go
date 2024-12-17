@@ -13,26 +13,26 @@ import (
 )
 
 type UserDecorator struct {
-	Next   authenticator.Request
-	Client *Client
+	next   authenticator.Request
+	client *Client
 }
 
 func NewUserDecorator(next authenticator.Request, client *Client) *UserDecorator {
 	return &UserDecorator{
-		Next:   next,
-		Client: client,
+		next:   next,
+		client: client,
 	}
 }
 
 func (u UserDecorator) AuthenticateRequest(req *http.Request) (*authenticator.Response, bool, error) {
-	resp, ok, err := u.Next.AuthenticateRequest(req)
+	resp, ok, err := u.next.AuthenticateRequest(req)
 	if err != nil {
 		return nil, false, err
 	} else if !ok {
 		return nil, false, nil
 	}
 
-	gatewayUser, err := u.Client.EnsureIdentity(req.Context(), &types.Identity{
+	gatewayUser, err := u.client.EnsureIdentity(req.Context(), &types.Identity{
 		Email:            firstValue(resp.User.GetExtra(), "email"),
 		AuthProviderID:   uint(firstValueAsInt(resp.User.GetExtra(), "auth_provider_id")),
 		ProviderUsername: resp.User.GetName(),

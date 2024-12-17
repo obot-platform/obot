@@ -15,6 +15,7 @@ import (
 	"github.com/acorn-io/acorn/apiclient/types"
 	"github.com/acorn-io/acorn/logger"
 	"github.com/acorn-io/acorn/pkg/events"
+	"github.com/acorn-io/acorn/pkg/gateway/client"
 	"github.com/acorn-io/acorn/pkg/gz"
 	"github.com/acorn-io/acorn/pkg/hash"
 	"github.com/acorn-io/acorn/pkg/jwt"
@@ -34,22 +35,22 @@ import (
 var log = logger.Package()
 
 type Invoker struct {
-	gptClient               *gptscript.GPTScript
-	uncached                kclient.WithWatch
-	tokenService            *jwt.TokenService
-	events                  *events.Emitter
-	threadWorkspaceProvider string
-	serverURL               string
+	gptClient     *gptscript.GPTScript
+	uncached      kclient.WithWatch
+	gatewayClient *client.Client
+	tokenService  *jwt.TokenService
+	events        *events.Emitter
+	serverURL     string
 }
 
-func NewInvoker(c kclient.WithWatch, gptClient *gptscript.GPTScript, serverURL, workspaceProviderType string, tokenService *jwt.TokenService, events *events.Emitter) *Invoker {
+func NewInvoker(c kclient.WithWatch, gptClient *gptscript.GPTScript, gatewayClient *client.Client, serverURL string, tokenService *jwt.TokenService, events *events.Emitter) *Invoker {
 	return &Invoker{
-		uncached:                c,
-		gptClient:               gptClient,
-		tokenService:            tokenService,
-		events:                  events,
-		threadWorkspaceProvider: workspaceProviderType,
-		serverURL:               serverURL,
+		uncached:      c,
+		gptClient:     gptClient,
+		gatewayClient: gatewayClient,
+		tokenService:  tokenService,
+		events:        events,
+		serverURL:     serverURL,
 	}
 }
 
@@ -461,6 +462,16 @@ func (i *Invoker) Resume(ctx context.Context, c kclient.WithWatch, thread *v1.Th
 		return err
 	}
 
+	var userID, userName, userEmail string
+	if thread.Spec.UserUID != "" {
+		u, err := i.gatewayClient.UserByID(ctx, thread.Spec.UserUID)
+		if err != nil {
+			return fmt.Errorf("failed to get user: %w", err)
+		}
+
+		userID, userName, userEmail = thread.Spec.UserUID, u.Username, u.Email
+	}
+
 	token, err := i.tokenService.NewToken(jwt.TokenContext{
 		RunID:          run.Name,
 		ThreadID:       thread.Name,
@@ -468,6 +479,9 @@ func (i *Invoker) Resume(ctx context.Context, c kclient.WithWatch, thread *v1.Th
 		WorkflowID:     run.Spec.WorkflowName,
 		WorkflowStepID: run.Spec.WorkflowStepID,
 		Scope:          thread.Namespace,
+		UserID:         userID,
+		UserName:       userName,
+		UserEmail:      userEmail,
 	})
 	if err != nil {
 		return err
@@ -496,6 +510,9 @@ func (i *Invoker) Resume(ctx context.Context, c kclient.WithWatch, thread *v1.Th
 				"ACORN_DEFAULT_TEXT_EMBEDDING_MODEL="+string(types.DefaultModelAliasTypeTextEmbedding),
 				"ACORN_DEFAULT_IMAGE_GENERATION_MODEL="+string(types.DefaultModelAliasTypeImageGeneration),
 				"ACORN_DEFAULT_VISION_MODEL="+string(types.DefaultModelAliasTypeVision),
+				"ACORN_USER_ID="+userID,
+				"ACORN_USER_NAME="+userName,
+				"ACORN_USER_EMAIL="+userEmail,
 				"GPTSCRIPT_HTTP_ENV=ACORN_TOKEN,ACORN_RUN_ID,ACORN_THREAD_ID,ACORN_WORKFLOW_ID,ACORN_WORKFLOW_STEP_ID,ACORN_AGENT_ID",
 			),
 			DefaultModel:         run.Spec.DefaultModel,

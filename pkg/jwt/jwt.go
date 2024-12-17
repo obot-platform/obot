@@ -20,6 +20,9 @@ type TokenContext struct {
 	WorkflowID     string
 	WorkflowStepID string
 	Scope          string
+	UserID         string
+	UserName       string
+	UserEmail      string
 }
 
 type TokenService struct{}
@@ -37,9 +40,12 @@ func (t *TokenService) AuthenticateRequest(req *http.Request) (*authenticator.Re
 				authz.AuthenticatedGroup,
 			},
 			Extra: map[string][]string{
-				"otto:runID":    {tokenContext.RunID},
-				"otto:threadID": {tokenContext.ThreadID},
-				"otto:agentID":  {tokenContext.AgentID},
+				"acorn:runID":     {tokenContext.RunID},
+				"acorn:threadID":  {tokenContext.ThreadID},
+				"acorn:agentID":   {tokenContext.AgentID},
+				"acorn:userID":    {tokenContext.UserID},
+				"acorn:userName":  {tokenContext.UserName},
+				"acorn:userEmail": {tokenContext.UserEmail},
 			},
 		},
 	}, true, nil
@@ -63,6 +69,9 @@ func (t *TokenService) DecodeToken(token string) (*TokenContext, error) {
 		Scope:          claims["Scope"].(string),
 		WorkflowID:     claims["WorkflowID"].(string),
 		WorkflowStepID: claims["WorkflowStepID"].(string),
+		UserID:         claims["UserID"].(string),
+		UserName:       claims["UserName"].(string),
+		UserEmail:      claims["UserEmail"].(string),
 	}, nil
 }
 
@@ -74,6 +83,9 @@ func (t *TokenService) NewToken(context TokenContext) (string, error) {
 		"Scope":          context.Scope,
 		"WorkflowID":     context.WorkflowID,
 		"WorkflowStepID": context.WorkflowStepID,
+		"UserID":         context.UserID,
+		"UserName":       context.UserName,
+		"UserEmail":      context.UserEmail,
 	})
 	return token.SignedString([]byte(secret))
 }
