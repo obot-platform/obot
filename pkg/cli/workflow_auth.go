@@ -1,12 +1,12 @@
 package cli
 
 import (
-	"github.com/acorn-io/acorn/pkg/cli/events"
+	"github.com/obot-platform/obot/pkg/cli/events"
 	"github.com/spf13/cobra"
 )
 
 type WorkflowAuth struct {
-	root *Acorn
+	root *Obot
 }
 
 func (l *WorkflowAuth) Customize(cmd *cobra.Command) {

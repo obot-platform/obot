@@ -1,8 +1,8 @@
 package workflow
 
 import (
-	"github.com/acorn-io/acorn/apiclient/types"
-	"github.com/acorn-io/nah/pkg/randomtoken"
+	"github.com/obot-platform/nah/pkg/randomtoken"
+	"github.com/obot-platform/obot/apiclient/types"
 )
 
 func PopulateIDs(manifest types.WorkflowManifest) types.WorkflowManifest {

@@ -12,19 +12,20 @@ import (
 	"sync"
 	"time"
 
-	"github.com/acorn-io/acorn/apiclient/types"
-	"github.com/acorn-io/acorn/logger"
-	"github.com/acorn-io/acorn/pkg/events"
-	"github.com/acorn-io/acorn/pkg/gz"
-	"github.com/acorn-io/acorn/pkg/hash"
-	"github.com/acorn-io/acorn/pkg/jwt"
-	"github.com/acorn-io/acorn/pkg/render"
-	v1 "github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1"
-	"github.com/acorn-io/acorn/pkg/system"
-	"github.com/acorn-io/acorn/pkg/wait"
-	"github.com/acorn-io/nah/pkg/router"
-	"github.com/acorn-io/nah/pkg/uncached"
 	"github.com/gptscript-ai/go-gptscript"
+	"github.com/obot-platform/nah/pkg/router"
+	"github.com/obot-platform/nah/pkg/uncached"
+	"github.com/obot-platform/obot/apiclient/types"
+	"github.com/obot-platform/obot/logger"
+	"github.com/obot-platform/obot/pkg/events"
+	"github.com/obot-platform/obot/pkg/gateway/client"
+	"github.com/obot-platform/obot/pkg/gz"
+	"github.com/obot-platform/obot/pkg/hash"
+	"github.com/obot-platform/obot/pkg/jwt"
+	"github.com/obot-platform/obot/pkg/render"
+	v1 "github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1"
+	"github.com/obot-platform/obot/pkg/system"
+	"github.com/obot-platform/obot/pkg/wait"
 	apierror "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/util/retry"
@@ -34,22 +35,22 @@ import (
 var log = logger.Package()
 
 type Invoker struct {
-	gptClient               *gptscript.GPTScript
-	uncached                kclient.WithWatch
-	tokenService            *jwt.TokenService
-	events                  *events.Emitter
-	threadWorkspaceProvider string
-	serverURL               string
+	gptClient     *gptscript.GPTScript
+	uncached      kclient.WithWatch
+	gatewayClient *client.Client
+	tokenService  *jwt.TokenService
+	events        *events.Emitter
+	serverURL     string
 }
 
-func NewInvoker(c kclient.WithWatch, gptClient *gptscript.GPTScript, serverURL, workspaceProviderType string, tokenService *jwt.TokenService, events *events.Emitter) *Invoker {
+func NewInvoker(c kclient.WithWatch, gptClient *gptscript.GPTScript, gatewayClient *client.Client, serverURL string, tokenService *jwt.TokenService, events *events.Emitter) *Invoker {
 	return &Invoker{
-		uncached:                c,
-		gptClient:               gptClient,
-		tokenService:            tokenService,
-		events:                  events,
-		threadWorkspaceProvider: workspaceProviderType,
-		serverURL:               serverURL,
+		uncached:      c,
+		gptClient:     gptClient,
+		gatewayClient: gatewayClient,
+		tokenService:  tokenService,
+		events:        events,
+		serverURL:     serverURL,
 	}
 }
 
@@ -461,6 +462,16 @@ func (i *Invoker) Resume(ctx context.Context, c kclient.WithWatch, thread *v1.Th
 		return err
 	}
 
+	var userID, userName, userEmail string
+	if thread.Spec.UserUID != "" && thread.Spec.UserUID != "nobody" {
+		u, err := i.gatewayClient.UserByID(ctx, thread.Spec.UserUID)
+		if err != nil {
+			return fmt.Errorf("failed to get user: %w", err)
+		}
+
+		userID, userName, userEmail = thread.Spec.UserUID, u.Username, u.Email
+	}
+
 	token, err := i.tokenService.NewToken(jwt.TokenContext{
 		RunID:          run.Name,
 		ThreadID:       thread.Name,
@@ -468,6 +479,9 @@ func (i *Invoker) Resume(ctx context.Context, c kclient.WithWatch, thread *v1.Th
 		WorkflowID:     run.Spec.WorkflowName,
 		WorkflowStepID: run.Spec.WorkflowStepID,
 		Scope:          thread.Namespace,
+		UserID:         userID,
+		UserName:       userName,
+		UserEmail:      userEmail,
 	})
 	if err != nil {
 		return err
@@ -484,19 +498,22 @@ func (i *Invoker) Resume(ctx context.Context, c kclient.WithWatch, thread *v1.Th
 				fmt.Sprintf("GPTSCRIPT_MODEL_PROVIDER_PROXY_URL=%s/api/llm-proxy", i.serverURL),
 				"GPTSCRIPT_MODEL_PROVIDER_PROXY_TOKEN="+token,
 				"GPTSCRIPT_MODEL_PROVIDER_TOKEN="+token,
-				"ACORN_SERVER_URL="+i.serverURL,
-				"ACORN_TOKEN="+token,
-				"ACORN_RUN_ID="+run.Name,
-				"ACORN_THREAD_ID="+thread.Name,
-				"ACORN_WORKFLOW_ID="+run.Spec.WorkflowName,
-				"ACORN_WORKFLOW_STEP_ID="+run.Spec.WorkflowStepID,
-				"ACORN_AGENT_ID="+run.Spec.AgentName,
-				"ACORN_DEFAULT_LLM_MODEL="+string(types.DefaultModelAliasTypeLLM),
-				"ACORN_DEFAULT_LLM_MINI_MODEL="+string(types.DefaultModelAliasTypeLLMMini),
-				"ACORN_DEFAULT_TEXT_EMBEDDING_MODEL="+string(types.DefaultModelAliasTypeTextEmbedding),
-				"ACORN_DEFAULT_IMAGE_GENERATION_MODEL="+string(types.DefaultModelAliasTypeImageGeneration),
-				"ACORN_DEFAULT_VISION_MODEL="+string(types.DefaultModelAliasTypeVision),
-				"GPTSCRIPT_HTTP_ENV=ACORN_TOKEN,ACORN_RUN_ID,ACORN_THREAD_ID,ACORN_WORKFLOW_ID,ACORN_WORKFLOW_STEP_ID,ACORN_AGENT_ID",
+				"OBOT_SERVER_URL="+i.serverURL,
+				"OBOT_TOKEN="+token,
+				"OBOT_RUN_ID="+run.Name,
+				"OBOT_THREAD_ID="+thread.Name,
+				"OBOT_WORKFLOW_ID="+run.Spec.WorkflowName,
+				"OBOT_WORKFLOW_STEP_ID="+run.Spec.WorkflowStepID,
+				"OBOT_AGENT_ID="+run.Spec.AgentName,
+				"OBOT_DEFAULT_LLM_MODEL="+string(types.DefaultModelAliasTypeLLM),
+				"OBOT_DEFAULT_LLM_MINI_MODEL="+string(types.DefaultModelAliasTypeLLMMini),
+				"OBOT_DEFAULT_TEXT_EMBEDDING_MODEL="+string(types.DefaultModelAliasTypeTextEmbedding),
+				"OBOT_DEFAULT_IMAGE_GENERATION_MODEL="+string(types.DefaultModelAliasTypeImageGeneration),
+				"OBOT_DEFAULT_VISION_MODEL="+string(types.DefaultModelAliasTypeVision),
+				"OBOT_USER_ID="+userID,
+				"OBOT_USER_NAME="+userName,
+				"OBOT_USER_EMAIL="+userEmail,
+				"GPTSCRIPT_HTTP_ENV=OBOT_TOKEN,OBOT_RUN_ID,OBOT_THREAD_ID,OBOT_WORKFLOW_ID,OBOT_WORKFLOW_STEP_ID,OBOT_AGENT_ID",
 			),
 			DefaultModel:         run.Spec.DefaultModel,
 			DefaultModelProvider: modelProvider,

@@ -32,9 +32,9 @@ RUN git clone --branch v0.8.0 https://github.com/pgvector/pgvector.git && \
     rm -rf pgvector
 
 FROM cgr.dev/chainguard/postgres:latest-dev AS final
-ENV POSTGRES_USER=acorn
-ENV POSTGRES_PASSWORD=acorn
-ENV POSTGRES_DB=acorn
+ENV POSTGRES_USER=obot
+ENV POSTGRES_PASSWORD=obot
+ENV POSTGRES_DB=obot
 ENV PGDATA=/data/postgresql
 
 COPY --from=build-pgvector /usr/lib/postgresql17/vector.so /usr/lib/postgresql17/
@@ -49,19 +49,19 @@ RUN mkdir /run/sshd && /usr/sbin/sshd
 COPY encryption.yaml /
 COPY --chmod=0755 run.sh /bin/run.sh
 
-COPY --link --from=tools /app/acorn-tools /acorn-tools
-COPY --from=bin /app/bin/acorn /bin/
+COPY --link --from=tools /app/obot-tools /obot-tools
+COPY --from=bin /app/bin/obot /bin/
 
 EXPOSE 22
 # libreoffice executables
-ENV PATH=/acorn-tools/venv/bin:$PATH:/usr/lib/libreoffice/program
+ENV PATH=/obot-tools/venv/bin:$PATH:/usr/lib/libreoffice/program
 ENV HOME=/data
 ENV XDG_CACHE_HOME=/data/cache
-ENV GPTSCRIPT_SYSTEM_TOOLS_DIR=/acorn-tools/
-ENV ACORN_SERVER_WORKSPACE_TOOL=/acorn-tools/workspace-provider
-ENV ACORN_SERVER_DATASETS_TOOL=/acorn-tools/datasets
-ENV ACORN_SERVER_TOOL_REGISTRY=/acorn-tools
-ENV ACORN_SERVER_ENCRYPTION_CONFIG_FILE=/encryption.yaml
+ENV GPTSCRIPT_SYSTEM_TOOLS_DIR=/obot-tools/
+ENV OBOT_SERVER_WORKSPACE_TOOL=/obot-tools/workspace-provider
+ENV OBOT_SERVER_DATASETS_TOOL=/obot-tools/datasets
+ENV OBOT_SERVER_TOOL_REGISTRY=/obot-tools
+ENV OBOT_SERVER_ENCRYPTION_CONFIG_FILE=/encryption.yaml
 ENV GOMEMLIMIT=1GiB
 ENV BAAAH_THREADINESS=20
 ENV TERM=vt100

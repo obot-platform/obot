@@ -8,6 +8,7 @@
 	import { Thread } from '$lib/services/chat/thread.svelte';
 	import Input from '$lib/components/tasks/Input.svelte';
 	import Type from '$lib/components/tasks/Type.svelte';
+	import Files from '$lib/components/tasks/Files.svelte';
 
 	interface Props {
 		task: Task;
@@ -148,3 +149,9 @@
 		{/if}
 	</ol>
 </div>
+
+{#if selectedRun}
+	<Files taskID={task.id} runID={selectedRun} running={running || pending} />
+{:else if editMode}
+	<Files taskID={task.id} runID="editor" running={running || pending} />
+{/if}

@@ -22,7 +22,6 @@ export class Thread {
 			onClose?: () => void;
 		}
 	) {
-
 		const reconnect = (): EventSource => {
 			console.log('Message EventSource initializing');
 			this.replayComplete = false;
@@ -40,15 +39,15 @@ export class Thread {
 				console.log('Message EventSource closed by server');
 				opts?.onClose?.();
 				es.close();
-				this.#es = reconnect()
+				this.#es = reconnect();
 			});
 			es.onerror = (e: Event) => {
 				if (e.eventPhase === EventSource.CLOSED) {
 					console.log('Message EventSource closed');
 				}
 			};
-			return es
-		}
+			return es;
+		};
 
 		this.#assistant = assistant;
 		this.#es = reconnect();

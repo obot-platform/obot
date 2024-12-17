@@ -1,10 +1,10 @@
 package cleanup
 
 import (
-	"github.com/acorn-io/acorn/logger"
-	v1 "github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1"
-	"github.com/acorn-io/nah/pkg/router"
-	"github.com/acorn-io/nah/pkg/uncached"
+	"github.com/obot-platform/nah/pkg/router"
+	"github.com/obot-platform/nah/pkg/uncached"
+	"github.com/obot-platform/obot/logger"
+	v1 "github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"

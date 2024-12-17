@@ -1,12 +1,12 @@
 package cli
 
 import (
-	"github.com/acorn-io/acorn/pkg/cli/events"
+	"github.com/obot-platform/obot/pkg/cli/events"
 	"github.com/spf13/cobra"
 )
 
 type RunPrint struct {
-	root    *Acorn
+	root    *Obot
 	Quiet   bool `usage:"Only print the response content of the runs" short:"q"`
 	Verbose bool `usage:"Print more information" short:"v"`
 }

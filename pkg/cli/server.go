@@ -1,8 +1,8 @@
 package cli
 
 import (
-	"github.com/acorn-io/acorn/pkg/server"
-	"github.com/acorn-io/acorn/pkg/services"
+	"github.com/obot-platform/obot/pkg/server"
+	"github.com/obot-platform/obot/pkg/services"
 	"github.com/spf13/cobra"
 )
 

@@ -3,7 +3,7 @@ package client
 import (
 	"strconv"
 
-	"github.com/acorn-io/acorn/pkg/gateway/db"
+	"github.com/obot-platform/obot/pkg/gateway/db"
 )
 
 type Client struct {

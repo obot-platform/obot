@@ -6,15 +6,15 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"github.com/acorn-io/acorn/apiclient/types"
-	"github.com/acorn-io/acorn/pkg/api"
-	"github.com/acorn-io/acorn/pkg/events"
-	"github.com/acorn-io/acorn/pkg/invoke"
-	v1 "github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1"
-	"github.com/acorn-io/acorn/pkg/system"
-	"github.com/acorn-io/acorn/pkg/wait"
-	"github.com/acorn-io/nah/pkg/name"
-	"github.com/acorn-io/nah/pkg/randomtoken"
+	"github.com/obot-platform/nah/pkg/name"
+	"github.com/obot-platform/nah/pkg/randomtoken"
+	"github.com/obot-platform/obot/apiclient/types"
+	"github.com/obot-platform/obot/pkg/api"
+	"github.com/obot-platform/obot/pkg/events"
+	"github.com/obot-platform/obot/pkg/invoke"
+	v1 "github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1"
+	"github.com/obot-platform/obot/pkg/system"
+	"github.com/obot-platform/obot/pkg/wait"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
@@ -506,15 +506,13 @@ func (t *TaskHandler) updateCron(req api.Context, workflow *v1.Workflow, task ty
 }
 
 func (t *TaskHandler) getAssistantThreadAndManifestFromRequest(req api.Context) (*v1.Agent, *v1.Thread, types.WorkflowManifest, types.TaskManifest, error) {
-	assistantID := req.PathValue("assistant_id")
-
-	assistant, err := getAssistant(req, assistantID)
+	thread, err := getThreadForScope(req)
 	if err != nil {
 		return nil, nil, types.WorkflowManifest{}, types.TaskManifest{}, err
 	}
 
-	thread, err := getUserThread(req, assistantID)
-	if err != nil {
+	var agent v1.Agent
+	if err := req.Get(&agent, thread.Spec.AgentName); err != nil {
 		return nil, nil, types.WorkflowManifest{}, types.TaskManifest{}, err
 	}
 
@@ -523,7 +521,7 @@ func (t *TaskHandler) getAssistantThreadAndManifestFromRequest(req api.Context) 
 		return nil, nil, types.WorkflowManifest{}, types.TaskManifest{}, err
 	}
 
-	return assistant, thread, toWorkflowManifest(assistant, thread, manifest), manifest, nil
+	return &agent, thread, toWorkflowManifest(&agent, thread, manifest), manifest, nil
 }
 
 func (t *TaskHandler) Create(req api.Context) error {
@@ -659,15 +657,13 @@ func (t *TaskHandler) Get(req api.Context) error {
 }
 
 func (t *TaskHandler) getTask(req api.Context) (*v1.Workflow, *v1.Thread, error) {
-	assistantID := req.PathValue("assistant_id")
-
-	var workflow v1.Workflow
-	if err := req.Get(&workflow, req.PathValue("id")); err != nil {
+	thread, err := getThreadForScope(req)
+	if err != nil {
 		return nil, nil, err
 	}
 
-	thread, err := getUserThread(req, assistantID)
-	if err != nil {
+	var workflow v1.Workflow
+	if err := req.Get(&workflow, req.PathValue("id")); err != nil {
 		return nil, nil, err
 	}
 
@@ -678,10 +674,48 @@ func (t *TaskHandler) getTask(req api.Context) (*v1.Workflow, *v1.Thread, error)
 	return &workflow, thread, nil
 }
 
-func (t *TaskHandler) List(req api.Context) error {
+func getThreadForScope(req api.Context) (*v1.Thread, error) {
 	assistantID := req.PathValue("assistant_id")
 
-	thread, err := getUserThread(req, assistantID)
+	if assistantID != "" {
+		thread, err := getUserThread(req, assistantID)
+		if err != nil {
+			return nil, err
+		}
+
+		taskID := req.PathValue("task_id")
+		runID := req.PathValue("run_id")
+		if taskID != "" && runID != "" {
+			if runID == "editor" {
+				runID = editorWFE(req, taskID)
+			}
+			var wfe v1.WorkflowExecution
+			if err := req.Get(&wfe, runID); err != nil {
+				return nil, err
+			}
+			if wfe.Spec.ThreadName != thread.Name {
+				return nil, types.NewErrHttp(http.StatusForbidden, "task run does not belong to the thread")
+			}
+			if wfe.Spec.WorkflowName != taskID {
+				return nil, types.NewErrNotFound("task run not found")
+			}
+			return thread, req.Get(thread, wfe.Status.ThreadName)
+		}
+
+		return thread, nil
+	}
+
+	threadID := req.PathValue("thread_id")
+
+	var thread v1.Thread
+	if err := req.Get(&thread, threadID); err != nil {
+		return nil, err
+	}
+	return &thread, nil
+}
+
+func (t *TaskHandler) List(req api.Context) error {
+	thread, err := getThreadForScope(req)
 	if err != nil {
 		return err
 	}

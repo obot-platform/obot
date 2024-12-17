@@ -49,7 +49,7 @@ export const WebhookConfirmation = ({
                 </DialogHeader>
 
                 <DialogDescription>
-                    Your webhook has been saved in Acorn. Make sure to copy the
+                    Your webhook has been saved in Obot. Make sure to copy the
                     payload URL and secret to your webhook provider.
                 </DialogDescription>
 

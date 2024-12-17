@@ -8,17 +8,17 @@ import (
 	"strings"
 	"time"
 
-	"github.com/acorn-io/acorn/pkg/gateway/client"
-	"github.com/acorn-io/acorn/pkg/gateway/db"
-	"github.com/acorn-io/acorn/pkg/gateway/server/dispatcher"
-	"github.com/acorn-io/acorn/pkg/gateway/types"
-	"github.com/acorn-io/acorn/pkg/jwt"
+	"github.com/obot-platform/obot/pkg/gateway/client"
+	"github.com/obot-platform/obot/pkg/gateway/db"
+	"github.com/obot-platform/obot/pkg/gateway/server/dispatcher"
+	"github.com/obot-platform/obot/pkg/gateway/types"
+	"github.com/obot-platform/obot/pkg/jwt"
 	"gorm.io/gorm"
 )
 
 type Options struct {
 	Hostname     string
-	UIHostname   string `name:"ui-hostname" env:"ACORN_SERVER_UI_HOSTNAME"`
+	UIHostname   string `name:"ui-hostname" env:"OBOT_SERVER_UI_HOSTNAME"`
 	GatewayDebug bool
 }
 

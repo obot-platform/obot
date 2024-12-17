@@ -8,9 +8,9 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/acorn-io/acorn/apiclient/types"
-	v1 "github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1"
 	"github.com/gptscript-ai/go-gptscript"
+	"github.com/obot-platform/obot/apiclient/types"
+	v1 "github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1"
 	apierror "k8s.io/apimachinery/pkg/api/errors"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -267,7 +267,7 @@ func manifestToTool(manifest types.AgentManifest, agentType, ref, id string) gpt
 		}
 	}
 	toolDef.Instructions = fmt.Sprintf(`#!/bin/bash
-#ACORN_SUBCALL: TARGET: %s
+#OBOT_SUBCALL: TARGET: %s
 INPUT=$(${GPTSCRIPT_BIN} getenv GPTSCRIPT_INPUT)
 if echo "${INPUT}" | grep -q '^{'; then
 	echo '{"%s":"%s","type":"OttoSubFlow",'

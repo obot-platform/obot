@@ -4,14 +4,14 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/acorn-io/acorn/apiclient"
-	"github.com/acorn-io/acorn/apiclient/types"
 	"github.com/dustin/go-humanize"
+	"github.com/obot-platform/obot/apiclient"
+	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/spf13/cobra"
 )
 
 type Credentials struct {
-	root     *Acorn
+	root     *Obot
 	Wide     bool   `usage:"Print more information" short:"w"`
 	Quiet    bool   `usage:"Only print IDs of credentials" short:"q"`
 	ThreadID string `usage:"Specific thread list credentials for" short:"t"`

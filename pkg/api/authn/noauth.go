@@ -3,7 +3,7 @@ package authn
 import (
 	"net/http"
 
-	"github.com/acorn-io/acorn/pkg/api/authz"
+	"github.com/obot-platform/obot/pkg/api/authz"
 	"k8s.io/apiserver/pkg/authentication/authenticator"
 	"k8s.io/apiserver/pkg/authentication/user"
 )

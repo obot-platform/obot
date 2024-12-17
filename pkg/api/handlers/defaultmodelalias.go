@@ -1,10 +1,10 @@
 package handlers
 
 import (
-	"github.com/acorn-io/acorn/apiclient/types"
-	"github.com/acorn-io/acorn/pkg/api"
-	v1 "github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1"
-	"github.com/acorn-io/acorn/pkg/system"
+	"github.com/obot-platform/obot/apiclient/types"
+	"github.com/obot-platform/obot/pkg/api"
+	v1 "github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1"
+	"github.com/obot-platform/obot/pkg/system"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 

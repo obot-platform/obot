@@ -1,7 +1,7 @@
 package v1
 
 import (
-	"github.com/acorn-io/nah/pkg/fields"
+	"github.com/obot-platform/nah/pkg/fields"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 

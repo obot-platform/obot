@@ -78,7 +78,7 @@
 					}}
 				/>
 			{:else if file.name.toLowerCase().endsWith('.png')}
-				<Image mime="image/png" {file} />
+				<Image {file} />
 			{:else}
 				<Codemirror {file} {onFileChanged} {onInvoke} />
 			{/if}

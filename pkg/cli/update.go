@@ -4,14 +4,14 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/acorn-io/acorn/apiclient/types"
-	"github.com/acorn-io/acorn/pkg/system"
+	"github.com/obot-platform/obot/apiclient/types"
+	"github.com/obot-platform/obot/pkg/system"
 	"github.com/spf13/cobra"
 	"sigs.k8s.io/yaml"
 )
 
 type Update struct {
-	root  *Acorn
+	root  *Obot
 	Quiet bool `usage:"Only print IDs of updated agent/workflow" short:"q"`
 }
 

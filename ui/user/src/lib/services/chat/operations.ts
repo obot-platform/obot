@@ -46,7 +46,22 @@ export async function deleteFile(assistant: string, filename: string) {
 	return doDelete(`/assistants/${assistant}/files/${filename}`);
 }
 
-export async function getFile(assistant: string, filename: string): Promise<Blob> {
+export async function getFile(
+	assistant: string,
+	filename: string,
+	opts?: {
+		taskID?: string;
+		runID?: string;
+	}
+): Promise<Blob> {
+	if (opts?.taskID && opts?.runID) {
+		return (await doGet(
+			`/assistants/${assistant}/tasks/${opts.taskID}/runs/${opts.runID}/file/${filename}`,
+			{
+				blob: true
+			}
+		)) as Blob;
+	}
 	return (await doGet(`/assistants/${assistant}/file/${filename}`, {
 		blob: true
 	})) as Blob;
@@ -77,8 +92,21 @@ export async function listKnowledgeFiles(assistant: string): Promise<KnowledgeFi
 	return removedDeleted(files);
 }
 
-export async function listFiles(assistant: string): Promise<Files> {
-	const files = (await doGet(`/assistants/${assistant}/files`)) as Files;
+export async function listFiles(
+	assistant: string,
+	opts?: {
+		taskID?: string;
+		runID?: string;
+	}
+): Promise<Files> {
+	let files: Files;
+	if (opts?.taskID && opts?.runID) {
+		files = (await doGet(
+			`/assistants/${assistant}/tasks/${opts.taskID}/runs/${opts.runID}/files`
+		)) as Files;
+	} else {
+		files = (await doGet(`/assistants/${assistant}/files`)) as Files;
+	}
 	if (!files.items) {
 		files.items = [];
 	}

@@ -12,8 +12,8 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	"github.com/acorn-io/acorn/apiclient/types"
-	"github.com/acorn-io/acorn/logger"
+	"github.com/obot-platform/obot/apiclient/types"
+	"github.com/obot-platform/obot/logger"
 )
 
 var log = logger.Package()
@@ -52,11 +52,22 @@ func (c *Client) putJSON(ctx context.Context, path string, obj any, headerKV ...
 }
 
 func (c *Client) postJSON(ctx context.Context, path string, obj any, headerKV ...string) (*http.Request, *http.Response, error) {
-	data, err := json.Marshal(obj)
-	if err != nil {
-		return nil, nil, err
+	var body io.Reader
+
+	switch v := obj.(type) {
+	case string:
+		if v != "" {
+			body = strings.NewReader(v)
+		}
+	default:
+		data, err := json.Marshal(obj)
+		if err != nil {
+			return nil, nil, err
+		}
+		body = bytes.NewBuffer(data)
+		headerKV = append(headerKV, "Content-Type", "application/json")
 	}
-	return c.doRequest(ctx, http.MethodPost, path, bytes.NewBuffer(data), append(headerKV, "Content-Type", "application/json")...)
+	return c.doRequest(ctx, http.MethodPost, path, body, headerKV...)
 }
 
 func (c *Client) doStream(ctx context.Context, method, path string, body io.Reader, headerKV ...string) (*http.Request, *http.Response, error) {

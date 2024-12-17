@@ -22,7 +22,7 @@
 	let showBubble = msg.sent;
 	let renderMarkdown = !msg.sent && !msg.oauthURL && !msg.tool;
 	let toolTT = popover({
-		placement: 'bottom-start',
+		placement: 'bottom-start'
 	});
 
 	$effect(() => {

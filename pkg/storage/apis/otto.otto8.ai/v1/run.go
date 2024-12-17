@@ -1,8 +1,8 @@
 package v1
 
 import (
-	"github.com/acorn-io/acorn/apiclient/types"
 	gptscriptclient "github.com/gptscript-ai/go-gptscript"
+	"github.com/obot-platform/obot/apiclient/types"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 

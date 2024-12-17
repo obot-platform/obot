@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/acorn-io/acorn/pkg/storage/authz"
+	"github.com/obot-platform/obot/pkg/storage/authz"
 	"k8s.io/apiserver/pkg/authentication/authenticator"
 	"k8s.io/apiserver/pkg/authentication/user"
 )

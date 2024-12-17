@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"path/filepath"
 
-	v1 "github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1"
 	"github.com/gptscript-ai/go-gptscript"
+	v1 "github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 

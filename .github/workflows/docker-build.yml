@@ -50,7 +50,7 @@ jobs:
         push: true
         tags: |
           ghcr.io/${{ github.repository }}:${{ github.ref_name }}
-          ${{ github.ref_type == 'tag' && !contains(github.ref_name, '-rc') && format('docker.io/acorn/{0}:{1}', github.event.repository.name, github.ref_name) || '' }}
+          ${{ github.ref_type == 'tag' && !contains(github.ref_name, '-rc') && format('docker.io/obot/{0}:{1}', github.event.repository.name, github.ref_name) || '' }}
         platforms: linux/amd64,linux/arm64
 
     - name: Setup crane
@@ -60,7 +60,7 @@ jobs:
       if: ${{ github.ref_type == 'tag' && !contains(github.ref_name, '-rc') }}
       run: |
         crane tag ghcr.io/${{ github.repository }}:${{ github.ref_name }} latest
-        crane tag docker.io/acorn/${{ github.event.repository.name }}:${{ github.ref_name }} latest
+        crane tag docker.io/obot/${{ github.event.repository.name }}:${{ github.ref_name }} latest
 
     - name: Deploy to Test Render
       if: ${{ env.DEPLOY_TO_TEST == 'true' }}

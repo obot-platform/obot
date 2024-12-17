@@ -11,15 +11,15 @@ import (
 	"sync"
 	"time"
 
-	"github.com/acorn-io/acorn/apiclient/types"
-	"github.com/acorn-io/acorn/logger"
-	"github.com/acorn-io/acorn/pkg/gz"
-	v1 "github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1"
-	"github.com/acorn-io/acorn/pkg/system"
-	"github.com/acorn-io/acorn/pkg/wait"
-	"github.com/acorn-io/nah/pkg/router"
-	"github.com/acorn-io/nah/pkg/typed"
 	"github.com/gptscript-ai/go-gptscript"
+	"github.com/obot-platform/nah/pkg/router"
+	"github.com/obot-platform/nah/pkg/typed"
+	"github.com/obot-platform/obot/apiclient/types"
+	"github.com/obot-platform/obot/logger"
+	"github.com/obot-platform/obot/pkg/gz"
+	v1 "github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1"
+	"github.com/obot-platform/obot/pkg/system"
+	"github.com/obot-platform/obot/pkg/wait"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
@@ -773,7 +773,7 @@ func getToolCallOutput(frames gptscript.CallFrames, callID string) string {
 
 func isSubCallTargetIDs(tool gptscript.Tool) (agentID string, workflowID string) {
 	for _, line := range strings.Split(tool.Instructions, "\n") {
-		suffix, ok := strings.CutPrefix(line, "#ACORN_SUBCALL: TARGET: ")
+		suffix, ok := strings.CutPrefix(line, "#OBOT_SUBCALL: TARGET: ")
 		if !ok {
 			continue
 		}

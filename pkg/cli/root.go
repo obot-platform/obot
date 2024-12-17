@@ -3,22 +3,22 @@ package cli
 import (
 	"os"
 
-	"github.com/acorn-io/acorn/apiclient"
-	"github.com/acorn-io/acorn/logger"
-	"github.com/acorn-io/acorn/pkg/cli/internal"
 	"github.com/fatih/color"
 	"github.com/gptscript-ai/cmd"
 	"github.com/gptscript-ai/gptscript/pkg/env"
+	"github.com/obot-platform/obot/apiclient"
+	"github.com/obot-platform/obot/logger"
+	"github.com/obot-platform/obot/pkg/cli/internal"
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
 )
 
-type Acorn struct {
+type Obot struct {
 	Debug  bool `usage:"Enable debug logging"`
 	Client *apiclient.Client
 }
 
-func (a *Acorn) PersistentPre(*cobra.Command, []string) error {
+func (a *Obot) PersistentPre(*cobra.Command, []string) error {
 	if os.Getenv("NO_COLOR") != "" || !term.IsTerminal(int(os.Stdout.Fd())) {
 		color.NoColor = true
 	}
@@ -35,10 +35,10 @@ func (a *Acorn) PersistentPre(*cobra.Command, []string) error {
 }
 
 func New() *cobra.Command {
-	root := &Acorn{
+	root := &Obot{
 		Client: &apiclient.Client{
-			BaseURL: env.VarOrDefault("ACORN_BASE_URL", "http://localhost:8080/api"),
-			Token:   os.Getenv("ACORN_TOKEN"),
+			BaseURL: env.VarOrDefault("OBOT_BASE_URL", "http://localhost:8080/api"),
+			Token:   os.Getenv("OBOT_TOKEN"),
 		},
 	}
 	return cmd.Command(root,
@@ -63,6 +63,6 @@ func New() *cobra.Command {
 	)
 }
 
-func (a *Acorn) Run(cmd *cobra.Command, _ []string) error {
+func (a *Obot) Run(cmd *cobra.Command, _ []string) error {
 	return cmd.Help()
 }

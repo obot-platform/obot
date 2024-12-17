@@ -1,7 +1,11 @@
+import { tick } from 'svelte';
+
 export function autoscroll(node: HTMLElement) {
 	const observer = new MutationObserver(() => {
 		if (node.dataset.scroll !== 'false') {
-			node.scrollTop = node.scrollHeight;
+			tick().then(() => {
+				node.scrollTop = node.scrollHeight;
+			});
 		}
 	});
 

@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"runtime/debug"
 
-	"github.com/acorn-io/acorn/pkg/api"
-	"github.com/acorn-io/acorn/pkg/gateway/context"
-	"github.com/acorn-io/acorn/pkg/gateway/log"
+	"github.com/obot-platform/obot/pkg/api"
+	"github.com/obot-platform/obot/pkg/gateway/context"
+	"github.com/obot-platform/obot/pkg/gateway/log"
 )
 
 func apply(h api.HandlerFunc, m ...api.Middleware) api.HandlerFunc {

@@ -7,14 +7,19 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/acorn-io/acorn/pkg/gateway/types"
-	"github.com/acorn-io/acorn/pkg/proxy"
+	"github.com/obot-platform/obot/pkg/gateway/types"
+	"github.com/obot-platform/obot/pkg/proxy"
 	"gorm.io/gorm"
 )
 
 func (c *Client) User(ctx context.Context, username string) (*types.User, error) {
 	u := new(types.User)
 	return u, c.db.WithContext(ctx).Where("username = ?", username).First(u).Error
+}
+
+func (c *Client) UserByID(ctx context.Context, id string) (*types.User, error) {
+	u := new(types.User)
+	return u, c.db.WithContext(ctx).Where("id = ?", id).First(u).Error
 }
 
 func (c *Client) UpdateProfileIconIfNeeded(ctx context.Context, user *types.User, authProviderID uint) error {

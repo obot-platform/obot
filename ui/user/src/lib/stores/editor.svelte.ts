@@ -10,6 +10,8 @@ export interface EditorItem {
 	selected?: boolean;
 	task?: Task;
 	table?: string;
+	taskID?: string;
+	runID?: string;
 }
 
 const items = $state<EditorItem[]>([]);

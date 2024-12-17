@@ -5,13 +5,13 @@ BIN_DIR=${BIN_DIR:-./bin}
 
 cd $(dirname $0)/..
 
-if [ ! -e acorn-tools ]; then
-    git clone --depth=1 https://github.com/acorn-io/tools acorn-tools
+if [ ! -e obot-tools ]; then
+    git clone --depth=1 https://github.com/obot-platform/tools obot-tools
 fi
 
-./acorn-tools/scripts/build.sh
+./obot-tools/scripts/build.sh
 
-for pj in $(find acorn-tools -name package.json | grep -v node_modules); do
+for pj in $(find obot-tools -name package.json | grep -v node_modules); do
     if [ $(basename $(dirname $pj)) == common ]; then
         continue
     fi
@@ -22,7 +22,7 @@ for pj in $(find acorn-tools -name package.json | grep -v node_modules); do
     )
 done
 
-cd acorn-tools
+cd obot-tools
 if [ ! -e workspace-provider ]; then
     git clone --depth=1 https://github.com/gptscript-ai/workspace-provider
 fi
@@ -54,11 +54,11 @@ if ! command -v uv; then
     pip install uv
 fi
 
-if [ ! -e acorn-tools/venv ]; then
-    uv venv acorn-tools/venv
+if [ ! -e obot-tools/venv ]; then
+    uv venv obot-tools/venv
 fi
 
-source acorn-tools/venv/bin/activate
+source obot-tools/venv/bin/activate
 
-find acorn-tools -name requirements.txt -exec cat {} \; -exec echo \; | sort -u > requirements.txt
+find obot-tools -name requirements.txt -exec cat {} \; -exec echo \; | sort -u > requirements.txt
 uv pip install -r requirements.txt

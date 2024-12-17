@@ -3,9 +3,9 @@ package v1
 import (
 	"slices"
 
-	"github.com/acorn-io/acorn/apiclient/types"
-	"github.com/acorn-io/acorn/pkg/system"
-	"github.com/acorn-io/nah/pkg/fields"
+	"github.com/obot-platform/nah/pkg/fields"
+	"github.com/obot-platform/obot/apiclient/types"
+	"github.com/obot-platform/obot/pkg/system"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 

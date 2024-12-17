@@ -5,15 +5,15 @@ import (
 	"iter"
 	"strings"
 
-	"github.com/acorn-io/acorn/apiclient"
-	"github.com/acorn-io/acorn/apiclient/types"
 	"github.com/dustin/go-humanize"
+	"github.com/obot-platform/obot/apiclient"
+	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/pterm/pterm"
 	"github.com/spf13/cobra"
 )
 
 type Runs struct {
-	root   *Acorn
+	root   *Obot
 	Wide   bool   `usage:"Print more information" short:"w"`
 	Quiet  bool   `usage:"Only print IDs of runs" short:"q"`
 	Output string `usage:"Output format (table, json, yaml)" short:"o" default:"table"`

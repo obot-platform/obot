@@ -103,7 +103,7 @@
 				{/each}
 			{:else if task?.email}
 				<h4 class="text-xl font-semibold">{titlePrefix}Email</h4>
-				<div class="mt-5 flex flex-col gap-5 rounded-3xl bg-black p-5">
+				<div class="mt-5 flex flex-col gap-5 rounded-3xl bg-white p-5 dark:bg-black">
 					<div class="flex items-baseline">
 						<label for="from" class="w-[70px] text-sm font-semibold">From</label>
 						<input

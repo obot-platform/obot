@@ -42,6 +42,6 @@ vendor/
 Thumbs.db
 
 # Ignore local DB files
-acorn*.db*
+obot*.db*
 
 

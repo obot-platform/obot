@@ -3,8 +3,8 @@ package events
 import (
 	"context"
 
-	"github.com/acorn-io/acorn/apiclient"
-	"github.com/acorn-io/acorn/apiclient/types"
+	"github.com/obot-platform/obot/apiclient"
+	"github.com/obot-platform/obot/apiclient/types"
 )
 
 type Printer interface {

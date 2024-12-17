@@ -12,9 +12,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/acorn-io/acorn/pkg/cli/edit"
-	"github.com/acorn-io/acorn/pkg/cli/templates"
-	"github.com/acorn-io/namegenerator"
+	"github.com/obot-platform/namegenerator"
+	"github.com/obot-platform/obot/pkg/cli/edit"
+	"github.com/obot-platform/obot/pkg/cli/templates"
 	"github.com/pterm/pterm"
 	"github.com/spf13/cobra"
 	"golang.org/x/text/cases"
@@ -24,7 +24,7 @@ import (
 
 type Create struct {
 	Quiet bool `usage:"Only print ID after successful creation." short:"q"`
-	root  *Acorn
+	root  *Obot
 }
 
 func (l *Create) Customize(cmd *cobra.Command) {

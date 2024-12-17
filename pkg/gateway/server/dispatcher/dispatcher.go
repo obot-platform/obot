@@ -12,13 +12,13 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/acorn-io/acorn/apiclient/types"
-	"github.com/acorn-io/acorn/pkg/alias"
-	"github.com/acorn-io/acorn/pkg/invoke"
-	v1 "github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1"
-	"github.com/acorn-io/acorn/pkg/system"
 	"github.com/gptscript-ai/go-gptscript"
 	"github.com/gptscript-ai/gptscript/pkg/engine"
+	"github.com/obot-platform/obot/apiclient/types"
+	"github.com/obot-platform/obot/pkg/alias"
+	"github.com/obot-platform/obot/pkg/invoke"
+	v1 "github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1"
+	"github.com/obot-platform/obot/pkg/system"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
@@ -200,7 +200,7 @@ func (d *Dispatcher) startModelProvider(ctx context.Context, namespace, modelPro
 		}
 
 		if modelProvider.Name == "openai-model-provider" {
-			d.openAICred = cred.Env["ACORN_OPENAI_MODEL_PROVIDER_API_KEY"]
+			d.openAICred = cred.Env["OBOT_OPENAI_MODEL_PROVIDER_API_KEY"]
 		}
 	}
 

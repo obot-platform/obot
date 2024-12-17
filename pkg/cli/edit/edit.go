@@ -11,7 +11,7 @@ import (
 
 var (
 	envs = []string{
-		"ACORN_EDITOR",
+		"OBOT_EDITOR",
 		"EDITOR",
 	}
 )

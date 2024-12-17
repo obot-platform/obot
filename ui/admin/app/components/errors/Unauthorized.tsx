@@ -1,4 +1,4 @@
-import { AcornLogo } from "~/components/branding/AcornLogo";
+import { ObotLogo } from "~/components/branding/ObotLogo";
 import { Button } from "~/components/ui/button";
 import {
     Card,
@@ -13,7 +13,7 @@ export function Unauthorized() {
         <div className="flex min-h-screen w-full items-center justify-center p-4">
             <Card className="w-96">
                 <CardHeader className="mx-4">
-                    <AcornLogo />
+                    <ObotLogo />
                 </CardHeader>
                 <CardContent className="space-y-2 text-center border-b mb-4">
                     <CardDescription className="text-center">

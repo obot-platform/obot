@@ -3,9 +3,9 @@ package router
 import (
 	"net/http"
 
-	"github.com/acorn-io/acorn/pkg/api/handlers"
-	"github.com/acorn-io/acorn/pkg/services"
-	"github.com/acorn-io/acorn/ui"
+	"github.com/obot-platform/obot/pkg/api/handlers"
+	"github.com/obot-platform/obot/pkg/services"
+	"github.com/obot-platform/obot/ui"
 )
 
 func Router(services *services.Services) (http.Handler, error) {
@@ -56,7 +56,7 @@ func Router(services *services.Services) (http.Handler, error) {
 	mux.HandleFunc("DELETE /api/assistants/{id}/tools/{tool}", assistants.RemoveTool)
 	mux.HandleFunc("PUT /api/assistants/{id}/tools/{tool}", assistants.AddTool)
 	// Assistant files
-	mux.HandleFunc("GET /api/assistants/{id}/files", assistants.Files)
+	mux.HandleFunc("GET /api/assistants/{assistant_id}/files", assistants.Files)
 	mux.HandleFunc("GET /api/assistants/{id}/file/{file...}", assistants.GetFile)
 	mux.HandleFunc("POST /api/assistants/{id}/files/{file...}", assistants.UploadFile)
 	mux.HandleFunc("DELETE /api/assistants/{id}/files/{file...}", assistants.DeleteFile)
@@ -67,15 +67,24 @@ func Router(services *services.Services) (http.Handler, error) {
 
 	// Tasks
 	mux.HandleFunc("GET /api/assistants/{assistant_id}/tasks", tasks.List)
+	mux.HandleFunc("GET /api/threads/{thread_id}/tasks", tasks.List)
 	mux.HandleFunc("GET /api/assistants/{assistant_id}/tasks/{id}", tasks.Get)
+	mux.HandleFunc("GET /api/threads/{thread_id}/tasks/{id}", tasks.Get)
 	mux.HandleFunc("POST /api/assistants/{assistant_id}/tasks", tasks.Create)
+	mux.HandleFunc("POST /api/threads/{thread_id}/tasks", tasks.Create)
 	mux.HandleFunc("PUT /api/assistants/{assistant_id}/tasks/{id}", tasks.Update)
+	mux.HandleFunc("PUT /api/threads/{thread_id}/tasks/{id}", tasks.Update)
 	mux.HandleFunc("DELETE /api/assistants/{assistant_id}/tasks/{id}", tasks.Delete)
 	mux.HandleFunc("POST /api/assistants/{assistant_id}/tasks/{id}/run", tasks.Run)
+	mux.HandleFunc("POST /api/threads/{thread_id}/tasks/{id}/run", tasks.Run)
 	mux.HandleFunc("GET /api/assistants/{assistant_id}/tasks/{id}/runs", tasks.ListRuns)
+	mux.HandleFunc("GET /api/threads/{thread_id}/tasks/{id}/runs", tasks.ListRuns)
 	mux.HandleFunc("GET /api/assistants/{assistant_id}/tasks/{id}/runs/{run_id}", tasks.GetRun)
+	mux.HandleFunc("GET /api/threads/{thread_id}/tasks/{id}/runs/{run_id}", tasks.GetRun)
 	mux.HandleFunc("POST /api/assistants/{assistant_id}/tasks/{id}/runs/{run_id}/abort", tasks.AbortRun)
 	mux.HandleFunc("DELETE /api/assistants/{assistant_id}/tasks/{id}/runs/{run_id}", tasks.DeleteRun)
+	mux.HandleFunc("GET /api/assistants/{assistant_id}/tasks/{task_id}/runs/{run_id}/files", assistants.Files)
+	mux.HandleFunc("GET /api/assistants/{assistant_id}/tasks/{task_id}/runs/{run_id}/file/{file...}", assistants.GetFile)
 	mux.HandleFunc("GET /api/assistants/{assistant_id}/tasks/{id}/events", tasks.Events)
 	mux.HandleFunc("POST /api/assistants/{assistant_id}/tasks/{id}/events", tasks.Abort)
 	mux.HandleFunc("GET /api/assistants/{assistant_id}/tasks/{id}/runs/{run_id}/events", tasks.Events)

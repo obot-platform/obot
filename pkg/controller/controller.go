@@ -4,13 +4,13 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/acorn-io/acorn/pkg/controller/data"
-	"github.com/acorn-io/acorn/pkg/controller/handlers/toolreference"
-	"github.com/acorn-io/acorn/pkg/services"
-	"github.com/acorn-io/nah/pkg/router"
+	"github.com/obot-platform/nah/pkg/router"
+	"github.com/obot-platform/obot/pkg/controller/data"
+	"github.com/obot-platform/obot/pkg/controller/handlers/toolreference"
+	"github.com/obot-platform/obot/pkg/services"
 
 	// Enable logrus logging in nah
-	_ "github.com/acorn-io/nah/pkg/logrus"
+	_ "github.com/obot-platform/nah/pkg/logrus"
 )
 
 type Controller struct {

@@ -1,11 +1,11 @@
-module github.com/acorn-io/acorn/apiclient
+module github.com/obot-platform/obot/apiclient
 
 go 1.23.1
 
 require (
-	github.com/acorn-io/acorn/logger v0.0.0-20241216130324-9a09554e0785
 	github.com/getkin/kin-openapi v0.124.0
 	github.com/gptscript-ai/go-gptscript v0.9.4
+	github.com/obot-platform/obot/logger v0.0.0-20241217130503-4004a5c69f32
 )
 
 require (

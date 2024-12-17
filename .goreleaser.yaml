@@ -1,6 +1,6 @@
 version: 2
 
-project_name: "acorn"
+project_name: "obot"
 
 builds:
   - id: build
@@ -13,7 +13,7 @@ builds:
       - amd64
       - arm64
     ldflags:
-      - -X "github.com/acorn-io/acorn/pkg/version.Tag=v{{ .Version }}"
+      - -X "github.com/obot-platform/obot/pkg/version.Tag=v{{ .Version }}"
 
 archives:
   - format: tar.gz
@@ -24,20 +24,20 @@ archives:
 
 release:
   github:
-    owner: "acorn-io"
-    name: "acorn"
+    owner: "obot-platform"
+    name: "obot"
   make_latest: false
   prerelease: auto
 
 brews:
-  - name: acorn
-    description: "Acorn CLI"
+  - name: obot
+    description: "Obot CLI"
     install: |
-      bin.install "acorn"
-    homepage: "https://github.com/acorn-io/acorn"
+      bin.install "obot"
+    homepage: "https://github.com/obot-platform/obot"
     skip_upload: false
     directory: "Formula"
     repository:
-      owner: acorn-io
+      owner: obot-platform
       name: homebrew-tap
       token: "{{ .Env.TAP_GITHUB_TOKEN }}"

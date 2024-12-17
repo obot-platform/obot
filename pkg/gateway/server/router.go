@@ -1,8 +1,8 @@
 package server
 
 import (
-	"github.com/acorn-io/acorn/pkg/api"
-	"github.com/acorn-io/acorn/pkg/api/server"
+	"github.com/obot-platform/obot/pkg/api"
+	"github.com/obot-platform/obot/pkg/api/server"
 )
 
 func (s *Server) AddRoutes(mux *server.Server) {

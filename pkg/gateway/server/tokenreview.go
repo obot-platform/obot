@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/acorn-io/acorn/pkg/gateway/types"
+	"github.com/obot-platform/obot/pkg/gateway/types"
 	"gorm.io/gorm"
 	"k8s.io/apiserver/pkg/authentication/authenticator"
 	"k8s.io/apiserver/pkg/authentication/user"

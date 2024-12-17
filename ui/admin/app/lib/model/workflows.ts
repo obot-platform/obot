@@ -11,7 +11,6 @@ export type WorkflowBase = AgentBase & {
     steps: Step[];
     output: string;
     env?: WorkflowEnv[];
-    credentials?: string[];
 };
 
 export type Step = {

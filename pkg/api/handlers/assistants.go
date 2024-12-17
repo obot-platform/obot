@@ -7,15 +7,15 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/acorn-io/acorn/apiclient/types"
-	"github.com/acorn-io/acorn/pkg/alias"
-	"github.com/acorn-io/acorn/pkg/api"
-	"github.com/acorn-io/acorn/pkg/events"
-	"github.com/acorn-io/acorn/pkg/invoke"
-	v1 "github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1"
-	"github.com/acorn-io/acorn/pkg/system"
-	"github.com/acorn-io/nah/pkg/name"
 	"github.com/gptscript-ai/go-gptscript"
+	"github.com/obot-platform/nah/pkg/name"
+	"github.com/obot-platform/obot/apiclient/types"
+	"github.com/obot-platform/obot/pkg/alias"
+	"github.com/obot-platform/obot/pkg/api"
+	"github.com/obot-platform/obot/pkg/events"
+	"github.com/obot-platform/obot/pkg/invoke"
+	v1 "github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1"
+	"github.com/obot-platform/obot/pkg/system"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -238,11 +238,7 @@ func (a *AssistantHandler) Events(req api.Context) error {
 }
 
 func (a *AssistantHandler) Files(req api.Context) error {
-	var (
-		id = req.PathValue("id")
-	)
-
-	thread, err := getUserThread(req, id)
+	thread, err := getThreadForScope(req)
 	if err != nil {
 		return err
 	}
@@ -258,17 +254,13 @@ func (a *AssistantHandler) Files(req api.Context) error {
 }
 
 func (a *AssistantHandler) GetFile(req api.Context) error {
-	var (
-		id = req.PathValue("id")
-	)
-
-	thread, err := getUserThread(req, id)
+	thread, err := getThreadForScope(req)
 	if err != nil {
 		return err
 	}
 
 	if thread.Status.WorkspaceID == "" {
-		return types.NewErrNotFound("no workspace found for assistant %s", id)
+		return types.NewErrNotFound("no workspace found")
 	}
 
 	return getFileInWorkspace(req.Context(), req, a.gptScript, thread.Status.WorkspaceID, "files/")

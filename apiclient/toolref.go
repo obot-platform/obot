@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/acorn-io/acorn/apiclient/types"
+	"github.com/obot-platform/obot/apiclient/types"
 )
 
 type ListToolReferencesOptions struct {

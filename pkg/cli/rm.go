@@ -4,12 +4,12 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/acorn-io/acorn/pkg/system"
+	"github.com/obot-platform/obot/pkg/system"
 	"github.com/spf13/cobra"
 )
 
 type Delete struct {
-	root *Acorn
+	root *Obot
 }
 
 func (l *Delete) Customize(cmd *cobra.Command) {

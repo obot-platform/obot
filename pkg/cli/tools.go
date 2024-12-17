@@ -3,13 +3,13 @@ package cli
 import (
 	"fmt"
 
-	"github.com/acorn-io/acorn/apiclient"
-	"github.com/acorn-io/acorn/apiclient/types"
+	"github.com/obot-platform/obot/apiclient"
+	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/spf13/cobra"
 )
 
 type Tools struct {
-	root   *Acorn
+	root   *Obot
 	Quiet  bool   `usage:"Only print IDs of tools" short:"q"`
 	Output string `usage:"Output format (table, json, yaml)" short:"o" default:"table"`
 }

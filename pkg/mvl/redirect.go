@@ -1,6 +1,6 @@
 package mvl
 
-import "github.com/acorn-io/acorn/logger"
+import "github.com/obot-platform/obot/logger"
 
 var Package = logger.Package
 

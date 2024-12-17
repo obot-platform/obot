@@ -6,7 +6,7 @@
 package generated
 
 import (
-	types "github.com/acorn-io/acorn/apiclient/types"
+	types "github.com/obot-platform/obot/apiclient/types"
 	resource "k8s.io/apimachinery/pkg/api/resource"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	intstr "k8s.io/apimachinery/pkg/util/intstr"
@@ -16,241 +16,241 @@ import (
 
 func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenAPIDefinition {
 	return map[string]common.OpenAPIDefinition{
-		"github.com/acorn-io/acorn/apiclient/types.Agent":                                     schema_acorn_io_acorn_apiclient_types_Agent(ref),
-		"github.com/acorn-io/acorn/apiclient/types.AgentIcons":                                schema_acorn_io_acorn_apiclient_types_AgentIcons(ref),
-		"github.com/acorn-io/acorn/apiclient/types.AgentList":                                 schema_acorn_io_acorn_apiclient_types_AgentList(ref),
-		"github.com/acorn-io/acorn/apiclient/types.AgentManifest":                             schema_acorn_io_acorn_apiclient_types_AgentManifest(ref),
-		"github.com/acorn-io/acorn/apiclient/types.Assistant":                                 schema_acorn_io_acorn_apiclient_types_Assistant(ref),
-		"github.com/acorn-io/acorn/apiclient/types.AssistantList":                             schema_acorn_io_acorn_apiclient_types_AssistantList(ref),
-		"github.com/acorn-io/acorn/apiclient/types.AssistantTool":                             schema_acorn_io_acorn_apiclient_types_AssistantTool(ref),
-		"github.com/acorn-io/acorn/apiclient/types.AssistantToolList":                         schema_acorn_io_acorn_apiclient_types_AssistantToolList(ref),
-		"github.com/acorn-io/acorn/apiclient/types.Credential":                                schema_acorn_io_acorn_apiclient_types_Credential(ref),
-		"github.com/acorn-io/acorn/apiclient/types.CredentialList":                            schema_acorn_io_acorn_apiclient_types_CredentialList(ref),
-		"github.com/acorn-io/acorn/apiclient/types.CronJob":                                   schema_acorn_io_acorn_apiclient_types_CronJob(ref),
-		"github.com/acorn-io/acorn/apiclient/types.CronJobList":                               schema_acorn_io_acorn_apiclient_types_CronJobList(ref),
-		"github.com/acorn-io/acorn/apiclient/types.CronJobManifest":                           schema_acorn_io_acorn_apiclient_types_CronJobManifest(ref),
-		"github.com/acorn-io/acorn/apiclient/types.DefaultModelAlias":                         schema_acorn_io_acorn_apiclient_types_DefaultModelAlias(ref),
-		"github.com/acorn-io/acorn/apiclient/types.DefaultModelAliasList":                     schema_acorn_io_acorn_apiclient_types_DefaultModelAliasList(ref),
-		"github.com/acorn-io/acorn/apiclient/types.DefaultModelAliasManifest":                 schema_acorn_io_acorn_apiclient_types_DefaultModelAliasManifest(ref),
-		"github.com/acorn-io/acorn/apiclient/types.EmailReceiver":                             schema_acorn_io_acorn_apiclient_types_EmailReceiver(ref),
-		"github.com/acorn-io/acorn/apiclient/types.EmailReceiverList":                         schema_acorn_io_acorn_apiclient_types_EmailReceiverList(ref),
-		"github.com/acorn-io/acorn/apiclient/types.EmailReceiverManifest":                     schema_acorn_io_acorn_apiclient_types_EmailReceiverManifest(ref),
-		"github.com/acorn-io/acorn/apiclient/types.EnvVar":                                    schema_acorn_io_acorn_apiclient_types_EnvVar(ref),
-		"github.com/acorn-io/acorn/apiclient/types.ErrHTTP":                                   schema_acorn_io_acorn_apiclient_types_ErrHTTP(ref),
-		"github.com/acorn-io/acorn/apiclient/types.File":                                      schema_acorn_io_acorn_apiclient_types_File(ref),
-		"github.com/acorn-io/acorn/apiclient/types.FileList":                                  schema_acorn_io_acorn_apiclient_types_FileList(ref),
-		"github.com/acorn-io/acorn/apiclient/types.If":                                        schema_acorn_io_acorn_apiclient_types_If(ref),
-		"github.com/acorn-io/acorn/apiclient/types.Item":                                      schema_acorn_io_acorn_apiclient_types_Item(ref),
-		"github.com/acorn-io/acorn/apiclient/types.KnowledgeFile":                             schema_acorn_io_acorn_apiclient_types_KnowledgeFile(ref),
-		"github.com/acorn-io/acorn/apiclient/types.KnowledgeFileList":                         schema_acorn_io_acorn_apiclient_types_KnowledgeFileList(ref),
-		"github.com/acorn-io/acorn/apiclient/types.KnowledgeSource":                           schema_acorn_io_acorn_apiclient_types_KnowledgeSource(ref),
-		"github.com/acorn-io/acorn/apiclient/types.KnowledgeSourceInput":                      schema_acorn_io_acorn_apiclient_types_KnowledgeSourceInput(ref),
-		"github.com/acorn-io/acorn/apiclient/types.KnowledgeSourceList":                       schema_acorn_io_acorn_apiclient_types_KnowledgeSourceList(ref),
-		"github.com/acorn-io/acorn/apiclient/types.KnowledgeSourceManifest":                   schema_acorn_io_acorn_apiclient_types_KnowledgeSourceManifest(ref),
-		"github.com/acorn-io/acorn/apiclient/types.Metadata":                                  schema_acorn_io_acorn_apiclient_types_Metadata(ref),
-		"github.com/acorn-io/acorn/apiclient/types.Model":                                     schema_acorn_io_acorn_apiclient_types_Model(ref),
-		"github.com/acorn-io/acorn/apiclient/types.ModelList":                                 schema_acorn_io_acorn_apiclient_types_ModelList(ref),
-		"github.com/acorn-io/acorn/apiclient/types.ModelManifest":                             schema_acorn_io_acorn_apiclient_types_ModelManifest(ref),
-		"github.com/acorn-io/acorn/apiclient/types.ModelProvider":                             schema_acorn_io_acorn_apiclient_types_ModelProvider(ref),
-		"github.com/acorn-io/acorn/apiclient/types.ModelProviderList":                         schema_acorn_io_acorn_apiclient_types_ModelProviderList(ref),
-		"github.com/acorn-io/acorn/apiclient/types.ModelProviderManifest":                     schema_acorn_io_acorn_apiclient_types_ModelProviderManifest(ref),
-		"github.com/acorn-io/acorn/apiclient/types.ModelProviderStatus":                       schema_acorn_io_acorn_apiclient_types_ModelProviderStatus(ref),
-		"github.com/acorn-io/acorn/apiclient/types.ModelStatus":                               schema_acorn_io_acorn_apiclient_types_ModelStatus(ref),
-		"github.com/acorn-io/acorn/apiclient/types.NotionConfig":                              schema_acorn_io_acorn_apiclient_types_NotionConfig(ref),
-		"github.com/acorn-io/acorn/apiclient/types.OAuthApp":                                  schema_acorn_io_acorn_apiclient_types_OAuthApp(ref),
-		"github.com/acorn-io/acorn/apiclient/types.OAuthAppList":                              schema_acorn_io_acorn_apiclient_types_OAuthAppList(ref),
-		"github.com/acorn-io/acorn/apiclient/types.OAuthAppLoginAuthStatus":                   schema_acorn_io_acorn_apiclient_types_OAuthAppLoginAuthStatus(ref),
-		"github.com/acorn-io/acorn/apiclient/types.OAuthAppManifest":                          schema_acorn_io_acorn_apiclient_types_OAuthAppManifest(ref),
-		"github.com/acorn-io/acorn/apiclient/types.OneDriveConfig":                            schema_acorn_io_acorn_apiclient_types_OneDriveConfig(ref),
-		"github.com/acorn-io/acorn/apiclient/types.Progress":                                  schema_acorn_io_acorn_apiclient_types_Progress(ref),
-		"github.com/acorn-io/acorn/apiclient/types.Prompt":                                    schema_acorn_io_acorn_apiclient_types_Prompt(ref),
-		"github.com/acorn-io/acorn/apiclient/types.PromptResponse":                            schema_acorn_io_acorn_apiclient_types_PromptResponse(ref),
-		"github.com/acorn-io/acorn/apiclient/types.Run":                                       schema_acorn_io_acorn_apiclient_types_Run(ref),
-		"github.com/acorn-io/acorn/apiclient/types.RunList":                                   schema_acorn_io_acorn_apiclient_types_RunList(ref),
-		"github.com/acorn-io/acorn/apiclient/types.Schedule":                                  schema_acorn_io_acorn_apiclient_types_Schedule(ref),
-		"github.com/acorn-io/acorn/apiclient/types.Step":                                      schema_acorn_io_acorn_apiclient_types_Step(ref),
-		"github.com/acorn-io/acorn/apiclient/types.StepTemplateInvoke":                        schema_acorn_io_acorn_apiclient_types_StepTemplateInvoke(ref),
-		"github.com/acorn-io/acorn/apiclient/types.SubFlow":                                   schema_acorn_io_acorn_apiclient_types_SubFlow(ref),
-		"github.com/acorn-io/acorn/apiclient/types.Table":                                     schema_acorn_io_acorn_apiclient_types_Table(ref),
-		"github.com/acorn-io/acorn/apiclient/types.TableList":                                 schema_acorn_io_acorn_apiclient_types_TableList(ref),
-		"github.com/acorn-io/acorn/apiclient/types.Task":                                      schema_acorn_io_acorn_apiclient_types_Task(ref),
-		"github.com/acorn-io/acorn/apiclient/types.TaskEmail":                                 schema_acorn_io_acorn_apiclient_types_TaskEmail(ref),
-		"github.com/acorn-io/acorn/apiclient/types.TaskIf":                                    schema_acorn_io_acorn_apiclient_types_TaskIf(ref),
-		"github.com/acorn-io/acorn/apiclient/types.TaskList":                                  schema_acorn_io_acorn_apiclient_types_TaskList(ref),
-		"github.com/acorn-io/acorn/apiclient/types.TaskManifest":                              schema_acorn_io_acorn_apiclient_types_TaskManifest(ref),
-		"github.com/acorn-io/acorn/apiclient/types.TaskOnDemand":                              schema_acorn_io_acorn_apiclient_types_TaskOnDemand(ref),
-		"github.com/acorn-io/acorn/apiclient/types.TaskRun":                                   schema_acorn_io_acorn_apiclient_types_TaskRun(ref),
-		"github.com/acorn-io/acorn/apiclient/types.TaskRunList":                               schema_acorn_io_acorn_apiclient_types_TaskRunList(ref),
-		"github.com/acorn-io/acorn/apiclient/types.TaskStep":                                  schema_acorn_io_acorn_apiclient_types_TaskStep(ref),
-		"github.com/acorn-io/acorn/apiclient/types.TaskWebhook":                               schema_acorn_io_acorn_apiclient_types_TaskWebhook(ref),
-		"github.com/acorn-io/acorn/apiclient/types.Template":                                  schema_acorn_io_acorn_apiclient_types_Template(ref),
-		"github.com/acorn-io/acorn/apiclient/types.Thread":                                    schema_acorn_io_acorn_apiclient_types_Thread(ref),
-		"github.com/acorn-io/acorn/apiclient/types.ThreadList":                                schema_acorn_io_acorn_apiclient_types_ThreadList(ref),
-		"github.com/acorn-io/acorn/apiclient/types.ThreadManifest":                            schema_acorn_io_acorn_apiclient_types_ThreadManifest(ref),
-		"github.com/acorn-io/acorn/apiclient/types.Time":                                      schema_acorn_io_acorn_apiclient_types_Time(ref),
-		"github.com/acorn-io/acorn/apiclient/types.ToolCall":                                  schema_acorn_io_acorn_apiclient_types_ToolCall(ref),
-		"github.com/acorn-io/acorn/apiclient/types.ToolInput":                                 schema_acorn_io_acorn_apiclient_types_ToolInput(ref),
-		"github.com/acorn-io/acorn/apiclient/types.ToolReference":                             schema_acorn_io_acorn_apiclient_types_ToolReference(ref),
-		"github.com/acorn-io/acorn/apiclient/types.ToolReferenceList":                         schema_acorn_io_acorn_apiclient_types_ToolReferenceList(ref),
-		"github.com/acorn-io/acorn/apiclient/types.ToolReferenceManifest":                     schema_acorn_io_acorn_apiclient_types_ToolReferenceManifest(ref),
-		"github.com/acorn-io/acorn/apiclient/types.User":                                      schema_acorn_io_acorn_apiclient_types_User(ref),
-		"github.com/acorn-io/acorn/apiclient/types.UserList":                                  schema_acorn_io_acorn_apiclient_types_UserList(ref),
-		"github.com/acorn-io/acorn/apiclient/types.Webhook":                                   schema_acorn_io_acorn_apiclient_types_Webhook(ref),
-		"github.com/acorn-io/acorn/apiclient/types.WebhookList":                               schema_acorn_io_acorn_apiclient_types_WebhookList(ref),
-		"github.com/acorn-io/acorn/apiclient/types.WebhookManifest":                           schema_acorn_io_acorn_apiclient_types_WebhookManifest(ref),
-		"github.com/acorn-io/acorn/apiclient/types.WebsiteCrawlingConfig":                     schema_acorn_io_acorn_apiclient_types_WebsiteCrawlingConfig(ref),
-		"github.com/acorn-io/acorn/apiclient/types.While":                                     schema_acorn_io_acorn_apiclient_types_While(ref),
-		"github.com/acorn-io/acorn/apiclient/types.Workflow":                                  schema_acorn_io_acorn_apiclient_types_Workflow(ref),
-		"github.com/acorn-io/acorn/apiclient/types.WorkflowCall":                              schema_acorn_io_acorn_apiclient_types_WorkflowCall(ref),
-		"github.com/acorn-io/acorn/apiclient/types.WorkflowExecution":                         schema_acorn_io_acorn_apiclient_types_WorkflowExecution(ref),
-		"github.com/acorn-io/acorn/apiclient/types.WorkflowExecutionList":                     schema_acorn_io_acorn_apiclient_types_WorkflowExecutionList(ref),
-		"github.com/acorn-io/acorn/apiclient/types.WorkflowList":                              schema_acorn_io_acorn_apiclient_types_WorkflowList(ref),
-		"github.com/acorn-io/acorn/apiclient/types.WorkflowManifest":                          schema_acorn_io_acorn_apiclient_types_WorkflowManifest(ref),
-		"github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.Agent":                   schema_storage_apis_ottootto8ai_v1_Agent(ref),
-		"github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.AgentList":               schema_storage_apis_ottootto8ai_v1_AgentList(ref),
-		"github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.AgentSpec":               schema_storage_apis_ottootto8ai_v1_AgentSpec(ref),
-		"github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.AgentStatus":             schema_storage_apis_ottootto8ai_v1_AgentStatus(ref),
-		"github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.Alias":                   schema_storage_apis_ottootto8ai_v1_Alias(ref),
-		"github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.AliasList":               schema_storage_apis_ottootto8ai_v1_AliasList(ref),
-		"github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.AliasSpec":               schema_storage_apis_ottootto8ai_v1_AliasSpec(ref),
-		"github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.CronJob":                 schema_storage_apis_ottootto8ai_v1_CronJob(ref),
-		"github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.CronJobList":             schema_storage_apis_ottootto8ai_v1_CronJobList(ref),
-		"github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.CronJobSpec":             schema_storage_apis_ottootto8ai_v1_CronJobSpec(ref),
-		"github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.CronJobStatus":           schema_storage_apis_ottootto8ai_v1_CronJobStatus(ref),
-		"github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.DefaultModelAlias":       schema_storage_apis_ottootto8ai_v1_DefaultModelAlias(ref),
-		"github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.DefaultModelAliasList":   schema_storage_apis_ottootto8ai_v1_DefaultModelAliasList(ref),
-		"github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.DefaultModelAliasSpec":   schema_storage_apis_ottootto8ai_v1_DefaultModelAliasSpec(ref),
-		"github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.DefaultModelAliasStatus": schema_storage_apis_ottootto8ai_v1_DefaultModelAliasStatus(ref),
-		"github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.EmailReceiver":           schema_storage_apis_ottootto8ai_v1_EmailReceiver(ref),
-		"github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.EmailReceiverList":       schema_storage_apis_ottootto8ai_v1_EmailReceiverList(ref),
-		"github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.EmailReceiverSpec":       schema_storage_apis_ottootto8ai_v1_EmailReceiverSpec(ref),
-		"github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.EmailReceiverStatus":     schema_storage_apis_ottootto8ai_v1_EmailReceiverStatus(ref),
-		"github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.EmptyStatus":             schema_storage_apis_ottootto8ai_v1_EmptyStatus(ref),
-		"github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.KnowledgeFile":           schema_storage_apis_ottootto8ai_v1_KnowledgeFile(ref),
-		"github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.KnowledgeFileList":       schema_storage_apis_ottootto8ai_v1_KnowledgeFileList(ref),
-		"github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.KnowledgeFileSpec":       schema_storage_apis_ottootto8ai_v1_KnowledgeFileSpec(ref),
-		"github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.KnowledgeFileStatus":     schema_storage_apis_ottootto8ai_v1_KnowledgeFileStatus(ref),
-		"github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.KnowledgeSet":            schema_storage_apis_ottootto8ai_v1_KnowledgeSet(ref),
-		"github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.KnowledgeSetList":        schema_storage_apis_ottootto8ai_v1_KnowledgeSetList(ref),
-		"github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.KnowledgeSetManifest":    schema_storage_apis_ottootto8ai_v1_KnowledgeSetManifest(ref),
-		"github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.KnowledgeSetSpec":        schema_storage_apis_ottootto8ai_v1_KnowledgeSetSpec(ref),
-		"github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.KnowledgeSetStatus":      schema_storage_apis_ottootto8ai_v1_KnowledgeSetStatus(ref),
-		"github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.KnowledgeSource":         schema_storage_apis_ottootto8ai_v1_KnowledgeSource(ref),
-		"github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.KnowledgeSourceList":     schema_storage_apis_ottootto8ai_v1_KnowledgeSourceList(ref),
-		"github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.KnowledgeSourceSpec":     schema_storage_apis_ottootto8ai_v1_KnowledgeSourceSpec(ref),
-		"github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.KnowledgeSourceStatus":   schema_storage_apis_ottootto8ai_v1_KnowledgeSourceStatus(ref),
-		"github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.Model":                   schema_storage_apis_ottootto8ai_v1_Model(ref),
-		"github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.ModelList":               schema_storage_apis_ottootto8ai_v1_ModelList(ref),
-		"github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.ModelSpec":               schema_storage_apis_ottootto8ai_v1_ModelSpec(ref),
-		"github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.ModelStatus":             schema_storage_apis_ottootto8ai_v1_ModelStatus(ref),
-		"github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.OAuthApp":                schema_storage_apis_ottootto8ai_v1_OAuthApp(ref),
-		"github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.OAuthAppList":            schema_storage_apis_ottootto8ai_v1_OAuthAppList(ref),
-		"github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.OAuthAppLogin":           schema_storage_apis_ottootto8ai_v1_OAuthAppLogin(ref),
-		"github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.OAuthAppLoginList":       schema_storage_apis_ottootto8ai_v1_OAuthAppLoginList(ref),
-		"github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.OAuthAppLoginSpec":       schema_storage_apis_ottootto8ai_v1_OAuthAppLoginSpec(ref),
-		"github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.OAuthAppLoginStatus":     schema_storage_apis_ottootto8ai_v1_OAuthAppLoginStatus(ref),
-		"github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.OAuthAppSpec":            schema_storage_apis_ottootto8ai_v1_OAuthAppSpec(ref),
-		"github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.Ref":                     schema_storage_apis_ottootto8ai_v1_Ref(ref),
-		"github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.Run":                     schema_storage_apis_ottootto8ai_v1_Run(ref),
-		"github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.RunList":                 schema_storage_apis_ottootto8ai_v1_RunList(ref),
-		"github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.RunSpec":                 schema_storage_apis_ottootto8ai_v1_RunSpec(ref),
-		"github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.RunState":                schema_storage_apis_ottootto8ai_v1_RunState(ref),
-		"github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.RunStateList":            schema_storage_apis_ottootto8ai_v1_RunStateList(ref),
-		"github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.RunStateSpec":            schema_storage_apis_ottootto8ai_v1_RunStateSpec(ref),
-		"github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.RunStatus":               schema_storage_apis_ottootto8ai_v1_RunStatus(ref),
-		"github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.SubCall":                 schema_storage_apis_ottootto8ai_v1_SubCall(ref),
-		"github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.Thread":                  schema_storage_apis_ottootto8ai_v1_Thread(ref),
-		"github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.ThreadList":              schema_storage_apis_ottootto8ai_v1_ThreadList(ref),
-		"github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.ThreadSpec":              schema_storage_apis_ottootto8ai_v1_ThreadSpec(ref),
-		"github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.ThreadStatus":            schema_storage_apis_ottootto8ai_v1_ThreadStatus(ref),
-		"github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.ToolReference":           schema_storage_apis_ottootto8ai_v1_ToolReference(ref),
-		"github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.ToolReferenceList":       schema_storage_apis_ottootto8ai_v1_ToolReferenceList(ref),
-		"github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.ToolReferenceSpec":       schema_storage_apis_ottootto8ai_v1_ToolReferenceSpec(ref),
-		"github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.ToolReferenceStatus":     schema_storage_apis_ottootto8ai_v1_ToolReferenceStatus(ref),
-		"github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.ToolShortDescription":    schema_storage_apis_ottootto8ai_v1_ToolShortDescription(ref),
-		"github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.Webhook":                 schema_storage_apis_ottootto8ai_v1_Webhook(ref),
-		"github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.WebhookList":             schema_storage_apis_ottootto8ai_v1_WebhookList(ref),
-		"github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.WebhookSpec":             schema_storage_apis_ottootto8ai_v1_WebhookSpec(ref),
-		"github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.WebhookStatus":           schema_storage_apis_ottootto8ai_v1_WebhookStatus(ref),
-		"github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.Workflow":                schema_storage_apis_ottootto8ai_v1_Workflow(ref),
-		"github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.WorkflowExecution":       schema_storage_apis_ottootto8ai_v1_WorkflowExecution(ref),
-		"github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.WorkflowExecutionList":   schema_storage_apis_ottootto8ai_v1_WorkflowExecutionList(ref),
-		"github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.WorkflowExecutionSpec":   schema_storage_apis_ottootto8ai_v1_WorkflowExecutionSpec(ref),
-		"github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.WorkflowExecutionStatus": schema_storage_apis_ottootto8ai_v1_WorkflowExecutionStatus(ref),
-		"github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.WorkflowList":            schema_storage_apis_ottootto8ai_v1_WorkflowList(ref),
-		"github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.WorkflowSpec":            schema_storage_apis_ottootto8ai_v1_WorkflowSpec(ref),
-		"github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.WorkflowStatus":          schema_storage_apis_ottootto8ai_v1_WorkflowStatus(ref),
-		"github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.WorkflowStep":            schema_storage_apis_ottootto8ai_v1_WorkflowStep(ref),
-		"github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.WorkflowStepList":        schema_storage_apis_ottootto8ai_v1_WorkflowStepList(ref),
-		"github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.WorkflowStepSpec":        schema_storage_apis_ottootto8ai_v1_WorkflowStepSpec(ref),
-		"github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.WorkflowStepStatus":      schema_storage_apis_ottootto8ai_v1_WorkflowStepStatus(ref),
-		"github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.Workspace":               schema_storage_apis_ottootto8ai_v1_Workspace(ref),
-		"github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.WorkspaceList":           schema_storage_apis_ottootto8ai_v1_WorkspaceList(ref),
-		"github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.WorkspaceSpec":           schema_storage_apis_ottootto8ai_v1_WorkspaceSpec(ref),
-		"github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.WorkspaceStatus":         schema_storage_apis_ottootto8ai_v1_WorkspaceStatus(ref),
-		"k8s.io/api/coordination/v1.Lease":                                                    schema_k8sio_api_coordination_v1_Lease(ref),
-		"k8s.io/api/coordination/v1.LeaseList":                                                schema_k8sio_api_coordination_v1_LeaseList(ref),
-		"k8s.io/api/coordination/v1.LeaseSpec":                                                schema_k8sio_api_coordination_v1_LeaseSpec(ref),
-		"k8s.io/apimachinery/pkg/api/resource.Quantity":                                       schema_apimachinery_pkg_api_resource_Quantity(ref),
-		"k8s.io/apimachinery/pkg/api/resource.int64Amount":                                    schema_apimachinery_pkg_api_resource_int64Amount(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.APIGroup":                                       schema_pkg_apis_meta_v1_APIGroup(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.APIGroupList":                                   schema_pkg_apis_meta_v1_APIGroupList(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.APIResource":                                    schema_pkg_apis_meta_v1_APIResource(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.APIResourceList":                                schema_pkg_apis_meta_v1_APIResourceList(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.APIVersions":                                    schema_pkg_apis_meta_v1_APIVersions(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.ApplyOptions":                                   schema_pkg_apis_meta_v1_ApplyOptions(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.Condition":                                      schema_pkg_apis_meta_v1_Condition(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.CreateOptions":                                  schema_pkg_apis_meta_v1_CreateOptions(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.DeleteOptions":                                  schema_pkg_apis_meta_v1_DeleteOptions(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.Duration":                                       schema_pkg_apis_meta_v1_Duration(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.FieldSelectorRequirement":                       schema_pkg_apis_meta_v1_FieldSelectorRequirement(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.FieldsV1":                                       schema_pkg_apis_meta_v1_FieldsV1(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.GetOptions":                                     schema_pkg_apis_meta_v1_GetOptions(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.GroupKind":                                      schema_pkg_apis_meta_v1_GroupKind(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.GroupResource":                                  schema_pkg_apis_meta_v1_GroupResource(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.GroupVersion":                                   schema_pkg_apis_meta_v1_GroupVersion(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.GroupVersionForDiscovery":                       schema_pkg_apis_meta_v1_GroupVersionForDiscovery(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.GroupVersionKind":                               schema_pkg_apis_meta_v1_GroupVersionKind(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.GroupVersionResource":                           schema_pkg_apis_meta_v1_GroupVersionResource(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.InternalEvent":                                  schema_pkg_apis_meta_v1_InternalEvent(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.LabelSelector":                                  schema_pkg_apis_meta_v1_LabelSelector(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.LabelSelectorRequirement":                       schema_pkg_apis_meta_v1_LabelSelectorRequirement(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.List":                                           schema_pkg_apis_meta_v1_List(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta":                                       schema_pkg_apis_meta_v1_ListMeta(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.ListOptions":                                    schema_pkg_apis_meta_v1_ListOptions(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.ManagedFieldsEntry":                             schema_pkg_apis_meta_v1_ManagedFieldsEntry(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.MicroTime":                                      schema_pkg_apis_meta_v1_MicroTime(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta":                                     schema_pkg_apis_meta_v1_ObjectMeta(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.OwnerReference":                                 schema_pkg_apis_meta_v1_OwnerReference(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.PartialObjectMetadata":                          schema_pkg_apis_meta_v1_PartialObjectMetadata(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.PartialObjectMetadataList":                      schema_pkg_apis_meta_v1_PartialObjectMetadataList(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.Patch":                                          schema_pkg_apis_meta_v1_Patch(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.PatchOptions":                                   schema_pkg_apis_meta_v1_PatchOptions(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.Preconditions":                                  schema_pkg_apis_meta_v1_Preconditions(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.RootPaths":                                      schema_pkg_apis_meta_v1_RootPaths(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.ServerAddressByClientCIDR":                      schema_pkg_apis_meta_v1_ServerAddressByClientCIDR(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.Status":                                         schema_pkg_apis_meta_v1_Status(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.StatusCause":                                    schema_pkg_apis_meta_v1_StatusCause(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.StatusDetails":                                  schema_pkg_apis_meta_v1_StatusDetails(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.Table":                                          schema_pkg_apis_meta_v1_Table(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.TableColumnDefinition":                          schema_pkg_apis_meta_v1_TableColumnDefinition(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.TableOptions":                                   schema_pkg_apis_meta_v1_TableOptions(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.TableRow":                                       schema_pkg_apis_meta_v1_TableRow(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.TableRowCondition":                              schema_pkg_apis_meta_v1_TableRowCondition(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.Time":                                           schema_pkg_apis_meta_v1_Time(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.Timestamp":                                      schema_pkg_apis_meta_v1_Timestamp(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.TypeMeta":                                       schema_pkg_apis_meta_v1_TypeMeta(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.UpdateOptions":                                  schema_pkg_apis_meta_v1_UpdateOptions(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.WatchEvent":                                     schema_pkg_apis_meta_v1_WatchEvent(ref),
-		"k8s.io/apimachinery/pkg/runtime.RawExtension":                                        schema_k8sio_apimachinery_pkg_runtime_RawExtension(ref),
-		"k8s.io/apimachinery/pkg/runtime.TypeMeta":                                            schema_k8sio_apimachinery_pkg_runtime_TypeMeta(ref),
-		"k8s.io/apimachinery/pkg/runtime.Unknown":                                             schema_k8sio_apimachinery_pkg_runtime_Unknown(ref),
-		"k8s.io/apimachinery/pkg/util/intstr.IntOrString":                                     schema_apimachinery_pkg_util_intstr_IntOrString(ref),
-		"k8s.io/apimachinery/pkg/version.Info":                                                schema_k8sio_apimachinery_pkg_version_Info(ref),
+		"github.com/obot-platform/obot/apiclient/types.Agent":                                     schema_obot_platform_obot_apiclient_types_Agent(ref),
+		"github.com/obot-platform/obot/apiclient/types.AgentIcons":                                schema_obot_platform_obot_apiclient_types_AgentIcons(ref),
+		"github.com/obot-platform/obot/apiclient/types.AgentList":                                 schema_obot_platform_obot_apiclient_types_AgentList(ref),
+		"github.com/obot-platform/obot/apiclient/types.AgentManifest":                             schema_obot_platform_obot_apiclient_types_AgentManifest(ref),
+		"github.com/obot-platform/obot/apiclient/types.Assistant":                                 schema_obot_platform_obot_apiclient_types_Assistant(ref),
+		"github.com/obot-platform/obot/apiclient/types.AssistantList":                             schema_obot_platform_obot_apiclient_types_AssistantList(ref),
+		"github.com/obot-platform/obot/apiclient/types.AssistantTool":                             schema_obot_platform_obot_apiclient_types_AssistantTool(ref),
+		"github.com/obot-platform/obot/apiclient/types.AssistantToolList":                         schema_obot_platform_obot_apiclient_types_AssistantToolList(ref),
+		"github.com/obot-platform/obot/apiclient/types.Credential":                                schema_obot_platform_obot_apiclient_types_Credential(ref),
+		"github.com/obot-platform/obot/apiclient/types.CredentialList":                            schema_obot_platform_obot_apiclient_types_CredentialList(ref),
+		"github.com/obot-platform/obot/apiclient/types.CronJob":                                   schema_obot_platform_obot_apiclient_types_CronJob(ref),
+		"github.com/obot-platform/obot/apiclient/types.CronJobList":                               schema_obot_platform_obot_apiclient_types_CronJobList(ref),
+		"github.com/obot-platform/obot/apiclient/types.CronJobManifest":                           schema_obot_platform_obot_apiclient_types_CronJobManifest(ref),
+		"github.com/obot-platform/obot/apiclient/types.DefaultModelAlias":                         schema_obot_platform_obot_apiclient_types_DefaultModelAlias(ref),
+		"github.com/obot-platform/obot/apiclient/types.DefaultModelAliasList":                     schema_obot_platform_obot_apiclient_types_DefaultModelAliasList(ref),
+		"github.com/obot-platform/obot/apiclient/types.DefaultModelAliasManifest":                 schema_obot_platform_obot_apiclient_types_DefaultModelAliasManifest(ref),
+		"github.com/obot-platform/obot/apiclient/types.EmailReceiver":                             schema_obot_platform_obot_apiclient_types_EmailReceiver(ref),
+		"github.com/obot-platform/obot/apiclient/types.EmailReceiverList":                         schema_obot_platform_obot_apiclient_types_EmailReceiverList(ref),
+		"github.com/obot-platform/obot/apiclient/types.EmailReceiverManifest":                     schema_obot_platform_obot_apiclient_types_EmailReceiverManifest(ref),
+		"github.com/obot-platform/obot/apiclient/types.EnvVar":                                    schema_obot_platform_obot_apiclient_types_EnvVar(ref),
+		"github.com/obot-platform/obot/apiclient/types.ErrHTTP":                                   schema_obot_platform_obot_apiclient_types_ErrHTTP(ref),
+		"github.com/obot-platform/obot/apiclient/types.File":                                      schema_obot_platform_obot_apiclient_types_File(ref),
+		"github.com/obot-platform/obot/apiclient/types.FileList":                                  schema_obot_platform_obot_apiclient_types_FileList(ref),
+		"github.com/obot-platform/obot/apiclient/types.If":                                        schema_obot_platform_obot_apiclient_types_If(ref),
+		"github.com/obot-platform/obot/apiclient/types.Item":                                      schema_obot_platform_obot_apiclient_types_Item(ref),
+		"github.com/obot-platform/obot/apiclient/types.KnowledgeFile":                             schema_obot_platform_obot_apiclient_types_KnowledgeFile(ref),
+		"github.com/obot-platform/obot/apiclient/types.KnowledgeFileList":                         schema_obot_platform_obot_apiclient_types_KnowledgeFileList(ref),
+		"github.com/obot-platform/obot/apiclient/types.KnowledgeSource":                           schema_obot_platform_obot_apiclient_types_KnowledgeSource(ref),
+		"github.com/obot-platform/obot/apiclient/types.KnowledgeSourceInput":                      schema_obot_platform_obot_apiclient_types_KnowledgeSourceInput(ref),
+		"github.com/obot-platform/obot/apiclient/types.KnowledgeSourceList":                       schema_obot_platform_obot_apiclient_types_KnowledgeSourceList(ref),
+		"github.com/obot-platform/obot/apiclient/types.KnowledgeSourceManifest":                   schema_obot_platform_obot_apiclient_types_KnowledgeSourceManifest(ref),
+		"github.com/obot-platform/obot/apiclient/types.Metadata":                                  schema_obot_platform_obot_apiclient_types_Metadata(ref),
+		"github.com/obot-platform/obot/apiclient/types.Model":                                     schema_obot_platform_obot_apiclient_types_Model(ref),
+		"github.com/obot-platform/obot/apiclient/types.ModelList":                                 schema_obot_platform_obot_apiclient_types_ModelList(ref),
+		"github.com/obot-platform/obot/apiclient/types.ModelManifest":                             schema_obot_platform_obot_apiclient_types_ModelManifest(ref),
+		"github.com/obot-platform/obot/apiclient/types.ModelProvider":                             schema_obot_platform_obot_apiclient_types_ModelProvider(ref),
+		"github.com/obot-platform/obot/apiclient/types.ModelProviderList":                         schema_obot_platform_obot_apiclient_types_ModelProviderList(ref),
+		"github.com/obot-platform/obot/apiclient/types.ModelProviderManifest":                     schema_obot_platform_obot_apiclient_types_ModelProviderManifest(ref),
+		"github.com/obot-platform/obot/apiclient/types.ModelProviderStatus":                       schema_obot_platform_obot_apiclient_types_ModelProviderStatus(ref),
+		"github.com/obot-platform/obot/apiclient/types.ModelStatus":                               schema_obot_platform_obot_apiclient_types_ModelStatus(ref),
+		"github.com/obot-platform/obot/apiclient/types.NotionConfig":                              schema_obot_platform_obot_apiclient_types_NotionConfig(ref),
+		"github.com/obot-platform/obot/apiclient/types.OAuthApp":                                  schema_obot_platform_obot_apiclient_types_OAuthApp(ref),
+		"github.com/obot-platform/obot/apiclient/types.OAuthAppList":                              schema_obot_platform_obot_apiclient_types_OAuthAppList(ref),
+		"github.com/obot-platform/obot/apiclient/types.OAuthAppLoginAuthStatus":                   schema_obot_platform_obot_apiclient_types_OAuthAppLoginAuthStatus(ref),
+		"github.com/obot-platform/obot/apiclient/types.OAuthAppManifest":                          schema_obot_platform_obot_apiclient_types_OAuthAppManifest(ref),
+		"github.com/obot-platform/obot/apiclient/types.OneDriveConfig":                            schema_obot_platform_obot_apiclient_types_OneDriveConfig(ref),
+		"github.com/obot-platform/obot/apiclient/types.Progress":                                  schema_obot_platform_obot_apiclient_types_Progress(ref),
+		"github.com/obot-platform/obot/apiclient/types.Prompt":                                    schema_obot_platform_obot_apiclient_types_Prompt(ref),
+		"github.com/obot-platform/obot/apiclient/types.PromptResponse":                            schema_obot_platform_obot_apiclient_types_PromptResponse(ref),
+		"github.com/obot-platform/obot/apiclient/types.Run":                                       schema_obot_platform_obot_apiclient_types_Run(ref),
+		"github.com/obot-platform/obot/apiclient/types.RunList":                                   schema_obot_platform_obot_apiclient_types_RunList(ref),
+		"github.com/obot-platform/obot/apiclient/types.Schedule":                                  schema_obot_platform_obot_apiclient_types_Schedule(ref),
+		"github.com/obot-platform/obot/apiclient/types.Step":                                      schema_obot_platform_obot_apiclient_types_Step(ref),
+		"github.com/obot-platform/obot/apiclient/types.StepTemplateInvoke":                        schema_obot_platform_obot_apiclient_types_StepTemplateInvoke(ref),
+		"github.com/obot-platform/obot/apiclient/types.SubFlow":                                   schema_obot_platform_obot_apiclient_types_SubFlow(ref),
+		"github.com/obot-platform/obot/apiclient/types.Table":                                     schema_obot_platform_obot_apiclient_types_Table(ref),
+		"github.com/obot-platform/obot/apiclient/types.TableList":                                 schema_obot_platform_obot_apiclient_types_TableList(ref),
+		"github.com/obot-platform/obot/apiclient/types.Task":                                      schema_obot_platform_obot_apiclient_types_Task(ref),
+		"github.com/obot-platform/obot/apiclient/types.TaskEmail":                                 schema_obot_platform_obot_apiclient_types_TaskEmail(ref),
+		"github.com/obot-platform/obot/apiclient/types.TaskIf":                                    schema_obot_platform_obot_apiclient_types_TaskIf(ref),
+		"github.com/obot-platform/obot/apiclient/types.TaskList":                                  schema_obot_platform_obot_apiclient_types_TaskList(ref),
+		"github.com/obot-platform/obot/apiclient/types.TaskManifest":                              schema_obot_platform_obot_apiclient_types_TaskManifest(ref),
+		"github.com/obot-platform/obot/apiclient/types.TaskOnDemand":                              schema_obot_platform_obot_apiclient_types_TaskOnDemand(ref),
+		"github.com/obot-platform/obot/apiclient/types.TaskRun":                                   schema_obot_platform_obot_apiclient_types_TaskRun(ref),
+		"github.com/obot-platform/obot/apiclient/types.TaskRunList":                               schema_obot_platform_obot_apiclient_types_TaskRunList(ref),
+		"github.com/obot-platform/obot/apiclient/types.TaskStep":                                  schema_obot_platform_obot_apiclient_types_TaskStep(ref),
+		"github.com/obot-platform/obot/apiclient/types.TaskWebhook":                               schema_obot_platform_obot_apiclient_types_TaskWebhook(ref),
+		"github.com/obot-platform/obot/apiclient/types.Template":                                  schema_obot_platform_obot_apiclient_types_Template(ref),
+		"github.com/obot-platform/obot/apiclient/types.Thread":                                    schema_obot_platform_obot_apiclient_types_Thread(ref),
+		"github.com/obot-platform/obot/apiclient/types.ThreadList":                                schema_obot_platform_obot_apiclient_types_ThreadList(ref),
+		"github.com/obot-platform/obot/apiclient/types.ThreadManifest":                            schema_obot_platform_obot_apiclient_types_ThreadManifest(ref),
+		"github.com/obot-platform/obot/apiclient/types.Time":                                      schema_obot_platform_obot_apiclient_types_Time(ref),
+		"github.com/obot-platform/obot/apiclient/types.ToolCall":                                  schema_obot_platform_obot_apiclient_types_ToolCall(ref),
+		"github.com/obot-platform/obot/apiclient/types.ToolInput":                                 schema_obot_platform_obot_apiclient_types_ToolInput(ref),
+		"github.com/obot-platform/obot/apiclient/types.ToolReference":                             schema_obot_platform_obot_apiclient_types_ToolReference(ref),
+		"github.com/obot-platform/obot/apiclient/types.ToolReferenceList":                         schema_obot_platform_obot_apiclient_types_ToolReferenceList(ref),
+		"github.com/obot-platform/obot/apiclient/types.ToolReferenceManifest":                     schema_obot_platform_obot_apiclient_types_ToolReferenceManifest(ref),
+		"github.com/obot-platform/obot/apiclient/types.User":                                      schema_obot_platform_obot_apiclient_types_User(ref),
+		"github.com/obot-platform/obot/apiclient/types.UserList":                                  schema_obot_platform_obot_apiclient_types_UserList(ref),
+		"github.com/obot-platform/obot/apiclient/types.Webhook":                                   schema_obot_platform_obot_apiclient_types_Webhook(ref),
+		"github.com/obot-platform/obot/apiclient/types.WebhookList":                               schema_obot_platform_obot_apiclient_types_WebhookList(ref),
+		"github.com/obot-platform/obot/apiclient/types.WebhookManifest":                           schema_obot_platform_obot_apiclient_types_WebhookManifest(ref),
+		"github.com/obot-platform/obot/apiclient/types.WebsiteCrawlingConfig":                     schema_obot_platform_obot_apiclient_types_WebsiteCrawlingConfig(ref),
+		"github.com/obot-platform/obot/apiclient/types.While":                                     schema_obot_platform_obot_apiclient_types_While(ref),
+		"github.com/obot-platform/obot/apiclient/types.Workflow":                                  schema_obot_platform_obot_apiclient_types_Workflow(ref),
+		"github.com/obot-platform/obot/apiclient/types.WorkflowCall":                              schema_obot_platform_obot_apiclient_types_WorkflowCall(ref),
+		"github.com/obot-platform/obot/apiclient/types.WorkflowExecution":                         schema_obot_platform_obot_apiclient_types_WorkflowExecution(ref),
+		"github.com/obot-platform/obot/apiclient/types.WorkflowExecutionList":                     schema_obot_platform_obot_apiclient_types_WorkflowExecutionList(ref),
+		"github.com/obot-platform/obot/apiclient/types.WorkflowList":                              schema_obot_platform_obot_apiclient_types_WorkflowList(ref),
+		"github.com/obot-platform/obot/apiclient/types.WorkflowManifest":                          schema_obot_platform_obot_apiclient_types_WorkflowManifest(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.Agent":                   schema_storage_apis_ottootto8ai_v1_Agent(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.AgentList":               schema_storage_apis_ottootto8ai_v1_AgentList(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.AgentSpec":               schema_storage_apis_ottootto8ai_v1_AgentSpec(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.AgentStatus":             schema_storage_apis_ottootto8ai_v1_AgentStatus(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.Alias":                   schema_storage_apis_ottootto8ai_v1_Alias(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.AliasList":               schema_storage_apis_ottootto8ai_v1_AliasList(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.AliasSpec":               schema_storage_apis_ottootto8ai_v1_AliasSpec(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.CronJob":                 schema_storage_apis_ottootto8ai_v1_CronJob(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.CronJobList":             schema_storage_apis_ottootto8ai_v1_CronJobList(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.CronJobSpec":             schema_storage_apis_ottootto8ai_v1_CronJobSpec(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.CronJobStatus":           schema_storage_apis_ottootto8ai_v1_CronJobStatus(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.DefaultModelAlias":       schema_storage_apis_ottootto8ai_v1_DefaultModelAlias(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.DefaultModelAliasList":   schema_storage_apis_ottootto8ai_v1_DefaultModelAliasList(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.DefaultModelAliasSpec":   schema_storage_apis_ottootto8ai_v1_DefaultModelAliasSpec(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.DefaultModelAliasStatus": schema_storage_apis_ottootto8ai_v1_DefaultModelAliasStatus(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.EmailReceiver":           schema_storage_apis_ottootto8ai_v1_EmailReceiver(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.EmailReceiverList":       schema_storage_apis_ottootto8ai_v1_EmailReceiverList(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.EmailReceiverSpec":       schema_storage_apis_ottootto8ai_v1_EmailReceiverSpec(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.EmailReceiverStatus":     schema_storage_apis_ottootto8ai_v1_EmailReceiverStatus(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.EmptyStatus":             schema_storage_apis_ottootto8ai_v1_EmptyStatus(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.KnowledgeFile":           schema_storage_apis_ottootto8ai_v1_KnowledgeFile(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.KnowledgeFileList":       schema_storage_apis_ottootto8ai_v1_KnowledgeFileList(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.KnowledgeFileSpec":       schema_storage_apis_ottootto8ai_v1_KnowledgeFileSpec(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.KnowledgeFileStatus":     schema_storage_apis_ottootto8ai_v1_KnowledgeFileStatus(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.KnowledgeSet":            schema_storage_apis_ottootto8ai_v1_KnowledgeSet(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.KnowledgeSetList":        schema_storage_apis_ottootto8ai_v1_KnowledgeSetList(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.KnowledgeSetManifest":    schema_storage_apis_ottootto8ai_v1_KnowledgeSetManifest(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.KnowledgeSetSpec":        schema_storage_apis_ottootto8ai_v1_KnowledgeSetSpec(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.KnowledgeSetStatus":      schema_storage_apis_ottootto8ai_v1_KnowledgeSetStatus(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.KnowledgeSource":         schema_storage_apis_ottootto8ai_v1_KnowledgeSource(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.KnowledgeSourceList":     schema_storage_apis_ottootto8ai_v1_KnowledgeSourceList(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.KnowledgeSourceSpec":     schema_storage_apis_ottootto8ai_v1_KnowledgeSourceSpec(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.KnowledgeSourceStatus":   schema_storage_apis_ottootto8ai_v1_KnowledgeSourceStatus(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.Model":                   schema_storage_apis_ottootto8ai_v1_Model(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.ModelList":               schema_storage_apis_ottootto8ai_v1_ModelList(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.ModelSpec":               schema_storage_apis_ottootto8ai_v1_ModelSpec(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.ModelStatus":             schema_storage_apis_ottootto8ai_v1_ModelStatus(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.OAuthApp":                schema_storage_apis_ottootto8ai_v1_OAuthApp(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.OAuthAppList":            schema_storage_apis_ottootto8ai_v1_OAuthAppList(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.OAuthAppLogin":           schema_storage_apis_ottootto8ai_v1_OAuthAppLogin(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.OAuthAppLoginList":       schema_storage_apis_ottootto8ai_v1_OAuthAppLoginList(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.OAuthAppLoginSpec":       schema_storage_apis_ottootto8ai_v1_OAuthAppLoginSpec(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.OAuthAppLoginStatus":     schema_storage_apis_ottootto8ai_v1_OAuthAppLoginStatus(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.OAuthAppSpec":            schema_storage_apis_ottootto8ai_v1_OAuthAppSpec(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.Ref":                     schema_storage_apis_ottootto8ai_v1_Ref(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.Run":                     schema_storage_apis_ottootto8ai_v1_Run(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.RunList":                 schema_storage_apis_ottootto8ai_v1_RunList(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.RunSpec":                 schema_storage_apis_ottootto8ai_v1_RunSpec(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.RunState":                schema_storage_apis_ottootto8ai_v1_RunState(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.RunStateList":            schema_storage_apis_ottootto8ai_v1_RunStateList(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.RunStateSpec":            schema_storage_apis_ottootto8ai_v1_RunStateSpec(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.RunStatus":               schema_storage_apis_ottootto8ai_v1_RunStatus(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.SubCall":                 schema_storage_apis_ottootto8ai_v1_SubCall(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.Thread":                  schema_storage_apis_ottootto8ai_v1_Thread(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.ThreadList":              schema_storage_apis_ottootto8ai_v1_ThreadList(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.ThreadSpec":              schema_storage_apis_ottootto8ai_v1_ThreadSpec(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.ThreadStatus":            schema_storage_apis_ottootto8ai_v1_ThreadStatus(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.ToolReference":           schema_storage_apis_ottootto8ai_v1_ToolReference(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.ToolReferenceList":       schema_storage_apis_ottootto8ai_v1_ToolReferenceList(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.ToolReferenceSpec":       schema_storage_apis_ottootto8ai_v1_ToolReferenceSpec(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.ToolReferenceStatus":     schema_storage_apis_ottootto8ai_v1_ToolReferenceStatus(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.ToolShortDescription":    schema_storage_apis_ottootto8ai_v1_ToolShortDescription(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.Webhook":                 schema_storage_apis_ottootto8ai_v1_Webhook(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.WebhookList":             schema_storage_apis_ottootto8ai_v1_WebhookList(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.WebhookSpec":             schema_storage_apis_ottootto8ai_v1_WebhookSpec(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.WebhookStatus":           schema_storage_apis_ottootto8ai_v1_WebhookStatus(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.Workflow":                schema_storage_apis_ottootto8ai_v1_Workflow(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.WorkflowExecution":       schema_storage_apis_ottootto8ai_v1_WorkflowExecution(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.WorkflowExecutionList":   schema_storage_apis_ottootto8ai_v1_WorkflowExecutionList(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.WorkflowExecutionSpec":   schema_storage_apis_ottootto8ai_v1_WorkflowExecutionSpec(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.WorkflowExecutionStatus": schema_storage_apis_ottootto8ai_v1_WorkflowExecutionStatus(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.WorkflowList":            schema_storage_apis_ottootto8ai_v1_WorkflowList(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.WorkflowSpec":            schema_storage_apis_ottootto8ai_v1_WorkflowSpec(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.WorkflowStatus":          schema_storage_apis_ottootto8ai_v1_WorkflowStatus(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.WorkflowStep":            schema_storage_apis_ottootto8ai_v1_WorkflowStep(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.WorkflowStepList":        schema_storage_apis_ottootto8ai_v1_WorkflowStepList(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.WorkflowStepSpec":        schema_storage_apis_ottootto8ai_v1_WorkflowStepSpec(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.WorkflowStepStatus":      schema_storage_apis_ottootto8ai_v1_WorkflowStepStatus(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.Workspace":               schema_storage_apis_ottootto8ai_v1_Workspace(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.WorkspaceList":           schema_storage_apis_ottootto8ai_v1_WorkspaceList(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.WorkspaceSpec":           schema_storage_apis_ottootto8ai_v1_WorkspaceSpec(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.WorkspaceStatus":         schema_storage_apis_ottootto8ai_v1_WorkspaceStatus(ref),
+		"k8s.io/api/coordination/v1.Lease":                                                        schema_k8sio_api_coordination_v1_Lease(ref),
+		"k8s.io/api/coordination/v1.LeaseList":                                                    schema_k8sio_api_coordination_v1_LeaseList(ref),
+		"k8s.io/api/coordination/v1.LeaseSpec":                                                    schema_k8sio_api_coordination_v1_LeaseSpec(ref),
+		"k8s.io/apimachinery/pkg/api/resource.Quantity":                                           schema_apimachinery_pkg_api_resource_Quantity(ref),
+		"k8s.io/apimachinery/pkg/api/resource.int64Amount":                                        schema_apimachinery_pkg_api_resource_int64Amount(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.APIGroup":                                           schema_pkg_apis_meta_v1_APIGroup(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.APIGroupList":                                       schema_pkg_apis_meta_v1_APIGroupList(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.APIResource":                                        schema_pkg_apis_meta_v1_APIResource(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.APIResourceList":                                    schema_pkg_apis_meta_v1_APIResourceList(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.APIVersions":                                        schema_pkg_apis_meta_v1_APIVersions(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.ApplyOptions":                                       schema_pkg_apis_meta_v1_ApplyOptions(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.Condition":                                          schema_pkg_apis_meta_v1_Condition(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.CreateOptions":                                      schema_pkg_apis_meta_v1_CreateOptions(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.DeleteOptions":                                      schema_pkg_apis_meta_v1_DeleteOptions(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.Duration":                                           schema_pkg_apis_meta_v1_Duration(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.FieldSelectorRequirement":                           schema_pkg_apis_meta_v1_FieldSelectorRequirement(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.FieldsV1":                                           schema_pkg_apis_meta_v1_FieldsV1(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.GetOptions":                                         schema_pkg_apis_meta_v1_GetOptions(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.GroupKind":                                          schema_pkg_apis_meta_v1_GroupKind(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.GroupResource":                                      schema_pkg_apis_meta_v1_GroupResource(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.GroupVersion":                                       schema_pkg_apis_meta_v1_GroupVersion(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.GroupVersionForDiscovery":                           schema_pkg_apis_meta_v1_GroupVersionForDiscovery(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.GroupVersionKind":                                   schema_pkg_apis_meta_v1_GroupVersionKind(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.GroupVersionResource":                               schema_pkg_apis_meta_v1_GroupVersionResource(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.InternalEvent":                                      schema_pkg_apis_meta_v1_InternalEvent(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.LabelSelector":                                      schema_pkg_apis_meta_v1_LabelSelector(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.LabelSelectorRequirement":                           schema_pkg_apis_meta_v1_LabelSelectorRequirement(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.List":                                               schema_pkg_apis_meta_v1_List(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta":                                           schema_pkg_apis_meta_v1_ListMeta(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.ListOptions":                                        schema_pkg_apis_meta_v1_ListOptions(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.ManagedFieldsEntry":                                 schema_pkg_apis_meta_v1_ManagedFieldsEntry(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.MicroTime":                                          schema_pkg_apis_meta_v1_MicroTime(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta":                                         schema_pkg_apis_meta_v1_ObjectMeta(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.OwnerReference":                                     schema_pkg_apis_meta_v1_OwnerReference(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.PartialObjectMetadata":                              schema_pkg_apis_meta_v1_PartialObjectMetadata(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.PartialObjectMetadataList":                          schema_pkg_apis_meta_v1_PartialObjectMetadataList(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.Patch":                                              schema_pkg_apis_meta_v1_Patch(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.PatchOptions":                                       schema_pkg_apis_meta_v1_PatchOptions(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.Preconditions":                                      schema_pkg_apis_meta_v1_Preconditions(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.RootPaths":                                          schema_pkg_apis_meta_v1_RootPaths(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.ServerAddressByClientCIDR":                          schema_pkg_apis_meta_v1_ServerAddressByClientCIDR(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.Status":                                             schema_pkg_apis_meta_v1_Status(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.StatusCause":                                        schema_pkg_apis_meta_v1_StatusCause(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.StatusDetails":                                      schema_pkg_apis_meta_v1_StatusDetails(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.Table":                                              schema_pkg_apis_meta_v1_Table(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.TableColumnDefinition":                              schema_pkg_apis_meta_v1_TableColumnDefinition(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.TableOptions":                                       schema_pkg_apis_meta_v1_TableOptions(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.TableRow":                                           schema_pkg_apis_meta_v1_TableRow(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.TableRowCondition":                                  schema_pkg_apis_meta_v1_TableRowCondition(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.Time":                                               schema_pkg_apis_meta_v1_Time(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.Timestamp":                                          schema_pkg_apis_meta_v1_Timestamp(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.TypeMeta":                                           schema_pkg_apis_meta_v1_TypeMeta(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.UpdateOptions":                                      schema_pkg_apis_meta_v1_UpdateOptions(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.WatchEvent":                                         schema_pkg_apis_meta_v1_WatchEvent(ref),
+		"k8s.io/apimachinery/pkg/runtime.RawExtension":                                            schema_k8sio_apimachinery_pkg_runtime_RawExtension(ref),
+		"k8s.io/apimachinery/pkg/runtime.TypeMeta":                                                schema_k8sio_apimachinery_pkg_runtime_TypeMeta(ref),
+		"k8s.io/apimachinery/pkg/runtime.Unknown":                                                 schema_k8sio_apimachinery_pkg_runtime_Unknown(ref),
+		"k8s.io/apimachinery/pkg/util/intstr.IntOrString":                                         schema_apimachinery_pkg_util_intstr_IntOrString(ref),
+		"k8s.io/apimachinery/pkg/version.Info":                                                    schema_k8sio_apimachinery_pkg_version_Info(ref),
 	}
 }
 
-func schema_acorn_io_acorn_apiclient_types_Agent(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_obot_platform_obot_apiclient_types_Agent(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -259,13 +259,13 @@ func schema_acorn_io_acorn_apiclient_types_Agent(ref common.ReferenceCallback) c
 					"Metadata": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/acorn-io/acorn/apiclient/types.Metadata"),
+							Ref:     ref("github.com/obot-platform/obot/apiclient/types.Metadata"),
 						},
 					},
 					"AgentManifest": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/acorn-io/acorn/apiclient/types.AgentManifest"),
+							Ref:     ref("github.com/obot-platform/obot/apiclient/types.AgentManifest"),
 						},
 					},
 					"aliasAssigned": {
@@ -282,7 +282,7 @@ func schema_acorn_io_acorn_apiclient_types_Agent(ref common.ReferenceCallback) c
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/acorn-io/acorn/apiclient/types.OAuthAppLoginAuthStatus"),
+										Ref:     ref("github.com/obot-platform/obot/apiclient/types.OAuthAppLoginAuthStatus"),
 									},
 								},
 							},
@@ -299,11 +299,11 @@ func schema_acorn_io_acorn_apiclient_types_Agent(ref common.ReferenceCallback) c
 			},
 		},
 		Dependencies: []string{
-			"github.com/acorn-io/acorn/apiclient/types.AgentManifest", "github.com/acorn-io/acorn/apiclient/types.Metadata", "github.com/acorn-io/acorn/apiclient/types.OAuthAppLoginAuthStatus"},
+			"github.com/obot-platform/obot/apiclient/types.AgentManifest", "github.com/obot-platform/obot/apiclient/types.Metadata", "github.com/obot-platform/obot/apiclient/types.OAuthAppLoginAuthStatus"},
 	}
 }
 
-func schema_acorn_io_acorn_apiclient_types_AgentIcons(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_obot_platform_obot_apiclient_types_AgentIcons(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -344,7 +344,7 @@ func schema_acorn_io_acorn_apiclient_types_AgentIcons(ref common.ReferenceCallba
 	}
 }
 
-func schema_acorn_io_acorn_apiclient_types_AgentList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_obot_platform_obot_apiclient_types_AgentList(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -357,7 +357,7 @@ func schema_acorn_io_acorn_apiclient_types_AgentList(ref common.ReferenceCallbac
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/acorn-io/acorn/apiclient/types.Agent"),
+										Ref:     ref("github.com/obot-platform/obot/apiclient/types.Agent"),
 									},
 								},
 							},
@@ -368,11 +368,11 @@ func schema_acorn_io_acorn_apiclient_types_AgentList(ref common.ReferenceCallbac
 			},
 		},
 		Dependencies: []string{
-			"github.com/acorn-io/acorn/apiclient/types.Agent"},
+			"github.com/obot-platform/obot/apiclient/types.Agent"},
 	}
 }
 
-func schema_acorn_io_acorn_apiclient_types_AgentManifest(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_obot_platform_obot_apiclient_types_AgentManifest(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -387,7 +387,7 @@ func schema_acorn_io_acorn_apiclient_types_AgentManifest(ref common.ReferenceCal
 					},
 					"icons": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/acorn-io/acorn/apiclient/types.AgentIcons"),
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.AgentIcons"),
 						},
 					},
 					"description": {
@@ -550,7 +550,7 @@ func schema_acorn_io_acorn_apiclient_types_AgentManifest(ref common.ReferenceCal
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/acorn-io/acorn/apiclient/types.EnvVar"),
+										Ref:     ref("github.com/obot-platform/obot/apiclient/types.EnvVar"),
 									},
 								},
 							},
@@ -561,11 +561,11 @@ func schema_acorn_io_acorn_apiclient_types_AgentManifest(ref common.ReferenceCal
 			},
 		},
 		Dependencies: []string{
-			"github.com/acorn-io/acorn/apiclient/types.AgentIcons", "github.com/acorn-io/acorn/apiclient/types.EnvVar"},
+			"github.com/obot-platform/obot/apiclient/types.AgentIcons", "github.com/obot-platform/obot/apiclient/types.EnvVar"},
 	}
 }
 
-func schema_acorn_io_acorn_apiclient_types_Assistant(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_obot_platform_obot_apiclient_types_Assistant(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -574,7 +574,7 @@ func schema_acorn_io_acorn_apiclient_types_Assistant(ref common.ReferenceCallbac
 					"Metadata": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/acorn-io/acorn/apiclient/types.Metadata"),
+							Ref:     ref("github.com/obot-platform/obot/apiclient/types.Metadata"),
 						},
 					},
 					"name": {
@@ -594,7 +594,7 @@ func schema_acorn_io_acorn_apiclient_types_Assistant(ref common.ReferenceCallbac
 					"icons": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/acorn-io/acorn/apiclient/types.AgentIcons"),
+							Ref:     ref("github.com/obot-platform/obot/apiclient/types.AgentIcons"),
 						},
 					},
 					"entityID": {
@@ -609,11 +609,11 @@ func schema_acorn_io_acorn_apiclient_types_Assistant(ref common.ReferenceCallbac
 			},
 		},
 		Dependencies: []string{
-			"github.com/acorn-io/acorn/apiclient/types.AgentIcons", "github.com/acorn-io/acorn/apiclient/types.Metadata"},
+			"github.com/obot-platform/obot/apiclient/types.AgentIcons", "github.com/obot-platform/obot/apiclient/types.Metadata"},
 	}
 }
 
-func schema_acorn_io_acorn_apiclient_types_AssistantList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_obot_platform_obot_apiclient_types_AssistantList(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -626,7 +626,7 @@ func schema_acorn_io_acorn_apiclient_types_AssistantList(ref common.ReferenceCal
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/acorn-io/acorn/apiclient/types.Assistant"),
+										Ref:     ref("github.com/obot-platform/obot/apiclient/types.Assistant"),
 									},
 								},
 							},
@@ -637,11 +637,11 @@ func schema_acorn_io_acorn_apiclient_types_AssistantList(ref common.ReferenceCal
 			},
 		},
 		Dependencies: []string{
-			"github.com/acorn-io/acorn/apiclient/types.Assistant"},
+			"github.com/obot-platform/obot/apiclient/types.Assistant"},
 	}
 }
 
-func schema_acorn_io_acorn_apiclient_types_AssistantTool(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_obot_platform_obot_apiclient_types_AssistantTool(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -692,7 +692,7 @@ func schema_acorn_io_acorn_apiclient_types_AssistantTool(ref common.ReferenceCal
 	}
 }
 
-func schema_acorn_io_acorn_apiclient_types_AssistantToolList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_obot_platform_obot_apiclient_types_AssistantToolList(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -711,7 +711,7 @@ func schema_acorn_io_acorn_apiclient_types_AssistantToolList(ref common.Referenc
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/acorn-io/acorn/apiclient/types.AssistantTool"),
+										Ref:     ref("github.com/obot-platform/obot/apiclient/types.AssistantTool"),
 									},
 								},
 							},
@@ -722,11 +722,11 @@ func schema_acorn_io_acorn_apiclient_types_AssistantToolList(ref common.Referenc
 			},
 		},
 		Dependencies: []string{
-			"github.com/acorn-io/acorn/apiclient/types.AssistantTool"},
+			"github.com/obot-platform/obot/apiclient/types.AssistantTool"},
 	}
 }
 
-func schema_acorn_io_acorn_apiclient_types_Credential(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_obot_platform_obot_apiclient_types_Credential(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -760,18 +760,18 @@ func schema_acorn_io_acorn_apiclient_types_Credential(ref common.ReferenceCallba
 					},
 					"expiresAt": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/acorn-io/acorn/apiclient/types.Time"),
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.Time"),
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/acorn-io/acorn/apiclient/types.Time"},
+			"github.com/obot-platform/obot/apiclient/types.Time"},
 	}
 }
 
-func schema_acorn_io_acorn_apiclient_types_CredentialList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_obot_platform_obot_apiclient_types_CredentialList(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -784,7 +784,7 @@ func schema_acorn_io_acorn_apiclient_types_CredentialList(ref common.ReferenceCa
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/acorn-io/acorn/apiclient/types.Credential"),
+										Ref:     ref("github.com/obot-platform/obot/apiclient/types.Credential"),
 									},
 								},
 							},
@@ -795,11 +795,11 @@ func schema_acorn_io_acorn_apiclient_types_CredentialList(ref common.ReferenceCa
 			},
 		},
 		Dependencies: []string{
-			"github.com/acorn-io/acorn/apiclient/types.Credential"},
+			"github.com/obot-platform/obot/apiclient/types.Credential"},
 	}
 }
 
-func schema_acorn_io_acorn_apiclient_types_CronJob(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_obot_platform_obot_apiclient_types_CronJob(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -808,28 +808,28 @@ func schema_acorn_io_acorn_apiclient_types_CronJob(ref common.ReferenceCallback)
 					"Metadata": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/acorn-io/acorn/apiclient/types.Metadata"),
+							Ref:     ref("github.com/obot-platform/obot/apiclient/types.Metadata"),
 						},
 					},
 					"CronJobManifest": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/acorn-io/acorn/apiclient/types.CronJobManifest"),
+							Ref:     ref("github.com/obot-platform/obot/apiclient/types.CronJobManifest"),
 						},
 					},
 					"lastRunStartedAt": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/acorn-io/acorn/apiclient/types.Time"),
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.Time"),
 						},
 					},
 					"lastSuccessfulRunCompleted": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/acorn-io/acorn/apiclient/types.Time"),
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.Time"),
 						},
 					},
 					"nextRunAt": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/acorn-io/acorn/apiclient/types.Time"),
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.Time"),
 						},
 					},
 				},
@@ -837,11 +837,11 @@ func schema_acorn_io_acorn_apiclient_types_CronJob(ref common.ReferenceCallback)
 			},
 		},
 		Dependencies: []string{
-			"github.com/acorn-io/acorn/apiclient/types.CronJobManifest", "github.com/acorn-io/acorn/apiclient/types.Metadata", "github.com/acorn-io/acorn/apiclient/types.Time"},
+			"github.com/obot-platform/obot/apiclient/types.CronJobManifest", "github.com/obot-platform/obot/apiclient/types.Metadata", "github.com/obot-platform/obot/apiclient/types.Time"},
 	}
 }
 
-func schema_acorn_io_acorn_apiclient_types_CronJobList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_obot_platform_obot_apiclient_types_CronJobList(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -854,7 +854,7 @@ func schema_acorn_io_acorn_apiclient_types_CronJobList(ref common.ReferenceCallb
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/acorn-io/acorn/apiclient/types.CronJob"),
+										Ref:     ref("github.com/obot-platform/obot/apiclient/types.CronJob"),
 									},
 								},
 							},
@@ -865,11 +865,11 @@ func schema_acorn_io_acorn_apiclient_types_CronJobList(ref common.ReferenceCallb
 			},
 		},
 		Dependencies: []string{
-			"github.com/acorn-io/acorn/apiclient/types.CronJob"},
+			"github.com/obot-platform/obot/apiclient/types.CronJob"},
 	}
 }
 
-func schema_acorn_io_acorn_apiclient_types_CronJobManifest(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_obot_platform_obot_apiclient_types_CronJobManifest(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -901,18 +901,18 @@ func schema_acorn_io_acorn_apiclient_types_CronJobManifest(ref common.ReferenceC
 					},
 					"taskSchedule": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/acorn-io/acorn/apiclient/types.Schedule"),
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.Schedule"),
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/acorn-io/acorn/apiclient/types.Schedule"},
+			"github.com/obot-platform/obot/apiclient/types.Schedule"},
 	}
 }
 
-func schema_acorn_io_acorn_apiclient_types_DefaultModelAlias(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_obot_platform_obot_apiclient_types_DefaultModelAlias(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -921,7 +921,7 @@ func schema_acorn_io_acorn_apiclient_types_DefaultModelAlias(ref common.Referenc
 					"DefaultModelAliasManifest": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/acorn-io/acorn/apiclient/types.DefaultModelAliasManifest"),
+							Ref:     ref("github.com/obot-platform/obot/apiclient/types.DefaultModelAliasManifest"),
 						},
 					},
 				},
@@ -929,11 +929,11 @@ func schema_acorn_io_acorn_apiclient_types_DefaultModelAlias(ref common.Referenc
 			},
 		},
 		Dependencies: []string{
-			"github.com/acorn-io/acorn/apiclient/types.DefaultModelAliasManifest"},
+			"github.com/obot-platform/obot/apiclient/types.DefaultModelAliasManifest"},
 	}
 }
 
-func schema_acorn_io_acorn_apiclient_types_DefaultModelAliasList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_obot_platform_obot_apiclient_types_DefaultModelAliasList(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -946,7 +946,7 @@ func schema_acorn_io_acorn_apiclient_types_DefaultModelAliasList(ref common.Refe
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/acorn-io/acorn/apiclient/types.DefaultModelAlias"),
+										Ref:     ref("github.com/obot-platform/obot/apiclient/types.DefaultModelAlias"),
 									},
 								},
 							},
@@ -957,11 +957,11 @@ func schema_acorn_io_acorn_apiclient_types_DefaultModelAliasList(ref common.Refe
 			},
 		},
 		Dependencies: []string{
-			"github.com/acorn-io/acorn/apiclient/types.DefaultModelAlias"},
+			"github.com/obot-platform/obot/apiclient/types.DefaultModelAlias"},
 	}
 }
 
-func schema_acorn_io_acorn_apiclient_types_DefaultModelAliasManifest(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_obot_platform_obot_apiclient_types_DefaultModelAliasManifest(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -988,7 +988,7 @@ func schema_acorn_io_acorn_apiclient_types_DefaultModelAliasManifest(ref common.
 	}
 }
 
-func schema_acorn_io_acorn_apiclient_types_EmailReceiver(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_obot_platform_obot_apiclient_types_EmailReceiver(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -997,13 +997,13 @@ func schema_acorn_io_acorn_apiclient_types_EmailReceiver(ref common.ReferenceCal
 					"Metadata": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/acorn-io/acorn/apiclient/types.Metadata"),
+							Ref:     ref("github.com/obot-platform/obot/apiclient/types.Metadata"),
 						},
 					},
 					"EmailReceiverManifest": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/acorn-io/acorn/apiclient/types.EmailReceiverManifest"),
+							Ref:     ref("github.com/obot-platform/obot/apiclient/types.EmailReceiverManifest"),
 						},
 					},
 					"aliasAssigned": {
@@ -1023,11 +1023,11 @@ func schema_acorn_io_acorn_apiclient_types_EmailReceiver(ref common.ReferenceCal
 			},
 		},
 		Dependencies: []string{
-			"github.com/acorn-io/acorn/apiclient/types.EmailReceiverManifest", "github.com/acorn-io/acorn/apiclient/types.Metadata"},
+			"github.com/obot-platform/obot/apiclient/types.EmailReceiverManifest", "github.com/obot-platform/obot/apiclient/types.Metadata"},
 	}
 }
 
-func schema_acorn_io_acorn_apiclient_types_EmailReceiverList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_obot_platform_obot_apiclient_types_EmailReceiverList(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -1040,7 +1040,7 @@ func schema_acorn_io_acorn_apiclient_types_EmailReceiverList(ref common.Referenc
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/acorn-io/acorn/apiclient/types.EmailReceiver"),
+										Ref:     ref("github.com/obot-platform/obot/apiclient/types.EmailReceiver"),
 									},
 								},
 							},
@@ -1051,11 +1051,11 @@ func schema_acorn_io_acorn_apiclient_types_EmailReceiverList(ref common.Referenc
 			},
 		},
 		Dependencies: []string{
-			"github.com/acorn-io/acorn/apiclient/types.EmailReceiver"},
+			"github.com/obot-platform/obot/apiclient/types.EmailReceiver"},
 	}
 }
 
-func schema_acorn_io_acorn_apiclient_types_EmailReceiverManifest(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_obot_platform_obot_apiclient_types_EmailReceiverManifest(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -1109,7 +1109,7 @@ func schema_acorn_io_acorn_apiclient_types_EmailReceiverManifest(ref common.Refe
 	}
 }
 
-func schema_acorn_io_acorn_apiclient_types_EnvVar(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_obot_platform_obot_apiclient_types_EnvVar(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -1143,7 +1143,7 @@ func schema_acorn_io_acorn_apiclient_types_EnvVar(ref common.ReferenceCallback) 
 	}
 }
 
-func schema_acorn_io_acorn_apiclient_types_ErrHTTP(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_obot_platform_obot_apiclient_types_ErrHTTP(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -1170,7 +1170,7 @@ func schema_acorn_io_acorn_apiclient_types_ErrHTTP(ref common.ReferenceCallback)
 	}
 }
 
-func schema_acorn_io_acorn_apiclient_types_File(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_obot_platform_obot_apiclient_types_File(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -1188,7 +1188,7 @@ func schema_acorn_io_acorn_apiclient_types_File(ref common.ReferenceCallback) co
 	}
 }
 
-func schema_acorn_io_acorn_apiclient_types_FileList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_obot_platform_obot_apiclient_types_FileList(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -1201,7 +1201,7 @@ func schema_acorn_io_acorn_apiclient_types_FileList(ref common.ReferenceCallback
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/acorn-io/acorn/apiclient/types.File"),
+										Ref:     ref("github.com/obot-platform/obot/apiclient/types.File"),
 									},
 								},
 							},
@@ -1212,11 +1212,11 @@ func schema_acorn_io_acorn_apiclient_types_FileList(ref common.ReferenceCallback
 			},
 		},
 		Dependencies: []string{
-			"github.com/acorn-io/acorn/apiclient/types.File"},
+			"github.com/obot-platform/obot/apiclient/types.File"},
 	}
 }
 
-func schema_acorn_io_acorn_apiclient_types_If(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_obot_platform_obot_apiclient_types_If(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -1235,7 +1235,7 @@ func schema_acorn_io_acorn_apiclient_types_If(ref common.ReferenceCallback) comm
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/acorn-io/acorn/apiclient/types.Step"),
+										Ref:     ref("github.com/obot-platform/obot/apiclient/types.Step"),
 									},
 								},
 							},
@@ -1248,7 +1248,7 @@ func schema_acorn_io_acorn_apiclient_types_If(ref common.ReferenceCallback) comm
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/acorn-io/acorn/apiclient/types.Step"),
+										Ref:     ref("github.com/obot-platform/obot/apiclient/types.Step"),
 									},
 								},
 							},
@@ -1258,11 +1258,11 @@ func schema_acorn_io_acorn_apiclient_types_If(ref common.ReferenceCallback) comm
 			},
 		},
 		Dependencies: []string{
-			"github.com/acorn-io/acorn/apiclient/types.Step"},
+			"github.com/obot-platform/obot/apiclient/types.Step"},
 	}
 }
 
-func schema_acorn_io_acorn_apiclient_types_Item(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_obot_platform_obot_apiclient_types_Item(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -1272,7 +1272,7 @@ func schema_acorn_io_acorn_apiclient_types_Item(ref common.ReferenceCallback) co
 	}
 }
 
-func schema_acorn_io_acorn_apiclient_types_KnowledgeFile(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_obot_platform_obot_apiclient_types_KnowledgeFile(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -1281,7 +1281,7 @@ func schema_acorn_io_acorn_apiclient_types_KnowledgeFile(ref common.ReferenceCal
 					"Metadata": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/acorn-io/acorn/apiclient/types.Metadata"),
+							Ref:     ref("github.com/obot-platform/obot/apiclient/types.Metadata"),
 						},
 					},
 					"fileName": {
@@ -1354,12 +1354,12 @@ func schema_acorn_io_acorn_apiclient_types_KnowledgeFile(ref common.ReferenceCal
 					},
 					"lastIngestionStartTime": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/acorn-io/acorn/apiclient/types.Time"),
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.Time"),
 						},
 					},
 					"lastIngestionEndTime": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/acorn-io/acorn/apiclient/types.Time"),
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.Time"),
 						},
 					},
 					"lastRunIDs": {
@@ -1387,11 +1387,11 @@ func schema_acorn_io_acorn_apiclient_types_KnowledgeFile(ref common.ReferenceCal
 			},
 		},
 		Dependencies: []string{
-			"github.com/acorn-io/acorn/apiclient/types.Metadata", "github.com/acorn-io/acorn/apiclient/types.Time"},
+			"github.com/obot-platform/obot/apiclient/types.Metadata", "github.com/obot-platform/obot/apiclient/types.Time"},
 	}
 }
 
-func schema_acorn_io_acorn_apiclient_types_KnowledgeFileList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_obot_platform_obot_apiclient_types_KnowledgeFileList(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -1404,7 +1404,7 @@ func schema_acorn_io_acorn_apiclient_types_KnowledgeFileList(ref common.Referenc
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/acorn-io/acorn/apiclient/types.KnowledgeFile"),
+										Ref:     ref("github.com/obot-platform/obot/apiclient/types.KnowledgeFile"),
 									},
 								},
 							},
@@ -1415,11 +1415,11 @@ func schema_acorn_io_acorn_apiclient_types_KnowledgeFileList(ref common.Referenc
 			},
 		},
 		Dependencies: []string{
-			"github.com/acorn-io/acorn/apiclient/types.KnowledgeFile"},
+			"github.com/obot-platform/obot/apiclient/types.KnowledgeFile"},
 	}
 }
 
-func schema_acorn_io_acorn_apiclient_types_KnowledgeSource(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_obot_platform_obot_apiclient_types_KnowledgeSource(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -1428,7 +1428,7 @@ func schema_acorn_io_acorn_apiclient_types_KnowledgeSource(ref common.ReferenceC
 					"Metadata": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/acorn-io/acorn/apiclient/types.Metadata"),
+							Ref:     ref("github.com/obot-platform/obot/apiclient/types.Metadata"),
 						},
 					},
 					"syncSchedule": {
@@ -1473,17 +1473,17 @@ func schema_acorn_io_acorn_apiclient_types_KnowledgeSource(ref common.ReferenceC
 					},
 					"onedriveConfig": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/acorn-io/acorn/apiclient/types.OneDriveConfig"),
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.OneDriveConfig"),
 						},
 					},
 					"notionConfig": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/acorn-io/acorn/apiclient/types.NotionConfig"),
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.NotionConfig"),
 						},
 					},
 					"websiteCrawlingConfig": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/acorn-io/acorn/apiclient/types.WebsiteCrawlingConfig"),
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.WebsiteCrawlingConfig"),
 						},
 					},
 					"agentID": {
@@ -1518,12 +1518,12 @@ func schema_acorn_io_acorn_apiclient_types_KnowledgeSource(ref common.ReferenceC
 					},
 					"lastSyncStartTime": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/acorn-io/acorn/apiclient/types.Time"),
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.Time"),
 						},
 					},
 					"lastSyncEndTime": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/acorn-io/acorn/apiclient/types.Time"),
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.Time"),
 						},
 					},
 					"lastRunID": {
@@ -1537,11 +1537,11 @@ func schema_acorn_io_acorn_apiclient_types_KnowledgeSource(ref common.ReferenceC
 			},
 		},
 		Dependencies: []string{
-			"github.com/acorn-io/acorn/apiclient/types.Metadata", "github.com/acorn-io/acorn/apiclient/types.NotionConfig", "github.com/acorn-io/acorn/apiclient/types.OneDriveConfig", "github.com/acorn-io/acorn/apiclient/types.Time", "github.com/acorn-io/acorn/apiclient/types.WebsiteCrawlingConfig"},
+			"github.com/obot-platform/obot/apiclient/types.Metadata", "github.com/obot-platform/obot/apiclient/types.NotionConfig", "github.com/obot-platform/obot/apiclient/types.OneDriveConfig", "github.com/obot-platform/obot/apiclient/types.Time", "github.com/obot-platform/obot/apiclient/types.WebsiteCrawlingConfig"},
 	}
 }
 
-func schema_acorn_io_acorn_apiclient_types_KnowledgeSourceInput(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_obot_platform_obot_apiclient_types_KnowledgeSourceInput(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -1549,28 +1549,28 @@ func schema_acorn_io_acorn_apiclient_types_KnowledgeSourceInput(ref common.Refer
 				Properties: map[string]spec.Schema{
 					"onedriveConfig": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/acorn-io/acorn/apiclient/types.OneDriveConfig"),
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.OneDriveConfig"),
 						},
 					},
 					"notionConfig": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/acorn-io/acorn/apiclient/types.NotionConfig"),
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.NotionConfig"),
 						},
 					},
 					"websiteCrawlingConfig": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/acorn-io/acorn/apiclient/types.WebsiteCrawlingConfig"),
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.WebsiteCrawlingConfig"),
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/acorn-io/acorn/apiclient/types.NotionConfig", "github.com/acorn-io/acorn/apiclient/types.OneDriveConfig", "github.com/acorn-io/acorn/apiclient/types.WebsiteCrawlingConfig"},
+			"github.com/obot-platform/obot/apiclient/types.NotionConfig", "github.com/obot-platform/obot/apiclient/types.OneDriveConfig", "github.com/obot-platform/obot/apiclient/types.WebsiteCrawlingConfig"},
 	}
 }
 
-func schema_acorn_io_acorn_apiclient_types_KnowledgeSourceList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_obot_platform_obot_apiclient_types_KnowledgeSourceList(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -1583,7 +1583,7 @@ func schema_acorn_io_acorn_apiclient_types_KnowledgeSourceList(ref common.Refere
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/acorn-io/acorn/apiclient/types.KnowledgeSource"),
+										Ref:     ref("github.com/obot-platform/obot/apiclient/types.KnowledgeSource"),
 									},
 								},
 							},
@@ -1594,11 +1594,11 @@ func schema_acorn_io_acorn_apiclient_types_KnowledgeSourceList(ref common.Refere
 			},
 		},
 		Dependencies: []string{
-			"github.com/acorn-io/acorn/apiclient/types.KnowledgeSource"},
+			"github.com/obot-platform/obot/apiclient/types.KnowledgeSource"},
 	}
 }
 
-func schema_acorn_io_acorn_apiclient_types_KnowledgeSourceManifest(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_obot_platform_obot_apiclient_types_KnowledgeSourceManifest(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -1646,28 +1646,28 @@ func schema_acorn_io_acorn_apiclient_types_KnowledgeSourceManifest(ref common.Re
 					},
 					"onedriveConfig": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/acorn-io/acorn/apiclient/types.OneDriveConfig"),
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.OneDriveConfig"),
 						},
 					},
 					"notionConfig": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/acorn-io/acorn/apiclient/types.NotionConfig"),
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.NotionConfig"),
 						},
 					},
 					"websiteCrawlingConfig": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/acorn-io/acorn/apiclient/types.WebsiteCrawlingConfig"),
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.WebsiteCrawlingConfig"),
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/acorn-io/acorn/apiclient/types.NotionConfig", "github.com/acorn-io/acorn/apiclient/types.OneDriveConfig", "github.com/acorn-io/acorn/apiclient/types.WebsiteCrawlingConfig"},
+			"github.com/obot-platform/obot/apiclient/types.NotionConfig", "github.com/obot-platform/obot/apiclient/types.OneDriveConfig", "github.com/obot-platform/obot/apiclient/types.WebsiteCrawlingConfig"},
 	}
 }
 
-func schema_acorn_io_acorn_apiclient_types_Metadata(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_obot_platform_obot_apiclient_types_Metadata(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -1681,12 +1681,12 @@ func schema_acorn_io_acorn_apiclient_types_Metadata(ref common.ReferenceCallback
 					},
 					"created": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/acorn-io/acorn/apiclient/types.Time"),
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.Time"),
 						},
 					},
 					"deleted": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/acorn-io/acorn/apiclient/types.Time"),
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.Time"),
 						},
 					},
 					"revision": {
@@ -1735,11 +1735,11 @@ func schema_acorn_io_acorn_apiclient_types_Metadata(ref common.ReferenceCallback
 			},
 		},
 		Dependencies: []string{
-			"github.com/acorn-io/acorn/apiclient/types.Time"},
+			"github.com/obot-platform/obot/apiclient/types.Time"},
 	}
 }
 
-func schema_acorn_io_acorn_apiclient_types_Model(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_obot_platform_obot_apiclient_types_Model(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -1748,19 +1748,19 @@ func schema_acorn_io_acorn_apiclient_types_Model(ref common.ReferenceCallback) c
 					"Metadata": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/acorn-io/acorn/apiclient/types.Metadata"),
+							Ref:     ref("github.com/obot-platform/obot/apiclient/types.Metadata"),
 						},
 					},
 					"ModelManifest": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/acorn-io/acorn/apiclient/types.ModelManifest"),
+							Ref:     ref("github.com/obot-platform/obot/apiclient/types.ModelManifest"),
 						},
 					},
 					"ModelStatus": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/acorn-io/acorn/apiclient/types.ModelStatus"),
+							Ref:     ref("github.com/obot-platform/obot/apiclient/types.ModelStatus"),
 						},
 					},
 				},
@@ -1768,11 +1768,11 @@ func schema_acorn_io_acorn_apiclient_types_Model(ref common.ReferenceCallback) c
 			},
 		},
 		Dependencies: []string{
-			"github.com/acorn-io/acorn/apiclient/types.Metadata", "github.com/acorn-io/acorn/apiclient/types.ModelManifest", "github.com/acorn-io/acorn/apiclient/types.ModelStatus"},
+			"github.com/obot-platform/obot/apiclient/types.Metadata", "github.com/obot-platform/obot/apiclient/types.ModelManifest", "github.com/obot-platform/obot/apiclient/types.ModelStatus"},
 	}
 }
 
-func schema_acorn_io_acorn_apiclient_types_ModelList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_obot_platform_obot_apiclient_types_ModelList(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -1785,7 +1785,7 @@ func schema_acorn_io_acorn_apiclient_types_ModelList(ref common.ReferenceCallbac
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/acorn-io/acorn/apiclient/types.Model"),
+										Ref:     ref("github.com/obot-platform/obot/apiclient/types.Model"),
 									},
 								},
 							},
@@ -1796,11 +1796,11 @@ func schema_acorn_io_acorn_apiclient_types_ModelList(ref common.ReferenceCallbac
 			},
 		},
 		Dependencies: []string{
-			"github.com/acorn-io/acorn/apiclient/types.Model"},
+			"github.com/obot-platform/obot/apiclient/types.Model"},
 	}
 }
 
-func schema_acorn_io_acorn_apiclient_types_ModelManifest(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_obot_platform_obot_apiclient_types_ModelManifest(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -1851,7 +1851,7 @@ func schema_acorn_io_acorn_apiclient_types_ModelManifest(ref common.ReferenceCal
 	}
 }
 
-func schema_acorn_io_acorn_apiclient_types_ModelProvider(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_obot_platform_obot_apiclient_types_ModelProvider(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -1860,19 +1860,19 @@ func schema_acorn_io_acorn_apiclient_types_ModelProvider(ref common.ReferenceCal
 					"Metadata": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/acorn-io/acorn/apiclient/types.Metadata"),
+							Ref:     ref("github.com/obot-platform/obot/apiclient/types.Metadata"),
 						},
 					},
 					"ModelProviderManifest": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/acorn-io/acorn/apiclient/types.ModelProviderManifest"),
+							Ref:     ref("github.com/obot-platform/obot/apiclient/types.ModelProviderManifest"),
 						},
 					},
 					"ModelProviderStatus": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/acorn-io/acorn/apiclient/types.ModelProviderStatus"),
+							Ref:     ref("github.com/obot-platform/obot/apiclient/types.ModelProviderStatus"),
 						},
 					},
 				},
@@ -1880,11 +1880,11 @@ func schema_acorn_io_acorn_apiclient_types_ModelProvider(ref common.ReferenceCal
 			},
 		},
 		Dependencies: []string{
-			"github.com/acorn-io/acorn/apiclient/types.Metadata", "github.com/acorn-io/acorn/apiclient/types.ModelProviderManifest", "github.com/acorn-io/acorn/apiclient/types.ModelProviderStatus"},
+			"github.com/obot-platform/obot/apiclient/types.Metadata", "github.com/obot-platform/obot/apiclient/types.ModelProviderManifest", "github.com/obot-platform/obot/apiclient/types.ModelProviderStatus"},
 	}
 }
 
-func schema_acorn_io_acorn_apiclient_types_ModelProviderList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_obot_platform_obot_apiclient_types_ModelProviderList(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -1897,7 +1897,7 @@ func schema_acorn_io_acorn_apiclient_types_ModelProviderList(ref common.Referenc
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/acorn-io/acorn/apiclient/types.ModelProvider"),
+										Ref:     ref("github.com/obot-platform/obot/apiclient/types.ModelProvider"),
 									},
 								},
 							},
@@ -1908,11 +1908,11 @@ func schema_acorn_io_acorn_apiclient_types_ModelProviderList(ref common.Referenc
 			},
 		},
 		Dependencies: []string{
-			"github.com/acorn-io/acorn/apiclient/types.ModelProvider"},
+			"github.com/obot-platform/obot/apiclient/types.ModelProvider"},
 	}
 }
 
-func schema_acorn_io_acorn_apiclient_types_ModelProviderManifest(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_obot_platform_obot_apiclient_types_ModelProviderManifest(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -1939,7 +1939,7 @@ func schema_acorn_io_acorn_apiclient_types_ModelProviderManifest(ref common.Refe
 	}
 }
 
-func schema_acorn_io_acorn_apiclient_types_ModelProviderStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_obot_platform_obot_apiclient_types_ModelProviderStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -1999,7 +1999,7 @@ func schema_acorn_io_acorn_apiclient_types_ModelProviderStatus(ref common.Refere
 	}
 }
 
-func schema_acorn_io_acorn_apiclient_types_ModelStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_obot_platform_obot_apiclient_types_ModelStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -2017,7 +2017,7 @@ func schema_acorn_io_acorn_apiclient_types_ModelStatus(ref common.ReferenceCallb
 	}
 }
 
-func schema_acorn_io_acorn_apiclient_types_NotionConfig(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_obot_platform_obot_apiclient_types_NotionConfig(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -2027,7 +2027,7 @@ func schema_acorn_io_acorn_apiclient_types_NotionConfig(ref common.ReferenceCall
 	}
 }
 
-func schema_acorn_io_acorn_apiclient_types_OAuthApp(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_obot_platform_obot_apiclient_types_OAuthApp(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -2036,7 +2036,7 @@ func schema_acorn_io_acorn_apiclient_types_OAuthApp(ref common.ReferenceCallback
 					"OAuthAppManifest": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/acorn-io/acorn/apiclient/types.OAuthAppManifest"),
+							Ref:     ref("github.com/obot-platform/obot/apiclient/types.OAuthAppManifest"),
 						},
 					},
 				},
@@ -2044,11 +2044,11 @@ func schema_acorn_io_acorn_apiclient_types_OAuthApp(ref common.ReferenceCallback
 			},
 		},
 		Dependencies: []string{
-			"github.com/acorn-io/acorn/apiclient/types.OAuthAppManifest"},
+			"github.com/obot-platform/obot/apiclient/types.OAuthAppManifest"},
 	}
 }
 
-func schema_acorn_io_acorn_apiclient_types_OAuthAppList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_obot_platform_obot_apiclient_types_OAuthAppList(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -2061,7 +2061,7 @@ func schema_acorn_io_acorn_apiclient_types_OAuthAppList(ref common.ReferenceCall
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/acorn-io/acorn/apiclient/types.OAuthApp"),
+										Ref:     ref("github.com/obot-platform/obot/apiclient/types.OAuthApp"),
 									},
 								},
 							},
@@ -2072,11 +2072,11 @@ func schema_acorn_io_acorn_apiclient_types_OAuthAppList(ref common.ReferenceCall
 			},
 		},
 		Dependencies: []string{
-			"github.com/acorn-io/acorn/apiclient/types.OAuthApp"},
+			"github.com/obot-platform/obot/apiclient/types.OAuthApp"},
 	}
 }
 
-func schema_acorn_io_acorn_apiclient_types_OAuthAppLoginAuthStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_obot_platform_obot_apiclient_types_OAuthAppLoginAuthStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -2112,7 +2112,7 @@ func schema_acorn_io_acorn_apiclient_types_OAuthAppLoginAuthStatus(ref common.Re
 	}
 }
 
-func schema_acorn_io_acorn_apiclient_types_OAuthAppManifest(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_obot_platform_obot_apiclient_types_OAuthAppManifest(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -2121,7 +2121,7 @@ func schema_acorn_io_acorn_apiclient_types_OAuthAppManifest(ref common.Reference
 					"Metadata": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/acorn-io/acorn/apiclient/types.Metadata"),
+							Ref:     ref("github.com/obot-platform/obot/apiclient/types.Metadata"),
 						},
 					},
 					"type": {
@@ -2203,11 +2203,11 @@ func schema_acorn_io_acorn_apiclient_types_OAuthAppManifest(ref common.Reference
 			},
 		},
 		Dependencies: []string{
-			"github.com/acorn-io/acorn/apiclient/types.Metadata"},
+			"github.com/obot-platform/obot/apiclient/types.Metadata"},
 	}
 }
 
-func schema_acorn_io_acorn_apiclient_types_OneDriveConfig(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_obot_platform_obot_apiclient_types_OneDriveConfig(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -2233,7 +2233,7 @@ func schema_acorn_io_acorn_apiclient_types_OneDriveConfig(ref common.ReferenceCa
 	}
 }
 
-func schema_acorn_io_acorn_apiclient_types_Progress(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_obot_platform_obot_apiclient_types_Progress(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -2256,7 +2256,7 @@ func schema_acorn_io_acorn_apiclient_types_Progress(ref common.ReferenceCallback
 					"time": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Time is the time the event was generated",
-							Ref:         ref("github.com/acorn-io/acorn/apiclient/types.Time"),
+							Ref:         ref("github.com/obot-platform/obot/apiclient/types.Time"),
 						},
 					},
 					"content": {
@@ -2291,37 +2291,37 @@ func schema_acorn_io_acorn_apiclient_types_Progress(ref common.ReferenceCallback
 					"stepTemplateInvoke": {
 						SchemaProps: spec.SchemaProps{
 							Description: "StepTemplateInvoke indicates that a step template is being invoked",
-							Ref:         ref("github.com/acorn-io/acorn/apiclient/types.StepTemplateInvoke"),
+							Ref:         ref("github.com/obot-platform/obot/apiclient/types.StepTemplateInvoke"),
 						},
 					},
 					"prompt": {
 						SchemaProps: spec.SchemaProps{
 							Description: "If prompt is set, content will also be set, but you can ignore the content field and instead handle the explicit information in the prompt field which will provider more information for things such as OAuth",
-							Ref:         ref("github.com/acorn-io/acorn/apiclient/types.Prompt"),
+							Ref:         ref("github.com/obot-platform/obot/apiclient/types.Prompt"),
 						},
 					},
 					"step": {
 						SchemaProps: spec.SchemaProps{
 							Description: "The step that is currently being executed. When this is set the following events are assumed to be part of this step until the next step is set. This field is not always set, only set when the set changes",
-							Ref:         ref("github.com/acorn-io/acorn/apiclient/types.Step"),
+							Ref:         ref("github.com/obot-platform/obot/apiclient/types.Step"),
 						},
 					},
 					"toolInput": {
 						SchemaProps: spec.SchemaProps{
 							Description: "ToolInput indicates the LLM is currently generating tool arguments which can sometime take a while",
-							Ref:         ref("github.com/acorn-io/acorn/apiclient/types.ToolInput"),
+							Ref:         ref("github.com/obot-platform/obot/apiclient/types.ToolInput"),
 						},
 					},
 					"toolCall": {
 						SchemaProps: spec.SchemaProps{
 							Description: "ToolCall indicates the LLM is currently calling a tool.",
-							Ref:         ref("github.com/acorn-io/acorn/apiclient/types.ToolCall"),
+							Ref:         ref("github.com/obot-platform/obot/apiclient/types.ToolCall"),
 						},
 					},
 					"workflowCall": {
 						SchemaProps: spec.SchemaProps{
 							Description: "ToolCall indicates the LLM is currently calling a tool.",
-							Ref:         ref("github.com/acorn-io/acorn/apiclient/types.WorkflowCall"),
+							Ref:         ref("github.com/obot-platform/obot/apiclient/types.WorkflowCall"),
 						},
 					},
 					"waitingOnModel": {
@@ -2357,11 +2357,11 @@ func schema_acorn_io_acorn_apiclient_types_Progress(ref common.ReferenceCallback
 			},
 		},
 		Dependencies: []string{
-			"github.com/acorn-io/acorn/apiclient/types.Prompt", "github.com/acorn-io/acorn/apiclient/types.Step", "github.com/acorn-io/acorn/apiclient/types.StepTemplateInvoke", "github.com/acorn-io/acorn/apiclient/types.Time", "github.com/acorn-io/acorn/apiclient/types.ToolCall", "github.com/acorn-io/acorn/apiclient/types.ToolInput", "github.com/acorn-io/acorn/apiclient/types.WorkflowCall"},
+			"github.com/obot-platform/obot/apiclient/types.Prompt", "github.com/obot-platform/obot/apiclient/types.Step", "github.com/obot-platform/obot/apiclient/types.StepTemplateInvoke", "github.com/obot-platform/obot/apiclient/types.Time", "github.com/obot-platform/obot/apiclient/types.ToolCall", "github.com/obot-platform/obot/apiclient/types.ToolInput", "github.com/obot-platform/obot/apiclient/types.WorkflowCall"},
 	}
 }
 
-func schema_acorn_io_acorn_apiclient_types_Prompt(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_obot_platform_obot_apiclient_types_Prompt(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -2387,7 +2387,7 @@ func schema_acorn_io_acorn_apiclient_types_Prompt(ref common.ReferenceCallback) 
 					},
 					"time": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/acorn-io/acorn/apiclient/types.Time"),
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.Time"),
 						},
 					},
 					"message": {
@@ -2435,11 +2435,11 @@ func schema_acorn_io_acorn_apiclient_types_Prompt(ref common.ReferenceCallback) 
 			},
 		},
 		Dependencies: []string{
-			"github.com/acorn-io/acorn/apiclient/types.Time"},
+			"github.com/obot-platform/obot/apiclient/types.Time"},
 	}
 }
 
-func schema_acorn_io_acorn_apiclient_types_PromptResponse(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_obot_platform_obot_apiclient_types_PromptResponse(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -2472,7 +2472,7 @@ func schema_acorn_io_acorn_apiclient_types_PromptResponse(ref common.ReferenceCa
 	}
 }
 
-func schema_acorn_io_acorn_apiclient_types_Run(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_obot_platform_obot_apiclient_types_Run(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -2486,7 +2486,7 @@ func schema_acorn_io_acorn_apiclient_types_Run(ref common.ReferenceCallback) com
 					},
 					"created": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/acorn-io/acorn/apiclient/types.Time"),
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.Time"),
 						},
 					},
 					"threadID": {
@@ -2561,11 +2561,11 @@ func schema_acorn_io_acorn_apiclient_types_Run(ref common.ReferenceCallback) com
 			},
 		},
 		Dependencies: []string{
-			"github.com/acorn-io/acorn/apiclient/types.Time"},
+			"github.com/obot-platform/obot/apiclient/types.Time"},
 	}
 }
 
-func schema_acorn_io_acorn_apiclient_types_RunList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_obot_platform_obot_apiclient_types_RunList(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -2578,7 +2578,7 @@ func schema_acorn_io_acorn_apiclient_types_RunList(ref common.ReferenceCallback)
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/acorn-io/acorn/apiclient/types.Run"),
+										Ref:     ref("github.com/obot-platform/obot/apiclient/types.Run"),
 									},
 								},
 							},
@@ -2589,11 +2589,11 @@ func schema_acorn_io_acorn_apiclient_types_RunList(ref common.ReferenceCallback)
 			},
 		},
 		Dependencies: []string{
-			"github.com/acorn-io/acorn/apiclient/types.Run"},
+			"github.com/obot-platform/obot/apiclient/types.Run"},
 	}
 }
 
-func schema_acorn_io_acorn_apiclient_types_Schedule(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_obot_platform_obot_apiclient_types_Schedule(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -2642,7 +2642,7 @@ func schema_acorn_io_acorn_apiclient_types_Schedule(ref common.ReferenceCallback
 	}
 }
 
-func schema_acorn_io_acorn_apiclient_types_Step(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_obot_platform_obot_apiclient_types_Step(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -2668,17 +2668,17 @@ func schema_acorn_io_acorn_apiclient_types_Step(ref common.ReferenceCallback) co
 					},
 					"if": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/acorn-io/acorn/apiclient/types.If"),
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.If"),
 						},
 					},
 					"while": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/acorn-io/acorn/apiclient/types.While"),
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.While"),
 						},
 					},
 					"template": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/acorn-io/acorn/apiclient/types.Template"),
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.Template"),
 						},
 					},
 					"tools": {
@@ -2745,11 +2745,11 @@ func schema_acorn_io_acorn_apiclient_types_Step(ref common.ReferenceCallback) co
 			},
 		},
 		Dependencies: []string{
-			"github.com/acorn-io/acorn/apiclient/types.If", "github.com/acorn-io/acorn/apiclient/types.Template", "github.com/acorn-io/acorn/apiclient/types.While"},
+			"github.com/obot-platform/obot/apiclient/types.If", "github.com/obot-platform/obot/apiclient/types.Template", "github.com/obot-platform/obot/apiclient/types.While"},
 	}
 }
 
-func schema_acorn_io_acorn_apiclient_types_StepTemplateInvoke(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_obot_platform_obot_apiclient_types_StepTemplateInvoke(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -2794,7 +2794,7 @@ func schema_acorn_io_acorn_apiclient_types_StepTemplateInvoke(ref common.Referen
 	}
 }
 
-func schema_acorn_io_acorn_apiclient_types_SubFlow(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_obot_platform_obot_apiclient_types_SubFlow(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -2818,7 +2818,7 @@ func schema_acorn_io_acorn_apiclient_types_SubFlow(ref common.ReferenceCallback)
 	}
 }
 
-func schema_acorn_io_acorn_apiclient_types_Table(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_obot_platform_obot_apiclient_types_Table(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -2838,7 +2838,7 @@ func schema_acorn_io_acorn_apiclient_types_Table(ref common.ReferenceCallback) c
 	}
 }
 
-func schema_acorn_io_acorn_apiclient_types_TableList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_obot_platform_obot_apiclient_types_TableList(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -2851,7 +2851,7 @@ func schema_acorn_io_acorn_apiclient_types_TableList(ref common.ReferenceCallbac
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/acorn-io/acorn/apiclient/types.Table"),
+										Ref:     ref("github.com/obot-platform/obot/apiclient/types.Table"),
 									},
 								},
 							},
@@ -2862,11 +2862,11 @@ func schema_acorn_io_acorn_apiclient_types_TableList(ref common.ReferenceCallbac
 			},
 		},
 		Dependencies: []string{
-			"github.com/acorn-io/acorn/apiclient/types.Table"},
+			"github.com/obot-platform/obot/apiclient/types.Table"},
 	}
 }
 
-func schema_acorn_io_acorn_apiclient_types_Task(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_obot_platform_obot_apiclient_types_Task(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -2875,13 +2875,13 @@ func schema_acorn_io_acorn_apiclient_types_Task(ref common.ReferenceCallback) co
 					"Metadata": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/acorn-io/acorn/apiclient/types.Metadata"),
+							Ref:     ref("github.com/obot-platform/obot/apiclient/types.Metadata"),
 						},
 					},
 					"TaskManifest": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/acorn-io/acorn/apiclient/types.TaskManifest"),
+							Ref:     ref("github.com/obot-platform/obot/apiclient/types.TaskManifest"),
 						},
 					},
 					"alias": {
@@ -2895,11 +2895,11 @@ func schema_acorn_io_acorn_apiclient_types_Task(ref common.ReferenceCallback) co
 			},
 		},
 		Dependencies: []string{
-			"github.com/acorn-io/acorn/apiclient/types.Metadata", "github.com/acorn-io/acorn/apiclient/types.TaskManifest"},
+			"github.com/obot-platform/obot/apiclient/types.Metadata", "github.com/obot-platform/obot/apiclient/types.TaskManifest"},
 	}
 }
 
-func schema_acorn_io_acorn_apiclient_types_TaskEmail(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_obot_platform_obot_apiclient_types_TaskEmail(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -2909,7 +2909,7 @@ func schema_acorn_io_acorn_apiclient_types_TaskEmail(ref common.ReferenceCallbac
 	}
 }
 
-func schema_acorn_io_acorn_apiclient_types_TaskIf(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_obot_platform_obot_apiclient_types_TaskIf(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -2928,7 +2928,7 @@ func schema_acorn_io_acorn_apiclient_types_TaskIf(ref common.ReferenceCallback) 
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/acorn-io/acorn/apiclient/types.TaskStep"),
+										Ref:     ref("github.com/obot-platform/obot/apiclient/types.TaskStep"),
 									},
 								},
 							},
@@ -2941,7 +2941,7 @@ func schema_acorn_io_acorn_apiclient_types_TaskIf(ref common.ReferenceCallback) 
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/acorn-io/acorn/apiclient/types.TaskStep"),
+										Ref:     ref("github.com/obot-platform/obot/apiclient/types.TaskStep"),
 									},
 								},
 							},
@@ -2951,11 +2951,11 @@ func schema_acorn_io_acorn_apiclient_types_TaskIf(ref common.ReferenceCallback) 
 			},
 		},
 		Dependencies: []string{
-			"github.com/acorn-io/acorn/apiclient/types.TaskStep"},
+			"github.com/obot-platform/obot/apiclient/types.TaskStep"},
 	}
 }
 
-func schema_acorn_io_acorn_apiclient_types_TaskList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_obot_platform_obot_apiclient_types_TaskList(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -2968,7 +2968,7 @@ func schema_acorn_io_acorn_apiclient_types_TaskList(ref common.ReferenceCallback
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/acorn-io/acorn/apiclient/types.Task"),
+										Ref:     ref("github.com/obot-platform/obot/apiclient/types.Task"),
 									},
 								},
 							},
@@ -2979,11 +2979,11 @@ func schema_acorn_io_acorn_apiclient_types_TaskList(ref common.ReferenceCallback
 			},
 		},
 		Dependencies: []string{
-			"github.com/acorn-io/acorn/apiclient/types.Task"},
+			"github.com/obot-platform/obot/apiclient/types.Task"},
 	}
 }
 
-func schema_acorn_io_acorn_apiclient_types_TaskManifest(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_obot_platform_obot_apiclient_types_TaskManifest(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -3010,7 +3010,7 @@ func schema_acorn_io_acorn_apiclient_types_TaskManifest(ref common.ReferenceCall
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/acorn-io/acorn/apiclient/types.TaskStep"),
+										Ref:     ref("github.com/obot-platform/obot/apiclient/types.TaskStep"),
 									},
 								},
 							},
@@ -3018,22 +3018,22 @@ func schema_acorn_io_acorn_apiclient_types_TaskManifest(ref common.ReferenceCall
 					},
 					"schedule": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/acorn-io/acorn/apiclient/types.Schedule"),
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.Schedule"),
 						},
 					},
 					"webhook": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/acorn-io/acorn/apiclient/types.TaskWebhook"),
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.TaskWebhook"),
 						},
 					},
 					"email": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/acorn-io/acorn/apiclient/types.TaskEmail"),
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.TaskEmail"),
 						},
 					},
 					"onDemand": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/acorn-io/acorn/apiclient/types.TaskOnDemand"),
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.TaskOnDemand"),
 						},
 					},
 				},
@@ -3041,11 +3041,11 @@ func schema_acorn_io_acorn_apiclient_types_TaskManifest(ref common.ReferenceCall
 			},
 		},
 		Dependencies: []string{
-			"github.com/acorn-io/acorn/apiclient/types.Schedule", "github.com/acorn-io/acorn/apiclient/types.TaskEmail", "github.com/acorn-io/acorn/apiclient/types.TaskOnDemand", "github.com/acorn-io/acorn/apiclient/types.TaskStep", "github.com/acorn-io/acorn/apiclient/types.TaskWebhook"},
+			"github.com/obot-platform/obot/apiclient/types.Schedule", "github.com/obot-platform/obot/apiclient/types.TaskEmail", "github.com/obot-platform/obot/apiclient/types.TaskOnDemand", "github.com/obot-platform/obot/apiclient/types.TaskStep", "github.com/obot-platform/obot/apiclient/types.TaskWebhook"},
 	}
 }
 
-func schema_acorn_io_acorn_apiclient_types_TaskOnDemand(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_obot_platform_obot_apiclient_types_TaskOnDemand(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -3072,7 +3072,7 @@ func schema_acorn_io_acorn_apiclient_types_TaskOnDemand(ref common.ReferenceCall
 	}
 }
 
-func schema_acorn_io_acorn_apiclient_types_TaskRun(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_obot_platform_obot_apiclient_types_TaskRun(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -3081,7 +3081,7 @@ func schema_acorn_io_acorn_apiclient_types_TaskRun(ref common.ReferenceCallback)
 					"Metadata": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/acorn-io/acorn/apiclient/types.Metadata"),
+							Ref:     ref("github.com/obot-platform/obot/apiclient/types.Metadata"),
 						},
 					},
 					"taskID": {
@@ -3099,17 +3099,17 @@ func schema_acorn_io_acorn_apiclient_types_TaskRun(ref common.ReferenceCallback)
 					"task": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/acorn-io/acorn/apiclient/types.TaskManifest"),
+							Ref:     ref("github.com/obot-platform/obot/apiclient/types.TaskManifest"),
 						},
 					},
 					"startTime": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/acorn-io/acorn/apiclient/types.Time"),
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.Time"),
 						},
 					},
 					"endTime": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/acorn-io/acorn/apiclient/types.Time"),
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.Time"),
 						},
 					},
 				},
@@ -3117,11 +3117,11 @@ func schema_acorn_io_acorn_apiclient_types_TaskRun(ref common.ReferenceCallback)
 			},
 		},
 		Dependencies: []string{
-			"github.com/acorn-io/acorn/apiclient/types.Metadata", "github.com/acorn-io/acorn/apiclient/types.TaskManifest", "github.com/acorn-io/acorn/apiclient/types.Time"},
+			"github.com/obot-platform/obot/apiclient/types.Metadata", "github.com/obot-platform/obot/apiclient/types.TaskManifest", "github.com/obot-platform/obot/apiclient/types.Time"},
 	}
 }
 
-func schema_acorn_io_acorn_apiclient_types_TaskRunList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_obot_platform_obot_apiclient_types_TaskRunList(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -3134,7 +3134,7 @@ func schema_acorn_io_acorn_apiclient_types_TaskRunList(ref common.ReferenceCallb
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/acorn-io/acorn/apiclient/types.TaskRun"),
+										Ref:     ref("github.com/obot-platform/obot/apiclient/types.TaskRun"),
 									},
 								},
 							},
@@ -3145,11 +3145,11 @@ func schema_acorn_io_acorn_apiclient_types_TaskRunList(ref common.ReferenceCallb
 			},
 		},
 		Dependencies: []string{
-			"github.com/acorn-io/acorn/apiclient/types.TaskRun"},
+			"github.com/obot-platform/obot/apiclient/types.TaskRun"},
 	}
 }
 
-func schema_acorn_io_acorn_apiclient_types_TaskStep(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_obot_platform_obot_apiclient_types_TaskStep(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -3163,7 +3163,7 @@ func schema_acorn_io_acorn_apiclient_types_TaskStep(ref common.ReferenceCallback
 					},
 					"if": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/acorn-io/acorn/apiclient/types.TaskIf"),
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.TaskIf"),
 						},
 					},
 					"step": {
@@ -3176,11 +3176,11 @@ func schema_acorn_io_acorn_apiclient_types_TaskStep(ref common.ReferenceCallback
 			},
 		},
 		Dependencies: []string{
-			"github.com/acorn-io/acorn/apiclient/types.TaskIf"},
+			"github.com/obot-platform/obot/apiclient/types.TaskIf"},
 	}
 }
 
-func schema_acorn_io_acorn_apiclient_types_TaskWebhook(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_obot_platform_obot_apiclient_types_TaskWebhook(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -3190,7 +3190,7 @@ func schema_acorn_io_acorn_apiclient_types_TaskWebhook(ref common.ReferenceCallb
 	}
 }
 
-func schema_acorn_io_acorn_apiclient_types_Template(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_obot_platform_obot_apiclient_types_Template(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -3223,7 +3223,7 @@ func schema_acorn_io_acorn_apiclient_types_Template(ref common.ReferenceCallback
 	}
 }
 
-func schema_acorn_io_acorn_apiclient_types_Thread(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_obot_platform_obot_apiclient_types_Thread(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -3232,13 +3232,13 @@ func schema_acorn_io_acorn_apiclient_types_Thread(ref common.ReferenceCallback) 
 					"Metadata": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/acorn-io/acorn/apiclient/types.Metadata"),
+							Ref:     ref("github.com/obot-platform/obot/apiclient/types.Metadata"),
 						},
 					},
 					"ThreadManifest": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/acorn-io/acorn/apiclient/types.ThreadManifest"),
+							Ref:     ref("github.com/obot-platform/obot/apiclient/types.ThreadManifest"),
 						},
 					},
 					"agentID": {
@@ -3326,11 +3326,11 @@ func schema_acorn_io_acorn_apiclient_types_Thread(ref common.ReferenceCallback) 
 			},
 		},
 		Dependencies: []string{
-			"github.com/acorn-io/acorn/apiclient/types.Metadata", "github.com/acorn-io/acorn/apiclient/types.ThreadManifest"},
+			"github.com/obot-platform/obot/apiclient/types.Metadata", "github.com/obot-platform/obot/apiclient/types.ThreadManifest"},
 	}
 }
 
-func schema_acorn_io_acorn_apiclient_types_ThreadList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_obot_platform_obot_apiclient_types_ThreadList(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -3343,7 +3343,7 @@ func schema_acorn_io_acorn_apiclient_types_ThreadList(ref common.ReferenceCallba
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/acorn-io/acorn/apiclient/types.Thread"),
+										Ref:     ref("github.com/obot-platform/obot/apiclient/types.Thread"),
 									},
 								},
 							},
@@ -3354,11 +3354,11 @@ func schema_acorn_io_acorn_apiclient_types_ThreadList(ref common.ReferenceCallba
 			},
 		},
 		Dependencies: []string{
-			"github.com/acorn-io/acorn/apiclient/types.Thread"},
+			"github.com/obot-platform/obot/apiclient/types.Thread"},
 	}
 }
 
-func schema_acorn_io_acorn_apiclient_types_ThreadManifest(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_obot_platform_obot_apiclient_types_ThreadManifest(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -3390,7 +3390,7 @@ func schema_acorn_io_acorn_apiclient_types_ThreadManifest(ref common.ReferenceCa
 	}
 }
 
-func schema_acorn_io_acorn_apiclient_types_Time(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_obot_platform_obot_apiclient_types_Time(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -3401,7 +3401,7 @@ func schema_acorn_io_acorn_apiclient_types_Time(ref common.ReferenceCallback) co
 	}
 }
 
-func schema_acorn_io_acorn_apiclient_types_ToolCall(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_obot_platform_obot_apiclient_types_ToolCall(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -3452,7 +3452,7 @@ func schema_acorn_io_acorn_apiclient_types_ToolCall(ref common.ReferenceCallback
 	}
 }
 
-func schema_acorn_io_acorn_apiclient_types_ToolInput(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_obot_platform_obot_apiclient_types_ToolInput(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -3497,7 +3497,7 @@ func schema_acorn_io_acorn_apiclient_types_ToolInput(ref common.ReferenceCallbac
 	}
 }
 
-func schema_acorn_io_acorn_apiclient_types_ToolReference(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_obot_platform_obot_apiclient_types_ToolReference(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -3506,13 +3506,13 @@ func schema_acorn_io_acorn_apiclient_types_ToolReference(ref common.ReferenceCal
 					"Metadata": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/acorn-io/acorn/apiclient/types.Metadata"),
+							Ref:     ref("github.com/obot-platform/obot/apiclient/types.Metadata"),
 						},
 					},
 					"ToolReferenceManifest": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/acorn-io/acorn/apiclient/types.ToolReferenceManifest"),
+							Ref:     ref("github.com/obot-platform/obot/apiclient/types.ToolReferenceManifest"),
 						},
 					},
 					"resolved": {
@@ -3565,11 +3565,11 @@ func schema_acorn_io_acorn_apiclient_types_ToolReference(ref common.ReferenceCal
 			},
 		},
 		Dependencies: []string{
-			"github.com/acorn-io/acorn/apiclient/types.Metadata", "github.com/acorn-io/acorn/apiclient/types.ToolReferenceManifest"},
+			"github.com/obot-platform/obot/apiclient/types.Metadata", "github.com/obot-platform/obot/apiclient/types.ToolReferenceManifest"},
 	}
 }
 
-func schema_acorn_io_acorn_apiclient_types_ToolReferenceList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_obot_platform_obot_apiclient_types_ToolReferenceList(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -3582,7 +3582,7 @@ func schema_acorn_io_acorn_apiclient_types_ToolReferenceList(ref common.Referenc
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/acorn-io/acorn/apiclient/types.ToolReference"),
+										Ref:     ref("github.com/obot-platform/obot/apiclient/types.ToolReference"),
 									},
 								},
 							},
@@ -3593,11 +3593,11 @@ func schema_acorn_io_acorn_apiclient_types_ToolReferenceList(ref common.Referenc
 			},
 		},
 		Dependencies: []string{
-			"github.com/acorn-io/acorn/apiclient/types.ToolReference"},
+			"github.com/obot-platform/obot/apiclient/types.ToolReference"},
 	}
 }
 
-func schema_acorn_io_acorn_apiclient_types_ToolReferenceManifest(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_obot_platform_obot_apiclient_types_ToolReferenceManifest(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -3636,7 +3636,7 @@ func schema_acorn_io_acorn_apiclient_types_ToolReferenceManifest(ref common.Refe
 	}
 }
 
-func schema_acorn_io_acorn_apiclient_types_User(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_obot_platform_obot_apiclient_types_User(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -3645,7 +3645,7 @@ func schema_acorn_io_acorn_apiclient_types_User(ref common.ReferenceCallback) co
 					"Metadata": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/acorn-io/acorn/apiclient/types.Metadata"),
+							Ref:     ref("github.com/obot-platform/obot/apiclient/types.Metadata"),
 						},
 					},
 					"username": {
@@ -3677,11 +3677,11 @@ func schema_acorn_io_acorn_apiclient_types_User(ref common.ReferenceCallback) co
 			},
 		},
 		Dependencies: []string{
-			"github.com/acorn-io/acorn/apiclient/types.Metadata"},
+			"github.com/obot-platform/obot/apiclient/types.Metadata"},
 	}
 }
 
-func schema_acorn_io_acorn_apiclient_types_UserList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_obot_platform_obot_apiclient_types_UserList(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -3694,7 +3694,7 @@ func schema_acorn_io_acorn_apiclient_types_UserList(ref common.ReferenceCallback
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/acorn-io/acorn/apiclient/types.User"),
+										Ref:     ref("github.com/obot-platform/obot/apiclient/types.User"),
 									},
 								},
 							},
@@ -3705,11 +3705,11 @@ func schema_acorn_io_acorn_apiclient_types_UserList(ref common.ReferenceCallback
 			},
 		},
 		Dependencies: []string{
-			"github.com/acorn-io/acorn/apiclient/types.User"},
+			"github.com/obot-platform/obot/apiclient/types.User"},
 	}
 }
 
-func schema_acorn_io_acorn_apiclient_types_Webhook(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_obot_platform_obot_apiclient_types_Webhook(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -3718,13 +3718,13 @@ func schema_acorn_io_acorn_apiclient_types_Webhook(ref common.ReferenceCallback)
 					"Metadata": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/acorn-io/acorn/apiclient/types.Metadata"),
+							Ref:     ref("github.com/obot-platform/obot/apiclient/types.Metadata"),
 						},
 					},
 					"WebhookManifest": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/acorn-io/acorn/apiclient/types.WebhookManifest"),
+							Ref:     ref("github.com/obot-platform/obot/apiclient/types.WebhookManifest"),
 						},
 					},
 					"aliasAssigned": {
@@ -3735,7 +3735,7 @@ func schema_acorn_io_acorn_apiclient_types_Webhook(ref common.ReferenceCallback)
 					},
 					"lastSuccessfulRunCompleted": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/acorn-io/acorn/apiclient/types.Time"),
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.Time"),
 						},
 					},
 					"hasToken": {
@@ -3749,11 +3749,11 @@ func schema_acorn_io_acorn_apiclient_types_Webhook(ref common.ReferenceCallback)
 			},
 		},
 		Dependencies: []string{
-			"github.com/acorn-io/acorn/apiclient/types.Metadata", "github.com/acorn-io/acorn/apiclient/types.Time", "github.com/acorn-io/acorn/apiclient/types.WebhookManifest"},
+			"github.com/obot-platform/obot/apiclient/types.Metadata", "github.com/obot-platform/obot/apiclient/types.Time", "github.com/obot-platform/obot/apiclient/types.WebhookManifest"},
 	}
 }
 
-func schema_acorn_io_acorn_apiclient_types_WebhookList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_obot_platform_obot_apiclient_types_WebhookList(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -3766,7 +3766,7 @@ func schema_acorn_io_acorn_apiclient_types_WebhookList(ref common.ReferenceCallb
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/acorn-io/acorn/apiclient/types.Webhook"),
+										Ref:     ref("github.com/obot-platform/obot/apiclient/types.Webhook"),
 									},
 								},
 							},
@@ -3777,11 +3777,11 @@ func schema_acorn_io_acorn_apiclient_types_WebhookList(ref common.ReferenceCallb
 			},
 		},
 		Dependencies: []string{
-			"github.com/acorn-io/acorn/apiclient/types.Webhook"},
+			"github.com/obot-platform/obot/apiclient/types.Webhook"},
 	}
 }
 
-func schema_acorn_io_acorn_apiclient_types_WebhookManifest(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_obot_platform_obot_apiclient_types_WebhookManifest(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -3850,7 +3850,7 @@ func schema_acorn_io_acorn_apiclient_types_WebhookManifest(ref common.ReferenceC
 	}
 }
 
-func schema_acorn_io_acorn_apiclient_types_WebsiteCrawlingConfig(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_obot_platform_obot_apiclient_types_WebsiteCrawlingConfig(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -3876,7 +3876,7 @@ func schema_acorn_io_acorn_apiclient_types_WebsiteCrawlingConfig(ref common.Refe
 	}
 }
 
-func schema_acorn_io_acorn_apiclient_types_While(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_obot_platform_obot_apiclient_types_While(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -3901,7 +3901,7 @@ func schema_acorn_io_acorn_apiclient_types_While(ref common.ReferenceCallback) c
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/acorn-io/acorn/apiclient/types.Step"),
+										Ref:     ref("github.com/obot-platform/obot/apiclient/types.Step"),
 									},
 								},
 							},
@@ -3911,11 +3911,11 @@ func schema_acorn_io_acorn_apiclient_types_While(ref common.ReferenceCallback) c
 			},
 		},
 		Dependencies: []string{
-			"github.com/acorn-io/acorn/apiclient/types.Step"},
+			"github.com/obot-platform/obot/apiclient/types.Step"},
 	}
 }
 
-func schema_acorn_io_acorn_apiclient_types_Workflow(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_obot_platform_obot_apiclient_types_Workflow(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -3924,13 +3924,13 @@ func schema_acorn_io_acorn_apiclient_types_Workflow(ref common.ReferenceCallback
 					"Metadata": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/acorn-io/acorn/apiclient/types.Metadata"),
+							Ref:     ref("github.com/obot-platform/obot/apiclient/types.Metadata"),
 						},
 					},
 					"WorkflowManifest": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/acorn-io/acorn/apiclient/types.WorkflowManifest"),
+							Ref:     ref("github.com/obot-platform/obot/apiclient/types.WorkflowManifest"),
 						},
 					},
 					"aliasAssigned": {
@@ -3947,7 +3947,7 @@ func schema_acorn_io_acorn_apiclient_types_Workflow(ref common.ReferenceCallback
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/acorn-io/acorn/apiclient/types.OAuthAppLoginAuthStatus"),
+										Ref:     ref("github.com/obot-platform/obot/apiclient/types.OAuthAppLoginAuthStatus"),
 									},
 								},
 							},
@@ -3964,11 +3964,11 @@ func schema_acorn_io_acorn_apiclient_types_Workflow(ref common.ReferenceCallback
 			},
 		},
 		Dependencies: []string{
-			"github.com/acorn-io/acorn/apiclient/types.Metadata", "github.com/acorn-io/acorn/apiclient/types.OAuthAppLoginAuthStatus", "github.com/acorn-io/acorn/apiclient/types.WorkflowManifest"},
+			"github.com/obot-platform/obot/apiclient/types.Metadata", "github.com/obot-platform/obot/apiclient/types.OAuthAppLoginAuthStatus", "github.com/obot-platform/obot/apiclient/types.WorkflowManifest"},
 	}
 }
 
-func schema_acorn_io_acorn_apiclient_types_WorkflowCall(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_obot_platform_obot_apiclient_types_WorkflowCall(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -4010,7 +4010,7 @@ func schema_acorn_io_acorn_apiclient_types_WorkflowCall(ref common.ReferenceCall
 	}
 }
 
-func schema_acorn_io_acorn_apiclient_types_WorkflowExecution(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_obot_platform_obot_apiclient_types_WorkflowExecution(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -4019,23 +4019,23 @@ func schema_acorn_io_acorn_apiclient_types_WorkflowExecution(ref common.Referenc
 					"Metadata": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/acorn-io/acorn/apiclient/types.Metadata"),
+							Ref:     ref("github.com/obot-platform/obot/apiclient/types.Metadata"),
 						},
 					},
 					"workflow": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/acorn-io/acorn/apiclient/types.WorkflowManifest"),
+							Ref:     ref("github.com/obot-platform/obot/apiclient/types.WorkflowManifest"),
 						},
 					},
 					"startTime": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/acorn-io/acorn/apiclient/types.Time"),
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.Time"),
 						},
 					},
 					"endTime": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/acorn-io/acorn/apiclient/types.Time"),
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.Time"),
 						},
 					},
 					"input": {
@@ -4056,11 +4056,11 @@ func schema_acorn_io_acorn_apiclient_types_WorkflowExecution(ref common.Referenc
 			},
 		},
 		Dependencies: []string{
-			"github.com/acorn-io/acorn/apiclient/types.Metadata", "github.com/acorn-io/acorn/apiclient/types.Time", "github.com/acorn-io/acorn/apiclient/types.WorkflowManifest"},
+			"github.com/obot-platform/obot/apiclient/types.Metadata", "github.com/obot-platform/obot/apiclient/types.Time", "github.com/obot-platform/obot/apiclient/types.WorkflowManifest"},
 	}
 }
 
-func schema_acorn_io_acorn_apiclient_types_WorkflowExecutionList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_obot_platform_obot_apiclient_types_WorkflowExecutionList(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -4073,7 +4073,7 @@ func schema_acorn_io_acorn_apiclient_types_WorkflowExecutionList(ref common.Refe
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/acorn-io/acorn/apiclient/types.WorkflowExecution"),
+										Ref:     ref("github.com/obot-platform/obot/apiclient/types.WorkflowExecution"),
 									},
 								},
 							},
@@ -4084,11 +4084,11 @@ func schema_acorn_io_acorn_apiclient_types_WorkflowExecutionList(ref common.Refe
 			},
 		},
 		Dependencies: []string{
-			"github.com/acorn-io/acorn/apiclient/types.WorkflowExecution"},
+			"github.com/obot-platform/obot/apiclient/types.WorkflowExecution"},
 	}
 }
 
-func schema_acorn_io_acorn_apiclient_types_WorkflowList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_obot_platform_obot_apiclient_types_WorkflowList(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -4101,7 +4101,7 @@ func schema_acorn_io_acorn_apiclient_types_WorkflowList(ref common.ReferenceCall
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/acorn-io/acorn/apiclient/types.Workflow"),
+										Ref:     ref("github.com/obot-platform/obot/apiclient/types.Workflow"),
 									},
 								},
 							},
@@ -4112,11 +4112,11 @@ func schema_acorn_io_acorn_apiclient_types_WorkflowList(ref common.ReferenceCall
 			},
 		},
 		Dependencies: []string{
-			"github.com/acorn-io/acorn/apiclient/types.Workflow"},
+			"github.com/obot-platform/obot/apiclient/types.Workflow"},
 	}
 }
 
-func schema_acorn_io_acorn_apiclient_types_WorkflowManifest(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_obot_platform_obot_apiclient_types_WorkflowManifest(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -4131,7 +4131,7 @@ func schema_acorn_io_acorn_apiclient_types_WorkflowManifest(ref common.Reference
 					},
 					"icons": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/acorn-io/acorn/apiclient/types.AgentIcons"),
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.AgentIcons"),
 						},
 					},
 					"description": {
@@ -4294,7 +4294,7 @@ func schema_acorn_io_acorn_apiclient_types_WorkflowManifest(ref common.Reference
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/acorn-io/acorn/apiclient/types.EnvVar"),
+										Ref:     ref("github.com/obot-platform/obot/apiclient/types.EnvVar"),
 									},
 								},
 							},
@@ -4307,7 +4307,7 @@ func schema_acorn_io_acorn_apiclient_types_WorkflowManifest(ref common.Reference
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/acorn-io/acorn/apiclient/types.Step"),
+										Ref:     ref("github.com/obot-platform/obot/apiclient/types.Step"),
 									},
 								},
 							},
@@ -4325,7 +4325,7 @@ func schema_acorn_io_acorn_apiclient_types_WorkflowManifest(ref common.Reference
 			},
 		},
 		Dependencies: []string{
-			"github.com/acorn-io/acorn/apiclient/types.AgentIcons", "github.com/acorn-io/acorn/apiclient/types.EnvVar", "github.com/acorn-io/acorn/apiclient/types.Step"},
+			"github.com/obot-platform/obot/apiclient/types.AgentIcons", "github.com/obot-platform/obot/apiclient/types.EnvVar", "github.com/obot-platform/obot/apiclient/types.Step"},
 	}
 }
 
@@ -4358,20 +4358,20 @@ func schema_storage_apis_ottootto8ai_v1_Agent(ref common.ReferenceCallback) comm
 					"spec": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.AgentSpec"),
+							Ref:     ref("github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.AgentSpec"),
 						},
 					},
 					"status": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.AgentStatus"),
+							Ref:     ref("github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.AgentStatus"),
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.AgentSpec", "github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.AgentStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
+			"github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.AgentSpec", "github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.AgentStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
 	}
 }
 
@@ -4408,7 +4408,7 @@ func schema_storage_apis_ottootto8ai_v1_AgentList(ref common.ReferenceCallback) 
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.Agent"),
+										Ref:     ref("github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.Agent"),
 									},
 								},
 							},
@@ -4419,7 +4419,7 @@ func schema_storage_apis_ottootto8ai_v1_AgentList(ref common.ReferenceCallback) 
 			},
 		},
 		Dependencies: []string{
-			"github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.Agent", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
+			"github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.Agent", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
 	}
 }
 
@@ -4432,7 +4432,7 @@ func schema_storage_apis_ottootto8ai_v1_AgentSpec(ref common.ReferenceCallback) 
 					"manifest": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/acorn-io/acorn/apiclient/types.AgentManifest"),
+							Ref:     ref("github.com/obot-platform/obot/apiclient/types.AgentManifest"),
 						},
 					},
 					"systemTools": {
@@ -4507,7 +4507,7 @@ func schema_storage_apis_ottootto8ai_v1_AgentSpec(ref common.ReferenceCallback) 
 			},
 		},
 		Dependencies: []string{
-			"github.com/acorn-io/acorn/apiclient/types.AgentManifest"},
+			"github.com/obot-platform/obot/apiclient/types.AgentManifest"},
 	}
 }
 
@@ -4551,7 +4551,7 @@ func schema_storage_apis_ottootto8ai_v1_AgentStatus(ref common.ReferenceCallback
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/acorn-io/acorn/apiclient/types.OAuthAppLoginAuthStatus"),
+										Ref:     ref("github.com/obot-platform/obot/apiclient/types.OAuthAppLoginAuthStatus"),
 									},
 								},
 							},
@@ -4567,7 +4567,7 @@ func schema_storage_apis_ottootto8ai_v1_AgentStatus(ref common.ReferenceCallback
 			},
 		},
 		Dependencies: []string{
-			"github.com/acorn-io/acorn/apiclient/types.OAuthAppLoginAuthStatus"},
+			"github.com/obot-platform/obot/apiclient/types.OAuthAppLoginAuthStatus"},
 	}
 }
 
@@ -4600,20 +4600,20 @@ func schema_storage_apis_ottootto8ai_v1_Alias(ref common.ReferenceCallback) comm
 					"spec": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.AliasSpec"),
+							Ref:     ref("github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.AliasSpec"),
 						},
 					},
 					"status": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.EmptyStatus"),
+							Ref:     ref("github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.EmptyStatus"),
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.AliasSpec", "github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.EmptyStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
+			"github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.AliasSpec", "github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.EmptyStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
 	}
 }
 
@@ -4650,7 +4650,7 @@ func schema_storage_apis_ottootto8ai_v1_AliasList(ref common.ReferenceCallback) 
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.Alias"),
+										Ref:     ref("github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.Alias"),
 									},
 								},
 							},
@@ -4661,7 +4661,7 @@ func schema_storage_apis_ottootto8ai_v1_AliasList(ref common.ReferenceCallback) 
 			},
 		},
 		Dependencies: []string{
-			"github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.Alias", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
+			"github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.Alias", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
 	}
 }
 
@@ -4730,20 +4730,20 @@ func schema_storage_apis_ottootto8ai_v1_CronJob(ref common.ReferenceCallback) co
 					"spec": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.CronJobSpec"),
+							Ref:     ref("github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.CronJobSpec"),
 						},
 					},
 					"status": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.CronJobStatus"),
+							Ref:     ref("github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.CronJobStatus"),
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.CronJobSpec", "github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.CronJobStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
+			"github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.CronJobSpec", "github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.CronJobStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
 	}
 }
 
@@ -4780,7 +4780,7 @@ func schema_storage_apis_ottootto8ai_v1_CronJobList(ref common.ReferenceCallback
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.CronJob"),
+										Ref:     ref("github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.CronJob"),
 									},
 								},
 							},
@@ -4791,7 +4791,7 @@ func schema_storage_apis_ottootto8ai_v1_CronJobList(ref common.ReferenceCallback
 			},
 		},
 		Dependencies: []string{
-			"github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.CronJob", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
+			"github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.CronJob", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
 	}
 }
 
@@ -4827,7 +4827,7 @@ func schema_storage_apis_ottootto8ai_v1_CronJobSpec(ref common.ReferenceCallback
 					},
 					"taskSchedule": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/acorn-io/acorn/apiclient/types.Schedule"),
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.Schedule"),
 						},
 					},
 					"threadName": {
@@ -4840,7 +4840,7 @@ func schema_storage_apis_ottootto8ai_v1_CronJobSpec(ref common.ReferenceCallback
 			},
 		},
 		Dependencies: []string{
-			"github.com/acorn-io/acorn/apiclient/types.Schedule"},
+			"github.com/obot-platform/obot/apiclient/types.Schedule"},
 	}
 }
 
@@ -4897,13 +4897,13 @@ func schema_storage_apis_ottootto8ai_v1_DefaultModelAlias(ref common.ReferenceCa
 					"spec": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.DefaultModelAliasSpec"),
+							Ref:     ref("github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.DefaultModelAliasSpec"),
 						},
 					},
 					"status": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.DefaultModelAliasStatus"),
+							Ref:     ref("github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.DefaultModelAliasStatus"),
 						},
 					},
 				},
@@ -4911,7 +4911,7 @@ func schema_storage_apis_ottootto8ai_v1_DefaultModelAlias(ref common.ReferenceCa
 			},
 		},
 		Dependencies: []string{
-			"github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.DefaultModelAliasSpec", "github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.DefaultModelAliasStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
+			"github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.DefaultModelAliasSpec", "github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.DefaultModelAliasStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
 	}
 }
 
@@ -4948,7 +4948,7 @@ func schema_storage_apis_ottootto8ai_v1_DefaultModelAliasList(ref common.Referen
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.DefaultModelAlias"),
+										Ref:     ref("github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.DefaultModelAlias"),
 									},
 								},
 							},
@@ -4959,7 +4959,7 @@ func schema_storage_apis_ottootto8ai_v1_DefaultModelAliasList(ref common.Referen
 			},
 		},
 		Dependencies: []string{
-			"github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.DefaultModelAlias", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
+			"github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.DefaultModelAlias", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
 	}
 }
 
@@ -4972,7 +4972,7 @@ func schema_storage_apis_ottootto8ai_v1_DefaultModelAliasSpec(ref common.Referen
 					"manifest": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/acorn-io/acorn/apiclient/types.DefaultModelAliasManifest"),
+							Ref:     ref("github.com/obot-platform/obot/apiclient/types.DefaultModelAliasManifest"),
 						},
 					},
 				},
@@ -4980,7 +4980,7 @@ func schema_storage_apis_ottootto8ai_v1_DefaultModelAliasSpec(ref common.Referen
 			},
 		},
 		Dependencies: []string{
-			"github.com/acorn-io/acorn/apiclient/types.DefaultModelAliasManifest"},
+			"github.com/obot-platform/obot/apiclient/types.DefaultModelAliasManifest"},
 	}
 }
 
@@ -5033,20 +5033,20 @@ func schema_storage_apis_ottootto8ai_v1_EmailReceiver(ref common.ReferenceCallba
 					"spec": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.EmailReceiverSpec"),
+							Ref:     ref("github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.EmailReceiverSpec"),
 						},
 					},
 					"status": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.EmailReceiverStatus"),
+							Ref:     ref("github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.EmailReceiverStatus"),
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.EmailReceiverSpec", "github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.EmailReceiverStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
+			"github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.EmailReceiverSpec", "github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.EmailReceiverStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
 	}
 }
 
@@ -5083,7 +5083,7 @@ func schema_storage_apis_ottootto8ai_v1_EmailReceiverList(ref common.ReferenceCa
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.EmailReceiver"),
+										Ref:     ref("github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.EmailReceiver"),
 									},
 								},
 							},
@@ -5094,7 +5094,7 @@ func schema_storage_apis_ottootto8ai_v1_EmailReceiverList(ref common.ReferenceCa
 			},
 		},
 		Dependencies: []string{
-			"github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.EmailReceiver", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
+			"github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.EmailReceiver", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
 	}
 }
 
@@ -5221,20 +5221,20 @@ func schema_storage_apis_ottootto8ai_v1_KnowledgeFile(ref common.ReferenceCallba
 					"spec": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.KnowledgeFileSpec"),
+							Ref:     ref("github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.KnowledgeFileSpec"),
 						},
 					},
 					"status": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.KnowledgeFileStatus"),
+							Ref:     ref("github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.KnowledgeFileStatus"),
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.KnowledgeFileSpec", "github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.KnowledgeFileStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
+			"github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.KnowledgeFileSpec", "github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.KnowledgeFileStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
 	}
 }
 
@@ -5271,7 +5271,7 @@ func schema_storage_apis_ottootto8ai_v1_KnowledgeFileList(ref common.ReferenceCa
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.KnowledgeFile"),
+										Ref:     ref("github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.KnowledgeFile"),
 									},
 								},
 							},
@@ -5282,7 +5282,7 @@ func schema_storage_apis_ottootto8ai_v1_KnowledgeFileList(ref common.ReferenceCa
 			},
 		},
 		Dependencies: []string{
-			"github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.KnowledgeFile", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
+			"github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.KnowledgeFile", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
 	}
 }
 
@@ -5455,20 +5455,20 @@ func schema_storage_apis_ottootto8ai_v1_KnowledgeSet(ref common.ReferenceCallbac
 					"spec": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.KnowledgeSetSpec"),
+							Ref:     ref("github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.KnowledgeSetSpec"),
 						},
 					},
 					"status": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.KnowledgeSetStatus"),
+							Ref:     ref("github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.KnowledgeSetStatus"),
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.KnowledgeSetSpec", "github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.KnowledgeSetStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
+			"github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.KnowledgeSetSpec", "github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.KnowledgeSetStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
 	}
 }
 
@@ -5505,7 +5505,7 @@ func schema_storage_apis_ottootto8ai_v1_KnowledgeSetList(ref common.ReferenceCal
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.KnowledgeSet"),
+										Ref:     ref("github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.KnowledgeSet"),
 									},
 								},
 							},
@@ -5516,7 +5516,7 @@ func schema_storage_apis_ottootto8ai_v1_KnowledgeSetList(ref common.ReferenceCal
 			},
 		},
 		Dependencies: []string{
-			"github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.KnowledgeSet", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
+			"github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.KnowledgeSet", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
 	}
 }
 
@@ -5548,7 +5548,7 @@ func schema_storage_apis_ottootto8ai_v1_KnowledgeSetSpec(ref common.ReferenceCal
 					"manifest": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.KnowledgeSetManifest"),
+							Ref:     ref("github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.KnowledgeSetManifest"),
 						},
 					},
 					"agentName": {
@@ -5583,7 +5583,7 @@ func schema_storage_apis_ottootto8ai_v1_KnowledgeSetSpec(ref common.ReferenceCal
 			},
 		},
 		Dependencies: []string{
-			"github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.KnowledgeSetManifest"},
+			"github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.KnowledgeSetManifest"},
 	}
 }
 
@@ -5670,20 +5670,20 @@ func schema_storage_apis_ottootto8ai_v1_KnowledgeSource(ref common.ReferenceCall
 					"spec": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.KnowledgeSourceSpec"),
+							Ref:     ref("github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.KnowledgeSourceSpec"),
 						},
 					},
 					"status": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.KnowledgeSourceStatus"),
+							Ref:     ref("github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.KnowledgeSourceStatus"),
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.KnowledgeSourceSpec", "github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.KnowledgeSourceStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
+			"github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.KnowledgeSourceSpec", "github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.KnowledgeSourceStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
 	}
 }
 
@@ -5720,7 +5720,7 @@ func schema_storage_apis_ottootto8ai_v1_KnowledgeSourceList(ref common.Reference
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.KnowledgeSource"),
+										Ref:     ref("github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.KnowledgeSource"),
 									},
 								},
 							},
@@ -5731,7 +5731,7 @@ func schema_storage_apis_ottootto8ai_v1_KnowledgeSourceList(ref common.Reference
 			},
 		},
 		Dependencies: []string{
-			"github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.KnowledgeSource", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
+			"github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.KnowledgeSource", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
 	}
 }
 
@@ -5744,7 +5744,7 @@ func schema_storage_apis_ottootto8ai_v1_KnowledgeSourceSpec(ref common.Reference
 					"manifest": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/acorn-io/acorn/apiclient/types.KnowledgeSourceManifest"),
+							Ref:     ref("github.com/obot-platform/obot/apiclient/types.KnowledgeSourceManifest"),
 						},
 					},
 					"knowledgeSetName": {
@@ -5763,7 +5763,7 @@ func schema_storage_apis_ottootto8ai_v1_KnowledgeSourceSpec(ref common.Reference
 			},
 		},
 		Dependencies: []string{
-			"github.com/acorn-io/acorn/apiclient/types.KnowledgeSourceManifest"},
+			"github.com/obot-platform/obot/apiclient/types.KnowledgeSourceManifest"},
 	}
 }
 
@@ -5873,20 +5873,20 @@ func schema_storage_apis_ottootto8ai_v1_Model(ref common.ReferenceCallback) comm
 					"spec": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.ModelSpec"),
+							Ref:     ref("github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.ModelSpec"),
 						},
 					},
 					"status": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.ModelStatus"),
+							Ref:     ref("github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.ModelStatus"),
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.ModelSpec", "github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.ModelStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
+			"github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.ModelSpec", "github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.ModelStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
 	}
 }
 
@@ -5923,7 +5923,7 @@ func schema_storage_apis_ottootto8ai_v1_ModelList(ref common.ReferenceCallback) 
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.Model"),
+										Ref:     ref("github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.Model"),
 									},
 								},
 							},
@@ -5934,7 +5934,7 @@ func schema_storage_apis_ottootto8ai_v1_ModelList(ref common.ReferenceCallback) 
 			},
 		},
 		Dependencies: []string{
-			"github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.Model", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
+			"github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.Model", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
 	}
 }
 
@@ -5947,14 +5947,14 @@ func schema_storage_apis_ottootto8ai_v1_ModelSpec(ref common.ReferenceCallback) 
 					"manifest": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/acorn-io/acorn/apiclient/types.ModelManifest"),
+							Ref:     ref("github.com/obot-platform/obot/apiclient/types.ModelManifest"),
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/acorn-io/acorn/apiclient/types.ModelManifest"},
+			"github.com/obot-platform/obot/apiclient/types.ModelManifest"},
 	}
 }
 
@@ -6011,20 +6011,20 @@ func schema_storage_apis_ottootto8ai_v1_OAuthApp(ref common.ReferenceCallback) c
 					"spec": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.OAuthAppSpec"),
+							Ref:     ref("github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.OAuthAppSpec"),
 						},
 					},
 					"status": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.EmptyStatus"),
+							Ref:     ref("github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.EmptyStatus"),
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.EmptyStatus", "github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.OAuthAppSpec", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
+			"github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.EmptyStatus", "github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.OAuthAppSpec", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
 	}
 }
 
@@ -6061,7 +6061,7 @@ func schema_storage_apis_ottootto8ai_v1_OAuthAppList(ref common.ReferenceCallbac
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.OAuthApp"),
+										Ref:     ref("github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.OAuthApp"),
 									},
 								},
 							},
@@ -6072,7 +6072,7 @@ func schema_storage_apis_ottootto8ai_v1_OAuthAppList(ref common.ReferenceCallbac
 			},
 		},
 		Dependencies: []string{
-			"github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.OAuthApp", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
+			"github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.OAuthApp", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
 	}
 }
 
@@ -6105,20 +6105,20 @@ func schema_storage_apis_ottootto8ai_v1_OAuthAppLogin(ref common.ReferenceCallba
 					"spec": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.OAuthAppLoginSpec"),
+							Ref:     ref("github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.OAuthAppLoginSpec"),
 						},
 					},
 					"status": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.OAuthAppLoginStatus"),
+							Ref:     ref("github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.OAuthAppLoginStatus"),
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.OAuthAppLoginSpec", "github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.OAuthAppLoginStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
+			"github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.OAuthAppLoginSpec", "github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.OAuthAppLoginStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
 	}
 }
 
@@ -6155,7 +6155,7 @@ func schema_storage_apis_ottootto8ai_v1_OAuthAppLoginList(ref common.ReferenceCa
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.OAuthAppLogin"),
+										Ref:     ref("github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.OAuthAppLogin"),
 									},
 								},
 							},
@@ -6166,7 +6166,7 @@ func schema_storage_apis_ottootto8ai_v1_OAuthAppLoginList(ref common.ReferenceCa
 			},
 		},
 		Dependencies: []string{
-			"github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.OAuthAppLogin", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
+			"github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.OAuthAppLogin", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
 	}
 }
 
@@ -6217,14 +6217,14 @@ func schema_storage_apis_ottootto8ai_v1_OAuthAppLoginStatus(ref common.Reference
 					"external": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/acorn-io/acorn/apiclient/types.OAuthAppLoginAuthStatus"),
+							Ref:     ref("github.com/obot-platform/obot/apiclient/types.OAuthAppLoginAuthStatus"),
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/acorn-io/acorn/apiclient/types.OAuthAppLoginAuthStatus"},
+			"github.com/obot-platform/obot/apiclient/types.OAuthAppLoginAuthStatus"},
 	}
 }
 
@@ -6237,14 +6237,14 @@ func schema_storage_apis_ottootto8ai_v1_OAuthAppSpec(ref common.ReferenceCallbac
 					"manifest": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/acorn-io/acorn/apiclient/types.OAuthAppManifest"),
+							Ref:     ref("github.com/obot-platform/obot/apiclient/types.OAuthAppManifest"),
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/acorn-io/acorn/apiclient/types.OAuthAppManifest"},
+			"github.com/obot-platform/obot/apiclient/types.OAuthAppManifest"},
 	}
 }
 
@@ -6318,20 +6318,20 @@ func schema_storage_apis_ottootto8ai_v1_Run(ref common.ReferenceCallback) common
 					"spec": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.RunSpec"),
+							Ref:     ref("github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.RunSpec"),
 						},
 					},
 					"status": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.RunStatus"),
+							Ref:     ref("github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.RunStatus"),
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.RunSpec", "github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.RunStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
+			"github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.RunSpec", "github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.RunStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
 	}
 }
 
@@ -6368,7 +6368,7 @@ func schema_storage_apis_ottootto8ai_v1_RunList(ref common.ReferenceCallback) co
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.Run"),
+										Ref:     ref("github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.Run"),
 									},
 								},
 							},
@@ -6379,7 +6379,7 @@ func schema_storage_apis_ottootto8ai_v1_RunList(ref common.ReferenceCallback) co
 			},
 		},
 		Dependencies: []string{
-			"github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.Run", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
+			"github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.Run", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
 	}
 }
 
@@ -6533,20 +6533,20 @@ func schema_storage_apis_ottootto8ai_v1_RunState(ref common.ReferenceCallback) c
 					"spec": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.RunStateSpec"),
+							Ref:     ref("github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.RunStateSpec"),
 						},
 					},
 					"status": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.EmptyStatus"),
+							Ref:     ref("github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.EmptyStatus"),
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.EmptyStatus", "github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.RunStateSpec", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
+			"github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.EmptyStatus", "github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.RunStateSpec", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
 	}
 }
 
@@ -6583,7 +6583,7 @@ func schema_storage_apis_ottootto8ai_v1_RunStateList(ref common.ReferenceCallbac
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.RunState"),
+										Ref:     ref("github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.RunState"),
 									},
 								},
 							},
@@ -6594,7 +6594,7 @@ func schema_storage_apis_ottootto8ai_v1_RunStateList(ref common.ReferenceCallbac
 			},
 		},
 		Dependencies: []string{
-			"github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.RunState", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
+			"github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.RunState", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
 	}
 }
 
@@ -6697,7 +6697,7 @@ func schema_storage_apis_ottootto8ai_v1_RunStatus(ref common.ReferenceCallback) 
 					},
 					"subCall": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.SubCall"),
+							Ref: ref("github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.SubCall"),
 						},
 					},
 				},
@@ -6705,7 +6705,7 @@ func schema_storage_apis_ottootto8ai_v1_RunStatus(ref common.ReferenceCallback) 
 			},
 		},
 		Dependencies: []string{
-			"github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.SubCall", "k8s.io/apimachinery/pkg/apis/meta/v1.Condition", "k8s.io/apimachinery/pkg/apis/meta/v1.Time"},
+			"github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.SubCall", "k8s.io/apimachinery/pkg/apis/meta/v1.Condition", "k8s.io/apimachinery/pkg/apis/meta/v1.Time"},
 	}
 }
 
@@ -6768,20 +6768,20 @@ func schema_storage_apis_ottootto8ai_v1_Thread(ref common.ReferenceCallback) com
 					"spec": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.ThreadSpec"),
+							Ref:     ref("github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.ThreadSpec"),
 						},
 					},
 					"status": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.ThreadStatus"),
+							Ref:     ref("github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.ThreadStatus"),
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.ThreadSpec", "github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.ThreadStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
+			"github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.ThreadSpec", "github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.ThreadStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
 	}
 }
 
@@ -6818,7 +6818,7 @@ func schema_storage_apis_ottootto8ai_v1_ThreadList(ref common.ReferenceCallback)
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.Thread"),
+										Ref:     ref("github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.Thread"),
 									},
 								},
 							},
@@ -6829,7 +6829,7 @@ func schema_storage_apis_ottootto8ai_v1_ThreadList(ref common.ReferenceCallback)
 			},
 		},
 		Dependencies: []string{
-			"github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.Thread", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
+			"github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.Thread", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
 	}
 }
 
@@ -6842,7 +6842,7 @@ func schema_storage_apis_ottootto8ai_v1_ThreadSpec(ref common.ReferenceCallback)
 					"manifest": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/acorn-io/acorn/apiclient/types.ThreadManifest"),
+							Ref:     ref("github.com/obot-platform/obot/apiclient/types.ThreadManifest"),
 						},
 					},
 					"parentThreadName": {
@@ -6973,7 +6973,7 @@ func schema_storage_apis_ottootto8ai_v1_ThreadSpec(ref common.ReferenceCallback)
 			},
 		},
 		Dependencies: []string{
-			"github.com/acorn-io/acorn/apiclient/types.ThreadManifest"},
+			"github.com/obot-platform/obot/apiclient/types.ThreadManifest"},
 	}
 }
 
@@ -7068,20 +7068,20 @@ func schema_storage_apis_ottootto8ai_v1_ToolReference(ref common.ReferenceCallba
 					"spec": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.ToolReferenceSpec"),
+							Ref:     ref("github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.ToolReferenceSpec"),
 						},
 					},
 					"status": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.ToolReferenceStatus"),
+							Ref:     ref("github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.ToolReferenceStatus"),
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.ToolReferenceSpec", "github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.ToolReferenceStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
+			"github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.ToolReferenceSpec", "github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.ToolReferenceStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
 	}
 }
 
@@ -7118,7 +7118,7 @@ func schema_storage_apis_ottootto8ai_v1_ToolReferenceList(ref common.ReferenceCa
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.ToolReference"),
+										Ref:     ref("github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.ToolReference"),
 									},
 								},
 							},
@@ -7129,7 +7129,7 @@ func schema_storage_apis_ottootto8ai_v1_ToolReferenceList(ref common.ReferenceCa
 			},
 		},
 		Dependencies: []string{
-			"github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.ToolReference", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
+			"github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.ToolReference", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
 	}
 }
 
@@ -7194,7 +7194,7 @@ func schema_storage_apis_ottootto8ai_v1_ToolReferenceStatus(ref common.Reference
 					},
 					"tool": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.ToolShortDescription"),
+							Ref: ref("github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.ToolShortDescription"),
 						},
 					},
 					"error": {
@@ -7207,7 +7207,7 @@ func schema_storage_apis_ottootto8ai_v1_ToolReferenceStatus(ref common.Reference
 			},
 		},
 		Dependencies: []string{
-			"github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.ToolShortDescription", "k8s.io/apimachinery/pkg/apis/meta/v1.Time"},
+			"github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.ToolShortDescription", "k8s.io/apimachinery/pkg/apis/meta/v1.Time"},
 	}
 }
 
@@ -7300,20 +7300,20 @@ func schema_storage_apis_ottootto8ai_v1_Webhook(ref common.ReferenceCallback) co
 					"spec": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.WebhookSpec"),
+							Ref:     ref("github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.WebhookSpec"),
 						},
 					},
 					"status": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.WebhookStatus"),
+							Ref:     ref("github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.WebhookStatus"),
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.WebhookSpec", "github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.WebhookStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
+			"github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.WebhookSpec", "github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.WebhookStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
 	}
 }
 
@@ -7350,7 +7350,7 @@ func schema_storage_apis_ottootto8ai_v1_WebhookList(ref common.ReferenceCallback
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.Webhook"),
+										Ref:     ref("github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.Webhook"),
 									},
 								},
 							},
@@ -7361,7 +7361,7 @@ func schema_storage_apis_ottootto8ai_v1_WebhookList(ref common.ReferenceCallback
 			},
 		},
 		Dependencies: []string{
-			"github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.Webhook", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
+			"github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.Webhook", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
 	}
 }
 
@@ -7507,20 +7507,20 @@ func schema_storage_apis_ottootto8ai_v1_Workflow(ref common.ReferenceCallback) c
 					"spec": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.WorkflowSpec"),
+							Ref:     ref("github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.WorkflowSpec"),
 						},
 					},
 					"status": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.WorkflowStatus"),
+							Ref:     ref("github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.WorkflowStatus"),
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.WorkflowSpec", "github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.WorkflowStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
+			"github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.WorkflowSpec", "github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.WorkflowStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
 	}
 }
 
@@ -7553,20 +7553,20 @@ func schema_storage_apis_ottootto8ai_v1_WorkflowExecution(ref common.ReferenceCa
 					"spec": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.WorkflowExecutionSpec"),
+							Ref:     ref("github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.WorkflowExecutionSpec"),
 						},
 					},
 					"status": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.WorkflowExecutionStatus"),
+							Ref:     ref("github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.WorkflowExecutionStatus"),
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.WorkflowExecutionSpec", "github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.WorkflowExecutionStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
+			"github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.WorkflowExecutionSpec", "github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.WorkflowExecutionStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
 	}
 }
 
@@ -7603,7 +7603,7 @@ func schema_storage_apis_ottootto8ai_v1_WorkflowExecutionList(ref common.Referen
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.WorkflowExecution"),
+										Ref:     ref("github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.WorkflowExecution"),
 									},
 								},
 							},
@@ -7614,7 +7614,7 @@ func schema_storage_apis_ottootto8ai_v1_WorkflowExecutionList(ref common.Referen
 			},
 		},
 		Dependencies: []string{
-			"github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.WorkflowExecution", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
+			"github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.WorkflowExecution", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
 	}
 }
 
@@ -7735,7 +7735,7 @@ func schema_storage_apis_ottootto8ai_v1_WorkflowExecutionStatus(ref common.Refer
 					},
 					"workflowManifest": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/acorn-io/acorn/apiclient/types.WorkflowManifest"),
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.WorkflowManifest"),
 						},
 					},
 					"endTime": {
@@ -7753,7 +7753,7 @@ func schema_storage_apis_ottootto8ai_v1_WorkflowExecutionStatus(ref common.Refer
 			},
 		},
 		Dependencies: []string{
-			"github.com/acorn-io/acorn/apiclient/types.WorkflowManifest", "k8s.io/apimachinery/pkg/apis/meta/v1.Time"},
+			"github.com/obot-platform/obot/apiclient/types.WorkflowManifest", "k8s.io/apimachinery/pkg/apis/meta/v1.Time"},
 	}
 }
 
@@ -7790,7 +7790,7 @@ func schema_storage_apis_ottootto8ai_v1_WorkflowList(ref common.ReferenceCallbac
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.Workflow"),
+										Ref:     ref("github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.Workflow"),
 									},
 								},
 							},
@@ -7801,7 +7801,7 @@ func schema_storage_apis_ottootto8ai_v1_WorkflowList(ref common.ReferenceCallbac
 			},
 		},
 		Dependencies: []string{
-			"github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.Workflow", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
+			"github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.Workflow", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
 	}
 }
 
@@ -7820,7 +7820,7 @@ func schema_storage_apis_ottootto8ai_v1_WorkflowSpec(ref common.ReferenceCallbac
 					"manifest": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/acorn-io/acorn/apiclient/types.WorkflowManifest"),
+							Ref:     ref("github.com/obot-platform/obot/apiclient/types.WorkflowManifest"),
 						},
 					},
 					"knowledgeSetNames": {
@@ -7847,7 +7847,7 @@ func schema_storage_apis_ottootto8ai_v1_WorkflowSpec(ref common.ReferenceCallbac
 			},
 		},
 		Dependencies: []string{
-			"github.com/acorn-io/acorn/apiclient/types.WorkflowManifest"},
+			"github.com/obot-platform/obot/apiclient/types.WorkflowManifest"},
 	}
 }
 
@@ -7891,7 +7891,7 @@ func schema_storage_apis_ottootto8ai_v1_WorkflowStatus(ref common.ReferenceCallb
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/acorn-io/acorn/apiclient/types.OAuthAppLoginAuthStatus"),
+										Ref:     ref("github.com/obot-platform/obot/apiclient/types.OAuthAppLoginAuthStatus"),
 									},
 								},
 							},
@@ -7907,7 +7907,7 @@ func schema_storage_apis_ottootto8ai_v1_WorkflowStatus(ref common.ReferenceCallb
 			},
 		},
 		Dependencies: []string{
-			"github.com/acorn-io/acorn/apiclient/types.OAuthAppLoginAuthStatus"},
+			"github.com/obot-platform/obot/apiclient/types.OAuthAppLoginAuthStatus"},
 	}
 }
 
@@ -7940,20 +7940,20 @@ func schema_storage_apis_ottootto8ai_v1_WorkflowStep(ref common.ReferenceCallbac
 					"spec": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.WorkflowStepSpec"),
+							Ref:     ref("github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.WorkflowStepSpec"),
 						},
 					},
 					"status": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.WorkflowStepStatus"),
+							Ref:     ref("github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.WorkflowStepStatus"),
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.WorkflowStepSpec", "github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.WorkflowStepStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
+			"github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.WorkflowStepSpec", "github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.WorkflowStepStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
 	}
 }
 
@@ -7990,7 +7990,7 @@ func schema_storage_apis_ottootto8ai_v1_WorkflowStepList(ref common.ReferenceCal
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.WorkflowStep"),
+										Ref:     ref("github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.WorkflowStep"),
 									},
 								},
 							},
@@ -8001,7 +8001,7 @@ func schema_storage_apis_ottootto8ai_v1_WorkflowStepList(ref common.ReferenceCal
 			},
 		},
 		Dependencies: []string{
-			"github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.WorkflowStep", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
+			"github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.WorkflowStep", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
 	}
 }
 
@@ -8020,7 +8020,7 @@ func schema_storage_apis_ottootto8ai_v1_WorkflowStepSpec(ref common.ReferenceCal
 					"step": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/acorn-io/acorn/apiclient/types.Step"),
+							Ref:     ref("github.com/obot-platform/obot/apiclient/types.Step"),
 						},
 					},
 					"workflowExecutionName": {
@@ -8039,7 +8039,7 @@ func schema_storage_apis_ottootto8ai_v1_WorkflowStepSpec(ref common.ReferenceCal
 			},
 		},
 		Dependencies: []string{
-			"github.com/acorn-io/acorn/apiclient/types.Step"},
+			"github.com/obot-platform/obot/apiclient/types.Step"},
 	}
 }
 
@@ -8068,7 +8068,7 @@ func schema_storage_apis_ottootto8ai_v1_WorkflowStepStatus(ref common.ReferenceC
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.SubCall"),
+										Ref:     ref("github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.SubCall"),
 									},
 								},
 							},
@@ -8110,7 +8110,7 @@ func schema_storage_apis_ottootto8ai_v1_WorkflowStepStatus(ref common.ReferenceC
 			},
 		},
 		Dependencies: []string{
-			"github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.SubCall"},
+			"github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.SubCall"},
 	}
 }
 
@@ -8143,20 +8143,20 @@ func schema_storage_apis_ottootto8ai_v1_Workspace(ref common.ReferenceCallback) 
 					"spec": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.WorkspaceSpec"),
+							Ref:     ref("github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.WorkspaceSpec"),
 						},
 					},
 					"status": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.WorkspaceStatus"),
+							Ref:     ref("github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.WorkspaceStatus"),
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.WorkspaceSpec", "github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.WorkspaceStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
+			"github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.WorkspaceSpec", "github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.WorkspaceStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
 	}
 }
 
@@ -8193,7 +8193,7 @@ func schema_storage_apis_ottootto8ai_v1_WorkspaceList(ref common.ReferenceCallba
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.Workspace"),
+										Ref:     ref("github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.Workspace"),
 									},
 								},
 							},
@@ -8204,7 +8204,7 @@ func schema_storage_apis_ottootto8ai_v1_WorkspaceList(ref common.ReferenceCallba
 			},
 		},
 		Dependencies: []string{
-			"github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1.Workspace", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
+			"github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.Workspace", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
 	}
 }
 

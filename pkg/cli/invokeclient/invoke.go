@@ -4,10 +4,10 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/acorn-io/acorn/apiclient"
-	"github.com/acorn-io/acorn/apiclient/types"
-	"github.com/acorn-io/acorn/pkg/cli/events"
-	"github.com/acorn-io/acorn/pkg/system"
+	"github.com/obot-platform/obot/apiclient"
+	"github.com/obot-platform/obot/apiclient/types"
+	"github.com/obot-platform/obot/pkg/cli/events"
+	"github.com/obot-platform/obot/pkg/system"
 )
 
 type inputter interface {

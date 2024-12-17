@@ -4,8 +4,8 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/acorn-io/nah/pkg/ratelimit"
-	"github.com/acorn-io/nah/pkg/restconfig"
+	"github.com/obot-platform/nah/pkg/ratelimit"
+	"github.com/obot-platform/nah/pkg/restconfig"
 	authenticationv1 "k8s.io/api/authentication/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apiserver/pkg/authentication/authenticator"

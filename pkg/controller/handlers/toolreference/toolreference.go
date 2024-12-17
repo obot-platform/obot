@@ -10,16 +10,16 @@ import (
 	"strings"
 	"time"
 
-	"github.com/acorn-io/acorn/apiclient/types"
-	"github.com/acorn-io/acorn/logger"
-	"github.com/acorn-io/acorn/pkg/availablemodels"
-	"github.com/acorn-io/acorn/pkg/gateway/server/dispatcher"
-	v1 "github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1"
-	"github.com/acorn-io/acorn/pkg/system"
-	"github.com/acorn-io/nah/pkg/apply"
-	"github.com/acorn-io/nah/pkg/name"
-	"github.com/acorn-io/nah/pkg/router"
 	"github.com/gptscript-ai/go-gptscript"
+	"github.com/obot-platform/nah/pkg/apply"
+	"github.com/obot-platform/nah/pkg/name"
+	"github.com/obot-platform/nah/pkg/router"
+	"github.com/obot-platform/obot/apiclient/types"
+	"github.com/obot-platform/obot/logger"
+	"github.com/obot-platform/obot/pkg/availablemodels"
+	"github.com/obot-platform/obot/pkg/gateway/server/dispatcher"
+	v1 "github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1"
+	"github.com/obot-platform/obot/pkg/system"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -294,12 +294,12 @@ func (h *Handler) EnsureOpenAIEnvCredentialAndDefaults(ctx context.Context, c cl
 			ToolName: "openai-model-provider",
 			Type:     gptscript.CredentialTypeModelProvider,
 			Env: map[string]string{
-				"ACORN_OPENAI_MODEL_PROVIDER_API_KEY": os.Getenv("OPENAI_API_KEY"),
+				"OBOT_OPENAI_MODEL_PROVIDER_API_KEY": os.Getenv("OPENAI_API_KEY"),
 			},
 		}); err != nil {
 			return err
 		}
-	} else if cred.Env["ACORN_OPENAI_MODEL_PROVIDER_API_KEY"] != os.Getenv("OPENAI_API_KEY") {
+	} else if cred.Env["OBOT_OPENAI_MODEL_PROVIDER_API_KEY"] != os.Getenv("OPENAI_API_KEY") {
 		// If the credential exists, but has a different value, then update it.
 		// The only way to update it is to delete the existing credential and recreate it.
 		if err = h.gptClient.DeleteCredential(ctx, string(openAIModelProvider.UID), "openai-model-provider"); err != nil {
@@ -310,7 +310,7 @@ func (h *Handler) EnsureOpenAIEnvCredentialAndDefaults(ctx context.Context, c cl
 			ToolName: "openai-model-provider",
 			Type:     gptscript.CredentialTypeModelProvider,
 			Env: map[string]string{
-				"ACORN_OPENAI_MODEL_PROVIDER_API_KEY": os.Getenv("OPENAI_API_KEY"),
+				"OBOT_OPENAI_MODEL_PROVIDER_API_KEY": os.Getenv("OPENAI_API_KEY"),
 			},
 		})
 	}

@@ -36,7 +36,7 @@
 		};
 
 		for (const file of editor) {
-			if (file.modified) {
+			if (file.modified && !file.taskID) {
 				if (!input.changedFiles) {
 					input.changedFiles = {};
 				}

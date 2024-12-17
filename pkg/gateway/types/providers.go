@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	ktime "github.com/acorn-io/acorn/pkg/gateway/time"
+	ktime "github.com/obot-platform/obot/pkg/gateway/time"
 	"gorm.io/gorm"
 )
 

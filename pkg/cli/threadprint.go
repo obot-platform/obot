@@ -1,13 +1,13 @@
 package cli
 
 import (
-	"github.com/acorn-io/acorn/apiclient"
-	"github.com/acorn-io/acorn/pkg/cli/events"
+	"github.com/obot-platform/obot/apiclient"
+	"github.com/obot-platform/obot/pkg/cli/events"
 	"github.com/spf13/cobra"
 )
 
 type ThreadPrint struct {
-	root    *Acorn
+	root    *Obot
 	Quiet   bool `usage:"Only print response content of threads" short:"q"`
 	Follow  bool `usage:"Follow the thread and print new events" short:"f"`
 	Verbose bool `usage:"Print more information" short:"v"`

@@ -16,7 +16,14 @@ const editor: Editor = {
 };
 
 export interface Editor {
-	load: (assistant: string, id: string) => Promise<void>;
+	load: (
+		assistant: string,
+		id: string,
+		opts?: {
+			taskID?: string;
+			runID?: string;
+		}
+	) => Promise<void>;
 	remove: (name: string) => void;
 	select: (name: string) => void;
 	items: EditorItem[];
@@ -29,9 +36,20 @@ function hasItem(id: string): boolean {
 	return item !== undefined;
 }
 
-async function load(assistant: string, id: string) {
-	if (hasItem(id)) {
-		select(id);
+async function load(
+	assistant: string,
+	id: string,
+	opts?: {
+		taskID?: string;
+		runID?: string;
+	}
+) {
+	let fileID = id;
+	if (opts?.taskID && opts?.runID) {
+		fileID = `${opts.taskID}/${opts.runID}/${id}`;
+	}
+	if (hasItem(fileID)) {
+		select(fileID);
 		visible.set(true);
 		return;
 	}
@@ -45,7 +63,7 @@ async function load(assistant: string, id: string) {
 		visible.set(true);
 		return;
 	}
-	await loadFile(assistant, id);
+	await loadFile(assistant, id, opts);
 	visible.set(true);
 }
 
@@ -87,12 +105,25 @@ async function loadTask(assistant: string, taskID: string) {
 	}
 }
 
-async function loadFile(assistant: string, file: string) {
+async function loadFile(
+	assistant: string,
+	file: string,
+	opts?: {
+		taskID?: string;
+		runID?: string;
+	}
+) {
 	try {
-		const blob = await ChatService.getFile(assistant, file);
-		const contents = await blob.text()
+		const blob = await ChatService.getFile(assistant, file, opts);
+		const contents = await blob.text();
+		let fileID = file;
+		if (opts?.taskID && opts?.runID) {
+			fileID = `${opts.taskID}/${opts.runID}/${file}`;
+		}
 		const targetFile = {
-			id: file,
+			id: fileID,
+			taskID: opts?.taskID,
+			runID: opts?.runID,
 			name: file,
 			contents,
 			blob: blob,
@@ -101,7 +132,7 @@ async function loadFile(assistant: string, file: string) {
 			selected: true
 		};
 		items.push(targetFile);
-		select(targetFile.name);
+		select(targetFile.id);
 	} catch {
 		// ignore error
 	}

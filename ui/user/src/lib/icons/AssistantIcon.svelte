@@ -9,12 +9,14 @@
 
 	let { id }: Props = $props();
 
-	let assistant = $derived($assistants.find((a) => {
-		if (id) {
-			return a.id === id;
-		}
-		return a.current
-	}));
+	let assistant = $derived(
+		$assistants.find((a) => {
+			if (id) {
+				return a.id === id;
+			}
+			return a.current;
+		})
+	);
 
 	function icon(a: Assistant | undefined): string {
 		if (!a) {

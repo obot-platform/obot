@@ -7,7 +7,7 @@ import (
 	"os/exec"
 	"strings"
 
-	"github.com/acorn-io/acorn/logger"
+	"github.com/obot-platform/obot/logger"
 )
 
 type Options struct {

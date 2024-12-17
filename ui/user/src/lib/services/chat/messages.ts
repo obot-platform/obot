@@ -83,7 +83,7 @@ function getFilenameAndContent(content: string) {
 	return {
 		filename: '',
 		content: ''
-	}
+	};
 }
 
 function reformatWriteMessage(msg: Message, last: boolean) {

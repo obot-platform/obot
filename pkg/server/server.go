@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/acorn-io/acorn/logger"
-	"github.com/acorn-io/acorn/pkg/api/router"
-	"github.com/acorn-io/acorn/pkg/controller"
-	"github.com/acorn-io/acorn/pkg/services"
+	"github.com/obot-platform/obot/logger"
+	"github.com/obot-platform/obot/pkg/api/router"
+	"github.com/obot-platform/obot/pkg/controller"
+	"github.com/obot-platform/obot/pkg/services"
 	"github.com/rs/cors"
 )
 

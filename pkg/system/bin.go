@@ -2,7 +2,7 @@ package system
 
 import "os"
 
-const BinEnvVar = "ACORN_BIN"
+const BinEnvVar = "OBOT_BIN"
 
 func SetBinToSelf() {
 	if err := os.Setenv(BinEnvVar, Bin()); err != nil {

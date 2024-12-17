@@ -50,6 +50,9 @@ export type ButtonProps = React.ButtonHTMLAttributes<HTMLButtonElement> &
         loading?: boolean;
         startContent?: React.ReactNode;
         endContent?: React.ReactNode;
+        classNames?: {
+            content?: string;
+        };
     };
 
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
@@ -64,6 +67,7 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
             startContent,
             endContent,
             children,
+            classNames,
             ...props
         },
         ref
@@ -93,7 +97,12 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
                     {endContent}
                 </div>
             ) : (
-                <div className="flex items-center gap-2">
+                <div
+                    className={cn(
+                        "flex items-center gap-2",
+                        classNames?.content
+                    )}
+                >
                     {startContent}
                     {children}
                     {endContent}

@@ -43,7 +43,7 @@
 		<a href="https://docs.otto8.ai" class="icon-button" rel="external">
 			<Book />
 		</a>
-		<a href="https://github.com/acorn-io/acorn" class="icon-button text-white hover:text-blue-50">
+		<a href="https://github.com/obot-platform/obot" class="icon-button text-white hover:text-blue-50">
 			{#if $darkMode}
 				<img src="/images/github-mark/github-mark-white.svg" alt="GitHub" class="h-8" />
 			{:else}
@@ -54,9 +54,9 @@
 	<div class="mx-auto flex flex-col items-center gap-8">
 		<div class="flex items-end gap-4">
 			{#if $darkMode}
-				<img src="/images/acorn-logo-blue-white-text.svg" alt="acorn icon" class="h-64 pb-4" />
+				<img src="/images/otto-logo-blue-white-text.svg" alt="otto icon" class="h-64 pb-4" />
 			{:else}
-				<img src="/images/acorn-logo-blue-black-text.svg" alt="acorn icon" class="h-64 pb-4" />
+				<img src="/images/otto-logo-blue-black-text.svg" alt="otto icon" class="h-64 pb-4" />
 			{/if}
 		</div>
 		<h1 class="text-7xl text-blue-50">

@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"time"
 
-	types2 "github.com/acorn-io/acorn/apiclient/types"
+	types2 "github.com/obot-platform/obot/apiclient/types"
 	"gorm.io/gorm"
 )
 

@@ -115,15 +115,21 @@
 				{#each runs as run}
 					<tr class="group hover:cursor-pointer" onclick={() => select(run.id)}>
 						<td
-							class="rounded-s-md pl-2 group-hover:bg-gray-800"
+							class="rounded-s-md pl-2 group-hover:bg-gray-100 dark:group-hover:bg-gray-800"
 							class:bg-blue={selected === run.id}
 						>
 							{formatTime(run.created)}
 						</td>
-						<td class="pl-6 group-hover:bg-gray-800" class:bg-blue={selected === run.id}>
+						<td
+							class="pl-6 group-hover:bg-gray-100 dark:group-hover:bg-gray-800"
+							class:bg-blue={selected === run.id}
+						>
 							{formatInput(run)}
 						</td>
-						<td class="pl-6 group-hover:bg-gray-800" class:bg-blue={selected === run.id}>
+						<td
+							class="pl-6 group-hover:bg-gray-100 dark:group-hover:bg-gray-800"
+							class:bg-blue={selected === run.id}
+						>
 							{#if run.startTime && run.endTime}
 								{Math.round(
 									(new Date(run.endTime).getTime() - new Date(run.startTime).getTime()) / 1000
@@ -135,7 +141,7 @@
 							{/if}
 						</td>
 						<td
-							class="rounded-e-md pl-6 group-hover:bg-gray-800 group-hover:text-gray"
+							class="rounded-e-md pl-6 group-hover:bg-gray-100 group-hover:text-gray dark:group-hover:bg-gray-800"
 							class:bg-blue={selected === run.id}
 						>
 							<div

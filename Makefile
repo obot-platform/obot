@@ -29,10 +29,10 @@ serve-docs:
 
 # Build the project
 
-GIT_TAG := $(shell git describe --tags --exact-match 2>/dev/null | xargs -I {} echo -X 'github.com/acorn-io/acorn/pkg/version.Tag={}')
+GIT_TAG := $(shell git describe --tags --exact-match 2>/dev/null | xargs -I {} echo -X 'github.com/obot-platform/obot/pkg/version.Tag={}')
 GO_LD_FLAGS := "-s -w $(GIT_TAG)"
 build:
-	go build -ldflags=$(GO_LD_FLAGS) -o bin/acorn .
+	go build -ldflags=$(GO_LD_FLAGS) -o bin/obot .
 
 dev:
 	./tools/dev.sh $(ARGS)

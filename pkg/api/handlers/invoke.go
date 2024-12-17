@@ -1,11 +1,11 @@
 package handlers
 
 import (
-	"github.com/acorn-io/acorn/pkg/alias"
-	"github.com/acorn-io/acorn/pkg/api"
-	"github.com/acorn-io/acorn/pkg/invoke"
-	v1 "github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai/v1"
-	"github.com/acorn-io/acorn/pkg/system"
+	"github.com/obot-platform/obot/pkg/alias"
+	"github.com/obot-platform/obot/pkg/api"
+	"github.com/obot-platform/obot/pkg/invoke"
+	v1 "github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1"
+	"github.com/obot-platform/obot/pkg/system"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 )
 
@@ -85,7 +85,7 @@ func (i *InvokeHandler) Invoke(req api.Context) error {
 			ThreadName:   threadID,
 			Synchronous:  synchronous,
 			CreateThread: true,
-			UserUID:      req.User.GetName(),
+			UserUID:      req.User.GetUID(),
 		})
 		if err != nil {
 			return err

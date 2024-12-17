@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"sort"
 
-	"github.com/acorn-io/acorn/apiclient/types"
+	"github.com/obot-platform/obot/apiclient/types"
 )
 
 func (c *Client) GetEmailReceiver(ctx context.Context, id string) (*types.EmailReceiver, error) {

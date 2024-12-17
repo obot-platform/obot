@@ -1,8 +1,8 @@
 package v1
 
 import (
-	otto8_gptscript_ai "github.com/acorn-io/acorn/pkg/storage/apis/otto.otto8.ai"
-	"github.com/acorn-io/nah/pkg/fields"
+	"github.com/obot-platform/nah/pkg/fields"
+	otto8_gptscript_ai "github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"

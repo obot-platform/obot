@@ -1,4 +1,4 @@
-<script lang="ts" >
+<script lang="ts">
 	import type { EditorItem } from '$lib/stores/editor.svelte';
 
 	interface Props {
@@ -20,9 +20,8 @@
 			return toDataURL(file.blob);
 		}
 	});
-
 </script>
 
 {#await src then src}
-	<img src={src} alt="AI generated, content unknown"/>
+	<img {src} alt="AI generated, content unknown" />
 {/await}

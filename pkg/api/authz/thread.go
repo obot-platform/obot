@@ -9,15 +9,15 @@ import (
 )
 
 func authorizeThread(req *http.Request, user user.Info) bool {
-	thread := types.FirstSet(user.GetExtra()["otto:threadID"]...)
-	agent := types.FirstSet(user.GetExtra()["otto:agentID"]...)
+	thread := types.FirstSet(user.GetExtra()["obot:threadID"]...)
+	agent := types.FirstSet(user.GetExtra()["obot:agentID"]...)
 	if thread == "" || agent == "" {
 		return false
 	}
 	if req.Method == "GET" && strings.HasPrefix(req.URL.Path, "/api/threads/"+thread+"/") {
 		return true
 	}
-	if req.Method == "POST" && req.URL.Path == "/api/invoke/"+agent+"/"+"threads/"+thread {
+	if req.Method == "POST" && strings.HasPrefix(req.URL.Path, "/api/threads/"+thread+"/tasks/") {
 		return true
 	}
 

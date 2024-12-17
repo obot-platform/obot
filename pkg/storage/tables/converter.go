@@ -6,7 +6,7 @@ import (
 	"strings"
 	"text/template"
 
-	"github.com/acorn-io/acorn/pkg/storage/tables/table"
+	"github.com/obot-platform/obot/pkg/storage/tables/table"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"

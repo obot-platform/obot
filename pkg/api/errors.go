@@ -4,7 +4,7 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/acorn-io/acorn/apiclient/types"
+	"github.com/obot-platform/obot/apiclient/types"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 )
 

@@ -6,7 +6,7 @@ import (
 	"io"
 	"net/http"
 
-	"github.com/acorn-io/acorn/apiclient/types"
+	"github.com/obot-platform/obot/apiclient/types"
 )
 
 func (c *Client) getGeneric(ctx context.Context, typeName, ref string) (string, error) {

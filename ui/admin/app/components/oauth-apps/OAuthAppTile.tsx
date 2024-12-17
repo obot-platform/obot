@@ -65,7 +65,7 @@ export function OAuthAppTile({
 
                             <TooltipContent>
                                 OAuth for {displayName} is handled by default by
-                                the Acorn Gateway
+                                the Obot Gateway
                             </TooltipContent>
                         </Tooltip>
                     )}

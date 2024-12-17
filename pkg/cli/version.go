@@ -3,7 +3,7 @@ package cli
 import (
 	"fmt"
 
-	"github.com/acorn-io/acorn/pkg/version"
+	"github.com/obot-platform/obot/pkg/version"
 	"github.com/spf13/cobra"
 )
 

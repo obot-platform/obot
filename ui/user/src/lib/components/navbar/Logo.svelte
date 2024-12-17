@@ -13,17 +13,6 @@
 		placement: 'bottom-start'
 	});
 
-	function icon(a: Assistant | undefined): string {
-		if (!a) {
-			return '';
-		}
-
-		if ($darkMode) {
-			return (a.icons.iconDark ? a.icons.iconDark : a.icons.icon) ?? '';
-		}
-		return a.icons.icon ?? '';
-	}
-
 	function collapsedIcon(a: Assistant | undefined): string {
 		if (!a) {
 			return '';

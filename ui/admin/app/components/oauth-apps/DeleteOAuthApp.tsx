@@ -37,8 +37,8 @@ export function DeleteOAuthApp({
         <div className="flex gap-2">
             <Tooltip open={getIsOpen()}>
                 <ConfirmationDialog
-                    title={`Reset ${spec.displayName} OAuth to use Acorn Gateway`}
-                    description={`By clicking \`Reset\`, you will delete your custom ${spec.displayName} OAuth configuration and reset to use Acorn Gateway.`}
+                    title={`Reset ${spec.displayName} OAuth to use Obot Gateway`}
+                    description={`By clicking \`Reset\`, you will delete your custom ${spec.displayName} OAuth configuration and reset to use Obot Gateway.`}
                     onConfirm={deleteOAuthApp.execute}
                     confirmProps={{
                         variant: "destructive",
@@ -54,7 +54,7 @@ export function DeleteOAuthApp({
                             {deleteOAuthApp.isLoading ? (
                                 <LoadingSpinner className="w-4 h-4 mr-2" />
                             ) : null}
-                            Reset {spec.displayName} OAuth to use Acorn Gateway
+                            Reset {spec.displayName} OAuth to use Obot Gateway
                         </Button>
                     </TooltipTrigger>
                 </ConfirmationDialog>

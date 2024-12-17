@@ -1,7 +1,7 @@
 package version
 
 import (
-	"github.com/acorn-io/nah/pkg/version"
+	"github.com/obot-platform/nah/pkg/version"
 )
 
 var (

@@ -9,11 +9,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/acorn-io/acorn/apiclient"
-	"github.com/acorn-io/acorn/apiclient/types"
-	"github.com/acorn-io/acorn/logger"
-	"github.com/acorn-io/acorn/pkg/cli/textio"
 	"github.com/fatih/color"
+	"github.com/obot-platform/obot/apiclient"
+	"github.com/obot-platform/obot/apiclient/types"
+	"github.com/obot-platform/obot/logger"
+	"github.com/obot-platform/obot/pkg/cli/textio"
 )
 
 var log = logger.Package()

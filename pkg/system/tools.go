@@ -8,7 +8,7 @@ const (
 	KnowledgeRetrievalTool  = "knowledge-retrieval"
 	WebsiteCleanTool        = "website-cleaner"
 	ResultFormatterTool     = "result-formatter"
-	ModelProviderTool       = "acorn-model-provider"
+	ModelProviderTool       = "obot-model-provider"
 	WorkflowTool            = "workflow"
 
 	DefaultNamespace = "default"

@@ -3,9 +3,9 @@ package main
 import (
 	"os"
 
-	"github.com/acorn-io/acorn/pkg/cli"
 	"github.com/gptscript-ai/cmd"
 	"github.com/gptscript-ai/gptscript/pkg/embedded"
+	"github.com/obot-platform/obot/pkg/cli"
 )
 
 func main() {

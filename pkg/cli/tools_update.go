@@ -7,7 +7,7 @@ import (
 )
 
 type ToolUpdate struct {
-	root  *Acorn
+	root  *Obot
 	Quiet bool `usage:"Only print IDs of updated step template" short:"q"`
 }
 

@@ -4,15 +4,15 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/acorn-io/acorn/apiclient/types"
-	"github.com/acorn-io/acorn/pkg/cli/edit"
-	"github.com/acorn-io/acorn/pkg/system"
+	"github.com/obot-platform/obot/apiclient/types"
+	"github.com/obot-platform/obot/pkg/cli/edit"
+	"github.com/obot-platform/obot/pkg/system"
 	"github.com/spf13/cobra"
 	"sigs.k8s.io/yaml"
 )
 
 type Edit struct {
-	root   *Acorn
+	root   *Obot
 	Prompt bool `usage:"Edit just the prompt for the agent" short:"p"`
 }
 

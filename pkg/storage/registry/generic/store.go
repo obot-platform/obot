@@ -1,11 +1,11 @@
 package generic
 
 import (
-	"github.com/acorn-io/acorn/pkg/storage/scheme"
-	"github.com/acorn-io/acorn/pkg/storage/tables"
-	"github.com/acorn-io/kinm/pkg/db"
-	"github.com/acorn-io/kinm/pkg/stores"
-	"github.com/acorn-io/kinm/pkg/strategy"
+	"github.com/obot-platform/kinm/pkg/db"
+	"github.com/obot-platform/kinm/pkg/stores"
+	"github.com/obot-platform/kinm/pkg/strategy"
+	"github.com/obot-platform/obot/pkg/storage/scheme"
+	"github.com/obot-platform/obot/pkg/storage/tables"
 	"k8s.io/apiserver/pkg/registry/rest"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
