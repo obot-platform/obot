@@ -1,5 +1,4 @@
 import {
-    KeyIcon,
     Library,
     List,
     LockIcon,
@@ -21,7 +20,6 @@ import { Button } from "~/components/ui/button";
 import { CardDescription } from "~/components/ui/card";
 import { ScrollArea } from "~/components/ui/scroll-area";
 import { ParamsForm } from "~/components/workflow/ParamsForm";
-import { StringArrayForm } from "~/components/workflow/StringArrayForm";
 import {
     WorkflowProvider,
     useWorkflow,
@@ -96,22 +94,6 @@ function WorkflowContent({ className, onPersistThreadId }: WorkflowProps) {
                     <BasicToolForm
                         defaultValues={workflow}
                         onChange={debouncedSetWorkflowInfo}
-                    />
-                </div>
-
-                <div className="p-4 m-4 flex flex-col gap-4">
-                    <TypographyH4 className="flex items-center gap-2">
-                        <KeyIcon className="w-4 h-4" />
-                        Credentials
-                    </TypographyH4>
-
-                    <StringArrayForm
-                        initialItems={workflow.credentials}
-                        onChange={(values) =>
-                            debouncedSetWorkflowInfo({ credentials: values })
-                        }
-                        itemName="Credential"
-                        placeholder="Enter a credential"
                     />
                 </div>
 
