@@ -87,7 +87,7 @@ export function ToolsInfo({
                     </PopoverTrigger>
                 </TooltipTrigger>
 
-                <PopoverContent className="w-80">
+                <PopoverContent className="w-80" align="start">
                     {toolItems.length > 0 ? (
                         <div className="space-y-2">
                             <TypographySmall className="font-semibold">
