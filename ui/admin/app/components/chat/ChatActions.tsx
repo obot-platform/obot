@@ -94,7 +94,6 @@ function ToolsInfo({
     }, [tools, agent]);
 
     const handleToggleTool = (tool: string, checked: boolean) => {
-        console.log("toggle tool", tool, checked);
         onChange(checked ? [...tools, tool] : tools.filter((t) => t !== tool));
     };
 
