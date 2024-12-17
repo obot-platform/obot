@@ -127,7 +127,11 @@ export function ModelProviderConfigureContent({
         ModelProviderApiService.revealModelProviderById.key(modelProvider.id),
         ({ modelProviderId }) =>
             ModelProviderApiService.revealModelProviderById(modelProviderId),
-        { keepPreviousData: true }
+        {
+            keepPreviousData: true,
+            // 404 -> no credential found, so don't retry
+            shouldRetryOnError: (error) => error.status !== 404,
+        }
     );
 
     const requiredParameters = modelProvider.requiredConfigurationParameters;
