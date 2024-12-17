@@ -75,7 +75,8 @@ export function Agent({ className, onRefresh }: AgentProps) {
             updateAgent(updatedAgent);
 
             setAgentUpdates(updatedAgent);
-            setLoadingAgentId(updatedAgent.id);
+
+            if (changes.alias) setLoadingAgentId(changes.alias);
         },
         [agentUpdates, updateAgent, agent]
     );
@@ -138,6 +139,13 @@ export function Agent({ className, onRefresh }: AgentProps) {
                         agentId={agent.id}
                         agent={agent}
                         updateAgent={debouncedSetAgentInfo}
+                        addTool={(tool) => {
+                            if (agent?.tools?.includes(tool)) return;
+
+                            debouncedSetAgentInfo({
+                                tools: [...(agent.tools || []), tool],
+                            });
+                        }}
                     />
                 </div>
             </ScrollArea>

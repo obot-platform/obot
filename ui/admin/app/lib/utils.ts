@@ -67,3 +67,6 @@ export const getAliasFrom = (text: Nullish<string>) => {
 
     return text.toLowerCase().replace(/[^a-z0-9-]+/g, "-");
 };
+
+export const isNullish = (value: Nullish<unknown>): value is null | undefined =>
+    [null, undefined].includes(value as Todo);

@@ -1,5 +1,6 @@
 import { FC, useState } from "react";
 
+import { KNOWLEDGE_TOOL } from "~/lib/model/agents";
 import { KnowledgeSourceType } from "~/lib/model/knowledge";
 import { KnowledgeService } from "~/lib/service/api/knowledgeService";
 
@@ -16,6 +17,7 @@ interface AddSourceModalProps {
     isOpen: boolean;
     onOpenChange: (open: boolean) => void;
     onSave: (knowledgeSourceId: string) => void;
+    addTool: (tool: string) => void;
 }
 
 const AddSourceModal: FC<AddSourceModalProps> = ({
@@ -25,6 +27,7 @@ const AddSourceModal: FC<AddSourceModalProps> = ({
     isOpen,
     onOpenChange,
     onSave,
+    addTool,
 }) => {
     const [newWebsite, setNewWebsite] = useState("");
     const [newLink, setNewLink] = useState("");
@@ -68,6 +71,7 @@ const AddSourceModal: FC<AddSourceModalProps> = ({
         } else if (sourceType === KnowledgeSourceType.OneDrive) {
             await handleAddOneDrive();
         }
+        addTool(KNOWLEDGE_TOOL);
         startPolling();
         onOpenChange(false);
     };

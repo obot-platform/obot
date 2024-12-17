@@ -70,23 +70,33 @@ export function ToolForm({
         resolver: zodResolver(formSchema),
         defaultValues,
     });
+    const { control, handleSubmit, getValues, reset, watch } = form;
+
+    useEffect(() => {
+        const unchanged = compareArrays(
+            defaultValues.tools.map((x) => x.tool),
+            getValues("tools").map((x) => x.tool)
+        );
+
+        if (unchanged) return;
+
+        reset(defaultValues);
+    }, [defaultValues, reset, getValues]);
 
     const toolFields = useFieldArray({
-        control: form.control,
+        control,
         name: "tools",
     });
 
-    const handleSubmit = form.handleSubmit(onSubmit || noop);
-
     useEffect(() => {
-        return form.watch((values) => {
+        return watch((values) => {
             const { data, success } = formSchema.safeParse(values);
 
             if (!success) return;
 
             onChange?.(data);
         }).unsubscribe;
-    }, [form, onChange]);
+    }, [watch, onChange]);
 
     const [allTools, fixedFields, userFields] = useMemo(() => {
         return [
@@ -116,7 +126,10 @@ export function ToolForm({
 
     return (
         <Form {...form}>
-            <form onSubmit={handleSubmit} className="flex flex-col gap-2">
+            <form
+                onSubmit={handleSubmit(onSubmit || noop)}
+                className="flex flex-col gap-2"
+            >
                 <TypographyP className="flex justify-between items-end font-normal">
                     Agent Tools
                 </TypographyP>
@@ -212,4 +225,12 @@ export function ToolForm({
             </form>
         </Form>
     );
+}
+
+function compareArrays(a: string[], b: string[]) {
+    const aSet = new Set(a);
+
+    if (aSet.size !== b.length) return false;
+
+    return b.every((tool) => aSet.has(tool));
 }

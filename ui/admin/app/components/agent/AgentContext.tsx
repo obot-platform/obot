@@ -15,7 +15,7 @@ import { useAsync } from "~/hooks/useAsync";
 interface AgentContextType {
     agent: Agent;
     agentId: string;
-    updateAgent: (agent: Agent) => void;
+    updateAgent: (agent: Agent) => Promise<unknown>;
     isUpdating: boolean;
     error?: unknown;
     lastUpdated?: Date;
@@ -59,7 +59,7 @@ export function AgentProvider({
             value={{
                 agentId,
                 agent: getAgent.data ?? agent,
-                updateAgent: updateAgent.execute,
+                updateAgent: updateAgent.executeAsync,
                 isUpdating: updateAgent.isLoading,
                 lastUpdated,
                 error: updateAgent.error,

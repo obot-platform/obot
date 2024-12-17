@@ -14,7 +14,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { $path } from "remix-routes";
 import useSWR, { SWRResponse } from "swr";
 
-import { Agent } from "~/lib/model/agents";
+import { Agent, KNOWLEDGE_TOOL } from "~/lib/model/agents";
 import {
     KnowledgeFile,
     KnowledgeFileState,
@@ -61,12 +61,14 @@ type AgentKnowledgePanelProps = {
     agentId: string;
     agent: Agent;
     updateAgent: (updatedAgent: Agent) => void;
+    addTool: (tool: string) => void;
 };
 
 export default function AgentKnowledgePanel({
     agentId,
     agent,
     updateAgent,
+    addTool,
 }: AgentKnowledgePanelProps) {
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [blockPollingLocalFiles, setBlockPollingLocalFiles] = useState(false);
@@ -209,6 +211,8 @@ export default function AgentKnowledgePanel({
         uploadKnowledge.execute(
             Array.from(files).map((file) => [file] as const)
         );
+
+        addTool(KNOWLEDGE_TOOL);
 
         if (fileInputRef.current) fileInputRef.current.value = "";
     };
@@ -510,10 +514,9 @@ export default function AgentKnowledgePanel({
                                     const res =
                                         await KnowledgeService.createKnowledgeSource(
                                             agentId,
-                                            {
-                                                notionConfig: {},
-                                            }
+                                            { notionConfig: {} }
                                         );
+                                    addTool(KNOWLEDGE_TOOL);
                                     getKnowledgeSources.mutate();
                                     setSelectedKnowledgeSourceId(res.id);
                                     setIsEditKnowledgeSourceModalOpen(true);
@@ -564,6 +567,7 @@ export default function AgentKnowledgePanel({
                     setSelectedKnowledgeSourceId(knowledgeSourceId);
                     setIsEditKnowledgeSourceModalOpen(true);
                 }}
+                addTool={addTool}
             />
             <ErrorDialog
                 error={errorDialogError}

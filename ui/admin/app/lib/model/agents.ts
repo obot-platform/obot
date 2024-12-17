@@ -2,6 +2,8 @@ import { EntityMeta } from "~/lib/model/primitives";
 
 // TODO: implement as zod schemas???
 
+export const KNOWLEDGE_TOOL = "knowledge";
+
 export type AgentBase = {
     name: string;
     description: string;
