@@ -1,5 +1,6 @@
 export const CommonModelProviderIds = {
     OLLAMA: "ollama-model-provider",
+    GROQ: "groq-model-provider",
     VOYAGE: "voyage-model-provider",
     ANTHROPIC: "anthropic-model-provider",
     OPENAI: "openai-model-provider",
@@ -9,6 +10,7 @@ export const CommonModelProviderIds = {
 export const ModelProviderLinks = {
     [CommonModelProviderIds.VOYAGE]: "https://www.voyageai.com/",
     [CommonModelProviderIds.OLLAMA]: "https://ollama.com/",
+    [CommonModelProviderIds.GROQ]: "https://groq.com/",
     [CommonModelProviderIds.AZURE_OPENAI]:
         "https://azure.microsoft.com/en-us/explore/",
     [CommonModelProviderIds.ANTHROPIC]: "https://www.anthropic.com",
@@ -32,6 +34,9 @@ export const ModelProviderRequiredTooltips: {
 } = {
     [CommonModelProviderIds.OLLAMA]: {
         Host: "IP Address for the ollama server (eg. 127.0.0.1:1234)",
+    },
+    [CommonModelProviderIds.GROQ]: {
+        "API Key": "Groq API Key. Can be created and fetched from https://console.groq.com/keys",
     },
     [CommonModelProviderIds.AZURE_OPENAI]: {
         Endpoint:
@@ -70,4 +75,7 @@ export const ModelProviderSensitiveFields: Record<string, boolean | undefined> =
 
         // Ollama
         ACORN_OLLAMA_MODEL_PROVIDER_HOST: true,
+
+        // Groq
+        ACORN_GROQ_MODEL_PROVIDER_API_KEY: true,
     };

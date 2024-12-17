@@ -60,6 +60,7 @@ const translateUserFriendlyLabel = (label: string) => {
         "ACORN_ANTHROPIC_MODEL_PROVIDER",
         "ACORN_OLLAMA_MODEL_PROVIDER",
         "ACORN_VOYAGE_MODEL_PROVIDER",
+        "ACORN_GROQ_MODEL_PROVIDER",
     ];
 
     return fieldsToStrip
