@@ -54,9 +54,9 @@
 	<div class="mx-auto flex flex-col items-center gap-8">
 		<div class="flex items-end gap-4">
 			{#if $darkMode}
-				<img src="/images/otto-logo-blue-white-text.svg" alt="otto icon" class="h-64 pb-4" />
+				<img src="/images/otto8-logo-blue-white-text.svg" alt="otto icon" class="h-64 pb-4" />
 			{:else}
-				<img src="/images/otto-logo-blue-black-text.svg" alt="otto icon" class="h-64 pb-4" />
+				<img src="/images/otto8-logo-blue-black-text.svg" alt="otto icon" class="h-64 pb-4" />
 			{/if}
 		</div>
 		<h1 class="text-7xl text-blue-50">
