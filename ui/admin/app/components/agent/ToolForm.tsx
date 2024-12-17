@@ -166,21 +166,23 @@ export function ToolForm({
                             onDelete={() => removeTools([field.tool])}
                             actions={
                                 <Tooltip>
-                                    <TooltipTrigger>
-                                        <Switch
-                                            checked={
-                                                field.variant ===
-                                                ToolVariant.DEFAULT
-                                            }
-                                            onCheckedChange={(checked) =>
-                                                updateVariant(
-                                                    field.tool,
-                                                    checked
-                                                        ? ToolVariant.DEFAULT
-                                                        : ToolVariant.AVAILABLE
-                                                )
-                                            }
-                                        />
+                                    <TooltipTrigger asChild>
+                                        <div>
+                                            <Switch
+                                                checked={
+                                                    field.variant ===
+                                                    ToolVariant.DEFAULT
+                                                }
+                                                onCheckedChange={(checked) =>
+                                                    updateVariant(
+                                                        field.tool,
+                                                        checked
+                                                            ? ToolVariant.DEFAULT
+                                                            : ToolVariant.AVAILABLE
+                                                    )
+                                                }
+                                            />
+                                        </div>
                                     </TooltipTrigger>
 
                                     <TooltipContent>
