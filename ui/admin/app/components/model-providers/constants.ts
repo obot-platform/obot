@@ -36,7 +36,8 @@ export const ModelProviderRequiredTooltips: {
         Host: "IP Address for the ollama server (eg. 127.0.0.1:1234)",
     },
     [CommonModelProviderIds.GROQ]: {
-        "API Key": "Groq API Key. Can be created and fetched from https://console.groq.com/keys",
+        "API Key":
+            "Groq API Key. Can be created and fetched from https://console.groq.com/keys",
     },
     [CommonModelProviderIds.AZURE_OPENAI]: {
         Endpoint:
