@@ -7,7 +7,7 @@ on:
   pull_request:
     branches:
       - main
-    ignore-paths:
+    paths-ignore:
       - ui/admin/**
       - ui/user/**
 

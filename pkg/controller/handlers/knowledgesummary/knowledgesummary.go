@@ -81,9 +81,7 @@ func (k *Handler) toAllContent(req router.Request, allFiles []v1.KnowledgeFile) 
 		data, err := k.gptScript.ReadFileInWorkspace(req.Ctx, filename, gptscript.ReadFileInWorkspaceOptions{
 			WorkspaceID: workspace.Status.WorkspaceID,
 		})
-		if fErr := (*gptscript.NotFoundInWorkspaceError)(nil); errors.As(err, &fErr) {
-			// ignore
-		} else if err != nil {
+		if fErr := (*gptscript.NotFoundInWorkspaceError)(nil); err != nil && !errors.As(err, &fErr) {
 			return nil, err
 		}
 

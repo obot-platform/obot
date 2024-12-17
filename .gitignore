@@ -44,4 +44,5 @@ Thumbs.db
 # Ignore local DB files
 obot*.db*
 
-
+# Ignore http dir for http client files
+http/
