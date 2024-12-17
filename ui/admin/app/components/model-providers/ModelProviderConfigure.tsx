@@ -130,16 +130,12 @@ export function ModelProviderConfigureContent({
             ModelProviderApiService.revealModelProviderById(modelProviderId),
         {
             keepPreviousData: true,
-            // 404 -> no credential found, so don't retry
-            shouldRetryOnError: (error) => {
-                if (
-                    error instanceof NotFoundError &&
-                    error.message.toLowerCase().includes("no credential found")
-                ) {
-                    return false;
-                }
-                return true;
-            },
+            // 404: no credential found = no need to retry
+            shouldRetryOnError: (error) =>
+                error instanceof NotFoundError &&
+                error.message.toLowerCase().includes("no credential found")
+                    ? false
+                    : true,
         }
     );
 
