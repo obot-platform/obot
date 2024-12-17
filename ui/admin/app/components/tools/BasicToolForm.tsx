@@ -34,18 +34,30 @@ export function BasicToolForm({
         resolver: zodResolver(formSchema),
         defaultValues: { tools: defaultValues?.tools || [] },
     });
+    const { watch, getValues, reset } = form;
+
+    useEffect(() => {
+        const unchanged = compareArrays(
+            defaultValues?.tools.map(({ value }) => value) || [],
+            getValues().tools.map(({ value }) => value)
+        );
+
+        if (unchanged) return;
+
+        reset({ tools: defaultValues?.tools || [] });
+    }, [defaultValues, getValues, reset]);
 
     const toolArr = useFieldArray({ control: form.control, name: "tools" });
 
     useEffect(() => {
-        return form.watch((values) => {
+        return watch((values) => {
             const { data, success } = formSchema.safeParse(values);
 
             if (!success) return;
 
             onChange?.({ tools: data.tools.map((t) => t.value) });
         }).unsubscribe;
-    }, [form, onChange]);
+    }, [watch, onChange]);
 
     const removeTools = (toolsToRemove: string[]) => {
         const indexes = toolsToRemove
@@ -82,4 +94,12 @@ export function BasicToolForm({
             </div>
         </Form>
     );
+}
+
+function compareArrays(a: string[], b: string[]) {
+    const aSet = new Set(a);
+
+    if (aSet.size !== b.length) return false;
+
+    return b.every((tool) => aSet.has(tool));
 }

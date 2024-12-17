@@ -155,6 +155,13 @@ function WorkflowContent({ className, onPersistThreadId }: WorkflowProps) {
                         agent={workflowUpdates}
                         agentId={workflow.id}
                         updateAgent={debouncedSetWorkflowInfo}
+                        addTool={(tool) => {
+                            if (workflow.tools?.includes(tool)) return;
+
+                            debouncedSetWorkflowInfo({
+                                tools: [...(workflow.tools || []), tool],
+                            });
+                        }}
                     />
                 </div>
             </ScrollArea>
