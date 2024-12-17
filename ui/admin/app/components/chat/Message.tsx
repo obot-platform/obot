@@ -94,6 +94,8 @@ export const Message = React.memo(({ message }: MessageProps) => {
                                     {
                                         "text-accent-foreground prose-invert":
                                             isUser,
+                                        "text-muted-foreground":
+                                            message.aborted,
                                     }
                                 )}
                                 remarkPlugins={[remarkGfm]}

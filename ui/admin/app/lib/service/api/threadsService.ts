@@ -127,6 +127,14 @@ getFiles.key = (threadId?: Nullish<string>) => {
     return { url: ApiRoutes.threads.getFiles(threadId).path, threadId };
 };
 
+const abortThread = async (threadId: string) => {
+    await request({
+        url: ApiRoutes.threads.abortById(threadId).url,
+        method: "POST",
+        errorMessage: "Failed to abort thread",
+    });
+};
+
 const revalidateThreads = () =>
     revalidateWhere((url) => url.includes(ApiRoutes.threads.base().path));
 
@@ -141,4 +149,5 @@ export const ThreadsService = {
     revalidateThreads,
     getKnowledge,
     getFiles,
+    abortThread,
 };

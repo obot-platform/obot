@@ -129,6 +129,7 @@ export const ApiRoutes = {
         getKnowledge: (threadId: string) =>
             buildUrl(`/threads/${threadId}/knowledge`),
         getFiles: (threadId: string) => buildUrl(`/threads/${threadId}/files`),
+        abortById: (threadId: string) => buildUrl(`/threads/${threadId}/abort`),
     },
     prompt: {
         base: () => buildUrl("/prompt"),

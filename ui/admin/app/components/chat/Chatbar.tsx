@@ -1,4 +1,4 @@
-import { ArrowUpIcon } from "lucide-react";
+import { ArrowUpIcon, SquareIcon } from "lucide-react";
 import { useState } from "react";
 
 import { cn } from "~/lib/utils";
@@ -15,17 +15,21 @@ type ChatbarProps = {
 
 export function Chatbar({ className }: ChatbarProps) {
     const [input, setInput] = useState("");
-    const { processUserMessage, isRunning, isInvoking } = useChat();
+    const { abortRunningThread, processUserMessage, isRunning, isInvoking } =
+        useChat();
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
 
-        if (isRunning) return;
+        if (isRunning) {
+            abortRunningThread();
+        }
 
         if (input.trim()) {
             processUserMessage(input);
-            setInput("");
         }
+
+        setInput("");
     };
 
     return (
@@ -55,10 +59,12 @@ export function Chatbar({ className }: ChatbarProps) {
                                 className="m-2"
                                 color="primary"
                                 type="submit"
-                                disabled={!input || isRunning || isInvoking}
+                                disabled={(!input && !isRunning) || isInvoking}
                             >
                                 {isInvoking ? (
                                     <LoadingSpinner />
+                                ) : isRunning ? (
+                                    <SquareIcon className="fill-primary-foreground text-primary-foreground !w-3 !h-3" />
                                 ) : (
                                     <ArrowUpIcon />
                                 )}

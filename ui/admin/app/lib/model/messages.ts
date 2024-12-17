@@ -10,6 +10,7 @@ export interface Message {
     tools?: ToolCall[];
     runId?: string;
     isLoading?: boolean;
+    aborted?: boolean;
     error?: boolean;
     contentID?: string;
 }

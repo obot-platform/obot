@@ -21,6 +21,7 @@ interface ChatContextType {
     messages: Message[];
     mode: Mode;
     processUserMessage: (text: string) => void;
+    abortRunningThread: () => void;
     id: string;
     threadId: Nullish<string>;
     invoke: (prompt?: string) => void;
@@ -68,11 +69,19 @@ export function ChatProvider({
 
     const { messages, isRunning } = useMessageSource(threadId);
 
+    const abortRunningThread = () => {
+        if (!threadId || !isRunning) return;
+        abortThreadProcess.execute(threadId);
+    };
+
+    const abortThreadProcess = useAsync(ThreadsService.abortThread);
+
     return (
         <ChatContext.Provider
             value={{
                 messages,
                 processUserMessage: invoke,
+                abortRunningThread,
                 mode,
                 id,
                 threadId,
@@ -133,6 +142,15 @@ function useMessageSource(threadId?: Nullish<string>) {
             }
 
             if (error) {
+                if (error.includes("thread was aborted, cancelling run")) {
+                    copy[copy.length - 1] = {
+                        ...copy[copy.length - 1],
+                        aborted: true,
+                    };
+
+                    return copy;
+                }
+
                 copy.push({
                     sender: "agent",
                     text: error,
