@@ -4,8 +4,8 @@ import { $path } from "remix-routes";
 import { assetUrl } from "~/lib/utils";
 
 import { TypographyH3, TypographyP } from "~/components/Typography";
-import { useModelProviders } from "~/components/model-providers/ModelProviderContext";
 import { Button } from "~/components/ui/button";
+import { useModelProviders } from "~/hooks/model-providers/useModelProviders";
 
 export function FirstModelProviderBanner() {
     const { configured: modelProviderConfigured } = useModelProviders();

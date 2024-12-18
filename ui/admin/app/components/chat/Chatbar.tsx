@@ -5,11 +5,11 @@ import { cn } from "~/lib/utils";
 
 import { ChatActions } from "~/components/chat/ChatActions";
 import { useChat } from "~/components/chat/ChatContext";
-import { useModelProviders } from "~/components/model-providers/ModelProviderContext";
 import { ModelProviderTooltip } from "~/components/model-providers/ModelProviderTooltip";
 import { LoadingSpinner } from "~/components/ui/LoadingSpinner";
 import { Button } from "~/components/ui/button";
 import { AutosizeTextarea } from "~/components/ui/textarea";
+import { useModelProviders } from "~/hooks/model-providers/useModelProviders";
 
 type ChatbarProps = {
     className?: string;

@@ -5,7 +5,6 @@ import { WorkflowService } from "~/lib/service/api/workflowService";
 import { cn } from "~/lib/utils";
 
 import { RunWorkflowForm } from "~/components/chat/RunWorkflowForm";
-import { useModelProviders } from "~/components/model-providers/ModelProviderContext";
 import { ModelProviderTooltip } from "~/components/model-providers/ModelProviderTooltip";
 import { Button, ButtonProps } from "~/components/ui/button";
 import {
@@ -13,6 +12,7 @@ import {
     PopoverContent,
     PopoverTrigger,
 } from "~/components/ui/popover";
+import { useModelProviders } from "~/hooks/model-providers/useModelProviders";
 
 type RunWorkflowProps = {
     onSubmit: (params?: Record<string, string>) => void;

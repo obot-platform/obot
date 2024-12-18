@@ -7,10 +7,10 @@ import { RouteHandle } from "~/lib/service/routeHandles";
 
 import { TypographyH2 } from "~/components/Typography";
 import { WarningAlert } from "~/components/composed/WarningAlert";
-import { useModelProviders } from "~/components/model-providers/ModelProviderContext";
 import { ModelProviderList } from "~/components/model-providers/ModelProviderLists";
 import { CommonModelProviderIds } from "~/components/model-providers/constants";
 import { DefaultModelAliasFormDialog } from "~/components/model/DefaultModelAliasForm";
+import { useModelProviders } from "~/hooks/model-providers/useModelProviders";
 
 export async function clientLoader() {
     await Promise.all([
