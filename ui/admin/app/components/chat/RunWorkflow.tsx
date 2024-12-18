@@ -27,7 +27,7 @@ export function RunWorkflow({
     ...props
 }: RunWorkflowProps & ButtonProps) {
     const [open, setOpen] = useState(false);
-    const { modelProviderConfigured } = useModelProviders();
+    const { configured: modelProviderConfigured } = useModelProviders();
     const { data: workflow, isLoading } = useSWR(
         WorkflowService.getWorkflowById.key(workflowId),
         ({ workflowId }) => WorkflowService.getWorkflowById(workflowId)

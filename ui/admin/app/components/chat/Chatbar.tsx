@@ -19,7 +19,7 @@ export function Chatbar({ className }: ChatbarProps) {
     const [input, setInput] = useState("");
     const { abortRunningThread, processUserMessage, isRunning, isInvoking } =
         useChat();
-    const { modelProviderConfigured } = useModelProviders();
+    const { configured: modelProviderConfigured } = useModelProviders();
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();

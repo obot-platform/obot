@@ -8,7 +8,7 @@ import { useModelProviders } from "~/components/model-providers/ModelProviderCon
 import { Button } from "~/components/ui/button";
 
 export function FirstModelProviderBanner() {
-    const { modelProviderConfigured } = useModelProviders();
+    const { configured: modelProviderConfigured } = useModelProviders();
     const location = useLocation();
     const isModelsProviderPage = location.pathname.includes("/model-providers");
 

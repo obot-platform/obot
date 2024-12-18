@@ -52,9 +52,9 @@ const sortModelProviders = (modelProviders: ModelProvider[]) => {
 };
 
 export default function ModelProviders() {
-    const { modelProviderConfigured, modelProviders: data } =
+    const { configured: modelProviderConfigured, modelProviders } =
         useModelProviders();
-    const modelProviders = sortModelProviders(data);
+    const sortedModelProviders = sortModelProviders(modelProviders);
     return (
         <div>
             <div className="relative space-y-10 px-8 pb-8">
@@ -78,7 +78,7 @@ export default function ModelProviders() {
                 </div>
 
                 <div className="h-full flex flex-col gap-8 overflow-hidden">
-                    <ModelProviderList modelProviders={modelProviders ?? []} />
+                    <ModelProviderList modelProviders={sortedModelProviders} />
                 </div>
             </div>
         </div>
