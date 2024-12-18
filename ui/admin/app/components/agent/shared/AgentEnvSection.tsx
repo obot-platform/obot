@@ -45,7 +45,7 @@ export function AgentEnvSection({ entity, entityType }: AgentEnvFormProps) {
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogTrigger asChild>
-                <Button loading={revealEnv.isLoading}>
+                <Button loading={revealEnv.isLoading} className="w-full">
                     Environment Variables
                 </Button>
             </DialogTrigger>

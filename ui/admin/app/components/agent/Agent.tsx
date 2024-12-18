@@ -1,4 +1,4 @@
-import { LibraryIcon, PlusIcon, WrenchIcon } from "lucide-react";
+import { LibraryIcon, PlusIcon, VariableIcon, WrenchIcon } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import useSWR from "swr";
 
@@ -12,6 +12,7 @@ import { AgentForm } from "~/components/agent/AgentForm";
 import { AgentPublishStatus } from "~/components/agent/AgentPublishStatus";
 import { PastThreads } from "~/components/agent/PastThreads";
 import { ToolForm } from "~/components/agent/ToolForm";
+import { AgentEnvSection } from "~/components/agent/shared/AgentEnvSection";
 import { AgentKnowledgePanel } from "~/components/knowledge";
 import { Button } from "~/components/ui/button";
 import { CardDescription } from "~/components/ui/card";
@@ -123,6 +124,15 @@ export function Agent({ className, onRefresh }: AgentProps) {
                             debouncedSetAgentInfo(convertTools(tools))
                         }
                     />
+                </div>
+
+                <div className="p-4 m-4 space-y-4 lg:mx-6 xl:mx-8">
+                    <TypographyH4 className="flex items-center gap-2 border-b pb-2">
+                        <VariableIcon className="w-5 h-5" />
+                        Environment Variables
+                    </TypographyH4>
+
+                    <AgentEnvSection entity={agent} entityType="agent" />
                 </div>
 
                 <div className="p-4 m-4 space-y-4 lg:mx-6 xl:mx-8">
