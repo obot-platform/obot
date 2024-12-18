@@ -44,7 +44,7 @@ open_browser_tabs() {
 }
 
 cleanup() {
-  kill 0
+  kill $$
 }
 
 trap cleanup EXIT # Handles script exit and Ctrl-C
