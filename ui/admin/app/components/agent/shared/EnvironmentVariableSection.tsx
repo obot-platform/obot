@@ -62,14 +62,16 @@ export function EnvironmentVariableSection({
 
     return (
         <div className="flex flex-col gap-2">
-            <Card className="py-2 px-4">
-                <SelectList
-                    getItemKey={(item) => item.name}
-                    items={items}
-                    renderItem={renderItem}
-                    selected={items.map((item) => item.name)}
-                />
-            </Card>
+            {!!items.length && (
+                <Card className="py-2 px-4">
+                    <SelectList
+                        getItemKey={(item) => item.name}
+                        items={items}
+                        renderItem={renderItem}
+                        selected={items.map((item) => item.name)}
+                    />
+                </Card>
+            )}
 
             <Dialog open={open} onOpenChange={onOpenChange}>
                 <DialogTrigger asChild>
