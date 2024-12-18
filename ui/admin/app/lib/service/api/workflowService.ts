@@ -1,5 +1,6 @@
 import {
     CreateWorkflow,
+    RevealedEnv,
     UpdateWorkflow,
     Workflow,
 } from "~/lib/model/workflows";
@@ -87,6 +88,29 @@ async function authenticateWorkflow(workflowId: string) {
     return { reader, threadId };
 }
 
+async function getWorkflowEnv(workflowId: string) {
+    const res = await request<RevealedEnv>({
+        url: ApiRoutes.workflows.getEnv(workflowId).url,
+        errorMessage: "Failed to fetch workflow env",
+    });
+
+    return res.data;
+}
+getWorkflowEnv.key = (workflowId?: Nullish<string>) => {
+    if (!workflowId) return null;
+
+    return { url: ApiRoutes.workflows.getEnv(workflowId).path, workflowId };
+};
+
+async function updateWorkflowEnv(workflowId: string, env: RevealedEnv) {
+    await request({
+        url: ApiRoutes.workflows.updateEnv(workflowId).url,
+        method: "POST",
+        data: env,
+        errorMessage: "Failed to update workflow env",
+    });
+}
+
 export const WorkflowService = {
     getWorkflows,
     getWorkflowById,
@@ -95,4 +119,6 @@ export const WorkflowService = {
     deleteWorkflow,
     revalidateWorkflows,
     authenticateWorkflow,
+    getWorkflowEnv,
+    updateWorkflowEnv,
 };

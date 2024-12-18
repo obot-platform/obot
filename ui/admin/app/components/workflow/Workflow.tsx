@@ -24,7 +24,7 @@ import {
     WorkflowProvider,
     useWorkflow,
 } from "~/components/workflow/WorkflowContext";
-import { WorkflowEnvForm } from "~/components/workflow/WorkflowEnvForm";
+import { WorkflowEnvSection } from "~/components/workflow/WorkflowEnvSection";
 import { StepsForm } from "~/components/workflow/steps/StepsForm";
 import { useAsync } from "~/hooks/useAsync";
 import { useDebounce } from "~/hooks/useDebounce";
@@ -103,10 +103,7 @@ function WorkflowContent({ className, onPersistThreadId }: WorkflowProps) {
                         Environment Variables
                     </TypographyH4>
 
-                    <WorkflowEnvForm
-                        workflow={workflow}
-                        onChange={debouncedSetWorkflowInfo}
-                    />
+                    <WorkflowEnvSection workflow={workflow} />
                 </div>
 
                 <div className="p-4 m-4 flex flex-col gap-4">

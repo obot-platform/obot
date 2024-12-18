@@ -1,10 +1,11 @@
 import { AgentBase } from "~/lib/model/agents";
 import { EntityMeta } from "~/lib/model/primitives";
 
+export type RevealedEnv = Record<string, string>;
+
 export type WorkflowEnv = {
     name: string;
     value: string;
-    description: string;
 };
 
 export type WorkflowBase = AgentBase & {
