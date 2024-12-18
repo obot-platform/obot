@@ -23,7 +23,10 @@ export function ModelProviderList({
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-4">
                 {modelProviders.map((modelProvider) => (
                     <Card key={modelProvider.id}>
-                        <CardHeader className="pb-0 flex flex-row justify-end items-center">
+                        <CardHeader className="pt-2 pb-4 flex flex-row justify-between items-center">
+                            {RecommendedModelProviders.includes(
+                                modelProvider.id
+                            ) && <Badge variant="faded">Recommended</Badge>}
                             {modelProvider.configured ? (
                                 <ModelProvidersModels
                                     modelProvider={modelProvider}
@@ -33,24 +36,12 @@ export function ModelProviderList({
                             )}
                         </CardHeader>
                         <CardContent className="flex flex-col items-center gap-4">
-                            <div className="relative">
-                                {RecommendedModelProviders.includes(
-                                    modelProvider.id
-                                ) && (
-                                    <Badge
-                                        variant="faded"
-                                        className="absolute bottom-[-0.5rem] left-1/2 z-10 transform -translate-x-1/2"
-                                    >
-                                        Recommended
-                                    </Badge>
-                                )}
-                                <Link to={ModelProviderLinks[modelProvider.id]}>
-                                    <ModelProviderIcon
-                                        modelProvider={modelProvider}
-                                        size="lg"
-                                    />
-                                </Link>
-                            </div>
+                            <Link to={ModelProviderLinks[modelProvider.id]}>
+                                <ModelProviderIcon
+                                    modelProvider={modelProvider}
+                                    size="lg"
+                                />
+                            </Link>
                             <div className="text-lg font-semibold">
                                 {modelProvider.name}
                             </div>
