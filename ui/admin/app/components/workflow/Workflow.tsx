@@ -1,15 +1,7 @@
-import {
-    Library,
-    List,
-    LockIcon,
-    PuzzleIcon,
-    Variable,
-    WrenchIcon,
-} from "lucide-react";
+import { Library, List, PuzzleIcon, Variable, WrenchIcon } from "lucide-react";
 import { useCallback, useState } from "react";
 
 import { Workflow as WorkflowType } from "~/lib/model/workflows";
-import { WorkflowService } from "~/lib/service/api/workflowService";
 import { cn } from "~/lib/utils";
 
 import { TypographyH4, TypographyP } from "~/components/Typography";
@@ -17,7 +9,6 @@ import { AgentForm } from "~/components/agent";
 import { AgentEnvSection } from "~/components/agent/shared/AgentEnvSection";
 import { AgentKnowledgePanel } from "~/components/knowledge";
 import { BasicToolForm } from "~/components/tools/BasicToolForm";
-import { Button } from "~/components/ui/button";
 import { CardDescription } from "~/components/ui/card";
 import { ScrollArea } from "~/components/ui/scroll-area";
 import { ParamsForm } from "~/components/workflow/ParamsForm";
@@ -26,7 +17,6 @@ import {
     useWorkflow,
 } from "~/components/workflow/WorkflowContext";
 import { StepsForm } from "~/components/workflow/steps/StepsForm";
-import { useAsync } from "~/hooks/useAsync";
 import { useDebounce } from "~/hooks/useDebounce";
 
 type WorkflowProps = {
@@ -43,7 +33,7 @@ export function Workflow(props: WorkflowProps) {
     );
 }
 
-function WorkflowContent({ className, onPersistThreadId }: WorkflowProps) {
+function WorkflowContent({ className }: WorkflowProps) {
     const { workflow, updateWorkflow, isUpdating, lastUpdated } = useWorkflow();
 
     const [workflowUpdates, setWorkflowUpdates] = useState(workflow);
@@ -64,10 +54,6 @@ function WorkflowContent({ className, onPersistThreadId }: WorkflowProps) {
     );
 
     const debouncedSetWorkflowInfo = useDebounce(partialSetWorkflow, 1000);
-
-    const authenticate = useAsync(WorkflowService.authenticateWorkflow, {
-        onSuccess: ({ threadId }) => onPersistThreadId(threadId),
-    });
 
     return (
         <div className="h-full flex flex-col">
@@ -171,17 +157,6 @@ function WorkflowContent({ className, onPersistThreadId }: WorkflowProps) {
                 ) : (
                     <div />
                 )}
-
-                <div className="flex items-center gap-2">
-                    <Button
-                        onClick={() => authenticate.execute(workflow.id)}
-                        loading={authenticate.isLoading}
-                        disabled={authenticate.isLoading}
-                        startContent={<LockIcon />}
-                    >
-                        Authenticate
-                    </Button>
-                </div>
             </footer>
         </div>
     );

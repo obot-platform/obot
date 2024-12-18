@@ -113,10 +113,8 @@ export const ApiRoutes = {
             buildUrl(`/workflows/${workflowId}/authenticate`),
     },
     env: {
-        getEnv: (workflowId: string) =>
-            buildUrl(`/workflows/${workflowId}/env`),
-        updateEnv: (workflowId: string) =>
-            buildUrl(`/workflows/${workflowId}/env`),
+        getEnv: (entityId: string) => buildUrl(`/agents/${entityId}/env`),
+        updateEnv: (entityId: string) => buildUrl(`/agents/${entityId}/env`),
     },
     threads: {
         base: () => buildUrl("/threads"),
