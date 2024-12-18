@@ -16,16 +16,16 @@ export function FirstModelProviderBanner() {
         <div className="w-full">
             <div className="flex justify-center mx-8 mt-4 py-4 bg-secondary overflow-hidden rounded-xl">
                 <div className="flex flex-row min-h-36 items-center justify-between w-[calc(100%-4rem)] rounded-sm relative gap-4 max-w-screen-md">
-                    <div className="absolute opacity-45 top-[-1.75rem] left-[-3.0rem]">
+                    <div className="absolute opacity-5 md:opacity-45 md:top-[-1.75rem] md:left-[-3.0rem]">
                         <img
                             alt="Obot Alert"
-                            className="h-[17.5rem] w-[17.5rem]"
+                            className="md:h-[17.5rem] md:w-[17.5rem]"
                             src={assetUrl(
                                 "logo/obot-icon-surprised-yellow.svg"
                             )}
                         />
                     </div>
-                    <div className="flex flex-col ml-64 relative z-10">
+                    <div className="flex flex-col md:ml-64 relative z-10 gap-1">
                         <TypographyH3 className="mb-0.5">
                             Wait! You need to set up a Model Provider!
                         </TypographyH3>
