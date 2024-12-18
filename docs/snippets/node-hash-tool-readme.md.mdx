@@ -1,19 +1,19 @@
 ## Writing your first tool in Node.js (with Typescript) {#writing-your-first-tool-in-node-js-with-typescript-aeed7f15}
 
-[node-hash-tool](https://github.com/otto8-ai/node-hash-tool) contains a reference Typescript `Node.js` implementation of the `Hash` Tool.
+[node-hash-tool](https://github.com/obot-platform/node-hash-tool) contains a reference TypeScript Node.js implementation of the `Hash` tool.
 
-This guide walks through the structure and design of the Tool and outlines the packaging requirements for [Otto8](https://docs.otto8.ai/concepts/agents)
+This guide walks through the structure and design of the tool and outlines the packaging requirements for [Obot](https://docs.obot.ai/concepts/agents)
 
 To clone this repo and follow along, run the following command:
 
 ```bash
-git clone git@github.com:otto8-ai/node-hash-tool
+git clone git@github.com:obot-platform/node-hash-tool
 ```
 <br/>
 
 ## Tool Repo Structure {#tool-repo-structure-aeed7f15}
 
-The directory tree below highlights the files required to implement `Hash` in Typescript and package it for `Otto8`.
+The directory tree below highlights the files required to implement `Hash` in TypeScript and package it for Obot.
 
 ```
 node-hash-tool
@@ -26,21 +26,21 @@ node-hash-tool
     └── tools.ts
 ```
 
-> **Note:** The `tsconfig.json` file is only required for tools written in Typescript.
+> **Note:** The `tsconfig.json` file is only required for tools written in TypeScript.
 > It is not necessary for tools written in JavaScript.
 
 <br/>
 
-## Defining the `Hash` Tool {#defining-the-hash-tool-aeed7f15}
+## Defining the `Hash` tool {#defining-the-hash-tool-aeed7f15}
 
-The `tool.gpt` file contains [GPTScript Tool Definitions](https://docs.gptscript.ai/tools/gpt-file-reference) which describe a set of Tools that can be used by Agents in `Otto8`.
+The `tool.gpt` file contains [GPTScript Tool Definitions](https://docs.gptscript.ai/tools/gpt-file-reference) which describe a set of tools that can be used by agents in Obot.
 Every Tool repository must have a `tool.gpt` file in its root directory.
 
-The Tools defined in this file must have a descriptive `Name` and `Description` that will help Agents understand what the Tool does, what it returns (if anything), and all the `Parameters` it takes.
-Agents use these details to infer a Tool's usage.
-We call the section of a Tool definition that contains this info a `Preamble`.
+The tools defined in this file must have a `Name` and `Description` that will help agents understand what the tool does, what it returns (if anything), and all the `Parameters` it takes.
+Agents use these details to infer a tool's usage.
+We call the section of a tool definition that contains this info a `Preamble`.
 
-We want the `Hash` Tool to return the hash of some given `data`. It would also be nice to support a few different algorithms for the Agent to choose from.
+We want the `Hash` tool to return the hash of some given `data`. It would also be nice to support a few different algorithms for the agent to choose from.
 Let's take a look at the `Preamble` for `Hash` to see how that's achieved:
 
 ```yaml
@@ -52,14 +52,14 @@ Param: algo: The algorithm to generate a hash with. Supports "sha256" and "md5".
 
 Breaking this down a bit:
 
-- The `Preamble` above declares a Tool named `Hash`.
-- The `Param` fields enumerate the arguments that an Agent must provide when calling `Hash`, `data` and `algo`.
+- The `Preamble` above declares a tool named `Hash`.
+- The `Param` fields enumerate the arguments that an agent must provide when calling `Hash`, `data` and `algo`.
 - In this case, the description of the `algo` parameter outlines the valid options (`sha256` or `md5`) and defines a default value (`sha256`)
 - The `Description` explains what `Hash` returns with respect to the given arguments; the hash of `data` using the algorithm selected with `algo`.
 
 <br/>
 
-Immediately below the `Preamble` is the `Tool Body`, which tells `Otto8` how to execute the Tool:
+Immediately below the `Preamble` is the `Tool Body`, which tells Obot how to execute the tool:
 
 ```bash
 #!/usr/bin/env npm --silent --prefix ${GPTSCRIPT_TOOL_DIR} run tool -- hash
@@ -67,17 +67,17 @@ Immediately below the `Preamble` is the `Tool Body`, which tells `Otto8` how to 
 
 This is where the magic happens.
 
-To oversimplify, when an Agent calls the `Hash` Tool, `Otto8` reads this line and then:
+To simplify, when an Agent calls the `Hash` tool, Obot reads this line and then:
 
-1. Downloads the appropriate `Node.js` tool chain (`node` and `npm`)
-2. Sets up a working directory for the Tool
-3. Installs the dependencies from the Tool's `package.json` and `package-lock.json`
+1. Downloads the appropriate `Node.js` toolchain (`node` and `npm`)
+2. Sets up a working directory for the tool
+3. Installs the dependencies from the tool's `package.json` and `package-lock.json`
 4. Projects the call arguments onto environment variables (`DATA` and `ALGO`)
-5. Runs `npm --silent --prefix ${GPTSCRIPT_TOOL_DIR} run tool -- hash`.
+5. Runs `npm --silent --prefix ${GPTSCRIPT_TOOL_DIR} run tool -- hash`
 
 <br/>
 
-Putting it all together, here's the complete definition of the `Hash` Tool.
+Putting it all together, here's the complete definition of the `Hash` tool.
 
 ```yaml
 Name: Hash
@@ -92,14 +92,14 @@ Param: algo: The algorithm to generate a hash with. Default is "sha256". Support
 
 ## Tool Metadata {#tool-metadata-aeed7f15}
 
-The `tool.gpt` file also provides the following metadata for use in `Otto8`:
+The `tool.gpt` file also provides the following metadata for use in Obot:
 
-- `!metadata:*:category` which tags Tools with the `Crypto` category to promote organization and discovery
-- `!metadata:*:icon` which assigns `https://cdn.jsdelivr.net/npm/@phosphor-icons/core@2/assets/duotone/fingerprint-duotone.svg` as the Tool icon
+- `!metadata:*:category` which tags tools with the `Crypto` category to promote organization and discovery
+- `!metadata:*:icon` which assigns `https://cdn.jsdelivr.net/npm/@phosphor-icons/core@2/assets/duotone/fingerprint-duotone.svg` as the tool icon
 
 <br/>
 
-> **Note:** `*` is a wild card pattern that applies the metadata to all Tools in the `tool.gpt` file.
+> **Note:** `*` is a wildcard pattern that applies the metadata to all tools in the `tool.gpt` file.
 
 ```yaml
 ---
@@ -113,7 +113,7 @@ https://cdn.jsdelivr.net/npm/@phosphor-icons/core@2/assets/duotone/fingerprint-d
 
 <details>
     <summary>
-    <strong>Note:</strong> Metadata can be applied to a specific Tool by either specifying the exact name (e.g. <code>!metadata:Hash:category</code>) or by adding the metadata directly to a Tool's <code>Preamble</code>
+    <strong>Note:</strong> Metadata can be applied to a specific tool by either specifying the exact name (e.g. <code>!metadata:Hash:category</code>) or by adding the metadata directly to a tool's <code>Preamble</code>
     </summary>
 
 ```yaml
@@ -173,9 +173,9 @@ This means that when the `Tool Body` is executed, the effective command that run
 node --no-warnings --loader ts-node/esm src/tools.ts hash
 ```
 
-> **Note:** The `--loader ts-node/esm` option, in conjunction with the contents of `tsconfig.json`, is the "special sauce" that lets us run Typescript code directly without transpiling it to JavaScript first.
+> **Note:** The `--loader ts-node/esm` option, in conjunction with the contents of `tsconfig.json`, is the "special sauce" that lets us run TypeScript code directly without transpiling it to JavaScript first.
 
-To summarize, when the `Hash` Tool is called by an Agent, `src/tools.ts` gets run with `hash` as an argument.
+To summarize, when the `Hash` tool is called by an agent, `src/tools.ts` gets run with `hash` as an argument.
 
 Let's walk through the `src/tools.ts` to understand what happens at runtime:
 
@@ -199,7 +199,8 @@ try {
 }
 ```
 
-This code implements a simple CLI that wraps business logic in a try/catch block and forwards any exceptions to stdout. Writing errors to stdout instead of stderr is crucial because only stdout is returned to the Agent, while sdterr is discarded.
+This code implements a simple CLI that wraps business logic in a try/catch block and forwards any exceptions to stdout.
+Writing errors to stdout instead of stderr is crucial because only stdout is returned to the agent, while stderr is discarded.
 
 <details>
     <summary>
@@ -208,7 +209,7 @@ This code implements a simple CLI that wraps business logic in a try/catch block
 
 <br/>
 
-For example, if we wanted to add a new Tool to verify a given hash, we'd add a `verify` case:
+For example, if we wanted to add a new tool to verify a given hash, we'd add a `verify` case:
 
 ```typescript
 switch (cmd) {
@@ -222,7 +223,7 @@ switch (cmd) {
     }
 ```
 
-And the Body of the `Verify` Tool would pass `verify` to the `tool` script instead of `hash`:
+And the body of the `Verify` tool would pass `verify` to the `tool` script instead of `hash`:
 
 ```yaml
 Name: Verify
@@ -235,7 +236,7 @@ Name: Verify
 
 <br/>
 
-When `"hash"` is passed as an argument, the code extracts the `data` and `algo` Tool arguments from the respective environment variables, then passes them to the `hash` function.
+When `"hash"` is passed as an argument, the code extracts the `data` and `algo` tool arguments from the respective environment variables, then passes them to the `hash` function.
 
 The `hash` function is where the bulk of the business logic is implemented.
 
@@ -262,10 +263,10 @@ export function hash(data: string = '', algo = 'sha256'): string {
 
 It starts off by validating the `data` and `algo` arguments.
 When an argument is invalid, the function throws an exception that describes the validation issue in detail.
-The goal is to provide useful information that an Agent can use to construct valid arguments for future calls.
+The goal is to provide useful information that an agent can use to construct valid arguments for future calls.
 For example, when an invalid `algo` argument is provided, the code returns an error that contains the complete list of valid algorithms.
 
-Once it determines that all of the arguments are valid, it calculates the hash and writes a JSON object to stdout.
+Once it determines that all the arguments are valid, it calculates the hash and writes a JSON object to stdout.
 This object contains the hash and the algorithm used to generate it.
 
 ```typescript
@@ -277,7 +278,7 @@ This object contains the hash and the algorithm used to generate it.
 ```
 
 > **Note:** Producing structured data with extra contextual info (e.g. the algorithm) is considered good form.
-> It's a pattern that improves the Agent's ability to correctly use the Tool's result over time.
+> It's a pattern that improves the agent's ability to correctly use the tool's result over time.
 
 <details>
     <summary>
@@ -353,7 +354,7 @@ export function hash(data: string = '', algo = 'sha256'): string {
 
 ## Testing `src/tools.ts` and `src/hash.ts` Locally {#testing-src-tools-ts-and-src-hash-ts-locally-aeed7f15}
 
-Before adding a Tool to `Otto8`, verify that the Typescript business logic works on your machine.
+Before adding a tool to Obot, verify that the TypeScript business logic works on your machine.
 
 To do this, run through the following steps in the root of your local fork:
 
@@ -363,10 +364,10 @@ To do this, run through the following steps in the root of your local fork:
    npm install
    ```
 
-2. Run the Tool with some test arguments:
+2. Run the tool with some test arguments:
 
-   | **Command**                                        |**Output**                                                                                              |
-   | -------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+   | **Command**                                     | **Output**                                                                                         |
+      | ----------------------------------------------- | -------------------------------------------------------------------------------------------------- |
    | `DATA='foo' npm run tool hash`                  | `{ "algo": "sha256", "hash": "2c26b46b68ffc68ff99b453c1d30413413422d706483bfa0f98a5e886266e7ae" }` |
    | `npm run tool hash`                             | `Error: A data argument must be provided`                                                          |
    | `DATA='foo' ALGO='md5' npm run tool hash`       | `{ "algo": "md5", "hash": "acbd18db4cc2f85cedef654fccc4a4d8" }`                                    |
@@ -374,14 +375,14 @@ To do this, run through the following steps in the root of your local fork:
 
 <br/>
 
-## Adding The `Hash` Tool to `Otto8` {#adding-the-hash-tool-to-otto8-aeed7f15}
+## Adding The `Hash` tool to Obot {#adding-the-hash-tool-to-obot-aeed7f15}
 
-Before a Tool can be used by an Agent, an admin must first add the Tool to `Otto8` by performing the steps below:
+Before a tool can be used by an agent, an admin must first add the tool to Obot by performing the steps below:
 
 1. <details>
-       <summary>Navigate to the <code>Otto8</code> admin UI in a browser and open the Tools page by clicking the <em>Tools</em> button in the left drawer</summary>
+       <summary>Navigate to the Obot admin UI in a browser and open the Tools page by clicking the <em>Tools</em> button in the left drawer</summary>
        <div align="left">
-           <img src="https://raw.githubusercontent.com/otto8-ai/node-hash-tool/refs/heads/main/docs/add-tools-step-0.png"
+           <img src="https://raw.githubusercontent.com/obot-platform/node-hash-tool/refs/heads/main/docs/add-tools-step-0.png"
                 alt="Open The Tools Page" width="200"/>
        </div>
    </details>
@@ -389,15 +390,15 @@ Before a Tool can be used by an Agent, an admin must first add the Tool to `Otto
 2. <details>
        <summary>Click the <em>Register New Tool</em> button on the right</summary>
        <div align="left">
-           <img src="https://raw.githubusercontent.com/otto8-ai/node-hash-tool/refs/heads/main/docs/add-tools-step-1.png"
+           <img src="https://raw.githubusercontent.com/obot-platform/node-hash-tool/refs/heads/main/docs/add-tools-step-1.png"
                 alt="Click The Register New Tool Button" width="200"/>
        </div>
    </details>
 
 3. <details>
-       <summary>Type the Tool repo reference into the modal's input box and click <em>Register Tool</em></summary>
+       <summary>Type the tool repo reference into the modal's input box and click <em>Register Tool</em></summary>
        <div align="left">
-           <img src="https://raw.githubusercontent.com/otto8-ai/node-hash-tool/refs/heads/main/docs/add-tools-step-2.png"
+           <img src="https://raw.githubusercontent.com/obot-platform/node-hash-tool/refs/heads/main/docs/add-tools-step-2.png"
                 alt="Enter Tool Repo Reference" width="500" height="auto"/>
        </div>
    </details>
@@ -407,35 +408,35 @@ Before a Tool can be used by an Agent, an admin must first add the Tool to `Otto
 <details>
     <summary>Once the tool has been added, you can search for it by category or name on the Tools page to verify</summary>
     <div align="left">
-        <img src="https://raw.githubusercontent.com/otto8-ai/node-hash-tool/refs/heads/main/docs/add-tools-step-3.png"
+        <img src="https://raw.githubusercontent.com/obot-platform/node-hash-tool/refs/heads/main/docs/add-tools-step-3.png"
              alt="Search For Newly Added Tools" height="300"/>
     </div>
 </details>
 
-## Using The `Hash` Tool in an Agent {#using-the-hash-tool-in-an-agent-aeed7f15}
+## Using The `Hash` tool in an agent {#using-the-hash-tool-in-an-agent-aeed7f15}
 
-To use the `Hash` Tool in an Agent, open the Agent's Edit page, then:
+To use the `Hash` tool in an agent, open the agent's Edit page, then:
 
 1. <details>
        <summary>Click the <em>Add Tool</em> button under either the <em>Agent Tools</em> or <em>User Tools</em> sections</summary>
        <div align="left">
-           <img src="https://raw.githubusercontent.com/otto8-ai/node-hash-tool/refs/heads/main/docs/use-tools-step-0.png"
+           <img src="https://raw.githubusercontent.com/obot-platform/node-hash-tool/refs/heads/main/docs/use-tools-step-0.png"
                 alt="Click The Add Tool Button" width="500"/>
        </div>
    </details>
 
 2. <details>
-       <summary>Search for "Hash" or "Crypto" in the Tool search pop-out and select the <code>Hash</code> Tool</summary>
+       <summary>Search for "Hash" or "Crypto" in the tool search pop-out and select the <code>Hash</code> Tool</summary>
        <div align="left">
-           <img src="https://raw.githubusercontent.com/otto8-ai/node-hash-tool/refs/heads/main/docs/use-tools-step-1.png"
+           <img src="https://raw.githubusercontent.com/obot-platform/node-hash-tool/refs/heads/main/docs/use-tools-step-1.png"
                 alt="Add Hash Tool To Agent" width="500"/>
        </div>
    </details>
 
 3. <details>
-       <summary>Ask the Agent to generate a hash</summary>
+       <summary>Ask the agent to generate a hash</summary>
        <div align="left">
-           <img src="https://raw.githubusercontent.com/otto8-ai/node-hash-tool/refs/heads/main/docs/use-tools-step-2.png"
+           <img src="https://raw.githubusercontent.com/obot-platform/node-hash-tool/refs/heads/main/docs/use-tools-step-2.png"
                 alt="Ask The Agent To Generate a Hash" width="500"/>
        </div>
    </details>
