@@ -48,9 +48,6 @@ func (a *WorkflowHandler) Authenticate(req api.Context) error {
 	}
 
 	agent.Spec.Manifest.Prompt = "#!sys.echo\nDONE"
-	if len(agent.Spec.Credentials) == 0 {
-		return nil
-	}
 
 	resp, err := a.invoker.Agent(req.Context(), req.Storage, agent, "", invoke.Options{
 		Synchronous:           true,

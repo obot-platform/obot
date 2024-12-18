@@ -35,7 +35,7 @@ func (s *Server) AddRoutes(mux *server.Server) {
 	mux.HandleFunc("GET /api/oauth/start/{id}/{service}", wrap(s.oauth))
 	mux.HandleFunc("/api/oauth/redirect/{service}", wrap(s.redirect))
 
-	// CRUD routes for OAuth Apps (integrations with other service such as Microsoft 365)
+	// CRUD routes for OAuth Apps (integrations with other services such as Microsoft 365)
 	mux.HandleFunc("GET /api/oauth-apps", wrap(s.listOAuthApps))
 	mux.HandleFunc("GET /api/oauth-apps/{id}", wrap(s.oauthAppByID))
 	mux.HandleFunc("POST /api/oauth-apps", wrap(s.createOAuthApp))

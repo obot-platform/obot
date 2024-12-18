@@ -212,6 +212,12 @@ func Router(services *services.Services) (http.Handler, error) {
 	mux.HandleFunc("DELETE /api/workflows/{context}/credentials/{id}", handlers.DeleteCredential)
 	mux.HandleFunc("DELETE /api/credentials/{id}", handlers.DeleteCredential)
 
+	// Environment variable credentials
+	mux.HandleFunc("POST /api/workflows/{id}/env", handlers.SetEnv)
+	mux.HandleFunc("GET /api/workflows/{id}/env", handlers.RevealEnv)
+	mux.HandleFunc("POST /api/agents/{id}/env", handlers.SetEnv)
+	mux.HandleFunc("GET /api/agents/{id}/env", handlers.RevealEnv)
+
 	// Webhooks
 	mux.HandleFunc("POST /api/webhooks", webhooks.Create)
 	mux.HandleFunc("GET /api/webhooks", webhooks.List)
