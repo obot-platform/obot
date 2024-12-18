@@ -153,7 +153,7 @@ export function ModelProviderConfigureContent({
                 </DialogTitle>
             </DialogHeader>
 
-            {modelProvider.id === CommonModelProviderIds.ANTHROPIC && (
+            {(modelProvider.id === CommonModelProviderIds.ANTHROPIC || modelProvider.id == CommonModelProviderIds.ANTHROPIC_BEDROCK) && (
                 <DialogDescription className="px-4">
                     Note: Anthropic does not have an embeddings model and{" "}
                     <Link

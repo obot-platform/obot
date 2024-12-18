@@ -33,6 +33,7 @@ const sortModelProviders = (modelProviders: ModelProvider[]) => {
             CommonModelProviderIds.OPENAI,
             CommonModelProviderIds.AZURE_OPENAI,
             CommonModelProviderIds.ANTHROPIC,
+            CommonModelProviderIds.ANTHROPIC_BEDROCK,
             CommonModelProviderIds.OLLAMA,
             CommonModelProviderIds.VOYAGE,
             CommonModelProviderIds.GROQ,

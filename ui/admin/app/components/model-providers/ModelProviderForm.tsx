@@ -61,6 +61,7 @@ const translateUserFriendlyLabel = (label: string) => {
         "OBOT_OLLAMA_MODEL_PROVIDER",
         "OBOT_VOYAGE_MODEL_PROVIDER",
         "OBOT_GROQ_MODEL_PROVIDER",
+        "OBOT_ANTHROPIC_BEDROCK_MODEL_PROVIDER",
     ];
 
     return fieldsToStrip
