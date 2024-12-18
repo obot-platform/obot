@@ -181,6 +181,9 @@ const CommandEmpty = forwardRef<
 
 CommandEmpty.displayName = "CommandEmpty";
 
+/**
+ * @deprecated This component is super bulky and has some weird bugs. We need to create a new one that behaves similarly to ComboBox
+ */
 const MultiSelect = React.forwardRef<MultiSelectRef, MultiSelectProps>(
     (
         {
@@ -334,8 +337,13 @@ const MultiSelect = React.forwardRef<MultiSelectRef, MultiSelectProps>(
             };
 
             void exec();
-            // eslint-disable-next-line react-hooks/exhaustive-deps
-        }, [debouncedSearchTerm, groupBy, open, triggerSearchOnFocus]);
+        }, [
+            debouncedSearchTerm,
+            groupBy,
+            open,
+            triggerSearchOnFocus,
+            onSearchSync,
+        ]);
 
         useEffect(() => {
             /** async search */
@@ -360,8 +368,13 @@ const MultiSelect = React.forwardRef<MultiSelectRef, MultiSelectProps>(
             };
 
             void exec();
-            // eslint-disable-next-line react-hooks/exhaustive-deps
-        }, [debouncedSearchTerm, groupBy, open, triggerSearchOnFocus]);
+        }, [
+            debouncedSearchTerm,
+            groupBy,
+            open,
+            triggerSearchOnFocus,
+            onSearch,
+        ]);
 
         const CreatableItem = () => {
             if (!creatable) return undefined;

@@ -26,6 +26,9 @@ const ScrollArea = React.forwardRef<
         ...rootProps
     } = props;
 
+    const [viewportEl, setViewportEl] = React.useState<HTMLDivElement | null>(
+        null
+    );
     const viewportRef = React.useRef<HTMLDivElement | null>(null);
     const [shouldStickToBottom, setShouldStickToBottom] = React.useState(
         enableScrollStick === "bottom"
@@ -49,6 +52,11 @@ const ScrollArea = React.forwardRef<
         }
     }, [enableScrollStick, shouldStickToBottom, children]);
 
+    const initRef = React.useCallback((node: HTMLDivElement | null) => {
+        setViewportEl(node);
+        viewportRef.current = node;
+    }, []);
+
     return (
         <ScrollAreaPrimitive.Root
             ref={ref}
@@ -57,7 +65,7 @@ const ScrollArea = React.forwardRef<
         >
             <ScrollAreaPrimitive.Viewport
                 className="h-full w-full rounded-[inherit] max-h-[inherit]"
-                ref={viewportRef}
+                ref={initRef}
                 onScroll={(e) =>
                     setShouldStickToBottom(isScrolledToBottom(e.currentTarget))
                 }
@@ -66,7 +74,7 @@ const ScrollArea = React.forwardRef<
                 {enableScrollTo === "bottom" && (
                     <ScrollToBottom
                         onClick={() => setShouldStickToBottom(true)}
-                        scrollContainerEl={viewportRef.current}
+                        scrollContainerEl={viewportEl}
                         disabled={shouldStickToBottom}
                     />
                 )}
