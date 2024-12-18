@@ -15,7 +15,9 @@ export function ModelProviderTooltip({
         children
     ) : (
         <Tooltip>
-            <TooltipTrigger>{children}</TooltipTrigger>
+            <TooltipTrigger asChild>
+                <span>{children}</span>
+            </TooltipTrigger>
             <TooltipContent className="bg-warning">
                 Set up a model provider to enable this feature.
             </TooltipContent>
