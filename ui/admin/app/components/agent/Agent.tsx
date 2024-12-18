@@ -12,7 +12,7 @@ import { AgentForm } from "~/components/agent/AgentForm";
 import { AgentPublishStatus } from "~/components/agent/AgentPublishStatus";
 import { PastThreads } from "~/components/agent/PastThreads";
 import { ToolForm } from "~/components/agent/ToolForm";
-import { AgentEnvSection } from "~/components/agent/shared/AgentEnvSection";
+import { EnvironmentVariableSection } from "~/components/agent/shared/EnvironmentVariableSection";
 import { AgentKnowledgePanel } from "~/components/knowledge";
 import { Button } from "~/components/ui/button";
 import { CardDescription } from "~/components/ui/card";
@@ -132,7 +132,7 @@ export function Agent({ className, onRefresh }: AgentProps) {
                         Environment Variables
                     </TypographyH4>
 
-                    <AgentEnvSection
+                    <EnvironmentVariableSection
                         entity={agent}
                         onUpdate={partialSetAgent}
                         entityType="agent"

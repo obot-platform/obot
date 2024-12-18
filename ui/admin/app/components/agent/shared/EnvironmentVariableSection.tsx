@@ -21,17 +21,17 @@ import {
 } from "~/components/ui/dialog";
 import { useAsync } from "~/hooks/useAsync";
 
-type AgentEnvSectionProps = {
+type EnvironmentVariableSectionProps = {
     entity: Agent | Workflow;
     entityType: "agent" | "workflow";
     onUpdate: (env: Partial<Agent | Workflow>) => void;
 };
 
-export function AgentEnvSection({
+export function EnvironmentVariableSection({
     entity,
     entityType,
     onUpdate,
-}: AgentEnvSectionProps) {
+}: EnvironmentVariableSectionProps) {
     const revealEnv = useAsync(EnvironmentApiService.getEnvVariables);
 
     const onOpenChange = (open: boolean) => {
@@ -111,9 +111,7 @@ export function AgentEnvSection({
         return (
             <div className="flex items-center justify-between gap-2 w-full">
                 <TypographyP className="flex-1">{item.name}</TypographyP>
-                <TypographyP className="text-muted-foreground">
-                    *****************
-                </TypographyP>
+                <TypographyP>{"•".repeat(15)}</TypographyP>
             </div>
         );
     }

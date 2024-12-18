@@ -177,11 +177,12 @@ export function SelectList<T>({
                 classNames?.container
             )}
         >
-            {selected.map((id) => (
+            {selected.map((id, i) => (
                 <div
                     key={id}
                     className={cn(
-                        "flex items-center justify-between gap-2 pt-2",
+                        "flex items-center justify-between gap-2 pt-1",
+                        i > 0 && "pt-2",
                         classNames?.item
                     )}
                 >
