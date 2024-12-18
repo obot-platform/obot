@@ -11,6 +11,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
@@ -444,6 +445,30 @@ func (s *Server) callbackOAuthApp(apiContext api.Context) error {
 			Ok:           true, // Assuming true if no error is present
 			CreatedAt:    time.Now(),
 			RefreshToken: googleTokenResp.RefreshToken,
+		}
+	case types2.OAuthAppTypeSalesforce:
+		salesforceTokenResp := new(types.SalesforceOAuthTokenResponse)
+		if err := json.NewDecoder(resp.Body).Decode(salesforceTokenResp); err != nil {
+			return fmt.Errorf("failed to parse token response: %w", err)
+		}
+		issuedAt, err := strconv.ParseInt(salesforceTokenResp.IssuedAt, 10, 64)
+		if err != nil {
+			return fmt.Errorf("failed to parse token response: %w", err)
+		}
+		createdAt := time.Unix(issuedAt/1000, (issuedAt%1000)*1000000)
+
+		tokenResp = &types.OAuthTokenResponse{
+			State:        state,
+			TokenType:    salesforceTokenResp.TokenType,
+			Scope:        salesforceTokenResp.Scope,
+			AccessToken:  salesforceTokenResp.AccessToken,
+			ExpiresIn:    7200, // Relies on Salesforce admin not overriding the default 2 hours
+			Ok:           true, // Assuming true if no error is present
+			CreatedAt:    createdAt,
+			RefreshToken: salesforceTokenResp.RefreshToken,
+			Extras: map[string]string{
+				"GPTSCRIPT_SALESFORCE_URL": salesforceTokenResp.InstanceURL,
+			},
 		}
 	default:
 		if err := json.NewDecoder(resp.Body).Decode(tokenResp); err != nil {

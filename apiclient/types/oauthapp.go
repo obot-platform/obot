@@ -8,6 +8,7 @@ const (
 	OAuthAppTypeHubSpot      OAuthAppType = "hubspot"
 	OAuthAppTypeGitHub       OAuthAppType = "github"
 	OAuthAppTypeGoogle       OAuthAppType = "google"
+	OAuthAppTypeSalesforce   OAuthAppType = "salesforce"
 	OAuthAppTypeCustom       OAuthAppType = "custom"
 )
 
@@ -36,6 +37,8 @@ type OAuthAppManifest struct {
 	Integration string `json:"integration,omitempty"`
 	// Global indicates if the OAuth app is globally applied to all agents.
 	Global *bool `json:"global,omitempty"`
+	// This field is only used by Salesforce
+	InstanceURL string `json:"instanceURL,omitempty"`
 }
 
 type OAuthAppList List[OAuthApp]

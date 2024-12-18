@@ -68,6 +68,25 @@ func ValidateAndSetDefaultsOAuthAppManifest(r *types.OAuthAppManifest, create bo
 	case types.OAuthAppTypeGitHub:
 		r.AuthURL = GitHubAuthorizeURL
 		r.TokenURL = GitHubTokenURL
+	case types.OAuthAppTypeSalesforce:
+		salesforceAuthorizeFragment := "/services/oauth2/authorize"
+		salesforceTokenFragment := "/services/oauth2/token"
+		instanceURL, err := url.Parse(r.InstanceURL)
+		if err != nil {
+			errs = append(errs, err)
+		}
+		if instanceURL.Scheme != "" {
+			instanceURL.Scheme = "https"
+		}
+
+		r.AuthURL, err = url.JoinPath(instanceURL.String(), salesforceAuthorizeFragment)
+		if err != nil {
+			errs = append(errs, err)
+		}
+		r.TokenURL, err = url.JoinPath(instanceURL.String(), salesforceTokenFragment)
+		if err != nil {
+			errs = append(errs, err)
+		}
 	}
 
 	if r.AuthURL == "" {
@@ -160,6 +179,7 @@ type OAuthTokenResponse struct {
 	Ok           bool   `json:"ok"`
 	Error        string `json:"error"`
 	CreatedAt    time.Time
+	Extras       map[string]string `json:"extras" gorm:"serializer:json"`
 }
 
 type GoogleOAuthTokenResponse struct {
@@ -168,6 +188,18 @@ type GoogleOAuthTokenResponse struct {
 	RefreshToken string `json:"refresh_token"`
 	Scope        string `json:"scope"`
 	TokenType    string `json:"token_type"`
+}
+
+type SalesforceOAuthTokenResponse struct {
+	AccessToken  string `json:"access_token"`
+	Signature    string `json:"signature"`
+	Scope        string `json:"scope"`
+	IDToken      string `json:"id_token"`
+	InstanceURL  string `json:"instance_url"`
+	ID           string `json:"id"`
+	RefreshToken string `json:"refresh_token"`
+	TokenType    string `json:"token_type"`
+	IssuedAt     string `json:"issued_at"`
 }
 
 type SlackOAuthTokenResponse struct {

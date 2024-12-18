@@ -8,6 +8,7 @@ export const OAuthProvider = {
     Google: "google",
     Microsoft365: "microsoft365",
     Slack: "slack",
+    Salesforce: "salesforce",
     Notion: "notion",
     Custom: "custom",
 } as const;

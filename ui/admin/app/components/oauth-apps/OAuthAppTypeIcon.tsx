@@ -5,6 +5,7 @@ import {
     FaGithub,
     FaGoogle,
     FaMicrosoft,
+    FaSalesforce,
     FaSlack,
 } from "react-icons/fa";
 
@@ -15,6 +16,7 @@ const IconMap = {
     [OAuthProvider.Atlassian]: FaAtlassian,
     [OAuthProvider.GitHub]: FaGithub,
     [OAuthProvider.Slack]: FaSlack,
+    [OAuthProvider.Salesforce]: FaSalesforce,
     [OAuthProvider.Google]: FaGoogle,
     [OAuthProvider.Microsoft365]: FaMicrosoft,
     [OAuthProvider.Notion]: NotionLogoIcon,
