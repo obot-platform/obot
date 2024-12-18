@@ -111,6 +111,8 @@ export const ApiRoutes = {
             buildUrl(`/workflows/${workflowId}/files/${fileName}`),
         authenticate: (workflowId: string) =>
             buildUrl(`/workflows/${workflowId}/authenticate`),
+    },
+    env: {
         getEnv: (workflowId: string) =>
             buildUrl(`/workflows/${workflowId}/env`),
         updateEnv: (workflowId: string) =>

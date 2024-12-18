@@ -1,6 +1,6 @@
 import { useState } from "react";
 
-import { RevealedEnv } from "~/lib/model/workflows";
+import { RevealedEnv } from "~/lib/model/environmentVariables";
 
 import { NameDescriptionForm } from "~/components/composed/NameDescriptionForm";
 import { Button } from "~/components/ui/button";
@@ -17,7 +17,7 @@ export function EnvForm({
     isLoading,
 }: EnvFormProps) {
     const [state, setState] = useState(() =>
-        Object.values(defaultValues).map(([name, description]) => ({
+        Object.entries(defaultValues).map(([name, description]) => ({
             name,
             description,
         }))

@@ -1,7 +1,8 @@
 import { toast } from "sonner";
 
+import { Agent } from "~/lib/model/agents";
 import { Workflow } from "~/lib/model/workflows";
-import { WorkflowService } from "~/lib/service/api/workflowService";
+import { EnvironmentApiService } from "~/lib/service/api/EnvironmentApiService";
 
 import { EnvForm } from "~/components/agent/shared/AgentEnvironmentVariableForm";
 import { Button } from "~/components/ui/button";
@@ -15,23 +16,24 @@ import {
 } from "~/components/ui/dialog";
 import { useAsync } from "~/hooks/useAsync";
 
-type WorkflowEnvFormProps = {
-    workflow: Workflow;
+type AgentEnvFormProps = {
+    entity: Agent | Workflow;
+    entityType: "agent" | "workflow";
 };
 
-export function WorkflowEnvSection({ workflow }: WorkflowEnvFormProps) {
+export function AgentEnvSection({ entity, entityType }: AgentEnvFormProps) {
     // use useAsync because we don't want to cache env variables
-    const revealEnv = useAsync(WorkflowService.getWorkflowEnv);
+    const revealEnv = useAsync(EnvironmentApiService.getEnvVariables);
 
     const onOpenChange = (open: boolean) => {
         if (open) {
-            revealEnv.execute(workflow.id);
+            revealEnv.execute(entity.id);
         } else {
-            updateEnv.clear();
+            revealEnv.clear();
         }
     };
 
-    const updateEnv = useAsync(WorkflowService.updateWorkflowEnv, {
+    const updateEnv = useAsync(EnvironmentApiService.updateEnvVariables, {
         onSuccess: () => {
             toast.success("Environment variables updated");
             revealEnv.clear();
@@ -48,14 +50,14 @@ export function WorkflowEnvSection({ workflow }: WorkflowEnvFormProps) {
                 </Button>
             </DialogTrigger>
 
-            <DialogContent>
+            <DialogContent className="max-w-3xl">
                 <DialogHeader>
                     <DialogTitle>Environment Variables</DialogTitle>
                 </DialogHeader>
 
                 <DialogDescription>
                     Environment variables are used to store values that can be
-                    used in your workflow.
+                    used in your {entityType}.
                 </DialogDescription>
 
                 {revealEnv.data && (
@@ -63,7 +65,7 @@ export function WorkflowEnvSection({ workflow }: WorkflowEnvFormProps) {
                         defaultValues={revealEnv.data}
                         isLoading={updateEnv.isLoading}
                         onSubmit={(values) =>
-                            updateEnv.execute(workflow.id, values)
+                            updateEnv.execute(entity.id, values)
                         }
                     />
                 )}

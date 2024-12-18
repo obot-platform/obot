@@ -86,6 +86,7 @@ export function NameDescriptionForm({
                         <Button
                             variant="ghost"
                             size="icon"
+                            type="button"
                             onClick={() => paramFields.remove(i)}
                         >
                             <TrashIcon />
@@ -97,6 +98,7 @@ export function NameDescriptionForm({
                     variant="ghost"
                     className="self-end"
                     startContent={<PlusIcon />}
+                    type="button"
                     onClick={() =>
                         paramFields.append({ name: "", description: "" })
                     }

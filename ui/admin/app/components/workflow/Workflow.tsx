@@ -14,6 +14,7 @@ import { cn } from "~/lib/utils";
 
 import { TypographyH4, TypographyP } from "~/components/Typography";
 import { AgentForm } from "~/components/agent";
+import { AgentEnvSection } from "~/components/agent/shared/AgentEnvSection";
 import { AgentKnowledgePanel } from "~/components/knowledge";
 import { BasicToolForm } from "~/components/tools/BasicToolForm";
 import { Button } from "~/components/ui/button";
@@ -24,7 +25,6 @@ import {
     WorkflowProvider,
     useWorkflow,
 } from "~/components/workflow/WorkflowContext";
-import { WorkflowEnvSection } from "~/components/workflow/WorkflowEnvSection";
 import { StepsForm } from "~/components/workflow/steps/StepsForm";
 import { useAsync } from "~/hooks/useAsync";
 import { useDebounce } from "~/hooks/useDebounce";
@@ -103,7 +103,7 @@ function WorkflowContent({ className, onPersistThreadId }: WorkflowProps) {
                         Environment Variables
                     </TypographyH4>
 
-                    <WorkflowEnvSection workflow={workflow} />
+                    <AgentEnvSection entity={workflow} entityType="workflow" />
                 </div>
 
                 <div className="p-4 m-4 flex flex-col gap-4">
