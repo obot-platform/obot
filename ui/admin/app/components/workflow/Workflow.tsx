@@ -89,7 +89,11 @@ function WorkflowContent({ className }: WorkflowProps) {
                         Environment Variables
                     </TypographyH4>
 
-                    <AgentEnvSection entity={workflow} entityType="workflow" />
+                    <AgentEnvSection
+                        entity={workflow}
+                        entityType="workflow"
+                        onUpdate={partialSetWorkflow}
+                    />
                 </div>
 
                 <div className="p-4 m-4 flex flex-col gap-4">

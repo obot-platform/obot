@@ -68,18 +68,18 @@ export function NameDescriptionForm({
                         key={field.id}
                     >
                         <ControlledInput
+                            placeholder="Name"
                             {...nameFieldProps}
                             control={form.control}
                             name={`params.${i}.name`}
-                            placeholder="Name"
                             classNames={{ wrapper: "flex-auto bg-background" }}
                         />
 
                         <ControlledInput
+                            placeholder="Description"
                             {...descriptionFieldProps}
                             control={form.control}
                             name={`params.${i}.description`}
-                            placeholder="Description"
                             classNames={{ wrapper: "flex-auto bg-background" }}
                         />
 

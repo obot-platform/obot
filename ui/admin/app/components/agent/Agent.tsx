@@ -132,7 +132,11 @@ export function Agent({ className, onRefresh }: AgentProps) {
                         Environment Variables
                     </TypographyH4>
 
-                    <AgentEnvSection entity={agent} entityType="agent" />
+                    <AgentEnvSection
+                        entity={agent}
+                        onUpdate={partialSetAgent}
+                        entityType="agent"
+                    />
                 </div>
 
                 <div className="p-4 m-4 space-y-4 lg:mx-6 xl:mx-8">

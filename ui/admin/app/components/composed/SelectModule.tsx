@@ -1,6 +1,8 @@
 import { PlusIcon, TrashIcon } from "lucide-react";
 import { useMemo } from "react";
 
+import { cn } from "~/lib/utils";
+
 import { Button } from "~/components/ui/button";
 import {
     Command,
@@ -138,10 +140,15 @@ export function SelectPopover<T>({
 interface SelectListProps<T> {
     selected: string[];
     items?: T[];
-    onRemove: (id: string) => void;
+    onRemove?: (id: string) => void;
     renderItem: (item: T) => React.ReactNode;
     fallbackRender?: (id: string) => React.ReactNode;
     getItemKey: (item: T) => string;
+    classNames?: {
+        container?: string;
+        item?: string;
+        remove?: string;
+    };
 }
 
 export function SelectList<T>({
@@ -151,6 +158,7 @@ export function SelectList<T>({
     renderItem,
     fallbackRender = (id) => id,
     getItemKey,
+    classNames,
 }: SelectListProps<T>) {
     const itemMap = useMemo(() => {
         return items.reduce(
@@ -163,21 +171,32 @@ export function SelectList<T>({
     }, [items, getItemKey]);
 
     return (
-        <div className="flex flex-col gap-2 divide-y">
+        <div
+            className={cn(
+                "flex flex-col gap-2 divide-y",
+                classNames?.container
+            )}
+        >
             {selected.map((id) => (
                 <div
                     key={id}
-                    className="flex items-center justify-between gap-2 pt-2"
+                    className={cn(
+                        "flex items-center justify-between gap-2 pt-2",
+                        classNames?.item
+                    )}
                 >
                     {itemMap[id] ? renderItem(itemMap[id]) : fallbackRender(id)}
 
-                    <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => onRemove(id)}
-                    >
-                        <TrashIcon />
-                    </Button>
+                    {onRemove && (
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => onRemove(id)}
+                            className={classNames?.remove}
+                        >
+                            <TrashIcon />
+                        </Button>
+                    )}
                 </div>
             ))}
         </div>

@@ -1,3 +1,4 @@
+import { EnvVariable } from "~/lib/model/environmentVariables";
 import { EntityMeta } from "~/lib/model/primitives";
 
 // TODO: implement as zod schemas???
@@ -20,6 +21,7 @@ export type AgentBase = {
     params?: Record<string, string>;
     knowledgeDescription?: string;
     model?: string;
+    env?: EnvVariable[];
 };
 
 export type AgentOAuthStatus = {

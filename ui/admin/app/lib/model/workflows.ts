@@ -1,15 +1,9 @@
 import { AgentBase } from "~/lib/model/agents";
 import { EntityMeta } from "~/lib/model/primitives";
 
-export type WorkflowEnv = {
-    name: string;
-    value: string;
-};
-
 export type WorkflowBase = AgentBase & {
     steps: Step[];
     output: string;
-    env?: WorkflowEnv[];
 };
 
 export type Step = {

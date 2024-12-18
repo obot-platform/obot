@@ -12,10 +12,14 @@ async function getEnvVariables(entityId: string) {
 }
 
 async function updateEnvVariables(entityId: string, env: RevealedEnv) {
+    const payload = Object.fromEntries(
+        Object.entries(env).filter(([name]) => !!name)
+    );
+
     await request({
         url: ApiRoutes.env.updateEnv(entityId).url,
         method: "POST",
-        data: env,
+        data: payload,
         errorMessage: "Failed to update workflow env",
     });
 }
