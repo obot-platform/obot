@@ -1,6 +1,6 @@
 # Create a Personal GitHub Task Agent
 
-This is a short tutorial demonstrating how to create an Otto8 agent that interacts with GitHub. The agent will help you keep track of the work assigned to you in GitHub.
+This is a short tutorial demonstrating how to create an Obot agent that interacts with GitHub. The agent will help you keep track of the work assigned to you in GitHub.
 
 :::note
 As you configure the agent, changes will be saved and applied automatically.
@@ -46,7 +46,7 @@ If you gave your agent instructions about a "status update", ask for one and see
 
 ## 4. Publishing the agent (optional)
 
-If you're happy with the agent and want other users on your Otto8 instance to be able to use it,
+If you're happy with the agent and want other users on your Obot instance to be able to use it,
 you can click the **Publish** button on the agent configuration page.
 This will make it available in the user UI for all users to chat with.
 Each user will have to sign in to GitHub on their own when prompted to do so by the agent.

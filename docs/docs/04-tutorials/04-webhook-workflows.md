@@ -2,7 +2,10 @@
 
 ## Overview
 
-This guide demonstrates adding an automated AI workflow to an existing Kubernetes - PagerDuty monitoring setup. A webhook event will be added to PagerDuty that triggers automated troubleshooting and remediation in Otto8. The automation is capable of downloading a runbook specified by the alert, searching the knowledge base for workflows, and then executing the diagnostic steps against the cluster. The On-Call engineer will receive this information as notes in the PagerDuty incident.
+This guide demonstrates adding an automated AI workflow to an existing Kubernetes - PagerDuty monitoring setup.
+A webhook event will be added to PagerDuty that triggers automated troubleshooting and remediation in Obot.
+The automation is capable of downloading a runbook specified by the alert, searching the knowledge base for workflows, and then executing the diagnostic steps against the cluster.
+The On-Call engineer will receive this information as notes in the PagerDuty incident.
 
 ![Workflow Overview](/img/webhook-overview.png)
 
@@ -11,12 +14,12 @@ This guide demonstrates adding an automated AI workflow to an existing Kubernete
 - A Kubernetes cluster that is configured to send alerts to PagerDuty.
 - A PagerDuty API Key.
 - Kubeconfig file from the Kubernetes cluster you would like to interact with. (The workflow users read/write permissions to the cluster )
-- Otto8 CLI installed and configured. See the [CLI installation instructions](/#getting-started)
-- Otto8 server will need to be accessible from the internet.
+- Obot CLI installed and configured. See the [CLI installation instructions](/#getting-started)
+- Obot server will need to be accessible from the internet.
 
-## Setup the workflow
+## Set up the workflow
 
-A workflow can be created in the Otto8 Admin UI, or it can be created using the Otto8 CLI. This example has several steps that lend it to be created via the CLI.
+A workflow can be created in the Obot Admin UI, or it can be created using the Obot CLI. This example has several steps that lend it to be created via the CLI.
 
 First, create a new file called `issue-triage.yaml` and add the following content:
 
@@ -47,10 +50,10 @@ steps:
   - step: “Get the PAGERDUTY_EMAIL env var. This is the user_email for all interactions with PagerDuty”
     tools:
     - sys.getenv
-  - step: "Get the env value for ${OTTO8_THREAD_ID}."
+  - step: "Get the env value for ${OBOT_THREAD_ID}."
     tools: 
     - sys.getenv
-  - step: "Add a note to the incident that Otto is looking into the issue, and a link to ${OTTO8_SERVER_URL}/admin/thread/${OTTO8_THREAD_ID}"
+  - step: "Add a note to the incident that Obot is looking into the issue, and a link to ${OBOT_SERVER_URL}/admin/thread/${OBOT_THREAD_ID}"
     tools: 
     - sys.getenv
   - step: "Get the incidents alerts"
@@ -78,14 +81,14 @@ steps:
 Save the file and run the following command to create the workflow:
 
 ```bash
-otto8 create issue-triage.yaml
+obot create issue-triage.yaml
 ```
 
 You will see an ID returned as part of the output, you will need this value in the next steps.
 
 ## Authenticate the workflow
 
-Lets prepare our data for the workflow to interact with Kubernetes and PagerDuty.
+Let's prepare our data for the workflow to interact with Kubernetes and PagerDuty.
 
 ### Prepare the `kubeconfig` file
 
@@ -95,19 +98,19 @@ Your `kubeconfig` file needs to be base64 encoded, with the new lines removed.
 cat ./kubeconfig | base64 | tr -d '\n' > kubeconfig.base64
 ```
 
-You will also need your PagerDuty API key, and the email address of the user that Otto will use to interact with PagerDuty.
+You will also need your PagerDuty API key, and the email address of the user that Obot will use to interact with PagerDuty.
 
 ### Run the authentication command
 
 ```bash
-otto8 workflow auth <ID>
+obot workflow auth <ID>
 ```
 
 Follow the prompts to authenticate. When asked for the `KUBECONFIG_FILE`, use the file notation `@kubeconfig.base64` to point directly to the file.
 
 ## Add Knowledge to the workflow
 
-Visit the workflow in the Otto8 Admin UI. Click on `workflows > issue triage`.
+Visit the workflow in the Obot Admin UI. Click on `workflows > issue triage`.
 Scroll to the bottom of the workflow form. Then click on the `+ Add Knowledge` button.
 Select `Website` as the source.
 
@@ -123,19 +126,19 @@ This will take you to a form which will list the pages on the website. Select al
 
 On PagerDuty side, click integrations > Developer Tools > Generic Webhooks (v3)
 
-Put the URL in it should be \<OTTO8_BASE URL>/api/webhooks/default/pd-hook
+Put the URL in. It should be `<OBOT_BASE URL>/api/webhooks/default/pd-hook`
 
-Select the Scope type, In the demo setup, I had Scope Type = Service and Scope = Default Service
+Select the Scope type. In the demo setup, I had Scope Type = Service and Scope = Default Service
 
-Deselect All events, and select incident.triggered
+Deselect all events, and select `incident.triggered`
 
-Click ‘Add Webhook’ button.
+Click `Add Webhook` button.
 
-You will get a subscription created pop up, copy the secret so we can verify payloads.
+You will get a "subscription created" pop up. Copy the secret so we can verify payloads.
 
-### Create the webhook receiver in Otto8
+### Create the webhook receiver in Obot
 
-Go to the Otto8 Admin UI, click on the `Webhooks` tab, and click `Create Webhook`.
+Go to the Obot Admin UI, click on the `Webhooks` tab, and click `Create Webhook`.
 
 Name the webhook `pd-hook`, and use the secret you copied from PagerDuty.
 
