@@ -1,13 +1,13 @@
-import useSWR, { preload } from "swr";
+import { preload } from "swr";
 
 import { ModelProvider } from "~/lib/model/modelProviders";
 import { DefaultModelAliasApiService } from "~/lib/service/api/defaultModelAliasApiService";
 import { ModelApiService } from "~/lib/service/api/modelApiService";
-import { ModelProviderApiService } from "~/lib/service/api/modelProviderApiService";
 import { RouteHandle } from "~/lib/service/routeHandles";
 
 import { TypographyH2 } from "~/components/Typography";
 import { WarningAlert } from "~/components/composed/WarningAlert";
+import { useModelProviders } from "~/components/model-providers/ModelProviderContext";
 import { ModelProviderList } from "~/components/model-providers/ModelProviderLists";
 import { CommonModelProviderIds } from "~/components/model-providers/constants";
 import { DefaultModelAliasFormDialog } from "~/components/model/DefaultModelAliasForm";
@@ -15,10 +15,6 @@ import { DefaultModelAliasFormDialog } from "~/components/model/DefaultModelAlia
 export async function clientLoader() {
     await Promise.all([
         preload(ModelApiService.getModels.key(), ModelApiService.getModels),
-        preload(
-            ModelProviderApiService.getModelProviders.key(),
-            ModelProviderApiService.getModelProviders
-        ),
         preload(
             DefaultModelAliasApiService.getAliases.key(),
             DefaultModelAliasApiService.getAliases
@@ -56,15 +52,9 @@ const sortModelProviders = (modelProviders: ModelProvider[]) => {
 };
 
 export default function ModelProviders() {
-    const getModelProviders = useSWR(
-        ModelProviderApiService.getModelProviders.key(),
-        ModelProviderApiService.getModelProviders
-    );
-
-    const configured = getModelProviders.data?.some(
-        (provider) => provider.configured
-    );
-    const modelProviders = sortModelProviders(getModelProviders.data ?? []);
+    const { modelProviderConfigured, modelProviders: data } =
+        useModelProviders();
+    const modelProviders = sortModelProviders(data);
     return (
         <div>
             <div className="relative space-y-10 px-8 pb-8">
@@ -73,9 +63,11 @@ export default function ModelProviders() {
                         <TypographyH2 className="mb-0 pb-0">
                             Model Providers
                         </TypographyH2>
-                        <DefaultModelAliasFormDialog disabled={!configured} />
+                        <DefaultModelAliasFormDialog
+                            disabled={!modelProviderConfigured}
+                        />
                     </div>
-                    {configured ? null : (
+                    {modelProviderConfigured ? null : (
                         <WarningAlert
                             title="No Model Providers Configured!"
                             description="To use Obot's features, you'll need to
