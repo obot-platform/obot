@@ -52,7 +52,7 @@ func Agent(ctx context.Context, db kclient.Client, agent *v1.Agent, oauthServerU
 			return nil, nil, fmt.Errorf("invalid env var %s, must match %s", env.Name, validEnv.String())
 		}
 		if env.Value == "" {
-			agent.Spec.Credentials = append(agent.Spec.Credentials,
+			mainTool.Credentials = append(mainTool.Credentials,
 				fmt.Sprintf(`github.com/gptscript-ai/credential as %s with "%s" as message and "%s" as env and %s as field`,
 					env.Name, env.Description, env.Name, env.Name))
 		} else {
