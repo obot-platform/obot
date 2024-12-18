@@ -57,7 +57,6 @@
         "react-router": "^7.0.0",
         "rehype-external-links": "^3.0.0",
         "remark-gfm": "^4.0.0",
-        "remix-routes": "^1.7.7",
         "safe-routes": "^1.0.2",
         "sonner": "1.4.3",
         "swr": "^2.2.5",

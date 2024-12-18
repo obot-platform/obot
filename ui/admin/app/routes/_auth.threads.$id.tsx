@@ -6,7 +6,7 @@ import {
     useLoaderData,
     useMatch,
 } from "react-router";
-import { $path } from "remix-routes";
+import { $path } from "safe-routes";
 
 import { AgentService } from "~/lib/service/api/agentService";
 import { ThreadsService } from "~/lib/service/api/threadsService";

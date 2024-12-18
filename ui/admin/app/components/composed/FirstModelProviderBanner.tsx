@@ -1,5 +1,5 @@
 import { Link, useLocation } from "react-router";
-import { $path } from "remix-routes";
+import { $path } from "safe-routes";
 
 import { assetUrl } from "~/lib/utils";
 
@@ -10,7 +10,9 @@ import { useModelProviders } from "~/hooks/model-providers/useModelProviders";
 export function FirstModelProviderBanner() {
     const { configured: modelProviderConfigured } = useModelProviders();
     const location = useLocation();
-    const isModelsProviderPage = location.pathname.includes("/model-providers");
+    const isModelsProviderPage = location.pathname.includes(
+        $path("/model-providers")
+    );
 
     return isModelsProviderPage || modelProviderConfigured ? null : (
         <div className="w-full">
