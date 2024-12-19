@@ -39,7 +39,7 @@ const steps: OAuthFormStep<typeof schema.shape>[] = [
         type: "markdown",
         text:
             "5. Click `Register application` to create the OAuth app. It will now take you to the OAuth app's settings page.\n" +
-            "### Step 2: Register GitHub OAuth in Otto\n" +
+            "### Step 2: Register GitHub OAuth in Obot\n" +
             "1. Locate the `Client ID` on the OAuth app's settings page and copy the `Client ID` into the input below\n",
     },
     { type: "input", input: "clientID", label: "Client ID" },

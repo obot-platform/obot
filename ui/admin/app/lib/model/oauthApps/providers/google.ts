@@ -169,8 +169,8 @@ const steps: OAuthFormStep<typeof schema.shape>[] = [
     {
         type: "markdown",
         text:
-            "### Step 5: Register your OAuth App in Otto\n" +
-            "With the credentials you just created, register your OAuth App in Otto by entering the `Client ID` and `Client Secret` into the fields below and clicking on the `Submit` button.",
+            "### Step 5: Register your OAuth App in Obot\n" +
+            "With the credentials you just created, register your OAuth App in Obot by entering the `Client ID` and `Client Secret` into the fields below and clicking on the `Submit` button.",
     },
     { type: "input", input: "clientID", label: "Client ID" },
     {
