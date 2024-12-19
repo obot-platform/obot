@@ -42,7 +42,7 @@ export function ModelProviderList({
                                     size="lg"
                                 />
                             </Link>
-                            <div className="text-lg font-semibold">
+                            <div className="text-lg font-semibold text-center">
                                 {modelProvider.name}
                             </div>
 
