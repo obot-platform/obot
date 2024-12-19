@@ -88,9 +88,6 @@ export default function Workflows() {
                         columns={getColumns()}
                         data={getWorkflows.data || []}
                         sort={[{ id: "created", desc: true }]}
-                        disableClickPropagation={(cell) =>
-                            cell.id.includes("action")
-                        }
                         onRowClick={navigateToWorkflow}
                     />
                 </div>
