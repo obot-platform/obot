@@ -28,10 +28,6 @@ export const BasicToolForm = memo(function BasicToolFormComponent(props: {
         setValue(value.filter((tool) => !toolsToRemove.includes(tool)));
     };
 
-    const addTool = (tool: string) => {
-        setValue([...value, tool]);
-    };
-
     return (
         <div className="flex flex-col gap-2">
             <div className="flex flex-col gap-1 w-full overflow-y-auto">
@@ -45,12 +41,7 @@ export const BasicToolForm = memo(function BasicToolFormComponent(props: {
             </div>
 
             <div className="flex justify-end">
-                <ToolCatalogDialog
-                    tools={value}
-                    onAddTool={addTool}
-                    onRemoveTools={removeTools}
-                    onUpdateTools={setValue}
-                />
+                <ToolCatalogDialog tools={value} onUpdateTools={setValue} />
             </div>
         </div>
     );

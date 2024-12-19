@@ -168,13 +168,6 @@ export function ToolForm({
                 <div className="flex justify-end">
                     <ToolCatalogDialog
                         tools={allTools}
-                        onAddTool={(tool) =>
-                            toolFields.append({
-                                tool,
-                                variant: ToolVariant.FIXED,
-                            })
-                        }
-                        onRemoveTools={removeTools}
                         onUpdateTools={(tools) =>
                             updateTools(tools, ToolVariant.FIXED)
                         }
@@ -231,13 +224,6 @@ export function ToolForm({
                 <div className="flex justify-end">
                     <ToolCatalogDialog
                         tools={allTools}
-                        onAddTool={(tool) =>
-                            toolFields.append({
-                                tool,
-                                variant: ToolVariant.DEFAULT,
-                            })
-                        }
-                        onRemoveTools={removeTools}
                         onUpdateTools={(tools) =>
                             updateTools(tools, ToolVariant.DEFAULT)
                         }
