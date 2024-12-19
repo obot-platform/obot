@@ -34,7 +34,7 @@ export function BasicToolForm({
         resolver: zodResolver(formSchema),
         defaultValues: { tools: defaultValues?.tools || [] },
     });
-    const { watch, getValues, reset } = form;
+    const { getValues, reset } = form;
 
     useEffect(() => {
         const unchanged = compareArrays(
@@ -50,14 +50,14 @@ export function BasicToolForm({
     const toolArr = useFieldArray({ control: form.control, name: "tools" });
 
     useEffect(() => {
-        return watch((values) => {
+        return form.watch((values) => {
             const { data, success } = formSchema.safeParse(values);
 
             if (!success) return;
 
             onChange?.({ tools: data.tools.map((t) => t.value) });
         }).unsubscribe;
-    }, [watch, onChange]);
+    }, [form, onChange]);
 
     const removeTools = (toolsToRemove: string[]) => {
         const indexes = toolsToRemove
