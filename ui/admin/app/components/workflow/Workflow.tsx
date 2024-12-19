@@ -78,8 +78,8 @@ function WorkflowContent({ className }: WorkflowProps) {
                     </CardDescription>
 
                     <BasicToolForm
-                        defaultValues={workflow}
-                        onChange={debouncedSetWorkflowInfo}
+                        value={workflow.tools}
+                        onChange={(tools) => partialSetWorkflow({ tools })}
                     />
                 </div>
 
