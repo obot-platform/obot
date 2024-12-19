@@ -28,7 +28,7 @@ module.exports = {
         // React
         {
             files: ["**/*.{js,jsx,ts,tsx}"],
-            plugins: ["react", "jsx-a11y"],
+            plugins: ["react", "jsx-a11y", "react-compiler"],
             extends: [
                 "plugin:react/recommended",
                 "plugin:react/jsx-runtime",
@@ -50,6 +50,7 @@ module.exports = {
             },
             rules: {
                 "react/prop-types": "off",
+                "react-compiler/react-compiler": "error",
                 "no-restricted-imports": [
                     "error",
                     {

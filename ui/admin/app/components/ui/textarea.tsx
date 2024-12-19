@@ -128,14 +128,14 @@ const useAutosizeTextArea = ({
                 setInit(false);
             }
 
-            node.style.height = `${
-                Math.min(Math.max(node.scrollHeight, minHeight), maxHeight) +
-                offsetBorder
-            }px`;
+            const newHeight = Math.min(
+                Math.max(node.scrollHeight, minHeight + offsetBorder),
+                maxHeight + offsetBorder
+            );
+
+            node.style.height = `${newHeight}px`;
         },
-        // disable exhaustive deps because we don't want to rerun this after init is set to false
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-        [maxHeight, minHeight]
+        [maxHeight, minHeight, setInit, init]
     );
 
     const initResizer = React.useCallback(
@@ -145,6 +145,7 @@ const useAutosizeTextArea = ({
             node.oninput = () => resize(node);
             node.onresize = () => resize(node);
             node.onchange = () => resize(node);
+
             resize(node);
         },
         [resize]
@@ -153,15 +154,14 @@ const useAutosizeTextArea = ({
     React.useEffect(() => {
         if (textAreaRef) {
             initResizer(textAreaRef);
-            resize(textAreaRef);
         }
-    }, [resize, initResizer, textAreaRef]);
+    }, [initResizer, textAreaRef]);
 
     return { initResizer };
 };
 
 export type AutosizeTextAreaRef = {
-    textArea: HTMLTextAreaElement;
+    textArea: HTMLTextAreaElement | null;
     maxHeight: number;
     minHeight: number;
 };
@@ -185,28 +185,27 @@ const AutosizeTextarea = React.forwardRef<
         }: AutosizeTextAreaProps,
         ref: React.Ref<AutosizeTextAreaRef>
     ) => {
-        const textAreaRef = React.useRef<HTMLTextAreaElement | null>(null);
+        const [textAreaEl, setTextAreaEl] =
+            React.useState<HTMLTextAreaElement | null>(null);
 
         useImperativeHandle(ref, () => ({
-            textArea: textAreaRef.current as HTMLTextAreaElement,
-            focus: textAreaRef?.current?.focus,
+            textArea: textAreaEl,
+            focus: textAreaEl?.focus,
             maxHeight,
             minHeight,
         }));
 
         const { initResizer } = useAutosizeTextArea({
-            textAreaRef: textAreaRef.current,
+            textAreaRef: textAreaEl,
             maxHeight,
             minHeight,
         });
 
         const initRef = React.useCallback(
             (node: HTMLTextAreaElement | null) => {
-                textAreaRef.current = node;
+                setTextAreaEl(node);
 
-                if (!node) return;
-
-                initResizer(node);
+                if (node) initResizer(node);
             },
             [initResizer]
         );
@@ -214,6 +213,7 @@ const AutosizeTextarea = React.forwardRef<
         return (
             <Textarea
                 {...props}
+                rows={props.rows || 1}
                 ref={initRef}
                 className={cn("resize-none", className)}
                 onChange={onChange}
@@ -223,4 +223,4 @@ const AutosizeTextarea = React.forwardRef<
 );
 AutosizeTextarea.displayName = "AutosizeTextarea";
 
-export { Textarea, AutosizeTextarea, useAutosizeTextArea };
+export { AutosizeTextarea, Textarea, useAutosizeTextArea };
