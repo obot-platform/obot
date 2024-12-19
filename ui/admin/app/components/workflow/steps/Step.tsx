@@ -107,9 +107,9 @@ export function StepComponent({
 
                             <AccordionContent className="p-1 pb-6">
                                 <BasicToolForm
-                                    defaultValues={step}
-                                    onChange={(values) =>
-                                        onUpdate({ ...step, ...values })
+                                    value={step.tools}
+                                    onChange={(tools) =>
+                                        onUpdate({ ...step, tools })
                                     }
                                 />
                             </AccordionContent>

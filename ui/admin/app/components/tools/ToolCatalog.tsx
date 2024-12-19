@@ -29,6 +29,7 @@ type ToolCatalogProps = React.HTMLAttributes<HTMLDivElement> & {
     tools: string[];
     onAddTool: (tools: string) => void;
     onRemoveTools: (tools: string[]) => void;
+    onUpdateTools: (tools: string[]) => void;
     invert?: boolean;
     classNames?: { list?: string };
 };
@@ -39,6 +40,7 @@ export function ToolCatalog({
     invert = false,
     onAddTool,
     onRemoveTools,
+    onUpdateTools,
     classNames,
 }: ToolCatalogProps) {
     const { data: toolCategories, isLoading } = useSWR(
@@ -63,12 +65,16 @@ export function ToolCatalog({
                 return;
             }
 
-            onAddTool(bundleToolId);
+            const toolsToRemove = new Set(categoryTools.map((tool) => tool.id));
 
-            // remove all tools in the bundle to remove redundancy
-            onRemoveTools(categoryTools.map((tool) => tool.id));
+            const newTools = [
+                ...tools.filter((tool) => !toolsToRemove.has(tool)),
+                bundleToolId,
+            ];
+
+            onUpdateTools(newTools);
         },
-        [tools, onAddTool, onRemoveTools]
+        [tools, onUpdateTools, onRemoveTools]
     );
 
     if (isLoading) return <LoadingSpinner />;
