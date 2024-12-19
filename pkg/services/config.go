@@ -217,7 +217,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		tokenServer             = &jwt.TokenService{}
 		events                  = events.NewEmitter(storageClient)
 		gatewayClient           = client.New(gatewayDB, config.AuthAdminEmails)
-		invoker                 = invoke.NewInvoker(storageClient, c, client.New(gatewayDB, config.AuthAdminEmails), config.Hostname, tokenServer, events)
+		invoker                 = invoke.NewInvoker(storageClient, c, client.New(gatewayDB, config.AuthAdminEmails), config.Hostname, config.HTTPListenPort, tokenServer, events)
 		modelProviderDispatcher = dispatcher.New(invoker, storageClient, c)
 
 		proxyServer *proxy.Proxy

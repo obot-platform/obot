@@ -41,9 +41,10 @@ type Invoker struct {
 	tokenService  *jwt.TokenService
 	events        *events.Emitter
 	serverURL     string
+	serverPort    int
 }
 
-func NewInvoker(c kclient.WithWatch, gptClient *gptscript.GPTScript, gatewayClient *client.Client, serverURL string, tokenService *jwt.TokenService, events *events.Emitter) *Invoker {
+func NewInvoker(c kclient.WithWatch, gptClient *gptscript.GPTScript, gatewayClient *client.Client, serverURL string, serverPort int, tokenService *jwt.TokenService, events *events.Emitter) *Invoker {
 	return &Invoker{
 		uncached:      c,
 		gptClient:     gptClient,
@@ -51,6 +52,7 @@ func NewInvoker(c kclient.WithWatch, gptClient *gptscript.GPTScript, gatewayClie
 		tokenService:  tokenService,
 		events:        events,
 		serverURL:     serverURL,
+		serverPort:    serverPort,
 	}
 }
 
@@ -495,7 +497,7 @@ func (i *Invoker) Resume(ctx context.Context, c kclient.WithWatch, thread *v1.Th
 	options := gptscript.Options{
 		GlobalOptions: gptscript.GlobalOptions{
 			Env: append(run.Spec.Env,
-				fmt.Sprintf("GPTSCRIPT_MODEL_PROVIDER_PROXY_URL=%s/api/llm-proxy", i.serverURL),
+				fmt.Sprintf("GPTSCRIPT_MODEL_PROVIDER_PROXY_URL=http://localhost:%d/api/llm-proxy", i.serverPort),
 				"GPTSCRIPT_MODEL_PROVIDER_PROXY_TOKEN="+token,
 				"GPTSCRIPT_MODEL_PROVIDER_TOKEN="+token,
 				"OBOT_SERVER_URL="+i.serverURL,
