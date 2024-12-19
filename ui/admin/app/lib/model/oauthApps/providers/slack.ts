@@ -106,7 +106,7 @@ const steps: OAuthFormStep<typeof schema.shape>[] = [
     {
         type: "markdown",
         text:
-            "### Step 5: Register OAuth App in Otto\n" +
+            "### Step 5: Register OAuth App in Obot\n" +
             "Click the `Basic Information` section in the side nav, locate the `Client ID` and `Client Secret` fields, copy/paste them into the form below, and click `Submit`.\n",
     },
     { type: "input", input: "clientID", label: "Client ID" },
@@ -131,6 +131,6 @@ export const SlackOAuthApp = {
     steps,
     disableConfiguration,
     disabledReason: disableConfiguration
-        ? "Slack requires that redirect URLs start with `https`. Since this application is running on `http`, you will need to redeploy Otto using `https` in order to configure a custom Slack OAuth app."
+        ? "Slack requires that redirect URLs start with `https`. Since this application is running on `http`, you will need to redeploy Obot using `https` in order to configure a custom Slack OAuth app."
         : undefined,
 } satisfies OAuthAppSpec;

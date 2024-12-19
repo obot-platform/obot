@@ -50,7 +50,7 @@ const steps: OAuthFormStep<z.infer<typeof schema>>[] = [
         text:
             "- Add a **Name** for your integration.\n" +
             "- From the **Type** dropdown menu, select **Public**.\n" +
-            "  - It's important to select **Public** for Otto to properly connect via OAuth.\n" +
+            "  - It's important to select **Public** for Obot to properly connect via OAuth.\n" +
             "- Enter the fields pertaining to your **company name**, **website**, **privacy policy**, and **terms of use**.\n" +
             "- Copy the url below and paste it into the **Redirect URI** field.\n",
     },
@@ -77,7 +77,7 @@ const steps: OAuthFormStep<z.infer<typeof schema>>[] = [
     {
         type: "markdown",
         text:
-            "### Step 3: Register your integration with Otto\n" +
+            "### Step 3: Register your integration with Obot\n" +
             "- Navigate to the **Configuration** tab from the top of the integration's settings page.\n" +
             "- Copy the **Client ID** and **Client Secret** and paste them into the respective fields below.\n",
     },
