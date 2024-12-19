@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
-import useSWR from "swr";
+import useSWR, { mutate } from "swr";
 
 import { ModelProvider } from "~/lib/model/modelProviders";
 import { NotFoundError } from "~/lib/service/api/apiErrors";
+import { ModelApiService } from "~/lib/service/api/modelApiService";
 import { ModelProviderApiService } from "~/lib/service/api/modelProviderApiService";
 
 import { ModelProviderForm } from "~/components/model-providers/ModelProviderForm";
@@ -55,6 +56,8 @@ export function ModelProviderConfigure({
         if (data?.modelsBackPopulated) {
             setShowDefaultModelAliasForm(true);
             setLoadingModelProviderId("");
+            // revalidate models to get back populated models
+            mutate(ModelApiService.getModels.key());
         }
     }, [getLoadingModelProviderModels, loadingModelProviderId]);
 
