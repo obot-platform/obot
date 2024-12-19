@@ -21,8 +21,13 @@ export function Chatbar({ className }: ChatbarProps) {
         useChat();
     const { configured: modelProviderConfigured } = useModelProviders();
 
+    const disabled =
+        (!input && !isRunning) || isInvoking || !modelProviderConfigured;
+
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
+
+        if (disabled) return;
 
         if (isRunning) {
             abortRunningThread();
@@ -65,11 +70,7 @@ export function Chatbar({ className }: ChatbarProps) {
                                     className="m-2"
                                     color="primary"
                                     type="submit"
-                                    disabled={
-                                        (!input && !isRunning) ||
-                                        isInvoking ||
-                                        !modelProviderConfigured
-                                    }
+                                    disabled={disabled}
                                 >
                                     {isInvoking ? (
                                         <LoadingSpinner />
