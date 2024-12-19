@@ -74,6 +74,10 @@ export function filterModelsByUsage(
     return models.filter((model) => _usages.includes(model.usage)).sort(sort);
 }
 
+export function filterModelsByActive(models: Model[]) {
+    return models.filter((model) => model.active);
+}
+
 export type ModelManifest = {
     name?: string;
     targetModel?: string;

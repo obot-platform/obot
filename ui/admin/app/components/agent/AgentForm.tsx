@@ -5,7 +5,7 @@ import { useForm } from "react-hook-form";
 import useSWR from "swr";
 import { z } from "zod";
 
-import { Model, ModelUsage } from "~/lib/model/models";
+import { Model, ModelUsage, filterModelsByActive } from "~/lib/model/models";
 import { ModelApiService } from "~/lib/service/api/modelApiService";
 
 import { TypographyH4 } from "~/components/Typography";
@@ -136,7 +136,7 @@ export function AgentForm({ agent, onSubmit, onChange }: AgentFormProps) {
     );
 
     function getModelOptionsByModelProvider(models: Model[]) {
-        const byModelProviderGroups = models.reduce(
+        const byModelProviderGroups = filterModelsByActive(models).reduce(
             (acc, model) => {
                 acc[model.modelProvider] = acc[model.modelProvider] || [];
                 acc[model.modelProvider].push(model);
