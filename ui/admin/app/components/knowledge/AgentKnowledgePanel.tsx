@@ -11,7 +11,7 @@ import {
     UploadIcon,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { $path } from "remix-routes";
+import { $path } from "safe-routes";
 import useSWR, { SWRResponse } from "swr";
 
 import { Agent, KNOWLEDGE_TOOL } from "~/lib/model/agents";

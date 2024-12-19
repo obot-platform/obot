@@ -1,4 +1,4 @@
-import { ErrorResponse } from "@remix-run/react";
+import { ErrorResponse } from "react-router";
 
 import { ObotLogo } from "~/components/branding/ObotLogo";
 import { Button } from "~/components/ui/button";

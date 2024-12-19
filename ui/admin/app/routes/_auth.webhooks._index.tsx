@@ -1,8 +1,8 @@
-import { useNavigate } from "@remix-run/react";
 import { ColumnDef, createColumnHelper } from "@tanstack/react-table";
 import { PlusIcon } from "lucide-react";
 import { useMemo } from "react";
-import { $path } from "remix-routes";
+import { useNavigate } from "react-router";
+import { $path } from "safe-routes";
 import useSWR, { preload } from "swr";
 
 import { Webhook } from "~/lib/model/webhooks";

@@ -1,12 +1,6 @@
-import type { LinksFunction } from "@remix-run/node";
-import {
-    Links,
-    Meta,
-    Outlet,
-    Scripts,
-    ScrollRestoration,
-} from "@remix-run/react";
 import { CircleCheckIcon } from "lucide-react";
+import type { LinksFunction } from "react-router";
+import { Links, Meta, Outlet, Scripts, ScrollRestoration } from "react-router";
 import { SWRConfig } from "swr";
 
 import { AuthProvider } from "~/components/auth/AuthContext";

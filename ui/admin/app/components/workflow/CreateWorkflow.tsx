@@ -1,6 +1,6 @@
-import { useNavigate } from "@remix-run/react";
 import { PlusIcon } from "lucide-react";
-import { $path } from "remix-routes";
+import { useNavigate } from "react-router";
+import { $path } from "safe-routes";
 import { toast } from "sonner";
 import { mutate } from "swr";
 

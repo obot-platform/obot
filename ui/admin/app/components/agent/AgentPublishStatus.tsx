@@ -1,6 +1,6 @@
-import { Link } from "@remix-run/react";
 import { useMemo } from "react";
-import { $path } from "remix-routes";
+import { Link } from "react-router";
+import { $path } from "safe-routes";
 import useSWR from "swr";
 
 import { Agent } from "~/lib/model/agents";

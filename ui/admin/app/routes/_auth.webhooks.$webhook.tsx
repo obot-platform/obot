@@ -2,7 +2,7 @@ import {
     ClientLoaderFunctionArgs,
     useLoaderData,
     useMatch,
-} from "@remix-run/react";
+} from "react-router";
 import useSWR, { preload } from "swr";
 
 import { WebhookApiService } from "~/lib/service/api/webhookApiService";

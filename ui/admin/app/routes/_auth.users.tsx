@@ -1,6 +1,6 @@
 import { ColumnDef, createColumnHelper } from "@tanstack/react-table";
 import { useMemo } from "react";
-import { $path } from "remix-routes";
+import { $path } from "safe-routes";
 import useSWR, { preload } from "swr";
 
 import { Thread } from "~/lib/model/threads";

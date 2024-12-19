@@ -1,12 +1,12 @@
+import { ArrowLeftIcon } from "lucide-react";
 import {
     ClientLoaderFunctionArgs,
     Link,
     redirect,
     useLoaderData,
     useMatch,
-} from "@remix-run/react";
-import { ArrowLeftIcon } from "lucide-react";
-import { $path } from "remix-routes";
+} from "react-router";
+import { $path } from "safe-routes";
 
 import { AgentService } from "~/lib/service/api/agentService";
 import { ThreadsService } from "~/lib/service/api/threadsService";

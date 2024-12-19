@@ -1,5 +1,5 @@
 import { EditIcon, ExternalLink, FileIcon, FilesIcon } from "lucide-react";
-import { $path } from "remix-routes";
+import { $path } from "safe-routes";
 
 import { Agent } from "~/lib/model/agents";
 import { KnowledgeFile } from "~/lib/model/knowledge";
