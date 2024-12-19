@@ -8,6 +8,7 @@ import {
     Model,
     ModelAlias,
     ModelUsage,
+    filterModelsByActive,
     filterModelsByUsage,
     getModelAliasLabel,
     getModelUsageFromAlias,
@@ -166,9 +167,8 @@ export function DefaultModelAliasForm({
                                 getModelUsageFromAlias(alias) ??
                                 ModelUsage.Unknown;
 
-                            const modelOptions = filterModelsByUsage(
-                                models ?? [],
-                                usage
+                            const activeModelOptions = filterModelsByActive(
+                                filterModelsByUsage(models ?? [], usage)
                             );
 
                             return (
@@ -195,7 +195,7 @@ export function DefaultModelAliasForm({
 
                                                 <SelectContent>
                                                     {renderSelectContent(
-                                                        modelOptions,
+                                                        activeModelOptions,
                                                         defaultModel,
                                                         usage,
                                                         alias
