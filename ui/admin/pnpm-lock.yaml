@@ -234,9 +234,6 @@ importers:
       typescript:
         specifier: <5.6.0
         version: 5.5.4
-      typescript-remix-routes-plugin:
-        specifier: ^1.0.1
-        version: 1.0.1
       vite:
         specifier: ^5.1.0
         version: 5.4.11(@types/node@22.10.2)
@@ -3492,14 +3489,6 @@ packages:
   typed-array-length@1.0.7:
     resolution: {integrity: sha512-3KS2b+kL7fsuk/eJZ7EQdnEmQoaho/r6KUef7hxvltNA5DR8NAUM+8wJMbJyZ4G9/7i3v5zPBIMN5aybAh2/Jg==}
     engines: {node: '>= 0.4'}
-
-  typescript-remix-routes-plugin@1.0.1:
-    resolution: {integrity: sha512-8mpVqBKyVd2ruTVUIBV99hOlbFC99FZwVr/bDBXCjS1iW4lPs+QMYXTQjbIrrwS6XkSVRllkUB+ecBK2+zAAGw==}
-
-  typescript@4.9.5:
-    resolution: {integrity: sha512-1FXk9E2Hm+QzZQ7z+McJiHL4NW1F2EzMu9Nq9i3zAaGqibafqYwCVU6WyWAuyQRRzOlxou8xZSyXLEN8oKj24g==}
-    engines: {node: '>=4.2.0'}
-    hasBin: true
 
   typescript@5.5.4:
     resolution: {integrity: sha512-Mtq29sKDAEYP7aljRgtPOpTvOfbwRWlS6dPRzwjdE+C0R4brX/GUyhHSecbHMFLNBLcJIPt9nl9yG5TZ1weH+Q==}
@@ -7529,14 +7518,6 @@ snapshots:
       is-typed-array: 1.1.15
       possible-typed-array-names: 1.0.0
       reflect.getprototypeof: 1.0.9
-
-  typescript-remix-routes-plugin@1.0.1:
-    dependencies:
-      resolve: 1.22.10
-      slash: 3.0.0
-      typescript: 4.9.5
-
-  typescript@4.9.5: {}
 
   typescript@5.5.4: {}
 
