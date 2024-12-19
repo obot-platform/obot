@@ -9,6 +9,7 @@ export const CommonModelProviderIds = {
 	ANTHROPIC_BEDROCK: "anthropic-bedrock-model-provider",
 	XAI: "xai-model-provider",
 	DEEPSEEK: "deepseek-model-provider",
+	GEMINI_VERTEX: "gemini-vertex-model-provider",
 };
 
 export const ModelProviderLinks = {
@@ -24,6 +25,7 @@ export const ModelProviderLinks = {
 		"https://aws.amazon.com/bedrock/claude/",
 	[CommonModelProviderIds.XAI]: "https://x.ai/",
 	[CommonModelProviderIds.DEEPSEEK]: "https://www.deepseek.com/",
+	[CommonModelProviderIds.GEMINI_VERTEX]: "https://cloud.google.com/vertex-ai",
 };
 
 export const ModelProviderConfigurationLinks = {
@@ -78,6 +80,11 @@ export const ModelProviderRequiredTooltips: {
 		Region:
 			"AWS Region - make sure that the models you want to use are available in this region: https://docs.aws.amazon.com/bedrock/latest/userguide/models-regions.html",
 	},
+	[CommonModelProviderIds.GEMINI_VERTEX]: {
+		"Google Credentials JSON":
+			"Google Cloud Account Credentials - JSON File Contents: https://cloud.google.com/iam/docs/keys-create-delete#creating",
+		"Google Cloud Project": "Google Cloud Project ID",
+	},
 };
 
 export const ModelProviderSensitiveFields: Record<string, boolean | undefined> =
@@ -120,4 +127,8 @@ export const ModelProviderSensitiveFields: Record<string, boolean | undefined> =
 
 		// DeepSeek
 		OBOT_DEEPSEEK_MODEL_PROVIDER_API_KEY: true,
+
+		// Gemini Vertex
+		OBOT_GEMINI_VERTEX_MODEL_PROVIDER_GOOGLE_CREDENTIALS_JSON: true,
+		OBOT_GEMINI_VERTEX_MODEL_PROVIDER_GOOGLE_CLOUD_PROJECT: false,
 	};

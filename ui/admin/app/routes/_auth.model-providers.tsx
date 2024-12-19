@@ -37,6 +37,7 @@ const sortModelProviders = (modelProviders: ModelProvider[]) => {
 			CommonModelProviderIds.GROQ,
 			CommonModelProviderIds.VLLM,
 			CommonModelProviderIds.DEEPSEEK,
+			CommonModelProviderIds.GEMINI_VERTEX,
 		];
 		const aIndex = preferredOrder.indexOf(a.id);
 		const bIndex = preferredOrder.indexOf(b.id);
