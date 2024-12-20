@@ -5,6 +5,7 @@ import {
     KnowledgeFile,
     KnowledgeFileState,
     KnowledgeSource,
+    KnowledgeSourceStatus,
 } from "~/lib/model/knowledge";
 import { KnowledgeService } from "~/lib/service/api/knowledgeService";
 import { handlePromise } from "~/lib/service/async";
@@ -14,6 +15,14 @@ export function useKnowledgeSourceFiles(
     knowledgeSource: KnowledgeSource
 ) {
     const [blockPollingFiles, setBlockPollingFiles] = useState(true);
+
+    const startPolling = () => {
+        if (blockPollingFiles) setBlockPollingFiles(false);
+    };
+
+    if (knowledgeSource.state === KnowledgeSourceStatus.Syncing) {
+        startPolling();
+    }
 
     const {
         data: files,
@@ -93,6 +102,7 @@ export function useKnowledgeSourceFiles(
         reingestFile,
         approveFile,
         mutateFiles,
+        startPollingFiles: startPolling,
         ...rest,
     };
 }
