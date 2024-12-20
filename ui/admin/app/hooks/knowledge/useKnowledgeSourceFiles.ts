@@ -20,7 +20,10 @@ export function useKnowledgeSourceFiles(
         if (blockPollingFiles) setBlockPollingFiles(false);
     };
 
-    if (knowledgeSource.state === KnowledgeSourceStatus.Syncing) {
+    if (
+        knowledgeSource.state === KnowledgeSourceStatus.Syncing ||
+        knowledgeSource.state === KnowledgeSourceStatus.Pending
+    ) {
         startPolling();
     }
 

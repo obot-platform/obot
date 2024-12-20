@@ -24,7 +24,7 @@ const CronDialog: FC<CronDialogProps> = ({
 
     return (
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
-            <DialogContent aria-describedby={undefined} className="max-w-md">
+            <DialogContent aria-describedby="cron-dialog" className="max-w-md">
                 <DialogTitle className="text-xl font-semibold mb-4">
                     Enter Cron Expression
                 </DialogTitle>

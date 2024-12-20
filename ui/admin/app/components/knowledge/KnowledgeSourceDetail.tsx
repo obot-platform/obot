@@ -20,7 +20,12 @@ import KnowledgeSourceAvatar from "~/components/knowledge/KnowledgeSourceAvatar"
 import OauthSignDialog from "~/components/knowledge/OAuthSignDialog";
 import { LoadingSpinner } from "~/components/ui/LoadingSpinner";
 import { Button } from "~/components/ui/button";
-import { Dialog, DialogContent, DialogTitle } from "~/components/ui/dialog";
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogTitle,
+} from "~/components/ui/dialog";
 import {
     DropdownMenu,
     DropdownMenuCheckboxItem,
@@ -122,6 +127,10 @@ export const KnowledgeSourceDetail: FC<KnowledgeSourceDetailProps> = ({
                 onScroll={handleScroll}
                 ref={tableContainerRef}
             >
+                <DialogDescription hidden>
+                    Knowledge Source Detail
+                </DialogDescription>
+
                 <DialogTitle className="flex justify-between items-center">
                     <div className="flex flex-row items-center">
                         <KnowledgeSourceAvatar

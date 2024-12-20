@@ -58,7 +58,10 @@ export const AddSourceModal: FC<AddSourceModalProps> = ({
 
     return (
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
-            <DialogContent aria-describedby={undefined} className="max-w-2xl">
+            <DialogContent
+                aria-describedby="add-source-modal"
+                className="max-w-2xl"
+            >
                 <DialogTitle className="flex flex-row items-center text-xl font-semibold mb-4 justify-between">
                     <div className="flex flex-row items-center">
                         <KnowledgeSourceAvatar
