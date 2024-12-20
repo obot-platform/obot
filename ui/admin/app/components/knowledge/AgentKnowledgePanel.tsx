@@ -13,17 +13,17 @@ import { DefaultModelAliasApiService } from "~/lib/service/api/defaultModelAlias
 import { TypographyP } from "~/components/Typography";
 import { ErrorDialog } from "~/components/composed/ErrorDialog";
 import { WarningAlert } from "~/components/composed/WarningAlert";
+import { AddKnowledgeButton } from "~/components/knowledge/AddKnowledgeButton";
 import { AddSourceModal } from "~/components/knowledge/AddSourceModal";
+import { KnowledgeFileItem } from "~/components/knowledge/KnowledgeFileItem";
 import { KnowledgeSourceDetail } from "~/components/knowledge/KnowledgeSourceDetail";
-import { AddKnowledgeButton } from "~/components/knowledge/components/AddKnowledgeButton";
-import { KnowledgeFileItem } from "~/components/knowledge/components/KnowledgeFileItem";
-import { KnowledgeSourceItem } from "~/components/knowledge/components/KnowledgeSourceItem";
-import { useKnowledgeFiles } from "~/components/knowledge/hooks/useKnowledgeFiles";
-import { useKnowledgeSources } from "~/components/knowledge/hooks/useKnowledgeSources";
+import { KnowledgeSourceItem } from "~/components/knowledge/KnowledgeSourceItem";
 import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
 import { Link } from "~/components/ui/link";
 import { AutosizeTextarea } from "~/components/ui/textarea";
+import { useKnowledgeFiles } from "~/hooks/knowledge/useKnowledgeFiles";
+import { useKnowledgeSources } from "~/hooks/knowledge/useKnowledgeSources";
 import { useMultiAsync } from "~/hooks/useMultiAsync";
 
 type AgentKnowledgePanelProps = {

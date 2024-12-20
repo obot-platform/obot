@@ -18,7 +18,6 @@ import CronDialog from "~/components/knowledge/CronDialog";
 import FileTreeNode, { FileNode } from "~/components/knowledge/FileTree";
 import KnowledgeSourceAvatar from "~/components/knowledge/KnowledgeSourceAvatar";
 import OauthSignDialog from "~/components/knowledge/OAuthSignDialog";
-import { useKnowledgeSourceFiles } from "~/components/knowledge/hooks/useKnowledgeSourceFiles";
 import { LoadingSpinner } from "~/components/ui/LoadingSpinner";
 import { Button } from "~/components/ui/button";
 import { Dialog, DialogContent, DialogTitle } from "~/components/ui/dialog";
@@ -35,6 +34,7 @@ import {
     TooltipContent,
     TooltipTrigger,
 } from "~/components/ui/tooltip";
+import { useKnowledgeSourceFiles } from "~/hooks/knowledge/useKnowledgeSourceFiles";
 
 interface KnowledgeSourceDetailProps {
     agentId: string;
