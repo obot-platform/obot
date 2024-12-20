@@ -8,7 +8,9 @@ import {
 } from "react-router";
 import { $path } from "safe-routes";
 
+import { KnowledgeFileNamespace } from "~/lib/model/knowledge";
 import { AgentService } from "~/lib/service/api/agentService";
+import { KnowledgeFileService } from "~/lib/service/api/knowledgeFileApiService";
 import { ThreadsService } from "~/lib/service/api/threadsService";
 import { WorkflowService } from "~/lib/service/api/workflowService";
 import { RouteHandle } from "~/lib/service/routeHandles";
@@ -59,7 +61,10 @@ export const clientLoader = async ({
         : null;
 
     const files = await ThreadsService.getFiles(id);
-    const knowledge = await ThreadsService.getKnowledge(id);
+    const knowledge = await KnowledgeFileService.getKnowledgeFiles(
+        KnowledgeFileNamespace.Threads,
+        thread.id
+    );
 
     return { thread, agent, workflow, files, knowledge };
 };

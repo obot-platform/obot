@@ -1,5 +1,4 @@
 import { ChatEvent } from "~/lib/model/chatEvents";
-import { KnowledgeFile } from "~/lib/model/knowledge";
 import { Thread, UpdateThread } from "~/lib/model/threads";
 import { WorkspaceFile } from "~/lib/model/workspace";
 import { ApiRoutes, revalidateWhere } from "~/lib/routers/apiRoutes";
@@ -99,20 +98,6 @@ const deleteThread = async (threadId: string) => {
     });
 };
 
-const getKnowledge = async (threadId: string) => {
-    const res = await request<{ items: KnowledgeFile[] }>({
-        url: ApiRoutes.threads.getKnowledge(threadId).url,
-        errorMessage: "Failed to fetch knowledge for thread",
-    });
-
-    return res.data.items ?? ([] as KnowledgeFile[]);
-};
-getKnowledge.key = (threadId?: Nullish<string>) => {
-    if (!threadId) return null;
-
-    return { url: ApiRoutes.threads.getKnowledge(threadId).path, threadId };
-};
-
 const getFiles = async (threadId: string) => {
     const res = await request<{ items: WorkspaceFile[] }>({
         url: ApiRoutes.threads.getFiles(threadId).url,
@@ -147,7 +132,6 @@ export const ThreadsService = {
     updateThreadById,
     deleteThread,
     revalidateThreads,
-    getKnowledge,
     getFiles,
     abortThread,
 };

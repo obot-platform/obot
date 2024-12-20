@@ -1,10 +1,17 @@
 import { useMemo, useState } from "react";
 import useSWR from "swr";
 
-import { KnowledgeFile, KnowledgeFileState } from "~/lib/model/knowledge";
-import { KnowledgeService } from "~/lib/service/api/knowledgeService";
+import {
+    KnowledgeFile,
+    KnowledgeFileNamespace,
+    KnowledgeFileState,
+} from "~/lib/model/knowledge";
+import { KnowledgeFileService } from "~/lib/service/api/knowledgeFileApiService";
 
-export function useKnowledgeFiles(agentId: string) {
+export function useKnowledgeFiles(
+    namespace: KnowledgeFileNamespace,
+    agentId: string
+) {
     const [blockPollingLocalFiles, setBlockPollingLocalFiles] = useState(false);
 
     const {
@@ -12,9 +19,9 @@ export function useKnowledgeFiles(agentId: string) {
         mutate: mutateFiles,
         ...rest
     } = useSWR(
-        KnowledgeService.getLocalKnowledgeFilesForAgent.key(agentId),
-        ({ agentId }) =>
-            KnowledgeService.getLocalKnowledgeFilesForAgent(agentId),
+        KnowledgeFileService.getKnowledgeFiles.key(namespace, agentId),
+        ({ namespace, agentId }) =>
+            KnowledgeFileService.getKnowledgeFiles(namespace, agentId),
         {
             revalidateOnFocus: false,
             refreshInterval: blockPollingLocalFiles ? undefined : 5000,
@@ -45,7 +52,8 @@ export function useKnowledgeFiles(agentId: string) {
     }
 
     const addKnowledgeFile = async (file: File) => {
-        const addedFile = await KnowledgeService.addKnowledgeFilesToAgent(
+        const addedFile = await KnowledgeFileService.addKnowledgeFiles(
+            namespace,
             agentId,
             file
         );
@@ -54,7 +62,8 @@ export function useKnowledgeFiles(agentId: string) {
     };
 
     const deleteKnowledgeFile = async (file: KnowledgeFile) => {
-        await KnowledgeService.deleteKnowledgeFileFromAgent(
+        await KnowledgeFileService.deleteKnowledgeFile(
+            namespace,
             agentId,
             file.fileName
         );
@@ -62,7 +71,8 @@ export function useKnowledgeFiles(agentId: string) {
     };
 
     const reingestFile = async (fileId: string) => {
-        const reingestedFile = await KnowledgeService.reingestFile(
+        const reingestedFile = await KnowledgeFileService.reingestFile(
+            namespace,
             agentId,
             fileId
         );
