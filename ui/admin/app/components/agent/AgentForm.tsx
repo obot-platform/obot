@@ -5,7 +5,7 @@ import { useForm } from "react-hook-form";
 import useSWR from "swr";
 import { z } from "zod";
 
-import { Model, ModelUsage, filterModelsByActive } from "~/lib/model/models";
+import { ModelUsage } from "~/lib/model/models";
 import { ModelApiService } from "~/lib/service/api/modelApiService";
 
 import { TypographyH4 } from "~/components/Typography";

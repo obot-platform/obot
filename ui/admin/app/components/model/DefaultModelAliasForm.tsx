@@ -17,6 +17,7 @@ import {
 import { DefaultModelAliasApiService } from "~/lib/service/api/defaultModelAliasApiService";
 import { ModelApiService } from "~/lib/service/api/modelApiService";
 
+import { ComboBox } from "~/components/composed/ComboBox";
 import { SUGGESTED_MODEL_SELECTIONS } from "~/components/model/constants";
 import { Button } from "~/components/ui/button";
 import {
@@ -36,8 +37,6 @@ import {
     FormMessage,
 } from "~/components/ui/form";
 import { useAsync } from "~/hooks/useAsync";
-
-import { ComboBox } from "../composed/ComboBox";
 
 export function DefaultModelAliasForm({
     onSuccess,
