@@ -2,13 +2,17 @@ import { useMemo, useState } from "react";
 import useSWR from "swr";
 
 import {
+    KnowledgeNamespace,
     KnowledgeSource,
     KnowledgeSourceInput,
     KnowledgeSourceStatus,
 } from "~/lib/model/knowledge";
-import { KnowledgeService } from "~/lib/service/api/knowledgeService";
+import { KnowledgeSourceApiService } from "~/lib/service/api/knowledgeSourceApiService";
 
-export function useKnowledgeSources(agentId: string) {
+export function useKnowledgeSources(
+    namespace: KnowledgeNamespace,
+    agentId: string
+) {
     const [blockPollingSources, setBlockPollingSources] = useState(false);
     const startPolling = () => setBlockPollingSources(false);
 
@@ -17,8 +21,9 @@ export function useKnowledgeSources(agentId: string) {
         mutate: mutateSources,
         ...rest
     } = useSWR(
-        KnowledgeService.getKnowledgeSourcesForAgent.key(agentId),
-        ({ agentId }) => KnowledgeService.getKnowledgeSourcesForAgent(agentId),
+        KnowledgeSourceApiService.getKnowledgeSources.key(namespace, agentId),
+        ({ namespace, agentId }) =>
+            KnowledgeSourceApiService.getKnowledgeSources(namespace, agentId),
         {
             revalidateOnFocus: false,
             refreshInterval: blockPollingSources ? undefined : 5000,
@@ -42,10 +47,12 @@ export function useKnowledgeSources(agentId: string) {
     }
 
     const syncKnowledgeSource = async (sourceId: string) => {
-        const syncedSource = await KnowledgeService.resyncKnowledgeSource(
-            agentId,
-            sourceId
-        );
+        const syncedSource =
+            await KnowledgeSourceApiService.resyncKnowledgeSource(
+                namespace,
+                agentId,
+                sourceId
+            );
         mutateSources((prev) =>
             prev?.map((source) =>
                 source.id === syncedSource.id ? syncedSource : source
@@ -55,7 +62,11 @@ export function useKnowledgeSources(agentId: string) {
     };
 
     const deleteKnowledgeSource = async (sourceId: string) => {
-        await KnowledgeService.deleteKnowledgeSource(agentId, sourceId);
+        await KnowledgeSourceApiService.deleteKnowledgeSource(
+            namespace,
+            agentId,
+            sourceId
+        );
         mutateSources(
             (prev) => prev?.filter((source) => source.id !== sourceId),
             false
@@ -69,11 +80,13 @@ export function useKnowledgeSources(agentId: string) {
         const source = knowledgeSources.find((s) => s.id === sourceId);
         if (!source) throw new Error("Source not found");
 
-        const updatedSource = await KnowledgeService.updateKnowledgeSource(
-            agentId,
-            sourceId,
-            { ...source, ...updates }
-        );
+        const updatedSource =
+            await KnowledgeSourceApiService.updateKnowledgeSource(
+                namespace,
+                agentId,
+                sourceId,
+                { ...source, ...updates }
+            );
         mutateSources((prev) =>
             prev?.map((s) => (s.id === updatedSource.id ? updatedSource : s))
         );
@@ -81,7 +94,8 @@ export function useKnowledgeSources(agentId: string) {
     };
 
     const createKnowledgeSource = async (config: KnowledgeSourceInput) => {
-        const newSource = await KnowledgeService.createKnowledgeSource(
+        const newSource = await KnowledgeSourceApiService.createKnowledgeSource(
+            namespace,
             agentId,
             config
         );

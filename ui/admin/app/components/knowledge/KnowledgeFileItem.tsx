@@ -15,7 +15,7 @@ interface KnowledgeFileItemProps {
     file: KnowledgeFile;
     onDelete: (file: KnowledgeFile) => void;
     onReingest: (file: KnowledgeFile) => void;
-    onViewError: (error: string) => void;
+    onViewError?: (error: string) => void;
 }
 
 export function KnowledgeFileItem({
@@ -65,7 +65,7 @@ export function KnowledgeFileItem({
                                         variant="ghost"
                                         size="icon"
                                         onClick={() =>
-                                            onViewError(file.error ?? "")
+                                            onViewError?.(file.error ?? "")
                                         }
                                     >
                                         <EyeIcon className="w-4 h-4 text-destructive" />

@@ -4,13 +4,15 @@ import useSWR from "swr";
 import {
     KnowledgeFile,
     KnowledgeFileState,
+    KnowledgeNamespace,
     KnowledgeSource,
     KnowledgeSourceStatus,
 } from "~/lib/model/knowledge";
-import { KnowledgeService } from "~/lib/service/api/knowledgeService";
+import { KnowledgeSourceApiService } from "~/lib/service/api/knowledgeSourceApiService";
 import { handlePromise } from "~/lib/service/async";
 
 export function useKnowledgeSourceFiles(
+    namespace: KnowledgeNamespace,
     agentId: string,
     knowledgeSource: KnowledgeSource
 ) {
@@ -32,12 +34,17 @@ export function useKnowledgeSourceFiles(
         mutate: mutateFiles,
         ...rest
     } = useSWR(
-        KnowledgeService.getFilesForKnowledgeSource.key(
+        KnowledgeSourceApiService.getFilesForKnowledgeSource.key(
+            namespace,
             agentId,
             knowledgeSource.id
         ),
         ({ agentId, sourceId }) =>
-            KnowledgeService.getFilesForKnowledgeSource(agentId, sourceId),
+            KnowledgeSourceApiService.getFilesForKnowledgeSource(
+                namespace,
+                agentId,
+                sourceId
+            ),
         {
             revalidateOnFocus: false,
             refreshInterval: blockPollingFiles ? undefined : 5000,
@@ -76,11 +83,13 @@ export function useKnowledgeSourceFiles(
     }, [sortedFiles]);
 
     const reingestFile = async (fileId: string) => {
-        const updatedFile = await KnowledgeService.reingestFile(
-            agentId,
-            fileId,
-            knowledgeSource.id
-        );
+        const updatedFile =
+            await KnowledgeSourceApiService.reingestFileFromSource(
+                namespace,
+                agentId,
+                knowledgeSource.id,
+                fileId
+            );
         mutateFiles((prev) =>
             prev?.map((f) => (f.id === fileId ? updatedFile : f))
         );
@@ -88,7 +97,12 @@ export function useKnowledgeSourceFiles(
 
     const approveFile = async (file: KnowledgeFile, approved: boolean) => {
         const { error, data: updatedFile } = await handlePromise(
-            KnowledgeService.approveFile(agentId, file.id, approved)
+            KnowledgeSourceApiService.approveFile(
+                namespace,
+                agentId,
+                file.id,
+                approved
+            )
         );
 
         if (error) {

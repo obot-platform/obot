@@ -71,6 +71,7 @@ export const KnowledgeSourceDetail: FC<KnowledgeSourceDetailProps> = ({
     const scrollPosition = useRef(0);
 
     const { files, reingestFile, approveFile } = useKnowledgeSourceFiles(
+        "agents",
         agentId,
         knowledgeSource
     );

@@ -3,6 +3,7 @@ import useSWR from "swr";
 
 import { UpdateThread } from "~/lib/model/threads";
 import { AgentService } from "~/lib/service/api/agentService";
+import { KnowledgeFileService } from "~/lib/service/api/knowledgeFileApiService";
 import { ThreadsService } from "~/lib/service/api/threadsService";
 
 import { useAsync } from "~/hooks/useAsync";
@@ -43,8 +44,10 @@ export function useOptimisticThread(threadId?: Nullish<string>) {
 }
 
 export function useThreadKnowledge(threadId?: Nullish<string>) {
-    return useSWR(ThreadsService.getKnowledge.key(threadId), ({ threadId }) =>
-        ThreadsService.getKnowledge(threadId)
+    return useSWR(
+        KnowledgeFileService.getKnowledgeFiles.key("threads", threadId),
+        ({ agentId, namespace }) =>
+            KnowledgeFileService.getKnowledgeFiles(namespace, agentId)
     );
 }
 
