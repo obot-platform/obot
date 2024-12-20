@@ -29,7 +29,7 @@ spec:
     - github-bundle
     - google-docs-bundle
     - google-gmail-bundle
-    - google-search-bundle
     - google-sheets-bundle
     defaultThreadTools:
     - images-bundle
+    - google-search-bundle
