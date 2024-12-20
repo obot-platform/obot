@@ -35,7 +35,7 @@ type ComboBoxProps<T extends BaseOption> = {
     onChange: (option: T | null) => void;
     options: (T | GroupedOption<T>)[];
     placeholder?: string;
-    suggested?: string[];
+    renderOption?: (option: T) => ReactNode;
     value?: T | null;
 };
 
@@ -43,7 +43,7 @@ export function ComboBox<T extends BaseOption>({
     disabled,
     placeholder,
     value,
-    suggested,
+    renderOption,
     ...props
 }: {
     disabled?: boolean;
@@ -58,7 +58,7 @@ export function ComboBox<T extends BaseOption>({
                 <PopoverContent className="w-full p-0" align="start">
                     <ComboBoxList
                         setOpen={setOpen}
-                        suggested={suggested}
+                        renderOption={renderOption}
                         value={value}
                         {...props}
                     />
@@ -74,7 +74,7 @@ export function ComboBox<T extends BaseOption>({
                 <div className="mt-4 border-t">
                     <ComboBoxList
                         setOpen={setOpen}
-                        suggested={suggested}
+                        renderOption={renderOption}
                         value={value}
                         {...props}
                     />
@@ -95,12 +95,9 @@ export function ComboBox<T extends BaseOption>({
                 }}
             >
                 <span className="text-ellipsis overflow-hidden">
-                    {value ? value.name : placeholder}{" "}
-                    {value?.name && suggested?.includes(value.name) && (
-                        <span className="text-muted-foreground">
-                            (Suggested)
-                        </span>
-                    )}
+                    {renderOption && value
+                        ? renderOption(value)
+                        : (value?.name ?? placeholder)}
                 </span>
             </Button>
         );
@@ -113,7 +110,7 @@ function ComboBoxList<T extends BaseOption>({
     onChange,
     options,
     setOpen,
-    suggested,
+    renderOption,
     value,
     placeholder = "Filter...",
     emptyLabel = "No results found.",
@@ -160,22 +157,6 @@ function ComboBoxList<T extends BaseOption>({
             [] as (T | GroupedOption<T>)[]
         );
 
-    const sortBySuggested = (
-        a: T | GroupedOption<T>,
-        b: T | GroupedOption<T>
-    ) => {
-        // Handle nested groups - keep original order
-        if ("heading" in a || "heading" in b) return 0;
-
-        const aIsSuggested = a.name && suggested?.includes(a.name);
-        const bIsSuggested = b.name && suggested?.includes(b.name);
-
-        // If both or neither are suggested, maintain original order
-        if (aIsSuggested === bIsSuggested) return 0;
-        // Sort suggested items first
-        return aIsSuggested ? -1 : 1;
-    };
-
     const handleValueChange = (value: string) => {
         setFilteredOptions(filterOptions(options, value));
     };
@@ -215,14 +196,11 @@ function ComboBoxList<T extends BaseOption>({
     function renderGroupedOption(group: GroupedOption<T>) {
         return (
             <CommandGroup key={group.heading} heading={group.heading}>
-                {group.value
-                    .slice() // Create a copy to avoid mutating original array
-                    .sort(sortBySuggested)
-                    .map((option) =>
-                        "heading" in option
-                            ? renderGroupedOption(option)
-                            : renderUngroupedOption(option)
-                    )}
+                {group.value.map((option) =>
+                    "heading" in option
+                        ? renderGroupedOption(option)
+                        : renderUngroupedOption(option)
+                )}
             </CommandGroup>
         );
     }
@@ -239,12 +217,9 @@ function ComboBoxList<T extends BaseOption>({
                 className="justify-between"
             >
                 <span>
-                    {option.name || option.id}{" "}
-                    {option?.name && suggested?.includes(option.name) && (
-                        <span className="text-muted-foreground">
-                            (Suggested)
-                        </span>
-                    )}
+                    {renderOption
+                        ? renderOption(option)
+                        : (option.name ?? option.id)}
                 </span>
                 {value?.id === option.id && <CheckIcon className="w-4 h-4" />}
             </CommandItem>

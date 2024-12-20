@@ -180,9 +180,15 @@ export function DefaultModelAliasForm({
                                                 }
                                                 options={getOptionsByUsageAndProvider(
                                                     activeModelOptions,
-                                                    usage
+                                                    usage,
+                                                    alias
                                                 )}
-                                                suggested={getSuggested(alias)}
+                                                renderOption={(option) =>
+                                                    renderDisplayOption(
+                                                        option,
+                                                        alias
+                                                    )
+                                                }
                                                 value={
                                                     field.value
                                                         ? models?.find(
@@ -219,21 +225,33 @@ export function DefaultModelAliasForm({
         </Form>
     );
 
-    function getSuggested(alias: ModelAlias) {
-        return alias && SUGGESTED_MODEL_SELECTIONS[alias]
-            ? [SUGGESTED_MODEL_SELECTIONS[alias]]
-            : [];
+    function renderDisplayOption(option: Model, alias: ModelAlias) {
+        const suggestion = alias && SUGGESTED_MODEL_SELECTIONS[alias];
+
+        return (
+            <span>
+                {option.name}{" "}
+                {suggestion === option.name && (
+                    <span className="text-muted-foreground">(Suggested)</span>
+                )}
+            </span>
+        );
     }
 
     function getOptionsByUsageAndProvider(
         modelOptions: Model[] | undefined,
-        usage: ModelUsage
+        usage: ModelUsage,
+        aliasFor: ModelAlias
     ) {
         if (!modelOptions) return [];
 
+        const suggested = aliasFor && SUGGESTED_MODEL_SELECTIONS[aliasFor];
         const usageGroupName = getModelUsageLabel(usage);
-        const usageModelProviderGroups =
-            getModelOptionsByModelProvider(modelOptions);
+        const usageModelProviderGroups = getModelOptionsByModelProvider(
+            modelOptions,
+            suggested ? [suggested] : []
+        );
+
         const otherModelProviderGroups =
             getModelOptionsByModelProvider(otherModels);
         const usageGroup = {
@@ -290,7 +308,10 @@ export function DefaultModelAliasFormDialog({
     );
 }
 
-export function getModelOptionsByModelProvider(models: Model[]) {
+export function getModelOptionsByModelProvider(
+    models: Model[],
+    suggestions?: string[]
+) {
     const byModelProviderGroups = filterModelsByActive(models).reduce(
         (acc, model) => {
             acc[model.modelProvider] = acc[model.modelProvider] || [];
@@ -302,12 +323,22 @@ export function getModelOptionsByModelProvider(models: Model[]) {
 
     return Object.entries(byModelProviderGroups).map(
         ([modelProvider, models]) => {
-            const sorted = models.sort((a, b) =>
-                (a.name ?? "").localeCompare(b.name ?? "")
-            );
             return {
                 heading: modelProvider,
-                value: sorted,
+                value: models.sort((a, b) => {
+                    // First compare by suggestion status if suggestions are provided
+                    const aIsSuggested =
+                        a.name && suggestions?.includes(a.name);
+                    const bIsSuggested =
+                        b.name && suggestions?.includes(b.name);
+
+                    if (aIsSuggested !== bIsSuggested) {
+                        return aIsSuggested ? -1 : 1;
+                    }
+
+                    // If suggestion status is the same, sort alphabetically
+                    return (a.name ?? "").localeCompare(b.name ?? "");
+                }),
             };
         }
     );
