@@ -101,9 +101,19 @@ func Agent(ctx context.Context, db kclient.Client, agent *v1.Agent, oauthServerU
 		return nil, nil, err
 	}
 
-	extraEnv, err = addKnowledgeTools(ctx, db, agent, opts.Thread, extraEnv)
+	extraEnv, added, err := addKnowledgeTools(ctx, db, agent, opts.Thread, extraEnv)
 	if err != nil {
 		return nil, nil, err
+	}
+
+	if !added {
+		filteredTools := make([]string, 0)
+		for _, tool := range mainTool.Tools {
+			if !strings.HasSuffix(tool, "as knowledge") {
+				filteredTools = append(filteredTools, tool)
+			}
+		}
+		mainTool.Tools = filteredTools
 	}
 
 	oauthEnv, err := OAuthAppEnv(ctx, db, agent.Spec.Manifest.OAuthApps, agent.Namespace, oauthServerURL)
@@ -159,7 +169,7 @@ func OAuthAppEnv(ctx context.Context, db kclient.Client, oauthAppNames []string,
 	return extraEnv, nil
 }
 
-func addKnowledgeTools(ctx context.Context, db kclient.Client, agent *v1.Agent, thread *v1.Thread, extraEnv []string) ([]string, error) {
+func addKnowledgeTools(ctx context.Context, db kclient.Client, agent *v1.Agent, thread *v1.Thread, extraEnv []string) ([]string, bool, error) {
 	var knowledgeSetNames []string
 	knowledgeSetNames = append(knowledgeSetNames, agent.Status.KnowledgeSetNames...)
 	if thread != nil {
@@ -167,17 +177,17 @@ func addKnowledgeTools(ctx context.Context, db kclient.Client, agent *v1.Agent, 
 	}
 
 	if len(knowledgeSetNames) == 0 {
-		return extraEnv, nil
+		return extraEnv, false, nil
 	}
 
 	if thread != nil {
 		var knowledgeSummary v1.KnowledgeSummary
 		if err := db.Get(ctx, kclient.ObjectKeyFromObject(thread), &knowledgeSummary); kclient.IgnoreNotFound(err) != nil {
-			return nil, err
+			return nil, false, err
 		} else if err == nil && len(knowledgeSummary.Spec.Summary) > 0 {
 			var content string
 			if err := gz.Decompress(&content, knowledgeSummary.Spec.Summary); err != nil {
-				return nil, err
+				return nil, false, err
 			}
 			extraEnv = append(extraEnv, fmt.Sprintf("KNOWLEDGE_SUMMARY=%s", content))
 		}
@@ -188,7 +198,7 @@ func addKnowledgeTools(ctx context.Context, db kclient.Client, agent *v1.Agent, 
 		if err := db.Get(ctx, kclient.ObjectKey{Namespace: agent.Namespace, Name: knowledgeSetName}, &ks); apierror.IsNotFound(err) {
 			continue
 		} else if err != nil {
-			return nil, err
+			return nil, false, err
 		}
 
 		if !ks.Status.HasContent {
@@ -210,10 +220,10 @@ func addKnowledgeTools(ctx context.Context, db kclient.Client, agent *v1.Agent, 
 		return append(extraEnv,
 			fmt.Sprintf("KNOW_DATASETS=%s/%s", ks.Namespace, ks.Name),
 			fmt.Sprintf("KNOW_DATASET_DESCRIPTION=%s", dataDescription),
-		), nil
+		), true, nil
 	}
 
-	return extraEnv, nil
+	return extraEnv, false, nil
 }
 
 func addWorkflowTools(ctx context.Context, db kclient.Client, agent *v1.Agent, mainTool gptscript.ToolDef, otherTools []gptscript.ToolDef) (_ gptscript.ToolDef, _ []gptscript.ToolDef, _ error) {
