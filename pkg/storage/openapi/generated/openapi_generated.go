@@ -2010,6 +2010,20 @@ func schema_obot_platform_obot_apiclient_types_ModelProviderStatus(ref common.Re
 							},
 						},
 					},
+					"optionalConfigurationParameters": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
 				},
 				Required: []string{"configured"},
 			},

@@ -17,6 +17,7 @@ type ModelProviderStatus struct {
 	ModelsBackPopulated             *bool    `json:"modelsBackPopulated,omitempty"`
 	RequiredConfigurationParameters []string `json:"requiredConfigurationParameters,omitempty"`
 	MissingConfigurationParameters  []string `json:"missingConfigurationParameters,omitempty"`
+	OptionalConfigurationParameters []string `json:"optionalConfigurationParameters,omitempty"`
 }
 
 type ModelProviderList List[ModelProvider]

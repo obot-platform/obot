@@ -223,8 +223,8 @@ func convertToolReferenceToModelProvider(ref v1.ToolReference, credEnvVars map[s
 
 func convertModelProviderToolRef(toolRef v1.ToolReference, cred map[string]string) *types.ModelProviderStatus {
 	var (
-		requiredEnvVars, missingEnvVars []string
-		icon                            string
+		requiredEnvVars, missingEnvVars, optionalEnvVars []string
+		icon                                             string
 	)
 	if toolRef.Status.Tool != nil {
 		if toolRef.Status.Tool.Metadata["envVars"] != "" {
@@ -238,6 +238,10 @@ func convertModelProviderToolRef(toolRef v1.ToolReference, cred map[string]strin
 		}
 
 		icon = toolRef.Status.Tool.Metadata["icon"]
+
+		if optionalEnvVarMetadata := toolRef.Status.Tool.Metadata["optionalEnvVars"]; optionalEnvVarMetadata != "" {
+			optionalEnvVars = strings.Split(optionalEnvVarMetadata, ",")
+		}
 	}
 
 	var modelsPopulated *bool
@@ -253,5 +257,6 @@ func convertModelProviderToolRef(toolRef v1.ToolReference, cred map[string]strin
 		ModelsBackPopulated:             modelsPopulated,
 		RequiredConfigurationParameters: requiredEnvVars,
 		MissingConfigurationParameters:  missingEnvVars,
+		OptionalConfigurationParameters: optionalEnvVars,
 	}
 }
