@@ -1,6 +1,7 @@
 import { cn } from "~/lib/utils";
 
 import { useChat } from "~/components/chat/ChatContext";
+import { KnowledgeInfo } from "~/components/chat/chat-actions/KnowledgeInfo";
 import { ToolsInfo } from "~/components/chat/chat-actions/ToolsInfo";
 import {
     useOptimisticThread,
@@ -24,6 +25,8 @@ export function ChatActions({ className }: { className?: string }) {
                     agent={agent}
                     disabled={!thread}
                 />
+
+                {threadId && <KnowledgeInfo threadId={threadId} />}
             </div>
         </div>
     );
