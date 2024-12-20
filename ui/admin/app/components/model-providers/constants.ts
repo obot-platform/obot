@@ -99,7 +99,7 @@ export const ModelProviderSensitiveFields: Record<string, boolean | undefined> =
         // VLLM
         OBOT_VLLM_MODEL_PROVIDER_ENDPOINT: false,
         OBOT_VLLM_MODEL_PROVIDER_API_KEY: true,
-      
+
         // Anthropic Bedrock
         OBOT_ANTHROPIC_BEDROCK_MODEL_PROVIDER_ACCESS_KEY_ID: true,
         OBOT_ANTHROPIC_BEDROCK_MODEL_PROVIDER_SECRET_ACCESS_KEY: true,
