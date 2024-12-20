@@ -101,11 +101,12 @@ func Agent(ctx context.Context, db kclient.Client, agent *v1.Agent, oauthServerU
 		return nil, nil, err
 	}
 
-	extraEnv, added, err := addKnowledgeTools(ctx, db, agent, opts.Thread, extraEnv)
+	extraEnv, added, err := configureKnowledgeEnvs(ctx, db, agent, opts.Thread, extraEnv)
 	if err != nil {
 		return nil, nil, err
 	}
 
+	// If no knowledge env are added, we should remove the knowledge tool to avoid calling it with empty data to confuse user
 	if !added {
 		filteredTools := make([]string, 0)
 		for _, tool := range mainTool.Tools {
@@ -169,7 +170,8 @@ func OAuthAppEnv(ctx context.Context, db kclient.Client, oauthAppNames []string,
 	return extraEnv, nil
 }
 
-func addKnowledgeTools(ctx context.Context, db kclient.Client, agent *v1.Agent, thread *v1.Thread, extraEnv []string) ([]string, bool, error) {
+// configureKnowledgeEnvs configures environment variables based on knowledge sets associated with an agent and an optional thread.
+func configureKnowledgeEnvs(ctx context.Context, db kclient.Client, agent *v1.Agent, thread *v1.Thread, extraEnv []string) ([]string, bool, error) {
 	var knowledgeSetNames []string
 	knowledgeSetNames = append(knowledgeSetNames, agent.Status.KnowledgeSetNames...)
 	if thread != nil {
