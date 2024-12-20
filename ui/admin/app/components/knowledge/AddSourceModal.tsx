@@ -2,7 +2,6 @@ import { FC, useState } from "react";
 
 import { KNOWLEDGE_TOOL } from "~/lib/model/agents";
 import { KnowledgeSourceType } from "~/lib/model/knowledge";
-import { KnowledgeService } from "~/lib/service/api/knowledgeService";
 
 import KnowledgeSourceAvatar from "~/components/knowledge/KnowledgeSourceAvatar";
 import { Button } from "~/components/ui/button";
@@ -11,58 +10,39 @@ import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
 
 interface AddSourceModalProps {
-    agentId: string;
     sourceType: KnowledgeSourceType;
     startPolling: () => void;
     isOpen: boolean;
     onOpenChange: (open: boolean) => void;
-    onSave: (knowledgeSourceId: string) => void;
     addTool: (tool: string) => void;
+    onAddWebsite: (website: string) => void;
+    onAddOneDrive: (link: string) => void;
 }
 
-const AddSourceModal: FC<AddSourceModalProps> = ({
-    agentId,
+export const AddSourceModal: FC<AddSourceModalProps> = ({
     sourceType,
     startPolling,
     isOpen,
     onOpenChange,
-    onSave,
     addTool,
+    onAddWebsite,
+    onAddOneDrive,
 }) => {
     const [newWebsite, setNewWebsite] = useState("");
     const [newLink, setNewLink] = useState("");
 
     const handleAddWebsite = async () => {
         if (newWebsite) {
-            const trimmedWebsite = newWebsite.trim();
-            const formattedWebsite =
-                trimmedWebsite.startsWith("http://") ||
-                trimmedWebsite.startsWith("https://")
-                    ? trimmedWebsite
-                    : `https://${trimmedWebsite}`;
-
-            const res = await KnowledgeService.createKnowledgeSource(agentId, {
-                websiteCrawlingConfig: {
-                    urls: [formattedWebsite],
-                },
-            });
-            onSave(res.id);
-            startPolling();
+            onAddWebsite(newWebsite);
             setNewWebsite("");
-            onOpenChange(false);
         }
     };
 
     const handleAddOneDrive = async () => {
-        const res = await KnowledgeService.createKnowledgeSource(agentId, {
-            onedriveConfig: {
-                sharedLinks: [newLink.trim()],
-            },
-        });
-        onSave(res.id);
-        setNewLink("");
-        startPolling();
-        onOpenChange(false);
+        if (newLink) {
+            onAddOneDrive(newLink);
+            setNewLink("");
+        }
     };
 
     const handleAdd = async () => {
@@ -163,5 +143,3 @@ const AddSourceModal: FC<AddSourceModalProps> = ({
         </Dialog>
     );
 };
-
-export default AddSourceModal;

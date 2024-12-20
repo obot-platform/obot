@@ -47,7 +47,7 @@ interface KnowledgeSourceDetailProps {
     onSave: (knowledgeSource: KnowledgeSource) => void;
 }
 
-const KnowledgeSourceDetail: FC<KnowledgeSourceDetailProps> = ({
+export const KnowledgeSourceDetail: FC<KnowledgeSourceDetailProps> = ({
     agentId,
     knowledgeSource,
     isOpen,
@@ -603,5 +603,3 @@ const KnowledgeSourceDetail: FC<KnowledgeSourceDetailProps> = ({
         </Dialog>
     );
 };
-
-export default KnowledgeSourceDetail;
