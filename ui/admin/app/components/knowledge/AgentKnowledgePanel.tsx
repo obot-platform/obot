@@ -222,8 +222,8 @@ export default function AgentKnowledgePanel({
                     onDelete={() =>
                         deleteKnowledgeSource(selectedKnowledgeSourceId)
                     }
-                    onSave={(source) =>
-                        updateKnowledgeSource(source.id, source)
+                    onUpdate={(source) =>
+                        updateKnowledgeSource(selectedKnowledgeSourceId, source)
                     }
                 />
             )}

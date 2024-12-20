@@ -1,7 +1,6 @@
 import cronstrue from "cronstrue";
 import { EditIcon, Eye, InfoIcon, Trash } from "lucide-react";
-import { FC, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import useSWR from "swr";
+import { FC, useEffect, useMemo, useRef, useState } from "react";
 
 import {
     KnowledgeFile,
@@ -13,13 +12,13 @@ import {
     getKnowledgeSourceDisplayName,
     getKnowledgeSourceType,
 } from "~/lib/model/knowledge";
-import { KnowledgeService } from "~/lib/service/api/knowledgeService";
 
 import { ErrorDialog } from "~/components/composed/ErrorDialog";
 import CronDialog from "~/components/knowledge/CronDialog";
 import FileTreeNode, { FileNode } from "~/components/knowledge/FileTree";
 import KnowledgeSourceAvatar from "~/components/knowledge/KnowledgeSourceAvatar";
 import OauthSignDialog from "~/components/knowledge/OAuthSignDialog";
+import { useKnowledgeSourceFiles } from "~/components/knowledge/hooks/useKnowledgeSourceFiles";
 import { LoadingSpinner } from "~/components/ui/LoadingSpinner";
 import { Button } from "~/components/ui/button";
 import { Dialog, DialogContent, DialogTitle } from "~/components/ui/dialog";
@@ -42,9 +41,9 @@ interface KnowledgeSourceDetailProps {
     knowledgeSource: KnowledgeSource;
     onSyncNow: () => void;
     onDelete: () => void;
+    onUpdate: (source: KnowledgeSource) => void;
     isOpen: boolean;
     onOpenChange: (open: boolean) => void;
-    onSave: (knowledgeSource: KnowledgeSource) => void;
 }
 
 export const KnowledgeSourceDetail: FC<KnowledgeSourceDetailProps> = ({
@@ -54,85 +53,36 @@ export const KnowledgeSourceDetail: FC<KnowledgeSourceDetailProps> = ({
     onOpenChange,
     onSyncNow,
     onDelete,
-    onSave,
+    onUpdate,
 }) => {
-    const [blockPollingFiles, setBlockPollingFiles] = useState(true);
     const [syncSchedule, setSyncSchedule] = useState(
         knowledgeSource.syncSchedule
     );
     const [isCronDialogOpen, setIsCronDialogOpen] = useState(false);
-    const [cronDescription, setCronDescription] = useState("");
-
     const [errorDialogError, setErrorDialogError] = useState("");
     const sourceType = getKnowledgeSourceType(knowledgeSource);
 
     const tableContainerRef = useRef<HTMLDivElement>(null);
     const scrollPosition = useRef(0);
 
+    const { files, reingestFile, approveFile } = useKnowledgeSourceFiles(
+        agentId,
+        knowledgeSource
+    );
+
     useEffect(() => {
         setSyncSchedule(knowledgeSource.syncSchedule);
     }, [knowledgeSource]);
 
-    useEffect(() => {
-        if (!syncSchedule) {
-            setCronDescription("");
-            return;
-        }
+    const cronDescription = useMemo(() => {
+        if (!syncSchedule) return "";
+
         try {
-            setCronDescription(cronstrue.toString(syncSchedule));
+            return cronstrue.toString(syncSchedule);
         } catch (_) {
-            setCronDescription("Invalid cron expression");
+            return "Invalid cron expression";
         }
     }, [syncSchedule]);
-
-    const getFiles = useSWR(
-        KnowledgeService.getFilesForKnowledgeSource.key(
-            agentId,
-            knowledgeSource.id
-        ),
-        ({ agentId, sourceId }) =>
-            KnowledgeService.getFilesForKnowledgeSource(agentId, sourceId).then(
-                (files) =>
-                    files.sort((a, b) => a.fileName.localeCompare(b.fileName))
-            ),
-        {
-            revalidateOnFocus: false,
-            refreshInterval: blockPollingFiles ? undefined : 5000,
-        }
-    );
-
-    const files = useMemo(
-        () =>
-            getFiles.data?.sort((a, b) =>
-                a.fileName.localeCompare(b.fileName)
-            ) ?? [],
-        [getFiles.data]
-    );
-
-    useEffect(() => {
-        if (files.length === 0) {
-            setBlockPollingFiles(true);
-            return;
-        }
-
-        if (
-            files
-                .filter(
-                    (file) =>
-                        file.state !== KnowledgeFileState.PendingApproval &&
-                        file.state !== KnowledgeFileState.Unapproved
-                )
-                .every(
-                    (file) =>
-                        file.state === KnowledgeFileState.Ingested ||
-                        file.state === KnowledgeFileState.Error
-                )
-        ) {
-            setBlockPollingFiles(true);
-        } else {
-            setBlockPollingFiles(false);
-        }
-    }, [files]);
 
     useEffect(() => {
         const container = tableContainerRef.current;
@@ -145,137 +95,25 @@ export const KnowledgeSourceDetail: FC<KnowledgeSourceDetailProps> = ({
         scrollPosition.current = tableContainerRef?.current?.scrollTop ?? 0;
     };
 
-    const refreshFiles = getFiles.mutate;
-    useEffect(() => {
-        if (
-            knowledgeSource.state === KnowledgeSourceStatus.Syncing ||
-            knowledgeSource.state === KnowledgeSourceStatus.Pending
-        ) {
-            setBlockPollingFiles(false);
-        }
-
-        if (knowledgeSource.state === KnowledgeSourceStatus.Synced) {
-            refreshFiles();
-        }
-    }, [knowledgeSource, refreshFiles]);
-
-    const onSourceUpdate = async (syncSchedule: string) => {
-        const updatedSource = await KnowledgeService.updateKnowledgeSource(
-            agentId,
-            knowledgeSource.id,
-            {
-                ...knowledgeSource,
-                syncSchedule: syncSchedule,
-            }
-        );
-        onSave(updatedSource);
+    const updateSourceSyncSchedule = (syncSchedule: string) => {
+        onUpdate({ ...knowledgeSource, syncSchedule });
     };
 
-    const onApproveFile = async (file: KnowledgeFile, approved: boolean) => {
-        const updatedFile = await KnowledgeService.approveFile(
-            agentId,
-            file.id,
-            approved
-        );
-        getFiles.mutate(
-            (files) => files?.map((f) => (f.id === file.id ? updatedFile : f)),
-            false
-        );
-    };
-
-    const onApproveFileNode = async (approved: boolean, fileNode: FileNode) => {
-        if (fileNode.file) {
-            try {
-                await onApproveFile(fileNode.file, approved);
-            } catch (e) {
-                console.error("failed to approve file", fileNode.file, e);
-            }
-            return;
-        }
-        if (fileNode.children) {
-            for (const child of fileNode.children) {
-                await onApproveFileNode(approved, child);
-            }
-        }
-    };
-
-    const onReingestFile = async (file: KnowledgeFile) => {
-        const updatedFile = await KnowledgeService.reingestFile(
-            agentId,
-            file.id,
-            knowledgeSource.id
-        );
-        getFiles.mutate(
-            (files) => files?.map((f) => (f.id === file.id ? updatedFile : f)),
-            false
-        );
-    };
-
-    const constructFileTree = useCallback(
-        (files: KnowledgeFile[]): FileNode[] => {
-            const roots: FileNode[] = [];
-
-            function addPathToTree(
-                parts: string[],
-                file: KnowledgeFile,
-                currentNode: FileNode
-            ) {
-                if (parts.length === 0) return;
-
-                const currentPart = parts[0];
-                const isFile = parts.length === 1;
-                let childNode = currentNode.children?.find(
-                    (child) => child.name === currentPart
-                );
-
-                if (!childNode) {
-                    childNode = {
-                        name: currentPart,
-                        file: isFile ? file : null,
-                        children: isFile ? [] : [],
-                        path: currentNode.path + currentPart + "/",
-                    };
-                    currentNode.children?.push(childNode);
-                }
-
-                addPathToTree(parts.slice(1), file, childNode);
-            }
-
-            for (const file of files) {
-                const pathName = getKnowledgeFilePathNameForFileTree(
-                    file,
-                    knowledgeSource
-                );
-                const pathParts = pathName.split("/");
-                let root = roots.find((r) => r.name === pathParts[0]);
-                if (!root) {
-                    root = {
-                        name: pathParts[0],
-                        file: null,
-                        children: [],
-                        path: pathParts[0] + "/",
-                    };
-                    if (pathParts.length === 1) {
-                        root.file = file;
-                        root.path = pathParts[0];
-                    }
-                    roots.push(root);
-                }
-                addPathToTree(pathParts.slice(1), file, root);
-            }
-
-            return roots.sort((a, b) => {
-                if (a.file === null && b.file !== null) return -1;
-                if (a.file !== null && b.file === null) return 1;
-                return a.path.localeCompare(b.path);
-            });
-        },
-        [knowledgeSource]
+    const fileNodes = useMemo(
+        () => constructFileTree(files, knowledgeSource),
+        [files, knowledgeSource]
     );
 
-    const fileNodes = useMemo(() => {
-        return constructFileTree(files);
-    }, [files, constructFileTree]);
+    const handleApproveFile = (approved: boolean, fileNode: FileNode) => {
+        if (fileNode.file) {
+            approveFile(fileNode.file, approved);
+            return;
+        }
+
+        for (const child of fileNode.children ?? []) {
+            handleApproveFile(approved, child);
+        }
+    };
 
     return (
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
@@ -421,7 +259,7 @@ export const KnowledgeSourceDetail: FC<KnowledgeSourceDetailProps> = ({
                                     className="cursor-pointer"
                                     onClick={() => {
                                         setSyncSchedule("");
-                                        onSourceUpdate("");
+                                        updateSourceSyncSchedule("");
                                     }}
                                 >
                                     On-Demand
@@ -433,7 +271,7 @@ export const KnowledgeSourceDetail: FC<KnowledgeSourceDetailProps> = ({
                                     className="cursor-pointer"
                                     onClick={() => {
                                         setSyncSchedule("0 * * * *");
-                                        onSourceUpdate("0 * * * *");
+                                        updateSourceSyncSchedule("0 * * * *");
                                     }}
                                 >
                                     Hourly
@@ -448,7 +286,7 @@ export const KnowledgeSourceDetail: FC<KnowledgeSourceDetailProps> = ({
                                     className="cursor-pointer"
                                     onClick={() => {
                                         setSyncSchedule("0 0 * * *");
-                                        onSourceUpdate("0 0 * * *");
+                                        updateSourceSyncSchedule("0 0 * * *");
                                     }}
                                 >
                                     Daily
@@ -463,7 +301,7 @@ export const KnowledgeSourceDetail: FC<KnowledgeSourceDetailProps> = ({
                                     className="cursor-pointer"
                                     onClick={() => {
                                         setSyncSchedule("0 0 * * 0");
-                                        onSourceUpdate("0 0 * * 0");
+                                        updateSourceSyncSchedule("0 0 * * 0");
                                     }}
                                 >
                                     Weekly
@@ -564,18 +402,10 @@ export const KnowledgeSourceDetail: FC<KnowledgeSourceDetailProps> = ({
                             node={node}
                             level={0}
                             source={knowledgeSource}
-                            onApproveFile={onApproveFileNode}
-                            onReingestFile={onReingestFile}
+                            onApproveFile={handleApproveFile}
+                            onReingestFile={(file) => reingestFile(file.id)}
                             setErrorDialogError={setErrorDialogError}
-                            updateKnowledgeSource={async (source) => {
-                                const res =
-                                    await KnowledgeService.updateKnowledgeSource(
-                                        agentId,
-                                        knowledgeSource.id,
-                                        source
-                                    );
-                                onSave(res);
-                            }}
+                            updateKnowledgeSource={onUpdate}
                         />
                     ))}
                 </div>
@@ -586,7 +416,7 @@ export const KnowledgeSourceDetail: FC<KnowledgeSourceDetailProps> = ({
                     cronExpression={syncSchedule || ""}
                     setCronExpression={setSyncSchedule}
                     onSubmit={() => {
-                        onSourceUpdate(syncSchedule ?? "");
+                        updateSourceSyncSchedule(syncSchedule ?? "");
                     }}
                 />
                 <OauthSignDialog
@@ -603,3 +433,65 @@ export const KnowledgeSourceDetail: FC<KnowledgeSourceDetailProps> = ({
         </Dialog>
     );
 };
+
+function constructFileTree(
+    files: KnowledgeFile[],
+    knowledgeSource: KnowledgeSource
+): FileNode[] {
+    const roots: FileNode[] = [];
+
+    function addPathToTree(
+        parts: string[],
+        file: KnowledgeFile,
+        currentNode: FileNode
+    ) {
+        if (parts.length === 0) return;
+
+        const currentPart = parts[0];
+        const isFile = parts.length === 1;
+        let childNode = currentNode.children?.find(
+            (child) => child.name === currentPart
+        );
+
+        if (!childNode) {
+            childNode = {
+                name: currentPart,
+                file: isFile ? file : null,
+                children: isFile ? [] : [],
+                path: currentNode.path + currentPart + "/",
+            };
+            currentNode.children?.push(childNode);
+        }
+
+        addPathToTree(parts.slice(1), file, childNode);
+    }
+
+    for (const file of files) {
+        const pathName = getKnowledgeFilePathNameForFileTree(
+            file,
+            knowledgeSource
+        );
+        const pathParts = pathName.split("/");
+        let root = roots.find((r) => r.name === pathParts[0]);
+        if (!root) {
+            root = {
+                name: pathParts[0],
+                file: null,
+                children: [],
+                path: pathParts[0] + "/",
+            };
+            if (pathParts.length === 1) {
+                root.file = file;
+                root.path = pathParts[0];
+            }
+            roots.push(root);
+        }
+        addPathToTree(pathParts.slice(1), file, root);
+    }
+
+    return roots.sort((a, b) => {
+        if (a.file === null && b.file !== null) return -1;
+        if (a.file !== null && b.file === null) return 1;
+        return a.path.localeCompare(b.path);
+    });
+}

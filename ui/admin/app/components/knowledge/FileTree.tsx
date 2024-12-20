@@ -61,7 +61,7 @@ export default function FileTreeNode({
     node: FileNode;
     level: number;
     source: KnowledgeSource;
-    onApproveFile: (approved: boolean, fileNode: FileNode) => Promise<void>;
+    onApproveFile: (approved: boolean, fileNode: FileNode) => void;
     onReingestFile: (file: KnowledgeFile) => void;
     setErrorDialogError: (error: string) => void;
     updateKnowledgeSource: (source: KnowledgeSource) => void;
@@ -112,7 +112,7 @@ export default function FileTreeNode({
     const disableToggleButton =
         excluded && !source.filePathPrefixExclude?.includes(node.path);
 
-    const toggleIncludeExcludeList = async () => {
+    const toggleIncludeExcludeList = () => {
         // After files are approved/unapproved, we need to update the include/exclude list so that new files will be included/excluded from future syncs.
         let filePathPrefixInclude = source.filePathPrefixInclude;
         let filePathPrefixExclude = source.filePathPrefixExclude;
@@ -143,11 +143,7 @@ export default function FileTreeNode({
         });
 
         // We should manually approve/unapprove all files in the folder at once so that we don't rely on backend reconciliation logic as it will cause delay in updating the UI.
-        try {
-            await onApproveFile(!included, node);
-        } catch (e) {
-            console.error("failed to approve files", e);
-        }
+        onApproveFile(!included, node);
     };
 
     return (
