@@ -11,7 +11,7 @@ import (
 func Router(services *services.Services) (http.Handler, error) {
 	mux := services.APIServer
 
-	agents := handlers.NewAgentHandler(services.GPTClient, services.ServerURL)
+	agents := handlers.NewAgentHandler(services.GPTClient, services.Invoker, services.ServerURL)
 	assistants := handlers.NewAssistantHandler(services.Invoker, services.Events, services.GPTClient)
 	tasks := handlers.NewTaskHandler(services.Invoker, services.Events)
 	workflows := handlers.NewWorkflowHandler(services.GPTClient, services.ServerURL, services.Invoker)
@@ -41,9 +41,12 @@ func Router(services *services.Services) (http.Handler, error) {
 	mux.HandleFunc("GET /api/agents/{id}/script.gpt", agents.Script)
 	mux.HandleFunc("GET /api/agents/{id}/script/tool.gpt", agents.Script)
 	mux.HandleFunc("POST /api/agents", agents.Create)
+	mux.HandleFunc("POST /api/agents/{id}/authenticate", agents.Authenticate)
+	mux.HandleFunc("POST /api/agents/{id}/deauthenticate", agents.DeAuthenticate)
 	mux.HandleFunc("PUT /api/agents/{id}", agents.Update)
 	mux.HandleFunc("DELETE /api/agents/{id}", agents.Delete)
 	mux.HandleFunc("POST /api/agents/{id}/oauth-credentials/{ref}/login", agents.EnsureCredentialForKnowledgeSource)
+	mux.HandleFunc("POST /api/agents/{id}/auth", agents.EnsureCredentialForKnowledgeSource)
 
 	// Assistants
 	mux.HandleFunc("GET /api/assistants", assistants.List)
@@ -130,6 +133,7 @@ func Router(services *services.Services) (http.Handler, error) {
 	mux.HandleFunc("GET /api/workflows/{id}/script/tool.gpt", workflows.Script)
 	mux.HandleFunc("POST /api/workflows", workflows.Create)
 	mux.HandleFunc("POST /api/workflows/{id}/authenticate", workflows.Authenticate)
+	mux.HandleFunc("POST /api/workflows/{id}/deauthenticate", workflows.DeAuthenticate)
 	mux.HandleFunc("PUT /api/workflows/{id}", workflows.Update)
 	mux.HandleFunc("DELETE /api/workflows/{id}", workflows.Delete)
 	mux.HandleFunc("POST /api/workflows/{id}/oauth-credentials/{ref}/login", workflows.EnsureCredentialForKnowledgeSource)

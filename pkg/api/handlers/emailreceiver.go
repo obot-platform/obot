@@ -82,7 +82,7 @@ func convertEmailReceiver(emailReceiver v1.EmailReceiver, hostname string) *type
 	manifest := emailReceiver.Spec.EmailReceiverManifest
 
 	var aliasAssigned *bool
-	if emailReceiver.Generation == emailReceiver.Status.AliasObservedGeneration {
+	if emailReceiver.Generation == emailReceiver.Status.ObservedGeneration {
 		aliasAssigned = &emailReceiver.Status.AliasAssigned
 	}
 	er := &types.EmailReceiver{

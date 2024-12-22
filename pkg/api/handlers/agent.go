@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/http"
@@ -11,6 +12,7 @@ import (
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/alias"
 	"github.com/obot-platform/obot/pkg/api"
+	"github.com/obot-platform/obot/pkg/invoke"
 	"github.com/obot-platform/obot/pkg/render"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
@@ -21,17 +23,95 @@ import (
 
 type AgentHandler struct {
 	gptscript *gptscript.GPTScript
+	invoker   *invoke.Invoker
 	serverURL string
 	// This is currently a hack to access the workflow handler
 	workflowHandler *WorkflowHandler
 }
 
-func NewAgentHandler(gClient *gptscript.GPTScript, serverURL string) *AgentHandler {
+func NewAgentHandler(gClient *gptscript.GPTScript, invoker *invoke.Invoker, serverURL string) *AgentHandler {
 	return &AgentHandler{
 		serverURL:       serverURL,
 		gptscript:       gClient,
-		workflowHandler: NewWorkflowHandler(gClient, serverURL, nil),
+		invoker:         invoker,
+		workflowHandler: NewWorkflowHandler(gClient, serverURL, invoker),
 	}
+}
+
+func (a *AgentHandler) Authenticate(req api.Context) (err error) {
+	var (
+		id    = req.PathValue("id")
+		agent v1.Agent
+		tools []string
+	)
+
+	if err := req.Read(&tools); err != nil {
+		return fmt.Errorf("failed to read tools from request body: %w", err)
+	}
+
+	if len(tools) == 0 {
+		return types.NewErrBadRequest("no tools provided for authentication")
+	}
+
+	if err := req.Get(&agent, id); err != nil {
+		return err
+	}
+
+	resp, err := runAuthForAgent(req.Context(), req.Storage, a.invoker, agent.DeepCopy(), tools)
+	defer func() {
+		resp.Close()
+		if kickErr := kickAgent(req.Context(), req.Storage, &agent); kickErr != nil && err == nil {
+			err = fmt.Errorf("failed to update agent status: %w", kickErr)
+		}
+	}()
+
+	req.ResponseWriter.Header().Set("X-Otto-Thread-Id", resp.Thread.Name)
+	return req.WriteEvents(resp.Events)
+}
+
+func (a *AgentHandler) DeAuthenticate(req api.Context) error {
+	var (
+		id    = req.PathValue("id")
+		agent v1.Agent
+		tools []string
+	)
+
+	if err := req.Read(&tools); err != nil {
+		return fmt.Errorf("failed to read tools from request body: %w", err)
+	}
+
+	if len(tools) == 0 {
+		return types.NewErrBadRequest("no tools provided for de-authentication")
+	}
+
+	if err := req.Get(&agent, id); err != nil {
+		return err
+	}
+
+	var (
+		errs    []error
+		toolRef v1.ToolReference
+	)
+	for _, tool := range tools {
+		if err := req.Get(&toolRef, tool); err != nil {
+			errs = append(errs, err)
+			continue
+		}
+
+		if toolRef.Status.Tool != nil {
+			for _, cred := range toolRef.Status.Tool.CredentialNames {
+				if err := a.gptscript.DeleteCredential(req.Context(), id, cred); err != nil && !strings.HasSuffix(err.Error(), "credential not found") {
+					errs = append(errs, err)
+				}
+			}
+		}
+	}
+
+	if err := kickAgent(req.Context(), req.Storage, &agent); err != nil {
+		errs = append(errs, fmt.Errorf("failed to update agent status: %w", err))
+	}
+
+	return errors.Join(errs...)
 }
 
 func (a *AgentHandler) Update(req api.Context) error {
@@ -140,9 +220,13 @@ func convertAgent(agent v1.Agent, textEmbeddingModel, baseURL string) (*types.Ag
 		links = []string{"invoke", baseURL + "/invoke/" + alias}
 	}
 
-	var aliasAssigned *bool
-	if agent.Generation == agent.Status.AliasObservedGeneration {
+	var (
+		aliasAssigned *bool
+		toolInfos     *map[string]types.ToolInfo
+	)
+	if agent.Generation == agent.Status.ObservedGeneration {
 		aliasAssigned = &agent.Status.AliasAssigned
+		toolInfos = &agent.Status.ToolInfo
 	}
 
 	return &types.Agent{
@@ -150,6 +234,7 @@ func convertAgent(agent v1.Agent, textEmbeddingModel, baseURL string) (*types.Ag
 		AgentManifest:      agent.Spec.Manifest,
 		AliasAssigned:      aliasAssigned,
 		AuthStatus:         agent.Status.AuthStatus,
+		ToolInfo:           toolInfos,
 		TextEmbeddingModel: textEmbeddingModel,
 	}, nil
 }
@@ -218,6 +303,7 @@ func (a *AgentHandler) ByID(req api.Context) error {
 	if err != nil {
 		return err
 	}
+
 	return req.WriteCreated(resp)
 }
 
@@ -658,21 +744,12 @@ func (a *AgentHandler) EnsureCredentialForKnowledgeSource(req api.Context) error
 		return req.WriteCreated(resp)
 	}
 
-	// if auth is already authenticated, then don't continue.
-	if authStatus.Authenticated {
-		resp, err := convertAgent(agent, knowledgeSet.Status.TextEmbeddingModel, req.APIBaseURL)
-		if err != nil {
-			return err
-		}
-		return req.WriteCreated(resp)
-	}
-
-	credentialTool, err := v1.CredentialTool(req.Context(), req.Storage, req.Namespace(), ref)
+	credentialTools, err := v1.CredentialTools(req.Context(), req.Storage, req.Namespace(), ref)
 	if err != nil {
 		return err
 	}
 
-	if credentialTool == "" {
+	if len(credentialTools) == 0 {
 		// The only way to get here is if the controller hasn't set the field yet.
 		if agent.Status.AuthStatus == nil {
 			agent.Status.AuthStatus = make(map[string]types.OAuthAppLoginAuthStatus)
@@ -769,4 +846,48 @@ func MetadataFrom(obj kclient.Object, linkKV ...string) types.Metadata {
 		m.Links[linkKV[i]] = linkKV[i+1]
 	}
 	return m
+}
+
+func runAuthForAgent(ctx context.Context, c kclient.WithWatch, invoker *invoke.Invoker, agent *v1.Agent, tools []string) (*invoke.Response, error) {
+	credentials := make([]string, 0, len(tools))
+
+	var toolRef v1.ToolReference
+	for _, tool := range tools {
+		if err := c.Get(ctx, kclient.ObjectKey{Namespace: agent.Namespace, Name: tool}, &toolRef); err != nil {
+			return nil, err
+		}
+
+		if toolRef.Status.Tool == nil {
+			return nil, types.NewErrHttp(http.StatusTooEarly, fmt.Sprintf("tool %q is not ready", tool))
+		}
+
+		credentials = append(credentials, toolRef.Status.Tool.Credentials...)
+
+		// Reset the fields we care about so that we can use the same variable for the whole loop.
+		toolRef.Status.Tool = nil
+	}
+
+	agent.Spec.Manifest.Prompt = "#!sys.echo\nDONE"
+	agent.Spec.Manifest.Tools = tools
+	agent.Spec.Manifest.AvailableThreadTools = nil
+	agent.Spec.Manifest.DefaultThreadTools = nil
+	agent.Spec.Credentials = credentials
+
+	return invoker.Agent(ctx, c, agent, "", invoke.Options{
+		Synchronous:           true,
+		ThreadCredentialScope: new(bool),
+	})
+}
+
+func kickAgent(ctx context.Context, c kclient.Client, agent *v1.Agent) error {
+	if agent.Annotations[v1.AgentSyncAnnotation] != "" {
+		delete(agent.Annotations, v1.AgentSyncAnnotation)
+	} else {
+		if agent.Annotations == nil {
+			agent.Annotations = make(map[string]string)
+		}
+		agent.Annotations[v1.AgentSyncAnnotation] = "true"
+	}
+
+	return c.Update(ctx, agent)
 }

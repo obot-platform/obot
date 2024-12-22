@@ -11,6 +11,7 @@ import (
 
 var (
 	_ Aliasable     = (*EmailReceiver)(nil)
+	_ Generationed  = (*EmailReceiver)(nil)
 	_ fields.Fields = (*EmailReceiver)(nil)
 )
 
@@ -52,12 +53,12 @@ func (in *EmailReceiver) IsAssigned() bool {
 	return in.Status.AliasAssigned
 }
 
-func (in *EmailReceiver) GetAliasObservedGeneration() int64 {
-	return in.Status.AliasObservedGeneration
+func (in *EmailReceiver) GetObservedGeneration() int64 {
+	return in.Status.ObservedGeneration
 }
 
-func (in *EmailReceiver) SetAliasObservedGeneration(gen int64) {
-	in.Status.AliasObservedGeneration = gen
+func (in *EmailReceiver) SetObservedGeneration(gen int64) {
+	in.Status.ObservedGeneration = gen
 }
 
 func (*EmailReceiver) GetColumns() [][]string {
@@ -85,8 +86,8 @@ type EmailReceiverSpec struct {
 }
 
 type EmailReceiverStatus struct {
-	AliasAssigned           bool  `json:"aliasAssigned,omitempty"`
-	AliasObservedGeneration int64 `json:"aliasProcessed,omitempty"`
+	AliasAssigned      bool  `json:"aliasAssigned,omitempty"`
+	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

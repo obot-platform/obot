@@ -89,6 +89,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/apiclient/types.ThreadManifest":                            schema_obot_platform_obot_apiclient_types_ThreadManifest(ref),
 		"github.com/obot-platform/obot/apiclient/types.Time":                                      schema_obot_platform_obot_apiclient_types_Time(ref),
 		"github.com/obot-platform/obot/apiclient/types.ToolCall":                                  schema_obot_platform_obot_apiclient_types_ToolCall(ref),
+		"github.com/obot-platform/obot/apiclient/types.ToolInfo":                                  schema_obot_platform_obot_apiclient_types_ToolInfo(ref),
 		"github.com/obot-platform/obot/apiclient/types.ToolInput":                                 schema_obot_platform_obot_apiclient_types_ToolInput(ref),
 		"github.com/obot-platform/obot/apiclient/types.ToolReference":                             schema_obot_platform_obot_apiclient_types_ToolReference(ref),
 		"github.com/obot-platform/obot/apiclient/types.ToolReferenceList":                         schema_obot_platform_obot_apiclient_types_ToolReferenceList(ref),
@@ -292,6 +293,21 @@ func schema_obot_platform_obot_apiclient_types_Agent(ref common.ReferenceCallbac
 							},
 						},
 					},
+					"toolInfo": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ToolInfo provides information about the tools for this agent, like which credentials they use and whether that credential has been created. This is a pointer so that we can distinguish between an empty map (no tool information) and nil (tool information not processed yet).",
+							Type:        []string{"object"},
+							AdditionalProperties: &spec.SchemaOrBool{
+								Allows: true,
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/obot-platform/obot/apiclient/types.ToolInfo"),
+									},
+								},
+							},
+						},
+					},
 					"textEmbeddingModel": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
@@ -303,7 +319,7 @@ func schema_obot_platform_obot_apiclient_types_Agent(ref common.ReferenceCallbac
 			},
 		},
 		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.AgentManifest", "github.com/obot-platform/obot/apiclient/types.Metadata", "github.com/obot-platform/obot/apiclient/types.OAuthAppLoginAuthStatus"},
+			"github.com/obot-platform/obot/apiclient/types.AgentManifest", "github.com/obot-platform/obot/apiclient/types.Metadata", "github.com/obot-platform/obot/apiclient/types.OAuthAppLoginAuthStatus", "github.com/obot-platform/obot/apiclient/types.ToolInfo"},
 	}
 }
 
@@ -3497,6 +3513,40 @@ func schema_obot_platform_obot_apiclient_types_ToolCall(ref common.ReferenceCall
 	}
 }
 
+func schema_obot_platform_obot_apiclient_types_ToolInfo(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"credentialNames": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+					"authorized": {
+						SchemaProps: spec.SchemaProps{
+							Default: false,
+							Type:    []string{"boolean"},
+							Format:  "",
+						},
+					},
+				},
+				Required: []string{"authorized"},
+			},
+		},
+	}
+}
+
 func schema_obot_platform_obot_apiclient_types_ToolInput(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -3586,8 +3636,16 @@ func schema_obot_platform_obot_apiclient_types_ToolReference(ref common.Referenc
 					},
 					"credential": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
 						},
 					},
 					"params": {
@@ -3998,6 +4056,21 @@ func schema_obot_platform_obot_apiclient_types_Workflow(ref common.ReferenceCall
 							},
 						},
 					},
+					"toolInfo": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ToolInfo provides information about the tools for this workflow, like which credentials they use and whether that credential has been created. This is a pointer so that we can distinguish between an empty map (no tool information) and nil (tool information not processed yet).",
+							Type:        []string{"object"},
+							AdditionalProperties: &spec.SchemaOrBool{
+								Allows: true,
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/obot-platform/obot/apiclient/types.ToolInfo"),
+									},
+								},
+							},
+						},
+					},
 					"textEmbeddingModel": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
@@ -4009,7 +4082,7 @@ func schema_obot_platform_obot_apiclient_types_Workflow(ref common.ReferenceCall
 			},
 		},
 		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.Metadata", "github.com/obot-platform/obot/apiclient/types.OAuthAppLoginAuthStatus", "github.com/obot-platform/obot/apiclient/types.WorkflowManifest"},
+			"github.com/obot-platform/obot/apiclient/types.Metadata", "github.com/obot-platform/obot/apiclient/types.OAuthAppLoginAuthStatus", "github.com/obot-platform/obot/apiclient/types.ToolInfo", "github.com/obot-platform/obot/apiclient/types.WorkflowManifest"},
 	}
 }
 
@@ -4609,7 +4682,21 @@ func schema_storage_apis_ottootto8ai_v1_AgentStatus(ref common.ReferenceCallback
 							},
 						},
 					},
-					"aliasProcessed": {
+					"toolInfo": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"object"},
+							AdditionalProperties: &spec.SchemaOrBool{
+								Allows: true,
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/obot-platform/obot/apiclient/types.ToolInfo"),
+									},
+								},
+							},
+						},
+					},
+					"observedGeneration": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"integer"},
 							Format: "int64",
@@ -4619,7 +4706,7 @@ func schema_storage_apis_ottootto8ai_v1_AgentStatus(ref common.ReferenceCallback
 			},
 		},
 		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.OAuthAppLoginAuthStatus"},
+			"github.com/obot-platform/obot/apiclient/types.OAuthAppLoginAuthStatus", "github.com/obot-platform/obot/apiclient/types.ToolInfo"},
 	}
 }
 
@@ -5222,7 +5309,7 @@ func schema_storage_apis_ottootto8ai_v1_EmailReceiverStatus(ref common.Reference
 							Format: "",
 						},
 					},
-					"aliasProcessed": {
+					"observedGeneration": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"integer"},
 							Format: "int64",
@@ -6156,7 +6243,7 @@ func schema_storage_apis_ottootto8ai_v1_ModelStatus(ref common.ReferenceCallback
 							Format: "",
 						},
 					},
-					"aliasProcessed": {
+					"observedGeneration": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"integer"},
 							Format: "int64",
@@ -7451,10 +7538,34 @@ func schema_storage_apis_ottootto8ai_v1_ToolShortDescription(ref common.Referenc
 							},
 						},
 					},
-					"credential": {
+					"credentials": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
+							Description: "Credentials are all the credentials for this tool, including for tools exported by this tool.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+					"credentialNames": {
+						SchemaProps: spec.SchemaProps{
+							Description: "CredentialNames are the names of the credentials for each tool. This is different from the Credentials field because these names could be aliases and identifies which tools have the same credential.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
 						},
 					},
 				},
@@ -7656,7 +7767,7 @@ func schema_storage_apis_ottootto8ai_v1_WebhookStatus(ref common.ReferenceCallba
 							Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.Time"),
 						},
 					},
-					"aliasProcessed": {
+					"observedGeneration": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"integer"},
 							Format: "int64",
@@ -8101,7 +8212,21 @@ func schema_storage_apis_ottootto8ai_v1_WorkflowStatus(ref common.ReferenceCallb
 							},
 						},
 					},
-					"aliasProcessed": {
+					"toolInfo": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"object"},
+							AdditionalProperties: &spec.SchemaOrBool{
+								Allows: true,
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/obot-platform/obot/apiclient/types.ToolInfo"),
+									},
+								},
+							},
+						},
+					},
+					"observedGeneration": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"integer"},
 							Format: "int64",
@@ -8111,7 +8236,7 @@ func schema_storage_apis_ottootto8ai_v1_WorkflowStatus(ref common.ReferenceCallb
 			},
 		},
 		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.OAuthAppLoginAuthStatus"},
+			"github.com/obot-platform/obot/apiclient/types.OAuthAppLoginAuthStatus", "github.com/obot-platform/obot/apiclient/types.ToolInfo"},
 	}
 }
 

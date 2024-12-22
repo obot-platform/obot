@@ -5,6 +5,10 @@ import (
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+var (
+	_ Generationed = (*DefaultModelAlias)(nil)
+)
+
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type DefaultModelAlias struct {
@@ -29,11 +33,11 @@ func (a *DefaultModelAlias) GetAliasScope() string {
 	return "Model"
 }
 
-func (a *DefaultModelAlias) GetAliasObservedGeneration() int64 {
+func (a *DefaultModelAlias) GetObservedGeneration() int64 {
 	return a.Generation
 }
 
-func (a *DefaultModelAlias) SetAliasObservedGeneration(int64) {}
+func (a *DefaultModelAlias) SetObservedGeneration(int64) {}
 
 type DefaultModelAliasSpec struct {
 	Manifest types.DefaultModelAliasManifest `json:"manifest"`

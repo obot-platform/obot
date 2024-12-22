@@ -88,11 +88,11 @@ func BackPopulateAuthStatus(req router.Request, _ router.Response) error {
 	agent.Status.AuthStatus = make(map[string]types.OAuthAppLoginAuthStatus)
 	for _, login := range logins.Items {
 		var required *bool
-		credentialTool, err := v1.CredentialTool(req.Ctx, req.Client, agent.Namespace, login.Spec.ToolReference)
+		credentialTools, err := v1.CredentialTools(req.Ctx, req.Client, agent.Namespace, login.Spec.ToolReference)
 		if err != nil {
 			login.Status.External.Error = fmt.Sprintf("failed to get credential tool for knowledge source [%s]: %v", agent.Name, err)
 		} else {
-			required = &[]bool{credentialTool != ""}[0]
+			required = &[]bool{len(credentialTools) > 0}[0]
 			updateRequired = updateRequired || login.Status.External.Required == nil || *login.Status.External.Required != *required
 			login.Status.External.Required = required
 		}

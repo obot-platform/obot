@@ -141,7 +141,7 @@ func convertWebhook(webhook v1.Webhook, urlPrefix string) *types.Webhook {
 	}
 
 	var aliasAssigned *bool
-	if webhook.Generation == webhook.Status.AliasObservedGeneration {
+	if webhook.Generation == webhook.Status.ObservedGeneration {
 		aliasAssigned = &webhook.Status.AliasAssigned
 	}
 

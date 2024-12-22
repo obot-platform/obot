@@ -6,7 +6,11 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-var _ fields.Fields = (*Model)(nil)
+var (
+	_ fields.Fields = (*Model)(nil)
+	_ Aliasable     = (*Model)(nil)
+	_ Generationed  = (*Model)(nil)
+)
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
@@ -48,12 +52,12 @@ func (m *Model) SetAssigned(assigned bool) {
 	m.Status.AliasAssigned = assigned
 }
 
-func (m *Model) GetAliasObservedGeneration() int64 {
-	return m.Status.AliasObservedGeneration
+func (m *Model) GetObservedGeneration() int64 {
+	return m.Status.ObservedGeneration
 }
 
-func (m *Model) SetAliasObservedGeneration(gen int64) {
-	m.Status.AliasObservedGeneration = gen
+func (m *Model) SetObservedGeneration(gen int64) {
+	m.Status.ObservedGeneration = gen
 }
 
 type ModelSpec struct {
@@ -61,8 +65,8 @@ type ModelSpec struct {
 }
 
 type ModelStatus struct {
-	AliasAssigned           bool  `json:"aliasAssigned,omitempty"`
-	AliasObservedGeneration int64 `json:"aliasProcessed,omitempty"`
+	AliasAssigned      bool  `json:"aliasAssigned,omitempty"`
+	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

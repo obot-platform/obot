@@ -160,7 +160,7 @@ func convertModel(ctx context.Context, c kclient.Client, model v1.Model) (types.
 	}
 
 	var aliasAssigned *bool
-	if model.Generation == model.Status.AliasObservedGeneration {
+	if model.Generation == model.Status.ObservedGeneration {
 		aliasAssigned = &model.Status.AliasAssigned
 	}
 

@@ -11,9 +11,13 @@ import (
 type Agent struct {
 	Metadata
 	AgentManifest
-	AliasAssigned      *bool                              `json:"aliasAssigned,omitempty"`
-	AuthStatus         map[string]OAuthAppLoginAuthStatus `json:"authStatus,omitempty"`
-	TextEmbeddingModel string                             `json:"textEmbeddingModel,omitempty"`
+	AliasAssigned *bool                              `json:"aliasAssigned,omitempty"`
+	AuthStatus    map[string]OAuthAppLoginAuthStatus `json:"authStatus,omitempty"`
+	// ToolInfo provides information about the tools for this agent, like which credentials they use and whether that
+	// credential has been created. This is a pointer so that we can distinguish between an empty map (no tool information)
+	// and nil (tool information not processed yet).
+	ToolInfo           *map[string]ToolInfo `json:"toolInfo,omitempty"`
+	TextEmbeddingModel string               `json:"textEmbeddingModel,omitempty"`
 }
 
 type AgentList List[Agent]
@@ -55,4 +59,9 @@ func (m AgentManifest) GetParams() *openapi3.Schema {
 	}
 
 	return gptscript.ObjectSchema(args...)
+}
+
+type ToolInfo struct {
+	CredentialNames []string `json:"credentialNames,omitempty"`
+	Authorized      bool     `json:"authorized"`
 }
