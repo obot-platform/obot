@@ -138,6 +138,26 @@ func (mp *ModelProviderHandler) Configure(req api.Context) error {
 	return req.Update(&ref)
 }
 
+func (mp *ModelProviderHandler) Deconfigure(req api.Context) error {
+	var ref v1.ToolReference
+	if err := req.Get(&ref, req.PathValue("id")); err != nil {
+		return err
+	}
+
+	if ref.Spec.Type != types.ToolReferenceTypeModelProvider {
+		return types.NewErrBadRequest("%q is not a model provider", ref.Name)
+	}
+
+	if err := mp.gptscript.DeleteCredential(req.Context(), string(ref.UID), ref.Name); err != nil && !strings.HasSuffix(err.Error(), "credential not found") {
+		return fmt.Errorf("failed to update credential: %w", err)
+	}
+
+	// Stop the model provider so that the credential is completely removed from the system.
+	mp.dispatcher.StopModelProvider(ref.Namespace, ref.Name)
+
+	return nil
+}
+
 func (mp *ModelProviderHandler) Reveal(req api.Context) error {
 	var ref v1.ToolReference
 	if err := req.Get(&ref, req.PathValue("id")); err != nil {
