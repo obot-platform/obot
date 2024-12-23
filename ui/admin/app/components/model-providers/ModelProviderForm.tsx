@@ -124,6 +124,24 @@ export function ModelProviderForm({
         }
     );
 
+    const validateAndConfigureModelProvider = useAsync(
+        ModelProviderApiService.validateModelProviderById,
+        {
+            onSuccess: async (data, params) => {
+                // Only configure the model provider if validation was successful
+                const [modelProviderId, configParams] = params;
+                await configureModelProvider.execute(
+                    modelProviderId,
+                    configParams
+                );
+            },
+            onError: (error) => {
+                // Handle validation errors
+                console.error("Validation failed:", error);
+            },
+        }
+    );
+
     const configureModelProvider = useAsync(
         ModelProviderApiService.configureModelProviderById,
         {
@@ -185,7 +203,7 @@ export function ModelProviderForm({
                 }
             );
 
-            await configureModelProvider.execute(
+            await validateAndConfigureModelProvider.execute(
                 modelProvider.id,
                 allConfigParams
             );
@@ -197,24 +215,57 @@ export function ModelProviderForm({
         modelProvider.id === "azure-openai-model-provider";
 
     const loading =
+        validateAndConfigureModelProvider.isLoading ||
         fetchAvailableModels.isLoading ||
         configureModelProvider.isLoading ||
         isLoading;
+
     return (
         <div className="flex flex-col">
-            {fetchAvailableModels.error !== null && (
+            {validateAndConfigureModelProvider.error !== null && (
                 <div className="px-4">
                     <Alert variant="destructive">
                         <CircleAlertIcon className="w-4 h-4" />
                         <AlertTitle>An error occurred!</AlertTitle>
                         <AlertDescription>
-                            Your configuration was saved, but we were not able
-                            to connect to the model provider. Please check your
-                            configuration and try again.
+                            Your configuration could not be saved, because it
+                            failed validation:{" "}
+                            <strong>
+                                {(typeof validateAndConfigureModelProvider.error ===
+                                    "object" &&
+                                    "message" in
+                                        validateAndConfigureModelProvider.error &&
+                                    (validateAndConfigureModelProvider.error
+                                        .message as string)) ??
+                                    "Unknown error"}
+                            </strong>
                         </AlertDescription>
                     </Alert>
                 </div>
             )}
+            {validateAndConfigureModelProvider.error === null &&
+                fetchAvailableModels.error !== null && (
+                    <div className="px-4">
+                        <Alert variant="destructive">
+                            <CircleAlertIcon className="w-4 h-4" />
+                            <AlertTitle>An error occurred!</AlertTitle>
+                            <AlertDescription>
+                                Your configuration was saved, but we were not
+                                able to connect to the model provider. Please
+                                check your configuration and try again:{" "}
+                                <strong>
+                                    {(typeof fetchAvailableModels.error ===
+                                        "object" &&
+                                        "message" in
+                                            fetchAvailableModels.error &&
+                                        (fetchAvailableModels.error
+                                            .message as string)) ??
+                                        "Unknown error"}
+                                </strong>
+                            </AlertDescription>
+                        </Alert>
+                    </div>
+                )}
             <ScrollArea className="max-h-[50vh]">
                 <div className="flex flex-col gap-4 p-4">
                     <TypographyH4 className="font-semibold text-md">
