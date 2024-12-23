@@ -1,19 +1,15 @@
 import { AlertTriangleIcon, PlusIcon } from "lucide-react";
-import { useCallback } from "react";
 import useSWR from "swr";
 
-import { ToolReference } from "~/lib/model/toolReferences";
 import { ToolReferenceService } from "~/lib/service/api/toolreferenceService";
 import { cn } from "~/lib/utils";
 
-import { ToolCategoryHeader } from "~/components/tools/ToolCategoryHeader";
-import { ToolItem } from "~/components/tools/ToolItem";
+import { ToolCatalogGroup } from "~/components/tools/ToolCatalogGroup";
 import { LoadingSpinner } from "~/components/ui/LoadingSpinner";
 import { Button } from "~/components/ui/button";
 import {
     Command,
     CommandEmpty,
-    CommandGroup,
     CommandInput,
     CommandList,
 } from "~/components/ui/command";
@@ -45,34 +41,6 @@ export function ToolCatalog({
         { fallbackData: {} }
     );
 
-    const handleSelect = useCallback(
-        (toolId: string) => {
-            if (!tools.includes(toolId)) {
-                onUpdateTools([...tools, toolId]);
-            }
-        },
-        [tools, onUpdateTools]
-    );
-
-    const handleSelectBundle = useCallback(
-        (bundleToolId: string, categoryTools: ToolReference[]) => {
-            if (tools.includes(bundleToolId)) {
-                onUpdateTools(tools.filter((tool) => tool !== bundleToolId));
-                return;
-            }
-
-            const toolsToRemove = new Set(categoryTools.map((tool) => tool.id));
-
-            const newTools = [
-                ...tools.filter((tool) => !toolsToRemove.has(tool)),
-                bundleToolId,
-            ];
-
-            onUpdateTools(newTools);
-        },
-        [tools, onUpdateTools]
-    );
-
     if (isLoading) return <LoadingSpinner />;
 
     return (
@@ -98,39 +66,17 @@ export function ToolCatalog({
                     <h1 className="flex items-center justify-center">
                         <AlertTriangleIcon className="w-4 h-4 mr-2" />
                         No results found.
-                    </h1>
+                    </h1>{" "}
                 </CommandEmpty>
                 {Object.entries(toolCategories).map(
                     ([category, categoryTools]) => (
-                        <CommandGroup
+                        <ToolCatalogGroup
                             key={category}
-                            heading={
-                                <ToolCategoryHeader
-                                    category={category}
-                                    categoryTools={categoryTools}
-                                    tools={tools}
-                                    onSelectBundle={handleSelectBundle}
-                                />
-                            }
-                        >
-                            {categoryTools.tools.map((categoryTool) => (
-                                <ToolItem
-                                    key={categoryTool.id}
-                                    tool={categoryTool}
-                                    isSelected={tools.includes(categoryTool.id)}
-                                    isBundleSelected={
-                                        categoryTools.bundleTool
-                                            ? tools.includes(
-                                                  categoryTools.bundleTool.id
-                                              )
-                                            : false
-                                    }
-                                    onSelect={() =>
-                                        handleSelect(categoryTool.id)
-                                    }
-                                />
-                            ))}
-                        </CommandGroup>
+                            category={category}
+                            tools={categoryTools}
+                            selectedTools={tools}
+                            onUpdateTools={onUpdateTools}
+                        />
                     )
                 )}
             </CommandList>

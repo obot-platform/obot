@@ -47,7 +47,7 @@ async function getToolReferencesCategoryMap(type?: ToolReferenceType) {
             };
         }
 
-        if (toolReference.metadata?.bundle) {
+        if (toolReference.metadata?.bundle === "true") {
             result[category].bundleTool = toolReference;
         } else {
             result[category].tools.push(toolReference);
