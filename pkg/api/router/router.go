@@ -26,7 +26,7 @@ func Router(services *services.Services) (http.Handler, error) {
 	cronJobs := handlers.NewCronJobHandler()
 	models := handlers.NewModelHandler()
 	availableModels := handlers.NewAvailableModelsHandler(services.GPTClient, services.ModelProviderDispatcher)
-	modelProviders := handlers.NewModelProviderHandler(services.GPTClient, services.ModelProviderDispatcher)
+	modelProviders := handlers.NewModelProviderHandler(services.GPTClient, services.ModelProviderDispatcher, services.Invoker)
 	prompt := handlers.NewPromptHandler(services.GPTClient)
 	emailreceiver := handlers.NewEmailReceiverHandler(services.EmailServerName)
 	defaultModelAliases := handlers.NewDefaultModelAliasHandler()
@@ -295,6 +295,7 @@ func Router(services *services.Services) (http.Handler, error) {
 	// Model providers
 	mux.HandleFunc("GET /api/model-providers", modelProviders.List)
 	mux.HandleFunc("GET /api/model-providers/{id}", modelProviders.ByID)
+	mux.HandleFunc("POST /api/model-providers/{id}/validate", modelProviders.Validate)
 	mux.HandleFunc("POST /api/model-providers/{id}/configure", modelProviders.Configure)
 	mux.HandleFunc("POST /api/model-providers/{id}/deconfigure", modelProviders.Deconfigure)
 	mux.HandleFunc("POST /api/model-providers/{id}/reveal", modelProviders.Reveal)
