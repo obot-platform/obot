@@ -34,7 +34,10 @@ export function MessagePane({
                 startScrollAt="bottom"
                 enableScrollTo="bottom"
                 enableScrollStick="bottom"
-                className={cn("h-full w-full relative", classNames.messageList)}
+                classNames={{
+                    root: cn("h-full w-full relative", classNames.messageList),
+                    viewport: cn(isEmpty && "flex flex-col justify-center"),
+                }}
             >
                 {isEmpty ? (
                     <NoMessages />

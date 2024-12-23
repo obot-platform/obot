@@ -15,6 +15,10 @@ const ScrollArea = React.forwardRef<
         startScrollAt?: "bottom";
         enableScrollStick?: "bottom";
         enableScrollTo?: "bottom";
+        classNames?: {
+            root?: string;
+            viewport?: string;
+        };
     }
 >((props, ref) => {
     const {
@@ -23,6 +27,7 @@ const ScrollArea = React.forwardRef<
         startScrollAt,
         enableScrollTo,
         enableScrollStick,
+        classNames = {},
         ...rootProps
     } = props;
 
@@ -60,11 +65,18 @@ const ScrollArea = React.forwardRef<
     return (
         <ScrollAreaPrimitive.Root
             ref={ref}
-            className={cn("relative overflow-hidden", className)}
+            className={cn(
+                "relative overflow-hidden",
+                className,
+                classNames.root
+            )}
             {...rootProps}
         >
             <ScrollAreaPrimitive.Viewport
-                className="h-full w-full rounded-[inherit] max-h-[inherit]"
+                className={cn(
+                    "h-full w-full rounded-[inherit] max-h-[inherit]",
+                    classNames.viewport
+                )}
                 ref={initRef}
                 onScroll={(e) =>
                     setShouldStickToBottom(isScrolledToBottom(e.currentTarget))
