@@ -47,19 +47,35 @@ export function useAsync<TData, TParams extends unknown[]>(
 			setLastCallParams(params);
 			const promise = callback(...params);
 
-			promise
-				.then((data) => {
-					setData(data);
-					onSuccess?.(data, params);
-				})
-				.catch((error) => {
-					setError(error);
-					onError?.(error, params);
-				})
-				.finally(() => {
-					setIsLoading(false);
-					onSettled?.({ params });
-				});
+            promise
+                .then((data) => {
+                    setData(data);
+                    onSuccess?.(data, params);
+                })
+                .catch((error) => {
+                    // If the response data is a JSON string with an error field
+                    // unpack that error field's value into the error message
+                    if (
+                        error.response &&
+                        typeof error.response.data === "string"
+                    ) {
+                        const errorMessageMatch =
+                            error.response.data.match(/{"error":\s+"(.*?)"}/);
+                        if (errorMessageMatch) {
+                            const errorMessage = JSON.parse(
+                                errorMessageMatch[0]
+                            ).error;
+                            console.log("Error: ", errorMessage);
+                            error.message = errorMessage;
+                        }
+                    }
+                    setError(error);
+                    onError?.(error, params);
+                })
+                .finally(() => {
+                    setIsLoading(false);
+                    onSettled?.({ params });
+                });
 
 			return await handlePromise(promise);
 		},

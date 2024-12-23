@@ -32,6 +32,23 @@ getModelProviderById.key = (modelProviderId?: string) => {
 	};
 };
 
+const validateModelProviderById = async (
+    modelProviderKey: string,
+    modelProviderConfig: ModelProviderConfig
+) => {
+    const res = await request<ModelProvider>({
+        url: ApiRoutes.modelProviders.validateModelProviderById(
+            modelProviderKey
+        ).url,
+        method: "POST",
+        data: modelProviderConfig,
+        errorMessage:
+            "Failed to validate configuration values on the requested modal provider.",
+    });
+
+    return res.data;
+};
+
 const configureModelProviderById = async (
 	modelProviderKey: string,
 	modelProviderConfig: ModelProviderConfig
@@ -81,7 +98,8 @@ const deconfigureModelProviderById = async (modelProviderKey: string) => {
 export const ModelProviderApiService = {
 	getModelProviders,
 	getModelProviderById,
-	configureModelProviderById,
-	revealModelProviderById,
-	deconfigureModelProviderById,
+	validateModelProviderById,
+    configureModelProviderById,
+    revealModelProviderById,
+    deconfigureModelProviderById,
 };
