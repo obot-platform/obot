@@ -4,15 +4,15 @@ import useSWR from "swr";
 import {
     KnowledgeFile,
     KnowledgeFileState,
-    KnowledgeNamespace,
     KnowledgeSource,
+    KnowledgeSourceNamespace,
     KnowledgeSourceStatus,
 } from "~/lib/model/knowledge";
 import { KnowledgeSourceApiService } from "~/lib/service/api/knowledgeSourceApiService";
 import { handlePromise } from "~/lib/service/async";
 
 export function useKnowledgeSourceFiles(
-    namespace: KnowledgeNamespace,
+    namespace: KnowledgeSourceNamespace,
     agentId: string,
     knowledgeSource: KnowledgeSource
 ) {

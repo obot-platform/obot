@@ -3,7 +3,7 @@ import { mutate } from "swr";
 
 import {
     KnowledgeFileNamespace,
-    KnowledgeNamespace,
+    KnowledgeSourceNamespace,
 } from "~/lib/model/knowledge";
 import { ToolReferenceType } from "~/lib/model/toolReferences";
 import { ApiUrl } from "~/lib/routers/baseRouter";
@@ -66,33 +66,33 @@ export const ApiRoutes = {
     },
     knowledgeSources: {
         getKnowledgeSources: (
-            namespace: KnowledgeNamespace,
+            namespace: KnowledgeSourceNamespace,
             entityId: string
         ) => buildUrl(`/${namespace}/${entityId}/knowledge-sources`),
         createKnowledgeSource: (
-            namespace: KnowledgeNamespace,
+            namespace: KnowledgeSourceNamespace,
             entityId: string
         ) => buildUrl(`/${namespace}/${entityId}/knowledge-sources`),
         getKnowledgeSource: (
-            namespace: KnowledgeNamespace,
+            namespace: KnowledgeSourceNamespace,
             entityId: string,
             sourceId: string
         ) =>
             buildUrl(`/${namespace}/${entityId}/knowledge-sources/${sourceId}`),
         updateKnowledgeSource: (
-            namespace: KnowledgeNamespace,
+            namespace: KnowledgeSourceNamespace,
             entityId: string,
             sourceId: string
         ) =>
             buildUrl(`/${namespace}/${entityId}/knowledge-sources/${sourceId}`),
         deleteKnowledgeSource: (
-            namespace: KnowledgeNamespace,
+            namespace: KnowledgeSourceNamespace,
             entityId: string,
             sourceId: string
         ) =>
             buildUrl(`/${namespace}/${entityId}/knowledge-sources/${sourceId}`),
         syncKnowledgeSource: (
-            namespace: KnowledgeNamespace,
+            namespace: KnowledgeSourceNamespace,
             entityId: string,
             sourceId: string
         ) =>
@@ -100,7 +100,7 @@ export const ApiRoutes = {
                 `/${namespace}/${entityId}/knowledge-sources/${sourceId}/sync`
             ),
         getFilesForKnowledgeSource: (
-            namespace: KnowledgeNamespace,
+            namespace: KnowledgeSourceNamespace,
             entityId: string,
             sourceId: string
         ) =>
@@ -108,7 +108,7 @@ export const ApiRoutes = {
                 `/${namespace}/${entityId}/knowledge-sources/${sourceId}/knowledge-files`
             ),
         reingestKnowledgeFileFromSource: (
-            namespace: KnowledgeNamespace,
+            namespace: KnowledgeSourceNamespace,
             entityId: string,
             sourceId: string,
             fileName: string
@@ -117,7 +117,7 @@ export const ApiRoutes = {
                 `/${namespace}/${entityId}/knowledge-sources/${sourceId}/knowledge-files/${fileName}/ingest`
             ),
         approveFile: (
-            namespace: KnowledgeNamespace,
+            namespace: KnowledgeSourceNamespace,
             entityId: string,
             fileName: string
         ) => buildUrl(`/${namespace}/${entityId}/approve-file/${fileName}`),

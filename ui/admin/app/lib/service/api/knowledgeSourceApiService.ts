@@ -1,14 +1,14 @@
 import {
     KnowledgeFile,
-    KnowledgeNamespace,
     KnowledgeSource,
     KnowledgeSourceInput,
+    KnowledgeSourceNamespace,
 } from "~/lib/model/knowledge";
 import { ApiRoutes } from "~/lib/routers/apiRoutes";
 import { request } from "~/lib/service/api/primitives";
 
 async function createKnowledgeSource(
-    namespace: KnowledgeNamespace,
+    namespace: KnowledgeSourceNamespace,
     agentId: string,
     input: KnowledgeSourceInput
 ) {
@@ -25,7 +25,7 @@ async function createKnowledgeSource(
 }
 
 async function updateKnowledgeSource(
-    namespace: KnowledgeNamespace,
+    namespace: KnowledgeSourceNamespace,
     agentId: string,
     knowledgeSourceId: string,
     input: KnowledgeSourceInput
@@ -44,7 +44,7 @@ async function updateKnowledgeSource(
 }
 
 async function resyncKnowledgeSource(
-    namespace: KnowledgeNamespace,
+    namespace: KnowledgeSourceNamespace,
     agentId: string,
     knowledgeSourceId: string
 ) {
@@ -61,7 +61,7 @@ async function resyncKnowledgeSource(
 }
 
 async function approveFile(
-    namespace: KnowledgeNamespace,
+    namespace: KnowledgeSourceNamespace,
     agentId: string,
     fileID: string,
     approve: boolean
@@ -77,7 +77,7 @@ async function approveFile(
 }
 
 async function getKnowledgeSources(
-    namespace: KnowledgeNamespace,
+    namespace: KnowledgeSourceNamespace,
     agentId: string
 ) {
     const res = await request<{
@@ -90,7 +90,7 @@ async function getKnowledgeSources(
     return res.data.items;
 }
 getKnowledgeSources.key = (
-    namespace?: Nullish<KnowledgeNamespace>,
+    namespace?: Nullish<KnowledgeSourceNamespace>,
     agentId?: Nullish<string>
 ) => {
     if (!namespace || !agentId) return null;
@@ -104,7 +104,7 @@ getKnowledgeSources.key = (
 };
 
 async function getFilesForKnowledgeSource(
-    namespace: KnowledgeNamespace,
+    namespace: KnowledgeSourceNamespace,
     agentId: string,
     sourceId: string
 ) {
@@ -121,7 +121,7 @@ async function getFilesForKnowledgeSource(
 }
 
 getFilesForKnowledgeSource.key = (
-    namespace?: Nullish<KnowledgeNamespace>,
+    namespace?: Nullish<KnowledgeSourceNamespace>,
     agentId?: Nullish<string>,
     sourceId?: Nullish<string>
 ) => {
@@ -139,7 +139,7 @@ getFilesForKnowledgeSource.key = (
 };
 
 async function reingestFileFromSource(
-    namespace: KnowledgeNamespace,
+    namespace: KnowledgeSourceNamespace,
     agentId: string,
     sourceId: string,
     fileID: string
@@ -161,7 +161,7 @@ async function reingestFileFromSource(
 }
 
 async function deleteKnowledgeSource(
-    namespace: KnowledgeNamespace,
+    namespace: KnowledgeSourceNamespace,
     agentId: string,
     sourceId: string
 ) {

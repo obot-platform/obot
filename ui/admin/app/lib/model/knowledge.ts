@@ -1,9 +1,9 @@
-export const KnowledgeNamespace = {
+export const KnowledgeSourceNamespace = {
     Agents: "agents",
     Workflows: "workflows",
 } as const;
-export type KnowledgeNamespace =
-    (typeof KnowledgeNamespace)[keyof typeof KnowledgeNamespace];
+export type KnowledgeSourceNamespace =
+    (typeof KnowledgeSourceNamespace)[keyof typeof KnowledgeSourceNamespace];
 
 export const KnowledgeFileNamespace = {
     Threads: "threads",

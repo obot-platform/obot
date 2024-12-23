@@ -2,15 +2,15 @@ import { useMemo, useState } from "react";
 import useSWR from "swr";
 
 import {
-    KnowledgeNamespace,
     KnowledgeSource,
     KnowledgeSourceInput,
+    KnowledgeSourceNamespace,
     KnowledgeSourceStatus,
 } from "~/lib/model/knowledge";
 import { KnowledgeSourceApiService } from "~/lib/service/api/knowledgeSourceApiService";
 
 export function useKnowledgeSources(
-    namespace: KnowledgeNamespace,
+    namespace: KnowledgeSourceNamespace,
     agentId: string
 ) {
     const [blockPollingSources, setBlockPollingSources] = useState(false);
