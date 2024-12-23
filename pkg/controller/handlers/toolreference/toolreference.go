@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/gptscript-ai/go-gptscript"
+	gtypes "github.com/gptscript-ai/gptscript/pkg/types"
 	"github.com/obot-platform/nah/pkg/apply"
 	"github.com/obot-platform/nah/pkg/name"
 	"github.com/obot-platform/nah/pkg/router"
@@ -251,10 +252,12 @@ func (h *Handler) Populate(req router.Request, resp router.Response) error {
 	}
 	if len(tool.Credentials) == 1 {
 		if strings.HasPrefix(tool.Credentials[0], ".") {
-			refURL, err := url.Parse(toolRef.Spec.Reference)
+			toolName, _ := gtypes.SplitToolRef(toolRef.Spec.Reference)
+			refURL, err := url.Parse(toolName)
 			if err == nil {
 				refURL.Path = path.Join(refURL.Path, tool.Credentials[0])
-				toolRef.Status.Tool.Credential = refURL.String()
+				// Don't need to check the error because we are unescaping something that was produced directly from the url package.
+				toolRef.Status.Tool.Credential, _ = url.PathUnescape(refURL.String())
 			}
 		} else {
 			toolRef.Status.Tool.Credential = tool.Credentials[0]
