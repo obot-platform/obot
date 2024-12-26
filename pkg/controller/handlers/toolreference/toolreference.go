@@ -3,6 +3,7 @@ package toolreference
 import (
 	"context"
 	"crypto/sha256"
+	"errors"
 	"fmt"
 	"net/url"
 	"os"
@@ -370,8 +371,8 @@ func (h *Handler) BackPopulateModels(req router.Request, _ router.Response) erro
 		cred, err := h.gptClient.RevealCredential(req.Ctx, []string{string(toolRef.UID)}, toolRef.Name)
 		if err != nil {
 			if strings.Contains(err.Error(), "credential not found") {
-				// Model provider is not configured, don't error
-				return nil
+				// Unable to find credential, ensure all models remove for this model provider
+				return removeModelsForProvider(req.Ctx, req.Client, req.Namespace, req.Name)
 			}
 			return err
 		}
@@ -420,6 +421,27 @@ func (h *Handler) BackPopulateModels(req router.Request, _ router.Response) erro
 	return nil
 }
 
+func removeModelsForProvider(ctx context.Context, c client.Client, namespace, name string) error {
+	var models v1.ModelList
+	if err := c.List(ctx, &models, &client.ListOptions{
+		Namespace: namespace,
+		FieldSelector: fields.SelectorFromSet(fields.Set{
+			"spec.manifest.modelProvider": name,
+		}),
+	}); err != nil {
+		return fmt.Errorf("failed to list models for model provider %q for cleanup: %w", name, err)
+	}
+
+	var errs []error
+	for _, model := range models.Items {
+		if err := client.IgnoreNotFound(c.Delete(ctx, &model)); err != nil {
+			errs = append(errs, fmt.Errorf("failed to delete model %q for cleanup: %w", model.Name, err))
+		}
+	}
+
+	return errors.Join(errs...)
+}
+
 func (h *Handler) CleanupModelProvider(req router.Request, _ router.Response) error {
 	toolRef := req.Object.(*v1.ToolReference)
 	if toolRef.Spec.Type != types.ToolReferenceTypeModelProvider || toolRef.Status.Tool == nil {
@@ -432,23 +454,7 @@ func (h *Handler) CleanupModelProvider(req router.Request, _ router.Response) er
 		}
 	}
 
-	var models v1.ModelList
-	if err := req.List(&models, &client.ListOptions{
-		Namespace: req.Namespace,
-		FieldSelector: fields.SelectorFromSet(fields.Set{
-			"spec.manifest.modelProvider": toolRef.Name,
-		}),
-	}); err != nil {
-		return fmt.Errorf("failed to list models for model provider %q for cleanup: %w", toolRef.Name, err)
-	}
-
-	for _, model := range models.Items {
-		if err := client.IgnoreNotFound(req.Delete(&model)); err != nil {
-			return fmt.Errorf("failed to delete model %q for cleanup: %w", model.Name, err)
-		}
-	}
-
-	return nil
+	return removeModelsForProvider(req.Ctx, req.Client, req.Namespace, req.Name)
 }
 
 func modelName(modelProviderName, modelName string) string {

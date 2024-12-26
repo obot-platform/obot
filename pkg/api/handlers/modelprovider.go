@@ -155,7 +155,16 @@ func (mp *ModelProviderHandler) Deconfigure(req api.Context) error {
 	// Stop the model provider so that the credential is completely removed from the system.
 	mp.dispatcher.StopModelProvider(ref.Namespace, ref.Name)
 
-	return nil
+	if ref.Annotations[v1.ModelProviderSyncAnnotation] == "" {
+		if ref.Annotations == nil {
+			ref.Annotations = make(map[string]string, 1)
+		}
+		ref.Annotations[v1.ModelProviderSyncAnnotation] = "true"
+	} else {
+		delete(ref.Annotations, v1.ModelProviderSyncAnnotation)
+	}
+
+	return req.Update(&ref)
 }
 
 func (mp *ModelProviderHandler) Reveal(req api.Context) error {
