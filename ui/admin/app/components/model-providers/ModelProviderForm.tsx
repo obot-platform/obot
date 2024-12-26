@@ -1,7 +1,6 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { CircleAlertIcon } from "lucide-react";
 import { useFieldArray, useForm } from "react-hook-form";
-import { toast } from "sonner";
 import { mutate } from "swr";
 import { z } from "zod";
 
@@ -124,7 +123,6 @@ export function ModelProviderForm({
                         modelProvider.id
                     )
                 );
-                toast.success(`${modelProvider.name} configured successfully.`);
                 onSuccess();
             },
         }
