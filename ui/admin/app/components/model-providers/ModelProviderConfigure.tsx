@@ -148,7 +148,7 @@ export function ModelProviderConfigureContent({
     return (
         <>
             <DialogHeader className="space-y-0">
-                <DialogTitle className="flex items-center gap-2 px-6 py-4">
+                <DialogTitle className="flex items-center gap-2 px-4 py-4">
                     <ModelProviderIcon modelProvider={modelProvider} />{" "}
                     {modelProvider.configured
                         ? `Configure ${modelProvider.name}`
