@@ -4,6 +4,7 @@ import { Link } from "react-router";
 import { ModelProvider } from "~/lib/model/modelProviders";
 
 import { ModelProviderConfigure } from "~/components/model-providers/ModelProviderConfigure";
+import { ModelProviderMenu } from "~/components/model-providers/ModelProviderDropdown";
 import { ModelProviderIcon } from "~/components/model-providers/ModelProviderIcon";
 import { ModelProvidersModels } from "~/components/model-providers/ModelProviderModels";
 import {
@@ -28,9 +29,14 @@ export function ModelProviderList({
                                 modelProvider.id
                             ) && <Badge variant="faded">Recommended</Badge>}
                             {modelProvider.configured ? (
-                                <ModelProvidersModels
-                                    modelProvider={modelProvider}
-                                />
+                                <div className="flex flex-row items-center gap-2">
+                                    <ModelProvidersModels
+                                        modelProvider={modelProvider}
+                                    />
+                                    <ModelProviderMenu
+                                        modelProvider={modelProvider}
+                                    />
+                                </div>
                             ) : (
                                 <div className="w-9 h-9" />
                             )}

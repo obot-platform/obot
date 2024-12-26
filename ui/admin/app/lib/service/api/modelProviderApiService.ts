@@ -72,9 +72,22 @@ revealModelProviderById.key = (modelProviderId?: string) => {
     };
 };
 
+const deconfigureModelProviderById = async (modelProviderKey: string) => {
+    const res = await request<ModelProvider>({
+        url: ApiRoutes.modelProviders.deconfigureModelProviderById(
+            modelProviderKey
+        ).url,
+        method: "POST",
+        errorMessage: "Failed to deconfigure the requested modal provider.",
+    });
+
+    return res.data;
+};
+
 export const ModelProviderApiService = {
     getModelProviders,
     getModelProviderById,
     configureModelProviderById,
     revealModelProviderById,
+    deconfigureModelProviderById,
 };

@@ -1,5 +1,6 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { CircleAlertIcon } from "lucide-react";
+import { useEffect } from "react";
 import { useFieldArray, useForm } from "react-hook-form";
 import { mutate } from "swr";
 import { z } from "zod";
@@ -150,6 +151,19 @@ export function ModelProviderForm({
             ),
         },
     });
+
+    useEffect(() => {
+        form.reset({
+            requiredConfigParams: getInitialRequiredParams(
+                requiredParameters,
+                parameters
+            ),
+            additionalConfirmParams: getInitialAdditionalParams(
+                requiredParameters,
+                parameters
+            ),
+        });
+    }, [requiredParameters, parameters, form]);
 
     const requiredConfigParamFields = useFieldArray({
         control: form.control,

@@ -191,6 +191,8 @@ export const ApiRoutes = {
             buildUrl(`/model-providers/${modelProviderKey}/configure`),
         revealModelProviderById: (modelProviderKey: string) =>
             buildUrl(`/model-providers/${modelProviderKey}/reveal`),
+        deconfigureModelProviderById: (modelProviderKey: string) =>
+            buildUrl(`/model-providers/${modelProviderKey}/deconfigure`),
     },
     defaultModelAliases: {
         base: () => buildUrl("/default-model-aliases"),
