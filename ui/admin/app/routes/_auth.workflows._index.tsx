@@ -111,6 +111,7 @@ export default function Workflows() {
                     cell: (info) => (
                         <div className="flex gap-2 items-center">
                             <Link
+                                onClick={(event) => event.stopPropagation()}
                                 to={$path("/threads", {
                                     workflowId: info.row.original.id,
                                     from: "workflows",

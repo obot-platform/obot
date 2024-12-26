@@ -171,10 +171,8 @@ function useMessageSource(threadId?: Nullish<string>) {
                 return copy;
             }
 
-            // skip tool call output events
-            if (toolCall && !toolCall.output) {
-                copy.push(toolCallMessage(toolCall));
-                return copy;
+            if (toolCall) {
+                return handleToolCallEvent(copy, event);
             }
 
             if (prompt) {
@@ -232,3 +230,31 @@ function useMessageSource(threadId?: Nullish<string>) {
 
     return { messages, isRunning };
 }
+
+const findIndexLastPendingToolCall = (messages: Message[]) => {
+    for (let i = messages.length - 1; i >= 0; i--) {
+        const message = messages[i];
+        if (message.tools && !message.tools[0].output) {
+            return i;
+        }
+    }
+    return null;
+};
+
+const handleToolCallEvent = (messages: Message[], event: ChatEvent) => {
+    if (!event.toolCall) return messages;
+
+    const { toolCall } = event;
+    if (toolCall.output) {
+        const index = findIndexLastPendingToolCall(messages);
+        if (index !== null) {
+            // update the found pending toolcall message (without output)
+            messages[index].tools = [toolCall];
+            return messages;
+        }
+    }
+
+    // otherwise add a new toolcall message
+    messages.push(toolCallMessage(toolCall));
+    return messages;
+};
