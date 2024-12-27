@@ -69,7 +69,9 @@ export default function ModelProviders() {
                             disabled={!modelProviderConfigured}
                         />
                     </div>
-                    {modelProviderConfigured ? null : (
+                    {modelProviderConfigured ? (
+                        <div className="w-full h-16" />
+                    ) : (
                         <WarningAlert
                             title="No Model Providers Configured!"
                             description="To use Obot's features, you'll need to

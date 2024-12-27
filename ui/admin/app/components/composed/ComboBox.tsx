@@ -164,7 +164,7 @@ function ComboBoxList<T extends BaseOption>({
     return (
         <Command
             shouldFilter={false}
-            className="w-[var(--radix-popper-anchor-width)]"
+            className="w-[var(--radix-popper-anchor-width)] max-h-[50vh]"
         >
             <CommandInput
                 placeholder={placeholder}
