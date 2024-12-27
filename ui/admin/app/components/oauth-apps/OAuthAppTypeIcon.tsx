@@ -17,6 +17,7 @@ const IconMap = {
     [OAuthProvider.GitHub]: FaGithub,
     [OAuthProvider.Slack]: FaSlack,
     [OAuthProvider.Salesforce]: FaSalesforce,
+    [OAuthProvider.ServiceNow]: KeyIcon,
     [OAuthProvider.Google]: FaGoogle,
     [OAuthProvider.Microsoft365]: FaMicrosoft,
     [OAuthProvider.Notion]: NotionLogoIcon,

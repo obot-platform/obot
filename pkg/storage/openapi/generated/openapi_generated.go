@@ -2232,7 +2232,7 @@ func schema_obot_platform_obot_apiclient_types_OAuthAppManifest(ref common.Refer
 					},
 					"instanceURL": {
 						SchemaProps: spec.SchemaProps{
-							Description: "This field is only used by Salesforce",
+							Description: "This field is only used by Salesforce and ServiceNow",
 							Type:        []string{"string"},
 							Format:      "",
 						},

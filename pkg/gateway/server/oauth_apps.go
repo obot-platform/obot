@@ -374,7 +374,8 @@ func (s *Server) callbackOAuthApp(apiContext api.Context) error {
 		return fmt.Errorf("failed to create token request: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	if app.Spec.Manifest.Type != types2.OAuthAppTypeGoogle {
+	if app.Spec.Manifest.Type != types2.OAuthAppTypeGoogle &&
+		app.Spec.Manifest.Type != types2.OAuthAppTypeServiceNow {
 		req.SetBasicAuth(url.QueryEscape(app.Spec.Manifest.ClientID), url.QueryEscape(app.Spec.Manifest.ClientSecret))
 	}
 
@@ -468,6 +469,25 @@ func (s *Server) callbackOAuthApp(apiContext api.Context) error {
 			RefreshToken: salesforceTokenResp.RefreshToken,
 			Extras: map[string]string{
 				"GPTSCRIPT_SALESFORCE_URL": salesforceTokenResp.InstanceURL,
+			},
+		}
+	case types2.OAuthAppTypeServiceNow:
+		serviceNowTokenResp := new(types.ServiceNowOAuthTokenResponse)
+		if err := json.NewDecoder(resp.Body).Decode(serviceNowTokenResp); err != nil {
+			return fmt.Errorf("failed to parse token response: %w", err)
+		}
+
+		tokenResp = &types.OAuthTokenResponse{
+			State:        state,
+			TokenType:    serviceNowTokenResp.TokenType,
+			Scope:        serviceNowTokenResp.Scope,
+			AccessToken:  serviceNowTokenResp.AccessToken,
+			ExpiresIn:    serviceNowTokenResp.ExpiresIn,
+			Ok:           true, // Assuming true if no error is present
+			CreatedAt:    time.Now(),
+			RefreshToken: serviceNowTokenResp.RefreshToken,
+			Extras: map[string]string{
+				"GPTSCRIPT_SALESFORCE_URL": app.Spec.Manifest.InstanceURL,
 			},
 		}
 	default:

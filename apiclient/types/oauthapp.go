@@ -9,6 +9,7 @@ const (
 	OAuthAppTypeGitHub       OAuthAppType = "github"
 	OAuthAppTypeGoogle       OAuthAppType = "google"
 	OAuthAppTypeSalesforce   OAuthAppType = "salesforce"
+	OAuthAppTypeServiceNow   OAuthAppType = "servicenow"
 	OAuthAppTypeCustom       OAuthAppType = "custom"
 )
 
@@ -37,7 +38,7 @@ type OAuthAppManifest struct {
 	Integration string `json:"integration,omitempty"`
 	// Global indicates if the OAuth app is globally applied to all agents.
 	Global *bool `json:"global,omitempty"`
-	// This field is only used by Salesforce
+	// This field is only used by Salesforce and ServiceNow
 	InstanceURL string `json:"instanceURL,omitempty"`
 }
 
