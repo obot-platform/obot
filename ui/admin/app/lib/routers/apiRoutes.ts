@@ -217,6 +217,7 @@ export const ApiRoutes = {
             buildUrl(`/webhooks/${webhookId}`),
         invoke: (webhookId: string) => buildUrl(`/webhooks/${webhookId}`),
     },
+    version: () => buildUrl("/version"),
 };
 
 /** revalidates the cache for all routes that match the filter callback
