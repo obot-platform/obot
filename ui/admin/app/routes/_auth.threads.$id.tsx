@@ -74,7 +74,7 @@ export default function ChatAgent() {
         throw new Error("Trying to view a thread with an unsupported parent.");
     };
 
-    const [isAgent, entity] = [agent !== null, getEntity()];
+    const entity = getEntity();
 
     return (
         <div className="h-full flex flex-col overflow-hidden relative">
