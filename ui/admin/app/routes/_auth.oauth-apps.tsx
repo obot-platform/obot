@@ -1,3 +1,4 @@
+import { MetaFunction } from "react-router";
 import { preload } from "swr";
 
 import { OauthAppService } from "~/lib/service/api/oauthAppService";
@@ -37,4 +38,8 @@ export default function OauthApps() {
 
 export const handle: RouteHandle = {
     breadcrumb: () => [{ content: "OAuth Apps" }],
+};
+
+export const meta: MetaFunction = () => {
+    return [{ title: `Obot • Oauth Apps` }];
 };

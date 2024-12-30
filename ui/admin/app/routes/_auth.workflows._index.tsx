@@ -1,7 +1,7 @@
 import { ColumnDef, createColumnHelper } from "@tanstack/react-table";
 import { PenSquareIcon } from "lucide-react";
 import { useMemo } from "react";
-import { useNavigate } from "react-router";
+import { MetaFunction, useNavigate } from "react-router";
 import { $path } from "safe-routes";
 import useSWR, { mutate, preload } from "swr";
 
@@ -166,3 +166,7 @@ export default function Workflows() {
 }
 
 const columnHelper = createColumnHelper<Workflow>();
+
+export const meta: MetaFunction = () => {
+    return [{ title: `Obot • Workflows` }];
+};

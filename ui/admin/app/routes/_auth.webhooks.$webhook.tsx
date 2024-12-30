@@ -1,5 +1,6 @@
 import {
     ClientLoaderFunctionArgs,
+    MetaFunction,
     useLoaderData,
     useMatch,
 } from "react-router";
@@ -21,12 +22,12 @@ export async function clientLoader({
         params
     );
 
-    await preload(
+    const webhook = await preload(
         WebhookApiService.getWebhookById.key(pathParams.webhook),
         () => WebhookApiService.getWebhookById(pathParams.webhook)
     );
 
-    return { webhookId: pathParams.webhook };
+    return { webhookId: pathParams.webhook, webhook };
 }
 
 export default function Webhook() {
@@ -53,4 +54,8 @@ const WebhookBreadcrumb = () => {
 
 export const handle: RouteHandle = {
     breadcrumb: () => [{ content: <WebhookBreadcrumb /> }],
+};
+
+export const meta: MetaFunction<typeof clientLoader> = ({ data }) => {
+    return [{ title: `Webhook • ${data?.webhook.name}` }];
 };

@@ -1,6 +1,7 @@
 import { useCallback } from "react";
 import {
     ClientLoaderFunctionArgs,
+    MetaFunction,
     redirect,
     useLoaderData,
     useMatch,
@@ -112,4 +113,8 @@ const AgentBreadcrumb = () => {
 
 export const handle: RouteHandle = {
     breadcrumb: () => [{ content: <AgentBreadcrumb /> }],
+};
+
+export const meta: MetaFunction<typeof clientLoader> = ({ data }) => {
+    return [{ title: `Agent • ${data?.agent?.name}` }];
 };

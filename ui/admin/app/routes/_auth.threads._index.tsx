@@ -5,6 +5,7 @@ import { useMemo } from "react";
 import {
     ClientLoaderFunctionArgs,
     Link,
+    MetaFunction,
     useLoaderData,
     useNavigate,
     useSearchParams,
@@ -357,4 +358,8 @@ const getFromBreadcrumb = (search: string) => {
 export const handle: RouteHandle = {
     breadcrumb: ({ search }) =>
         [getFromBreadcrumb(search), { content: "Threads" }].filter((x) => !!x),
+};
+
+export const meta: MetaFunction = () => {
+    return [{ title: `Obot • Threads` }];
 };

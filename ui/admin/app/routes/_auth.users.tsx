@@ -1,5 +1,6 @@
 import { ColumnDef, createColumnHelper } from "@tanstack/react-table";
 import { useMemo } from "react";
+import { MetaFunction } from "react-router";
 import { $path } from "safe-routes";
 import useSWR, { preload } from "swr";
 
@@ -116,4 +117,8 @@ const columnHelper = createColumnHelper<User>();
 
 export const handle: RouteHandle = {
     breadcrumb: () => [{ content: "Users" }],
+};
+
+export const meta: MetaFunction = () => {
+    return [{ title: `Obot • Users` }];
 };

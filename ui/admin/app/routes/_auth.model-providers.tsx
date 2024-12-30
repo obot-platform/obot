@@ -1,3 +1,4 @@
+import { MetaFunction } from "react-router";
 import { preload } from "swr";
 
 import { ModelProvider } from "~/lib/model/modelProviders";
@@ -91,4 +92,8 @@ export default function ModelProviders() {
 
 export const handle: RouteHandle = {
     breadcrumb: () => [{ content: "Model Providers" }],
+};
+
+export const meta: MetaFunction = () => {
+    return [{ title: `Obot • Model Providers` }];
 };

@@ -2,7 +2,7 @@ import { PlusIcon } from "@radix-ui/react-icons";
 import { ColumnDef, createColumnHelper } from "@tanstack/react-table";
 import { SquarePen } from "lucide-react";
 import { useMemo } from "react";
-import { useNavigate } from "react-router";
+import { MetaFunction, useNavigate } from "react-router";
 import { $path } from "safe-routes";
 import useSWR, { mutate, preload } from "swr";
 
@@ -174,3 +174,7 @@ export default function Agents() {
 }
 
 const columnHelper = createColumnHelper<Agent>();
+
+export const meta: MetaFunction = () => {
+    return [{ title: "Obot • Agents" }];
+};
