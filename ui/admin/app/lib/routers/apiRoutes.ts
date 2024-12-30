@@ -1,6 +1,7 @@
 import queryString from "query-string";
 import { mutate } from "swr";
 
+import { CredentialNamespace } from "~/lib/model/credentials";
 import {
     KnowledgeFileNamespace,
     KnowledgeSourceNamespace,
@@ -166,6 +167,17 @@ export const ApiRoutes = {
     env: {
         getEnv: (entityId: string) => buildUrl(`/agents/${entityId}/env`),
         updateEnv: (entityId: string) => buildUrl(`/agents/${entityId}/env`),
+    },
+    credentials: {
+        getCredentialsForEntity: (
+            namespace: CredentialNamespace,
+            entityId: string
+        ) => buildUrl(`/${namespace}/${entityId}/credentials`),
+        deleteCredential: (
+            namespace: CredentialNamespace,
+            entityId: string,
+            credentialId: string
+        ) => buildUrl(`/${namespace}/${entityId}/credentials/${credentialId}`),
     },
     threads: {
         base: () => buildUrl("/threads"),
