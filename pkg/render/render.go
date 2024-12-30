@@ -16,6 +16,8 @@ import (
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+const knowledgeToolName = "knowledge"
+
 var DefaultAgentParams = []string{
 	"message", "Message to send",
 }
@@ -65,8 +67,16 @@ func Agent(ctx context.Context, db kclient.Client, agent *v1.Agent, oauthServerU
 	}
 	var otherTools []gptscript.ToolDef
 
+	extraEnv, added, err := configureKnowledgeEnvs(ctx, db, agent, opts.Thread, extraEnv)
+	if err != nil {
+		return nil, nil, err
+	}
+
 	if opts.Thread != nil {
 		for _, tool := range opts.Thread.Spec.Manifest.Tools {
+			if !added && tool == knowledgeToolName {
+				continue
+			}
 			name, err := ResolveToolReference(ctx, db, types.ToolReferenceTypeTool, agent.Namespace, tool)
 			if err != nil {
 				return nil, nil, err
@@ -76,6 +86,9 @@ func Agent(ctx context.Context, db kclient.Client, agent *v1.Agent, oauthServerU
 	}
 
 	for _, tool := range agent.Spec.Manifest.Tools {
+		if !added && tool == knowledgeToolName {
+			continue
+		}
 		name, err := ResolveToolReference(ctx, db, types.ToolReferenceTypeTool, agent.Namespace, tool)
 		if err != nil {
 			return nil, nil, err
@@ -84,6 +97,9 @@ func Agent(ctx context.Context, db kclient.Client, agent *v1.Agent, oauthServerU
 	}
 
 	for _, tool := range agent.Spec.SystemTools {
+		if !added && tool == knowledgeToolName {
+			continue
+		}
 		name, err := ResolveToolReference(ctx, db, "", agent.Namespace, tool)
 		if err != nil {
 			return nil, nil, err
@@ -91,7 +107,7 @@ func Agent(ctx context.Context, db kclient.Client, agent *v1.Agent, oauthServerU
 		mainTool.Tools = append(mainTool.Tools, name)
 	}
 
-	mainTool, otherTools, err := addAgentTools(ctx, db, agent, mainTool, otherTools)
+	mainTool, otherTools, err = addAgentTools(ctx, db, agent, mainTool, otherTools)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -99,22 +115,6 @@ func Agent(ctx context.Context, db kclient.Client, agent *v1.Agent, oauthServerU
 	mainTool, otherTools, err = addWorkflowTools(ctx, db, agent, mainTool, otherTools)
 	if err != nil {
 		return nil, nil, err
-	}
-
-	extraEnv, added, err := configureKnowledgeEnvs(ctx, db, agent, opts.Thread, extraEnv)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	// If no knowledge env are added, we should remove the knowledge tool to avoid calling it with empty data to confuse user
-	if !added {
-		filteredTools := make([]string, 0)
-		for _, tool := range mainTool.Tools {
-			if !strings.HasSuffix(tool, "as knowledge") {
-				filteredTools = append(filteredTools, tool)
-			}
-		}
-		mainTool.Tools = filteredTools
 	}
 
 	oauthEnv, err := OAuthAppEnv(ctx, db, agent.Spec.Manifest.OAuthApps, agent.Namespace, oauthServerURL)
