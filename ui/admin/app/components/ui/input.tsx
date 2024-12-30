@@ -6,6 +6,9 @@ import { cn } from "~/lib/utils";
 
 import { buttonVariants } from "~/components/ui/button";
 
+const InputReset =
+    "w-full p-3 bg-transparent border-none focus-visible:border-none focus-visible:outline-none rounded-full";
+
 const inputVariants = cva(
     cn(
         "flex items-center h-9 w-full rounded-md bg-transparent border border-input text-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground has-[:focus-visible]:ring-1 has-[:focus-visible]:ring-ring has-[:disabled]:cursor-not-allowed has-[:disabled]:opacity-50"
@@ -50,9 +53,7 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
                 <input
                     type={internalType}
                     data-1p-ignore={!isPassword}
-                    className={cn(
-                        "w-full p-3 bg-transparent border-none focus-visible:border-none focus-visible:outline-none rounded-full"
-                    )}
+                    className={InputReset}
                     ref={ref}
                     {...props}
                 />

@@ -59,7 +59,7 @@ export default function Tools() {
     };
 
     return (
-        <ScrollArea className="p-8 flex flex-col gap-4">
+        <ScrollArea className="h-full p-8 flex flex-col gap-4">
             <div className="flex justify-between items-center">
                 <TypographyH2>Tools</TypographyH2>
                 <div className="flex items-center space-x-2">
