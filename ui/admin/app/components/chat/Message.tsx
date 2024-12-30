@@ -65,8 +65,20 @@ export const Message = React.memo(({ message }: MessageProps) => {
     return (
         <div className="mb-4 w-full">
             <div
-                className={cn("flex", isUser ? "justify-end" : "justify-start")}
+                className={cn(
+                    "flex gap-4",
+                    isUser ? "justify-end" : "justify-start"
+                )}
             >
+                {isUser && message.runId && (
+                    <div className="mt-3">
+                        <MessageDebug
+                            variant="secondary"
+                            runId={message.runId}
+                        />
+                    </div>
+                )}
+
                 <div
                     className={cn({
                         "border border-error bg-error-foreground rounded-xl":
@@ -118,7 +130,7 @@ export const Message = React.memo(({ message }: MessageProps) => {
                             </ToolCallInfo>
                         )}
 
-                        {!isUser && message.runId && (
+                        {message.runId && !isUser && (
                             <div className="self-start">
                                 <MessageDebug
                                     variant="secondary"

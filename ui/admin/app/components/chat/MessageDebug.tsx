@@ -49,9 +49,7 @@ export function MessageDebug({ runId, variant }: MessageDebugProps) {
                         </Button>
                     </DialogTrigger>
                 </TooltipTrigger>
-                <TooltipContent>
-                    <p>View details</p>
-                </TooltipContent>
+                <TooltipContent>View Run Info</TooltipContent>
             </Tooltip>
 
             <DialogContent
