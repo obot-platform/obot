@@ -1,4 +1,5 @@
 import { AlertTriangleIcon, PlusIcon } from "lucide-react";
+import { useMemo } from "react";
 import useSWR from "swr";
 
 import { ToolReferenceService } from "~/lib/service/api/toolreferenceService";
@@ -41,6 +42,19 @@ export function ToolCatalog({
         { fallbackData: {} }
     );
 
+    const sortedCategories = useMemo(() => {
+        return Object.entries(toolCategories).sort(
+            ([nameA, categoryA], [nameB, categoryB]): number => {
+                const aHasBundle = categoryA.bundleTool ? 1 : 0;
+                const bHasBundle = categoryB.bundleTool ? 1 : 0;
+
+                if (aHasBundle !== bHasBundle) return bHasBundle - aHasBundle;
+
+                return nameA.localeCompare(nameB);
+            }
+        );
+    }, [toolCategories]);
+
     if (isLoading) return <LoadingSpinner />;
 
     return (
@@ -68,17 +82,15 @@ export function ToolCatalog({
                         No results found.
                     </h1>{" "}
                 </CommandEmpty>
-                {Object.entries(toolCategories).map(
-                    ([category, categoryTools]) => (
-                        <ToolCatalogGroup
-                            key={category}
-                            category={category}
-                            tools={categoryTools}
-                            selectedTools={tools}
-                            onUpdateTools={onUpdateTools}
-                        />
-                    )
-                )}
+                {sortedCategories.map(([category, categoryTools]) => (
+                    <ToolCatalogGroup
+                        key={category}
+                        category={category}
+                        tools={categoryTools}
+                        selectedTools={tools}
+                        onUpdateTools={onUpdateTools}
+                    />
+                ))}
             </CommandList>
         </Command>
     );
