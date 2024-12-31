@@ -46,7 +46,8 @@ func shouldReIngest(file *v1.KnowledgeFile) bool {
 	return file.Spec.IngestGeneration > file.Status.IngestGeneration ||
 		file.Spec.UpdatedAt != file.Status.UpdatedAt ||
 		file.Spec.Checksum != file.Status.Checksum ||
-		file.Spec.URL != file.Status.URL
+		file.Spec.URL != file.Status.URL ||
+		(file.Status.State == types.KnowledgeFileStateError && file.Status.RetryCount < 3)
 }
 
 func cleanInput(filename string) string {
@@ -167,9 +168,11 @@ func (h *Handler) IngestFile(req router.Request, _ router.Response) error {
 			file.Status.State = types.KnowledgeFileStateError
 		}
 		file.Status.Error = err.Error()
+		file.Status.RetryCount++
 	} else {
 		file.Status.State = types.KnowledgeFileStateIngested
 		file.Status.Error = ""
+		file.Status.RetryCount = 0
 	}
 
 	file.Status.LastIngestionEndTime = metav1.Now()

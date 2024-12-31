@@ -104,6 +104,7 @@ type KnowledgeFileStatus struct {
 	LastIngestionEndTime   metav1.Time `json:"lastIngestionEndTime,omitempty"`
 
 	IngestGeneration int64 `json:"ingestGeneration,omitempty"`
+	RetryCount       int64 `json:"retryCount,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

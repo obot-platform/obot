@@ -5470,6 +5470,12 @@ func schema_storage_apis_ottootto8ai_v1_KnowledgeFileStatus(ref common.Reference
 							Format: "int64",
 						},
 					},
+					"retryCount": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"integer"},
+							Format: "int64",
+						},
+					},
 				},
 			},
 		},
