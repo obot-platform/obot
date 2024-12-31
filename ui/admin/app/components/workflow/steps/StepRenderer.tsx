@@ -1,9 +1,10 @@
 import { Step } from "~/lib/model/workflows";
 
-import { IfComponent } from "~/components/workflow/steps/If";
-import { StepComponent } from "~/components/workflow/steps/Step";
+import { IfContent } from "~/components/workflow/steps/IfContent";
+import { StepBase } from "~/components/workflow/steps/StepBase";
+import { StepContent } from "~/components/workflow/steps/StepContent";
 import { TemplateComponent } from "~/components/workflow/steps/Template";
-import { WhileComponent } from "~/components/workflow/steps/While";
+import { WhileContent } from "~/components/workflow/steps/WhileContent";
 
 export function renderStep(
     step: Step,
@@ -21,37 +22,51 @@ export function renderStep(
         );
     } else if (step.if) {
         return (
-            <IfComponent
+            <StepBase
                 key={step.id}
-                ifCondition={step.if}
-                onUpdate={(updatedIf) => onUpdate({ ...step, if: updatedIf })}
+                step={step}
+                type="if"
+                onUpdate={onUpdate}
                 onDelete={onDelete}
-                renderStep={renderStep}
-                className="mb-4"
-            />
+            >
+                <IfContent
+                    ifCondition={step.if}
+                    onUpdate={(updatedIf) =>
+                        onUpdate({ ...step, if: updatedIf })
+                    }
+                    renderStep={renderStep}
+                />
+            </StepBase>
         );
     } else if (step.while) {
         return (
-            <WhileComponent
+            <StepBase
                 key={step.id}
-                whileCondition={step.while}
-                onUpdate={(updatedWhile) =>
-                    onUpdate({ ...step, while: updatedWhile })
-                }
+                step={step}
+                type="while"
+                onUpdate={onUpdate}
                 onDelete={onDelete}
-                renderStep={renderStep}
-                className="mb-4"
-            />
+            >
+                <WhileContent
+                    whileCondition={step.while}
+                    onUpdate={(updatedWhile) =>
+                        onUpdate({ ...step, while: updatedWhile })
+                    }
+                    renderStep={renderStep}
+                />
+            </StepBase>
         );
     } else {
         return (
-            <StepComponent
+            <StepBase
                 key={step.id}
                 step={step}
+                type="command"
                 onUpdate={onUpdate}
                 onDelete={onDelete}
-                className="mb-4"
-            />
+            >
+                <StepContent key={step.id} step={step} onUpdate={onUpdate} />
+            </StepBase>
         );
     }
 }

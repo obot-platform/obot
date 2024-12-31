@@ -4,12 +4,14 @@ import { forwardRef, useImperativeHandle } from "react";
 
 import { cn } from "~/lib/utils";
 
+// note: use outline instead of ring to avoid overriding the ring from the outline variant
 const textareaVariants = cva(
-    "flex w-full rounded-md bg-transparent text-sm placeholder:text-muted-foreground has-[:focus-visible]:ring-1 has-[:focus-visible]:ring-ring group group-disabled:cursor-not-allowed group-disabled:bg-opacity-50",
+    "flex w-full rounded-md bg-transparent text-sm placeholder:text-muted-foreground has-[:focus-visible]:outline has-[:focus-visible]:outline-1 has-[:focus-visible]:outline-ring group group-disabled:cursor-not-allowed group-disabled:bg-opacity-50",
     {
         variants: {
             variant: {
-                outlined: "border border-input shadow-sm",
+                // note: use inset ring instead of border so that the wrapper doesn't add any extra height or width
+                outlined: "ring-1 ring-inset ring-input",
                 flat: "border-none shadow-none bg-muted",
             },
         },
