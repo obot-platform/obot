@@ -35,24 +35,26 @@ import (
 var log = logger.Package()
 
 type Invoker struct {
-	gptClient     *gptscript.GPTScript
-	uncached      kclient.WithWatch
-	gatewayClient *client.Client
-	tokenService  *jwt.TokenService
-	events        *events.Emitter
-	serverURL     string
-	serverPort    int
+	gptClient           *gptscript.GPTScript
+	uncached            kclient.WithWatch
+	gatewayClient       *client.Client
+	tokenService        *jwt.TokenService
+	events              *events.Emitter
+	noReplyEmailAddress string
+	serverURL           string
+	serverPort          int
 }
 
-func NewInvoker(c kclient.WithWatch, gptClient *gptscript.GPTScript, gatewayClient *client.Client, serverURL string, serverPort int, tokenService *jwt.TokenService, events *events.Emitter) *Invoker {
+func NewInvoker(c kclient.WithWatch, gptClient *gptscript.GPTScript, gatewayClient *client.Client, noReplyEmailAddress, serverURL string, serverPort int, tokenService *jwt.TokenService, events *events.Emitter) *Invoker {
 	return &Invoker{
-		uncached:      c,
-		gptClient:     gptClient,
-		gatewayClient: gatewayClient,
-		tokenService:  tokenService,
-		events:        events,
-		serverURL:     serverURL,
-		serverPort:    serverPort,
+		uncached:            c,
+		gptClient:           gptClient,
+		gatewayClient:       gatewayClient,
+		tokenService:        tokenService,
+		events:              events,
+		serverURL:           serverURL,
+		serverPort:          serverPort,
+		noReplyEmailAddress: noReplyEmailAddress,
 	}
 }
 
@@ -515,7 +517,8 @@ func (i *Invoker) Resume(ctx context.Context, c kclient.WithWatch, thread *v1.Th
 				"OBOT_USER_ID="+userID,
 				"OBOT_USER_NAME="+userName,
 				"OBOT_USER_EMAIL="+userEmail,
-				"GPTSCRIPT_HTTP_ENV=OBOT_TOKEN,OBOT_RUN_ID,OBOT_THREAD_ID,OBOT_WORKFLOW_ID,OBOT_WORKFLOW_STEP_ID,OBOT_AGENT_ID",
+				"OBOT_NO_REPLY_EMAIL="+i.noReplyEmailAddress,
+				"GPTSCRIPT_HTTP_ENV=OBOT_TOKEN,OBOT_RUN_ID,OBOT_THREAD_ID,OBOT_WORKFLOW_ID,OBOT_WORKFLOW_STEP_ID,OBOT_AGENT_ID,OBOT_NO_REPLY_EMAIL",
 			),
 			DefaultModel:         run.Spec.DefaultModel,
 			DefaultModelProvider: modelProvider,

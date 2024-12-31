@@ -63,6 +63,7 @@ type Config struct {
 	EncryptionConfigFile       string `usage:"The path to the encryption configuration file" default:"./encryption.yaml"`
 	KnowledgeSetIngestionLimit int    `usage:"The maximum number of files to ingest into a knowledge set" default:"1000" env:"OBOT_KNOWLEDGESET_INGESTION_LIMIT" name:"knowledge-set-ingestion-limit"`
 	EmailServerName            string `usage:"The name of the email server to display for email receivers (default: ui-hostname value)"`
+	NoReplyEmailAddress        string `usage:"The email to use for no-reply emails from obot"`
 
 	AuthConfig
 	GatewayConfig
@@ -217,7 +218,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		tokenServer             = &jwt.TokenService{}
 		events                  = events.NewEmitter(storageClient)
 		gatewayClient           = client.New(gatewayDB, config.AuthAdminEmails)
-		invoker                 = invoke.NewInvoker(storageClient, c, client.New(gatewayDB, config.AuthAdminEmails), config.Hostname, config.HTTPListenPort, tokenServer, events)
+		invoker                 = invoke.NewInvoker(storageClient, c, client.New(gatewayDB, config.AuthAdminEmails), config.NoReplyEmailAddress, config.Hostname, config.HTTPListenPort, tokenServer, events)
 		modelProviderDispatcher = dispatcher.New(invoker, storageClient, c)
 
 		proxyServer *proxy.Proxy
