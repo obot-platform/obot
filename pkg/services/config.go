@@ -2,7 +2,6 @@ package services
 
 import (
 	"context"
-	"fmt"
 	"log/slog"
 	"os"
 	"path/filepath"
@@ -21,6 +20,7 @@ import (
 	"github.com/obot-platform/obot/pkg/api/authn"
 	"github.com/obot-platform/obot/pkg/api/authz"
 	"github.com/obot-platform/obot/pkg/api/server"
+	bootstrap2 "github.com/obot-platform/obot/pkg/bootstrap"
 	"github.com/obot-platform/obot/pkg/credstores"
 	"github.com/obot-platform/obot/pkg/events"
 	"github.com/obot-platform/obot/pkg/gateway/client"
@@ -44,28 +44,26 @@ import (
 	_ "github.com/obot-platform/nah/pkg/logrus"
 )
 
-type (
-	AuthConfig    proxy.Config
-	GatewayConfig gserver.Options
-)
+type GatewayConfig gserver.Options
 
 type Config struct {
-	HTTPListenPort             int    `usage:"HTTP port to listen on" default:"8080" name:"http-listen-port"`
-	DevMode                    bool   `usage:"Enable development mode" default:"false" name:"dev-mode" env:"OBOT_DEV_MODE"`
-	DevUIPort                  int    `usage:"The port on localhost running the dev instance of the UI" default:"5173"`
-	AllowedOrigin              string `usage:"Allowed origin for CORS"`
-	ToolRegistry               string `usage:"The tool reference for the tool registry" default:"github.com/obot-platform/tools"`
-	WorkspaceProviderType      string `usage:"The type of workspace provider to use for non-knowledge workspaces" default:"directory" env:"OBOT_WORKSPACE_PROVIDER_TYPE"`
-	WorkspaceTool              string `usage:"The tool reference for the workspace provider" default:"github.com/gptscript-ai/workspace-provider"`
-	DatasetsTool               string `usage:"The tool reference for the dataset provider" default:"github.com/gptscript-ai/datasets"`
-	HelperModel                string `usage:"The model used to generate names and descriptions" default:"gpt-4o-mini"`
-	AWSKMSKeyARN               string `usage:"The ARN of the AWS KMS key to use for encrypting credential storage" env:"OBOT_AWS_KMS_KEY_ARN" name:"aws-kms-key-arn"`
-	EncryptionConfigFile       string `usage:"The path to the encryption configuration file" default:"./encryption.yaml"`
-	KnowledgeSetIngestionLimit int    `usage:"The maximum number of files to ingest into a knowledge set" default:"1000" env:"OBOT_KNOWLEDGESET_INGESTION_LIMIT" name:"knowledge-set-ingestion-limit"`
-	EmailServerName            string `usage:"The name of the email server to display for email receivers (default: ui-hostname value)"`
-	NoReplyEmailAddress        string `usage:"The email to use for no-reply emails from obot"`
+	HTTPListenPort             int      `usage:"HTTP port to listen on" default:"8080" name:"http-listen-port"`
+	DevMode                    bool     `usage:"Enable development mode" default:"false" name:"dev-mode" env:"OBOT_DEV_MODE"`
+	DevUIPort                  int      `usage:"The port on localhost running the dev instance of the UI" default:"5173"`
+	AllowedOrigin              string   `usage:"Allowed origin for CORS"`
+	ToolRegistry               string   `usage:"The tool reference for the tool registry" default:"github.com/obot-platform/tools"`
+	WorkspaceProviderType      string   `usage:"The type of workspace provider to use for non-knowledge workspaces" default:"directory" env:"OBOT_WORKSPACE_PROVIDER_TYPE"`
+	WorkspaceTool              string   `usage:"The tool reference for the workspace provider" default:"github.com/gptscript-ai/workspace-provider"`
+	DatasetsTool               string   `usage:"The tool reference for the dataset provider" default:"github.com/gptscript-ai/datasets"`
+	HelperModel                string   `usage:"The model used to generate names and descriptions" default:"gpt-4o-mini"`
+	AWSKMSKeyARN               string   `usage:"The ARN of the AWS KMS key to use for encrypting credential storage" env:"OBOT_AWS_KMS_KEY_ARN" name:"aws-kms-key-arn"`
+	EncryptionConfigFile       string   `usage:"The path to the encryption configuration file" default:"./encryption.yaml"`
+	KnowledgeSetIngestionLimit int      `usage:"The maximum number of files to ingest into a knowledge set" default:"1000" env:"OBOT_KNOWLEDGESET_INGESTION_LIMIT" name:"knowledge-set-ingestion-limit"`
+	EmailServerName            string   `usage:"The name of the email server to display for email receivers (default: ui-hostname value)"`
+	NoReplyEmailAddress        string   `usage:"The email to use for no-reply emails from obot"`
+	DisableAuthentication      bool     `usage:"Disable authentication" default:"false" env:"OBOT_DISABLE_AUTHENTICATION"`
+	AuthAdminEmails            []string `usage:"Emails of admin users"`
 
-	AuthConfig
 	GatewayConfig
 	services.Config
 }
@@ -85,9 +83,9 @@ type Services struct {
 	APIServer                  *server.Server
 	AIHelper                   *aihelper.AIHelper
 	Started                    chan struct{}
-	ProxyServer                *proxy.Proxy
 	GatewayServer              *gserver.Server
-	ModelProviderDispatcher    *dispatcher.Dispatcher
+	ProxyManager               *proxy.Manager
+	ProviderDispatcher         *dispatcher.Dispatcher
 	KnowledgeSetIngestionLimit int
 }
 
@@ -215,39 +213,37 @@ func New(ctx context.Context, config Config) (*Services, error) {
 	}
 
 	var (
-		tokenServer             = &jwt.TokenService{}
-		events                  = events.NewEmitter(storageClient)
-		gatewayClient           = client.New(gatewayDB, config.AuthAdminEmails)
-		invoker                 = invoke.NewInvoker(storageClient, c, client.New(gatewayDB, config.AuthAdminEmails), config.NoReplyEmailAddress, config.Hostname, config.HTTPListenPort, tokenServer, events)
-		modelProviderDispatcher = dispatcher.New(invoker, storageClient, c)
-
-		proxyServer *proxy.Proxy
+		tokenServer        = &jwt.TokenService{}
+		events             = events.NewEmitter(storageClient)
+		gatewayClient      = client.New(gatewayDB, config.AuthAdminEmails)
+		invoker            = invoke.NewInvoker(storageClient, c, client.New(gatewayDB, config.AuthAdminEmails), config.NoReplyEmailAddress, config.Hostname, config.HTTPListenPort, tokenServer, events)
+		providerDispatcher = dispatcher.New(invoker, storageClient, c)
+		proxyManager       *proxy.Manager
 	)
 
-	gatewayServer, err := gserver.New(ctx, gatewayDB, tokenServer, modelProviderDispatcher, config.AuthAdminEmails, gserver.Options(config.GatewayConfig))
+	bootstrapper, err := bootstrap2.New()
 	if err != nil {
 		return nil, err
 	}
 
-	authProviderID, err := gatewayServer.UpsertAuthProvider(ctx, config.AuthConfigType, config.AuthClientID, config.AuthClientSecret)
+	gatewayServer, err := gserver.New(ctx, gatewayDB, tokenServer, providerDispatcher, config.AuthAdminEmails, gserver.Options(config.GatewayConfig))
 	if err != nil {
 		return nil, err
 	}
 
 	var authenticators authenticator.Request = gatewayServer
-	if config.AuthClientID != "" && config.AuthClientSecret != "" {
+	if !config.DisableAuthentication {
 		// "Authentication Enabled" flow
-		proxyServer, err = proxy.New(config.Hostname, authProviderID, proxy.Config(config.AuthConfig))
-		if err != nil {
-			return nil, fmt.Errorf("failed to start auth server: %w", err)
-		}
+		proxyManager = proxy.NewProxyManager(providerDispatcher)
 
 		// Token Auth + OAuth auth
-		authenticators = union.New(authenticators, proxyServer)
+		authenticators = union.New(authenticators, proxyManager)
 		// Add gateway user info
 		authenticators = client.NewUserDecorator(authenticators, gatewayClient)
 		// Add token auth
 		authenticators = union.New(authenticators, tokenServer)
+		// Add bootstrap auth
+		authenticators = union.New(authenticators, bootstrapper)
 		// Add anonymous user authenticator
 		authenticators = union.New(authenticators, authn.Anonymous{})
 	} else {
@@ -275,15 +271,15 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		Router:                r,
 		GPTClient:             c,
 		APIServer: server.NewServer(storageClient, c, authn.NewAuthenticator(authenticators),
-			authz.NewAuthorizer(storageClient), proxyServer, config.Hostname),
+			authz.NewAuthorizer(storageClient), proxyManager, config.Hostname),
 		TokenServer:                tokenServer,
 		Invoker:                    invoker,
 		AIHelper:                   aihelper.New(c, config.HelperModel),
 		GatewayServer:              gatewayServer,
-		ProxyServer:                proxyServer,
 		KnowledgeSetIngestionLimit: config.KnowledgeSetIngestionLimit,
 		EmailServerName:            config.EmailServerName,
-		ModelProviderDispatcher:    modelProviderDispatcher,
+		ProxyManager:               proxyManager,
+		ProviderDispatcher:         providerDispatcher,
 	}, nil
 }
 

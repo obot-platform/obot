@@ -36,9 +36,6 @@ var staticRules = map[string][]string{
 		"POST /api/token-request",
 		"GET /api/token-request/{id}/{service}",
 
-		"GET /api/auth-providers",
-		"GET /api/auth-providers/{slug}",
-
 		"GET /api/oauth/start/{id}/{service}",
 
 		"GET /api/app-oauth/authorize/{id}",
