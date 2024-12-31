@@ -145,15 +145,6 @@
 	/>
 
 	<div class="overflow-auto">
-		<Trigger
-			{task}
-			{editMode}
-			onChanged={async (t) => {
-				task = t;
-				await save();
-			}}
-		/>
-
 		{#if !editMode}
 			<Runs
 				{id}
@@ -162,6 +153,15 @@
 				}}
 			/>
 		{/if}
+
+		<Trigger
+			{task}
+			{editMode}
+			onChanged={async (t) => {
+				task = t;
+				await save();
+			}}
+		/>
 
 		<Steps
 			{task}

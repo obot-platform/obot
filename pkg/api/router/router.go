@@ -181,9 +181,9 @@ func Router(services *services.Services) (http.Handler, error) {
 	mux.HandleFunc("DELETE /api/threads/{id}/files/{file...}", threads.DeleteFile)
 
 	// Thread knowledge files
-	mux.HandleFunc("GET /api/threads/{id}/knowledge", threads.Knowledge)
-	mux.HandleFunc("POST /api/threads/{id}/knowledge/{file}", threads.UploadKnowledge)
-	mux.HandleFunc("DELETE /api/threads/{id}/knowledge/{file...}", threads.DeleteKnowledge)
+	mux.HandleFunc("GET /api/threads/{id}/knowledge-files", threads.Knowledge)
+	mux.HandleFunc("POST /api/threads/{id}/knowledge-files/{file}", threads.UploadKnowledge)
+	mux.HandleFunc("DELETE /api/threads/{id}/knowledge-files/{file...}", threads.DeleteKnowledge)
 
 	// ToolRefs
 	mux.HandleFunc("GET /api/tool-references", toolRefs.List)
@@ -255,6 +255,7 @@ func Router(services *services.Services) (http.Handler, error) {
 	mux.HandleFunc("GET /api/model-providers", modelProviders.List)
 	mux.HandleFunc("GET /api/model-providers/{id}", modelProviders.ByID)
 	mux.HandleFunc("POST /api/model-providers/{id}/configure", modelProviders.Configure)
+	mux.HandleFunc("POST /api/model-providers/{id}/deconfigure", modelProviders.Deconfigure)
 	mux.HandleFunc("POST /api/model-providers/{id}/reveal", modelProviders.Reveal)
 	mux.HandleFunc("POST /api/model-providers/{id}/refresh-models", modelProviders.RefreshModels)
 

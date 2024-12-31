@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Minimize, Maximize, X, Download } from 'lucide-svelte';
+	import { Minimize, Maximize, X, Download, Columns2 } from 'lucide-svelte';
 	import { EditorService } from '$lib/services';
 	import { currentAssistant } from '$lib/stores';
 
@@ -26,7 +26,7 @@
 					editorMaxSize.set(false);
 				}}
 			>
-				<Minimize class="h-5 w-5" />
+				<Columns2 class="h-5 w-5" />
 			</button>
 		{:else}
 			<button

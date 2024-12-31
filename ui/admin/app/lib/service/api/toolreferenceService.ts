@@ -37,6 +37,11 @@ async function getToolReferencesCategoryMap(type?: ToolReferenceType) {
     const result: ToolCategoryMap = {};
 
     for (const toolReference of toolReferences) {
+        if (toolReference.deleted) {
+            // skip tools if marked with deleted
+            continue;
+        }
+
         const category = !toolReference.builtin
             ? YourToolsToolCategory
             : toolReference.metadata?.category || UncategorizedToolCategory;
@@ -47,7 +52,7 @@ async function getToolReferencesCategoryMap(type?: ToolReferenceType) {
             };
         }
 
-        if (toolReference.metadata?.bundle) {
+        if (toolReference.metadata?.bundle === "true") {
             result[category].bundleTool = toolReference;
         } else {
             result[category].tools.push(toolReference);

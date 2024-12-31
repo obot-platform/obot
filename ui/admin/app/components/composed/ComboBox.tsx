@@ -25,15 +25,17 @@ type BaseOption = {
 
 type GroupedOption<T extends BaseOption> = {
     heading: string;
-    value: T[];
+    value: (T | GroupedOption<T>)[];
 };
 
 type ComboBoxProps<T extends BaseOption> = {
     allowClear?: boolean;
     clearLabel?: ReactNode;
+    emptyLabel?: ReactNode;
     onChange: (option: T | null) => void;
-    options: T[] | GroupedOption<T>[];
+    options: (T | GroupedOption<T>)[];
     placeholder?: string;
+    renderOption?: (option: T) => ReactNode;
     value?: T | null;
 };
 
@@ -41,6 +43,7 @@ export function ComboBox<T extends BaseOption>({
     disabled,
     placeholder,
     value,
+    renderOption,
     ...props
 }: {
     disabled?: boolean;
@@ -50,10 +53,15 @@ export function ComboBox<T extends BaseOption>({
 
     if (!isMobile) {
         return (
-            <Popover open={open} onOpenChange={setOpen}>
+            <Popover modal={true} open={open} onOpenChange={setOpen}>
                 <PopoverTrigger asChild>{renderButtonContent()}</PopoverTrigger>
                 <PopoverContent className="w-full p-0" align="start">
-                    <ComboBoxList setOpen={setOpen} value={value} {...props} />
+                    <ComboBoxList
+                        setOpen={setOpen}
+                        renderOption={renderOption}
+                        value={value}
+                        {...props}
+                    />
                 </PopoverContent>
             </Popover>
         );
@@ -64,7 +72,12 @@ export function ComboBox<T extends BaseOption>({
             <DrawerTrigger asChild>{renderButtonContent()}</DrawerTrigger>
             <DrawerContent>
                 <div className="mt-4 border-t">
-                    <ComboBoxList setOpen={setOpen} value={value} {...props} />
+                    <ComboBoxList
+                        setOpen={setOpen}
+                        renderOption={renderOption}
+                        value={value}
+                        {...props}
+                    />
                 </div>
             </DrawerContent>
         </Drawer>
@@ -82,7 +95,9 @@ export function ComboBox<T extends BaseOption>({
                 }}
             >
                 <span className="text-ellipsis overflow-hidden">
-                    {value ? value.name : placeholder}
+                    {renderOption && value
+                        ? renderOption(value)
+                        : (value?.name ?? placeholder)}
                 </span>
             </Button>
         );
@@ -94,16 +109,69 @@ function ComboBoxList<T extends BaseOption>({
     clearLabel,
     onChange,
     options,
-    placeholder = "Filter...",
     setOpen,
+    renderOption,
     value,
+    placeholder = "Filter...",
+    emptyLabel = "No results found.",
 }: { setOpen: (open: boolean) => void } & ComboBoxProps<T>) {
-    const isGrouped = options.every((option) => "heading" in option);
+    const [filteredOptions, setFilteredOptions] =
+        useState<typeof options>(options);
+
+    const filterOptions = (
+        items: (T | GroupedOption<T>)[],
+        searchValue: string
+    ): (T | GroupedOption<T>)[] =>
+        items.reduce(
+            (acc, option) => {
+                const isSingleValueMatch =
+                    "name" in option &&
+                    option.name
+                        ?.toLowerCase()
+                        .includes(searchValue.toLowerCase());
+                const isGroupHeadingMatch =
+                    "heading" in option &&
+                    option.heading
+                        .toLowerCase()
+                        .includes(searchValue.toLowerCase());
+
+                if (isGroupHeadingMatch || isSingleValueMatch) {
+                    return [...acc, option];
+                }
+
+                if ("heading" in option) {
+                    const matches = filterOptions(option.value, searchValue);
+                    return matches.length > 0
+                        ? [
+                              ...acc,
+                              {
+                                  ...option,
+                                  value: matches,
+                              },
+                          ]
+                        : acc;
+                }
+
+                return acc;
+            },
+            [] as (T | GroupedOption<T>)[]
+        );
+
+    const handleValueChange = (value: string) => {
+        setFilteredOptions(filterOptions(options, value));
+    };
+
     return (
-        <Command>
-            <CommandInput placeholder={placeholder} />
+        <Command
+            shouldFilter={false}
+            className="w-[var(--radix-popper-anchor-width)] max-h-[50vh]"
+        >
+            <CommandInput
+                placeholder={placeholder}
+                onValueChange={handleValueChange}
+            />
             <CommandList>
-                <CommandEmpty>No results found.</CommandEmpty>
+                <CommandEmpty>{emptyLabel}</CommandEmpty>
                 {allowClear && (
                     <CommandGroup>
                         <CommandItem
@@ -116,61 +184,45 @@ function ComboBoxList<T extends BaseOption>({
                         </CommandItem>
                     </CommandGroup>
                 )}
-                {isGrouped
-                    ? renderGroupedOptions(options)
-                    : renderUngroupedOptions(options)}
+                {filteredOptions.map((option) =>
+                    "heading" in option
+                        ? renderGroupedOption(option)
+                        : renderUngroupedOption(option)
+                )}
             </CommandList>
         </Command>
     );
 
-    function renderGroupedOptions(items: GroupedOption<T>[]) {
-        return items.map((group) => (
+    function renderGroupedOption(group: GroupedOption<T>) {
+        return (
             <CommandGroup key={group.heading} heading={group.heading}>
-                {group.value.map((option) => (
-                    <CommandItem
-                        key={option.id}
-                        value={option.name}
-                        onSelect={(name) => {
-                            const match =
-                                group.value.find((opt) => opt.name === name) ||
-                                null;
-                            onChange(match);
-                            setOpen(false);
-                        }}
-                        className="justify-between"
-                    >
-                        {option.name || option.id}{" "}
-                        {value?.id === option.id && (
-                            <CheckIcon className="w-4 h-4" />
-                        )}
-                    </CommandItem>
-                ))}
+                {group.value.map((option) =>
+                    "heading" in option
+                        ? renderGroupedOption(option)
+                        : renderUngroupedOption(option)
+                )}
             </CommandGroup>
-        ));
+        );
     }
 
-    function renderUngroupedOptions(items: T[]) {
+    function renderUngroupedOption(option: T) {
         return (
-            <CommandGroup>
-                {items.map((option) => (
-                    <CommandItem
-                        key={option.id}
-                        value={option.name}
-                        onSelect={(name) => {
-                            const match =
-                                items.find((opt) => opt.name === name) || null;
-                            onChange(match);
-                            setOpen(false);
-                        }}
-                        className="justify-between"
-                    >
-                        {option.name || option.id}{" "}
-                        {value?.id === option.id && (
-                            <CheckIcon className="w-4 h-4" />
-                        )}
-                    </CommandItem>
-                ))}
-            </CommandGroup>
+            <CommandItem
+                key={option.id}
+                value={option.name}
+                onSelect={() => {
+                    onChange(option);
+                    setOpen(false);
+                }}
+                className="justify-between"
+            >
+                <span>
+                    {renderOption
+                        ? renderOption(option)
+                        : (option.name ?? option.id)}
+                </span>
+                {value?.id === option.id && <CheckIcon className="w-4 h-4" />}
+            </CommandItem>
         );
     }
 }

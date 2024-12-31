@@ -90,7 +90,7 @@
 				<h4 class="mb-3 text-xl font-semibold">{titlePrefix}Parameters</h4>
 				{#each Object.keys(task.onDemand.params) as key}
 					<div class="flex items-baseline">
-						<label for="param-{key}" class="min-w-[70px] text-sm font-semibold capitalize"
+						<label for="param-{key}" class="text-sm font-semibold capitalize"
 							>{key}</label
 						>
 						<input

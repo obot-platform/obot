@@ -1,19 +1,22 @@
 import {
     BotIcon,
     BoxesIcon,
+    InfoIcon,
     KeyIcon,
     MessageSquare,
     PuzzleIcon,
-    SettingsIcon,
     User,
     WebhookIcon,
     Wrench,
 } from "lucide-react";
 import { Link, useLocation } from "react-router";
 import { $path } from "safe-routes";
+import useSWR from "swr";
 
+import { VersionApiService } from "~/lib/service/api/versionApiService";
 import { cn } from "~/lib/utils";
 
+import { TypographyMuted, TypographySmall } from "~/components/Typography";
 import { ObotLogo } from "~/components/branding/ObotLogo";
 import { Button } from "~/components/ui/button";
 import {
@@ -21,6 +24,7 @@ import {
     PopoverContent,
     PopoverTrigger,
 } from "~/components/ui/popover";
+import { Separator } from "~/components/ui/separator";
 import {
     Sidebar,
     SidebarContent,
@@ -131,39 +135,48 @@ export function AppSidebar() {
                     </SidebarGroupContent>
                 </SidebarGroup>
             </SidebarContent>
+            <SidebarFooter>
+                <VersionInfo />
+            </SidebarFooter>
         </Sidebar>
     );
 }
 
-// disabling this because this will inevitably be used in the future
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-function AppSidebarFooter() {
+function VersionInfo() {
     const { state } = useSidebar();
-    return (
-        <SidebarFooter
-            className={cn(
-                "pb-4 bg-background",
-                state === "collapsed" ? "" : "px-2"
-            )}
-        >
-            <Popover>
-                <PopoverTrigger asChild>
-                    <SidebarMenuButton className="w-full flex items-center">
-                        <SettingsIcon className="mr-2" /> Settings
-                    </SidebarMenuButton>
-                </PopoverTrigger>
-                <PopoverContent side="right" align="end">
-                    <Button variant="secondary" asChild className="w-full">
-                        <Link
-                            to={$path("/oauth-apps")}
-                            className="flex items-center p-2 hover:bg-accent rounded-md"
-                        >
-                            <KeyIcon className="mr-2 h-4 w-4" />
-                            <span>Manage OAuth Apps</span>
-                        </Link>
-                    </Button>
-                </PopoverContent>
-            </Popover>
-        </SidebarFooter>
+    const getVersion = useSWR(VersionApiService.getVersion.key(), () =>
+        VersionApiService.getVersion()
     );
+
+    const { data: version } = getVersion;
+    const versionEntries = Object.entries(version ?? {});
+    return version?.obot ? (
+        <Popover>
+            <PopoverTrigger asChild>
+                <Button
+                    variant="ghost"
+                    size="sm"
+                    startContent={<InfoIcon />}
+                    className="text-muted-foreground"
+                >
+                    {state !== "collapsed" ? version.obot : null}
+                </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-fit min-w-44 p-2">
+                <div>
+                    {versionEntries.map(([key, value], index) =>
+                        value ? (
+                            <div key={key}>
+                                <TypographyMuted>{key}:</TypographyMuted>
+                                <TypographySmall>{value}</TypographySmall>
+                                {index !== versionEntries.length - 1 && (
+                                    <Separator className="my-2" />
+                                )}
+                            </div>
+                        ) : null
+                    )}
+                </div>
+            </PopoverContent>
+        </Popover>
+    ) : null;
 }

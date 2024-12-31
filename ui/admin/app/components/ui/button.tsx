@@ -26,6 +26,8 @@ const buttonVariants = cva(
             },
             size: {
                 none: "",
+                link: "p-0",
+                "link-sm": "p-0 text-xs",
                 default: "h-9 px-4 py-2",
                 badge: "text-xs py-0.5 px-2",
                 sm: "h-8 px-3 text-xs",

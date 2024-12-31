@@ -24,7 +24,6 @@ import {
 } from "~/components/ui/tooltip";
 
 export async function clientLoader() {
-    mutate(AgentService.getAgents.key(), ThreadsService.getThreads.key());
     await Promise.all([
         preload(AgentService.getAgents.key(), AgentService.getAgents),
         preload(ThreadsService.getThreads.key(), ThreadsService.getThreads),
@@ -72,6 +71,7 @@ export default function Agents() {
                                         name: generateRandomName(),
                                     } as Agent,
                                 }).then((agent) => {
+                                    mutate(AgentService.getAgents.key());
                                     navigate(
                                         $path("/agents/:agent", {
                                             agent: agent.id,

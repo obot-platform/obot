@@ -5,7 +5,7 @@ import { useForm } from "react-hook-form";
 import useSWR from "swr";
 import { z } from "zod";
 
-import { Model, ModelUsage, filterModelsByActive } from "~/lib/model/models";
+import { ModelUsage } from "~/lib/model/models";
 import { ModelApiService } from "~/lib/service/api/modelApiService";
 
 import { TypographyH4 } from "~/components/Typography";
@@ -15,6 +15,7 @@ import {
     ControlledCustomInput,
     ControlledInput,
 } from "~/components/form/controlledInputs";
+import { getModelOptionsByModelProvider } from "~/components/model/DefaultModelAliasForm";
 import { Form } from "~/components/ui/form";
 
 const formSchema = z.object({
@@ -134,27 +135,4 @@ export function AgentForm({ agent, onSubmit, onChange }: AgentFormProps) {
             </form>
         </Form>
     );
-
-    function getModelOptionsByModelProvider(models: Model[]) {
-        const byModelProviderGroups = filterModelsByActive(models).reduce(
-            (acc, model) => {
-                acc[model.modelProvider] = acc[model.modelProvider] || [];
-                acc[model.modelProvider].push(model);
-                return acc;
-            },
-            {} as Record<string, Model[]>
-        );
-
-        return Object.entries(byModelProviderGroups).map(
-            ([modelProvider, models]) => {
-                const sorted = models.sort((a, b) =>
-                    (a.name ?? "").localeCompare(b.name ?? "")
-                );
-                return {
-                    heading: modelProvider,
-                    value: sorted,
-                };
-            }
-        );
-    }
 }

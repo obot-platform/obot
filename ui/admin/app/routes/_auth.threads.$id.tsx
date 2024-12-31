@@ -8,7 +8,9 @@ import {
 } from "react-router";
 import { $path } from "safe-routes";
 
+import { KnowledgeFileNamespace } from "~/lib/model/knowledge";
 import { AgentService } from "~/lib/service/api/agentService";
+import { KnowledgeFileService } from "~/lib/service/api/knowledgeFileApiService";
 import { ThreadsService } from "~/lib/service/api/threadsService";
 import { WorkflowService } from "~/lib/service/api/workflowService";
 import { RouteHandle } from "~/lib/service/routeHandles";
@@ -59,7 +61,10 @@ export const clientLoader = async ({
         : null;
 
     const files = await ThreadsService.getFiles(id);
-    const knowledge = await ThreadsService.getKnowledge(id);
+    const knowledge = await KnowledgeFileService.getKnowledgeFiles(
+        KnowledgeFileNamespace.Threads,
+        thread.id
+    );
 
     return { thread, agent, workflow, files, knowledge };
 };
@@ -74,7 +79,7 @@ export default function ChatAgent() {
         throw new Error("Trying to view a thread with an unsupported parent.");
     };
 
-    const [isAgent, entity] = [agent !== null, getEntity()];
+    const entity = getEntity();
 
     return (
         <div className="h-full flex flex-col overflow-hidden relative">
@@ -100,7 +105,6 @@ export default function ChatAgent() {
                         id={entity.id}
                         mode="agent"
                         threadId={thread.id}
-                        readOnly={!isAgent}
                     >
                         <Chat />
                     </ChatProvider>

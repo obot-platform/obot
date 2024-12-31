@@ -8,6 +8,7 @@ import { ConsumptionUrl } from "~/lib/routers/baseRouter";
 import { AssistantApiService } from "~/lib/service/api/assistantApiService";
 
 import { TypographySmall } from "~/components/Typography";
+import { AgentDropdownActions } from "~/components/agent/AgentDropdownActions";
 import { Publish } from "~/components/agent/Publish";
 import { Unpublish } from "~/components/agent/Unpublish";
 import { CopyText } from "~/components/composed/CopyText";
@@ -40,14 +41,18 @@ export function AgentPublishStatus({
         <div className="flex w-full justify-between px-8 pt-4 items-center gap-4">
             {renderAgentRef()}
 
-            {agent.alias ? (
-                <Unpublish onUnpublish={() => onChange({ alias: "" })} />
-            ) : (
-                <Publish
-                    alias={agent.alias}
-                    onPublish={(alias) => onChange({ alias })}
-                />
-            )}
+            <div className="flex items-center gap-2">
+                {agent.alias ? (
+                    <Unpublish onUnpublish={() => onChange({ alias: "" })} />
+                ) : (
+                    <Publish
+                        alias={agent.alias}
+                        onPublish={(alias) => onChange({ alias })}
+                    />
+                )}
+
+                <AgentDropdownActions agent={agent} />
+            </div>
         </div>
     );
 

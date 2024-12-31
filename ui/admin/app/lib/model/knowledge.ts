@@ -1,3 +1,18 @@
+export const KnowledgeSourceNamespace = {
+    Agents: "agents",
+    Workflows: "workflows",
+} as const;
+export type KnowledgeSourceNamespace =
+    (typeof KnowledgeSourceNamespace)[keyof typeof KnowledgeSourceNamespace];
+
+export const KnowledgeFileNamespace = {
+    Threads: "threads",
+    Agents: "agents",
+    Workflows: "workflows",
+} as const;
+export type KnowledgeFileNamespace =
+    (typeof KnowledgeFileNamespace)[keyof typeof KnowledgeFileNamespace];
+
 export const KnowledgeSourceType = {
     OneDrive: "OneDrive",
     Notion: "Notion",

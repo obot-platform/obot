@@ -12,3 +12,5 @@ export type EntityMeta<
     metadata?: TMetadata;
     type?: string;
 };
+
+export type EntityList<T> = { items: Nullish<T[]> };

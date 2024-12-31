@@ -1,4 +1,4 @@
-import { ChevronUpIcon } from "lucide-react";
+import { CheckIcon, ChevronUpIcon } from "lucide-react";
 import React, { useState } from "react";
 import useSWR from "swr";
 
@@ -29,11 +29,13 @@ import {
 
 interface PastThreadsProps {
     agentId: string;
+    currentThreadId?: string | null;
     onThreadSelect: (threadId: string) => void;
 }
 
 export const PastThreads: React.FC<PastThreadsProps> = ({
     agentId,
+    currentThreadId,
     onThreadSelect,
 }) => {
     const [open, setOpen] = useState(false);
@@ -94,18 +96,27 @@ export const PastThreads: React.FC<PastThreadsProps> = ({
                                             }
                                             className="cursor-pointer"
                                         >
-                                            <div>
-                                                <TypographyP className="font-semibold">
-                                                    Thread
-                                                    <span className="ml-2 text-muted-foreground">
-                                                        {thread.id}
-                                                    </span>
-                                                </TypographyP>
-                                                <TypographyP className="text-sm text-gray-500">
-                                                    {new Date(
-                                                        thread.created
-                                                    ).toLocaleString()}
-                                                </TypographyP>
+                                            <div className="flex items-center justify-between w-full">
+                                                <div>
+                                                    <TypographyP className="font-semibold">
+                                                        Thread
+                                                        <span className="ml-2 text-muted-foreground">
+                                                            {thread.id}
+                                                        </span>
+                                                    </TypographyP>
+                                                    <TypographyP className="text-sm text-gray-500">
+                                                        {new Date(
+                                                            thread.created
+                                                        ).toLocaleString()}
+                                                    </TypographyP>
+                                                </div>
+                                                <div>
+                                                    {currentThreadId &&
+                                                        thread.id ===
+                                                            currentThreadId && (
+                                                            <CheckIcon />
+                                                        )}
+                                                </div>
                                             </div>
                                         </CommandItem>
                                     ))}

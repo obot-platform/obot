@@ -8,6 +8,7 @@ import (
 	"github.com/obot-platform/nah/pkg/router"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/events"
+	"github.com/obot-platform/obot/pkg/render"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/obot-platform/obot/pkg/wait"
@@ -18,6 +19,7 @@ import (
 )
 
 type WorkflowOptions struct {
+	Synchronous           bool
 	ThreadName            string
 	StepID                string
 	OwningThreadName      string
@@ -100,7 +102,6 @@ func (i *Invoker) Workflow(ctx context.Context, c kclient.WithWatch, wf *v1.Work
 		}
 	} else if opt.ThreadName != "" {
 		threadName = opt.ThreadName
-		rerun = true
 	}
 
 	if rerun {
@@ -108,6 +109,25 @@ func (i *Invoker) Workflow(ctx context.Context, c kclient.WithWatch, wf *v1.Work
 		if err != nil {
 			return nil, err
 		}
+	} else if threadName != "" {
+		thread = &v1.Thread{}
+		if err := c.Get(ctx, router.Key(wf.Namespace, threadName), thread); err != nil {
+			return nil, err
+		}
+		if err := c.Get(ctx, router.Key(wf.Namespace, thread.Spec.WorkflowExecutionName), wfe); err != nil {
+			return nil, err
+		}
+		agent, err := render.Workflow(ctx, c, wf, render.WorkflowOptions{
+			Input:            wfe.Spec.Input,
+			ManifestOverride: wfe.Status.WorkflowManifest,
+		})
+		if err != nil {
+			return nil, err
+		}
+		return i.Agent(ctx, c, agent, input, Options{
+			ThreadName:  threadName,
+			Synchronous: opt.Synchronous,
+		})
 	} else {
 		wfe, thread, err = i.startWorkflow(ctx, c, wf, input, opt)
 		if err != nil {

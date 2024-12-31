@@ -12,16 +12,7 @@ type ChatProps = React.HTMLAttributes<HTMLDivElement> & {
 };
 
 export function Chat({ className }: ChatProps) {
-    const {
-        id,
-        messages,
-        threadId,
-        mode,
-        invoke,
-        readOnly,
-        isInvoking,
-        isRunning,
-    } = useChat();
+    const { id, messages, threadId, mode, invoke, readOnly } = useChat();
     const [runTriggered, setRunTriggered] = useState(false);
 
     const showMessagePane =
@@ -59,8 +50,6 @@ export function Chat({ className }: ChatProps) {
                         popoverContentProps={{
                             className: cn({ "translate-y-[-50%]": !threadId }),
                         }}
-                        loading={isInvoking || isRunning}
-                        disabled={isInvoking || isRunning}
                     >
                         Run
                     </RunWorkflow>

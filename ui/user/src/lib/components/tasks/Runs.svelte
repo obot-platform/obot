@@ -137,13 +137,16 @@
 
 {#if runs.length > 0}
 	<div class="mt-8 rounded-3xl bg-gray-50 p-5 dark:bg-gray-950">
-		<h4 class="mb-3 text-xl font-semibold">Runs</h4>
-		<table class="m-5 w-full text-left">
+		<div class="flex mb-3 items-center" >
+			<h4 class="text-xl font-semibold flex-1">Runs</h4>
+			{@render runButton()}
+		</div>
+		<table class="text-left w-full">
 			<thead class="font-semibold">
 				<tr>
-					<th class="pb-1 pl-2"> Start </th>
+					<th> Start </th>
 					<th> Input </th>
-					<th class="pb-1 pl-6"> Duration </th>
+					<th> Duration </th>
 					<th></th>
 				</tr>
 			</thead>
@@ -199,9 +202,6 @@
 				{/each}
 			</tbody>
 		</table>
-		<div class="mt-8 flex justify-end">
-			{@render runButton()}
-		</div>
 	</div>
 {:else}
 	<div class="mt-8 flex justify-end">
@@ -211,7 +211,7 @@
 
 <dialog
 	bind:this={inputDialog}
-	class="relative min-w-[500px] rounded-3xl border-white bg-white p-5 text-black dark:bg-black dark:text-gray-50"
+	class="relative md:min-w-[500px] rounded-3xl border-white bg-white p-5 text-black dark:bg-black dark:text-gray-50"
 >
 	<h4 class="text-xl font-semibold">Input Parameters</h4>
 	<Input editMode task={taskToRun} bind:input={taskInput}></Input>
@@ -242,8 +242,7 @@
 />
 
 <style lang="postcss">
-	td,
-	th {
-		@apply p-1.5;
+	td, th {
+			@apply p-1.5;
 	}
 </style>

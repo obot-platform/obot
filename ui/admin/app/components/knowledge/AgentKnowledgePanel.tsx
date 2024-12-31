@@ -57,7 +57,7 @@ export default function AgentKnowledgePanel({
     );
 
     const { localFiles, addKnowledgeFile, deleteKnowledgeFile, reingestFile } =
-        useKnowledgeFiles(agentId);
+        useKnowledgeFiles("agents", agentId);
 
     const {
         knowledgeSources,
@@ -67,7 +67,7 @@ export default function AgentKnowledgePanel({
         addWebsite,
         addOneDrive,
         addNotion,
-    } = useKnowledgeSources(agentId);
+    } = useKnowledgeSources("agents", agentId);
 
     const selectedKnowledgeSource = knowledgeSources.find(
         (source) => source.id === selectedKnowledgeSourceId

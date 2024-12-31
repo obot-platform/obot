@@ -1,9 +1,11 @@
+import { SquareIcon } from "lucide-react";
 import { ComponentProps, useState } from "react";
 import useSWR from "swr";
 
 import { WorkflowService } from "~/lib/service/api/workflowService";
 import { cn } from "~/lib/utils";
 
+import { useChat } from "~/components/chat/ChatContext";
 import { RunWorkflowForm } from "~/components/chat/RunWorkflowForm";
 import { ModelProviderTooltip } from "~/components/model-providers/ModelProviderTooltip";
 import { Button, ButtonProps } from "~/components/ui/button";
@@ -32,19 +34,35 @@ export function RunWorkflow({
         WorkflowService.getWorkflowById.key(workflowId),
         ({ workflowId }) => WorkflowService.getWorkflowById(workflowId)
     );
+    const { abortRunningThread, isInvoking, isRunning } = useChat();
 
     const params = workflow?.params;
 
-    if (!params || isLoading || !modelProviderConfigured)
+    const loading = props.loading || isLoading || isInvoking;
+    const disabled = props.disabled || loading || !modelProviderConfigured;
+    if (isRunning) {
+        return (
+            <Button
+                onClick={() => abortRunningThread()}
+                {...props}
+                disabled={disabled}
+                startContent={
+                    <SquareIcon className="fill-primary-foreground text-primary-foreground !w-3 !h-3" />
+                }
+            >
+                Stop Workflow
+            </Button>
+        );
+    }
+
+    if (!params || !modelProviderConfigured)
         return (
             <ModelProviderTooltip enabled={modelProviderConfigured}>
                 <Button
                     onClick={() => onSubmit()}
                     {...props}
-                    disabled={
-                        props.disabled || isLoading || !modelProviderConfigured
-                    }
-                    loading={isLoading || props.loading}
+                    disabled={disabled}
+                    loading={loading}
                 >
                     Run Workflow
                 </Button>
@@ -56,8 +74,8 @@ export function RunWorkflow({
             <PopoverTrigger asChild>
                 <Button
                     {...props}
-                    disabled={props.disabled || open || isLoading}
-                    loading={props.loading || isLoading}
+                    disabled={disabled || open}
+                    loading={loading}
                     onClick={() => setOpen((prev) => !prev)}
                 >
                     Run Workflow

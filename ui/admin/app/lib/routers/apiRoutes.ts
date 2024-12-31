@@ -1,6 +1,11 @@
 import queryString from "query-string";
 import { mutate } from "swr";
 
+import { CredentialNamespace } from "~/lib/model/credentials";
+import {
+    KnowledgeFileNamespace,
+    KnowledgeSourceNamespace,
+} from "~/lib/model/knowledge";
 import { ToolReferenceType } from "~/lib/model/toolReferences";
 import { ApiUrl } from "~/lib/routers/baseRouter";
 
@@ -60,61 +65,119 @@ export const ApiRoutes = {
         deleteKnowledge: (assistantId: string, fileName: string) =>
             buildUrl(`/assistants/${assistantId}/knowledge/${fileName}`),
     },
+    knowledgeSources: {
+        getKnowledgeSources: (
+            namespace: KnowledgeSourceNamespace,
+            entityId: string
+        ) => buildUrl(`/${namespace}/${entityId}/knowledge-sources`),
+        createKnowledgeSource: (
+            namespace: KnowledgeSourceNamespace,
+            entityId: string
+        ) => buildUrl(`/${namespace}/${entityId}/knowledge-sources`),
+        getKnowledgeSource: (
+            namespace: KnowledgeSourceNamespace,
+            entityId: string,
+            sourceId: string
+        ) =>
+            buildUrl(`/${namespace}/${entityId}/knowledge-sources/${sourceId}`),
+        updateKnowledgeSource: (
+            namespace: KnowledgeSourceNamespace,
+            entityId: string,
+            sourceId: string
+        ) =>
+            buildUrl(`/${namespace}/${entityId}/knowledge-sources/${sourceId}`),
+        deleteKnowledgeSource: (
+            namespace: KnowledgeSourceNamespace,
+            entityId: string,
+            sourceId: string
+        ) =>
+            buildUrl(`/${namespace}/${entityId}/knowledge-sources/${sourceId}`),
+        syncKnowledgeSource: (
+            namespace: KnowledgeSourceNamespace,
+            entityId: string,
+            sourceId: string
+        ) =>
+            buildUrl(
+                `/${namespace}/${entityId}/knowledge-sources/${sourceId}/sync`
+            ),
+        getFilesForKnowledgeSource: (
+            namespace: KnowledgeSourceNamespace,
+            entityId: string,
+            sourceId: string
+        ) =>
+            buildUrl(
+                `/${namespace}/${entityId}/knowledge-sources/${sourceId}/knowledge-files`
+            ),
+        reingestKnowledgeFileFromSource: (
+            namespace: KnowledgeSourceNamespace,
+            entityId: string,
+            sourceId: string,
+            fileName: string
+        ) =>
+            buildUrl(
+                `/${namespace}/${entityId}/knowledge-sources/${sourceId}/knowledge-files/${fileName}/ingest`
+            ),
+        approveFile: (
+            namespace: KnowledgeSourceNamespace,
+            entityId: string,
+            fileName: string
+        ) => buildUrl(`/${namespace}/${entityId}/approve-file/${fileName}`),
+    },
+    knowledgeFiles: {
+        getKnowledgeFiles: (
+            namespace: KnowledgeFileNamespace,
+            entityId: string
+        ) => buildUrl(`/${namespace}/${entityId}/knowledge-files`),
+        addKnowledgeFile: (
+            namespace: KnowledgeFileNamespace,
+            entityId: string,
+            fileName: string
+        ) => buildUrl(`/${namespace}/${entityId}/knowledge-files/${fileName}`),
+        updateKnowledgeFile: (
+            namespace: KnowledgeFileNamespace,
+            entityId: string,
+            fileName: string
+        ) => buildUrl(`/${namespace}/${entityId}/knowledge-files/${fileName}`),
+        deleteKnowledgeFile: (
+            namespace: KnowledgeFileNamespace,
+            entityId: string,
+            fileName: string
+        ) => buildUrl(`/${namespace}/${entityId}/knowledge-files/${fileName}`),
+        reingestKnowledgeFile: (
+            namespace: KnowledgeFileNamespace,
+            entityId: string,
+            fileName: string
+        ) =>
+            buildUrl(
+                `/${namespace}/${entityId}/knowledge-files/${fileName}/ingest`
+            ),
+    },
     agents: {
         base: () => buildUrl("/agents"),
         getById: (agentId: string) => buildUrl(`/agents/${agentId}`),
-        getLocalKnowledgeFiles: (agentId: string) =>
-            buildUrl(`/agents/${agentId}/knowledge-files`),
-        addKnowledgeFiles: (agentId: string, fileName: string) =>
-            buildUrl(`/agents/${agentId}/knowledge-files/${fileName}`),
-        deleteKnowledgeFiles: (agentId: string, fileName: string) =>
-            buildUrl(`/agents/${agentId}/knowledge-files/${fileName}`),
-        createKnowledgeSource: (agentId: string) =>
-            buildUrl(`/agents/${agentId}/knowledge-sources`),
-        getKnowledgeSource: (agentId: string) =>
-            buildUrl(`/agents/${agentId}/knowledge-sources`),
-        updateKnowledgeSource: (agentId: string, knowledgeSourceId: string) =>
-            buildUrl(
-                `/agents/${agentId}/knowledge-sources/${knowledgeSourceId}`
-            ),
-        syncKnowledgeSource: (agentId: string, knowledgeSourceId: string) =>
-            buildUrl(
-                `/agents/${agentId}/knowledge-sources/${knowledgeSourceId}/sync`
-            ),
         getAuthUrlForAgent: (agentId: string, toolRef: string) =>
             buildUrl(`/agents/${agentId}/oauth-credentials/${toolRef}/login`),
-        deleteKnowledgeSource: (agentId: string, knowledgeSourceId: string) =>
-            buildUrl(
-                `/agents/${agentId}/knowledge-sources/${knowledgeSourceId}`
-            ),
-        getFilesForKnowledgeSource: (agentId: string, sourceId: string) =>
-            buildUrl(
-                `/agents/${agentId}/knowledge-sources/${sourceId}/knowledge-files`
-            ),
-        approveFile: (agentId: string, fileID: string) =>
-            buildUrl(`/agents/${agentId}/approve-file/${fileID}`),
-        reingestFile: (agentId: string, fileID: string, sourceId?: string) =>
-            buildUrl(
-                sourceId
-                    ? `/agents/${agentId}/knowledge-sources/${sourceId}/knowledge-files/${fileID}/ingest`
-                    : `/agents/${agentId}/knowledge-files/${fileID}/ingest`
-            ),
     },
     workflows: {
         base: () => buildUrl("/workflows"),
         getById: (workflowId: string) => buildUrl(`/workflows/${workflowId}`),
-        getKnowledge: (workflowId: string) =>
-            buildUrl(`/workflows/${workflowId}/files`),
-        addKnowledge: (workflowId: string, fileName: string) =>
-            buildUrl(`/workflows/${workflowId}/files/${fileName}`),
-        deleteKnowledge: (workflowId: string, fileName: string) =>
-            buildUrl(`/workflows/${workflowId}/files/${fileName}`),
         authenticate: (workflowId: string) =>
             buildUrl(`/workflows/${workflowId}/authenticate`),
     },
     env: {
         getEnv: (entityId: string) => buildUrl(`/agents/${entityId}/env`),
         updateEnv: (entityId: string) => buildUrl(`/agents/${entityId}/env`),
+    },
+    credentials: {
+        getCredentialsForEntity: (
+            namespace: CredentialNamespace,
+            entityId: string
+        ) => buildUrl(`/${namespace}/${entityId}/credentials`),
+        deleteCredential: (
+            namespace: CredentialNamespace,
+            entityId: string,
+            credentialId: string
+        ) => buildUrl(`/${namespace}/${entityId}/credentials/${credentialId}`),
     },
     threads: {
         base: () => buildUrl("/threads"),
@@ -130,8 +193,6 @@ export const ApiRoutes = {
                 maxRuns?: number;
             }
         ) => buildUrl(`/threads/${threadId}/events`, params),
-        getKnowledge: (threadId: string) =>
-            buildUrl(`/threads/${threadId}/knowledge`),
         getFiles: (threadId: string) => buildUrl(`/threads/${threadId}/files`),
         abortById: (threadId: string) => buildUrl(`/threads/${threadId}/abort`),
     },
@@ -191,6 +252,8 @@ export const ApiRoutes = {
             buildUrl(`/model-providers/${modelProviderKey}/configure`),
         revealModelProviderById: (modelProviderKey: string) =>
             buildUrl(`/model-providers/${modelProviderKey}/reveal`),
+        deconfigureModelProviderById: (modelProviderKey: string) =>
+            buildUrl(`/model-providers/${modelProviderKey}/deconfigure`),
     },
     defaultModelAliases: {
         base: () => buildUrl("/default-model-aliases"),
@@ -217,6 +280,7 @@ export const ApiRoutes = {
             buildUrl(`/webhooks/${webhookId}`),
         invoke: (webhookId: string) => buildUrl(`/webhooks/${webhookId}`),
     },
+    version: () => buildUrl("/version"),
 };
 
 /** revalidates the cache for all routes that match the filter callback

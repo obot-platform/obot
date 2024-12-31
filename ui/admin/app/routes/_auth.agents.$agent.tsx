@@ -77,7 +77,11 @@ export default function ChatAgent() {
             <ResizablePanelGroup direction="horizontal" className="flex-auto">
                 <ResizablePanel className="">
                     <AgentProvider agent={agent}>
-                        <Agent onRefresh={updateThreadId} key={agent.id} />
+                        <Agent
+                            currentThreadId={threadId}
+                            onRefresh={updateThreadId}
+                            key={agent.id}
+                        />
                     </AgentProvider>
                 </ResizablePanel>
                 <ResizableHandle withHandle />

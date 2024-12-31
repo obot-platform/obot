@@ -17,7 +17,7 @@ import {
 import { DefaultModelAliasApiService } from "~/lib/service/api/defaultModelAliasApiService";
 import { ModelApiService } from "~/lib/service/api/modelApiService";
 
-import { TypographyP } from "~/components/Typography";
+import { ComboBox } from "~/components/composed/ComboBox";
 import { SUGGESTED_MODEL_SELECTIONS } from "~/components/model/constants";
 import { Button } from "~/components/ui/button";
 import {
@@ -36,15 +36,6 @@ import {
     FormLabel,
     FormMessage,
 } from "~/components/ui/form";
-import {
-    Select,
-    SelectContent,
-    SelectGroup,
-    SelectItem,
-    SelectLabel,
-    SelectTrigger,
-    SelectValue,
-} from "~/components/ui/select";
 import { useAsync } from "~/hooks/useAsync";
 
 export function DefaultModelAliasForm({
@@ -179,29 +170,39 @@ export function DefaultModelAliasForm({
 
                                     <div className="flex flex-col gap-2 w-[50%]">
                                         <FormControl>
-                                            <Select
-                                                {...field}
-                                                key={field.value}
-                                                value={field.value || ""}
-                                                onValueChange={field.onChange}
-                                            >
-                                                <SelectTrigger>
-                                                    <SelectValue
-                                                        placeholder={
-                                                            defaultModel
-                                                        }
-                                                    />
-                                                </SelectTrigger>
-
-                                                <SelectContent>
-                                                    {renderSelectContent(
-                                                        activeModelOptions,
-                                                        defaultModel,
-                                                        usage,
+                                            <ComboBox
+                                                emptyLabel="No Models Available."
+                                                placeholder=""
+                                                onChange={(value) =>
+                                                    field.onChange(
+                                                        value?.id ?? ""
+                                                    )
+                                                }
+                                                options={getOptionsByUsageAndProvider(
+                                                    activeModelOptions,
+                                                    usage,
+                                                    alias
+                                                )}
+                                                renderOption={(option) =>
+                                                    renderDisplayOption(
+                                                        option,
                                                         alias
-                                                    )}
-                                                </SelectContent>
-                                            </Select>
+                                                    )
+                                                }
+                                                value={
+                                                    field.value
+                                                        ? models?.find(
+                                                              (m) =>
+                                                                  m.id ===
+                                                                  field.value
+                                                          )
+                                                        : models?.find(
+                                                              (m) =>
+                                                                  m.name ===
+                                                                  defaultModel
+                                                          )
+                                                }
+                                            />
                                         </FormControl>
 
                                         <FormMessage />
@@ -224,67 +225,57 @@ export function DefaultModelAliasForm({
         </Form>
     );
 
-    function renderSelectContent(
+    function renderDisplayOption(option: Model, alias: ModelAlias) {
+        const suggestion = alias && SUGGESTED_MODEL_SELECTIONS[alias];
+
+        return (
+            <span>
+                {option.name}{" "}
+                {suggestion === option.name && (
+                    <span className="text-muted-foreground">(Suggested)</span>
+                )}
+            </span>
+        );
+    }
+
+    function getOptionsByUsageAndProvider(
         modelOptions: Model[] | undefined,
-        defaultModel: string,
         usage: ModelUsage,
         aliasFor: ModelAlias
     ) {
-        if (!modelOptions) {
-            if (!defaultModel)
-                return (
-                    <TypographyP className="p-2 text-muted-foreground">
-                        No Models Available.
-                    </TypographyP>
-                );
-            return <SelectItem value={defaultModel}>{defaultModel}</SelectItem>;
+        if (!modelOptions) return [];
+
+        const suggested = aliasFor && SUGGESTED_MODEL_SELECTIONS[aliasFor];
+        const usageGroupName = getModelUsageLabel(usage);
+        const usageModelProviderGroups = getModelOptionsByModelProvider(
+            modelOptions,
+            suggested ? [suggested] : []
+        );
+
+        const otherModelProviderGroups =
+            getModelOptionsByModelProvider(otherModels);
+        const usageGroup = {
+            heading: usageGroupName,
+            value: usageModelProviderGroups,
+        };
+
+        if (
+            usageModelProviderGroups.length === 0 &&
+            otherModelProviderGroups.length === 0
+        ) {
+            return [];
         }
 
-        return (
-            <>
-                <SelectGroup className="relative">
-                    <SelectLabel>{getModelUsageLabel(usage)}</SelectLabel>
-
-                    {modelOptions.map((model) => (
-                        <SelectItem key={model.id} value={model.id}>
-                            {getModelOptionLabel(model, aliasFor)}
-                        </SelectItem>
-                    ))}
-                </SelectGroup>
-
-                {otherModels.length > 0 && (
-                    <SelectGroup>
-                        <SelectLabel>Other</SelectLabel>
-
-                        {otherModels.map((model) => (
-                            <SelectItem key={model.id} value={model.id}>
-                                {model.name || model.id}
-                                {" - "}
-                                <span className="text-muted-foreground">
-                                    {model.modelProvider}
-                                </span>
-                            </SelectItem>
-                        ))}
-                    </SelectGroup>
-                )}
-            </>
-        );
+        return otherModelProviderGroups.length > 0
+            ? [
+                  usageGroup,
+                  {
+                      heading: "Other",
+                      value: otherModelProviderGroups,
+                  },
+              ]
+            : [usageGroup];
     }
-}
-
-function getModelOptionLabel(model: Model, aliasFor: ModelAlias) {
-    // if the model name is the same as the suggested model name, show that it's suggested
-    const suggestionName = SUGGESTED_MODEL_SELECTIONS[aliasFor];
-    return (
-        <>
-            {model.name || model.id}{" "}
-            {suggestionName === model.name && (
-                <span className="text-muted-foreground">(Suggested)</span>
-            )}
-            {" - "}
-            <span className="text-muted-foreground">{model.modelProvider}</span>
-        </>
-    );
 }
 
 export function DefaultModelAliasFormDialog({
@@ -314,5 +305,41 @@ export function DefaultModelAliasFormDialog({
                 <DefaultModelAliasForm onSuccess={() => setOpen(false)} />
             </DialogContent>
         </Dialog>
+    );
+}
+
+export function getModelOptionsByModelProvider(
+    models: Model[],
+    suggestions?: string[]
+) {
+    const byModelProviderGroups = filterModelsByActive(models).reduce(
+        (acc, model) => {
+            acc[model.modelProvider] = acc[model.modelProvider] || [];
+            acc[model.modelProvider].push(model);
+            return acc;
+        },
+        {} as Record<string, Model[]>
+    );
+
+    return Object.entries(byModelProviderGroups).map(
+        ([modelProvider, models]) => {
+            return {
+                heading: modelProvider,
+                value: models.sort((a, b) => {
+                    // First compare by suggestion status if suggestions are provided
+                    const aIsSuggested =
+                        a.name && suggestions?.includes(a.name);
+                    const bIsSuggested =
+                        b.name && suggestions?.includes(b.name);
+
+                    if (aIsSuggested !== bIsSuggested) {
+                        return aIsSuggested ? -1 : 1;
+                    }
+
+                    // If suggestion status is the same, sort alphabetically
+                    return (a.name ?? "").localeCompare(b.name ?? "");
+                }),
+            };
+        }
     );
 }

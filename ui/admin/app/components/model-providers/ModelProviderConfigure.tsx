@@ -129,16 +129,19 @@ export function ModelProviderConfigureContent({
 }) {
     const revealModelProvider = useSWR(
         ModelProviderApiService.revealModelProviderById.key(modelProvider.id),
-        ({ modelProviderId }) =>
-            ModelProviderApiService.revealModelProviderById(modelProviderId),
-        {
-            keepPreviousData: true,
-            // 404: no credential found = no need to retry
-            shouldRetryOnError: (error) =>
-                error instanceof NotFoundError &&
-                error.message.toLowerCase().includes("no credential found")
-                    ? false
-                    : true,
+        async ({ modelProviderId }) => {
+            try {
+                return await ModelProviderApiService.revealModelProviderById(
+                    modelProviderId
+                );
+            } catch (error) {
+                // 404: no credential found = just return empty object
+                if (error instanceof NotFoundError) {
+                    return {};
+                }
+                // other errors = continue throw
+                throw error;
+            }
         }
     );
 
@@ -148,7 +151,7 @@ export function ModelProviderConfigureContent({
     return (
         <>
             <DialogHeader className="space-y-0">
-                <DialogTitle className="flex items-center gap-2 px-6 py-4">
+                <DialogTitle className="flex items-center gap-2 px-4 py-4">
                     <ModelProviderIcon modelProvider={modelProvider} />{" "}
                     {modelProvider.configured
                         ? `Configure ${modelProvider.name}`

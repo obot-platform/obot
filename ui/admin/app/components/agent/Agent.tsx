@@ -21,10 +21,11 @@ import { useDebounce } from "~/hooks/useDebounce";
 
 type AgentProps = {
     className?: string;
+    currentThreadId?: string | null;
     onRefresh?: (threadId: string | null) => void;
 };
 
-export function Agent({ className, onRefresh }: AgentProps) {
+export function Agent({ className, currentThreadId, onRefresh }: AgentProps) {
     const { agent, updateAgent, isUpdating, lastUpdated, error } = useAgent();
 
     const [agentUpdates, setAgentUpdates] = useState(agent);
@@ -179,6 +180,7 @@ export function Agent({ className, onRefresh }: AgentProps) {
 
                 <div className="flex gap-2">
                     <PastThreads
+                        currentThreadId={currentThreadId}
                         agentId={agent.id}
                         onThreadSelect={handleThreadSelect}
                     />

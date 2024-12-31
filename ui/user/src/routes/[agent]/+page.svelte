@@ -38,7 +38,9 @@
 
 	{#if $editorVisible}
 		<div class="pt-20 transition-all w-full {splitWindow ? 'md:w-3/5' : ''}" >
-			<Editor />
+			<div class="max-w-[1000px] mx-auto" >
+				<Editor />
+			</div>
 		</div>
 	{/if}
 

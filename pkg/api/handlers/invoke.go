@@ -91,10 +91,13 @@ func (i *InvokeHandler) Invoke(req api.Context) error {
 			return err
 		}
 	} else {
-		synchronous = false
+		if threadID == "" || stepID != "" {
+			synchronous = false
+		}
 		resp, err = i.invoker.Workflow(req.Context(), req.Storage, &wf, string(input), invoke.WorkflowOptions{
-			ThreadName: threadID,
-			StepID:     stepID,
+			Synchronous: synchronous,
+			ThreadName:  threadID,
+			StepID:      stepID,
 		})
 		if err != nil {
 			return err
