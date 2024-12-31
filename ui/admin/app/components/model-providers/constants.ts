@@ -7,6 +7,7 @@ export const CommonModelProviderIds = {
     OPENAI: "openai-model-provider",
     AZURE_OPENAI: "azure-openai-model-provider",
     ANTHROPIC_BEDROCK: "anthropic-bedrock-model-provider",
+    XAI: "xai-model-provider",
 };
 
 export const ModelProviderLinks = {
@@ -20,6 +21,7 @@ export const ModelProviderLinks = {
     [CommonModelProviderIds.OPENAI]: "https://openai.com/",
     [CommonModelProviderIds.ANTHROPIC_BEDROCK]:
         "https://aws.amazon.com/bedrock/claude/",
+    [CommonModelProviderIds.XAI]: "https://x.ai/",
 };
 
 export const ModelProviderConfigurationLinks = {
@@ -105,4 +107,7 @@ export const ModelProviderSensitiveFields: Record<string, boolean | undefined> =
         OBOT_ANTHROPIC_BEDROCK_MODEL_PROVIDER_SECRET_ACCESS_KEY: true,
         OBOT_ANTHROPIC_BEDROCK_MODEL_PROVIDER_SESSION_TOKEN: true,
         OBOT_ANTHROPIC_BEDROCK_MODEL_PROVIDER_REGION: false,
+
+        // xAI
+        OBOT_XAI_MODEL_PROVIDER_API_KEY: true,
     };
