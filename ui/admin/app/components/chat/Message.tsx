@@ -1,5 +1,5 @@
 import "@radix-ui/react-tooltip";
-import { WrenchIcon } from "lucide-react";
+import { AlertCircleIcon, WrenchIcon } from "lucide-react";
 import React, { useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import Markdown, { defaultUrlTransform } from "react-markdown";
@@ -88,6 +88,10 @@ export const Message = React.memo(({ message }: MessageProps) => {
                     })}
                 >
                     <div className="max-w-full overflow-hidden p-4 flex gap-2 items-center pl-[20px]">
+                        {message.aborted && (
+                            <AlertCircleIcon className="w-5 h-5 text-muted-foreground" />
+                        )}
+
                         {toolCall?.metadata?.icon && (
                             <ToolIcon
                                 icon={toolCall.metadata.icon}
