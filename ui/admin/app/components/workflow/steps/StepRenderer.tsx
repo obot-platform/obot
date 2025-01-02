@@ -1,16 +1,11 @@
-import { Step } from "~/lib/model/workflows";
-
 import { IfContent } from "~/components/workflow/steps/IfContent";
 import { StepBase } from "~/components/workflow/steps/StepBase";
 import { StepContent } from "~/components/workflow/steps/StepContent";
 import { TemplateComponent } from "~/components/workflow/steps/Template";
 import { WhileContent } from "~/components/workflow/steps/WhileContent";
+import type { StepRendererProps } from "~/components/workflow/steps/step-renderer-helpers";
 
-export function renderStep(
-    step: Step,
-    onUpdate: (updatedStep: Step) => void,
-    onDelete: () => void
-) {
+export function renderStep({ step, onUpdate, onDelete }: StepRendererProps) {
     if (step.template) {
         return (
             <TemplateComponent

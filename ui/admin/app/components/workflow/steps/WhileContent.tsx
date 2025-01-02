@@ -1,7 +1,9 @@
 import { Step, While } from "~/lib/model/workflows";
 
+import { SortableList } from "~/components/ui/dnd/sortable";
 import { Input } from "~/components/ui/input";
 import { AddStepButton } from "~/components/workflow/steps/AddStep";
+import type { StepRenderer } from "~/components/workflow/steps/step-renderer-helpers";
 
 export function WhileContent({
     whileCondition,
@@ -10,11 +12,7 @@ export function WhileContent({
 }: {
     whileCondition: While;
     onUpdate: (updatedWhile: While) => void;
-    renderStep: (
-        step: Step,
-        onUpdate: (updatedStep: Step) => void,
-        onDelete: () => void
-    ) => React.ReactNode;
+    renderStep: StepRenderer;
     className?: string;
 }) {
     const addStep = (newStep: Step) => {
@@ -63,16 +61,22 @@ export function WhileContent({
 
             <div className="space-y-2">
                 <h4 className="font-semibold">Steps:</h4>
-                {whileCondition.steps?.map((step, index) => (
-                    <div key={index} className="ml-4">
-                        {renderStep(
+                <SortableList
+                    items={whileCondition.steps || []}
+                    renderItem={(step, index) =>
+                        renderStep({
                             step,
-                            (updatedStep) =>
+                            onUpdate: (updatedStep) =>
                                 updateNestedStep(index, updatedStep),
-                            () => deleteNestedStep(index)
-                        )}
-                    </div>
-                ))}
+                            onDelete: () => deleteNestedStep(index),
+                        })
+                    }
+                    getKey={(step) => step.id}
+                    onChange={(newSteps) =>
+                        onUpdate({ ...whileCondition, steps: newSteps })
+                    }
+                    isHandle={false}
+                />
 
                 <div className="ml-4">
                     <AddStepButton onAddStep={addStep} />

@@ -1,6 +1,8 @@
 import { If, Step } from "~/lib/model/workflows";
 
+import { SortableList } from "~/components/ui/dnd/sortable";
 import { AddStepButton } from "~/components/workflow/steps/AddStep";
+import type { StepRenderer } from "~/components/workflow/steps/step-renderer-helpers";
 
 export function IfContent({
     ifCondition,
@@ -9,11 +11,7 @@ export function IfContent({
 }: {
     ifCondition: If;
     onUpdate: (updatedIf: If) => void;
-    renderStep: (
-        step: Step,
-        onUpdate: (updatedStep: Step) => void,
-        onDelete: () => void
-    ) => React.ReactNode;
+    renderStep: StepRenderer;
     className?: string;
 }) {
     const addStep = (branch: "steps" | "else") => (newStep: Step) => {
@@ -44,32 +42,47 @@ export function IfContent({
         <div className="p-3 space-y-4">
             <div className="space-y-2">
                 <h4 className="font-semibold">Then:</h4>
-                {ifCondition.steps?.map((step, index) => (
-                    <div key={index} className="ml-4">
-                        {renderStep(
+
+                <SortableList
+                    items={ifCondition.steps || []}
+                    renderItem={(step, index) =>
+                        renderStep({
                             step,
-                            (updatedStep) =>
+                            onDelete: () => deleteNestedStep("steps", index),
+                            onUpdate: (updatedStep) =>
                                 updateNestedStep("steps", index, updatedStep),
-                            () => deleteNestedStep("steps", index)
-                        )}
-                    </div>
-                ))}
+                        })
+                    }
+                    getKey={(step) => step.id}
+                    onChange={(newSteps) =>
+                        onUpdate({ ...ifCondition, steps: newSteps })
+                    }
+                    isHandle={false}
+                />
+
                 <div className="ml-4">
                     <AddStepButton onAddStep={addStep("steps")} />
                 </div>
             </div>
             <div className="space-y-2">
                 <h4 className="font-semibold">Else:</h4>
-                {ifCondition.else?.map((step, index) => (
-                    <div key={index} className="ml-4">
-                        {renderStep(
+                <SortableList
+                    items={ifCondition.else || []}
+                    renderItem={(step, index) =>
+                        renderStep({
                             step,
-                            (updatedStep) =>
+                            onDelete: () => deleteNestedStep("else", index),
+                            onUpdate: (updatedStep) =>
                                 updateNestedStep("else", index, updatedStep),
-                            () => deleteNestedStep("else", index)
-                        )}
-                    </div>
-                ))}
+                        })
+                    }
+                    getKey={(step) => step.id}
+                    onChange={(newSteps) =>
+                        onUpdate({ ...ifCondition, else: newSteps })
+                    }
+                    isHandle={false}
+                />
+
                 <div className="ml-4">
                     <AddStepButton onAddStep={addStep("else")} />
                 </div>
