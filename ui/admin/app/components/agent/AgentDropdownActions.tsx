@@ -15,7 +15,7 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from "~/components/ui/dropdown-menu";
-import { useConfirmationDialog } from "~/hooks/component-helpers/useConfirmationDropdown";
+import { useConfirmationDialog } from "~/hooks/component-helpers/useConfirmationDialog";
 import { useAsync } from "~/hooks/useAsync";
 
 export function AgentDropdownActions({ agent }: { agent: Agent }) {

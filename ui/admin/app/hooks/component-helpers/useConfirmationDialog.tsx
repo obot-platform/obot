@@ -1,10 +1,9 @@
-import { ComponentProps, useCallback, useState } from "react";
+import { useCallback, useState } from "react";
 
 import { noop } from "~/lib/utils";
 
-import { ConfirmationDialog } from "~/components/composed/ConfirmationDialog";
+import { ConfirmationDialogProps } from "~/components/composed/ConfirmationDialog";
 
-type ConfirmationDialogProps = ComponentProps<typeof ConfirmationDialog>;
 type Handler = (e: React.MouseEvent<HTMLButtonElement>) => void;
 type AsyncHandler = (
     e: React.MouseEvent<HTMLButtonElement>

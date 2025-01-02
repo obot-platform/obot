@@ -4,11 +4,35 @@ import { useState } from "react";
 import { Step, StepType, getDefaultStep } from "~/lib/model/workflows";
 import { cn } from "~/lib/utils";
 
+import {
+    ConfirmationDialog,
+    ConfirmationDialogProps,
+} from "~/components/composed/ConfirmationDialog";
 import { Button } from "~/components/ui/button";
 import { useDndContext } from "~/components/ui/dnd";
 import { SortableHandle } from "~/components/ui/dnd/sortable";
 import { AutosizeTextarea } from "~/components/ui/textarea";
 import { StepTypeSelect } from "~/components/workflow/steps/StepTypeSelect";
+import { useConfirmationDialog } from "~/hooks/component-helpers/useConfirmationDialog";
+
+const DeleteStepDialogProps: Partial<ConfirmationDialogProps> = {
+    title: "Delete Step?",
+    description:
+        "Are you sure you want to delete this step? You will lose all data associated with it.",
+    confirmProps: {
+        children: "Delete",
+        variant: "destructive",
+    },
+};
+
+const UpdateStepTypeDialogProps: Partial<ConfirmationDialogProps> = {
+    title: "Update Step Type?",
+    description:
+        "Are you sure you want to update the step type? This will reset all step data.",
+    confirmProps: {
+        children: "Update",
+    },
+};
 
 export function StepBase({
     className,
@@ -33,6 +57,19 @@ export function StepBase({
 
     const fieldConfig = getTextFieldConfig();
 
+    const { intercept, dialogProps } = useConfirmationDialog();
+
+    const handleDelete = () =>
+        intercept(() => onDelete(), DeleteStepDialogProps);
+
+    const handleUpdateType = (newType: StepType) => {
+        if (newType !== type) {
+            intercept(
+                () => onUpdate(getDefaultStep(newType)),
+                UpdateStepTypeDialogProps
+            );
+        }
+    };
     return (
         <div className={cn("border rounded-md bg-background", className)}>
             <div
@@ -60,14 +97,7 @@ export function StepBase({
                         )}
                     </Button>
 
-                    <StepTypeSelect
-                        value={type}
-                        onChange={(newType) => {
-                            if (newType !== type) {
-                                onUpdate(getDefaultStep(newType));
-                            }
-                        }}
-                    />
+                    <StepTypeSelect value={type} onChange={handleUpdateType} />
                 </div>
 
                 <AutosizeTextarea
@@ -85,11 +115,13 @@ export function StepBase({
                     size="icon"
                     onClick={(e) => {
                         e.stopPropagation();
-                        onDelete();
+                        handleDelete();
                     }}
                 >
                     <Trash className="w-4 h-4" />
                 </Button>
+
+                <ConfirmationDialog {...dialogProps} />
             </div>
 
             {showExpanded && children}
