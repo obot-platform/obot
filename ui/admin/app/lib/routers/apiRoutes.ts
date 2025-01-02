@@ -280,6 +280,14 @@ export const ApiRoutes = {
             buildUrl(`/webhooks/${webhookId}`),
         invoke: (webhookId: string) => buildUrl(`/webhooks/${webhookId}`),
     },
+    cronjobs: {
+        getCronJobs: () => buildUrl("/cronjobs"),
+        createCronJob: () => buildUrl("/cronjobs"),
+        deleteCronJob: (cronJobId: string) =>
+            buildUrl(`/cronjobs/${cronJobId}`),
+        updateCronJob: (cronJobId: string) =>
+            buildUrl(`/cronjobs/${cronJobId}`),
+    },
     version: () => buildUrl("/version"),
 };
 

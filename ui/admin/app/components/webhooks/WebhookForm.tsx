@@ -31,17 +31,21 @@ import {
     useWebhookFormContext,
 } from "~/components/webhooks/WebhookFormContext";
 
-type WebhookFormProps = WebhookFormContextProps;
+type WebhookFormContentProps = {
+    hideTitle?: boolean;
+};
 
-export function WebhookForm(props: WebhookFormProps) {
+type WebhookFormProps = WebhookFormContextProps & WebhookFormContentProps;
+
+export function WebhookForm({ hideTitle, ...props }: WebhookFormProps) {
     return (
         <WebhookFormContextProvider {...props}>
-            <WebhookFormContent />
+            <WebhookFormContent hideTitle={hideTitle} />
         </WebhookFormContextProvider>
     );
 }
 
-export function WebhookFormContent() {
+export function WebhookFormContent({ hideTitle }: WebhookFormContentProps) {
     const { form, handleSubmit, isLoading, isEdit, hasSecret } =
         useWebhookFormContext();
 
@@ -61,9 +65,11 @@ export function WebhookFormContent() {
                 className="space-y-8 p-8 max-w-3xl mx-auto"
                 onSubmit={handleSubmit}
             >
-                <TypographyH2>
-                    {isEdit ? "Edit Webhook" : "Create Webhook"}
-                </TypographyH2>
+                {!hideTitle && (
+                    <TypographyH2>
+                        {isEdit ? "Edit Webhook" : "Create Webhook"}
+                    </TypographyH2>
+                )}
 
                 <ControlledInput control={control} name="name" label="Name" />
 

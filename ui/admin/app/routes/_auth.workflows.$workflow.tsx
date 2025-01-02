@@ -10,6 +10,8 @@ import {
 import { $path } from "safe-routes";
 import useSWR, { preload } from "swr";
 
+import { CronJobApiService } from "~/lib/service/api/cronjobApiService";
+import { WebhookApiService } from "~/lib/service/api/webhookApiService";
 import { WorkflowService } from "~/lib/service/api/workflowService";
 import { RouteHandle } from "~/lib/service/routeHandles";
 import { RouteQueryParams, RouteService } from "~/lib/service/routeService";
@@ -37,10 +39,19 @@ export const clientLoader = async ({
 
     if (!pathParams.workflow) throw redirect($path("/workflows"));
 
-    const workflow = await preload(
-        WorkflowService.getWorkflowById.key(pathParams.workflow),
-        () => WorkflowService.getWorkflowById(pathParams.workflow)
-    );
+    const promises = await Promise.all([
+        preload(WorkflowService.getWorkflowById.key(pathParams.workflow), () =>
+            WorkflowService.getWorkflowById(pathParams.workflow)
+        ),
+        preload(CronJobApiService.getCronJobs.key(), () =>
+            CronJobApiService.getCronJobs()
+        ),
+        preload(WebhookApiService.getWebhooks.key(), () =>
+            WebhookApiService.getWebhooks()
+        ),
+    ]);
+
+    const workflow = promises[0];
 
     if (!workflow) throw redirect($path("/workflows"));
 

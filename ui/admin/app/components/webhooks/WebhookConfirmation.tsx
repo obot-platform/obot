@@ -5,6 +5,7 @@ import { cn } from "~/lib/utils";
 
 import { TypographyP } from "~/components/Typography";
 import { CopyText } from "~/components/composed/CopyText";
+import { Button } from "~/components/ui/button";
 import {
     Dialog,
     DialogContent,
@@ -23,6 +24,7 @@ export type WebhookConfirmationProps = {
     type?: "github";
     tokenRemoved: boolean;
     secretRemoved: boolean;
+    onContinue?: () => void;
 };
 
 export const WebhookConfirmation = ({
@@ -33,6 +35,7 @@ export const WebhookConfirmation = ({
     type: _type = "github",
     tokenRemoved: _tokenRemoved,
     secretRemoved,
+    onContinue,
 }: WebhookConfirmationProps) => {
     // note(ryanhopperlowe): commenting out as to not lose the logic here
     // const showUrlChange =
@@ -85,13 +88,17 @@ export const WebhookConfirmation = ({
                 </div>
 
                 <DialogFooter>
-                    <Link
-                        as="button"
-                        className="w-full"
-                        to={$path("/webhooks")}
-                    >
-                        Continue
-                    </Link>
+                    {onContinue ? (
+                        <Button onClick={onContinue}>Continue</Button>
+                    ) : (
+                        <Link
+                            as="button"
+                            className="w-full"
+                            to={$path("/webhooks")}
+                        >
+                            Continue
+                        </Link>
+                    )}
                 </DialogFooter>
             </DialogContent>
         </Dialog>

@@ -17,6 +17,7 @@ import { useAsync } from "~/hooks/useAsync";
 
 export type WebhookFormContextProps = {
     webhook?: Webhook;
+    onContinue?: () => void;
 };
 
 type WebhookFormContextType = {
@@ -38,6 +39,7 @@ const EditSchema = WebhookSchema.extend({
 export function WebhookFormContextProvider({
     children,
     webhook,
+    onContinue,
 }: WebhookFormContextProps & { children: React.ReactNode }) {
     const webhookId = webhook?.id;
 
@@ -107,7 +109,10 @@ export function WebhookFormContextProvider({
                 {children}
 
                 {webhookConfirmation && (
-                    <WebhookConfirmation {...webhookConfirmation} />
+                    <WebhookConfirmation
+                        onContinue={onContinue}
+                        {...webhookConfirmation}
+                    />
                 )}
             </Context.Provider>
         </Form>

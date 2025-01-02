@@ -16,6 +16,8 @@ import {
     WorkflowProvider,
     useWorkflow,
 } from "~/components/workflow/WorkflowContext";
+import { WorkflowSchedulePanel } from "~/components/workflow/WorkflowSchedulePanel";
+import { WorkflowWebhookPanel } from "~/components/workflow/WorkflowWebhookPanel";
 import { StepsForm } from "~/components/workflow/steps/StepsForm";
 import { useDebounce } from "~/hooks/useDebounce";
 
@@ -151,6 +153,9 @@ function WorkflowContent({ className }: WorkflowProps) {
                         }}
                     />
                 </div>
+
+                <WorkflowSchedulePanel workflowId={workflow.id} />
+                <WorkflowWebhookPanel workflowId={workflow.id} />
             </ScrollArea>
 
             <footer className="flex justify-between items-center p-4 gap-4 border-t text-muted-foreground">
