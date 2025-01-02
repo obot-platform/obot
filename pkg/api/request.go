@@ -29,6 +29,7 @@ type Context struct {
 	GPTClient  *gptscript.GPTScript
 	Storage    storage.Client
 	User       user.Info
+	Trigger    func(runtime.Object) error
 	APIBaseURL string
 }
 

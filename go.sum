@@ -507,8 +507,6 @@ github.com/oauth2-proxy/mockoidc v0.0.0-20240214162133-caebfff84d25 h1:9bCMuD3Tc
 github.com/oauth2-proxy/mockoidc v0.0.0-20240214162133-caebfff84d25/go.mod h1:eDjgYHYDJbPLBLsyZ6qRaugP0mX8vePOhZ5id1fdzJw=
 github.com/obot-platform/kinm v0.0.0-20241217210842-81947252da4e h1:Jchy17OBIk+l8Rd2Z1TNWtJx8ssw/Hv4sJd+HKoA/RM=
 github.com/obot-platform/kinm v0.0.0-20241217210842-81947252da4e/go.mod h1:RzrH0geIlbiTHDGZ8bpCk5k1hwdU9uu3l4zJn9n0pZU=
-github.com/obot-platform/nah v0.0.0-20241217120500-e9169e4a999f h1:yyexIHgaPtNrfaPLxDx+xbnibJTKKJK05jDDlIqXC04=
-github.com/obot-platform/nah v0.0.0-20241217120500-e9169e4a999f/go.mod h1:KG1jLO9FeYvCPGI0iDqe5oqDqOFLd3/dt/iwuMianmI=
 github.com/obot-platform/namegenerator v0.0.0-20241217121223-fc58bdb7dca2 h1:jiyBM/TYxU6UNVS9ff8Y8n55DOKDYohKkIZjfHpjfTY=
 github.com/obot-platform/namegenerator v0.0.0-20241217121223-fc58bdb7dca2/go.mod h1:isbKX6EfvvG/ojjFB2ZLyz27+2xoG3yRmpTSE+ytWEs=
 github.com/obot-platform/oauth2-proxy/v7 v7.0.0-20241008204315-265dabe17f43 h1:mlwIf3/uOo0ISweKuyFHhvPzSut4oQeWWpTkzsmTPgE=

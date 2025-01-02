@@ -275,7 +275,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		Router:                r,
 		GPTClient:             c,
 		APIServer: server.NewServer(storageClient, c, authn.NewAuthenticator(authenticators),
-			authz.NewAuthorizer(storageClient), proxyServer, config.Hostname),
+			authz.NewAuthorizer(storageClient), proxyServer, r.Backend().EnqueueObject, config.Hostname),
 		TokenServer:                tokenServer,
 		Invoker:                    invoker,
 		AIHelper:                   aihelper.New(c, config.HelperModel),

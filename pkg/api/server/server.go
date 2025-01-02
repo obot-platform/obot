@@ -14,6 +14,7 @@ import (
 	"github.com/obot-platform/obot/pkg/proxy"
 	"github.com/obot-platform/obot/pkg/storage"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/runtime"
 )
 
 type Server struct {
@@ -22,18 +23,20 @@ type Server struct {
 	authenticator *authn.Authenticator
 	authorizer    *authz.Authorizer
 	proxyServer   *proxy.Proxy
+	triggerFunc   func(runtime.Object) error
 	baseURL       string
 
 	mux *http.ServeMux
 }
 
-func NewServer(storageClient storage.Client, gptClient *gptscript.GPTScript, authn *authn.Authenticator, authz *authz.Authorizer, proxyServer *proxy.Proxy, baseURL string) *Server {
+func NewServer(storageClient storage.Client, gptClient *gptscript.GPTScript, authn *authn.Authenticator, authz *authz.Authorizer, proxyServer *proxy.Proxy, triggerFunc func(runtime.Object) error, baseURL string) *Server {
 	return &Server{
 		storageClient: storageClient,
 		gptClient:     gptClient,
 		authenticator: authn,
 		authorizer:    authz,
 		proxyServer:   proxyServer,
+		triggerFunc:   triggerFunc,
 		baseURL:       baseURL + "/api",
 
 		mux: http.NewServeMux(),
@@ -94,6 +97,7 @@ func (s *Server) wrap(f api.HandlerFunc) http.HandlerFunc {
 			GPTClient:      s.gptClient,
 			Storage:        s.storageClient,
 			User:           user,
+			Trigger:        s.triggerFunc,
 			APIBaseURL:     s.baseURL,
 		})
 		if errHTTP := (*types.ErrHTTP)(nil); errors.As(err, &errHTTP) {

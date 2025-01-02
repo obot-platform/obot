@@ -14,6 +14,7 @@ import (
 	"github.com/gptscript-ai/go-gptscript"
 	gtypes "github.com/gptscript-ai/gptscript/pkg/types"
 	"github.com/obot-platform/nah/pkg/apply"
+	"github.com/obot-platform/nah/pkg/backend"
 	"github.com/obot-platform/nah/pkg/name"
 	"github.com/obot-platform/nah/pkg/router"
 	"github.com/obot-platform/obot/apiclient/types"
@@ -268,7 +269,7 @@ func (h *Handler) Populate(req router.Request, resp router.Response) error {
 	return nil
 }
 
-func (h *Handler) EnsureOpenAIEnvCredentialAndDefaults(ctx context.Context, c client.Client) error {
+func (h *Handler) EnsureOpenAIEnvCredentialAndDefaults(ctx context.Context, c backend.Backend) error {
 	if os.Getenv("OPENAI_API_KEY") == "" {
 		return nil
 	}
@@ -349,16 +350,11 @@ func (h *Handler) EnsureOpenAIEnvCredentialAndDefaults(ctx context.Context, c cl
 		return nil
 	}
 
-	if openAIModelProvider.Annotations[v1.ModelProviderSyncAnnotation] != "" {
-		delete(openAIModelProvider.Annotations, v1.ModelProviderSyncAnnotation)
-	} else {
-		if openAIModelProvider.Annotations == nil {
-			openAIModelProvider.Annotations = make(map[string]string)
-		}
-		openAIModelProvider.Annotations[v1.ModelProviderSyncAnnotation] = "true"
+	if err := c.EnqueueObject(&openAIModelProvider); err != nil {
+		return fmt.Errorf("failed to update model provider: %w", err)
 	}
 
-	return c.Update(ctx, &openAIModelProvider)
+	return nil
 }
 
 func (h *Handler) BackPopulateModels(req router.Request, _ router.Response) error {

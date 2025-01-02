@@ -13,8 +13,6 @@ const (
 	KnowledgeSetFinalizer    = "otto.otto8.ai/knowledge-set"
 	KnowledgeSourceFinalizer = "otto.otto8.ai/knowledge-source"
 	ToolReferenceFinalizer   = "otto.otto8.ai/tool-reference"
-
-	ModelProviderSyncAnnotation = "otto8.ai/model-provider-sync"
 )
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

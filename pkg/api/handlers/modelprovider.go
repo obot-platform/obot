@@ -126,16 +126,11 @@ func (mp *ModelProviderHandler) Configure(req api.Context) error {
 
 	mp.dispatcher.StopModelProvider(ref.Namespace, ref.Name)
 
-	if ref.Annotations[v1.ModelProviderSyncAnnotation] == "" {
-		if ref.Annotations == nil {
-			ref.Annotations = make(map[string]string, 1)
-		}
-		ref.Annotations[v1.ModelProviderSyncAnnotation] = "true"
-	} else {
-		delete(ref.Annotations, v1.ModelProviderSyncAnnotation)
+	if err := req.Trigger(&ref); err != nil {
+		return fmt.Errorf("failed to update model provider: %w", err)
 	}
 
-	return req.Update(&ref)
+	return nil
 }
 
 func (mp *ModelProviderHandler) Deconfigure(req api.Context) error {
@@ -155,16 +150,11 @@ func (mp *ModelProviderHandler) Deconfigure(req api.Context) error {
 	// Stop the model provider so that the credential is completely removed from the system.
 	mp.dispatcher.StopModelProvider(ref.Namespace, ref.Name)
 
-	if ref.Annotations[v1.ModelProviderSyncAnnotation] == "" {
-		if ref.Annotations == nil {
-			ref.Annotations = make(map[string]string, 1)
-		}
-		ref.Annotations[v1.ModelProviderSyncAnnotation] = "true"
-	} else {
-		delete(ref.Annotations, v1.ModelProviderSyncAnnotation)
+	if err := req.Trigger(&ref); err != nil {
+		return fmt.Errorf("failed to update model provider: %w", err)
 	}
 
-	return req.Update(&ref)
+	return nil
 }
 
 func (mp *ModelProviderHandler) Reveal(req api.Context) error {
@@ -214,17 +204,8 @@ func (mp *ModelProviderHandler) RefreshModels(req api.Context) error {
 		return types.NewErrBadRequest("model provider %s is not configured, missing configuration parameters: %s", modelProvider.ModelProviderManifest.Name, strings.Join(modelProvider.MissingConfigurationParameters, ", "))
 	}
 
-	if ref.Annotations[v1.ModelProviderSyncAnnotation] == "" {
-		if ref.Annotations == nil {
-			ref.Annotations = make(map[string]string, 1)
-		}
-		ref.Annotations[v1.ModelProviderSyncAnnotation] = "true"
-	} else {
-		delete(ref.Annotations, v1.ModelProviderSyncAnnotation)
-	}
-
-	if err := req.Update(&ref); err != nil {
-		return fmt.Errorf("failed to sync models for model provider %q: %w", ref.Name, err)
+	if err := req.Trigger(&ref); err != nil {
+		return fmt.Errorf("failed to update model provider: %w", err)
 	}
 
 	return req.Write(modelProvider)
