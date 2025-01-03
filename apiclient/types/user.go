@@ -20,6 +20,7 @@ type User struct {
 	Role     Role   `json:"role,omitempty"`
 	Email    string `json:"email,omitempty"`
 	IconURL  string `json:"iconURL,omitempty"`
+	Timezone string `json:"timezone,omitempty"`
 }
 
 type UserList List[User]

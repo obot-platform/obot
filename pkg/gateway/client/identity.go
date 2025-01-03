@@ -10,7 +10,7 @@ import (
 )
 
 // EnsureIdentity ensures that the given identity exists in the database, and returns the user associated with it.
-func (c *Client) EnsureIdentity(ctx context.Context, id *types.Identity) (*types.User, error) {
+func (c *Client) EnsureIdentity(ctx context.Context, id *types.Identity, timezone string) (*types.User, error) {
 	role := types2.RoleBasic
 	if _, ok := c.adminEmails[id.Email]; ok {
 		role = types2.RoleAdmin
@@ -19,7 +19,7 @@ func (c *Client) EnsureIdentity(ctx context.Context, id *types.Identity) (*types
 	var user *types.User
 	if err := c.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		var err error
-		user, err = EnsureIdentity(tx, id, role)
+		user, err = EnsureIdentity(tx, id, timezone, role)
 		return err
 	}); err != nil {
 		return nil, err
@@ -29,7 +29,7 @@ func (c *Client) EnsureIdentity(ctx context.Context, id *types.Identity) (*types
 }
 
 // EnsureIdentity ensures that the given identity exists in the database, and returns the user associated with it.
-func EnsureIdentity(tx *gorm.DB, id *types.Identity, role types2.Role) (*types.User, error) {
+func EnsureIdentity(tx *gorm.DB, id *types.Identity, timezone string, role types2.Role) (*types.User, error) {
 	email := id.Email
 	if err := tx.First(id).Error; errors.Is(err, gorm.ErrRecordNotFound) {
 		if err = tx.Create(id).Error; err != nil {
@@ -69,8 +69,18 @@ func EnsureIdentity(tx *gorm.DB, id *types.Identity, role types2.Role) (*types.U
 		return nil, err
 	}
 
+	var userChanged bool
 	if user.Role != role {
 		user.Role = role
+		userChanged = true
+	}
+
+	if user.Timezone == "" && timezone != "" {
+		user.Timezone = timezone
+		userChanged = true
+	}
+
+	if userChanged {
 		if err := tx.Updates(user).Error; err != nil {
 			return nil, err
 		}

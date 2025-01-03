@@ -19,7 +19,14 @@ import {
 } from './types';
 
 export async function getProfile(): Promise<Profile> {
-	const obj = (await doGet('/me')) as Profile;
+	const obj = (await doGet('/me', {
+		headers: {
+			// Pass the browser timezone as a request header.
+			// This is consumed during authentication to set the user's default timezone in Obot.
+			// The timezone is plumbed down to tools at runtime as an environment variable.
+			'x-obot-user-timezone': Intl.DateTimeFormat().resolvedOptions().timeZone,
+		}
+	})) as Profile;
 	obj.isAdmin = () => {
 		return obj.role === 1;
 	};
