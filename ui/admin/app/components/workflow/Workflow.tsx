@@ -7,8 +7,8 @@ import { cn } from "~/lib/utils";
 
 import { TypographyH4, TypographyP } from "~/components/Typography";
 import { AgentForm } from "~/components/agent";
-import { AgentAuthentication } from "~/components/agent/shared/AgentAuthentication";
 import { EnvironmentVariableSection } from "~/components/agent/shared/EnvironmentVariableSection";
+import { ToolAuthenticationStatus } from "~/components/agent/shared/ToolAuthenticationStatus";
 import { AgentKnowledgePanel } from "~/components/knowledge";
 import { BasicToolForm } from "~/components/tools/BasicToolForm";
 import { CardDescription } from "~/components/ui/card";
@@ -91,7 +91,7 @@ function WorkflowContent({ className }: WorkflowProps) {
                         value={workflow.tools}
                         onChange={(tools) => partialSetWorkflow({ tools })}
                         renderActions={(tool) => (
-                            <AgentAuthentication
+                            <ToolAuthenticationStatus
                                 namespace={AssistantNamespace.Workflows}
                                 entityId={workflow.id}
                                 tool={tool}

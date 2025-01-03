@@ -22,7 +22,7 @@ type AgentAuthenticationDialogProps = {
     tool: string;
 };
 
-export function AgentAuthenticationDialog({
+export function ToolAuthenticationDialog({
     onComplete,
     threadId,
     entityId,

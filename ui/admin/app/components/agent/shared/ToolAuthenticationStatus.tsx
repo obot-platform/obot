@@ -6,9 +6,16 @@ import { ThreadsService } from "~/lib/service/api/threadsService";
 import { ToolAuthApiService } from "~/lib/service/api/toolAuthApiService";
 
 import { useToolReference } from "~/components/agent/ToolEntry";
-import { AgentAuthenticationDialog } from "~/components/agent/shared/AgentAuthenticationDialog";
+import { ToolAuthenticationDialog } from "~/components/agent/shared/ToolAuthenticationDialog";
 import { ConfirmationDialog } from "~/components/composed/ConfirmationDialog";
 import { Button } from "~/components/ui/button";
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuLabel,
+    DropdownMenuTrigger,
+} from "~/components/ui/dropdown-menu";
 import {
     Tooltip,
     TooltipContent,
@@ -26,7 +33,7 @@ type AgentAuthenticationProps = {
     namespace: AssistantNamespace;
 };
 
-export function AgentAuthentication({
+export function ToolAuthenticationStatus({
     tool,
     entityId,
     onUpdate,
@@ -73,10 +80,6 @@ export function AgentAuthentication({
         onUpdate({ ...toolInfo, authorized: true });
     };
 
-    const handleClick = authorized
-        ? () => interceptAsync(handleDeauthorize)
-        : handleAuthorize;
-
     const loading = authorize.isLoading || cancelAuthorize.isLoading;
 
     const { icon, label } = useToolReference(tool);
@@ -97,23 +100,49 @@ export function AgentAuthentication({
     return (
         <>
             <Tooltip>
-                <TooltipTrigger asChild>
-                    <Button
-                        size="icon"
-                        variant="ghost"
-                        onClick={handleClick}
-                        loading={loading}
-                    >
-                        {authorized ? <UserRoundCheckIcon /> : <ScanEyeIcon />}
-                    </Button>
-                </TooltipTrigger>
+                <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                        <TooltipTrigger asChild>
+                            <Button
+                                size="icon"
+                                variant="ghost"
+                                loading={loading}
+                            >
+                                {authorized ? (
+                                    <UserRoundCheckIcon />
+                                ) : (
+                                    <ScanEyeIcon />
+                                )}
+                            </Button>
+                        </TooltipTrigger>
+                    </DropdownMenuTrigger>
 
-                <TooltipContent>
-                    {authorized ? "Remove authorization" : "Authorize tool"}
-                </TooltipContent>
+                    <DropdownMenuContent side="right" align="start">
+                        <DropdownMenuLabel>
+                            {authorized ? "Authorized" : "Unauthorized"}
+                        </DropdownMenuLabel>
+
+                        {authorized ? (
+                            <DropdownMenuItem
+                                variant="destructive"
+                                onClick={() =>
+                                    interceptAsync(handleDeauthorize)
+                                }
+                            >
+                                Remove Authorization
+                            </DropdownMenuItem>
+                        ) : (
+                            <DropdownMenuItem onClick={handleAuthorize}>
+                                Authorize Tool
+                            </DropdownMenuItem>
+                        )}
+                    </DropdownMenuContent>
+                </DropdownMenu>
+
+                <TooltipContent>Authorization Status</TooltipContent>
             </Tooltip>
 
-            <AgentAuthenticationDialog
+            <ToolAuthenticationDialog
                 tool={tool}
                 entityId={entityId}
                 threadId={threadId}
