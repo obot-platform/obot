@@ -27,6 +27,7 @@ import (
 	"github.com/obot-platform/obot/pkg/gateway/db"
 	gserver "github.com/obot-platform/obot/pkg/gateway/server"
 	"github.com/obot-platform/obot/pkg/gateway/server/dispatcher"
+	"github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/invoke"
 	"github.com/obot-platform/obot/pkg/jwt"
 	"github.com/obot-platform/obot/pkg/proxy"
@@ -252,6 +253,15 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		authenticators = union.New(authenticators, tokenServer)
 		// Add anonymous user authenticator
 		authenticators = union.New(authenticators, authn.Anonymous{})
+
+		// Clean up "nobody" user from previous "Authentication Disabled" runs.
+		// This reduces the chance that someone could authenticate as "nobody" and get admin access once authentication
+		// is enabled.
+		if err := gatewayClient.RemoveIdentity(ctx, &types.Identity{
+			ProviderUsername: "nobody",
+		}); err != nil {
+			return nil, fmt.Errorf(`failed to remove "nobody" user and identity from database: %w`, err)
+		}
 	} else {
 		// "Authentication Disabled" flow
 
@@ -259,7 +269,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		authenticators = client.NewUserDecorator(authenticators, gatewayClient)
 
 		// Add no auth authenticator
-		authenticators = union.New(authenticators, authn.NoAuth{})
+		authenticators = union.New(authenticators, authn.NewNoAuth(gatewayClient))
 	}
 
 	if config.EmailServerName != "" {

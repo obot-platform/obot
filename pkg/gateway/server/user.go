@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/gptscript-ai/gptscript/pkg/mvl"
 	types2 "github.com/obot-platform/obot/apiclient/types"
@@ -25,6 +26,7 @@ func (s *Server) getCurrentUser(apiContext api.Context) error {
 		return apiContext.Write(types2.User{
 			Username: apiContext.User.GetName(),
 			Role:     role,
+			Timezone: apiContext.UserTimezone(),
 		})
 	} else if err != nil {
 		return err
@@ -105,6 +107,14 @@ func (s *Server) updateUser(apiContext api.Context) error {
 			}
 
 			existingUser.Username = user.Username
+		}
+
+		// Anyone can update their timezone
+		if user.Timezone != "" && user.Timezone != existingUser.Timezone {
+			if _, err := time.LoadLocation(user.Timezone); err != nil {
+				return types2.NewErrHttp(http.StatusBadRequest, "invalid timezone")
+			}
+			existingUser.Timezone = user.Timezone
 		}
 
 		// Only admins can change user roles.

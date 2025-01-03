@@ -91,6 +91,7 @@ func (a *AssistantHandler) Invoke(req api.Context) error {
 
 	resp, err := a.invoker.Agent(req.Context(), req.Storage, agent, string(input), invoke.Options{
 		ThreadName: thread.Name,
+		UserUID:    req.User.GetUID(),
 	})
 	if err != nil {
 		return err

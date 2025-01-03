@@ -483,14 +483,14 @@ func (i *Invoker) Resume(ctx context.Context, c kclient.WithWatch, thread *v1.Th
 		return err
 	}
 
-	var userID, userName, userEmail string
-	if thread.Spec.UserUID != "" && thread.Spec.UserUID != "nobody" {
+	var userID, userName, userEmail, userTimezone string
+	if thread.Spec.UserUID != "" {
 		u, err := i.gatewayClient.UserByID(ctx, thread.Spec.UserUID)
 		if err != nil {
 			return fmt.Errorf("failed to get user: %w", err)
 		}
 
-		userID, userName, userEmail = thread.Spec.UserUID, u.Username, u.Email
+		userID, userName, userEmail, userTimezone = thread.Spec.UserUID, u.Username, u.Email, u.Timezone
 	}
 
 	token, err := i.tokenService.NewToken(jwt.TokenContext{
@@ -534,6 +534,7 @@ func (i *Invoker) Resume(ctx context.Context, c kclient.WithWatch, thread *v1.Th
 				"OBOT_USER_ID="+userID,
 				"OBOT_USER_NAME="+userName,
 				"OBOT_USER_EMAIL="+userEmail,
+				"OBOT_USER_TIMEZONE="+userTimezone,
 				"OBOT_NO_REPLY_EMAIL="+i.noReplyEmailAddress,
 				"GPTSCRIPT_HTTP_ENV=OBOT_TOKEN,OBOT_RUN_ID,OBOT_THREAD_ID,OBOT_WORKFLOW_ID,OBOT_WORKFLOW_STEP_ID,OBOT_AGENT_ID,OBOT_NO_REPLY_EMAIL",
 			),

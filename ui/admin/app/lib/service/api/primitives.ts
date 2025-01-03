@@ -16,6 +16,10 @@ export const ResponseHeaders = {
     ThreadId: "x-otto-thread-id",
 } as const;
 
+export const RequestHeaders = {
+    UserTimezone: "x-obot-user-timezone",
+} as const;
+
 const internalFetch = axios.request;
 
 interface ExtendedAxiosRequestConfig<D = unknown>
@@ -29,10 +33,19 @@ export async function request<T, R = AxiosResponse<T>, D = unknown>({
     disableTokenRefresh,
     ...config
 }: ExtendedAxiosRequestConfig<D>): Promise<R> {
+    // Get the browser's default timezone
+    const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
     try {
+        // Merge the existing headers with the new Timezone header
+        const headers = {
+            ...config.headers,
+            [RequestHeaders.UserTimezone]: timezone,
+        };
+
         return await internalFetch<T, R, D>({
             adapter: "fetch",
             ...config,
+            headers,
         });
     } catch (error) {
         if (isAxiosError(error) && error.response?.status === 400) {
@@ -52,6 +65,9 @@ export async function request<T, R = AxiosResponse<T>, D = unknown>({
             console.info("Forbidden request, attempting to refresh token");
             const { data } = await internalFetch<User>({
                 url: ApiRoutes.me().url,
+                headers: {
+                    [RequestHeaders.UserTimezone]: timezone,
+                },
             });
 
             // if token is refreshed successfully, retry the request

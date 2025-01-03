@@ -286,3 +286,7 @@ func (r *Context) AuthProviderID() uint {
 
 	return uint(authProviderID)
 }
+
+func (r *Context) UserTimezone() string {
+	return r.Request.Header.Get("X-Obot-User-Timezone")
+}

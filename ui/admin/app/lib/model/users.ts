@@ -5,6 +5,7 @@ export type User = EntityMeta & {
     email: string;
     role: Role;
     iconURL: string;
+    timezone: string;
 };
 
 export const Role = {

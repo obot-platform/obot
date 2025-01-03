@@ -12,7 +12,15 @@ interface GetOptions {
 }
 
 export async function doGet(path: string, opts?: GetOptions): Promise<unknown> {
-	const resp = await fetch(baseURL + path);
+	const resp = await fetch(baseURL + path, {
+		headers: {
+			// Pass the browser timezone as a request header.
+			// This is consumed during authentication to set the user's default timezone in Obot.
+			// The timezone is plumbed down to tools at runtime as an environment variable.
+			'x-obot-user-timezone': Intl.DateTimeFormat().resolvedOptions().timeZone
+		}
+	});
+
 	if (!resp.ok) {
 		const body = await resp.text();
 		const e = new Error(`${resp.status} ${path}: ${body}`);
