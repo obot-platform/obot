@@ -16,6 +16,7 @@ interface WorkflowContextType {
     workflow: Workflow;
     workflowId: string;
     updateWorkflow: (workflow: Workflow) => void;
+    refreshWorkflow: () => void;
     isUpdating: boolean;
     lastUpdated?: Date;
 }
@@ -32,12 +33,11 @@ export function WorkflowProvider({
     workflow: Workflow;
 }) {
     const workflowId = initialWorkflow.id;
-    const [workflow, setWorkflow] = useState(initialWorkflow);
 
     const getWorkflow = useSWR(
         WorkflowService.getWorkflowById.key(workflowId),
         ({ workflowId }) => WorkflowService.getWorkflowById(workflowId),
-        { fallbackData: workflow }
+        { fallbackData: initialWorkflow }
     );
 
     const [lastUpdated, setLastSaved] = useState<Date>();
@@ -49,7 +49,6 @@ export function WorkflowProvider({
                 workflow: updatedWorkflow,
             })
                 .then((updatedWorkflow) => {
-                    setWorkflow(updatedWorkflow);
                     getWorkflow.mutate(updatedWorkflow);
                     mutate(WorkflowService.getWorkflows.key());
                     setLastSaved(new Date());
@@ -60,12 +59,15 @@ export function WorkflowProvider({
 
     const updateWorkflow = useAsync(handleUpdateWorkflow);
 
+    const refreshWorkflow = getWorkflow.mutate;
+
     return (
         <WorkflowContext.Provider
             value={{
                 workflowId,
-                workflow,
+                workflow: getWorkflow.data,
                 updateWorkflow: updateWorkflow.execute,
+                refreshWorkflow,
                 isUpdating: updateWorkflow.isLoading,
                 lastUpdated,
             }}

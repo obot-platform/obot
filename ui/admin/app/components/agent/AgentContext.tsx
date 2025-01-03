@@ -16,6 +16,7 @@ interface AgentContextType {
     agent: Agent;
     agentId: string;
     updateAgent: (agent: Agent) => Promise<unknown>;
+    refreshAgent: (agent?: Agent) => Promise<unknown>;
     isUpdating: boolean;
     error?: unknown;
     lastUpdated?: Date;
@@ -54,12 +55,15 @@ export function AgentProvider({
 
     const updateAgent = useAsync(handleUpdateAgent);
 
+    const refreshAgent = getAgent.mutate;
+
     return (
         <AgentContext.Provider
             value={{
                 agentId,
                 agent: getAgent.data ?? agent,
                 updateAgent: updateAgent.executeAsync,
+                refreshAgent,
                 isUpdating: updateAgent.isLoading,
                 lastUpdated,
                 error: updateAgent.error,

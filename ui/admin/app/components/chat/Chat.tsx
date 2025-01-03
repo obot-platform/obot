@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { ComponentProps, useState } from "react";
 
 import { cn } from "~/lib/utils";
 
@@ -7,11 +7,15 @@ import { Chatbar } from "~/components/chat/Chatbar";
 import { MessagePane } from "~/components/chat/MessagePane";
 import { RunWorkflow } from "~/components/chat/RunWorkflow";
 
-type ChatProps = React.HTMLAttributes<HTMLDivElement> & {
-    showStartButton?: boolean;
+type ChatProps = {
+    className?: string;
+    classNames?: {
+        root?: string;
+        messagePane?: ComponentProps<typeof MessagePane>["classNames"];
+    };
 };
 
-export function Chat({ className }: ChatProps) {
+export function Chat({ className, classNames }: ChatProps) {
     const { id, messages, threadId, mode, invoke, readOnly } = useChat();
     const [runTriggered, setRunTriggered] = useState(false);
 
@@ -26,7 +30,14 @@ export function Chat({ className }: ChatProps) {
             {showMessagePane && (
                 <div className="flex-grow overflow-hidden">
                     <MessagePane
-                        classNames={{ root: "h-full", messageList: "px-20" }}
+                        classNames={{
+                            ...classNames?.messagePane,
+                            root: cn("h-full", classNames?.messagePane?.root),
+                            messageList: cn(
+                                "px-20",
+                                classNames?.messagePane?.messageList
+                            ),
+                        }}
                         messages={messages}
                     />
                 </div>

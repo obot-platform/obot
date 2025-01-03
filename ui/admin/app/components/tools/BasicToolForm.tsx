@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo, useState } from "react";
+import { ReactNode, memo, useCallback, useMemo, useState } from "react";
 
 import { ToolEntry } from "~/components/agent/ToolEntry";
 import { ToolCatalogDialog } from "~/components/tools/ToolCatalog";
@@ -7,8 +7,9 @@ export const BasicToolForm = memo(function BasicToolFormComponent(props: {
     value?: string[];
     defaultValue?: string[];
     onChange?: (values: string[]) => void;
+    renderActions?: (tool: string) => ReactNode;
 }) {
-    const { onChange } = props;
+    const { onChange, renderActions } = props;
 
     const [_value, _setValue] = useState(props.defaultValue);
     const value = useMemo(
@@ -36,6 +37,7 @@ export const BasicToolForm = memo(function BasicToolFormComponent(props: {
                         key={tool}
                         tool={tool}
                         onDelete={() => removeTools([tool])}
+                        actions={renderActions?.(tool)}
                     />
                 ))}
             </div>

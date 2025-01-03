@@ -1,5 +1,5 @@
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useEffect, useMemo } from "react";
+import { ReactNode, useEffect, useMemo } from "react";
 import { useFieldArray, useForm } from "react-hook-form";
 import { z } from "zod";
 
@@ -42,10 +42,12 @@ export function ToolForm({
     agent,
     onSubmit,
     onChange,
+    renderActions,
 }: {
     agent: Agent;
     onSubmit?: (values: ToolFormValues) => void;
     onChange?: (values: ToolFormValues) => void;
+    renderActions?: (tool: string) => ReactNode;
 }) {
     const defaultValues = useMemo(() => {
         return {
@@ -161,6 +163,7 @@ export function ToolForm({
                             key={field.id}
                             tool={field.tool}
                             onDelete={() => removeTools([field.tool])}
+                            actions={renderActions?.(field.tool)}
                         />
                     ))}
                 </div>
@@ -190,32 +193,38 @@ export function ToolForm({
                             tool={field.tool}
                             onDelete={() => removeTools([field.tool])}
                             actions={
-                                <Tooltip>
-                                    <TooltipTrigger asChild>
-                                        <div>
-                                            <Switch
-                                                checked={
-                                                    field.variant ===
-                                                    ToolVariant.DEFAULT
-                                                }
-                                                onCheckedChange={(checked) =>
-                                                    updateVariant(
-                                                        field.tool,
+                                <>
+                                    {renderActions?.(field.tool)}
+                                    <Tooltip>
+                                        <TooltipTrigger asChild>
+                                            <div>
+                                                <Switch
+                                                    checked={
+                                                        field.variant ===
+                                                        ToolVariant.DEFAULT
+                                                    }
+                                                    onCheckedChange={(
                                                         checked
-                                                            ? ToolVariant.DEFAULT
-                                                            : ToolVariant.AVAILABLE
-                                                    )
-                                                }
-                                            />
-                                        </div>
-                                    </TooltipTrigger>
+                                                    ) =>
+                                                        updateVariant(
+                                                            field.tool,
+                                                            checked
+                                                                ? ToolVariant.DEFAULT
+                                                                : ToolVariant.AVAILABLE
+                                                        )
+                                                    }
+                                                />
+                                            </div>
+                                        </TooltipTrigger>
 
-                                    <TooltipContent>
-                                        {field.variant === ToolVariant.DEFAULT
-                                            ? "Active by Default"
-                                            : "Inactive by Default"}
-                                    </TooltipContent>
-                                </Tooltip>
+                                        <TooltipContent>
+                                            {field.variant ===
+                                            ToolVariant.DEFAULT
+                                                ? "Active by Default"
+                                                : "Inactive by Default"}
+                                        </TooltipContent>
+                                    </Tooltip>
+                                </>
                             }
                         />
                     ))}
