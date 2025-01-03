@@ -10,6 +10,8 @@ import (
 	"k8s.io/apiserver/pkg/authentication/user"
 )
 
+const bootstrapCookie = "obot-bootstrap"
+
 type Bootstrap struct {
 	token string
 }
@@ -29,7 +31,14 @@ func New() (*Bootstrap, error) {
 }
 
 func (b *Bootstrap) AuthenticateRequest(req *http.Request) (*authenticator.Response, bool, error) {
-	if req.Header.Get("Authorization") != fmt.Sprintf("Bearer %s", b.token) {
+	authHeader := req.Header.Get("Authorization")
+	if authHeader == "" {
+		// Check for the cookie.
+		c, err := req.Cookie(bootstrapCookie)
+		if err != nil || c.Value != b.token {
+			return nil, false, nil
+		}
+	} else if authHeader != fmt.Sprintf("Bearer %s", b.token) {
 		return nil, false, nil
 	}
 

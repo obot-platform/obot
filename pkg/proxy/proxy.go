@@ -45,26 +45,32 @@ func (pm *Manager) AuthenticateRequest(req *http.Request) (*authenticator.Respon
 func (pm *Manager) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	var provider string
 
-	c, err := r.Cookie(authProviderCookie)
-	if err != nil {
-		provider = r.URL.Query().Get(authProviderCookie)
-		if provider == "" {
-			http.Error(w, "missing auth provider", http.StatusBadRequest)
-			return
-		}
-
+	if provider = r.URL.Query().Get(authProviderCookie); provider != "" {
 		// Set it as a cookie for the future.
 		http.SetCookie(w, &http.Cookie{
 			Name:  authProviderCookie,
 			Value: provider,
 			Path:  "/",
 		})
-	} else {
+	} else if c, err := r.Cookie(authProviderCookie); err == nil {
 		provider = c.Value
 		if provider == "" {
 			http.Error(w, "missing auth provider", http.StatusBadRequest)
 			return
 		}
+	} else {
+		http.Error(w, "missing auth provider", http.StatusBadRequest)
+		return
+	}
+
+	// If signing out, delete the auth provider cookie.
+	if r.URL.Path == "/oauth2/sign_out" {
+		http.SetCookie(w, &http.Cookie{
+			Name:   authProviderCookie,
+			Value:  "",
+			Path:   "/",
+			MaxAge: -1,
+		})
 	}
 
 	proxy, err := pm.createProxy(r.Context(), provider)

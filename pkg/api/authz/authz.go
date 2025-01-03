@@ -42,6 +42,9 @@ var staticRules = map[string][]string{
 		"GET /api/app-oauth/refresh/{id}",
 		"GET /api/app-oauth/callback/{id}",
 		"GET /api/app-oauth/get-token",
+
+		"GET /api/auth-providers",
+		"GET /api/auth-providers/{id}",
 	},
 	AuthenticatedGroup: {
 		"/api/oauth/redirect/{service}",
