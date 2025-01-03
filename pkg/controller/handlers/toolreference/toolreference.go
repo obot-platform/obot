@@ -46,16 +46,19 @@ type index struct {
 }
 
 type Handler struct {
-	gptClient   *gptscript.GPTScript
-	dispatcher  *dispatcher.Dispatcher
-	registryURL string
+	gptClient     *gptscript.GPTScript
+	dispatcher    *dispatcher.Dispatcher
+	supportDocker bool
+	registryURL   string
 }
 
-func New(gptClient *gptscript.GPTScript, dispatcher *dispatcher.Dispatcher, registryURL string) *Handler {
+func New(gptClient *gptscript.GPTScript, dispatcher *dispatcher.Dispatcher,
+	registryURL string, supportDocker bool) *Handler {
 	return &Handler{
-		gptClient:   gptClient,
-		dispatcher:  dispatcher,
-		registryURL: registryURL,
+		gptClient:     gptClient,
+		dispatcher:    dispatcher,
+		registryURL:   registryURL,
+		supportDocker: supportDocker,
 	}
 }
 
@@ -67,6 +70,9 @@ func isValidTool(tool gptscript.Tool) bool {
 }
 
 func (h *Handler) toolsToToolReferences(ctx context.Context, toolType types.ToolReferenceType, entries map[string]indexEntry) (result []client.Object) {
+	annotations := map[string]string{
+		"obot.otto8.ai/timestamp": time.Now().String(),
+	}
 	for name, entry := range entries {
 		if ref, ok := strings.CutPrefix(entry.Reference, "./"); ok {
 			entry.Reference = h.registryURL + "/" + ref
@@ -87,9 +93,10 @@ func (h *Handler) toolsToToolReferences(ctx context.Context, toolType types.Tool
 				}
 				result = append(result, &v1.ToolReference{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:       normalize(name, toolName),
-						Namespace:  system.DefaultNamespace,
-						Finalizers: []string{v1.ToolReferenceFinalizer},
+						Name:        normalize(name, toolName),
+						Namespace:   system.DefaultNamespace,
+						Finalizers:  []string{v1.ToolReferenceFinalizer},
+						Annotations: annotations,
 					},
 					Spec: v1.ToolReferenceSpec{
 						Type:      toolType,
@@ -112,9 +119,10 @@ func (h *Handler) toolsToToolReferences(ctx context.Context, toolType types.Tool
 					}
 					result = append(result, &v1.ToolReference{
 						ObjectMeta: metav1.ObjectMeta{
-							Name:       normalize(name, toolName),
-							Namespace:  system.DefaultNamespace,
-							Finalizers: []string{v1.ToolReferenceFinalizer},
+							Name:        normalize(name, toolName),
+							Namespace:   system.DefaultNamespace,
+							Finalizers:  []string{v1.ToolReferenceFinalizer},
+							Annotations: annotations,
 						},
 						Spec: v1.ToolReferenceSpec{
 							Type:      toolType,
@@ -125,11 +133,15 @@ func (h *Handler) toolsToToolReferences(ctx context.Context, toolType types.Tool
 				}
 			}
 		} else {
+			if !h.supportDocker && name == system.ShellTool {
+				continue
+			}
 			result = append(result, &v1.ToolReference{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:       name,
-					Namespace:  system.DefaultNamespace,
-					Finalizers: []string{v1.ToolReferenceFinalizer},
+					Name:        name,
+					Namespace:   system.DefaultNamespace,
+					Finalizers:  []string{v1.ToolReferenceFinalizer},
+					Annotations: annotations,
 				},
 				Spec: v1.ToolReferenceSpec{
 					Type:      toolType,

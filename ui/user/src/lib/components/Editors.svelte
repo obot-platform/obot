@@ -10,6 +10,10 @@
 	import Image from '$lib/components/editor/Image.svelte';
 	import { CheckSquare, Table as TableIcon, Image as ImageIcon } from 'lucide-svelte';
 	import { isImage } from '$lib/image';
+	import Terminal from '$lib/components/Terminal.svelte';
+	import { term } from '$lib/stores';
+
+	const editorVisible = EditorService.visible;
 
 	function onFileChanged(name: string, contents: string) {
 		for (const item of EditorService.items) {
@@ -28,72 +32,84 @@
 </script>
 
 <div class="flex h-full flex-col">
-	{#if EditorService.items.length > 1 || (!EditorService.items[0].task && !EditorService.items[0].table)}
-		<div class="flex rounded-3xl border-gray-100 pt-2">
-			<ul class="flex flex-1 flex-wrap text-center text-sm">
-				{#each EditorService.items as item}
-					<li class="pb-2 pl-2">
-						<div
-							role="none"
-							class:selected={item.selected}
-							onclick={() => {
-								EditorService.select(item.id);
-							}}
-							class="active group flex rounded-3xl bg-gray-70 px-4 py-3 text-black dark:bg-gray-950 dark:text-gray-50"
-						>
-							<div class="flex flex-1 items-center gap-2 ps-2">
-								{#if item.table}
-									<TableIcon class="h-5 w-5" />
-								{:else if item.task}
-									<CheckSquare class="h-5 w-5" />
-								{:else if isImage(item.name)}
-									<ImageIcon class="h-5 w-5" />
-								{:else}
-									<FileText class="h-5 w-5" />
-								{/if}
-								<span>{item.name}</span>
-							</div>
-							<button
-								class="ml-2"
+	{#if $editorVisible}
+		{#if EditorService.items.length > 1 || (!EditorService.items[0].task && !EditorService.items[0].table)}
+			<div class="flex rounded-3xl border-gray-100 pt-2">
+				<ul class="flex flex-1 flex-wrap text-center text-sm">
+					{#each EditorService.items as item}
+						<li class="pb-2 pl-2">
+							<div
+								role="none"
+								class:selected={item.selected}
 								onclick={() => {
-									EditorService.remove(item.id);
+									EditorService.select(item.id);
 								}}
+								class="active group flex rounded-3xl bg-gray-70 px-4 py-3 text-black dark:bg-gray-950 dark:text-gray-50"
 							>
-								<X
-									class="h-5 w-5 {item.selected
-										? 'text-white'
-										: 'text-gray'} opacity-0 transition-all group-hover:opacity-100"
-								/>
-							</button>
-						</div>
-					</li>
-				{/each}
-			</ul>
-			<Controls navBar />
+								<div class="flex flex-1 items-center gap-2 ps-2">
+									{#if item.table}
+										<TableIcon class="h-5 w-5" />
+									{:else if item.task}
+										<CheckSquare class="h-5 w-5" />
+									{:else if isImage(item.name)}
+										<ImageIcon class="h-5 w-5" />
+									{:else}
+										<FileText class="h-5 w-5" />
+									{/if}
+									<span>{item.name}</span>
+								</div>
+								<button
+									class="ml-2"
+									onclick={() => {
+										EditorService.remove(item.id);
+									}}
+								>
+									<X
+										class="h-5 w-5 {item.selected
+											? 'text-white'
+											: 'text-gray'} opacity-0 transition-all group-hover:opacity-100"
+									/>
+								</button>
+							</div>
+						</li>
+					{/each}
+				</ul>
+				<Controls navBar />
+			</div>
+		{/if}
+
+		{#each EditorService.items as file}
+			<div class:hidden={!file.selected} class="flex-1 overflow-auto">
+				{#if file.name.toLowerCase().endsWith('.md')}
+					<Milkdown {file} {onFileChanged} {onInvoke} />
+				{:else if file.table}
+					<Table tableName={file.table} />
+				{:else if file.task}
+					<Task
+						id={file.id}
+						onChanged={(task) => {
+							file.task = task;
+							file.name = task.name || file.name;
+						}}
+					/>
+				{:else if isImage(file.name)}
+					<Image {file} />
+				{:else}
+					<Codemirror {file} {onFileChanged} {onInvoke} />
+				{/if}
+			</div>
+		{/each}
+	{/if}
+	{#if term.open}
+		{#if !$editorVisible}
+			<div class="self-end">
+				<Controls />
+			</div>
+		{/if}
+		<div class="p-5 {$editorVisible ? 'h-1/2' : 'h-full'}">
+			<Terminal />
 		</div>
 	{/if}
-
-	{#each EditorService.items as file}
-		<div class:hidden={!file.selected} class="flex-1 overflow-auto">
-			{#if file.name.toLowerCase().endsWith('.md')}
-				<Milkdown {file} {onFileChanged} {onInvoke} />
-			{:else if file.table}
-				<Table tableName={file.table} />
-			{:else if file.task}
-				<Task
-					id={file.id}
-					onChanged={(task) => {
-						file.task = task;
-						file.name = task.name || file.name;
-					}}
-				/>
-			{:else if isImage(file.name)}
-				<Image {file} />
-			{:else}
-				<Codemirror {file} {onFileChanged} {onInvoke} />
-			{/if}
-		</div>
-	{/each}
 </div>
 
 <style lang="postcss">

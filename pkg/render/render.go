@@ -77,11 +77,12 @@ func Agent(ctx context.Context, db kclient.Client, agent *v1.Agent, oauthServerU
 			if !added && tool == knowledgeToolName {
 				continue
 			}
-			name, err := ResolveToolReference(ctx, db, types.ToolReferenceTypeTool, agent.Namespace, tool)
+			name, tools, err := Tool(ctx, db, agent.Namespace, tool)
 			if err != nil {
 				return nil, nil, err
 			}
 			mainTool.Tools = append(mainTool.Tools, name)
+			otherTools = append(otherTools, tools...)
 		}
 	}
 
@@ -89,11 +90,12 @@ func Agent(ctx context.Context, db kclient.Client, agent *v1.Agent, oauthServerU
 		if !added && tool == knowledgeToolName {
 			continue
 		}
-		name, err := ResolveToolReference(ctx, db, types.ToolReferenceTypeTool, agent.Namespace, tool)
+		name, tools, err := Tool(ctx, db, agent.Namespace, tool)
 		if err != nil {
 			return nil, nil, err
 		}
 		mainTool.Tools = append(mainTool.Tools, name)
+		otherTools = append(otherTools, tools...)
 	}
 
 	for _, tool := range agent.Spec.SystemTools {

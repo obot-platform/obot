@@ -62,6 +62,8 @@
 		"@sveltejs/adapter-static": "^3.0.6",
 		"@trivago/prettier-plugin-sort-imports": "^4.3.0",
 		"@uiw/codemirror-theme-github": "^4.23.6",
+		"@xterm/addon-fit": "^0.10.0",
+		"@xterm/xterm": "^5.5.0",
 		"highlight.js": "^11.10.0",
 		"lucide-svelte": "^0.453.0",
 		"micromark": "^4.0.1",

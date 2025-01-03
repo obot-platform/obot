@@ -120,6 +120,7 @@ export interface Messages {
 
 export interface Version {
 	emailDomain?: string;
+	dockerSupported?: boolean;
 }
 
 export interface Profile {
@@ -181,6 +182,10 @@ export interface AssistantTool {
 	icon?: string;
 	enabled?: boolean;
 	builtin?: boolean;
+	toolType?: string;
+	instructions?: string;
+	context?: string;
+	params?: Record<string, string>;
 }
 
 export interface AssistantToolList {

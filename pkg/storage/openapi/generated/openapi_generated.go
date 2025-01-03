@@ -91,6 +91,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/apiclient/types.ToolCall":                                  schema_obot_platform_obot_apiclient_types_ToolCall(ref),
 		"github.com/obot-platform/obot/apiclient/types.ToolInfo":                                  schema_obot_platform_obot_apiclient_types_ToolInfo(ref),
 		"github.com/obot-platform/obot/apiclient/types.ToolInput":                                 schema_obot_platform_obot_apiclient_types_ToolInput(ref),
+		"github.com/obot-platform/obot/apiclient/types.ToolManifest":                              schema_obot_platform_obot_apiclient_types_ToolManifest(ref),
 		"github.com/obot-platform/obot/apiclient/types.ToolReference":                             schema_obot_platform_obot_apiclient_types_ToolReference(ref),
 		"github.com/obot-platform/obot/apiclient/types.ToolReferenceList":                         schema_obot_platform_obot_apiclient_types_ToolReferenceList(ref),
 		"github.com/obot-platform/obot/apiclient/types.ToolReferenceManifest":                     schema_obot_platform_obot_apiclient_types_ToolReferenceManifest(ref),
@@ -168,11 +169,15 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.ThreadList":              schema_storage_apis_ottootto8ai_v1_ThreadList(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.ThreadSpec":              schema_storage_apis_ottootto8ai_v1_ThreadSpec(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.ThreadStatus":            schema_storage_apis_ottootto8ai_v1_ThreadStatus(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.Tool":                    schema_storage_apis_ottootto8ai_v1_Tool(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.ToolList":                schema_storage_apis_ottootto8ai_v1_ToolList(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.ToolReference":           schema_storage_apis_ottootto8ai_v1_ToolReference(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.ToolReferenceList":       schema_storage_apis_ottootto8ai_v1_ToolReferenceList(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.ToolReferenceSpec":       schema_storage_apis_ottootto8ai_v1_ToolReferenceSpec(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.ToolReferenceStatus":     schema_storage_apis_ottootto8ai_v1_ToolReferenceStatus(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.ToolShortDescription":    schema_storage_apis_ottootto8ai_v1_ToolShortDescription(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.ToolSpec":                schema_storage_apis_ottootto8ai_v1_ToolSpec(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.ToolStatus":              schema_storage_apis_ottootto8ai_v1_ToolStatus(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.Webhook":                 schema_storage_apis_ottootto8ai_v1_Webhook(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.WebhookList":             schema_storage_apis_ottootto8ai_v1_WebhookList(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.WebhookSpec":             schema_storage_apis_ottootto8ai_v1_WebhookSpec(ref),
@@ -681,30 +686,16 @@ func schema_obot_platform_obot_apiclient_types_AssistantTool(ref common.Referenc
 			SchemaProps: spec.SchemaProps{
 				Type: []string{"object"},
 				Properties: map[string]spec.Schema{
-					"id": {
+					"Metadata": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/obot-platform/obot/apiclient/types.Metadata"),
 						},
 					},
-					"name": {
+					"ToolManifest": {
 						SchemaProps: spec.SchemaProps{
-							Default: "",
-							Type:    []string{"string"},
-							Format:  "",
-						},
-					},
-					"description": {
-						SchemaProps: spec.SchemaProps{
-							Default: "",
-							Type:    []string{"string"},
-							Format:  "",
-						},
-					},
-					"icon": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/obot-platform/obot/apiclient/types.ToolManifest"),
 						},
 					},
 					"enabled": {
@@ -720,9 +711,11 @@ func schema_obot_platform_obot_apiclient_types_AssistantTool(ref common.Referenc
 						},
 					},
 				},
-				Required: []string{"name", "description"},
+				Required: []string{"Metadata", "ToolManifest"},
 			},
 		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.Metadata", "github.com/obot-platform/obot/apiclient/types.ToolManifest"},
 	}
 }
 
@@ -3572,6 +3565,69 @@ func schema_obot_platform_obot_apiclient_types_ToolInput(ref common.ReferenceCal
 						},
 					},
 					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"object"},
+							AdditionalProperties: &spec.SchemaOrBool{
+								Allows: true,
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_ToolManifest(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"description": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"icon": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"toolType": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"context": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"instructions": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"params": {
 						SchemaProps: spec.SchemaProps{
 							Type: []string{"object"},
 							AdditionalProperties: &spec.SchemaOrBool{
@@ -7318,6 +7374,100 @@ func schema_storage_apis_ottootto8ai_v1_ThreadStatus(ref common.ReferenceCallbac
 	}
 }
 
+func schema_storage_apis_ottootto8ai_v1_Tool(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"),
+						},
+					},
+					"spec": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.ToolSpec"),
+						},
+					},
+					"status": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.ToolStatus"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.ToolSpec", "github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.ToolStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
+	}
+}
+
+func schema_storage_apis_ottootto8ai_v1_ToolList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"),
+						},
+					},
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.Tool"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"items"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1.Tool", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
+	}
+}
+
 func schema_storage_apis_ottootto8ai_v1_ToolReference(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -7569,6 +7719,56 @@ func schema_storage_apis_ottootto8ai_v1_ToolShortDescription(ref common.Referenc
 						},
 					},
 				},
+			},
+		},
+	}
+}
+
+func schema_storage_apis_ottootto8ai_v1_ToolSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"threadName": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"manifest": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/obot-platform/obot/apiclient/types.ToolManifest"),
+						},
+					},
+					"envs": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.ToolManifest"},
+	}
+}
+
+func schema_storage_apis_ottootto8ai_v1_ToolStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
 			},
 		},
 	}

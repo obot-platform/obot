@@ -10,6 +10,7 @@ import (
 	"slices"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/gptscript-ai/go-gptscript"
@@ -32,7 +33,12 @@ import (
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-var log = logger.Package()
+var (
+	log              = logger.Package()
+	ephemeralCounter atomic.Int32
+)
+
+const ephemeralRunPrefix = "ephemeral-run"
 
 type Invoker struct {
 	gptClient           *gptscript.GPTScript
@@ -342,6 +348,11 @@ type runOptions struct {
 	Env                   []string
 	CredentialContextIDs  []string
 	Timeout               time.Duration
+	Ephemeral             bool
+}
+
+func isEphemeral(run *v1.Run) bool {
+	return strings.HasPrefix(run.Name, ephemeralRunPrefix)
 }
 
 func (i *Invoker) createRun(ctx context.Context, c kclient.WithWatch, thread *v1.Thread, tool any, input string, opts runOptions) (_ *Response, retErr error) {
@@ -350,7 +361,7 @@ func (i *Invoker) createRun(ctx context.Context, c kclient.WithWatch, thread *v1
 		previousRunName = opts.PreviousRunName
 	}
 
-	if opts.ForceNoResume {
+	if opts.ForceNoResume || opts.Ephemeral {
 		previousRunName = ""
 	}
 
@@ -383,11 +394,15 @@ func (i *Invoker) createRun(ctx context.Context, c kclient.WithWatch, thread *v1
 		},
 	}
 
-	if err := c.Create(ctx, &run); err != nil {
-		return nil, err
+	if opts.Ephemeral {
+		run.Name = fmt.Sprintf("%s-%d", ephemeralRunPrefix, ephemeralCounter.Add(1))
+	} else {
+		if err := c.Create(ctx, &run); err != nil {
+			return nil, err
+		}
 	}
 
-	if !thread.Spec.SystemTask {
+	if !thread.Spec.SystemTask && !opts.Ephemeral {
 		err = retry.RetryOnConflict(retry.DefaultBackoff, func() error {
 			// Ensure that, regardless of which client is being used, we get an uncached version of the thread for updating.
 			// The first uncached.Get method ensures that we get an uncached version when calling this from a controller.
@@ -443,7 +458,7 @@ func (i *Invoker) createRun(ctx context.Context, c kclient.WithWatch, thread *v1
 	return resp, nil
 }
 
-func (i *Invoker) Resume(ctx context.Context, c kclient.WithWatch, thread *v1.Thread, run *v1.Run) error {
+func (i *Invoker) Resume(ctx context.Context, c kclient.WithWatch, thread *v1.Thread, run *v1.Run) (err error) {
 	defer func() {
 		i.events.Done(run)
 		time.AfterFunc(20*time.Second, func() {
@@ -451,14 +466,16 @@ func (i *Invoker) Resume(ctx context.Context, c kclient.WithWatch, thread *v1.Th
 		})
 	}()
 
-	thread, err := wait.For(ctx, c, thread, func(thread *v1.Thread) (bool, error) {
-		if thread.Spec.Abort {
-			return false, fmt.Errorf("thread was aborted while waiting for workspace")
+	if run.Name != "" {
+		thread, err = wait.For(ctx, c, thread, func(thread *v1.Thread) (bool, error) {
+			if thread.Spec.Abort {
+				return false, fmt.Errorf("thread was aborted while waiting for workspace")
+			}
+			return thread.Status.WorkspaceID != "", nil
+		})
+		if err != nil {
+			return fmt.Errorf("failed to wait for thread to be ready: %w", err)
 		}
-		return thread.Status.WorkspaceID != "", nil
-	})
-	if err != nil {
-		return fmt.Errorf("failed to wait for thread to be ready: %w", err)
 	}
 
 	chatState, prevThreadName, err := i.getChatState(ctx, c, run)
@@ -579,6 +596,11 @@ func (i *Invoker) Resume(ctx context.Context, c kclient.WithWatch, thread *v1.Th
 }
 
 func (i *Invoker) saveState(ctx context.Context, c kclient.Client, prevThreadName string, thread *v1.Thread, run *v1.Run, runResp *gptscript.Run, retErr error) error {
+	if isEphemeral(run) {
+		// Ephemeral run, don't save state
+		return nil
+	}
+
 	var err error
 	for j := 0; j < 3; j++ {
 		err = i.doSaveState(ctx, c, prevThreadName, thread, run, runResp, retErr)
@@ -863,7 +885,10 @@ func (i *Invoker) stream(ctx context.Context, c kclient.WithWatch, prevThreadNam
 		timeout = run.Spec.Timeout.Duration
 	}
 	go timeoutAfter(runCtx, cancelRun, timeout)
-	go watchThreadAbort(runCtx, c, thread, cancelRun)
+	if run.Name != "" {
+		// Don't watch thread abort for ephemeral runs
+		go watchThreadAbort(runCtx, c, thread, cancelRun)
+	}
 
 	var (
 		abortTimeout = func() {}

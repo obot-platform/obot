@@ -6,11 +6,6 @@ function append(e: Error) {
 	store.update((v) => {
 		return [...v, e];
 	});
-	setTimeout(() => {
-		store.update((v) => {
-			return v.slice(1);
-		});
-	}, 2000);
 }
 
 function remove(index: number) {

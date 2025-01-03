@@ -804,14 +804,24 @@ func (a *AgentHandler) EnsureCredentialForKnowledgeSource(req api.Context) error
 
 func (a *AgentHandler) Script(req api.Context) error {
 	var (
-		id    = req.PathValue("id")
-		agent v1.Agent
+		id       = req.PathValue("id")
+		threadID = req.PathValue("thread_id")
+		agent    v1.Agent
+		thread   *v1.Thread
 	)
 	if err := req.Get(&agent, id); err != nil {
 		return types.NewErrBadRequest("failed to get agent with id %s: %v", id, err)
 	}
+	if threadID != "" {
+		thread = &v1.Thread{}
+		if err := req.Get(thread, threadID); err != nil {
+			return types.NewErrBadRequest("failed to get thread with id %s: %v", threadID, err)
+		}
+	}
 
-	tools, extraEnv, err := render.Agent(req.Context(), req.Storage, &agent, a.serverURL, render.AgentOptions{})
+	tools, extraEnv, err := render.Agent(req.Context(), req.Storage, &agent, a.serverURL, render.AgentOptions{
+		Thread: thread,
+	})
 	if err != nil {
 		return err
 	}

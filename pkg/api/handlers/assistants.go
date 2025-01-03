@@ -2,7 +2,9 @@ package handlers
 
 import (
 	"crypto/sha256"
+	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"regexp"
 	"slices"
@@ -375,12 +377,16 @@ func appendTools(result *types.AssistantToolList, added map[string]bool, toolsBy
 		}
 
 		newTool := types.AssistantTool{
-			ID:          toolName,
-			Name:        tool.Name,
-			Description: tool.Description,
-			Icon:        tool.Metadata["icon"],
-			Enabled:     enabled,
-			Builtin:     builtin,
+			Metadata: types.Metadata{
+				ID: toolName,
+			},
+			ToolManifest: types.ToolManifest{
+				Name:        tool.Name,
+				Description: tool.Description,
+				Icon:        tool.Metadata["icon"],
+			},
+			Enabled: enabled,
+			Builtin: builtin,
 		}
 
 		added[toolName] = true
@@ -388,11 +394,28 @@ func appendTools(result *types.AssistantToolList, added map[string]bool, toolsBy
 	}
 }
 
-func (a *AssistantHandler) AddTool(req api.Context) error {
+func (a *AssistantHandler) AddTool(req api.Context) (retErr error) {
+	defer func() {
+		if retErr == nil {
+			retErr = a.Tools(req)
+		}
+	}()
+
 	var (
-		id   = req.PathValue("id")
-		tool = req.PathValue("tool")
+		id           = req.PathValue("id")
+		tool         = req.PathValue("tool")
+		toolManifest types.ToolManifest
+		hasBody      bool
 	)
+
+	//nolint:revive
+	if err := req.Read(&toolManifest); errors.Is(err, io.EOF) {
+	} else if err != nil {
+		return err
+	} else {
+		// only set has body if the id is a tool id and there's a body
+		hasBody = system.IsToolID(tool)
+	}
 
 	agent, err := getAssistant(req, id)
 	if err != nil {
@@ -404,8 +427,23 @@ func (a *AssistantHandler) AddTool(req api.Context) error {
 		return err
 	}
 
-	if slices.Contains(thread.Spec.Manifest.Tools, tool) {
-		return a.Tools(req)
+	if slices.Contains(thread.Spec.Manifest.Tools, tool) && !hasBody {
+		return nil
+	}
+
+	if system.IsToolID(tool) {
+		var customTool v1.Tool
+		if err := req.Get(&customTool, tool); err != nil {
+			return err
+		}
+		if customTool.Spec.ThreadName == thread.Name {
+			if hasBody {
+				customTool.Spec.Manifest = toolManifest
+				return req.Update(&customTool)
+			}
+			thread.Spec.Manifest.Tools = append(thread.Spec.Manifest.Tools, tool)
+			return req.Update(thread)
+		}
 	}
 
 	if !slices.Contains(agent.Spec.Manifest.AvailableThreadTools, tool) &&
@@ -414,11 +452,43 @@ func (a *AssistantHandler) AddTool(req api.Context) error {
 	}
 
 	thread.Spec.Manifest.Tools = append(thread.Spec.Manifest.Tools, tool)
-	if err := req.Update(thread); err != nil {
+	return req.Update(thread)
+}
+
+func (a *AssistantHandler) DeleteTool(req api.Context) error {
+	var (
+		id     = req.PathValue("id")
+		toolID = req.PathValue("tool")
+	)
+
+	thread, err := getUserThread(req, id)
+	if err != nil {
 		return err
 	}
 
-	return a.Tools(req)
+	var tool v1.Tool
+	if err := req.Get(&tool, toolID); err != nil {
+		return err
+	}
+
+	if tool.Spec.ThreadName != thread.Name {
+		return types.NewErrNotFound("tool %s is not available", toolID)
+	}
+
+	if err := req.Delete(&tool); err != nil {
+		return err
+	}
+
+	if slices.Contains(thread.Spec.Manifest.Tools, toolID) {
+		thread.Spec.Manifest.Tools = slices.DeleteFunc(thread.Spec.Manifest.Tools, func(s string) bool {
+			return s == toolID || s == ""
+		})
+		if err := req.Update(thread); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func (a *AssistantHandler) RemoveTool(req api.Context) error {
@@ -497,8 +567,18 @@ func (a *AssistantHandler) Tools(req api.Context) error {
 
 	appendTools(&result, added, toolsByName, false, false, agent.Spec.Manifest.AvailableThreadTools)
 
+	var userTools v1.ToolList
+	if err := req.List(&userTools, kclient.MatchingFields{"spec.threadName": thread.Name}); err != nil {
+		return err
+	}
+
+	for _, tool := range userTools.Items {
+		result.Items = append(result.Items, convertTool(tool, slices.Contains(thread.Spec.Manifest.Tools, tool.Name)))
+	}
+
 	sort.Slice(result.Items, func(i, j int) bool {
 		return result.Items[i].Name < result.Items[j].Name
 	})
+
 	return req.Write(result)
 }

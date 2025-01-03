@@ -10,6 +10,10 @@ const (
 	ResultFormatterTool     = "result-formatter"
 	ModelProviderTool       = "obot-model-provider"
 	WorkflowTool            = "workflow"
+	DockerTool              = "docker"
+	ShellTool               = "shell"
+	DockerShellIDTool       = "docker-shell-id"
+	ExistingCredTool        = "existing-credential"
 
 	DefaultNamespace = "default"
 )

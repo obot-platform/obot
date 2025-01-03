@@ -62,7 +62,7 @@
 	{@render icon()}
 </button>
 
-<div use:tooltip class="w-screen md:w-96 px-2" >
+<div use:tooltip class="w-screen px-2 md:w-96">
 	<div
 		class="flex w-full flex-col divide-y
 		divide-gray-200

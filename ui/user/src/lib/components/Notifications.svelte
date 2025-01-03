@@ -16,20 +16,11 @@
 </script>
 
 <script lang="ts">
-	import { CircleCheck } from '$lib/icons';
 	import { CircleX } from '$lib/icons';
 	import { X } from '$lib/icons';
 	import { errors, profile } from '$lib/stores';
 
-	let notifications: NotificationMessage[] = $state([]);
 	let div: HTMLElement;
-
-	export function addNotification(notification: NotificationMessage) {
-		notifications = [...notifications, notification];
-		setTimeout(() => {
-			notifications = notifications.slice(1);
-		}, 5000);
-	}
 
 	$effect(() => {
 		if ($profile.loaded && div.classList.contains('hidden')) {
@@ -39,50 +30,17 @@
 	});
 </script>
 
-<div bind:this={div} class="absolute bottom-0 right-0 z-50 mb-20 mr-4 hidden flex-col">
+<div bind:this={div} class="absolute bottom-0 right-0 z-50 hidden flex-col">
 	{#each $errors as error, i}
 		<div
-			class="mb-4 flex w-full max-w-xs items-center rounded-lg bg-white p-4 text-gray shadow dark:bg-gray-800 dark:text-white"
+			class="relative flex max-w-sm items-center gap-2 rounded-3xl bg-gray-50 p-5 dark:bg-gray-950"
 		>
-			<div
-				class="text-green-500 bg-green-100 dark:bg-green-800 dark:text-green-200 inline-flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg"
-			>
-				<CircleX />
-				<span class="sr-only">Check icon</span>
+			<div>
+				<CircleX class="h-5 w-5" />
 			</div>
-			<div class="ms-3 text-sm font-normal">{error.message}</div>
-			<button
-				type="button"
-				onclick={() => errors.remove(i)}
-				class="-mx-1.5 -my-1.5 ms-auto inline-flex h-8 w-8 items-center justify-center rounded-lg bg-white p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-900 focus:ring-2 focus:ring-gray-300 dark:bg-gray-800 dark:text-white dark:hover:bg-gray-700 dark:hover:text-white"
-			>
-				<span class="sr-only">Close</span>
-				<X />
-			</button>
-		</div>
-	{/each}
-	{#each notifications as notification, i}
-		<div
-			class="mb-4 flex w-full max-w-xs items-center rounded-lg bg-white p-4 text-gray shadow dark:bg-gray-800 dark:text-white"
-		>
-			<div
-				class="text-green-500 bg-green-100 dark:bg-green-800 dark:text-green-200 inline-flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg"
-			>
-				{#if notification.level === 'error'}
-					<CircleX />
-				{:else}
-					<CircleCheck />
-				{/if}
-				<span class="sr-only">Check icon</span>
-			</div>
-			<div class="ms-3 text-sm font-normal">{notification.message}</div>
-			<button
-				type="button"
-				onclick={() => (notifications = notifications.filter((_, index) => index !== i))}
-				class="-mx-1.5 -my-1.5 ms-auto inline-flex h-8 w-8 items-center justify-center rounded-lg bg-white p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-900 focus:ring-2 focus:ring-gray-300 dark:bg-gray-800 dark:text-white dark:hover:bg-gray-700 dark:hover:text-white"
-			>
-				<span class="sr-only">Close</span>
-				<X />
+			<div class="pr-5 text-sm font-normal">{error.message}</div>
+			<button type="button" onclick={() => errors.remove(i)} class="absolute right-0 top-0 p-5">
+				<X class="h-5 w-5" />
 			</button>
 		</div>
 	{/each}

@@ -64,6 +64,7 @@ type Config struct {
 	KnowledgeSetIngestionLimit int    `usage:"The maximum number of files to ingest into a knowledge set" default:"1000" env:"OBOT_KNOWLEDGESET_INGESTION_LIMIT" name:"knowledge-set-ingestion-limit"`
 	EmailServerName            string `usage:"The name of the email server to display for email receivers (default: ui-hostname value)"`
 	NoReplyEmailAddress        string `usage:"The email to use for no-reply emails from obot"`
+	Docker                     bool   `usage:"Enable Docker support" default:"false" env:"OBOT_DOCKER"`
 
 	AuthConfig
 	GatewayConfig
@@ -89,6 +90,7 @@ type Services struct {
 	GatewayServer              *gserver.Server
 	ModelProviderDispatcher    *dispatcher.Dispatcher
 	KnowledgeSetIngestionLimit int
+	SupportDocker              bool
 }
 
 const (
@@ -284,6 +286,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		KnowledgeSetIngestionLimit: config.KnowledgeSetIngestionLimit,
 		EmailServerName:            config.EmailServerName,
 		ModelProviderDispatcher:    modelProviderDispatcher,
+		SupportDocker:              config.Docker,
 	}, nil
 }
 

@@ -1,7 +1,7 @@
 <script lang="ts">
-	import { Minimize, Maximize, X, Download, Columns2 } from 'lucide-svelte';
+	import { Maximize, X, Download, Columns2 } from 'lucide-svelte';
 	import { EditorService } from '$lib/services';
-	import { currentAssistant } from '$lib/stores';
+	import { term, currentAssistant } from '$lib/stores';
 
 	interface Props {
 		navBar?: boolean;
@@ -59,6 +59,7 @@
 			onclick={() => {
 				EditorService.maxSize.set(false);
 				EditorService.visible.set(false);
+				term.open = false;
 			}}
 		>
 			<X class="h-5 w-5" />

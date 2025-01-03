@@ -2,7 +2,6 @@
 	import Input from '$lib/components/messages/Input.svelte';
 	import { autoscroll } from '$lib/actions/div';
 	import { Thread } from '$lib/services/chat/thread.svelte';
-	import { errors } from '$lib/stores';
 	import { EditorService, type Messages } from '$lib/services';
 	import Message from '$lib/components/messages/Message.svelte';
 	import { fade } from 'svelte/transition';
@@ -23,7 +22,9 @@
 		}
 
 		const newThread = new Thread(assistant, {
-			onError: errors.append
+			onError: () => {
+				// ignore errors they are rendered as messages
+			}
 		});
 
 		newThread.onMessages = (newMessages) => {
@@ -70,7 +71,7 @@
 			}}
 			onSubmit={async (i) => {
 				messagesDiv?.scrollTo({ top: messagesDiv?.scrollHeight });
-				await thread?.invoke(i)
+				await thread?.invoke(i);
 			}}
 		/>
 	</div>

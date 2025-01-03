@@ -8,6 +8,7 @@
 	import Tasks from '$lib/components/navbar/Tasks.svelte';
 	import Tables from '$lib/components/navbar/Tables.svelte';
 	import { tools } from '$lib/stores';
+	import Term from '$lib/components/navbar/Term.svelte';
 
 	function hasOptionalTools() {
 		for (const tool of $tools.items) {
@@ -29,7 +30,7 @@
 </script>
 
 <nav
-	class="fixed z-30
+	class="fixed z-40
 w-full
 via-80%"
 >
@@ -48,6 +49,9 @@ via-80%"
 				{/if}
 				{#if hasTool('workspace-files')}
 					<Files />
+				{/if}
+				{#if hasTool('shell')}
+					<Term />
 				{/if}
 				{#if hasOptionalTools()}
 					<Tools />
