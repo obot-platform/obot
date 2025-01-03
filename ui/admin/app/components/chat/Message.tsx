@@ -12,6 +12,7 @@ import { PromptApiService } from "~/lib/service/api/PromptApi";
 import { cn } from "~/lib/utils";
 
 import { TypographyP } from "~/components/Typography";
+import { useChat } from "~/components/chat/ChatContext";
 import { MessageDebug } from "~/components/chat/MessageDebug";
 import { ToolCallInfo } from "~/components/chat/ToolCallInfo";
 import { ControlledInput } from "~/components/form/controlledInputs";
@@ -161,6 +162,7 @@ Message.displayName = "Message";
 function PromptMessage({ prompt }: { prompt: AuthPrompt }) {
     const [open, setOpen] = useState(false);
     const [isSubmitted, setIsSubmitted] = useState(false);
+    const { isRunning } = useChat();
 
     const getMessage = () => {
         if (prompt.metadata?.authURL || prompt.metadata?.authType)
@@ -221,7 +223,7 @@ function PromptMessage({ prompt }: { prompt: AuthPrompt }) {
         <div className="flex-auto flex flex-col flex-wrap gap-2 w-fit">
             <TypographyP className="min-w-fit">{getMessage()}</TypographyP>
 
-            {prompt.metadata?.authURL && (
+            {isRunning && prompt.metadata?.authURL && (
                 <Link
                     as="button"
                     rel="noreferrer"
@@ -240,7 +242,7 @@ function PromptMessage({ prompt }: { prompt: AuthPrompt }) {
                 </Link>
             )}
 
-            {prompt.fields && (
+            {isRunning && prompt.fields && (
                 <Dialog open={open} onOpenChange={setOpen}>
                     <DialogTrigger disabled={isSubmitted} asChild>
                         <Button
@@ -273,6 +275,22 @@ function PromptMessage({ prompt }: { prompt: AuthPrompt }) {
                         />
                     </DialogContent>
                 </Dialog>
+            )}
+
+            {!isRunning && (
+                <Button
+                    disabled
+                    startContent={
+                        <ToolIcon
+                            icon={prompt.metadata?.icon}
+                            category={prompt.metadata?.category}
+                            name={prompt.name}
+                            disableTooltip
+                        />
+                    }
+                >
+                    {getCtaText()}
+                </Button>
             )}
         </div>
     );

@@ -34,12 +34,17 @@ export function RunWorkflow({
         WorkflowService.getWorkflowById.key(workflowId),
         ({ workflowId }) => WorkflowService.getWorkflowById(workflowId)
     );
-    const { abortRunningThread, isInvoking, isRunning } = useChat();
+    const { abortRunningThread, isInvoking, isRunning, messages } = useChat();
 
     const params = workflow?.params;
 
     const loading = props.loading || isLoading || isInvoking;
     const disabled = props.disabled || loading || !modelProviderConfigured;
+
+    const latestMessage = messages?.[messages.length - 1];
+    const authenticating =
+        latestMessage?.prompt?.metadata?.authURL ||
+        latestMessage?.prompt?.metadata?.authType;
     if (isRunning) {
         return (
             <Button
@@ -50,7 +55,7 @@ export function RunWorkflow({
                     <SquareIcon className="fill-primary-foreground text-primary-foreground !w-3 !h-3" />
                 }
             >
-                Stop Workflow
+                {authenticating ? "Authenticating" : "Stop Workflow"}
             </Button>
         );
     }

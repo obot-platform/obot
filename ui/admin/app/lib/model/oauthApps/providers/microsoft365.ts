@@ -78,7 +78,7 @@ If you already set your web redirect URI in step 1, you can skip to Step 3.\n
         type: "markdown",
         text: `
 ### Step 3: Configure the Required Permissions\n
-- Navigate to **API permissions** from the left sidebar.\n
+- From the left sidebar, under the **Manage** tab, navigate to **API permissions**.\n
 - Locate the **Configured permissions** section and click **+ Add a permission**.\n
 - Under the **Microsoft APIs** tab, search for **Microsoft Graph** and select it.\n
 - Select the **Delegated permissions** option.\n
@@ -107,9 +107,9 @@ If you already set your web redirect URI in step 1, you can skip to Step 3.\n
 ### Step 4: Generate a new client secret\n
 - From the **Certificates & secrets** page, click **+ New client secret**.\n
 - (Optional) enter a **Description** and select an **Expiration** date.\n
-- Click **Add** and copy the new client secret to your clipboard.\n
+- Click **Add** and copy the new client secret ("**Secret Value**") to your clipboard.\n
   - Make sure to save it somewhere as it will not be accessible after closing this page.\n
-- Paste the client secret into the **Client Secret** field below.\n
+- Paste your "**Secret Value**" into the **Client Secret** field below.\n
         `,
     },
     {
