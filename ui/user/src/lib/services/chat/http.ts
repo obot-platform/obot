@@ -7,12 +7,16 @@ if (typeof window !== 'undefined') {
 	baseURL = baseURL.replace('http://localhost:8080', window.location.origin);
 }
 
-interface GetOptions {
+interface GetOptions extends RequestInit {
 	blob?: boolean;
 }
 
 export async function doGet(path: string, opts?: GetOptions): Promise<unknown> {
-	const resp = await fetch(baseURL + path);
+	const resp = await fetch(baseURL + path, {
+		method: 'GET',
+		...opts,
+	});
+
 	if (!resp.ok) {
 		const body = await resp.text();
 		const e = new Error(`${resp.status} ${path}: ${body}`);
