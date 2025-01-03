@@ -41,7 +41,6 @@ func (db *DB) AutoMigrate() (err error) {
 		types.AuthToken{},
 		types.TokenRequest{},
 		types.LLMProxyActivity{},
-		types.AuthProvider{},
 		types.LLMProvider{},
 		types.Model{},
 		types.OAuthTokenRequestChallenge{},

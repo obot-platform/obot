@@ -45,7 +45,7 @@ func Token(ctx context.Context, baseURL string) (string, error) {
 		return "", nil
 	}
 
-	serviceName, err := getAuthProviderServiceName(ctx, baseURL)
+	serviceNamespace, serviceName, err := getAuthProviderServiceInfo(ctx, baseURL)
 	if err != nil {
 		return "", err
 	}
@@ -77,7 +77,7 @@ func Token(ctx context.Context, baseURL string) (string, error) {
 	}
 
 	uuid := uuid.NewString()
-	loginURL, err := create(ctx, baseURL, uuid, serviceName)
+	loginURL, err := create(ctx, baseURL, uuid, serviceName, serviceNamespace)
 	if err != nil {
 		return "", fmt.Errorf("failed to create login request: %w", err)
 	}
@@ -118,17 +118,22 @@ func Token(ctx context.Context, baseURL string) (string, error) {
 }
 
 type createRequest struct {
-	ServiceName string `json:"serviceName,omitempty"`
-	ID          string `json:"id,omitempty"`
+	ServiceName      string `json:"serviceName,omitempty"`
+	ServiceNamespace string `json:"serviceNamespace,omitempty"`
+	ID               string `json:"id,omitempty"`
 }
 
 type createResponse struct {
 	TokenPath string `json:"token-path,omitempty"`
 }
 
-func create(ctx context.Context, baseURL, uuid, serviceName string) (string, error) {
+func create(ctx context.Context, baseURL, uuid, serviceName, serviceNamespace string) (string, error) {
 	var data bytes.Buffer
-	if err := json.NewEncoder(&data).Encode(createRequest{ID: uuid, ServiceName: serviceName}); err != nil {
+	if err := json.NewEncoder(&data).Encode(createRequest{
+		ID:               uuid,
+		ServiceName:      serviceName,
+		ServiceNamespace: serviceNamespace,
+	}); err != nil {
 		return "", err
 	}
 
@@ -210,27 +215,28 @@ func testToken(ctx context.Context, baseURL, token string) bool {
 	return resp.StatusCode == 200 && user.Username != "anonymous"
 }
 
-func getAuthProviderServiceName(ctx context.Context, baseURL string) (string, error) {
+func getAuthProviderServiceInfo(ctx context.Context, baseURL string) (string, string, error) {
 	req, err := http.NewRequestWithContext(ctx, "GET", baseURL+"/auth-providers", nil)
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
 	defer resp.Body.Close()
 
-	var authProviders []types.AuthProvider
+	var authProviders types2.AuthProviderList
 	if err := json.NewDecoder(resp.Body).Decode(&authProviders); err != nil {
-		return "", err
+		return "", "", err
 	}
 
-	if len(authProviders) == 0 {
-		return "", fmt.Errorf("no auth providers found")
+	if len(authProviders.Items) == 0 {
+		return "", "", fmt.Errorf("no auth providers found")
 	}
 
 	// Take the last auth provider. That is the one created most recently.
-	return authProviders[len(authProviders)-1].ServiceName, nil
+	lastProvider := authProviders.Items[len(authProviders.Items)-1]
+	return lastProvider.Namespace, lastProvider.Name, nil
 }

@@ -22,8 +22,9 @@ func Router(services *services.Services) (http.Handler, error) {
 	webhooks := handlers.NewWebhookHandler()
 	cronJobs := handlers.NewCronJobHandler()
 	models := handlers.NewModelHandler()
-	availableModels := handlers.NewAvailableModelsHandler(services.GPTClient, services.ModelProviderDispatcher)
-	modelProviders := handlers.NewModelProviderHandler(services.GPTClient, services.ModelProviderDispatcher)
+	availableModels := handlers.NewAvailableModelsHandler(services.GPTClient, services.ProviderDispatcher)
+	modelProviders := handlers.NewModelProviderHandler(services.GPTClient, services.ProviderDispatcher)
+	authProviders := handlers.NewAuthProviderHandler(services.GPTClient, services.ProviderDispatcher)
 	prompt := handlers.NewPromptHandler(services.GPTClient)
 	emailreceiver := handlers.NewEmailReceiverHandler(services.EmailServerName)
 	defaultModelAliases := handlers.NewDefaultModelAliasHandler()
@@ -261,6 +262,12 @@ func Router(services *services.Services) (http.Handler, error) {
 	mux.HandleFunc("POST /api/model-providers/{id}/deconfigure", modelProviders.Deconfigure)
 	mux.HandleFunc("POST /api/model-providers/{id}/reveal", modelProviders.Reveal)
 	mux.HandleFunc("POST /api/model-providers/{id}/refresh-models", modelProviders.RefreshModels)
+
+	// Auth providers
+	mux.HandleFunc("GET /api/auth-providers", authProviders.List)
+	mux.HandleFunc("GET /api/auth-providers/{id}", authProviders.ByID)
+	mux.HandleFunc("POST /api/auth-providers/{id}/configure", authProviders.Configure)
+	mux.HandleFunc("POST /api/auth-providers/{id}/reveal", authProviders.Reveal)
 
 	// Models
 	mux.HandleFunc("POST /api/models", models.Create)

@@ -21,19 +21,19 @@ type Server struct {
 	gptClient     *gptscript.GPTScript
 	authenticator *authn.Authenticator
 	authorizer    *authz.Authorizer
-	proxyServer   *proxy.Proxy
+	proxyManager  *proxy.Manager
 	baseURL       string
 
 	mux *http.ServeMux
 }
 
-func NewServer(storageClient storage.Client, gptClient *gptscript.GPTScript, authn *authn.Authenticator, authz *authz.Authorizer, proxyServer *proxy.Proxy, baseURL string) *Server {
+func NewServer(storageClient storage.Client, gptClient *gptscript.GPTScript, authn *authn.Authenticator, authz *authz.Authorizer, proxyManager *proxy.Manager, baseURL string) *Server {
 	return &Server{
 		storageClient: storageClient,
 		gptClient:     gptClient,
 		authenticator: authn,
 		authorizer:    authz,
-		proxyServer:   proxyServer,
+		proxyManager:  proxyManager,
 		baseURL:       baseURL + "/api",
 
 		mux: http.NewServeMux(),
@@ -78,13 +78,13 @@ func (s *Server) wrap(f api.HandlerFunc) http.HandlerFunc {
 		isOAuthPath := strings.HasPrefix(req.URL.Path, "/oauth2/")
 		if isOAuthPath || strings.HasPrefix(req.URL.Path, "/api/") && !s.authorizer.Authorize(req, user) {
 			// If this is not a request coming from browser or the proxy is not enabled, then return 403.
-			if !isOAuthPath && (s.proxyServer == nil || req.Method != http.MethodGet || slices.Contains(user.GetGroups(), authz.AuthenticatedGroup) || !strings.Contains(strings.ToLower(req.UserAgent()), "mozilla")) {
+			if !isOAuthPath && (s.proxyManager == nil || req.Method != http.MethodGet || slices.Contains(user.GetGroups(), authz.AuthenticatedGroup) || !strings.Contains(strings.ToLower(req.UserAgent()), "mozilla")) {
 				http.Error(rw, "forbidden", http.StatusForbidden)
 				return
 			}
 
 			req.Header.Set("X-Otto-Auth-Required", "true")
-			s.proxyServer.ServeHTTP(rw, req)
+			s.proxyManager.ServeHTTP(rw, req)
 			return
 		}
 

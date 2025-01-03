@@ -17,6 +17,7 @@ const (
 	ModelProviderSyncAnnotation = "otto8.ai/model-provider-sync"
 	WorkflowSyncAnnotation      = "otto8.ai/workflow-sync"
 	AgentSyncAnnotation         = "otto8.ai/agent-sync"
+	AuthProviderSyncAnnotation  = "otto8.ai/auth-provider-sync"
 )
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
