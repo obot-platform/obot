@@ -120,10 +120,10 @@ function getCronFrequency(
     cronString: string
 ): "hourly" | "daily" | "weekly" | "monthly" | null {
     const patterns = {
-        hourly: /^(0|\*\/\d+)\s+\*\s+\*\s+\*\s+\*$/, // ex. "0 * * * *" or "*/15 * * * *"
-        daily: /^0\s+\d+\s+\*\s+\*\s+\*$/, // ex. "0 6 * * *"
-        weekly: /^0\s+\d+\s+\*\s+\*\s+\d$/, // ex. "0 0 * * 3"
-        monthly: /^0\s+\d+\s+\d+\s+\*\s+\*$/, // "0 0 15 * *"
+        hourly: /^(0|\*\/\d+) \* \* \* \*$/, // ex. "0 * * * *" or "*/15 * * * *"
+        daily: /^0 \d+ \* \* \*$/, // ex. "0 6 * * *"
+        weekly: /^0 \d+ \* \* \d$/, // ex. "0 0 * * 3"
+        monthly: /^0 \d+ \d+ \* \*$/, // "0 0 15 * *"
     };
 
     for (const [frequency, pattern] of Object.entries(patterns)) {
