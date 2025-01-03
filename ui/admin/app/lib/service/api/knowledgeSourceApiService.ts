@@ -176,6 +176,20 @@ async function deleteKnowledgeSource(
     });
 }
 
+function getKnowledgeSourceFilesEventSource(
+    namespace: KnowledgeSourceNamespace,
+    agentId: string,
+    sourceId: string
+) {
+    return new EventSource(
+        ApiRoutes.knowledgeSources.watchKnowledgeSourceFiles(
+            namespace,
+            agentId,
+            sourceId
+        ).url
+    );
+}
+
 export const KnowledgeSourceApiService = {
     approveFile,
     createKnowledgeSource,
@@ -183,6 +197,7 @@ export const KnowledgeSourceApiService = {
     resyncKnowledgeSource,
     getKnowledgeSources,
     getFilesForKnowledgeSource,
+    getKnowledgeSourceFilesEventSource,
     reingestFileFromSource,
     deleteKnowledgeSource,
 };
