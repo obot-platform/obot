@@ -39,6 +39,7 @@ export function ChatProvider({
     threadId,
     onCreateThreadId,
     readOnly,
+    onRunEvent,
 }: {
     children: ReactNode;
     mode?: Mode;
@@ -46,6 +47,8 @@ export function ChatProvider({
     threadId?: Nullish<string>;
     onCreateThreadId?: (threadId: string) => void;
     readOnly?: boolean;
+    /** @description THIS MUST BE MEMOIZED */
+    onRunEvent?: (event: ChatEvent) => void;
 }) {
     const invoke = (prompt?: string) => {
         if (readOnly) return;
@@ -67,7 +70,7 @@ export function ChatProvider({
         },
     });
 
-    const { messages, isRunning } = useMessageSource(threadId);
+    const { messages, isRunning } = useMessageSource(threadId, onRunEvent);
 
     const abortRunningThread = () => {
         if (!threadId || !isRunning) return;
@@ -104,98 +107,106 @@ export function useChat() {
     return context;
 }
 
-function useMessageSource(threadId?: Nullish<string>) {
+function useMessageSource(
+    threadId?: Nullish<string>,
+    onRunEvent?: (event: ChatEvent) => void
+) {
     const [messages, setMessages] = useState<Message[]>([]);
     const [isRunning, setIsRunning] = useState(false);
 
-    const addContent = useCallback((event: ChatEvent) => {
-        const {
-            content,
-            prompt,
-            toolCall,
-            runComplete,
-            input,
-            error,
-            runID,
-            contentID,
-            replayComplete,
-        } = event;
+    const addContent = useCallback(
+        (event: ChatEvent) => {
+            const {
+                content,
+                prompt,
+                toolCall,
+                runComplete,
+                input,
+                error,
+                runID,
+                contentID,
+                replayComplete,
+            } = event;
 
-        setIsRunning(!runComplete && !replayComplete);
+            onRunEvent?.(event);
 
-        setMessages((prev) => {
-            const copy = [...prev];
+            setIsRunning(!runComplete && !replayComplete);
 
-            // todo(ryanhopperlowe) can be optmized by searching from the end
-            const existingIndex = contentID
-                ? copy.findIndex((m) => m.contentID === contentID)
-                : -1;
+            setMessages((prev) => {
+                const copy = [...prev];
 
-            if (existingIndex !== -1) {
-                const existing = copy[existingIndex];
-                copy[existingIndex] = {
-                    ...existing,
-                    text: existing.text + content,
-                };
+                // todo(ryanhopperlowe) can be optmized by searching from the end
+                const existingIndex = contentID
+                    ? copy.findIndex((m) => m.contentID === contentID)
+                    : -1;
 
-                return copy;
-            }
-
-            if (error) {
-                if (error.includes("thread was aborted, cancelling run")) {
-                    copy.push({
-                        sender: "agent",
-                        text: "Message Aborted",
-                        runId: runID,
-                        contentID,
-                        aborted: true,
-                    });
+                if (existingIndex !== -1) {
+                    const existing = copy[existingIndex];
+                    copy[existingIndex] = {
+                        ...existing,
+                        text: existing.text + content,
+                    };
 
                     return copy;
                 }
 
-                copy.push({
-                    sender: "agent",
-                    text: error,
-                    runId: runID,
-                    error: true,
-                    contentID,
-                });
+                if (error) {
+                    if (error.includes("thread was aborted, cancelling run")) {
+                        copy.push({
+                            sender: "agent",
+                            text: "Message Aborted",
+                            runId: runID,
+                            contentID,
+                            aborted: true,
+                        });
+
+                        return copy;
+                    }
+
+                    copy.push({
+                        sender: "agent",
+                        text: error,
+                        runId: runID,
+                        error: true,
+                        contentID,
+                    });
+                    return copy;
+                }
+
+                if (input) {
+                    copy.push({
+                        sender: "user",
+                        text: input,
+                        runId: runID,
+                        contentID,
+                    });
+                    return copy;
+                }
+
+                if (toolCall) {
+                    return handleToolCallEvent(copy, event);
+                }
+
+                if (prompt) {
+                    copy.push(promptMessage(prompt, runID));
+                    return copy;
+                }
+
+                if (content) {
+                    copy.push({
+                        sender: "agent",
+                        text: content,
+                        runId: runID,
+                        contentID,
+                    });
+                    return copy;
+                }
+
                 return copy;
-            }
-
-            if (input) {
-                copy.push({
-                    sender: "user",
-                    text: input,
-                    runId: runID,
-                    contentID,
-                });
-                return copy;
-            }
-
-            if (toolCall) {
-                return handleToolCallEvent(copy, event);
-            }
-
-            if (prompt) {
-                copy.push(promptMessage(prompt, runID));
-                return copy;
-            }
-
-            if (content) {
-                copy.push({
-                    sender: "agent",
-                    text: content,
-                    runId: runID,
-                    contentID,
-                });
-                return copy;
-            }
-
-            return copy;
-        });
-    }, []);
+            });
+        },
+        [onRunEvent]
+    );
 
     useEffect(() => {
         setMessages([]);

@@ -21,6 +21,7 @@ export type AgentBase = {
     params?: Record<string, string>;
     knowledgeDescription?: string;
     model?: string;
+    toolInfo?: AgentToolInfo;
     env?: EnvVariable[];
 };
 
@@ -45,3 +46,10 @@ export type AgentIcons = {
     collapsed: string;
     collapsedDark: string;
 };
+
+export type ToolInfo = {
+    credentialNames?: string[];
+    authorized: boolean;
+};
+
+export type AgentToolInfo = Record<string, ToolInfo>;

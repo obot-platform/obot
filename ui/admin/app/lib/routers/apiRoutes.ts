@@ -1,6 +1,7 @@
 import queryString from "query-string";
 import { mutate } from "swr";
 
+import { AssistantNamespace } from "~/lib/model/assistants";
 import { CredentialNamespace } from "~/lib/model/credentials";
 import {
     KnowledgeFileNamespace,
@@ -163,6 +164,12 @@ export const ApiRoutes = {
         getById: (workflowId: string) => buildUrl(`/workflows/${workflowId}`),
         authenticate: (workflowId: string) =>
             buildUrl(`/workflows/${workflowId}/authenticate`),
+    },
+    toolAuthentication: {
+        authenticate: (namespace: AssistantNamespace, entityId: string) =>
+            buildUrl(`/${namespace}/${entityId}/authenticate`),
+        deauthenticate: (namespace: AssistantNamespace, entityId: string) =>
+            buildUrl(`/${namespace}/${entityId}/deauthenticate`),
     },
     env: {
         getEnv: (entityId: string) => buildUrl(`/agents/${entityId}/env`),

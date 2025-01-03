@@ -1,11 +1,13 @@
 import { Library, List, PuzzleIcon, Variable, WrenchIcon } from "lucide-react";
 import { useCallback, useState } from "react";
 
+import { AssistantNamespace } from "~/lib/model/assistants";
 import { Workflow as WorkflowType } from "~/lib/model/workflows";
 import { cn } from "~/lib/utils";
 
 import { TypographyH4, TypographyP } from "~/components/Typography";
 import { AgentForm } from "~/components/agent";
+import { AgentAuthentication } from "~/components/agent/shared/AgentAuthentication";
 import { EnvironmentVariableSection } from "~/components/agent/shared/EnvironmentVariableSection";
 import { AgentKnowledgePanel } from "~/components/knowledge";
 import { BasicToolForm } from "~/components/tools/BasicToolForm";
@@ -36,7 +38,13 @@ export function Workflow(props: WorkflowProps) {
 }
 
 function WorkflowContent({ className }: WorkflowProps) {
-    const { workflow, updateWorkflow, isUpdating, lastUpdated } = useWorkflow();
+    const {
+        workflow,
+        updateWorkflow,
+        isUpdating,
+        lastUpdated,
+        refreshWorkflow,
+    } = useWorkflow();
 
     const [workflowUpdates, setWorkflowUpdates] = useState(workflow);
 
@@ -82,6 +90,15 @@ function WorkflowContent({ className }: WorkflowProps) {
                     <BasicToolForm
                         value={workflow.tools}
                         onChange={(tools) => partialSetWorkflow({ tools })}
+                        renderActions={(tool) => (
+                            <AgentAuthentication
+                                namespace={AssistantNamespace.Workflows}
+                                entityId={workflow.id}
+                                tool={tool}
+                                toolInfo={workflow.toolInfo?.[tool]}
+                                onUpdate={refreshWorkflow}
+                            />
+                        )}
                     />
                 </div>
 

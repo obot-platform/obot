@@ -25,7 +25,7 @@ export function WorkflowWebhookDialog({
 
     return (
         <Dialog open={open} onOpenChange={setOpen}>
-            <DialogTrigger>
+            <DialogTrigger asChild>
                 {webhook ? (
                     <Button variant="ghost" size="icon">
                         <EditIcon />
