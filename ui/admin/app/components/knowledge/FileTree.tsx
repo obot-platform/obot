@@ -141,9 +141,6 @@ export default function FileTreeNode({
             filePathPrefixInclude,
             filePathPrefixExclude,
         });
-
-        // We should manually approve/unapprove all files in the folder at once so that we don't rely on backend reconciliation logic as it will cause delay in updating the UI.
-        onApproveFile(!included, node);
     };
 
     return (

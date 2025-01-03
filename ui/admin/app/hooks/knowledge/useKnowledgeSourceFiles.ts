@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from "react";
-import useSWR from "swr";
 
 import {
     KnowledgeFile,
@@ -29,27 +28,55 @@ export function useKnowledgeSourceFiles(
         startPolling();
     }
 
-    const {
-        data: files,
-        mutate: mutateFiles,
-        ...rest
-    } = useSWR(
-        KnowledgeSourceApiService.getFilesForKnowledgeSource.key(
-            namespace,
-            agentId,
-            knowledgeSource.id
-        ),
-        ({ agentId, sourceId }) =>
-            KnowledgeSourceApiService.getFilesForKnowledgeSource(
+    const [files, setFiles] = useState<KnowledgeFile[]>([]);
+
+    useEffect(() => {
+        const eventSource =
+            KnowledgeSourceApiService.getKnowledgeSourceFilesEventSource(
                 namespace,
                 agentId,
-                sourceId
-            ),
-        {
-            revalidateOnFocus: false,
-            refreshInterval: blockPollingFiles ? undefined : 5000,
-        }
-    );
+                knowledgeSource.id
+            );
+
+        eventSource.onmessage = (event) => {
+            const payload = JSON.parse(event.data);
+            const { eventType, knowledgeFile } = payload;
+
+            setFiles((prevFiles) => {
+                let updatedFiles = [...prevFiles];
+                switch (eventType) {
+                    case "ADDED":
+                    case "MODIFIED":
+                        {
+                            const existingIndex = updatedFiles.findIndex(
+                                (file) => file.id === knowledgeFile.id
+                            );
+                            if (existingIndex !== -1) {
+                                updatedFiles[existingIndex] = knowledgeFile;
+                            } else {
+                                updatedFiles.push(knowledgeFile);
+                            }
+                        }
+                        break;
+                    case "DELETED":
+                        {
+                            updatedFiles = updatedFiles.filter(
+                                (file) => file.id !== knowledgeFile.id
+                            );
+                        }
+                        break;
+                    default:
+                        break;
+                }
+                return updatedFiles;
+            });
+        };
+
+        return () => {
+            setFiles([]);
+            eventSource.close();
+        };
+    }, [knowledgeSource.id, namespace, agentId]);
 
     const sortedFiles = useMemo(() => {
         return (
@@ -90,7 +117,7 @@ export function useKnowledgeSourceFiles(
                 knowledgeSource.id,
                 fileId
             );
-        mutateFiles((prev) =>
+        setFiles((prev) =>
             prev?.map((f) => (f.id === fileId ? updatedFile : f))
         );
     };
@@ -109,7 +136,7 @@ export function useKnowledgeSourceFiles(
             console.error("Failed to approve file", error);
         }
 
-        mutateFiles((prev) =>
+        setFiles((prev) =>
             prev?.map((f) => (f.id === file.id ? (updatedFile ?? file) : f))
         );
     };
@@ -118,8 +145,6 @@ export function useKnowledgeSourceFiles(
         files: sortedFiles,
         reingestFile,
         approveFile,
-        mutateFiles,
         startPollingFiles: startPolling,
-        ...rest,
     };
 }

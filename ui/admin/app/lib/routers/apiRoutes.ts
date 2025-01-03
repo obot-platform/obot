@@ -122,6 +122,14 @@ export const ApiRoutes = {
             entityId: string,
             fileName: string
         ) => buildUrl(`/${namespace}/${entityId}/approve-file/${fileName}`),
+        watchKnowledgeSourceFiles: (
+            namespace: KnowledgeSourceNamespace,
+            entityId: string,
+            sourceId: string
+        ) =>
+            buildUrl(
+                `/${namespace}/${entityId}/knowledge-sources/${sourceId}/knowledge-files/watch`
+            ),
     },
     knowledgeFiles: {
         getKnowledgeFiles: (
