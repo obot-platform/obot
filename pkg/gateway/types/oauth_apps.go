@@ -87,6 +87,25 @@ func ValidateAndSetDefaultsOAuthAppManifest(r *types.OAuthAppManifest, create bo
 		if err != nil {
 			errs = append(errs, err)
 		}
+	case types.OAuthAppTypeServiceNow:
+		serviceNowAuthorizeFragment := "oauth_auth.do"
+		serviceNowTokenFragment := "oauth_token.do"
+		instanceURL, err := url.Parse(r.InstanceURL)
+		if err != nil {
+			errs = append(errs, err)
+		}
+		if instanceURL.Scheme != "" {
+			instanceURL.Scheme = "https"
+		}
+
+		r.AuthURL, err = url.JoinPath(instanceURL.String(), serviceNowAuthorizeFragment)
+		if err != nil {
+			errs = append(errs, err)
+		}
+		r.TokenURL, err = url.JoinPath(instanceURL.String(), serviceNowTokenFragment)
+		if err != nil {
+			errs = append(errs, err)
+		}
 	}
 
 	if r.AuthURL == "" {
@@ -200,6 +219,14 @@ type SalesforceOAuthTokenResponse struct {
 	RefreshToken string `json:"refresh_token"`
 	TokenType    string `json:"token_type"`
 	IssuedAt     string `json:"issued_at"`
+}
+
+type ServiceNowOAuthTokenResponse struct {
+	AccessToken  string `json:"access_token"`
+	RefreshToken string `json:"refresh_token"`
+	Scope        string `json:"scope"`
+	TokenType    string `json:"token_type"`
+	ExpiresIn    int    `json:"expires_in"`
 }
 
 type SlackOAuthTokenResponse struct {

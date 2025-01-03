@@ -8,6 +8,7 @@ import { GoogleOAuthApp } from "~/lib/model/oauthApps/providers/google";
 import { Microsoft365OAuthApp } from "~/lib/model/oauthApps/providers/microsoft365";
 import { NotionOAuthApp } from "~/lib/model/oauthApps/providers/notion";
 import { SalesforceOAuthApp } from "~/lib/model/oauthApps/providers/salesforce";
+import { ServiceNowOAuthApp } from "~/lib/model/oauthApps/providers/servicenow";
 import { SlackOAuthApp } from "~/lib/model/oauthApps/providers/slack";
 import { EntityMeta } from "~/lib/model/primitives";
 
@@ -18,6 +19,7 @@ export const OAuthAppSpecMap = {
     [OAuthProvider.Microsoft365]: Microsoft365OAuthApp,
     [OAuthProvider.Slack]: SlackOAuthApp,
     [OAuthProvider.Salesforce]: SalesforceOAuthApp,
+    [OAuthProvider.ServiceNow]: ServiceNowOAuthApp,
     [OAuthProvider.Notion]: NotionOAuthApp,
     // Custom OAuth apps are intentionally omitted from the map.
     // They are handled separately
