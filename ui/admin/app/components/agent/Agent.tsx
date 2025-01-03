@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from "react";
 import useSWR from "swr";
 
 import { Agent as AgentType } from "~/lib/model/agents";
+import { AssistantNamespace } from "~/lib/model/assistants";
 import { AgentService } from "~/lib/service/api/agentService";
 import { cn } from "~/lib/utils";
 
@@ -13,6 +14,7 @@ import { AgentPublishStatus } from "~/components/agent/AgentPublishStatus";
 import { PastThreads } from "~/components/agent/PastThreads";
 import { ToolForm } from "~/components/agent/ToolForm";
 import { EnvironmentVariableSection } from "~/components/agent/shared/EnvironmentVariableSection";
+import { ToolAuthenticationStatus } from "~/components/agent/shared/ToolAuthenticationStatus";
 import { AgentKnowledgePanel } from "~/components/knowledge";
 import { Button } from "~/components/ui/button";
 import { CardDescription } from "~/components/ui/card";
@@ -26,7 +28,8 @@ type AgentProps = {
 };
 
 export function Agent({ className, currentThreadId, onRefresh }: AgentProps) {
-    const { agent, updateAgent, isUpdating, lastUpdated, error } = useAgent();
+    const { agent, updateAgent, refreshAgent, isUpdating, lastUpdated, error } =
+        useAgent();
 
     const [agentUpdates, setAgentUpdates] = useState(agent);
     const [loadingAgentId, setLoadingAgentId] = useState("");
@@ -124,6 +127,7 @@ export function Agent({ className, currentThreadId, onRefresh }: AgentProps) {
                         onChange={({ tools }) =>
                             debouncedSetAgentInfo(convertTools(tools))
                         }
+                        renderActions={renderActions}
                     />
                 </div>
 
@@ -199,6 +203,18 @@ export function Agent({ className, currentThreadId, onRefresh }: AgentProps) {
             </footer>
         </div>
     );
+
+    function renderActions(tool: string) {
+        return (
+            <ToolAuthenticationStatus
+                namespace={AssistantNamespace.Agents}
+                entityId={agent.id}
+                tool={tool}
+                toolInfo={agent.toolInfo?.[tool]}
+                onUpdate={() => refreshAgent()}
+            />
+        );
+    }
 }
 
 function convertTools(
