@@ -217,7 +217,7 @@ export const KnowledgeSourceDetail: FC<KnowledgeSourceDetailProps> = ({
                         <Label className="flex items-center">
                             {files.length}
                             {sourceType === KnowledgeSourceType.Website &&
-                                files.length >= 250 && (
+                                files.length >= 2000 && (
                                     <Tooltip>
                                         <TooltipTrigger asChild>
                                             <Button
