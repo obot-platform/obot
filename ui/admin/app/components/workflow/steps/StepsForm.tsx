@@ -6,6 +6,7 @@ import { z } from "zod";
 import { Step, Workflow } from "~/lib/model/workflows";
 import { noop } from "~/lib/utils";
 
+import { SortableList } from "~/components/ui/dnd/sortable";
 import { Form, FormField, FormItem, FormMessage } from "~/components/ui/form";
 import { AddStepButton } from "~/components/workflow/steps/AddStep";
 import { renderStep } from "~/components/workflow/steps/StepRenderer";
@@ -54,24 +55,33 @@ export function StepsForm({
                     name="steps"
                     render={({ field }) => (
                         <FormItem>
-                            <div className="space-y-4 mb-2">
-                                {field.value.map((step, index) =>
-                                    renderStep(
+                            <SortableList
+                                items={field.value}
+                                getKey={(step) => step.id}
+                                isHandle={false}
+                                onChange={field.onChange}
+                                renderItem={(step, index) => {
+                                    const onUpdate = (updatedStep: Step) => {
+                                        const newSteps = [...field.value];
+                                        newSteps[index] = updatedStep;
+                                        field.onChange(newSteps);
+                                    };
+
+                                    const onDelete = () => {
+                                        const newSteps = field.value.filter(
+                                            (_, i) => i !== index
+                                        );
+                                        field.onChange(newSteps);
+                                    };
+
+                                    return renderStep({
                                         step,
-                                        (updatedStep) => {
-                                            const newSteps = [...field.value];
-                                            newSteps[index] = updatedStep;
-                                            field.onChange(newSteps);
-                                        },
-                                        () => {
-                                            const newSteps = field.value.filter(
-                                                (_, i) => i !== index
-                                            );
-                                            field.onChange(newSteps);
-                                        }
-                                    )
-                                )}
-                            </div>
+                                        onUpdate,
+                                        onDelete,
+                                    });
+                                }}
+                            />
+
                             <AddStepButton
                                 className="float-end"
                                 onAddStep={(newStep) => {

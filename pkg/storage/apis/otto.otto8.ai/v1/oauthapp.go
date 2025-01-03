@@ -34,11 +34,11 @@ func (r *OAuthApp) IsAssigned() bool {
 	return true
 }
 
-func (r *OAuthApp) GetAliasObservedGeneration() int64 {
+func (r *OAuthApp) GetObservedGeneration() int64 {
 	return r.Generation
 }
 
-func (r *OAuthApp) SetAliasObservedGeneration(int64) {}
+func (r *OAuthApp) SetObservedGeneration(int64) {}
 
 func (r *OAuthApp) Has(field string) bool {
 	return r.Get(field) != ""

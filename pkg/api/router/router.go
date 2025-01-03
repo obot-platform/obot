@@ -11,8 +11,9 @@ import (
 func Router(services *services.Services) (http.Handler, error) {
 	mux := services.APIServer
 
-	agents := handlers.NewAgentHandler(services.GPTClient, services.ServerURL)
+	agents := handlers.NewAgentHandler(services.GPTClient, services.Invoker, services.ServerURL)
 	assistants := handlers.NewAssistantHandler(services.Invoker, services.Events, services.GPTClient)
+	tools := handlers.NewToolHandler(services.GPTClient)
 	tasks := handlers.NewTaskHandler(services.Invoker, services.Events)
 	workflows := handlers.NewWorkflowHandler(services.GPTClient, services.ServerURL, services.Invoker)
 	invoker := handlers.NewInvokeHandler(services.Invoker)
@@ -27,7 +28,7 @@ func Router(services *services.Services) (http.Handler, error) {
 	prompt := handlers.NewPromptHandler(services.GPTClient)
 	emailreceiver := handlers.NewEmailReceiverHandler(services.EmailServerName)
 	defaultModelAliases := handlers.NewDefaultModelAliasHandler()
-	version := handlers.NewVersionHandler(services.EmailServerName)
+	version := handlers.NewVersionHandler(services.EmailServerName, services.SupportDocker)
 	tables := handlers.NewTableHandler(services.GPTClient)
 
 	// Version
@@ -40,7 +41,12 @@ func Router(services *services.Services) (http.Handler, error) {
 	mux.HandleFunc("GET /api/agents/{id}/script", agents.Script)
 	mux.HandleFunc("GET /api/agents/{id}/script.gpt", agents.Script)
 	mux.HandleFunc("GET /api/agents/{id}/script/tool.gpt", agents.Script)
+	mux.HandleFunc("GET /api/agents/{id}/threads/{thread_id}/script", agents.Script)
+	mux.HandleFunc("GET /api/agents/{id}/threads/{thread_id}/script.gpt", agents.Script)
+	mux.HandleFunc("GET /api/agents/{id}/threads/{thread_id}/script/tool.gpt", agents.Script)
 	mux.HandleFunc("POST /api/agents", agents.Create)
+	mux.HandleFunc("POST /api/agents/{id}/authenticate", agents.Authenticate)
+	mux.HandleFunc("POST /api/agents/{id}/deauthenticate", agents.DeAuthenticate)
 	mux.HandleFunc("PUT /api/agents/{id}", agents.Update)
 	mux.HandleFunc("DELETE /api/agents/{id}", agents.Delete)
 	mux.HandleFunc("POST /api/agents/{id}/oauth-credentials/{ref}/login", agents.EnsureCredentialForKnowledgeSource)
@@ -55,6 +61,7 @@ func Router(services *services.Services) (http.Handler, error) {
 	// Assistant tools
 	mux.HandleFunc("GET /api/assistants/{id}/tools", assistants.Tools)
 	mux.HandleFunc("DELETE /api/assistants/{id}/tools/{tool}", assistants.RemoveTool)
+	mux.HandleFunc("DELETE /api/assistants/{id}/tools/{tool}/custom", assistants.DeleteTool)
 	mux.HandleFunc("PUT /api/assistants/{id}/tools/{tool}", assistants.AddTool)
 	// Assistant files
 	mux.HandleFunc("GET /api/assistants/{assistant_id}/files", assistants.Files)
@@ -65,6 +72,20 @@ func Router(services *services.Services) (http.Handler, error) {
 	mux.HandleFunc("GET /api/assistants/{id}/knowledge", assistants.Knowledge)
 	mux.HandleFunc("POST /api/assistants/{id}/knowledge/{file}", assistants.UploadKnowledge)
 	mux.HandleFunc("DELETE /api/assistants/{id}/knowledge/{file...}", assistants.DeleteKnowledge)
+
+	if services.SupportDocker {
+		shell, err := handlers.NewShellHandler(services.Invoker)
+		if err != nil {
+			return nil, err
+		}
+		mux.HandleFunc("GET /api/assistants/{assistant_id}/shell", shell.Shell)
+
+		// Tools
+		mux.HandleFunc("POST /api/assistants/{assistant_id}/tools", tools.Create)
+		mux.HandleFunc("PUT /api/assistants/{assistant_id}/tools/{tool_id}/env", tools.SetEnv)
+	}
+	mux.HandleFunc("GET /api/assistants/{assistant_id}/tools/{tool_id}", tools.Get)
+	mux.HandleFunc("GET /api/assistants/{assistant_id}/tools/{tool_id}/env", tools.GetEnv)
 
 	// Tasks
 	mux.HandleFunc("GET /api/assistants/{assistant_id}/tasks", tasks.List)
@@ -130,6 +151,7 @@ func Router(services *services.Services) (http.Handler, error) {
 	mux.HandleFunc("GET /api/workflows/{id}/script/tool.gpt", workflows.Script)
 	mux.HandleFunc("POST /api/workflows", workflows.Create)
 	mux.HandleFunc("POST /api/workflows/{id}/authenticate", workflows.Authenticate)
+	mux.HandleFunc("POST /api/workflows/{id}/deauthenticate", workflows.DeAuthenticate)
 	mux.HandleFunc("PUT /api/workflows/{id}", workflows.Update)
 	mux.HandleFunc("DELETE /api/workflows/{id}", workflows.Delete)
 	mux.HandleFunc("POST /api/workflows/{id}/oauth-credentials/{ref}/login", workflows.EnsureCredentialForKnowledgeSource)

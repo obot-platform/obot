@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { type InvokeInput } from '$lib/services';
 	import { editor } from '$lib/stores';
-	import { autoHeight } from '$lib/actions/textarea';
+	import { autoHeight } from '$lib/actions/textarea.js';
 	import { ArrowUp, LoaderCircle } from 'lucide-svelte';
 
 	interface Props {

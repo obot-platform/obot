@@ -2,6 +2,7 @@ package controller
 
 import (
 	"github.com/obot-platform/nah/pkg/handlers"
+	"github.com/obot-platform/obot/pkg/controller/generationed"
 	"github.com/obot-platform/obot/pkg/controller/handlers/agents"
 	"github.com/obot-platform/obot/pkg/controller/handlers/alias"
 	"github.com/obot-platform/obot/pkg/controller/handlers/cleanup"
@@ -13,6 +14,7 @@ import (
 	"github.com/obot-platform/obot/pkg/controller/handlers/oauthapp"
 	"github.com/obot-platform/obot/pkg/controller/handlers/runs"
 	"github.com/obot-platform/obot/pkg/controller/handlers/threads"
+	"github.com/obot-platform/obot/pkg/controller/handlers/toolinfo"
 	"github.com/obot-platform/obot/pkg/controller/handlers/toolreference"
 	"github.com/obot-platform/obot/pkg/controller/handlers/webhook"
 	"github.com/obot-platform/obot/pkg/controller/handlers/workflow"
@@ -27,7 +29,8 @@ func (c *Controller) setupRoutes() error {
 
 	workflowExecution := workflowexecution.New(c.services.Invoker)
 	workflowStep := workflowstep.New(c.services.Invoker)
-	toolRef := toolreference.New(c.services.GPTClient, c.services.ModelProviderDispatcher, c.services.ToolRegistryURL)
+	toolRef := toolreference.New(c.services.GPTClient, c.services.ModelProviderDispatcher,
+		c.services.ToolRegistryURL, c.services.SupportDocker)
 	workspace := workspace.New(c.services.GPTClient, c.services.WorkspaceProviderType)
 	knowledgeset := knowledgeset.New(c.services.AIHelper, c.services.Invoker)
 	knowledgesource := knowledgesource.NewHandler(c.services.Invoker, c.services.GPTClient)
@@ -37,6 +40,7 @@ func (c *Controller) setupRoutes() error {
 	cronJobs := cronjob.New()
 	oauthLogins := oauthapp.NewLogin(c.services.Invoker, c.services.ServerURL)
 	knowledgesummary := knowledgesummary.NewHandler(c.services.GPTClient)
+	toolInfo := toolinfo.New(c.services.GPTClient)
 
 	// Runs
 	root.Type(&v1.Run{}).FinalizeFunc(v1.RunFinalizer, runs.DeleteRunState)
@@ -59,6 +63,9 @@ func (c *Controller) setupRoutes() error {
 	root.Type(&v1.Workflow{}).HandlerFunc(workflow.CreateWorkspaceAndKnowledgeSet)
 	root.Type(&v1.Workflow{}).HandlerFunc(workflow.BackPopulateAuthStatus)
 	root.Type(&v1.Workflow{}).HandlerFunc(cleanup.Cleanup)
+	root.Type(&v1.Workflow{}).HandlerFunc(alias.AssignAlias)
+	root.Type(&v1.Workflow{}).HandlerFunc(toolInfo.SetToolInfoStatus)
+	root.Type(&v1.Workflow{}).HandlerFunc(generationed.UpdateObservedGeneration)
 
 	// WorkflowExecutions
 	root.Type(&v1.WorkflowExecution{}).HandlerFunc(cleanup.Cleanup)
@@ -68,6 +75,9 @@ func (c *Controller) setupRoutes() error {
 	// Agents
 	root.Type(&v1.Agent{}).HandlerFunc(agents.CreateWorkspaceAndKnowledgeSet)
 	root.Type(&v1.Agent{}).HandlerFunc(agents.BackPopulateAuthStatus)
+	root.Type(&v1.Agent{}).HandlerFunc(alias.AssignAlias)
+	root.Type(&v1.Agent{}).HandlerFunc(toolInfo.SetToolInfoStatus)
+	root.Type(&v1.Agent{}).HandlerFunc(generationed.UpdateObservedGeneration)
 
 	// Uploads
 	root.Type(&v1.KnowledgeSource{}).HandlerFunc(cleanup.Cleanup)
@@ -75,17 +85,22 @@ func (c *Controller) setupRoutes() error {
 	root.Type(&v1.KnowledgeSource{}).HandlerFunc(knowledgesource.Reschedule)
 	root.Type(&v1.KnowledgeSource{}).HandlerFunc(knowledgesource.Sync)
 
-	// ToolReference
+	// ToolReferences
 	root.Type(&v1.ToolReference{}).HandlerFunc(toolRef.BackPopulateModels)
 	root.Type(&v1.ToolReference{}).HandlerFunc(toolRef.Populate)
 	root.Type(&v1.ToolReference{}).FinalizeFunc(v1.ToolReferenceFinalizer, toolRef.CleanupModelProvider)
 
-	// Reference
-	root.Type(&v1.Agent{}).HandlerFunc(alias.AssignAlias)
+	// EmailReceivers
 	root.Type(&v1.EmailReceiver{}).HandlerFunc(alias.AssignAlias)
-	root.Type(&v1.Workflow{}).HandlerFunc(alias.AssignAlias)
+	root.Type(&v1.EmailReceiver{}).HandlerFunc(generationed.UpdateObservedGeneration)
+
+	// Models
 	root.Type(&v1.Model{}).HandlerFunc(alias.AssignAlias)
+	root.Type(&v1.Model{}).HandlerFunc(generationed.UpdateObservedGeneration)
+
+	// DefaultModelAliases
 	root.Type(&v1.DefaultModelAlias{}).HandlerFunc(alias.AssignAlias)
+	root.Type(&v1.DefaultModelAlias{}).HandlerFunc(generationed.UpdateObservedGeneration)
 
 	// Knowledge files
 	root.Type(&v1.KnowledgeFile{}).HandlerFunc(cleanup.Cleanup)

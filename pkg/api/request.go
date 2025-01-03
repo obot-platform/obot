@@ -93,6 +93,9 @@ func (r *Context) Read(obj any) error {
 	if err != nil {
 		return err
 	}
+	if len(data) == 0 {
+		return io.EOF
+	}
 	return json.Unmarshal(data, obj)
 }
 

@@ -5,7 +5,7 @@
 	import { Plus, Trash } from '$lib/icons';
 	import { LoaderCircle, OctagonX, Play, RefreshCcw, Save, Undo } from 'lucide-svelte';
 	import { tick } from 'svelte';
-	import { autoHeight } from '$lib/actions/textarea';
+	import { autoHeight } from '$lib/actions/textarea.js';
 	import Confirm from '$lib/components/Confirm.svelte';
 	import { currentAssistant } from '$lib/stores';
 
@@ -221,7 +221,7 @@
 	</div>
 	{#if messages.length > 0}
 		<div
-			class="relative -ml-6 rounded-3xl bg-white p-5 transition-transform dark:bg-black"
+			class="relative my-3 -ml-6 rounded-3xl bg-white p-5 transition-transform dark:bg-black"
 			class:border-2={running}
 			class:border-blue={running}
 		>

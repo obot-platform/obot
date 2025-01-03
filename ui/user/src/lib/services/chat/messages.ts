@@ -1,6 +1,7 @@
 import items from '$lib/stores/editor.svelte';
 import type { Explain, InputMessage, Message, Messages, Progress } from './types';
 
+const errorIcon = 'Error';
 const assistantIcon = 'Assistant';
 const profileIcon = 'Profile';
 
@@ -157,15 +158,13 @@ function toMessages(progresses: Progress[]): Messages {
 
 	for (const [i, progress] of progresses.entries()) {
 		if (progress.error) {
-			if (progress.runID && progress.error.includes('abort')) {
+			if (progress.runID) {
 				for (const message of messages) {
 					if (message.runID === progress.runID) {
 						message.aborted = true;
 					}
 				}
 			}
-			// Errors are handled as events, so we can just ignore them here
-			continue;
 		}
 
 		if (progress.runID) {
@@ -197,8 +196,7 @@ function toMessages(progresses: Progress[]): Messages {
 		}
 
 		if (progress.error) {
-			// Errors are handled as events, so we can just ignore them here
-			continue;
+			messages.push(newErrorMessage(progress));
 		} else if (progress.waitingOnModel) {
 			if (i === progresses.length - 1) {
 				// Only add if it's the last one
@@ -282,6 +280,16 @@ function newWaitingOnModelMessage(progress: Progress): Message {
 		icon: assistantIcon,
 		sourceName: 'Assistant',
 		message: ['Thinking really hard...']
+	};
+}
+
+function newErrorMessage(progress: Progress): Message {
+	return {
+		time: new Date(progress.time),
+		runID: progress.runID || '',
+		icon: errorIcon,
+		sourceName: 'Assistant',
+		message: [progress.error ?? 'Error']
 	};
 }
 

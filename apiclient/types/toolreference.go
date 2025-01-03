@@ -25,7 +25,7 @@ type ToolReference struct {
 	Error       string            `json:"error,omitempty"`
 	Builtin     bool              `json:"builtin,omitempty"`
 	Description string            `json:"description,omitempty"`
-	Credential  string            `json:"credential,omitempty"`
+	Credentials []string          `json:"credential,omitempty"`
 	Params      map[string]string `json:"params,omitempty"`
 }
 

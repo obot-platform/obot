@@ -1,6 +1,7 @@
 import { baseURL, doDelete, doGet, doPost, doPut } from './http';
 import {
 	type AssistantToolList,
+	type AssistantTool,
 	type Assistants,
 	type CredentialList,
 	type Files,
@@ -227,6 +228,57 @@ export async function listTools(assistant: string): Promise<AssistantToolList> {
 		list.items = [];
 	}
 	return list;
+}
+
+export async function createTool(
+	assistant: string,
+	tool: AssistantTool,
+	opts?: {
+		env?: Record<string, string>;
+	}
+): Promise<AssistantTool> {
+	const result = (await doPost(`/assistants/${assistant}/tools`, tool)) as AssistantTool;
+	if (opts?.env) {
+		await saveToolEnv(assistant, result.id, opts.env);
+	}
+	return result;
+}
+
+export async function updateTool(
+	assistant: string,
+	tool: AssistantTool,
+	opts?: {
+		env?: Record<string, string>;
+	}
+): Promise<AssistantToolList> {
+	const result = (await doPut(
+		`/assistants/${assistant}/tools/${tool.id}`,
+		tool
+	)) as AssistantToolList;
+	if (opts?.env) {
+		await saveToolEnv(assistant, tool.id, opts.env);
+	}
+	return result;
+}
+
+export async function deleteTool(assistant: string, tool: string) {
+	return doDelete(`/assistants/${assistant}/tools/${tool}/custom`);
+}
+
+export async function getTool(assistant: string, tool: string): Promise<AssistantTool> {
+	return (await doGet(`/assistants/${assistant}/tools/${tool}`)) as AssistantTool;
+}
+
+export async function getToolEnv(assistant: string, tool: string): Promise<Record<string, string>> {
+	return (await doGet(`/assistants/${assistant}/tools/${tool}/env`)) as Record<string, string>;
+}
+
+export async function saveToolEnv(
+	assistant: string,
+	tool: string,
+	env: Record<string, string>
+): Promise<Record<string, string>> {
+	return (await doPut(`/assistants/${assistant}/tools/${tool}/env`, env)) as Record<string, string>;
 }
 
 export async function enableTool(assistant: string, tool: string): Promise<AssistantToolList> {

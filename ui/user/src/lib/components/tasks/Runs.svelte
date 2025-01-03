@@ -137,11 +137,11 @@
 
 {#if runs.length > 0}
 	<div class="mt-8 rounded-3xl bg-gray-50 p-5 dark:bg-gray-950">
-		<div class="flex mb-3 items-center" >
-			<h4 class="text-xl font-semibold flex-1">Runs</h4>
+		<div class="mb-3 flex items-center">
+			<h4 class="flex-1 text-xl font-semibold">Runs</h4>
 			{@render runButton()}
 		</div>
-		<table class="text-left w-full">
+		<table class="w-full text-left">
 			<thead class="font-semibold">
 				<tr>
 					<th> Start </th>
@@ -211,7 +211,7 @@
 
 <dialog
 	bind:this={inputDialog}
-	class="relative md:min-w-[500px] rounded-3xl border-white bg-white p-5 text-black dark:bg-black dark:text-gray-50"
+	class="relative rounded-3xl border-white bg-white p-5 text-black dark:bg-black dark:text-gray-50 md:min-w-[500px]"
 >
 	<h4 class="text-xl font-semibold">Input Parameters</h4>
 	<Input editMode task={taskToRun} bind:input={taskInput}></Input>
@@ -242,7 +242,8 @@
 />
 
 <style lang="postcss">
-	td, th {
-			@apply p-1.5;
+	td,
+	th {
+		@apply p-1.5;
 	}
 </style>

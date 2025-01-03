@@ -1,6 +1,8 @@
 package handlers
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -36,7 +38,16 @@ func (a *WorkflowHandler) Authenticate(req api.Context) error {
 	var (
 		id       = req.PathValue("id")
 		workflow v1.Workflow
+		tools    []string
 	)
+
+	if err := req.Read(&tools); err != nil {
+		return fmt.Errorf("failed to read tools from request body: %w", err)
+	}
+
+	if len(tools) == 0 {
+		return types.NewErrBadRequest("no tools provided for authentication")
+	}
 
 	if err := req.Get(&workflow, id); err != nil {
 		return err
@@ -47,19 +58,65 @@ func (a *WorkflowHandler) Authenticate(req api.Context) error {
 		return err
 	}
 
-	agent.Spec.Manifest.Prompt = "#!sys.echo\nDONE"
-
-	resp, err := a.invoker.Agent(req.Context(), req.Storage, agent, "", invoke.Options{
-		Synchronous:           true,
-		ThreadCredentialScope: new(bool),
-	})
-	if err != nil {
-		return err
-	}
-	defer resp.Close()
+	resp, err := runAuthForAgent(req.Context(), req.Storage, a.invoker, agent, tools)
+	defer func() {
+		resp.Close()
+		if kickErr := kickWorkflow(req.Context(), req.Storage, &workflow); kickErr != nil && err == nil {
+			err = fmt.Errorf("failed to update workflow status: %w", kickErr)
+		}
+	}()
 
 	req.ResponseWriter.Header().Set("X-Otto-Thread-Id", resp.Thread.Name)
 	return req.WriteEvents(resp.Events)
+}
+
+func (a *WorkflowHandler) DeAuthenticate(req api.Context) error {
+	var (
+		id    = req.PathValue("id")
+		wf    v1.Workflow
+		tools []string
+	)
+
+	if err := req.Read(&tools); err != nil {
+		return fmt.Errorf("failed to read tools from request body: %w", err)
+	}
+
+	if len(tools) == 0 {
+		return types.NewErrBadRequest("no tools provided for de-authentication")
+	}
+
+	if err := req.Get(&wf, id); err != nil {
+		return err
+	}
+
+	var (
+		errs    []error
+		toolRef v1.ToolReference
+	)
+	for _, tool := range tools {
+		if err := req.Get(&toolRef, tool); err != nil {
+			errs = append(errs, err)
+			continue
+		}
+
+		if toolRef.Status.Tool != nil {
+			for _, cred := range toolRef.Status.Tool.CredentialNames {
+				if err := a.gptscript.DeleteCredential(req.Context(), id, cred); err != nil && !strings.HasSuffix(err.Error(), "credential not found") {
+					errs = append(errs, err)
+				}
+			}
+
+			// Reset the value we care about so the same variable can be used.
+			// This ensures that the value we read on the next iteration is pulled from the database.
+			toolRef.Status.Tool = nil
+		}
+	}
+
+	if err := kickWorkflow(req.Context(), req.Storage, &wf); err != nil {
+		errs = append(errs, fmt.Errorf("failed to update workflow status: %w", err))
+	}
+
+	return errors.Join(errs...)
 }
 
 func (a *WorkflowHandler) Update(req api.Context) error {
@@ -176,9 +233,13 @@ func convertWorkflow(workflow v1.Workflow, textEmbeddingModel, baseURL string) (
 		links = []string{"invoke", baseURL + "/invoke/" + alias}
 	}
 
-	var aliasAssigned *bool
-	if workflow.Generation == workflow.Status.AliasObservedGeneration {
+	var (
+		aliasAssigned *bool
+		toolInfos     *map[string]types.ToolInfo
+	)
+	if workflow.Generation == workflow.Status.ObservedGeneration {
 		aliasAssigned = &workflow.Status.AliasAssigned
+		toolInfos = &workflow.Status.ToolInfo
 	}
 
 	return &types.Workflow{
@@ -186,6 +247,7 @@ func convertWorkflow(workflow v1.Workflow, textEmbeddingModel, baseURL string) (
 		WorkflowManifest:   workflow.Spec.Manifest,
 		AliasAssigned:      aliasAssigned,
 		AuthStatus:         workflow.Status.AuthStatus,
+		ToolInfo:           toolInfos,
 		TextEmbeddingModel: textEmbeddingModel,
 	}, nil
 }
@@ -276,22 +338,12 @@ func (a *WorkflowHandler) EnsureCredentialForKnowledgeSource(req api.Context) er
 		return req.WriteCreated(resp)
 	}
 
-	// if auth is already authenticated, then don't continue.
-	if authStatus.Authenticated {
-		resp, err := convertWorkflow(wf, knowledgeSet.Status.TextEmbeddingModel, req.APIBaseURL)
-		if err != nil {
-			return err
-		}
-
-		return req.WriteCreated(resp)
-	}
-
-	credentialTool, err := v1.CredentialTool(req.Context(), req.Storage, req.Namespace(), ref)
+	credentialTools, err := v1.CredentialTools(req.Context(), req.Storage, req.Namespace(), ref)
 	if err != nil {
 		return err
 	}
 
-	if credentialTool == "" {
+	if len(credentialTools) == 0 {
 		// The only way to get here is if the controller hasn't set the field yet.
 		if wf.Status.AuthStatus == nil {
 			wf.Status.AuthStatus = make(map[string]types.OAuthAppLoginAuthStatus)
@@ -402,4 +454,17 @@ func (a *WorkflowHandler) Script(req api.Context) error {
 	}
 
 	return req.Write(script)
+}
+
+func kickWorkflow(ctx context.Context, c kclient.Client, wf *v1.Workflow) error {
+	if wf.Annotations[v1.WorkflowSyncAnnotation] != "" {
+		delete(wf.Annotations, v1.WorkflowSyncAnnotation)
+	} else {
+		if wf.Annotations == nil {
+			wf.Annotations = make(map[string]string)
+		}
+		wf.Annotations[v1.WorkflowSyncAnnotation] = "true"
+	}
+
+	return c.Update(ctx, wf)
 }

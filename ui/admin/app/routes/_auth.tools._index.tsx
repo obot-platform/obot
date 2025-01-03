@@ -1,5 +1,6 @@
 import { PlusIcon, SearchIcon } from "lucide-react";
 import { useState } from "react";
+import { MetaFunction } from "react-router";
 import useSWR, { preload } from "swr";
 
 import { ToolReferenceService } from "~/lib/service/api/toolreferenceService";
@@ -117,4 +118,8 @@ export default function Tools() {
 
 export const handle: RouteHandle = {
     breadcrumb: () => [{ content: "Tools" }],
+};
+
+export const meta: MetaFunction = () => {
+    return [{ title: `Obot • Tools` }];
 };

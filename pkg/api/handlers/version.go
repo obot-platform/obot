@@ -14,12 +14,14 @@ import (
 type VersionHandler struct {
 	gptscriptVersion string
 	emailDomain      string
+	supportDocker    bool
 }
 
-func NewVersionHandler(emailDomain string) *VersionHandler {
+func NewVersionHandler(emailDomain string, supportDocker bool) *VersionHandler {
 	return &VersionHandler{
 		emailDomain:      emailDomain,
 		gptscriptVersion: getGPTScriptVersion(),
+		supportDocker:    supportDocker,
 	}
 }
 
@@ -27,8 +29,8 @@ func (v *VersionHandler) GetVersion(req api.Context) error {
 	return req.Write(v.getVersionResponse())
 }
 
-func (v *VersionHandler) getVersionResponse() map[string]string {
-	values := make(map[string]string)
+func (v *VersionHandler) getVersionResponse() map[string]any {
+	values := make(map[string]any)
 	versions := os.Getenv("OBOT_SERVER_VERSIONS")
 	if versions != "" {
 		if err := yaml.Unmarshal([]byte(versions), &values); err != nil {
@@ -38,6 +40,7 @@ func (v *VersionHandler) getVersionResponse() map[string]string {
 	values["obot"] = version.Get().String()
 	values["gptscript"] = v.gptscriptVersion
 	values["emailDomain"] = v.emailDomain
+	values["dockerSupported"] = v.supportDocker
 	return values
 }
 

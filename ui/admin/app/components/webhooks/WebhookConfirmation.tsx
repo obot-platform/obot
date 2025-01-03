@@ -61,7 +61,7 @@ export const WebhookConfirmation = ({
                     <TypographyP>Payload URL: </TypographyP>
                     <CopyText
                         text={getWebhookUrl(webhook, token)}
-                        className="min-w-fit"
+                        className="w-fit-content max-w-full"
                     />
                 </div>
 

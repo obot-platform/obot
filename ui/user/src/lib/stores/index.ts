@@ -11,3 +11,5 @@ export { default as tasks } from './tasks.svelte';
 export { default as files } from './files';
 export { default as knowledgeFiles } from './knowledgefiles';
 export { default as editor } from './editor.svelte';
+export { default as term } from './term.svelte';
+export { default as version } from './version.svelte';

@@ -1,4 +1,5 @@
 import { buildMessagesFromProgress } from '$lib/services/chat/messages';
+import errors from '$lib/stores/errors';
 import { abort as ChatAbort, invoke as ChatInvoke, runTask as ChatRunTask } from './operations';
 import { newMessageEventSource } from './operations';
 import type { InvokeInput, Messages, Progress, TaskRun } from './types';
@@ -112,10 +113,11 @@ export class Thread {
 				this.#onProgress(progress);
 			} else if (this.replayComplete && this.#onError) {
 				this.#onError(new Error(progress.error));
+			} else if (this.replayComplete) {
+				errors.append(new Error(progress.error));
 			}
-		} else {
-			this.#onProgress(progress);
 		}
+		this.#onProgress(progress);
 		this.pending = false;
 	}
 

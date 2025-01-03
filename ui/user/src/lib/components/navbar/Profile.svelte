@@ -26,17 +26,19 @@
 			{#if credentials && credentials?.items.length > 0}
 				<span class="mb-2">Credentials</span>
 				{#each credentials.items as cred}
-					<div class="flex justify-between">
-						<span>{cred.name}</span>
-						<button>
-							<Trash
-								class="h-5 w-5 text-gray"
-								onclick={() => {
-									deleteCred(cred.name);
-								}}
-							/>
-						</button>
-					</div>
+					{#if !cred.name.startsWith('tl1')}
+						<div class="flex justify-between">
+							<span>{cred.name}</span>
+							<button>
+								<Trash
+									class="h-5 w-5 text-gray"
+									onclick={() => {
+										deleteCred(cred.name);
+									}}
+								/>
+							</button>
+						</div>
+					{/if}
 				{/each}
 			{:else}
 				<span>No credentials</span>

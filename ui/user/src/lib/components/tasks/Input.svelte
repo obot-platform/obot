@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { ChatService, type Task } from '$lib/services';
-	import { autoHeight } from '$lib/actions/textarea';
+	import { autoHeight } from '$lib/actions/textarea.js';
 	import { currentAssistant } from '$lib/stores';
 
 	interface Props {
@@ -90,9 +90,7 @@
 				<h4 class="mb-3 text-xl font-semibold">{titlePrefix}Parameters</h4>
 				{#each Object.keys(task.onDemand.params) as key}
 					<div class="flex items-baseline">
-						<label for="param-{key}" class="text-sm font-semibold capitalize"
-							>{key}</label
-						>
+						<label for="param-{key}" class="text-sm font-semibold capitalize">{key}</label>
 						<input
 							id="param-{key}"
 							{readonly}

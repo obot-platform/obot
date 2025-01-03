@@ -120,11 +120,6 @@ export function ModelProviderForm({
         {
             onSuccess: () => {
                 mutate(ModelProviderApiService.getModelProviders.key());
-                mutate(
-                    ModelProviderApiService.revealModelProviderById.key(
-                        modelProvider.id
-                    )
-                );
                 onSuccess();
             },
         }
@@ -134,6 +129,11 @@ export function ModelProviderForm({
         ModelProviderApiService.configureModelProviderById,
         {
             onSuccess: async () => {
+                mutate(
+                    ModelProviderApiService.revealModelProviderById.key(
+                        modelProvider.id
+                    )
+                );
                 await fetchAvailableModels.execute(modelProvider.id);
             },
         }

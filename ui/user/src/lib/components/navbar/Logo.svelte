@@ -42,10 +42,10 @@
 			{#if selected?.id}
 				<AssistantIcon id={selected?.id} class="h-8 w-8 md:hidden" />
 			{/if}
-			<img src={collapsedIcon(selected)} alt="assistant icon" class="ml-3 h-8 hidden md:block" />
+			<img src={collapsedIcon(selected)} alt="assistant icon" class="ml-3 hidden h-8 md:block" />
 		{:else if selected?.name}
 			<AssistantIcon id={selected.id} class="h-8 w-8" />
-			<span class="font-semibold dark:text-gray-100 hidden md:block">{selected?.name ?? ''}</span>
+			<span class="hidden font-semibold dark:text-gray-100 md:block">{selected?.name ?? ''}</span>
 		{/if}
 	</a>
 

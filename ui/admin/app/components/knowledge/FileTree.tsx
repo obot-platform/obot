@@ -400,7 +400,7 @@ export default function FileTreeNode({
                                                         Unsupported
                                                     </Label>
                                                 </TooltipTrigger>
-                                                <TooltipContent className="text-warning">
+                                                <TooltipContent>
                                                     {node.file.error}
                                                 </TooltipContent>
                                             </Tooltip>

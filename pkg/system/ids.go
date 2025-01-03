@@ -20,10 +20,15 @@ const (
 	ModelPrefix             = "m1"
 	AliasPrefix             = "al1"
 	DefaultModelAliasPrefix = "dma1"
+	ToolPrefix              = "tl1"
 )
 
 func IsThreadID(id string) bool {
 	return strings.HasPrefix(id, ThreadPrefix)
+}
+
+func IsToolID(id string) bool {
+	return strings.HasPrefix(id, ToolPrefix)
 }
 
 func IsAgentID(id string) bool {

@@ -2,6 +2,7 @@ import { ArrowLeftIcon } from "lucide-react";
 import {
     ClientLoaderFunctionArgs,
     Link,
+    MetaFunction,
     redirect,
     useLoaderData,
     useMatch,
@@ -133,4 +134,8 @@ export const handle: RouteHandle = {
         { content: "Threads", href: $path("/threads") },
         { content: <ThreadBreadcrumb /> },
     ],
+};
+
+export const meta: MetaFunction<typeof clientLoader> = ({ data }) => {
+    return [{ title: `Thread • ${data?.thread.id}` }];
 };

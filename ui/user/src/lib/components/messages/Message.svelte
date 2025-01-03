@@ -24,6 +24,21 @@
 	let toolTT = popover({
 		placement: 'bottom-start'
 	});
+	let shell = $state({
+		input: '',
+		output: ''
+	});
+
+	$effect(() => {
+		if (msg.toolCall && msg.sourceName === 'Shell') {
+			try {
+				shell.input = JSON.parse(msg.toolCall?.input ?? '').CMD ?? '';
+				shell.output = msg.toolCall?.output ?? '';
+			} catch {
+				return;
+			}
+		}
+	});
 
 	$effect(() => {
 		// this is a hack to make sure this effect is run after the content is updated
@@ -47,6 +62,7 @@
 	});
 
 	function fileLoad() {
+		console.log('fileLoad');
 		if (msg.file?.filename) {
 			onLoadFile(msg.file?.filename);
 		}
@@ -105,14 +121,14 @@
 		    dark:text-gray-50"
 		>
 			<div class="flex px-5 py-4">
-				<div class="flex grow justify-start gap-2">
+				<button onclick={fileLoad} class="flex grow justify-start gap-2">
 					<FileText />
 					<span>{msg.file.filename}</span>
-				</div>
+				</button>
 				<button onclick={fileLoad}>
 					<Pencil />
-					<span class="sr-only">Open</span></button
-				>
+					<span class="sr-only">Open</span>
+				</button>
 			</div>
 			<div class="relative">
 				<div class="whitespace-pre-wrap p-5 font-body text-gray-700 dark:text-gray-300">
@@ -186,6 +202,16 @@
 		<pre class="max-w-[500px] overflow-auto rounded-lg bg-white p-5 dark:bg-black">{msg.toolCall
 				?.output ?? 'None'}</pre>
 	</div>
+	{#if shell.input && shell.output}
+		<div class="mt-1 rounded-3xl bg-gray-100 p-5 dark:bg-gray-900 dark:text-gray-50">
+			<div class="pb-1 font-mono">
+				> {shell.input}
+			</div>
+			<div class="font-mono">
+				{shell.output}
+			</div>
+		</div>
+	{/if}
 {/snippet}
 
 {#snippet messageContent()}
@@ -238,7 +264,7 @@
 		</div>
 		{#if msg.aborted}
 			<div
-				class="absolute bottom-0 z-20 flex h-full w-full items-center justify-center bg-white bg-opacity-60 text-xl font-semibold text-black text-opacity-30 dark:bg-black dark:bg-opacity-60 dark:text-white dark:text-opacity-30"
+				class="pointer-events-none absolute bottom-0 z-20 flex h-full w-full items-center justify-center bg-white bg-opacity-60 text-xl font-semibold text-black text-opacity-30 dark:bg-black dark:bg-opacity-60 dark:text-white dark:text-opacity-30"
 			>
 				Aborted
 			</div>

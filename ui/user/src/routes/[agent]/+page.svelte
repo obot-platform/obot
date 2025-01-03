@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { profile } from '$lib/stores';
+	import { profile, term } from '$lib/stores';
 	import Navbar from '$lib/components/Navbar.svelte';
 	import Editor from '$lib/components/Editors.svelte';
 	import { EditorService } from '$lib/services';
@@ -36,9 +36,9 @@
 		<Thread assistant={$currentAssistant.id} />
 	</div>
 
-	{#if $editorVisible}
-		<div class="pt-20 transition-all w-full {splitWindow ? 'md:w-3/5' : ''}" >
-			<div class="max-w-[1000px] mx-auto" >
+	{#if $editorVisible || term.open}
+		<div class="h-dvh w-full pt-20 transition-all {splitWindow ? 'lg:w-3/4' : ''}">
+			<div class="mx-auto h-full max-w-[1300px]">
 				<Editor />
 			</div>
 		</div>

@@ -33,8 +33,8 @@ func (h *LoginHandler) RunTool(req router.Request, _ router.Response) error {
 		return nil
 	}
 
-	credentialTool, err := v1.CredentialTool(req.Ctx, req.Client, login.Namespace, login.Spec.ToolReference)
-	if err != nil || credentialTool == "" {
+	credentialTools, err := v1.CredentialTools(req.Ctx, req.Client, login.Namespace, login.Spec.ToolReference)
+	if err != nil || len(credentialTools) == 0 {
 		return err
 	}
 
@@ -59,7 +59,7 @@ func (h *LoginHandler) RunTool(req router.Request, _ router.Response) error {
 
 	task, err := h.invoker.SystemTask(req.Ctx, &thread, []gptscript.ToolDef{
 		{
-			Credentials:  []string{credentialTool},
+			Credentials:  credentialTools,
 			Instructions: "#!sys.echo DONE",
 		},
 	}, "", invoke.SystemTaskOptions{

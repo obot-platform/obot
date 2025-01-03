@@ -63,6 +63,8 @@ type Config struct {
 	EncryptionConfigFile       string `usage:"The path to the encryption configuration file" default:"./encryption.yaml"`
 	KnowledgeSetIngestionLimit int    `usage:"The maximum number of files to ingest into a knowledge set" default:"1000" env:"OBOT_KNOWLEDGESET_INGESTION_LIMIT" name:"knowledge-set-ingestion-limit"`
 	EmailServerName            string `usage:"The name of the email server to display for email receivers (default: ui-hostname value)"`
+	NoReplyEmailAddress        string `usage:"The email to use for no-reply emails from obot"`
+	Docker                     bool   `usage:"Enable Docker support" default:"false" env:"OBOT_DOCKER"`
 
 	AuthConfig
 	GatewayConfig
@@ -88,6 +90,7 @@ type Services struct {
 	GatewayServer              *gserver.Server
 	ModelProviderDispatcher    *dispatcher.Dispatcher
 	KnowledgeSetIngestionLimit int
+	SupportDocker              bool
 }
 
 const (
@@ -217,7 +220,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		tokenServer             = &jwt.TokenService{}
 		events                  = events.NewEmitter(storageClient)
 		gatewayClient           = client.New(gatewayDB, config.AuthAdminEmails)
-		invoker                 = invoke.NewInvoker(storageClient, c, client.New(gatewayDB, config.AuthAdminEmails), config.Hostname, config.HTTPListenPort, tokenServer, events)
+		invoker                 = invoke.NewInvoker(storageClient, c, client.New(gatewayDB, config.AuthAdminEmails), config.NoReplyEmailAddress, config.Hostname, config.HTTPListenPort, tokenServer, events)
 		modelProviderDispatcher = dispatcher.New(invoker, storageClient, c)
 
 		proxyServer *proxy.Proxy
@@ -283,6 +286,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		KnowledgeSetIngestionLimit: config.KnowledgeSetIngestionLimit,
 		EmailServerName:            config.EmailServerName,
 		ModelProviderDispatcher:    modelProviderDispatcher,
+		SupportDocker:              config.Docker,
 	}, nil
 }
 

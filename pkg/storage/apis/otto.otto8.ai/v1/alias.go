@@ -44,11 +44,10 @@ type AliasSpec struct {
 
 type Aliasable interface {
 	kclient.Object
+	Generationed
 	GetAliasName() string
 	SetAssigned(bool)
 	IsAssigned() bool
-	GetAliasObservedGeneration() int64
-	SetAliasObservedGeneration(int64)
 }
 
 // +k8s:deepcopy-gen=false

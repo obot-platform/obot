@@ -143,10 +143,13 @@ function useMessageSource(threadId?: Nullish<string>) {
 
             if (error) {
                 if (error.includes("thread was aborted, cancelling run")) {
-                    copy[copy.length - 1] = {
-                        ...copy[copy.length - 1],
+                    copy.push({
+                        sender: "agent",
+                        text: "Message Aborted",
+                        runId: runID,
+                        contentID,
                         aborted: true,
-                    };
+                    });
 
                     return copy;
                 }

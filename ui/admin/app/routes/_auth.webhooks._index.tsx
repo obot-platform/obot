@@ -1,7 +1,7 @@
 import { ColumnDef, createColumnHelper } from "@tanstack/react-table";
 import { PlusIcon } from "lucide-react";
 import { useMemo } from "react";
-import { useNavigate } from "react-router";
+import { MetaFunction, useNavigate } from "react-router";
 import { $path } from "safe-routes";
 import useSWR, { preload } from "swr";
 
@@ -100,3 +100,7 @@ export default function WebhooksPage() {
 }
 
 const columnHelper = createColumnHelper<Webhook>();
+
+export const meta: MetaFunction = () => {
+    return [{ title: `Obot • Webhooks` }];
+};

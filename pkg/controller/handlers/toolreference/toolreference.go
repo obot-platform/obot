@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"os"
 	"path"
+	"slices"
 	"strings"
 	"time"
 
@@ -45,16 +46,19 @@ type index struct {
 }
 
 type Handler struct {
-	gptClient   *gptscript.GPTScript
-	dispatcher  *dispatcher.Dispatcher
-	registryURL string
+	gptClient     *gptscript.GPTScript
+	dispatcher    *dispatcher.Dispatcher
+	supportDocker bool
+	registryURL   string
 }
 
-func New(gptClient *gptscript.GPTScript, dispatcher *dispatcher.Dispatcher, registryURL string) *Handler {
+func New(gptClient *gptscript.GPTScript, dispatcher *dispatcher.Dispatcher,
+	registryURL string, supportDocker bool) *Handler {
 	return &Handler{
-		gptClient:   gptClient,
-		dispatcher:  dispatcher,
-		registryURL: registryURL,
+		gptClient:     gptClient,
+		dispatcher:    dispatcher,
+		registryURL:   registryURL,
+		supportDocker: supportDocker,
 	}
 }
 
@@ -66,6 +70,9 @@ func isValidTool(tool gptscript.Tool) bool {
 }
 
 func (h *Handler) toolsToToolReferences(ctx context.Context, toolType types.ToolReferenceType, entries map[string]indexEntry) (result []client.Object) {
+	annotations := map[string]string{
+		"obot.otto8.ai/timestamp": time.Now().String(),
+	}
 	for name, entry := range entries {
 		if ref, ok := strings.CutPrefix(entry.Reference, "./"); ok {
 			entry.Reference = h.registryURL + "/" + ref
@@ -86,9 +93,10 @@ func (h *Handler) toolsToToolReferences(ctx context.Context, toolType types.Tool
 				}
 				result = append(result, &v1.ToolReference{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:       normalize(name, toolName),
-						Namespace:  system.DefaultNamespace,
-						Finalizers: []string{v1.ToolReferenceFinalizer},
+						Name:        normalize(name, toolName),
+						Namespace:   system.DefaultNamespace,
+						Finalizers:  []string{v1.ToolReferenceFinalizer},
+						Annotations: annotations,
 					},
 					Spec: v1.ToolReferenceSpec{
 						Type:      toolType,
@@ -111,9 +119,10 @@ func (h *Handler) toolsToToolReferences(ctx context.Context, toolType types.Tool
 					}
 					result = append(result, &v1.ToolReference{
 						ObjectMeta: metav1.ObjectMeta{
-							Name:       normalize(name, toolName),
-							Namespace:  system.DefaultNamespace,
-							Finalizers: []string{v1.ToolReferenceFinalizer},
+							Name:        normalize(name, toolName),
+							Namespace:   system.DefaultNamespace,
+							Finalizers:  []string{v1.ToolReferenceFinalizer},
+							Annotations: annotations,
 						},
 						Spec: v1.ToolReferenceSpec{
 							Type:      toolType,
@@ -124,11 +133,15 @@ func (h *Handler) toolsToToolReferences(ctx context.Context, toolType types.Tool
 				}
 			}
 		} else {
+			if !h.supportDocker && name == system.ShellTool {
+				continue
+			}
 			result = append(result, &v1.ToolReference{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:       name,
-					Namespace:  system.DefaultNamespace,
-					Finalizers: []string{v1.ToolReferenceFinalizer},
+					Name:        name,
+					Namespace:   system.DefaultNamespace,
+					Finalizers:  []string{v1.ToolReferenceFinalizer},
+					Annotations: annotations,
 				},
 				Spec: v1.ToolReferenceSpec{
 					Type:      toolType,
@@ -251,17 +264,66 @@ func (h *Handler) Populate(req router.Request, resp router.Response) error {
 			}
 		}
 	}
-	if len(tool.Credentials) == 1 {
-		if strings.HasPrefix(tool.Credentials[0], ".") {
-			toolName, _ := gtypes.SplitToolRef(toolRef.Spec.Reference)
-			refURL, err := url.Parse(toolName)
-			if err == nil {
-				refURL.Path = path.Join(refURL.Path, tool.Credentials[0])
-				// Don't need to check the error because we are unescaping something that was produced directly from the url package.
-				toolRef.Status.Tool.Credential, _ = url.PathUnescape(refURL.String())
+
+	// The available tool references from this tool are the tool itself and any tool this tool exports.
+	toolRefs := make([]gptscript.ToolReference, 0, len(tool.Export)+1)
+	toolRefs = append(toolRefs, gptscript.ToolReference{
+		Reference: toolRef.Spec.Reference,
+		ToolID:    prg.EntryToolID,
+	})
+	for _, exportedTool := range tool.Export {
+		toolRefs = append(toolRefs, tool.ToolMapping[exportedTool]...)
+	}
+
+	toolRef.Status.Tool.Credentials = make([]string, 0, len(tool.Credentials)+len(tool.Export))
+	toolRef.Status.Tool.CredentialNames = make([]string, 0, len(tool.Credentials)+len(tool.Export))
+	for _, ref := range toolRefs {
+		t := prg.ToolSet[ref.ToolID]
+		for _, cred := range t.Credentials {
+			parsedCred := cred
+			credToolName, credSubTool := gtypes.SplitToolRef(cred)
+			if strings.HasPrefix(credToolName, ".") {
+				toolName, _ := gtypes.SplitToolRef(ref.Reference)
+				if !path.IsAbs(toolName) {
+					if !strings.HasPrefix(toolName, ".") {
+						toolName, _ = gtypes.SplitToolRef(toolRef.Spec.Reference)
+					} else {
+						toolName = path.Join(toolRef.Spec.Reference, toolName)
+					}
+				}
+
+				refURL, err := url.Parse(toolName)
+				if err != nil {
+					continue
+				}
+
+				refURL.Path = path.Join(refURL.Path, credToolName)
+				parsedCred = refURL.String()
+				if refURL.Host == "" {
+					// This is only a path, so url unescape it.
+					// No need to check the error here, we would have errored when parsing.
+					parsedCred, _ = url.PathUnescape(parsedCred)
+				}
+
+				if credSubTool != "" {
+					parsedCred = fmt.Sprintf("%s from %s", credSubTool, parsedCred)
+				}
 			}
-		} else {
-			toolRef.Status.Tool.Credential = tool.Credentials[0]
+
+			if parsedCred != "" && !slices.Contains(toolRef.Status.Tool.Credentials, parsedCred) {
+				toolRef.Status.Tool.Credentials = append(toolRef.Status.Tool.Credentials, parsedCred)
+			}
+
+			credNames, err := determineCredentialNames(prg, prg.ToolSet[ref.ToolID], cred)
+			if err != nil {
+				toolRef.Status.Error = err.Error()
+			}
+
+			for _, n := range credNames {
+				if !slices.Contains(toolRef.Status.Tool.CredentialNames, n) {
+					toolRef.Status.Tool.CredentialNames = append(toolRef.Status.Tool.CredentialNames, n)
+				}
+			}
 		}
 	}
 
@@ -459,4 +521,46 @@ func (h *Handler) CleanupModelProvider(req router.Request, _ router.Response) er
 
 func modelName(modelProviderName, modelName string) string {
 	return name.SafeConcatName(system.ModelPrefix, modelProviderName, fmt.Sprintf("%x", sha256.Sum256([]byte(modelName))))
+}
+
+func determineCredentialNames(prg *gptscript.Program, tool gptscript.Tool, toolName string) ([]string, error) {
+	toolName, alias, args, err := gtypes.ParseCredentialArgs(toolName, "")
+	if err != nil {
+		return nil, err
+	}
+
+	if alias != "" {
+		return []string{alias}, nil
+	}
+
+	if args == nil {
+		// This is a tool and not the credential format. Parse the tool from the program to determine the alias
+		toolNames := make([]string, 0, len(tool.Credentials))
+		for _, cred := range tool.Credentials {
+			if cred == toolName {
+				if len(tool.ToolMapping[cred]) == 0 {
+					return nil, fmt.Errorf("cannot find credential name for tool %q", toolName)
+				}
+
+				for _, ref := range tool.ToolMapping[cred] {
+					for _, c := range prg.ToolSet[ref.ToolID].ExportCredentials {
+						names, err := determineCredentialNames(prg, prg.ToolSet[ref.ToolID], c)
+						if err != nil {
+							return nil, err
+						}
+
+						toolNames = append(toolNames, names...)
+					}
+				}
+			}
+		}
+
+		if len(toolNames) > 0 {
+			return toolNames, nil
+		}
+
+		return nil, fmt.Errorf("tool %q not found in program", toolName)
+	}
+
+	return []string{toolName}, nil
 }

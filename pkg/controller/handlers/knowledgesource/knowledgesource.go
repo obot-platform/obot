@@ -242,7 +242,7 @@ func (k *Handler) Sync(req router.Request, _ router.Response) error {
 
 	toolReferenceName := string(sourceType) + "-data-source"
 
-	credentialTool, err := v1.CredentialTool(req.Ctx, req.Client, source.Namespace, toolReferenceName)
+	credentialTools, err := v1.CredentialTools(req.Ctx, req.Client, source.Namespace, toolReferenceName)
 	if err != nil {
 		return err
 	}
@@ -252,7 +252,7 @@ func (k *Handler) Sync(req router.Request, _ router.Response) error {
 		return err
 	}
 
-	if credentialTool != "" && (authStatus.Required == nil || (*authStatus.Required && !authStatus.Authenticated)) {
+	if len(credentialTools) > 0 && (authStatus.Required == nil || (*authStatus.Required && !authStatus.Authenticated)) {
 		return nil
 	}
 

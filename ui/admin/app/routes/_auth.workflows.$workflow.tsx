@@ -1,6 +1,7 @@
 import { useCallback } from "react";
 import {
     ClientLoaderFunctionArgs,
+    MetaFunction,
     redirect,
     useLoaderData,
     useMatch,
@@ -104,4 +105,8 @@ const WorkflowBreadcrumb = () => {
 
 export const handle: RouteHandle = {
     breadcrumb: () => [{ content: <WorkflowBreadcrumb /> }],
+};
+
+export const meta: MetaFunction<typeof clientLoader> = ({ data }) => {
+    return [{ title: `Workflow • ${data?.workflow.name}` }];
 };

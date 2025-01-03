@@ -10,6 +10,7 @@ import (
 
 var (
 	_ Aliasable     = (*Workflow)(nil)
+	_ Generationed  = (*Workflow)(nil)
 	_ AliasScoped   = (*Workflow)(nil)
 	_ fields.Fields = (*Workflow)(nil)
 )
@@ -58,12 +59,24 @@ func (in *Workflow) GetAliasScope() string {
 	return "Agent"
 }
 
-func (in *Workflow) GetAliasObservedGeneration() int64 {
-	return in.Status.AliasObservedGeneration
+func (in *Workflow) GetObservedGeneration() int64 {
+	return in.Status.ObservedGeneration
 }
 
-func (in *Workflow) SetAliasObservedGeneration(gen int64) {
-	in.Status.AliasObservedGeneration = gen
+func (in *Workflow) SetObservedGeneration(gen int64) {
+	in.Status.ObservedGeneration = gen
+}
+
+func (in *Workflow) GetTools() []string {
+	return slices.Concat(in.Spec.Manifest.Tools, in.Spec.Manifest.DefaultThreadTools, in.Spec.Manifest.AvailableThreadTools)
+}
+
+func (in *Workflow) GetToolInfos() map[string]types.ToolInfo {
+	return in.Status.ToolInfo
+}
+
+func (in *Workflow) SetToolInfos(toolInfos map[string]types.ToolInfo) {
+	in.Status.ToolInfo = toolInfos
 }
 
 type WorkflowSpec struct {
@@ -86,11 +99,12 @@ func (in *Workflow) DeleteRefs() []Ref {
 }
 
 type WorkflowStatus struct {
-	WorkspaceName           string                                   `json:"workspaceName,omitempty"`
-	KnowledgeSetNames       []string                                 `json:"knowledgeSetNames,omitempty"`
-	AliasAssigned           bool                                     `json:"aliasAssigned,omitempty"`
-	AuthStatus              map[string]types.OAuthAppLoginAuthStatus `json:"authStatus,omitempty"`
-	AliasObservedGeneration int64                                    `json:"aliasProcessed,omitempty"`
+	WorkspaceName      string                                   `json:"workspaceName,omitempty"`
+	KnowledgeSetNames  []string                                 `json:"knowledgeSetNames,omitempty"`
+	AliasAssigned      bool                                     `json:"aliasAssigned,omitempty"`
+	AuthStatus         map[string]types.OAuthAppLoginAuthStatus `json:"authStatus,omitempty"`
+	ToolInfo           map[string]types.ToolInfo                `json:"toolInfo,omitempty"`
+	ObservedGeneration int64                                    `json:"observedGeneration,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

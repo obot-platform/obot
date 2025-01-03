@@ -60,7 +60,11 @@ type ToolShortDescription struct {
 	Description string            `json:"description,omitempty"`
 	Params      map[string]string `json:"params,omitempty"`
 	Metadata    map[string]string `json:"metadata,omitempty"`
-	Credential  string            `json:"credential,omitempty"`
+	// Credentials are all the credentials for this tool, including for tools exported by this tool.
+	Credentials []string `json:"credentials,omitempty"`
+	// CredentialNames are the names of the credentials for each tool. This is different from the Credentials field
+	// because these names could be aliases and identifies which tools have the same credential.
+	CredentialNames []string `json:"credentialNames,omitempty"`
 }
 
 type ToolReferenceStatus struct {

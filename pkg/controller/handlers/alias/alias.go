@@ -23,13 +23,23 @@ func matches(alias *v1.Alias, obj kclient.Object) bool {
 		alias.Spec.TargetKind == obj.GetObjectKind().GroupVersionKind().Kind
 }
 
-func AssignAlias(req router.Request, _ router.Response) error {
+// AssignAlias will check the requested alias to see if it is already assigned to another object.
+// If it is not, then the alias is assigned to the currently processing object.
+// This handler should be used with the generationed.UpdateObservedGeneration to ensure that the processing
+// is correctly reported to through the API.
+func AssignAlias(req router.Request, resp router.Response) (err error) {
+	defer func() {
+		if err != nil {
+			resp.Attributes()["generation:errored"] = true
+		}
+	}()
+
 	aliasable := req.Object.(v1.Aliasable)
 
 	if aliasable.GetAliasName() == "" {
-		if aliasable.IsAssigned() || aliasable.GetGeneration() != aliasable.GetAliasObservedGeneration() {
+		if aliasable.IsAssigned() || aliasable.GetGeneration() != aliasable.GetObservedGeneration() {
 			aliasable.SetAssigned(false)
-			aliasable.SetAliasObservedGeneration(aliasable.GetGeneration())
+			aliasable.SetObservedGeneration(aliasable.GetGeneration())
 			return req.Client.Status().Update(req.Ctx, req.Object)
 		}
 
@@ -57,13 +67,12 @@ func AssignAlias(req router.Request, _ router.Response) error {
 			TargetKind:      gvk.Kind,
 		},
 	}
-	if err := create.IfNotExists(req.Ctx, req.Client, alias); err != nil {
+	if err = create.IfNotExists(req.Ctx, req.Client, alias); err != nil {
 		return err
 	}
 
-	if assigned := matches(alias, req.Object); assigned != aliasable.IsAssigned() || aliasable.GetGeneration() != aliasable.GetAliasObservedGeneration() {
+	if assigned := matches(alias, req.Object); assigned != aliasable.IsAssigned() {
 		aliasable.SetAssigned(assigned)
-		aliasable.SetAliasObservedGeneration(aliasable.GetGeneration())
 		return req.Client.Status().Update(req.Ctx, req.Object)
 	}
 
