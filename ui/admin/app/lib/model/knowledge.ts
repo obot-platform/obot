@@ -153,6 +153,11 @@ export type KnowledgeFile = {
     sizeInBytes?: number;
 };
 
+export type KnowledgeFileEvent = {
+    eventType: "ADDED" | "MODIFIED" | "DELETED";
+    knowledgeFile: KnowledgeFile;
+};
+
 export function getRemoteFileDisplayName(item: KnowledgeFile) {
     return item.fileName;
 }

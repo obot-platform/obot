@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 
 import {
     KnowledgeFile,
+    KnowledgeFileEvent,
     KnowledgeFileState,
     KnowledgeSource,
     KnowledgeSourceNamespace,
@@ -39,8 +40,9 @@ export function useKnowledgeSourceFiles(
             );
 
         eventSource.onmessage = (event) => {
-            const payload = JSON.parse(event.data);
-            const { eventType, knowledgeFile } = payload;
+            const { eventType, knowledgeFile } = JSON.parse(
+                event.data
+            ) as KnowledgeFileEvent;
 
             setFiles((prevFiles) => {
                 let updatedFiles = [...prevFiles];
