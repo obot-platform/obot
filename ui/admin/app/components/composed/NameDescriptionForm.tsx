@@ -4,8 +4,11 @@ import { useEffect } from "react";
 import { useFieldArray, useForm } from "react-hook-form";
 import { z } from "zod";
 
+import { cn } from "~/lib/utils";
+
 import { ControlledInput } from "~/components/form/controlledInputs";
 import { Button } from "~/components/ui/button";
+import { Card } from "~/components/ui/card";
 import { Form } from "~/components/ui/form";
 import { InputProps } from "~/components/ui/input";
 
@@ -31,12 +34,14 @@ export function NameDescriptionForm({
     addLabel = "Add",
     nameFieldProps,
     descriptionFieldProps,
+    asCard = false,
 }: {
     defaultValues: Item[];
     onChange: (values: Item[]) => void;
     addLabel?: string;
     nameFieldProps?: InputProps;
     descriptionFieldProps?: InputProps;
+    asCard?: boolean;
 }) {
     const form = useForm<ParamFormValues>({
         resolver: zodResolver(formSchema),
@@ -59,14 +64,19 @@ export function NameDescriptionForm({
         return () => subscription.unsubscribe();
     }, [form, onChange]);
 
+    const Comp = asCard ? Card : "div";
+    const isEmpty = paramFields.fields.length === 0;
+
     return (
         <Form {...form}>
-            <div className="flex flex-col gap-4">
+            <Comp
+                className={cn("flex flex-col gap-4 fade-in-50", {
+                    "p-4": asCard,
+                    hidden: isEmpty,
+                })}
+            >
                 {paramFields.fields.map((field, i) => (
-                    <div
-                        className="flex gap-2 p-2 bg-secondary rounded-md"
-                        key={field.id}
-                    >
+                    <div className="flex gap-2" key={field.id}>
                         <ControlledInput
                             placeholder="Name"
                             {...nameFieldProps}
@@ -93,19 +103,19 @@ export function NameDescriptionForm({
                         </Button>
                     </div>
                 ))}
+            </Comp>
 
-                <Button
-                    variant="ghost"
-                    className="self-end"
-                    startContent={<PlusIcon />}
-                    type="button"
-                    onClick={() =>
-                        paramFields.append({ name: "", description: "" })
-                    }
-                >
-                    {addLabel}
-                </Button>
-            </div>
+            <Button
+                variant="ghost"
+                className="self-end"
+                startContent={<PlusIcon />}
+                type="button"
+                onClick={() =>
+                    paramFields.append({ name: "", description: "" })
+                }
+            >
+                {addLabel}
+            </Button>
         </Form>
     );
 }

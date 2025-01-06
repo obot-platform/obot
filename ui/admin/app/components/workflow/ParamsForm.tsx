@@ -14,7 +14,7 @@ const convertFrom = (params: ParamValues) => {
         })
     );
 
-    return converted.length ? converted : [{ name: "", description: "" }];
+    return converted.length ? converted : [];
 };
 
 const convertTo = (
@@ -44,6 +44,7 @@ export function ParamsForm({
 
     return (
         <NameDescriptionForm
+            asCard
             addLabel="Add Parameter"
             defaultValues={defaultValues}
             onChange={(values) => onChange?.({ params: convertTo(values) })}
