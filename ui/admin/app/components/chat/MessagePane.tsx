@@ -4,6 +4,7 @@ import { cn } from "~/lib/utils";
 
 import { useChat } from "~/components/chat/ChatContext";
 import { Message } from "~/components/chat/Message";
+import { MessageDebug } from "~/components/chat/MessageDebug";
 import { NoMessages } from "~/components/chat/NoMessages";
 import { ScrollArea } from "~/components/ui/scroll-area";
 import { TypingDots } from "~/components/ui/typing-spinner";
@@ -28,6 +29,8 @@ export function MessagePane({
 
     const isEmpty = messages.length === 0 && !readOnly && mode === "agent";
 
+    const currentRunId = messages.findLast((message) => message.runId)?.runId;
+
     return (
         <div className={cn("flex flex-col h-full", className, classNames.root)}>
             <ScrollArea
@@ -47,11 +50,18 @@ export function MessagePane({
                             <Message key={i} message={message} />
                         ))}
 
-                        <TypingDots
-                            className={cn("p-4", {
-                                invisible: !isRunning,
-                            })}
-                        />
+                        <div
+                            className={cn(
+                                "p-4 flex items-center justify-between gap-4 w-full",
+                                { invisible: !isRunning }
+                            )}
+                        >
+                            <TypingDots />
+
+                            {currentRunId && (
+                                <MessageDebug runId={currentRunId} />
+                            )}
+                        </div>
                     </div>
                 )}
             </ScrollArea>

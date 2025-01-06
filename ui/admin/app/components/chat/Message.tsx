@@ -71,15 +71,6 @@ export const Message = React.memo(({ message }: MessageProps) => {
                     isUser ? "justify-end" : "justify-start"
                 )}
             >
-                {isUser && message.runId && (
-                    <div className="mt-3">
-                        <MessageDebug
-                            variant="secondary"
-                            runId={message.runId}
-                        />
-                    </div>
-                )}
-
                 <div
                     className={cn({
                         "border border-error bg-error-foreground rounded-xl":
@@ -137,10 +128,7 @@ export const Message = React.memo(({ message }: MessageProps) => {
 
                         {message.runId && !isUser && (
                             <div className="self-start">
-                                <MessageDebug
-                                    variant="secondary"
-                                    runId={message.runId}
-                                />
+                                <MessageDebug runId={message.runId} />
                             </div>
                         )}
 

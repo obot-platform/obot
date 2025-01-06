@@ -1,11 +1,11 @@
-import { CodeIcon, Maximize2Icon, Minimize2Icon } from "lucide-react";
+import { CodeIcon, InfoIcon, Maximize2Icon, Minimize2Icon } from "lucide-react";
 import { useState } from "react";
 
 import { Calls } from "~/lib/model/runs";
 import { RunsService } from "~/lib/service/api/runsService";
 
 import CallFrames from "~/components/chat/CallFrames";
-import { Button, ButtonProps } from "~/components/ui/button";
+import { Button } from "~/components/ui/button";
 import {
     Dialog,
     DialogContent,
@@ -22,10 +22,9 @@ import {
 
 type MessageDebugProps = {
     runId: string;
-    variant?: ButtonProps["variant"];
 };
 
-export function MessageDebug({ runId, variant }: MessageDebugProps) {
+export function MessageDebug({ runId }: MessageDebugProps) {
     const [runDebug, setRunDebug] = useState<Calls>({});
     const [isFullscreen, setIsFullscreen] = useState(false);
 
@@ -36,7 +35,7 @@ export function MessageDebug({ runId, variant }: MessageDebugProps) {
                     <DialogTrigger asChild>
                         <Button
                             size="icon"
-                            variant={variant}
+                            variant="ghost"
                             onClick={() => {
                                 RunsService.getRunDebugById(runId).then(
                                     (runDebug) => {
@@ -45,11 +44,11 @@ export function MessageDebug({ runId, variant }: MessageDebugProps) {
                                 );
                             }}
                         >
-                            <CodeIcon className="w-4 h-4" />
+                            <InfoIcon className="w-4 h-4" />
                         </Button>
                     </DialogTrigger>
                 </TooltipTrigger>
-                <TooltipContent>View Run Info</TooltipContent>
+                <TooltipContent>Debug Information</TooltipContent>
             </Tooltip>
 
             <DialogContent
