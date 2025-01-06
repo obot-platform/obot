@@ -96,12 +96,13 @@ export default function FileTreeNode({
     const file = node.file!;
 
     const included =
-        source.filePathPrefixInclude?.some((prefix) =>
+        (source.filePathPrefixInclude?.some((prefix) =>
             node.path.startsWith(prefix)
         ) &&
-        !source.filePathPrefixExclude?.some((prefix) =>
-            node.path.startsWith(prefix)
-        );
+            !source.filePathPrefixExclude?.some((prefix) =>
+                node.path.startsWith(prefix)
+            )) ||
+        (node.file && node.file.approved);
 
     const excluded = source.filePathPrefixExclude?.some((prefix) =>
         node.path.startsWith(prefix)
@@ -299,8 +300,8 @@ export default function FileTreeNode({
                                             </TooltipTrigger>
                                             <TooltipContent>
                                                 {included
-                                                    ? "Exclude folder from Knowledge"
-                                                    : "Add folder to Knowledge"}
+                                                    ? "Exclude from Knowledge"
+                                                    : "Add to Knowledge"}
                                             </TooltipContent>
                                         </Tooltip>
                                     </Button>
