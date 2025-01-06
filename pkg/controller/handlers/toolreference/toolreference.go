@@ -524,9 +524,14 @@ func modelName(modelProviderName, modelName string) string {
 }
 
 func determineCredentialNames(prg *gptscript.Program, tool gptscript.Tool, toolName string) ([]string, error) {
-	toolName, alias, args, err := gtypes.ParseCredentialArgs(toolName, "")
+	var subTool string
+	parsedToolName, alias, args, err := gtypes.ParseCredentialArgs(toolName, "")
 	if err != nil {
-		return nil, err
+		parsedToolName, subTool = gtypes.SplitToolRef(toolName)
+		parsedToolName, alias, args, err = gtypes.ParseCredentialArgs(parsedToolName, "")
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	if alias != "" {
@@ -536,6 +541,9 @@ func determineCredentialNames(prg *gptscript.Program, tool gptscript.Tool, toolN
 	if args == nil {
 		// This is a tool and not the credential format. Parse the tool from the program to determine the alias
 		toolNames := make([]string, 0, len(tool.Credentials))
+		if subTool == "" {
+			toolName = parsedToolName
+		}
 		for _, cred := range tool.Credentials {
 			if cred == toolName {
 				if len(tool.ToolMapping[cred]) == 0 {
