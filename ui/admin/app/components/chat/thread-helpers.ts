@@ -27,7 +27,7 @@ export function useOptimisticThread(threadId?: Nullish<string>) {
         // optimistic update
         mutate((thread) => (thread ? updatedThread : thread), false);
 
-        const { error, data } = await handleUpdateThread.executeAsync(
+        const [error, data] = await handleUpdateThread.executeAsync(
             thread.id,
             updatedThread
         );

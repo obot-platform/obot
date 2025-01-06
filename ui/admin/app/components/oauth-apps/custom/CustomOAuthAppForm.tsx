@@ -126,7 +126,7 @@ export function CustomOAuthAppForm({
         if (step === Step.NAME) {
             // try creating the app if there is no existing app
             if (!isEdit) {
-                const { error } = await createApp.executeAsync({
+                const [error] = await createApp.executeAsync({
                     type: OAuthProvider.Custom,
                     global: true,
                     ...data,

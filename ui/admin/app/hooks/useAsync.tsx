@@ -1,7 +1,7 @@
 import { useCallback, useState } from "react";
 
 import { BoundaryError } from "~/lib/service/api/apiErrors";
-import { handlePromise } from "~/lib/service/async";
+import { PromiseResult, handlePromise } from "~/lib/service/async";
 
 type Config<TData, TParams extends unknown[]> = {
     onSuccess?: (data: TData, params: TParams) => void;
@@ -10,12 +10,22 @@ type Config<TData, TParams extends unknown[]> = {
     shouldThrow?: (error: unknown) => boolean;
 };
 
+type AsyncState<TData, TParams extends unknown[]> = {
+    data: TData | null;
+    error: unknown;
+    isLoading: boolean;
+    lastCallParams: TParams | null;
+    execute: (...params: TParams) => void;
+    executeAsync: (...params: TParams) => Promise<PromiseResult<TData>>;
+    clear: () => void;
+};
+
 const defaultShouldThrow = (error: unknown) => error instanceof BoundaryError;
 
 export function useAsync<TData, TParams extends unknown[]>(
     callback: (...params: TParams) => Promise<TData>,
     config?: Config<TData, TParams>
-) {
+): AsyncState<TData, TParams> {
     const {
         onSuccess,
         onError,

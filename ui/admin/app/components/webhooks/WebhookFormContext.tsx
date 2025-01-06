@@ -74,12 +74,10 @@ export function WebhookFormContextProvider({
     }, [defaultValues, form]);
 
     const handleSubmit = form.handleSubmit(async (values) => {
-        const { data, error } = await action.executeAsync(webhookId, values);
+        const [error, data] = await action.executeAsync(webhookId, values);
 
         if (error) {
-            if (error instanceof Error) toast.error(error.message);
-            else toast.error("Failed to save webhook");
-
+            toast.error(error.message);
             return;
         }
 

@@ -1,6 +1,6 @@
 import { useCallback, useState } from "react";
 
-import { handlePromise } from "~/lib/service/async";
+import { PromiseResult, handlePromise } from "~/lib/service/async";
 import { noop } from "~/lib/utils";
 
 type MultiConfig<TData, TParams extends unknown[]> = {
@@ -17,10 +17,17 @@ export type AsyncState<TData, TParams extends unknown[]> = {
     params: TParams;
 };
 
+type MultiAsyncState<TData, TParams extends unknown[]> = {
+    states: AsyncState<TData, TParams>[];
+    execute: (params: TParams[]) => void;
+    executeAsync: (params: TParams[]) => Promise<PromiseResult<TData>[]>;
+    clear: () => void;
+};
+
 export function useMultiAsync<TData, TParams extends unknown[]>(
     callback: (index: number, ...params: TParams) => Promise<TData>,
     config?: MultiConfig<TData, TParams>
-) {
+): MultiAsyncState<TData, TParams> {
     const { onSuccess, onError, onSettled } = config || {};
 
     const [states, setStates] = useState<AsyncState<TData, TParams>[]>([]);

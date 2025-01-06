@@ -96,7 +96,7 @@ export function useKnowledgeSourceFiles(
     };
 
     const approveFile = async (file: KnowledgeFile, approved: boolean) => {
-        const { error, data: updatedFile } = await handlePromise(
+        const [error, updatedFile] = await handlePromise(
             KnowledgeSourceApiService.approveFile(
                 namespace,
                 agentId,
