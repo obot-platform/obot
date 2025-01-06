@@ -1,4 +1,5 @@
-import { ArrowLeft, HomeIcon } from "lucide-react";
+import { ArrowLeft, HomeIcon, RefreshCw } from "lucide-react";
+import { useNavigate } from "react-router";
 
 import { ObotLogo } from "~/components/branding/ObotLogo";
 import { Button } from "~/components/ui/button";
@@ -13,6 +14,8 @@ import {
 import { Link } from "~/components/ui/link";
 
 export function Error({ error }: { error: Error }) {
+    const navigate = useNavigate();
+
     return (
         <div className="flex min-h-screen w-full items-center justify-center p-4">
             <Card className="w-96">
@@ -27,23 +30,35 @@ export function Error({ error }: { error: Error }) {
                         persists.
                     </p>
                 </CardContent>
-                <CardFooter className="flex gap-4">
-                    <Link
-                        as="button"
-                        className="w-full"
-                        variant="secondary"
-                        to="/"
-                    >
-                        <HomeIcon /> Go home
-                    </Link>
+
+                <CardFooter className="flex flex-col gap-4">
                     <Button
                         className="w-full"
-                        variant="secondary"
-                        onClick={() => window.location.reload()}
-                        startContent={<ArrowLeft />}
+                        onClick={() => navigate(0)}
+                        startContent={<RefreshCw />}
                     >
-                        Go back
+                        Try again
                     </Button>
+
+                    <div className="flex items-center gap-4 w-full">
+                        <Link
+                            as="button"
+                            className="w-full"
+                            variant="secondary"
+                            to="/"
+                        >
+                            <HomeIcon /> Go home
+                        </Link>
+
+                        <Button
+                            className="w-full"
+                            variant="secondary"
+                            onClick={() => navigate(-1)}
+                            startContent={<ArrowLeft />}
+                        >
+                            Go back
+                        </Button>
+                    </div>
                 </CardFooter>
             </Card>
         </div>

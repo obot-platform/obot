@@ -39,7 +39,7 @@ export const clientLoader = async ({
 
     if (!pathParams.workflow) throw redirect($path("/workflows"));
 
-    const promises = await Promise.all([
+    const [workflow] = await Promise.all([
         preload(WorkflowService.getWorkflowById.key(pathParams.workflow), () =>
             WorkflowService.getWorkflowById(pathParams.workflow)
         ),
@@ -50,8 +50,6 @@ export const clientLoader = async ({
             WebhookApiService.getWebhooks()
         ),
     ]);
-
-    const workflow = promises[0];
 
     if (!workflow) throw redirect($path("/workflows"));
 

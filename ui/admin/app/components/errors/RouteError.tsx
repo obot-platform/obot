@@ -1,4 +1,4 @@
-import { ErrorResponse } from "react-router";
+import { ErrorResponse, useNavigate } from "react-router";
 
 import { ObotLogo } from "~/components/branding/ObotLogo";
 import { Button } from "~/components/ui/button";
@@ -12,6 +12,8 @@ import {
 } from "~/components/ui/card";
 
 export function RouteError({ error }: { error: ErrorResponse }) {
+    const navigate = useNavigate();
+
     return (
         <div className="flex min-h-screen w-full items-center justify-center p-4">
             <Card className="w-96">
@@ -29,7 +31,7 @@ export function RouteError({ error }: { error: ErrorResponse }) {
                     <Button
                         className="w-full"
                         variant="secondary"
-                        onClick={() => window.location.reload()}
+                        onClick={() => navigate(0)}
                     >
                         Try Again
                     </Button>
