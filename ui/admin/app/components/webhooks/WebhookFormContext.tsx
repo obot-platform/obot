@@ -54,7 +54,7 @@ export function WebhookFormContextProvider({
             description: webhook?.description ?? "",
             alias: webhook?.alias ?? "",
             workflow: webhook?.workflow ?? "",
-            headers: webhook?.headers ?? ["User-Agent", "X-GitHub-Event"],
+            headers: webhook?.headers ?? [],
             validationHeader: webhook?.validationHeader ?? "",
             secret: "",
             token: "",
