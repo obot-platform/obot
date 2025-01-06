@@ -58,7 +58,7 @@ export function ToolAuthenticationStatus({
     const handleDeauthorize = async () => {
         if (!toolInfo) return;
 
-        const { error } = await deauthorize.executeAsync(namespace, entityId, [
+        const [error] = await deauthorize.executeAsync(namespace, entityId, [
             tool,
         ]);
 

@@ -74,7 +74,7 @@ export function StepBase({
         <div className={cn("border rounded-md bg-background", className)}>
             <div
                 className={cn(
-                    "flex items-start gap-2 p-3 bg-muted",
+                    "flex items-start gap-2 p-3 bg-background-secondary",
                     showExpanded ? "rounded-t-md" : "rounded-md"
                 )}
             >
@@ -106,7 +106,7 @@ export function StepBase({
                     placeholder={fieldConfig.placeholder}
                     maxHeight={100}
                     minHeight={0}
-                    className="flex-grow bg-background-secondary"
+                    className="flex-grow bg-background"
                     onClick={(e) => e.stopPropagation()}
                 />
 
