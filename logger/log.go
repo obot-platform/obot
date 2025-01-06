@@ -24,7 +24,7 @@ func SetError() {
 
 func Package() Logger {
 	_, p, _, _ := runtime.Caller(1)
-	_, suffix, _ := strings.Cut(p, "otto")
+	_, suffix, _ := strings.Cut(p, "obot")
 	i := strings.LastIndex(suffix, "/")
 	if i > 0 {
 		return New(suffix[:i])

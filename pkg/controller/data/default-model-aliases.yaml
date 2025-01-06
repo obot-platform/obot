@@ -1,5 +1,5 @@
 items:
-  - apiVersion: otto.otto8.ai/v1
+  - apiVersion: obot.obot.ai/v1
     kind: DefaultModelAlias
     metadata:
       name: llm
@@ -7,7 +7,7 @@ items:
     spec:
       manifest:
         alias: llm
-  - apiVersion: otto.otto8.ai/v1
+  - apiVersion: obot.obot.ai/v1
     kind: DefaultModelAlias
     metadata:
       name: llm-mini
@@ -15,7 +15,7 @@ items:
     spec:
       manifest:
         alias: llm-mini
-  - apiVersion: otto.otto8.ai/v1
+  - apiVersion: obot.obot.ai/v1
     kind: DefaultModelAlias
     metadata:
       name: text-embedding
@@ -23,7 +23,7 @@ items:
     spec:
       manifest:
         alias: text-embedding
-  - apiVersion: otto.otto8.ai/v1
+  - apiVersion: obot.obot.ai/v1
     kind: DefaultModelAlias
     metadata:
       name: image-generation
@@ -31,7 +31,7 @@ items:
     spec:
       manifest:
         alias: image-generation
-  - apiVersion: otto.otto8.ai/v1
+  - apiVersion: obot.obot.ai/v1
     kind: DefaultModelAlias
     metadata:
       name: vision

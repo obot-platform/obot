@@ -39,12 +39,12 @@ func (c *Client) Invoke(ctx context.Context, agentID string, input string, opts 
 		close(events)
 		return &types.InvokeResponse{
 			Events:   events,
-			ThreadID: resp.Header.Get("X-Otto-Thread-Id"),
+			ThreadID: resp.Header.Get("X-Obot-Thread-Id"),
 		}, nil
 	}
 
 	return &types.InvokeResponse{
 		Events:   toStream[types.Progress](resp),
-		ThreadID: resp.Header.Get("X-Otto-Thread-Id"),
+		ThreadID: resp.Header.Get("X-Obot-Thread-Id"),
 	}, nil
 }

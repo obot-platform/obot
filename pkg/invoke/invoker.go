@@ -23,7 +23,7 @@ import (
 	"github.com/obot-platform/obot/pkg/hash"
 	"github.com/obot-platform/obot/pkg/jwt"
 	"github.com/obot-platform/obot/pkg/render"
-	v1 "github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1"
+	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/obot-platform/obot/pkg/wait"
 	apierror "k8s.io/apimachinery/pkg/api/errors"
@@ -784,7 +784,7 @@ type call struct {
 
 func toSubCall(output string) *v1.SubCall {
 	var call call
-	if err := json.Unmarshal([]byte(strings.TrimSpace(output)), &call); err != nil || call.Type != "OttoSubFlow" || call.Workflow == "" {
+	if err := json.Unmarshal([]byte(strings.TrimSpace(output)), &call); err != nil || call.Type != "ObotSubFlow" || call.Workflow == "" {
 		return nil
 	}
 

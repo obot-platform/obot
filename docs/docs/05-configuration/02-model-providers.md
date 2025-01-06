@@ -113,5 +113,5 @@ To set up and run an instance of Ollama, refer to the [Ollama GitHub readme](htt
 
 The vLLM model provider requires the following configuration parameters:
 
-- `OTTO8_VLLM_MODEL_PROVIDER_ENDPOINT`: The endpoint to use for your vLLM server (e.g., `your-vllm-server.com` or `https://your-vllm-server.com`)
-- `OTTO8_VLLM_MODEL_PROVIDER_API_KEY`: The API key for authentication with your vLLM server
+- `OBOT_VLLM_MODEL_PROVIDER_ENDPOINT`: The endpoint to use for your vLLM server (e.g., `your-vllm-server.com` or `https://your-vllm-server.com`)
+- `OBOT_VLLM_MODEL_PROVIDER_API_KEY`: The API key for authentication with your vLLM server

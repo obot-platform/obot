@@ -49,7 +49,7 @@ var ErrEditAborted = errors.New("edit aborted")
 func Edit(content []byte, suffix string, save func([]byte) error) error {
 	editor := editor.NewDefaultEditor(envs)
 	for {
-		buf, file, err := editor.LaunchTempFile("otto", suffix, bytes.NewReader(content))
+		buf, file, err := editor.LaunchTempFile("obot", suffix, bytes.NewReader(content))
 		if file != "" {
 			_ = os.Remove(file)
 		}

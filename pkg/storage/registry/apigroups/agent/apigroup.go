@@ -5,7 +5,7 @@ import (
 
 	"github.com/obot-platform/kinm/pkg/apigroup"
 	"github.com/obot-platform/nah/pkg/typed"
-	v1 "github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1"
+	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/storage/registry/generic"
 	"github.com/obot-platform/obot/pkg/storage/scheme"
 	"github.com/obot-platform/obot/pkg/storage/services"

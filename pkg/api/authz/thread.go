@@ -6,7 +6,7 @@ import (
 
 	"github.com/gptscript-ai/gptscript/pkg/types"
 	"github.com/obot-platform/nah/pkg/router"
-	v1 "github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1"
+	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	"k8s.io/apiserver/pkg/authentication/user"
 )

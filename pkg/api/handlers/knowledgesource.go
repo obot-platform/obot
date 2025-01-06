@@ -6,7 +6,7 @@ import (
 
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/gz"
-	v1 "github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1"
+	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 )
 
 func convertKnowledgeSource(agentName string, knowledgeSource v1.KnowledgeSource) types.KnowledgeSource {

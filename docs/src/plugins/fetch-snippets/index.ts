@@ -5,9 +5,9 @@ import crypto from 'crypto';
 import { LoadContext, Plugin } from '@docusaurus/types';
 
 const FILE_URLS = [
-  'https://raw.githubusercontent.com/otto8-ai/python-hash-tool/main/README.md',
-  'https://raw.githubusercontent.com/otto8-ai/go-hash-tool/main/README.md',
-  'https://raw.githubusercontent.com/otto8-ai/node-hash-tool/main/README.md',
+  'https://raw.githubusercontent.com/obot-platform/python-hash-tool/main/README.md',
+  'https://raw.githubusercontent.com/obot-platform/go-hash-tool/main/README.md',
+  'https://raw.githubusercontent.com/obot-platform/node-hash-tool/main/README.md',
 ];
 
 const EXTENSION_LANGUAGE_MAP: Record<string, string> = {

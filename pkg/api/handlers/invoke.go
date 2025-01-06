@@ -4,7 +4,7 @@ import (
 	"github.com/obot-platform/obot/pkg/alias"
 	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/invoke"
-	v1 "github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1"
+	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 )
@@ -30,7 +30,7 @@ func (i *InvokeHandler) Invoke(req api.Context) error {
 	)
 
 	if threadID == "" {
-		threadID = req.Request.Header.Get("X-Otto-Thread-Id")
+		threadID = req.Request.Header.Get("X-Obot-Thread-Id")
 	}
 
 	if system.IsThreadID(id) {
@@ -105,7 +105,7 @@ func (i *InvokeHandler) Invoke(req api.Context) error {
 	}
 	defer resp.Close()
 
-	req.ResponseWriter.Header().Set("X-Otto-Thread-Id", resp.Thread.Name)
+	req.ResponseWriter.Header().Set("X-Obot-Thread-Id", resp.Thread.Name)
 
 	if synchronous {
 		return req.WriteEvents(resp.Events)

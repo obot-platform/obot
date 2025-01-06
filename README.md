@@ -23,4 +23,4 @@ or by downloading the binary for your platform from our [latest release](https:/
 
 ### Next Steps
 
-For more information checkout our [Docs](https://docs.otto8.ai/).
+For more information checkout our [Docs](https://docs.obot.ai/).

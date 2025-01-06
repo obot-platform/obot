@@ -11,7 +11,7 @@ import (
 	"github.com/gptscript-ai/go-gptscript"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/gz"
-	v1 "github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1"
+	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	apierror "k8s.io/apimachinery/pkg/api/errors"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
@@ -313,7 +313,7 @@ func manifestToTool(manifest types.AgentManifest, agentType, ref, id string) gpt
 #OBOT_SUBCALL: TARGET: %s
 INPUT=$(${GPTSCRIPT_BIN} getenv GPTSCRIPT_INPUT)
 if echo "${INPUT}" | grep -q '^{'; then
-	echo '{"%s":"%s","type":"OttoSubFlow",'
+	echo '{"%s":"%s","type":"ObotSubFlow",'
 	echo '"input":'"${INPUT}"
 	echo '}'
 else

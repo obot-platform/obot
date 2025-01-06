@@ -26,7 +26,7 @@ export const ModelProviderLinks = {
 
 export const ModelProviderConfigurationLinks = {
     [CommonModelProviderIds.AZURE_OPENAI]:
-        "https://docs.otto8.ai/configuration/model-providers#azure-openai",
+        "https://docs.obot.ai/configuration/model-providers#azure-openai",
 };
 
 export const RecommendedModelProviders = [

@@ -1,6 +1,6 @@
 module github.com/obot-platform/obot
 
-go 1.23.2
+go 1.23.4
 
 replace (
 	github.com/oauth2-proxy/oauth2-proxy/v7 => github.com/obot-platform/oauth2-proxy/v7 v7.0.0-20241008204315-265dabe17f43

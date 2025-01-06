@@ -1,5 +1,5 @@
 items:
-  - apiVersion: otto.otto8.ai/v1
+  - apiVersion: obot.obot.ai/v1
     kind: Model
     metadata:
       name: gpt-4o
@@ -10,7 +10,7 @@ items:
         modelProvider: openai-model-provider
         active: true
         usage: llm
-  - apiVersion: otto.otto8.ai/v1
+  - apiVersion: obot.obot.ai/v1
     kind: Model
     metadata:
       name: text-embedding-ada-002
@@ -21,7 +21,7 @@ items:
         modelProvider: openai-model-provider
         active: true
         usage: text-embedding
-  - apiVersion: otto.otto8.ai/v1
+  - apiVersion: obot.obot.ai/v1
     kind: Model
     metadata:
       name: text-embedding-3-small
@@ -32,7 +32,7 @@ items:
         modelProvider: openai-model-provider
         active: true
         usage: text-embedding
-  - apiVersion: otto.otto8.ai/v1
+  - apiVersion: obot.obot.ai/v1
     kind: Model
     metadata:
       name: text-embedding-3-large
@@ -43,7 +43,7 @@ items:
         modelProvider: openai-model-provider
         active: true
         usage: text-embedding
-  - apiVersion: otto.otto8.ai/v1
+  - apiVersion: obot.obot.ai/v1
     kind: Model
     metadata:
       name: dall-e-3
@@ -54,7 +54,7 @@ items:
         modelProvider: openai-model-provider
         active: true
         usage: image-generation
-  - apiVersion: otto.otto8.ai/v1
+  - apiVersion: obot.obot.ai/v1
     kind: Model
     metadata:
       name: gpt-4o-mini
@@ -65,7 +65,7 @@ items:
         modelProvider: openai-model-provider
         active: true
         usage: llm
-  - apiVersion: otto.otto8.ai/v1
+  - apiVersion: obot.obot.ai/v1
     kind: Model
     metadata:
       name: gpt-3.5-turbo

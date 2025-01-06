@@ -21,7 +21,7 @@ import (
 	"github.com/obot-platform/obot/logger"
 	"github.com/obot-platform/obot/pkg/availablemodels"
 	"github.com/obot-platform/obot/pkg/gateway/server/dispatcher"
-	v1 "github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1"
+	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
@@ -71,7 +71,7 @@ func isValidTool(tool gptscript.Tool) bool {
 
 func (h *Handler) toolsToToolReferences(ctx context.Context, toolType types.ToolReferenceType, entries map[string]indexEntry) (result []client.Object) {
 	annotations := map[string]string{
-		"obot.otto8.ai/timestamp": time.Now().String(),
+		"obot.obot.ai/timestamp": time.Now().String(),
 	}
 	for name, entry := range entries {
 		if ref, ok := strings.CutPrefix(entry.Reference, "./"); ok {

@@ -13,7 +13,7 @@ import {
 } from "~/lib/service/api/apiErrors";
 
 export const ResponseHeaders = {
-    ThreadId: "x-otto-thread-id",
+    ThreadId: "x-obot-thread-id",
 } as const;
 
 export const RequestHeaders = {

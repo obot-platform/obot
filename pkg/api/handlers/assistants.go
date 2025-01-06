@@ -19,7 +19,7 @@ import (
 	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/events"
 	"github.com/obot-platform/obot/pkg/invoke"
-	v1 "github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1"
+	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
@@ -99,7 +99,7 @@ func (a *AssistantHandler) Invoke(req api.Context) error {
 	}
 	defer resp.Close()
 
-	req.ResponseWriter.Header().Set("X-Otto-Thread-Id", resp.Thread.Name)
+	req.ResponseWriter.Header().Set("X-Obot-Thread-Id", resp.Thread.Name)
 
 	return req.WriteCreated(map[string]string{
 		"threadID": resp.Thread.Name,

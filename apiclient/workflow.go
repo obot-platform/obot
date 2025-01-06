@@ -124,6 +124,6 @@ func (c *Client) AuthenticateWorkflow(ctx context.Context, wfID string) (*types.
 
 	return &types.InvokeResponse{
 		Events:   toStream[types.Progress](resp),
-		ThreadID: resp.Header.Get("X-Otto-Thread-Id"),
+		ThreadID: resp.Header.Get("X-Obot-Thread-Id"),
 	}, nil
 }

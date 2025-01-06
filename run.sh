@@ -19,7 +19,7 @@ mkdir -p /run/sshd
 mkdir -p /data/cache
 # This is YAML
 export OBOT_SERVER_VERSIONS="$(cat <<VERSIONS
-"github.com/otto8-ai/tools": "$(cd /obot-tools && git rev-parse HEAD)"
+"github.com/obot-platform/tools": "$(cd /obot-tools && git rev-parse HEAD)"
 "github.com/gptscript-ai/workspace-provider": "$(cd /obot-tools/workspace-provider && git rev-parse HEAD)"
 "github.com/gptscript-ai/datasets": "$(cd /obot-tools/datasets && git rev-parse HEAD)"
 "github.com/kubernetes-sigs/aws-encryption-provider": "$(cd /obot-tools/aws-encryption-provider && git rev-parse HEAD)"

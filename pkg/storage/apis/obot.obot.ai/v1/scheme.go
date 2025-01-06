@@ -2,7 +2,7 @@ package v1
 
 import (
 	"github.com/obot-platform/nah/pkg/fields"
-	otto8_gptscript_ai "github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai"
+	obot_platform_ai "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -11,7 +11,7 @@ import (
 const Version = "v1"
 
 var SchemeGroupVersion = schema.GroupVersion{
-	Group:   otto8_gptscript_ai.Group,
+	Group:   obot_platform_ai.Group,
 	Version: Version,
 }
 

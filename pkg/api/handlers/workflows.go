@@ -13,7 +13,7 @@ import (
 	"github.com/obot-platform/obot/pkg/controller/handlers/workflow"
 	"github.com/obot-platform/obot/pkg/invoke"
 	"github.com/obot-platform/obot/pkg/render"
-	v1 "github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1"
+	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/obot-platform/obot/pkg/wait"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -69,7 +69,7 @@ func (a *WorkflowHandler) Authenticate(req api.Context) error {
 		}
 	}()
 
-	req.ResponseWriter.Header().Set("X-Otto-Thread-Id", resp.Thread.Name)
+	req.ResponseWriter.Header().Set("X-Obot-Thread-Id", resp.Thread.Name)
 	return req.WriteEvents(resp.Events)
 }
 
@@ -447,7 +447,7 @@ func (a *WorkflowHandler) Script(req api.Context) error {
 	nodes := gptscript.ToolDefsToNodes(tools)
 	nodes = append(nodes, gptscript.Node{
 		TextNode: &gptscript.TextNode{
-			Text: "!otto-extra-env\n" + strings.Join(extraEnv, "\n"),
+			Text: "!obot-extra-env\n" + strings.Join(extraEnv, "\n"),
 		},
 	})
 

@@ -7,16 +7,16 @@ import (
 )
 
 const (
-	RunFinalizer             = "otto.otto8.ai/run"
-	KnowledgeFileFinalizer   = "otto.otto8.ai/knowledge-file"
-	WorkspaceFinalizer       = "otto.otto8.ai/workspace"
-	KnowledgeSetFinalizer    = "otto.otto8.ai/knowledge-set"
-	KnowledgeSourceFinalizer = "otto.otto8.ai/knowledge-source"
-	ToolReferenceFinalizer   = "otto.otto8.ai/tool-reference"
+	RunFinalizer             = "obot.obot.ai/run"
+	KnowledgeFileFinalizer   = "obot.obot.ai/knowledge-file"
+	WorkspaceFinalizer       = "obot.obot.ai/workspace"
+	KnowledgeSetFinalizer    = "obot.obot.ai/knowledge-set"
+	KnowledgeSourceFinalizer = "obot.obot.ai/knowledge-source"
+	ToolReferenceFinalizer   = "obot.obot.ai/tool-reference"
 
-	ModelProviderSyncAnnotation = "otto8.ai/model-provider-sync"
-	WorkflowSyncAnnotation      = "otto8.ai/workflow-sync"
-	AgentSyncAnnotation         = "otto8.ai/agent-sync"
+	ModelProviderSyncAnnotation = "obot.ai/model-provider-sync"
+	WorkflowSyncAnnotation      = "obot.ai/workflow-sync"
+	AgentSyncAnnotation         = "obot.ai/agent-sync"
 )
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

@@ -60,7 +60,7 @@ func (s *Server) wrap(f api.HandlerFunc) http.HandlerFunc {
 		// If this header is set, then the session was deemed to be invalid and the request has come back around through the proxy.
 		// The cookie on the request is still invalid because the new one has not been sent back to the browser.
 		// Therefore, respond with a redirect so that the browser will redirect back to the original request with the new cookie.
-		if req.Header.Get("X-Otto-Auth-Required") == "true" {
+		if req.Header.Get("X-Obot-Auth-Required") == "true" {
 			http.Redirect(rw, req, req.RequestURI, http.StatusFound)
 			return
 		}
@@ -83,7 +83,7 @@ func (s *Server) wrap(f api.HandlerFunc) http.HandlerFunc {
 				return
 			}
 
-			req.Header.Set("X-Otto-Auth-Required", "true")
+			req.Header.Set("X-Obot-Auth-Required", "true")
 			s.proxyServer.ServeHTTP(rw, req)
 			return
 		}

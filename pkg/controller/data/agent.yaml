@@ -1,4 +1,4 @@
-apiVersion: otto.otto8.ai/v1
+apiVersion: obot.obot.ai/v1
 kind: Agent
 metadata:
   name: a1-obot

@@ -6,7 +6,7 @@ import (
 	"github.com/gptscript-ai/go-gptscript"
 	"github.com/obot-platform/nah/pkg/router"
 	"github.com/obot-platform/obot/apiclient/types"
-	v1 "github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1"
+	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	apierror "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -40,6 +40,7 @@ func (h *Handler) SetToolInfoStatus(req router.Request, resp router.Response) (e
 	if err != nil {
 		return err
 	}
+
 	credsSet := make(sets.Set[string], len(creds)+1)
 	for _, cred := range creds {
 		credsSet.Insert(cred.ToolName)
@@ -52,7 +53,7 @@ func (h *Handler) SetToolInfoStatus(req router.Request, resp router.Response) (e
 
 	var toolRef v1.ToolReference
 	for _, tool := range tools {
-		if err := req.Get(&toolRef, req.Namespace, tool); apierror.IsNotFound(err) {
+		if err = req.Get(&toolRef, req.Namespace, tool); apierror.IsNotFound(err) {
 			continue
 		} else if err != nil {
 			return err

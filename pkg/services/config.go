@@ -16,6 +16,7 @@ import (
 	"github.com/gptscript-ai/gptscript/pkg/runner"
 	"github.com/gptscript-ai/gptscript/pkg/sdkserver"
 	baaah "github.com/obot-platform/nah"
+	"github.com/obot-platform/nah/pkg/apply"
 	"github.com/obot-platform/nah/pkg/leader"
 	"github.com/obot-platform/nah/pkg/router"
 	"github.com/obot-platform/obot/pkg/aihelper"
@@ -209,15 +210,17 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		return nil, err
 	}
 
-	r, err := baaah.NewRouter("otto-controller", &baaah.Options{
+	r, err := baaah.NewRouter("obot-controller", &baaah.Options{
 		DefaultRESTConfig: restConfig,
 		Scheme:            scheme.Scheme,
-		ElectionConfig:    leader.NewDefaultElectionConfig("", "otto-controller", restConfig),
+		ElectionConfig:    leader.NewDefaultElectionConfig("", "obot-controller", restConfig),
 		HealthzPort:       -1,
 	})
 	if err != nil {
 		return nil, err
 	}
+
+	apply.AddValidOwnerChange("otto-controller", "obot-controller")
 
 	// For now, always auto-migrate.
 	gatewayDB, err := db.New(dbAccess.DB, dbAccess.SQLDB, true)
@@ -331,7 +334,7 @@ func configureDevMode(config Config) (int, Config) {
 func startDevMode(ctx context.Context, storageClient storage.Client) {
 	_ = storageClient.Delete(ctx, &coordinationv1.Lease{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "otto-controller",
+			Name:      "obot-controller",
 			Namespace: "kube-system",
 		},
 	})
