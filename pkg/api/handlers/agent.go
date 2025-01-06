@@ -15,7 +15,6 @@ import (
 	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/invoke"
 	"github.com/obot-platform/obot/pkg/render"
-	"github.com/obot-platform/obot/pkg/storage"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1"
 	"github.com/obot-platform/obot/pkg/storage/selectors"
 	"github.com/obot-platform/obot/pkg/system"
@@ -31,16 +30,14 @@ type AgentHandler struct {
 	serverURL string
 	// This is currently a hack to access the workflow handler
 	workflowHandler *WorkflowHandler
-	client          storage.Client
 }
 
-func NewAgentHandler(gClient *gptscript.GPTScript, invoker *invoke.Invoker, serverURL string, client storage.Client) *AgentHandler {
+func NewAgentHandler(gClient *gptscript.GPTScript, invoker *invoke.Invoker, serverURL string) *AgentHandler {
 	return &AgentHandler{
 		serverURL:       serverURL,
 		gptscript:       gClient,
 		invoker:         invoker,
 		workflowHandler: NewWorkflowHandler(gClient, serverURL, invoker),
-		client:          client,
 	}
 }
 
@@ -872,7 +869,7 @@ func (a *AgentHandler) WatchKnowledgeFile(req api.Context) error {
 		}
 	}
 
-	w, err := a.client.Watch(req.Context(), &v1.KnowledgeFileList{}, kclient.InNamespace(req.Namespace()),
+	w, err := req.Storage.Watch(req.Context(), &v1.KnowledgeFileList{}, kclient.InNamespace(req.Namespace()),
 		&kclient.ListOptions{
 			FieldSelector: fields.SelectorFromSet(selectors.RemoveEmpty(map[string]string{
 				"spec.knowledgeSetName":    knowledgeSetNames[0],
@@ -896,7 +893,7 @@ func (a *AgentHandler) WatchKnowledgeFile(req api.Context) error {
 
 	for event := range w.ResultChan() {
 		if knowledgeFile, ok := event.Object.(*v1.KnowledgeFile); ok {
-			payload := map[string]interface{}{
+			payload := map[string]any{
 				"eventType":     event.Type,
 				"knowledgeFile": convertKnowledgeFile(agentName, "", *knowledgeFile),
 			}

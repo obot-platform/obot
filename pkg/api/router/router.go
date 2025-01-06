@@ -11,7 +11,7 @@ import (
 func Router(services *services.Services) (http.Handler, error) {
 	mux := services.APIServer
 
-	agents := handlers.NewAgentHandler(services.GPTClient, services.Invoker, services.ServerURL, services.StorageClient)
+	agents := handlers.NewAgentHandler(services.GPTClient, services.Invoker, services.ServerURL)
 	assistants := handlers.NewAssistantHandler(services.Invoker, services.Events, services.GPTClient)
 	tools := handlers.NewToolHandler(services.GPTClient)
 	tasks := handlers.NewTaskHandler(services.Invoker, services.Events)
