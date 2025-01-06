@@ -8,6 +8,7 @@ export const CommonModelProviderIds = {
     AZURE_OPENAI: "azure-openai-model-provider",
     ANTHROPIC_BEDROCK: "anthropic-bedrock-model-provider",
     XAI: "xai-model-provider",
+    DEEPSEEK: "deepseek-model-provider",
 };
 
 export const ModelProviderLinks = {
@@ -22,6 +23,7 @@ export const ModelProviderLinks = {
     [CommonModelProviderIds.ANTHROPIC_BEDROCK]:
         "https://aws.amazon.com/bedrock/claude/",
     [CommonModelProviderIds.XAI]: "https://x.ai/",
+    [CommonModelProviderIds.DEEPSEEK]: "https://www.deepseek.com/",
 };
 
 export const ModelProviderConfigurationLinks = {
@@ -50,6 +52,10 @@ export const ModelProviderRequiredTooltips: {
         Endpoint:
             "Endpoint for the vLLM OpenAI service (eg. http://localhost:8000)",
         "Api Key": "VLLM API Key set when starting the vLLM server",
+    },
+    [CommonModelProviderIds.DEEPSEEK]: {
+        "Api Key":
+            "DeepSeek API Key. Can be created and fetched from https://platform.deepseek.com/api_keys",
     },
     [CommonModelProviderIds.AZURE_OPENAI]: {
         Endpoint:
@@ -110,4 +116,7 @@ export const ModelProviderSensitiveFields: Record<string, boolean | undefined> =
 
         // xAI
         OBOT_XAI_MODEL_PROVIDER_API_KEY: true,
+
+        // DeepSeek
+        OBOT_DEEPSEEK_MODEL_PROVIDER_API_KEY: true,
     };
