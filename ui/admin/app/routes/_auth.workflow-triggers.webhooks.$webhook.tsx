@@ -17,7 +17,7 @@ export async function clientLoader({
     params,
 }: ClientLoaderFunctionArgs) {
     const { pathParams } = RouteService.getRouteInfo(
-        "/webhooks/:webhook",
+        "/workflow-triggers/webhooks/:webhook",
         new URL(request.url),
         params
     );
@@ -42,7 +42,7 @@ export default function Webhook() {
 }
 
 const WebhookBreadcrumb = () => {
-    const match = useMatch("/webhooks/:webhook");
+    const match = useMatch("/workflow-triggers/webhooks/:webhook");
 
     const { data: webhook } = useSWR(
         WebhookApiService.getWebhookById.key(match?.params.webhook || ""),
@@ -57,5 +57,5 @@ export const handle: RouteHandle = {
 };
 
 export const meta: MetaFunction<typeof clientLoader> = ({ data }) => {
-    return [{ title: `Webhook • ${data?.webhook.name}` }];
+    return [{ title: `Webhook • ${data?.webhook.name || data?.webhook.id}` }];
 };

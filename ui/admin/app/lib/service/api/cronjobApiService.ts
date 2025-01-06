@@ -11,6 +11,18 @@ async function getCronJobs() {
 }
 getCronJobs.key = () => ({ url: ApiRoutes.cronjobs.getCronJobs().path });
 
+async function getCronJobById(cronJobId: string) {
+    const res = await request<CronJob>({
+        url: ApiRoutes.cronjobs.getCronJobById(cronJobId).url,
+    });
+
+    return res.data;
+}
+getCronJobById.key = (cronJobId: string) => ({
+    url: ApiRoutes.cronjobs.getCronJobById(cronJobId).path,
+    cronJobId,
+});
+
 async function createCronJob(cronJob: CronJobBase) {
     const res = await request<{ item: CronJob }>({
         url: ApiRoutes.cronjobs.createCronJob().url,
@@ -30,7 +42,7 @@ async function deleteCronJob(cronJobId: string) {
     });
 }
 
-async function updateCronJob(cronJobId: string, cronJob: CronJob) {
+async function updateCronJob(cronJobId: string, cronJob: CronJobBase) {
     const res = await request<{ item: CronJob }>({
         url: ApiRoutes.cronjobs.updateCronJob(cronJobId).url,
         method: "PUT",
@@ -43,6 +55,7 @@ async function updateCronJob(cronJobId: string, cronJob: CronJob) {
 
 export const CronJobApiService = {
     getCronJobs,
+    getCronJobById,
     createCronJob,
     deleteCronJob,
     updateCronJob,

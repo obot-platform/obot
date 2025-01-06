@@ -1,19 +1,19 @@
 import { ColumnDef, createColumnHelper } from "@tanstack/react-table";
-import { PlusIcon } from "lucide-react";
 import { useMemo } from "react";
 import { MetaFunction, useNavigate } from "react-router";
 import { $path } from "safe-routes";
 import useSWR, { preload } from "swr";
 
-import { Webhook } from "~/lib/model/webhooks";
+import { WorkflowTrigger } from "~/lib/model/workflow-trigger";
 import { Workflow } from "~/lib/model/workflows";
+import { CronJobApiService } from "~/lib/service/api/cronjobApiService";
 import { WebhookApiService } from "~/lib/service/api/webhookApiService";
 import { WorkflowService } from "~/lib/service/api/workflowService";
 
 import { TypographyH2 } from "~/components/Typography";
 import { DataTable } from "~/components/composed/DataTable";
-import { Link } from "~/components/ui/link";
-import { WebhookActions } from "~/components/webhooks/WebhookActions";
+import { CreateWorkflowTrigger } from "~/components/workflow-triggers/CreateWorkflowTrigger";
+import { WorkflowTriggerActions } from "~/components/workflow-triggers/WorkflowTriggerActions";
 
 export async function clientLoader() {
     await Promise.all([
@@ -23,12 +23,15 @@ export async function clientLoader() {
         preload(WorkflowService.getWorkflows.key(), () =>
             WorkflowService.getWorkflows()
         ),
+        preload(CronJobApiService.getCronJobs.key(), () =>
+            CronJobApiService.getCronJobs()
+        ),
     ]);
 
     return null;
 }
 
-export default function WebhooksPage() {
+export default function WorkflowTriggersPage() {
     const { data: webhooks } = useSWR(WebhookApiService.getWebhooks.key(), () =>
         WebhookApiService.getWebhooks()
     );
@@ -37,6 +40,10 @@ export default function WebhooksPage() {
 
     const getWorkflows = useSWR(WorkflowService.getWorkflows.key(), () =>
         WorkflowService.getWorkflows()
+    );
+
+    const { data: cronjobs } = useSWR(CronJobApiService.getCronJobs.key(), () =>
+        CronJobApiService.getCronJobs()
     );
 
     const workflows = getWorkflows.data;
@@ -52,37 +59,63 @@ export default function WebhooksPage() {
         );
     }, [workflows]);
 
+    const tableData: WorkflowTrigger[] = [
+        ...(webhooks ?? []),
+        ...(cronjobs ?? []),
+    ].map((item) =>
+        "schedule" in item
+            ? {
+                  id: item.id,
+                  type: "schedule",
+                  name: item.id,
+                  workflow: item.workflow,
+              }
+            : {
+                  id: item.id,
+                  type: "webhook",
+                  name: item.name || item.id,
+                  workflow: item.workflow,
+              }
+    );
+
     return (
         <div className="h-full flex flex-col p-8 space-y-4">
             <div className="flex items-center justify-between">
-                <TypographyH2>Webhooks</TypographyH2>
+                <TypographyH2>Workflow Triggers</TypographyH2>
 
-                <Link
-                    to={$path("/webhooks/create")}
-                    as="button"
-                    variant="outline"
-                >
-                    <PlusIcon /> Create Webhook
-                </Link>
+                <CreateWorkflowTrigger />
             </div>
 
             <div className="flex flex-col gap-4">
                 <DataTable
-                    onRowClick={(row) =>
-                        navigate(
-                            $path("/webhooks/:webhook", { webhook: row.id })
-                        )
-                    }
+                    onRowClick={(row) => {
+                        if (row.type === "webhook") {
+                            navigate(
+                                $path("/workflow-triggers/webhooks/:webhook", {
+                                    webhook: row.id,
+                                })
+                            );
+                        } else {
+                            navigate(
+                                $path("/workflow-triggers/schedule/:trigger", {
+                                    trigger: row.id,
+                                })
+                            );
+                        }
+                    }}
                     columns={getColumns()}
-                    data={webhooks ?? []}
+                    data={tableData}
                 />
             </div>
         </div>
     );
 
-    function getColumns(): ColumnDef<Webhook, string>[] {
+    function getColumns(): ColumnDef<WorkflowTrigger, string>[] {
         return [
             columnHelper.accessor("name", { header: "Name" }),
+            columnHelper.accessor((row) => row.type as string, {
+                header: "Type",
+            }),
             columnHelper.accessor(
                 (row) => workflowMap[row.workflow]?.name ?? row.workflow,
                 { header: "Workflow" }
@@ -91,7 +124,7 @@ export default function WebhooksPage() {
                 id: "actions",
                 cell: ({ row }) => (
                     <div className="flex items-center justify-end ">
-                        <WebhookActions webhook={row.original} />
+                        <WorkflowTriggerActions item={row.original} />
                     </div>
                 ),
             }),
@@ -99,8 +132,8 @@ export default function WebhooksPage() {
     }
 }
 
-const columnHelper = createColumnHelper<Webhook>();
+const columnHelper = createColumnHelper<WorkflowTrigger>();
 
 export const meta: MetaFunction = () => {
-    return [{ title: `Obot • Webhooks` }];
+    return [{ title: `Obot • Workflow Triggers` }];
 };

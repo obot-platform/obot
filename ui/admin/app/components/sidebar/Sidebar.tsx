@@ -77,8 +77,8 @@ const items = [
         icon: BoxesIcon,
     },
     {
-        title: "Webhooks",
-        url: $path("/webhooks"),
+        title: "Workflow Triggers",
+        url: $path("/workflow-triggers"),
         icon: WebhookIcon,
     },
 ];

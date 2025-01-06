@@ -94,7 +94,7 @@ export const WebhookConfirmation = ({
                         <Link
                             as="button"
                             className="w-full"
-                            to={$path("/webhooks")}
+                            to={$path("/workflow-triggers")}
                         >
                             Continue
                         </Link>

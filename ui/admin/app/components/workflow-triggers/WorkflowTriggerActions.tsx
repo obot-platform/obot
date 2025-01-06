@@ -1,7 +1,7 @@
 import { EllipsisIcon } from "lucide-react";
 import { $path } from "safe-routes";
 
-import { Webhook } from "~/lib/model/webhooks";
+import { WorkflowTrigger } from "~/lib/model/workflow-trigger";
 
 import { Button } from "~/components/ui/button";
 import {
@@ -12,9 +12,17 @@ import {
     DropdownMenuTrigger,
 } from "~/components/ui/dropdown-menu";
 import { Link } from "~/components/ui/link";
-import { DeleteWebhook } from "~/components/webhooks/DeleteWebhook";
+import { DeleteWorkflowTrigger } from "~/components/workflow-triggers/DeleteWorkflowTrigger";
 
-export function WebhookActions({ webhook }: { webhook: Webhook }) {
+export function WorkflowTriggerActions({ item }: { item: WorkflowTrigger }) {
+    const path =
+        item.type === "webhook"
+            ? $path("/workflow-triggers/webhooks/:webhook", {
+                  webhook: item.id,
+              })
+            : $path("/workflow-triggers/schedule/:trigger", {
+                  trigger: item.id,
+              });
     return (
         <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -34,20 +42,15 @@ export function WebhookActions({ webhook }: { webhook: Webhook }) {
                 onClick={(e) => e.stopPropagation()}
             >
                 <DropdownMenuGroup>
-                    <Link
-                        to={$path("/webhooks/:webhook", {
-                            webhook: webhook.id,
-                        })}
-                        as="div"
-                    >
+                    <Link to={path} as="div">
                         <DropdownMenuItem>Edit</DropdownMenuItem>
                     </Link>
 
-                    <DeleteWebhook id={webhook.id}>
-                        <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
-                            Delete
-                        </DropdownMenuItem>
-                    </DeleteWebhook>
+                    <DeleteWorkflowTrigger
+                        id={item.id}
+                        name={item.name}
+                        type={item.type}
+                    />
                 </DropdownMenuGroup>
             </DropdownMenuContent>
         </DropdownMenu>

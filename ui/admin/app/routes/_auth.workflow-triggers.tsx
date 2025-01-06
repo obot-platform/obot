@@ -1,5 +1,5 @@
 import { RouteHandle } from "~/lib/service/routeHandles";
 
 export const handle: RouteHandle = {
-    breadcrumb: () => [{ content: "Webhooks" }],
+    breadcrumb: () => [{ content: "Workflow Triggers" }],
 };

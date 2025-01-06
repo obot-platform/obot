@@ -106,19 +106,35 @@ export const RouteHelperMap = {
         path: "/users",
         schema: z.null(),
     },
-    "/webhooks": {
-        regex: exactRegex($path("/webhooks")),
-        path: "/webhooks",
+    "/workflow-triggers": {
+        regex: exactRegex($path("/workflow-triggers")),
+        path: "/workflow-triggers",
         schema: z.null(),
     },
-    "/webhooks/create": {
-        regex: exactRegex($path("/webhooks/create")),
-        path: "/webhooks/create",
+    "/workflow-triggers/schedule/create": {
+        regex: exactRegex($path("/workflow-triggers/schedule/create")),
+        path: "/workflow-triggers/schedule/create",
         schema: z.null(),
     },
-    "/webhooks/:webhook": {
-        regex: exactRegex($path("/webhooks/:webhook", { webhook: "(.+)" })),
-        path: "/webhooks/:webhook",
+    "/workflow-triggers/schedule/:trigger": {
+        regex: exactRegex(
+            $path("/workflow-triggers/schedule/:trigger", {
+                trigger: "(.+)",
+            })
+        ),
+        path: "/workflow-triggers/schedule/:trigger",
+        schema: z.null(),
+    },
+    "/workflow-triggers/webhooks/create": {
+        regex: exactRegex($path("/workflow-triggers/webhooks/create")),
+        path: "/workflow-triggers/webhooks/create",
+        schema: z.null(),
+    },
+    "/workflow-triggers/webhooks/:webhook": {
+        regex: exactRegex(
+            $path("/workflow-triggers/webhooks/:webhook", { webhook: "(.+)" })
+        ),
+        path: "/workflow-triggers/webhooks/:webhook",
         schema: z.null(),
     },
     "/workflows": {

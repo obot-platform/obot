@@ -297,6 +297,8 @@ export const ApiRoutes = {
     },
     cronjobs: {
         getCronJobs: () => buildUrl("/cronjobs"),
+        getCronJobById: (cronJobId: string) =>
+            buildUrl(`/cronjobs/${cronJobId}`),
         createCronJob: () => buildUrl("/cronjobs"),
         deleteCronJob: (cronJobId: string) =>
             buildUrl(`/cronjobs/${cronJobId}`),
