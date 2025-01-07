@@ -16,4 +16,6 @@ const (
 	ExistingCredTool        = "existing-credential"
 
 	DefaultNamespace = "default"
+
+	ModelProviderCredential = "sys.model.provider.credential"
 )

@@ -524,6 +524,10 @@ func modelName(modelProviderName, modelName string) string {
 }
 
 func determineCredentialNames(prg *gptscript.Program, tool gptscript.Tool, toolName string) ([]string, error) {
+	if toolName == system.ModelProviderCredential {
+		return []string{system.ModelProviderCredential}, nil
+	}
+
 	var subTool string
 	parsedToolName, alias, args, err := gtypes.ParseCredentialArgs(toolName, "")
 	if err != nil {

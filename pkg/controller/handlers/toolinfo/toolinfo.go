@@ -7,6 +7,7 @@ import (
 	"github.com/obot-platform/nah/pkg/router"
 	"github.com/obot-platform/obot/apiclient/types"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/otto.otto8.ai/v1"
+	"github.com/obot-platform/obot/pkg/system"
 	apierror "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/util/sets"
 )
@@ -39,10 +40,11 @@ func (h *Handler) SetToolInfoStatus(req router.Request, resp router.Response) (e
 	if err != nil {
 		return err
 	}
-	credsSet := make(sets.Set[string], len(creds))
+	credsSet := make(sets.Set[string], len(creds)+1)
 	for _, cred := range creds {
 		credsSet.Insert(cred.ToolName)
 	}
+	credsSet.Insert(system.ModelProviderCredential)
 
 	obj := req.Object.(v1.ToolUser)
 	tools := obj.GetTools()
