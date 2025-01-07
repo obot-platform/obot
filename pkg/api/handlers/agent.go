@@ -953,6 +953,8 @@ func runAuthForAgent(ctx context.Context, c kclient.WithWatch, invoker *invoke.I
 	agent.Spec.Manifest.AvailableThreadTools = nil
 	agent.Spec.Manifest.DefaultThreadTools = nil
 	agent.Spec.Credentials = credentials
+	agent.Spec.CredentialContextID = agent.Name
+	agent.Name = ""
 
 	return invoker.Agent(ctx, c, agent, "", invoke.Options{
 		Synchronous:           true,

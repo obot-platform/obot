@@ -35,7 +35,7 @@ func (h *Handler) SetToolInfoStatus(req router.Request, resp router.Response) (e
 
 	// Get all the credentials that exist in the expected context.
 	creds, err := h.gptscript.ListCredentials(req.Ctx, gptscript.ListCredentialsOptions{
-		CredentialContexts: []string{req.Name},
+		CredentialContexts: []string{req.Name, req.Namespace},
 	})
 	if err != nil {
 		return err
