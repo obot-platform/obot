@@ -1,11 +1,11 @@
 import { ArrowLeftIcon } from "lucide-react";
 import {
     ClientLoaderFunctionArgs,
-    Link,
     MetaFunction,
     redirect,
     useLoaderData,
     useMatch,
+    useNavigate,
 } from "react-router";
 import { $path } from "safe-routes";
 
@@ -82,6 +82,7 @@ export default function ChatAgent() {
 
     const entity = getEntity();
 
+    const navigate = useNavigate();
     return (
         <div className="h-full flex flex-col overflow-hidden relative">
             <Tooltip>
@@ -92,9 +93,13 @@ export default function ChatAgent() {
                     asChild
                 >
                     <TooltipTrigger>
-                        <Link to="/threads">
+                        <Button
+                            size="icon"
+                            variant="outline"
+                            onClick={() => navigate(-1)}
+                        >
                             <ArrowLeftIcon className="h-4 w-4" />
-                        </Link>
+                        </Button>
                     </TooltipTrigger>
                 </Button>
                 <TooltipContent>Go Back</TooltipContent>
