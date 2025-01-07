@@ -137,6 +137,18 @@ export const RouteHelperMap = {
         path: "/workflow-triggers/webhooks/:webhook",
         schema: z.null(),
     },
+    "/workflow-triggers/email/create": {
+        regex: exactRegex($path("/workflow-triggers/email/create")),
+        path: "/workflow-triggers/email/create",
+        schema: z.null(),
+    },
+    "/workflow-triggers/email/:receiver": {
+        regex: exactRegex(
+            $path("/workflow-triggers/email/:receiver", { receiver: "(.+)" })
+        ),
+        path: "/workflow-triggers/email/:receiver",
+        schema: z.null(),
+    },
     "/workflows": {
         regex: exactRegex($path("/workflows")),
         path: "/workflows",

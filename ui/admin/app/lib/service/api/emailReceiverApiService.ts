@@ -12,7 +12,7 @@ async function getEmailReceivers() {
         url: ApiRoutes.emailReceivers.getEmailReceivers().url,
     });
 
-    return data ?? [];
+    return data.items ?? [];
 }
 getEmailReceivers.key = () => ({
     url: ApiRoutes.emailReceivers.getEmailReceivers().url,
@@ -30,6 +30,7 @@ getEmailReceiverById.key = (id: Nullish<string>) => {
 
     return {
         url: ApiRoutes.emailReceivers.getEmailReceiverById(id).url,
+        emailReceiverId: id,
     };
 };
 

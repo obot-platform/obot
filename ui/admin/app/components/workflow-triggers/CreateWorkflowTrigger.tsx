@@ -62,6 +62,18 @@ export function CreateWorkflowTrigger() {
                             Set up a workflow to run on an interval.
                         </TooltipContent>
                     </Tooltip>
+
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                            <Link
+                                to={$path("/workflow-triggers/email/create")}
+                                as="button"
+                                variant="outline"
+                            >
+                                Email
+                            </Link>
+                        </TooltipTrigger>
+                    </Tooltip>
                 </div>
             </DialogContent>
         </Dialog>

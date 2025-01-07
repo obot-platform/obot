@@ -8,7 +8,11 @@ type EmailReceiverBase = {
     allowedSenders?: string[];
 };
 
-export type EmailReceiver = EntityMeta & EmailReceiverBase;
+export type EmailReceiver = EntityMeta &
+    EmailReceiverBase & {
+        aliasAssigned?: boolean;
+        emailAddress?: string;
+    };
 
 export type CreateEmailReceiver = EmailReceiverBase;
 export type UpdateEmailReceiver = EmailReceiverBase;

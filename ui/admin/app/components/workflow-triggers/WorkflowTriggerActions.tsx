@@ -15,14 +15,22 @@ import { Link } from "~/components/ui/link";
 import { DeleteWorkflowTrigger } from "~/components/workflow-triggers/DeleteWorkflowTrigger";
 
 export function WorkflowTriggerActions({ item }: { item: WorkflowTrigger }) {
-    const path =
-        item.type === "webhook"
-            ? $path("/workflow-triggers/webhooks/:webhook", {
-                  webhook: item.id,
-              })
-            : $path("/workflow-triggers/schedule/:trigger", {
-                  trigger: item.id,
-              });
+    let path: string = "";
+
+    if (item.type === "webhook") {
+        path = $path("/workflow-triggers/webhooks/:webhook", {
+            webhook: item.id,
+        });
+    } else if (item.type === "schedule") {
+        path = $path("/workflow-triggers/schedule/:trigger", {
+            trigger: item.id,
+        });
+    } else if (item.type === "email") {
+        path = $path("/workflow-triggers/email/:receiver", {
+            receiver: item.id,
+        });
+    }
+
     return (
         <DropdownMenu>
             <DropdownMenuTrigger asChild>

@@ -1,7 +1,9 @@
 import { toast } from "sonner";
 import { mutate } from "swr";
 
+import { WorkflowTriggerType } from "~/lib/model/workflow-trigger";
 import { CronJobApiService } from "~/lib/service/api/cronjobApiService";
+import { EmailReceiverApiService } from "~/lib/service/api/emailReceiverApiService";
 import { WebhookApiService } from "~/lib/service/api/webhookApiService";
 
 import { ConfirmationDialog } from "~/components/composed/ConfirmationDialog";
@@ -16,7 +18,7 @@ export function DeleteWorkflowTrigger({
 }: {
     id: string;
     name?: string;
-    type: "webhook" | "schedule";
+    type: WorkflowTriggerType;
 }) {
     const deleteWebhook = useAsync(WebhookApiService.deleteWebhook, {
         onSuccess: () => {
@@ -32,15 +34,20 @@ export function DeleteWorkflowTrigger({
         },
     });
 
-    const handleConfirmDelete = async () => {
-        if (type === "webhook") {
-            await deleteWebhook.executeAsync(id);
-        } else {
-            await deleteCronjob.executeAsync(id);
+    const deleteEmailReceiver = useAsync(
+        EmailReceiverApiService.deleteEmailReceiver,
+        {
+            onSuccess: () => {
+                mutate(EmailReceiverApiService.getEmailReceivers.key());
+                toast.success("Email workflow trigger has been deleted.");
+            },
         }
-    };
+    );
 
     const { interceptAsync, dialogProps } = useConfirmationDialog();
+
+    const handleConfirmDelete = async () =>
+        await getDeleteFunction().executeAsync(id);
 
     return (
         <>
@@ -73,4 +80,17 @@ export function DeleteWorkflowTrigger({
             />
         </>
     );
+
+    function getDeleteFunction() {
+        switch (type) {
+            case "webhook":
+                return deleteWebhook;
+            case "schedule":
+                return deleteCronjob;
+            case "email":
+                return deleteEmailReceiver;
+            default:
+                throw new Error(`Unknown workflow trigger type: ${type}`);
+        }
+    }
 }

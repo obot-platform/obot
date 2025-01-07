@@ -1,0 +1,56 @@
+import {
+    ClientLoaderFunctionArgs,
+    MetaFunction,
+    useLoaderData,
+    useMatch,
+} from "react-router";
+import useSWR, { preload } from "swr";
+
+import { EmailReceiverApiService } from "~/lib/service/api/emailReceiverApiService";
+import { RouteHandle } from "~/lib/service/routeHandles";
+import { RouteService } from "~/lib/service/routeService";
+
+import { EmailReceiverForm } from "~/components/workflow-triggers/EmailReceiverForm";
+
+export async function clientLoader({
+    request,
+    params,
+}: ClientLoaderFunctionArgs) {
+    const { pathParams } = RouteService.getRouteInfo(
+        "/workflow-triggers/email/:receiver",
+        new URL(request.url),
+        params
+    );
+
+    await preload(
+        EmailReceiverApiService.getEmailReceiverById.key(pathParams.receiver),
+        () => EmailReceiverApiService.getEmailReceiverById(pathParams.receiver)
+    );
+
+    return { emailReceiverId: pathParams.receiver };
+}
+
+export default function EmailReceiverPage() {
+    const { emailReceiverId } = useLoaderData<typeof clientLoader>();
+    const { data: emailReceiver } = useSWR(
+        EmailReceiverApiService.getEmailReceiverById.key(emailReceiverId),
+        ({ emailReceiverId }) =>
+            EmailReceiverApiService.getEmailReceiverById(emailReceiverId)
+    );
+
+    return <EmailReceiverForm emailReceiver={emailReceiver} />;
+}
+
+const EmailReceiverBreadcrumb = () => {
+    const match = useMatch("/workflow-triggers/email/:receiver");
+
+    return match?.params?.receiver || "Edit";
+};
+
+export const handle: RouteHandle = {
+    breadcrumb: () => [{ content: <EmailReceiverBreadcrumb /> }],
+};
+
+export const meta: MetaFunction<typeof clientLoader> = ({ data }) => {
+    return [{ title: `Email Receiver • ${data?.emailReceiverId}` }];
+};
