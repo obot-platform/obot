@@ -3,7 +3,6 @@ import { ChangeEvent, useEffect, useRef, useState } from "react";
 
 import { Calls } from "~/lib/model/runs";
 
-import { TypographyH1, TypographyH3 } from "~/components/Typography";
 import CallFrames from "~/components/chat/CallFrames";
 import { Button } from "~/components/ui/button";
 import { Card } from "~/components/ui/card";
@@ -53,7 +52,8 @@ export default function Debug() {
                     {fileName ? (
                         <Card className="p-2 w-full h-full overflow-y-auto">
                             <div className="flex items-center justify-between">
-                                <TypographyH3>{fileName}</TypographyH3>
+                                <h3>{fileName}</h3>
+
                                 <Button
                                     onClick={handleRemoveFile}
                                     variant="destructive"
@@ -67,17 +67,16 @@ export default function Debug() {
                             </div>
                         </Card>
                     ) : (
-                        <div className="p-2 mb-10 w-full flex items-center justify-center w-full h-full flex-col w-1/3">
+                        <div className="p-2 mb-10 flex items-center justify-center h-full flex-col w-1/3">
                             <div className="flex flex-col items-center justify-center space-y-4">
-                                <TypographyH1>
-                                    Looking to debug a run?
-                                </TypographyH1>
-                                <TypographyH3 className="text-muted-foreground text-center">
+                                <h1>Looking to debug a run?</h1>
+
+                                <h3 className="text-muted-foreground text-center">
                                     You&apos;re in the right place! Click the
                                     button below to upload your stack trace and
                                     you can step through all the frames behind
                                     your run.
-                                </TypographyH3>
+                                </h3>
                             </div>
                             <input
                                 type="file"

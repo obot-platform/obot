@@ -10,7 +10,6 @@ import { CronJobApiService } from "~/lib/service/api/cronjobApiService";
 import { WebhookApiService } from "~/lib/service/api/webhookApiService";
 import { WorkflowService } from "~/lib/service/api/workflowService";
 
-import { TypographyH2 } from "~/components/Typography";
 import { DataTable } from "~/components/composed/DataTable";
 import { CreateWorkflowTrigger } from "~/components/workflow-triggers/CreateWorkflowTrigger";
 import { WorkflowTriggerActions } from "~/components/workflow-triggers/WorkflowTriggerActions";
@@ -81,7 +80,7 @@ export default function WorkflowTriggersPage() {
     return (
         <div className="h-full flex flex-col p-8 space-y-4">
             <div className="flex items-center justify-between">
-                <TypographyH2>Workflow Triggers</TypographyH2>
+                <h2>Workflow Triggers</h2>
 
                 <CreateWorkflowTrigger />
             </div>

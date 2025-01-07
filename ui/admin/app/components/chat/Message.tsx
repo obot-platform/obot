@@ -11,7 +11,6 @@ import { Message as MessageType } from "~/lib/model/messages";
 import { PromptApiService } from "~/lib/service/api/PromptApi";
 import { cn } from "~/lib/utils";
 
-import { TypographyP } from "~/components/Typography";
 import { useChat } from "~/components/chat/ChatContext";
 import { MessageDebug } from "~/components/chat/MessageDebug";
 import { ToolCallInfo } from "~/components/chat/ToolCallInfo";
@@ -200,16 +199,14 @@ function PromptMessage({ prompt }: { prompt: AuthPrompt }) {
     if (isSubmitted) {
         return (
             <div className="flex-auto flex flex-col flex-wrap gap-2 w-fit">
-                <TypographyP className="min-w-fit">
-                    {getSubmittedText()}
-                </TypographyP>
+                <p className="min-w-fit">{getSubmittedText()}</p>
             </div>
         );
     }
 
     return (
         <div className="flex-auto flex flex-col flex-wrap gap-2 w-fit">
-            <TypographyP className="min-w-fit">{getMessage()}</TypographyP>
+            <p className="min-w-fit">{getMessage()}</p>
 
             {isRunning && prompt.metadata?.authURL && (
                 <Link

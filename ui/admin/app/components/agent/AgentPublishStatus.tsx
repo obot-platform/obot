@@ -7,7 +7,6 @@ import { Agent } from "~/lib/model/agents";
 import { ConsumptionUrl } from "~/lib/routers/baseRouter";
 import { AssistantApiService } from "~/lib/service/api/assistantApiService";
 
-import { TypographySmall } from "~/components/Typography";
 import { AgentDropdownActions } from "~/components/agent/AgentDropdownActions";
 import { Publish } from "~/components/agent/Publish";
 import { Unpublish } from "~/components/agent/Unpublish";
@@ -73,10 +72,10 @@ export function AgentPublishStatus({
                 <div className="flex flex-col gap-1 h-full">
                     <div className="flex items-center gap-2">
                         <div className="size-2 bg-warning rounded-full" />
-                        <TypographySmall>Unavailable</TypographySmall>
+                        <small>Unavailable</small>
                     </div>
 
-                    <TypographySmall className="pb-0 text-muted-foreground">
+                    <small className="pb-0 text-muted-foreground">
                         <span className="min-w-fit">
                             Ref name <b>{refAssistant.id}</b> used by{" "}
                         </span>
@@ -86,7 +85,7 @@ export function AgentPublishStatus({
                         >
                             {refAssistant.name}
                         </Link>
-                    </TypographySmall>
+                    </small>
                 </div>
             );
         }

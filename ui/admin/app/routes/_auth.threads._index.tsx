@@ -25,7 +25,6 @@ import { RouteHandle } from "~/lib/service/routeHandles";
 import { RouteQueryParams, RouteService } from "~/lib/service/routeService";
 import { timeSince } from "~/lib/utils";
 
-import { TypographyH2, TypographyP } from "~/components/Typography";
 import { DataTable } from "~/components/composed/DataTable";
 import { Button } from "~/components/ui/button";
 import { ScrollArea } from "~/components/ui/scroll-area";
@@ -152,7 +151,7 @@ export default function Threads() {
 
     return (
         <ScrollArea className="max-h-full p-8 flex flex-col gap-4">
-            <TypographyH2>Threads</TypographyH2>
+            <h2>Threads</h2>
 
             <ThreadFilters
                 userMap={userMap}
@@ -192,14 +191,14 @@ export default function Threads() {
                 header: "Type",
                 cell: ({ row }) => {
                     return (
-                        <TypographyP className="flex items-center gap-2">
+                        <p className="flex items-center gap-2">
                             {row.original.agentID ? (
                                 <PersonIcon className="w-4 h-4" />
                             ) : (
                                 <PuzzleIcon className="w-4 h-4" />
                             )}
                             {row.original.agentID ? "Agent" : "Workflow"}
-                        </TypographyP>
+                        </p>
                     );
                 },
             }),
@@ -212,9 +211,7 @@ export default function Threads() {
                 id: "created",
                 header: "Created",
                 cell: (info) => (
-                    <TypographyP>
-                        {timeSince(new Date(info.row.original.created))} ago
-                    </TypographyP>
+                    <p>{timeSince(new Date(info.row.original.created))} ago</p>
                 ),
                 sortingFn: "datetime",
             }),

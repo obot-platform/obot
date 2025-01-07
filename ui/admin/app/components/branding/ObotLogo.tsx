@@ -1,6 +1,5 @@
 import { assetUrl, cn } from "~/lib/utils";
 
-import { TypographyH2 } from "~/components/Typography";
 import { useTheme } from "~/components/theme";
 
 export function ObotLogo({
@@ -18,7 +17,7 @@ export function ObotLogo({
         logo = "/logo/obot-icon-blue.svg";
     }
     return (
-        <TypographyH2
+        <h2
             className={cn(
                 "text-center flex gap-2 items-center justify-center pb-0",
                 classNames.root
@@ -29,6 +28,6 @@ export function ObotLogo({
                 alt="Obot Logo"
                 className={cn("h-8", classNames.image)}
             />
-        </TypographyH2>
+        </h2>
     );
 }

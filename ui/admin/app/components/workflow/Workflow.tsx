@@ -5,7 +5,6 @@ import { AssistantNamespace } from "~/lib/model/assistants";
 import { Workflow as WorkflowType } from "~/lib/model/workflows";
 import { cn } from "~/lib/utils";
 
-import { TypographyH4, TypographyP } from "~/components/Typography";
 import { AgentForm } from "~/components/agent";
 import { EnvironmentVariableSection } from "~/components/agent/shared/EnvironmentVariableSection";
 import { ToolAuthenticationStatus } from "~/components/agent/shared/ToolAuthenticationStatus";
@@ -76,10 +75,10 @@ function WorkflowContent({ className }: WorkflowProps) {
                 </div>
 
                 <div className="p-4 m-4 flex flex-col gap-4">
-                    <TypographyH4 className="flex items-center gap-2">
+                    <h4 className="flex items-center gap-2">
                         <WrenchIcon className="w-5 h-5" />
                         Tools
-                    </TypographyH4>
+                    </h4>
 
                     <CardDescription>
                         Add tools the allow the agent to perform useful actions
@@ -103,10 +102,10 @@ function WorkflowContent({ className }: WorkflowProps) {
                 </div>
 
                 <div className="p-4 m-4 flex flex-col gap-4">
-                    <TypographyH4 className="flex items-center gap-2">
+                    <h4 className="flex items-center gap-2">
                         <Variable className="w-4 h-4" />
                         Environment Variables
-                    </TypographyH4>
+                    </h4>
 
                     <EnvironmentVariableSection
                         entity={workflow}
@@ -116,10 +115,10 @@ function WorkflowContent({ className }: WorkflowProps) {
                 </div>
 
                 <div className="p-4 m-4 flex flex-col gap-4">
-                    <TypographyH4 className="flex items-center gap-2">
+                    <h4 className="flex items-center gap-2">
                         <List className="w-4 h-4" />
                         Parameters
-                    </TypographyH4>
+                    </h4>
 
                     <ParamsForm
                         workflow={workflow}
@@ -132,10 +131,10 @@ function WorkflowContent({ className }: WorkflowProps) {
                 </div>
 
                 <div className="p-4 m-4 flex flex-col gap-4">
-                    <TypographyH4 className="flex items-center gap-2">
+                    <h4 className="flex items-center gap-2">
                         <PuzzleIcon className="w-4 h-4" />
                         Steps
-                    </TypographyH4>
+                    </h4>
 
                     <StepsForm
                         workflow={workflowUpdates}
@@ -146,10 +145,10 @@ function WorkflowContent({ className }: WorkflowProps) {
                 </div>
 
                 <div className="p-4 m-4 flex flex-col gap-4">
-                    <TypographyH4 className="flex items-center gap-2">
+                    <h4 className="flex items-center gap-2">
                         <Library className="w-4 h-4" />
                         Knowledge
-                    </TypographyH4>
+                    </h4>
 
                     <CardDescription>
                         Provide knowledge to the workflow in the form of files,
@@ -177,9 +176,9 @@ function WorkflowContent({ className }: WorkflowProps) {
 
             <footer className="flex justify-between items-center p-4 gap-4 border-t text-muted-foreground">
                 {isUpdating ? (
-                    <TypographyP>Saving...</TypographyP>
+                    <p>Saving...</p>
                 ) : lastUpdated ? (
-                    <TypographyP>Saved</TypographyP>
+                    <p>Saved</p>
                 ) : (
                     <div />
                 )}

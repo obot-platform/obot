@@ -8,7 +8,6 @@ import {
 } from "~/lib/model/oauthApps/oauth-helpers";
 import { cn } from "~/lib/utils";
 
-import { TypographyP } from "~/components/Typography";
 import { ConfigureOAuthApp } from "~/components/oauth-apps/ConfigureOAuthApp";
 import { DeleteOAuthApp } from "~/components/oauth-apps/DeleteOAuthApp";
 import { OAuthAppTypeIcon } from "~/components/oauth-apps/OAuthAppTypeIcon";
@@ -114,7 +113,7 @@ export function OAuthAppDetail({
 }
 
 function DisabledContent({ spec }: { spec: OAuthAppSpec }) {
-    return <TypographyP>{spec.disabledReason}</TypographyP>;
+    return <p>{spec.disabledReason}</p>;
 }
 
 function EmptyContent({
@@ -126,30 +125,30 @@ function EmptyContent({
 }) {
     return spec.noGatewayIntegration ? (
         <div className="flex flex-col gap-2">
-            <TypographyP>
+            <p>
                 {spec.displayName} OAuth is not configured. You must configure
                 it to enable tools that interact with protected{" "}
                 {spec.displayName} APIs.
-            </TypographyP>
+            </p>
 
-            <TypographyP className="mb-4">
+            <p className="mb-4">
                 You can also configure {spec.displayName} OAuth by clicking the
                 button below.
-            </TypographyP>
+            </p>
 
             <ConfigureOAuthApp type={spec.type} onSuccess={onSuccess} />
         </div>
     ) : (
         <div className="flex flex-col gap-2">
-            <TypographyP>
+            <p>
                 {spec.displayName} OAuth is currently enabled. No action is
                 needed here.
-            </TypographyP>
+            </p>
 
-            <TypographyP className="mb-4">
+            <p className="mb-4">
                 You can also configure your own {spec.displayName} OAuth by
                 clicking the button below.
-            </TypographyP>
+            </p>
 
             <ConfigureOAuthApp type={spec.type} onSuccess={onSuccess} />
         </div>
@@ -167,21 +166,21 @@ function Content({
 }) {
     return (
         <div className="flex flex-col gap-2">
-            <TypographyP>
+            <p>
                 Obot only supports one custom {spec.displayName} OAuth. If you
                 need to use a different configuration, you can replace the
                 current configuration with a new one.
-            </TypographyP>
+            </p>
 
-            <TypographyP>
+            <p>
                 When {spec.displayName} OAuth is used, Obot will use your custom
                 OAuth app.
-            </TypographyP>
+            </p>
 
             <div className="grid grid-cols-2 gap-2 px-8 py-4">
-                <TypographyP>
+                <p>
                     <strong>Client ID</strong>
-                </TypographyP>
+                </p>
 
                 <Tooltip>
                     <TooltipTrigger className="truncate underline decoration-dotted">
@@ -191,10 +190,10 @@ function Content({
                     <TooltipContent>{app.clientID}</TooltipContent>
                 </Tooltip>
 
-                <TypographyP>
+                <p>
                     <strong>Client Secret</strong>
-                </TypographyP>
-                <TypographyP>****************</TypographyP>
+                </p>
+                <p>****************</p>
             </div>
 
             <ConfigureOAuthApp type={app.type} onSuccess={onSuccess} />

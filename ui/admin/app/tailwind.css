@@ -163,7 +163,46 @@ body {
     * {
         @apply border-border;
     }
+
     body {
         @apply bg-background text-foreground;
+    }
+
+    /* Typography */
+
+    h1 {
+        @apply scroll-m-20 text-4xl font-extrabold tracking-tight lg:text-5xl;
+    }
+
+    h2 {
+        @apply scroll-m-20 pb-2 text-3xl font-semibold tracking-tight first:mt-0;
+    }
+
+    h3 {
+        @apply scroll-m-20 text-2xl font-semibold tracking-tight;
+    }
+
+    h4 {
+        @apply scroll-m-20 text-xl font-semibold tracking-tight;
+    }
+
+    p {
+        @apply leading-7;
+    }
+
+    blockquote {
+        @apply mt-6 border-l-2 pl-6 italic;
+    }
+
+    code {
+        @apply relative rounded bg-muted px-[0.3rem] py-[0.2rem] font-mono text-sm font-semibold;
+    }
+
+    large {
+        @apply text-lg font-semibold;
+    }
+
+    small {
+        @apply text-sm font-medium leading-none;
     }
 }

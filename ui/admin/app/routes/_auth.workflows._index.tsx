@@ -10,7 +10,6 @@ import { ThreadsService } from "~/lib/service/api/threadsService";
 import { WorkflowService } from "~/lib/service/api/workflowService";
 import { timeSince } from "~/lib/utils";
 
-import { TypographyH2, TypographyP } from "~/components/Typography";
 import { DataTable } from "~/components/composed/DataTable";
 import { Button } from "~/components/ui/button";
 import { Link } from "~/components/ui/link";
@@ -79,7 +78,7 @@ export default function Workflows() {
             <div className="h-full p-8 flex flex-col gap-4">
                 <div className="flex-auto overflow-hidden">
                     <div className="flex space-x-2 width-full justify-between mb-8">
-                        <TypographyH2>Workflows</TypographyH2>
+                        <h2>Workflows</h2>
 
                         <CreateWorkflow />
                     </div>
@@ -118,9 +117,7 @@ export default function Workflows() {
                                 })}
                                 className="px-0"
                             >
-                                <TypographyP>
-                                    {info.getValue() || 0} Threads
-                                </TypographyP>
+                                <p>{info.getValue() || 0} Threads</p>
                             </Link>
                         </div>
                     ),
@@ -130,9 +127,7 @@ export default function Workflows() {
                 id: "created",
                 header: "Created",
                 cell: (info) => (
-                    <TypographyP>
-                        {timeSince(new Date(info.row.original.created))} ago
-                    </TypographyP>
+                    <p>{timeSince(new Date(info.row.original.created))} ago</p>
                 ),
             }),
             columnHelper.display({

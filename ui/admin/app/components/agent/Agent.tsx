@@ -7,7 +7,6 @@ import { AssistantNamespace } from "~/lib/model/assistants";
 import { AgentService } from "~/lib/service/api/agentService";
 import { cn } from "~/lib/utils";
 
-import { TypographyH4, TypographyP } from "~/components/Typography";
 import { useAgent } from "~/components/agent/AgentContext";
 import { AgentForm } from "~/components/agent/AgentForm";
 import { AgentPublishStatus } from "~/components/agent/AgentPublishStatus";
@@ -111,10 +110,10 @@ export function Agent({ className, currentThreadId, onRefresh }: AgentProps) {
                 </div>
 
                 <div className="p-4 m-4 space-y-4 lg:mx-6 xl:mx-8">
-                    <TypographyH4 className="flex items-center gap-2 border-b pb-2">
+                    <h4 className="flex items-center gap-2 border-b pb-2">
                         <WrenchIcon className="w-5 h-5" />
                         Tools
-                    </TypographyH4>
+                    </h4>
 
                     <CardDescription>
                         Add tools the allow the agent to perform useful actions
@@ -132,10 +131,10 @@ export function Agent({ className, currentThreadId, onRefresh }: AgentProps) {
                 </div>
 
                 <div className="p-4 m-4 space-y-4 lg:mx-6 xl:mx-8">
-                    <TypographyH4 className="flex items-center gap-2 border-b pb-2">
+                    <h4 className="flex items-center gap-2 border-b pb-2">
                         <VariableIcon className="w-5 h-5" />
                         Environment Variables
-                    </TypographyH4>
+                    </h4>
 
                     <EnvironmentVariableSection
                         entity={agent}
@@ -145,10 +144,10 @@ export function Agent({ className, currentThreadId, onRefresh }: AgentProps) {
                 </div>
 
                 <div className="p-4 m-4 space-y-4 lg:mx-6 xl:mx-8">
-                    <TypographyH4 className="flex items-center gap-2 border-b pb-2">
+                    <h4 className="flex items-center gap-2 border-b pb-2">
                         <LibraryIcon className="w-6 h-6" />
                         Knowledge
-                    </TypographyH4>
+                    </h4>
                     <CardDescription>
                         Provide knowledge to the agent in the form of files,
                         website, or external links in order to give it context
@@ -172,11 +171,11 @@ export function Agent({ className, currentThreadId, onRefresh }: AgentProps) {
             <footer className="flex justify-between items-center px-8 py-4 gap-4 shadow-inner">
                 <div className="text-muted-foreground">
                     {error ? (
-                        <TypographyP>Error saving agent</TypographyP>
+                        <p>Error saving agent</p>
                     ) : isUpdating ? (
-                        <TypographyP>Saving...</TypographyP>
+                        <p>Saving...</p>
                     ) : lastUpdated ? (
-                        <TypographyP>Saved</TypographyP>
+                        <p>Saved</p>
                     ) : (
                         <div />
                     )}

@@ -4,7 +4,6 @@ import { useMemo } from "react";
 import { Agent } from "~/lib/model/agents";
 import { cn } from "~/lib/utils";
 
-import { TypographyMuted, TypographySmall } from "~/components/Typography";
 import { ToolEntry } from "~/components/agent/ToolEntry";
 import { Button } from "~/components/ui/button";
 import {
@@ -90,15 +89,16 @@ export function ToolsInfo({
                 <PopoverContent className="w-80" align="start">
                     {toolItems.length > 0 ? (
                         <div className="space-y-2">
-                            <TypographySmall className="font-semibold">
-                                Available Tools
-                            </TypographySmall>
+                            <h4>Available Tools</h4>
+
                             <div className="space-y-1">
                                 {toolItems.map(renderToolItem)}
                             </div>
                         </div>
                     ) : (
-                        <TypographyMuted>No tools available</TypographyMuted>
+                        <small className="text-muted-foreground">
+                            No tools available
+                        </small>
                     )}
                 </PopoverContent>
             </Popover>
@@ -119,7 +119,7 @@ export function ToolsInfo({
                             }
                         />
                     ) : (
-                        <TypographyMuted>On</TypographyMuted>
+                        <p className="text-muted-foreground">On</p>
                     )
                 }
             />

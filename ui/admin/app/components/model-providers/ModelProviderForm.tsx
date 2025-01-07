@@ -9,7 +9,6 @@ import { ModelProvider, ModelProviderConfig } from "~/lib/model/modelProviders";
 import { ModelApiService } from "~/lib/service/api/modelApiService";
 import { ModelProviderApiService } from "~/lib/service/api/modelProviderApiService";
 
-import { TypographyH4 } from "~/components/Typography";
 import {
     HelperTooltipLabel,
     HelperTooltipLink,
@@ -218,9 +217,9 @@ export function ModelProviderForm({
             )}
             <ScrollArea className="max-h-[50vh]">
                 <div className="flex flex-col gap-4 p-4">
-                    <TypographyH4 className="font-semibold text-md">
+                    <h4 className="font-semibold text-md">
                         Required Configuration
-                    </TypographyH4>
+                    </h4>
                     <Form {...form}>
                         <form
                             id={FORM_ID}
@@ -283,9 +282,9 @@ export function ModelProviderForm({
                 <Separator className="my-4" />
 
                 <div className="flex items-center">
-                    <TypographyH4 className="font-semibold text-md">
+                    <h4 className="font-semibold text-md">
                         Custom Configuration (Optional)
-                    </TypographyH4>
+                    </h4>
                     {ModelProviderConfigurationLinks[modelProvider.id]
                         ? renderCustomConfigTooltip(modelProvider.id)
                         : null}

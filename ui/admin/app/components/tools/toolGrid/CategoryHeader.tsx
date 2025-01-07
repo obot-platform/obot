@@ -2,7 +2,6 @@ import { Folder } from "lucide-react";
 
 import { ToolReference } from "~/lib/model/toolReferences";
 
-import { TypographyH2 } from "~/components/Typography";
 import { ToolIcon } from "~/components/tools/ToolIcon";
 import { Badge } from "~/components/ui/badge";
 
@@ -31,10 +30,10 @@ export function CategoryHeader({
                     <Folder className="w-6 h-6" />
                 )}
             </div>
-            <TypographyH2 className="flex items-center space-x-2 ">
+            <h2 className="flex items-center space-x-2 ">
                 <span>{category}</span>
                 <Badge className="pointer-events-none">{tools.length}</Badge>
-            </TypographyH2>
+            </h2>
         </div>
     );
 }

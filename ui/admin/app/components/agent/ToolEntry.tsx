@@ -4,7 +4,7 @@ import useSWR from "swr";
 
 import { ToolReferenceService } from "~/lib/service/api/toolreferenceService";
 
-import { TruncatedText } from "~/components/TruncatedText";
+import { Truncate } from "~/components/composed/typography";
 import { ToolIcon } from "~/components/tools/ToolIcon";
 import { LoadingSpinner } from "~/components/ui/LoadingSpinner";
 import { Button } from "~/components/ui/button";
@@ -26,7 +26,7 @@ export function ToolEntry({
                 <div className="flex items-center gap-2">
                     {toolInfo.icon}
 
-                    <TruncatedText content={toolInfo.label} />
+                    <Truncate>{toolInfo.label}</Truncate>
                 </div>
 
                 <div className="flex items-center gap-2">

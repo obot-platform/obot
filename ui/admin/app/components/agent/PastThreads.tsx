@@ -5,7 +5,6 @@ import useSWR from "swr";
 import { Thread } from "~/lib/model/threads";
 import { ThreadsService } from "~/lib/service/api/threadsService";
 
-import { TypographyP } from "~/components/Typography";
 import { LoadingSpinner } from "~/components/ui/LoadingSpinner";
 import { Button } from "~/components/ui/button";
 import {
@@ -98,17 +97,17 @@ export const PastThreads: React.FC<PastThreadsProps> = ({
                                         >
                                             <div className="flex items-center justify-between w-full">
                                                 <div>
-                                                    <TypographyP className="font-semibold">
+                                                    <p className="font-semibold">
                                                         Thread
                                                         <span className="ml-2 text-muted-foreground">
                                                             {thread.id}
                                                         </span>
-                                                    </TypographyP>
-                                                    <TypographyP className="text-sm text-gray-500">
+                                                    </p>
+                                                    <p className="text-sm text-gray-500">
                                                         {new Date(
                                                             thread.created
                                                         ).toLocaleString()}
-                                                    </TypographyP>
+                                                    </p>
                                                 </div>
                                                 <div>
                                                     {currentThreadId &&

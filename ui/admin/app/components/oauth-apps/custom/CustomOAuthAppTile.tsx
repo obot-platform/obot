@@ -5,11 +5,6 @@ import { OAuthApp } from "~/lib/model/oauthApps";
 import { OauthAppService } from "~/lib/service/api/oauthAppService";
 import { cn, timeSince } from "~/lib/utils";
 
-import {
-    TypographyH3,
-    TypographyP,
-    TypographySmall,
-} from "~/components/Typography";
 import { ConfirmationDialog } from "~/components/composed/ConfirmationDialog";
 import { EditCustomOAuthApp } from "~/components/oauth-apps/custom/EditCustomOAuthApp";
 import { Button } from "~/components/ui/button";
@@ -36,20 +31,18 @@ export function CustomOAuthAppTile({ app }: CustomOAuthAppTileProps) {
         <Card className={cn("border-2 border-primary")}>
             <CardHeader className="flex flex-row justify-between">
                 <div className="flex gap-2 items-center">
-                    <TypographyH3>{app.name}</TypographyH3>
+                    <h3>{app.name}</h3>
                 </div>
             </CardHeader>
 
             <CardContent>
-                <TypographyP className="truncate">
-                    {app.integration}
-                </TypographyP>
+                <p className="truncate">{app.integration}</p>
             </CardContent>
 
             <CardFooter className="flex-grow flex justify-between items-center">
-                <TypographySmall className="text-muted-foreground">
+                <small className="text-muted-foreground">
                     {timeSince(new Date(app.created))} ago
-                </TypographySmall>
+                </small>
 
                 <div className="flex gap-2 items-center">
                     <EditCustomOAuthApp app={app} />

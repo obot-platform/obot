@@ -12,7 +12,6 @@ import { ThreadsService } from "~/lib/service/api/threadsService";
 import { generateRandomName } from "~/lib/service/nameGenerator";
 import { timeSince } from "~/lib/utils";
 
-import { TypographyH2, TypographyP } from "~/components/Typography";
 import { DeleteAgent } from "~/components/agent/DeleteAgent";
 import { DataTable } from "~/components/composed/DataTable";
 import { Button } from "~/components/ui/button";
@@ -61,7 +60,7 @@ export default function Agents() {
             <div className="h-full p-8 flex flex-col gap-4">
                 <div className="flex-auto overflow-hidden">
                     <div className="flex space-x-2 width-full justify-between mb-8">
-                        <TypographyH2>Agents</TypographyH2>
+                        <h2>Agents</h2>
                         <Button
                             variant="outline"
                             className="justify-start"
@@ -137,9 +136,7 @@ export default function Agents() {
                 id: "created",
                 header: "Created",
                 cell: (info) => (
-                    <TypographyP>
-                        {timeSince(new Date(info.row.original.created))} ago
-                    </TypographyP>
+                    <p>{timeSince(new Date(info.row.original.created))} ago</p>
                 ),
             }),
             columnHelper.display({

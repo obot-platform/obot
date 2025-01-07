@@ -1,4 +1,3 @@
-import { TypographyH3 } from "~/components/Typography";
 import { OAuthAppTile } from "~/components/oauth-apps/OAuthAppTile";
 import { useOAuthAppList } from "~/hooks/oauthApps/useOAuthApps";
 
@@ -7,7 +6,7 @@ export function OAuthAppList() {
 
     return (
         <div className="space-y-4">
-            <TypographyH3>Default OAuth Apps</TypographyH3>
+            <h3>Default OAuth Apps</h3>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-4">
                 {apps.map(({ type }) => (

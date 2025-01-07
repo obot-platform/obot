@@ -4,7 +4,6 @@ import { mutate } from "swr";
 import { CronJobApiService } from "~/lib/service/api/cronjobApiService";
 import { WebhookApiService } from "~/lib/service/api/webhookApiService";
 
-import { TypographyP } from "~/components/Typography";
 import { ConfirmationDialog } from "~/components/composed/ConfirmationDialog";
 import { DropdownMenuItem } from "~/components/ui/dropdown-menu";
 import { useConfirmationDialog } from "~/hooks/component-helpers/useConfirmationDialog";
@@ -60,11 +59,11 @@ export function DeleteWorkflowTrigger({
                 title="Delete Workflow Trigger?"
                 description={
                     <div className="flex flex-col">
-                        <TypographyP>
+                        <p>
                             Are you sure you want to delete workflow trigger:{" "}
                             <b>{name || id}</b>?
-                        </TypographyP>
-                        <TypographyP>The action cannot be undone.</TypographyP>
+                        </p>
+                        <p>The action cannot be undone.</p>
                     </div>
                 }
                 confirmProps={{

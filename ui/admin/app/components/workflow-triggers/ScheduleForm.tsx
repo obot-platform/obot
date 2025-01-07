@@ -11,7 +11,6 @@ import { CronJob } from "~/lib/model/cronjobs";
 import { CronJobApiService } from "~/lib/service/api/cronjobApiService";
 import { WorkflowService } from "~/lib/service/api/workflowService";
 
-import { TypographyH2 } from "~/components/Typography";
 import {
     ControlledCustomInput,
     ControlledInput,
@@ -98,9 +97,7 @@ export function ScheduleForm({ cronjob }: { cronjob?: CronJob }) {
                     className="space-y-8 p-8 max-w-3xl mx-auto"
                     onSubmit={handleSubmit}
                 >
-                    <TypographyH2>
-                        {hasCronJob ? "Edit" : "Create"} Schedule
-                    </TypographyH2>
+                    <h2>{hasCronJob ? "Edit" : "Create"} Schedule</h2>
 
                     <ControlledInput
                         control={form.control}

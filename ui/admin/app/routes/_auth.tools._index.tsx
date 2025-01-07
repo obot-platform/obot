@@ -6,7 +6,6 @@ import useSWR, { preload } from "swr";
 import { ToolReferenceService } from "~/lib/service/api/toolreferenceService";
 import { RouteHandle } from "~/lib/service/routeHandles";
 
-import { TypographyH2 } from "~/components/Typography";
 import { ErrorDialog } from "~/components/composed/ErrorDialog";
 import { CreateTool } from "~/components/tools/CreateTool";
 import { ToolGrid } from "~/components/tools/toolGrid";
@@ -62,7 +61,7 @@ export default function Tools() {
     return (
         <ScrollArea className="h-full p-8 flex flex-col gap-4">
             <div className="flex justify-between items-center">
-                <TypographyH2>Tools</TypographyH2>
+                <h2>Tools</h2>
                 <div className="flex items-center space-x-2">
                     <div className="relative">
                         <SearchIcon className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 transform -translate-y-1/2" />

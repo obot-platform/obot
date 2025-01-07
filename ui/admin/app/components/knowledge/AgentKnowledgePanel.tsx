@@ -10,7 +10,6 @@ import {
 import { ModelAlias } from "~/lib/model/models";
 import { DefaultModelAliasApiService } from "~/lib/service/api/defaultModelAliasApiService";
 
-import { TypographyP } from "~/components/Typography";
 import { ErrorDialog } from "~/components/composed/ErrorDialog";
 import { WarningAlert } from "~/components/composed/WarningAlert";
 import { AddKnowledgeButton } from "~/components/knowledge/AddKnowledgeButton";
@@ -126,13 +125,13 @@ export default function AgentKnowledgePanel({
                 <WarningAlert
                     title="Default Text Embedding Model Required!"
                     description={
-                        <TypographyP>
+                        <p>
                             In order to process the knowledge base for your
                             agent, you&apos;ll need to set up a default text
                             embedding model. Click{" "}
                             <Link to={$path("/model-providers")}>here</Link> to
                             update your model provider and/or default models.
-                        </TypographyP>
+                        </p>
                     }
                 />
             )}

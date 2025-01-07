@@ -6,7 +6,6 @@ import { z } from "zod";
 import { Agent } from "~/lib/model/agents";
 import { noop } from "~/lib/utils";
 
-import { TypographyP, TypographySmall } from "~/components/Typography";
 import { ToolEntry } from "~/components/agent/ToolEntry";
 import { ToolCatalogDialog } from "~/components/tools/ToolCatalog";
 import { Form } from "~/components/ui/form";
@@ -148,14 +147,14 @@ export function ToolForm({
                 onSubmit={handleSubmit(onSubmit || noop)}
                 className="flex flex-col gap-2"
             >
-                <TypographyP className="flex justify-between items-end font-normal">
+                <p className="flex justify-between items-end font-normal">
                     Agent Tools
-                </TypographyP>
+                </p>
 
-                <TypographySmall className="text-muted-foreground">
+                <small className="text-muted-foreground">
                     These tools are essential for the agent&apos;s core
                     functionality and are always enabled.
-                </TypographySmall>
+                </small>
 
                 <div className="mt-2 w-full overflow-y-auto">
                     {fixedFields.map((field) => (
@@ -177,14 +176,14 @@ export function ToolForm({
                     />
                 </div>
 
-                <TypographyP className="flex justify-between items-end font-normal mt-4">
+                <p className="flex justify-between items-end font-normal mt-4">
                     User Tools
-                </TypographyP>
+                </p>
 
-                <TypographySmall className="text-muted-foreground">
+                <small className="text-muted-foreground">
                     Optional tools users can turn on or off. Use the toggle to
                     set whether they&apos;re active by default for the agent.
-                </TypographySmall>
+                </small>
 
                 <div className="mt-2 w-full overflow-y-auto">
                     {userFields.map((field) => (

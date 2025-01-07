@@ -10,7 +10,6 @@ import { ConflictError } from "~/lib/service/api/apiErrors";
 import { OauthAppService } from "~/lib/service/api/oauthAppService";
 import { ErrorService } from "~/lib/service/errorService";
 
-import { TypographySmall } from "~/components/Typography";
 import { CopyText } from "~/components/composed/CopyText";
 import { ControlledInput } from "~/components/form/controlledInputs";
 import { Button } from "~/components/ui/button";
@@ -204,7 +203,7 @@ export function CustomOAuthAppForm({
                 {step === Step.INFO && app && (
                     <>
                         <div className="flex flex-col gap-2">
-                            <TypographySmall>Redirect URL</TypographySmall>
+                            <small>Redirect URL</small>
 
                             <CopyText
                                 text={app.links.redirectURL}

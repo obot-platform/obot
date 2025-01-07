@@ -3,7 +3,6 @@ import useSWR from "swr";
 import { WorkflowService } from "~/lib/service/api/workflowService";
 import { cn, getAliasFrom } from "~/lib/utils";
 
-import { TypographyH2 } from "~/components/Typography";
 import {
     ControlledCustomInput,
     ControlledInput,
@@ -66,9 +65,7 @@ export function WebhookFormContent({ hideTitle }: WebhookFormContentProps) {
                 onSubmit={handleSubmit}
             >
                 {!hideTitle && (
-                    <TypographyH2>
-                        {isEdit ? "Edit Webhook" : "Create Webhook"}
-                    </TypographyH2>
+                    <h2>{isEdit ? "Edit Webhook" : "Create Webhook"}</h2>
                 )}
 
                 <ControlledInput control={control} name="name" label="Name" />

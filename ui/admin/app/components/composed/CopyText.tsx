@@ -4,7 +4,6 @@ import { toast } from "sonner";
 
 import { cn } from "~/lib/utils";
 
-import { TypographyP } from "~/components/Typography";
 import { Button } from "~/components/ui/button";
 import {
     Tooltip,
@@ -49,9 +48,9 @@ export function CopyText({
                         onClick={() => handleCopy(text)}
                         className="decoration-dotted underline-offset-4 underline text-ellipsis overflow-hidden text-nowrap"
                     >
-                        <TypographyP className="truncate break-words p-2">
+                        <p className="truncate break-words p-2">
                             {displayText}
-                        </TypographyP>
+                        </p>
                     </TooltipTrigger>
 
                     <TooltipContent>

@@ -16,7 +16,6 @@ import useSWR from "swr";
 import { VersionApiService } from "~/lib/service/api/versionApiService";
 import { cn } from "~/lib/utils";
 
-import { TypographyMuted, TypographySmall } from "~/components/Typography";
 import { ObotLogo } from "~/components/branding/ObotLogo";
 import { Button } from "~/components/ui/button";
 import {
@@ -167,8 +166,10 @@ function VersionInfo() {
                     {versionEntries.map(([key, value], index) =>
                         value ? (
                             <div key={key}>
-                                <TypographyMuted>{key}:</TypographyMuted>
-                                <TypographySmall>{value}</TypographySmall>
+                                <small className="text-muted-foreground">
+                                    {key}:
+                                </small>
+                                <small>{value}</small>
                                 {index !== versionEntries.length - 1 && (
                                     <Separator className="my-2" />
                                 )}

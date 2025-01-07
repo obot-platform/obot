@@ -6,7 +6,6 @@ import {
     YourToolsToolCategory,
 } from "~/lib/service/api/toolreferenceService";
 
-import { TypographyP } from "~/components/Typography";
 import { CategoryHeader } from "~/components/tools/toolGrid/CategoryHeader";
 import { CategoryTools } from "~/components/tools/toolGrid/CategoryTools";
 import { useDebounce } from "~/hooks/useDebounce";
@@ -59,7 +58,7 @@ export function ToolGrid({ toolCategories, filter, onDelete }: ToolGridProps) {
     }, [filter, debouncedFilter]);
 
     if (!Object.entries(filteredResults).length) {
-        return <TypographyP>No tools found...</TypographyP>;
+        return <p>No tools found...</p>;
     }
 
     const yourToolsCategory = filteredResults[YourToolsToolCategory];

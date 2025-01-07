@@ -11,7 +11,6 @@ import { UserService } from "~/lib/service/api/userService";
 import { RouteHandle } from "~/lib/service/routeHandles";
 import { pluralize, timeSince } from "~/lib/utils";
 
-import { TypographyH2, TypographyP } from "~/components/Typography";
 import { DataTable } from "~/components/composed/DataTable";
 import { Link } from "~/components/ui/link";
 
@@ -56,7 +55,7 @@ export default function Users() {
     return (
         <div>
             <div className="h-full p-8 flex flex-col gap-4">
-                <TypographyH2 className="mb-4">Users</TypographyH2>
+                <h2 className="mb-4">Users</h2>
                 <DataTable
                     columns={getColumns()}
                     data={users}
@@ -90,23 +89,19 @@ export default function Users() {
                             </Link>
                         );
                     }
-                    return <TypographyP>No Threads</TypographyP>;
+                    return <p>No Threads</p>;
                 },
             }),
             columnHelper.display({
                 id: "role",
                 header: "Role",
-                cell: ({ row }) => (
-                    <TypographyP>{roleToString(row.original.role)}</TypographyP>
-                ),
+                cell: ({ row }) => <p>{roleToString(row.original.role)}</p>,
             }),
             columnHelper.display({
                 id: "created",
                 header: "Created",
                 cell: ({ row }) => (
-                    <TypographyP>
-                        {timeSince(new Date(row.original.created))} ago
-                    </TypographyP>
+                    <p>{timeSince(new Date(row.original.created))} ago</p>
                 ),
             }),
         ];

@@ -6,7 +6,6 @@ import { DefaultModelAliasApiService } from "~/lib/service/api/defaultModelAlias
 import { ModelApiService } from "~/lib/service/api/modelApiService";
 import { RouteHandle } from "~/lib/service/routeHandles";
 
-import { TypographyH2 } from "~/components/Typography";
 import { WarningAlert } from "~/components/composed/WarningAlert";
 import { ModelProviderList } from "~/components/model-providers/ModelProviderLists";
 import { CommonModelProviderIds } from "~/components/model-providers/constants";
@@ -64,9 +63,7 @@ export default function ModelProviders() {
             <div className="relative px-8 pb-8">
                 <div className="sticky top-0 bg-background py-8 flex flex-col gap-4 z-10">
                     <div className="flex items-center justify-between">
-                        <TypographyH2 className="mb-0 pb-0">
-                            Model Providers
-                        </TypographyH2>
+                        <h2 className="mb-0 pb-0">Model Providers</h2>
                         <DefaultModelAliasFormDialog
                             disabled={!modelProviderConfigured}
                         />

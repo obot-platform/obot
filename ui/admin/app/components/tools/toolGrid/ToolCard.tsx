@@ -3,13 +3,8 @@ import { Trash } from "lucide-react";
 import { ToolReference } from "~/lib/model/toolReferences";
 import { cn, timeSince } from "~/lib/utils";
 
-import { TruncatedText } from "~/components/TruncatedText";
-import {
-    TypographyH4,
-    TypographyP,
-    TypographySmall,
-} from "~/components/Typography";
 import { ConfirmationDialog } from "~/components/composed/ConfirmationDialog";
+import { Truncate } from "~/components/composed/typography";
 import { ToolIcon } from "~/components/tools/ToolIcon";
 import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
@@ -39,7 +34,7 @@ export function ToolCard({ tool, onDelete }: ToolCardProps) {
             })}
         >
             <CardHeader className="pb-2">
-                <TypographyH4 className="truncate flex flex-wrap items-center gap-x-2">
+                <h4 className="truncate flex flex-wrap items-center gap-x-2">
                     <div className="flex flex-nowrap gap-x-2">
                         <ToolIcon
                             className="w-5 min-w-5 h-5"
@@ -56,30 +51,28 @@ export function ToolCard({ tool, onDelete }: ToolCardProps) {
                                 </Badge>
                             </TooltipTrigger>
                             <TooltipContent className="max-w-xs bg-error-foreground border border-error text-foreground">
-                                <TypographyP>{tool.error}</TypographyP>
+                                <p>{tool.error}</p>
                             </TooltipContent>
                         </Tooltip>
                     )}
                     {tool.metadata?.bundle && (
                         <Badge className="pointer-events-none">Bundle</Badge>
                     )}
-                </TypographyH4>
+                </h4>
             </CardHeader>
             <CardContent className="flex-grow">
                 {!tool.builtin && (
-                    <TruncatedText
-                        content={tool.reference}
-                        className="max-w-full"
-                    />
+                    <Truncate className="max-w-full">{tool.reference}</Truncate>
                 )}
-                <TypographyP className="mt-2 text-sm text-muted-foreground line-clamp-2">
+                <p className="mt-2 text-sm text-muted-foreground line-clamp-2">
                     {tool.description || "No description available"}
-                </TypographyP>
+                </p>
             </CardContent>
             <CardFooter className="flex justify-between items-center pt-2 h-14">
-                <TypographySmall className="text-muted-foreground">
+                <small className="text-muted-foreground">
                     {timeSince(new Date(tool.created))} ago
-                </TypographySmall>
+                </small>
+
                 {!tool.builtin && (
                     <ConfirmationDialog
                         title="Delete Tool Reference"

@@ -2,7 +2,6 @@ import { ClockIcon, PlusIcon, TrashIcon } from "lucide-react";
 
 import { CronJob } from "~/lib/model/cronjobs";
 
-import { TypographyH4 } from "~/components/Typography";
 import { Button } from "~/components/ui/button";
 import { CardDescription } from "~/components/ui/card";
 import { ScheduleSelection } from "~/components/workflow-triggers/shared/ScheduleSelection";
@@ -32,10 +31,10 @@ export function WorkflowSchedulePanel({ workflowId }: { workflowId: string }) {
     return (
         <div className="p-4 m-4 flex flex-col gap-4">
             <div className="flex justify-between items-center gap-2">
-                <TypographyH4 className="flex items-center gap-2">
+                <h4 className="flex items-center gap-2">
                     <ClockIcon className="w-4 h-4" />
                     Schedule
-                </TypographyH4>
+                </h4>
             </div>
 
             <CardDescription>

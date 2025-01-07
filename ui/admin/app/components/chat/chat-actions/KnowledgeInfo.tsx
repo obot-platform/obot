@@ -5,7 +5,6 @@ import { KNOWLEDGE_TOOL } from "~/lib/model/agents";
 import { KnowledgeFileNamespace } from "~/lib/model/knowledge";
 import { cn } from "~/lib/utils";
 
-import { TypographyLead, TypographySmall } from "~/components/Typography";
 import { useThreadAgents } from "~/components/chat/thread-helpers";
 import { KnowledgeFileItem } from "~/components/knowledge/KnowledgeFileItem";
 import { Button } from "~/components/ui/button";
@@ -76,11 +75,11 @@ export function KnowledgeInfo({
 
                     <PopoverContent align="start" className="w-[30vw]">
                         <div className="flex justify-between items-center gap-2 mb-4">
-                            <TypographyLead>Knowledge</TypographyLead>
+                            <h4 className="text-muted-foreground">Knowledge</h4>
 
-                            <TypographySmall className="text-muted-foreground">
+                            <small className="text-muted-foreground">
                                 {knowledge.length || "No"} files
-                            </TypographySmall>
+                            </small>
                         </div>
 
                         <div className="flex flex-col gap-2">

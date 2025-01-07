@@ -1,7 +1,6 @@
 import { OAuthProvider } from "~/lib/model/oauthApps/oauth-helpers";
 import { cn } from "~/lib/utils";
 
-import { TypographyH3 } from "~/components/Typography";
 import { OAuthAppDetail } from "~/components/oauth-apps/OAuthAppDetail";
 import { useTheme } from "~/components/theme";
 import { Badge } from "~/components/ui/badge";
@@ -42,9 +41,7 @@ export function OAuthAppTile({
         >
             <CardHeader className="flex flex-row justify-between items-start pb-2 space-y-0">
                 <div className="flex flex-wrap gap-2 items-center">
-                    <TypographyH3 className="min-w-fit">
-                        {displayName}
-                    </TypographyH3>
+                    <h3 className="min-w-fit">{displayName}</h3>
 
                     {info.appOverride ? (
                         <Tooltip>

@@ -6,7 +6,6 @@ import { EnvVariable } from "~/lib/model/environmentVariables";
 import { Workflow } from "~/lib/model/workflows";
 import { EnvironmentApiService } from "~/lib/service/api/EnvironmentApiService";
 
-import { TypographyP } from "~/components/Typography";
 import { EnvForm } from "~/components/agent/shared/AgentEnvironmentVariableForm";
 import { SelectList } from "~/components/composed/SelectModule";
 import { Button } from "~/components/ui/button";
@@ -112,8 +111,8 @@ export function EnvironmentVariableSection({
     function renderItem(item: EnvVariable) {
         return (
             <div className="flex items-center justify-between gap-2 w-full">
-                <TypographyP className="flex-1">{item.name}</TypographyP>
-                <TypographyP>{"•".repeat(15)}</TypographyP>
+                <p className="flex-1">{item.name}</p>
+                <p>{"•".repeat(15)}</p>
             </div>
         );
     }

@@ -1,10 +1,6 @@
 import { Eye } from "lucide-react";
 import { useState } from "react";
 
-import {
-    TypographyMuted,
-    TypographyMutedAccent,
-} from "~/components/Typography";
 import { Button } from "~/components/ui/button";
 import {
     Dialog,
@@ -47,17 +43,19 @@ export function Publish({ className, alias: _alias, onPublish }: PublishProps) {
                     />
                 </div>
                 <div className="space-y-4 py-4">
-                    <TypographyMuted>
+                    <p className="text-muted-foreground">
                         This agent will be available at:
-                    </TypographyMuted>
-                    <TypographyMutedAccent>
+                    </p>
+
+                    <p className="text-primary">
                         {`${window.location.protocol}//${window.location.host}/${alias}`}
-                    </TypographyMutedAccent>
-                    <TypographyMuted>
+                    </p>
+
+                    <p className="text-muted-foreground">
                         If you have another agent with this handle, you will
                         need to unpublish it before this agent can be accessed
                         at the above URL.
-                    </TypographyMuted>
+                    </p>
                 </div>
                 <DialogFooter>
                     <div className="w-full flex justify-center items-center gap-10 pt-4">

@@ -3,7 +3,6 @@ import { $path } from "safe-routes";
 
 import { assetUrl } from "~/lib/utils";
 
-import { TypographyH3, TypographyP } from "~/components/Typography";
 import { Button } from "~/components/ui/button";
 import { useModelProviders } from "~/hooks/model-providers/useModelProviders";
 
@@ -28,16 +27,16 @@ export function FirstModelProviderBanner() {
                         />
                     </div>
                     <div className="flex flex-col md:ml-64 relative z-10 gap-1">
-                        <TypographyH3 className="mb-0.5">
+                        <h3 className="mb-0.5">
                             Wait! You need to set up a Model Provider!
-                        </TypographyH3>
-                        <TypographyP className="text-sm font-light mb-2">
+                        </h3>
+                        <p className="text-sm font-light mb-2">
                             You&apos;re almost there! To start creating or using{" "}
                             Obot&apos;s features, you&apos;ll need access to an
                             LLM (Large Language Model) <b>Model Provider</b>.
                             Luckily, we support a variety of providers to help
                             get you started.
-                        </TypographyP>
+                        </p>
                         <Button className="mt-0 w-fit px-10" variant="warning">
                             <Link to={$path("/model-providers")}>
                                 Get Started

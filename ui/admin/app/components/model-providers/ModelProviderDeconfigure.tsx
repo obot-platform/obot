@@ -6,7 +6,6 @@ import { ModelProvider } from "~/lib/model/modelProviders";
 import { ModelApiService } from "~/lib/service/api/modelApiService";
 import { ModelProviderApiService } from "~/lib/service/api/modelProviderApiService";
 
-import { TypographyP } from "~/components/Typography";
 import { Button } from "~/components/ui/button";
 import {
     Dialog,
@@ -66,17 +65,17 @@ export function ModelProviderDeconfigure({
                 <DialogHeader>
                     <DialogTitle>Deconfigure {modelProvider.name}</DialogTitle>
                 </DialogHeader>
-                <TypographyP>
+                <p>
                     Deconfiguring this model provider will remove all models
                     associated with it and reset it to its unconfigured state.
                     You will need to set up the model provider once again to use
                     it.
-                </TypographyP>
+                </p>
 
-                <TypographyP>
+                <p>
                     Are you sure you want to deconfigure{" "}
                     <b>{modelProvider.name}</b>?
-                </TypographyP>
+                </p>
 
                 <DialogFooter>
                     <div className="w-full flex justify-center items-center gap-10 pt-4">

@@ -5,7 +5,6 @@ import { mutate } from "swr";
 
 import { WebhookApiService } from "~/lib/service/api/webhookApiService";
 
-import { TypographyP } from "~/components/Typography";
 import { Button } from "~/components/ui/button";
 import {
     Popover,
@@ -37,9 +36,7 @@ export function DeleteWorkflowWebhook({ webhookId }: { webhookId: string }) {
                 </Button>
             </PopoverTrigger>
             <PopoverContent>
-                <TypographyP>
-                    Are you sure you want to delete this webhook?
-                </TypographyP>
+                <p>Are you sure you want to delete this webhook?</p>
                 <div className="flex justify-end gap-2">
                     <Button variant="ghost" onClick={() => setOpen(false)}>
                         Cancel

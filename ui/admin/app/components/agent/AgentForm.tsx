@@ -8,7 +8,6 @@ import { z } from "zod";
 import { ModelUsage } from "~/lib/model/models";
 import { ModelApiService } from "~/lib/service/api/modelApiService";
 
-import { TypographyH4 } from "~/components/Typography";
 import { ComboBox } from "~/components/composed/ComboBox";
 import {
     ControlledAutosizeTextarea,
@@ -101,10 +100,10 @@ export function AgentForm({ agent, onSubmit, onChange }: AgentFormProps) {
                     className="text-xl text-muted-foreground"
                 />
 
-                <TypographyH4 className="flex items-center gap-2">
+                <h4 className="flex items-center gap-2">
                     <BrainIcon className="w-5 h-5" />
                     Instructions
-                </TypographyH4>
+                </h4>
 
                 <ControlledAutosizeTextarea
                     control={form.control}

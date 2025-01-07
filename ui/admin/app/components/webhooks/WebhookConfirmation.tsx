@@ -3,7 +3,6 @@ import { $path } from "safe-routes";
 import { Webhook } from "~/lib/model/webhooks";
 import { cn } from "~/lib/utils";
 
-import { TypographyP } from "~/components/Typography";
 import { CopyText } from "~/components/composed/CopyText";
 import { Button } from "~/components/ui/button";
 import {
@@ -61,7 +60,7 @@ export const WebhookConfirmation = ({
                 </DialogDescription>
 
                 <div className={cn("flex flex-col gap-1")}>
-                    <TypographyP>Payload URL: </TypographyP>
+                    <p>Payload URL: </p>
                     <CopyText
                         text={getWebhookUrl(webhook, token)}
                         className="w-fit-content max-w-full"
@@ -73,7 +72,7 @@ export const WebhookConfirmation = ({
                         "flex-row gap-2": !secret,
                     })}
                 >
-                    <TypographyP>Secret: </TypographyP>
+                    <p>Secret: </p>
                     {secret ? (
                         <CopyText
                             className="min-w-fit"
@@ -81,9 +80,9 @@ export const WebhookConfirmation = ({
                             text={secret ?? ""}
                         />
                     ) : (
-                        <TypographyP className="text-muted-foreground">
+                        <p className="text-muted-foreground">
                             ({secretRemoved ? "None" : "Unchanged"})
-                        </TypographyP>
+                        </p>
                     )}
                 </div>
 
