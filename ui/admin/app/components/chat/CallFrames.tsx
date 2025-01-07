@@ -56,7 +56,10 @@ const CallFrames = ({ calls }: { calls: CallsType }) => {
         );
 
         sortedCalls.forEach(([id, call]) => {
-            if (call.tool?.name === "GPTScript Gateway Provider") {
+            if (
+                call.tool?.name === "GPTScript Gateway Provider" ||
+                call.tool?.name === "Obot"
+            ) {
                 return;
             }
 
@@ -224,8 +227,7 @@ const CallFrames = ({ calls }: { calls: CallsType }) => {
                     {(call.llmRequest || call.llmResponse) && (
                         <details open={allOpen}>
                             <summary className="cursor-pointer">
-                                {call.llmRequest &&
-                                "messages" in call.llmRequest
+                                {call.llmRequest?.chatCompletion?.messages
                                     ? "LLM Request & Response"
                                     : "Tool Command and Output"}
                             </summary>
@@ -233,8 +235,8 @@ const CallFrames = ({ calls }: { calls: CallsType }) => {
                                 {call.llmRequest && (
                                     <details open={allOpen}>
                                         <summary className="cursor-pointer">
-                                            {call.llmRequest &&
-                                            "messages" in call.llmRequest
+                                            {call.llmRequest?.chatCompletion
+                                                ?.messages
                                                 ? "Request"
                                                 : "Command"}
                                         </summary>
@@ -246,8 +248,8 @@ const CallFrames = ({ calls }: { calls: CallsType }) => {
                                 {call.llmResponse && (
                                     <details open={allOpen}>
                                         <summary className="cursor-pointer">
-                                            {call.llmRequest &&
-                                            "messages" in call.llmRequest
+                                            {call.llmRequest?.chatCompletion
+                                                ?.messages
                                                 ? "Response"
                                                 : "Output"}
                                         </summary>
@@ -321,7 +323,6 @@ const CallFrames = ({ calls }: { calls: CallsType }) => {
     };
 
     const { tree, rootNodes } = buildTree(calls);
-
     return (
         <div
             className="h-full overflow-scroll p-4 rounded-2xl bg-foreground dark:bg-zinc-900 text-white"
@@ -395,12 +396,12 @@ const Summary = ({ call }: { call: CallFrame }) => {
     const info = `[${category || "tool"}] [ID: ${call.id}] [${startTime} - ${endTime}, ${duration}]`;
 
     return (
-        <h1 className="inline">
+        <h4 className="inline">
             <span className="font-bold mr-2">
                 {typeof name === "string" ? name : name.Name}
             </span>
             <span className="text-sm text-gray-400">{info}</span>
-        </h1>
+        </h4>
     );
 };
 
