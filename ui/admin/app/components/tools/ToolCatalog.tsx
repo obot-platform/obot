@@ -2,6 +2,7 @@ import { AlertTriangleIcon, PlusIcon } from "lucide-react";
 import { useMemo } from "react";
 import useSWR from "swr";
 
+import { OAuthProvider } from "~/lib/model/oauthApps/oauth-helpers";
 import { ToolReferenceService } from "~/lib/service/api/toolreferenceService";
 import { cn } from "~/lib/utils";
 
@@ -21,6 +22,7 @@ import {
     DialogTitle,
     DialogTrigger,
 } from "~/components/ui/dialog";
+import { useOAuthAppList } from "~/hooks/oauthApps/useOAuthApps";
 
 type ToolCatalogProps = React.HTMLAttributes<HTMLDivElement> & {
     tools: string[];
@@ -42,18 +44,38 @@ export function ToolCatalog({
         { fallbackData: {} }
     );
 
-    const sortedCategories = useMemo(() => {
-        return Object.entries(toolCategories).sort(
-            ([nameA, categoryA], [nameB, categoryB]): number => {
-                const aHasBundle = categoryA.bundleTool ? 1 : 0;
-                const bHasBundle = categoryB.bundleTool ? 1 : 0;
-
-                if (aHasBundle !== bHasBundle) return bHasBundle - aHasBundle;
-
-                return nameA.localeCompare(nameB);
-            }
+    const oauthApps = useOAuthAppList();
+    const configuredOauthApps = useMemo(() => {
+        return new Set(
+            oauthApps
+                .filter((app) => !app.noGatewayIntegration)
+                .map((app) => app.type)
         );
-    }, [toolCategories]);
+    }, [oauthApps]);
+
+    const sortedValidCategories = useMemo(() => {
+        return (
+            Object.entries(toolCategories)
+                .sort(([nameA, categoryA], [nameB, categoryB]): number => {
+                    const aHasBundle = categoryA.bundleTool ? 1 : 0;
+                    const bHasBundle = categoryB.bundleTool ? 1 : 0;
+
+                    if (aHasBundle !== bHasBundle)
+                        return bHasBundle - aHasBundle;
+
+                    return nameA.localeCompare(nameB);
+                })
+                // filter out bundles with oauth providers that are not configured
+                .filter(([, { bundleTool }]) => {
+                    if (!bundleTool) return true;
+                    const oauthType = bundleTool.metadata?.oauth;
+
+                    return oauthType
+                        ? configuredOauthApps.has(oauthType as OAuthProvider)
+                        : true;
+                })
+        );
+    }, [toolCategories, configuredOauthApps]);
 
     if (isLoading) return <LoadingSpinner />;
 
@@ -82,7 +104,7 @@ export function ToolCatalog({
                         No results found.
                     </h1>{" "}
                 </CommandEmpty>
-                {sortedCategories.map(([category, categoryTools]) => (
+                {sortedValidCategories.map(([category, categoryTools]) => (
                     <ToolCatalogGroup
                         key={category}
                         category={category}

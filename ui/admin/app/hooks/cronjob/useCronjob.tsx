@@ -11,9 +11,9 @@ export function useCronjob(workflowId?: string) {
         CronJobApiService.getCronJobs()
     );
 
-    const cronJobs = getCronJobs.data?.filter(
-        (cronJob) => cronJob.workflow === workflowId
-    );
+    const cronJobs = getCronJobs.data
+        ?.filter((cronJob) => cronJob.workflow === workflowId)
+        .sort((cronJobA, cronJobB) => cronJobA.id.localeCompare(cronJobB.id));
 
     const createCronJob = useAsync(CronJobApiService.createCronJob, {
         onError: (error) => {
@@ -47,7 +47,7 @@ export function useCronjob(workflowId?: string) {
         const cronJobIndex = getCronJobs.data?.findIndex(
             (cronJob) => cronJob.id === cronJobId
         );
-        if (!cronJobIndex) return;
+        if (cronJobIndex === undefined) return;
 
         existingCronJobs[cronJobIndex] = {
             ...existingCronJobs[cronJobIndex],

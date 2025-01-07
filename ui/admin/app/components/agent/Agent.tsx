@@ -116,7 +116,7 @@ export function Agent({ className, currentThreadId, onRefresh }: AgentProps) {
                     </h4>
 
                     <CardDescription>
-                        Add tools the allow the agent to perform useful actions
+                        Add tools that allow the agent to perform useful actions
                         such as searching the web, reading files, or interacting
                         with other systems.
                     </CardDescription>
