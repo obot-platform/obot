@@ -305,6 +305,14 @@ export const ApiRoutes = {
         updateCronJob: (cronJobId: string) =>
             buildUrl(`/cronjobs/${cronJobId}`),
     },
+    emailReceivers: {
+        getEmailReceivers: () => buildUrl("/email-receivers"),
+        getEmailReceiverById: (id: string) =>
+            buildUrl(`/email-receivers/${id}`),
+        createEmailReceiver: () => buildUrl(`/email-receivers`),
+        updateEmailReceiver: (id: string) => buildUrl(`/email-receivers/${id}`),
+        deleteEmailReceiver: (id: string) => buildUrl(`/email-receivers/${id}`),
+    },
     version: () => buildUrl("/version"),
 };
 
