@@ -13,6 +13,7 @@ import (
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/alias"
 	"github.com/obot-platform/obot/pkg/api"
+	"github.com/obot-platform/obot/pkg/controller/creds"
 	"github.com/obot-platform/obot/pkg/invoke"
 	"github.com/obot-platform/obot/pkg/render"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
@@ -60,7 +61,7 @@ func (a *AgentHandler) Authenticate(req api.Context) (err error) {
 		return err
 	}
 
-	resp, err := runAuthForAgent(req.Context(), req.Storage, a.invoker, agent.DeepCopy(), tools)
+	resp, err := runAuthForAgent(req.Context(), req.Storage, a.invoker, a.gptscript, agent.DeepCopy(), tools)
 	if err != nil {
 		return err
 	}
@@ -94,24 +95,7 @@ func (a *AgentHandler) DeAuthenticate(req api.Context) error {
 		return err
 	}
 
-	var (
-		errs    []error
-		toolRef v1.ToolReference
-	)
-	for _, tool := range tools {
-		if err := req.Get(&toolRef, tool); err != nil {
-			errs = append(errs, err)
-			continue
-		}
-
-		if toolRef.Status.Tool != nil {
-			for _, cred := range toolRef.Status.Tool.CredentialNames {
-				if err := a.gptscript.DeleteCredential(req.Context(), id, cred); err != nil && !strings.HasSuffix(err.Error(), "credential not found") {
-					errs = append(errs, err)
-				}
-			}
-		}
-	}
+	errs := removeToolCredentials(req.Context(), req.Storage, a.gptscript, id, agent.Namespace, tools)
 
 	if err := kickAgent(req.Context(), req.Storage, &agent); err != nil {
 		errs = append(errs, fmt.Errorf("failed to update agent status: %w", err))
@@ -929,23 +913,35 @@ func MetadataFrom(obj kclient.Object, linkKV ...string) types.Metadata {
 	return m
 }
 
-func runAuthForAgent(ctx context.Context, c kclient.WithWatch, invoker *invoke.Invoker, agent *v1.Agent, tools []string) (*invoke.Response, error) {
+func runAuthForAgent(ctx context.Context, c kclient.WithWatch, invoker *invoke.Invoker, gClient *gptscript.GPTScript, agent *v1.Agent, tools []string) (*invoke.Response, error) {
 	credentials := make([]string, 0, len(tools))
 
 	var toolRef v1.ToolReference
 	for _, tool := range tools {
-		if err := c.Get(ctx, kclient.ObjectKey{Namespace: agent.Namespace, Name: tool}, &toolRef); err != nil {
+		if strings.ContainsAny(tool, "./") {
+			prg, err := gClient.LoadFile(ctx, tool)
+			if err != nil {
+				return nil, err
+			}
+
+			credentails, _, err := creds.DetermineCredsAndCredNames(prg, prg.ToolSet[prg.EntryToolID], tool)
+			if err != nil {
+				return nil, err
+			}
+
+			credentials = append(credentials, credentails...)
+		} else if err := c.Get(ctx, kclient.ObjectKey{Namespace: agent.Namespace, Name: tool}, &toolRef); err == nil {
+			if toolRef.Status.Tool == nil {
+				return nil, types.NewErrHttp(http.StatusTooEarly, fmt.Sprintf("tool %q is not ready", tool))
+			}
+
+			credentials = append(credentials, toolRef.Status.Tool.Credentials...)
+
+			// Reset the fields we care about so that we can use the same variable for the whole loop.
+			toolRef.Status.Tool = nil
+		} else {
 			return nil, err
 		}
-
-		if toolRef.Status.Tool == nil {
-			return nil, types.NewErrHttp(http.StatusTooEarly, fmt.Sprintf("tool %q is not ready", tool))
-		}
-
-		credentials = append(credentials, toolRef.Status.Tool.Credentials...)
-
-		// Reset the fields we care about so that we can use the same variable for the whole loop.
-		toolRef.Status.Tool = nil
 	}
 
 	agent.Spec.Manifest.Prompt = "#!sys.echo\nDONE"
@@ -960,6 +956,50 @@ func runAuthForAgent(ctx context.Context, c kclient.WithWatch, invoker *invoke.I
 		Synchronous:           true,
 		ThreadCredentialScope: new(bool),
 	})
+}
+
+func removeToolCredentials(ctx context.Context, client kclient.Client, gClient *gptscript.GPTScript, credCtx, namespace string, tools []string) []error {
+	var (
+		errs            []error
+		toolRef         v1.ToolReference
+		credentialNames []string
+	)
+	for _, tool := range tools {
+		if strings.ContainsAny(tool, "./") {
+			prg, err := gClient.LoadFile(ctx, tool)
+			if err != nil {
+				errs = append(errs, err)
+				continue
+			}
+
+			_, names, err := creds.DetermineCredsAndCredNames(prg, prg.ToolSet[prg.EntryToolID], tool)
+			if err != nil {
+				errs = append(errs, err)
+				continue
+			}
+
+			credentialNames = append(credentialNames, names...)
+		} else if err := client.Get(ctx, kclient.ObjectKey{Namespace: namespace, Name: tool}, &toolRef); err == nil {
+			if toolRef.Status.Tool != nil {
+				credentialNames = append(credentialNames, toolRef.Status.Tool.CredentialNames...)
+			}
+		} else {
+			errs = append(errs, err)
+			continue
+		}
+
+		// Reset the value we care about so the same variable can be used.
+		// This ensures that the value we read on the next iteration is pulled from the database.
+		toolRef.Status.Tool = nil
+
+		for _, cred := range credentialNames {
+			if err := gClient.DeleteCredential(ctx, credCtx, cred); err != nil && !strings.HasSuffix(err.Error(), "credential not found") {
+				errs = append(errs, err)
+			}
+		}
+	}
+
+	return errs
 }
 
 func kickAgent(ctx context.Context, c kclient.Client, agent *v1.Agent) error {

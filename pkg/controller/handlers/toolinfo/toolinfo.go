@@ -1,11 +1,14 @@
 package toolinfo
 
 import (
+	"context"
 	"fmt"
+	"strings"
 
 	"github.com/gptscript-ai/go-gptscript"
 	"github.com/obot-platform/nah/pkg/router"
 	"github.com/obot-platform/obot/apiclient/types"
+	"github.com/obot-platform/obot/pkg/controller/creds"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	apierror "k8s.io/apimachinery/pkg/api/errors"
@@ -51,28 +54,47 @@ func (h *Handler) SetToolInfoStatus(req router.Request, resp router.Response) (e
 	tools := obj.GetTools()
 	toolInfos := make(map[string]types.ToolInfo, len(tools))
 
-	var toolRef v1.ToolReference
+	var (
+		toolRef   v1.ToolReference
+		credNames []string
+	)
 	for _, tool := range tools {
-		if err = req.Get(&toolRef, req.Namespace, tool); apierror.IsNotFound(err) {
+		if strings.ContainsAny(tool, "/.") {
+			credNames, err = h.credentialNamesForNonToolReferences(req.Ctx, tool)
+			if err != nil {
+				return err
+			}
+		} else if err = req.Get(&toolRef, req.Namespace, tool); apierror.IsNotFound(err) {
 			continue
 		} else if err != nil {
 			return err
 		} else if toolRef.Status.Tool == nil {
 			return fmt.Errorf("cannot determine credential status for tool %s: no tool status found", tool)
+		} else if err == nil {
+			credNames = toolRef.Status.Tool.CredentialNames
+			// Clear the field we care about in this loop.
+			// This allows us to use the same variable for the whole loop
+			// while ensuring that the value we care about is loaded correctly.
+			toolRef.Status.Tool.CredentialNames = nil
 		}
 
 		toolInfos[tool] = types.ToolInfo{
-			CredentialNames: toolRef.Status.Tool.CredentialNames,
-			Authorized:      credsSet.HasAll(toolRef.Status.Tool.CredentialNames...),
+			CredentialNames: credNames,
+			Authorized:      credsSet.HasAll(credNames...),
 		}
-
-		// Clear the field we care about in this loop.
-		// This allows us to use the same variable for the whole loop
-		// while ensuring that the value we care about is loaded correctly.
-		toolRef.Status.Tool.CredentialNames = nil
 	}
 
 	obj.SetToolInfos(toolInfos)
 
 	return nil
+}
+
+func (h *Handler) credentialNamesForNonToolReferences(ctx context.Context, name string) ([]string, error) {
+	prg, err := h.gptscript.LoadFile(ctx, name)
+	if err != nil {
+		return nil, err
+	}
+
+	_, credNames, err := creds.DetermineCredsAndCredNames(prg, prg.ToolSet[prg.EntryToolID], name)
+	return credNames, err
 }

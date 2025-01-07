@@ -58,7 +58,7 @@ func (a *WorkflowHandler) Authenticate(req api.Context) error {
 		return err
 	}
 
-	resp, err := runAuthForAgent(req.Context(), req.Storage, a.invoker, agent, tools)
+	resp, err := runAuthForAgent(req.Context(), req.Storage, a.invoker, a.gptscript, agent, tools)
 	if err != nil {
 		return err
 	}
@@ -92,28 +92,7 @@ func (a *WorkflowHandler) DeAuthenticate(req api.Context) error {
 		return err
 	}
 
-	var (
-		errs    []error
-		toolRef v1.ToolReference
-	)
-	for _, tool := range tools {
-		if err := req.Get(&toolRef, tool); err != nil {
-			errs = append(errs, err)
-			continue
-		}
-
-		if toolRef.Status.Tool != nil {
-			for _, cred := range toolRef.Status.Tool.CredentialNames {
-				if err := a.gptscript.DeleteCredential(req.Context(), id, cred); err != nil && !strings.HasSuffix(err.Error(), "credential not found") {
-					errs = append(errs, err)
-				}
-			}
-
-			// Reset the value we care about so the same variable can be used.
-			// This ensures that the value we read on the next iteration is pulled from the database.
-			toolRef.Status.Tool = nil
-		}
-	}
+	errs := removeToolCredentials(req.Context(), req.Storage, a.gptscript, id, wf.Namespace, tools)
 
 	if err := kickWorkflow(req.Context(), req.Storage, &wf); err != nil {
 		errs = append(errs, fmt.Errorf("failed to update workflow status: %w", err))
