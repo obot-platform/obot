@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -64,7 +63,7 @@ type Config struct {
 	AWSKMSKeyARN               string `usage:"The ARN of the AWS KMS key to use for encrypting credential storage" env:"OBOT_AWS_KMS_KEY_ARN" name:"aws-kms-key-arn"`
 	EncryptionConfigFile       string `usage:"The path to the encryption configuration file" default:"./encryption.yaml"`
 	KnowledgeSetIngestionLimit int    `usage:"The maximum number of files to ingest into a knowledge set" default:"3000" env:"OBOT_KNOWLEDGESET_INGESTION_LIMIT" name:"knowledge-set-ingestion-limit"`
-	EmailServerName            string `usage:"The name of the email server to display for email receivers (default: ui-hostname value)"`
+	EmailServerName            string `usage:"The name of the email server to display for email receivers"`
 	NoReplyEmailAddress        string `usage:"The email to use for no-reply emails from obot"`
 	Docker                     bool   `usage:"Enable Docker support" default:"false" env:"OBOT_DOCKER"`
 
@@ -187,9 +186,6 @@ func New(ctx context.Context, config Config) (*Services, error) {
 	if config.UIHostname == "" {
 		config.UIHostname = config.Hostname
 	}
-	if config.EmailServerName == "" {
-		config.EmailServerName = config.UIHostname
-	}
 
 	if strings.HasPrefix(config.Hostname, "localhost") || strings.HasPrefix(config.Hostname, "127.0.0.1") {
 		config.Hostname = "http://" + config.Hostname
@@ -199,13 +195,6 @@ func New(ctx context.Context, config Config) (*Services, error) {
 	if !strings.HasPrefix(config.UIHostname, "http") {
 		config.UIHostname = "https://" + config.UIHostname
 	}
-	// Ensure that the email server name is just a hostname
-	u, err := url.Parse(config.EmailServerName)
-	if err != nil {
-		return nil, fmt.Errorf("invalid email server name: %w", err)
-	}
-
-	config.EmailServerName = u.Hostname()
 
 	c, err := newGPTScript(ctx, config.WorkspaceTool, config.DatasetsTool, config.ToolRegistry)
 	if err != nil {
