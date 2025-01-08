@@ -11,7 +11,7 @@ const (
 type Role int
 
 func (u Role) HasRole(role Role) bool {
-	return role >= u
+	return u != RoleUnknown && role >= u
 }
 
 type User struct {

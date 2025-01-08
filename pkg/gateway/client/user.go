@@ -3,14 +3,21 @@ package client
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"time"
 
+	types2 "github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/proxy"
 	"gorm.io/gorm"
 )
+
+func (c *Client) Users(ctx context.Context, query types.UserQuery) ([]types.User, error) {
+	var users []types.User
+	return users, c.db.WithContext(ctx).Scopes(query.Scope).Find(&users).Error
+}
 
 func (c *Client) User(ctx context.Context, username string) (*types.User, error) {
 	u := new(types.User)
@@ -20,6 +27,76 @@ func (c *Client) User(ctx context.Context, username string) (*types.User, error)
 func (c *Client) UserByID(ctx context.Context, id string) (*types.User, error) {
 	u := new(types.User)
 	return u, c.db.WithContext(ctx).Where("id = ?", id).First(u).Error
+}
+
+func (c *Client) DeleteUser(ctx context.Context, username string) (*types.User, error) {
+	existingUser := new(types.User)
+	return existingUser, c.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := tx.Where("username = ?", username).First(existingUser).Error; err != nil {
+			return err
+		}
+
+		if existingUser.Role.HasRole(types2.RoleAdmin) {
+			var adminCount int64
+			if err := tx.Model(new(types.User)).Where("role = ?", types2.RoleAdmin).Count(&adminCount).Error; err != nil {
+				return err
+			}
+
+			if adminCount <= 1 {
+				return new(LastAdminError)
+			}
+		}
+
+		if err := tx.Where("user_id = ?", existingUser.ID).Delete(new(types.Identity)).Error; err != nil {
+			return err
+		}
+
+		return tx.Delete(existingUser).Error
+	})
+}
+
+func (c *Client) UpdateUser(ctx context.Context, actingUserIsAdmin bool, updatedUser *types.User, username string) (*types.User, error) {
+	existingUser := new(types.User)
+	return existingUser, c.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := tx.Where("username = ?", username).First(existingUser).Error; err != nil {
+			return err
+		}
+
+		// If the username is being changed, then ensure that a user with that name doesn't already exist.
+		if updatedUser.Username != "" && updatedUser.Username != username {
+			if err := tx.Model(updatedUser).Where("username = ?", updatedUser.Username).First(new(types.User)).Error; err == nil {
+				return &AlreadyExistsError{name: fmt.Sprintf("user with username %q", updatedUser.Username)}
+			} else if !errors.Is(err, gorm.ErrRecordNotFound) {
+				return err
+			}
+
+			existingUser.Username = updatedUser.Username
+		}
+
+		// Anyone can update their timezone
+		if updatedUser.Timezone != "" {
+			existingUser.Timezone = updatedUser.Timezone
+		}
+
+		// Only admins can change user roles.
+		if actingUserIsAdmin {
+			// If the role is being changed from admin to non-admin, then ensure that this isn't the last admin.
+			if updatedUser.Role > 0 && existingUser.Role.HasRole(types2.RoleAdmin) && !updatedUser.Role.HasRole(types2.RoleAdmin) {
+				var adminCount int64
+				if err := tx.Model(new(types.User)).Where("role = ?", types2.RoleAdmin).Count(&adminCount).Error; err != nil {
+					return err
+				}
+
+				if adminCount <= 1 {
+					return new(LastAdminError)
+				}
+			}
+
+			existingUser.Role = updatedUser.Role
+		}
+
+		return tx.Updates(existingUser).Error
+	})
 }
 
 func (c *Client) UpdateProfileIconIfNeeded(ctx context.Context, user *types.User, authProviderID uint) error {

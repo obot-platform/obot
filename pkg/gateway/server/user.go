@@ -9,6 +9,7 @@ import (
 	"github.com/gptscript-ai/gptscript/pkg/mvl"
 	types2 "github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
+	"github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/gateway/types"
 	"gorm.io/gorm"
 )
@@ -18,16 +19,8 @@ var pkgLog = mvl.Package()
 func (s *Server) getCurrentUser(apiContext api.Context) error {
 	user, err := s.client.User(apiContext.Context(), apiContext.User.GetName())
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		// The only reason this would happen is if auth is turned off.
-		role := types2.RoleBasic
-		if apiContext.UserIsAdmin() {
-			role = types2.RoleAdmin
-		}
-		return apiContext.Write(types2.User{
-			Username: apiContext.User.GetName(),
-			Role:     role,
-			Timezone: apiContext.UserTimezone(),
-		})
+		// This shouldn't happen, but, if it does, then the user would be unauthorized because we can't identify them.
+		return types2.NewErrHttp(http.StatusUnauthorized, "unauthorized")
 	} else if err != nil {
 		return err
 	}
@@ -40,10 +33,8 @@ func (s *Server) getCurrentUser(apiContext api.Context) error {
 }
 
 func (s *Server) getUsers(apiContext api.Context) error {
-	userQuery := types.NewUserQuery(apiContext.URL.Query())
-
-	var users []types.User
-	if err := s.db.WithContext(apiContext.Context()).Scopes(userQuery.Scope).Find(&users).Error; err != nil {
+	users, err := s.client.Users(apiContext.Context(), types.NewUserQuery(apiContext.URL.Query()))
+	if err != nil {
 		return fmt.Errorf("failed to get users: %v", err)
 	}
 
@@ -61,8 +52,8 @@ func (s *Server) getUser(apiContext api.Context) error {
 		return types2.NewErrHttp(http.StatusBadRequest, "username path parameter is required")
 	}
 
-	user := new(types.User)
-	if err := s.db.WithContext(apiContext.Context()).Where("username = ?", username).First(user).Error; err != nil {
+	user, err := s.client.User(apiContext.Context(), username)
+	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return types2.NewErrNotFound("user %s not found", username)
 		}
@@ -74,14 +65,14 @@ func (s *Server) getUser(apiContext api.Context) error {
 
 func (s *Server) updateUser(apiContext api.Context) error {
 	requestingUsername := apiContext.User.GetName()
-	userIsAdmin := apiContext.UserIsAdmin()
+	actingUserIsAdmin := apiContext.UserIsAdmin()
 
 	username := apiContext.PathValue("username")
 	if username == "" {
 		return types2.NewErrHttp(http.StatusBadRequest, "username path parameter is required")
 	}
 
-	if !userIsAdmin && requestingUsername != username {
+	if !actingUserIsAdmin && requestingUsername != username {
 		return types2.NewErrHttp(http.StatusForbidden, "only admins can update other users")
 	}
 
@@ -90,53 +81,22 @@ func (s *Server) updateUser(apiContext api.Context) error {
 		return types2.NewErrHttp(http.StatusBadRequest, "invalid user request body")
 	}
 
-	existingUser := new(types.User)
+	if user.Timezone != "" {
+		if _, err := time.LoadLocation(user.Timezone); err != nil {
+			return types2.NewErrHttp(http.StatusBadRequest, "invalid timezone")
+		}
+	}
+
 	status := http.StatusInternalServerError
-	if err := s.db.WithContext(apiContext.Context()).Transaction(func(tx *gorm.DB) error {
-		if err := tx.Where("username = ?", username).First(existingUser).Error; err != nil {
-			return err
+	existingUser, err := s.client.UpdateUser(apiContext.Context(), actingUserIsAdmin, user, username)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			status = http.StatusNotFound
+		} else if lae := (*client.LastAdminError)(nil); errors.As(err, &lae) {
+			status = http.StatusBadRequest
+		} else if ae := (*client.AlreadyExistsError)(nil); errors.As(err, &ae) {
+			status = http.StatusConflict
 		}
-
-		// If the username is being changed, then ensure that a user with that name doesn't already exist.
-		if user.Username != "" && user.Username != username {
-			if err := tx.Model(user).Where("username = ?", user.Username).First(new(types.User)).Error; err == nil {
-				status = http.StatusConflict
-				return fmt.Errorf("user with username %q already exists", user.Username)
-			} else if !errors.Is(err, gorm.ErrRecordNotFound) {
-				return err
-			}
-
-			existingUser.Username = user.Username
-		}
-
-		// Anyone can update their timezone
-		if user.Timezone != "" && user.Timezone != existingUser.Timezone {
-			if _, err := time.LoadLocation(user.Timezone); err != nil {
-				return types2.NewErrHttp(http.StatusBadRequest, "invalid timezone")
-			}
-			existingUser.Timezone = user.Timezone
-		}
-
-		// Only admins can change user roles.
-		if userIsAdmin {
-			// If the role is being changed from admin to non-admin, then ensure that this isn't the last admin.
-			if user.Role > 0 && existingUser.Role.HasRole(types2.RoleAdmin) && !user.Role.HasRole(types2.RoleAdmin) {
-				var adminCount int64
-				if err := tx.Model(new(types.User)).Count(&adminCount).Error; err != nil {
-					return err
-				}
-
-				if adminCount <= 1 {
-					status = http.StatusBadRequest
-					return fmt.Errorf("cannot remove last admin")
-				}
-			}
-
-			existingUser.Role = user.Role
-		}
-
-		return tx.Updates(existingUser).Error
-	}); err != nil {
 		return types2.NewErrHttp(status, fmt.Sprintf("failed to update user: %v", err))
 	}
 
@@ -149,33 +109,13 @@ func (s *Server) deleteUser(apiContext api.Context) error {
 		return types2.NewErrHttp(http.StatusBadRequest, "username path parameter is required")
 	}
 
-	existingUser := new(types.User)
 	status := http.StatusInternalServerError
-	if err := s.db.WithContext(apiContext.Context()).Transaction(func(tx *gorm.DB) error {
-		if err := tx.Where("username = ?", username).First(existingUser).Error; err != nil {
-			return err
-		}
-
-		if existingUser.Role.HasRole(types2.RoleAdmin) {
-			var adminCount int64
-			if err := tx.Model(new(types.User)).Count(&adminCount).Error; err != nil {
-				return err
-			}
-
-			if adminCount <= 1 {
-				status = http.StatusBadRequest
-				return fmt.Errorf("cannot remove last admin")
-			}
-		}
-
-		if err := tx.Where("user_id = ?", existingUser.ID).Delete(new(types.Identity)).Error; err != nil {
-			return err
-		}
-
-		return tx.Delete(existingUser).Error
-	}); err != nil {
+	existingUser, err := s.client.DeleteUser(apiContext.Context(), username)
+	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			status = http.StatusNotFound
+		} else if lae := (*client.LastAdminError)(nil); errors.As(err, &lae) {
+			status = http.StatusBadRequest
 		}
 		return types2.NewErrHttp(status, fmt.Sprintf("failed to delete user: %v", err))
 	}
