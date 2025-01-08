@@ -32,7 +32,7 @@ func Router(services *services.Services) (http.Handler, error) {
 	version := handlers.NewVersionHandler(services.EmailServerName, services.SupportDocker)
 	tables := handlers.NewTableHandler(services.GPTClient)
 
-	sendgridWebhookHandler := sendgrid.NewInboundWebhookHandler(services.StorageClient, services.EmailServerName)
+	sendgridWebhookHandler := sendgrid.NewInboundWebhookHandler(services.StorageClient, services.EmailServerName, services.SendgridWebhookUsername, services.SendgridWebhookPassword)
 
 	// Version
 	mux.HandleFunc("GET /api/version", version.GetVersion)

@@ -13,14 +13,23 @@ import (
 
 type InboundWebhookHandler struct {
 	emailTrigger *emailtrigger.EmailHandler
+	username     string
+	password     string
 }
 
-func NewInboundWebhookHandler(c kclient.Client, hostname string) *InboundWebhookHandler {
+func NewInboundWebhookHandler(c kclient.Client, hostname string, username, password string) *InboundWebhookHandler {
 	emailTrigger := emailtrigger.EmailTrigger(c, hostname)
-	return &InboundWebhookHandler{emailTrigger: emailTrigger}
+	return &InboundWebhookHandler{emailTrigger: emailTrigger, username: username, password: password}
 }
 
 func (h *InboundWebhookHandler) InboundWebhookHandler(req api.Context) error {
+	if h.username != "" && h.password != "" {
+		username, password, ok := req.Request.BasicAuth()
+		if !ok || username != h.username || password != h.password {
+			return types.NewErrHttp(http.StatusUnauthorized, "Invalid credentials")
+		}
+	}
+
 	if req.Request.Method != http.MethodPost {
 		return types.NewErrHttp(http.StatusMethodNotAllowed, "Invalid request method")
 	}

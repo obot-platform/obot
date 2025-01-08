@@ -69,6 +69,10 @@ type Config struct {
 	NoReplyEmailAddress        string `usage:"The email to use for no-reply emails from obot"`
 	Docker                     bool   `usage:"Enable Docker support" default:"false" env:"OBOT_DOCKER"`
 
+	// Sendgrid webhook
+	SendgridWebhookUsername string `usage:"The username for the sendgrid webhook to authenticate with" env:"OBOT_SENDGRID_WEBHOOK_USERNAME"`
+	SendgridWebhookPassword string `usage:"The password for the sendgrid webhook to authenticate with" env:"OBOT_SENDGRID_WEBHOOK_PASSWORD"`
+
 	AuthConfig
 	GatewayConfig
 	services.Config
@@ -94,6 +98,10 @@ type Services struct {
 	ModelProviderDispatcher    *dispatcher.Dispatcher
 	KnowledgeSetIngestionLimit int
 	SupportDocker              bool
+
+	// Use basic auth for sendgrid webhook, if being set
+	SendgridWebhookUsername string
+	SendgridWebhookPassword string
 }
 
 const (
@@ -308,6 +316,8 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		EmailServerName:            config.EmailServerName,
 		ModelProviderDispatcher:    modelProviderDispatcher,
 		SupportDocker:              config.Docker,
+		SendgridWebhookUsername:    config.SendgridWebhookUsername,
+		SendgridWebhookPassword:    config.SendgridWebhookPassword,
 	}, nil
 }
 
