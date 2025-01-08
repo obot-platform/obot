@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/base64"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -12,36 +11,30 @@ import (
 	"mime/multipart"
 	"net"
 	"net/mail"
-	"path"
 	"strings"
 
 	"github.com/mhale/smtpd"
 	"github.com/obot-platform/obot/logger"
-	"github.com/obot-platform/obot/pkg/alias"
-	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
-	"github.com/obot-platform/obot/pkg/system"
-	apierror "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"github.com/obot-platform/obot/pkg/emailtrigger"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 var log = logger.Package()
 
 type Server struct {
-	s        smtpd.Server
-	c        kclient.Client
-	ctx      context.Context
-	hostname string
+	s            smtpd.Server
+	ctx          context.Context
+	emailTrigger *emailtrigger.EmailHandler
 }
 
 func Start(ctx context.Context, c kclient.Client, hostname string) {
+	emailTrigger := emailtrigger.EmailTrigger(c, hostname)
 	s := Server{
 		s: smtpd.Server{
 			Addr: ":2525",
 		},
-		c:        c,
-		ctx:      ctx,
-		hostname: hostname,
+		ctx:          ctx,
+		emailTrigger: emailTrigger,
 	}
 	s.s.Handler = s.handler
 	go func() {
@@ -72,46 +65,7 @@ func (s *Server) handler(_ net.Addr, from string, to []string, data []byte) erro
 		return fmt.Errorf("parse from address: %w", err)
 	}
 
-	for _, to := range to {
-		toAddr, err := mail.ParseAddress(to)
-		if err != nil {
-			return fmt.Errorf("parse to address: %w", err)
-		}
-
-		name, host, ok := strings.Cut(toAddr.Address, "@")
-		if !ok {
-			return fmt.Errorf("invalid to address: %s", toAddr.Address)
-		}
-
-		if host != s.hostname {
-			log.Infof("Skipping mail for %s: not for this host", toAddr.Address)
-			continue
-		}
-
-		name, ns, _ := strings.Cut(name, "+")
-		if ns == "" {
-			ns = system.DefaultNamespace
-		}
-
-		var emailReceiver v1.EmailReceiver
-		if err = alias.Get(s.ctx, s.c, &emailReceiver, ns, name); apierror.IsNotFound(err) {
-			log.Infof("Skipping mail for %s: no receiver found", toAddr.Address)
-			continue
-		} else if err != nil {
-			return fmt.Errorf("get email receiver: %w", err)
-		}
-
-		if !matches(fromAddress.Address, emailReceiver) {
-			log.Infof("Skipping mail for %s: sender not allowed", toAddr.Address)
-			continue
-		}
-
-		if err = s.dispatchEmail(emailReceiver, body, message, from, to); err != nil {
-			return fmt.Errorf("dispatch email: %w", err)
-		}
-	}
-
-	return err
+	return s.emailTrigger.Handler(s.ctx, fromAddress.Address, to, message.Header.Get("Subject"), []byte(body))
 }
 
 func getBody(message *mail.Message) (string, error) {
@@ -169,61 +123,4 @@ func getBody(message *mail.Message) (string, error) {
 	}
 
 	return "", fmt.Errorf("failed to find text/plain body: %s", mediaType)
-}
-
-func (s *Server) dispatchEmail(email v1.EmailReceiver, body string, message *mail.Message, from, to string) error {
-	var input struct {
-		Type    string `json:"type"`
-		From    string `json:"from"`
-		To      string `json:"to"`
-		Subject string `json:"subject"`
-		Body    string `json:"body"`
-	}
-
-	input.Type = "email"
-	input.From = from
-	input.To = to
-	input.Subject = message.Header.Get("Subject")
-	input.Body = body
-
-	inputJSON, err := json.Marshal(input)
-	if err != nil {
-		return fmt.Errorf("marshal input: %w", err)
-	}
-
-	var workflow v1.Workflow
-	if err = alias.Get(s.ctx, s.c, &workflow, email.Namespace, email.Spec.Workflow); err != nil {
-		return err
-	}
-
-	return s.c.Create(s.ctx, &v1.WorkflowExecution{
-		ObjectMeta: metav1.ObjectMeta{
-			GenerateName: system.WorkflowExecutionPrefix,
-			Namespace:    workflow.Namespace,
-		},
-		Spec: v1.WorkflowExecutionSpec{
-			WorkflowName:      workflow.Name,
-			EmailReceiverName: email.Name,
-			ThreadName:        workflow.Spec.ThreadName,
-			Input:             string(inputJSON),
-		},
-	})
-}
-
-func matches(address string, email v1.EmailReceiver) bool {
-	if len(email.Spec.AllowedSenders) == 0 {
-		return true
-	}
-
-	for _, allowedSender := range email.Spec.AllowedSenders {
-		if allowedSender == address {
-			return true
-		}
-		matched, _ := path.Match(allowedSender, address)
-		if matched {
-			return true
-		}
-	}
-
-	return false
 }

@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"github.com/obot-platform/obot/pkg/api/handlers"
+	"github.com/obot-platform/obot/pkg/api/handlers/sendgrid"
 	"github.com/obot-platform/obot/pkg/services"
 	"github.com/obot-platform/obot/ui"
 )
@@ -30,6 +31,8 @@ func Router(services *services.Services) (http.Handler, error) {
 	defaultModelAliases := handlers.NewDefaultModelAliasHandler()
 	version := handlers.NewVersionHandler(services.EmailServerName, services.SupportDocker)
 	tables := handlers.NewTableHandler(services.GPTClient)
+
+	sendgridWebhookHandler := sendgrid.NewInboundWebhookHandler(services.StorageClient, services.EmailServerName)
 
 	// Version
 	mux.HandleFunc("GET /api/version", version.GetVersion)
@@ -255,6 +258,9 @@ func Router(services *services.Services) (http.Handler, error) {
 	mux.HandleFunc("PUT /api/webhooks/{id}", webhooks.Update)
 	mux.HandleFunc("POST /api/webhooks/{id}/remove-token", webhooks.RemoveToken)
 	mux.HandleFunc("POST /api/webhooks/{namespace}/{id}", webhooks.Execute)
+
+	// Webhook for third party integration to trigger workflow
+	mux.HandleFunc("POST /webhook/sendgrid", sendgridWebhookHandler.InboundWebhookHandler)
 
 	// Email Receivers
 	mux.HandleFunc("POST /api/email-receivers", emailreceiver.Create)
