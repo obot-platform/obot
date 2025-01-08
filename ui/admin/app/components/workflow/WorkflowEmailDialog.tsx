@@ -1,7 +1,7 @@
 import { EditIcon, PlusIcon } from "lucide-react";
 import { useState } from "react";
 
-import { Webhook, WebhookBase } from "~/lib/model/webhooks";
+import { EmailReceiver } from "~/lib/model/email-receivers";
 
 import { Button } from "~/components/ui/button";
 import {
@@ -13,51 +13,51 @@ import {
     DialogTrigger,
 } from "~/components/ui/dialog";
 import { ScrollArea } from "~/components/ui/scroll-area";
-import { WebhookForm } from "~/components/webhooks/WebhookForm";
+import { EmailReceiverForm } from "~/components/workflow-triggers/EmailReceiverForm";
 
-export function WorkflowWebhookDialog({
+export function WorkflowEmailDialog({
     workflowId,
-    webhook,
+    emailReceiver,
 }: {
     workflowId: string;
-    webhook?: WebhookBase;
+    emailReceiver?: EmailReceiver;
 }) {
     const [open, setOpen] = useState(false);
 
     return (
         <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
-                {webhook ? (
+                {emailReceiver ? (
                     <Button variant="ghost" size="icon">
                         <EditIcon />
                     </Button>
                 ) : (
                     <Button variant="ghost" startContent={<PlusIcon />}>
-                        Add Webhook
+                        Add Email Trigger
                     </Button>
                 )}
             </DialogTrigger>
             <DialogContent className="p-0 gap-0">
                 <DialogHeader className="p-8 pb-0">
                     <DialogTitle>
-                        {webhook
-                            ? "Update Workflow Webhook"
-                            : "Add Webhook To Workflow"}
+                        {emailReceiver
+                            ? "Update Workflow Email Receiver"
+                            : "Add Email Receiver To Workflow"}
                     </DialogTitle>
 
                     <DialogDescription>
-                        Webhooks are used to run the workflow when an event is
-                        received.
+                        Email Receivers are used to run the workflow when an
+                        email is received.
                     </DialogDescription>
                 </DialogHeader>
 
-                <ScrollArea className="h-[600px]">
-                    <WebhookForm
-                        hideTitle
+                <ScrollArea className="max-h-[60vh]">
+                    <EmailReceiverForm
                         onContinue={() => setOpen(false)}
-                        webhook={
-                            { workflow: workflowId, ...webhook } as Webhook
+                        emailReceiver={
+                            emailReceiver ?? { workflow: workflowId }
                         }
+                        hideTitle
                     />
                 </ScrollArea>
             </DialogContent>

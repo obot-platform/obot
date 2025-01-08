@@ -1,8 +1,6 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useEffect } from "react";
 import { useForm } from "react-hook-form";
-import { useNavigate } from "react-router";
-import { $path } from "safe-routes";
 import { toast } from "sonner";
 import useSWR, { mutate } from "swr";
 import { z } from "zod";
@@ -32,29 +30,34 @@ const formSchema = z.object({
     description: z.string(),
     alias: z.string(),
     workflow: z.string().min(1, "Workflow is required"),
-    allowedSenders: z.array(z.string()),
+    allowedSenders: z.array(z.string()).optional(),
 });
 
 export type EmailRecieverFormValues = z.infer<typeof formSchema>;
 
 type EmailRecieverFormProps = {
-    emailReceiver?: EmailReceiver;
+    emailReceiver?: Partial<EmailReceiver>;
+    onContinue?: () => void;
+    hideTitle?: boolean;
 };
 
-export function EmailReceiverForm({ emailReceiver }: EmailRecieverFormProps) {
-    const navigate = useNavigate();
+export function EmailReceiverForm({
+    emailReceiver,
+    onContinue,
+    hideTitle,
+}: EmailRecieverFormProps) {
     const getWorkflows = useSWR(WorkflowService.getWorkflows.key(), () =>
         WorkflowService.getWorkflows()
     );
 
     const handleSubmitSuccess = () => {
-        if (emailReceiver) {
+        if (emailReceiver?.id) {
             mutate(
                 EmailReceiverApiService.getEmailReceiverById(emailReceiver.id)
             );
         }
         mutate(EmailReceiverApiService.getEmailReceivers.key());
-        navigate($path("/workflow-triggers"));
+        onContinue?.();
     };
 
     const form = useForm<EmailRecieverFormValues>({
@@ -68,6 +71,8 @@ export function EmailReceiverForm({ emailReceiver }: EmailRecieverFormProps) {
             allowedSenders: emailReceiver?.allowedSenders || [],
         },
     });
+
+    const { handleSubmit, reset } = form;
 
     const createEmailReceiver = useAsync(
         EmailReceiverApiService.createEmailReceiver,
@@ -91,11 +96,11 @@ export function EmailReceiverForm({ emailReceiver }: EmailRecieverFormProps) {
 
     useEffect(() => {
         if (emailReceiver) {
-            form.reset(emailReceiver);
+            reset(emailReceiver);
         }
-    }, [emailReceiver, form]);
+    }, [emailReceiver, reset]);
 
-    const handleSubmit = form.handleSubmit((values: EmailRecieverFormValues) =>
+    const onSubmit = handleSubmit((values: EmailRecieverFormValues) =>
         emailReceiver?.id
             ? updateEmailReceiver.execute(emailReceiver.id, values)
             : createEmailReceiver.execute(values)
@@ -111,9 +116,11 @@ export function EmailReceiverForm({ emailReceiver }: EmailRecieverFormProps) {
             <Form {...form}>
                 <form
                     className="space-y-8 p-8 max-w-3xl mx-auto"
-                    onSubmit={handleSubmit}
+                    onSubmit={onSubmit}
                 >
-                    <h2>{isEdit ? "Edit" : "Create"} Email Receiver</h2>
+                    {!hideTitle && (
+                        <h2>{isEdit ? "Edit" : "Create"} Email Trigger</h2>
+                    )}
 
                     <ControlledInput
                         control={form.control}
@@ -162,7 +169,7 @@ export function EmailReceiverForm({ emailReceiver }: EmailRecieverFormProps) {
                         disabled={loading}
                         loading={loading}
                     >
-                        {isEdit ? "Update" : "Create"} Email Receiver
+                        {isEdit ? "Update" : "Create"} Email Trigger
                     </Button>
                 </form>
             </Form>

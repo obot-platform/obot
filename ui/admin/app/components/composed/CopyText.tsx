@@ -11,19 +11,30 @@ import {
     TooltipTrigger,
 } from "~/components/ui/tooltip";
 
+type CopyTextProps = {
+    text: string;
+    displayText?: string;
+    className?: string;
+    holdStatusDelay?: number;
+    hideText?: boolean;
+    hideIcon?: boolean;
+    classNames?: {
+        root?: string;
+        textWrapper?: string;
+        text?: string;
+        icon?: string;
+    };
+};
+
 export function CopyText({
     text,
     displayText = text,
     className,
     holdStatusDelay,
-    iconOnly,
-}: {
-    text: string;
-    displayText?: string;
-    className?: string;
-    holdStatusDelay?: number;
-    iconOnly?: boolean;
-}) {
+    hideText,
+    hideIcon,
+    classNames = {},
+}: CopyTextProps) {
     const [isCopied, setIsCopied] = useState(false);
 
     useEffect(() => {
@@ -38,17 +49,26 @@ export function CopyText({
         <div
             className={cn(
                 "flex items-center gap-2 bg-accent rounded-md w-fit overflow-hidden",
-                className
+                className,
+                classNames.root
             )}
         >
-            {!iconOnly && (
+            {!hideText && (
                 <Tooltip>
                     <TooltipTrigger
                         type="button"
                         onClick={() => handleCopy(text)}
-                        className="decoration-dotted underline-offset-4 underline text-ellipsis overflow-hidden text-nowrap"
+                        className={cn(
+                            "decoration-dotted underline-offset-4 underline text-ellipsis overflow-hidden text-nowrap",
+                            classNames.textWrapper
+                        )}
                     >
-                        <p className="truncate break-words p-2">
+                        <p
+                            className={cn(
+                                "truncate break-words p-2",
+                                classNames.text
+                            )}
+                        >
                             {displayText}
                         </p>
                     </TooltipTrigger>
@@ -60,19 +80,21 @@ export function CopyText({
                 </Tooltip>
             )}
 
-            <Button
-                size="icon"
-                onClick={() => handleCopy(text)}
-                className="aspect-square"
-                variant="ghost"
-                type="button"
-            >
-                {isCopied ? (
-                    <ClipboardCheckIcon className="text-success" />
-                ) : (
-                    <ClipboardIcon />
-                )}
-            </Button>
+            {!hideIcon && (
+                <Button
+                    size="icon"
+                    onClick={() => handleCopy(text)}
+                    className={cn("aspect-square", classNames.icon)}
+                    variant="ghost"
+                    type="button"
+                >
+                    {isCopied ? (
+                        <ClipboardCheckIcon className="text-success" />
+                    ) : (
+                        <ClipboardIcon />
+                    )}
+                </Button>
+            )}
         </div>
     );
 

@@ -3,7 +3,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { mutate } from "swr";
 
-import { WebhookApiService } from "~/lib/service/api/webhookApiService";
+import { EmailReceiverApiService } from "~/lib/service/api/emailReceiverApiService";
 
 import { Button } from "~/components/ui/button";
 import {
@@ -13,18 +13,25 @@ import {
 } from "~/components/ui/popover";
 import { useAsync } from "~/hooks/useAsync";
 
-export function DeleteWorkflowWebhook({ webhookId }: { webhookId: string }) {
+export function DeleteWorkflowEmailReceiver({
+    emailReceiverId,
+}: {
+    emailReceiverId: string;
+}) {
     const [open, setOpen] = useState(false);
 
-    const deleteWebhook = useAsync(WebhookApiService.deleteWebhook, {
-        onSuccess: () => {
-            mutate(WebhookApiService.getWebhooks.key());
-        },
-        onError: () => toast.error(`Something went wrong.`),
-    });
+    const deleteEmailReceiver = useAsync(
+        EmailReceiverApiService.deleteEmailReceiver,
+        {
+            onSuccess: () => {
+                mutate(EmailReceiverApiService.getEmailReceivers.key());
+            },
+            onError: () => toast.error(`Something went wrong.`),
+        }
+    );
 
     const handleDelete = async () => {
-        await deleteWebhook.execute(webhookId);
+        await deleteEmailReceiver.execute(emailReceiverId);
         setOpen(false);
     };
 
@@ -35,8 +42,9 @@ export function DeleteWorkflowWebhook({ webhookId }: { webhookId: string }) {
                     <TrashIcon />
                 </Button>
             </PopoverTrigger>
+
             <PopoverContent>
-                <p>Are you sure you want to delete this webhook?</p>
+                <p>Are you sure you want to delete this email trigger?</p>
                 <div className="flex justify-end gap-2">
                     <Button variant="ghost" onClick={() => setOpen(false)}>
                         Cancel
@@ -44,7 +52,7 @@ export function DeleteWorkflowWebhook({ webhookId }: { webhookId: string }) {
                     <Button
                         variant="destructive"
                         onClick={handleDelete}
-                        loading={deleteWebhook.isLoading}
+                        loading={deleteEmailReceiver.isLoading}
                     >
                         Delete
                     </Button>
