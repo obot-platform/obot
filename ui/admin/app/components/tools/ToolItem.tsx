@@ -31,11 +31,6 @@ export function ToolItem({
     return (
         <CommandItem
             className={cn("cursor-pointer", className)}
-            keywords={[
-                tool.description || "",
-                tool.name || "",
-                tool.metadata?.category || "",
-            ]}
             onSelect={onSelect}
             disabled={isBundleSelected}
         >

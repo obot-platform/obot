@@ -2,8 +2,8 @@ import { useCallback, useEffect, useState } from "react";
 
 import { ToolReference } from "~/lib/model/toolReferences";
 import {
+    CustomToolsToolCategory,
     ToolCategoryMap,
-    YourToolsToolCategory,
 } from "~/lib/service/api/toolreferenceService";
 
 import { CategoryHeader } from "~/components/tools/toolGrid/CategoryHeader";
@@ -61,17 +61,17 @@ export function ToolGrid({ toolCategories, filter, onDelete }: ToolGridProps) {
         return <p>No tools found...</p>;
     }
 
-    const yourToolsCategory = filteredResults[YourToolsToolCategory];
+    const customToolsCategory = filteredResults[CustomToolsToolCategory];
     return (
         <div className="space-y-8 pb-16">
-            {yourToolsCategory &&
+            {customToolsCategory &&
                 renderToolCategory(
-                    YourToolsToolCategory,
-                    yourToolsCategory.tools
+                    CustomToolsToolCategory,
+                    customToolsCategory.tools
                 )}
             {Object.entries(filteredResults).map(
                 ([category, { tools, bundleTool }]) => {
-                    if (category === YourToolsToolCategory) return null;
+                    if (category === CustomToolsToolCategory) return null;
                     return renderToolCategory(
                         category,
                         tools,
