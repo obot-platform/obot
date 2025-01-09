@@ -15,6 +15,7 @@ import {
 	SelectValue,
 } from "~/components/ui/select";
 import { useAsync } from "~/hooks/useAsync";
+import { useWatcher } from "~/hooks/useWatcher";
 
 export function UserRoleForm({ user }: { user: User }) {
 	const revalidate = useAsync(UserService.getUsers.revalidate);
@@ -23,7 +24,14 @@ export function UserRoleForm({ user }: { user: User }) {
 		onSuccess: async () => toast.success("Role Updated Successfully"),
 	});
 
-	const [updatedRole, setUpdatedRole] = useState<string | null>(null);
+	const [updatedRole, setUpdatedRole] = useState<string>(user.role.toString());
+
+	const watcher = useWatcher(user);
+	if (watcher.changed) {
+		setUpdatedRole(user.role.toString());
+
+		watcher.update();
+	}
 
 	const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
 		e.preventDefault();
@@ -37,17 +45,13 @@ export function UserRoleForm({ user }: { user: User }) {
 		if (error) return;
 
 		await revalidate.execute();
-		setUpdatedRole(null);
 	};
 
 	const hasChange = updatedRole != null && updatedRole !== user.role.toString();
 
 	return (
 		<form onSubmit={handleSubmit} className="flex items-center gap-2">
-			<Select
-				value={updatedRole ?? user.role.toString()}
-				onValueChange={setUpdatedRole}
-			>
+			<Select value={updatedRole} onValueChange={setUpdatedRole}>
 				<SelectTrigger className="w-36">
 					<SelectValue />
 				</SelectTrigger>
@@ -65,9 +69,9 @@ export function UserRoleForm({ user }: { user: User }) {
 				type="submit"
 				size="icon"
 				variant="ghost"
-				loading={updateUser.isLoading || revalidate.isLoading}
+				loading={updateUser.isLoading}
 				disabled={!hasChange || updateUser.isLoading || revalidate.isLoading}
-				className={cn({ invisible: !hasChange })}
+				className={cn({ invisible: !hasChange || revalidate.isLoading })}
 			>
 				<CheckIcon className={cn("text-success")} />
 			</Button>
