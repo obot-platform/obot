@@ -20,7 +20,7 @@ import {
 export function CreateWorkflowTrigger() {
     return (
         <Dialog>
-            <DialogTrigger>
+            <DialogTrigger asChild>
                 <Button>
                     <PlusIcon /> Create Trigger
                 </Button>

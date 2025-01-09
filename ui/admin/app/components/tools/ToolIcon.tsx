@@ -37,7 +37,7 @@ export function ToolIcon(props: ToolIconProps) {
     }
 
     return (
-        <Tooltip delayDuration={200}>
+        <Tooltip>
             <TooltipTrigger>{content}</TooltipTrigger>
 
             <TooltipContent>

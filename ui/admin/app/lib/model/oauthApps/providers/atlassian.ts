@@ -89,6 +89,17 @@ const steps: OAuthFormStep<typeof schema.shape>[] = [
         label: "Client Secret",
         inputType: "password",
     },
+    {
+        type: "markdown",
+        text:
+            "### (Optional): Make Your OAuth App Public\n" +
+            "By default, your OAuth App is private. When users authorize their account with your app, they will see a warning like: `Make sure you trust [Your App Name]`. To remove this warning, follow these steps to make your app public:\n" +
+            "- Navigate to the `Distribution` tab in the sidebar\n" +
+            "- Click on `Edit` button and change the `DISTRIBUTION STATUS` of your app to `Sharing`.\n" +
+            "- Fill in the required vendor and security details in the same window\n" +
+            "- Once you've completed the required details, click the **Save Changes** button\n" +
+            "Your app is now public, and users will no longer see the warning message.\n",
+    },
 ];
 
 export const AtlassianOAuthApp = {

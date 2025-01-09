@@ -13,7 +13,7 @@ export function Truncate({
     className,
     asChild,
     disableTooltip,
-    tooltipContent = <p>{children}</p>,
+    tooltipContent = children,
 }: {
     children: React.ReactNode;
     className?: string;
@@ -23,8 +23,10 @@ export function Truncate({
 }) {
     const Comp = asChild ? Slot : "p";
 
+    const content = <Comp className="truncate">{children}</Comp>;
+
     if (disableTooltip) {
-        return <Comp className="truncate">{children}</Comp>;
+        return content;
     }
 
     return (
@@ -32,9 +34,7 @@ export function Truncate({
             <TooltipContent>{tooltipContent}</TooltipContent>
 
             <TooltipTrigger asChild>
-                <div className={cn("cursor-pointer", className)}>
-                    <Comp className="truncate">{children}</Comp>
-                </div>
+                <div className={cn("cursor-pointer", className)}>{content}</div>
             </TooltipTrigger>
         </Tooltip>
     );

@@ -104,7 +104,7 @@ export function AgentPublishStatus({
                     className="h-8 text-muted-foreground text-sm bg-background flex-row-reverse"
                     holdStatusDelay={6000}
                     text={agentUrl}
-                    iconOnly
+                    hideText
                 />
 
                 <Link

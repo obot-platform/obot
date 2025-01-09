@@ -1,4 +1,4 @@
-import { ClockIcon, PlusIcon, TrashIcon } from "lucide-react";
+import { PlusIcon, TrashIcon } from "lucide-react";
 
 import { CronJob } from "~/lib/model/cronjobs";
 
@@ -13,7 +13,7 @@ const defaultSchedule = {
     input: "",
 };
 
-export function WorkflowSchedulePanel({ workflowId }: { workflowId: string }) {
+export function WorkflowScheduleTab({ workflowId }: { workflowId: string }) {
     const { cronJobs, createCronJob, deleteCronJob, updateCronJob } =
         useCronjob(workflowId);
 
@@ -29,14 +29,7 @@ export function WorkflowSchedulePanel({ workflowId }: { workflowId: string }) {
     };
 
     return (
-        <div className="p-4 m-4 flex flex-col gap-4">
-            <div className="flex justify-between items-center gap-2">
-                <h4 className="flex items-center gap-2">
-                    <ClockIcon className="w-4 h-4" />
-                    Schedule
-                </h4>
-            </div>
-
+        <div className="flex flex-col gap-4">
             <CardDescription>
                 Set up a schedule to run the workflow on a regular basis.
             </CardDescription>

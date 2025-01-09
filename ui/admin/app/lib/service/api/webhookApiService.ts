@@ -1,18 +1,28 @@
 import { CreateWebhook, UpdateWebhook, Webhook } from "~/lib/model/webhooks";
-import { ApiRoutes } from "~/lib/routers/apiRoutes";
+import { ApiRoutes, revalidateWhere } from "~/lib/routers/apiRoutes";
 import { request } from "~/lib/service/api/primitives";
 
-async function getWebhooks() {
+type WebhookFilters = {
+    workflowId?: string;
+};
+
+async function getWebhooks(filters?: WebhookFilters) {
+    const { workflowId } = filters ?? {};
+
     const { data } = await request<{ items: Webhook[] }>({
         url: ApiRoutes.webhooks.getWebhooks().url,
     });
 
-    return data.items ?? [];
+    if (!workflowId) return data.items ?? [];
+
+    return data.items?.filter((item) => item.workflow === workflowId) ?? [];
 }
-getWebhooks.key = () =>
-    ({
-        url: ApiRoutes.webhooks.getWebhooks().path,
-    }) as const;
+getWebhooks.key = (filters: WebhookFilters = {}) => ({
+    url: ApiRoutes.webhooks.getWebhooks().path,
+    filters,
+});
+getWebhooks.revalidate = () =>
+    revalidateWhere((url) => url === ApiRoutes.webhooks.base().path);
 
 async function getWebhookById(webhookId: string) {
     const { data } = await request<Webhook>({

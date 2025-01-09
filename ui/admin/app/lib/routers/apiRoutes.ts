@@ -330,6 +330,9 @@ export const revalidateWhere = async (filterCb: (url: string) => boolean) => {
             typeof key.url === "string"
         ) {
             return filterCb(key.url);
+        } else {
+            console.error("Invalid cache key", key);
+            return false;
         }
     });
 };

@@ -1,7 +1,6 @@
 import { TrashIcon } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
-import { mutate } from "swr";
 
 import { WebhookApiService } from "~/lib/service/api/webhookApiService";
 
@@ -18,7 +17,7 @@ export function DeleteWorkflowWebhook({ webhookId }: { webhookId: string }) {
 
     const deleteWebhook = useAsync(WebhookApiService.deleteWebhook, {
         onSuccess: () => {
-            mutate(WebhookApiService.getWebhooks.key());
+            WebhookApiService.getWebhooks.revalidate();
         },
         onError: () => toast.error(`Something went wrong.`),
     });
@@ -30,7 +29,7 @@ export function DeleteWorkflowWebhook({ webhookId }: { webhookId: string }) {
 
     return (
         <Popover open={open} onOpenChange={setOpen}>
-            <PopoverTrigger>
+            <PopoverTrigger asChild>
                 <Button variant="ghost" size="icon">
                     <TrashIcon />
                 </Button>

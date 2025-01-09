@@ -1,5 +1,5 @@
+import { TrashIcon } from "lucide-react";
 import { toast } from "sonner";
-import { mutate } from "swr";
 
 import { WorkflowTriggerType } from "~/lib/model/workflow-trigger";
 import { CronJobApiService } from "~/lib/service/api/cronjobApiService";
@@ -7,90 +7,71 @@ import { EmailReceiverApiService } from "~/lib/service/api/emailReceiverApiServi
 import { WebhookApiService } from "~/lib/service/api/webhookApiService";
 
 import { ConfirmationDialog } from "~/components/composed/ConfirmationDialog";
-import { DropdownMenuItem } from "~/components/ui/dropdown-menu";
+import { Button } from "~/components/ui/button";
 import { useConfirmationDialog } from "~/hooks/component-helpers/useConfirmationDialog";
 import { useAsync } from "~/hooks/useAsync";
 
-export function DeleteWorkflowTrigger({
-    id,
-    name,
-    type,
-}: {
-    id: string;
-    name?: string;
+type DeleteTriggerProps = {
     type: WorkflowTriggerType;
-}) {
-    const deleteWebhook = useAsync(WebhookApiService.deleteWebhook, {
+    id: string;
+};
+
+export function DeleteWorkflowTrigger({ type, id }: DeleteTriggerProps) {
+    const { delete: deleteAction, revalidate, label } = getActions(type);
+
+    const deleteTrigger = useAsync(deleteAction, {
         onSuccess: () => {
-            mutate(WebhookApiService.getWebhooks.key());
-            toast.success("Webhook workflow trigger has been deleted.");
+            toast.success(`${label} has been deleted.`);
+            revalidate();
         },
     });
-
-    const deleteCronjob = useAsync(CronJobApiService.deleteCronJob, {
-        onSuccess: () => {
-            mutate(CronJobApiService.getCronJobs.key());
-            toast.success("Schedule workflow trigger has been deleted.");
-        },
-    });
-
-    const deleteEmailReceiver = useAsync(
-        EmailReceiverApiService.deleteEmailReceiver,
-        {
-            onSuccess: () => {
-                mutate(EmailReceiverApiService.getEmailReceivers.key());
-                toast.success("Email workflow trigger has been deleted.");
-            },
-        }
-    );
 
     const { interceptAsync, dialogProps } = useConfirmationDialog();
 
-    const handleConfirmDelete = async () =>
-        await getDeleteFunction().executeAsync(id);
-
     return (
         <>
-            <DropdownMenuItem
-                variant="destructive"
-                onClick={(e) => {
-                    e.preventDefault();
-                    interceptAsync(handleConfirmDelete);
-                }}
+            <Button
+                loading={deleteTrigger.isLoading}
+                disabled={deleteTrigger.isLoading}
+                size="icon"
+                variant="ghost"
+                onClick={() =>
+                    interceptAsync(() => deleteTrigger.executeAsync(id))
+                }
             >
-                Delete
-            </DropdownMenuItem>
+                <TrashIcon />
+            </Button>
 
             <ConfirmationDialog
                 {...dialogProps}
-                title="Delete Workflow Trigger?"
-                description={
-                    <div className="flex flex-col">
-                        <p>
-                            Are you sure you want to delete workflow trigger:{" "}
-                            <b>{name || id}</b>?
-                        </p>
-                        <p>The action cannot be undone.</p>
-                    </div>
-                }
-                confirmProps={{
-                    children: "Delete",
-                    variant: "destructive",
-                }}
+                title={`Delete ${label}`}
+                confirmProps={{ children: "Delete", variant: "destructive" }}
+                description={`Are you sure you want to delete this ${label}? This action cannot be undone.`}
             />
         </>
     );
-
-    function getDeleteFunction() {
-        switch (type) {
-            case "webhook":
-                return deleteWebhook;
-            case "schedule":
-                return deleteCronjob;
-            case "email":
-                return deleteEmailReceiver;
-            default:
-                throw new Error(`Unknown workflow trigger type: ${type}`);
-        }
-    }
 }
+
+const getActions = (type: WorkflowTriggerType) => {
+    switch (type) {
+        case "email":
+            return {
+                delete: EmailReceiverApiService.deleteEmailReceiver,
+                revalidate:
+                    EmailReceiverApiService.getEmailReceivers.revalidate,
+                label: "Email Trigger",
+            };
+        case "schedule":
+            return {
+                delete: CronJobApiService.deleteCronJob,
+                revalidate: CronJobApiService.getCronJobs.revalidate,
+                label: "Schedule Trigger",
+            };
+        case "webhook":
+            return {
+                delete: WebhookApiService.deleteWebhook,
+                revalidate: WebhookApiService.getWebhooks.revalidate,
+                label: "Webhook Trigger",
+            };
+    }
+};

@@ -3,7 +3,9 @@ import {
     MetaFunction,
     useLoaderData,
     useMatch,
+    useNavigate,
 } from "react-router";
+import { $path } from "safe-routes";
 import useSWR, { preload } from "swr";
 
 import { EmailReceiverApiService } from "~/lib/service/api/emailReceiverApiService";
@@ -32,13 +34,20 @@ export async function clientLoader({
 
 export default function EmailReceiverPage() {
     const { emailReceiverId } = useLoaderData<typeof clientLoader>();
+
+    const navigate = useNavigate();
     const { data: emailReceiver } = useSWR(
         EmailReceiverApiService.getEmailReceiverById.key(emailReceiverId),
         ({ emailReceiverId }) =>
             EmailReceiverApiService.getEmailReceiverById(emailReceiverId)
     );
 
-    return <EmailReceiverForm emailReceiver={emailReceiver} />;
+    return (
+        <EmailReceiverForm
+            emailReceiver={emailReceiver}
+            onContinue={() => navigate($path("/workflow-triggers"))}
+        />
+    );
 }
 
 const EmailReceiverBreadcrumb = () => {

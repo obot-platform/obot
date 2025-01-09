@@ -42,7 +42,7 @@ export function AgentDropdownActions({ agent }: { agent: Agent }) {
     return (
         <>
             <DropdownMenu modal>
-                <DropdownMenuTrigger>
+                <DropdownMenuTrigger asChild>
                     <Button size="icon" variant="ghost">
                         <EllipsisVerticalIcon className="w-4 h-4" />
                     </Button>

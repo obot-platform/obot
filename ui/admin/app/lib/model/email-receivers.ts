@@ -11,7 +11,7 @@ type EmailReceiverBase = {
 export type EmailReceiver = EntityMeta &
     EmailReceiverBase & {
         aliasAssigned?: boolean;
-        emailAddress?: string;
+        emailAddress: string;
     };
 
 export type CreateEmailReceiver = EmailReceiverBase;

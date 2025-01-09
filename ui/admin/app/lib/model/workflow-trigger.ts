@@ -4,7 +4,13 @@ import { Webhook } from "~/lib/model/webhooks";
 
 type WorkFlowTriggerEntity = EmailReceiver | Webhook | CronJob;
 
-export type WorkflowTriggerType = "webhook" | "schedule" | "email";
+export const WorkflowTriggerType = {
+    Webhook: "webhook",
+    Schedule: "schedule",
+    Email: "email",
+} as const;
+export type WorkflowTriggerType =
+    (typeof WorkflowTriggerType)[keyof typeof WorkflowTriggerType];
 
 export type WorkflowTrigger = {
     id: string;
