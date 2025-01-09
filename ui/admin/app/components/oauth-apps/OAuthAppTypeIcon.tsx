@@ -1,5 +1,6 @@
 import { NotionLogoIcon } from "@radix-ui/react-icons";
 import { KeyIcon } from "lucide-react";
+import { BiLogoZoom } from "react-icons/bi";
 import {
     FaAtlassian,
     FaGithub,
@@ -7,7 +8,6 @@ import {
     FaMicrosoft,
     FaSalesforce,
     FaSlack,
-    FaSearch,
 } from "react-icons/fa";
 
 import { OAuthProvider } from "~/lib/model/oauthApps/oauth-helpers";
@@ -21,9 +21,8 @@ const IconMap = {
     [OAuthProvider.Google]: FaGoogle,
     [OAuthProvider.Microsoft365]: FaMicrosoft,
     [OAuthProvider.Notion]: NotionLogoIcon,
-    [OAuthProvider.Zoom]: FaSearch,
+    [OAuthProvider.Zoom]: BiLogoZoom,
     [OAuthProvider.Custom]: KeyIcon,
-    
 };
 
 export function OAuthAppTypeIcon({
