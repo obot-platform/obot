@@ -53,3 +53,8 @@ export type ToolInfo = {
 };
 
 export type AgentToolInfo = Record<string, ToolInfo>;
+
+export type Authorization = {
+	userID: string;
+	agentId: string;
+};

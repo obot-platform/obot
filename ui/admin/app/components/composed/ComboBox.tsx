@@ -30,9 +30,11 @@ type GroupedOption<T extends BaseOption> = {
 
 type ComboBoxProps<T extends BaseOption> = {
 	allowClear?: boolean;
+	allowCreate?: boolean;
 	clearLabel?: ReactNode;
 	emptyLabel?: ReactNode;
 	onChange: (option: T | null) => void;
+	onCreate?: (value: string) => void;
 	options: (T | GroupedOption<T>)[];
 	placeholder?: string;
 	renderOption?: (option: T) => ReactNode;
@@ -106,8 +108,10 @@ export function ComboBox<T extends BaseOption>({
 
 function ComboBoxList<T extends BaseOption>({
 	allowClear,
+	allowCreate,
 	clearLabel,
 	onChange,
+	onCreate,
 	options,
 	setOpen,
 	renderOption,
@@ -154,9 +158,11 @@ function ComboBoxList<T extends BaseOption>({
 		);
 
 	const handleValueChange = (value: string) => {
+		setSavedValue(value);
 		setFilteredOptions(filterOptions(options, value));
 	};
 
+	const [savedValue, setSavedValue] = useState("");
 	return (
 		<Command
 			shouldFilter={false}
@@ -177,6 +183,18 @@ function ComboBoxList<T extends BaseOption>({
 							}}
 						>
 							{clearLabel ?? "Clear Selection"}
+						</CommandItem>
+					</CommandGroup>
+				)}
+				{allowCreate && savedValue.length > 0 && (
+					<CommandGroup>
+						<CommandItem
+							onSelect={() => {
+								onCreate?.(savedValue);
+								setOpen(false);
+							}}
+						>
+							Add &quot;{savedValue}&quot;
 						</CommandItem>
 					</CommandGroup>
 				)}

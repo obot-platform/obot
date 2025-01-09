@@ -1,4 +1,9 @@
-import { Agent, CreateAgent, UpdateAgent } from "~/lib/model/agents";
+import {
+	Agent,
+	Authorization,
+	CreateAgent,
+	UpdateAgent,
+} from "~/lib/model/agents";
 import { ApiRoutes, revalidateWhere } from "~/lib/routers/apiRoutes";
 import { request } from "~/lib/service/api/primitives";
 
@@ -71,6 +76,38 @@ async function getAuthUrlForAgent(agentId: string, toolRef: string) {
 const revalidateAgents = () =>
 	revalidateWhere((url) => url.includes(ApiRoutes.agents.base().path));
 
+async function getAgentAuthorizations(agentId: string) {
+	const res = await request<{ items: Authorization[] }>({
+		url: ApiRoutes.agents.getAuthorizations(agentId).url,
+		errorMessage: "Failed to fetch agent authorizations",
+	});
+
+	return res.data.items;
+}
+getAgentAuthorizations.key = (agentId?: Nullish<string>) => {
+	if (!agentId) return null;
+
+	return { url: ApiRoutes.agents.getAuthorizations(agentId).path, agentId };
+};
+
+async function addAgentAuthorization(agentId: string, userId: string) {
+	await request({
+		url: ApiRoutes.agents.addAuthorization(agentId).url,
+		method: "POST",
+		data: { userId },
+		errorMessage: "Failed to add agent authorization",
+	});
+}
+
+async function removeAgentAuthorization(agentId: string, userId: string) {
+	await request({
+		url: ApiRoutes.agents.removeAuthorization(agentId).url,
+		method: "POST",
+		data: { userId },
+		errorMessage: "Failed to remove agent authorization",
+	});
+}
+
 export const AgentService = {
 	getAgents,
 	getAgentById,
@@ -79,4 +116,7 @@ export const AgentService = {
 	deleteAgent,
 	getAuthUrlForAgent,
 	revalidateAgents,
+	getAgentAuthorizations,
+	addAgentAuthorization,
+	removeAgentAuthorization,
 };

@@ -155,6 +155,12 @@ export const ApiRoutes = {
 		getById: (agentId: string) => buildUrl(`/agents/${agentId}`),
 		getAuthUrlForAgent: (agentId: string, toolRef: string) =>
 			buildUrl(`/agents/${agentId}/oauth-credentials/${toolRef}/login`),
+		getAuthorizations: (agentId: string) =>
+			buildUrl(`/agents/${agentId}/authorizations`),
+		addAuthorization: (agentId: string) =>
+			buildUrl(`/agents/${agentId}/authorizations/add`),
+		removeAuthorization: (agentId: string) =>
+			buildUrl(`/agents/${agentId}/authorizations/remove`),
 	},
 	workflows: {
 		base: () => buildUrl("/workflows"),
