@@ -32,8 +32,8 @@ jobs:
       uses: docker/login-action@v3
       with:
         registry: ghcr.io
-        username: ${{ github.actor }}
-        password: ${{ secrets.GITHUB_TOKEN }}
+        username: ${{ secrets.GHCR_USERNAME }}
+        password: ${{ secrets.GHCR_TOKEN }}
 
     - name: Log in to Docker Hub
       if: ${{ github.ref_type == 'tag' && !contains(github.ref_name, '-rc') }}
@@ -42,25 +42,44 @@ jobs:
         username: ${{ secrets.DOCKERHUB_USERNAME }}
         password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-    - name: Build and push Docker image
+    - name: Build and push OSS Docker image
       uses: depot/build-push-action@v1
       with:
         project: bbqjs4tj1g
         context: .
         push: true
+        platforms: linux/amd64,linux/arm64
         tags: |
           ghcr.io/${{ github.repository }}:${{ github.ref_name }}
           ${{ github.ref_type == 'tag' && !contains(github.ref_name, '-rc') && format('docker.io/obot/{0}:{1}', github.event.repository.name, github.ref_name) || '' }}
+
+    - name: Build and push Enterprise Docker image
+      uses: depot/build-push-action@v1
+      with:
+        project: bbqjs4tj1g
+        context: .
+        push: true
         platforms: linux/amd64,linux/arm64
+        tags: |
+          ghcr.io/${{ github.repository }}-enterprise:${{ github.ref_name }}
+        secrets: |
+          GITHUB_TOKEN=${{ secrets.GHCR_TOKEN }}
+        build-args: |
+          TOOL_REGISTRY_REPOS=github.com/obot-platform/tools,github.com/obot-platform/enterprise-tools
 
     - name: Setup crane
       uses: imjasonh/setup-crane@v0.4
 
-    - name: Copy to latest tag
+    - name: Copy OSS image to latest tag
       if: ${{ github.ref_type == 'tag' && !contains(github.ref_name, '-rc') }}
       run: |
         crane tag ghcr.io/${{ github.repository }}:${{ github.ref_name }} latest
         crane tag docker.io/obot/${{ github.event.repository.name }}:${{ github.ref_name }} latest
+
+    - name: Copy Enterprise image to latest tag
+      if: ${{ github.ref_type == 'tag' && !contains(github.ref_name, '-rc') }}
+      run: |
+        crane tag ghcr.io/${{ github.repository }}-enterprise:${{ github.ref_name }} latest
 
     - name: Deploy to Test Render
       if: ${{ env.DEPLOY_TO_TEST == 'true' }}
