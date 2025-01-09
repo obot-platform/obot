@@ -4,10 +4,7 @@ import { MetaFunction, useNavigate } from "react-router";
 import { $path } from "safe-routes";
 import useSWR, { preload } from "swr";
 
-import {
-    WorkflowTrigger,
-    collateWorkflowTriggers,
-} from "~/lib/model/workflow-trigger";
+import { WorkflowTrigger } from "~/lib/model/workflow-trigger";
 import { Workflow } from "~/lib/model/workflows";
 import { CronJobApiService } from "~/lib/service/api/cronjobApiService";
 import { EmailReceiverApiService } from "~/lib/service/api/emailReceiverApiService";
@@ -17,6 +14,7 @@ import { WorkflowService } from "~/lib/service/api/workflowService";
 import { DataTable } from "~/components/composed/DataTable";
 import { CreateWorkflowTrigger } from "~/components/workflow-triggers/CreateWorkflowTrigger";
 import { WorkflowTriggerActions } from "~/components/workflow-triggers/WorkflowTriggerActions";
+import { useWorkflowTriggers } from "~/hooks/workflow-triggers/useWorkflowTriggers";
 
 export async function clientLoader() {
     await Promise.all([
@@ -38,29 +36,10 @@ export async function clientLoader() {
 }
 
 export default function WorkflowTriggersPage() {
-    const { data: webhooks } = useSWR(
-        WebhookApiService.getWebhooks.key(),
-        () => WebhookApiService.getWebhooks(),
-        { fallbackData: [] }
-    );
-
     const navigate = useNavigate();
-
     const getWorkflows = useSWR(
         WorkflowService.getWorkflows.key(),
         () => WorkflowService.getWorkflows(),
-        { fallbackData: [] }
-    );
-
-    const { data: cronjobs } = useSWR(
-        CronJobApiService.getCronJobs.key(),
-        () => CronJobApiService.getCronJobs(),
-        { fallbackData: [] }
-    );
-
-    const { data: emailReceivers } = useSWR(
-        EmailReceiverApiService.getEmailReceivers.key(),
-        () => EmailReceiverApiService.getEmailReceivers(),
         { fallbackData: [] }
     );
 
@@ -77,11 +56,7 @@ export default function WorkflowTriggersPage() {
         );
     }, [workflows]);
 
-    const tableData = collateWorkflowTriggers([
-        ...webhooks,
-        ...cronjobs,
-        ...emailReceivers,
-    ]);
+    const { workflowTriggers } = useWorkflowTriggers();
 
     const onNavigate = (row: WorkflowTrigger): void => {
         switch (row.type) {
@@ -119,7 +94,7 @@ export default function WorkflowTriggersPage() {
                 <DataTable
                     onRowClick={onNavigate}
                     columns={getColumns()}
-                    data={tableData}
+                    data={workflowTriggers}
                 />
             </div>
         </div>

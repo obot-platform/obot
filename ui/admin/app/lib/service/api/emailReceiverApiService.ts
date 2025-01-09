@@ -4,19 +4,32 @@ import {
     UpdateEmailReceiver,
 } from "~/lib/model/email-receivers";
 import { EntityList } from "~/lib/model/primitives";
-import { ApiRoutes } from "~/lib/routers/apiRoutes";
+import { ApiRoutes, revalidateWhere } from "~/lib/routers/apiRoutes";
 import { request } from "~/lib/service/api/primitives";
 
-async function getEmailReceivers() {
+type EmailReceiverFilters = {
+    workflowId?: string;
+};
+
+async function getEmailReceivers(filters?: EmailReceiverFilters) {
+    const { workflowId } = filters ?? {};
+
     const { data } = await request<EntityList<EmailReceiver>>({
         url: ApiRoutes.emailReceivers.getEmailReceivers().url,
     });
 
-    return data.items ?? [];
+    if (!workflowId) return data.items ?? [];
+
+    return data.items?.filter((item) => item.workflow === workflowId) ?? [];
 }
-getEmailReceivers.key = () => ({
-    url: ApiRoutes.emailReceivers.getEmailReceivers().url,
+getEmailReceivers.key = (filters: EmailReceiverFilters = {}) => ({
+    url: ApiRoutes.emailReceivers.getEmailReceivers().path,
+    filters,
 });
+getEmailReceivers.revalidate = () =>
+    revalidateWhere(
+        (url) => url === ApiRoutes.emailReceivers.getEmailReceivers().path
+    );
 
 async function getEmailReceiverById(id: string) {
     const { data } = await request<EmailReceiver>({

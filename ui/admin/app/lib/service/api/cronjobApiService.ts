@@ -1,15 +1,28 @@
 import { CronJob, CronJobBase } from "~/lib/model/cronjobs";
-import { ApiRoutes } from "~/lib/routers/apiRoutes";
+import { ApiRoutes, revalidateWhere } from "~/lib/routers/apiRoutes";
 import { request } from "~/lib/service/api/primitives";
 
-async function getCronJobs() {
+type CronJobFilters = {
+    workflowId?: string;
+};
+
+async function getCronJobs(filters?: CronJobFilters) {
+    const { workflowId } = filters ?? {};
+
     const { data } = await request<{ items: CronJob[] }>({
         url: ApiRoutes.cronjobs.getCronJobs().url,
     });
 
-    return data.items ?? [];
+    if (!workflowId) return data.items ?? [];
+
+    return data.items?.filter((item) => item.workflow === workflowId) ?? [];
 }
-getCronJobs.key = () => ({ url: ApiRoutes.cronjobs.getCronJobs().path });
+getCronJobs.key = (filters: CronJobFilters = {}) => ({
+    url: ApiRoutes.cronjobs.getCronJobs().path,
+    filters,
+});
+getCronJobs.revalidate = () =>
+    revalidateWhere((url) => url === ApiRoutes.cronjobs.getCronJobs().path);
 
 async function getCronJobById(cronJobId: string) {
     const res = await request<CronJob>({

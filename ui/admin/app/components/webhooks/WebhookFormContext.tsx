@@ -2,7 +2,6 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { UseFormHandleSubmit, useForm, useFormContext } from "react-hook-form";
 import { toast } from "sonner";
-import { mutate } from "swr";
 import { z } from "zod";
 
 import { Webhook, WebhookFormType, WebhookSchema } from "~/lib/model/webhooks";
@@ -81,7 +80,7 @@ export function WebhookFormContextProvider({
             return;
         }
 
-        mutate(WebhookApiService.getWebhooks.key());
+        WebhookApiService.getWebhooks.revalidate();
         showWebhookConfirmation({
             webhook: data,
             secret: values.secret,

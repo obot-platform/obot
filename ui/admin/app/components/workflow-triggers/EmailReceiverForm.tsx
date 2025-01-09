@@ -56,7 +56,8 @@ export function EmailReceiverForm({
                 EmailReceiverApiService.getEmailReceiverById(emailReceiver.id)
             );
         }
-        mutate(EmailReceiverApiService.getEmailReceivers.key());
+
+        EmailReceiverApiService.getEmailReceivers.revalidate();
         onContinue?.();
     };
 
