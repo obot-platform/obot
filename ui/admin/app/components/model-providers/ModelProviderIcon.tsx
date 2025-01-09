@@ -12,6 +12,11 @@ export function ModelProviderIcon({
 	modelProvider: ModelProvider;
 	size?: "md" | "lg";
 }) {
+	const ignoreDarkModeSet = new Set([
+		CommonModelProviderIds.AZURE_OPENAI,
+		CommonModelProviderIds.DEEPSEEK,
+	]);
+
 	return modelProvider.icon ? (
 		<img
 			src={modelProvider.icon}
@@ -19,7 +24,7 @@ export function ModelProviderIcon({
 			className={cn({
 				"h-6 w-6": size === "md",
 				"h-16 w-16": size === "lg",
-				"dark:invert": modelProvider.id !== CommonModelProviderIds.AZURE_OPENAI,
+				"dark:invert": !ignoreDarkModeSet.has(modelProvider.id),
 			})}
 		/>
 	) : (
