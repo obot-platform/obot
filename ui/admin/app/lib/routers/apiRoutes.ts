@@ -218,6 +218,7 @@ export const ApiRoutes = {
 	},
 	users: {
 		base: () => buildUrl("/users"),
+		updateUser: (username: string) => buildUrl(`/users/${username}`),
 	},
 	me: () => buildUrl("/me"),
 	invoke: (id: string, threadId?: Nullish<string>) => {

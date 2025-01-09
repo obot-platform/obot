@@ -10,21 +10,18 @@ export type User = EntityMeta & {
 
 export const Role = {
 	Admin: 1,
-	Default: 2,
+	Default: 10,
 } as const;
 export type Role = (typeof Role)[keyof typeof Role];
 
-export function roleToString(role: Role): string {
-	return (
-		Object.keys(Role).find((key) => Role[key as keyof typeof Role] === role) ||
-		"Unknown"
-	);
-}
+const RoleLabels = { [Role.Admin]: "Admin", [Role.Default]: "Default" };
 
-export function stringToRole(roleStr: string): Role {
-	const role = Role[roleStr as keyof typeof Role];
-	if (role === undefined) {
-		throw new Error(`Invalid role string: ${roleStr}`);
-	}
-	return role;
-}
+export const roleLabel = (role: Role) => RoleLabels[role] || "Unknown";
+export const roleFromString = (role: string) => {
+	const r = +role as Role;
+
+	if (isNaN(r) || !Object.values(Role).includes(r))
+		throw new Error("Invalid role");
+
+	return r;
+};
