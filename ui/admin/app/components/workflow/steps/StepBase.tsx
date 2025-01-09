@@ -59,15 +59,26 @@ export function StepBase({
 
     const { intercept, dialogProps } = useConfirmationDialog();
 
-    const handleDelete = () =>
-        intercept(() => onDelete(), DeleteStepDialogProps);
+    const handleDelete = () => {
+        if (hasContent()) {
+            intercept(() => onDelete(), DeleteStepDialogProps);
+        } else {
+            onDelete();
+        }
+    };
 
     const handleUpdateType = (newType: StepType) => {
-        if (newType !== type) {
+        if (newType === type) {
+            return;
+        }
+
+        if (hasContent()) {
             intercept(
                 () => onUpdate(getDefaultStep(newType)),
                 UpdateStepTypeDialogProps
             );
+        } else {
+            onUpdate(getDefaultStep(newType));
         }
     };
     return (
@@ -154,5 +165,23 @@ export function StepBase({
             value: step.step,
             onChange: (value: string) => onUpdate({ ...step, step: value }),
         };
+    }
+
+    function hasContent() {
+        const { workflows, tools } = step;
+        if (workflows.length || tools.length) {
+            return true;
+        }
+        if (type === "if" && step.if) {
+            return (
+                step.if.condition.length ||
+                step.if.else.length ||
+                step.if.steps.length
+            );
+        } else if (type === "while" && step.while) {
+            return step.while.condition.length || step.while.steps.length;
+        }
+
+        return step.step?.length;
     }
 }
