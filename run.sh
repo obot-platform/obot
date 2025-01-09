@@ -14,6 +14,16 @@ check_postgres_active() {
   exit 1
 }
 
+source /obot-tools/.envrc.tools
+export PATH=$TOOLS_VENV_BIN:$PATH
+
+# double echo to remove trailing whitespace
+export OBOT_SERVER_VERSIONS="$(cat <<VERSIONS
+"chrome": "$(echo $(/opt/google/chrome/chrome --version))"
+${OBOT_SERVER_VERSIONS}
+VERSIONS
+)"
+
 # Only enable sshd in Render. Remove sshd entirely once we have migrated out of Render.
 if [[ -v ENABLE_SSHD ]]; then
   mkdir -p /run/sshd
@@ -21,16 +31,6 @@ if [[ -v ENABLE_SSHD ]]; then
 fi
 
 mkdir -p /data/cache
-# This is YAML
-export OBOT_SERVER_VERSIONS="$(cat <<VERSIONS
-"github.com/obot-platform/tools": "$(cd /obot-tools && git rev-parse HEAD)"
-"github.com/gptscript-ai/workspace-provider": "$(cd /obot-tools/workspace-provider && git rev-parse HEAD)"
-"github.com/gptscript-ai/datasets": "$(cd /obot-tools/datasets && git rev-parse HEAD)"
-"github.com/kubernetes-sigs/aws-encryption-provider": "$(cd /obot-tools/aws-encryption-provider && git rev-parse HEAD)"
-# double echo to remove trailing whitespace
-"chrome": "$(echo $(/opt/google/chrome/chrome --version))"
-VERSIONS
-)"
 
 if [ -z "$OBOT_SERVER_DSN" ]; then
   echo "OBOT_SERVER_DSN is not set. Starting PostgreSQL process..."
