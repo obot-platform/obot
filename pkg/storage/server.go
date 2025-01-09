@@ -11,7 +11,7 @@ import (
 	"github.com/obot-platform/obot/pkg/storage/openapi/generated"
 	"github.com/obot-platform/obot/pkg/storage/registry/apigroups/agent"
 	"github.com/obot-platform/obot/pkg/storage/scheme"
-	"github.com/obot-platform/obot/pkg/storage/services"
+	sservices "github.com/obot-platform/obot/pkg/storage/services"
 	"github.com/obot-platform/obot/pkg/version"
 	k8sversion "k8s.io/apimachinery/pkg/version"
 	"k8s.io/apiserver/pkg/server/healthz"
@@ -21,8 +21,8 @@ import (
 
 type Client client.WithWatch
 
-func Start(ctx context.Context, config services.Config) (Client, *rest.Config, *db.Factory, error) {
-	services, err := services.New(config)
+func Start(ctx context.Context, config sservices.Config) (Client, *rest.Config, *db.Factory, error) {
+	services, err := sservices.New(config)
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -34,7 +34,7 @@ func Start(ctx context.Context, config services.Config) (Client, *rest.Config, *
 	return c, cfg, services.DB, nil
 }
 
-func startMinkServer(ctx context.Context, config services.Config, services *services.Services) (Client, *rest.Config, error) {
+func startMinkServer(ctx context.Context, config sservices.Config, services *sservices.Services) (Client, *rest.Config, error) {
 	apiGroups, err := mserver.BuildAPIGroups(services, agent.APIGroup, agent.LeasesAPIGroup)
 	if err != nil {
 		return nil, nil, err

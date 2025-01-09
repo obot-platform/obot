@@ -14,7 +14,6 @@ import (
 	"github.com/gptscript-ai/go-gptscript"
 	"github.com/gptscript-ai/gptscript/pkg/cache"
 	gptscriptai "github.com/gptscript-ai/gptscript/pkg/gptscript"
-	"github.com/gptscript-ai/gptscript/pkg/loader"
 	"github.com/gptscript-ai/gptscript/pkg/runner"
 	"github.com/gptscript-ai/gptscript/pkg/sdkserver"
 	baaah "github.com/obot-platform/nah"
@@ -58,10 +57,8 @@ type Config struct {
 	DevMode                    bool     `usage:"Enable development mode" default:"false" name:"dev-mode" env:"OBOT_DEV_MODE"`
 	DevUIPort                  int      `usage:"The port on localhost running the dev instance of the UI" default:"5173"`
 	AllowedOrigin              string   `usage:"Allowed origin for CORS"`
-	ToolRegistry               string   `usage:"The tool reference for the tool registry" default:"github.com/obot-platform/tools"`
+	ToolRegistries             []string `usage:"The remote tool references to the set of tool registries to use" default:"github.com/obot-platform/tools" split:"true"`
 	WorkspaceProviderType      string   `usage:"The type of workspace provider to use for non-knowledge workspaces" default:"directory" env:"OBOT_WORKSPACE_PROVIDER_TYPE"`
-	WorkspaceTool              string   `usage:"The tool reference for the workspace provider" default:"github.com/gptscript-ai/workspace-provider"`
-	DatasetsTool               string   `usage:"The tool reference for the dataset provider" default:"github.com/gptscript-ai/datasets"`
 	HelperModel                string   `usage:"The model used to generate names and descriptions" default:"gpt-4o-mini"`
 	AWSKMSKeyARN               string   `usage:"The ARN of the AWS KMS key to use for encrypting credential storage" env:"OBOT_AWS_KMS_KEY_ARN" name:"aws-kms-key-arn"`
 	EncryptionConfigFile       string   `usage:"The path to the encryption configuration file" default:"./encryption.yaml"`
@@ -76,7 +73,7 @@ type Config struct {
 }
 
 type Services struct {
-	ToolRegistryURL            string
+	ToolRegistryURLs           []string
 	WorkspaceProviderType      string
 	ServerURL                  string
 	EmailServerName            string
@@ -98,8 +95,8 @@ type Services struct {
 }
 
 const (
-	defaultDatasetsTool  = "github.com/gptscript-ai/datasets"
-	defaultToolsRegistry = "github.com/obot-platform/tools"
+	datasetTool   = "github.com/gptscript-ai/datasets"
+	workspaceTool = "github.com/gptscript-ai/workspace-provider"
 )
 
 var requiredEnvs = []string{
@@ -133,20 +130,16 @@ func copyKeys(envs []string) []string {
 	return newEnvs
 }
 
-func newGPTScript(ctx context.Context, workspaceTool, datasetsTool, toolsRegistry string, envPassThrough []string,
-	credStore string, credStoreEnv []string) (*gptscript.GPTScript, error) {
-	if datasetsTool != defaultDatasetsTool {
-		loader.Remap[defaultDatasetsTool] = datasetsTool
-	}
-	if toolsRegistry != defaultToolsRegistry {
-		loader.Remap[defaultToolsRegistry] = toolsRegistry
-	}
-
+func newGPTScript(ctx context.Context,
+	envPassThrough []string,
+	credStore string,
+	credStoreEnv []string,
+) (*gptscript.GPTScript, error) {
 	if os.Getenv("GPTSCRIPT_URL") != "" {
 		return gptscript.NewGPTScript(gptscript.GlobalOptions{
 			URL:           os.Getenv("GPTSCRIPT_URL"),
 			WorkspaceTool: workspaceTool,
-			DatasetTool:   datasetsTool,
+			DatasetTool:   datasetTool,
 		})
 	}
 
@@ -167,7 +160,7 @@ func newGPTScript(ctx context.Context, workspaceTool, datasetsTool, toolsRegistr
 			CredentialStore:    credStore,
 			CredentialToolsEnv: append(copyKeys(envPassThrough), credStoreEnv...),
 		},
-		DatasetTool:   datasetsTool,
+		DatasetTool:   datasetTool,
 		WorkspaceTool: workspaceTool,
 	})
 	if err != nil {
@@ -188,7 +181,7 @@ func newGPTScript(ctx context.Context, workspaceTool, datasetsTool, toolsRegistr
 		Env:           copyKeys(envPassThrough),
 		URL:           url,
 		WorkspaceTool: workspaceTool,
-		DatasetTool:   datasetsTool,
+		DatasetTool:   datasetTool,
 	})
 }
 
@@ -201,7 +194,11 @@ func New(ctx context.Context, config Config) (*Services, error) {
 	// that use postgres
 	config.DSN = strings.Replace(config.DSN, "postgresql://", "postgres://", 1)
 
-	credStore, credStoreEnv, err := credstores.Init(ctx, config.ToolRegistry, config.DSN, credstores.Options{
+	if len(config.ToolRegistries) < 1 {
+		config.ToolRegistries = []string{"github.com/obot-platform/tools"}
+	}
+
+	credStore, credStoreEnv, err := credstores.Init(ctx, config.ToolRegistries, config.DSN, credstores.Options{
 		AWSKMSKeyARN:         config.AWSKMSKeyARN,
 		EncryptionConfigFile: config.EncryptionConfigFile,
 	})
@@ -239,8 +236,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		config.UIHostname = "https://" + config.UIHostname
 	}
 
-	c, err := newGPTScript(ctx, config.WorkspaceTool, config.DatasetsTool, config.ToolRegistry, config.EnvKeys,
-		credStore, credStoreEnv)
+	c, err := newGPTScript(ctx, config.EnvKeys, credStore, credStoreEnv)
 	if err != nil {
 		return nil, err
 	}
@@ -283,16 +279,31 @@ func New(ctx context.Context, config Config) (*Services, error) {
 	}
 
 	var (
-		tokenServer             = &jwt.TokenService{}
-		events                  = events.NewEmitter(storageClient)
-		gatewayClient           = client.New(gatewayDB, config.AuthAdminEmails)
-		invoker                 = invoke.NewInvoker(storageClient, c, gatewayClient, config.Hostname, config.HTTPListenPort, tokenServer, events)
+		tokenServer   = &jwt.TokenService{}
+		events        = events.NewEmitter(storageClient)
+		gatewayClient = client.New(gatewayDB, config.AuthAdminEmails)
+		invoker       = invoke.NewInvoker(
+			storageClient,
+			c,
+			gatewayClient,
+			config.Hostname,
+			config.HTTPListenPort,
+			tokenServer,
+			events,
+		)
 		modelProviderDispatcher = dispatcher.New(invoker, storageClient, c)
 
 		proxyServer *proxy.Proxy
 	)
 
-	gatewayServer, err := gserver.New(ctx, gatewayDB, tokenServer, modelProviderDispatcher, config.AuthAdminEmails, gserver.Options(config.GatewayConfig))
+	gatewayServer, err := gserver.New(
+		ctx,
+		gatewayDB,
+		tokenServer,
+		modelProviderDispatcher,
+		config.AuthAdminEmails,
+		gserver.Options(config.GatewayConfig),
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -346,13 +357,19 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		WorkspaceProviderType: config.WorkspaceProviderType,
 		ServerURL:             config.Hostname,
 		DevUIPort:             devPort,
-		ToolRegistryURL:       config.ToolRegistry,
+		ToolRegistryURLs:      config.ToolRegistries,
 		Events:                events,
 		StorageClient:         storageClient,
 		Router:                r,
 		GPTClient:             c,
-		APIServer: server.NewServer(storageClient, c, authn.NewAuthenticator(authenticators),
-			authz.NewAuthorizer(r.Backend()), proxyServer, config.Hostname),
+		APIServer: server.NewServer(
+			storageClient,
+			c,
+			authn.NewAuthenticator(authenticators),
+			authz.NewAuthorizer(r.Backend()),
+			proxyServer,
+			config.Hostname,
+		),
 		TokenServer:                tokenServer,
 		Invoker:                    invoker,
 		GatewayServer:              gatewayServer,

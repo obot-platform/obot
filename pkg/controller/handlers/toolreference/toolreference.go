@@ -46,15 +46,18 @@ type Handler struct {
 	gptClient     *gptscript.GPTScript
 	dispatcher    *dispatcher.Dispatcher
 	supportDocker bool
-	registryURL   string
+	registryURLs  []string
 }
 
-func New(gptClient *gptscript.GPTScript, dispatcher *dispatcher.Dispatcher,
-	registryURL string, supportDocker bool) *Handler {
+func New(gptClient *gptscript.GPTScript,
+	dispatcher *dispatcher.Dispatcher,
+	registryURLs []string,
+	supportDocker bool,
+) *Handler {
 	return &Handler{
 		gptClient:     gptClient,
 		dispatcher:    dispatcher,
-		registryURL:   registryURL,
+		registryURLs:  registryURLs,
 		supportDocker: supportDocker,
 	}
 }
@@ -66,13 +69,13 @@ func isValidTool(tool gptscript.Tool) bool {
 	return tool.Name != "" && (tool.Type == "" || tool.Type == "tool")
 }
 
-func (h *Handler) toolsToToolReferences(ctx context.Context, toolType types.ToolReferenceType, entries map[string]indexEntry) (result []client.Object) {
+func (h *Handler) toolsToToolReferences(ctx context.Context, toolType types.ToolReferenceType, registryURL string, entries map[string]indexEntry) (result []client.Object) {
 	annotations := map[string]string{
 		"obot.obot.ai/timestamp": time.Now().String(),
 	}
 	for name, entry := range entries {
 		if ref, ok := strings.CutPrefix(entry.Reference, "./"); ok {
-			entry.Reference = h.registryURL + "/" + ref
+			entry.Reference = registryURL + "/" + ref
 		}
 
 		if entry.All {
@@ -152,8 +155,8 @@ func (h *Handler) toolsToToolReferences(ctx context.Context, toolType types.Tool
 	return
 }
 
-func (h *Handler) readRegistry(ctx context.Context) (index, error) {
-	run, err := h.gptClient.Run(ctx, h.registryURL, gptscript.Options{})
+func (h *Handler) readRegistry(ctx context.Context, registryURL string) (index, error) {
+	run, err := h.gptClient.Run(ctx, registryURL, gptscript.Options{})
 	if err != nil {
 		return index{}, err
 	}
@@ -173,21 +176,31 @@ func (h *Handler) readRegistry(ctx context.Context) (index, error) {
 }
 
 func (h *Handler) readFromRegistry(ctx context.Context, c client.Client) error {
-	index, err := h.readRegistry(ctx)
-	if err != nil {
-		return err
+	var (
+		toAdd []client.Object
+		errs  []error
+	)
+	for _, registryURL := range h.registryURLs {
+		index, err := h.readRegistry(ctx, registryURL)
+		if err != nil {
+			errs = append(errs, fmt.Errorf("failed to read registry %s: %w", registryURL, err))
+			continue
+		}
+
+		toAdd = append(toAdd, h.toolsToToolReferences(ctx, types.ToolReferenceTypeSystem, registryURL, index.System)...)
+		toAdd = append(toAdd, h.toolsToToolReferences(ctx, types.ToolReferenceTypeModelProvider, registryURL, index.ModelProviders)...)
+		toAdd = append(toAdd, h.toolsToToolReferences(ctx, types.ToolReferenceTypeTool, registryURL, index.Tools)...)
+		toAdd = append(toAdd, h.toolsToToolReferences(ctx, types.ToolReferenceTypeStepTemplate, registryURL, index.StepTemplates)...)
+		toAdd = append(toAdd, h.toolsToToolReferences(ctx, types.ToolReferenceTypeKnowledgeDataSource, registryURL, index.KnowledgeDataSources)...)
+		toAdd = append(toAdd, h.toolsToToolReferences(ctx, types.ToolReferenceTypeKnowledgeDocumentLoader, registryURL, index.KnowledgeDocumentLoaders)...)
 	}
 
-	var toAdd []client.Object
+	if len(errs) > 0 {
+		// Don't accidentally delete tool references for registry URLs that failed to be read.
+		return errors.Join(errs...)
+	}
 
-	toAdd = append(toAdd, h.toolsToToolReferences(ctx, types.ToolReferenceTypeSystem, index.System)...)
-	toAdd = append(toAdd, h.toolsToToolReferences(ctx, types.ToolReferenceTypeModelProvider, index.ModelProviders)...)
-	toAdd = append(toAdd, h.toolsToToolReferences(ctx, types.ToolReferenceTypeTool, index.Tools)...)
-	toAdd = append(toAdd, h.toolsToToolReferences(ctx, types.ToolReferenceTypeStepTemplate, index.StepTemplates)...)
-	toAdd = append(toAdd, h.toolsToToolReferences(ctx, types.ToolReferenceTypeKnowledgeDataSource, index.KnowledgeDataSources)...)
-	toAdd = append(toAdd, h.toolsToToolReferences(ctx, types.ToolReferenceTypeKnowledgeDocumentLoader, index.KnowledgeDocumentLoaders)...)
-
-	if len(toAdd) == 0 {
+	if len(toAdd) < 1 {
 		// Don't accidentally delete all the tool references
 		return nil
 	}
@@ -199,8 +212,8 @@ func normalize(names ...string) string {
 	return strings.ToLower(strings.ReplaceAll(strings.ReplaceAll(strings.Join(names, "-"), " ", "-"), "_", "-"))
 }
 
-func (h *Handler) PollRegistry(ctx context.Context, c client.Client) {
-	if h.registryURL == "" {
+func (h *Handler) PollRegistries(ctx context.Context, c client.Client) {
+	if len(h.registryURLs) < 1 {
 		return
 	}
 
@@ -216,7 +229,7 @@ func (h *Handler) PollRegistry(ctx context.Context, c client.Client) {
 	defer t.Stop()
 	for {
 		if err := h.readFromRegistry(ctx, c); err != nil {
-			log.Errorf("Failed to read from registry: %v", err)
+			log.Errorf("Failed to read from registries: %v", err)
 		}
 
 		select {
