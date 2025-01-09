@@ -54,9 +54,21 @@ const steps: OAuthFormStep<z.infer<typeof schema>>[] = [
             "### Step 2: Configure the app's necessary scopes\n" +
             "- From the [Zoom App Management Page](https://marketplace.zoom.us/user/build), click on the app you created and click **Scopes** on the left sidebar.\n" +
             "(You will already be on this page if you've completed step 1)\n" +
-            "- Click on **Add Scopes** to add necessary scopes for the zoom tool. Ensure the following scopes are added:\n" +
-            scopes.map((scope) => `  - **${scope}**\n`).join("") +
-            "\n",
+            "- Click on **Add Scopes** to add necessary scopes for the zoom tool. Ensure the following scopes are added:\n",
+    },
+    {
+        type: "sectionGroup",
+        sections: [
+            {
+                title: "Scopes: ",
+                displayStepsInline: true,
+                defaultOpen: true,
+                steps: scopes.map((scope) => ({
+                    type: "copy",
+                    text: scope,
+                })),
+            },
+        ],
     },
     {
         type: "markdown",
