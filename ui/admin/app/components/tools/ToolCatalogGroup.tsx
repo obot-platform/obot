@@ -8,12 +8,14 @@ import { CommandGroup } from "~/components/ui/command";
 
 export function ToolCatalogGroup({
 	category,
+	configured,
 	tools,
 	selectedTools,
 	onUpdateTools,
 	expandFor,
 }: {
 	category: string;
+	configured: boolean;
 	tools: ToolCategory;
 	selectedTools: string[];
 	onUpdateTools: (tools: string[]) => void;
@@ -74,6 +76,7 @@ export function ToolCatalogGroup({
 			{tools.bundleTool && (
 				<ToolItem
 					tool={tools.bundleTool}
+					configured={configured}
 					isSelected={selectedTools.includes(tools.bundleTool.id)}
 					isBundleSelected={false}
 					onSelect={() => handleSelectBundle(tools.bundleTool!.id)}
@@ -87,6 +90,7 @@ export function ToolCatalogGroup({
 				tools.tools.map((categoryTool) => (
 					<ToolItem
 						key={categoryTool.id}
+						configured={configured}
 						tool={categoryTool}
 						isSelected={selectedTools.includes(categoryTool.id)}
 						isBundleSelected={

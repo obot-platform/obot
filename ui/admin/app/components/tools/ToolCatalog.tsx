@@ -52,33 +52,27 @@ export function ToolCatalog({
 	const configuredOauthApps = useMemo(() => {
 		return new Set(
 			oauthApps
-				.filter((app) => !app.noGatewayIntegration)
+				.filter(
+					(app) =>
+						!app.noGatewayIntegration ||
+						(app.noGatewayIntegration && app.appOverride)
+				)
 				.map((app) => app.type)
 		);
 	}, [oauthApps]);
 
 	const sortedValidCategories = useMemo(() => {
-		return (
-			Object.entries(toolCategories)
-				.sort(([nameA, categoryA], [nameB, categoryB]): number => {
-					const aHasBundle = categoryA.bundleTool ? 1 : 0;
-					const bHasBundle = categoryB.bundleTool ? 1 : 0;
+		return Object.entries(toolCategories).sort(
+			([nameA, categoryA], [nameB, categoryB]): number => {
+				const aHasBundle = categoryA.bundleTool ? 1 : 0;
+				const bHasBundle = categoryB.bundleTool ? 1 : 0;
 
-					if (aHasBundle !== bHasBundle) return bHasBundle - aHasBundle;
+				if (aHasBundle !== bHasBundle) return bHasBundle - aHasBundle;
 
-					return nameA.localeCompare(nameB);
-				})
-				// filter out bundles with oauth providers that are not configured
-				.filter(([, { bundleTool }]) => {
-					if (!bundleTool) return true;
-					const oauthType = bundleTool.metadata?.oauth;
-
-					return oauthType
-						? configuredOauthApps.has(oauthType as OAuthProvider)
-						: true;
-				})
+				return nameA.localeCompare(nameB);
+			}
 		);
-	}, [toolCategories, configuredOauthApps]);
+	}, [toolCategories]);
 
 	if (isLoading) return <LoadingSpinner />;
 
@@ -111,6 +105,13 @@ export function ToolCatalog({
 					<ToolCatalogGroup
 						key={category}
 						category={category}
+						configured={
+							categoryTools.bundleTool?.metadata?.oauth
+								? configuredOauthApps.has(
+										categoryTools.bundleTool.metadata.oauth as OAuthProvider
+									)
+								: true
+						}
 						tools={categoryTools}
 						selectedTools={tools}
 						onUpdateTools={onUpdateTools}

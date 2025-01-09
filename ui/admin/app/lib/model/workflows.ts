@@ -25,8 +25,8 @@ export type Step = {
 	cache: boolean;
 	temperature: number;
 	tools: string[];
-	agents: string[];
-	workflows: string[];
+	agents?: string[];
+	workflows?: string[];
 };
 
 export type Template = {

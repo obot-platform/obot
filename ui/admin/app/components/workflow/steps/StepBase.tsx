@@ -169,7 +169,7 @@ export function StepBase({
 
 	function hasContent() {
 		const { workflows, tools } = step;
-		if (workflows.length || tools.length) {
+		if (workflows?.length || tools?.length) {
 			return true;
 		}
 		if (type === "if" && step.if) {
@@ -177,7 +177,7 @@ export function StepBase({
 				step.if.condition.length || step.if.else.length || step.if.steps.length
 			);
 		} else if (type === "while" && step.while) {
-			return step.while.condition.length || step.while.steps.length;
+			return step.while?.condition.length || step.while?.steps.length;
 		}
 
 		return step.step?.length;

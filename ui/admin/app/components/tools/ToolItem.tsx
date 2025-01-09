@@ -1,3 +1,5 @@
+import { TriangleAlertIcon } from "lucide-react";
+
 import { ToolReference } from "~/lib/model/toolReferences";
 import { cn } from "~/lib/utils";
 
@@ -9,6 +11,7 @@ import { CommandItem } from "~/components/ui/command";
 
 type ToolItemProps = {
 	tool: ToolReference;
+	configured: boolean;
 	isSelected: boolean;
 	isBundleSelected: boolean;
 	onSelect: () => void;
@@ -20,6 +23,7 @@ type ToolItemProps = {
 
 export function ToolItem({
 	tool,
+	configured,
 	isSelected,
 	isBundleSelected,
 	onSelect,
@@ -31,10 +35,10 @@ export function ToolItem({
 	return (
 		<CommandItem
 			className={cn("cursor-pointer", className)}
-			onSelect={onSelect}
+			onSelect={configured ? onSelect : undefined}
 			disabled={isBundleSelected}
 		>
-			<ToolTooltip tool={tool}>
+			<ToolTooltip tool={tool} requiresConfiguration={!configured}>
 				<div className={cn("flex w-full items-center justify-between gap-2")}>
 					<span
 						className={cn(
@@ -44,9 +48,15 @@ export function ToolItem({
 							}
 						)}
 					>
-						<Checkbox checked={isSelected || isBundleSelected} />
+						{configured ? (
+							<Checkbox checked={isSelected || isBundleSelected} />
+						) : isBundle ? (
+							<TriangleAlertIcon className="h-4 w-4 text-warning opacity-50" />
+						) : null}
 
-						<span className={cn("flex items-center")}>
+						<span
+							className={cn("flex items-center", !configured && "opacity-50")}
+						>
 							<ToolIcon
 								icon={tool.metadata?.icon}
 								category={tool.metadata?.category}
