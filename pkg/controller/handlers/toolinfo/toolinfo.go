@@ -44,11 +44,10 @@ func (h *Handler) SetToolInfoStatus(req router.Request, resp router.Response) (e
 		return err
 	}
 
-	credsSet := make(sets.Set[string], len(creds)+1)
+	credsSet := make(sets.Set[string], len(creds))
 	for _, cred := range creds {
 		credsSet.Insert(cred.ToolName)
 	}
-	credsSet.Insert(system.ModelProviderCredential)
 
 	obj := req.Object.(v1.ToolUser)
 	tools := obj.GetTools()
@@ -76,6 +75,13 @@ func (h *Handler) SetToolInfoStatus(req router.Request, resp router.Response) (e
 			// This allows us to use the same variable for the whole loop
 			// while ensuring that the value we care about is loaded correctly.
 			toolRef.Status.Tool.CredentialNames = nil
+		}
+
+		for i := 0; i < len(credNames); i++ {
+			if credNames[i] == system.ModelProviderCredential {
+				credNames = append(credNames[:i], credNames[i+1:]...)
+				i--
+			}
 		}
 
 		toolInfos[tool] = types.ToolInfo{

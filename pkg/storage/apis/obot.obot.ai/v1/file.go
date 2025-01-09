@@ -9,6 +9,11 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+var (
+	_ fields.Fields = (*KnowledgeFile)(nil)
+	_ DeleteRefs    = (*KnowledgeFile)(nil)
+)
+
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type KnowledgeFile struct {
@@ -18,8 +23,6 @@ type KnowledgeFile struct {
 	Spec   KnowledgeFileSpec   `json:"spec,omitempty"`
 	Status KnowledgeFileStatus `json:"status,omitempty"`
 }
-
-var _ fields.Fields = (*KnowledgeFile)(nil)
 
 func (k *KnowledgeFile) GetColumns() [][]string {
 	return [][]string{
@@ -74,8 +77,6 @@ func (k *KnowledgeFile) Get(field string) string {
 func (*KnowledgeFile) FieldNames() []string {
 	return []string{"spec.knowledgeSourceName", "spec.knowledgeSetName"}
 }
-
-var _ fields.Fields = (*KnowledgeFile)(nil)
 
 type KnowledgeFileSpec struct {
 	KnowledgeSetName    string `json:"knowledgeSetName,omitempty"`
