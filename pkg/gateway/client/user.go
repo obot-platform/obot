@@ -80,8 +80,12 @@ func (c *Client) UpdateUser(ctx context.Context, actingUserIsAdmin bool, updated
 
 		// Only admins can change user roles.
 		if actingUserIsAdmin {
-			// If the role is being changed from admin to non-admin, then ensure that this isn't the last admin.
 			if updatedUser.Role > 0 && existingUser.Role.HasRole(types2.RoleAdmin) && !updatedUser.Role.HasRole(types2.RoleAdmin) {
+				// If this user has been explicitly marked as an admin, then don't allow changing the role.
+				if c.IsExplicitAdmin(existingUser.Email) {
+					return &ExplicitAdminError{email: existingUser.Email}
+				}
+				// If the role is being changed from admin to non-admin, then ensure that this isn't the last admin.
 				var adminCount int64
 				if err := tx.Model(new(types.User)).Where("role = ?", types2.RoleAdmin).Count(&adminCount).Error; err != nil {
 					return err

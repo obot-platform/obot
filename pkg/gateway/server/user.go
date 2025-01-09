@@ -29,7 +29,7 @@ func (s *Server) getCurrentUser(apiContext api.Context) error {
 		pkgLog.Warnf("failed to update profile icon for user %s: %v", user.Username, err)
 	}
 
-	return apiContext.Write(types.ConvertUser(user))
+	return apiContext.Write(types.ConvertUser(user, s.client.IsExplicitAdmin(user.Email)))
 }
 
 func (s *Server) getUsers(apiContext api.Context) error {
@@ -40,7 +40,7 @@ func (s *Server) getUsers(apiContext api.Context) error {
 
 	items := make([]types2.User, 0, len(users))
 	for _, user := range users {
-		items = append(items, *types.ConvertUser(&user))
+		items = append(items, *types.ConvertUser(&user, s.client.IsExplicitAdmin(user.Email)))
 	}
 
 	return apiContext.Write(types2.UserList{Items: items})
@@ -60,7 +60,7 @@ func (s *Server) getUser(apiContext api.Context) error {
 		return fmt.Errorf("failed to get user: %v", err)
 	}
 
-	return apiContext.Write(types.ConvertUser(user))
+	return apiContext.Write(types.ConvertUser(user, s.client.IsExplicitAdmin(user.Email)))
 }
 
 func (s *Server) updateUser(apiContext api.Context) error {
@@ -94,13 +94,15 @@ func (s *Server) updateUser(apiContext api.Context) error {
 			status = http.StatusNotFound
 		} else if lae := (*client.LastAdminError)(nil); errors.As(err, &lae) {
 			status = http.StatusBadRequest
+		} else if ea := (*client.ExplicitAdminError)(nil); errors.As(err, &ea) {
+			status = http.StatusBadRequest
 		} else if ae := (*client.AlreadyExistsError)(nil); errors.As(err, &ae) {
 			status = http.StatusConflict
 		}
 		return types2.NewErrHttp(status, fmt.Sprintf("failed to update user: %v", err))
 	}
 
-	return apiContext.Write(types.ConvertUser(existingUser))
+	return apiContext.Write(types.ConvertUser(existingUser, s.client.IsExplicitAdmin(existingUser.Email)))
 }
 
 func (s *Server) deleteUser(apiContext api.Context) error {
@@ -120,5 +122,5 @@ func (s *Server) deleteUser(apiContext api.Context) error {
 		return types2.NewErrHttp(status, fmt.Sprintf("failed to delete user: %v", err))
 	}
 
-	return apiContext.Write(types.ConvertUser(existingUser))
+	return apiContext.Write(types.ConvertUser(existingUser, s.client.IsExplicitAdmin(existingUser.Email)))
 }
