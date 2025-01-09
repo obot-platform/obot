@@ -4,205 +4,205 @@
 
 html,
 body {
-    @apply bg-white dark:bg-gray-950;
+	@apply bg-white dark:bg-gray-950;
 
-    @media (prefers-color-scheme: dark) {
-        color-scheme: dark;
-    }
+	@media (prefers-color-scheme: dark) {
+		color-scheme: dark;
+	}
 }
 
 @layer base {
-    :root {
-        /* Start theme colors (Not accessible by Tailwind) */
+	:root {
+		/* Start theme colors (Not accessible by Tailwind) */
 
-        --main-surface-primary: 0 0% 98%;
-        --main-surface-secondary: 223 5% 95%;
+		--main-surface-primary: 0 0% 98%;
+		--main-surface-secondary: 223 5% 95%;
 
-        --accent-surface-primary: 0 0% 91%;
-        --accent-surface-secondary: 223 87% 91%;
+		--accent-surface-primary: 0 0% 91%;
+		--accent-surface-secondary: 223 87% 91%;
 
-        --text-primary: 223 5% 5%;
-        --text-secondary: 223 5% 25%;
-        --text-muted: 223 5% 40%;
-        --text-inverted: 0 0% 98%;
+		--text-primary: 223 5% 5%;
+		--text-secondary: 223 5% 25%;
+		--text-muted: 223 5% 40%;
+		--text-inverted: 0 0% 98%;
 
-        --border-light: 223 5% 85%;
-        --border-normal: 223 5% 75%;
+		--border-light: 223 5% 85%;
+		--border-normal: 223 5% 75%;
 
-        --accent-primary: 223 87% 63%;
+		--accent-primary: 223 87% 63%;
 
-        /* Start colors provided to Tailwind */
+		/* Start colors provided to Tailwind */
 
-        --black: 0 0% 0%;
-        --white: 0 0% 100%;
+		--black: 0 0% 0%;
+		--white: 0 0% 100%;
 
-        --success: 142 76% 36%;
-        --success-foreground: 142 84% 95%;
+		--success: 142 76% 36%;
+		--success-foreground: 142 84% 95%;
 
-        --warning: 38 92% 50%;
-        --warning-foreground: 38 100% 95%;
+		--warning: 38 92% 50%;
+		--warning-foreground: 38 100% 95%;
 
-        --error: 0 84% 60%;
-        --error-foreground: 0 100% 95%;
+		--error: 0 84% 60%;
+		--error-foreground: 0 100% 95%;
 
-        --destructive: 0 84.2% 60.2%;
-        --destructive-foreground: var(--white);
+		--destructive: 0 84.2% 60.2%;
+		--destructive-foreground: var(--white);
 
-        --background: var(--main-surface-primary);
-        --background-secondary: var(--main-surface-secondary);
-        --foreground: var(--text-primary);
+		--background: var(--main-surface-primary);
+		--background-secondary: var(--main-surface-secondary);
+		--foreground: var(--text-primary);
 
-        --card: var(--main-surface-secondary);
-        --card-foreground: var(--text-primary);
-        --popover: var(--main-surface-primary);
-        --popover-foreground: var(--text-primary);
-        --dialog: var(--main-surface-primary);
-        --dialog-foreground: var(--text-primary);
+		--card: var(--main-surface-secondary);
+		--card-foreground: var(--text-primary);
+		--popover: var(--main-surface-primary);
+		--popover-foreground: var(--text-primary);
+		--dialog: var(--main-surface-primary);
+		--dialog-foreground: var(--text-primary);
 
-        --primary: var(--accent-primary);
-        --primary-foreground: var(--text-inverted);
-        --secondary: var(--accent-surface-primary);
-        --secondary-foreground: var(--text-primary);
-        --muted: var(--accent-surface-primary);
-        --muted-foreground: var(--text-muted);
-        --accent: var(--accent-surface-secondary);
-        --accent-foreground: var(--text-secondary);
+		--primary: var(--accent-primary);
+		--primary-foreground: var(--text-inverted);
+		--secondary: var(--accent-surface-primary);
+		--secondary-foreground: var(--text-primary);
+		--muted: var(--accent-surface-primary);
+		--muted-foreground: var(--text-muted);
+		--accent: var(--accent-surface-secondary);
+		--accent-foreground: var(--text-secondary);
 
-        --link: var(--accent-primary);
-        --border: var(--border-light);
-        --input: var(--border-normal);
-        --ring: var(--accent-primary);
+		--link: var(--accent-primary);
+		--border: var(--border-light);
+		--input: var(--border-normal);
+		--ring: var(--accent-primary);
 
-        --chart-1: 12 76% 61%;
-        --chart-2: 173 58% 39%;
-        --chart-3: 197 37% 24%;
-        --chart-4: 43 74% 66%;
-        --chart-5: 27 87% 67%;
-        --radius: 0.5rem;
+		--chart-1: 12 76% 61%;
+		--chart-2: 173 58% 39%;
+		--chart-3: 197 37% 24%;
+		--chart-4: 43 74% 66%;
+		--chart-5: 27 87% 67%;
+		--radius: 0.5rem;
 
-        --sidebar-background: var(--main-surface-secondary);
-        --sidebar-foreground: var(--text-primary);
-        --sidebar-primary: var(--accent-primary);
-        --sidebar-primary-foreground: var(--text-inverted);
-        --sidebar-accent: var(--accent-surface-secondary);
-        --sidebar-accent-foreground: var(--text-primary);
-        --sidebar-border: var(--border-light);
-        --sidebar-ring: var(--accent-primary);
-    }
-    .dark {
-        color-scheme: dark;
+		--sidebar-background: var(--main-surface-secondary);
+		--sidebar-foreground: var(--text-primary);
+		--sidebar-primary: var(--accent-primary);
+		--sidebar-primary-foreground: var(--text-inverted);
+		--sidebar-accent: var(--accent-surface-secondary);
+		--sidebar-accent-foreground: var(--text-primary);
+		--sidebar-border: var(--border-light);
+		--sidebar-ring: var(--accent-primary);
+	}
+	.dark {
+		color-scheme: dark;
 
-        /* Start theme colors (Not accessible by Tailwind) */
+		/* Start theme colors (Not accessible by Tailwind) */
 
-        --main-surface-secondary: 223 20% 10%;
-        --main-surface-primary: 223 20% 5%;
+		--main-surface-secondary: 223 20% 10%;
+		--main-surface-primary: 223 20% 5%;
 
-        --accent-surface-primary: 223 5% 15%;
-        --accent-surface-secondary: 223 87% 25%;
+		--accent-surface-primary: 223 5% 15%;
+		--accent-surface-secondary: 223 87% 25%;
 
-        --text-primary: 223 5% 85%;
-        --text-secondary: 223 5% 75%;
-        --text-muted: 223 5% 55%;
-        --text-inverted: 0 0% 10%;
+		--text-primary: 223 5% 85%;
+		--text-secondary: 223 5% 75%;
+		--text-muted: 223 5% 55%;
+		--text-inverted: 0 0% 10%;
 
-        --border-light: 223 5% 20%;
-        --border-normal: 223 5% 30%;
+		--border-light: 223 5% 20%;
+		--border-normal: 223 5% 30%;
 
-        --accent-primary: 223 87% 63%;
+		--accent-primary: 223 87% 63%;
 
-        --background: var(--main-surface-primary);
-        --background-secondary: var(--main-surface-secondary);
-        --foreground: var(--text-primary);
+		--background: var(--main-surface-primary);
+		--background-secondary: var(--main-surface-secondary);
+		--foreground: var(--text-primary);
 
-        /* Start colors provided to Tailwind */
+		/* Start colors provided to Tailwind */
 
-        --error: 0 84% 20%;
-        --error-foreground: 0 100% 7%;
+		--error: 0 84% 20%;
+		--error-foreground: 0 100% 7%;
 
-        --card: var(--main-surface-secondary);
-        --card-foreground: var(--text-primary);
-        --popover: var(--main-surface-primary);
-        --popover-foreground: var(--text-primary);
-        --dialog: var(--main-surface-primary);
-        --dialog-foreground: var(--text-primary);
+		--card: var(--main-surface-secondary);
+		--card-foreground: var(--text-primary);
+		--popover: var(--main-surface-primary);
+		--popover-foreground: var(--text-primary);
+		--dialog: var(--main-surface-primary);
+		--dialog-foreground: var(--text-primary);
 
-        --primary: var(--accent-primary);
-        --primary-foreground: var(--text-inverted);
-        --secondary: var(--accent-surface-primary);
-        --secondary-foreground: var(--text-primary);
-        --muted: var(--accent-surface-primary);
-        --muted-foreground: var(--text-muted);
-        --accent: var(--accent-surface-secondary);
-        --accent-foreground: var(--text-primary);
+		--primary: var(--accent-primary);
+		--primary-foreground: var(--text-inverted);
+		--secondary: var(--accent-surface-primary);
+		--secondary-foreground: var(--text-primary);
+		--muted: var(--accent-surface-primary);
+		--muted-foreground: var(--text-muted);
+		--accent: var(--accent-surface-secondary);
+		--accent-foreground: var(--text-primary);
 
-        --link: var(--accent-primary);
-        --border: var(--border-light);
-        --input: var(--border-normal);
-        --ring: var(--accent-primary);
+		--link: var(--accent-primary);
+		--border: var(--border-light);
+		--input: var(--border-normal);
+		--ring: var(--accent-primary);
 
-        --chart-1: 12 76% 61%;
-        --chart-2: 173 58% 39%;
-        --chart-3: 197 37% 24%;
-        --chart-4: 43 74% 66%;
-        --chart-5: 27 87% 67%;
+		--chart-1: 12 76% 61%;
+		--chart-2: 173 58% 39%;
+		--chart-3: 197 37% 24%;
+		--chart-4: 43 74% 66%;
+		--chart-5: 27 87% 67%;
 
-        --radius: 0.5rem;
+		--radius: 0.5rem;
 
-        --sidebar-background: var(--main-surface-secondary);
-        --sidebar-foreground: var(--text-primary);
-        --sidebar-primary: var(--accent-primary);
-        --sidebar-primary-foreground: var(--text-inverted);
-        --sidebar-accent: var(--accent-surface-secondary);
-        --sidebar-accent-foreground: var(--text-primary);
-        --sidebar-border: var(--border-light);
-        --sidebar-ring: var(--accent-primary);
-    }
+		--sidebar-background: var(--main-surface-secondary);
+		--sidebar-foreground: var(--text-primary);
+		--sidebar-primary: var(--accent-primary);
+		--sidebar-primary-foreground: var(--text-inverted);
+		--sidebar-accent: var(--accent-surface-secondary);
+		--sidebar-accent-foreground: var(--text-primary);
+		--sidebar-border: var(--border-light);
+		--sidebar-ring: var(--accent-primary);
+	}
 }
 
 @layer base {
-    * {
-        @apply border-border;
-    }
+	* {
+		@apply border-border;
+	}
 
-    body {
-        @apply bg-background text-foreground;
-    }
+	body {
+		@apply bg-background text-foreground;
+	}
 
-    /* Typography */
+	/* Typography */
 
-    h1 {
-        @apply scroll-m-20 text-4xl font-extrabold tracking-tight lg:text-5xl;
-    }
+	h1 {
+		@apply scroll-m-20 text-4xl font-extrabold tracking-tight lg:text-5xl;
+	}
 
-    h2 {
-        @apply scroll-m-20 pb-2 text-3xl font-semibold tracking-tight first:mt-0;
-    }
+	h2 {
+		@apply scroll-m-20 pb-2 text-3xl font-semibold tracking-tight first:mt-0;
+	}
 
-    h3 {
-        @apply scroll-m-20 text-2xl font-semibold tracking-tight;
-    }
+	h3 {
+		@apply scroll-m-20 text-2xl font-semibold tracking-tight;
+	}
 
-    h4 {
-        @apply scroll-m-20 text-xl font-semibold tracking-tight;
-    }
+	h4 {
+		@apply scroll-m-20 text-xl font-semibold tracking-tight;
+	}
 
-    p {
-        @apply leading-7;
-    }
+	p {
+		@apply leading-7;
+	}
 
-    blockquote {
-        @apply mt-6 border-l-2 pl-6 italic;
-    }
+	blockquote {
+		@apply mt-6 border-l-2 pl-6 italic;
+	}
 
-    code {
-        @apply relative rounded bg-muted px-[0.3rem] py-[0.2rem] font-mono text-sm font-semibold;
-    }
+	code {
+		@apply relative rounded bg-muted px-[0.3rem] py-[0.2rem] font-mono text-sm font-semibold;
+	}
 
-    large {
-        @apply text-lg font-semibold;
-    }
+	large {
+		@apply text-lg font-semibold;
+	}
 
-    small {
-        @apply text-sm font-medium leading-none;
-    }
+	small {
+		@apply text-sm font-medium leading-none;
+	}
 }

@@ -12,87 +12,85 @@ import { AddStepButton } from "~/components/workflow/steps/AddStep";
 import { renderStep } from "~/components/workflow/steps/StepRenderer";
 
 const formSchema = z.object({
-    steps: z.array(z.custom<Step>()),
+	steps: z.array(z.custom<Step>()),
 });
 
 export type StepsFormValues = z.infer<typeof formSchema>;
 
 export function StepsForm({
-    workflow,
-    onSubmit,
-    onChange,
+	workflow,
+	onSubmit,
+	onChange,
 }: {
-    workflow: Workflow;
-    onSubmit?: (values: StepsFormValues) => void;
-    onChange?: (values: StepsFormValues) => void;
+	workflow: Workflow;
+	onSubmit?: (values: StepsFormValues) => void;
+	onChange?: (values: StepsFormValues) => void;
 }) {
-    const form = useForm<StepsFormValues>({
-        resolver: zodResolver(formSchema),
-        defaultValues: { steps: workflow.steps || [] },
-    });
+	const form = useForm<StepsFormValues>({
+		resolver: zodResolver(formSchema),
+		defaultValues: { steps: workflow.steps || [] },
+	});
 
-    const handleSubmit = form.handleSubmit(onSubmit || noop);
+	const handleSubmit = form.handleSubmit(onSubmit || noop);
 
-    const stepValues = form.watch("steps");
+	const stepValues = form.watch("steps");
 
-    useEffect(() => {
-        form.reset({ steps: workflow.steps || [] });
-    }, [workflow, form]);
+	useEffect(() => {
+		form.reset({ steps: workflow.steps || [] });
+	}, [workflow, form]);
 
-    useEffect(() => {
-        return form.watch((values) => {
-            const { data, success } = formSchema.safeParse(values);
-            if (!success) return;
-            onChange?.(data);
-        }).unsubscribe;
-    }, [stepValues, form.formState, onChange, form]);
+	useEffect(() => {
+		return form.watch((values) => {
+			const { data, success } = formSchema.safeParse(values);
+			if (!success) return;
+			onChange?.(data);
+		}).unsubscribe;
+	}, [stepValues, form.formState, onChange, form]);
 
-    return (
-        <Form {...form}>
-            <form onSubmit={handleSubmit}>
-                <FormField
-                    control={form.control}
-                    name="steps"
-                    render={({ field }) => (
-                        <FormItem>
-                            <SortableList
-                                items={field.value}
-                                getKey={(step) => step.id}
-                                isHandle={false}
-                                onChange={field.onChange}
-                                renderItem={(step, index) => {
-                                    const onUpdate = (updatedStep: Step) => {
-                                        const newSteps = [...field.value];
-                                        newSteps[index] = updatedStep;
-                                        field.onChange(newSteps);
-                                    };
+	return (
+		<Form {...form}>
+			<form onSubmit={handleSubmit}>
+				<FormField
+					control={form.control}
+					name="steps"
+					render={({ field }) => (
+						<FormItem>
+							<SortableList
+								items={field.value}
+								getKey={(step) => step.id}
+								isHandle={false}
+								onChange={field.onChange}
+								renderItem={(step, index) => {
+									const onUpdate = (updatedStep: Step) => {
+										const newSteps = [...field.value];
+										newSteps[index] = updatedStep;
+										field.onChange(newSteps);
+									};
 
-                                    const onDelete = () => {
-                                        const newSteps = field.value.filter(
-                                            (_, i) => i !== index
-                                        );
-                                        field.onChange(newSteps);
-                                    };
+									const onDelete = () => {
+										const newSteps = field.value.filter((_, i) => i !== index);
+										field.onChange(newSteps);
+									};
 
-                                    return renderStep({
-                                        step,
-                                        onUpdate,
-                                        onDelete,
-                                    });
-                                }}
-                            />
+									return renderStep({
+										step,
+										onUpdate,
+										onDelete,
+									});
+								}}
+							/>
 
-                            <AddStepButton
-                                className="float-end"
-                                onAddStep={(newStep) => {
-                                    field.onChange([...field.value, newStep]);
-                                }}
-                            />
-                            <FormMessage />
-                        </FormItem>
-                    )}
-                />
-            </form>
-        </Form>
-    );
+							<AddStepButton
+								className="float-end"
+								onAddStep={(newStep) => {
+									field.onChange([...field.value, newStep]);
+								}}
+							/>
+							<FormMessage />
+						</FormItem>
+					)}
+				/>
+			</form>
+		</Form>
+	);
 }

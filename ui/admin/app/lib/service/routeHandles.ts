@@ -1,13 +1,13 @@
 type BreadcrumbItem = {
-    content?: React.ReactNode;
-    href?: string;
+	content?: React.ReactNode;
+	href?: string;
 };
 
 type BreadcrumbProps = {
-    pathname: string;
-    search: string;
+	pathname: string;
+	search: string;
 };
 
 export type RouteHandle = {
-    breadcrumb?: (props: BreadcrumbProps) => BreadcrumbItem[];
+	breadcrumb?: (props: BreadcrumbProps) => BreadcrumbItem[];
 };

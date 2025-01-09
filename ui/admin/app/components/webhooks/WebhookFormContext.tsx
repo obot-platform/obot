@@ -9,158 +9,158 @@ import { WebhookApiService } from "~/lib/service/api/webhookApiService";
 
 import { Form } from "~/components/ui/form";
 import {
-    WebhookConfirmation,
-    WebhookConfirmationProps,
+	WebhookConfirmation,
+	WebhookConfirmationProps,
 } from "~/components/webhooks/WebhookConfirmation";
 import { useAsync } from "~/hooks/useAsync";
 
 export type WebhookFormContextProps = {
-    webhook?: Webhook;
-    onContinue?: () => void;
+	webhook?: Webhook;
+	onContinue?: () => void;
 };
 
 type WebhookFormContextType = {
-    handleSubmit: ReturnType<UseFormHandleSubmit<WebhookFormType>>;
-    isLoading: boolean;
-    error?: unknown;
-    isEdit: boolean;
-    hasToken: boolean;
-    hasSecret: boolean;
+	handleSubmit: ReturnType<UseFormHandleSubmit<WebhookFormType>>;
+	isLoading: boolean;
+	error?: unknown;
+	isEdit: boolean;
+	hasToken: boolean;
+	hasSecret: boolean;
 };
 
 const Context = createContext<WebhookFormContextType | null>(null);
 
 const CreateSchema = WebhookSchema;
 const EditSchema = WebhookSchema.extend({
-    secret: z.string(),
+	secret: z.string(),
 });
 
 export function WebhookFormContextProvider({
-    children,
-    webhook,
-    onContinue,
+	children,
+	webhook,
+	onContinue,
 }: WebhookFormContextProps & { children: React.ReactNode }) {
-    const webhookId = webhook?.id;
+	const webhookId = webhook?.id;
 
-    const [webhookConfirmation, showWebhookConfirmation] =
-        useState<WebhookConfirmationProps | null>(null);
+	const [webhookConfirmation, showWebhookConfirmation] =
+		useState<WebhookConfirmationProps | null>(null);
 
-    const action = useAsync(handler);
+	const action = useAsync(handler);
 
-    const defaultValues = useMemo<WebhookFormType>(
-        () => ({
-            name: webhook?.name ?? "",
-            description: webhook?.description ?? "",
-            alias: webhook?.alias ?? "",
-            workflow: webhook?.workflow ?? "",
-            headers: webhook?.headers ?? [],
-            validationHeader: webhook?.validationHeader ?? "",
-            secret: "",
-            token: "",
-            removeToken: false,
-            removeSecret: false,
-        }),
-        [webhook]
-    );
+	const defaultValues = useMemo<WebhookFormType>(
+		() => ({
+			name: webhook?.name ?? "",
+			description: webhook?.description ?? "",
+			alias: webhook?.alias ?? "",
+			workflow: webhook?.workflow ?? "",
+			headers: webhook?.headers ?? [],
+			validationHeader: webhook?.validationHeader ?? "",
+			secret: "",
+			token: "",
+			removeToken: false,
+			removeSecret: false,
+		}),
+		[webhook]
+	);
 
-    const form = useForm<WebhookFormType>({
-        resolver: zodResolver(webhookId ? EditSchema : CreateSchema),
-        defaultValues,
-    });
+	const form = useForm<WebhookFormType>({
+		resolver: zodResolver(webhookId ? EditSchema : CreateSchema),
+		defaultValues,
+	});
 
-    useEffect(() => {
-        form.reset(defaultValues);
-    }, [defaultValues, form]);
+	useEffect(() => {
+		form.reset(defaultValues);
+	}, [defaultValues, form]);
 
-    const handleSubmit = form.handleSubmit(async (values) => {
-        const [error, data] = await action.executeAsync(webhookId, values);
+	const handleSubmit = form.handleSubmit(async (values) => {
+		const [error, data] = await action.executeAsync(webhookId, values);
 
-        if (error) {
-            toast.error(error.message);
-            return;
-        }
+		if (error) {
+			toast.error(error.message);
+			return;
+		}
 
-        WebhookApiService.getWebhooks.revalidate();
-        showWebhookConfirmation({
-            webhook: data,
-            secret: values.secret,
-            token: values.token,
-            original: webhook,
-            tokenRemoved: values.removeToken,
-            secretRemoved: !values.secret && !values.validationHeader,
-        });
-    });
+		WebhookApiService.getWebhooks.revalidate();
+		showWebhookConfirmation({
+			webhook: data,
+			secret: values.secret,
+			token: values.token,
+			original: webhook,
+			tokenRemoved: values.removeToken,
+			secretRemoved: !values.secret && !values.validationHeader,
+		});
+	});
 
-    return (
-        <Form {...form}>
-            <Context.Provider
-                value={{
-                    error: action.error,
-                    isEdit: !!webhookId,
-                    hasSecret: !!webhook?.secret,
-                    hasToken: !!webhook?.hasToken,
-                    handleSubmit,
-                    isLoading: action.isLoading,
-                }}
-            >
-                {children}
+	return (
+		<Form {...form}>
+			<Context.Provider
+				value={{
+					error: action.error,
+					isEdit: !!webhookId,
+					hasSecret: !!webhook?.secret,
+					hasToken: !!webhook?.hasToken,
+					handleSubmit,
+					isLoading: action.isLoading,
+				}}
+			>
+				{children}
 
-                {webhookConfirmation && (
-                    <WebhookConfirmation
-                        onContinue={onContinue}
-                        {...webhookConfirmation}
-                    />
-                )}
-            </Context.Provider>
-        </Form>
-    );
+				{webhookConfirmation && (
+					<WebhookConfirmation
+						onContinue={onContinue}
+						{...webhookConfirmation}
+					/>
+				)}
+			</Context.Provider>
+		</Form>
+	);
 }
 
 export function useWebhookFormContext() {
-    const form = useFormContext<WebhookFormType>();
+	const form = useFormContext<WebhookFormType>();
 
-    const helpers = useContext(Context);
+	const helpers = useContext(Context);
 
-    if (!helpers) {
-        throw new Error(
-            "useWebhookFormContext must be used within a WebhookFormContextProvider"
-        );
-    }
+	if (!helpers) {
+		throw new Error(
+			"useWebhookFormContext must be used within a WebhookFormContextProvider"
+		);
+	}
 
-    if (!form) {
-        throw new Error(
-            "useWebhookFormContext must be used within a WebhookFormContextProvider"
-        );
-    }
+	if (!form) {
+		throw new Error(
+			"useWebhookFormContext must be used within a WebhookFormContextProvider"
+		);
+	}
 
-    return { form, ...helpers };
+	return { form, ...helpers };
 }
 
 async function handleRemoveToken(threadId: string) {
-    const res = await WebhookApiService.removeWebhookToken(threadId);
-    toast.success("Token removed");
-    return res;
+	const res = await WebhookApiService.removeWebhookToken(threadId);
+	toast.success("Token removed");
+	return res;
 }
 
 async function handler(
-    threadId: string | undefined,
-    { removeToken, removeSecret, ...values }: WebhookFormType
+	threadId: string | undefined,
+	{ removeToken, removeSecret, ...values }: WebhookFormType
 ) {
-    if (threadId) {
-        const res = await WebhookApiService.updateWebhook(threadId, {
-            ...values,
-            ...(removeSecret ? { secret: "", validationHeader: "" } : {}),
-        });
-        toast.success("Webhook updated");
+	if (threadId) {
+		const res = await WebhookApiService.updateWebhook(threadId, {
+			...values,
+			...(removeSecret ? { secret: "", validationHeader: "" } : {}),
+		});
+		toast.success("Webhook updated");
 
-        if (removeToken) return await handleRemoveToken(threadId);
+		if (removeToken) return await handleRemoveToken(threadId);
 
-        return res;
-    }
+		return res;
+	}
 
-    const res = await WebhookApiService.createWebhook(values);
+	const res = await WebhookApiService.createWebhook(values);
 
-    toast.success("Webhook created");
+	toast.success("Webhook created");
 
-    return res;
+	return res;
 }

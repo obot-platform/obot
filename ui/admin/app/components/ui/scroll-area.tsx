@@ -10,120 +10,114 @@ import { ScrollToBottom } from "~/components/ui/scroll-to-bottom";
 // implement it and submit a PR.
 
 const ScrollArea = React.forwardRef<
-    React.ElementRef<typeof ScrollAreaPrimitive.Root>,
-    React.ComponentPropsWithoutRef<typeof ScrollAreaPrimitive.Root> & {
-        startScrollAt?: "bottom";
-        enableScrollStick?: "bottom";
-        enableScrollTo?: "bottom";
-        classNames?: {
-            root?: string;
-            viewport?: string;
-        };
-    }
+	React.ElementRef<typeof ScrollAreaPrimitive.Root>,
+	React.ComponentPropsWithoutRef<typeof ScrollAreaPrimitive.Root> & {
+		startScrollAt?: "bottom";
+		enableScrollStick?: "bottom";
+		enableScrollTo?: "bottom";
+		classNames?: {
+			root?: string;
+			viewport?: string;
+		};
+	}
 >((props, ref) => {
-    const {
-        className,
-        children,
-        startScrollAt,
-        enableScrollTo,
-        enableScrollStick,
-        classNames = {},
-        ...rootProps
-    } = props;
+	const {
+		className,
+		children,
+		startScrollAt,
+		enableScrollTo,
+		enableScrollStick,
+		classNames = {},
+		...rootProps
+	} = props;
 
-    const [viewportEl, setViewportEl] = React.useState<HTMLDivElement | null>(
-        null
-    );
-    const viewportRef = React.useRef<HTMLDivElement | null>(null);
-    const [shouldStickToBottom, setShouldStickToBottom] = React.useState(
-        enableScrollStick === "bottom"
-    );
+	const [viewportEl, setViewportEl] = React.useState<HTMLDivElement | null>(
+		null
+	);
+	const viewportRef = React.useRef<HTMLDivElement | null>(null);
+	const [shouldStickToBottom, setShouldStickToBottom] = React.useState(
+		enableScrollStick === "bottom"
+	);
 
-    React.useEffect(() => {
-        if (startScrollAt === "bottom") {
-            viewportRef.current?.scrollTo({
-                top: viewportRef.current.scrollHeight,
-                behavior: "instant",
-            });
-        }
-    }, [startScrollAt]);
+	React.useEffect(() => {
+		if (startScrollAt === "bottom") {
+			viewportRef.current?.scrollTo({
+				top: viewportRef.current.scrollHeight,
+				behavior: "instant",
+			});
+		}
+	}, [startScrollAt]);
 
-    React.useEffect(() => {
-        if (shouldStickToBottom && enableScrollStick === "bottom") {
-            viewportRef.current?.scrollTo({
-                top: viewportRef.current.scrollHeight,
-                behavior: "instant",
-            });
-        }
-    }, [enableScrollStick, shouldStickToBottom, children]);
+	React.useEffect(() => {
+		if (shouldStickToBottom && enableScrollStick === "bottom") {
+			viewportRef.current?.scrollTo({
+				top: viewportRef.current.scrollHeight,
+				behavior: "instant",
+			});
+		}
+	}, [enableScrollStick, shouldStickToBottom, children]);
 
-    const initRef = React.useCallback((node: HTMLDivElement | null) => {
-        setViewportEl(node);
-        viewportRef.current = node;
-    }, []);
+	const initRef = React.useCallback((node: HTMLDivElement | null) => {
+		setViewportEl(node);
+		viewportRef.current = node;
+	}, []);
 
-    return (
-        <ScrollAreaPrimitive.Root
-            ref={ref}
-            className={cn(
-                "relative overflow-hidden",
-                className,
-                classNames.root
-            )}
-            {...rootProps}
-        >
-            <ScrollAreaPrimitive.Viewport
-                className={cn(
-                    "h-full w-full rounded-[inherit] max-h-[inherit]",
-                    classNames.viewport
-                )}
-                ref={initRef}
-                onScroll={(e) =>
-                    setShouldStickToBottom(isScrolledToBottom(e.currentTarget))
-                }
-            >
-                {children}
-                {enableScrollTo === "bottom" && (
-                    <ScrollToBottom
-                        onClick={() => setShouldStickToBottom(true)}
-                        scrollContainerEl={viewportEl}
-                        disabled={shouldStickToBottom}
-                    />
-                )}
-            </ScrollAreaPrimitive.Viewport>
-            <ScrollBar />
-            <ScrollAreaPrimitive.Corner />
-        </ScrollAreaPrimitive.Root>
-    );
+	return (
+		<ScrollAreaPrimitive.Root
+			ref={ref}
+			className={cn("relative overflow-hidden", className, classNames.root)}
+			{...rootProps}
+		>
+			<ScrollAreaPrimitive.Viewport
+				className={cn(
+					"h-full max-h-[inherit] w-full rounded-[inherit]",
+					classNames.viewport
+				)}
+				ref={initRef}
+				onScroll={(e) =>
+					setShouldStickToBottom(isScrolledToBottom(e.currentTarget))
+				}
+			>
+				{children}
+				{enableScrollTo === "bottom" && (
+					<ScrollToBottom
+						onClick={() => setShouldStickToBottom(true)}
+						scrollContainerEl={viewportEl}
+						disabled={shouldStickToBottom}
+					/>
+				)}
+			</ScrollAreaPrimitive.Viewport>
+			<ScrollBar />
+			<ScrollAreaPrimitive.Corner />
+		</ScrollAreaPrimitive.Root>
+	);
 });
 ScrollArea.displayName = ScrollAreaPrimitive.Root.displayName;
 
 function isScrolledToBottom(container: HTMLDivElement) {
-    const { scrollTop, scrollHeight, clientHeight } = container;
-    return scrollHeight - scrollTop <= clientHeight;
+	const { scrollTop, scrollHeight, clientHeight } = container;
+	return scrollHeight - scrollTop <= clientHeight;
 }
 
 const ScrollBar = React.forwardRef<
-    React.ElementRef<typeof ScrollAreaPrimitive.ScrollAreaScrollbar>,
-    React.ComponentPropsWithoutRef<
-        typeof ScrollAreaPrimitive.ScrollAreaScrollbar
-    >
+	React.ElementRef<typeof ScrollAreaPrimitive.ScrollAreaScrollbar>,
+	React.ComponentPropsWithoutRef<typeof ScrollAreaPrimitive.ScrollAreaScrollbar>
 >(({ className, orientation = "vertical", ...props }, ref) => (
-    <ScrollAreaPrimitive.ScrollAreaScrollbar
-        ref={ref}
-        orientation={orientation}
-        className={cn(
-            "flex touch-none select-none transition-colors",
-            orientation === "vertical" &&
-                "h-full w-2.5 border-l border-l-transparent p-[1px]",
-            orientation === "horizontal" &&
-                "h-2.5 flex-col border-t border-t-transparent p-[1px]",
-            className
-        )}
-        {...props}
-    >
-        <ScrollAreaPrimitive.ScrollAreaThumb className="relative flex-1 rounded-full bg-border" />
-    </ScrollAreaPrimitive.ScrollAreaScrollbar>
+	<ScrollAreaPrimitive.ScrollAreaScrollbar
+		ref={ref}
+		orientation={orientation}
+		className={cn(
+			"flex touch-none select-none transition-colors",
+			orientation === "vertical" &&
+				"h-full w-2.5 border-l border-l-transparent p-[1px]",
+			orientation === "horizontal" &&
+				"h-2.5 flex-col border-t border-t-transparent p-[1px]",
+			className
+		)}
+		{...props}
+	>
+		<ScrollAreaPrimitive.ScrollAreaThumb className="relative flex-1 rounded-full bg-border" />
+	</ScrollAreaPrimitive.ScrollAreaScrollbar>
 ));
 ScrollBar.displayName = ScrollAreaPrimitive.ScrollAreaScrollbar.displayName;
 

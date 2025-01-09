@@ -6,49 +6,49 @@ import { NameDescriptionForm } from "~/components/composed/NameDescriptionForm";
 import { Button } from "~/components/ui/button";
 
 type EnvFormProps = {
-    defaultValues: RevealedEnv;
-    onSubmit: (values: RevealedEnv) => void;
-    isLoading: boolean;
+	defaultValues: RevealedEnv;
+	onSubmit: (values: RevealedEnv) => void;
+	isLoading: boolean;
 };
 
 export function EnvForm({
-    defaultValues,
-    onSubmit: updateEnv,
-    isLoading,
+	defaultValues,
+	onSubmit: updateEnv,
+	isLoading,
 }: EnvFormProps) {
-    const [state, setState] = useState(() =>
-        Object.entries(defaultValues).map(([name, description]) => ({
-            name,
-            description,
-        }))
-    );
+	const [state, setState] = useState(() =>
+		Object.entries(defaultValues).map(([name, description]) => ({
+			name,
+			description,
+		}))
+	);
 
-    const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
-        e.preventDefault();
+	const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+		e.preventDefault();
 
-        if (defaultValues) {
-            const updates = Object.fromEntries(
-                state.map(({ name, description }) => [name, description])
-            );
+		if (defaultValues) {
+			const updates = Object.fromEntries(
+				state.map(({ name, description }) => [name, description])
+			);
 
-            updateEnv(updates);
-        }
-    };
+			updateEnv(updates);
+		}
+	};
 
-    return (
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-            <NameDescriptionForm
-                defaultValues={state}
-                onChange={setState}
-                descriptionFieldProps={{
-                    type: "password",
-                    placeholder: "Value",
-                }}
-            />
+	return (
+		<form onSubmit={handleSubmit} className="flex flex-col gap-4">
+			<NameDescriptionForm
+				defaultValues={state}
+				onChange={setState}
+				descriptionFieldProps={{
+					type: "password",
+					placeholder: "Value",
+				}}
+			/>
 
-            <Button className="w-full" type="submit" loading={isLoading}>
-                Save
-            </Button>
-        </form>
-    );
+			<Button className="w-full" type="submit" loading={isLoading}>
+				Save
+			</Button>
+		</form>
+	);
 }

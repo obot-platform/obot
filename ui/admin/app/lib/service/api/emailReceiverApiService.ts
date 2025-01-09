@@ -1,86 +1,86 @@
 import {
-    CreateEmailReceiver,
-    EmailReceiver,
-    UpdateEmailReceiver,
+	CreateEmailReceiver,
+	EmailReceiver,
+	UpdateEmailReceiver,
 } from "~/lib/model/email-receivers";
 import { EntityList } from "~/lib/model/primitives";
 import { ApiRoutes, revalidateWhere } from "~/lib/routers/apiRoutes";
 import { request } from "~/lib/service/api/primitives";
 
 type EmailReceiverFilters = {
-    workflowId?: string;
+	workflowId?: string;
 };
 
 async function getEmailReceivers(filters?: EmailReceiverFilters) {
-    const { workflowId } = filters ?? {};
+	const { workflowId } = filters ?? {};
 
-    const { data } = await request<EntityList<EmailReceiver>>({
-        url: ApiRoutes.emailReceivers.getEmailReceivers().url,
-    });
+	const { data } = await request<EntityList<EmailReceiver>>({
+		url: ApiRoutes.emailReceivers.getEmailReceivers().url,
+	});
 
-    if (!workflowId) return data.items ?? [];
+	if (!workflowId) return data.items ?? [];
 
-    return data.items?.filter((item) => item.workflow === workflowId) ?? [];
+	return data.items?.filter((item) => item.workflow === workflowId) ?? [];
 }
 getEmailReceivers.key = (filters: EmailReceiverFilters = {}) => ({
-    url: ApiRoutes.emailReceivers.getEmailReceivers().path,
-    filters,
+	url: ApiRoutes.emailReceivers.getEmailReceivers().path,
+	filters,
 });
 getEmailReceivers.revalidate = () =>
-    revalidateWhere(
-        (url) => url === ApiRoutes.emailReceivers.getEmailReceivers().path
-    );
+	revalidateWhere(
+		(url) => url === ApiRoutes.emailReceivers.getEmailReceivers().path
+	);
 
 async function getEmailReceiverById(id: string) {
-    const { data } = await request<EmailReceiver>({
-        url: ApiRoutes.emailReceivers.getEmailReceiverById(id).url,
-    });
+	const { data } = await request<EmailReceiver>({
+		url: ApiRoutes.emailReceivers.getEmailReceiverById(id).url,
+	});
 
-    return data;
+	return data;
 }
 getEmailReceiverById.key = (id: Nullish<string>) => {
-    if (!id) return null;
+	if (!id) return null;
 
-    return {
-        url: ApiRoutes.emailReceivers.getEmailReceiverById(id).url,
-        emailReceiverId: id,
-    };
+	return {
+		url: ApiRoutes.emailReceivers.getEmailReceiverById(id).url,
+		emailReceiverId: id,
+	};
 };
 
 async function createEmailReceiver(emailReceiver: CreateEmailReceiver) {
-    const { data } = await request<EmailReceiver>({
-        url: ApiRoutes.emailReceivers.createEmailReceiver().url,
-        method: "POST",
-        data: emailReceiver,
-    });
+	const { data } = await request<EmailReceiver>({
+		url: ApiRoutes.emailReceivers.createEmailReceiver().url,
+		method: "POST",
+		data: emailReceiver,
+	});
 
-    return data;
+	return data;
 }
 
 async function updateEmailReceiver(
-    id: string,
-    emailReceiver: UpdateEmailReceiver
+	id: string,
+	emailReceiver: UpdateEmailReceiver
 ) {
-    const { data } = await request<EmailReceiver>({
-        url: ApiRoutes.emailReceivers.updateEmailReceiver(id).url,
-        method: "PUT",
-        data: emailReceiver,
-    });
+	const { data } = await request<EmailReceiver>({
+		url: ApiRoutes.emailReceivers.updateEmailReceiver(id).url,
+		method: "PUT",
+		data: emailReceiver,
+	});
 
-    return data;
+	return data;
 }
 
 async function deleteEmailReceiver(id: string) {
-    await request({
-        url: ApiRoutes.emailReceivers.deleteEmailReceiver(id).url,
-        method: "DELETE",
-    });
+	await request({
+		url: ApiRoutes.emailReceivers.deleteEmailReceiver(id).url,
+		method: "DELETE",
+	});
 }
 
 export const EmailReceiverApiService = {
-    getEmailReceivers,
-    getEmailReceiverById,
-    createEmailReceiver,
-    updateEmailReceiver,
-    deleteEmailReceiver,
+	getEmailReceivers,
+	getEmailReceiverById,
+	createEmailReceiver,
+	updateEmailReceiver,
+	deleteEmailReceiver,
 };

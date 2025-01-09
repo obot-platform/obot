@@ -1,8 +1,8 @@
 import { ModelAlias } from "~/lib/model/models";
 
 export type DefaultModelAliasBase = {
-    alias: ModelAlias;
-    model: string;
+	alias: ModelAlias;
+	model: string;
 };
 
 export type DefaultModelAlias = DefaultModelAliasBase;

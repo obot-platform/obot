@@ -1,11 +1,11 @@
 import { useCallback } from "react";
 import {
-    ClientLoaderFunctionArgs,
-    MetaFunction,
-    redirect,
-    useLoaderData,
-    useMatch,
-    useNavigate,
+	ClientLoaderFunctionArgs,
+	MetaFunction,
+	redirect,
+	useLoaderData,
+	useMatch,
+	useNavigate,
 } from "react-router";
 import { $path } from "safe-routes";
 import useSWR, { preload } from "swr";
@@ -20,101 +20,101 @@ import { Agent } from "~/components/agent";
 import { AgentProvider } from "~/components/agent/AgentContext";
 import { Chat, ChatProvider } from "~/components/chat";
 import {
-    ResizableHandle,
-    ResizablePanel,
-    ResizablePanelGroup,
+	ResizableHandle,
+	ResizablePanel,
+	ResizablePanelGroup,
 } from "~/components/ui/resizable";
 
 export type SearchParams = RouteQueryParams<"agentSchema">;
 
 export const clientLoader = async ({
-    params,
-    request,
+	params,
+	request,
 }: ClientLoaderFunctionArgs) => {
-    const url = new URL(request.url);
+	const url = new URL(request.url);
 
-    const routeInfo = RouteService.getRouteInfo("/agents/:agent", url, params);
+	const routeInfo = RouteService.getRouteInfo("/agents/:agent", url, params);
 
-    const { agent: agentId } = routeInfo.pathParams;
-    const { threadId, from } = routeInfo.query ?? {};
+	const { agent: agentId } = routeInfo.pathParams;
+	const { threadId, from } = routeInfo.query ?? {};
 
-    if (!agentId) {
-        throw redirect("/agents");
-    }
+	if (!agentId) {
+		throw redirect("/agents");
+	}
 
-    await preload(
-        DefaultModelAliasApiService.getAliases.key(),
-        DefaultModelAliasApiService.getAliases
-    );
+	await preload(
+		DefaultModelAliasApiService.getAliases.key(),
+		DefaultModelAliasApiService.getAliases
+	);
 
-    // preload the agent
-    const agent = await AgentService.getAgentById(agentId).catch(noop);
+	// preload the agent
+	const agent = await AgentService.getAgentById(agentId).catch(noop);
 
-    if (!agent) {
-        throw redirect("/agents");
-    }
-    return { agent, threadId, from };
+	if (!agent) {
+		throw redirect("/agents");
+	}
+	return { agent, threadId, from };
 };
 
 export default function ChatAgent() {
-    const { agent, threadId } = useLoaderData<typeof clientLoader>();
-    const navigate = useNavigate();
+	const { agent, threadId } = useLoaderData<typeof clientLoader>();
+	const navigate = useNavigate();
 
-    const updateThreadId = useCallback(
-        (newThreadId?: Nullish<string>) => {
-            navigate(
-                $path(
-                    "/agents/:agent",
-                    { agent: agent.id },
-                    newThreadId ? { threadId: newThreadId } : undefined
-                )
-            );
-        },
-        [agent, navigate]
-    );
+	const updateThreadId = useCallback(
+		(newThreadId?: Nullish<string>) => {
+			navigate(
+				$path(
+					"/agents/:agent",
+					{ agent: agent.id },
+					newThreadId ? { threadId: newThreadId } : undefined
+				)
+			);
+		},
+		[agent, navigate]
+	);
 
-    return (
-        <div className="h-full flex flex-col overflow-hidden relative">
-            <ResizablePanelGroup direction="horizontal" className="flex-auto">
-                <ResizablePanel className="">
-                    <AgentProvider agent={agent}>
-                        <Agent
-                            currentThreadId={threadId}
-                            onRefresh={updateThreadId}
-                            key={agent.id}
-                        />
-                    </AgentProvider>
-                </ResizablePanel>
-                <ResizableHandle withHandle />
-                <ResizablePanel>
-                    <ChatProvider
-                        id={agent.id}
-                        threadId={threadId}
-                        onCreateThreadId={updateThreadId}
-                    >
-                        <Chat className="bg-sidebar" />
-                    </ChatProvider>
-                </ResizablePanel>
-            </ResizablePanelGroup>
-        </div>
-    );
+	return (
+		<div className="relative flex h-full flex-col overflow-hidden">
+			<ResizablePanelGroup direction="horizontal" className="flex-auto">
+				<ResizablePanel className="">
+					<AgentProvider agent={agent}>
+						<Agent
+							currentThreadId={threadId}
+							onRefresh={updateThreadId}
+							key={agent.id}
+						/>
+					</AgentProvider>
+				</ResizablePanel>
+				<ResizableHandle withHandle />
+				<ResizablePanel>
+					<ChatProvider
+						id={agent.id}
+						threadId={threadId}
+						onCreateThreadId={updateThreadId}
+					>
+						<Chat className="bg-sidebar" />
+					</ChatProvider>
+				</ResizablePanel>
+			</ResizablePanelGroup>
+		</div>
+	);
 }
 
 const AgentBreadcrumb = () => {
-    const match = useMatch("/agents/:agent");
+	const match = useMatch("/agents/:agent");
 
-    const { data: agent } = useSWR(
-        AgentService.getAgentById.key(match?.params.agent),
-        ({ agentId }) => AgentService.getAgentById(agentId)
-    );
+	const { data: agent } = useSWR(
+		AgentService.getAgentById.key(match?.params.agent),
+		({ agentId }) => AgentService.getAgentById(agentId)
+	);
 
-    return <>{agent?.name || "New Agent"}</>;
+	return <>{agent?.name || "New Agent"}</>;
 };
 
 export const handle: RouteHandle = {
-    breadcrumb: () => [{ content: <AgentBreadcrumb /> }],
+	breadcrumb: () => [{ content: <AgentBreadcrumb /> }],
 };
 
 export const meta: MetaFunction<typeof clientLoader> = ({ data }) => {
-    return [{ title: `Agent • ${data?.agent?.name}` }];
+	return [{ title: `Agent • ${data?.agent?.name}` }];
 };

@@ -9,53 +9,52 @@ import { ThreadsService } from "~/lib/service/api/threadsService";
 import { useAsync } from "~/hooks/useAsync";
 
 function useThread(threadId?: Nullish<string>) {
-    return useSWR(ThreadsService.getThreadById.key(threadId), ({ threadId }) =>
-        ThreadsService.getThreadById(threadId)
-    );
+	return useSWR(ThreadsService.getThreadById.key(threadId), ({ threadId }) =>
+		ThreadsService.getThreadById(threadId)
+	);
 }
 
 export function useOptimisticThread(threadId?: Nullish<string>) {
-    const { data: thread, mutate } = useThread(threadId);
+	const { data: thread, mutate } = useThread(threadId);
 
-    const handleUpdateThread = useAsync(ThreadsService.updateThreadById);
+	const handleUpdateThread = useAsync(ThreadsService.updateThreadById);
 
-    const updateThread = async (updates: Partial<UpdateThread>) => {
-        if (!thread) return;
+	const updateThread = async (updates: Partial<UpdateThread>) => {
+		if (!thread) return;
 
-        const updatedThread = { ...thread, ...updates };
+		const updatedThread = { ...thread, ...updates };
 
-        // optimistic update
-        mutate((thread) => (thread ? updatedThread : thread), false);
+		// optimistic update
+		mutate((thread) => (thread ? updatedThread : thread), false);
 
-        const [error, data] = await handleUpdateThread.executeAsync(
-            thread.id,
-            updatedThread
-        );
+		const [error, data] = await handleUpdateThread.executeAsync(
+			thread.id,
+			updatedThread
+		);
 
-        if (data) return;
+		if (data) return;
 
-        if (error instanceof Error) toast.error(error.message);
+		if (error instanceof Error) toast.error(error.message);
 
-        // revert optimistic update
-        mutate(thread);
-    };
+		// revert optimistic update
+		mutate(thread);
+	};
 
-    return { thread, updateThread };
+	return { thread, updateThread };
 }
 
 export function useThreadKnowledge(threadId?: Nullish<string>) {
-    return useSWR(
-        KnowledgeFileService.getKnowledgeFiles.key("threads", threadId),
-        ({ agentId, namespace }) =>
-            KnowledgeFileService.getKnowledgeFiles(namespace, agentId)
-    );
+	return useSWR(
+		KnowledgeFileService.getKnowledgeFiles.key("threads", threadId),
+		({ agentId, namespace }) =>
+			KnowledgeFileService.getKnowledgeFiles(namespace, agentId)
+	);
 }
 
 export function useThreadAgents(threadId?: Nullish<string>) {
-    const { data: thread } = useThread(threadId);
+	const { data: thread } = useThread(threadId);
 
-    return useSWR(
-        AgentService.getAgentById.key(thread?.agentID),
-        ({ agentId }) => AgentService.getAgentById(agentId)
-    );
+	return useSWR(AgentService.getAgentById.key(thread?.agentID), ({ agentId }) =>
+		AgentService.getAgentById(agentId)
+	);
 }
