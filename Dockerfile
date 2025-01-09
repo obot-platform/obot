@@ -1,3 +1,4 @@
+# syntax=docker/dockerfile:1
 FROM cgr.dev/chainguard/wolfi-base AS base
 
 RUN apk add --no-cache go make git npm pnpm
@@ -12,6 +13,7 @@ RUN --mount=type=cache,id=pnpm,target=/root/.local/share/pnpm/store \
     make all
 
 FROM base AS tools
+ARG TOOL_REGISTRY_REPOS='github.com/obot-platform/tools'
 RUN apk add --no-cache curl python-3.13 py3.13-pip
 WORKDIR /app
 COPY . .
@@ -19,7 +21,8 @@ RUN --mount=type=cache,id=pnpm,target=/root/.local/share/pnpm/store \
     --mount=type=cache,target=/root/.cache/go-build \
     --mount=type=cache,target=/root/.cache/uv \
     --mount=type=cache,target=/root/go/pkg/mod \
-    UV_LINK_MODE=copy BIN_DIR=/bin make package-tools
+    --mount=type=secret,id=GITHUB_TOKEN,env=GITHUB_TOKEN \
+    UV_LINK_MODE=copy BIN_DIR=/bin TOOL_REGISTRY_REPOS=$TOOL_REGISTRY_REPOS make package-tools
 
 FROM cgr.dev/chainguard/postgres:latest-dev AS build-pgvector
 RUN apk add build-base git postgresql-dev
@@ -42,6 +45,7 @@ COPY --from=build-pgvector /usr/share/postgresql17/extension/vector* /usr/share/
 
 RUN apk add --no-cache git python-3.13 py3.13-pip openssh-server npm bash tini procps libreoffice docker
 COPY --chmod=0755 /tools/package-chrome.sh /
+
 RUN /package-chrome.sh && rm /package-chrome.sh
 RUN sed -E 's/^#(PermitRootLogin)no/\1yes/' /etc/ssh/sshd_config -i
 RUN ssh-keygen -A
@@ -54,13 +58,9 @@ COPY --from=bin /app/bin/obot /bin/
 
 EXPOSE 22
 # libreoffice executables
-ENV PATH=/obot-tools/venv/bin:$PATH:/usr/lib/libreoffice/program
+ENV PATH=$PATH:/usr/lib/libreoffice/program
 ENV HOME=/data
 ENV XDG_CACHE_HOME=/data/cache
-ENV GPTSCRIPT_SYSTEM_TOOLS_DIR=/obot-tools/
-ENV OBOT_SERVER_WORKSPACE_TOOL=/obot-tools/workspace-provider
-ENV OBOT_SERVER_DATASETS_TOOL=/obot-tools/datasets
-ENV OBOT_SERVER_TOOL_REGISTRY=/obot-tools
 ENV OBOT_SERVER_ENCRYPTION_CONFIG_FILE=/encryption.yaml
 ENV BAAAH_THREADINESS=20
 ENV TERM=vt100
