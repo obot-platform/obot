@@ -170,6 +170,9 @@ function WorkflowContent({ className }: WorkflowProps) {
                 </div>
 
                 <WorkflowTriggerPanel workflowId={workflow.id} />
+                <div
+                    className="h-8" // spacer
+                />
             </ScrollArea>
 
             <footer className="flex justify-between items-center p-4 gap-4 border-t text-muted-foreground">
