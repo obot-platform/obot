@@ -54,7 +54,14 @@ export function WorkflowTriggerActions({ item }: { item: WorkflowTrigger }) {
                         <DropdownMenuItem>Edit</DropdownMenuItem>
                     </Link>
 
-                    <DeleteWorkflowTrigger id={item.id} type={item.type} />
+                    <DeleteWorkflowTrigger id={item.id} type={item.type}>
+                        <DropdownMenuItem
+                            variant="destructive"
+                            onClick={(e) => e.preventDefault()}
+                        >
+                            Delete
+                        </DropdownMenuItem>
+                    </DeleteWorkflowTrigger>
                 </DropdownMenuGroup>
             </DropdownMenuContent>
         </DropdownMenu>
