@@ -124,7 +124,7 @@ export function ToolCatalog({
     function filterToolCatalogBySearch(
         toolCategories: [string, ToolCategory][]
     ) {
-        return toolCategories.reduce(
+        return toolCategories.reduce<[string, ToolCategory][]>(
             (acc, [category, categoryData]) => {
                 const matchesSearch = (str: string) =>
                     str.toLowerCase().includes(search.toLowerCase());
@@ -160,7 +160,7 @@ export function ToolCatalog({
 
                 return acc;
             },
-            [] as [string, ToolCategory][]
+            []
         );
     }
 }
