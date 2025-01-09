@@ -7,6 +7,8 @@ import (
 	"os/exec"
 	"strings"
 
+	"github.com/gptscript-ai/gptscript/pkg/input"
+	"github.com/gptscript-ai/gptscript/pkg/loader"
 	"github.com/obot-platform/obot/logger"
 )
 
@@ -17,16 +19,16 @@ type Options struct {
 
 var log = logger.Package()
 
-func Init(ctx context.Context, toolsRegistry, dsn string, opts Options) (string, []string, error) {
+func Init(ctx context.Context, toolRegistries []string, dsn string, opts Options) (string, []string, error) {
 	if err := setupKMS(ctx, opts.AWSKMSKeyARN, opts.EncryptionConfigFile); err != nil {
 		return "", nil, fmt.Errorf("failed to setup kms: %w", err)
 	}
 
 	switch {
 	case strings.HasPrefix(dsn, "sqlite://"):
-		return setupSQLite(toolsRegistry, dsn)
+		return setupSQLite(toolRegistries, dsn)
 	case strings.HasPrefix(dsn, "postgres://"):
-		return setupPostgres(toolsRegistry, dsn)
+		return setupPostgres(toolRegistries, dsn)
 	default:
 		return "", nil, fmt.Errorf("unsupported database for credentials %s", dsn)
 	}
@@ -69,13 +71,18 @@ func setupKMS(ctx context.Context, arn, configFile string) error {
 	return nil
 }
 
-func setupPostgres(toolRegistry, dsn string) (string, []string, error) {
-	return toolRegistry + "/credential-stores/postgres", []string{
+func setupPostgres(toolRegistries []string, dsn string) (string, []string, error) {
+	toolRef, err := resolveToolRef(toolRegistries, "credential-stores/postgres")
+	if err != nil {
+		return "", nil, err
+	}
+
+	return toolRef, []string{
 		"GPTSCRIPT_POSTGRES_DSN=" + dsn,
 	}, nil
 }
 
-func setupSQLite(toolRegistry, dsn string) (string, []string, error) {
+func setupSQLite(toolRegistries []string, dsn string) (string, []string, error) {
 	dbFile, ok := strings.CutPrefix(dsn, "sqlite://file:")
 	if !ok {
 		return "", nil, fmt.Errorf("invalid sqlite dsn, must start with sqlite://file: %s", dsn)
@@ -88,7 +95,33 @@ func setupSQLite(toolRegistry, dsn string) (string, []string, error) {
 
 	dbFile = strings.TrimSuffix(dbFile, ".db") + "-credentials.db"
 
-	return toolRegistry + "/credential-stores/sqlite", []string{
+	toolRef, err := resolveToolRef(toolRegistries, "credential-stores/sqlite")
+	if err != nil {
+		return "", nil, err
+	}
+
+	return toolRef, []string{
 		"GPTSCRIPT_SQLITE_FILE=" + dbFile,
 	}, nil
+}
+
+func resolveToolRef(toolRegistries []string, relToolPath string) (string, error) {
+	for _, toolRegistry := range toolRegistries {
+		if remapped := loader.Remap[toolRegistry]; remapped != "" {
+			toolRegistry = remapped
+		}
+
+		// This doesn't support registry references with revisions; e.g. `<registry>@<revision>`
+		ref := fmt.Sprintf("%s/%s", toolRegistry, relToolPath)
+		content, err := input.FromLocation(ref+"/tool.gpt", true)
+		if err != nil || content == "" {
+			continue
+		}
+
+		// Note: We could parse the content here to be extra sure the tool we're looking for exists,
+		// but this is probably good enough for now.
+		return ref, nil
+	}
+
+	return "", fmt.Errorf("%q not found in provided tool registries", relToolPath)
 }

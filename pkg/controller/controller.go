@@ -41,7 +41,7 @@ func (c *Controller) PreStart(ctx context.Context) error {
 }
 
 func (c *Controller) PostStart(ctx context.Context) error {
-	go c.toolRefHandler.PollRegistry(ctx, c.services.Router.Backend())
+	go c.toolRefHandler.PollRegistries(ctx, c.services.Router.Backend())
 	return c.toolRefHandler.EnsureOpenAIEnvCredentialAndDefaults(ctx, c.services.Router.Backend())
 }
 

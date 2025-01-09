@@ -50,7 +50,7 @@ Obot has a set of packaged tools. These tools are in the repo `github.com/obot-p
 
 1. Clone `github.com/obot-platform/tools` to your local machine.
 2. In the root directory of the tools repo on your local machine, run `make build`.
-3. Run the Obot server, either with `make dev` or in your IDE, with the `OBOT_SERVER_TOOL_REGISTRY` environment variable set to the root directory of the tools repo.
+3. Run the Obot server, either with `make dev` or in your IDE, with the `GPTSCRIPT_TOOL_REMAP` environment variable set to `github.com/obot-platform/tools=<local-tools-fork-root-directory>`; e.g. If you cloned the tools repo to the directory "above" the Obot repo, you'd use `GPTSCRIPT_TOOL_REMAP='github.com/obot-platform/tools=../tools' make dev`.
 
 Now, any time one of these tools is run, your local copy will be used.
 
