@@ -27,6 +27,9 @@ const (
 	GoogleTokenURL     = "https://oauth2.googleapis.com/token"
 
 	GitHubAuthorizeURL = "https://github.com/login/oauth/authorize"
+
+	ZoomAuthorizeURL = "https://zoom.us/oauth/authorize"
+	ZoomTokenURL     = "https://zoom.us/oauth/token"
 )
 
 var (
@@ -68,6 +71,9 @@ func ValidateAndSetDefaultsOAuthAppManifest(r *types.OAuthAppManifest, create bo
 	case types.OAuthAppTypeGitHub:
 		r.AuthURL = GitHubAuthorizeURL
 		r.TokenURL = GitHubTokenURL
+	case types.OAuthAppTypeZoom:
+		r.AuthURL = ZoomAuthorizeURL
+		r.TokenURL = ZoomTokenURL
 	case types.OAuthAppTypeSalesforce:
 		salesforceAuthorizeFragment := "/services/oauth2/authorize"
 		salesforceTokenFragment := "/services/oauth2/token"

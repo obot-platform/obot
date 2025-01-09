@@ -10,6 +10,7 @@ export const OAuthProvider = {
     Slack: "slack",
     Salesforce: "salesforce",
     Notion: "notion",
+    Zoom: "zoom",
     Custom: "custom",
 } as const;
 export type OAuthProvider = (typeof OAuthProvider)[keyof typeof OAuthProvider];
