@@ -9,3 +9,8 @@ node_modules
 .react-router/
 
 coverage-ts/
+
+# Ignore all files in .vscode except settings.json
+!.vscode
+.vscode/*
+!.vscode/settings.json
