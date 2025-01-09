@@ -115,6 +115,7 @@ export function ToolCatalog({
                         tools={categoryTools}
                         selectedTools={tools}
                         onUpdateTools={onUpdateTools}
+                        expandFor={search}
                     />
                 ))}
             </CommandList>

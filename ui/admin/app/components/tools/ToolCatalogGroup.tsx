@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { ToolCategory } from "~/lib/service/api/toolreferenceService";
 import { cn } from "~/lib/utils";
@@ -11,11 +11,13 @@ export function ToolCatalogGroup({
     tools,
     selectedTools,
     onUpdateTools,
+    expandFor,
 }: {
     category: string;
     tools: ToolCategory;
     selectedTools: string[];
     onUpdateTools: (tools: string[]) => void;
+    expandFor?: string;
 }) {
     const handleSelect = (toolId: string) => {
         if (selectedTools.includes(toolId)) {
@@ -51,6 +53,17 @@ export function ToolCatalogGroup({
         const set = new Set(tools.tools.map((tool) => tool.id));
         return selectedTools.some((tool) => set.has(tool));
     });
+
+    useEffect(() => {
+        const containsMatchingTool =
+            expandFor?.length &&
+            tools.tools.some(
+                (tool) =>
+                    tool.description?.toLowerCase().includes(expandFor) ||
+                    tool.name?.toLowerCase().includes(expandFor)
+            );
+        setExpanded(containsMatchingTool || false);
+    }, [expandFor, tools]);
 
     return (
         <CommandGroup
