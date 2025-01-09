@@ -37,7 +37,7 @@ export function Error({ error }: { error: Error }) {
                         onClick={() => navigate(0)}
                         startContent={<RefreshCw />}
                     >
-                        Try again
+                        Try Again
                     </Button>
 
                     <div className="flex items-center gap-4 w-full">
@@ -47,7 +47,7 @@ export function Error({ error }: { error: Error }) {
                             variant="secondary"
                             to="/"
                         >
-                            <HomeIcon /> Go home
+                            <HomeIcon /> Go Home
                         </Link>
 
                         <Button
@@ -56,7 +56,7 @@ export function Error({ error }: { error: Error }) {
                             onClick={() => navigate(-1)}
                             startContent={<ArrowLeft />}
                         >
-                            Go back
+                            Go Back
                         </Button>
                     </div>
                 </CardFooter>
