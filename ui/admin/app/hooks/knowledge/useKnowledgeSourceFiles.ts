@@ -9,7 +9,7 @@ import {
 	KnowledgeSourceStatus,
 } from "~/lib/model/knowledge";
 import { KnowledgeSourceApiService } from "~/lib/service/api/knowledgeSourceApiService";
-import { handlePromise } from "~/lib/service/async";
+import { handlePromise } from "~/lib/utils/handlePromise";
 
 export function useKnowledgeSourceFiles(
 	namespace: KnowledgeSourceNamespace,

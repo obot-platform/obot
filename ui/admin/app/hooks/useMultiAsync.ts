@@ -1,7 +1,7 @@
 import { useCallback, useState } from "react";
 
-import { PromiseResult, handlePromise } from "~/lib/service/async";
 import { noop } from "~/lib/utils";
+import { PromiseResult, handlePromise } from "~/lib/utils/handlePromise";
 
 type MultiConfig<TData, TParams extends unknown[]> = {
 	onSuccess?: (data: TData[], params: TParams[]) => void;
