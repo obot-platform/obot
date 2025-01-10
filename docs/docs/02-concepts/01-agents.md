@@ -38,7 +38,7 @@ Here is an example knowledge description for an HR Assistant that has documents 
 
 ### Preview Chat and Threads
 When creating an agent, you can chat with it to see how it behaves based on how you've configured it.
-You can even create access past preview threads to compare behavior as your iterate on it.
+You can even access past preview threads to compare behavior as you iterate on it.
 
 
 ### Publishing
