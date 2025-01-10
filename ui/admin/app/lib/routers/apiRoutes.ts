@@ -262,8 +262,8 @@ export const ApiRoutes = {
 		getModelProviders: () => buildUrl("/model-providers"),
 		getModelProviderById: (modelProviderKey: string) =>
 			buildUrl(`/model-providers/${modelProviderKey}`),
-        validateModelProviderById: (modelProviderKey: string) =>
-            buildUrl(`/model-providers/${modelProviderKey}/validate`),
+		validateModelProviderById: (modelProviderKey: string) =>
+			buildUrl(`/model-providers/${modelProviderKey}/validate`),
 		configureModelProviderById: (modelProviderKey: string) =>
 			buildUrl(`/model-providers/${modelProviderKey}/configure`),
 		revealModelProviderById: (modelProviderKey: string) =>
