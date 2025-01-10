@@ -1,6 +1,6 @@
 import {
 	Agent,
-	Authorization,
+	AgentAuthorization,
 	CreateAgent,
 	UpdateAgent,
 } from "~/lib/model/agents";
@@ -77,7 +77,7 @@ const revalidateAgents = () =>
 	revalidateWhere((url) => url.includes(ApiRoutes.agents.base().path));
 
 async function getAgentAuthorizations(agentId: string) {
-	const res = await request<{ items: Authorization[] }>({
+	const res = await request<{ items: AgentAuthorization[] }>({
 		url: ApiRoutes.agents.getAuthorizations(agentId).url,
 		errorMessage: "Failed to fetch agent authorizations",
 	});

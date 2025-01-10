@@ -2,7 +2,7 @@ import { UserIcon, XIcon } from "lucide-react";
 import { toast } from "sonner";
 import useSWR, { mutate } from "swr";
 
-import { Authorization } from "~/lib/model/agents";
+import { AgentAuthorization } from "~/lib/model/agents";
 import { User } from "~/lib/model/users";
 import { AgentService } from "~/lib/service/api/agentService";
 
@@ -32,7 +32,7 @@ export function UserAuthorizationSelect({
 	);
 
 	const selectedUsers = new Set(authorizations.map((a) => a.userID));
-	const allUsers = collateUsers(users, authorizations);
+	const allUsers = collateUsersOptions(users, authorizations);
 
 	const addAuthorizationToAgent = useAsync(AgentService.addAgentAuthorization, {
 		onSuccess: () => {
@@ -111,14 +111,16 @@ export function UserAuthorizationSelect({
 		);
 	}
 
-	function renderAuthorizationRow(authorization: Authorization) {
+	function renderAuthorizationRow(authorization: AgentAuthorization) {
 		return (
 			<div key={authorization.userID}>
 				<div className="flex w-full items-center justify-between gap-2 p-2">
 					<div className="flex items-center gap-2">
 						<UserIcon className="h-6 w-6" />
 						<p className="text-sm">
-							{authorization.userID === "*" ? "Everyone" : authorization.userID}
+							{authorization.userID === "*"
+								? "Everyone"
+								: (authorization.user?.email ?? authorization.userID)}
 						</p>
 					</div>
 					<Button
@@ -147,16 +149,22 @@ const sortByUserIdentifier = (
 	return aId.localeCompare(bId);
 };
 
-const collateUsers = (users: User[], authorizations: Authorization[]) => {
+const collateUsersOptions = (
+	users: User[],
+	authorizations: AgentAuthorization[]
+) => {
 	return new Map(
 		[...authorizations, ...users].map((item) => {
 			if ("userID" in item) {
 				return [
-					item.userID,
+					item.user?.email ?? item.userID,
 					{
 						id: item.userID,
 						value: item.userID,
-						name: item.userID === "*" ? "Everyone" : item.userID,
+						name:
+							item.userID === "*"
+								? "Everyone"
+								: (item.user?.email ?? item.userID),
 					},
 				];
 			}
@@ -165,7 +173,7 @@ const collateUsers = (users: User[], authorizations: Authorization[]) => {
 				item.email,
 				{
 					id: item.id,
-					value: item.email,
+					value: item.id,
 					name: item.email,
 				},
 			];
