@@ -4,16 +4,14 @@ import (
 	"crypto/sha256"
 	"fmt"
 
-	types2 "github.com/obot-platform/kinm/pkg/types"
 	"github.com/obot-platform/nah/pkg/fields"
 	"github.com/obot-platform/obot/apiclient/types"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 var (
-	_ fields.Fields        = (*KnowledgeFile)(nil)
-	_ DeleteRefs           = (*KnowledgeFile)(nil)
-	_ types2.FieldsIndexer = (*KnowledgeFile)(nil)
+	_ fields.Fields = (*KnowledgeFile)(nil)
+	_ DeleteRefs    = (*KnowledgeFile)(nil)
 )
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -78,10 +76,6 @@ func (k *KnowledgeFile) Get(field string) string {
 
 func (*KnowledgeFile) FieldNames() []string {
 	return []string{"spec.knowledgeSourceName", "spec.knowledgeSetName"}
-}
-
-func (*KnowledgeFile) IndexFields() []string {
-	return []string{"spec.knowledgeSetName"}
 }
 
 type KnowledgeFileSpec struct {
