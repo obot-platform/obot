@@ -6,24 +6,28 @@ import { cn } from "~/lib/utils";
 import { CommonModelProviderIds } from "~/components/model-providers/constants";
 
 export function ModelProviderIcon({
-    modelProvider,
-    size = "md",
+	modelProvider,
+	size = "md",
 }: {
-    modelProvider: ModelProvider;
-    size?: "md" | "lg";
+	modelProvider: ModelProvider;
+	size?: "md" | "lg";
 }) {
-    return modelProvider.icon ? (
-        <img
-            src={modelProvider.icon}
-            alt={modelProvider.name}
-            className={cn({
-                "w-6 h-6": size === "md",
-                "w-16 h-16": size === "lg",
-                "dark:invert":
-                    modelProvider.id !== CommonModelProviderIds.AZURE_OPENAI,
-            })}
-        />
-    ) : (
-        <BoxesIcon className="w-16 h-16 color-primary" />
-    );
+	const ignoreDarkModeSet = new Set([
+		CommonModelProviderIds.AZURE_OPENAI,
+		CommonModelProviderIds.DEEPSEEK,
+	]);
+
+	return modelProvider.icon ? (
+		<img
+			src={modelProvider.icon}
+			alt={modelProvider.name}
+			className={cn({
+				"h-6 w-6": size === "md",
+				"h-16 w-16": size === "lg",
+				"dark:invert": !ignoreDarkModeSet.has(modelProvider.id),
+			})}
+		/>
+	) : (
+		<BoxesIcon className="color-primary h-16 w-16" />
+	);
 }

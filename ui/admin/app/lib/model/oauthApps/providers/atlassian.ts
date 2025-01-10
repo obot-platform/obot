@@ -1,15 +1,15 @@
 import { z } from "zod";
 
 import {
-    OAuthAppSpec,
-    OAuthFormStep,
-    getOAuthLinks,
+	OAuthAppSpec,
+	OAuthFormStep,
+	getOAuthLinks,
 } from "~/lib/model/oauthApps/oauth-helpers";
 import { assetUrl } from "~/lib/utils";
 
 const schema = z.object({
-    clientID: z.string().min(1, "Client ID is required"),
-    clientSecret: z.string().min(1, "Client Secret is required"),
+	clientID: z.string().min(1, "Client ID is required"),
+	clientSecret: z.string().min(1, "Client Secret is required"),
 });
 
 const steps: OAuthFormStep<typeof schema.shape>[] = [
@@ -103,11 +103,11 @@ const steps: OAuthFormStep<typeof schema.shape>[] = [
 ];
 
 export const AtlassianOAuthApp = {
-    schema,
-    alias: "atlassian",
-    type: "atlassian",
-    displayName: "Atlassian",
-    logo: assetUrl("/assets/atlassian_logo.svg"),
-    steps: steps,
-    noGatewayIntegration: true,
+	schema,
+	alias: "atlassian",
+	type: "atlassian",
+	displayName: "Atlassian",
+	logo: assetUrl("/assets/atlassian_logo.svg"),
+	steps: steps,
+	noGatewayIntegration: true,
 } satisfies OAuthAppSpec;

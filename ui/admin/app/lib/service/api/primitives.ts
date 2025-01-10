@@ -5,90 +5,90 @@ import { AuthDisabledUsername } from "~/lib/model/auth";
 import { User } from "~/lib/model/users";
 import { ApiRoutes } from "~/lib/routers/apiRoutes";
 import {
-    BadRequestError,
-    ConflictError,
-    ForbiddenError,
-    NotFoundError,
-    UnauthorizedError,
+	BadRequestError,
+	ConflictError,
+	ForbiddenError,
+	NotFoundError,
+	UnauthorizedError,
 } from "~/lib/service/api/apiErrors";
 
 export const ResponseHeaders = {
-    ThreadId: "x-obot-thread-id",
+	ThreadId: "x-obot-thread-id",
 } as const;
 
 export const RequestHeaders = {
-    UserTimezone: "x-obot-user-timezone",
+	UserTimezone: "x-obot-user-timezone",
 } as const;
 
 const internalFetch = axios.request;
 
 interface ExtendedAxiosRequestConfig<D = unknown>
-    extends AxiosRequestConfig<D> {
-    errorMessage?: string;
-    disableTokenRefresh?: boolean;
+	extends AxiosRequestConfig<D> {
+	errorMessage?: string;
+	disableTokenRefresh?: boolean;
 }
 
 export async function request<T, R = AxiosResponse<T>, D = unknown>({
-    errorMessage: _,
-    disableTokenRefresh,
-    ...config
+	errorMessage: _,
+	disableTokenRefresh,
+	...config
 }: ExtendedAxiosRequestConfig<D>): Promise<R> {
-    // Get the browser's default timezone
-    const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-    try {
-        // Merge the existing headers with the new Timezone header
-        const headers = {
-            ...config.headers,
-            [RequestHeaders.UserTimezone]: timezone,
-        };
+	// Get the browser's default timezone
+	const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+	try {
+		// Merge the existing headers with the new Timezone header
+		const headers = {
+			...config.headers,
+			[RequestHeaders.UserTimezone]: timezone,
+		};
 
-        return await internalFetch<T, R, D>({
-            adapter: "fetch",
-            ...config,
-            headers,
-        });
-    } catch (error) {
-        if (isAxiosError(error) && error.response?.status === 400) {
-            throw new BadRequestError(error.response.data);
-        }
+		return await internalFetch<T, R, D>({
+			adapter: "fetch",
+			...config,
+			headers,
+		});
+	} catch (error) {
+		if (isAxiosError(error) && error.response?.status === 400) {
+			throw new BadRequestError(error.response.data);
+		}
 
-        if (isAxiosError(error) && error.response?.status === 401) {
-            throw new UnauthorizedError(error.response.data);
-        }
+		if (isAxiosError(error) && error.response?.status === 401) {
+			throw new UnauthorizedError(error.response.data);
+		}
 
-        if (isAxiosError(error) && error.response?.status === 403) {
-            // Tokens are automatically refreshed on GET requests
-            if (disableTokenRefresh) {
-                throw new ForbiddenError(error.response.data);
-            }
+		if (isAxiosError(error) && error.response?.status === 403) {
+			// Tokens are automatically refreshed on GET requests
+			if (disableTokenRefresh) {
+				throw new ForbiddenError(error.response.data);
+			}
 
-            console.info("Forbidden request, attempting to refresh token");
-            const { data } = await internalFetch<User>({
-                url: ApiRoutes.me().url,
-                headers: {
-                    [RequestHeaders.UserTimezone]: timezone,
-                },
-            });
+			console.info("Forbidden request, attempting to refresh token");
+			const { data } = await internalFetch<User>({
+				url: ApiRoutes.me().url,
+				headers: {
+					[RequestHeaders.UserTimezone]: timezone,
+				},
+			});
 
-            // if token is refreshed successfully, retry the request
-            if (!data?.username || data.username === AuthDisabledUsername)
-                throw new ForbiddenError(error.response.data);
+			// if token is refreshed successfully, retry the request
+			if (!data?.username || data.username === AuthDisabledUsername)
+				throw new ForbiddenError(error.response.data);
 
-            console.info("Token refreshed");
-            return request<T, R, D>({
-                ...config,
-                disableTokenRefresh: true,
-            });
-        }
+			console.info("Token refreshed");
+			return request<T, R, D>({
+				...config,
+				disableTokenRefresh: true,
+			});
+		}
 
-        if (isAxiosError(error) && error.response?.status === 404) {
-            throw new NotFoundError(error.response.data);
-        }
+		if (isAxiosError(error) && error.response?.status === 404) {
+			throw new NotFoundError(error.response.data);
+		}
 
-        if (isAxiosError(error) && error.response?.status === 409) {
-            throw new ConflictError(error.response.data);
-        }
+		if (isAxiosError(error) && error.response?.status === 409) {
+			throw new ConflictError(error.response.data);
+		}
 
-        throw error;
-    }
+		throw error;
+	}
 }

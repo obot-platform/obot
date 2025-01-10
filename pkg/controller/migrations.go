@@ -12,7 +12,7 @@ func removeOldFinalizers(req router.Request, _ router.Response) error {
 	finalizers := req.Object.GetFinalizers()
 	originalCount := len(finalizers)
 	for i := 0; i < len(finalizers); i++ {
-		if strings.HasPrefix("otto.otto8.ai/", finalizers[i]) {
+		if strings.HasPrefix(finalizers[i], "otto.otto8.ai/") {
 			finalizers = append(finalizers[:i], finalizers[i+1:]...)
 			i--
 		}

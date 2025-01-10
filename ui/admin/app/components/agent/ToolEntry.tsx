@@ -10,67 +10,67 @@ import { LoadingSpinner } from "~/components/ui/LoadingSpinner";
 import { Button } from "~/components/ui/button";
 
 export function ToolEntry({
-    tool,
-    onDelete,
-    actions,
+	tool,
+	onDelete,
+	actions,
 }: {
-    tool: string;
-    onDelete?: () => void;
-    actions?: React.ReactNode;
+	tool: string;
+	onDelete?: () => void;
+	actions?: React.ReactNode;
 }) {
-    const toolInfo = useToolReference(tool);
+	const toolInfo = useToolReference(tool);
 
-    return (
-        <div className="flex items-center space-x-2 justify-between mt-1">
-            <div className="text-sm px-3 rounded-md p-2 w-full flex items-center justify-between gap-2">
-                <div className="flex items-center gap-2">
-                    {toolInfo.icon}
+	return (
+		<div className="mt-1 flex items-center justify-between space-x-2">
+			<div className="flex w-full items-center justify-between gap-2 rounded-md p-2 px-3 text-sm">
+				<div className="flex items-center gap-2">
+					{toolInfo.icon}
 
-                    <Truncate>{toolInfo.label}</Truncate>
-                </div>
+					<Truncate>{toolInfo.label}</Truncate>
+				</div>
 
-                <div className="flex items-center gap-2">
-                    {actions}
+				<div className="flex items-center gap-2">
+					{actions}
 
-                    {onDelete && (
-                        <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => onDelete()}
-                        >
-                            <TrashIcon className="w-5 h-5" />
-                        </Button>
-                    )}
-                </div>
-            </div>
-        </div>
-    );
+					{onDelete && (
+						<Button
+							type="button"
+							variant="ghost"
+							size="icon"
+							onClick={() => onDelete()}
+						>
+							<TrashIcon className="h-5 w-5" />
+						</Button>
+					)}
+				</div>
+			</div>
+		</div>
+	);
 }
 
 export function useToolReference(tool: string) {
-    const { data: toolReference, isLoading } = useSWR(
-        ToolReferenceService.getToolReferenceById.key(tool),
-        ({ toolReferenceId }) =>
-            ToolReferenceService.getToolReferenceById(toolReferenceId),
-        { errorRetryCount: 0, revalidateIfStale: false }
-    );
+	const { data: toolReference, isLoading } = useSWR(
+		ToolReferenceService.getToolReferenceById.key(tool),
+		({ toolReferenceId }) =>
+			ToolReferenceService.getToolReferenceById(toolReferenceId),
+		{ errorRetryCount: 0, revalidateIfStale: false }
+	);
 
-    const icon = useMemo(
-        () =>
-            isLoading ? (
-                <LoadingSpinner className="w-5 h-5" />
-            ) : (
-                <ToolIcon
-                    className="w-5 h-5"
-                    name={toolReference?.name || tool}
-                    icon={toolReference?.metadata?.icon}
-                />
-            ),
-        [isLoading, toolReference, tool]
-    );
+	const icon = useMemo(
+		() =>
+			isLoading ? (
+				<LoadingSpinner className="h-5 w-5" />
+			) : (
+				<ToolIcon
+					className="h-5 w-5"
+					name={toolReference?.name || tool}
+					icon={toolReference?.metadata?.icon}
+				/>
+			),
+		[isLoading, toolReference, tool]
+	);
 
-    const label = toolReference?.name || tool;
+	const label = toolReference?.name || tool;
 
-    return { toolReference, isLoading, icon, label };
+	return { toolReference, isLoading, icon, label };
 }

@@ -4,78 +4,78 @@ import { ApiRoutes } from "~/lib/routers/apiRoutes";
 import { request } from "~/lib/service/api/primitives";
 
 async function getModels() {
-    const { data } = await request<{ items?: Model[] }>({
-        url: ApiRoutes.models.getModels().url,
-    });
+	const { data } = await request<{ items?: Model[] }>({
+		url: ApiRoutes.models.getModels().url,
+	});
 
-    return data.items ?? [];
+	return data.items ?? [];
 }
 getModels.key = () => ({ url: ApiRoutes.models.getModels().path });
 
 async function getModelById(modelId: string) {
-    const { data } = await request<Model>({
-        url: ApiRoutes.models.getModelById(modelId).url,
-    });
+	const { data } = await request<Model>({
+		url: ApiRoutes.models.getModelById(modelId).url,
+	});
 
-    return data;
+	return data;
 }
 getModelById.key = (modelId?: string) => {
-    if (!modelId) return null;
+	if (!modelId) return null;
 
-    return {
-        url: ApiRoutes.models.getModelById(modelId).path,
-        modelId,
-    };
+	return {
+		url: ApiRoutes.models.getModelById(modelId).path,
+		modelId,
+	};
 };
 
 async function getAvailableModelsByProvider(provider: string) {
-    const { data } = await request<{ data?: AvailableModel[] }>({
-        url: ApiRoutes.models.getAvailableModelsByProvider(provider).url,
-    });
+	const { data } = await request<{ data?: AvailableModel[] }>({
+		url: ApiRoutes.models.getAvailableModelsByProvider(provider).url,
+	});
 
-    return data.data ?? [];
+	return data.data ?? [];
 }
 getAvailableModelsByProvider.key = (provider?: Nullish<string>) => {
-    if (!provider) return null;
+	if (!provider) return null;
 
-    return {
-        url: ApiRoutes.models.getAvailableModelsByProvider(provider).path,
-        provider,
-    };
+	return {
+		url: ApiRoutes.models.getAvailableModelsByProvider(provider).path,
+		provider,
+	};
 };
 
 async function createModel(manifest: ModelManifest) {
-    const { data } = await request<Model>({
-        url: ApiRoutes.models.createModel().url,
-        method: "POST",
-        data: manifest,
-    });
+	const { data } = await request<Model>({
+		url: ApiRoutes.models.createModel().url,
+		method: "POST",
+		data: manifest,
+	});
 
-    return data;
+	return data;
 }
 
 async function updateModel(modelId: string, manifest: ModelManifest) {
-    const { data } = await request<Model>({
-        url: ApiRoutes.models.updateModel(modelId).url,
-        method: "PUT",
-        data: manifest,
-    });
+	const { data } = await request<Model>({
+		url: ApiRoutes.models.updateModel(modelId).url,
+		method: "PUT",
+		data: manifest,
+	});
 
-    return data;
+	return data;
 }
 
 async function deleteModel(modelId: string) {
-    await request({
-        url: ApiRoutes.models.deleteModel(modelId).url,
-        method: "DELETE",
-    });
+	await request({
+		url: ApiRoutes.models.deleteModel(modelId).url,
+		method: "DELETE",
+	});
 }
 
 export const ModelApiService = {
-    getModels,
-    getModelById,
-    getAvailableModelsByProvider,
-    createModel,
-    updateModel,
-    deleteModel,
+	getModels,
+	getModelById,
+	getAvailableModelsByProvider,
+	createModel,
+	updateModel,
+	deleteModel,
 };

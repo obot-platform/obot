@@ -21,222 +21,211 @@ import { ScrollArea } from "~/components/ui/scroll-area";
 import { useDebounce } from "~/hooks/useDebounce";
 
 type AgentProps = {
-    className?: string;
-    currentThreadId?: string | null;
-    onRefresh?: (threadId: string | null) => void;
+	className?: string;
+	currentThreadId?: string | null;
+	onRefresh?: (threadId: string | null) => void;
 };
 
 export function Agent({ className, currentThreadId, onRefresh }: AgentProps) {
-    const { agent, updateAgent, refreshAgent, isUpdating, lastUpdated, error } =
-        useAgent();
+	const { agent, updateAgent, refreshAgent, isUpdating, lastUpdated, error } =
+		useAgent();
 
-    const [agentUpdates, setAgentUpdates] = useState(agent);
-    const [loadingAgentId, setLoadingAgentId] = useState("");
+	const [agentUpdates, setAgentUpdates] = useState(agent);
+	const [loadingAgentId, setLoadingAgentId] = useState("");
 
-    useEffect(() => {
-        setAgentUpdates((prev) => {
-            if (agent.id === prev.id) {
-                return {
-                    ...prev,
-                    aliasAssigned: agent.aliasAssigned,
-                };
-            }
+	useEffect(() => {
+		setAgentUpdates((prev) => {
+			if (agent.id === prev.id) {
+				return {
+					...prev,
+					aliasAssigned: agent.aliasAssigned,
+				};
+			}
 
-            return agent;
-        });
-    }, [agent]);
+			return agent;
+		});
+	}, [agent]);
 
-    const getLoadingAgent = useSWR(
-        AgentService.getAgentById.key(loadingAgentId),
-        ({ agentId }) => AgentService.getAgentById(agentId),
-        {
-            revalidateOnFocus: false,
-            refreshInterval: 2000,
-        }
-    );
+	const getLoadingAgent = useSWR(
+		AgentService.getAgentById.key(loadingAgentId),
+		({ agentId }) => AgentService.getAgentById(agentId),
+		{
+			revalidateOnFocus: false,
+			refreshInterval: 2000,
+		}
+	);
 
-    useEffect(() => {
-        if (!loadingAgentId) return;
+	useEffect(() => {
+		if (!loadingAgentId) return;
 
-        const { isLoading, data } = getLoadingAgent;
-        if (isLoading) return;
+		const { isLoading, data } = getLoadingAgent;
+		if (isLoading) return;
 
-        if (data?.aliasAssigned) {
-            setAgentUpdates((prev) => {
-                return {
-                    ...prev,
-                    aliasAssigned: data.aliasAssigned,
-                };
-            });
-            setLoadingAgentId("");
-        }
-    }, [getLoadingAgent, loadingAgentId]);
+		if (data?.aliasAssigned) {
+			setAgentUpdates((prev) => {
+				return {
+					...prev,
+					aliasAssigned: data.aliasAssigned,
+				};
+			});
+			setLoadingAgentId("");
+		}
+	}, [getLoadingAgent, loadingAgentId]);
 
-    const partialSetAgent = useCallback(
-        (changes: Partial<typeof agent>) => {
-            const updatedAgent = { ...agent, ...agentUpdates, ...changes };
+	const partialSetAgent = useCallback(
+		(changes: Partial<typeof agent>) => {
+			const updatedAgent = { ...agent, ...agentUpdates, ...changes };
 
-            updateAgent(updatedAgent);
+			updateAgent(updatedAgent);
 
-            setAgentUpdates(updatedAgent);
+			setAgentUpdates(updatedAgent);
 
-            if (changes.alias) setLoadingAgentId(changes.alias);
-        },
-        [agentUpdates, updateAgent, agent]
-    );
+			if (changes.alias) setLoadingAgentId(changes.alias);
+		},
+		[agentUpdates, updateAgent, agent]
+	);
 
-    const debouncedSetAgentInfo = useDebounce(partialSetAgent, 1000);
+	const debouncedSetAgentInfo = useDebounce(partialSetAgent, 1000);
 
-    const handleThreadSelect = useCallback(
-        (threadId: string) => {
-            onRefresh?.(threadId);
-        },
-        [onRefresh]
-    );
+	const handleThreadSelect = useCallback(
+		(threadId: string) => {
+			onRefresh?.(threadId);
+		},
+		[onRefresh]
+	);
 
-    return (
-        <div className="h-full flex flex-col">
-            <ScrollArea className={cn("h-full", className)}>
-                <AgentPublishStatus
-                    agent={agentUpdates}
-                    onChange={partialSetAgent}
-                />
+	return (
+		<div className="flex h-full flex-col">
+			<ScrollArea className={cn("h-full", className)}>
+				<AgentPublishStatus agent={agentUpdates} onChange={partialSetAgent} />
 
-                <div className="p-4 m-4 lg:mx-6 xl:mx-8">
-                    <AgentForm
-                        agent={agentUpdates}
-                        onChange={debouncedSetAgentInfo}
-                    />
-                </div>
+				<div className="m-4 p-4 lg:mx-6 xl:mx-8">
+					<AgentForm agent={agentUpdates} onChange={debouncedSetAgentInfo} />
+				</div>
 
-                <div className="p-4 m-4 space-y-4 lg:mx-6 xl:mx-8">
-                    <h4 className="flex items-center gap-2 border-b pb-2">
-                        <WrenchIcon className="w-5 h-5" />
-                        Tools
-                    </h4>
+				<div className="m-4 space-y-4 p-4 lg:mx-6 xl:mx-8">
+					<h4 className="flex items-center gap-2 border-b pb-2">
+						<WrenchIcon className="h-5 w-5" />
+						Tools
+					</h4>
 
-                    <CardDescription>
-                        Add tools that allow the agent to perform useful actions
-                        such as searching the web, reading files, or interacting
-                        with other systems.
-                    </CardDescription>
+					<CardDescription>
+						Add tools that allow the agent to perform useful actions such as
+						searching the web, reading files, or interacting with other systems.
+					</CardDescription>
 
-                    <ToolForm
-                        agent={agentUpdates}
-                        onChange={({ tools }) =>
-                            debouncedSetAgentInfo(convertTools(tools))
-                        }
-                        renderActions={renderActions}
-                    />
-                </div>
+					<ToolForm
+						agent={agentUpdates}
+						onChange={({ tools }) => debouncedSetAgentInfo(convertTools(tools))}
+						renderActions={renderActions}
+					/>
+				</div>
 
-                <div className="p-4 m-4 space-y-4 lg:mx-6 xl:mx-8">
-                    <h4 className="flex items-center gap-2 border-b pb-2">
-                        <VariableIcon className="w-5 h-5" />
-                        Environment Variables
-                    </h4>
+				<div className="m-4 space-y-4 p-4 lg:mx-6 xl:mx-8">
+					<h4 className="flex items-center gap-2 border-b pb-2">
+						<VariableIcon className="h-5 w-5" />
+						Environment Variables
+					</h4>
 
-                    <EnvironmentVariableSection
-                        entity={agent}
-                        onUpdate={partialSetAgent}
-                        entityType="agent"
-                    />
-                </div>
+					<EnvironmentVariableSection
+						entity={agent}
+						onUpdate={partialSetAgent}
+						entityType="agent"
+					/>
+				</div>
 
-                <div className="p-4 m-4 space-y-4 lg:mx-6 xl:mx-8">
-                    <h4 className="flex items-center gap-2 border-b pb-2">
-                        <LibraryIcon className="w-6 h-6" />
-                        Knowledge
-                    </h4>
-                    <CardDescription>
-                        Provide knowledge to the agent in the form of files,
-                        website, or external links in order to give it context
-                        about various topics.
-                    </CardDescription>
-                    <AgentKnowledgePanel
-                        agentId={agent.id}
-                        agent={agent}
-                        updateAgent={debouncedSetAgentInfo}
-                        addTool={(tool) => {
-                            if (agent?.tools?.includes(tool)) return;
+				<div className="m-4 space-y-4 p-4 lg:mx-6 xl:mx-8">
+					<h4 className="flex items-center gap-2 border-b pb-2">
+						<LibraryIcon className="h-6 w-6" />
+						Knowledge
+					</h4>
+					<CardDescription>
+						Provide knowledge to the agent in the form of files, website, or
+						external links in order to give it context about various topics.
+					</CardDescription>
+					<AgentKnowledgePanel
+						agentId={agent.id}
+						agent={agent}
+						updateAgent={debouncedSetAgentInfo}
+						addTool={(tool) => {
+							if (agent?.tools?.includes(tool)) return;
 
-                            debouncedSetAgentInfo({
-                                tools: [...(agent.tools || []), tool],
-                            });
-                        }}
-                    />
-                </div>
-            </ScrollArea>
+							debouncedSetAgentInfo({
+								tools: [...(agent.tools || []), tool],
+							});
+						}}
+					/>
+				</div>
+			</ScrollArea>
 
-            <footer className="flex justify-between items-center px-8 py-4 gap-4 shadow-inner">
-                <div className="text-muted-foreground">
-                    {error ? (
-                        <p>Error saving agent</p>
-                    ) : isUpdating ? (
-                        <p>Saving...</p>
-                    ) : lastUpdated ? (
-                        <p>Saved</p>
-                    ) : (
-                        <div />
-                    )}
-                </div>
+			<footer className="flex items-center justify-between gap-4 px-8 py-4 shadow-inner">
+				<div className="text-muted-foreground">
+					{error ? (
+						<p>Error saving agent</p>
+					) : isUpdating ? (
+						<p>Saving...</p>
+					) : lastUpdated ? (
+						<p>Saved</p>
+					) : (
+						<div />
+					)}
+				</div>
 
-                <div className="flex gap-2">
-                    <PastThreads
-                        currentThreadId={currentThreadId}
-                        agentId={agent.id}
-                        onThreadSelect={handleThreadSelect}
-                    />
+				<div className="flex gap-2">
+					<PastThreads
+						currentThreadId={currentThreadId}
+						agentId={agent.id}
+						onThreadSelect={handleThreadSelect}
+					/>
 
-                    <Button
-                        variant="outline"
-                        className="flex gap-2"
-                        onClick={() => {
-                            onRefresh?.(null);
-                        }}
-                    >
-                        <PlusIcon className="w-4 h-4" />
-                        New Thread
-                    </Button>
-                </div>
-            </footer>
-        </div>
-    );
+					<Button
+						variant="outline"
+						className="flex gap-2"
+						onClick={() => {
+							onRefresh?.(null);
+						}}
+					>
+						<PlusIcon className="h-4 w-4" />
+						New Thread
+					</Button>
+				</div>
+			</footer>
+		</div>
+	);
 
-    function renderActions(tool: string) {
-        return (
-            <ToolAuthenticationStatus
-                namespace={AssistantNamespace.Agents}
-                entityId={agent.id}
-                tool={tool}
-                toolInfo={agent.toolInfo?.[tool]}
-                onUpdate={() => refreshAgent()}
-            />
-        );
-    }
+	function renderActions(tool: string) {
+		return (
+			<ToolAuthenticationStatus
+				namespace={AssistantNamespace.Agents}
+				entityId={agent.id}
+				tool={tool}
+				toolInfo={agent.toolInfo?.[tool]}
+				onUpdate={() => refreshAgent()}
+			/>
+		);
+	}
 }
 
 function convertTools(
-    tools: { tool: string; variant: "fixed" | "default" | "available" }[]
+	tools: { tool: string; variant: "fixed" | "default" | "available" }[]
 ) {
-    type ToolObj = Pick<
-        AgentType,
-        "tools" | "defaultThreadTools" | "availableThreadTools"
-    >;
+	type ToolObj = Pick<
+		AgentType,
+		"tools" | "defaultThreadTools" | "availableThreadTools"
+	>;
 
-    return tools.reduce(
-        (acc, { tool, variant }) => {
-            if (variant === "fixed") acc.tools?.push(tool);
-            else if (variant === "default") acc.defaultThreadTools?.push(tool);
-            else if (variant === "available")
-                acc.availableThreadTools?.push(tool);
+	return tools.reduce(
+		(acc, { tool, variant }) => {
+			if (variant === "fixed") acc.tools?.push(tool);
+			else if (variant === "default") acc.defaultThreadTools?.push(tool);
+			else if (variant === "available") acc.availableThreadTools?.push(tool);
 
-            return acc;
-        },
-        {
-            tools: [],
-            defaultThreadTools: [],
-            availableThreadTools: [],
-        } as ToolObj
-    );
+			return acc;
+		},
+		{
+			tools: [],
+			defaultThreadTools: [],
+			availableThreadTools: [],
+		} as ToolObj
+	);
 }

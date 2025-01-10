@@ -3,73 +3,73 @@ import { ApiRoutes, revalidateWhere } from "~/lib/routers/apiRoutes";
 import { request } from "~/lib/service/api/primitives";
 
 type CronJobFilters = {
-    workflowId?: string;
+	workflowId?: string;
 };
 
 async function getCronJobs(filters?: CronJobFilters) {
-    const { workflowId } = filters ?? {};
+	const { workflowId } = filters ?? {};
 
-    const { data } = await request<{ items: CronJob[] }>({
-        url: ApiRoutes.cronjobs.getCronJobs().url,
-    });
+	const { data } = await request<{ items: CronJob[] }>({
+		url: ApiRoutes.cronjobs.getCronJobs().url,
+	});
 
-    if (!workflowId) return data.items ?? [];
+	if (!workflowId) return data.items ?? [];
 
-    return data.items?.filter((item) => item.workflow === workflowId) ?? [];
+	return data.items?.filter((item) => item.workflow === workflowId) ?? [];
 }
 getCronJobs.key = (filters: CronJobFilters = {}) => ({
-    url: ApiRoutes.cronjobs.getCronJobs().path,
-    filters,
+	url: ApiRoutes.cronjobs.getCronJobs().path,
+	filters,
 });
 getCronJobs.revalidate = () =>
-    revalidateWhere((url) => url === ApiRoutes.cronjobs.getCronJobs().path);
+	revalidateWhere((url) => url === ApiRoutes.cronjobs.getCronJobs().path);
 
 async function getCronJobById(cronJobId: string) {
-    const res = await request<CronJob>({
-        url: ApiRoutes.cronjobs.getCronJobById(cronJobId).url,
-    });
+	const res = await request<CronJob>({
+		url: ApiRoutes.cronjobs.getCronJobById(cronJobId).url,
+	});
 
-    return res.data;
+	return res.data;
 }
 getCronJobById.key = (cronJobId: string) => ({
-    url: ApiRoutes.cronjobs.getCronJobById(cronJobId).path,
-    cronJobId,
+	url: ApiRoutes.cronjobs.getCronJobById(cronJobId).path,
+	cronJobId,
 });
 
 async function createCronJob(cronJob: CronJobBase) {
-    const res = await request<{ item: CronJob }>({
-        url: ApiRoutes.cronjobs.createCronJob().url,
-        method: "POST",
-        data: cronJob,
-        errorMessage: "Failed to create cronjob.",
-    });
+	const res = await request<{ item: CronJob }>({
+		url: ApiRoutes.cronjobs.createCronJob().url,
+		method: "POST",
+		data: cronJob,
+		errorMessage: "Failed to create cronjob.",
+	});
 
-    return res.data;
+	return res.data;
 }
 
 async function deleteCronJob(cronJobId: string) {
-    await request({
-        url: ApiRoutes.cronjobs.deleteCronJob(cronJobId).url,
-        method: "DELETE",
-        errorMessage: "Failed to delete cronjob.",
-    });
+	await request({
+		url: ApiRoutes.cronjobs.deleteCronJob(cronJobId).url,
+		method: "DELETE",
+		errorMessage: "Failed to delete cronjob.",
+	});
 }
 
 async function updateCronJob(cronJobId: string, cronJob: CronJobBase) {
-    const res = await request<{ item: CronJob }>({
-        url: ApiRoutes.cronjobs.updateCronJob(cronJobId).url,
-        method: "PUT",
-        data: cronJob,
-        errorMessage: "Failed to update cronjob.",
-    });
+	const res = await request<{ item: CronJob }>({
+		url: ApiRoutes.cronjobs.updateCronJob(cronJobId).url,
+		method: "PUT",
+		data: cronJob,
+		errorMessage: "Failed to update cronjob.",
+	});
 
-    return res.data;
+	return res.data;
 }
 
 export const CronJobApiService = {
-    getCronJobs,
-    getCronJobById,
-    createCronJob,
-    deleteCronJob,
-    updateCronJob,
+	getCronJobs,
+	getCronJobById,
+	createCronJob,
+	deleteCronJob,
+	updateCronJob,
 };

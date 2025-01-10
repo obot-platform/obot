@@ -3,23 +3,23 @@ import { useEffect, useState } from "react";
 import { cn } from "~/lib/utils";
 
 export const TypingDots = ({ className }: { className?: string }) => {
-    const [show, setShow] = useState([true]);
+	const [show, setShow] = useState([true]);
 
-    useEffect(() => {
-        if (show.length === 3) return;
+	useEffect(() => {
+		if (show.length === 3) return;
 
-        const interval = setInterval(
-            () => setShow((prevState) => [...prevState, true]),
-            200
-        );
+		const interval = setInterval(
+			() => setShow((prevState) => [...prevState, true]),
+			200
+		);
 
-        return () => clearInterval(interval);
-    }, [show]);
+		return () => clearInterval(interval);
+	}, [show]);
 
-    return (
-        <div className={cn("flex gap-2 items-center", className)}>
-            <style>
-                {`
+	return (
+		<div className={cn("flex items-center gap-2", className)}>
+			<style>
+				{`
                     .typing-dot {
                         width: 6px;
                         height: 6px;
@@ -40,11 +40,11 @@ export const TypingDots = ({ className }: { className?: string }) => {
                         }
                     }
                 `}
-            </style>
+			</style>
 
-            {show[0] && <div className="typing-dot" />}
-            {show[1] && <div className="typing-dot" />}
-            {show[2] && <div className="typing-dot" />}
-        </div>
-    );
+			{show[0] && <div className="typing-dot" />}
+			{show[1] && <div className="typing-dot" />}
+			{show[2] && <div className="typing-dot" />}
+		</div>
+	);
 };

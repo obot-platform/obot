@@ -1,277 +1,276 @@
 export const KnowledgeSourceNamespace = {
-    Agents: "agents",
-    Workflows: "workflows",
+	Agents: "agents",
+	Workflows: "workflows",
 } as const;
 export type KnowledgeSourceNamespace =
-    (typeof KnowledgeSourceNamespace)[keyof typeof KnowledgeSourceNamespace];
+	(typeof KnowledgeSourceNamespace)[keyof typeof KnowledgeSourceNamespace];
 
 export const KnowledgeFileNamespace = {
-    Threads: "threads",
-    Agents: "agents",
-    Workflows: "workflows",
+	Threads: "threads",
+	Agents: "agents",
+	Workflows: "workflows",
 } as const;
 export type KnowledgeFileNamespace =
-    (typeof KnowledgeFileNamespace)[keyof typeof KnowledgeFileNamespace];
+	(typeof KnowledgeFileNamespace)[keyof typeof KnowledgeFileNamespace];
 
 export const KnowledgeSourceType = {
-    OneDrive: "OneDrive",
-    Notion: "Notion",
-    Website: "Website",
+	OneDrive: "OneDrive",
+	Notion: "Notion",
+	Website: "Website",
 } as const;
 export type KnowledgeSourceType =
-    (typeof KnowledgeSourceType)[keyof typeof KnowledgeSourceType];
+	(typeof KnowledgeSourceType)[keyof typeof KnowledgeSourceType];
 
 export const KnowledgeFileState = {
-    Pending: "pending",
-    Ingesting: "ingesting",
-    Ingested: "ingested",
-    Error: "error",
-    Unapproved: "unapproved",
-    PendingApproval: "pending-approval",
-    Unsupported: "unsupported",
+	Pending: "pending",
+	Ingesting: "ingesting",
+	Ingested: "ingested",
+	Error: "error",
+	Unapproved: "unapproved",
+	PendingApproval: "pending-approval",
+	Unsupported: "unsupported",
 } as const;
 export type KnowledgeFileState =
-    (typeof KnowledgeFileState)[keyof typeof KnowledgeFileState];
+	(typeof KnowledgeFileState)[keyof typeof KnowledgeFileState];
 
 export const KnowledgeSourceStatus = {
-    Pending: "pending",
-    Syncing: "syncing",
-    Synced: "synced",
-    Error: "error",
+	Pending: "pending",
+	Syncing: "syncing",
+	Synced: "synced",
+	Error: "error",
 } as const;
 export type KnowledgeSourceStatus =
-    (typeof KnowledgeSourceStatus)[keyof typeof KnowledgeSourceStatus];
+	(typeof KnowledgeSourceStatus)[keyof typeof KnowledgeSourceStatus];
 
 export type KnowledgeSource = {
-    id: string;
-    name: string;
-    agentID: string;
-    deleted?: string;
-    state: KnowledgeSourceStatus;
-    syncDetails?: RemoteKnowledgeSourceState;
-    status?: string;
-    error?: string;
-    authStatus?: AuthStatus;
-    lastSyncStartTime?: string;
-    lastSyncEndTime?: string;
-    lastRunID?: string;
+	id: string;
+	name: string;
+	agentID: string;
+	deleted?: string;
+	state: KnowledgeSourceStatus;
+	syncDetails?: RemoteKnowledgeSourceState;
+	status?: string;
+	error?: string;
+	authStatus?: AuthStatus;
+	lastSyncStartTime?: string;
+	lastSyncEndTime?: string;
+	lastRunID?: string;
 } & KnowledgeSourceInput;
 
 type AuthStatus = {
-    url?: string;
-    authenticated?: boolean;
-    required?: boolean;
-    error?: string;
+	url?: string;
+	authenticated?: boolean;
+	required?: boolean;
+	error?: string;
 };
 
 export type KnowledgeSourceInput = {
-    syncSchedule?: string;
-    autoApprove?: boolean;
-    onedriveConfig?: OneDriveConfig;
-    notionConfig?: NotionConfig;
-    websiteCrawlingConfig?: WebsiteCrawlingConfig;
-    filePathPrefixInclude?: string[];
-    filePathPrefixExclude?: string[];
+	syncSchedule?: string;
+	autoApprove?: boolean;
+	onedriveConfig?: OneDriveConfig;
+	notionConfig?: NotionConfig;
+	websiteCrawlingConfig?: WebsiteCrawlingConfig;
+	filePathPrefixInclude?: string[];
+	filePathPrefixExclude?: string[];
 };
 
 type OneDriveConfig = {
-    sharedLinks?: string[];
+	sharedLinks?: string[];
 };
 
 type NotionConfig = {
-    pages?: string[];
+	pages?: string[];
 };
 
 type WebsiteCrawlingConfig = {
-    urls?: string[];
+	urls?: string[];
 };
 
 type RemoteKnowledgeSourceState = {
-    onedriveState?: OneDriveLinksConnectorState;
-    notionState?: NotionConnectorState;
-    websiteCrawlingState?: WebsiteCrawlingConnectorState;
+	onedriveState?: OneDriveLinksConnectorState;
+	notionState?: NotionConnectorState;
+	websiteCrawlingState?: WebsiteCrawlingConnectorState;
 };
 
 type OneDriveLinksConnectorState = {
-    folders?: FolderSet;
-    files?: Record<string, FileState>;
-    links?: Record<string, LinkState>;
+	folders?: FolderSet;
+	files?: Record<string, FileState>;
+	links?: Record<string, LinkState>;
 };
 
 type LinkState = {
-    name?: string;
-    isFolder?: boolean;
+	name?: string;
+	isFolder?: boolean;
 };
 
 type FileState = {
-    fileName: string;
-    folderPath?: string;
-    url?: string;
+	fileName: string;
+	folderPath?: string;
+	url?: string;
 };
 
 type NotionConnectorState = {
-    pages?: Record<string, NotionPage>;
+	pages?: Record<string, NotionPage>;
 };
 
 type NotionPage = {
-    url?: string;
-    title?: string;
-    folderPath?: string;
+	url?: string;
+	title?: string;
+	folderPath?: string;
 };
 
 type WebsiteCrawlingConnectorState = {
-    pages?: Record<string, PageDetails>;
-    scrapeJobIds?: Record<string, string>;
-    folders?: FolderSet;
+	pages?: Record<string, PageDetails>;
+	scrapeJobIds?: Record<string, string>;
+	folders?: FolderSet;
 };
 
 type PageDetails = {
-    parentURL?: string;
+	parentURL?: string;
 };
 
 type FolderSet = {
-    [key: string]: undefined;
+	[key: string]: undefined;
 };
 
 export type KnowledgeFile = {
-    id: string;
-    fileName: string;
-    state: KnowledgeFileState;
-    error?: string;
-    agentID?: string;
-    threadID?: string;
-    knowledgeSetID?: string;
-    knowledgeSourceID?: string;
-    approved?: boolean;
-    url?: string;
-    updatedAt?: string;
-    checksum?: string;
-    lastIngestionStartTime?: Date;
-    lastIngestionEndTime?: Date;
-    lastRunIDs?: string[];
-    deleted?: string;
-    sizeInBytes?: number;
+	id: string;
+	fileName: string;
+	state: KnowledgeFileState;
+	error?: string;
+	agentID?: string;
+	threadID?: string;
+	knowledgeSetID?: string;
+	knowledgeSourceID?: string;
+	approved?: boolean;
+	url?: string;
+	updatedAt?: string;
+	checksum?: string;
+	lastIngestionStartTime?: Date;
+	lastIngestionEndTime?: Date;
+	lastRunIDs?: string[];
+	deleted?: string;
+	sizeInBytes?: number;
 };
 
 export type KnowledgeFileEvent = {
-    eventType: "ADDED" | "MODIFIED" | "DELETED";
-    knowledgeFile: KnowledgeFile;
+	eventType: "ADDED" | "MODIFIED" | "DELETED";
+	knowledgeFile: KnowledgeFile;
 };
 
 export function getRemoteFileDisplayName(item: KnowledgeFile) {
-    return item.fileName;
+	return item.fileName;
 }
 
 export function getMessage(state: KnowledgeFileState, error?: string) {
-    if (state === KnowledgeFileState.Error) {
-        return error ?? "Ingestion failed";
-    }
+	if (state === KnowledgeFileState.Error) {
+		return error ?? "Ingestion failed";
+	}
 
-    if (state === KnowledgeFileState.PendingApproval) {
-        return "Pending approval, click to approve";
-    }
+	if (state === KnowledgeFileState.PendingApproval) {
+		return "Pending approval, click to approve";
+	}
 
-    return state;
+	return state;
 }
 
 export function getKnowledgeSourceType(source: KnowledgeSource) {
-    if (source.notionConfig) {
-        return KnowledgeSourceType.Notion;
-    }
+	if (source.notionConfig) {
+		return KnowledgeSourceType.Notion;
+	}
 
-    if (source.onedriveConfig) {
-        return KnowledgeSourceType.OneDrive;
-    }
+	if (source.onedriveConfig) {
+		return KnowledgeSourceType.OneDrive;
+	}
 
-    return KnowledgeSourceType.Website;
+	return KnowledgeSourceType.Website;
 }
 
 export function getKnowledgeSourceDisplayName(source: KnowledgeSource) {
-    if (source.notionConfig) {
-        return "Notion";
-    }
+	if (source.notionConfig) {
+		return "Notion";
+	}
 
-    if (source.onedriveConfig) {
-        if (
-            source.syncDetails?.onedriveState?.links &&
-            source.onedriveConfig.sharedLinks &&
-            source.onedriveConfig.sharedLinks.length > 0
-        ) {
-            return source.syncDetails?.onedriveState?.links[
-                source.onedriveConfig.sharedLinks[0]
-            ].name;
-        }
+	if (source.onedriveConfig) {
+		if (
+			source.syncDetails?.onedriveState?.links &&
+			source.onedriveConfig.sharedLinks &&
+			source.onedriveConfig.sharedLinks.length > 0
+		) {
+			return source.syncDetails?.onedriveState?.links[
+				source.onedriveConfig.sharedLinks[0]
+			].name;
+		}
 
-        return "OneDrive";
-    }
+		return "OneDrive";
+	}
 
-    if (source.websiteCrawlingConfig) {
-        if (
-            source.websiteCrawlingConfig.urls &&
-            source.websiteCrawlingConfig.urls.length > 0
-        ) {
-            return source.websiteCrawlingConfig.urls[0];
-        }
+	if (source.websiteCrawlingConfig) {
+		if (
+			source.websiteCrawlingConfig.urls &&
+			source.websiteCrawlingConfig.urls.length > 0
+		) {
+			return source.websiteCrawlingConfig.urls[0];
+		}
 
-        return "Website";
-    }
+		return "Website";
+	}
 
-    return source.name;
+	return source.name;
 }
 
 export function getToolRefForKnowledgeSource(sourceType: KnowledgeSourceType) {
-    if (sourceType === KnowledgeSourceType.OneDrive) {
-        return "onedrive-data-source";
-    }
+	if (sourceType === KnowledgeSourceType.OneDrive) {
+		return "onedrive-data-source";
+	}
 
-    if (sourceType === KnowledgeSourceType.Notion) {
-        return "notion-data-source";
-    }
+	if (sourceType === KnowledgeSourceType.Notion) {
+		return "notion-data-source";
+	}
 
-    if (sourceType === KnowledgeSourceType.Website) {
-        return "website-data-source";
-    }
+	if (sourceType === KnowledgeSourceType.Website) {
+		return "website-data-source";
+	}
 
-    return "";
+	return "";
 }
 
 export function getKnowledgeFileDisplayName(
-    file: KnowledgeFile,
-    source: KnowledgeSource
+	file: KnowledgeFile,
+	source: KnowledgeSource
 ) {
-    let displayName = file.fileName;
-    let subTitle;
-    const sourceType = getKnowledgeSourceType(source);
-    if (sourceType === KnowledgeSourceType.Notion) {
-        displayName = file.fileName.split("/").pop()!;
-        subTitle =
-            source.syncDetails?.notionState?.pages?.[file.url!]?.folderPath;
-    } else if (sourceType === KnowledgeSourceType.OneDrive) {
-        const parts = file.fileName.split("/");
-        displayName = parts.pop()!;
-        subTitle = parts.join("/");
-    } else if (sourceType === KnowledgeSourceType.Website) {
-        displayName = file.url ?? "";
-    }
-    return { displayName, subTitle };
+	let displayName = file.fileName;
+	let subTitle;
+	const sourceType = getKnowledgeSourceType(source);
+	if (sourceType === KnowledgeSourceType.Notion) {
+		displayName = file.fileName.split("/").pop()!;
+		subTitle = source.syncDetails?.notionState?.pages?.[file.url!]?.folderPath;
+	} else if (sourceType === KnowledgeSourceType.OneDrive) {
+		const parts = file.fileName.split("/");
+		displayName = parts.pop()!;
+		subTitle = parts.join("/");
+	} else if (sourceType === KnowledgeSourceType.Website) {
+		displayName = file.url ?? "";
+	}
+	return { displayName, subTitle };
 }
 
 export function getKnowledgeFilePathNameForFileTree(
-    file: KnowledgeFile,
-    source: KnowledgeSource
+	file: KnowledgeFile,
+	source: KnowledgeSource
 ) {
-    const sourceType = getKnowledgeSourceType(source);
-    if (sourceType === KnowledgeSourceType.Notion) {
-        // For Notion, we need to remove the last folder from the path as it is usually page ID which is not useful to user
-        // The reason we have ID in the path to make sure we can uniquely identify the file because file name can be same for different pages
-        const parts = file.fileName.split("/");
-        if (parts.length > 2) {
-            parts.splice(-2, 1);
-        } else if (parts.length === 2) {
-            return parts[1];
-        }
-        return parts.join("/");
-    }
+	const sourceType = getKnowledgeSourceType(source);
+	if (sourceType === KnowledgeSourceType.Notion) {
+		// For Notion, we need to remove the last folder from the path as it is usually page ID which is not useful to user
+		// The reason we have ID in the path to make sure we can uniquely identify the file because file name can be same for different pages
+		const parts = file.fileName.split("/");
+		if (parts.length > 2) {
+			parts.splice(-2, 1);
+		} else if (parts.length === 2) {
+			return parts[1];
+		}
+		return parts.join("/");
+	}
 
-    return file.fileName.replace(/^\//, "");
+	return file.fileName.replace(/^\//, "");
 }

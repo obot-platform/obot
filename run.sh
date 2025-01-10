@@ -14,8 +14,12 @@ check_postgres_active() {
   exit 1
 }
 
-mkdir -p /run/sshd
-/usr/sbin/sshd -D &
+# Only enable sshd in Render. Remove sshd entirely once we have migrated out of Render.
+if [[ -v ENABLE_SSHD ]]; then
+  mkdir -p /run/sshd
+  /usr/sbin/sshd -D &
+fi
+
 mkdir -p /data/cache
 # This is YAML
 export OBOT_SERVER_VERSIONS="$(cat <<VERSIONS

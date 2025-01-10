@@ -8,93 +8,88 @@ import { Button } from "~/components/ui/button";
 import { Textarea } from "~/components/ui/textarea";
 
 export function TemplateComponent({
-    step,
-    onUpdate,
-    onDelete,
-    className,
+	step,
+	onUpdate,
+	onDelete,
+	className,
 }: {
-    step: Step;
-    onUpdate: (updatedStep: Step) => void;
-    onDelete: () => void;
-    className?: string;
+	step: Step;
+	onUpdate: (updatedStep: Step) => void;
+	onDelete: () => void;
+	className?: string;
 }) {
-    const [isExpanded, setIsExpanded] = useState(false);
+	const [isExpanded, setIsExpanded] = useState(false);
 
-    if (!step.template) {
-        console.error("TemplateComponent received a step without a template");
-        return null;
-    }
+	if (!step.template) {
+		console.error("TemplateComponent received a step without a template");
+		return null;
+	}
 
-    const renderTemplateArgs = (template: Template) => {
-        return Object.entries(template.args).map(([key, value]) => {
-            return (
-                <div key={key} className="mb-4">
-                    <label
-                        htmlFor={key}
-                        className="block text-sm font-medium mb-1"
-                    >
-                        {key}
-                    </label>
-                    <Textarea
-                        id={key}
-                        placeholder={value}
-                        value={value}
-                        onChange={(e) => {
-                            const updatedTemplate = {
-                                ...template,
-                                args: {
-                                    ...template.args,
-                                    [key]: e.target.value,
-                                },
-                            };
-                            onUpdate({ ...step, template: updatedTemplate });
-                        }}
-                        className="bg-background"
-                    />
-                </div>
-            );
-        });
-    };
+	const renderTemplateArgs = (template: Template) => {
+		return Object.entries(template.args).map(([key, value]) => {
+			return (
+				<div key={key} className="mb-4">
+					<label htmlFor={key} className="mb-1 block text-sm font-medium">
+						{key}
+					</label>
+					<Textarea
+						id={key}
+						placeholder={value}
+						value={value}
+						onChange={(e) => {
+							const updatedTemplate = {
+								...template,
+								args: {
+									...template.args,
+									[key]: e.target.value,
+								},
+							};
+							onUpdate({ ...step, template: updatedTemplate });
+						}}
+						className="bg-background"
+					/>
+				</div>
+			);
+		});
+	};
 
-    return (
-        <div className={cn("border rounded-md", className)}>
-            <div
-                className={cn(
-                    "flex items-center p-3 bg-secondary",
-                    isExpanded ? "rounded-t-md" : "rounded-md"
-                )}
-            >
-                <Button
-                    variant="ghost"
-                    size="sm"
-                    className="p-0 w-6 h-6 mr-2"
-                    onClick={() => setIsExpanded(!isExpanded)}
-                >
-                    {isExpanded ? (
-                        <ChevronDown className="w-4 h-4" />
-                    ) : (
-                        <ChevronRight className="w-4 h-4" />
-                    )}
-                </Button>
-                <div className="flex-grow bg-background p-2 rounded-md border">
-                    {step.name}
-                </div>
-                <Button
-                    variant="destructive"
-                    size="icon"
-                    onClick={onDelete}
-                    className="ml-2"
-                >
-                    <Trash className="w-4 h-4" />
-                </Button>
-            </div>
-            {isExpanded && (
-                <div className="p-3 space-y-4 px-8">
-                    <div className="mb-4">
-                        {renderTemplateArgs(step.template)}
-                    </div>
-                </div>
-            )}
-        </div>
-    );
+	return (
+		<div className={cn("rounded-md border", className)}>
+			<div
+				className={cn(
+					"flex items-center bg-secondary p-3",
+					isExpanded ? "rounded-t-md" : "rounded-md"
+				)}
+			>
+				<Button
+					variant="ghost"
+					size="sm"
+					className="mr-2 h-6 w-6 p-0"
+					onClick={() => setIsExpanded(!isExpanded)}
+				>
+					{isExpanded ? (
+						<ChevronDown className="h-4 w-4" />
+					) : (
+						<ChevronRight className="h-4 w-4" />
+					)}
+				</Button>
+				<div className="flex-grow rounded-md border bg-background p-2">
+					{step.name}
+				</div>
+				<Button
+					variant="destructive"
+					size="icon"
+					onClick={onDelete}
+					className="ml-2"
+				>
+					<Trash className="h-4 w-4" />
+				</Button>
+			</div>
+			{isExpanded && (
+				<div className="space-y-4 p-3 px-8">
+					<div className="mb-4">{renderTemplateArgs(step.template)}</div>
+				</div>
+			)}
+		</div>
+	);
 }

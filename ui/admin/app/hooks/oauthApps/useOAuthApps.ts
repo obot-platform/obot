@@ -6,40 +6,45 @@ import { OAuthProvider } from "~/lib/model/oauthApps/oauth-helpers";
 import { OauthAppService } from "~/lib/service/api/oauthAppService";
 
 export function useOAuthAppList(config?: { revalidate?: boolean }) {
-    const { revalidate = true } = config ?? {};
+	const { revalidate = true } = config ?? {};
 
-    const { data: apps } = useSWR(
-        OauthAppService.getOauthApps.key(),
-        OauthAppService.getOauthApps,
-        { fallbackData: [], revalidateOnMount: revalidate }
-    );
+	const { data: apps } = useSWR(
+		OauthAppService.getOauthApps.key(),
+		OauthAppService.getOauthApps,
+		{
+			fallbackData: [],
+			revalidateOnMount: revalidate,
+		}
+	);
 
-    const combinedApps = useMemo(() => combinedOAuthAppInfo(apps), [apps]);
+	const combinedApps = useMemo(() => combinedOAuthAppInfo(apps), [apps]);
 
-    return combinedApps;
+	return combinedApps;
 }
 
 export function useCustomOAuthAppInfo() {
-    const { data: apps } = useSWR(
-        OauthAppService.getOauthApps.key(),
-        OauthAppService.getOauthApps,
-        { fallbackData: [] }
-    );
+	const { data: apps } = useSWR(
+		OauthAppService.getOauthApps.key(),
+		OauthAppService.getOauthApps,
+		{
+			fallbackData: [],
+		}
+	);
 
-    return apps.filter((app) => app.type === OAuthProvider.Custom);
+	return apps.filter((app) => app.type === OAuthProvider.Custom);
 }
 
 export function useOAuthAppInfo(type: OAuthProvider) {
-    const list = useOAuthAppList({ revalidate: false });
+	const list = useOAuthAppList({ revalidate: false });
 
-    const app = useMemo(
-        () => list.find((app) => app.type === type),
-        [list, type]
-    );
+	const app = useMemo(
+		() => list.find((app) => app.type === type),
+		[list, type]
+	);
 
-    if (!app) {
-        throw new Error(`OAuth app ${type} not found`);
-    }
+	if (!app) {
+		throw new Error(`OAuth app ${type} not found`);
+	}
 
-    return app;
+	return app;
 }

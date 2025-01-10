@@ -6,39 +6,39 @@ import { OAuthApp } from "~/lib/model/oauthApps";
 import { CustomOAuthAppForm } from "~/components/oauth-apps/custom/CustomOAuthAppForm";
 import { Button } from "~/components/ui/button";
 import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogTitle,
-    DialogTrigger,
+	Dialog,
+	DialogContent,
+	DialogDescription,
+	DialogTitle,
+	DialogTrigger,
 } from "~/components/ui/dialog";
 
 type EditCustomOAuthAppProps = {
-    app: OAuthApp;
+	app: OAuthApp;
 };
 
 export function EditCustomOAuthApp({ app }: EditCustomOAuthAppProps) {
-    const [isOpen, setIsOpen] = useState(false);
+	const [isOpen, setIsOpen] = useState(false);
 
-    return (
-        <Dialog open={isOpen} onOpenChange={setIsOpen}>
-            <DialogTrigger asChild>
-                <Button variant="ghost" size="icon">
-                    <PenBoxIcon />
-                </Button>
-            </DialogTrigger>
+	return (
+		<Dialog open={isOpen} onOpenChange={setIsOpen}>
+			<DialogTrigger asChild>
+				<Button variant="ghost" size="icon">
+					<PenBoxIcon />
+				</Button>
+			</DialogTrigger>
 
-            <DialogDescription hidden>Edit Custom OAuth App</DialogDescription>
+			<DialogDescription hidden>Edit Custom OAuth App</DialogDescription>
 
-            <DialogContent>
-                <DialogTitle>Edit Custom OAuth App</DialogTitle>
+			<DialogContent>
+				<DialogTitle>Edit Custom OAuth App</DialogTitle>
 
-                <CustomOAuthAppForm
-                    defaultData={app}
-                    onComplete={() => setIsOpen(false)}
-                    onCancel={() => setIsOpen(false)}
-                />
-            </DialogContent>
-        </Dialog>
-    );
+				<CustomOAuthAppForm
+					defaultData={app}
+					onComplete={() => setIsOpen(false)}
+					onCancel={() => setIsOpen(false)}
+				/>
+			</DialogContent>
+		</Dialog>
+	);
 }

@@ -8,70 +8,81 @@ import { WebhookApiService } from "~/lib/service/api/webhookApiService";
 
 import { ConfirmationDialog } from "~/components/composed/ConfirmationDialog";
 import { Button } from "~/components/ui/button";
+import { ClickableDiv } from "~/components/ui/clickable-div";
 import { useConfirmationDialog } from "~/hooks/component-helpers/useConfirmationDialog";
 import { useAsync } from "~/hooks/useAsync";
 
 type DeleteTriggerProps = {
-    type: WorkflowTriggerType;
-    id: string;
+	type: WorkflowTriggerType;
+	id: string;
+	children?: React.ReactNode;
 };
 
-export function DeleteWorkflowTrigger({ type, id }: DeleteTriggerProps) {
-    const { delete: deleteAction, revalidate, label } = getActions(type);
+export function DeleteWorkflowTrigger({
+	type,
+	id,
+	children,
+}: DeleteTriggerProps) {
+	const { delete: deleteAction, revalidate, label } = getActions(type);
 
-    const deleteTrigger = useAsync(deleteAction, {
-        onSuccess: () => {
-            toast.success(`${label} has been deleted.`);
-            revalidate();
-        },
-    });
+	const deleteTrigger = useAsync(deleteAction, {
+		onSuccess: () => {
+			toast.success(`${label} has been deleted.`);
+			revalidate();
+		},
+	});
 
-    const { interceptAsync, dialogProps } = useConfirmationDialog();
+	const { interceptAsync, dialogProps } = useConfirmationDialog();
 
-    return (
-        <>
-            <Button
-                loading={deleteTrigger.isLoading}
-                disabled={deleteTrigger.isLoading}
-                size="icon"
-                variant="ghost"
-                onClick={() =>
-                    interceptAsync(() => deleteTrigger.executeAsync(id))
-                }
-            >
-                <TrashIcon />
-            </Button>
+	const handleDelete = () =>
+		interceptAsync(() => deleteTrigger.executeAsync(id));
 
-            <ConfirmationDialog
-                {...dialogProps}
-                title={`Delete ${label}`}
-                confirmProps={{ children: "Delete", variant: "destructive" }}
-                description={`Are you sure you want to delete this ${label}? This action cannot be undone.`}
-            />
-        </>
-    );
+	return (
+		<>
+			{children ? (
+				<ClickableDiv
+					onClick={(e) => {
+						e.stopPropagation();
+						handleDelete();
+					}}
+				>
+					{children}
+				</ClickableDiv>
+			) : (
+				<Button size="icon" variant="ghost" onClick={handleDelete}>
+					<TrashIcon />
+				</Button>
+			)}
+
+			<ConfirmationDialog
+				{...dialogProps}
+				title={`Delete ${label}`}
+				confirmProps={{ children: "Delete", variant: "destructive" }}
+				description={`Are you sure you want to delete this ${label}? This action cannot be undone.`}
+			/>
+		</>
+	);
 }
 
 const getActions = (type: WorkflowTriggerType) => {
-    switch (type) {
-        case "email":
-            return {
-                delete: EmailReceiverApiService.deleteEmailReceiver,
-                revalidate:
-                    EmailReceiverApiService.getEmailReceivers.revalidate,
-                label: "Email Trigger",
-            };
-        case "schedule":
-            return {
-                delete: CronJobApiService.deleteCronJob,
-                revalidate: CronJobApiService.getCronJobs.revalidate,
-                label: "Schedule Trigger",
-            };
-        case "webhook":
-            return {
-                delete: WebhookApiService.deleteWebhook,
-                revalidate: WebhookApiService.getWebhooks.revalidate,
-                label: "Webhook Trigger",
-            };
-    }
+	switch (type) {
+		case "email":
+			return {
+				delete: EmailReceiverApiService.deleteEmailReceiver,
+				revalidate: EmailReceiverApiService.getEmailReceivers.revalidate,
+				label: "Email Trigger",
+			};
+		case "schedule":
+			return {
+				delete: CronJobApiService.deleteCronJob,
+				revalidate: CronJobApiService.getCronJobs.revalidate,
+				label: "Schedule Trigger",
+			};
+		case "webhook":
+			return {
+				delete: WebhookApiService.deleteWebhook,
+				revalidate: WebhookApiService.getWebhooks.revalidate,
+				label: "Webhook Trigger",
+			};
+	}
 };

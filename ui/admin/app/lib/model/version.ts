@@ -1,4 +1,4 @@
 export type Version = {
-    obot: string;
-    [key: string]: string;
+	obot: string;
+	[key: string]: string;
 };

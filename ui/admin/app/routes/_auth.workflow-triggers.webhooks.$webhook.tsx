@@ -1,8 +1,8 @@
 import {
-    ClientLoaderFunctionArgs,
-    MetaFunction,
-    useLoaderData,
-    useMatch,
+	ClientLoaderFunctionArgs,
+	MetaFunction,
+	useLoaderData,
+	useMatch,
 } from "react-router";
 import useSWR, { preload } from "swr";
 
@@ -13,49 +13,49 @@ import { RouteService } from "~/lib/service/routeService";
 import { WebhookForm } from "~/components/webhooks/WebhookForm";
 
 export async function clientLoader({
-    request,
-    params,
+	request,
+	params,
 }: ClientLoaderFunctionArgs) {
-    const { pathParams } = RouteService.getRouteInfo(
-        "/workflow-triggers/webhooks/:webhook",
-        new URL(request.url),
-        params
-    );
+	const { pathParams } = RouteService.getRouteInfo(
+		"/workflow-triggers/webhooks/:webhook",
+		new URL(request.url),
+		params
+	);
 
-    const webhook = await preload(
-        WebhookApiService.getWebhookById.key(pathParams.webhook),
-        () => WebhookApiService.getWebhookById(pathParams.webhook)
-    );
+	const webhook = await preload(
+		WebhookApiService.getWebhookById.key(pathParams.webhook),
+		() => WebhookApiService.getWebhookById(pathParams.webhook)
+	);
 
-    return { webhookId: pathParams.webhook, webhook };
+	return { webhookId: pathParams.webhook, webhook };
 }
 
 export default function Webhook() {
-    const { webhookId } = useLoaderData<typeof clientLoader>();
+	const { webhookId } = useLoaderData<typeof clientLoader>();
 
-    const { data: webhook } = useSWR(
-        WebhookApiService.getWebhookById.key(webhookId),
-        ({ id }) => WebhookApiService.getWebhookById(id)
-    );
+	const { data: webhook } = useSWR(
+		WebhookApiService.getWebhookById.key(webhookId),
+		({ id }) => WebhookApiService.getWebhookById(id)
+	);
 
-    return <WebhookForm webhook={webhook} />;
+	return <WebhookForm webhook={webhook} />;
 }
 
 const WebhookBreadcrumb = () => {
-    const match = useMatch("/workflow-triggers/webhooks/:webhook");
+	const match = useMatch("/workflow-triggers/webhooks/:webhook");
 
-    const { data: webhook } = useSWR(
-        WebhookApiService.getWebhookById.key(match?.params.webhook || ""),
-        ({ id }) => WebhookApiService.getWebhookById(id)
-    );
+	const { data: webhook } = useSWR(
+		WebhookApiService.getWebhookById.key(match?.params.webhook || ""),
+		({ id }) => WebhookApiService.getWebhookById(id)
+	);
 
-    return webhook?.name || webhook?.id || "Edit";
+	return webhook?.name || webhook?.id || "Edit";
 };
 
 export const handle: RouteHandle = {
-    breadcrumb: () => [{ content: <WebhookBreadcrumb /> }],
+	breadcrumb: () => [{ content: <WebhookBreadcrumb /> }],
 };
 
 export const meta: MetaFunction<typeof clientLoader> = ({ data }) => {
-    return [{ title: `Webhook • ${data?.webhook.name || data?.webhook.id}` }];
+	return [{ title: `Webhook • ${data?.webhook.name || data?.webhook.id}` }];
 };

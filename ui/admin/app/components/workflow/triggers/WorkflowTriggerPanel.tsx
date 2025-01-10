@@ -8,42 +8,40 @@ import { WorkflowScheduleTab } from "~/components/workflow/triggers/WorkflowSche
 import { WorkflowWebhookTab } from "~/components/workflow/triggers/WorkflowWebhookTab";
 
 export function WorkflowTriggerPanel({ workflowId }: { workflowId: string }) {
-    return (
-        <div className="p-4 m-4 flex flex-col gap-4">
-            <Tabs defaultValue={WorkflowTriggerType.Schedule}>
-                <div className="flex items-center justify-between">
-                    <h4 className="flex items-center gap-2">
-                        <WebhookIcon className="w-4 h-4" />
-                        Triggers
-                    </h4>
+	return (
+		<div className="m-4 flex flex-col gap-4 p-4">
+			<Tabs defaultValue={WorkflowTriggerType.Schedule}>
+				<div className="flex items-center justify-between">
+					<h4 className="flex items-center gap-2">
+						<WebhookIcon className="h-4 w-4" />
+						Triggers
+					</h4>
 
-                    <TabsList>
-                        <TabsTrigger value={WorkflowTriggerType.Schedule}>
-                            Schedule
-                        </TabsTrigger>
+					<TabsList>
+						<TabsTrigger value={WorkflowTriggerType.Schedule}>
+							Schedule
+						</TabsTrigger>
 
-                        <TabsTrigger value={WorkflowTriggerType.Email}>
-                            Email
-                        </TabsTrigger>
+						<TabsTrigger value={WorkflowTriggerType.Email}>Email</TabsTrigger>
 
-                        <TabsTrigger value={WorkflowTriggerType.Webhook}>
-                            Webhook
-                        </TabsTrigger>
-                    </TabsList>
-                </div>
+						<TabsTrigger value={WorkflowTriggerType.Webhook}>
+							Webhook
+						</TabsTrigger>
+					</TabsList>
+				</div>
 
-                <TabsContent value={WorkflowTriggerType.Schedule}>
-                    <WorkflowScheduleTab workflowId={workflowId} />
-                </TabsContent>
+				<TabsContent value={WorkflowTriggerType.Schedule}>
+					<WorkflowScheduleTab workflowId={workflowId} />
+				</TabsContent>
 
-                <TabsContent value={WorkflowTriggerType.Email}>
-                    <WorkflowEmailTab workflowId={workflowId} />
-                </TabsContent>
+				<TabsContent value={WorkflowTriggerType.Email}>
+					<WorkflowEmailTab workflowId={workflowId} />
+				</TabsContent>
 
-                <TabsContent value={WorkflowTriggerType.Webhook}>
-                    <WorkflowWebhookTab workflowId={workflowId} />
-                </TabsContent>
-            </Tabs>
-        </div>
-    );
+				<TabsContent value={WorkflowTriggerType.Webhook}>
+					<WorkflowWebhookTab workflowId={workflowId} />
+				</TabsContent>
+			</Tabs>
+		</div>
+	);
 }

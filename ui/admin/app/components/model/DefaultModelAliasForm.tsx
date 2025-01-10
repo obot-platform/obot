@@ -5,14 +5,14 @@ import useSWR from "swr";
 
 import { UpdateDefaultModelAlias } from "~/lib/model/defaultModelAliases";
 import {
-    Model,
-    ModelAlias,
-    ModelUsage,
-    filterModelsByActive,
-    filterModelsByUsage,
-    getModelAliasLabel,
-    getModelUsageFromAlias,
-    getModelUsageLabel,
+	Model,
+	ModelAlias,
+	ModelUsage,
+	filterModelsByActive,
+	filterModelsByUsage,
+	getModelAliasLabel,
+	getModelUsageFromAlias,
+	getModelUsageLabel,
 } from "~/lib/model/models";
 import { DefaultModelAliasApiService } from "~/lib/service/api/defaultModelAliasApiService";
 import { ModelApiService } from "~/lib/service/api/modelApiService";
@@ -21,325 +21,296 @@ import { ComboBox } from "~/components/composed/ComboBox";
 import { SUGGESTED_MODEL_SELECTIONS } from "~/components/model/constants";
 import { Button } from "~/components/ui/button";
 import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogHeader,
-    DialogTitle,
-    DialogTrigger,
+	Dialog,
+	DialogContent,
+	DialogDescription,
+	DialogHeader,
+	DialogTitle,
+	DialogTrigger,
 } from "~/components/ui/dialog";
 import {
-    Form,
-    FormControl,
-    FormField,
-    FormItem,
-    FormLabel,
-    FormMessage,
+	Form,
+	FormControl,
+	FormField,
+	FormItem,
+	FormLabel,
+	FormMessage,
 } from "~/components/ui/form";
 import { useAsync } from "~/hooks/useAsync";
 
 export function DefaultModelAliasForm({
-    onSuccess,
+	onSuccess,
 }: {
-    onSuccess?: () => void;
+	onSuccess?: () => void;
 }) {
-    const { data: defaultAliases } = useSWR(
-        DefaultModelAliasApiService.getAliases.key(),
-        DefaultModelAliasApiService.getAliases
-    );
+	const { data: defaultAliases } = useSWR(
+		DefaultModelAliasApiService.getAliases.key(),
+		DefaultModelAliasApiService.getAliases
+	);
 
-    const sortedDefaultAliases = useMemo(() => {
-        if (!defaultAliases) return null;
-        return Object.values(ModelAlias)
-            .map((alias) =>
-                defaultAliases.find(
-                    (defaultAlias) => defaultAlias.alias === alias
-                )
-            )
-            .filter((x) => !!x);
-    }, [defaultAliases]);
+	const sortedDefaultAliases = useMemo(() => {
+		if (!defaultAliases) return null;
+		return Object.values(ModelAlias)
+			.map((alias) =>
+				defaultAliases.find((defaultAlias) => defaultAlias.alias === alias)
+			)
+			.filter((x) => !!x);
+	}, [defaultAliases]);
 
-    const { data: models } = useSWR(
-        ModelApiService.getModels.key(),
-        ModelApiService.getModels
-    );
+	const { data: models } = useSWR(
+		ModelApiService.getModels.key(),
+		ModelApiService.getModels
+	);
 
-    const defaultAliasMap = useMemo(() => {
-        return Object.entries(SUGGESTED_MODEL_SELECTIONS).reduce(
-            (acc, [alias, modelName]) => {
-                acc[alias] = models?.find((model) => model.name === modelName);
-                return acc;
-            },
-            {} as Record<string, Model | undefined>
-        );
-    }, [models]);
+	const defaultAliasMap = useMemo(() => {
+		return Object.entries(SUGGESTED_MODEL_SELECTIONS).reduce(
+			(acc, [alias, modelName]) => {
+				acc[alias] = models?.find((model) => model.name === modelName);
+				return acc;
+			},
+			{} as Record<string, Model | undefined>
+		);
+	}, [models]);
 
-    const otherModels = useMemo(() => {
-        if (!models) return [];
+	const otherModels = useMemo(() => {
+		if (!models) return [];
 
-        return filterModelsByUsage(models, [
-            ModelUsage.Unknown,
-            ModelUsage.Other,
-        ]);
-    }, [models]);
+		return filterModelsByUsage(models, [ModelUsage.Unknown, ModelUsage.Other]);
+	}, [models]);
 
-    const update = useAsync(
-        async (updates: UpdateDefaultModelAlias[]) => {
-            await Promise.all(
-                updates.map((update) =>
-                    DefaultModelAliasApiService.updateAlias(
-                        update.alias,
-                        update
-                    )
-                )
-            );
-        },
-        {
-            onSuccess: () => {
-                toast.success("Default model aliases updated");
-                onSuccess?.();
-            },
-        }
-    );
+	const update = useAsync(
+		async (updates: UpdateDefaultModelAlias[]) => {
+			await Promise.all(
+				updates.map((update) =>
+					DefaultModelAliasApiService.updateAlias(update.alias, update)
+				)
+			);
+		},
+		{
+			onSuccess: () => {
+				toast.success("Default model aliases updated");
+				onSuccess?.();
+			},
+		}
+	);
 
-    const defaultValues = useMemo(() => {
-        return defaultAliases?.reduce(
-            (acc, alias) => {
-                // if a default model is not set, suggest the model from the SUGGESTED_MODEL_SELECTIONS
-                acc[alias.alias] =
-                    alias.model || defaultAliasMap[alias.alias]?.id || "";
+	const defaultValues = useMemo(() => {
+		return defaultAliases?.reduce(
+			(acc, alias) => {
+				// if a default model is not set, suggest the model from the SUGGESTED_MODEL_SELECTIONS
+				acc[alias.alias] =
+					alias.model || defaultAliasMap[alias.alias]?.id || "";
 
-                return acc;
-            },
-            {} as Record<string, string>
-        );
-    }, [defaultAliases, defaultAliasMap]);
+				return acc;
+			},
+			{} as Record<string, string>
+		);
+	}, [defaultAliases, defaultAliasMap]);
 
-    const form = useForm<Record<string, string>>({
-        defaultValues,
-    });
-    const { reset, watch, handleSubmit, control } = form;
+	const form = useForm<Record<string, string>>({
+		defaultValues,
+	});
+	const { reset, watch, handleSubmit, control } = form;
 
-    useEffect(() => {
-        return watch((values) => {
-            const changedItems = defaultAliases?.filter(({ alias, model }) => {
-                return values[alias] !== model;
-            });
+	useEffect(() => {
+		return watch((values) => {
+			const changedItems = defaultAliases?.filter(({ alias, model }) => {
+				return values[alias] !== model;
+			});
 
-            if (!changedItems?.length) return;
-        }).unsubscribe;
-    }, [defaultAliases, watch]);
+			if (!changedItems?.length) return;
+		}).unsubscribe;
+	}, [defaultAliases, watch]);
 
-    useEffect(() => {
-        reset(defaultValues);
-    }, [defaultValues, reset]);
+	useEffect(() => {
+		reset(defaultValues);
+	}, [defaultValues, reset]);
 
-    const handleFormSubmit = handleSubmit((values) => {
-        const updates = defaultAliases
-            ?.filter(({ alias, model }) => values[alias] !== model)
-            .map(({ alias }) => ({
-                alias,
-                model: values[alias],
-            }));
+	const handleFormSubmit = handleSubmit((values) => {
+		const updates = defaultAliases
+			?.filter(({ alias, model }) => values[alias] !== model)
+			.map(({ alias }) => ({
+				alias,
+				model: values[alias],
+			}));
 
-        update.execute(updates ?? []);
-    });
+		update.execute(updates ?? []);
+	});
 
-    return (
-        <Form {...form}>
-            <form onSubmit={handleFormSubmit} className="space-y-6">
-                {sortedDefaultAliases?.map(({ alias, model: defaultModel }) => (
-                    <FormField
-                        control={control}
-                        name={alias}
-                        key={alias}
-                        render={({ field: { ref: _, ...field } }) => {
-                            const usage =
-                                getModelUsageFromAlias(alias) ??
-                                ModelUsage.Unknown;
+	return (
+		<Form {...form}>
+			<form onSubmit={handleFormSubmit} className="space-y-6">
+				{sortedDefaultAliases?.map(({ alias, model: defaultModel }) => (
+					<FormField
+						control={control}
+						name={alias}
+						key={alias}
+						render={({ field: { ref: _, ...field } }) => {
+							const usage = getModelUsageFromAlias(alias) ?? ModelUsage.Unknown;
 
-                            const activeModelOptions = filterModelsByActive(
-                                filterModelsByUsage(models ?? [], usage)
-                            );
+							const activeModelOptions = filterModelsByActive(
+								filterModelsByUsage(models ?? [], usage)
+							);
 
-                            return (
-                                <FormItem className="flex justify-between items-center space-y-0">
-                                    <FormLabel>
-                                        {getModelAliasLabel(alias)}
-                                    </FormLabel>
+							return (
+								<FormItem className="flex items-center justify-between space-y-0">
+									<FormLabel>{getModelAliasLabel(alias)}</FormLabel>
 
-                                    <div className="flex flex-col gap-2 w-[50%]">
-                                        <FormControl>
-                                            <ComboBox
-                                                emptyLabel="No Models Available."
-                                                placeholder=""
-                                                onChange={(value) =>
-                                                    field.onChange(
-                                                        value?.id ?? ""
-                                                    )
-                                                }
-                                                options={getOptionsByUsageAndProvider(
-                                                    activeModelOptions,
-                                                    usage,
-                                                    alias
-                                                )}
-                                                renderOption={(option) =>
-                                                    renderDisplayOption(
-                                                        option,
-                                                        alias
-                                                    )
-                                                }
-                                                value={
-                                                    field.value
-                                                        ? models?.find(
-                                                              (m) =>
-                                                                  m.id ===
-                                                                  field.value
-                                                          )
-                                                        : models?.find(
-                                                              (m) =>
-                                                                  m.name ===
-                                                                  defaultModel
-                                                          )
-                                                }
-                                            />
-                                        </FormControl>
+									<div className="flex w-[50%] flex-col gap-2">
+										<FormControl>
+											<ComboBox
+												emptyLabel="No Models Available."
+												placeholder=""
+												onChange={(value) => field.onChange(value?.id ?? "")}
+												options={getOptionsByUsageAndProvider(
+													activeModelOptions,
+													usage,
+													alias
+												)}
+												renderOption={(option) =>
+													renderDisplayOption(option, alias)
+												}
+												value={
+													field.value
+														? models?.find((m) => m.id === field.value)
+														: models?.find((m) => m.name === defaultModel)
+												}
+											/>
+										</FormControl>
 
-                                        <FormMessage />
-                                    </div>
-                                </FormItem>
-                            );
-                        }}
-                    />
-                ))}
+										<FormMessage />
+									</div>
+								</FormItem>
+							);
+						}}
+					/>
+				))}
 
-                <Button
-                    type="submit"
-                    className="w-full"
-                    disabled={update.isLoading}
-                    loading={update.isLoading}
-                >
-                    Save Changes
-                </Button>
-            </form>
-        </Form>
-    );
+				<Button
+					type="submit"
+					className="w-full"
+					disabled={update.isLoading}
+					loading={update.isLoading}
+				>
+					Save Changes
+				</Button>
+			</form>
+		</Form>
+	);
 
-    function renderDisplayOption(option: Model, alias: ModelAlias) {
-        const suggestion = alias && SUGGESTED_MODEL_SELECTIONS[alias];
+	function renderDisplayOption(option: Model, alias: ModelAlias) {
+		const suggestion = alias && SUGGESTED_MODEL_SELECTIONS[alias];
 
-        return (
-            <span>
-                {option.name}{" "}
-                {suggestion === option.name && (
-                    <span className="text-muted-foreground">(Suggested)</span>
-                )}
-            </span>
-        );
-    }
+		return (
+			<span>
+				{option.name}{" "}
+				{suggestion === option.name && (
+					<span className="text-muted-foreground">(Suggested)</span>
+				)}
+			</span>
+		);
+	}
 
-    function getOptionsByUsageAndProvider(
-        modelOptions: Model[] | undefined,
-        usage: ModelUsage,
-        aliasFor: ModelAlias
-    ) {
-        if (!modelOptions) return [];
+	function getOptionsByUsageAndProvider(
+		modelOptions: Model[] | undefined,
+		usage: ModelUsage,
+		aliasFor: ModelAlias
+	) {
+		if (!modelOptions) return [];
 
-        const suggested = aliasFor && SUGGESTED_MODEL_SELECTIONS[aliasFor];
-        const usageGroupName = getModelUsageLabel(usage);
-        const usageModelProviderGroups = getModelOptionsByModelProvider(
-            modelOptions,
-            suggested ? [suggested] : []
-        );
+		const suggested = aliasFor && SUGGESTED_MODEL_SELECTIONS[aliasFor];
+		const usageGroupName = getModelUsageLabel(usage);
+		const usageModelProviderGroups = getModelOptionsByModelProvider(
+			modelOptions,
+			suggested ? [suggested] : []
+		);
 
-        const otherModelProviderGroups =
-            getModelOptionsByModelProvider(otherModels);
-        const usageGroup = {
-            heading: usageGroupName,
-            value: usageModelProviderGroups,
-        };
+		const otherModelProviderGroups =
+			getModelOptionsByModelProvider(otherModels);
+		const usageGroup = {
+			heading: usageGroupName,
+			value: usageModelProviderGroups,
+		};
 
-        if (
-            usageModelProviderGroups.length === 0 &&
-            otherModelProviderGroups.length === 0
-        ) {
-            return [];
-        }
+		if (
+			usageModelProviderGroups.length === 0 &&
+			otherModelProviderGroups.length === 0
+		) {
+			return [];
+		}
 
-        return otherModelProviderGroups.length > 0
-            ? [
-                  usageGroup,
-                  {
-                      heading: "Other",
-                      value: otherModelProviderGroups,
-                  },
-              ]
-            : [usageGroup];
-    }
+		return otherModelProviderGroups.length > 0
+			? [
+					usageGroup,
+					{
+						heading: "Other",
+						value: otherModelProviderGroups,
+					},
+				]
+			: [usageGroup];
+	}
 }
 
 export function DefaultModelAliasFormDialog({
-    disabled,
+	disabled,
 }: {
-    disabled?: boolean;
+	disabled?: boolean;
 }) {
-    const [open, setOpen] = useState(false);
+	const [open, setOpen] = useState(false);
 
-    return (
-        <Dialog open={open} onOpenChange={setOpen}>
-            <DialogTrigger asChild>
-                <Button disabled={disabled}>Set Default Models</Button>
-            </DialogTrigger>
+	return (
+		<Dialog open={open} onOpenChange={setOpen}>
+			<DialogTrigger asChild>
+				<Button disabled={disabled}>Set Default Models</Button>
+			</DialogTrigger>
 
-            <DialogContent className="max-w-2xl">
-                <DialogHeader>
-                    <DialogTitle>Default Model Aliases</DialogTitle>
-                </DialogHeader>
+			<DialogContent className="max-w-2xl">
+				<DialogHeader>
+					<DialogTitle>Default Model Aliases</DialogTitle>
+				</DialogHeader>
 
-                <DialogDescription>
-                    When no model is specified, a default model is used for
-                    creating a new agent, workflow, or working with some tools,
-                    etc. Select your default models for the usage types below.
-                </DialogDescription>
+				<DialogDescription>
+					When no model is specified, a default model is used for creating a new
+					agent, workflow, or working with some tools, etc. Select your default
+					models for the usage types below.
+				</DialogDescription>
 
-                <DefaultModelAliasForm onSuccess={() => setOpen(false)} />
-            </DialogContent>
-        </Dialog>
-    );
+				<DefaultModelAliasForm onSuccess={() => setOpen(false)} />
+			</DialogContent>
+		</Dialog>
+	);
 }
 
 export function getModelOptionsByModelProvider(
-    models: Model[],
-    suggestions?: string[]
+	models: Model[],
+	suggestions?: string[]
 ) {
-    const byModelProviderGroups = filterModelsByActive(models).reduce(
-        (acc, model) => {
-            acc[model.modelProvider] = acc[model.modelProvider] || [];
-            acc[model.modelProvider].push(model);
-            return acc;
-        },
-        {} as Record<string, Model[]>
-    );
+	const byModelProviderGroups = filterModelsByActive(models).reduce(
+		(acc, model) => {
+			acc[model.modelProvider] = acc[model.modelProvider] || [];
+			acc[model.modelProvider].push(model);
+			return acc;
+		},
+		{} as Record<string, Model[]>
+	);
 
-    return Object.entries(byModelProviderGroups).map(
-        ([modelProvider, models]) => {
-            return {
-                heading: modelProvider,
-                value: models.sort((a, b) => {
-                    // First compare by suggestion status if suggestions are provided
-                    const aIsSuggested =
-                        a.name && suggestions?.includes(a.name);
-                    const bIsSuggested =
-                        b.name && suggestions?.includes(b.name);
+	return Object.entries(byModelProviderGroups).map(
+		([modelProvider, models]) => {
+			return {
+				heading: modelProvider,
+				value: models.sort((a, b) => {
+					// First compare by suggestion status if suggestions are provided
+					const aIsSuggested = a.name && suggestions?.includes(a.name);
+					const bIsSuggested = b.name && suggestions?.includes(b.name);
 
-                    if (aIsSuggested !== bIsSuggested) {
-                        return aIsSuggested ? -1 : 1;
-                    }
+					if (aIsSuggested !== bIsSuggested) {
+						return aIsSuggested ? -1 : 1;
+					}
 
-                    // If suggestion status is the same, sort alphabetically
-                    return (a.name ?? "").localeCompare(b.name ?? "");
-                }),
-            };
-        }
-    );
+					// If suggestion status is the same, sort alphabetically
+					return (a.name ?? "").localeCompare(b.name ?? "");
+				}),
+			};
+		}
+	);
 }
