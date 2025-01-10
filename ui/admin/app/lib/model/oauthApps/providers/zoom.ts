@@ -23,6 +23,7 @@ const scopes = [
     "meeting:update:meeting",
     "meeting:write:meeting",
     "meeting:read:list_meetings",
+    "meeting:read:past_meeting",
     "cloud_recording:read:list_recording_files",
     "cloud_recording:read:list_user_recordings",
 ];
