@@ -1,4 +1,4 @@
-import { UserIcon, XIcon } from "lucide-react";
+import { UserIcon, UsersIcon, XIcon } from "lucide-react";
 import { toast } from "sonner";
 import useSWR, { mutate } from "swr";
 
@@ -7,6 +7,7 @@ import { User } from "~/lib/model/users";
 import { AgentService } from "~/lib/service/api/agentService";
 
 import { ComboBox } from "~/components/composed/ComboBox";
+import { Avatar, AvatarFallback, AvatarImage } from "~/components/ui/avatar";
 import { Button } from "~/components/ui/button";
 import { Checkbox } from "~/components/ui/checkbox";
 import { ScrollArea } from "~/components/ui/scroll-area";
@@ -70,6 +71,11 @@ export function UserAuthorizationSelect({
 		removeAuthorizationFromAgent.executeAsync(agentId, userID);
 	};
 
+	const validateCreate = (str: string) => {
+		const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+		return emailRegex.test(str);
+	};
+
 	// add Everyone option if it's not already in the list
 	const options = (
 		allUsers.has("*")
@@ -85,12 +91,14 @@ export function UserAuthorizationSelect({
 		<div className="flex flex-col gap-2">
 			<ComboBox
 				allowCreate
+				closeOnSelect={false}
 				emptyLabel="No Users Found."
 				placeholder="Select or Add Users..."
 				onChange={handleChange}
 				onCreate={handleCreate}
 				options={options}
 				renderOption={renderOption}
+				validateCreate={validateCreate}
 				value={null}
 			/>
 			<Separator />
@@ -116,7 +124,18 @@ export function UserAuthorizationSelect({
 			<div key={authorization.userID}>
 				<div className="flex w-full items-center justify-between gap-2 p-2">
 					<div className="flex items-center gap-2">
-						<UserIcon className="h-6 w-6" />
+						{authorization.userID === "*" ? (
+							<UsersIcon className="h-4 w-4" />
+						) : authorization.user ? (
+							<Avatar className="h-4 w-4">
+								<AvatarImage src={authorization.user.iconURL} />
+								<AvatarFallback>
+									<UserIcon />
+								</AvatarFallback>
+							</Avatar>
+						) : (
+							<UserIcon className="h-4 w-4" />
+						)}
 						<p className="text-sm">
 							{authorization.userID === "*"
 								? "Everyone"

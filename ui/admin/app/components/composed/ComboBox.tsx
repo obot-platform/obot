@@ -36,8 +36,10 @@ type ComboBoxProps<T extends BaseOption> = {
 	onChange: (option: T | null) => void;
 	onCreate?: (value: string) => void;
 	options: (T | GroupedOption<T>)[];
+	closeOnSelect?: boolean;
 	placeholder?: string;
 	renderOption?: (option: T) => ReactNode;
+	validateCreate?: (value: string) => boolean;
 	value?: T | null;
 };
 
@@ -115,9 +117,11 @@ function ComboBoxList<T extends BaseOption>({
 	options,
 	setOpen,
 	renderOption,
+	validateCreate,
 	value,
 	placeholder = "Filter...",
 	emptyLabel = "No results found.",
+	closeOnSelect = true,
 }: { setOpen: (open: boolean) => void } & ComboBoxProps<T>) {
 	const [filteredOptions, setFilteredOptions] =
 		useState<typeof options>(options);
@@ -179,7 +183,7 @@ function ComboBoxList<T extends BaseOption>({
 						<CommandItem
 							onSelect={() => {
 								onChange(null);
-								setOpen(false);
+								if (closeOnSelect) setOpen(false);
 							}}
 						>
 							{clearLabel ?? "Clear Selection"}
@@ -193,6 +197,7 @@ function ComboBoxList<T extends BaseOption>({
 								onCreate?.(savedValue);
 								setOpen(false);
 							}}
+							disabled={validateCreate ? !validateCreate(savedValue) : false}
 						>
 							Add &quot;{savedValue}&quot;
 						</CommandItem>
@@ -226,7 +231,7 @@ function ComboBoxList<T extends BaseOption>({
 				value={option.name}
 				onSelect={() => {
 					onChange(option);
-					setOpen(false);
+					if (closeOnSelect) setOpen(false);
 				}}
 				className="justify-between"
 			>
