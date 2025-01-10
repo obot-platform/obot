@@ -33,14 +33,20 @@ function shallowishCompare<T>(a: T, b: T) {
 	if (a === b) return true;
 
 	if (Array.isArray(a) && Array.isArray(b)) {
-		return a.every((value, index) => value === b[index]);
+		return (
+			a.length === b.length && a.every((value, index) => value === b[index])
+		);
 	}
 
 	if (typeof a === "object" && typeof b === "object") {
 		if (a === null || b === null) return false;
 
-		return Object.keys(a).every(
-			(key) => a[key as keyof T] === b[key as keyof T]
+		const aKeys = Object.keys(a);
+		const bKeys = Object.keys(b);
+
+		return (
+			aKeys.length === bKeys.length &&
+			aKeys.every((key) => key in b && a[key as keyof T] === b[key as keyof T])
 		);
 	}
 
