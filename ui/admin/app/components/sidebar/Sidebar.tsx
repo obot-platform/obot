@@ -2,7 +2,6 @@ import {
 	BotIcon,
 	BoxesIcon,
 	InfoIcon,
-	KeyIcon,
 	MessageSquare,
 	PuzzleIcon,
 	User,
@@ -59,11 +58,6 @@ const items = [
 		title: "Users",
 		url: $path("/users"),
 		icon: User,
-	},
-	{
-		title: "OAuth Apps",
-		url: $path("/oauth-apps"),
-		icon: KeyIcon,
 	},
 	{
 		title: "Workflows",

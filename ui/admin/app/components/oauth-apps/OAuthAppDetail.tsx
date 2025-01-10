@@ -1,4 +1,3 @@
-import { SettingsIcon } from "lucide-react";
 import { useState } from "react";
 
 import { OAuthApp } from "~/lib/model/oauthApps";
@@ -6,7 +5,6 @@ import {
 	OAuthAppSpec,
 	OAuthProvider,
 } from "~/lib/model/oauthApps/oauth-helpers";
-import { cn } from "~/lib/utils";
 
 import { ConfigureOAuthApp } from "~/components/oauth-apps/ConfigureOAuthApp";
 import { DeleteOAuthApp } from "~/components/oauth-apps/DeleteOAuthApp";
@@ -20,7 +18,6 @@ import {
 	DialogFooter,
 	DialogHeader,
 	DialogTitle,
-	DialogTrigger,
 } from "~/components/ui/dialog";
 import {
 	Tooltip,
@@ -31,15 +28,16 @@ import { useOAuthAppInfo } from "~/hooks/oauthApps/useOAuthApps";
 
 export function OAuthAppDetail({
 	type,
-	className,
+	open,
+	onOpenChange,
 }: {
 	type: OAuthProvider;
-	className?: string;
+	open: boolean;
+	onOpenChange: (open: boolean) => void;
 }) {
-	const spec = useOAuthAppInfo(type);
-
 	const [successModalOpen, setSuccessModalOpen] = useState(false);
 
+	const spec = useOAuthAppInfo(type);
 	if (!spec) {
 		console.error(`OAuth app ${type} not found`);
 		return null;
@@ -47,13 +45,7 @@ export function OAuthAppDetail({
 
 	return (
 		<>
-			<Dialog>
-				<DialogTrigger asChild>
-					<Button size="icon" variant="ghost" className={cn("mt-0", className)}>
-						<SettingsIcon />
-					</Button>
-				</DialogTrigger>
-
+			<Dialog open={open} onOpenChange={onOpenChange}>
 				<DialogDescription hidden>OAuth App Details</DialogDescription>
 
 				<DialogContent>

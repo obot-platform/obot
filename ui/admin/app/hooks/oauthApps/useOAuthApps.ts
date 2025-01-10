@@ -18,20 +18,7 @@ export function useOAuthAppList(config?: { revalidate?: boolean }) {
 	);
 
 	const combinedApps = useMemo(() => combinedOAuthAppInfo(apps), [apps]);
-
 	return combinedApps;
-}
-
-export function useCustomOAuthAppInfo() {
-	const { data: apps } = useSWR(
-		OauthAppService.getOauthApps.key(),
-		OauthAppService.getOauthApps,
-		{
-			fallbackData: [],
-		}
-	);
-
-	return apps.filter((app) => app.type === OAuthProvider.Custom);
 }
 
 export function useOAuthAppInfo(type: OAuthProvider) {

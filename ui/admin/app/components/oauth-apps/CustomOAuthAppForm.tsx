@@ -52,6 +52,7 @@ type CustomOAuthAppFormProps = {
 	onComplete: () => void;
 	onCancel?: () => void;
 	defaultStep?: Step;
+	integration?: string;
 };
 
 export function CustomOAuthAppForm({
@@ -59,6 +60,7 @@ export function CustomOAuthAppForm({
 	onComplete,
 	onCancel,
 	defaultStep = Step.NAME,
+	integration,
 }: CustomOAuthAppFormProps) {
 	const createApp = useAsync(OauthAppService.createOauthApp, {
 		onSuccess: () => mutate(OauthAppService.getOauthApps.key()),
@@ -85,11 +87,15 @@ export function CustomOAuthAppForm({
 
 		return Object.keys(finalSchema.shape).reduce((acc, _key) => {
 			const key = _key as keyof FormData;
-			acc[key] = "";
+			if (key === "integration") {
+				acc[key] = integration ?? "";
+			} else {
+				acc[key] = "";
+			}
 
 			return acc;
 		}, {} as FormData);
-	}, [defaultData]);
+	}, [defaultData, integration]);
 
 	const getStepSchema = (step: Step) => {
 		if (step === Step.INFO && initialIsEdit)
@@ -155,7 +161,7 @@ export function CustomOAuthAppForm({
 
 	// once a user touches the integration field, we don't auto-derive it from the name
 	const deriveIntegrationFromName =
-		!initialIsEdit && !form.formState.touchedFields.integration;
+		!integration && !initialIsEdit && !form.formState.touchedFields.integration;
 
 	return (
 		<Form {...form}>
@@ -179,6 +185,7 @@ export function CustomOAuthAppForm({
 						<ControlledInput
 							control={form.control}
 							description="This value will be used to link tools to your OAuth app"
+							disabled={!!integration}
 							name="integration"
 							label="Integration"
 						/>

@@ -58,7 +58,7 @@ export function ToolTooltip({
 									<TriangleAlertIcon className="h-4 w-4 text-warning" />
 								</span>
 								<p>
-									<Link to={$path("/oauth-apps")} className="text-xs">
+									<Link to={$path("/tools")} className="text-xs">
 										Setup
 									</Link>{" "}
 									required to use this tool.

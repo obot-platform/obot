@@ -10,6 +10,7 @@ import { WarningAlert } from "~/components/composed/WarningAlert";
 import { ModelProviderList } from "~/components/model-providers/ModelProviderLists";
 import { CommonModelProviderIds } from "~/components/model-providers/constants";
 import { DefaultModelAliasFormDialog } from "~/components/model/DefaultModelAliasForm";
+import { ScrollArea } from "~/components/ui/scroll-area";
 import { useModelProviders } from "~/hooks/model-providers/useModelProviders";
 
 export async function clientLoader() {
@@ -61,12 +62,15 @@ export default function ModelProviders() {
 	const sortedModelProviders = sortModelProviders(modelProviders);
 	return (
 		<div>
-			<div className="relative px-8 pb-8">
-				<div className="sticky top-0 z-10 flex flex-col gap-4 bg-background py-8">
-					<div className="flex items-center justify-between">
-						<h2 className="mb-0 pb-0">Model Providers</h2>
-						<DefaultModelAliasFormDialog disabled={!modelProviderConfigured} />
-					</div>
+			<div className="top-0 z-10 flex flex-col gap-4 bg-background px-8 py-8 pb-8">
+				<div className="flex items-center justify-between">
+					<h2 className="mb-0 pb-0">Model Providers</h2>
+					<DefaultModelAliasFormDialog disabled={!modelProviderConfigured} />
+				</div>
+			</div>
+
+			<ScrollArea className="h-[calc(100vh-10rem)]">
+				<div className="flex w-full flex-col gap-4 px-8 pb-8">
 					{modelProviderConfigured ? (
 						<div className="h-16 w-full" />
 					) : (
@@ -77,12 +81,11 @@ export default function ModelProviders() {
                                 one below to get started!"
 						/>
 					)}
+					<div className="flex h-full flex-col gap-8 overflow-hidden">
+						<ModelProviderList modelProviders={sortedModelProviders} />
+					</div>
 				</div>
-
-				<div className="flex h-full flex-col gap-8 overflow-hidden">
-					<ModelProviderList modelProviders={sortedModelProviders} />
-				</div>
-			</div>
+			</ScrollArea>
 		</div>
 	);
 }

@@ -81,11 +81,6 @@ export const RouteHelperMap = {
 		path: "/model-providers",
 		schema: z.null(),
 	},
-	"/oauth-apps": {
-		regex: exactRegex($path("/oauth-apps")),
-		path: "/oauth-apps",
-		schema: z.null(),
-	},
 	"/threads/:id": {
 		regex: exactRegex($path("/threads/:id", { id: "(.+)" })),
 		path: "/threads/:id",

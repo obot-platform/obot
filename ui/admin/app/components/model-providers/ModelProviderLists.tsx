@@ -25,8 +25,10 @@ export function ModelProviderList({
 				{modelProviders.map((modelProvider) => (
 					<Card key={modelProvider.id}>
 						<CardHeader className="flex flex-row items-center justify-between pb-4 pt-2">
-							{RecommendedModelProviders.includes(modelProvider.id) && (
+							{RecommendedModelProviders.includes(modelProvider.id) ? (
 								<Badge variant="faded">Recommended</Badge>
+							) : (
+								<div />
 							)}
 							{modelProvider.configured ? (
 								<div className="flex flex-row items-center gap-2">

@@ -4,12 +4,14 @@ import { MetaFunction } from "react-router";
 import useSWR, { preload } from "swr";
 
 import { convertToolReferencesToCategoryMap } from "~/lib/model/toolReferences";
+import { OauthAppService } from "~/lib/service/api/oauthAppService";
 import { ToolReferenceService } from "~/lib/service/api/toolreferenceService";
 import { RouteHandle } from "~/lib/service/routeHandles";
 
 import { ErrorDialog } from "~/components/composed/ErrorDialog";
 import { CreateTool } from "~/components/tools/CreateTool";
-import { ToolGrid } from "~/components/tools/toolGrid";
+import { filterToolCatalogBySearch } from "~/components/tools/ToolCatalog";
+import { ToolList } from "~/components/tools/list/ToolList";
 import { Button } from "~/components/ui/button";
 import {
 	Dialog,
@@ -27,6 +29,9 @@ export async function clientLoader() {
 		preload(ToolReferenceService.getToolReferences.key("tool"), () =>
 			ToolReferenceService.getToolReferences("tool")
 		),
+		preload(OauthAppService.getOauthApps.key(), () =>
+			OauthAppService.getOauthApps()
+		),
 	]);
 	return null;
 }
@@ -39,7 +44,7 @@ export default function Tools() {
 	);
 
 	const toolCategories = useMemo(
-		() => convertToolReferencesToCategoryMap(getTools.data),
+		() => Object.entries(convertToolReferencesToCategoryMap(getTools.data)),
 		[getTools.data]
 	);
 
@@ -47,25 +52,25 @@ export default function Tools() {
 	const [searchQuery, setSearchQuery] = useState("");
 	const [errorDialogError, setErrorDialogError] = useState("");
 
-	const handleCreateSuccess = () => {
-		getTools.mutate();
-		setIsDialogOpen(false);
-	};
-
-	const handleDelete = async (id: string) => {
-		await ToolReferenceService.deleteToolReference(id);
-		getTools.mutate();
-	};
-
 	const handleErrorDialogError = (error: string) => {
 		getTools.mutate();
 		setErrorDialogError(error);
 		setIsDialogOpen(false);
 	};
 
+	const handleCreateSuccess = () => {
+		getTools.mutate();
+		setIsDialogOpen(false);
+	};
+
+	const results =
+		searchQuery.length > 0
+			? filterToolCatalogBySearch(toolCategories, searchQuery)
+			: toolCategories;
+
 	return (
-		<ScrollArea className="flex h-full flex-col gap-4 p-8">
-			<div className="flex items-center justify-between">
+		<div>
+			<div className="flex items-center justify-between px-8 pt-8">
 				<h2>Tools</h2>
 				<div className="flex items-center space-x-2">
 					<div className="relative">
@@ -106,14 +111,10 @@ export default function Tools() {
 				</div>
 			</div>
 
-			{toolCategories && (
-				<ToolGrid
-					toolCategories={toolCategories}
-					filter={searchQuery}
-					onDelete={handleDelete}
-				/>
-			)}
-		</ScrollArea>
+			<ScrollArea className="flex h-[calc(100vh-8.5rem)] flex-col p-8">
+				<ToolList toolCategories={results} />
+			</ScrollArea>
+		</div>
 	);
 }
 

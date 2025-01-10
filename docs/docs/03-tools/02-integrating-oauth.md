@@ -32,6 +32,10 @@ GitLab
 ---
 !metadata:*:icon
 https://cdn.jsdelivr.net/npm/@phosphor-icons/core@2/assets/duotone/gitlab-logo-duotone.svg
+
+--
+!metadata:*:oauth
+gitlab
 ```
 
 This tool.gpt file just has a single tool name "List Projects" defined.
@@ -39,26 +43,7 @@ You can define more tools by separating them with `---`.
 You can see that this tool defines a name, description, credential (we'll revisit this in a later step), and a command that is the actual code to be run.
 If you review the repository, you'll notice that `projects.py` is one of the files in the repository.
 
-There are two metadata sections: one for category and one for icon. These will be used to display the tool in the Obot UI.
-
-### Create our OAuth App
-Next we need to create our OAuth app in Obot. This always involves also creating an equivalent resource in the service provider (GitLab in this case).
-Each service differs in how you do this. For GitLab, the guide is [here](https://docs.gitlab.com/ee/integration/oauth_provider.html).
-For this guide, follow the [Create a User Owned Application](https://docs.gitlab.com/ee/integration/oauth_provider.html#create-a-user-owned-application) instructions.
-
-Once you get to the step where you're asked to supply a Redirect URL, go to your Obot installation, navigate to OAuth Apps, and click **Create a Custom OAuth App**.
-You're then asked to supply a name, integration (which will be auto-filled), authorization URL, and token URL. Set the name to "GitLab Example".
-This will cause the Integration field to be set to **gitlab-example**.
-
-GitLab's documentation doesn't make this clear, but the authorization and token URLs are as follows:
-
-- Authorization: https://gitlab.com/oauth/authorize
-- Token: https://gitlab.com/oauth/token
-
-Set these values accordingly and click Next. You'll now be presented with a Redirect URL and be asked to supply a Client ID and Client Secret.
-First, return to GitLab, supply the Redirect URL, select the scopes **read_api** and **read_user**, and click **Save application**.
-You'll then be presented with the Client ID (which they call Application ID) and Client Secret (which they just call Secret).
-Return to Obot, enter these values, and click Submit. This will create the OAuth app.
+There are three metadata sections: one for category, one for icon and one for oauth. These will be used to display the tool in the Obot UI and tie oauth integration with the GitLab Oauth credentials we'll set up in the next step.
 
 ### Configure a credential tool that integrates our custom tool and OAuth app
 The credential tool can be found in our example repo at https://github.com/otto8-ai/gitlab-example-tool/blob/main/credential/tool.gpt. Here's the contents:
@@ -94,7 +79,25 @@ You can use this value directly if you did not choose to fork the repo.
 ### Register the tool
 Next we need to register the tool in your Obot installation. Go to the Tools page and click **Register New Tool**.
 Then, drop in the GitHub repo where your tool lives. If you're using ours, you would drop in **github.com/otto8-ai/gitlab-example-tool**.
-After a few moments of processing, you should see a new GitLab section with one "List Projects" tool list at the bottom of the page. The tool is now ready for use.
+After a few moments of processing, you should see a new tool called "List Projects" at the top of the page in your Custom Tools section.
+
+### Create our OAuth App
+Next we need to create our OAuth app in Obot. This always involves also creating an equivalent resource in the service provider (GitLab in this case).
+Each service differs in how you do this. For GitLab, the guide is [here](https://docs.gitlab.com/ee/integration/oauth_provider.html).
+For this guide, follow the [Create a User Owned Application](https://docs.gitlab.com/ee/integration/oauth_provider.html#create-a-user-owned-application) instructions.
+
+Once you get to the step where you're asked to supply a Redirect URL, go to your Obot installation, navigate to Tools, and find the "List Projects" tool you created above. Click the cogwheel on the top-left of the tool and select **Configure OAuth**.
+You're then asked to supply a name, integration (which will be auto-filled), authorization URL, and token URL. Set the name to "GitLab Example".
+
+GitLab's documentation doesn't make this clear, but the authorization and token URLs are as follows:
+
+- Authorization: https://gitlab.com/oauth/authorize
+- Token: https://gitlab.com/oauth/token
+
+Set these values accordingly and click Next. You'll now be presented with a Redirect URL and be asked to supply a Client ID and Client Secret.
+First, return to GitLab, supply the Redirect URL, select the scopes **read_api** and **read_user**, and click **Save application**.
+You'll then be presented with the Client ID (which they call Application ID) and Client Secret (which they just call Secret).
+Return to Obot, enter these values, and click Submit. Your OAuth has been set up and the tool is now ready for use.
 
 ### Use the tool in an agent
 Now, we can use the tool in an agent. Create a new agent, click **Add Tool** under the Agent Tools section, find your GitLab tool, and add it.
