@@ -5,7 +5,7 @@ import { $path } from "safe-routes";
 import useSWR, { preload } from "swr";
 
 import { Thread } from "~/lib/model/threads";
-import { User } from "~/lib/model/users";
+import { User, roleLabel } from "~/lib/model/users";
 import { ThreadsService } from "~/lib/service/api/threadsService";
 import { UserService } from "~/lib/service/api/userService";
 import { RouteHandle } from "~/lib/service/routeHandles";
@@ -87,10 +87,15 @@ export default function Users() {
 					return <p>No Threads</p>;
 				},
 			}),
-			columnHelper.display({
+			columnHelper.accessor((row) => roleLabel(row.role), {
 				id: "role",
 				header: "Role",
-				cell: ({ row }) => <UserRoleForm user={row.original} />,
+				cell: ({ row, getValue }) =>
+					row.original.explicitAdmin ? (
+						getValue()
+					) : (
+						<UserRoleForm user={row.original} />
+					),
 			}),
 			columnHelper.display({
 				id: "created",

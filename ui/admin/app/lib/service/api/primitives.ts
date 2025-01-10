@@ -28,11 +28,13 @@ interface ExtendedAxiosRequestConfig<D = unknown>
 	extends AxiosRequestConfig<D> {
 	errorMessage?: string;
 	disableTokenRefresh?: boolean;
+	debugThrow?: Error;
 }
 
 export async function request<T, R = AxiosResponse<T>, D = unknown>({
-	errorMessage: _,
+	errorMessage = "Something went wrong",
 	disableTokenRefresh,
+	debugThrow,
 	...config
 }: ExtendedAxiosRequestConfig<D>): Promise<R> {
 	// Get the browser's default timezone
@@ -43,7 +45,7 @@ export async function request<T, R = AxiosResponse<T>, D = unknown>({
 		[RequestHeaders.UserTimezone]: timezone,
 	};
 
-	const [error, response] = await handlePromise(
+	const [responseError, response] = await handlePromise(
 		internalFetch<T, R, D>({
 			adapter: "fetch",
 			...config,
@@ -51,6 +53,7 @@ export async function request<T, R = AxiosResponse<T>, D = unknown>({
 		})
 	);
 
+	const error = responseError || debugThrow;
 	if (error) {
 		const convertedError = convertError(error);
 
@@ -74,7 +77,7 @@ export async function request<T, R = AxiosResponse<T>, D = unknown>({
 			});
 		}
 
-		toast.error(convertedError.message);
+		toast.error(errorMessage);
 
 		throw convertedError;
 	}

@@ -6,6 +6,7 @@ export type User = EntityMeta & {
 	role: Role;
 	iconURL: string;
 	timezone: string;
+	explicitAdmin: boolean;
 };
 
 export const Role = {

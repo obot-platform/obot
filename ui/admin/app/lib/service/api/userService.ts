@@ -29,6 +29,7 @@ async function updateUser(username: string, user: Partial<User>) {
 		url: ApiRoutes.users.updateUser(username).url,
 		method: "PATCH",
 		data: user,
+		errorMessage: "Failed to update user",
 	});
 
 	return data;
