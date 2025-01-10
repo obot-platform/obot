@@ -18,18 +18,20 @@ import { useAsync } from "~/hooks/useAsync";
 import { useHasChanged } from "~/hooks/useHasChanged";
 
 export function UserRoleForm({ user }: { user: User }) {
-	const revalidate = useAsync(UserService.getUsers.revalidate);
-
-	const updateUser = useAsync(UserService.updateUser, {
-		onSuccess: async () => toast.success("Role Updated Successfully"),
-	});
-
 	const [updatedRole, setUpdatedRole] = useState<string>(user.role.toString());
+	const resetRole = () => setUpdatedRole(user.role.toString());
 
 	const [userChanged] = useHasChanged(user.role);
 	if (userChanged) {
-		setUpdatedRole(user.role.toString());
+		resetRole();
 	}
+
+	const revalidate = useAsync(UserService.getUsers.revalidate);
+
+	const updateUser = useAsync(UserService.updateUser, {
+		onSuccess: () => toast.success("Role Updated Successfully"),
+		onError: () => resetRole(),
+	});
 
 	const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
 		e.preventDefault();
