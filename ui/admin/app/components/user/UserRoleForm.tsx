@@ -15,7 +15,7 @@ import {
 	SelectValue,
 } from "~/components/ui/select";
 import { useAsync } from "~/hooks/useAsync";
-import { useWatcher } from "~/hooks/useWatcher";
+import { useHasChanged } from "~/hooks/useHasChanged";
 
 export function UserRoleForm({ user }: { user: User }) {
 	const revalidate = useAsync(UserService.getUsers.revalidate);
@@ -26,11 +26,9 @@ export function UserRoleForm({ user }: { user: User }) {
 
 	const [updatedRole, setUpdatedRole] = useState<string>(user.role.toString());
 
-	const watcher = useWatcher(user);
-	if (watcher.changed) {
+	const [userChanged] = useHasChanged(user.role);
+	if (userChanged) {
 		setUpdatedRole(user.role.toString());
-
-		watcher.update();
 	}
 
 	const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
