@@ -10,7 +10,7 @@
 	import Image from '$lib/components/editor/Image.svelte';
 	import { CheckSquare, Table as TableIcon, Image as ImageIcon, Wrench } from 'lucide-svelte';
 	import { isImage } from '$lib/image';
-	import Terminal from '$lib/components/Terminal.svelte';
+	import Terminal from '$lib/components/terminal/Terminal.svelte';
 	import { term } from '$lib/stores';
 	import Tool from '$lib/components/tool/Tool.svelte';
 

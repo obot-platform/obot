@@ -453,13 +453,20 @@ func (i *Invoker) createRun(ctx context.Context, c kclient.WithWatch, thread *v1
 
 func (i *Invoker) Resume(ctx context.Context, c kclient.WithWatch, thread *v1.Thread, run *v1.Run) (err error) {
 	defer func() {
+		if err != nil {
+			i.events.SubmitProgress(run, types.Progress{
+				RunID: run.Name,
+				Time:  types.NewTime(time.Now()),
+				Error: err.Error(),
+			})
+		}
 		i.events.Done(run)
 		time.AfterFunc(20*time.Second, func() {
 			i.events.ClearProgress(run)
 		})
 	}()
 
-	if run.Name != "" {
+	if !isEphemeral(run) {
 		thread, err = wait.For(ctx, c, thread, func(thread *v1.Thread) (bool, error) {
 			if thread.Spec.Abort {
 				return false, fmt.Errorf("thread was aborted while waiting for workspace")
@@ -836,11 +843,6 @@ func (i *Invoker) stream(ctx context.Context, c kclient.WithWatch, prevThreadNam
 		retErr = i.saveState(ctx, c, prevThreadName, thread, run, runResp, retErr)
 		if retErr != nil {
 			log.Errorf("failed to save state: %v", retErr)
-			i.events.SubmitProgress(run, types.Progress{
-				RunID: run.Name,
-				Time:  types.NewTime(time.Now()),
-				Error: retErr.Error(),
-			})
 		}
 	}()
 

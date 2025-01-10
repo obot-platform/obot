@@ -26,8 +26,8 @@
 		<table class="w-full text-left">
 			<thead>
 				<tr>
-					<th>Name</th>
-					<th>Value</th>
+					<th class="w-1/4">Name</th>
+					<th class="w-full">Value</th>
 				</tr>
 			</thead>
 			<tbody>
@@ -36,7 +36,7 @@
 						<td
 							><input
 								bind:value={env.key}
-								placeholder="Enter name"
+								placeholder="eg. SAMPLE_KEY"
 								class="ast bg-gray-50 outline-none dark:bg-gray-950"
 							/></td
 						>

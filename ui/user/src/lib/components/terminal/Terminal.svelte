@@ -3,14 +3,21 @@
 	import '@xterm/xterm/css/xterm.css';
 	import { currentAssistant } from '$lib/stores';
 	import { RefreshCcw } from 'lucide-svelte';
+	import { term } from '$lib/stores';
+	import Env from '$lib/components/terminal/Env.svelte';
 
 	let terminalContainer: HTMLElement;
 	let close: () => void;
 	let connectState = $state('disconnected');
+	let envDialog: ReturnType<typeof Env>;
 
 	onDestroy(() => close?.());
 
 	onMount(connect);
+
+	function closeTerm() {
+		term.open = false;
+	}
 
 	async function connect() {
 		const { Terminal } = await import('@xterm/xterm');
@@ -77,20 +84,38 @@
 </script>
 
 <div class="flex h-full w-full flex-col">
-	{#if connectState !== 'connected'}
-		<div class="flex items-center gap-2 self-end">
-			<span class="capitalize">{connectState}</span>
+	<div class="relative flex-1 rounded-3xl bg-gray-950 p-5">
+		<div class="absolute inset-x-0 top-0 z-10 mx-1 flex items-center justify-end gap-2 p-5">
 			{#if connectState === 'disconnected'}
-				<button class="icon-button" onclick={connect}>
-					<RefreshCcw class="h-4 w-4" />
+				<button onclick={connect}>
+					<RefreshCcw class="icon-default" />
 				</button>
+				<div class="flex-1"></div>
 			{/if}
+			<button
+				class="px-1 py-0.5 font-mono text-gray hover:bg-gray hover:text-white"
+				onclick={() => {
+					envDialog.show();
+				}}>$ENV_VARS</button
+			>
+			<span
+				class="font-mono uppercase"
+				class:text-red-400={connectState === 'disconnected'}
+				class:animate-pulse={connectState === 'connecting'}
+				class:text-gray={connectState === 'connected'}>{connectState}</span
+			>
+			<button
+				onclick={closeTerm}
+				class="ms-4 font-mono text-gray hover:text-black hover:dark:text-white"
+			>
+				X
+			</button>
 		</div>
-	{/if}
-	<div class="flex-1 rounded-3xl bg-gray-950 p-5">
-		<div bind:this={terminalContainer}></div>
+		<div class="m-2" bind:this={terminalContainer}></div>
 	</div>
 </div>
+
+<Env bind:this={envDialog} />
 
 <style lang="postcss">
 	:global {

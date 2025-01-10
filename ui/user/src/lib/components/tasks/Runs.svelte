@@ -144,9 +144,9 @@
 		<table class="w-full text-left">
 			<thead class="font-semibold">
 				<tr>
-					<th> Start </th>
-					<th> Input </th>
-					<th> Duration </th>
+					<th> Start</th>
+					<th> Input</th>
+					<th> Duration</th>
 					<th></th>
 				</tr>
 			</thead>
@@ -245,5 +245,9 @@
 	td,
 	th {
 		@apply p-1.5;
+	}
+
+	dialog::backdrop {
+		@apply bg-black bg-opacity-60;
 	}
 </style>

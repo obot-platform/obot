@@ -296,6 +296,17 @@ export async function getToolEnv(assistant: string, tool: string): Promise<Recor
 	return (await doGet(`/assistants/${assistant}/tools/${tool}/env`)) as Record<string, string>;
 }
 
+export async function getAssistantEnv(assistant: string): Promise<Record<string, string>> {
+	return (await doGet(`/assistants/${assistant}/env`)) as Record<string, string>;
+}
+
+export async function saveAssistantEnv(
+	assistant: string,
+	env: Record<string, string>
+): Promise<Record<string, string>> {
+	return (await doPut(`/assistants/${assistant}/env`, env)) as Record<string, string>;
+}
+
 export async function saveToolEnv(
 	assistant: string,
 	tool: string,

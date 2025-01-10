@@ -88,7 +88,11 @@ export default {
 				'920': `hsl(0, 0, ${grayBase + 8})`,
 				'930': `hsl(0, 0, ${grayBase + 7})`,
 				'940': `hsl(0, 0, ${grayBase + 6})`,
-				'950': `hsl(0, 0, ${grayBase + 5})`
+				'950': `hsl(0, 0, ${grayBase + 5})`,
+				'960': `hsl(0, 0, ${grayBase + 4})`,
+				'970': `hsl(0, 0, ${grayBase + 3})`,
+				'980': `hsl(0, 0, ${grayBase + 2})`,
+				'990': `hsl(0, 0, ${grayBase + 1})`
 			},
 			blue: {
 				DEFAULT: '#4f7ef3',

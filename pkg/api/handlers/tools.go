@@ -163,8 +163,14 @@ func (t *ToolHandler) Test(req api.Context) error {
 		return err
 	}
 
+	var (
+		envNameList []string
+		envNameSeen = map[string]struct{}{}
+	)
 	var envList []string
 	for k, v := range env {
+		envNameList = append(envNameList, k)
+		envNameSeen[k] = struct{}{}
 		envList = append(envList, k+"="+v)
 	}
 
@@ -174,12 +180,22 @@ func (t *ToolHandler) Test(req api.Context) error {
 	}
 
 	for k, v := range input.Env {
+		if _, ok := envNameSeen[k]; !ok {
+			envNameList = append(envNameList, k)
+			envNameSeen[k] = struct{}{}
+		}
 		envList = append(envList, k+"="+v)
 	}
 
 	if input.Tool != nil {
 		tool.Spec.Manifest = input.Tool.ToolManifest
 	}
+
+	if tool.Spec.Manifest.Name == "" {
+		tool.Spec.Manifest.Name = "test"
+	}
+
+	tool.Spec.Envs = envNameList
 
 	tools, err := render.CustomTool(req.Context(), req.Storage, tool)
 	if err != nil {

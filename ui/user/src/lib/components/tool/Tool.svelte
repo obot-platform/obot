@@ -44,6 +44,7 @@ console.log(\`Your message \${process.env.MSG}\`);
 	let saved: AssistantTool = $state({ ...blankTool });
 	let dirty = $derived.by(() => JSON.stringify(tool) !== JSON.stringify(saved));
 	let params: { key: string; value: string }[] = $state([]);
+	let input: { key: string; value: string }[] = $state([]);
 	let envs: { key: string; value: string; editing: string }[] = $state([]);
 	let requestDelete = $state(false);
 	let loaded = load();
@@ -55,6 +56,7 @@ console.log(\`Your message \${process.env.MSG}\`);
 		buffer: ''
 	});
 	let testOutput = $state<Promise<{ output: string }>>();
+	let dialog: HTMLDialogElement;
 
 	$effect(() => {
 		const item = EditorService.items.find((item) => item.id === id);
@@ -62,6 +64,19 @@ console.log(\`Your message \${process.env.MSG}\`);
 			item.name = tool.name ? tool.name : tool.id;
 			item.contents = JSON.stringify(saved);
 			item.buffer = JSON.stringify(tool);
+		}
+	});
+
+	$effect(() => {
+		for (let i = 0; i < params.length; i++) {
+			if (input.length <= i) {
+				input.push({ key: params[i].key, value: '' });
+			} else if (input[i].key !== params[i].key) {
+				input[i].key = params[i].key;
+			}
+		}
+		if (input.length > params.length) {
+			input.splice(params.length);
 		}
 	});
 
@@ -87,17 +102,22 @@ console.log(\`Your message \${process.env.MSG}\`);
 		await load();
 	}
 
-	function test() {
+	function test(checkModal: boolean) {
+		if (checkModal && !testOutput && params.length > 0) {
+			dialog.showModal();
+			return;
+		}
 		testOutput = ChatService.testTool(
 			$currentAssistant.id,
 			tool,
-			{
-				msg: 'hi'
-			},
+			Object.fromEntries(input.map(({ key, value }) => [key, value])),
 			{
 				env: toMap(envs)
 			}
 		);
+		if (!checkModal) {
+			dialog.close();
+		}
 	}
 
 	async function cancel() {
@@ -205,7 +225,14 @@ console.log(\`Your message \${process.env.MSG}\`);
 					/>
 				{/if}
 			</div>
-			<button onclick={test} class="mt-3 self-end rounded-3xl bg-blue p-3 px-6"> Test </button>
+			<button
+				onclick={() => {
+					test(true);
+				}}
+				class="mt-3 self-end rounded-3xl bg-blue p-3 px-6 text-white"
+			>
+				Test</button
+			>
 		</div>
 
 		{#if testOutput}
@@ -215,12 +242,15 @@ console.log(\`Your message \${process.env.MSG}\`);
 						<X class="h-5 w-5" />
 					</button>
 				</div>
-				<h4 class="text-xl font-semibold">Test</h4>
+				<h4 class="text-xl font-semibold">Output</h4>
+				<Params bind:params={input} input />
 				<div class="whitespace-pre-wrap font-mono text-sm">
 					{#await testOutput}
 						Running...
 					{:then output}
-						{output.output}
+						<div class="whitespace-pre-wrap rounded-3xl bg-white p-5 font-mono dark:bg-black">
+							{output.output}
+						</div>
 					{:catch error}
 						{error}
 					{/await}
@@ -289,9 +319,40 @@ console.log(\`Your message \${process.env.MSG}\`);
 	{/await}
 </div>
 
+<dialog
+	bind:this={dialog}
+	class="w-11/12 max-w-[1000px] rounded-3xl dark:bg-gray-950 dark:text-gray-50"
+>
+	<div class="relative flex flex-col p-5">
+		<div class="absolute right-0 top-0 flex p-5">
+			<button
+				onclick={() => {
+					dialog.close();
+				}}
+			>
+				<X class="h-5 w-5" />
+			</button>
+		</div>
+		<h4 class="mb-2 text-xl font-semibold">Input</h4>
+		<Params bind:params={input} autofocus input />
+		<button
+			onclick={() => test(false)}
+			class="mt-3 self-end rounded-3xl bg-blue p-3 px-6 text-white"
+		>
+			Run</button
+		>
+	</div>
+</dialog>
+
 <Confirm
 	msg="Are you sure you want to delete this tool?"
 	show={requestDelete}
 	oncancel={() => (requestDelete = false)}
 	onsuccess={() => deleteTool()}
 />
+
+<style lang="postcss">
+	dialog::backdrop {
+		@apply bg-black bg-opacity-60;
+	}
+</style>

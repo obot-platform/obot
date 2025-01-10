@@ -4,24 +4,34 @@
 
 	interface Props {
 		params: { key: string; value: string }[];
+		input?: boolean;
+		autofocus?: boolean;
 	}
 
-	let { params = $bindable([]) }: Props = $props();
+	let { params = $bindable([]), input, autofocus = false }: Props = $props();
 </script>
 
-<div class="flex flex-col gap-4 rounded-3xl bg-gray-50 p-5 dark:bg-gray-950">
+<div class="flex flex-col gap-4 rounded-3xl bg-gray-50 dark:bg-gray-950" class:p-5={!input}>
 	<div class="flex">
-		<h4 class="flex-1 text-xl font-semibold">Arguments</h4>
-		<button onclick={() => params.push({ key: '', value: '' })}>
-			<Plus class="h-5 w-5" />
-		</button>
+		{#if !input}
+			<h4 class="flex-1 text-xl font-semibold">Arguments</h4>
+		{/if}
+		{#if !input}
+			<button onclick={() => params.push({ key: '', value: '' })}>
+				<Plus class="h-5 w-5" />
+			</button>
+		{/if}
 	</div>
 	{#if params.length !== 0}
 		<table class="w-full table-auto text-left">
 			<thead>
 				<tr>
-					<th>Name</th>
-					<th>Description</th>
+					<th class="w-1/4">Name</th>
+					{#if input}
+						<th class="w-full">Value</th>
+					{:else}
+						<th class="w-full">Description</th>
+					{/if}
 				</tr>
 			</thead>
 			<tbody>
@@ -30,22 +40,28 @@
 						<td
 							><input
 								bind:value={param.key}
+								readonly={input}
 								placeholder="Enter name"
-								class="ast bg-gray-50 outline-none dark:bg-gray-950"
+								class="me-1 rounded-lg px-2 py-1 outline-none focus:ring-2 focus:ring-blue focus:ring-opacity-50 {input
+									? 'bg-gray-50 dark:bg-gray-950'
+									: 'bg-gray-100 dark:bg-gray-900'}"
 							/></td
 						>
-						<td
-							><textarea
+						<td class="flex items-center">
+							<textarea
 								use:autoHeight
-								class="resize-none bg-gray-50 outline-none dark:bg-gray-950"
+								class="w-full resize-none rounded-lg bg-gray-100 p-1 px-2 outline-none focus:ring-2 focus:ring-blue focus:ring-opacity-50 dark:bg-gray-900"
 								rows="1"
+								{autofocus}
 								bind:value={param.value}
-							></textarea></td
-						>
+							></textarea>
+						</td>
 						<td>
-							<button onclick={() => params.splice(i, 1)}>
-								<Minus class="h-5 w-5" />
-							</button>
+							{#if !input}
+								<button onclick={() => params.splice(i, 1)}>
+									<Minus class="h-5 w-5" />
+								</button>
+							{/if}
 						</td>
 					</tr>
 				{/each}
