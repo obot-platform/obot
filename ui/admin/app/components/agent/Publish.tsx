@@ -1,5 +1,6 @@
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Eye } from "lucide-react";
+import { PencilIcon } from "lucide-react";
+import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 
@@ -14,52 +15,70 @@ import {
 	DialogTrigger,
 } from "~/components/ui/dialog";
 import { Form } from "~/components/ui/form";
+import {
+	Tooltip,
+	TooltipContent,
+	TooltipTrigger,
+} from "~/components/ui/tooltip";
 
 type PublishProps = {
 	className?: string;
 	alias: string;
+	id: string;
 	onPublish: (alias: string) => void;
 };
 
 const publishSchema = z.object({
 	alias: z
 		.string()
-		.min(1, "Alias is required.")
 		.regex(
-			/^[a-zA-Z0-9_-]+$/,
+			/^[a-zA-Z0-9_-]*$/,
 			"Only alphanumeric characters, dashes, and underscores are allowed."
 		),
 });
 
 type PublishFormValues = z.infer<typeof publishSchema>;
 
-export function Publish({ className, alias: _alias, onPublish }: PublishProps) {
+export function Publish({
+	className,
+	alias: _alias,
+	onPublish,
+	id,
+}: PublishProps) {
 	const form = useForm<PublishFormValues>({
 		resolver: zodResolver(publishSchema),
 		defaultValues: {
 			alias: _alias,
 		},
 	});
+	const [open, setOpen] = useState(false);
 
 	const handlePublish = (values: PublishFormValues) => {
 		onPublish(values.alias);
+		setOpen(false);
 	};
 
+	const changedAlias = form.watch("alias");
 	return (
-		<Dialog>
-			<DialogTrigger asChild>
-				<Button className={className} variant="secondary" size="sm">
-					<Eye className="h-4 w-4" />
-					Publish
-				</Button>
-			</DialogTrigger>
+		<Dialog open={open} onOpenChange={setOpen}>
+			<Tooltip>
+				<TooltipTrigger asChild>
+					<DialogTrigger asChild>
+						<Button className={className} variant="ghost" size="icon-sm">
+							<PencilIcon />
+						</Button>
+					</DialogTrigger>
+				</TooltipTrigger>
+				<TooltipContent>Edit Agent URL Alias</TooltipContent>
+			</Tooltip>
+
 			<DialogContent className="max-w-3xl p-10">
 				<Form {...form}>
 					<form
 						onSubmit={form.handleSubmit(handlePublish)}
-						className="space-y-4"
+						className="space-y-4 py-4"
 					>
-						<div className="flex w-full justify-between gap-2 pt-6">
+						<div className="flex w-full justify-between gap-2">
 							<DialogTitle className="!text-md font-normal">
 								Enter a handle for this agent:
 							</DialogTitle>
@@ -72,13 +91,13 @@ export function Publish({ className, alias: _alias, onPublish }: PublishProps) {
 								name="alias"
 							/>
 						</div>
-						<div className="space-y-4 py-4">
+						<div className="space-y-4">
 							<p className="text-muted-foreground">
 								This agent will be available at:
 							</p>
 
 							<p className="text-primary">
-								{`${window.location.protocol}//${window.location.host}/${form.watch("alias")}`}
+								{`${window.location.protocol}//${window.location.host}/${changedAlias || id}`}
 							</p>
 
 							<p className="text-muted-foreground">
@@ -94,8 +113,7 @@ export function Publish({ className, alias: _alias, onPublish }: PublishProps) {
 									</Button>
 								</DialogClose>
 								<Button className="w-1/2" type="submit">
-									<Eye className="h-4 w-4" />
-									Publish
+									Confirm
 								</Button>
 							</div>
 						</DialogFooter>

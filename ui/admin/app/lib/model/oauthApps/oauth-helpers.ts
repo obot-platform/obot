@@ -3,15 +3,15 @@ import { ZodObject, ZodType } from "zod";
 import { ApiUrl } from "~/lib/routers/baseRouter";
 
 export const OAuthProvider = {
-    Atlassian: "atlassian",
-    GitHub: "github",
-    Google: "google",
-    Microsoft365: "microsoft365",
-    Slack: "slack",
-    Salesforce: "salesforce",
-    Notion: "notion",
-    Zoom: "zoom",
-    Custom: "custom",
+	Atlassian: "atlassian",
+	GitHub: "github",
+	Google: "google",
+	Microsoft365: "microsoft365",
+	Slack: "slack",
+	Salesforce: "salesforce",
+	Notion: "notion",
+	Zoom: "zoom",
+	Custom: "custom",
 } as const;
 export type OAuthProvider = (typeof OAuthProvider)[keyof typeof OAuthProvider];
 

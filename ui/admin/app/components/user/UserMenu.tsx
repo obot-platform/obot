@@ -2,7 +2,7 @@ import { User } from "lucide-react";
 import React from "react";
 
 import { AuthDisabledUsername } from "~/lib/model/auth";
-import { roleToString } from "~/lib/model/users";
+import { roleLabel } from "~/lib/model/users";
 import { cn } from "~/lib/utils";
 
 import { useAuth } from "~/components/auth/AuthContext";
@@ -45,7 +45,7 @@ export const UserMenu: React.FC<UserMenuProps> = ({
 						<div className="max-w-full truncate">
 							<p className="truncate text-sm font-medium">{me?.email}</p>
 							<p className="truncate text-left text-xs text-muted-foreground">
-								{roleToString(me?.role)}
+								{roleLabel(me?.role)}
 							</p>
 						</div>
 					)}

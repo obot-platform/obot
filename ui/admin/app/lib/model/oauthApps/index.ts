@@ -13,16 +13,16 @@ import { ZoomOAuthApp } from "~/lib/model/oauthApps/providers/zoom";
 import { EntityMeta } from "~/lib/model/primitives";
 
 export const OAuthAppSpecMap = {
-    [OAuthProvider.Atlassian]: AtlassianOAuthApp,
-    [OAuthProvider.GitHub]: GitHubOAuthApp,
-    [OAuthProvider.Google]: GoogleOAuthApp,
-    [OAuthProvider.Microsoft365]: Microsoft365OAuthApp,
-    [OAuthProvider.Slack]: SlackOAuthApp,
-    [OAuthProvider.Salesforce]: SalesforceOAuthApp,
-    [OAuthProvider.Notion]: NotionOAuthApp,
-    [OAuthProvider.Zoom]: ZoomOAuthApp,
-    // Custom OAuth apps are intentionally omitted from the map.
-    // They are handled separately
+	[OAuthProvider.Atlassian]: AtlassianOAuthApp,
+	[OAuthProvider.GitHub]: GitHubOAuthApp,
+	[OAuthProvider.Google]: GoogleOAuthApp,
+	[OAuthProvider.Microsoft365]: Microsoft365OAuthApp,
+	[OAuthProvider.Slack]: SlackOAuthApp,
+	[OAuthProvider.Salesforce]: SalesforceOAuthApp,
+	[OAuthProvider.Notion]: NotionOAuthApp,
+	[OAuthProvider.Zoom]: ZoomOAuthApp,
+	// Custom OAuth apps are intentionally omitted from the map.
+	// They are handled separately
 } as const;
 
 export type OAuthAppDetail = OAuthAppSpec & {

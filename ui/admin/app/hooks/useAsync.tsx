@@ -1,7 +1,7 @@
 import { useCallback, useState } from "react";
 
 import { BoundaryError } from "~/lib/service/api/apiErrors";
-import { PromiseResult, handlePromise } from "~/lib/service/async";
+import { PromiseResult, handlePromise } from "~/lib/utils/handlePromise";
 
 type Config<TData, TParams extends unknown[]> = {
 	onSuccess?: (data: TData, params: TParams) => void;

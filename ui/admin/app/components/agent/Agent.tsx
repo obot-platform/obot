@@ -7,9 +7,9 @@ import { AssistantNamespace } from "~/lib/model/assistants";
 import { AgentService } from "~/lib/service/api/agentService";
 import { cn } from "~/lib/utils";
 
+import { AgentAlias } from "~/components/agent/AgentAlias";
 import { useAgent } from "~/components/agent/AgentContext";
 import { AgentForm } from "~/components/agent/AgentForm";
-import { AgentPublishStatus } from "~/components/agent/AgentPublishStatus";
 import { PastThreads } from "~/components/agent/PastThreads";
 import { ToolForm } from "~/components/agent/ToolForm";
 import { EnvironmentVariableSection } from "~/components/agent/shared/EnvironmentVariableSection";
@@ -97,7 +97,7 @@ export function Agent({ className, currentThreadId, onRefresh }: AgentProps) {
 	return (
 		<div className="flex h-full flex-col">
 			<ScrollArea className={cn("h-full", className)}>
-				<AgentPublishStatus agent={agentUpdates} onChange={partialSetAgent} />
+				<AgentAlias agent={agentUpdates} onChange={partialSetAgent} />
 
 				<div className="m-4 p-4 lg:mx-6 xl:mx-8">
 					<AgentForm agent={agentUpdates} onChange={debouncedSetAgentInfo} />

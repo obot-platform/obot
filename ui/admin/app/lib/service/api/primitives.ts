@@ -1,5 +1,6 @@
 // TODO: Add default configurations with auth tokens, etc. When ready
 import axios, { AxiosRequestConfig, AxiosResponse, isAxiosError } from "axios";
+import { toast } from "sonner";
 
 import { AuthDisabledUsername } from "~/lib/model/auth";
 import { User } from "~/lib/model/users";
@@ -11,6 +12,7 @@ import {
 	NotFoundError,
 	UnauthorizedError,
 } from "~/lib/service/api/apiErrors";
+import { handlePromise } from "~/lib/utils/handlePromise";
 
 export const ResponseHeaders = {
 	ThreadId: "x-obot-thread-id",
@@ -26,42 +28,36 @@ interface ExtendedAxiosRequestConfig<D = unknown>
 	extends AxiosRequestConfig<D> {
 	errorMessage?: string;
 	disableTokenRefresh?: boolean;
+	debugThrow?: Error;
 }
 
 export async function request<T, R = AxiosResponse<T>, D = unknown>({
-	errorMessage: _,
+	errorMessage = "Something went wrong",
 	disableTokenRefresh,
+	debugThrow,
 	...config
 }: ExtendedAxiosRequestConfig<D>): Promise<R> {
 	// Get the browser's default timezone
 	const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-	try {
-		// Merge the existing headers with the new Timezone header
-		const headers = {
-			...config.headers,
-			[RequestHeaders.UserTimezone]: timezone,
-		};
+	// Merge the existing headers with the new Timezone header
+	const headers = {
+		...config.headers,
+		[RequestHeaders.UserTimezone]: timezone,
+	};
 
-		return await internalFetch<T, R, D>({
+	const [responseError, response] = await handlePromise(
+		internalFetch<T, R, D>({
 			adapter: "fetch",
 			...config,
 			headers,
-		});
-	} catch (error) {
-		if (isAxiosError(error) && error.response?.status === 400) {
-			throw new BadRequestError(error.response.data);
-		}
+		})
+	);
 
-		if (isAxiosError(error) && error.response?.status === 401) {
-			throw new UnauthorizedError(error.response.data);
-		}
+	const error = responseError || debugThrow;
+	if (error) {
+		const convertedError = convertError(error);
 
-		if (isAxiosError(error) && error.response?.status === 403) {
-			// Tokens are automatically refreshed on GET requests
-			if (disableTokenRefresh) {
-				throw new ForbiddenError(error.response.data);
-			}
-
+		if (convertedError instanceof ForbiddenError && !disableTokenRefresh) {
 			console.info("Forbidden request, attempting to refresh token");
 			const { data } = await internalFetch<User>({
 				url: ApiRoutes.me().url,
@@ -72,7 +68,7 @@ export async function request<T, R = AxiosResponse<T>, D = unknown>({
 
 			// if token is refreshed successfully, retry the request
 			if (!data?.username || data.username === AuthDisabledUsername)
-				throw new ForbiddenError(error.response.data);
+				throw convertedError;
 
 			console.info("Token refreshed");
 			return request<T, R, D>({
@@ -81,14 +77,34 @@ export async function request<T, R = AxiosResponse<T>, D = unknown>({
 			});
 		}
 
-		if (isAxiosError(error) && error.response?.status === 404) {
-			throw new NotFoundError(error.response.data);
-		}
+		toast.error(errorMessage);
 
-		if (isAxiosError(error) && error.response?.status === 409) {
-			throw new ConflictError(error.response.data);
-		}
-
-		throw error;
+		throw convertedError;
 	}
+
+	return response;
+}
+
+function convertError(error: Error) {
+	if (isAxiosError(error) && error.response?.status === 400) {
+		return new BadRequestError(error.response.data);
+	}
+
+	if (isAxiosError(error) && error.response?.status === 401) {
+		return new UnauthorizedError(error.response.data);
+	}
+
+	if (isAxiosError(error) && error.response?.status === 403) {
+		return new ForbiddenError(error.response.data);
+	}
+
+	if (isAxiosError(error) && error.response?.status === 404) {
+		return new NotFoundError(error.response.data);
+	}
+
+	if (isAxiosError(error) && error.response?.status === 409) {
+		return new ConflictError(error.response.data);
+	}
+
+	return error;
 }

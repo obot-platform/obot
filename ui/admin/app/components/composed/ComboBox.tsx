@@ -30,12 +30,16 @@ type GroupedOption<T extends BaseOption> = {
 
 type ComboBoxProps<T extends BaseOption> = {
 	allowClear?: boolean;
+	allowCreate?: boolean;
 	clearLabel?: ReactNode;
 	emptyLabel?: ReactNode;
 	onChange: (option: T | null) => void;
+	onCreate?: (value: string) => void;
 	options: (T | GroupedOption<T>)[];
+	closeOnSelect?: boolean;
 	placeholder?: string;
 	renderOption?: (option: T) => ReactNode;
+	validateCreate?: (value: string) => boolean;
 	value?: T | null;
 };
 
@@ -106,14 +110,18 @@ export function ComboBox<T extends BaseOption>({
 
 function ComboBoxList<T extends BaseOption>({
 	allowClear,
+	allowCreate,
 	clearLabel,
 	onChange,
+	onCreate,
 	options,
 	setOpen,
 	renderOption,
+	validateCreate,
 	value,
 	placeholder = "Filter...",
 	emptyLabel = "No results found.",
+	closeOnSelect = true,
 }: { setOpen: (open: boolean) => void } & ComboBoxProps<T>) {
 	const [filteredOptions, setFilteredOptions] =
 		useState<typeof options>(options);
@@ -154,9 +162,11 @@ function ComboBoxList<T extends BaseOption>({
 		);
 
 	const handleValueChange = (value: string) => {
+		setSavedValue(value);
 		setFilteredOptions(filterOptions(options, value));
 	};
 
+	const [savedValue, setSavedValue] = useState("");
 	return (
 		<Command
 			shouldFilter={false}
@@ -173,10 +183,23 @@ function ComboBoxList<T extends BaseOption>({
 						<CommandItem
 							onSelect={() => {
 								onChange(null);
-								setOpen(false);
+								if (closeOnSelect) setOpen(false);
 							}}
 						>
 							{clearLabel ?? "Clear Selection"}
+						</CommandItem>
+					</CommandGroup>
+				)}
+				{allowCreate && savedValue.length > 0 && (
+					<CommandGroup>
+						<CommandItem
+							onSelect={() => {
+								onCreate?.(savedValue);
+								setOpen(false);
+							}}
+							disabled={validateCreate ? !validateCreate(savedValue) : false}
+						>
+							Add &quot;{savedValue}&quot;
 						</CommandItem>
 					</CommandGroup>
 				)}
@@ -208,7 +231,7 @@ function ComboBoxList<T extends BaseOption>({
 				value={option.name}
 				onSelect={() => {
 					onChange(option);
-					setOpen(false);
+					if (closeOnSelect) setOpen(false);
 				}}
 				className="justify-between"
 			>

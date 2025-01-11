@@ -1,5 +1,6 @@
 import { EnvVariable } from "~/lib/model/environmentVariables";
 import { EntityMeta } from "~/lib/model/primitives";
+import { User } from "~/lib/model/users";
 
 // TODO: implement as zod schemas???
 
@@ -53,3 +54,9 @@ export type ToolInfo = {
 };
 
 export type AgentToolInfo = Record<string, ToolInfo>;
+
+export type AgentAuthorization = {
+	userID: string;
+	agentId: string;
+	user?: User;
+};

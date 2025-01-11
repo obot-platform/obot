@@ -5,7 +5,7 @@ import { $path } from "safe-routes";
 import useSWR, { preload } from "swr";
 
 import { Thread } from "~/lib/model/threads";
-import { User, roleToString } from "~/lib/model/users";
+import { User, roleLabel } from "~/lib/model/users";
 import { ThreadsService } from "~/lib/service/api/threadsService";
 import { UserService } from "~/lib/service/api/userService";
 import { RouteHandle } from "~/lib/service/routeHandles";
@@ -13,6 +13,7 @@ import { pluralize, timeSince } from "~/lib/utils";
 
 import { DataTable } from "~/components/composed/DataTable";
 import { Link } from "~/components/ui/link";
+import { UserRoleForm } from "~/components/user/UserRoleForm";
 
 export async function clientLoader() {
 	const users = await preload(UserService.getUsers.key(), UserService.getUsers);
@@ -86,10 +87,15 @@ export default function Users() {
 					return <p>No Threads</p>;
 				},
 			}),
-			columnHelper.display({
+			columnHelper.accessor((row) => roleLabel(row.role), {
 				id: "role",
 				header: "Role",
-				cell: ({ row }) => <p>{roleToString(row.original.role)}</p>,
+				cell: ({ row, getValue }) =>
+					row.original.explicitAdmin ? (
+						getValue()
+					) : (
+						<UserRoleForm user={row.original} />
+					),
 			}),
 			columnHelper.display({
 				id: "created",
