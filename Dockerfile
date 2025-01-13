@@ -43,13 +43,10 @@ ENV PGDATA=/data/postgresql
 COPY --from=build-pgvector /usr/lib/postgresql17/vector.so /usr/lib/postgresql17/
 COPY --from=build-pgvector /usr/share/postgresql17/extension/vector* /usr/share/postgresql17/extension/
 
-RUN apk add --no-cache git python-3.13 py3.13-pip openssh-server npm bash tini procps libreoffice docker
+RUN apk add --no-cache git python-3.13 py3.13-pip npm bash tini procps libreoffice docker
 COPY --chmod=0755 /tools/package-chrome.sh /
 
 RUN /package-chrome.sh && rm /package-chrome.sh
-RUN sed -E 's/^#(PermitRootLogin)no/\1yes/' /etc/ssh/sshd_config -i
-RUN ssh-keygen -A
-RUN mkdir /run/sshd && /usr/sbin/sshd
 COPY encryption.yaml /
 COPY --chmod=0755 run.sh /bin/run.sh
 
