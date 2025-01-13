@@ -18,7 +18,13 @@ async function getToolReferences(type?: ToolReferenceType) {
 getToolReferences.key = (type?: ToolReferenceType) =>
 	({
 		url: ApiRoutes.toolReferences.base({ type }).path,
+		type,
 	}) as const;
+getToolReferences.revalidate = (type?: ToolReferenceType) => {
+	revalidateWhere((url) =>
+		url.includes(ApiRoutes.toolReferences.base({ type }).path)
+	);
+};
 
 export type ToolCategory = {
 	bundleTool?: ToolReference;
@@ -116,6 +122,16 @@ async function updateToolReference({
 	return res.data;
 }
 
+async function forceRefreshToolReference(id: string) {
+	const res = await request<ToolReference>({
+		url: ApiRoutes.toolReferences.purgeCache(id).url,
+		method: "POST",
+		errorMessage: "Failed to force refresh tool reference",
+	});
+
+	return res.data;
+}
+
 async function deleteToolReference(id: string) {
 	await request({
 		url: ApiRoutes.toolReferences.getById(id).url,
@@ -124,9 +140,6 @@ async function deleteToolReference(id: string) {
 	});
 }
 
-const revalidateToolReferences = () =>
-	revalidateWhere((url) => url.includes(ApiRoutes.toolReferences.base().path));
-
 export const ToolReferenceService = {
 	getToolReferences,
 	getToolReferencesCategoryMap,
@@ -134,5 +147,5 @@ export const ToolReferenceService = {
 	createToolReference,
 	updateToolReference,
 	deleteToolReference,
-	revalidateToolReferences,
+	forceRefreshToolReference,
 };

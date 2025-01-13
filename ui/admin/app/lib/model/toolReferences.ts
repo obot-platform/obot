@@ -7,6 +7,7 @@ export type ToolReferenceBase = {
 	reference: string;
 	resolved?: boolean;
 	metadata?: Record<string, string>;
+	revision: string;
 };
 
 export type ToolReferenceType = "tool" | "stepTemplate" | "modelProvider";

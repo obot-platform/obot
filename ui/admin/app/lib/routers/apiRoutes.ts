@@ -223,6 +223,8 @@ export const ApiRoutes = {
 			buildUrl("/tool-references", params),
 		getById: (toolReferenceId: string) =>
 			buildUrl(`/tool-references/${toolReferenceId}`),
+		purgeCache: (toolReferenceId: string) =>
+			buildUrl(`/tool-references/${toolReferenceId}/force-refresh`),
 	},
 	users: {
 		base: () => buildUrl("/users"),

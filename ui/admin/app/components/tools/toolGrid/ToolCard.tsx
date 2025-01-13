@@ -1,11 +1,14 @@
-import { Trash } from "lucide-react";
+import { EllipsisVerticalIcon, Trash } from "lucide-react";
+import { toast } from "sonner";
 
 import { ToolReference } from "~/lib/model/toolReferences";
+import { ToolReferenceService } from "~/lib/service/api/toolreferenceService";
 import { cn, timeSince } from "~/lib/utils";
 
 import { ConfirmationDialog } from "~/components/composed/ConfirmationDialog";
 import { Truncate } from "~/components/composed/typography";
 import { ToolIcon } from "~/components/tools/ToolIcon";
+import { LoadingSpinner } from "~/components/ui/LoadingSpinner";
 import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
 import {
@@ -15,10 +18,17 @@ import {
 	CardHeader,
 } from "~/components/ui/card";
 import {
+	DropdownMenu,
+	DropdownMenuContent,
+	DropdownMenuItem,
+	DropdownMenuTrigger,
+} from "~/components/ui/dropdown-menu";
+import {
 	Tooltip,
 	TooltipContent,
 	TooltipTrigger,
 } from "~/components/ui/tooltip";
+import { useAsync } from "~/hooks/useAsync";
 
 interface ToolCardProps {
 	tool: ToolReference;
@@ -26,6 +36,16 @@ interface ToolCardProps {
 }
 
 export function ToolCard({ tool, onDelete }: ToolCardProps) {
+	const forceRefresh = useAsync(
+		ToolReferenceService.forceRefreshToolReference,
+		{
+			onSuccess: () => {
+				toast.success("Tool reference force refreshed");
+				ToolReferenceService.getToolReferences.revalidate("tool");
+			},
+		}
+	);
+
 	return (
 		<Card
 			className={cn("flex h-full flex-col", {
@@ -33,15 +53,15 @@ export function ToolCard({ tool, onDelete }: ToolCardProps) {
 				"border-2 border-error": tool.error,
 			})}
 		>
-			<CardHeader className="pb-2">
-				<h4 className="flex flex-wrap items-center gap-x-2 truncate">
+			<CardHeader className="flex flex-row justify-between space-y-0 pb-2">
+				<h4 className="flex flex-wrap items-center gap-x-2">
 					<div className="flex flex-nowrap gap-x-2">
 						<ToolIcon
 							className="h-5 w-5 min-w-5"
 							name={tool.name}
 							icon={tool.metadata?.icon}
 						/>
-						{tool.name}
+						<Truncate>{tool.name}</Truncate>
 					</div>
 					{tool.error && (
 						<Tooltip>
@@ -59,6 +79,26 @@ export function ToolCard({ tool, onDelete }: ToolCardProps) {
 						<Badge className="pointer-events-none">Bundle</Badge>
 					)}
 				</h4>
+
+				{!tool.builtin && (
+					<DropdownMenu>
+						<div className="flex items-center gap-2">
+							{forceRefresh.isLoading && <LoadingSpinner />}
+
+							<DropdownMenuTrigger asChild>
+								<Button variant="ghost" size="icon" className="m-0">
+									<EllipsisVerticalIcon />
+								</Button>
+							</DropdownMenuTrigger>
+						</div>
+
+						<DropdownMenuContent side="top" align="start">
+							<DropdownMenuItem onClick={() => forceRefresh.execute(tool.id)}>
+								Refresh Tool
+							</DropdownMenuItem>
+						</DropdownMenuContent>
+					</DropdownMenu>
+				)}
 			</CardHeader>
 			<CardContent className="flex-grow">
 				{!tool.builtin && (

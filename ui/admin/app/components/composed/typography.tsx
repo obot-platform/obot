@@ -14,7 +14,7 @@ export function Truncate({
 	asChild,
 	disableTooltip,
 	tooltipContent = children,
-	clamp = false,
+	clamp = true,
 }: {
 	children: React.ReactNode;
 	className?: string;
