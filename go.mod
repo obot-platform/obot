@@ -9,6 +9,7 @@ replace (
 )
 
 require (
+	github.com/adhocore/gronx v1.19.5
 	github.com/adrg/xdg v0.5.3
 	github.com/docker/docker v27.4.1+incompatible
 	github.com/dustin/go-humanize v1.0.1
@@ -30,7 +31,6 @@ require (
 	github.com/obot-platform/obot/logger v0.0.0-20241217130503-4004a5c69f32
 	github.com/pkg/browser v0.0.0-20240102092130-5ac0b6a4141c
 	github.com/pterm/pterm v0.12.79
-	github.com/robfig/cron/v3 v3.0.1
 	github.com/rs/cors v1.11.1
 	github.com/spf13/cobra v1.8.1
 	golang.org/x/crypto v0.31.0

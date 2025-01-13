@@ -5,13 +5,13 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/adhocore/gronx"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/alias"
 	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/controller/handlers/cronjob"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
-	"github.com/robfig/cron/v3"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -134,9 +134,8 @@ func (a *CronJobHandler) Execute(req api.Context) error {
 
 func convertCronJob(cronJob v1.CronJob) types.CronJob {
 	var nextRunAt *time.Time
-	if sched, err := cron.ParseStandard(cronjob.GetSchedule(cronJob)); err == nil {
-		nextRunAt = new(time.Time)
-		*nextRunAt = sched.Next(time.Now())
+	if next, err := gronx.NextTick(cronjob.GetSchedule(cronJob), true); err == nil {
+		nextRunAt = &next
 	}
 
 	return types.CronJob{
@@ -153,8 +152,8 @@ func parseAndValidateCronManifest(req api.Context) (*types.CronJobManifest, erro
 	if err := req.Read(&manifest); err != nil {
 		return nil, err
 	}
-	if _, err := cron.ParseStandard(manifest.Schedule); err != nil {
-		return nil, apierrors.NewBadRequest(fmt.Sprintf("invalid schedule %s: %v", manifest.Schedule, err))
+	if !gronx.IsValid(manifest.Schedule) {
+		return nil, apierrors.NewBadRequest(fmt.Sprintf("invalid schedule %s", manifest.Schedule))
 	}
 
 	var workflow v1.Workflow

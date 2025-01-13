@@ -85,7 +85,7 @@ function getCronFrequency(
 		hourly: /^(0|\*\/\d+) \* \* \* \*$/, // ex. "0 * * * *" or "*/15 * * * *"
 		daily: /^0 \d+ \* \* \*$/, // ex. "0 6 * * *"
 		weekly: /^0 \d+ \* \* \d$/, // ex. "0 0 * * 3"
-		monthly: /^0 \d+ \d+ \* \*$/, // "0 0 15 * *"
+		monthly: /^0 \d+ [\d+L] \* \*$/, // "0 0 15 * *" or "0 0 L * *"
 	};
 
 	for (const [frequency, pattern] of Object.entries(patterns)) {

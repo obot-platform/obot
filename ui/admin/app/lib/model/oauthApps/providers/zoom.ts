@@ -13,19 +13,19 @@ const schema = z.object({
 });
 
 const scopes = [
-    "user:read:user",
-    "meeting:read:summary",
-    "meeting:read:invitation",
-    "meeting:read:list_templates",
-    "meeting:read:meeting",
-    "meeting:read:list_upcoming_meetings",
-    "meeting:delete:meeting",
-    "meeting:update:meeting",
-    "meeting:write:meeting",
-    "meeting:read:list_meetings",
-    "meeting:read:past_meeting",
-    "cloud_recording:read:list_recording_files",
-    "cloud_recording:read:list_user_recordings",
+	"user:read:user",
+	"meeting:read:summary",
+	"meeting:read:invitation",
+	"meeting:read:list_templates",
+	"meeting:read:meeting",
+	"meeting:read:list_upcoming_meetings",
+	"meeting:delete:meeting",
+	"meeting:update:meeting",
+	"meeting:write:meeting",
+	"meeting:read:list_meetings",
+	"meeting:read:past_meeting",
+	"cloud_recording:read:list_recording_files",
+	"cloud_recording:read:list_user_recordings",
 ];
 
 const steps: OAuthFormStep<z.infer<typeof schema>>[] = [
