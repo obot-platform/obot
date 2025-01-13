@@ -14,7 +14,7 @@ const schema = z.object({
 });
 
 const scopes = [
-	"Calendars.Read",
+"Calendars.Read",
 	"Calendars.Read.Shared",
 	"Calendars.ReadWrite",
 	"Calendars.ReadWrite.Shared",
