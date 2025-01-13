@@ -14,16 +14,22 @@ export function Truncate({
 	asChild,
 	disableTooltip,
 	tooltipContent = children,
+	clamp = false,
 }: {
 	children: React.ReactNode;
 	className?: string;
 	asChild?: boolean;
 	disableTooltip?: boolean;
 	tooltipContent?: React.ReactNode;
+	clamp?: boolean;
 }) {
 	const Comp = asChild ? Slot : "p";
 
-	const content = <Comp className="truncate">{children}</Comp>;
+	const content = (
+		<Comp className={cn({ "line-clamp-1": clamp, truncate: !clamp })}>
+			{children}
+		</Comp>
+	);
 
 	if (disableTooltip) {
 		return content;

@@ -205,6 +205,8 @@ export const ApiRoutes = {
 		) => buildUrl(`/threads/${threadId}/events`, params),
 		getFiles: (threadId: string) => buildUrl(`/threads/${threadId}/files`),
 		abortById: (threadId: string) => buildUrl(`/threads/${threadId}/abort`),
+		downloadFile: (threadId: string, filePath: string) =>
+			buildUrl(`/threads/${threadId}/files/${filePath}`),
 	},
 	prompt: {
 		base: () => buildUrl("/prompt"),

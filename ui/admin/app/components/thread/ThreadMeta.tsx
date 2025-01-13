@@ -1,4 +1,10 @@
-import { EditIcon, ExternalLink, FileIcon, FilesIcon } from "lucide-react";
+import {
+	DownloadIcon,
+	EditIcon,
+	ExternalLink,
+	FileIcon,
+	FilesIcon,
+} from "lucide-react";
 import { $path } from "safe-routes";
 
 import { Agent } from "~/lib/model/agents";
@@ -7,8 +13,10 @@ import { runStateToBadgeColor } from "~/lib/model/runs";
 import { Thread } from "~/lib/model/threads";
 import { Workflow } from "~/lib/model/workflows";
 import { WorkspaceFile } from "~/lib/model/workspace";
+import { ThreadsService } from "~/lib/service/api/threadsService";
 import { cn } from "~/lib/utils";
 
+import { Truncate } from "~/components/composed/typography";
 import {
 	Accordion,
 	AccordionContent,
@@ -16,8 +24,14 @@ import {
 	AccordionTrigger,
 } from "~/components/ui/accordion";
 import { Badge } from "~/components/ui/badge";
+import { Button } from "~/components/ui/button";
 import { Card, CardContent } from "~/components/ui/card";
 import { Link } from "~/components/ui/link";
+import {
+	Tooltip,
+	TooltipContent,
+	TooltipTrigger,
+} from "~/components/ui/tooltip";
 
 interface ThreadMetaProps {
 	for: Agent | Workflow;
@@ -32,6 +46,7 @@ export function ThreadMeta({
 	thread,
 	files,
 	className,
+	knowledge,
 }: ThreadMetaProps) {
 	const from = $path("/threads/:id", { id: thread.id });
 	const isAgent = entity.id.startsWith("a");
@@ -41,7 +56,7 @@ export function ThreadMeta({
 		: $path("/workflows/:workflow", { workflow: entity.id });
 
 	return (
-		<Card className={cn("bg-0 h-full", className)}>
+		<Card className={cn("bg-0 h-full overflow-hidden", className)}>
 			<CardContent className="space-y-4 pt-6">
 				<div className="overflow-hidden rounded-md bg-muted p-4">
 					<table className="w-full">
@@ -115,17 +130,53 @@ export function ThreadMeta({
 					{files.length > 0 && (
 						<AccordionItem value="files">
 							<AccordionTrigger>
-								<span className="flex items-center text-base">
+								<span className="flex items-center">
 									<FilesIcon className="mr-2 h-4 w-4" />
 									Files
 								</span>
 							</AccordionTrigger>
 							<AccordionContent className="mx-4">
 								<ul className="space-y-2">
-									{files.map((file: WorkspaceFile) => (
-										<li key={file.name} className="flex items-center">
+									{files.map((file) => (
+										<li key={file.name} className="flex items-center gap-2">
+											<Tooltip>
+												<TooltipTrigger asChild>
+													<Button
+														variant="ghost"
+														size="icon-sm"
+														onClick={() =>
+															ThreadsService.downloadFile(thread.id, file.name)
+														}
+													>
+														<DownloadIcon />
+													</Button>
+												</TooltipTrigger>
+
+												<TooltipContent>Download</TooltipContent>
+											</Tooltip>
+											<Truncate clamp className="flex-1">
+												{file.name}
+											</Truncate>
+										</li>
+									))}
+								</ul>
+							</AccordionContent>
+						</AccordionItem>
+					)}
+					{knowledge.length > 0 && (
+						<AccordionItem value="knowledge">
+							<AccordionTrigger>
+								<span className="flex items-center text-base">
+									<FilesIcon className="mr-2 h-4 w-4" />
+									Knowledge Files
+								</span>
+							</AccordionTrigger>
+							<AccordionContent className="mx-4">
+								<ul className="space-y-2">
+									{knowledge.map((file) => (
+										<li key={file.id} className="flex items-center">
 											<FileIcon className="mr-2 h-4 w-4" />
-											<span>{file.name}</span>
+											<span>{file.fileName}</span>
 										</li>
 									))}
 								</ul>
