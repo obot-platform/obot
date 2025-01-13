@@ -1,0 +1,83 @@
+# replicaCount -- The number of Obot server instances to run
+replicaCount: 1
+
+image:
+  # image.repository -- The name of the docker repository for Obot
+  repository: ghcr.io/obot-platform/obot-enterprise
+  # image.tag -- The docker tag to pull for obot
+  tag: latest
+  # image.pullPolicy -- Kubernetes image pullPolicy to use for Obot
+  pullPolicy: IfNotPresent
+
+# imagePullSecrets -- Configures kubernetes secrets to use for pulling private images
+imagePullSecrets: [ ]
+
+# updateStrategy -- Configures what update strategy to use for the deployment (Recreate or RollingUpdate)
+updateStrategy: "RollingUpdate"
+
+service:
+  # service.type -- Type of Kubernetes service to create
+  type: ClusterIP
+  # service.port -- Port for the Kubernetes service to expose
+  port: 80
+  # service.annotations -- Extra annotations to add to service object
+  annotations: { }
+  # service.spec -- Any extra fields to add to the service object spec
+  spec: { }
+
+ingress:
+  # ingress.enabled -- Enables ingress creation for Obot.
+  enabled: false
+  # ingress.annotations -- Configure annotations to add to the ingress object
+  annotations: { }
+  # kubernetes.io/ingress.class: nginx
+  # kubernetes.io/tls-acme: "true"
+  # ingress.className -- Configures a preexisting ingress class to use.
+  className: ~
+  # className: obot
+  paths:
+    - path: /
+      pathType: Prefix
+  # ingress.extraPaths -- Define complete path objects, will be inserted before regular paths. Can be useful for things like ALB Ingress Controller actions
+  extraPaths: [ ]
+  # ingress.hosts -- List of hostnames to configure the ingress with
+  hosts: [ ]
+  # - chart-example.local
+  # ingress.tls -- List of secrets used to configure TLS for the ingress.
+  tls: [ ]
+  #  - secretName: chart-example-tls
+  #    hosts:
+  #      - chart-example.local
+
+# config - A key/value object containing configuration variables to configure on the obot deployment
+config:
+  # config.existingSecret -- The name of an existing secret to use for config instead of creating a new one
+  existingSecret: ""
+
+  awsAccessKeyID: ""
+  awsRegion: ""
+  awsSecretAccessKey: ""
+  baaahThreadiness: "20"
+  githubAuthToken: ""
+  obotServerAuthAdminEmails: ""
+  obotServerDSN: ""
+  obotServerHostname: ""
+  obotWorkspaceProviderType: "s3"
+  openaiApiKey: ""
+  workspaceProviderS3BaseEndpoint: ""
+  workspaceProviderS3Bucket: ""
+
+# extraEnv -- A map of additional environment variables to set
+extraEnv: { }
+
+# resources -- Resource requests and limits to use for Obot
+resources: { }
+
+serviceAccount:
+  # serviceAccount.create - Specifies whether a service account should be created
+  create: false
+  # serviceAccount.annotation - Annotations to add to the service account
+  annotations: { }
+  # serviceAccount.name - The name of the service account to use.
+  # If not set and create is true, a name is generated using the fullname template
+  name: ""
