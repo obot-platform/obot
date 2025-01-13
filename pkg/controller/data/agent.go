@@ -5,8 +5,12 @@ import (
 	_ "embed"
 	"slices"
 
+	"github.com/obot-platform/obot/apiclient/types"
+	"github.com/obot-platform/obot/pkg/api/handlers"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
+	"github.com/obot-platform/obot/pkg/system"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/yaml"
 )
@@ -23,6 +27,20 @@ func addAgent(ctx context.Context, k kclient.Client) error {
 	var existing v1.Agent
 	if err := k.Get(ctx, kclient.ObjectKey{Namespace: agent.Namespace, Name: agent.Name}, &existing); apierrors.IsNotFound(err) {
 		if err := k.Create(ctx, &agent); err != nil {
+			return err
+		}
+		if err := k.Create(ctx, &v1.AgentAuthorization{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      handlers.AgentAuthorizationName(agent.Name, "*"),
+				Namespace: system.DefaultNamespace,
+			},
+			Spec: v1.AgentAuthorizationSpec{
+				AuthorizationManifest: types.AuthorizationManifest{
+					UserID:  "*",
+					AgentID: agent.Name,
+				},
+			},
+		}); kclient.IgnoreAlreadyExists(err) != nil {
 			return err
 		}
 		existing = agent

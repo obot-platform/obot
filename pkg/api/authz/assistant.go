@@ -29,11 +29,6 @@ func (a *Authorizer) authorizeAssistant(req *http.Request, user user.Info) bool 
 		keys = append(keys, attr...)
 	}
 
-	// TODO: Remove once UI is updated for new API
-	if !system.IsAgentID(agentID) {
-		return true
-	}
-
 	if !system.IsAgentID(agentID) {
 		var agent v1.Agent
 		if err := alias.Get(req.Context(), a.storage, &agent, "", agentID); err != nil {

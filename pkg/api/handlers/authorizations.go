@@ -16,7 +16,7 @@ type AuthorizationHandler struct {
 	userClient *client.Client
 }
 
-func agentAuthorizationName(agentID string, userID string) string {
+func AgentAuthorizationName(agentID string, userID string) string {
 	return name.SafeHashConcatName(agentID, hash.Digest(userID))
 }
 
@@ -40,7 +40,7 @@ func (a *AuthorizationHandler) AddAgentAuthorization(req api.Context) error {
 
 	grant := &v1.AgentAuthorization{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      agentAuthorizationName(authManifest.AgentID, authManifest.UserID),
+			Name:      AgentAuthorizationName(authManifest.AgentID, authManifest.UserID),
 			Namespace: req.Namespace(),
 		},
 		Spec: v1.AgentAuthorizationSpec{
@@ -69,7 +69,7 @@ func (a *AuthorizationHandler) RemoveAgentAuthorization(req api.Context) error {
 
 	err := req.Delete(&v1.AgentAuthorization{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      agentAuthorizationName(agentID, authManifest.UserID),
+			Name:      AgentAuthorizationName(agentID, authManifest.UserID),
 			Namespace: req.Namespace(),
 		},
 	})

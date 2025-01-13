@@ -59,6 +59,7 @@ func Router(services *services.Services) (http.Handler, error) {
 
 	// Assistants
 	mux.HandleFunc("GET /api/assistants", assistants.List)
+	mux.HandleFunc("GET /api/assistants/{id}", assistants.Get)
 	mux.HandleFunc("GET /api/assistants/{id}/credentials", assistants.ListCredentials)
 	mux.HandleFunc("DELETE /api/assistants/{id}/credentials/{cred_id}", assistants.DeleteCredential)
 	mux.HandleFunc("GET /api/assistants/{id}/events", assistants.Events)
@@ -313,6 +314,9 @@ func Router(services *services.Services) (http.Handler, error) {
 
 	// Prompt
 	mux.HandleFunc("POST /api/prompt", prompt.Prompt)
+
+	// Catch all 404 for API
+	mux.HTTPHandle("/api/", http.NotFoundHandler())
 
 	// Gateway APIs
 	services.GatewayServer.AddRoutes(services.APIServer)

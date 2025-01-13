@@ -2,6 +2,7 @@ import { baseURL, doDelete, doGet, doPost, doPut } from './http';
 import {
 	type AssistantToolList,
 	type AssistantTool,
+	type Assistant,
 	type Assistants,
 	type CredentialList,
 	type Files,
@@ -29,6 +30,10 @@ export async function getProfile(): Promise<Profile> {
 
 export async function getVersion(): Promise<Version> {
 	return (await doGet('/version')) as Version;
+}
+
+export async function getAssistant(id: string): Promise<Assistant> {
+	return (await doGet(`/assistants/${id}`)) as Assistant;
 }
 
 export async function listAssistants(): Promise<Assistants> {

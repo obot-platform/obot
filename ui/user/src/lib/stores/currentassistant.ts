@@ -1,10 +1,10 @@
 import { page } from '$app/stores';
-import type { Assistant } from '$lib/services';
+import { type Assistant, ChatService } from '$lib/services';
 import assistants from './assistants';
 import { get, writable } from 'svelte/store';
 
 const def: Assistant = {
-	id: '',
+	id: 'none',
 	icons: {},
 	current: false
 };
@@ -24,7 +24,17 @@ function assignSelected(currentAssistants: Assistant[], selectedName: string): A
 	if (changed) {
 		assistants.set(currentAssistants);
 	}
-	return currentAssistants.find((value) => value.current) ?? def;
+	const res = currentAssistants.find((value) => value.current);
+	if (!res) {
+		ChatService.getAssistant(selectedName).then((assistant) => {
+			if (assistant) {
+				assistant.current = true;
+				store.set(assistant);
+			}
+		});
+		return def;
+	}
+	return res;
 }
 
 function init() {
@@ -33,6 +43,8 @@ function init() {
 	if (p && a.length > 0) {
 		const selectedName = p.params?.agent ?? '';
 		store.set(assignSelected(a, selectedName));
+	} else if (p.params?.agent) {
+		store.set(assignSelected(a, p.params.agent));
 	}
 }
 

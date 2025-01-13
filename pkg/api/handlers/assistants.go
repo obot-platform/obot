@@ -109,10 +109,24 @@ func (a *AssistantHandler) Invoke(req api.Context) error {
 	})
 }
 
-func (a *AssistantHandler) list(req api.Context) (result types.AssistantList, _ error) {
+func (a *AssistantHandler) Get(req api.Context) error {
 	var (
-		keys = make([]string, 0, 3)
-		user = req.User
+		id = req.PathValue("id")
+	)
+
+	agent, err := getAssistant(req, id)
+	if err != nil {
+		return err
+	}
+
+	return req.Write(convertAssistant(*agent))
+}
+
+func (a *AssistantHandler) List(req api.Context) error {
+	var (
+		keys   = make([]string, 0, 3)
+		result types.AssistantList
+		user   = req.User
 	)
 
 	keys = append(keys, "*", user.GetUID())
@@ -127,7 +141,7 @@ func (a *AssistantHandler) list(req api.Context) (result types.AssistantList, _ 
 			"spec.userID": key,
 		})
 		if err != nil {
-			return result, err
+			return err
 		}
 		for _, auth := range access.Items {
 			if _, ok := seen[auth.Spec.AgentID]; ok {
@@ -137,45 +151,14 @@ func (a *AssistantHandler) list(req api.Context) (result types.AssistantList, _ 
 			if err := a.cachedClient.Get(req.Context(), router.Key(req.Namespace(), auth.Spec.AgentID), &agent); apierrors.IsNotFound(err) {
 				continue
 			} else if err != nil {
-				return result, err
+				return err
 			}
 			result.Items = append(result.Items, convertAssistant(agent))
 			seen[auth.Spec.AgentID] = struct{}{}
 		}
 	}
 
-	return result, nil
-}
-
-func (a *AssistantHandler) List(req api.Context) error {
-	var refs v1.AliasList
-	if err := req.Storage.List(req.Context(), &refs); err != nil {
-		return err
-	}
-
-	assistants := types.AssistantList{
-		Items: make([]types.Assistant, 0, len(refs.Items)),
-	}
-
-	for _, ref := range refs.Items {
-		if ref.Spec.TargetKind == "Agent" && ref.Spec.TargetNamespace == req.Namespace() {
-			var agent v1.Agent
-			if err := req.Get(&agent, ref.Spec.TargetName); kclient.IgnoreNotFound(err) != nil {
-				return err
-			} else if err == nil {
-				assistants.Items = append(assistants.Items, convertAssistant(agent))
-			}
-		}
-	}
-
-	// TODO: Remove above once UI is updated for new API
-	newList, err := a.list(req)
-	if err != nil {
-		return err
-	}
-
-	assistants.Items = append(assistants.Items, newList.Items...)
-	return req.Write(assistants)
+	return req.Write(result)
 }
 
 func convertAssistant(agent v1.Agent) types.Assistant {

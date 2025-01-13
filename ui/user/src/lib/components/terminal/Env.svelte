@@ -30,7 +30,11 @@
 		try {
 			await ChatService.saveAssistantEnv($currentAssistant.id, newEnv);
 		} catch (e) {
-			error = e.toString();
+			if (e instanceof Error) {
+				error = e.message;
+			} else {
+				error = String(e);
+			}
 			return;
 		}
 		dialog.close();

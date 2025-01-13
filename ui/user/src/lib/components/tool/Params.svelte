@@ -8,7 +8,7 @@
 		autofocus?: boolean;
 	}
 
-	let { params = $bindable([]), input, autofocus = false }: Props = $props();
+	let { params = $bindable([]), input }: Props = $props();
 </script>
 
 <div class="flex flex-col gap-4 rounded-3xl bg-gray-50 dark:bg-gray-950" class:p-5={!input}>
@@ -52,7 +52,6 @@
 								use:autoHeight
 								class="w-full resize-none rounded-lg bg-gray-100 p-1 px-2 outline-none focus:ring-2 focus:ring-blue focus:ring-opacity-50 dark:bg-gray-900"
 								rows="1"
-								{autofocus}
 								bind:value={param.value}
 							></textarea>
 						</td>
