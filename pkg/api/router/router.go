@@ -224,6 +224,7 @@ func Router(services *services.Services) (http.Handler, error) {
 	mux.HandleFunc("POST /api/tool-references", toolRefs.Create)
 	mux.HandleFunc("DELETE /api/tool-references/{id}", toolRefs.Delete)
 	mux.HandleFunc("PUT /api/tool-references/{id}", toolRefs.Update)
+	mux.HandleFunc("POST /api/tool-references/{id}/force-refresh", toolRefs.ForceRefresh)
 
 	// Runs
 	mux.HandleFunc("GET /api/runs", runs.List)

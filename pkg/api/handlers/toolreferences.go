@@ -220,3 +220,22 @@ func (a *ToolReferenceHandler) List(req api.Context) error {
 
 	return req.Write(resp)
 }
+
+func (a *ToolReferenceHandler) ForceRefresh(req api.Context) error {
+	var (
+		id       = req.PathValue("id")
+		existing v1.ToolReference
+	)
+
+	if err := req.Get(&existing, id); err != nil {
+		return fmt.Errorf("failed to get thread with id %s: %w", id, err)
+	}
+
+	existing.Spec.ForceRefresh = metav1.Now()
+
+	if err := req.Update(&existing); err != nil {
+		return err
+	}
+
+	return req.Write(convertToolReference(existing))
+}

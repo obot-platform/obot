@@ -7826,9 +7826,16 @@ func schema_storage_apis_obotobotai_v1_ToolReferenceSpec(ref common.ReferenceCal
 							Format: "",
 						},
 					},
+					"forceRefresh": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.Time"),
+						},
+					},
 				},
 			},
 		},
+		Dependencies: []string{
+			"k8s.io/apimachinery/pkg/apis/meta/v1.Time"},
 	}
 }
 

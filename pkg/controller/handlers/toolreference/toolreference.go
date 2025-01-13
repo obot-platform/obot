@@ -235,13 +235,16 @@ func (h *Handler) Populate(req router.Request, resp router.Response) error {
 	}
 
 	// Reset status
+	lastCheck := toolRef.Status.LastReferenceCheck
 	toolRef.Status.LastReferenceCheck = metav1.Now()
 	toolRef.Status.ObservedGeneration = toolRef.Generation
 	toolRef.Status.Reference = toolRef.Spec.Reference
 	toolRef.Status.Tool = nil
 	toolRef.Status.Error = ""
 
-	prg, err := h.gptClient.LoadFile(req.Ctx, toolRef.Spec.Reference)
+	prg, err := h.gptClient.LoadFile(req.Ctx, toolRef.Spec.Reference, gptscript.LoadOptions{
+		DisableCache: toolRef.Spec.ForceRefresh.After(lastCheck.Time),
+	})
 	if err != nil {
 		toolRef.Status.Error = err.Error()
 		return nil
