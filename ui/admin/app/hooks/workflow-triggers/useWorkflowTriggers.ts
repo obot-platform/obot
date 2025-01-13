@@ -18,24 +18,26 @@ const AllTypes = Object.values(WorkflowTriggerType);
 export function useWorkflowTriggers(props?: UseWorkflowTriggersProps) {
 	const { type = AllTypes, workflowId } = props ?? {};
 
+	const filters = { workflowId };
+
 	const types = new Set(Array.isArray(type) ? type : [type]);
 
 	const { data: emailReceivers } = useSWR(
 		types.has("email") &&
-			EmailReceiverApiService.getEmailReceivers.key({ workflowId }),
+			EmailReceiverApiService.getEmailReceivers.key(filters),
 		({ filters }) => EmailReceiverApiService.getEmailReceivers(filters),
 		{ fallbackData: [] }
 	);
 
 	const { data: cronjobs } = useSWR(
-		types.has("schedule") && CronJobApiService.getCronJobs.key({ workflowId }),
+		types.has("schedule") && CronJobApiService.getCronJobs.key(filters),
 		({ filters }) => CronJobApiService.getCronJobs(filters),
 		{ fallbackData: [] }
 	);
 
 	const { data: webhooks } = useSWR(
-		types.has("webhook") && WebhookApiService.getWebhooks.key(),
-		() => WebhookApiService.getWebhooks(),
+		types.has("webhook") && WebhookApiService.getWebhooks.key(filters),
+		({ filters }) => WebhookApiService.getWebhooks(filters),
 		{ fallbackData: [] }
 	);
 
