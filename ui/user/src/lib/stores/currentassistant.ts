@@ -4,7 +4,7 @@ import assistants from './assistants';
 import { get, writable } from 'svelte/store';
 
 const def: Assistant = {
-	id: 'none',
+	id: '',
 	icons: {},
 	current: false
 };

@@ -553,6 +553,27 @@ func schema_obot_platform_obot_apiclient_types_AgentManifest(ref common.Referenc
 							},
 						},
 					},
+					"introductionMessage": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"starterMessages": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
 					"maxThreadTools": {
 						SchemaProps: spec.SchemaProps{
 							Default: 0,
@@ -596,7 +617,7 @@ func schema_obot_platform_obot_apiclient_types_AgentManifest(ref common.Referenc
 						},
 					},
 				},
-				Required: []string{"name", "icons", "description", "default", "temperature", "cache", "alias", "prompt", "knowledgeDescription", "agents", "workflows", "tools", "availableThreadTools", "defaultThreadTools", "oauthApps", "maxThreadTools", "params", "model", "env"},
+				Required: []string{"name", "icons", "description", "default", "temperature", "cache", "alias", "prompt", "knowledgeDescription", "agents", "workflows", "tools", "availableThreadTools", "defaultThreadTools", "oauthApps", "introductionMessage", "starterMessages", "maxThreadTools", "params", "model", "env"},
 			},
 		},
 		Dependencies: []string{
@@ -643,6 +664,27 @@ func schema_obot_platform_obot_apiclient_types_Assistant(ref common.ReferenceCal
 							Ref:     ref("github.com/obot-platform/obot/apiclient/types.AgentIcons"),
 						},
 					},
+					"introductionMessage": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"starterMessages": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
 					"entityID": {
 						SchemaProps: spec.SchemaProps{
 							Default: "",
@@ -651,7 +693,7 @@ func schema_obot_platform_obot_apiclient_types_Assistant(ref common.ReferenceCal
 						},
 					},
 				},
-				Required: []string{"Metadata", "name", "default", "description", "icons", "entityID"},
+				Required: []string{"Metadata", "name", "default", "description", "icons", "introductionMessage", "starterMessages", "entityID"},
 			},
 		},
 		Dependencies: []string{
@@ -4542,6 +4584,27 @@ func schema_obot_platform_obot_apiclient_types_WorkflowManifest(ref common.Refer
 							},
 						},
 					},
+					"introductionMessage": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"starterMessages": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
 					"maxThreadTools": {
 						SchemaProps: spec.SchemaProps{
 							Default: 0,
@@ -4605,7 +4668,7 @@ func schema_obot_platform_obot_apiclient_types_WorkflowManifest(ref common.Refer
 						},
 					},
 				},
-				Required: []string{"name", "icons", "description", "default", "temperature", "cache", "alias", "prompt", "knowledgeDescription", "agents", "workflows", "tools", "availableThreadTools", "defaultThreadTools", "oauthApps", "maxThreadTools", "params", "model", "env", "steps", "output"},
+				Required: []string{"name", "icons", "description", "default", "temperature", "cache", "alias", "prompt", "knowledgeDescription", "agents", "workflows", "tools", "availableThreadTools", "defaultThreadTools", "oauthApps", "introductionMessage", "starterMessages", "maxThreadTools", "params", "model", "env", "steps", "output"},
 			},
 		},
 		Dependencies: []string{

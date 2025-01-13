@@ -45,6 +45,8 @@ type AgentManifest struct {
 	AvailableThreadTools []string          `json:"availableThreadTools"`
 	DefaultThreadTools   []string          `json:"defaultThreadTools"`
 	OAuthApps            []string          `json:"oauthApps"`
+	IntroductionMessage  string            `json:"introductionMessage"`
+	StarterMessages      []string          `json:"starterMessages"`
 	MaxThreadTools       int               `json:"maxThreadTools"`
 	Params               map[string]string `json:"params"`
 	Model                string            `json:"model"`

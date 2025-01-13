@@ -173,6 +173,8 @@ export interface Assistant {
 	description?: string;
 	current: boolean;
 	icons: AssistantIcons;
+	starterMessages?: string[];
+	introductionMessage?: string;
 }
 
 export interface AssistantTool {

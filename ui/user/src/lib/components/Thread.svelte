@@ -2,10 +2,12 @@
 	import Input from '$lib/components/messages/Input.svelte';
 	import { autoscroll } from '$lib/actions/div';
 	import { Thread } from '$lib/services/chat/thread.svelte';
-	import { EditorService, type Messages } from '$lib/services';
+	import { type Assistant, EditorService, type Messages } from '$lib/services';
 	import Message from '$lib/components/messages/Message.svelte';
 	import { fade } from 'svelte/transition';
 	import { onDestroy } from 'svelte';
+	import { currentAssistant, assistants } from '$lib/stores';
+	import { toHTMLFromMarkdown } from '$lib/markdown';
 
 	interface Props {
 		assistant?: string;
@@ -15,6 +17,13 @@
 	let messages: Messages = $state({ messages: [], inProgress: false });
 	let thread: Thread | undefined = $state<Thread>();
 	let messagesDiv = $state<HTMLDivElement>();
+	let current = $derived.by<Assistant | undefined>(() => {
+		let a = $assistants.find((a) => a.id === assistant);
+		if (!a && $currentAssistant.id === assistant) {
+			a = $currentAssistant;
+		}
+		return a
+	})
 
 	$effect(() => {
 		if (!assistant || thread) {
@@ -53,6 +62,22 @@
 	>
 		<div class="flex w-full max-w-[900px] flex-col px-8 pt-24 transition-all">
 			<div in:fade|global class="flex flex-col gap-8">
+				{#if messages.messages.length < 7}
+					<div class="message-content self-center">
+						{#if current?.introductionMessage }
+							{@html toHTMLFromMarkdown(current.introductionMessage)}
+						{/if}
+					</div>
+					<div class="flex gap-2 self-center">
+						{#each current?.starterMessages ?? [] as msg}
+							<button class="border-2 border-blue rounded-3xl p-5" onclick={() => {
+								thread?.invoke(msg);
+							}}>
+								{msg}
+							</button>
+						{/each}
+					</div>
+				{/if}
 				{#each messages.messages as msg}
 					<Message {msg} {onLoadFile} />
 				{/each}
