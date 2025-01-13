@@ -157,6 +157,11 @@ func (h *Handler) IngestFile(req router.Request, _ router.Response) error {
 	if ingestedFilesCount >= h.limit {
 		file.Status.State = types.KnowledgeFileStateError
 		file.Status.Error = "You have reached the maximum of files you can ingest"
+		file.Status.URL = file.Spec.URL
+		file.Status.UpdatedAt = file.Spec.UpdatedAt
+		file.Status.Checksum = file.Spec.Checksum
+		file.Status.IngestGeneration = file.Spec.IngestGeneration
+		file.Status.RetryCount = 3
 		return req.Client.Status().Update(req.Ctx, file)
 	}
 
