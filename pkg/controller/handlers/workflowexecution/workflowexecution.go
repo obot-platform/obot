@@ -129,6 +129,7 @@ func (h *Handler) newThread(ctx context.Context, c kclient.Client, wf *v1.Workfl
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace:    wf.Namespace,
 			GenerateName: system.ThreadPrefix,
+			Finalizers:   []string{v1.ThreadFinalizer},
 		},
 		Spec: v1.ThreadSpec{
 			ParentThreadName:      we.Spec.ParentThreadName,

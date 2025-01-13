@@ -43,7 +43,12 @@ func CustomTool(ctx context.Context, c client.Client, tool v1.Tool) (toolDefs []
 		envs = append(envs, env.ToEnvLike(k))
 	}
 
-	envs = append(envs, tool.Spec.Envs...)
+	for _, env := range tool.Spec.Envs {
+		if !validEnv.MatchString(env) {
+			return nil, fmt.Errorf("invalid env var %s, must match %s", env, validEnv.String())
+		}
+		envs = append(envs, env)
+	}
 
 	var instructions []string
 	if len(envs) > 0 {

@@ -7,7 +7,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/obot-platform/obot/apiclient/types"
+	"github.com/obot-platform/obot/pkg/render"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 type SystemTaskOptions struct {
@@ -35,10 +38,46 @@ func (i *Invoker) EphemeralThreadTask(ctx context.Context, thread *v1.Thread, to
 		return "", err
 	}
 
+	var extraEnv []string
+	if toolString, ok := tool.(string); ok {
+		toolRef, err := render.ResolveToolReference(ctx, i.uncached, "", thread.Namespace, toolString)
+		if err != nil {
+			return "", err
+		}
+
+		tool, extraEnv, err = render.Agent(ctx, i.uncached, &v1.Agent{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: thread.Namespace,
+			},
+			Spec: v1.AgentSpec{
+				Manifest: types.AgentManifest{
+					Prompt: "#!sys.call " + toolRef,
+					Tools:  []string{toolRef},
+				},
+			},
+		}, i.serverURL, render.AgentOptions{
+			Thread: thread,
+		})
+		if err != nil {
+			return "", err
+		}
+	}
+
+	var credContexts []string
+	if thread.Name != "" {
+		credContexts = append(credContexts, thread.Name)
+	}
+	if thread.Spec.AgentName != "" {
+		credContexts = append(credContexts, thread.Spec.AgentName)
+	}
+	if thread.Namespace != "" {
+		credContexts = append(credContexts, thread.Namespace)
+	}
+
 	resp, err := i.createRun(ctx, i.uncached, thread, tool, inputString, runOptions{
 		Ephemeral:            true,
-		Env:                  opt.Env,
-		CredentialContextIDs: opt.CredentialContextIDs,
+		Env:                  append(opt.Env, extraEnv...),
+		CredentialContextIDs: append(credContexts, opt.CredentialContextIDs...),
 		Synchronous:          true,
 		Timeout:              opt.Timeout,
 	})

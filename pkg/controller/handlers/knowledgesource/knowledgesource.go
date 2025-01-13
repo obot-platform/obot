@@ -179,8 +179,9 @@ func getThread(ctx context.Context, c kclient.WithWatch, source *v1.KnowledgeSou
 
 	thread := &v1.Thread{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      name.SafeConcatName(system.ThreadPrefix, source.Name),
-			Namespace: source.Namespace,
+			Name:       name.SafeConcatName(system.ThreadPrefix, source.Name),
+			Namespace:  source.Namespace,
+			Finalizers: []string{v1.ThreadFinalizer},
 		},
 		Spec: v1.ThreadSpec{
 			KnowledgeSourceName: source.Name,

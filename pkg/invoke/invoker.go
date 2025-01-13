@@ -233,6 +233,7 @@ func CreateThreadForAgent(ctx context.Context, c kclient.WithWatch, agent *v1.Ag
 			GenerateName: system.ThreadPrefix,
 			Name:         threadName,
 			Namespace:    agent.Namespace,
+			Finalizers:   []string{v1.ThreadFinalizer},
 		},
 		Spec: v1.ThreadSpec{
 			Manifest: types.ThreadManifest{

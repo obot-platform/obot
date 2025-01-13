@@ -41,6 +41,7 @@ func (c *Controller) setupRoutes() error {
 	oauthLogins := oauthapp.NewLogin(c.services.Invoker, c.services.ServerURL)
 	knowledgesummary := knowledgesummary.NewHandler(c.services.GPTClient)
 	toolInfo := toolinfo.New(c.services.GPTClient)
+	threads := threads.NewHandler(c.services.GPTClient)
 
 	// Runs
 	root.Type(&v1.Run{}).HandlerFunc(removeOldFinalizers)
@@ -55,6 +56,7 @@ func (c *Controller) setupRoutes() error {
 	root.Type(&v1.Thread{}).HandlerFunc(threads.CreateKnowledgeSet)
 	root.Type(&v1.Thread{}).HandlerFunc(threads.WorkflowState)
 	root.Type(&v1.Thread{}).HandlerFunc(knowledgesummary.Summarize)
+	root.Type(&v1.Thread{}).FinalizeFunc(v1.ThreadFinalizer, threads.CleanupThread)
 
 	// KnowledgeSummary
 	root.Type(&v1.KnowledgeSummary{}).HandlerFunc(cleanup.Cleanup)

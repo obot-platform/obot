@@ -3,6 +3,7 @@ package threads
 import (
 	"context"
 
+	"github.com/gptscript-ai/go-gptscript"
 	"github.com/obot-platform/nah/pkg/name"
 	"github.com/obot-platform/nah/pkg/router"
 	"github.com/obot-platform/obot/pkg/create"
@@ -13,7 +14,15 @@ import (
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func WorkflowState(req router.Request, _ router.Response) error {
+type Handler struct {
+	gptScript *gptscript.GPTScript
+}
+
+func NewHandler(gptScript *gptscript.GPTScript) *Handler {
+	return &Handler{gptScript: gptScript}
+}
+
+func (t *Handler) WorkflowState(req router.Request, _ router.Response) error {
 	var (
 		thread = req.Object.(*v1.Thread)
 		wfe    v1.WorkflowExecution
@@ -58,7 +67,7 @@ func getWorkspace(ctx context.Context, c kclient.WithWatch, thread *v1.Thread) (
 	})
 }
 
-func CreateWorkspaces(req router.Request, _ router.Response) error {
+func (t *Handler) CreateWorkspaces(req router.Request, _ router.Response) error {
 	thread := req.Object.(*v1.Thread)
 
 	ws, err := getWorkspace(req.Ctx, req.Client, thread)
@@ -81,7 +90,26 @@ func CreateWorkspaces(req router.Request, _ router.Response) error {
 	return nil
 }
 
-func CreateKnowledgeSet(req router.Request, _ router.Response) error {
+func (t *Handler) CleanupThread(req router.Request, _ router.Response) error {
+	thread := req.Object.(*v1.Thread)
+
+	creds, err := t.gptScript.ListCredentials(req.Ctx, gptscript.ListCredentialsOptions{
+		CredentialContexts: []string{thread.Name},
+	})
+	if err != nil {
+		return err
+	}
+
+	for _, cred := range creds {
+		if err := t.gptScript.DeleteCredential(req.Ctx, thread.Name, cred.ToolName); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (t *Handler) CreateKnowledgeSet(req router.Request, _ router.Response) error {
 	thread := req.Object.(*v1.Thread)
 	if len(thread.Status.KnowledgeSetNames) > 0 || thread.Spec.AgentName == "" {
 		return nil
