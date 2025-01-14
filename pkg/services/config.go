@@ -259,7 +259,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 			return nil, err
 		}
 	} else {
-		if err := c.DeleteCredential(ctx, system.DefaultNamespace, system.KnowledgeCredID); err != nil {
+		if err := c.DeleteCredential(ctx, system.DefaultNamespace, system.KnowledgeCredID); err != nil && !strings.HasSuffix(err.Error(), "credential not found") {
 			return nil, err
 		}
 	}
