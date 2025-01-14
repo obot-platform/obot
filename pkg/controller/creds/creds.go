@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/url"
 	"path"
+	"path/filepath"
 	"slices"
 	"strings"
 
@@ -149,16 +150,13 @@ func toolRefsFromTools(parentTool gptscript.Tool, parentRef toolRef, tools []str
 
 func fullToolPathName(parentRef toolRef, name string) string {
 	toolName, subTool := gtypes.SplitToolRef(name)
-	if strings.HasPrefix(toolName, ".") {
-		parentToolName, _ := gtypes.SplitToolRef(parentRef.Reference)
-		if !path.IsAbs(parentToolName) {
-			if !strings.HasPrefix(parentToolName, ".") {
-				parentToolName, _ = gtypes.SplitToolRef(parentRef.name)
-			} else {
-				parentToolName = path.Join(parentRef.name, parentToolName)
-			}
-		}
 
+	// If this tool's path is relative to its parent.
+	if strings.HasPrefix(toolName, ".") {
+		parentToolName, _ := gtypes.SplitToolRef(parentRef.name)
+		if rel, err := filepath.Rel(parentToolName, toolName); err == nil && strings.HasPrefix(toolName, parentToolName) {
+			toolName = rel
+		}
 		refURL, err := url.Parse(parentToolName)
 		if err != nil {
 			return ""
