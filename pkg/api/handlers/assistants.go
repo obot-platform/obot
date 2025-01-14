@@ -176,7 +176,9 @@ func convertAssistant(agent v1.Agent) types.Assistant {
 		IntroductionMessage: agent.Spec.Manifest.IntroductionMessage,
 		Icons:               icons,
 	}
-	assistant.ID = agent.Spec.Manifest.Alias
+	if agent.Spec.Manifest.Alias != "" {
+		assistant.ID = agent.Spec.Manifest.Alias
+	}
 	return assistant
 }
 

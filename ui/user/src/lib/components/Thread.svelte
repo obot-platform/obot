@@ -6,31 +6,23 @@
 	import Message from '$lib/components/messages/Message.svelte';
 	import { fade } from 'svelte/transition';
 	import { onDestroy } from 'svelte';
-	import { currentAssistant, assistants } from '$lib/stores';
 	import { toHTMLFromMarkdown } from '$lib/markdown';
 
 	interface Props {
-		assistant?: string;
+		assistant?: Assistant;
 	}
 
-	let { assistant = '' }: Props = $props();
+	let { assistant }: Props = $props();
 	let messages: Messages = $state({ messages: [], inProgress: false });
 	let thread: Thread | undefined = $state<Thread>();
 	let messagesDiv = $state<HTMLDivElement>();
-	let current = $derived.by<Assistant | undefined>(() => {
-		let a = $assistants.find((a) => a.id === assistant);
-		if (!a && $currentAssistant.id === assistant) {
-			a = $currentAssistant;
-		}
-		return a;
-	});
 
 	$effect(() => {
-		if (!assistant || thread) {
+		if (!assistant?.id || thread) {
 			return;
 		}
 
-		const newThread = new Thread(assistant, {
+		const newThread = new Thread(assistant.id, {
 			onError: () => {
 				// ignore errors they are rendered as messages
 			}
@@ -49,7 +41,7 @@
 
 	function onLoadFile(filename: string) {
 		if (assistant) {
-			EditorService.load(assistant, filename);
+			EditorService.load(assistant.id, filename);
 		}
 	}
 </script>
@@ -64,12 +56,12 @@
 			<div in:fade|global class="flex flex-col gap-8">
 				{#if messages.messages.length < 7}
 					<div class="message-content self-center">
-						{#if current?.introductionMessage}
-							{@html toHTMLFromMarkdown(current.introductionMessage)}
+						{#if assistant?.introductionMessage}
+							{@html toHTMLFromMarkdown(assistant.introductionMessage)}
 						{/if}
 					</div>
 					<div class="flex gap-2 self-center">
-						{#each current?.starterMessages ?? [] as msg}
+						{#each assistant?.starterMessages ?? [] as msg}
 							<button
 								class="rounded-3xl border-2 border-blue p-5"
 								onclick={() => {

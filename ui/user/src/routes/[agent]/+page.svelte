@@ -33,7 +33,7 @@
 	<!-- these divs suck, but it's so that we have a relative container for the absolute input and the scrollable area is the entire screen and not just
 			 the center content. Plus the screen will auto resize as the editor is resized -->
 	<div class="relative flex-1 overflow-auto">
-		<Thread assistant={$currentAssistant.id} />
+		<Thread assistant={$currentAssistant} />
 	</div>
 
 	{#if $editorVisible || term.open}
