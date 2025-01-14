@@ -1,8 +1,9 @@
 import { ToolReference } from "~/lib/model/toolReferences";
 import { cn } from "~/lib/utils/cn";
 
+import { Truncate } from "~/components/composed/typography";
 import { ToolIcon } from "~/components/tools/ToolIcon";
-import { ToolDropdown } from "~/components/tools/list/ToolDropdown";
+import { ToolCardActions } from "~/components/tools/list/ToolCardActions";
 import { Button } from "~/components/ui/button";
 import { Card, CardContent, CardHeader } from "~/components/ui/card";
 import {
@@ -26,11 +27,7 @@ export function ToolCard({
 			})}
 		>
 			<CardHeader className="flex flex-row items-center justify-between space-y-0 px-2.5 pb-0 pt-2">
-				{!tool.builtin || tool?.metadata?.oauth ? (
-					<ToolDropdown tool={tool} />
-				) : (
-					<div className="h-8 w-6" />
-				)}
+				<ToolCardActions tool={tool} />
 				<div className="pr-2">
 					{tool.error ? (
 						<Popover>
@@ -55,21 +52,33 @@ export function ToolCard({
 					)}
 				</div>
 			</CardHeader>
-			<CardContent className="flex flex-col items-center gap-4">
+			<CardContent className="flex flex-col items-center gap-2 text-center">
 				<ToolIcon
 					className="h-16 w-16"
 					disableTooltip
 					name={tool?.name ?? ""}
 					icon={tool?.metadata?.icon}
 				/>
-				<div className="line-clamp-1 text-center text-lg font-semibold">
-					{tool.name}
-				</div>
-				<p className="line-clamp-2 text-center text-sm">{tool.description}</p>
+				<Truncate className="text-lg font-semibold">{tool.name}</Truncate>
+				<Truncate
+					classNames={{
+						root: "leading-5",
+					}}
+					className="text-sm"
+					clampLength={2}
+				>
+					{tool.description}
+				</Truncate>
 				{!tool.builtin && tool.reference && (
-					<p className="line-clamp-2 text-wrap break-all text-center text-sm">
+					<Truncate
+						classNames={{
+							root: "leading-5",
+						}}
+						className="text-wrap break-all text-sm"
+						clampLength={2}
+					>
 						{tool.reference}
-					</p>
+					</Truncate>
 				)}
 			</CardContent>
 		</Card>

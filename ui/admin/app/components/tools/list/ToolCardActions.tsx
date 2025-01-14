@@ -6,10 +6,12 @@ import { mutate } from "swr";
 import { OAuthProvider } from "~/lib/model/oauthApps/oauth-helpers";
 import { ToolReference } from "~/lib/model/toolReferences";
 import { ToolReferenceService } from "~/lib/service/api/toolreferenceService";
+import { cn } from "~/lib/utils";
 
 import { ConfirmationDialog } from "~/components/composed/ConfirmationDialog";
 import { CustomOauthAppDetail } from "~/components/oauth-apps/CustomOauthAppDetail";
 import { OAuthAppDetail } from "~/components/oauth-apps/OAuthAppDetail";
+import { LoadingSpinner } from "~/components/ui/LoadingSpinner";
 import { Button } from "~/components/ui/button";
 import {
 	DropdownMenu,
@@ -20,12 +22,9 @@ import {
 import { useConfirmationDialog } from "~/hooks/component-helpers/useConfirmationDialog";
 import { useOAuthAppList } from "~/hooks/oauthApps/useOAuthApps";
 import { useAsync } from "~/hooks/useAsync";
+import { usePollSingleTool } from "~/hooks/usePollSingleTool";
 
-type ToolDropdownProps = {
-	tool: ToolReference;
-};
-
-export function ToolDropdown({ tool }: ToolDropdownProps) {
+export function ToolCardActions({ tool }: { tool: ToolReference }) {
 	const [configureAuthOpen, setConfigureAuthOpen] = useState(false);
 	const { dialogProps, interceptAsync } = useConfirmationDialog();
 
@@ -38,12 +37,24 @@ export function ToolDropdown({ tool }: ToolDropdownProps) {
 	const deleteTool = useAsync(ToolReferenceService.deleteToolReference, {
 		onSuccess: () => {
 			toast.success("Tool has been deleted.");
-			mutate(ToolReferenceService.getToolReferencesCategoryMap.key("tool"));
+			mutate(ToolReferenceService.getToolReferences.key("tool"));
 		},
 		onError: () => {
 			toast.error("Something went wrong");
 		},
 	});
+
+	const { startPolling, isPolling } = usePollSingleTool(tool.id);
+
+	const forceRefresh = useAsync(
+		ToolReferenceService.forceRefreshToolReference,
+		{
+			onSuccess: () => {
+				toast.success("Tool reference force refreshed");
+				startPolling();
+			},
+		}
+	);
 
 	const handleDelete = () =>
 		interceptAsync(() => deleteTool.executeAsync(tool.id));
@@ -60,17 +71,21 @@ export function ToolDropdown({ tool }: ToolDropdownProps) {
 			<DropdownMenu>
 				<DropdownMenuTrigger asChild>
 					<Button variant="ghost" size="icon-sm">
-						{requiresConfiguration ? (
+						{forceRefresh.isLoading || isPolling ? (
+							<LoadingSpinner />
+						) : requiresConfiguration ? (
 							<TriangleAlertIcon className="text-warning" />
 						) : (
 							<SettingsIcon />
 						)}
 					</Button>
 				</DropdownMenuTrigger>
-				<DropdownMenuContent className="w-56" side="bottom" align="start">
+				<DropdownMenuContent className="w-56" side="top" align="start">
 					{!tool.error && toolOauthMetadata && (
 						<DropdownMenuItem
-							className="flex items-center gap-1"
+							className={cn("flex items-center gap-1", {
+								"text-warning": requiresConfiguration,
+							})}
 							onClick={() => {
 								setConfigureAuthOpen(true);
 							}}
@@ -81,6 +96,9 @@ export function ToolDropdown({ tool }: ToolDropdownProps) {
 							Configure OAuth
 						</DropdownMenuItem>
 					)}
+					<DropdownMenuItem onClick={() => forceRefresh.execute(tool.id)}>
+						Refresh Tool
+					</DropdownMenuItem>
 					{!tool.builtin && (
 						<DropdownMenuItem
 							className="text-destructive"

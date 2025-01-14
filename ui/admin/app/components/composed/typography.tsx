@@ -11,10 +11,12 @@ import {
 export function Truncate({
 	children,
 	className,
+	classNames,
 	asChild,
 	disableTooltip,
 	tooltipContent = children,
 	clamp = true,
+	clampLength = 1,
 }: {
 	children: React.ReactNode;
 	className?: string;
@@ -22,11 +24,25 @@ export function Truncate({
 	disableTooltip?: boolean;
 	tooltipContent?: React.ReactNode;
 	clamp?: boolean;
+	clampLength?: 1 | 2 | 3;
+	classNames?: {
+		root?: string;
+	};
 }) {
 	const Comp = asChild ? Slot : "p";
 
 	const content = (
-		<Comp className={cn({ "line-clamp-1": clamp, truncate: !clamp })}>
+		<Comp
+			className={cn(
+				{
+					"line-clamp-1": clamp && clampLength === 1,
+					"line-clamp-2": clamp && clampLength === 2,
+					"line-clamp-3": clamp && clampLength === 3,
+					truncate: !clamp,
+				},
+				classNames?.root
+			)}
+		>
 			{children}
 		</Comp>
 	);
