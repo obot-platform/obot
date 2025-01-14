@@ -1,14 +1,12 @@
-import { EllipsisVerticalIcon, Trash } from "lucide-react";
-import { toast } from "sonner";
+import { Trash } from "lucide-react";
 
 import { ToolReference } from "~/lib/model/toolReferences";
-import { ToolReferenceService } from "~/lib/service/api/toolreferenceService";
 import { cn, timeSince } from "~/lib/utils";
 
 import { ConfirmationDialog } from "~/components/composed/ConfirmationDialog";
 import { Truncate } from "~/components/composed/typography";
 import { ToolIcon } from "~/components/tools/ToolIcon";
-import { LoadingSpinner } from "~/components/ui/LoadingSpinner";
+import { ToolCardActions } from "~/components/tools/toolGrid/ToolCardActions";
 import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
 import {
@@ -18,18 +16,10 @@ import {
 	CardHeader,
 } from "~/components/ui/card";
 import {
-	DropdownMenu,
-	DropdownMenuContent,
-	DropdownMenuItem,
-	DropdownMenuTrigger,
-} from "~/components/ui/dropdown-menu";
-import {
 	Tooltip,
 	TooltipContent,
 	TooltipTrigger,
 } from "~/components/ui/tooltip";
-import { useAsync } from "~/hooks/useAsync";
-import { usePollSingleTool } from "~/hooks/usePollSingleTool";
 
 interface ToolCardProps {
 	tool: ToolReference;
@@ -37,18 +27,6 @@ interface ToolCardProps {
 }
 
 export function ToolCard({ tool, onDelete }: ToolCardProps) {
-	const { startPolling, isPolling } = usePollSingleTool(tool.id);
-
-	const forceRefresh = useAsync(
-		ToolReferenceService.forceRefreshToolReference,
-		{
-			onSuccess: () => {
-				toast.success("Tool reference force refreshed");
-				startPolling();
-			},
-		}
-	);
-
 	return (
 		<Card
 			className={cn("flex h-full flex-col", {
@@ -83,23 +61,7 @@ export function ToolCard({ tool, onDelete }: ToolCardProps) {
 					)}
 				</h4>
 
-				<div className="flex items-center gap-2">
-					{(forceRefresh.isLoading || isPolling) && <LoadingSpinner />}
-
-					<DropdownMenu>
-						<DropdownMenuTrigger asChild>
-							<Button variant="ghost" size="icon" className="m-0">
-								<EllipsisVerticalIcon />
-							</Button>
-						</DropdownMenuTrigger>
-
-						<DropdownMenuContent side="top" align="start">
-							<DropdownMenuItem onClick={() => forceRefresh.execute(tool.id)}>
-								Refresh Tool
-							</DropdownMenuItem>
-						</DropdownMenuContent>
-					</DropdownMenu>
-				</div>
+				<ToolCardActions tool={tool} />
 			</CardHeader>
 			<CardContent className="flex-grow">
 				{!tool.builtin && (
