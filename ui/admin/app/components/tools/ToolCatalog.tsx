@@ -5,8 +5,9 @@ import useSWR from "swr";
 import { OAuthProvider } from "~/lib/model/oauthApps/oauth-helpers";
 import {
 	ToolCategory,
-	ToolReferenceService,
-} from "~/lib/service/api/toolreferenceService";
+	convertToolReferencesToCategoryMap,
+} from "~/lib/model/toolReferences";
+import { ToolReferenceService } from "~/lib/service/api/toolreferenceService";
 import { cn } from "~/lib/utils";
 
 import { ToolCatalogGroup } from "~/components/tools/ToolCatalogGroup";
@@ -41,11 +42,17 @@ export function ToolCatalog({
 	onUpdateTools,
 	classNames,
 }: ToolCatalogProps) {
-	const { data: toolCategories, isLoading } = useSWR(
-		ToolReferenceService.getToolReferencesCategoryMap.key("tool"),
-		() => ToolReferenceService.getToolReferencesCategoryMap("tool"),
-		{ fallbackData: {} }
+	const { data: toolList, isLoading } = useSWR(
+		ToolReferenceService.getToolReferences.key("tool"),
+		() => ToolReferenceService.getToolReferences("tool"),
+		{ fallbackData: [] }
 	);
+
+	const toolCategories = useMemo(
+		() => convertToolReferencesToCategoryMap(toolList),
+		[toolList]
+	);
+
 	const [search, setSearch] = useState("");
 
 	const oauthApps = useOAuthAppList();

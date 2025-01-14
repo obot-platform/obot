@@ -29,6 +29,7 @@ import {
 	TooltipTrigger,
 } from "~/components/ui/tooltip";
 import { useAsync } from "~/hooks/useAsync";
+import { usePollSingleTool } from "~/hooks/usePollSingleTool";
 
 interface ToolCardProps {
 	tool: ToolReference;
@@ -36,12 +37,14 @@ interface ToolCardProps {
 }
 
 export function ToolCard({ tool, onDelete }: ToolCardProps) {
+	const { startPolling, isPolling } = usePollSingleTool(tool.id);
+
 	const forceRefresh = useAsync(
 		ToolReferenceService.forceRefreshToolReference,
 		{
 			onSuccess: () => {
 				toast.success("Tool reference force refreshed");
-				ToolReferenceService.getToolReferences.revalidate("tool");
+				startPolling();
 			},
 		}
 	);
@@ -80,17 +83,15 @@ export function ToolCard({ tool, onDelete }: ToolCardProps) {
 					)}
 				</h4>
 
-				{!tool.builtin && (
-					<DropdownMenu>
-						<div className="flex items-center gap-2">
-							{forceRefresh.isLoading && <LoadingSpinner />}
+				<div className="flex items-center gap-2">
+					{(forceRefresh.isLoading || isPolling) && <LoadingSpinner />}
 
-							<DropdownMenuTrigger asChild>
-								<Button variant="ghost" size="icon" className="m-0">
-									<EllipsisVerticalIcon />
-								</Button>
-							</DropdownMenuTrigger>
-						</div>
+					<DropdownMenu>
+						<DropdownMenuTrigger asChild>
+							<Button variant="ghost" size="icon" className="m-0">
+								<EllipsisVerticalIcon />
+							</Button>
+						</DropdownMenuTrigger>
 
 						<DropdownMenuContent side="top" align="start">
 							<DropdownMenuItem onClick={() => forceRefresh.execute(tool.id)}>
@@ -98,7 +99,7 @@ export function ToolCard({ tool, onDelete }: ToolCardProps) {
 							</DropdownMenuItem>
 						</DropdownMenuContent>
 					</DropdownMenu>
-				)}
+				</div>
 			</CardHeader>
 			<CardContent className="flex-grow">
 				{!tool.builtin && (

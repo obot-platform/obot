@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 
-import { ToolCategory } from "~/lib/service/api/toolreferenceService";
+import { ToolCategory } from "~/lib/model/toolReferences";
 import { cn } from "~/lib/utils";
 
 import { ToolItem } from "~/components/tools/ToolItem";

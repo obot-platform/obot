@@ -1,8 +1,9 @@
 import { PlusIcon, SearchIcon } from "lucide-react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { MetaFunction } from "react-router";
 import useSWR, { preload } from "swr";
 
+import { convertToolReferencesToCategoryMap } from "~/lib/model/toolReferences";
 import { ToolReferenceService } from "~/lib/service/api/toolreferenceService";
 import { RouteHandle } from "~/lib/service/routeHandles";
 
@@ -23,18 +24,23 @@ import { ScrollArea } from "~/components/ui/scroll-area";
 
 export async function clientLoader() {
 	await Promise.all([
-		preload(ToolReferenceService.getToolReferencesCategoryMap.key("tool"), () =>
-			ToolReferenceService.getToolReferencesCategoryMap("tool")
+		preload(ToolReferenceService.getToolReferences.key("tool"), () =>
+			ToolReferenceService.getToolReferences("tool")
 		),
 	]);
 	return null;
 }
 
 export default function Tools() {
-	const { data: toolCategories, mutate } = useSWR(
-		ToolReferenceService.getToolReferencesCategoryMap.key("tool"),
-		() => ToolReferenceService.getToolReferencesCategoryMap("tool"),
-		{ fallbackData: {} }
+	const getTools = useSWR(
+		ToolReferenceService.getToolReferences.key("tool"),
+		() => ToolReferenceService.getToolReferences("tool"),
+		{ fallbackData: [] }
+	);
+
+	const toolCategories = useMemo(
+		() => convertToolReferencesToCategoryMap(getTools.data),
+		[getTools.data]
 	);
 
 	const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -42,17 +48,17 @@ export default function Tools() {
 	const [errorDialogError, setErrorDialogError] = useState("");
 
 	const handleCreateSuccess = () => {
-		mutate();
+		getTools.mutate();
 		setIsDialogOpen(false);
 	};
 
 	const handleDelete = async (id: string) => {
 		await ToolReferenceService.deleteToolReference(id);
-		mutate();
+		getTools.mutate();
 	};
 
 	const handleErrorDialogError = (error: string) => {
-		mutate();
+		getTools.mutate();
 		setErrorDialogError(error);
 		setIsDialogOpen(false);
 	};

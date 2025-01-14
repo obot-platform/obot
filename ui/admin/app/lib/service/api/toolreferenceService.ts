@@ -26,53 +26,6 @@ getToolReferences.revalidate = (type?: ToolReferenceType) => {
 	);
 };
 
-export type ToolCategory = {
-	bundleTool?: ToolReference;
-	tools: ToolReference[];
-};
-export const UncategorizedToolCategory = "Uncategorized";
-export const CustomToolsToolCategory = "Custom Tools";
-export type ToolCategoryMap = Record<string, ToolCategory>;
-async function getToolReferencesCategoryMap(type?: ToolReferenceType) {
-	const res = await request<{ items: ToolReference[] }>({
-		url: ApiRoutes.toolReferences.base({ type }).url,
-		errorMessage: "Failed to fetch tool references category map",
-	});
-
-	const toolReferences = res.data.items;
-	const result: ToolCategoryMap = {};
-
-	for (const toolReference of toolReferences) {
-		if (toolReference.deleted) {
-			// skip tools if marked with deleted
-			continue;
-		}
-
-		const category = !toolReference.builtin
-			? CustomToolsToolCategory
-			: toolReference.metadata?.category || UncategorizedToolCategory;
-
-		if (!result[category]) {
-			result[category] = {
-				tools: [],
-			};
-		}
-
-		if (toolReference.metadata?.bundle === "true") {
-			result[category].bundleTool = toolReference;
-		} else {
-			result[category].tools.push(toolReference);
-		}
-	}
-
-	return result;
-}
-getToolReferencesCategoryMap.key = (type?: ToolReferenceType) =>
-	({
-		url: ApiRoutes.toolReferences.base({ type }).path,
-		responseType: "map",
-	}) as const;
-
 const getToolReferenceById = async (toolReferenceId: string) => {
 	const res = await request<ToolReference>({
 		url: ApiRoutes.toolReferences.getById(toolReferenceId).url,
@@ -142,7 +95,6 @@ async function deleteToolReference(id: string) {
 
 export const ToolReferenceService = {
 	getToolReferences,
-	getToolReferencesCategoryMap,
 	getToolReferenceById,
 	createToolReference,
 	updateToolReference,

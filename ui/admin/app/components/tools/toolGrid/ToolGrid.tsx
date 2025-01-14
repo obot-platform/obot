@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
 
-import { ToolReference } from "~/lib/model/toolReferences";
 import {
 	CustomToolsToolCategory,
 	ToolCategoryMap,
-} from "~/lib/service/api/toolreferenceService";
+	ToolReference,
+} from "~/lib/model/toolReferences";
 
 import { CategoryHeader } from "~/components/tools/toolGrid/CategoryHeader";
 import { CategoryTools } from "~/components/tools/toolGrid/CategoryTools";
