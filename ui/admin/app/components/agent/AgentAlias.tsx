@@ -8,7 +8,7 @@ import { ConsumptionUrl } from "~/lib/routers/baseRouter";
 import { AssistantApiService } from "~/lib/service/api/assistantApiService";
 
 import { AgentAccessControl } from "~/components/agent/AgentAccessControl";
-import { AgentDropdownActions } from "~/components/agent/AgentDropdownActions";
+import { DeleteAgent } from "~/components/agent/DeleteAgent";
 import { Publish } from "~/components/agent/Publish";
 import { CopyText } from "~/components/composed/CopyText";
 import { WarningAlert } from "~/components/composed/WarningAlert";
@@ -73,7 +73,7 @@ export function AgentAlias({ agent, onChange }: AgentAliasProps) {
 
 				<div className="flex gap-2">
 					<AgentAccessControl agent={agent} />
-					<AgentDropdownActions agent={agent} />
+					<DeleteAgent id={agent.id} />
 				</div>
 			</div>
 			{conflictingAlias && (
