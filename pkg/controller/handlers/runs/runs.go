@@ -72,7 +72,7 @@ func (h *Handler) Resume(req router.Request, _ router.Response) error {
 
 func (h *Handler) DeleteFinished(req router.Request, _ router.Response) error {
 	run := req.Object.(*v1.Run)
-	if run.Status.State == gptscript.Finished && time.Since(run.Status.EndTime.Time) > 12*time.Hour {
+	if run.Status.State == gptscript.Finished && time.Since(run.Status.EndTime.Time) > 12*time.Hour || (run.Spec.Synchronous && run.Status.State == "" && time.Since(run.CreationTimestamp.Time) > 12*time.Hour) {
 		// These will be system tasks. Everything is a chat and finished with Continue status
 		return req.Delete(run)
 	}
