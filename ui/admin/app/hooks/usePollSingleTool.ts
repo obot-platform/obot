@@ -1,10 +1,11 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import useSWR from "swr";
 
 import { ToolReferenceService } from "~/lib/service/api/toolreferenceService";
 
 export function usePollSingleTool(toolId: string) {
 	const [isPolling, setIsPolling] = useState(false);
+	const isInitial = useRef(false);
 
 	const { mutate: updateTools } = useSWR(
 		isPolling ? ToolReferenceService.getToolReferences.key("tool") : null,
@@ -20,6 +21,14 @@ export function usePollSingleTool(toolId: string) {
 	);
 
 	useEffect(() => {
+		// skip initial poll in case data is stale
+		// stale data could give a false positive on the `resolved` property
+		// which would prematurely stop polling
+		if (isInitial.current) {
+			isInitial.current = false;
+			return;
+		}
+
 		if (!getTool.data) return;
 
 		setIsPolling(!getTool.data.resolved);
@@ -43,7 +52,10 @@ export function usePollSingleTool(toolId: string) {
 	}, [getTool.data, updateTools, toolId]);
 
 	return {
-		startPolling: () => setIsPolling(true),
+		startPolling: () => {
+			isInitial.current = true;
+			setIsPolling(true);
+		},
 		isPolling,
 	};
 }
