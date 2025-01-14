@@ -3,10 +3,10 @@ import {
 	ToolCategory,
 } from "~/lib/model/toolReferences";
 
-import { BundleToolList } from "~/components/tools/list/BundleToolList";
-import { ToolCard } from "~/components/tools/list/ToolCard";
+import { BundleToolList } from "~/components/tools/toolGrid/BundleToolList";
+import { ToolCard } from "~/components/tools/toolGrid/ToolCard";
 
-export function ToolList({
+export function ToolGrid({
 	toolCategories,
 }: {
 	toolCategories: [string, ToolCategory][];
@@ -26,20 +26,20 @@ export function ToolList({
 		});
 
 	return (
-		<div className="flex flex-col gap-4">
+		<div className="flex flex-col gap-8">
 			{sortedCustomTools.length > 0 && (
-				<>
+				<div className="flex flex-col gap-4">
 					<h3>Custom Tools</h3>
 					<div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
 						{sortedCustomTools.map((tool) => (
 							<ToolCard key={tool.id} tool={tool} />
 						))}
 					</div>
-				</>
+				</div>
 			)}
 
 			{sortedBuiltinTools.length > 0 && (
-				<>
+				<div className="flex flex-col gap-4">
 					<h3>Built-in Tools</h3>
 					<div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
 						{sortedBuiltinTools.map(([, { tools, bundleTool }]) => {
@@ -61,7 +61,7 @@ export function ToolList({
 							));
 						})}
 					</div>
-				</>
+				</div>
 			)}
 		</div>
 	);

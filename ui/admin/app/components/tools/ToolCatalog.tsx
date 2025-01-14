@@ -2,6 +2,7 @@ import { AlertTriangleIcon, PlusIcon } from "lucide-react";
 import { useMemo, useState } from "react";
 import useSWR from "swr";
 
+import { OAuthProvider } from "~/lib/model/oauthApps/oauth-helpers";
 import {
 	ToolCategory,
 	convertToolReferencesToCategoryMap,
@@ -55,15 +56,17 @@ export function ToolCatalog({
 	const [search, setSearch] = useState("");
 
 	const oauthApps = useOAuthAppList();
-	const configuredOauthApps = new Set(
-		oauthApps
-			.filter(
-				(app) =>
-					!app.noGatewayIntegration ||
-					(app.noGatewayIntegration && app.appOverride)
-			)
-			.map((app) => app.appOverride?.integration ?? app.type)
-	);
+	const configuredOauthApps = useMemo(() => {
+		return new Set(
+			oauthApps
+				.filter(
+					(app) =>
+						!app.noGatewayIntegration ||
+						(app.noGatewayIntegration && app.appOverride)
+				)
+				.map((app) => app.type)
+		);
+	}, [oauthApps]);
 
 	const sortedValidCategories = useMemo(() => {
 		return Object.entries(toolCategories).sort(
@@ -112,7 +115,7 @@ export function ToolCatalog({
 						configured={
 							categoryTools.bundleTool?.metadata?.oauth
 								? configuredOauthApps.has(
-										categoryTools.bundleTool.metadata.oauth
+										categoryTools.bundleTool.metadata.oauth as OAuthProvider
 									)
 								: true
 						}

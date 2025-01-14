@@ -24,7 +24,7 @@ export function Truncate({
 	disableTooltip?: boolean;
 	tooltipContent?: React.ReactNode;
 	clamp?: boolean;
-	clampLength?: 1 | 2 | 3;
+	clampLength?: 1 | 2;
 	classNames?: {
 		root?: string;
 	};
@@ -37,7 +37,6 @@ export function Truncate({
 				{
 					"line-clamp-1": clamp && clampLength === 1,
 					"line-clamp-2": clamp && clampLength === 2,
-					"line-clamp-3": clamp && clampLength === 3,
 					truncate: !clamp,
 				},
 				classNames?.root

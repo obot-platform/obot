@@ -1,4 +1,4 @@
-import { PlusIcon, SearchIcon } from "lucide-react";
+import { SearchIcon } from "lucide-react";
 import { useMemo, useState } from "react";
 import { MetaFunction } from "react-router";
 import useSWR, { preload } from "swr";
@@ -8,19 +8,9 @@ import { OauthAppService } from "~/lib/service/api/oauthAppService";
 import { ToolReferenceService } from "~/lib/service/api/toolreferenceService";
 import { RouteHandle } from "~/lib/service/routeHandles";
 
-import { ErrorDialog } from "~/components/composed/ErrorDialog";
 import { CreateTool } from "~/components/tools/CreateTool";
 import { filterToolCatalogBySearch } from "~/components/tools/ToolCatalog";
-import { ToolList } from "~/components/tools/list/ToolList";
-import { Button } from "~/components/ui/button";
-import {
-	Dialog,
-	DialogContent,
-	DialogDescription,
-	DialogHeader,
-	DialogTitle,
-	DialogTrigger,
-} from "~/components/ui/dialog";
+import { ToolGrid } from "~/components/tools/toolGrid";
 import { Input } from "~/components/ui/input";
 import { ScrollArea } from "~/components/ui/scroll-area";
 
@@ -48,20 +38,7 @@ export default function Tools() {
 		[getTools.data]
 	);
 
-	const [isDialogOpen, setIsDialogOpen] = useState(false);
 	const [searchQuery, setSearchQuery] = useState("");
-	const [errorDialogError, setErrorDialogError] = useState("");
-
-	const handleErrorDialogError = (error: string) => {
-		getTools.mutate();
-		setErrorDialogError(error);
-		setIsDialogOpen(false);
-	};
-
-	const handleCreateSuccess = () => {
-		getTools.mutate();
-		setIsDialogOpen(false);
-	};
 
 	const results =
 		searchQuery.length > 0
@@ -83,36 +60,12 @@ export default function Tools() {
 							className="w-64 pl-10"
 						/>
 					</div>
-					<Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-						<DialogTrigger asChild>
-							<Button variant="outline">
-								<PlusIcon className="mr-2 h-4 w-4" />
-								Register New Tool
-							</Button>
-						</DialogTrigger>
-						<DialogContent className="max-w-2xl">
-							<DialogHeader>
-								<DialogTitle>Create New Tool Reference</DialogTitle>
-								<DialogDescription>
-									Register a new tool reference to use in your agents.
-								</DialogDescription>
-							</DialogHeader>
-							<CreateTool
-								onError={handleErrorDialogError}
-								onSuccess={handleCreateSuccess}
-							/>
-						</DialogContent>
-					</Dialog>
-					<ErrorDialog
-						error={errorDialogError}
-						isOpen={errorDialogError !== ""}
-						onClose={() => setErrorDialogError("")}
-					/>
+					<CreateTool />
 				</div>
 			</div>
 
 			<ScrollArea className="flex h-[calc(100vh-8.5rem)] flex-col p-8">
-				<ToolList toolCategories={results} />
+				<ToolGrid toolCategories={results} />
 			</ScrollArea>
 		</div>
 	);

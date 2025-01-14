@@ -3,7 +3,7 @@ import { cn } from "~/lib/utils/cn";
 
 import { Truncate } from "~/components/composed/typography";
 import { ToolIcon } from "~/components/tools/ToolIcon";
-import { ToolCardActions } from "~/components/tools/list/ToolCardActions";
+import { ToolCardActions } from "~/components/tools/toolGrid/ToolCardActions";
 import { Button } from "~/components/ui/button";
 import { Card, CardContent, CardHeader } from "~/components/ui/card";
 import {
@@ -26,13 +26,15 @@ export function ToolCard({
 				"border border-destructive bg-destructive/10": tool.error,
 			})}
 		>
-			<CardHeader className="flex flex-row items-center justify-between space-y-0 px-2.5 pb-0 pt-2">
-				<ToolCardActions tool={tool} />
+			<CardHeader className="flex min-h-7 flex-row items-center justify-between space-y-0 px-2.5 pb-0 pt-2">
+				<div>
+					<ToolCardActions tool={tool} />
+				</div>
 				<div className="pr-2">
 					{tool.error ? (
 						<Popover>
 							<PopoverTrigger asChild>
-								<Button size="badge" variant="destructive">
+								<Button size="badge" variant="destructive" className="pr-2">
 									Failed
 								</Button>
 							</PopoverTrigger>

@@ -1,94 +1,55 @@
-import { PlusCircle } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
-import { useForm } from "react-hook-form";
-import { toast } from "sonner";
-import useSWR from "swr";
+import { PlusIcon } from "lucide-react";
+import { useState } from "react";
 
-import { CreateToolReference, ToolReference } from "~/lib/model/toolReferences";
-import { ToolReferenceService } from "~/lib/service/api/toolreferenceService";
-
+import { ErrorDialog } from "~/components/composed/ErrorDialog";
+import { CreateToolForm } from "~/components/tools/CreateToolForm";
 import { Button } from "~/components/ui/button";
-import { Input } from "~/components/ui/input";
-import { useAsync } from "~/hooks/useAsync";
+import {
+	Dialog,
+	DialogContent,
+	DialogDescription,
+	DialogHeader,
+	DialogTitle,
+	DialogTrigger,
+} from "~/components/ui/dialog";
 
-interface CreateToolProps {
-	onError: (error: string) => void;
-	onSuccess: () => void;
-}
+export function CreateTool() {
+	const [isDialogOpen, setIsDialogOpen] = useState(false);
+	const [errorDialogError, setErrorDialogError] = useState("");
 
-export function CreateTool({ onError, onSuccess }: CreateToolProps) {
-	const { register, handleSubmit, reset } = useForm<CreateToolReference>();
+	const handleSuccess = () => {
+		setIsDialogOpen(false);
+	};
 
-	const [loadingToolId, setLoadingToolId] = useState("");
-	const getLoadingTool = useSWR(
-		loadingToolId
-			? ToolReferenceService.getToolReferenceById.key(loadingToolId)
-			: null,
-		({ toolReferenceId }) =>
-			ToolReferenceService.getToolReferenceById(toolReferenceId),
-		{
-			revalidateOnFocus: false,
-			refreshInterval: 2000,
-		}
-	);
+	const handleError = (error: string) => {
+		setIsDialogOpen(false);
+		setErrorDialogError(error);
+	};
 
-	const handleCreatedTool = useCallback(
-		(loadedTool: ToolReference) => {
-			setLoadingToolId("");
-			reset();
-			if (loadedTool.error) {
-				onError(loadedTool.error);
-			} else {
-				toast.success(`"${loadedTool.reference}" registered successfully.`);
-				onSuccess();
-			}
-		},
-		[onError, reset, onSuccess]
-	);
-
-	useEffect(() => {
-		if (!loadingToolId) return;
-
-		const { isLoading, data } = getLoadingTool;
-		if (isLoading) return;
-
-		if (data?.resolved) {
-			handleCreatedTool(data);
-		}
-	}, [getLoadingTool, handleCreatedTool, loadingToolId]);
-
-	const { execute: onSubmit, isLoading } = useAsync(
-		async (data: CreateToolReference) => {
-			const response = await ToolReferenceService.createToolReference({
-				toolReference: { ...data, toolType: "tool" },
-			});
-
-			setLoadingToolId(response.id);
-		}
-	);
-
-	const pending = isLoading || !!loadingToolId;
 	return (
-		<form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-			<div>
-				<Input
-					autoComplete="off"
-					{...register("reference", {
-						required: "Reference is required",
-					})}
-					placeholder="github.com/user/repo or https://example.com/tool.gpt"
-				/>
-			</div>
-			<div className="flex justify-end">
-				<Button
-					type="submit"
-					disabled={pending}
-					loading={pending}
-					startContent={<PlusCircle />}
-				>
-					Register Tool
-				</Button>
-			</div>
-		</form>
+		<>
+			<Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+				<DialogTrigger asChild>
+					<Button variant="outline">
+						<PlusIcon className="mr-2 h-4 w-4" />
+						Register New Tool
+					</Button>
+				</DialogTrigger>
+				<DialogContent className="max-w-2xl">
+					<DialogHeader>
+						<DialogTitle>Create New Tool Reference</DialogTitle>
+						<DialogDescription>
+							Register a new tool reference to use in your agents.
+						</DialogDescription>
+					</DialogHeader>
+					<CreateToolForm onSuccess={handleSuccess} onError={handleError} />
+				</DialogContent>
+			</Dialog>
+			<ErrorDialog
+				error={errorDialogError}
+				isOpen={errorDialogError !== ""}
+				onClose={() => setErrorDialogError("")}
+			/>
+		</>
 	);
 }
