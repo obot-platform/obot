@@ -85,13 +85,14 @@
 
 <div class="flex h-full w-full flex-col">
 	<div class="relative flex-1 rounded-3xl bg-gray-950 p-5">
-		<div class="absolute inset-x-0 top-0 z-10 mx-1 flex items-center justify-end gap-2 p-5">
-			{#if connectState === 'disconnected'}
-				<button onclick={connect}>
+		{#if connectState === 'disconnected'}
+			<div class="absolute inset-0 flex h-full w-full items-center justify-center">
+				<button onclick={connect} class="rounded-lg border-2 border-red-400 bg-gray-950 p-3">
 					<RefreshCcw class="icon-default" />
 				</button>
-				<div class="flex-1"></div>
-			{/if}
+			</div>
+		{/if}
+		<div class="absolute inset-x-0 top-0 z-10 mx-1 flex items-center justify-end gap-2 p-5">
 			<button
 				class="px-1 py-0.5 font-mono text-gray hover:bg-gray hover:text-white"
 				onclick={() => {
@@ -104,12 +105,7 @@
 				class:animate-pulse={connectState === 'connecting'}
 				class:text-gray={connectState === 'connected'}>{connectState}</span
 			>
-			<button
-				onclick={closeTerm}
-				class="ms-4 font-mono text-gray hover:text-black hover:dark:text-white"
-			>
-				X
-			</button>
+			<button onclick={closeTerm} class="ms-4 font-mono text-gray hover:text-white"> X </button>
 		</div>
 		<div class="m-2" bind:this={terminalContainer}></div>
 	</div>

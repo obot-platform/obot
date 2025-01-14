@@ -22,8 +22,8 @@
 		if (!a && $currentAssistant.id === assistant) {
 			a = $currentAssistant;
 		}
-		return a
-	})
+		return a;
+	});
 
 	$effect(() => {
 		if (!assistant || thread) {
@@ -64,15 +64,18 @@
 			<div in:fade|global class="flex flex-col gap-8">
 				{#if messages.messages.length < 7}
 					<div class="message-content self-center">
-						{#if current?.introductionMessage }
+						{#if current?.introductionMessage}
 							{@html toHTMLFromMarkdown(current.introductionMessage)}
 						{/if}
 					</div>
 					<div class="flex gap-2 self-center">
 						{#each current?.starterMessages ?? [] as msg}
-							<button class="border-2 border-blue rounded-3xl p-5" onclick={() => {
-								thread?.invoke(msg);
-							}}>
+							<button
+								class="rounded-3xl border-2 border-blue p-5"
+								onclick={() => {
+									thread?.invoke(msg);
+								}}
+							>
 								{msg}
 							</button>
 						{/each}

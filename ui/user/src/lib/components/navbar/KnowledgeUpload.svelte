@@ -4,7 +4,7 @@
 	import type { KnowledgeFile } from '$lib/services';
 	import Loading from '$lib/icons/Loading.svelte';
 	import Error from '$lib/components/Error.svelte';
-	import { currentAssistant } from '$lib/stores';
+	import { currentAssistant, knowledgeFiles } from '$lib/stores';
 
 	interface Props {
 		onUpload?: () => void | Promise<void>;
@@ -14,6 +14,18 @@
 
 	let files = $state<FileList>();
 	let uploadInProgress = $state<Promise<KnowledgeFile>>();
+
+	function reloadFiles() {
+		ChatService.listKnowledgeFiles($currentAssistant.id).then((files) => {
+			knowledgeFiles.set(files);
+			const pending = files.items.find(
+				(file) => file.state === 'pending' || file.state === 'ingesting'
+			);
+			if (pending) {
+				setTimeout(reloadFiles, 2000);
+			}
+		});
+	}
 
 	$effect(() => {
 		if (!files?.length) {
@@ -30,6 +42,7 @@
 			})
 			.finally(() => {
 				uploadInProgress = undefined;
+				setTimeout(reloadFiles, 1000);
 			});
 
 		files = undefined;

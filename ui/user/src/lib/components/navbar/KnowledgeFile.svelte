@@ -29,7 +29,7 @@
 				{file.error ? file.error : 'Failed'}
 			</div>
 		{:else if file.state === 'pending' || file.state === 'ingesting'}
-			<Loading />
+			<Loading class="mx-1.5" />
 		{/if}
 	</button>
 	<button

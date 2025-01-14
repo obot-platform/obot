@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"github.com/adrg/xdg"
@@ -53,20 +54,21 @@ type (
 )
 
 type Config struct {
-	HTTPListenPort             int    `usage:"HTTP port to listen on" default:"8080" name:"http-listen-port"`
-	DevMode                    bool   `usage:"Enable development mode" default:"false" name:"dev-mode" env:"OBOT_DEV_MODE"`
-	DevUIPort                  int    `usage:"The port on localhost running the dev instance of the UI" default:"5173"`
-	AllowedOrigin              string `usage:"Allowed origin for CORS"`
-	ToolRegistry               string `usage:"The tool reference for the tool registry" default:"github.com/obot-platform/tools"`
-	WorkspaceProviderType      string `usage:"The type of workspace provider to use for non-knowledge workspaces" default:"directory" env:"OBOT_WORKSPACE_PROVIDER_TYPE"`
-	WorkspaceTool              string `usage:"The tool reference for the workspace provider" default:"github.com/gptscript-ai/workspace-provider"`
-	DatasetsTool               string `usage:"The tool reference for the dataset provider" default:"github.com/gptscript-ai/datasets"`
-	HelperModel                string `usage:"The model used to generate names and descriptions" default:"gpt-4o-mini"`
-	AWSKMSKeyARN               string `usage:"The ARN of the AWS KMS key to use for encrypting credential storage" env:"OBOT_AWS_KMS_KEY_ARN" name:"aws-kms-key-arn"`
-	EncryptionConfigFile       string `usage:"The path to the encryption configuration file" default:"./encryption.yaml"`
-	KnowledgeSetIngestionLimit int    `usage:"The maximum number of files to ingest into a knowledge set" default:"3000" env:"OBOT_KNOWLEDGESET_INGESTION_LIMIT" name:"knowledge-set-ingestion-limit"`
-	EmailServerName            string `usage:"The name of the email server to display for email receivers"`
-	Docker                     bool   `usage:"Enable Docker support" default:"false" env:"OBOT_DOCKER"`
+	HTTPListenPort             int      `usage:"HTTP port to listen on" default:"8080" name:"http-listen-port"`
+	DevMode                    bool     `usage:"Enable development mode" default:"false" name:"dev-mode" env:"OBOT_DEV_MODE"`
+	DevUIPort                  int      `usage:"The port on localhost running the dev instance of the UI" default:"5173"`
+	AllowedOrigin              string   `usage:"Allowed origin for CORS"`
+	ToolRegistry               string   `usage:"The tool reference for the tool registry" default:"github.com/obot-platform/tools"`
+	WorkspaceProviderType      string   `usage:"The type of workspace provider to use for non-knowledge workspaces" default:"directory" env:"OBOT_WORKSPACE_PROVIDER_TYPE"`
+	WorkspaceTool              string   `usage:"The tool reference for the workspace provider" default:"github.com/gptscript-ai/workspace-provider"`
+	DatasetsTool               string   `usage:"The tool reference for the dataset provider" default:"github.com/gptscript-ai/datasets"`
+	HelperModel                string   `usage:"The model used to generate names and descriptions" default:"gpt-4o-mini"`
+	AWSKMSKeyARN               string   `usage:"The ARN of the AWS KMS key to use for encrypting credential storage" env:"OBOT_AWS_KMS_KEY_ARN" name:"aws-kms-key-arn"`
+	EncryptionConfigFile       string   `usage:"The path to the encryption configuration file" default:"./encryption.yaml"`
+	KnowledgeSetIngestionLimit int      `usage:"The maximum number of files to ingest into a knowledge set" default:"3000" env:"OBOT_KNOWLEDGESET_INGESTION_LIMIT" name:"knowledge-set-ingestion-limit"`
+	EmailServerName            string   `usage:"The name of the email server to display for email receivers"`
+	Docker                     bool     `usage:"Enable Docker support" default:"false" env:"OBOT_DOCKER"`
+	EnvKeys                    []string `usage:"The environment keys to pass through to the GPTScript server" env:"OBOT_ENV_KEYS"`
 
 	AuthConfig
 	GatewayConfig
@@ -101,7 +103,39 @@ const (
 	defaultToolsRegistry = "github.com/obot-platform/tools"
 )
 
-func newGPTScript(ctx context.Context, workspaceTool, datasetsTool, toolsRegistry string) (*gptscript.GPTScript, error) {
+var requiredEnvs = []string{
+	// Standard system stuff
+	"PATH", "HOME", "USER", "PWD",
+	// Embedded env vars
+	"OBOT_BIN", "GPTSCRIPT_BIN", "GPTSCRIPT_EMBEDDED",
+	// XDG stuff
+	"XDG_CONFIG_HOME", "XDG_DATA_HOME", "XDG_CACHE_HOME"}
+
+func copyKeys(envs []string) []string {
+	seen := make(map[string]struct{})
+	newEnvs := make([]string, len(envs))
+
+	for _, env := range append(envs, requiredEnvs...) {
+		if env == "*" {
+			return os.Environ()
+		}
+		if _, ok := seen[env]; ok {
+			continue
+		}
+		v := os.Getenv(env)
+		if v == "" {
+			continue
+		}
+		seen[env] = struct{}{}
+		newEnvs = append(newEnvs, fmt.Sprintf("%s=%s", env, os.Getenv(env)))
+	}
+
+	sort.Strings(newEnvs)
+	return newEnvs
+}
+
+func newGPTScript(ctx context.Context, workspaceTool, datasetsTool, toolsRegistry string, envPassThrough []string,
+	credStore string, credStoreEnv []string) (*gptscript.GPTScript, error) {
 	if datasetsTool != defaultDatasetsTool {
 		loader.Remap[defaultDatasetsTool] = datasetsTool
 	}
@@ -123,13 +157,16 @@ func newGPTScript(ctx context.Context, workspaceTool, datasetsTool, toolsRegistr
 	}
 	url, err := sdkserver.EmbeddedStart(ctx, sdkserver.Options{
 		Options: gptscriptai.Options{
+			Env: copyKeys(envPassThrough),
 			Cache: cache.Options{
 				CacheDir: os.Getenv("GPTSCRIPT_CACHE_DIR"),
 			},
 			Runner: runner.Options{
 				CredentialOverrides: credOverrides,
 			},
-			SystemToolsDir: os.Getenv("GPTSCRIPT_SYSTEM_TOOLS_DIR"),
+			SystemToolsDir:     os.Getenv("GPTSCRIPT_SYSTEM_TOOLS_DIR"),
+			CredentialStore:    credStore,
+			CredentialToolsEnv: append(copyKeys(envPassThrough), credStoreEnv...),
 		},
 		DatasetTool:   datasetsTool,
 		WorkspaceTool: workspaceTool,
@@ -149,6 +186,7 @@ func newGPTScript(ctx context.Context, workspaceTool, datasetsTool, toolsRegistr
 	}
 
 	return gptscript.NewGPTScript(gptscript.GlobalOptions{
+		Env:           copyKeys(envPassThrough),
 		URL:           url,
 		WorkspaceTool: workspaceTool,
 		DatasetTool:   datasetsTool,
@@ -163,15 +201,12 @@ func New(ctx context.Context, config Config) (*Services, error) {
 	// Just a common mistake where you put the wrong prefix for the DSN. This seems to be inconsistent across things
 	// that use postgres
 	config.DSN = strings.Replace(config.DSN, "postgresql://", "postgres://", 1)
-	if strings.HasPrefix(config.DSN, "postgres://") {
-		_ = os.Setenv("KNOW_VECTOR_DSN", strings.Replace(config.DSN, "postgres://", "pgvector://", 1))
-		_ = os.Setenv("KNOW_INDEX_DSN", config.DSN)
-	}
 
-	if err := credstores.Init(ctx, config.ToolRegistry, config.DSN, credstores.Options{
+	credStore, credStoreEnv, err := credstores.Init(ctx, config.ToolRegistry, config.DSN, credstores.Options{
 		AWSKMSKeyARN:         config.AWSKMSKeyARN,
 		EncryptionConfigFile: config.EncryptionConfigFile,
-	}); err != nil {
+	})
+	if err != nil {
 		return nil, err
 	}
 
@@ -205,9 +240,28 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		config.UIHostname = "https://" + config.UIHostname
 	}
 
-	c, err := newGPTScript(ctx, config.WorkspaceTool, config.DatasetsTool, config.ToolRegistry)
+	c, err := newGPTScript(ctx, config.WorkspaceTool, config.DatasetsTool, config.ToolRegistry, config.EnvKeys,
+		credStore, credStoreEnv)
 	if err != nil {
 		return nil, err
+	}
+
+	if strings.HasPrefix(config.DSN, "postgres://") {
+		if err := c.CreateCredential(ctx, gptscript.Credential{
+			Context:  system.DefaultNamespace,
+			ToolName: system.KnowledgeCredID,
+			Type:     gptscript.CredentialTypeTool,
+			Env: map[string]string{
+				"KNOW_VECTOR_DSN": strings.Replace(config.DSN, "postgres://", "pgvector://", 1),
+				"KNOW_INDEX_DSN":  config.DSN,
+			},
+		}); err != nil {
+			return nil, err
+		}
+	} else {
+		if err := c.DeleteCredential(ctx, system.DefaultNamespace, system.KnowledgeCredID); err != nil {
+			return nil, err
+		}
 	}
 
 	r, err := baaah.NewRouter("obot-controller", &baaah.Options{

@@ -28,7 +28,7 @@ func NewToolHandler(gptScript *gptscript.GPTScript, invoke *invoke.Invoker) *Too
 	}
 }
 
-var invalidEnv = regexp.MustCompile("^(OBOT|GPTSCRIPT)")
+var invalidEnv = regexp.MustCompile("^(OBOT|GPTSCRIPT|KNOW)")
 
 func setEnvMap(req api.Context, gptScript *gptscript.GPTScript, threadName, toolName string, env map[string]string) error {
 	for k := range env {

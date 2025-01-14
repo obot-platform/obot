@@ -17,25 +17,19 @@ type Options struct {
 
 var log = logger.Package()
 
-func Init(ctx context.Context, toolsRegistry, dsn string, opts Options) error {
+func Init(ctx context.Context, toolsRegistry, dsn string, opts Options) (string, []string, error) {
 	if err := setupKMS(ctx, opts.AWSKMSKeyARN, opts.EncryptionConfigFile); err != nil {
-		return fmt.Errorf("failed to setup kms: %w", err)
+		return "", nil, fmt.Errorf("failed to setup kms: %w", err)
 	}
 
 	switch {
 	case strings.HasPrefix(dsn, "sqlite://"):
-		if err := setupSQLite(toolsRegistry, dsn); err != nil {
-			return fmt.Errorf("failed to setup sqlite: %w", err)
-		}
+		return setupSQLite(toolsRegistry, dsn)
 	case strings.HasPrefix(dsn, "postgres://"):
-		if err := setupPostgres(toolsRegistry, dsn); err != nil {
-			return fmt.Errorf("failed to setup postgres: %w", err)
-		}
+		return setupPostgres(toolsRegistry, dsn)
 	default:
-		return fmt.Errorf("unsupported database for credentials %s", dsn)
+		return "", nil, fmt.Errorf("unsupported database for credentials %s", dsn)
 	}
-
-	return nil
 }
 
 func setupKMS(ctx context.Context, arn, configFile string) error {
@@ -75,38 +69,26 @@ func setupKMS(ctx context.Context, arn, configFile string) error {
 	return nil
 }
 
-func setupPostgres(toolRegistry, dsn string) error {
-	if err := os.Setenv("GPTSCRIPT_POSTGRES_DSN", dsn); err != nil {
-		return fmt.Errorf("failed to set GPTSCRIPT_POSTGRES_DSN: %w", err)
-	}
-
-	if err := os.Setenv("GPTSCRIPT_CREDENTIAL_STORE", toolRegistry+"/credential-stores/postgres"); err != nil {
-		return fmt.Errorf("failed to set GPTSCRIPT_CREDENTIAL_STORE: %w", err)
-	}
-
-	return nil
+func setupPostgres(toolRegistry, dsn string) (string, []string, error) {
+	return toolRegistry + "/credential-stores/postgres", []string{
+		"GPTSCRIPT_POSTGRES_DSN=" + dsn,
+	}, nil
 }
 
-func setupSQLite(toolRegistry, dsn string) error {
+func setupSQLite(toolRegistry, dsn string) (string, []string, error) {
 	dbFile, ok := strings.CutPrefix(dsn, "sqlite://file:")
 	if !ok {
-		return fmt.Errorf("invalid sqlite dsn, must start with sqlite://file: %s", dsn)
+		return "", nil, fmt.Errorf("invalid sqlite dsn, must start with sqlite://file: %s", dsn)
 	}
 	dbFile, _, _ = strings.Cut(dbFile, "?")
 
 	if !strings.HasSuffix(dbFile, ".db") {
-		return fmt.Errorf("invalid sqlite dsn, file must end in .db: %s", dsn)
+		return "", nil, fmt.Errorf("invalid sqlite dsn, file must end in .db: %s", dsn)
 	}
 
 	dbFile = strings.TrimSuffix(dbFile, ".db") + "-credentials.db"
 
-	if err := os.Setenv("GPTSCRIPT_SQLITE_FILE", dbFile); err != nil {
-		return fmt.Errorf("failed to set GPTSCRIPT_SQLITE_FILE: %w", err)
-	}
-
-	if err := os.Setenv("GPTSCRIPT_CREDENTIAL_STORE", toolRegistry+"/credential-stores/sqlite"); err != nil {
-		return fmt.Errorf("failed to set GPTSCRIPT_CREDENTIAL_STORE: %w", err)
-	}
-
-	return nil
+	return toolRegistry + "/credential-stores/sqlite", []string{
+		"GPTSCRIPT_SQLITE_FILE=" + dbFile,
+	}, nil
 }

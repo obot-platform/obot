@@ -14,6 +14,7 @@ const (
 	ShellTool               = "shell"
 	DockerShellIDTool       = "docker-shell-id"
 	ExistingCredTool        = "existing-credential"
+	KnowledgeCredID         = "knowledge"
 
 	DefaultNamespace = "default"
 

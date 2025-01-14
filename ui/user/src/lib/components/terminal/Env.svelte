@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
 	import Env from '$lib/components/tool/Env.svelte';
 	import { ChatService } from '$lib/services';
 	import { currentAssistant } from '$lib/stores';
@@ -39,10 +38,6 @@
 		}
 		dialog.close();
 	}
-
-	onMount(() => {
-		show();
-	});
 </script>
 
 <dialog

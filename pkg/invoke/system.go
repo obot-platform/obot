@@ -130,9 +130,15 @@ func (i *Invoker) SystemTask(ctx context.Context, thread *v1.Thread, tool, input
 		return nil, err
 	}
 
+	var credContexts []string
+	if thread != nil && thread.Namespace != "" {
+		credContexts = append(credContexts, thread.Namespace)
+	}
+	credContexts = append(opt.CredentialContextIDs, credContexts...)
+
 	return i.createRun(ctx, i.uncached, thread, tool, inputString, runOptions{
 		Env:                  opt.Env,
-		CredentialContextIDs: opt.CredentialContextIDs,
+		CredentialContextIDs: credContexts,
 		Synchronous:          true,
 		Timeout:              opt.Timeout,
 	})

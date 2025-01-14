@@ -1,7 +1,7 @@
 import { listTools } from '$lib/services/chat/operations';
 import { type AssistantToolList } from '$lib/services/chat/types';
-import { writable } from 'svelte/store';
 import currentAssistant from '$lib/stores/currentassistant';
+import { writable } from 'svelte/store';
 
 const store = writable<AssistantToolList>({
 	readonly: true,
