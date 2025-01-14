@@ -1,4 +1,4 @@
-import { ScanEyeIcon, UserRoundCheckIcon } from "lucide-react";
+import { LockIcon, LockOpenIcon } from "lucide-react";
 
 import { ToolInfo } from "~/lib/model/agents";
 import { AssistantNamespace } from "~/lib/model/assistants";
@@ -9,13 +9,7 @@ import { useToolReference } from "~/components/agent/ToolEntry";
 import { ToolAuthenticationDialog } from "~/components/agent/shared/ToolAuthenticationDialog";
 import { ConfirmationDialog } from "~/components/composed/ConfirmationDialog";
 import { Button } from "~/components/ui/button";
-import {
-	DropdownMenu,
-	DropdownMenuContent,
-	DropdownMenuItem,
-	DropdownMenuLabel,
-	DropdownMenuTrigger,
-} from "~/components/ui/dropdown-menu";
+import { DialogDescription } from "~/components/ui/dialog";
 import {
 	Tooltip,
 	TooltipContent,
@@ -49,11 +43,11 @@ export function ToolAuthenticationStatus({
 
 	const { credentialNames, authorized } = toolInfo?.[tool] ?? {};
 
-	const { interceptAsync, dialogProps } = useConfirmationDialog();
+	const deleteConfirm = useConfirmationDialog();
+	const authorizeConfirm = useConfirmationDialog();
 
-	const handleAuthorize = async () => {
-		authorize.execute(namespace, entityId, [tool]);
-	};
+	const handleAuthorize = () =>
+		authorize.executeAsync(namespace, entityId, [tool]);
 
 	const handleDeauthorize = async () => {
 		if (!toolInfo) return;
@@ -93,42 +87,76 @@ export function ToolAuthenticationStatus({
 			</Tooltip>
 		);
 
+	const handleClick = () => {
+		if (authorized) {
+			deleteConfirm.interceptAsync(handleDeauthorize);
+		} else {
+			authorizeConfirm.interceptAsync(handleAuthorize);
+		}
+	};
+
 	if (!credentialNames?.length) return null;
 
 	return (
 		<>
 			<Tooltip>
-				<DropdownMenu>
-					<DropdownMenuTrigger asChild>
-						<TooltipTrigger asChild>
-							<Button size="icon" variant="ghost" loading={loading}>
-								{authorized ? <UserRoundCheckIcon /> : <ScanEyeIcon />}
-							</Button>
-						</TooltipTrigger>
-					</DropdownMenuTrigger>
+				<TooltipContent className="max-w-xs">
+					{authorized ? (
+						<>
+							<b>Authorized: </b>
+							Tool will use pre-authenticated credentials for each thread.
+						</>
+					) : (
+						<>
+							<b>Unauthorized: </b>
+							Tool will require user authentication for each thread.
+						</>
+					)}
+				</TooltipContent>
 
-					<DropdownMenuContent side="right" align="start">
-						<DropdownMenuLabel>
-							{authorized ? "Authorized" : "Unauthorized"}
-						</DropdownMenuLabel>
-
+				<TooltipTrigger asChild>
+					<Button
+						size="icon"
+						variant="ghost"
+						loading={loading}
+						onClick={handleClick}
+					>
 						{authorized ? (
-							<DropdownMenuItem
-								variant="destructive"
-								onClick={() => interceptAsync(handleDeauthorize)}
-							>
-								Remove Authorization
-							</DropdownMenuItem>
+							<LockOpenIcon className="text-success" />
 						) : (
-							<DropdownMenuItem onClick={handleAuthorize}>
-								Authorize Tool
-							</DropdownMenuItem>
+							<LockIcon />
 						)}
-					</DropdownMenuContent>
-				</DropdownMenu>
-
-				<TooltipContent>Authorization Status</TooltipContent>
+					</Button>
+				</TooltipTrigger>
 			</Tooltip>
+
+			<ConfirmationDialog
+				{...authorizeConfirm.dialogProps}
+				title={
+					<span className="flex items-center gap-2">
+						{icon}
+						Pre-Authenticate {label}?
+					</span>
+				}
+				content={
+					<>
+						<DialogDescription>
+							{label} is currently not authenticated. Users will be prompted for
+							authentication when using this tool in a new thread.
+						</DialogDescription>
+
+						<DialogDescription>
+							You can pre-authenticate {label} to allow users to use this tool
+							without authentication.
+						</DialogDescription>
+					</>
+				}
+				confirmProps={{
+					children: `Authenticate ${label}`,
+					loading: authorize.isLoading,
+					disabled: authorize.isLoading,
+				}}
+			/>
 
 			<ToolAuthenticationDialog
 				tool={tool}
@@ -138,7 +166,7 @@ export function ToolAuthenticationStatus({
 			/>
 
 			<ConfirmationDialog
-				{...dialogProps}
+				{...deleteConfirm.dialogProps}
 				title={
 					<span className="flex items-center gap-2">
 						<span>{icon}</span>

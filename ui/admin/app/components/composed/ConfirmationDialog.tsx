@@ -7,6 +7,7 @@ import {
 	DialogContent,
 	DialogDescription,
 	DialogFooter,
+	DialogHeader,
 	DialogTitle,
 	DialogTrigger,
 } from "~/components/ui/dialog";
@@ -15,6 +16,7 @@ export type ConfirmationDialogProps = ComponentProps<typeof Dialog> & {
 	children?: ReactNode;
 	title: ReactNode;
 	description?: ReactNode;
+	content?: ReactNode;
 	onConfirm: (e: React.MouseEvent<HTMLButtonElement>) => void;
 	onCancel?: (e: React.MouseEvent<HTMLButtonElement>) => void;
 	confirmProps?: Omit<Partial<ComponentProps<typeof Button>>, "onClick">;
@@ -25,6 +27,7 @@ export function ConfirmationDialog({
 	children,
 	title,
 	description,
+	content,
 	onConfirm,
 	onCancel,
 	confirmProps,
@@ -36,8 +39,14 @@ export function ConfirmationDialog({
 			{children && <DialogTrigger asChild>{children}</DialogTrigger>}
 
 			<DialogContent onClick={(e) => e.stopPropagation()}>
-				<DialogTitle>{title}</DialogTitle>
+				<DialogHeader>
+					<DialogTitle>{title}</DialogTitle>
+				</DialogHeader>
+
 				<DialogDescription>{description}</DialogDescription>
+
+				{content}
+
 				<DialogFooter>
 					<DialogClose onClick={onCancel} asChild>
 						<Button variant="secondary">Cancel</Button>
