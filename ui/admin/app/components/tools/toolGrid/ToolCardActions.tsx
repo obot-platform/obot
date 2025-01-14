@@ -28,6 +28,8 @@ export function ToolCardActions({ tool }: { tool: ToolReference }) {
 		}
 	);
 
+	if (tool.builtin) return null;
+
 	return (
 		<div className="flex items-center gap-2">
 			{(forceRefresh.isLoading || isPolling) && <LoadingSpinner />}
