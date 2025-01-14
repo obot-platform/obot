@@ -1,4 +1,4 @@
-import { LibraryIcon, PlusIcon, VariableIcon, WrenchIcon } from "lucide-react";
+import { LibraryIcon, PlusIcon, WrenchIcon } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import useSWR from "swr";
 
@@ -99,11 +99,11 @@ export function Agent({ className, currentThreadId, onRefresh }: AgentProps) {
 			<ScrollArea className={cn("h-full", className)}>
 				<AgentAlias agent={agentUpdates} onChange={partialSetAgent} />
 
-				<div className="m-4 p-4 lg:mx-6 xl:mx-8">
+				<div className="m-4 p-4">
 					<AgentForm agent={agentUpdates} onChange={debouncedSetAgentInfo} />
 				</div>
 
-				<div className="m-4 space-y-4 p-4 lg:mx-6 xl:mx-8">
+				<div className="m-4 space-y-4 p-4">
 					<h4 className="flex items-center gap-2 border-b pb-2">
 						<WrenchIcon className="h-5 w-5" />
 						Tools
@@ -121,20 +121,7 @@ export function Agent({ className, currentThreadId, onRefresh }: AgentProps) {
 					/>
 				</div>
 
-				<div className="m-4 space-y-4 p-4 lg:mx-6 xl:mx-8">
-					<h4 className="flex items-center gap-2 border-b pb-2">
-						<VariableIcon className="h-5 w-5" />
-						Environment Variables
-					</h4>
-
-					<EnvironmentVariableSection
-						entity={agent}
-						onUpdate={partialSetAgent}
-						entityType="agent"
-					/>
-				</div>
-
-				<div className="m-4 space-y-4 p-4 lg:mx-6 xl:mx-8">
+				<div className="m-4 space-y-4 p-4">
 					<h4 className="flex items-center gap-2 border-b pb-2">
 						<LibraryIcon className="h-6 w-6" />
 						Knowledge
@@ -156,6 +143,12 @@ export function Agent({ className, currentThreadId, onRefresh }: AgentProps) {
 						}}
 					/>
 				</div>
+
+				<EnvironmentVariableSection
+					entity={agent}
+					onUpdate={partialSetAgent}
+					entityType="agent"
+				/>
 			</ScrollArea>
 
 			<footer className="flex items-center justify-between gap-4 px-8 py-4 shadow-inner">

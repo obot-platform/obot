@@ -1,4 +1,4 @@
-import { Library, List, PuzzleIcon, Variable, WrenchIcon } from "lucide-react";
+import { Library, List, PuzzleIcon, WrenchIcon } from "lucide-react";
 import { useCallback, useState } from "react";
 
 import { AssistantNamespace } from "~/lib/model/assistants";
@@ -96,19 +96,6 @@ function WorkflowContent({ className }: WorkflowProps) {
 
 				<div className="m-4 flex flex-col gap-4 p-4">
 					<h4 className="flex items-center gap-2">
-						<Variable className="h-4 w-4" />
-						Environment Variables
-					</h4>
-
-					<EnvironmentVariableSection
-						entity={workflow}
-						entityType="workflow"
-						onUpdate={partialSetWorkflow}
-					/>
-				</div>
-
-				<div className="m-4 flex flex-col gap-4 p-4">
-					<h4 className="flex items-center gap-2">
 						<List className="h-4 w-4" />
 						Parameters
 					</h4>
@@ -163,6 +150,13 @@ function WorkflowContent({ className }: WorkflowProps) {
 				</div>
 
 				<WorkflowTriggerPanel workflowId={workflow.id} />
+
+				<EnvironmentVariableSection
+					entity={workflow}
+					entityType="workflow"
+					onUpdate={partialSetWorkflow}
+				/>
+
 				<div className="h-8" /* spacer */ />
 			</ScrollArea>
 
