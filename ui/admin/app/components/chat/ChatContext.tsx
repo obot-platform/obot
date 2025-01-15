@@ -1,11 +1,11 @@
-import { ReactNode, createContext, useContext, useMemo } from "react";
+import { ReactNode, createContext, useContext } from "react";
 import { mutate } from "swr";
 
 import { Message } from "~/lib/model/messages";
 import { InvokeService } from "~/lib/service/api/invokeService";
 import { ThreadsService } from "~/lib/service/api/threadsService";
 
-import { useMessageStream } from "~/hooks/messages/useMessageSource";
+import { useThreadEvents } from "~/hooks/messages/useThreadEvents";
 import { useAsync } from "~/hooks/useAsync";
 
 type Mode = "agent" | "workflow";
@@ -60,12 +60,7 @@ export function ChatProvider({
 		},
 	});
 
-	const source = useMemo(
-		() => (threadId ? ThreadsService.getThreadEventSource(threadId) : null),
-		[threadId]
-	);
-
-	const { messages, isRunning } = useMessageStream(source);
+	const { messages, isRunning } = useThreadEvents(threadId);
 
 	const abortRunningThread = () => {
 		if (!threadId || !isRunning) return;

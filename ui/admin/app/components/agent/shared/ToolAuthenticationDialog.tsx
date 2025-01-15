@@ -1,8 +1,6 @@
 import { CheckIcon, CircleAlert } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
-import { ThreadsService } from "~/lib/service/api/threadsService";
-
 import { useToolReference } from "~/components/agent/ToolEntry";
 import { PromptAuthForm } from "~/components/chat/Message";
 import { LoadingSpinner } from "~/components/ui/LoadingSpinner";
@@ -17,7 +15,7 @@ import {
 	DialogTitle,
 } from "~/components/ui/dialog";
 import { Link } from "~/components/ui/link";
-import { useMessageStream } from "~/hooks/messages/useMessageSource";
+import { useThreadEvents } from "~/hooks/messages/useThreadEvents";
 
 type AgentAuthenticationDialogProps = {
 	threadId: Nullish<string>;
@@ -32,11 +30,7 @@ export function ToolAuthenticationDialog({
 }: AgentAuthenticationDialogProps) {
 	const { icon, label } = useToolReference(tool);
 
-	const source = useMemo(
-		() => (threadId ? ThreadsService.getThreadEventSource(threadId) : null),
-		[threadId]
-	);
-	const { messages: _messages } = useMessageStream(source);
+	const { messages: _messages } = useThreadEvents(threadId);
 
 	type ItemState = {
 		isLoading?: boolean;

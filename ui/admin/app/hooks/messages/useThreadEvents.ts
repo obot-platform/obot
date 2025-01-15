@@ -2,8 +2,9 @@ import { useCallback, useEffect, useState } from "react";
 
 import { ChatEvent } from "~/lib/model/chatEvents";
 import { Message, promptMessage, toolCallMessage } from "~/lib/model/messages";
+import { ThreadsService } from "~/lib/service/api/threadsService";
 
-export function useMessageStream(source: Nullish<EventSource>) {
+export function useThreadEvents(threadId?: Nullish<string>) {
 	const [messages, setMessages] = useState<Message[]>([]);
 	const [isRunning, setIsRunning] = useState(false);
 
@@ -99,7 +100,9 @@ export function useMessageStream(source: Nullish<EventSource>) {
 	useEffect(() => {
 		setMessages([]);
 
-		if (!source) return;
+		if (!threadId) return;
+
+		const source = ThreadsService.getThreadEventSource(threadId);
 
 		let replayComplete = false;
 		let replayMessages: ChatEvent[] = [];
@@ -127,7 +130,7 @@ export function useMessageStream(source: Nullish<EventSource>) {
 			source.close();
 			setIsRunning(false);
 		};
-	}, [source, addContent]);
+	}, [threadId, addContent]);
 
 	return { messages, isRunning };
 }
