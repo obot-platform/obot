@@ -1,3 +1,4 @@
+import { AxiosError } from "axios";
 import { Outlet, isRouteErrorResponse, useRouteError } from "react-router";
 import { preload } from "swr";
 
@@ -47,6 +48,8 @@ export function ErrorBoundary() {
 	switch (true) {
 		case error instanceof UnauthorizedError:
 		case error instanceof ForbiddenError:
+		case error instanceof AxiosError &&
+			[401, 403].includes(error.response?.status ?? 0):
 			if (isSignedIn) return <Unauthorized />;
 			else return <SignIn />;
 		case isRouteErrorResponse(error):

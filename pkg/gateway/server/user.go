@@ -25,8 +25,16 @@ func (s *Server) getCurrentUser(apiContext api.Context) error {
 		return err
 	}
 
-	if err = s.client.UpdateProfileIconIfNeeded(apiContext.Context(), user, apiContext.AuthProviderID()); err != nil {
-		pkgLog.Warnf("failed to update profile icon for user %s: %v", user.Username, err)
+	name, namespace := apiContext.AuthProviderNameAndNamespace()
+
+	if name != "" && namespace != "" {
+		providerURL, err := s.dispatcher.URLForAuthProvider(apiContext.Context(), namespace, name)
+		if err != nil {
+			return fmt.Errorf("failmed to get auth provider URL: %v", err)
+		}
+		if err = s.client.UpdateProfileIconIfNeeded(apiContext.Context(), user, name, namespace, providerURL.String()); err != nil {
+			pkgLog.Warnf("failed to update profile icon for user %s: %v", user.Username, err)
+		}
 	}
 
 	return apiContext.Write(types.ConvertUser(user, s.client.IsExplicitAdmin(user.Email)))

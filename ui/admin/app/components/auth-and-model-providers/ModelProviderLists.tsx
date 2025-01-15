@@ -1,16 +1,16 @@
 import { CircleCheckIcon, CircleSlashIcon } from "lucide-react";
 import { Link } from "react-router";
 
-import { ModelProvider } from "~/lib/model/modelProviders";
+import { ModelProvider } from "~/lib/model/providers";
 
-import { ModelProviderConfigure } from "~/components/model-providers/ModelProviderConfigure";
-import { ModelProviderMenu } from "~/components/model-providers/ModelProviderDropdown";
-import { ModelProviderIcon } from "~/components/model-providers/ModelProviderIcon";
-import { ModelProvidersModels } from "~/components/model-providers/ModelProviderModels";
+import { ModelProvidersModels } from "~/components/auth-and-model-providers/ModelProviderModels";
+import { ProviderConfigure } from "~/components/auth-and-model-providers/ProviderConfigure";
+import { ProviderIcon } from "~/components/auth-and-model-providers/ProviderIcon";
+import { ProviderMenu } from "~/components/auth-and-model-providers/ProviderMenu";
 import {
 	ModelProviderLinks,
 	RecommendedModelProviders,
-} from "~/components/model-providers/constants";
+} from "~/components/auth-and-model-providers/constants";
 import { Badge } from "~/components/ui/badge";
 import { Card, CardContent, CardHeader } from "~/components/ui/card";
 
@@ -33,7 +33,7 @@ export function ModelProviderList({
 							{modelProvider.configured ? (
 								<div className="flex flex-row items-center gap-2">
 									<ModelProvidersModels modelProvider={modelProvider} />
-									<ModelProviderMenu modelProvider={modelProvider} />
+									<ProviderMenu provider={modelProvider} />
 								</div>
 							) : (
 								<div className="h-9 w-9" />
@@ -41,7 +41,7 @@ export function ModelProviderList({
 						</CardHeader>
 						<CardContent className="flex flex-col items-center gap-4">
 							<Link to={ModelProviderLinks[modelProvider.id]}>
-								<ModelProviderIcon modelProvider={modelProvider} size="lg" />
+								<ProviderIcon provider={modelProvider} size="lg" />
 							</Link>
 							<div className="text-center text-lg font-semibold">
 								{modelProvider.name}
@@ -60,7 +60,7 @@ export function ModelProviderList({
 									</span>
 								)}
 							</Badge>
-							<ModelProviderConfigure modelProvider={modelProvider} />
+							<ProviderConfigure provider={modelProvider} />
 						</CardContent>
 					</Card>
 				))}

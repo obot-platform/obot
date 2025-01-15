@@ -2,6 +2,7 @@ import {
 	BotIcon,
 	BoxesIcon,
 	InfoIcon,
+	LockIcon,
 	MessageSquare,
 	PuzzleIcon,
 	User,
@@ -73,6 +74,11 @@ const items = [
 		title: "Workflow Triggers",
 		url: $path("/workflow-triggers"),
 		icon: WebhookIcon,
+	},
+	{
+		title: "Auth Providers",
+		url: $path("/auth-providers"),
+		icon: LockIcon,
 	},
 ];
 
