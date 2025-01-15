@@ -98,16 +98,18 @@ export function ToolCardActions({ tool }: { tool: ToolReference }) {
 							Configure OAuth
 						</DropdownMenuItem>
 					)}
-					<DropdownMenuItem onClick={() => forceRefresh.execute(tool.id)}>
-						Refresh Tool
-					</DropdownMenuItem>
 					{!tool.builtin && (
-						<DropdownMenuItem
-							className="text-destructive"
-							onClick={handleDelete}
-						>
-							Delete Tool
-						</DropdownMenuItem>
+						<>
+							<DropdownMenuItem onClick={() => forceRefresh.execute(tool.id)}>
+								Refresh Tool
+							</DropdownMenuItem>
+							<DropdownMenuItem
+								className="text-destructive"
+								onClick={handleDelete}
+							>
+								Delete Tool
+							</DropdownMenuItem>
+						</>
 					)}
 				</DropdownMenuContent>
 			</DropdownMenu>
