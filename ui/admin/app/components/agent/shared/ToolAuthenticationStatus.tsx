@@ -1,4 +1,4 @@
-import { LockIcon, LockOpenIcon } from "lucide-react";
+import { GlobeIcon, GlobeLockIcon } from "lucide-react";
 
 import { ToolInfo } from "~/lib/model/agents";
 import { AssistantNamespace } from "~/lib/model/assistants";
@@ -103,13 +103,18 @@ export function ToolAuthenticationStatus({
 				<TooltipContent className="max-w-xs">
 					{authorized ? (
 						<>
-							<b>Authorized: </b>
-							Tool will use pre-authenticated credentials for each thread.
+							<b>Global Auth Enabled: </b>
+							{/* Leaving this here for now, will remove after we discuss the wording for this */}
+							{/* Users will share the same account and will not be prompted to
+							login when using this tool. */}
+							Users will not be prompted to use their own credentials to login,
+							and will share the same global account when using this tool.
 						</>
 					) : (
 						<>
-							<b>Unauthorized: </b>
-							Tool will require user authentication for each thread.
+							<b>Global Auth Disabled: </b>
+							Users will be prompted to use their own credentials to login when
+							using this tool.
 						</>
 					)}
 				</TooltipContent>
@@ -122,9 +127,9 @@ export function ToolAuthenticationStatus({
 						onClick={handleClick}
 					>
 						{authorized ? (
-							<LockOpenIcon className="text-success" />
+							<GlobeLockIcon className="text-success" />
 						) : (
-							<LockIcon />
+							<GlobeIcon />
 						)}
 					</Button>
 				</TooltipTrigger>
