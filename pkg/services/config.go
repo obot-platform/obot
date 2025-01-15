@@ -70,8 +70,8 @@ type Config struct {
 	Docker                     bool   `usage:"Enable Docker support" default:"false" env:"OBOT_DOCKER"`
 
 	// Sendgrid webhook
-	SendgridWebhookUsername string `usage:"The username for the sendgrid webhook to authenticate with" env:"OBOT_SENDGRID_WEBHOOK_USERNAME"`
-	SendgridWebhookPassword string `usage:"The password for the sendgrid webhook to authenticate with" env:"OBOT_SENDGRID_WEBHOOK_PASSWORD"`
+	SendgridWebhookUsername string `usage:"The username for the sendgrid webhook to authenticate with"`
+	SendgridWebhookPassword string `usage:"The password for the sendgrid webhook to authenticate with"`
 
 	AuthConfig
 	GatewayConfig

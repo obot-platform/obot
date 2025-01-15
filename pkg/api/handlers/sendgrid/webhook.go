@@ -30,10 +30,6 @@ func (h *InboundWebhookHandler) InboundWebhookHandler(req api.Context) error {
 		}
 	}
 
-	if req.Request.Method != http.MethodPost {
-		return types.NewErrHttp(http.StatusMethodNotAllowed, "Invalid request method")
-	}
-
 	inboundEmail, err := inbound.Parse(req.Request)
 	if err != nil {
 		return types.NewErrHttp(http.StatusBadRequest, fmt.Sprintf("Failed to parse inbound email: %v", err))
