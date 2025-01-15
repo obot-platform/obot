@@ -1,4 +1,4 @@
-import { GlobeIcon, GlobeLockIcon } from "lucide-react";
+import { GlobeIcon, GlobeLockIcon, ShieldOffIcon } from "lucide-react";
 
 import { ToolInfo } from "~/lib/model/agents";
 import { AssistantNamespace } from "~/lib/model/assistants";
@@ -95,7 +95,22 @@ export function ToolAuthenticationStatus({
 		}
 	};
 
-	if (!credentialNames?.length) return null;
+	if (!credentialNames?.length)
+		return (
+			<Tooltip>
+				<TooltipTrigger asChild>
+					<div>
+						<Button size="icon" variant="ghost" disabled>
+							<ShieldOffIcon />
+						</Button>
+					</div>
+				</TooltipTrigger>
+
+				<TooltipContent>
+					This tool does not require authentication.
+				</TooltipContent>
+			</Tooltip>
+		);
 
 	return (
 		<>

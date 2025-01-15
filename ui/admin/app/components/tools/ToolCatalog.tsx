@@ -141,7 +141,7 @@ export function ToolCatalogDialog(props: ToolCatalogProps) {
 
 			<DialogTrigger asChild>
 				<Button variant="ghost">
-					<PlusIcon className="mr-2 h-4 w-4" /> Add Tool
+					<PlusIcon /> Add Tools
 				</Button>
 			</DialogTrigger>
 		</Dialog>

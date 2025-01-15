@@ -9,12 +9,13 @@ import { noop } from "~/lib/utils";
 import { ToolEntry } from "~/components/agent/ToolEntry";
 import { ToolCatalogDialog } from "~/components/tools/ToolCatalog";
 import { Form } from "~/components/ui/form";
-import { Switch } from "~/components/ui/switch";
 import {
-	Tooltip,
-	TooltipContent,
-	TooltipTrigger,
-} from "~/components/ui/tooltip";
+	Select,
+	SelectContent,
+	SelectItem,
+	SelectTrigger,
+	SelectValue,
+} from "~/components/ui/select";
 
 const ToolVariant = {
 	FIXED: "fixed",
@@ -99,14 +100,6 @@ export function ToolForm({
 		}).unsubscribe;
 	}, [watch, onChange]);
 
-	const [allTools, fixedFields, userFields] = useMemo(() => {
-		return [
-			toolFields.fields.map(({ tool }) => tool),
-			toolFields.fields?.filter((field) => field.variant === ToolVariant.FIXED),
-			toolFields.fields?.filter((field) => field.variant !== ToolVariant.FIXED),
-		];
-	}, [toolFields]);
-
 	const removeTools = (tools: string[]) => {
 		const indexes = tools
 			.map((tool) => toolFields.fields.findIndex((t) => t.tool === tool))
@@ -137,80 +130,62 @@ export function ToolForm({
 		}
 	};
 
+	const sortedFields = toolFields.fields.toSorted((a, b) =>
+		a.tool.localeCompare(b.tool)
+	);
+
 	return (
 		<Form {...form}>
 			<form
 				onSubmit={handleSubmit(onSubmit || noop)}
-				className="flex flex-col gap-2"
+				className="flex flex-col gap-4"
 			>
-				<p className="flex items-end justify-between font-normal">
-					Agent Tools
-				</p>
-
-				<small className="text-muted-foreground">
-					These tools are essential for the agent&apos;s core functionality and
-					are always enabled.
-				</small>
-
 				<div className="mt-2 w-full overflow-y-auto">
-					{fixedFields.map((field) => (
-						<ToolEntry
-							key={field.id}
-							tool={field.tool}
-							onDelete={() => removeTools([field.tool])}
-							actions={renderActions?.(field.tool)}
-						/>
-					))}
-				</div>
-
-				<div className="flex justify-end">
-					<ToolCatalogDialog
-						tools={allTools}
-						onUpdateTools={(tools) => updateTools(tools, ToolVariant.FIXED)}
-					/>
-				</div>
-
-				<p className="mt-4 flex items-end justify-between font-normal">
-					User Tools
-				</p>
-
-				<small className="text-muted-foreground">
-					Optional tools users can turn on or off. Use the toggle to set whether
-					they&apos;re active by default for the agent.
-				</small>
-
-				<div className="mt-2 w-full overflow-y-auto">
-					{userFields.map((field) => (
+					{sortedFields.map((field) => (
 						<ToolEntry
 							key={field.id}
 							tool={field.tool}
 							onDelete={() => removeTools([field.tool])}
 							actions={
 								<>
-									{renderActions?.(field.tool)}
-									<Tooltip>
-										<TooltipTrigger asChild>
-											<div>
-												<Switch
-													checked={field.variant === ToolVariant.DEFAULT}
-													onCheckedChange={(checked) =>
-														updateVariant(
-															field.tool,
-															checked
-																? ToolVariant.DEFAULT
-																: ToolVariant.AVAILABLE
-														)
-													}
-												/>
-											</div>
-										</TooltipTrigger>
+									<Select
+										value={
+											field.variant === ToolVariant.FIXED
+												? field.variant
+												: ToolVariant.DEFAULT
+										}
+										onValueChange={(value) =>
+											updateVariant(field.tool, value as ToolVariant)
+										}
+									>
+										<SelectTrigger className="w-36">
+											<SelectValue />
+										</SelectTrigger>
 
-										<TooltipContent>
-											{field.variant === ToolVariant.DEFAULT
-												? "Active by Default"
-												: "Inactive by Default"}
-										</TooltipContent>
-									</Tooltip>
+										<SelectContent>
+											<SelectItem value={ToolVariant.FIXED}>
+												Always On
+											</SelectItem>
+											<SelectItem value={ToolVariant.DEFAULT}>
+												<p>
+													Optional
+													<span className="text-muted-foreground">
+														{" - On"}
+													</span>
+												</p>
+											</SelectItem>
+											<SelectItem value={ToolVariant.AVAILABLE}>
+												<p>
+													Optional
+													<span className="text-muted-foreground">
+														{" - Off"}
+													</span>
+												</p>
+											</SelectItem>
+										</SelectContent>
+									</Select>
+
+									{renderActions?.(field.tool)}
 								</>
 							}
 						/>
@@ -219,9 +194,8 @@ export function ToolForm({
 
 				<div className="flex justify-end">
 					<ToolCatalogDialog
-						tools={allTools}
-						onUpdateTools={(tools) => updateTools(tools, ToolVariant.DEFAULT)}
-						className="w-auto"
+						tools={toolFields.fields.map((field) => field.tool)}
+						onUpdateTools={(tools) => updateTools(tools, ToolVariant.FIXED)}
 					/>
 				</div>
 			</form>
