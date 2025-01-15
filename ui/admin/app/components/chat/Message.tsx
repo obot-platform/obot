@@ -11,7 +11,6 @@ import { Message as MessageType } from "~/lib/model/messages";
 import { PromptApiService } from "~/lib/service/api/PromptApi";
 import { cn } from "~/lib/utils";
 
-import { useChat } from "~/components/chat/ChatContext";
 import { MessageDebug } from "~/components/chat/MessageDebug";
 import { ToolCallInfo } from "~/components/chat/ToolCallInfo";
 import { ControlledInput } from "~/components/form/controlledInputs";
@@ -48,13 +47,10 @@ const OpenMarkdownLinkRegex = new RegExp(/\[([^\]]+)\]\(https?:\/\/[^)]*$/);
 
 export const Message = React.memo(({ message, isRunning }: MessageProps) => {
 	const isUser = message.sender === "user";
-	const [shouldAnimate] = useState(isRunning);
 
 	// note(ryanhopperlowe) we only support one tool call per message for now
 	// leaving it in case that changes in the future
 	const [toolCall = null] = message.tools || [];
-
-	const { isRunning } = useChat();
 
 	const parsedMessage = useMemo(() => {
 		if (OpenMarkdownLinkRegex.test(message.text)) {
@@ -66,7 +62,7 @@ export const Message = React.memo(({ message, isRunning }: MessageProps) => {
 		return message.text;
 	}, [message.text]);
 
-	const animatedText = useAnimatedText(parsedMessage, !shouldAnimate || isUser);
+	const animatedText = useAnimatedText(parsedMessage, isUser);
 
 	return (
 		<div className="mb-4 w-full">

@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 
 export function useAnimatedText(text: string, disabled?: boolean) {
 	const animatedCursor = useMotionValue(0);
-	const [cursor, setCursor] = useState(3);
+	const [cursor, setCursor] = useState(0);
 	const [prev, setPrev] = useState(text);
 	const [isSameText, setIsSameText] = useState(true);
 
@@ -26,7 +26,7 @@ export function useAnimatedText(text: string, disabled?: boolean) {
 			duration: 0.5,
 			ease: "linear",
 			onUpdate(latest) {
-				setCursor(latest);
+				setCursor(Math.floor(latest));
 			},
 		});
 

@@ -30,13 +30,19 @@ export function Chatbar({ className }: ChatbarProps) {
 	const disabled =
 		(!input && !isRunning) || isInvoking || !modelProviderConfigured;
 
+	const handleAbort = () => {
+		if (isRunning) {
+			abortRunningThread();
+		}
+	};
+
 	const handleSubmit = (e: React.FormEvent) => {
 		e.preventDefault();
 
 		if (disabled) return;
 
 		if (isRunning) {
-			abortRunningThread();
+			return;
 		}
 
 		if (input.trim()) {
@@ -68,8 +74,7 @@ export function Chatbar({ className }: ChatbarProps) {
 					placeholder="Type your message..."
 					bottomContent={
 						<div className="flex flex-row-reverse items-center justify-between">
-							<div className="flex items-center gap-2">
-								<ChatRunInfo messages={messages} isRunning={isRunning} />
+							<div className="flex flex-row-reverse items-center gap-2">
 								<ModelProviderTooltip enabled={modelProviderConfigured}>
 									<Button
 										size="icon-sm"
@@ -77,6 +82,7 @@ export function Chatbar({ className }: ChatbarProps) {
 										color="primary"
 										type="submit"
 										disabled={disabled}
+										onClick={handleAbort}
 									>
 										{isInvoking ? (
 											<LoadingSpinner />
@@ -87,6 +93,7 @@ export function Chatbar({ className }: ChatbarProps) {
 										)}
 									</Button>
 								</ModelProviderTooltip>
+								<ChatRunInfo messages={messages} isRunning={isRunning} />
 							</div>
 							<ChatActions className="p-2" />
 						</div>
