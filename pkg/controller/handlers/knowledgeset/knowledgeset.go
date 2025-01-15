@@ -7,7 +7,6 @@ import (
 	"github.com/obot-platform/nah/pkg/name"
 	"github.com/obot-platform/nah/pkg/router"
 	"github.com/obot-platform/obot/apiclient/types"
-	"github.com/obot-platform/obot/pkg/aihelper"
 	"github.com/obot-platform/obot/pkg/create"
 	"github.com/obot-platform/obot/pkg/invoke"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
@@ -18,14 +17,12 @@ import (
 )
 
 type Handler struct {
-	aiHelper *aihelper.AIHelper
-	invoker  *invoke.Invoker
+	invoker *invoke.Invoker
 }
 
-func New(aiHelper *aihelper.AIHelper, invoker *invoke.Invoker) *Handler {
+func New(invoker *invoke.Invoker) *Handler {
 	return &Handler{
-		aiHelper: aiHelper,
-		invoker:  invoker,
+		invoker: invoker,
 	}
 }
 

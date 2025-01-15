@@ -21,7 +21,6 @@ import (
 	"github.com/obot-platform/nah/pkg/apply"
 	"github.com/obot-platform/nah/pkg/leader"
 	"github.com/obot-platform/nah/pkg/router"
-	"github.com/obot-platform/obot/pkg/aihelper"
 	"github.com/obot-platform/obot/pkg/api/authn"
 	"github.com/obot-platform/obot/pkg/api/authz"
 	"github.com/obot-platform/obot/pkg/api/server"
@@ -89,7 +88,6 @@ type Services struct {
 	Invoker                    *invoke.Invoker
 	TokenServer                *jwt.TokenService
 	APIServer                  *server.Server
-	AIHelper                   *aihelper.AIHelper
 	Started                    chan struct{}
 	ProxyServer                *proxy.Proxy
 	GatewayServer              *gserver.Server
@@ -357,7 +355,6 @@ func New(ctx context.Context, config Config) (*Services, error) {
 			authz.NewAuthorizer(r.Backend()), proxyServer, config.Hostname),
 		TokenServer:                tokenServer,
 		Invoker:                    invoker,
-		AIHelper:                   aihelper.New(c, config.HelperModel),
 		GatewayServer:              gatewayServer,
 		GatewayClient:              gatewayClient,
 		ProxyServer:                proxyServer,

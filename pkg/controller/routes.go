@@ -32,7 +32,7 @@ func (c *Controller) setupRoutes() error {
 	toolRef := toolreference.New(c.services.GPTClient, c.services.ModelProviderDispatcher,
 		c.services.ToolRegistryURL, c.services.SupportDocker)
 	workspace := workspace.New(c.services.GPTClient, c.services.WorkspaceProviderType)
-	knowledgeset := knowledgeset.New(c.services.AIHelper, c.services.Invoker)
+	knowledgeset := knowledgeset.New(c.services.Invoker)
 	knowledgesource := knowledgesource.NewHandler(c.services.Invoker, c.services.GPTClient)
 	knowledgefile := knowledgefile.New(c.services.Invoker, c.services.GPTClient, c.services.KnowledgeSetIngestionLimit)
 	runs := runs.New(c.services.Invoker)
