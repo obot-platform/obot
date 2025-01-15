@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { Link } from "react-router";
+import { Link, useNavigate } from "react-router";
 import { $path } from "safe-routes";
 import useSWR from "swr";
 
@@ -20,6 +20,8 @@ type AgentAliasProps = {
 };
 
 export function AgentAlias({ agent, onChange }: AgentAliasProps) {
+	const navigate = useNavigate();
+
 	const getAssistants = useSWR(
 		() => AssistantApiService.getAssistants.key(),
 		() => AssistantApiService.getAssistants()
@@ -73,7 +75,7 @@ export function AgentAlias({ agent, onChange }: AgentAliasProps) {
 
 				<div className="flex gap-2">
 					<AgentAccessControl agent={agent} />
-					<DeleteAgent id={agent.id} />
+					<DeleteAgent id={agent.id} onSuccess={() => navigate("/agents")} />
 				</div>
 			</div>
 			{conflictingAlias && (

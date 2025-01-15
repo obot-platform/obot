@@ -1,5 +1,7 @@
 import { Library, List, PuzzleIcon, WrenchIcon } from "lucide-react";
 import { useCallback, useState } from "react";
+import { useNavigate } from "react-router";
+import { $path } from "safe-routes";
 
 import { AssistantNamespace } from "~/lib/model/assistants";
 import { Workflow as WorkflowType } from "~/lib/model/workflows";
@@ -12,6 +14,7 @@ import { AgentKnowledgePanel } from "~/components/knowledge";
 import { BasicToolForm } from "~/components/tools/BasicToolForm";
 import { CardDescription } from "~/components/ui/card";
 import { ScrollArea } from "~/components/ui/scroll-area";
+import { DeleteWorkflowButton } from "~/components/workflow/DeleteWorkflow";
 import { ParamsForm } from "~/components/workflow/ParamsForm";
 import {
 	WorkflowProvider,
@@ -36,6 +39,7 @@ export function Workflow(props: WorkflowProps) {
 }
 
 function WorkflowContent({ className }: WorkflowProps) {
+	const navigate = useNavigate();
 	const { workflow, updateWorkflow, isUpdating, lastUpdated, refreshWorkflow } =
 		useWorkflow();
 
@@ -61,7 +65,13 @@ function WorkflowContent({ className }: WorkflowProps) {
 	return (
 		<div className="flex h-full flex-col">
 			<ScrollArea className={cn("h-full", className)}>
-				<div className="m-4 p-4">
+				<div className="flex justify-end px-8 pt-4">
+					<DeleteWorkflowButton
+						id={workflow.id}
+						onSuccess={() => navigate($path("/workflows"))}
+					/>
+				</div>
+				<div className="m-4 px-4 pb-4">
 					<AgentForm
 						agent={workflowUpdates}
 						onChange={debouncedSetWorkflowInfo}

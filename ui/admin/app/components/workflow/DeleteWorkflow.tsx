@@ -15,13 +15,18 @@ import { useAsync } from "~/hooks/useAsync";
 
 type DeleteWorkflowButtonProps = {
 	id: string;
+	onSuccess?: () => void;
 };
 
-export function DeleteWorkflowButton({ id }: DeleteWorkflowButtonProps) {
+export function DeleteWorkflowButton({
+	id,
+	onSuccess,
+}: DeleteWorkflowButtonProps) {
 	const deleteWorkflow = useAsync(WorkflowService.deleteWorkflow, {
 		onSuccess: () => {
 			mutate(WorkflowService.getWorkflows.key());
 			toast.success("Workflow deleted");
+			onSuccess?.();
 		},
 		onError: () => toast.error("Failed to delete workflow"),
 	});
