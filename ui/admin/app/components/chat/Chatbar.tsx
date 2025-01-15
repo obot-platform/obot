@@ -5,6 +5,7 @@ import { cn } from "~/lib/utils";
 
 import { ChatActions } from "~/components/chat/ChatActions";
 import { useChat } from "~/components/chat/ChatContext";
+import { ChatRunInfo } from "~/components/chat/ChatRunInfo";
 import { ModelProviderTooltip } from "~/components/model-providers/ModelProviderTooltip";
 import { LoadingSpinner } from "~/components/ui/LoadingSpinner";
 import { Button } from "~/components/ui/button";
@@ -17,8 +18,13 @@ type ChatbarProps = {
 
 export function Chatbar({ className }: ChatbarProps) {
 	const [input, setInput] = useState("");
-	const { abortRunningThread, processUserMessage, isRunning, isInvoking } =
-		useChat();
+	const {
+		abortRunningThread,
+		processUserMessage,
+		isRunning,
+		isInvoking,
+		messages,
+	} = useChat();
 	const { configured: modelProviderConfigured } = useModelProviders();
 
 	const disabled =
@@ -62,23 +68,26 @@ export function Chatbar({ className }: ChatbarProps) {
 					placeholder="Type your message..."
 					bottomContent={
 						<div className="flex flex-row-reverse items-center justify-between">
-							<ModelProviderTooltip enabled={modelProviderConfigured}>
-								<Button
-									size="icon-sm"
-									className="m-2"
-									color="primary"
-									type="submit"
-									disabled={disabled}
-								>
-									{isInvoking ? (
-										<LoadingSpinner />
-									) : isRunning ? (
-										<SquareIcon className="!h-3 !w-3 fill-primary-foreground text-primary-foreground" />
-									) : (
-										<ArrowUpIcon />
-									)}
-								</Button>
-							</ModelProviderTooltip>
+							<div className="flex items-center gap-2">
+								<ChatRunInfo messages={messages} isRunning={isRunning} />
+								<ModelProviderTooltip enabled={modelProviderConfigured}>
+									<Button
+										size="icon-sm"
+										className="m-2"
+										color="primary"
+										type="submit"
+										disabled={disabled}
+									>
+										{isInvoking ? (
+											<LoadingSpinner />
+										) : isRunning ? (
+											<SquareIcon className="!h-3 !w-3 fill-primary-foreground text-primary-foreground" />
+										) : (
+											<ArrowUpIcon />
+										)}
+									</Button>
+								</ModelProviderTooltip>
+							</div>
 							<ChatActions className="p-2" />
 						</div>
 					}

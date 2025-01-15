@@ -4,6 +4,7 @@ import * as React from "react";
 import { cn } from "~/lib/utils";
 
 import { ScrollToBottom } from "~/components/ui/scroll-to-bottom";
+import { useOnResize } from "~/hooks/useOnResize";
 
 // note: I opted not to guess how to implement other scroll directions (i.e. 'top', 'left', 'right')
 // because I don't think it's necessary for the current use case. If you do need it, feel free to
@@ -48,14 +49,16 @@ const ScrollArea = React.forwardRef<
 		}
 	}, [startScrollAt]);
 
-	React.useEffect(() => {
+	const contentRef = React.useRef<HTMLDivElement | null>(null);
+	useOnResize(contentRef, () => {
 		if (shouldStickToBottom && enableScrollStick === "bottom") {
-			viewportRef.current?.scrollTo({
-				top: viewportRef.current.scrollHeight,
-				behavior: "instant",
-			});
+			const el = viewportRef.current;
+			if (!el) return;
+
+			const maxScrollHeight = el.scrollHeight - el.clientHeight;
+			el.scrollTop = maxScrollHeight;
 		}
-	}, [enableScrollStick, shouldStickToBottom, children]);
+	});
 
 	const initRef = React.useCallback((node: HTMLDivElement | null) => {
 		setViewportEl(node);
@@ -70,17 +73,22 @@ const ScrollArea = React.forwardRef<
 		>
 			<ScrollAreaPrimitive.Viewport
 				className={cn(
-					"h-full max-h-[inherit] w-full rounded-[inherit]",
+					"h-full max-h-[inherit] w-full scroll-smooth rounded-[inherit]",
 					classNames.viewport
 				)}
 				ref={initRef}
-				onScroll={(e) =>
-					setShouldStickToBottom(isScrolledToBottom(e.currentTarget))
-				}
+				onWheel={(e) => {
+					if (e.deltaY < 0) {
+						setShouldStickToBottom(false);
+					} else if (viewportRef.current) {
+						setShouldStickToBottom(isScrolledToBottom(viewportRef.current));
+					}
+				}}
 			>
-				{children}
+				<div ref={contentRef}>{children}</div>
 				{enableScrollTo === "bottom" && (
 					<ScrollToBottom
+						behavior="smooth"
 						onClick={() => setShouldStickToBottom(true)}
 						scrollContainerEl={viewportEl}
 						disabled={shouldStickToBottom}
