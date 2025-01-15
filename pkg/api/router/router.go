@@ -25,8 +25,9 @@ func Router(services *services.Services) (http.Handler, error) {
 	webhooks := handlers.NewWebhookHandler()
 	cronJobs := handlers.NewCronJobHandler()
 	models := handlers.NewModelHandler()
-	availableModels := handlers.NewAvailableModelsHandler(services.GPTClient, services.ModelProviderDispatcher)
-	modelProviders := handlers.NewModelProviderHandler(services.GPTClient, services.ModelProviderDispatcher, services.Invoker)
+	availableModels := handlers.NewAvailableModelsHandler(services.GPTClient, services.ProviderDispatcher)
+	modelProviders := handlers.NewModelProviderHandler(services.GPTClient, services.ProviderDispatcher, services.Invoker)
+	authProviders := handlers.NewAuthProviderHandler(services.GPTClient, services.ProviderDispatcher)
 	prompt := handlers.NewPromptHandler(services.GPTClient)
 	emailreceiver := handlers.NewEmailReceiverHandler(services.EmailServerName)
 	defaultModelAliases := handlers.NewDefaultModelAliasHandler()
@@ -36,6 +37,7 @@ func Router(services *services.Services) (http.Handler, error) {
 	sendgridWebhookHandler := sendgrid.NewInboundWebhookHandler(services.StorageClient, services.EmailServerName, services.SendgridWebhookUsername, services.SendgridWebhookPassword)
 
 	// Version
+
 	mux.HandleFunc("GET /api/version", version.GetVersion)
 
 	// Agents
@@ -301,6 +303,16 @@ func Router(services *services.Services) (http.Handler, error) {
 	mux.HandleFunc("POST /api/model-providers/{id}/reveal", modelProviders.Reveal)
 	mux.HandleFunc("POST /api/model-providers/{id}/refresh-models", modelProviders.RefreshModels)
 
+	// Auth providers
+	mux.HandleFunc("GET /api/auth-providers", authProviders.List)
+	mux.HandleFunc("GET /api/auth-providers/{id}", authProviders.ByID)
+	mux.HandleFunc("POST /api/auth-providers/{id}/configure", authProviders.Configure)
+	mux.HandleFunc("POST /api/auth-providers/{id}/reveal", authProviders.Reveal)
+
+	// Bootstrap
+	mux.HandleFunc("POST /api/bootstrap/login", services.Bootstrapper.Login)
+	mux.HandleFunc("POST /api/bootstrap/logout", services.Bootstrapper.Logout)
+
 	// Models
 	mux.HandleFunc("POST /api/models", models.Create)
 	mux.HandleFunc("PUT /api/models/{id}", models.Update)
@@ -324,6 +336,9 @@ func Router(services *services.Services) (http.Handler, error) {
 
 	// Catch all 404 for API
 	mux.HTTPHandle("/api/", http.NotFoundHandler())
+
+	// Auth Provider tools
+	mux.HandleFunc("/oauth2/", services.ProxyManager.HandlerFunc)
 
 	// Gateway APIs
 	services.GatewayServer.AddRoutes(services.APIServer)

@@ -1,4 +1,4 @@
-import { ModelProvider, ModelProviderConfig } from "~/lib/model/modelProviders";
+import { ModelProvider, ProviderConfig } from "~/lib/model/providers";
 import { ApiRoutes } from "~/lib/routers/apiRoutes";
 import { request } from "~/lib/service/api/primitives";
 
@@ -13,22 +13,22 @@ const getModelProviders = async () => {
 getModelProviders.key = () =>
 	({ url: ApiRoutes.modelProviders.getModelProviders().path }) as const;
 
-const getModelProviderById = async (modelProviderKey: string) => {
+const getModelProviderById = async (providerKey: string) => {
 	const res = await request<ModelProvider>({
-		url: ApiRoutes.modelProviders.getModelProviderById(modelProviderKey).url,
+		url: ApiRoutes.modelProviders.getModelProviderById(providerKey).url,
 		method: "GET",
 		errorMessage:
-			"Failed to update configuration values on the requested modal provider.",
+			"Failed to update configuration values on the requested model provider.",
 	});
 
 	return res.data;
 };
-getModelProviderById.key = (modelProviderId?: string) => {
-	if (!modelProviderId) return null;
+getModelProviderById.key = (providerId?: string) => {
+	if (!providerId) return null;
 
 	return {
-		url: ApiRoutes.modelProviders.getModelProviderById(modelProviderId).path,
-		modelProviderId,
+		url: ApiRoutes.modelProviders.getModelProviderById(providerId).path,
+		providerId,
 	};
 };
 
@@ -49,46 +49,44 @@ const validateModelProviderById = async (
 };
 
 const configureModelProviderById = async (
-	modelProviderKey: string,
-	modelProviderConfig: ModelProviderConfig
+	providerKey: string,
+	providerConfig: ProviderConfig
 ) => {
 	const res = await request<ModelProvider>({
-		url: ApiRoutes.modelProviders.configureModelProviderById(modelProviderKey)
-			.url,
+		url: ApiRoutes.modelProviders.configureModelProviderById(providerKey).url,
 		method: "POST",
-		data: modelProviderConfig,
+		data: providerConfig,
 		errorMessage:
-			"Failed to update configuration values on the requested modal provider.",
+			"Failed to update configuration values on the requested model provider.",
 	});
 
 	return res.data;
 };
 
-const revealModelProviderById = async (modelProviderKey: string) => {
-	const res = await request<ModelProviderConfig>({
-		url: ApiRoutes.modelProviders.revealModelProviderById(modelProviderKey).url,
+const revealModelProviderById = async (providerKey: string) => {
+	const res = await request<ProviderConfig>({
+		url: ApiRoutes.modelProviders.revealModelProviderById(providerKey).url,
 		method: "POST",
 		errorMessage:
-			"Failed to reveal configuration values on the requested modal provider.",
+			"Failed to reveal configuration values on the requested model provider.",
 	});
 
 	return res.data;
 };
-revealModelProviderById.key = (modelProviderId?: string) => {
-	if (!modelProviderId) return null;
+revealModelProviderById.key = (providerId?: string) => {
+	if (!providerId) return null;
 
 	return {
-		url: ApiRoutes.modelProviders.revealModelProviderById(modelProviderId).path,
-		modelProviderId,
+		url: ApiRoutes.modelProviders.revealModelProviderById(providerId).path,
+		providerId,
 	};
 };
 
-const deconfigureModelProviderById = async (modelProviderKey: string) => {
+const deconfigureModelProviderById = async (providerKey: string) => {
 	const res = await request<ModelProvider>({
-		url: ApiRoutes.modelProviders.deconfigureModelProviderById(modelProviderKey)
-			.url,
+		url: ApiRoutes.modelProviders.deconfigureModelProviderById(providerKey).url,
 		method: "POST",
-		errorMessage: "Failed to deconfigure the requested modal provider.",
+		errorMessage: "Failed to deconfigure the requested model provider.",
 	});
 
 	return res.data;

@@ -24,6 +24,10 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/apiclient/types.AssistantList":                             schema_obot_platform_obot_apiclient_types_AssistantList(ref),
 		"github.com/obot-platform/obot/apiclient/types.AssistantTool":                             schema_obot_platform_obot_apiclient_types_AssistantTool(ref),
 		"github.com/obot-platform/obot/apiclient/types.AssistantToolList":                         schema_obot_platform_obot_apiclient_types_AssistantToolList(ref),
+		"github.com/obot-platform/obot/apiclient/types.AuthProvider":                              schema_obot_platform_obot_apiclient_types_AuthProvider(ref),
+		"github.com/obot-platform/obot/apiclient/types.AuthProviderList":                          schema_obot_platform_obot_apiclient_types_AuthProviderList(ref),
+		"github.com/obot-platform/obot/apiclient/types.AuthProviderManifest":                      schema_obot_platform_obot_apiclient_types_AuthProviderManifest(ref),
+		"github.com/obot-platform/obot/apiclient/types.AuthProviderStatus":                        schema_obot_platform_obot_apiclient_types_AuthProviderStatus(ref),
 		"github.com/obot-platform/obot/apiclient/types.Authorization":                             schema_obot_platform_obot_apiclient_types_Authorization(ref),
 		"github.com/obot-platform/obot/apiclient/types.AuthorizationList":                         schema_obot_platform_obot_apiclient_types_AuthorizationList(ref),
 		"github.com/obot-platform/obot/apiclient/types.AuthorizationManifest":                     schema_obot_platform_obot_apiclient_types_AuthorizationManifest(ref),
@@ -800,6 +804,169 @@ func schema_obot_platform_obot_apiclient_types_AssistantToolList(ref common.Refe
 		},
 		Dependencies: []string{
 			"github.com/obot-platform/obot/apiclient/types.AssistantTool"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_AuthProvider(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"Metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/obot-platform/obot/apiclient/types.Metadata"),
+						},
+					},
+					"AuthProviderManifest": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/obot-platform/obot/apiclient/types.AuthProviderManifest"),
+						},
+					},
+					"AuthProviderStatus": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/obot-platform/obot/apiclient/types.AuthProviderStatus"),
+						},
+					},
+				},
+				Required: []string{"Metadata", "AuthProviderManifest", "AuthProviderStatus"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.AuthProviderManifest", "github.com/obot-platform/obot/apiclient/types.AuthProviderStatus", "github.com/obot-platform/obot/apiclient/types.Metadata"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_AuthProviderList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/obot-platform/obot/apiclient/types.AuthProvider"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"items"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.AuthProvider"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_AuthProviderManifest(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"namespace": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"toolReference": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+				},
+				Required: []string{"name", "namespace", "toolReference"},
+			},
+		},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_AuthProviderStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"icon": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"configured": {
+						SchemaProps: spec.SchemaProps{
+							Default: false,
+							Type:    []string{"boolean"},
+							Format:  "",
+						},
+					},
+					"requiredConfigurationParameters": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+					"missingConfigurationParameters": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+					"optionalConfigurationParameters": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"configured"},
+			},
+		},
 	}
 }
 

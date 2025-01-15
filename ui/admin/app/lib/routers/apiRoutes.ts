@@ -308,6 +308,23 @@ export const ApiRoutes = {
 		deleteEmailReceiver: (id: string) => buildUrl(`/email-receivers/${id}`),
 	},
 	version: () => buildUrl("/version"),
+	authProviders: {
+		base: () => buildUrl("/auth-providers"),
+		getAuthProviders: () => buildUrl("/auth-providers"),
+		getAuthProviderById: (authProviderId: string) =>
+			buildUrl(`/auth-providers/${authProviderId}`),
+		configureAuthProviderById: (authProviderId: string) =>
+			buildUrl(`/auth-providers/${authProviderId}/configure`),
+		revealAuthProviderById: (authProviderId: string) =>
+			buildUrl(`/auth-providers/${authProviderId}/reveal`),
+		deconfigureAuthProviderById: (authProviderId: string) =>
+			buildUrl(`/auth-providers/${authProviderId}/deconfigure`), // TODO - implement this in the backend
+	},
+	bootstrap: {
+		base: () => buildUrl("/bootstrap"),
+		login: () => buildUrl("/bootstrap/login"),
+		logout: () => buildUrl("/bootstrap/logout"),
+	},
 };
 
 /** revalidates the cache for all routes that match the filter callback

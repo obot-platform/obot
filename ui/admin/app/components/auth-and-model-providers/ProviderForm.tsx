@@ -5,29 +5,28 @@ import { useFieldArray, useForm } from "react-hook-form";
 import { mutate } from "swr";
 import { z } from "zod";
 
-import { ModelProvider, ModelProviderConfig } from "~/lib/model/modelProviders";
+import {
+	AuthProvider,
+	ModelProvider,
+	ProviderConfig,
+} from "~/lib/model/providers";
+import { AuthProviderApiService } from "~/lib/service/api/authProviderApiService";
 import { ModelApiService } from "~/lib/service/api/modelApiService";
 import { ModelProviderApiService } from "~/lib/service/api/modelProviderApiService";
 
 import {
-	HelperTooltipLabel,
-	HelperTooltipLink,
-} from "~/components/composed/HelperTooltip";
-import {
-	NameDescriptionForm,
-	ParamFormValues,
-} from "~/components/composed/NameDescriptionForm";
-import { ControlledInput } from "~/components/form/controlledInputs";
-import {
-	ModelProviderConfigurationLinks,
+	AuthProviderOptionalTooltips,
+	AuthProviderRequiredTooltips,
+	AuthProviderSensitiveFields,
 	ModelProviderRequiredTooltips,
 	ModelProviderSensitiveFields,
-} from "~/components/model-providers/constants";
+} from "~/components/auth-and-model-providers/constants";
+import { HelperTooltipLabel } from "~/components/composed/HelperTooltip";
+import { ControlledInput } from "~/components/form/controlledInputs";
 import { Alert, AlertDescription, AlertTitle } from "~/components/ui/alert";
 import { Button } from "~/components/ui/button";
 import { Form } from "~/components/ui/form";
 import { ScrollArea } from "~/components/ui/scroll-area";
-import { Separator } from "~/components/ui/separator";
 import { useAsync } from "~/hooks/useAsync";
 
 const formSchema = z.object({
@@ -42,15 +41,18 @@ const formSchema = z.object({
 			}),
 		})
 	),
-	additionalConfirmParams: z.array(
+	optionalConfigParams: z.array(
 		z.object({
-			name: z.string(),
-			description: z.string(),
+			label: z.string(),
+			name: z.string().min(1, {
+				message: "Name is required.",
+			}),
+			value: z.string(),
 		})
 	),
 });
 
-export type ModelProviderFormValues = z.infer<typeof formSchema>;
+export type ProviderFormValues = z.infer<typeof formSchema>;
 
 const translateUserFriendlyLabel = (label: string) => {
 	const fieldsToStrip = [
@@ -62,9 +64,9 @@ const translateUserFriendlyLabel = (label: string) => {
 		"OBOT_GROQ_MODEL_PROVIDER",
 		"OBOT_VLLM_MODEL_PROVIDER",
 		"OBOT_ANTHROPIC_BEDROCK_MODEL_PROVIDER",
-		"OBOT_XAI_MODEL_PROVIDER",
-		"OBOT_DEEPSEEK_MODEL_PROVIDER",
-		"OBOT_GEMINI_VERTEX_MODEL_PROVIDER",
+		"OBOT_AUTH_PROVIDER",
+		"OBOT_GOOGLE_AUTH_PROVIDER",
+		"OBOT_GITHUB_AUTH_PROVIDER",
 	];
 
 	return fieldsToStrip
@@ -79,42 +81,36 @@ const translateUserFriendlyLabel = (label: string) => {
 
 const getInitialRequiredParams = (
 	requiredParameters: string[],
-	parameters: ModelProviderConfig
-): ModelProviderFormValues["requiredConfigParams"] =>
+	parameters: ProviderConfig
+): ProviderFormValues["requiredConfigParams"] =>
 	requiredParameters.map((requiredParameterKey) => ({
 		label: translateUserFriendlyLabel(requiredParameterKey),
 		name: requiredParameterKey,
 		value: parameters[requiredParameterKey] ?? "",
 	}));
 
-const getInitialAdditionalParams = (
-	requiredParameters: string[],
-	parameters: ModelProviderConfig
-): ParamFormValues["params"] => {
-	const defaultEmptyParams = [{ name: "", description: "" }];
+const getInitialOptionalParams = (
+	optionalParameters: string[],
+	parameters: ProviderConfig
+): ProviderFormValues["optionalConfigParams"] =>
+	optionalParameters.map((optionalParameterKey) => ({
+		label: translateUserFriendlyLabel(optionalParameterKey),
+		name: optionalParameterKey,
+		value: parameters[optionalParameterKey] ?? "",
+	}));
 
-	const requiredParameterSet = new Set(requiredParameters);
-	const additionalParams = Object.entries(parameters).filter(
-		([key]) => !requiredParameterSet.has(key)
-	);
-	return additionalParams.length === 0
-		? defaultEmptyParams
-		: additionalParams.map(([key, value]) => ({
-				name: key,
-				description: value,
-			}));
-};
-
-export function ModelProviderForm({
-	modelProvider,
+export function ProviderForm({
+	provider,
 	onSuccess,
 	parameters,
 	requiredParameters,
+	optionalParameters,
 }: {
-	modelProvider: ModelProvider;
+	provider: ModelProvider | AuthProvider;
 	onSuccess: () => void;
-	parameters: ModelProviderConfig;
+	parameters: ProviderConfig;
 	requiredParameters: string[];
+	optionalParameters: string[];
 }) {
 	const fetchAvailableModels = useAsync(
 		ModelApiService.getAvailableModelsByProvider,
@@ -122,6 +118,17 @@ export function ModelProviderForm({
 			onSuccess: () => {
 				mutate(ModelProviderApiService.getModelProviders.key());
 				onSuccess();
+			},
+		}
+	);
+
+	const configureAuthProvider = useAsync(
+		AuthProviderApiService.configureAuthProviderById,
+		{
+			onSuccess: async () => {
+				onSuccess();
+				mutate(AuthProviderApiService.getAuthProviders.key());
+				mutate(AuthProviderApiService.revealAuthProviderById.key(provider.id));
 			},
 		}
 	);
@@ -146,22 +153,22 @@ export function ModelProviderForm({
 		{
 			onSuccess: async () => {
 				mutate(
-					ModelProviderApiService.revealModelProviderById.key(modelProvider.id)
+					ModelProviderApiService.revealModelProviderById.key(provider.id)
 				);
-				await fetchAvailableModels.execute(modelProvider.id);
+				await fetchAvailableModels.execute(provider.id);
 			},
 		}
 	);
 
-	const form = useForm<ModelProviderFormValues>({
+	const form = useForm<ProviderFormValues>({
 		resolver: zodResolver(formSchema),
 		defaultValues: {
 			requiredConfigParams: getInitialRequiredParams(
 				requiredParameters,
 				parameters
 			),
-			additionalConfirmParams: getInitialAdditionalParams(
-				requiredParameters,
+			optionalConfigParams: getInitialOptionalParams(
+				optionalParameters,
 				parameters
 			),
 		},
@@ -173,72 +180,89 @@ export function ModelProviderForm({
 				requiredParameters,
 				parameters
 			),
-			additionalConfirmParams: getInitialAdditionalParams(
-				requiredParameters,
+			optionalConfigParams: getInitialOptionalParams(
+				optionalParameters,
 				parameters
 			),
 		});
-	}, [requiredParameters, parameters, form]);
+	}, [requiredParameters, optionalParameters, parameters, form]);
 
 	const requiredConfigParamFields = useFieldArray({
 		control: form.control,
 		name: "requiredConfigParams",
 	});
 
+	const optionalConfigParamFields = useFieldArray({
+		control: form.control,
+		name: "optionalConfigParams",
+	});
+
 	const { execute: onSubmit, isLoading } = useAsync(
-		async (data: ModelProviderFormValues) => {
+		async (data: ProviderFormValues) => {
 			const allConfigParams: Record<string, string> = {};
-			[data.requiredConfigParams, data.additionalConfirmParams].forEach(
+			[data.requiredConfigParams, data.optionalConfigParams].forEach(
 				(configParams) => {
 					for (const param of configParams) {
-						const paramValue =
-							"value" in param ? param.value : param.description;
-						if (paramValue && param.name) {
-							allConfigParams[param.name] = paramValue;
+						if (param.value && param.name) {
+							allConfigParams[param.name] = param.value;
 						}
 					}
 				}
 			);
 
-			await validateAndConfigureModelProvider.execute(
-				modelProvider.id,
-				allConfigParams
-			);
+			switch (provider.type) {
+				case "modelprovider":
+					await validateAndConfigureModelProvider.execute(
+						provider.id,
+						allConfigParams
+					);
+					break;
+				case "authprovider":
+					await configureAuthProvider.execute(provider.id, allConfigParams);
+					break;
+			}
 		}
 	);
 
 	const FORM_ID = "model-provider-form";
-	const showCustomConfiguration =
-		modelProvider.id === "azure-openai-model-provider";
 
 	const loading =
 		validateAndConfigureModelProvider.isLoading ||
 		fetchAvailableModels.isLoading ||
 		configureModelProvider.isLoading ||
+		configureAuthProvider.isLoading ||
 		isLoading;
+
+	const sensitiveFields =
+		provider.type === "modelprovider"
+			? ModelProviderSensitiveFields
+			: AuthProviderSensitiveFields;
 
 	return (
 		<div className="flex flex-col">
-			{validateAndConfigureModelProvider.error !== null && (
-				<div className="px-4">
-					<Alert variant="destructive">
-						<CircleAlertIcon className="h-4 w-4" />
-						<AlertTitle>An error occurred!</AlertTitle>
-						<AlertDescription>
-							Your configuration could not be saved, because it failed
-							validation:{" "}
-							<strong>
-								{(typeof validateAndConfigureModelProvider.error === "object" &&
-									"message" in validateAndConfigureModelProvider.error &&
-									(validateAndConfigureModelProvider.error
-										.message as string)) ??
-									"Unknown error"}
-							</strong>
-						</AlertDescription>
-					</Alert>
-				</div>
-			)}
-			{validateAndConfigureModelProvider.error === null &&
+			{provider.type === "modelprovider" &&
+				validateAndConfigureModelProvider.error !== null && (
+					<div className="px-4">
+						<Alert variant="destructive">
+							<CircleAlertIcon className="h-4 w-4" />
+							<AlertTitle>An error occurred!</AlertTitle>
+							<AlertDescription>
+								Your configuration could not be saved, because it failed
+								validation:{" "}
+								<strong>
+									{(typeof validateAndConfigureModelProvider.error ===
+										"object" &&
+										"message" in validateAndConfigureModelProvider.error &&
+										(validateAndConfigureModelProvider.error
+											.message as string)) ??
+										"Unknown error"}
+								</strong>
+							</AlertDescription>
+						</Alert>
+					</div>
+				)}
+			{provider.type === "modelprovider" &&
+				validateAndConfigureModelProvider.error === null &&
 				fetchAvailableModels.error !== null && (
 					<div className="px-4">
 						<Alert variant="destructive">
@@ -260,17 +284,15 @@ export function ModelProviderForm({
 				)}
 			<ScrollArea className="max-h-[50vh]">
 				<div className="flex flex-col gap-4 p-4">
-					<h4 className="text-md font-semibold">Required Configuration</h4>
 					<Form {...form}>
 						<form
 							id={FORM_ID}
 							onSubmit={form.handleSubmit(onSubmit)}
 							className="flex flex-col gap-4"
 						>
+							<h4 className="text-md font-semibold">Required Configuration</h4>
 							{requiredConfigParamFields.fields.map((field, i) => {
-								const type = ModelProviderSensitiveFields[field.name]
-									? "password"
-									: "text";
+								const type = sensitiveFields[field.name] ? "password" : "text";
 
 								return (
 									<div
@@ -279,7 +301,7 @@ export function ModelProviderForm({
 									>
 										<ControlledInput
 											key={field.id}
-											label={renderLabelWithTooltip(field.label)}
+											label={renderLabelWithTooltip(provider.type, field.label)}
 											control={form.control}
 											name={`requiredConfigParams.${i}.value`}
 											type={type}
@@ -290,10 +312,37 @@ export function ModelProviderForm({
 									</div>
 								);
 							})}
+							{optionalParameters.length > 0 && (
+								<h4 className="text-md font-semibold">
+									Optional Configuration
+								</h4>
+							)}
+							{optionalConfigParamFields.fields.map((field, i) => {
+								const type = sensitiveFields[field.name] ? "password" : "text";
+
+								return (
+									<div
+										key={field.id}
+										className="flex items-center justify-center gap-2"
+									>
+										<ControlledInput
+											key={field.id}
+											label={renderLabelWithTooltipOptional(
+												provider.type,
+												field.label
+											)}
+											control={form.control}
+											name={`optionalConfigParams.${i}.value`}
+											type={type}
+											classNames={{
+												wrapper: "flex-auto bg-background",
+											}}
+										/>
+									</div>
+								);
+							})}
 						</form>
 					</Form>
-
-					{showCustomConfiguration && renderCustomConfiguration()}
 				</div>
 			</ScrollArea>
 
@@ -310,37 +359,22 @@ export function ModelProviderForm({
 		</div>
 	);
 
-	function renderCustomConfiguration() {
-		return (
-			<>
-				<Separator className="my-4" />
-
-				<div className="flex items-center">
-					<h4 className="text-md font-semibold">
-						Custom Configuration (Optional)
-					</h4>
-					{ModelProviderConfigurationLinks[modelProvider.id]
-						? renderCustomConfigTooltip(modelProvider.id)
-						: null}
-				</div>
-				<NameDescriptionForm
-					descriptionFieldProps={{ type: "password" }}
-					defaultValues={form.watch("additionalConfirmParams")}
-					onChange={(values) =>
-						form.setValue("additionalConfirmParams", values)
-					}
-				/>
-			</>
-		);
+	function renderLabelWithTooltip(type: string | undefined, label: string) {
+		const tooltip =
+			type === "modelprovider"
+				? ModelProviderRequiredTooltips[provider.id]?.[label]
+				: AuthProviderRequiredTooltips[provider.id]?.[label];
+		return <HelperTooltipLabel label={label} tooltip={tooltip} />;
 	}
 
-	function renderCustomConfigTooltip(modelProviderId: string) {
-		const link = ModelProviderConfigurationLinks[modelProviderId];
-		return <HelperTooltipLink link={link} />;
-	}
-
-	function renderLabelWithTooltip(label: string) {
-		const tooltip = ModelProviderRequiredTooltips[modelProvider.id]?.[label];
+	function renderLabelWithTooltipOptional(
+		type: string | undefined,
+		label: string
+	) {
+		const tooltip =
+			type === "modelprovider"
+				? ""
+				: AuthProviderOptionalTooltips[provider.id]?.[label];
 		return <HelperTooltipLabel label={label} tooltip={tooltip} />;
 	}
 }

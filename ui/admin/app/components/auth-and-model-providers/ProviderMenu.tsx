@@ -1,8 +1,8 @@
 import { EllipsisVerticalIcon } from "lucide-react";
 
-import { ModelProvider } from "~/lib/model/modelProviders";
+import { AuthProvider, ModelProvider } from "~/lib/model/providers";
 
-import { ModelProviderDeconfigure } from "~/components/model-providers/ModelProviderDeconfigure";
+import { ProviderDeconfigure } from "~/components/auth-and-model-providers/ProviderDeconfigure";
 import { Button } from "~/components/ui/button";
 import {
 	DropdownMenu,
@@ -13,10 +13,10 @@ import {
 	DropdownMenuTrigger,
 } from "~/components/ui/dropdown-menu";
 
-export function ModelProviderMenu({
-	modelProvider,
+export function ProviderMenu({
+	provider,
 }: {
-	modelProvider: ModelProvider;
+	provider: ModelProvider | AuthProvider;
 }) {
 	return (
 		<DropdownMenu>
@@ -27,9 +27,9 @@ export function ModelProviderMenu({
 			</DropdownMenuTrigger>
 			<DropdownMenuContent className="w-56" side="bottom" align="start">
 				<DropdownMenuGroup>
-					<DropdownMenuLabel>{modelProvider.name}</DropdownMenuLabel>
+					<DropdownMenuLabel>{provider.name}</DropdownMenuLabel>
 					<DropdownMenuSeparator />
-					<ModelProviderDeconfigure modelProvider={modelProvider} />
+					<ProviderDeconfigure provider={provider} />
 				</DropdownMenuGroup>
 			</DropdownMenuContent>
 		</DropdownMenu>

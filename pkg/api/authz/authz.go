@@ -36,10 +36,10 @@ var staticRules = map[string][]string{
 		"POST /api/token-request",
 		"GET /api/token-request/{id}/{service}",
 
-		"GET /api/auth-providers",
-		"GET /api/auth-providers/{slug}",
+		"GET /api/oauth/start/{id}/{namespace}/{name}",
 
-		"GET /api/oauth/start/{id}/{service}",
+		// The bootstrap logout just deletes a cookie in the client, and does nothing else.
+		"POST /api/bootstrap/logout",
 
 		"GET /api/app-oauth/authorize/{id}",
 		"GET /api/app-oauth/refresh/{id}",
@@ -49,9 +49,12 @@ var staticRules = map[string][]string{
 		"POST /api/sendgrid",
 
 		"GET /api/healthz",
+
+		"GET /api/auth-providers",
+		"GET /api/auth-providers/{id}",
 	},
 	AuthenticatedGroup: {
-		"/api/oauth/redirect/{service}",
+		"/api/oauth/redirect/{namespace}/{name}",
 		"/api/assistants",
 		"GET /api/me",
 		"PATCH /api/users/{id}",

@@ -1,6 +1,5 @@
 import { z } from "zod";
 
-import { ModelProviderStatus } from "~/lib/model/modelProviders";
 import { EntityMeta } from "~/lib/model/primitives";
 
 export const ModelUsage = {
@@ -95,15 +94,6 @@ export const ModelManifestSchema = z.object({
 	active: z.boolean(),
 	usage: z.nativeEnum(ModelUsage),
 });
-
-type ModelProviderManifest = {
-	name: string;
-	toolReference: string;
-};
-
-export type ModelProvider = EntityMeta &
-	ModelProviderManifest &
-	ModelProviderStatus;
 
 export function getModelUsageFromAlias(alias: string) {
 	if (!(alias in ModelAliasToUsageMap)) return null;

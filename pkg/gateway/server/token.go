@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"slices"
 	"strings"
 	"time"
 
@@ -28,7 +29,8 @@ const (
 
 type tokenRequestRequest struct {
 	ID                    string `json:"id"`
-	ServiceName           string `json:"serviceName"`
+	ProviderName          string `json:"providerName"`
+	ProviderNamespace     string `json:"providerNamespace"`
 	CompletionRedirectURL string `json:"completionRedirectURL"`
 }
 
@@ -69,9 +71,9 @@ type createTokenRequest struct {
 }
 
 func (s *Server) newToken(apiContext api.Context) error {
-	authProviderID := apiContext.AuthProviderID()
+	namespace, name := apiContext.AuthProviderNameAndNamespace()
 	userID := apiContext.UserID()
-	if authProviderID <= 0 || userID <= 0 {
+	if namespace == "" || name == "" || userID <= 0 {
 		return types2.NewErrHttp(http.StatusForbidden, "forbidden")
 	}
 
@@ -100,25 +102,20 @@ func (s *Server) newToken(apiContext api.Context) error {
 	token := randBytes[tokenIDLength:]
 
 	tkn := &types.AuthToken{
-		ID:          fmt.Sprintf("%x", id),
-		UserID:      userID,
-		HashedToken: hashToken(fmt.Sprintf("%x", token)),
-		ExpiresAt:   time.Now().Add(customExpiration),
+		ID:                    fmt.Sprintf("%x", id),
+		UserID:                userID,
+		HashedToken:           hashToken(fmt.Sprintf("%x", token)),
+		ExpiresAt:             time.Now().Add(customExpiration),
+		AuthProviderNamespace: namespace,
+		AuthProviderName:      name,
 	}
 
-	if err := s.db.WithContext(apiContext.Context()).Transaction(func(tx *gorm.DB) error {
-		provider := new(types.AuthProvider)
-		if err := tx.Where("id = ?", authProviderID).First(provider).Error; err != nil {
-			return fmt.Errorf("error refreshing token: %v", err)
-		}
-
-		if customExpiration == 0 {
-			tkn.ExpiresAt = time.Now().Add(provider.ExpirationDur)
-		}
-		tkn.AuthProviderID = provider.ID
-		return tx.Create(tkn).Error
-	}); err != nil {
-		return types2.NewErrHttp(http.StatusInternalServerError, fmt.Sprintf("error refreshing token: %v", err))
+	// Make sure the auth provider exists.
+	list, err := s.dispatcher.ListConfiguredAuthProviders(apiContext.Context(), namespace)
+	if err != nil {
+		return types2.NewErrHttp(http.StatusInternalServerError, fmt.Sprintf("error listing configured auth providers: %v", err))
+	} else if !slices.Contains(list, name) {
+		return types2.NewErrHttp(http.StatusNotFound, "auth provider not found")
 	}
 
 	return apiContext.Write(refreshTokenResponse{
@@ -133,55 +130,60 @@ func (s *Server) tokenRequest(apiContext api.Context) error {
 		return types2.NewErrHttp(http.StatusBadRequest, fmt.Sprintf("invalid token request body: %v", err))
 	}
 
+	if reqObj.ProviderName != "" {
+		list, err := s.dispatcher.ListConfiguredAuthProviders(apiContext.Context(), reqObj.ProviderNamespace)
+		if err != nil {
+			return types2.NewErrHttp(http.StatusInternalServerError, err.Error())
+		}
+
+		if !slices.Contains(list, reqObj.ProviderName) {
+			return types2.NewErrHttp(http.StatusBadRequest, fmt.Sprintf("auth provider %q not found", reqObj.ProviderName))
+		}
+	}
+
 	tokenReq := &types.TokenRequest{
 		ID:                    reqObj.ID,
 		CompletionRedirectURL: reqObj.CompletionRedirectURL,
 	}
 
-	oauthProvider := new(types.AuthProvider)
-	if err := s.db.WithContext(apiContext.Context()).Transaction(func(tx *gorm.DB) error {
-		if reqObj.ServiceName != "" {
-			// Ensure the OAuth provider exists, if one was provided.
-			if err := tx.Where("service_name = ?", reqObj.ServiceName).Where("disabled IS NULL OR disabled != ?", true).First(oauthProvider).Error; err != nil {
-				return fmt.Errorf("failed to find oauth provider %q: %v", reqObj.ServiceName, err)
-			}
-		}
-
-		return tx.Create(tokenReq).Error
-	}); err != nil {
+	if err := s.db.WithContext(apiContext.Context()).Create(tokenReq).Error; err != nil {
 		if errors.Is(err, gorm.ErrDuplicatedKey) {
 			return types2.NewErrHttp(http.StatusConflict, "token request already exists")
 		}
 		return types2.NewErrHttp(http.StatusInternalServerError, err.Error())
 	}
 
-	if reqObj.ServiceName != "" {
-		return apiContext.Write(map[string]any{"token-path": fmt.Sprintf("%s/api/oauth/start/%s/%s", s.baseURL, reqObj.ID, oauthProvider.Slug)})
+	if reqObj.ProviderName != "" {
+		return apiContext.Write(map[string]any{"token-path": fmt.Sprintf("%s/api/oauth/start/%s/%s/%s", s.baseURL, reqObj.ID, reqObj.ProviderNamespace, reqObj.ProviderName)})
 	}
 	return apiContext.Write(map[string]any{"token-path": fmt.Sprintf("%s/login?id=%s", s.uiURL, reqObj.ID)})
 }
 
 func (s *Server) redirectForTokenRequest(apiContext api.Context) error {
 	id := apiContext.PathValue("id")
-	service := apiContext.PathValue("service")
+	namespace := apiContext.PathValue("namespace")
+	name := apiContext.PathValue("name")
 
-	oauthProvider := new(types.AuthProvider)
-	tokenReq := new(types.TokenRequest)
-	if err := s.db.WithContext(apiContext.Context()).Transaction(func(tx *gorm.DB) error {
-		// Ensure the OAuth provider exists, if one was provided.
-		if err := tx.Where("slug = ?", service).Where("disabled IS NULL OR disabled != ?", true).First(oauthProvider).Error; err != nil {
-			return fmt.Errorf("failed to find oauth provider %q: %v", service, err)
+	if namespace != "" && name != "" {
+		list, err := s.dispatcher.ListConfiguredAuthProviders(apiContext.Context(), namespace)
+		if err != nil {
+			return types2.NewErrHttp(http.StatusInternalServerError, err.Error())
 		}
 
-		return tx.Where("id = ?", id).First(tokenReq).Error
-	}); err != nil {
+		if !slices.Contains(list, name) {
+			return types2.NewErrHttp(http.StatusBadRequest, fmt.Sprintf("auth provider %q not found", name))
+		}
+	}
+
+	tokenReq := new(types.TokenRequest)
+	if err := s.db.WithContext(apiContext.Context()).Where("id = ?", id).First(tokenReq).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return types2.NewErrNotFound("token or service not found")
+			return types2.NewErrNotFound("token not found")
 		}
 		return types2.NewErrHttp(http.StatusInternalServerError, err.Error())
 	}
 
-	return apiContext.Write(map[string]any{"token-path": fmt.Sprintf("%s/api/oauth/start/%s/%s", s.baseURL, tokenReq.ID, oauthProvider.Slug)})
+	return apiContext.Write(map[string]any{"token-path": fmt.Sprintf("%s/api/oauth/start/%s/%s/%s", s.baseURL, tokenReq.ID, namespace, name)})
 }
 
 func (s *Server) checkForToken(apiContext api.Context) error {

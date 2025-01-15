@@ -1,14 +1,16 @@
 import { useEffect, useState } from "react";
 import useSWR, { mutate } from "swr";
 
-import { ModelProvider } from "~/lib/model/modelProviders";
+import { AuthProvider, ModelProvider } from "~/lib/model/providers";
 import { NotFoundError } from "~/lib/service/api/apiErrors";
+import { AuthProviderApiService } from "~/lib/service/api/authProviderApiService";
 import { ModelApiService } from "~/lib/service/api/modelApiService";
 import { ModelProviderApiService } from "~/lib/service/api/modelProviderApiService";
 
-import { ModelProviderForm } from "~/components/model-providers/ModelProviderForm";
-import { ModelProviderIcon } from "~/components/model-providers/ModelProviderIcon";
-import { CommonModelProviderIds } from "~/components/model-providers/constants";
+import { ProviderForm } from "~/components/auth-and-model-providers/ProviderForm";
+import { ProviderIcon } from "~/components/auth-and-model-providers/ProviderIcon";
+import { CommonModelProviderIds } from "~/components/auth-and-model-providers/constants";
+import { CopyText } from "~/components/composed/CopyText";
 import { DefaultModelAliasForm } from "~/components/model/DefaultModelAliasForm";
 import { LoadingSpinner } from "~/components/ui/LoadingSpinner";
 import { Button } from "~/components/ui/button";
@@ -22,23 +24,23 @@ import {
 } from "~/components/ui/dialog";
 import { Link } from "~/components/ui/link";
 
-type ModelProviderConfigureProps = {
-	modelProvider: ModelProvider;
+type ProviderConfigureProps = {
+	provider: ModelProvider | AuthProvider;
 };
 
-export function ModelProviderConfigure({
-	modelProvider,
-}: ModelProviderConfigureProps) {
+export function ProviderConfigure({ provider }: ProviderConfigureProps) {
 	const [dialogIsOpen, setDialogIsOpen] = useState(false);
 	const [showDefaultModelAliasForm, setShowDefaultModelAliasForm] =
 		useState(false);
 
-	const [loadingModelProviderId, setLoadingModelProviderId] = useState("");
+	const [loadingProviderId, setLoadingProviderId] = useState("");
 
 	const getLoadingModelProviderModels = useSWR(
-		ModelProviderApiService.getModelProviderById.key(loadingModelProviderId),
-		({ modelProviderId }) =>
-			ModelProviderApiService.getModelProviderById(modelProviderId),
+		provider.type === "modelprovider"
+			? ModelProviderApiService.getModelProviderById.key(loadingProviderId)
+			: null,
+		({ providerId }) =>
+			ModelProviderApiService.getModelProviderById(providerId),
 		{
 			revalidateOnFocus: false,
 			refreshInterval: 2000,
@@ -46,18 +48,18 @@ export function ModelProviderConfigure({
 	);
 
 	useEffect(() => {
-		if (!loadingModelProviderId) return;
+		if (!loadingProviderId) return;
 
 		const { isLoading, data } = getLoadingModelProviderModels;
 		if (isLoading) return;
 
 		if (data?.modelsBackPopulated) {
 			setShowDefaultModelAliasForm(true);
-			setLoadingModelProviderId("");
+			setLoadingProviderId("");
 			// revalidate models to get back populated models
 			mutate(ModelApiService.getModels.key());
 		}
-	}, [getLoadingModelProviderModels, loadingModelProviderId]);
+	}, [getLoadingModelProviderModels, loadingProviderId]);
 
 	const handleDone = () => {
 		setDialogIsOpen(false);
@@ -68,22 +70,22 @@ export function ModelProviderConfigure({
 		<Dialog open={dialogIsOpen} onOpenChange={setDialogIsOpen}>
 			<DialogTrigger asChild>
 				<Button
-					variant={modelProvider.configured ? "secondary" : "accent"}
+					variant={provider.configured ? "secondary" : "accent"}
 					className="mt-0 w-full"
 				>
-					{modelProvider.configured ? "Modify" : "Configure"}
+					{provider.configured ? "Modify" : "Configure"}
 				</Button>
 			</DialogTrigger>
 
-			<DialogDescription hidden>Configure Model Provider</DialogDescription>
+			<DialogDescription hidden>Configure Provider</DialogDescription>
 
 			<DialogContent
 				className="max-w-2xl gap-0 p-0"
-				hideCloseButton={loadingModelProviderId !== ""}
+				hideCloseButton={loadingProviderId !== ""}
 			>
-				{loadingModelProviderId ? (
+				{loadingProviderId ? (
 					<div className="flex items-center justify-center gap-1 p-2">
-						<LoadingSpinner /> Loading {modelProvider.name} Models...
+						<LoadingSpinner /> Loading {provider.name} Models...
 					</div>
 				) : showDefaultModelAliasForm ? (
 					<div className="p-6">
@@ -102,9 +104,13 @@ export function ModelProviderConfigure({
 						</div>
 					</div>
 				) : (
-					<ModelProviderConfigureContent
-						modelProvider={modelProvider}
-						onSuccess={() => setLoadingModelProviderId(modelProvider.id)}
+					<ProviderConfigureContent
+						provider={provider}
+						onSuccess={() =>
+							provider.type === "modelprovider"
+								? setLoadingProviderId(provider.id)
+								: setDialogIsOpen(false)
+						}
 					/>
 				)}
 			</DialogContent>
@@ -112,20 +118,23 @@ export function ModelProviderConfigure({
 	);
 }
 
-export function ModelProviderConfigureContent({
-	modelProvider,
+export function ProviderConfigureContent({
+	provider,
 	onSuccess,
 }: {
-	modelProvider: ModelProvider;
+	provider: ModelProvider | AuthProvider;
 	onSuccess: () => void;
 }) {
-	const revealModelProvider = useSWR(
-		ModelProviderApiService.revealModelProviderById.key(modelProvider.id),
-		async ({ modelProviderId }) => {
+	const revealByIdFunc =
+		provider.type === "modelprovider"
+			? ModelProviderApiService.revealModelProviderById
+			: AuthProviderApiService.revealAuthProviderById;
+
+	const revealProvider = useSWR(
+		revealByIdFunc.key(provider.id),
+		async ({ providerId }) => {
 			try {
-				return await ModelProviderApiService.revealModelProviderById(
-					modelProviderId
-				);
+				return await revealByIdFunc(providerId);
 			} catch (error) {
 				// 404: no credential found = just return empty object
 				if (error instanceof NotFoundError) {
@@ -137,22 +146,23 @@ export function ModelProviderConfigureContent({
 		}
 	);
 
-	const requiredParameters = modelProvider.requiredConfigurationParameters;
-	const parameters = revealModelProvider.data;
+	const requiredParameters = provider.requiredConfigurationParameters;
+	const optionalParameters = provider.optionalConfigurationParameters;
+	const parameters = revealProvider.data;
 
 	return (
 		<>
 			<DialogHeader className="space-y-0">
 				<DialogTitle className="flex items-center gap-2 px-4 py-4">
-					<ModelProviderIcon modelProvider={modelProvider} />{" "}
-					{modelProvider.configured
-						? `Configure ${modelProvider.name}`
-						: `Set Up ${modelProvider.name}`}
+					<ProviderIcon provider={provider} />{" "}
+					{provider.configured
+						? `Configure ${provider.name}`
+						: `Set Up ${provider.name}`}
 				</DialogTitle>
 			</DialogHeader>
 
-			{(modelProvider.id === CommonModelProviderIds.ANTHROPIC ||
-				modelProvider.id == CommonModelProviderIds.ANTHROPIC_BEDROCK) && (
+			{(provider.id === CommonModelProviderIds.ANTHROPIC ||
+				provider.id == CommonModelProviderIds.ANTHROPIC_BEDROCK) && (
 				<DialogDescription className="px-4">
 					Note: Anthropic does not have an embeddings model and{" "}
 					<Link
@@ -165,14 +175,29 @@ export function ModelProviderConfigureContent({
 					Voyage AI.
 				</DialogDescription>
 			)}
-			{revealModelProvider.isLoading ? (
+			{provider.type === "authprovider" && (
+				<DialogDescription className="flex items-center justify-center px-4">
+					Note: the callback URL for this auth provider is
+					<CopyText
+						text={
+							window.location.protocol +
+							"//" +
+							window.location.host +
+							"/oauth2/callback"
+						}
+						className="w-fit-content ml-1 max-w-full"
+					/>
+				</DialogDescription>
+			)}
+			{revealProvider.isLoading ? (
 				<LoadingSpinner />
 			) : (
-				<ModelProviderForm
-					modelProvider={modelProvider}
+				<ProviderForm
+					provider={provider}
 					onSuccess={onSuccess}
 					parameters={parameters ?? {}}
 					requiredParameters={requiredParameters ?? []}
+					optionalParameters={optionalParameters ?? []}
 				/>
 			)}
 		</>
