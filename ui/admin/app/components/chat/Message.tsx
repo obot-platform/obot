@@ -52,6 +52,8 @@ export const Message = React.memo(({ message }: MessageProps) => {
 	// leaving it in case that changes in the future
 	const [toolCall = null] = message.tools || [];
 
+	const { isRunning } = useChat();
+
 	const parsedMessage = useMemo(() => {
 		if (OpenMarkdownLinkRegex.test(message.text)) {
 			return message.text.replace(
@@ -89,7 +91,7 @@ export const Message = React.memo(({ message }: MessageProps) => {
 						)}
 
 						{message.prompt ? (
-							<PromptMessage prompt={message.prompt} />
+							<PromptMessage prompt={message.prompt} isRunning={isRunning} />
 						) : (
 							<Markdown
 								className={cn(
@@ -137,10 +139,15 @@ export const Message = React.memo(({ message }: MessageProps) => {
 
 Message.displayName = "Message";
 
-function PromptMessage({ prompt }: { prompt: AuthPrompt }) {
+export function PromptMessage({
+	prompt,
+	isRunning = false,
+}: {
+	prompt: AuthPrompt;
+	isRunning?: boolean;
+}) {
 	const [open, setOpen] = useState(false);
 	const [isSubmitted, setIsSubmitted] = useState(false);
-	const { isRunning } = useChat();
 
 	const getMessage = () => {
 		if (prompt.metadata?.authURL || prompt.metadata?.authType)
@@ -272,12 +279,14 @@ function PromptMessage({ prompt }: { prompt: AuthPrompt }) {
 	);
 }
 
-function PromptAuthForm({
+export function PromptAuthForm({
 	prompt,
 	onSuccess,
+	onSubmit,
 }: {
 	prompt: AuthPrompt;
-	onSuccess: () => void;
+	onSuccess?: () => void;
+	onSubmit?: () => void;
 }) {
 	const authenticate = useAsync(PromptApiService.promptResponse, {
 		onSuccess,
@@ -293,9 +302,10 @@ function PromptAuthForm({
 		),
 	});
 
-	const handleSubmit = form.handleSubmit(async (values) =>
-		authenticate.execute({ id: prompt.id, response: values })
-	);
+	const handleSubmit = form.handleSubmit(async (values) => {
+		authenticate.execute({ id: prompt.id, response: values });
+		onSubmit?.();
+	});
 
 	return (
 		<Form {...form}>

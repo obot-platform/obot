@@ -160,7 +160,6 @@ export function ToolAuthenticationStatus({
 
 			<ToolAuthenticationDialog
 				tool={tool}
-				entityId={entityId}
 				threadId={threadId}
 				onComplete={handleAuthorizeComplete}
 			/>
