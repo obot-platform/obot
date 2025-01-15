@@ -10,6 +10,8 @@ const (
 	ResultFormatterTool     = "result-formatter"
 	ModelProviderTool       = "obot-model-provider"
 	WorkflowTool            = "workflow"
+	TasksTool               = "tasks"
+	TasksWorkflowTool       = "tasks-workflow"
 	DockerTool              = "docker"
 	ShellTool               = "shell"
 	DockerShellIDTool       = "docker-shell-id"

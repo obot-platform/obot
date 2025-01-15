@@ -37,7 +37,10 @@ var (
 	ephemeralCounter atomic.Int32
 )
 
-const ephemeralRunPrefix = "ephemeral-run"
+const (
+	ephemeralRunPrefix = "ephemeral-run"
+	runOutputMaxLength = 2000
+)
 
 type Invoker struct {
 	gptClient     *gptscript.GPTScript
@@ -720,15 +723,18 @@ func (i *Invoker) doSaveState(ctx context.Context, c kclient.Client, prevThreadN
 			panic(err)
 		}
 		shortText := text
-		if len(shortText) > 100 {
-			shortText = shortText[:100]
+		if len(shortText) > runOutputMaxLength {
+			shortText = shortText[:runOutputMaxLength]
 		}
 		if run.Status.Output != shortText {
+			if run.Status.SubCall == nil && run.Status.TaskResult == nil {
+				runChanged = true
+			}
 			run.Status.SubCall = toSubCall(text)
-			if run.Status.SubCall == nil {
+			run.Status.TaskResult = toTaskResult(text)
+			if run.Status.SubCall == nil && run.Status.TaskResult == nil {
 				run.Status.Output = shortText
 			}
-			runChanged = true
 		}
 	}
 
@@ -785,6 +791,15 @@ type call struct {
 	Type     string `json:"type,omitempty"`
 	Workflow string `json:"workflow,omitempty"`
 	Input    any    `json:"input,omitempty"`
+}
+
+func toTaskResult(output string) *v1.TaskResult {
+	var call v1.TaskResult
+	if err := json.Unmarshal([]byte(strings.TrimSpace(output)), &call); err != nil || call.Type != "ObotTaskResult" || call.ID == "" {
+		return nil
+	}
+
+	return &call
 }
 
 func toSubCall(output string) *v1.SubCall {

@@ -213,7 +213,7 @@
 	bind:this={inputDialog}
 	class="relative rounded-3xl border-white bg-white p-5 text-black dark:bg-black dark:text-gray-50 md:min-w-[500px]"
 >
-	<h4 class="text-xl font-semibold">Input Parameters</h4>
+	<h4 class="text-xl font-semibold">Arguments</h4>
 	<Input editMode task={taskToRun} bind:input={taskInput}></Input>
 	<div class="mt-5 flex w-full justify-end">
 		{@render runButton({

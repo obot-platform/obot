@@ -101,6 +101,12 @@ type SubCall struct {
 	Input    string `json:"input,omitempty"`
 }
 
+type TaskResult struct {
+	Type        string `json:"type,omitempty"`
+	ID          string `json:"id,omitempty"`
+	NextRunName string `json:"nextRunName,omitempty"`
+}
+
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type WorkflowStepList struct {

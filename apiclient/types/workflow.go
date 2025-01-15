@@ -5,6 +5,7 @@ import "strings"
 type Workflow struct {
 	Metadata
 	WorkflowManifest
+	ThreadID      string                             `json:"threadID,omitempty"`
 	AliasAssigned *bool                              `json:"aliasAssigned,omitempty"`
 	AuthStatus    map[string]OAuthAppLoginAuthStatus `json:"authStatus,omitempty"`
 	// ToolInfo provides information about the tools for this workflow, like which credentials they use and whether that

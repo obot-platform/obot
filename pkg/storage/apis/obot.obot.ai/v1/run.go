@@ -96,6 +96,7 @@ type RunStatus struct {
 	EndTime    metav1.Time              `json:"endTime,omitempty"`
 	Error      string                   `json:"error,omitempty"`
 	SubCall    *SubCall                 `json:"subCall,omitempty"`
+	TaskResult *TaskResult              `json:"taskResult,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

@@ -2,7 +2,6 @@
 	import { ChatService, type Task, type Version } from '$lib/services';
 	import { onMount } from 'svelte';
 	import Dropdown from '$lib/components/tasks/Dropdown.svelte';
-	import { Plus } from '$lib/icons';
 
 	interface Props {
 		task?: Task;
@@ -100,7 +99,7 @@
 </script>
 
 <div class="flex flex-1 justify-end">
-	<div class="flex flex-1 items-center">
+	<div class="flex items-center">
 		{#if editMode}
 			<button
 				class="ml-2 flex items-center rounded-3xl p-2 px-4 text-gray hover:bg-gray-70 hover:text-black dark:hover:bg-gray-900 dark:hover:text-gray-50"
@@ -117,8 +116,7 @@
 					});
 				}}
 			>
-				Add Input Parameters
-				<Plus class="ml-1 h-5 w-5" />
+				Add Arguments
 			</button>
 		{/if}
 	</div>

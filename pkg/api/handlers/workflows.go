@@ -227,6 +227,7 @@ func convertWorkflow(workflow v1.Workflow, textEmbeddingModel, baseURL string) (
 	return &types.Workflow{
 		Metadata:           MetadataFrom(&workflow, links...),
 		WorkflowManifest:   workflow.Spec.Manifest,
+		ThreadID:           workflow.Spec.ThreadName,
 		AliasAssigned:      aliasAssigned,
 		AuthStatus:         workflow.Status.AuthStatus,
 		ToolInfo:           toolInfos,

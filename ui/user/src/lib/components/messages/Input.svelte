@@ -98,6 +98,7 @@
 			class="peer
 			!ml-4
 			!mr-2
+			scrollbar-none
 			 w-full resize-none
 			 bg-gray-70 !p-2.5 outline-none dark:bg-gray-950"
 			{placeholder}

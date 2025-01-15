@@ -30,7 +30,7 @@
 		subject: '',
 		body: ''
 	});
-	let titlePrefix = $derived(displayRunID !== '' ? '' : 'Test Input ');
+	let titlePrefix = $derived(displayRunID !== '' ? '' : 'Test ');
 	let readonly = $derived(!!displayRunID);
 
 	$effect(() => {
@@ -87,7 +87,7 @@
 	{#if show}
 		<div class="mt-8 rounded-3xl bg-gray-50 p-5 dark:bg-gray-950">
 			{#if task?.onDemand?.params}
-				<h4 class="mb-3 text-xl font-semibold">{titlePrefix}Parameters</h4>
+				<h4 class="mb-3 text-xl font-semibold">{titlePrefix}Argument Values</h4>
 				{#each Object.keys(task.onDemand.params) as key}
 					<div class="flex items-baseline">
 						<label for="param-{key}" class="text-sm font-semibold capitalize">{key}</label>

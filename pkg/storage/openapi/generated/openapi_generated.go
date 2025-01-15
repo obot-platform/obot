@@ -172,6 +172,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.RunStateSpec":             schema_storage_apis_obotobotai_v1_RunStateSpec(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.RunStatus":                schema_storage_apis_obotobotai_v1_RunStatus(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.SubCall":                  schema_storage_apis_obotobotai_v1_SubCall(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.TaskResult":               schema_storage_apis_obotobotai_v1_TaskResult(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.Thread":                   schema_storage_apis_obotobotai_v1_Thread(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ThreadList":               schema_storage_apis_obotobotai_v1_ThreadList(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ThreadSpec":               schema_storage_apis_obotobotai_v1_ThreadSpec(ref),
@@ -4237,6 +4238,12 @@ func schema_obot_platform_obot_apiclient_types_Workflow(ref common.ReferenceCall
 							Ref:     ref("github.com/obot-platform/obot/apiclient/types.WorkflowManifest"),
 						},
 					},
+					"threadID": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
 					"aliasAssigned": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"boolean"},
@@ -7326,12 +7333,17 @@ func schema_storage_apis_obotobotai_v1_RunStatus(ref common.ReferenceCallback) c
 							Ref: ref("github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.SubCall"),
 						},
 					},
+					"taskResult": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.TaskResult"),
+						},
+					},
 				},
 				Required: []string{"output"},
 			},
 		},
 		Dependencies: []string{
-			"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.SubCall", "k8s.io/apimachinery/pkg/apis/meta/v1.Condition", "k8s.io/apimachinery/pkg/apis/meta/v1.Time"},
+			"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.SubCall", "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.TaskResult", "k8s.io/apimachinery/pkg/apis/meta/v1.Condition", "k8s.io/apimachinery/pkg/apis/meta/v1.Time"},
 	}
 }
 
@@ -7354,6 +7366,36 @@ func schema_storage_apis_obotobotai_v1_SubCall(ref common.ReferenceCallback) com
 						},
 					},
 					"input": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func schema_storage_apis_obotobotai_v1_TaskResult(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"type": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"id": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"nextRunName": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
 							Format: "",

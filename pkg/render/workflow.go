@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"regexp"
+	"slices"
 	"strings"
 
 	"github.com/obot-platform/nah/pkg/router"
@@ -100,5 +101,8 @@ func Workflow(ctx context.Context, c kclient.Client, wf *v1.Workflow, opts Workf
 
 	agent.Spec.Env = append(agent.Spec.Env, "WORKFLOW_INPUT="+opts.Input)
 	agent.Spec.SystemTools = append(agent.Spec.SystemTools, system.WorkflowTool)
+	if slices.Contains(agent.Spec.Manifest.Tools, system.TasksTool) && !slices.Contains(agent.Spec.Manifest.Tools, system.TasksWorkflowTool) {
+		agent.Spec.Manifest.Tools = append(agent.Spec.Manifest.Tools, system.TasksWorkflowTool)
+	}
 	return &agent, nil
 }
