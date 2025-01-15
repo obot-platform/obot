@@ -10,7 +10,6 @@ import (
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/controller/creds"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
-	"github.com/obot-platform/obot/pkg/system"
 	apierror "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/util/sets"
 )
@@ -75,13 +74,6 @@ func (h *Handler) SetToolInfoStatus(req router.Request, resp router.Response) (e
 			// This allows us to use the same variable for the whole loop
 			// while ensuring that the value we care about is loaded correctly.
 			toolRef.Status.Tool.CredentialNames = nil
-		}
-
-		for i := 0; i < len(credNames); i++ {
-			if credNames[i] == system.ModelProviderCredential {
-				credNames = append(credNames[:i], credNames[i+1:]...)
-				i--
-			}
 		}
 
 		toolInfos[tool] = types.ToolInfo{

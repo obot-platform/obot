@@ -47,7 +47,7 @@ func DetermineCredsAndCredNames(prg *gptscript.Program, tool gptscript.Tool, nam
 				credentials = append(credentials, parsedCred)
 			}
 
-			credNames, err := determineCredentialNames(prg, prg.ToolSet[ref.ToolID], cred)
+			credNames, err := determineCredentialNames(prg, prg.ToolSet[ref.ToolID], cred, map[string]struct{}{system.ModelProviderCredential: {}})
 			if err != nil {
 				return credentials, credentialNames, err
 			}
@@ -63,11 +63,7 @@ func DetermineCredsAndCredNames(prg *gptscript.Program, tool gptscript.Tool, nam
 	return credentials, credentialNames, nil
 }
 
-func determineCredentialNames(prg *gptscript.Program, tool gptscript.Tool, toolName string) ([]string, error) {
-	if toolName == system.ModelProviderCredential {
-		return []string{system.ModelProviderCredential}, nil
-	}
-
+func determineCredentialNames(prg *gptscript.Program, tool gptscript.Tool, toolName string, noAuth map[string]struct{}) ([]string, error) {
 	var subTool string
 	parsedToolName, alias, args, err := gtypes.ParseCredentialArgs(toolName, "")
 	if err != nil {
@@ -78,43 +74,52 @@ func determineCredentialNames(prg *gptscript.Program, tool gptscript.Tool, toolN
 		}
 	}
 
-	if alias != "" {
-		return []string{alias}, nil
+	for _, n := range strings.Split(tool.MetaData["noUserAuth"], ",") {
+		if n != "" {
+			noAuth[n] = struct{}{}
+		}
 	}
 
-	if args == nil {
-		// This is a tool and not the credential format. Parse the tool from the program to determine the alias
-		toolNames := make([]string, 0, len(tool.Credentials))
-		if subTool == "" {
-			toolName = parsedToolName
+	if alias != "" {
+		if _, ok := noAuth[alias]; !ok {
+			return []string{alias}, nil
 		}
-		for _, cred := range tool.Credentials {
-			if cred == toolName {
-				if len(tool.ToolMapping[cred]) == 0 {
-					return nil, fmt.Errorf("cannot find credential name for tool %q", toolName)
-				}
+		return nil, nil
+	}
 
-				for _, ref := range tool.ToolMapping[cred] {
-					for _, c := range prg.ToolSet[ref.ToolID].ExportCredentials {
-						names, err := determineCredentialNames(prg, prg.ToolSet[ref.ToolID], c)
-						if err != nil {
-							return nil, err
+	if args != nil {
+		return []string{toolName}, nil
+	}
+
+	// This is a tool and not the credential format. Parse the tool from the program to determine the alias
+	toolNames := make([]string, 0, len(tool.Credentials))
+	if subTool == "" {
+		toolName = parsedToolName
+	}
+	for _, cred := range tool.Credentials {
+		if cred == toolName {
+			if len(tool.ToolMapping[cred]) == 0 {
+				return nil, fmt.Errorf("cannot find credential name for tool %q", toolName)
+			}
+
+			for _, ref := range tool.ToolMapping[cred] {
+				for _, c := range prg.ToolSet[ref.ToolID].ExportCredentials {
+					names, err := determineCredentialNames(prg, prg.ToolSet[ref.ToolID], c, noAuth)
+					if err != nil {
+						return nil, err
+					}
+
+					for _, n := range names {
+						if _, ok := noAuth[n]; !ok && !slices.Contains(toolNames, n) {
+							toolNames = append(toolNames, n)
 						}
-
-						toolNames = append(toolNames, names...)
 					}
 				}
 			}
 		}
-
-		if len(toolNames) > 0 {
-			return toolNames, nil
-		}
-
-		return nil, fmt.Errorf("tool %q not found in program", toolName)
 	}
 
-	return []string{toolName}, nil
+	return toolNames, nil
 }
 
 type toolRef struct {

@@ -3824,7 +3824,7 @@ func schema_obot_platform_obot_apiclient_types_ToolReference(ref common.Referenc
 							Format: "",
 						},
 					},
-					"credential": {
+					"credentials": {
 						SchemaProps: spec.SchemaProps{
 							Type: []string{"array"},
 							Items: &spec.SchemaOrArray{
