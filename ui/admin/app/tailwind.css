@@ -203,6 +203,6 @@ body {
 	}
 
 	small {
-		@apply text-sm font-medium leading-none;
+		@apply text-sm leading-5;
 	}
 }
