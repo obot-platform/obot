@@ -48,7 +48,7 @@ func (h *Handler) Run(req router.Request, resp router.Response) error {
 		lastRun = &cj.CreationTimestamp
 	}
 
-	next, err := gronx.NextTickAfter(GetSchedule(*cj), lastRun.Time, true)
+	next, err := gronx.NextTickAfter(GetSchedule(*cj), lastRun.Time, false)
 	if err != nil {
 		return fmt.Errorf("failed to parse schedule: %w", err)
 	}

@@ -134,7 +134,7 @@ func (a *CronJobHandler) Execute(req api.Context) error {
 
 func convertCronJob(cronJob v1.CronJob) types.CronJob {
 	var nextRunAt *time.Time
-	if next, err := gronx.NextTick(cronjob.GetSchedule(cronJob), true); err == nil {
+	if next, err := gronx.NextTick(cronjob.GetSchedule(cronJob), false); err == nil {
 		nextRunAt = &next
 	}
 

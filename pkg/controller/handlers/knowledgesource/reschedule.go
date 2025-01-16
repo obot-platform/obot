@@ -35,7 +35,7 @@ func (k *Handler) Reschedule(req router.Request, _ router.Response) error {
 			return nil
 		}
 
-		tick, err := gronx.NextTickAfter(source.Spec.Manifest.SyncSchedule, source.Status.LastSyncStartTime.Time, true)
+		tick, err := gronx.NextTickAfter(source.Spec.Manifest.SyncSchedule, source.Status.LastSyncStartTime.Time, false)
 		if err != nil {
 			source.Status.Error = fmt.Sprintf("failed to calculate next sync time: %v", err)
 			source.Status.SyncState = types.KnowledgeSourceStateError
