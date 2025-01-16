@@ -2,6 +2,7 @@ import { useEffect, useMemo } from "react";
 import { useFieldArray, useForm } from "react-hook-form";
 
 import { ToolEntry } from "~/components/agent/ToolEntry";
+import { getCapabilityToolOrder } from "~/components/agent/shared/constants";
 import { Switch } from "~/components/ui/switch";
 import { useCapabilityTools } from "~/hooks/tools/useCapabilityTools";
 
@@ -23,6 +24,10 @@ export function AgentCapabilityForm({
 			tool: tool.id,
 			enabled: !!entity.tools?.includes(tool.id),
 		}));
+
+		capabilities.sort(
+			(a, b) => getCapabilityToolOrder(a.tool) - getCapabilityToolOrder(b.tool)
+		);
 
 		return { capabilities };
 	}, [toolReferences, entity.tools]);
@@ -59,13 +64,14 @@ export function AgentCapabilityForm({
 				onCheckedChange={(checked) => {
 					update(index, { ...field, enabled: checked });
 
+					// filter early to prevent duplicate entries
+					const filtered = (entity.tools ?? []).filter((t) => t !== field.tool);
+
 					if (checked) {
-						onChange({ tools: [...(entity.tools ?? []), field.tool] });
-					} else {
-						onChange({
-							tools: (entity.tools ?? []).filter((t) => t !== field.tool),
-						});
+						filtered.push(field.tool);
 					}
+
+					onChange({ tools: filtered });
 				}}
 			/>
 		);

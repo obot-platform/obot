@@ -40,6 +40,15 @@ export const CapabilitiesToolCategory = "Capability";
 
 export type ToolCategoryMap = Record<string, ToolCategory>;
 
+export const CapabilityTool = {
+	Knowledge: "knowledge",
+	WorkspaceFiles: "workspace-files",
+	Database: "database",
+	Tasks: "tasks",
+} as const;
+export type CapabilityTool =
+	(typeof CapabilityTool)[keyof typeof CapabilityTool];
+
 export function isCapabilityTool(toolReference: ToolReference) {
 	return toolReference.metadata?.category === CapabilitiesToolCategory;
 }
