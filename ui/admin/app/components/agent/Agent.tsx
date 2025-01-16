@@ -124,10 +124,7 @@ export function Agent({ className, currentThreadId, onRefresh }: AgentProps) {
 				</div>
 
 				<div className="m-4 p-4">
-					<AgentIntroForm
-						agent={agentUpdates}
-						onChange={debouncedSetAgentInfo}
-					/>
+					<AgentIntroForm agent={agentUpdates} onChange={partialSetAgent} />
 				</div>
 
 				<div className="m-4 space-y-4 p-4">
