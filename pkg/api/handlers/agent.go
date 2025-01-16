@@ -61,7 +61,7 @@ func (a *AgentHandler) Authenticate(req api.Context) (err error) {
 		return err
 	}
 
-	resp, err := runAuthForAgent(req.Context(), req.Storage, a.invoker, a.gptscript, agent.DeepCopy(), tools)
+	resp, err := runAuthForAgent(req.Context(), req.Storage, a.invoker, a.gptscript, agent.DeepCopy(), id, tools)
 	if err != nil {
 		return err
 	}
@@ -913,7 +913,7 @@ func MetadataFrom(obj kclient.Object, linkKV ...string) types.Metadata {
 	return m
 }
 
-func runAuthForAgent(ctx context.Context, c kclient.WithWatch, invoker *invoke.Invoker, gClient *gptscript.GPTScript, agent *v1.Agent, tools []string) (*invoke.Response, error) {
+func runAuthForAgent(ctx context.Context, c kclient.WithWatch, invoker *invoke.Invoker, gClient *gptscript.GPTScript, agent *v1.Agent, credContext string, tools []string) (*invoke.Response, error) {
 	credentials := make([]string, 0, len(tools))
 
 	var toolRef v1.ToolReference
@@ -949,7 +949,7 @@ func runAuthForAgent(ctx context.Context, c kclient.WithWatch, invoker *invoke.I
 	agent.Spec.Manifest.AvailableThreadTools = nil
 	agent.Spec.Manifest.DefaultThreadTools = nil
 	agent.Spec.Credentials = credentials
-	agent.Spec.CredentialContextID = agent.Name
+	agent.Spec.CredentialContextID = credContext
 	agent.Name = ""
 
 	return invoker.Agent(ctx, c, agent, "", invoke.Options{

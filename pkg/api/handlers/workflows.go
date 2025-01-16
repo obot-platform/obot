@@ -58,7 +58,7 @@ func (a *WorkflowHandler) Authenticate(req api.Context) error {
 		return err
 	}
 
-	resp, err := runAuthForAgent(req.Context(), req.Storage, a.invoker, a.gptscript, agent, tools)
+	resp, err := runAuthForAgent(req.Context(), req.Storage, a.invoker, a.gptscript, agent, id, tools)
 	if err != nil {
 		return err
 	}
