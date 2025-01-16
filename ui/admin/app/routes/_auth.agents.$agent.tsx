@@ -14,7 +14,6 @@ import { AgentService } from "~/lib/service/api/agentService";
 import { DefaultModelAliasApiService } from "~/lib/service/api/defaultModelAliasApiService";
 import { RouteHandle } from "~/lib/service/routeHandles";
 import { RouteQueryParams, RouteService } from "~/lib/service/routeService";
-import { noop } from "~/lib/utils";
 
 import { Agent } from "~/components/agent";
 import { AgentProvider } from "~/components/agent/AgentContext";
@@ -42,13 +41,18 @@ export const clientLoader = async ({
 		throw redirect("/agents");
 	}
 
-	await preload(
-		DefaultModelAliasApiService.getAliases.key(),
-		DefaultModelAliasApiService.getAliases
-	);
+	// preload the agent and default model aliases
+	const response = await Promise.all([
+		preload(
+			DefaultModelAliasApiService.getAliases.key(),
+			DefaultModelAliasApiService.getAliases
+		),
+		preload(AgentService.getAgentById.key(agentId), () =>
+			AgentService.getAgentById(agentId)
+		),
+	]);
 
-	// preload the agent
-	const agent = await AgentService.getAgentById(agentId).catch(noop);
+	const agent = response[1];
 
 	if (!agent) {
 		throw redirect("/agents");
@@ -58,6 +62,13 @@ export const clientLoader = async ({
 
 export default function ChatAgent() {
 	const { agent, threadId } = useLoaderData<typeof clientLoader>();
+
+	// need to get updated starter messages and introduction message
+	// when agent updates happen for chat
+	const { data: updatedAgent } = useSWR(
+		AgentService.getAgentById.key(agent.id),
+		({ agentId }) => AgentService.getAgentById(agentId)
+	);
 	const navigate = useNavigate();
 
 	const updateThreadId = useCallback(
@@ -91,6 +102,8 @@ export default function ChatAgent() {
 						id={agent.id}
 						threadId={threadId}
 						onCreateThreadId={updateThreadId}
+						introductionMessage={updatedAgent?.introductionMessage}
+						starterMessages={updatedAgent?.starterMessages}
 					>
 						<Chat className="bg-sidebar" />
 					</ChatProvider>

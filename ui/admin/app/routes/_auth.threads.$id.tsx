@@ -103,7 +103,13 @@ export default function ChatAgent() {
 
 			<ResizablePanelGroup direction="horizontal" className="flex-auto">
 				<ResizablePanel defaultSize={70} minSize={25}>
-					<ChatProvider id={entity.id} mode="agent" threadId={thread.id}>
+					<ChatProvider
+						id={entity.id}
+						mode="agent"
+						threadId={thread.id}
+						introductionMessage={entity.introductionMessage}
+						starterMessages={entity.starterMessages}
+					>
 						<Chat />
 					</ChatProvider>
 				</ResizablePanel>

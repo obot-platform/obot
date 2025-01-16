@@ -21,6 +21,8 @@ interface ChatContextType {
 	readOnly?: boolean;
 	isRunning: boolean;
 	isInvoking: boolean;
+	introductionMessage?: string;
+	starterMessages?: string[];
 }
 
 const ChatContext = createContext<ChatContextType | undefined>(undefined);
@@ -32,6 +34,8 @@ export function ChatProvider({
 	threadId,
 	onCreateThreadId,
 	readOnly,
+	introductionMessage,
+	starterMessages,
 }: {
 	children: ReactNode;
 	mode?: Mode;
@@ -39,6 +43,8 @@ export function ChatProvider({
 	threadId?: Nullish<string>;
 	onCreateThreadId?: (threadId: string) => void;
 	readOnly?: boolean;
+	introductionMessage?: string;
+	starterMessages?: string[];
 }) {
 	const invoke = (prompt?: string) => {
 		if (readOnly) return;
@@ -82,6 +88,8 @@ export function ChatProvider({
 				isRunning,
 				isInvoking: invokeAgent.isLoading,
 				readOnly,
+				introductionMessage,
+				starterMessages,
 			}}
 		>
 			{children}

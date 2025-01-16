@@ -24,6 +24,8 @@ export type AgentBase = {
 	model?: string;
 	toolInfo?: AgentToolInfo;
 	env?: EnvVariable[];
+	starterMessages?: string[];
+	introductionMessage?: string;
 };
 
 export type AgentOAuthStatus = {
