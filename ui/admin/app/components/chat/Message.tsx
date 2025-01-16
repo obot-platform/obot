@@ -52,17 +52,20 @@ export const Message = React.memo(({ message, isRunning }: MessageProps) => {
 	// leaving it in case that changes in the future
 	const [toolCall = null] = message.tools || [];
 
+	// prevent animation for messages that never run
+	// only calculate on mount because we don't want to stop animation when the message finishes streaming
+	const [shouldAnimate] = useState(isRunning);
+	const animatedText = useAnimatedText(message.text, !shouldAnimate || isUser);
+
 	const parsedMessage = useMemo(() => {
-		if (OpenMarkdownLinkRegex.test(message.text)) {
-			return message.text.replace(
+		if (OpenMarkdownLinkRegex.test(animatedText)) {
+			return animatedText.replace(
 				OpenMarkdownLinkRegex,
 				(_, linkText) => `[${linkText}]()`
 			);
 		}
-		return message.text;
-	}, [message.text]);
-
-	const animatedText = useAnimatedText(parsedMessage, isUser);
+		return animatedText;
+	}, [animatedText]);
 
 	return (
 		<div className="mb-4 w-full">
@@ -106,7 +109,7 @@ export const Message = React.memo(({ message, isRunning }: MessageProps) => {
 								urlTransform={urlTransformAllowFiles}
 								components={CustomMarkdownComponents}
 							>
-								{animatedText || "Waiting for more information..."}
+								{parsedMessage || "Waiting for more information..."}
 							</Markdown>
 						)}
 
