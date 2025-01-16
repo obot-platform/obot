@@ -6098,7 +6098,7 @@ func schema_storage_apis_obotobotai_v1_KnowledgeSetStatus(ref common.ReferenceCa
 							Format: "",
 						},
 					},
-					"emptyDatasetDeleted": {
+					"datasetCreated": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"boolean"},
 							Format: "",

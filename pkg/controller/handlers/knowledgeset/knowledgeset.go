@@ -108,7 +108,7 @@ func (h *Handler) CheckHasContent(req router.Request, _ router.Response) error {
 		ks.Status.ExistingFile = ""
 	} else {
 		ks.Status.ExistingFile = files.Items[0].Name
-		ks.Status.EmptyDatasetDeleted = false
+		ks.Status.DatasetCreated = true
 	}
 
 	return nil
@@ -149,7 +149,7 @@ func (h *Handler) CreateWorkspace(req router.Request, _ router.Response) error {
 
 func (h *Handler) Cleanup(req router.Request, _ router.Response) error {
 	ks := req.Object.(*v1.KnowledgeSet)
-	if ks.Status.ThreadName == "" || ks.Status.EmptyDatasetDeleted || (ks.DeletionTimestamp.IsZero() && ks.Status.HasContent) {
+	if ks.Status.ThreadName == "" || !ks.Status.DatasetCreated || (ks.DeletionTimestamp.IsZero() && ks.Status.HasContent) {
 		return nil
 	}
 
@@ -171,6 +171,6 @@ func (h *Handler) Cleanup(req router.Request, _ router.Response) error {
 		return fmt.Errorf("failed to delete knowledge set: %w", err)
 	}
 
-	ks.Status.EmptyDatasetDeleted = true
+	ks.Status.DatasetCreated = false
 	return nil
 }
