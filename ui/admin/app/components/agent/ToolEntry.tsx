@@ -13,35 +13,54 @@ export function ToolEntry({
 	tool,
 	onDelete,
 	actions,
+	withDescription = false,
 }: {
 	tool: string;
 	onDelete?: () => void;
 	actions?: React.ReactNode;
+	withDescription?: boolean;
 }) {
 	const toolInfo = useToolReference(tool);
+	const description = toolInfo.toolReference?.description;
 
 	return (
-		<div className="mt-1 flex items-center justify-between space-x-2">
-			<div className="flex w-full items-center justify-between gap-2 rounded-md p-2 px-3 text-sm">
-				<div className="flex items-center gap-2">
-					{toolInfo.icon}
+		<div className="flex flex-col">
+			<div className="mt-1 flex items-center justify-between space-x-2">
+				<div className="flex w-full items-center justify-between gap-2 rounded-md p-2 px-3 text-sm">
+					<div className="flex items-center gap-2">
+						{toolInfo.icon}
 
-					<Truncate>{toolInfo.label}</Truncate>
-				</div>
+						<div className="flex flex-col">
+							<Truncate
+								classNames={{ content: "max-w-fit font-medium" }}
+								tooltipContent={withDescription ? toolInfo.label : description}
+								tooltipContentProps={{ align: "start", className: "max-w-xs" }}
+							>
+								{toolInfo.label}
+							</Truncate>
 
-				<div className="flex items-center gap-2">
-					{actions}
+							{withDescription && description && (
+								<Truncate asChild disableTooltip>
+									<small className="text-muted-foreground">{description}</small>
+								</Truncate>
+							)}
+						</div>
+					</div>
 
-					{onDelete && (
-						<Button
-							type="button"
-							variant="ghost"
-							size="icon"
-							onClick={() => onDelete()}
-						>
-							<TrashIcon className="h-5 w-5" />
-						</Button>
-					)}
+					<div className="flex items-center gap-2">
+						{actions}
+
+						{onDelete && (
+							<Button
+								type="button"
+								variant="ghost"
+								size="icon"
+								onClick={() => onDelete()}
+							>
+								<TrashIcon className="h-5 w-5" />
+							</Button>
+						)}
+					</div>
 				</div>
 			</div>
 		</div>
@@ -59,10 +78,10 @@ export function useToolReference(tool: string) {
 	const icon = useMemo(
 		() =>
 			isLoading ? (
-				<LoadingSpinner className="h-5 w-5" />
+				<LoadingSpinner className="h-6 w-6" />
 			) : (
 				<ToolIcon
-					className="h-5 w-5"
+					className="h-6 w-6"
 					name={toolReference?.name || tool}
 					icon={toolReference?.metadata?.icon}
 				/>

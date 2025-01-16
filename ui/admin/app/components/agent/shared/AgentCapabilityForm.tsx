@@ -26,6 +26,7 @@ export function AgentCapabilityForm({
 		<div>
 			{capabilities.map((capability) => (
 				<ToolEntry
+					withDescription
 					key={capability.id}
 					tool={capability.id}
 					actions={renderActions(capability)}

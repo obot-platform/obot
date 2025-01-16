@@ -64,7 +64,7 @@ export function ToolCard({
 				<Truncate className="text-lg font-semibold">{tool.name}</Truncate>
 				<Truncate
 					classNames={{
-						root: "leading-5",
+						content: "leading-5",
 					}}
 					className="text-sm"
 					clampLength={2}
@@ -74,7 +74,7 @@ export function ToolCard({
 				{!tool.builtin && tool.reference && (
 					<Truncate
 						classNames={{
-							root: "leading-5",
+							content: "leading-5",
 						}}
 						className="text-wrap break-all text-sm"
 						clampLength={2}

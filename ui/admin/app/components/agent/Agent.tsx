@@ -112,9 +112,8 @@ export function Agent({ className, currentThreadId, onRefresh }: AgentProps) {
 
 					<CardDescription>
 						Capabilities define how users can interact with this agent in the
-						chat interface. Each capability enables specific features or
-						interaction types that users can access when chatting with the
-						agent.
+						chat interface. Each capability enables specific features that users
+						can access when using the agent.
 					</CardDescription>
 
 					<AgentCapabilityForm

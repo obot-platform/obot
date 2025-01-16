@@ -1,4 +1,5 @@
 import { Slot } from "@radix-ui/react-slot";
+import { TooltipContentProps } from "@radix-ui/react-tooltip";
 
 import { cn } from "~/lib/utils";
 
@@ -17,6 +18,7 @@ export function Truncate({
 	tooltipContent = children,
 	clamp = true,
 	clampLength = 1,
+	tooltipContentProps,
 }: {
 	children: React.ReactNode;
 	className?: string;
@@ -25,9 +27,8 @@ export function Truncate({
 	tooltipContent?: React.ReactNode;
 	clamp?: boolean;
 	clampLength?: 1 | 2;
-	classNames?: {
-		root?: string;
-	};
+	classNames?: { content?: string };
+	tooltipContentProps?: TooltipContentProps;
 }) {
 	const Comp = asChild ? Slot : "p";
 
@@ -37,9 +38,9 @@ export function Truncate({
 				{
 					"line-clamp-1": clamp && clampLength === 1,
 					"line-clamp-2": clamp && clampLength === 2,
-					truncate: !clamp,
+					truncate: true,
 				},
-				classNames?.root
+				classNames?.content
 			)}
 		>
 			{children}
@@ -52,7 +53,7 @@ export function Truncate({
 
 	return (
 		<Tooltip>
-			<TooltipContent>{tooltipContent}</TooltipContent>
+			<TooltipContent {...tooltipContentProps}>{tooltipContent}</TooltipContent>
 
 			<TooltipTrigger asChild>
 				<div className={cn("cursor-pointer", className)}>{content}</div>
