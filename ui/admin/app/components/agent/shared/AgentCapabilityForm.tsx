@@ -1,5 +1,4 @@
-import { useEffect, useMemo } from "react";
-import { useFieldArray, useForm } from "react-hook-form";
+import { ToolReference } from "~/lib/model/toolReferences";
 
 import { ToolEntry } from "~/components/agent/ToolEntry";
 import { getCapabilityToolOrder } from "~/components/agent/shared/constants";
@@ -11,64 +10,42 @@ type AgentCapabilityFormProps = {
 	onChange: (entity: { tools: string[] }) => void;
 };
 
-type Item = { tool: string; enabled: boolean };
-
 export function AgentCapabilityForm({
 	entity,
 	onChange,
 }: AgentCapabilityFormProps) {
 	const { data: toolReferences } = useCapabilityTools();
 
-	const defaultData = useMemo(() => {
-		const capabilities = toolReferences.map((tool) => ({
-			tool: tool.id,
-			enabled: !!entity.tools?.includes(tool.id),
-		}));
+	const addedTools = new Set(entity.tools ?? []);
 
-		capabilities.sort(
-			(a, b) => getCapabilityToolOrder(a.tool) - getCapabilityToolOrder(b.tool)
-		);
-
-		return { capabilities };
-	}, [toolReferences, entity.tools]);
-
-	const { control, reset } = useForm<{ capabilities: Item[] }>({
-		defaultValues: defaultData,
-	});
-
-	useEffect(() => {
-		reset(defaultData);
-	}, [defaultData, reset]);
-
-	const { fields, update } = useFieldArray({
-		control,
-		name: "capabilities",
-	});
+	const capabilities = toolReferences.toSorted(
+		(a, b) => getCapabilityToolOrder(a.id) - getCapabilityToolOrder(b.id)
+	);
 
 	return (
 		<div>
-			{fields.map((field, index) => (
+			{capabilities.map((capability) => (
 				<ToolEntry
-					key={field.tool}
-					tool={field.tool}
-					actions={renderActions(field, index)}
+					key={capability.id}
+					tool={capability.id}
+					actions={renderActions(capability)}
 				/>
 			))}
 		</div>
 	);
 
-	function renderActions(field: Item, index: number) {
+	function renderActions(capability: ToolReference) {
 		return (
 			<Switch
-				checked={field.enabled}
+				checked={addedTools.has(capability.id)}
 				onCheckedChange={(checked) => {
-					update(index, { ...field, enabled: checked });
-
-					// filter early to prevent duplicate entries
-					const filtered = (entity.tools ?? []).filter((t) => t !== field.tool);
+					// always filter tool out to prevent duplicate entries
+					const filtered = (entity.tools ?? []).filter(
+						(t) => t !== capability.id
+					);
 
 					if (checked) {
-						filtered.push(field.tool);
+						filtered.push(capability.id);
 					}
 
 					onChange({ tools: filtered });

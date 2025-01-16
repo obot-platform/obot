@@ -73,20 +73,20 @@ export function Agent({ className, currentThreadId, onRefresh }: AgentProps) {
 		}
 	}, [getLoadingAgent, loadingAgentId]);
 
+	const debouncedUpdateAgent = useDebounce(updateAgent, 1000);
+
 	const partialSetAgent = useCallback(
 		(changes: Partial<typeof agent>) => {
 			const updatedAgent = { ...agent, ...agentUpdates, ...changes };
 
-			updateAgent(updatedAgent);
+			debouncedUpdateAgent(updatedAgent);
 
 			setAgentUpdates(updatedAgent);
 
 			if (changes.alias) setLoadingAgentId(changes.alias);
 		},
-		[agentUpdates, updateAgent, agent]
+		[agent, agentUpdates, debouncedUpdateAgent]
 	);
-
-	const debouncedSetAgentInfo = useDebounce(partialSetAgent, 1000);
 
 	const handleThreadSelect = useCallback(
 		(threadId: string) => {
@@ -101,7 +101,7 @@ export function Agent({ className, currentThreadId, onRefresh }: AgentProps) {
 				<AgentAlias agent={agentUpdates} onChange={partialSetAgent} />
 
 				<div className="m-4 p-4">
-					<AgentForm agent={agentUpdates} onChange={debouncedSetAgentInfo} />
+					<AgentForm agent={agentUpdates} onChange={partialSetAgent} />
 				</div>
 
 				<div className="m-4 space-y-4 p-4">
@@ -111,8 +111,8 @@ export function Agent({ className, currentThreadId, onRefresh }: AgentProps) {
 					</h4>
 
 					<AgentCapabilityForm
-						entity={agent}
-						onChange={debouncedSetAgentInfo}
+						entity={agentUpdates}
+						onChange={partialSetAgent}
 					/>
 				</div>
 
@@ -129,7 +129,7 @@ export function Agent({ className, currentThreadId, onRefresh }: AgentProps) {
 
 					<ToolForm
 						agent={agentUpdates}
-						onChange={({ tools }) => debouncedSetAgentInfo(convertTools(tools))}
+						onChange={({ tools }) => partialSetAgent(convertTools(tools))}
 						renderActions={renderActions}
 					/>
 				</div>
@@ -146,11 +146,11 @@ export function Agent({ className, currentThreadId, onRefresh }: AgentProps) {
 					<AgentKnowledgePanel
 						agentId={agent.id}
 						agent={agent}
-						updateAgent={debouncedSetAgentInfo}
+						updateAgent={partialSetAgent}
 						addTool={(tool) => {
 							if (agent?.tools?.includes(tool)) return;
 
-							debouncedSetAgentInfo({
+							partialSetAgent({
 								tools: [...(agent.tools || []), tool],
 							});
 						}}

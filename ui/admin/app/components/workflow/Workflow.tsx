@@ -52,6 +52,8 @@ function WorkflowContent({ className }: WorkflowProps) {
 
 	const [workflowUpdates, setWorkflowUpdates] = useState(workflow);
 
+	const debouncedUpdateWorkflow = useDebounce(updateWorkflow, 1000);
+
 	const partialSetWorkflow = useCallback(
 		(changes: Partial<typeof workflow>) => {
 			const updatedWorkflow = {
@@ -60,14 +62,12 @@ function WorkflowContent({ className }: WorkflowProps) {
 				...changes,
 			};
 
-			updateWorkflow(updatedWorkflow);
+			debouncedUpdateWorkflow(updatedWorkflow);
 
 			setWorkflowUpdates(updatedWorkflow);
 		},
-		[updateWorkflow, workflow, workflowUpdates]
+		[debouncedUpdateWorkflow, workflow, workflowUpdates]
 	);
-
-	const debouncedSetWorkflowInfo = useDebounce(partialSetWorkflow, 1000);
 
 	return (
 		<div className="flex h-full flex-col">
@@ -79,10 +79,7 @@ function WorkflowContent({ className }: WorkflowProps) {
 					/>
 				</div>
 				<div className="m-4 px-4 pb-4">
-					<AgentForm
-						agent={workflowUpdates}
-						onChange={debouncedSetWorkflowInfo}
-					/>
+					<AgentForm agent={workflowUpdates} onChange={partialSetWorkflow} />
 				</div>
 
 				<div className="m-4 flex flex-col gap-4 p-4">
@@ -92,8 +89,8 @@ function WorkflowContent({ className }: WorkflowProps) {
 					</h4>
 
 					<AgentCapabilityForm
-						entity={workflow}
-						onChange={debouncedSetWorkflowInfo}
+						entity={workflowUpdates}
+						onChange={partialSetWorkflow}
 					/>
 				</div>
 
@@ -132,7 +129,7 @@ function WorkflowContent({ className }: WorkflowProps) {
 					<ParamsForm
 						workflow={workflow}
 						onChange={(values) =>
-							debouncedSetWorkflowInfo({
+							partialSetWorkflow({
 								params: values.params,
 							})
 						}
@@ -147,9 +144,7 @@ function WorkflowContent({ className }: WorkflowProps) {
 
 					<StepsForm
 						workflow={workflowUpdates}
-						onChange={(values) =>
-							debouncedSetWorkflowInfo({ steps: values.steps })
-						}
+						onChange={(values) => partialSetWorkflow({ steps: values.steps })}
 					/>
 				</div>
 
@@ -167,11 +162,11 @@ function WorkflowContent({ className }: WorkflowProps) {
 					<AgentKnowledgePanel
 						agent={workflowUpdates}
 						agentId={workflow.id}
-						updateAgent={debouncedSetWorkflowInfo}
+						updateAgent={partialSetWorkflow}
 						addTool={(tool) => {
 							if (workflow.tools?.includes(tool)) return;
 
-							debouncedSetWorkflowInfo({
+							partialSetWorkflow({
 								tools: [...(workflow.tools || []), tool],
 							});
 						}}
