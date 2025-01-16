@@ -88,6 +88,11 @@ function WorkflowContent({ className }: WorkflowProps) {
 						Capabilities
 					</h4>
 
+					<CardDescription>
+						Capabilities define core functions that enable the workflow to
+						perform specialized tasks.
+					</CardDescription>
+
 					<AgentCapabilityForm
 						entity={workflowUpdates}
 						onChange={partialSetWorkflow}
