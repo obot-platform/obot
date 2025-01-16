@@ -90,7 +90,7 @@ func (h *Handler) IngestFile(req router.Request, _ router.Response) error {
 
 	thread, err := getThread(req.Ctx, req.Client, &ks, &source)
 	if err != nil {
-		return err
+		return kclient.IgnoreNotFound(err)
 	}
 
 	if file.Status.State == "" {
