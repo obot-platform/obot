@@ -67,7 +67,10 @@ export default function ChatAgent() {
 	// when agent updates happen for chat
 	const { data: updatedAgent } = useSWR(
 		AgentService.getAgentById.key(agent.id),
-		({ agentId }) => AgentService.getAgentById(agentId)
+		({ agentId }) => AgentService.getAgentById(agentId),
+		{
+			fallbackData: agent,
+		}
 	);
 	const navigate = useNavigate();
 
