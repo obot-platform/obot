@@ -2,6 +2,7 @@ import { ReactNode, memo, useCallback, useMemo, useState } from "react";
 
 import { ToolEntry } from "~/components/agent/ToolEntry";
 import { ToolCatalogDialog } from "~/components/tools/ToolCatalog";
+import { useCapabilityTools } from "~/hooks/tools/useCapabilityTools";
 
 export const BasicToolForm = memo(function BasicToolFormComponent(props: {
 	value?: string[];
@@ -25,6 +26,10 @@ export const BasicToolForm = memo(function BasicToolFormComponent(props: {
 		[onChange]
 	);
 
+	const getCapabilities = useCapabilityTools();
+	const capabilities = new Set(getCapabilities.data?.map((tool) => tool.id));
+	const filtered = value.filter((tool) => !capabilities.has(tool));
+
 	const removeTools = (toolsToRemove: string[]) => {
 		setValue(value.filter((tool) => !toolsToRemove.includes(tool)));
 	};
@@ -32,7 +37,7 @@ export const BasicToolForm = memo(function BasicToolFormComponent(props: {
 	return (
 		<div className="flex flex-col gap-2">
 			<div className="flex w-full flex-col gap-1 overflow-y-auto">
-				{value.map((tool) => (
+				{filtered.map((tool) => (
 					<ToolEntry
 						key={tool}
 						tool={tool}

@@ -1,4 +1,10 @@
-import { Library, List, PuzzleIcon, WrenchIcon } from "lucide-react";
+import {
+	BlocksIcon,
+	Library,
+	List,
+	PuzzleIcon,
+	WrenchIcon,
+} from "lucide-react";
 import { useCallback, useState } from "react";
 import { useNavigate } from "react-router";
 import { $path } from "safe-routes";
@@ -8,6 +14,7 @@ import { Workflow as WorkflowType } from "~/lib/model/workflows";
 import { cn } from "~/lib/utils";
 
 import { AgentForm } from "~/components/agent";
+import { AgentCapabilityForm } from "~/components/agent/shared/AgentCapabilityForm";
 import { EnvironmentVariableSection } from "~/components/agent/shared/EnvironmentVariableSection";
 import { ToolAuthenticationStatus } from "~/components/agent/shared/ToolAuthenticationStatus";
 import { AgentKnowledgePanel } from "~/components/knowledge";
@@ -74,6 +81,18 @@ function WorkflowContent({ className }: WorkflowProps) {
 				<div className="m-4 px-4 pb-4">
 					<AgentForm
 						agent={workflowUpdates}
+						onChange={debouncedSetWorkflowInfo}
+					/>
+				</div>
+
+				<div className="m-4 flex flex-col gap-4 p-4">
+					<h4 className="flex items-center gap-2">
+						<BlocksIcon className="h-5 w-5" />
+						Capabilities
+					</h4>
+
+					<AgentCapabilityForm
+						entity={workflow}
 						onChange={debouncedSetWorkflowInfo}
 					/>
 				</div>

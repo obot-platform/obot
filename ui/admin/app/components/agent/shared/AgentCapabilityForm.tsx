@@ -1,21 +1,19 @@
 import { useEffect, useMemo } from "react";
 import { useFieldArray, useForm } from "react-hook-form";
 
-import { Agent } from "~/lib/model/agents";
-
 import { ToolEntry } from "~/components/agent/ToolEntry";
 import { Switch } from "~/components/ui/switch";
 import { useCapabilityTools } from "~/hooks/tools/useCapabilityTools";
 
 type AgentCapabilityFormProps = {
-	agent: Agent;
-	onChange: (agent: Partial<Agent>) => void;
+	entity: { tools?: string[] };
+	onChange: (entity: { tools: string[] }) => void;
 };
 
 type Item = { tool: string; enabled: boolean };
 
 export function AgentCapabilityForm({
-	agent,
+	entity,
 	onChange,
 }: AgentCapabilityFormProps) {
 	const { data: toolReferences } = useCapabilityTools();
@@ -23,11 +21,11 @@ export function AgentCapabilityForm({
 	const defaultData = useMemo(() => {
 		const capabilities = toolReferences.map((tool) => ({
 			tool: tool.id,
-			enabled: !!agent.tools?.includes(tool.id),
+			enabled: !!entity.tools?.includes(tool.id),
 		}));
 
 		return { capabilities };
-	}, [toolReferences, agent.tools]);
+	}, [toolReferences, entity.tools]);
 
 	const { control, reset } = useForm<{ capabilities: Item[] }>({
 		defaultValues: defaultData,
@@ -62,10 +60,10 @@ export function AgentCapabilityForm({
 					update(index, { ...field, enabled: checked });
 
 					if (checked) {
-						onChange({ tools: [...(agent.tools ?? []), field.tool] });
+						onChange({ tools: [...(entity.tools ?? []), field.tool] });
 					} else {
 						onChange({
-							tools: (agent.tools ?? []).filter((t) => t !== field.tool),
+							tools: (entity.tools ?? []).filter((t) => t !== field.tool),
 						});
 					}
 				}}

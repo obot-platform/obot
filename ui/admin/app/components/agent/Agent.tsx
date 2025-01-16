@@ -8,11 +8,11 @@ import { AgentService } from "~/lib/service/api/agentService";
 import { cn } from "~/lib/utils";
 
 import { AgentAlias } from "~/components/agent/AgentAlias";
-import { AgentCapabilityForm } from "~/components/agent/AgentCapabilityForm";
 import { useAgent } from "~/components/agent/AgentContext";
 import { AgentForm } from "~/components/agent/AgentForm";
 import { PastThreads } from "~/components/agent/PastThreads";
 import { ToolForm } from "~/components/agent/ToolForm";
+import { AgentCapabilityForm } from "~/components/agent/shared/AgentCapabilityForm";
 import { EnvironmentVariableSection } from "~/components/agent/shared/EnvironmentVariableSection";
 import { ToolAuthenticationStatus } from "~/components/agent/shared/ToolAuthenticationStatus";
 import { AgentKnowledgePanel } from "~/components/knowledge";
@@ -110,7 +110,10 @@ export function Agent({ className, currentThreadId, onRefresh }: AgentProps) {
 						Capabilities
 					</h4>
 
-					<AgentCapabilityForm agent={agent} onChange={debouncedSetAgentInfo} />
+					<AgentCapabilityForm
+						entity={agent}
+						onChange={debouncedSetAgentInfo}
+					/>
 				</div>
 
 				<div className="m-4 space-y-4 p-4">
