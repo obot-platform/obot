@@ -16,6 +16,7 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "~/components/ui/select";
+import { useCapabilityTools } from "~/hooks/tools/useCapabilityTools";
 
 const ToolVariant = {
 	FIXED: "fixed",
@@ -130,9 +131,12 @@ export function ToolForm({
 		}
 	};
 
-	const sortedFields = toolFields.fields.toSorted((a, b) =>
-		a.tool.localeCompare(b.tool)
-	);
+	const getCapabilities = useCapabilityTools();
+	const capabilities = new Set(getCapabilities.data?.map((x) => x.id));
+
+	const sortedFields = toolFields.fields
+		.filter((field) => !capabilities.has(field.tool))
+		.toSorted((a, b) => a.tool.localeCompare(b.tool));
 
 	return (
 		<Form {...form}>
@@ -143,17 +147,13 @@ export function ToolForm({
 				<div className="mt-2 w-full overflow-y-auto">
 					{sortedFields.map((field) => (
 						<ToolEntry
-							key={field.id}
+							key={field.tool}
 							tool={field.tool}
 							onDelete={() => removeTools([field.tool])}
 							actions={
 								<>
 									<Select
-										value={
-											field.variant === ToolVariant.FIXED
-												? field.variant
-												: ToolVariant.DEFAULT
-										}
+										value={field.variant}
 										onValueChange={(value) =>
 											updateVariant(field.tool, value as ToolVariant)
 										}

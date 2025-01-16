@@ -1,4 +1,4 @@
-import { LibraryIcon, PlusIcon, WrenchIcon } from "lucide-react";
+import { BlocksIcon, LibraryIcon, PlusIcon, WrenchIcon } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import useSWR from "swr";
 
@@ -8,6 +8,7 @@ import { AgentService } from "~/lib/service/api/agentService";
 import { cn } from "~/lib/utils";
 
 import { AgentAlias } from "~/components/agent/AgentAlias";
+import { AgentCapabilityForm } from "~/components/agent/AgentCapabilityForm";
 import { useAgent } from "~/components/agent/AgentContext";
 import { AgentForm } from "~/components/agent/AgentForm";
 import { PastThreads } from "~/components/agent/PastThreads";
@@ -101,6 +102,15 @@ export function Agent({ className, currentThreadId, onRefresh }: AgentProps) {
 
 				<div className="m-4 p-4">
 					<AgentForm agent={agentUpdates} onChange={debouncedSetAgentInfo} />
+				</div>
+
+				<div className="m-4 space-y-4 p-4">
+					<h4 className="flex items-center gap-2 border-b pb-2">
+						<BlocksIcon />
+						Capabilities
+					</h4>
+
+					<AgentCapabilityForm agent={agent} onChange={debouncedSetAgentInfo} />
 				</div>
 
 				<div className="m-4 space-y-4 p-4">
