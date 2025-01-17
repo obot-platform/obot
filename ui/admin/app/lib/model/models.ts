@@ -81,6 +81,7 @@ export type ModelManifest = {
 	name?: string;
 	targetModel?: string;
 	modelProvider: string;
+	modelProviderName?: string;
 	active: boolean;
 	usage: ModelUsage;
 };
