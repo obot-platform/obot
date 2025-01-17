@@ -3,6 +3,7 @@ package handlers
 import (
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"strings"
 
 	"github.com/gptscript-ai/go-gptscript"
@@ -156,12 +157,12 @@ func (mp *ModelProviderHandler) Validate(req api.Context) error {
 				ref.Name,
 			)
 		}
-		return &ValidationError{Err: strings.Trim(err.Error(), "\"'")}
+		return types.NewErrHttp(http.StatusUnauthorized, strings.Trim(err.Error(), "\"'"))
 	}
 
 	var validationError ValidationError
 	if json.Unmarshal([]byte(res.Output), &validationError) == nil && validationError.Err != "" {
-		return &validationError
+		return types.NewErrHttp(http.StatusUnauthorized, validationError.Error())
 	}
 
 	return nil
