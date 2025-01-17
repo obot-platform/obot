@@ -38,7 +38,7 @@ export function Truncate({
 				{
 					"line-clamp-1": clamp && clampLength === 1,
 					"line-clamp-2": clamp && clampLength === 2,
-					truncate: true,
+					truncate: !clamp,
 				},
 				classNames?.content
 			)}

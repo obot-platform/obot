@@ -32,7 +32,7 @@ export function ToolEntry({
 
 						<div className="flex flex-col">
 							<Truncate
-								classNames={{ content: "max-w-fit font-medium" }}
+								classNames={{ content: "font-medium" }}
 								tooltipContent={withDescription ? toolInfo.label : description}
 								tooltipContentProps={{ align: "start", className: "max-w-xs" }}
 							>
@@ -78,10 +78,10 @@ export function useToolReference(tool: string) {
 	const icon = useMemo(
 		() =>
 			isLoading ? (
-				<LoadingSpinner className="h-6 w-6" />
+				<LoadingSpinner className="h-6 w-6 min-w-fit" />
 			) : (
 				<ToolIcon
-					className="h-6 w-6"
+					className="h-6 w-6 min-w-fit"
 					name={toolReference?.name || tool}
 					icon={toolReference?.metadata?.icon}
 				/>
