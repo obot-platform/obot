@@ -66,6 +66,11 @@ export const RouteHelperMap = {
 		path: "/agents/:agent",
 		schema: QuerySchemas.agentSchema,
 	},
+	"/auth-providers": {
+		regex: exactRegex($path("/auth-providers")),
+		path: "/auth-providers",
+		schema: z.null(),
+	},
 	"/debug": {
 		regex: exactRegex($path("/debug")),
 		path: "/debug",

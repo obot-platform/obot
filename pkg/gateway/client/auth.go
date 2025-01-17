@@ -32,15 +32,12 @@ func (u UserDecorator) AuthenticateRequest(req *http.Request) (*authenticator.Re
 		return nil, false, nil
 	}
 
-	gatewayUser, err := u.client.EnsureIdentity(
-		req.Context(),
-		&types.Identity{
-			Email:            firstValue(resp.User.GetExtra(), "email"),
-			AuthProviderID:   uint(firstValueAsInt(resp.User.GetExtra(), "auth_provider_id")),
-			ProviderUsername: resp.User.GetName(),
-		},
-		req.Header.Get("X-Obot-User-Timezone"),
-	)
+	gatewayUser, err := u.client.EnsureIdentity(req.Context(), &types.Identity{
+		Email:                 firstValue(resp.User.GetExtra(), "email"),
+		AuthProviderName:      firstValue(resp.User.GetExtra(), "auth_provider_name"),
+		AuthProviderNamespace: firstValue(resp.User.GetExtra(), "auth_provider_namespace"),
+		ProviderUsername:      resp.User.GetName(),
+	}, req.Header.Get("X-Obot-User-Timezone"))
 	if err != nil {
 		return nil, false, err
 	}

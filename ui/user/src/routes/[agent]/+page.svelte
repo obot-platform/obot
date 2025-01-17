@@ -15,7 +15,8 @@
 
 	$effect(() => {
 		if ($profile.unauthorized) {
-			window.location.href = '/oauth2/start?rd=' + window.location.pathname;
+			// Redirect to the main page to log in.
+			window.location.href = '/';
 		}
 	});
 </script>

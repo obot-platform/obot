@@ -8,9 +8,13 @@
 	import { darkMode } from '$lib/stores';
 	import { Book } from '$lib/icons';
 	import { loadedAssistants } from '$lib/stores';
+	import { listAuthProviders, type AuthProvider } from '$lib/auth';
 
-	onMount(() => {
+	let authProviders: AuthProvider[] = $state([])
+
+	onMount(async () => {
 		highlight.highlightAll();
+		authProviders = await listAuthProviders();
 	});
 
 	let div: HTMLElement;
@@ -63,17 +67,29 @@
 			{/if}
 		</div>
 
-		<div class="flex items-center gap-4">
-			<a
-				onclick={() => {
-					window.location.href = '/oauth2/start?rd=' + window.location.pathname;
-				}}
-				rel="external"
-				href="/oauth2/start?rd=/"
-				class="group flex items-center gap-1 rounded-full bg-black p-2 px-8 text-lg font-semibold text-white dark:bg-white dark:text-black"
-			>
-				Login
-			</a>
+		<div class="mt-32 flex flex-col items-center gap-4">
+			{#each authProviders as provider}
+				<a
+					onclick={() => {
+						window.location.href = '/oauth2/start?rd=' + window.location.pathname + '&obot-auth-provider=' + provider.namespace + '/' + provider.id;
+					}}
+					rel="external"
+					href={`/oauth2/start?obot-auth-provider=${provider.namespace}/${provider.id}&rd=/`}
+					class="group flex items-center gap-1 rounded-full bg-black p-2 px-8 text-lg font-semibold text-white dark:bg-white dark:text-black"
+				>
+				{#if provider.icon}
+					<img
+						class="ml-2 h-6 w-6 rounded-full p-1 group-hover:bg-white"
+						src={provider.icon}
+						alt={provider.name}
+					/>
+					Login with {provider.name}
+				{/if}
+				</a>
+			{/each}
+			{#if authProviders.length === 0}
+				<p>No auth providers configured. Please configure at least one auth provider in the admin panel.</p>
+			{/if}
 		</div>
 	</div>
 </div>

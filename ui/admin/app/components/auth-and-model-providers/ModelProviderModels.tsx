@@ -3,12 +3,12 @@ import { PictureInPicture2Icon } from "lucide-react";
 import { useMemo } from "react";
 import useSWR from "swr";
 
-import { ModelProvider } from "~/lib/model/modelProviders";
 import { Model, ModelUsage, getModelUsageLabel } from "~/lib/model/models";
+import { ModelProvider } from "~/lib/model/providers";
 import { ModelApiService } from "~/lib/service/api/modelApiService";
 
+import { ProviderIcon } from "~/components/auth-and-model-providers/ProviderIcon";
 import { DataTable } from "~/components/composed/DataTable";
-import { ModelProviderIcon } from "~/components/model-providers/ModelProviderIcon";
 import { UpdateModelActive } from "~/components/model/UpdateModelActive";
 import { UpdateModelUsage } from "~/components/model/UpdateModelUsage";
 import { Button } from "~/components/ui/button";
@@ -79,7 +79,7 @@ export function ModelProvidersModels({ modelProvider }: ModelsConfigureProps) {
 			</Tooltip>
 
 			<DialogDescription hidden>
-				Configure & View Models of a Modal Provider.
+				Configure & View Models of a Model Provider.
 			</DialogDescription>
 
 			<DialogContent
@@ -90,8 +90,8 @@ export function ModelProvidersModels({ modelProvider }: ModelsConfigureProps) {
 			>
 				<DialogHeader className="space-y-0 border-b border-b-secondary">
 					<DialogTitle className="flex items-center gap-2 px-6 py-4">
-						<ModelProviderIcon modelProvider={modelProvider} />{" "}
-						{modelProvider.name} Models
+						<ProviderIcon provider={modelProvider} /> {modelProvider.name}{" "}
+						Models
 					</DialogTitle>
 				</DialogHeader>
 				<ScrollArea className="h-[50vh]">

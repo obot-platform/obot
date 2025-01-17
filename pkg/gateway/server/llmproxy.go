@@ -45,6 +45,6 @@ func (s *Server) llmProxy(req api.Context) error {
 
 func (s *Server) newDirector(namespace string, errChan chan<- error) func(req *http.Request) {
 	return func(req *http.Request) {
-		errChan <- s.modelDispatcher.TransformRequest(req, namespace)
+		errChan <- s.dispatcher.TransformRequest(req, namespace)
 	}
 }

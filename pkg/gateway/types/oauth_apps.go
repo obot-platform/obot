@@ -27,6 +27,7 @@ const (
 	GoogleTokenURL     = "https://oauth2.googleapis.com/token"
 
 	GitHubAuthorizeURL = "https://github.com/login/oauth/authorize"
+	GitHubTokenURL     = "https://github.com/login/oauth/access_token"
 
 	ZoomAuthorizeURL = "https://zoom.us/oauth/authorize"
 	ZoomTokenURL     = "https://zoom.us/oauth/token"

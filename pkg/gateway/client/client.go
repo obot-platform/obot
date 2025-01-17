@@ -1,8 +1,6 @@
 package client
 
 import (
-	"strconv"
-
 	"github.com/obot-platform/obot/pkg/gateway/db"
 )
 
@@ -37,10 +35,4 @@ func firstValue(m map[string][]string, key string) string {
 		return ""
 	}
 	return values[0]
-}
-
-func firstValueAsInt(m map[string][]string, key string) int {
-	value := firstValue(m, key)
-	v, _ := strconv.Atoi(value)
-	return v
 }
