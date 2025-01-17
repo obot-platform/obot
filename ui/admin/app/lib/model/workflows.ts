@@ -39,15 +39,15 @@ export type Subflow = {
 };
 
 export type If = {
-	condition: string;
-	steps: Step[];
-	else: Step[];
+	condition?: string;
+	steps?: Step[];
+	else?: Step[];
 };
 
 export type While = {
-	condition: string;
-	maxLoops: number;
-	steps: Step[];
+	condition?: string;
+	maxLoops?: number;
+	steps?: Step[];
 };
 
 export type Workflow = EntityMeta &

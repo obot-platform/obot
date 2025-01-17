@@ -37,8 +37,6 @@ export function StepsForm({
 	const stepValues = form.watch("steps");
 
 	useEffect(() => {
-		console.log(workflow.steps);
-
 		form.reset({ steps: workflow.steps || [] });
 	}, [workflow, form]);
 
@@ -67,8 +65,6 @@ export function StepsForm({
 									renderItem={(step, index) => {
 										const onUpdate = (updatedStep: Step) => {
 											const newSteps = [...field.value];
-											console.log(updatedStep);
-
 											newSteps[index] = updatedStep;
 											field.onChange(newSteps);
 										};

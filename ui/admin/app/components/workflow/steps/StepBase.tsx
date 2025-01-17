@@ -87,16 +87,13 @@ export function StepBase({
 			initial={{ transform: "translateX(-100%)", opacity: 0 }}
 			animate={{ transform: "translateX(0)", opacity: 1 }}
 			exit={{ transform: "translateX(-100%)", opacity: 0 }}
-			transition={{ duration: 0.2, ease: "easeOut" }}
 		>
 			<motion.div
 				className={cn("rounded-md border bg-background", className)}
 				layout
 				initial={{ height: "auto" }}
 				animate={{ height: "auto" }}
-				transition={
-					dnd.active ? { duration: 0 } : { duration: 0.2, ease: "easeOut" }
-				}
+				transition={dnd.active ? { duration: 0 } : undefined}
 			>
 				<div
 					className={cn(
@@ -160,7 +157,6 @@ export function StepBase({
 						opacity: showExpanded ? 1 : 0,
 						visibility: showExpanded ? "visible" : "hidden",
 					}}
-					transition={{ duration: 0.2, ease: "easeOut" }}
 				>
 					{children}
 				</motion.div>
@@ -203,10 +199,12 @@ export function StepBase({
 		}
 		if (type === "if" && step.if) {
 			return (
-				step.if.condition.length || step.if.else.length || step.if.steps.length
+				step.if.condition?.length ||
+				step.if.else?.length ||
+				step.if.steps?.length
 			);
 		} else if (type === "while" && step.while) {
-			return step.while.condition.length || step.while?.steps.length;
+			return step.while.condition?.length || step.while?.steps?.length;
 		}
 
 		return step.step?.length;
