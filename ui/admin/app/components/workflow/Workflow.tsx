@@ -10,6 +10,7 @@ import { useNavigate } from "react-router";
 import { $path } from "safe-routes";
 
 import { AssistantNamespace } from "~/lib/model/assistants";
+import { CapabilityTool } from "~/lib/model/toolReferences";
 import { Workflow as WorkflowType } from "~/lib/model/workflows";
 import { cn } from "~/lib/utils";
 
@@ -96,6 +97,7 @@ function WorkflowContent({ className }: WorkflowProps) {
 					<AgentCapabilityForm
 						entity={workflowUpdates}
 						onChange={partialSetWorkflow}
+						exclude={[CapabilityTool.Tasks]}
 					/>
 				</div>
 
