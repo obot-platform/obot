@@ -1,4 +1,5 @@
-import { ChevronDown, ChevronRight, Trash } from "lucide-react";
+import { ChevronRight, Trash } from "lucide-react";
+import { motion } from "motion/react";
 import { useState } from "react";
 
 import { Step, StepType, getDefaultStep } from "~/lib/model/workflows";
@@ -72,71 +73,99 @@ export function StepBase({
 			return;
 		}
 
+		const handleUpdate = () => onUpdate(getDefaultStep(newType, step.id));
+
 		if (hasContent()) {
-			intercept(
-				() => onUpdate(getDefaultStep(newType)),
-				UpdateStepTypeDialogProps
-			);
+			intercept(handleUpdate, UpdateStepTypeDialogProps);
 		} else {
-			onUpdate(getDefaultStep(newType));
+			handleUpdate();
 		}
 	};
+
 	return (
-		<div className={cn("rounded-md border bg-background", className)}>
-			<div
-				className={cn(
-					"flex items-start gap-2 bg-background-secondary p-3",
-					showExpanded ? "rounded-t-md" : "rounded-md"
-				)}
+		<motion.div
+			initial={{ transform: "translateX(-100%)", opacity: 0 }}
+			animate={{ transform: "translateX(0)", opacity: 1 }}
+			exit={{ transform: "translateX(-100%)", opacity: 0 }}
+			transition={{ duration: 0.2, ease: "easeOut" }}
+		>
+			<motion.div
+				className={cn("rounded-md border bg-background", className)}
+				layout
+				initial={{ height: "auto" }}
+				animate={{ height: "auto" }}
+				transition={
+					dnd.active ? { duration: 0 } : { duration: 0.2, ease: "easeOut" }
+				}
 			>
-				<div className="flex items-center gap-2">
-					<SortableHandle id={step.id} />
+				<div
+					className={cn(
+						"flex items-start gap-2 bg-background-secondary p-3",
+						showExpanded ? "rounded-t-md" : "rounded-md"
+					)}
+				>
+					<div className="flex items-center gap-2">
+						<SortableHandle id={step.id} />
+
+						<Button
+							variant="ghost"
+							size="icon"
+							className="h-6 w-6 self-center p-0"
+							onClick={(e) => {
+								e.stopPropagation();
+								setIsExpanded(!showExpanded);
+							}}
+						>
+							<motion.div
+								layout
+								initial={{ rotate: 0 }}
+								animate={{ rotate: showExpanded ? 90 : 0 }}
+							>
+								<ChevronRight className="h-4 w-4" />
+							</motion.div>
+						</Button>
+
+						<StepTypeSelect value={type} onChange={handleUpdateType} />
+					</div>
+
+					<AutosizeTextarea
+						value={fieldConfig.value}
+						onChange={(e) => fieldConfig.onChange(e.target.value)}
+						placeholder={fieldConfig.placeholder}
+						maxHeight={100}
+						minHeight={0}
+						className="flex-grow bg-background"
+						onClick={(e) => e.stopPropagation()}
+					/>
 
 					<Button
 						variant="ghost"
 						size="icon"
-						className="h-6 w-6 self-center p-0"
 						onClick={(e) => {
 							e.stopPropagation();
-							setIsExpanded(!showExpanded);
+							handleDelete();
 						}}
 					>
-						{showExpanded ? (
-							<ChevronDown className="h-4 w-4" />
-						) : (
-							<ChevronRight className="h-4 w-4" />
-						)}
+						<Trash className="h-4 w-4" />
 					</Button>
 
-					<StepTypeSelect value={type} onChange={handleUpdateType} />
+					<ConfirmationDialog {...dialogProps} />
 				</div>
 
-				<AutosizeTextarea
-					value={fieldConfig.value}
-					onChange={(e) => fieldConfig.onChange(e.target.value)}
-					placeholder={fieldConfig.placeholder}
-					maxHeight={100}
-					minHeight={0}
-					className="flex-grow bg-background"
-					onClick={(e) => e.stopPropagation()}
-				/>
-
-				<Button
-					variant="ghost"
-					size="icon"
-					onClick={(e) => {
-						e.stopPropagation();
-						handleDelete();
+				<motion.div
+					layout
+					initial={{ height: 0, opacity: 0, visibility: "hidden" }}
+					animate={{
+						height: showExpanded ? "auto" : 0,
+						opacity: showExpanded ? 1 : 0,
+						visibility: showExpanded ? "visible" : "hidden",
 					}}
+					transition={{ duration: 0.2, ease: "easeOut" }}
 				>
-					<Trash className="h-4 w-4" />
-				</Button>
-
-				<ConfirmationDialog {...dialogProps} />
-			</div>
-
-			{showExpanded && children}
-		</div>
+					{children}
+				</motion.div>
+			</motion.div>
+		</motion.div>
 	);
 
 	function getTextFieldConfig() {
@@ -177,7 +206,7 @@ export function StepBase({
 				step.if.condition.length || step.if.else.length || step.if.steps.length
 			);
 		} else if (type === "while" && step.while) {
-			return step.while?.condition.length || step.while?.steps.length;
+			return step.while.condition.length || step.while?.steps.length;
 		}
 
 		return step.step?.length;

@@ -2,6 +2,7 @@ import { DndContext, DragEndEvent, UniqueIdentifier } from "@dnd-kit/core";
 import * as Primitive from "@dnd-kit/sortable";
 import { CSS, Transform } from "@dnd-kit/utilities";
 import { GripVerticalIcon } from "lucide-react";
+import { AnimatePresence } from "motion/react";
 
 import { cn } from "~/lib/utils";
 
@@ -105,11 +106,13 @@ function SortableList<T>({
 	return (
 		<DndContext onDragEnd={handleDragEnd}>
 			<SortableContext items={items.map((item) => getKey(item))}>
-				{items.map((item, index) => (
-					<Sortable key={getKey(item)} id={getKey(item)} isHandle={isHandle}>
-						{renderItem(item, index)}
-					</Sortable>
-				))}
+				<AnimatePresence>
+					{items.map((item, index) => (
+						<Sortable key={getKey(item)} id={getKey(item)} isHandle={isHandle}>
+							{renderItem(item, index)}
+						</Sortable>
+					))}
+				</AnimatePresence>
 			</SortableContext>
 		</DndContext>
 	);

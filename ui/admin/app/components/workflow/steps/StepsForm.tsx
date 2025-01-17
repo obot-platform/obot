@@ -1,4 +1,5 @@
 import { zodResolver } from "@hookform/resolvers/zod";
+import { AnimatePresence, motion } from "motion/react";
 import { useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
@@ -36,6 +37,8 @@ export function StepsForm({
 	const stepValues = form.watch("steps");
 
 	useEffect(() => {
+		console.log(workflow.steps);
+
 		form.reset({ steps: workflow.steps || [] });
 	}, [workflow, form]);
 
@@ -49,48 +52,54 @@ export function StepsForm({
 
 	return (
 		<Form {...form}>
-			<form onSubmit={handleSubmit}>
-				<FormField
-					control={form.control}
-					name="steps"
-					render={({ field }) => (
-						<FormItem>
-							<SortableList
-								items={field.value}
-								getKey={(step) => step.id}
-								isHandle={false}
-								onChange={field.onChange}
-								renderItem={(step, index) => {
-									const onUpdate = (updatedStep: Step) => {
-										const newSteps = [...field.value];
-										newSteps[index] = updatedStep;
-										field.onChange(newSteps);
-									};
+			<AnimatePresence>
+				<motion.form onSubmit={handleSubmit} layout="size">
+					<FormField
+						control={form.control}
+						name="steps"
+						render={({ field }) => (
+							<FormItem>
+								<SortableList
+									items={field.value}
+									getKey={(step) => step.id}
+									isHandle={false}
+									onChange={field.onChange}
+									renderItem={(step, index) => {
+										const onUpdate = (updatedStep: Step) => {
+											const newSteps = [...field.value];
+											console.log(updatedStep);
 
-									const onDelete = () => {
-										const newSteps = field.value.filter((_, i) => i !== index);
-										field.onChange(newSteps);
-									};
+											newSteps[index] = updatedStep;
+											field.onChange(newSteps);
+										};
 
-									return renderStep({
-										step,
-										onUpdate,
-										onDelete,
-									});
-								}}
-							/>
+										const onDelete = () => {
+											const newSteps = field.value.filter(
+												(_, i) => i !== index
+											);
+											field.onChange(newSteps);
+										};
 
-							<AddStepButton
-								className="float-end"
-								onAddStep={(newStep) => {
-									field.onChange([...field.value, newStep]);
-								}}
-							/>
-							<FormMessage />
-						</FormItem>
-					)}
-				/>
-			</form>
+										return renderStep({
+											step,
+											onUpdate,
+											onDelete,
+										});
+									}}
+								/>
+
+								<AddStepButton
+									className="float-end"
+									onAddStep={(newStep) => {
+										field.onChange([...field.value, newStep]);
+									}}
+								/>
+								<FormMessage />
+							</FormItem>
+						)}
+					/>
+				</motion.form>
+			</AnimatePresence>
 		</Form>
 	);
 }
