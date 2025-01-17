@@ -36,7 +36,7 @@ func New(serverURL string, c *client.Client) (*Bootstrap, error) {
 		token = fmt.Sprintf("%x", bytes)
 
 		// We deliberately only print the token if it was not provided by the user.
-		fmt.Printf("Bootstrap token: %s\n", token)
+		fmt.Printf("Bootstrap token: %s\nUse this token to log in to the Admin UI.\n", token)
 	}
 
 	return &Bootstrap{

@@ -48,7 +48,6 @@ func (ap *AuthProviderHandler) ByID(req api.Context) error {
 	var credEnvVars map[string]string
 	if ref.Status.Tool != nil {
 		if envVars := ref.Status.Tool.Metadata["envVars"]; envVars != "" {
-			fmt.Printf("revealing creds for auth provider %q\n", ref.Name)
 			cred, err := ap.gptscript.RevealCredential(req.Context(), []string{string(ref.UID)}, ref.Name)
 			if err != nil && !strings.HasSuffix(err.Error(), "credential not found") {
 				return fmt.Errorf("failed to reveal credential for auth provider %q: %w", ref.Name, err)
@@ -162,7 +161,6 @@ func (ap *AuthProviderHandler) Reveal(req api.Context) error {
 		return types.NewErrBadRequest("%q is not an auth provider", ref.Name)
 	}
 
-	fmt.Printf("revealing creds for auth provider %q\n", ref.Name)
 	cred, err := ap.gptscript.RevealCredential(req.Context(), []string{string(ref.UID)}, ref.Name)
 	if err != nil && !strings.HasSuffix(err.Error(), "credential not found") {
 		return fmt.Errorf("failed to reveal credential for auth provider %q: %w", ref.Name, err)
