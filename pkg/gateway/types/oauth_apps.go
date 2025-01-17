@@ -28,6 +28,9 @@ const (
 
 	GitHubAuthorizeURL = "https://github.com/login/oauth/authorize"
 
+	WordPressAuthorizeURL = "https://public-api.wordpress.com/oauth2/authorize"
+	WordPressTokenURL     = "https://public-api.wordpress.com/oauth2/token"
+
 	ZoomAuthorizeURL = "https://zoom.us/oauth/authorize"
 	ZoomTokenURL     = "https://zoom.us/oauth/token"
 )
@@ -71,6 +74,9 @@ func ValidateAndSetDefaultsOAuthAppManifest(r *types.OAuthAppManifest, create bo
 	case types.OAuthAppTypeGitHub:
 		r.AuthURL = GitHubAuthorizeURL
 		r.TokenURL = GitHubTokenURL
+	case types.OAuthAppTypeWordPress:
+		r.AuthURL = WordPressAuthorizeURL
+		r.TokenURL = WordPressTokenURL
 	case types.OAuthAppTypeZoom:
 		r.AuthURL = ZoomAuthorizeURL
 		r.TokenURL = ZoomTokenURL

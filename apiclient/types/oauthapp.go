@@ -9,6 +9,7 @@ const (
 	OAuthAppTypeGitHub       OAuthAppType = "github"
 	OAuthAppTypeGoogle       OAuthAppType = "google"
 	OAuthAppTypeSalesforce   OAuthAppType = "salesforce"
+	OAuthAppTypeWordPress    OAuthAppType = "wordpress"
 	OAuthAppTypeZoom         OAuthAppType = "zoom"
 	OAuthAppTypeCustom       OAuthAppType = "custom"
 )

@@ -10,6 +10,7 @@ export const OAuthProvider = {
 	Slack: "slack",
 	Salesforce: "salesforce",
 	Notion: "notion",
+	WordPress: "wordpress",
 	Zoom: "zoom",
 	Custom: "custom",
 } as const;
