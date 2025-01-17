@@ -278,8 +278,6 @@ func (e *Emitter) printRun(ctx context.Context, state *printState, run v1.Run, r
 		e.liveStateLock.Lock()
 		defer e.liveStateLock.Unlock()
 		for {
-			e.liveBroadcast.Wait()
-
 			select {
 			case broadcast <- struct{}{}:
 			default:
@@ -290,6 +288,8 @@ func (e *Emitter) printRun(ctx context.Context, state *printState, run v1.Run, r
 				return
 			default:
 			}
+
+			e.liveBroadcast.Wait()
 		}
 	}()
 
