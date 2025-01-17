@@ -8,6 +8,7 @@ import {
 	ControlledAutosizeTextarea,
 	ControlledInput,
 } from "~/components/form/controlledInputs";
+import { CardDescription } from "~/components/ui/card";
 import { Form } from "~/components/ui/form";
 
 const formSchema = z.object({
@@ -84,12 +85,15 @@ export function AgentForm({ agent, onSubmit, onChange }: AgentFormProps) {
 					Instructions
 				</h4>
 
+				<CardDescription>
+					Give the agent instructions on how to behave and respond to input.
+				</CardDescription>
+
 				<ControlledAutosizeTextarea
 					control={form.control}
 					autoComplete="off"
 					name="prompt"
 					maxHeight={300}
-					placeholder="Give the agent instructions on how to behave and respond to input."
 				/>
 			</form>
 		</Form>
