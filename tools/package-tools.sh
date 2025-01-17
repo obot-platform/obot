@@ -32,11 +32,25 @@ OBOT_SERVER_VERSIONS=""
 for REPO in "${TOOL_REPOS[@]}"; do
     # Extract the repo name (e.g., tools, enterprise-tools)
     REPO_NAME=$(basename "${REPO}")
+    HASH=""
+    # If there is a hash in the repo name, then extract it
+    if [[ "${REPO_NAME}" == *"@"* ]]; then
+      # Extract the part after "@"
+      HASH="${REPO_NAME#*@}"
+      REPO_NAME=${REPO_NAME%@*}
+      REPO=${REPO%@*}
+	fi
     REPO_DIR="obot-tools/${REPO_NAME}"
 
     # Clone the repository into the target directory
     echo "Cloning ${REPO} into ${REPO_DIR}..."
-    if git clone --depth=1 "https://${REPO}" "${REPO_NAME}"; then
+    if git clone "https://${REPO}" "${REPO_NAME}"; then
+    	# Checkout the commit, if one was set.
+    	if [[ -n "${HASH}" ]]; then
+    		pushd ./"${REPO_NAME}"
+    		git checkout "${HASH}"
+    		popd
+    	fi
         # Change to the repository directory
         # Check if the build script exists and is executable
         if [[ -x "./${REPO_NAME}/scripts/build.sh" ]]; then
