@@ -16,6 +16,7 @@ import (
 	"github.com/obot-platform/obot/pkg/invoke"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -354,39 +355,48 @@ func (h *Handler) Cleanup(req router.Request, _ router.Response) error {
 	file := req.Object.(*v1.KnowledgeFile)
 
 	var ks v1.KnowledgeSet
-	if err := req.Client.Get(req.Ctx, router.Key(file.Namespace, file.Spec.KnowledgeSetName), &ks); err != nil {
+	if err := req.Client.Get(req.Ctx, router.Key(file.Namespace, file.Spec.KnowledgeSetName), &ks); err != nil || !ks.DeletionTimestamp.IsZero() {
+		// The workspace will be deleted and the knowledge set removed from knowledge with the knowledge set controller.
 		return kclient.IgnoreNotFound(err)
 	}
 
-	var source *v1.KnowledgeSource
+	var (
+		source              *v1.KnowledgeSource
+		removeFromWorkspace = true
+	)
 	if file.Spec.KnowledgeSourceName != "" {
 		source = &v1.KnowledgeSource{}
-		if err := req.Client.Get(req.Ctx, router.Key(file.Namespace, file.Spec.KnowledgeSourceName), source); kclient.IgnoreNotFound(err) != nil {
+		if err := req.Client.Get(req.Ctx, router.Key(file.Namespace, file.Spec.KnowledgeSourceName), source); apierrors.IsNotFound(err) || !source.DeletionTimestamp.IsZero() {
+			// The workspace will be deleted when the knowledge source is removed.
+			removeFromWorkspace = false
+		} else if err != nil {
 			return err
 		}
 	}
 
-	workspaceID, err := h.getWorkspaceID(req.Ctx, req.Client, &ks, source)
-	if err != nil {
-		return kclient.IgnoreNotFound(err)
-	}
+	if removeFromWorkspace {
+		workspaceID, err := h.getWorkspaceID(req.Ctx, req.Client, &ks, source)
+		if err != nil {
+			return kclient.IgnoreNotFound(err)
+		}
 
-	if err := h.gptScript.DeleteFileInWorkspace(req.Ctx, file.Spec.FileName, gptscript.DeleteFileInWorkspaceOptions{
-		WorkspaceID: workspaceID,
-	}); err != nil {
-		return err
-	}
+		if err = h.gptScript.DeleteFileInWorkspace(req.Ctx, file.Spec.FileName, gptscript.DeleteFileInWorkspaceOptions{
+			WorkspaceID: workspaceID,
+		}); err != nil {
+			return err
+		}
 
-	if err := h.gptScript.DeleteFileInWorkspace(req.Ctx, cleanInput(file.Spec.FileName), gptscript.DeleteFileInWorkspaceOptions{
-		WorkspaceID: workspaceID,
-	}); err != nil {
-		return err
-	}
+		if err = h.gptScript.DeleteFileInWorkspace(req.Ctx, cleanInput(file.Spec.FileName), gptscript.DeleteFileInWorkspaceOptions{
+			WorkspaceID: workspaceID,
+		}); err != nil {
+			return err
+		}
 
-	if err := h.gptScript.DeleteFileInWorkspace(req.Ctx, OutputFile(file.Spec.FileName), gptscript.DeleteFileInWorkspaceOptions{
-		WorkspaceID: workspaceID,
-	}); err != nil {
-		return err
+		if err = h.gptScript.DeleteFileInWorkspace(req.Ctx, OutputFile(file.Spec.FileName), gptscript.DeleteFileInWorkspaceOptions{
+			WorkspaceID: workspaceID,
+		}); err != nil {
+			return err
+		}
 	}
 
 	thread, err := getThread(req.Ctx, req.Client, &ks, source)
