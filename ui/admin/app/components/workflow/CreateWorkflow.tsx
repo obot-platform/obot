@@ -4,11 +4,18 @@ import { $path } from "safe-routes";
 import { toast } from "sonner";
 import { mutate } from "swr";
 
+import { CapabilityTool } from "~/lib/model/toolReferences";
 import { WorkflowService } from "~/lib/service/api/workflowService";
 import { generateRandomName } from "~/lib/service/nameGenerator";
 
 import { Button } from "~/components/ui/button";
 import { useAsync } from "~/hooks/useAsync";
+
+const CapabilityTools = [
+	CapabilityTool.Knowledge,
+	CapabilityTool.WorkspaceFiles,
+	CapabilityTool.Database,
+];
 
 export function CreateWorkflow() {
 	const navigate = useNavigate();
@@ -26,7 +33,12 @@ export function CreateWorkflow() {
 		<Button
 			variant="outline"
 			startContent={<PlusIcon />}
-			onClick={() => createWorkflow.execute({ name: generateRandomName() })}
+			onClick={() =>
+				createWorkflow.execute({
+					name: generateRandomName(),
+					tools: CapabilityTools,
+				})
+			}
 			loading={createWorkflow.isLoading}
 		>
 			Create Workflow

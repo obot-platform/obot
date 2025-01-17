@@ -7,6 +7,7 @@ import { $path } from "safe-routes";
 import useSWR, { mutate, preload } from "swr";
 
 import { Agent } from "~/lib/model/agents";
+import { CapabilityTool } from "~/lib/model/toolReferences";
 import { AgentService } from "~/lib/service/api/agentService";
 import { ThreadsService } from "~/lib/service/api/threadsService";
 import { generateRandomName } from "~/lib/service/nameGenerator";
@@ -30,6 +31,12 @@ export async function clientLoader() {
 	return null;
 }
 
+const CapabilityTools = [
+	CapabilityTool.Knowledge,
+	CapabilityTool.WorkspaceFiles,
+	CapabilityTool.Database,
+	CapabilityTool.Tasks,
+];
 export default function Agents() {
 	const navigate = useNavigate();
 	const getThreads = useSWR(ThreadsService.getThreads.key(), () =>
@@ -68,6 +75,7 @@ export default function Agents() {
 								AgentService.createAgent({
 									agent: {
 										name: generateRandomName(),
+										tools: CapabilityTools,
 									} as Agent,
 								}).then((agent) => {
 									mutate(AgentService.getAgents.key());
