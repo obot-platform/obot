@@ -1,5 +1,4 @@
 import { zodResolver } from "@hookform/resolvers/zod";
-import { AnimatePresence, motion } from "motion/react";
 import { useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
@@ -7,6 +6,7 @@ import { z } from "zod";
 import { Step, Workflow } from "~/lib/model/workflows";
 import { noop } from "~/lib/utils";
 
+import { Animate, AnimatePresence } from "~/components/ui/animate";
 import { SortableList } from "~/components/ui/dnd/sortable";
 import { Form, FormField, FormItem, FormMessage } from "~/components/ui/form";
 import { AddStepButton } from "~/components/workflow/steps/AddStep";
@@ -51,7 +51,7 @@ export function StepsForm({
 	return (
 		<Form {...form}>
 			<AnimatePresence>
-				<motion.form onSubmit={handleSubmit} layout="size">
+				<Animate.form onSubmit={handleSubmit} layout="size">
 					<FormField
 						control={form.control}
 						name="steps"
@@ -94,7 +94,7 @@ export function StepsForm({
 							</FormItem>
 						)}
 					/>
-				</motion.form>
+				</Animate.form>
 			</AnimatePresence>
 		</Form>
 	);

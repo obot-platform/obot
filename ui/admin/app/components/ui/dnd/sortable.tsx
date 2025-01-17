@@ -2,9 +2,10 @@ import { DndContext, DragEndEvent, UniqueIdentifier } from "@dnd-kit/core";
 import * as Primitive from "@dnd-kit/sortable";
 import { CSS, Transform } from "@dnd-kit/utilities";
 import { GripVerticalIcon } from "lucide-react";
-import { AnimatePresence } from "motion/react";
 
 import { cn } from "~/lib/utils";
+
+import { AnimatePresence } from "~/components/ui/animate";
 
 const SortableContext = Primitive.SortableContext;
 

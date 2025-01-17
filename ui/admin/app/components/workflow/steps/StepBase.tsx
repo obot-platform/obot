@@ -1,6 +1,5 @@
 import { ChevronRight, Trash } from "lucide-react";
-import { motion } from "motion/react";
-import { useState } from "react";
+import { memo, useState } from "react";
 
 import { Step, StepType, getDefaultStep } from "~/lib/model/workflows";
 import { cn } from "~/lib/utils";
@@ -9,6 +8,10 @@ import {
 	ConfirmationDialog,
 	ConfirmationDialogProps,
 } from "~/components/composed/ConfirmationDialog";
+import { Animate } from "~/components/ui/animate";
+import { ExpandAndCollapse } from "~/components/ui/animate/expand";
+import { Rotate } from "~/components/ui/animate/rotate";
+import { SlideInOut } from "~/components/ui/animate/slide-in-out";
 import { Button } from "~/components/ui/button";
 import { useDndContext } from "~/components/ui/dnd";
 import { SortableHandle } from "~/components/ui/dnd/sortable";
@@ -35,7 +38,7 @@ const UpdateStepTypeDialogProps: Partial<ConfirmationDialogProps> = {
 	},
 };
 
-export function StepBase({
+export const StepBase = memo(function StepBase({
 	className,
 	children,
 	step,
@@ -83,16 +86,10 @@ export function StepBase({
 	};
 
 	return (
-		<motion.div
-			initial={{ transform: "translateX(-100%)", opacity: 0 }}
-			animate={{ transform: "translateX(0)", opacity: 1 }}
-			exit={{ transform: "translateX(-100%)", opacity: 0 }}
-		>
-			<motion.div
+		<SlideInOut direction={{ in: "up", out: "right" }}>
+			<Animate.div
 				className={cn("rounded-md border bg-background", className)}
 				layout
-				initial={{ height: "auto" }}
-				animate={{ height: "auto" }}
 				transition={dnd.active ? { duration: 0 } : undefined}
 			>
 				<div
@@ -113,13 +110,9 @@ export function StepBase({
 								setIsExpanded(!showExpanded);
 							}}
 						>
-							<motion.div
-								layout
-								initial={{ rotate: 0 }}
-								animate={{ rotate: showExpanded ? 90 : 0 }}
-							>
+							<Rotate active={showExpanded}>
 								<ChevronRight className="h-4 w-4" />
-							</motion.div>
+							</Rotate>
 						</Button>
 
 						<StepTypeSelect value={type} onChange={handleUpdateType} />
@@ -149,19 +142,9 @@ export function StepBase({
 					<ConfirmationDialog {...dialogProps} />
 				</div>
 
-				<motion.div
-					layout
-					initial={{ height: 0, opacity: 0, visibility: "hidden" }}
-					animate={{
-						height: showExpanded ? "auto" : 0,
-						opacity: showExpanded ? 1 : 0,
-						visibility: showExpanded ? "visible" : "hidden",
-					}}
-				>
-					{children}
-				</motion.div>
-			</motion.div>
-		</motion.div>
+				<ExpandAndCollapse active={showExpanded}>{children}</ExpandAndCollapse>
+			</Animate.div>
+		</SlideInOut>
 	);
 
 	function getTextFieldConfig() {
@@ -209,4 +192,4 @@ export function StepBase({
 
 		return step.step?.length;
 	}
-}
+});
