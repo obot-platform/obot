@@ -11,6 +11,7 @@ import { Microsoft365OAuthApp } from "~/lib/model/oauthApps/providers/microsoft3
 import { NotionOAuthApp } from "~/lib/model/oauthApps/providers/notion";
 import { SalesforceOAuthApp } from "~/lib/model/oauthApps/providers/salesforce";
 import { SlackOAuthApp } from "~/lib/model/oauthApps/providers/slack";
+import { WordPressOAuthApp } from "~/lib/model/oauthApps/providers/wordpress";
 import { ZoomOAuthApp } from "~/lib/model/oauthApps/providers/zoom";
 import { EntityMeta } from "~/lib/model/primitives";
 
@@ -22,6 +23,7 @@ export const OAuthAppSpecMap = {
 	[OAuthProvider.Slack]: SlackOAuthApp,
 	[OAuthProvider.Salesforce]: SalesforceOAuthApp,
 	[OAuthProvider.Notion]: NotionOAuthApp,
+	[OAuthProvider.WordPress]: WordPressOAuthApp,
 	[OAuthProvider.Zoom]: ZoomOAuthApp,
 	// Custom OAuth apps are intentionally omitted from the map.
 	// They are handled separately
