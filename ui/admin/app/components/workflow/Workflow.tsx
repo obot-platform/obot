@@ -192,15 +192,15 @@ function WorkflowContent({ className }: WorkflowProps) {
 
 				<Accordion type="multiple" className="m-4 p-4">
 					<AccordionItem value="advanced">
-						<AccordionTrigger>
+						<AccordionTrigger className="border-b">
 							<h4 className="flex items-center gap-2">
 								<GearIcon />
 								Advanced
 							</h4>
 						</AccordionTrigger>
 
-						<AccordionContent>
-							<div className="m-4 flex flex-col gap-4 p-4">
+						<AccordionContent className="space-y-8 py-4">
+							<div className="flex flex-col gap-4">
 								<h4>Model</h4>
 
 								<CardDescription>
