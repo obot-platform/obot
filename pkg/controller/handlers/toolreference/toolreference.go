@@ -3,9 +3,11 @@ package toolreference
 import (
 	"context"
 	"crypto/sha256"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
+	"regexp"
 	"strings"
 	"time"
 
@@ -27,6 +29,8 @@ import (
 )
 
 var log = logger.Package()
+
+var jsonErrRegexp = regexp.MustCompile(`\{.*"error":.*}`)
 
 type indexEntry struct {
 	Reference string `json:"reference,omitempty"`
@@ -406,7 +410,22 @@ func (h *Handler) BackPopulateModels(req router.Request, _ router.Response) erro
 	availableModels, err := availablemodels.ForProvider(req.Ctx, h.dispatcher, req.Namespace, req.Name)
 	if err != nil {
 		// Don't error and retry because it will likely fail again. Log the error, and the user can re-sync manually.
-		log.Errorf("Failed to get available models for model provider %q: %v", toolRef.Name, err)
+		// Also, the toolRef.Status.Error field will bubble up to the user in the UI.
+
+		// Check if the model provider returned a properly formatted error message and set it as status
+		match := jsonErrRegexp.FindString(err.Error())
+		if match != "" {
+			toolRef.Status.Error = match
+			type errorResponse struct {
+				Error string `json:"error"`
+			}
+			var eR errorResponse
+			if err := json.Unmarshal([]byte(match), &eR); err == nil {
+				toolRef.Status.Error = eR.Error
+			}
+		}
+
+		log.Errorf("%v", err)
 		return nil
 	}
 
