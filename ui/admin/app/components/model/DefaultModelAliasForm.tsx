@@ -297,7 +297,7 @@ export function getModelOptionsByModelProvider(
 	return Object.entries(byModelProviderGroups).map(
 		([modelProvider, models]) => {
 			return {
-				heading: modelProvider,
+				heading: models[0]?.modelProviderName ?? modelProvider,
 				value: models.sort((a, b) => {
 					// First compare by suggestion status if suggestions are provided
 					const aIsSuggested = a.name && suggestions?.includes(a.name);

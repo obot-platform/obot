@@ -164,9 +164,14 @@ func convertModel(ctx context.Context, c kclient.Client, model v1.Model) (types.
 		aliasAssigned = &model.Status.AliasAssigned
 	}
 
+	modelManifest := model.Spec.Manifest
+	if toolRef.Status.Tool != nil {
+		modelManifest.ModelProviderName = toolRef.Status.Tool.Name
+	}
+
 	return types.Model{
 		Metadata:      MetadataFrom(&model),
-		ModelManifest: model.Spec.Manifest,
+		ModelManifest: modelManifest,
 		ModelStatus: types.ModelStatus{
 			AliasAssigned: aliasAssigned,
 		},
