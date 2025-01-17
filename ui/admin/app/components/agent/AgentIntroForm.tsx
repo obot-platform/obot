@@ -70,6 +70,7 @@ export function AgentIntroForm({
 
 				<CardDescription>
 					Start each conversation from the agent with a friendly introduction.
+					The introduction is <b>Markdown</b> syntax supported.
 				</CardDescription>
 
 				<ControlledAutosizeTextarea

@@ -36,7 +36,7 @@ interface MessageProps {
 }
 
 // Allow links for file references in messages if it starts with file://, otherwise this will cause an empty href and cause app to reload when clicking on it
-const urlTransformAllowFiles = (u: string) => {
+export const urlTransformAllowFiles = (u: string) => {
 	if (u.startsWith("file://")) {
 		return u;
 	}

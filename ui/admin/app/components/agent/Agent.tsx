@@ -105,6 +105,10 @@ export function Agent({ className, currentThreadId, onRefresh }: AgentProps) {
 					<AgentForm agent={agentUpdates} onChange={partialSetAgent} />
 				</div>
 
+				<div className="m-4 p-4">
+					<AgentIntroForm agent={agentUpdates} onChange={partialSetAgent} />
+				</div>
+
 				<div className="m-4 space-y-4 p-4">
 					<h4 className="flex items-center gap-2 border-b pb-2">
 						<BlocksIcon />
@@ -121,10 +125,6 @@ export function Agent({ className, currentThreadId, onRefresh }: AgentProps) {
 						entity={agentUpdates}
 						onChange={partialSetAgent}
 					/>
-				</div>
-
-				<div className="m-4 p-4">
-					<AgentIntroForm agent={agentUpdates} onChange={partialSetAgent} />
 				</div>
 
 				<div className="m-4 space-y-4 p-4">

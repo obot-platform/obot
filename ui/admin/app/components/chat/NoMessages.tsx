@@ -1,6 +1,13 @@
 import { BrainCircuit, Compass, Wrench } from "lucide-react";
+import Markdown from "react-markdown";
+import rehypeExternalLinks from "rehype-external-links";
+import remarkGfm from "remark-gfm";
+
+import { cn } from "~/lib/utils";
 
 import { useChat } from "~/components/chat/ChatContext";
+import { urlTransformAllowFiles } from "~/components/chat/Message";
+import { CustomMarkdownComponents } from "~/components/react-markdown";
 import { Button } from "~/components/ui/button";
 
 export function NoMessages() {
@@ -15,8 +22,18 @@ export function NoMessages() {
 		<div className="flex h-full flex-col items-center justify-center space-y-4 p-4 text-center">
 			<h2 className="text-2xl font-semibold">Start the conversation!</h2>
 			<p className="text-gray-500">
-				{introductionMessage ||
-					"Looking for a starting point? Try one of these options."}
+				<Markdown
+					className={cn(
+						"prose max-w-full flex-auto overflow-x-auto break-words text-muted-foreground dark:prose-invert prose-pre:whitespace-pre-wrap prose-pre:break-words prose-thead:text-left prose-img:rounded-xl prose-img:shadow-lg"
+					)}
+					remarkPlugins={[remarkGfm]}
+					rehypePlugins={[[rehypeExternalLinks, { target: "_blank" }]]}
+					urlTransform={urlTransformAllowFiles}
+					components={CustomMarkdownComponents}
+				>
+					{introductionMessage ||
+						"Looking for a starting point? Try one of these options."}
+				</Markdown>
 			</p>
 			<div className="flex flex-wrap justify-center gap-2">
 				{starterMessages && starterMessages.length > 0
