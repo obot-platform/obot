@@ -1,20 +1,13 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { BrainIcon } from "lucide-react";
-import { useEffect, useMemo } from "react";
+import { useEffect } from "react";
 import { useForm } from "react-hook-form";
-import useSWR from "swr";
 import { z } from "zod";
 
-import { ModelUsage } from "~/lib/model/models";
-import { ModelApiService } from "~/lib/service/api/modelApiService";
-
-import { ComboBox } from "~/components/composed/ComboBox";
 import {
 	ControlledAutosizeTextarea,
-	ControlledCustomInput,
 	ControlledInput,
 } from "~/components/form/controlledInputs";
-import { getModelOptionsByModelProvider } from "~/components/model/DefaultModelAliasForm";
 import { Form } from "~/components/ui/form";
 
 const formSchema = z.object({
@@ -35,17 +28,6 @@ type AgentFormProps = {
 };
 
 export function AgentForm({ agent, onSubmit, onChange }: AgentFormProps) {
-	const getModels = useSWR(
-		ModelApiService.getModels.key(),
-		ModelApiService.getModels
-	);
-
-	const models = useMemo(() => {
-		if (!getModels.data) return [];
-
-		return getModels.data.filter((m) => !m.usage || m.usage === ModelUsage.LLM);
-	}, [getModels.data]);
-
 	const form = useForm<AgentInfoFormValues>({
 		resolver: zodResolver(formSchema),
 		mode: "onChange",
@@ -77,7 +59,6 @@ export function AgentForm({ agent, onSubmit, onChange }: AgentFormProps) {
 		onSubmit?.({ ...agent, ...values })
 	);
 
-	const modelOptionsByGroup = getModelOptionsByModelProvider(models);
 	return (
 		<Form {...form}>
 			<form onSubmit={handleSubmit} className="space-y-4">
@@ -110,23 +91,6 @@ export function AgentForm({ agent, onSubmit, onChange }: AgentFormProps) {
 					maxHeight={300}
 					placeholder="Give the agent instructions on how to behave and respond to input."
 				/>
-
-				<ControlledCustomInput
-					label="Model"
-					control={form.control}
-					name="model"
-				>
-					{({ field: { ref: _, ...field } }) => (
-						<ComboBox
-							allowClear
-							clearLabel="Use System Default"
-							placeholder="Use System Default"
-							value={models.find((m) => m.id === field.value)}
-							onChange={(value) => field.onChange(value?.id ?? "")}
-							options={modelOptionsByGroup}
-						/>
-					)}
-				</ControlledCustomInput>
 			</form>
 		</Form>
 	);

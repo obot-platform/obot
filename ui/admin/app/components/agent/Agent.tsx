@@ -1,3 +1,4 @@
+import { GearIcon } from "@radix-ui/react-icons";
 import { BlocksIcon, LibraryIcon, PlusIcon, WrenchIcon } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import useSWR from "swr";
@@ -14,9 +15,16 @@ import { AgentIntroForm } from "~/components/agent/AgentIntroForm";
 import { PastThreads } from "~/components/agent/PastThreads";
 import { ToolForm } from "~/components/agent/ToolForm";
 import { AgentCapabilityForm } from "~/components/agent/shared/AgentCapabilityForm";
+import { AgentModelSelect } from "~/components/agent/shared/AgentModelSelect";
 import { EnvironmentVariableSection } from "~/components/agent/shared/EnvironmentVariableSection";
 import { ToolAuthenticationStatus } from "~/components/agent/shared/ToolAuthenticationStatus";
 import { AgentKnowledgePanel } from "~/components/knowledge";
+import {
+	Accordion,
+	AccordionContent,
+	AccordionItem,
+	AccordionTrigger,
+} from "~/components/ui/accordion";
 import { Button } from "~/components/ui/button";
 import { CardDescription } from "~/components/ui/card";
 import { ScrollArea } from "~/components/ui/scroll-area";
@@ -129,7 +137,7 @@ export function Agent({ className, currentThreadId, onRefresh }: AgentProps) {
 
 				<div className="m-4 space-y-4 p-4">
 					<h4 className="flex items-center gap-2 border-b pb-2">
-						<WrenchIcon className="h-5 w-5" />
+						<WrenchIcon />
 						Tools
 					</h4>
 
@@ -147,13 +155,15 @@ export function Agent({ className, currentThreadId, onRefresh }: AgentProps) {
 
 				<div className="m-4 space-y-4 p-4">
 					<h4 className="flex items-center gap-2 border-b pb-2">
-						<LibraryIcon className="h-6 w-6" />
+						<LibraryIcon />
 						Knowledge
 					</h4>
+
 					<CardDescription>
 						Provide knowledge to the agent in the form of files, website, or
 						external links in order to give it context about various topics.
 					</CardDescription>
+
 					<AgentKnowledgePanel
 						agentId={agent.id}
 						agent={agent}
@@ -168,11 +178,37 @@ export function Agent({ className, currentThreadId, onRefresh }: AgentProps) {
 					/>
 				</div>
 
-				<EnvironmentVariableSection
-					entity={agent}
-					onUpdate={partialSetAgent}
-					entityType="agent"
-				/>
+				<Accordion type="multiple" className="m-4 p-4">
+					<AccordionItem value="model">
+						<AccordionTrigger>
+							<h4 className="flex items-center gap-2">
+								<GearIcon className="size-5" />
+								Advanced
+							</h4>
+						</AccordionTrigger>
+
+						<AccordionContent>
+							<div className="m-4 flex flex-col gap-4 p-4">
+								<h4>Model</h4>
+
+								<CardDescription>
+									The model to use for the agent.
+								</CardDescription>
+
+								<AgentModelSelect
+									entity={agentUpdates}
+									onChange={(updates) => partialSetAgent(updates)}
+								/>
+							</div>
+
+							<EnvironmentVariableSection
+								entity={agent}
+								onUpdate={partialSetAgent}
+								entityType="agent"
+							/>
+						</AccordionContent>
+					</AccordionItem>
+				</Accordion>
 			</ScrollArea>
 
 			<footer className="flex items-center justify-between gap-4 px-8 py-4 shadow-inner">
@@ -202,7 +238,7 @@ export function Agent({ className, currentThreadId, onRefresh }: AgentProps) {
 							onRefresh?.(null);
 						}}
 					>
-						<PlusIcon className="h-4 w-4" />
+						<PlusIcon />
 						New Thread
 					</Button>
 				</div>

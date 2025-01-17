@@ -1,4 +1,4 @@
-import { PenIcon, VariableIcon } from "lucide-react";
+import { PenIcon } from "lucide-react";
 import { toast } from "sonner";
 
 import { Agent } from "~/lib/model/agents";
@@ -61,10 +61,7 @@ export function EnvironmentVariableSection({
 
 	return (
 		<div className="m-4 space-y-4 p-4">
-			<h4 className="flex items-center gap-2 pb-2">
-				<VariableIcon className="h-5 w-5" />
-				Environment Variables
-			</h4>
+			<h4>Environment Variables</h4>
 
 			<CardDescription>
 				Add environment variables that will be available to all tools as key
