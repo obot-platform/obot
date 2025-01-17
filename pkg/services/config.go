@@ -318,6 +318,9 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		config.AuthAdminEmails,
 		gserver.Options(config.GatewayConfig),
 	)
+	if err != nil {
+		return nil, err
+	}
 
 	var authenticators authenticator.Request = gatewayServer
 	if !config.DisableAuthentication {
