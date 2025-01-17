@@ -64,6 +64,7 @@ type Config struct {
 	EncryptionConfigFile       string   `usage:"The path to the encryption configuration file" default:"./encryption.yaml"`
 	KnowledgeSetIngestionLimit int      `usage:"The maximum number of files to ingest into a knowledge set" default:"3000" env:"OBOT_KNOWLEDGESET_INGESTION_LIMIT" name:"knowledge-set-ingestion-limit"`
 	EmailServerName            string   `usage:"The name of the email server to display for email receivers"`
+	EnableSMTPServer           bool     `usage:"Enable SMTP server to receive emails" default:"false" env:"OBOT_ENABLE_SMTP_SERVER"`
 	Docker                     bool     `usage:"Enable Docker support" default:"false" env:"OBOT_DOCKER"`
 	EnvKeys                    []string `usage:"The environment keys to pass through to the GPTScript server" env:"OBOT_ENV_KEYS"`
 
@@ -356,7 +357,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		authenticators = union.New(authenticators, authn.NewNoAuth(gatewayClient))
 	}
 
-	if config.EmailServerName != "" {
+	if config.EmailServerName != "" && config.EnableSMTPServer {
 		go smtp.Start(ctx, storageClient, config.EmailServerName)
 	}
 

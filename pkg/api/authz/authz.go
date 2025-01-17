@@ -46,7 +46,7 @@ var staticRules = map[string][]string{
 		"GET /api/app-oauth/callback/{id}",
 		"GET /api/app-oauth/get-token",
 
-		"POST /webhook/sendgrid",
+		"POST /api/sendgrid",
 	},
 	AuthenticatedGroup: {
 		"/api/oauth/redirect/{service}",
