@@ -64,7 +64,7 @@ export function ToolCatalog({
 						!app.noGatewayIntegration ||
 						(app.noGatewayIntegration && app.appOverride)
 				)
-				.map((app) => app.type)
+				.map((app) => app.appOverride?.integration ?? app.type)
 		);
 	}, [oauthApps]);
 

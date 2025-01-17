@@ -69,9 +69,8 @@ export function convertToolReferencesToCategoryMap(
 			continue;
 		}
 
-		const category = !toolReference.builtin
-			? CustomToolsToolCategory
-			: toolReference.metadata?.category || UncategorizedToolCategory;
+		const category =
+			toolReference.metadata?.category || UncategorizedToolCategory;
 
 		if (!result[category]) {
 			result[category] = {
