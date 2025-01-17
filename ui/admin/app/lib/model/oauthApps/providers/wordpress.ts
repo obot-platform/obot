@@ -19,7 +19,7 @@ const steps: OAuthFormStep<z.infer<typeof schema>>[] = [
 			"### Step 1: Create a New Application at Developer.wordpress.com:\n" +
 			"If you already have an app, you can skip to Step 2.\n\n" +
 			"- Ensure you are logged into your preferred Wordpress.com account.\n" +
-			"- You can create and manage your apps at the [Apps](https://developer.wordpress.com/apps/) page.\n" +
+			"- You can create and manage your apps at the [Application Manager](https://developer.wordpress.com/apps/) page.\n" +
 			"- Click **Create New Application** on the top right corner.\n" +
 			"- Enter a **Name**, **Description**, and **Website** for your application.\n" +
 			"- Copy the url below and paste it into the **Redirect URL** field.\n",
