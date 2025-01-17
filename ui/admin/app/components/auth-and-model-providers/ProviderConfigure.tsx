@@ -10,6 +10,7 @@ import { ModelProviderApiService } from "~/lib/service/api/modelProviderApiServi
 import { ProviderForm } from "~/components/auth-and-model-providers/ProviderForm";
 import { ProviderIcon } from "~/components/auth-and-model-providers/ProviderIcon";
 import { CommonModelProviderIds } from "~/components/auth-and-model-providers/constants";
+import { CopyText } from "~/components/composed/CopyText";
 import { DefaultModelAliasForm } from "~/components/model/DefaultModelAliasForm";
 import { LoadingSpinner } from "~/components/ui/LoadingSpinner";
 import { Button } from "~/components/ui/button";
@@ -172,6 +173,20 @@ export function ProviderConfigureContent({
 						recommends
 					</Link>{" "}
 					Voyage AI.
+				</DialogDescription>
+			)}
+			{provider.type === "authprovider" && (
+				<DialogDescription className="flex items-center justify-center px-4">
+					Note: the callback URL for this auth provider is
+					<CopyText
+						text={
+							window.location.protocol +
+							"//" +
+							window.location.host +
+							"/oauth2/callback"
+						}
+						className="w-fit-content ml-1 max-w-full"
+					/>
 				</DialogDescription>
 			)}
 			{revealProvider.isLoading ? (
