@@ -26,6 +26,7 @@ import {
 import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
 import { Card, CardContent } from "~/components/ui/card";
+import { ClickableDiv } from "~/components/ui/clickable-div";
 import { Link } from "~/components/ui/link";
 import {
 	Tooltip,
@@ -138,26 +139,30 @@ export function ThreadMeta({
 							<AccordionContent className="mx-4">
 								<ul className="space-y-2">
 									{files.map((file) => (
-										<li key={file.name} className="flex items-center gap-2">
-											<Tooltip>
-												<TooltipTrigger asChild>
-													<Button
-														variant="ghost"
-														size="icon-sm"
-														onClick={() =>
-															ThreadsService.downloadFile(thread.id, file.name)
-														}
-													>
-														<DownloadIcon />
-													</Button>
-												</TooltipTrigger>
+										<ClickableDiv
+											key={file.name}
+											onClick={() =>
+												ThreadsService.downloadFile(thread.id, file.name)
+											}
+										>
+											<li key={file.name} className="flex items-center gap-2">
+												<Tooltip>
+													<TooltipTrigger asChild>
+														<Button variant="ghost" size="icon-sm">
+															<DownloadIcon />
+														</Button>
+													</TooltipTrigger>
 
-												<TooltipContent>Download</TooltipContent>
-											</Tooltip>
-											<Truncate clamp className="flex-1">
-												{file.name}
-											</Truncate>
-										</li>
+													<TooltipContent>Download</TooltipContent>
+												</Tooltip>
+												<Truncate
+													className="w-fit flex-1"
+													tooltipContentProps={{ align: "start" }}
+												>
+													{file.name}
+												</Truncate>
+											</li>
+										</ClickableDiv>
 									))}
 								</ul>
 							</AccordionContent>
