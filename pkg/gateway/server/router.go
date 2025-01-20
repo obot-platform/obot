@@ -1,6 +1,8 @@
 package server
 
 import (
+	"net/http"
+
 	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/api/server"
 )
@@ -9,6 +11,9 @@ func (s *Server) AddRoutes(mux *server.Server) {
 	wrap := func(h api.HandlerFunc) api.HandlerFunc {
 		return apply(h, addRequestID, addLogger, logRequest, contentType("application/json"))
 	}
+
+	// Health endpoint
+	mux.HTTPHandle("GET /api/healthz", http.HandlerFunc(s.db.Check))
 	// All the routes served by the API will start with `/api`
 	mux.HandleFunc("GET /api/me", wrap(s.getCurrentUser))
 	mux.HandleFunc("GET /api/users", wrap(s.getUsers))
