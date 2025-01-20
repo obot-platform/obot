@@ -65,7 +65,7 @@ type Config struct {
 	Docker                     bool     `usage:"Enable Docker support" default:"false" env:"OBOT_DOCKER"`
 	EnvKeys                    []string `usage:"The environment keys to pass through to the GPTScript server" env:"OBOT_ENV_KEYS"`
 	KnowledgeSetIngestionLimit int      `usage:"The maximum number of files to ingest into a knowledge set" default:"3000" env:"OBOT_KNOWLEDGESET_INGESTION_LIMIT" name:"knowledge-set-ingestion-limit"`
-	EnableAuthentication       bool     `usage:"Enable authentication" default:"false" env:"OBOT_ENABLE_AUTHENTICATION"`
+	EnableAuthentication       bool     `usage:"Enable authentication" default:"false"`
 	AuthAdminEmails            []string `usage:"Emails of admin users"`
 
 	// Sendgrid webhook

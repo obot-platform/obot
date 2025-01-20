@@ -175,6 +175,7 @@ type SerializableState struct {
 	PreferredUsername string     `json:"preferredUsername"`
 	User              string     `json:"user"`
 	Email             string     `json:"email"`
+	SetCookie         string     `json:"setCookie"`
 }
 
 func (p *Proxy) authenticateRequest(req *http.Request) (*authenticator.Response, bool, error) {
@@ -198,9 +199,10 @@ func (p *Proxy) authenticateRequest(req *http.Request) (*authenticator.Response,
 	if err != nil {
 		return nil, false, err
 	}
+	defer stateResponse.Body.Close()
 
 	var ss SerializableState
-	if err := json.NewDecoder(stateResponse.Body).Decode(&ss); err != nil {
+	if err = json.NewDecoder(stateResponse.Body).Decode(&ss); err != nil {
 		return nil, false, err
 	}
 
@@ -212,20 +214,26 @@ func (p *Proxy) authenticateRequest(req *http.Request) (*authenticator.Response,
 		}
 	}
 
+	u := &user.DefaultInfo{
+		UID:  ss.User,
+		Name: userName,
+		Extra: map[string][]string{
+			"email":                   {ss.Email},
+			"auth_provider_name":      {p.name},
+			"auth_provider_namespace": {p.namespace},
+		},
+	}
+
+	if ss.SetCookie != "" {
+		u.Extra["set-cookie"] = []string{ss.SetCookie}
+	}
+
 	if req.URL.Path == "/api/me" {
 		// Put the access token on the context so that the profile icon can be fetched.
 		*req = *req.WithContext(accesstoken.ContextWithAccessToken(req.Context(), ss.AccessToken))
 	}
 
 	return &authenticator.Response{
-		User: &user.DefaultInfo{
-			UID:  ss.User,
-			Name: userName,
-			Extra: map[string][]string{
-				"email":                   {ss.Email},
-				"auth_provider_name":      {p.name},
-				"auth_provider_namespace": {p.namespace},
-			},
-		},
+		User: u,
 	}, true, nil
 }
