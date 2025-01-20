@@ -23,6 +23,9 @@ export function Markdown({
 	children?: string | null;
 	className?: string;
 }) {
+	const allowedAttributes = {
+		a: ["href", "target", "rel", "name", "title"],
+	};
 	return (
 		<ReactMarkdown
 			className={cn(
@@ -33,7 +36,12 @@ export function Markdown({
 			rehypePlugins={[
 				[rehypeExternalLinks, { target: "_blank" }],
 				rehypeRaw,
-				rehypeSanitize,
+				[
+					rehypeSanitize,
+					{
+						attributes: allowedAttributes,
+					},
+				],
 			]}
 			urlTransform={urlTransformAllowFiles}
 			components={CustomMarkdownComponents}
