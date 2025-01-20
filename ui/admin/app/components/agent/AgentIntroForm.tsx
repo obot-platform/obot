@@ -40,7 +40,11 @@ export function AgentIntroForm({
 	});
 
 	useEffect(() => {
-		if (agent) form.reset(agent);
+		if (agent)
+			form.reset({
+				introductionMessage: agent.introductionMessage ?? "",
+				starterMessages: agent.starterMessages ?? [],
+			});
 	}, [agent, form]);
 
 	useEffect(() => {

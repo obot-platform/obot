@@ -1,8 +1,6 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Fragment, useEffect, useMemo } from "react";
 import { useForm } from "react-hook-form";
-import Markdown from "react-markdown";
-import rehypeExternalLinks from "rehype-external-links";
 
 import { OAuthAppParams } from "~/lib/model/oauthApps";
 import {
@@ -13,7 +11,6 @@ import { cn } from "~/lib/utils";
 
 import { CopyText } from "~/components/composed/CopyText";
 import { ControlledInput } from "~/components/form/controlledInputs";
-import { CustomMarkdownComponents } from "~/components/react-markdown";
 import { LoadingSpinner } from "~/components/ui/LoadingSpinner";
 import {
 	Accordion,
@@ -23,6 +20,7 @@ import {
 } from "~/components/ui/accordion";
 import { Button } from "~/components/ui/button";
 import { Form } from "~/components/ui/form";
+import { Markdown } from "~/components/ui/markdown";
 import { useOAuthAppInfo } from "~/hooks/oauthApps/useOAuthApps";
 
 type OAuthAppFormProps = {
@@ -75,17 +73,7 @@ export function OAuthAppForm({ type, onSubmit, isLoading }: OAuthAppFormProps) {
 	function renderStep(step: OAuthFormStep) {
 		switch (step.type) {
 			case "markdown":
-				return (
-					<Markdown
-						className={cn(
-							"prose max-w-full flex-auto overflow-x-auto break-words dark:prose-invert prose-pre:whitespace-pre-wrap prose-pre:break-words prose-thead:text-left prose-img:rounded-xl prose-img:shadow-lg"
-						)}
-						components={CustomMarkdownComponents}
-						rehypePlugins={[[rehypeExternalLinks, { target: "_blank" }]]}
-					>
-						{step.text}
-					</Markdown>
-				);
+				return <Markdown>{step.text}</Markdown>;
 			case "input": {
 				return (
 					<ControlledInput
