@@ -7,6 +7,7 @@
 	import { Book } from '$lib/icons';
 	import { loadedAssistants } from '$lib/stores';
 	import { listAuthProviders, type AuthProvider } from '$lib/auth';
+    import {onMount} from "svelte"
 
 	let authProviders: AuthProvider[] = $state([])
 
