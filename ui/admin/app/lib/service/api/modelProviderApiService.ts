@@ -34,7 +34,7 @@ getModelProviderById.key = (providerId?: string) => {
 
 const validateModelProviderById = async (
 	modelProviderKey: string,
-	modelProviderConfig: ModelProviderConfig
+	modelProviderConfig: ProviderConfig
 ) => {
 	const res = await request<ModelProvider>({
 		url: ApiRoutes.modelProviders.validateModelProviderById(modelProviderKey)
