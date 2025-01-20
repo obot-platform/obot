@@ -127,7 +127,7 @@ export function ThreadMeta({
 					</table>
 				</div>
 
-				<Accordion type="multiple" className="mx-2">
+				<Accordion type="multiple" className="mx-2" defaultValue={["files"]}>
 					{files.length > 0 && (
 						<AccordionItem value="files">
 							<AccordionTrigger>
