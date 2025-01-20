@@ -157,12 +157,12 @@ func (mp *ModelProviderHandler) Validate(req api.Context) error {
 				ref.Name,
 			)
 		}
-		return types.NewErrHttp(http.StatusUnauthorized, strings.Trim(err.Error(), "\"'"))
+		return types.NewErrHttp(http.StatusProxyAuthRequired, strings.Trim(err.Error(), "\"'"))
 	}
 
 	var validationError ValidationError
 	if json.Unmarshal([]byte(res.Output), &validationError) == nil && validationError.Err != "" {
-		return types.NewErrHttp(http.StatusUnauthorized, validationError.Error())
+		return types.NewErrHttp(http.StatusProxyAuthRequired, validationError.Error())
 	}
 
 	return nil
