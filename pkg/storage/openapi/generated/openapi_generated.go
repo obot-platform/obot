@@ -3489,6 +3489,12 @@ func schema_obot_platform_obot_apiclient_types_Thread(ref common.ReferenceCallba
 							Format: "",
 						},
 					},
+					"systemTask": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
+						},
+					},
 					"env": {
 						SchemaProps: spec.SchemaProps{
 							Type: []string{"array"},

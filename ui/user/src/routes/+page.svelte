@@ -1,17 +1,11 @@
 <script lang="ts">
-	import highlight from 'highlight.js';
 	import { assistants } from '$lib/stores';
 	import { profile } from '$lib/stores';
 	import { goto } from '$app/navigation';
-	import { onMount } from 'svelte';
 	import DarkModeToggle from '$lib/components/navbar/DarkModeToggle.svelte';
 	import { darkMode } from '$lib/stores';
 	import { Book } from '$lib/icons';
 	import { loadedAssistants } from '$lib/stores';
-
-	onMount(() => {
-		highlight.highlightAll();
-	});
 
 	let div: HTMLElement;
 

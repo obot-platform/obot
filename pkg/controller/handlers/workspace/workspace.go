@@ -30,7 +30,7 @@ func getWorkspaceIDs(ctx context.Context, c kclient.WithWatch, ws *v1.Workspace)
 		if err := c.Get(ctx, router.Key(ws.Namespace, wsName), &dependentWS); err != nil || dependentWS.Status.WorkspaceID == "" {
 			return nil, false, err
 		}
-		wsIDs = append(wsIDs, ws.Status.WorkspaceID)
+		wsIDs = append(wsIDs, dependentWS.Status.WorkspaceID)
 	}
 
 	return wsIDs, true, nil

@@ -86,7 +86,7 @@
 <div class="flex h-full w-full flex-col">
 	<div class="relative flex-1 rounded-3xl bg-gray-950 p-5">
 		{#if connectState === 'disconnected'}
-			<div class="absolute inset-0 flex h-full w-full items-center justify-center">
+			<div class="absolute inset-0 z-20 flex h-full w-full items-center justify-center">
 				<button onclick={connect} class="rounded-lg border-2 border-red-400 bg-gray-950 p-3">
 					<RefreshCcw class="icon-default" />
 				</button>

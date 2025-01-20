@@ -121,6 +121,16 @@ func (h *Handler) loadManifest(req router.Request, we *v1.WorkflowExecution) err
 
 func (h *Handler) newThread(ctx context.Context, c kclient.Client, wf *v1.Workflow, we *v1.WorkflowExecution) (*v1.Thread, error) {
 	workspaceName := we.Spec.WorkspaceName
+	if workspaceName == "" && wf.Spec.ThreadName != "" {
+		var thread v1.Thread
+		if err := c.Get(ctx, kclient.ObjectKey{Namespace: we.Namespace, Name: wf.Spec.ThreadName}, &thread); err != nil {
+			return nil, err
+		}
+		if thread.Status.WorkspaceName != "" {
+			workspaceName = thread.Status.WorkspaceName
+		}
+	}
+
 	if workspaceName == "" {
 		workspaceName = wf.Status.WorkspaceName
 	}

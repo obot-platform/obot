@@ -13,3 +13,7 @@
 body {
 	@apply bg-white text-black dark:bg-black dark:text-gray-50;
 }
+
+.text-input {
+	@apply w-full rounded-lg bg-gray-100 p-2 outline-none focus:ring-2 focus:ring-blue dark:bg-gray-900;
+}

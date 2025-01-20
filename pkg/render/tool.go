@@ -19,7 +19,7 @@ func CustomTool(ctx context.Context, c client.Client, tool v1.Tool) (toolDefs []
 		return nil, nil
 	}
 
-	if tool.Spec.Manifest.ToolType != "" && tool.Spec.Manifest.ToolType != "docker" && tool.Spec.Manifest.Instructions == "" {
+	if tool.Spec.Manifest.ToolType != "" && tool.Spec.Manifest.ToolType != "container" && tool.Spec.Manifest.Instructions == "" {
 		return nil, fmt.Errorf("instructions are required for custom tools")
 	}
 

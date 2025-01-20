@@ -20,7 +20,7 @@ require (
 	github.com/gptscript-ai/chat-completion-client v0.0.0-20241219123536-85c44096bc10
 	github.com/gptscript-ai/cmd v0.0.0-20240907001148-ffd49061124a
 	github.com/gptscript-ai/go-gptscript v0.9.6-0.20241216211344-79a66826cf82
-	github.com/gptscript-ai/gptscript v0.9.6-0.20250114054318-73a9ffeb1cc8
+	github.com/gptscript-ai/gptscript v0.9.6-0.20250120172457-3f876b2ef42b
 	github.com/liggitt/tabwriter v0.0.0-20181228230101-89fcab3d43de
 	github.com/mhale/smtpd v0.8.3
 	github.com/oauth2-proxy/oauth2-proxy/v7 v7.0.0-00010101000000-000000000000
@@ -232,6 +232,7 @@ require (
 	github.com/spf13/viper v1.19.0 // indirect
 	github.com/ssor/bom v0.0.0-20170718123548-6386211fdfcf // indirect
 	github.com/stoewer/go-strcase v1.2.0 // indirect
+	github.com/stretchr/objx v0.5.2 // indirect
 	github.com/subosito/gotenv v1.6.0 // indirect
 	github.com/therootcompany/xz v1.0.1 // indirect
 	github.com/tidwall/gjson v1.18.0 // indirect
