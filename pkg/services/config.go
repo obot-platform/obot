@@ -373,7 +373,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 			storageClient,
 			c,
 			authn.NewAuthenticator(authenticators),
-			authz.NewAuthorizer(r.Backend()),
+			authz.NewAuthorizer(r.Backend(), config.DevMode),
 			proxyManager,
 			config.Hostname,
 		),

@@ -62,11 +62,12 @@ func (s *Server) wrap(f api.HandlerFunc) http.HandlerFunc {
 			return
 		}
 
+		if !s.authorizer.Authorize(req, user) {
+			http.Error(rw, "forbidden", http.StatusForbidden)
+			return
+		}
+
 		if strings.HasPrefix(req.URL.Path, "/api/") {
-			if !s.authorizer.Authorize(req, user) {
-				http.Error(rw, "forbidden", http.StatusForbidden)
-				return
-			}
 			rw.Header().Set("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0")
 			rw.Header().Set("Pragma", "no-cache")
 			rw.Header().Set("Expires", "0")

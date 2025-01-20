@@ -27,7 +27,11 @@ var staticRules = map[string][]string{
 		// Allow access to the UI
 		"/admin/",
 		"/{$}",
+		"/{agent}",
+		"/images/",
+		"/_app/",
 		"/static/",
+
 		// Allow access to the oauth2 endpoints
 		"/oauth2/",
 
@@ -38,7 +42,7 @@ var staticRules = map[string][]string{
 
 		"GET /api/oauth/start/{id}/{namespace}/{name}",
 
-		// The bootstrap logout just deletes a cookie in the client, and does nothing else.
+		"POST /api/bootstrap/login",
 		"POST /api/bootstrap/logout",
 
 		"GET /api/app-oauth/authorize/{id}",
@@ -65,14 +69,25 @@ var staticRules = map[string][]string{
 	},
 }
 
+var devModeRules = map[string][]string{
+	anyGroup: {
+		"/node_modules/",
+		"/@fs/",
+		"/.svelte-kit/",
+		"/@vite/",
+		"/@id/",
+		"/src/",
+	},
+}
+
 type Authorizer struct {
 	rules   []rule
 	storage kclient.Client
 }
 
-func NewAuthorizer(storage kclient.Client) *Authorizer {
+func NewAuthorizer(storage kclient.Client, devMode bool) *Authorizer {
 	return &Authorizer{
-		rules:   defaultRules(),
+		rules:   defaultRules(devMode),
 		storage: storage,
 	}
 }
@@ -103,7 +118,7 @@ type rule struct {
 	mux   *http.ServeMux
 }
 
-func defaultRules() []rule {
+func defaultRules(devMode bool) []rule {
 	var (
 		rules []rule
 		f     = (*fake)(nil)
@@ -118,6 +133,19 @@ func defaultRules() []rule {
 			rule.mux.Handle(url, f)
 		}
 		rules = append(rules, rule)
+	}
+
+	if devMode {
+		for _, group := range slices.Sorted(maps.Keys(devModeRules)) {
+			rule := rule{
+				group: group,
+				mux:   http.NewServeMux(),
+			}
+			for _, url := range devModeRules[group] {
+				rule.mux.Handle(url, f)
+			}
+			rules = append(rules, rule)
+		}
 	}
 
 	return rules
