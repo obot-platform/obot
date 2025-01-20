@@ -30,13 +30,17 @@ spec:
               containerPort: 8080
               protocol: TCP
           livenessProbe:
-            exec:
-              command:
-                - "true"
+            httpGet:
+              path: /api/healthz
+              port: http
+            failureThreshold: 5
+            periodSeconds: 10
           readinessProbe:
-            exec:
-              command:
-                - "true"
+            httpGet:
+              path: /api/healthz
+              port: http
+            failureThreshold: 5
+            periodSeconds: 10
           env:
             {{- if .Values.config.awsAccessKeyID }}
             - name: "AWS_ACCESS_KEY_ID"
