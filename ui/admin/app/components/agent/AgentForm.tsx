@@ -80,7 +80,7 @@ export function AgentForm({ agent, onSubmit, onChange }: AgentFormProps) {
 					className="text-xl text-muted-foreground"
 				/>
 
-				<h4 className="flex items-center gap-2">
+				<h4 className="flex items-center gap-2 border-b pb-2">
 					<BrainIcon className="h-5 w-5" />
 					Instructions
 				</h4>
