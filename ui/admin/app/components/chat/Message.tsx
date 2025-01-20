@@ -183,7 +183,6 @@ export function PromptMessage({
 							name={prompt.name}
 							category={prompt.metadata.category}
 							icon={prompt.metadata.icon}
-							disableTooltip
 							className="h-5 w-5"
 						/>
 						{str}
@@ -221,7 +220,6 @@ export function PromptMessage({
 						icon={prompt.metadata.icon}
 						category={prompt.metadata.category}
 						name={prompt.name}
-						disableTooltip
 					/>
 
 					{getCtaText()}
@@ -237,7 +235,6 @@ export function PromptMessage({
 									icon={prompt.metadata?.icon}
 									category={prompt.metadata?.category}
 									name={prompt.name}
-									disableTooltip
 								/>
 							}
 						>
@@ -271,7 +268,6 @@ export function PromptMessage({
 							icon={prompt.metadata?.icon}
 							category={prompt.metadata?.category}
 							name={prompt.name}
-							disableTooltip
 						/>
 					}
 				>

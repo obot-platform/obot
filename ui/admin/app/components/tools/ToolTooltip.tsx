@@ -38,7 +38,6 @@ export function ToolTooltip({
 						category={tool.metadata?.category}
 						name={tool.name}
 						className="mr-4 h-10 w-10"
-						disableTooltip
 					/>
 				) : (
 					<WrenchIcon className="mr-2 h-4 w-4" />

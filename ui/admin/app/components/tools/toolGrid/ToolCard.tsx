@@ -57,7 +57,6 @@ export function ToolCard({
 			<CardContent className="flex flex-col items-center gap-2 text-center">
 				<ToolIcon
 					className="h-16 w-16"
-					disableTooltip
 					name={tool?.name ?? ""}
 					icon={tool?.metadata?.icon}
 				/>
