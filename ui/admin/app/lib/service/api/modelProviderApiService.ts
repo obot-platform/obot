@@ -68,7 +68,8 @@ const revealModelProviderById = async (providerKey: string) => {
 		url: ApiRoutes.modelProviders.revealModelProviderById(providerKey).url,
 		method: "POST",
 		errorMessage:
-			"Failed to reveal configuration values on the requested model provider.",
+			"Failed to reveal configuration values on the requested modal provider.",
+		toastError: false,
 	});
 
 	return res.data;
