@@ -23,7 +23,7 @@ import (
 	"github.com/obot-platform/obot/pkg/api/authn"
 	"github.com/obot-platform/obot/pkg/api/authz"
 	"github.com/obot-platform/obot/pkg/api/server"
-	bootstrap2 "github.com/obot-platform/obot/pkg/bootstrap"
+	"github.com/obot-platform/obot/pkg/bootstrap"
 	"github.com/obot-platform/obot/pkg/credstores"
 	"github.com/obot-platform/obot/pkg/events"
 	"github.com/obot-platform/obot/pkg/gateway/client"
@@ -65,8 +65,7 @@ type Config struct {
 	Docker                     bool     `usage:"Enable Docker support" default:"false" env:"OBOT_DOCKER"`
 	EnvKeys                    []string `usage:"The environment keys to pass through to the GPTScript server" env:"OBOT_ENV_KEYS"`
 	KnowledgeSetIngestionLimit int      `usage:"The maximum number of files to ingest into a knowledge set" default:"3000" env:"OBOT_KNOWLEDGESET_INGESTION_LIMIT" name:"knowledge-set-ingestion-limit"`
-	NoReplyEmailAddress        string   `usage:"The email to use for no-reply emails from obot"`
-	DisableAuthentication      bool     `usage:"Disable authentication" default:"false" env:"OBOT_DISABLE_AUTHENTICATION"`
+	EnableAuthentication       bool     `usage:"Enable authentication" default:"false" env:"OBOT_ENABLE_AUTHENTICATION"`
 	AuthAdminEmails            []string `usage:"Emails of admin users"`
 
 	// Sendgrid webhook
@@ -95,7 +94,7 @@ type Services struct {
 	GatewayClient              *client.Client
 	ProxyManager               *proxy.Manager
 	ProviderDispatcher         *dispatcher.Dispatcher
-	Bootstrapper               *bootstrap2.Bootstrap
+	Bootstrapper               *bootstrap.Bootstrap
 	KnowledgeSetIngestionLimit int
 	SupportDocker              bool
 
@@ -306,7 +305,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		proxyManager *proxy.Manager
 	)
 
-	bootstrapper, err := bootstrap2.New(config.Hostname, gatewayClient)
+	bootstrapper, err := bootstrap.New(config.Hostname, gatewayClient)
 	if err != nil {
 		return nil, err
 	}
@@ -324,8 +323,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 	}
 
 	var authenticators authenticator.Request = gatewayServer
-	if !config.DisableAuthentication {
-		// "Authentication Enabled" flow
+	if config.EnableAuthentication {
 		proxyManager = proxy.NewProxyManager(providerDispatcher)
 
 		// Token Auth + OAuth auth

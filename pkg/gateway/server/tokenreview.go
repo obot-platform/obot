@@ -1,7 +1,6 @@
 package server
 
 import (
-	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
@@ -27,8 +26,8 @@ func (s *Server) AuthenticateRequest(req *http.Request) (*authenticator.Response
 			return err
 		}
 
-		namespace = fmt.Sprint(tkn.AuthProviderNamespace)
-		name = fmt.Sprint(tkn.AuthProviderName)
+		namespace = tkn.AuthProviderNamespace
+		name = tkn.AuthProviderName
 		return tx.Where("id = ?", tkn.UserID).First(u).Error
 	}); err != nil {
 		return nil, false, err

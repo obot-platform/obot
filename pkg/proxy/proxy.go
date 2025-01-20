@@ -85,7 +85,7 @@ func (pm *Manager) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 
-			http.Error(w, "no auth providers configured", http.StatusInternalServerError)
+			http.Error(w, "no auth providers configured", http.StatusBadRequest)
 			return
 		}
 		sort.Slice(providers, func(i, j int) bool {
@@ -181,10 +181,7 @@ func (p *Proxy) authenticateRequest(req *http.Request) (*authenticator.Response,
 	sr := SerializableRequest{
 		Method: req.Method,
 		URL:    req.URL.String(),
-		Header: make(map[string][]string),
-	}
-	for k, v := range req.Header {
-		sr.Header[k] = v
+		Header: req.Header,
 	}
 
 	srJSON, err := json.Marshal(sr)

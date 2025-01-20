@@ -330,21 +330,16 @@ func (d *Dispatcher) startAuthProvider(ctx context.Context, namespace, authProvi
 	}
 
 	// Ensure that the auth provider has been configured so that we don't get stuck waiting on a prompt.
+
 	if authProvider.Status.Tool.Metadata["envVars"] != "" {
-		cred, err := d.gptscript.RevealCredential(ctx, credCtx, authProviderName)
+		isConfigured, missingEnvVars, err := d.isAuthProviderConfigured(ctx, credCtx, authProvider)
 		if err != nil {
-			return nil, fmt.Errorf("auth provider is not configured: %w", err)
-		}
-
-		var missingEnvVars []string
-		for _, envVar := range strings.Split(authProvider.Status.Tool.Metadata["envVars"], ",") {
-			if cred.Env[envVar] == "" {
-				missingEnvVars = append(missingEnvVars, envVar)
+			return nil, fmt.Errorf("failed to check auth provider configuration: %w", err)
+		} else if !isConfigured {
+			if len(missingEnvVars) > 0 {
+				return nil, fmt.Errorf("auth provider is not configured: missing configuration parameters %s", strings.Join(missingEnvVars, ", "))
 			}
-		}
-
-		if len(missingEnvVars) > 0 {
-			return nil, fmt.Errorf("auth provider is not configured: missing configuration parameters %s", strings.Join(missingEnvVars, ", "))
+			return nil, fmt.Errorf("auth provider is not configured: %w", err)
 		}
 	}
 
@@ -376,7 +371,7 @@ func (d *Dispatcher) ListConfiguredAuthProviders(ctx context.Context, namespace 
 
 	var result []string
 	for _, authProvider := range authProviders.Items {
-		if d.isAuthProviderConfigured(ctx, []string{string(authProvider.UID)}, authProvider) {
+		if isConfigured, _, _ := d.isAuthProviderConfigured(ctx, []string{string(authProvider.UID)}, authProvider); isConfigured {
 			result = append(result, authProvider.Name)
 		}
 	}
@@ -384,14 +379,16 @@ func (d *Dispatcher) ListConfiguredAuthProviders(ctx context.Context, namespace 
 	return result, nil
 }
 
-func (d *Dispatcher) isAuthProviderConfigured(ctx context.Context, credCtx []string, toolRef v1.ToolReference) bool {
+// isAuthProviderConfigured checks an auth provider to see if all of its required environment variables are set.
+// Returns: isConfigured (bool), missingEnvVars ([]string), error
+func (d *Dispatcher) isAuthProviderConfigured(ctx context.Context, credCtx []string, toolRef v1.ToolReference) (bool, []string, error) {
 	if toolRef.Status.Tool == nil {
-		return false
+		return false, nil, nil
 	}
 
 	cred, err := d.gptscript.RevealCredential(ctx, credCtx, toolRef.Name)
 	if err != nil {
-		return false
+		return false, nil, err
 	}
 
 	var requiredEnvVars []string
@@ -399,11 +396,16 @@ func (d *Dispatcher) isAuthProviderConfigured(ctx context.Context, credCtx []str
 		requiredEnvVars = strings.Split(toolRef.Status.Tool.Metadata["envVars"], ",")
 	}
 
+	var missingEnvVars []string
 	for _, envVar := range requiredEnvVars {
 		if cred.Env[envVar] == "" {
-			return false
+			missingEnvVars = append(missingEnvVars, envVar)
 		}
 	}
 
-	return true
+	if len(missingEnvVars) > 0 {
+		return false, missingEnvVars, nil
+	}
+
+	return true, nil, nil
 }

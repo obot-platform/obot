@@ -37,7 +37,6 @@ func Router(services *services.Services) (http.Handler, error) {
 	sendgridWebhookHandler := sendgrid.NewInboundWebhookHandler(services.StorageClient, services.EmailServerName, services.SendgridWebhookUsername, services.SendgridWebhookPassword)
 
 	// Version
-
 	mux.HandleFunc("GET /api/version", version.GetVersion)
 
 	// Agents
