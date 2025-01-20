@@ -40,7 +40,7 @@ export function ToolEntry({
 							</Truncate>
 
 							{withDescription && description && (
-								<Truncate asChild disableTooltip>
+								<Truncate tooltipContent={description} asChild>
 									<small className="text-muted-foreground">{description}</small>
 								</Truncate>
 							)}

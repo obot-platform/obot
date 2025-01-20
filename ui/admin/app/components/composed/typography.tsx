@@ -53,7 +53,13 @@ export function Truncate({
 
 	return (
 		<Tooltip>
-			<TooltipContent {...tooltipContentProps}>{tooltipContent}</TooltipContent>
+			<TooltipContent
+				align="start"
+				{...tooltipContentProps}
+				className={cn("max-w-xs", tooltipContentProps?.className)}
+			>
+				{tooltipContent}
+			</TooltipContent>
 
 			<TooltipTrigger asChild>
 				<div className={cn("cursor-pointer", className)}>{content}</div>
