@@ -58,10 +58,11 @@ async function updateWorkflow({
 	return res.data;
 }
 
-async function deleteWorkflow(id: string) {
+async function deleteWorkflow(id: string, deleteTriggers?: boolean) {
 	await request({
 		url: ApiRoutes.workflows.getById(id).url,
 		method: "DELETE",
+		params: deleteTriggers ? { "delete-triggers": true } : undefined,
 		errorMessage: "Failed to delete workflow",
 	});
 }

@@ -11,7 +11,9 @@ import {
 	TooltipContent,
 	TooltipTrigger,
 } from "~/components/ui/tooltip";
+import { useConfirmationDialog } from "~/hooks/component-helpers/useConfirmationDialog";
 import { useAsync } from "~/hooks/useAsync";
+import { useWorkflowTriggers } from "~/hooks/workflow-triggers/useWorkflowTriggers";
 
 type DeleteWorkflowButtonProps = {
 	id: string;
@@ -22,6 +24,11 @@ export function DeleteWorkflowButton({
 	id,
 	onSuccess,
 }: DeleteWorkflowButtonProps) {
+	const deleteAssociatedTriggersConfirm = useConfirmationDialog();
+	const deleteWorkflowConfirm = useConfirmationDialog();
+
+	const { workflowTriggers } = useWorkflowTriggers({ workflowId: id });
+
 	const deleteWorkflow = useAsync(WorkflowService.deleteWorkflow, {
 		onSuccess: () => {
 			mutate(WorkflowService.getWorkflows.key());
@@ -31,26 +38,61 @@ export function DeleteWorkflowButton({
 		onError: () => toast.error("Failed to delete workflow"),
 	});
 
+	const handleDelete = async (deleteTriggers: boolean) => {
+		await deleteWorkflow.execute(id, deleteTriggers);
+	};
+
+	const handleConfirmDeleteWorkflow = () => {
+		const handleConfirm = async () => {
+			if (workflowTriggers.length > 0) {
+				deleteAssociatedTriggersConfirm.interceptAsync(
+					async () => handleDelete(true),
+					{
+						onCancel: async () => handleDelete(false),
+					}
+				);
+			} else {
+				handleDelete(false);
+			}
+		};
+
+		deleteWorkflowConfirm.interceptAsync(handleConfirm);
+	};
+
 	return (
-		<Tooltip>
-			<ConfirmationDialog
-				title="Delete Workflow?"
-				onConfirm={() => deleteWorkflow.execute(id)}
-				confirmProps={{ variant: "destructive", children: "Delete" }}
-				description="This action cannot be undone."
-			>
+		<>
+			<Tooltip>
 				<TooltipTrigger onClick={(e) => e.stopPropagation()} asChild>
 					<Button
 						variant="ghost"
 						size="icon"
 						loading={deleteWorkflow.isLoading}
+						onClick={handleConfirmDeleteWorkflow}
 					>
 						<TrashIcon />
 					</Button>
 				</TooltipTrigger>
-			</ConfirmationDialog>
 
-			<TooltipContent>Delete Workflow</TooltipContent>
-		</Tooltip>
+				<TooltipContent>Delete Workflow</TooltipContent>
+			</Tooltip>
+			<ConfirmationDialog
+				{...deleteWorkflowConfirm.dialogProps}
+				title="Delete Workflow?"
+				confirmProps={{ variant: "destructive", children: "Delete" }}
+				description="This action cannot be undone."
+			/>
+			<ConfirmationDialog
+				{...deleteAssociatedTriggersConfirm.dialogProps}
+				title="Delete Associated Triggers?"
+				description="There are attached workflow triggers to this workflow. Would you like to delete them as well?"
+				confirmProps={{
+					variant: "destructive",
+					children: "Delete",
+				}}
+				cancelProps={{
+					children: "Keep",
+				}}
+			/>
+		</>
 	);
 }

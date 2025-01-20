@@ -20,6 +20,7 @@ export type ConfirmationDialogProps = ComponentProps<typeof Dialog> & {
 	onConfirm: (e: React.MouseEvent<HTMLButtonElement>) => void;
 	onCancel?: (e: React.MouseEvent<HTMLButtonElement>) => void;
 	confirmProps?: Omit<Partial<ComponentProps<typeof Button>>, "onClick">;
+	cancelProps?: Omit<Partial<ComponentProps<typeof Button>>, "onClick">;
 	closeOnConfirm?: boolean;
 };
 
@@ -31,6 +32,7 @@ export function ConfirmationDialog({
 	onConfirm,
 	onCancel,
 	confirmProps,
+	cancelProps,
 	closeOnConfirm = true,
 	...dialogProps
 }: ConfirmationDialogProps) {
@@ -49,7 +51,9 @@ export function ConfirmationDialog({
 
 				<DialogFooter>
 					<DialogClose onClick={onCancel} asChild>
-						<Button variant="secondary">Cancel</Button>
+						<Button variant="secondary" {...cancelProps}>
+							{cancelProps?.children ?? "Cancel"}
+						</Button>
 					</DialogClose>
 
 					{closeOnConfirm ? (
