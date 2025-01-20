@@ -16,9 +16,6 @@ on:
 
 jobs:
   build:
-    env:
-      DEPLOY_TO_TEST: ${{ github.ref_type == 'branch' && secrets.RENDER_TEST_DEPLOY_URL != 'disabled' }}
-      DEPLOY_TO_MAIN: ${{ github.ref_type == 'branch' && secrets.RENDER_MAIN_DEPLOY_URL != 'disabled' }}
     runs-on: depot-ubuntu-22.04
 
     steps:
@@ -80,15 +77,3 @@ jobs:
       if: ${{ github.ref_type == 'tag' && !contains(github.ref_name, '-rc') }}
       run: |
         crane tag ghcr.io/${{ github.repository }}-enterprise:${{ github.ref_name }} latest
-
-    - name: Deploy to Test Render
-      if: ${{ env.DEPLOY_TO_TEST == 'true' }}
-      uses: joelwmale/webhook-action@2.4.1
-      with:
-        url: ${{ secrets.RENDER_TEST_DEPLOY_URL }}
-
-    - name: Deploy to Main Render
-      if: ${{ env.DEPLOY_TO_MAIN == 'true' }}
-      uses: joelwmale/webhook-action@2.4.1
-      with:
-        url: ${{ secrets.RENDER_MAIN_DEPLOY_URL }}

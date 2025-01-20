@@ -20,13 +20,6 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Log in to Docker Hub
-        uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-
       - name: Copy to test tag
         run: |
-          crane tag ghcr.io/${{ github.repository }}:latest test
-          crane tag docker.io/obot/${{ github.event.repository.name }}:latest test
+          crane tag ghcr.io/${{ github.repository }}-enterprise:main test
