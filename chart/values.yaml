@@ -59,6 +59,7 @@ config:
   awsSecretAccessKey: ""
   baaahThreadiness: "20"
   githubAuthToken: ""
+  obotServerEnableAuthentication: true
   obotServerAuthAdminEmails: ""
   obotServerDSN: ""
   obotServerHostname: ""
