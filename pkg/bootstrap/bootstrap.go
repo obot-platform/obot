@@ -11,7 +11,9 @@ import (
 	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/api/authz"
 	"github.com/obot-platform/obot/pkg/gateway/client"
+	"github.com/obot-platform/obot/pkg/gateway/server/dispatcher"
 	"github.com/obot-platform/obot/pkg/gateway/types"
+	"github.com/obot-platform/obot/pkg/system"
 	"k8s.io/apiserver/pkg/authentication/authenticator"
 	"k8s.io/apiserver/pkg/authentication/user"
 )
@@ -19,11 +21,13 @@ import (
 const bootstrapCookie = "obot-bootstrap"
 
 type Bootstrap struct {
-	token, serverURL string
-	gatewayClient    *client.Client
+	enableBootstrapUser bool
+	token, serverURL    string
+	dispatcher          *dispatcher.Dispatcher
+	gatewayClient       *client.Client
 }
 
-func New(serverURL string, c *client.Client) (*Bootstrap, error) {
+func New(enableBootstrapUser bool, serverURL string, c *client.Client, d *dispatcher.Dispatcher) (*Bootstrap, error) {
 	token := os.Getenv("OBOT_BOOTSTRAP_TOKEN")
 
 	if token == "" {
@@ -40,13 +44,28 @@ func New(serverURL string, c *client.Client) (*Bootstrap, error) {
 	}
 
 	return &Bootstrap{
-		token:         token,
-		serverURL:     serverURL,
-		gatewayClient: c,
+		enableBootstrapUser: enableBootstrapUser,
+		token:               token,
+		serverURL:           serverURL,
+		dispatcher:          d,
+		gatewayClient:       c,
 	}, nil
 }
 
 func (b *Bootstrap) AuthenticateRequest(req *http.Request) (*authenticator.Response, bool, error) {
+	// If bootstrap user is not enabled, then ignore it if there is at least one configured auth provider.
+	if !b.enableBootstrapUser {
+		configuredAuthProviders, err := b.dispatcher.ListConfiguredAuthProviders(req.Context(), system.DefaultNamespace)
+		if err != nil {
+			return nil, false, err
+		}
+
+		if len(configuredAuthProviders) > 0 {
+			fmt.Println("rejecting bootstrap authorization because at least one auth provider is configured")
+			return nil, false, nil
+		}
+	}
+
 	authHeader := req.Header.Get("Authorization")
 	if authHeader == "" {
 		// Check for the cookie.

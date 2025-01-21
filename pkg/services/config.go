@@ -66,6 +66,7 @@ type Config struct {
 	EnvKeys                    []string `usage:"The environment keys to pass through to the GPTScript server" env:"OBOT_ENV_KEYS"`
 	KnowledgeSetIngestionLimit int      `usage:"The maximum number of files to ingest into a knowledge set" default:"3000" env:"OBOT_KNOWLEDGESET_INGESTION_LIMIT" name:"knowledge-set-ingestion-limit"`
 	EnableAuthentication       bool     `usage:"Enable authentication" default:"false"`
+	EnableBootstrapUser        bool     `usage:"Enables the bootstrap user, regardless of configured auth providers" default:"true"`
 	AuthAdminEmails            []string `usage:"Emails of admin users"`
 
 	// Sendgrid webhook
@@ -305,7 +306,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		proxyManager *proxy.Manager
 	)
 
-	bootstrapper, err := bootstrap.New(config.Hostname, gatewayClient)
+	bootstrapper, err := bootstrap.New(config.EnableBootstrapUser, config.Hostname, gatewayClient, providerDispatcher)
 	if err != nil {
 		return nil, err
 	}
