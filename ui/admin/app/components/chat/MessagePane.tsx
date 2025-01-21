@@ -1,5 +1,4 @@
-import { useEffect, useState } from "react";
-import { useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { ToolCall } from "~/lib/model/chatEvents";
 import { Message as MessageType } from "~/lib/model/messages";
