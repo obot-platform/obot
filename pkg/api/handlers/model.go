@@ -161,7 +161,7 @@ func convertModel(ctx context.Context, c kclient.Client, model v1.Model) (types.
 
 	var (
 		aliasAssigned *bool
-		toolName string
+		toolName      string
 	)
 	if model.Generation == model.Status.ObservedGeneration {
 		aliasAssigned = &model.Status.AliasAssigned
