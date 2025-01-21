@@ -24,7 +24,6 @@ const bootstrapCookie = "obot-bootstrap"
 type Bootstrap struct {
 	enableBootstrapUser bool
 	token, serverURL    string
-	dispatcher          *dispatcher.Dispatcher
 	gatewayClient       *client.Client
 }
 
@@ -53,7 +52,6 @@ func New(ctx context.Context, enableBootstrapUser bool, serverURL string, c *cli
 		enableBootstrapUser: enableBootstrapUser,
 		token:               token,
 		serverURL:           serverURL,
-		dispatcher:          d,
 		gatewayClient:       c,
 	}, nil
 }
