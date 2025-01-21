@@ -23,8 +23,6 @@ type AuthProviderHandler struct {
 	dispatcher *dispatcher.Dispatcher
 }
 
-// TODO - support deconfiguring auth providers
-
 func NewAuthProviderHandler(gClient *gptscript.GPTScript, dispatcher *dispatcher.Dispatcher) *AuthProviderHandler {
 	return &AuthProviderHandler{
 		gptscript:  gClient,
@@ -137,6 +135,35 @@ func (ap *AuthProviderHandler) Configure(req api.Context) error {
 		return fmt.Errorf("failed to create credential for auth provider %q: %w", ref.Name, err)
 	}
 
+	ap.dispatcher.StopAuthProvider(ref.Namespace, ref.Name)
+
+	if ref.Annotations[v1.AuthProviderSyncAnnotation] == "" {
+		if ref.Annotations == nil {
+			ref.Annotations = make(map[string]string, 1)
+		}
+		ref.Annotations[v1.AuthProviderSyncAnnotation] = "true"
+	} else {
+		delete(ref.Annotations, v1.AuthProviderSyncAnnotation)
+	}
+
+	return req.Update(&ref)
+}
+
+func (ap *AuthProviderHandler) Deconfigure(req api.Context) error {
+	var ref v1.ToolReference
+	if err := req.Get(&ref, req.PathValue("id")); err != nil {
+		return err
+	}
+
+	if ref.Spec.Type != types.ToolReferenceTypeAuthProvider {
+		return types.NewErrBadRequest("%q is not an auth provider", ref.Name)
+	}
+
+	if err := ap.gptscript.DeleteCredential(req.Context(), string(ref.UID), ref.Name); err != nil && !strings.HasSuffix(err.Error(), "credential not found") {
+		return fmt.Errorf("failed to delete credential for auth provider %q: %w", ref.Name, err)
+	}
+
+	// Stop the auth provider so that the credential is completely removed from the system.
 	ap.dispatcher.StopAuthProvider(ref.Namespace, ref.Name)
 
 	if ref.Annotations[v1.AuthProviderSyncAnnotation] == "" {

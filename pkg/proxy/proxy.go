@@ -66,6 +66,11 @@ func (pm *Manager) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		provider = c.Value
 	}
 
+	rdParam := r.URL.Query().Get("rd")
+	if rdParam == "" {
+		rdParam = "/"
+	}
+
 	// If no provider is set, just use the alphabetically first provider.
 	if provider == "" {
 		providers, err := pm.dispatcher.ListConfiguredAuthProviders(r.Context(), "default")
@@ -76,11 +81,6 @@ func (pm *Manager) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		if len(providers) == 0 {
 			// There aren't any auth providers configured. Return an error, unless the user is signing out, in which case, just redirect.
 			if r.URL.Path == "/oauth2/sign_out" {
-				rdParam := r.URL.Query().Get("rd")
-				if rdParam == "" {
-					rdParam = "/"
-				}
-
 				http.Redirect(w, r, rdParam, http.StatusFound)
 				return
 			}
@@ -108,7 +108,11 @@ func (pm *Manager) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	proxy, err := pm.createProxy(r.Context(), provider)
 	if err != nil {
-		http.Error(w, fmt.Sprintf("failed to create proxy: %v", err), http.StatusInternalServerError)
+		if r.URL.Path != "/oauth2/sign_out" {
+			http.Error(w, fmt.Sprintf("failed to create proxy: %v", err), http.StatusInternalServerError)
+		} else {
+			http.Redirect(w, r, rdParam, http.StatusFound)
+		}
 		return
 	}
 
