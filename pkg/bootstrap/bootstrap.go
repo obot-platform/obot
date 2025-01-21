@@ -72,7 +72,6 @@ func (b *Bootstrap) AuthenticateRequest(req *http.Request) (*authenticator.Respo
 		}
 
 		if len(configuredAuthProviders) > 0 {
-			fmt.Println("rejecting bootstrap authorization because at least one auth provider is configured")
 			return nil, false, nil
 		}
 	}
