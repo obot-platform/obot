@@ -59,7 +59,7 @@ config:
   awsSecretAccessKey: ""
   baaahThreadiness: "20"
   bootstrapToken: "" # Randomly generated at runtime if not set
-  enableAuthentication: false
+  enableAuthentication: true
   enableBootstrapUser: true
   githubAuthToken: ""
   obotServerEnableAuthentication: true
