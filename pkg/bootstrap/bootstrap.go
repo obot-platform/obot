@@ -1,6 +1,7 @@
 package bootstrap
 
 import (
+	"context"
 	"crypto/rand"
 	"fmt"
 	"net/http"
@@ -27,10 +28,10 @@ type Bootstrap struct {
 	gatewayClient       *client.Client
 }
 
-func New(enableBootstrapUser bool, serverURL string, c *client.Client, d *dispatcher.Dispatcher) (*Bootstrap, error) {
+func New(ctx context.Context, enableBootstrapUser bool, serverURL string, c *client.Client, d *dispatcher.Dispatcher) (*Bootstrap, error) {
 	token := os.Getenv("OBOT_BOOTSTRAP_TOKEN")
 
-	if token == "" {
+	if token == "" && enableBootstrapUser {
 		bytes := make([]byte, 32)
 		_, err := rand.Read(bytes)
 		if err != nil {
@@ -41,6 +42,11 @@ func New(enableBootstrapUser bool, serverURL string, c *client.Client, d *dispat
 
 		// We deliberately only print the token if it was not provided by the user.
 		fmt.Printf("Bootstrap token: %s\nUse this token to log in to the Admin UI.\n", token)
+	} else if !enableBootstrapUser {
+		configuredAuthProviders, err := d.ListConfiguredAuthProviders(ctx, system.DefaultNamespace)
+		if err == nil && len(configuredAuthProviders) == 0 {
+			fmt.Printf("WARNING: Bootstrap user is disabled, and no auth providers are configured. You will be unable to log in to Obot.\n")
+		}
 	}
 
 	return &Bootstrap{
@@ -53,6 +59,10 @@ func New(enableBootstrapUser bool, serverURL string, c *client.Client, d *dispat
 }
 
 func (b *Bootstrap) AuthenticateRequest(req *http.Request) (*authenticator.Response, bool, error) {
+	if !b.enableBootstrapUser {
+		return nil, false, nil
+	}
+
 	authHeader := req.Header.Get("Authorization")
 	if authHeader == "" {
 		// Check for the cookie.
@@ -62,18 +72,6 @@ func (b *Bootstrap) AuthenticateRequest(req *http.Request) (*authenticator.Respo
 		}
 	} else if authHeader != fmt.Sprintf("Bearer %s", b.token) {
 		return nil, false, nil
-	}
-
-	// If bootstrap user is not enabled, then ignore it if there is at least one configured auth provider.
-	if !b.enableBootstrapUser {
-		configuredAuthProviders, err := b.dispatcher.ListConfiguredAuthProviders(req.Context(), system.DefaultNamespace)
-		if err != nil {
-			return nil, false, err
-		}
-
-		if len(configuredAuthProviders) > 0 {
-			return nil, false, nil
-		}
 	}
 
 	gatewayUser, err := b.gatewayClient.EnsureIdentityWithRole(
@@ -98,6 +96,10 @@ func (b *Bootstrap) AuthenticateRequest(req *http.Request) (*authenticator.Respo
 }
 
 func (b *Bootstrap) Login(req api.Context) error {
+	if !b.enableBootstrapUser {
+		return nil
+	}
+
 	auth := req.Request.Header.Get("Authorization")
 	if auth == "" {
 		http.Error(req.ResponseWriter, "missing Authorization header", http.StatusBadRequest)

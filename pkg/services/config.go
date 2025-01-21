@@ -306,7 +306,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		proxyManager *proxy.Manager
 	)
 
-	bootstrapper, err := bootstrap.New(config.EnableBootstrapUser, config.Hostname, gatewayClient, providerDispatcher)
+	bootstrapper, err := bootstrap.New(ctx, config.EnableBootstrapUser, config.Hostname, gatewayClient, providerDispatcher)
 	if err != nil {
 		return nil, err
 	}
