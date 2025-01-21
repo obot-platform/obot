@@ -1,3 +1,6 @@
+import { useEffect, useState } from "react";
+import { useRef } from "react";
+
 import { ToolCall } from "~/lib/model/chatEvents";
 import { Message as MessageType } from "~/lib/model/messages";
 import { cn } from "~/lib/utils";
@@ -23,9 +26,21 @@ export function MessagePane({
 	className,
 	classNames = {},
 }: MessagePaneProps) {
+	const [shouldCenter, setShouldCenter] = useState(true);
+	const noMessagesRef = useRef<HTMLDivElement>(null);
 	const { readOnly, isRunning, mode } = useChat();
 
 	const isEmpty = messages.length === 0 && !readOnly && mode === "agent";
+
+	useEffect(() => {
+		if (isEmpty && noMessagesRef.current) {
+			const parentHeight =
+				noMessagesRef.current.parentElement?.parentElement?.parentElement
+					?.clientHeight || 0;
+			const elementHeight = noMessagesRef.current.clientHeight;
+			setShouldCenter(elementHeight < parentHeight);
+		}
+	}, [isEmpty]);
 
 	return (
 		<div className={cn("flex h-full flex-col", className, classNames.root)}>
@@ -35,11 +50,15 @@ export function MessagePane({
 				enableScrollStick="bottom"
 				classNames={{
 					root: cn("relative h-full w-full", classNames.messageList),
-					viewport: cn(isEmpty && "flex flex-col justify-center"),
+					viewport: cn(
+						isEmpty && shouldCenter && "flex flex-col justify-center"
+					),
 				}}
 			>
 				{isEmpty ? (
-					<NoMessages />
+					<div ref={noMessagesRef}>
+						<NoMessages />
+					</div>
 				) : (
 					<div className="w-full space-y-6 p-4">
 						{messages.map((message, i) => (
