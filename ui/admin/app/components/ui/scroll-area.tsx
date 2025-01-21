@@ -73,7 +73,11 @@ const ScrollArea = React.forwardRef<
 		>
 			<ScrollAreaPrimitive.Viewport
 				className={cn(
-					"h-full max-h-[inherit] w-full scroll-smooth rounded-[inherit]",
+					// [&>div]:!block” is a workaround to fix width expansion issues caused by the viewport
+					// setting `display: table` in the `ScrollAreaPrimitive.Viewport` component.
+					// This is a known issue with Radix UI ScrollArea.
+					// https://github.com/radix-ui/primitives/issues/2722
+					"h-full max-h-[inherit] w-full scroll-smooth rounded-[inherit] [&>div]:!block",
 					classNames.viewport
 				)}
 				ref={initRef}
