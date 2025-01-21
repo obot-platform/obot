@@ -56,8 +56,9 @@ const CallFrames = ({ calls }: { calls: CallsType }) => {
 
 		sortedCalls.forEach(([id, call]) => {
 			if (
-				call.tool?.name === "GPTScript Gateway Provider" ||
-				call.tool?.name === "Obot"
+				call.tool?.modelProvider &&
+				(call.tool?.name === "GPTScript Gateway Provider" ||
+					call.tool?.name === "Obot")
 			) {
 				return;
 			}
