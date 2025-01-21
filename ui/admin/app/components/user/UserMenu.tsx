@@ -1,4 +1,4 @@
-import { User } from "lucide-react";
+import { LogOutIcon, User } from "lucide-react";
 import React from "react";
 
 import { AuthDisabledUsername } from "~/lib/model/auth";
@@ -35,8 +35,13 @@ export const UserMenu: React.FC<UserMenuProps> = ({
 	return (
 		<DropdownMenu>
 			<DropdownMenuTrigger asChild>
-				<ClickableDiv className={cn("flex items-center", className)}>
-					<Avatar className={cn("mr-4", { "w-full": avatarOnly })}>
+				<ClickableDiv
+					className={cn(
+						"flex items-center gap-4 rounded-l-3xl border-0 p-2 hover:bg-secondary focus:outline-none data-[state=open]:bg-secondary",
+						className
+					)}
+				>
+					<Avatar className={cn({ "w-full": avatarOnly })}>
 						<AvatarImage src={me?.iconURL} />
 						<AvatarFallback>
 							<User className="h-5 w-5" />
@@ -52,9 +57,14 @@ export const UserMenu: React.FC<UserMenuProps> = ({
 					)}
 				</ClickableDiv>
 			</DropdownMenuTrigger>
-			<DropdownMenuContent className="w-auto" side="bottom" align="start">
+			<DropdownMenuContent
+				className="w-auto min-w-56"
+				side="bottom"
+				align="end"
+			>
 				<DropdownMenuGroup>
 					<DropdownMenuItem
+						className="flex items-center gap-2"
 						onClick={async () => {
 							await fetch(ApiRoutes.bootstrap.logout().url, {
 								method: "POST",
@@ -63,6 +73,7 @@ export const UserMenu: React.FC<UserMenuProps> = ({
 							window.location.href = "/oauth2/sign_out?rd=/admin/";
 						}}
 					>
+						<LogOutIcon className="size-4" />
 						Sign Out
 					</DropdownMenuItem>
 				</DropdownMenuGroup>

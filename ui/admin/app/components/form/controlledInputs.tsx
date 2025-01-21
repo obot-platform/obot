@@ -54,6 +54,7 @@ export type ControlledInputProps<
 			description?: string;
 			message?: string;
 		};
+		ignore1Password?: boolean;
 	};
 
 export function ControlledInput<
@@ -67,6 +68,7 @@ export function ControlledInput<
 	description,
 	onChange,
 	onChangeConversion,
+	ignore1Password = true,
 	classNames = {},
 	...inputProps
 }: ControlledInputProps<TValues, TName>) {
@@ -96,6 +98,7 @@ export function ControlledInput<
 							className,
 							classNames.input
 						)}
+						data-1p-ignore={ignore1Password}
 					/>
 				</BasicInputItem>
 			)}
