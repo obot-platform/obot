@@ -79,13 +79,6 @@ spec:
                   name: {{ include "obot.config.secretName" . }}
                   key: githubAuthToken
             {{- end }}
-            {{- if .Values.config.bootstrapToken }}
-            - name: "OBOT_BOOTSTRAP_TOKEN"
-              valueFrom:
-                secretKeyRef:
-                  name: {{ include "obot.config.secretName" . }}
-                  key: bootstrapToken
-            {{- end }}
             - name: "OBOT_SERVER_ENABLE_AUTHENTICATION"
               value: "{{ .Values.config.enableAuthentication }}"
             - name: "OBOT_SERVER_ENABLE_BOOTSTRAP_USER"

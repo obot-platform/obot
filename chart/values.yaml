@@ -58,7 +58,6 @@ config:
   awsRegion: ""
   awsSecretAccessKey: ""
   baaahThreadiness: "20"
-  bootstrapToken: "" # Randomly generated at runtime if not set
   enableAuthentication: true
   enableBootstrapUser: true
   githubAuthToken: ""
