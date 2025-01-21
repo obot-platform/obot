@@ -88,7 +88,11 @@ function WorkflowContent({ className }: WorkflowProps) {
 					/>
 				</div>
 				<div className="m-4 px-4 pb-4">
-					<AgentForm agent={workflowUpdates} onChange={partialSetWorkflow} />
+					<AgentForm
+						agent={workflowUpdates}
+						onChange={partialSetWorkflow}
+						hideImageField
+					/>
 				</div>
 
 				<div className="m-4 flex flex-col gap-4 p-4">

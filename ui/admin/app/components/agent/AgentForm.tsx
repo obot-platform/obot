@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 
+import { AgentIcon } from "~/components/agent/icon/AgentIcon";
 import {
 	ControlledAutosizeTextarea,
 	ControlledInput,
@@ -18,6 +19,14 @@ const formSchema = z.object({
 	description: z.string().optional(),
 	prompt: z.string().optional(),
 	model: z.string().optional(),
+	icons: z
+		.object({
+			icon: z.string(),
+			iconDark: z.string(),
+			collapsed: z.string(),
+			collapsedDark: z.string(),
+		})
+		.optional(),
 });
 
 export type AgentInfoFormValues = z.infer<typeof formSchema>;
@@ -26,9 +35,15 @@ type AgentFormProps = {
 	agent: AgentInfoFormValues;
 	onSubmit?: (values: AgentInfoFormValues) => void;
 	onChange?: (values: AgentInfoFormValues) => void;
+	hideImageField?: boolean;
 };
 
-export function AgentForm({ agent, onSubmit, onChange }: AgentFormProps) {
+export function AgentForm({
+	agent,
+	onSubmit,
+	onChange,
+	hideImageField,
+}: AgentFormProps) {
 	const form = useForm<AgentInfoFormValues>({
 		resolver: zodResolver(formSchema),
 		mode: "onChange",
@@ -37,6 +52,7 @@ export function AgentForm({ agent, onSubmit, onChange }: AgentFormProps) {
 			description: agent.description || "",
 			prompt: agent.prompt || "",
 			model: agent.model || "",
+			icons: agent.icons,
 		},
 	});
 
@@ -63,22 +79,19 @@ export function AgentForm({ agent, onSubmit, onChange }: AgentFormProps) {
 	return (
 		<Form {...form}>
 			<form onSubmit={handleSubmit} className="space-y-4">
-				<ControlledInput
-					variant="ghost"
-					autoComplete="off"
-					control={form.control}
-					name="name"
-					className="text-3xl"
-				/>
-
-				<ControlledInput
-					variant="ghost"
-					control={form.control}
-					autoComplete="off"
-					name="description"
-					placeholder="Add a description..."
-					className="text-xl text-muted-foreground"
-				/>
+				{hideImageField ? (
+					renderTitleDescription()
+				) : (
+					<div className="flex items-center justify-start gap-2">
+						<AgentIcon
+							icons={agent.icons}
+							onChange={(icons) => form.setValue("icons", icons)}
+						/>
+						<div className="flex flex-col gap-2">
+							{renderTitleDescription()}
+						</div>
+					</div>
+				)}
 
 				<h4 className="flex items-center gap-2 border-b pb-2">
 					<BrainIcon className="h-5 w-5" />
@@ -98,4 +111,27 @@ export function AgentForm({ agent, onSubmit, onChange }: AgentFormProps) {
 			</form>
 		</Form>
 	);
+
+	function renderTitleDescription() {
+		return (
+			<>
+				<ControlledInput
+					variant="ghost"
+					autoComplete="off"
+					control={form.control}
+					name="name"
+					className="text-3xl"
+				/>
+
+				<ControlledInput
+					variant="ghost"
+					control={form.control}
+					autoComplete="off"
+					name="description"
+					placeholder="Add a description..."
+					className="text-xl text-muted-foreground"
+				/>
+			</>
+		);
+	}
 }
