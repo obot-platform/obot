@@ -1,4 +1,4 @@
-import { CircleCheckIcon, CircleSlashIcon } from "lucide-react";
+import { CircleCheckIcon, CircleHelpIcon, CircleSlashIcon } from "lucide-react";
 import { Link } from "react-router";
 
 import { AuthProvider } from "~/lib/model/providers";
@@ -8,7 +8,23 @@ import { ProviderIcon } from "~/components/auth-and-model-providers/ProviderIcon
 import { ProviderMenu } from "~/components/auth-and-model-providers/ProviderMenu";
 import { AuthProviderLinks } from "~/components/auth-and-model-providers/constants";
 import { Badge } from "~/components/ui/badge";
+import { Button } from "~/components/ui/button";
 import { Card, CardContent, CardHeader } from "~/components/ui/card";
+import {
+	Tooltip,
+	TooltipContent,
+	TooltipTrigger,
+} from "~/components/ui/tooltip";
+
+function isDisabled(
+	authProvider: AuthProvider,
+	authProviders: AuthProvider[]
+): boolean {
+	return (
+		!authProvider.configured &&
+		authProviders.filter((p) => p.configured).length > 0
+	);
+}
 
 export function AuthProviderList({
 	authProviders,
@@ -21,13 +37,32 @@ export function AuthProviderList({
 				{authProviders.map((authProvider) => (
 					<Card key={authProvider.id}>
 						<CardHeader className="flex flex-row items-center justify-between pb-4 pt-2">
-							{authProvider.configured ? (
+							{authProvider.configured && (
 								<div className="flex flex-row items-center gap-2">
 									<ProviderMenu provider={authProvider} />
 								</div>
-							) : (
-								<div className="h-9 w-9" />
 							)}
+							{isDisabled(authProvider, authProviders) && (
+								<div className="flex flex-row items-center gap-2">
+									<Tooltip>
+										<TooltipTrigger>
+											<Button variant="ghost" size="icon">
+												<CircleHelpIcon />
+											</Button>
+										</TooltipTrigger>
+										<TooltipContent>
+											<span>
+												You must deconfigure the existing provider before
+												configuring this one.
+											</span>
+										</TooltipContent>
+									</Tooltip>
+								</div>
+							)}
+							{!isDisabled(authProvider, authProviders) &&
+								!authProvider.configured && (
+									<div className="flex flex-row items-center gap-2" />
+								)}
 						</CardHeader>
 						<CardContent className="flex flex-col items-center gap-4">
 							<Link to={AuthProviderLinks[authProvider.id]}>
@@ -50,7 +85,10 @@ export function AuthProviderList({
 									</span>
 								)}
 							</Badge>
-							<ProviderConfigure provider={authProvider} />
+							<ProviderConfigure
+								provider={authProvider}
+								disabled={isDisabled(authProvider, authProviders)}
+							/>
 						</CardContent>
 					</Card>
 				))}

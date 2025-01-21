@@ -26,9 +26,13 @@ import { Link } from "~/components/ui/link";
 
 type ProviderConfigureProps = {
 	provider: ModelProvider | AuthProvider;
+	disabled: boolean;
 };
 
-export function ProviderConfigure({ provider }: ProviderConfigureProps) {
+export function ProviderConfigure({
+	provider,
+	disabled,
+}: ProviderConfigureProps) {
 	const [dialogIsOpen, setDialogIsOpen] = useState(false);
 	const [showDefaultModelAliasForm, setShowDefaultModelAliasForm] =
 		useState(false);
@@ -70,6 +74,7 @@ export function ProviderConfigure({ provider }: ProviderConfigureProps) {
 		<Dialog open={dialogIsOpen} onOpenChange={setDialogIsOpen}>
 			<DialogTrigger asChild>
 				<Button
+					disabled={disabled}
 					variant={provider.configured ? "secondary" : "accent"}
 					className="mt-0 w-full"
 				>

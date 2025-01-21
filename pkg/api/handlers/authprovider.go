@@ -59,6 +59,15 @@ func (ap *AuthProviderHandler) ByID(req api.Context) error {
 }
 
 func (ap *AuthProviderHandler) List(req api.Context) error {
+	resp, err := ap.listAuthProviders(req)
+	if err != nil {
+		return err
+	}
+
+	return req.Write(types.AuthProviderList{Items: resp})
+}
+
+func (ap *AuthProviderHandler) listAuthProviders(req api.Context) ([]types.AuthProvider, error) {
 	var refList v1.ToolReferenceList
 	if err := req.List(&refList, &kclient.ListOptions{
 		Namespace: req.Namespace(),
@@ -66,7 +75,7 @@ func (ap *AuthProviderHandler) List(req api.Context) error {
 			"spec.type": string(types.ToolReferenceTypeAuthProvider),
 		}),
 	}); err != nil {
-		return err
+		return nil, err
 	}
 
 	credCtxs := make([]string, 0, len(refList.Items))
@@ -78,7 +87,7 @@ func (ap *AuthProviderHandler) List(req api.Context) error {
 		CredentialContexts: credCtxs,
 	})
 	if err != nil {
-		return fmt.Errorf("failed to list auth provider credentials: %w", err)
+		return nil, fmt.Errorf("failed to list auth provider credentials: %w", err)
 	}
 
 	credMap := make(map[string]map[string]string, len(creds))
@@ -90,8 +99,7 @@ func (ap *AuthProviderHandler) List(req api.Context) error {
 	for _, ref := range refList.Items {
 		resp = append(resp, convertToolReferenceToAuthProvider(ref, credMap[string(ref.UID)+ref.Name]))
 	}
-
-	return req.Write(types.AuthProviderList{Items: resp})
+	return resp, nil
 }
 
 func (ap *AuthProviderHandler) Configure(req api.Context) error {
@@ -102,6 +110,19 @@ func (ap *AuthProviderHandler) Configure(req api.Context) error {
 
 	if ref.Spec.Type != types.ToolReferenceTypeAuthProvider {
 		return types.NewErrBadRequest("%q is not an auth provider", ref.Name)
+	}
+
+	// Check to see if there are any other configured auth providers.
+	// For now, we only support one auth provider at a time to be configured.
+	allAuthProviders, err := ap.listAuthProviders(req)
+	if err != nil {
+		return err
+	}
+
+	for _, ap := range allAuthProviders {
+		if ap.Configured && (ap.Name != authProviderNameFromToolRef(ref) || ap.Namespace != ref.Namespace) {
+			return types.NewErrBadRequest("another auth provider is already configured")
+		}
 	}
 
 	var envVars map[string]string
@@ -198,16 +219,19 @@ func (ap *AuthProviderHandler) Reveal(req api.Context) error {
 	return types.NewErrNotFound("no credential found for %q", ref.Name)
 }
 
-func convertToolReferenceToAuthProvider(ref v1.ToolReference, credEnvVars map[string]string) types.AuthProvider {
+func authProviderNameFromToolRef(ref v1.ToolReference) string {
 	name := ref.Name
 	if ref.Status.Tool != nil {
 		name = ref.Status.Tool.Name
 	}
+	return name
+}
 
+func convertToolReferenceToAuthProvider(ref v1.ToolReference, credEnvVars map[string]string) types.AuthProvider {
 	ap := types.AuthProvider{
 		Metadata: MetadataFrom(&ref),
 		AuthProviderManifest: types.AuthProviderManifest{
-			Name:          name,
+			Name:          authProviderNameFromToolRef(ref),
 			Namespace:     ref.Namespace,
 			ToolReference: ref.Spec.Reference,
 		},
