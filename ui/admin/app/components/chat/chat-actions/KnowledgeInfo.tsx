@@ -5,7 +5,7 @@ import { KNOWLEDGE_TOOL } from "~/lib/model/agents";
 import { KnowledgeFileNamespace } from "~/lib/model/knowledge";
 import { cn } from "~/lib/utils";
 
-import { useThreadAgents } from "~/components/chat/thread-helpers";
+import { useThreadAgents } from "~/components/chat/shared/thread-helpers";
 import { KnowledgeFileItem } from "~/components/knowledge/KnowledgeFileItem";
 import { Button } from "~/components/ui/button";
 import {

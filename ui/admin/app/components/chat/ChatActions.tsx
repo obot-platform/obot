@@ -6,7 +6,7 @@ import { ToolsInfo } from "~/components/chat/chat-actions/ToolsInfo";
 import {
 	useOptimisticThread,
 	useThreadAgents as useThreadAgent,
-} from "~/components/chat/thread-helpers";
+} from "~/components/chat/shared/thread-helpers";
 
 export function ChatActions({ className }: { className?: string }) {
 	const { threadId } = useChat();

@@ -20,8 +20,8 @@ export function useKnowledgeFiles(
 		...rest
 	} = useSWR(
 		KnowledgeFileService.getKnowledgeFiles.key(namespace, agentId),
-		({ namespace, agentId }) =>
-			KnowledgeFileService.getKnowledgeFiles(namespace, agentId),
+		({ namespace, entityId }) =>
+			KnowledgeFileService.getKnowledgeFiles(namespace, entityId),
 		{
 			revalidateOnFocus: false,
 			refreshInterval: blockPollingLocalFiles ? undefined : 5000,

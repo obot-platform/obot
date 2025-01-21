@@ -4,18 +4,21 @@ import {
 	ExternalLink,
 	FileIcon,
 	FilesIcon,
+	RotateCwIcon,
 } from "lucide-react";
 import { $path } from "safe-routes";
 
 import { Agent } from "~/lib/model/agents";
-import { KnowledgeFile } from "~/lib/model/knowledge";
 import { runStateToBadgeColor } from "~/lib/model/runs";
 import { Thread } from "~/lib/model/threads";
 import { Workflow } from "~/lib/model/workflows";
-import { WorkspaceFile } from "~/lib/model/workspace";
 import { ThreadsService } from "~/lib/service/api/threadsService";
 import { cn } from "~/lib/utils";
 
+import {
+	useThreadFiles,
+	useThreadKnowledge,
+} from "~/components/chat/shared/thread-helpers";
 import { Truncate } from "~/components/composed/typography";
 import {
 	Accordion,
@@ -35,26 +38,24 @@ import {
 } from "~/components/ui/tooltip";
 
 interface ThreadMetaProps {
-	for: Agent | Workflow;
+	entity: Agent | Workflow;
 	thread: Thread;
-	files: WorkspaceFile[];
-	knowledge: KnowledgeFile[];
 	className?: string;
 }
 
-export function ThreadMeta({
-	for: entity,
-	thread,
-	files,
-	className,
-	knowledge,
-}: ThreadMetaProps) {
+export function ThreadMeta({ entity, thread, className }: ThreadMetaProps) {
 	const from = $path("/threads/:id", { id: thread.id });
 	const isAgent = entity.id.startsWith("a");
 
 	const assistantLink = isAgent
 		? $path("/agents/:agent", { agent: entity.id }, { from })
 		: $path("/workflows/:workflow", { workflow: entity.id });
+
+	const getFiles = useThreadFiles(thread.id);
+	const { data: files = [] } = getFiles;
+
+	const getKnowledge = useThreadKnowledge(thread.id);
+	const { data: knowledge = [] } = getKnowledge;
 
 	return (
 		<Card className={cn("bg-0 h-full overflow-hidden", className)}>
@@ -131,10 +132,24 @@ export function ThreadMeta({
 					{files.length > 0 && (
 						<AccordionItem value="files">
 							<AccordionTrigger>
-								<span className="flex items-center">
-									<FilesIcon className="mr-2 h-4 w-4" />
-									Files
-								</span>
+								<div className="flex w-full items-center justify-between">
+									<span className="flex items-center">
+										<FilesIcon className="mr-2 h-4 w-4" />
+										Files
+									</span>
+
+									<Button
+										variant="ghost"
+										size="icon-sm"
+										loading={getFiles.isValidating}
+										onClick={(e) => {
+											e.stopPropagation();
+											getFiles.mutate();
+										}}
+									>
+										<RotateCwIcon />
+									</Button>
+								</div>
 							</AccordionTrigger>
 							<AccordionContent className="mx-4">
 								<ul className="space-y-2">
@@ -171,10 +186,24 @@ export function ThreadMeta({
 					{knowledge.length > 0 && (
 						<AccordionItem value="knowledge">
 							<AccordionTrigger>
-								<span className="flex items-center text-base">
-									<FilesIcon className="mr-2 h-4 w-4" />
-									Knowledge Files
-								</span>
+								<div className="flex w-full items-center justify-between">
+									<span className="flex items-center">
+										<FilesIcon className="mr-2 h-4 w-4" />
+										Knowledge Files
+									</span>
+
+									<Button
+										variant="ghost"
+										size="icon-sm"
+										loading={getKnowledge.isValidating}
+										onClick={(e) => {
+											e.stopPropagation();
+											getKnowledge.mutate();
+										}}
+									>
+										<RotateCwIcon />
+									</Button>
+								</div>
 							</AccordionTrigger>
 							<AccordionContent className="mx-4">
 								<ul className="space-y-2">
