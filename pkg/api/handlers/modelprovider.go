@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -48,8 +49,8 @@ func (mp *ModelProviderHandler) ByID(req api.Context) error {
 	var credEnvVars map[string]string
 	if ref.Status.Tool != nil {
 		if envVars := ref.Status.Tool.Metadata["envVars"]; envVars != "" {
-			cred, err := mp.gptscript.RevealCredential(req.Context(), []string{string(ref.UID)}, ref.Name)
-			if err != nil && !strings.HasSuffix(err.Error(), "credential not found") {
+			cred, err := mp.gptscript.RevealCredential(req.Context(), []string{string(ref.UID), system.GenericModelProviderCredentialContext}, ref.Name)
+			if err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
 				return fmt.Errorf("failed to reveal credential for model provider %q: %w", ref.Name, err)
 			} else if err == nil {
 				credEnvVars = cred.Env
@@ -71,10 +72,11 @@ func (mp *ModelProviderHandler) List(req api.Context) error {
 		return err
 	}
 
-	credCtxs := make([]string, 0, len(refList.Items))
+	credCtxs := make([]string, 0, len(refList.Items)+1)
 	for _, ref := range refList.Items {
 		credCtxs = append(credCtxs, string(ref.UID))
 	}
+	credCtxs = append(credCtxs, system.GenericModelProviderCredentialContext)
 
 	creds, err := mp.gptscript.ListCredentials(req.Context(), gptscript.ListCredentialsOptions{
 		CredentialContexts: credCtxs,
@@ -90,7 +92,11 @@ func (mp *ModelProviderHandler) List(req api.Context) error {
 
 	resp := make([]types.ModelProvider, 0, len(refList.Items))
 	for _, ref := range refList.Items {
-		resp = append(resp, convertToolReferenceToModelProvider(ref, credMap[string(ref.UID)+ref.Name]))
+		env, ok := credMap[string(ref.UID)+ref.Name]
+		if !ok {
+			env = credMap[system.GenericModelProviderCredentialContext+ref.Name]
+		}
+		resp = append(resp, convertToolReferenceToModelProvider(ref, env))
 	}
 
 	return req.Write(types.ModelProviderList{Items: resp})
@@ -184,8 +190,13 @@ func (mp *ModelProviderHandler) Configure(req api.Context) error {
 	}
 
 	// Allow for updating credentials. The only way to update a credential is to delete the existing one and recreate it.
-	if err := mp.gptscript.DeleteCredential(req.Context(), string(ref.UID), ref.Name); err != nil && !strings.HasSuffix(err.Error(), "credential not found") {
-		return fmt.Errorf("failed to update credential: %w", err)
+	cred, err := mp.gptscript.RevealCredential(req.Context(), []string{string(ref.UID), system.GenericModelProviderCredentialContext}, ref.Name)
+	if err != nil {
+		if !errors.As(err, &gptscript.ErrNotFound{}) {
+			return fmt.Errorf("failed to find credential: %w", err)
+		}
+	} else if err = mp.gptscript.DeleteCredential(req.Context(), cred.Context, ref.Name); err != nil {
+		return fmt.Errorf("failed to remove existing credential: %w", err)
 	}
 
 	for key, val := range envVars {
@@ -227,8 +238,13 @@ func (mp *ModelProviderHandler) Deconfigure(req api.Context) error {
 		return types.NewErrBadRequest("%q is not a model provider", ref.Name)
 	}
 
-	if err := mp.gptscript.DeleteCredential(req.Context(), string(ref.UID), ref.Name); err != nil && !strings.HasSuffix(err.Error(), "credential not found") {
-		return fmt.Errorf("failed to update credential: %w", err)
+	cred, err := mp.gptscript.RevealCredential(req.Context(), []string{string(ref.UID), system.GenericModelProviderCredentialContext}, ref.Name)
+	if err != nil {
+		if !errors.As(err, &gptscript.ErrNotFound{}) {
+			return fmt.Errorf("failed to find credential: %w", err)
+		}
+	} else if err = mp.gptscript.DeleteCredential(req.Context(), cred.Context, ref.Name); err != nil {
+		return fmt.Errorf("failed to remove existing credential: %w", err)
 	}
 
 	// Stop the model provider so that the credential is completely removed from the system.
@@ -256,8 +272,8 @@ func (mp *ModelProviderHandler) Reveal(req api.Context) error {
 		return types.NewErrBadRequest("%q is not a model provider", ref.Name)
 	}
 
-	cred, err := mp.gptscript.RevealCredential(req.Context(), []string{string(ref.UID)}, ref.Name)
-	if err != nil && !strings.HasSuffix(err.Error(), "credential not found") {
+	cred, err := mp.gptscript.RevealCredential(req.Context(), []string{string(ref.UID), system.GenericModelProviderCredentialContext}, ref.Name)
+	if err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
 		return fmt.Errorf("failed to reveal credential: %w", err)
 	} else if err == nil {
 		return req.Write(cred.Env)
@@ -279,8 +295,8 @@ func (mp *ModelProviderHandler) RefreshModels(req api.Context) error {
 	var credEnvVars map[string]string
 	if ref.Status.Tool != nil {
 		if envVars := ref.Status.Tool.Metadata["envVars"]; envVars != "" {
-			cred, err := mp.gptscript.RevealCredential(req.Context(), []string{string(ref.UID)}, ref.Name)
-			if err != nil && !strings.HasSuffix(err.Error(), "credential not found") {
+			cred, err := mp.gptscript.RevealCredential(req.Context(), []string{string(ref.UID), system.GenericModelProviderCredentialContext}, ref.Name)
+			if err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
 				return fmt.Errorf("failed to reveal credential for model provider %q: %w", ref.Name, err)
 			} else if err == nil {
 				credEnvVars = cred.Env

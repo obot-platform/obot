@@ -993,7 +993,7 @@ func removeToolCredentials(ctx context.Context, client kclient.Client, gClient *
 		toolRef.Status.Tool = nil
 
 		for _, cred := range credentialNames {
-			if err := gClient.DeleteCredential(ctx, credCtx, cred); err != nil && !strings.HasSuffix(err.Error(), "credential not found") {
+			if err := gClient.DeleteCredential(ctx, credCtx, cred); err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
 				errs = append(errs, err)
 			}
 		}

@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"slices"
-	"strings"
 
 	"github.com/gptscript-ai/go-gptscript"
 	"github.com/obot-platform/obot/apiclient/types"
@@ -28,8 +27,8 @@ func SetEnv(req api.Context) error {
 
 	var errs []error
 	for key, val := range envs {
-		if err := req.GPTClient.DeleteCredential(req.Context(), id, key); err != nil && !strings.HasSuffix(err.Error(), "credential not found") {
-			errs = append(errs, fmt.Errorf("failed to remove existing credetial %q: %w", key, err))
+		if err := req.GPTClient.DeleteCredential(req.Context(), id, key); err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
+			errs = append(errs, fmt.Errorf("failed to remove existing credential %q: %w", key, err))
 			continue
 		}
 
@@ -55,8 +54,8 @@ func SetEnv(req api.Context) error {
 	for i := 0; i < len(*env); i++ {
 		if _, ok := envs[(*env)[i].Name]; !ok {
 			// Delete the credential for the store
-			if err := req.GPTClient.DeleteCredential(req.Context(), id, (*env)[i].Name); err != nil && !strings.HasSuffix(err.Error(), "credential not found") {
-				errs = append(errs, fmt.Errorf("failed to remove existing credetial %q that is not longer needed: %w", (*env)[i].Name, err))
+			if err := req.GPTClient.DeleteCredential(req.Context(), id, (*env)[i].Name); err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
+				errs = append(errs, fmt.Errorf("failed to remove existing credential %q that is not longer needed: %w", (*env)[i].Name, err))
 				continue
 			}
 			// Remove the item from the slice
@@ -98,7 +97,7 @@ func RevealEnv(req api.Context) error {
 	resp := make(map[string]string, len(*env))
 	for _, e := range *env {
 		cred, err := req.GPTClient.RevealCredential(req.Context(), []string{id}, e.Name)
-		if err != nil && !strings.HasSuffix(err.Error(), "credential not found") {
+		if err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
 			return err
 		}
 

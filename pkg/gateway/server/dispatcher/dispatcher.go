@@ -224,7 +224,7 @@ func (d *Dispatcher) startModelProvider(ctx context.Context, namespace, modelPro
 		return nil, fmt.Errorf("failed to get model provider: %w", err)
 	}
 
-	credCtx := []string{string(modelProvider.UID)}
+	credCtx := []string{string(modelProvider.UID), system.GenericModelProviderCredentialContext}
 	if modelProvider.Status.Tool == nil {
 		return nil, fmt.Errorf("model provider %q has not been resolved", modelProviderName)
 	}
@@ -324,7 +324,7 @@ func (d *Dispatcher) startAuthProvider(ctx context.Context, namespace, authProvi
 		return nil, fmt.Errorf("failed to get auth provider: %w", err)
 	}
 
-	credCtx := []string{string(authProvider.UID)}
+	credCtx := []string{string(authProvider.UID), system.GenericAuthProviderCredentialContext}
 	if authProvider.Status.Tool == nil {
 		return nil, fmt.Errorf("auth provider %q has not been resolved", authProviderName)
 	}
@@ -371,7 +371,7 @@ func (d *Dispatcher) ListConfiguredAuthProviders(ctx context.Context, namespace 
 
 	var result []string
 	for _, authProvider := range authProviders.Items {
-		if isConfigured, _, _ := d.isAuthProviderConfigured(ctx, []string{string(authProvider.UID)}, authProvider); isConfigured {
+		if isConfigured, _, _ := d.isAuthProviderConfigured(ctx, []string{string(authProvider.UID), system.GenericAuthProviderCredentialContext}, authProvider); isConfigured {
 			result = append(result, authProvider.Name)
 		}
 	}

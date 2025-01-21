@@ -311,8 +311,8 @@ func (h *Handler) EnsureOpenAIEnvCredentialAndDefaults(ctx context.Context, c cl
 		}
 	}
 
-	if cred, err := h.gptClient.RevealCredential(ctx, []string{string(openAIModelProvider.UID)}, "openai-model-provider"); err != nil {
-		if !strings.HasSuffix(err.Error(), "credential not found") {
+	if cred, err := h.gptClient.RevealCredential(ctx, []string{string(openAIModelProvider.UID), system.GenericModelProviderCredentialContext}, "openai-model-provider"); err != nil {
+		if !errors.As(err, &gptscript.ErrNotFound{}) {
 			return fmt.Errorf("failed to check OpenAI credential: %w", err)
 		}
 
@@ -392,9 +392,9 @@ func (h *Handler) BackPopulateModels(req router.Request, _ router.Response) erro
 	}
 
 	if toolRef.Status.Tool.Metadata["envVars"] != "" {
-		cred, err := h.gptClient.RevealCredential(req.Ctx, []string{string(toolRef.UID)}, toolRef.Name)
+		cred, err := h.gptClient.RevealCredential(req.Ctx, []string{string(toolRef.UID), system.GenericModelProviderCredentialContext}, toolRef.Name)
 		if err != nil {
-			if strings.Contains(err.Error(), "credential not found") {
+			if errors.As(err, &gptscript.ErrNotFound{}) {
 				// Unable to find credential, ensure all models remove for this model provider
 				return removeModelsForProvider(req.Ctx, req.Client, req.Namespace, req.Name)
 			}
@@ -488,7 +488,7 @@ func (h *Handler) CleanupModelProvider(req router.Request, _ router.Response) er
 	}
 
 	if toolRef.Status.Tool.Metadata["envVars"] != "" {
-		if err := h.gptClient.DeleteCredential(req.Ctx, string(toolRef.UID), toolRef.Name); err != nil && !strings.Contains(err.Error(), "credential not found") {
+		if err := h.gptClient.DeleteCredential(req.Ctx, string(toolRef.UID), toolRef.Name); err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
 			return err
 		}
 	}
