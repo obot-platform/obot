@@ -43,3 +43,9 @@ Obot currently supports the following authentication providers (using OAuth2):
 - Google
 
 The code for these providers is available in the [Obot tools repo](https://github.com/obot-platform/tools).
+
+## Disabling the Bootstrap User
+
+If you do not want to be able to log in as the bootstrap user, you can set the `OBOT_SERVER_ENABLE_BOOTSTRAP_USER` environment variable to `false`.
+This will prevent you from logging in as the bootstrap user, **as long as there is at least one configured auth provider**.
+Even when this environment variable is set to `false`, the bootstrap user will still be available if there are no configured auth providers.
