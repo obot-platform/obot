@@ -25,6 +25,7 @@ export function Markdown({
 }) {
 	const allowedAttributes = {
 		a: ["href", "target", "rel", "name", "title"],
+		img: ["src", "alt", "title"],
 	};
 	return (
 		<ReactMarkdown
