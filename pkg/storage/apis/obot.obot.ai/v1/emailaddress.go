@@ -33,12 +33,14 @@ func (in *EmailReceiver) Get(field string) (value string) {
 	switch field {
 	case "spec.threadName":
 		return in.Spec.ThreadName
+	case "spec.workflow":
+		return in.Spec.Workflow
 	}
 	return ""
 }
 
 func (in *EmailReceiver) FieldNames() []string {
-	return []string{"spec.threadName"}
+	return []string{"spec.threadName", "spec.workflow"}
 }
 
 func (in *EmailReceiver) GetAliasName() string {

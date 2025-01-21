@@ -28,12 +28,14 @@ func (c *CronJob) Get(field string) (value string) {
 	switch field {
 	case "spec.threadName":
 		return c.Spec.ThreadName
+	case "spec.workflow":
+		return c.Spec.Workflow
 	}
 	return ""
 }
 
 func (c *CronJob) FieldNames() []string {
-	return []string{"spec.threadName"}
+	return []string{"spec.threadName", "spec.workflow"}
 }
 
 func (*CronJob) GetColumns() [][]string {
