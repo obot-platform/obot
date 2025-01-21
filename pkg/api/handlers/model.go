@@ -165,15 +165,13 @@ func convertModel(ctx context.Context, c kclient.Client, model v1.Model) (types.
 	}
 
 	modelManifest := model.Spec.Manifest
-	if toolRef.Status.Tool != nil {
-		modelManifest.ModelProviderName = toolRef.Status.Tool.Name
-	}
 
 	return types.Model{
 		Metadata:      MetadataFrom(&model),
 		ModelManifest: modelManifest,
 		ModelStatus: types.ModelStatus{
-			AliasAssigned: aliasAssigned,
+			AliasAssigned:     aliasAssigned,
+			ModelProviderName: toolRef.Status.Tool.Name,
 		},
 	}, nil
 }

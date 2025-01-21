@@ -2146,13 +2146,6 @@ func schema_obot_platform_obot_apiclient_types_ModelManifest(ref common.Referenc
 							Format: "",
 						},
 					},
-					"modelProviderName": {
-						SchemaProps: spec.SchemaProps{
-							Default: "",
-							Type:    []string{"string"},
-							Format:  "",
-						},
-					},
 					"alias": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
@@ -2174,7 +2167,7 @@ func schema_obot_platform_obot_apiclient_types_ModelManifest(ref common.Referenc
 						},
 					},
 				},
-				Required: []string{"modelProviderName", "active", "usage"},
+				Required: []string{"active", "usage"},
 			},
 		},
 	}
@@ -2354,7 +2347,15 @@ func schema_obot_platform_obot_apiclient_types_ModelStatus(ref common.ReferenceC
 							Format: "",
 						},
 					},
+					"modelProviderName": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
 				},
+				Required: []string{"modelProviderName"},
 			},
 		},
 	}
