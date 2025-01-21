@@ -25,7 +25,6 @@ export function ProviderIcon({
 				"dark:invert": ![
 					CommonModelProviderIds.AZURE_OPENAI,
 					CommonAuthProviderIds.GOOGLE,
-					CommonAuthProviderIds.GITHUB,
 				].includes(provider.id),
 			})}
 		/>
