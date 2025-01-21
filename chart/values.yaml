@@ -58,10 +58,10 @@ config:
   awsRegion: ""
   awsSecretAccessKey: ""
   baaahThreadiness: "20"
-  enableAuthentication: true
-  enableBootstrapUser: true
+
   githubAuthToken: ""
   obotServerEnableAuthentication: true
+  obotServerEnableBootstrapUser: true
   obotBootstrapToken: ""
   obotServerAuthAdminEmails: ""
   obotServerDSN: ""
