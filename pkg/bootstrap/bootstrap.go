@@ -97,6 +97,7 @@ func (b *Bootstrap) AuthenticateRequest(req *http.Request) (*authenticator.Respo
 
 func (b *Bootstrap) Login(req api.Context) error {
 	if !b.enableBootstrapUser {
+		http.Error(req.ResponseWriter, "invalid token", http.StatusUnauthorized)
 		return nil
 	}
 
