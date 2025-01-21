@@ -53,6 +53,17 @@ func New(enableBootstrapUser bool, serverURL string, c *client.Client, d *dispat
 }
 
 func (b *Bootstrap) AuthenticateRequest(req *http.Request) (*authenticator.Response, bool, error) {
+	authHeader := req.Header.Get("Authorization")
+	if authHeader == "" {
+		// Check for the cookie.
+		c, err := req.Cookie(bootstrapCookie)
+		if err != nil || c.Value != b.token {
+			return nil, false, nil
+		}
+	} else if authHeader != fmt.Sprintf("Bearer %s", b.token) {
+		return nil, false, nil
+	}
+
 	// If bootstrap user is not enabled, then ignore it if there is at least one configured auth provider.
 	if !b.enableBootstrapUser {
 		configuredAuthProviders, err := b.dispatcher.ListConfiguredAuthProviders(req.Context(), system.DefaultNamespace)
@@ -64,17 +75,6 @@ func (b *Bootstrap) AuthenticateRequest(req *http.Request) (*authenticator.Respo
 			fmt.Println("rejecting bootstrap authorization because at least one auth provider is configured")
 			return nil, false, nil
 		}
-	}
-
-	authHeader := req.Header.Get("Authorization")
-	if authHeader == "" {
-		// Check for the cookie.
-		c, err := req.Cookie(bootstrapCookie)
-		if err != nil || c.Value != b.token {
-			return nil, false, nil
-		}
-	} else if authHeader != fmt.Sprintf("Bearer %s", b.token) {
-		return nil, false, nil
 	}
 
 	gatewayUser, err := b.gatewayClient.EnsureIdentityWithRole(
