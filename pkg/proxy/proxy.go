@@ -111,6 +111,9 @@ func (pm *Manager) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/oauth2/sign_out" {
 			http.Error(w, fmt.Sprintf("failed to create proxy: %v", err), http.StatusInternalServerError)
 		} else {
+			// If the user is signing out, and we failed to start the proxy,
+			// it's probably because their auth provider got deconfigured.
+			// Just redirect them to where they are supposed to go.
 			http.Redirect(w, r, rdParam, http.StatusFound)
 		}
 		return
