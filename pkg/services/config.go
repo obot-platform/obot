@@ -100,6 +100,7 @@ type Services struct {
 	Bootstrapper               *bootstrap.Bootstrap
 	KnowledgeSetIngestionLimit int
 	SupportDocker              bool
+	AuthEnabled                bool
 	AgentsDir                  string
 
 	// Use basic auth for sendgrid webhook, if being set
@@ -388,6 +389,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		KnowledgeSetIngestionLimit: config.KnowledgeSetIngestionLimit,
 		EmailServerName:            config.EmailServerName,
 		SupportDocker:              config.Docker,
+		AuthEnabled:                config.EnableAuthentication,
 		SendgridWebhookUsername:    config.SendgridWebhookUsername,
 		SendgridWebhookPassword:    config.SendgridWebhookPassword,
 		ProxyManager:               proxyManager,

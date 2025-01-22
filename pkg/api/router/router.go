@@ -31,7 +31,7 @@ func Router(services *services.Services) (http.Handler, error) {
 	prompt := handlers.NewPromptHandler(services.GPTClient)
 	emailreceiver := handlers.NewEmailReceiverHandler(services.EmailServerName)
 	defaultModelAliases := handlers.NewDefaultModelAliasHandler()
-	version := handlers.NewVersionHandler(services.EmailServerName, services.SupportDocker)
+	version := handlers.NewVersionHandler(services.EmailServerName, services.SupportDocker, services.AuthEnabled)
 	tables := handlers.NewTableHandler(services.GPTClient)
 
 	sendgridWebhookHandler := sendgrid.NewInboundWebhookHandler(services.StorageClient, services.EmailServerName, services.SendgridWebhookUsername, services.SendgridWebhookPassword)

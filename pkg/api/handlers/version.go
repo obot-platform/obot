@@ -15,13 +15,15 @@ type VersionHandler struct {
 	gptscriptVersion string
 	emailDomain      string
 	supportDocker    bool
+	authEnabled      bool
 }
 
-func NewVersionHandler(emailDomain string, supportDocker bool) *VersionHandler {
+func NewVersionHandler(emailDomain string, supportDocker, authEnabled bool) *VersionHandler {
 	return &VersionHandler{
 		emailDomain:      emailDomain,
 		gptscriptVersion: getGPTScriptVersion(),
 		supportDocker:    supportDocker,
+		authEnabled:      authEnabled,
 	}
 }
 
@@ -41,6 +43,7 @@ func (v *VersionHandler) getVersionResponse() map[string]any {
 	values["gptscript"] = v.gptscriptVersion
 	values["emailDomain"] = v.emailDomain
 	values["dockerSupported"] = v.supportDocker
+	values["authEnabled"] = v.authEnabled
 	return values
 }
 
