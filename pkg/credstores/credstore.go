@@ -30,7 +30,7 @@ func Init(ctx context.Context, toolRegistries []string, dsn string, opts Options
 	case strings.HasPrefix(dsn, "postgres://"):
 		return setupPostgres(toolRegistries, dsn)
 	default:
-		return "", nil, fmt.Errorf("unsupported database for credentials %s", dsn)
+		return "", nil, fmt.Errorf("unsupported database for credentials %s", strings.Split(dsn, "://")[0])
 	}
 }
 

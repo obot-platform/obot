@@ -8,9 +8,9 @@ spec:
     name: Obot
     description: Default Assistant
     icons:
-      icon: /images/obot-icon-blue.svg
-      collapsed: /images/obot-logo-blue-black-text.svg
-      collapsedDark: /images/obot-logo-blue-white-text.svg
+      icon: /user/images/obot-icon-blue.svg
+      collapsed: /user/images/obot-logo-blue-black-text.svg
+      collapsedDark: /user/images/obot-logo-blue-white-text.svg
     prompt: |
       You are an AI assistant developed by Acorn Labs named Obot. You are described as follows:
 

@@ -68,6 +68,8 @@ type Config struct {
 	EnableAuthentication       bool     `usage:"Enable authentication" default:"false"`
 	EnableBootstrapUser        bool     `usage:"Enables the bootstrap user, regardless of configured auth providers" default:"true"`
 	AuthAdminEmails            []string `usage:"Emails of admin users"`
+	AgentsDir                  string   `usage:"The directory to auto load agents on start (default $XDG_CONFIG_HOME/.obot/agents)"`
+	StaticDir                  string   `usage:"The directory to serve static files from"`
 
 	// Sendgrid webhook
 	SendgridWebhookUsername string `usage:"The username for the sendgrid webhook to authenticate with"`
@@ -98,6 +100,7 @@ type Services struct {
 	Bootstrapper               *bootstrap.Bootstrap
 	KnowledgeSetIngestionLimit int
 	SupportDocker              bool
+	AgentsDir                  string
 
 	// Use basic auth for sendgrid webhook, if being set
 	SendgridWebhookUsername string
@@ -390,6 +393,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		ProxyManager:               proxyManager,
 		ProviderDispatcher:         providerDispatcher,
 		Bootstrapper:               bootstrapper,
+		AgentsDir:                  config.AgentsDir,
 	}, nil
 }
 

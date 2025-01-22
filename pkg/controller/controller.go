@@ -34,7 +34,7 @@ func New(services *services.Services) (*Controller, error) {
 }
 
 func (c *Controller) PreStart(ctx context.Context) error {
-	if err := data.Data(ctx, c.services.StorageClient); err != nil {
+	if err := data.Data(ctx, c.services.StorageClient, c.services.AgentsDir); err != nil {
 		return fmt.Errorf("failed to apply data: %w", err)
 	}
 	return nil

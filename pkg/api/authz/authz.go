@@ -28,9 +28,8 @@ var staticRules = map[string][]string{
 		"/admin/",
 		"/{$}",
 		"/{agent}",
-		"/images/",
+		"/user/images/",
 		"/_app/",
-		"/static/",
 
 		// Allow access to the oauth2 endpoints
 		"/oauth2/",

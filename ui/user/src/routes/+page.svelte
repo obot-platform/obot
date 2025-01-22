@@ -7,9 +7,9 @@
 	import { Book } from '$lib/icons';
 	import { loadedAssistants } from '$lib/stores';
 	import { listAuthProviders, type AuthProvider } from '$lib/auth';
-    import {onMount} from "svelte"
+	import { onMount } from 'svelte';
 
-	let authProviders: AuthProvider[] = $state([])
+	let authProviders: AuthProvider[] = $state([]);
 
 	onMount(async () => {
 		authProviders = await listAuthProviders();
@@ -50,18 +50,18 @@
 			class="icon-button text-white hover:text-blue-50"
 		>
 			{#if $darkMode}
-				<img src="/images/github-mark/github-mark-white.svg" alt="GitHub" class="h-8" />
+				<img src="/user/images/github-mark/github-mark-white.svg" alt="GitHub" class="h-8" />
 			{:else}
-				<img src="/images/github-mark/github-mark.svg" alt="GitHub" class="h-8" />
+				<img src="/user/images/github-mark/github-mark.svg" alt="GitHub" class="h-8" />
 			{/if}
 		</a>
 	</div>
 	<div class="mx-auto flex flex-col items-center gap-16">
 		<div class="flex items-end gap-4">
 			{#if $darkMode}
-				<img src="/images/obot-logo-blue-white-text.svg" alt="obot icon" class="h-64 px-5" />
+				<img src="/user/images/obot-logo-blue-white-text.svg" alt="obot icon" class="h-64 px-5" />
 			{:else}
-				<img src="/images/obot-logo-blue-black-text.svg" alt="obot icon" class="h-64 px-5" />
+				<img src="/user/images/obot-logo-blue-black-text.svg" alt="obot icon" class="h-64 px-5" />
 			{/if}
 		</div>
 
@@ -69,24 +69,33 @@
 			{#each authProviders as provider}
 				<a
 					onclick={() => {
-						window.location.href = '/oauth2/start?rd=' + window.location.pathname + '&obot-auth-provider=' + provider.namespace + '/' + provider.id;
+						window.location.href =
+							'/oauth2/start?rd=' +
+							window.location.pathname +
+							'&obot-auth-provider=' +
+							provider.namespace +
+							'/' +
+							provider.id;
 					}}
 					rel="external"
 					href={`/oauth2/start?obot-auth-provider=${provider.namespace}/${provider.id}&rd=/`}
 					class="group flex items-center gap-1 rounded-full bg-black p-2 px-8 text-lg font-semibold text-white dark:bg-white dark:text-black"
 				>
-				{#if provider.icon}
-					<img
-						class="ml-2 h-6 w-6 rounded-full p-1 group-hover:bg-white"
-						src={provider.icon}
-						alt={provider.name}
-					/>
-					Login with {provider.name}
-				{/if}
+					{#if provider.icon}
+						<img
+							class="ml-2 h-6 w-6 rounded-full p-1 group-hover:bg-white"
+							src={provider.icon}
+							alt={provider.name}
+						/>
+						Login with {provider.name}
+					{/if}
 				</a>
 			{/each}
 			{#if authProviders.length === 0}
-				<p>No auth providers configured. Please configure at least one auth provider in the admin panel.</p>
+				<p>
+					No auth providers configured. Please configure at least one auth provider in the admin
+					panel.
+				</p>
 			{/if}
 		</div>
 	</div>

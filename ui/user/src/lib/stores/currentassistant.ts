@@ -26,12 +26,18 @@ function assignSelected(currentAssistants: Assistant[], selectedName: string): A
 	}
 	const res = currentAssistants.find((value) => value.current);
 	if (!res && selectedName) {
-		ChatService.getAssistant(selectedName).then((assistant) => {
-			if (assistant) {
-				assistant.current = true;
-				store.set(assistant);
-			}
-		});
+		ChatService.getAssistant(selectedName)
+			.then((assistant) => {
+				if (assistant) {
+					assistant.current = true;
+					store.set(assistant);
+				}
+			})
+			.catch((error) => {
+				if (String(error).includes('404')) {
+					window.location.href = '/';
+				}
+			});
 		return def;
 	}
 	return res ?? def;
