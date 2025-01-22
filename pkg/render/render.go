@@ -45,6 +45,20 @@ func Agent(ctx context.Context, db kclient.Client, agent *v1.Agent, oauthServerU
 		Credentials:  agent.Spec.Credentials,
 	}
 
+	if agent.Spec.Manifest.Model != "" {
+		var model v1.Model
+		if err := db.Get(ctx, kclient.ObjectKey{
+			Namespace: agent.Namespace,
+			Name:      agent.Spec.Manifest.Model,
+		}, &model); err != nil {
+			return nil, nil, err
+		}
+
+		if model.Spec.Manifest.Name == "o1" && model.Spec.Manifest.ModelProvider == "openai-model-provider" {
+			extraEnv = append(extraEnv, "OPENAI_MODEL_NAME=o1")
+		}
+	}
+
 	extraEnv = append(extraEnv, agent.Spec.Env...)
 
 	for _, env := range agent.Spec.Manifest.Env {
