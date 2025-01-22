@@ -12,7 +12,7 @@ Obot can be configured to receive email and trigger workflows. Currently, it onl
 
 You need to configure Obot with an email server name where it is going to receive emails. The email server name should match the domain you have configured in SendGrid. For example, if you want to receive emails from `john@yourcompany.com`, you need to configure Obot with `yourcompany.com`.
 
-You can configure the email server name by setting the `OBOT_EMAIL_SERVER_NAME` environment variable.
+You can configure the email server name by setting the `OBOT_SERVER_EMAIL_SERVER_NAME` environment variable.
 
 #### Configuring SendGrid Inbound Parse API
 
@@ -31,7 +31,7 @@ By default, SendGrid inbound webhook does not provide a way to verify the signat
 
 To do this,
 
-1. Set `OBOT_SENDGRID_WEBHOOK_USERNAME` and `OBOT_SENDGRID_WEBHOOK_PASSWORD` environment variables when you start Obot.
+1. Set `OBOT_SERVER_SENDGRID_WEBHOOK_USERNAME` and `OBOT_SERVER_SENDGRID_WEBHOOK_PASSWORD` environment variables when you start Obot.
 2. Configure SendGrid webhook URL with basic auth `https://{username}:{password}@{obot_server_url}/api/sendgrid`.
    :::
 
