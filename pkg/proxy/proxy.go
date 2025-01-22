@@ -53,6 +53,15 @@ func (pm *Manager) HandlerFunc(ctx api.Context) error {
 }
 
 func (pm *Manager) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if pm == nil {
+		rd := r.URL.Query().Get("rd")
+		if rd == "" || !strings.HasPrefix(rd, "/") {
+			rd = "/"
+		}
+		http.Redirect(w, r, rd, http.StatusFound)
+		return
+	}
+
 	var provider string
 
 	if provider = r.URL.Query().Get(AuthProviderCookie); provider != "" {
