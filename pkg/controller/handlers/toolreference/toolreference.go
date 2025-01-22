@@ -223,14 +223,6 @@ func (h *Handler) PollRegistries(ctx context.Context, c client.Client) {
 		return
 	}
 
-	for {
-		if err := c.List(ctx, &v1.ToolReferenceList{}, client.InNamespace(system.DefaultNamespace)); err != nil {
-			time.Sleep(time.Second)
-			continue
-		}
-		break
-	}
-
 	t := time.NewTicker(time.Hour)
 	defer t.Stop()
 	for {

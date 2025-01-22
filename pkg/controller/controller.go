@@ -8,6 +8,7 @@ import (
 	"github.com/obot-platform/obot/pkg/controller/data"
 	"github.com/obot-platform/obot/pkg/controller/handlers/toolreference"
 	"github.com/obot-platform/obot/pkg/services"
+	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	// Enable logrus logging in nah
 	_ "github.com/obot-platform/nah/pkg/logrus"
@@ -30,6 +31,8 @@ func New(services *services.Services) (*Controller, error) {
 		return nil, err
 	}
 
+	services.Router.PosStart(c.PostStart)
+
 	return c, nil
 }
 
@@ -40,9 +43,11 @@ func (c *Controller) PreStart(ctx context.Context) error {
 	return nil
 }
 
-func (c *Controller) PostStart(ctx context.Context) error {
-	go c.toolRefHandler.PollRegistries(ctx, c.services.Router.Backend())
-	return c.toolRefHandler.EnsureOpenAIEnvCredentialAndDefaults(ctx, c.services.Router.Backend())
+func (c *Controller) PostStart(ctx context.Context, client kclient.Client) {
+	go c.toolRefHandler.PollRegistries(ctx, client)
+	if err := c.toolRefHandler.EnsureOpenAIEnvCredentialAndDefaults(ctx, client); err != nil {
+		panic(fmt.Errorf("failed to ensure openai env credential and defaults: %w", err))
+	}
 }
 
 func (c *Controller) Start(ctx context.Context) error {
