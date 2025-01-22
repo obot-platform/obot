@@ -20,9 +20,9 @@ To configure SendGrid to forward emails to Obot, follow these steps:
 
 1. Log in to your SendGrid account.
 2. Navigate to the Inbound Parse settings.
-3. Add a new Inbound Parse Webhook.
-4. Set the domain to the email server name you configured in Obot.
-5. Set the webhook URL to `https://{obot_server_url}/api/sendgrid`. Replace `{obot_server_url}` with the actual URL of your Obot server.
+3. Click on `Add Host & Url`.
+4. For receiving domain, Set the domain to the email server name you configured in Obot. For example, `yourcompany.com`.
+5. Set the Destination URL to `https://{obot_server_url}/api/sendgrid`. Replace `{obot_server_url}` with the actual URL of your Obot server.
 
 To see more details, follow the detailed instructions provided by SendGrid [here](https://www.twilio.com/docs/sendgrid/for-developers/parsing-email/setting-up-the-inbound-parse-webhook).
 
