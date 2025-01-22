@@ -20,6 +20,9 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Setup crane
+        uses: imjasonh/setup-crane@v0.4
+
       - name: Copy to test tag
         run: |
           crane tag ghcr.io/${{ github.repository }}-enterprise:main test
