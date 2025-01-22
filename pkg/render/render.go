@@ -74,11 +74,11 @@ func Agent(ctx context.Context, db kclient.Client, agent *v1.Agent, oauthServerU
 	}
 
 	if opts.Thread != nil {
-		for _, tool := range opts.Thread.Spec.Manifest.Tools {
-			if !added && tool == knowledgeToolName {
+		for _, t := range opts.Thread.Spec.Manifest.Tools {
+			if !added && t == knowledgeToolName {
 				continue
 			}
-			name, tools, err := Tool(ctx, db, agent.Namespace, tool)
+			name, _, tools, err := tool(ctx, db, agent.Namespace, t)
 			if err != nil {
 				return nil, nil, err
 			}
@@ -107,18 +107,33 @@ func Agent(ctx context.Context, db kclient.Client, agent *v1.Agent, oauthServerU
 		}
 	}
 
-	for _, tool := range agent.Spec.Manifest.Tools {
-		if !added && tool == knowledgeToolName {
+	patSupportedIntegrations := make(map[string]struct{})
+	for _, t := range agent.Spec.Manifest.Tools {
+		if !added && t == knowledgeToolName {
 			continue
 		}
-		name, tools, err := Tool(ctx, db, agent.Namespace, tool)
+		name, metadata, tools, err := tool(ctx, db, agent.Namespace, t)
 		if err != nil {
 			return nil, nil, err
 		}
 		if name != "" {
 			mainTool.Tools = append(mainTool.Tools, name)
 		}
-		otherTools = append(otherTools, tools...)
+
+		if metadata["oauthPATSupported"] == "true" {
+			if integration := metadata["oauth"]; integration != "" {
+				patSupportedIntegrations[integration] = struct{}{}
+			}
+		}
+
+		for _, t := range tools {
+			if t.MetaData["oauthPATSupported"] == "true" {
+				if integration := t.MetaData["oauth"]; integration != "" {
+					patSupportedIntegrations[integration] = struct{}{}
+				}
+			}
+			otherTools = append(otherTools, t)
+		}
 	}
 
 	for _, tool := range agent.Spec.SystemTools {
@@ -142,7 +157,7 @@ func Agent(ctx context.Context, db kclient.Client, agent *v1.Agent, oauthServerU
 		return nil, nil, err
 	}
 
-	oauthEnv, err := OAuthAppEnv(ctx, db, agent.Spec.Manifest.OAuthApps, agent.Namespace, oauthServerURL)
+	oauthEnv, err := OAuthAppEnv(ctx, db, agent.Spec.Manifest.OAuthApps, agent.Namespace, oauthServerURL, slices.Collect(maps.Keys(patSupportedIntegrations)))
 	if err != nil {
 		return nil, nil, err
 	}
@@ -152,7 +167,7 @@ func Agent(ctx context.Context, db kclient.Client, agent *v1.Agent, oauthServerU
 	return append([]gptscript.ToolDef{mainTool}, otherTools...), extraEnv, nil
 }
 
-func OAuthAppEnv(ctx context.Context, db kclient.Client, oauthAppNames []string, namespace, serverURL string) (extraEnv []string, _ error) {
+func OAuthAppEnv(ctx context.Context, db kclient.Client, oauthAppNames []string, namespace, serverURL string, patIntegrations []string) (extraEnv []string, _ error) {
 	apps, err := oauthAppsByName(ctx, db, namespace)
 	if err != nil {
 		return nil, err
@@ -161,7 +176,7 @@ func OAuthAppEnv(ctx context.Context, db kclient.Client, oauthAppNames []string,
 	activeIntegrations := map[string]v1.OAuthApp{}
 	for _, name := range slices.Sorted(maps.Keys(apps)) {
 		app := apps[name]
-		if app.Spec.Manifest.Global == nil || !*app.Spec.Manifest.Global || app.Spec.Manifest.ClientID == "" || app.Spec.Manifest.ClientSecret == "" || app.Spec.Manifest.Integration == "" {
+		if !app.Spec.Manifest.Global || app.Spec.Manifest.ClientID == "" || app.Spec.Manifest.ClientSecret == "" || app.Spec.Manifest.Integration == "" {
 			continue
 		}
 		activeIntegrations[app.Spec.Manifest.Integration] = app
@@ -190,6 +205,10 @@ func OAuthAppEnv(ctx context.Context, db kclient.Client, oauthAppNames []string,
 			fmt.Sprintf("GPTSCRIPT_OAUTH_%s_AUTH_URL=%s", integrationEnv, app.AuthorizeURL(serverURL)),
 			fmt.Sprintf("GPTSCRIPT_OAUTH_%s_REFRESH_URL=%s", integrationEnv, app.RefreshURL(serverURL)),
 			fmt.Sprintf("GPTSCRIPT_OAUTH_%s_TOKEN_URL=%s", integrationEnv, v1.OAuthAppGetTokenURL(serverURL)))
+	}
+
+	if len(patIntegrations) > 0 {
+		extraEnv = append(extraEnv, fmt.Sprintf("GPTSCRIPT_OAUTH_PAT_INTEGRATIONS=%s", strings.Join(patIntegrations, ",")))
 	}
 
 	return extraEnv, nil

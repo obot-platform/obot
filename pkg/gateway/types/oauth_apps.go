@@ -172,7 +172,7 @@ func MergeOAuthAppManifests(r, other types.OAuthAppManifest) types.OAuthAppManif
 	if other.OptionalScope != "" {
 		retVal.OptionalScope = other.OptionalScope
 	}
-	if other.Global != nil {
+	if other.Global {
 		retVal.Global = other.Global
 	}
 
