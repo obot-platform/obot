@@ -67,7 +67,6 @@ export function BundleToolList({
 								<Separator className="mb-4" />
 								<div className="flex items-center gap-4">
 									<ToolIcon
-										disableTooltip
 										className="h-6 w-6"
 										name={bundle?.name ?? ""}
 										icon={bundle?.metadata?.icon}

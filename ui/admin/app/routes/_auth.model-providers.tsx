@@ -1,14 +1,14 @@
 import { MetaFunction } from "react-router";
 import { preload } from "swr";
 
-import { ModelProvider } from "~/lib/model/modelProviders";
+import { ModelProvider } from "~/lib/model/providers";
 import { DefaultModelAliasApiService } from "~/lib/service/api/defaultModelAliasApiService";
 import { ModelApiService } from "~/lib/service/api/modelApiService";
 import { RouteHandle } from "~/lib/service/routeHandles";
 
+import { ModelProviderList } from "~/components/auth-and-model-providers/ModelProviderLists";
+import { CommonModelProviderIds } from "~/components/auth-and-model-providers/constants";
 import { WarningAlert } from "~/components/composed/WarningAlert";
-import { ModelProviderList } from "~/components/model-providers/ModelProviderLists";
-import { CommonModelProviderIds } from "~/components/model-providers/constants";
 import { DefaultModelAliasFormDialog } from "~/components/model/DefaultModelAliasForm";
 import { ScrollArea } from "~/components/ui/scroll-area";
 import { useModelProviders } from "~/hooks/model-providers/useModelProviders";
@@ -37,6 +37,7 @@ const sortModelProviders = (modelProviders: ModelProvider[]) => {
 			CommonModelProviderIds.GROQ,
 			CommonModelProviderIds.VLLM,
 			CommonModelProviderIds.DEEPSEEK,
+			CommonModelProviderIds.GEMINI_VERTEX,
 		];
 		const aIndex = preferredOrder.indexOf(a.id);
 		const bIndex = preferredOrder.indexOf(b.id);

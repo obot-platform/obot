@@ -2,9 +2,6 @@ import "@radix-ui/react-tooltip";
 import { AlertCircleIcon, WrenchIcon } from "lucide-react";
 import React, { useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
-import Markdown, { defaultUrlTransform } from "react-markdown";
-import rehypeExternalLinks from "rehype-external-links";
-import remarkGfm from "remark-gfm";
 
 import { AuthPrompt } from "~/lib/model/chatEvents";
 import { Message as MessageType } from "~/lib/model/messages";
@@ -14,7 +11,6 @@ import { cn } from "~/lib/utils";
 import { MessageDebug } from "~/components/chat/MessageDebug";
 import { ToolCallInfo } from "~/components/chat/ToolCallInfo";
 import { ControlledInput } from "~/components/form/controlledInputs";
-import { CustomMarkdownComponents } from "~/components/react-markdown";
 import { ToolIcon } from "~/components/tools/ToolIcon";
 import { Button } from "~/components/ui/button";
 import {
@@ -27,6 +23,7 @@ import {
 } from "~/components/ui/dialog";
 import { Form } from "~/components/ui/form";
 import { Link } from "~/components/ui/link";
+import { Markdown } from "~/components/ui/markdown";
 import { useAnimatedText } from "~/hooks/messages/useAnimatedText";
 import { useAsync } from "~/hooks/useAsync";
 
@@ -34,14 +31,6 @@ interface MessageProps {
 	message: MessageType;
 	isRunning?: boolean;
 }
-
-// Allow links for file references in messages if it starts with file://, otherwise this will cause an empty href and cause app to reload when clicking on it
-const urlTransformAllowFiles = (u: string) => {
-	if (u.startsWith("file://")) {
-		return u;
-	}
-	return defaultUrlTransform(u);
-};
 
 const OpenMarkdownLinkRegex = new RegExp(/\[([^\]]+)\]\(https?:\/\/[^)]*$/);
 
@@ -97,17 +86,10 @@ export const Message = React.memo(({ message, isRunning }: MessageProps) => {
 							<PromptMessage prompt={message.prompt} isRunning={isRunning} />
 						) : (
 							<Markdown
-								className={cn(
-									"prose max-w-full flex-auto overflow-x-auto break-words dark:prose-invert prose-pre:whitespace-pre-wrap prose-pre:break-words prose-thead:text-left prose-img:rounded-xl prose-img:shadow-lg",
-									{
-										"prose-invert text-accent-foreground": isUser,
-										"text-muted-foreground": message.aborted,
-									}
-								)}
-								remarkPlugins={[remarkGfm]}
-								rehypePlugins={[[rehypeExternalLinks, { target: "_blank" }]]}
-								urlTransform={urlTransformAllowFiles}
-								components={CustomMarkdownComponents}
+								className={cn({
+									"prose-invert text-accent-foreground": isUser,
+									"text-muted-foreground": message.aborted,
+								})}
 							>
 								{parsedMessage || "Waiting for more information..."}
 							</Markdown>
@@ -183,7 +165,6 @@ export function PromptMessage({
 							name={prompt.name}
 							category={prompt.metadata.category}
 							icon={prompt.metadata.icon}
-							disableTooltip
 							className="h-5 w-5"
 						/>
 						{str}
@@ -221,7 +202,6 @@ export function PromptMessage({
 						icon={prompt.metadata.icon}
 						category={prompt.metadata.category}
 						name={prompt.name}
-						disableTooltip
 					/>
 
 					{getCtaText()}
@@ -237,7 +217,6 @@ export function PromptMessage({
 									icon={prompt.metadata?.icon}
 									category={prompt.metadata?.category}
 									name={prompt.name}
-									disableTooltip
 								/>
 							}
 						>
@@ -271,7 +250,6 @@ export function PromptMessage({
 							icon={prompt.metadata?.icon}
 							category={prompt.metadata?.category}
 							name={prompt.name}
-							disableTooltip
 						/>
 					}
 				>

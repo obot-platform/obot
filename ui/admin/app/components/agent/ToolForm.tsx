@@ -8,6 +8,8 @@ import { noop } from "~/lib/utils";
 
 import { ToolEntry } from "~/components/agent/ToolEntry";
 import { ToolCatalogDialog } from "~/components/tools/ToolCatalog";
+import { AnimatePresence } from "~/components/ui/animate";
+import { SlideInOut } from "~/components/ui/animate/slide-in-out";
 import { Form } from "~/components/ui/form";
 import {
 	Select,
@@ -144,52 +146,58 @@ export function ToolForm({
 				onSubmit={handleSubmit(onSubmit || noop)}
 				className="flex flex-col gap-4"
 			>
-				<div className="mt-2 w-full overflow-y-auto">
-					{sortedFields.map((field) => (
-						<ToolEntry
-							key={field.tool}
-							tool={field.tool}
-							onDelete={() => removeTools([field.tool])}
-							actions={
-								<>
-									<Select
-										value={field.variant}
-										onValueChange={(value) =>
-											updateVariant(field.tool, value as ToolVariant)
-										}
-									>
-										<SelectTrigger className="w-36">
-											<SelectValue />
-										</SelectTrigger>
+				<div className="mt-2 w-full overflow-y-auto overflow-x-hidden">
+					<AnimatePresence>
+						{sortedFields.map((field) => (
+							<SlideInOut
+								key={field.tool}
+								direction={{ in: "up", out: "right" }}
+							>
+								<ToolEntry
+									tool={field.tool}
+									onDelete={() => removeTools([field.tool])}
+									actions={
+										<>
+											<Select
+												value={field.variant}
+												onValueChange={(value) =>
+													updateVariant(field.tool, value as ToolVariant)
+												}
+											>
+												<SelectTrigger className="w-36">
+													<SelectValue />
+												</SelectTrigger>
 
-										<SelectContent>
-											<SelectItem value={ToolVariant.FIXED}>
-												Always On
-											</SelectItem>
-											<SelectItem value={ToolVariant.DEFAULT}>
-												<p>
-													Optional
-													<span className="text-muted-foreground">
-														{" - On"}
-													</span>
-												</p>
-											</SelectItem>
-											<SelectItem value={ToolVariant.AVAILABLE}>
-												<p>
-													Optional
-													<span className="text-muted-foreground">
-														{" - Off"}
-													</span>
-												</p>
-											</SelectItem>
-										</SelectContent>
-									</Select>
+												<SelectContent>
+													<SelectItem value={ToolVariant.FIXED}>
+														Always On
+													</SelectItem>
+													<SelectItem value={ToolVariant.DEFAULT}>
+														<p>
+															Optional
+															<span className="text-muted-foreground">
+																{" - On"}
+															</span>
+														</p>
+													</SelectItem>
+													<SelectItem value={ToolVariant.AVAILABLE}>
+														<p>
+															Optional
+															<span className="text-muted-foreground">
+																{" - Off"}
+															</span>
+														</p>
+													</SelectItem>
+												</SelectContent>
+											</Select>
 
-									{renderActions?.(field.tool)}
-								</>
-							}
-						/>
-					))}
+											{renderActions?.(field.tool)}
+										</>
+									}
+								/>
+							</SlideInOut>
+						))}
+					</AnimatePresence>
 				</div>
 
 				<div className="flex justify-end">

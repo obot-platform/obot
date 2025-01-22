@@ -24,12 +24,6 @@ ${OBOT_SERVER_VERSIONS}
 VERSIONS
 )"
 
-# Only enable sshd in Render. Remove sshd entirely once we have migrated out of Render.
-if [[ -v ENABLE_SSHD ]]; then
-  mkdir -p /run/sshd
-  /usr/sbin/sshd -D &
-fi
-
 mkdir -p /data/cache
 
 if [ -z "$OBOT_SERVER_DSN" ]; then

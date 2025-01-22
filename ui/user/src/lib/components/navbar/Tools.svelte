@@ -3,27 +3,14 @@
 	import { tools, version } from '$lib/stores';
 	import { currentAssistant } from '$lib/stores';
 	import { ChatService, EditorService } from '$lib/services';
+	import { newTool } from '$lib/components/tool/Tool.svelte';
 	import Menu from '$lib/components/navbar/Menu.svelte';
 	import { PenBox } from 'lucide-svelte';
 
 	let menu = $state<ReturnType<typeof Menu>>();
 
 	async function addTool() {
-		const tool = await ChatService.createTool($currentAssistant.id, {
-			id: '',
-			params: {
-				msg: 'A message to be echoed'
-			},
-			toolType: 'javascript',
-			instructions: `
-
-// Arguments to the tool are available as env vars in CAPITAL_CASE form
-// Output for the tool is just the content on stdout (or console.log)
-
-console.log(\`Your message \${process.env.MSG}\`);
-
-`
-		});
+		const tool = await ChatService.createTool($currentAssistant.id, newTool);
 		await EditorService.load($currentAssistant.id, tool.id);
 		menu?.open.set(false);
 	}

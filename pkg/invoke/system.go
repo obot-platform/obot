@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/obot-platform/nah/pkg/router"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/render"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
@@ -45,6 +46,13 @@ func (i *Invoker) EphemeralThreadTask(ctx context.Context, thread *v1.Thread, to
 			return "", err
 		}
 
+		var agent v1.Agent
+		if thread.Spec.AgentName != "" {
+			if err := i.uncached.Get(ctx, router.Key(thread.Namespace, thread.Spec.AgentName), &agent); err != nil {
+				return "", err
+			}
+		}
+
 		tool, extraEnv, err = render.Agent(ctx, i.uncached, &v1.Agent{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: thread.Namespace,
@@ -53,6 +61,7 @@ func (i *Invoker) EphemeralThreadTask(ctx context.Context, thread *v1.Thread, to
 				Manifest: types.AgentManifest{
 					Prompt: "#!sys.call " + toolRef,
 					Tools:  []string{toolRef},
+					Env:    agent.Spec.Manifest.Env,
 				},
 			},
 		}, i.serverURL, render.AgentOptions{
@@ -77,7 +86,7 @@ func (i *Invoker) EphemeralThreadTask(ctx context.Context, thread *v1.Thread, to
 	resp, err := i.createRun(ctx, i.uncached, thread, tool, inputString, runOptions{
 		Ephemeral:            true,
 		Env:                  append(opt.Env, extraEnv...),
-		CredentialContextIDs: append(credContexts, opt.CredentialContextIDs...),
+		CredentialContextIDs: append(opt.CredentialContextIDs, credContexts...),
 		Synchronous:          true,
 		Timeout:              opt.Timeout,
 	})

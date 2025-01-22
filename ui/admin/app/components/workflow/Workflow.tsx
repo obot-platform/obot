@@ -1,3 +1,4 @@
+import { GearIcon } from "@radix-ui/react-icons";
 import {
 	BlocksIcon,
 	Library,
@@ -10,15 +11,23 @@ import { useNavigate } from "react-router";
 import { $path } from "safe-routes";
 
 import { AssistantNamespace } from "~/lib/model/assistants";
+import { CapabilityTool } from "~/lib/model/toolReferences";
 import { Workflow as WorkflowType } from "~/lib/model/workflows";
 import { cn } from "~/lib/utils";
 
 import { AgentForm } from "~/components/agent";
 import { AgentCapabilityForm } from "~/components/agent/shared/AgentCapabilityForm";
+import { AgentModelSelect } from "~/components/agent/shared/AgentModelSelect";
 import { EnvironmentVariableSection } from "~/components/agent/shared/EnvironmentVariableSection";
 import { ToolAuthenticationStatus } from "~/components/agent/shared/ToolAuthenticationStatus";
 import { AgentKnowledgePanel } from "~/components/knowledge";
 import { BasicToolForm } from "~/components/tools/BasicToolForm";
+import {
+	Accordion,
+	AccordionContent,
+	AccordionItem,
+	AccordionTrigger,
+} from "~/components/ui/accordion";
 import { CardDescription } from "~/components/ui/card";
 import { ScrollArea } from "~/components/ui/scroll-area";
 import { DeleteWorkflowButton } from "~/components/workflow/DeleteWorkflow";
@@ -84,7 +93,7 @@ function WorkflowContent({ className }: WorkflowProps) {
 
 				<div className="m-4 flex flex-col gap-4 p-4">
 					<h4 className="flex items-center gap-2">
-						<BlocksIcon className="h-5 w-5" />
+						<BlocksIcon />
 						Capabilities
 					</h4>
 
@@ -96,12 +105,13 @@ function WorkflowContent({ className }: WorkflowProps) {
 					<AgentCapabilityForm
 						entity={workflowUpdates}
 						onChange={partialSetWorkflow}
+						exclude={[CapabilityTool.Tasks]}
 					/>
 				</div>
 
 				<div className="m-4 flex flex-col gap-4 p-4">
 					<h4 className="flex items-center gap-2">
-						<WrenchIcon className="h-5 w-5" />
+						<WrenchIcon />
 						Tools
 					</h4>
 
@@ -127,7 +137,7 @@ function WorkflowContent({ className }: WorkflowProps) {
 
 				<div className="m-4 flex flex-col gap-4 p-4">
 					<h4 className="flex items-center gap-2">
-						<List className="h-4 w-4" />
+						<List />
 						Parameters
 					</h4>
 
@@ -143,7 +153,7 @@ function WorkflowContent({ className }: WorkflowProps) {
 
 				<div className="m-4 flex flex-col gap-4 p-4">
 					<h4 className="flex items-center gap-2">
-						<PuzzleIcon className="h-4 w-4" />
+						<PuzzleIcon />
 						Steps
 					</h4>
 
@@ -155,7 +165,7 @@ function WorkflowContent({ className }: WorkflowProps) {
 
 				<div className="m-4 flex flex-col gap-4 p-4">
 					<h4 className="flex items-center gap-2">
-						<Library className="h-4 w-4" />
+						<Library />
 						Knowledge
 					</h4>
 
@@ -180,11 +190,37 @@ function WorkflowContent({ className }: WorkflowProps) {
 
 				<WorkflowTriggerPanel workflowId={workflow.id} />
 
-				<EnvironmentVariableSection
-					entity={workflow}
-					entityType="workflow"
-					onUpdate={partialSetWorkflow}
-				/>
+				<Accordion type="multiple" className="m-4 p-4">
+					<AccordionItem value="advanced">
+						<AccordionTrigger className="border-b">
+							<h4 className="flex items-center gap-2">
+								<GearIcon />
+								Advanced
+							</h4>
+						</AccordionTrigger>
+
+						<AccordionContent className="space-y-8 py-4">
+							<div className="flex flex-col gap-4">
+								<h4>Model</h4>
+
+								<CardDescription>
+									The model to use for the Workflow.
+								</CardDescription>
+
+								<AgentModelSelect
+									entity={workflowUpdates}
+									onChange={(updates) => partialSetWorkflow(updates)}
+								/>
+							</div>
+
+							<EnvironmentVariableSection
+								entity={workflow}
+								entityType="workflow"
+								onUpdate={partialSetWorkflow}
+							/>
+						</AccordionContent>
+					</AccordionItem>
+				</Accordion>
 
 				<div className="h-8" /* spacer */ />
 			</ScrollArea>

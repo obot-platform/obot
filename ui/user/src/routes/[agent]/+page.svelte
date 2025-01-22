@@ -15,7 +15,8 @@
 
 	$effect(() => {
 		if ($profile.unauthorized) {
-			window.location.href = '/oauth2/start?rd=' + window.location.pathname;
+			// Redirect to the main page to log in.
+			window.location.href = '/';
 		}
 	});
 </script>
@@ -37,7 +38,7 @@
 	</div>
 
 	{#if $editorVisible || term.open}
-		<div class="h-dvh w-full pt-20 transition-all {splitWindow ? 'lg:w-3/4' : ''}">
+		<div class="h-dvh w-full pt-20 transition-all {splitWindow ? 'lg:w-3/5' : ''}">
 			<div class="mx-auto h-full max-w-[1300px]">
 				<Editor />
 			</div>

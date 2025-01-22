@@ -56,6 +56,7 @@ func convertThread(thread v1.Thread) types.Thread {
 		AgentAlias:      thread.Spec.AgentAlias,
 		UserID:          thread.Spec.UserUID,
 		Abort:           thread.Spec.Abort,
+		SystemTask:      thread.Spec.SystemTask,
 		Env:             thread.Spec.Env,
 	}
 }

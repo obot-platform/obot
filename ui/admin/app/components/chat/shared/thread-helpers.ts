@@ -1,6 +1,7 @@
 import { toast } from "sonner";
 import useSWR from "swr";
 
+import { KnowledgeFileNamespace } from "~/lib/model/knowledge";
 import { UpdateThread } from "~/lib/model/threads";
 import { AgentService } from "~/lib/service/api/agentService";
 import { KnowledgeFileService } from "~/lib/service/api/knowledgeFileApiService";
@@ -45,9 +46,18 @@ export function useOptimisticThread(threadId?: Nullish<string>) {
 
 export function useThreadKnowledge(threadId?: Nullish<string>) {
 	return useSWR(
-		KnowledgeFileService.getKnowledgeFiles.key("threads", threadId),
-		({ agentId, namespace }) =>
-			KnowledgeFileService.getKnowledgeFiles(namespace, agentId)
+		KnowledgeFileService.getKnowledgeFiles.key(
+			KnowledgeFileNamespace.Threads,
+			threadId
+		),
+		({ entityId, namespace }) =>
+			KnowledgeFileService.getKnowledgeFiles(namespace, entityId)
+	);
+}
+
+export function useThreadFiles(threadId?: Nullish<string>) {
+	return useSWR(ThreadsService.getFiles.key(threadId), ({ threadId }) =>
+		ThreadsService.getFiles(threadId)
 	);
 }
 

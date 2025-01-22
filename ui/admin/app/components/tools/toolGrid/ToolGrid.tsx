@@ -1,6 +1,9 @@
+import { useMemo } from "react";
+
 import {
 	CustomToolsToolCategory,
 	ToolCategory,
+	ToolReference,
 } from "~/lib/model/toolReferences";
 
 import { BundleToolList } from "~/components/tools/toolGrid/BundleToolList";
@@ -11,29 +14,43 @@ export function ToolGrid({
 }: {
 	toolCategories: [string, ToolCategory][];
 }) {
-	const sortedCustomTools =
-		toolCategories
-			.find(([category]) => category === CustomToolsToolCategory)?.[1]
-			.tools?.sort((a, b) => {
-				// sort by created date descending
-				return new Date(b.created).getTime() - new Date(a.created).getTime();
-			}) ?? [];
+	const { customTools, builtinTools } = useMemo(() => {
+		return separateCustomAndBuiltinTools(toolCategories);
+	}, [toolCategories]);
 
-	const sortedBuiltinTools = toolCategories
-		.filter(([category]) => category !== CustomToolsToolCategory)
-		.sort((a, b) => {
-			return a[0].localeCompare(b[0]);
-		});
+	const sortedCustomTools =
+		customTools.sort((a, b) => {
+			// Sort by created descending for custom tools
+			const aCreatedAt =
+				"bundleTool" in a
+					? a.bundleTool?.created
+					: (a as ToolReference).created;
+			const bCreatedAt =
+				"bundleTool" in b
+					? b.bundleTool?.created
+					: (b as ToolReference).created;
+
+			return (
+				new Date(bCreatedAt ?? "").getTime() -
+				new Date(aCreatedAt ?? "").getTime()
+			);
+		}) ?? [];
+
+	const sortedBuiltinTools = builtinTools.sort((a, b) => {
+		const aName =
+			"bundleTool" in a ? a.bundleTool?.name : (a as ToolReference).name;
+		const bName =
+			"bundleTool" in b ? b.bundleTool?.name : (b as ToolReference).name;
+		return (aName ?? "").localeCompare(bName ?? "");
+	});
 
 	return (
 		<div className="flex flex-col gap-8">
 			{sortedCustomTools.length > 0 && (
 				<div className="flex flex-col gap-4">
-					<h3>Custom Tools</h3>
+					<h3>{CustomToolsToolCategory}</h3>
 					<div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
-						{sortedCustomTools.map((tool) => (
-							<ToolCard key={tool.id} tool={tool} />
-						))}
+						{sortedCustomTools.map(renderToolCard)}
 					</div>
 				</div>
 			)}
@@ -42,27 +59,56 @@ export function ToolGrid({
 				<div className="flex flex-col gap-4">
 					<h3>Built-in Tools</h3>
 					<div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
-						{sortedBuiltinTools.map(([, { tools, bundleTool }]) => {
-							if (bundleTool) {
-								return (
-									<ToolCard
-										key={bundleTool.id}
-										HeaderRightContent={
-											tools.length > 0 ? (
-												<BundleToolList tools={tools} bundle={bundleTool} />
-											) : null
-										}
-										tool={bundleTool}
-									/>
-								);
-							}
-							return tools.map((tool) => (
-								<ToolCard key={tool.id} tool={tool} />
-							));
-						})}
+						{sortedBuiltinTools.map(renderToolCard)}
 					</div>
 				</div>
 			)}
 		</div>
 	);
+
+	function renderToolCard(item: ToolCategory | ToolReference) {
+		if ("bundleTool" in item && item.bundleTool) {
+			return (
+				<ToolCard
+					key={item.bundleTool.id}
+					HeaderRightContent={
+						item.tools.length > 0 ? (
+							<BundleToolList tools={item.tools} bundle={item.bundleTool} />
+						) : null
+					}
+					tool={item.bundleTool}
+				/>
+			);
+		}
+
+		if ("name" in item) return <ToolCard key={item.name} tool={item} />;
+
+		return null;
+	}
+
+	function separateCustomAndBuiltinTools(
+		toolCategories: [string, ToolCategory][]
+	) {
+		return toolCategories.reduce<{
+			customTools: (ToolCategory | ToolReference)[];
+			builtinTools: (ToolCategory | ToolReference)[];
+		}>(
+			(acc, [, { bundleTool, tools }]) => {
+				if (bundleTool) {
+					const key = bundleTool.builtin ? "builtinTools" : "customTools";
+					acc[key].push({ bundleTool, tools });
+				} else {
+					tools.forEach((tool) => {
+						if (tool.builtin) {
+							acc.builtinTools.push(tool);
+						} else {
+							acc.customTools.push(tool);
+						}
+					});
+				}
+				return acc;
+			},
+			{ customTools: [], builtinTools: [] }
+		);
+	}
 }

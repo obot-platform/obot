@@ -2,6 +2,7 @@ import { BrainCircuit, Compass, Wrench } from "lucide-react";
 
 import { useChat } from "~/components/chat/ChatContext";
 import { Button } from "~/components/ui/button";
+import { Markdown } from "~/components/ui/markdown";
 
 export function NoMessages() {
 	const {
@@ -14,10 +15,12 @@ export function NoMessages() {
 	return (
 		<div className="flex h-full flex-col items-center justify-center space-y-4 p-4 text-center">
 			<h2 className="text-2xl font-semibold">Start the conversation!</h2>
-			<p className="text-gray-500">
-				{introductionMessage ||
-					"Looking for a starting point? Try one of these options."}
-			</p>
+			<div className="text-gray-500">
+				<Markdown>
+					{introductionMessage ||
+						"Looking for a starting point? Try one of these options."}
+				</Markdown>
+			</div>
 			<div className="flex flex-wrap justify-center gap-2">
 				{starterMessages && starterMessages.length > 0
 					? starterMessages.map((starterMessage, index) => (

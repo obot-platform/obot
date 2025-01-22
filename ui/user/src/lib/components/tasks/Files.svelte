@@ -43,6 +43,7 @@
 
 	$effect(() => {
 		if (running && !interval) {
+			loadFiles();
 			interval = setInterval(loadFiles, 5000);
 		} else if (!running && interval) {
 			clearInterval(interval);
@@ -73,6 +74,10 @@
 				<RotateCw class="h-4 w-4 {loading ? 'animate-spin' : ''}" />
 			</button>
 		</div>
+		<p class="text-gray">
+			Files are private to the task execution. On start of the task a copy of the global workspace
+			files is made, but no changes are persisted back to the global workspace.
+		</p>
 		<ul class="space-y-4 px-3 py-6 text-sm">
 			{#each files.items as file}
 				<li class="group">

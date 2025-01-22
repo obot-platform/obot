@@ -23,6 +23,7 @@ import (
 	"github.com/obot-platform/obot/pkg/api/authn"
 	"github.com/obot-platform/obot/pkg/api/authz"
 	"github.com/obot-platform/obot/pkg/api/server"
+	"github.com/obot-platform/obot/pkg/bootstrap"
 	"github.com/obot-platform/obot/pkg/credstores"
 	"github.com/obot-platform/obot/pkg/events"
 	"github.com/obot-platform/obot/pkg/gateway/client"
@@ -47,10 +48,7 @@ import (
 	_ "github.com/obot-platform/nah/pkg/logrus"
 )
 
-type (
-	AuthConfig    proxy.Config
-	GatewayConfig gserver.Options
-)
+type GatewayConfig gserver.Options
 
 type Config struct {
 	HTTPListenPort             int      `usage:"HTTP port to listen on" default:"8080" name:"http-listen-port"`
@@ -62,16 +60,19 @@ type Config struct {
 	HelperModel                string   `usage:"The model used to generate names and descriptions" default:"gpt-4o-mini"`
 	AWSKMSKeyARN               string   `usage:"The ARN of the AWS KMS key to use for encrypting credential storage" env:"OBOT_AWS_KMS_KEY_ARN" name:"aws-kms-key-arn"`
 	EncryptionConfigFile       string   `usage:"The path to the encryption configuration file" default:"./encryption.yaml"`
-	KnowledgeSetIngestionLimit int      `usage:"The maximum number of files to ingest into a knowledge set" default:"3000" env:"OBOT_KNOWLEDGESET_INGESTION_LIMIT" name:"knowledge-set-ingestion-limit"`
 	EmailServerName            string   `usage:"The name of the email server to display for email receivers"`
+	EnableSMTPServer           bool     `usage:"Enable SMTP server to receive emails" default:"false" env:"OBOT_ENABLE_SMTP_SERVER"`
 	Docker                     bool     `usage:"Enable Docker support" default:"false" env:"OBOT_DOCKER"`
 	EnvKeys                    []string `usage:"The environment keys to pass through to the GPTScript server" env:"OBOT_ENV_KEYS"`
+	KnowledgeSetIngestionLimit int      `usage:"The maximum number of files to ingest into a knowledge set" default:"3000" env:"OBOT_KNOWLEDGESET_INGESTION_LIMIT" name:"knowledge-set-ingestion-limit"`
+	EnableAuthentication       bool     `usage:"Enable authentication" default:"false"`
+	EnableBootstrapUser        bool     `usage:"Enables the bootstrap user, regardless of configured auth providers" default:"true"`
+	AuthAdminEmails            []string `usage:"Emails of admin users"`
 
 	// Sendgrid webhook
 	SendgridWebhookUsername string `usage:"The username for the sendgrid webhook to authenticate with"`
 	SendgridWebhookPassword string `usage:"The password for the sendgrid webhook to authenticate with"`
 
-	AuthConfig
 	GatewayConfig
 	services.Config
 }
@@ -90,10 +91,11 @@ type Services struct {
 	TokenServer                *jwt.TokenService
 	APIServer                  *server.Server
 	Started                    chan struct{}
-	ProxyServer                *proxy.Proxy
 	GatewayServer              *gserver.Server
 	GatewayClient              *client.Client
-	ModelProviderDispatcher    *dispatcher.Dispatcher
+	ProxyManager               *proxy.Manager
+	ProviderDispatcher         *dispatcher.Dispatcher
+	Bootstrapper               *bootstrap.Bootstrap
 	KnowledgeSetIngestionLimit int
 	SupportDocker              bool
 
@@ -299,16 +301,21 @@ func New(ctx context.Context, config Config) (*Services, error) {
 			tokenServer,
 			events,
 		)
-		modelProviderDispatcher = dispatcher.New(invoker, storageClient, c)
+		providerDispatcher = dispatcher.New(invoker, storageClient, c)
 
-		proxyServer *proxy.Proxy
+		proxyManager *proxy.Manager
 	)
+
+	bootstrapper, err := bootstrap.New(ctx, config.EnableBootstrapUser, config.Hostname, gatewayClient, providerDispatcher)
+	if err != nil {
+		return nil, err
+	}
 
 	gatewayServer, err := gserver.New(
 		ctx,
 		gatewayDB,
 		tokenServer,
-		modelProviderDispatcher,
+		providerDispatcher,
 		config.AuthAdminEmails,
 		gserver.Options(config.GatewayConfig),
 	)
@@ -316,25 +323,18 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		return nil, err
 	}
 
-	authProviderID, err := gatewayServer.UpsertAuthProvider(ctx, config.AuthConfigType, config.AuthClientID, config.AuthClientSecret)
-	if err != nil {
-		return nil, err
-	}
-
 	var authenticators authenticator.Request = gatewayServer
-	if config.AuthClientID != "" && config.AuthClientSecret != "" {
-		// "Authentication Enabled" flow
-		proxyServer, err = proxy.New(config.Hostname, authProviderID, proxy.Config(config.AuthConfig))
-		if err != nil {
-			return nil, fmt.Errorf("failed to start auth server: %w", err)
-		}
+	if config.EnableAuthentication {
+		proxyManager = proxy.NewProxyManager(providerDispatcher)
 
 		// Token Auth + OAuth auth
-		authenticators = union.New(authenticators, proxyServer)
+		authenticators = union.New(authenticators, proxyManager)
 		// Add gateway user info
 		authenticators = client.NewUserDecorator(authenticators, gatewayClient)
 		// Add token auth
 		authenticators = union.New(authenticators, tokenServer)
+		// Add bootstrap auth
+		authenticators = union.New(authenticators, bootstrapper)
 		// Add anonymous user authenticator
 		authenticators = union.New(authenticators, authn.Anonymous{})
 
@@ -356,7 +356,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		authenticators = union.New(authenticators, authn.NewNoAuth(gatewayClient))
 	}
 
-	if config.EmailServerName != "" {
+	if config.EmailServerName != "" && config.EnableSMTPServer {
 		go smtp.Start(ctx, storageClient, config.EmailServerName)
 	}
 
@@ -374,21 +374,22 @@ func New(ctx context.Context, config Config) (*Services, error) {
 			storageClient,
 			c,
 			authn.NewAuthenticator(authenticators),
-			authz.NewAuthorizer(r.Backend()),
-			proxyServer,
+			authz.NewAuthorizer(r.Backend(), config.DevMode),
+			proxyManager,
 			config.Hostname,
 		),
 		TokenServer:                tokenServer,
 		Invoker:                    invoker,
 		GatewayServer:              gatewayServer,
 		GatewayClient:              gatewayClient,
-		ProxyServer:                proxyServer,
 		KnowledgeSetIngestionLimit: config.KnowledgeSetIngestionLimit,
 		EmailServerName:            config.EmailServerName,
-		ModelProviderDispatcher:    modelProviderDispatcher,
 		SupportDocker:              config.Docker,
 		SendgridWebhookUsername:    config.SendgridWebhookUsername,
 		SendgridWebhookPassword:    config.SendgridWebhookPassword,
+		ProxyManager:               proxyManager,
+		ProviderDispatcher:         providerDispatcher,
+		Bootstrapper:               bootstrapper,
 	}, nil
 }
 

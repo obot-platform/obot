@@ -5,6 +5,8 @@ import { GripVerticalIcon } from "lucide-react";
 
 import { cn } from "~/lib/utils";
 
+import { AnimatePresence } from "~/components/ui/animate";
+
 const SortableContext = Primitive.SortableContext;
 
 type SortableProps = {
@@ -105,11 +107,13 @@ function SortableList<T>({
 	return (
 		<DndContext onDragEnd={handleDragEnd}>
 			<SortableContext items={items.map((item) => getKey(item))}>
-				{items.map((item, index) => (
-					<Sortable key={getKey(item)} id={getKey(item)} isHandle={isHandle}>
-						{renderItem(item, index)}
-					</Sortable>
-				))}
+				<AnimatePresence>
+					{items.map((item, index) => (
+						<Sortable key={getKey(item)} id={getKey(item)} isHandle={isHandle}>
+							{renderItem(item, index)}
+						</Sortable>
+					))}
+				</AnimatePresence>
 			</SortableContext>
 		</DndContext>
 	);

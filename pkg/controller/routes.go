@@ -31,7 +31,7 @@ func (c *Controller) setupRoutes() error {
 	workflowStep := workflowstep.New(c.services.Invoker)
 	toolRef := toolreference.New(
 		c.services.GPTClient,
-		c.services.ModelProviderDispatcher,
+		c.services.ProviderDispatcher,
 		c.services.ToolRegistryURLs,
 		c.services.SupportDocker,
 	)

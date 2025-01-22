@@ -90,7 +90,7 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
 		);
 
 		function getContent() {
-			if (size === "icon" && loading)
+			if ((size === "icon" || size === "icon-sm") && loading)
 				return <Loader2 className="animate-spin" />;
 
 			return loading ? (

@@ -62,7 +62,6 @@ export function ToolItem({
 								category={tool.metadata?.category}
 								name={tool.name}
 								className="mr-2 h-4 w-4"
-								disableTooltip
 							/>
 							{tool.name}
 						</span>

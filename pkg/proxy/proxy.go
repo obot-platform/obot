@@ -2,106 +2,167 @@ package proxy
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/http/httputil"
+	"net/url"
+	"sort"
 	"strings"
 	"time"
 
-	oauth2proxy "github.com/oauth2-proxy/oauth2-proxy/v7"
-	"github.com/oauth2-proxy/oauth2-proxy/v7/pkg/apis/options"
-	"github.com/oauth2-proxy/oauth2-proxy/v7/pkg/validation"
-	"github.com/obot-platform/obot/pkg/mvl"
+	"github.com/obot-platform/obot/logger"
+	"github.com/obot-platform/obot/pkg/accesstoken"
+	"github.com/obot-platform/obot/pkg/api"
+	"github.com/obot-platform/obot/pkg/gateway/server/dispatcher"
 	"k8s.io/apiserver/pkg/authentication/authenticator"
 	"k8s.io/apiserver/pkg/authentication/user"
 )
 
-var log = mvl.Package()
+var log = logger.Package()
 
-type Config struct {
-	AuthCookieSecret string   `usage:"Secret used to encrypt cookie"`
-	AuthEmailDomains string   `usage:"Email domains allowed for authentication" default:"*"`
-	AuthAdminEmails  []string `usage:"Emails admin users"`
-	AuthConfigType   string   `usage:"Type of OAuth configuration" default:"google"`
-	AuthClientID     string   `usage:"Client ID for OAuth"`
-	AuthClientSecret string   `usage:"Client secret for OAuth"`
+const AuthProviderCookie = "obot-auth-provider"
 
-	// Type-specific config
-	GithubConfig
+type Manager struct {
+	dispatcher *dispatcher.Dispatcher
 }
 
-type GithubConfig struct {
-	AuthGithubOrg        string   `usage:"Restrict logins to members of this organization"`
-	AuthGithubTeams      []string `usage:"Restrict logins to members of any of these teams (slug)"`
-	AuthGithubRepo       string   `usage:"Restrict logins to collaborators of this repository formatted as org/repo"`
-	AuthGithubToken      string   `usage:"The token to use when verifying repository collaborators (must have push access to the repository)"`
-	AuthGithubAllowUsers []string `usage:"Users allowed to login even if they don't belong to the organization or team(s)"`
+func NewProxyManager(dispatcher *dispatcher.Dispatcher) *Manager {
+	return &Manager{
+		dispatcher: dispatcher,
+	}
 }
 
-type Proxy struct {
-	proxy          *oauth2proxy.OAuthProxy
-	authProviderID string
+func (pm *Manager) AuthenticateRequest(req *http.Request) (*authenticator.Response, bool, error) {
+	c, err := req.Cookie(AuthProviderCookie)
+	if err != nil {
+		return nil, false, nil
+	}
+
+	proxy, err := pm.createProxy(req.Context(), c.Value)
+	if err != nil {
+		return nil, false, err
+	}
+
+	return proxy.authenticateRequest(req)
 }
 
-func New(serverURL string, authProviderID uint, cfg Config) (*Proxy, error) {
-	legacyOpts := options.NewLegacyOptions()
-	legacyOpts.LegacyProvider.ProviderType = cfg.AuthConfigType
-	legacyOpts.LegacyProvider.ProviderName = cfg.AuthConfigType
-	legacyOpts.LegacyProvider.ClientID = cfg.AuthClientID
-	legacyOpts.LegacyProvider.ClientSecret = cfg.AuthClientSecret
-	legacyOpts.LegacyProvider.GitHubTeam = strings.Join(cfg.AuthGithubTeams, ",")
-	legacyOpts.LegacyProvider.GitHubOrg = cfg.AuthGithubOrg
-	legacyOpts.LegacyProvider.GitHubRepo = cfg.AuthGithubRepo
-	legacyOpts.LegacyProvider.GitHubToken = cfg.AuthGithubToken
-	legacyOpts.LegacyProvider.GitHubUsers = cfg.AuthGithubAllowUsers
+func (pm *Manager) HandlerFunc(ctx api.Context) error {
+	pm.ServeHTTP(ctx.ResponseWriter, ctx.Request)
+	return nil
+}
 
-	oauthProxyOpts, err := legacyOpts.ToOptions()
+func (pm *Manager) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	var provider string
+
+	if provider = r.URL.Query().Get(AuthProviderCookie); provider != "" {
+		// Set it as a cookie for the future.
+		http.SetCookie(w, &http.Cookie{
+			Name:  AuthProviderCookie,
+			Value: provider,
+			Path:  "/",
+		})
+	} else if c, err := r.Cookie(AuthProviderCookie); err == nil {
+		provider = c.Value
+	}
+
+	rdParam := r.URL.Query().Get("rd")
+	if rdParam == "" {
+		rdParam = "/"
+	}
+
+	// If no provider is set, just use the alphabetically first provider.
+	if provider == "" {
+		providers, err := pm.dispatcher.ListConfiguredAuthProviders(r.Context(), "default")
+		if err != nil {
+			http.Error(w, fmt.Sprintf("failed to list configured auth providers: %v", err), http.StatusInternalServerError)
+			return
+		}
+		if len(providers) == 0 {
+			// There aren't any auth providers configured. Return an error, unless the user is signing out, in which case, just redirect.
+			if r.URL.Path == "/oauth2/sign_out" {
+				http.Redirect(w, r, rdParam, http.StatusFound)
+				return
+			}
+
+			http.Error(w, "no auth providers configured", http.StatusBadRequest)
+			return
+		}
+		sort.Slice(providers, func(i, j int) bool {
+			return providers[i] < providers[j]
+		})
+		provider = "default/" + providers[0]
+	}
+
+	log.Infof("forwarding request for %s to provider %s", r.URL.Path, provider)
+
+	// If signing out, delete the auth provider cookie.
+	if r.URL.Path == "/oauth2/sign_out" {
+		http.SetCookie(w, &http.Cookie{
+			Name:   AuthProviderCookie,
+			Value:  "",
+			Path:   "/",
+			MaxAge: -1,
+		})
+	}
+
+	proxy, err := pm.createProxy(r.Context(), provider)
+	if err != nil {
+		if r.URL.Path != "/oauth2/sign_out" {
+			http.Error(w, fmt.Sprintf("failed to create proxy: %v", err), http.StatusInternalServerError)
+		} else {
+			// If the user is signing out, and we failed to start the proxy,
+			// it's probably because their auth provider got deconfigured.
+			// Just redirect them to where they are supposed to go.
+			http.Redirect(w, r, rdParam, http.StatusFound)
+		}
+		return
+	}
+
+	proxy.serveHTTP(w, r)
+}
+
+func (pm *Manager) createProxy(ctx context.Context, provider string) (*Proxy, error) {
+	parts := strings.Split(provider, "/")
+	if len(parts) != 2 {
+		return nil, fmt.Errorf("invalid provider: %s", provider)
+	}
+
+	providerURL, err := pm.dispatcher.URLForAuthProvider(ctx, parts[0], parts[1])
 	if err != nil {
 		return nil, err
 	}
 
-	// Don't need to bind to a port
-	oauthProxyOpts.Server.BindAddress = ""
-	oauthProxyOpts.MetricsServer.BindAddress = ""
-	oauthProxyOpts.Cookie.Refresh = time.Hour
-	oauthProxyOpts.Cookie.Name = "obot_access_token"
-	oauthProxyOpts.Cookie.Secret = cfg.AuthCookieSecret
-	oauthProxyOpts.Cookie.Secure = strings.HasPrefix(serverURL, "https://")
-	oauthProxyOpts.UpstreamServers = options.UpstreamConfig{
-		Upstreams: []options.Upstream{
-			{
-				ID:            "default",
-				URI:           "http://localhost:8080/",
-				Path:          "(.*)",
-				RewriteTarget: "$1",
-			},
-		},
-	}
+	return newProxy(parts[0], parts[1], providerURL.String())
+}
 
-	oauthProxyOpts.RawRedirectURL = serverURL + "/oauth2/callback"
-	oauthProxyOpts.ReverseProxy = true
-	if cfg.AuthEmailDomains != "" {
-		oauthProxyOpts.EmailDomains = strings.Split(cfg.AuthEmailDomains, ",")
-	}
+type Proxy struct {
+	proxy                *httputil.ReverseProxy
+	url, name, namespace string
+}
 
-	if err = validation.Validate(oauthProxyOpts); err != nil {
-		log.Fatalf("%s", err)
-	}
-
-	oauthProxy, err := oauth2proxy.NewOAuthProxy(oauthProxyOpts, oauth2proxy.NewValidator(oauthProxyOpts.EmailDomains, oauthProxyOpts.AuthenticatedEmailsFile))
+func newProxy(providerNamespace, providerName, providerURL string) (*Proxy, error) {
+	u, err := url.Parse(providerURL)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create oauth2 proxy: %w", err)
+		return nil, fmt.Errorf("failed to parse provider URL: %w", err)
 	}
 
 	return &Proxy{
-		proxy:          oauthProxy,
-		authProviderID: fmt.Sprint(authProviderID),
+		proxy:     httputil.NewSingleHostReverseProxy(u),
+		url:       providerURL,
+		name:      providerName,
+		namespace: providerNamespace,
 	}, nil
 }
 
-func (p *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	if p == nil {
-		// If the proxy server is not setup, and we are getting here, then a request has come in for /oauth2/...
-		// Since these paths are not setup when auth is disabled, then return a not found error.
+func (p *Proxy) serveHTTP(w http.ResponseWriter, r *http.Request) {
+	// Make sure the path is something that we expect.
+	switch r.URL.Path {
+	case "/oauth2/start":
+	case "/oauth2/redirect":
+	case "/oauth2/sign_out":
+	case "/oauth2/callback":
+	default:
 		http.Error(w, "not found", http.StatusNotFound)
 		return
 	}
@@ -109,44 +170,77 @@ func (p *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	p.proxy.ServeHTTP(w, r)
 }
 
-func (p *Proxy) AuthenticateRequest(req *http.Request) (*authenticator.Response, bool, error) {
-	state, err := p.proxy.LoadCookiedSession(req)
-	if err != nil || state == nil || state.IsExpired() {
+type SerializableRequest struct {
+	Method string              `json:"method"`
+	URL    string              `json:"url"`
+	Header map[string][]string `json:"header"`
+}
+
+type SerializableState struct {
+	ExpiresOn         *time.Time `json:"expiresOn"`
+	AccessToken       string     `json:"accessToken"`
+	PreferredUsername string     `json:"preferredUsername"`
+	User              string     `json:"user"`
+	Email             string     `json:"email"`
+	SetCookie         string     `json:"setCookie"`
+}
+
+func (p *Proxy) authenticateRequest(req *http.Request) (*authenticator.Response, bool, error) {
+	sr := SerializableRequest{
+		Method: req.Method,
+		URL:    req.URL.String(),
+		Header: req.Header,
+	}
+
+	srJSON, err := json.Marshal(sr)
+	if err != nil {
 		return nil, false, err
 	}
 
-	userName := state.PreferredUsername
+	stateRequest, err := http.NewRequest(http.MethodPost, p.url+"/obot-get-state", strings.NewReader(string(srJSON)))
+	if err != nil {
+		return nil, false, err
+	}
+
+	stateResponse, err := http.DefaultClient.Do(stateRequest)
+	if err != nil {
+		return nil, false, err
+	}
+	defer stateResponse.Body.Close()
+
+	var ss SerializableState
+	if err = json.NewDecoder(stateResponse.Body).Decode(&ss); err != nil {
+		return nil, false, err
+	}
+
+	userName := ss.PreferredUsername
 	if userName == "" {
-		userName = state.User
+		userName = ss.User
 		if userName == "" {
-			userName = state.Email
+			userName = ss.Email
 		}
+	}
+
+	u := &user.DefaultInfo{
+		UID:  ss.User,
+		Name: userName,
+		Extra: map[string][]string{
+			"email":                   {ss.Email},
+			"auth_provider_name":      {p.name},
+			"auth_provider_namespace": {p.namespace},
+		},
+	}
+
+	if ss.SetCookie != "" {
+		u.Extra["set-cookie"] = []string{ss.SetCookie}
 	}
 
 	if req.URL.Path == "/api/me" {
 		// Put the access token on the context so that the profile icon can be fetched.
-		*req = *req.WithContext(contextWithAccessToken(req.Context(), state.AccessToken))
+		*req = *req.WithContext(accesstoken.ContextWithAccessToken(req.Context(), ss.AccessToken))
 	}
 
 	return &authenticator.Response{
-		User: &user.DefaultInfo{
-			UID:  state.User,
-			Name: userName,
-			Extra: map[string][]string{
-				"email":            {state.Email},
-				"auth_provider_id": {p.authProviderID},
-			},
-		},
+		User: u,
 	}, true, nil
-}
-
-type accessTokenKey struct{}
-
-func contextWithAccessToken(ctx context.Context, accessToken string) context.Context {
-	return context.WithValue(ctx, accessTokenKey{}, accessToken)
-}
-
-func GetAccessToken(ctx context.Context) string {
-	accessToken, _ := ctx.Value(accessTokenKey{}).(string)
-	return accessToken
 }

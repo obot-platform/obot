@@ -33,6 +33,7 @@ type Thread struct {
 	UserID          string   `json:"userID,omitempty"`
 	AgentAlias      string   `json:"agentAlias,omitempty"`
 	Abort           bool     `json:"abort,omitempty"`
+	SystemTask      bool     `json:"systemTask,omitempty"`
 	Env             []string `json:"env,omitempty"`
 }
 

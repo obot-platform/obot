@@ -32,7 +32,10 @@ export function UserActionsDropdown({ user }: { user: User }) {
 				</DropdownMenuTrigger>
 
 				<DropdownMenuContent side="top" align="end">
-					<DropdownMenuItem onClick={() => setEditOpen(true)}>
+					<DropdownMenuItem
+						onClick={() => setEditOpen(true)}
+						disabled={user.explicitAdmin}
+					>
 						Update Role
 					</DropdownMenuItem>
 				</DropdownMenuContent>

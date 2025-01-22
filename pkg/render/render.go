@@ -212,6 +212,8 @@ func configureKnowledgeEnvs(ctx context.Context, db kclient.Client, agent *v1.Ag
 		}
 	}
 
+	var knowledgeDatasets []string
+	var knowledgeDataDescriptions []string
 	for _, knowledgeSetName := range knowledgeSetNames {
 		var ks v1.KnowledgeSet
 		if err := db.Get(ctx, kclient.ObjectKey{Namespace: agent.Namespace, Name: knowledgeSetName}, &ks); apierror.IsNotFound(err) {
@@ -236,10 +238,13 @@ func configureKnowledgeEnvs(ctx context.Context, db kclient.Client, agent *v1.Ag
 			dataDescription = "No data description available"
 		}
 
-		return append(extraEnv,
-			fmt.Sprintf("KNOW_DATASETS=%s/%s", ks.Namespace, ks.Name),
-			fmt.Sprintf("KNOW_DATASET_DESCRIPTION=%s", dataDescription),
-		), true, nil
+		knowledgeDatasets = append(knowledgeDatasets, fmt.Sprintf("%s/%s", ks.Namespace, ks.Name))
+		knowledgeDataDescriptions = append(knowledgeDataDescriptions, dataDescription)
+	}
+	if len(knowledgeDatasets) > 0 {
+		extraEnv = append(extraEnv, fmt.Sprintf("KNOW_DATASETS=%s", strings.Join(knowledgeDatasets, ",")))
+		extraEnv = append(extraEnv, fmt.Sprintf("KNOW_DATA_DESCRIPTIONS=%s", strings.Join(knowledgeDataDescriptions, ",")))
+		return extraEnv, true, nil
 	}
 
 	return extraEnv, false, nil

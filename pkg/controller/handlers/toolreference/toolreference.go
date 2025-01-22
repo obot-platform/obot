@@ -3,9 +3,11 @@ package toolreference
 import (
 	"context"
 	"crypto/sha256"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
+	"regexp"
 	"strings"
 	"time"
 
@@ -28,6 +30,8 @@ import (
 
 var log = logger.Package()
 
+var jsonErrRegexp = regexp.MustCompile(`\{.*"error":.*}`)
+
 type indexEntry struct {
 	Reference string `json:"reference,omitempty"`
 	All       bool   `json:"all,omitempty"`
@@ -40,6 +44,7 @@ type index struct {
 	KnowledgeDocumentLoaders map[string]indexEntry `json:"knowledgeDocumentLoaders,omitempty"`
 	System                   map[string]indexEntry `json:"system,omitempty"`
 	ModelProviders           map[string]indexEntry `json:"modelProviders,omitempty"`
+	AuthProviders            map[string]indexEntry `json:"authProviders,omitempty"`
 }
 
 type Handler struct {
@@ -189,6 +194,7 @@ func (h *Handler) readFromRegistry(ctx context.Context, c client.Client) error {
 
 		toAdd = append(toAdd, h.toolsToToolReferences(ctx, types.ToolReferenceTypeSystem, registryURL, index.System)...)
 		toAdd = append(toAdd, h.toolsToToolReferences(ctx, types.ToolReferenceTypeModelProvider, registryURL, index.ModelProviders)...)
+		toAdd = append(toAdd, h.toolsToToolReferences(ctx, types.ToolReferenceTypeAuthProvider, registryURL, index.AuthProviders)...)
 		toAdd = append(toAdd, h.toolsToToolReferences(ctx, types.ToolReferenceTypeTool, registryURL, index.Tools)...)
 		toAdd = append(toAdd, h.toolsToToolReferences(ctx, types.ToolReferenceTypeStepTemplate, registryURL, index.StepTemplates)...)
 		toAdd = append(toAdd, h.toolsToToolReferences(ctx, types.ToolReferenceTypeKnowledgeDataSource, registryURL, index.KnowledgeDataSources)...)
@@ -305,8 +311,8 @@ func (h *Handler) EnsureOpenAIEnvCredentialAndDefaults(ctx context.Context, c cl
 		}
 	}
 
-	if cred, err := h.gptClient.RevealCredential(ctx, []string{string(openAIModelProvider.UID)}, "openai-model-provider"); err != nil {
-		if !strings.HasSuffix(err.Error(), "credential not found") {
+	if cred, err := h.gptClient.RevealCredential(ctx, []string{string(openAIModelProvider.UID), system.GenericModelProviderCredentialContext}, "openai-model-provider"); err != nil {
+		if !errors.As(err, &gptscript.ErrNotFound{}) {
 			return fmt.Errorf("failed to check OpenAI credential: %w", err)
 		}
 
@@ -386,9 +392,9 @@ func (h *Handler) BackPopulateModels(req router.Request, _ router.Response) erro
 	}
 
 	if toolRef.Status.Tool.Metadata["envVars"] != "" {
-		cred, err := h.gptClient.RevealCredential(req.Ctx, []string{string(toolRef.UID)}, toolRef.Name)
+		cred, err := h.gptClient.RevealCredential(req.Ctx, []string{string(toolRef.UID), system.GenericModelProviderCredentialContext}, toolRef.Name)
 		if err != nil {
-			if strings.Contains(err.Error(), "credential not found") {
+			if errors.As(err, &gptscript.ErrNotFound{}) {
 				// Unable to find credential, ensure all models remove for this model provider
 				return removeModelsForProvider(req.Ctx, req.Client, req.Namespace, req.Name)
 			}
@@ -406,7 +412,22 @@ func (h *Handler) BackPopulateModels(req router.Request, _ router.Response) erro
 	availableModels, err := availablemodels.ForProvider(req.Ctx, h.dispatcher, req.Namespace, req.Name)
 	if err != nil {
 		// Don't error and retry because it will likely fail again. Log the error, and the user can re-sync manually.
-		log.Errorf("Failed to get available models for model provider %q: %v", toolRef.Name, err)
+		// Also, the toolRef.Status.Error field will bubble up to the user in the UI.
+
+		// Check if the model provider returned a properly formatted error message and set it as status
+		match := jsonErrRegexp.FindString(err.Error())
+		if match != "" {
+			toolRef.Status.Error = match
+			type errorResponse struct {
+				Error string `json:"error"`
+			}
+			var eR errorResponse
+			if err := json.Unmarshal([]byte(match), &eR); err == nil {
+				toolRef.Status.Error = eR.Error
+			}
+		}
+
+		log.Errorf("%v", err)
 		return nil
 	}
 
@@ -467,7 +488,7 @@ func (h *Handler) CleanupModelProvider(req router.Request, _ router.Response) er
 	}
 
 	if toolRef.Status.Tool.Metadata["envVars"] != "" {
-		if err := h.gptClient.DeleteCredential(req.Ctx, string(toolRef.UID), toolRef.Name); err != nil && !strings.Contains(err.Error(), "credential not found") {
+		if err := h.gptClient.DeleteCredential(req.Ctx, string(toolRef.UID), toolRef.Name); err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
 			return err
 		}
 	}

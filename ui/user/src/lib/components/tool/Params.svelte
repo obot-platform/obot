@@ -42,7 +42,7 @@
 								bind:value={param.key}
 								readonly={input}
 								placeholder="Enter name"
-								class="me-1 rounded-lg px-2 py-1 outline-none focus:ring-2 focus:ring-blue focus:ring-opacity-50 {input
+								class="me-1 rounded-lg p-2 outline-none focus:ring-2 focus:ring-blue {input
 									? 'bg-gray-50 dark:bg-gray-950'
 									: 'bg-gray-100 dark:bg-gray-900'}"
 							/></td
@@ -50,7 +50,7 @@
 						<td class="flex items-center">
 							<textarea
 								use:autoHeight
-								class="w-full resize-none rounded-lg bg-gray-100 p-1 px-2 outline-none focus:ring-2 focus:ring-blue focus:ring-opacity-50 dark:bg-gray-900"
+								class="text-input resize-none"
 								rows="1"
 								bind:value={param.value}
 							></textarea>

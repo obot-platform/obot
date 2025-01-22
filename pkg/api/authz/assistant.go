@@ -2,6 +2,7 @@ package authz
 
 import (
 	"net/http"
+	"slices"
 	"strings"
 
 	"github.com/obot-platform/obot/pkg/alias"
@@ -17,6 +18,11 @@ func (a *Authorizer) authorizeAssistant(req *http.Request, user user.Info) bool 
 	}
 	paths := strings.Split(req.URL.Path, "/")
 	if paths[3] == "" {
+		return false
+	}
+
+	// Must be authenticated
+	if !slices.Contains(user.GetGroups(), AuthenticatedGroup) {
 		return false
 	}
 

@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
@@ -93,8 +94,8 @@ func (a *AvailableModelsHandler) ListForModelProvider(req api.Context) error {
 	var credEnvVars map[string]string
 	if modelProviderReference.Status.Tool != nil {
 		if envVars := modelProviderReference.Status.Tool.Metadata["envVars"]; envVars != "" {
-			cred, err := a.gptscript.RevealCredential(req.Context(), []string{string(modelProviderReference.UID)}, modelProviderReference.Name)
-			if err != nil && !strings.HasSuffix(err.Error(), "credential not found") {
+			cred, err := a.gptscript.RevealCredential(req.Context(), []string{string(modelProviderReference.UID), system.GenericModelProviderCredentialContext}, modelProviderReference.Name)
+			if err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
 				return fmt.Errorf("failed to reveal credential for model provider %q: %w", modelProviderReference.Name, err)
 			} else if err == nil {
 				credEnvVars = cred.Env

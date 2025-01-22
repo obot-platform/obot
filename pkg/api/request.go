@@ -274,17 +274,19 @@ func (r *Context) UserID() uint {
 	return uint(userID)
 }
 
-func (r *Context) AuthProviderID() uint {
-	extraAuthProvider := r.User.GetExtra()["auth_provider_id"]
-	if len(extraAuthProvider) == 0 {
-		return 0
+func (r *Context) AuthProviderNameAndNamespace() (string, string) {
+	extraName := r.User.GetExtra()["auth_provider_name"]
+	extraNamespace := r.User.GetExtra()["auth_provider_namespace"]
+
+	var name, namespace string
+	if len(extraName) > 0 {
+		name = extraName[0]
 	}
-	authProviderID, err := strconv.ParseUint(extraAuthProvider[0], 10, 64)
-	if err != nil {
-		return 0
+	if len(extraNamespace) > 0 {
+		namespace = extraNamespace[0]
 	}
 
-	return uint(authProviderID)
+	return name, namespace
 }
 
 func (r *Context) UserTimezone() string {

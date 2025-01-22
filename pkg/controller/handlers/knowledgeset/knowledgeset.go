@@ -126,13 +126,11 @@ func (h *Handler) SetEmbeddingModel(req router.Request, _ router.Response) error
 	}
 
 	var defaultEmbeddingModel v1.DefaultModelAlias
-	if err := req.Get(&defaultEmbeddingModel, req.Namespace, string(types.DefaultModelAliasTypeTextEmbedding)); err == nil {
-		ks.Status.TextEmbeddingModel = defaultEmbeddingModel.Spec.Manifest.Model
-	} else if apierrors.IsNotFound(err) {
-		ks.Status.TextEmbeddingModel = "text-embedding-3-large"
-	} else if err != nil {
+	if err := req.Get(&defaultEmbeddingModel, req.Namespace, string(types.DefaultModelAliasTypeTextEmbedding)); err != nil {
 		return err
 	}
+
+	ks.Status.TextEmbeddingModel = defaultEmbeddingModel.Spec.Manifest.Model
 
 	return nil
 }

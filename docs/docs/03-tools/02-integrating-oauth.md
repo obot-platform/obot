@@ -35,7 +35,7 @@ https://cdn.jsdelivr.net/npm/@phosphor-icons/core@2/assets/duotone/gitlab-logo-d
 
 --
 !metadata:*:oauth
-gitlab
+gitlab-example
 ```
 
 This tool.gpt file just has a single tool name "List Projects" defined.
@@ -44,6 +44,8 @@ You can see that this tool defines a name, description, credential (we'll revisi
 If you review the repository, you'll notice that `projects.py` is one of the files in the repository.
 
 There are three metadata sections: one for category, one for icon and one for oauth. These will be used to display the tool in the Obot UI and tie oauth integration with the GitLab Oauth credentials we'll set up in the next step.
+
+The `oauth` metadata section is important. It tells Obot that this tool uses the `gitlab-example` OAuth integration. It should match with the `integration` field in the credential tool we'll create in the next step.
 
 ### Configure a credential tool that integrates our custom tool and OAuth app
 The credential tool can be found in our example repo at https://github.com/otto8-ai/gitlab-example-tool/blob/main/credential/tool.gpt. Here's the contents:

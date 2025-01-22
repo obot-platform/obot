@@ -53,6 +53,16 @@ export function useAsync<TData, TParams extends unknown[]>(
 					onSuccess?.(data, params);
 				})
 				.catch((error) => {
+					// If the response data is a JSON string with an error field
+					// unpack that error field's value into the error message
+					if (error.response && typeof error.response.data === "string") {
+						const errorMessageMatch =
+							error.response.data.match(/{"error":\s+"(.*?)"}/);
+						if (errorMessageMatch) {
+							const errorMessage = JSON.parse(errorMessageMatch[0]).error;
+							error.message = errorMessage;
+						}
+					}
 					setError(error);
 					onError?.(error, params);
 				})

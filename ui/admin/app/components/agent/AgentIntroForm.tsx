@@ -40,7 +40,11 @@ export function AgentIntroForm({
 	});
 
 	useEffect(() => {
-		if (agent) form.reset(agent);
+		if (agent)
+			form.reset({
+				introductionMessage: agent.introductionMessage ?? "",
+				starterMessages: agent.starterMessages ?? [],
+			});
 	}, [agent, form]);
 
 	useEffect(() => {
@@ -70,6 +74,7 @@ export function AgentIntroForm({
 
 				<CardDescription>
 					Start each conversation from the agent with a friendly introduction.
+					The introduction is <b>Markdown</b> syntax supported.
 				</CardDescription>
 
 				<ControlledAutosizeTextarea

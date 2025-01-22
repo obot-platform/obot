@@ -3,10 +3,10 @@ import { useState } from "react";
 
 import { cn } from "~/lib/utils";
 
+import { ModelProviderTooltip } from "~/components/auth-and-model-providers/ModelProviderTooltip";
 import { ChatActions } from "~/components/chat/ChatActions";
 import { useChat } from "~/components/chat/ChatContext";
 import { ChatRunInfo } from "~/components/chat/ChatRunInfo";
-import { ModelProviderTooltip } from "~/components/model-providers/ModelProviderTooltip";
 import { LoadingSpinner } from "~/components/ui/LoadingSpinner";
 import { Button } from "~/components/ui/button";
 import { AutosizeTextarea } from "~/components/ui/textarea";

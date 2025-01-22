@@ -4,10 +4,10 @@ import { request } from "~/lib/service/api/primitives";
 
 async function getKnowledgeFiles(
 	namespace: KnowledgeFileNamespace,
-	agentId: string
+	entityId: string
 ) {
 	const res = await request<{ items: KnowledgeFile[] }>({
-		url: ApiRoutes.knowledgeFiles.getKnowledgeFiles(namespace, agentId).url,
+		url: ApiRoutes.knowledgeFiles.getKnowledgeFiles(namespace, entityId).url,
 		errorMessage: "Failed to fetch knowledge for agent",
 	});
 
@@ -15,13 +15,13 @@ async function getKnowledgeFiles(
 }
 getKnowledgeFiles.key = (
 	namespace?: Nullish<KnowledgeFileNamespace>,
-	agentId?: Nullish<string>
+	entityId?: Nullish<string>
 ) => {
-	if (!namespace || !agentId) return null;
+	if (!namespace || !entityId) return null;
 
 	return {
-		url: ApiRoutes.knowledgeFiles.getKnowledgeFiles(namespace, agentId).path,
-		agentId,
+		url: ApiRoutes.knowledgeFiles.getKnowledgeFiles(namespace, entityId).path,
+		entityId,
 		namespace,
 	};
 };

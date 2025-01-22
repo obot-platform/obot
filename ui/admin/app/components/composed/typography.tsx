@@ -38,7 +38,7 @@ export function Truncate({
 				{
 					"line-clamp-1": clamp && clampLength === 1,
 					"line-clamp-2": clamp && clampLength === 2,
-					truncate: true,
+					truncate: !clamp,
 				},
 				classNames?.content
 			)}
@@ -53,7 +53,13 @@ export function Truncate({
 
 	return (
 		<Tooltip>
-			<TooltipContent {...tooltipContentProps}>{tooltipContent}</TooltipContent>
+			<TooltipContent
+				align="start"
+				{...tooltipContentProps}
+				className={cn("max-w-xs", tooltipContentProps?.className)}
+			>
+				{tooltipContent}
+			</TooltipContent>
 
 			<TooltipTrigger asChild>
 				<div className={cn("cursor-pointer", className)}>{content}</div>

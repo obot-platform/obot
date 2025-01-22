@@ -9,6 +9,7 @@ const (
 	ToolReferenceTypeKnowledgeDocumentLoader ToolReferenceType = "knowledgeDocumentLoader"
 	ToolReferenceTypeSystem                  ToolReferenceType = "system"
 	ToolReferenceTypeModelProvider           ToolReferenceType = "modelProvider"
+	ToolReferenceTypeAuthProvider            ToolReferenceType = "authProvider"
 )
 
 type ToolReferenceManifest struct {

@@ -12,7 +12,7 @@ async function init() {
 	try {
 		store.set(await getProfile());
 	} catch (e) {
-		if (e instanceof Error && e.message.startsWith('403')) {
+		if (e instanceof Error && (e.message.startsWith('403') || e.message.startsWith('401'))) {
 			store.set({
 				email: '',
 				iconURL: '',

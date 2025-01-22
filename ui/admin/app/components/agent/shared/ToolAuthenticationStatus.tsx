@@ -172,7 +172,7 @@ export function ToolAuthenticationStatus({
 					</>
 				}
 				confirmProps={{
-					children: `Authenticate ${label}`,
+					children: `Authenticate Tool`,
 					loading: authorize.isLoading,
 					disabled: authorize.isLoading,
 				}}

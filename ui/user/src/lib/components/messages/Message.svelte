@@ -98,7 +98,9 @@
 		{#if msg.oauthURL}
 			{@render oauth()}
 		{:else if content}
-			{@render messageContent()}
+			{#if msg.sourceName !== 'Abort Current Task'}
+				{@render messageContent()}
+			{/if}
 		{:else if msg.toolCall}
 			{@render toolContent()}
 		{/if}

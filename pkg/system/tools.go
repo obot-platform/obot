@@ -21,4 +21,7 @@ const (
 	DefaultNamespace = "default"
 
 	ModelProviderCredential = "sys.model.provider.credential"
+
+	GenericModelProviderCredentialContext = "model-provider"
+	GenericAuthProviderCredentialContext  = "auth-provider"
 )

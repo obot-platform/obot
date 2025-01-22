@@ -3,7 +3,6 @@ package server
 import (
 	"errors"
 	"net/http"
-	"slices"
 	"strings"
 
 	"github.com/gptscript-ai/go-gptscript"
@@ -21,19 +20,19 @@ type Server struct {
 	gptClient     *gptscript.GPTScript
 	authenticator *authn.Authenticator
 	authorizer    *authz.Authorizer
-	proxyServer   *proxy.Proxy
+	proxyManager  *proxy.Manager
 	baseURL       string
 
 	mux *http.ServeMux
 }
 
-func NewServer(storageClient storage.Client, gptClient *gptscript.GPTScript, authn *authn.Authenticator, authz *authz.Authorizer, proxyServer *proxy.Proxy, baseURL string) *Server {
+func NewServer(storageClient storage.Client, gptClient *gptscript.GPTScript, authn *authn.Authenticator, authz *authz.Authorizer, proxyManager *proxy.Manager, baseURL string) *Server {
 	return &Server{
 		storageClient: storageClient,
 		gptClient:     gptClient,
 		authenticator: authn,
 		authorizer:    authz,
-		proxyServer:   proxyServer,
+		proxyManager:  proxyManager,
 		baseURL:       baseURL + "/api",
 
 		mux: http.NewServeMux(),
@@ -57,35 +56,25 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) wrap(f api.HandlerFunc) http.HandlerFunc {
 	return func(rw http.ResponseWriter, req *http.Request) {
-		// If this header is set, then the session was deemed to be invalid and the request has come back around through the proxy.
-		// The cookie on the request is still invalid because the new one has not been sent back to the browser.
-		// Therefore, respond with a redirect so that the browser will redirect back to the original request with the new cookie.
-		if req.Header.Get("X-Obot-Auth-Required") == "true" {
-			http.Redirect(rw, req, req.RequestURI, http.StatusFound)
-			return
-		}
-
-		rw.Header().Set("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0")
-		rw.Header().Set("Pragma", "no-cache")
-		rw.Header().Set("Expires", "0")
-
 		user, err := s.authenticator.Authenticate(req)
 		if err != nil {
 			http.Error(rw, err.Error(), http.StatusUnauthorized)
 			return
 		}
 
-		isOAuthPath := strings.HasPrefix(req.URL.Path, "/oauth2/")
-		if isOAuthPath || strings.HasPrefix(req.URL.Path, "/api/") && !s.authorizer.Authorize(req, user) {
-			// If this is not a request coming from browser or the proxy is not enabled, then return 403.
-			if !isOAuthPath && (s.proxyServer == nil || req.Method != http.MethodGet || slices.Contains(user.GetGroups(), authz.AuthenticatedGroup) || !strings.Contains(strings.ToLower(req.UserAgent()), "mozilla")) {
-				http.Error(rw, "forbidden", http.StatusForbidden)
-				return
-			}
+		if setCookie := firstValue(user.GetExtra(), "set-cookie"); setCookie != "" {
+			rw.Header().Set("Set-Cookie", setCookie)
+		}
 
-			req.Header.Set("X-Obot-Auth-Required", "true")
-			s.proxyServer.ServeHTTP(rw, req)
+		if !s.authorizer.Authorize(req, user) {
+			http.Error(rw, "forbidden", http.StatusForbidden)
 			return
+		}
+
+		if strings.HasPrefix(req.URL.Path, "/api/") {
+			rw.Header().Set("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0")
+			rw.Header().Set("Pragma", "no-cache")
+			rw.Header().Set("Expires", "0")
 		}
 
 		err = f(api.Context{
@@ -104,4 +93,12 @@ func (s *Server) wrap(f api.HandlerFunc) http.HandlerFunc {
 			http.Error(rw, err.Error(), http.StatusInternalServerError)
 		}
 	}
+}
+
+func firstValue(m map[string][]string, key string) string {
+	values := m[key]
+	if len(values) == 0 {
+		return ""
+	}
+	return values[0]
 }
