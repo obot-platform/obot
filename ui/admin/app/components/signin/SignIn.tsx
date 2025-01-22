@@ -1,6 +1,6 @@
 import { cn } from "~/lib/utils";
 
-import { Bootstrap } from "~/components/auth-and-model-providers/Bootstrap";
+import { BootstrapForm } from "~/components/auth-and-model-providers/BootstrapForm";
 import { ProviderIcon } from "~/components/auth-and-model-providers/ProviderIcon";
 import { CommonAuthProviderFriendlyNames } from "~/components/auth-and-model-providers/constants";
 import { ObotLogo } from "~/components/branding/ObotLogo";
@@ -8,7 +8,6 @@ import { Button } from "~/components/ui/button";
 import {
 	Card,
 	CardDescription,
-	CardFooter,
 	CardHeader,
 	CardTitle,
 } from "~/components/ui/card";
@@ -19,12 +18,21 @@ interface SignInProps {
 }
 
 export function SignIn({ className }: SignInProps) {
-	const { authProviders } = useAuthProviders();
+	const { authProviders, isLoading } = useAuthProviders();
 	const configuredAuthProviders = authProviders.filter((p) => p.configured);
+
+	if (isLoading) {
+		return null;
+	}
 
 	return (
 		<div className="flex min-h-screen w-full items-center justify-center p-4">
-			<Card className={cn("flex w-96 flex-col justify-between", className)}>
+			<Card
+				className={cn(
+					"flex max-w-96 flex-col justify-between px-8 pb-4",
+					className
+				)}
+			>
 				<CardHeader>
 					<CardTitle className="flex items-center justify-center">
 						<ObotLogo />
@@ -35,22 +43,22 @@ export function SignIn({ className }: SignInProps) {
 						</CardDescription>
 					)}
 				</CardHeader>
-				<CardFooter className="flex flex-col border-t pt-4">
-					{configuredAuthProviders.map((provider) => (
-						<Button
-							key={provider.id}
-							variant="secondary"
-							className="mb-4 w-full"
-							onClick={() => {
-								window.location.href = `/oauth2/start?rd=/admin/&obot-auth-provider=default/${provider.id}`;
-							}}
-						>
-							<ProviderIcon provider={provider} size="md" />
-							Sign in with {CommonAuthProviderFriendlyNames[provider.id]}
-						</Button>
-					))}
-					{configuredAuthProviders.length === 0 && <Bootstrap />}
-				</CardFooter>
+
+				{configuredAuthProviders.length === 0 && <BootstrapForm />}
+
+				{configuredAuthProviders.map((provider) => (
+					<Button
+						key={provider.id}
+						variant="secondary"
+						className="mb-4 w-full"
+						onClick={() => {
+							window.location.href = `/oauth2/start?rd=/admin/&obot-auth-provider=default/${provider.id}`;
+						}}
+					>
+						<ProviderIcon provider={provider} size="md" />
+						Sign in with {CommonAuthProviderFriendlyNames[provider.id]}
+					</Button>
+				))}
 			</Card>
 		</div>
 	);

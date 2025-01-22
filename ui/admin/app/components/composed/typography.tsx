@@ -67,3 +67,7 @@ export function Truncate({
 		</Tooltip>
 	);
 }
+
+export function Description({ children }: { children: React.ReactNode }) {
+	return <small className="text-muted-foreground">{children}</small>;
+}
