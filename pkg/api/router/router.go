@@ -310,6 +310,7 @@ func Router(services *services.Services) (http.Handler, error) {
 	mux.HandleFunc("POST /api/auth-providers/{id}/reveal", authProviders.Reveal)
 
 	// Bootstrap
+	mux.HandleFunc("GET /api/bootstrap", services.Bootstrapper.IsEnabled)
 	mux.HandleFunc("POST /api/bootstrap/login", services.Bootstrapper.Login)
 	mux.HandleFunc("POST /api/bootstrap/logout", services.Bootstrapper.Logout)
 

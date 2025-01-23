@@ -41,6 +41,7 @@ var staticRules = map[string][]string{
 
 		"GET /api/oauth/start/{id}/{namespace}/{name}",
 
+		"GET /api/bootstrap",
 		"POST /api/bootstrap/login",
 		"POST /api/bootstrap/logout",
 

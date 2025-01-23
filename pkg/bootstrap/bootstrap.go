@@ -3,61 +3,134 @@ package bootstrap
 import (
 	"context"
 	"crypto/rand"
+	"errors"
 	"fmt"
 	"net/http"
 	"os"
 	"strings"
 
+	"github.com/gptscript-ai/go-gptscript"
 	types2 "github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/api/authz"
 	"github.com/obot-platform/obot/pkg/gateway/client"
-	"github.com/obot-platform/obot/pkg/gateway/server/dispatcher"
 	"github.com/obot-platform/obot/pkg/gateway/types"
-	"github.com/obot-platform/obot/pkg/system"
 	"k8s.io/apiserver/pkg/authentication/authenticator"
 	"k8s.io/apiserver/pkg/authentication/user"
 )
 
-const bootstrapCookie = "obot-bootstrap"
+const (
+	bootstrapCookie            = "obot-bootstrap"
+	bootstrapCredential        = "obot-bootstrap"
+	bootstrapCredentialContext = "obot-bootstrap"
+)
 
 type Bootstrap struct {
-	enableBootstrapUser bool
-	token, serverURL    string
-	gatewayClient       *client.Client
+	token, serverURL                  string
+	authEnabled, forceEnableBootstrap bool
+	gatewayClient                     *client.Client
 }
 
-func New(ctx context.Context, enableBootstrapUser bool, serverURL string, c *client.Client, d *dispatcher.Dispatcher) (*Bootstrap, error) {
+func New(ctx context.Context, serverURL string, c *client.Client, g *gptscript.GPTScript, authEnabled, forceEnableBootstrap bool) (*Bootstrap, error) {
+	if !authEnabled {
+		// Auth is not enabled, so skip token generation.
+		return &Bootstrap{
+			serverURL:            serverURL,
+			authEnabled:          authEnabled,
+			forceEnableBootstrap: forceEnableBootstrap,
+			gatewayClient:        c,
+		}, nil
+	}
+
 	token := os.Getenv("OBOT_BOOTSTRAP_TOKEN")
+	tokenFromCredential, exists, err := getTokenFromCredential(ctx, g)
+	if err != nil {
+		return nil, err
+	}
 
-	if token == "" && enableBootstrapUser {
-		bytes := make([]byte, 32)
-		_, err := rand.Read(bytes)
-		if err != nil {
-			return nil, fmt.Errorf("failed to generate random token: %w", err)
+	if token != "" && !exists {
+		// Save the token from the env var to the credential.
+		if err := saveTokenToCredential(ctx, token, g); err != nil {
+			return nil, err
 		}
+	} else if token == "" {
+		if exists {
+			// Just use the token from the credential, since it already exists.
+			token = tokenFromCredential
+		} else {
+			// Generate a new token, save it in the credential, and print it to the logs.
+			bytes := make([]byte, 32)
+			_, err := rand.Read(bytes)
+			if err != nil {
+				return nil, fmt.Errorf("failed to generate random token: %w", err)
+			}
 
-		token = fmt.Sprintf("%x", bytes)
+			token = fmt.Sprintf("%x", bytes)
 
-		// We deliberately only print the token if it was not provided by the user.
-		fmt.Printf("Bootstrap token: %s\nUse this token to log in to the Admin UI.\n", token)
-	} else if !enableBootstrapUser {
-		configuredAuthProviders, err := d.ListConfiguredAuthProviders(ctx, system.DefaultNamespace)
-		if err == nil && len(configuredAuthProviders) == 0 {
-			fmt.Printf("WARNING: Bootstrap user is disabled, and no auth providers are configured. You will be unable to log in to Obot.\n")
+			if err := saveTokenToCredential(ctx, token, g); err != nil {
+				return nil, err
+			}
+
+			printToken(token)
 		}
 	}
 
+	if len(token) < 6 {
+		return nil, errors.New("error: bootstrap token must be at least 6 characters")
+	}
+
 	return &Bootstrap{
-		enableBootstrapUser: enableBootstrapUser,
-		token:               token,
-		serverURL:           serverURL,
-		gatewayClient:       c,
+		token:                token,
+		authEnabled:          authEnabled,
+		serverURL:            serverURL,
+		forceEnableBootstrap: forceEnableBootstrap,
+		gatewayClient:        c,
 	}, nil
 }
 
+func getTokenFromCredential(ctx context.Context, g *gptscript.GPTScript) (string, bool, error) {
+	tokenCredential, err := g.RevealCredential(ctx, []string{bootstrapCredentialContext}, bootstrapCredential)
+	if err != nil {
+		if errors.As(err, &gptscript.ErrNotFound{}) {
+			return "", false, nil
+		}
+		return "", false, fmt.Errorf("failed to get bootstrap token credential: %w", err)
+	}
+
+	value, ok := tokenCredential.Env["token"]
+	if !ok {
+		return "", false, nil
+	}
+	return value, true, nil
+}
+
+func saveTokenToCredential(ctx context.Context, token string, g *gptscript.GPTScript) error {
+	credential := gptscript.Credential{
+		ToolName: bootstrapCredential,
+		Context:  bootstrapCredentialContext,
+		Type:     gptscript.CredentialTypeTool,
+		Env: map[string]string{
+			"token": token,
+		},
+	}
+
+	if err := g.CreateCredential(ctx, credential); err != nil {
+		return fmt.Errorf("failed to store bootstrap token credential: %w", err)
+	}
+	return nil
+}
+
+func printToken(token string) {
+	message := "Bootstrap token: " + token
+	line := strings.Repeat("-", len(message)+4)
+
+	fmt.Println(line)
+	fmt.Println("| " + message + " |")
+	fmt.Println(line)
+}
+
 func (b *Bootstrap) AuthenticateRequest(req *http.Request) (*authenticator.Response, bool, error) {
-	if !b.enableBootstrapUser {
+	if !b.authEnabled {
 		return nil, false, nil
 	}
 
@@ -70,6 +143,11 @@ func (b *Bootstrap) AuthenticateRequest(req *http.Request) (*authenticator.Respo
 		}
 	} else if authHeader != fmt.Sprintf("Bearer %s", b.token) {
 		return nil, false, nil
+	}
+
+	// Deny authentication if bootstrap is not enabled.
+	if enabled, err := b.bootstrapEnabled(req.Context()); !enabled || err != nil {
+		return nil, false, err
 	}
 
 	gatewayUser, err := b.gatewayClient.EnsureIdentityWithRole(
@@ -94,8 +172,18 @@ func (b *Bootstrap) AuthenticateRequest(req *http.Request) (*authenticator.Respo
 }
 
 func (b *Bootstrap) Login(req api.Context) error {
-	if !b.enableBootstrapUser {
+	if !b.authEnabled {
+		http.Error(req.ResponseWriter, "auth is not enabled", http.StatusNotFound)
+		return nil
+	}
+
+	// Deny login attempts if bootstrap is not enabled.
+	if enabled, err := b.bootstrapEnabled(req.Context()); !enabled || err != nil {
 		http.Error(req.ResponseWriter, "invalid token", http.StatusUnauthorized)
+
+		if err != nil {
+			fmt.Printf("WARNING: bootstrap login failed: failed to check if admin user exists: %v\n", err)
+		}
 		return nil
 	}
 
@@ -122,7 +210,6 @@ func (b *Bootstrap) Login(req api.Context) error {
 }
 
 func (b *Bootstrap) Logout(req api.Context) error {
-	fmt.Printf("logging out bootstrap user\n")
 	http.SetCookie(req.ResponseWriter, &http.Cookie{
 		Name:     bootstrapCookie,
 		Value:    "",
@@ -133,4 +220,38 @@ func (b *Bootstrap) Logout(req api.Context) error {
 	})
 
 	return nil
+}
+
+func (b *Bootstrap) IsEnabled(req api.Context) error {
+	if !b.authEnabled {
+		return req.Write(map[string]bool{"enabled": false})
+	}
+
+	bootstrapEnabled, err := b.bootstrapEnabled(req.Context())
+	if err != nil {
+		return err
+	}
+
+	return req.Write(map[string]bool{"enabled": bootstrapEnabled})
+}
+
+func (b *Bootstrap) bootstrapEnabled(ctx context.Context) (bool, error) {
+	if b.forceEnableBootstrap {
+		return true, nil
+	}
+
+	adminUsers, err := b.gatewayClient.Users(ctx, types.UserQuery{
+		Role: types2.RoleAdmin,
+	})
+	if err != nil {
+		return false, fmt.Errorf("failed to get admin users: %w", err)
+	}
+
+	for _, u := range adminUsers {
+		if u.Username != "bootstrap" && u.Email != "" {
+			// A non-bootstrap admin user exists, so bootstrap is not enabled
+			return false, nil
+		}
+	}
+	return true, nil
 }

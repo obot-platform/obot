@@ -66,7 +66,7 @@ type Config struct {
 	EnvKeys                    []string `usage:"The environment keys to pass through to the GPTScript server" env:"OBOT_ENV_KEYS"`
 	KnowledgeSetIngestionLimit int      `usage:"The maximum number of files to ingest into a knowledge set" default:"3000" env:"OBOT_KNOWLEDGESET_INGESTION_LIMIT" name:"knowledge-set-ingestion-limit"`
 	EnableAuthentication       bool     `usage:"Enable authentication" default:"false"`
-	EnableBootstrapUser        bool     `usage:"Enables the bootstrap user, regardless of configured auth providers" default:"true"`
+	ForceEnableBootstrap       bool     `usage:"Enables the bootstrap user even if other admin users have been created" default:"false"`
 	AuthAdminEmails            []string `usage:"Emails of admin users"`
 	AgentsDir                  string   `usage:"The directory to auto load agents on start (default $XDG_CONFIG_HOME/.obot/agents)"`
 	StaticDir                  string   `usage:"The directory to serve static files from"`
@@ -309,7 +309,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		proxyManager *proxy.Manager
 	)
 
-	bootstrapper, err := bootstrap.New(ctx, config.EnableBootstrapUser, config.Hostname, gatewayClient, providerDispatcher)
+	bootstrapper, err := bootstrap.New(ctx, config.Hostname, gatewayClient, c, config.EnableAuthentication, config.ForceEnableBootstrap)
 	if err != nil {
 		return nil, err
 	}
