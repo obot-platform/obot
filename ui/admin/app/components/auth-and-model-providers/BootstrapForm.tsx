@@ -69,7 +69,7 @@ export function BootstrapForm({ className }: BootstrapProps) {
 					control={form.control}
 					name="token"
 					label="Bootstrap Token"
-					description="You can find the bootstrap token in the server logs when starting Obot, or configure it directly through environment variables at startup."
+					description="You can find the bootstrap token in the server logs when starting Obot by searching for 'Bootstrap Token', or configure it directly through environment variables at startup."
 					type="password"
 				/>
 

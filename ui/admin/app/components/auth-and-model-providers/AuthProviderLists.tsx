@@ -45,7 +45,7 @@ export function AuthProviderList({
 							{isDisabled(authProvider, authProviders) && (
 								<div className="flex flex-row items-center gap-2">
 									<Tooltip>
-										<TooltipTrigger>
+										<TooltipTrigger asChild>
 											<Button variant="ghost" size="icon">
 												<CircleHelpIcon />
 											</Button>
