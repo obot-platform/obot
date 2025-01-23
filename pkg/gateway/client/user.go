@@ -39,7 +39,7 @@ func (c *Client) DeleteUser(ctx context.Context, username string) (*types.User, 
 		if existingUser.Role.HasRole(types2.RoleAdmin) {
 			var adminCount int64
 			// We filter out empty email users here, because that is the bootstrap user.
-			if err := tx.Model(new(types.User)).Where("role = ? and email != '' and ", types2.RoleAdmin).Count(&adminCount).Error; err != nil {
+			if err := tx.Model(new(types.User)).Where("role = ? and email != ''", types2.RoleAdmin).Count(&adminCount).Error; err != nil {
 				return err
 			}
 
