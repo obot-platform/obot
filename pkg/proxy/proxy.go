@@ -314,7 +314,8 @@ func (p *Proxy) authenticateRequest(req *http.Request) (*authenticator.Response,
 	}
 
 	if ss.SetCookie != "" {
-		u.Extra["set-cookie"] = []string{ss.SetCookie}
+		// This is set if the auth provider needed to refresh the token.
+		u.Extra["set-cookie"] = []string{url.QueryEscape(fmt.Sprintf("{\"authProvider\":\"%s\",\"token\":\"%s\"}", p.namespace+"/"+p.name, ss.SetCookie))}
 	}
 
 	if req.URL.Path == "/api/me" {
