@@ -5,9 +5,11 @@ import { assetUrl, cn } from "~/lib/utils";
 
 import { Button } from "~/components/ui/button";
 import { useAuthProviders } from "~/hooks/auth-providers/useAuthProviders";
+import { useAuthStatus } from "~/hooks/auth/useAuthStatus";
 import { useModelProviders } from "~/hooks/model-providers/useModelProviders";
 
 export function SetupBanner() {
+	const { authEnabled } = useAuthStatus();
 	const { configured: modelProviderConfigured } = useModelProviders();
 	const { configured: authProviderConfigured } = useAuthProviders();
 	const location = useLocation();
@@ -22,18 +24,19 @@ export function SetupBanner() {
 		},
 		{
 			step: "Configure Auth Provider",
-			configured: authProviderConfigured,
+			// If auth is disabled, there's no need to configure the auth provider
+			configured: !authEnabled || authProviderConfigured,
 			path: $path("/auth-providers"),
 			description: "To support multiple users, configure an Auth Provider.",
 			label: "Auth Provider",
 		},
 	].filter((step) => !step.configured);
 
-	const isOnSetupPage = steps.some((step) =>
+	const isSetupPage = steps.some((step) =>
 		location.pathname.includes(step.path)
 	);
 
-	if (!steps.length || isOnSetupPage) return null;
+	if (!steps.length || isSetupPage) return null;
 
 	return (
 		<div className="w-full">

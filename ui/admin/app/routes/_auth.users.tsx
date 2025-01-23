@@ -9,6 +9,7 @@ import { Thread } from "~/lib/model/threads";
 import { ExplicitAdminDescription, User, roleLabel } from "~/lib/model/users";
 import { ThreadsService } from "~/lib/service/api/threadsService";
 import { UserService } from "~/lib/service/api/userService";
+import { VersionApiService } from "~/lib/service/api/versionApiService";
 import { RouteHandle } from "~/lib/service/routeHandles";
 import { pluralize, timeSince } from "~/lib/utils";
 
@@ -23,6 +24,8 @@ import {
 import { UserActionsDropdown } from "~/components/user/UserActionsDropdown";
 
 export async function clientLoader() {
+	await VersionApiService.requireAuthEnabled();
+
 	const users = await preload(UserService.getUsers.key(), UserService.getUsers);
 
 	if (users.length > 0) {

@@ -1,4 +1,6 @@
 export type Version = {
 	obot: string;
-	[key: string]: string;
+	authEnabled?: boolean;
+	emailDomain: string;
+	gptscript: string;
 };

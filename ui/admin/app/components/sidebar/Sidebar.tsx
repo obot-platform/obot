@@ -37,6 +37,7 @@ import {
 	SidebarRail,
 	useSidebar,
 } from "~/components/ui/sidebar";
+import { useAuthStatus } from "~/hooks/auth/useAuthStatus";
 
 // Menu items.
 const items = [
@@ -59,6 +60,7 @@ const items = [
 		title: "Users",
 		url: $path("/users"),
 		icon: User,
+		requiresAuth: true,
 	},
 	{
 		title: "Workflows",
@@ -79,12 +81,22 @@ const items = [
 		title: "Auth Providers",
 		url: $path("/auth-providers"),
 		icon: LockIcon,
+		requiresAuth: true,
 	},
 ];
 
 export function AppSidebar() {
 	const { state } = useSidebar();
 	const location = useLocation();
+
+	const { authEnabled } = useAuthStatus();
+
+	const filteredItems = items.filter((item) => {
+		if (!item.requiresAuth) return true;
+
+		return authEnabled;
+	});
+
 	return (
 		<Sidebar collapsible="icon">
 			<SidebarRail />
@@ -99,7 +111,7 @@ export function AppSidebar() {
 				<SidebarGroup>
 					<SidebarGroupContent>
 						<SidebarMenu className="w-full">
-							{items.map((item) => (
+							{filteredItems.map((item) => (
 								<SidebarMenuItem key={item.title} className="w-full">
 									<SidebarMenuButton
 										asChild

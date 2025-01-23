@@ -1,7 +1,5 @@
 import { useState } from "react";
-import useSWR from "swr";
 
-import { BootstrapApiService } from "~/lib/service/api/bootstrapApiService";
 import { cn } from "~/lib/utils";
 
 import { BootstrapForm } from "~/components/auth-and-model-providers/BootstrapForm";
@@ -16,6 +14,7 @@ import {
 	CardTitle,
 } from "~/components/ui/card";
 import { useAuthProviders } from "~/hooks/auth-providers/useAuthProviders";
+import { useAuthStatus } from "~/hooks/auth/useAuthStatus";
 
 interface SignInProps {
 	className?: string;
@@ -27,19 +26,14 @@ export function SignIn({ className }: SignInProps) {
 
 	const [bootstrapSelected, setBootstrapSelected] = useState(false);
 
-	const { data: bootstrapStatus } = useSWR(
-		BootstrapApiService.bootstrapStatus.key(),
-		BootstrapApiService.bootstrapStatus,
-		{ revalidateIfStale: false }
-	);
+	const { bootstrapEnabled } = useAuthStatus();
 
 	if (isLoading) {
 		return null;
 	}
 
 	const showBootstrapForm =
-		(bootstrapStatus?.enabled && bootstrapSelected) ||
-		!configuredAuthProviders.length;
+		(bootstrapEnabled && bootstrapSelected) || !configuredAuthProviders.length;
 
 	return (
 		<div className="flex min-h-screen w-full items-center justify-center p-4">
@@ -74,7 +68,7 @@ export function SignIn({ className }: SignInProps) {
 					</Button>
 				))}
 
-				{bootstrapStatus?.enabled && !showBootstrapForm && (
+				{bootstrapEnabled && !showBootstrapForm && (
 					<Button
 						variant="secondary"
 						className="mb-4 w-full"

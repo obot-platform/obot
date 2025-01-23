@@ -15,7 +15,7 @@ import { SignIn } from "~/components/signin/SignIn";
 
 export async function clientLoader() {
 	const promises = await Promise.all([
-		preload(UserService.getMe.key(), () => UserService.getMe()),
+		preload(UserService.getMe.key(), UserService.getMe),
 		preload(
 			ModelProviderApiService.getModelProviders.key(),
 			ModelProviderApiService.getModelProviders
