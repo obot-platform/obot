@@ -11,42 +11,45 @@ export function ToolCatalogGroup({
 	configured,
 	tools,
 	selectedTools,
-	onUpdateTools,
+	onAddTool,
+	onRemoveTool,
 	expandFor,
 }: {
 	category: string;
 	configured: boolean;
 	tools: ToolCategory;
 	selectedTools: string[];
-	onUpdateTools: (tools: string[]) => void;
+	onAddTool: (
+		toolId: string,
+		toolsToRemove: string[],
+		oauthToAdd?: string
+	) => void;
+	onRemoveTool: (toolId: string, oauthToRemove?: string) => void;
+	oauths: string[];
 	expandFor?: string;
 }) {
-	const handleSelect = (toolId: string) => {
+	const handleSelect = (toolId: string, toolOauth?: string) => {
 		if (selectedTools.includes(toolId)) {
-			onUpdateTools(selectedTools.filter((tool) => tool !== toolId));
+			onRemoveTool(toolId, toolOauth);
+		} else {
+			onAddTool(
+				toolId,
+				tools.bundleTool?.id ? [tools.bundleTool.id] : [],
+				toolOauth
+			);
 		}
-
-		const newTools = selectedTools
-			.filter((tool) => tool !== tools.bundleTool?.id)
-			.concat(toolId);
-
-		onUpdateTools(newTools);
 	};
 
-	const handleSelectBundle = (bundleToolId: string) => {
+	const handleSelectBundle = (bundleToolId: string, toolOauth?: string) => {
 		if (selectedTools.includes(bundleToolId)) {
-			onUpdateTools(selectedTools.filter((tool) => tool !== bundleToolId));
-			return;
+			onRemoveTool(bundleToolId, toolOauth);
+		} else {
+			onAddTool(
+				bundleToolId,
+				tools.tools.map((tool) => tool.id),
+				toolOauth
+			);
 		}
-
-		const toolsToRemove = new Set(tools.tools.map((tool) => tool.id));
-
-		const newTools = [
-			...selectedTools.filter((tool) => !toolsToRemove.has(tool)),
-			bundleToolId,
-		];
-
-		onUpdateTools(newTools);
 	};
 
 	const [expanded, setExpanded] = useState(() => {
@@ -79,7 +82,9 @@ export function ToolCatalogGroup({
 					configured={configured}
 					isSelected={selectedTools.includes(tools.bundleTool.id)}
 					isBundleSelected={false}
-					onSelect={() => handleSelectBundle(tools.bundleTool!.id)}
+					onSelect={(toolOauthToAdd) =>
+						handleSelectBundle(tools.bundleTool!.id, toolOauthToAdd)
+					}
 					expanded={expanded}
 					onExpand={setExpanded}
 					isBundle
@@ -98,7 +103,9 @@ export function ToolCatalogGroup({
 								? selectedTools.includes(tools.bundleTool.id)
 								: false
 						}
-						onSelect={() => handleSelect(categoryTool.id)}
+						onSelect={(toolOauthToAdd) =>
+							handleSelect(categoryTool.id, toolOauthToAdd)
+						}
 					/>
 				))}
 		</CommandGroup>

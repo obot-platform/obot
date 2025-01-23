@@ -9,8 +9,8 @@ import { ToolReferenceService } from "~/lib/service/api/toolreferenceService";
 import { cn } from "~/lib/utils";
 
 import { ConfirmationDialog } from "~/components/composed/ConfirmationDialog";
-import { CustomOauthAppDetail } from "~/components/oauth-apps/CustomOauthAppDetail";
-import { OAuthAppDetail } from "~/components/oauth-apps/OAuthAppDetail";
+import { CustomOauthAppDetail } from "~/components/oauth-apps/shared/CustomOauthAppDetail";
+import { OAuthAppDetail } from "~/components/oauth-apps/shared/OAuthAppDetail";
 import { LoadingSpinner } from "~/components/ui/LoadingSpinner";
 import { Button } from "~/components/ui/button";
 import {
@@ -30,7 +30,7 @@ export function ToolCardActions({ tool }: { tool: ToolReference }) {
 
 	const oauthApps = useOAuthAppList();
 	const oauthAppsMap = new Map(
-		oauthApps.map((app) => [app.appOverride?.integration ?? app.type, app])
+		oauthApps.map((app) => [app.integration ?? app.type, app])
 	);
 	const oauth = oauthAppsMap.get(tool?.metadata?.oauth ?? "");
 
@@ -61,11 +61,10 @@ export function ToolCardActions({ tool }: { tool: ToolReference }) {
 
 	const toolOauthMetadata = tool.metadata?.oauth;
 
-	const isCustomOauth =
-		toolOauthMetadata && (!oauth || oauth?.type === "custom");
-	const requiresConfiguration =
+	const isSpecedOauth =
 		toolOauthMetadata &&
-		(!oauth || (oauth && oauth.noGatewayIntegration && !oauth.appOverride));
+		Object.values(OAuthProvider).includes(toolOauthMetadata as OAuthProvider);
+	const requiresConfiguration = toolOauthMetadata && !oauth;
 
 	if (tool.builtin && !toolOauthMetadata) return null;
 	return (
@@ -124,18 +123,18 @@ export function ToolCardActions({ tool }: { tool: ToolReference }) {
 				}}
 			/>
 			{toolOauthMetadata ? (
-				isCustomOauth ? (
-					<CustomOauthAppDetail
-						open={configureAuthOpen}
-						onOpenChange={setConfigureAuthOpen}
-						spec={oauth}
-						type={toolOauthMetadata}
-					/>
-				) : (
+				isSpecedOauth ? (
 					<OAuthAppDetail
 						open={configureAuthOpen}
 						onOpenChange={setConfigureAuthOpen}
 						type={toolOauthMetadata as OAuthProvider}
+					/>
+				) : (
+					<CustomOauthAppDetail
+						open={configureAuthOpen}
+						onOpenChange={setConfigureAuthOpen}
+						app={oauth}
+						integration={toolOauthMetadata}
 					/>
 				)
 			) : null}
