@@ -19,6 +19,7 @@ export function useThreadEvents(threadId?: Nullish<string>) {
 			runID,
 			contentID,
 			replayComplete,
+			time,
 		} = event;
 
 		setIsRunning(!runComplete && !replayComplete);
@@ -36,6 +37,7 @@ export function useThreadEvents(threadId?: Nullish<string>) {
 				copy[existingIndex] = {
 					...existing,
 					text: existing.text + content,
+					time: existing.time || time,
 				};
 
 				return copy;
@@ -49,6 +51,7 @@ export function useThreadEvents(threadId?: Nullish<string>) {
 						runId: runID,
 						contentID,
 						aborted: true,
+						time,
 					});
 
 					return copy;
@@ -60,6 +63,7 @@ export function useThreadEvents(threadId?: Nullish<string>) {
 					runId: runID,
 					error: true,
 					contentID,
+					time,
 				});
 				return copy;
 			}
@@ -70,6 +74,7 @@ export function useThreadEvents(threadId?: Nullish<string>) {
 					text: input,
 					runId: runID,
 					contentID,
+					time,
 				});
 				return copy;
 			}
@@ -89,6 +94,7 @@ export function useThreadEvents(threadId?: Nullish<string>) {
 					text: content,
 					runId: runID,
 					contentID,
+					time,
 				});
 				return copy;
 			}

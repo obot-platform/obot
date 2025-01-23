@@ -7,7 +7,7 @@ import { AgentIcons } from "~/lib/model/agents";
 import { AuthPrompt } from "~/lib/model/chatEvents";
 import { Message as MessageType } from "~/lib/model/messages";
 import { PromptApiService } from "~/lib/service/api/PromptApi";
-import { cn } from "~/lib/utils";
+import { cn, formatTime } from "~/lib/utils";
 
 import { MessageDebug } from "~/components/chat/MessageDebug";
 import { ToolCallInfo } from "~/components/chat/ToolCallInfo";
@@ -76,6 +76,9 @@ export const Message = React.memo(
 							<AvatarImage src={icon} />
 						</Avatar>
 						<p className="text-sm font-semibold">{agentName}</p>
+						<small className="text-muted-foreground">
+							{message.time && formatTime(message.time)}
+						</small>
 					</div>
 				)}
 				<div
