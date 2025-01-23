@@ -3,6 +3,7 @@ import { AlertCircleIcon, WrenchIcon } from "lucide-react";
 import React, { useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 
+import { AgentIcons } from "~/lib/model/agents";
 import { AuthPrompt } from "~/lib/model/chatEvents";
 import { Message as MessageType } from "~/lib/model/messages";
 import { PromptApiService } from "~/lib/service/api/PromptApi";
@@ -12,6 +13,7 @@ import { MessageDebug } from "~/components/chat/MessageDebug";
 import { ToolCallInfo } from "~/components/chat/ToolCallInfo";
 import { ControlledInput } from "~/components/form/controlledInputs";
 import { ToolIcon } from "~/components/tools/ToolIcon";
+import { Avatar, AvatarImage } from "~/components/ui/avatar";
 import { Button } from "~/components/ui/button";
 import {
 	Dialog,
@@ -30,97 +32,124 @@ import { useAsync } from "~/hooks/useAsync";
 interface MessageProps {
 	message: MessageType;
 	isRunning?: boolean;
+	icons?: AgentIcons;
+	isDarkMode?: boolean;
+	isMostRecent?: boolean;
+	agentName?: string;
 }
 
 const OpenMarkdownLinkRegex = new RegExp(/\[([^\]]+)\]\(https?:\/\/[^)]*$/);
 
-export const Message = React.memo(({ message, isRunning }: MessageProps) => {
-	const isUser = message.sender === "user";
+export const Message = React.memo(
+	({ message, isRunning, icons, isDarkMode, agentName }: MessageProps) => {
+		const isUser = message.sender === "user";
 
-	// note(ryanhopperlowe) we only support one tool call per message for now
-	// leaving it in case that changes in the future
-	const [toolCall = null] = message.tools || [];
+		// note(ryanhopperlowe) we only support one tool call per message for now
+		// leaving it in case that changes in the future
+		const [toolCall = null] = message.tools || [];
 
-	// prevent animation for messages that never run
-	// only calculate on mount because we don't want to stop animation when the message finishes streaming
-	const [shouldAnimate] = useState(isRunning);
-	const animatedText = useAnimatedText(message.text, !shouldAnimate || isUser);
+		// prevent animation for messages that never run
+		// only calculate on mount because we don't want to stop animation when the message finishes streaming
+		const [shouldAnimate] = useState(isRunning);
+		const animatedText = useAnimatedText(
+			message.text,
+			!shouldAnimate || isUser
+		);
 
-	const parsedMessage = useMemo(() => {
-		if (OpenMarkdownLinkRegex.test(animatedText)) {
-			return animatedText.replace(
-				OpenMarkdownLinkRegex,
-				(_, linkText) => `[${linkText}]()`
-			);
-		}
-		return animatedText;
-	}, [animatedText]);
+		const parsedMessage = useMemo(() => {
+			if (OpenMarkdownLinkRegex.test(animatedText)) {
+				return animatedText.replace(
+					OpenMarkdownLinkRegex,
+					(_, linkText) => `[${linkText}]()`
+				);
+			}
+			return animatedText;
+		}, [animatedText]);
 
-	return (
-		<div className="mb-4 w-full">
-			<div
-				className={cn("flex gap-4", isUser ? "justify-end" : "justify-start")}
-			>
+		const icon = isDarkMode ? icons?.iconDark : icons?.icon;
+		const showIcon = icon && !isUser && !message.prompt && !toolCall;
+		return (
+			<div className="mb-4 w-full">
+				{showIcon && (
+					<div className="flex items-center gap-2">
+						<Avatar className="h-6 w-6">
+							<AvatarImage src={icon} />
+						</Avatar>
+						<p className="text-sm font-semibold">{agentName}</p>
+					</div>
+				)}
 				<div
-					className={cn({
-						"rounded-xl border border-error bg-error-foreground": message.error,
-						"max-w-[80%] rounded-2xl bg-accent": isUser,
-						"w-full max-w-full": !isUser,
+					className={cn("flex gap-4", {
+						"justify-end": isUser,
+						"justify-start pl-8": !isUser,
 					})}
 				>
-					<div className="flex max-w-full items-center gap-2 overflow-hidden p-4 pl-[20px]">
-						{message.aborted && (
-							<AlertCircleIcon className="h-5 w-5 text-muted-foreground" />
-						)}
+					<div
+						className={cn({
+							"rounded-xl border border-error bg-error-foreground":
+								message.error,
+							"max-w-[80%] rounded-2xl bg-accent p-4": isUser,
+							"w-full max-w-full": !isUser,
+						})}
+					>
+						<div
+							className={cn(
+								"flex max-w-full items-center gap-2 overflow-hidden"
+							)}
+						>
+							{message.aborted && (
+								<AlertCircleIcon className="h-5 w-5 text-muted-foreground" />
+							)}
 
-						{toolCall?.metadata?.icon && (
-							<ToolIcon
-								icon={toolCall.metadata.icon}
-								category={toolCall.metadata.category}
-								name={toolCall.name}
-								className="h-5 w-5"
-							/>
-						)}
+							{toolCall?.metadata?.icon && (
+								<ToolIcon
+									icon={toolCall.metadata.icon}
+									category={toolCall.metadata.category}
+									name={toolCall.name}
+									className="h-5 w-5"
+								/>
+							)}
 
-						{message.prompt ? (
-							<PromptMessage prompt={message.prompt} isRunning={isRunning} />
-						) : (
-							<Markdown
-								className={cn({
-									"prose-invert text-accent-foreground": isUser,
-									"text-muted-foreground": message.aborted,
-								})}
-							>
-								{parsedMessage || "Waiting for more information..."}
-							</Markdown>
-						)}
+							{message.prompt ? (
+								<PromptMessage prompt={message.prompt} isRunning={isRunning} />
+							) : (
+								<Markdown
+									className={cn({
+										"prose-invert text-accent-foreground": isUser,
+										"text-muted-foreground": message.aborted,
+									})}
+								>
+									{parsedMessage || "Waiting for more information..."}
+								</Markdown>
+							)}
 
-						{toolCall && (
-							<ToolCallInfo tool={toolCall}>
-								<Button variant="secondary" size="icon">
-									<WrenchIcon className="h-4 w-4" />
-								</Button>
-							</ToolCallInfo>
-						)}
+							{toolCall && (
+								<ToolCallInfo tool={toolCall}>
+									<Button variant="secondary" size="icon">
+										<WrenchIcon className="h-4 w-4" />
+									</Button>
+								</ToolCallInfo>
+							)}
 
-						{message.runId && !isUser && (
-							<div className="self-start">
-								<MessageDebug runId={message.runId} />
-							</div>
-						)}
+							{message.runId && !isUser && (
+								<div className="self-start">
+									<MessageDebug runId={message.runId} />
+								</div>
+							)}
 
-						{/* this is a hack to take up space for the debug button */}
-						{!toolCall && !message.runId && !isUser && (
-							<div className="invisible">
-								<Button size="icon" />
-							</div>
-						)}
+							{/* this is a hack to take up space for the debug button */}
+							{!toolCall && !message.runId && !isUser && (
+								<div className="invisible">
+									<Button size="icon" />
+								</div>
+							)}
+						</div>
 					</div>
 				</div>
 			</div>
-		</div>
-	);
-});
+		);
+	}
+);
 
 Message.displayName = "Message";
 

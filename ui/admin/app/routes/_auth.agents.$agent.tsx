@@ -107,6 +107,8 @@ export default function ChatAgent() {
 						onCreateThreadId={updateThreadId}
 						introductionMessage={updatedAgent?.introductionMessage}
 						starterMessages={updatedAgent?.starterMessages}
+						icons={updatedAgent?.icons}
+						agentName={updatedAgent?.name}
 					>
 						<Chat className="bg-sidebar" />
 					</ChatProvider>
