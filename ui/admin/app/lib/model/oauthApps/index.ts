@@ -1,5 +1,3 @@
-import { z } from "zod";
-
 import {
 	OAuthAppSpec,
 	OAuthProvider,
@@ -33,28 +31,6 @@ export type OAuthAppDetail = OAuthAppSpec & {
 	appOverride?: OAuthApp;
 };
 
-export const combinedOAuthAppInfo = (apps: OAuthApp[]) => {
-	const customApps: OAuthAppDetail[] = apps
-		.filter((app) => app.type === OAuthProvider.Custom)
-		.map((customApp) => ({
-			appOverride: customApp,
-			noGatewayIntegration: true,
-			displayName: customApp.name ?? "",
-			alias: "",
-			type: customApp.type,
-			schema: z.object({}),
-			steps: [],
-		}));
-	return [
-		...customApps,
-		...Object.entries(OAuthAppSpecMap).map(([type, defaultSpec]) => {
-			const appOverride = apps.find((app) => app.type === type);
-
-			return { ...defaultSpec, appOverride } as OAuthAppDetail;
-		}),
-	];
-};
-
 export type OAuthAppParams = {
 	clientID: string;
 	clientSecret?: string;
@@ -76,7 +52,6 @@ export type OAuthAppParams = {
 export type OAuthAppBase = OAuthAppParams & {
 	name?: string;
 	type: OAuthProvider;
-	global: boolean;
 };
 
 export type CreateOAuthApp = Partial<OAuthAppBase> & {

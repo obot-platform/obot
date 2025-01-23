@@ -30,16 +30,18 @@ import { useOAuthAppList } from "~/hooks/oauthApps/useOAuthApps";
 
 type ToolCatalogProps = React.HTMLAttributes<HTMLDivElement> & {
 	tools: string[];
-	onUpdateTools: (tools: string[]) => void;
+	oauths: string[];
+	onUpdateTools: (tools: string[], toolOauths: string[]) => void;
 	invert?: boolean;
 	classNames?: { list?: string };
 };
 
 export function ToolCatalog({
 	className,
-	tools,
-	invert = false,
+	tools: selectedTools,
+	oauths,
 	onUpdateTools,
+	invert = false,
 	classNames,
 }: ToolCatalogProps) {
 	const { data: toolList, isLoading } = useSWR(
@@ -53,19 +55,16 @@ export function ToolCatalog({
 		[toolList]
 	);
 
+	const oauthToolMap = useMemo(
+		() => new Map(toolList.map((tool) => [tool.id, tool.metadata?.oauth])),
+		[toolList]
+	);
+
 	const [search, setSearch] = useState("");
 
 	const oauthApps = useOAuthAppList();
 	const configuredOauthApps = useMemo(() => {
-		return new Set(
-			oauthApps
-				.filter(
-					(app) =>
-						!app.noGatewayIntegration ||
-						(app.noGatewayIntegration && app.appOverride)
-				)
-				.map((app) => app.appOverride?.integration ?? app.type)
-		);
+		return new Set(oauthApps.map((app) => app.integration ?? app.type));
 	}, [oauthApps]);
 
 	const sortedValidCategories = useMemo(() => {
@@ -86,6 +85,37 @@ export function ToolCatalog({
 	const results = search.length
 		? filterToolCatalogBySearch(sortedValidCategories, search)
 		: sortedValidCategories;
+
+	const handleRemoveTool = (toolId: string, oauthToRemove?: string) => {
+		const updatedTools = selectedTools.filter((tool) => tool !== toolId);
+		const stillHasOauth = updatedTools.some(
+			(tool) => oauthToolMap.get(tool) === oauthToRemove
+		);
+		const updatedOauths = stillHasOauth
+			? oauths
+			: oauths.filter((oauth) => oauth !== oauthToRemove);
+		onUpdateTools(updatedTools, updatedOauths);
+	};
+
+	const handleAddTool = (
+		toolId: string,
+		toolsToRemove: string[],
+		oauthToAdd?: string
+	) => {
+		const toolsToRemoveSet = new Set(toolsToRemove);
+		const newTools = [
+			...selectedTools.filter((tool) => !toolsToRemoveSet.has(tool)),
+			toolId,
+		];
+
+		const updatedOauths =
+			oauthToAdd && !oauths.includes(oauthToAdd)
+				? [...oauths, oauthToAdd]
+				: oauths;
+
+		onUpdateTools(newTools, updatedOauths);
+	};
+
 	return (
 		<Command
 			className={cn(
@@ -120,9 +150,11 @@ export function ToolCatalog({
 								: true
 						}
 						tools={categoryTools}
-						selectedTools={tools}
-						onUpdateTools={onUpdateTools}
+						selectedTools={selectedTools}
+						onAddTool={handleAddTool}
+						onRemoveTool={handleRemoveTool}
 						expandFor={search}
+						oauths={oauths}
 					/>
 				))}
 			</CommandList>

@@ -37,6 +37,7 @@ const formSchema = z.object({
 			] as const),
 		})
 	),
+	oauthApps: z.array(z.string()),
 });
 
 export type ToolFormValues = z.infer<typeof formSchema>;
@@ -68,6 +69,7 @@ export function ToolForm({
 					variant: ToolVariant.AVAILABLE,
 				})),
 			],
+			oauthApps: agent.oauthApps ?? [],
 		};
 	}, [agent]);
 
@@ -78,17 +80,21 @@ export function ToolForm({
 	const { control, handleSubmit, getValues, reset, watch } = form;
 
 	useEffect(() => {
-		const unchanged = compareArrays(
+		const unchangedTools = compareArrays(
 			defaultValues.tools.map((x) => x.tool),
 			getValues("tools").map((x) => x.tool)
 		);
+		const unchangedOauths = compareArrays(
+			defaultValues.oauthApps,
+			getValues("oauthApps")
+		);
 
-		if (unchanged) return;
+		if (unchangedTools && unchangedOauths) return;
 
 		reset(defaultValues);
 	}, [defaultValues, reset, getValues]);
 
-	const toolFields = useFieldArray({
+	const toolFields = useFieldArray<ToolFormValues>({
 		control,
 		name: "tools",
 	});
@@ -117,7 +123,11 @@ export function ToolForm({
 			{ tool, variant }
 		);
 
-	const updateTools = (tools: string[], variant: ToolVariant) => {
+	const updateTools = (
+		tools: string[],
+		variant: ToolVariant,
+		oauths: string[]
+	) => {
 		const removedToolIndexes = toolFields.fields
 			.filter((field) => !tools.includes(field.tool))
 			.map((item) => toolFields.fields.indexOf(item));
@@ -131,6 +141,8 @@ export function ToolForm({
 		for (const tool of addedTools) {
 			toolFields.append({ tool, variant });
 		}
+
+		form.setValue("oauthApps", oauths);
 	};
 
 	const getCapabilities = useCapabilityTools();
@@ -203,7 +215,10 @@ export function ToolForm({
 				<div className="flex justify-end">
 					<ToolCatalogDialog
 						tools={toolFields.fields.map((field) => field.tool)}
-						onUpdateTools={(tools) => updateTools(tools, ToolVariant.FIXED)}
+						onUpdateTools={(tools, oauths) => {
+							updateTools(tools, ToolVariant.FIXED, oauths);
+						}}
+						oauths={form.watch("oauthApps")}
 					/>
 				</div>
 			</form>

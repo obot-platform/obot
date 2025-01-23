@@ -1,7 +1,7 @@
 import { toast } from "sonner";
 import { mutate } from "swr";
 
-import { OAuthProvider } from "~/lib/model/oauthApps/oauth-helpers";
+import { OAuthApp } from "~/lib/model/oauthApps";
 import { OauthAppService } from "~/lib/service/api/oauthAppService";
 
 import { ConfirmationDialog } from "~/components/composed/ConfirmationDialog";
@@ -12,38 +12,26 @@ import {
 	TooltipContent,
 	TooltipTrigger,
 } from "~/components/ui/tooltip";
-import { useOAuthAppInfo } from "~/hooks/oauthApps/useOAuthApps";
 import { useAsync } from "~/hooks/useAsync";
 
 export function DeleteOAuthApp({
-	id,
+	app,
 	disableTooltip,
-	type,
 }: {
-	id: string;
+	app: OAuthApp;
 	disableTooltip?: boolean;
-	type: OAuthProvider;
 }) {
-	const spec = useOAuthAppInfo(type);
-
 	const deleteOAuthApp = useAsync(async () => {
-		await OauthAppService.deleteOauthApp(id);
+		await OauthAppService.deleteOauthApp(app.id);
 		await mutate(OauthAppService.getOauthApps.key());
 
-		toast.success(`${spec.displayName} OAuth configuration deleted`);
+		toast.success(`${app.name} OAuth configuration deleted`);
 	});
 
-	const title = spec.noGatewayIntegration
-		? `Delete ${spec.displayName} OAuth`
-		: `Reset ${spec.displayName} OAuth to use Obot Gateway`;
+	const title = `Delete ${app.name} OAuth`;
 
-	const description = spec.noGatewayIntegration
-		? `By clicking \`Delete\`, you will delete your ${spec.displayName} OAuth configuration.`
-		: `By clicking \`Reset\`, you will delete your custom ${spec.displayName} OAuth configuration and reset to use Obot Gateway.`;
-
-	const buttonText = spec.noGatewayIntegration
-		? `Delete ${spec.displayName} OAuth`
-		: `Reset ${spec.displayName} OAuth to use Obot Gateway`;
+	const description = `By clicking \`Delete\`, you will delete your ${app.name} OAuth configuration.`;
+	const buttonText = `Delete ${app.name} OAuth`;
 
 	return (
 		<div className="flex gap-2">

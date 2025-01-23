@@ -1,6 +1,6 @@
 import { useState } from "react";
 
-import { OAuthApp } from "~/lib/model/oauthApps";
+import { OAuthApp, OAuthAppSpecMap } from "~/lib/model/oauthApps";
 import {
 	OAuthAppSpec,
 	OAuthProvider,
@@ -30,18 +30,27 @@ export function OAuthAppDetail({
 	type,
 	open,
 	onOpenChange,
+	onSuccess,
 }: {
 	type: OAuthProvider;
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
+	onSuccess?: () => void;
 }) {
 	const [successModalOpen, setSuccessModalOpen] = useState(false);
 
-	const spec = useOAuthAppInfo(type);
+	const oAuthApp = useOAuthAppInfo(type);
+
+	const spec = type !== "custom" ? OAuthAppSpecMap[type] : null;
 	if (!spec) {
-		console.error(`OAuth app ${type} not found`);
+		console.error(`Custom OAuth app should not be used with OAuthAppDetail.`);
 		return null;
 	}
+
+	const handleSuccess = () => {
+		setSuccessModalOpen(true);
+		onSuccess?.();
+	};
 
 	return (
 		<>
@@ -53,25 +62,14 @@ export function OAuthAppDetail({
 						<DialogTitle className="flex items-center gap-2">
 							<OAuthAppTypeIcon type={type} />
 
-							<span>{spec?.displayName}</span>
-
-							{spec.disableConfiguration && <span>is not configurable</span>}
+							<span>{spec.displayName}</span>
 						</DialogTitle>
 					</DialogHeader>
 
-					{spec.disableConfiguration ? (
-						<DisabledContent spec={spec} />
-					) : spec?.appOverride ? (
-						<Content
-							app={spec.appOverride}
-							spec={spec}
-							onSuccess={() => setSuccessModalOpen(true)}
-						/>
+					{oAuthApp ? (
+						<Content app={oAuthApp} spec={spec} onSuccess={handleSuccess} />
 					) : (
-						<EmptyContent
-							spec={spec}
-							onSuccess={() => setSuccessModalOpen(true)}
-						/>
+						<EmptyContent spec={spec} onSuccess={handleSuccess} />
 					)}
 				</DialogContent>
 			</Dialog>
@@ -98,10 +96,6 @@ export function OAuthAppDetail({
 	);
 }
 
-function DisabledContent({ spec }: { spec: OAuthAppSpec }) {
-	return <p>{spec.disabledReason}</p>;
-}
-
 function EmptyContent({
 	spec,
 	onSuccess,
@@ -109,7 +103,7 @@ function EmptyContent({
 	spec: OAuthAppSpec;
 	onSuccess: () => void;
 }) {
-	return spec.noGatewayIntegration ? (
+	return (
 		<div className="flex flex-col gap-2">
 			<p>
 				{spec.displayName} OAuth is not configured. You must configure it to
@@ -121,45 +115,29 @@ function EmptyContent({
 				below.
 			</p>
 
-			<ConfigureOAuthApp type={spec.type} onSuccess={onSuccess} />
-		</div>
-	) : (
-		<div className="flex flex-col gap-2">
-			<p>
-				{spec.displayName} OAuth is currently enabled. No action is needed here.
-			</p>
-
-			<p className="mb-4">
-				You can also configure your own {spec.displayName} OAuth by clicking the
-				button below.
-			</p>
-
-			<ConfigureOAuthApp type={spec.type} onSuccess={onSuccess} />
+			<ConfigureOAuthApp spec={spec} onSuccess={onSuccess} />
 		</div>
 	);
 }
 
 function Content({
 	app,
-	spec,
 	onSuccess,
+	spec,
 }: {
 	app: OAuthApp;
-	spec: OAuthAppSpec;
 	onSuccess: () => void;
+	spec: OAuthAppSpec;
 }) {
 	return (
 		<div className="flex flex-col gap-2">
 			<p>
-				Obot only supports one custom {spec.displayName} OAuth. If you need to
-				use a different configuration, you can replace the current configuration
-				with a new one.
+				Obot only supports one custom {app.name} OAuth. If you need to use a
+				different configuration, you can replace the current configuration with
+				a new one.
 			</p>
 
-			<p>
-				When {spec.displayName} OAuth is used, Obot will use your custom OAuth
-				app.
-			</p>
+			<p>When {app.name} OAuth is used, Obot will use your custom OAuth app.</p>
 
 			<div className="grid grid-cols-2 gap-2 px-8 py-4">
 				<p>
@@ -180,8 +158,8 @@ function Content({
 				<p>****************</p>
 			</div>
 
-			<ConfigureOAuthApp type={app.type} onSuccess={onSuccess} />
-			<DeleteOAuthApp type={app.type} disableTooltip id={app.id} />
+			<ConfigureOAuthApp app={app} spec={spec} onSuccess={onSuccess} />
+			<DeleteOAuthApp app={app} disableTooltip />
 		</div>
 	);
 }

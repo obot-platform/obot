@@ -133,7 +133,6 @@ export function CustomOAuthAppForm({
 			if (!isEdit) {
 				const [error] = await createApp.executeAsync({
 					type: OAuthProvider.Custom,
-					global: true,
 					...data,
 				});
 
