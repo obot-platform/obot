@@ -55,7 +55,7 @@ func Agent(ctx context.Context, db kclient.Client, agent *v1.Agent, oauthServerU
 		}
 
 		if model.Spec.Manifest.Name == "o1" && model.Spec.Manifest.ModelProvider == "openai-model-provider" {
-			extraEnv = append(extraEnv, "OPENAI_MODEL_NAME=o1")
+			extraEnv = append(extraEnv, "GPTSCRIPT_INTERNAL_OPENAI_STREAMING=false")
 		}
 	}
 
