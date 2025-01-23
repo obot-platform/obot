@@ -84,6 +84,7 @@ export function AgentForm({
 				) : (
 					<div className="flex items-center justify-start gap-2">
 						<AgentIcon
+							name={agent.name}
 							icons={agent.icons}
 							onChange={(icons) => form.setValue("icons", icons)}
 						/>

@@ -1,9 +1,4 @@
-import {
-	EraserIcon,
-	ImagePlusIcon,
-	LinkIcon,
-	PaintbrushIcon,
-} from "lucide-react";
+import { EraserIcon, LinkIcon, PaintbrushIcon, PencilIcon } from "lucide-react";
 import { useState } from "react";
 
 import { AgentIcons } from "~/lib/model/agents";
@@ -47,9 +42,10 @@ const iconOptions = [
 type AgentIconProps = {
 	icons?: AgentIcons;
 	onChange: (icons?: AgentIcons) => void;
+	name?: string;
 };
 
-export function AgentIcon({ icons, onChange }: AgentIconProps) {
+export function AgentIcon({ icons, onChange, name }: AgentIconProps) {
 	const { theme } = useTheme();
 	const [imageUrlDialogOpen, setImageUrlDialogOpen] = useState(false);
 
@@ -61,7 +57,7 @@ export function AgentIcon({ icons, onChange }: AgentIconProps) {
 				<Tooltip>
 					<TooltipTrigger asChild>
 						<DropdownMenuTrigger asChild>
-							<Button variant="ghost" size="icon-xl">
+							<Button variant="ghost" size="icon-xl" className="group relative">
 								<Avatar className="size-24">
 									<AvatarImage
 										src={iconDark && isDarkMode ? iconDark : icon}
@@ -69,10 +65,13 @@ export function AgentIcon({ icons, onChange }: AgentIconProps) {
 											"dark:invert": !iconDark && isDarkMode,
 										})}
 									/>
-									<AvatarFallback>
-										<ImagePlusIcon />
+									<AvatarFallback className="text-[4.5rem] font-semibold">
+										{name?.charAt(0) ?? ""}
 									</AvatarFallback>
 								</Avatar>
+								<div className="absolute -right-1 top-0 items-center justify-center rounded-full bg-primary-foreground p-2 opacity-0 drop-shadow-md transition group-hover:opacity-100">
+									<PencilIcon className="!h-6 !w-6" />
+								</div>
 							</Button>
 						</DropdownMenuTrigger>
 					</TooltipTrigger>

@@ -13,7 +13,7 @@ import { MessageDebug } from "~/components/chat/MessageDebug";
 import { ToolCallInfo } from "~/components/chat/ToolCallInfo";
 import { ControlledInput } from "~/components/form/controlledInputs";
 import { ToolIcon } from "~/components/tools/ToolIcon";
-import { Avatar, AvatarImage } from "~/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "~/components/ui/avatar";
 import { Button } from "~/components/ui/button";
 import {
 	Dialog,
@@ -66,14 +66,20 @@ export const Message = React.memo(
 			return animatedText;
 		}, [animatedText]);
 
-		const icon = isDarkMode ? icons?.iconDark : icons?.icon;
-		const showIcon = icon && !isUser && !message.prompt && !toolCall;
+		const icon = isDarkMode ? icons?.iconDark || icons?.icon : icons?.icon;
+		const showIcon = !isUser && !message.prompt && !toolCall;
 		return (
 			<div className="mb-4 w-full">
 				{showIcon && (
 					<div className="flex items-center gap-2">
 						<Avatar className="h-6 w-6">
-							<AvatarImage src={icon} />
+							<AvatarImage
+								src={icon}
+								className={cn({
+									"dark:invert": !icons?.iconDark && isDarkMode,
+								})}
+							/>
+							<AvatarFallback>{agentName?.charAt(0) ?? ""}</AvatarFallback>
 						</Avatar>
 						<p className="text-sm font-semibold">{agentName}</p>
 						<small className="text-muted-foreground">
