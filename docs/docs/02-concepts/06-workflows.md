@@ -70,8 +70,8 @@ To create an email trigger
 2. Click **Create Trigger**.
 3. Select **Email** as the trigger type.
 4. Fill in the required fields:
-   - **Name**: The name of the email trigger. 
-   - **Alias**: The alias name will match the name of the email address that you want to receive emails from. For example, if the email address is `john@{email_server_name}`, the name will be `john`. If you leave this field blank, the alias name will be generated.
+   - **Name**: The name of the email trigger.
+   - **Alias**: The alias name will match the name of the email address that you want to receive emails to. For example, if the recipient email address is john@{email_server_name}, the alias value should be set as john. If you leave this field blank, alias will be generated.
    - **Workflow**: The workflow to invoke.
 5. Click **Create**.
 
