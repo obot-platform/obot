@@ -321,7 +321,7 @@ export const ApiRoutes = {
 			buildUrl(`/auth-providers/${authProviderId}/deconfigure`), // TODO - implement this in the backend
 	},
 	bootstrap: {
-		base: () => buildUrl("/bootstrap"),
+		status: () => buildUrl("/bootstrap"),
 		login: () => buildUrl("/bootstrap/login"),
 		logout: () => buildUrl("/bootstrap/logout"),
 	},

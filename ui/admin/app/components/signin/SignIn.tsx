@@ -1,3 +1,7 @@
+import { useState } from "react";
+import useSWR from "swr";
+
+import { BootstrapApiService } from "~/lib/service/api/bootstrapApiService";
 import { cn } from "~/lib/utils";
 
 import { BootstrapForm } from "~/components/auth-and-model-providers/BootstrapForm";
@@ -21,9 +25,21 @@ export function SignIn({ className }: SignInProps) {
 	const { authProviders, isLoading } = useAuthProviders();
 	const configuredAuthProviders = authProviders.filter((p) => p.configured);
 
+	const [bootstrapSelected, setBootstrapSelected] = useState(false);
+
+	const { data: bootstrapStatus } = useSWR(
+		BootstrapApiService.bootstrapStatus.key(),
+		BootstrapApiService.bootstrapStatus,
+		{ revalidateIfStale: false }
+	);
+
 	if (isLoading) {
 		return null;
 	}
+
+	const showBootstrapForm =
+		(bootstrapStatus?.enabled && bootstrapSelected) ||
+		!configuredAuthProviders.length;
 
 	return (
 		<div className="flex min-h-screen w-full items-center justify-center p-4">
@@ -44,8 +60,6 @@ export function SignIn({ className }: SignInProps) {
 					)}
 				</CardHeader>
 
-				{configuredAuthProviders.length === 0 && <BootstrapForm />}
-
 				{configuredAuthProviders.map((provider) => (
 					<Button
 						key={provider.id}
@@ -59,6 +73,20 @@ export function SignIn({ className }: SignInProps) {
 						Sign in with {CommonAuthProviderFriendlyNames[provider.id]}
 					</Button>
 				))}
+
+				{bootstrapStatus?.enabled && !showBootstrapForm && (
+					<Button
+						variant="secondary"
+						className="mb-4 w-full"
+						onClick={() => {
+							setBootstrapSelected(true);
+						}}
+					>
+						Sign in with Bootstrap Token
+					</Button>
+				)}
+
+				{showBootstrapForm && <BootstrapForm />}
 			</Card>
 		</div>
 	);

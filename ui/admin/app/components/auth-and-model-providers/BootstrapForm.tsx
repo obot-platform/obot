@@ -58,7 +58,7 @@ export function BootstrapForm({ className }: BootstrapProps) {
 				onSubmit={handleSubmit}
 				className={cn("flex flex-col gap-4", className)}
 			>
-				<h4>You do not have authentication providers setup</h4>
+				<h4>Authenticate with Bootstrap Token</h4>
 
 				<Description>
 					If this is your first time logging in, you will need to provide a
@@ -69,11 +69,16 @@ export function BootstrapForm({ className }: BootstrapProps) {
 					control={form.control}
 					name="token"
 					label="Bootstrap Token"
-					description="The bootstrap token can be found in the server logs of your running Obot instance."
+					description="You can find the bootstrap token in the server logs when starting Obot, or configure it directly through environment variables at startup."
 					type="password"
 				/>
 
-				<Button type="submit" className="w-full">
+				<Button
+					type="submit"
+					className="w-full"
+					loading={login.isLoading}
+					disabled={login.isLoading}
+				>
 					Login
 				</Button>
 			</form>
