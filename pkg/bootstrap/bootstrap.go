@@ -20,9 +20,7 @@ import (
 )
 
 const (
-	bootstrapCookie            = "obot-bootstrap"
-	bootstrapCredential        = "obot-bootstrap"
-	bootstrapCredentialContext = "obot-bootstrap"
+	obotBootstrap = "obot-bootstrap"
 )
 
 type Bootstrap struct {
@@ -89,7 +87,7 @@ func New(ctx context.Context, serverURL string, c *client.Client, g *gptscript.G
 }
 
 func getTokenFromCredential(ctx context.Context, g *gptscript.GPTScript) (string, bool, error) {
-	tokenCredential, err := g.RevealCredential(ctx, []string{bootstrapCredentialContext}, bootstrapCredential)
+	tokenCredential, err := g.RevealCredential(ctx, []string{obotBootstrap}, obotBootstrap)
 	if err != nil {
 		if errors.As(err, &gptscript.ErrNotFound{}) {
 			return "", false, nil
@@ -106,8 +104,8 @@ func getTokenFromCredential(ctx context.Context, g *gptscript.GPTScript) (string
 
 func saveTokenToCredential(ctx context.Context, token string, g *gptscript.GPTScript) error {
 	credential := gptscript.Credential{
-		ToolName: bootstrapCredential,
-		Context:  bootstrapCredentialContext,
+		ToolName: obotBootstrap,
+		Context:  obotBootstrap,
 		Type:     gptscript.CredentialTypeTool,
 		Env: map[string]string{
 			"token": token,
@@ -137,7 +135,7 @@ func (b *Bootstrap) AuthenticateRequest(req *http.Request) (*authenticator.Respo
 	authHeader := req.Header.Get("Authorization")
 	if authHeader == "" {
 		// Check for the cookie.
-		c, err := req.Cookie(bootstrapCookie)
+		c, err := req.Cookie(obotBootstrap)
 		if err != nil || c.Value != b.token {
 			return nil, false, nil
 		}
@@ -197,7 +195,7 @@ func (b *Bootstrap) Login(req api.Context) error {
 	}
 
 	http.SetCookie(req.ResponseWriter, &http.Cookie{
-		Name:     bootstrapCookie,
+		Name:     obotBootstrap,
 		Value:    strings.TrimPrefix(auth, "Bearer "),
 		Path:     "/",
 		MaxAge:   60 * 60 * 24 * 7, // 1 week
@@ -211,7 +209,7 @@ func (b *Bootstrap) Login(req api.Context) error {
 
 func (b *Bootstrap) Logout(req api.Context) error {
 	http.SetCookie(req.ResponseWriter, &http.Cookie{
-		Name:     bootstrapCookie,
+		Name:     obotBootstrap,
 		Value:    "",
 		Path:     "/",
 		MaxAge:   -1,
