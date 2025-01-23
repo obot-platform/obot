@@ -21,7 +21,15 @@ import (
 
 var log = logger.Package()
 
-const AuthProviderCookie = "obot-auth-provider"
+const (
+	ObotAccessTokenCookie      = "obot_access_token"
+	ObotAuthProviderQueryParam = "obot-auth-provider"
+)
+
+type CookieContents struct {
+	AuthProvider string `json:"authProvider"`
+	Token        string `json:"token"`
+}
 
 type Manager struct {
 	dispatcher *dispatcher.Dispatcher
@@ -34,15 +42,38 @@ func NewProxyManager(dispatcher *dispatcher.Dispatcher) *Manager {
 }
 
 func (pm *Manager) AuthenticateRequest(req *http.Request) (*authenticator.Response, bool, error) {
-	c, err := req.Cookie(AuthProviderCookie)
+	cookie, err := req.Cookie(ObotAccessTokenCookie)
 	if err != nil {
 		return nil, false, nil
 	}
 
-	proxy, err := pm.createProxy(req.Context(), c.Value)
+	cookieOriginalValue := cookie.Value
+	cookieValue, err := url.QueryUnescape(cookie.Value)
+	if err != nil {
+		return nil, false, nil
+	}
+
+	var contents CookieContents
+	if err = json.Unmarshal([]byte(cookieValue), &contents); err != nil {
+		return nil, false, nil
+	}
+
+	proxy, err := pm.createProxy(req.Context(), contents.AuthProvider)
 	if err != nil {
 		return nil, false, err
 	}
+
+	// Overwrite the cookie with just the token.
+	cookie.Value = contents.Token
+	req.Header.Del("Cookie")
+	req.AddCookie(cookie)
+
+	// Reset the cookie value after authenticating.
+	defer func() {
+		cookie.Value = cookieOriginalValue
+		req.Header.Del("Cookie")
+		req.AddCookie(cookie)
+	}()
 
 	return proxy.authenticateRequest(req)
 }
@@ -53,6 +84,8 @@ func (pm *Manager) HandlerFunc(ctx api.Context) error {
 }
 
 func (pm *Manager) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	// If the proxy manager is not set up, just redirect the user.
+	// This can happen when auth is disabled.
 	if pm == nil {
 		rd := r.URL.Query().Get("rd")
 		if rd == "" || !strings.HasPrefix(rd, "/") {
@@ -62,19 +95,37 @@ func (pm *Manager) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Determine which auth provider to use.
 	var provider string
+	if param := r.URL.Query().Get(ObotAuthProviderQueryParam); param != "" {
+		// If the provider is set in the query params, use that.
+		provider = param
+	} else if cookie, err := r.Cookie(ObotAccessTokenCookie); err == nil {
+		// Extract the provider from the cookie, if it's there.
+		cookieValue, err := url.QueryUnescape(cookie.Value)
+		if err != nil {
+			http.Error(w, fmt.Sprintf("failed to unescape cookie value: %v", err), http.StatusBadRequest)
+			return
+		}
 
-	if provider = r.URL.Query().Get(AuthProviderCookie); provider != "" {
-		// Set it as a cookie for the future.
-		http.SetCookie(w, &http.Cookie{
-			Name:  AuthProviderCookie,
-			Value: provider,
-			Path:  "/",
-		})
-	} else if c, err := r.Cookie(AuthProviderCookie); err == nil {
-		provider = c.Value
+		var contents CookieContents
+		if err = json.Unmarshal([]byte(cookieValue), &contents); err == nil {
+			provider = contents.AuthProvider
+
+			// Update the cookie to just be the token, which is what the auth provider expects.
+			cookie.Value = contents.Token
+			allCookies := r.Cookies()
+			r.Header.Del("Cookie")
+			for _, c := range allCookies {
+				if c.Name != ObotAccessTokenCookie {
+					r.AddCookie(c)
+				}
+			}
+			r.AddCookie(cookie)
+		}
 	}
 
+	// Save the redirect target for later.
 	rdParam := r.URL.Query().Get("rd")
 	if rdParam == "" {
 		rdParam = "/"
@@ -103,17 +154,13 @@ func (pm *Manager) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		provider = "default/" + providers[0]
 	}
 
-	log.Infof("forwarding request for %s to provider %s", r.URL.Path, provider)
-
-	// If signing out, delete the auth provider cookie.
-	if r.URL.Path == "/oauth2/sign_out" {
-		http.SetCookie(w, &http.Cookie{
-			Name:   AuthProviderCookie,
-			Value:  "",
-			Path:   "/",
-			MaxAge: -1,
-		})
-	}
+	// If the legacy auth provider cookie exists, delete it.
+	http.SetCookie(w, &http.Cookie{
+		Name:   ObotAuthProviderQueryParam,
+		Value:  "",
+		Path:   "/",
+		MaxAge: -1,
+	})
 
 	proxy, err := pm.createProxy(r.Context(), provider)
 	if err != nil {
@@ -127,6 +174,8 @@ func (pm *Manager) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		return
 	}
+
+	log.Infof("forwarding request for %s to provider %s", r.URL.Path, provider)
 
 	proxy.serveHTTP(w, r)
 }
@@ -156,8 +205,32 @@ func newProxy(providerNamespace, providerName, providerURL string) (*Proxy, erro
 		return nil, fmt.Errorf("failed to parse provider URL: %w", err)
 	}
 
+	proxy := httputil.NewSingleHostReverseProxy(u)
+	proxy.ModifyResponse = func(r *http.Response) error {
+		// See which cookies the auth provider is setting.
+		// We need to update the access token cookie to add information about the auth provider
+		if headers := r.Header.Values("Set-Cookie"); headers != nil {
+			for i, h := range headers {
+				parts := strings.Split(h, "; ")
+				for i, part := range parts {
+					if strings.HasPrefix(part, ObotAccessTokenCookie+"=") {
+						token := strings.TrimPrefix(part, ObotAccessTokenCookie+"=")
+
+						if token != "" {
+							newValue := fmt.Sprintf("{\"authProvider\":\"%s\",\"token\":\"%s\"}", providerNamespace+"/"+providerName, token)
+							parts[i] = fmt.Sprintf("%s=%s", ObotAccessTokenCookie, url.QueryEscape(newValue))
+						}
+						break
+					}
+				}
+				headers[i] = strings.Join(parts, "; ")
+			}
+		}
+		return nil
+	}
+
 	return &Proxy{
-		proxy:     httputil.NewSingleHostReverseProxy(u),
+		proxy:     proxy,
 		url:       providerURL,
 		name:      providerName,
 		namespace: providerNamespace,
