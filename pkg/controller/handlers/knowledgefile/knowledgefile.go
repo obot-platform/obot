@@ -12,6 +12,7 @@ import (
 	"github.com/gptscript-ai/go-gptscript"
 	"github.com/obot-platform/nah/pkg/router"
 	"github.com/obot-platform/nah/pkg/typed"
+	"github.com/obot-platform/nah/pkg/untriggered"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/invoke"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
@@ -61,10 +62,14 @@ func OutputFile(filename string) string {
 
 func getThread(ctx context.Context, c kclient.Client, ks *v1.KnowledgeSet, source *v1.KnowledgeSource) (*v1.Thread, error) {
 	var thread v1.Thread
+	threadName := ks.Status.ThreadName
 	if source != nil && source.Status.ThreadName != "" {
-		return &thread, c.Get(ctx, router.Key(ks.Namespace, source.Status.ThreadName), &thread)
+		threadName = source.Status.ThreadName
 	}
-	return &thread, c.Get(ctx, router.Key(ks.Namespace, ks.Status.ThreadName), &thread)
+	if threadName == "" {
+		return &thread, nil
+	}
+	return &thread, c.Get(ctx, router.Key(ks.Namespace, threadName), untriggered.Get(&thread))
 }
 
 func (h *Handler) IngestFile(req router.Request, _ router.Response) error {
@@ -90,7 +95,7 @@ func (h *Handler) IngestFile(req router.Request, _ router.Response) error {
 	}
 
 	thread, err := getThread(req.Ctx, req.Client, &ks, &source)
-	if err != nil {
+	if err != nil || thread.Status.WorkspaceID == "" {
 		return kclient.IgnoreNotFound(err)
 	}
 
@@ -285,13 +290,13 @@ func (h *Handler) getWorkspaceID(ctx context.Context, c kclient.Client, ks *v1.K
 	var workspace v1.Workspace
 
 	if source != nil && source.Status.WorkspaceName != "" {
-		if err := c.Get(ctx, router.Key(ks.Namespace, source.Status.WorkspaceName), &workspace); err != nil {
+		if err := c.Get(ctx, router.Key(ks.Namespace, source.Status.WorkspaceName), untriggered.Get(&workspace)); err != nil {
 			return "", err
 		}
 		return workspace.Status.WorkspaceID, nil
 	}
 
-	if err := c.Get(ctx, router.Key(ks.Namespace, ks.Status.WorkspaceName), &workspace); err != nil {
+	if err := c.Get(ctx, router.Key(ks.Namespace, ks.Status.WorkspaceName), untriggered.Get(&workspace)); err != nil {
 		return "", err
 	}
 
@@ -301,9 +306,8 @@ func (h *Handler) getWorkspaceID(ctx context.Context, c kclient.Client, ks *v1.K
 func (h *Handler) Unapproved(req router.Request, _ router.Response) error {
 	file := req.Object.(*v1.KnowledgeFile)
 
-	// Basically if it's not approved and not pending
-	if !(file.Spec.Approved != nil && !*file.Spec.Approved &&
-		file.Status.State != types.KnowledgeFileStatePending) {
+	// If the file was approved or is pending.
+	if file.Spec.Approved == nil || *file.Spec.Approved || file.Status.State == types.KnowledgeFileStatePending {
 		return nil
 	}
 
@@ -321,7 +325,7 @@ func (h *Handler) Unapproved(req router.Request, _ router.Response) error {
 	}
 
 	thread, err := getThread(req.Ctx, req.Client, &ks, source)
-	if err != nil {
+	if err != nil || thread.Status.WorkspaceID == "" {
 		return kclient.IgnoreNotFound(err)
 	}
 
@@ -376,7 +380,7 @@ func (h *Handler) Cleanup(req router.Request, _ router.Response) error {
 
 	if removeFromWorkspace {
 		workspaceID, err := h.getWorkspaceID(req.Ctx, req.Client, &ks, source)
-		if err != nil {
+		if err != nil || workspaceID == "" {
 			return kclient.IgnoreNotFound(err)
 		}
 

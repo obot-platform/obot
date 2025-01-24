@@ -15,7 +15,6 @@ import (
 	"github.com/obot-platform/obot/pkg/invoke"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
-	"github.com/obot-platform/obot/pkg/wait"
 	apierror "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
@@ -172,9 +171,13 @@ func getThread(ctx context.Context, c kclient.WithWatch, source *v1.KnowledgeSou
 			return nil, err
 		}
 
-		source.Status.WorkspaceName = ws.Name
-		// We don't update immediately because the name is deterministic so we can save one update
-		update = true
+		// Only update if the workspace ID is set. If it is not, then this will be re-triggered
+		// This allows the knowledge file controller to only trigger when the source is updated.
+		if ws.Status.WorkspaceID != "" {
+			source.Status.WorkspaceName = ws.Name
+			// We don't update immediately because the name is deterministic so we can save one update
+			update = true
+		}
 	}
 
 	thread := &v1.Thread{
@@ -194,20 +197,22 @@ func getThread(ctx context.Context, c kclient.WithWatch, source *v1.KnowledgeSou
 		return nil, err
 	}
 
-	if source.Status.ThreadName == "" {
+	// Set the thread name when its workspace ID is set and unset the thread name if it is not.
+	// This will be triggered when the thread's status changes.
+	// This also allows the knowledge files to not trigger on the thread.
+	if source.Status.ThreadName == "" && thread.Status.WorkspaceID != "" {
 		source.Status.ThreadName = thread.Name
+		update = true
+	} else if source.Status.ThreadName != "" && thread.Status.WorkspaceID == "" {
+		source.Status.ThreadName = ""
 		update = true
 	}
 
-	if update {
-		if err := c.Status().Update(ctx, source); err != nil {
-			return nil, err
-		}
+	if !update {
+		return thread, c.Status().Update(ctx, source)
 	}
 
-	return wait.For(ctx, c, thread, func(thread *v1.Thread) (bool, error) {
-		return thread.Status.WorkspaceID != "", nil
-	})
+	return thread, nil
 }
 
 func getAuthStatus(ctx context.Context, c kclient.Client, knowledgeSet *v1.KnowledgeSet, toolReferenceName string) (string, types.OAuthAppLoginAuthStatus, error) {
@@ -228,6 +233,11 @@ func getAuthStatus(ctx context.Context, c kclient.Client, knowledgeSet *v1.Knowl
 
 func (k *Handler) Sync(req router.Request, _ router.Response) error {
 	source := req.Object.(*v1.KnowledgeSource)
+
+	thread, err := getThread(req.Ctx, req.Client, source)
+	if err != nil || thread.Status.WorkspaceID == "" {
+		return err
+	}
 
 	var knowledgeSet v1.KnowledgeSet
 	if err := req.Get(&knowledgeSet, source.Namespace, source.Spec.KnowledgeSetName); err != nil {
@@ -260,11 +270,6 @@ func (k *Handler) Sync(req router.Request, _ router.Response) error {
 	invokeOpts := invoke.SystemTaskOptions{
 		CredentialContextIDs: []string{credentialContextID},
 		Timeout:              2 * time.Hour,
-	}
-
-	thread, err := getThread(req.Ctx, req.Client, source)
-	if err != nil {
-		return err
 	}
 
 	if source.Status.SyncState == types.KnowledgeSourceStateSyncing {

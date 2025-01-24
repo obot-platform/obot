@@ -46,8 +46,15 @@ func createWorkspace(ctx context.Context, c kclient.Client, ks *v1.KnowledgeSet)
 		return err
 	}
 
-	ks.Status.WorkspaceName = ws.Name
-	return c.Status().Update(ctx, ks)
+	// Only update the workspace name once the workspace is ready.
+	// This will be triggered when that happens.
+	// This also allows the knowledge file to not trigger on the thread.
+	if ws.Status.WorkspaceID != "" {
+		ks.Status.WorkspaceName = ws.Name
+		return c.Status().Update(ctx, ks)
+	}
+
+	return nil
 }
 
 func (h *Handler) createThread(ctx context.Context, c kclient.Client, ks *v1.KnowledgeSet) error {
@@ -68,8 +75,14 @@ func (h *Handler) createThread(ctx context.Context, c kclient.Client, ks *v1.Kno
 		return err
 	}
 
-	if ks.Status.ThreadName == "" {
+	// Set the thread name when its workspace ID is set and unset the thread name if it is not.
+	// This will be triggered when the thread's status changes.
+	// This also allows the knowledge files to not trigger on the thread.
+	if ks.Status.ThreadName == "" && thread.Status.WorkspaceID != "" {
 		ks.Status.ThreadName = thread.Name
+		return c.Status().Update(ctx, ks)
+	} else if ks.Status.ThreadName != "" && thread.Status.WorkspaceID == "" {
+		ks.Status.ThreadName = ""
 		return c.Status().Update(ctx, ks)
 	}
 	return nil

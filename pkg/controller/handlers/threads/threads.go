@@ -9,7 +9,6 @@ import (
 	"github.com/obot-platform/obot/pkg/create"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
-	"github.com/obot-platform/obot/pkg/wait"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -40,17 +39,11 @@ func (t *Handler) WorkflowState(req router.Request, _ router.Response) error {
 
 func getWorkspace(ctx context.Context, c kclient.WithWatch, thread *v1.Thread) (*v1.Workspace, error) {
 	if thread.Spec.WorkspaceName != "" {
-		return wait.For(ctx, c, &v1.Workspace{
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace: thread.Namespace,
-				Name:      thread.Spec.WorkspaceName,
-			},
-		}, func(ws *v1.Workspace) (bool, error) {
-			return ws.Status.WorkspaceID != "", nil
-		})
+		ws := new(v1.Workspace)
+		return ws, c.Get(ctx, kclient.ObjectKey{Namespace: thread.Namespace, Name: thread.Spec.WorkspaceName}, ws)
 	}
 
-	return wait.For(ctx, c, &v1.Workspace{
+	ws := &v1.Workspace{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace:  thread.Namespace,
 			Name:       system.WorkspacePrefix + thread.Name,
@@ -60,18 +53,16 @@ func getWorkspace(ctx context.Context, c kclient.WithWatch, thread *v1.Thread) (
 			ThreadName:         thread.Name,
 			FromWorkspaceNames: thread.Spec.FromWorkspaceNames,
 		},
-	}, func(ws *v1.Workspace) (bool, error) {
-		return ws.Status.WorkspaceID != "", nil
-	}, wait.Option{
-		Create: true,
-	})
+	}
+
+	return ws, create.IfNotExists(ctx, c, ws)
 }
 
 func (t *Handler) CreateWorkspaces(req router.Request, _ router.Response) error {
 	thread := req.Object.(*v1.Thread)
 
 	ws, err := getWorkspace(req.Ctx, req.Client, thread)
-	if err != nil {
+	if err != nil || ws.Status.WorkspaceID == "" {
 		return err
 	}
 

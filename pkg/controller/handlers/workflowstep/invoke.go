@@ -3,7 +3,7 @@ package workflowstep
 import (
 	"github.com/gptscript-ai/go-gptscript"
 	"github.com/obot-platform/nah/pkg/router"
-	"github.com/obot-platform/nah/pkg/uncached"
+	"github.com/obot-platform/nah/pkg/untriggered"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/invoke"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
@@ -43,7 +43,7 @@ func (h *Handler) RunInvoke(req router.Request, _ router.Response) error {
 		defer invokeResp.Close()
 
 		err = retry.RetryOnConflict(retry.DefaultBackoff, func() error {
-			if err := client.Get(ctx, router.Key(step.Namespace, step.Name), uncached.Get(step)); err != nil {
+			if err := client.Get(ctx, router.Key(step.Namespace, step.Name), untriggered.UncachedGet(step)); err != nil {
 				return err
 			}
 			step.Status.ThreadName = invokeResp.Thread.Name

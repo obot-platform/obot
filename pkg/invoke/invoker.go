@@ -14,7 +14,7 @@ import (
 
 	"github.com/gptscript-ai/go-gptscript"
 	"github.com/obot-platform/nah/pkg/router"
-	"github.com/obot-platform/nah/pkg/uncached"
+	"github.com/obot-platform/nah/pkg/untriggered"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/logger"
 	"github.com/obot-platform/obot/pkg/events"
@@ -352,7 +352,7 @@ func isEphemeral(run *v1.Run) bool {
 	return strings.HasPrefix(run.Name, ephemeralRunPrefix)
 }
 
-func (i *Invoker) createRun(ctx context.Context, c kclient.WithWatch, thread *v1.Thread, tool any, input string, opts runOptions) (_ *Response, retErr error) {
+func (i *Invoker) createRun(ctx context.Context, c kclient.WithWatch, thread *v1.Thread, tool any, input string, opts runOptions) (*Response, error) {
 	previousRunName := thread.Status.LastRunName
 	if opts.PreviousRunName != "" {
 		previousRunName = opts.PreviousRunName
@@ -404,7 +404,7 @@ func (i *Invoker) createRun(ctx context.Context, c kclient.WithWatch, thread *v1
 			// Ensure that, regardless of which client is being used, we get an uncached version of the thread for updating.
 			// The first uncached.Get method ensures that we get an uncached version when calling this from a controller.
 			// That will fail when calling this outside a controller, so try a "bare" get in that case.
-			if err := c.Get(ctx, kclient.ObjectKeyFromObject(thread), uncached.Get(thread)); err != nil {
+			if err := c.Get(ctx, kclient.ObjectKeyFromObject(thread), untriggered.UncachedGet(thread)); err != nil {
 				if err := c.Get(ctx, kclient.ObjectKeyFromObject(thread), thread); err != nil {
 					return err
 				}

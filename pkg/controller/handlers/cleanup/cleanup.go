@@ -2,7 +2,7 @@ package cleanup
 
 import (
 	"github.com/obot-platform/nah/pkg/router"
-	"github.com/obot-platform/nah/pkg/uncached"
+	"github.com/obot-platform/nah/pkg/untriggered"
 	"github.com/obot-platform/obot/logger"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -39,7 +39,7 @@ func Cleanup(req router.Request, _ router.Response) error {
 		}
 
 		if err := req.Get(objType, namespace, ref.Name); apierrors.IsNotFound(err) {
-			if err := req.Get(uncached.Get(objType), namespace, ref.Name); apierrors.IsNotFound(err) {
+			if err := req.Get(untriggered.UncachedGet(objType), namespace, ref.Name); apierrors.IsNotFound(err) {
 				log.Infof("Deleting %s/%s due to missing %s", namespace, req.Name, ref.Name)
 				return req.Delete(req.Object)
 			}
