@@ -3,7 +3,6 @@ import { useState } from "react";
 
 import { AgentIcons } from "~/lib/model/agents";
 import { AppTheme } from "~/lib/service/themeService";
-import { assetUrl } from "~/lib/utils/assetUrl";
 import { cn } from "~/lib/utils/cn";
 
 import { AgentImageUrl } from "~/components/agent/icon/AgentImageUrl";
@@ -27,16 +26,16 @@ import {
 } from "~/components/ui/tooltip";
 
 const iconOptions = [
-	assetUrl("assets/agent/obot_alt_1.svg"),
-	assetUrl("assets/agent/obot_alt_2.svg"),
-	assetUrl("assets/agent/obot_alt_3.svg"),
-	assetUrl("assets/agent/obot_alt_4.svg"),
-	assetUrl("assets/agent/obot_alt_5.svg"),
-	assetUrl("assets/agent/obot_alt_6.svg"),
-	assetUrl("assets/agent/obot_alt_7.svg"),
-	assetUrl("assets/agent/obot_alt_8.svg"),
-	assetUrl("assets/agent/obot_alt_9.svg"),
-	assetUrl("assets/agent/obot_alt_10.svg"),
+	"obot_alt_1.svg",
+	"obot_alt_2.svg",
+	"obot_alt_3.svg",
+	"obot_alt_4.svg",
+	"obot_alt_5.svg",
+	"obot_alt_6.svg",
+	"obot_alt_7.svg",
+	"obot_alt_8.svg",
+	"obot_alt_9.svg",
+	"obot_alt_10.svg",
 ];
 
 type AgentIconProps = {
@@ -121,7 +120,7 @@ export function AgentIcon({ icons, onChange, name }: AgentIconProps) {
 						key={icon}
 						onClick={() => {
 							onChange({
-								icon,
+								icon: generateIconUrl(icon),
 								iconDark: "",
 								collapsed: "",
 								collapsedDark: "",
@@ -129,7 +128,7 @@ export function AgentIcon({ icons, onChange, name }: AgentIconProps) {
 						}}
 					>
 						<img
-							src={icon}
+							src={generateIconUrl(icon)}
 							alt="Agent Icon"
 							className={cn("h-8 w-8", {
 								"dark:invert": isDarkMode,
@@ -139,5 +138,9 @@ export function AgentIcon({ icons, onChange, name }: AgentIconProps) {
 				))}
 			</div>
 		);
+	}
+
+	function generateIconUrl(icon: string) {
+		return `${window.location.protocol}//${window.location.host}/agent/images/${icon}`;
 	}
 }
