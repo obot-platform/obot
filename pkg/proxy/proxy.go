@@ -97,7 +97,10 @@ func (pm *Manager) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Determine which auth provider to use.
-	var provider string
+	var (
+		provider   string
+		fromCookie bool
+	)
 	if param := r.URL.Query().Get(ObotAuthProviderQueryParam); param != "" {
 		// If the provider is set in the query params, use that.
 		provider = param
@@ -111,6 +114,7 @@ func (pm *Manager) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 		var contents CookieContents
 		if err = json.Unmarshal([]byte(cookieValue), &contents); err == nil {
+			fromCookie = true
 			provider = contents.AuthProvider
 
 			// Update the cookie to just be the token, which is what the auth provider expects.
@@ -168,13 +172,19 @@ func (pm *Manager) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 
-			// Delete the cookie since it is bad.
-			http.SetCookie(w, &http.Cookie{
-				Name:   ObotAccessTokenCookie,
-				Value:  "",
-				Path:   "/",
-				MaxAge: -1,
-			})
+			if fromCookie {
+				// Delete the cookie since it is bad.
+				http.SetCookie(w, &http.Cookie{
+					Name:   ObotAccessTokenCookie,
+					Value:  "",
+					Path:   "/",
+					MaxAge: -1,
+				})
+
+				// Just refresh the page and try again.
+				http.Redirect(w, r, r.URL.String(), http.StatusFound)
+				return
+			}
 
 			http.Error(w, "auth provider not configured: "+provider, http.StatusBadRequest)
 			return
