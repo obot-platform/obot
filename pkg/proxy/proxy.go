@@ -64,15 +64,15 @@ func (pm *Manager) AuthenticateRequest(req *http.Request) (*authenticator.Respon
 	}
 
 	// Overwrite the cookie with just the token.
-	cookie.Value = contents.Token
-	req.Header.Del("Cookie")
-	req.AddCookie(cookie)
+	if err := replaceTokenCookie(contents.Token, req); err != nil {
+		return nil, false, err
+	}
 
 	// Reset the cookie value after authenticating.
 	defer func() {
-		cookie.Value = cookieOriginalValue
-		req.Header.Del("Cookie")
-		req.AddCookie(cookie)
+		if err := replaceTokenCookie(cookieOriginalValue, req); err != nil {
+			log.Errorf("failed to reset cookie value: %v", err)
+		}
 	}()
 
 	return proxy.authenticateRequest(req)
@@ -113,15 +113,9 @@ func (pm *Manager) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			provider = contents.AuthProvider
 
 			// Update the cookie to just be the token, which is what the auth provider expects.
-			cookie.Value = contents.Token
-			allCookies := r.Cookies()
-			r.Header.Del("Cookie")
-			for _, c := range allCookies {
-				if c.Name != ObotAccessTokenCookie {
-					r.AddCookie(c)
-				}
+			if err := replaceTokenCookie(contents.Token, r); err != nil {
+				http.Error(w, fmt.Sprintf("failed to replace token cookie: %v", err), http.StatusInternalServerError)
 			}
-			r.AddCookie(cookie)
 		}
 	}
 
@@ -326,4 +320,29 @@ func (p *Proxy) authenticateRequest(req *http.Request) (*authenticator.Response,
 	return &authenticator.Response{
 		User: u,
 	}, true, nil
+}
+
+func replaceTokenCookie(token string, req *http.Request) error {
+	tokenCookie, err := req.Cookie(ObotAccessTokenCookie)
+	if err != nil {
+		return fmt.Errorf("failed to get token cookie: %w", err)
+	}
+
+	tokenCookie.Value = token
+
+	otherCookies := make([]http.Cookie, 0, len(req.Cookies()))
+	for _, c := range req.Cookies() {
+		if c.Name != ObotAccessTokenCookie {
+			otherCookies = append(otherCookies, *c)
+		}
+	}
+
+	req.Header.Del("Cookie")
+
+	for _, c := range otherCookies {
+		req.AddCookie(&c)
+	}
+	req.AddCookie(tokenCookie)
+
+	return nil
 }
