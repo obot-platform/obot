@@ -127,7 +127,10 @@ function WorkflowContent({ className }: WorkflowProps) {
 
 					<BasicToolForm
 						value={workflow.tools}
-						onChange={(tools) => partialSetWorkflow({ tools })}
+						onChange={(tools, toolOauths) =>
+							partialSetWorkflow({ tools, oauthApps: toolOauths ?? [] })
+						}
+						oauths={workflow.oauthApps}
 						renderActions={(tool) => (
 							<ToolAuthenticationStatus
 								namespace={AssistantNamespace.Workflows}

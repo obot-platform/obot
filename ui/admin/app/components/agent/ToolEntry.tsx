@@ -16,12 +16,13 @@ export function ToolEntry({
 	withDescription = false,
 }: {
 	tool: string;
-	onDelete?: () => void;
+	onDelete?: (toolId: string, oauthToRemove?: string) => void;
 	actions?: React.ReactNode;
 	withDescription?: boolean;
 }) {
 	const toolInfo = useToolReference(tool);
 	const description = toolInfo.toolReference?.description;
+	const toolOauth = toolInfo.toolReference?.metadata?.oauth;
 
 	return (
 		<div className="flex flex-col">
@@ -55,7 +56,7 @@ export function ToolEntry({
 								type="button"
 								variant="ghost"
 								size="icon"
-								onClick={() => onDelete()}
+								onClick={() => onDelete(tool, toolOauth)}
 							>
 								<TrashIcon className="h-5 w-5" />
 							</Button>
