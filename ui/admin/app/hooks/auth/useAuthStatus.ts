@@ -4,18 +4,11 @@ import { ForbiddenError } from "~/lib/service/api/apiErrors";
 import { BootstrapApiService } from "~/lib/service/api/bootstrapApiService";
 import { VersionApiService } from "~/lib/service/api/versionApiService";
 
-type UseAuthStatusProps = {
-	suspense?: boolean;
-};
-
-export function useAuthStatus(props: UseAuthStatusProps = {}) {
-	// use suspense = true to prevent flash of unauthed content
-	const { suspense = false } = props;
-
+export function useAuthStatus() {
 	const getBootstrapStatus = useSWR(
 		BootstrapApiService.bootstrapStatus.key(),
 		BootstrapApiService.bootstrapStatus,
-		{ revalidateIfStale: false, suspense }
+		{ revalidateIfStale: false }
 	);
 
 	const bootstrapEnabled =
@@ -24,7 +17,7 @@ export function useAuthStatus(props: UseAuthStatusProps = {}) {
 	const getVersion = useSWR(
 		VersionApiService.getVersion.key(),
 		VersionApiService.getVersion,
-		{ suspense, revalidateIfStale: false }
+		{ revalidateIfStale: false }
 	);
 
 	const authEnabled =

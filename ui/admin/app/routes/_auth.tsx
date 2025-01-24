@@ -3,6 +3,7 @@ import { Outlet, isRouteErrorResponse, useRouteError } from "react-router";
 import { preload } from "swr";
 
 import { ForbiddenError, UnauthorizedError } from "~/lib/service/api/apiErrors";
+import { AuthProviderApiService } from "~/lib/service/api/authProviderApiService";
 import { ModelProviderApiService } from "~/lib/service/api/modelProviderApiService";
 import { UserService } from "~/lib/service/api/userService";
 
@@ -19,6 +20,10 @@ export async function clientLoader() {
 		preload(
 			ModelProviderApiService.getModelProviders.key(),
 			ModelProviderApiService.getModelProviders
+		),
+		preload(
+			AuthProviderApiService.getAuthProviders.key(),
+			AuthProviderApiService.getAuthProviders
 		),
 	]);
 	const me = promises[0];
