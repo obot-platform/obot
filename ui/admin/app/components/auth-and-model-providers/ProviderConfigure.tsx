@@ -2,7 +2,11 @@ import { useEffect, useState } from "react";
 import useSWR, { mutate } from "swr";
 
 import { AuthProvider, ModelProvider } from "~/lib/model/providers";
-import { NotFoundError } from "~/lib/service/api/apiErrors";
+import {
+	ForbiddenError,
+	NotFoundError,
+	UnauthorizedError,
+} from "~/lib/service/api/apiErrors";
 import { AuthProviderApiService } from "~/lib/service/api/authProviderApiService";
 import { ModelApiService } from "~/lib/service/api/modelApiService";
 import { ModelProviderApiService } from "~/lib/service/api/modelProviderApiService";
@@ -141,8 +145,12 @@ export function ProviderConfigureContent({
 			try {
 				return await revealByIdFunc(providerId);
 			} catch (error) {
-				// 404: no credential found = just return empty object
-				if (error instanceof NotFoundError) {
+				// no credential found or unauthorized = just return empty object
+				if (
+					error instanceof NotFoundError ||
+					error instanceof UnauthorizedError ||
+					error instanceof ForbiddenError
+				) {
 					return {};
 				}
 				// other errors = continue throw
