@@ -168,6 +168,14 @@ func (pm *Manager) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		if !slices.Contains(configuredProviders, name) {
 			// The requested auth provider isn't configured. Return an error, unless the user is signing out, in which case, just redirect.
 			if r.URL.Path == "/oauth2/sign_out" {
+				// Clear the cookie if it's there too.
+				http.SetCookie(w, &http.Cookie{
+					Name:   ObotAccessTokenCookie,
+					Value:  "",
+					Path:   "/",
+					MaxAge: -1,
+				})
+
 				http.Redirect(w, r, rdParam, http.StatusFound)
 				return
 			}
