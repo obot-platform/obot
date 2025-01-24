@@ -58,19 +58,19 @@ export function AgentIcon({ icons, onChange, name }: AgentIconProps) {
 					<TooltipTrigger asChild>
 						<DropdownMenuTrigger asChild>
 							<Button variant="ghost" size="icon-xl" className="group relative">
-								<Avatar className="size-24">
+								<Avatar className="size-20">
 									<AvatarImage
 										src={iconDark && isDarkMode ? iconDark : icon}
 										className={cn({
 											"dark:invert": !iconDark && isDarkMode,
 										})}
 									/>
-									<AvatarFallback className="text-[4.5rem] font-semibold">
+									<AvatarFallback className="text-[3.5rem] font-semibold">
 										{name?.charAt(0) ?? ""}
 									</AvatarFallback>
 								</Avatar>
 								<div className="absolute -right-1 top-0 items-center justify-center rounded-full bg-primary-foreground p-2 opacity-0 drop-shadow-md transition group-hover:opacity-100">
-									<PencilIcon className="!h-6 !w-6" />
+									<PencilIcon className="!h-4 !w-4" />
 								</div>
 							</Button>
 						</DropdownMenuTrigger>
