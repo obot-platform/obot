@@ -330,17 +330,12 @@ func replaceTokenCookie(token string, req *http.Request) error {
 
 	tokenCookie.Value = token
 
-	otherCookies := make([]http.Cookie, 0, len(req.Cookies()))
-	for _, c := range req.Cookies() {
-		if c.Name != ObotAccessTokenCookie {
-			otherCookies = append(otherCookies, *c)
-		}
-	}
-
+	cookies := req.Cookies()
 	req.Header.Del("Cookie")
-
-	for _, c := range otherCookies {
-		req.AddCookie(&c)
+	for _, c := range cookies {
+		if c.Name != ObotAccessTokenCookie {
+			req.AddCookie(c)
+		}
 	}
 	req.AddCookie(tokenCookie)
 
