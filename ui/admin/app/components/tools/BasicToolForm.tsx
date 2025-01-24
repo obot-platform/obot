@@ -1,4 +1,7 @@
 import { ReactNode, memo, useCallback, useMemo, useState } from "react";
+import useSWR from "swr";
+
+import { ToolReferenceService } from "~/lib/service/api/toolreferenceService";
 
 import { ToolEntry } from "~/components/agent/ToolEntry";
 import { ToolCatalogDialog } from "~/components/tools/ToolCatalog";
@@ -7,10 +10,21 @@ import { useCapabilityTools } from "~/hooks/tools/useCapabilityTools";
 export const BasicToolForm = memo(function BasicToolFormComponent(props: {
 	value?: string[];
 	defaultValue?: string[];
-	onChange?: (values: string[]) => void;
+	oauths?: string[];
+	onChange?: (values: string[], toolOauths?: string[]) => void;
 	renderActions?: (tool: string) => ReactNode;
 }) {
-	const { onChange, renderActions } = props;
+	const { onChange, renderActions, oauths } = props;
+	const { data: toolList } = useSWR(
+		ToolReferenceService.getToolReferences.key("tool"),
+		() => ToolReferenceService.getToolReferences("tool"),
+		{ fallbackData: [] }
+	);
+
+	const oauthToolMap = useMemo(
+		() => new Map(toolList.map((tool) => [tool.id, tool.metadata?.oauth])),
+		[toolList]
+	);
 
 	const [_value, _setValue] = useState(props.defaultValue);
 	const value = useMemo(
@@ -19,9 +33,9 @@ export const BasicToolForm = memo(function BasicToolFormComponent(props: {
 	);
 
 	const setValue = useCallback(
-		(newValue: string[]) => {
+		(newValue: string[], toolOauths?: string[]) => {
 			_setValue(newValue);
-			onChange?.(newValue);
+			onChange?.(newValue, toolOauths);
 		},
 		[onChange]
 	);
@@ -30,8 +44,15 @@ export const BasicToolForm = memo(function BasicToolFormComponent(props: {
 	const capabilities = new Set(getCapabilities.data?.map((tool) => tool.id));
 	const filtered = value.filter((tool) => !capabilities.has(tool));
 
-	const removeTools = (toolsToRemove: string[]) => {
-		setValue(value.filter((tool) => !toolsToRemove.includes(tool)));
+	const removeTool = (toolId: string, oauthToRemove?: string) => {
+		const updatedTools = value.filter((tool) => tool !== toolId);
+		const stillHasOauth = updatedTools.some(
+			(tool) => oauthToolMap.get(tool) === oauthToRemove
+		);
+		const updatedOauths = stillHasOauth
+			? oauths
+			: oauths?.filter((oauth) => oauth !== oauthToRemove);
+		setValue(updatedTools, updatedOauths);
 	};
 
 	return (
@@ -41,14 +62,18 @@ export const BasicToolForm = memo(function BasicToolFormComponent(props: {
 					<ToolEntry
 						key={tool}
 						tool={tool}
-						onDelete={() => removeTools([tool])}
+						onDelete={removeTool}
 						actions={renderActions?.(tool)}
 					/>
 				))}
 			</div>
 
 			<div className="flex justify-end">
-				<ToolCatalogDialog tools={value} onUpdateTools={setValue} />
+				<ToolCatalogDialog
+					tools={value}
+					onUpdateTools={setValue}
+					oauths={oauths ?? []}
+				/>
 			</div>
 		</div>
 	);
