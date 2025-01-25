@@ -8,6 +8,7 @@ import {
 	FaMicrosoft,
 	FaSalesforce,
 	FaSlack,
+	FaLinkedin,
 } from "react-icons/fa";
 
 import { OAuthProvider } from "~/lib/model/oauthApps/oauth-helpers";
@@ -22,6 +23,7 @@ const IconMap = {
 	[OAuthProvider.Microsoft365]: FaMicrosoft,
 	[OAuthProvider.Notion]: NotionLogoIcon,
 	[OAuthProvider.Zoom]: BiLogoZoom,
+	[OAuthProvider.LinkedIn]: FaLinkedin,
 	[OAuthProvider.Custom]: KeyIcon,
 };
 

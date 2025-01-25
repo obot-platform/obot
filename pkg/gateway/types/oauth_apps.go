@@ -31,6 +31,9 @@ const (
 
 	ZoomAuthorizeURL = "https://zoom.us/oauth/authorize"
 	ZoomTokenURL     = "https://zoom.us/oauth/token"
+
+	LinkedInAuthorizeURL = "https://www.linkedin.com/oauth/v2/authorization"
+	LinkedInTokenURL     = "https://www.linkedin.com/oauth/v2/accessToken"
 )
 
 var (
@@ -75,6 +78,9 @@ func ValidateAndSetDefaultsOAuthAppManifest(r *types.OAuthAppManifest, create bo
 	case types.OAuthAppTypeZoom:
 		r.AuthURL = ZoomAuthorizeURL
 		r.TokenURL = ZoomTokenURL
+	case types.OAuthAppTypeLinkedIn:
+		r.AuthURL = LinkedInAuthorizeURL
+		r.TokenURL = LinkedInTokenURL
 	case types.OAuthAppTypeSalesforce:
 		salesforceAuthorizeFragment := "/services/oauth2/authorize"
 		salesforceTokenFragment := "/services/oauth2/token"
