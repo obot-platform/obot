@@ -1,7 +1,6 @@
 import { ReactNode, createContext, useContext } from "react";
 import { mutate } from "swr";
 
-import { AgentIcons } from "~/lib/model/agents";
 import { Message } from "~/lib/model/messages";
 import { InvokeService } from "~/lib/service/api/invokeService";
 import { ThreadsService } from "~/lib/service/api/threadsService";
@@ -24,8 +23,6 @@ interface ChatContextType {
 	isInvoking: boolean;
 	introductionMessage?: string;
 	starterMessages?: string[];
-	agentName?: string;
-	icons?: AgentIcons;
 }
 
 const ChatContext = createContext<ChatContextType | undefined>(undefined);
@@ -39,8 +36,6 @@ export function ChatProvider({
 	readOnly,
 	introductionMessage,
 	starterMessages,
-	agentName,
-	icons,
 }: {
 	children: ReactNode;
 	mode?: Mode;
@@ -50,8 +45,6 @@ export function ChatProvider({
 	readOnly?: boolean;
 	introductionMessage?: string;
 	starterMessages?: string[];
-	agentName?: string;
-	icons?: AgentIcons;
 }) {
 	const invoke = (prompt?: string) => {
 		if (readOnly) return;
@@ -97,8 +90,6 @@ export function ChatProvider({
 				readOnly,
 				introductionMessage,
 				starterMessages,
-				agentName,
-				icons,
 			}}
 		>
 			{children}

@@ -13,7 +13,6 @@ export interface Message {
 	aborted?: boolean;
 	error?: boolean;
 	contentID?: string;
-	time?: Date | string;
 }
 
 export const runsToMessages = (runs: Run[]) => {

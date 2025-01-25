@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { assistants, currentAssistant } from '$lib/stores';
+	import { assistants } from '$lib/stores';
 	import { darkMode } from '$lib/stores';
 	import type { Assistant } from '$lib/services';
 	import { twMerge } from 'tailwind-merge';
@@ -12,7 +12,7 @@
 	let { id, class: klass }: Props = $props();
 
 	let assistant = $derived(
-		$currentAssistant ?? $assistants.find((a) => {
+		$assistants.find((a) => {
 			if (id) {
 				return a.id === id;
 			}
@@ -20,7 +20,7 @@
 		})
 	);
 
-	function getIcon(a: Assistant | undefined): string {
+	function icon(a: Assistant | undefined): string {
 		if (!a) {
 			return '';
 		}
@@ -30,17 +30,10 @@
 		}
 		return a.icons.icon ?? '';
 	}
-	
-	function hasDarkIcon(a: Assistant | undefined): boolean {
-		if (!a) {
-			return false;
-		}
-		return !!a.icons.iconDark;
-	}
 </script>
 
-{#if getIcon(assistant)}
-	<img src={getIcon(assistant)} alt="assistant icon" class={twMerge('h-5 w-5', !hasDarkIcon(assistant) && 'dark:invert', klass)} />
+{#if icon(assistant)}
+	<img src={icon(assistant)} alt="assistant icon" class={twMerge('h-5 w-5', klass)} />
 {:else}
 	<div
 		class={twMerge(

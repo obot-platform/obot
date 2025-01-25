@@ -47,7 +47,6 @@ export type ChatEvent = {
 	toolInput?: ToolInput;
 	toolCall?: ToolCall;
 	prompt?: AuthPrompt;
-	time?: string;
 };
 
 export function combineChatEvents(events: ChatEvent[]): ChatEvent[] {
