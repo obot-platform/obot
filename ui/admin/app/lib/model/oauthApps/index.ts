@@ -7,12 +7,12 @@ import {
 import { AtlassianOAuthApp } from "~/lib/model/oauthApps/providers/atlassian";
 import { GitHubOAuthApp } from "~/lib/model/oauthApps/providers/github";
 import { GoogleOAuthApp } from "~/lib/model/oauthApps/providers/google";
+import { LinkedInOAuthApp } from "~/lib/model/oauthApps/providers/linkedin";
 import { Microsoft365OAuthApp } from "~/lib/model/oauthApps/providers/microsoft365";
 import { NotionOAuthApp } from "~/lib/model/oauthApps/providers/notion";
 import { SalesforceOAuthApp } from "~/lib/model/oauthApps/providers/salesforce";
 import { SlackOAuthApp } from "~/lib/model/oauthApps/providers/slack";
 import { ZoomOAuthApp } from "~/lib/model/oauthApps/providers/zoom";
-import { LinkedInOAuthApp } from "~/lib/model/oauthApps/providers/linkedin";
 import { EntityMeta } from "~/lib/model/primitives";
 
 export const OAuthAppSpecMap = {

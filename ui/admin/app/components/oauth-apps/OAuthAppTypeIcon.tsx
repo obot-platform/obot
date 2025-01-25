@@ -5,10 +5,10 @@ import {
 	FaAtlassian,
 	FaGithub,
 	FaGoogle,
+	FaLinkedin,
 	FaMicrosoft,
 	FaSalesforce,
 	FaSlack,
-	FaLinkedin,
 } from "react-icons/fa";
 
 import { OAuthProvider } from "~/lib/model/oauthApps/oauth-helpers";
