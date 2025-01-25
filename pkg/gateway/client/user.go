@@ -38,7 +38,8 @@ func (c *Client) DeleteUser(ctx context.Context, username string) (*types.User, 
 
 		if existingUser.Role.HasRole(types2.RoleAdmin) {
 			var adminCount int64
-			if err := tx.Model(new(types.User)).Where("role = ?", types2.RoleAdmin).Count(&adminCount).Error; err != nil {
+			// We filter out empty email users here, because that is the bootstrap user.
+			if err := tx.Model(new(types.User)).Where("role = ? and email != ''", types2.RoleAdmin).Count(&adminCount).Error; err != nil {
 				return err
 			}
 
@@ -86,8 +87,9 @@ func (c *Client) UpdateUser(ctx context.Context, actingUserIsAdmin bool, updated
 					return &ExplicitAdminError{email: existingUser.Email}
 				}
 				// If the role is being changed from admin to non-admin, then ensure that this isn't the last admin.
+				// We filter out empty email users here, because that is the bootstrap user.
 				var adminCount int64
-				if err := tx.Model(new(types.User)).Where("role = ?", types2.RoleAdmin).Count(&adminCount).Error; err != nil {
+				if err := tx.Model(new(types.User)).Where("role = ? and email != ''", types2.RoleAdmin).Count(&adminCount).Error; err != nil {
 					return err
 				}
 

@@ -61,8 +61,8 @@ Refer to your service's webhook documentation to find the values to set for thes
 This will require configuration as described in the [Email Webhook Configuration](/configuration/email-webhook#configure-obot) documentation.
 :::
 
-You can trigger a workflow by sending an email to an email address configured in Obot. The email address should be in the format of `{name}@{email_server_name}`.
-The `{email_server_name}` should be configured from [here](/configuration/email-webhook#configure-obot).
+You can trigger a workflow by sending an email to an email address configured in Obot. The email address should be in the format of `{name}@yourcompany.com`.
+The email server name should be configured from [here](/configuration/email-webhook#configure-obot).
 
 To create an email trigger
 
@@ -70,7 +70,8 @@ To create an email trigger
 2. Click **Create Trigger**.
 3. Select **Email** as the trigger type.
 4. Fill in the required fields:
-   - **Name**: The name of the email trigger. The name will match the name of the email address that you want to receive emails from. For example, if the email address is `john@{email_server_name}`, the name will be `john`.
+   - **Name**: The name of the email trigger.
+   - **Alias**: The alias name will match the name of the email address that you want to receive emails to. For example, if the recipient email address is john@yourcompany.com, the alias value should be set as john. If you leave this field blank, alias will be generated.
    - **Workflow**: The workflow to invoke.
 5. Click **Create**.
 

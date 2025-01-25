@@ -14,10 +14,16 @@ In order for authentication to be enabled, the Obot server must be run with `--e
 When launching Obot for the first time, the server will print a randomly generated bootstrap token to the console.
 This token can be used to authenticate as an admin user in the UI.
 You will then be able to configure authentication providers.
+Once you have configured at least one authentication provider, and have granted admin access to at least one user,
+the bootstrap token will no longer be valid.
 
 :::tip
 You can use the `OBOT_BOOTSTRAP_TOKEN` environment variable to provide a specific value for the token,
 rather than having the server generate one for you. If you do this, the value will **not** be printed to the console.
+
+Obot will persist the value of the bootstrap token on its first launch (whether randomly generated or
+supplied by `OBOT_BOOTSTRAP_TOKEN`), and all future server launches will use that same value.
+`OBOT_BOOTSTRAP_TOKEN` can always be used to override the stored value.
 :::
 
 ### Preconfiguring admin users
@@ -43,10 +49,3 @@ Obot currently supports the following authentication providers (using OAuth2):
 - Google
 
 The code for these providers is available in the [Obot tools repo](https://github.com/obot-platform/tools).
-
-## Disabling the Bootstrap User
-
-If you do not want to be able to log in as the bootstrap user, you can set the `OBOT_SERVER_ENABLE_BOOTSTRAP_USER` environment variable to `false`.
-This will prevent you from logging in as the bootstrap user.
-When you first run Obot, do not set this environment variable, because you need to be able to use the bootstrap user to set up the first auth provider.
-Once that is done, you can restart the server and set this environment variable if you would like.

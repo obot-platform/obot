@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"bytes"
 	"crypto/rand"
 	"encoding/base64"
 	"errors"
@@ -301,11 +302,20 @@ func convertAuthProviderToolRef(toolRef v1.ToolReference, cred map[string]string
 func generateCookieSecret() (string, error) {
 	const length = 32
 
-	var bytes = make([]byte, length)
-	_, err := rand.Read(bytes)
+	// Generate a random token. Repeat until we have one that is 32 bytes long after trimming.
+	// This only takes one try in the vast majority of circumstances, but could occasionally take a second.
+	var b = make([]byte, length)
+	_, err := rand.Read(b)
 	if err != nil {
 		return "", fmt.Errorf("failed to generate random token: %w", err)
 	}
 
-	return base64.StdEncoding.EncodeToString(bytes), nil
+	for len(bytes.TrimSpace(b)) != length {
+		_, err := rand.Read(b)
+		if err != nil {
+			return "", fmt.Errorf("failed to generate random token: %w", err)
+		}
+	}
+
+	return base64.StdEncoding.EncodeToString(b), nil
 }

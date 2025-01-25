@@ -27,12 +27,27 @@
 
 		const term = new Terminal();
 		const fitAddon = new FitAddon();
+		let size = { cols: 0, rows: 0 };
 		term.loadAddon(fitAddon);
+		fitAddon.fit();
+
+		const resize = () => {
+			const newSize = fitAddon.proposeDimensions();
+			if (
+				newSize &&
+				(size.cols !== newSize.cols || size.rows !== newSize.rows) &&
+				connectState === 'connected'
+			) {
+				fitAddon.fit();
+				socket.send(new Blob(['\x01' + JSON.stringify(newSize)], { type: 'application/json' }));
+				size = newSize;
+			}
+		};
 
 		term.open(terminalContainer);
 
 		new ResizeObserver(() => {
-			fitAddon.fit();
+			setTimeout(resize);
 		}).observe(terminalContainer);
 
 		const url =
@@ -42,38 +57,38 @@
 			'/api/assistants/' +
 			$currentAssistant.id +
 			'/shell';
-		let gotData = false;
 		const socket = new WebSocket(url);
 		connectState = 'connecting';
-		socket.onmessage = (event) => term.write(event.data);
+		socket.onmessage = (event) => {
+			if (event.data instanceof Blob) {
+				event.data.text().then((text) => {
+					term.write(text);
+				});
+			}
+		};
 		socket.onopen = () => {
 			connectState = 'connected';
-			fitAddon.fit();
+			resize();
 			term.focus();
-			setTimeout(() => {
-				if (!gotData) {
-					socket.send('\n');
-				}
-			}, 500);
+			socket.send(new Blob(['\x00\x0C']));
 		};
+
 		socket.onclose = () => {
 			connectState = 'disconnected';
 			term.write('\r\nConnection closed.\r\n');
 		};
+
 		socket.onerror = () => {
 			connectState = 'disconnected';
 			term.write('\r\nConnection error.\r\n');
 		};
+
 		term.options.theme = {
 			background: '#131313'
 		};
+
 		term.onData((data) => {
-			gotData = true;
-			socket.send(data);
-		});
-		term.onResize(({ cols, rows }) => {
-			const data = JSON.stringify({ cols, rows });
-			socket.send(new Blob([data], { type: 'application/json' }));
+			socket.send(new Blob(['\x00' + data]));
 		});
 
 		close = () => {
@@ -84,10 +99,15 @@
 </script>
 
 <div class="flex h-full w-full flex-col">
-	<div class="relative flex-1 rounded-3xl bg-gray-950 p-5">
+	<div class="relative flex h-full w-full flex-col rounded-3xl bg-gray-950 p-5">
 		{#if connectState === 'disconnected'}
-			<div class="absolute inset-0 z-20 flex h-full w-full items-center justify-center">
-				<button onclick={connect} class="rounded-lg border-2 border-red-400 bg-gray-950 p-3">
+			<div
+				class="pointer-events-none absolute inset-0 z-20 flex h-full w-full items-center justify-center"
+			>
+				<button
+					onclick={connect}
+					class="pointer-events-auto rounded-lg border-2 border-red-400 bg-gray-950 p-3"
+				>
 					<RefreshCcw class="icon-default" />
 				</button>
 			</div>
@@ -107,7 +127,7 @@
 			>
 			<button onclick={closeTerm} class="ms-4 font-mono text-gray hover:text-white"> X </button>
 		</div>
-		<div class="m-2" bind:this={terminalContainer}></div>
+		<div class="m-2 flex h-full w-full" bind:this={terminalContainer}></div>
 	</div>
 </div>
 

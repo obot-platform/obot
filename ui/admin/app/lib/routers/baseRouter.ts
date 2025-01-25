@@ -1,12 +1,12 @@
-export const BaseUrl = () => {
+export const BaseUrl = (route: string = "/") => {
 	if (typeof window === "undefined") return "";
 
-	return window.location.origin + "/admin";
+	return window.location.origin + "/admin" + route;
 };
-export const DomainUrl = () => {
+export const DomainUrl = (route: string = "/") => {
 	if (typeof window === "undefined") return "";
 
-	return window.location.origin;
+	return window.location.origin + route;
 };
 
 export const ApiUrl = () => {

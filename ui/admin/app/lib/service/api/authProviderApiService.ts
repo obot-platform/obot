@@ -57,6 +57,7 @@ const revealAuthProviderById = async (providerKey: string) => {
 		method: "POST",
 		errorMessage:
 			"Failed to reveal configuration values on the requested auth provider.",
+		toastError: false,
 	});
 
 	return res.data;

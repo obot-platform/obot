@@ -1,12 +1,17 @@
 import { MetaFunction } from "react-router";
 
 import { AuthProvider } from "~/lib/model/providers";
+import { VersionApiService } from "~/lib/service/api/versionApiService";
 import { RouteHandle } from "~/lib/service/routeHandles";
 
 import { AuthProviderList } from "~/components/auth-and-model-providers/AuthProviderLists";
 import { CommonAuthProviderIds } from "~/components/auth-and-model-providers/constants";
 import { WarningAlert } from "~/components/composed/WarningAlert";
 import { useAuthProviders } from "~/hooks/auth-providers/useAuthProviders";
+
+export async function clientLoader() {
+	await VersionApiService.requireAuthEnabled();
+}
 
 const sortAuthProviders = (authProviders: AuthProvider[]) => {
 	return [...authProviders].sort((a, b) => {

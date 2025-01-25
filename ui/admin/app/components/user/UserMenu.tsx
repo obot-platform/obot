@@ -3,7 +3,7 @@ import React from "react";
 
 import { AuthDisabledUsername } from "~/lib/model/auth";
 import { roleLabel } from "~/lib/model/users";
-import { ApiRoutes } from "~/lib/routers/apiRoutes";
+import { BootstrapApiService } from "~/lib/service/api/bootstrapApiService";
 import { cn } from "~/lib/utils";
 
 import { useAuth } from "~/components/auth/AuthContext";
@@ -66,9 +66,7 @@ export const UserMenu: React.FC<UserMenuProps> = ({
 					<DropdownMenuItem
 						className="flex items-center gap-2"
 						onClick={async () => {
-							await fetch(ApiRoutes.bootstrap.logout().url, {
-								method: "POST",
-							});
+							await BootstrapApiService.bootstrapLogout();
 
 							window.location.href = "/oauth2/sign_out?rd=/admin/";
 						}}

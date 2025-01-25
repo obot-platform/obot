@@ -78,10 +78,10 @@ export function useToolReference(tool: string) {
 	const icon = useMemo(
 		() =>
 			isLoading ? (
-				<LoadingSpinner className="h-6 w-6 min-w-fit" />
+				<LoadingSpinner className="h-6 w-6 flex-shrink-0" />
 			) : (
 				<ToolIcon
-					className="h-6 w-6 min-w-fit"
+					className="h-6 w-6 flex-shrink-0"
 					name={toolReference?.name || tool}
 					icon={toolReference?.metadata?.icon}
 				/>

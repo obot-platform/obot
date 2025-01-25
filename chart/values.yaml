@@ -61,7 +61,6 @@ config:
 
   githubAuthToken: ""
   obotServerEnableAuthentication: true
-  obotServerEnableBootstrapUser: true
   obotBootstrapToken: ""
   obotServerAuthAdminEmails: ""
   obotServerDSN: ""

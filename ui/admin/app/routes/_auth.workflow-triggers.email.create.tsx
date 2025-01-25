@@ -1,11 +1,18 @@
-import { MetaFunction } from "react-router";
+import { MetaFunction, useNavigate } from "react-router";
+import { $path } from "safe-routes";
 
 import { RouteHandle } from "~/lib/service/routeHandles";
 
 import { EmailReceiverForm } from "~/components/workflow-triggers/EmailReceiverForm";
 
 export default function CreateEmailReceiverPage() {
-	return <EmailReceiverForm />;
+	const navigate = useNavigate();
+
+	return (
+		<EmailReceiverForm
+			onContinue={() => navigate($path("/workflow-triggers"))}
+		/>
+	);
 }
 
 export const handle: RouteHandle = {

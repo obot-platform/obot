@@ -48,7 +48,9 @@ func (s *Server) getUsers(apiContext api.Context) error {
 
 	items := make([]types2.User, 0, len(users))
 	for _, user := range users {
-		items = append(items, *types.ConvertUser(&user, s.client.IsExplicitAdmin(user.Email)))
+		if user.Username != "bootstrap" && user.Email != "" { // Filter out the bootstrap admin
+			items = append(items, *types.ConvertUser(&user, s.client.IsExplicitAdmin(user.Email)))
+		}
 	}
 
 	return apiContext.Write(types2.UserList{Items: items})
