@@ -561,8 +561,8 @@ func (in *EmailReceiver) DeepCopyInto(out *EmailReceiver) {
 	*out = *in
 	in.Metadata.DeepCopyInto(&out.Metadata)
 	in.EmailReceiverManifest.DeepCopyInto(&out.EmailReceiverManifest)
-	if in.AddressAssigned != nil {
-		in, out := &in.AddressAssigned, &out.AddressAssigned
+	if in.AliasAssigned != nil {
+		in, out := &in.AliasAssigned, &out.AliasAssigned
 		*out = new(bool)
 		**out = **in
 	}
