@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"encoding/json"
-	"fmt"
 	"regexp"
 
 	"github.com/gptscript-ai/go-gptscript"
@@ -23,10 +22,10 @@ func NewTableHandler(gptScript *gptscript.GPTScript) *TableHandler {
 
 func (t *TableHandler) tables(req api.Context, workspaceID string) (string, error) {
 	var toolRef v1.ToolReference
-	if err := req.Get(&toolRef, "database"); err != nil {
+	if err := req.Get(&toolRef, "database-ui"); err != nil {
 		return "", err
 	}
-	run, err := t.gptScript.Run(req.Context(), "List Database Tables from "+toolRef.Status.Reference, gptscript.Options{
+	run, err := t.gptScript.Run(req.Context(), "list_database_tables from "+toolRef.Status.Reference, gptscript.Options{
 		Workspace: workspaceID,
 	})
 	if err != nil {
@@ -38,16 +37,16 @@ func (t *TableHandler) tables(req api.Context, workspaceID string) (string, erro
 
 func (t *TableHandler) rows(req api.Context, workspaceID, tableName string) (string, error) {
 	var toolRef v1.ToolReference
-	if err := req.Get(&toolRef, "database"); err != nil {
+	if err := req.Get(&toolRef, "database-ui"); err != nil {
 		return "", err
 	}
 	input, err := json.Marshal(map[string]string{
-		"query": fmt.Sprintf("SELECT * FROM '%s';", tableName),
+		"table": tableName,
 	})
 	if err != nil {
 		return "", err
 	}
-	run, err := t.gptScript.Run(req.Context(), "Run Database Query from "+toolRef.Status.Reference, gptscript.Options{
+	run, err := t.gptScript.Run(req.Context(), "list_database_table_rows from "+toolRef.Status.Reference, gptscript.Options{
 		Input:     string(input),
 		Workspace: workspaceID,
 	})
