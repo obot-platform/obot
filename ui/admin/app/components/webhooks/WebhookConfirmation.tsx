@@ -1,9 +1,13 @@
+import { useEffect } from "react";
 import { $path } from "safe-routes";
+import useSWR from "swr";
 
 import { Webhook } from "~/lib/model/webhooks";
+import { WebhookApiService } from "~/lib/service/api/webhookApiService";
 import { cn } from "~/lib/utils";
 
 import { CopyText } from "~/components/composed/CopyText";
+import { LoadingSpinner } from "~/components/ui/LoadingSpinner";
 import { Button } from "~/components/ui/button";
 import {
 	Dialog,
@@ -43,6 +47,23 @@ export const WebhookConfirmation = ({
 	//     !!token ||
 	//     tokenRemoved;
 
+	const getWebhookData = useSWR(
+		WebhookApiService.getWebhookById.key(webhook.id),
+		() => WebhookApiService.getWebhookById(webhook.id)
+	);
+
+	const webhookData = getWebhookData.data ?? webhook;
+
+	useEffect(() => {
+		if (webhookData?.alias && webhookData.aliasAssigned === undefined) {
+			const interval = setInterval(async () => {
+				await getWebhookData.mutate();
+			}, 1000);
+
+			return () => clearInterval(interval);
+		}
+	}, [getWebhookData, webhookData?.alias, webhookData?.aliasAssigned]);
+
 	return (
 		<Dialog open>
 			<DialogContent className="max-w-[700px]" hideCloseButton>
@@ -61,10 +82,16 @@ export const WebhookConfirmation = ({
 
 				<div className={cn("flex flex-col gap-1")}>
 					<p>Payload URL: </p>
-					<CopyText
-						text={getWebhookUrl(webhook, token)}
-						className="w-fit-content max-w-full"
-					/>
+					{webhookData?.alias && webhookData.aliasAssigned === undefined ? (
+						<div className="flex items-center gap-2">
+							<LoadingSpinner className="h-4 w-4" />
+						</div>
+					) : (
+						<CopyText
+							text={getWebhookUrl(webhookData, token)}
+							className="w-fit-content max-w-full"
+						/>
+					)}
 				</div>
 
 				<div

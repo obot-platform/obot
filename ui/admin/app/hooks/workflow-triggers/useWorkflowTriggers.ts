@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import useSWR from "swr";
 
 import {
@@ -22,12 +23,23 @@ export function useWorkflowTriggers(props?: UseWorkflowTriggersProps) {
 
 	const types = new Set(Array.isArray(type) ? type : [type]);
 
-	const { data: emailReceivers } = useSWR(
+	const { data: emailReceivers, mutate: mutateEmailReceivers } = useSWR(
 		types.has("email") &&
 			EmailReceiverApiService.getEmailReceivers.key(filters),
 		({ filters }) => EmailReceiverApiService.getEmailReceivers(filters),
 		{ fallbackData: [] }
 	);
+
+	useEffect(() => {
+		if (
+			emailReceivers &&
+			emailReceivers.some(
+				(receiver) => receiver.aliasAssigned == null && receiver.alias
+			)
+		) {
+			mutateEmailReceivers();
+		}
+	}, [emailReceivers, mutateEmailReceivers]);
 
 	const { data: cronjobs } = useSWR(
 		types.has("schedule") && CronJobApiService.getCronJobs.key(filters),
