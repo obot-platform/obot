@@ -12,6 +12,7 @@
 	let { id, class: klass }: Props = $props();
 
 	let assistant = $derived(
+		$currentAssistant?.id === id ? $currentAssistant :
 		$assistants.find((a) => {
 			if (id) {
 				return a.id === id;
