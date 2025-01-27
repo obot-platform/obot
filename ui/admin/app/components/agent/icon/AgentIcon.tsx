@@ -141,6 +141,6 @@ export function AgentIcon({ icons, onChange, name }: AgentIconProps) {
 	}
 
 	function generateIconUrl(icon: string) {
-		return `${window.location.protocol}//${window.location.host}/agent/images/${icon}`;
+		return `/agent/images/${icon}`;
 	}
 }
