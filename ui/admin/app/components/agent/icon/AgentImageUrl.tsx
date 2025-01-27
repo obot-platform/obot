@@ -26,7 +26,7 @@ import {
 import { ScrollArea } from "~/components/ui/scroll-area";
 
 type AgentImageUrlProps = {
-	icons?: AgentIcons;
+	icons: AgentIcons | null;
 	onChange: (icons: AgentIcons) => void;
 	onOpenChange: (open: boolean) => void;
 	open: boolean;

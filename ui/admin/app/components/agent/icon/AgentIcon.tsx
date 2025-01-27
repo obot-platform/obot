@@ -39,8 +39,8 @@ const iconOptions = [
 ];
 
 type AgentIconProps = {
-	icons?: AgentIcons;
-	onChange: (icons?: AgentIcons) => void;
+	icons: AgentIcons | null;
+	onChange: (icons: AgentIcons | null) => void;
 	name?: string;
 };
 
@@ -96,7 +96,7 @@ export function AgentIcon({ icons, onChange, name }: AgentIconProps) {
 					<DropdownMenuItem
 						className="flex items-center gap-2"
 						onClick={() => {
-							onChange(undefined);
+							onChange(null);
 						}}
 					>
 						<EraserIcon size={16} /> Clear

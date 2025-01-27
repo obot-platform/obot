@@ -26,7 +26,7 @@ export type AgentBase = {
 	env?: EnvVariable[];
 	starterMessages?: string[];
 	introductionMessage?: string;
-	icons?: AgentIcons;
+	icons: AgentIcons | null;
 };
 
 export type AgentOAuthStatus = {
