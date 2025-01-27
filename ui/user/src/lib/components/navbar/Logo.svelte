@@ -69,7 +69,7 @@
 						data-sveltekit-reload
 						class="flex rounded-3xl p-2 hover:bg-gray-70 dark:hover:bg-gray-900"
 					>
-						<div class="flex h-5 items-center">
+						<div class="flex flex-shrink-0 h-5 items-center">
 							<AssistantIcon id={assistant.id} />
 						</div>
 						<div class="ms-2 text-sm">
