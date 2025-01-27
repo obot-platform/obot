@@ -1,39 +1,28 @@
 import { ApiRoutes } from "~/lib/routers/apiRoutes";
-import { ResponseHeaders, request } from "~/lib/service/api/primitives";
+import { request } from "~/lib/service/api/primitives";
 
-async function invokeWithStream({
+async function invokeAsync({
 	slug,
 	prompt,
 	thread,
 }: {
 	slug: string;
-	prompt?: string | null;
-	thread?: string | null;
+	prompt?: Nullish<string>;
+	thread?: Nullish<string>;
 }) {
-	const response = await request<ReadableStream>({
-		url: ApiRoutes.invoke(slug, thread).url,
+	console.log("invokeAsync", slug, prompt, thread);
+
+	const { data } = await request<{ threadID: string }>({
+		url: ApiRoutes.invoke(slug, thread, { async: true }).url,
 		method: "POST",
-		headers: { Accept: "text/event-stream" },
-		responseType: "stream",
 		data: prompt,
 		errorMessage: "Failed to invoke agent",
 	});
 
-	const reader = response.data
-		?.pipeThrough(new TextDecoderStream())
-		.getReader();
-
-	const threadId = response.headers[
-		ResponseHeaders.ThreadId
-	] as Nullish<string>;
-
-	return { reader, threadId };
+	return data;
 }
 
-const invokeAgentWithStream = invokeWithStream;
-const invokeWorkflowWithStream = invokeWithStream;
-
 export const InvokeService = {
-	invokeAgentWithStream,
-	invokeWorkflowWithStream,
+	invokeAgent: invokeAsync,
+	invokeWorkflow: invokeAsync,
 };

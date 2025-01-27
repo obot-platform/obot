@@ -54,8 +54,8 @@ export function ChatProvider({
 			invokeAgent.execute({ slug: id, prompt, thread: threadId });
 	};
 
-	const invokeAgent = useAsync(InvokeService.invokeAgentWithStream, {
-		onSuccess: ({ threadId: responseThreadId }) => {
+	const invokeAgent = useAsync(InvokeService.invokeAgent, {
+		onSuccess: ({ threadID: responseThreadId }) => {
 			if (responseThreadId && responseThreadId !== threadId) {
 				// persist the threadId
 				onCreateThreadId?.(responseThreadId);

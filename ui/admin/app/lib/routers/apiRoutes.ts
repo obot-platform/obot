@@ -231,10 +231,14 @@ export const ApiRoutes = {
 		updateUser: (username: string) => buildUrl(`/users/${username}`),
 	},
 	me: () => buildUrl("/me"),
-	invoke: (id: string, threadId?: Nullish<string>) => {
+	invoke: (
+		id: string,
+		threadId?: Nullish<string>,
+		params?: { async?: boolean }
+	) => {
 		return threadId
-			? buildUrl(`/invoke/${id}/threads/${threadId}`)
-			: buildUrl(`/invoke/${id}`);
+			? buildUrl(`/invoke/${id}/threads/${threadId}`, params)
+			: buildUrl(`/invoke/${id}`, params);
 	},
 	oauthApps: {
 		base: () => buildUrl("/oauth-apps"),
