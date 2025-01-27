@@ -40,12 +40,6 @@ func enter(ctx context.Context) error {
 	}
 }
 
-type providerConfig struct {
-	Name      string `json:"name,omitempty"`
-	Namespace string `json:"namespace,omitempty"`
-	ID        string `json:"id,omitempty"`
-}
-
 func Token(ctx context.Context, baseURL string) (string, error) {
 	// Check to see if authentication is required for this baseURL
 	if testToken(ctx, baseURL, "") {
@@ -85,37 +79,13 @@ func Token(ctx context.Context, baseURL string) (string, error) {
 		return token, nil
 	}
 
-	// Look for the last used auth provider, if there is one.
-	authProviderFile, err := xdg.ConfigFile(filepath.Join("obot", "auth-provider"))
+	provider, err := userSelectAuthProvider(authProviders)
 	if err != nil {
 		return "", err
 	}
 
-	var providerCfg providerConfig
-	providerConfigData, err := os.ReadFile(authProviderFile)
-	if err != nil && !errors.Is(err, fs.ErrNotExist) {
-		return "", fmt.Errorf("reading %s: %w", authProviderFile, err)
-	} else if err == nil {
-		if err := json.Unmarshal(providerConfigData, &providerCfg); err != nil {
-			return "", err
-		}
-	}
-
-	if providerCfg.ID == "" || providerCfg.Namespace == "" || providerCfg.Name == "" {
-		provider, err := userSelectAuthProvider(authProviders)
-		if err != nil {
-			return "", err
-		}
-
-		providerCfg = providerConfig{
-			Name:      provider.Name,
-			Namespace: provider.Namespace,
-			ID:        provider.ID,
-		}
-	}
-
 	uuid := uuid.NewString()
-	loginURL, err := create(ctx, baseURL, uuid, providerCfg.ID, providerCfg.Namespace)
+	loginURL, err := create(ctx, baseURL, uuid, provider.ID, provider.Namespace)
 	if err != nil {
 		return "", fmt.Errorf("failed to create login request: %w", err)
 	}
@@ -125,7 +95,7 @@ func Token(ctx context.Context, baseURL string) (string, error) {
 		fmt.Println(color.GreenString("Authentication is needed"))
 		fmt.Println(color.GreenString("========================"))
 		fmt.Println()
-		fmt.Println(color.CyanString(providerCfg.Name) + " is used for authentication using the browser. This can be bypassed by setting")
+		fmt.Println(color.CyanString(provider.Name) + " is used for authentication using the browser. This can be bypassed by setting")
 		fmt.Println("the env var " + color.CyanString("OBOT_API_KEY") + " to your API key.")
 		fmt.Println()
 		fmt.Println(color.GreenString("Press ENTER to continue (CTRL+C to exit)"))
@@ -150,13 +120,6 @@ func Token(ctx context.Context, baseURL string) (string, error) {
 	tokenData, err = json.Marshal(scopedTokens)
 	if err != nil {
 		return "", fmt.Errorf("failed to store token: %w", err)
-	}
-
-	// Save the provider config. We deliberately ignore errors here, because it doesn't really matter
-	// if we are unable to save it for some reason. The user will be asked again the next time.
-	providerCfgJSON, err := json.Marshal(providerCfg)
-	if err == nil {
-		_ = os.WriteFile(authProviderFile, providerCfgJSON, 0600)
 	}
 
 	return token, os.WriteFile(tokenFile, tokenData, 0600)
