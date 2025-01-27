@@ -109,9 +109,7 @@ export default function WorkflowTriggersPage() {
 			columnHelper.accessor((row) => workflowMap[row.workflow]?.name, {
 				header: "Workflow",
 				cell: ({ getValue }) =>
-					getValue() ? (
-						getValue()
-					) : (
+					getValue() ?? (
 						<span className="text-muted-foreground">
 							Workflow Not Available
 						</span>

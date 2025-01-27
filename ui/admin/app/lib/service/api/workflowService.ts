@@ -58,12 +58,19 @@ async function updateWorkflow({
 	return res.data;
 }
 
-async function deleteWorkflow(id: string, deleteTriggers?: boolean) {
+async function deleteWorkflow(id: string) {
 	await request({
 		url: ApiRoutes.workflows.getById(id).url,
 		method: "DELETE",
-		params: deleteTriggers ? { "delete-triggers": true } : undefined,
 		errorMessage: "Failed to delete workflow",
+	});
+}
+
+async function deleteWorkflowWithTriggers(id: string) {
+	await request({
+		url: ApiRoutes.workflows.deleteWithTriggers(id).url,
+		method: "DELETE",
+		errorMessage: "Failed to delete workflow and triggers",
 	});
 }
 
@@ -94,6 +101,7 @@ export const WorkflowService = {
 	createWorkflow,
 	updateWorkflow,
 	deleteWorkflow,
+	deleteWorkflowWithTriggers,
 	revalidateWorkflows,
 	authenticateWorkflow,
 };

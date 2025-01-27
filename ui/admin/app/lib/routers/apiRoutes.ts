@@ -167,6 +167,8 @@ export const ApiRoutes = {
 		getById: (workflowId: string) => buildUrl(`/workflows/${workflowId}`),
 		authenticate: (workflowId: string) =>
 			buildUrl(`/workflows/${workflowId}/authenticate`),
+		deleteWithTriggers: (workflowId: string) =>
+			buildUrl(`/workflows/${workflowId}`, { "delete-triggers": "true" }),
 	},
 	toolAuthentication: {
 		authenticate: (namespace: AssistantNamespace, entityId: string) =>

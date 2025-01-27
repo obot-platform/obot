@@ -29,17 +29,29 @@ export function DeleteWorkflowButton({
 
 	const { workflowTriggers } = useWorkflowTriggers({ workflowId: id });
 
+	const handleSuccess = () => {
+		mutate(WorkflowService.getWorkflows.key());
+		toast.success("Workflow deleted");
+		onSuccess?.();
+	};
+
 	const deleteWorkflow = useAsync(WorkflowService.deleteWorkflow, {
-		onSuccess: () => {
-			mutate(WorkflowService.getWorkflows.key());
-			toast.success("Workflow deleted");
-			onSuccess?.();
-		},
-		onError: () => toast.error("Failed to delete workflow"),
+		onSuccess: handleSuccess,
 	});
 
+	const deleteWorkflowWithTriggers = useAsync(
+		WorkflowService.deleteWorkflowWithTriggers,
+		{
+			onSuccess: handleSuccess,
+		}
+	);
+
 	const handleDelete = async (deleteTriggers: boolean) => {
-		await deleteWorkflow.execute(id, deleteTriggers);
+		if (deleteTriggers) {
+			await deleteWorkflowWithTriggers.execute(id);
+		} else {
+			await deleteWorkflow.execute(id);
+		}
 	};
 
 	const handleConfirmDeleteWorkflow = () => {
@@ -52,7 +64,7 @@ export function DeleteWorkflowButton({
 					}
 				);
 			} else {
-				handleDelete(false);
+				await handleDelete(false);
 			}
 		};
 
@@ -66,7 +78,9 @@ export function DeleteWorkflowButton({
 					<Button
 						variant="ghost"
 						size="icon"
-						loading={deleteWorkflow.isLoading}
+						loading={
+							deleteWorkflow.isLoading || deleteWorkflowWithTriggers.isLoading
+						}
 						onClick={handleConfirmDeleteWorkflow}
 					>
 						<TrashIcon />
@@ -88,9 +102,11 @@ export function DeleteWorkflowButton({
 				confirmProps={{
 					variant: "destructive",
 					children: "Delete",
+					loading: deleteWorkflowWithTriggers.isLoading,
 				}}
 				cancelProps={{
 					children: "Keep",
+					loading: deleteWorkflow.isLoading,
 				}}
 			/>
 		</>
