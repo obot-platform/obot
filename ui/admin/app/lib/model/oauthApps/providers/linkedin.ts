@@ -12,13 +12,6 @@ const schema = z.object({
 	clientSecret: z.string().min(1, "Client Secret is required"),
 });
 
-const scopes = [
-	"r_basicprofile",
-	"r_emailaddress",
-	"r_liteprofile",
-	"w_member_social",
-];
-
 const steps: OAuthFormStep<z.infer<typeof schema>>[] = [
 	{
 		type: "markdown",
