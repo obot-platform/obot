@@ -118,6 +118,8 @@ var requiredEnvs = []string{
 	"PATH", "HOME", "USER", "PWD",
 	// Embedded env vars
 	"OBOT_BIN", "GPTSCRIPT_BIN", "GPTSCRIPT_EMBEDDED",
+	// Encryption,
+	"GPTSCRIPT_ENCRYPTION_CONFIG_FILE",
 	// XDG stuff
 	"XDG_CONFIG_HOME", "XDG_DATA_HOME", "XDG_CACHE_HOME"}
 
