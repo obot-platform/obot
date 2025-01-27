@@ -80,6 +80,12 @@ export function WebhookFormContextProvider({
 			return;
 		}
 
+		while (data.alias && data.aliasAssigned == null) {
+			webhook = await WebhookApiService.getWebhookById(data.id);
+			data.aliasAssigned = webhook?.aliasAssigned;
+			data.links = webhook?.links;
+		}
+
 		WebhookApiService.getWebhooks.revalidate();
 		showWebhookConfirmation({
 			webhook: data,
