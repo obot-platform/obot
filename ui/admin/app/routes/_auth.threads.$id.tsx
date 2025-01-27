@@ -89,12 +89,12 @@ export default function ChatAgent() {
 	const { thread, agent, workflow } = useLoaderData<typeof clientLoader>();
 
 	const getEntity = () => {
-		if (agent) return agent;
-		if (workflow) return workflow;
+		if (agent) return ["agent", agent] as const;
+		if (workflow) return ["workflow", workflow] as const;
 		throw new Error("Trying to view a thread with an unsupported parent.");
 	};
 
-	const entity = getEntity();
+	const [type, entity] = getEntity();
 
 	const navigate = useNavigate();
 	return (
@@ -120,6 +120,7 @@ export default function ChatAgent() {
 					<ChatProvider
 						id={entity.id}
 						mode="agent"
+						readOnly={type !== "agent"}
 						threadId={thread.id}
 						introductionMessage={entity.introductionMessage}
 						starterMessages={entity.starterMessages}
