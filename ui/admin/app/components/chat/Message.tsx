@@ -32,7 +32,7 @@ import { useAsync } from "~/hooks/useAsync";
 interface MessageProps {
 	message: MessageType;
 	isRunning?: boolean;
-	icons?: AgentIcons;
+	icons?: AgentIcons | null;
 	isDarkMode?: boolean;
 	isMostRecent?: boolean;
 	agentName?: string;

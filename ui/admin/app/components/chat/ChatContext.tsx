@@ -25,7 +25,7 @@ interface ChatContextType {
 	introductionMessage?: string;
 	starterMessages?: string[];
 	agentName?: string;
-	icons?: AgentIcons;
+	icons?: AgentIcons | null;
 }
 
 const ChatContext = createContext<ChatContextType | undefined>(undefined);
@@ -51,7 +51,7 @@ export function ChatProvider({
 	introductionMessage?: string;
 	starterMessages?: string[];
 	agentName?: string;
-	icons?: AgentIcons;
+	icons?: AgentIcons | null;
 }) {
 	const invoke = (prompt?: string) => {
 		if (readOnly) return;
