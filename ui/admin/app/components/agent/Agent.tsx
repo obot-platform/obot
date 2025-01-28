@@ -1,11 +1,9 @@
 import { GearIcon } from "@radix-ui/react-icons";
 import { BlocksIcon, LibraryIcon, PlusIcon, WrenchIcon } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
-import useSWR from "swr";
 
 import { Agent as AgentType } from "~/lib/model/agents";
 import { AssistantNamespace } from "~/lib/model/assistants";
-import { AgentService } from "~/lib/service/api/agentService";
 import { cn } from "~/lib/utils";
 
 import { AgentAlias } from "~/components/agent/AgentAlias";
@@ -42,46 +40,31 @@ export function Agent({ className, currentThreadId, onRefresh }: AgentProps) {
 		useAgent();
 
 	const [agentUpdates, setAgentUpdates] = useState(agent);
-	const [loadingAgentId, setLoadingAgentId] = useState("");
+
+	useEffect(() => {
+		if (agent.aliasAssigned === undefined && agent.alias) {
+			const intervalId = setInterval(() => {
+				refreshAgent();
+				if (agent.aliasAssigned !== undefined) {
+					clearInterval(intervalId);
+				}
+			}, 1000);
+
+			return () => clearInterval(intervalId);
+		}
+	}, [agent, refreshAgent]);
 
 	useEffect(() => {
 		setAgentUpdates((prev) => {
-			if (agent.id === prev.id) {
-				return {
-					...prev,
-					aliasAssigned: agent.aliasAssigned,
-				};
-			}
-
-			return agent;
+			return {
+				...agent,
+				aliasAssigned:
+					agent.aliasAssigned !== undefined
+						? agent.aliasAssigned
+						: prev.aliasAssigned,
+			};
 		});
 	}, [agent]);
-
-	const getLoadingAgent = useSWR(
-		AgentService.getAgentById.key(loadingAgentId),
-		({ agentId }) => AgentService.getAgentById(agentId),
-		{
-			revalidateOnFocus: false,
-			refreshInterval: 2000,
-		}
-	);
-
-	useEffect(() => {
-		if (!loadingAgentId) return;
-
-		const { isLoading, data } = getLoadingAgent;
-		if (isLoading) return;
-
-		if (data?.aliasAssigned) {
-			setAgentUpdates((prev) => {
-				return {
-					...prev,
-					aliasAssigned: data.aliasAssigned,
-				};
-			});
-			setLoadingAgentId("");
-		}
-	}, [getLoadingAgent, loadingAgentId]);
 
 	const debouncedUpdateAgent = useDebounce(updateAgent, 1000);
 
@@ -93,7 +76,15 @@ export function Agent({ className, currentThreadId, onRefresh }: AgentProps) {
 
 			setAgentUpdates(updatedAgent);
 
-			if (changes.alias) setLoadingAgentId(changes.alias);
+			if (changes.alias) {
+				const updatedAgentWithAliasUndefined = {
+					...updatedAgent,
+					aliasAssigned: undefined,
+				};
+				setAgentUpdates(updatedAgentWithAliasUndefined);
+			} else {
+				setAgentUpdates(updatedAgent);
+			}
 		},
 		[agent, agentUpdates, debouncedUpdateAgent]
 	);

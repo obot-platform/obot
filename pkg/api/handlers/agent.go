@@ -147,7 +147,7 @@ func (a *AgentHandler) Update(req api.Context) error {
 	if err != nil {
 		return err
 	}
-	return req.WriteCreated(resp)
+	return req.Write(resp)
 }
 
 func (a *AgentHandler) Delete(req api.Context) error {
@@ -273,7 +273,7 @@ func (a *AgentHandler) SetDefault(req api.Context) error {
 		return err
 	}
 
-	return req.WriteCreated(resp)
+	return req.Write(resp)
 }
 
 func (a *AgentHandler) ByID(req api.Context) error {
@@ -294,7 +294,7 @@ func (a *AgentHandler) ByID(req api.Context) error {
 		return err
 	}
 
-	return req.WriteCreated(resp)
+	return req.Write(resp)
 }
 
 func (a *AgentHandler) List(req api.Context) error {

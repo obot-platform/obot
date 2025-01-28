@@ -34,8 +34,9 @@ export function AgentAlias({ agent, onChange }: AgentAliasProps) {
 	}, [getAssistants.data, agent.alias]);
 
 	const conflictingAlias = refAssistant && refAssistant.entityID !== agent.id;
+
 	const agentUrl = ConsumptionUrl(
-		`/${!conflictingAlias && agent.alias ? agent.alias : agent.id}`
+		`/${!conflictingAlias && agent.alias && agent.aliasAssigned ? agent.alias : agent.id}`
 	);
 
 	return (
