@@ -1,6 +1,7 @@
 <script lang="ts">
 	import ProfileIcon from '$lib/components/profile/ProfileIcon.svelte';
 	import type { Message } from '$lib/services';
+	import { currentAssistant } from '$lib/stores';
 	import { Pencil } from '$lib/icons';
 	import AssistantIcon from '$lib/icons/AssistantIcon.svelte';
 	import { AlertCircle } from 'lucide-svelte';
@@ -17,7 +18,7 @@
 {:else if msg.icon === 'Pencil'}
 	<Pencil class="h-8 w-8" />
 {:else if msg.icon === 'Assistant'}
-	<AssistantIcon />
+	<AssistantIcon id={$currentAssistant?.id} />
 {:else if msg.icon === 'Profile'}
 	<ProfileIcon />
 {:else if msg.icon === 'Error'}
