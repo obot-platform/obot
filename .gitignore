@@ -22,6 +22,9 @@ kubeconfig
 *.test
 *.out
 
+# Ignore packed helm chart
+.packaged/
+
 # Ignore dependency directories
 vendor/
 
