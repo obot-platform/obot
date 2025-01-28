@@ -90,14 +90,24 @@ func convertEmailReceiver(emailReceiver v1.EmailReceiver, hostname string) *type
 	er := &types.EmailReceiver{
 		Metadata:              MetadataFrom(&emailReceiver),
 		EmailReceiverManifest: manifest,
-		AddressAssigned:       aliasAssigned,
+		AliasAssigned:         aliasAssigned,
 	}
+
 	if hostname != "" {
 		name := emailReceiver.Name
-		if er.AddressAssigned != nil && *er.AddressAssigned {
-			name = er.Alias
+		// If alias Name is set, we should return the alias email address if AliasAssigned is true, otherwise return the original email address
+		// return empty email address if AliasAssigned is not set because UI will need to poll until AliasAssigned is set
+		if emailReceiver.Spec.Alias != "" {
+			if er.AliasAssigned == nil {
+				er.EmailAddress = ""
+			} else if *er.AliasAssigned {
+				er.EmailAddress = fmt.Sprintf("%s@%s", emailReceiver.Spec.Alias, hostname)
+			} else {
+				er.EmailAddress = fmt.Sprintf("%s@%s", name, hostname)
+			}
+		} else {
+			er.EmailAddress = fmt.Sprintf("%s@%s", name, hostname)
 		}
-		er.EmailAddress = fmt.Sprintf("%s@%s", name, hostname)
 	}
 	return er
 }
