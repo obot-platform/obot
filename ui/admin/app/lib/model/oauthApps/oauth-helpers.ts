@@ -11,6 +11,7 @@ export const OAuthProvider = {
 	Salesforce: "salesforce",
 	Notion: "notion",
 	Zoom: "zoom",
+	LinkedIn: "linkedin",
 	Custom: "custom",
 } as const;
 export type OAuthProvider = (typeof OAuthProvider)[keyof typeof OAuthProvider];

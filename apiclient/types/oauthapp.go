@@ -10,6 +10,7 @@ const (
 	OAuthAppTypeGoogle       OAuthAppType = "google"
 	OAuthAppTypeSalesforce   OAuthAppType = "salesforce"
 	OAuthAppTypeZoom         OAuthAppType = "zoom"
+	OAuthAppTypeLinkedIn     OAuthAppType = "linkedin"
 	OAuthAppTypeCustom       OAuthAppType = "custom"
 )
 
