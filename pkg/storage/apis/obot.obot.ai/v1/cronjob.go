@@ -5,7 +5,6 @@ import (
 
 	"github.com/obot-platform/nah/pkg/fields"
 	"github.com/obot-platform/obot/apiclient/types"
-	"github.com/obot-platform/obot/pkg/system"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -51,11 +50,6 @@ func (*CronJob) GetColumns() [][]string {
 }
 
 func (c *CronJob) DeleteRefs() []Ref {
-	if system.IsWorkflowID(c.Spec.Workflow) {
-		return []Ref{
-			{ObjType: new(Workflow), Name: c.Spec.Workflow},
-		}
-	}
 	return nil
 }
 

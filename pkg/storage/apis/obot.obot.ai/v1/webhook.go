@@ -5,7 +5,6 @@ import (
 
 	"github.com/obot-platform/nah/pkg/fields"
 	"github.com/obot-platform/obot/apiclient/types"
-	"github.com/obot-platform/obot/pkg/system"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -75,11 +74,6 @@ func (*Webhook) GetColumns() [][]string {
 }
 
 func (w *Webhook) DeleteRefs() []Ref {
-	if system.IsWebhookID(w.Spec.Workflow) {
-		return []Ref{
-			{ObjType: new(Workflow), Name: w.Spec.Workflow},
-		}
-	}
 	return nil
 }
 

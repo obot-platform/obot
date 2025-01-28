@@ -10,6 +10,7 @@ import (
 	"github.com/obot-platform/obot/pkg/alias"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
+	apierror "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
@@ -60,6 +61,9 @@ func (h *Handler) Run(req router.Request, resp router.Response) error {
 
 	var workflow v1.Workflow
 	if err := alias.Get(req.Ctx, req.Client, &workflow, cj.Namespace, cj.Spec.Workflow); err != nil {
+		if apierror.IsNotFound(err) {
+			return nil
+		}
 		return err
 	}
 

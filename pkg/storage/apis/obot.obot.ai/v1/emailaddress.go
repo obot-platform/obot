@@ -5,7 +5,6 @@ import (
 
 	"github.com/obot-platform/nah/pkg/fields"
 	"github.com/obot-platform/obot/apiclient/types"
-	"github.com/obot-platform/obot/pkg/system"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -74,11 +73,6 @@ func (*EmailReceiver) GetColumns() [][]string {
 }
 
 func (in *EmailReceiver) DeleteRefs() []Ref {
-	if system.IsWorkflowID(in.Spec.Workflow) {
-		return []Ref{
-			{ObjType: new(Workflow), Name: in.Spec.Workflow},
-		}
-	}
 	return nil
 }
 

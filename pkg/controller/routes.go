@@ -138,13 +138,11 @@ func (c *Controller) setupRoutes() error {
 	root.Type(&v1.KnowledgeSet{}).HandlerFunc(knowledgeset.SetEmbeddingModel)
 
 	// Webhooks
-	root.Type(&v1.Webhook{}).HandlerFunc(cleanup.Cleanup)
 	root.Type(&v1.Webhook{}).HandlerFunc(alias.AssignAlias)
 	root.Type(&v1.Webhook{}).HandlerFunc(webHooks.SetSuccessRunTime)
 	root.Type(&v1.Webhook{}).HandlerFunc(generationed.UpdateObservedGeneration)
 
 	// Cronjobs
-	root.Type(&v1.CronJob{}).HandlerFunc(cleanup.Cleanup)
 	root.Type(&v1.CronJob{}).HandlerFunc(cronJobs.SetSuccessRunTime)
 	root.Type(&v1.CronJob{}).HandlerFunc(cronJobs.Run)
 
