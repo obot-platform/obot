@@ -1,4 +1,4 @@
-name: admin
+name: user
 
 on:
   push:
