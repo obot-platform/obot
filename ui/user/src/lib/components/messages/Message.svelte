@@ -218,7 +218,9 @@
 
 {#snippet messageContent()}
 	{#if msg.sent}
-		{content}
+		{#each content.split('\n') as line}
+			<p>{line}</p>
+		{/each}
 		{@render explain()}
 	{:else}
 		{@html toHTMLFromMarkdown(content)}

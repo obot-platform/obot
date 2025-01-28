@@ -59,7 +59,7 @@
 						{@html toHTMLFromMarkdown(assistant.introductionMessage)}
 					{/if}
 				</div>
-				<div class="flex gap-2 self-center">
+				<div class="grid gap-2 self-center md:grid-cols-3">
 					{#each assistant?.starterMessages ?? [] as msg}
 						<button
 							class="rounded-3xl border-2 border-blue p-5"

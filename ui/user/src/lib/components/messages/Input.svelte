@@ -3,6 +3,7 @@
 	import { editor } from '$lib/stores';
 	import { autoHeight } from '$lib/actions/textarea.js';
 	import { ArrowUp, LoaderCircle } from 'lucide-svelte';
+	import { tick } from 'svelte';
 
 	interface Props {
 		onFocus?: () => void;
@@ -62,6 +63,8 @@
 		}
 
 		value = '';
+		await tick();
+		chat.dispatchEvent(new Event('resize'));
 	}
 
 	async function onKey(e: KeyboardEvent) {
