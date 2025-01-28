@@ -192,12 +192,7 @@ export function ProviderConfigureContent({
 				<DialogDescription className="flex items-center justify-center px-4">
 					Note: the callback URL for this auth provider is
 					<CopyText
-						text={
-							window.location.protocol +
-							"//" +
-							window.location.host +
-							"/oauth2/callback"
-						}
+						text={window.location.protocol + "//" + window.location.host + "/"}
 						className="w-fit-content ml-1 max-w-full"
 					/>
 				</DialogDescription>
