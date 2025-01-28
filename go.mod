@@ -17,7 +17,7 @@ require (
 	github.com/golang-jwt/jwt/v5 v5.2.1
 	github.com/google/uuid v1.6.0
 	github.com/gorilla/websocket v1.5.0
-	github.com/gptscript-ai/chat-completion-client v0.0.0-20250123123106-c86554320789
+	github.com/gptscript-ai/chat-completion-client v0.0.0-20250128181713-57857b74f9f1
 	github.com/gptscript-ai/cmd v0.0.0-20250122115124-a3d65e9d2432
 	github.com/gptscript-ai/go-gptscript v0.9.6-0.20241216211344-79a66826cf82
 	github.com/gptscript-ai/gptscript v0.9.6-0.20250122033232-c02c4cbaa1cc

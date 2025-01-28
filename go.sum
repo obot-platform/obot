@@ -296,8 +296,8 @@ github.com/gorilla/websocket v1.5.0 h1:PPwGk2jz7EePpoHN/+ClbZu8SPxiqlu12wZP/3sWm
 github.com/gorilla/websocket v1.5.0/go.mod h1:YR8l580nyteQvAITg2hZ9XVh4b55+EU/adAjf1fMHhE=
 github.com/gptscript-ai/broadcaster v0.0.0-20240625175512-c43682019b86 h1:m9yLtIEd0z1ia8qFjq3u0Ozb6QKwidyL856JLJp6nbA=
 github.com/gptscript-ai/broadcaster v0.0.0-20240625175512-c43682019b86/go.mod h1:lK3K5EZx4dyT24UG3yCt0wmspkYqrj4D/8kxdN3relk=
-github.com/gptscript-ai/chat-completion-client v0.0.0-20250123123106-c86554320789 h1:rfriXe+FFqZ5fZ+wGzLUivrq7Fyj2xfRdZjDsHf6Ps0=
-github.com/gptscript-ai/chat-completion-client v0.0.0-20250123123106-c86554320789/go.mod h1:7P/o6/IWa1KqsntVf68hSnLKuu3+xuqm6lYhch1w4jo=
+github.com/gptscript-ai/chat-completion-client v0.0.0-20250128181713-57857b74f9f1 h1:D8VmhL68Fm6YI7fue4wkzd1TqODn//LtcJtPvWk8BQ8=
+github.com/gptscript-ai/chat-completion-client v0.0.0-20250128181713-57857b74f9f1/go.mod h1:7P/o6/IWa1KqsntVf68hSnLKuu3+xuqm6lYhch1w4jo=
 github.com/gptscript-ai/cmd v0.0.0-20250122115124-a3d65e9d2432 h1:cJh/Hl1HFd1qLpdkaZvsFTC2mXlIuiK7FgvSfaSOWmw=
 github.com/gptscript-ai/cmd v0.0.0-20250122115124-a3d65e9d2432/go.mod h1:DJAo1xTht1LDkNYFNydVjTHd576TC7MlpsVRl3oloVw=
 github.com/gptscript-ai/go-gptscript v0.9.6-0.20241216211344-79a66826cf82 h1:BEN268Z92gqeDc51XVvWdJWdQ47BuuWH3MUysHzilfI=
