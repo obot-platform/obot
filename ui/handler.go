@@ -24,28 +24,43 @@ func Handler(devPort int, client kclient.Client) http.Handler {
 		lock:   new(sync.RWMutex),
 	}
 
-	if devPort == 0 {
-		return server
+	if devPort != 0 {
+		server.rp = &httputil.ReverseProxy{
+			Director: func(r *http.Request) {
+				r.URL.Scheme = "http"
+				if strings.HasPrefix(r.URL.Path, "/admin") {
+					r.URL.Host = fmt.Sprintf("localhost:%d", devPort)
+				} else {
+					r.URL.Host = fmt.Sprintf("localhost:%d", devPort+1)
+				}
+			},
+		}
 	}
-	return &httputil.ReverseProxy{
-		Director: func(r *http.Request) {
-			r.URL.Scheme = "http"
-			if strings.HasPrefix(r.URL.Path, "/admin") {
-				r.URL.Host = fmt.Sprintf("localhost:%d", devPort)
-			} else {
-				r.URL.Host = fmt.Sprintf("localhost:%d", devPort+1)
-			}
-		},
-	}
+
+	return server
 }
 
 type uiServer struct {
 	lock       *sync.RWMutex
 	configured bool
 	client     kclient.Client
+	rp         *httputil.ReverseProxy
 }
 
 func (s *uiServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if isOAuthCallbackResponse(r) {
+		fmt.Println("redirecting to /oauth2/callback")
+		redirectURL := r.URL
+		redirectURL.Path = "/oauth2/callback"
+		http.Redirect(w, r, redirectURL.String(), http.StatusFound)
+		return
+	}
+
+	if s.rp != nil {
+		s.rp.ServeHTTP(w, r)
+		return
+	}
+
 	if !strings.Contains(strings.ToLower(r.UserAgent()), "mozilla") {
 		http.NotFound(w, r)
 		return
@@ -93,4 +108,11 @@ func (s *uiServer) hasModelProviderConfigured(ctx context.Context) bool {
 
 	s.configured = len(models.Items) > 0
 	return s.configured
+}
+
+func isOAuthCallbackResponse(r *http.Request) bool {
+	return r.URL.Path == "/" &&
+		(r.URL.Query().Get("code") != "" ||
+			r.URL.Query().Get("error") != "" ||
+			r.URL.Query().Get("state") != "")
 }
