@@ -42,6 +42,7 @@ export function Agent({ className, currentThreadId, onRefresh }: AgentProps) {
 
 	const [agentUpdates, setAgentUpdates] = useState(agent);
 	const [loadingAgentId, setLoadingAgentId] = useState("");
+	const [enableScrollStick, setEnableScrollStick] = useState(false);
 
 	useEffect(() => {
 		setAgentUpdates((prev) => {
@@ -104,9 +105,16 @@ export function Agent({ className, currentThreadId, onRefresh }: AgentProps) {
 		[onRefresh]
 	);
 
+	const handleAccordionValueChange = useCallback((value: string[]) => {
+		setEnableScrollStick(value.includes("model"));
+	}, []);
+
 	return (
 		<div className="flex h-full flex-col">
-			<ScrollArea className={cn("h-full", className)}>
+			<ScrollArea
+				className={cn("h-full", className)}
+				enableScrollStick={enableScrollStick ? "bottom" : undefined}
+			>
 				<AgentAlias agent={agentUpdates} onChange={partialSetAgent} />
 
 				<div className="m-4 p-4">
@@ -178,7 +186,11 @@ export function Agent({ className, currentThreadId, onRefresh }: AgentProps) {
 					/>
 				</div>
 
-				<Accordion type="multiple" className="m-4 p-4">
+				<Accordion
+					type="multiple"
+					className="m-4 p-4"
+					onValueChange={handleAccordionValueChange}
+				>
 					<AccordionItem value="model">
 						<AccordionTrigger className="border-b">
 							<h4 className="flex items-center gap-2">
