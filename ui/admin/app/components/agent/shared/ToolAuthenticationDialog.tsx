@@ -15,7 +15,7 @@ import {
 	DialogTitle,
 } from "~/components/ui/dialog";
 import { Link } from "~/components/ui/link";
-import { useThreadEvents } from "~/hooks/messages/useThreadEvents";
+import { useInitMessageStore } from "~/hooks/messages/useMessageStore";
 
 type AgentAuthenticationDialogProps = {
 	threadId: Nullish<string>;
@@ -30,7 +30,7 @@ export function ToolAuthenticationDialog({
 }: AgentAuthenticationDialogProps) {
 	const { icon, label } = useToolReference(tool);
 
-	const { messages: _messages } = useThreadEvents(threadId);
+	const { messages: _messages } = useInitMessageStore(threadId);
 
 	type ItemState = {
 		isLoading?: boolean;

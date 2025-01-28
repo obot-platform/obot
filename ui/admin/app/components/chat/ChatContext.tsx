@@ -2,17 +2,16 @@ import { ReactNode, createContext, useContext } from "react";
 import { mutate } from "swr";
 
 import { AgentIcons } from "~/lib/model/agents";
-import { Message } from "~/lib/model/messages";
 import { InvokeService } from "~/lib/service/api/invokeService";
 import { ThreadsService } from "~/lib/service/api/threadsService";
+import { MessageStore } from "~/lib/store/chat/message-store";
 
-import { useThreadEvents } from "~/hooks/messages/useThreadEvents";
+import { useInitMessageStore } from "~/hooks/messages/useMessageStore";
 import { useAsync } from "~/hooks/useAsync";
 
 type Mode = "agent" | "workflow";
 
-interface ChatContextType {
-	messages: Message[];
+interface ChatContextType extends Pick<MessageStore, "messages" | "isRunning"> {
 	mode: Mode;
 	processUserMessage: (text: string) => void;
 	abortRunningThread: () => void;
@@ -20,7 +19,6 @@ interface ChatContextType {
 	threadId: Nullish<string>;
 	invoke: (prompt?: string) => void;
 	readOnly?: boolean;
-	isRunning: boolean;
 	isInvoking: boolean;
 	introductionMessage?: string;
 	starterMessages?: string[];
@@ -73,7 +71,7 @@ export function ChatProvider({
 		},
 	});
 
-	const { messages, isRunning } = useThreadEvents(threadId);
+	const { messages, isRunning } = useInitMessageStore(threadId);
 
 	const abortRunningThread = () => {
 		if (!threadId || !isRunning) return;
