@@ -1,0 +1,39 @@
+name: admin
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+    paths:
+      - ui/user/**
+
+jobs:
+  lint:
+    runs-on: depot-ubuntu-22.04
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20.17.0"
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.12.3
+
+      - name: Run linter
+        run: | 
+          cd ui/user
+          pnpm install
+          pnpm run build
+          pnpm run ci
+
+      - name: Verify no changes
+        run: make no-changes
