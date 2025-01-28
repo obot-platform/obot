@@ -3,6 +3,7 @@ package server
 import (
 	"net/http"
 
+	"github.com/obot-platform/nah/pkg/router"
 	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/api/server"
 )
@@ -13,7 +14,15 @@ func (s *Server) AddRoutes(mux *server.Server) {
 	}
 
 	// Health endpoint
-	mux.HTTPHandle("GET /api/healthz", http.HandlerFunc(s.db.Check))
+	mux.HTTPHandle("GET /api/healthz", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if err := s.db.Check(r.Context()); err != nil {
+			http.Error(w, err.Error(), http.StatusServiceUnavailable)
+		} else if !router.GetHealthy() {
+			http.Error(w, "controllers not ready", http.StatusServiceUnavailable)
+		} else {
+			_, _ = w.Write([]byte("ok"))
+		}
+	}))
 	// All the routes served by the API will start with `/api`
 	mux.HandleFunc("GET /api/me", wrap(s.getCurrentUser))
 	mux.HandleFunc("GET /api/users", wrap(s.getUsers))
