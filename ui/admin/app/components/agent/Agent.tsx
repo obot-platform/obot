@@ -41,46 +41,23 @@ export function Agent({ className, currentThreadId, onRefresh }: AgentProps) {
 		useAgent();
 
 	const [agentUpdates, setAgentUpdates] = useState(agent);
-	const [loadingAgentId, setLoadingAgentId] = useState("");
 
 	useEffect(() => {
-		setAgentUpdates((prev) => {
-			if (agent.id === prev.id) {
-				return {
-					...prev,
-					aliasAssigned: agent.aliasAssigned,
-				};
-			}
+		if (agent.aliasAssigned == null && agent.alias) {
+			const intervalId = setInterval(() => {
+				refreshAgent();
+				if (agent.aliasAssigned != null) {
+					clearInterval(intervalId);
+				}
+			}, 1000);
 
-			return agent;
-		});
+			return () => clearInterval(intervalId);
+		}
+	}, [agent, refreshAgent]);
+
+	useEffect(() => {
+		setAgentUpdates(agent);
 	}, [agent]);
-
-	const getLoadingAgent = useSWR(
-		AgentService.getAgentById.key(loadingAgentId),
-		({ agentId }) => AgentService.getAgentById(agentId),
-		{
-			revalidateOnFocus: false,
-			refreshInterval: 2000,
-		}
-	);
-
-	useEffect(() => {
-		if (!loadingAgentId) return;
-
-		const { isLoading, data } = getLoadingAgent;
-		if (isLoading) return;
-
-		if (data?.aliasAssigned) {
-			setAgentUpdates((prev) => {
-				return {
-					...prev,
-					aliasAssigned: data.aliasAssigned,
-				};
-			});
-			setLoadingAgentId("");
-		}
-	}, [getLoadingAgent, loadingAgentId]);
 
 	const debouncedUpdateAgent = useDebounce(updateAgent, 1000);
 
@@ -92,7 +69,15 @@ export function Agent({ className, currentThreadId, onRefresh }: AgentProps) {
 
 			setAgentUpdates(updatedAgent);
 
-			if (changes.alias) setLoadingAgentId(changes.alias);
+			if (changes.alias) {
+				const updatedAgentWithAliasUndefined = {
+					...updatedAgent,
+					aliasAssigned: undefined,
+				};
+				setAgentUpdates(updatedAgentWithAliasUndefined);
+			} else {
+				setAgentUpdates(updatedAgent);
+			}
 		},
 		[agent, agentUpdates, debouncedUpdateAgent]
 	);
