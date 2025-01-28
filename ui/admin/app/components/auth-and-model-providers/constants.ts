@@ -149,16 +149,19 @@ export const ModelProviderSensitiveFields: Record<string, boolean | undefined> =
 export const CommonAuthProviderIds = {
 	GOOGLE: "google-auth-provider",
 	GITHUB: "github-auth-provider",
+	OKTA: "okta-auth-provider",
 };
 
 export const CommonAuthProviderFriendlyNames: Record<string, string> = {
 	"google-auth-provider": "Google",
 	"github-auth-provider": "GitHub",
+	"okta-auth-provider": "Okta",
 };
 
 export const AuthProviderLinks = {
 	[CommonAuthProviderIds.GOOGLE]: "https://google.com",
 	[CommonAuthProviderIds.GITHUB]: "https://github.com",
+	[CommonAuthProviderIds.OKTA]: "https://okta.com",
 };
 
 export const AuthProviderTooltips: {
@@ -194,6 +197,14 @@ export const AuthProviderTooltips: {
 		"The token to use when verifying repository collaborators (must have push access to the repository).",
 	OBOT_GITHUB_AUTH_PROVIDER_ALLOW_USERS:
 		"Users allowed to log in, even if they do not belong to the specified org and team or collaborators.",
+
+	// Okta
+	OBOT_OKTA_AUTH_PROVIDER_CLIENT_ID:
+		"Client ID for your Okta OAuth app. Can be found in Okta Developer Console > Applications",
+	OBOT_OKTA_AUTH_PROVIDER_CLIENT_SECRET:
+		"Client secret for your Okta OAuth app. Can be found in Okta Developer Console > Applications",
+	OBOT_OKTA_AUTH_PROVIDER_ISSUER_URL:
+		"Issuer URL for Okta. Should be https://{your-okta-domain}/oauth2/{authorization-server}",
 };
 
 export const AuthProviderSensitiveFields: Record<string, boolean | undefined> =
@@ -212,4 +223,9 @@ export const AuthProviderSensitiveFields: Record<string, boolean | undefined> =
 		OBOT_GITHUB_AUTH_PROVIDER_ORG: false,
 		OBOT_GITHUB_AUTH_PROVIDER_REPO: false,
 		OBOT_GITHUB_AUTH_PROVIDER_TOKEN: true,
+
+		// Okta
+		OBOT_OKTA_AUTH_PROVIDER_CLIENT_ID: false,
+		OBOT_OKTA_AUTH_PROVIDER_CLIENT_SECRET: true,
+		OBOT_OKTA_AUTH_PROVIDER_ISSUER_URL: false,
 	};

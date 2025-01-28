@@ -73,6 +73,7 @@ const fieldNameFromParameter = (parameter: string) => {
 		"OBOT_AUTH_PROVIDER",
 		"OBOT_GOOGLE_AUTH_PROVIDER",
 		"OBOT_GITHUB_AUTH_PROVIDER",
+		"OBOT_OKTA_AUTH_PROVIDER",
 	];
 
 	return fieldsToStrip
