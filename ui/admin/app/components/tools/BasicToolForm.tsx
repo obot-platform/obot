@@ -8,10 +8,10 @@ import { ToolCatalogDialog } from "~/components/tools/ToolCatalog";
 import { useCapabilityTools } from "~/hooks/tools/useCapabilityTools";
 
 export const BasicToolForm = memo(function BasicToolFormComponent(props: {
-	value?: string[];
+	value?: string[] | null;
 	defaultValue?: string[];
-	oauths?: string[];
-	onChange?: (values: string[], toolOauths?: string[]) => void;
+	oauths?: string[] | null;
+	onChange?: (values: string[], toolOauths?: string[] | null) => void;
 	renderActions?: (tool: string) => ReactNode;
 }) {
 	const { onChange, renderActions, oauths } = props;
@@ -33,7 +33,7 @@ export const BasicToolForm = memo(function BasicToolFormComponent(props: {
 	);
 
 	const setValue = useCallback(
-		(newValue: string[], toolOauths?: string[]) => {
+		(newValue: string[], toolOauths?: string[] | null) => {
 			_setValue(newValue);
 			onChange?.(newValue, toolOauths);
 		},

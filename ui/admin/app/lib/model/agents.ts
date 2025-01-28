@@ -9,25 +9,25 @@ export const KNOWLEDGE_TOOL = "knowledge";
 export type AgentBase = {
 	name: string;
 	description: string;
-	temperature?: number;
-	cache?: boolean;
+	temperature?: number | null;
+	cache?: boolean | null;
 	alias: string;
 	aliasAssigned?: boolean;
 	prompt: string;
-	agents?: string[];
-	workflows?: string[];
+	agents?: string[] | null;
+	workflows?: string[] | null;
 	tools?: string[];
-	defaultThreadTools?: string[];
+	defaultThreadTools?: string[] | null;
 	availableThreadTools?: Nullish<string[]>;
-	params?: Record<string, string>;
+	params?: Record<string, string> | null;
 	knowledgeDescription?: string;
 	model?: string;
 	toolInfo?: AgentToolInfo;
-	env?: EnvVariable[];
-	starterMessages?: string[];
+	env?: EnvVariable[] | null;
+	starterMessages?: string[] | null;
 	introductionMessage?: string;
 	icons: AgentIcons | null;
-	oauthApps?: string[];
+	oauthApps?: string[] | null;
 };
 
 export type AgentOAuthStatus = {

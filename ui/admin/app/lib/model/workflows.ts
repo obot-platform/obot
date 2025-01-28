@@ -2,7 +2,7 @@ import { AgentBase } from "~/lib/model/agents";
 import { EntityMeta } from "~/lib/model/primitives";
 
 export type WorkflowBase = AgentBase & {
-	steps: Step[];
+	steps: Step[] | null;
 	output: string;
 };
 
@@ -52,7 +52,7 @@ export type While = {
 
 export type Workflow = EntityMeta &
 	WorkflowBase & {
-		slugAssigned: boolean;
+		slugAssigned?: boolean;
 	};
 
 export type CreateWorkflow = Partial<WorkflowBase> & Pick<WorkflowBase, "name">;

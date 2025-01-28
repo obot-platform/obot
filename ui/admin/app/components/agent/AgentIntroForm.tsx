@@ -14,7 +14,7 @@ import { Form } from "~/components/ui/form";
 
 const formSchema = z.object({
 	introductionMessage: z.string().optional(),
-	starterMessages: z.array(z.string()).optional(),
+	starterMessages: z.array(z.string()).optional().nullable(),
 });
 
 export type AgentInfoFormValues = z.infer<typeof formSchema>;

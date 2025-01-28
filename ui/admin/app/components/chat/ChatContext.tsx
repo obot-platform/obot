@@ -21,8 +21,8 @@ interface ChatContextType extends Pick<MessageStore, "messages" | "isRunning"> {
 	readOnly?: boolean;
 	isInvoking: boolean;
 	introductionMessage?: string;
-	starterMessages?: string[];
 	name?: string;
+	starterMessages?: string[] | null;
 	icons?: AgentIcons | null;
 }
 
@@ -47,8 +47,8 @@ export function ChatProvider({
 	onCreateThreadId?: (threadId: string) => void;
 	readOnly?: boolean;
 	introductionMessage?: string;
-	starterMessages?: string[];
 	name?: string;
+	starterMessages?: string[] | null;
 	icons?: AgentIcons | null;
 }) {
 	const invoke = (prompt?: string) => {

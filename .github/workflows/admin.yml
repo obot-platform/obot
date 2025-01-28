@@ -36,6 +36,11 @@ jobs:
 
       - name: Run linter
         run: make lint-admin
+      
+      - name: Run tests
+        run: |
+          cd ui/admin
+          pnpm run test
 
       - name: Verify no changes
         run: make no-changes

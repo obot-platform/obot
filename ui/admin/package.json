@@ -11,6 +11,8 @@
 		"lint": "eslint --ignore-path .gitignore --cache --cache-location ./node_modules/.cache/eslint . && react-router typegen && safe-routes typegen && tsc --noEmit",
 		"preview": "vite preview",
 		"format": "prettier --write .",
+		"test": "vitest run",
+		"test:watch": "vitest --watch",
 		"ts-coverage": "typescript-coverage-report && open coverage-ts/index.html"
 	},
 	"dependencies": {
@@ -80,6 +82,9 @@
 		"@react-router/dev": "^7.0.0",
 		"@react-router/fs-routes": "^7.0.0",
 		"@tailwindcss/typography": "^0.5.15",
+		"@testing-library/react": "^16.2.0",
+		"@testing-library/jest-dom": "^6.6.3",
+		"@testing-library/user-event": "^14.6.1",
 		"@trivago/prettier-plugin-sort-imports": "^4.3.0",
 		"@types/js-yaml": "^4.0.9",
 		"@types/react": "^18.2.20",
@@ -96,6 +101,8 @@
 		"eslint-plugin-react": "^7.36.1",
 		"eslint-plugin-react-compiler": "19.0.0-beta-201e55d-20241215",
 		"eslint-plugin-react-hooks": "^4.6.2",
+		"jsdom": "^26.0.0",
+		"msw": "^2.7.0",
 		"postcss": "^8.4.38",
 		"prettier": "^3.4.2",
 		"prettier-plugin-tailwindcss": "^0.6.9",
@@ -104,6 +111,7 @@
 		"typescript": "<5.6.0",
 		"typescript-coverage-report": "^1.1.0",
 		"vite": "^5.1.0",
+		"vitest": "^3.0.4",
 		"vite-tsconfig-paths": "^4.2.1"
 	},
 	"engines": {

@@ -146,8 +146,8 @@ export type KnowledgeFile = {
 	url?: string;
 	updatedAt?: string;
 	checksum?: string;
-	lastIngestionStartTime?: Date;
-	lastIngestionEndTime?: Date;
+	lastIngestionStartTime?: Date | null;
+	lastIngestionEndTime?: Date | null;
 	lastRunIDs?: string[];
 	deleted?: string;
 	sizeInBytes?: number;
