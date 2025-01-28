@@ -18,7 +18,7 @@ const steps: OAuthFormStep<z.infer<typeof schema>>[] = [
 		text:
 			"### Step 1: Create a new app in LinkedIn Developer Portal\n" +
 			"If you already have an app, you can skip to Step 2.\n\n" +
-			"- Ensure you are logged into your preferred LinkedIn account.\n" +
+			"- Ensure you are logged in to your preferred LinkedIn account.\n" +
 			"- From the [LinkedIn Developer Portal](https://developer.linkedin.com), click on **Create app**.\n" +
 			"- Input required fields: *App Name* and *LinkedIn Page*, and upload an app logo, check the legal aggrement box and click on **Create App**.\n" +
 			"- Now you should be redirected to the app's settings page.\n",
