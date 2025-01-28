@@ -53,7 +53,7 @@ export const Message = React.memo(
 		const [shouldAnimate] = useState(isRunning);
 		const animatedText = useAnimatedText(
 			message.text,
-			!shouldAnimate || isUser
+			!shouldAnimate || isUser || !!toolCall
 		);
 
 		const parsedMessage = useMemo(() => {
