@@ -948,7 +948,7 @@ func runAuthForAgent(ctx context.Context, c kclient.WithWatch, invoker *invoke.I
 	agent.Spec.Manifest.Tools = tools
 	agent.Spec.Manifest.AvailableThreadTools = nil
 	agent.Spec.Manifest.DefaultThreadTools = nil
-	agent.Spec.Credentials = credentials
+	agent.Spec.Manifest.Credentials = credentials
 	agent.Spec.CredentialContextID = credContext
 	agent.Name = ""
 

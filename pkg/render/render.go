@@ -42,13 +42,13 @@ func Agent(ctx context.Context, db kclient.Client, agent *v1.Agent, oauthServerU
 		Cache:        agent.Spec.Manifest.Cache,
 		Type:         "agent",
 		ModelName:    agent.Spec.Manifest.Model,
-		Credentials:  agent.Spec.Credentials,
+		Credentials:  agent.Spec.Manifest.Credentials,
 	}
 
 	extraEnv = append(extraEnv, agent.Spec.Env...)
 
 	for _, env := range agent.Spec.Manifest.Env {
-		if env.Name == "" {
+		if env.Name == "" || env.Existing {
 			continue
 		}
 		if !validEnv.MatchString(env.Name) {
@@ -94,8 +94,16 @@ func Agent(ctx context.Context, db kclient.Client, agent *v1.Agent, oauthServerU
 		}
 
 		mainTool.Credentials = append(mainTool.Credentials, credTool+" as "+opts.Thread.Name)
-		if len(opts.Thread.Spec.Env) > 0 {
-			extraEnv = append(extraEnv, fmt.Sprintf("OBOT_THREAD_ENVS=%s", strings.Join(opts.Thread.Spec.Env, ",")))
+
+		threadEnvs := opts.Thread.Spec.Env
+		for _, env := range agent.Spec.Manifest.Env {
+			if env.Existing && env.Name != "" {
+				threadEnvs = append(threadEnvs, env.Name)
+			}
+		}
+
+		if len(threadEnvs) > 0 {
+			extraEnv = append(extraEnv, fmt.Sprintf("OBOT_THREAD_ENVS=%s", strings.Join(threadEnvs, ",")))
 		}
 	}
 

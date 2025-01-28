@@ -173,11 +173,6 @@ func (in *AgentSpec) DeepCopyInto(out *AgentSpec) {
 		*out = make([]string, len(*in))
 		copy(*out, *in)
 	}
-	if in.Credentials != nil {
-		in, out := &in.Credentials, &out.Credentials
-		*out = make([]string, len(*in))
-		copy(*out, *in)
-	}
 	if in.Env != nil {
 		in, out := &in.Env, &out.Env
 		*out = make([]string, len(*in))

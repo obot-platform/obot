@@ -27,6 +27,7 @@ type EnvVar struct {
 	Name        string `json:"name"`
 	Value       string `json:"value"`
 	Description string `json:"description"`
+	Existing    bool   `json:"existing"`
 }
 
 type Step struct {

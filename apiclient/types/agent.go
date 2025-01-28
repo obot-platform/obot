@@ -51,6 +51,7 @@ type AgentManifest struct {
 	Params               map[string]string `json:"params"`
 	Model                string            `json:"model"`
 	Env                  []EnvVar          `json:"env"`
+	Credentials          []string          `json:"credentials"`
 }
 
 func (m AgentManifest) GetParams() *openapi3.Schema {

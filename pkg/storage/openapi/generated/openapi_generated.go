@@ -621,8 +621,22 @@ func schema_obot_platform_obot_apiclient_types_AgentManifest(ref common.Referenc
 							},
 						},
 					},
+					"credentials": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
 				},
-				Required: []string{"name", "icons", "description", "default", "temperature", "cache", "alias", "prompt", "knowledgeDescription", "agents", "workflows", "tools", "availableThreadTools", "defaultThreadTools", "oauthApps", "introductionMessage", "starterMessages", "maxThreadTools", "params", "model", "env"},
+				Required: []string{"name", "icons", "description", "default", "temperature", "cache", "alias", "prompt", "knowledgeDescription", "agents", "workflows", "tools", "availableThreadTools", "defaultThreadTools", "oauthApps", "introductionMessage", "starterMessages", "maxThreadTools", "params", "model", "env", "credentials"},
 			},
 		},
 		Dependencies: []string{
@@ -1458,8 +1472,15 @@ func schema_obot_platform_obot_apiclient_types_EnvVar(ref common.ReferenceCallba
 							Format:  "",
 						},
 					},
+					"existing": {
+						SchemaProps: spec.SchemaProps{
+							Default: false,
+							Type:    []string{"boolean"},
+							Format:  "",
+						},
+					},
 				},
-				Required: []string{"name", "value", "description"},
+				Required: []string{"name", "value", "description", "existing"},
 			},
 		},
 	}
@@ -4835,6 +4856,20 @@ func schema_obot_platform_obot_apiclient_types_WorkflowManifest(ref common.Refer
 							},
 						},
 					},
+					"credentials": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
 					"steps": {
 						SchemaProps: spec.SchemaProps{
 							Type: []string{"array"},
@@ -4856,7 +4891,7 @@ func schema_obot_platform_obot_apiclient_types_WorkflowManifest(ref common.Refer
 						},
 					},
 				},
-				Required: []string{"name", "icons", "description", "default", "temperature", "cache", "alias", "prompt", "knowledgeDescription", "agents", "workflows", "tools", "availableThreadTools", "defaultThreadTools", "oauthApps", "introductionMessage", "starterMessages", "maxThreadTools", "params", "model", "env", "steps", "output"},
+				Required: []string{"name", "icons", "description", "default", "temperature", "cache", "alias", "prompt", "knowledgeDescription", "agents", "workflows", "tools", "availableThreadTools", "defaultThreadTools", "oauthApps", "introductionMessage", "starterMessages", "maxThreadTools", "params", "model", "env", "credentials", "steps", "output"},
 			},
 		},
 		Dependencies: []string{
@@ -5116,20 +5151,6 @@ func schema_storage_apis_obotobotai_v1_AgentSpec(ref common.ReferenceCallback) c
 						},
 					},
 					"inputFilters": {
-						SchemaProps: spec.SchemaProps{
-							Type: []string{"array"},
-							Items: &spec.SchemaOrArray{
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Default: "",
-										Type:    []string{"string"},
-										Format:  "",
-									},
-								},
-							},
-						},
-					},
-					"credentials": {
 						SchemaProps: spec.SchemaProps{
 							Type: []string{"array"},
 							Items: &spec.SchemaOrArray{
