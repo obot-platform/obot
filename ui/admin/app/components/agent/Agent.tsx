@@ -148,7 +148,9 @@ export function Agent({ className, currentThreadId, onRefresh }: AgentProps) {
 
 					<ToolForm
 						agent={agentUpdates}
-						onChange={({ tools }) => partialSetAgent(convertTools(tools))}
+						onChange={({ tools, oauthApps }) =>
+							partialSetAgent(convertTools(tools, oauthApps))
+						}
 						renderActions={renderActions}
 					/>
 				</div>
@@ -260,14 +262,15 @@ export function Agent({ className, currentThreadId, onRefresh }: AgentProps) {
 }
 
 function convertTools(
-	tools: { tool: string; variant: "fixed" | "default" | "available" }[]
+	tools: { tool: string; variant: "fixed" | "default" | "available" }[],
+	oauthApps: string[]
 ) {
 	type ToolObj = Pick<
 		AgentType,
-		"tools" | "defaultThreadTools" | "availableThreadTools"
+		"tools" | "defaultThreadTools" | "availableThreadTools" | "oauthApps"
 	>;
 
-	return tools.reduce(
+	const toolsUpdate = tools.reduce(
 		(acc, { tool, variant }) => {
 			if (variant === "fixed") acc.tools?.push(tool);
 			else if (variant === "default") acc.defaultThreadTools?.push(tool);
@@ -281,4 +284,6 @@ function convertTools(
 			availableThreadTools: [],
 		} as ToolObj
 	);
+
+	return { ...toolsUpdate, oauthApps };
 }

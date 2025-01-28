@@ -3,12 +3,12 @@ package toolinfo
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	"github.com/gptscript-ai/go-gptscript"
 	"github.com/obot-platform/nah/pkg/router"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/controller/creds"
+	"github.com/obot-platform/obot/pkg/render"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	apierror "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -57,7 +57,7 @@ func (h *Handler) SetToolInfoStatus(req router.Request, resp router.Response) (e
 		credNames []string
 	)
 	for _, tool := range tools {
-		if strings.ContainsAny(tool, "/.") {
+		if render.IsExternalTool(tool) {
 			credNames, err = h.credentialNamesForNonToolReferences(req.Ctx, tool)
 			if err != nil {
 				return err

@@ -93,25 +93,25 @@ END INSTRUCTIONS: TOOL %q`, tool.Spec.Manifest.Name, tool.Spec.Manifest.Context,
 	return toolDefs, nil
 }
 
-func Tool(ctx context.Context, c client.Client, ns, name string) (_ string, toolDefs []gptscript.ToolDef, _ error) {
+func tool(ctx context.Context, c client.Client, ns, name string) (string, map[string]string, []gptscript.ToolDef, error) {
 	if !system.IsToolID(name) {
-		name, err := ResolveToolReference(ctx, c, types.ToolReferenceTypeTool, ns, name)
-		return name, nil, err
+		name, metadata, err := resolveToolReferenceWithMetadata(ctx, c, types.ToolReferenceTypeTool, ns, name)
+		return name, metadata, nil, err
 	}
 
 	var tool v1.Tool
 	if err := c.Get(ctx, router.Key(ns, name), &tool); err != nil {
-		return name, nil, err
+		return name, nil, nil, err
 	}
 
 	toolDefs, err := CustomTool(ctx, c, tool)
 	if err != nil {
-		return "", nil, err
+		return "", nil, nil, err
 	}
 
 	if len(toolDefs) == 0 {
-		return "", toolDefs, nil
+		return "", nil, toolDefs, nil
 	}
 
-	return toolDefs[0].Name, toolDefs, nil
+	return toolDefs[0].Name, nil, toolDefs, nil
 }

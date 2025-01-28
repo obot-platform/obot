@@ -4,8 +4,8 @@ import { useForm } from "react-hook-form";
 
 import { OAuthAppParams } from "~/lib/model/oauthApps";
 import {
+	OAuthAppSpec,
 	OAuthFormStep,
-	OAuthProvider,
 } from "~/lib/model/oauthApps/oauth-helpers";
 import { cn } from "~/lib/utils";
 
@@ -21,22 +21,20 @@ import {
 import { Button } from "~/components/ui/button";
 import { Form } from "~/components/ui/form";
 import { Markdown } from "~/components/ui/markdown";
-import { useOAuthAppInfo } from "~/hooks/oauthApps/useOAuthApps";
 
 type OAuthAppFormProps = {
-	type: OAuthProvider;
 	onSubmit: (data: OAuthAppParams) => void;
 	isLoading?: boolean;
+	spec: OAuthAppSpec;
 };
 
-export function OAuthAppForm({ type, onSubmit, isLoading }: OAuthAppFormProps) {
-	const spec = useOAuthAppInfo(type);
-
+export function OAuthAppForm({ spec, onSubmit, isLoading }: OAuthAppFormProps) {
 	const fields = useMemo(() => {
+		if (!spec) return [];
 		return Object.entries(spec.schema.shape).map(([key]) => ({
 			key: key as keyof OAuthAppParams,
 		}));
-	}, [spec.schema]);
+	}, [spec]);
 
 	const defaultValues = useMemo(() => {
 		return fields.reduce((acc, { key }) => {

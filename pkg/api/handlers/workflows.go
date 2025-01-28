@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/http"
 	"strings"
 
 	"github.com/gptscript-ai/go-gptscript"
@@ -368,12 +369,15 @@ func (a *WorkflowHandler) EnsureCredentialForKnowledgeSource(req api.Context) er
 		return req.WriteCreated(resp)
 	}
 
-	credentialTools, err := v1.CredentialTools(req.Context(), req.Storage, req.Namespace(), ref)
-	if err != nil {
-		return err
+	var toolReference v1.ToolReference
+	if err := req.Get(&toolReference, ref); err != nil {
+		return fmt.Errorf("failed to get tool reference %v", ref)
+	}
+	if toolReference.Status.Tool == nil {
+		return types.NewErrHttp(http.StatusTooEarly, "tool reference is not ready yet")
 	}
 
-	if len(credentialTools) == 0 {
+	if len(toolReference.Status.Tool.Credentials) == 0 {
 		// The only way to get here is if the controller hasn't set the field yet.
 		if wf.Status.AuthStatus == nil {
 			wf.Status.AuthStatus = make(map[string]types.OAuthAppLoginAuthStatus)
@@ -397,15 +401,15 @@ func (a *WorkflowHandler) EnsureCredentialForKnowledgeSource(req api.Context) er
 		Spec: v1.OAuthAppLoginSpec{
 			CredentialContext: wf.Name,
 			ToolReference:     ref,
-			OAuthApps:         wf.Spec.Manifest.OAuthApps,
+			OAuthApps:         []string{toolReference.Status.Tool.Metadata["oauth"]},
 		},
 	}
 
-	if err = req.Delete(oauthLogin); err != nil {
+	if err := req.Delete(oauthLogin); err != nil {
 		return err
 	}
 
-	oauthLogin, err = wait.For(req.Context(), req.Storage, oauthLogin, func(obj *v1.OAuthAppLogin) (bool, error) {
+	oauthLogin, err := wait.For(req.Context(), req.Storage, oauthLogin, func(obj *v1.OAuthAppLogin) (bool, error) {
 		return obj.Status.External.Authenticated || obj.Status.External.Error != "" || obj.Status.External.URL != "", nil
 	}, wait.Option{
 		Create: true,

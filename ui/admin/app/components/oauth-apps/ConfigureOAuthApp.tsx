@@ -2,8 +2,8 @@ import { SettingsIcon } from "lucide-react";
 import { toast } from "sonner";
 import { mutate } from "swr";
 
-import { OAuthAppParams } from "~/lib/model/oauthApps";
-import { OAuthProvider } from "~/lib/model/oauthApps/oauth-helpers";
+import { OAuthApp, OAuthAppParams } from "~/lib/model/oauthApps";
+import { OAuthAppSpec } from "~/lib/model/oauthApps/oauth-helpers";
 import { OauthAppService } from "~/lib/service/api/oauthAppService";
 
 import { OAuthAppForm } from "~/components/oauth-apps/OAuthAppForm";
@@ -17,29 +17,25 @@ import {
 	DialogTrigger,
 } from "~/components/ui/dialog";
 import { ScrollArea } from "~/components/ui/scroll-area";
-import { useOAuthAppInfo } from "~/hooks/oauthApps/useOAuthApps";
 import { useAsync } from "~/hooks/useAsync";
 import { useDisclosure } from "~/hooks/useDisclosure";
 
 export function ConfigureOAuthApp({
-	type,
+	app,
 	onSuccess,
+	spec,
 }: {
-	type: OAuthProvider;
+	app?: OAuthApp;
+	spec: OAuthAppSpec;
 	onSuccess: () => void;
 }) {
-	const spec = useOAuthAppInfo(type);
-	const { appOverride } = spec;
-	const isEdit = !!appOverride;
-
 	const modal = useDisclosure();
 
 	const createApp = useAsync(async (data: OAuthAppParams) => {
 		await OauthAppService.createOauthApp({
 			...data,
-			type,
-			global: true,
-			integration: type,
+			type: spec.type,
+			integration: spec.type,
 		});
 
 		await mutate(OauthAppService.getOauthApps.key());
@@ -50,59 +46,56 @@ export function ConfigureOAuthApp({
 	});
 
 	const updateApp = useAsync(async (data: OAuthAppParams) => {
-		if (!appOverride) throw new Error("Custom app not found");
-
-		await OauthAppService.updateOauthApp(appOverride.id, {
+		if (!app) return;
+		await OauthAppService.updateOauthApp(app.id, {
 			...data,
-			type: appOverride.type,
-			global: appOverride.global,
-			integration: appOverride.integration,
+			type: app.type,
+			integration: app.integration,
 		});
 
 		await mutate(OauthAppService.getOauthApps.key());
 
 		modal.onClose();
-		toast.success(`${spec.displayName} OAuth configuration updated`);
+		toast.success(`${app.name} OAuth configuration updated`);
 		onSuccess();
 	});
 
+	const editLabel = app
+		? "Replace Configuration"
+		: `Configure ${spec?.displayName} OAuth App`;
 	return (
-		<>
-			<Dialog open={modal.isOpen} onOpenChange={modal.onOpenChange}>
-				<DialogTrigger asChild>
-					<Button className="w-full">
-						<SettingsIcon className="mr-2 h-4 w-4" />
-						{isEdit
-							? "Replace Configuration"
-							: `Configure ${spec.displayName} OAuth App`}
-					</Button>
-				</DialogTrigger>
+		<Dialog open={modal.isOpen} onOpenChange={modal.onOpenChange}>
+			<DialogTrigger asChild>
+				<Button className="w-full">
+					<SettingsIcon className="mr-2 h-4 w-4" />
+					{editLabel}
+				</Button>
+			</DialogTrigger>
 
-				<DialogContent
-					className="lg:max-w-3xl"
-					classNames={{
-						overlay: "opacity-0",
-					}}
-					aria-describedby="create-oauth-app"
-				>
-					<DialogTitle className="flex items-center gap-2 px-4">
-						<OAuthAppTypeIcon type={type} />
-						Configure {spec.displayName} OAuth App
-					</DialogTitle>
+			<DialogContent
+				className="lg:max-w-3xl"
+				classNames={{
+					overlay: "opacity-0",
+				}}
+				aria-describedby="create-oauth-app"
+			>
+				<DialogTitle className="flex items-center gap-2 px-4">
+					<OAuthAppTypeIcon type={app?.type || spec.type} />
+					Configure {app?.name || spec.displayName} OAuth App
+				</DialogTitle>
 
-					<DialogDescription hidden>
-						Create a new OAuth app for {spec.displayName}
-					</DialogDescription>
+				<DialogDescription hidden>
+					Create a new OAuth app for {app?.name || spec?.displayName}
+				</DialogDescription>
 
-					<ScrollArea className="max-h-[80vh] px-4">
-						<OAuthAppForm
-							type={type}
-							onSubmit={isEdit ? updateApp.execute : createApp.execute}
-							isLoading={isEdit ? updateApp.isLoading : createApp.isLoading}
-						/>
-					</ScrollArea>
-				</DialogContent>
-			</Dialog>
-		</>
+				<ScrollArea className="max-h-[80vh] px-4">
+					<OAuthAppForm
+						spec={spec}
+						onSubmit={app ? updateApp.execute : createApp.execute}
+						isLoading={app ? updateApp.isLoading : createApp.isLoading}
+					/>
+				</ScrollArea>
+			</DialogContent>
+		</Dialog>
 	);
 }
