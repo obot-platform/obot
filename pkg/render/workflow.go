@@ -29,36 +29,32 @@ func IsExternalTool(tool string) bool {
 }
 
 func ResolveToolReference(ctx context.Context, c kclient.Client, toolRefType types.ToolReferenceType, ns, name string) (string, error) {
-	name, _, err := resolveToolReferenceWithMetadata(ctx, c, toolRefType, ns, name)
+	name, err := resolveToolReferenceWithMetadata(ctx, c, toolRefType, ns, name)
 	return name, err
 }
 
-func resolveToolReferenceWithMetadata(ctx context.Context, c kclient.Client, toolRefType types.ToolReferenceType, ns, name string) (string, map[string]string, error) {
+func resolveToolReferenceWithMetadata(ctx context.Context, c kclient.Client, toolRefType types.ToolReferenceType, ns, name string) (string, error) {
 	if IsExternalTool(name) {
-		return name, nil, nil
+		return name, nil
 	}
 
 	var tool v1.ToolReference
 	if err := c.Get(ctx, router.Key(ns, name), &tool); apierror.IsNotFound(err) {
-		return name, nil, nil
+		return name, nil
 	} else if err != nil {
-		return "", nil, err
+		return "", err
 	}
 
-	var metadata map[string]string
-	if tool.Status.Tool != nil {
-		metadata = tool.Status.Tool.Metadata
-	}
 	if toolRefType != "" && tool.Spec.Type != toolRefType {
-		return name, metadata, fmt.Errorf("tool reference %s is not of type %s", name, toolRefType)
+		return name, fmt.Errorf("tool reference %s is not of type %s", name, toolRefType)
 	}
 	if tool.Status.Reference == "" {
-		return "", nil, fmt.Errorf("tool reference %s has no reference", name)
+		return "", fmt.Errorf("tool reference %s has no reference", name)
 	}
 	if toolRefType == types.ToolReferenceTypeTool {
-		return fmt.Sprintf("%s as %s", tool.Status.Reference, name), metadata, nil
+		return fmt.Sprintf("%s as %s", tool.Status.Reference, name), nil
 	}
-	return tool.Status.Reference, metadata, nil
+	return tool.Status.Reference, nil
 }
 
 func Workflow(ctx context.Context, c kclient.Client, wf *v1.Workflow, opts WorkflowOptions) (*v1.Agent, error) {

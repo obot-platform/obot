@@ -53,7 +53,7 @@ func (h *LoginHandler) RunTool(req router.Request, _ router.Response) error {
 		return err
 	}
 
-	oauthAppEnv, err := render.OAuthAppEnv(req.Ctx, req.Client, login.Spec.OAuthApps, login.Namespace, h.serverURL, nil)
+	oauthAppEnv, err := render.OAuthAppEnv(req.Ctx, req.Client, login.Spec.OAuthApps, login.Namespace, h.serverURL)
 	if err != nil {
 		return err
 	}
