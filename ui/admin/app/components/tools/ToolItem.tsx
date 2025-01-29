@@ -36,7 +36,7 @@ export function ToolItem({
 }: ToolItemProps) {
 	const [toolOAuthDialogOpen, setToolOAuthDialogOpen] = useState(false);
 
-	const isPATSupported = tool.metadata?.oauthPATSupported === "true";
+	const isPATSupported = tool.metadata?.supportsOAuthTokenPrompt === "true";
 	const oAuthMetadata = tool.metadata?.oauth;
 	const available = configured || isPATSupported;
 
