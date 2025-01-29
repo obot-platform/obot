@@ -171,7 +171,7 @@ export function CustomOAuthAppForm({
 							control={form.control}
 							onChange={(e) => {
 								if (deriveIntegrationFromName) {
-									form.setValue("alias", convertToIntegration(e.target.value));
+									form.setValue("alias", convertToAlias(e.target.value));
 								}
 							}}
 							name="name"
@@ -273,6 +273,6 @@ export function CustomOAuthAppForm({
 	}
 }
 
-function convertToIntegration(name: string) {
+function convertToAlias(name: string) {
 	return name.toLowerCase().replace(/[\s\W]+/g, "-");
 }
