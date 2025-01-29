@@ -12,6 +12,7 @@ import {
 	revalidateWhere,
 } from "~/lib/routers/apiRoutes";
 import { request } from "~/lib/service/api/primitives";
+import { downloadUrl } from "~/lib/utils/downloadFile";
 
 async function getAgents() {
 	const res = await request<{ items: Agent[] }>({
@@ -153,6 +154,13 @@ async function deleteWorkspaceFile(agentId: string, fileName: string) {
 	return fileName;
 }
 
+async function downloadWorkspaceFile(agentId: string, fileName: string) {
+	downloadUrl(
+		ApiRoutes.agents.getWorkspaceFile(agentId, fileName).url,
+		fileName
+	);
+}
+
 export const AgentService = {
 	getAgents,
 	getAgentById,
@@ -167,4 +175,5 @@ export const AgentService = {
 	getWorkspaceFiles,
 	uploadWorkspaceFile,
 	deleteWorkspaceFile,
+	downloadWorkspaceFile,
 };

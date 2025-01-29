@@ -163,6 +163,8 @@ export const ApiRoutes = {
 			buildUrl(`/agents/${agentId}/authorizations/remove`),
 		getWorkspaceFiles: (agentId: string) =>
 			buildUrl(`/agents/${agentId}/files`),
+		getWorkspaceFile: (agentId: string, fileName: string) =>
+			buildUrl(`/agents/${agentId}/files/${fileName}`),
 		removeWorkspaceFile: (agentId: string, fileName: string) =>
 			buildUrl(`/agents/${agentId}/files/${fileName}`),
 		uploadWorkspaceFile: (agentId: string, fileName: string) =>

@@ -1,4 +1,4 @@
-import { FileIcon, PlusIcon, TrashIcon } from "lucide-react";
+import { DownloadIcon, FileIcon, PlusIcon, TrashIcon } from "lucide-react";
 import { useRef } from "react";
 import useSWR from "swr";
 
@@ -8,6 +8,7 @@ import { ConfirmationDialog } from "~/components/composed/ConfirmationDialog";
 import { Truncate } from "~/components/composed/typography";
 import { Button } from "~/components/ui/button";
 import { CardDescription } from "~/components/ui/card";
+import { ClickableDiv } from "~/components/ui/clickable-div";
 import {
 	Tooltip,
 	TooltipContent,
@@ -74,32 +75,50 @@ export function WorkspaceFilesSection({
 
 			<div className="flex flex-col gap-2">
 				{files?.map((file) => (
-					<div
+					<ClickableDiv
 						key={file.name}
 						className="flex items-center justify-between gap-2"
+						onClick={() =>
+							AgentService.downloadWorkspaceFile(entityId, file.name)
+						}
 					>
 						<div className="flex items-center gap-2">
 							<FileIcon className="size-5" />
 							<Truncate>{file.name}</Truncate>
 						</div>
 
-						<Tooltip>
-							<TooltipTrigger asChild>
-								<Button
-									size="icon"
-									variant="ghost"
-									onClick={() =>
-										interceptAsync(() =>
-											deleteFile.executeAsync(entityId, file.name)
-										)
-									}
-									startContent={<TrashIcon className="size-5" />}
-								/>
-							</TooltipTrigger>
+						<div className="flex items-center gap-2">
+							<Tooltip>
+								<TooltipContent>Download File</TooltipContent>
 
-							<TooltipContent>Remove File</TooltipContent>
-						</Tooltip>
-					</div>
+								<TooltipTrigger asChild>
+									<Button
+										size="icon"
+										variant="ghost"
+										startContent={<DownloadIcon />}
+									/>
+								</TooltipTrigger>
+							</Tooltip>
+
+							<Tooltip>
+								<TooltipTrigger asChild>
+									<Button
+										size="icon"
+										variant="ghost"
+										onClick={(e) => {
+											e.stopPropagation();
+											interceptAsync(() =>
+												deleteFile.executeAsync(entityId, file.name)
+											);
+										}}
+										startContent={<TrashIcon className="size-5" />}
+									/>
+								</TooltipTrigger>
+
+								<TooltipContent>Remove File</TooltipContent>
+							</Tooltip>
+						</div>
+					</ClickableDiv>
 				))}
 
 				<Button
