@@ -119,9 +119,7 @@ func Agent(ctx context.Context, db kclient.Client, agent *v1.Agent, oauthServerU
 			mainTool.Tools = append(mainTool.Tools, name)
 		}
 
-		for _, t := range tools {
-			otherTools = append(otherTools, t)
-		}
+		otherTools = append(otherTools, tools...)
 	}
 
 	for _, tool := range agent.Spec.SystemTools {
