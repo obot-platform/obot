@@ -162,10 +162,10 @@ func OAuthAppEnv(ctx context.Context, db kclient.Client, oauthAppNames []string,
 	activeIntegrations := map[string]v1.OAuthApp{}
 	for _, name := range slices.Sorted(maps.Keys(apps)) {
 		app := apps[name]
-		if !app.Spec.Manifest.Global || app.Spec.Manifest.ClientID == "" || app.Spec.Manifest.ClientSecret == "" || app.Spec.Manifest.Integration == "" {
+		if !app.Spec.Manifest.Global || app.Spec.Manifest.ClientID == "" || app.Spec.Manifest.ClientSecret == "" || app.Spec.Manifest.Alias == "" {
 			continue
 		}
-		activeIntegrations[app.Spec.Manifest.Integration] = app
+		activeIntegrations[app.Spec.Manifest.Alias] = app
 	}
 
 	for _, appRef := range oauthAppNames {
@@ -173,19 +173,19 @@ func OAuthAppEnv(ctx context.Context, db kclient.Client, oauthAppNames []string,
 		if !ok {
 			return nil, fmt.Errorf("oauth app %s not found", appRef)
 		}
-		if app.Spec.Manifest.Integration == "" {
+		if app.Spec.Manifest.Alias == "" {
 			return nil, fmt.Errorf("oauth app %s has no integration name", app.Name)
 		}
 		if app.Spec.Manifest.ClientID == "" || app.Spec.Manifest.ClientSecret == "" {
 			return nil, fmt.Errorf("oauth app %s has no client id or secret", app.Name)
 		}
 
-		activeIntegrations[app.Spec.Manifest.Integration] = app
+		activeIntegrations[app.Spec.Manifest.Alias] = app
 	}
 
 	for _, integration := range slices.Sorted(maps.Keys(activeIntegrations)) {
 		app := activeIntegrations[integration]
-		integrationEnv := strings.ReplaceAll(strings.ToUpper(app.Spec.Manifest.Integration), "-", "_")
+		integrationEnv := strings.ReplaceAll(strings.ToUpper(app.Spec.Manifest.Alias), "-", "_")
 
 		extraEnv = append(extraEnv,
 			fmt.Sprintf("GPTSCRIPT_OAUTH_%s_AUTH_URL=%s", integrationEnv, app.AuthorizeURL(serverURL)),
@@ -352,8 +352,8 @@ func oauthAppsByName(ctx context.Context, c kclient.Client, namespace string) (m
 	}
 
 	for _, app := range apps.Items {
-		if app.Spec.Manifest.Integration != "" {
-			result[app.Spec.Manifest.Integration] = app
+		if app.Spec.Manifest.Alias != "" {
+			result[app.Spec.Manifest.Alias] = app
 		}
 	}
 

@@ -2549,7 +2549,7 @@ func schema_obot_platform_obot_apiclient_types_OAuthAppManifest(ref common.Refer
 							Format:      "",
 						},
 					},
-					"integration": {
+					"alias": {
 						SchemaProps: spec.SchemaProps{
 							Description: "This field is required, it correlates to the integration name in the gptscript oauth cred tool",
 							Type:        []string{"string"},

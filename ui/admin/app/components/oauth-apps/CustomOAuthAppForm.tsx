@@ -24,7 +24,7 @@ type Step = (typeof Step)[keyof typeof Step];
 
 const nameSchema = z.object({
 	name: z.string().min(1, "Required"),
-	integration: z
+	alias: z
 		.string()
 		.min(1, "Required")
 		.regex(
@@ -52,7 +52,7 @@ type CustomOAuthAppFormProps = {
 	onComplete: () => void;
 	onCancel?: () => void;
 	defaultStep?: Step;
-	integration?: string;
+	alias?: string;
 };
 
 export function CustomOAuthAppForm({
@@ -60,7 +60,7 @@ export function CustomOAuthAppForm({
 	onComplete,
 	onCancel,
 	defaultStep = Step.NAME,
-	integration,
+	alias,
 }: CustomOAuthAppFormProps) {
 	const createApp = useAsync(OauthAppService.createOauthApp, {
 		onSuccess: () => mutate(OauthAppService.getOauthApps.key()),
@@ -87,15 +87,15 @@ export function CustomOAuthAppForm({
 
 		return Object.keys(finalSchema.shape).reduce((acc, _key) => {
 			const key = _key as keyof FormData;
-			if (key === "integration") {
-				acc[key] = integration ?? "";
+			if (key === "alias") {
+				acc[key] = alias ?? "";
 			} else {
 				acc[key] = "";
 			}
 
 			return acc;
 		}, {} as FormData);
-	}, [defaultData, integration]);
+	}, [defaultData, alias]);
 
 	const getStepSchema = (step: Step) => {
 		if (step === Step.INFO && initialIsEdit)
@@ -137,7 +137,7 @@ export function CustomOAuthAppForm({
 				});
 
 				if (error instanceof ConflictError)
-					form.setError("integration", { message: error.message });
+					form.setError("alias", { message: error.message });
 
 				// do not proceed to the next step if there's an error
 				if (error) return;
@@ -160,7 +160,7 @@ export function CustomOAuthAppForm({
 
 	// once a user touches the integration field, we don't auto-derive it from the name
 	const deriveIntegrationFromName =
-		!integration && !initialIsEdit && !form.formState.touchedFields.integration;
+		!alias && !initialIsEdit && !form.formState.touchedFields.alias;
 
 	return (
 		<Form {...form}>
@@ -171,10 +171,7 @@ export function CustomOAuthAppForm({
 							control={form.control}
 							onChange={(e) => {
 								if (deriveIntegrationFromName) {
-									form.setValue(
-										"integration",
-										convertToIntegration(e.target.value)
-									);
+									form.setValue("alias", convertToIntegration(e.target.value));
 								}
 							}}
 							name="name"
@@ -184,9 +181,9 @@ export function CustomOAuthAppForm({
 						<ControlledInput
 							control={form.control}
 							description="This value will be used to link tools to your OAuth app"
-							disabled={!!integration}
-							name="integration"
-							label="Integration"
+							disabled={!!alias}
+							name="alias"
+							label="alias"
 						/>
 
 						<ControlledInput

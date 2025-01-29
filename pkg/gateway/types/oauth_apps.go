@@ -47,10 +47,10 @@ type OAuthAppTypeConfig struct {
 
 func ValidateAndSetDefaultsOAuthAppManifest(r *types.OAuthAppManifest, create bool) error {
 	var errs []error
-	if r.Integration == "" {
-		errs = append(errs, fmt.Errorf("missing integration"))
-	} else if !alphaNumericRegexp.MatchString(r.Integration) {
-		errs = append(errs, fmt.Errorf("integration name can only contain alphanumeric characters and hyphens: %s", r.Integration))
+	if r.Alias == "" {
+		errs = append(errs, fmt.Errorf("missing alias"))
+	} else if !alphaNumericRegexp.MatchString(r.Alias) {
+		errs = append(errs, fmt.Errorf("alias name can only contain alphanumeric characters and hyphens: %s", r.Alias))
 	}
 
 	switch r.Type {
@@ -163,8 +163,8 @@ func MergeOAuthAppManifests(r, other types.OAuthAppManifest) types.OAuthAppManif
 	if other.Name != "" {
 		retVal.Name = other.Name
 	}
-	if other.Integration != "" {
-		retVal.Integration = other.Integration
+	if other.Alias != "" {
+		retVal.Alias = other.Alias
 	}
 	if other.AppID != "" {
 		retVal.AppID = other.AppID

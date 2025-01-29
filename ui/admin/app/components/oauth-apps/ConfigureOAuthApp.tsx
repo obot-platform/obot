@@ -35,7 +35,7 @@ export function ConfigureOAuthApp({
 		await OauthAppService.createOauthApp({
 			...data,
 			type: spec.type,
-			integration: spec.type,
+			alias: spec.type,
 		});
 
 		await mutate(OauthAppService.getOauthApps.key());
@@ -50,7 +50,7 @@ export function ConfigureOAuthApp({
 		await OauthAppService.updateOauthApp(app.id, {
 			...data,
 			type: app.type,
-			integration: app.integration,
+			alias: app.alias,
 		});
 
 		await mutate(OauthAppService.getOauthApps.key());

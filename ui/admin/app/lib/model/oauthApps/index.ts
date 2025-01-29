@@ -44,7 +44,7 @@ export type OAuthAppParams = {
 	// This field is optional for HubSpot OAuth apps.
 	optionalScope?: string;
 	// This field is required, it correlates to the integration name in the gptscript oauth cred tool
-	integration: string;
+	alias: string;
 	// This field is only needed for Salesforce OAuth apps
 	instanceURL?: string;
 };
@@ -56,7 +56,7 @@ export type OAuthAppBase = OAuthAppParams & {
 
 export type CreateOAuthApp = Partial<OAuthAppBase> & {
 	type: OAuthProvider;
-	integration: string;
+	alias: string;
 };
 
 export type OAuthApp = EntityMeta &

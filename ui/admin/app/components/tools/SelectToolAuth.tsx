@@ -14,7 +14,7 @@ import {
 } from "~/components/ui/dialog";
 
 type SelectToolAuthProps = {
-	integration: string;
+	alias: string;
 	configured: boolean;
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
@@ -23,7 +23,7 @@ type SelectToolAuthProps = {
 };
 
 export function SelectToolAuth({
-	integration,
+	alias,
 	configured,
 	open,
 	onOpenChange,
@@ -34,8 +34,7 @@ export function SelectToolAuth({
 	const [openOauthDialog, setOpenOauthDialog] = useState(false);
 
 	const isSpecedOauth =
-		integration &&
-		Object.values(OAuthProvider).includes(integration as OAuthProvider);
+		alias && Object.values(OAuthProvider).includes(alias as OAuthProvider);
 
 	const handleOAuthSelect = () => {
 		if (configured) {
@@ -109,13 +108,13 @@ export function SelectToolAuth({
 					open={openOauthDialog}
 					onOpenChange={setOpenOauthDialog}
 					onSuccess={handleOauthSuccess}
-					type={integration as OAuthProvider}
+					type={alias as OAuthProvider}
 				/>
 			) : (
 				<CustomOauthAppDetail
 					open={openOauthDialog}
 					onOpenChange={handleOpenCustomOauthDialog}
-					integration={integration}
+					alias={alias}
 				/>
 			)}
 		</>

@@ -30,7 +30,7 @@ export function ToolCardActions({ tool }: { tool: ToolReference }) {
 
 	const oauthApps = useOAuthAppList();
 	const oauthAppsMap = new Map(
-		oauthApps.map((app) => [app.integration ?? app.type, app])
+		oauthApps.map((app) => [app.alias ?? app.type, app])
 	);
 	const oauth = oauthAppsMap.get(tool?.metadata?.oauth ?? "");
 
@@ -134,7 +134,7 @@ export function ToolCardActions({ tool }: { tool: ToolReference }) {
 						open={configureAuthOpen}
 						onOpenChange={setConfigureAuthOpen}
 						app={oauth}
-						integration={toolOauthMetadata}
+						alias={toolOauthMetadata}
 					/>
 				)
 			) : null}

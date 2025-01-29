@@ -26,7 +26,7 @@ type OAuthApp struct {
 }
 
 func (r *OAuthApp) GetAliasName() string {
-	return r.Spec.Manifest.Integration
+	return r.Spec.Manifest.Alias
 }
 
 func (r *OAuthApp) SetAssigned(bool) {}
@@ -48,8 +48,8 @@ func (r *OAuthApp) Has(field string) bool {
 func (r *OAuthApp) Get(field string) string {
 	if r != nil {
 		switch field {
-		case "spec.manifest.integration":
-			return r.Spec.Manifest.Integration
+		case "spec.manifest.alias":
+			return r.Spec.Manifest.Alias
 		}
 	}
 
@@ -57,11 +57,11 @@ func (r *OAuthApp) Get(field string) string {
 }
 
 func (r *OAuthApp) FieldNames() []string {
-	return []string{"spec.manifest.integration"}
+	return []string{"spec.manifest.alias"}
 }
 
 func (r *OAuthApp) RedirectURL(baseURL string) string {
-	return fmt.Sprintf("%s/api/app-oauth/callback/%s", baseURL, r.Spec.Manifest.Integration)
+	return fmt.Sprintf("%s/api/app-oauth/callback/%s", baseURL, r.Spec.Manifest.Alias)
 }
 
 func OAuthAppGetTokenURL(baseURL string) string {
@@ -69,11 +69,11 @@ func OAuthAppGetTokenURL(baseURL string) string {
 }
 
 func (r *OAuthApp) AuthorizeURL(baseURL string) string {
-	return fmt.Sprintf("%s/api/app-oauth/authorize/%s", baseURL, r.Spec.Manifest.Integration)
+	return fmt.Sprintf("%s/api/app-oauth/authorize/%s", baseURL, r.Spec.Manifest.Alias)
 }
 
 func (r *OAuthApp) RefreshURL(baseURL string) string {
-	return fmt.Sprintf("%s/api/app-oauth/refresh/%s", baseURL, r.Spec.Manifest.Integration)
+	return fmt.Sprintf("%s/api/app-oauth/refresh/%s", baseURL, r.Spec.Manifest.Alias)
 }
 
 func (r *OAuthApp) DeleteRefs() []Ref {

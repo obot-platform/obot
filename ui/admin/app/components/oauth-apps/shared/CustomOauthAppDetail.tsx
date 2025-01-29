@@ -12,12 +12,12 @@ export function CustomOauthAppDetail({
 	open,
 	app,
 	onOpenChange,
-	integration,
+	alias,
 }: {
 	open: boolean;
 	app?: OAuthApp;
 	onOpenChange: (open: boolean) => void;
-	integration?: string;
+	alias?: string;
 }) {
 	return (
 		<Dialog open={open} onOpenChange={onOpenChange}>
@@ -27,7 +27,7 @@ export function CustomOauthAppDetail({
 				</DialogHeader>
 				<CustomOAuthAppForm
 					defaultData={app}
-					integration={integration}
+					alias={alias}
 					onComplete={() => {
 						onOpenChange(false);
 					}}

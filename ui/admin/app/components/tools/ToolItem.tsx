@@ -112,7 +112,7 @@ export function ToolItem({
 			</CommandItem>
 			{oAuthMetadata && isPATSupported && (
 				<SelectToolAuth
-					integration={oAuthMetadata}
+					alias={oAuthMetadata}
 					configured={configured}
 					open={toolOAuthDialogOpen}
 					onOpenChange={setToolOAuthDialogOpen}

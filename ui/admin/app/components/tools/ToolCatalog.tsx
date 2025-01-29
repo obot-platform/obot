@@ -64,7 +64,7 @@ export function ToolCatalog({
 
 	const oauthApps = useOAuthAppList();
 	const configuredOauthApps = useMemo(() => {
-		return new Set(oauthApps.map((app) => app.integration ?? app.type));
+		return new Set(oauthApps.map((app) => app.alias ?? app.type));
 	}, [oauthApps]);
 
 	const sortedValidCategories = useMemo(() => {
