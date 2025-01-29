@@ -42,19 +42,6 @@ export function Agent({ className, currentThreadId, onRefresh }: AgentProps) {
 	const [agentUpdates, setAgentUpdates] = useState(agent);
 
 	useEffect(() => {
-		if (agent.aliasAssigned === undefined && agent.alias) {
-			const intervalId = setInterval(() => {
-				refreshAgent();
-				if (agent.aliasAssigned !== undefined) {
-					clearInterval(intervalId);
-				}
-			}, 1000);
-
-			return () => clearInterval(intervalId);
-		}
-	}, [agent, refreshAgent]);
-
-	useEffect(() => {
 		setAgentUpdates((prev) => {
 			return {
 				...agent,

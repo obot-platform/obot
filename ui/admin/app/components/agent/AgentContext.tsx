@@ -3,6 +3,7 @@ import {
 	createContext,
 	useCallback,
 	useContext,
+	useEffect,
 	useState,
 } from "react";
 import useSWR, { mutate } from "swr";
@@ -33,11 +34,26 @@ export function AgentProvider({
 }) {
 	const agentId = agent.id;
 
+	const [blockPollingAgent, setBlockPollingAgent] = useState(false);
+
 	const getAgent = useSWR(
 		AgentService.getAgentById.key(agentId),
 		({ agentId }) => AgentService.getAgentById(agentId),
-		{ fallbackData: agent }
+		{
+			fallbackData: agent,
+			refreshInterval: blockPollingAgent ? undefined : 1000,
+		}
 	);
+
+	const agentData = getAgent.data ?? agent;
+
+	useEffect(() => {
+		if (agentData?.alias && agentData.aliasAssigned === undefined) {
+			setBlockPollingAgent(false);
+		} else {
+			setBlockPollingAgent(true);
+		}
+	}, [agentData]);
 
 	const [lastUpdated, setLastSaved] = useState<Date>();
 
@@ -61,7 +77,7 @@ export function AgentProvider({
 		<AgentContext.Provider
 			value={{
 				agentId,
-				agent: getAgent.data ?? agent,
+				agent: agentData,
 				updateAgent: updateAgent.executeAsync,
 				refreshAgent,
 				isUpdating: updateAgent.isLoading,
