@@ -4,7 +4,10 @@ import {
 	ExternalLink,
 	FileIcon,
 	FilesIcon,
+	KeyIcon,
+	LucideIcon,
 	RotateCwIcon,
+	TrashIcon,
 } from "lucide-react";
 import { $path } from "safe-routes";
 
@@ -16,9 +19,11 @@ import { ThreadsService } from "~/lib/service/api/threadsService";
 import { cn } from "~/lib/utils";
 
 import {
+	useThreadCredentials,
 	useThreadFiles,
 	useThreadKnowledge,
 } from "~/components/chat/shared/thread-helpers";
+import { ConfirmationDialog } from "~/components/composed/ConfirmationDialog";
 import { Truncate } from "~/components/composed/typography";
 import {
 	Accordion,
@@ -36,6 +41,7 @@ import {
 	TooltipContent,
 	TooltipTrigger,
 } from "~/components/ui/tooltip";
+import { useConfirmationDialog } from "~/hooks/component-helpers/useConfirmationDialog";
 
 interface ThreadMetaProps {
 	entity: Agent | Workflow;
@@ -56,6 +62,11 @@ export function ThreadMeta({ entity, thread, className }: ThreadMetaProps) {
 
 	const getKnowledge = useThreadKnowledge(thread.id);
 	const { data: knowledge = [] } = getKnowledge;
+
+	const { getCredentials, deleteCredential } = useThreadCredentials(thread.id);
+	const { data: credentials = [] } = getCredentials;
+
+	const { dialogProps, interceptAsync } = useConfirmationDialog();
 
 	return (
 		<Card className={cn("bg-0 h-full overflow-hidden", className)}>
@@ -128,97 +139,150 @@ export function ThreadMeta({ entity, thread, className }: ThreadMetaProps) {
 					</table>
 				</div>
 
-				<Accordion type="multiple" className="mx-2" defaultValue={["files"]}>
-					{files.length > 0 && (
-						<AccordionItem value="files">
-							<AccordionTrigger>
-								<div className="flex w-full items-center justify-between">
-									<span className="flex items-center">
-										<FilesIcon className="mr-2 h-4 w-4" />
-										Files
-									</span>
+				<Accordion type="multiple" className="mx-2">
+					<ThreadMetaAccordionItem
+						value="files"
+						icon={FilesIcon}
+						title="Files"
+						isLoading={getFiles.isValidating}
+						onRefresh={() => getFiles.mutate()}
+						items={files}
+						renderItem={(file) => (
+							<ClickableDiv
+								key={file.name}
+								onClick={() =>
+									ThreadsService.downloadFile(thread.id, file.name)
+								}
+							>
+								<li className="flex items-center gap-2">
+									<Tooltip>
+										<TooltipTrigger asChild>
+											<Button variant="ghost" size="icon-sm">
+												<DownloadIcon />
+											</Button>
+										</TooltipTrigger>
 
-									<Button
-										variant="ghost"
-										size="icon-sm"
-										loading={getFiles.isValidating}
-										onClick={(e) => {
-											e.stopPropagation();
-											getFiles.mutate();
-										}}
+										<TooltipContent>Download</TooltipContent>
+									</Tooltip>
+									<Truncate
+										className="w-fit flex-1"
+										tooltipContentProps={{ align: "start" }}
 									>
-										<RotateCwIcon />
-									</Button>
-								</div>
-							</AccordionTrigger>
-							<AccordionContent className="mx-4">
-								<ul className="space-y-2">
-									{files.map((file) => (
-										<ClickableDiv
-											key={file.name}
-											onClick={() =>
-												ThreadsService.downloadFile(thread.id, file.name)
-											}
-										>
-											<li key={file.name} className="flex items-center gap-2">
-												<Tooltip>
-													<TooltipTrigger asChild>
-														<Button variant="ghost" size="icon-sm">
-															<DownloadIcon />
-														</Button>
-													</TooltipTrigger>
+										{file.name}
+									</Truncate>
+								</li>
+							</ClickableDiv>
+						)}
+					/>
 
-													<TooltipContent>Download</TooltipContent>
-												</Tooltip>
-												<Truncate
-													className="w-fit flex-1"
-													tooltipContentProps={{ align: "start" }}
-												>
-													{file.name}
-												</Truncate>
-											</li>
-										</ClickableDiv>
-									))}
-								</ul>
-							</AccordionContent>
-						</AccordionItem>
-					)}
-					{knowledge.length > 0 && (
-						<AccordionItem value="knowledge">
-							<AccordionTrigger>
-								<div className="flex w-full items-center justify-between">
-									<span className="flex items-center">
-										<FilesIcon className="mr-2 h-4 w-4" />
-										Knowledge Files
-									</span>
+					<ThreadMetaAccordionItem
+						value="knowledge"
+						icon={FilesIcon}
+						title="Knowledge Files"
+						isLoading={getKnowledge.isValidating}
+						onRefresh={() => getKnowledge.mutate()}
+						items={knowledge}
+						renderItem={(file) => (
+							<li key={file.id} className="flex items-center">
+								<FileIcon className="mr-2 h-4 w-4" />
+								<p>{file.fileName}</p>
+							</li>
+						)}
+					/>
 
-									<Button
-										variant="ghost"
-										size="icon-sm"
-										loading={getKnowledge.isValidating}
-										onClick={(e) => {
-											e.stopPropagation();
-											getKnowledge.mutate();
-										}}
-									>
-										<RotateCwIcon />
-									</Button>
-								</div>
-							</AccordionTrigger>
-							<AccordionContent className="mx-4">
-								<ul className="space-y-2">
-									{knowledge.map((file) => (
-										<li key={file.id} className="flex items-center">
-											<FileIcon className="mr-2 h-4 w-4" />
-											<span>{file.fileName}</span>
-										</li>
-									))}
-								</ul>
-							</AccordionContent>
-						</AccordionItem>
-					)}
+					<ThreadMetaAccordionItem
+						value="credentials"
+						icon={KeyIcon}
+						title="Credentials"
+						isLoading={getCredentials.isValidating}
+						onRefresh={() => getCredentials.mutate()}
+						items={credentials}
+						renderItem={(credential) => (
+							<li
+								key={credential.name}
+								className="flex items-center justify-between"
+							>
+								<p>{credential.name}</p>
+
+								<Button
+									size="icon-sm"
+									variant="ghost"
+									onClick={() =>
+										interceptAsync(() =>
+											deleteCredential.executeAsync(credential.name)
+										)
+									}
+								>
+									<TrashIcon />
+								</Button>
+							</li>
+						)}
+					/>
 				</Accordion>
+
+				<ConfirmationDialog
+					{...dialogProps}
+					title="Delete Credential?"
+					description="You will need to re-authenticate to use any tools that require this credential."
+					confirmProps={{
+						variant: "destructive",
+						loading: deleteCredential.isLoading,
+						disabled: deleteCredential.isLoading,
+					}}
+				/>
 			</CardContent>
 		</Card>
+	);
+}
+
+type ThreadMetaAccordionItemProps<T> = {
+	value: string;
+	icon: LucideIcon;
+	title: string;
+	isLoading?: boolean;
+	onRefresh?: (e: React.MouseEvent) => void;
+	items: T[];
+	renderItem: (item: T) => React.ReactNode;
+	emptyMessage?: string;
+};
+
+function ThreadMetaAccordionItem<T>(props: ThreadMetaAccordionItemProps<T>) {
+	const Icon = props.icon;
+	return (
+		<AccordionItem value={props.value}>
+			<AccordionTrigger>
+				<div className="flex w-full items-center justify-between">
+					<span className="flex items-center">
+						<Icon className="mr-2 h-4 w-4" />
+						{props.title}
+					</span>
+
+					{props.onRefresh && (
+						<Button
+							variant="ghost"
+							size="icon-sm"
+							loading={props.isLoading}
+							onClick={(e) => {
+								e.stopPropagation();
+								props.onRefresh?.(e);
+							}}
+						>
+							<RotateCwIcon />
+						</Button>
+					)}
+				</div>
+			</AccordionTrigger>
+			<AccordionContent className="mx-4">
+				<ul className="space-y-2">
+					{props.items.length ? (
+						props.items.map((item) => props.renderItem(item))
+					) : (
+						<li className="flex items-center">
+							<p>{props.emptyMessage || `No ${props.title.toLowerCase()}`}</p>
+						</li>
+					)}
+				</ul>
+			</AccordionContent>
+		</AccordionItem>
 	);
 }

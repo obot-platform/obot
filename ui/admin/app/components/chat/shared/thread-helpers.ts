@@ -1,9 +1,11 @@
 import { toast } from "sonner";
 import useSWR from "swr";
 
+import { CredentialNamespace } from "~/lib/model/credentials";
 import { KnowledgeFileNamespace } from "~/lib/model/knowledge";
 import { UpdateThread } from "~/lib/model/threads";
 import { AgentService } from "~/lib/service/api/agentService";
+import { CredentialApiService } from "~/lib/service/api/credentialApiService";
 import { KnowledgeFileService } from "~/lib/service/api/knowledgeFileApiService";
 import { ThreadsService } from "~/lib/service/api/threadsService";
 
@@ -67,4 +69,35 @@ export function useThreadAgents(threadId?: Nullish<string>) {
 	return useSWR(AgentService.getAgentById.key(thread?.agentID), ({ agentId }) =>
 		AgentService.getAgentById(agentId)
 	);
+}
+
+export function useThreadCredentials(threadId: Nullish<string>) {
+	const getCredentials = useSWR(
+		CredentialApiService.getCredentials.key(
+			CredentialNamespace.Threads,
+			threadId
+		),
+		({ namespace, entityId }) =>
+			CredentialApiService.getCredentials(namespace, entityId)
+	);
+
+	const handleDeleteCredential = async (credentialName: string) => {
+		if (!threadId) return;
+
+		return await CredentialApiService.deleteCredential(
+			CredentialNamespace.Threads,
+			threadId,
+			credentialName
+		);
+	};
+
+	const deleteCredential = useAsync(handleDeleteCredential, {
+		onSuccess: (credentialId) => {
+			getCredentials.mutate((creds) =>
+				creds?.filter((c) => c.name !== credentialId)
+			);
+		},
+	});
+
+	return { getCredentials, deleteCredential };
 }

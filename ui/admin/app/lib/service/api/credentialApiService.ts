@@ -1,6 +1,6 @@
 import { Credential, CredentialNamespace } from "~/lib/model/credentials";
 import { EntityList } from "~/lib/model/primitives";
-import { ApiRoutes } from "~/lib/routers/apiRoutes";
+import { ApiRoutes, createRevalidate } from "~/lib/routers/apiRoutes";
 import { request } from "~/lib/service/api/primitives";
 
 async function getCredentials(
@@ -8,7 +8,7 @@ async function getCredentials(
 	entityId: string
 ) {
 	const { data } = await request<EntityList<Credential>>({
-		url: ApiRoutes.credentials.getCredentialsForEntity(namespace, entityId).url,
+		url: ApiRoutes.credentials.getCredentials(namespace, entityId).url,
 	});
 
 	return data.items ?? [];
@@ -20,25 +20,30 @@ getCredentials.key = (
 	if (!entityId) return null;
 
 	return {
-		url: ApiRoutes.credentials.getCredentialsForEntity(namespace, entityId)
-			.path,
+		url: ApiRoutes.credentials.getCredentials(namespace, entityId).path,
 		entityId,
 		namespace,
 	};
 };
+getCredentials.revalidate = createRevalidate(
+	ApiRoutes.credentials.getCredentials
+);
 
 async function deleteCredential(
 	namespace: CredentialNamespace,
 	entityId: string,
-	credentialId: string
+	credentialName: string
 ) {
 	await request({
 		url: ApiRoutes.credentials.deleteCredential(
 			namespace,
 			entityId,
-			credentialId
+			credentialName
 		).url,
+		method: "DELETE",
 	});
+
+	return credentialName;
 }
 
 export const CredentialApiService = {

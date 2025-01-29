@@ -35,34 +35,7 @@ const buildUrl = (path: string, params?: object) => {
 
 export const ApiRoutes = {
 	assistants: {
-		base: () => buildUrl("/assistants"),
 		getAssistants: () => buildUrl("/assistants"),
-		getCredentials: (assistantId: string) =>
-			buildUrl(`/assistants/${assistantId}/credentials`),
-		deleteCredential: (assistantId: string, credentialId: string) =>
-			buildUrl(`/assistants/${assistantId}/credentials/${credentialId}`),
-		getEvents: (assistantId: string) =>
-			buildUrl(`/assistants/${assistantId}/events`),
-		invoke: (assistantId: string) =>
-			buildUrl(`/assistants/${assistantId}/invoke`),
-		getTools: (assistantId: string) =>
-			buildUrl(`/assistants/${assistantId}/tools`),
-		deleteTool: (assistantId: string, toolId: string) =>
-			buildUrl(`/assistants/${assistantId}/tools/${toolId}`),
-		getFiles: (assistantId: string) =>
-			buildUrl(`/assistants/${assistantId}/files`),
-		getFileById: (assistantId: string, fileId: string) =>
-			buildUrl(`/assistants/${assistantId}/files/${fileId}`),
-		uploadFile: (assistantId: string) =>
-			buildUrl(`/assistants/${assistantId}/files`),
-		deleteFile: (assistantId: string, fileId: string) =>
-			buildUrl(`/assistants/${assistantId}/files/${fileId}`),
-		getKnowledge: (assistantId: string) =>
-			buildUrl(`/assistants/${assistantId}/knowledge`),
-		addKnowledge: (assistantId: string, fileName: string) =>
-			buildUrl(`/assistants/${assistantId}/knowledge/${fileName}`),
-		deleteKnowledge: (assistantId: string, fileName: string) =>
-			buildUrl(`/assistants/${assistantId}/knowledge/${fileName}`),
 	},
 	knowledgeSources: {
 		getKnowledgeSources: (
@@ -189,10 +162,8 @@ export const ApiRoutes = {
 		updateEnv: (entityId: string) => buildUrl(`/agents/${entityId}/env`),
 	},
 	credentials: {
-		getCredentialsForEntity: (
-			namespace: CredentialNamespace,
-			entityId: string
-		) => buildUrl(`/${namespace}/${entityId}/credentials`),
+		getCredentials: (namespace: CredentialNamespace, entityId: string) =>
+			buildUrl(`/${namespace}/${entityId}/credentials`),
 		deleteCredential: (
 			namespace: CredentialNamespace,
 			entityId: string,
