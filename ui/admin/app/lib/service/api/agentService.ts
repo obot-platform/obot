@@ -4,7 +4,13 @@ import {
 	CreateAgent,
 	UpdateAgent,
 } from "~/lib/model/agents";
-import { ApiRoutes, revalidateWhere } from "~/lib/routers/apiRoutes";
+import { EntityList } from "~/lib/model/primitives";
+import { WorkspaceFile } from "~/lib/model/workspace";
+import {
+	ApiRoutes,
+	createRevalidate,
+	revalidateWhere,
+} from "~/lib/routers/apiRoutes";
 import { request } from "~/lib/service/api/primitives";
 
 async function getAgents() {
@@ -108,6 +114,45 @@ async function removeAgentAuthorization(agentId: string, userId: string) {
 	});
 }
 
+async function getWorkspaceFiles(agentId: string) {
+	const res = await request<EntityList<WorkspaceFile>>({
+		url: ApiRoutes.agents.getWorkspaceFiles(agentId).url,
+		errorMessage: "Failed to fetch workspace files",
+	});
+
+	return res.data.items;
+}
+getWorkspaceFiles.key = (agentId?: Nullish<string>) => {
+	if (!agentId) return null;
+
+	return { url: ApiRoutes.agents.getWorkspaceFiles(agentId).path, agentId };
+};
+getWorkspaceFiles.revalidate = createRevalidate(
+	ApiRoutes.agents.getWorkspaceFiles
+);
+
+async function uploadWorkspaceFile(agentId: string, file: File) {
+	await request({
+		url: ApiRoutes.agents.uploadWorkspaceFile(agentId, file.name).url,
+		method: "POST",
+		data: await file.arrayBuffer(),
+		headers: { "Content-Type": "application/x-www-form-urlencoded" },
+		errorMessage: "Failed to add knowledge to agent",
+	});
+
+	return file.name;
+}
+
+async function deleteWorkspaceFile(agentId: string, fileName: string) {
+	await request({
+		url: ApiRoutes.agents.removeWorkspaceFile(agentId, fileName).url,
+		method: "DELETE",
+		errorMessage: "Failed to delete workspace file",
+	});
+
+	return fileName;
+}
+
 export const AgentService = {
 	getAgents,
 	getAgentById,
@@ -119,4 +164,7 @@ export const AgentService = {
 	getAgentAuthorizations,
 	addAgentAuthorization,
 	removeAgentAuthorization,
+	getWorkspaceFiles,
+	uploadWorkspaceFile,
+	deleteWorkspaceFile,
 };

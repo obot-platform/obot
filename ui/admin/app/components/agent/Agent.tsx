@@ -18,6 +18,7 @@ import { AgentCapabilityForm } from "~/components/agent/shared/AgentCapabilityFo
 import { AgentModelSelect } from "~/components/agent/shared/AgentModelSelect";
 import { EnvironmentVariableSection } from "~/components/agent/shared/EnvironmentVariableSection";
 import { ToolAuthenticationStatus } from "~/components/agent/shared/ToolAuthenticationStatus";
+import { WorkspaceFilesSection } from "~/components/agent/shared/WorkspaceFilesSection";
 import { AgentKnowledgePanel } from "~/components/knowledge";
 import {
 	Accordion,
@@ -177,6 +178,8 @@ export function Agent({ className, currentThreadId, onRefresh }: AgentProps) {
 						}}
 					/>
 				</div>
+
+				<WorkspaceFilesSection entityId={agent.id} />
 
 				<Accordion type="multiple" className="m-4 p-4">
 					<AccordionItem value="model">
