@@ -15,6 +15,8 @@ RUN --mount=type=cache,id=pnpm,target=/root/.local/share/pnpm/store \
 FROM base AS tools
 ARG TOOL_REGISTRY_REPOS='github.com/obot-platform/tools'
 RUN apk add --no-cache curl python-3.13 py3.13-pip
+# Dumb hack for maybe wolfi issue
+RUN rm -f /usr/lib/gcc/x86_64-pc-linux-gnu/14/include-fixed/pthread.h
 WORKDIR /app
 COPY . .
 RUN --mount=type=cache,id=pnpm,target=/root/.local/share/pnpm/store \
