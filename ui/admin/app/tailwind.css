@@ -205,4 +205,8 @@ body {
 	small {
 		@apply text-sm leading-5;
 	}
+
+	svg {
+		@apply min-w-fit;
+	}
 }
