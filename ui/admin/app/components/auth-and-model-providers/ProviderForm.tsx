@@ -15,11 +15,10 @@ import { ModelApiService } from "~/lib/service/api/modelApiService";
 import { ModelProviderApiService } from "~/lib/service/api/modelProviderApiService";
 
 import {
-	AuthProviderOptionalTooltips,
-	AuthProviderRequiredTooltips,
 	AuthProviderSensitiveFields,
-	ModelProviderRequiredTooltips,
+	AuthProviderTooltips,
 	ModelProviderSensitiveFields,
+	ModelProviderTooltips,
 } from "~/components/auth-and-model-providers/constants";
 import { HelperTooltipLabel } from "~/components/composed/HelperTooltip";
 import { ControlledInput } from "~/components/form/controlledInputs";
@@ -54,7 +53,7 @@ const formSchema = z.object({
 
 export type ProviderFormValues = z.infer<typeof formSchema>;
 
-const translateUserFriendlyLabel = (label: string) => {
+const fieldNameFromParameter = (parameter: string) => {
 	const fieldsToStrip = [
 		"OBOT_OPENAI_MODEL_PROVIDER",
 		"OBOT_AZURE_OPENAI_MODEL_PROVIDER",
@@ -67,12 +66,18 @@ const translateUserFriendlyLabel = (label: string) => {
 		"OBOT_AUTH_PROVIDER",
 		"OBOT_GOOGLE_AUTH_PROVIDER",
 		"OBOT_GITHUB_AUTH_PROVIDER",
+		"OBOT_GENERIC_OPENAI_MODEL_PROVIDER",
 	];
 
 	return fieldsToStrip
 		.reduce((acc, field) => {
 			return acc.replace(field, "");
-		}, label)
+		}, parameter)
+		.replace(/^_/, "");
+};
+
+const translateUserFriendlyLabel = (label: string) => {
+	return fieldNameFromParameter(label)
 		.toLowerCase()
 		.replace(/_/g, " ")
 		.replace(/\b\w/g, (char: string) => char.toUpperCase())
@@ -301,7 +306,7 @@ export function ProviderForm({
 									>
 										<ControlledInput
 											key={field.id}
-											label={renderLabelWithTooltip(provider.type, field.label)}
+											label={renderLabelWithTooltip(provider.type, field.name)}
 											control={form.control}
 											name={`requiredConfigParams.${i}.value`}
 											type={type}
@@ -327,10 +332,7 @@ export function ProviderForm({
 									>
 										<ControlledInput
 											key={field.id}
-											label={renderLabelWithTooltipOptional(
-												provider.type,
-												field.label
-											)}
+											label={renderLabelWithTooltip(provider.type, field.name)}
 											control={form.control}
 											name={`optionalConfigParams.${i}.value`}
 											type={type}
@@ -359,22 +361,16 @@ export function ProviderForm({
 		</div>
 	);
 
-	function renderLabelWithTooltip(type: string | undefined, label: string) {
+	function renderLabelWithTooltip(type: string | undefined, param: string) {
 		const tooltip =
 			type === "modelprovider"
-				? ModelProviderRequiredTooltips[provider.id]?.[label]
-				: AuthProviderRequiredTooltips[provider.id]?.[label];
-		return <HelperTooltipLabel label={label} tooltip={tooltip} />;
-	}
-
-	function renderLabelWithTooltipOptional(
-		type: string | undefined,
-		label: string
-	) {
-		const tooltip =
-			type === "modelprovider"
-				? ""
-				: AuthProviderOptionalTooltips[provider.id]?.[label];
-		return <HelperTooltipLabel label={label} tooltip={tooltip} />;
+				? ModelProviderTooltips[param]
+				: AuthProviderTooltips[param];
+		return (
+			<HelperTooltipLabel
+				label={translateUserFriendlyLabel(param)}
+				tooltip={tooltip}
+			/>
+		);
 	}
 }
