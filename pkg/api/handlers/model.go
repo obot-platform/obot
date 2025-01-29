@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"net/http"
@@ -28,9 +27,29 @@ func (a *ModelHandler) List(req api.Context) error {
 		return err
 	}
 
+	var toolRefList v1.ToolReferenceList
+	if err := req.Storage.List(req.Context(), &toolRefList, &kclient.ListOptions{
+		FieldSelector: fields.SelectorFromSet(map[string]string{
+			"spec.type": string(types.ToolReferenceTypeModelProvider),
+		}),
+		Namespace: req.Namespace(),
+	}); err != nil {
+		return err
+	}
+
+	toolRefMap := make(map[string]v1.ToolReference)
+	for _, toolRef := range toolRefList.Items {
+		toolRefMap[toolRef.Name] = toolRef
+	}
+
 	respList := make([]types.Model, 0, len(modelList.Items))
 	for _, model := range modelList.Items {
-		resp, err := convertModel(req.Context(), req.Storage, model)
+		toolRef, ok := toolRefMap[model.Spec.Manifest.ModelProvider]
+		if !ok {
+			return types.NewErrNotFound("tool reference %s not found", model.Spec.Manifest.ModelProvider)
+		}
+
+		resp, err := convertModel(model, toolRef)
 		if err != nil {
 			return err
 		}
@@ -47,7 +66,12 @@ func (a *ModelHandler) ByID(req api.Context) error {
 		return err
 	}
 
-	resp, err := convertModel(req.Context(), req.Storage, model)
+	var toolRef v1.ToolReference
+	if err := req.Storage.Get(req.Context(), kclient.ObjectKey{Namespace: model.Namespace, Name: model.Spec.Manifest.ModelProvider}, &toolRef); err != nil {
+		return err
+	}
+
+	resp, err := convertModel(model, toolRef)
 	if err != nil {
 		return err
 	}
@@ -76,7 +100,12 @@ func (a *ModelHandler) Update(req api.Context) error {
 		return err
 	}
 
-	resp, err := convertModel(req.Context(), req.Storage, existing)
+	var toolRef v1.ToolReference
+	if err := req.Storage.Get(req.Context(), kclient.ObjectKey{Namespace: existing.Namespace, Name: existing.Spec.Manifest.ModelProvider}, &toolRef); err != nil {
+		return err
+	}
+
+	resp, err := convertModel(existing, toolRef)
 	if err != nil {
 		return err
 	}
@@ -121,7 +150,7 @@ func (a *ModelHandler) Create(req api.Context) error {
 		return err
 	}
 
-	resp, err := convertModel(req.Context(), req.Storage, *model)
+	resp, err := convertModel(*model, toolRef)
 	if err != nil {
 		return err
 	}
@@ -153,12 +182,7 @@ func (a *ModelHandler) Delete(req api.Context) error {
 	})
 }
 
-func convertModel(ctx context.Context, c kclient.Client, model v1.Model) (types.Model, error) {
-	var toolRef v1.ToolReference
-	if err := c.Get(ctx, kclient.ObjectKey{Namespace: model.Namespace, Name: model.Spec.Manifest.ModelProvider}, &toolRef); err != nil {
-		return types.Model{}, err
-	}
-
+func convertModel(model v1.Model, toolRef v1.ToolReference) (types.Model, error) {
 	var (
 		aliasAssigned *bool
 		toolName      string
