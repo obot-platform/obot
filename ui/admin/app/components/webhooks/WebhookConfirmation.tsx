@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { $path } from "safe-routes";
 import useSWR from "swr";
 
@@ -47,22 +47,24 @@ export const WebhookConfirmation = ({
 	//     !!token ||
 	//     tokenRemoved;
 
+	const [blockPollingWebhook, setBlockPollingWebhook] = useState(false);
 	const getWebhookData = useSWR(
 		WebhookApiService.getWebhookById.key(webhook.id),
-		() => WebhookApiService.getWebhookById(webhook.id)
+		() => WebhookApiService.getWebhookById(webhook.id),
+		{
+			refreshInterval: blockPollingWebhook ? undefined : 1000,
+		}
 	);
 
 	const webhookData = getWebhookData.data ?? webhook;
 
 	useEffect(() => {
 		if (webhookData?.alias && webhookData.aliasAssigned === undefined) {
-			const interval = setInterval(async () => {
-				await getWebhookData.mutate();
-			}, 1000);
-
-			return () => clearInterval(interval);
+			setBlockPollingWebhook(false);
+		} else {
+			setBlockPollingWebhook(true);
 		}
-	}, [getWebhookData, webhookData?.alias, webhookData?.aliasAssigned]);
+	}, [webhookData]);
 
 	return (
 		<Dialog open>

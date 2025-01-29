@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import useSWR from "swr";
 
 import {
@@ -17,17 +17,22 @@ type UseWorkflowTriggersProps = {
 const AllTypes = Object.values(WorkflowTriggerType);
 
 export function useWorkflowTriggers(props?: UseWorkflowTriggersProps) {
+	const [blockPollingEmailReceivers, setBlockPollingEmailReceivers] =
+		useState(false);
 	const { type = AllTypes, workflowId } = props ?? {};
 
 	const filters = { workflowId };
 
 	const types = new Set(Array.isArray(type) ? type : [type]);
 
-	const { data: emailReceivers, mutate: mutateEmailReceivers } = useSWR(
+	const { data: emailReceivers } = useSWR(
 		types.has("email") &&
 			EmailReceiverApiService.getEmailReceivers.key(filters),
 		({ filters }) => EmailReceiverApiService.getEmailReceivers(filters),
-		{ fallbackData: [] }
+		{
+			fallbackData: [],
+			refreshInterval: blockPollingEmailReceivers ? undefined : 1000,
+		}
 	);
 
 	useEffect(() => {
@@ -37,9 +42,11 @@ export function useWorkflowTriggers(props?: UseWorkflowTriggersProps) {
 				(receiver) => receiver.aliasAssigned == null && receiver.alias
 			)
 		) {
-			mutateEmailReceivers();
+			setBlockPollingEmailReceivers(false);
+		} else {
+			setBlockPollingEmailReceivers(true);
 		}
-	}, [emailReceivers, mutateEmailReceivers]);
+	}, [emailReceivers]);
 
 	const { data: cronjobs } = useSWR(
 		types.has("schedule") && CronJobApiService.getCronJobs.key(filters),
