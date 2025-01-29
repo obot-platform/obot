@@ -27,8 +27,6 @@ const steps: OAuthFormStep<z.infer<typeof schema>>[] = [
 		type: "markdown",
 		text:
 			"### Step 2: Configure the app\n" +
-			"- From the [LinkedIn Developer Portal](https://developer.linkedin.com), click **My Apps** and then select the app you'd like to proceed with.\n" +
-			"(You will already be on this page if you've completed step 1)\n" +
 			"- Select the **Products** tab and request access for **Share on LinkedIn** and **Sign In with LinkedIn using OpenID Connect**.\n" +
 			"- Then select the **Auth** tab. In the **OAuth 2.0 settings** section, click on the pencil icon to set the following as redirect URL:\n",
 	},
