@@ -1,4 +1,10 @@
-import { DownloadIcon, FileIcon, PlusIcon, TrashIcon } from "lucide-react";
+import {
+	DownloadIcon,
+	FileIcon,
+	FilesIcon,
+	PlusIcon,
+	TrashIcon,
+} from "lucide-react";
 import { useRef } from "react";
 import useSWR from "swr";
 
@@ -66,11 +72,15 @@ export function WorkspaceFilesSection({
 
 	return (
 		<div className="m-4 space-y-4 p-4">
-			<h4 className="border-b pb-2">Workspace Files</h4>
+			<h4 className="flex items-center gap-2 border-b pb-2">
+				<FilesIcon />
+				Workspace Files
+			</h4>
 
 			<CardDescription>
-				Add environment variables that will be available to all tools as key
-				value pairs.
+				Workspace files are files that the user and agent are able to access and
+				modify collaboratively. Files added here will be copied over to each new
+				thread.
 			</CardDescription>
 
 			<div className="flex flex-col gap-2">
