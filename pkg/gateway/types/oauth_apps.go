@@ -58,8 +58,12 @@ func ValidateAndSetDefaultsOAuthAppManifest(r *types.OAuthAppManifest, create bo
 		r.AuthURL = AtlassianAuthorizeURL
 		r.TokenURL = AtlassianTokenURL
 	case types.OAuthAppTypeMicrosoft365:
-		r.AuthURL = fmt.Sprintf("https://login.microsoftonline.com/%s/oauth2/v2.0/authorize", r.TenantID)
-		r.TokenURL = fmt.Sprintf("https://login.microsoftonline.com/%s/oauth2/v2.0/token", r.TenantID)
+		tenantID := r.TenantID
+		if tenantID == "" {
+			tenantID = "common"
+		}
+		r.AuthURL = fmt.Sprintf("https://login.microsoftonline.com/%s/oauth2/v2.0/authorize", tenantID)
+		r.TokenURL = fmt.Sprintf("https://login.microsoftonline.com/%s/oauth2/v2.0/token", tenantID)
 	case types.OAuthAppTypeSlack:
 		r.AuthURL = SlackAuthorizeURL
 		r.TokenURL = SlackTokenURL
