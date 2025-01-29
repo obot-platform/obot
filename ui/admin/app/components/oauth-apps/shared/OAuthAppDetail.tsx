@@ -132,12 +132,15 @@ function Content({
 	return (
 		<div className="flex flex-col gap-2">
 			<p>
-				Obot only supports one custom {app.name} OAuth. If you need to use a
-				different configuration, you can replace the current configuration with
-				a new one.
+				Obot only supports one custom {spec.displayName} OAuth. If you need to
+				use a different configuration, you can replace the current configuration
+				with a new one.
 			</p>
 
-			<p>When {app.name} OAuth is used, Obot will use your custom OAuth app.</p>
+			<p>
+				When {spec.displayName} OAuth is used, Obot will use your custom OAuth
+				app.
+			</p>
 
 			<div className="grid grid-cols-2 gap-2 px-8 py-4">
 				<p>
@@ -159,7 +162,7 @@ function Content({
 			</div>
 
 			<ConfigureOAuthApp app={app} spec={spec} onSuccess={onSuccess} />
-			<DeleteOAuthApp app={app} disableTooltip />
+			<DeleteOAuthApp name={spec.displayName} appId={app.id} disableTooltip />
 		</div>
 	);
 }

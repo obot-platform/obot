@@ -1,7 +1,6 @@
 import { toast } from "sonner";
 import { mutate } from "swr";
 
-import { OAuthApp } from "~/lib/model/oauthApps";
 import { OauthAppService } from "~/lib/service/api/oauthAppService";
 
 import { ConfirmationDialog } from "~/components/composed/ConfirmationDialog";
@@ -15,23 +14,25 @@ import {
 import { useAsync } from "~/hooks/useAsync";
 
 export function DeleteOAuthApp({
-	app,
+	appId,
 	disableTooltip,
+	name,
 }: {
-	app: OAuthApp;
+	appId: string;
 	disableTooltip?: boolean;
+	name: string;
 }) {
 	const deleteOAuthApp = useAsync(async () => {
-		await OauthAppService.deleteOauthApp(app.id);
+		await OauthAppService.deleteOauthApp(appId);
 		await mutate(OauthAppService.getOauthApps.key());
 
-		toast.success(`${app.name} OAuth configuration deleted`);
+		toast.success(`${name} OAuth configuration deleted`);
 	});
 
-	const title = `Delete ${app.name} OAuth`;
+	const title = `Delete ${name} OAuth`;
 
-	const description = `By clicking \`Delete\`, you will delete your ${app.name} OAuth configuration.`;
-	const buttonText = `Delete ${app.name} OAuth`;
+	const description = `By clicking \`Delete\`, you will delete your ${name} OAuth configuration.`;
+	const buttonText = `Delete ${name} OAuth`;
 
 	return (
 		<div className="flex gap-2">
