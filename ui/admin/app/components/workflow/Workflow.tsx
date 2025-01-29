@@ -20,6 +20,7 @@ import { AgentCapabilityForm } from "~/components/agent/shared/AgentCapabilityFo
 import { AgentModelSelect } from "~/components/agent/shared/AgentModelSelect";
 import { EnvironmentVariableSection } from "~/components/agent/shared/EnvironmentVariableSection";
 import { ToolAuthenticationStatus } from "~/components/agent/shared/ToolAuthenticationStatus";
+import { WorkspaceFilesSection } from "~/components/agent/shared/WorkspaceFilesSection";
 import { AgentKnowledgePanel } from "~/components/knowledge";
 import { BasicToolForm } from "~/components/tools/BasicToolForm";
 import {
@@ -191,6 +192,8 @@ function WorkflowContent({ className }: WorkflowProps) {
 						}}
 					/>
 				</div>
+
+				<WorkspaceFilesSection entityId={workflow.id} />
 
 				<WorkflowTriggerPanel workflowId={workflow.id} />
 
