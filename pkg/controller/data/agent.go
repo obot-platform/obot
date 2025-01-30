@@ -149,6 +149,12 @@ func addDefaultAgent(ctx context.Context, k kclient.Client, agentDir string) err
 		modified = true
 	}
 
+	// set obot dark mode to blue
+	if existing.Spec.Manifest.Icons != nil && existing.Spec.Manifest.Icons.Icon == "/user/images/obot-icon-blue.svg" && existing.Spec.Manifest.Icons.IconDark == "" {
+		existing.Spec.Manifest.Icons = agent.Spec.Manifest.Icons
+		modified = true
+	}
+
 	if modified {
 		return k.Update(ctx, &existing)
 	}

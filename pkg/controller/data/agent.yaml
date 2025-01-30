@@ -9,6 +9,7 @@ spec:
     description: Default Assistant
     icons:
       icon: /user/images/obot-icon-blue.svg
+      iconDark: /user/images/obot-icon-blue.svg
       collapsed: /user/images/obot-logo-blue-black-text.svg
       collapsedDark: /user/images/obot-logo-blue-white-text.svg
     prompt: |
