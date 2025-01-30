@@ -59,6 +59,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/apiclient/types.ModelList":                                  schema_obot_platform_obot_apiclient_types_ModelList(ref),
 		"github.com/obot-platform/obot/apiclient/types.ModelManifest":                              schema_obot_platform_obot_apiclient_types_ModelManifest(ref),
 		"github.com/obot-platform/obot/apiclient/types.ModelProvider":                              schema_obot_platform_obot_apiclient_types_ModelProvider(ref),
+		"github.com/obot-platform/obot/apiclient/types.ModelProviderConfigurationParameter":        schema_obot_platform_obot_apiclient_types_ModelProviderConfigurationParameter(ref),
 		"github.com/obot-platform/obot/apiclient/types.ModelProviderList":                          schema_obot_platform_obot_apiclient_types_ModelProviderList(ref),
 		"github.com/obot-platform/obot/apiclient/types.ModelProviderManifest":                      schema_obot_platform_obot_apiclient_types_ModelProviderManifest(ref),
 		"github.com/obot-platform/obot/apiclient/types.ModelProviderStatus":                        schema_obot_platform_obot_apiclient_types_ModelProviderStatus(ref),
@@ -2237,6 +2238,44 @@ func schema_obot_platform_obot_apiclient_types_ModelProvider(ref common.Referenc
 	}
 }
 
+func schema_obot_platform_obot_apiclient_types_ModelProviderConfigurationParameter(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"friendlyName": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"description": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"sensitive": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
+						},
+					},
+				},
+				Required: []string{"name"},
+			},
+		},
+	}
+}
+
 func schema_obot_platform_obot_apiclient_types_ModelProviderList(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -2298,12 +2337,6 @@ func schema_obot_platform_obot_apiclient_types_ModelProviderStatus(ref common.Re
 			SchemaProps: spec.SchemaProps{
 				Type: []string{"object"},
 				Properties: map[string]spec.Schema{
-					"icon": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
 					"configured": {
 						SchemaProps: spec.SchemaProps{
 							Default: false,
@@ -2317,15 +2350,45 @@ func schema_obot_platform_obot_apiclient_types_ModelProviderStatus(ref common.Re
 							Format: "",
 						},
 					},
+					"icon": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"description": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"link": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
 					"requiredConfigurationParameters": {
 						SchemaProps: spec.SchemaProps{
 							Type: []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Default: "",
-										Type:    []string{"string"},
-										Format:  "",
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/obot-platform/obot/apiclient/types.ModelProviderConfigurationParameter"),
+									},
+								},
+							},
+						},
+					},
+					"optionalConfigurationParameters": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/obot-platform/obot/apiclient/types.ModelProviderConfigurationParameter"),
 									},
 								},
 							},
@@ -2345,24 +2408,12 @@ func schema_obot_platform_obot_apiclient_types_ModelProviderStatus(ref common.Re
 							},
 						},
 					},
-					"optionalConfigurationParameters": {
-						SchemaProps: spec.SchemaProps{
-							Type: []string{"array"},
-							Items: &spec.SchemaOrArray{
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Default: "",
-										Type:    []string{"string"},
-										Format:  "",
-									},
-								},
-							},
-						},
-					},
 				},
 				Required: []string{"configured"},
 			},
 		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.ModelProviderConfigurationParameter"},
 	}
 }
 

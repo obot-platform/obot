@@ -7,10 +7,7 @@ import { ModelProvidersModels } from "~/components/auth-and-model-providers/Mode
 import { ProviderConfigure } from "~/components/auth-and-model-providers/ProviderConfigure";
 import { ProviderIcon } from "~/components/auth-and-model-providers/ProviderIcon";
 import { ProviderMenu } from "~/components/auth-and-model-providers/ProviderMenu";
-import {
-	ModelProviderLinks,
-	RecommendedModelProviders,
-} from "~/components/auth-and-model-providers/constants";
+import { RecommendedModelProviders } from "~/components/auth-and-model-providers/constants";
 import { Badge } from "~/components/ui/badge";
 import { Card, CardContent, CardHeader } from "~/components/ui/card";
 
@@ -40,7 +37,7 @@ export function ModelProviderList({
 							)}
 						</CardHeader>
 						<CardContent className="flex flex-col items-center gap-4">
-							<Link to={ModelProviderLinks[modelProvider.id]}>
+							<Link to={modelProvider.link ?? ""}>
 								<ProviderIcon provider={modelProvider} size="lg" />
 							</Link>
 							<div className="text-center text-lg font-semibold">

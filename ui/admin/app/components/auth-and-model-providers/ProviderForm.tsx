@@ -9,17 +9,12 @@ import {
 	AuthProvider,
 	ModelProvider,
 	ProviderConfig,
+	ProviderConfigurationParameter,
 } from "~/lib/model/providers";
 import { AuthProviderApiService } from "~/lib/service/api/authProviderApiService";
 import { ModelApiService } from "~/lib/service/api/modelApiService";
 import { ModelProviderApiService } from "~/lib/service/api/modelProviderApiService";
 
-import {
-	AuthProviderSensitiveFields,
-	AuthProviderTooltips,
-	ModelProviderSensitiveFields,
-	ModelProviderTooltips,
-} from "~/components/auth-and-model-providers/constants";
 import { HelperTooltipLabel } from "~/components/composed/HelperTooltip";
 import { ControlledInput } from "~/components/form/controlledInputs";
 import { Alert, AlertDescription, AlertTitle } from "~/components/ui/alert";
@@ -32,83 +27,53 @@ const formSchema = z.object({
 	requiredConfigParams: z.array(
 		z.object({
 			label: z.string(),
+			tooltip: z.string(),
 			name: z.string().min(1, {
 				message: "Name is required.",
 			}),
 			value: z.string().min(1, {
 				message: "This field is required.",
 			}),
+			sensitive: z.boolean(),
 		})
 	),
 	optionalConfigParams: z.array(
 		z.object({
 			label: z.string(),
+			tooltip: z.string(),
 			name: z.string().min(1, {
 				message: "Name is required.",
 			}),
 			value: z.string(),
+			sensitive: z.boolean(),
 		})
 	),
 });
 
 export type ProviderFormValues = z.infer<typeof formSchema>;
 
-const fieldNameFromParameter = (parameter: string) => {
-	const fieldsToStrip = [
-		// Model Providers
-		"OBOT_OLLAMA_MODEL_PROVIDER",
-		"OBOT_GROQ_MODEL_PROVIDER",
-		"OBOT_VLLM_MODEL_PROVIDER",
-		"OBOT_VOYAGE_MODEL_PROVIDER",
-		"OBOT_ANTHROPIC_MODEL_PROVIDER",
-		"OBOT_OPENAI_MODEL_PROVIDER",
-		"OBOT_AZURE_OPENAI_MODEL_PROVIDER",
-		"OBOT_ANTHROPIC_BEDROCK_MODEL_PROVIDER",
-		"OBOT_XAI_MODEL_PROVIDER",
-		"OBOT_DEEPSEEK_MODEL_PROVIDER",
-		"OBOT_GEMINI_VERTEX_MODEL_PROVIDER",
-		"OBOT_GENERIC_OPENAI_MODEL_PROVIDER",
-
-		// Auth Providers
-		"OBOT_AUTH_PROVIDER",
-		"OBOT_GOOGLE_AUTH_PROVIDER",
-		"OBOT_GITHUB_AUTH_PROVIDER",
-		"OBOT_OKTA_AUTH_PROVIDER",
-	];
-
-	return fieldsToStrip
-		.reduce((acc, field) => {
-			return acc.replace(field, "");
-		}, parameter)
-		.replace(/^_/, "");
-};
-
-const translateUserFriendlyLabel = (label: string) => {
-	return fieldNameFromParameter(label)
-		.toLowerCase()
-		.replace(/_/g, " ")
-		.replace(/\b\w/g, (char: string) => char.toUpperCase())
-		.trim();
-};
-
 const getInitialRequiredParams = (
-	requiredParameters: string[],
+	requiredParameters: ProviderConfigurationParameter[],
 	parameters: ProviderConfig
 ): ProviderFormValues["requiredConfigParams"] =>
-	requiredParameters.map((requiredParameterKey) => ({
-		label: translateUserFriendlyLabel(requiredParameterKey),
-		name: requiredParameterKey,
-		value: parameters[requiredParameterKey] ?? "",
+	requiredParameters.map((param) => ({
+		tooltip: param.description ?? "",
+		label: param.friendlyName ?? param.name,
+		name: param.name,
+		value: parameters[param.name] ?? "",
+		sensitive: param.sensitive ?? false,
 	}));
 
 const getInitialOptionalParams = (
-	optionalParameters: string[],
+	optionalParameters: ProviderConfigurationParameter[],
 	parameters: ProviderConfig
 ): ProviderFormValues["optionalConfigParams"] =>
-	optionalParameters.map((optionalParameterKey) => ({
-		label: translateUserFriendlyLabel(optionalParameterKey),
-		name: optionalParameterKey,
-		value: parameters[optionalParameterKey] ?? "",
+	optionalParameters.map((param) => ({
+		tooltip: param.description ?? "",
+		label: param.friendlyName ?? param.name,
+		name: param.name,
+		value: parameters[param.name] ?? "",
+		sensitive: param.sensitive ?? false,
 	}));
 
 export function ProviderForm({
@@ -121,8 +86,8 @@ export function ProviderForm({
 	provider: ModelProvider | AuthProvider;
 	onSuccess: () => void;
 	parameters: ProviderConfig;
-	requiredParameters: string[];
-	optionalParameters: string[];
+	requiredParameters: ProviderConfigurationParameter[];
+	optionalParameters: ProviderConfigurationParameter[];
 }) {
 	const fetchAvailableModels = useAsync(
 		ModelApiService.getAvailableModelsByProvider,
@@ -245,11 +210,6 @@ export function ProviderForm({
 		configureAuthProvider.isLoading ||
 		isLoading;
 
-	const sensitiveFields =
-		provider.type === "modelprovider"
-			? ModelProviderSensitiveFields
-			: AuthProviderSensitiveFields;
-
 	return (
 		<div className="flex flex-col">
 			{provider.type === "modelprovider" &&
@@ -304,7 +264,7 @@ export function ProviderForm({
 						>
 							<h4 className="text-md font-semibold">Required Configuration</h4>
 							{requiredConfigParamFields.fields.map((field, i) => {
-								const type = sensitiveFields[field.name] ? "password" : "text";
+								const type = field.sensitive ? "password" : "text";
 
 								return (
 									<div
@@ -313,7 +273,7 @@ export function ProviderForm({
 									>
 										<ControlledInput
 											key={field.id}
-											label={renderLabelWithTooltip(provider.type, field.name)}
+											label={renderLabelWithTooltip(field.label, field.tooltip)}
 											control={form.control}
 											name={`requiredConfigParams.${i}.value`}
 											type={type}
@@ -330,7 +290,7 @@ export function ProviderForm({
 								</h4>
 							)}
 							{optionalConfigParamFields.fields.map((field, i) => {
-								const type = sensitiveFields[field.name] ? "password" : "text";
+								const type = field.sensitive ? "password" : "text";
 
 								return (
 									<div
@@ -339,7 +299,7 @@ export function ProviderForm({
 									>
 										<ControlledInput
 											key={field.id}
-											label={renderLabelWithTooltip(provider.type, field.name)}
+											label={renderLabelWithTooltip(field.label, field.tooltip)}
 											control={form.control}
 											name={`optionalConfigParams.${i}.value`}
 											type={type}
@@ -368,16 +328,7 @@ export function ProviderForm({
 		</div>
 	);
 
-	function renderLabelWithTooltip(type: string | undefined, param: string) {
-		const tooltip =
-			type === "modelprovider"
-				? ModelProviderTooltips[param]
-				: AuthProviderTooltips[param];
-		return (
-			<HelperTooltipLabel
-				label={translateUserFriendlyLabel(param)}
-				tooltip={tooltip}
-			/>
-		);
+	function renderLabelWithTooltip(label: string, tooltip: string) {
+		return <HelperTooltipLabel label={label} tooltip={tooltip} />;
 	}
 }

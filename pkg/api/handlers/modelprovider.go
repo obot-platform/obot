@@ -58,7 +58,12 @@ func (mp *ModelProviderHandler) ByID(req api.Context) error {
 		}
 	}
 
-	return req.Write(convertToolReferenceToModelProvider(ref, credEnvVars))
+	modelProvider, err := convertToolReferenceToModelProvider(ref, credEnvVars)
+	if err != nil {
+		return err
+	}
+
+	return req.Write(modelProvider)
 }
 
 func (mp *ModelProviderHandler) List(req api.Context) error {
@@ -96,7 +101,12 @@ func (mp *ModelProviderHandler) List(req api.Context) error {
 		if !ok {
 			env = credMap[system.GenericModelProviderCredentialContext+ref.Name]
 		}
-		resp = append(resp, convertToolReferenceToModelProvider(ref, env))
+		modelProvider, err := convertToolReferenceToModelProvider(ref, env)
+		if err != nil {
+			log.Errorf("failed to convert model provider %q: %v", ref.Name, err)
+			continue
+		}
+		resp = append(resp, modelProvider)
 	}
 
 	return req.Write(types.ModelProviderList{Items: resp})
@@ -304,7 +314,10 @@ func (mp *ModelProviderHandler) RefreshModels(req api.Context) error {
 		}
 	}
 
-	modelProvider := convertToolReferenceToModelProvider(ref, credEnvVars)
+	modelProvider, err := convertToolReferenceToModelProvider(ref, credEnvVars)
+	if err != nil {
+		return err
+	}
 	if !modelProvider.Configured {
 		return types.NewErrBadRequest("model provider %s is not configured, missing configuration parameters: %s", modelProvider.ModelProviderManifest.Name, strings.Join(modelProvider.MissingConfigurationParameters, ", "))
 	}
@@ -325,46 +338,54 @@ func (mp *ModelProviderHandler) RefreshModels(req api.Context) error {
 	return req.Write(modelProvider)
 }
 
-func convertToolReferenceToModelProvider(ref v1.ToolReference, credEnvVars map[string]string) types.ModelProvider {
+func convertToolReferenceToModelProvider(ref v1.ToolReference, credEnvVars map[string]string) (types.ModelProvider, error) {
 	name := ref.Name
 	if ref.Status.Tool != nil {
 		name = ref.Status.Tool.Name
 	}
 
+	mps, err := convertModelProviderToolRef(ref, credEnvVars)
+	if err != nil {
+		return types.ModelProvider{}, err
+	}
 	mp := types.ModelProvider{
 		Metadata: MetadataFrom(&ref),
 		ModelProviderManifest: types.ModelProviderManifest{
 			Name:          name,
 			ToolReference: ref.Spec.Reference,
 		},
-		ModelProviderStatus: *convertModelProviderToolRef(ref, credEnvVars),
+		ModelProviderStatus: *mps,
 	}
 
 	mp.Type = "modelprovider"
 
-	return mp
+	return mp, nil
 }
 
-func convertModelProviderToolRef(toolRef v1.ToolReference, cred map[string]string) *types.ModelProviderStatus {
+type ProviderMeta struct {
+	Icon            string                                      `json:"icon"`
+	Link            string                                      `json:"link"`
+	Description     string                                      `json:"description"`
+	EnvVars         []types.ModelProviderConfigurationParameter `json:"envVars"`
+	OptionalEnvVars []types.ModelProviderConfigurationParameter `json:"optionalEnvVars"`
+}
+
+func convertModelProviderToolRef(toolRef v1.ToolReference, cred map[string]string) (*types.ModelProviderStatus, error) {
 	var (
-		requiredEnvVars, missingEnvVars, optionalEnvVars []string
-		icon                                             string
+		providerMeta   ProviderMeta
+		missingEnvVars []string
 	)
 	if toolRef.Status.Tool != nil {
-		if toolRef.Status.Tool.Metadata["envVars"] != "" {
-			requiredEnvVars = strings.Split(toolRef.Status.Tool.Metadata["envVars"], ",")
-		}
-
-		for _, envVar := range requiredEnvVars {
-			if _, ok := cred[envVar]; !ok {
-				missingEnvVars = append(missingEnvVars, envVar)
+		if toolRef.Status.Tool.Metadata["providerMeta"] != "" {
+			if err := json.Unmarshal([]byte(toolRef.Status.Tool.Metadata["providerMeta"]), &providerMeta); err != nil {
+				return nil, fmt.Errorf("failed to unmarshal provider meta for %s: %v", toolRef.Name, err)
 			}
 		}
 
-		icon = toolRef.Status.Tool.Metadata["icon"]
-
-		if optionalEnvVarMetadata := toolRef.Status.Tool.Metadata["optionalEnvVars"]; optionalEnvVarMetadata != "" {
-			optionalEnvVars = strings.Split(optionalEnvVarMetadata, ",")
+		for _, envVar := range providerMeta.EnvVars {
+			if _, ok := cred[envVar.Name]; !ok {
+				missingEnvVars = append(missingEnvVars, envVar.Name)
+			}
 		}
 	}
 
@@ -376,11 +397,13 @@ func convertModelProviderToolRef(toolRef v1.ToolReference, cred map[string]strin
 	}
 
 	return &types.ModelProviderStatus{
-		Icon:                            icon,
+		Icon:                            providerMeta.Icon,
+		Link:                            providerMeta.Link,
+		Description:                     providerMeta.Description,
 		Configured:                      configured,
 		ModelsBackPopulated:             modelsPopulated,
-		RequiredConfigurationParameters: requiredEnvVars,
+		RequiredConfigurationParameters: providerMeta.EnvVars,
+		OptionalConfigurationParameters: providerMeta.OptionalEnvVars,
 		MissingConfigurationParameters:  missingEnvVars,
-		OptionalConfigurationParameters: optionalEnvVars,
-	}
+	}, nil
 }

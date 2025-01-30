@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import ReactMarkdown from "react-markdown";
 import useSWR, { mutate } from "swr";
 
 import { AuthProvider, ModelProvider } from "~/lib/model/providers";
@@ -13,7 +14,6 @@ import { ModelProviderApiService } from "~/lib/service/api/modelProviderApiServi
 
 import { ProviderForm } from "~/components/auth-and-model-providers/ProviderForm";
 import { ProviderIcon } from "~/components/auth-and-model-providers/ProviderIcon";
-import { CommonModelProviderIds } from "~/components/auth-and-model-providers/constants";
 import { CopyText } from "~/components/composed/CopyText";
 import { DefaultModelAliasForm } from "~/components/model/DefaultModelAliasForm";
 import { LoadingSpinner } from "~/components/ui/LoadingSpinner";
@@ -26,7 +26,6 @@ import {
 	DialogTitle,
 	DialogTrigger,
 } from "~/components/ui/dialog";
-import { Link } from "~/components/ui/link";
 
 type ProviderConfigureProps = {
 	provider: ModelProvider | AuthProvider;
@@ -174,18 +173,9 @@ export function ProviderConfigureContent({
 				</DialogTitle>
 			</DialogHeader>
 
-			{(provider.id === CommonModelProviderIds.ANTHROPIC ||
-				provider.id == CommonModelProviderIds.ANTHROPIC_BEDROCK) && (
+			{provider.description && (
 				<DialogDescription className="px-4">
-					Note: Anthropic does not have an embeddings model and{" "}
-					<Link
-						target="_blank"
-						rel="noreferrer"
-						to="https://docs.anthropic.com/en/docs/build-with-claude/embeddings"
-					>
-						recommends
-					</Link>{" "}
-					Voyage AI.
+					<ReactMarkdown>{provider.description ?? ""}</ReactMarkdown>
 				</DialogDescription>
 			)}
 			{provider.type === "authprovider" && (

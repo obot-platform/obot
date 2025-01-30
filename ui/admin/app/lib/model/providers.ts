@@ -1,10 +1,19 @@
 import { EntityMeta } from "~/lib/model/primitives";
 
+export type ProviderConfigurationParameter = {
+	name: string;
+	friendlyName?: string;
+	description?: string;
+	sensitive?: boolean;
+};
+
 export type ProviderStatus = {
 	configured: boolean;
 	icon?: string;
-	requiredConfigurationParameters?: string[];
-	optionalConfigurationParameters?: string[];
+	link?: string;
+	description?: string;
+	requiredConfigurationParameters?: ProviderConfigurationParameter[];
+	optionalConfigurationParameters?: ProviderConfigurationParameter[];
 	missingConfigurationParameters?: string[];
 };
 

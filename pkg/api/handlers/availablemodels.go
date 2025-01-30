@@ -59,7 +59,11 @@ func (a *AvailableModelsHandler) List(req api.Context) error {
 
 	var oModels openai.ModelsList
 	for _, modelProvider := range modelProviderReferences.Items {
-		convertedModelProvider := convertModelProviderToolRef(modelProvider, credMap[string(modelProvider.UID)+modelProvider.Name])
+		convertedModelProvider, err := convertModelProviderToolRef(modelProvider, credMap[string(modelProvider.UID)+modelProvider.Name])
+		if err != nil {
+			log.Warnf("failed to convert model provider %q: %v", modelProvider.Name, err)
+			continue
+		}
 		if !convertedModelProvider.Configured || modelProvider.Name == system.ModelProviderTool {
 			continue
 		}
@@ -103,7 +107,11 @@ func (a *AvailableModelsHandler) ListForModelProvider(req api.Context) error {
 		}
 	}
 
-	if modelProvider := convertModelProviderToolRef(modelProviderReference, credEnvVars); !modelProvider.Configured {
+	modelProvider, err := convertModelProviderToolRef(modelProviderReference, credEnvVars)
+	if err != nil {
+		return err
+	}
+	if !modelProvider.Configured {
 		return types.NewErrBadRequest("model provider %s is not configured, missing configuration parameters: %s", modelProviderReference.Name, strings.Join(modelProvider.MissingConfigurationParameters, ", "))
 	}
 
