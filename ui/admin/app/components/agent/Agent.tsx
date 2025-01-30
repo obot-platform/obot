@@ -62,8 +62,6 @@ export function Agent({ className, currentThreadId, onRefresh }: AgentProps) {
 
 			debouncedUpdateAgent(updatedAgent);
 
-			setAgentUpdates(updatedAgent);
-
 			if (changes.alias) {
 				const updatedAgentWithAliasUndefined = {
 					...updatedAgent,

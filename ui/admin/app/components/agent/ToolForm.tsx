@@ -79,7 +79,7 @@ export function ToolForm({
 		resolver: zodResolver(formSchema),
 		defaultValues,
 	});
-	const { control, handleSubmit, getValues, reset, watch } = form;
+	const { control, handleSubmit, getValues, reset } = form;
 
 	const { data: toolList } = useSWR(
 		ToolReferenceService.getToolReferences.key("tool"),
@@ -112,16 +112,6 @@ export function ToolForm({
 		name: "tools",
 	});
 
-	useEffect(() => {
-		return watch((values) => {
-			const { data, success } = formSchema.safeParse(values);
-
-			if (!success) return;
-
-			onChange?.(data);
-		}).unsubscribe;
-	}, [watch, onChange]);
-
 	const removeTool = (toolId: string, oauthToRemove?: string) => {
 		const updatedTools = toolFields.fields.filter((tool) => tool.id !== toolId);
 		const index = toolFields.fields.findIndex((tool) => tool.id === toolId);
@@ -136,14 +126,17 @@ export function ToolForm({
 				.getValues("oauthApps")
 				?.filter((oauth) => oauth !== oauthToRemove);
 			form.setValue("oauthApps", updatedOauths);
+			onChange?.(form.getValues());
 		}
 	};
 
-	const updateVariant = (tool: string, variant: ToolVariant) =>
+	const updateVariant = (tool: string, variant: ToolVariant) => {
 		toolFields.update(
 			toolFields.fields.findIndex((t) => t.tool === tool),
 			{ tool, variant }
 		);
+		onChange?.(form.getValues());
+	};
 
 	const updateTools = (
 		tools: string[],
@@ -165,6 +158,7 @@ export function ToolForm({
 		}
 
 		form.setValue("oauthApps", oauths);
+		onChange?.(form.getValues());
 	};
 
 	const getCapabilities = useCapabilityTools();

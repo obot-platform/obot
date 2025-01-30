@@ -7,6 +7,7 @@ import { User } from "~/lib/model/users";
 import { ApiRoutes } from "~/lib/routers/apiRoutes";
 import {
 	BadRequestError,
+	CanceledError,
 	ConflictError,
 	ForbiddenError,
 	NotFoundError,
@@ -30,6 +31,7 @@ interface ExtendedAxiosRequestConfig<D = unknown>
 	disableTokenRefresh?: boolean;
 	debugThrow?: Error;
 	toastError?: boolean;
+	signal?: AbortSignal;
 }
 
 export async function request<T, R = AxiosResponse<T>, D = unknown>({
@@ -37,6 +39,7 @@ export async function request<T, R = AxiosResponse<T>, D = unknown>({
 	disableTokenRefresh,
 	debugThrow,
 	toastError = true,
+	signal,
 	...config
 }: ExtendedAxiosRequestConfig<D>): Promise<R> {
 	// Get the browser's default timezone
@@ -52,6 +55,7 @@ export async function request<T, R = AxiosResponse<T>, D = unknown>({
 			adapter: "fetch",
 			...config,
 			headers,
+			signal,
 		})
 	);
 
@@ -79,7 +83,8 @@ export async function request<T, R = AxiosResponse<T>, D = unknown>({
 			});
 		}
 
-		if (toastError) toast.error(errorMessage);
+		if (toastError && !(convertedError instanceof CanceledError))
+			toast.error(errorMessage);
 
 		throw convertedError;
 	}
@@ -106,6 +111,10 @@ function convertError(error: Error) {
 
 	if (isAxiosError(error) && error.response?.status === 409) {
 		return new ConflictError(error.response.data);
+	}
+
+	if (isAxiosError(error) && error.code === "ERR_CANCELED") {
+		return new CanceledError(error.message);
 	}
 
 	return error;

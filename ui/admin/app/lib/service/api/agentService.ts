@@ -51,12 +51,21 @@ async function createAgent({ agent }: { agent: CreateAgent }) {
 	return res.data;
 }
 
-async function updateAgent({ id, agent }: { id: string; agent: UpdateAgent }) {
+async function updateAgent({
+	id,
+	agent,
+	signal,
+}: {
+	id: string;
+	agent: UpdateAgent;
+	signal?: AbortSignal;
+}) {
 	const res = await request<Agent>({
 		url: ApiRoutes.agents.getById(id).url,
 		method: "PUT",
 		data: agent,
 		errorMessage: "Failed to update agent",
+		signal,
 	});
 
 	return res.data;
