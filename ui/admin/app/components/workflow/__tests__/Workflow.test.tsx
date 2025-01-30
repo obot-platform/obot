@@ -9,23 +9,15 @@ import {
 	waitFor,
 	within,
 } from "test";
+import { defaultModelAliasHandler } from "test/mocks/handlers/defaultModelAliases";
+import { knowledgeHandlers } from "test/mocks/handlers/knowledge";
+import { toolsHandlers } from "test/mocks/handlers/tools";
+import { mockedWorkflow } from "test/mocks/models/workflow";
 import { overrideServer } from "test/server";
 
-import { mockedDefaultModelAliases } from "~/lib/model/__mocks__/defaultModelAliases";
-import {
-	mockedDatabaseToolReference,
-	mockedKnowledgeToolReference,
-	mockedTasksToolReference,
-	mockedToolReferences,
-	mockedWorkspaceFilesToolReference,
-} from "~/lib/model/__mocks__/toolReferences";
-import { mockedWorkflow } from "~/lib/model/__mocks__/workflow";
 import { CronJob } from "~/lib/model/cronjobs";
-import { DefaultModelAlias } from "~/lib/model/defaultModelAliases";
 import { EmailReceiver } from "~/lib/model/email-receivers";
-import { KnowledgeFile, KnowledgeSource } from "~/lib/model/knowledge";
 import { EntityList } from "~/lib/model/primitives";
-import { ToolReference } from "~/lib/model/toolReferences";
 import { Webhook } from "~/lib/model/webhooks";
 import { Workflow as WorkflowModel } from "~/lib/model/workflows";
 import { WorkspaceFile } from "~/lib/model/workspace";
@@ -35,13 +27,6 @@ import { noop } from "~/lib/utils";
 import { Workflow } from "~/components/workflow/Workflow";
 
 describe(Workflow, () => {
-	const toolReferences = {
-		database: mockedDatabaseToolReference,
-		knowledge: mockedKnowledgeToolReference,
-		tasks: mockedTasksToolReference,
-		"workspace-files": mockedWorkspaceFilesToolReference,
-	};
-
 	const setupServer = (workflow: WorkflowModel) => {
 		const putSpy = vi.fn();
 		overrideServer([
@@ -54,38 +39,6 @@ describe(Workflow, () => {
 					const body = await request.json();
 					putSpy(body);
 					return HttpResponse.json<WorkflowModel>(mockedWorkflow);
-				}
-			),
-			...Object.entries(toolReferences).map(([id, toolReference]) =>
-				http.get(ApiRoutes.toolReferences.getById(id).path, () => {
-					return HttpResponse.json<ToolReference>(toolReference);
-				})
-			),
-			http.get(ApiRoutes.toolReferences.base({ type: "tool" }).path, () => {
-				return HttpResponse.json<EntityList<ToolReference>>({
-					items: mockedToolReferences,
-				});
-			}),
-			http.get(ApiRoutes.defaultModelAliases.getAliases().path, () => {
-				return HttpResponse.json<EntityList<DefaultModelAlias>>({
-					items: mockedDefaultModelAliases,
-				});
-			}),
-			http.get(
-				ApiRoutes.knowledgeFiles.getKnowledgeFiles("agents", workflow.id).path,
-				() => {
-					return HttpResponse.json<EntityList<KnowledgeFile>>({
-						items: [],
-					});
-				}
-			),
-			http.get(
-				ApiRoutes.knowledgeSources.getKnowledgeSources("agents", workflow.id)
-					.path,
-				() => {
-					return HttpResponse.json<EntityList<KnowledgeSource> | null>({
-						items: null,
-					});
 				}
 			),
 			http.get(ApiRoutes.agents.getWorkspaceFiles(workflow.id).path, () => {
@@ -108,6 +61,9 @@ describe(Workflow, () => {
 					items: [],
 				});
 			}),
+			defaultModelAliasHandler,
+			...toolsHandlers,
+			...knowledgeHandlers(workflow.id),
 		]);
 
 		return putSpy;

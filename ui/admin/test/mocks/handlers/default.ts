@@ -1,7 +1,7 @@
 import { HttpResponse, http } from "msw";
+import { mockedUser } from "test/mocks/models/users";
+import { mockedVersion } from "test/mocks/models/version";
 
-import { mockedUser } from "~/lib/model/__mocks__/users";
-import { mockedVersion } from "~/lib/model/__mocks__/version";
 import { User } from "~/lib/model/users";
 import { Version } from "~/lib/model/version";
 import { ApiRoutes } from "~/lib/routers/apiRoutes";

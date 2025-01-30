@@ -9,25 +9,17 @@ import {
 	waitFor,
 	within,
 } from "test";
+import { defaultModelAliasHandler } from "test/mocks/handlers/defaultModelAliases";
+import { knowledgeHandlers } from "test/mocks/handlers/knowledge";
+import { toolsHandlers } from "test/mocks/handlers/tools";
+import { mockedAgent } from "test/mocks/models/agents";
+import { mockedUsers } from "test/mocks/models/users";
 import { overrideServer } from "test/server";
 
-import { mockedAgent } from "~/lib/model/__mocks__/agents";
-import { mockedDefaultModelAliases } from "~/lib/model/__mocks__/defaultModelAliases";
-import {
-	mockedDatabaseToolReference,
-	mockedKnowledgeToolReference,
-	mockedTasksToolReference,
-	mockedToolReferences,
-	mockedWorkspaceFilesToolReference,
-} from "~/lib/model/__mocks__/toolReferences";
-import { mockedUsers } from "~/lib/model/__mocks__/users";
 import { Agent as AgentModel } from "~/lib/model/agents";
 import { Assistant } from "~/lib/model/assistants";
-import { DefaultModelAlias } from "~/lib/model/defaultModelAliases";
-import { KnowledgeFile, KnowledgeSource } from "~/lib/model/knowledge";
 import { EntityList } from "~/lib/model/primitives";
 import { Thread } from "~/lib/model/threads";
-import { ToolReference } from "~/lib/model/toolReferences";
 import { User } from "~/lib/model/users";
 import { WorkspaceFile } from "~/lib/model/workspace";
 import { ApiRoutes } from "~/lib/routers/apiRoutes";
@@ -36,13 +28,6 @@ import { Agent } from "~/components/agent/Agent";
 import { AgentProvider } from "~/components/agent/AgentContext";
 
 describe(Agent, () => {
-	const toolReferences = {
-		database: mockedDatabaseToolReference,
-		knowledge: mockedKnowledgeToolReference,
-		tasks: mockedTasksToolReference,
-		"workspace-files": mockedWorkspaceFilesToolReference,
-	};
-
 	const setupServer = (agent: AgentModel) => {
 		const putSpy = vi.fn();
 		overrideServer([
@@ -69,42 +54,14 @@ describe(Agent, () => {
 					items: mockedUsers,
 				});
 			}),
-			...Object.entries(toolReferences).map(([id, toolReference]) =>
-				http.get(ApiRoutes.toolReferences.getById(id).path, () => {
-					return HttpResponse.json<ToolReference>(toolReference);
-				})
-			),
-			http.get(ApiRoutes.toolReferences.base({ type: "tool" }).path, () => {
-				return HttpResponse.json<EntityList<ToolReference>>({
-					items: mockedToolReferences,
-				});
-			}),
-			http.get(ApiRoutes.defaultModelAliases.getAliases().path, () => {
-				return HttpResponse.json<EntityList<DefaultModelAlias>>({
-					items: mockedDefaultModelAliases,
-				});
-			}),
-			http.get(
-				ApiRoutes.knowledgeFiles.getKnowledgeFiles("agents", agent.id).path,
-				() => {
-					return HttpResponse.json<EntityList<KnowledgeFile>>({
-						items: [],
-					});
-				}
-			),
-			http.get(
-				ApiRoutes.knowledgeSources.getKnowledgeSources("agents", agent.id).path,
-				() => {
-					return HttpResponse.json<EntityList<KnowledgeSource> | null>({
-						items: null,
-					});
-				}
-			),
 			http.get(ApiRoutes.threads.getByAgent(agent.id).path, () => {
 				return HttpResponse.json<EntityList<Thread> | null>({
 					items: null,
 				});
 			}),
+			defaultModelAliasHandler,
+			...knowledgeHandlers(agent.id),
+			...toolsHandlers,
 		]);
 
 		return putSpy;
