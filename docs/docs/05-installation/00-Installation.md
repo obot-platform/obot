@@ -13,7 +13,7 @@ By default, the default Obot Docker setup will run a postgres database, and use 
 
 ### Production Considerations
 
-For a production setup, you will want to use an external Postgres database, and an S3 storage provider for the workspace.
+For a production setup, you will want to use an external Postgres database, and an S3-compatible storage provider for the workspace.
 
 To configure Obot to use
 
@@ -50,7 +50,7 @@ The Enterprise version of Obot image is `ghrc.io/obot-platform/obot-enterprise:l
 For a local installation, you can run the following command:
 
 ```bash
-docker run -d -p 8080:8080 ghcr.io/obot-platform/obot:main
+docker run -d -p 8080:8080 ghcr.io/obot-platform/obot:latest
 ```
 
 #### With Authentication

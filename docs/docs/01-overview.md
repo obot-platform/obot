@@ -34,4 +34,4 @@ or by downloading the binary for your platform from our [latest release](https:/
 
 ### Installation
 
-See [Installation](/installation/overview) for more information on how to install Obot.
+See [Installation](/installation/installation) for more information on how to install Obot.
