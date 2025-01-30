@@ -1,40 +1,26 @@
 <script lang="ts">
-	import { Plus, Wrench } from '$lib/icons';
+	import { Plus, Wrench } from 'lucide-svelte/icons';
 	import { tools, version } from '$lib/stores';
-	import { currentAssistant } from '$lib/stores';
 	import { ChatService, EditorService } from '$lib/services';
+	import { newTool } from '$lib/components/tool/Tool.svelte';
 	import Menu from '$lib/components/navbar/Menu.svelte';
 	import { PenBox } from 'lucide-svelte';
 
 	let menu = $state<ReturnType<typeof Menu>>();
 
 	async function addTool() {
-		const tool = await ChatService.createTool($currentAssistant.id, {
-			id: '',
-			params: {
-				msg: 'A message to be echoed'
-			},
-			toolType: 'javascript',
-			instructions: `
-
-// Arguments to the tool are available as env vars in CAPITAL_CASE form
-// Output for the tool is just the content on stdout (or console.log)
-
-console.log(\`Your message \${process.env.MSG}\`);
-
-`
-		});
-		await EditorService.load($currentAssistant.id, tool.id);
+		const tool = await ChatService.createTool(newTool);
+		await EditorService.load(tool.id);
 		menu?.open.set(false);
 	}
 
 	async function editTool(id: string) {
-		await EditorService.load($currentAssistant.id, id);
+		await EditorService.load(id);
 		menu?.open.set(false);
 	}
 
 	async function onLoad() {
-		tools.set(await ChatService.listTools($currentAssistant.id));
+		tools.items = (await ChatService.listTools()).items;
 	}
 
 	async function updateTool(enabled: boolean, tool: string | undefined) {
@@ -42,9 +28,9 @@ console.log(\`Your message \${process.env.MSG}\`);
 			return;
 		}
 		if (enabled) {
-			tools.set(await ChatService.enableTool($currentAssistant.id, tool));
+			tools.items = (await ChatService.enableTool(tool)).items;
 		} else {
-			tools.set(await ChatService.disableTool($currentAssistant.id, tool));
+			tools.items = (await ChatService.disableTool(tool)).items;
 		}
 	}
 </script>
@@ -55,7 +41,7 @@ console.log(\`Your message \${process.env.MSG}\`);
 	{/snippet}
 	{#snippet body()}
 		<ul class="space-y-4 py-6 text-sm">
-			{#each $tools.items as tool, i}
+			{#each tools.items as tool, i}
 				{#if !tool.builtin}
 					<li>
 						<div class="flex">
@@ -83,7 +69,7 @@ console.log(\`Your message \${process.env.MSG}\`);
 								type="checkbox"
 								checked={tool.enabled}
 								onchange={(e) => updateTool(e.currentTarget.checked, tool.id)}
-								disabled={tool.builtin || $tools.readonly}
+								disabled={tool.builtin}
 								class="h-4 w-4 self-center"
 							/>
 							<button

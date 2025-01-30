@@ -1,4 +1,4 @@
-import items from '$lib/stores/editor.svelte';
+import editor from '$lib/stores/editor.svelte';
 import type { Explain, InputMessage, Message, Messages, Progress } from './types';
 
 const errorIcon = 'Error';
@@ -18,7 +18,7 @@ function toMessageFromInput(s: string): string {
 }
 
 function setFileContent(name: string, content: string, full: boolean = false) {
-	const existing = items.find((f) => f.id === name);
+	const existing = editor.items.find((f) => f.id === name);
 	if (existing) {
 		if (full) {
 			existing.contents = content;
@@ -28,7 +28,7 @@ function setFileContent(name: string, content: string, full: boolean = false) {
 			existing.contents = content;
 		}
 	} else {
-		items.push({
+		editor.items.push({
 			id: name,
 			name: name,
 			contents: content,
@@ -37,7 +37,7 @@ function setFileContent(name: string, content: string, full: boolean = false) {
 	}
 
 	// select the file
-	items.forEach((f) => {
+	editor.items.forEach((f) => {
 		f.selected = f.name === name;
 	});
 }

@@ -4,12 +4,13 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/adhocore/gronx"
 	"github.com/obot-platform/nah/pkg/router"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/alias"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
-	"github.com/robfig/cron/v3"
+	apierror "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
@@ -31,6 +32,10 @@ func GetSchedule(cronJob v1.CronJob) string {
 		case "weekly":
 			return fmt.Sprintf("%d %d * * %d", cronJob.Spec.TaskSchedule.Minute, cronJob.Spec.TaskSchedule.Hour, cronJob.Spec.TaskSchedule.Weekday)
 		case "monthly":
+			if cronJob.Spec.TaskSchedule.Day == -1 {
+				// The day being -1 means the last day of the month. The cron parsing package we use uses `L` for this.
+				return fmt.Sprintf("%d %d L * *", cronJob.Spec.TaskSchedule.Minute, cronJob.Spec.TaskSchedule.Hour)
+			}
 			return fmt.Sprintf("%d %d %d * *", cronJob.Spec.TaskSchedule.Minute, cronJob.Spec.TaskSchedule.Hour, cronJob.Spec.TaskSchedule.Day)
 		}
 	}
@@ -44,18 +49,21 @@ func (h *Handler) Run(req router.Request, resp router.Response) error {
 		lastRun = &cj.CreationTimestamp
 	}
 
-	sched, err := cron.ParseStandard(GetSchedule(*cj))
+	next, err := gronx.NextTickAfter(GetSchedule(*cj), lastRun.Time, false)
 	if err != nil {
 		return fmt.Errorf("failed to parse schedule: %w", err)
 	}
 
-	if until := time.Until(sched.Next(lastRun.Time)); until > 0 {
+	if until := time.Until(next); until > 0 {
 		resp.RetryAfter(until)
 		return nil
 	}
 
 	var workflow v1.Workflow
 	if err := alias.Get(req.Ctx, req.Client, &workflow, cj.Namespace, cj.Spec.Workflow); err != nil {
+		if apierror.IsNotFound(err) {
+			return nil
+		}
 		return err
 	}
 

@@ -14,7 +14,7 @@ import (
 
 	"github.com/gptscript-ai/go-gptscript"
 	"github.com/obot-platform/nah/pkg/router"
-	"github.com/obot-platform/nah/pkg/uncached"
+	"github.com/obot-platform/nah/pkg/untriggered"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/logger"
 	"github.com/obot-platform/obot/pkg/events"
@@ -22,6 +22,7 @@ import (
 	"github.com/obot-platform/obot/pkg/gz"
 	"github.com/obot-platform/obot/pkg/hash"
 	"github.com/obot-platform/obot/pkg/jwt"
+	"github.com/obot-platform/obot/pkg/projects"
 	"github.com/obot-platform/obot/pkg/render"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
@@ -37,7 +38,10 @@ var (
 	ephemeralCounter atomic.Int32
 )
 
-const ephemeralRunPrefix = "ephemeral-run"
+const (
+	ephemeralRunPrefix = "ephemeral-run"
+	runOutputMaxLength = 2000
+)
 
 type Invoker struct {
 	gptClient     *gptscript.GPTScript
@@ -161,7 +165,6 @@ type Options struct {
 	CreateThread          bool
 	ThreadCredentialScope *bool
 	UserUID               string
-	AgentAlias            string
 }
 
 func (i *Invoker) getChatState(ctx context.Context, c kclient.Client, run *v1.Run) (result, lastThreadName string, _ error) {
@@ -204,10 +207,49 @@ func getThreadForAgent(ctx context.Context, c kclient.WithWatch, agent *v1.Agent
 		return &thread, c.Get(ctx, router.Key(agent.Namespace, opt.ThreadName), &thread)
 	}
 
-	return CreateThreadForAgent(ctx, c, agent, opt.ThreadName, opt.UserUID, opt.AgentAlias)
+	var parentThreadName string
+	if opt.PreviousRunName != "" {
+		var run v1.Run
+		if err := c.Get(ctx, router.Key(agent.Namespace, opt.PreviousRunName), &run); err != nil {
+			return nil, err
+		}
+		parentThreadName = run.Spec.ThreadName
+	}
+
+	return CreateThreadForAgent(ctx, c, agent, opt.ThreadName, parentThreadName, opt.UserUID)
 }
 
-func CreateThreadForAgent(ctx context.Context, c kclient.WithWatch, agent *v1.Agent, threadName, userUID, agentAlias string) (*v1.Thread, error) {
+func CreateThreadForProject(ctx context.Context, c kclient.WithWatch, projectThread *v1.Thread, userUID string) (*v1.Thread, error) {
+	var agent v1.Agent
+	if err := c.Get(ctx, router.Key(projectThread.Namespace, projectThread.Spec.AgentName), &agent); err != nil {
+		return nil, err
+	}
+
+	thread := v1.Thread{
+		ObjectMeta: metav1.ObjectMeta{
+			GenerateName: system.ThreadPrefix,
+			Namespace:    agent.Namespace,
+			Finalizers:   []string{v1.ThreadFinalizer},
+		},
+		Spec: v1.ThreadSpec{
+			AgentName:        agent.Name,
+			ParentThreadName: projectThread.Name,
+			UserUID:          userUID,
+		},
+	}
+
+	return &thread, c.Create(ctx, &thread)
+}
+
+func CreateProjectForAgent(ctx context.Context, c kclient.WithWatch, agent *v1.Agent, name, userUID string) (*v1.Thread, error) {
+	return createThreadForAgent(ctx, c, agent, "", "", userUID, true, name)
+}
+
+func CreateThreadForAgent(ctx context.Context, c kclient.WithWatch, agent *v1.Agent, threadName, parentThreadName, userUID string) (*v1.Thread, error) {
+	return createThreadForAgent(ctx, c, agent, threadName, parentThreadName, userUID, false, "")
+}
+
+func createThreadForAgent(ctx context.Context, c kclient.WithWatch, agent *v1.Agent, threadName, parentThreadName, userUID string, project bool, projectName string) (*v1.Thread, error) {
 	var (
 		fromWorkspaceNames []string
 		err                error
@@ -233,27 +275,26 @@ func CreateThreadForAgent(ctx context.Context, c kclient.WithWatch, agent *v1.Ag
 			GenerateName: system.ThreadPrefix,
 			Name:         threadName,
 			Namespace:    agent.Namespace,
+			Finalizers:   []string{v1.ThreadFinalizer},
 		},
 		Spec: v1.ThreadSpec{
 			Manifest: types.ThreadManifest{
-				Tools: agent.Spec.Manifest.DefaultThreadTools,
+				Tools:       agent.Spec.Manifest.DefaultThreadTools,
+				Description: projectName,
 			},
 			AgentName:          agent.Name,
+			ParentThreadName:   parentThreadName,
 			FromWorkspaceNames: fromWorkspaceNames,
+			Project:            project,
 			UserUID:            userUID,
-			AgentAlias:         agentAlias,
 			TextEmbeddingModel: agentKnowledgeSet.Spec.TextEmbeddingModel,
 		},
 	}
 	return &thread, c.Create(ctx, &thread)
 }
 
-func (i *Invoker) updateThreadFields(ctx context.Context, c kclient.WithWatch, agent *v1.Agent, thread *v1.Thread, opt Options) error {
+func (i *Invoker) updateThreadFields(ctx context.Context, c kclient.WithWatch, agent *v1.Agent, thread *v1.Thread) error {
 	var updated bool
-	if opt.AgentAlias != "" && thread.Spec.AgentAlias != opt.AgentAlias {
-		thread.Spec.AgentAlias = opt.AgentAlias
-		updated = true
-	}
 	if thread.Spec.AgentName != agent.Name {
 		thread.Spec.AgentName = agent.Name
 		updated = true
@@ -266,9 +307,6 @@ func (i *Invoker) updateThreadFields(ctx context.Context, c kclient.WithWatch, a
 
 func (i *Invoker) Agent(ctx context.Context, c kclient.WithWatch, agent *v1.Agent, input string, opt Options) (_ *Response, err error) {
 	thread, err := getThreadForAgent(ctx, c, agent, opt)
-	if apierror.IsNotFound(err) && opt.CreateThread && strings.HasPrefix(opt.ThreadName, system.ThreadPrefix) {
-		thread, err = CreateThreadForAgent(ctx, c, agent, opt.ThreadName, opt.UserUID, opt.AgentAlias)
-	}
 	if err != nil {
 		return nil, err
 	}
@@ -278,6 +316,12 @@ func (i *Invoker) Agent(ctx context.Context, c kclient.WithWatch, agent *v1.Agen
 	}
 
 	credContextIDs := []string{thread.Name}
+	if thread.Spec.ParentThreadName != "" {
+		credContextIDs, err = projects.ParentThreadIDs(ctx, c, thread)
+		if err != nil {
+			return nil, err
+		}
+	}
 	if opt.ThreadCredentialScope != nil && !*opt.ThreadCredentialScope {
 		credContextIDs = nil
 	}
@@ -295,7 +339,7 @@ func (i *Invoker) Agent(ctx context.Context, c kclient.WithWatch, agent *v1.Agen
 		return nil, err
 	}
 
-	if err := i.updateThreadFields(ctx, c, agent, thread, opt); err != nil {
+	if err := i.updateThreadFields(ctx, c, agent, thread); err != nil {
 		return nil, err
 	}
 
@@ -348,7 +392,7 @@ func isEphemeral(run *v1.Run) bool {
 	return strings.HasPrefix(run.Name, ephemeralRunPrefix)
 }
 
-func (i *Invoker) createRun(ctx context.Context, c kclient.WithWatch, thread *v1.Thread, tool any, input string, opts runOptions) (_ *Response, retErr error) {
+func (i *Invoker) createRun(ctx context.Context, c kclient.WithWatch, thread *v1.Thread, tool any, input string, opts runOptions) (*Response, error) {
 	previousRunName := thread.Status.LastRunName
 	if opts.PreviousRunName != "" {
 		previousRunName = opts.PreviousRunName
@@ -400,7 +444,7 @@ func (i *Invoker) createRun(ctx context.Context, c kclient.WithWatch, thread *v1
 			// Ensure that, regardless of which client is being used, we get an uncached version of the thread for updating.
 			// The first uncached.Get method ensures that we get an uncached version when calling this from a controller.
 			// That will fail when calling this outside a controller, so try a "bare" get in that case.
-			if err := c.Get(ctx, kclient.ObjectKeyFromObject(thread), uncached.Get(thread)); err != nil {
+			if err := c.Get(ctx, kclient.ObjectKeyFromObject(thread), untriggered.UncachedGet(thread)); err != nil {
 				if err := c.Get(ctx, kclient.ObjectKeyFromObject(thread), thread); err != nil {
 					return err
 				}
@@ -484,7 +528,7 @@ func (i *Invoker) Resume(ctx context.Context, c kclient.WithWatch, thread *v1.Th
 	}
 
 	var userID, userName, userEmail, userTimezone string
-	if thread.Spec.UserUID != "" {
+	if thread.Spec.UserUID != "" && thread.Spec.UserUID != "anonymous" && thread.Spec.UserUID != "nobody" {
 		u, err := i.gatewayClient.UserByID(ctx, thread.Spec.UserUID)
 		if err != nil {
 			return fmt.Errorf("failed to get user: %w", err)
@@ -719,15 +763,18 @@ func (i *Invoker) doSaveState(ctx context.Context, c kclient.Client, prevThreadN
 			panic(err)
 		}
 		shortText := text
-		if len(shortText) > 100 {
-			shortText = shortText[:100]
+		if len(shortText) > runOutputMaxLength {
+			shortText = shortText[:runOutputMaxLength]
 		}
 		if run.Status.Output != shortText {
+			if run.Status.SubCall == nil && run.Status.TaskResult == nil {
+				runChanged = true
+			}
 			run.Status.SubCall = toSubCall(text)
-			if run.Status.SubCall == nil {
+			run.Status.TaskResult = toTaskResult(text)
+			if run.Status.SubCall == nil && run.Status.TaskResult == nil {
 				run.Status.Output = shortText
 			}
-			runChanged = true
 		}
 	}
 
@@ -784,6 +831,15 @@ type call struct {
 	Type     string `json:"type,omitempty"`
 	Workflow string `json:"workflow,omitempty"`
 	Input    any    `json:"input,omitempty"`
+}
+
+func toTaskResult(output string) *v1.TaskResult {
+	var call v1.TaskResult
+	if err := json.Unmarshal([]byte(strings.TrimSpace(output)), &call); err != nil || call.Type != "ObotTaskResult" || call.ID == "" {
+		return nil
+	}
+
+	return &call
 }
 
 func toSubCall(output string) *v1.SubCall {

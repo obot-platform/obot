@@ -24,6 +24,10 @@ export type AgentBase = {
 	model?: string;
 	toolInfo?: AgentToolInfo;
 	env?: EnvVariable[];
+	starterMessages?: string[];
+	introductionMessage?: string;
+	icons: AgentIcons | null;
+	oauthApps?: string[];
 };
 
 export type AgentOAuthStatus = {

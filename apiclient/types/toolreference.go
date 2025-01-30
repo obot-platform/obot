@@ -9,6 +9,7 @@ const (
 	ToolReferenceTypeKnowledgeDocumentLoader ToolReferenceType = "knowledgeDocumentLoader"
 	ToolReferenceTypeSystem                  ToolReferenceType = "system"
 	ToolReferenceTypeModelProvider           ToolReferenceType = "modelProvider"
+	ToolReferenceTypeAuthProvider            ToolReferenceType = "authProvider"
 )
 
 type ToolReferenceManifest struct {
@@ -25,7 +26,7 @@ type ToolReference struct {
 	Error       string            `json:"error,omitempty"`
 	Builtin     bool              `json:"builtin,omitempty"`
 	Description string            `json:"description,omitempty"`
-	Credentials []string          `json:"credential,omitempty"`
+	Credentials []string          `json:"credentials,omitempty"`
 	Params      map[string]string `json:"params,omitempty"`
 }
 

@@ -27,7 +27,10 @@ const objectHasAllKeys = <T extends object = object>(
 function isEmailReceiver(
 	entity: WorkFlowTriggerEntity
 ): entity is EmailReceiver {
-	return objectHasAllKeys<EmailReceiver>(entity, ["workflow", "emailAddress"]);
+	return (
+		entity.type === "emailreceiver" &&
+		objectHasAllKeys<EmailReceiver>(entity, ["workflow"])
+	);
 }
 
 function isWebhook(entity: WorkFlowTriggerEntity): entity is Webhook {

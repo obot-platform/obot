@@ -3,7 +3,7 @@ import { PenSquareIcon } from "lucide-react";
 import { useMemo } from "react";
 import { MetaFunction, useNavigate } from "react-router";
 import { $path } from "safe-routes";
-import useSWR, { mutate, preload } from "swr";
+import useSWR, { preload } from "swr";
 
 import { Workflow } from "~/lib/model/workflows";
 import { ThreadsService } from "~/lib/service/api/threadsService";
@@ -23,7 +23,6 @@ import { DeleteWorkflowButton } from "~/components/workflow/DeleteWorkflow";
 import { WorkflowViewYaml } from "~/components/workflow/WorkflowView";
 
 export async function clientLoader() {
-	mutate(WorkflowService.getWorkflows.key(), ThreadsService.getThreads.key());
 	await Promise.all([
 		preload(WorkflowService.getWorkflows.key(), WorkflowService.getWorkflows),
 		preload(ThreadsService.getThreads.key(), ThreadsService.getThreads),

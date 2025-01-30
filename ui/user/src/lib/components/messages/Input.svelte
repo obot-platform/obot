@@ -3,6 +3,7 @@
 	import { editor } from '$lib/stores';
 	import { autoHeight } from '$lib/actions/textarea.js';
 	import { ArrowUp, LoaderCircle } from 'lucide-svelte';
+	import { tick } from 'svelte';
 
 	interface Props {
 		onFocus?: () => void;
@@ -35,7 +36,7 @@
 			changedFiles: {}
 		};
 
-		for (const file of editor) {
+		for (const file of editor.items) {
 			if (file.modified && !file.taskID) {
 				if (!input.changedFiles) {
 					input.changedFiles = {};
@@ -52,7 +53,7 @@
 		}
 
 		if (input.changedFiles) {
-			for (const file of editor) {
+			for (const file of editor.items) {
 				if (input.changedFiles[file.name]) {
 					file.contents = input.changedFiles[file.name];
 					file.modified = false;
@@ -62,6 +63,8 @@
 		}
 
 		value = '';
+		await tick();
+		chat.dispatchEvent(new Event('resize'));
 	}
 
 	async function onKey(e: KeyboardEvent) {
@@ -98,8 +101,9 @@
 			class="peer
 			!ml-4
 			!mr-2
-			 w-full resize-none
-			 bg-gray-70 !p-2.5 outline-none dark:bg-gray-950"
+			w-full
+			 resize-none bg-gray-70
+			 !p-2.5 outline-none scrollbar-none dark:bg-gray-950"
 			{placeholder}
 		></textarea>
 		<button

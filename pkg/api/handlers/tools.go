@@ -1,10 +1,12 @@
 package handlers
 
 import (
+	"context"
 	"errors"
 	"maps"
 	"regexp"
 	"slices"
+	"time"
 
 	"github.com/gptscript-ai/go-gptscript"
 	"github.com/obot-platform/obot/apiclient/types"
@@ -28,7 +30,7 @@ func NewToolHandler(gptScript *gptscript.GPTScript, invoke *invoke.Invoker) *Too
 	}
 }
 
-var invalidEnv = regexp.MustCompile("^(OBOT|GPTSCRIPT)")
+var invalidEnv = regexp.MustCompile("^(OBOT|GPTSCRIPT|KNOW)")
 
 func setEnvMap(req api.Context, gptScript *gptscript.GPTScript, threadName, toolName string, env map[string]string) error {
 	for k := range env {
@@ -142,11 +144,27 @@ type TestInput struct {
 }
 
 func (t *ToolHandler) Test(req api.Context) error {
-	toolID := req.PathValue("tool_id")
+	var (
+		toolID      = req.PathValue("tool_id")
+		agent       v1.Agent
+		envs        []string
+		envNameList []string
+		testID      = system.ToolPrefix + "-test-cred"
+	)
 
 	thread, err := getThreadForScope(req)
 	if err != nil {
 		return err
+	}
+
+	if err := req.Get(&agent, thread.Spec.AgentName); err != nil {
+		return err
+	}
+
+	for _, env := range agent.Spec.Manifest.Env {
+		if env.Name != "" && env.Value != "" {
+			envs = append(envs, env.Name+"="+env.Value)
+		}
 	}
 
 	var tool v1.Tool
@@ -158,43 +176,37 @@ func (t *ToolHandler) Test(req api.Context) error {
 		return types.NewErrNotFound("tool %s not found", toolID)
 	}
 
-	env, err := getEnvMap(req, t.gptScript, thread.Name, tool.Name)
-	if err != nil {
-		return err
-	}
-
-	var (
-		envNameList []string
-		envNameSeen = map[string]struct{}{}
-	)
-	var envList []string
-	for k, v := range env {
-		envNameList = append(envNameList, k)
-		envNameSeen[k] = struct{}{}
-		envList = append(envList, k+"="+v)
-	}
-
 	var input TestInput
 	if err := req.Read(&input); err != nil {
 		return err
 	}
 
-	for k, v := range input.Env {
-		if _, ok := envNameSeen[k]; !ok {
-			envNameList = append(envNameList, k)
-			envNameSeen[k] = struct{}{}
+	if len(input.Env) > 0 {
+		for envName := range input.Env {
+			if invalidEnv.MatchString(envName) {
+				return types.NewErrBadRequest("invalid env key %s", envName)
+			}
+			envNameList = append(envNameList, envName)
 		}
-		envList = append(envList, k+"="+v)
+		err := t.gptScript.CreateCredential(req.Context(), gptscript.Credential{
+			Context:  thread.Name,
+			ToolName: testID,
+			Type:     gptscript.CredentialTypeTool,
+			Env:      input.Env,
+		})
+		if err != nil {
+			return err
+		}
+		defer func() {
+			_ = t.gptScript.DeleteCredential(req.Context(), thread.Name, testID)
+		}()
 	}
 
 	if input.Tool != nil {
 		tool.Spec.Manifest = input.Tool.ToolManifest
 	}
 
-	if tool.Spec.Manifest.Name == "" {
-		tool.Spec.Manifest.Name = "test"
-	}
-
+	tool.Spec.Manifest.Name = testID
 	tool.Spec.Envs = envNameList
 
 	tools, err := render.CustomTool(req.Context(), req.Storage, tool)
@@ -202,8 +214,11 @@ func (t *ToolHandler) Test(req api.Context) error {
 		return err
 	}
 
-	result, err := t.invoke.EphemeralThreadTask(req.Context(), thread, tools, input.Input, invoke.SystemTaskOptions{
-		Env: envList,
+	timeoutCtx, cancel := context.WithTimeout(req.Context(), 1*time.Minute)
+	defer cancel()
+
+	result, err := t.invoke.EphemeralThreadTask(timeoutCtx, thread, tools, input.Input, invoke.SystemTaskOptions{
+		Env: envs,
 	})
 	if err != nil {
 		return err

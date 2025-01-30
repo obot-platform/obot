@@ -3,6 +3,7 @@ import { Thread, UpdateThread } from "~/lib/model/threads";
 import { WorkspaceFile } from "~/lib/model/workspace";
 import { ApiRoutes, revalidateWhere } from "~/lib/routers/apiRoutes";
 import { request } from "~/lib/service/api/primitives";
+import { downloadUrl } from "~/lib/utils/downloadFile";
 
 const getThreads = async () => {
 	const res = await request<{ items: Thread[] }>({
@@ -112,6 +113,10 @@ getFiles.key = (threadId?: Nullish<string>) => {
 	return { url: ApiRoutes.threads.getFiles(threadId).path, threadId };
 };
 
+const downloadFile = (threadId: string, filePath: string) => {
+	downloadUrl(ApiRoutes.threads.downloadFile(threadId, filePath).url, filePath);
+};
+
 const abortThread = async (threadId: string) => {
 	await request({
 		url: ApiRoutes.threads.abortById(threadId).url,
@@ -133,5 +138,6 @@ export const ThreadsService = {
 	deleteThread,
 	revalidateThreads,
 	getFiles,
+	downloadFile,
 	abortThread,
 };

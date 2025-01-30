@@ -9,7 +9,7 @@ import { EnvironmentApiService } from "~/lib/service/api/EnvironmentApiService";
 import { EnvForm } from "~/components/agent/shared/AgentEnvironmentVariableForm";
 import { SelectList } from "~/components/composed/SelectModule";
 import { Button } from "~/components/ui/button";
-import { Card } from "~/components/ui/card";
+import { Card, CardDescription } from "~/components/ui/card";
 import {
 	Dialog,
 	DialogContent,
@@ -60,49 +60,58 @@ export function EnvironmentVariableSection({
 	const items = entity.env ?? [];
 
 	return (
-		<div className="flex flex-col gap-2">
-			{!!items.length && (
-				<Card className="px-4 py-2">
-					<SelectList
-						getItemKey={(item) => item.name}
-						items={items}
-						renderItem={renderItem}
-						selected={items.map((item) => item.name)}
-					/>
-				</Card>
-			)}
+		<div className="space-y-4">
+			<h4>Environment Variables</h4>
 
-			<Dialog open={open} onOpenChange={onOpenChange}>
-				<DialogTrigger asChild>
-					<Button
-						variant="ghost"
-						loading={revealEnv.isLoading}
-						className="self-end"
-						startContent={<PenIcon />}
-					>
-						Environment Variables
-					</Button>
-				</DialogTrigger>
+			<CardDescription>
+				Add environment variables that will be available to all tools as key
+				value pairs.
+			</CardDescription>
 
-				<DialogContent className="max-w-3xl">
-					<DialogHeader>
-						<DialogTitle>Environment Variables</DialogTitle>
-					</DialogHeader>
-
-					<DialogDescription>
-						Environment variables are used to store values that can be used in
-						your {entityType}.
-					</DialogDescription>
-
-					{revealEnv.data && (
-						<EnvForm
-							defaultValues={revealEnv.data}
-							isLoading={updateEnv.isLoading}
-							onSubmit={(values) => updateEnv.execute(entity.id, values)}
+			<div className="flex flex-col gap-2">
+				{!!items.length && (
+					<Card className="px-4 py-2">
+						<SelectList
+							getItemKey={(item) => item.name}
+							items={items}
+							renderItem={renderItem}
+							selected={items.map((item) => item.name)}
 						/>
-					)}
-				</DialogContent>
-			</Dialog>
+					</Card>
+				)}
+
+				<Dialog open={open} onOpenChange={onOpenChange}>
+					<DialogTrigger asChild>
+						<Button
+							variant="ghost"
+							loading={revealEnv.isLoading}
+							className="self-end"
+							startContent={<PenIcon />}
+						>
+							Environment Variables
+						</Button>
+					</DialogTrigger>
+
+					<DialogContent className="max-w-3xl">
+						<DialogHeader>
+							<DialogTitle>Environment Variables</DialogTitle>
+						</DialogHeader>
+
+						<DialogDescription>
+							Environment variables are used to store values that can be used in
+							your {entityType}.
+						</DialogDescription>
+
+						{revealEnv.data && (
+							<EnvForm
+								defaultValues={revealEnv.data}
+								isLoading={updateEnv.isLoading}
+								onSubmit={(values) => updateEnv.execute(entity.id, values)}
+							/>
+						)}
+					</DialogContent>
+				</Dialog>
+			</div>
 		</div>
 	);
 

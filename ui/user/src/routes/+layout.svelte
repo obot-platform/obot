@@ -1,16 +1,20 @@
 <script lang="ts">
 	import '../app.css';
 	import { darkMode } from '$lib/stores';
+
 	interface Props {
 		children?: import('svelte').Snippet;
 	}
 
 	let { children }: Props = $props();
 
-	darkMode.subscribe((value) => {
-		if (typeof document === 'undefined') return;
+	$effect(() => {
+		if (typeof document === 'undefined') {
+			return;
+		}
+
 		const html = document.querySelector('html');
-		if (value) {
+		if (darkMode.isDark) {
 			html?.classList.add('dark');
 		} else {
 			html?.classList.remove('dark');
@@ -28,7 +32,7 @@
 		href="https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&display=swap"
 		rel="stylesheet"
 	/>
-	{#if $darkMode}
+	{#if darkMode.isDark}
 		<link
 			rel="stylesheet"
 			href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/styles/github-dark.min.css"

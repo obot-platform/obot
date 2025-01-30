@@ -49,10 +49,11 @@ func (in *ToolReference) GetColumns() [][]string {
 }
 
 type ToolReferenceSpec struct {
-	Type      types.ToolReferenceType `json:"type,omitempty"`
-	Builtin   bool                    `json:"builtin,omitempty"`
-	Reference string                  `json:"reference,omitempty"`
-	Active    *bool                   `json:"active,omitempty"`
+	Type         types.ToolReferenceType `json:"type,omitempty"`
+	Builtin      bool                    `json:"builtin,omitempty"`
+	Reference    string                  `json:"reference,omitempty"`
+	Active       *bool                   `json:"active,omitempty"`
+	ForceRefresh metav1.Time             `json:"forceRefresh,omitempty"`
 }
 
 type ToolShortDescription struct {

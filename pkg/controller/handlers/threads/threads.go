@@ -3,17 +3,26 @@ package threads
 import (
 	"context"
 
+	"github.com/gptscript-ai/go-gptscript"
 	"github.com/obot-platform/nah/pkg/name"
 	"github.com/obot-platform/nah/pkg/router"
 	"github.com/obot-platform/obot/pkg/create"
+	"github.com/obot-platform/obot/pkg/projects"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
-	"github.com/obot-platform/obot/pkg/wait"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func WorkflowState(req router.Request, _ router.Response) error {
+type Handler struct {
+	gptScript *gptscript.GPTScript
+}
+
+func NewHandler(gptScript *gptscript.GPTScript) *Handler {
+	return &Handler{gptScript: gptScript}
+}
+
+func (t *Handler) WorkflowState(req router.Request, _ router.Response) error {
 	var (
 		thread = req.Object.(*v1.Thread)
 		wfe    v1.WorkflowExecution
@@ -31,17 +40,22 @@ func WorkflowState(req router.Request, _ router.Response) error {
 
 func getWorkspace(ctx context.Context, c kclient.WithWatch, thread *v1.Thread) (*v1.Workspace, error) {
 	if thread.Spec.WorkspaceName != "" {
-		return wait.For(ctx, c, &v1.Workspace{
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace: thread.Namespace,
-				Name:      thread.Spec.WorkspaceName,
-			},
-		}, func(ws *v1.Workspace) (bool, error) {
-			return ws.Status.WorkspaceID != "", nil
-		})
+		ws := new(v1.Workspace)
+		return ws, c.Get(ctx, kclient.ObjectKey{Namespace: thread.Namespace, Name: thread.Spec.WorkspaceName}, ws)
 	}
 
-	return wait.For(ctx, c, &v1.Workspace{
+	if thread.Spec.ParentThreadName != "" {
+		parentThread, err := projects.Recurse(ctx, c, thread, func(parentThread *v1.Thread) (bool, error) {
+			return parentThread.Status.WorkspaceName != "", nil
+		})
+		if err != nil {
+			return nil, err
+		}
+		ws := new(v1.Workspace)
+		return ws, c.Get(ctx, kclient.ObjectKey{Namespace: thread.Namespace, Name: parentThread.Status.WorkspaceName}, ws)
+	}
+
+	ws := &v1.Workspace{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace:  thread.Namespace,
 			Name:       system.WorkspacePrefix + thread.Name,
@@ -51,18 +65,16 @@ func getWorkspace(ctx context.Context, c kclient.WithWatch, thread *v1.Thread) (
 			ThreadName:         thread.Name,
 			FromWorkspaceNames: thread.Spec.FromWorkspaceNames,
 		},
-	}, func(ws *v1.Workspace) (bool, error) {
-		return ws.Status.WorkspaceID != "", nil
-	}, wait.Option{
-		Create: true,
-	})
+	}
+
+	return ws, create.IfNotExists(ctx, c, ws)
 }
 
-func CreateWorkspaces(req router.Request, _ router.Response) error {
+func (t *Handler) CreateWorkspaces(req router.Request, _ router.Response) error {
 	thread := req.Object.(*v1.Thread)
 
 	ws, err := getWorkspace(req.Ctx, req.Client, thread)
-	if err != nil {
+	if err != nil || ws.Status.WorkspaceID == "" {
 		return err
 	}
 
@@ -81,10 +93,43 @@ func CreateWorkspaces(req router.Request, _ router.Response) error {
 	return nil
 }
 
-func CreateKnowledgeSet(req router.Request, _ router.Response) error {
+func (t *Handler) CleanupThread(req router.Request, _ router.Response) error {
+	thread := req.Object.(*v1.Thread)
+
+	creds, err := t.gptScript.ListCredentials(req.Ctx, gptscript.ListCredentialsOptions{
+		CredentialContexts: []string{thread.Name},
+	})
+	if err != nil {
+		return err
+	}
+
+	for _, cred := range creds {
+		if err := t.gptScript.DeleteCredential(req.Ctx, thread.Name, cred.ToolName); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (t *Handler) CreateKnowledgeSet(req router.Request, _ router.Response) error {
 	thread := req.Object.(*v1.Thread)
 	if len(thread.Status.KnowledgeSetNames) > 0 || thread.Spec.AgentName == "" {
 		return nil
+	}
+
+	if thread.Spec.ParentThreadName != "" {
+		parentThread, err := projects.Recurse(req.Ctx, req.Client, thread, func(parentThread *v1.Thread) (bool, error) {
+			return len(parentThread.Status.KnowledgeSetNames) > 0, nil
+		})
+		if err != nil {
+			return err
+		}
+		if len(parentThread.Status.KnowledgeSetNames) == 0 {
+			return nil
+		}
+		thread.Status.KnowledgeSetNames = parentThread.Status.KnowledgeSetNames
+		return req.Client.Status().Update(req.Ctx, thread)
 	}
 
 	ws := &v1.KnowledgeSet{

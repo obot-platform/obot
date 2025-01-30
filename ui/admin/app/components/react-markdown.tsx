@@ -30,6 +30,17 @@ const MarkdownOrderedList = memo(
 
 MarkdownOrderedList.displayName = "MarkdownOrderedList";
 
+const MarkdownLink = memo(
+	({ node: _node, ...props }: MarkdownComponentProps<"a">) => (
+		<a {...props} target="_blank" rel="noopener noreferrer">
+			{props.children}
+		</a>
+	)
+);
+
+MarkdownLink.displayName = "MarkdownLink";
+
 export const CustomMarkdownComponents: Partial<Components> = {
 	ol: MarkdownOrderedList as Components["ol"],
+	a: MarkdownLink as Components["a"],
 };

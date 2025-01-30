@@ -35,34 +35,7 @@ const buildUrl = (path: string, params?: object) => {
 
 export const ApiRoutes = {
 	assistants: {
-		base: () => buildUrl("/assistants"),
 		getAssistants: () => buildUrl("/assistants"),
-		getCredentials: (assistantId: string) =>
-			buildUrl(`/assistants/${assistantId}/credentials`),
-		deleteCredential: (assistantId: string, credentialId: string) =>
-			buildUrl(`/assistants/${assistantId}/credentials/${credentialId}`),
-		getEvents: (assistantId: string) =>
-			buildUrl(`/assistants/${assistantId}/events`),
-		invoke: (assistantId: string) =>
-			buildUrl(`/assistants/${assistantId}/invoke`),
-		getTools: (assistantId: string) =>
-			buildUrl(`/assistants/${assistantId}/tools`),
-		deleteTool: (assistantId: string, toolId: string) =>
-			buildUrl(`/assistants/${assistantId}/tools/${toolId}`),
-		getFiles: (assistantId: string) =>
-			buildUrl(`/assistants/${assistantId}/files`),
-		getFileById: (assistantId: string, fileId: string) =>
-			buildUrl(`/assistants/${assistantId}/files/${fileId}`),
-		uploadFile: (assistantId: string) =>
-			buildUrl(`/assistants/${assistantId}/files`),
-		deleteFile: (assistantId: string, fileId: string) =>
-			buildUrl(`/assistants/${assistantId}/files/${fileId}`),
-		getKnowledge: (assistantId: string) =>
-			buildUrl(`/assistants/${assistantId}/knowledge`),
-		addKnowledge: (assistantId: string, fileName: string) =>
-			buildUrl(`/assistants/${assistantId}/knowledge/${fileName}`),
-		deleteKnowledge: (assistantId: string, fileName: string) =>
-			buildUrl(`/assistants/${assistantId}/knowledge/${fileName}`),
 	},
 	knowledgeSources: {
 		getKnowledgeSources: (
@@ -161,12 +134,22 @@ export const ApiRoutes = {
 			buildUrl(`/agents/${agentId}/authorizations/add`),
 		removeAuthorization: (agentId: string) =>
 			buildUrl(`/agents/${agentId}/authorizations/remove`),
+		getWorkspaceFiles: (agentId: string) =>
+			buildUrl(`/agents/${agentId}/files`),
+		getWorkspaceFile: (agentId: string, fileName: string) =>
+			buildUrl(`/agents/${agentId}/files/${fileName}`),
+		removeWorkspaceFile: (agentId: string, fileName: string) =>
+			buildUrl(`/agents/${agentId}/files/${fileName}`),
+		uploadWorkspaceFile: (agentId: string, fileName: string) =>
+			buildUrl(`/agents/${agentId}/files/${fileName}`),
 	},
 	workflows: {
 		base: () => buildUrl("/workflows"),
 		getById: (workflowId: string) => buildUrl(`/workflows/${workflowId}`),
 		authenticate: (workflowId: string) =>
 			buildUrl(`/workflows/${workflowId}/authenticate`),
+		deleteWithTriggers: (workflowId: string) =>
+			buildUrl(`/workflows/${workflowId}`, { "delete-triggers": "true" }),
 	},
 	toolAuthentication: {
 		authenticate: (namespace: AssistantNamespace, entityId: string) =>
@@ -179,10 +162,8 @@ export const ApiRoutes = {
 		updateEnv: (entityId: string) => buildUrl(`/agents/${entityId}/env`),
 	},
 	credentials: {
-		getCredentialsForEntity: (
-			namespace: CredentialNamespace,
-			entityId: string
-		) => buildUrl(`/${namespace}/${entityId}/credentials`),
+		getCredentials: (namespace: CredentialNamespace, entityId: string) =>
+			buildUrl(`/${namespace}/${entityId}/credentials`),
 		deleteCredential: (
 			namespace: CredentialNamespace,
 			entityId: string,
@@ -205,6 +186,8 @@ export const ApiRoutes = {
 		) => buildUrl(`/threads/${threadId}/events`, params),
 		getFiles: (threadId: string) => buildUrl(`/threads/${threadId}/files`),
 		abortById: (threadId: string) => buildUrl(`/threads/${threadId}/abort`),
+		downloadFile: (threadId: string, filePath: string) =>
+			buildUrl(`/threads/${threadId}/files/${filePath}`),
 	},
 	prompt: {
 		base: () => buildUrl("/prompt"),
@@ -221,16 +204,22 @@ export const ApiRoutes = {
 			buildUrl("/tool-references", params),
 		getById: (toolReferenceId: string) =>
 			buildUrl(`/tool-references/${toolReferenceId}`),
+		purgeCache: (toolReferenceId: string) =>
+			buildUrl(`/tool-references/${toolReferenceId}/force-refresh`),
 	},
 	users: {
 		base: () => buildUrl("/users"),
 		updateUser: (username: string) => buildUrl(`/users/${username}`),
 	},
 	me: () => buildUrl("/me"),
-	invoke: (id: string, threadId?: Nullish<string>) => {
+	invoke: (
+		id: string,
+		threadId?: Nullish<string>,
+		params?: { async?: boolean }
+	) => {
 		return threadId
-			? buildUrl(`/invoke/${id}/threads/${threadId}`)
-			: buildUrl(`/invoke/${id}`);
+			? buildUrl(`/invoke/${id}/threads/${threadId}`, params)
+			: buildUrl(`/invoke/${id}`, params);
 	},
 	oauthApps: {
 		base: () => buildUrl("/oauth-apps"),
@@ -258,6 +247,8 @@ export const ApiRoutes = {
 		getModelProviders: () => buildUrl("/model-providers"),
 		getModelProviderById: (modelProviderKey: string) =>
 			buildUrl(`/model-providers/${modelProviderKey}`),
+		validateModelProviderById: (modelProviderKey: string) =>
+			buildUrl(`/model-providers/${modelProviderKey}/validate`),
 		configureModelProviderById: (modelProviderKey: string) =>
 			buildUrl(`/model-providers/${modelProviderKey}/configure`),
 		revealModelProviderById: (modelProviderKey: string) =>
@@ -302,6 +293,23 @@ export const ApiRoutes = {
 		deleteEmailReceiver: (id: string) => buildUrl(`/email-receivers/${id}`),
 	},
 	version: () => buildUrl("/version"),
+	authProviders: {
+		base: () => buildUrl("/auth-providers"),
+		getAuthProviders: () => buildUrl("/auth-providers"),
+		getAuthProviderById: (authProviderId: string) =>
+			buildUrl(`/auth-providers/${authProviderId}`),
+		configureAuthProviderById: (authProviderId: string) =>
+			buildUrl(`/auth-providers/${authProviderId}/configure`),
+		revealAuthProviderById: (authProviderId: string) =>
+			buildUrl(`/auth-providers/${authProviderId}/reveal`),
+		deconfigureAuthProviderById: (authProviderId: string) =>
+			buildUrl(`/auth-providers/${authProviderId}/deconfigure`), // TODO - implement this in the backend
+	},
+	bootstrap: {
+		status: () => buildUrl("/bootstrap"),
+		login: () => buildUrl("/bootstrap/login"),
+		logout: () => buildUrl("/bootstrap/logout"),
+	},
 };
 
 /** revalidates the cache for all routes that match the filter callback
@@ -323,4 +331,16 @@ export const revalidateWhere = async (filterCb: (url: string) => boolean) => {
 			return false;
 		}
 	});
+};
+
+export const createRevalidate = <
+	TParams extends unknown[],
+	TReturn extends { path: string },
+>(
+	fn: (...params: TParams) => TReturn
+) => {
+	return (...params: TParams) => {
+		const re = new RegExp(fn(...params).path);
+		return revalidateWhere((url) => re.test(url));
+	};
 };

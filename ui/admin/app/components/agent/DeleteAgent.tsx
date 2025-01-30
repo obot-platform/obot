@@ -13,11 +13,18 @@ import {
 } from "~/components/ui/tooltip";
 import { useAsync } from "~/hooks/useAsync";
 
-export function DeleteAgent({ id }: { id: string }) {
+export function DeleteAgent({
+	id,
+	onSuccess,
+}: {
+	id: string;
+	onSuccess?: () => void;
+}) {
 	const deleteAgent = useAsync(AgentService.deleteAgent, {
 		onSuccess: () => {
 			toast.success("Agent deleted");
 			mutate(AgentService.getAgents.key());
+			onSuccess?.();
 		},
 		onError: () => toast.error("Failed to delete agent"),
 	});

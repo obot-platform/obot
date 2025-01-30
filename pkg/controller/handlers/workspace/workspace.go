@@ -6,8 +6,6 @@ import (
 	"github.com/gptscript-ai/go-gptscript"
 	"github.com/obot-platform/nah/pkg/router"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
-	"github.com/obot-platform/obot/pkg/wait"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -23,23 +21,19 @@ func New(gClient *gptscript.GPTScript, wp string) *Handler {
 	}
 }
 
-func getWorkspaceIDs(ctx context.Context, c kclient.WithWatch, ws *v1.Workspace) (wsIDs []string, _ error) {
+func getWorkspaceIDs(ctx context.Context, c kclient.WithWatch, ws *v1.Workspace) ([]string, bool, error) {
+	var (
+		wsIDs       []string
+		dependentWS v1.Workspace
+	)
 	for _, wsName := range ws.Spec.FromWorkspaceNames {
-		ws, err := wait.For(ctx, c, &v1.Workspace{
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace: ws.Namespace,
-				Name:      wsName,
-			},
-		}, func(ws *v1.Workspace) (bool, error) {
-			return ws.Status.WorkspaceID != "", nil
-		})
-		if err != nil {
-			return nil, err
+		if err := c.Get(ctx, router.Key(ws.Namespace, wsName), &dependentWS); err != nil || dependentWS.Status.WorkspaceID == "" {
+			return nil, false, err
 		}
-		wsIDs = append(wsIDs, ws.Status.WorkspaceID)
+		wsIDs = append(wsIDs, dependentWS.Status.WorkspaceID)
 	}
 
-	return
+	return wsIDs, true, nil
 }
 
 func (a *Handler) CreateWorkspace(req router.Request, _ router.Response) error {
@@ -49,8 +43,8 @@ func (a *Handler) CreateWorkspace(req router.Request, _ router.Response) error {
 	}
 
 	providerType := a.workspaceProvider
-	wsIDs, err := getWorkspaceIDs(req.Ctx, req.Client, ws)
-	if err != nil {
+	wsIDs, allReady, err := getWorkspaceIDs(req.Ctx, req.Client, ws)
+	if err != nil || !allReady {
 		return err
 	}
 

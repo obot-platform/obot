@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { Plus, Trash } from '$lib/icons';
-	import { tasks, currentAssistant } from '$lib/stores';
+	import { Plus, Trash } from 'lucide-svelte/icons';
+	import { tasks } from '$lib/stores';
 	import { EditorService, type Task } from '$lib/services';
 	import Confirm from '$lib/components/Confirm.svelte';
 	import { CheckSquare } from 'lucide-svelte';
@@ -18,7 +18,7 @@
 
 	async function newTask() {
 		const task = await tasks.create();
-		await EditorService.load($currentAssistant.id, task.id);
+		await EditorService.load(task.id);
 		menu?.open.set(false);
 	}
 
@@ -31,7 +31,7 @@
 		<CheckSquare class="h-5 w-5" />
 	{/snippet}
 	{#snippet body()}
-		{#if tasks.items.size === 0}
+		{#if tasks.items.length === 0}
 			<p class="p-6 text-center text-sm text-gray dark:text-gray-300">No tasks</p>
 		{:else}
 			<ul class="space-y-4 py-6 text-sm">
@@ -41,7 +41,7 @@
 							<button
 								class="flex flex-1 items-center"
 								onclick={async () => {
-									await EditorService.load($currentAssistant.id, task.id);
+									await EditorService.load(task.id);
 									menu?.open.set(false);
 								}}
 							>

@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { ChatService, type Messages, type Task, type TaskStep } from '$lib/services';
-	import { currentAssistant, errors } from '$lib/stores';
 	import { onDestroy } from 'svelte';
 	import Step from '$lib/components/tasks/Step.svelte';
 	import { LoaderCircle, OctagonX, Play } from 'lucide-svelte';
@@ -9,6 +8,7 @@
 	import Input from '$lib/components/tasks/Input.svelte';
 	import Type from '$lib/components/tasks/Type.svelte';
 	import Files from '$lib/components/tasks/Files.svelte';
+	import { errors } from '$lib/stores';
 
 	interface Props {
 		task: Task;
@@ -65,8 +65,8 @@
 
 	function newThread(runID?: string) {
 		closeThread();
-		thread = new Thread($currentAssistant.id, {
-			onError: errors.append,
+		thread = new Thread({
+			onError: errors.items.push,
 			task: task,
 			runID: runID
 		});
@@ -82,7 +82,7 @@
 
 	async function click() {
 		if (running || pending) {
-			return await ChatService.abort($currentAssistant.id, {
+			return await ChatService.abort({
 				taskID: task.id,
 				runID: 'editor'
 			});

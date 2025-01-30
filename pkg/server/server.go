@@ -2,8 +2,10 @@ package server
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/obot-platform/obot/logger"
 	"github.com/obot-platform/obot/pkg/api/router"
@@ -15,7 +17,9 @@ import (
 var log = logger.Package()
 
 func Run(ctx context.Context, c services.Config) error {
-	svcs, err := services.New(ctx, c)
+	servicesCtx, servicesCancel := context.WithCancel(context.Background())
+	defer servicesCancel()
+	svcs, err := services.New(servicesCtx, c)
 	if err != nil {
 		return err
 	}
@@ -31,19 +35,12 @@ func Run(ctx context.Context, c services.Config) error {
 		if err = ctrl.Start(ctx); err != nil {
 			log.Fatalf("Failed to start controller: %v", err)
 		}
-		if err = ctrl.PostStart(ctx); err != nil {
-			log.Fatalf("Failed to post start controller: %v", err)
-		}
 	}()
 
 	handler, err := router.Router(svcs)
 	if err != nil {
 		return err
 	}
-
-	context.AfterFunc(ctx, func() {
-		log.Fatalf("Interrupted, exiting")
-	})
 
 	if c.DevMode && c.AllowedOrigin == "" {
 		c.AllowedOrigin = "*"
@@ -64,5 +61,30 @@ func Run(ctx context.Context, c services.Config) error {
 		AllowedHeaders: []string{"*"},
 		ExposedHeaders: []string{"*"},
 	})
-	return http.ListenAndServe(address, allowEverything.Handler(handler))
+
+	s := &http.Server{
+		Addr:    address,
+		Handler: allowEverything.Handler(handler),
+	}
+
+	context.AfterFunc(ctx, func() {
+		// Shutdown services after controller and web server are done.
+		defer servicesCancel()
+
+		// Wait for controller to release the lease.
+		<-svcs.Router.Stopped()
+
+		log.Infof("Shutting down server")
+		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+		defer cancel()
+		if err := s.Shutdown(ctx); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			log.Errorf("Failed to gracefully shutdown server: %v", err)
+		}
+	})
+
+	if err = s.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+		return err
+	}
+
+	return nil
 }

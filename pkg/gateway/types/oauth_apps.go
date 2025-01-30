@@ -27,9 +27,13 @@ const (
 	GoogleTokenURL     = "https://oauth2.googleapis.com/token"
 
 	GitHubAuthorizeURL = "https://github.com/login/oauth/authorize"
+	GitHubTokenURL     = "https://github.com/login/oauth/access_token"
 
 	ZoomAuthorizeURL = "https://zoom.us/oauth/authorize"
 	ZoomTokenURL     = "https://zoom.us/oauth/token"
+
+	LinkedInAuthorizeURL = "https://www.linkedin.com/oauth/v2/authorization"
+	LinkedInTokenURL     = "https://www.linkedin.com/oauth/v2/accessToken"
 )
 
 var (
@@ -43,10 +47,10 @@ type OAuthAppTypeConfig struct {
 
 func ValidateAndSetDefaultsOAuthAppManifest(r *types.OAuthAppManifest, create bool) error {
 	var errs []error
-	if r.Integration == "" {
-		errs = append(errs, fmt.Errorf("missing integration"))
-	} else if !alphaNumericRegexp.MatchString(r.Integration) {
-		errs = append(errs, fmt.Errorf("integration name can only contain alphanumeric characters and hyphens: %s", r.Integration))
+	if r.Alias == "" {
+		errs = append(errs, fmt.Errorf("missing alias"))
+	} else if !alphaNumericRegexp.MatchString(r.Alias) {
+		errs = append(errs, fmt.Errorf("alias name can only contain alphanumeric characters and hyphens: %s", r.Alias))
 	}
 
 	switch r.Type {
@@ -54,8 +58,12 @@ func ValidateAndSetDefaultsOAuthAppManifest(r *types.OAuthAppManifest, create bo
 		r.AuthURL = AtlassianAuthorizeURL
 		r.TokenURL = AtlassianTokenURL
 	case types.OAuthAppTypeMicrosoft365:
-		r.AuthURL = fmt.Sprintf("https://login.microsoftonline.com/%s/oauth2/v2.0/authorize", r.TenantID)
-		r.TokenURL = fmt.Sprintf("https://login.microsoftonline.com/%s/oauth2/v2.0/token", r.TenantID)
+		tenantID := r.TenantID
+		if tenantID == "" {
+			tenantID = "common"
+		}
+		r.AuthURL = fmt.Sprintf("https://login.microsoftonline.com/%s/oauth2/v2.0/authorize", tenantID)
+		r.TokenURL = fmt.Sprintf("https://login.microsoftonline.com/%s/oauth2/v2.0/token", tenantID)
 	case types.OAuthAppTypeSlack:
 		r.AuthURL = SlackAuthorizeURL
 		r.TokenURL = SlackTokenURL
@@ -74,6 +82,9 @@ func ValidateAndSetDefaultsOAuthAppManifest(r *types.OAuthAppManifest, create bo
 	case types.OAuthAppTypeZoom:
 		r.AuthURL = ZoomAuthorizeURL
 		r.TokenURL = ZoomTokenURL
+	case types.OAuthAppTypeLinkedIn:
+		r.AuthURL = LinkedInAuthorizeURL
+		r.TokenURL = LinkedInTokenURL
 	case types.OAuthAppTypeSalesforce:
 		salesforceAuthorizeFragment := "/services/oauth2/authorize"
 		salesforceTokenFragment := "/services/oauth2/token"
@@ -124,8 +135,6 @@ func ValidateAndSetDefaultsOAuthAppManifest(r *types.OAuthAppManifest, create bo
 		}
 		if r.Type == types.OAuthAppTypeHubSpot && r.AppID == "" {
 			errs = append(errs, fmt.Errorf("missing appID"))
-		} else if r.Type == types.OAuthAppTypeMicrosoft365 && r.TenantID == "" {
-			errs = append(errs, fmt.Errorf("missing tenantID"))
 		}
 	}
 
@@ -156,8 +165,8 @@ func MergeOAuthAppManifests(r, other types.OAuthAppManifest) types.OAuthAppManif
 	if other.Name != "" {
 		retVal.Name = other.Name
 	}
-	if other.Integration != "" {
-		retVal.Integration = other.Integration
+	if other.Alias != "" {
+		retVal.Alias = other.Alias
 	}
 	if other.AppID != "" {
 		retVal.AppID = other.AppID

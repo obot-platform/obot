@@ -1,7 +1,7 @@
 <script lang="ts">
 	import type { OnDemand } from '$lib/services';
 	import Table from '$lib/components/tasks/Table.svelte';
-	import { Plus } from '$lib/icons';
+	import { Plus } from 'lucide-svelte/icons';
 	import { Minus } from 'lucide-svelte';
 
 	interface Props {
@@ -68,11 +68,21 @@
 
 <div class="flex flex-col gap-4">
 	{#if Object.keys(onDemand.params ?? {}).length > 0}
-		<h4 class="text-xl font-semibold">Input Parameters</h4>
+		<h4 class="text-xl font-semibold">Arguments</h4>
+		{#if editMode}
+			<p class="text-sm text-gray">
+				Reference these values in your steps using <span
+					class="font-mono text-black dark:text-white">$VAR</span
+				> syntax
+			</p>
+		{/if}
 		<Table
 			editable={editMode}
 			header={['Name', 'Description']}
-			placeholders={['Enter name', 'Description...']}
+			placeholders={[
+				'Enter name',
+				'Add good description (essential to help AI form the correct values)...'
+			]}
 			{rows}
 			{buttons}
 			onCellBlur={(value, row, col) => {

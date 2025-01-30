@@ -1,14 +1,30 @@
-import { EditIcon, ExternalLink, FileIcon, FilesIcon } from "lucide-react";
+import {
+	DownloadIcon,
+	EditIcon,
+	ExternalLink,
+	FileIcon,
+	FilesIcon,
+	KeyIcon,
+	LucideIcon,
+	RotateCwIcon,
+	TrashIcon,
+} from "lucide-react";
 import { $path } from "safe-routes";
 
 import { Agent } from "~/lib/model/agents";
-import { KnowledgeFile } from "~/lib/model/knowledge";
 import { runStateToBadgeColor } from "~/lib/model/runs";
 import { Thread } from "~/lib/model/threads";
 import { Workflow } from "~/lib/model/workflows";
-import { WorkspaceFile } from "~/lib/model/workspace";
+import { ThreadsService } from "~/lib/service/api/threadsService";
 import { cn } from "~/lib/utils";
 
+import {
+	useThreadCredentials,
+	useThreadFiles,
+	useThreadKnowledge,
+} from "~/components/chat/shared/thread-helpers";
+import { ConfirmationDialog } from "~/components/composed/ConfirmationDialog";
+import { Truncate } from "~/components/composed/typography";
 import {
 	Accordion,
 	AccordionContent,
@@ -16,23 +32,24 @@ import {
 	AccordionTrigger,
 } from "~/components/ui/accordion";
 import { Badge } from "~/components/ui/badge";
+import { Button } from "~/components/ui/button";
 import { Card, CardContent } from "~/components/ui/card";
+import { ClickableDiv } from "~/components/ui/clickable-div";
 import { Link } from "~/components/ui/link";
+import {
+	Tooltip,
+	TooltipContent,
+	TooltipTrigger,
+} from "~/components/ui/tooltip";
+import { useConfirmationDialog } from "~/hooks/component-helpers/useConfirmationDialog";
 
 interface ThreadMetaProps {
-	for: Agent | Workflow;
+	entity: Agent | Workflow;
 	thread: Thread;
-	files: WorkspaceFile[];
-	knowledge: KnowledgeFile[];
 	className?: string;
 }
 
-export function ThreadMeta({
-	for: entity,
-	thread,
-	files,
-	className,
-}: ThreadMetaProps) {
+export function ThreadMeta({ entity, thread, className }: ThreadMetaProps) {
 	const from = $path("/threads/:id", { id: thread.id });
 	const isAgent = entity.id.startsWith("a");
 
@@ -40,8 +57,19 @@ export function ThreadMeta({
 		? $path("/agents/:agent", { agent: entity.id }, { from })
 		: $path("/workflows/:workflow", { workflow: entity.id });
 
+	const getFiles = useThreadFiles(thread.id);
+	const { data: files = [] } = getFiles;
+
+	const getKnowledge = useThreadKnowledge(thread.id);
+	const { data: knowledge = [] } = getKnowledge;
+
+	const { getCredentials, deleteCredential } = useThreadCredentials(thread.id);
+	const { data: credentials = [] } = getCredentials;
+
+	const { dialogProps, interceptAsync } = useConfirmationDialog();
+
 	return (
-		<Card className={cn("bg-0 h-full", className)}>
+		<Card className={cn("bg-0 h-full overflow-hidden", className)}>
 			<CardContent className="space-y-4 pt-6">
 				<div className="overflow-hidden rounded-md bg-muted p-4">
 					<table className="w-full">
@@ -112,28 +140,149 @@ export function ThreadMeta({
 				</div>
 
 				<Accordion type="multiple" className="mx-2">
-					{files.length > 0 && (
-						<AccordionItem value="files">
-							<AccordionTrigger>
-								<span className="flex items-center text-base">
-									<FilesIcon className="mr-2 h-4 w-4" />
-									Files
-								</span>
-							</AccordionTrigger>
-							<AccordionContent className="mx-4">
-								<ul className="space-y-2">
-									{files.map((file: WorkspaceFile) => (
-										<li key={file.name} className="flex items-center">
-											<FileIcon className="mr-2 h-4 w-4" />
-											<span>{file.name}</span>
-										</li>
-									))}
-								</ul>
-							</AccordionContent>
-						</AccordionItem>
-					)}
+					<ThreadMetaAccordionItem
+						value="files"
+						icon={FilesIcon}
+						title="Files"
+						isLoading={getFiles.isValidating}
+						onRefresh={() => getFiles.mutate()}
+						items={files}
+						renderItem={(file) => (
+							<ClickableDiv
+								key={file.name}
+								onClick={() =>
+									ThreadsService.downloadFile(thread.id, file.name)
+								}
+							>
+								<li className="flex items-center gap-2">
+									<Tooltip>
+										<TooltipTrigger asChild>
+											<Button variant="ghost" size="icon-sm">
+												<DownloadIcon />
+											</Button>
+										</TooltipTrigger>
+
+										<TooltipContent>Download</TooltipContent>
+									</Tooltip>
+									<Truncate
+										className="w-fit flex-1"
+										tooltipContentProps={{ align: "start" }}
+									>
+										{file.name}
+									</Truncate>
+								</li>
+							</ClickableDiv>
+						)}
+					/>
+
+					<ThreadMetaAccordionItem
+						value="knowledge"
+						icon={FilesIcon}
+						title="Knowledge Files"
+						isLoading={getKnowledge.isValidating}
+						onRefresh={() => getKnowledge.mutate()}
+						items={knowledge}
+						renderItem={(file) => (
+							<li key={file.id} className="flex items-center">
+								<FileIcon className="mr-2 h-4 w-4" />
+								<p>{file.fileName}</p>
+							</li>
+						)}
+					/>
+
+					<ThreadMetaAccordionItem
+						value="credentials"
+						icon={KeyIcon}
+						title="Credentials"
+						isLoading={getCredentials.isValidating}
+						onRefresh={() => getCredentials.mutate()}
+						items={credentials}
+						renderItem={(credential) => (
+							<li
+								key={credential.name}
+								className="flex items-center justify-between"
+							>
+								<p>{credential.name}</p>
+
+								<Button
+									size="icon-sm"
+									variant="ghost"
+									onClick={() =>
+										interceptAsync(() =>
+											deleteCredential.executeAsync(credential.name)
+										)
+									}
+								>
+									<TrashIcon />
+								</Button>
+							</li>
+						)}
+					/>
 				</Accordion>
+
+				<ConfirmationDialog
+					{...dialogProps}
+					title="Delete Credential?"
+					description="You will need to re-authenticate to use any tools that require this credential."
+					confirmProps={{
+						variant: "destructive",
+						loading: deleteCredential.isLoading,
+						disabled: deleteCredential.isLoading,
+					}}
+				/>
 			</CardContent>
 		</Card>
+	);
+}
+
+type ThreadMetaAccordionItemProps<T> = {
+	value: string;
+	icon: LucideIcon;
+	title: string;
+	isLoading?: boolean;
+	onRefresh?: (e: React.MouseEvent) => void;
+	items: T[];
+	renderItem: (item: T) => React.ReactNode;
+	emptyMessage?: string;
+};
+
+function ThreadMetaAccordionItem<T>(props: ThreadMetaAccordionItemProps<T>) {
+	const Icon = props.icon;
+	return (
+		<AccordionItem value={props.value}>
+			<AccordionTrigger>
+				<div className="flex w-full items-center justify-between">
+					<span className="flex items-center">
+						<Icon className="mr-2 h-4 w-4" />
+						{props.title}
+					</span>
+
+					{props.onRefresh && (
+						<Button
+							variant="ghost"
+							size="icon-sm"
+							loading={props.isLoading}
+							onClick={(e) => {
+								e.stopPropagation();
+								props.onRefresh?.(e);
+							}}
+						>
+							<RotateCwIcon />
+						</Button>
+					)}
+				</div>
+			</AccordionTrigger>
+			<AccordionContent className="mx-4">
+				<ul className="space-y-2">
+					{props.items.length ? (
+						props.items.map((item) => props.renderItem(item))
+					) : (
+						<li className="flex items-center">
+							<p>{props.emptyMessage || `No ${props.title.toLowerCase()}`}</p>
+						</li>
+					)}
+				</ul>
+			</AccordionContent>
+		</AccordionItem>
 	);
 }

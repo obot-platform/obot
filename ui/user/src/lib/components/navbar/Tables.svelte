@@ -1,11 +1,10 @@
 <script lang="ts">
-	import { currentAssistant } from '$lib/stores';
 	import { ChatService, EditorService, type TableList } from '$lib/services';
 	import Menu from '$lib/components/navbar/Menu.svelte';
 	import { Table } from 'lucide-svelte';
 
 	async function loadTables() {
-		tables = await ChatService.listTables($currentAssistant.id);
+		tables = await ChatService.listTables();
 	}
 
 	let menu: ReturnType<typeof Menu>;
@@ -34,7 +33,7 @@
 							<button
 								class="flex flex-1 items-center"
 								onclick={async () => {
-									await EditorService.load($currentAssistant.id, 'table://' + table.name);
+									await EditorService.load('table://' + table.name);
 									menu?.open.set(false);
 								}}
 							>

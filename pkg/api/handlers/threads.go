@@ -12,6 +12,7 @@ import (
 	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/events"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
+	"github.com/obot-platform/obot/pkg/system"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -37,7 +38,7 @@ func convertThread(thread v1.Thread) types.Thread {
 	}
 	parent := thread.Spec.ParentThreadName
 	if parent == "" {
-		parent = thread.Status.PreviousThreadName
+		parent = strings.Replace(thread.Status.PreviousThreadName, system.ThreadPrefix, system.ProjectPrefix, 1)
 	}
 	return types.Thread{
 		Metadata: MetadataFrom(&thread),
@@ -52,10 +53,10 @@ func convertThread(thread v1.Thread) types.Thread {
 		LastRunID:       thread.Status.LastRunName,
 		CurrentRunID:    thread.Status.CurrentRunName,
 		State:           state,
-		ParentThreadID:  parent,
-		AgentAlias:      thread.Spec.AgentAlias,
+		ProjectID:       parent,
 		UserID:          thread.Spec.UserUID,
 		Abort:           thread.Spec.Abort,
+		SystemTask:      thread.Spec.SystemTask,
 		Env:             thread.Spec.Env,
 	}
 }

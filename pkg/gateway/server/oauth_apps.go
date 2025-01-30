@@ -114,7 +114,7 @@ func (s *Server) createOAuthApp(apiContext api.Context) error {
 	var existingApps v1.OAuthAppList
 	if err := apiContext.Storage.List(apiContext.Context(), &existingApps, &kclient.ListOptions{
 		FieldSelector: fields.SelectorFromSet(selectors.RemoveEmpty(map[string]string{
-			"spec.manifest.integration": appManifest.Integration,
+			"spec.manifest.alias": appManifest.Alias,
 		})),
 		Namespace: apiContext.Namespace(),
 	}); err != nil {
@@ -122,7 +122,7 @@ func (s *Server) createOAuthApp(apiContext api.Context) error {
 	}
 
 	if len(existingApps.Items) > 0 {
-		return types2.NewErrHttp(http.StatusConflict, fmt.Sprintf("OAuth app with integration %s already exists", appManifest.Integration))
+		return types2.NewErrHttp(http.StatusConflict, fmt.Sprintf("OAuth app with alias %s already exists", appManifest.Alias))
 	}
 
 	app := v1.OAuthApp{

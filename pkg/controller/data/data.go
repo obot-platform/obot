@@ -16,7 +16,7 @@ var defaultModelsData []byte
 //go:embed default-model-aliases.yaml
 var defaultModelAliasesData []byte
 
-func Data(ctx context.Context, c kclient.Client) error {
+func Data(ctx context.Context, c kclient.Client, agentDir string) error {
 	var defaultModels v1.ModelList
 	if err := yaml.Unmarshal(defaultModelsData, &defaultModels); err != nil {
 		return err
@@ -45,5 +45,5 @@ func Data(ctx context.Context, c kclient.Client) error {
 		}
 	}
 
-	return addAgent(ctx, c)
+	return addAgents(ctx, c, agentDir)
 }

@@ -29,10 +29,10 @@ type Thread struct {
 	State           string   `json:"state,omitempty"`
 	LastRunID       string   `json:"lastRunID,omitempty"`
 	CurrentRunID    string   `json:"currentRunID,omitempty"`
-	ParentThreadID  string   `json:"parentThreadID,omitempty"`
+	ProjectID       string   `json:"projectID,omitempty"`
 	UserID          string   `json:"userID,omitempty"`
-	AgentAlias      string   `json:"agentAlias,omitempty"`
 	Abort           bool     `json:"abort,omitempty"`
+	SystemTask      bool     `json:"systemTask,omitempty"`
 	Env             []string `json:"env,omitempty"`
 }
 

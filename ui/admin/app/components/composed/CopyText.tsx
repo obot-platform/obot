@@ -48,7 +48,7 @@ export function CopyText({
 	return (
 		<div
 			className={cn(
-				"flex w-fit items-center gap-2 overflow-hidden rounded-md bg-accent",
+				"flex w-fit items-center gap-2 rounded-md bg-accent",
 				className,
 				classNames.root
 			)}

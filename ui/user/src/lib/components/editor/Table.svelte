@@ -1,9 +1,9 @@
 <script lang="ts">
 	import { ChatService, type Rows } from '$lib/services';
-	import { currentAssistant } from '$lib/stores';
 	import { RefreshCw, Table } from 'lucide-svelte';
 	import Controls from '$lib/components/editor/Controls.svelte';
 	import Input from '$lib/components/messages/Input.svelte';
+	import { assistants } from '$lib/stores/index';
 
 	interface Props {
 		tableName: string;
@@ -14,13 +14,13 @@
 	let loading: Promise<Rows> | undefined = $state();
 
 	async function loadData() {
-		loading = ChatService.getRows($currentAssistant.id, tableName);
+		loading = ChatService.getRows(tableName);
 		data = await loading;
 		loading = undefined;
 	}
 
 	$effect(() => {
-		if (data === undefined && loading === undefined && tableName != '' && $currentAssistant.id) {
+		if (data === undefined && loading === undefined && tableName != '' && assistants.current().id) {
 			loadData();
 		}
 	});
@@ -36,7 +36,7 @@
 			<Input
 				placeholder="Modify table or data"
 				onSubmit={async (i) => {
-					await ChatService.invoke($currentAssistant.id, {
+					await ChatService.invoke({
 						prompt: `In the database table '${tableName}' do the following instruction:\n${i.prompt}`
 					});
 				}}

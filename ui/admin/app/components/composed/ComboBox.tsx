@@ -214,7 +214,11 @@ function ComboBoxList<T extends BaseOption>({
 
 	function renderGroupedOption(group: GroupedOption<T>) {
 		return (
-			<CommandGroup key={group.heading} heading={group.heading}>
+			<CommandGroup
+				key={group.heading}
+				heading={group.heading}
+				className="[&_[cmdk-group-heading]]:px-1 [&_[cmdk-group-heading]]:text-sm [&_[cmdk-group-heading]]:font-bold"
+			>
 				{group.value.map((option) =>
 					"heading" in option
 						? renderGroupedOption(option)

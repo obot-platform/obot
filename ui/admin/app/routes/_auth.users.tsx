@@ -1,21 +1,31 @@
 import { ColumnDef, createColumnHelper } from "@tanstack/react-table";
+import { ShieldAlertIcon } from "lucide-react";
 import { useMemo } from "react";
 import { MetaFunction } from "react-router";
 import { $path } from "safe-routes";
 import useSWR, { preload } from "swr";
 
 import { Thread } from "~/lib/model/threads";
-import { User, roleLabel } from "~/lib/model/users";
+import { ExplicitAdminDescription, User, roleLabel } from "~/lib/model/users";
 import { ThreadsService } from "~/lib/service/api/threadsService";
 import { UserService } from "~/lib/service/api/userService";
+import { VersionApiService } from "~/lib/service/api/versionApiService";
 import { RouteHandle } from "~/lib/service/routeHandles";
 import { pluralize, timeSince } from "~/lib/utils";
 
 import { DataTable } from "~/components/composed/DataTable";
+import { Button } from "~/components/ui/button";
 import { Link } from "~/components/ui/link";
-import { UserRoleForm } from "~/components/user/UserRoleForm";
+import {
+	Tooltip,
+	TooltipContent,
+	TooltipTrigger,
+} from "~/components/ui/tooltip";
+import { UserActionsDropdown } from "~/components/user/UserActionsDropdown";
 
 export async function clientLoader() {
+	await VersionApiService.requireAuthEnabled();
+
 	const users = await preload(UserService.getUsers.key(), UserService.getUsers);
 
 	if (users.length > 0) {
@@ -90,18 +100,43 @@ export default function Users() {
 			columnHelper.accessor((row) => roleLabel(row.role), {
 				id: "role",
 				header: "Role",
-				cell: ({ row, getValue }) =>
-					row.original.explicitAdmin ? (
-						getValue()
-					) : (
-						<UserRoleForm user={row.original} />
-					),
+				cell: ({ row, getValue }) => (
+					<div>
+						{row.original.explicitAdmin ? (
+							<Tooltip>
+								<TooltipContent className="max-w-sm">
+									{ExplicitAdminDescription}
+								</TooltipContent>
+
+								<div className="flex items-center gap-2">
+									{getValue()}
+
+									<TooltipTrigger asChild>
+										<Button size="icon" variant="ghost">
+											<ShieldAlertIcon />
+										</Button>
+									</TooltipTrigger>
+								</div>
+							</Tooltip>
+						) : (
+							getValue()
+						)}
+					</div>
+				),
 			}),
 			columnHelper.display({
 				id: "created",
 				header: "Created",
 				cell: ({ row }) => (
 					<p>{timeSince(new Date(row.original.created))} ago</p>
+				),
+			}),
+			columnHelper.display({
+				id: "actions",
+				cell: ({ row }) => (
+					<div className="flex justify-end">
+						<UserActionsDropdown user={row.original} />
+					</div>
 				),
 			}),
 		];

@@ -10,7 +10,7 @@ import {
 import { useDebouncedValue } from "~/hooks/useDebounce";
 
 type ScrollToBottomProps = {
-	scrollContainerEl: HTMLDivElement | null;
+	scrollContainerEl: HTMLElement | null;
 	disabled?: boolean;
 	onClick?: (e: React.MouseEvent<HTMLButtonElement>) => void;
 	offset?: number;

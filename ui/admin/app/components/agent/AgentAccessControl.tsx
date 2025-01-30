@@ -1,8 +1,8 @@
-import { EyeIcon } from "lucide-react";
 import useSWR from "swr";
 
 import { Agent } from "~/lib/model/agents";
 import { UserService } from "~/lib/service/api/userService";
+import { assetUrl } from "~/lib/utils/assetUrl";
 
 import { UserAuthorizationSelect } from "~/components/agent/UserAuthorizationSelect";
 import { LoadingSpinner } from "~/components/ui/LoadingSpinner";
@@ -20,6 +20,7 @@ import {
 	TooltipContent,
 	TooltipTrigger,
 } from "~/components/ui/tooltip";
+import { useAuthStatus } from "~/hooks/auth/useAuthStatus";
 
 type AgentAccessControlProps = {
 	agent: Agent;
@@ -31,13 +32,21 @@ export function AgentAccessControl({ agent }: AgentAccessControlProps) {
 		UserService.getUsers
 	);
 
+	const { authEnabled } = useAuthStatus();
+
+	if (!authEnabled) return null;
+
 	return (
 		<Dialog>
 			<Tooltip>
 				<TooltipTrigger asChild>
 					<DialogTrigger asChild>
 						<Button variant="ghost" size="icon">
-							<EyeIcon />
+							<img
+								src={assetUrl("/assets/user_lock.svg")}
+								alt="User Permissions Icon"
+								className="h-4 w-4 dark:invert"
+							/>
 						</Button>
 					</DialogTrigger>
 				</TooltipTrigger>

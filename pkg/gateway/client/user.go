@@ -9,8 +9,8 @@ import (
 	"time"
 
 	types2 "github.com/obot-platform/obot/apiclient/types"
+	"github.com/obot-platform/obot/pkg/accesstoken"
 	"github.com/obot-platform/obot/pkg/gateway/types"
-	"github.com/obot-platform/obot/pkg/proxy"
 	"gorm.io/gorm"
 )
 
@@ -38,7 +38,8 @@ func (c *Client) DeleteUser(ctx context.Context, username string) (*types.User, 
 
 		if existingUser.Role.HasRole(types2.RoleAdmin) {
 			var adminCount int64
-			if err := tx.Model(new(types.User)).Where("role = ?", types2.RoleAdmin).Count(&adminCount).Error; err != nil {
+			// We filter out empty email users here, because that is the bootstrap user.
+			if err := tx.Model(new(types.User)).Where("role = ? and email != ''", types2.RoleAdmin).Count(&adminCount).Error; err != nil {
 				return err
 			}
 
@@ -86,8 +87,9 @@ func (c *Client) UpdateUser(ctx context.Context, actingUserIsAdmin bool, updated
 					return &ExplicitAdminError{email: existingUser.Email}
 				}
 				// If the role is being changed from admin to non-admin, then ensure that this isn't the last admin.
+				// We filter out empty email users here, because that is the bootstrap user.
 				var adminCount int64
-				if err := tx.Model(new(types.User)).Where("role = ?", types2.RoleAdmin).Count(&adminCount).Error; err != nil {
+				if err := tx.Model(new(types.User)).Where("role = ? and email != ''", types2.RoleAdmin).Count(&adminCount).Error; err != nil {
 					return err
 				}
 
@@ -103,27 +105,23 @@ func (c *Client) UpdateUser(ctx context.Context, actingUserIsAdmin bool, updated
 	})
 }
 
-func (c *Client) UpdateProfileIconIfNeeded(ctx context.Context, user *types.User, authProviderID uint) error {
-	if authProviderID == 0 {
+func (c *Client) UpdateProfileIconIfNeeded(ctx context.Context, user *types.User, authProviderName, authProviderNamespace, authProviderURL string) error {
+	if authProviderName == "" || authProviderNamespace == "" || authProviderURL == "" {
 		return nil
 	}
 
-	accessToken := proxy.GetAccessToken(ctx)
+	accessToken := accesstoken.GetAccessToken(ctx)
 	if accessToken == "" {
 		return nil
 	}
 
 	var (
-		authProvider types.AuthProvider
-		identity     types.Identity
+		identity types.Identity
 	)
-	if err := c.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		if err := tx.Where("id = ?", authProviderID).First(&authProvider).Error; err != nil {
-			return err
-		}
-
-		return tx.Where("user_id = ?", user.ID).Where("auth_provider_id = ?", authProviderID).First(&identity).Error
-	}); err != nil {
+	if err := c.db.WithContext(ctx).Where("user_id = ?", user.ID).
+		Where("auth_provider_name = ?", authProviderName).
+		Where("auth_provider_namespace = ?", authProviderNamespace).
+		First(&identity).Error; err != nil {
 		return err
 	}
 
@@ -132,7 +130,7 @@ func (c *Client) UpdateProfileIconIfNeeded(ctx context.Context, user *types.User
 		return nil
 	}
 
-	profileIconURL, err := c.fetchProfileIconURL(ctx, authProvider, user.Username, accessToken)
+	profileIconURL, err := c.fetchProfileIconURL(ctx, authProviderURL, accessToken)
 	if err != nil {
 		return err
 	}
@@ -149,71 +147,30 @@ func (c *Client) UpdateProfileIconIfNeeded(ctx context.Context, user *types.User
 	})
 }
 
-func (c *Client) fetchProfileIconURL(ctx context.Context, authProvider types.AuthProvider, username, accessToken string) (string, error) {
-	switch authProvider.Type {
-	case types.AuthTypeGoogle:
-		return c.fetchGoogleProfileIconURL(ctx, accessToken)
-	case types.AuthTypeGitHub:
-		return c.fetchGitHubProfileIconURL(ctx, username)
-	default:
-		return "", fmt.Errorf("unsupported auth provider type for icon fetch: %s", authProvider.Type)
-	}
-}
-
-type googleProfile struct {
-	ID            string `json:"id"`
-	Email         string `json:"email"`
-	VerifiedEmail bool   `json:"verified_email"`
-	Name          string `json:"name"`
-	GivenName     string `json:"given_name"`
-	FamilyName    string `json:"family_name"`
-	Picture       string `json:"picture"`
-	HD            string `json:"hd"`
-}
-
-func (c *Client) fetchGoogleProfileIconURL(ctx context.Context, accessToken string) (string, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "https://www.googleapis.com/oauth2/v1/userinfo", nil)
+func (c *Client) fetchProfileIconURL(ctx context.Context, authProviderURL, accessToken string) (string, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, authProviderURL+"/obot-get-icon-url", nil)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("failed to create request: %w", err)
 	}
-	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", accessToken))
+
+	req.Header.Set("Authorization", "Bearer "+accessToken)
+
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("failed to fetch profile icon URL: %w", err)
 	}
 	defer resp.Body.Close()
 
-	var profile googleProfile
-	if err = json.NewDecoder(resp.Body).Decode(&profile); err != nil {
-		return "", err
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("failed to fetch profile icon URL: %s", resp.Status)
 	}
 
-	return profile.Picture, nil
-}
-
-func (c *Client) fetchGitHubProfileIconURL(ctx context.Context, username string) (string, error) {
-	// GitHub will automatically redirect this URL to the user's GitHub profile icon.
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, fmt.Sprintf("https://github.com/%s.png", username), nil)
-	if err != nil {
-		return "", err
+	var body struct {
+		IconURL string `json:"iconURL"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
+		return "", fmt.Errorf("failed to decode response: %w", err)
 	}
 
-	resp, err := (&http.Client{
-		CheckRedirect: func(*http.Request, []*http.Request) error {
-			// Don't follow redirects, tiny optimization to only make one request.
-			return http.ErrUseLastResponse
-		},
-	}).Do(req)
-	if err != nil {
-		return "", err
-	}
-	defer resp.Body.Close()
-
-	// Get the final URL that GitHub redirected to.
-	u, err := resp.Location()
-	if err != nil || u == nil {
-		return "", err
-	}
-
-	return u.String(), nil
+	return body.IconURL, nil
 }

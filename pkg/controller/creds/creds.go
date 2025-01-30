@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/url"
 	"path"
+	"path/filepath"
 	"slices"
 	"strings"
 
@@ -46,7 +47,7 @@ func DetermineCredsAndCredNames(prg *gptscript.Program, tool gptscript.Tool, nam
 				credentials = append(credentials, parsedCred)
 			}
 
-			credNames, err := determineCredentialNames(prg, prg.ToolSet[ref.ToolID], cred)
+			credNames, err := determineCredentialNames(prg, prg.ToolSet[ref.ToolID], cred, map[string]struct{}{system.ModelProviderCredential: {}})
 			if err != nil {
 				return credentials, credentialNames, err
 			}
@@ -62,11 +63,7 @@ func DetermineCredsAndCredNames(prg *gptscript.Program, tool gptscript.Tool, nam
 	return credentials, credentialNames, nil
 }
 
-func determineCredentialNames(prg *gptscript.Program, tool gptscript.Tool, toolName string) ([]string, error) {
-	if toolName == system.ModelProviderCredential {
-		return []string{system.ModelProviderCredential}, nil
-	}
-
+func determineCredentialNames(prg *gptscript.Program, tool gptscript.Tool, toolName string, noAuth map[string]struct{}) ([]string, error) {
 	var subTool string
 	parsedToolName, alias, args, err := gtypes.ParseCredentialArgs(toolName, "")
 	if err != nil {
@@ -77,43 +74,52 @@ func determineCredentialNames(prg *gptscript.Program, tool gptscript.Tool, toolN
 		}
 	}
 
-	if alias != "" {
-		return []string{alias}, nil
+	for _, n := range strings.Split(tool.MetaData["noUserAuth"], ",") {
+		if n != "" {
+			noAuth[n] = struct{}{}
+		}
 	}
 
-	if args == nil {
-		// This is a tool and not the credential format. Parse the tool from the program to determine the alias
-		toolNames := make([]string, 0, len(tool.Credentials))
-		if subTool == "" {
-			toolName = parsedToolName
+	if alias != "" {
+		if _, ok := noAuth[alias]; !ok {
+			return []string{alias}, nil
 		}
-		for _, cred := range tool.Credentials {
-			if cred == toolName {
-				if len(tool.ToolMapping[cred]) == 0 {
-					return nil, fmt.Errorf("cannot find credential name for tool %q", toolName)
-				}
+		return nil, nil
+	}
 
-				for _, ref := range tool.ToolMapping[cred] {
-					for _, c := range prg.ToolSet[ref.ToolID].ExportCredentials {
-						names, err := determineCredentialNames(prg, prg.ToolSet[ref.ToolID], c)
-						if err != nil {
-							return nil, err
+	if args != nil {
+		return []string{toolName}, nil
+	}
+
+	// This is a tool and not the credential format. Parse the tool from the program to determine the alias
+	toolNames := make([]string, 0, len(tool.Credentials))
+	if subTool == "" {
+		toolName = parsedToolName
+	}
+	for _, cred := range tool.Credentials {
+		if cred == toolName {
+			if len(tool.ToolMapping[cred]) == 0 {
+				return nil, fmt.Errorf("cannot find credential name for tool %q", toolName)
+			}
+
+			for _, ref := range tool.ToolMapping[cred] {
+				for _, c := range prg.ToolSet[ref.ToolID].ExportCredentials {
+					names, err := determineCredentialNames(prg, prg.ToolSet[ref.ToolID], c, noAuth)
+					if err != nil {
+						return nil, err
+					}
+
+					for _, n := range names {
+						if _, ok := noAuth[n]; !ok && !slices.Contains(toolNames, n) {
+							toolNames = append(toolNames, n)
 						}
-
-						toolNames = append(toolNames, names...)
 					}
 				}
 			}
 		}
-
-		if len(toolNames) > 0 {
-			return toolNames, nil
-		}
-
-		return nil, fmt.Errorf("tool %q not found in program", toolName)
 	}
 
-	return []string{toolName}, nil
+	return toolNames, nil
 }
 
 type toolRef struct {
@@ -149,16 +155,13 @@ func toolRefsFromTools(parentTool gptscript.Tool, parentRef toolRef, tools []str
 
 func fullToolPathName(parentRef toolRef, name string) string {
 	toolName, subTool := gtypes.SplitToolRef(name)
-	if strings.HasPrefix(toolName, ".") {
-		parentToolName, _ := gtypes.SplitToolRef(parentRef.Reference)
-		if !path.IsAbs(parentToolName) {
-			if !strings.HasPrefix(parentToolName, ".") {
-				parentToolName, _ = gtypes.SplitToolRef(parentRef.name)
-			} else {
-				parentToolName = path.Join(parentRef.name, parentToolName)
-			}
-		}
 
+	// If this tool's path is relative to its parent.
+	if strings.HasPrefix(toolName, ".") {
+		parentToolName, _ := gtypes.SplitToolRef(parentRef.name)
+		if rel, err := filepath.Rel(parentToolName, toolName); err == nil && strings.HasPrefix(toolName, parentToolName) {
+			toolName = rel
+		}
 		refURL, err := url.Parse(parentToolName)
 		if err != nil {
 			return ""

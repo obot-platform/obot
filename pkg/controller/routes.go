@@ -29,10 +29,14 @@ func (c *Controller) setupRoutes() error {
 
 	workflowExecution := workflowexecution.New(c.services.Invoker)
 	workflowStep := workflowstep.New(c.services.Invoker)
-	toolRef := toolreference.New(c.services.GPTClient, c.services.ModelProviderDispatcher,
-		c.services.ToolRegistryURL, c.services.SupportDocker)
+	toolRef := toolreference.New(
+		c.services.GPTClient,
+		c.services.ProviderDispatcher,
+		c.services.ToolRegistryURLs,
+		c.services.SupportDocker,
+	)
 	workspace := workspace.New(c.services.GPTClient, c.services.WorkspaceProviderType)
-	knowledgeset := knowledgeset.New(c.services.AIHelper, c.services.Invoker)
+	knowledgeset := knowledgeset.New(c.services.Invoker)
 	knowledgesource := knowledgesource.NewHandler(c.services.Invoker, c.services.GPTClient)
 	knowledgefile := knowledgefile.New(c.services.Invoker, c.services.GPTClient, c.services.KnowledgeSetIngestionLimit)
 	runs := runs.New(c.services.Invoker)
@@ -41,6 +45,7 @@ func (c *Controller) setupRoutes() error {
 	oauthLogins := oauthapp.NewLogin(c.services.Invoker, c.services.ServerURL)
 	knowledgesummary := knowledgesummary.NewHandler(c.services.GPTClient)
 	toolInfo := toolinfo.New(c.services.GPTClient)
+	threads := threads.NewHandler(c.services.GPTClient)
 
 	// Runs
 	root.Type(&v1.Run{}).HandlerFunc(removeOldFinalizers)
@@ -48,6 +53,7 @@ func (c *Controller) setupRoutes() error {
 	root.Type(&v1.Run{}).HandlerFunc(runs.DeleteFinished)
 	root.Type(&v1.Run{}).HandlerFunc(cleanup.Cleanup)
 	root.Type(&v1.Run{}).HandlerFunc(runs.Resume)
+	root.Type(&v1.Run{}).HandlerFunc(workflow.GetTaskResult)
 
 	// Threads
 	root.Type(&v1.Thread{}).HandlerFunc(cleanup.Cleanup)
@@ -55,6 +61,7 @@ func (c *Controller) setupRoutes() error {
 	root.Type(&v1.Thread{}).HandlerFunc(threads.CreateKnowledgeSet)
 	root.Type(&v1.Thread{}).HandlerFunc(threads.WorkflowState)
 	root.Type(&v1.Thread{}).HandlerFunc(knowledgesummary.Summarize)
+	root.Type(&v1.Thread{}).FinalizeFunc(v1.ThreadFinalizer, threads.CleanupThread)
 
 	// KnowledgeSummary
 	root.Type(&v1.KnowledgeSummary{}).HandlerFunc(cleanup.Cleanup)
@@ -82,7 +89,7 @@ func (c *Controller) setupRoutes() error {
 
 	// Uploads
 	root.Type(&v1.KnowledgeSource{}).HandlerFunc(cleanup.Cleanup)
-	root.Type(&v1.KnowledgeSource{}).HandlerFunc(removeOldFinalizers)
+	root.Type(&v1.KnowledgeSource{}).IncludeFinalizing().HandlerFunc(removeOldFinalizers)
 	root.Type(&v1.KnowledgeSource{}).FinalizeFunc(v1.KnowledgeSourceFinalizer, knowledgesource.Cleanup)
 	root.Type(&v1.KnowledgeSource{}).HandlerFunc(knowledgesource.Reschedule)
 	root.Type(&v1.KnowledgeSource{}).HandlerFunc(knowledgesource.Sync)
@@ -90,7 +97,7 @@ func (c *Controller) setupRoutes() error {
 	// ToolReferences
 	root.Type(&v1.ToolReference{}).HandlerFunc(toolRef.BackPopulateModels)
 	root.Type(&v1.ToolReference{}).HandlerFunc(toolRef.Populate)
-	root.Type(&v1.ToolReference{}).HandlerFunc(removeOldFinalizers)
+	root.Type(&v1.ToolReference{}).IncludeFinalizing().HandlerFunc(removeOldFinalizers)
 	root.Type(&v1.ToolReference{}).FinalizeFunc(v1.ToolReferenceFinalizer, toolRef.CleanupModelProvider)
 
 	// EmailReceivers
@@ -108,20 +115,20 @@ func (c *Controller) setupRoutes() error {
 
 	// Knowledge files
 	root.Type(&v1.KnowledgeFile{}).HandlerFunc(cleanup.Cleanup)
-	root.Type(&v1.KnowledgeFile{}).HandlerFunc(removeOldFinalizers)
+	root.Type(&v1.KnowledgeFile{}).IncludeFinalizing().HandlerFunc(removeOldFinalizers)
 	root.Type(&v1.KnowledgeFile{}).FinalizeFunc(v1.KnowledgeFileFinalizer, knowledgefile.Cleanup)
 	root.Type(&v1.KnowledgeFile{}).HandlerFunc(knowledgefile.IngestFile)
 	root.Type(&v1.KnowledgeFile{}).HandlerFunc(knowledgefile.Unapproved)
 
 	// Workspaces
 	root.Type(&v1.Workspace{}).HandlerFunc(cleanup.Cleanup)
-	root.Type(&v1.Workspace{}).HandlerFunc(removeOldFinalizers)
+	root.Type(&v1.Workspace{}).IncludeFinalizing().HandlerFunc(removeOldFinalizers)
 	root.Type(&v1.Workspace{}).FinalizeFunc(v1.WorkspaceFinalizer, workspace.RemoveWorkspace)
 	root.Type(&v1.Workspace{}).HandlerFunc(workspace.CreateWorkspace)
 
 	// KnowledgeSets
 	root.Type(&v1.KnowledgeSet{}).HandlerFunc(cleanup.Cleanup)
-	root.Type(&v1.KnowledgeSet{}).HandlerFunc(removeOldFinalizers)
+	root.Type(&v1.KnowledgeSet{}).IncludeFinalizing().HandlerFunc(removeOldFinalizers)
 	root.Type(&v1.KnowledgeSet{}).FinalizeFunc(v1.KnowledgeSetFinalizer, knowledgeset.Cleanup)
 	// Also cleanup the dataset when there is no content.
 	// This will allow the user to switch the embedding model implicitly.
@@ -131,13 +138,11 @@ func (c *Controller) setupRoutes() error {
 	root.Type(&v1.KnowledgeSet{}).HandlerFunc(knowledgeset.SetEmbeddingModel)
 
 	// Webhooks
-	root.Type(&v1.Webhook{}).HandlerFunc(cleanup.Cleanup)
 	root.Type(&v1.Webhook{}).HandlerFunc(alias.AssignAlias)
 	root.Type(&v1.Webhook{}).HandlerFunc(webHooks.SetSuccessRunTime)
 	root.Type(&v1.Webhook{}).HandlerFunc(generationed.UpdateObservedGeneration)
 
 	// Cronjobs
-	root.Type(&v1.CronJob{}).HandlerFunc(cleanup.Cleanup)
 	root.Type(&v1.CronJob{}).HandlerFunc(cronJobs.SetSuccessRunTime)
 	root.Type(&v1.CronJob{}).HandlerFunc(cronJobs.Run)
 

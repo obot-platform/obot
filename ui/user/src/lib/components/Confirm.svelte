@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { CircleAlert, X } from '$lib/icons';
+	import { CircleAlert, X } from 'lucide-svelte/icons';
 
 	interface Props {
 		show: boolean;

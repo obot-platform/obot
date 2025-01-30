@@ -1,12 +1,14 @@
+import { AxiosError } from "axios";
 import { Outlet, isRouteErrorResponse, useRouteError } from "react-router";
 import { preload } from "swr";
 
 import { ForbiddenError, UnauthorizedError } from "~/lib/service/api/apiErrors";
+import { AuthProviderApiService } from "~/lib/service/api/authProviderApiService";
 import { ModelProviderApiService } from "~/lib/service/api/modelProviderApiService";
 import { UserService } from "~/lib/service/api/userService";
 
 import { useAuth } from "~/components/auth/AuthContext";
-import { FirstModelProviderBanner } from "~/components/composed/FirstModelProviderBanner";
+import { SetupBanner } from "~/components/composed/SetupBanner";
 import { Error, RouteError, Unauthorized } from "~/components/errors";
 import { HeaderNav } from "~/components/header/HeaderNav";
 import { Sidebar } from "~/components/sidebar";
@@ -14,10 +16,14 @@ import { SignIn } from "~/components/signin/SignIn";
 
 export async function clientLoader() {
 	const promises = await Promise.all([
-		preload(UserService.getMe.key(), () => UserService.getMe()),
+		preload(UserService.getMe.key(), UserService.getMe),
 		preload(
 			ModelProviderApiService.getModelProviders.key(),
 			ModelProviderApiService.getModelProviders
+		),
+		preload(
+			AuthProviderApiService.getAuthProviders.key(),
+			AuthProviderApiService.getAuthProviders
 		),
 	]);
 	const me = promises[0];
@@ -31,7 +37,7 @@ export default function AuthLayout() {
 			<Sidebar />
 			<div className="flex flex-grow flex-col overflow-hidden">
 				<HeaderNav />
-				<FirstModelProviderBanner />
+				<SetupBanner />
 				<main className="flex-grow overflow-auto">
 					<Outlet />
 				</main>
@@ -47,6 +53,8 @@ export function ErrorBoundary() {
 	switch (true) {
 		case error instanceof UnauthorizedError:
 		case error instanceof ForbiddenError:
+		case error instanceof AxiosError &&
+			[401, 403].includes(error.response?.status ?? 0):
 			if (isSignedIn) return <Unauthorized />;
 			else return <SignIn />;
 		case isRouteErrorResponse(error):

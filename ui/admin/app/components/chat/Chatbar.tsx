@@ -3,9 +3,10 @@ import { useState } from "react";
 
 import { cn } from "~/lib/utils";
 
+import { ModelProviderTooltip } from "~/components/auth-and-model-providers/ModelProviderTooltip";
 import { ChatActions } from "~/components/chat/ChatActions";
 import { useChat } from "~/components/chat/ChatContext";
-import { ModelProviderTooltip } from "~/components/model-providers/ModelProviderTooltip";
+import { ChatRunInfo } from "~/components/chat/ChatRunInfo";
 import { LoadingSpinner } from "~/components/ui/LoadingSpinner";
 import { Button } from "~/components/ui/button";
 import { AutosizeTextarea } from "~/components/ui/textarea";
@@ -17,12 +18,23 @@ type ChatbarProps = {
 
 export function Chatbar({ className }: ChatbarProps) {
 	const [input, setInput] = useState("");
-	const { abortRunningThread, processUserMessage, isRunning, isInvoking } =
-		useChat();
+	const {
+		abortRunningThread,
+		processUserMessage,
+		isRunning,
+		isInvoking,
+		messages,
+	} = useChat();
 	const { configured: modelProviderConfigured } = useModelProviders();
 
 	const disabled =
 		(!input && !isRunning) || isInvoking || !modelProviderConfigured;
+
+	const handleAbort = () => {
+		if (isRunning) {
+			abortRunningThread();
+		}
+	};
 
 	const handleSubmit = (e: React.FormEvent) => {
 		e.preventDefault();
@@ -30,7 +42,7 @@ export function Chatbar({ className }: ChatbarProps) {
 		if (disabled) return;
 
 		if (isRunning) {
-			abortRunningThread();
+			return;
 		}
 
 		if (input.trim()) {
@@ -62,23 +74,27 @@ export function Chatbar({ className }: ChatbarProps) {
 					placeholder="Type your message..."
 					bottomContent={
 						<div className="flex flex-row-reverse items-center justify-between">
-							<ModelProviderTooltip enabled={modelProviderConfigured}>
-								<Button
-									size="icon-sm"
-									className="m-2"
-									color="primary"
-									type="submit"
-									disabled={disabled}
-								>
-									{isInvoking ? (
-										<LoadingSpinner />
-									) : isRunning ? (
-										<SquareIcon className="!h-3 !w-3 fill-primary-foreground text-primary-foreground" />
-									) : (
-										<ArrowUpIcon />
-									)}
-								</Button>
-							</ModelProviderTooltip>
+							<div className="flex flex-row-reverse items-center gap-2">
+								<ModelProviderTooltip enabled={modelProviderConfigured}>
+									<Button
+										size="icon-sm"
+										className="m-2"
+										color="primary"
+										type="submit"
+										disabled={disabled}
+										onClick={handleAbort}
+									>
+										{isInvoking ? (
+											<LoadingSpinner />
+										) : isRunning ? (
+											<SquareIcon className="!h-3 !w-3 fill-primary-foreground text-primary-foreground" />
+										) : (
+											<ArrowUpIcon />
+										)}
+									</Button>
+								</ModelProviderTooltip>
+								<ChatRunInfo messages={messages} isRunning={isRunning} />
+							</div>
 							<ChatActions className="p-2" />
 						</div>
 					}

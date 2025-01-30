@@ -1,20 +1,15 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { BrainIcon } from "lucide-react";
-import { useEffect, useMemo } from "react";
+import { useEffect } from "react";
 import { useForm } from "react-hook-form";
-import useSWR from "swr";
 import { z } from "zod";
 
-import { ModelUsage } from "~/lib/model/models";
-import { ModelApiService } from "~/lib/service/api/modelApiService";
-
-import { ComboBox } from "~/components/composed/ComboBox";
+import { AgentIcon } from "~/components/agent/icon/AgentIcon";
 import {
 	ControlledAutosizeTextarea,
-	ControlledCustomInput,
 	ControlledInput,
 } from "~/components/form/controlledInputs";
-import { getModelOptionsByModelProvider } from "~/components/model/DefaultModelAliasForm";
+import { CardDescription } from "~/components/ui/card";
 import { Form } from "~/components/ui/form";
 
 const formSchema = z.object({
@@ -24,6 +19,14 @@ const formSchema = z.object({
 	description: z.string().optional(),
 	prompt: z.string().optional(),
 	model: z.string().optional(),
+	icons: z
+		.object({
+			icon: z.string(),
+			iconDark: z.string(),
+			collapsed: z.string(),
+			collapsedDark: z.string(),
+		})
+		.nullable(),
 });
 
 export type AgentInfoFormValues = z.infer<typeof formSchema>;
@@ -32,20 +35,15 @@ type AgentFormProps = {
 	agent: AgentInfoFormValues;
 	onSubmit?: (values: AgentInfoFormValues) => void;
 	onChange?: (values: AgentInfoFormValues) => void;
+	hideImageField?: boolean;
 };
 
-export function AgentForm({ agent, onSubmit, onChange }: AgentFormProps) {
-	const getModels = useSWR(
-		ModelApiService.getModels.key(),
-		ModelApiService.getModels
-	);
-
-	const models = useMemo(() => {
-		if (!getModels.data) return [];
-
-		return getModels.data.filter((m) => !m.usage || m.usage === ModelUsage.LLM);
-	}, [getModels.data]);
-
+export function AgentForm({
+	agent,
+	onSubmit,
+	onChange,
+	hideImageField,
+}: AgentFormProps) {
 	const form = useForm<AgentInfoFormValues>({
 		resolver: zodResolver(formSchema),
 		mode: "onChange",
@@ -54,6 +52,7 @@ export function AgentForm({ agent, onSubmit, onChange }: AgentFormProps) {
 			description: agent.description || "",
 			prompt: agent.prompt || "",
 			model: agent.model || "",
+			icons: agent.icons ?? null,
 		},
 	});
 
@@ -77,10 +76,46 @@ export function AgentForm({ agent, onSubmit, onChange }: AgentFormProps) {
 		onSubmit?.({ ...agent, ...values })
 	);
 
-	const modelOptionsByGroup = getModelOptionsByModelProvider(models);
 	return (
 		<Form {...form}>
 			<form onSubmit={handleSubmit} className="space-y-4">
+				{hideImageField ? (
+					renderTitleDescription()
+				) : (
+					<div className="flex items-center justify-start gap-2">
+						<AgentIcon
+							name={agent.name}
+							icons={agent.icons}
+							onChange={(icons) => form.setValue("icons", icons)}
+						/>
+						<div className="flex flex-col gap-2">
+							{renderTitleDescription()}
+						</div>
+					</div>
+				)}
+
+				<h4 className="flex items-center gap-2 border-b pb-2">
+					<BrainIcon className="h-5 w-5" />
+					Instructions
+				</h4>
+
+				<CardDescription>
+					Give the agent instructions on how to behave and respond to input.
+				</CardDescription>
+
+				<ControlledAutosizeTextarea
+					control={form.control}
+					autoComplete="off"
+					name="prompt"
+					maxHeight={300}
+				/>
+			</form>
+		</Form>
+	);
+
+	function renderTitleDescription() {
+		return (
+			<>
 				<ControlledInput
 					variant="ghost"
 					autoComplete="off"
@@ -97,37 +132,7 @@ export function AgentForm({ agent, onSubmit, onChange }: AgentFormProps) {
 					placeholder="Add a description..."
 					className="text-xl text-muted-foreground"
 				/>
-
-				<h4 className="flex items-center gap-2">
-					<BrainIcon className="h-5 w-5" />
-					Instructions
-				</h4>
-
-				<ControlledAutosizeTextarea
-					control={form.control}
-					autoComplete="off"
-					name="prompt"
-					maxHeight={300}
-					placeholder="Give the agent instructions on how to behave and respond to input."
-				/>
-
-				<ControlledCustomInput
-					label="Model"
-					control={form.control}
-					name="model"
-				>
-					{({ field: { ref: _, ...field } }) => (
-						<ComboBox
-							allowClear
-							clearLabel="Use System Default"
-							placeholder="Use System Default"
-							value={models.find((m) => m.id === field.value)}
-							onChange={(value) => field.onChange(value?.id ?? "")}
-							options={modelOptionsByGroup}
-						/>
-					)}
-				</ControlledCustomInput>
-			</form>
-		</Form>
-	);
+			</>
+		);
+	}
 }

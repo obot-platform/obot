@@ -1,4 +1,4 @@
-## Writing your first tool in Go {#writing-your-first-tool-in-go-eb5bb8c4}
+## Writing your first tool in Go {#writing-your-first-tool-in-go-39365861}
 
 [go-hash-tool](https://github.com/obot-platform/go-hash-tool) contains a reference `Go` implementation of the `Hash` tool.
 
@@ -12,7 +12,7 @@ git clone git@github.com:obot-platform/go-hash-tool
 
 <br/>
 
-## Tool Repo Structure {#tool-repo-structure-eb5bb8c4}
+## Tool Repo Structure {#tool-repo-structure-39365861}
 
 The directory tree below highlights the files required to implement `Hash` in Go and package it for Obot.
 
@@ -30,7 +30,7 @@ go-hash-tool
 
 <br/>
 
-## Defining the `Hash` Tool {#defining-the-hash-tool-eb5bb8c4}
+## Defining the `Hash` Tool {#defining-the-hash-tool-39365861}
 
 The `tool.gpt` file contains [GPTScript Tool Definitions](https://docs.gptscript.ai/tools/gpt-file-reference) which describe a set of tools that can be used by agents in Obot.
 Every tool repository must have a `tool.gpt` file in its root directory.
@@ -89,12 +89,12 @@ Param: algo: The algorithm to generate a hash with. Default is "sha256". Support
 
 <br/>
 
-## Tool Metadata {#tool-metadata-eb5bb8c4}
+## Tool Metadata {#tool-metadata-39365861}
 
-The `tool.gpt` file also provides the following metadata for use in Obot:
+The snippet below (from the `tool.gpt` file) also provides the following metadata for use in Obot:
 
-- `!metadata:*:category` which tags tools with the `Crypto` category to promote organization and discovery
-- `!metadata:*:icon` which assigns `https://cdn.jsdelivr.net/npm/@phosphor-icons/core@2/assets/duotone/fingerprint-duotone.svg` as the tool icon
+- `!metadata:*:category` which tags all tools in the `tool.gpt` file with the `Crypto` category to promote organization and discovery
+- `!metadata:*:icon` which assigns `https://cdn.jsdelivr.net/npm/@phosphor-icons/core@2/assets/duotone/fingerprint-duotone.svg` as the tool icon to all tools in the `tool.gpt` file
 
 <br/>
 
@@ -150,7 +150,7 @@ https://cdn.jsdelivr.net/npm/@phosphor-icons/core@2/assets/duotone/fingerprint-d
 
 <br/>
 
-## Implementing Business Logic {#implementing-business-logic-eb5bb8c4}
+## Implementing Business Logic {#implementing-business-logic-39365861}
 
 The `main.go` file is the entry point of the `gptscript-go-tool` binary that is executed by Obot when the `Hash` tool is called.
 
@@ -202,7 +202,7 @@ The Body of the `Verify` tool definition would then simply pass `verify` to `gpt
 
 ```yaml
 Name: Verify
-# ... {#-eb5bb8c4}
+# ... {#-39365861}
 
 #!{GPTSCRIPT_TOOL_DIR}/bin/gptscript-go-tool verify
 ```
@@ -371,7 +371,7 @@ func keys[V any](m map[string]V) []string {
 
 <br/>
 
-## Testing `main.go` Locally {#testing-main-go-locally-eb5bb8c4}
+## Testing `main.go` Locally {#testing-main-go-locally-39365861}
 
 Before adding a tool to Obot, verify that the Go business logic works on your machine.
 
@@ -394,7 +394,7 @@ To do this, run through the following steps in the root of your local fork:
 
 <br/>
 
-## Adding the `Hash` tool to Obot {#adding-the-hash-tool-to-obot-eb5bb8c4}
+## Adding the `Hash` tool to Obot {#adding-the-hash-tool-to-obot-39365861}
 
 Before a tool can be used by an agent, an admin must first add the tool to Obot by performing the steps below:
 
@@ -432,7 +432,7 @@ Before a tool can be used by an agent, an admin must first add the tool to Obot 
     </div>
 </details>
 
-## Using The `Hash` tool in an agent {#using-the-hash-tool-in-an-agent-eb5bb8c4}
+## Using The `Hash` tool in an agent {#using-the-hash-tool-in-an-agent-39365861}
 
 To use the `Hash` tool in an agent, open the agent's Edit page, then:
 

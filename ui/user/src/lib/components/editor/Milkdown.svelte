@@ -10,7 +10,7 @@
 	import type { InvokeInput } from '$lib/services';
 	import type { EditorState } from '@milkdown/prose/state';
 	import type { EditorView } from '@milkdown/prose/view';
-	import { CircleHelp, MessageSquareText } from '$lib/icons';
+	import { CircleHelp, MessageSquareText } from 'lucide-svelte/icons';
 	import { tick } from 'svelte';
 	import Input from '$lib/components/messages/Input.svelte';
 	import { Bold, Italic, Strikethrough } from 'lucide-svelte';

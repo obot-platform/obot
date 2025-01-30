@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"slices"
@@ -13,6 +14,7 @@ import (
 	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/events"
 	"github.com/obot-platform/obot/pkg/invoke"
+	"github.com/obot-platform/obot/pkg/render"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/obot-platform/obot/pkg/wait"
@@ -524,7 +526,12 @@ func (t *TaskHandler) getAssistantThreadAndManifestFromRequest(req api.Context) 
 		return nil, nil, types.WorkflowManifest{}, types.TaskManifest{}, err
 	}
 
-	return &agent, thread, toWorkflowManifest(&agent, thread, manifest), manifest, nil
+	wfManifest, err := toWorkflowManifest(req.Context(), req.Storage, &agent, thread, manifest)
+	if err != nil {
+		return nil, nil, types.WorkflowManifest{}, types.TaskManifest{}, err
+	}
+
+	return &agent, thread, wfManifest, manifest, nil
 }
 
 func (t *TaskHandler) Create(req api.Context) error {
@@ -571,7 +578,7 @@ func (t *TaskHandler) Create(req api.Context) error {
 	return req.WriteCreated(convertTask(workflow, trigger))
 }
 
-func toWorkflowManifest(agent *v1.Agent, thread *v1.Thread, manifest types.TaskManifest) types.WorkflowManifest {
+func toWorkflowManifest(ctx context.Context, c kclient.Client, agent *v1.Agent, thread *v1.Thread, manifest types.TaskManifest) (types.WorkflowManifest, error) {
 	workflowManifest := types.WorkflowManifest{
 		AgentManifest: agent.Spec.Manifest,
 	}
@@ -580,6 +587,13 @@ func toWorkflowManifest(agent *v1.Agent, thread *v1.Thread, manifest types.TaskM
 		Name:  "DATABASE_WORKSPACE_ID",
 		Value: thread.Status.WorkspaceID,
 	})
+
+	for _, env := range thread.Spec.Env {
+		workflowManifest.AgentManifest.Env = append(workflowManifest.AgentManifest.Env, types.EnvVar{
+			Name:     env,
+			Existing: true,
+		})
+	}
 
 	for _, tool := range thread.Spec.Manifest.Tools {
 		if !slices.Contains(workflowManifest.Tools, tool) {
@@ -591,11 +605,17 @@ func toWorkflowManifest(agent *v1.Agent, thread *v1.Thread, manifest types.TaskM
 	workflowManifest.Name = manifest.Name
 	workflowManifest.Description = manifest.Description
 
+	credTool, err := render.ResolveToolReference(ctx, c, "", thread.Namespace, system.ExistingCredTool)
+	if err != nil {
+		return types.WorkflowManifest{}, err
+	}
+	workflowManifest.Credentials = []string{credTool + " as " + thread.Name}
+
 	if manifest.OnDemand != nil {
 		workflowManifest.Params = manifest.OnDemand.Params
 	}
 
-	return workflowManifest
+	return workflowManifest, nil
 }
 
 func toWorkflowSteps(steps []types.TaskStep) []types.Step {
@@ -671,7 +691,7 @@ func getThreadForScope(req api.Context) (*v1.Thread, error) {
 	assistantID := req.PathValue("assistant_id")
 
 	if assistantID != "" {
-		thread, err := getUserThread(req, assistantID)
+		thread, err := getProjectThread(req, assistantID)
 		if err != nil {
 			return nil, err
 		}

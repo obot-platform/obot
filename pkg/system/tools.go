@@ -10,12 +10,18 @@ const (
 	ResultFormatterTool     = "result-formatter"
 	ModelProviderTool       = "obot-model-provider"
 	WorkflowTool            = "workflow"
+	TasksTool               = "tasks"
+	TasksWorkflowTool       = "tasks-workflow"
 	DockerTool              = "docker"
 	ShellTool               = "shell"
 	DockerShellIDTool       = "docker-shell-id"
 	ExistingCredTool        = "existing-credential"
+	KnowledgeCredID         = "knowledge"
 
 	DefaultNamespace = "default"
 
 	ModelProviderCredential = "sys.model.provider.credential"
+
+	GenericModelProviderCredentialContext = "model-provider"
+	GenericAuthProviderCredentialContext  = "auth-provider"
 )

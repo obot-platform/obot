@@ -1,17 +1,37 @@
-import { Library, List, PuzzleIcon, Variable, WrenchIcon } from "lucide-react";
+import { GearIcon } from "@radix-ui/react-icons";
+import {
+	BlocksIcon,
+	Library,
+	List,
+	PuzzleIcon,
+	WrenchIcon,
+} from "lucide-react";
 import { useCallback, useState } from "react";
+import { useNavigate } from "react-router";
+import { $path } from "safe-routes";
 
 import { AssistantNamespace } from "~/lib/model/assistants";
+import { CapabilityTool } from "~/lib/model/toolReferences";
 import { Workflow as WorkflowType } from "~/lib/model/workflows";
 import { cn } from "~/lib/utils";
 
 import { AgentForm } from "~/components/agent";
+import { AgentCapabilityForm } from "~/components/agent/shared/AgentCapabilityForm";
+import { AgentModelSelect } from "~/components/agent/shared/AgentModelSelect";
 import { EnvironmentVariableSection } from "~/components/agent/shared/EnvironmentVariableSection";
 import { ToolAuthenticationStatus } from "~/components/agent/shared/ToolAuthenticationStatus";
+import { WorkspaceFilesSection } from "~/components/agent/shared/WorkspaceFilesSection";
 import { AgentKnowledgePanel } from "~/components/knowledge";
 import { BasicToolForm } from "~/components/tools/BasicToolForm";
+import {
+	Accordion,
+	AccordionContent,
+	AccordionItem,
+	AccordionTrigger,
+} from "~/components/ui/accordion";
 import { CardDescription } from "~/components/ui/card";
 import { ScrollArea } from "~/components/ui/scroll-area";
+import { DeleteWorkflowButton } from "~/components/workflow/DeleteWorkflow";
 import { ParamsForm } from "~/components/workflow/ParamsForm";
 import {
 	WorkflowProvider,
@@ -36,10 +56,13 @@ export function Workflow(props: WorkflowProps) {
 }
 
 function WorkflowContent({ className }: WorkflowProps) {
+	const navigate = useNavigate();
 	const { workflow, updateWorkflow, isUpdating, lastUpdated, refreshWorkflow } =
 		useWorkflow();
 
 	const [workflowUpdates, setWorkflowUpdates] = useState(workflow);
+
+	const debouncedUpdateWorkflow = useDebounce(updateWorkflow, 1000);
 
 	const partialSetWorkflow = useCallback(
 		(changes: Partial<typeof workflow>) => {
@@ -49,28 +72,51 @@ function WorkflowContent({ className }: WorkflowProps) {
 				...changes,
 			};
 
-			updateWorkflow(updatedWorkflow);
+			debouncedUpdateWorkflow(updatedWorkflow);
 
 			setWorkflowUpdates(updatedWorkflow);
 		},
-		[updateWorkflow, workflow, workflowUpdates]
+		[debouncedUpdateWorkflow, workflow, workflowUpdates]
 	);
-
-	const debouncedSetWorkflowInfo = useDebounce(partialSetWorkflow, 1000);
 
 	return (
 		<div className="flex h-full flex-col">
 			<ScrollArea className={cn("h-full", className)}>
-				<div className="m-4 p-4">
+				<div className="flex justify-end px-8 pt-4">
+					<DeleteWorkflowButton
+						id={workflow.id}
+						onSuccess={() => navigate($path("/workflows"))}
+					/>
+				</div>
+				<div className="m-4 px-4 pb-4">
 					<AgentForm
 						agent={workflowUpdates}
-						onChange={debouncedSetWorkflowInfo}
+						onChange={partialSetWorkflow}
+						hideImageField
 					/>
 				</div>
 
 				<div className="m-4 flex flex-col gap-4 p-4">
 					<h4 className="flex items-center gap-2">
-						<WrenchIcon className="h-5 w-5" />
+						<BlocksIcon />
+						Capabilities
+					</h4>
+
+					<CardDescription>
+						Capabilities define core functions that enable the workflow to
+						perform specialized tasks.
+					</CardDescription>
+
+					<AgentCapabilityForm
+						entity={workflowUpdates}
+						onChange={partialSetWorkflow}
+						exclude={[CapabilityTool.Tasks]}
+					/>
+				</div>
+
+				<div className="m-4 flex flex-col gap-4 p-4">
+					<h4 className="flex items-center gap-2">
+						<WrenchIcon />
 						Tools
 					</h4>
 
@@ -81,7 +127,10 @@ function WorkflowContent({ className }: WorkflowProps) {
 
 					<BasicToolForm
 						value={workflow.tools}
-						onChange={(tools) => partialSetWorkflow({ tools })}
+						onChange={(tools, toolOauths) =>
+							partialSetWorkflow({ tools, oauthApps: toolOauths ?? [] })
+						}
+						oauths={workflow.oauthApps}
 						renderActions={(tool) => (
 							<ToolAuthenticationStatus
 								namespace={AssistantNamespace.Workflows}
@@ -96,27 +145,14 @@ function WorkflowContent({ className }: WorkflowProps) {
 
 				<div className="m-4 flex flex-col gap-4 p-4">
 					<h4 className="flex items-center gap-2">
-						<Variable className="h-4 w-4" />
-						Environment Variables
-					</h4>
-
-					<EnvironmentVariableSection
-						entity={workflow}
-						entityType="workflow"
-						onUpdate={partialSetWorkflow}
-					/>
-				</div>
-
-				<div className="m-4 flex flex-col gap-4 p-4">
-					<h4 className="flex items-center gap-2">
-						<List className="h-4 w-4" />
+						<List />
 						Parameters
 					</h4>
 
 					<ParamsForm
 						workflow={workflow}
 						onChange={(values) =>
-							debouncedSetWorkflowInfo({
+							partialSetWorkflow({
 								params: values.params,
 							})
 						}
@@ -125,21 +161,19 @@ function WorkflowContent({ className }: WorkflowProps) {
 
 				<div className="m-4 flex flex-col gap-4 p-4">
 					<h4 className="flex items-center gap-2">
-						<PuzzleIcon className="h-4 w-4" />
+						<PuzzleIcon />
 						Steps
 					</h4>
 
 					<StepsForm
 						workflow={workflowUpdates}
-						onChange={(values) =>
-							debouncedSetWorkflowInfo({ steps: values.steps })
-						}
+						onChange={(values) => partialSetWorkflow({ steps: values.steps })}
 					/>
 				</div>
 
 				<div className="m-4 flex flex-col gap-4 p-4">
 					<h4 className="flex items-center gap-2">
-						<Library className="h-4 w-4" />
+						<Library />
 						Knowledge
 					</h4>
 
@@ -151,21 +185,54 @@ function WorkflowContent({ className }: WorkflowProps) {
 					<AgentKnowledgePanel
 						agent={workflowUpdates}
 						agentId={workflow.id}
-						updateAgent={debouncedSetWorkflowInfo}
+						updateAgent={partialSetWorkflow}
 						addTool={(tool) => {
 							if (workflow.tools?.includes(tool)) return;
 
-							debouncedSetWorkflowInfo({
+							partialSetWorkflow({
 								tools: [...(workflow.tools || []), tool],
 							});
 						}}
 					/>
 				</div>
 
+				<WorkspaceFilesSection entityId={workflow.id} />
+
 				<WorkflowTriggerPanel workflowId={workflow.id} />
-				<div
-					className="h-8" // spacer
-				/>
+
+				<Accordion type="multiple" className="m-4 p-4">
+					<AccordionItem value="advanced">
+						<AccordionTrigger className="border-b">
+							<h4 className="flex items-center gap-2">
+								<GearIcon />
+								Advanced
+							</h4>
+						</AccordionTrigger>
+
+						<AccordionContent className="space-y-8 py-4">
+							<div className="flex flex-col gap-4">
+								<h4>Model</h4>
+
+								<CardDescription>
+									The model to use for the Workflow.
+								</CardDescription>
+
+								<AgentModelSelect
+									entity={workflowUpdates}
+									onChange={(updates) => partialSetWorkflow(updates)}
+								/>
+							</div>
+
+							<EnvironmentVariableSection
+								entity={workflow}
+								entityType="workflow"
+								onUpdate={partialSetWorkflow}
+							/>
+						</AccordionContent>
+					</AccordionItem>
+				</Accordion>
+
+				<div className="h-8" /* spacer */ />
 			</ScrollArea>
 
 			<footer className="flex items-center justify-between gap-4 border-t p-4 text-muted-foreground">

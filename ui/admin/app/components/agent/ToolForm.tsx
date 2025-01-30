@@ -1,20 +1,26 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { ReactNode, useEffect, useMemo } from "react";
 import { useFieldArray, useForm } from "react-hook-form";
+import useSWR from "swr";
 import { z } from "zod";
 
 import { Agent } from "~/lib/model/agents";
+import { ToolReferenceService } from "~/lib/service/api/toolreferenceService";
 import { noop } from "~/lib/utils";
 
 import { ToolEntry } from "~/components/agent/ToolEntry";
 import { ToolCatalogDialog } from "~/components/tools/ToolCatalog";
+import { AnimatePresence } from "~/components/ui/animate";
+import { SlideInOut } from "~/components/ui/animate/slide-in-out";
 import { Form } from "~/components/ui/form";
-import { Switch } from "~/components/ui/switch";
 import {
-	Tooltip,
-	TooltipContent,
-	TooltipTrigger,
-} from "~/components/ui/tooltip";
+	Select,
+	SelectContent,
+	SelectItem,
+	SelectTrigger,
+	SelectValue,
+} from "~/components/ui/select";
+import { useCapabilityTools } from "~/hooks/tools/useCapabilityTools";
 
 const ToolVariant = {
 	FIXED: "fixed",
@@ -33,6 +39,7 @@ const formSchema = z.object({
 			] as const),
 		})
 	),
+	oauthApps: z.array(z.string()),
 });
 
 export type ToolFormValues = z.infer<typeof formSchema>;
@@ -64,6 +71,7 @@ export function ToolForm({
 					variant: ToolVariant.AVAILABLE,
 				})),
 			],
+			oauthApps: agent.oauthApps ?? [],
 		};
 	}, [agent]);
 
@@ -73,18 +81,33 @@ export function ToolForm({
 	});
 	const { control, handleSubmit, getValues, reset, watch } = form;
 
+	const { data: toolList } = useSWR(
+		ToolReferenceService.getToolReferences.key("tool"),
+		() => ToolReferenceService.getToolReferences("tool"),
+		{ fallbackData: [] }
+	);
+
+	const oauthToolMap = useMemo(
+		() => new Map(toolList.map((tool) => [tool.id, tool.metadata?.oauth])),
+		[toolList]
+	);
+
 	useEffect(() => {
-		const unchanged = compareArrays(
+		const unchangedTools = compareArrays(
 			defaultValues.tools.map((x) => x.tool),
 			getValues("tools").map((x) => x.tool)
 		);
+		const unchangedOauths = compareArrays(
+			defaultValues.oauthApps,
+			getValues("oauthApps")
+		);
 
-		if (unchanged) return;
+		if (unchangedTools && unchangedOauths) return;
 
 		reset(defaultValues);
 	}, [defaultValues, reset, getValues]);
 
-	const toolFields = useFieldArray({
+	const toolFields = useFieldArray<ToolFormValues>({
 		control,
 		name: "tools",
 	});
@@ -99,20 +122,21 @@ export function ToolForm({
 		}).unsubscribe;
 	}, [watch, onChange]);
 
-	const [allTools, fixedFields, userFields] = useMemo(() => {
-		return [
-			toolFields.fields.map(({ tool }) => tool),
-			toolFields.fields?.filter((field) => field.variant === ToolVariant.FIXED),
-			toolFields.fields?.filter((field) => field.variant !== ToolVariant.FIXED),
-		];
-	}, [toolFields]);
+	const removeTool = (toolId: string, oauthToRemove?: string) => {
+		const updatedTools = toolFields.fields.filter((tool) => tool.id !== toolId);
+		const index = toolFields.fields.findIndex((tool) => tool.id === toolId);
+		toolFields.remove(index);
 
-	const removeTools = (tools: string[]) => {
-		const indexes = tools
-			.map((tool) => toolFields.fields.findIndex((t) => t.tool === tool))
-			.filter((index) => index !== -1);
+		const stillHasOauth = updatedTools.some(
+			(tool) => oauthToolMap.get(tool.id) === oauthToRemove
+		);
 
-		toolFields.remove(indexes);
+		if (!stillHasOauth) {
+			const updatedOauths = form
+				.getValues("oauthApps")
+				?.filter((oauth) => oauth !== oauthToRemove);
+			form.setValue("oauthApps", updatedOauths);
+		}
 	};
 
 	const updateVariant = (tool: string, variant: ToolVariant) =>
@@ -121,7 +145,11 @@ export function ToolForm({
 			{ tool, variant }
 		);
 
-	const updateTools = (tools: string[], variant: ToolVariant) => {
+	const updateTools = (
+		tools: string[],
+		variant: ToolVariant,
+		oauths: string[]
+	) => {
 		const removedToolIndexes = toolFields.fields
 			.filter((field) => !tools.includes(field.tool))
 			.map((item) => toolFields.fields.indexOf(item));
@@ -135,93 +163,84 @@ export function ToolForm({
 		for (const tool of addedTools) {
 			toolFields.append({ tool, variant });
 		}
+
+		form.setValue("oauthApps", oauths);
 	};
+
+	const getCapabilities = useCapabilityTools();
+	const capabilities = new Set(getCapabilities.data?.map((x) => x.id));
+
+	const sortedFields = toolFields.fields
+		.filter((field) => !capabilities.has(field.tool))
+		.toSorted((a, b) => a.tool.localeCompare(b.tool));
 
 	return (
 		<Form {...form}>
 			<form
 				onSubmit={handleSubmit(onSubmit || noop)}
-				className="flex flex-col gap-2"
+				className="flex flex-col gap-4"
 			>
-				<p className="flex items-end justify-between font-normal">
-					Agent Tools
-				</p>
+				<div className="mt-2 w-full overflow-y-auto overflow-x-hidden">
+					<AnimatePresence>
+						{sortedFields.map((field) => (
+							<SlideInOut
+								key={field.tool}
+								direction={{ in: "up", out: "right" }}
+							>
+								<ToolEntry
+									tool={field.tool}
+									onDelete={removeTool}
+									actions={
+										<>
+											<Select
+												value={field.variant}
+												onValueChange={(value) =>
+													updateVariant(field.tool, value as ToolVariant)
+												}
+											>
+												<SelectTrigger className="w-36">
+													<SelectValue />
+												</SelectTrigger>
 
-				<small className="text-muted-foreground">
-					These tools are essential for the agent&apos;s core functionality and
-					are always enabled.
-				</small>
+												<SelectContent>
+													<SelectItem value={ToolVariant.FIXED}>
+														Always On
+													</SelectItem>
+													<SelectItem value={ToolVariant.DEFAULT}>
+														<p>
+															Optional
+															<span className="text-muted-foreground">
+																{" - On"}
+															</span>
+														</p>
+													</SelectItem>
+													<SelectItem value={ToolVariant.AVAILABLE}>
+														<p>
+															Optional
+															<span className="text-muted-foreground">
+																{" - Off"}
+															</span>
+														</p>
+													</SelectItem>
+												</SelectContent>
+											</Select>
 
-				<div className="mt-2 w-full overflow-y-auto">
-					{fixedFields.map((field) => (
-						<ToolEntry
-							key={field.id}
-							tool={field.tool}
-							onDelete={() => removeTools([field.tool])}
-							actions={renderActions?.(field.tool)}
-						/>
-					))}
+											{renderActions?.(field.tool)}
+										</>
+									}
+								/>
+							</SlideInOut>
+						))}
+					</AnimatePresence>
 				</div>
 
 				<div className="flex justify-end">
 					<ToolCatalogDialog
-						tools={allTools}
-						onUpdateTools={(tools) => updateTools(tools, ToolVariant.FIXED)}
-					/>
-				</div>
-
-				<p className="mt-4 flex items-end justify-between font-normal">
-					User Tools
-				</p>
-
-				<small className="text-muted-foreground">
-					Optional tools users can turn on or off. Use the toggle to set whether
-					they&apos;re active by default for the agent.
-				</small>
-
-				<div className="mt-2 w-full overflow-y-auto">
-					{userFields.map((field) => (
-						<ToolEntry
-							key={field.id}
-							tool={field.tool}
-							onDelete={() => removeTools([field.tool])}
-							actions={
-								<>
-									{renderActions?.(field.tool)}
-									<Tooltip>
-										<TooltipTrigger asChild>
-											<div>
-												<Switch
-													checked={field.variant === ToolVariant.DEFAULT}
-													onCheckedChange={(checked) =>
-														updateVariant(
-															field.tool,
-															checked
-																? ToolVariant.DEFAULT
-																: ToolVariant.AVAILABLE
-														)
-													}
-												/>
-											</div>
-										</TooltipTrigger>
-
-										<TooltipContent>
-											{field.variant === ToolVariant.DEFAULT
-												? "Active by Default"
-												: "Inactive by Default"}
-										</TooltipContent>
-									</Tooltip>
-								</>
-							}
-						/>
-					))}
-				</div>
-
-				<div className="flex justify-end">
-					<ToolCatalogDialog
-						tools={allTools}
-						onUpdateTools={(tools) => updateTools(tools, ToolVariant.DEFAULT)}
-						className="w-auto"
+						tools={toolFields.fields.map((field) => field.tool)}
+						onUpdateTools={(tools, oauths) => {
+							updateTools(tools, ToolVariant.FIXED, oauths);
+						}}
+						oauths={form.watch("oauthApps")}
 					/>
 				</div>
 			</form>

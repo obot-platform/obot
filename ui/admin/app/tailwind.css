@@ -183,7 +183,7 @@ body {
 	}
 
 	h4 {
-		@apply scroll-m-20 text-xl font-semibold tracking-tight;
+		@apply scroll-m-20 text-xl font-semibold tracking-tight [&_svg]:size-5;
 	}
 
 	p {
@@ -203,6 +203,10 @@ body {
 	}
 
 	small {
-		@apply text-sm font-medium leading-none;
+		@apply text-sm leading-5;
+	}
+
+	svg {
+		@apply min-w-fit;
 	}
 }

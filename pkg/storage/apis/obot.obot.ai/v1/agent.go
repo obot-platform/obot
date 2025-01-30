@@ -82,7 +82,6 @@ type AgentSpec struct {
 	SystemTools         []string            `json:"systemTools,omitempty"`
 	ContextInput        string              `json:"contextInput,omitempty"`
 	InputFilters        []string            `json:"inputFilters,omitempty"`
-	Credentials         []string            `json:"credentials,omitempty"`
 	CredentialContextID string              `json:"credentialContextID,omitempty"`
 	Env                 []string            `json:"env,omitempty"`
 }

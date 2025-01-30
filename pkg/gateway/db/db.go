@@ -3,7 +3,6 @@ package db
 import (
 	"context"
 	"database/sql"
-	"net/http"
 
 	"github.com/obot-platform/obot/pkg/gateway/types"
 	"gorm.io/gorm"
@@ -41,7 +40,6 @@ func (db *DB) AutoMigrate() (err error) {
 		types.AuthToken{},
 		types.TokenRequest{},
 		types.LLMProxyActivity{},
-		types.AuthProvider{},
 		types.LLMProvider{},
 		types.Model{},
 		types.OAuthTokenRequestChallenge{},
@@ -51,14 +49,8 @@ func (db *DB) AutoMigrate() (err error) {
 	)
 }
 
-func (db *DB) Check(w http.ResponseWriter, _ *http.Request) {
-	if err := db.sqlDB.Ping(); err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		_, _ = w.Write([]byte(err.Error()))
-		return
-	}
-
-	_, _ = w.Write([]byte(`{"status": "ok"}`))
+func (db *DB) Check(ctx context.Context) error {
+	return db.sqlDB.PingContext(ctx)
 }
 
 func (db *DB) Close() error {

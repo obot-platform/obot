@@ -1,5 +1,5 @@
-import { ChevronDown, ChevronRight, Trash } from "lucide-react";
-import { useState } from "react";
+import { ChevronRight, Trash } from "lucide-react";
+import { memo, useState } from "react";
 
 import { Step, StepType, getDefaultStep } from "~/lib/model/workflows";
 import { cn } from "~/lib/utils";
@@ -8,6 +8,10 @@ import {
 	ConfirmationDialog,
 	ConfirmationDialogProps,
 } from "~/components/composed/ConfirmationDialog";
+import { Animate } from "~/components/ui/animate";
+import { ExpandAndCollapse } from "~/components/ui/animate/expand";
+import { Rotate } from "~/components/ui/animate/rotate";
+import { SlideInOut } from "~/components/ui/animate/slide-in-out";
 import { Button } from "~/components/ui/button";
 import { useDndContext } from "~/components/ui/dnd";
 import { SortableHandle } from "~/components/ui/dnd/sortable";
@@ -34,7 +38,7 @@ const UpdateStepTypeDialogProps: Partial<ConfirmationDialogProps> = {
 	},
 };
 
-export function StepBase({
+export const StepBase = memo(function StepBase({
 	className,
 	children,
 	step,
@@ -72,71 +76,75 @@ export function StepBase({
 			return;
 		}
 
+		const handleUpdate = () => onUpdate(getDefaultStep(newType, step.id));
+
 		if (hasContent()) {
-			intercept(
-				() => onUpdate(getDefaultStep(newType)),
-				UpdateStepTypeDialogProps
-			);
+			intercept(handleUpdate, UpdateStepTypeDialogProps);
 		} else {
-			onUpdate(getDefaultStep(newType));
+			handleUpdate();
 		}
 	};
+
 	return (
-		<div className={cn("rounded-md border bg-background", className)}>
-			<div
-				className={cn(
-					"flex items-start gap-2 bg-background-secondary p-3",
-					showExpanded ? "rounded-t-md" : "rounded-md"
-				)}
+		<SlideInOut direction={{ in: "up", out: "right" }}>
+			<Animate.div
+				className={cn("rounded-md border bg-background", className)}
+				layout
+				transition={dnd.active ? { duration: 0 } : undefined}
 			>
-				<div className="flex items-center gap-2">
-					<SortableHandle id={step.id} />
+				<div
+					className={cn(
+						"flex items-start gap-2 bg-background-secondary p-3",
+						showExpanded ? "rounded-t-md" : "rounded-md"
+					)}
+				>
+					<div className="flex items-center gap-2">
+						<SortableHandle id={step.id} />
+
+						<Button
+							variant="ghost"
+							size="icon"
+							className="h-6 w-6 self-center p-0"
+							onClick={(e) => {
+								e.stopPropagation();
+								setIsExpanded(!showExpanded);
+							}}
+						>
+							<Rotate active={showExpanded}>
+								<ChevronRight className="h-4 w-4" />
+							</Rotate>
+						</Button>
+
+						<StepTypeSelect value={type} onChange={handleUpdateType} />
+					</div>
+
+					<AutosizeTextarea
+						value={fieldConfig.value}
+						onChange={(e) => fieldConfig.onChange(e.target.value)}
+						placeholder={fieldConfig.placeholder}
+						maxHeight={100}
+						minHeight={0}
+						className="flex-grow bg-background"
+						onClick={(e) => e.stopPropagation()}
+					/>
 
 					<Button
 						variant="ghost"
 						size="icon"
-						className="h-6 w-6 self-center p-0"
 						onClick={(e) => {
 							e.stopPropagation();
-							setIsExpanded(!showExpanded);
+							handleDelete();
 						}}
 					>
-						{showExpanded ? (
-							<ChevronDown className="h-4 w-4" />
-						) : (
-							<ChevronRight className="h-4 w-4" />
-						)}
+						<Trash className="h-4 w-4" />
 					</Button>
 
-					<StepTypeSelect value={type} onChange={handleUpdateType} />
+					<ConfirmationDialog {...dialogProps} />
 				</div>
 
-				<AutosizeTextarea
-					value={fieldConfig.value}
-					onChange={(e) => fieldConfig.onChange(e.target.value)}
-					placeholder={fieldConfig.placeholder}
-					maxHeight={100}
-					minHeight={0}
-					className="flex-grow bg-background"
-					onClick={(e) => e.stopPropagation()}
-				/>
-
-				<Button
-					variant="ghost"
-					size="icon"
-					onClick={(e) => {
-						e.stopPropagation();
-						handleDelete();
-					}}
-				>
-					<Trash className="h-4 w-4" />
-				</Button>
-
-				<ConfirmationDialog {...dialogProps} />
-			</div>
-
-			{showExpanded && children}
-		</div>
+				<ExpandAndCollapse active={showExpanded}>{children}</ExpandAndCollapse>
+			</Animate.div>
+		</SlideInOut>
 	);
 
 	function getTextFieldConfig() {
@@ -174,12 +182,14 @@ export function StepBase({
 		}
 		if (type === "if" && step.if) {
 			return (
-				step.if.condition.length || step.if.else.length || step.if.steps.length
+				step.if.condition?.length ||
+				step.if.else?.length ||
+				step.if.steps?.length
 			);
 		} else if (type === "while" && step.while) {
-			return step.while?.condition.length || step.while?.steps.length;
+			return step.while.condition?.length || step.while?.steps?.length;
 		}
 
 		return step.step?.length;
 	}
-}
+});

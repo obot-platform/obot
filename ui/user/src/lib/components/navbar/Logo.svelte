@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Check, ChevronDown } from '$lib/icons';
+	import { Check, ChevronDown } from 'lucide-svelte/icons';
 	import { assistants } from '$lib/stores';
 	import { darkMode } from '$lib/stores';
 	import type { Assistant } from '$lib/services';
@@ -7,18 +7,18 @@
 	import { fade } from 'svelte/transition';
 	import AssistantIcon from '$lib/icons/AssistantIcon.svelte';
 
-	const selected = $derived($assistants.find((a) => a.current));
-
 	const { ref, tooltip, toggle } = popover({
 		placement: 'bottom-start'
 	});
+
+	let currentAssistant = $derived(assistants.current());
 
 	function collapsedIcon(a: Assistant | undefined): string {
 		if (!a) {
 			return '';
 		}
 
-		if ($darkMode) {
+		if (darkMode.isDark) {
 			return a.icons.collapsedDark ?? a.icons.iconDark ?? a.icons.collapsed ?? a.icons.icon ?? '';
 		}
 		return a.icons.collapsed ?? a.icons.icon ?? '';
@@ -28,24 +28,30 @@
 <div class="flex items-center justify-start" transition:fade|global>
 	<a
 		use:ref
-		href={`/${selected?.id ?? ''}`}
+		href={`/${currentAssistant?.id ?? ''}`}
 		class="flex items-center gap-2"
 		onclick={() => {
-			if ($assistants.length > 1) {
+			if (assistants.items.length > 1) {
 				toggle();
 			} else {
-				window.location.href = `/${selected?.id ?? ''}`;
+				window.location.href = `/${currentAssistant?.id ?? ''}`;
 			}
 		}}
 	>
-		{#if collapsedIcon(selected)}
-			{#if selected?.id}
-				<AssistantIcon id={selected?.id} class="h-8 w-8 md:hidden" />
+		{#if collapsedIcon(currentAssistant)}
+			{#if currentAssistant?.id}
+				<AssistantIcon id={currentAssistant?.id} class="h-8 w-8 md:hidden" />
 			{/if}
-			<img src={collapsedIcon(selected)} alt="assistant icon" class="ml-3 hidden h-8 md:block" />
-		{:else if selected?.name}
-			<AssistantIcon id={selected.id} class="h-8 w-8" />
-			<span class="hidden font-semibold dark:text-gray-100 md:block">{selected?.name ?? ''}</span>
+			<img
+				src={collapsedIcon(currentAssistant)}
+				alt="assistant icon"
+				class="ml-3 hidden h-8 md:block"
+			/>
+		{:else if currentAssistant?.name}
+			<AssistantIcon id={currentAssistant.id} class="h-8 w-8" />
+			<span class="hidden font-semibold dark:text-gray-100 md:block"
+				>{currentAssistant?.name ?? ''}</span
+			>
 		{/if}
 	</a>
 
@@ -58,14 +64,14 @@
 			class="space-y-1 p-3 text-sm text-gray-700 dark:text-gray-200"
 			aria-labelledby="dropdownHelperButton"
 		>
-			{#each $assistants as assistant}
+			{#each assistants.items as assistant}
 				<li>
 					<a
 						href={'/' + assistant.id}
 						data-sveltekit-reload
 						class="flex rounded-3xl p-2 hover:bg-gray-70 dark:hover:bg-gray-900"
 					>
-						<div class="flex h-5 items-center">
+						<div class="flex h-5 flex-shrink-0 items-center">
 							<AssistantIcon id={assistant.id} />
 						</div>
 						<div class="ms-2 text-sm">
@@ -89,7 +95,7 @@
 			{/each}
 		</ul>
 	</div>
-	{#if $assistants.length > 1}
+	{#if assistants.items.length > 1}
 		<button class="h-full" onclick={toggle}>
 			<ChevronDown
 				class="ms-2 h-5 w-5 rounded text-gray-200 hover:bg-gray-100 hover:text-black dark:text-gray-700 hover:dark:bg-gray-700 hover:dark:text-white"

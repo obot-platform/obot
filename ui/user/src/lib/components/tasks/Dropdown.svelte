@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { ChevronDown } from '$lib/icons';
+	import { ChevronDown } from 'lucide-svelte/icons';
 	import { popover } from '$lib/actions';
 	import { twMerge } from 'tailwind-merge';
 

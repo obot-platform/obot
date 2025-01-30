@@ -1,8 +1,55 @@
+<script lang="ts" module>
+	const defaultParams = {
+		city: 'The city to get the weather for'
+	};
+	const defaultInstructions: Record<string, string> = {
+		javascript: `// Get the city from the environment variable
+const city = process.env.CITY || 'Unknown City';
+
+// Generate a random temperature in Fahrenheit
+const randomTemperatureFahrenheit = (Math.random() * (104 - 14) + 14).toFixed(2); // Random temperature between 14 and 104 degrees Fahrenheit
+
+// Print the result in Fahrenheit
+console.log(\`The current temperature in \${city} is \${randomTemperatureFahrenheit}°F.\`);
+	`,
+		python: `import os
+import random
+
+# Get the city from the environment variable
+city = os.getenv('CITY', 'Unknown City')
+
+# Generate a random temperature in Fahrenheit
+random_temperature_fahrenheit = random.uniform(14, 104)  # Random temperature between 14 and 104 degrees Fahrenheit
+
+# Print the result in Fahrenheit
+print(f'The current temperature in {city} is {random_temperature_fahrenheit:.2f}°F.')
+		`,
+		script: `#!/bin/bash
+
+# Get the city from the environment variable
+CITY=\${CITY:-'Unknown City'}
+
+# Generate a random temperature in Fahrenheit
+RANDOM_TEMPERATURE_FAHRENHEIT=$(awk -v min=14 -v max=104 'BEGIN{srand(); print min+rand()*(max-min)}')
+
+# Print the result in Fahrenheit
+printf "The current temperature in %s is %.2f°F.\\n" "$CITY" "$RANDOM_TEMPERATURE_FAHRENHEIT"
+		`,
+		container: ''
+	};
+
+	export const newTool = {
+		id: '',
+		toolType: 'javascript',
+		params: defaultParams,
+		instructions: defaultInstructions['javascript']
+	};
+</script>
+
 <script lang="ts">
 	import { autoHeight } from '$lib/actions/textarea.js';
 	import { Container, X, ChevronDown, ChevronUp } from 'lucide-svelte';
 	import { type AssistantTool, ChatService, EditorService } from '$lib/services';
-	import { currentAssistant } from '$lib/stores';
 	import Confirm from '$lib/components/Confirm.svelte';
 	import Dropdown from '$lib/components/tasks/Dropdown.svelte';
 	import Env from '$lib/components/tool/Env.svelte';
@@ -10,7 +57,7 @@
 	import Params from '$lib/components/tool/Params.svelte';
 	import Codemirror from '$lib/components/editor/Codemirror.svelte';
 	import Controls from '$lib/components/editor/Controls.svelte';
-	import { Trash } from '$lib/icons';
+	import { Trash } from 'lucide-svelte/icons';
 	import type { EditorItem } from '$lib/stores/editor.svelte';
 
 	interface Props {
@@ -24,28 +71,18 @@
 		toolType: 'javascript'
 	};
 
-	const defaultParams = {
-		msg: 'A message to be echoed'
-	};
-	const defaultInstructions: Record<string, string> = {
-		javascript: `
-
-// Arguments to the tool are available as env vars in CAPITAL_CASE form
-// Output for the tool is just the content on stdout (or console.log)
-
-console.log(\`Your message \${process.env.MSG}\`);
-	`,
-		python: `This is python`,
-		script: `This is a script`,
-		container: ''
-	};
-
 	let tool: AssistantTool = $state({ ...blankTool });
 	let saved: AssistantTool = $state({ ...blankTool });
-	let dirty = $derived.by(() => JSON.stringify(tool) !== JSON.stringify(saved));
+	let dirty = $derived.by(
+		() =>
+			JSON.stringify(tool) !== JSON.stringify(saved) ||
+			JSON.stringify(envs) !== JSON.stringify(savedEnd) ||
+			JSON.stringify(tool.params) !== JSON.stringify(toMap(params))
+	);
 	let params: { key: string; value: string }[] = $state([]);
 	let input: { key: string; value: string }[] = $state([]);
 	let envs: { key: string; value: string; editing: string }[] = $state([]);
+	let savedEnd: { key: string; value: string; editing: string }[] = $state([]);
 	let requestDelete = $state(false);
 	let loaded = load();
 	let advanced = $state(false);
@@ -85,7 +122,7 @@ console.log(\`Your message \${process.env.MSG}\`);
 		if (!id) {
 			return;
 		}
-		await ChatService.deleteTool($currentAssistant.id, id);
+		await ChatService.deleteTool(id);
 		EditorService.remove(id);
 	}
 
@@ -97,7 +134,7 @@ console.log(\`Your message \${process.env.MSG}\`);
 		const newEnv = toMap(envs);
 		tool.params = toMap(params);
 		if (id) {
-			await ChatService.updateTool($currentAssistant.id, tool, { env: newEnv });
+			await ChatService.updateTool(tool, { env: newEnv });
 		}
 		await load();
 	}
@@ -107,9 +144,11 @@ console.log(\`Your message \${process.env.MSG}\`);
 			dialog.showModal();
 			return;
 		}
+		const testTool = { ...tool };
+		testTool.params = toMap(params);
+
 		testOutput = ChatService.testTool(
-			$currentAssistant.id,
-			tool,
+			testTool,
 			Object.fromEntries(input.map(({ key, value }) => [key, value])),
 			{
 				env: toMap(envs)
@@ -128,18 +167,19 @@ console.log(\`Your message \${process.env.MSG}\`);
 		if (newType === tool.toolType) {
 			return;
 		}
-		if (!tool.instructions || tool.instructions === defaultInstructions[tool.toolType ?? '']) {
-			tool.instructions = defaultInstructions[newType];
-			editorFile.contents = tool.instructions;
-		}
+		tool.instructions = defaultInstructions[newType];
+		editorFile.contents = tool.instructions;
 		tool.toolType = newType;
+		if (newType === 'container') {
+			tool.image = 'ghcr.io/otto8-ai/get-weather';
+		}
 	}
 
 	async function load() {
 		if (!id || typeof window === 'undefined') {
 			return;
 		}
-		tool = await ChatService.getTool($currentAssistant.id, id);
+		tool = await ChatService.getTool(id);
 
 		if (!tool.toolType) {
 			tool.toolType = 'javascript';
@@ -150,8 +190,9 @@ console.log(\`Your message \${process.env.MSG}\`);
 		}
 
 		saved = { ...tool };
-		const newEnvs = await ChatService.getToolEnv($currentAssistant.id, id);
+		const newEnvs = await ChatService.getToolEnv(id);
 		envs = Object.entries(newEnvs).map(([key, value]) => ({ key, value, editing: masked }));
+		savedEnd = Object.entries(newEnvs).map(([key, value]) => ({ key, value, editing: masked }));
 		params = Object.entries(tool.params ?? {}).map(([key, value]) => ({ key, value }));
 
 		editorFile.id = tool.id;
@@ -207,14 +248,10 @@ console.log(\`Your message \${process.env.MSG}\`);
 					onSelected={switchType}
 				/>
 			</div>
-			<div class="flex w-full gap-2">
+			<div class="flex w-full items-center gap-2">
 				{#if tool.toolType === 'container'}
 					<Container class="h-5 w-5" />
-					<input
-						bind:value={tool.image}
-						class="bg-gray-50 outline-none dark:bg-gray-950"
-						placeholder="Container image name"
-					/>
+					<input bind:value={tool.image} class="text-input" placeholder="Container image name" />
 				{:else}
 					<Codemirror
 						class="w-full"
@@ -288,13 +325,9 @@ console.log(\`Your message \${process.env.MSG}\`);
 
 			<div class="flex flex-col gap-4 rounded-3xl bg-gray-50 p-5 dark:bg-gray-950">
 				<h4 class="text-xl font-semibold">Runtime Docker Image</h4>
-				<div class="flex gap-2">
+				<div class="flex items-center gap-2">
 					<Container class="h-5 w-5" />
-					<input
-						bind:value={tool.image}
-						class="bg-gray-50 outline-none dark:bg-gray-950"
-						placeholder="Container image name"
-					/>
+					<input bind:value={tool.image} class="text-input" placeholder="Container image name" />
 				</div>
 			</div>
 		</div>

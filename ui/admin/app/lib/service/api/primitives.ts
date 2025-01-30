@@ -29,12 +29,14 @@ interface ExtendedAxiosRequestConfig<D = unknown>
 	errorMessage?: string;
 	disableTokenRefresh?: boolean;
 	debugThrow?: Error;
+	toastError?: boolean;
 }
 
 export async function request<T, R = AxiosResponse<T>, D = unknown>({
 	errorMessage = "Something went wrong",
 	disableTokenRefresh,
 	debugThrow,
+	toastError = true,
 	...config
 }: ExtendedAxiosRequestConfig<D>): Promise<R> {
 	// Get the browser's default timezone
@@ -77,7 +79,7 @@ export async function request<T, R = AxiosResponse<T>, D = unknown>({
 			});
 		}
 
-		toast.error(errorMessage);
+		if (toastError) toast.error(errorMessage);
 
 		throw convertedError;
 	}

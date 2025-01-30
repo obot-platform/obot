@@ -17,7 +17,7 @@ export function EmailTriggerEntry({
 
 			<div className="flex gap-2">
 				<CopyText
-					text={receiver.emailAddress}
+					text={receiver.emailAddress ?? ""}
 					className="bg-transparent text-sm text-muted-foreground"
 					classNames={{
 						text: "p-0",

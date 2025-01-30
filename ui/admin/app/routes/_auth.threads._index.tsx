@@ -117,7 +117,7 @@ export default function Threads() {
 		if (!getThreads.data) return [];
 
 		let filteredThreads = getThreads.data.filter(
-			(thread) => thread.agentID || thread.workflowID
+			(thread) => (thread.agentID || thread.workflowID) && !thread.deleted
 		);
 
 		if (agentId) {

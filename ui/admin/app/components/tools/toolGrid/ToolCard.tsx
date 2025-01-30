@@ -1,94 +1,87 @@
-import { Trash } from "lucide-react";
-
 import { ToolReference } from "~/lib/model/toolReferences";
-import { cn, timeSince } from "~/lib/utils";
+import { cn } from "~/lib/utils/cn";
 
-import { ConfirmationDialog } from "~/components/composed/ConfirmationDialog";
 import { Truncate } from "~/components/composed/typography";
 import { ToolIcon } from "~/components/tools/ToolIcon";
-import { Badge } from "~/components/ui/badge";
+import { ToolCardActions } from "~/components/tools/toolGrid/ToolCardActions";
 import { Button } from "~/components/ui/button";
+import { Card, CardContent, CardHeader } from "~/components/ui/card";
 import {
-	Card,
-	CardContent,
-	CardFooter,
-	CardHeader,
-} from "~/components/ui/card";
-import {
-	Tooltip,
-	TooltipContent,
-	TooltipTrigger,
-} from "~/components/ui/tooltip";
+	Popover,
+	PopoverContent,
+	PopoverTrigger,
+} from "~/components/ui/popover";
 
-interface ToolCardProps {
+export function ToolCard({
+	tool,
+	HeaderRightContent,
+}: {
 	tool: ToolReference;
-	onDelete: (id: string) => void;
-}
-
-export function ToolCard({ tool, onDelete }: ToolCardProps) {
+	HeaderRightContent?: React.ReactNode;
+}) {
 	return (
 		<Card
-			className={cn("flex h-full flex-col", {
-				"border-2 border-primary": tool.metadata?.bundle,
-				"border-2 border-error": tool.error,
+			key={tool.id}
+			className={cn({
+				"border border-destructive bg-destructive/10": tool.error,
 			})}
 		>
-			<CardHeader className="pb-2">
-				<h4 className="flex flex-wrap items-center gap-x-2 truncate">
-					<div className="flex flex-nowrap gap-x-2">
-						<ToolIcon
-							className="h-5 w-5 min-w-5"
-							name={tool.name}
-							icon={tool.metadata?.icon}
-						/>
-						{tool.name}
-					</div>
-					{tool.error && (
-						<Tooltip>
-							<TooltipTrigger>
-								<Badge className="pointer-events-none mb-1 bg-error">
+			<CardHeader className="flex min-h-7 flex-row items-center justify-between space-y-0 px-2.5 pb-0 pt-2">
+				<div>
+					<ToolCardActions tool={tool} />
+				</div>
+				<div className="pr-2">
+					{tool.error ? (
+						<Popover>
+							<PopoverTrigger asChild>
+								<Button size="badge" variant="destructive" className="pr-2">
 									Failed
-								</Badge>
-							</TooltipTrigger>
-							<TooltipContent className="max-w-xs border border-error bg-error-foreground text-foreground">
-								<p>{tool.error}</p>
-							</TooltipContent>
-						</Tooltip>
+								</Button>
+							</PopoverTrigger>
+							<PopoverContent className="w-[50vw]">
+								<div className="flex flex-col gap-2">
+									<p className="text-sm">
+										An error occurred during tool registration:
+									</p>
+									<p className="w-full break-all rounded-md bg-primary-foreground p-2 text-sm text-destructive">
+										{tool.error}
+									</p>
+								</div>
+							</PopoverContent>
+						</Popover>
+					) : (
+						HeaderRightContent
 					)}
-					{tool.metadata?.bundle && (
-						<Badge className="pointer-events-none">Bundle</Badge>
-					)}
-				</h4>
+				</div>
 			</CardHeader>
-			<CardContent className="flex-grow">
-				{!tool.builtin && (
-					<Truncate className="max-w-full">{tool.reference}</Truncate>
-				)}
-				<p className="mt-2 line-clamp-2 text-sm text-muted-foreground">
-					{tool.description || "No description available"}
-				</p>
-			</CardContent>
-			<CardFooter className="flex h-14 items-center justify-between pt-2">
-				<small className="text-muted-foreground">
-					{timeSince(new Date(tool.created))} ago
-				</small>
-
-				{!tool.builtin && (
-					<ConfirmationDialog
-						title="Delete Tool Reference"
-						description="Are you sure you want to delete this tool reference? This action cannot be undone."
-						onConfirm={() => onDelete(tool.id)}
-						confirmProps={{
-							variant: "destructive",
-							children: "Delete",
+			<CardContent className="flex flex-col items-center gap-2 text-center">
+				<ToolIcon
+					className="h-16 w-16"
+					name={tool?.name ?? ""}
+					icon={tool?.metadata?.icon}
+				/>
+				<Truncate className="text-lg font-semibold">{tool.name}</Truncate>
+				<Truncate
+					classNames={{
+						content: "leading-5",
+					}}
+					className="text-sm"
+					clampLength={2}
+				>
+					{tool.description}
+				</Truncate>
+				{!tool.builtin && tool.reference && (
+					<Truncate
+						classNames={{
+							content: "leading-5",
 						}}
+						className="text-wrap break-all text-sm"
+						clampLength={2}
 					>
-						<Button variant="ghost" size="icon">
-							<Trash className="h-5 w-5" />
-						</Button>
-					</ConfirmationDialog>
+						{tool.reference}
+					</Truncate>
 				)}
-			</CardFooter>
+			</CardContent>
 		</Card>
 	);
 }

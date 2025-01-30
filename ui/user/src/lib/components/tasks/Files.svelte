@@ -1,10 +1,10 @@
 <script lang="ts">
-	import { FileText, Trash } from '$lib/icons';
-	import { currentAssistant } from '$lib/stores';
+	import { FileText, Trash } from 'lucide-svelte/icons';
 	import { ChatService, EditorService, type Files } from '$lib/services';
 	import { Download, RotateCw } from 'lucide-svelte';
 	import { onDestroy } from 'svelte';
 	import Confirm from '$lib/components/Confirm.svelte';
+	import { assistants } from '$lib/stores/index';
 
 	interface Props {
 		taskID: string;
@@ -20,7 +20,7 @@
 	async function loadFiles() {
 		try {
 			loading = true;
-			files = await ChatService.listFiles($currentAssistant.id, {
+			files = await ChatService.listFiles({
 				taskID,
 				runID
 			});
@@ -33,7 +33,7 @@
 		if (!fileToDelete) {
 			return;
 		}
-		await ChatService.deleteFile($currentAssistant.id, fileToDelete, {
+		await ChatService.deleteFile(fileToDelete, {
 			taskID,
 			runID
 		});
@@ -43,6 +43,7 @@
 
 	$effect(() => {
 		if (running && !interval) {
+			loadFiles();
 			interval = setInterval(loadFiles, 5000);
 		} else if (!running && interval) {
 			clearInterval(interval);
@@ -51,7 +52,7 @@
 	});
 
 	$effect(() => {
-		if (!files && $currentAssistant.id) {
+		if (!files && assistants.current().id) {
 			loadFiles();
 		}
 	});
@@ -73,6 +74,10 @@
 				<RotateCw class="h-4 w-4 {loading ? 'animate-spin' : ''}" />
 			</button>
 		</div>
+		<p class="text-gray">
+			Files are private to the task execution. On start of the task a copy of the global workspace
+			files is made, but no changes are persisted back to the global workspace.
+		</p>
 		<ul class="space-y-4 px-3 py-6 text-sm">
 			{#each files.items as file}
 				<li class="group">
@@ -80,7 +85,7 @@
 						<button
 							class="flex flex-1 items-center"
 							onclick={async () => {
-								await EditorService.load($currentAssistant.id, file.name, {
+								await EditorService.load(file.name, {
 									taskID,
 									runID
 								});
@@ -92,7 +97,7 @@
 						<button
 							class="ms-2 hidden group-hover:block"
 							onclick={() => {
-								EditorService.download($currentAssistant.id, file.name, {
+								EditorService.download(file.name, {
 									taskID,
 									runID
 								});

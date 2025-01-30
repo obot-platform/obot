@@ -10,6 +10,7 @@ const (
 	OAuthAppTypeGoogle       OAuthAppType = "google"
 	OAuthAppTypeSalesforce   OAuthAppType = "salesforce"
 	OAuthAppTypeZoom         OAuthAppType = "zoom"
+	OAuthAppTypeLinkedIn     OAuthAppType = "linkedin"
 	OAuthAppTypeCustom       OAuthAppType = "custom"
 )
 
@@ -35,8 +36,8 @@ type OAuthAppManifest struct {
 	// This field is optional for HubSpot OAuth apps.
 	OptionalScope string `json:"optionalScope,omitempty"`
 	// This field is required, it correlates to the integration name in the gptscript oauth cred tool
-	Integration string `json:"integration,omitempty"`
-	// Global indicates if the OAuth app is globally applied to all agents.
+	Alias string `json:"alias,omitempty"`
+	// Global indicates if the OAuth app is globally applied to all agents. Defaults to false.
 	Global *bool `json:"global,omitempty"`
 	// This field is only used by Salesforce
 	InstanceURL string `json:"instanceURL,omitempty"`

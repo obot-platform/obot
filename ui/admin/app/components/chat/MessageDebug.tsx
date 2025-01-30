@@ -36,6 +36,7 @@ export function MessageDebug({ runId }: MessageDebugProps) {
 						<Button
 							size="icon"
 							variant="ghost"
+							type="button"
 							onClick={() => {
 								RunsService.getRunDebugById(runId).then((runDebug) => {
 									setRunDebug(runDebug.frames);

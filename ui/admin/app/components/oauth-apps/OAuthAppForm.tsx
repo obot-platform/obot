@@ -1,19 +1,16 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Fragment, useEffect, useMemo } from "react";
 import { useForm } from "react-hook-form";
-import Markdown from "react-markdown";
-import rehypeExternalLinks from "rehype-external-links";
 
 import { OAuthAppParams } from "~/lib/model/oauthApps";
 import {
+	OAuthAppSpec,
 	OAuthFormStep,
-	OAuthProvider,
 } from "~/lib/model/oauthApps/oauth-helpers";
 import { cn } from "~/lib/utils";
 
 import { CopyText } from "~/components/composed/CopyText";
 import { ControlledInput } from "~/components/form/controlledInputs";
-import { CustomMarkdownComponents } from "~/components/react-markdown";
 import { LoadingSpinner } from "~/components/ui/LoadingSpinner";
 import {
 	Accordion,
@@ -23,22 +20,21 @@ import {
 } from "~/components/ui/accordion";
 import { Button } from "~/components/ui/button";
 import { Form } from "~/components/ui/form";
-import { useOAuthAppInfo } from "~/hooks/oauthApps/useOAuthApps";
+import { Markdown } from "~/components/ui/markdown";
 
 type OAuthAppFormProps = {
-	type: OAuthProvider;
 	onSubmit: (data: OAuthAppParams) => void;
 	isLoading?: boolean;
+	spec: OAuthAppSpec;
 };
 
-export function OAuthAppForm({ type, onSubmit, isLoading }: OAuthAppFormProps) {
-	const spec = useOAuthAppInfo(type);
-
+export function OAuthAppForm({ spec, onSubmit, isLoading }: OAuthAppFormProps) {
 	const fields = useMemo(() => {
+		if (!spec) return [];
 		return Object.entries(spec.schema.shape).map(([key]) => ({
 			key: key as keyof OAuthAppParams,
 		}));
-	}, [spec.schema]);
+	}, [spec]);
 
 	const defaultValues = useMemo(() => {
 		return fields.reduce((acc, { key }) => {
@@ -75,17 +71,7 @@ export function OAuthAppForm({ type, onSubmit, isLoading }: OAuthAppFormProps) {
 	function renderStep(step: OAuthFormStep) {
 		switch (step.type) {
 			case "markdown":
-				return (
-					<Markdown
-						className={cn(
-							"prose max-w-full flex-auto overflow-x-auto break-words dark:prose-invert prose-pre:whitespace-pre-wrap prose-pre:break-words prose-thead:text-left prose-img:rounded-xl prose-img:shadow-lg"
-						)}
-						components={CustomMarkdownComponents}
-						rehypePlugins={[[rehypeExternalLinks, { target: "_blank" }]]}
-					>
-						{step.text}
-					</Markdown>
-				);
+				return <Markdown>{step.text}</Markdown>;
 			case "input": {
 				return (
 					<ControlledInput

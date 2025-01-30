@@ -19,7 +19,7 @@ func CustomTool(ctx context.Context, c client.Client, tool v1.Tool) (toolDefs []
 		return nil, nil
 	}
 
-	if tool.Spec.Manifest.ToolType != "" && tool.Spec.Manifest.ToolType != "docker" && tool.Spec.Manifest.Instructions == "" {
+	if tool.Spec.Manifest.ToolType != "" && tool.Spec.Manifest.ToolType != "container" && tool.Spec.Manifest.Instructions == "" {
 		return nil, fmt.Errorf("instructions are required for custom tools")
 	}
 
@@ -43,7 +43,12 @@ func CustomTool(ctx context.Context, c client.Client, tool v1.Tool) (toolDefs []
 		envs = append(envs, env.ToEnvLike(k))
 	}
 
-	envs = append(envs, tool.Spec.Envs...)
+	for _, env := range tool.Spec.Envs {
+		if !validEnv.MatchString(env) {
+			return nil, fmt.Errorf("invalid env var %s, must match %s", env, validEnv.String())
+		}
+		envs = append(envs, env)
+	}
 
 	var instructions []string
 	if len(envs) > 0 {
@@ -88,9 +93,9 @@ END INSTRUCTIONS: TOOL %q`, tool.Spec.Manifest.Name, tool.Spec.Manifest.Context,
 	return toolDefs, nil
 }
 
-func Tool(ctx context.Context, c client.Client, ns, name string) (_ string, toolDefs []gptscript.ToolDef, _ error) {
+func tool(ctx context.Context, c client.Client, ns, name string) (string, []gptscript.ToolDef, error) {
 	if !system.IsToolID(name) {
-		name, err := ResolveToolReference(ctx, c, types.ToolReferenceTypeTool, ns, name)
+		name, err := resolveToolReferenceWithMetadata(ctx, c, types.ToolReferenceTypeTool, ns, name)
 		return name, nil, err
 	}
 

@@ -7,7 +7,6 @@ import (
 	"github.com/obot-platform/nah/pkg/name"
 	"github.com/obot-platform/nah/pkg/router"
 	"github.com/obot-platform/obot/apiclient/types"
-	"github.com/obot-platform/obot/pkg/aihelper"
 	"github.com/obot-platform/obot/pkg/create"
 	"github.com/obot-platform/obot/pkg/invoke"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
@@ -18,14 +17,12 @@ import (
 )
 
 type Handler struct {
-	aiHelper *aihelper.AIHelper
-	invoker  *invoke.Invoker
+	invoker *invoke.Invoker
 }
 
-func New(aiHelper *aihelper.AIHelper, invoker *invoke.Invoker) *Handler {
+func New(invoker *invoke.Invoker) *Handler {
 	return &Handler{
-		aiHelper: aiHelper,
-		invoker:  invoker,
+		invoker: invoker,
 	}
 }
 
@@ -49,8 +46,15 @@ func createWorkspace(ctx context.Context, c kclient.Client, ks *v1.KnowledgeSet)
 		return err
 	}
 
-	ks.Status.WorkspaceName = ws.Name
-	return c.Status().Update(ctx, ks)
+	// Only update the workspace name once the workspace is ready.
+	// This will be triggered when that happens.
+	// This also allows the knowledge file to not trigger on the thread.
+	if ws.Status.WorkspaceID != "" {
+		ks.Status.WorkspaceName = ws.Name
+		return c.Status().Update(ctx, ks)
+	}
+
+	return nil
 }
 
 func (h *Handler) createThread(ctx context.Context, c kclient.Client, ks *v1.KnowledgeSet) error {
@@ -71,8 +75,14 @@ func (h *Handler) createThread(ctx context.Context, c kclient.Client, ks *v1.Kno
 		return err
 	}
 
-	if ks.Status.ThreadName == "" {
+	// Set the thread name when its workspace ID is set and unset the thread name if it is not.
+	// This will be triggered when the thread's status changes.
+	// This also allows the knowledge files to not trigger on the thread.
+	if ks.Status.ThreadName == "" && thread.Status.WorkspaceID != "" {
 		ks.Status.ThreadName = thread.Name
+		return c.Status().Update(ctx, ks)
+	} else if ks.Status.ThreadName != "" && thread.Status.WorkspaceID == "" {
+		ks.Status.ThreadName = ""
 		return c.Status().Update(ctx, ks)
 	}
 	return nil
@@ -111,7 +121,7 @@ func (h *Handler) CheckHasContent(req router.Request, _ router.Response) error {
 		ks.Status.ExistingFile = ""
 	} else {
 		ks.Status.ExistingFile = files.Items[0].Name
-		ks.Status.EmptyDatasetDeleted = false
+		ks.Status.DatasetCreated = true
 	}
 
 	return nil
@@ -129,13 +139,11 @@ func (h *Handler) SetEmbeddingModel(req router.Request, _ router.Response) error
 	}
 
 	var defaultEmbeddingModel v1.DefaultModelAlias
-	if err := req.Get(&defaultEmbeddingModel, req.Namespace, string(types.DefaultModelAliasTypeTextEmbedding)); err == nil {
-		ks.Status.TextEmbeddingModel = defaultEmbeddingModel.Spec.Manifest.Model
-	} else if apierrors.IsNotFound(err) {
-		ks.Status.TextEmbeddingModel = "text-embedding-3-large"
-	} else if err != nil {
+	if err := req.Get(&defaultEmbeddingModel, req.Namespace, string(types.DefaultModelAliasTypeTextEmbedding)); err != nil {
 		return err
 	}
+
+	ks.Status.TextEmbeddingModel = defaultEmbeddingModel.Spec.Manifest.Model
 
 	return nil
 }
@@ -152,7 +160,7 @@ func (h *Handler) CreateWorkspace(req router.Request, _ router.Response) error {
 
 func (h *Handler) Cleanup(req router.Request, _ router.Response) error {
 	ks := req.Object.(*v1.KnowledgeSet)
-	if ks.Status.ThreadName == "" || ks.Status.EmptyDatasetDeleted || (ks.DeletionTimestamp.IsZero() && ks.Status.HasContent) {
+	if ks.Status.ThreadName == "" || !ks.Status.DatasetCreated || (ks.DeletionTimestamp.IsZero() && ks.Status.HasContent) {
 		return nil
 	}
 
@@ -174,6 +182,6 @@ func (h *Handler) Cleanup(req router.Request, _ router.Response) error {
 		return fmt.Errorf("failed to delete knowledge set: %w", err)
 	}
 
-	ks.Status.EmptyDatasetDeleted = true
+	ks.Status.DatasetCreated = false
 	return nil
 }

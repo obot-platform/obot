@@ -2,26 +2,31 @@
 	import Input from '$lib/components/messages/Input.svelte';
 	import { autoscroll } from '$lib/actions/div';
 	import { Thread } from '$lib/services/chat/thread.svelte';
-	import { EditorService, type Messages } from '$lib/services';
+	import { type Assistant, EditorService, type Messages } from '$lib/services';
 	import Message from '$lib/components/messages/Message.svelte';
 	import { fade } from 'svelte/transition';
 	import { onDestroy } from 'svelte';
+	import { toHTMLFromMarkdown } from '$lib/markdown';
+	import { assistants } from '$lib/stores';
 
-	interface Props {
-		assistant?: string;
-	}
-
-	let { assistant = '' }: Props = $props();
 	let messages: Messages = $state({ messages: [], inProgress: false });
 	let thread: Thread | undefined = $state<Thread>();
 	let messagesDiv = $state<HTMLDivElement>();
+	let currentAssistant = $state<Assistant>();
 
 	$effect(() => {
-		if (!assistant || thread) {
+		const a = assistants.current();
+		if (a) {
+			currentAssistant = a;
+		} else {
 			return;
 		}
 
-		const newThread = new Thread(assistant, {
+		if (thread) {
+			return;
+		}
+
+		const newThread = new Thread({
 			onError: () => {
 				// ignore errors they are rendered as messages
 			}
@@ -39,9 +44,7 @@
 	});
 
 	function onLoadFile(filename: string) {
-		if (assistant) {
-			EditorService.load(assistant, filename);
-		}
+		EditorService.load(filename);
 	}
 </script>
 
@@ -53,6 +56,23 @@
 	>
 		<div class="flex w-full max-w-[900px] flex-col px-8 pt-24 transition-all">
 			<div in:fade|global class="flex flex-col gap-8">
+				<div class="message-content self-center">
+					{#if currentAssistant?.introductionMessage}
+						{@html toHTMLFromMarkdown(currentAssistant.introductionMessage)}
+					{/if}
+				</div>
+				<div class="grid gap-2 self-center md:grid-cols-3">
+					{#each currentAssistant?.starterMessages ?? [] as msg}
+						<button
+							class="rounded-3xl border-2 border-blue p-5"
+							onclick={() => {
+								thread?.invoke(msg);
+							}}
+						>
+							{msg}
+						</button>
+					{/each}
+				</div>
 				{#each messages.messages as msg}
 					<Message {msg} {onLoadFile} />
 				{/each}

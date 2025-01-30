@@ -25,8 +25,16 @@ func (s *Server) getCurrentUser(apiContext api.Context) error {
 		return err
 	}
 
-	if err = s.client.UpdateProfileIconIfNeeded(apiContext.Context(), user, apiContext.AuthProviderID()); err != nil {
-		pkgLog.Warnf("failed to update profile icon for user %s: %v", user.Username, err)
+	name, namespace := apiContext.AuthProviderNameAndNamespace()
+
+	if name != "" && namespace != "" {
+		providerURL, err := s.dispatcher.URLForAuthProvider(apiContext.Context(), namespace, name)
+		if err != nil {
+			return fmt.Errorf("failmed to get auth provider URL: %v", err)
+		}
+		if err = s.client.UpdateProfileIconIfNeeded(apiContext.Context(), user, name, namespace, providerURL.String()); err != nil {
+			pkgLog.Warnf("failed to update profile icon for user %s: %v", user.Username, err)
+		}
 	}
 
 	return apiContext.Write(types.ConvertUser(user, s.client.IsExplicitAdmin(user.Email)))
@@ -40,7 +48,9 @@ func (s *Server) getUsers(apiContext api.Context) error {
 
 	items := make([]types2.User, 0, len(users))
 	for _, user := range users {
-		items = append(items, *types.ConvertUser(&user, s.client.IsExplicitAdmin(user.Email)))
+		if user.Username != "bootstrap" && user.Email != "" { // Filter out the bootstrap admin
+			items = append(items, *types.ConvertUser(&user, s.client.IsExplicitAdmin(user.Email)))
+		}
 	}
 
 	return apiContext.Write(types2.UserList{Items: items})

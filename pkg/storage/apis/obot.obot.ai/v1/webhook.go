@@ -5,7 +5,6 @@ import (
 
 	"github.com/obot-platform/nah/pkg/fields"
 	"github.com/obot-platform/obot/apiclient/types"
-	"github.com/obot-platform/obot/pkg/system"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -26,7 +25,7 @@ type Webhook struct {
 }
 
 func (w *Webhook) FieldNames() []string {
-	return []string{"spec.threadName"}
+	return []string{"spec.threadName", "spec.workflow"}
 }
 
 func (w *Webhook) Has(field string) (exists bool) {
@@ -37,6 +36,8 @@ func (w *Webhook) Get(field string) (value string) {
 	switch field {
 	case "spec.threadName":
 		return w.Spec.ThreadName
+	case "spec.workflow":
+		return w.Spec.Workflow
 	}
 	return ""
 }
@@ -73,11 +74,6 @@ func (*Webhook) GetColumns() [][]string {
 }
 
 func (w *Webhook) DeleteRefs() []Ref {
-	if system.IsWebhookID(w.Spec.Workflow) {
-		return []Ref{
-			{ObjType: new(Workflow), Name: w.Spec.Workflow},
-		}
-	}
 	return nil
 }
 

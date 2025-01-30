@@ -5,9 +5,9 @@ import useSWR from "swr";
 import { WorkflowService } from "~/lib/service/api/workflowService";
 import { cn } from "~/lib/utils";
 
+import { ModelProviderTooltip } from "~/components/auth-and-model-providers/ModelProviderTooltip";
 import { useChat } from "~/components/chat/ChatContext";
 import { RunWorkflowForm } from "~/components/chat/RunWorkflowForm";
-import { ModelProviderTooltip } from "~/components/model-providers/ModelProviderTooltip";
 import { Button, ButtonProps } from "~/components/ui/button";
 import {
 	Popover,

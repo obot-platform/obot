@@ -2,6 +2,7 @@ package authz
 
 import (
 	"net/http"
+	"slices"
 	"strings"
 
 	"github.com/obot-platform/obot/pkg/alias"
@@ -20,6 +21,11 @@ func (a *Authorizer) authorizeAssistant(req *http.Request, user user.Info) bool 
 		return false
 	}
 
+	// Must be authenticated
+	if !slices.Contains(user.GetGroups(), AuthenticatedGroup) {
+		return false
+	}
+
 	var (
 		agentID = paths[3]
 		keys    = make([]string, 0, 3)
@@ -27,11 +33,6 @@ func (a *Authorizer) authorizeAssistant(req *http.Request, user user.Info) bool 
 	keys = append(keys, "*", user.GetUID())
 	if attr := user.GetExtra()["email"]; len(attr) > 0 {
 		keys = append(keys, attr...)
-	}
-
-	// TODO: Remove once UI is updated for new API
-	if !system.IsAgentID(agentID) {
-		return true
 	}
 
 	if !system.IsAgentID(agentID) {

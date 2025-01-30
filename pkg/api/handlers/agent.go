@@ -61,7 +61,7 @@ func (a *AgentHandler) Authenticate(req api.Context) (err error) {
 		return err
 	}
 
-	resp, err := runAuthForAgent(req.Context(), req.Storage, a.invoker, a.gptscript, agent.DeepCopy(), tools)
+	resp, err := runAuthForAgent(req.Context(), req.Storage, a.invoker, a.gptscript, agent.DeepCopy(), id, tools)
 	if err != nil {
 		return err
 	}
@@ -147,7 +147,7 @@ func (a *AgentHandler) Update(req api.Context) error {
 	if err != nil {
 		return err
 	}
-	return req.WriteCreated(resp)
+	return req.Write(resp)
 }
 
 func (a *AgentHandler) Delete(req api.Context) error {
@@ -273,7 +273,7 @@ func (a *AgentHandler) SetDefault(req api.Context) error {
 		return err
 	}
 
-	return req.WriteCreated(resp)
+	return req.Write(resp)
 }
 
 func (a *AgentHandler) ByID(req api.Context) error {
@@ -294,7 +294,7 @@ func (a *AgentHandler) ByID(req api.Context) error {
 		return err
 	}
 
-	return req.WriteCreated(resp)
+	return req.Write(resp)
 }
 
 func (a *AgentHandler) List(req api.Context) error {
@@ -734,12 +734,15 @@ func (a *AgentHandler) EnsureCredentialForKnowledgeSource(req api.Context) error
 		return req.WriteCreated(resp)
 	}
 
-	credentialTools, err := v1.CredentialTools(req.Context(), req.Storage, req.Namespace(), ref)
-	if err != nil {
-		return err
+	var toolReference v1.ToolReference
+	if err := req.Get(&toolReference, ref); err != nil {
+		return fmt.Errorf("failed to get tool reference %v", ref)
+	}
+	if toolReference.Status.Tool == nil {
+		return types.NewErrHttp(http.StatusTooEarly, "tool reference is not ready yet")
 	}
 
-	if len(credentialTools) == 0 {
+	if len(toolReference.Status.Tool.Credentials) == 0 {
 		// The only way to get here is if the controller hasn't set the field yet.
 		if agent.Status.AuthStatus == nil {
 			agent.Status.AuthStatus = make(map[string]types.OAuthAppLoginAuthStatus)
@@ -754,6 +757,10 @@ func (a *AgentHandler) EnsureCredentialForKnowledgeSource(req api.Context) error
 		return req.WriteCreated(resp)
 	}
 
+	if _, ok := toolReference.Status.Tool.Metadata["oauth"]; !ok {
+		return types.NewErrBadRequest("tool reference %q does not have oauth metadata", ref)
+	}
+
 	oauthLogin := &v1.OAuthAppLogin{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      system.OAuthAppLoginPrefix + agent.Name + ref,
@@ -762,15 +769,15 @@ func (a *AgentHandler) EnsureCredentialForKnowledgeSource(req api.Context) error
 		Spec: v1.OAuthAppLoginSpec{
 			CredentialContext: agent.Name,
 			ToolReference:     ref,
-			OAuthApps:         agent.Spec.Manifest.OAuthApps,
+			OAuthApps:         []string{toolReference.Status.Tool.Metadata["oauth"]},
 		},
 	}
 
-	if err = req.Delete(oauthLogin); err != nil {
+	if err := req.Delete(oauthLogin); err != nil {
 		return err
 	}
 
-	oauthLogin, err = wait.For(req.Context(), req.Storage, oauthLogin, func(obj *v1.OAuthAppLogin) (bool, error) {
+	oauthLogin, err := wait.For(req.Context(), req.Storage, oauthLogin, func(obj *v1.OAuthAppLogin) (bool, error) {
 		return obj.Status.External.Authenticated || obj.Status.External.Error != "" || obj.Status.External.URL != "", nil
 	}, wait.Option{
 		Create: true,
@@ -913,12 +920,12 @@ func MetadataFrom(obj kclient.Object, linkKV ...string) types.Metadata {
 	return m
 }
 
-func runAuthForAgent(ctx context.Context, c kclient.WithWatch, invoker *invoke.Invoker, gClient *gptscript.GPTScript, agent *v1.Agent, tools []string) (*invoke.Response, error) {
+func runAuthForAgent(ctx context.Context, c kclient.WithWatch, invoker *invoke.Invoker, gClient *gptscript.GPTScript, agent *v1.Agent, credContext string, tools []string) (*invoke.Response, error) {
 	credentials := make([]string, 0, len(tools))
 
 	var toolRef v1.ToolReference
 	for _, tool := range tools {
-		if strings.ContainsAny(tool, "./") {
+		if render.IsExternalTool(tool) {
 			prg, err := gClient.LoadFile(ctx, tool)
 			if err != nil {
 				return nil, err
@@ -948,8 +955,8 @@ func runAuthForAgent(ctx context.Context, c kclient.WithWatch, invoker *invoke.I
 	agent.Spec.Manifest.Tools = tools
 	agent.Spec.Manifest.AvailableThreadTools = nil
 	agent.Spec.Manifest.DefaultThreadTools = nil
-	agent.Spec.Credentials = credentials
-	agent.Spec.CredentialContextID = agent.Name
+	agent.Spec.Manifest.Credentials = credentials
+	agent.Spec.CredentialContextID = credContext
 	agent.Name = ""
 
 	return invoker.Agent(ctx, c, agent, "", invoke.Options{
@@ -965,7 +972,7 @@ func removeToolCredentials(ctx context.Context, client kclient.Client, gClient *
 		credentialNames []string
 	)
 	for _, tool := range tools {
-		if strings.ContainsAny(tool, "./") {
+		if render.IsExternalTool(tool) {
 			prg, err := gClient.LoadFile(ctx, tool)
 			if err != nil {
 				errs = append(errs, err)
@@ -993,7 +1000,7 @@ func removeToolCredentials(ctx context.Context, client kclient.Client, gClient *
 		toolRef.Status.Tool = nil
 
 		for _, cred := range credentialNames {
-			if err := gClient.DeleteCredential(ctx, credCtx, cred); err != nil && !strings.HasSuffix(err.Error(), "credential not found") {
+			if err := gClient.DeleteCredential(ctx, credCtx, cred); err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
 				errs = append(errs, err)
 			}
 		}

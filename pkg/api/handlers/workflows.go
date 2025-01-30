@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/http"
 	"strings"
 
 	"github.com/gptscript-ai/go-gptscript"
@@ -16,9 +17,13 @@ import (
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/obot-platform/obot/pkg/wait"
+	apierror "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/fields"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
+
+const fieldSelector = "spec.workflow"
 
 type WorkflowHandler struct {
 	gptscript *gptscript.GPTScript
@@ -58,7 +63,7 @@ func (a *WorkflowHandler) Authenticate(req api.Context) error {
 		return err
 	}
 
-	resp, err := runAuthForAgent(req.Context(), req.Storage, a.invoker, a.gptscript, agent, tools)
+	resp, err := runAuthForAgent(req.Context(), req.Storage, a.invoker, a.gptscript, agent, id, tools)
 	if err != nil {
 		return err
 	}
@@ -152,8 +157,51 @@ func (a *WorkflowHandler) Update(req api.Context) error {
 
 func (a *WorkflowHandler) Delete(req api.Context) error {
 	var (
-		id = req.PathValue("id")
+		id             = req.PathValue("id")
+		deleteTriggers = req.Request.URL.Query().Get("delete-triggers")
 	)
+
+	if deleteTriggers == "true" {
+		listOptions := &kclient.ListOptions{
+			FieldSelector: fields.SelectorFromSet(map[string]string{
+				fieldSelector: id,
+			}),
+			Namespace: req.Namespace(),
+		}
+
+		var webhooks v1.WebhookList
+		if err := req.List(&webhooks, listOptions); err != nil {
+			return err
+		}
+
+		for _, webhook := range webhooks.Items {
+			if err := req.Delete(&webhook); err != nil && !apierror.IsNotFound(err) {
+				return err
+			}
+		}
+
+		var cronjobs v1.CronJobList
+		if err := req.List(&cronjobs, listOptions); err != nil {
+			return err
+		}
+
+		for _, cronjob := range cronjobs.Items {
+			if err := req.Delete(&cronjob); err != nil && !apierror.IsNotFound(err) {
+				return err
+			}
+		}
+
+		var emailReceivers v1.EmailReceiverList
+		if err := req.List(&emailReceivers, listOptions); err != nil {
+			return err
+		}
+
+		for _, emailReceiver := range emailReceivers.Items {
+			if err := req.Delete(&emailReceiver); err != nil && !apierror.IsNotFound(err) {
+				return err
+			}
+		}
+	}
 
 	return req.Delete(&v1.Workflow{
 		ObjectMeta: metav1.ObjectMeta{
@@ -227,6 +275,7 @@ func convertWorkflow(workflow v1.Workflow, textEmbeddingModel, baseURL string) (
 	return &types.Workflow{
 		Metadata:           MetadataFrom(&workflow, links...),
 		WorkflowManifest:   workflow.Spec.Manifest,
+		ThreadID:           workflow.Spec.ThreadName,
 		AliasAssigned:      aliasAssigned,
 		AuthStatus:         workflow.Status.AuthStatus,
 		ToolInfo:           toolInfos,
@@ -320,12 +369,15 @@ func (a *WorkflowHandler) EnsureCredentialForKnowledgeSource(req api.Context) er
 		return req.WriteCreated(resp)
 	}
 
-	credentialTools, err := v1.CredentialTools(req.Context(), req.Storage, req.Namespace(), ref)
-	if err != nil {
-		return err
+	var toolReference v1.ToolReference
+	if err := req.Get(&toolReference, ref); err != nil {
+		return fmt.Errorf("failed to get tool reference %v", ref)
+	}
+	if toolReference.Status.Tool == nil {
+		return types.NewErrHttp(http.StatusTooEarly, "tool reference is not ready yet")
 	}
 
-	if len(credentialTools) == 0 {
+	if len(toolReference.Status.Tool.Credentials) == 0 {
 		// The only way to get here is if the controller hasn't set the field yet.
 		if wf.Status.AuthStatus == nil {
 			wf.Status.AuthStatus = make(map[string]types.OAuthAppLoginAuthStatus)
@@ -349,15 +401,15 @@ func (a *WorkflowHandler) EnsureCredentialForKnowledgeSource(req api.Context) er
 		Spec: v1.OAuthAppLoginSpec{
 			CredentialContext: wf.Name,
 			ToolReference:     ref,
-			OAuthApps:         wf.Spec.Manifest.OAuthApps,
+			OAuthApps:         []string{toolReference.Status.Tool.Metadata["oauth"]},
 		},
 	}
 
-	if err = req.Delete(oauthLogin); err != nil {
+	if err := req.Delete(oauthLogin); err != nil {
 		return err
 	}
 
-	oauthLogin, err = wait.For(req.Context(), req.Storage, oauthLogin, func(obj *v1.OAuthAppLogin) (bool, error) {
+	oauthLogin, err := wait.For(req.Context(), req.Storage, oauthLogin, func(obj *v1.OAuthAppLogin) (bool, error) {
 		return obj.Status.External.Authenticated || obj.Status.External.Error != "" || obj.Status.External.URL != "", nil
 	}, wait.Option{
 		Create: true,

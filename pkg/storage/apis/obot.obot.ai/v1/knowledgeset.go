@@ -72,7 +72,7 @@ type KnowledgeSetManifest struct {
 
 type KnowledgeSetStatus struct {
 	HasContent               bool   `json:"hasContent,omitempty"`
-	EmptyDatasetDeleted      bool   `json:"emptyDatasetDeleted,omitempty"`
+	DatasetCreated           bool   `json:"datasetCreated,omitempty"`
 	SuggestedDataDescription string `json:"suggestedDataDescription,omitempty"`
 	WorkspaceName            string `json:"workspaceName,omitempty"`
 	ThreadName               string `json:"threadName,omitempty"`

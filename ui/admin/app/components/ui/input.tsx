@@ -11,7 +11,7 @@ const InputReset =
 
 const inputVariants = cva(
 	cn(
-		"flex h-9 w-full items-center rounded-md border border-input bg-transparent text-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground has-[:disabled]:cursor-not-allowed has-[:disabled]:opacity-50 has-[:focus-visible]:ring-1 has-[:focus-visible]:ring-ring"
+		"flex h-9 w-full items-center rounded-md border border-input bg-background text-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground has-[:disabled]:cursor-not-allowed has-[:disabled]:opacity-50 has-[:focus-visible]:ring-1 has-[:focus-visible]:ring-ring"
 	),
 	{
 		variants: {

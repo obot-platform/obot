@@ -5,7 +5,6 @@ import (
 
 	"github.com/obot-platform/nah/pkg/fields"
 	"github.com/obot-platform/obot/apiclient/types"
-	"github.com/obot-platform/obot/pkg/system"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -33,12 +32,14 @@ func (in *EmailReceiver) Get(field string) (value string) {
 	switch field {
 	case "spec.threadName":
 		return in.Spec.ThreadName
+	case "spec.workflow":
+		return in.Spec.Workflow
 	}
 	return ""
 }
 
 func (in *EmailReceiver) FieldNames() []string {
-	return []string{"spec.threadName"}
+	return []string{"spec.threadName", "spec.workflow"}
 }
 
 func (in *EmailReceiver) GetAliasName() string {
@@ -72,11 +73,6 @@ func (*EmailReceiver) GetColumns() [][]string {
 }
 
 func (in *EmailReceiver) DeleteRefs() []Ref {
-	if system.IsWorkflowID(in.Spec.Workflow) {
-		return []Ref{
-			{ObjType: new(Workflow), Name: in.Spec.Workflow},
-		}
-	}
 	return nil
 }
 

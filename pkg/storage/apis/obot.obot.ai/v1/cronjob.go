@@ -5,7 +5,6 @@ import (
 
 	"github.com/obot-platform/nah/pkg/fields"
 	"github.com/obot-platform/obot/apiclient/types"
-	"github.com/obot-platform/obot/pkg/system"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -28,12 +27,14 @@ func (c *CronJob) Get(field string) (value string) {
 	switch field {
 	case "spec.threadName":
 		return c.Spec.ThreadName
+	case "spec.workflow":
+		return c.Spec.Workflow
 	}
 	return ""
 }
 
 func (c *CronJob) FieldNames() []string {
-	return []string{"spec.threadName"}
+	return []string{"spec.threadName", "spec.workflow"}
 }
 
 func (*CronJob) GetColumns() [][]string {
@@ -49,11 +50,6 @@ func (*CronJob) GetColumns() [][]string {
 }
 
 func (c *CronJob) DeleteRefs() []Ref {
-	if system.IsWorkflowID(c.Spec.Workflow) {
-		return []Ref{
-			{ObjType: new(Workflow), Name: c.Spec.Workflow},
-		}
-	}
 	return nil
 }
 

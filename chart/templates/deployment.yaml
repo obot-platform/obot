@@ -1,0 +1,145 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "obot.fullname" . }}
+  labels:
+    {{- include "obot.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  strategy:
+    type: {{ .Values.updateStrategy }}
+  selector:
+    matchLabels:
+      {{- include "obot.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "obot.selectorLabels" . | nindent 8 }}
+    spec:
+      serviceAccountName: {{ include "obot.serviceAccountName" . }}
+      {{- if .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml .Values.imagePullSecrets | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: {{ .Chart.Name }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /api/healthz
+              port: http
+            failureThreshold: 5
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /api/healthz
+              port: http
+            failureThreshold: 5
+            periodSeconds: 10
+          env:
+            - name: "OBOT_SERVER_ENABLE_AUTHENTICATION"
+              value: {{ .Values.config.obotServerEnableAuthentication | quote }}
+            {{- if .Values.config.awsAccessKeyID }}
+            - name: "AWS_ACCESS_KEY_ID"
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "obot.config.secretName" . }}
+                  key: awsAccessKeyID
+            {{- end }}
+            {{- if .Values.config.awsRegion }}
+            - name: "AWS_REGION"
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "obot.config.secretName" . }}
+                  key: awsRegion
+            {{- end }}
+            {{- if .Values.config.awsSecretAccessKey }}
+            - name: "AWS_SECRET_ACCESS_KEY"
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "obot.config.secretName" . }}
+                  key: awsSecretAccessKey
+            {{- end }}
+            {{- if .Values.config.baaahThreadiness }}
+            - name: "BAAAH_THREADINESS"
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "obot.config.secretName" . }}
+                  key: baaahThreadiness
+            {{- end }}
+            {{- if .Values.config.githubAuthToken }}
+            - name: "GITHUB_AUTH_TOKEN"
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "obot.config.secretName" . }}
+                  key: githubAuthToken
+            {{- end }}
+            {{- if .Values.config.obotServerAuthAdminEmails }}
+            - name: "OBOT_SERVER_AUTH_ADMIN_EMAILS"
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "obot.config.secretName" . }}
+                  key: obotServerAuthAdminEmails
+            {{- end }}
+            {{- if .Values.config.obotBootstrapToken }}
+            - name: "OBOT_BOOTSTRAP_TOKEN"
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "obot.config.secretName" . }}
+                  key: obotBootstrapToken
+            {{- end }}
+            {{- if .Values.config.obotServerDSN }}
+            - name: "OBOT_SERVER_DSN"
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "obot.config.secretName" . }}
+                  key: obotServerDSN
+            {{- end }}
+            {{- if .Values.config.obotServerHostname }}
+            - name: "OBOT_SERVER_HOSTNAME"
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "obot.config.secretName" . }}
+                  key: obotServerHostname
+            {{- end }}
+            {{- if .Values.config.obotWorkspaceProviderType }}
+            - name: "OBOT_WORKSPACE_PROVIDER_TYPE"
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "obot.config.secretName" . }}
+                  key: obotWorkspaceProviderType
+            {{- end }}
+            {{- if .Values.config.openaiApiKey }}
+            - name: "OPENAI_API_KEY"
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "obot.config.secretName" . }}
+                  key: openaiApiKey
+            {{- end }}
+            {{- if .Values.config.workspaceProviderS3BaseEndpoint }}
+            - name: "WORKSPACE_PROVIDER_S3_BASE_ENDPOINT"
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "obot.config.secretName" . }}
+                  key: workspaceProviderS3BaseEndpoint
+            {{- end }}
+            {{- if .Values.config.workspaceProviderS3Bucket }}
+            - name: "WORKSPACE_PROVIDER_S3_BUCKET"
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "obot.config.secretName" . }}
+                  key: workspaceProviderS3Bucket
+            {{- end }}
+            {{- if .Values.extraEnv }}
+            {{- range $key, $value := .Values.extraEnv }}
+            - name: {{ $key }}
+              value: {{ $value | quote }}
+            {{- end }}
+            {{- end }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}

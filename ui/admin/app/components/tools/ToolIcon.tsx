@@ -2,24 +2,17 @@ import { WrenchIcon } from "lucide-react";
 
 import { cn } from "~/lib/utils";
 
-import {
-	Tooltip,
-	TooltipContent,
-	TooltipTrigger,
-} from "~/components/ui/tooltip";
-
 type ToolIconProps = {
 	name: string;
 	category?: string;
 	icon?: string;
 	className?: string;
-	disableTooltip?: boolean;
 };
 
 export function ToolIcon(props: ToolIconProps) {
-	const { name, category, icon, className, disableTooltip } = props;
+	const { name, icon, className } = props;
 
-	const content = icon ? (
+	return icon ? (
 		<img
 			alt={name}
 			src={icon}
@@ -30,19 +23,5 @@ export function ToolIcon(props: ToolIconProps) {
 		/>
 	) : (
 		<WrenchIcon className={cn("mr-2 h-4 w-4", className)} />
-	);
-
-	if (disableTooltip) {
-		return content;
-	}
-
-	return (
-		<Tooltip>
-			<TooltipTrigger>{content}</TooltipTrigger>
-
-			<TooltipContent>
-				{[category, name].filter((x) => !!x).join(" - ")}
-			</TooltipContent>
-		</Tooltip>
 	);
 }

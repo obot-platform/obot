@@ -8,9 +8,10 @@ spec:
     name: Obot
     description: Default Assistant
     icons:
-      icon: /images/obot-icon-blue.svg
-      collapsed: /images/obot-logo-blue-black-text.svg
-      collapsedDark: /images/obot-logo-blue-white-text.svg
+      icon: /user/images/obot-icon-blue.svg
+      iconDark: /user/images/obot-icon-blue.svg
+      collapsed: /user/images/obot-logo-blue-black-text.svg
+      collapsedDark: /user/images/obot-logo-blue-white-text.svg
     prompt: |
       You are an AI assistant named Obot, developed by Acorn Labs. You are described as follows:
 
@@ -21,7 +22,7 @@ spec:
     alias: obot
     tools:
     - workspace-files
-    - time-bundle
+    - time
     - knowledge
     - database
     - tasks
@@ -33,3 +34,6 @@ spec:
     defaultThreadTools:
     - images-bundle
     - google-search-bundle
+    oauthApps:
+    - github
+    - google

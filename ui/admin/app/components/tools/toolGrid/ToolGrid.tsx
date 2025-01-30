@@ -1,93 +1,114 @@
-import { useCallback, useEffect, useState } from "react";
+import { useMemo } from "react";
 
-import { ToolReference } from "~/lib/model/toolReferences";
 import {
 	CustomToolsToolCategory,
-	ToolCategoryMap,
-} from "~/lib/service/api/toolreferenceService";
+	ToolCategory,
+	ToolReference,
+} from "~/lib/model/toolReferences";
 
-import { CategoryHeader } from "~/components/tools/toolGrid/CategoryHeader";
-import { CategoryTools } from "~/components/tools/toolGrid/CategoryTools";
-import { useDebounce } from "~/hooks/useDebounce";
+import { BundleToolList } from "~/components/tools/toolGrid/BundleToolList";
+import { ToolCard } from "~/components/tools/toolGrid/ToolCard";
 
-interface ToolGridProps {
-	toolCategories: ToolCategoryMap;
-	filter: string;
-	onDelete: (id: string) => void;
-}
+export function ToolGrid({
+	toolCategories,
+}: {
+	toolCategories: [string, ToolCategory][];
+}) {
+	const { customTools, builtinTools } = useMemo(() => {
+		return separateCustomAndBuiltinTools(toolCategories);
+	}, [toolCategories]);
 
-export function ToolGrid({ toolCategories, filter, onDelete }: ToolGridProps) {
-	const [filteredResults, setFilteredResults] =
-		useState<ToolCategoryMap>(toolCategories);
+	const sortedCustomTools =
+		customTools.sort((a, b) => {
+			// Sort by created descending for custom tools
+			const aCreatedAt =
+				"bundleTool" in a
+					? a.bundleTool?.created
+					: (a as ToolReference).created;
+			const bCreatedAt =
+				"bundleTool" in b
+					? b.bundleTool?.created
+					: (b as ToolReference).created;
 
-	const filterCategories = useCallback(
-		(searchTerm: string) => {
-			const result: ToolCategoryMap = {};
-			for (const [category, { tools, bundleTool }] of Object.entries(
-				toolCategories
-			)) {
-				const sortedTools = tools.sort((a, b) => a.name.localeCompare(b.name));
-				const toolsWithBundle = bundleTool
-					? [bundleTool, ...sortedTools]
-					: sortedTools;
-				const filteredTools = toolsWithBundle.filter((tool) =>
-					[tool.name, tool.metadata?.category, tool.description]
-						.filter((x) => !!x)
-						.join("|")
-						.toLowerCase()
-						.includes(searchTerm.toLowerCase())
-				);
-				if (filteredTools.length > 0) {
-					result[category] = {
-						tools: filteredTools,
-						bundleTool: bundleTool,
-					};
-				}
-			}
-			setFilteredResults(result);
-		},
-		[toolCategories]
-	);
+			return (
+				new Date(bCreatedAt ?? "").getTime() -
+				new Date(aCreatedAt ?? "").getTime()
+			);
+		}) ?? [];
 
-	const debouncedFilter = useDebounce(filterCategories, 150);
+	const sortedBuiltinTools = builtinTools.sort((a, b) => {
+		const aName =
+			"bundleTool" in a ? a.bundleTool?.name : (a as ToolReference).name;
+		const bName =
+			"bundleTool" in b ? b.bundleTool?.name : (b as ToolReference).name;
+		return (aName ?? "").localeCompare(bName ?? "");
+	});
 
-	useEffect(() => {
-		debouncedFilter(filter);
-	}, [filter, debouncedFilter]);
-
-	if (!Object.entries(filteredResults).length) {
-		return <p>No tools found...</p>;
-	}
-
-	const customToolsCategory = filteredResults[CustomToolsToolCategory];
 	return (
-		<div className="space-y-8 pb-16">
-			{customToolsCategory &&
-				renderToolCategory(CustomToolsToolCategory, customToolsCategory.tools)}
-			{Object.entries(filteredResults).map(
-				([category, { tools, bundleTool }]) => {
-					if (category === CustomToolsToolCategory) return null;
-					return renderToolCategory(category, tools, bundleTool?.description);
-				}
+		<div className="flex flex-col gap-8">
+			{sortedCustomTools.length > 0 && (
+				<div className="flex flex-col gap-4">
+					<h3>{CustomToolsToolCategory}</h3>
+					<div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
+						{sortedCustomTools.map(renderToolCard)}
+					</div>
+				</div>
+			)}
+
+			{sortedBuiltinTools.length > 0 && (
+				<div className="flex flex-col gap-4">
+					<h3>Built-in Tools</h3>
+					<div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
+						{sortedBuiltinTools.map(renderToolCard)}
+					</div>
+				</div>
 			)}
 		</div>
 	);
 
-	function renderToolCategory(
-		category: string,
-		tools: ToolReference[],
-		description = ""
-	) {
-		if (!tools.length) return null;
-		return (
-			<div key={category} className="space-y-4">
-				<CategoryHeader
-					category={category}
-					description={description}
-					tools={tools}
+	function renderToolCard(item: ToolCategory | ToolReference) {
+		if ("bundleTool" in item && item.bundleTool) {
+			return (
+				<ToolCard
+					key={item.bundleTool.id}
+					HeaderRightContent={
+						item.tools.length > 0 ? (
+							<BundleToolList tools={item.tools} bundle={item.bundleTool} />
+						) : null
+					}
+					tool={item.bundleTool}
 				/>
-				<CategoryTools tools={tools} onDelete={onDelete} />
-			</div>
+			);
+		}
+
+		if ("name" in item) return <ToolCard key={item.name} tool={item} />;
+
+		return null;
+	}
+
+	function separateCustomAndBuiltinTools(
+		toolCategories: [string, ToolCategory][]
+	) {
+		return toolCategories.reduce<{
+			customTools: (ToolCategory | ToolReference)[];
+			builtinTools: (ToolCategory | ToolReference)[];
+		}>(
+			(acc, [, { bundleTool, tools }]) => {
+				if (bundleTool) {
+					const key = bundleTool.builtin ? "builtinTools" : "customTools";
+					acc[key].push({ bundleTool, tools });
+				} else {
+					tools.forEach((tool) => {
+						if (tool.builtin) {
+							acc.builtinTools.push(tool);
+						} else {
+							acc.customTools.push(tool);
+						}
+					});
+				}
+				return acc;
+			},
+			{ customTools: [], builtinTools: [] }
 		);
 	}
 }

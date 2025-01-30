@@ -7,6 +7,7 @@ import { cn } from "~/lib/utils";
 const TooltipProvider = TooltipPrimitive.Provider;
 
 const Tooltip = TooltipPrimitive.Root;
+type TooltipProps = TooltipPrimitive.TooltipProps;
 
 const TooltipTrigger = TooltipPrimitive.Trigger;
 
@@ -46,4 +47,10 @@ const TooltipContent = React.forwardRef<
 ));
 TooltipContent.displayName = TooltipPrimitive.Content.displayName;
 
-export { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider };
+export {
+	Tooltip,
+	type TooltipProps,
+	TooltipTrigger,
+	TooltipContent,
+	TooltipProvider,
+};

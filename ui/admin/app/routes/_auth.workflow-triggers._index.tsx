@@ -106,12 +106,15 @@ export default function WorkflowTriggersPage() {
 			columnHelper.accessor((row) => row.type as string, {
 				header: "Type",
 			}),
-			columnHelper.accessor(
-				(row) => workflowMap[row.workflow]?.name ?? row.workflow,
-				{
-					header: "Workflow",
-				}
-			),
+			columnHelper.accessor((row) => workflowMap[row.workflow]?.name, {
+				header: "Workflow",
+				cell: ({ getValue }) =>
+					getValue() ?? (
+						<span className="text-muted-foreground">
+							Workflow Not Available
+						</span>
+					),
+			}),
 			columnHelper.display({
 				id: "actions",
 				cell: ({ row }) => (

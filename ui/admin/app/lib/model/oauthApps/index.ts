@@ -5,6 +5,7 @@ import {
 import { AtlassianOAuthApp } from "~/lib/model/oauthApps/providers/atlassian";
 import { GitHubOAuthApp } from "~/lib/model/oauthApps/providers/github";
 import { GoogleOAuthApp } from "~/lib/model/oauthApps/providers/google";
+import { LinkedInOAuthApp } from "~/lib/model/oauthApps/providers/linkedin";
 import { Microsoft365OAuthApp } from "~/lib/model/oauthApps/providers/microsoft365";
 import { NotionOAuthApp } from "~/lib/model/oauthApps/providers/notion";
 import { SalesforceOAuthApp } from "~/lib/model/oauthApps/providers/salesforce";
@@ -21,20 +22,13 @@ export const OAuthAppSpecMap = {
 	[OAuthProvider.Salesforce]: SalesforceOAuthApp,
 	[OAuthProvider.Notion]: NotionOAuthApp,
 	[OAuthProvider.Zoom]: ZoomOAuthApp,
+	[OAuthProvider.LinkedIn]: LinkedInOAuthApp,
 	// Custom OAuth apps are intentionally omitted from the map.
 	// They are handled separately
 } as const;
 
 export type OAuthAppDetail = OAuthAppSpec & {
 	appOverride?: OAuthApp;
-};
-
-export const combinedOAuthAppInfo = (apps: OAuthApp[]) => {
-	return Object.entries(OAuthAppSpecMap).map(([type, defaultSpec]) => {
-		const appOverride = apps.find((app) => app.type === type);
-
-		return { ...defaultSpec, appOverride } as OAuthAppDetail;
-	});
 };
 
 export type OAuthAppParams = {
@@ -50,7 +44,7 @@ export type OAuthAppParams = {
 	// This field is optional for HubSpot OAuth apps.
 	optionalScope?: string;
 	// This field is required, it correlates to the integration name in the gptscript oauth cred tool
-	integration: string;
+	alias: string;
 	// This field is only needed for Salesforce OAuth apps
 	instanceURL?: string;
 };
@@ -58,12 +52,11 @@ export type OAuthAppParams = {
 export type OAuthAppBase = OAuthAppParams & {
 	name?: string;
 	type: OAuthProvider;
-	global: boolean;
 };
 
 export type CreateOAuthApp = Partial<OAuthAppBase> & {
 	type: OAuthProvider;
-	integration: string;
+	alias: string;
 };
 
 export type OAuthApp = EntityMeta &

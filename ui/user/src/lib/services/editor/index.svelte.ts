@@ -1,10 +1,12 @@
-import items, { type EditorItem } from '$lib/stores/editor.svelte';
+import { type EditorItem } from '$lib/stores/editor.svelte';
+import editorStore from '$lib/stores/editor.svelte';
 import tasks from '$lib/stores/tasks.svelte';
 import ChatService from '../chat';
 import { type Writable, writable } from 'svelte/store';
 
 const visible = writable(false);
 const maxSize = writable(false);
+const items = editorStore.items;
 
 const editor: Editor = {
 	remove,
@@ -18,7 +20,6 @@ const editor: Editor = {
 
 export interface Editor {
 	load: (
-		assistant: string,
 		id: string,
 		opts?: {
 			taskID?: string;
@@ -26,7 +27,6 @@ export interface Editor {
 		}
 	) => Promise<void>;
 	download: (
-		assistant: string,
 		id: string,
 		opts?: {
 			taskID?: string;
@@ -46,7 +46,6 @@ function hasItem(id: string): boolean {
 }
 
 async function load(
-	assistant: string,
 	id: string,
 	opts?: {
 		taskID?: string;
@@ -68,7 +67,7 @@ async function load(
 		return;
 	}
 	if (id.startsWith('w1')) {
-		await loadTask(assistant, id);
+		await loadTask(id);
 		visible.set(true);
 		return;
 	}
@@ -77,7 +76,7 @@ async function load(
 		visible.set(true);
 		return;
 	}
-	await loadFile(assistant, id, opts);
+	await loadFile(id, opts);
 	visible.set(true);
 }
 
@@ -108,12 +107,12 @@ async function genericLoad(id: string) {
 	select(id);
 }
 
-async function loadTask(assistant: string, taskID: string) {
+async function loadTask(taskID: string) {
 	try {
-		let task = tasks.items.get(taskID);
+		let task = tasks.items.find((task) => task.id === taskID);
 		if (!task) {
-			task = await ChatService.getTask(assistant, taskID);
-			tasks.items.set(taskID, task);
+			task = await ChatService.getTask(taskID);
+			tasks.items.push(task);
 		}
 		const targetFile: EditorItem = {
 			id: taskID,
@@ -131,19 +130,18 @@ async function loadTask(assistant: string, taskID: string) {
 	}
 }
 
-async function download(assistant: string, id: string, opts?: { taskID?: string; runID?: string }) {
+async function download(id: string, opts?: { taskID?: string; runID?: string }) {
 	const item = items.find((item) => item.id === id);
 	if (item && item.modified && item.buffer) {
-		await ChatService.saveContents(assistant, item.id, item.buffer, opts);
+		await ChatService.saveContents(item.id, item.buffer, opts);
 		item.contents = item.buffer;
 		item.modified = false;
 		item.blob = undefined;
 	}
-	await ChatService.download(assistant, id, opts);
+	await ChatService.download(id, opts);
 }
 
 async function loadFile(
-	assistant: string,
 	file: string,
 	opts?: {
 		taskID?: string;
@@ -151,7 +149,7 @@ async function loadFile(
 	}
 ) {
 	try {
-		const blob = await ChatService.getFile(assistant, file, opts);
+		const blob = await ChatService.getFile(file, opts);
 		const contents = await blob.text();
 		let fileID = file;
 		if (opts?.taskID && opts?.runID) {

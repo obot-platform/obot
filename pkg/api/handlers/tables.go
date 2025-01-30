@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"encoding/json"
-	"fmt"
 	"regexp"
 
 	"github.com/gptscript-ai/go-gptscript"
@@ -23,10 +22,10 @@ func NewTableHandler(gptScript *gptscript.GPTScript) *TableHandler {
 
 func (t *TableHandler) tables(req api.Context, workspaceID string) (string, error) {
 	var toolRef v1.ToolReference
-	if err := req.Get(&toolRef, "database"); err != nil {
+	if err := req.Get(&toolRef, "database-ui"); err != nil {
 		return "", err
 	}
-	run, err := t.gptScript.Run(req.Context(), "Tables from "+toolRef.Status.Reference, gptscript.Options{
+	run, err := t.gptScript.Run(req.Context(), "list_database_tables from "+toolRef.Status.Reference, gptscript.Options{
 		Workspace: workspaceID,
 	})
 	if err != nil {
@@ -38,16 +37,16 @@ func (t *TableHandler) tables(req api.Context, workspaceID string) (string, erro
 
 func (t *TableHandler) rows(req api.Context, workspaceID, tableName string) (string, error) {
 	var toolRef v1.ToolReference
-	if err := req.Get(&toolRef, "database"); err != nil {
+	if err := req.Get(&toolRef, "database-ui"); err != nil {
 		return "", err
 	}
 	input, err := json.Marshal(map[string]string{
-		"query": fmt.Sprintf("SELECT * FROM '%s';", tableName),
+		"table": tableName,
 	})
 	if err != nil {
 		return "", err
 	}
-	run, err := t.gptScript.Run(req.Context(), "Query from "+toolRef.Status.Reference, gptscript.Options{
+	run, err := t.gptScript.Run(req.Context(), "list_database_table_rows from "+toolRef.Status.Reference, gptscript.Options{
 		Input:     string(input),
 		Workspace: workspaceID,
 	})
@@ -66,7 +65,7 @@ func (t *TableHandler) ListTables(req api.Context) error {
 		}
 	)
 
-	thread, err := getUserThread(req, assistantID)
+	thread, err := getProjectThread(req, assistantID)
 	if err != nil {
 		return err
 	}
@@ -100,7 +99,7 @@ func (t *TableHandler) GetRows(req api.Context) error {
 		return types.NewErrBadRequest("invalid table name %s", tableName)
 	}
 
-	thread, err := getUserThread(req, assistantID)
+	thread, err := getProjectThread(req, assistantID)
 	if err != nil {
 		return err
 	}

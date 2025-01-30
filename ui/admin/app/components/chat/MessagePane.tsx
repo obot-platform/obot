@@ -1,13 +1,14 @@
+import { useEffect, useRef, useState } from "react";
+
 import { ToolCall } from "~/lib/model/chatEvents";
 import { Message as MessageType } from "~/lib/model/messages";
 import { cn } from "~/lib/utils";
 
 import { useChat } from "~/components/chat/ChatContext";
 import { Message } from "~/components/chat/Message";
-import { MessageDebug } from "~/components/chat/MessageDebug";
 import { NoMessages } from "~/components/chat/NoMessages";
+import { useTheme } from "~/components/theme";
 import { ScrollArea } from "~/components/ui/scroll-area";
-import { TypingDots } from "~/components/ui/typing-spinner";
 
 interface MessagePaneProps {
 	messages: MessageType[];
@@ -25,11 +26,23 @@ export function MessagePane({
 	className,
 	classNames = {},
 }: MessagePaneProps) {
-	const { readOnly, isRunning, mode } = useChat();
+	const [shouldCenter, setShouldCenter] = useState(true);
+	const noMessagesRef = useRef<HTMLDivElement>(null);
+	const { readOnly, isRunning, mode, icons, agentName } = useChat();
+	const { theme } = useTheme();
+	const isDarkMode = theme === "dark";
 
 	const isEmpty = messages.length === 0 && !readOnly && mode === "agent";
 
-	const currentRunId = messages.findLast((message) => message.runId)?.runId;
+	useEffect(() => {
+		if (isEmpty && noMessagesRef.current) {
+			const parentHeight =
+				noMessagesRef.current.parentElement?.parentElement?.parentElement
+					?.clientHeight || 0;
+			const elementHeight = noMessagesRef.current.clientHeight;
+			setShouldCenter(elementHeight < parentHeight);
+		}
+	}, [isEmpty]);
 
 	return (
 		<div className={cn("flex h-full flex-col", className, classNames.root)}>
@@ -39,29 +52,28 @@ export function MessagePane({
 				enableScrollStick="bottom"
 				classNames={{
 					root: cn("relative h-full w-full", classNames.messageList),
-					viewport: cn(isEmpty && "flex flex-col justify-center"),
+					viewport: cn(
+						isEmpty && shouldCenter && "flex flex-col justify-center"
+					),
 				}}
 			>
 				{isEmpty ? (
-					<NoMessages />
+					<div ref={noMessagesRef}>
+						<NoMessages />
+					</div>
 				) : (
-					<div className="w-full space-y-6 p-4">
+					<div className="w-full space-y-6 py-6">
 						{messages.map((message, i) => (
-							<Message key={i} message={message} />
+							<Message
+								key={i}
+								message={message}
+								isRunning={isRunning}
+								icons={icons}
+								isDarkMode={isDarkMode}
+								isMostRecent={i === messages.length - 1}
+								agentName={agentName}
+							/>
 						))}
-
-						<div
-							className={cn(
-								"flex w-full items-center justify-between gap-4 p-4",
-								{
-									invisible: !isRunning,
-								}
-							)}
-						>
-							<TypingDots />
-
-							{currentRunId && <MessageDebug runId={currentRunId} />}
-						</div>
 					</div>
 				)}
 			</ScrollArea>

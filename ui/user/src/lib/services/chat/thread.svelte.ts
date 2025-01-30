@@ -1,5 +1,5 @@
 import { buildMessagesFromProgress } from '$lib/services/chat/messages';
-import errors from '$lib/stores/errors';
+import errors from '$lib/stores/errors.svelte';
 import { abort as ChatAbort, invoke as ChatInvoke, runTask as ChatRunTask } from './operations';
 import { newMessageEventSource } from './operations';
 import type { InvokeInput, Messages, Progress, TaskRun } from './types';
@@ -7,26 +7,23 @@ import type { InvokeInput, Messages, Progress, TaskRun } from './types';
 export class Thread {
 	replayComplete: boolean = false;
 	pending: boolean = $state(false);
-	readonly #assistant: string;
 	readonly #onError: ((error: Error) => void) | undefined;
 	#es: EventSource;
 	readonly #progresses: Progress[] = [];
 
-	constructor(
-		assistant: string,
-		opts?: {
-			task?: {
-				id: string;
-			};
-			runID?: string;
-			onError?: (error: Error) => void;
-			onClose?: () => void;
-		}
-	) {
+	constructor(opts?: {
+		task?: {
+			id: string;
+		};
+		runID?: string;
+		onError?: (error: Error) => void;
+		onClose?: () => void;
+	}) {
 		const reconnect = (): EventSource => {
 			console.log('Message EventSource initializing');
 			this.replayComplete = false;
-			const es = newMessageEventSource(assistant, {
+			let opened = false;
+			const es = newMessageEventSource({
 				task: opts?.task,
 				runID: opts?.runID
 			});
@@ -35,29 +32,41 @@ export class Thread {
 			};
 			es.onopen = () => {
 				console.log('Message EventSource opened');
+				opened = true;
 			};
+			es.addEventListener('reconnect', () => {
+				setTimeout(() => {
+					console.log('Message EventSource reconnecting');
+					opts?.onClose?.();
+					es.close();
+					this.#es = reconnect();
+				}, 5000);
+			});
 			es.addEventListener('close', () => {
 				console.log('Message EventSource closed by server');
-				opts?.onClose?.();
-				es.close();
-				this.#es = reconnect();
+				es.dispatchEvent(new Event('reconnect'));
 			});
 			es.onerror = (e: Event) => {
 				if (e.eventPhase === EventSource.CLOSED) {
 					console.log('Message EventSource closed');
+					if (opened) {
+						opened = false;
+					} else {
+						console.log('Message EventSource failed to open');
+						es.dispatchEvent(new Event('reconnect'));
+					}
 				}
 			};
 			return es;
 		};
 
-		this.#assistant = assistant;
 		this.#es = reconnect();
 		this.#onError = opts?.onError;
 	}
 
 	async abort() {
 		try {
-			await ChatAbort(this.#assistant);
+			await ChatAbort();
 		} finally {
 			this.pending = false;
 		}
@@ -65,7 +74,7 @@ export class Thread {
 
 	async invoke(input: InvokeInput | string) {
 		this.pending = true;
-		await ChatInvoke(this.#assistant, input);
+		await ChatInvoke(input);
 	}
 
 	// eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -114,7 +123,7 @@ export class Thread {
 			} else if (this.replayComplete && this.#onError) {
 				this.#onError(new Error(progress.error));
 			} else if (this.replayComplete) {
-				errors.append(new Error(progress.error));
+				errors.items.push(new Error(progress.error));
 			}
 		}
 		this.#onProgress(progress);
@@ -129,7 +138,7 @@ export class Thread {
 		}
 	): Promise<TaskRun> {
 		this.pending = true;
-		return await ChatRunTask(this.#assistant, taskID, opts);
+		return await ChatRunTask(taskID, opts);
 	}
 
 	close() {

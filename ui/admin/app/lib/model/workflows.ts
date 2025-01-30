@@ -39,15 +39,15 @@ export type Subflow = {
 };
 
 export type If = {
-	condition: string;
-	steps: Step[];
-	else: Step[];
+	condition?: string;
+	steps?: Step[];
+	else?: Step[];
 };
 
 export type While = {
-	condition: string;
-	maxLoops: number;
-	steps: Step[];
+	condition?: string;
+	maxLoops?: number;
+	steps?: Step[];
 };
 
 export type Workflow = EntityMeta &
@@ -58,9 +58,12 @@ export type Workflow = EntityMeta &
 export type CreateWorkflow = Partial<WorkflowBase> & Pick<WorkflowBase, "name">;
 export type UpdateWorkflow = WorkflowBase;
 
-export const getDefaultStep = (type: StepType = StepType.Command): Step => {
+export const getDefaultStep = (
+	type: StepType = StepType.Command,
+	id?: string
+): Step => {
 	const newStep: Step = {
-		id: crypto.randomUUID(),
+		id: id || crypto.randomUUID(),
 		name: "",
 		description: "",
 		step: "",

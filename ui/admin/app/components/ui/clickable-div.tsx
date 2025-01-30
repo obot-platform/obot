@@ -28,6 +28,11 @@ const ClickableDiv = React.forwardRef<HTMLDivElement, ButtonDivProps>(
 				tabIndex={disabled ? -1 : 0}
 				onClick={disabled ? undefined : onClick}
 				aria-disabled={disabled}
+				onKeyUp={(e) => {
+					if (e.key === " ") {
+						onClick?.(e as unknown as React.MouseEvent<HTMLDivElement>);
+					}
+				}}
 				{...props}
 			>
 				{children}

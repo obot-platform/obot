@@ -99,19 +99,23 @@ func (h *ShellHandler) Shell(req api.Context) error {
 	}()
 
 	for {
-		msgType, data, err := wsConn.ReadMessage()
+		_, data, err := wsConn.ReadMessage()
 		if err != nil {
 			log.Debugf("error reading from wsConn: %v", err)
 			// no point in returning error, the connection is already hijacked
 			return nil
 		}
 
-		if msgType == websocket.BinaryMessage {
+		if len(data) == 0 {
+			continue
+		}
+
+		if data[0] == 1 {
 			var resize struct {
 				Cols uint `json:"cols"`
 				Rows uint `json:"rows"`
 			}
-			if err := json.Unmarshal(data, &resize); err != nil {
+			if err := json.Unmarshal(data[1:], &resize); err != nil {
 				log.Errorf("error unmarshalling resize message: %v", err)
 				continue
 			}
@@ -125,7 +129,7 @@ func (h *ShellHandler) Shell(req api.Context) error {
 			continue
 		}
 
-		_, err = stream.Conn.Write(data)
+		_, err = stream.Conn.Write(data[1:])
 		if err != nil {
 			log.Debugf("error writing to stream: %v", err)
 			// no point in returning error, the connection is already hijacked
@@ -139,7 +143,7 @@ type wsWriter struct {
 }
 
 func (w wsWriter) Write(p []byte) (n int, err error) {
-	err = w.wsConn.WriteMessage(websocket.TextMessage, p)
+	err = w.wsConn.WriteMessage(websocket.BinaryMessage, p)
 	if err != nil {
 		return 0, err
 	}

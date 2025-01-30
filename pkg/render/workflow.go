@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"regexp"
+	"slices"
 	"strings"
 
 	"github.com/obot-platform/nah/pkg/router"
@@ -28,6 +29,11 @@ func IsExternalTool(tool string) bool {
 }
 
 func ResolveToolReference(ctx context.Context, c kclient.Client, toolRefType types.ToolReferenceType, ns, name string) (string, error) {
+	name, err := resolveToolReferenceWithMetadata(ctx, c, toolRefType, ns, name)
+	return name, err
+}
+
+func resolveToolReferenceWithMetadata(ctx context.Context, c kclient.Client, toolRefType types.ToolReferenceType, ns, name string) (string, error) {
 	if IsExternalTool(name) {
 		return name, nil
 	}
@@ -38,6 +44,7 @@ func ResolveToolReference(ctx context.Context, c kclient.Client, toolRefType typ
 	} else if err != nil {
 		return "", err
 	}
+
 	if toolRefType != "" && tool.Spec.Type != toolRefType {
 		return name, fmt.Errorf("tool reference %s is not of type %s", name, toolRefType)
 	}
@@ -100,5 +107,8 @@ func Workflow(ctx context.Context, c kclient.Client, wf *v1.Workflow, opts Workf
 
 	agent.Spec.Env = append(agent.Spec.Env, "WORKFLOW_INPUT="+opts.Input)
 	agent.Spec.SystemTools = append(agent.Spec.SystemTools, system.WorkflowTool)
+	if slices.Contains(agent.Spec.Manifest.Tools, system.TasksTool) && !slices.Contains(agent.Spec.SystemTools, system.TasksWorkflowTool) {
+		agent.Spec.SystemTools = append(agent.Spec.SystemTools, system.TasksWorkflowTool)
+	}
 	return &agent, nil
 }

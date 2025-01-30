@@ -5,6 +5,7 @@ import {
 	FaAtlassian,
 	FaGithub,
 	FaGoogle,
+	FaLinkedin,
 	FaMicrosoft,
 	FaSalesforce,
 	FaSlack,
@@ -22,6 +23,7 @@ const IconMap = {
 	[OAuthProvider.Microsoft365]: FaMicrosoft,
 	[OAuthProvider.Notion]: NotionLogoIcon,
 	[OAuthProvider.Zoom]: BiLogoZoom,
+	[OAuthProvider.LinkedIn]: FaLinkedin,
 	[OAuthProvider.Custom]: KeyIcon,
 };
 

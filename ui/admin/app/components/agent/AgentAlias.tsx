@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { Link } from "react-router";
+import { Link, useNavigate } from "react-router";
 import { $path } from "safe-routes";
 import useSWR from "swr";
 
@@ -8,7 +8,7 @@ import { ConsumptionUrl } from "~/lib/routers/baseRouter";
 import { AssistantApiService } from "~/lib/service/api/assistantApiService";
 
 import { AgentAccessControl } from "~/components/agent/AgentAccessControl";
-import { AgentDropdownActions } from "~/components/agent/AgentDropdownActions";
+import { DeleteAgent } from "~/components/agent/DeleteAgent";
 import { Publish } from "~/components/agent/Publish";
 import { CopyText } from "~/components/composed/CopyText";
 import { WarningAlert } from "~/components/composed/WarningAlert";
@@ -20,6 +20,8 @@ type AgentAliasProps = {
 };
 
 export function AgentAlias({ agent, onChange }: AgentAliasProps) {
+	const navigate = useNavigate();
+
 	const getAssistants = useSWR(
 		() => AssistantApiService.getAssistants.key(),
 		() => AssistantApiService.getAssistants()
@@ -32,8 +34,9 @@ export function AgentAlias({ agent, onChange }: AgentAliasProps) {
 	}, [getAssistants.data, agent.alias]);
 
 	const conflictingAlias = refAssistant && refAssistant.entityID !== agent.id;
+
 	const agentUrl = ConsumptionUrl(
-		`/${!conflictingAlias && agent.alias ? agent.alias : agent.id}`
+		`/${!conflictingAlias && agent.alias && agent.aliasAssigned ? agent.alias : agent.id}`
 	);
 
 	return (
@@ -73,7 +76,7 @@ export function AgentAlias({ agent, onChange }: AgentAliasProps) {
 
 				<div className="flex gap-2">
 					<AgentAccessControl agent={agent} />
-					<AgentDropdownActions agent={agent} />
+					<DeleteAgent id={agent.id} onSuccess={() => navigate("/agents")} />
 				</div>
 			</div>
 			{conflictingAlias && (

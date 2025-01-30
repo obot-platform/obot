@@ -6,6 +6,7 @@ import { z } from "zod";
 import { Step, Workflow } from "~/lib/model/workflows";
 import { noop } from "~/lib/utils";
 
+import { Animate, AnimatePresence } from "~/components/ui/animate";
 import { SortableList } from "~/components/ui/dnd/sortable";
 import { Form, FormField, FormItem, FormMessage } from "~/components/ui/form";
 import { AddStepButton } from "~/components/workflow/steps/AddStep";
@@ -49,48 +50,52 @@ export function StepsForm({
 
 	return (
 		<Form {...form}>
-			<form onSubmit={handleSubmit}>
-				<FormField
-					control={form.control}
-					name="steps"
-					render={({ field }) => (
-						<FormItem>
-							<SortableList
-								items={field.value}
-								getKey={(step) => step.id}
-								isHandle={false}
-								onChange={field.onChange}
-								renderItem={(step, index) => {
-									const onUpdate = (updatedStep: Step) => {
-										const newSteps = [...field.value];
-										newSteps[index] = updatedStep;
-										field.onChange(newSteps);
-									};
+			<AnimatePresence>
+				<Animate.form onSubmit={handleSubmit} layout="size">
+					<FormField
+						control={form.control}
+						name="steps"
+						render={({ field }) => (
+							<FormItem>
+								<SortableList
+									items={field.value}
+									getKey={(step) => step.id}
+									isHandle={false}
+									onChange={field.onChange}
+									renderItem={(step, index) => {
+										const onUpdate = (updatedStep: Step) => {
+											const newSteps = [...field.value];
+											newSteps[index] = updatedStep;
+											field.onChange(newSteps);
+										};
 
-									const onDelete = () => {
-										const newSteps = field.value.filter((_, i) => i !== index);
-										field.onChange(newSteps);
-									};
+										const onDelete = () => {
+											const newSteps = field.value.filter(
+												(_, i) => i !== index
+											);
+											field.onChange(newSteps);
+										};
 
-									return renderStep({
-										step,
-										onUpdate,
-										onDelete,
-									});
-								}}
-							/>
+										return renderStep({
+											step,
+											onUpdate,
+											onDelete,
+										});
+									}}
+								/>
 
-							<AddStepButton
-								className="float-end"
-								onAddStep={(newStep) => {
-									field.onChange([...field.value, newStep]);
-								}}
-							/>
-							<FormMessage />
-						</FormItem>
-					)}
-				/>
-			</form>
+								<AddStepButton
+									className="float-end"
+									onAddStep={(newStep) => {
+										field.onChange([...field.value, newStep]);
+									}}
+								/>
+								<FormMessage />
+							</FormItem>
+						)}
+					/>
+				</Animate.form>
+			</AnimatePresence>
 		</Form>
 	);
 }

@@ -5,8 +5,9 @@ import useSWR from "swr";
 import { OAuthProvider } from "~/lib/model/oauthApps/oauth-helpers";
 import {
 	ToolCategory,
-	ToolReferenceService,
-} from "~/lib/service/api/toolreferenceService";
+	convertToolReferencesToCategoryMap,
+} from "~/lib/model/toolReferences";
+import { ToolReferenceService } from "~/lib/service/api/toolreferenceService";
 import { cn } from "~/lib/utils";
 
 import { ToolCatalogGroup } from "~/components/tools/ToolCatalogGroup";
@@ -29,36 +30,41 @@ import { useOAuthAppList } from "~/hooks/oauthApps/useOAuthApps";
 
 type ToolCatalogProps = React.HTMLAttributes<HTMLDivElement> & {
 	tools: string[];
-	onUpdateTools: (tools: string[]) => void;
+	oauths: string[];
+	onUpdateTools: (tools: string[], toolOauths: string[]) => void;
 	invert?: boolean;
 	classNames?: { list?: string };
 };
 
 export function ToolCatalog({
 	className,
-	tools,
-	invert = false,
+	tools: selectedTools,
+	oauths,
 	onUpdateTools,
+	invert = false,
 	classNames,
 }: ToolCatalogProps) {
-	const { data: toolCategories, isLoading } = useSWR(
-		ToolReferenceService.getToolReferencesCategoryMap.key("tool"),
-		() => ToolReferenceService.getToolReferencesCategoryMap("tool"),
-		{ fallbackData: {} }
+	const { data: toolList, isLoading } = useSWR(
+		ToolReferenceService.getToolReferences.key("tool"),
+		() => ToolReferenceService.getToolReferences("tool"),
+		{ fallbackData: [] }
 	);
+
+	const toolCategories = useMemo(
+		() => convertToolReferencesToCategoryMap(toolList),
+		[toolList]
+	);
+
+	const oauthToolMap = useMemo(
+		() => new Map(toolList.map((tool) => [tool.id, tool.metadata?.oauth])),
+		[toolList]
+	);
+
 	const [search, setSearch] = useState("");
 
 	const oauthApps = useOAuthAppList();
 	const configuredOauthApps = useMemo(() => {
-		return new Set(
-			oauthApps
-				.filter(
-					(app) =>
-						!app.noGatewayIntegration ||
-						(app.noGatewayIntegration && app.appOverride)
-				)
-				.map((app) => app.type)
-		);
+		return new Set(oauthApps.map((app) => app.alias ?? app.type));
 	}, [oauthApps]);
 
 	const sortedValidCategories = useMemo(() => {
@@ -77,8 +83,39 @@ export function ToolCatalog({
 	if (isLoading) return <LoadingSpinner />;
 
 	const results = search.length
-		? filterToolCatalogBySearch(sortedValidCategories)
+		? filterToolCatalogBySearch(sortedValidCategories, search)
 		: sortedValidCategories;
+
+	const handleRemoveTool = (toolId: string, oauthToRemove?: string) => {
+		const updatedTools = selectedTools.filter((tool) => tool !== toolId);
+		const stillHasOauth = updatedTools.some(
+			(tool) => oauthToolMap.get(tool) === oauthToRemove
+		);
+		const updatedOauths = stillHasOauth
+			? oauths
+			: oauths.filter((oauth) => oauth !== oauthToRemove);
+		onUpdateTools(updatedTools, updatedOauths);
+	};
+
+	const handleAddTool = (
+		toolId: string,
+		toolsToRemove: string[],
+		oauthToAdd?: string
+	) => {
+		const toolsToRemoveSet = new Set(toolsToRemove);
+		const newTools = [
+			...selectedTools.filter((tool) => !toolsToRemoveSet.has(tool)),
+			toolId,
+		];
+
+		const updatedOauths =
+			oauthToAdd && !oauths.includes(oauthToAdd)
+				? [...oauths, oauthToAdd]
+				: oauths;
+
+		onUpdateTools(newTools, updatedOauths);
+	};
+
 	return (
 		<Command
 			className={cn(
@@ -113,52 +150,16 @@ export function ToolCatalog({
 								: true
 						}
 						tools={categoryTools}
-						selectedTools={tools}
-						onUpdateTools={onUpdateTools}
+						selectedTools={selectedTools}
+						onAddTool={handleAddTool}
+						onRemoveTool={handleRemoveTool}
 						expandFor={search}
+						oauths={oauths}
 					/>
 				))}
 			</CommandList>
 		</Command>
 	);
-
-	function filterToolCatalogBySearch(toolCategories: [string, ToolCategory][]) {
-		return toolCategories.reduce<[string, ToolCategory][]>(
-			(acc, [category, categoryData]) => {
-				const matchesSearch = (str: string) =>
-					str.toLowerCase().includes(search.toLowerCase());
-
-				// Check if category name matches
-				if (matchesSearch(category)) {
-					acc.push([category, categoryData]);
-					return acc;
-				}
-
-				// Check if bundle tool matches
-				if (
-					categoryData.bundleTool &&
-					matchesSearch(categoryData.bundleTool.name)
-				) {
-					acc.push([category, categoryData]);
-					return acc;
-				}
-
-				// Filter tools and only include category if it has matching tools
-				const filteredTools = categoryData.tools.filter(
-					(tool) =>
-						matchesSearch(tool.name ?? "") ||
-						matchesSearch(tool.description ?? "")
-				);
-
-				if (filteredTools.length > 0) {
-					acc.push([category, { ...categoryData, tools: filteredTools }]);
-				}
-
-				return acc;
-			},
-			[]
-		);
-	}
 }
 
 export function ToolCatalogDialog(props: ToolCatalogProps) {
@@ -172,9 +173,50 @@ export function ToolCatalogDialog(props: ToolCatalogProps) {
 
 			<DialogTrigger asChild>
 				<Button variant="ghost">
-					<PlusIcon className="mr-2 h-4 w-4" /> Add Tool
+					<PlusIcon /> Add Tools
 				</Button>
 			</DialogTrigger>
 		</Dialog>
+	);
+}
+
+export function filterToolCatalogBySearch(
+	toolCategories: [string, ToolCategory][],
+	query: string
+) {
+	return toolCategories.reduce<[string, ToolCategory][]>(
+		(acc, [category, categoryData]) => {
+			const matchesSearch = (str: string) =>
+				str.toLowerCase().includes(query.toLowerCase());
+
+			// Check if category name matches
+			if (matchesSearch(category)) {
+				acc.push([category, categoryData]);
+				return acc;
+			}
+
+			// Check if bundle tool matches
+			if (
+				categoryData.bundleTool &&
+				matchesSearch(categoryData.bundleTool.name)
+			) {
+				acc.push([category, categoryData]);
+				return acc;
+			}
+
+			// Filter tools and only include category if it has matching tools
+			const filteredTools = categoryData.tools.filter(
+				(tool) =>
+					matchesSearch(tool.name ?? "") ||
+					matchesSearch(tool.description ?? "")
+			);
+
+			if (filteredTools.length > 0) {
+				acc.push([category, { ...categoryData, tools: filteredTools }]);
+			}
+
+			return acc;
+		},
+		[]
 	);
 }

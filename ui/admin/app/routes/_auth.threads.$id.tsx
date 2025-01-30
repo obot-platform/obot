@@ -8,6 +8,7 @@ import {
 	useNavigate,
 } from "react-router";
 import { $path } from "safe-routes";
+import { preload } from "swr";
 
 import { KnowledgeFileNamespace } from "~/lib/model/knowledge";
 import { AgentService } from "~/lib/service/api/agentService";
@@ -16,7 +17,6 @@ import { ThreadsService } from "~/lib/service/api/threadsService";
 import { WorkflowService } from "~/lib/service/api/workflowService";
 import { RouteHandle } from "~/lib/service/routeHandles";
 import { RouteService } from "~/lib/service/routeService";
-import { noop } from "~/lib/utils";
 
 import { Chat } from "~/components/chat";
 import { ChatProvider } from "~/components/chat/ChatContext";
@@ -50,60 +50,81 @@ export const clientLoader = async ({
 		throw redirect("/threads");
 	}
 
-	const thread = await ThreadsService.getThreadById(id);
+	const thread = await preload(ThreadsService.getThreadById.key(id), () =>
+		ThreadsService.getThreadById(id)
+	);
 	if (!thread) throw redirect("/threads");
 
-	const agent = thread.agentID
-		? await AgentService.getAgentById(thread.agentID).catch(noop)
-		: null;
+	const [agent, workflow] = await Promise.all([
+		thread.agentID
+			? preload(AgentService.getAgentById.key(thread.agentID), () =>
+					AgentService.getAgentById(thread.agentID)
+				)
+			: null,
+		thread.workflowID
+			? preload(WorkflowService.getWorkflowById.key(thread.workflowID), () =>
+					WorkflowService.getWorkflowById(thread.workflowID)
+				)
+			: null,
+		preload(ThreadsService.getFiles.key(thread.id), () =>
+			ThreadsService.getFiles(thread.id)
+		),
+		preload(
+			KnowledgeFileService.getKnowledgeFiles.key(
+				KnowledgeFileNamespace.Threads,
+				thread.id
+			),
+			() =>
+				KnowledgeFileService.getKnowledgeFiles(
+					KnowledgeFileNamespace.Threads,
+					thread.id
+				)
+		),
+	]);
 
-	const workflow = thread.workflowID
-		? await WorkflowService.getWorkflowById(thread.workflowID).catch(noop)
-		: null;
-
-	const files = await ThreadsService.getFiles(id);
-	const knowledge = await KnowledgeFileService.getKnowledgeFiles(
-		KnowledgeFileNamespace.Threads,
-		thread.id
-	);
-
-	return { thread, agent, workflow, files, knowledge };
+	return { thread, agent, workflow };
 };
 
 export default function ChatAgent() {
-	const { thread, agent, workflow, files, knowledge } =
-		useLoaderData<typeof clientLoader>();
+	const { thread, agent, workflow } = useLoaderData<typeof clientLoader>();
 
 	const getEntity = () => {
-		if (agent) return agent;
-		if (workflow) return workflow;
+		if (agent) return ["agent", agent] as const;
+		if (workflow) return ["workflow", workflow] as const;
 		throw new Error("Trying to view a thread with an unsupported parent.");
 	};
 
-	const entity = getEntity();
+	const [type, entity] = getEntity();
 
 	const navigate = useNavigate();
 	return (
 		<div className="relative flex h-full flex-col overflow-hidden">
 			<Tooltip>
-				<Button
-					variant="outline"
-					size="icon"
-					className="absolute left-4 top-4 z-10"
-					asChild
-				>
-					<TooltipTrigger>
+				<TooltipTrigger asChild>
+					<Button
+						variant="outline"
+						size="icon"
+						className="absolute left-4 top-4 z-10"
+						asChild
+					>
 						<Button size="icon" variant="outline" onClick={() => navigate(-1)}>
 							<ArrowLeftIcon className="h-4 w-4" />
 						</Button>
-					</TooltipTrigger>
-				</Button>
+					</Button>
+				</TooltipTrigger>
 				<TooltipContent>Go Back</TooltipContent>
 			</Tooltip>
 
 			<ResizablePanelGroup direction="horizontal" className="flex-auto">
 				<ResizablePanel defaultSize={70} minSize={25}>
-					<ChatProvider id={entity.id} mode="agent" threadId={thread.id}>
+					<ChatProvider
+						id={entity.id}
+						mode="agent"
+						readOnly={type !== "agent"}
+						threadId={thread.id}
+						introductionMessage={entity.introductionMessage}
+						starterMessages={entity.starterMessages}
+					>
 						<Chat />
 					</ChatProvider>
 				</ResizablePanel>
@@ -113,9 +134,7 @@ export default function ChatAgent() {
 						<ThreadMeta
 							className="rounded-none border-none"
 							thread={thread}
-							for={entity}
-							files={files}
-							knowledge={knowledge}
+							entity={entity}
 						/>
 					</ScrollArea>
 				</ResizablePanel>

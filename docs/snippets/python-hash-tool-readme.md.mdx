@@ -1,4 +1,4 @@
-## Writing your first tool in Python {#writing-your-first-tool-in-python-28572835}
+## Writing your first tool in Python {#writing-your-first-tool-in-python-23674f98}
 
 [python-hash-tool](https://github.com/obot-platform/python-hash-tool) contains a reference `Python` implementation of the `Hash` tool.
 
@@ -12,7 +12,7 @@ git clone git@github.com:obot-platform/python-hash-tool
 
 <br/>
 
-## Tool Repo Structure {#tool-repo-structure-28572835}
+## Tool Repo Structure {#tool-repo-structure-23674f98}
 
 The directory tree below highlights the files required to implement `Hash` in Python and package it for Obot.
 
@@ -24,7 +24,7 @@ python-hash-tool
 ```
 <br/>
 
-## Defining the `Hash` Tool {#defining-the-hash-tool-28572835}
+## Defining the `Hash` Tool {#defining-the-hash-tool-23674f98}
 
 The `tool.gpt` file contains [GPTScript Tool Definitions](https://docs.gptscript.ai/tools/gpt-file-reference) which describe a set of tools that can be used by agents in Obot.
 Every tool repository must have a `tool.gpt` file in its root directory.
@@ -84,12 +84,12 @@ Param: algo: The algorithm to generate a hash with. Default is "sha256". Support
 
 <br/>
 
-## Tool Metadata {#tool-metadata-28572835}
+## Tool Metadata {#tool-metadata-23674f98}
 
-The `tool.gpt` file also provides the following metadata for use in Obot:
+The snippet below (from the `tool.gpt` file) also provides the following metadata for use in Obot:
 
-- `!metadata:*:category` which tags tools with the `Crypto` category to promote organization and discovery
-- `!metadata:*:icon` which assigns `https://cdn.jsdelivr.net/npm/@phosphor-icons/core@2/assets/duotone/fingerprint-duotone.svg` as the tool icon
+- `!metadata:*:category` which tags all tools in the `tool.gpt` file with the `Crypto` category to promote organization and discovery
+- `!metadata:*:icon` which assigns `https://cdn.jsdelivr.net/npm/@phosphor-icons/core@2/assets/duotone/fingerprint-duotone.svg` as the tool icon to all tools in the `tool.gpt` file
 
 <br/>
 
@@ -144,7 +144,7 @@ https://cdn.jsdelivr.net/npm/@phosphor-icons/core@2/assets/duotone/fingerprint-d
 
 <br/>
 
-## Implementing Business Logic {#implementing-business-logic-28572835}
+## Implementing Business Logic {#implementing-business-logic-23674f98}
 
 The `hash.py` file executed by the `Tool Body` is the concrete implementation of the tool's business logic.
 
@@ -261,7 +261,7 @@ if __name__ == '__main__':
 
 <br/>
 
-## Testing `hash.py` Locally {#testing-hash-py-locally-28572835}
+## Testing `hash.py` Locally {#testing-hash-py-locally-23674f98}
 
 Before adding a tool to Obot, verify that the Python business logic works on your machine.
 
@@ -298,7 +298,7 @@ To do this, run through the following steps in the root of your local fork:
 
 <br/>
 
-## Adding The `Hash` tool to Obot {#adding-the-hash-tool-to-obot-28572835}
+## Adding The `Hash` tool to Obot {#adding-the-hash-tool-to-obot-23674f98}
 
 Before a tool can be used by an agent, an admin must first add the tool to Obot by performing the steps below:
 
@@ -336,7 +336,7 @@ Before a tool can be used by an agent, an admin must first add the tool to Obot 
     </div>
 </details>
 
-## Using The `Hash` tool in an agent {#using-the-hash-tool-in-an-agent-28572835}
+## Using The `Hash` tool in an agent {#using-the-hash-tool-in-an-agent-23674f98}
 
 To use the `Hash` tool in an agent, open the agent's Edit page, then:
 

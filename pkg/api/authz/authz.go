@@ -27,7 +27,10 @@ var staticRules = map[string][]string{
 		// Allow access to the UI
 		"/admin/",
 		"/{$}",
-		"/static/",
+		"/{agent}",
+		"/user/images/",
+		"/_app/",
+
 		// Allow access to the oauth2 endpoints
 		"/oauth2/",
 
@@ -36,18 +39,26 @@ var staticRules = map[string][]string{
 		"POST /api/token-request",
 		"GET /api/token-request/{id}/{service}",
 
-		"GET /api/auth-providers",
-		"GET /api/auth-providers/{slug}",
+		"GET /api/oauth/start/{id}/{namespace}/{name}",
 
-		"GET /api/oauth/start/{id}/{service}",
+		"GET /api/bootstrap",
+		"POST /api/bootstrap/login",
+		"POST /api/bootstrap/logout",
 
 		"GET /api/app-oauth/authorize/{id}",
 		"GET /api/app-oauth/refresh/{id}",
 		"GET /api/app-oauth/callback/{id}",
 		"GET /api/app-oauth/get-token",
+
+		"POST /api/sendgrid",
+
+		"GET /api/healthz",
+
+		"GET /api/auth-providers",
+		"GET /api/auth-providers/{id}",
 	},
 	AuthenticatedGroup: {
-		"/api/oauth/redirect/{service}",
+		"/api/oauth/redirect/{namespace}/{name}",
 		"/api/assistants",
 		"GET /api/me",
 		"PATCH /api/users/{id}",
@@ -58,14 +69,25 @@ var staticRules = map[string][]string{
 	},
 }
 
+var devModeRules = map[string][]string{
+	anyGroup: {
+		"/node_modules/",
+		"/@fs/",
+		"/.svelte-kit/",
+		"/@vite/",
+		"/@id/",
+		"/src/",
+	},
+}
+
 type Authorizer struct {
 	rules   []rule
 	storage kclient.Client
 }
 
-func NewAuthorizer(storage kclient.Client) *Authorizer {
+func NewAuthorizer(storage kclient.Client, devMode bool) *Authorizer {
 	return &Authorizer{
-		rules:   defaultRules(),
+		rules:   defaultRules(devMode),
 		storage: storage,
 	}
 }
@@ -96,7 +118,7 @@ type rule struct {
 	mux   *http.ServeMux
 }
 
-func defaultRules() []rule {
+func defaultRules(devMode bool) []rule {
 	var (
 		rules []rule
 		f     = (*fake)(nil)
@@ -111,6 +133,19 @@ func defaultRules() []rule {
 			rule.mux.Handle(url, f)
 		}
 		rules = append(rules, rule)
+	}
+
+	if devMode {
+		for _, group := range slices.Sorted(maps.Keys(devModeRules)) {
+			rule := rule{
+				group: group,
+				mux:   http.NewServeMux(),
+			}
+			for _, url := range devModeRules[group] {
+				rule.mux.Handle(url, f)
+			}
+			rules = append(rules, rule)
+		}
 	}
 
 	return rules

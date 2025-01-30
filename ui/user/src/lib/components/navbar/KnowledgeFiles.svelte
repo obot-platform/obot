@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { Brain } from '$lib/icons';
-	import { knowledgeFiles, currentAssistant } from '$lib/stores';
+	import { Brain } from 'lucide-svelte/icons';
+	import { knowledgeFiles } from '$lib/stores';
 	import { ChatService } from '$lib/services';
 	import Confirm from '$lib/components/Confirm.svelte';
 	import KnowledgeFile from './KnowledgeFile.svelte';
@@ -8,7 +8,7 @@
 	import Menu from '$lib/components/navbar/Menu.svelte';
 
 	async function loadFiles() {
-		knowledgeFiles.set(await ChatService.listKnowledgeFiles($currentAssistant.id));
+		knowledgeFiles.items = (await ChatService.listKnowledgeFiles()).items;
 	}
 
 	let fileToDelete = $state<string | undefined>();
@@ -17,7 +17,7 @@
 		if (!fileToDelete) {
 			return;
 		}
-		await ChatService.deleteKnowledgeFile($currentAssistant.id, fileToDelete);
+		await ChatService.deleteKnowledgeFile(fileToDelete);
 		await loadFiles();
 		fileToDelete = undefined;
 	}
@@ -32,11 +32,11 @@
 		<Brain class="h-5 w-5" />
 	{/snippet}
 	{#snippet body()}
-		{#if $knowledgeFiles.items.length === 0}
+		{#if knowledgeFiles.items.length === 0}
 			<p class="p-6 text-center text-sm text-gray dark:text-gray-300">No files</p>
 		{:else}
 			<ul class="space-y-3 px-3 py-6 text-sm">
-				{#each $knowledgeFiles.items as file}
+				{#each knowledgeFiles.items as file}
 					<li>
 						<KnowledgeFile
 							{file}

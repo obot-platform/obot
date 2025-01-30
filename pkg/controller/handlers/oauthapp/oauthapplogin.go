@@ -42,6 +42,7 @@ func (h *LoginHandler) RunTool(req router.Request, _ router.Response) error {
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: system.ThreadPrefix,
 			Namespace:    login.Namespace,
+			Finalizers:   []string{v1.ThreadFinalizer},
 		},
 		Spec: v1.ThreadSpec{
 			OAuthAppLoginName: login.Name,

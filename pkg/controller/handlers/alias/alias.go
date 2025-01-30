@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/obot-platform/nah/pkg/router"
-	"github.com/obot-platform/nah/pkg/uncached"
+	"github.com/obot-platform/nah/pkg/untriggered"
 	"github.com/obot-platform/obot/logger"
 	"github.com/obot-platform/obot/pkg/alias"
 	"github.com/obot-platform/obot/pkg/create"
@@ -109,7 +109,7 @@ func UnassignAlias(req router.Request, _ router.Response) error {
 	}
 
 	// Happy path failed, grab the target object uncached
-	if err := req.Get(uncached.Get(target.(kclient.Object)), src.Spec.TargetNamespace, src.Spec.TargetName); err != nil {
+	if err := req.Get(untriggered.UncachedGet(target.(kclient.Object)), src.Spec.TargetNamespace, src.Spec.TargetName); err != nil {
 		if apierrors.IsNotFound(err) {
 			// Target object does not exist, delete alias
 			log.Infof("Target object %s/%s does not exist, deleting alias %s", src.Spec.TargetNamespace, src.Spec.TargetName, src.Name)

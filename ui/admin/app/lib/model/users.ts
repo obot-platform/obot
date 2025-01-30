@@ -11,11 +11,11 @@ export type User = EntityMeta & {
 
 export const Role = {
 	Admin: 1,
-	Default: 10,
+	User: 10,
 } as const;
 export type Role = (typeof Role)[keyof typeof Role];
 
-const RoleLabels = { [Role.Admin]: "Admin", [Role.Default]: "Default" };
+const RoleLabels = { [Role.Admin]: "Admin", [Role.User]: "User" };
 
 export const roleLabel = (role: Role) => RoleLabels[role] || "Unknown";
 export const roleFromString = (role: string) => {
@@ -26,3 +26,6 @@ export const roleFromString = (role: string) => {
 
 	return r;
 };
+
+export const ExplicitAdminDescription =
+	"This user is explicitly set as an admin at the system level and their role cannot be changed.";

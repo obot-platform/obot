@@ -18,7 +18,8 @@ type ModelManifest struct {
 type ModelList List[Model]
 
 type ModelStatus struct {
-	AliasAssigned *bool `json:"aliasAssigned,omitempty"`
+	AliasAssigned     *bool  `json:"aliasAssigned,omitempty"`
+	ModelProviderName string `json:"modelProviderName"`
 }
 
 type ModelUsage string

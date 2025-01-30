@@ -2,21 +2,18 @@ import "@radix-ui/react-tooltip";
 import { AlertCircleIcon, WrenchIcon } from "lucide-react";
 import React, { useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
-import Markdown, { defaultUrlTransform } from "react-markdown";
-import rehypeExternalLinks from "rehype-external-links";
-import remarkGfm from "remark-gfm";
 
+import { AgentIcons } from "~/lib/model/agents";
 import { AuthPrompt } from "~/lib/model/chatEvents";
 import { Message as MessageType } from "~/lib/model/messages";
 import { PromptApiService } from "~/lib/service/api/PromptApi";
-import { cn } from "~/lib/utils";
+import { cn, formatTime } from "~/lib/utils";
 
-import { useChat } from "~/components/chat/ChatContext";
 import { MessageDebug } from "~/components/chat/MessageDebug";
 import { ToolCallInfo } from "~/components/chat/ToolCallInfo";
 import { ControlledInput } from "~/components/form/controlledInputs";
-import { CustomMarkdownComponents } from "~/components/react-markdown";
 import { ToolIcon } from "~/components/tools/ToolIcon";
+import { Avatar, AvatarFallback, AvatarImage } from "~/components/ui/avatar";
 import { Button } from "~/components/ui/button";
 import {
 	Dialog,
@@ -28,119 +25,152 @@ import {
 } from "~/components/ui/dialog";
 import { Form } from "~/components/ui/form";
 import { Link } from "~/components/ui/link";
+import { Markdown } from "~/components/ui/markdown";
+import { useAnimatedText } from "~/hooks/messages/useAnimatedText";
 import { useAsync } from "~/hooks/useAsync";
 
 interface MessageProps {
 	message: MessageType;
 	isRunning?: boolean;
+	icons?: AgentIcons | null;
+	isDarkMode?: boolean;
+	isMostRecent?: boolean;
+	agentName?: string;
 }
-
-// Allow links for file references in messages if it starts with file://, otherwise this will cause an empty href and cause app to reload when clicking on it
-const urlTransformAllowFiles = (u: string) => {
-	if (u.startsWith("file://")) {
-		return u;
-	}
-	return defaultUrlTransform(u);
-};
 
 const OpenMarkdownLinkRegex = new RegExp(/\[([^\]]+)\]\(https?:\/\/[^)]*$/);
 
-export const Message = React.memo(({ message }: MessageProps) => {
-	const isUser = message.sender === "user";
+export const Message = React.memo(
+	({ message, isRunning, icons, isDarkMode, agentName }: MessageProps) => {
+		const isUser = message.sender === "user";
 
-	// note(ryanhopperlowe) we only support one tool call per message for now
-	// leaving it in case that changes in the future
-	const [toolCall = null] = message.tools || [];
+		// note(ryanhopperlowe) we only support one tool call per message for now
+		// leaving it in case that changes in the future
+		const [toolCall = null] = message.tools || [];
 
-	const parsedMessage = useMemo(() => {
-		if (OpenMarkdownLinkRegex.test(message.text)) {
-			return message.text.replace(
-				OpenMarkdownLinkRegex,
-				(_, linkText) => `[${linkText}]()`
-			);
-		}
-		return message.text;
-	}, [message.text]);
+		// prevent animation for messages that never run
+		// only calculate on mount because we don't want to stop animation when the message finishes streaming
+		const [shouldAnimate] = useState(isRunning);
+		const animatedText = useAnimatedText(
+			message.text,
+			!shouldAnimate || isUser || !!toolCall
+		);
 
-	return (
-		<div className="mb-4 w-full">
-			<div
-				className={cn("flex gap-4", isUser ? "justify-end" : "justify-start")}
-			>
+		const parsedMessage = useMemo(() => {
+			if (OpenMarkdownLinkRegex.test(animatedText)) {
+				return animatedText.replace(
+					OpenMarkdownLinkRegex,
+					(_, linkText) => `[${linkText}]()`
+				);
+			}
+			return animatedText;
+		}, [animatedText]);
+
+		const icon = isDarkMode ? icons?.iconDark || icons?.icon : icons?.icon;
+		const showIcon = !isUser && !message.prompt && !toolCall;
+		return (
+			<div className="mb-4 w-full">
+				{showIcon && (
+					<div className="flex items-center gap-2">
+						<Avatar className="h-6 w-6">
+							<AvatarImage
+								src={icon}
+								className={cn({
+									"dark:invert": !icons?.iconDark && isDarkMode,
+								})}
+							/>
+							<AvatarFallback>{agentName?.charAt(0) ?? ""}</AvatarFallback>
+						</Avatar>
+						<p className="text-sm font-semibold">{agentName}</p>
+						<small className="text-muted-foreground">
+							{message.time && formatTime(message.time)}
+						</small>
+					</div>
+				)}
 				<div
-					className={cn({
-						"rounded-xl border border-error bg-error-foreground": message.error,
-						"max-w-[80%] rounded-2xl bg-accent": isUser,
-						"w-full max-w-full": !isUser,
+					className={cn("flex gap-4", {
+						"justify-end": isUser,
+						"justify-start pl-8": !isUser,
 					})}
 				>
-					<div className="flex max-w-full items-center gap-2 overflow-hidden p-4 pl-[20px]">
-						{message.aborted && (
-							<AlertCircleIcon className="h-5 w-5 text-muted-foreground" />
-						)}
+					<div
+						className={cn({
+							"rounded-xl border border-error bg-error-foreground":
+								message.error,
+							"max-w-[80%] rounded-2xl bg-accent p-4": isUser,
+							"w-full max-w-full": !isUser,
+						})}
+					>
+						<div
+							className={cn(
+								"flex max-w-full items-center gap-2 overflow-hidden"
+							)}
+						>
+							{message.aborted && (
+								<AlertCircleIcon className="h-5 w-5 text-muted-foreground" />
+							)}
 
-						{toolCall?.metadata?.icon && (
-							<ToolIcon
-								icon={toolCall.metadata.icon}
-								category={toolCall.metadata.category}
-								name={toolCall.name}
-								className="h-5 w-5"
-							/>
-						)}
+							{toolCall?.metadata?.icon && (
+								<ToolIcon
+									icon={toolCall.metadata.icon}
+									category={toolCall.metadata.category}
+									name={toolCall.name}
+									className="h-5 w-5"
+								/>
+							)}
 
-						{message.prompt ? (
-							<PromptMessage prompt={message.prompt} />
-						) : (
-							<Markdown
-								className={cn(
-									"prose max-w-full flex-auto overflow-x-auto break-words dark:prose-invert prose-pre:whitespace-pre-wrap prose-pre:break-words prose-thead:text-left prose-img:rounded-xl prose-img:shadow-lg",
-									{
+							{message.prompt ? (
+								<PromptMessage prompt={message.prompt} isRunning={isRunning} />
+							) : (
+								<Markdown
+									className={cn({
 										"prose-invert text-accent-foreground": isUser,
 										"text-muted-foreground": message.aborted,
-									}
-								)}
-								remarkPlugins={[remarkGfm]}
-								rehypePlugins={[[rehypeExternalLinks, { target: "_blank" }]]}
-								urlTransform={urlTransformAllowFiles}
-								components={CustomMarkdownComponents}
-							>
-								{parsedMessage || "Waiting for more information..."}
-							</Markdown>
-						)}
+									})}
+								>
+									{parsedMessage || "Waiting for more information..."}
+								</Markdown>
+							)}
 
-						{toolCall && (
-							<ToolCallInfo tool={toolCall}>
-								<Button variant="secondary" size="icon">
-									<WrenchIcon className="h-4 w-4" />
-								</Button>
-							</ToolCallInfo>
-						)}
+							{toolCall && (
+								<ToolCallInfo tool={toolCall}>
+									<Button variant="secondary" size="icon">
+										<WrenchIcon className="h-4 w-4" />
+									</Button>
+								</ToolCallInfo>
+							)}
 
-						{message.runId && !isUser && (
-							<div className="self-start">
-								<MessageDebug runId={message.runId} />
-							</div>
-						)}
+							{message.runId && !isUser && (
+								<div className="self-start">
+									<MessageDebug runId={message.runId} />
+								</div>
+							)}
 
-						{/* this is a hack to take up space for the debug button */}
-						{!toolCall && !message.runId && !isUser && (
-							<div className="invisible">
-								<Button size="icon" />
-							</div>
-						)}
+							{/* this is a hack to take up space for the debug button */}
+							{!toolCall && !message.runId && !isUser && (
+								<div className="invisible">
+									<Button size="icon" />
+								</div>
+							)}
+						</div>
 					</div>
 				</div>
 			</div>
-		</div>
-	);
-});
+		);
+	}
+);
 
 Message.displayName = "Message";
 
-function PromptMessage({ prompt }: { prompt: AuthPrompt }) {
+export function PromptMessage({
+	prompt,
+	isRunning = false,
+}: {
+	prompt: AuthPrompt;
+	isRunning?: boolean;
+}) {
 	const [open, setOpen] = useState(false);
 	const [isSubmitted, setIsSubmitted] = useState(false);
-	const { isRunning } = useChat();
 
 	const getMessage = () => {
 		if (prompt.metadata?.authURL || prompt.metadata?.authType)
@@ -173,7 +203,6 @@ function PromptMessage({ prompt }: { prompt: AuthPrompt }) {
 							name={prompt.name}
 							category={prompt.metadata.category}
 							icon={prompt.metadata.icon}
-							disableTooltip
 							className="h-5 w-5"
 						/>
 						{str}
@@ -211,7 +240,6 @@ function PromptMessage({ prompt }: { prompt: AuthPrompt }) {
 						icon={prompt.metadata.icon}
 						category={prompt.metadata.category}
 						name={prompt.name}
-						disableTooltip
 					/>
 
 					{getCtaText()}
@@ -227,7 +255,6 @@ function PromptMessage({ prompt }: { prompt: AuthPrompt }) {
 									icon={prompt.metadata?.icon}
 									category={prompt.metadata?.category}
 									name={prompt.name}
-									disableTooltip
 								/>
 							}
 						>
@@ -261,7 +288,6 @@ function PromptMessage({ prompt }: { prompt: AuthPrompt }) {
 							icon={prompt.metadata?.icon}
 							category={prompt.metadata?.category}
 							name={prompt.name}
-							disableTooltip
 						/>
 					}
 				>
@@ -272,12 +298,14 @@ function PromptMessage({ prompt }: { prompt: AuthPrompt }) {
 	);
 }
 
-function PromptAuthForm({
+export function PromptAuthForm({
 	prompt,
 	onSuccess,
+	onSubmit,
 }: {
 	prompt: AuthPrompt;
-	onSuccess: () => void;
+	onSuccess?: () => void;
+	onSubmit?: () => void;
 }) {
 	const authenticate = useAsync(PromptApiService.promptResponse, {
 		onSuccess,
@@ -293,9 +321,10 @@ function PromptAuthForm({
 		),
 	});
 
-	const handleSubmit = form.handleSubmit(async (values) =>
-		authenticate.execute({ id: prompt.id, response: values })
-	);
+	const handleSubmit = form.handleSubmit(async (values) => {
+		authenticate.execute({ id: prompt.id, response: values });
+		onSubmit?.();
+	});
 
 	return (
 		<Form {...form}>
