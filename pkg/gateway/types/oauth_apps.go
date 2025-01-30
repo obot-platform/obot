@@ -135,8 +135,6 @@ func ValidateAndSetDefaultsOAuthAppManifest(r *types.OAuthAppManifest, create bo
 		}
 		if r.Type == types.OAuthAppTypeHubSpot && r.AppID == "" {
 			errs = append(errs, fmt.Errorf("missing appID"))
-		} else if r.Type == types.OAuthAppTypeMicrosoft365 && r.TenantID == "" {
-			errs = append(errs, fmt.Errorf("missing tenantID"))
 		}
 	}
 
