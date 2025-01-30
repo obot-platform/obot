@@ -33,3 +33,6 @@ spec:
     defaultThreadTools:
     - images-bundle
     - google-search-bundle
+    oauthApps:
+    - github
+    - google
