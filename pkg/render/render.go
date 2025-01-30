@@ -162,7 +162,7 @@ func OAuthAppEnv(ctx context.Context, db kclient.Client, oauthAppNames []string,
 	activeIntegrations := map[string]v1.OAuthApp{}
 	for _, name := range slices.Sorted(maps.Keys(apps)) {
 		app := apps[name]
-		if !app.Spec.Manifest.Global || app.Spec.Manifest.ClientID == "" || app.Spec.Manifest.ClientSecret == "" || app.Spec.Manifest.Alias == "" {
+		if app.Spec.Manifest.Global == nil || !*app.Spec.Manifest.Global || app.Spec.Manifest.ClientID == "" || app.Spec.Manifest.ClientSecret == "" || app.Spec.Manifest.Alias == "" {
 			continue
 		}
 		activeIntegrations[app.Spec.Manifest.Alias] = app

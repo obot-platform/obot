@@ -2558,7 +2558,7 @@ func schema_obot_platform_obot_apiclient_types_OAuthAppManifest(ref common.Refer
 					},
 					"global": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Global indicates if the OAuth app is globally applied to all agents.",
+							Description: "Global indicates if the OAuth app is globally applied to all agents. Defaults to false.",
 							Type:        []string{"boolean"},
 							Format:      "",
 						},
