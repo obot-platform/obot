@@ -1,6 +1,5 @@
 import { GlobeIcon, GlobeLockIcon, ShieldOffIcon } from "lucide-react";
 
-import { ToolInfo } from "~/lib/model/agents";
 import { AssistantNamespace } from "~/lib/model/assistants";
 import { ThreadsService } from "~/lib/service/api/threadsService";
 import { ToolAuthApiService } from "~/lib/service/api/toolAuthApiService";
@@ -21,9 +20,8 @@ import { useAsync } from "~/hooks/useAsync";
 
 type AgentAuthenticationProps = {
 	tool: string;
-	toolInfo?: ToolInfo;
 	entityId: string;
-	onUpdate: (toolInfo: ToolInfo) => void;
+	onUpdate: () => void;
 	namespace: AssistantNamespace;
 };
 
@@ -39,9 +37,7 @@ export function ToolAuthenticationStatus({
 
 	const { threadId, reader } = authorize.data ?? {};
 
-	const { toolInfo, isPolling } = useToolAuthPolling(namespace, entityId);
-
-	const { credentialNames, authorized } = toolInfo?.[tool] ?? {};
+	const { toolInfo, setToolInfo } = useToolAuthPolling(namespace, entityId);
 
 	const deleteConfirm = useConfirmationDialog();
 	const authorizeConfirm = useConfirmationDialog();
@@ -56,7 +52,12 @@ export function ToolAuthenticationStatus({
 
 		if (error) return;
 
-		onUpdate({ ...toolInfo, authorized: false });
+		setToolInfo({
+			...Object.fromEntries(
+				Object.entries(toolInfo).filter(([key]) => key !== tool)
+			),
+		});
+		onUpdate();
 	};
 
 	const handleAuthorizeComplete = () => {
@@ -69,23 +70,23 @@ export function ToolAuthenticationStatus({
 		}
 
 		authorize.clear();
-		onUpdate({ ...toolInfo, authorized: true });
+
+		if (!toolInfo) return;
+
+		setToolInfo({
+			...Object.fromEntries(
+				Object.entries(toolInfo).filter(([key]) => key !== tool)
+			),
+		});
+		onUpdate();
 	};
 
-	const loading = authorize.isLoading || cancelAuthorize.isLoading;
+	const loading =
+		authorize.isLoading || cancelAuthorize.isLoading || !toolInfo?.[tool];
+
+	const { authorized } = toolInfo?.[tool] ?? {};
 
 	const { icon, label } = useToolReference(tool);
-
-	if (isPolling)
-		return (
-			<Tooltip>
-				<TooltipContent>Authentication Processing</TooltipContent>
-
-				<TooltipTrigger asChild>
-					<Button size="icon" variant="ghost" loading />
-				</TooltipTrigger>
-			</Tooltip>
-		);
 
 	const handleClick = () => {
 		if (authorized) {
@@ -95,7 +96,7 @@ export function ToolAuthenticationStatus({
 		}
 	};
 
-	if (!credentialNames?.length)
+	if (toolInfo?.[tool] && !toolInfo?.[tool].credentialNames?.length)
 		return (
 			<Tooltip>
 				<TooltipTrigger asChild>
@@ -107,7 +108,7 @@ export function ToolAuthenticationStatus({
 				</TooltipTrigger>
 
 				<TooltipContent>
-					This tool does not require authentication.
+					<>This tool does not require authentication.</>
 				</TooltipContent>
 			</Tooltip>
 		);
@@ -116,12 +117,16 @@ export function ToolAuthenticationStatus({
 		<>
 			<Tooltip>
 				<TooltipContent className="max-w-xs">
-					{authorized ? (
+					{loading ? (
+						<>
+							<b>Authentication Processing</b>
+						</>
+					) : authorized ? (
 						<>
 							<b>Global Auth Enabled: </b>
 							{/* Leaving this here for now, will remove after we discuss the wording for this */}
 							{/* Users will share the same account and will not be prompted to
-							login when using this tool. */}
+                            login when using this tool. */}
 							Users will not be prompted to use their own credentials to login,
 							and will share the same global account when using this tool.
 						</>

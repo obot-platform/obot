@@ -247,7 +247,6 @@ export function Agent({ className, currentThreadId, onRefresh }: AgentProps) {
 				namespace={AssistantNamespace.Agents}
 				entityId={agent.id}
 				tool={tool}
-				toolInfo={agent.toolInfo?.[tool]}
 				onUpdate={() => refreshAgent()}
 			/>
 		);

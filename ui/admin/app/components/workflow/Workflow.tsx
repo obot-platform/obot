@@ -136,7 +136,6 @@ function WorkflowContent({ className }: WorkflowProps) {
 								namespace={AssistantNamespace.Workflows}
 								entityId={workflow.id}
 								tool={tool}
-								toolInfo={workflow.toolInfo?.[tool]}
 								onUpdate={refreshWorkflow}
 							/>
 						)}
