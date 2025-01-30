@@ -125,7 +125,7 @@ func addDefaultAgent(ctx context.Context, k kclient.Client, agentDir string) err
 				Namespace: system.DefaultNamespace,
 			},
 			Spec: v1.AgentAuthorizationSpec{
-				AuthorizationManifest: types.AuthorizationManifest{
+				AgentAuthorizationManifest: types.AgentAuthorizationManifest{
 					UserID:  "*",
 					AgentID: agent.Name,
 				},

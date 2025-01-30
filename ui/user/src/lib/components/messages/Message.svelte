@@ -3,12 +3,12 @@
 	import Loading from '$lib/icons/Loading.svelte';
 	import highlight from 'highlight.js';
 	import MessageIcon from '$lib/components/messages/MessageIcon.svelte';
-	import { FileText, Pencil } from '$lib/icons';
+	import { FileText, Pencil } from 'lucide-svelte/icons';
 	import { toHTMLFromMarkdown } from '$lib/markdown.js';
-	import { currentAssistant } from '$lib/stores';
 	import { Paperclip, X } from 'lucide-svelte';
 	import { formatTime } from '$lib/time';
 	import { popover } from '$lib/actions';
+	import { assistants } from '$lib/stores/index';
 
 	interface Props {
 		msg: Message;
@@ -79,7 +79,7 @@
 	<div class="mb-1 flex items-center space-x-2">
 		{#if msg.sourceName}
 			<span class="text-sm font-semibold"
-				>{msg.sourceName === 'Assistant' ? $currentAssistant.name : msg.sourceName}</span
+				>{msg.sourceName === 'Assistant' ? assistants.current().name : msg.sourceName}</span
 			>
 		{/if}
 		{#if msg.time}

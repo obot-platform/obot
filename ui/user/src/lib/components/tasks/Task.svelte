@@ -1,7 +1,7 @@
 <script lang="ts">
-	import { currentAssistant, tasks } from '$lib/stores';
+	import { tasks } from '$lib/stores';
 	import { ChatService, EditorService, type Task } from '$lib/services';
-	import { Trash } from '$lib/icons';
+	import { Trash } from 'lucide-svelte/icons';
 	import { Pen, PenOff } from 'lucide-svelte';
 	import { onDestroy } from 'svelte';
 	import Runs from '$lib/components/tasks/Runs.svelte';
@@ -9,6 +9,7 @@
 	import Steps from '$lib/components/tasks/Steps.svelte';
 	import Controls from '$lib/components/editor/Controls.svelte';
 	import Confirm from '$lib/components/Confirm.svelte';
+	import { assistants } from '$lib/stores/index';
 
 	interface Props {
 		id: string;
@@ -41,7 +42,7 @@
 			if (displayedRun === selectedRun) {
 				return;
 			}
-			ChatService.getTaskRun($currentAssistant.id, id, selectedRun).then((run) => {
+			ChatService.getTaskRun(id, selectedRun).then((run) => {
 				task = {
 					...task,
 					steps: run.task.steps
@@ -55,8 +56,8 @@
 
 		displayedRun = '';
 
-		if ($currentAssistant.id && !savedTask) {
-			ChatService.getTask($currentAssistant.id, id).then((newTask) => {
+		if (assistants.current().id && !savedTask) {
+			ChatService.getTask(id).then((newTask) => {
 				savedTask = JSON.stringify(newTask);
 				task = newTask;
 			});

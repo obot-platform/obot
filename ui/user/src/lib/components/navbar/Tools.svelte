@@ -1,7 +1,6 @@
 <script lang="ts">
-	import { Plus, Wrench } from '$lib/icons';
+	import { Plus, Wrench } from 'lucide-svelte/icons';
 	import { tools, version } from '$lib/stores';
-	import { currentAssistant } from '$lib/stores';
 	import { ChatService, EditorService } from '$lib/services';
 	import { newTool } from '$lib/components/tool/Tool.svelte';
 	import Menu from '$lib/components/navbar/Menu.svelte';
@@ -10,18 +9,18 @@
 	let menu = $state<ReturnType<typeof Menu>>();
 
 	async function addTool() {
-		const tool = await ChatService.createTool($currentAssistant.id, newTool);
-		await EditorService.load($currentAssistant.id, tool.id);
+		const tool = await ChatService.createTool(newTool);
+		await EditorService.load(tool.id);
 		menu?.open.set(false);
 	}
 
 	async function editTool(id: string) {
-		await EditorService.load($currentAssistant.id, id);
+		await EditorService.load(id);
 		menu?.open.set(false);
 	}
 
 	async function onLoad() {
-		tools.set(await ChatService.listTools($currentAssistant.id));
+		tools.items = (await ChatService.listTools()).items;
 	}
 
 	async function updateTool(enabled: boolean, tool: string | undefined) {
@@ -29,9 +28,9 @@
 			return;
 		}
 		if (enabled) {
-			tools.set(await ChatService.enableTool($currentAssistant.id, tool));
+			tools.items = (await ChatService.enableTool(tool)).items;
 		} else {
-			tools.set(await ChatService.disableTool($currentAssistant.id, tool));
+			tools.items = (await ChatService.disableTool(tool)).items;
 		}
 	}
 </script>
@@ -42,7 +41,7 @@
 	{/snippet}
 	{#snippet body()}
 		<ul class="space-y-4 py-6 text-sm">
-			{#each $tools.items as tool, i}
+			{#each tools.items as tool, i}
 				{#if !tool.builtin}
 					<li>
 						<div class="flex">
@@ -70,7 +69,7 @@
 								type="checkbox"
 								checked={tool.enabled}
 								onchange={(e) => updateTool(e.currentTarget.checked, tool.id)}
-								disabled={tool.builtin || $tools.readonly}
+								disabled={tool.builtin}
 								class="h-4 w-4 self-center"
 							/>
 							<button

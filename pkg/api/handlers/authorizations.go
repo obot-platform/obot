@@ -29,7 +29,7 @@ func NewAuthorizationHandler(userClient *client.Client) *AuthorizationHandler {
 func (a *AuthorizationHandler) AddAgentAuthorization(req api.Context) error {
 	var (
 		agentID      = req.PathValue("id")
-		authManifest types.AuthorizationManifest
+		authManifest types.AgentAuthorizationManifest
 	)
 
 	if err := req.Read(&authManifest); err != nil {
@@ -44,7 +44,7 @@ func (a *AuthorizationHandler) AddAgentAuthorization(req api.Context) error {
 			Namespace: req.Namespace(),
 		},
 		Spec: v1.AgentAuthorizationSpec{
-			AuthorizationManifest: authManifest,
+			AgentAuthorizationManifest: authManifest,
 		},
 	}
 
@@ -58,7 +58,7 @@ func (a *AuthorizationHandler) AddAgentAuthorization(req api.Context) error {
 func (a *AuthorizationHandler) RemoveAgentAuthorization(req api.Context) error {
 	var (
 		agentID      = req.PathValue("id")
-		authManifest types.AuthorizationManifest
+		authManifest types.AgentAuthorizationManifest
 	)
 
 	if err := req.Read(&authManifest); err != nil {
@@ -90,12 +90,12 @@ func (a *AuthorizationHandler) ListAgentAuthorizations(req api.Context) error {
 	}
 
 	result := types.AuthorizationList{
-		Items: make([]types.Authorization, 0, len(auths.Items)),
+		Items: make([]types.AgentAuthorization, 0, len(auths.Items)),
 	}
 
 	for _, grant := range auths.Items {
-		auth := types.Authorization{
-			AuthorizationManifest: grant.Spec.AuthorizationManifest,
+		auth := types.AgentAuthorization{
+			AgentAuthorizationManifest: grant.Spec.AgentAuthorizationManifest,
 		}
 
 		// Yes, this is N+1 but will be fine for now ¯\_(ツ)_/¯

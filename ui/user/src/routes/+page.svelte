@@ -4,8 +4,7 @@
 	import { goto } from '$app/navigation';
 	import DarkModeToggle from '$lib/components/navbar/DarkModeToggle.svelte';
 	import { darkMode } from '$lib/stores';
-	import { Book } from '$lib/icons';
-	import { loadedAssistants } from '$lib/stores';
+	import { Book } from 'lucide-svelte/icons';
 	import { listAuthProviders, type AuthProvider } from '$lib/auth';
 	import { onMount } from 'svelte';
 
@@ -13,28 +12,37 @@
 
 	onMount(async () => {
 		authProviders = await listAuthProviders();
+		try {
+			await assistants.load();
+		} catch {
+			show();
+		}
 	});
 
 	let div: HTMLElement;
 
 	$effect(() => {
-		let id = $assistants.find((assistant) => assistant.default)?.id;
+		let id = assistants.items.find((assistant) => assistant.default)?.id;
 		if (!id) {
-			id = $assistants.find((assistant) => assistant.id !== '')?.id;
+			id = assistants.items.find((assistant) => assistant.id !== '')?.id;
 		}
 		if (id) {
 			goto(`/${id}`);
-		} else if ($loadedAssistants) {
+		} else if (assistants.loaded) {
 			window.location.href = '/admin/';
 		}
 	});
 
 	$effect(() => {
-		if ($profile.unauthorized) {
-			div.classList.remove('hidden');
-			div.classList.add('flex');
+		if (profile.current.unauthorized) {
+			show();
 		}
 	});
+
+	function show() {
+		div.classList.remove('hidden');
+		div.classList.add('flex');
+	}
 </script>
 
 <div bind:this={div} class="relative hidden h-dvh w-full items-center text-black dark:text-white">
@@ -49,7 +57,7 @@
 			href="https://github.com/obot-platform/obot"
 			class="icon-button text-white hover:text-blue-50"
 		>
-			{#if $darkMode}
+			{#if darkMode.isDark}
 				<img src="/user/images/github-mark/github-mark-white.svg" alt="GitHub" class="h-8" />
 			{:else}
 				<img src="/user/images/github-mark/github-mark.svg" alt="GitHub" class="h-8" />
@@ -58,7 +66,7 @@
 	</div>
 	<div class="mx-auto flex flex-col items-center gap-16">
 		<div class="flex items-end gap-4">
-			{#if $darkMode}
+			{#if darkMode.isDark}
 				<img src="/user/images/obot-logo-blue-white-text.svg" alt="obot icon" class="h-64 px-5" />
 			{:else}
 				<img src="/user/images/obot-logo-blue-black-text.svg" alt="obot icon" class="h-64 px-5" />

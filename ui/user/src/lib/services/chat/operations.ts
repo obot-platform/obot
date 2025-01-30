@@ -1,3 +1,4 @@
+import context from '$lib/stores/context';
 import { baseURL, doDelete, doGet, doPost, doPut } from './http';
 import {
 	type AssistantToolList,
@@ -18,6 +19,14 @@ import {
 	type TableList,
 	type Rows
 } from './types';
+
+function assistantID(): string {
+	return context.getContext().assistantID;
+}
+
+function projectID(): string {
+	return context.getContext().projectID;
+}
 
 export async function getProfile(): Promise<Profile> {
 	const obj = (await doGet('/me')) as Profile;
@@ -44,34 +53,29 @@ export async function listAssistants(): Promise<Assistants> {
 	return assistants;
 }
 
-export async function deleteKnowledgeFile(assistant: string, filename: string) {
-	return doDelete(`/assistants/${assistant}/knowledge/${filename}`);
+export async function deleteKnowledgeFile(filename: string) {
+	return doDelete(`/assistants/${assistantID()}/projects/${projectID()}/knowledge/${filename}`);
 }
 
-export async function deleteFile(
-	assistant: string,
-	filename: string,
-	opts?: { taskID?: string; runID?: string }
-) {
+export async function deleteFile(filename: string, opts?: { taskID?: string; runID?: string }) {
 	if (opts?.taskID && opts?.runID) {
 		return doDelete(
-			`/assistants/${assistant}/tasks/${opts.taskID}/runs/${opts.runID}/files/${filename}`
+			`/assistants/${assistantID()}/projects/${projectID()}/tasks/${opts.taskID}/runs/${opts.runID}/files/${filename}`
 		);
 	}
-	return doDelete(`/assistants/${assistant}/files/${filename}`);
+	return doDelete(`/assistants/${assistantID()}/projects/${projectID()}/files/${filename}`);
 }
 
 export async function download(
-	assistant: string,
 	filename: string,
 	opts?: {
 		taskID?: string;
 		runID?: string;
 	}
 ) {
-	let url = `/assistants/${assistant}/file/${filename}`;
+	let url = `/assistants/${assistantID()}/projects/${projectID()}/file/${filename}`;
 	if (opts?.taskID && opts?.runID) {
-		url = `/assistants/${assistant}/tasks/${opts.taskID}/runs/${opts.runID}/file/${filename}`;
+		url = `/assistants/${assistantID()}/projects/${projectID()}/tasks/${opts.taskID}/runs/${opts.runID}/file/${filename}`;
 	}
 	url = baseURL + url;
 
@@ -81,37 +85,37 @@ export async function download(
 	a.click();
 }
 
-export async function saveFile(
-	assistant: string,
-	file: File,
-	opts?: { taskID?: string; runID?: string }
-) {
+export async function saveFile(file: File, opts?: { taskID?: string; runID?: string }) {
 	if (opts?.taskID && opts?.runID) {
 		return (await doPost(
-			`/assistants/${assistant}/tasks/${opts.taskID}/runs/${opts.runID}/file/${file.name}`,
+			`/assistants/${assistantID()}/projects/${projectID()}/tasks/${opts.taskID}/runs/${opts.runID}/file/${file.name}`,
 			file
 		)) as Files;
 	}
-	return (await doPost(`/assistants/${assistant}/file/${file.name}`, file)) as Files;
+	return (await doPost(
+		`/assistants/${assistantID()}/projects/${projectID()}/file/${file.name}`,
+		file
+	)) as Files;
 }
 
 export async function saveContents(
-	assistant: string,
 	filename: string,
 	contents: string,
 	opts?: { taskID?: string; runID?: string }
 ) {
 	if (opts?.taskID && opts?.runID) {
 		return (await doPost(
-			`/assistants/${assistant}/tasks/${opts.taskID}/runs/${opts.runID}/file/${filename}`,
+			`/assistants/${assistantID()}/projects/${projectID()}/tasks/${opts.taskID}/runs/${opts.runID}/file/${filename}`,
 			contents
 		)) as Files;
 	}
-	return (await doPost(`/assistants/${assistant}/file/${filename}`, contents)) as Files;
+	return (await doPost(
+		`/assistants/${assistantID()}/projects/${projectID()}/file/${filename}`,
+		contents
+	)) as Files;
 }
 
 export async function getFile(
-	assistant: string,
 	filename: string,
 	opts?: {
 		taskID?: string;
@@ -120,19 +124,22 @@ export async function getFile(
 ): Promise<Blob> {
 	if (opts?.taskID && opts?.runID) {
 		return (await doGet(
-			`/assistants/${assistant}/tasks/${opts.taskID}/runs/${opts.runID}/file/${filename}`,
+			`/assistants/${assistantID()}/projects/${projectID()}/tasks/${opts.taskID}/runs/${opts.runID}/file/${filename}`,
 			{
 				blob: true
 			}
 		)) as Blob;
 	}
-	return (await doGet(`/assistants/${assistant}/file/${filename}`, {
+	return (await doGet(`/assistants/${assistantID()}/projects/${projectID()}/file/${filename}`, {
 		blob: true
 	})) as Blob;
 }
 
-export async function uploadKnowledge(assistant: string, file: File): Promise<KnowledgeFile> {
-	return (await doPost(`/assistants/${assistant}/knowledge/${file.name}`, file)) as KnowledgeFile;
+export async function uploadKnowledge(file: File): Promise<KnowledgeFile> {
+	return (await doPost(
+		`/assistants/${assistantID()}/projects/${projectID()}/knowledge/${file.name}`,
+		file
+	)) as KnowledgeFile;
 }
 
 interface DeletedItems<T extends Deleted> {
@@ -148,28 +155,24 @@ function removedDeleted<V extends Deleted, T extends DeletedItems<V>>(items: T):
 	return items;
 }
 
-export async function listKnowledgeFiles(assistant: string): Promise<KnowledgeFiles> {
-	const files = (await doGet(`/assistants/${assistant}/knowledge`)) as KnowledgeFiles;
+export async function listKnowledgeFiles(): Promise<KnowledgeFiles> {
+	const files = (await doGet(
+		`/assistants/${assistantID()}/projects/${projectID()}/knowledge`
+	)) as KnowledgeFiles;
 	if (!files.items) {
 		files.items = [];
 	}
 	return removedDeleted(files);
 }
 
-export async function listFiles(
-	assistant: string,
-	opts?: {
-		taskID?: string;
-		runID?: string;
-	}
-): Promise<Files> {
+export async function listFiles(opts?: { taskID?: string; runID?: string }): Promise<Files> {
 	let files: Files;
 	if (opts?.taskID && opts?.runID) {
 		files = (await doGet(
-			`/assistants/${assistant}/tasks/${opts.taskID}/runs/${opts.runID}/files`
+			`/assistants/${assistantID()}/projects/${projectID()}/tasks/${opts.taskID}/runs/${opts.runID}/files`
 		)) as Files;
 	} else {
-		files = (await doGet(`/assistants/${assistant}/files`)) as Files;
+		files = (await doGet(`/assistants/${assistantID()}/projects/${projectID()}/files`)) as Files;
 	}
 	if (!files.items) {
 		files.items = [];
@@ -194,41 +197,39 @@ function cleanInvokeInput(input: string | InvokeInput): InvokeInput | string {
 	return input;
 }
 
-export async function invoke(assistant: string, msg: string | InvokeInput) {
+export async function invoke(msg: string | InvokeInput) {
 	msg = cleanInvokeInput(msg);
-	await doPost(`/assistants/${assistant}/invoke`, msg);
+	await doPost(`/assistants/${assistantID()}/projects/${projectID()}/invoke`, msg);
 }
 
-export async function abort(
-	assistant: string,
-	opts?: {
-		taskID?: string;
-		runID?: string;
-	}
-) {
+export async function abort(opts?: { taskID?: string; runID?: string }) {
 	if (opts?.taskID && opts?.runID) {
 		return await doPost(
-			`/assistants/${assistant}/tasks/${opts.taskID}/runs/${opts.runID}/abort`,
+			`/assistants/${assistantID()}/projects/${projectID()}/tasks/${opts.taskID}/runs/${opts.runID}/abort`,
 			{}
 		);
 	}
-	await doPost(`/assistants/${assistant}/abort`, {});
+	await doPost(`/assistants/${assistantID()}/projects/${projectID()}/abort`, {});
 }
 
-export async function listCredentials(assistant: string): Promise<CredentialList> {
-	const list = (await doGet(`/assistants/${assistant}/credentials`)) as CredentialList;
+export async function listCredentials(): Promise<CredentialList> {
+	const list = (await doGet(
+		`/assistants/${assistantID()}/projects/${projectID()}/credentials`
+	)) as CredentialList;
 	if (!list.items) {
 		list.items = [];
 	}
 	return list;
 }
 
-export async function deleteCredential(assistant: string, id: string) {
-	return doDelete(`/assistants/${assistant}/credentials/${id}`);
+export async function deleteCredential(id: string) {
+	return doDelete(`/assistants/${assistantID()}/projects/${projectID()}/credentials/${id}`);
 }
 
-export async function listTools(assistant: string): Promise<AssistantToolList> {
-	const list = (await doGet(`/assistants/${assistant}/tools`)) as AssistantToolList;
+export async function listTools(): Promise<AssistantToolList> {
+	const list = (await doGet(
+		`/assistants/${assistantID()}/projects/${projectID()}/tools`
+	)) as AssistantToolList;
 	if (!list.items) {
 		list.items = [];
 	}
@@ -236,21 +237,22 @@ export async function listTools(assistant: string): Promise<AssistantToolList> {
 }
 
 export async function createTool(
-	assistant: string,
 	tool?: AssistantTool,
 	opts?: {
 		env?: Record<string, string>;
 	}
 ): Promise<AssistantTool> {
-	const result = (await doPost(`/assistants/${assistant}/tools`, tool ?? {})) as AssistantTool;
+	const result = (await doPost(
+		`/assistants/${assistantID()}/projects/${projectID()}/tools`,
+		tool ?? {}
+	)) as AssistantTool;
 	if (opts?.env) {
-		await saveToolEnv(assistant, result.id, opts.env);
+		await saveToolEnv(result.id, opts.env);
 	}
 	return result;
 }
 
 export async function testTool(
-	assistant: string,
 	tool: AssistantTool,
 	input: object,
 	opts?: {
@@ -258,7 +260,7 @@ export async function testTool(
 	}
 ): Promise<{ output: string }> {
 	return (await doPost(
-		`/assistants/${assistant}/tools/${tool.id}/test`,
+		`/assistants/${assistantID()}/projects/${projectID()}/tools/${tool.id}/test`,
 		{
 			input,
 			tool,
@@ -273,145 +275,162 @@ export async function testTool(
 }
 
 export async function updateTool(
-	assistant: string,
 	tool: AssistantTool,
 	opts?: {
 		env?: Record<string, string>;
 	}
 ): Promise<AssistantToolList> {
 	const result = (await doPut(
-		`/assistants/${assistant}/tools/${tool.id}`,
+		`/assistants/${assistantID()}/projects/${projectID()}/tools/${tool.id}`,
 		tool
 	)) as AssistantToolList;
 	if (opts?.env) {
-		await saveToolEnv(assistant, tool.id, opts.env);
+		await saveToolEnv(tool.id, opts.env);
 	}
 	return result;
 }
 
-export async function deleteTool(assistant: string, tool: string) {
-	return doDelete(`/assistants/${assistant}/tools/${tool}/custom`);
+export async function deleteTool(tool: string) {
+	return doDelete(`/assistants/${assistantID()}/projects/${projectID()}/tools/${tool}/custom`);
 }
 
-export async function getTool(assistant: string, tool: string): Promise<AssistantTool> {
-	return (await doGet(`/assistants/${assistant}/tools/${tool}`)) as AssistantTool;
+export async function getTool(tool: string): Promise<AssistantTool> {
+	return (await doGet(
+		`/assistants/${assistantID()}/projects/${projectID()}/tools/${tool}`
+	)) as AssistantTool;
 }
 
-export async function getToolEnv(assistant: string, tool: string): Promise<Record<string, string>> {
-	return (await doGet(`/assistants/${assistant}/tools/${tool}/env`)) as Record<string, string>;
+export async function getToolEnv(tool: string): Promise<Record<string, string>> {
+	return (await doGet(
+		`/assistants/${assistantID()}/projects/${projectID()}/tools/${tool}/env`
+	)) as Record<string, string>;
 }
 
-export async function getAssistantEnv(assistant: string): Promise<Record<string, string>> {
-	return (await doGet(`/assistants/${assistant}/env`)) as Record<string, string>;
+export async function getAssistantEnv(): Promise<Record<string, string>> {
+	return (await doGet(`/assistants/${assistantID()}/projects/${projectID()}/env`)) as Record<
+		string,
+		string
+	>;
 }
 
 export async function saveAssistantEnv(
-	assistant: string,
 	env: Record<string, string>
 ): Promise<Record<string, string>> {
-	return (await doPut(`/assistants/${assistant}/env`, env)) as Record<string, string>;
+	return (await doPut(`/assistants/${assistantID()}/projects/${projectID()}/env`, env)) as Record<
+		string,
+		string
+	>;
 }
 
 export async function saveToolEnv(
-	assistant: string,
 	tool: string,
 	env: Record<string, string>
 ): Promise<Record<string, string>> {
-	return (await doPut(`/assistants/${assistant}/tools/${tool}/env`, env)) as Record<string, string>;
+	return (await doPut(
+		`/assistants/${assistantID()}/projects/${projectID()}/tools/${tool}/env`,
+		env
+	)) as Record<string, string>;
 }
 
-export async function enableTool(assistant: string, tool: string): Promise<AssistantToolList> {
-	return (await doPut(`/assistants/${assistant}/tools/${tool}`)) as AssistantToolList;
+export async function enableTool(tool: string): Promise<AssistantToolList> {
+	return (await doPut(
+		`/assistants/${assistantID()}/projects/${projectID()}/tools/${tool}`
+	)) as AssistantToolList;
 }
 
-export async function disableTool(assistant: string, tool: string): Promise<AssistantToolList> {
-	return (await doDelete(`/assistants/${assistant}/tools/${tool}`)) as AssistantToolList;
+export async function disableTool(tool: string): Promise<AssistantToolList> {
+	return (await doDelete(
+		`/assistants/${assistantID()}/projects/${projectID()}/tools/${tool}`
+	)) as AssistantToolList;
 }
 
-export async function saveTask(assistant: string, task: Task): Promise<Task> {
-	return (await doPut(`/assistants/${assistant}/tasks/${task.id}`, task)) as Task;
+export async function saveTask(task: Task): Promise<Task> {
+	return (await doPut(
+		`/assistants/${assistantID()}/projects/${projectID()}/tasks/${task.id}`,
+		task
+	)) as Task;
 }
 
 export async function runTask(
-	assistant: string,
 	taskID: string,
 	opts?: {
 		stepID?: string;
 		input?: string | object;
 	}
 ): Promise<TaskRun> {
-	const url = `/assistants/${assistant}/tasks/${taskID}/run?step=${opts?.stepID ?? ''}`;
+	const url = `/assistants/${assistantID()}/projects/${projectID()}/tasks/${taskID}/run?step=${opts?.stepID ?? ''}`;
 	return (await doPost(url, opts?.input ?? {})) as TaskRun;
 }
 
-export function newMessageEventSource(
-	assistant: string,
-	opts?: {
-		task?: {
-			id: string;
-		};
-		runID?: string;
-	}
-): EventSource {
+export function newMessageEventSource(opts?: {
+	task?: {
+		id: string;
+	};
+	runID?: string;
+}): EventSource {
 	if (opts?.task) {
-		let url = `/assistants/${assistant}/tasks/${opts.task.id}/events`;
+		let url = `/assistants/${assistantID()}/projects/${projectID()}/tasks/${opts.task.id}/events`;
 		if (opts.runID) {
-			url = `/assistants/${assistant}/tasks/${opts.task.id}/runs/${opts.runID}/events`;
+			url = `/assistants/${assistantID()}/projects/${projectID()}/tasks/${opts.task.id}/runs/${opts.runID}/events`;
 		}
 		return new EventSource(baseURL + `${url}`);
 	}
-	return new EventSource(baseURL + `/assistants/${assistant}/events`);
+	return new EventSource(baseURL + `/assistants/${assistantID()}/projects/${projectID()}/events`);
 }
 
-export async function listTasks(assistant: string): Promise<TaskList> {
-	const list = (await doGet(`/assistants/${assistant}/tasks`)) as TaskList;
+export async function listTasks(): Promise<TaskList> {
+	const list = (await doGet(
+		`/assistants/${assistantID()}/projects/${projectID()}/tasks`
+	)) as TaskList;
 	if (!list.items) {
 		list.items = [];
 	}
 	return list;
 }
 
-export async function createTask(assistant: string, task?: Task): Promise<Task> {
+export async function createTask(task?: Task): Promise<Task> {
 	return (await doPost(
-		`/assistants/${assistant}/tasks`,
+		`/assistants/${assistantID()}/projects/${projectID()}/tasks`,
 		task ?? {
 			steps: []
 		}
 	)) as Task;
 }
 
-export async function deleteTask(assistant: string, id: string) {
-	return doDelete(`/assistants/${assistant}/tasks/${id}`);
+export async function deleteTask(id: string) {
+	return doDelete(`/assistants/${assistantID()}/projects/${projectID()}/tasks/${id}`);
 }
 
-export async function getTask(assistant: string, id: string): Promise<Task> {
-	return (await doGet(`/assistants/${assistant}/tasks/${id}`)) as Task;
+export async function getTask(id: string): Promise<Task> {
+	return (await doGet(`/assistants/${assistantID()}/projects/${projectID()}/tasks/${id}`)) as Task;
 }
 
-export async function getTaskRun(
-	assistant: string,
-	taskID: string,
-	runID: string
-): Promise<TaskRun> {
-	return (await doGet(`/assistants/${assistant}/tasks/${taskID}/runs/${runID}`)) as TaskRun;
+export async function getTaskRun(taskID: string, runID: string): Promise<TaskRun> {
+	return (await doGet(
+		`/assistants/${assistantID()}/projects/${projectID()}/tasks/${taskID}/runs/${runID}`
+	)) as TaskRun;
 }
 
-export async function deleteTaskRun(assistant: string, id: string, runID: string) {
-	return doDelete(`/assistants/${assistant}/tasks/${id}/runs/${runID}`);
+export async function deleteTaskRun(id: string, runID: string) {
+	return doDelete(`/assistants/${assistantID()}/projects/${projectID()}/tasks/${id}/runs/${runID}`);
 }
 
-export async function listTaskRuns(assistant: string, id: string): Promise<TaskRunList> {
-	const list = (await doGet(`/assistants/${assistant}/tasks/${id}/runs`)) as TaskRunList;
+export async function listTaskRuns(id: string): Promise<TaskRunList> {
+	const list = (await doGet(
+		`/assistants/${assistantID()}/projects/${projectID()}/tasks/${id}/runs`
+	)) as TaskRunList;
 	if (!list.items) {
 		list.items = [];
 	}
 	return list;
 }
 
-export async function listTables(assistant: string) {
-	return (await doGet(`/assistants/${assistant}/tables`)) as TableList;
+export async function listTables() {
+	return (await doGet(`/assistants/${assistantID()}/projects/${projectID()}/tables`)) as TableList;
 }
 
-export async function getRows(assistant: string, table: string) {
-	return (await doGet(`/assistants/${assistant}/tables/${table}/rows`)) as Rows;
+export async function getRows(table: string) {
+	return (await doGet(
+		`/assistants/${assistantID()}/projects/${projectID()}/tables/${table}/rows`
+	)) as Rows;
 }

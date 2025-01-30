@@ -1,9 +1,8 @@
 <script lang="ts">
 	import { onDestroy, onMount } from 'svelte';
 	import '@xterm/xterm/css/xterm.css';
-	import { currentAssistant } from '$lib/stores';
 	import { RefreshCcw } from 'lucide-svelte';
-	import { term } from '$lib/stores';
+	import { assistants, context, term } from '$lib/stores';
 	import Env from '$lib/components/terminal/Env.svelte';
 
 	let terminalContainer: HTMLElement;
@@ -52,11 +51,7 @@
 
 		const url =
 			window.location.protocol.replaceAll('http', 'ws') +
-			'//' +
-			window.location.host +
-			'/api/assistants/' +
-			$currentAssistant.id +
-			'/shell';
+			`//${window.location.host}/api/assistants/${assistants.current().id}/projects/${context.getContext().projectID}/shell`;
 		const socket = new WebSocket(url);
 		connectState = 'connecting';
 		socket.onmessage = (event) => {

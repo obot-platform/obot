@@ -2,12 +2,11 @@
 	import Self from './Step.svelte';
 	import { ChatService, type Messages, type Task, type TaskStep } from '$lib/services';
 	import Message from '$lib/components/messages/Message.svelte';
-	import { Plus, Trash } from '$lib/icons';
+	import { Plus, Trash } from 'lucide-svelte/icons';
 	import { LoaderCircle, OctagonX, Play, RefreshCcw, Save, Undo } from 'lucide-svelte';
 	import { tick } from 'svelte';
 	import { autoHeight } from '$lib/actions/textarea.js';
 	import Confirm from '$lib/components/Confirm.svelte';
-	import { currentAssistant } from '$lib/stores';
 
 	interface Props {
 		parentStale?: boolean;
@@ -141,7 +140,7 @@
 
 	async function doRun() {
 		if ((running || pending) && editMode) {
-			await ChatService.abort($currentAssistant.id, {
+			await ChatService.abort({
 				taskID: task.id,
 				runID: 'editor'
 			});

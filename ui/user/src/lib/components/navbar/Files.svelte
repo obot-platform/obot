@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { FileText, Trash, Upload } from '$lib/icons';
-	import { files, currentAssistant } from '$lib/stores';
+	import { FileText, Trash, Upload } from 'lucide-svelte/icons';
+	import { files } from '$lib/stores';
 	import { ChatService, EditorService, type Files } from '$lib/services';
 	import Confirm from '$lib/components/Confirm.svelte';
 	import Menu from '$lib/components/navbar/Menu.svelte';
@@ -10,14 +10,14 @@
 	import Loading from '$lib/icons/Loading.svelte';
 
 	async function loadFiles() {
-		files.set(await ChatService.listFiles($currentAssistant.id));
+		files.items = (await ChatService.listFiles()).items;
 	}
 
 	async function deleteFile() {
 		if (!fileToDelete) {
 			return;
 		}
-		await ChatService.deleteFile($currentAssistant.id, fileToDelete);
+		await ChatService.deleteFile(fileToDelete);
 		await loadFiles();
 		fileToDelete = undefined;
 	}
@@ -33,7 +33,7 @@
 			return;
 		}
 
-		uploadInProgress = ChatService.saveFile($currentAssistant.id, fileList[0]);
+		uploadInProgress = ChatService.saveFile(fileList[0]);
 		uploadInProgress.finally(() => {
 			uploadInProgress = undefined;
 			loadFiles();
@@ -48,17 +48,17 @@
 		<FileText class="h-5 w-5" />
 	{/snippet}
 	{#snippet body()}
-		{#if $files.items.length === 0}
+		{#if files.items.length === 0}
 			<p class="pb-3 pt-6 text-center text-sm text-gray dark:text-gray-300">No files</p>
 		{:else}
 			<ul class="space-y-4 px-3 py-6 text-sm">
-				{#each $files.items as file}
+				{#each files.items as file}
 					<li class="group">
 						<div class="flex">
 							<button
 								class="flex flex-1 items-center"
 								onclick={async () => {
-									await EditorService.load($currentAssistant.id, file.name);
+									await EditorService.load(file.name);
 									menu?.open.set(false);
 								}}
 							>
@@ -74,7 +74,7 @@
 							<button
 								class="ms-2 hidden group-hover:block"
 								onclick={() => {
-									EditorService.download($currentAssistant.id, file.name);
+									EditorService.download(file.name);
 								}}
 							>
 								<Download class="h-5 w-5 text-gray" />

@@ -7,6 +7,7 @@ import (
 	"github.com/obot-platform/nah/pkg/name"
 	"github.com/obot-platform/nah/pkg/router"
 	"github.com/obot-platform/obot/pkg/create"
+	"github.com/obot-platform/obot/pkg/projects"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -41,6 +42,17 @@ func getWorkspace(ctx context.Context, c kclient.WithWatch, thread *v1.Thread) (
 	if thread.Spec.WorkspaceName != "" {
 		ws := new(v1.Workspace)
 		return ws, c.Get(ctx, kclient.ObjectKey{Namespace: thread.Namespace, Name: thread.Spec.WorkspaceName}, ws)
+	}
+
+	if thread.Spec.ParentThreadName != "" {
+		parentThread, err := projects.Recurse(ctx, c, thread, func(parentThread *v1.Thread) (bool, error) {
+			return parentThread.Status.WorkspaceName != "", nil
+		})
+		if err != nil {
+			return nil, err
+		}
+		ws := new(v1.Workspace)
+		return ws, c.Get(ctx, kclient.ObjectKey{Namespace: thread.Namespace, Name: parentThread.Status.WorkspaceName}, ws)
 	}
 
 	ws := &v1.Workspace{
@@ -104,6 +116,20 @@ func (t *Handler) CreateKnowledgeSet(req router.Request, _ router.Response) erro
 	thread := req.Object.(*v1.Thread)
 	if len(thread.Status.KnowledgeSetNames) > 0 || thread.Spec.AgentName == "" {
 		return nil
+	}
+
+	if thread.Spec.ParentThreadName != "" {
+		parentThread, err := projects.Recurse(req.Ctx, req.Client, thread, func(parentThread *v1.Thread) (bool, error) {
+			return len(parentThread.Status.KnowledgeSetNames) > 0, nil
+		})
+		if err != nil {
+			return err
+		}
+		if len(parentThread.Status.KnowledgeSetNames) == 0 {
+			return nil
+		}
+		thread.Status.KnowledgeSetNames = parentThread.Status.KnowledgeSetNames
+		return req.Client.Status().Update(req.Ctx, thread)
 	}
 
 	ws := &v1.KnowledgeSet{

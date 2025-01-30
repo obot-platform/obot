@@ -42,7 +42,7 @@
 	import { StateField } from '@codemirror/state';
 	import { githubLight, githubDark } from '@uiw/codemirror-theme-github';
 
-	import { MessageSquareText, CircleHelp } from '$lib/icons';
+	import { MessageSquareText, CircleHelp } from 'lucide-svelte/icons';
 	import { darkMode } from '$lib/stores';
 	import Input from '$lib/components/messages/Input.svelte';
 	import type { EditorItem } from '$lib/stores/editor.svelte';
@@ -72,6 +72,8 @@
 	let ttVisible = $state(false);
 	let ttImprove = $state(false);
 	let view: EditorView | undefined = $state();
+	let setDarkMode: boolean;
+	let reloadDarkMode: () => void;
 	let input = $state<ReturnType<typeof Input>>();
 
 	const basicSetup = (() => [
@@ -104,6 +106,12 @@
 		setValue(file?.contents);
 		if (!focused) {
 			// hide()
+		}
+	});
+
+	$effect(() => {
+		if (setDarkMode !== darkMode.isDark) {
+			reloadDarkMode();
 		}
 	});
 
@@ -179,8 +187,8 @@
 			}
 		});
 
-		// initial state is never use because it's immediately replaced by the darkMode subscription
-		// below, so the darkmode subscription is real constructor
+		// initial state is never use because it's immediately replaced by the reloadDarkMode
+		// below, so the reloadDarkMode is real constructor
 		let state: EditorState = EditorState.create({
 			doc: file.contents
 		});
@@ -190,12 +198,12 @@
 			state
 		});
 
-		darkMode.subscribe((isDarkMode) => {
+		reloadDarkMode = () => {
 			const newState = EditorState.create({
 				doc: state.doc,
 				extensions: [
 					basicSetup,
-					isDarkMode ? githubDark : githubLight,
+					darkMode.isDark ? githubDark : githubLight,
 					updater,
 					langExtension(),
 					cursorTooltipField
@@ -203,7 +211,9 @@
 			});
 			view?.setState(newState);
 			state = newState;
-		});
+			setDarkMode = darkMode.isDark;
+		};
+		reloadDarkMode();
 	}
 
 	function newExplainToolTip(state: EditorState): TooltipView {

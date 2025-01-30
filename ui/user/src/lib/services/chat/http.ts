@@ -1,5 +1,4 @@
-// import from stores/errors and not stores to avoid a circular dependency
-import errors from '$lib/stores/errors';
+import errors from '$lib/stores/errors.svelte';
 
 export let baseURL = 'http://localhost:8080/api';
 
@@ -24,7 +23,7 @@ export async function doGet(path: string, opts?: GetOptions): Promise<unknown> {
 	if (!resp.ok) {
 		const body = await resp.text();
 		const e = new Error(`${resp.status} ${path}: ${body}`);
-		errors.append(e);
+		errors.items.push(e);
 		throw e;
 	}
 
@@ -59,7 +58,7 @@ async function handleResponse(
 		if (opts?.dontLogErrors) {
 			throw e;
 		}
-		errors.append(e);
+		errors.items.push(e);
 		throw e;
 	}
 	if (resp.headers.get('Content-Type') === 'application/json') {
@@ -97,9 +96,9 @@ export async function doWithBody(
 			throw e;
 		}
 		if (e instanceof Error) {
-			errors.append(e);
+			errors.items.push(e);
 		} else {
-			errors.append(new Error(`${e}`));
+			errors.items.push(new Error(`${e}`));
 		}
 		throw e;
 	}

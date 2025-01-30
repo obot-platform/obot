@@ -15,6 +15,8 @@ export interface EditorItem {
 	runID?: string;
 }
 
-const items = $state<EditorItem[]>([]);
+const store = $state({
+	items: [] as EditorItem[]
+});
 
-export default items;
+export default store;

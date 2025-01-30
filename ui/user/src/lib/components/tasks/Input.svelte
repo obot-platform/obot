@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { ChatService, type Task } from '$lib/services';
 	import { autoHeight } from '$lib/actions/textarea.js';
-	import { currentAssistant } from '$lib/stores';
+	import { assistants } from '$lib/stores';
 
 	interface Props {
 		editMode?: boolean;
@@ -51,7 +51,7 @@
 	$effect(display);
 
 	function display() {
-		if (editMode || !displayRunID || !$currentAssistant.id || !task?.id) {
+		if (editMode || !displayRunID || !assistants.current().id || !task?.id) {
 			currentDisplayRunID = '';
 			return;
 		}
@@ -60,7 +60,7 @@
 			return;
 		}
 
-		ChatService.getTaskRun($currentAssistant.id, task.id, displayRunID).then((taskRun) => {
+		ChatService.getTaskRun(task.id, displayRunID).then((taskRun) => {
 			if (!taskRun?.input) {
 				return;
 			}

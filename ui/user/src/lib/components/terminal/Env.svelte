@@ -1,7 +1,6 @@
 <script lang="ts">
 	import Env from '$lib/components/tool/Env.svelte';
 	import { ChatService } from '$lib/services';
-	import { currentAssistant } from '$lib/stores';
 	import { masked } from '$lib/components/tool/Env.svelte';
 
 	let dialog: HTMLDialogElement;
@@ -9,7 +8,7 @@
 	let error = $state('');
 
 	export async function show() {
-		const newEnvs = await ChatService.getAssistantEnv($currentAssistant.id);
+		const newEnvs = await ChatService.getAssistantEnv();
 		envs = Object.entries(newEnvs).map(([key, value]) => ({ key, value, editing: masked }));
 		envs.push({ key: '', value: '', editing: '' });
 		error = '';
@@ -27,7 +26,7 @@
 			{} as Record<string, string>
 		);
 		try {
-			await ChatService.saveAssistantEnv($currentAssistant.id, newEnv);
+			await ChatService.saveAssistantEnv(newEnv);
 		} catch (e) {
 			if (e instanceof Error) {
 				error = e.message;

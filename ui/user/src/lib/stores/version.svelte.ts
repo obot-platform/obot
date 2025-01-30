@@ -1,21 +1,16 @@
 import { getVersion } from '$lib/services/chat/operations';
 import { type Version } from '$lib/services/chat/types';
+import context from '$lib/stores/context';
 
-const version: {
-	current: Version;
-} = $state({
+const store = $state({
 	current: {
 		emailDomain: '',
 		dockerSupported: false
-	}
+	} as Version
 });
 
-async function init() {
-	version.current = await getVersion();
-}
+context.init(async () => {
+	store.current = await getVersion();
+});
 
-if (typeof window !== 'undefined') {
-	init();
-}
-
-export default version;
+export default store;

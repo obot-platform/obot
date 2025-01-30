@@ -55,7 +55,7 @@ func (a *AssistantHandler) Abort(req api.Context) error {
 		id = req.PathValue("id")
 	)
 
-	thread, err := getUserThread(req, id)
+	thread, err := getProjectThread(req, id)
 	if err != nil {
 		return err
 	}
@@ -83,7 +83,7 @@ func (a *AssistantHandler) Invoke(req api.Context) error {
 		return err
 	}
 
-	thread, err := getUserThread(req, id)
+	thread, err := getProjectThread(req, id)
 	if err != nil {
 		return err
 	}
@@ -191,7 +191,7 @@ func normalizeAgentID(id string) string {
 	return id
 }
 
-func getUserThread(req api.Context, agentID string) (*v1.Thread, error) {
+func getDefaultProjectThreadName(req api.Context, agentID string) (*v1.Thread, error) {
 	id := req.User.GetUID()
 	if id == "" {
 		id = "none"
@@ -211,20 +211,27 @@ func getUserThread(req api.Context, agentID string) (*v1.Thread, error) {
 		return nil, err
 	}
 
-	newThread, err := invoke.CreateThreadForAgent(req.Context(), req.Storage, agent, id, req.User.GetUID(), agent.Spec.Manifest.Alias)
+	newThread, err := invoke.CreateThreadForAgent(req.Context(), req.Storage, agent, id, "", req.User.GetUID())
 	if apierrors.IsAlreadyExists(err) {
 		return &thread, req.Get(&thread, id)
 	}
 	return newThread, err
 }
 
+func getProjectThread(req api.Context, agentID string) (*v1.Thread, error) {
+	var projectID = req.PathValue("project_id")
+	if projectID == "" || projectID == "default" {
+		return getDefaultProjectThreadName(req, agentID)
+	}
+	return nil, types.NewErrNotFound("project %s not found", projectID)
+}
+
 func (a *AssistantHandler) DeleteCredential(req api.Context) error {
 	var (
-		id   = req.PathValue("id")
 		cred = req.PathValue("cred_id")
 	)
 
-	thread, err := getUserThread(req, id)
+	thread, err := getThreadForScope(req)
 	if err != nil {
 		return err
 	}
@@ -237,11 +244,7 @@ func (a *AssistantHandler) DeleteCredential(req api.Context) error {
 }
 
 func (a *AssistantHandler) ListCredentials(req api.Context) error {
-	var (
-		id = req.PathValue("id")
-	)
-
-	thread, err := getUserThread(req, id)
+	thread, err := getThreadForScope(req)
 	if err != nil {
 		return err
 	}
@@ -267,7 +270,7 @@ func (a *AssistantHandler) Events(req api.Context) error {
 		runID = req.Request.Header.Get("Last-Event-ID")
 	)
 
-	thread, err := getUserThread(req, id)
+	thread, err := getProjectThread(req, id)
 	if err != nil {
 		return err
 	}
@@ -347,11 +350,7 @@ func (a *AssistantHandler) DeleteFile(req api.Context) error {
 }
 
 func (a *AssistantHandler) SetEnv(req api.Context) error {
-	var (
-		id = req.PathValue("id")
-	)
-
-	thread, err := getUserThread(req, id)
+	thread, err := getThreadForScope(req)
 	if err != nil {
 		return err
 	}
@@ -374,11 +373,7 @@ func (a *AssistantHandler) SetEnv(req api.Context) error {
 }
 
 func (a *AssistantHandler) GetEnv(req api.Context) error {
-	var (
-		id = req.PathValue("id")
-	)
-
-	thread, err := getUserThread(req, id)
+	thread, err := getThreadForScope(req)
 	if err != nil {
 		return err
 	}
@@ -392,11 +387,7 @@ func (a *AssistantHandler) GetEnv(req api.Context) error {
 }
 
 func (a *AssistantHandler) Knowledge(req api.Context) error {
-	var (
-		id = req.PathValue("id")
-	)
-
-	thread, err := getUserThread(req, id)
+	thread, err := getThreadForScope(req)
 	if err != nil {
 		return err
 	}
@@ -409,11 +400,7 @@ func (a *AssistantHandler) Knowledge(req api.Context) error {
 }
 
 func (a *AssistantHandler) UploadKnowledge(req api.Context) error {
-	var (
-		id = req.PathValue("id")
-	)
-
-	thread, err := getUserThread(req, id)
+	thread, err := getThreadForScope(req)
 	if err != nil {
 		return err
 	}
@@ -431,11 +418,7 @@ func (a *AssistantHandler) UploadKnowledge(req api.Context) error {
 }
 
 func (a *AssistantHandler) DeleteKnowledge(req api.Context) error {
-	var (
-		id = req.PathValue("id")
-	)
-
-	thread, err := getUserThread(req, id)
+	thread, err := getThreadForScope(req)
 	if err != nil {
 		return err
 	}
@@ -484,7 +467,7 @@ func (a *AssistantHandler) AddTool(req api.Context) (retErr error) {
 	}()
 
 	var (
-		id           = req.PathValue("id")
+		id           = req.PathValue("assistant_id")
 		tool         = req.PathValue("tool")
 		toolManifest types.ToolManifest
 		hasBody      bool
@@ -504,7 +487,7 @@ func (a *AssistantHandler) AddTool(req api.Context) (retErr error) {
 		return err
 	}
 
-	thread, err := getUserThread(req, id)
+	thread, err := getProjectThread(req, id)
 	if err != nil {
 		return err
 	}
@@ -539,11 +522,11 @@ func (a *AssistantHandler) AddTool(req api.Context) (retErr error) {
 
 func (a *AssistantHandler) DeleteTool(req api.Context) error {
 	var (
-		id     = req.PathValue("id")
+		id     = req.PathValue("assistant_id")
 		toolID = req.PathValue("tool")
 	)
 
-	thread, err := getUserThread(req, id)
+	thread, err := getProjectThread(req, id)
 	if err != nil {
 		return err
 	}
@@ -575,11 +558,11 @@ func (a *AssistantHandler) DeleteTool(req api.Context) error {
 
 func (a *AssistantHandler) RemoveTool(req api.Context) error {
 	var (
-		id   = req.PathValue("id")
+		id   = req.PathValue("assistant_id")
 		tool = req.PathValue("tool")
 	)
 
-	thread, err := getUserThread(req, id)
+	thread, err := getProjectThread(req, id)
 	if err != nil {
 		return err
 	}
@@ -600,7 +583,7 @@ func (a *AssistantHandler) RemoveTool(req api.Context) error {
 
 func (a *AssistantHandler) Tools(req api.Context) error {
 	var (
-		id = req.PathValue("id")
+		id = req.PathValue("assistant_id")
 	)
 
 	agent, err := getAssistant(req, id)
@@ -608,7 +591,7 @@ func (a *AssistantHandler) Tools(req api.Context) error {
 		return err
 	}
 
-	thread, err := getUserThread(req, id)
+	thread, err := getProjectThread(req, id)
 	if err != nil {
 		return err
 	}

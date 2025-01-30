@@ -36,7 +36,7 @@
 			changedFiles: {}
 		};
 
-		for (const file of editor) {
+		for (const file of editor.items) {
 			if (file.modified && !file.taskID) {
 				if (!input.changedFiles) {
 					input.changedFiles = {};
@@ -53,7 +53,7 @@
 		}
 
 		if (input.changedFiles) {
-			for (const file of editor) {
+			for (const file of editor.items) {
 				if (input.changedFiles[file.name]) {
 					file.contents = input.changedFiles[file.name];
 					file.modified = false;

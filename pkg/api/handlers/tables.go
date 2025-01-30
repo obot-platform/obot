@@ -65,7 +65,7 @@ func (t *TableHandler) ListTables(req api.Context) error {
 		}
 	)
 
-	thread, err := getUserThread(req, assistantID)
+	thread, err := getProjectThread(req, assistantID)
 	if err != nil {
 		return err
 	}
@@ -99,7 +99,7 @@ func (t *TableHandler) GetRows(req api.Context) error {
 		return types.NewErrBadRequest("invalid table name %s", tableName)
 	}
 
-	thread, err := getUserThread(req, assistantID)
+	thread, err := getProjectThread(req, assistantID)
 	if err != nil {
 		return err
 	}

@@ -1,12 +1,12 @@
 <script lang="ts">
 	import { Info, OctagonX, Play, X } from 'lucide-svelte';
 	import { ChatService, type Task, type TaskRun } from '$lib/services';
-	import { onDestroy } from 'svelte';
-	import { currentAssistant } from '$lib/stores';
-	import { Trash } from '$lib/icons';
+	import { onDestroy, onMount } from 'svelte';
+	import { Trash } from 'lucide-svelte/icons';
 	import { formatTime } from '$lib/time';
 	import Confirm from '$lib/components/Confirm.svelte';
 	import Input from '$lib/components/tasks/Input.svelte';
+	import { assistants } from '$lib/stores/index';
 
 	interface Props {
 		id: string;
@@ -28,8 +28,8 @@
 		}
 	});
 
-	currentAssistant.subscribe((assistant) => {
-		if (assistant.id) {
+	onMount(() => {
+		if (assistants.current().id) {
 			listRuns();
 		}
 	});
@@ -44,8 +44,8 @@
 
 	async function listRuns() {
 		try {
-			if ($currentAssistant.id && id) {
-				runs = (await ChatService.listTaskRuns($currentAssistant.id, id)).items;
+			if (assistants.current().id && id) {
+				runs = (await ChatService.listTaskRuns(id)).items;
 			}
 		} finally {
 			if (timeout) {
@@ -58,7 +58,7 @@
 
 	async function run(withInput?: string) {
 		if (!withInput) {
-			taskToRun = await ChatService.getTask($currentAssistant.id, id);
+			taskToRun = await ChatService.getTask(id);
 			if (taskToRun.onDemand?.params && Object.keys(taskToRun.onDemand.params).length > 0) {
 				inputDialog?.showModal();
 				return;
@@ -70,29 +70,29 @@
 		}
 
 		inputDialog?.close();
-		if ($currentAssistant.id && id) {
-			const newRun = await ChatService.runTask($currentAssistant.id, id, {
+		if (assistants.current().id && id) {
+			const newRun = await ChatService.runTask(id, {
 				input: withInput
 			});
-			runs = (await ChatService.listTaskRuns($currentAssistant.id, id)).items;
+			runs = (await ChatService.listTaskRuns(id)).items;
 			await select(newRun.id);
 		}
 	}
 
 	async function abort(runId: string) {
-		if ($currentAssistant.id && id) {
-			await ChatService.abort($currentAssistant.id, {
+		if (assistants.current().id && id) {
+			await ChatService.abort({
 				taskID: id,
 				runID: runId
 			});
-			runs = (await ChatService.listTaskRuns($currentAssistant.id, id)).items;
+			runs = (await ChatService.listTaskRuns(id)).items;
 		}
 	}
 
 	async function deleteTask(runId: string) {
-		if ($currentAssistant.id && id) {
-			await ChatService.deleteTaskRun($currentAssistant.id, id, runId);
-			runs = (await ChatService.listTaskRuns($currentAssistant.id, id)).items;
+		if (assistants.current().id && id) {
+			await ChatService.deleteTaskRun(id, runId);
+			runs = (await ChatService.listTaskRuns(id)).items;
 			if (selected === runId) {
 				await select(runId);
 			}

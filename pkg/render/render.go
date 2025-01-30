@@ -11,6 +11,7 @@ import (
 	"github.com/gptscript-ai/go-gptscript"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/gz"
+	"github.com/obot-platform/obot/pkg/projects"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	apierror "k8s.io/apimachinery/pkg/api/errors"
@@ -74,7 +75,18 @@ func Agent(ctx context.Context, db kclient.Client, agent *v1.Agent, oauthServerU
 	}
 
 	if opts.Thread != nil {
-		for _, t := range opts.Thread.Spec.Manifest.Tools {
+		tools := opts.Thread.Spec.Manifest.Tools
+		if len(tools) == 0 && opts.Thread.Spec.ParentThreadName != "" {
+			parentThread, err := projects.Recurse(ctx, db, opts.Thread, func(parentThread *v1.Thread) (bool, error) {
+				return len(parentThread.Spec.Manifest.Tools) > 0, nil
+			})
+			if err != nil {
+				return nil, nil, err
+			}
+			tools = parentThread.Spec.Manifest.Tools
+		}
+
+		for _, t := range tools {
 			if !added && t == knowledgeToolName {
 				continue
 			}

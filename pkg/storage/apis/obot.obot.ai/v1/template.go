@@ -19,7 +19,6 @@ type Template struct {
 }
 
 type TemplateSpec struct {
-	Description string `json:"description,omitempty"`
 }
 
 type TemplateStatus struct {

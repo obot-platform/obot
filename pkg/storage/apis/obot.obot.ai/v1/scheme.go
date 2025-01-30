@@ -35,6 +35,8 @@ func AddToSchemeWithGV(scheme *runtime.Scheme, schemeGroupVersion schema.GroupVe
 		&RunStateList{},
 		&Thread{},
 		&ThreadList{},
+		&ThreadAuthorization{},
+		&ThreadAuthorizationList{},
 		&Workflow{},
 		&WorkflowList{},
 		&WorkflowExecution{},

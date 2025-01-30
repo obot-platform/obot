@@ -691,7 +691,7 @@ func getThreadForScope(req api.Context) (*v1.Thread, error) {
 	assistantID := req.PathValue("assistant_id")
 
 	if assistantID != "" {
-		thread, err := getUserThread(req, assistantID)
+		thread, err := getProjectThread(req, assistantID)
 		if err != nil {
 			return nil, err
 		}

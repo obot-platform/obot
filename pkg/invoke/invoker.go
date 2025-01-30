@@ -22,6 +22,7 @@ import (
 	"github.com/obot-platform/obot/pkg/gz"
 	"github.com/obot-platform/obot/pkg/hash"
 	"github.com/obot-platform/obot/pkg/jwt"
+	"github.com/obot-platform/obot/pkg/projects"
 	"github.com/obot-platform/obot/pkg/render"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
@@ -164,7 +165,6 @@ type Options struct {
 	CreateThread          bool
 	ThreadCredentialScope *bool
 	UserUID               string
-	AgentAlias            string
 }
 
 func (i *Invoker) getChatState(ctx context.Context, c kclient.Client, run *v1.Run) (result, lastThreadName string, _ error) {
@@ -207,10 +207,49 @@ func getThreadForAgent(ctx context.Context, c kclient.WithWatch, agent *v1.Agent
 		return &thread, c.Get(ctx, router.Key(agent.Namespace, opt.ThreadName), &thread)
 	}
 
-	return CreateThreadForAgent(ctx, c, agent, opt.ThreadName, opt.UserUID, opt.AgentAlias)
+	var parentThreadName string
+	if opt.PreviousRunName != "" {
+		var run v1.Run
+		if err := c.Get(ctx, router.Key(agent.Namespace, opt.PreviousRunName), &run); err != nil {
+			return nil, err
+		}
+		parentThreadName = run.Spec.ThreadName
+	}
+
+	return CreateThreadForAgent(ctx, c, agent, opt.ThreadName, parentThreadName, opt.UserUID)
 }
 
-func CreateThreadForAgent(ctx context.Context, c kclient.WithWatch, agent *v1.Agent, threadName, userUID, agentAlias string) (*v1.Thread, error) {
+func CreateThreadForProject(ctx context.Context, c kclient.WithWatch, projectThread *v1.Thread, userUID string) (*v1.Thread, error) {
+	var agent v1.Agent
+	if err := c.Get(ctx, router.Key(projectThread.Namespace, projectThread.Spec.AgentName), &agent); err != nil {
+		return nil, err
+	}
+
+	thread := v1.Thread{
+		ObjectMeta: metav1.ObjectMeta{
+			GenerateName: system.ThreadPrefix,
+			Namespace:    agent.Namespace,
+			Finalizers:   []string{v1.ThreadFinalizer},
+		},
+		Spec: v1.ThreadSpec{
+			AgentName:        agent.Name,
+			ParentThreadName: projectThread.Name,
+			UserUID:          userUID,
+		},
+	}
+
+	return &thread, c.Create(ctx, &thread)
+}
+
+func CreateProjectForAgent(ctx context.Context, c kclient.WithWatch, agent *v1.Agent, name, userUID string) (*v1.Thread, error) {
+	return createThreadForAgent(ctx, c, agent, "", "", userUID, true, name)
+}
+
+func CreateThreadForAgent(ctx context.Context, c kclient.WithWatch, agent *v1.Agent, threadName, parentThreadName, userUID string) (*v1.Thread, error) {
+	return createThreadForAgent(ctx, c, agent, threadName, parentThreadName, userUID, false, "")
+}
+
+func createThreadForAgent(ctx context.Context, c kclient.WithWatch, agent *v1.Agent, threadName, parentThreadName, userUID string, project bool, projectName string) (*v1.Thread, error) {
 	var (
 		fromWorkspaceNames []string
 		err                error
@@ -240,24 +279,22 @@ func CreateThreadForAgent(ctx context.Context, c kclient.WithWatch, agent *v1.Ag
 		},
 		Spec: v1.ThreadSpec{
 			Manifest: types.ThreadManifest{
-				Tools: agent.Spec.Manifest.DefaultThreadTools,
+				Tools:       agent.Spec.Manifest.DefaultThreadTools,
+				Description: projectName,
 			},
 			AgentName:          agent.Name,
+			ParentThreadName:   parentThreadName,
 			FromWorkspaceNames: fromWorkspaceNames,
+			Project:            project,
 			UserUID:            userUID,
-			AgentAlias:         agentAlias,
 			TextEmbeddingModel: agentKnowledgeSet.Spec.TextEmbeddingModel,
 		},
 	}
 	return &thread, c.Create(ctx, &thread)
 }
 
-func (i *Invoker) updateThreadFields(ctx context.Context, c kclient.WithWatch, agent *v1.Agent, thread *v1.Thread, opt Options) error {
+func (i *Invoker) updateThreadFields(ctx context.Context, c kclient.WithWatch, agent *v1.Agent, thread *v1.Thread) error {
 	var updated bool
-	if opt.AgentAlias != "" && thread.Spec.AgentAlias != opt.AgentAlias {
-		thread.Spec.AgentAlias = opt.AgentAlias
-		updated = true
-	}
 	if thread.Spec.AgentName != agent.Name {
 		thread.Spec.AgentName = agent.Name
 		updated = true
@@ -270,9 +307,6 @@ func (i *Invoker) updateThreadFields(ctx context.Context, c kclient.WithWatch, a
 
 func (i *Invoker) Agent(ctx context.Context, c kclient.WithWatch, agent *v1.Agent, input string, opt Options) (_ *Response, err error) {
 	thread, err := getThreadForAgent(ctx, c, agent, opt)
-	if apierror.IsNotFound(err) && opt.CreateThread && strings.HasPrefix(opt.ThreadName, system.ThreadPrefix) {
-		thread, err = CreateThreadForAgent(ctx, c, agent, opt.ThreadName, opt.UserUID, opt.AgentAlias)
-	}
 	if err != nil {
 		return nil, err
 	}
@@ -282,6 +316,12 @@ func (i *Invoker) Agent(ctx context.Context, c kclient.WithWatch, agent *v1.Agen
 	}
 
 	credContextIDs := []string{thread.Name}
+	if thread.Spec.ParentThreadName != "" {
+		credContextIDs, err = projects.ParentThreadIDs(ctx, c, thread)
+		if err != nil {
+			return nil, err
+		}
+	}
 	if opt.ThreadCredentialScope != nil && !*opt.ThreadCredentialScope {
 		credContextIDs = nil
 	}
@@ -299,7 +339,7 @@ func (i *Invoker) Agent(ctx context.Context, c kclient.WithWatch, agent *v1.Agen
 		return nil, err
 	}
 
-	if err := i.updateThreadFields(ctx, c, agent, thread, opt); err != nil {
+	if err := i.updateThreadFields(ctx, c, agent, thread); err != nil {
 		return nil, err
 	}
 

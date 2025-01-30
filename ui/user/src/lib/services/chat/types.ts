@@ -171,7 +171,7 @@ export interface Assistant {
 	default?: boolean;
 	name?: string;
 	description?: string;
-	current: boolean;
+	current?: boolean;
 	icons: AssistantIcons;
 	starterMessages?: string[];
 	introductionMessage?: string;
@@ -263,4 +263,10 @@ export interface Table {
 export interface Rows {
 	columns: string[];
 	rows: Record<string, unknown>[];
+}
+
+export interface Context {
+	assistantID: string;
+	projectID: string;
+	valid?: boolean;
 }

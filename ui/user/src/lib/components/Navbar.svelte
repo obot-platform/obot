@@ -11,7 +11,7 @@
 	import Term from '$lib/components/navbar/Term.svelte';
 
 	function hasOptionalTools() {
-		for (const tool of $tools.items) {
+		for (const tool of tools.items) {
 			if (!tool.builtin) {
 				return true;
 			}
@@ -20,7 +20,7 @@
 	}
 
 	function hasTool(tool: string) {
-		for (const t of $tools.items) {
+		for (const t of tools.items) {
 			if (t.id === tool) {
 				return t.enabled || t.builtin;
 			}

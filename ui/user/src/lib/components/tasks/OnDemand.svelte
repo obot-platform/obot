@@ -1,7 +1,7 @@
 <script lang="ts">
 	import type { OnDemand } from '$lib/services';
 	import Table from '$lib/components/tasks/Table.svelte';
-	import { Plus } from '$lib/icons';
+	import { Plus } from 'lucide-svelte/icons';
 	import { Minus } from 'lucide-svelte';
 
 	interface Props {

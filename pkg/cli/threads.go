@@ -2,10 +2,12 @@ package cli
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/dustin/go-humanize"
 	"github.com/obot-platform/obot/apiclient"
 	"github.com/obot-platform/obot/apiclient/types"
+	"github.com/obot-platform/obot/pkg/system"
 	"github.com/spf13/cobra"
 )
 
@@ -62,7 +64,8 @@ func (l *Threads) Run(cmd *cobra.Command, args []string) error {
 		if run == "" {
 			run = thread.LastRunID
 		}
-		w.WriteRow(thread.ID, thread.ParentThreadID, thread.Description, agentWF, run, thread.State, humanize.Time(thread.Created.Time))
+		w.WriteRow(thread.ID, strings.Replace(thread.ProjectID, system.ProjectPrefix, system.ThreadPrefix, 1),
+			thread.Description, agentWF, run, thread.State, humanize.Time(thread.Created.Time))
 	}
 
 	return w.Err()

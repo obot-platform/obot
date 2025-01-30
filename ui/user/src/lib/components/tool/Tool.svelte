@@ -50,7 +50,6 @@ printf "The current temperature in %s is %.2f°F.\\n" "$CITY" "$RANDOM_TEMPERATU
 	import { autoHeight } from '$lib/actions/textarea.js';
 	import { Container, X, ChevronDown, ChevronUp } from 'lucide-svelte';
 	import { type AssistantTool, ChatService, EditorService } from '$lib/services';
-	import { currentAssistant } from '$lib/stores';
 	import Confirm from '$lib/components/Confirm.svelte';
 	import Dropdown from '$lib/components/tasks/Dropdown.svelte';
 	import Env from '$lib/components/tool/Env.svelte';
@@ -58,7 +57,7 @@ printf "The current temperature in %s is %.2f°F.\\n" "$CITY" "$RANDOM_TEMPERATU
 	import Params from '$lib/components/tool/Params.svelte';
 	import Codemirror from '$lib/components/editor/Codemirror.svelte';
 	import Controls from '$lib/components/editor/Controls.svelte';
-	import { Trash } from '$lib/icons';
+	import { Trash } from 'lucide-svelte/icons';
 	import type { EditorItem } from '$lib/stores/editor.svelte';
 
 	interface Props {
@@ -123,7 +122,7 @@ printf "The current temperature in %s is %.2f°F.\\n" "$CITY" "$RANDOM_TEMPERATU
 		if (!id) {
 			return;
 		}
-		await ChatService.deleteTool($currentAssistant.id, id);
+		await ChatService.deleteTool(id);
 		EditorService.remove(id);
 	}
 
@@ -135,7 +134,7 @@ printf "The current temperature in %s is %.2f°F.\\n" "$CITY" "$RANDOM_TEMPERATU
 		const newEnv = toMap(envs);
 		tool.params = toMap(params);
 		if (id) {
-			await ChatService.updateTool($currentAssistant.id, tool, { env: newEnv });
+			await ChatService.updateTool(tool, { env: newEnv });
 		}
 		await load();
 	}
@@ -149,7 +148,6 @@ printf "The current temperature in %s is %.2f°F.\\n" "$CITY" "$RANDOM_TEMPERATU
 		testTool.params = toMap(params);
 
 		testOutput = ChatService.testTool(
-			$currentAssistant.id,
 			testTool,
 			Object.fromEntries(input.map(({ key, value }) => [key, value])),
 			{
@@ -181,7 +179,7 @@ printf "The current temperature in %s is %.2f°F.\\n" "$CITY" "$RANDOM_TEMPERATU
 		if (!id || typeof window === 'undefined') {
 			return;
 		}
-		tool = await ChatService.getTool($currentAssistant.id, id);
+		tool = await ChatService.getTool(id);
 
 		if (!tool.toolType) {
 			tool.toolType = 'javascript';
@@ -192,7 +190,7 @@ printf "The current temperature in %s is %.2f°F.\\n" "$CITY" "$RANDOM_TEMPERATU
 		}
 
 		saved = { ...tool };
-		const newEnvs = await ChatService.getToolEnv($currentAssistant.id, id);
+		const newEnvs = await ChatService.getToolEnv(id);
 		envs = Object.entries(newEnvs).map(([key, value]) => ({ key, value, editing: masked }));
 		savedEnd = Object.entries(newEnvs).map(([key, value]) => ({ key, value, editing: masked }));
 		params = Object.entries(tool.params ?? {}).map(([key, value]) => ({ key, value }));

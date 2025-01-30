@@ -1,12 +1,11 @@
 <script lang="ts">
-	import { FileText, X } from '$lib/icons';
+	import { FileText, X } from 'lucide-svelte/icons';
 	import Milkdown from '$lib/components/editor/Milkdown.svelte';
 	import Table from '$lib/components/editor/Table.svelte';
 	import Codemirror from '$lib/components/editor/Codemirror.svelte';
 	import { ChatService, EditorService, type InvokeInput } from '$lib/services';
 	import Task from '$lib/components/tasks/Task.svelte';
 	import Controls from '$lib/components/editor/Controls.svelte';
-	import { currentAssistant } from '$lib/stores';
 	import Image from '$lib/components/editor/Image.svelte';
 	import { CheckSquare, Table as TableIcon, Image as ImageIcon, Wrench } from 'lucide-svelte';
 	import { isImage } from '$lib/image';
@@ -26,9 +25,7 @@
 	}
 
 	async function onInvoke(invoke: InvokeInput) {
-		if ($currentAssistant.id) {
-			await ChatService.invoke($currentAssistant.id, invoke);
-		}
+		await ChatService.invoke(invoke);
 	}
 </script>
 

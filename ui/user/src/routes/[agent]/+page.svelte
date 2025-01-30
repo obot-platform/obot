@@ -4,17 +4,17 @@
 	import Editor from '$lib/components/Editors.svelte';
 	import { EditorService } from '$lib/services';
 	import Notifications from '$lib/components/Notifications.svelte';
-	import { currentAssistant } from '$lib/stores';
+	import { assistants } from '$lib/stores';
 	import Thread from '$lib/components/Thread.svelte';
 
 	const editorVisible = EditorService.visible;
 	const editorMaxSize = EditorService.maxSize;
 
-	let title = $derived($currentAssistant.name ?? '');
+	let title = $derived(assistants.current()?.name ?? '');
 	let splitWindow = $derived(editorVisible && !$editorMaxSize);
 
 	$effect(() => {
-		if ($profile.unauthorized) {
+		if (profile.current.unauthorized) {
 			// Redirect to the main page to log in.
 			window.location.href = '/';
 		}
@@ -34,7 +34,7 @@
 	<!-- these divs suck, but it's so that we have a relative container for the absolute input and the scrollable area is the entire screen and not just
 			 the center content. Plus the screen will auto resize as the editor is resized -->
 	<div class="relative flex-1 overflow-auto">
-		<Thread assistant={$currentAssistant} />
+		<Thread />
 	</div>
 
 	{#if $editorVisible || term.open}

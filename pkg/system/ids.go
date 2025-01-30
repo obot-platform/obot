@@ -21,6 +21,7 @@ const (
 	AliasPrefix             = "al1"
 	DefaultModelAliasPrefix = "dma1"
 	ToolPrefix              = "tl1"
+	ProjectPrefix           = "p1"
 )
 
 func IsThreadID(id string) bool {

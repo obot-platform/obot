@@ -51,7 +51,7 @@ func (in *AgentAuthorization) FieldNames() []string {
 }
 
 type AgentAuthorizationSpec struct {
-	types.AuthorizationManifest
+	types.AgentAuthorizationManifest
 }
 
 type AgentAuthorizationStatus struct {

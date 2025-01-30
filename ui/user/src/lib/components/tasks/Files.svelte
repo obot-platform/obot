@@ -1,10 +1,10 @@
 <script lang="ts">
-	import { FileText, Trash } from '$lib/icons';
-	import { currentAssistant } from '$lib/stores';
+	import { FileText, Trash } from 'lucide-svelte/icons';
 	import { ChatService, EditorService, type Files } from '$lib/services';
 	import { Download, RotateCw } from 'lucide-svelte';
 	import { onDestroy } from 'svelte';
 	import Confirm from '$lib/components/Confirm.svelte';
+	import { assistants } from '$lib/stores/index';
 
 	interface Props {
 		taskID: string;
@@ -20,7 +20,7 @@
 	async function loadFiles() {
 		try {
 			loading = true;
-			files = await ChatService.listFiles($currentAssistant.id, {
+			files = await ChatService.listFiles({
 				taskID,
 				runID
 			});
@@ -33,7 +33,7 @@
 		if (!fileToDelete) {
 			return;
 		}
-		await ChatService.deleteFile($currentAssistant.id, fileToDelete, {
+		await ChatService.deleteFile(fileToDelete, {
 			taskID,
 			runID
 		});
@@ -52,7 +52,7 @@
 	});
 
 	$effect(() => {
-		if (!files && $currentAssistant.id) {
+		if (!files && assistants.current().id) {
 			loadFiles();
 		}
 	});
@@ -85,7 +85,7 @@
 						<button
 							class="flex flex-1 items-center"
 							onclick={async () => {
-								await EditorService.load($currentAssistant.id, file.name, {
+								await EditorService.load(file.name, {
 									taskID,
 									runID
 								});
@@ -97,7 +97,7 @@
 						<button
 							class="ms-2 hidden group-hover:block"
 							onclick={() => {
-								EditorService.download($currentAssistant.id, file.name, {
+								EditorService.download(file.name, {
 									taskID,
 									runID
 								});

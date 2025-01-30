@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { Maximize, X, Download, Columns2 } from 'lucide-svelte';
 	import { EditorService } from '$lib/services';
-	import { term, currentAssistant } from '$lib/stores';
+	import { term } from '$lib/stores';
 
 	interface Props {
 		navBar?: boolean;
@@ -44,7 +44,7 @@
 				onclick={() => {
 					const selected = EditorService.items.find((item) => item.selected);
 					if (selected) {
-						EditorService.download($currentAssistant.id, selected.name, {
+						EditorService.download(selected.name, {
 							taskID: selected.taskID,
 							runID: selected.runID
 						});
