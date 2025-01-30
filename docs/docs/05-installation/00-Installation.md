@@ -1,3 +1,8 @@
+---
+title: Overview
+slug: /installation/overview
+---
+
 # Overview
 
 ## Obot Architecture
