@@ -181,6 +181,7 @@ func (a *AgentHandler) Create(req api.Context) error {
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: system.AgentPrefix,
 			Namespace:    req.Namespace(),
+			Finalizers:   []string{v1.AgentFinalizer},
 		},
 		Spec: v1.AgentSpec{
 			Manifest: manifest,

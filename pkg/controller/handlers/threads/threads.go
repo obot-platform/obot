@@ -81,25 +81,6 @@ func (t *Handler) CreateWorkspaces(req router.Request, _ router.Response) error 
 	return nil
 }
 
-func (t *Handler) CleanupThread(req router.Request, _ router.Response) error {
-	thread := req.Object.(*v1.Thread)
-
-	creds, err := t.gptScript.ListCredentials(req.Ctx, gptscript.ListCredentialsOptions{
-		CredentialContexts: []string{thread.Name},
-	})
-	if err != nil {
-		return err
-	}
-
-	for _, cred := range creds {
-		if err := t.gptScript.DeleteCredential(req.Ctx, thread.Name, cred.ToolName); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
 func (t *Handler) CreateKnowledgeSet(req router.Request, _ router.Response) error {
 	thread := req.Object.(*v1.Thread)
 	if len(thread.Status.KnowledgeSetNames) > 0 || thread.Spec.AgentName == "" {

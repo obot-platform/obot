@@ -3,6 +3,8 @@ kind: Agent
 metadata:
   name: a1-obot
   namespace: default
+  finalizers:
+    - obot.obot.ai/agent
 spec:
   manifest:
     name: Obot

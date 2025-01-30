@@ -234,6 +234,7 @@ func (a *WorkflowHandler) Create(req api.Context) error {
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: system.WorkflowPrefix,
 			Namespace:    req.Namespace(),
+			Finalizers:   []string{v1.WorkflowFinalizer},
 		},
 		Spec: v1.WorkflowSpec{
 			Manifest: manifest,

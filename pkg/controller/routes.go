@@ -46,6 +46,7 @@ func (c *Controller) setupRoutes() error {
 	knowledgesummary := knowledgesummary.NewHandler(c.services.GPTClient)
 	toolInfo := toolinfo.New(c.services.GPTClient)
 	threads := threads.NewHandler(c.services.GPTClient)
+	credentialCleanup := cleanup.NewCredentials(c.services.GPTClient)
 
 	// Runs
 	root.Type(&v1.Run{}).HandlerFunc(removeOldFinalizers)
@@ -61,7 +62,7 @@ func (c *Controller) setupRoutes() error {
 	root.Type(&v1.Thread{}).HandlerFunc(threads.CreateKnowledgeSet)
 	root.Type(&v1.Thread{}).HandlerFunc(threads.WorkflowState)
 	root.Type(&v1.Thread{}).HandlerFunc(knowledgesummary.Summarize)
-	root.Type(&v1.Thread{}).FinalizeFunc(v1.ThreadFinalizer, threads.CleanupThread)
+	root.Type(&v1.Thread{}).FinalizeFunc(v1.ThreadFinalizer, credentialCleanup.Remove)
 
 	// KnowledgeSummary
 	root.Type(&v1.KnowledgeSummary{}).HandlerFunc(cleanup.Cleanup)
@@ -74,6 +75,7 @@ func (c *Controller) setupRoutes() error {
 	root.Type(&v1.Workflow{}).HandlerFunc(alias.AssignAlias)
 	root.Type(&v1.Workflow{}).HandlerFunc(toolInfo.SetToolInfoStatus)
 	root.Type(&v1.Workflow{}).HandlerFunc(generationed.UpdateObservedGeneration)
+	root.Type(&v1.Workflow{}).FinalizeFunc(v1.WorkflowFinalizer, credentialCleanup.Remove)
 
 	// WorkflowExecutions
 	root.Type(&v1.WorkflowExecution{}).HandlerFunc(cleanup.Cleanup)
@@ -86,6 +88,7 @@ func (c *Controller) setupRoutes() error {
 	root.Type(&v1.Agent{}).HandlerFunc(alias.AssignAlias)
 	root.Type(&v1.Agent{}).HandlerFunc(toolInfo.SetToolInfoStatus)
 	root.Type(&v1.Agent{}).HandlerFunc(generationed.UpdateObservedGeneration)
+	root.Type(&v1.Agent{}).FinalizeFunc(v1.AgentFinalizer, credentialCleanup.Remove)
 
 	// Uploads
 	root.Type(&v1.KnowledgeSource{}).HandlerFunc(cleanup.Cleanup)
