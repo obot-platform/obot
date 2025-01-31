@@ -62,8 +62,10 @@ func (s *Server) wrap(f api.HandlerFunc) http.HandlerFunc {
 			return
 		}
 
-		if setCookie := firstValue(user.GetExtra(), "set-cookie"); setCookie != "" {
-			rw.Header().Set("Set-Cookie", setCookie)
+		if user.GetExtra()["set-cookies"] != nil {
+			for _, setCookie := range user.GetExtra()["set-cookies"] {
+				rw.Header().Add("Set-Cookie", setCookie)
+			}
 		}
 
 		if !s.authorizer.Authorize(req, user) {
