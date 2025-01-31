@@ -1,5 +1,10 @@
 // TODO: Add default configurations with auth tokens, etc. When ready
-import axios, { AxiosRequestConfig, AxiosResponse, isAxiosError } from "axios";
+import axios, {
+	AxiosRequestConfig,
+	AxiosResponse,
+	CanceledError,
+	isAxiosError,
+} from "axios";
 import { toast } from "sonner";
 
 import { AuthDisabledUsername } from "~/lib/model/auth";
@@ -79,7 +84,8 @@ export async function request<T, R = AxiosResponse<T>, D = unknown>({
 			});
 		}
 
-		if (toastError) toast.error(errorMessage);
+		if (toastError && !(convertedError instanceof CanceledError))
+			toast.error(errorMessage);
 
 		throw convertedError;
 	}
@@ -106,6 +112,10 @@ function convertError(error: Error) {
 
 	if (isAxiosError(error) && error.response?.status === 409) {
 		return new ConflictError(error.response.data);
+	}
+
+	if (isAxiosError(error) && error.name === "ERR_CANCELED") {
+		return new CanceledError(error.name);
 	}
 
 	return error;
