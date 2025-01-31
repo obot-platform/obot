@@ -13,11 +13,11 @@ type AuthProviderManifest struct {
 }
 
 type AuthProviderStatus struct {
-	Icon                            string   `json:"icon,omitempty"`
-	Configured                      bool     `json:"configured"`
-	RequiredConfigurationParameters []string `json:"requiredConfigurationParameters,omitempty"`
-	MissingConfigurationParameters  []string `json:"missingConfigurationParameters,omitempty"`
-	OptionalConfigurationParameters []string `json:"optionalConfigurationParameters,omitempty"`
+	CommonProviderMetadata
+	Configured                      bool                             `json:"configured"`
+	RequiredConfigurationParameters []ProviderConfigurationParameter `json:"requiredConfigurationParameters,omitempty"`
+	OptionalConfigurationParameters []ProviderConfigurationParameter `json:"optionalConfigurationParameters,omitempty"`
+	MissingConfigurationParameters  []string                         `json:"missingConfigurationParameters,omitempty"`
 }
 
 type AuthProviderList List[AuthProvider]

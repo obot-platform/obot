@@ -16,6 +16,7 @@ import (
 	"github.com/gptscript-ai/gptscript/pkg/engine"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/alias"
+	"github.com/obot-platform/obot/pkg/api/handlers/providers"
 	"github.com/obot-platform/obot/pkg/invoke"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
@@ -230,21 +231,23 @@ func (d *Dispatcher) startModelProvider(ctx context.Context, namespace, modelPro
 	}
 
 	// Ensure that the model provider has been configured so that we don't get stuck waiting on a prompt.
-	if modelProvider.Status.Tool.Metadata["envVars"] != "" {
+	mps, err := providers.ConvertModelProviderToolRef(modelProvider, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to convert model provider: %w", err)
+	}
+	if len(mps.RequiredConfigurationParameters) > 0 {
 		cred, err := d.gptscript.RevealCredential(ctx, credCtx, modelProviderName)
 		if err != nil {
 			return nil, fmt.Errorf("model provider is not configured: %w", err)
 		}
 
-		var missingEnvVars []string
-		for _, envVar := range strings.Split(modelProvider.Status.Tool.Metadata["envVars"], ",") {
-			if cred.Env[envVar] == "" {
-				missingEnvVars = append(missingEnvVars, envVar)
-			}
+		mps, err = providers.ConvertModelProviderToolRef(modelProvider, cred.Env)
+		if err != nil {
+			return nil, fmt.Errorf("failed to convert model provider: %w", err)
 		}
 
-		if len(missingEnvVars) > 0 {
-			return nil, fmt.Errorf("model provider is not configured: missing configuration parameters %s", strings.Join(missingEnvVars, ", "))
+		if len(mps.MissingConfigurationParameters) > 0 {
+			return nil, fmt.Errorf("model provider is not configured: missing configuration parameters %s", strings.Join(mps.MissingConfigurationParameters, ", "))
 		}
 
 		if modelProvider.Name == "openai-model-provider" {
@@ -330,8 +333,11 @@ func (d *Dispatcher) startAuthProvider(ctx context.Context, namespace, authProvi
 	}
 
 	// Ensure that the auth provider has been configured so that we don't get stuck waiting on a prompt.
-
-	if authProvider.Status.Tool.Metadata["envVars"] != "" {
+	aps, err := providers.ConvertAuthProviderToolRef(authProvider, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to convert auth provider: %w", err)
+	}
+	if len(aps.RequiredConfigurationParameters) > 0 {
 		isConfigured, missingEnvVars, err := d.isAuthProviderConfigured(ctx, credCtx, authProvider)
 		if err != nil {
 			return nil, fmt.Errorf("failed to check auth provider configuration: %w", err)
@@ -391,21 +397,10 @@ func (d *Dispatcher) isAuthProviderConfigured(ctx context.Context, credCtx []str
 		return false, nil, err
 	}
 
-	var requiredEnvVars []string
-	if toolRef.Status.Tool.Metadata["envVars"] != "" {
-		requiredEnvVars = strings.Split(toolRef.Status.Tool.Metadata["envVars"], ",")
+	aps, err := providers.ConvertAuthProviderToolRef(toolRef, cred.Env)
+	if err != nil {
+		return false, nil, err
 	}
 
-	var missingEnvVars []string
-	for _, envVar := range requiredEnvVars {
-		if cred.Env[envVar] == "" {
-			missingEnvVars = append(missingEnvVars, envVar)
-		}
-	}
-
-	if len(missingEnvVars) > 0 {
-		return false, missingEnvVars, nil
-	}
-
-	return true, nil, nil
+	return aps.Configured, aps.MissingConfigurationParameters, nil
 }

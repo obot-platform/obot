@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/obot-platform/obot/pkg/api/handlers/providers"
+
 	"github.com/gptscript-ai/go-gptscript"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
@@ -46,9 +48,14 @@ func (mp *ModelProviderHandler) ByID(req api.Context) error {
 		)
 	}
 
+	mps, err := providers.ConvertModelProviderToolRef(ref, nil)
+	if err != nil {
+		return err
+	}
+
 	var credEnvVars map[string]string
 	if ref.Status.Tool != nil {
-		if envVars := ref.Status.Tool.Metadata["envVars"]; envVars != "" {
+		if len(mps.RequiredConfigurationParameters) > 0 {
 			cred, err := mp.gptscript.RevealCredential(req.Context(), []string{string(ref.UID), system.GenericModelProviderCredentialContext}, ref.Name)
 			if err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
 				return fmt.Errorf("failed to reveal credential for model provider %q: %w", ref.Name, err)
@@ -302,9 +309,14 @@ func (mp *ModelProviderHandler) RefreshModels(req api.Context) error {
 		return types.NewErrBadRequest("%q is not a model provider", ref.Name)
 	}
 
+	mps, err := providers.ConvertModelProviderToolRef(ref, nil)
+	if err != nil {
+		return err
+	}
+
 	var credEnvVars map[string]string
 	if ref.Status.Tool != nil {
-		if envVars := ref.Status.Tool.Metadata["envVars"]; envVars != "" {
+		if len(mps.RequiredConfigurationParameters) > 0 {
 			cred, err := mp.gptscript.RevealCredential(req.Context(), []string{string(ref.UID), system.GenericModelProviderCredentialContext}, ref.Name)
 			if err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
 				return fmt.Errorf("failed to reveal credential for model provider %q: %w", ref.Name, err)
@@ -344,7 +356,7 @@ func convertToolReferenceToModelProvider(ref v1.ToolReference, credEnvVars map[s
 		name = ref.Status.Tool.Name
 	}
 
-	mps, err := convertModelProviderToolRef(ref, credEnvVars)
+	mps, err := providers.ConvertModelProviderToolRef(ref, credEnvVars)
 	if err != nil {
 		return types.ModelProvider{}, err
 	}
@@ -360,46 +372,4 @@ func convertToolReferenceToModelProvider(ref v1.ToolReference, credEnvVars map[s
 	mp.Type = "modelprovider"
 
 	return mp, nil
-}
-
-type ProviderMeta struct {
-	types.ModelProviderCommonMetadata
-	EnvVars         []types.ModelProviderConfigurationParameter `json:"envVars"`
-	OptionalEnvVars []types.ModelProviderConfigurationParameter `json:"optionalEnvVars"`
-}
-
-func convertModelProviderToolRef(toolRef v1.ToolReference, cred map[string]string) (*types.ModelProviderStatus, error) {
-	var (
-		providerMeta   ProviderMeta
-		missingEnvVars []string
-	)
-	if toolRef.Status.Tool != nil {
-		if toolRef.Status.Tool.Metadata["providerMeta"] != "" {
-			if err := json.Unmarshal([]byte(toolRef.Status.Tool.Metadata["providerMeta"]), &providerMeta); err != nil {
-				return nil, fmt.Errorf("failed to unmarshal provider meta for %s: %v", toolRef.Name, err)
-			}
-		}
-
-		for _, envVar := range providerMeta.EnvVars {
-			if _, ok := cred[envVar.Name]; !ok {
-				missingEnvVars = append(missingEnvVars, envVar.Name)
-			}
-		}
-	}
-
-	var modelsPopulated *bool
-	configured := toolRef.Status.Tool != nil && len(missingEnvVars) == 0
-	if configured {
-		modelsPopulated = new(bool)
-		*modelsPopulated = toolRef.Status.ObservedGeneration == toolRef.Generation
-	}
-
-	return &types.ModelProviderStatus{
-		ModelProviderCommonMetadata:     providerMeta.ModelProviderCommonMetadata,
-		Configured:                      configured,
-		ModelsBackPopulated:             modelsPopulated,
-		RequiredConfigurationParameters: providerMeta.EnvVars,
-		OptionalConfigurationParameters: providerMeta.OptionalEnvVars,
-		MissingConfigurationParameters:  missingEnvVars,
-	}, nil
 }

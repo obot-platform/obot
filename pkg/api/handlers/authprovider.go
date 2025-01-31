@@ -6,20 +6,17 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
-	"slices"
-	"strings"
 
 	"github.com/gptscript-ai/go-gptscript"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
+	"github.com/obot-platform/obot/pkg/api/handlers/providers"
 	"github.com/obot-platform/obot/pkg/gateway/server/dispatcher"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	"k8s.io/apimachinery/pkg/fields"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
-
-const cookieSecretEnvVar = "OBOT_AUTH_PROVIDER_COOKIE_SECRET"
 
 type AuthProviderHandler struct {
 	gptscript  *gptscript.GPTScript
@@ -48,7 +45,11 @@ func (ap *AuthProviderHandler) ByID(req api.Context) error {
 
 	var credEnvVars map[string]string
 	if ref.Status.Tool != nil {
-		if envVars := ref.Status.Tool.Metadata["envVars"]; envVars != "" {
+		aps, err := providers.ConvertModelProviderToolRef(ref, nil)
+		if err != nil {
+			return err
+		}
+		if len(aps.RequiredConfigurationParameters) > 0 {
 			cred, err := ap.gptscript.RevealCredential(req.Context(), []string{string(ref.UID), system.GenericAuthProviderCredentialContext}, ref.Name)
 			if err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
 				return fmt.Errorf("failed to reveal credential for auth provider %q: %w", ref.Name, err)
@@ -58,7 +59,12 @@ func (ap *AuthProviderHandler) ByID(req api.Context) error {
 		}
 	}
 
-	return req.Write(convertToolReferenceToAuthProvider(ref, credEnvVars))
+	authProvider, err := convertToolReferenceToAuthProvider(ref, credEnvVars)
+	if err != nil {
+		return err
+	}
+
+	return req.Write(authProvider)
 }
 
 func (ap *AuthProviderHandler) List(req api.Context) error {
@@ -105,7 +111,12 @@ func (ap *AuthProviderHandler) listAuthProviders(req api.Context) ([]types.AuthP
 		if !ok {
 			env = credMap[system.GenericAuthProviderCredentialContext+ref.Name]
 		}
-		resp = append(resp, convertToolReferenceToAuthProvider(ref, env))
+		authProvider, err := convertToolReferenceToAuthProvider(ref, env)
+		if err != nil {
+			log.Warnf("failed to convert auth provider %q: %v", ref.Name, err)
+			continue
+		}
+		resp = append(resp, authProvider)
 	}
 	return resp, nil
 }
@@ -142,7 +153,7 @@ func (ap *AuthProviderHandler) Configure(req api.Context) error {
 	if err != nil {
 		return err
 	}
-	envVars[cookieSecretEnvVar] = cookieSecret
+	envVars[providers.CookieSecretEnvVar] = cookieSecret
 
 	// Allow for updating credentials. The only way to update a credential is to delete the existing one and recreate it.
 	cred, err := ap.gptscript.RevealCredential(req.Context(), []string{string(ref.UID), system.GenericAuthProviderCredentialContext}, ref.Name)
@@ -245,7 +256,11 @@ func authProviderNameFromToolRef(ref v1.ToolReference) string {
 	return name
 }
 
-func convertToolReferenceToAuthProvider(ref v1.ToolReference, credEnvVars map[string]string) types.AuthProvider {
+func convertToolReferenceToAuthProvider(ref v1.ToolReference, credEnvVars map[string]string) (types.AuthProvider, error) {
+	aps, err := providers.ConvertAuthProviderToolRef(ref, credEnvVars)
+	if err != nil {
+		return types.AuthProvider{}, err
+	}
 	ap := types.AuthProvider{
 		Metadata: MetadataFrom(&ref),
 		AuthProviderManifest: types.AuthProviderManifest{
@@ -253,50 +268,12 @@ func convertToolReferenceToAuthProvider(ref v1.ToolReference, credEnvVars map[st
 			Namespace:     ref.Namespace,
 			ToolReference: ref.Spec.Reference,
 		},
-		AuthProviderStatus: *convertAuthProviderToolRef(ref, credEnvVars),
+		AuthProviderStatus: *aps,
 	}
 
 	ap.Type = "authprovider"
 
-	return ap
-}
-
-func convertAuthProviderToolRef(toolRef v1.ToolReference, cred map[string]string) *types.AuthProviderStatus {
-	var (
-		requiredEnvVars, missingEnvVars, optionalEnvVars []string
-		icon                                             string
-	)
-	if toolRef.Status.Tool != nil {
-		if toolRef.Status.Tool.Metadata["envVars"] != "" {
-			requiredEnvVars = strings.Split(toolRef.Status.Tool.Metadata["envVars"], ",")
-
-			// Remove the cookie secret environment variable if it's there.
-			idx := slices.Index(requiredEnvVars, cookieSecretEnvVar)
-			if idx != -1 {
-				requiredEnvVars = append(requiredEnvVars[:idx], requiredEnvVars[idx+1:]...)
-			}
-		}
-
-		for _, envVar := range requiredEnvVars {
-			if _, ok := cred[envVar]; !ok {
-				missingEnvVars = append(missingEnvVars, envVar)
-			}
-		}
-
-		icon = toolRef.Status.Tool.Metadata["icon"]
-
-		if optionalEnvVarMetadata := toolRef.Status.Tool.Metadata["optionalEnvVars"]; optionalEnvVarMetadata != "" {
-			optionalEnvVars = strings.Split(optionalEnvVarMetadata, ",")
-		}
-	}
-
-	return &types.AuthProviderStatus{
-		Icon:                            icon,
-		Configured:                      toolRef.Status.Tool != nil && len(missingEnvVars) == 0,
-		RequiredConfigurationParameters: requiredEnvVars,
-		MissingConfigurationParameters:  missingEnvVars,
-		OptionalConfigurationParameters: optionalEnvVars,
-	}
+	return ap, nil
 }
 
 func generateCookieSecret() (string, error) {

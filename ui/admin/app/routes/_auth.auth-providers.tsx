@@ -18,6 +18,7 @@ const sortAuthProviders = (authProviders: AuthProvider[]) => {
 		const preferredOrder = [
 			CommonAuthProviderIds.GOOGLE,
 			CommonAuthProviderIds.GITHUB,
+			CommonAuthProviderIds.OKTA,
 		];
 		const aIndex = preferredOrder.indexOf(a.id);
 		const bIndex = preferredOrder.indexOf(b.id);

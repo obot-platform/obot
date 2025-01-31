@@ -4,7 +4,6 @@ import { cn } from "~/lib/utils";
 
 import { BootstrapForm } from "~/components/auth-and-model-providers/BootstrapForm";
 import { ProviderIcon } from "~/components/auth-and-model-providers/ProviderIcon";
-import { CommonAuthProviderFriendlyNames } from "~/components/auth-and-model-providers/constants";
 import { ObotLogo } from "~/components/branding/ObotLogo";
 import { Button } from "~/components/ui/button";
 import {
@@ -64,7 +63,7 @@ export function SignIn({ className }: SignInProps) {
 						}}
 					>
 						<ProviderIcon provider={provider} size="md" />
-						Sign in with {CommonAuthProviderFriendlyNames[provider.id]}
+						Sign in with {provider.name}
 					</Button>
 				))}
 

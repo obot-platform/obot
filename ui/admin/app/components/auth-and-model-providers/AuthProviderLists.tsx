@@ -6,7 +6,6 @@ import { AuthProvider } from "~/lib/model/providers";
 import { ProviderConfigure } from "~/components/auth-and-model-providers/ProviderConfigure";
 import { ProviderIcon } from "~/components/auth-and-model-providers/ProviderIcon";
 import { ProviderMenu } from "~/components/auth-and-model-providers/ProviderMenu";
-import { AuthProviderLinks } from "~/components/auth-and-model-providers/constants";
 import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
 import { Card, CardContent, CardHeader } from "~/components/ui/card";
@@ -65,7 +64,7 @@ export function AuthProviderList({
 								)}
 						</CardHeader>
 						<CardContent className="flex flex-col items-center gap-4">
-							<Link to={AuthProviderLinks[authProvider.id]}>
+							<Link to={authProvider.link ?? ""}>
 								<ProviderIcon provider={authProvider} size="lg" />
 							</Link>
 							<div className="text-center text-lg font-semibold">

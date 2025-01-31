@@ -17,6 +17,7 @@ import (
 	"github.com/obot-platform/nah/pkg/router"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/logger"
+	"github.com/obot-platform/obot/pkg/api/handlers/providers"
 	"github.com/obot-platform/obot/pkg/availablemodels"
 	"github.com/obot-platform/obot/pkg/controller/creds"
 	"github.com/obot-platform/obot/pkg/gateway/server/dispatcher"
@@ -383,7 +384,11 @@ func (h *Handler) BackPopulateModels(req router.Request, _ router.Response) erro
 		return nil
 	}
 
-	if toolRef.Status.Tool.Metadata["envVars"] != "" {
+	mps, err := providers.ConvertModelProviderToolRef(*toolRef, nil)
+	if err != nil {
+		return err
+	}
+	if len(mps.RequiredConfigurationParameters) > 0 {
 		cred, err := h.gptClient.RevealCredential(req.Ctx, []string{string(toolRef.UID), system.GenericModelProviderCredentialContext}, toolRef.Name)
 		if err != nil {
 			if errors.As(err, &gptscript.ErrNotFound{}) {
@@ -392,12 +397,13 @@ func (h *Handler) BackPopulateModels(req router.Request, _ router.Response) erro
 			}
 			return err
 		}
+		mps, err = providers.ConvertModelProviderToolRef(*toolRef, cred.Env)
+		if err != nil {
+			return err
+		}
 
-		for _, envVar := range strings.Split(toolRef.Status.Tool.Metadata["envVars"], ",") {
-			if _, ok := cred.Env[envVar]; !ok {
-				// Model provider is not configured, don't error
-				return nil
-			}
+		if !mps.Configured {
+			return nil
 		}
 	}
 
@@ -479,7 +485,12 @@ func (h *Handler) CleanupModelProvider(req router.Request, _ router.Response) er
 		return nil
 	}
 
-	if toolRef.Status.Tool.Metadata["envVars"] != "" {
+	mps, err := providers.ConvertModelProviderToolRef(*toolRef, nil)
+	if err != nil {
+		return err
+	}
+
+	if len(mps.RequiredConfigurationParameters) > 0 {
 		if err := h.gptClient.DeleteCredential(req.Ctx, string(toolRef.UID), toolRef.Name); err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
 			return err
 		}
