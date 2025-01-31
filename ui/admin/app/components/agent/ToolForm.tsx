@@ -123,12 +123,14 @@ export function ToolForm({
 	}, [watch, onChange]);
 
 	const removeTool = (toolId: string, oauthToRemove?: string) => {
-		const updatedTools = toolFields.fields.filter((tool) => tool.id !== toolId);
-		const index = toolFields.fields.findIndex((tool) => tool.id === toolId);
+		const updatedTools = toolFields.fields.filter(
+			(tool) => tool.tool !== toolId
+		);
+		const index = toolFields.fields.findIndex((tool) => tool.tool === toolId);
 		toolFields.remove(index);
 
 		const stillHasOauth = updatedTools.some(
-			(tool) => oauthToolMap.get(tool.id) === oauthToRemove
+			(tool) => oauthToolMap.get(tool.tool) === oauthToRemove
 		);
 
 		if (!stillHasOauth) {
