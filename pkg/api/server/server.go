@@ -96,11 +96,3 @@ func (s *Server) wrap(f api.HandlerFunc) http.HandlerFunc {
 		}
 	}
 }
-
-func firstValue(m map[string][]string, key string) string {
-	values := m[key]
-	if len(values) == 0 {
-		return ""
-	}
-	return values[0]
-}
