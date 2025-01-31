@@ -133,8 +133,7 @@ func (pm *Manager) ServeHTTP(user user.Info, w http.ResponseWriter, r *http.Requ
 		fromCookie bool
 		err        error
 	)
-	if user.GetExtra()["auth_provider_name"] != nil && len(user.GetExtra()["auth_provider_name"]) > 0 &&
-		user.GetExtra()["auth_provider_namespace"] != nil && len(user.GetExtra()["auth_provider_namespace"]) > 0 {
+	if len(user.GetExtra()["auth_provider_name"]) > 0 && len(user.GetExtra()["auth_provider_namespace"]) > 0 {
 		fromCookie = true
 		provider = fmt.Sprintf("%s/%s", user.GetExtra()["auth_provider_namespace"][0], user.GetExtra()["auth_provider_name"][0])
 	} else if r.URL.Path == "/oauth2/callback" {
