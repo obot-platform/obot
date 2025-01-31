@@ -2,7 +2,6 @@ import { EllipsisVerticalIcon } from "lucide-react";
 import { useNavigate } from "react-router";
 import { $path } from "safe-routes";
 import { toast } from "sonner";
-import { mutate } from "swr";
 
 import { Agent } from "~/lib/model/agents";
 import { AgentService } from "~/lib/service/api/agentService";
@@ -23,7 +22,7 @@ export function AgentDropdownActions({ agent }: { agent: Agent }) {
 
 	const deleteAgent = useAsync(AgentService.deleteAgent, {
 		onSuccess: () => {
-			mutate(AgentService.getAgents.key());
+			AgentService.getAgents.revalidate({});
 			toast.success("Agent deleted");
 			navigate($path("/agents"));
 		},
@@ -37,7 +36,7 @@ export function AgentDropdownActions({ agent }: { agent: Agent }) {
 	const { dialogProps, interceptAsync } = useConfirmationDialog();
 
 	const handleDelete = () =>
-		interceptAsync(() => deleteAgent.executeAsync(agent.id));
+		interceptAsync(() => deleteAgent.executeAsync({ id: agent.id }));
 
 	return (
 		<>

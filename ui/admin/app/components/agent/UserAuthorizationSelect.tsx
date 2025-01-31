@@ -1,6 +1,6 @@
 import { UserIcon, UsersIcon, XIcon } from "lucide-react";
 import { toast } from "sonner";
-import useSWR, { mutate } from "swr";
+import useSWR from "swr";
 
 import { AgentAuthorization } from "~/lib/model/agents";
 import { User } from "~/lib/model/users";
@@ -27,27 +27,23 @@ export function UserAuthorizationSelect({
 	users: User[];
 	agentId: string;
 }) {
-	const { data: authorizations = [] } = useSWR(
-		AgentService.getAgentAuthorizations.key(agentId),
-		({ agentId }) => AgentService.getAgentAuthorizations(agentId)
+	const getAuthorizations = useSWR(
+		...AgentService.getAgentAuthorizations.swr({ agentId })
 	);
+	const { data: authorizations = [] } = getAuthorizations;
 
 	const selectedUsers = new Set(authorizations.map((a) => a.userID));
 	const allUsers = collateUsersOptions(users, authorizations);
 
 	const addAuthorizationToAgent = useAsync(AgentService.addAgentAuthorization, {
-		onSuccess: () => {
-			mutate(AgentService.getAgentAuthorizations.key(agentId));
-		},
+		onSuccess: () => getAuthorizations.mutate(),
 		onError: () => toast.error("Failed to add user to agent."),
 	});
 
 	const removeAuthorizationFromAgent = useAsync(
 		AgentService.removeAgentAuthorization,
 		{
-			onSuccess: () => {
-				mutate(AgentService.getAgentAuthorizations.key(agentId));
-			},
+			onSuccess: () => getAuthorizations.mutate(),
 			onError: () => toast.error("Failed to remove user from agent."),
 		}
 	);
@@ -57,18 +53,24 @@ export function UserAuthorizationSelect({
 
 		const checked = selectedUsers.has(option.value);
 		if (checked) {
-			removeAuthorizationFromAgent.executeAsync(agentId, option.value);
+			removeAuthorizationFromAgent.executeAsync({
+				agentId,
+				userId: option.value,
+			});
 		} else {
-			addAuthorizationToAgent.executeAsync(agentId, option.value);
+			addAuthorizationToAgent.executeAsync({
+				agentId,
+				userId: option.value,
+			});
 		}
 	};
 
 	const handleCreate = (email: string) => {
-		addAuthorizationToAgent.executeAsync(agentId, email);
+		addAuthorizationToAgent.executeAsync({ agentId, userId: email });
 	};
 
 	const handleDelete = (userID: string) => {
-		removeAuthorizationFromAgent.executeAsync(agentId, userID);
+		removeAuthorizationFromAgent.executeAsync({ agentId, userId: userID });
 	};
 
 	const validateCreate = (str: string) => {

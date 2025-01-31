@@ -6,7 +6,7 @@ import {
 	useEffect,
 	useState,
 } from "react";
-import useSWR, { mutate } from "swr";
+import useSWR from "swr";
 
 import { Agent } from "~/lib/model/agents";
 import { AgentService } from "~/lib/service/api/agentService";
@@ -36,14 +36,10 @@ export function AgentProvider({
 
 	const [blockPollingAgent, setBlockPollingAgent] = useState(false);
 
-	const getAgent = useSWR(
-		AgentService.getAgentById.key(agentId),
-		({ agentId }) => AgentService.getAgentById(agentId),
-		{
-			fallbackData: agent,
-			refreshInterval: blockPollingAgent ? undefined : 1000,
-		}
-	);
+	const getAgent = useSWR(...AgentService.getAgentById.swr({ agentId }), {
+		fallbackData: agent,
+		refreshInterval: blockPollingAgent ? undefined : 1000,
+	});
 
 	const agentData = getAgent.data ?? agent;
 
@@ -62,7 +58,7 @@ export function AgentProvider({
 			AgentService.updateAgent({ id: agentId, agent: updatedAgent })
 				.then((updatedAgent) => {
 					getAgent.mutate(updatedAgent);
-					mutate(AgentService.getAgents.key());
+					AgentService.getAgents.revalidate({});
 					setLastSaved(new Date());
 				})
 				.catch(console.error),

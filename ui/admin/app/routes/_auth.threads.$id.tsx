@@ -57,9 +57,7 @@ export const clientLoader = async ({
 
 	const [agent, workflow] = await Promise.all([
 		thread.agentID
-			? preload(AgentService.getAgentById.key(thread.agentID), () =>
-					AgentService.getAgentById(thread.agentID)
-				)
+			? preload(...AgentService.getAgentById.swr({ agentId: thread.agentID }))
 			: null,
 		thread.workflowID
 			? preload(WorkflowService.getWorkflowById.key(thread.workflowID), () =>

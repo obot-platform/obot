@@ -1,6 +1,5 @@
 import { TrashIcon } from "lucide-react";
 import { toast } from "sonner";
-import { mutate } from "swr";
 
 import { AgentService } from "~/lib/service/api/agentService";
 
@@ -23,7 +22,7 @@ export function DeleteAgent({
 	const deleteAgent = useAsync(AgentService.deleteAgent, {
 		onSuccess: () => {
 			toast.success("Agent deleted");
-			mutate(AgentService.getAgents.key());
+			AgentService.getAgents.revalidate({});
 			onSuccess?.();
 		},
 		onError: () => toast.error("Failed to delete agent"),
@@ -36,7 +35,7 @@ export function DeleteAgent({
 			<ConfirmationDialog
 				title="Delete Agent?"
 				description="This action cannot be undone."
-				onConfirm={() => deleteAgent.execute(id)}
+				onConfirm={() => deleteAgent.execute({ id })}
 				confirmProps={{ variant: "destructive" }}
 			>
 				<TooltipTrigger asChild>

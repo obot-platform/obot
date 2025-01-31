@@ -51,10 +51,10 @@ const OauthSignDialog: FC<OauthSignDialogProps> = ({
 
 		const fetchOauthUrl = async () => {
 			const toolRef = getToolRefForKnowledgeSource(sourceType);
-			const authStatus = await AgentService.getAuthUrlForAgent(
+			const authStatus = await AgentService.getAuthUrlForAgent.handler({
 				agentId,
-				toolRef
-			);
+				toolRef,
+			});
 			if (authStatus?.required && authStatus?.url) {
 				setOauthUrl(authStatus.url);
 			} else {

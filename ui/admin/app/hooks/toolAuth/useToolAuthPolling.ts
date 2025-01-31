@@ -12,11 +12,11 @@ export function useToolAuthPolling(
 	const [isPolling, setIsPolling] = useState(false);
 	const refreshInterval = isPolling ? 1000 : undefined;
 
+	const [key, handler] = AgentService.getAgentById.swr({ agentId: entityId });
+
 	const { data: agent } = useSWR(
-		namespace === AssistantNamespace.Agents
-			? AgentService.getAgentById.key(entityId)
-			: null,
-		({ agentId }) => AgentService.getAgentById(agentId),
+		namespace === AssistantNamespace.Agents ? key : null,
+		handler,
 		{ refreshInterval }
 	);
 

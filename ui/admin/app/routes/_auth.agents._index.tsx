@@ -4,7 +4,7 @@ import { SquarePen } from "lucide-react";
 import { useMemo } from "react";
 import { MetaFunction, useNavigate } from "react-router";
 import { $path } from "safe-routes";
-import useSWR, { mutate, preload } from "swr";
+import useSWR, { preload } from "swr";
 
 import { Agent } from "~/lib/model/agents";
 import { CapabilityTool } from "~/lib/model/toolReferences";
@@ -25,7 +25,7 @@ import {
 
 export async function clientLoader() {
 	await Promise.all([
-		preload(AgentService.getAgents.key(), AgentService.getAgents),
+		preload(...AgentService.getAgents.swr({})),
 		preload(ThreadsService.getThreads.key(), ThreadsService.getThreads),
 	]);
 	return null;
@@ -55,10 +55,7 @@ export default function Agents() {
 		);
 	}, [getThreads.data]);
 
-	const getAgents = useSWR(
-		AgentService.getAgents.key(),
-		AgentService.getAgents
-	);
+	const getAgents = useSWR(...AgentService.getAgents.swr({}));
 
 	const agents = getAgents.data || [];
 
@@ -78,7 +75,7 @@ export default function Agents() {
 										tools: CapabilityTools,
 									} as Agent,
 								}).then((agent) => {
-									mutate(AgentService.getAgents.key());
+									getAgents.mutate();
 									navigate(
 										$path("/agents/:agent", {
 											agent: agent.id,

@@ -47,9 +47,7 @@ export const clientLoader = async ({
 			DefaultModelAliasApiService.getAliases.key(),
 			DefaultModelAliasApiService.getAliases
 		),
-		preload(AgentService.getAgentById.key(agentId), () =>
-			AgentService.getAgentById(agentId)
-		),
+		preload(...AgentService.getAgentById.swr({ agentId })),
 	]);
 
 	const agent = response[1];
@@ -66,11 +64,8 @@ export default function ChatAgent() {
 	// need to get updated starter messages and introduction message
 	// when agent updates happen for chat
 	const { data: updatedAgent } = useSWR(
-		AgentService.getAgentById.key(agent.id),
-		({ agentId }) => AgentService.getAgentById(agentId),
-		{
-			fallbackData: agent,
-		}
+		...AgentService.getAgentById.swr({ agentId: agent.id }),
+		{ fallbackData: agent }
 	);
 	const navigate = useNavigate();
 
@@ -122,8 +117,7 @@ const AgentBreadcrumb = () => {
 	const match = useMatch("/agents/:agent");
 
 	const { data: agent } = useSWR(
-		AgentService.getAgentById.key(match?.params.agent),
-		({ agentId }) => AgentService.getAgentById(agentId)
+		...AgentService.getAgentById.swr({ agentId: match?.params.agent })
 	);
 
 	return <>{agent?.name || "New Agent"}</>;

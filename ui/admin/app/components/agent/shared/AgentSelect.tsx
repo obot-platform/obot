@@ -16,10 +16,7 @@ type AgentSelectModuleProps = {
 };
 
 export function AgentSelectModule(props: AgentSelectModuleProps) {
-	const { data: agents } = useSWR(
-		AgentService.getAgents.key(),
-		AgentService.getAgents
-	);
+	const { data: agents } = useSWR(...AgentService.getAgents.swr({}));
 
 	return (
 		<SelectModule

@@ -35,8 +35,7 @@ export function WorkspaceFilesSection({
 	const { dialogProps, interceptAsync } = useConfirmationDialog();
 
 	const { data: files, mutate: refresh } = useSWR(
-		AgentService.getWorkspaceFiles.key(entityId),
-		({ agentId }) => AgentService.getWorkspaceFiles(agentId)
+		...AgentService.getWorkspaceFiles.swr({ agentId: entityId })
 	);
 
 	const deleteFile = useAsync(AgentService.deleteWorkspaceFile, {
@@ -47,7 +46,7 @@ export function WorkspaceFilesSection({
 
 	const uploadFiles = useMultiAsync(
 		async (_index: number, file: File) =>
-			await AgentService.uploadWorkspaceFile(entityId, file),
+			await AgentService.uploadWorkspaceFile({ agentId: entityId, file }),
 		{
 			onSuccess: (data) =>
 				// optomistic update
@@ -118,7 +117,10 @@ export function WorkspaceFilesSection({
 										onClick={(e) => {
 											e.stopPropagation();
 											interceptAsync(() =>
-												deleteFile.executeAsync(entityId, file.name)
+												deleteFile.executeAsync({
+													agentId: entityId,
+													fileName: file.name,
+												})
 											);
 										}}
 										startContent={<TrashIcon className="size-5" />}
