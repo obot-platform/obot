@@ -1,10 +1,10 @@
 package types
 
 type CommonProviderMetadata struct {
-	Icon         string `json:"icon,omitempty"`
-	IconNoInvert bool   `json:"iconNoInvert,omitempty"`
-	Description  string `json:"description,omitempty"`
-	Link         string `json:"link,omitempty"`
+	Icon        string `json:"icon,omitempty"`
+	IconDark    string `json:"iconDark,omitempty"`
+	Description string `json:"description,omitempty"`
+	Link        string `json:"link,omitempty"`
 }
 
 type ProviderConfigurationParameter struct {

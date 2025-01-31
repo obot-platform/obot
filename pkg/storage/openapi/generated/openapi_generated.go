@@ -1086,9 +1086,9 @@ func schema_obot_platform_obot_apiclient_types_CommonProviderMetadata(ref common
 							Format: "",
 						},
 					},
-					"iconNoInvert": {
+					"iconDark": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"boolean"},
+							Type:   []string{"string"},
 							Format: "",
 						},
 					},
