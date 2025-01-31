@@ -13,6 +13,10 @@ import { defaultModelAliasHandler } from "test/mocks/handlers/defaultModelAliase
 import { knowledgeHandlers } from "test/mocks/handlers/knowledge";
 import { toolsHandlers } from "test/mocks/handlers/tools";
 import { mockedAgent } from "test/mocks/models/agents";
+import {
+	mockedBrowserToolBundle,
+	mockedImageToolBundle,
+} from "test/mocks/models/toolReferences";
 import { mockedUsers } from "test/mocks/models/users";
 import { overrideServer } from "test/server";
 
@@ -67,13 +71,9 @@ describe(Agent, () => {
 		return putSpy;
 	};
 
-	let putSpy: ReturnType<typeof setupServer>;
-	beforeEach(() => {
-		putSpy = setupServer(mockedAgent);
-	});
-
 	afterEach(() => {
 		cleanup();
+		vi.clearAllMocks();
 	});
 
 	it.each([
@@ -86,6 +86,7 @@ describe(Agent, () => {
 		["prompt", "Instructions", "textbox", 2],
 		["introductionMessage", "Introductions", "textbox"],
 	])("Updating %s triggers save", async (field, searchFor, as, index = 0) => {
+		const putSpy = setupServer(mockedAgent);
 		render(
 			<AgentProvider agent={mockedAgent}>
 				<Agent />
@@ -122,10 +123,7 @@ describe(Agent, () => {
 	});
 
 	it("Updating icon triggers save", async () => {
-		const portalRoot = document.createElement("div");
-		portalRoot.setAttribute("id", "radix-portal");
-		document.body.appendChild(portalRoot);
-
+		const putSpy = setupServer(mockedAgent);
 		render(
 			<AgentProvider agent={mockedAgent}>
 				<Agent />
@@ -157,6 +155,53 @@ describe(Agent, () => {
 				icons: expect.objectContaining({
 					icon: iconSrc,
 				}),
+			})
+		);
+	});
+
+	it("Deleting a tool deletes the tool", async () => {
+		const mockedAgentWithTools: AgentModel = {
+			...mockedAgent,
+			tools: [mockedImageToolBundle[0].id, mockedBrowserToolBundle[0].id],
+			toolInfo: {
+				[mockedImageToolBundle[0].id]: {
+					authorized: true,
+				},
+				[mockedBrowserToolBundle[0].id]: {
+					authorized: true,
+				},
+			},
+		};
+
+		const putSpy = setupServer(mockedAgentWithTools);
+		render(
+			<AgentProvider agent={mockedAgentWithTools}>
+				<Agent />
+			</AgentProvider>
+		);
+
+		const toolHeader = screen.getByRole("heading", { name: "Tools" });
+		const browserTool = await within(toolHeader.parentElement!).findByAltText(
+			mockedBrowserToolBundle[0].name
+		);
+		const imageTool = await within(toolHeader.parentElement!).findByAltText(
+			mockedImageToolBundle[0].name
+		);
+
+		expect(browserTool).toBeInTheDocument();
+		expect(imageTool).toBeInTheDocument();
+
+		// deleting images-bundle tool
+		const imageDeleteButton = within(
+			imageTool.parentElement!.parentElement!
+		).getAllByRole("button")[1];
+		await userEvent.click(imageDeleteButton);
+
+		await waitFor(() => screen.getByText(/Saving|Saved/i));
+
+		expect(putSpy).toHaveBeenCalledWith(
+			expect.objectContaining({
+				tools: [mockedBrowserToolBundle[0].id],
 			})
 		);
 	});

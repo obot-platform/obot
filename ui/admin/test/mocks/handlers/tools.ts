@@ -1,6 +1,8 @@
 import { HttpResponse, http } from "test";
 import {
+	mockedBrowserToolBundle,
 	mockedDatabaseToolReference,
+	mockedImageToolBundle,
 	mockedKnowledgeToolReference,
 	mockedTasksToolReference,
 	mockedToolReferences,
@@ -16,6 +18,8 @@ const toolReferences = {
 	knowledge: mockedKnowledgeToolReference,
 	tasks: mockedTasksToolReference,
 	"workspace-files": mockedWorkspaceFilesToolReference,
+	"images-bundle": mockedImageToolBundle[0],
+	"browser-bundle": mockedBrowserToolBundle[0],
 };
 
 export const toolsHandlers = [

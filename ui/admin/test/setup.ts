@@ -1,4 +1,5 @@
 import "@testing-library/jest-dom";
+import { mutate } from "swr";
 import { server } from "test/server";
 
 // for ThemeProvider, mock window.matchMedia
@@ -25,6 +26,11 @@ global.ResizeObserver = class ResizeObserver {
 
 // Establish API mocking before all tests
 beforeAll(() => server.listen());
+
+beforeEach(() => {
+	// Clear the SWR cache before each test
+	mutate(() => true, undefined, { revalidate: false });
+});
 
 // Reset any request handlers that we may add during the tests,
 // so they don't affect other tests.
