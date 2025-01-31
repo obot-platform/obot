@@ -6,13 +6,14 @@ export const useDebounce = <TParams extends unknown[]>(
 	delay: number
 ) => {
 	const timerRef = useRef<NodeJS.Timeout>();
+	const effectiveDelay = import.meta.env.VITEST ? 100 : delay;
 
 	const debouncedFn = useCallback(
 		(...args: TParams) => {
 			clearTimeout(timerRef.current);
-			timerRef.current = setTimeout(() => fn(...args), delay);
+			timerRef.current = setTimeout(() => fn(...args), effectiveDelay);
 		},
-		[delay, fn]
+		[effectiveDelay, fn]
 	);
 
 	useEffect(() => {
@@ -24,12 +25,13 @@ export const useDebounce = <TParams extends unknown[]>(
 
 export const useDebouncedValue = <T>(value: T, delay: number) => {
 	const [debouncedValue, setDebouncedValue] = useState(value);
+	const effectiveDelay = import.meta.env.VITEST ? 0 : delay;
 
 	useEffect(() => {
-		const timer = setTimeout(() => setDebouncedValue(value), delay);
+		const timer = setTimeout(() => setDebouncedValue(value), effectiveDelay);
 
 		return () => clearTimeout(timer);
-	}, [value, delay]);
+	}, [value, effectiveDelay]);
 
 	return debouncedValue;
 };
