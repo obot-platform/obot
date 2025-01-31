@@ -13,6 +13,22 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Trigger tools repo tag workflow
+        uses: peter-evans/repository-dispatch@v3
+        with:
+          token: ${{ secrets.TOOLS_DISPATCH_PAT }}
+          repository: obot-platform/tools
+          event-type: release
+          client-payload: '{"tag": "${{ github.ref_name }}"}'
+
+      - name: Trigger enterprise-tool repo tag workflow
+        uses: peter-evans/repository-dispatch@v3
+        with:
+          token: ${{ secrets.ENTERPRISE_TOOLS_DISPATCH_PAT }}
+          repository: obot-platform/enterprise-tools
+          event-type: release
+          client-payload: '{"tag": "${{ github.ref_name }}"}'
+
       - name: Checkout code
         uses: actions/checkout@v4
         with:
