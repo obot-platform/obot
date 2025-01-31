@@ -296,7 +296,9 @@ func (s *Server) refreshOAuthApp(apiContext api.Context) error {
 	data := url.Values{}
 	data.Set("client_id", app.Spec.Manifest.ClientID)
 	data.Set("client_secret", app.Spec.Manifest.ClientSecret)
-	data.Set("scope", scope)
+	if app.Spec.Manifest.Type != types2.OAuthAppTypeSalesforce {
+		data.Set("scope", scope)
+	}
 	data.Set("redirect_uri", app.RedirectURL(s.baseURL))
 	data.Set("refresh_token", refreshToken)
 	data.Set("grant_type", "refresh_token")
@@ -320,12 +322,39 @@ func (s *Server) refreshOAuthApp(apiContext api.Context) error {
 	}
 
 	tokenResp := new(types.OAuthTokenResponse)
-	if err := json.NewDecoder(resp.Body).Decode(tokenResp); err != nil {
-		return fmt.Errorf("failed to parse token response: %w", err)
-	}
 
-	if app.Spec.Manifest.Type == types2.OAuthAppTypeGoogle {
+	switch app.Spec.Manifest.Type {
+	case types2.OAuthAppTypeSalesforce:
+		salesforceTokenResp := new(types.SalesforceOAuthTokenResponse)
+		if err := json.NewDecoder(resp.Body).Decode(salesforceTokenResp); err != nil {
+			return fmt.Errorf("failed to parse token response: %w", err)
+		}
+		issuedAt, err := strconv.ParseInt(salesforceTokenResp.IssuedAt, 10, 64)
+		if err != nil {
+			return fmt.Errorf("failed to parse token response: %w", err)
+		}
+		createdAt := time.Unix(issuedAt/1000, (issuedAt%1000)*1000000)
+
+		tokenResp = &types.OAuthTokenResponse{
+			TokenType:    salesforceTokenResp.TokenType,
+			AccessToken:  salesforceTokenResp.AccessToken,
+			ExpiresIn:    7200, // Relies on Salesforce admin not overriding the default 2 hours
+			Ok:           true, // Assuming true if no error is present
+			CreatedAt:    createdAt,
+			RefreshToken: refreshToken,
+			Extras: map[string]string{
+				"GPTSCRIPT_SALESFORCE_URL": salesforceTokenResp.InstanceURL,
+			},
+		}
+	case types2.OAuthAppTypeGoogle:
+		if err := json.NewDecoder(resp.Body).Decode(tokenResp); err != nil {
+			return fmt.Errorf("failed to parse token response: %w", err)
+		}
 		tokenResp.RefreshToken = refreshToken
+	default:
+		if err := json.NewDecoder(resp.Body).Decode(tokenResp); err != nil {
+			return fmt.Errorf("failed to parse token response: %w", err)
+		}
 	}
 
 	return apiContext.Write(tokenResp)
