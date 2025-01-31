@@ -160,7 +160,7 @@ function IconInput({
 	return (
 		<div className="flex w-full items-center gap-4">
 			<Avatar className="size-24">
-				<AvatarImage src={value} />
+				<AvatarImage src={value} className="bg-muted" />
 				<AvatarFallback>
 					<ImagePlusIcon />
 				</AvatarFallback>

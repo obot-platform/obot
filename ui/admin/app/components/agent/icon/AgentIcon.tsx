@@ -26,16 +26,16 @@ import {
 } from "~/components/ui/tooltip";
 
 const iconOptions = [
-	"obot_alt_1.svg",
-	"obot_alt_2.svg",
-	"obot_alt_3.svg",
-	"obot_alt_4.svg",
-	"obot_alt_5.svg",
-	"obot_alt_6.svg",
-	"obot_alt_7.svg",
-	"obot_alt_8.svg",
-	"obot_alt_9.svg",
-	"obot_alt_10.svg",
+	"obot_alt_1",
+	"obot_alt_2",
+	"obot_alt_3",
+	"obot_alt_4",
+	"obot_alt_5",
+	"obot_alt_6",
+	"obot_alt_7",
+	"obot_alt_8",
+	"obot_alt_9",
+	"obot_alt_10",
 ];
 
 type AgentIconProps = {
@@ -58,12 +58,7 @@ export function AgentIcon({ icons, onChange, name }: AgentIconProps) {
 						<DropdownMenuTrigger asChild>
 							<Button variant="ghost" size="icon-xl" className="group relative">
 								<Avatar className="size-20">
-									<AvatarImage
-										src={iconDark && isDarkMode ? iconDark : icon}
-										className={cn({
-											"dark:invert": !iconDark && isDarkMode,
-										})}
-									/>
+									<AvatarImage src={iconDark && isDarkMode ? iconDark : icon} />
 									<AvatarFallback className="text-[3.5rem] font-semibold">
 										{name?.charAt(0) ?? ""}
 									</AvatarFallback>
@@ -121,7 +116,7 @@ export function AgentIcon({ icons, onChange, name }: AgentIconProps) {
 						onClick={() => {
 							onChange({
 								icon: generateIconUrl(icon),
-								iconDark: "",
+								iconDark: generateIconUrl(icon, true),
 								collapsed: "",
 								collapsedDark: "",
 							});
@@ -140,7 +135,7 @@ export function AgentIcon({ icons, onChange, name }: AgentIconProps) {
 		);
 	}
 
-	function generateIconUrl(icon: string) {
-		return `/agent/images/${icon}`;
+	function generateIconUrl(icon: string, dark = false) {
+		return `/agent/images/${icon}${dark ? "_dark" : ""}.svg`;
 	}
 }

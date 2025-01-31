@@ -68,17 +68,13 @@ export const Message = React.memo(
 
 		const icon = isDarkMode ? icons?.iconDark || icons?.icon : icons?.icon;
 		const showIcon = !isUser && !message.prompt && !toolCall;
+
 		return (
 			<div className="mb-4 w-full">
 				{showIcon && (
 					<div className="flex items-center gap-2">
 						<Avatar className="h-6 w-6">
-							<AvatarImage
-								src={icon}
-								className={cn({
-									"dark:invert": !icons?.iconDark && isDarkMode,
-								})}
-							/>
+							<AvatarImage src={icon} />
 							<AvatarFallback>{agentName?.charAt(0) ?? ""}</AvatarFallback>
 						</Avatar>
 						<p className="text-sm font-semibold">{agentName}</p>

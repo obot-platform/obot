@@ -24,6 +24,9 @@ export function ProviderIcon({
 				"h-16 w-16": size === "lg",
 				"dark:invert": ![
 					CommonModelProviderIds.AZURE_OPENAI,
+					CommonModelProviderIds.GENERIC_OPENAI,
+					CommonModelProviderIds.DEEPSEEK,
+					CommonModelProviderIds.VLLM,
 					CommonAuthProviderIds.GOOGLE,
 				].includes(provider.id),
 			})}
