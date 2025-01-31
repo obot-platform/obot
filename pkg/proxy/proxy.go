@@ -369,7 +369,7 @@ func (p *Proxy) authenticateRequest(req *http.Request) (*authenticator.Response,
 		},
 	}
 
-	if ss.SetCookies != nil {
+	if len(ss.SetCookies) != 0 {
 		// This is set if the auth provider needed to refresh the token.
 		u.Extra["set-cookies"] = ss.SetCookies
 	}
