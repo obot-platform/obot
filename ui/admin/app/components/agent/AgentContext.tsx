@@ -4,7 +4,6 @@ import {
 	useCallback,
 	useContext,
 	useEffect,
-	useRef,
 	useState,
 } from "react";
 import useSWR, { mutate } from "swr";
@@ -36,7 +35,6 @@ export function AgentProvider({
 	const agentId = agent.id;
 
 	const [blockPollingAgent, setBlockPollingAgent] = useState(false);
-	const abortControllerRef = useRef<AbortController>();
 
 	const getAgent = useSWR(
 		AgentService.getAgentById.key(agentId),
@@ -60,36 +58,14 @@ export function AgentProvider({
 	const [lastUpdated, setLastSaved] = useState<Date>();
 
 	const handleUpdateAgent = useCallback(
-		(updatedAgent: Agent) => {
-			// Abort any ongoing request
-			if (abortControllerRef.current) {
-				abortControllerRef.current.abort({
-					reason: "Superseded by newer save request",
-					timestamp: Date.now(),
-				});
-			}
-
-			// Create new AbortController for this request
-			const controller = new AbortController();
-			abortControllerRef.current = controller;
-
-			return AgentService.updateAgent({
-				id: agentId,
-				agent: updatedAgent,
-				signal: controller.signal,
-			})
+		(updatedAgent: Agent) =>
+			AgentService.updateAgent({ id: agentId, agent: updatedAgent })
 				.then((updatedAgent) => {
-					if (!controller.signal.aborted) {
-						getAgent.mutate(updatedAgent);
-						mutate(AgentService.getAgents.key());
-						setLastSaved(new Date());
-					}
+					getAgent.mutate(updatedAgent);
+					mutate(AgentService.getAgents.key());
+					setLastSaved(new Date());
 				})
-				.catch(console.error)
-				.finally(() => {
-					abortControllerRef.current = undefined;
-				});
-		},
+				.catch(console.error),
 		[agentId, getAgent]
 	);
 
