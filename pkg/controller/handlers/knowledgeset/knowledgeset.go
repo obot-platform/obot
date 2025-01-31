@@ -3,7 +3,6 @@ package knowledgeset
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"github.com/obot-platform/nah/pkg/name"
 	"github.com/obot-platform/nah/pkg/router"
@@ -149,7 +148,7 @@ func (h *Handler) SetEmbeddingModel(req router.Request, _ router.Response) error
 	return nil
 }
 
-func (h *Handler) CreateWorkspace(req router.Request, resp router.Response) error {
+func (h *Handler) CreateWorkspace(req router.Request, _ router.Response) error {
 	ks := req.Object.(*v1.KnowledgeSet)
 
 	if err := createWorkspace(req.Ctx, req.Client, ks); err != nil {
@@ -157,7 +156,6 @@ func (h *Handler) CreateWorkspace(req router.Request, resp router.Response) erro
 	}
 
 	if ks.Status.WorkspaceName == "" {
-		resp.RetryAfter(time.Second * 5)
 		return nil
 	}
 
