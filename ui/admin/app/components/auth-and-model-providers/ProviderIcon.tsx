@@ -3,11 +3,6 @@ import { BoxesIcon } from "lucide-react";
 import { AuthProvider, ModelProvider } from "~/lib/model/providers";
 import { cn } from "~/lib/utils";
 
-import {
-	CommonAuthProviderIds,
-	CommonModelProviderIds,
-} from "~/components/auth-and-model-providers/constants";
-
 export function ProviderIcon({
 	provider,
 	size = "md",
@@ -22,13 +17,7 @@ export function ProviderIcon({
 			className={cn({
 				"h-6 w-6": size === "md",
 				"h-16 w-16": size === "lg",
-				"dark:invert": ![
-					CommonModelProviderIds.AZURE_OPENAI,
-					CommonModelProviderIds.GENERIC_OPENAI,
-					CommonModelProviderIds.DEEPSEEK,
-					CommonModelProviderIds.VLLM,
-					CommonAuthProviderIds.GOOGLE,
-				].includes(provider.id),
+				"dark:invert": !provider.iconNoInvert,
 			})}
 		/>
 	) : (

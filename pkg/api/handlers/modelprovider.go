@@ -363,9 +363,7 @@ func convertToolReferenceToModelProvider(ref v1.ToolReference, credEnvVars map[s
 }
 
 type ProviderMeta struct {
-	Icon            string                                      `json:"icon"`
-	Link            string                                      `json:"link"`
-	Description     string                                      `json:"description"`
+	types.ModelProviderCommonMetadata
 	EnvVars         []types.ModelProviderConfigurationParameter `json:"envVars"`
 	OptionalEnvVars []types.ModelProviderConfigurationParameter `json:"optionalEnvVars"`
 }
@@ -397,9 +395,7 @@ func convertModelProviderToolRef(toolRef v1.ToolReference, cred map[string]strin
 	}
 
 	return &types.ModelProviderStatus{
-		Icon:                            providerMeta.Icon,
-		Link:                            providerMeta.Link,
-		Description:                     providerMeta.Description,
+		ModelProviderCommonMetadata:     providerMeta.ModelProviderCommonMetadata,
 		Configured:                      configured,
 		ModelsBackPopulated:             modelsPopulated,
 		RequiredConfigurationParameters: providerMeta.EnvVars,

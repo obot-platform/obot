@@ -18,12 +18,17 @@ type ModelProviderConfigurationParameter struct {
 	Sensitive    bool   `json:"sensitive,omitempty"`
 }
 
+type ModelProviderCommonMetadata struct {
+	Icon         string `json:"icon,omitempty"`
+	IconNoInvert bool   `json:"iconNoInvert,omitempty"`
+	Description  string `json:"description,omitempty"`
+	Link         string `json:"link,omitempty"`
+}
+
 type ModelProviderStatus struct {
+	ModelProviderCommonMetadata
 	Configured                      bool                                  `json:"configured"`
 	ModelsBackPopulated             *bool                                 `json:"modelsBackPopulated,omitempty"`
-	Icon                            string                                `json:"icon,omitempty"`
-	Description                     string                                `json:"description,omitempty"`
-	Link                            string                                `json:"link,omitempty"`
 	RequiredConfigurationParameters []ModelProviderConfigurationParameter `json:"requiredConfigurationParameters,omitempty"`
 	OptionalConfigurationParameters []ModelProviderConfigurationParameter `json:"optionalConfigurationParameters,omitempty"`
 	MissingConfigurationParameters  []string                              `json:"missingConfigurationParameters,omitempty"`
