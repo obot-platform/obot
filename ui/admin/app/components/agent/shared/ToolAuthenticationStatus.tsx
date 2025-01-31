@@ -37,7 +37,10 @@ export function ToolAuthenticationStatus({
 
 	const { threadId, reader } = authorize.data ?? {};
 
-	const { toolInfo, setToolInfo } = useToolAuthPolling(namespace, entityId);
+	const { toolInfo, setToolInfo, refresh } = useToolAuthPolling(
+		namespace,
+		entityId
+	);
 
 	const deleteConfirm = useConfirmationDialog();
 	const authorizeConfirm = useConfirmationDialog();
@@ -71,18 +74,23 @@ export function ToolAuthenticationStatus({
 
 		authorize.clear();
 
-		if (!toolInfo) return;
+		if (toolInfo) {
+			setToolInfo({
+				...Object.fromEntries(
+					Object.entries(toolInfo).filter(([key]) => key !== tool)
+				),
+			});
+			refresh();
+		}
 
-		setToolInfo({
-			...Object.fromEntries(
-				Object.entries(toolInfo).filter(([key]) => key !== tool)
-			),
-		});
 		onUpdate();
 	};
 
 	const loading =
-		authorize.isLoading || cancelAuthorize.isLoading || !toolInfo?.[tool];
+		authorize.isLoading ||
+		cancelAuthorize.isLoading ||
+		deauthorize.isLoading ||
+		!toolInfo?.[tool];
 
 	const { authorized } = toolInfo?.[tool] ?? {};
 
@@ -96,6 +104,17 @@ export function ToolAuthenticationStatus({
 		}
 	};
 
+	if (loading)
+		return (
+			<Tooltip>
+				<TooltipContent>Authentication Processing</TooltipContent>
+
+				<TooltipTrigger asChild>
+					<Button size="icon" variant="ghost" loading />
+				</TooltipTrigger>
+			</Tooltip>
+		);
+
 	if (toolInfo?.[tool] && !toolInfo?.[tool].credentialNames?.length)
 		return (
 			<Tooltip>
@@ -108,7 +127,7 @@ export function ToolAuthenticationStatus({
 				</TooltipTrigger>
 
 				<TooltipContent>
-					<>This tool does not require authentication.</>
+					This tool does not require authentication.
 				</TooltipContent>
 			</Tooltip>
 		);
@@ -117,11 +136,7 @@ export function ToolAuthenticationStatus({
 		<>
 			<Tooltip>
 				<TooltipContent className="max-w-xs">
-					{loading ? (
-						<>
-							<b>Authentication Processing</b>
-						</>
-					) : authorized ? (
+					{authorized ? (
 						<>
 							<b>Global Auth Enabled: </b>
 							{/* Leaving this here for now, will remove after we discuss the wording for this */}

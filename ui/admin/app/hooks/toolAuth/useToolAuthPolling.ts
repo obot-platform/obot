@@ -32,6 +32,10 @@ export function useToolAuthPolling(
 		{ refreshInterval }
 	);
 
+	const refresh = () => {
+		setIsPolling(true);
+	};
+
 	useEffect(() => {
 		const getInfo = () => {
 			const agentTools = [
@@ -59,5 +63,5 @@ export function useToolAuthPolling(
 		if (shouldPoll !== isPolling) setIsPolling(shouldPoll);
 	}, [agent, workflow, isPolling, namespace]);
 
-	return { toolInfo, setToolInfo };
+	return { toolInfo, setToolInfo, refresh };
 }
