@@ -143,7 +143,7 @@ export function ToolAuthenticationDialog({
 											<div key={index} className="flex flex-col gap-2">
 												<p className="flex items-center gap-2">
 													<CircleAlert />
-													Authentication Required
+													{message.prompt.message || "Authentication Required"}
 												</p>
 												<PromptAuthForm
 													prompt={message.prompt}
