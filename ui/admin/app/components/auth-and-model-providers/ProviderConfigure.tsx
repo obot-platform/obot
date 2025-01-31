@@ -175,7 +175,7 @@ export function ProviderConfigureContent({
 
 			{provider.description && (
 				<DialogDescription className="px-4">
-					<ReactMarkdown>{provider.description ?? ""}</ReactMarkdown>
+					<ReactMarkdown>{provider.description}</ReactMarkdown>
 				</DialogDescription>
 			)}
 			{provider.type === "authprovider" && (
