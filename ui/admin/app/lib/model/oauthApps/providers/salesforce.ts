@@ -39,7 +39,6 @@ const steps: OAuthFormStep<typeof schema.shape>[] = [
 			"- Enter your callback url\n" +
 			"- Select the 'api' and 'refresh_token' OAuth Scopes from the list.\n" +
 			"- Uncheck 'Require Proof Key for Code Exchange.'\n" +
-			"- Check 'Enable Refresh Token Rotation.\n" +
 			"- Click the 'Create' button.\n",
 	},
 	{
@@ -48,7 +47,6 @@ const steps: OAuthFormStep<typeof schema.shape>[] = [
 			"### Step 3: Configure App Policies\n" +
 			"- Under the Policies tab, click 'Edit'.\n" +
 			"- Inside the 'App Authorization' box" +
-			"  - Change 'Refresh Token Policy' to 'Immediately expire refresh token.'\n" +
 			"  - (Optionally) Change 'IP Relaxation' to 'Relax IP Restrictions.'\n" +
 			"- Click 'Save.'\n",
 	},
