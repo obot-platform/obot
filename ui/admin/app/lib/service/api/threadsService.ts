@@ -1,8 +1,10 @@
 import { ChatEvent } from "~/lib/model/chatEvents";
+import { EntityList } from "~/lib/model/primitives";
 import { Thread, UpdateThread } from "~/lib/model/threads";
 import { WorkspaceFile } from "~/lib/model/workspace";
 import { ApiRoutes, revalidateWhere } from "~/lib/routers/apiRoutes";
 import { request } from "~/lib/service/api/primitives";
+import { PaginationParams, PaginationService } from "~/lib/service/pagination";
 import { downloadUrl } from "~/lib/utils/downloadFile";
 
 const getThreads = async () => {
@@ -99,18 +101,39 @@ const deleteThread = async (threadId: string) => {
 	});
 };
 
-const getFiles = async (threadId: string) => {
-	const res = await request<{ items: WorkspaceFile[] }>({
+const getFiles = async (
+	threadId: string,
+	pagination?: PaginationParams,
+	search?: string
+) => {
+	const { data } = await request<EntityList<WorkspaceFile>>({
 		url: ApiRoutes.threads.getFiles(threadId).url,
 		errorMessage: "Failed to fetch files",
 	});
 
-	return res.data.items ?? ([] as WorkspaceFile[]);
+	const items = data.items ?? [];
+
+	const filteredItems = search
+		? items.filter((item) =>
+				item.name.toLowerCase().includes(search?.toLowerCase() ?? "")
+			)
+		: items;
+
+	return PaginationService.paginate(filteredItems, pagination);
 };
-getFiles.key = (threadId?: Nullish<string>) => {
+getFiles.key = (
+	threadId?: Nullish<string>,
+	pagination?: PaginationParams,
+	search?: string
+) => {
 	if (!threadId) return null;
 
-	return { url: ApiRoutes.threads.getFiles(threadId).path, threadId };
+	return {
+		url: ApiRoutes.threads.getFiles(threadId).path,
+		threadId,
+		pagination,
+		search,
+	};
 };
 
 const downloadFile = (threadId: string, filePath: string) => {

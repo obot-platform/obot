@@ -10,8 +10,6 @@ async function invokeAsync({
 	prompt?: Nullish<string>;
 	thread?: Nullish<string>;
 }) {
-	console.log("invokeAsync", slug, prompt, thread);
-
 	const { data } = await request<{ threadID: string }>({
 		url: ApiRoutes.invoke(slug, thread, { async: true }).url,
 		method: "POST",

@@ -8,6 +8,7 @@ import { AgentService } from "~/lib/service/api/agentService";
 import { CredentialApiService } from "~/lib/service/api/credentialApiService";
 import { KnowledgeFileService } from "~/lib/service/api/knowledgeFileApiService";
 import { ThreadsService } from "~/lib/service/api/threadsService";
+import { PaginationParams } from "~/lib/service/pagination";
 
 import { useAsync } from "~/hooks/useAsync";
 
@@ -57,10 +58,18 @@ export function useThreadKnowledge(threadId?: Nullish<string>) {
 	);
 }
 
-export function useThreadFiles(threadId?: Nullish<string>) {
-	return useSWR(ThreadsService.getFiles.key(threadId), ({ threadId }) =>
-		ThreadsService.getFiles(threadId)
+export function useThreadFiles(
+	threadId?: Nullish<string>,
+	pagination?: PaginationParams,
+	search?: string
+) {
+	const { data, ...rest } = useSWR(
+		ThreadsService.getFiles.key(threadId, pagination, search),
+		({ threadId, pagination, search }) =>
+			ThreadsService.getFiles(threadId, pagination, search)
 	);
+
+	return { data, ...rest };
 }
 
 export function useThreadAgents(threadId?: Nullish<string>) {

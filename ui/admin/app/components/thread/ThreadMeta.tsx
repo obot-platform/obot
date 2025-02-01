@@ -7,6 +7,7 @@ import {
 	KeyIcon,
 	LucideIcon,
 	RotateCwIcon,
+	SearchIcon,
 	TrashIcon,
 } from "lucide-react";
 import { $path } from "safe-routes";
@@ -16,7 +17,8 @@ import { runStateToBadgeColor } from "~/lib/model/runs";
 import { Thread } from "~/lib/model/threads";
 import { Workflow } from "~/lib/model/workflows";
 import { ThreadsService } from "~/lib/service/api/threadsService";
-import { cn } from "~/lib/utils";
+import { PaginationInfo } from "~/lib/service/pagination";
+import { cn, noop } from "~/lib/utils";
 
 import {
 	useThreadCredentials,
@@ -24,6 +26,7 @@ import {
 	useThreadKnowledge,
 } from "~/components/chat/shared/thread-helpers";
 import { ConfirmationDialog } from "~/components/composed/ConfirmationDialog";
+import { PaginationActions } from "~/components/composed/PaginationActions";
 import { Truncate } from "~/components/composed/typography";
 import {
 	Accordion,
@@ -35,19 +38,24 @@ import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
 import { Card, CardContent } from "~/components/ui/card";
 import { ClickableDiv } from "~/components/ui/clickable-div";
+import { Input } from "~/components/ui/input";
 import { Link } from "~/components/ui/link";
+import { Skeleton } from "~/components/ui/skeleton";
 import {
 	Tooltip,
 	TooltipContent,
 	TooltipTrigger,
 } from "~/components/ui/tooltip";
 import { useConfirmationDialog } from "~/hooks/component-helpers/useConfirmationDialog";
+import { usePagination } from "~/hooks/pagination/usePagination";
 
 interface ThreadMetaProps {
 	entity: Agent | Workflow;
 	thread: Thread;
 	className?: string;
 }
+
+const pageSize = 10;
 
 export function ThreadMeta({ entity, thread, className }: ThreadMetaProps) {
 	const from = $path("/threads/:id", { id: thread.id });
@@ -57,8 +65,16 @@ export function ThreadMeta({ entity, thread, className }: ThreadMetaProps) {
 		? $path("/agents/:agent", { agent: entity.id }, { from })
 		: $path("/workflows/:workflow", { workflow: entity.id });
 
-	const getFiles = useThreadFiles(thread.id);
-	const { data: files = [] } = getFiles;
+	const fileStore = usePagination({ pageSize });
+
+	const getFiles = useThreadFiles(
+		thread.id,
+		fileStore.paginationParams,
+		fileStore.search
+	);
+	const { items: files } = getFiles.data ?? {};
+
+	if (getFiles.data) fileStore.updateTotal(getFiles.data.total);
 
 	const getKnowledge = useThreadKnowledge(thread.id);
 	const { data: knowledge = [] } = getKnowledge;
@@ -146,7 +162,10 @@ export function ThreadMeta({ entity, thread, className }: ThreadMetaProps) {
 						title="Files"
 						isLoading={getFiles.isValidating}
 						onRefresh={() => getFiles.mutate()}
-						items={files}
+						setSearch={fileStore.debouncedSearch}
+						items={files ?? []}
+						pagination={fileStore}
+						setPage={fileStore.setPage}
 						renderItem={(file) => (
 							<ClickableDiv
 								key={file.name}
@@ -172,6 +191,19 @@ export function ThreadMeta({ entity, thread, className }: ThreadMetaProps) {
 									</Truncate>
 								</li>
 							</ClickableDiv>
+						)}
+						renderSkeleton={(index) => (
+							<div key={index} className="flex items-center gap-2">
+								<Skeleton className="rounded-full">
+									<Button size="icon-sm" variant="ghost">
+										<DownloadIcon />
+									</Button>
+								</Skeleton>
+
+								<Skeleton className="flex-1 rounded-full">
+									<p className="text-transparent">.</p>
+								</Skeleton>
+							</div>
 						)}
 					/>
 
@@ -243,7 +275,14 @@ type ThreadMetaAccordionItemProps<T> = {
 	onRefresh?: (e: React.MouseEvent) => void;
 	items: T[];
 	renderItem: (item: T) => React.ReactNode;
+	renderSkeleton?: (
+		index: number,
+		renderItem: (item: T) => React.ReactNode
+	) => React.ReactNode;
 	emptyMessage?: string;
+	pagination?: PaginationInfo;
+	setPage?: (page: number) => void;
+	setSearch?: (search: string) => void;
 };
 
 function ThreadMetaAccordionItem<T>(props: ThreadMetaAccordionItemProps<T>) {
@@ -272,16 +311,36 @@ function ThreadMetaAccordionItem<T>(props: ThreadMetaAccordionItemProps<T>) {
 					)}
 				</div>
 			</AccordionTrigger>
-			<AccordionContent className="mx-4">
+
+			<AccordionContent className="mx-4 space-y-2 pt-2">
+				{props.setSearch && (
+					<Input
+						startContent={<SearchIcon />}
+						placeholder="Search"
+						onChange={(e) => props.setSearch?.(e.target.value)}
+					/>
+				)}
+
 				<ul className="space-y-2">
 					{props.items.length ? (
 						props.items.map((item) => props.renderItem(item))
+					) : props.isLoading && props.renderSkeleton ? (
+						Array.from({ length: props.pagination?.pageSize ?? 10 }).map(
+							(_, index) => props.renderSkeleton?.(index, props.renderItem)
+						)
 					) : (
 						<li className="flex items-center">
 							<p>{props.emptyMessage || `No ${props.title.toLowerCase()}`}</p>
 						</li>
 					)}
 				</ul>
+
+				{props.pagination && (
+					<PaginationActions
+						{...props.pagination}
+						onPageChange={props.setPage ?? noop}
+					/>
+				)}
 			</AccordionContent>
 		</AccordionItem>
 	);

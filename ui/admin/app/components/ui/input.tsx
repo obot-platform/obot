@@ -11,7 +11,7 @@ const InputReset =
 
 const inputVariants = cva(
 	cn(
-		"flex h-9 w-full items-center rounded-md border border-input bg-background text-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground has-[:disabled]:cursor-not-allowed has-[:disabled]:opacity-50 has-[:focus-visible]:ring-1 has-[:focus-visible]:ring-ring"
+		"flex h-9 w-full items-center rounded-md border border-input bg-background text-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground has-[:disabled]:cursor-not-allowed has-[:disabled]:opacity-50 has-[:focus-visible]:ring-1 has-[:focus-visible]:ring-ring [&_svg]:size-[1.375rem]"
 	),
 	{
 		variants: {
@@ -31,10 +31,14 @@ export interface InputProps
 	extends React.InputHTMLAttributes<HTMLInputElement>,
 		VariantProps<typeof inputVariants> {
 	disableToggle?: boolean;
+	startContent?: React.ReactNode;
 }
 
 const Input = React.forwardRef<HTMLInputElement, InputProps>(
-	({ className, variant, type, disableToggle = false, ...props }, ref) => {
+	(
+		{ className, variant, type, disableToggle = false, startContent, ...props },
+		ref
+	) => {
 		const isPassword = type === "password";
 		const [isVisible, setIsVisible] = React.useState(false);
 
@@ -51,6 +55,10 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
 
 		return (
 			<div className={cn(inputVariants({ variant, className }))}>
+				{startContent && (
+					<div className="flex h-full items-center pl-2">{startContent}</div>
+				)}
+
 				<input
 					type={internalType}
 					data-1p-ignore={!isPassword}
