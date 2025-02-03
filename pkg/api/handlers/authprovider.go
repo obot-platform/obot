@@ -160,7 +160,6 @@ func (ap *AuthProviderHandler) Configure(req api.Context) error {
 		}
 	}
 
-	// Tell the dispatcher that it needs to update its list of configured auth providers.
 	defer func() {
 		go ap.dispatcher.UpdateConfiguredAuthProviders()
 	}()
