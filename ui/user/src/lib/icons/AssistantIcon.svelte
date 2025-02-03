@@ -30,21 +30,10 @@
 		}
 		return a.icons.icon ?? '';
 	}
-
-	function hasDarkIcon(a: Assistant | undefined): boolean {
-		if (!a) {
-			return false;
-		}
-		return !!a.icons.iconDark;
-	}
 </script>
 
 {#if getIcon(assistant)}
-	<img
-		src={getIcon(assistant)}
-		alt="assistant icon"
-		class={twMerge('h-5 w-5', !hasDarkIcon(assistant) && 'dark:invert', klass)}
-	/>
+	<img src={getIcon(assistant)} alt="assistant icon" class={twMerge('h-5 w-5', klass)} />
 {:else}
 	<div
 		class={twMerge(
