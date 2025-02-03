@@ -37,10 +37,6 @@ const config: Config = {
     ],
   ],
 
-  plugins: [
-    require.resolve('./src/plugins/fetch-snippets'),
-  ],
-
   themeConfig: {
     // Replace with your project's social card
     image: 'img/obot-logo-blue-black-text.svg',

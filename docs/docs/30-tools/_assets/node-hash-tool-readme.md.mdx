@@ -1,4 +1,4 @@
-## Writing your first tool in Node.js (with Typescript) {#writing-your-first-tool-in-node-js-with-typescript-ac3b80a2}
+## Writing your first tool in Node.js (with Typescript) {#writing-your-first-tool-in-node-js-with-typescript}
 
 [node-hash-tool](https://github.com/obot-platform/node-hash-tool) contains a reference TypeScript Node.js implementation of the `Hash` tool.
 
@@ -11,7 +11,7 @@ git clone git@github.com:obot-platform/node-hash-tool
 ```
 <br/>
 
-## Tool Repo Structure {#tool-repo-structure-ac3b80a2}
+## Tool Repo Structure {#tool-repo-structure-node}
 
 The directory tree below highlights the files required to implement `Hash` in TypeScript and package it for Obot.
 
@@ -31,7 +31,7 @@ node-hash-tool
 
 <br/>
 
-## Defining the `Hash` tool {#defining-the-hash-tool-ac3b80a2}
+## Defining the `Hash` tool {#defining-the-hash-tool-node}
 
 The `tool.gpt` file contains [GPTScript Tool Definitions](https://docs.gptscript.ai/tools/gpt-file-reference) which describe a set of tools that can be used by agents in Obot.
 Every Tool repository must have a `tool.gpt` file in its root directory.
@@ -90,7 +90,7 @@ Param: algo: The algorithm to generate a hash with. Default is "sha256". Support
 
 <br/>
 
-## Tool Metadata {#tool-metadata-ac3b80a2}
+## Tool Metadata {#tool-metadata-node}
 
 The snippet below (from the `tool.gpt` file) also provides the following metadata for use in Obot:
 
@@ -151,7 +151,7 @@ https://cdn.jsdelivr.net/npm/@phosphor-icons/core@2/assets/duotone/fingerprint-d
 
 <br/>
 
-## Implementing Business Logic {#implementing-business-logic-ac3b80a2}
+## Implementing Business Logic {#implementing-business-logic-node}
 
 As we saw earlier, the `npm` command invoked by the `Tool Body` passes `hash` as an argument to the `tool` script.
 
@@ -227,7 +227,7 @@ And the body of the `Verify` tool would pass `verify` to the `tool` script inste
 
 ```yaml
 Name: Verify
-# ... {#-ac3b80a2}
+# ...
 
 #!/usr/bin/env npm --silent --prefix ${GPTSCRIPT_TOOL_DIR} run tool -- verify
 ```
@@ -352,7 +352,7 @@ export function hash(data: string = '', algo = 'sha256'): string {
 
 <br/>
 
-## Testing `src/tools.ts` and `src/hash.ts` Locally {#testing-src-tools-ts-and-src-hash-ts-locally-ac3b80a2}
+## Testing `src/tools.ts` and `src/hash.ts` Locally {#testing-src-tools-ts-and-src-hash-ts-locally}
 
 Before adding a tool to Obot, verify that the TypeScript business logic works on your machine.
 
@@ -375,7 +375,7 @@ To do this, run through the following steps in the root of your local fork:
 
 <br/>
 
-## Adding The `Hash` tool to Obot {#adding-the-hash-tool-to-obot-ac3b80a2}
+## Adding The `Hash` tool to Obot {#adding-the-hash-tool-to-obot-node}
 
 Before a tool can be used by an agent, an admin must first add the tool to Obot by performing the steps below:
 
@@ -413,7 +413,7 @@ Before a tool can be used by an agent, an admin must first add the tool to Obot 
     </div>
 </details>
 
-## Using The `Hash` tool in an agent {#using-the-hash-tool-in-an-agent-ac3b80a2}
+## Using The `Hash` tool in an agent {#using-the-hash-tool-in-an-agent-node}
 
 To use the `Hash` tool in an agent, open the agent's Edit page, then:
 
