@@ -43,7 +43,7 @@ func (a *Authorizer) authorizeThreadFileDownload(req *http.Request, user user.In
 	if parts[0] != "" ||
 		parts[1] != "api" ||
 		parts[2] != "threads" ||
-		parts[4] != "file" {
+		parts[4] != "files" {
 		return false
 	}
 
