@@ -35,13 +35,13 @@ interface MessageProps {
 	icons?: AgentIcons | null;
 	isDarkMode?: boolean;
 	isMostRecent?: boolean;
-	agentName?: string;
+	name?: string;
 }
 
 const OpenMarkdownLinkRegex = new RegExp(/\[([^\]]+)\]\(https?:\/\/[^)]*$/);
 
 export const Message = React.memo(
-	({ message, isRunning, icons, isDarkMode, agentName }: MessageProps) => {
+	({ message, isRunning, icons, isDarkMode, name }: MessageProps) => {
 		const isUser = message.sender === "user";
 
 		// note(ryanhopperlowe) we only support one tool call per message for now
@@ -67,7 +67,7 @@ export const Message = React.memo(
 		}, [animatedText]);
 
 		const icon = isDarkMode ? icons?.iconDark || icons?.icon : icons?.icon;
-		const showIcon = !isUser && !message.prompt && !toolCall;
+		const showIcon = !isUser && !message.prompt && !toolCall && (icon || name);
 
 		return (
 			<div className="mb-4 w-full">
@@ -75,9 +75,9 @@ export const Message = React.memo(
 					<div className="flex items-center gap-2">
 						<Avatar className="h-6 w-6">
 							<AvatarImage src={icon} />
-							<AvatarFallback>{agentName?.charAt(0) ?? ""}</AvatarFallback>
+							<AvatarFallback>{name?.charAt(0) ?? ""}</AvatarFallback>
 						</Avatar>
-						<p className="text-sm font-semibold">{agentName}</p>
+						<p className="text-sm font-semibold">{name}</p>
 						<small className="text-muted-foreground">
 							{message.time && formatTime(message.time)}
 						</small>

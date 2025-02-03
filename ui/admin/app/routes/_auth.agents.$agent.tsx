@@ -108,7 +108,7 @@ export default function ChatAgent() {
 						introductionMessage={updatedAgent?.introductionMessage}
 						starterMessages={updatedAgent?.starterMessages}
 						icons={updatedAgent?.icons}
-						agentName={updatedAgent?.name}
+						name={updatedAgent?.name}
 					>
 						<Chat className="bg-sidebar" />
 					</ChatProvider>

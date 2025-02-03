@@ -125,6 +125,7 @@ export default function ChatAgent() {
 						introductionMessage={entity.introductionMessage}
 						starterMessages={entity.starterMessages}
 						icons={entity.icons}
+						name={entity.name}
 					>
 						<Chat />
 					</ChatProvider>

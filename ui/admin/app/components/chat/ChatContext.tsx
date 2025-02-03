@@ -22,7 +22,7 @@ interface ChatContextType extends Pick<MessageStore, "messages" | "isRunning"> {
 	isInvoking: boolean;
 	introductionMessage?: string;
 	starterMessages?: string[];
-	agentName?: string;
+	name?: string;
 	icons?: AgentIcons | null;
 }
 
@@ -37,7 +37,7 @@ export function ChatProvider({
 	readOnly,
 	introductionMessage,
 	starterMessages,
-	agentName,
+	name,
 	icons,
 }: {
 	children: ReactNode;
@@ -48,7 +48,7 @@ export function ChatProvider({
 	readOnly?: boolean;
 	introductionMessage?: string;
 	starterMessages?: string[];
-	agentName?: string;
+	name?: string;
 	icons?: AgentIcons | null;
 }) {
 	const invoke = (prompt?: string) => {
@@ -95,7 +95,7 @@ export function ChatProvider({
 				readOnly,
 				introductionMessage,
 				starterMessages,
-				agentName,
+				name,
 				icons,
 			}}
 		>

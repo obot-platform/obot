@@ -28,7 +28,7 @@ export function MessagePane({
 }: MessagePaneProps) {
 	const [shouldCenter, setShouldCenter] = useState(true);
 	const noMessagesRef = useRef<HTMLDivElement>(null);
-	const { readOnly, isRunning, mode, icons, agentName } = useChat();
+	const { readOnly, isRunning, mode, icons, name } = useChat();
 	const { theme } = useTheme();
 	const isDarkMode = theme === "dark";
 
@@ -71,7 +71,7 @@ export function MessagePane({
 								icons={icons}
 								isDarkMode={isDarkMode}
 								isMostRecent={i === messages.length - 1}
-								agentName={agentName}
+								name={name}
 							/>
 						))}
 					</div>
