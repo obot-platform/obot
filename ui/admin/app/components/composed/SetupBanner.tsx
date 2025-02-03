@@ -30,13 +30,14 @@ export function SetupBanner() {
 			description: "To support multiple users, configure an Auth Provider.",
 			label: "Auth Provider",
 		},
-	].filter((step) => !step.configured);
+	];
 
 	const isSetupPage = steps.some((step) =>
 		location.pathname.includes(step.path)
 	);
+	const isConfigured = steps.every((step) => step.configured);
 
-	if (!steps.length || isSetupPage) return null;
+	if (isConfigured || isSetupPage) return null;
 
 	return (
 		<div className="w-full">
