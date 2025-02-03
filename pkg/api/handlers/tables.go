@@ -20,21 +20,6 @@ func NewTableHandler(gptScript *gptscript.GPTScript) *TableHandler {
 	}
 }
 
-func (t *TableHandler) tables(req api.Context, workspaceID string) (string, error) {
-	var toolRef v1.ToolReference
-	if err := req.Get(&toolRef, "database-ui"); err != nil {
-		return "", err
-	}
-	run, err := t.gptScript.Run(req.Context(), "list_database_tables from "+toolRef.Status.Reference, gptscript.Options{
-		Workspace: workspaceID,
-	})
-	if err != nil {
-		return "", err
-	}
-	defer run.Close()
-	return run.Text()
-}
-
 func (t *TableHandler) rows(req api.Context, workspaceID, tableName string) (string, error) {
 	var toolRef v1.ToolReference
 	if err := req.Get(&toolRef, "database-ui"); err != nil {
@@ -74,14 +59,7 @@ func (t *TableHandler) ListTables(req api.Context) error {
 		return req.Write(result)
 	}
 
-	content, err := t.tables(req, thread.Status.WorkspaceID)
-	if err != nil {
-		return err
-	}
-
-	req.ResponseWriter.Header().Set("Content-Type", "application/json")
-	_, err = req.ResponseWriter.Write([]byte(content))
-	return err
+	return listTablesInWorkspace(req, t.gptScript, thread.Status.WorkspaceID)
 }
 
 var validTableName = regexp.MustCompile(`^[a-zA-Z_][a-zA-Z0-9_]*$`)
@@ -115,5 +93,32 @@ func (t *TableHandler) GetRows(req api.Context) error {
 
 	req.ResponseWriter.Header().Set("Content-Type", "application/json")
 	_, err = req.ResponseWriter.Write([]byte(content))
+	return err
+}
+
+func listTablesInWorkspace(req api.Context, gClient *gptscript.GPTScript, workspaceID string) error {
+	var (
+		toolRef v1.ToolReference
+		result  string
+	)
+
+	if err := req.Get(&toolRef, "database-ui"); err != nil {
+		return err
+	}
+	run, err := gClient.Run(req.Context(), "list_database_tables from "+toolRef.Status.Reference, gptscript.Options{
+		Workspace: workspaceID,
+	})
+	if err != nil {
+		return err
+	}
+
+	defer run.Close()
+	result, err = run.Text()
+	if err != nil {
+		return err
+	}
+
+	req.ResponseWriter.Header().Set("Content-Type", "application/json")
+	_, err = req.ResponseWriter.Write([]byte(result))
 	return err
 }

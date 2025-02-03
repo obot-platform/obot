@@ -395,3 +395,20 @@ func (a *ThreadHandler) DeleteKnowledge(req api.Context) error {
 
 	return deleteKnowledge(req, req.PathValue("file"), thread.Status.KnowledgeSetNames[0])
 }
+
+func (a *ThreadHandler) Tables(req api.Context) error {
+	var (
+		threadID = req.PathValue("id")
+	)
+
+	var thread v1.Thread
+	if err := req.Get(&thread, threadID); err != nil {
+		return err
+	}
+
+	if thread.Status.WorkspaceID == "" {
+		return req.Write(types.TableList{Items: []types.Table{}})
+	}
+
+	return listTablesInWorkspace(req, a.gptscript, thread.Status.WorkspaceID)
+}

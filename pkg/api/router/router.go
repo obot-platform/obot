@@ -234,6 +234,9 @@ func Router(services *services.Services) (http.Handler, error) {
 	mux.HandleFunc("POST /api/threads/{id}/knowledge-files/{file}", threads.UploadKnowledge)
 	mux.HandleFunc("DELETE /api/threads/{id}/knowledge-files/{file...}", threads.DeleteKnowledge)
 
+	// Thread tables
+	mux.HandleFunc("GET /api/threads/{id}/tables", threads.Tables)
+
 	// ToolRefs
 	mux.HandleFunc("GET /api/tool-references", toolRefs.List)
 	mux.HandleFunc("GET /api/tool-references/{id}", toolRefs.ByID)
