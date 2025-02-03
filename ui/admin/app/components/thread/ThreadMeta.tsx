@@ -8,6 +8,7 @@ import {
 	LucideIcon,
 	RotateCwIcon,
 	SearchIcon,
+	TableIcon,
 	TrashIcon,
 } from "lucide-react";
 import { $path } from "safe-routes";
@@ -24,6 +25,7 @@ import {
 	useThreadCredentials,
 	useThreadFiles,
 	useThreadKnowledge,
+	useThreadTables,
 } from "~/components/chat/shared/thread-helpers";
 import { ConfirmationDialog } from "~/components/composed/ConfirmationDialog";
 import { PaginationActions } from "~/components/composed/PaginationActions";
@@ -83,6 +85,16 @@ export function ThreadMeta({ entity, thread, className }: ThreadMetaProps) {
 	const { data: credentials = [] } = getCredentials;
 
 	const { dialogProps, interceptAsync } = useConfirmationDialog();
+
+	const tableStore = usePagination({ pageSize });
+	const getTables = useThreadTables(
+		thread.id,
+		tableStore.paginationParams,
+		tableStore.search
+	);
+	const { items: tables } = getTables.data ?? {};
+
+	if (getTables.data) tableStore.updateTotal(getTables.data.total);
 
 	return (
 		<Card className={cn("bg-0 h-full overflow-hidden", className)}>
@@ -247,6 +259,29 @@ export function ThreadMeta({ entity, thread, className }: ThreadMetaProps) {
 								>
 									<TrashIcon />
 								</Button>
+							</li>
+						)}
+					/>
+
+					<ThreadMetaAccordionItem
+						value="tables"
+						icon={TableIcon}
+						title="Tables"
+						isLoading={getTables.isValidating}
+						onRefresh={() => getTables.mutate()}
+						items={tables ?? []}
+						pagination={tableStore}
+						setPage={tableStore.setPage}
+						renderItem={(table) => (
+							<li key={table.name}>
+								<p>{table.name}</p>
+							</li>
+						)}
+						renderSkeleton={(index) => (
+							<li key={index} className="flex items-center">
+								<Skeleton className="rounded-full">
+									<p className="text-transparent">.</p>
+								</Skeleton>
 							</li>
 						)}
 					/>
