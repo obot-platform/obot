@@ -124,8 +124,10 @@ export default function ChatAgent() {
 						threadId={thread.id}
 						introductionMessage={entity.introductionMessage}
 						starterMessages={entity.starterMessages}
-						icons={entity.icons}
-						name={entity.name}
+						{...(type === "agent" && {
+							icons: entity.icons,
+							name: entity.name,
+						})}
 					>
 						<Chat />
 					</ChatProvider>
