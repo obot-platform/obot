@@ -1,9 +1,16 @@
 import { Avatar } from "@radix-ui/react-avatar";
 import { GlobeIcon, PlusIcon, UploadIcon } from "lucide-react";
+import { useState } from "react";
 
 import { KnowledgeSourceType } from "~/lib/model/knowledge";
+import { OAuthAppSpecMap } from "~/lib/model/oauthApps";
+import {
+	OAuthAppSpec,
+	OAuthProvider,
+} from "~/lib/model/oauthApps/oauth-helpers";
 import { assetUrl } from "~/lib/utils";
 
+import { OAuthAppDetail } from "~/components/oauth-apps/shared/OAuthAppDetail";
 import { Button } from "~/components/ui/button";
 import {
 	DropdownMenu,
@@ -11,6 +18,7 @@ import {
 	DropdownMenuItem,
 	DropdownMenuTrigger,
 } from "~/components/ui/dropdown-menu";
+import { useOAuthAppList } from "~/hooks/oauthApps/useOAuthApps";
 
 interface AddKnowledgeButtonProps {
 	disabled?: boolean;
@@ -25,6 +33,48 @@ export function AddKnowledgeButton({
 	onAddSource,
 	hasExistingNotion,
 }: AddKnowledgeButtonProps) {
+	const [requiredConfiguration, setRequiredConfiguration] =
+		useState<OAuthAppSpec | null>(null);
+
+	const oauthApps = useOAuthAppList();
+	const oauthAppsMap = new Map(
+		oauthApps.map((app) => [app.alias ?? app.type, app])
+	);
+
+	const handleSelect = (knowledgeSourceType: KnowledgeSourceType) => {
+		const specType =
+			knowledgeSourceType === KnowledgeSourceType.Notion
+				? OAuthProvider.Notion
+				: OAuthProvider.Microsoft365;
+		const app = oauthAppsMap.get(specType);
+
+		if (!app) {
+			setRequiredConfiguration(OAuthAppSpecMap[specType]);
+			return;
+		}
+
+		onAddSource(knowledgeSourceType);
+	};
+
+	const handleOpenChange = (open: boolean) => {
+		if (!open) {
+			setRequiredConfiguration(null);
+		}
+	};
+
+	const handleOauthSuccess = () => {
+		if (!requiredConfiguration) {
+			return;
+		}
+
+		if (requiredConfiguration.type === OAuthProvider.Notion) {
+			onAddSource(KnowledgeSourceType.Notion);
+		} else {
+			onAddSource(KnowledgeSourceType.OneDrive);
+		}
+		setRequiredConfiguration(null);
+	};
+
 	return (
 		<div className="flex w-full justify-end">
 			<DropdownMenu>
@@ -46,7 +96,7 @@ export function AddKnowledgeButton({
 						</div>
 					</DropdownMenuItem>
 					<DropdownMenuItem
-						onClick={() => onAddSource(KnowledgeSourceType.OneDrive)}
+						onClick={() => handleSelect(KnowledgeSourceType.OneDrive)}
 						className="cursor-pointer"
 					>
 						<div className="flex flex-row justify-center">
@@ -61,7 +111,7 @@ export function AddKnowledgeButton({
 						</div>
 					</DropdownMenuItem>
 					<DropdownMenuItem
-						onClick={() => onAddSource(KnowledgeSourceType.Notion)}
+						onClick={() => handleSelect(KnowledgeSourceType.Notion)}
 						className="cursor-pointer"
 						disabled={hasExistingNotion}
 					>
@@ -83,6 +133,15 @@ export function AddKnowledgeButton({
 					</DropdownMenuItem>
 				</DropdownMenuContent>
 			</DropdownMenu>
+
+			{requiredConfiguration && (
+				<OAuthAppDetail
+					open
+					onOpenChange={handleOpenChange}
+					onSuccess={handleOauthSuccess}
+					type={requiredConfiguration.type}
+				/>
+			)}
 		</div>
 	);
 }
