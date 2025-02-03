@@ -401,7 +401,7 @@ func (d *Dispatcher) UpdateConfiguredAuthProviders(ctx context.Context) {
 
 	var result []string
 	for _, authProvider := range authProviders.Items {
-		if isConfigured, _, _ := d.isAuthProviderConfigured(ctx, []string{string(authProvider.UID), system.GenericAuthProviderCredentialContext}, authProvider); isConfigured {
+		if isConfigured, _, _ := d.isAuthProviderConfigured(context.Background(), []string{string(authProvider.UID), system.GenericAuthProviderCredentialContext}, authProvider); isConfigured {
 			result = append(result, authProvider.Name)
 		}
 	}

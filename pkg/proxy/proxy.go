@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httputil"
@@ -28,6 +29,7 @@ var log = logger.Package()
 const (
 	CurrentAuthProviderCookie  = "current_auth_provider"
 	ObotAccessTokenCookie      = "obot_access_token"
+	ObotAccessTokenCookieZero  = "obot_access_token_0"
 	ObotAuthProviderQueryParam = "obot-auth-provider"
 )
 
@@ -75,6 +77,11 @@ func (pm *Manager) cacheCleanup(ctx context.Context) {
 
 func getTokenHash(req *http.Request) (string, error) {
 	c, err := req.Cookie(ObotAccessTokenCookie)
+	if errors.Is(err, http.ErrNoCookie) {
+		// Check the zero cookie. This one is present when the token is too large to fit in one cookie and
+		// must be split into two.
+		c, err = req.Cookie(ObotAccessTokenCookieZero)
+	}
 	if err != nil {
 		return "", err
 	}
