@@ -5,6 +5,7 @@ import {
 import { AtlassianOAuthApp } from "~/lib/model/oauthApps/providers/atlassian";
 import { GitHubOAuthApp } from "~/lib/model/oauthApps/providers/github";
 import { GoogleOAuthApp } from "~/lib/model/oauthApps/providers/google";
+import { HubSpotOAuthApp } from "~/lib/model/oauthApps/providers/hubspot";
 import { LinkedInOAuthApp } from "~/lib/model/oauthApps/providers/linkedin";
 import { Microsoft365OAuthApp } from "~/lib/model/oauthApps/providers/microsoft365";
 import { NotionOAuthApp } from "~/lib/model/oauthApps/providers/notion";
@@ -17,6 +18,7 @@ export const OAuthAppSpecMap = {
 	[OAuthProvider.Atlassian]: AtlassianOAuthApp,
 	[OAuthProvider.GitHub]: GitHubOAuthApp,
 	[OAuthProvider.Google]: GoogleOAuthApp,
+	[OAuthProvider.HubSpot]: HubSpotOAuthApp,
 	[OAuthProvider.Microsoft365]: Microsoft365OAuthApp,
 	[OAuthProvider.Slack]: SlackOAuthApp,
 	[OAuthProvider.Salesforce]: SalesforceOAuthApp,

@@ -6,6 +6,7 @@ export const OAuthProvider = {
 	Atlassian: "atlassian",
 	GitHub: "github",
 	Google: "google",
+	HubSpot: "hubspot",
 	Microsoft365: "microsoft365",
 	Slack: "slack",
 	Salesforce: "salesforce",
