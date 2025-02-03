@@ -35,7 +35,7 @@ export function ConfigureOAuthApp({
 		await OauthAppService.createOauthApp({
 			...data,
 			type: spec.type,
-			alias: spec.type,
+			alias: spec.alias,
 		});
 
 		await mutate(OauthAppService.getOauthApps.key());
@@ -56,13 +56,13 @@ export function ConfigureOAuthApp({
 		await mutate(OauthAppService.getOauthApps.key());
 
 		modal.onClose();
-		toast.success(`${app.name} OAuth configuration updated`);
+		toast.success(`${spec.displayName} OAuth configuration updated`);
 		onSuccess();
 	});
 
 	const editLabel = app
 		? "Replace Configuration"
-		: `Configure ${spec?.displayName} OAuth App`;
+		: `Configure ${spec.displayName} OAuth App`;
 	return (
 		<Dialog open={modal.isOpen} onOpenChange={modal.onOpenChange}>
 			<DialogTrigger asChild>
