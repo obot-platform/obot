@@ -2,8 +2,8 @@ package proxy
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httputil"
@@ -11,12 +11,14 @@ import (
 	"slices"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/obot-platform/obot/logger"
 	"github.com/obot-platform/obot/pkg/accesstoken"
 	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/gateway/server/dispatcher"
+	"github.com/obot-platform/obot/pkg/system"
 	"k8s.io/apiserver/pkg/authentication/authenticator"
 	"k8s.io/apiserver/pkg/authentication/user"
 )
@@ -24,85 +26,96 @@ import (
 var log = logger.Package()
 
 const (
-	CurrentAuthProviderCookie   = "current_auth_provider"
-	ObotAccessTokenCookiePrefix = "obot_access_token_"
-	ObotAuthProviderQueryParam  = "obot-auth-provider"
+	CurrentAuthProviderCookie  = "current_auth_provider"
+	ObotAccessTokenCookie      = "obot_access_token"
+	ObotAuthProviderQueryParam = "obot-auth-provider"
 )
 
+type cacheObject struct {
+	provider  string
+	createdAt time.Time
+}
+
 type Manager struct {
-	dispatcher *dispatcher.Dispatcher
+	dispatcher               *dispatcher.Dispatcher
+	tokenHashToProviderCache map[string]cacheObject
+	lock                     sync.RWMutex
 }
 
-func NewProxyManager(dispatcher *dispatcher.Dispatcher) *Manager {
-	return &Manager{
-		dispatcher: dispatcher,
+func NewProxyManager(ctx context.Context, dispatcher *dispatcher.Dispatcher) *Manager {
+	m := &Manager{
+		dispatcher:               dispatcher,
+		tokenHashToProviderCache: make(map[string]cacheObject),
+		lock:                     sync.RWMutex{},
 	}
+
+	go m.cacheCleanup(ctx)
+
+	return m
 }
 
-func getModelProviderFromCookies(req *http.Request) (string, error) {
-	// Get all the access token cookies.
-	cookies := req.Cookies()
-	var accessTokenCookies []http.Cookie
-	for _, cookie := range cookies {
-		if strings.HasPrefix(cookie.Name, ObotAccessTokenCookiePrefix) {
-			accessTokenCookies = append(accessTokenCookies, *cookie)
+func (pm *Manager) cacheCleanup(ctx context.Context) {
+	t := time.NewTicker(time.Hour)
+	defer t.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-t.C:
+			pm.lock.Lock()
+			for tokenHash, obj := range pm.tokenHashToProviderCache {
+				if time.Since(obj.createdAt) > 24*time.Hour {
+					delete(pm.tokenHashToProviderCache, tokenHash)
+				}
+			}
+			pm.lock.Unlock()
 		}
 	}
-
-	if len(accessTokenCookies) == 0 {
-		return "", errors.New("no access token cookie found")
-	}
-
-	// Sort the cookies by latest expiration.
-	// The one that expires farthest is the one we want.
-	sort.Slice(accessTokenCookies, func(i, j int) bool {
-		return accessTokenCookies[i].Expires.After(accessTokenCookies[j].Expires)
-	})
-	cookieName := accessTokenCookies[0].Name
-
-	// Strip the suffixes "_0" and "_1" if they exist.
-	// These are added on when the token is too large to fit in one cookie.
-	if strings.HasSuffix(cookieName, "_0") {
-		cookieName = strings.TrimSuffix(cookieName, "_0")
-	} else if strings.HasSuffix(cookieName, "_1") {
-		cookieName = strings.TrimSuffix(cookieName, "_1")
-	}
-
-	_, provider, exists := strings.Cut(cookieName, ObotAccessTokenCookiePrefix)
-	if !exists {
-		// This should be impossible, but we'll account for it anyway.
-		return "", fmt.Errorf("failed to find provider in cookie name %s", cookieName)
-	}
-
-	// The provider namespace and name should be sparated by a double underscore.
-	namespace, name, exists := strings.Cut(provider, "__")
-	if !exists {
-		return "", fmt.Errorf("failed to find provider in cookie name %s", cookieName)
-	}
-
-	return fmt.Sprintf("%s/%s", namespace, name), nil
 }
 
-func clearAccessTokenCookies(w http.ResponseWriter, req *http.Request) {
-	for _, cookie := range req.Cookies() {
-		if strings.HasPrefix(cookie.Name, ObotAccessTokenCookiePrefix) {
-			http.SetCookie(w, &http.Cookie{
-				Name:   cookie.Name,
-				Value:  "",
-				Path:   cookie.Path,
-				MaxAge: -1,
-			})
-		}
+func getTokenHash(req *http.Request) (string, error) {
+	c, err := req.Cookie(ObotAccessTokenCookie)
+	if err != nil {
+		return "", err
 	}
+
+	h := sha256.New()
+	h.Write([]byte(c.Value))
+	return fmt.Sprintf("%x", h.Sum(nil)), nil
 }
 
 func (pm *Manager) AuthenticateRequest(req *http.Request) (*authenticator.Response, bool, error) {
-	provider, err := getModelProviderFromCookies(req)
+	tokenHash, err := getTokenHash(req)
 	if err != nil {
-		return nil, false, err
+		return nil, false, nil
 	}
 
-	proxy, err := pm.createProxy(req.Context(), provider)
+	pm.lock.RLock()
+	cached, found := pm.tokenHashToProviderCache[tokenHash]
+	pm.lock.RUnlock()
+
+	if !found {
+		// Try the token with each configured auth provider to see if one of them recognizes the user.
+		configuredProviders := pm.dispatcher.ListConfiguredAuthProviders(system.DefaultNamespace)
+		for _, configuredProvider := range configuredProviders {
+			if proxy, err := pm.createProxy(req.Context(), system.DefaultNamespace+"/"+configuredProvider); err == nil {
+				if resp, good, err := proxy.authenticateRequest(req); good && err == nil {
+					pm.lock.Lock()
+					pm.tokenHashToProviderCache[tokenHash] = cacheObject{
+						provider:  system.DefaultNamespace + "/" + configuredProvider,
+						createdAt: time.Now(),
+					}
+					pm.lock.Unlock()
+					return resp, true, nil
+				}
+			}
+		}
+
+		// No provider was found that recognized the user.
+		return nil, false, nil
+	}
+
+	proxy, err := pm.createProxy(req.Context(), cached.provider)
 	if err != nil {
 		return nil, false, err
 	}
@@ -129,12 +142,10 @@ func (pm *Manager) ServeHTTP(user user.Info, w http.ResponseWriter, r *http.Requ
 
 	// Determine which auth provider to use.
 	var (
-		provider   string
-		fromCookie bool
-		err        error
+		provider string
+		err      error
 	)
 	if len(user.GetExtra()["auth_provider_name"]) > 0 && len(user.GetExtra()["auth_provider_namespace"]) > 0 {
-		fromCookie = true
 		provider = fmt.Sprintf("%s/%s", user.GetExtra()["auth_provider_namespace"][0], user.GetExtra()["auth_provider_name"][0])
 	} else if r.URL.Path == "/oauth2/callback" {
 		// Check for the current auth provider cookie.
@@ -155,9 +166,6 @@ func (pm *Manager) ServeHTTP(user user.Info, w http.ResponseWriter, r *http.Requ
 	} else if param := r.URL.Query().Get(ObotAuthProviderQueryParam); param != "" {
 		// If the provider is set in the query params, use that.
 		provider = param
-	} else if providerFromCookie, err := getModelProviderFromCookies(r); err == nil {
-		fromCookie = true
-		provider = providerFromCookie
 	}
 
 	// Save the redirect target for later.
@@ -168,11 +176,8 @@ func (pm *Manager) ServeHTTP(user user.Info, w http.ResponseWriter, r *http.Requ
 
 	// If no provider is set, just use the alphabetically first provider.
 	if provider == "" {
-		configuredProviders, err := pm.dispatcher.ListConfiguredAuthProviders(r.Context(), "default")
-		if err != nil {
-			http.Error(w, fmt.Sprintf("failed to list configured auth providers: %v", err), http.StatusInternalServerError)
-			return
-		} else if len(configuredProviders) == 0 {
+		configuredProviders := pm.dispatcher.ListConfiguredAuthProviders(system.DefaultNamespace)
+		if len(configuredProviders) == 0 {
 			// There aren't any auth providers configured. Return an error, unless the user is signing out, in which case, just redirect.
 			if r.URL.Path == "/oauth2/sign_out" {
 				http.Redirect(w, r, rdParam, http.StatusFound)
@@ -186,36 +191,21 @@ func (pm *Manager) ServeHTTP(user user.Info, w http.ResponseWriter, r *http.Requ
 		sort.Slice(configuredProviders, func(i, j int) bool {
 			return configuredProviders[i] < configuredProviders[j]
 		})
-		provider = "default/" + configuredProviders[0]
+		provider = system.DefaultNamespace + "/" + configuredProviders[0]
 	} else {
 		namespace, name, _ := strings.Cut(provider, "/")
-		if namespace == "" {
+		if namespace == "" || name == "" {
 			http.Error(w, "invalid auth provider:"+provider, http.StatusBadRequest)
 			return
 		}
 
 		// Check if the provider is configured.
-		configuredProviders, err := pm.dispatcher.ListConfiguredAuthProviders(r.Context(), namespace)
-		if err != nil {
-			http.Error(w, fmt.Sprintf("failed to list configured auth providers: %v", err), http.StatusInternalServerError)
-			return
-		}
+		configuredProviders := pm.dispatcher.ListConfiguredAuthProviders(namespace)
 
 		if !slices.Contains(configuredProviders, name) {
 			// The requested auth provider isn't configured. Return an error, unless the user is signing out, in which case, just redirect.
 			if r.URL.Path == "/oauth2/sign_out" {
-				// Clear all the access tokens.
-				clearAccessTokenCookies(w, r)
 				http.Redirect(w, r, rdParam, http.StatusFound)
-				return
-			}
-
-			if fromCookie {
-				// Clear the access token cookies, since they are bad.
-				clearAccessTokenCookies(w, r)
-
-				// Just refresh the page and try again.
-				http.Redirect(w, r, r.URL.String(), http.StatusFound)
 				return
 			}
 
@@ -223,14 +213,6 @@ func (pm *Manager) ServeHTTP(user user.Info, w http.ResponseWriter, r *http.Requ
 			return
 		}
 	}
-
-	// If the legacy auth provider cookie exists, delete it.
-	http.SetCookie(w, &http.Cookie{
-		Name:   "obot_access_token",
-		Value:  "",
-		Path:   "/",
-		MaxAge: -1,
-	})
 
 	proxy, err := pm.createProxy(r.Context(), provider)
 	if err != nil {

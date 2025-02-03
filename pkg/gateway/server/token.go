@@ -111,10 +111,7 @@ func (s *Server) newToken(apiContext api.Context) error {
 	}
 
 	// Make sure the auth provider exists.
-	list, err := s.dispatcher.ListConfiguredAuthProviders(apiContext.Context(), namespace)
-	if err != nil {
-		return types2.NewErrHttp(http.StatusInternalServerError, fmt.Sprintf("error listing configured auth providers: %v", err))
-	} else if !slices.Contains(list, name) {
+	if providerList := s.dispatcher.ListConfiguredAuthProviders(namespace); !slices.Contains(providerList, name) {
 		return types2.NewErrHttp(http.StatusNotFound, "auth provider not found")
 	}
 
@@ -131,12 +128,7 @@ func (s *Server) tokenRequest(apiContext api.Context) error {
 	}
 
 	if reqObj.ProviderName != "" {
-		list, err := s.dispatcher.ListConfiguredAuthProviders(apiContext.Context(), reqObj.ProviderNamespace)
-		if err != nil {
-			return types2.NewErrHttp(http.StatusInternalServerError, err.Error())
-		}
-
-		if !slices.Contains(list, reqObj.ProviderName) {
+		if providerList := s.dispatcher.ListConfiguredAuthProviders(reqObj.ProviderNamespace); !slices.Contains(providerList, reqObj.ProviderName) {
 			return types2.NewErrHttp(http.StatusBadRequest, fmt.Sprintf("auth provider %q not found", reqObj.ProviderName))
 		}
 	}
@@ -165,12 +157,7 @@ func (s *Server) redirectForTokenRequest(apiContext api.Context) error {
 	name := apiContext.PathValue("name")
 
 	if namespace != "" && name != "" {
-		list, err := s.dispatcher.ListConfiguredAuthProviders(apiContext.Context(), namespace)
-		if err != nil {
-			return types2.NewErrHttp(http.StatusInternalServerError, err.Error())
-		}
-
-		if !slices.Contains(list, name) {
+		if providerList := s.dispatcher.ListConfiguredAuthProviders(namespace); !slices.Contains(providerList, name) {
 			return types2.NewErrHttp(http.StatusBadRequest, fmt.Sprintf("auth provider %q not found", name))
 		}
 	}

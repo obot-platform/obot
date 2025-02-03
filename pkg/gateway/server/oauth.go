@@ -30,10 +30,7 @@ func (s *Server) oauth(apiContext api.Context) error {
 	}
 
 	// Check to make sure this auth provider exists.
-	list, err := s.dispatcher.ListConfiguredAuthProviders(apiContext.Context(), namespace)
-	if err != nil {
-		return fmt.Errorf("could not list configured auth providers: %w", err)
-	} else if !slices.Contains(list, name) {
+	if providerList := s.dispatcher.ListConfiguredAuthProviders(namespace); !slices.Contains(providerList, name) {
 		return types2.NewErrHttp(http.StatusNotFound, "auth provider not found")
 	}
 
@@ -71,10 +68,8 @@ func (s *Server) redirect(apiContext api.Context) error {
 	}
 
 	// Check to make sure this auth provider exists.
-	list, err := s.dispatcher.ListConfiguredAuthProviders(apiContext.Context(), namespace)
-	if err != nil {
-		return fmt.Errorf("could not list configured auth providers: %w", err)
-	} else if !slices.Contains(list, name) {
+
+	if providerList := s.dispatcher.ListConfiguredAuthProviders(namespace); !slices.Contains(providerList, name) {
 		return types2.NewErrHttp(http.StatusNotFound, "auth provider not found")
 	}
 

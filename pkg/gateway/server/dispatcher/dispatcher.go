@@ -26,26 +26,34 @@ import (
 )
 
 type Dispatcher struct {
-	invoker    *invoke.Invoker
-	gptscript  *gptscript.GPTScript
-	client     kclient.Client
-	modelLock  *sync.RWMutex
-	modelUrls  map[string]*url.URL
-	authLock   *sync.RWMutex
-	authUrls   map[string]*url.URL
-	openAICred string
+	invoker                     *invoke.Invoker
+	gptscript                   *gptscript.GPTScript
+	client                      kclient.Client
+	modelLock                   *sync.RWMutex
+	modelUrls                   map[string]*url.URL
+	authLock                    *sync.RWMutex
+	authUrls                    map[string]*url.URL
+	configuredAuthProvidersLock *sync.RWMutex
+	configuredAuthProviders     []string
+	openAICred                  string
 }
 
 func New(invoker *invoke.Invoker, c kclient.Client, gClient *gptscript.GPTScript) *Dispatcher {
-	return &Dispatcher{
-		invoker:   invoker,
-		gptscript: gClient,
-		client:    c,
-		modelLock: new(sync.RWMutex),
-		modelUrls: make(map[string]*url.URL),
-		authLock:  new(sync.RWMutex),
-		authUrls:  make(map[string]*url.URL),
+	d := &Dispatcher{
+		invoker:                     invoker,
+		gptscript:                   gClient,
+		client:                      c,
+		modelLock:                   new(sync.RWMutex),
+		modelUrls:                   make(map[string]*url.URL),
+		authLock:                    new(sync.RWMutex),
+		authUrls:                    make(map[string]*url.URL),
+		configuredAuthProvidersLock: new(sync.RWMutex),
+		configuredAuthProviders:     make([]string, 0),
 	}
+
+	d.UpdateConfiguredAuthProviders()
+
+	return d
 }
 
 func (d *Dispatcher) URLForAuthProvider(ctx context.Context, namespace, authProviderName string) (*url.URL, error) {
@@ -358,25 +366,41 @@ func (d *Dispatcher) startAuthProvider(ctx context.Context, namespace, authProvi
 	return url.Parse(strings.TrimSpace(result.Output))
 }
 
-func (d *Dispatcher) ListConfiguredAuthProviders(ctx context.Context, namespace string) ([]string, error) {
+func (d *Dispatcher) ListConfiguredAuthProviders(namespace string) []string {
+	// For now, the only supported namespace for auth providers is the default namespace.
+	if namespace != system.DefaultNamespace {
+		return nil
+	}
+
+	d.configuredAuthProvidersLock.RLock()
+	defer d.configuredAuthProvidersLock.RUnlock()
+
+	return d.configuredAuthProviders
+}
+
+func (d *Dispatcher) UpdateConfiguredAuthProviders() {
+	d.configuredAuthProvidersLock.Lock()
+	defer d.configuredAuthProvidersLock.Unlock()
+
 	var authProviders v1.ToolReferenceList
-	if err := d.client.List(ctx, &authProviders, &kclient.ListOptions{
-		Namespace: namespace,
+	if err := d.client.List(context.Background(), &authProviders, &kclient.ListOptions{
+		Namespace: system.DefaultNamespace,
 		FieldSelector: fields.SelectorFromSet(map[string]string{
 			"spec.type": string(types.ToolReferenceTypeAuthProvider),
 		}),
 	}); err != nil {
-		return nil, err
+		fmt.Printf("WARNING: dispatcher failed to list auth providers: %v\n", err)
+		return
 	}
 
 	var result []string
 	for _, authProvider := range authProviders.Items {
-		if isConfigured, _, _ := d.isAuthProviderConfigured(ctx, []string{string(authProvider.UID), system.GenericAuthProviderCredentialContext}, authProvider); isConfigured {
+		if isConfigured, _, _ := d.isAuthProviderConfigured(context.Background(), []string{string(authProvider.UID), system.GenericAuthProviderCredentialContext}, authProvider); isConfigured {
 			result = append(result, authProvider.Name)
 		}
 	}
 
-	return result, nil
+	d.configuredAuthProviders = result
 }
 
 // isAuthProviderConfigured checks an auth provider to see if all of its required environment variables are set.

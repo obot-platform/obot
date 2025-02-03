@@ -331,7 +331,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 
 	var authenticators authenticator.Request = gatewayServer
 	if config.EnableAuthentication {
-		proxyManager = proxy.NewProxyManager(providerDispatcher)
+		proxyManager = proxy.NewProxyManager(ctx, providerDispatcher)
 
 		// Token Auth + OAuth auth
 		authenticators = union.New(authenticators, proxyManager)
