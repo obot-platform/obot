@@ -127,3 +127,37 @@ export function useThreadTables(
 			WorkspaceTableApiService.getTables(namespace, entityId)
 	);
 }
+
+export function useThreadTableRows({
+	threadId,
+	tableName,
+	pagination,
+	search,
+	disabled,
+}: {
+	threadId?: Nullish<string>;
+	tableName?: Nullish<string>;
+	pagination?: PaginationParams;
+	search?: string;
+	disabled?: boolean;
+}) {
+	return useSWR(
+		disabled
+			? null
+			: WorkspaceTableApiService.getTableRows.key(
+					TableNamespace.Threads,
+					threadId,
+					tableName,
+					pagination,
+					search
+				),
+		({ namespace, entityId, tableId, pagination, search }) =>
+			WorkspaceTableApiService.getTableRows(
+				namespace,
+				entityId,
+				tableId,
+				pagination,
+				search
+			)
+	);
+}

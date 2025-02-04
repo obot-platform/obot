@@ -39,14 +39,14 @@ export function usePagination({
 		[total]
 	);
 
-	const paginationParams: PaginationParams = {
-		page,
-		pageSize,
+	const params = {
+		pagination: { page, pageSize } as PaginationParams,
+		search,
 	};
 
 	return {
 		...pagination,
-		paginationParams,
+		params,
 		search,
 		setPage,
 		setSearch: updateSearch,

@@ -216,6 +216,11 @@ export const ApiRoutes = {
 	workspace: {
 		getTables: (namespace: TableNamespace, entityId: string) =>
 			buildUrl(`/${namespace}/${entityId}/tables`),
+		getTableRows: (
+			namespace: TableNamespace,
+			entityId: string,
+			tableName: string
+		) => buildUrl(`/${namespace}/${entityId}/tables/${tableName}/rows`),
 	},
 	me: () => buildUrl("/me"),
 	invoke: (

@@ -7,7 +7,7 @@ export type PaginationActionsProps = {
 	nextPage?: number;
 	previousPage?: number;
 	totalPages: number;
-	onPageChange: (page: number) => void;
+	setPage: (page: number) => void;
 };
 
 export function PaginationActions({
@@ -15,7 +15,7 @@ export function PaginationActions({
 	nextPage,
 	previousPage,
 	totalPages,
-	onPageChange,
+	setPage,
 }: PaginationActionsProps) {
 	const hasNextPage = nextPage != null;
 	const hasPreviousPage = previousPage != null;
@@ -26,7 +26,7 @@ export function PaginationActions({
 				variant="ghost"
 				size="icon-sm"
 				disabled={!hasPreviousPage}
-				onClick={() => hasPreviousPage && onPageChange(previousPage)}
+				onClick={() => hasPreviousPage && setPage(previousPage)}
 			>
 				<ChevronLeft />
 			</Button>
@@ -39,7 +39,7 @@ export function PaginationActions({
 				variant="ghost"
 				size="icon-sm"
 				disabled={!hasNextPage}
-				onClick={() => hasNextPage && onPageChange(nextPage)}
+				onClick={() => hasNextPage && setPage(nextPage)}
 			>
 				<ChevronRight />
 			</Button>

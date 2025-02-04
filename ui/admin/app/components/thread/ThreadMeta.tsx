@@ -30,6 +30,7 @@ import {
 import { ConfirmationDialog } from "~/components/composed/ConfirmationDialog";
 import { PaginationActions } from "~/components/composed/PaginationActions";
 import { Truncate } from "~/components/composed/typography";
+import { ThreadTableDialog } from "~/components/thread/ThreadTableDialog";
 import {
 	Accordion,
 	AccordionContent,
@@ -71,8 +72,8 @@ export function ThreadMeta({ entity, thread, className }: ThreadMetaProps) {
 
 	const getFiles = useThreadFiles(
 		thread.id,
-		fileStore.paginationParams,
-		fileStore.search
+		fileStore.params.pagination,
+		fileStore.params.search
 	);
 	const { items: files } = getFiles.data ?? {};
 
@@ -89,8 +90,8 @@ export function ThreadMeta({ entity, thread, className }: ThreadMetaProps) {
 	const tableStore = usePagination({ pageSize });
 	const getTables = useThreadTables(
 		thread.id,
-		tableStore.paginationParams,
-		tableStore.search
+		tableStore.params.pagination,
+		tableStore.params.search
 	);
 	const { items: tables } = getTables.data ?? {};
 
@@ -273,8 +274,16 @@ export function ThreadMeta({ entity, thread, className }: ThreadMetaProps) {
 						pagination={tableStore}
 						setPage={tableStore.setPage}
 						renderItem={(table) => (
-							<li key={table.name}>
+							<li
+								key={table.name}
+								className="flex items-center justify-between"
+							>
 								<p>{table.name}</p>
+
+								<ThreadTableDialog
+									threadId={thread.id}
+									tableName={table.name}
+								/>
 							</li>
 						)}
 						renderSkeleton={(index) => (
@@ -373,7 +382,7 @@ function ThreadMetaAccordionItem<T>(props: ThreadMetaAccordionItemProps<T>) {
 				{props.pagination && (
 					<PaginationActions
 						{...props.pagination}
-						onPageChange={props.setPage ?? noop}
+						setPage={props.setPage ?? noop}
 					/>
 				)}
 			</AccordionContent>
