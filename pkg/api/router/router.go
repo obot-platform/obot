@@ -236,6 +236,7 @@ func Router(services *services.Services) (http.Handler, error) {
 
 	// Thread tables
 	mux.HandleFunc("GET /api/threads/{id}/tables", threads.Tables)
+	mux.HandleFunc("GET /api/threads/{id}/tables/{table}/rows", threads.TableRows)
 
 	// ToolRefs
 	mux.HandleFunc("GET /api/tool-references", toolRefs.List)

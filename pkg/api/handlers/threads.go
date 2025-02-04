@@ -412,3 +412,21 @@ func (a *ThreadHandler) Tables(req api.Context) error {
 
 	return listTablesInWorkspace(req, a.gptscript, thread.Status.WorkspaceID)
 }
+
+func (a *ThreadHandler) TableRows(req api.Context) error {
+	var (
+		threadID  = req.PathValue("id")
+		tableName = req.PathValue("table")
+	)
+
+	var thread v1.Thread
+	if err := req.Get(&thread, threadID); err != nil {
+		return err
+	}
+
+	if thread.Status.WorkspaceID == "" {
+		return req.Write(types.TableRowList{Items: []types.TableRow{}})
+	}
+
+	return listTableRows(req, a.gptscript, thread.Status.WorkspaceID, tableName)
+}

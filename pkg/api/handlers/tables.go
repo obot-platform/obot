@@ -20,28 +20,6 @@ func NewTableHandler(gptScript *gptscript.GPTScript) *TableHandler {
 	}
 }
 
-func (t *TableHandler) rows(req api.Context, workspaceID, tableName string) (string, error) {
-	var toolRef v1.ToolReference
-	if err := req.Get(&toolRef, "database-ui"); err != nil {
-		return "", err
-	}
-	input, err := json.Marshal(map[string]string{
-		"table": tableName,
-	})
-	if err != nil {
-		return "", err
-	}
-	run, err := t.gptScript.Run(req.Context(), "list_database_table_rows from "+toolRef.Status.Reference, gptscript.Options{
-		Input:     string(input),
-		Workspace: workspaceID,
-	})
-	if err != nil {
-		return "", err
-	}
-	defer run.Close()
-	return run.Text()
-}
-
 func (t *TableHandler) ListTables(req api.Context) error {
 	var (
 		assistantID = req.PathValue("assistant_id")
@@ -86,14 +64,7 @@ func (t *TableHandler) GetRows(req api.Context) error {
 		return req.Write(result)
 	}
 
-	content, err := t.rows(req, thread.Status.WorkspaceID, tableName)
-	if err != nil {
-		return err
-	}
-
-	req.ResponseWriter.Header().Set("Content-Type", "application/json")
-	_, err = req.ResponseWriter.Write([]byte(content))
-	return err
+	return listTableRows(req, t.gptScript, thread.Status.WorkspaceID, tableName)
 }
 
 func listTablesInWorkspace(req api.Context, gClient *gptscript.GPTScript, workspaceID string) error {
@@ -114,6 +85,35 @@ func listTablesInWorkspace(req api.Context, gClient *gptscript.GPTScript, worksp
 
 	defer run.Close()
 	result, err = run.Text()
+	if err != nil {
+		return err
+	}
+
+	req.ResponseWriter.Header().Set("Content-Type", "application/json")
+	_, err = req.ResponseWriter.Write([]byte(result))
+	return err
+}
+
+func listTableRows(req api.Context, gptScript *gptscript.GPTScript, workspaceID, tableName string) error {
+	var toolRef v1.ToolReference
+	if err := req.Get(&toolRef, "database-ui"); err != nil {
+		return err
+	}
+	input, err := json.Marshal(map[string]string{
+		"table": tableName,
+	})
+	if err != nil {
+		return err
+	}
+	run, err := gptScript.Run(req.Context(), "list_database_table_rows from "+toolRef.Status.Reference, gptscript.Options{
+		Input:     string(input),
+		Workspace: workspaceID,
+	})
+	if err != nil {
+		return err
+	}
+	defer run.Close()
+	result, err := run.Text()
 	if err != nil {
 		return err
 	}
