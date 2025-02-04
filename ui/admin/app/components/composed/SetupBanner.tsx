@@ -35,9 +35,9 @@ export function SetupBanner() {
 	const isSetupPage = steps.some((step) =>
 		location.pathname.includes(step.path)
 	);
-	const isConfigured = steps.every((step) => step.configured);
+	const stepsToConfigure = steps.filter((step) => !step.configured);
 
-	if (isConfigured || isSetupPage) return null;
+	if (stepsToConfigure.length === 0 || isSetupPage) return null;
 
 	return (
 		<div className="w-full">
@@ -57,18 +57,20 @@ export function SetupBanner() {
 						</h3>
 
 						<ul>
-							{steps.map((step) => (
-								<li key={step.step}>
-									<p className="mb-2 text-sm font-light">
-										<b className="font-semibold">{step.label}: </b>
-										{step.description}
-									</p>
-								</li>
-							))}
+							{stepsToConfigure
+								.filter((step) => !step.configured)
+								.map((step) => (
+									<li key={step.step}>
+										<p className="mb-2 text-sm font-light">
+											<b className="font-semibold">{step.label}: </b>
+											{step.description}
+										</p>
+									</li>
+								))}
 						</ul>
 
 						<div className="flex flex-row flex-wrap gap-2">
-							{steps.map((step) => (
+							{stepsToConfigure.map((step) => (
 								<Button
 									className={cn("mt-0 w-fit px-10", {
 										"flex-1": steps.length > 1,
