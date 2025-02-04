@@ -48,9 +48,9 @@ There are several ways to install Obot.
 
 Docker is the easiest way to get started with Obot.
 
-The OSS version of Obot image is `ghrc.io/obot-platform/obot:latest`
+The OSS version of Obot image is `ghcr.io/obot-platform/obot:latest`
 
-The Enterprise version of Obot image is `ghrc.io/obot-platform/obot-enterprise:latest`
+The Enterprise version of Obot image is `ghcr.io/obot-platform/obot-enterprise:latest`
 
 For a local installation, you can run the following command:
 
