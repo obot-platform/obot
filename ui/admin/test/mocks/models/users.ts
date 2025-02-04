@@ -1,5 +1,16 @@
 import { User } from "~/lib/model/users";
 
+export const mockedBootstrappedUser: User = {
+	id: "1",
+	created: "2025-02-04T16:08:24.074959-05:00",
+	username: "bootstrap",
+	role: 1,
+	timezone: "America/New_York",
+	email: "",
+	iconURL: "",
+	explicitAdmin: false,
+};
+
 // Admin User
 export const mockedUser: User = {
 	id: "1",

@@ -29,7 +29,7 @@ beforeAll(() => server.listen());
 
 beforeEach(() => {
 	// Clear the SWR cache before each test
-	mutate(() => true, undefined, { revalidate: false });
+	mutate(() => true, undefined, { revalidate: true });
 });
 
 // Reset any request handlers that we may add during the tests,
