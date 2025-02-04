@@ -17,6 +17,9 @@ import { ApiRoutes } from "~/lib/routers/apiRoutes";
 import { SetupBanner } from "~/components/composed/SetupBanner";
 
 describe(SetupBanner, () => {
+	const modelProviderButtonText = "Configure Model Provider";
+	const authProviderButtonText = "Configure Auth Provider";
+
 	const setupServer = (
 		modelProviderConfigured: boolean,
 		authProviderConfigured: boolean
@@ -60,21 +63,17 @@ describe(SetupBanner, () => {
 			await waitFor(() => {
 				if (modelProviderConfigured) {
 					expect(
-						screen.queryByText("Configure Model Provider")
+						screen.queryByText(modelProviderButtonText)
 					).not.toBeInTheDocument();
 				} else {
-					expect(
-						screen.getByText("Configure Model Provider")
-					).toBeInTheDocument();
+					expect(screen.getByText(modelProviderButtonText)).toBeInTheDocument();
 				}
 				if (authProviderConfigured) {
 					expect(
-						screen.queryByText("Configure Auth Provider")
+						screen.queryByText(authProviderButtonText)
 					).not.toBeInTheDocument();
 				} else {
-					expect(
-						screen.getByText("Configure Auth Provider")
-					).toBeInTheDocument();
+					expect(screen.getByText(authProviderButtonText)).toBeInTheDocument();
 				}
 			});
 		}
