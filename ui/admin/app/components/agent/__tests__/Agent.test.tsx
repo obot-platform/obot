@@ -22,6 +22,7 @@ import { overrideServer } from "test/server";
 
 import { Agent as AgentModel } from "~/lib/model/agents";
 import { Assistant } from "~/lib/model/assistants";
+import { OAuthApp } from "~/lib/model/oauthApps";
 import { EntityList } from "~/lib/model/primitives";
 import { Thread } from "~/lib/model/threads";
 import { User } from "~/lib/model/users";
@@ -61,6 +62,11 @@ describe(Agent, () => {
 			http.get(ApiRoutes.threads.getByAgent(agent.id).path, () => {
 				return HttpResponse.json<EntityList<Thread> | null>({
 					items: null,
+				});
+			}),
+			http.get(ApiRoutes.oauthApps.getOauthApps().url, () => {
+				return HttpResponse.json<EntityList<OAuthApp>>({
+					items: [],
 				});
 			}),
 			defaultModelAliasHandler,

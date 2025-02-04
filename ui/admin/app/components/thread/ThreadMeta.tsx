@@ -157,10 +157,10 @@ export function ThreadMeta({ entity, thread, className }: ThreadMetaProps) {
 									<td className="text-right">{thread.parentThreadId}</td>
 								</tr>
 							)}
-							{thread.lastRunId && (
+							{thread.lastRunID && (
 								<tr className="border-foreground/25">
 									<td className="py-2 pr-4 font-medium">Last Run ID</td>
-									<td className="text-right">{thread.lastRunId}</td>
+									<td className="text-right">{thread.lastRunID}</td>
 								</tr>
 							)}
 						</tbody>

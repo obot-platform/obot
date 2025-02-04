@@ -17,6 +17,7 @@ import { overrideServer } from "test/server";
 
 import { CronJob } from "~/lib/model/cronjobs";
 import { EmailReceiver } from "~/lib/model/email-receivers";
+import { OAuthApp } from "~/lib/model/oauthApps";
 import { EntityList } from "~/lib/model/primitives";
 import { Webhook } from "~/lib/model/webhooks";
 import { Workflow as WorkflowModel } from "~/lib/model/workflows";
@@ -58,6 +59,11 @@ describe(Workflow, () => {
 			}),
 			http.get(ApiRoutes.webhooks.getWebhooks().path, () => {
 				return HttpResponse.json<EntityList<Webhook>>({
+					items: [],
+				});
+			}),
+			http.get(ApiRoutes.oauthApps.getOauthApps().url, () => {
+				return HttpResponse.json<EntityList<OAuthApp>>({
 					items: [],
 				});
 			}),

@@ -12,7 +12,7 @@ export type Thread = EntityMeta &
 		state?: RunState;
 		currentRunId?: string;
 		parentThreadId?: string;
-		lastRunId?: string;
+		lastRunID?: string;
 		userID?: string;
 	} & (
 		| { agentID: string; workflowID?: never }
