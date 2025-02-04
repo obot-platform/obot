@@ -45,6 +45,7 @@ export async function clientLoader({
 		preload(...AgentService.getAgents.swr({})),
 		preload(WorkflowService.getWorkflows.key(), WorkflowService.getWorkflows),
 		preload(ThreadsService.getThreads.key(), ThreadsService.getThreads),
+		preload(UserService.getUsers.key(), UserService.getUsers),
 	]);
 
 	const { query } = RouteService.getRouteInfo(
@@ -74,42 +75,6 @@ export default function Threads() {
 
 	const getUsers = useSWR(UserService.getUsers.key(), UserService.getUsers);
 
-	const agentMap = useMemo(() => {
-		// note(tylerslaton): the or condition here is because the getAgents.data can
-		// be an object containing a url only when switching to the agent page from the
-		// threads page.
-		if (!getAgents.data || !Array.isArray(getAgents.data)) return {};
-		return getAgents.data.reduce(
-			(acc, agent) => {
-				acc[agent.id] = agent;
-				return acc;
-			},
-			{} as Record<string, Agent>
-		);
-	}, [getAgents.data]);
-
-	const workflowMap = useMemo(() => {
-		if (!getWorkflows.data || !Array.isArray(getWorkflows.data)) return {};
-		return getWorkflows.data.reduce(
-			(acc, workflow) => {
-				acc[workflow.id] = workflow;
-				return acc;
-			},
-			{} as Record<string, Workflow>
-		);
-	}, [getWorkflows.data]);
-
-	const userMap = useMemo(() => {
-		if (!getUsers.data || !Array.isArray(getUsers.data)) return {};
-		return getUsers.data.reduce(
-			(acc, user) => {
-				acc[user.id] = user;
-				return acc;
-			},
-			{} as Record<string, User>
-		);
-	}, [getUsers.data]);
-
 	const threads = useMemo(() => {
 		if (!getThreads.data) return [];
 
@@ -138,6 +103,36 @@ export default function Threads() {
 		return filteredThreads;
 	}, [getThreads.data, agentId, workflowId, userId]);
 
+	const agentMap = useMemo(
+		() => new Map(getAgents.data?.map((agent) => [agent.id, agent])),
+		[getAgents.data]
+	);
+	const workflowMap = useMemo(
+		() =>
+			new Map(getWorkflows.data?.map((workflow) => [workflow.id, workflow])),
+		[getWorkflows.data]
+	);
+	const userMap = useMemo(
+		() => new Map(getUsers.data?.map((user) => [user.id, user])),
+		[getUsers.data]
+	);
+
+	const data: (Thread & { parentName: string; userName: string })[] =
+		useMemo(() => {
+			return threads.map((thread) => ({
+				...thread,
+				parentName:
+					(thread.agentID
+						? agentMap.get(thread.agentID)?.name
+						: thread.workflowID
+							? workflowMap.get(thread.workflowID)?.name
+							: "Unnamed") ?? "Unnamed",
+				userName: thread.userID
+					? (userMap.get(thread.userID)?.email ?? "-")
+					: "-",
+			}));
+		}, [threads, agentMap, userMap, workflowMap]);
+
 	const deleteThread = useAsync(ThreadsService.deleteThread, {
 		onSuccess: ThreadsService.revalidateThreads,
 	});
@@ -154,7 +149,7 @@ export default function Threads() {
 
 			<DataTable
 				columns={getColumns()}
-				data={threads}
+				data={data}
 				sort={[{ id: "created", desc: true }]}
 				disableClickPropagation={(cell) => cell.id.includes("actions")}
 				onRowClick={(row) => {
@@ -164,18 +159,9 @@ export default function Threads() {
 		</ScrollArea>
 	);
 
-	function getColumns(): ColumnDef<Thread, string>[] {
+	function getColumns(): ColumnDef<(typeof data)[0], string>[] {
 		return [
-			columnHelper.accessor(
-				(thread) => {
-					if (thread.agentID)
-						return agentMap[thread.agentID]?.name ?? thread.agentID;
-					else if (thread.workflowID)
-						return workflowMap[thread.workflowID]?.name ?? thread.workflowID;
-					return "Unnamed";
-				},
-				{ header: "Name" }
-			),
+			columnHelper.accessor((thread) => thread.parentName, { header: "Name" }),
 			columnHelper.display({
 				id: "type",
 				header: "Type",
@@ -192,11 +178,7 @@ export default function Threads() {
 					);
 				},
 			}),
-			columnHelper.accessor(
-				(thread) =>
-					thread.userID ? userMap[thread.userID]?.email || "-" : "-",
-				{ header: "User" }
-			),
+			columnHelper.accessor((thread) => thread.userName, { header: "User" }),
 			columnHelper.accessor("created", {
 				id: "created",
 				header: "Created",
@@ -254,9 +236,9 @@ function ThreadFilters({
 	agentMap,
 	workflowMap,
 }: {
-	userMap: Record<string, User>;
-	agentMap: Record<string, Agent>;
-	workflowMap: Record<string, Workflow>;
+	userMap: Map<string, User>;
+	agentMap: Map<string, Agent>;
+	workflowMap: Map<string, Workflow>;
 }) {
 	const [searchParams] = useSearchParams();
 	const navigate = useNavigate();
@@ -278,19 +260,19 @@ function ThreadFilters({
 			filters.agentId && {
 				key: "agentId",
 				label: "Agent",
-				value: agentMap[filters.agentId]?.name ?? filters.agentId,
+				value: agentMap.get(filters.agentId)?.name ?? filters.agentId,
 				onRemove: () => updateFilters("agentId"),
 			},
 			filters.userId && {
 				key: "userId",
 				label: "User",
-				value: userMap[filters.userId]?.email ?? filters.userId,
+				value: userMap.get(filters.userId)?.email ?? filters.userId,
 				onRemove: () => updateFilters("userId"),
 			},
 			filters.workflowId && {
 				key: "workflowId",
 				label: "Workflow",
-				value: workflowMap[filters.workflowId]?.name ?? filters.workflowId,
+				value: workflowMap.get(filters.workflowId)?.name ?? filters.workflowId,
 				onRemove: () => updateFilters("workflowId"),
 			},
 		].filter((x) => !!x);
@@ -314,7 +296,9 @@ function ThreadFilters({
 	);
 }
 
-const columnHelper = createColumnHelper<Thread>();
+const columnHelper = createColumnHelper<
+	Thread & { parentName: string; userName: string }
+>();
 
 const getFromBreadcrumb = (search: string) => {
 	const { from } = RouteService.getQueryParams("/threads", search) || {};
