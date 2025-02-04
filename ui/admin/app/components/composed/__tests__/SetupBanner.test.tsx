@@ -46,50 +46,37 @@ describe(SetupBanner, () => {
 		]);
 	};
 
-	it("Renders both steps when neither are configured", async () => {
-		setupServer(false, false);
-		render(<SetupBanner />);
+	it.each([
+		["Both Options", false, false],
+		["Only Model Provider Option", false, true],
+		["OnlyAuth Provider Option", true, false],
+		["Does Not Render Banner", true, true],
+	])(
+		"Renders: %s",
+		async (_, modelProviderConfigured, authProviderConfigured) => {
+			setupServer(modelProviderConfigured, authProviderConfigured);
+			render(<SetupBanner />);
 
-		await waitFor(() => {
-			expect(screen.getByText("Configure Model Provider")).toBeInTheDocument();
-			expect(screen.getByText("Configure Auth Provider")).toBeInTheDocument();
-		});
-	});
-
-	it("Renders model provider step when auth provider is configured", async () => {
-		setupServer(false, true);
-		render(<SetupBanner />);
-
-		await waitFor(() => {
-			expect(screen.getByText("Configure Model Provider")).toBeInTheDocument();
-			expect(
-				screen.queryByText("Configure Auth Provider")
-			).not.toBeInTheDocument();
-		});
-	});
-
-	it("Renders auth provider step when model provider is configured", async () => {
-		setupServer(true, false);
-		render(<SetupBanner />);
-
-		await waitFor(() => {
-			expect(screen.getByText("Configure Auth Provider")).toBeInTheDocument();
-			expect(
-				screen.queryByText("Configure Model Provider")
-			).not.toBeInTheDocument();
-		});
-	});
-
-	it("Does not render banner when both are configured", async () => {
-		setupServer(true, true);
-		render(<SetupBanner />);
-		await waitFor(() => {
-			expect(
-				screen.queryByText("Configure Model Provider")
-			).not.toBeInTheDocument();
-			expect(
-				screen.queryByText("Configure Auth Provider")
-			).not.toBeInTheDocument();
-		});
-	});
+			await waitFor(() => {
+				if (modelProviderConfigured) {
+					expect(
+						screen.queryByText("Configure Model Provider")
+					).not.toBeInTheDocument();
+				} else {
+					expect(
+						screen.getByText("Configure Model Provider")
+					).toBeInTheDocument();
+				}
+				if (authProviderConfigured) {
+					expect(
+						screen.queryByText("Configure Auth Provider")
+					).not.toBeInTheDocument();
+				} else {
+					expect(
+						screen.getByText("Configure Auth Provider")
+					).toBeInTheDocument();
+				}
+			});
+		}
+	);
 });
