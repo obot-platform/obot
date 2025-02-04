@@ -5,6 +5,7 @@ export type ProviderConfigurationParameter = {
 	friendlyName?: string;
 	description?: string;
 	sensitive?: boolean;
+	hidden?: boolean;
 };
 
 export type ProviderStatus = {

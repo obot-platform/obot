@@ -56,25 +56,30 @@ const getInitialRequiredParams = (
 	requiredParameters: ProviderConfigurationParameter[],
 	parameters: ProviderConfig
 ): ProviderFormValues["requiredConfigParams"] =>
-	requiredParameters.map((param) => ({
-		tooltip: param.description ?? "",
-		label: param.friendlyName ?? param.name,
-		name: param.name,
-		value: parameters[param.name] ?? "",
-		sensitive: param.sensitive ?? false,
-	}));
+	requiredParameters
+		.filter((param) => !param.hidden)
+		.map((param) => ({
+			tooltip: param.description ?? "",
+			label: param.friendlyName ?? param.name,
+			name: param.name,
+			value: parameters[param.name] ?? "",
+			sensitive: param.sensitive ?? false,
+		}));
 
 const getInitialOptionalParams = (
 	optionalParameters: ProviderConfigurationParameter[],
 	parameters: ProviderConfig
 ): ProviderFormValues["optionalConfigParams"] =>
-	optionalParameters.map((param) => ({
-		tooltip: param.description ?? "",
-		label: param.friendlyName ?? param.name,
-		name: param.name,
-		value: parameters[param.name] ?? "",
-		sensitive: param.sensitive ?? false,
-	}));
+	optionalParameters
+		.filter((param) => !param.hidden)
+		.map((param) => ({
+			tooltip: param.description ?? "",
+			label: param.friendlyName ?? param.name,
+			name: param.name,
+			value: parameters[param.name] ?? "",
+			sensitive: param.sensitive ?? false,
+			hidden: param.hidden ?? false,
+		}));
 
 export function ProviderForm({
 	provider,

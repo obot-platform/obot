@@ -12,6 +12,7 @@ type ProviderConfigurationParameter struct {
 	FriendlyName string `json:"friendlyName,omitempty"`
 	Description  string `json:"description,omitempty"`
 	Sensitive    bool   `json:"sensitive,omitempty"`
+	Hidden       bool   `json:"hidden,omitempty"`
 }
 
 type ModelProvider struct {

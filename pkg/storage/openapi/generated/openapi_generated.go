@@ -2996,6 +2996,12 @@ func schema_obot_platform_obot_apiclient_types_ProviderConfigurationParameter(re
 							Format: "",
 						},
 					},
+					"hidden": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
+						},
+					},
 				},
 				Required: []string{"name"},
 			},
