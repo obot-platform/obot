@@ -45,6 +45,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/apiclient/types.EmailReceiverManifest":                      schema_obot_platform_obot_apiclient_types_EmailReceiverManifest(ref),
 		"github.com/obot-platform/obot/apiclient/types.EnvVar":                                     schema_obot_platform_obot_apiclient_types_EnvVar(ref),
 		"github.com/obot-platform/obot/apiclient/types.ErrHTTP":                                    schema_obot_platform_obot_apiclient_types_ErrHTTP(ref),
+		"github.com/obot-platform/obot/apiclient/types.Field":                                      schema_obot_platform_obot_apiclient_types_Field(ref),
 		"github.com/obot-platform/obot/apiclient/types.File":                                       schema_obot_platform_obot_apiclient_types_File(ref),
 		"github.com/obot-platform/obot/apiclient/types.FileList":                                   schema_obot_platform_obot_apiclient_types_FileList(ref),
 		"github.com/obot-platform/obot/apiclient/types.If":                                         schema_obot_platform_obot_apiclient_types_If(ref),
@@ -1561,6 +1562,37 @@ func schema_obot_platform_obot_apiclient_types_ErrHTTP(ref common.ReferenceCallb
 	}
 }
 
+func schema_obot_platform_obot_apiclient_types_Field(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "Field should match exactly what is in the GPTScript SDK",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"sensitive": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
+						},
+					},
+					"description": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
 func schema_obot_platform_obot_apiclient_types_File(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -2895,9 +2927,8 @@ func schema_obot_platform_obot_apiclient_types_Prompt(ref common.ReferenceCallba
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Default: "",
-										Type:    []string{"string"},
-										Format:  "",
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/obot-platform/obot/apiclient/types.Field"),
 									},
 								},
 							},
@@ -2928,7 +2959,7 @@ func schema_obot_platform_obot_apiclient_types_Prompt(ref common.ReferenceCallba
 			},
 		},
 		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.Time"},
+			"github.com/obot-platform/obot/apiclient/types.Field", "github.com/obot-platform/obot/apiclient/types.Time"},
 	}
 }
 

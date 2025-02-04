@@ -18,8 +18,8 @@ require (
 	github.com/gorilla/websocket v1.5.0
 	github.com/gptscript-ai/chat-completion-client v0.0.0-20250128181713-57857b74f9f1
 	github.com/gptscript-ai/cmd v0.0.0-20250122115124-a3d65e9d2432
-	github.com/gptscript-ai/go-gptscript v0.9.6-0.20241216211344-79a66826cf82
-	github.com/gptscript-ai/gptscript v0.9.6-0.20250128190959-7ee5c807d2b9
+	github.com/gptscript-ai/go-gptscript v0.9.6-0.20250204133419-744b25b84a61
+	github.com/gptscript-ai/gptscript v0.9.6-0.20250204193143-468c4f1a3cd9
 	github.com/liggitt/tabwriter v0.0.0-20181228230101-89fcab3d43de
 	github.com/mhale/smtpd v0.8.3
 	github.com/obot-platform/kinm v0.0.0-20250116162656-270198b40c6d
@@ -129,7 +129,7 @@ require (
 	github.com/gookit/color v1.5.4 // indirect
 	github.com/gorilla/css v1.0.1 // indirect
 	github.com/gptscript-ai/broadcaster v0.0.0-20240625175512-c43682019b86 // indirect
-	github.com/gptscript-ai/tui v0.0.0-20240923192013-172e51ccf1d6 // indirect
+	github.com/gptscript-ai/tui v0.0.0-20250204145344-33cd15de4cee // indirect
 	github.com/gregjones/httpcache v0.0.0-20180305231024-9cad4c3443a7 // indirect
 	github.com/grpc-ecosystem/go-grpc-prometheus v1.2.0 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.24.0 // indirect

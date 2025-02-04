@@ -196,7 +196,7 @@ export function PromptMessage({
 				return (
 					<div className="flex items-center gap-2">
 						<ToolIcon
-							name={prompt.name}
+							name={prompt.name || ""}
 							category={prompt.metadata.category}
 							icon={prompt.metadata.icon}
 							className="h-5 w-5"
@@ -310,7 +310,7 @@ export function PromptAuthForm({
 	const form = useForm<Record<string, string>>({
 		defaultValues: prompt.fields?.reduce(
 			(acc, field) => {
-				acc[field] = "";
+				acc[field.name] = "";
 				return acc;
 			},
 			{} as Record<string, string>
@@ -327,11 +327,12 @@ export function PromptAuthForm({
 			<form onSubmit={handleSubmit} className="flex flex-col gap-4">
 				{prompt.fields?.map((field) => (
 					<ControlledInput
-						key={field}
+						key={field.name}
 						control={form.control}
-						name={field}
-						label={field}
-						type={prompt.sensitive ? "password" : "text"}
+						name={field.name}
+						label={field.name}
+						description={field.description || ""}
+						type={prompt.sensitive || !!field.sensitive ? "password" : "text"}
 					/>
 				))}
 

@@ -1,5 +1,7 @@
 package types
 
+import "github.com/gptscript-ai/go-gptscript"
+
 // +k8s:deepcopy-gen=false
 
 // +k8s:openapi-gen=false
@@ -79,9 +81,30 @@ type Prompt struct {
 	Description string            `json:"description,omitempty"`
 	Time        *Time             `json:"time,omitempty"`
 	Message     string            `json:"message,omitempty"`
-	Fields      []string          `json:"fields,omitempty"`
+	Fields      Fields            `json:"fields,omitempty"`
 	Sensitive   bool              `json:"sensitive,omitempty"`
 	Metadata    map[string]string `json:"metadata,omitempty"`
+}
+
+// Field should match exactly what is in the GPTScript SDK
+type Field struct {
+	Name        string `json:"name,omitempty"`
+	Sensitive   *bool  `json:"sensitive,omitempty"`
+	Description string `json:"description,omitempty"`
+}
+
+type Fields []Field
+
+func ToFields(fields gptscript.Fields) Fields {
+	f := make(Fields, len(fields))
+	for i, field := range fields {
+		f[i] = Field{
+			Name:        field.Name,
+			Sensitive:   field.Sensitive,
+			Description: field.Description,
+		}
+	}
+	return f
 }
 
 type ToolInput struct {

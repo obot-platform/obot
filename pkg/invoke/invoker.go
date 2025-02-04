@@ -979,7 +979,7 @@ func (i *Invoker) stream(ctx context.Context, c kclient.WithWatch, prevThreadNam
 					Description: callingTool.Description,
 					Time:        types.NewTime(frame.Prompt.Time),
 					Message:     frame.Prompt.Message,
-					Fields:      frame.Prompt.Fields,
+					Fields:      types.ToFields(frame.Prompt.Fields),
 					Sensitive:   frame.Prompt.Sensitive,
 					Metadata:    metadata,
 				}

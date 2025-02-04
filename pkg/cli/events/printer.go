@@ -135,7 +135,7 @@ func handlePrompt(ctx context.Context, c *apiclient.Client, prompt *types.Prompt
 	}
 
 	for _, field := range prompt.Fields {
-		v, err := textio.Ask(field, "")
+		v, err := textio.Ask(field.Name, "")
 		if err != nil {
 			return err
 		}
@@ -147,7 +147,7 @@ func handlePrompt(ctx context.Context, c *apiclient.Client, prompt *types.Prompt
 				v = string(data)
 			}
 		}
-		promptResponse.Responses[field] = v
+		promptResponse.Responses[field.Name] = v
 	}
 
 	if len(promptResponse.Responses) == 0 {

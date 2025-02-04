@@ -28,9 +28,15 @@ export type AuthPrompt = {
 	name: string;
 	time?: Date;
 	message: string;
-	fields?: string[];
+	fields?: PromptField[];
 	sensitive?: boolean;
 	metadata?: PromptAuthMeta;
+};
+
+export type PromptField = {
+	name: string;
+	description?: string;
+	sensitive?: boolean;
 };
 
 // note(ryanhopperlowe) renaming this to ChatEvent to differentiate itself specifically for a chat with an agent

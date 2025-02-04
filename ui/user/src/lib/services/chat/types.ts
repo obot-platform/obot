@@ -35,9 +35,15 @@ type Prompt = {
 	description?: string;
 	time: string;
 	message?: string;
-	fields?: string[];
+	fields?: PromptField[];
 	sensitive?: boolean;
 	metadata?: { [key: string]: string };
+};
+
+type PromptField = {
+	name: string;
+	description?: string;
+	sensitive?: boolean;
 };
 
 type ToolInput = {
