@@ -9,7 +9,7 @@ import { CredentialApiService } from "~/lib/service/api/credentialApiService";
 import { KnowledgeFileService } from "~/lib/service/api/knowledgeFileApiService";
 import { ThreadsService } from "~/lib/service/api/threadsService";
 import { WorkspaceTableApiService } from "~/lib/service/api/workspaceTableApiService";
-import { PaginationParams } from "~/lib/service/pagination";
+import { PaginationParams } from "~/lib/service/queryService";
 
 import { TableNamespace } from "~/components/model/tables";
 import { useAsync } from "~/hooks/useAsync";
@@ -111,23 +111,6 @@ export function useThreadCredentials(threadId: Nullish<string>) {
 	return { getCredentials, deleteCredential };
 }
 
-export function useThreadTables(
-	threadId?: Nullish<string>,
-	pagination?: PaginationParams,
-	search?: string
-) {
-	return useSWR(
-		WorkspaceTableApiService.getTables.key(
-			TableNamespace.Threads,
-			threadId,
-			pagination,
-			search
-		),
-		({ namespace, entityId }) =>
-			WorkspaceTableApiService.getTables(namespace, entityId)
-	);
-}
-
 export function useThreadTableRows({
 	threadId,
 	tableName,
@@ -141,23 +124,15 @@ export function useThreadTableRows({
 	search?: string;
 	disabled?: boolean;
 }) {
-	return useSWR(
-		disabled
-			? null
-			: WorkspaceTableApiService.getTableRows.key(
-					TableNamespace.Threads,
-					threadId,
-					tableName,
-					pagination,
-					search
-				),
-		({ namespace, entityId, tableId, pagination, search }) =>
-			WorkspaceTableApiService.getTableRows(
-				namespace,
-				entityId,
-				tableId,
-				pagination,
-				search
-			)
-	);
+	const [key, fetcher] = [
+		...WorkspaceTableApiService.getTableRows.swr({
+			namespace: TableNamespace.Threads,
+			entityId: threadId,
+			tableName,
+			filters: { search },
+			query: { pagination },
+		}),
+	];
+
+	return useSWR(disabled ? null : key, fetcher);
 }

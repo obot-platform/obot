@@ -1,5 +1,5 @@
 import { mutate } from "swr";
-import { ZodObject, ZodRawShape, z } from "zod";
+import { ZodRawShape, z } from "zod";
 
 type FetcherConfig = {
 	signal?: AbortSignal;
@@ -50,12 +50,11 @@ export const revalidateArray = <TKey extends unknown[]>(
  * @returns The fetcher
  */
 export const createFetcher = <
-	TInput extends ZodObject<ZodRawShape>,
-	TParams extends z.infer<TInput>,
+	TParams extends object,
 	TKey extends unknown[],
 	TResponse,
 >(
-	input: TInput,
+	input: z.ZodSchema<TParams>,
 	handler: (params: TParams, config?: FetcherConfig) => Promise<TResponse>,
 	key: (params: TParams) => TKey
 ) => {
@@ -64,10 +63,20 @@ export const createFetcher = <
 	/** Creates a closure to trigger abort controller on consecutive requests */
 	let abortController: AbortController;
 
-	// this schema will skip any parameters that would cause an error
+	// this is a hack to get the shape of the input schema
+	// we need to do this because zod doesn't support getting the shape of a z.Schema
+	const getShape = () => {
+		if (!(input instanceof z.ZodObject)) {
+			throw new Error("Input must be a ZodObject");
+		}
+
+		return (input as z.ZodObject<ZodRawShape>).shape;
+	};
+
+	// this schema will skip any missing REQUIRED parameters
 	const skippedSchema = z.object(
 		Object.fromEntries(
-			Object.entries(input.shape).map(([key, schema]) => [
+			Object.entries(getShape()).map(([key, schema]) => [
 				key,
 				// this means that if a parameter would cause an error, it will be skipped
 				schema.catch(SkipKey),
@@ -79,7 +88,7 @@ export const createFetcher = <
 	// SWR will not call the handler if the key is null
 	const buildKey = (params: KeyParams) => {
 		const { data } = input.safeParse(params);
-		return data ? key(data as TParams) : null;
+		return data ? key(data) : null;
 	};
 
 	const buildRevalidator = (params: KeyParams, exact?: boolean) => {

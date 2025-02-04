@@ -1,6 +1,9 @@
+import { z } from "zod";
+
 import { ApiRoutes } from "~/lib/routers/apiRoutes";
 import { request } from "~/lib/service/api/primitives";
-import { PaginationParams, PaginationService } from "~/lib/service/pagination";
+import { createFetcher } from "~/lib/service/api/service-primitives";
+import { QueryService } from "~/lib/service/queryService";
 
 import {
 	TableNamespace,
@@ -8,79 +11,81 @@ import {
 	WorkspaceTableRows,
 } from "~/components/model/tables";
 
-async function getTables(
-	namespace: TableNamespace,
-	entityId: string,
-	pagination?: PaginationParams,
-	search?: string
-) {
-	const { data } = await request<{ tables: Nullish<WorkspaceTable[]> }>({
-		url: ApiRoutes.workspace.getTables(namespace, entityId).url,
-	});
-
-	const items = data.tables ?? [];
-
-	return PaginationService.searchAndPaginate(items, {
-		pagination,
-		fuzzySearchParams: { search, key: (table) => table.name },
-	});
-}
-getTables.key = (
-	namespace: TableNamespace,
-	entityId: Nullish<string>,
-	pagination?: PaginationParams,
-	search?: string
-) => {
-	if (!entityId) return null;
-
-	return {
-		url: ApiRoutes.workspace.getTables(namespace, entityId).path,
+const Keys = {
+	getTables: (namespace: TableNamespace, entityId: string) => [
 		namespace,
 		entityId,
-		pagination,
-		search,
-	};
+		"tables",
+	],
+	getTableRows: (
+		namespace: TableNamespace,
+		entityId: string,
+		tableName: string
+	) => [...Keys.getTables(namespace, entityId), tableName],
 };
 
-async function getTableRows(
-	namespace: TableNamespace,
-	entityId: string,
-	tableId: string,
-	pagination?: PaginationParams,
-	search?: string
-) {
-	const { data } = await request<WorkspaceTableRows>({
-		url: ApiRoutes.workspace.getTableRows(namespace, entityId, tableId).url,
-	});
+const getTables = createFetcher(
+	QueryService.queryable.extend({
+		namespace: z.nativeEnum(TableNamespace),
+		entityId: z.string(),
+		filters: z.object({ search: z.string() }).partial().nullish(),
+	}),
+	async ({ namespace, entityId, filters, query }) => {
+		const { data } = await request<{ tables: Nullish<WorkspaceTable[]> }>({
+			url: ApiRoutes.workspace.getTables(namespace, entityId).url,
+		});
 
-	const items = data.rows ?? [];
+		const items = data.tables ?? [];
+		const searched = QueryService.handleSearch(items, {
+			key: (table) => table.name,
+			search: filters?.search,
+		});
 
-	const { items: rows, ...rest } = PaginationService.searchAndPaginate(items, {
-		pagination,
-		fuzzySearchParams: { search, key: (row) => Object.values(row).join("|") },
-	});
+		return QueryService.paginate(searched, query.pagination);
+	},
+	(params) => [
+		...Keys.getTables(params.namespace, params.entityId),
+		params.filters,
+		params.query,
+	]
+);
 
-	data.rows = rows;
+const getTableRows = createFetcher(
+	QueryService.queryable.extend({
+		namespace: z.nativeEnum(TableNamespace),
+		entityId: z.string(),
+		tableName: z.string(),
+		filters: z.object({ search: z.string().optional() }).optional(),
+	}),
+	async (
+		{ namespace, entityId, tableName, filters, query },
+		{ signal } = {}
+	) => {
+		const { data } = await request<WorkspaceTableRows>({
+			url: ApiRoutes.workspace.getTableRows(namespace, entityId, tableName).url,
+			signal,
+		});
 
-	return { ...data, ...rest };
-}
-getTableRows.key = (
-	namespace: TableNamespace,
-	entityId: Nullish<string>,
-	tableId: Nullish<string>,
-	pagination?: PaginationParams,
-	search?: string
-) => {
-	if (!entityId || !tableId) return null;
-	return {
-		url: ApiRoutes.workspace.getTableRows(namespace, entityId, tableId).path,
-		namespace,
-		entityId,
-		tableId,
-		pagination,
-		search,
-	};
-};
+		const searched = QueryService.handleSearch(data.rows ?? [], {
+			key: (row) => Object.values(row).join("|"),
+			search: filters?.search,
+		});
+
+		const { items: rows, ...rest } = QueryService.paginate(
+			searched,
+			query.pagination
+		);
+
+		data.rows = rows;
+
+		return { ...data, ...rest };
+	},
+	({ namespace, entityId, tableName, filters, query }) => [
+		...Keys.getTableRows(namespace, entityId, tableName),
+		filters,
+		query,
+	]
+);
 
 export const WorkspaceTableApiService = {
 	getTables,

@@ -4,7 +4,7 @@ import { Thread, UpdateThread } from "~/lib/model/threads";
 import { WorkspaceFile } from "~/lib/model/workspace";
 import { ApiRoutes, revalidateWhere } from "~/lib/routers/apiRoutes";
 import { request } from "~/lib/service/api/primitives";
-import { PaginationParams, PaginationService } from "~/lib/service/pagination";
+import { PaginationParams, QueryService } from "~/lib/service/queryService";
 import { downloadUrl } from "~/lib/utils/downloadFile";
 
 const getThreads = async () => {
@@ -119,7 +119,7 @@ const getFiles = async (
 			)
 		: items;
 
-	return PaginationService.paginate(filteredItems, pagination);
+	return QueryService.paginate(filteredItems, pagination);
 };
 getFiles.key = (
 	threadId?: Nullish<string>,

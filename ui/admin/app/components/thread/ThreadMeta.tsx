@@ -12,24 +12,26 @@ import {
 	TrashIcon,
 } from "lucide-react";
 import { $path } from "safe-routes";
+import useSWR from "swr";
 
 import { Agent } from "~/lib/model/agents";
 import { runStateToBadgeColor } from "~/lib/model/runs";
 import { Thread } from "~/lib/model/threads";
 import { Workflow } from "~/lib/model/workflows";
 import { ThreadsService } from "~/lib/service/api/threadsService";
-import { PaginationInfo } from "~/lib/service/pagination";
+import { WorkspaceTableApiService } from "~/lib/service/api/workspaceTableApiService";
+import { PaginationInfo } from "~/lib/service/queryService";
 import { cn, noop } from "~/lib/utils";
 
 import {
 	useThreadCredentials,
 	useThreadFiles,
 	useThreadKnowledge,
-	useThreadTables,
 } from "~/components/chat/shared/thread-helpers";
 import { ConfirmationDialog } from "~/components/composed/ConfirmationDialog";
 import { PaginationActions } from "~/components/composed/PaginationActions";
 import { Truncate } from "~/components/composed/typography";
+import { TableNamespace } from "~/components/model/tables";
 import { ThreadTableDialog } from "~/components/thread/ThreadTableDialog";
 import {
 	Accordion,
@@ -88,10 +90,13 @@ export function ThreadMeta({ entity, thread, className }: ThreadMetaProps) {
 	const { dialogProps, interceptAsync } = useConfirmationDialog();
 
 	const tableStore = usePagination({ pageSize });
-	const getTables = useThreadTables(
-		thread.id,
-		tableStore.params.pagination,
-		tableStore.params.search
+	const getTables = useSWR(
+		...WorkspaceTableApiService.getTables.swr({
+			namespace: TableNamespace.Threads,
+			entityId: thread.id,
+			filters: { search: tableStore.search },
+			query: { pagination: tableStore.params.pagination },
+		})
 	);
 	const { items: tables } = getTables.data ?? {};
 

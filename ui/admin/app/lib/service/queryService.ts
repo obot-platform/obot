@@ -1,7 +1,10 @@
-export type PaginationParams = {
-	page: number;
-	pageSize: number;
-};
+import { z } from "zod";
+
+const paginationParamsSchema = z.object({
+	page: z.number().min(0),
+	pageSize: z.number().min(1),
+});
+export type PaginationParams = z.infer<typeof paginationParamsSchema>;
 
 export type PaginationInfo = PaginationParams & {
 	totalPages: number;
@@ -67,25 +70,13 @@ function handleSearch<T>(
 	return items.filter((item) => withCase(key(item)).includes(withCase(search)));
 }
 
-type SearchAndPaginateOptions<T> = {
-	pagination?: PaginationParams;
-	fuzzySearchParams?: FuzzySearchParams<T>;
-};
+const queryable = z.object({
+	query: z.object({ pagination: paginationParamsSchema.optional() }),
+});
 
-function searchAndPaginate<T>(
-	items: T[],
-	{ pagination, fuzzySearchParams }: SearchAndPaginateOptions<T>
-) {
-	const filtered = fuzzySearchParams
-		? handleSearch(items, fuzzySearchParams)
-		: items;
-
-	return paginate(filtered, pagination);
-}
-
-export const PaginationService = {
+export const QueryService = {
 	paginate,
 	getPaginationInfo,
 	handleSearch,
-	searchAndPaginate,
+	queryable,
 };

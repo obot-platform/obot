@@ -27,7 +27,7 @@ const getAgents = createFetcher(
 
 		return res.data.items ?? ([] as Agent[]);
 	},
-	() => ["Agents"]
+	() => ["agents"]
 );
 
 const getAgentById = createFetcher(
@@ -41,7 +41,7 @@ const getAgentById = createFetcher(
 
 		return res.data;
 	},
-	({ agentId }) => ["Agents", agentId]
+	({ agentId }) => ["agents", agentId]
 );
 
 const createAgent = createMutator(
@@ -95,7 +95,7 @@ const getAuthUrlForAgent = createFetcher(
 
 		return res.data.authStatus?.[toolRef];
 	},
-	({ agentId, toolRef }) => ["Agents", agentId, "AuthUrl", toolRef]
+	({ agentId, toolRef }) => ["agents", agentId, "AuthUrl", toolRef]
 );
 
 const getAgentAuthorizations = createFetcher(
@@ -109,7 +109,7 @@ const getAgentAuthorizations = createFetcher(
 
 		return res.data.items;
 	},
-	({ agentId }) => ["Agents", agentId, "Authorizations"]
+	({ agentId }) => ["agents", agentId, "Authorizations"]
 );
 
 type AddAgentAuthorizationParams = {
@@ -157,7 +157,7 @@ const getWorkspaceFiles = createFetcher(
 
 		return res.data.items;
 	},
-	({ agentId }) => ["Agents", agentId, "WorkspaceFiles"]
+	({ agentId }) => ["agents", agentId, "WorkspaceFiles"]
 );
 
 type UploadWorkspaceFileParams = {

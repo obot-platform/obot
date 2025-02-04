@@ -113,7 +113,7 @@ export function ThreadTableDialog({
 
 	function renderInvisibleRow() {
 		return (
-			<TableRow className="invisible border-none">
+			<TableRow className="invisible border-transparent">
 				<TableCell colSpan={columns?.length}>
 					<p>.</p>
 				</TableCell>

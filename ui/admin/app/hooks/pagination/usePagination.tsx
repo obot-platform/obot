@@ -1,6 +1,6 @@
 import { useCallback, useState } from "react";
 
-import { PaginationParams, PaginationService } from "~/lib/service/pagination";
+import { PaginationParams, QueryService } from "~/lib/service/queryService";
 
 import { useDebounce } from "~/hooks/useDebounce";
 
@@ -26,7 +26,7 @@ export function usePagination({
 
 	const debouncedSearch = useDebounce(updateSearch, 500);
 
-	const pagination = PaginationService.getPaginationInfo({
+	const pagination = QueryService.getPaginationInfo({
 		page,
 		pageSize,
 		total,

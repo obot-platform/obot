@@ -114,7 +114,7 @@ function convertError(error: Error) {
 		return new ConflictError(error.response.data);
 	}
 
-	if (isAxiosError(error) && error.name === "ERR_CANCELED") {
+	if (isAxiosError(error) && error.code === "ERR_CANCELED") {
 		return new CanceledError(error.name);
 	}
 
