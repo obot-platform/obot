@@ -2,6 +2,9 @@ set -e
 mkdir -p /opt/google/chrome
 
 if [ $(uname -m) = aarch64 ]; then
+	# This is a temporary fix until Chainguard rebuilds the postgres-dev image.
+	sed -i 's|=.*||' /etc/apk/world
+    apk upgrade --no-cache --all
     apk add --no-cache \
         curl \
         font-opensans \
