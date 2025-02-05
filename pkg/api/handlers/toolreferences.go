@@ -12,6 +12,7 @@ import (
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
+	"github.com/obot-platform/obot/pkg/tools"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -33,10 +34,13 @@ func convertToolReference(toolRef v1.ToolReference) types.ToolReference {
 			Name:      toolRef.Name,
 			ToolType:  toolRef.Spec.Type,
 			Reference: toolRef.Spec.Reference,
+			Commit:    toolRef.Status.Commit,
 		},
-		Builtin:  toolRef.Spec.Builtin,
-		Error:    toolRef.Status.Error,
-		Resolved: toolRef.Generation == toolRef.Status.ObservedGeneration,
+		Builtin:        toolRef.Spec.Builtin,
+		Bundle:         toolRef.Spec.Bundle,
+		BundleToolName: toolRef.Spec.BundleToolName,
+		Error:          toolRef.Status.Error,
+		Resolved:       toolRef.Generation == toolRef.Status.ObservedGeneration,
 	}
 	if toolRef.Spec.Active == nil {
 		tf.Active = true
@@ -123,22 +127,22 @@ func (a *ToolReferenceHandler) Create(req api.Context) (err error) {
 		return apierrors.NewBadRequest(fmt.Sprintf("invalid tool type %s", newToolReference.ToolType))
 	}
 
-	toolRef := &v1.ToolReference{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      newToolReference.Name,
-			Namespace: req.Namespace(),
-		},
-		Spec: v1.ToolReferenceSpec{
-			Type:      newToolReference.ToolType,
-			Reference: newToolReference.Reference,
-		},
+	toolRefs, err := tools.ResolveToolReferences(req.Context(), a.gptscript, newToolReference.Name, newToolReference.Reference, false, newToolReference.ToolType)
+	if err != nil {
+		return apierrors.NewBadRequest(fmt.Sprintf("failed to resolve tool references for %s: %v", newToolReference.Reference, err))
 	}
 
-	if err = req.Create(toolRef); err != nil {
-		return err
+	if len(toolRefs) == 0 {
+		return apierrors.NewBadRequest(fmt.Sprintf("no tool references found for %s", newToolReference.Reference))
 	}
 
-	return req.Write(convertToolReference(*toolRef))
+	for _, toolRef := range toolRefs {
+		if err := req.Create(toolRef); err != nil && !apierrors.IsAlreadyExists(err) {
+			return apierrors.NewInternalError(fmt.Errorf("failed to create tool reference %s: %w", toolRef.Name, err))
+		}
+	}
+
+	return req.Write(convertToolReference(*toolRefs[0]))
 }
 
 func (a *ToolReferenceHandler) Delete(req api.Context) error {
@@ -164,6 +168,10 @@ func (a *ToolReferenceHandler) Delete(req api.Context) error {
 
 	if toolRef.Spec.Builtin {
 		return types.NewErrBadRequest("cannot delete builtin tool reference %s", id)
+	}
+
+	if !toolRef.Spec.Bundle {
+		return types.NewErrBadRequest("cannot delete child tool that belongs to a bundle tool")
 	}
 
 	return req.Delete(&v1.ToolReference{

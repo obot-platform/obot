@@ -23,6 +23,7 @@ import (
 	"github.com/obot-platform/obot/pkg/gateway/server/dispatcher"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
+	"github.com/obot-platform/obot/pkg/tools"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -35,7 +36,9 @@ var jsonErrRegexp = regexp.MustCompile(`\{.*"error":.*}`)
 
 type indexEntry struct {
 	Reference string `json:"reference,omitempty"`
-	All       bool   `json:"all,omitempty"`
+
+	// NameOverride is used to override the name of the top-level tool reference.
+	NameOverride string `json:"nameOverride,omitempty"`
 }
 
 type index struct {
@@ -68,93 +71,27 @@ func New(gptClient *gptscript.GPTScript,
 	}
 }
 
-func isValidTool(tool gptscript.Tool) bool {
-	if tool.MetaData["index"] == "false" {
-		return false
-	}
-	return tool.Name != "" && (tool.Type == "" || tool.Type == "tool")
-}
-
 func (h *Handler) toolsToToolReferences(ctx context.Context, toolType types.ToolReferenceType, registryURL string, entries map[string]indexEntry) (result []client.Object) {
-	annotations := map[string]string{
-		"obot.obot.ai/timestamp": time.Now().String(),
-	}
 	for name, entry := range entries {
 		if ref, ok := strings.CutPrefix(entry.Reference, "./"); ok {
 			entry.Reference = registryURL + "/" + ref
 		}
+		if !h.supportDocker && name == system.ShellTool {
+			continue
+		}
 
-		if entry.All {
-			prg, err := h.gptClient.LoadFile(ctx, "* from "+entry.Reference)
-			if err != nil {
-				log.Errorf("Failed to load tool %s: %v", entry.Reference, err)
-				continue
-			}
+		toolRefs, err := tools.ResolveToolReferences(ctx, h.gptClient, name, entry.Reference, true, toolType)
+		if err != nil {
+			log.Errorf("Failed to resolve tool references for %s: %v", entry.Reference, err)
+			continue
+		}
 
-			tool := prg.ToolSet[prg.EntryToolID]
-			if isValidTool(tool) {
-				toolName := tool.Name
-				if tool.MetaData["bundle"] == "true" {
-					toolName = "bundle"
-				}
-				result = append(result, &v1.ToolReference{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:        normalize(name, toolName),
-						Namespace:   system.DefaultNamespace,
-						Finalizers:  []string{v1.ToolReferenceFinalizer},
-						Annotations: annotations,
-					},
-					Spec: v1.ToolReferenceSpec{
-						Type:      toolType,
-						Reference: entry.Reference,
-						Builtin:   true,
-					},
-				})
-			}
-			for _, peerToolID := range tool.LocalTools {
-				// If this is the entry tool, then we already added it or skipped it above.
-				if peerToolID == prg.EntryToolID {
-					continue
-				}
+		if entry.NameOverride != "" {
+			toolRefs[0].Name = entry.NameOverride
+		}
 
-				peerTool := prg.ToolSet[peerToolID]
-				if isValidTool(peerTool) {
-					toolName := peerTool.Name
-					if peerTool.MetaData["bundle"] == "true" {
-						toolName += "-bundle"
-					}
-					result = append(result, &v1.ToolReference{
-						ObjectMeta: metav1.ObjectMeta{
-							Name:        normalize(name, toolName),
-							Namespace:   system.DefaultNamespace,
-							Finalizers:  []string{v1.ToolReferenceFinalizer},
-							Annotations: annotations,
-						},
-						Spec: v1.ToolReferenceSpec{
-							Type:      toolType,
-							Reference: fmt.Sprintf("%s from %s", peerTool.Name, entry.Reference),
-							Builtin:   true,
-						},
-					})
-				}
-			}
-		} else {
-			if !h.supportDocker && name == system.ShellTool {
-				continue
-			}
-			result = append(result, &v1.ToolReference{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:        name,
-					Namespace:   system.DefaultNamespace,
-					Finalizers:  []string{v1.ToolReferenceFinalizer},
-					Annotations: annotations,
-				},
-				Spec: v1.ToolReferenceSpec{
-					Type:      toolType,
-					Reference: entry.Reference,
-					Builtin:   true,
-				},
-			})
+		for _, toolRef := range toolRefs {
+			result = append(result, toolRef)
 		}
 	}
 
@@ -215,10 +152,6 @@ func (h *Handler) readFromRegistry(ctx context.Context, c client.Client) error {
 	return apply.New(c).WithOwnerSubContext("toolreferences").Apply(ctx, nil, toAdd...)
 }
 
-func normalize(names ...string) string {
-	return strings.ToLower(strings.ReplaceAll(strings.ReplaceAll(strings.Join(names, "-"), " ", "-"), "_", "-"))
-}
-
 func (h *Handler) PollRegistries(ctx context.Context, c client.Client) {
 	if len(h.registryURLs) < 1 {
 		return
@@ -251,6 +184,7 @@ func (h *Handler) Populate(req router.Request, resp router.Response) error {
 	toolRef.Status.LastReferenceCheck = metav1.Now()
 	toolRef.Status.ObservedGeneration = toolRef.Generation
 	toolRef.Status.Reference = toolRef.Spec.Reference
+	toolRef.Status.Commit = ""
 	toolRef.Status.Tool = nil
 	toolRef.Status.Error = ""
 
@@ -268,6 +202,9 @@ func (h *Handler) Populate(req router.Request, resp router.Response) error {
 		Description: tool.Description,
 		Metadata:    tool.MetaData,
 		Params:      map[string]string{},
+	}
+	if tool.Source.Repo != nil {
+		toolRef.Status.Commit = tool.Source.Repo.Revision
 	}
 	if tool.Arguments != nil {
 		for name, param := range tool.Arguments.Properties {
