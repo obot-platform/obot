@@ -9,7 +9,7 @@ export function WorkflowEmailTab({ workflowId }: { workflowId: string }) {
 	return (
 		<div className="flex flex-col gap-2">
 			<CardDescription>
-				Add Email Triggers to run the workflow when an email
+				Add Email Triggers to run the workflow when an email is received.
 			</CardDescription>
 
 			{emailReceivers.map((emailReceiver) => (
