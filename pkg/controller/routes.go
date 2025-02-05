@@ -98,6 +98,7 @@ func (c *Controller) setupRoutes() error {
 	root.Type(&v1.KnowledgeSource{}).HandlerFunc(knowledgesource.Sync)
 
 	// ToolReferences
+	root.Type(&v1.ToolReference{}).HandlerFunc(cleanup.Cleanup)
 	root.Type(&v1.ToolReference{}).HandlerFunc(toolRef.Populate)
 	root.Type(&v1.ToolReference{}).HandlerFunc(toolRef.BackPopulateModels)
 	root.Type(&v1.ToolReference{}).IncludeFinalizing().HandlerFunc(removeOldFinalizers)

@@ -18,6 +18,12 @@ import {
 	PopoverContent,
 	PopoverTrigger,
 } from "~/components/ui/popover";
+import {
+	Tooltip,
+	TooltipContent,
+	TooltipProvider,
+	TooltipTrigger,
+} from "~/components/ui/tooltip";
 
 export function ToolCard({
 	tool,
@@ -26,6 +32,17 @@ export function ToolCard({
 	tool: ToolReference;
 	HeaderRightContent?: React.ReactNode;
 }) {
+	const getToolCommitURL = (tool: ToolReference) => {
+		if (tool.reference?.startsWith("github.com")) {
+			const parts = tool.reference.split("/");
+			const [org, repo, ...rest] = parts.slice(1);
+			const path = rest.join("/");
+			const pathWithGpt = path.endsWith(".gpt") ? path : `${path}/tool.gpt`;
+			return `https://github.com/${org}/${repo}/blob/${tool.commit}/${pathWithGpt}`;
+		}
+		return tool.reference;
+	};
+
 	return (
 		<Card
 			key={tool.id}
@@ -91,39 +108,28 @@ export function ToolCard({
 			</CardContent>
 			{tool.commit && (
 				<CardFooter className="flex justify-end">
-					<Popover>
-						<PopoverTrigger asChild>
-							<Button size="icon" variant="ghost">
-								<GitCommitIcon className="h-4 w-4" />
-							</Button>
-						</PopoverTrigger>
-						<PopoverContent>
-							<div className="flex flex-col gap-2">
-								<p className="break-all text-sm text-muted-foreground">
-									Commit:{" "}
-									{tool.reference?.startsWith("github.com") ? (
-										<a
-											href={`https://${(() => {
-												const parts = tool.reference.split("/");
-												if (parts.length >= 3) {
-													const [org, repo, ...rest] = parts.slice(1);
-													return `github.com/${org}/${repo}/blob/${tool.commit}/${rest.join("/")}/tool.gpt`;
-												}
-												return tool.reference;
-											})()}`}
-											target="_blank"
-											rel="noopener noreferrer"
-											className="text-blue-500 hover:underline"
-										>
-											{tool.commit}
-										</a>
-									) : (
-										tool.commit
-									)}
-								</p>
-							</div>
-						</PopoverContent>
-					</Popover>
+					<TooltipProvider>
+						<Tooltip>
+							<TooltipTrigger asChild>
+								<Button
+									size="icon"
+									variant="ghost"
+									onClick={() => {
+										window.open(
+											getToolCommitURL(tool),
+											"_blank",
+											"noopener,noreferrer"
+										);
+									}}
+								>
+									<GitCommitIcon className="h-4 w-4" />
+								</Button>
+							</TooltipTrigger>
+							<TooltipContent>
+								<p>View Commit</p>
+							</TooltipContent>
+						</Tooltip>
+					</TooltipProvider>
 				</CardFooter>
 			)}
 		</Card>

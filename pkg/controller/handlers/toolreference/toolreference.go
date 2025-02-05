@@ -87,12 +87,10 @@ func (h *Handler) toolsToToolReferences(ctx context.Context, toolType types.Tool
 		}
 
 		if entry.NameOverride != "" {
-			toolRefs[0].Name = entry.NameOverride
+			toolRefs[0].SetName(entry.NameOverride)
 		}
 
-		for _, toolRef := range toolRefs {
-			result = append(result, toolRef)
-		}
+		result = append(result, toolRefs...)
 	}
 
 	return

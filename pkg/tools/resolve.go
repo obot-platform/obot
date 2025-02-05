@@ -11,14 +11,15 @@ import (
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func ResolveToolReferences(ctx context.Context, gptClient *gptscript.GPTScript, name, reference string, builtin bool, toolType types.ToolReferenceType) ([]*v1.ToolReference, error) {
+func ResolveToolReferences(ctx context.Context, gptClient *gptscript.GPTScript, name, reference string, builtin bool, toolType types.ToolReferenceType) ([]client.Object, error) {
 	annotations := map[string]string{
 		"obot.obot.ai/timestamp": time.Now().String(),
 	}
 
-	var result []*v1.ToolReference
+	var result []client.Object
 
 	prg, err := gptClient.LoadFile(ctx, reference)
 	if err != nil {
@@ -33,7 +34,7 @@ func ResolveToolReferences(ctx context.Context, gptClient *gptscript.GPTScript, 
 	}
 
 	toolName := resolveToolReferenceName(toolType, isBundleTool, isCapability, name, tool.Name)
-	entryTool := &v1.ToolReference{
+	entryTool := v1.ToolReference{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        toolName,
 			Namespace:   system.DefaultNamespace,
@@ -47,7 +48,11 @@ func ResolveToolReferences(ctx context.Context, gptClient *gptscript.GPTScript, 
 			Bundle:    isBundleTool,
 		},
 	}
-	result = append(result, entryTool)
+	result = append(result, &entryTool)
+
+	if isCapability {
+		return result, nil
+	}
 
 	for _, peerToolID := range tool.LocalTools {
 		if peerToolID == prg.EntryToolID {
@@ -84,6 +89,10 @@ func resolveToolReferenceName(toolType types.ToolReferenceType, isBundle bool, i
 				return toolName
 			}
 			return toolName + "-bundle"
+		}
+
+		if subToolName == "" {
+			return toolName
 		}
 		return normalize(toolName, subToolName)
 	}
