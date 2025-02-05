@@ -73,7 +73,7 @@ export function SetupBanner() {
 							{stepsToConfigure.map((step) => (
 								<Button
 									className={cn("mt-0 w-fit px-10", {
-										"flex-1": steps.length > 1,
+										"flex-1": stepsToConfigure.length > 1,
 									})}
 									variant="warning"
 									key={step.step}
