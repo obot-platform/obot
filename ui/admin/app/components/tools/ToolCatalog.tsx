@@ -2,7 +2,6 @@ import { AlertTriangleIcon, PlusIcon } from "lucide-react";
 import { useMemo, useState } from "react";
 import useSWR from "swr";
 
-import { OAuthProvider } from "~/lib/model/oauthApps/oauth-helpers";
 import {
 	ToolCategory,
 	convertToolReferencesToCategoryMap,
@@ -26,7 +25,7 @@ import {
 	DialogTitle,
 	DialogTrigger,
 } from "~/components/ui/dialog";
-import { useOAuthAppList } from "~/hooks/oauthApps/useOAuthApps";
+import { useOauthAppMap } from "~/hooks/oauthApps/useOAuthApps";
 
 type ToolCatalogProps = React.HTMLAttributes<HTMLDivElement> & {
 	tools: string[];
@@ -61,11 +60,17 @@ export function ToolCatalog({
 	);
 
 	const [search, setSearch] = useState("");
-
-	const oauthApps = useOAuthAppList();
-	const configuredOauthApps = useMemo(() => {
-		return new Set(oauthApps.map((app) => app.alias ?? app.type));
-	}, [oauthApps]);
+	const configuredOauthApps = useOauthAppMap();
+	const configuredTools = useMemo(() => {
+		return new Set(
+			toolList
+				.filter((tool) => {
+					const oauth = tool.metadata?.oauth;
+					return oauth ? configuredOauthApps.has(oauth) : true;
+				})
+				.map((tool) => tool.id)
+		);
+	}, [toolList, configuredOauthApps]);
 
 	const sortedValidCategories = useMemo(() => {
 		return Object.entries(toolCategories).sort(
@@ -142,19 +147,13 @@ export function ToolCatalog({
 					<ToolCatalogGroup
 						key={category}
 						category={category}
-						configured={
-							categoryTools.bundleTool?.metadata?.oauth
-								? configuredOauthApps.has(
-										categoryTools.bundleTool.metadata.oauth as OAuthProvider
-									)
-								: true
-						}
 						tools={categoryTools}
 						selectedTools={selectedTools}
 						onAddTool={handleAddTool}
 						onRemoveTool={handleRemoveTool}
 						expandFor={search}
 						oauths={oauths}
+						configuredTools={configuredTools}
 					/>
 				))}
 			</CommandList>

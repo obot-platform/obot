@@ -18,7 +18,7 @@ import {
 	DropdownMenuItem,
 	DropdownMenuTrigger,
 } from "~/components/ui/dropdown-menu";
-import { useOAuthAppList } from "~/hooks/oauthApps/useOAuthApps";
+import { useOauthAppMap } from "~/hooks/oauthApps/useOAuthApps";
 
 interface AddKnowledgeButtonProps {
 	disabled?: boolean;
@@ -36,10 +36,7 @@ export function AddKnowledgeButton({
 	const [requiredConfiguration, setRequiredConfiguration] =
 		useState<OAuthAppSpec | null>(null);
 
-	const oauthApps = useOAuthAppList();
-	const oauthAppsMap = new Map(
-		oauthApps.map((app) => [app.alias ?? app.type, app])
-	);
+	const oauthAppsMap = useOauthAppMap();
 
 	const handleSelect = (knowledgeSourceType: KnowledgeSourceType) => {
 		const specType =

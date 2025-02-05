@@ -3,14 +3,12 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { mutate } from "swr";
 
-import { OAuthProvider } from "~/lib/model/oauthApps/oauth-helpers";
 import { ToolReference } from "~/lib/model/toolReferences";
 import { ToolReferenceService } from "~/lib/service/api/toolreferenceService";
 import { cn } from "~/lib/utils";
 
 import { ConfirmationDialog } from "~/components/composed/ConfirmationDialog";
-import { CustomOauthAppDetail } from "~/components/oauth-apps/shared/CustomOauthAppDetail";
-import { OAuthAppDetail } from "~/components/oauth-apps/shared/OAuthAppDetail";
+import { ToolOauthConfig } from "~/components/tools/ToolOauthConfig";
 import { LoadingSpinner } from "~/components/ui/LoadingSpinner";
 import { Button } from "~/components/ui/button";
 import {
@@ -20,7 +18,7 @@ import {
 	DropdownMenuTrigger,
 } from "~/components/ui/dropdown-menu";
 import { useConfirmationDialog } from "~/hooks/component-helpers/useConfirmationDialog";
-import { useOAuthAppList } from "~/hooks/oauthApps/useOAuthApps";
+import { useOauthAppMap } from "~/hooks/oauthApps/useOAuthApps";
 import { useAsync } from "~/hooks/useAsync";
 import { usePollSingleTool } from "~/hooks/usePollSingleTool";
 
@@ -28,10 +26,7 @@ export function ToolCardActions({ tool }: { tool: ToolReference }) {
 	const [configureAuthOpen, setConfigureAuthOpen] = useState(false);
 	const { dialogProps, interceptAsync } = useConfirmationDialog();
 
-	const oauthApps = useOAuthAppList();
-	const oauthAppsMap = new Map(
-		oauthApps.map((app) => [app.alias ?? app.type, app])
-	);
+	const oauthAppsMap = useOauthAppMap();
 	const oauth = oauthAppsMap.get(tool?.metadata?.oauth ?? "");
 
 	const deleteTool = useAsync(ToolReferenceService.deleteToolReference, {
@@ -60,10 +55,6 @@ export function ToolCardActions({ tool }: { tool: ToolReference }) {
 		interceptAsync(() => deleteTool.executeAsync(tool.id));
 
 	const toolOauthMetadata = tool.metadata?.oauth;
-
-	const isSpecedOauth =
-		toolOauthMetadata &&
-		Object.values(OAuthProvider).includes(toolOauthMetadata as OAuthProvider);
 	const requiresConfiguration = toolOauthMetadata && !oauth;
 
 	if (tool.builtin && !toolOauthMetadata) return null;
@@ -87,9 +78,7 @@ export function ToolCardActions({ tool }: { tool: ToolReference }) {
 							className={cn("flex items-center gap-1", {
 								"text-warning": requiresConfiguration,
 							})}
-							onClick={() => {
-								setConfigureAuthOpen(true);
-							}}
+							onClick={() => setConfigureAuthOpen(true)}
 						>
 							{requiresConfiguration && (
 								<TriangleAlertIcon className="h-4 w-4 text-warning" />
@@ -122,22 +111,11 @@ export function ToolCardActions({ tool }: { tool: ToolReference }) {
 					disabled: deleteTool.isLoading,
 				}}
 			/>
-			{toolOauthMetadata ? (
-				isSpecedOauth ? (
-					<OAuthAppDetail
-						open={configureAuthOpen}
-						onOpenChange={setConfigureAuthOpen}
-						type={toolOauthMetadata as OAuthProvider}
-					/>
-				) : (
-					<CustomOauthAppDetail
-						open={configureAuthOpen}
-						onOpenChange={setConfigureAuthOpen}
-						app={oauth}
-						alias={toolOauthMetadata}
-					/>
-				)
-			) : null}
+			<ToolOauthConfig
+				tool={tool}
+				open={configureAuthOpen}
+				onOpenChange={setConfigureAuthOpen}
+			/>
 		</>
 	);
 }
