@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"bytes"
+	"context"
 	"crypto/rand"
 	"encoding/base64"
 	"errors"
@@ -161,7 +162,7 @@ func (ap *AuthProviderHandler) Configure(req api.Context) error {
 	}
 
 	defer func() {
-		go ap.dispatcher.UpdateConfiguredAuthProviders()
+		go ap.dispatcher.UpdateConfiguredAuthProviders(context.Background())
 	}()
 
 	if err := ap.gptscript.CreateCredential(req.Context(), gptscript.Credential{
@@ -207,7 +208,7 @@ func (ap *AuthProviderHandler) Deconfigure(req api.Context) error {
 	}
 
 	defer func() {
-		go ap.dispatcher.UpdateConfiguredAuthProviders()
+		go ap.dispatcher.UpdateConfiguredAuthProviders(context.Background())
 	}()
 
 	// Stop the auth provider so that the credential is completely removed from the system.

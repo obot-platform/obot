@@ -307,7 +307,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 			tokenServer,
 			events,
 		)
-		providerDispatcher = dispatcher.New(invoker, storageClient, c)
+		providerDispatcher = dispatcher.New(ctx, invoker, storageClient, c)
 
 		proxyManager *proxy.Manager
 	)

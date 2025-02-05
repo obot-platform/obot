@@ -38,7 +38,7 @@ type Dispatcher struct {
 	openAICred                  string
 }
 
-func New(invoker *invoke.Invoker, c kclient.Client, gClient *gptscript.GPTScript) *Dispatcher {
+func New(ctx context.Context, invoker *invoke.Invoker, c kclient.Client, gClient *gptscript.GPTScript) *Dispatcher {
 	d := &Dispatcher{
 		invoker:                     invoker,
 		gptscript:                   gClient,
@@ -51,7 +51,7 @@ func New(invoker *invoke.Invoker, c kclient.Client, gClient *gptscript.GPTScript
 		configuredAuthProviders:     make([]string, 0),
 	}
 
-	d.UpdateConfiguredAuthProviders()
+	d.UpdateConfiguredAuthProviders(ctx)
 
 	return d
 }
@@ -378,12 +378,12 @@ func (d *Dispatcher) ListConfiguredAuthProviders(namespace string) []string {
 	return d.configuredAuthProviders
 }
 
-func (d *Dispatcher) UpdateConfiguredAuthProviders() {
+func (d *Dispatcher) UpdateConfiguredAuthProviders(ctx context.Context) {
 	d.configuredAuthProvidersLock.Lock()
 	defer d.configuredAuthProvidersLock.Unlock()
 
 	var authProviders v1.ToolReferenceList
-	if err := d.client.List(context.Background(), &authProviders, &kclient.ListOptions{
+	if err := d.client.List(ctx, &authProviders, &kclient.ListOptions{
 		Namespace: system.DefaultNamespace,
 		FieldSelector: fields.SelectorFromSet(map[string]string{
 			"spec.type": string(types.ToolReferenceTypeAuthProvider),
@@ -395,7 +395,7 @@ func (d *Dispatcher) UpdateConfiguredAuthProviders() {
 
 	var result []string
 	for _, authProvider := range authProviders.Items {
-		if isConfigured, _, _ := d.isAuthProviderConfigured(context.Background(), []string{string(authProvider.UID), system.GenericAuthProviderCredentialContext}, authProvider); isConfigured {
+		if isConfigured, _, _ := d.isAuthProviderConfigured(ctx, []string{string(authProvider.UID), system.GenericAuthProviderCredentialContext}, authProvider); isConfigured {
 			result = append(result, authProvider.Name)
 		}
 	}
