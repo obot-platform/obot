@@ -3,7 +3,7 @@ import { useMemo, useState } from "react";
 import { MetaFunction } from "react-router";
 import useSWR, { preload } from "swr";
 
-import { convertToolReferencesToCategoryMap } from "~/lib/model/toolReferences";
+import { convertToolReferencesToMap } from "~/lib/model/toolReferences";
 import { OauthAppService } from "~/lib/service/api/oauthAppService";
 import { ToolReferenceService } from "~/lib/service/api/toolreferenceService";
 import { RouteHandle } from "~/lib/service/routeHandles";
@@ -33,8 +33,8 @@ export default function Tools() {
 		{ fallbackData: [] }
 	);
 
-	const toolCategories = useMemo(
-		() => Object.entries(convertToolReferencesToCategoryMap(getTools.data)),
+	const toolMap = useMemo(
+		() => convertToolReferencesToMap(getTools.data),
 		[getTools.data]
 	);
 
@@ -42,8 +42,8 @@ export default function Tools() {
 
 	const results =
 		searchQuery.length > 0
-			? filterToolCatalogBySearch(toolCategories, searchQuery)
-			: toolCategories;
+			? filterToolCatalogBySearch(Object.entries(toolMap), searchQuery)
+			: Object.entries(toolMap);
 
 	return (
 		<div>
@@ -65,7 +65,7 @@ export default function Tools() {
 			</div>
 
 			<ScrollArea className="flex h-[calc(100vh-8.5rem)] flex-col p-8">
-				<ToolGrid toolCategories={results} />
+				<ToolGrid toolMap={results} />
 			</ScrollArea>
 		</div>
 	);

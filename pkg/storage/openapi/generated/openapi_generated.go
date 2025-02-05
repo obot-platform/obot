@@ -4318,6 +4318,18 @@ func schema_obot_platform_obot_apiclient_types_ToolReference(ref common.Referenc
 							},
 						},
 					},
+					"bundle": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
+						},
+					},
+					"bundleToolName": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
 				},
 				Required: []string{"Metadata", "ToolReferenceManifest"},
 			},
@@ -4373,6 +4385,12 @@ func schema_obot_platform_obot_apiclient_types_ToolReferenceManifest(ref common.
 							Default: "",
 							Type:    []string{"string"},
 							Format:  "",
+						},
+					},
+					"commit": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
 						},
 					},
 					"reference": {
@@ -8534,6 +8552,18 @@ func schema_storage_apis_obotobotai_v1_ToolReferenceSpec(ref common.ReferenceCal
 							Format: "",
 						},
 					},
+					"bundle": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
+						},
+					},
+					"bundleToolName": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
 					"forceRefresh": {
 						SchemaProps: spec.SchemaProps{
 							Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.Time"),
@@ -8554,6 +8584,12 @@ func schema_storage_apis_obotobotai_v1_ToolReferenceStatus(ref common.ReferenceC
 				Type: []string{"object"},
 				Properties: map[string]spec.Schema{
 					"reference": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"commit": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
 							Format: "",

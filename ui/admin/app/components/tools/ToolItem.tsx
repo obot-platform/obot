@@ -95,10 +95,10 @@ export function ToolItem({
 								<ToolIcon
 									icon={tool.metadata?.icon}
 									category={tool.metadata?.category}
-									name={tool.name}
+									name={tool.name || normalizeToolID(tool.id)}
 									className="mr-2 h-4 w-4"
 								/>
-								{tool.name}
+								{tool.name || normalizeToolID(tool.id)}
 							</span>
 						</span>
 
@@ -137,4 +137,8 @@ export function ToolItem({
 			)}
 		</>
 	);
+}
+
+function normalizeToolID(toolId: string) {
+	return toolId.replace(/-/g, " ");
 }

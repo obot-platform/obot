@@ -3,8 +3,10 @@ import { useMemo, useState } from "react";
 import useSWR from "swr";
 
 import {
-	ToolCategory,
-	convertToolReferencesToCategoryMap,
+	CustomToolsToolCategory,
+	ToolReference,
+	UncategorizedToolCategory,
+	convertToolReferencesToMap,
 } from "~/lib/model/toolReferences";
 import { ToolReferenceService } from "~/lib/service/api/toolreferenceService";
 import { cn } from "~/lib/utils";
@@ -49,8 +51,8 @@ export function ToolCatalog({
 		{ fallbackData: [] }
 	);
 
-	const toolCategories = useMemo(
-		() => convertToolReferencesToCategoryMap(toolList),
+	const toolMap = useMemo(
+		() => convertToolReferencesToMap(toolList),
 		[toolList]
 	);
 
@@ -73,17 +75,10 @@ export function ToolCatalog({
 	}, [toolList, configuredOauthApps]);
 
 	const sortedValidCategories = useMemo(() => {
-		return Object.entries(toolCategories).sort(
-			([nameA, categoryA], [nameB, categoryB]): number => {
-				const aHasBundle = categoryA.bundleTool ? 1 : 0;
-				const bHasBundle = categoryB.bundleTool ? 1 : 0;
-
-				if (aHasBundle !== bHasBundle) return bHasBundle - aHasBundle;
-
-				return nameA.localeCompare(nameB);
-			}
-		);
-	}, [toolCategories]);
+		return Object.entries(toolMap).sort(([nameA], [nameB]): number => {
+			return nameA.localeCompare(nameB);
+		});
+	}, [toolMap]);
 
 	if (isLoading) return <LoadingSpinner />;
 
@@ -143,15 +138,28 @@ export function ToolCatalog({
 						No results found.
 					</small>
 				</CommandEmpty>
-				{results.map(([category, categoryTools]) => (
+				{Object.entries(
+					results.reduce<Record<string, ToolReference[]>>((acc, [_, tool]) => {
+						const category = tool.metadata?.category
+							? tool.metadata?.category
+							: tool.builtin
+								? UncategorizedToolCategory
+								: CustomToolsToolCategory;
+
+						if (!acc[category]) {
+							acc[category] = [];
+						}
+						acc[category].push(tool);
+						return acc;
+					}, {})
+				).map(([category, tools]) => (
 					<ToolCatalogGroup
 						key={category}
 						category={category}
-						tools={categoryTools}
+						tools={tools}
 						selectedTools={selectedTools}
 						onAddTool={handleAddTool}
 						onRemoveTool={handleRemoveTool}
-						expandFor={search}
 						oauths={oauths}
 						configuredTools={configuredTools}
 					/>
@@ -180,42 +188,30 @@ export function ToolCatalogDialog(props: ToolCatalogProps) {
 }
 
 export function filterToolCatalogBySearch(
-	toolCategories: [string, ToolCategory][],
+	toolMap: [string, ToolReference][],
 	query: string
 ) {
-	return toolCategories.reduce<[string, ToolCategory][]>(
-		(acc, [category, categoryData]) => {
-			const matchesSearch = (str: string) =>
-				str.toLowerCase().includes(query.toLowerCase());
+	return toolMap.reduce<[string, ToolReference][]>((acc, [toolName, tool]) => {
+		const matchesSearch = (str: string) =>
+			str.toLowerCase().includes(query.toLowerCase());
 
-			// Check if category name matches
-			if (matchesSearch(category)) {
-				acc.push([category, categoryData]);
-				return acc;
-			}
-
-			// Check if bundle tool matches
-			if (
-				categoryData.bundleTool &&
-				matchesSearch(categoryData.bundleTool.name)
-			) {
-				acc.push([category, categoryData]);
-				return acc;
-			}
-
-			// Filter tools and only include category if it has matching tools
-			const filteredTools = categoryData.tools.filter(
-				(tool) =>
-					matchesSearch(tool.name ?? "") ||
-					matchesSearch(tool.description ?? "")
-			);
-
-			if (filteredTools.length > 0) {
-				acc.push([category, { ...categoryData, tools: filteredTools }]);
-			}
-
+		// Check if category name matches
+		if (matchesSearch(tool?.metadata?.category ?? "")) {
+			acc.push([toolName, tool]);
 			return acc;
-		},
-		[]
-	);
+		}
+
+		// Check if bundle tool matches
+		if (matchesSearch(tool?.name ?? "")) {
+			acc.push([toolName, tool]);
+			return acc;
+		}
+
+		if (matchesSearch(tool?.description ?? "")) {
+			acc.push([toolName, tool]);
+			return acc;
+		}
+
+		return acc;
+	}, []);
 }
