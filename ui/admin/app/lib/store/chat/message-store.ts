@@ -4,13 +4,17 @@ import { ChatEvent } from "~/lib/model/chatEvents";
 import { Message, promptMessage, toolCallMessage } from "~/lib/model/messages";
 import { ThreadsService } from "~/lib/service/api/threadsService";
 
+type EventInitConfig = {
+	onEvent: (event: ChatEvent) => void;
+};
+
 export type MessageStore = {
 	messages: Message[];
 	source: EventSource | null;
 	isRunning: boolean;
 	cleanupFns: (() => void)[];
 	processEvent: (event: ChatEvent) => void;
-	init: (threadId: string) => void;
+	init: (threadId: string, config?: EventInitConfig) => void;
 	reset: () => void;
 };
 
@@ -26,7 +30,9 @@ export const createMessageStore = () => {
 			reset: handleReset,
 		};
 
-		function handleInit(threadId: string) {
+		function handleInit(threadId: string, config?: EventInitConfig) {
+			const { onEvent } = config || {};
+
 			const source = ThreadsService.getThreadEventSource(threadId);
 			let replayComplete = false;
 			let replayMessages: ChatEvent[] = [];
@@ -35,6 +41,8 @@ export const createMessageStore = () => {
 
 			const handleMessage = (chunk: MessageEvent<string>): void => {
 				const event = JSON.parse(chunk.data) as ChatEvent;
+
+				onEvent?.(event);
 
 				if (event.replayComplete) {
 					replayComplete = true;

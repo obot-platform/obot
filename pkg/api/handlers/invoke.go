@@ -114,5 +114,6 @@ func (i *InvokeHandler) Invoke(req api.Context) error {
 	req.ResponseWriter.Header().Set("Content-Type", "application/json")
 	return req.Write(map[string]string{
 		"threadID": resp.Thread.Name,
+		"runID":    resp.Run.Name,
 	})
 }

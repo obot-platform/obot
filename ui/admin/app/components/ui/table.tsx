@@ -2,6 +2,8 @@ import * as React from "react";
 
 import { cn } from "~/lib/utils";
 
+import { Animate } from "~/components/ui/animate";
+
 const Table = React.forwardRef<
 	HTMLTableElement,
 	React.HTMLAttributes<HTMLTableElement>
@@ -51,17 +53,19 @@ TableFooter.displayName = "TableFooter";
 
 const TableRow = React.forwardRef<
 	HTMLTableRowElement,
-	React.HTMLAttributes<HTMLTableRowElement>
->(({ className, ...props }, ref) => (
-	<tr
-		ref={ref}
-		className={cn(
-			"border-b transition-colors hover:bg-muted/30 data-[state=selected]:bg-muted",
-			className
-		)}
-		{...props}
-	/>
-));
+	React.ComponentProps<typeof Animate.tr>
+>(({ className, ...props }, ref) => {
+	return (
+		<Animate.tr
+			ref={ref}
+			className={cn(
+				"border-b transition-colors hover:bg-muted/30 data-[state=selected]:bg-muted",
+				className
+			)}
+			{...props}
+		/>
+	);
+});
 TableRow.displayName = "TableRow";
 
 const TableHead = React.forwardRef<
@@ -108,11 +112,11 @@ TableCaption.displayName = "TableCaption";
 
 export {
 	Table,
-	TableHeader,
 	TableBody,
+	TableCaption,
+	TableCell,
 	TableFooter,
 	TableHead,
+	TableHeader,
 	TableRow,
-	TableCell,
-	TableCaption,
 };

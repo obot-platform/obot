@@ -19,6 +19,7 @@ const buttonVariants = cva(
 				secondary:
 					"bg-secondary text-secondary-foreground shadow-sm hover:bg-secondary/80",
 				ghost: "hover:bg-secondary hover:text-secondary-foreground",
+				"ghost-primary": "text-primary hover:bg-primary/10",
 				accent: "bg-accent text-accent-foreground shadow-sm hover:bg-accent/80",
 				link: "text-primary underline-offset-4 shadow-none hover:text-primary/70 hover:underline hover:shadow-none",
 				warning:
@@ -41,6 +42,7 @@ const buttonVariants = cva(
 				none: "",
 				default: "rounded-md",
 				pill: "rounded-full",
+				"input-end": "rounded-l-none rounded-r-md",
 			},
 		},
 		defaultVariants: {
