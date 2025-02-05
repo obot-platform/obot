@@ -112,6 +112,8 @@ func (a *ToolReferenceHandler) Create(req api.Context) (err error) {
 		return apierrors.NewBadRequest("reference is required")
 	}
 
+	newToolReference.Reference = strings.TrimPrefix(strings.TrimPrefix(newToolReference.Reference, "https://"), "http://")
+
 	if newToolReference.Name == "" {
 		newToolReference.Name, err = a.pickNameForReference(req, newToolReference.Reference)
 		if err != nil {
@@ -138,11 +140,12 @@ func (a *ToolReferenceHandler) Create(req api.Context) (err error) {
 
 	for _, toolRef := range toolRefs {
 		if err := req.Create(toolRef); err != nil && !apierrors.IsAlreadyExists(err) {
-			return apierrors.NewInternalError(fmt.Errorf("failed to create tool reference %s: %w", toolRef.Name, err))
+			return apierrors.NewInternalError(fmt.Errorf("failed to create tool reference %s: %w", toolRef.GetName(), err))
 		}
 	}
 
-	return req.Write(convertToolReference(*toolRefs[0]))
+	toolRef := toolRefs[0].(*v1.ToolReference)
+	return req.Write(convertToolReference(*toolRef))
 }
 
 func (a *ToolReferenceHandler) Delete(req api.Context) error {

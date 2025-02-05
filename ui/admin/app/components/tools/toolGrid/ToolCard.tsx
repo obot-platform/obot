@@ -107,7 +107,12 @@ export function ToolCard({
 												const parts = tool.reference.split("/");
 												if (parts.length >= 3) {
 													const [org, repo, ...rest] = parts.slice(1);
-													return `github.com/${org}/${repo}/blob/${tool.commit}/${rest.join("/")}/tool.gpt`;
+													const path = rest.join("/");
+													const pathWithGpt = path.endsWith(".gpt")
+														? path
+														: `${path}/tool.gpt`;
+
+													return `github.com/${org}/${repo}/blob/${tool.commit}/${pathWithGpt}`;
 												}
 												return tool.reference;
 											})()}`}
