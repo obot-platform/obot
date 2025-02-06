@@ -3,6 +3,7 @@ import { ZodRawShape, z } from "zod";
 
 type FetcherConfig = {
 	signal?: AbortSignal;
+	cancellable?: boolean;
 };
 
 /**
@@ -55,7 +56,7 @@ export const createFetcher = <
 	TResponse,
 >(
 	input: z.ZodSchema<TParams>,
-	handler: (params: TParams, config?: FetcherConfig) => Promise<TResponse>,
+	handler: (params: TParams, config: FetcherConfig) => Promise<TResponse>,
 	key: (params: TParams) => TKey
 ) => {
 	type KeyParams = NullishPartial<TParams>;
@@ -97,14 +98,19 @@ export const createFetcher = <
 	};
 
 	const handleFetch = (params: TParams, config: FetcherConfig) => {
-		abortController?.abort();
+		const { cancellable = true } = config;
 
-		abortController = new AbortController();
+		if (cancellable) {
+			abortController?.abort();
+			abortController = new AbortController();
+		}
+
 		return handler(params, { signal: abortController.signal, ...config });
 	};
 
 	return {
-		handler,
+		handler: (params: TParams, config: FetcherConfig = {}) =>
+			handleFetch(params, config),
 		key,
 		/** Creates a SWR key and fetcher for the given params. This works for both `useSWR` and `prefetch` from SWR */
 		swr: (params: KeyParams, config: FetcherConfig = {}) => {
@@ -131,7 +137,13 @@ export const createMutator = <TInput extends object, TResponse>(
 	let abortController: AbortController;
 
 	return (params: TInput, config: FetcherConfig = {}) => {
-		abortController?.abort();
+		// cancellable is not defaulted to true for mutations
+		const { cancellable } = config;
+
+		if (cancellable) {
+			abortController?.abort();
+			abortController = new AbortController();
+		}
 
 		abortController = new AbortController();
 		return fn(params, { signal: abortController.signal, ...config });
