@@ -258,7 +258,8 @@
 				}
 			}}
 		>
-			<p>{msg.message}</p>
+			{@html toHTMLFromMarkdown(msg.message.join('\n'))}
+
 			{#each msg.fields as field}
 				<div class="flex flex-col gap-1">
 					<label for={field.name} class="text-sm font-medium">{field.name}</label>

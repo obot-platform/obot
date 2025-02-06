@@ -18,7 +18,6 @@ import { Button } from "~/components/ui/button";
 import {
 	Dialog,
 	DialogContent,
-	DialogDescription,
 	DialogHeader,
 	DialogTitle,
 	DialogTrigger,
@@ -263,7 +262,7 @@ export function PromptMessage({
 							<DialogTitle>{getCtaText()}</DialogTitle>
 						</DialogHeader>
 
-						<DialogDescription>{prompt.message}</DialogDescription>
+						<Markdown>{prompt.message}</Markdown>
 
 						<PromptAuthForm
 							prompt={prompt}
