@@ -263,7 +263,7 @@
 				<div class="flex flex-col gap-1">
 					<label for={field.name} class="text-sm font-medium">{field.name}</label>
 					<input
-						class="rounded-lg border border-gray-300 p-2"
+						class="rounded-lg bg-gray-100 p-2 outline-none dark:bg-gray-900"
 						type={field.sensitive ? 'password' : 'text'}
 						name={field.name}
 						bind:value={promptCredentials[field.name]}
@@ -271,7 +271,12 @@
 				</div>
 			{/each}
 
-			<button type="submit">Submit</button>
+			<button
+				class="self-end rounded-full px-4 py-2 text-black hover:bg-gray-500 hover:text-white dark:text-white"
+				type="submit"
+			>
+				Submit
+			</button>
 		</form>
 	{/if}
 {/snippet}
