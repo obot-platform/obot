@@ -11,6 +11,7 @@ export type CronJobBase = {
 		minute: number;
 		weekday: number;
 	};
+	timezone: string;
 	input?: string;
 };
 

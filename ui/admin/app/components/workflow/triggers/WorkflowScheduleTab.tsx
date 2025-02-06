@@ -54,7 +54,9 @@ export function WorkflowScheduleTab({ workflowId }: { workflowId: string }) {
 									? taskScheduleToCron(cronJob.taskSchedule)
 									: cronJob?.schedule) ?? ""
 							}
+							timezone={cronJob?.timezone ?? ""}
 						/>
+
 						<Button
 							size="icon"
 							variant="ghost"
@@ -76,6 +78,7 @@ export function WorkflowScheduleTab({ workflowId }: { workflowId: string }) {
 					createCronJob.execute({
 						...defaultSchedule,
 						workflow: workflowId,
+						timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
 					})
 				}
 			>

@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { Schedule } from '$lib/services';
 	import Dropdown from '$lib/components/tasks/Dropdown.svelte';
+	import { GlobeIcon } from 'lucide-svelte/icons';
 
 	interface Props {
 		schedule?: Schedule;
@@ -15,10 +16,13 @@
 			hour: 0,
 			minute: 0,
 			day: 0,
-			weekday: 0
+			weekday: 0,
+			timezone: ''
 		},
 		onChanged
 	}: Props = $props();
+
+	let defaultTimezone = $state(Intl.DateTimeFormat().resolvedOptions().timeZone);
 </script>
 
 <h3 class="text-lg font-semibold">Schedule</h3>
@@ -63,29 +67,37 @@
 	{/if}
 
 	{#if schedule.interval === 'daily'}
-		<Dropdown
-			values={{
-				'0': 'midnight',
-				'3': '3 AM',
-				'6': '6 AM',
-				'9': '9 AM',
-				'12': 'noon',
-				'15': '3 PM',
-				'18': '6 PM',
-				'21': '9 PM'
-			}}
-			selected={schedule?.hour.toString()}
-			disabled={!editMode}
-			onSelected={(value) => {
-				onChanged?.({
-					...schedule,
-					minute: 0,
-					hour: parseInt(value),
-					day: 0,
-					weekday: 0
-				});
-			}}
-		/>
+		<div class="flex items-center gap-2">
+			<Dropdown
+				values={{
+					'0': 'midnight',
+					'3': '3 AM',
+					'6': '6 AM',
+					'9': '9 AM',
+					'12': 'noon',
+					'15': '3 PM',
+					'18': '6 PM',
+					'21': '9 PM'
+				}}
+				selected={schedule?.hour.toString()}
+				disabled={!editMode}
+				onSelected={(value) => {
+					onChanged?.({
+						...schedule,
+						minute: 0,
+						hour: parseInt(value),
+						day: 0,
+						weekday: 0
+					});
+				}}
+			/>
+			{#if schedule?.timezone && schedule.timezone !== defaultTimezone}
+				<div class="flex items-center gap-1">
+					<GlobeIcon class="text-muted-foreground mr-1 h-4 w-4" />
+					<span class="text-muted-foreground text-sm">{schedule.timezone}</span>
+				</div>
+			{/if}
+		</div>
 	{/if}
 
 	{#if schedule.interval === 'weekly'}
@@ -111,6 +123,10 @@
 				});
 			}}
 		/>
+		{#if schedule?.timezone && schedule.timezone !== defaultTimezone}
+			<GlobeIcon class="text-muted-foreground mr-1 h-4 w-4" />
+			<span class="text-muted-foreground text-sm">{schedule.timezone}</span>
+		{/if}
 	{/if}
 
 	{#if schedule.interval === 'monthly'}
@@ -137,5 +153,9 @@
 				});
 			}}
 		/>
+		{#if schedule?.timezone && schedule.timezone !== defaultTimezone}
+			<GlobeIcon class="text-muted-foreground mr-1 h-4 w-4" />
+			<span class="text-muted-foreground text-sm">{schedule.timezone}</span>
+		{/if}
 	{/if}
 </div>

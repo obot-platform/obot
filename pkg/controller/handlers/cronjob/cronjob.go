@@ -22,34 +22,46 @@ func New() *Handler {
 	return &Handler{}
 }
 
-func GetSchedule(cronJob v1.CronJob) string {
+func GetScheduleAndTimezone(cronJob v1.CronJob) (string, string) {
 	if cronJob.Spec.TaskSchedule != nil {
 		switch cronJob.Spec.TaskSchedule.Interval {
 		case "hourly":
-			return fmt.Sprintf("%d * * * *", cronJob.Spec.TaskSchedule.Minute)
+			return fmt.Sprintf("%d * * * *", cronJob.Spec.TaskSchedule.Minute), cronJob.Spec.TaskSchedule.Timezone
 		case "daily":
-			return fmt.Sprintf("%d %d * * *", cronJob.Spec.TaskSchedule.Minute, cronJob.Spec.TaskSchedule.Hour)
+			return fmt.Sprintf("%d %d * * *", cronJob.Spec.TaskSchedule.Minute, cronJob.Spec.TaskSchedule.Hour), cronJob.Spec.TaskSchedule.Timezone
 		case "weekly":
-			return fmt.Sprintf("%d %d * * %d", cronJob.Spec.TaskSchedule.Minute, cronJob.Spec.TaskSchedule.Hour, cronJob.Spec.TaskSchedule.Weekday)
+			return fmt.Sprintf("%d %d * * %d", cronJob.Spec.TaskSchedule.Minute, cronJob.Spec.TaskSchedule.Hour, cronJob.Spec.TaskSchedule.Weekday), cronJob.Spec.TaskSchedule.Timezone
 		case "monthly":
 			if cronJob.Spec.TaskSchedule.Day == -1 {
 				// The day being -1 means the last day of the month. The cron parsing package we use uses `L` for this.
-				return fmt.Sprintf("%d %d L * *", cronJob.Spec.TaskSchedule.Minute, cronJob.Spec.TaskSchedule.Hour)
+				return fmt.Sprintf("%d %d L * *", cronJob.Spec.TaskSchedule.Minute, cronJob.Spec.TaskSchedule.Hour), cronJob.Spec.TaskSchedule.Timezone
 			}
-			return fmt.Sprintf("%d %d %d * *", cronJob.Spec.TaskSchedule.Minute, cronJob.Spec.TaskSchedule.Hour, cronJob.Spec.TaskSchedule.Day)
+			return fmt.Sprintf("%d %d %d * *", cronJob.Spec.TaskSchedule.Minute, cronJob.Spec.TaskSchedule.Hour, cronJob.Spec.TaskSchedule.Day), cronJob.Spec.TaskSchedule.Timezone
 		}
 	}
-	return cronJob.Spec.Schedule
+	return cronJob.Spec.Schedule, cronJob.Spec.Timezone
 }
 
 func (h *Handler) Run(req router.Request, resp router.Response) error {
 	cj := req.Object.(*v1.CronJob)
 	lastRun := cj.Status.LastRunStartedAt
+	schedule, timezone := GetScheduleAndTimezone(*cj)
+	var location *time.Location
+	if timezone != "" {
+		loc, err := time.LoadLocation(timezone)
+		if err == nil {
+			location = loc
+		}
+	}
 	if lastRun.IsZero() {
-		lastRun = &cj.CreationTimestamp
+		if location != nil {
+			lastRun = &metav1.Time{Time: time.Now().In(location)}
+		} else {
+			lastRun = &metav1.Time{Time: time.Now()}
+		}
 	}
 
-	next, err := gronx.NextTickAfter(GetSchedule(*cj), lastRun.Time, false)
+	next, err := gronx.NextTickAfter(schedule, lastRun.Time, false)
 	if err != nil {
 		return fmt.Errorf("failed to parse schedule: %w", err)
 	}
@@ -84,7 +96,11 @@ func (h *Handler) Run(req router.Request, resp router.Response) error {
 		return err
 	}
 
-	cj.Status.LastRunStartedAt = &[]metav1.Time{metav1.Now()}[0]
+	if location != nil {
+		cj.Status.LastRunStartedAt = &metav1.Time{Time: time.Now().In(location)}
+	} else {
+		cj.Status.LastRunStartedAt = &metav1.Time{Time: time.Now()}
+	}
 
 	return nil
 }

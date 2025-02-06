@@ -134,7 +134,16 @@ func (a *CronJobHandler) Execute(req api.Context) error {
 
 func convertCronJob(cronJob v1.CronJob) types.CronJob {
 	var nextRunAt *time.Time
-	if next, err := gronx.NextTick(cronjob.GetSchedule(cronJob), false); err == nil {
+	schedule, timezone := cronjob.GetScheduleAndTimezone(cronJob)
+	t := time.Now()
+	if timezone != "" {
+		loc, err := time.LoadLocation(timezone)
+		if err == nil {
+			t = t.In(loc)
+		}
+	}
+
+	if next, err := gronx.NextTickAfter(schedule, t, false); err == nil {
 		nextRunAt = &next
 	}
 
@@ -144,6 +153,7 @@ func convertCronJob(cronJob v1.CronJob) types.CronJob {
 		LastRunStartedAt:           v1.NewTime(cronJob.Status.LastRunStartedAt),
 		LastSuccessfulRunCompleted: v1.NewTime(cronJob.Status.LastSuccessfulRunCompleted),
 		NextRunAt:                  types.NewTimeFromPointer(nextRunAt),
+		Timezone:                   timezone,
 	}
 }
 
