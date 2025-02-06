@@ -48,12 +48,20 @@ func (in *ToolReference) GetColumns() [][]string {
 	}
 }
 
+func (in *ToolReference) DeleteRefs() []Ref {
+	return []Ref{
+		{ObjType: new(ToolReference), Name: in.Spec.BundleToolName},
+	}
+}
+
 type ToolReferenceSpec struct {
-	Type         types.ToolReferenceType `json:"type,omitempty"`
-	Builtin      bool                    `json:"builtin,omitempty"`
-	Reference    string                  `json:"reference,omitempty"`
-	Active       *bool                   `json:"active,omitempty"`
-	ForceRefresh metav1.Time             `json:"forceRefresh,omitempty"`
+	Type           types.ToolReferenceType `json:"type,omitempty"`
+	Builtin        bool                    `json:"builtin,omitempty"`
+	Reference      string                  `json:"reference,omitempty"`
+	Active         *bool                   `json:"active,omitempty"`
+	Bundle         bool                    `json:"bundle,omitempty"`
+	BundleToolName string                  `json:"bundleToolName,omitempty"`
+	ForceRefresh   metav1.Time             `json:"forceRefresh,omitempty"`
 }
 
 type ToolShortDescription struct {
@@ -70,6 +78,7 @@ type ToolShortDescription struct {
 
 type ToolReferenceStatus struct {
 	Reference          string                `json:"reference,omitempty"`
+	Commit             string                `json:"commit,omitempty"`
 	ObservedGeneration int64                 `json:"observedGeneration,omitempty"`
 	LastReferenceCheck metav1.Time           `json:"lastReferenceCheck,omitempty"`
 	Tool               *ToolShortDescription `json:"tool,omitempty"`

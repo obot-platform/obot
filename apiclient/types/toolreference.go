@@ -15,6 +15,7 @@ const (
 type ToolReferenceManifest struct {
 	Name      string            `json:"name"`
 	ToolType  ToolReferenceType `json:"toolType"`
+	Commit    string            `json:"commit,omitempty"`
 	Reference string            `json:"reference,omitempty"`
 	Active    bool              `json:"active,omitempty"`
 }
@@ -22,12 +23,14 @@ type ToolReferenceManifest struct {
 type ToolReference struct {
 	Metadata
 	ToolReferenceManifest
-	Resolved    bool              `json:"resolved,omitempty"`
-	Error       string            `json:"error,omitempty"`
-	Builtin     bool              `json:"builtin,omitempty"`
-	Description string            `json:"description,omitempty"`
-	Credentials []string          `json:"credentials,omitempty"`
-	Params      map[string]string `json:"params,omitempty"`
+	Resolved       bool              `json:"resolved,omitempty"`
+	Error          string            `json:"error,omitempty"`
+	Builtin        bool              `json:"builtin,omitempty"`
+	Description    string            `json:"description,omitempty"`
+	Credentials    []string          `json:"credentials,omitempty"`
+	Params         map[string]string `json:"params,omitempty"`
+	Bundle         bool              `json:"bundle,omitempty"`
+	BundleToolName string            `json:"bundleToolName,omitempty"`
 }
 
 type ToolReferenceList List[ToolReference]

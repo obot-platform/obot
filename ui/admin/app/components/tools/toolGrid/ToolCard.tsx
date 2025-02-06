@@ -1,3 +1,5 @@
+import { GitCommitIcon } from "lucide-react";
+
 import { ToolReference } from "~/lib/model/toolReferences";
 import { cn } from "~/lib/utils/cn";
 
@@ -5,12 +7,23 @@ import { Truncate } from "~/components/composed/typography";
 import { ToolIcon } from "~/components/tools/ToolIcon";
 import { ToolCardActions } from "~/components/tools/toolGrid/ToolCardActions";
 import { Button } from "~/components/ui/button";
-import { Card, CardContent, CardHeader } from "~/components/ui/card";
+import {
+	Card,
+	CardContent,
+	CardFooter,
+	CardHeader,
+} from "~/components/ui/card";
 import {
 	Popover,
 	PopoverContent,
 	PopoverTrigger,
 } from "~/components/ui/popover";
+import {
+	Tooltip,
+	TooltipContent,
+	TooltipProvider,
+	TooltipTrigger,
+} from "~/components/ui/tooltip";
 
 export function ToolCard({
 	tool,
@@ -19,6 +32,17 @@ export function ToolCard({
 	tool: ToolReference;
 	HeaderRightContent?: React.ReactNode;
 }) {
+	const getToolCommitURL = (tool: ToolReference) => {
+		if (tool.reference?.startsWith("github.com")) {
+			const parts = tool.reference.split("/");
+			const [org, repo, ...rest] = parts.slice(1);
+			const path = rest.join("/");
+			const pathWithGpt = path.endsWith(".gpt") ? path : `${path}/tool.gpt`;
+			return `https://github.com/${org}/${repo}/blob/${tool.commit}/${pathWithGpt}`;
+		}
+		return tool.reference;
+	};
+
 	return (
 		<Card
 			key={tool.id}
@@ -82,6 +106,32 @@ export function ToolCard({
 					</Truncate>
 				)}
 			</CardContent>
+			{tool.commit && (
+				<CardFooter className="flex justify-end">
+					<TooltipProvider>
+						<Tooltip>
+							<TooltipTrigger asChild>
+								<Button
+									size="icon"
+									variant="ghost"
+									onClick={() => {
+										window.open(
+											getToolCommitURL(tool),
+											"_blank",
+											"noopener,noreferrer"
+										);
+									}}
+								>
+									<GitCommitIcon className="h-4 w-4" />
+								</Button>
+							</TooltipTrigger>
+							<TooltipContent>
+								<p>View Commit</p>
+							</TooltipContent>
+						</Tooltip>
+					</TooltipProvider>
+				</CardFooter>
+			)}
 		</Card>
 	);
 }
