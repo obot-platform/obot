@@ -48,6 +48,12 @@ func (in *ToolReference) GetColumns() [][]string {
 	}
 }
 
+func (in *ToolReference) DeleteRefs() []Ref {
+	return []Ref{
+		{ObjType: new(ToolReference), Name: in.Spec.BundleToolName},
+	}
+}
+
 type ToolReferenceSpec struct {
 	Type           types.ToolReferenceType `json:"type,omitempty"`
 	Builtin        bool                    `json:"builtin,omitempty"`

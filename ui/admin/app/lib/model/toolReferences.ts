@@ -83,7 +83,10 @@ export function convertToolReferencesToMap(toolReferences: ToolReference[]) {
 						tools: [toolReference],
 					};
 				} else {
-					result[toolReference.bundleToolName].tools!.push(toolReference);
+					if (!result[toolReference.bundleToolName].tools) {
+						throw new Error("This should never happen");
+					}
+					result[toolReference.bundleToolName].tools?.push(toolReference);
 				}
 			}
 		} else {

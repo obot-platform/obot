@@ -80,6 +80,22 @@ export function ToolCatalog({
 		? filterToolCatalogBySearch(sortedValidCategories, search)
 		: sortedValidCategories;
 
+	const toolCatalogsGroups = Object.entries(
+		results.reduce<Record<string, ToolReference[]>>((acc, [_, tool]) => {
+			const category = tool.metadata?.category
+				? tool.metadata?.category
+				: tool.builtin
+					? UncategorizedToolCategory
+					: CustomToolsToolCategory;
+
+			if (!acc[category]) {
+				acc[category] = [];
+			}
+			acc[category].push(tool);
+			return acc;
+		}, {})
+	);
+
 	const handleRemoveTool = (toolId: string, oauthToRemove?: string) => {
 		const updatedTools = selectedTools.filter((tool) => tool !== toolId);
 		const stillHasOauth = updatedTools.some(
@@ -132,21 +148,7 @@ export function ToolCatalog({
 						No results found.
 					</small>
 				</CommandEmpty>
-				{Object.entries(
-					results.reduce<Record<string, ToolReference[]>>((acc, [_, tool]) => {
-						const category = tool.metadata?.category
-							? tool.metadata?.category
-							: tool.builtin
-								? UncategorizedToolCategory
-								: CustomToolsToolCategory;
-
-						if (!acc[category]) {
-							acc[category] = [];
-						}
-						acc[category].push(tool);
-						return acc;
-					}, {})
-				).map(([category, tools]) => (
+				{toolCatalogsGroups.map(([category, tools]) => (
 					<ToolCatalogGroup
 						key={category}
 						category={category}
@@ -155,7 +157,7 @@ export function ToolCatalog({
 						onAddTool={handleAddTool}
 						onRemoveTool={handleRemoveTool}
 						oauths={oauths}
-						configuredOauthApps={configuredOauthApps ?? new Set()}
+						configuredOauthApps={configuredOauthApps}
 					/>
 				))}
 			</CommandList>
