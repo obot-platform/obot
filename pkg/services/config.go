@@ -16,7 +16,7 @@ import (
 	gptscriptai "github.com/gptscript-ai/gptscript/pkg/gptscript"
 	"github.com/gptscript-ai/gptscript/pkg/runner"
 	"github.com/gptscript-ai/gptscript/pkg/sdkserver"
-	baaah "github.com/obot-platform/nah"
+	"github.com/obot-platform/nah"
 	"github.com/obot-platform/nah/pkg/apply"
 	"github.com/obot-platform/nah/pkg/leader"
 	"github.com/obot-platform/nah/pkg/router"
@@ -36,11 +36,13 @@ import (
 	"github.com/obot-platform/obot/pkg/proxy"
 	"github.com/obot-platform/obot/pkg/smtp"
 	"github.com/obot-platform/obot/pkg/storage"
+	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/storage/scheme"
 	"github.com/obot-platform/obot/pkg/storage/services"
 	"github.com/obot-platform/obot/pkg/system"
 	coordinationv1 "k8s.io/api/coordination/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apiserver/pkg/authentication/authenticator"
 	"k8s.io/apiserver/pkg/authentication/request/union"
 
@@ -64,7 +66,8 @@ type Config struct {
 	EnableSMTPServer           bool     `usage:"Enable SMTP server to receive emails" default:"false" env:"OBOT_ENABLE_SMTP_SERVER"`
 	Docker                     bool     `usage:"Enable Docker support" default:"false" env:"OBOT_DOCKER"`
 	EnvKeys                    []string `usage:"The environment keys to pass through to the GPTScript server" env:"OBOT_ENV_KEYS"`
-	KnowledgeSetIngestionLimit int      `usage:"The maximum number of files to ingest into a knowledge set" default:"3000" env:"OBOT_KNOWLEDGESET_INGESTION_LIMIT" name:"knowledge-set-ingestion-limit"`
+	KnowledgeSetIngestionLimit int      `usage:"The maximum number of files to ingest into a knowledge set" default:"3000" name:"knowledge-set-ingestion-limit"`
+	KnowledgeFileWorkers       int      `usage:"The number of workers to process knowledge files" default:"5"`
 	EnableAuthentication       bool     `usage:"Enable authentication" default:"false"`
 	ForceEnableBootstrap       bool     `usage:"Enables the bootstrap user even if other admin users have been created" default:"false"`
 	AuthAdminEmails            []string `usage:"Emails of admin users"`
@@ -276,11 +279,14 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		}
 	}
 
-	r, err := baaah.NewRouter("obot-controller", &baaah.Options{
+	r, err := nah.NewRouter("obot-controller", &nah.Options{
 		DefaultRESTConfig: restConfig,
 		Scheme:            scheme.Scheme,
 		ElectionConfig:    leader.NewDefaultElectionConfig("", "obot-controller", restConfig),
 		HealthzPort:       -1,
+		GVKThreadiness: map[schema.GroupVersionKind]int{
+			v1.SchemeGroupVersion.WithKind("KnowledgeFile"): config.KnowledgeFileWorkers,
+		},
 	})
 	if err != nil {
 		return nil, err
@@ -416,7 +422,7 @@ func configureDevMode(config Config) (int, Config) {
 	if config.StorageToken == "" {
 		config.StorageToken = "adminpass"
 	}
-	_ = os.Setenv("BAAAH_DEV_MODE", "true")
+	_ = os.Setenv("NAH_DEV_MODE", "true")
 	_ = os.Setenv("WORKSPACE_PROVIDER_IGNORE_WORKSPACE_NOT_FOUND", "true")
 	return config.DevUIPort, config
 }

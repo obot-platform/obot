@@ -17,7 +17,7 @@ The following table lists the configurable parameters of the Obot chart and thei
 ### General Configuration
 
 | Parameter                                | Description                                                    | Default                                 |
-| ---------------------------------------- | -------------------------------------------------------------- | --------------------------------------- |
+|------------------------------------------|----------------------------------------------------------------|-----------------------------------------|
 | `replicaCount`                           | Number of Obot server instances to run                         | `1`                                     |
 | `image.repository`                       | Docker repository for Obot                                     | `ghcr.io/obot-platform/obot-enterprise` |
 | `image.tag`                              | Docker tag to pull for Obot                                    | `latest`                                |
@@ -32,7 +32,8 @@ The following table lists the configurable parameters of the Obot chart and thei
 | `config.awsAccessKeyID`                  | AWS Access Key ID for S3 provider                              | `""`                                    |
 | `config.awsRegion`                       | AWS Region for S3 provider                                     | `""`                                    |
 | `config.awsSecretAccessKey`              | AWS Secret Access Key for S3 provider                          | `""`                                    |
-| `config.baaahThreadiness`                | Threadiness setting for Obot                                   | `"20"`                                  |
+| `config.nahThreadiness`                  | Threadiness setting for Obot                                   | `"100"`                                 |
+| `config.knowledgeFileWorkers`           | Threadiness setting for Knowledge Files                        | `"5"`                                   |
 | `config.githubAuthToken`                 | GitHub authentication token                                    | `""`                                    |
 | `config.obotServerEnableAuthentication`  | Enable authentication for Obot server                          | `true`                                  |
 | `config.obotBootstrapToken`              | Bootstrap token for Obot server                                | `""`                                    |
