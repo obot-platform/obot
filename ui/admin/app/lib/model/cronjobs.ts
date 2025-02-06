@@ -4,6 +4,7 @@ export type CronJobBase = {
 	description: string;
 	workflow: string;
 	schedule: string; // cron string
+	timezone: string;
 	input?: string;
 };
 

@@ -1217,6 +1217,12 @@ func schema_obot_platform_obot_apiclient_types_CronJob(ref common.ReferenceCallb
 							Ref: ref("github.com/obot-platform/obot/apiclient/types.Time"),
 						},
 					},
+					"timezone": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
 				},
 				Required: []string{"Metadata", "CronJobManifest"},
 			},
@@ -1287,6 +1293,13 @@ func schema_obot_platform_obot_apiclient_types_CronJobManifest(ref common.Refere
 					"taskSchedule": {
 						SchemaProps: spec.SchemaProps{
 							Ref: ref("github.com/obot-platform/obot/apiclient/types.Schedule"),
+						},
+					},
+					"timezone": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Timezone is the timezone to use for the cron job. If not set, the UTC timezone is used",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
 				},
@@ -5786,6 +5799,13 @@ func schema_storage_apis_obotobotai_v1_CronJobSpec(ref common.ReferenceCallback)
 					"taskSchedule": {
 						SchemaProps: spec.SchemaProps{
 							Ref: ref("github.com/obot-platform/obot/apiclient/types.Schedule"),
+						},
+					},
+					"timezone": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Timezone is the timezone to use for the cron job. If not set, the UTC timezone is used",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
 					"threadName": {
