@@ -1,6 +1,11 @@
 import { buildMessagesFromProgress } from '$lib/services/chat/messages';
 import errors from '$lib/stores/errors.svelte';
-import { abort as ChatAbort, invoke as ChatInvoke, runTask as ChatRunTask } from './operations';
+import {
+	abort as ChatAbort,
+	invoke as ChatInvoke,
+	runTask as ChatRunTask,
+	sendCredentials as ChatSendCredentials
+} from './operations';
 import { newMessageEventSource } from './operations';
 import type { InvokeInput, Messages, Progress, TaskRun } from './types';
 
@@ -75,6 +80,11 @@ export class Thread {
 	async invoke(input: InvokeInput | string) {
 		this.pending = true;
 		await ChatInvoke(input);
+	}
+
+	async sendCredentials(id: string, response: Record<string, string>) {
+		this.pending = true;
+		await ChatSendCredentials(id, response);
 	}
 
 	// eslint-disable-next-line @typescript-eslint/no-unused-vars

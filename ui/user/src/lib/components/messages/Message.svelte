@@ -13,9 +13,10 @@
 	interface Props {
 		msg: Message;
 		onLoadFile?: (filename: string) => void;
+		onSendCredentials: (id: string, credentials: Record<string, string>) => void;
 	}
 
-	let { msg, onLoadFile = () => {} }: Props = $props();
+	let { msg, onLoadFile = () => {}, onSendCredentials }: Props = $props();
 
 	let content = $derived(msg.message ? msg.message.join('') : '');
 	let fullWidth = !msg.sent && !msg.oauthURL && !msg.tool;
@@ -28,6 +29,9 @@
 		input: '',
 		output: ''
 	});
+
+	let promptCredentials = $state<Record<string, string>>({});
+	let credentialsSubmitted = $state(false);
 
 	$effect(() => {
 		if (msg.toolCall && msg.sourceName === 'Shell') {
@@ -97,6 +101,8 @@
 	>
 		{#if msg.oauthURL}
 			{@render oauth()}
+		{:else if msg.fields && msg.promptId}
+			{@render promptAuth()}
 		{:else if content}
 			{#if msg.sourceName !== 'Abort Current Task'}
 				{@render messageContent()}
@@ -238,6 +244,36 @@
 		>Authentication is required
 		<span class="underline">click here</span> to log-in using OAuth
 	</a>
+{/snippet}
+
+{#snippet promptAuth()}
+	{#if msg.fields && !credentialsSubmitted}
+		<form
+			class="flex flex-col gap-2"
+			onsubmit={(e) => {
+				e.preventDefault();
+				if (msg.promptId) {
+					onSendCredentials(msg.promptId, promptCredentials);
+					credentialsSubmitted = true;
+				}
+			}}
+		>
+			<p>{msg.message}</p>
+			{#each msg.fields as field}
+				<div class="flex flex-col gap-1">
+					<label for={field.name} class="text-sm font-medium">{field.name}</label>
+					<input
+						class="rounded-lg border border-gray-300 p-2"
+						type={field.sensitive ? 'password' : 'text'}
+						name={field.name}
+						bind:value={promptCredentials[field.name]}
+					/>
+				</div>
+			{/each}
+
+			<button type="submit">Submit</button>
+		</form>
+	{/if}
 {/snippet}
 
 {#snippet loading()}

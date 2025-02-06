@@ -46,6 +46,10 @@
 	function onLoadFile(filename: string) {
 		EditorService.load(filename);
 	}
+
+	function onSendCredentials(id: string, credentials: Record<string, string>) {
+		thread?.sendCredentials(id, credentials);
+	}
 </script>
 
 <div>
@@ -74,7 +78,7 @@
 					{/each}
 				</div>
 				{#each messages.messages as msg}
-					<Message {msg} {onLoadFile} />
+					<Message {msg} {onLoadFile} {onSendCredentials} />
 				{/each}
 			</div>
 			<div class="h-28 w-full flex-shrink-0"></div>

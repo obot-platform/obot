@@ -434,3 +434,7 @@ export async function getRows(table: string) {
 		`/assistants/${assistantID()}/projects/${projectID()}/tables/${table}/rows`
 	)) as Rows;
 }
+
+export async function sendCredentials(id: string, credentials: Record<string, string>) {
+	return await doPost('/prompt', { id, response: credentials });
+}

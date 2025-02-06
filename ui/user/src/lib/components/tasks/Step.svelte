@@ -226,7 +226,7 @@
 		>
 			{#each messages as msg}
 				{#if !msg.sent}
-					<Message {msg} />
+					<Message {msg} onSendCredentials={ChatService.sendCredentials} />
 				{/if}
 			{/each}
 			{#if stale}

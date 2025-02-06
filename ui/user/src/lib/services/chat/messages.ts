@@ -137,7 +137,7 @@ export function buildMessagesFromProgress(progresses: Progress[]): Messages {
 
 		// For all but last message
 		if (i < messages.messages.length - 1) {
-			if (item.oauthURL) {
+			if (item.oauthURL || item.promptId) {
 				item.ignore = true;
 			}
 			if (item.tool) {
@@ -202,8 +202,13 @@ function toMessages(progresses: Progress[]): Messages {
 				// Only add if it's the last one
 				messages.push(newWaitingOnModelMessage(progress));
 			}
-		} else if (progress.prompt && progress.prompt.metadata?.authType === 'oauth') {
-			messages.push(newOAuthMessage(progress));
+		} else if (progress.prompt) {
+			if (progress.prompt.metadata?.authType === 'oauth') {
+				messages.push(newOAuthMessage(progress));
+			}
+			if (progress.prompt.fields) {
+				messages.push(newPromptAuthMessage(progress));
+			}
 		} else if (progress.input) {
 			// delete the current runID, this is to avoid duplicate messages
 			messages = messages.filter((m) => m.runID !== progress.runID);
@@ -270,6 +275,19 @@ function newOAuthMessage(progress: Progress): Message {
 		sourceDescription: progress.prompt?.description,
 		oauthURL: progress.prompt?.metadata?.authURL || '',
 		message: progress.prompt?.message ? [progress.prompt?.message] : []
+	};
+}
+
+function newPromptAuthMessage(progress: Progress): Message {
+	return {
+		runID: progress.runID || '',
+		time: new Date(progress.time),
+		icon: progress.prompt?.metadata?.icon || assistantIcon,
+		sourceName: progress.prompt?.name || 'Assistant',
+		sourceDescription: progress.prompt?.description,
+		message: progress.prompt?.message ? [progress.prompt?.message] : [],
+		fields: progress.prompt?.fields,
+		promptId: progress.prompt?.id
 	};
 }
 

@@ -87,6 +87,8 @@ export interface Message {
 	explain?: Explain;
 	file?: MessageFile;
 	oauthURL?: string;
+	fields?: PromptField[];
+	promptId?: string;
 	contentID?: string;
 }
 
