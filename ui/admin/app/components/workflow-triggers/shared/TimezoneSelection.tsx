@@ -1,4 +1,3 @@
-import { Label } from "~/components/ui/label";
 import {
 	Select,
 	SelectContent,
@@ -8,16 +7,11 @@ import {
 } from "~/components/ui/select";
 
 type TimezoneSelectionProps = {
-	label?: string;
 	onChange: (timezone: string) => void;
 	value?: string;
 };
 
-export function TimezoneSelection({
-	label,
-	onChange,
-	value,
-}: TimezoneSelectionProps) {
+export function TimezoneSelection({ onChange, value }: TimezoneSelectionProps) {
 	const defaultTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
 	const getOffset = (timezone: string) => {
@@ -34,7 +28,6 @@ export function TimezoneSelection({
 
 	return (
 		<fieldset className="flex flex-col gap-3">
-			{label && <Label>{label}</Label>}
 			<Select value={value ?? defaultTimezone} onValueChange={onChange}>
 				<SelectTrigger className="flex-1">
 					<SelectValue />

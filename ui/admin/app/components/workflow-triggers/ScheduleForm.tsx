@@ -120,16 +120,19 @@ export function ScheduleForm({ cronjob }: { cronjob?: CronJob }) {
 						value={form.watch("schedule")}
 					/>
 
-					<TimezoneSelection
+					<ControlledCustomInput
+						control={form.control}
+						name="timezone"
 						label="Timezone"
-						onChange={(timezone) =>
-							form.setValue("timezone", timezone, {
-								shouldValidate: true,
-								shouldDirty: true,
-							})
-						}
-						value={form.watch("timezone")}
-					/>
+						description="The timezone to use for the schedule."
+					>
+						{({ field }) => (
+							<TimezoneSelection
+								value={field.value}
+								onChange={field.onChange}
+							/>
+						)}
+					</ControlledCustomInput>
 
 					<ControlledCustomInput
 						control={form.control}
