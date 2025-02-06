@@ -7,6 +7,8 @@ import {
 	getSortedRowModel,
 	useReactTable,
 } from "@tanstack/react-table";
+import { useNavigate } from "react-router";
+import { $path, RoutesWithParams } from "safe-routes";
 
 import { cn } from "~/lib/utils";
 
@@ -29,6 +31,7 @@ interface DataTableProps<TData, TValue> {
 		cell?: string;
 	};
 	onRowClick?: (row: TData) => void;
+	onCtrlClick?: (row: TData) => void;
 	disableClickPropagation?: (cell: Cell<TData, TValue>) => boolean;
 }
 
@@ -40,6 +43,7 @@ export function DataTable<TData, TValue>({
 	classNames,
 	disableClickPropagation,
 	onRowClick,
+	onCtrlClick,
 }: DataTableProps<TData, TValue>) {
 	const table = useReactTable({
 		data,
@@ -102,8 +106,11 @@ export function DataTable<TData, TValue>({
 				className={cn("py-4", classNames?.cell, {
 					"cursor-pointer": !!onRowClick,
 				})}
-				onClick={() => {
-					if (!disableClickPropagation?.(cell)) {
+				onClick={(e) => {
+					if (disableClickPropagation?.(cell)) return;
+					if (e.ctrlKey || e.metaKey) {
+						onCtrlClick?.(cell.row.original);
+					} else {
 						onRowClick?.(cell.row.original);
 					}
 				}}
@@ -113,3 +120,30 @@ export function DataTable<TData, TValue>({
 		);
 	}
 }
+
+export const useRowNavigate = <TData extends Record<string, unknown>>(
+	url: keyof RoutesWithParams,
+	property: keyof TData &
+		keyof {
+			[K in keyof TData as TData[K] extends string | number
+				? K
+				: never]: TData[K];
+		}
+) => {
+	const navigate = useNavigate();
+
+	const handleAction = (row: TData, ctrl: boolean) => {
+		const path = $path(url, { id: String(row[property]) });
+
+		if (ctrl) {
+			window.open(`/admin${path}`, "_blank");
+		} else {
+			navigate(path);
+		}
+	};
+
+	return {
+		onRowClick: (row: TData) => handleAction(row, false),
+		onCtrlClick: (row: TData) => handleAction(row, true),
+	};
+};

@@ -83,7 +83,7 @@ export default function Users() {
 					if (thread) {
 						return (
 							<Link
-								to={$path("/threads", {
+								to={$path("/chat-threads", {
 									userId: row.original.id,
 									from: "users",
 								})}

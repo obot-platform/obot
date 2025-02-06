@@ -17,7 +17,7 @@ import { User } from "~/lib/model/users";
 import { Workflow } from "~/lib/model/workflows";
 import { ApiRoutes } from "~/lib/routers/apiRoutes";
 
-import Threads from "~/routes/_auth.threads._index";
+import ChatThreads from "~/routes/_auth.chat-threads._index";
 
 vi.mock("react-router", async () => {
 	const actual = await vi.importActual("react-router");
@@ -34,7 +34,7 @@ vi.mock("react-router", async () => {
 	};
 });
 
-describe(Threads, () => {
+describe(ChatThreads, () => {
 	beforeEach(() => {
 		overrideServer([
 			http.get(ApiRoutes.threads.base().url, () => {
@@ -61,7 +61,7 @@ describe(Threads, () => {
 	});
 
 	it("Displays user email for an agent thread on initial render", async () => {
-		render(<Threads />);
+		render(<ChatThreads />);
 		const groups = await screen.findAllByRole("rowgroup");
 		const tableBody = groups[1]; // tbody
 		const cells = await within(tableBody).findAllByRole("cell"); // td

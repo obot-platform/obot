@@ -19,7 +19,7 @@ export function SetupBanner() {
 			step: "Configure Model Provider",
 			configured: modelProviderConfigured,
 			path: $path("/model-providers"),
-			description: "To use Agents and Workflows, configure a Model Provider",
+			description: "To create Agents, configure a Model Provider",
 			label: "Model Provider",
 		},
 		{

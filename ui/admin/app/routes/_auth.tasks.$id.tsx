@@ -16,8 +16,7 @@ import { WorkflowService } from "~/lib/service/api/workflowService";
 import { RouteHandle } from "~/lib/service/routeHandles";
 import { RouteQueryParams, RouteService } from "~/lib/service/routeService";
 
-import { Chat } from "~/components/chat";
-import { ChatProvider } from "~/components/chat/ChatContext";
+import { Chat, ChatProvider } from "~/components/chat";
 import {
 	ResizableHandle,
 	ResizablePanel,
@@ -25,23 +24,23 @@ import {
 } from "~/components/ui/resizable";
 import { Workflow } from "~/components/workflow";
 
-export type SearchParams = RouteQueryParams<"workflowSchema">;
+export type SearchParams = RouteQueryParams<"taskSchema">;
 
 export const clientLoader = async ({
 	params,
 	request,
 }: ClientLoaderFunctionArgs) => {
 	const { pathParams, query } = RouteService.getRouteInfo(
-		"/workflows/:workflow",
+		"/tasks/:id",
 		new URL(request.url),
 		params
 	);
 
-	if (!pathParams.workflow) throw redirect($path("/workflows"));
+	if (!pathParams.id) throw redirect($path("/tasks"));
 
 	const [workflow] = await Promise.all([
-		preload(WorkflowService.getWorkflowById.key(pathParams.workflow), () =>
-			WorkflowService.getWorkflowById(pathParams.workflow)
+		preload(WorkflowService.getWorkflowById.key(pathParams.id), () =>
+			WorkflowService.getWorkflowById(pathParams.id)
 		),
 		preload(...CronJobApiService.getCronJobs.swr({})),
 		preload(WebhookApiService.getWebhooks.key(), () =>
@@ -49,21 +48,17 @@ export const clientLoader = async ({
 		),
 	]);
 
-	if (!workflow) throw redirect($path("/workflows"));
+	if (!workflow) throw redirect($path("/tasks"));
 
 	return { workflow, threadId: query?.threadId };
 };
 
-export default function ChatAgent() {
+export default function UserTask() {
 	const { workflow, threadId } = useLoaderData<typeof clientLoader>();
-
 	const navigate = useNavigate();
-
 	const onPersistThreadId = useCallback(
 		(threadId: string) =>
-			navigate(
-				$path("/workflows/:workflow", { workflow: workflow.id }, { threadId })
-			),
+			navigate($path("/tasks/:id", { id: workflow.id }, { threadId })),
 		[navigate, workflow.id]
 	);
 
@@ -92,11 +87,11 @@ export default function ChatAgent() {
 	);
 }
 
-const WorkflowBreadcrumb = () => {
-	const match = useMatch("/workflows/:workflow");
+const TaskBreadcrumb = () => {
+	const match = useMatch("/tasks/:id");
 
 	const { data: workflow } = useSWR(
-		WorkflowService.getWorkflowById.key(match?.params.workflow || ""),
+		WorkflowService.getWorkflowById.key(match?.params.id || ""),
 		({ workflowId }) => WorkflowService.getWorkflowById(workflowId)
 	);
 
@@ -104,9 +99,12 @@ const WorkflowBreadcrumb = () => {
 };
 
 export const handle: RouteHandle = {
-	breadcrumb: () => [{ content: <WorkflowBreadcrumb /> }],
+	breadcrumb: () => [
+		{ content: "Tasks", href: $path("/tasks") },
+		{ content: <TaskBreadcrumb /> },
+	],
 };
 
 export const meta: MetaFunction<typeof clientLoader> = ({ data }) => {
-	return [{ title: `Workflow • ${data?.workflow.name}` }];
+	return [{ title: `Task • ${data?.workflow.name}` }];
 };

@@ -7,8 +7,6 @@ import {
 	WrenchIcon,
 } from "lucide-react";
 import { useCallback, useState } from "react";
-import { useNavigate } from "react-router";
-import { $path } from "safe-routes";
 
 import { AssistantNamespace } from "~/lib/model/assistants";
 import { CapabilityTool } from "~/lib/model/toolReferences";
@@ -20,7 +18,6 @@ import { AgentCapabilityForm } from "~/components/agent/shared/AgentCapabilityFo
 import { AgentModelSelect } from "~/components/agent/shared/AgentModelSelect";
 import { EnvironmentVariableSection } from "~/components/agent/shared/EnvironmentVariableSection";
 import { ToolAuthenticationStatus } from "~/components/agent/shared/ToolAuthenticationStatus";
-import { WorkspaceFilesSection } from "~/components/agent/shared/WorkspaceFilesSection";
 import { AgentKnowledgePanel } from "~/components/knowledge";
 import { BasicToolForm } from "~/components/tools/BasicToolForm";
 import {
@@ -31,7 +28,6 @@ import {
 } from "~/components/ui/accordion";
 import { CardDescription } from "~/components/ui/card";
 import { ScrollArea } from "~/components/ui/scroll-area";
-import { DeleteWorkflowButton } from "~/components/workflow/DeleteWorkflow";
 import { ParamsForm } from "~/components/workflow/ParamsForm";
 import {
 	WorkflowProvider,
@@ -56,7 +52,6 @@ export function Workflow(props: WorkflowProps) {
 }
 
 function WorkflowContent({ className }: WorkflowProps) {
-	const navigate = useNavigate();
 	const { workflow, updateWorkflow, isUpdating, lastUpdated, refreshWorkflow } =
 		useWorkflow();
 
@@ -82,17 +77,12 @@ function WorkflowContent({ className }: WorkflowProps) {
 	return (
 		<div className="flex h-full flex-col">
 			<ScrollArea className={cn("h-full", className)}>
-				<div className="flex justify-end px-8 pt-4">
-					<DeleteWorkflowButton
-						id={workflow.id}
-						onSuccess={() => navigate($path("/workflows"))}
-					/>
-				</div>
 				<div className="m-4 px-4 pb-4">
 					<AgentForm
 						agent={workflowUpdates}
 						onChange={partialSetWorkflow}
 						hideImageField
+						hideInstructionsField
 					/>
 				</div>
 
@@ -145,7 +135,7 @@ function WorkflowContent({ className }: WorkflowProps) {
 				<div className="m-4 flex flex-col gap-4 p-4">
 					<h4 className="flex items-center gap-2">
 						<List />
-						Parameters
+						Arguments
 					</h4>
 
 					<ParamsForm
@@ -177,8 +167,15 @@ function WorkflowContent({ className }: WorkflowProps) {
 					</h4>
 
 					<CardDescription>
-						Provide knowledge to the workflow in the form of files, websites, or
-						external links in order to give it context about various topics.
+						<p className="leading-5">
+							Provide knowledge to the workflow in the form of files, websites,
+							or external links in order to give it context about various
+							topics.
+						</p>
+						<p className="mt-3 leading-5">
+							<b>Note:</b> Knowledge files are shared amongst all tasks
+							associated with the same thread.
+						</p>
 					</CardDescription>
 
 					<AgentKnowledgePanel
@@ -192,10 +189,9 @@ function WorkflowContent({ className }: WorkflowProps) {
 								tools: [...(workflow.tools || []), tool],
 							});
 						}}
+						hideDescriptionField
 					/>
 				</div>
-
-				<WorkspaceFilesSection entityId={workflow.id} />
 
 				<WorkflowTriggerPanel workflowId={workflow.id} />
 

@@ -119,11 +119,7 @@ export const WebhookConfirmation = ({
 					{onContinue ? (
 						<Button onClick={onContinue}>Continue</Button>
 					) : (
-						<Link
-							as="button"
-							className="w-full"
-							to={$path("/workflow-triggers")}
-						>
+						<Link as="button" className="w-full" to={$path("/tasks")}>
 							Continue
 						</Link>
 					)}

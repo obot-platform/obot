@@ -1,9 +1,13 @@
+import { z } from "zod";
+
 import { ChatEvent } from "~/lib/model/chatEvents";
 import { EntityList } from "~/lib/model/primitives";
 import { Thread, UpdateThread } from "~/lib/model/threads";
+import { Workflow } from "~/lib/model/workflows";
 import { WorkspaceFile } from "~/lib/model/workspace";
 import { ApiRoutes, revalidateWhere } from "~/lib/routers/apiRoutes";
 import { request } from "~/lib/service/api/primitives";
+import { createFetcher } from "~/lib/service/api/service-primitives";
 import { PaginationParams, QueryService } from "~/lib/service/queryService";
 import { downloadUrl } from "~/lib/utils/downloadFile";
 
@@ -93,6 +97,17 @@ getThreadEventSource.key = (threadId?: Nullish<string>) => {
 	};
 };
 
+const getWorkflowsForThread = createFetcher(
+	z.object({ threadId: z.string() }),
+	async ({ threadId }, { signal }) => {
+		const { url } = ApiRoutes.threads.getWorkflowsForThread(threadId);
+		const { data } = await request<EntityList<Workflow>>({ url, signal });
+
+		return data.items ?? [];
+	},
+	() => ApiRoutes.threads.getWorkflowsForThread(":threadId").path
+);
+
 const deleteThread = async (threadId: string) => {
 	await request({
 		url: ApiRoutes.threads.getById(threadId).url,
@@ -157,6 +172,7 @@ export const ThreadsService = {
 	getThreadsByAgent,
 	getThreadEvents,
 	getThreadEventSource,
+	getWorkflowsForThread,
 	updateThreadById,
 	deleteThread,
 	revalidateThreads,

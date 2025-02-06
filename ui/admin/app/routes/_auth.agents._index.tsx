@@ -14,7 +14,7 @@ import { generateRandomName } from "~/lib/service/nameGenerator";
 import { timeSince } from "~/lib/utils";
 
 import { DeleteAgent } from "~/components/agent/DeleteAgent";
-import { DataTable } from "~/components/composed/DataTable";
+import { DataTable, useRowNavigate } from "~/components/composed/DataTable";
 import { Button } from "~/components/ui/button";
 import { Link } from "~/components/ui/link";
 import {
@@ -39,6 +39,10 @@ const CapabilityTools = [
 ];
 export default function Agents() {
 	const navigate = useNavigate();
+	const { onRowClick, onCtrlClick } = useRowNavigate<Agent>(
+		"/agents/:id",
+		"id"
+	);
 	const getThreads = useSWR(ThreadsService.getThreads.key(), () =>
 		ThreadsService.getThreads()
 	);
@@ -77,8 +81,8 @@ export default function Agents() {
 								}).then((agent) => {
 									getAgents.mutate();
 									navigate(
-										$path("/agents/:agent", {
-											agent: agent.id,
+										$path("/agents/:id", {
+											id: agent.id,
 										})
 									);
 								});
@@ -94,13 +98,8 @@ export default function Agents() {
 						data={agents}
 						sort={[{ id: "created", desc: true }]}
 						disableClickPropagation={(cell) => cell.id.includes("action")}
-						onRowClick={(row) => {
-							navigate(
-								$path("/agents/:agent", {
-									agent: row.id,
-								})
-							);
-						}}
+						onRowClick={onRowClick}
+						onCtrlClick={onCtrlClick}
 					/>
 				</div>
 			</div>
@@ -121,7 +120,7 @@ export default function Agents() {
 				cell: (info) => (
 					<div className="flex items-center gap-2">
 						<Link
-							to={$path("/threads", {
+							to={$path("/chat-threads", {
 								agentId: info.row.original.id,
 								from: "agents",
 							})}
@@ -146,8 +145,8 @@ export default function Agents() {
 						<Tooltip>
 							<TooltipTrigger asChild>
 								<Link
-									to={$path("/agents/:agent", {
-										agent: row.original.id,
+									to={$path("/agents/:id", {
+										id: row.original.id,
 									})}
 									as="button"
 									size="icon"

@@ -36,6 +36,7 @@ type AgentFormProps = {
 	onSubmit?: (values: AgentInfoFormValues) => void;
 	onChange?: (values: AgentInfoFormValues) => void;
 	hideImageField?: boolean;
+	hideInstructionsField?: boolean;
 };
 
 export function AgentForm({
@@ -43,6 +44,7 @@ export function AgentForm({
 	onSubmit,
 	onChange,
 	hideImageField,
+	hideInstructionsField,
 }: AgentFormProps) {
 	const form = useForm<AgentInfoFormValues>({
 		resolver: zodResolver(formSchema),
@@ -94,21 +96,25 @@ export function AgentForm({
 					</div>
 				)}
 
-				<h4 className="flex items-center gap-2 border-b pb-2">
-					<BrainIcon className="h-5 w-5" />
-					Instructions
-				</h4>
+				{!hideInstructionsField && (
+					<>
+						<h4 className="flex items-center gap-2 border-b pb-2">
+							<BrainIcon className="h-5 w-5" />
+							Instructions
+						</h4>
 
-				<CardDescription>
-					Give the agent instructions on how to behave and respond to input.
-				</CardDescription>
+						<CardDescription>
+							Give the agent instructions on how to behave and respond to input.
+						</CardDescription>
 
-				<ControlledAutosizeTextarea
-					control={form.control}
-					autoComplete="off"
-					name="prompt"
-					maxHeight={300}
-				/>
+						<ControlledAutosizeTextarea
+							control={form.control}
+							autoComplete="off"
+							name="prompt"
+							maxHeight={300}
+						/>
+					</>
+				)}
 			</form>
 		</Form>
 	);

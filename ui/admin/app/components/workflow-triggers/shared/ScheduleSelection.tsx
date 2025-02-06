@@ -85,7 +85,7 @@ function getCronFrequency(
 		hourly: /^(0|\*\/\d+) \* \* \* \*$/, // ex. "0 * * * *" or "*/15 * * * *"
 		daily: /^0 \d+ \* \* \*$/, // ex. "0 6 * * *"
 		weekly: /^0 \d+ \* \* \d$/, // ex. "0 0 * * 3"
-		monthly: /^0 \d+ [\d+L] \* \*$/, // "0 0 15 * *" or "0 0 L * *"
+		monthly: /^0 \d+ (\d+|L) \* \*$/, // "0 0 15 * *" or "0 0 L * *"
 	};
 
 	for (const [frequency, pattern] of Object.entries(patterns)) {
@@ -119,29 +119,42 @@ function getTimeOptionsForInterval(interval: string) {
 		case "hourly":
 			return [
 				{ label: "On The Hour", value: "0 * * * *" },
-				{ label: "Every 15 Minutes", value: "*/15 * * * *" },
-				{ label: "Every 30 Minutes", value: "*/30 * * * *" },
+				{ label: "15 Minutes Past", value: "*/15 * * * *" },
+				{ label: "30 Minutes Past", value: "*/30 * * * *" },
+				{ label: "45 Minutes Past", value: "*/45 * * * *" },
 			];
 		case "daily":
 			return [
-				{ label: "At Midnight", value: "0 0 * * *" },
-				{ label: "At 6:00 AM", value: "0 6 * * *" },
-				{ label: "At Noon", value: "0 12 * * *" },
-				{ label: "At 6:00 PM", value: "0 18 * * *" },
+				{ label: "Midnight", value: "0 0 * * *" },
+				{ label: "3 AM", value: "0 3 * * *" },
+				{ label: "6 AM", value: "0 6 * * *" },
+				{ label: "9 AM", value: "0 9 * * *" },
+				{ label: "Noon", value: "0 12 * * *" },
+				{ label: "3 PM", value: "0 15 * * *" },
+				{ label: "6 PM", value: "0 18 * * *" },
+				{ label: "9 PM", value: "0 21 * * *" },
 			];
 		case "weekly":
 			return [
-				{ label: "Sunday at Midnight", value: "0 0 * * 0" },
-				{ label: "Monday at Midnight", value: "0 0 * * 1" },
-				{ label: "Wednesday at Midnight", value: "0 0 * * 3" },
-				{ label: "Friday at Midnight", value: "0 0 * * 5" },
+				{ label: "Sunday", value: "0 0 * * 0" },
+				{ label: "Monday", value: "0 0 * * 1" },
+				{ label: "Tuesday", value: "0 0 * * 2" },
+				{ label: "Wednesday", value: "0 0 * * 3" },
+				{ label: "Thursday", value: "0 0 * * 4" },
+				{ label: "Friday", value: "0 0 * * 5" },
+				{ label: "Saturday", value: "0 0 * * 6" },
 			];
 		case "monthly":
 			return [
-				{ label: "1st at Midnight", value: "0 0 1 * *" },
-				{ label: "15th at Midnight", value: "0 0 15 * *" },
+				{ label: "1st", value: "0 0 1 * *" },
+				{ label: "2nd", value: "0 0 2 * *" },
+				{ label: "3rd", value: "0 0 3 * *" },
+				{ label: "5th", value: "0 0 5 * *" },
+				{ label: "15th", value: "0 0 15 * *" },
+				{ label: "20th", value: "0 0 20 * *" },
+				{ label: "25th", value: "0 0 25 * *" },
 				{
-					label: "Last Day at Midnight",
+					label: "Last Day",
 					value: "0 0 L * *",
 				},
 			];

@@ -45,13 +45,15 @@ export const StepBase = memo(function StepBase({
 	type,
 	onUpdate,
 	onDelete,
+	compact,
 }: {
 	className?: string;
-	children: React.ReactNode;
+	children?: React.ReactNode;
 	step: Step;
 	type: StepType;
 	onUpdate: (step: Step) => void;
 	onDelete: () => void;
+	compact?: boolean;
 }) {
 	const [isExpanded, setIsExpanded] = useState(false);
 
@@ -98,24 +100,28 @@ export const StepBase = memo(function StepBase({
 						showExpanded ? "rounded-t-md" : "rounded-md"
 					)}
 				>
-					<div className="flex items-center gap-2">
+					<div className="flex items-center gap-2 self-center">
 						<SortableHandle id={step.id} />
 
-						<Button
-							variant="ghost"
-							size="icon"
-							className="h-6 w-6 self-center p-0"
-							onClick={(e) => {
-								e.stopPropagation();
-								setIsExpanded(!showExpanded);
-							}}
-						>
-							<Rotate active={showExpanded}>
-								<ChevronRight className="h-4 w-4" />
-							</Rotate>
-						</Button>
+						{children && (
+							<Button
+								variant="ghost"
+								size="icon"
+								className="h-6 w-6 self-center p-0"
+								onClick={(e) => {
+									e.stopPropagation();
+									setIsExpanded(!showExpanded);
+								}}
+							>
+								<Rotate active={showExpanded}>
+									<ChevronRight className="h-4 w-4" />
+								</Rotate>
+							</Button>
+						)}
 
-						<StepTypeSelect value={type} onChange={handleUpdateType} />
+						{!compact && (
+							<StepTypeSelect value={type} onChange={handleUpdateType} />
+						)}
 					</div>
 
 					<AutosizeTextarea

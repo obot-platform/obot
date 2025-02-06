@@ -30,6 +30,7 @@ type AgentKnowledgePanelProps = {
 	agent: Agent;
 	updateAgent: (updatedAgent: Agent) => void;
 	addTool: (tool: string) => void;
+	hideDescriptionField?: boolean;
 };
 
 export default function AgentKnowledgePanel({
@@ -37,6 +38,7 @@ export default function AgentKnowledgePanel({
 	agent,
 	updateAgent,
 	addTool,
+	hideDescriptionField,
 }: AgentKnowledgePanelProps) {
 	const fileInputRef = useRef<HTMLInputElement>(null);
 	const [isAddSourceModalOpen, setIsAddSourceModalOpen] = useState(false);
@@ -132,23 +134,25 @@ export default function AgentKnowledgePanel({
 					}
 				/>
 			)}
-			<div className="grid w-full gap-2">
-				<Label htmlFor="message">Knowledge Description</Label>
-				<AutosizeTextarea
-					disabled={!hasDefaultTextEmbedding}
-					defaultValue={agent.knowledgeDescription}
-					maxHeight={200}
-					placeholder="Provide a brief description of the information contained in this knowledge base. Example: A collection of documents about the human resources policies and procedures for Acme Corporation."
-					id="message"
-					onChange={(e) =>
-						updateAgent({
-							...agent,
-							knowledgeDescription: e.target.value,
-						})
-					}
-					className="max-h-[400px]"
-				/>
-			</div>
+			{!hideDescriptionField && (
+				<div className="grid w-full gap-2">
+					<Label htmlFor="message">Knowledge Description</Label>
+					<AutosizeTextarea
+						disabled={!hasDefaultTextEmbedding}
+						defaultValue={agent.knowledgeDescription}
+						maxHeight={200}
+						placeholder="Provide a brief description of the information contained in this knowledge base. Example: A collection of documents about the human resources policies and procedures for Acme Corporation."
+						id="message"
+						onChange={(e) =>
+							updateAgent({
+								...agent,
+								knowledgeDescription: e.target.value,
+							})
+						}
+						className="max-h-[400px]"
+					/>
+				</div>
+			)}
 
 			<div className="flex w-full flex-col gap-2">
 				{localFiles.map((file) => (

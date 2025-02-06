@@ -6,6 +6,7 @@ import {
 	FilesIcon,
 	KeyIcon,
 	LucideIcon,
+	PuzzleIcon,
 	RotateCwIcon,
 	SearchIcon,
 	TableIcon,
@@ -27,6 +28,7 @@ import {
 	useThreadCredentials,
 	useThreadFiles,
 	useThreadKnowledge,
+	useThreadTasks,
 } from "~/components/chat/shared/thread-helpers";
 import { ConfirmationDialog } from "~/components/composed/ConfirmationDialog";
 import { PaginationActions } from "~/components/composed/PaginationActions";
@@ -63,12 +65,14 @@ interface ThreadMetaProps {
 const pageSize = 10;
 
 export function ThreadMeta({ entity, thread, className }: ThreadMetaProps) {
-	const from = $path("/threads/:id", { id: thread.id });
-	const isAgent = entity.id.startsWith("a");
+	const isAgent = entity.type === "agent";
+	const from = isAgent
+		? $path("/chat-threads/:id", { id: thread.id })
+		: $path("/task-runs/:id", { id: entity.id });
 
 	const assistantLink = isAgent
-		? $path("/agents/:agent", { agent: entity.id }, { from })
-		: $path("/workflows/:workflow", { workflow: entity.id });
+		? $path("/agents/:id", { id: entity.id }, { from })
+		: $path("/tasks/:id", { id: entity.id });
 
 	const fileStore = usePagination({ pageSize });
 
@@ -86,6 +90,12 @@ export function ThreadMeta({ entity, thread, className }: ThreadMetaProps) {
 
 	const { getCredentials, deleteCredential } = useThreadCredentials(thread.id);
 	const { data: credentials = [] } = getCredentials;
+
+	const {
+		tasks,
+		isLoading: tasksLoading,
+		mutate: mutateTasks,
+	} = useThreadTasks(isAgent ? thread.id : undefined);
 
 	const { dialogProps, interceptAsync } = useConfirmationDialog();
 
@@ -116,7 +126,7 @@ export function ThreadMeta({ entity, thread, className }: ThreadMetaProps) {
 							</tr>
 							<tr className="border-foreground/25">
 								<td className="py-2 pr-4 font-medium">
-									{isAgent ? "Agent" : "Workflow"}
+									{isAgent ? "Agent" : "Task"}
 								</td>
 								<td className="text-right">
 									<div className="flex items-center justify-end gap-2">
@@ -299,6 +309,46 @@ export function ThreadMeta({ entity, thread, className }: ThreadMetaProps) {
 							</li>
 						)}
 					/>
+
+					{isAgent && (
+						<ThreadMetaAccordionItem
+							value="tasks"
+							icon={PuzzleIcon}
+							title="Tasks"
+							isLoading={tasksLoading}
+							onRefresh={() => mutateTasks()}
+							items={tasks}
+							renderItem={(task) => (
+								<li key={task.id} className="flex items-center justify-between">
+									<div className="flex items-center">
+										<PuzzleIcon className="mr-2 h-4 w-4" />
+										<p>{task.name}</p>
+										<Link
+											to={$path("/tasks/:id", { id: task.id })}
+											as="button"
+											variant="ghost"
+											size="icon-sm"
+											target="_blank"
+											rel="noreferrer"
+										>
+											{isAgent ? (
+												<EditIcon className="h-4 w-4" />
+											) : (
+												<ExternalLink className="h-4 w-4" />
+											)}
+										</Link>
+									</div>
+									<Link
+										to={$path("/task-runs", {
+											taskId: task.id,
+										})}
+									>
+										{task.runCount} Runs
+									</Link>
+								</li>
+							)}
+						/>
+					)}
 				</Accordion>
 
 				<ConfirmationDialog

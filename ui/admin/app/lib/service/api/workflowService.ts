@@ -1,8 +1,4 @@
-import {
-	CreateWorkflow,
-	UpdateWorkflow,
-	Workflow,
-} from "~/lib/model/workflows";
+import { UpdateWorkflow, Workflow } from "~/lib/model/workflows";
 import { ApiRoutes, revalidateWhere } from "~/lib/routers/apiRoutes";
 import { ResponseHeaders, request } from "~/lib/service/api/primitives";
 
@@ -30,17 +26,6 @@ getWorkflowById.key = (workflowId?: Nullish<string>) => {
 	return { url: ApiRoutes.workflows.getById(workflowId).path, workflowId };
 };
 
-async function createWorkflow(workflow: CreateWorkflow) {
-	const res = await request<Workflow>({
-		url: ApiRoutes.workflows.base().url,
-		method: "POST",
-		data: workflow,
-		errorMessage: "Failed to create workflow",
-	});
-
-	return res.data;
-}
-
 async function updateWorkflow({
 	id,
 	workflow,
@@ -56,22 +41,6 @@ async function updateWorkflow({
 	});
 
 	return res.data;
-}
-
-async function deleteWorkflow(id: string) {
-	await request({
-		url: ApiRoutes.workflows.getById(id).url,
-		method: "DELETE",
-		errorMessage: "Failed to delete workflow",
-	});
-}
-
-async function deleteWorkflowWithTriggers(id: string) {
-	await request({
-		url: ApiRoutes.workflows.deleteWithTriggers(id).url,
-		method: "DELETE",
-		errorMessage: "Failed to delete workflow and triggers",
-	});
 }
 
 const revalidateWorkflows = () =>
@@ -98,10 +67,7 @@ async function authenticateWorkflow(workflowId: string) {
 export const WorkflowService = {
 	getWorkflows,
 	getWorkflowById,
-	createWorkflow,
 	updateWorkflow,
-	deleteWorkflow,
-	deleteWorkflowWithTriggers,
 	revalidateWorkflows,
 	authenticateWorkflow,
 };

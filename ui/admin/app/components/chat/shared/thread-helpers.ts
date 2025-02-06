@@ -134,3 +134,33 @@ export function useThreadTableRows({
 
 	return useSWR(disabled ? null : key, fetcher);
 }
+
+export const useThreadTasks = (agentThreadId?: string) => {
+	const { data: tasks, ...rest } = useSWR(
+		...ThreadsService.getWorkflowsForThread.swr({ threadId: agentThreadId })
+	);
+
+	const getThreads = useSWR(
+		agentThreadId ? ThreadsService.getThreads.key() : null,
+		() => ThreadsService.getThreads()
+	);
+
+	const runCounts = getThreads.data?.reduce<Record<string, number>>(
+		(acc, thread) => {
+			if (!thread.workflowID) return acc;
+
+			acc[thread.workflowID] = (acc[thread.workflowID] || 0) + 1;
+			return acc;
+		},
+		{}
+	);
+
+	return {
+		tasks:
+			tasks?.map((task) => ({
+				...task,
+				runCount: runCounts?.[task.id] ?? 0,
+			})) ?? [],
+		...rest,
+	};
+};

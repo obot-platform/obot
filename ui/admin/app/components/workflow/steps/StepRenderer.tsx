@@ -5,7 +5,12 @@ import { TemplateComponent } from "~/components/workflow/steps/Template";
 import { WhileContent } from "~/components/workflow/steps/WhileContent";
 import type { StepRendererProps } from "~/components/workflow/steps/step-renderer-helpers";
 
-export function renderStep({ step, onUpdate, onDelete }: StepRendererProps) {
+export function renderStep({
+	step,
+	onUpdate,
+	onDelete,
+	compact,
+}: StepRendererProps) {
 	if (step.template) {
 		return (
 			<TemplateComponent
@@ -57,8 +62,11 @@ export function renderStep({ step, onUpdate, onDelete }: StepRendererProps) {
 				type="command"
 				onUpdate={onUpdate}
 				onDelete={onDelete}
+				compact={compact}
 			>
-				<StepContent key={step.id} step={step} onUpdate={onUpdate} />
+				{!compact && (
+					<StepContent key={step.id} step={step} onUpdate={onUpdate} />
+				)}
 			</StepBase>
 		);
 	}

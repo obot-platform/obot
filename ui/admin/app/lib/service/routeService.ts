@@ -15,10 +15,10 @@ const QuerySchemas = {
 	threadsListSchema: z.object({
 		agentId: z.string().nullish(),
 		userId: z.string().nullish(),
-		workflowId: z.string().nullish(),
-		from: z.enum(["workflows", "agents", "users"]).nullish().catch(null),
+		taskId: z.string().nullish(),
+		from: z.enum(["tasks", "agents", "users"]).nullish().catch(null),
 	}),
-	workflowSchema: z.object({
+	taskSchema: z.object({
 		threadId: z.string().nullish(),
 	}),
 } as const;
@@ -61,9 +61,9 @@ export const RouteHelperMap = {
 		path: "/agents",
 		schema: z.null(),
 	},
-	"/agents/:agent": {
-		regex: exactRegex($path("/agents/:agent", { agent: "(.+)" })),
-		path: "/agents/:agent",
+	"/agents/:id": {
+		regex: exactRegex($path("/agents/:id", { id: "(.+)" })),
+		path: "/agents/:id",
 		schema: QuerySchemas.agentSchema,
 	},
 	"/auth-providers": {
@@ -76,6 +76,16 @@ export const RouteHelperMap = {
 		path: "/debug",
 		schema: z.null(),
 	},
+	"/chat-threads": {
+		regex: exactRegex($path("/chat-threads")),
+		path: "/chat-threads",
+		schema: QuerySchemas.threadsListSchema,
+	},
+	"/chat-threads/:id": {
+		regex: exactRegex($path("/chat-threads/:id", { id: "(.+)" })),
+		path: "/chat-threads/:id",
+		schema: z.null(),
+	},
 	"/home": {
 		regex: exactRegex($path("/home")),
 		path: "/home",
@@ -85,16 +95,6 @@ export const RouteHelperMap = {
 		regex: exactRegex($path("/model-providers")),
 		path: "/model-providers",
 		schema: z.null(),
-	},
-	"/threads/:id": {
-		regex: exactRegex($path("/threads/:id", { id: "(.+)" })),
-		path: "/threads/:id",
-		schema: z.null(),
-	},
-	"/threads": {
-		regex: exactRegex($path("/threads")),
-		path: "/threads",
-		schema: QuerySchemas.threadsListSchema,
 	},
 	"/tools": {
 		regex: exactRegex($path("/tools")),
@@ -106,58 +106,25 @@ export const RouteHelperMap = {
 		path: "/users",
 		schema: z.null(),
 	},
-	"/workflow-triggers": {
-		regex: exactRegex($path("/workflow-triggers")),
-		path: "/workflow-triggers",
+	"/tasks": {
+		regex: exactRegex($path("/users")),
+		path: "/users",
 		schema: z.null(),
 	},
-	"/workflow-triggers/schedule/create": {
-		regex: exactRegex($path("/workflow-triggers/schedule/create")),
-		path: "/workflow-triggers/schedule/create",
-		schema: z.null(),
+	"/tasks/:id": {
+		regex: exactRegex($path("/tasks/:id", { id: "(.+)" })),
+		path: "/tasks/:id",
+		schema: QuerySchemas.taskSchema,
 	},
-	"/workflow-triggers/schedule/:trigger": {
-		regex: exactRegex(
-			$path("/workflow-triggers/schedule/:trigger", {
-				trigger: "(.+)",
-			})
-		),
-		path: "/workflow-triggers/schedule/:trigger",
-		schema: z.null(),
+	"/task-runs": {
+		regex: exactRegex($path("/task-runs")),
+		path: "/task-runs",
+		schema: QuerySchemas.threadsListSchema,
 	},
-	"/workflow-triggers/webhooks/create": {
-		regex: exactRegex($path("/workflow-triggers/webhooks/create")),
-		path: "/workflow-triggers/webhooks/create",
+	"/task-runs/:id": {
+		regex: exactRegex($path("/task-runs/:id", { id: "(.+)" })),
+		path: "/task-runs/:id",
 		schema: z.null(),
-	},
-	"/workflow-triggers/webhooks/:webhook": {
-		regex: exactRegex(
-			$path("/workflow-triggers/webhooks/:webhook", { webhook: "(.+)" })
-		),
-		path: "/workflow-triggers/webhooks/:webhook",
-		schema: z.null(),
-	},
-	"/workflow-triggers/email/create": {
-		regex: exactRegex($path("/workflow-triggers/email/create")),
-		path: "/workflow-triggers/email/create",
-		schema: z.null(),
-	},
-	"/workflow-triggers/email/:receiver": {
-		regex: exactRegex(
-			$path("/workflow-triggers/email/:receiver", { receiver: "(.+)" })
-		),
-		path: "/workflow-triggers/email/:receiver",
-		schema: z.null(),
-	},
-	"/workflows": {
-		regex: exactRegex($path("/workflows")),
-		path: "/workflows",
-		schema: z.null(),
-	},
-	"/workflows/:workflow": {
-		regex: exactRegex($path("/workflows/:workflow", { workflow: "(.+)" })),
-		path: "/workflows/:workflow",
-		schema: QuerySchemas.workflowSchema,
 	},
 } satisfies Record<keyof Routes, RouteHelper>;
 

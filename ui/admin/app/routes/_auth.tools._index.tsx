@@ -1,4 +1,3 @@
-import { SearchIcon } from "lucide-react";
 import { useMemo, useState } from "react";
 import { MetaFunction } from "react-router";
 import useSWR, { preload } from "swr";
@@ -8,10 +7,10 @@ import { OauthAppService } from "~/lib/service/api/oauthAppService";
 import { ToolReferenceService } from "~/lib/service/api/toolreferenceService";
 import { RouteHandle } from "~/lib/service/routeHandles";
 
+import { SearchInput } from "~/components/composed/SearchInput";
 import { CreateTool } from "~/components/tools/CreateTool";
 import { filterToolCatalogBySearch } from "~/components/tools/ToolCatalog";
 import { ToolGrid } from "~/components/tools/toolGrid";
-import { Input } from "~/components/ui/input";
 import { ScrollArea } from "~/components/ui/scroll-area";
 
 export async function clientLoader() {
@@ -50,16 +49,10 @@ export default function Tools() {
 			<div className="flex items-center justify-between px-8 pt-8">
 				<h2>Tools</h2>
 				<div className="flex items-center space-x-2">
-					<div className="relative">
-						<SearchIcon className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 transform text-gray-400" />
-						<Input
-							type="text"
-							placeholder="Search for tools..."
-							value={searchQuery}
-							onChange={(e) => setSearchQuery(e.target.value)}
-							className="w-64 pl-10"
-						/>
-					</div>
+					<SearchInput
+						onChange={(value) => setSearchQuery(value)}
+						placeholder="Search for tools..."
+					/>
 					<CreateTool />
 				</div>
 			</div>

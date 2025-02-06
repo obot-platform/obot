@@ -104,7 +104,7 @@ export function ProviderConfigure({
 						</DialogHeader>
 						<DialogDescription>
 							When no model is specified, a default model is used for creating a
-							new agent, workflow, or working with some tools, etc. Select your
+							new agent or when working with some tools, etc. Select your
 							default models for the usage types below.
 						</DialogDescription>
 						<div className="mt-4">

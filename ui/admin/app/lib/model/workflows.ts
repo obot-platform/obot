@@ -4,7 +4,10 @@ import { EntityMeta } from "~/lib/model/primitives";
 export type WorkflowBase = AgentBase & {
 	steps: Step[] | null;
 	output: string;
+	threadID?: string;
 };
+
+export type UpdateWorkflow = WorkflowBase;
 
 export const StepType = {
 	Command: "command",
@@ -54,9 +57,6 @@ export type Workflow = EntityMeta &
 	WorkflowBase & {
 		slugAssigned?: boolean;
 	};
-
-export type CreateWorkflow = Partial<WorkflowBase> & Pick<WorkflowBase, "name">;
-export type UpdateWorkflow = WorkflowBase;
 
 export const getDefaultStep = (
 	type: StepType = StepType.Command,

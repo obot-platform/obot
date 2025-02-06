@@ -177,6 +177,8 @@ export const ApiRoutes = {
 		getById: (threadId: string) => buildUrl(`/threads/${threadId}`),
 		updateById: (threadId: string) => buildUrl(`/threads/${threadId}`),
 		getByAgent: (agentId: string) => buildUrl(`/agents/${agentId}/threads`),
+		getWorkflowsForThread: (threadId: string) =>
+			buildUrl(`/threads/${threadId}/workflows`),
 		events: (
 			threadId: string,
 			params?: {

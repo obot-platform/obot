@@ -32,9 +32,9 @@ export const clientLoader = async ({
 }: ClientLoaderFunctionArgs) => {
 	const url = new URL(request.url);
 
-	const routeInfo = RouteService.getRouteInfo("/agents/:agent", url, params);
+	const routeInfo = RouteService.getRouteInfo("/agents/:id", url, params);
 
-	const { agent: agentId } = routeInfo.pathParams;
+	const { id: agentId } = routeInfo.pathParams;
 	const { threadId, from } = routeInfo.query ?? {};
 
 	if (!agentId) {
@@ -73,8 +73,8 @@ export default function ChatAgent() {
 		(newThreadId?: Nullish<string>) => {
 			navigate(
 				$path(
-					"/agents/:agent",
-					{ agent: agent.id },
+					"/agents/:id",
+					{ id: agent.id },
 					newThreadId ? { threadId: newThreadId } : undefined
 				)
 			);
@@ -114,10 +114,10 @@ export default function ChatAgent() {
 }
 
 const AgentBreadcrumb = () => {
-	const match = useMatch("/agents/:agent");
+	const match = useMatch("/agents/:id");
 
 	const { data: agent } = useSWR(
-		...AgentService.getAgentById.swr({ agentId: match?.params.agent })
+		...AgentService.getAgentById.swr({ agentId: match?.params.id })
 	);
 
 	return <>{agent?.name || "New Agent"}</>;

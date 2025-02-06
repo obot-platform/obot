@@ -1,7 +1,7 @@
-import { PersonIcon, ReaderIcon } from "@radix-ui/react-icons";
+import { ReaderIcon } from "@radix-ui/react-icons";
 import { ColumnDef, createColumnHelper } from "@tanstack/react-table";
-import { PuzzleIcon, Trash, XIcon } from "lucide-react";
-import { useMemo } from "react";
+import { XIcon } from "lucide-react";
+import { useMemo, useState } from "react";
 import {
 	ClientLoaderFunctionArgs,
 	MetaFunction,
@@ -15,16 +15,15 @@ import useSWR, { preload } from "swr";
 import { Agent } from "~/lib/model/agents";
 import { Thread } from "~/lib/model/threads";
 import { User } from "~/lib/model/users";
-import { Workflow } from "~/lib/model/workflows";
 import { AgentService } from "~/lib/service/api/agentService";
 import { ThreadsService } from "~/lib/service/api/threadsService";
 import { UserService } from "~/lib/service/api/userService";
-import { WorkflowService } from "~/lib/service/api/workflowService";
 import { RouteHandle } from "~/lib/service/routeHandles";
 import { RouteQueryParams, RouteService } from "~/lib/service/routeService";
 import { timeSince } from "~/lib/utils";
 
-import { DataTable } from "~/components/composed/DataTable";
+import { DataTable, useRowNavigate } from "~/components/composed/DataTable";
+import { SearchInput } from "~/components/composed/SearchInput";
 import { Button } from "~/components/ui/button";
 import { Link } from "~/components/ui/link";
 import { ScrollArea } from "~/components/ui/scroll-area";
@@ -33,7 +32,6 @@ import {
 	TooltipContent,
 	TooltipTrigger,
 } from "~/components/ui/tooltip";
-import { useAsync } from "~/hooks/useAsync";
 
 export type SearchParams = RouteQueryParams<"threadsListSchema">;
 
@@ -43,13 +41,12 @@ export async function clientLoader({
 }: ClientLoaderFunctionArgs) {
 	await Promise.all([
 		preload(...AgentService.getAgents.swr({})),
-		preload(WorkflowService.getWorkflows.key(), WorkflowService.getWorkflows),
 		preload(ThreadsService.getThreads.key(), ThreadsService.getThreads),
 		preload(UserService.getUsers.key(), UserService.getUsers),
 	]);
 
 	const { query } = RouteService.getRouteInfo(
-		"/threads",
+		"/chat-threads",
 		new URL(request.url),
 		params
 	);
@@ -57,9 +54,13 @@ export async function clientLoader({
 	return query ?? {};
 }
 
-export default function Threads() {
-	const navigate = useNavigate();
-	const { agentId, workflowId, userId } = useLoaderData<typeof clientLoader>();
+export default function TaskRuns() {
+	const [search, setSearch] = useState("");
+	const { onRowClick, onCtrlClick } = useRowNavigate<Thread>(
+		"/chat-threads/:id",
+		"id"
+	);
+	const { agentId, userId } = useLoaderData<typeof clientLoader>();
 
 	const getThreads = useSWR(
 		ThreadsService.getThreads.key(),
@@ -67,30 +68,18 @@ export default function Threads() {
 	);
 
 	const getAgents = useSWR(...AgentService.getAgents.swr({}));
-
-	const getWorkflows = useSWR(
-		WorkflowService.getWorkflows.key(),
-		WorkflowService.getWorkflows
-	);
-
 	const getUsers = useSWR(UserService.getUsers.key(), UserService.getUsers);
 
 	const threads = useMemo(() => {
 		if (!getThreads.data) return [];
 
 		let filteredThreads = getThreads.data.filter(
-			(thread) => (thread.agentID || thread.workflowID) && !thread.deleted
+			(thread) => thread.agentID && !thread.deleted
 		);
 
 		if (agentId) {
 			filteredThreads = filteredThreads.filter(
 				(thread) => thread.agentID === agentId
-			);
-		}
-
-		if (workflowId) {
-			filteredThreads = filteredThreads.filter(
-				(thread) => thread.workflowID === workflowId
 			);
 		}
 
@@ -101,16 +90,11 @@ export default function Threads() {
 		}
 
 		return filteredThreads;
-	}, [getThreads.data, agentId, workflowId, userId]);
+	}, [getThreads.data, agentId, userId]);
 
 	const agentMap = useMemo(
 		() => new Map(getAgents.data?.map((agent) => [agent.id, agent])),
 		[getAgents.data]
-	);
-	const workflowMap = useMemo(
-		() =>
-			new Map(getWorkflows.data?.map((workflow) => [workflow.id, workflow])),
-		[getWorkflows.data]
 	);
 	const userMap = useMemo(
 		() => new Map(getUsers.data?.map((user) => [user.id, user])),
@@ -122,62 +106,47 @@ export default function Threads() {
 			return threads.map((thread) => ({
 				...thread,
 				parentName:
-					(thread.agentID
-						? agentMap.get(thread.agentID)?.name
-						: thread.workflowID
-							? workflowMap.get(thread.workflowID)?.name
-							: "Unnamed") ?? "Unnamed",
+					(thread.agentID && agentMap.get(thread.agentID)?.name) ?? "Unnamed",
 				userName: thread.userID
 					? (userMap.get(thread.userID)?.email ?? "-")
 					: "-",
 			}));
-		}, [threads, agentMap, userMap, workflowMap]);
+		}, [threads, agentMap, userMap]);
 
-	const deleteThread = useAsync(ThreadsService.deleteThread, {
-		onSuccess: ThreadsService.revalidateThreads,
-	});
+	const itemsToDisplay = search
+		? data.filter(
+				(item) =>
+					item.parentName.toLowerCase().includes(search.toLowerCase()) ||
+					item.userName.toLowerCase().includes(search.toLowerCase())
+			)
+		: data;
 
 	return (
 		<ScrollArea className="flex max-h-full flex-col gap-4 p-8">
-			<h2>Threads</h2>
+			<div className="flex items-center justify-between pb-8">
+				<h2>Chat Threads</h2>
+				<SearchInput
+					onChange={(value) => setSearch(value)}
+					placeholder="Search for chat threads..."
+				/>
+			</div>
 
-			<ThreadFilters
-				userMap={userMap}
-				agentMap={agentMap}
-				workflowMap={workflowMap}
-			/>
+			<ThreadFilters userMap={userMap} agentMap={agentMap} />
 
 			<DataTable
 				columns={getColumns()}
-				data={data}
+				data={itemsToDisplay}
 				sort={[{ id: "created", desc: true }]}
 				disableClickPropagation={(cell) => cell.id.includes("actions")}
-				onRowClick={(row) => {
-					navigate($path("/threads/:id", { id: row.id }));
-				}}
+				onRowClick={onRowClick}
+				onCtrlClick={onCtrlClick}
 			/>
 		</ScrollArea>
 	);
 
 	function getColumns(): ColumnDef<(typeof data)[0], string>[] {
 		return [
-			columnHelper.accessor((thread) => thread.parentName, { header: "Name" }),
-			columnHelper.display({
-				id: "type",
-				header: "Type",
-				cell: ({ row }) => {
-					return (
-						<p className="flex items-center gap-2">
-							{row.original.agentID ? (
-								<PersonIcon className="h-4 w-4" />
-							) : (
-								<PuzzleIcon className="h-4 w-4" />
-							)}
-							{row.original.agentID ? "Agent" : "Workflow"}
-						</p>
-					);
-				},
-			}),
+			columnHelper.accessor((thread) => thread.parentName, { header: "Agent" }),
 			columnHelper.accessor((thread) => thread.userName, { header: "User" }),
 			columnHelper.accessor("created", {
 				id: "created",
@@ -194,7 +163,7 @@ export default function Threads() {
 						<Tooltip>
 							<TooltipTrigger asChild>
 								<Link
-									to={$path("/threads/:id", {
+									to={$path("/chat-threads/:id", {
 										id: row.original.id,
 									})}
 									as="button"
@@ -209,22 +178,6 @@ export default function Threads() {
 								<p>Inspect Thread</p>
 							</TooltipContent>
 						</Tooltip>
-
-						<Tooltip>
-							<TooltipTrigger asChild>
-								<Button
-									variant="ghost"
-									size="icon"
-									onClick={() => deleteThread.execute(row.original.id)}
-								>
-									<Trash />
-								</Button>
-							</TooltipTrigger>
-
-							<TooltipContent>
-								<p>Delete Thread</p>
-							</TooltipContent>
-						</Tooltip>
 					</div>
 				),
 			}),
@@ -235,18 +188,17 @@ export default function Threads() {
 function ThreadFilters({
 	userMap,
 	agentMap,
-	workflowMap,
 }: {
 	userMap: Map<string, User>;
 	agentMap: Map<string, Agent>;
-	workflowMap: Map<string, Workflow>;
 }) {
 	const [searchParams] = useSearchParams();
 	const navigate = useNavigate();
 
 	const filters = useMemo(() => {
 		const query =
-			RouteService.getQueryParams("/threads", searchParams.toString()) ?? {};
+			RouteService.getQueryParams("/chat-threads", searchParams.toString()) ??
+			{};
 		const { from: _, ...filters } = query;
 
 		const updateFilters = (param: keyof typeof filters) => {
@@ -254,7 +206,7 @@ function ThreadFilters({
 			// appends "null" to the query string.
 			const newQuery = structuredClone(query);
 			delete newQuery[param];
-			return navigate($path("/threads", newQuery));
+			return navigate($path("/chat-threads", newQuery));
 		};
 
 		return [
@@ -270,14 +222,8 @@ function ThreadFilters({
 				value: userMap.get(filters.userId)?.email ?? filters.userId,
 				onRemove: () => updateFilters("userId"),
 			},
-			filters.workflowId && {
-				key: "workflowId",
-				label: "Workflow",
-				value: workflowMap.get(filters.workflowId)?.name ?? filters.workflowId,
-				onRemove: () => updateFilters("workflowId"),
-			},
 		].filter((x) => !!x);
-	}, [agentMap, navigate, searchParams, userMap, workflowMap]);
+	}, [agentMap, navigate, searchParams, userMap]);
 
 	return (
 		<div className="flex gap-2">
@@ -302,7 +248,7 @@ const columnHelper = createColumnHelper<
 >();
 
 const getFromBreadcrumb = (search: string) => {
-	const { from } = RouteService.getQueryParams("/threads", search) || {};
+	const { from } = RouteService.getQueryParams("/chat-threads", search) || {};
 
 	if (from === "agents")
 		return {
@@ -315,19 +261,13 @@ const getFromBreadcrumb = (search: string) => {
 			content: "Users",
 			href: $path("/users"),
 		};
-
-	if (from === "workflows")
-		return {
-			content: "Workflows",
-			href: $path("/workflows"),
-		};
 };
 
 export const handle: RouteHandle = {
 	breadcrumb: ({ search }) =>
-		[getFromBreadcrumb(search), { content: "Threads" }].filter((x) => !!x),
+		[getFromBreadcrumb(search), { content: "Chat Threads" }].filter((x) => !!x),
 };
 
 export const meta: MetaFunction = () => {
-	return [{ title: `Obot • Threads` }];
+	return [{ title: `Obot • Chat Threads` }];
 };

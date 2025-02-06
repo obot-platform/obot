@@ -1,8 +1,6 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useEffect } from "react";
 import { useForm } from "react-hook-form";
-import { useNavigate } from "react-router";
-import { $path } from "safe-routes";
 import { toast } from "sonner";
 import useSWR from "swr";
 import { z } from "zod";
@@ -37,7 +35,6 @@ const formSchema = z.object({
 export type ScheduleFormValues = z.infer<typeof formSchema>;
 
 export function ScheduleForm({ cronjob }: { cronjob?: CronJob }) {
-	const navigate = useNavigate();
 	const getWorkflows = useSWR(WorkflowService.getWorkflows.key(), () =>
 		WorkflowService.getWorkflows()
 	);
@@ -47,7 +44,6 @@ export function ScheduleForm({ cronjob }: { cronjob?: CronJob }) {
 			CronJobApiService.getCronJobById.revalidate(cronjob);
 		}
 		CronJobApiService.getCronJobs.revalidate();
-		navigate($path("/workflow-triggers"));
 	};
 
 	const createSchedule = useAsync(CronJobApiService.createCronJob, {

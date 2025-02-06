@@ -92,11 +92,11 @@ export function AgentAlias({ agent, onChange }: AgentAliasProps) {
 								className="text-accent-foreground underline"
 								to={
 									refAssistant.type === "agent"
-										? $path("/agents/:agent", {
-												agent: refAssistant.entityID,
+										? $path("/agents/:id", {
+												id: refAssistant.entityID,
 											})
-										: $path("/workflows/:workflow", {
-												workflow: refAssistant.entityID,
+										: $path("/tasks/:id", {
+												id: refAssistant.entityID,
 											})
 								}
 							>

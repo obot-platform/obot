@@ -80,6 +80,7 @@ export function StepsForm({
 											step,
 											onUpdate,
 											onDelete,
+											compact: true,
 										});
 									}}
 								/>

@@ -1,12 +1,12 @@
 import {
 	BotIcon,
 	BoxesIcon,
+	CpuIcon,
 	InfoIcon,
 	LockIcon,
 	MessageSquare,
 	PuzzleIcon,
 	User,
-	WebhookIcon,
 	Wrench,
 } from "lucide-react";
 import { Link, useLocation } from "react-router";
@@ -47,8 +47,8 @@ const items = [
 		icon: BotIcon,
 	},
 	{
-		title: "Threads",
-		url: $path("/threads"),
+		title: "Chat Threads",
+		url: $path("/chat-threads"),
 		icon: MessageSquare,
 	},
 	{
@@ -63,19 +63,19 @@ const items = [
 		requiresAuth: true,
 	},
 	{
-		title: "Workflows",
-		url: $path("/workflows"),
+		title: "Tasks",
+		url: $path("/tasks"),
 		icon: PuzzleIcon,
+	},
+	{
+		title: "Task Runs",
+		url: $path("/task-runs"),
+		icon: CpuIcon,
 	},
 	{
 		title: "Model Providers",
 		url: $path("/model-providers"),
 		icon: BoxesIcon,
-	},
-	{
-		title: "Workflow Triggers",
-		url: $path("/workflow-triggers"),
-		icon: WebhookIcon,
 	},
 	{
 		title: "Auth Providers",
