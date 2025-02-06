@@ -65,13 +65,20 @@ spec:
                   name: {{ include "obot.config.secretName" . }}
                   key: awsSecretAccessKey
             {{- end }}
-            {{- if .Values.config.baaahThreadiness }}
-            - name: "BAAAH_THREADINESS"
+            {{- if .Values.config.nahThreadiness }}
+            - name: "NAH_THREADINESS"
               valueFrom:
                 secretKeyRef:
                   name: {{ include "obot.config.secretName" . }}
-                  key: baaahThreadiness
+                  key: nahThreadiness
             {{- end }}
+            {{- if .Values.config.knowledgeFileWorkers }}
+            - name: "OBOT_SERVER_KNOWLEDGE_FILE_WORKERS"
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "obot.config.secretName" . }}
+                  key: knowledgeFileWorkers
+                {{- end }}
             {{- if .Values.config.githubAuthToken }}
             - name: "GITHUB_AUTH_TOKEN"
               valueFrom:
