@@ -129,7 +129,7 @@ func (a *ToolReferenceHandler) Create(req api.Context) (err error) {
 		return apierrors.NewBadRequest(fmt.Sprintf("invalid tool type %s", newToolReference.ToolType))
 	}
 
-	toolRefs, err := tools.ResolveToolReferences(req.Context(), a.gptscript, newToolReference.Name, newToolReference.Reference, false, newToolReference.ToolType)
+	toolRefs, err := tools.ResolveToolReferences(req.Context(), a.gptscript, newToolReference.Name, newToolReference.Reference, "", false, newToolReference.ToolType)
 	if err != nil {
 		return apierrors.NewBadRequest(fmt.Sprintf("failed to resolve tool references for %s: %v", newToolReference.Reference, err))
 	}

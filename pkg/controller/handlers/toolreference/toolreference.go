@@ -80,14 +80,10 @@ func (h *Handler) toolsToToolReferences(ctx context.Context, toolType types.Tool
 			continue
 		}
 
-		toolRefs, err := tools.ResolveToolReferences(ctx, h.gptClient, name, entry.Reference, true, toolType)
+		toolRefs, err := tools.ResolveToolReferences(ctx, h.gptClient, name, entry.Reference, entry.NameOverride, true, toolType)
 		if err != nil {
 			log.Errorf("Failed to resolve tool references for %s: %v", entry.Reference, err)
 			continue
-		}
-
-		if entry.NameOverride != "" {
-			toolRefs[0].SetName(entry.NameOverride)
 		}
 
 		result = append(result, toolRefs...)
