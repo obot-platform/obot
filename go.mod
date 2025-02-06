@@ -19,7 +19,7 @@ require (
 	github.com/gptscript-ai/chat-completion-client v0.0.0-20250128181713-57857b74f9f1
 	github.com/gptscript-ai/cmd v0.0.0-20250122115124-a3d65e9d2432
 	github.com/gptscript-ai/go-gptscript v0.9.6-0.20250204133419-744b25b84a61
-	github.com/gptscript-ai/gptscript v0.9.6-0.20250204193143-468c4f1a3cd9
+	github.com/gptscript-ai/gptscript v0.9.6-0.20250206172626-bb6456f024cc
 	github.com/liggitt/tabwriter v0.0.0-20181228230101-89fcab3d43de
 	github.com/mhale/smtpd v0.8.3
 	github.com/obot-platform/kinm v0.0.0-20250116162656-270198b40c6d
