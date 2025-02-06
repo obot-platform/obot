@@ -46,6 +46,7 @@ type index struct {
 	System                   map[string]indexEntry `json:"system,omitempty"`
 	ModelProviders           map[string]indexEntry `json:"modelProviders,omitempty"`
 	AuthProviders            map[string]indexEntry `json:"authProviders,omitempty"`
+	DaemonTriggerProviders   map[string]indexEntry `json:"daemonTriggerProviders,omitempty"`
 }
 
 type Handler struct {
@@ -196,6 +197,7 @@ func (h *Handler) readFromRegistry(ctx context.Context, c client.Client) error {
 		toAdd = append(toAdd, h.toolsToToolReferences(ctx, types.ToolReferenceTypeSystem, registryURL, index.System)...)
 		toAdd = append(toAdd, h.toolsToToolReferences(ctx, types.ToolReferenceTypeModelProvider, registryURL, index.ModelProviders)...)
 		toAdd = append(toAdd, h.toolsToToolReferences(ctx, types.ToolReferenceTypeAuthProvider, registryURL, index.AuthProviders)...)
+		toAdd = append(toAdd, h.toolsToToolReferences(ctx, types.ToolReferenceTypeDaemonTriggerProvider, registryURL, index.DaemonTriggerProviders)...)
 		toAdd = append(toAdd, h.toolsToToolReferences(ctx, types.ToolReferenceTypeTool, registryURL, index.Tools)...)
 		toAdd = append(toAdd, h.toolsToToolReferences(ctx, types.ToolReferenceTypeStepTemplate, registryURL, index.StepTemplates)...)
 		toAdd = append(toAdd, h.toolsToToolReferences(ctx, types.ToolReferenceTypeKnowledgeDataSource, registryURL, index.KnowledgeDataSources)...)
@@ -455,6 +457,45 @@ func (h *Handler) BackPopulateModels(req router.Request, _ router.Response) erro
 		return fmt.Errorf("failed to create models for model provider %q: %w", toolRef.Name, err)
 	}
 
+	return nil
+}
+
+func (h *Handler) EnsureDaemonTriggerProvider(req router.Request, _ router.Response) error {
+	toolRef := req.Object.(*v1.ToolReference)
+	if toolRef.Spec.Type != types.ToolReferenceTypeDaemonTriggerProvider || toolRef.Status.Tool == nil {
+		return nil
+	}
+
+	dtps, err := providers.ConvertDaemonTriggerProviderToolRef(*toolRef, nil)
+	if err != nil {
+		return err
+	}
+	if len(dtps.RequiredConfigurationParameters) > 0 {
+		cred, err := h.gptClient.RevealCredential(req.Ctx, []string{string(toolRef.UID), system.GenericDaemonTriggerProviderCredentialContext}, toolRef.Name)
+		if err != nil {
+			if errors.As(err, &gptscript.ErrNotFound{}) {
+				// Unable to find credential, ensure all models remove for this model provider
+				return nil
+			}
+			return err
+		}
+		dtps, err = providers.ConvertDaemonTriggerProviderToolRef(*toolRef, cred.Env)
+		if err != nil {
+			return err
+		}
+
+		if !dtps.Configured {
+			return nil
+		}
+	}
+
+	url, err := h.dispatcher.URLForDaemonTriggerProvider(req.Ctx, req.Namespace, toolRef.Name)
+	if err != nil {
+		return err
+	}
+
+	// TODO(njhale): Remove debug logging
+	log.Warnf("Daemon trigger provider running at: %q", url.String())
 	return nil
 }
 

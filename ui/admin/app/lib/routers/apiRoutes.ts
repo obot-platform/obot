@@ -314,7 +314,19 @@ export const ApiRoutes = {
 		revealAuthProviderById: (authProviderId: string) =>
 			buildUrl(`/auth-providers/${authProviderId}/reveal`),
 		deconfigureAuthProviderById: (authProviderId: string) =>
-			buildUrl(`/auth-providers/${authProviderId}/deconfigure`), // TODO - implement this in the backend
+			buildUrl(`/auth-providers/${authProviderId}/deconfigure`),
+	},
+	triggerProviders: {
+		base: () => buildUrl("/trigger-providers"),
+		getTriggerProviders: () => buildUrl("/trigger-providers"),
+		getTriggerProviderById: (triggerProviderId: string) =>
+			buildUrl(`/trigger-providers/${triggerProviderId}`),
+		configureTriggerProviderById: (triggerProviderId: string) =>
+			buildUrl(`/trigger-providers/${triggerProviderId}/configure`),
+		revealTriggerProviderById: (triggerProviderId: string) =>
+			buildUrl(`/trigger-providers/${triggerProviderId}/reveal`),
+		deconfigureTriggerProviderById: (triggerProviderId: string) =>
+			buildUrl(`/trigger-providers/${triggerProviderId}/deconfigure`),
 	},
 	bootstrap: {
 		status: () => buildUrl("/bootstrap"),

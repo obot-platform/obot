@@ -24,10 +24,12 @@ func Router(services *services.Services) (http.Handler, error) {
 	toolRefs := handlers.NewToolReferenceHandler(services.GPTClient)
 	webhooks := handlers.NewWebhookHandler()
 	cronJobs := handlers.NewCronJobHandler()
+	daemonTriggers := new(handlers.DaemonTriggerHandler)
 	models := handlers.NewModelHandler()
 	availableModels := handlers.NewAvailableModelsHandler(services.GPTClient, services.ProviderDispatcher)
 	modelProviders := handlers.NewModelProviderHandler(services.GPTClient, services.ProviderDispatcher, services.Invoker)
 	authProviders := handlers.NewAuthProviderHandler(services.GPTClient, services.ProviderDispatcher)
+	daemonTriggerProviders := handlers.NewDaemonTriggerProviderHandler(services.GPTClient, services.ProviderDispatcher, services.Invoker)
 	prompt := handlers.NewPromptHandler(services.GPTClient)
 	emailreceiver := handlers.NewEmailReceiverHandler(services.EmailServerName)
 	defaultModelAliases := handlers.NewDefaultModelAliasHandler()
@@ -305,6 +307,13 @@ func Router(services *services.Services) (http.Handler, error) {
 	mux.HandleFunc("PUT /api/cronjobs/{id}", cronJobs.Update)
 	mux.HandleFunc("POST /api/cronjobs/{id}", cronJobs.Execute)
 
+	// DaemonTriggers
+	mux.HandleFunc("GET /api/daemon-triggers/{id}", cronJobs.ByID)
+	mux.HandleFunc("GET /api/daemon-triggers", cronJobs.List)
+	mux.HandleFunc("POST /api/daemon-triggers", daemonTriggers.Create)
+	mux.HandleFunc("PUT /api/daemon-triggers/{id}", daemonTriggers.Update)
+	mux.HandleFunc("DELETE /api/daemon-triggers/{id}", cronJobs.Delete)
+
 	// debug
 	mux.HTTPHandle("GET /debug/pprof/", http.DefaultServeMux)
 
@@ -323,6 +332,14 @@ func Router(services *services.Services) (http.Handler, error) {
 	mux.HandleFunc("POST /api/auth-providers/{id}/configure", authProviders.Configure)
 	mux.HandleFunc("POST /api/auth-providers/{id}/deconfigure", authProviders.Deconfigure)
 	mux.HandleFunc("POST /api/auth-providers/{id}/reveal", authProviders.Reveal)
+
+	// Daemon trigger providers
+	mux.HandleFunc("GET /api/daemon-trigger-providers", daemonTriggerProviders.List)
+	mux.HandleFunc("GET /api/daemon-trigger-providers/{id}", daemonTriggerProviders.ByID)
+	mux.HandleFunc("POST /api/daemon-trigger-providers/{id}/options", daemonTriggerProviders.Options)
+	mux.HandleFunc("POST /api/daemon-trigger-providers/{id}/configure", daemonTriggerProviders.Configure)
+	mux.HandleFunc("POST /api/daemon-trigger-providers/{id}/deconfigure", daemonTriggerProviders.Deconfigure)
+	mux.HandleFunc("POST /api/daemon-trigger-providers/{id}/reveal", daemonTriggerProviders.Reveal)
 
 	// Bootstrap
 	mux.HandleFunc("GET /api/bootstrap", services.Bootstrapper.IsEnabled)

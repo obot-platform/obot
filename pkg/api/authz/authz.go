@@ -13,12 +13,13 @@ const (
 	AdminGroup           = "admin"
 	AuthenticatedGroup   = "authenticated"
 	UnauthenticatedGroup = "unauthenticated"
+	WorkflowsManageScope = "workflows:manage"
 
 	// anyGroup is an internal group that allows access to any group
 	anyGroup = "*"
 )
 
-var staticRules = map[string][]string{
+var staticGroupRules = map[string][]string{
 	AdminGroup: {
 		// Yay! Everything
 		"/",
@@ -69,6 +70,13 @@ var staticRules = map[string][]string{
 	},
 }
 
+var staticScopeRules = map[string][]string{
+	WorkflowsManageScope: {
+		"/api/workflows/",
+		"/api/daemon-triggers/",
+	},
+}
+
 var devModeRules = map[string][]string{
 	anyGroup: {
 		"/node_modules/",
@@ -94,8 +102,14 @@ func NewAuthorizer(storage kclient.Client, devMode bool) *Authorizer {
 
 func (a *Authorizer) Authorize(req *http.Request, user user.Info) bool {
 	userGroups := user.GetGroups()
+	userScopes := user.GetExtra()["obot:extraScopes"]
 	for _, r := range a.rules {
 		if r.group == anyGroup || slices.Contains(userGroups, r.group) {
+			if _, pattern := r.mux.Handler(req); pattern != "" {
+				return true
+			}
+		}
+		if r.scope != "" && slices.Contains(userScopes, r.scope) {
 			if _, pattern := r.mux.Handler(req); pattern != "" {
 				return true
 			}
@@ -115,6 +129,7 @@ func (a *Authorizer) Authorize(req *http.Request, user user.Info) bool {
 
 type rule struct {
 	group string
+	scope string
 	mux   *http.ServeMux
 }
 
@@ -124,12 +139,23 @@ func defaultRules(devMode bool) []rule {
 		f     = (*fake)(nil)
 	)
 
-	for _, group := range slices.Sorted(maps.Keys(staticRules)) {
+	for _, group := range slices.Sorted(maps.Keys(staticGroupRules)) {
 		rule := rule{
 			group: group,
 			mux:   http.NewServeMux(),
 		}
-		for _, url := range staticRules[group] {
+		for _, url := range staticGroupRules[group] {
+			rule.mux.Handle(url, f)
+		}
+		rules = append(rules, rule)
+	}
+
+	for _, scope := range slices.Sorted(maps.Keys(staticScopeRules)) {
+		rule := rule{
+			scope: scope,
+			mux:   http.NewServeMux(),
+		}
+		for _, url := range staticScopeRules[scope] {
 			rule.mux.Handle(url, f)
 		}
 		rules = append(rules, rule)

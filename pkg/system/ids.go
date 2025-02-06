@@ -12,6 +12,7 @@ const (
 	WorkspacePrefix         = "wksp1"
 	WebhookPrefix           = "wh1"
 	CronJobPrefix           = "cj1"
+	DaemonTriggerPrefix     = "dt1"
 	KnowledgeSourcePrefix   = "ks1"
 	OAuthAppPrefix          = "oa1"
 	KnowledgeSetPrefix      = "kst1"

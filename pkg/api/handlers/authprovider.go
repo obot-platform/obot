@@ -46,7 +46,7 @@ func (ap *AuthProviderHandler) ByID(req api.Context) error {
 
 	var credEnvVars map[string]string
 	if ref.Status.Tool != nil {
-		aps, err := providers.ConvertModelProviderToolRef(ref, nil)
+		aps, err := providers.ConvertAuthProviderToolRef(ref, nil)
 		if err != nil {
 			return err
 		}
@@ -185,7 +185,9 @@ func (ap *AuthProviderHandler) Configure(req api.Context) error {
 		return fmt.Errorf("failed to create credential for auth provider %q: %w", ref.Name, err)
 	}
 
-	ap.dispatcher.StopAuthProvider(ref.Namespace, ref.Name)
+	if err := ap.dispatcher.StopProvider(types.ToolReferenceTypeAuthProvider, ref.Namespace, ref.Name); err != nil {
+		return fmt.Errorf("failed to stop model provider: %w", err)
+	}
 
 	if ref.Annotations[v1.AuthProviderSyncAnnotation] == "" {
 		if ref.Annotations == nil {
@@ -223,7 +225,9 @@ func (ap *AuthProviderHandler) Deconfigure(req api.Context) error {
 	}()
 
 	// Stop the auth provider so that the credential is completely removed from the system.
-	ap.dispatcher.StopAuthProvider(ref.Namespace, ref.Name)
+	if err := ap.dispatcher.StopProvider(types.ToolReferenceTypeAuthProvider, ref.Namespace, ref.Name); err != nil {
+		return fmt.Errorf("failed to stop model provider: %w", err)
+	}
 
 	if ref.Annotations[v1.AuthProviderSyncAnnotation] == "" {
 		if ref.Annotations == nil {
