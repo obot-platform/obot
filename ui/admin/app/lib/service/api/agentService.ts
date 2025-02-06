@@ -18,11 +18,11 @@ import { downloadUrl } from "~/lib/utils/downloadFile";
 
 const getAgents = createFetcher(
 	z.object({}),
-	async (_, config = {}) => {
+	async (_, { signal }) => {
 		const res = await request<{ items: Agent[] }>({
 			url: ApiRoutes.agents.base().url,
 			errorMessage: "Failed to fetch agents",
-			...config,
+			signal,
 		});
 
 		return res.data.items ?? ([] as Agent[]);
@@ -32,11 +32,11 @@ const getAgents = createFetcher(
 
 const getAgentById = createFetcher(
 	z.object({ agentId: z.string() }),
-	async ({ agentId }, config = {}) => {
+	async ({ agentId }, { signal }) => {
 		const res = await request<Agent>({
 			url: ApiRoutes.agents.getById(agentId).url,
 			errorMessage: "Failed to fetch agent",
-			...config,
+			signal,
 		});
 
 		return res.data;
@@ -85,12 +85,12 @@ const deleteAgent = createMutator(
 
 const getAuthUrlForAgent = createFetcher(
 	z.object({ agentId: z.string(), toolRef: z.string() }),
-	async ({ agentId, toolRef }, config = {}) => {
+	async ({ agentId, toolRef }, { signal }) => {
 		const res = await request<Agent>({
 			url: ApiRoutes.agents.getAuthUrlForAgent(agentId, toolRef).url,
 			errorMessage: "Failed to get auth url for agent",
 			method: "POST",
-			...config,
+			signal,
 		});
 
 		return res.data.authStatus?.[toolRef];
@@ -100,11 +100,11 @@ const getAuthUrlForAgent = createFetcher(
 
 const getAgentAuthorizations = createFetcher(
 	z.object({ agentId: z.string() }),
-	async ({ agentId }, config = {}) => {
+	async ({ agentId }, { signal }) => {
 		const res = await request<{ items: AgentAuthorization[] }>({
 			url: ApiRoutes.agents.getAuthorizations(agentId).url,
 			errorMessage: "Failed to fetch agent authorizations",
-			...config,
+			signal,
 		});
 
 		return res.data.items;
@@ -118,13 +118,13 @@ type AddAgentAuthorizationParams = {
 };
 
 const addAgentAuthorization = createMutator(
-	async ({ agentId, userId }: AddAgentAuthorizationParams, config) => {
+	async ({ agentId, userId }: AddAgentAuthorizationParams, { signal }) => {
 		await request({
 			url: ApiRoutes.agents.addAuthorization(agentId).url,
 			method: "POST",
 			data: { userId },
 			errorMessage: "Failed to add agent authorization",
-			...config,
+			signal,
 		});
 	}
 );
@@ -135,24 +135,24 @@ type RemoveAgentAuthorizationParams = {
 };
 
 const removeAgentAuthorization = createMutator(
-	async ({ agentId, userId }: RemoveAgentAuthorizationParams, config) => {
+	async ({ agentId, userId }: RemoveAgentAuthorizationParams, { signal }) => {
 		await request({
 			url: ApiRoutes.agents.removeAuthorization(agentId).url,
 			method: "POST",
 			data: { userId },
 			errorMessage: "Failed to remove agent authorization",
-			...config,
+			signal,
 		});
 	}
 );
 
 const getWorkspaceFiles = createFetcher(
 	z.object({ agentId: z.string() }),
-	async ({ agentId }, config = {}) => {
+	async ({ agentId }, { signal }) => {
 		const res = await request<EntityList<WorkspaceFile>>({
 			url: ApiRoutes.agents.getWorkspaceFiles(agentId).url,
 			errorMessage: "Failed to fetch workspace files",
-			...config,
+			signal,
 		});
 
 		return res.data.items;
@@ -166,14 +166,14 @@ type UploadWorkspaceFileParams = {
 };
 
 const uploadWorkspaceFile = createMutator(
-	async ({ agentId, file }: UploadWorkspaceFileParams, config = {}) => {
+	async ({ agentId, file }: UploadWorkspaceFileParams, { signal }) => {
 		await request({
 			url: ApiRoutes.agents.uploadWorkspaceFile(agentId, file.name).url,
 			method: "POST",
 			data: await file.arrayBuffer(),
 			headers: { "Content-Type": "application/x-www-form-urlencoded" },
 			errorMessage: "Failed to add knowledge to agent",
-			...config,
+			signal,
 		});
 
 		return file.name;
@@ -186,12 +186,12 @@ type DeleteWorkspaceFileParams = {
 };
 
 const deleteWorkspaceFile = createMutator(
-	async ({ agentId, fileName }: DeleteWorkspaceFileParams, config) => {
+	async ({ agentId, fileName }: DeleteWorkspaceFileParams, { signal }) => {
 		await request({
 			url: ApiRoutes.agents.removeWorkspaceFile(agentId, fileName).url,
 			method: "DELETE",
 			errorMessage: "Failed to delete workspace file",
-			...config,
+			signal,
 		});
 
 		return fileName;
