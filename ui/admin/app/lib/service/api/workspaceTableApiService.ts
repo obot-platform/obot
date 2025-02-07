@@ -11,6 +11,8 @@ import {
 	WorkspaceTableRows,
 } from "~/components/model/tables";
 
+const param = (x: string) => x as Todo;
+
 const Keys = {
 	getTables: (namespace: TableNamespace, entityId: string) => [
 		namespace,
@@ -43,11 +45,7 @@ const getTables = createFetcher(
 
 		return QueryService.paginate(searched, query.pagination);
 	},
-	(params) => [
-		...Keys.getTables(params.namespace, params.entityId),
-		params.filters,
-		params.query,
-	]
+	() => ApiRoutes.workspace.getTables(param(":namespace"), ":entityId").path
 );
 
 const getTableRows = createFetcher(
@@ -80,11 +78,12 @@ const getTableRows = createFetcher(
 
 		return { ...data, ...rest };
 	},
-	({ namespace, entityId, tableName, filters, query }) => [
-		...Keys.getTableRows(namespace, entityId, tableName),
-		filters,
-		query,
-	]
+	() =>
+		ApiRoutes.workspace.getTableRows(
+			param(":namespace"),
+			":entityId",
+			":tableName"
+		).path
 );
 
 export const WorkspaceTableApiService = {

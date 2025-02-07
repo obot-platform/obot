@@ -1,47 +1,11 @@
-import { mutate } from "swr";
 import { ZodRawShape, z } from "zod";
+
+import { type KeyObj, revalidateObject } from "~/lib/service/revalidation";
 
 type FetcherConfig = {
 	signal?: AbortSignal;
 	cancellable?: boolean;
 };
-
-/**
- * Allows us to skip matching on specific key segments
- * @example
- * revalidateArray(["Agents", SkipKey])
- * // will revalidate the following keys:
- * ["Agents", "1234"]
- * ["Agents", "5678"]
- * // but not:
- * ["Agents", "1234", "Threads"]
- * ["Agents", "1234", "Threads", "5678"]
- *
- * // If exact is false:
- * revalidateArray(["Agents", SkipKey], false)
- * // will also revalidate the following keys:
- * ["Agents", "1234", "Threads"]
- * ["Agents", "1234", "Threads", "5678"]
- */
-export const SkipKey = Symbol("SkipKey");
-
-/**
- * Revalidates all keys that match the given key
- * @param key - The key to match. Use SkipKey to skip matching on specific segments
- * @param exact - Whether the key must match exactly
- */
-export const revalidateArray = <TKey extends unknown[]>(
-	key: TKey,
-	exact = true
-) =>
-	mutate((cacheKey) => {
-		if (!Array.isArray(cacheKey)) return false;
-
-		return (
-			key.every((k, i) => [cacheKey[i], SkipKey].includes(k)) &&
-			(!exact || cacheKey.length === key.length)
-		);
-	});
 
 /**
  * Creates a fetcher for a given API function
@@ -50,14 +14,10 @@ export const revalidateArray = <TKey extends unknown[]>(
  * @param key - The function that generates the UNIQUE key for the given params. This should include all dependencies of the method
  * @returns The fetcher
  */
-export const createFetcher = <
-	TParams extends object,
-	TKey extends unknown[],
-	TResponse,
->(
+export const createFetcher = <TParams extends object, TResponse>(
 	input: z.ZodSchema<TParams>,
 	handler: (params: TParams, config: FetcherConfig) => Promise<TResponse>,
-	key: (params: TParams) => TKey
+	key: () => string
 ) => {
 	type KeyParams = NullishPartial<TParams>;
 
@@ -80,21 +40,23 @@ export const createFetcher = <
 			Object.entries(getShape()).map(([key, schema]) => [
 				key,
 				// this means that if a parameter would cause an error, it will be skipped
-				schema.catch(SkipKey),
+				schema.optional().default(undefined).catch(undefined),
 			])
 		)
 	);
 
 	// this function will return null if the params are invalid
 	// SWR will not call the handler if the key is null
-	const buildKey = (params: KeyParams) => {
+	const buildKey = (params: KeyParams): Nullish<KeyObj<TParams>> => {
 		const { data } = input.safeParse(params);
-		return data ? key(data) : null;
+		return data ? { key: key(), params: data } : null;
 	};
 
-	const buildRevalidator = (params: KeyParams, exact?: boolean) => {
+	const revalidate = (params: KeyParams = {}) => {
 		const data = skippedSchema.parse(params);
-		revalidateArray(key(data as TParams), exact);
+
+		const keyObj = { key: key(), params: data };
+		revalidateObject(keyObj);
 	};
 
 	const handleFetch = (params: TParams, config: FetcherConfig) => {
@@ -125,8 +87,7 @@ export const createFetcher = <
 				() => handleFetch(params as TParams, restConfig),
 			] as const;
 		},
-		revalidate: (params: KeyParams = {}, exact?: boolean) =>
-			buildRevalidator(params, exact),
+		revalidate,
 	};
 };
 

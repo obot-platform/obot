@@ -6,11 +6,6 @@ import { ApiRoutes } from "~/lib/routers/apiRoutes";
 import { request } from "~/lib/service/api/primitives";
 import { createFetcher } from "~/lib/service/api/service-primitives";
 
-const keys = {
-	all: () => ["cronjobs"],
-	byId: (id: string) => ["cronjobs", id],
-};
-
 const getAll = createFetcher(
 	z.object({
 		filters: z
@@ -29,7 +24,7 @@ const getAll = createFetcher(
 
 		return data.items?.filter((item) => item.workflow === workflowId) ?? [];
 	},
-	({ filters }) => [...keys.all(), filters]
+	() => ApiRoutes.cronjobs.getCronJobs().path
 );
 
 const getById = createFetcher(
@@ -39,7 +34,7 @@ const getById = createFetcher(
 		const { data } = await request<CronJob>({ url, signal });
 		return data;
 	},
-	({ id }) => keys.byId(id)
+	() => ApiRoutes.cronjobs.getCronJobById(":id").path
 );
 
 async function createCronJob(cronJob: CronJobBase) {

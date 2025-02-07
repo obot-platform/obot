@@ -58,7 +58,7 @@ export function AgentProvider({
 			AgentService.updateAgent({ id: agentId, agent: updatedAgent })
 				.then((updatedAgent) => {
 					getAgent.mutate(updatedAgent);
-					AgentService.getAgents.revalidate({});
+					AgentService.getAgents.revalidate();
 					setLastSaved(new Date());
 				})
 				.catch(console.error),

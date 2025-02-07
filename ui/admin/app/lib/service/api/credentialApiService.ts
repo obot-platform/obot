@@ -6,13 +6,7 @@ import { ApiRoutes } from "~/lib/routers/apiRoutes";
 import { request } from "~/lib/service/api/primitives";
 import { createFetcher } from "~/lib/service/api/service-primitives";
 
-const keys = {
-	byEntity: (namespace: CredentialNamespace, entityId: string) => [
-		namespace,
-		entityId,
-		"credentials",
-	],
-};
+const param = (x: string) => x as Todo;
 
 const getCredentialsFetcher = createFetcher(
 	z.object({
@@ -25,7 +19,8 @@ const getCredentialsFetcher = createFetcher(
 
 		return data.items ?? [];
 	},
-	({ namespace, entityId }) => keys.byEntity(namespace, entityId)
+	() =>
+		ApiRoutes.credentials.getCredentials(param(":namespace"), ":entityId").path
 );
 
 async function deleteCredential(
