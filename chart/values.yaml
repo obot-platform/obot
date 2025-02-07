@@ -57,7 +57,7 @@ config:
   awsAccessKeyID: ""
   awsRegion: ""
   awsSecretAccessKey: ""
-  nahThreadiness: "100"
+  nahThreadiness: "10000"
   knowledgeFileWorkers: "5"
 
   githubAuthToken: ""
