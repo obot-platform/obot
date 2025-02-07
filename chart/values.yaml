@@ -57,7 +57,8 @@ config:
   awsAccessKeyID: ""
   awsRegion: ""
   awsSecretAccessKey: ""
-  baaahThreadiness: "20"
+  nahThreadiness: "100"
+  knowledgeFileWorkers: "5"
 
   githubAuthToken: ""
   obotServerEnableAuthentication: true
