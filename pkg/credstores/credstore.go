@@ -60,18 +60,14 @@ func Init(ctx context.Context, toolRegistries []string, dsn string, opts Options
 		if err := setUpGoogleKMS(ctx, opts.GCPKMSKeyURI, opts.EncryptionConfigFile); err != nil {
 			return "", nil, fmt.Errorf("failed to setup Google Cloud KMS: %w", err)
 		}
-	case "custom":
-		if err := os.Setenv("GPTSCRIPT_ENCRYPTION_CONFIG_FILE", opts.EncryptionProvider); err != nil {
-			return "", nil, fmt.Errorf("failed to set GPTSCRIPT_ENCRYPTION_CONFIG_FILE: %w", err)
-		}
 	}
 
 	// Set up database
 	switch {
 	case strings.HasPrefix(dsn, "sqlite://"):
-		return setUpSQLite(toolRegistries, dsn)
+		return setUpSQLite(toolRegistries, dsn, opts.EncryptionConfigFile)
 	case strings.HasPrefix(dsn, "postgres://"):
-		return setUpPostgres(toolRegistries, dsn)
+		return setUpPostgres(toolRegistries, dsn, opts.EncryptionConfigFile)
 	default:
 		return "", nil, fmt.Errorf("unsupported database for credentials %s", strings.Split(dsn, "://")[0])
 	}
@@ -144,7 +140,7 @@ func setUpAWSKMS(ctx context.Context, arn, configFile string) error {
 	return nil
 }
 
-func setUpPostgres(toolRegistries []string, dsn string) (string, []string, error) {
+func setUpPostgres(toolRegistries []string, dsn, encryptionConfigFile string) (string, []string, error) {
 	toolRef, err := resolveToolRef(toolRegistries, "credential-stores/postgres")
 	if err != nil {
 		return "", nil, err
@@ -152,11 +148,11 @@ func setUpPostgres(toolRegistries []string, dsn string) (string, []string, error
 
 	return toolRef, []string{
 		"GPTSCRIPT_POSTGRES_DSN=" + dsn,
-		"GPTSCRIPT_ENCRYPTION_CONFIG_FILE=" + os.Getenv("GPTSCRIPT_ENCRYPTION_CONFIG_FILE"),
+		"GPTSCRIPT_ENCRYPTION_CONFIG_FILE=" + encryptionConfigFile,
 	}, nil
 }
 
-func setUpSQLite(toolRegistries []string, dsn string) (string, []string, error) {
+func setUpSQLite(toolRegistries []string, dsn, encryptionConfigFile string) (string, []string, error) {
 	dbFile, ok := strings.CutPrefix(dsn, "sqlite://file:")
 	if !ok {
 		return "", nil, fmt.Errorf("invalid sqlite dsn, must start with sqlite://file: %s", dsn)
@@ -176,7 +172,7 @@ func setUpSQLite(toolRegistries []string, dsn string) (string, []string, error) 
 
 	return toolRef, []string{
 		"GPTSCRIPT_SQLITE_FILE=" + dbFile,
-		"GPTSCRIPT_ENCRYPTION_CONFIG_FILE=" + os.Getenv("GPTSCRIPT_ENCRYPTION_CONFIG_FILE"),
+		"GPTSCRIPT_ENCRYPTION_CONFIG_FILE=" + encryptionConfigFile,
 	}, nil
 }
 
