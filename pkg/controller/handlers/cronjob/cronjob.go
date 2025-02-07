@@ -45,8 +45,19 @@ func GetSchedule(cronJob v1.CronJob) string {
 func (h *Handler) Run(req router.Request, resp router.Response) error {
 	cj := req.Object.(*v1.CronJob)
 	lastRun := cj.Status.LastRunStartedAt
+	var location *time.Location
+	if cj.Spec.Timezone != "" {
+		loc, err := time.LoadLocation(cj.Spec.Timezone)
+		if err == nil {
+			location = loc
+		}
+	}
 	if lastRun.IsZero() {
-		lastRun = &cj.CreationTimestamp
+		if location != nil {
+			lastRun = &metav1.Time{Time: time.Now().In(location)}
+		} else {
+			lastRun = &metav1.Time{Time: time.Now()}
+		}
 	}
 
 	next, err := gronx.NextTickAfter(GetSchedule(*cj), lastRun.Time, false)
@@ -84,7 +95,11 @@ func (h *Handler) Run(req router.Request, resp router.Response) error {
 		return err
 	}
 
-	cj.Status.LastRunStartedAt = &[]metav1.Time{metav1.Now()}[0]
+	if location != nil {
+		cj.Status.LastRunStartedAt = &metav1.Time{Time: time.Now().In(location)}
+	} else {
+		cj.Status.LastRunStartedAt = &metav1.Time{Time: time.Now()}
+	}
 
 	return nil
 }

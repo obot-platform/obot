@@ -5,6 +5,7 @@ import { CronJob } from "~/lib/model/cronjobs";
 import { Button } from "~/components/ui/button";
 import { CardDescription } from "~/components/ui/card";
 import { ScheduleSelection } from "~/components/workflow-triggers/shared/ScheduleSelection";
+import { TimezoneSelection } from "~/components/workflow-triggers/shared/TimezoneSelection";
 import { useCronjob } from "~/hooks/cronjob/useCronjob";
 
 const defaultSchedule = {
@@ -28,6 +29,14 @@ export function WorkflowScheduleTab({ workflowId }: { workflowId: string }) {
 		});
 	};
 
+	const handleTimezoneUpdate = (cronJob: CronJob, timezone: string) => {
+		const { id: cronJobId, ...rest } = cronJob;
+		updateCronJob(cronJobId, {
+			...rest,
+			timezone,
+		});
+	};
+
 	return (
 		<div className="flex flex-col gap-4">
 			<CardDescription>
@@ -43,6 +52,12 @@ export function WorkflowScheduleTab({ workflowId }: { workflowId: string }) {
 							}
 							value={cronJob?.schedule ?? ""}
 						/>
+
+						<TimezoneSelection
+							onChange={(timezone) => handleTimezoneUpdate(cronJob, timezone)}
+							value={cronJob?.timezone}
+						/>
+
 						<Button
 							size="icon"
 							variant="ghost"
@@ -64,6 +79,7 @@ export function WorkflowScheduleTab({ workflowId }: { workflowId: string }) {
 					createCronJob.execute({
 						...defaultSchedule,
 						workflow: workflowId,
+						timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
 					})
 				}
 			>

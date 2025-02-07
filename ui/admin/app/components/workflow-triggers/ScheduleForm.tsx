@@ -26,12 +26,14 @@ import {
 	SelectValue,
 } from "~/components/ui/select";
 import { ScheduleSelection } from "~/components/workflow-triggers/shared/ScheduleSelection";
+import { TimezoneSelection } from "~/components/workflow-triggers/shared/TimezoneSelection";
 import { useAsync } from "~/hooks/useAsync";
 
 const formSchema = z.object({
 	description: z.string(),
 	workflow: z.string().min(1, "Workflow is required"),
 	schedule: z.string(),
+	timezone: z.string(),
 });
 
 export type ScheduleFormValues = z.infer<typeof formSchema>;
@@ -71,6 +73,8 @@ export function ScheduleForm({ cronjob }: { cronjob?: CronJob }) {
 			description: cronjob?.description || "",
 			workflow: cronjob?.workflow || "",
 			schedule: cronjob?.schedule || "0 * * * *", // default to hourly
+			timezone:
+				cronjob?.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone,
 		},
 	});
 
@@ -115,6 +119,20 @@ export function ScheduleForm({ cronjob }: { cronjob?: CronJob }) {
 						}}
 						value={form.watch("schedule")}
 					/>
+
+					<ControlledCustomInput
+						control={form.control}
+						name="timezone"
+						label="Timezone"
+						description="The timezone to use for the schedule."
+					>
+						{({ field }) => (
+							<TimezoneSelection
+								value={field.value}
+								onChange={field.onChange}
+							/>
+						)}
+					</ControlledCustomInput>
 
 					<ControlledCustomInput
 						control={form.control}

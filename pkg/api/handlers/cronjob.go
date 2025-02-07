@@ -144,6 +144,7 @@ func convertCronJob(cronJob v1.CronJob) types.CronJob {
 		LastRunStartedAt:           v1.NewTime(cronJob.Status.LastRunStartedAt),
 		LastSuccessfulRunCompleted: v1.NewTime(cronJob.Status.LastSuccessfulRunCompleted),
 		NextRunAt:                  types.NewTimeFromPointer(nextRunAt),
+		Timezone:                   cronJob.Spec.Timezone,
 	}
 }
 
