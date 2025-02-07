@@ -22,4 +22,5 @@ export const CommonAuthProviderIds = {
 	GOOGLE: "google-auth-provider",
 	GITHUB: "github-auth-provider",
 	OKTA: "okta-auth-provider",
+	ENTRA: "entra-auth-provider",
 };
