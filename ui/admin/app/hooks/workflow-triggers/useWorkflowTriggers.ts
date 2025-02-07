@@ -49,8 +49,10 @@ export function useWorkflowTriggers(props?: UseWorkflowTriggersProps) {
 	}, [emailReceivers]);
 
 	const { data: cronjobs } = useSWR(
-		types.has("schedule") && CronJobApiService.getCronJobs.key(filters),
-		({ filters }) => CronJobApiService.getCronJobs(filters),
+		...CronJobApiService.getCronJobs.swr(
+			{ filters },
+			{ enabled: types.has("schedule") }
+		),
 		{ fallbackData: [] }
 	);
 

@@ -1,32 +1,31 @@
+import { z } from "zod";
+
 import { Credential, CredentialNamespace } from "~/lib/model/credentials";
 import { EntityList } from "~/lib/model/primitives";
-import { ApiRoutes, createRevalidate } from "~/lib/routers/apiRoutes";
+import { ApiRoutes } from "~/lib/routers/apiRoutes";
 import { request } from "~/lib/service/api/primitives";
+import { createFetcher } from "~/lib/service/api/service-primitives";
 
-async function getCredentials(
-	namespace: CredentialNamespace,
-	entityId: string
-) {
-	const { data } = await request<EntityList<Credential>>({
-		url: ApiRoutes.credentials.getCredentials(namespace, entityId).url,
-	});
-
-	return data.items ?? [];
-}
-getCredentials.key = (
-	namespace: CredentialNamespace,
-	entityId?: Nullish<string>
-) => {
-	if (!entityId) return null;
-
-	return {
-		url: ApiRoutes.credentials.getCredentials(namespace, entityId).path,
-		entityId,
+const keys = {
+	byEntity: (namespace: CredentialNamespace, entityId: string) => [
 		namespace,
-	};
+		entityId,
+		"credentials",
+	],
 };
-getCredentials.revalidate = createRevalidate(
-	ApiRoutes.credentials.getCredentials
+
+const getCredentialsFetcher = createFetcher(
+	z.object({
+		namespace: z.nativeEnum(CredentialNamespace),
+		entityId: z.string(),
+	}),
+	async ({ namespace, entityId }, { signal }) => {
+		const { url } = ApiRoutes.credentials.getCredentials(namespace, entityId);
+		const { data } = await request<EntityList<Credential>>({ url, signal });
+
+		return data.items ?? [];
+	},
+	({ namespace, entityId }) => keys.byEntity(namespace, entityId)
 );
 
 async function deleteCredential(
@@ -47,6 +46,6 @@ async function deleteCredential(
 }
 
 export const CredentialApiService = {
-	getCredentials,
+	getCredentials: getCredentialsFetcher,
 	deleteCredential,
 };

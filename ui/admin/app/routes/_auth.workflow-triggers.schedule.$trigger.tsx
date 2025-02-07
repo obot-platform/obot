@@ -22,8 +22,8 @@ export async function clientLoader({
 		params
 	);
 
-	await preload(CronJobApiService.getCronJobById.key(pathParams.trigger), () =>
-		CronJobApiService.getCronJobById(pathParams.trigger)
+	await preload(
+		...CronJobApiService.getCronJobById.swr({ id: pathParams.trigger })
 	);
 
 	return { cronJobId: pathParams.trigger };
@@ -32,8 +32,7 @@ export async function clientLoader({
 export default function SchedulePage() {
 	const { cronJobId } = useLoaderData<typeof clientLoader>();
 	const { data: cronjob } = useSWR(
-		CronJobApiService.getCronJobById.key(cronJobId),
-		({ cronJobId }) => CronJobApiService.getCronJobById(cronJobId)
+		...CronJobApiService.getCronJobById.swr({ id: cronJobId })
 	);
 
 	return <ScheduleForm cronjob={cronjob} />;

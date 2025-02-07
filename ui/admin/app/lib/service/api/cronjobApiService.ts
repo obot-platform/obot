@@ -1,40 +1,46 @@
-import { CronJob, CronJobBase } from "~/lib/model/cronjobs";
-import { ApiRoutes, revalidateWhere } from "~/lib/routers/apiRoutes";
-import { request } from "~/lib/service/api/primitives";
+import { z } from "zod";
 
-type CronJobFilters = {
-	workflowId?: string;
+import { CronJob, CronJobBase } from "~/lib/model/cronjobs";
+import { EntityList } from "~/lib/model/primitives";
+import { ApiRoutes } from "~/lib/routers/apiRoutes";
+import { request } from "~/lib/service/api/primitives";
+import { createFetcher } from "~/lib/service/api/service-primitives";
+
+const keys = {
+	all: () => ["cronjobs"],
+	byId: (id: string) => ["cronjobs", id],
 };
 
-async function getCronJobs(filters?: CronJobFilters) {
-	const { workflowId } = filters ?? {};
+const getAll = createFetcher(
+	z.object({
+		filters: z
+			.object({
+				workflowId: z.string().optional(),
+			})
+			.optional(),
+	}),
+	async function getCronJobs({ filters = {} }, { signal }) {
+		const { workflowId } = filters;
 
-	const { data } = await request<{ items: CronJob[] }>({
-		url: ApiRoutes.cronjobs.getCronJobs().url,
-	});
+		const { url } = ApiRoutes.cronjobs.getCronJobs();
+		const { data } = await request<EntityList<CronJob>>({ url, signal });
 
-	if (!workflowId) return data.items ?? [];
+		if (!workflowId) return data.items ?? [];
 
-	return data.items?.filter((item) => item.workflow === workflowId) ?? [];
-}
-getCronJobs.key = (filters: CronJobFilters = {}) => ({
-	url: ApiRoutes.cronjobs.getCronJobs().path,
-	filters,
-});
-getCronJobs.revalidate = () =>
-	revalidateWhere((url) => url === ApiRoutes.cronjobs.getCronJobs().path);
+		return data.items?.filter((item) => item.workflow === workflowId) ?? [];
+	},
+	({ filters }) => [...keys.all(), filters]
+);
 
-async function getCronJobById(cronJobId: string) {
-	const res = await request<CronJob>({
-		url: ApiRoutes.cronjobs.getCronJobById(cronJobId).url,
-	});
-
-	return res.data;
-}
-getCronJobById.key = (cronJobId: string) => ({
-	url: ApiRoutes.cronjobs.getCronJobById(cronJobId).path,
-	cronJobId,
-});
+const getById = createFetcher(
+	z.object({ id: z.string() }),
+	async ({ id }, { signal }) => {
+		const { url } = ApiRoutes.cronjobs.getCronJobById(id);
+		const { data } = await request<CronJob>({ url, signal });
+		return data;
+	},
+	({ id }) => keys.byId(id)
+);
 
 async function createCronJob(cronJob: CronJobBase) {
 	const res = await request<{ item: CronJob }>({
@@ -67,8 +73,8 @@ async function updateCronJob(cronJobId: string, cronJob: CronJobBase) {
 }
 
 export const CronJobApiService = {
-	getCronJobs,
-	getCronJobById,
+	getCronJobs: getAll,
+	getCronJobById: getById,
 	createCronJob,
 	deleteCronJob,
 	updateCronJob,

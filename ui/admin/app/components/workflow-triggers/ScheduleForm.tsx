@@ -4,7 +4,7 @@ import { useForm } from "react-hook-form";
 import { useNavigate } from "react-router";
 import { $path } from "safe-routes";
 import { toast } from "sonner";
-import useSWR, { mutate } from "swr";
+import useSWR from "swr";
 import { z } from "zod";
 
 import { CronJob } from "~/lib/model/cronjobs";
@@ -44,9 +44,9 @@ export function ScheduleForm({ cronjob }: { cronjob?: CronJob }) {
 
 	const handleSubmitSuccess = () => {
 		if (cronjob) {
-			mutate(CronJobApiService.getCronJobById(cronjob.id));
+			CronJobApiService.getCronJobById.revalidate(cronjob);
 		}
-		mutate(CronJobApiService.getCronJobs.key());
+		CronJobApiService.getCronJobs.revalidate();
 		navigate($path("/workflow-triggers"));
 	};
 

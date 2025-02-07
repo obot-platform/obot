@@ -113,14 +113,19 @@ export const createFetcher = <
 			handleFetch(params, config),
 		key,
 		/** Creates a SWR key and fetcher for the given params. This works for both `useSWR` and `prefetch` from SWR */
-		swr: (params: KeyParams, config: FetcherConfig = {}) => {
+		swr: (
+			params: KeyParams,
+			config: FetcherConfig & { enabled?: boolean } = {}
+		) => {
+			const { enabled = true, ...restConfig } = config;
+
 			return [
-				buildKey(params),
+				enabled ? buildKey(params) : null,
 				// casting (params as TParams) is safe here because handleFetch will never be called when params are invalid
-				() => handleFetch(params as TParams, config),
+				() => handleFetch(params as TParams, restConfig),
 			] as const;
 		},
-		revalidate: (params: KeyParams, exact?: boolean) =>
+		revalidate: (params: KeyParams = {}, exact?: boolean) =>
 			buildRevalidator(params, exact),
 	};
 };

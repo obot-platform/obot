@@ -24,9 +24,7 @@ export async function clientLoader() {
 		preload(WorkflowService.getWorkflows.key(), () =>
 			WorkflowService.getWorkflows()
 		),
-		preload(CronJobApiService.getCronJobs.key(), () =>
-			CronJobApiService.getCronJobs()
-		),
+		preload(...CronJobApiService.getCronJobs.swr({})),
 		preload(EmailReceiverApiService.getEmailReceivers.key(), () =>
 			EmailReceiverApiService.getEmailReceivers()
 		),

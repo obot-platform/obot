@@ -1,5 +1,5 @@
 import { toast } from "sonner";
-import useSWR, { mutate } from "swr";
+import useSWR from "swr";
 
 import { CronJobBase } from "~/lib/model/cronjobs";
 import { CronJobApiService } from "~/lib/service/api/cronjobApiService";
@@ -7,8 +7,8 @@ import { CronJobApiService } from "~/lib/service/api/cronjobApiService";
 import { useAsync } from "~/hooks/useAsync";
 
 export function useCronjob(workflowId?: string) {
-	const getCronJobs = useSWR(CronJobApiService.getCronJobs.key(), () =>
-		CronJobApiService.getCronJobs()
+	const getCronJobs = useSWR(
+		...CronJobApiService.getCronJobs.swr({ filters: { workflowId } })
 	);
 
 	const cronJobs = getCronJobs.data
@@ -20,7 +20,7 @@ export function useCronjob(workflowId?: string) {
 			if (error instanceof Error) toast.error("Something went wrong");
 		},
 		onSettled: () => {
-			mutate(CronJobApiService.getCronJobs.key());
+			getCronJobs.mutate();
 		},
 	});
 
@@ -29,7 +29,7 @@ export function useCronjob(workflowId?: string) {
 			if (error instanceof Error) toast.error("Something went wrong");
 		},
 		onSettled: () => {
-			mutate(CronJobApiService.getCronJobs.key());
+			getCronJobs.mutate();
 		},
 	});
 
@@ -38,7 +38,7 @@ export function useCronjob(workflowId?: string) {
 			if (error instanceof Error) toast.error("Something went wrong");
 		},
 		onSettled: () => {
-			mutate(CronJobApiService.getCronJobs.key());
+			getCronJobs.mutate();
 		},
 	});
 

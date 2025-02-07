@@ -82,12 +82,10 @@ export function useThreadAgents(threadId?: Nullish<string>) {
 
 export function useThreadCredentials(threadId: Nullish<string>) {
 	const getCredentials = useSWR(
-		CredentialApiService.getCredentials.key(
-			CredentialNamespace.Threads,
-			threadId
-		),
-		({ namespace, entityId }) =>
-			CredentialApiService.getCredentials(namespace, entityId)
+		...CredentialApiService.getCredentials.swr({
+			namespace: CredentialNamespace.Threads,
+			entityId: threadId,
+		})
 	);
 
 	const handleDeleteCredential = async (credentialName: string) => {

@@ -43,9 +43,7 @@ export const clientLoader = async ({
 		preload(WorkflowService.getWorkflowById.key(pathParams.workflow), () =>
 			WorkflowService.getWorkflowById(pathParams.workflow)
 		),
-		preload(CronJobApiService.getCronJobs.key(), () =>
-			CronJobApiService.getCronJobs()
-		),
+		preload(...CronJobApiService.getCronJobs.swr({})),
 		preload(WebhookApiService.getWebhooks.key(), () =>
 			WebhookApiService.getWebhooks()
 		),
