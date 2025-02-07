@@ -269,6 +269,9 @@
 						name={field.name}
 						bind:value={promptCredentials[field.name]}
 					/>
+					{#if field.description}
+						<p class="text-sm text-gray-500">{field.description}</p>
+					{/if}
 				</div>
 			{/each}
 
