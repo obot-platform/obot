@@ -20,8 +20,6 @@ type Options struct {
 }
 
 func (o *Options) Validate() error {
-	fmt.Printf("encryption provider: %v\n", o.EncryptionProvider)
-
 	switch strings.ToLower(o.EncryptionProvider) {
 	case "aws":
 		if o.AWSKMSKeyARN == "" {
@@ -107,8 +105,6 @@ func setUpGoogleKMS(ctx context.Context, kmsKeyURI, configFile string) error {
 			log.Fatalf("gcp-encryption-provider exited: %v", err)
 		}
 	}()
-
-	fmt.Println("started gcp helper")
 
 	return nil
 }
