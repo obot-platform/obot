@@ -57,11 +57,15 @@ config:
   awsAccessKeyID: ""
   awsRegion: ""
   awsSecretAccessKey: ""
+  gcpKMSKeyURI: ""
+
+  baaahThreadiness: "20"
   nahThreadiness: "10000"
   knowledgeFileWorkers: "5"
 
   githubAuthToken: ""
   obotServerEnableAuthentication: true
+  obotServerEncryptionProvider: "None" # "None", "AWS", "GCP"
   obotBootstrapToken: ""
   obotServerAuthAdminEmails: ""
   obotServerDSN: ""

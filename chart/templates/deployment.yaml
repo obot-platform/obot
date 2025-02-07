@@ -44,6 +44,8 @@ spec:
           env:
             - name: "OBOT_SERVER_ENABLE_AUTHENTICATION"
               value: {{ .Values.config.obotServerEnableAuthentication | quote }}
+            - name: "OBOT_SERVER_ENCRYPTION_PROVIDER"
+              value: {{ .Values.config.obotServerEncryptionProvider | quote }}
             {{- if .Values.config.awsAccessKeyID }}
             - name: "AWS_ACCESS_KEY_ID"
               valueFrom:
@@ -85,6 +87,13 @@ spec:
                 secretKeyRef:
                   name: {{ include "obot.config.secretName" . }}
                   key: githubAuthToken
+            {{- end }}
+            {{- if .Values.config.gcpKMSKeyURI }}
+            - name: "OBOT_GCP_KMS_KEY_URI"
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "obot.config.secretName" . }}
+                  key: gcpKMSKeyURI
             {{- end }}
             {{- if .Values.config.obotServerAuthAdminEmails }}
             - name: "OBOT_SERVER_AUTH_ADMIN_EMAILS"
