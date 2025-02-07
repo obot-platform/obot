@@ -61,8 +61,10 @@ type Config struct {
 	ToolRegistries             []string `usage:"The remote tool references to the set of tool registries to use" default:"github.com/obot-platform/tools" split:"true"`
 	WorkspaceProviderType      string   `usage:"The type of workspace provider to use for non-knowledge workspaces" default:"directory" env:"OBOT_WORKSPACE_PROVIDER_TYPE"`
 	HelperModel                string   `usage:"The model used to generate names and descriptions" default:"gpt-4o-mini"`
-	AWSKMSKeyARN               string   `usage:"The ARN of the AWS KMS key to use for encrypting credential storage" env:"OBOT_AWS_KMS_KEY_ARN" name:"aws-kms-key-arn"`
-	EncryptionConfigFile       string   `usage:"The path to the encryption configuration file" default:"./encryption.yaml"`
+	AWSKMSKeyARN               string   `usage:"The ARN of the AWS KMS key to use for encrypting credential storage. Only used with the AWS encryption provider." env:"OBOT_AWS_KMS_KEY_ARN" name:"aws-kms-key-arn"`
+	GCPKMSKeyURI               string   `usage:"The URI of the Google Cloud KMS key to use for encrypting credential storage. Only used with the GCP encryption provider." env:"OBOT_GCP_KMS_KEY_URI" name:"gcp-kms-key-uri"`
+	EncryptionProvider         string   `usage:"The encryption provider to use. Options are AWS, GCP, None, or Custom. Default is None." default:"None"`
+	EncryptionConfigFile       string   `usage:"The path to the encryption configuration file. Only used with the Custom encryption provider."`
 	EmailServerName            string   `usage:"The name of the email server to display for email receivers"`
 	EnableSMTPServer           bool     `usage:"Enable SMTP server to receive emails" default:"false" env:"OBOT_ENABLE_SMTP_SERVER"`
 	Docker                     bool     `usage:"Enable Docker support" default:"false" env:"OBOT_DOCKER"`
@@ -220,6 +222,8 @@ func New(ctx context.Context, config Config) (*Services, error) {
 
 	credStore, credStoreEnv, err := credstores.Init(ctx, config.ToolRegistries, config.DSN, credstores.Options{
 		AWSKMSKeyARN:         config.AWSKMSKeyARN,
+		GCPKMSKeyURI:         config.GCPKMSKeyURI,
+		EncryptionProvider:   config.EncryptionProvider,
 		EncryptionConfigFile: config.EncryptionConfigFile,
 	})
 	if err != nil {

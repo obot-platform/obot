@@ -47,7 +47,8 @@ RUN apk add --no-cache git python-3.13 py3.13-pip npm bash tini procps libreoffi
 COPY --chmod=0755 /tools/package-chrome.sh /
 
 RUN /package-chrome.sh && rm /package-chrome.sh
-COPY encryption.yaml /
+COPY aws-encryption.yaml /
+COPY gcp-encryption.yaml /
 COPY --chmod=0755 run.sh /bin/run.sh
 
 COPY --link --from=tools /app/obot-tools /obot-tools

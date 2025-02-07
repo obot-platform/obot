@@ -1,0 +1,10 @@
+apiVersion: apiserver.config.k8s.io/v1
+kind: EncryptionConfiguration
+resources:
+  - resources:
+      - credentials
+    providers:
+      - kms:
+          apiVersion: v2
+          name: google-cloud-kms
+          endpoint: unix:///tmp/gcp-cred-socket.sock
