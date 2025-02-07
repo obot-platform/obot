@@ -9,7 +9,7 @@ var toolMigrations = map[string]string{
 	"file-summarizer-file-summarizer": "file-summarizer",
 }
 
-func (h *Handler) MigrateToolNames(req router.Request, resp router.Response) error {
+func (h *Handler) MigrateToolNames(req router.Request, _ router.Response) error {
 	if len(toolMigrations) == 0 {
 		return nil
 	}

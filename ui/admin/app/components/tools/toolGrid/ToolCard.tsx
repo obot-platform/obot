@@ -21,7 +21,6 @@ import {
 import {
 	Tooltip,
 	TooltipContent,
-	TooltipProvider,
 	TooltipTrigger,
 } from "~/components/ui/tooltip";
 
@@ -108,28 +107,26 @@ export function ToolCard({
 			</CardContent>
 			{tool.commit && (
 				<CardFooter className="flex justify-end">
-					<TooltipProvider>
-						<Tooltip>
-							<TooltipTrigger asChild>
-								<Button
-									size="icon"
-									variant="ghost"
-									onClick={() => {
-										window.open(
-											getToolCommitURL(tool),
-											"_blank",
-											"noopener,noreferrer"
-										);
-									}}
-								>
-									<GitCommitIcon className="h-4 w-4" />
-								</Button>
-							</TooltipTrigger>
-							<TooltipContent>
-								<p>View Commit</p>
-							</TooltipContent>
-						</Tooltip>
-					</TooltipProvider>
+					<Tooltip>
+						<TooltipTrigger asChild>
+							<Button
+								size="icon"
+								variant="ghost"
+								onClick={() => {
+									window.open(
+										getToolCommitURL(tool),
+										"_blank",
+										"noopener,noreferrer"
+									);
+								}}
+							>
+								<GitCommitIcon className="h-4 w-4" />
+							</Button>
+						</TooltipTrigger>
+						<TooltipContent>
+							<p>View Commit</p>
+						</TooltipContent>
+					</Tooltip>
 				</CardFooter>
 			)}
 		</Card>
