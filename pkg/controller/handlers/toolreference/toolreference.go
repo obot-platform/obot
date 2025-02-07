@@ -36,9 +36,6 @@ var jsonErrRegexp = regexp.MustCompile(`\{.*"error":.*}`)
 
 type indexEntry struct {
 	Reference string `json:"reference,omitempty"`
-
-	// NameOverride is used to override the name of the top-level tool reference.
-	NameOverride string `json:"nameOverride,omitempty"`
 }
 
 type index struct {
@@ -80,7 +77,7 @@ func (h *Handler) toolsToToolReferences(ctx context.Context, toolType types.Tool
 			continue
 		}
 
-		toolRefs, err := tools.ResolveToolReferences(ctx, h.gptClient, name, entry.Reference, entry.NameOverride, true, toolType)
+		toolRefs, err := tools.ResolveToolReferences(ctx, h.gptClient, name, entry.Reference, true, toolType)
 		if err != nil {
 			log.Errorf("Failed to resolve tool references for %s: %v", entry.Reference, err)
 			continue

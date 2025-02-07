@@ -75,6 +75,7 @@ func (c *Controller) setupRoutes() error {
 	root.Type(&v1.Workflow{}).HandlerFunc(alias.AssignAlias)
 	root.Type(&v1.Workflow{}).HandlerFunc(toolInfo.SetToolInfoStatus)
 	root.Type(&v1.Workflow{}).HandlerFunc(generationed.UpdateObservedGeneration)
+	root.Type(&v1.Workflow{}).HandlerFunc(toolRef.MigrateToolNames)
 	root.Type(&v1.Workflow{}).FinalizeFunc(v1.WorkflowFinalizer, credentialCleanup.Remove)
 
 	// WorkflowExecutions
@@ -88,6 +89,7 @@ func (c *Controller) setupRoutes() error {
 	root.Type(&v1.Agent{}).HandlerFunc(alias.AssignAlias)
 	root.Type(&v1.Agent{}).HandlerFunc(toolInfo.SetToolInfoStatus)
 	root.Type(&v1.Agent{}).HandlerFunc(generationed.UpdateObservedGeneration)
+	root.Type(&v1.Agent{}).HandlerFunc(toolRef.MigrateToolNames)
 	root.Type(&v1.Agent{}).FinalizeFunc(v1.AgentFinalizer, credentialCleanup.Remove)
 
 	// Uploads
