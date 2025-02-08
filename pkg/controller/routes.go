@@ -62,6 +62,7 @@ func (c *Controller) setupRoutes() error {
 	root.Type(&v1.Thread{}).HandlerFunc(threads.CreateKnowledgeSet)
 	root.Type(&v1.Thread{}).HandlerFunc(threads.WorkflowState)
 	root.Type(&v1.Thread{}).HandlerFunc(knowledgesummary.Summarize)
+	root.Type(&v1.Thread{}).HandlerFunc(toolRef.MigrateToolNames)
 	root.Type(&v1.Thread{}).FinalizeFunc(v1.ThreadFinalizer, credentialCleanup.Remove)
 
 	// KnowledgeSummary
@@ -169,6 +170,7 @@ func (c *Controller) setupRoutes() error {
 	steps.HandlerFunc(changeWorkflowStepOwnerGVK)
 	steps.HandlerFunc(cleanup.Cleanup)
 	steps.HandlerFunc(handlers.GCOrphans)
+	steps.HandlerFunc(toolRef.MigrateToolNames)
 
 	running := steps.Middleware(workflowStep.Preconditions)
 	running.HandlerFunc(workflowStep.RunInvoke)

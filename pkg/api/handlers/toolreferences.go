@@ -112,8 +112,6 @@ func (a *ToolReferenceHandler) Create(req api.Context) (err error) {
 		return apierrors.NewBadRequest("reference is required")
 	}
 
-	newToolReference.Reference = strings.TrimPrefix(strings.TrimPrefix(newToolReference.Reference, "https://"), "http://")
-
 	if newToolReference.Name == "" {
 		newToolReference.Name, err = a.pickNameForReference(req, newToolReference.Reference)
 		if err != nil {
