@@ -56,7 +56,9 @@ export default function ChatAgent() {
 
 	return (
 		<ScrollArea className="h-full" enableScrollStick="bottom">
-			<div className={cn("relative mx-auto flex h-full max-w-3xl flex-col")}>
+			<div
+				className={cn("relative mx-auto flex h-full max-w-screen-md flex-col")}
+			>
 				<AgentProvider agent={agent}>
 					<Agent key={agent.id} />
 				</AgentProvider>

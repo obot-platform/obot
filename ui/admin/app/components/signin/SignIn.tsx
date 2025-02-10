@@ -6,12 +6,7 @@ import { BootstrapForm } from "~/components/auth-and-model-providers/BootstrapFo
 import { ProviderIcon } from "~/components/auth-and-model-providers/ProviderIcon";
 import { ObotLogo } from "~/components/branding/ObotLogo";
 import { Button } from "~/components/ui/button";
-import {
-	Card,
-	CardDescription,
-	CardHeader,
-	CardTitle,
-} from "~/components/ui/card";
+import { Card, CardDescription, CardHeader } from "~/components/ui/card";
 import { useAuthProviders } from "~/hooks/auth-providers/useAuthProviders";
 import { useAuthStatus } from "~/hooks/auth/useAuthStatus";
 
@@ -43,9 +38,9 @@ export function SignIn({ className }: SignInProps) {
 				)}
 			>
 				<CardHeader>
-					<CardTitle className="flex items-center justify-center">
+					<div className="flex items-center justify-center">
 						<ObotLogo />
-					</CardTitle>
+					</div>
 					{configuredAuthProviders.length > 0 && (
 						<CardDescription className="mx-auto w-3/4 pt-4 text-center">
 							Please sign in using an option below.
