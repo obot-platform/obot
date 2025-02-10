@@ -2,9 +2,34 @@ import { ZodRawShape, z } from "zod";
 
 import { type KeyObj, revalidateObject } from "~/lib/service/revalidation";
 
-type FetcherConfig = {
+export type FetcherConfig = {
 	signal?: AbortSignal;
 	cancellable?: boolean;
+};
+
+type FetcherSWR<TParams extends object, TResponse> = (
+	params: NullishPartial<TParams>,
+	config?: FetcherConfig & {
+		enabled?: boolean;
+	}
+) => [Nullish<KeyObj<TParams>>, () => Promise<TResponse>];
+
+type FetcherHandler<TParams extends object, TResponse> = (
+	params: TParams,
+	config?: FetcherConfig
+) => Promise<TResponse>;
+
+type FetcherRevalidate<TParams extends object> = (
+	params?: NullishPartial<TParams>
+) => void;
+
+type FetcherKey = () => string;
+
+export type CreateFetcherReturn<TParams extends object, TResponse> = {
+	handler: FetcherHandler<TParams, TResponse>;
+	key: FetcherKey;
+	swr: FetcherSWR<TParams, TResponse>;
+	revalidate: FetcherRevalidate<TParams>;
 };
 
 /**
@@ -17,8 +42,8 @@ type FetcherConfig = {
 export const createFetcher = <TParams extends object, TResponse>(
 	input: z.ZodSchema<TParams>,
 	handler: (params: TParams, config: FetcherConfig) => Promise<TResponse>,
-	key: () => string
-) => {
+	key: FetcherKey
+): CreateFetcherReturn<TParams, TResponse> => {
 	type KeyParams = NullishPartial<TParams>;
 
 	/** Creates a closure to trigger abort controller on consecutive requests */
@@ -67,18 +92,14 @@ export const createFetcher = <TParams extends object, TResponse>(
 			abortController = new AbortController();
 		}
 
-		return handler(params, { signal: abortController.signal, ...config });
+		return handler(params, { signal: abortController?.signal, ...config });
 	};
 
 	return {
-		handler: (params: TParams, config: FetcherConfig = {}) =>
-			handleFetch(params, config),
+		handler: (params, config = {}) => handleFetch(params, config),
 		key,
 		/** Creates a SWR key and fetcher for the given params. This works for both `useSWR` and `prefetch` from SWR */
-		swr: (
-			params: KeyParams,
-			config: FetcherConfig & { enabled?: boolean } = {}
-		) => {
+		swr: (params, config = {}) => {
 			const { enabled = true, ...restConfig } = config;
 
 			return [
