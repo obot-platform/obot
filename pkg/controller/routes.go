@@ -74,6 +74,7 @@ func (c *Controller) setupRoutes() error {
 	root.Type(&v1.Workflow{}).HandlerFunc(cleanup.Cleanup)
 	root.Type(&v1.Workflow{}).HandlerFunc(alias.AssignAlias)
 	root.Type(&v1.Workflow{}).HandlerFunc(toolInfo.SetToolInfoStatus)
+	root.Type(&v1.Workflow{}).HandlerFunc(toolInfo.RemoveUnneededCredentials)
 	root.Type(&v1.Workflow{}).HandlerFunc(generationed.UpdateObservedGeneration)
 	root.Type(&v1.Workflow{}).FinalizeFunc(v1.WorkflowFinalizer, credentialCleanup.Remove)
 
@@ -87,6 +88,7 @@ func (c *Controller) setupRoutes() error {
 	root.Type(&v1.Agent{}).HandlerFunc(agents.BackPopulateAuthStatus)
 	root.Type(&v1.Agent{}).HandlerFunc(alias.AssignAlias)
 	root.Type(&v1.Agent{}).HandlerFunc(toolInfo.SetToolInfoStatus)
+	root.Type(&v1.Agent{}).HandlerFunc(toolInfo.RemoveUnneededCredentials)
 	root.Type(&v1.Agent{}).HandlerFunc(generationed.UpdateObservedGeneration)
 	root.Type(&v1.Agent{}).FinalizeFunc(v1.AgentFinalizer, credentialCleanup.Remove)
 

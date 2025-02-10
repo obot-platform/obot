@@ -2,6 +2,7 @@ package toolinfo
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/gptscript-ai/go-gptscript"
@@ -83,6 +84,34 @@ func (h *Handler) SetToolInfoStatus(req router.Request, resp router.Response) (e
 	}
 
 	obj.SetToolInfos(toolInfos)
+
+	return nil
+}
+
+func (h *Handler) RemoveUnneededCredentials(req router.Request, _ router.Response) error {
+	creds, err := h.gptscript.ListCredentials(req.Ctx, gptscript.ListCredentialsOptions{
+		CredentialContexts: []string{req.Object.GetName()},
+	})
+	if err != nil || len(creds) == 0 {
+		return err
+	}
+
+	toolInfos := req.Object.(v1.ToolUser).GetToolInfos()
+	credentialNames := make(map[string]struct{}, len(toolInfos))
+
+	for _, cred := range toolInfos {
+		for _, name := range cred.CredentialNames {
+			credentialNames[name] = struct{}{}
+		}
+	}
+
+	for _, cred := range creds {
+		if _, ok := credentialNames[cred.ToolName]; !ok {
+			if err := h.gptscript.DeleteCredential(req.Ctx, req.Object.GetName(), cred.ToolName); err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
+				return err
+			}
+		}
+	}
 
 	return nil
 }
