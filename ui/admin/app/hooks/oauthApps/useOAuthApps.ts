@@ -31,6 +31,6 @@ export function useOAuthAppInfo(type: OAuthProvider) {
 }
 
 export function useOauthAppMap() {
-	const list = useOAuthAppList({ revalidate: false });
+	const list = useOAuthAppList();
 	return new Map(list.map((app) => [app.alias ?? app.type, app]));
 }
