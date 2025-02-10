@@ -6,6 +6,7 @@ const (
 	ThreadPrefix            = "t1"
 	AgentPrefix             = "a1"
 	RunPrefix               = "r1"
+	ChatRunPrefix           = "r1chat"
 	WorkflowPrefix          = "w1"
 	WorkflowExecutionPrefix = "we1"
 	WorkflowStepPrefix      = "ws1"
@@ -50,4 +51,8 @@ func IsWorkflowID(id string) bool {
 
 func IsEmailReceiverID(id string) bool {
 	return strings.HasPrefix(id, EmailReceiverPrefix)
+}
+
+func IsChatRunID(id string) bool {
+	return strings.HasPrefix(id, ChatRunPrefix)
 }

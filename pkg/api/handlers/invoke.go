@@ -82,6 +82,7 @@ func (i *InvokeHandler) Invoke(req api.Context) error {
 
 	if agent.Name != "" {
 		resp, err = i.invoker.Agent(req.Context(), req.Storage, &agent, string(input), invoke.Options{
+			GenerateName: system.ChatRunPrefix,
 			ThreadName:   threadID,
 			Synchronous:  synchronous,
 			CreateThread: true,

@@ -20,6 +20,7 @@ import (
 	"github.com/obot-platform/nah/pkg/apply"
 	"github.com/obot-platform/nah/pkg/leader"
 	"github.com/obot-platform/nah/pkg/router"
+	"github.com/obot-platform/nah/pkg/runtime"
 	"github.com/obot-platform/obot/pkg/api/authn"
 	"github.com/obot-platform/obot/pkg/api/authz"
 	"github.com/obot-platform/obot/pkg/api/server"
@@ -286,6 +287,9 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		HealthzPort:       -1,
 		GVKThreadiness: map[schema.GroupVersionKind]int{
 			v1.SchemeGroupVersion.WithKind("KnowledgeFile"): config.KnowledgeFileWorkers,
+		},
+		GVKQueueSplitters: map[schema.GroupVersionKind]runtime.WorkerQueueSplitter{
+			v1.SchemeGroupVersion.WithKind("Run"): (*runQueueSplitter)(nil),
 		},
 	})
 	if err != nil {

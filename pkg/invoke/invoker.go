@@ -165,6 +165,7 @@ type Options struct {
 	CreateThread          bool
 	ThreadCredentialScope *bool
 	UserUID               string
+	GenerateName          string
 }
 
 func (i *Invoker) getChatState(ctx context.Context, c kclient.Client, run *v1.Run) (result, lastThreadName string, _ error) {
@@ -362,6 +363,7 @@ func (i *Invoker) Agent(ctx context.Context, c kclient.WithWatch, agent *v1.Agen
 		WorkflowExecutionName: opt.WorkflowExecutionName,
 		PreviousRunName:       opt.PreviousRunName,
 		ForceNoResume:         opt.ForceNoResume,
+		GenerateName:          opt.GenerateName,
 	})
 }
 
@@ -374,6 +376,7 @@ func unAbortThread(ctx context.Context, c kclient.Client, thread *v1.Thread) err
 }
 
 type runOptions struct {
+	GenerateName          string
 	AgentName             string
 	Synchronous           bool
 	WorkflowName          string
@@ -407,9 +410,14 @@ func (i *Invoker) createRun(ctx context.Context, c kclient.WithWatch, thread *v1
 		return nil, err
 	}
 
+	generateName := opts.GenerateName
+	if generateName == "" {
+		generateName = system.RunPrefix
+	}
+
 	run := v1.Run{
 		ObjectMeta: metav1.ObjectMeta{
-			GenerateName: system.RunPrefix,
+			GenerateName: generateName,
 			Namespace:    thread.Namespace,
 			Finalizers:   []string{v1.RunFinalizer},
 		},
