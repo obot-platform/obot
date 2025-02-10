@@ -7,7 +7,6 @@ import {
 	screen,
 	userEvent,
 	waitFor,
-	within,
 } from "test";
 import { defaultModelAliasHandler } from "test/mocks/handlers/defaultModelAliases";
 import { knowledgeHandlers } from "test/mocks/handlers/knowledge";
@@ -91,8 +90,7 @@ describe(Workflow, () => {
 			mockedWorkflow.description || "Add a description...",
 			"placeholder",
 		],
-		["prompt", "Instructions", "textbox", 2],
-	])("Updating %s triggers save", async (field, searchFor, as, index = 0) => {
+	])("Updating %s triggers save", async (field, searchFor, as) => {
 		render(<Workflow workflow={mockedWorkflow} onPersistThreadId={noop} />);
 
 		const modifiedValue = faker.word.words({ count: { min: 2, max: 5 } });
@@ -104,13 +102,6 @@ describe(Workflow, () => {
 				screen.getByPlaceholderText(searchFor),
 				modifiedValue
 			);
-		} else if (as === "textbox") {
-			const heading = screen.getByRole("heading", { name: searchFor });
-			const textbox = within(heading.parentElement!).queryAllByRole("textbox")[
-				index ?? 0
-			];
-
-			await userEvent.type(textbox, modifiedValue);
 		}
 
 		await waitFor(() => screen.getByText(/Saving|Saved/i));

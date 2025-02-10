@@ -1,20 +1,16 @@
 import { ReaderIcon } from "@radix-ui/react-icons";
 import { ColumnDef, createColumnHelper } from "@tanstack/react-table";
-import { XIcon } from "lucide-react";
 import { useMemo, useState } from "react";
 import {
 	ClientLoaderFunctionArgs,
 	MetaFunction,
 	useLoaderData,
 	useNavigate,
-	useSearchParams,
 } from "react-router";
 import { $path } from "safe-routes";
 import useSWR, { preload } from "swr";
 
-import { Agent } from "~/lib/model/agents";
 import { Thread } from "~/lib/model/threads";
-import { User } from "~/lib/model/users";
 import { AgentService } from "~/lib/service/api/agentService";
 import { ThreadsService } from "~/lib/service/api/threadsService";
 import { UserService } from "~/lib/service/api/userService";
@@ -22,7 +18,12 @@ import { RouteHandle } from "~/lib/service/routeHandles";
 import { RouteQueryParams, RouteService } from "~/lib/service/routeService";
 import { timeSince } from "~/lib/utils";
 
-import { DataTable, useRowNavigate } from "~/components/composed/DataTable";
+import {
+	DataTable,
+	DataTableFilter,
+	useRowNavigate,
+} from "~/components/composed/DataTable";
+import { Filters } from "~/components/composed/Filters";
 import { SearchInput } from "~/components/composed/SearchInput";
 import { Button } from "~/components/ui/button";
 import { Link } from "~/components/ui/link";
@@ -55,6 +56,7 @@ export async function clientLoader({
 }
 
 export default function TaskRuns() {
+	const navigate = useNavigate();
 	const [search, setSearch] = useState("");
 	const { onRowClick, onCtrlClick } = useRowNavigate<Thread>(
 		"/chat-threads/:id",
@@ -123,7 +125,7 @@ export default function TaskRuns() {
 
 	return (
 		<ScrollArea className="flex max-h-full flex-col gap-4 p-8">
-			<div className="flex items-center justify-between pb-8">
+			<div className="flex items-center justify-between pb-6">
 				<h2>Chat Threads</h2>
 				<SearchInput
 					onChange={(value) => setSearch(value)}
@@ -131,7 +133,7 @@ export default function TaskRuns() {
 				/>
 			</div>
 
-			<ThreadFilters userMap={userMap} agentMap={agentMap} />
+			<Filters userMap={userMap} agentMap={agentMap} url="/chat-threads" />
 
 			<DataTable
 				columns={getColumns()}
@@ -146,8 +148,52 @@ export default function TaskRuns() {
 
 	function getColumns(): ColumnDef<(typeof data)[0], string>[] {
 		return [
-			columnHelper.accessor((thread) => thread.parentName, { header: "Agent" }),
-			columnHelper.accessor((thread) => thread.userName, { header: "User" }),
+			columnHelper.accessor((thread) => thread.parentName, {
+				id: "Agent",
+				header: ({ column }) => (
+					<DataTableFilter
+						key={column.id}
+						field="Agent"
+						values={
+							getAgents.data?.map((agent) => ({
+								id: agent.id,
+								name: agent.name,
+							})) ?? []
+						}
+						onSelect={(value) => {
+							navigate(
+								$path("/chat-threads", {
+									agentId: value,
+									...(userId && { userId }),
+								})
+							);
+						}}
+					/>
+				),
+			}),
+			columnHelper.accessor((thread) => thread.userName, {
+				id: "User",
+				header: ({ column }) => (
+					<DataTableFilter
+						key={column.id}
+						field="User"
+						values={
+							getUsers.data?.map((user) => ({
+								id: user.id,
+								name: user.email,
+							})) ?? []
+						}
+						onSelect={(value) => {
+							navigate(
+								$path("/chat-threads", {
+									userId: value,
+									...(agentId && { agentId }),
+								})
+							);
+						}}
+					/>
+				),
+			}),
 			columnHelper.accessor("created", {
 				id: "created",
 				header: "Created",
@@ -183,64 +229,6 @@ export default function TaskRuns() {
 			}),
 		];
 	}
-}
-
-function ThreadFilters({
-	userMap,
-	agentMap,
-}: {
-	userMap: Map<string, User>;
-	agentMap: Map<string, Agent>;
-}) {
-	const [searchParams] = useSearchParams();
-	const navigate = useNavigate();
-
-	const filters = useMemo(() => {
-		const query =
-			RouteService.getQueryParams("/chat-threads", searchParams.toString()) ??
-			{};
-		const { from: _, ...filters } = query;
-
-		const updateFilters = (param: keyof typeof filters) => {
-			// note(ryanhopperlowe) this is a hack because setting a param to null/undefined
-			// appends "null" to the query string.
-			const newQuery = structuredClone(query);
-			delete newQuery[param];
-			return navigate($path("/chat-threads", newQuery));
-		};
-
-		return [
-			filters.agentId && {
-				key: "agentId",
-				label: "Agent",
-				value: agentMap.get(filters.agentId)?.name ?? filters.agentId,
-				onRemove: () => updateFilters("agentId"),
-			},
-			filters.userId && {
-				key: "userId",
-				label: "User",
-				value: userMap.get(filters.userId)?.email ?? filters.userId,
-				onRemove: () => updateFilters("userId"),
-			},
-		].filter((x) => !!x);
-	}, [agentMap, navigate, searchParams, userMap]);
-
-	return (
-		<div className="flex gap-2">
-			{filters.map((filter) => (
-				<Button
-					key={filter.key}
-					size="badge"
-					onClick={filter.onRemove}
-					variant="accent"
-					shape="pill"
-					endContent={<XIcon />}
-				>
-					<b>{filter.label}:</b> {filter.value}
-				</Button>
-			))}
-		</div>
-	);
 }
 
 const columnHelper = createColumnHelper<

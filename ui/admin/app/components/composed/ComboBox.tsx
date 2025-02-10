@@ -1,7 +1,7 @@
 import { CheckIcon, ChevronsUpDownIcon } from "lucide-react";
 import { ReactNode, useState } from "react";
 
-import { Button } from "~/components/ui/button";
+import { Button, ButtonProps } from "~/components/ui/button";
 import {
 	Command,
 	CommandEmpty,
@@ -31,6 +31,7 @@ type GroupedOption<T extends BaseOption> = {
 type ComboBoxProps<T extends BaseOption> = {
 	allowClear?: boolean;
 	allowCreate?: boolean;
+	buttonProps?: ButtonProps;
 	clearLabel?: ReactNode;
 	emptyLabel?: ReactNode;
 	onChange: (option: T | null) => void;
@@ -44,6 +45,7 @@ type ComboBoxProps<T extends BaseOption> = {
 };
 
 export function ComboBox<T extends BaseOption>({
+	buttonProps,
 	disabled,
 	placeholder,
 	value,
@@ -97,6 +99,7 @@ export function ComboBox<T extends BaseOption>({
 				classNames={{
 					content: "w-full justify-between",
 				}}
+				{...buttonProps}
 			>
 				<span className="overflow-hidden text-ellipsis">
 					{renderOption && value

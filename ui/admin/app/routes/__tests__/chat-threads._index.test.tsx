@@ -65,6 +65,6 @@ describe(ChatThreads, () => {
 		const groups = await screen.findAllByRole("rowgroup");
 		const tableBody = groups[1]; // tbody
 		const cells = await within(tableBody).findAllByRole("cell"); // td
-		expect(cells[2]).toHaveTextContent(mockedUsers[0].email);
+		expect(cells[1]).toHaveTextContent(mockedUsers[0].email);
 	});
 });

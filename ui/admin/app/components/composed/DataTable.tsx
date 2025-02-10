@@ -7,11 +7,13 @@ import {
 	getSortedRowModel,
 	useReactTable,
 } from "@tanstack/react-table";
+import { ListFilterIcon } from "lucide-react";
 import { useNavigate } from "react-router";
 import { $path, RoutesWithParams } from "safe-routes";
 
 import { cn } from "~/lib/utils";
 
+import { ComboBox } from "~/components/composed/ComboBox";
 import {
 	Table,
 	TableBody,
@@ -146,4 +148,27 @@ export const useRowNavigate = <TData extends Record<string, unknown>>(
 		onRowClick: (row: TData) => handleAction(row, false),
 		onCtrlClick: (row: TData) => handleAction(row, true),
 	};
+};
+
+export const DataTableFilter = ({
+	field,
+	values,
+	onSelect,
+}: {
+	field: string;
+	onSelect: (value: string) => void;
+	values: { id: string; name: string }[];
+}) => {
+	return (
+		<ComboBox
+			buttonProps={{
+				className: "px-0 w-full",
+				variant: "text",
+				endContent: <ListFilterIcon />,
+			}}
+			placeholder={field}
+			onChange={(option) => onSelect(option?.id ?? "")}
+			options={values}
+		/>
+	);
 };

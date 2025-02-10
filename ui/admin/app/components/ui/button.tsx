@@ -23,6 +23,7 @@ const buttonVariants = cva(
 				link: "text-primary underline-offset-4 shadow-none hover:text-primary/70 hover:underline hover:shadow-none",
 				warning:
 					"bg-warning text-primary-foreground shadow-sm hover:bg-warning/80",
+				text: "p-0 text-muted-foreground hover:text-muted-foreground/70",
 			},
 			size: {
 				none: "",

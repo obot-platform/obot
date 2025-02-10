@@ -21,6 +21,11 @@ const QuerySchemas = {
 	taskSchema: z.object({
 		threadId: z.string().nullish(),
 	}),
+	tasksSchema: z.object({
+		agentId: z.string().nullish(),
+		userId: z.string().nullish(),
+		taskId: z.string().nullish(),
+	}),
 } as const;
 
 function parseQuery<T extends ZodType>(search: string, schema: T) {
@@ -109,7 +114,7 @@ export const RouteHelperMap = {
 	"/tasks": {
 		regex: exactRegex($path("/users")),
 		path: "/users",
-		schema: z.null(),
+		schema: QuerySchemas.tasksSchema,
 	},
 	"/tasks/:id": {
 		regex: exactRegex($path("/tasks/:id", { id: "(.+)" })),
