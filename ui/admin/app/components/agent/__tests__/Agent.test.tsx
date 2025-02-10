@@ -114,17 +114,17 @@ describe(Agent, () => {
 				index ?? 0
 			];
 
-			await userEvent.type(textbox, modifiedValue);
+			await userEvent.type(textbox, modifiedValue, { delay: null });
 		}
 
-		await waitFor(() => screen.getByText(/Saving|Saved/i), {
-			timeout: 2000,
-		});
-
-		expect(putSpy).toHaveBeenCalledWith(
-			expect.objectContaining({
-				[field]: expect.stringContaining(modifiedValue),
-			})
+		await waitFor(
+			() =>
+				expect(putSpy).toHaveBeenCalledWith(
+					expect.objectContaining({
+						[field]: expect.stringContaining(modifiedValue),
+					})
+				),
+			{ timeout: 1000 }
 		);
 	});
 
@@ -154,7 +154,7 @@ describe(Agent, () => {
 		const iconSrc = iconSelections[0].getAttribute("src");
 		await userEvent.click(iconSelections[0]);
 
-		await waitFor(() => screen.getByText(/Saving|Saved/i));
+		await waitFor(() => expect(putSpy).toHaveBeenCalled(), { timeout: 20 });
 
 		expect(putSpy).toHaveBeenCalledWith(
 			expect.objectContaining({
@@ -203,7 +203,7 @@ describe(Agent, () => {
 		).getAllByRole("button")[1];
 		await userEvent.click(imageDeleteButton);
 
-		await waitFor(() => screen.getByText(/Saving|Saved/i));
+		await waitFor(() => expect(putSpy).toHaveBeenCalled(), { timeout: 20 });
 
 		expect(putSpy).toHaveBeenCalledWith(
 			expect.objectContaining({

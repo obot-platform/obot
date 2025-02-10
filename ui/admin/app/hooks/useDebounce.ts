@@ -6,7 +6,7 @@ export const useDebounce = <TParams extends unknown[]>(
 	delay: number
 ) => {
 	const timerRef = useRef<NodeJS.Timeout>();
-	const effectiveDelay = import.meta.env.VITEST ? 100 : delay;
+	const effectiveDelay = import.meta.env.VITEST ? 5 : delay;
 
 	const debouncedFn = useCallback(
 		(...args: TParams) => {
