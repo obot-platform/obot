@@ -1,9 +1,10 @@
 import { TriangleAlertIcon, WrenchIcon } from "lucide-react";
+import { $path } from "safe-routes";
 
 import { ToolReference } from "~/lib/model/toolReferences";
 
 import { ToolIcon } from "~/components/tools/ToolIcon";
-import { Button } from "~/components/ui/button";
+import { Link } from "~/components/ui/link";
 import {
 	Tooltip,
 	TooltipContent,
@@ -13,7 +14,6 @@ import {
 type ToolTooltipProps = {
 	tool: ToolReference;
 	children: React.ReactNode;
-	onConfigureAuth?: () => void;
 	requiresConfiguration?: boolean;
 	isBundle?: boolean;
 };
@@ -21,7 +21,6 @@ type ToolTooltipProps = {
 export function ToolTooltip({
 	tool,
 	children,
-	onConfigureAuth,
 	requiresConfiguration,
 	isBundle = false,
 }: ToolTooltipProps) {
@@ -51,20 +50,16 @@ export function ToolTooltip({
 					<p className="text-sm">
 						{tool.description || "No description provided."}
 					</p>
-					{requiresConfiguration && onConfigureAuth && (
+					{requiresConfiguration && (
 						<>
 							<div className="flex items-center gap-1 pt-2 text-xs text-warning">
 								<span>
 									<TriangleAlertIcon className="h-4 w-4 text-warning" />
 								</span>
 								<p>
-									<Button
-										variant="link"
-										className="p-0 text-xs"
-										onClick={onConfigureAuth}
-									>
+									<Link to={$path("/tools")} className="text-xs">
 										Setup
-									</Button>{" "}
+									</Link>{" "}
 									required to use this tool.
 								</p>
 							</div>

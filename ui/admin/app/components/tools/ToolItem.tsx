@@ -4,7 +4,6 @@ import { useState } from "react";
 import { ToolReference } from "~/lib/model/toolReferences";
 import { cn } from "~/lib/utils";
 
-import { ToolOauthConfig } from "~/components/tools//ToolOauthConfig";
 import { SelectToolAuth } from "~/components/tools/SelectToolAuth";
 import { ToolIcon } from "~/components/tools/ToolIcon";
 import { ToolTooltip } from "~/components/tools/ToolTooltip";
@@ -15,7 +14,6 @@ import { CommandItem } from "~/components/ui/command";
 type ToolItemProps = {
 	tool: ToolReference;
 	configured: boolean;
-	hideWarning?: boolean;
 	isSelected: boolean;
 	isBundleSelected: boolean;
 	onSelect: (oAuthToAdd?: string) => void;
@@ -28,7 +26,6 @@ type ToolItemProps = {
 export function ToolItem({
 	tool,
 	configured,
-	hideWarning,
 	isSelected,
 	isBundleSelected,
 	onSelect,
@@ -69,11 +66,7 @@ export function ToolItem({
 				onSelect={available ? handleSelect : undefined}
 				disabled={isBundleSelected}
 			>
-				<ToolTooltip
-					tool={tool}
-					requiresConfiguration={!available}
-					onConfigureAuth={() => setToolOAuthDialogOpen(true)}
-				>
+				<ToolTooltip tool={tool} requiresConfiguration={!available}>
 					<div className={cn("flex w-full items-center justify-between gap-2")}>
 						<span
 							className={cn(
@@ -85,7 +78,7 @@ export function ToolItem({
 						>
 							{available ? (
 								<Checkbox checked={isSelected || isBundleSelected} />
-							) : !hideWarning ? (
+							) : isBundle ? (
 								<TriangleAlertIcon className="h-4 w-4 text-warning opacity-50" />
 							) : null}
 
@@ -125,14 +118,6 @@ export function ToolItem({
 					onOpenChange={setToolOAuthDialogOpen}
 					onOAuthSelect={handleOAuthSelect}
 					onPATSelect={handlePATSelect}
-				/>
-			)}
-			{oAuthMetadata && !isPATSupported && (
-				<ToolOauthConfig
-					tool={tool}
-					open={toolOAuthDialogOpen}
-					onOpenChange={setToolOAuthDialogOpen}
-					onSuccess={() => setToolOAuthDialogOpen(false)}
 				/>
 			)}
 		</>

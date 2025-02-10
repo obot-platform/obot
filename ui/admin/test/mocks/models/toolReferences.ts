@@ -173,54 +173,6 @@ export const mockedBrowserToolBundle: ToolReference[] = [
 	},
 ];
 
-export const mockedBundleWithOauthReference: ToolReference[] = [
-	{
-		id: "google-gmail-bundle",
-		created: "2025-02-05T13:54:26-05:00",
-		revision: "1",
-		metadata: {
-			bundle: "true",
-			category: "Gmail",
-			icon: "gmail_icon_small.png",
-			oauth: "google",
-		},
-		type: "toolreference",
-		name: "Gmail",
-		toolType: "tool",
-		reference: "github.com/obot-platform/tools/google/gmail",
-		active: true,
-		resolved: true,
-		builtin: true,
-		description: "Tools for interacting with a user's Gmail account",
-		credentials: ["github.com/obot-platform/tools/google/credential"],
-	},
-	{
-		id: "google-gmail-list-drafts",
-		created: "2025-02-05T13:54:26-05:00",
-		revision: "1",
-		metadata: {
-			category: "Gmail",
-			icon: "gmail_icon_small.png",
-			oauth: "google",
-		},
-		type: "toolreference",
-		name: "List Drafts",
-		toolType: "tool",
-		reference: "List Drafts from github.com/obot-platform/tools/google/gmail",
-		active: true,
-		resolved: true,
-		builtin: true,
-		description: "List drafts in a user's Gmail account",
-		credentials: ["github.com/obot-platform/tools/google/credential"],
-		params: {
-			attachments:
-				"A comma separated list of workspace file paths to attach to the email (Optional)",
-			max_results:
-				"Maximum number of drafts to list (Optional: Default will list 100 drafts)",
-		},
-	},
-];
-
 export const mockedToolReferences: ToolReference[] = [
 	mockedDatabaseToolReference,
 	mockedKnowledgeToolReference,
@@ -228,5 +180,4 @@ export const mockedToolReferences: ToolReference[] = [
 	mockedWorkspaceFilesToolReference,
 	...mockedImageToolBundle,
 	...mockedBrowserToolBundle,
-	...mockedBundleWithOauthReference,
 ];
