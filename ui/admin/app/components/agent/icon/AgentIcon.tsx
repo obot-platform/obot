@@ -63,8 +63,8 @@ export function AgentIcon({ icons, onChange, name }: AgentIconProps) {
 										{name?.charAt(0) ?? ""}
 									</AvatarFallback>
 								</Avatar>
-								<div className="absolute -right-1 top-0 items-center justify-center rounded-full bg-primary-foreground p-2 opacity-0 drop-shadow-md transition group-hover:opacity-100">
-									<PencilIcon className="!h-4 !w-4" />
+								<div className="absolute -right-1 top-0 items-center justify-center rounded-full bg-primary-foreground p-2 opacity-0 drop-shadow-md transition group-hover:opacity-100 group-focus:opacity-100">
+									<PencilIcon className="!size-4" />
 								</div>
 							</Button>
 						</DropdownMenuTrigger>

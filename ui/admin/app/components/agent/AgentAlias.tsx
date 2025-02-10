@@ -1,5 +1,6 @@
+import { ArrowRightIcon } from "lucide-react";
 import { useMemo } from "react";
-import { Link, useNavigate } from "react-router";
+import { useNavigate } from "react-router";
 import { $path } from "safe-routes";
 import useSWR from "swr";
 
@@ -13,6 +14,8 @@ import { Publish } from "~/components/agent/Publish";
 import { CopyText } from "~/components/composed/CopyText";
 import { WarningAlert } from "~/components/composed/WarningAlert";
 import { LoadingSpinner } from "~/components/ui/LoadingSpinner";
+import { AnimateResize } from "~/components/ui/animate/animate-resize";
+import { Link } from "~/components/ui/link";
 
 type AgentAliasProps = {
 	agent: Agent;
@@ -40,7 +43,7 @@ export function AgentAlias({ agent, onChange }: AgentAliasProps) {
 	);
 
 	return (
-		<div className="flex w-full flex-col gap-4 px-8 pt-4">
+		<div className="sticky top-0 z-10 flex h-16 w-full flex-col gap-4 border-b bg-background px-8 pt-4">
 			<div className="flex w-full justify-between gap-4">
 				<div className="flex flex-col gap-2">
 					{agent.aliasAssigned === undefined &&
@@ -57,24 +60,28 @@ export function AgentAlias({ agent, onChange }: AgentAliasProps) {
 							/>
 
 							<Link
+								as="button"
+								to={agentUrl}
 								target="_blank"
 								rel="noreferrer"
-								className="text-muted-foreground underline"
-								to={agentUrl}
+								className="group flex items-center gap-2"
 							>
-								{agentUrl}
+								<AnimateResize>
+									<span className="group-hover:hidden">Try it Out!</span>
+									<span className="hidden group-hover:block">{agentUrl}</span>
+								</AnimateResize>
+								<ArrowRightIcon />
 							</Link>
-
-							<Publish
-								alias={agent.alias}
-								id={agent.id}
-								onPublish={(alias) => onChange({ alias })}
-							/>
 						</div>
 					)}
 				</div>
 
 				<div className="flex gap-2">
+					<Publish
+						alias={agent.alias}
+						id={agent.id}
+						onPublish={(alias) => onChange({ alias })}
+					/>
 					<AgentAccessControl agent={agent} />
 					<DeleteAgent id={agent.id} onSuccess={() => navigate("/agents")} />
 				</div>

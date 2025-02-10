@@ -12,7 +12,7 @@ export type SlideInOutProps = {
 
 export const useSlideInOut = ({
 	direction = "left",
-	translatePercent = 50,
+	translatePercent = 100,
 	disabled = false,
 }: SlideInOutProps) => {
 	if (disabled) return {};
@@ -34,7 +34,7 @@ export const useSlideInOut = ({
 		} else if (direction === "down") {
 			return getTranslate(inOut === "in" ? inTranslate : outTranslate);
 		}
-		return "0%";
+		return 0;
 	}
 
 	function getX(direction: Direction, inOut: "in" | "out") {
@@ -44,7 +44,7 @@ export const useSlideInOut = ({
 			return getTranslate(inOut === "in" ? inTranslate : outTranslate);
 		}
 
-		return "0%";
+		return 0;
 	}
 
 	function getTranslate(translate: number) {

@@ -10,7 +10,7 @@ import { noop } from "~/lib/utils";
 
 import { ToolEntry } from "~/components/agent/ToolEntry";
 import { ToolCatalogDialog } from "~/components/tools/ToolCatalog";
-import { AnimatePresence } from "~/components/ui/animate";
+import { Animate, AnimatePresence } from "~/components/ui/animate";
 import { SlideInOut } from "~/components/ui/animate/slide-in-out";
 import { Form } from "~/components/ui/form";
 import {
@@ -176,12 +176,13 @@ export function ToolForm({
 				onSubmit={handleSubmit(onSubmit || noop)}
 				className="flex flex-col gap-4"
 			>
-				<div className="mt-2 w-full overflow-y-auto overflow-x-hidden">
-					<AnimatePresence>
+				<div className="mt-2 w-full">
+					<AnimatePresence mode="popLayout">
 						{sortedFields.map((field) => (
 							<SlideInOut
 								key={field.tool}
-								direction={{ in: "up", out: "right" }}
+								direction={{ in: "left", out: "right" }}
+								layout
 							>
 								<ToolEntry
 									tool={field.tool}
@@ -190,8 +191,8 @@ export function ToolForm({
 										<>
 											<Select
 												value={field.variant}
-												onValueChange={(value) =>
-													updateVariant(field.tool, value as ToolVariant)
+												onValueChange={(value: ToolVariant) =>
+													updateVariant(field.tool, value)
 												}
 											>
 												<SelectTrigger className="w-36">
@@ -230,7 +231,7 @@ export function ToolForm({
 					</AnimatePresence>
 				</div>
 
-				<div className="flex justify-end">
+				<Animate.div layout className="flex justify-end">
 					<ToolCatalogDialog
 						tools={toolFields.fields.map((field) => field.tool)}
 						onUpdateTools={(tools, oauths) => {
@@ -238,7 +239,7 @@ export function ToolForm({
 						}}
 						oauths={form.watch("oauthApps")}
 					/>
-				</div>
+				</Animate.div>
 			</form>
 		</Form>
 	);

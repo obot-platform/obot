@@ -1,28 +1,21 @@
-import { useCallback } from "react";
 import {
 	ClientLoaderFunctionArgs,
 	MetaFunction,
 	redirect,
 	useLoaderData,
 	useMatch,
-	useNavigate,
 } from "react-router";
-import { $path } from "safe-routes";
 import useSWR, { preload } from "swr";
 
 import { AgentService } from "~/lib/service/api/agentService";
 import { DefaultModelAliasApiService } from "~/lib/service/api/defaultModelAliasApiService";
 import { RouteHandle } from "~/lib/service/routeHandles";
 import { RouteQueryParams, RouteService } from "~/lib/service/routeService";
+import { cn } from "~/lib/utils";
 
 import { Agent } from "~/components/agent";
 import { AgentProvider } from "~/components/agent/AgentContext";
-import { Chat, ChatProvider } from "~/components/chat";
-import {
-	ResizableHandle,
-	ResizablePanel,
-	ResizablePanelGroup,
-} from "~/components/ui/resizable";
+import { ScrollArea } from "~/components/ui/scroll-area";
 
 export type SearchParams = RouteQueryParams<"agentSchema">;
 
@@ -35,7 +28,7 @@ export const clientLoader = async ({
 	const routeInfo = RouteService.getRouteInfo("/agents/:id", url, params);
 
 	const { id: agentId } = routeInfo.pathParams;
-	const { threadId, from } = routeInfo.query ?? {};
+	const { from } = routeInfo.query ?? {};
 
 	if (!agentId) {
 		throw redirect("/agents");
@@ -55,61 +48,20 @@ export const clientLoader = async ({
 	if (!agent) {
 		throw redirect("/agents");
 	}
-	return { agent, threadId, from };
+	return { agent, from };
 };
 
 export default function ChatAgent() {
-	const { agent, threadId } = useLoaderData<typeof clientLoader>();
-
-	// need to get updated starter messages and introduction message
-	// when agent updates happen for chat
-	const { data: updatedAgent } = useSWR(
-		...AgentService.getAgentById.swr({ agentId: agent.id }),
-		{ fallbackData: agent }
-	);
-	const navigate = useNavigate();
-
-	const updateThreadId = useCallback(
-		(newThreadId?: Nullish<string>) => {
-			navigate(
-				$path(
-					"/agents/:id",
-					{ id: agent.id },
-					newThreadId ? { threadId: newThreadId } : undefined
-				)
-			);
-		},
-		[agent, navigate]
-	);
+	const { agent } = useLoaderData<typeof clientLoader>();
 
 	return (
-		<div className="relative flex h-full flex-col overflow-hidden">
-			<ResizablePanelGroup direction="horizontal" className="flex-auto">
-				<ResizablePanel className="">
-					<AgentProvider agent={agent}>
-						<Agent
-							currentThreadId={threadId}
-							onRefresh={updateThreadId}
-							key={agent.id}
-						/>
-					</AgentProvider>
-				</ResizablePanel>
-				<ResizableHandle withHandle />
-				<ResizablePanel>
-					<ChatProvider
-						id={agent.id}
-						threadId={threadId}
-						onCreateThreadId={updateThreadId}
-						introductionMessage={updatedAgent?.introductionMessage}
-						starterMessages={updatedAgent?.starterMessages}
-						icons={updatedAgent?.icons}
-						name={updatedAgent?.name}
-					>
-						<Chat className="bg-sidebar" />
-					</ChatProvider>
-				</ResizablePanel>
-			</ResizablePanelGroup>
-		</div>
+		<ScrollArea className="h-full" enableScrollStick="bottom">
+			<div className={cn("relative mx-auto flex h-full max-w-3xl flex-col")}>
+				<AgentProvider agent={agent}>
+					<Agent key={agent.id} />
+				</AgentProvider>
+			</div>
+		</ScrollArea>
 	);
 }
 

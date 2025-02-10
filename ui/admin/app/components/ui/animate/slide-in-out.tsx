@@ -1,14 +1,15 @@
-import { ComponentProps } from "react";
+import { ComponentProps, forwardRef } from "react";
 
 import { Animate } from "~/components/ui/animate";
 import { SlideInOutProps, useSlideInOut } from "~/hooks/animate/useSlideInOut";
 
-export function SlideInOut({
-	direction = "left",
-	translatePercent = 50,
-	...restProps
-}: SlideInOutProps & ComponentProps<typeof Animate.div>) {
+export const SlideInOut = forwardRef<
+	HTMLDivElement,
+	SlideInOutProps & ComponentProps<typeof Animate.div>
+>(({ direction, translatePercent, ...restProps }, ref) => {
 	const animateProps = useSlideInOut({ direction, translatePercent });
 
-	return <Animate.div {...animateProps} {...restProps} />;
-}
+	return <Animate.div {...animateProps} {...restProps} ref={ref} />;
+});
+
+SlideInOut.displayName = "SlideInOut";

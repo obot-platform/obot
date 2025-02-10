@@ -1,11 +1,11 @@
 import {
 	ReactNode,
 	createContext,
-	useCallback,
 	useContext,
 	useEffect,
 	useState,
 } from "react";
+import { toast } from "sonner";
 import useSWR from "swr";
 
 import { Agent } from "~/lib/model/agents";
@@ -20,7 +20,6 @@ interface AgentContextType {
 	refreshAgent: (agent?: Agent) => Promise<unknown>;
 	isUpdating: boolean;
 	error?: unknown;
-	lastUpdated?: Date;
 }
 
 const AgentContext = createContext<AgentContextType | undefined>(undefined);
@@ -51,21 +50,20 @@ export function AgentProvider({
 		}
 	}, [agentData]);
 
-	const [lastUpdated, setLastSaved] = useState<Date>();
-
-	const handleUpdateAgent = useCallback(
-		(updatedAgent: Agent) =>
-			AgentService.updateAgent({ id: agentId, agent: updatedAgent })
-				.then((updatedAgent) => {
-					getAgent.mutate(updatedAgent);
-					AgentService.getAgents.revalidate();
-					setLastSaved(new Date());
-				})
-				.catch(console.error),
-		[agentId, getAgent]
+	const updateAgent = useAsync(
+		async (updatedAgent: Agent) =>
+			AgentService.updateAgent(
+				{ id: agentId, agent: updatedAgent },
+				{ cancellable: true }
+			),
+		{
+			onSuccess: (updatedAgent) => {
+				getAgent.mutate(updatedAgent);
+				AgentService.getAgents.revalidate();
+			},
+			onError: () => toast.error(`Error saving agent`),
+		}
 	);
-
-	const updateAgent = useAsync(handleUpdateAgent);
 
 	const refreshAgent = getAgent.mutate;
 
@@ -77,7 +75,6 @@ export function AgentProvider({
 				updateAgent: updateAgent.executeAsync,
 				refreshAgent,
 				isUpdating: updateAgent.isLoading,
-				lastUpdated,
 				error: updateAgent.error,
 			}}
 		>

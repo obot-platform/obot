@@ -2,6 +2,7 @@ import * as ScrollAreaPrimitive from "@radix-ui/react-scroll-area";
 import * as React from "react";
 
 import { cn } from "~/lib/utils";
+import { isScrolledToBottom } from "~/lib/utils/isScrolledToBottom";
 
 import { ScrollToBottom } from "~/components/ui/scroll-to-bottom";
 import { useOnResize } from "~/hooks/useOnResize";
@@ -37,7 +38,7 @@ const ScrollArea = React.forwardRef<
 	);
 	const viewportRef = React.useRef<HTMLDivElement | null>(null);
 	const [shouldStickToBottom, setShouldStickToBottom] = React.useState(
-		enableScrollStick === "bottom"
+		enableScrollStick === "bottom" && startScrollAt === "bottom"
 	);
 
 	React.useEffect(() => {
@@ -50,6 +51,7 @@ const ScrollArea = React.forwardRef<
 	}, [startScrollAt]);
 
 	const contentRef = React.useRef<HTMLDivElement | null>(null);
+
 	useOnResize(
 		contentRef,
 		React.useCallback(() => {
@@ -108,11 +110,6 @@ const ScrollArea = React.forwardRef<
 	);
 });
 ScrollArea.displayName = ScrollAreaPrimitive.Root.displayName;
-
-function isScrolledToBottom(container: HTMLDivElement) {
-	const { scrollTop, scrollHeight, clientHeight } = container;
-	return scrollHeight - scrollTop <= clientHeight;
-}
 
 const ScrollBar = React.forwardRef<
 	React.ElementRef<typeof ScrollAreaPrimitive.ScrollAreaScrollbar>,
