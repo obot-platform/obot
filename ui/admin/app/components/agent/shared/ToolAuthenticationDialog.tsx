@@ -1,5 +1,5 @@
 import { CheckIcon, CircleAlert } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { useToolReference } from "~/components/agent/ToolEntry";
 import { PromptAuthForm } from "~/components/chat/Message";
@@ -41,8 +41,9 @@ export function ToolAuthenticationDialog({
 	};
 
 	const [map, setMap] = useState<Record<number, ItemState>>({});
-	const updateItem = (id: number, state: Partial<ItemState>) =>
+	const updateItem = useCallback((id: number, state: Partial<ItemState>) => {
 		setMap((prev) => ({ ...prev, [id]: { ...prev[id], ...state } }));
+	}, []);
 
 	const messages = useMemo(
 		() => _messages.filter((m) => m.prompt || m.error || m.text === "DONE"),
@@ -61,6 +62,17 @@ export function ToolAuthenticationDialog({
 	}, [messages]);
 
 	const done = messages.at(-1)?.text === "DONE";
+
+	useEffect(() => {
+		if (messages.length === 1) {
+			const message = messages.at(0);
+			const authURL = message?.prompt?.metadata?.authURL;
+			if (authURL) {
+				window.open(authURL);
+				updateItem(0, { isLoading: true });
+			}
+		}
+	}, [messages, updateItem]);
 
 	return (
 		<Dialog open={!!threadId} onOpenChange={onComplete}>
