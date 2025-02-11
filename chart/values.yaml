@@ -59,7 +59,6 @@ config:
   awsSecretAccessKey: ""
   gcpKMSKeyURI: ""
 
-  baaahThreadiness: "20"
   nahThreadiness: "10000"
   knowledgeFileWorkers: "5"
 
