@@ -60,7 +60,7 @@ func (t *TaskHandler) Abort(req api.Context) error {
 	}
 
 	if wfe.Spec.ThreadName != userThread.Name && workflow.Name != wfe.Spec.WorkflowName {
-		return types.NewErrHttp(http.StatusForbidden, "task run does not belong to the thread")
+		return types.NewErrHTTP(http.StatusForbidden, "task run does not belong to the thread")
 	}
 
 	var thread v1.Thread
@@ -99,7 +99,7 @@ func (t *TaskHandler) Events(req api.Context) error {
 	}
 
 	if wfe.Spec.ThreadName != thread.Name && workflow.Name != wfe.Spec.WorkflowName {
-		return types.NewErrHttp(http.StatusForbidden, "task run does not belong to the user")
+		return types.NewErrHTTP(http.StatusForbidden, "task run does not belong to the user")
 	}
 
 	_, events, err := t.events.Watch(req.Context(), req.Namespace(), events.WatchOptions{
@@ -187,7 +187,7 @@ func (t *TaskHandler) DeleteRun(req api.Context) error {
 	}
 
 	if wfe.Spec.ThreadName != userThread.Name || wfe.Spec.WorkflowName != workflow.Name {
-		return types.NewErrHttp(http.StatusForbidden, "task run does not belong to the user")
+		return types.NewErrHTTP(http.StatusForbidden, "task run does not belong to the user")
 	}
 
 	return req.Delete(&wfe)
@@ -681,7 +681,7 @@ func (t *TaskHandler) getTask(req api.Context) (*v1.Workflow, *v1.Thread, error)
 	}
 
 	if workflow.Spec.ThreadName != thread.Name {
-		return nil, nil, types.NewErrHttp(http.StatusForbidden, "task does not belong to the thread")
+		return nil, nil, types.NewErrHTTP(http.StatusForbidden, "task does not belong to the thread")
 	}
 
 	return &workflow, thread, nil
@@ -707,7 +707,7 @@ func getThreadForScope(req api.Context) (*v1.Thread, error) {
 				return nil, err
 			}
 			if wfe.Spec.ThreadName != thread.Name {
-				return nil, types.NewErrHttp(http.StatusForbidden, "task run does not belong to the thread")
+				return nil, types.NewErrHTTP(http.StatusForbidden, "task run does not belong to the thread")
 			}
 			if wfe.Spec.WorkflowName != taskID {
 				return nil, types.NewErrNotFound("task run not found")

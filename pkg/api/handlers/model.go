@@ -171,7 +171,7 @@ func (a *ModelHandler) Delete(req api.Context) error {
 	}
 
 	if len(agents.Items) > 0 {
-		return types.NewErrHttp(http.StatusPreconditionFailed, fmt.Sprintf("model %q is used by %d agents", model, len(agents.Items)))
+		return types.NewErrHTTP(http.StatusPreconditionFailed, fmt.Sprintf("model %q is used by %d agents", model, len(agents.Items)))
 	}
 
 	return req.Delete(&v1.Model{

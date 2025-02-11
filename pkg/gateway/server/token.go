@@ -42,7 +42,7 @@ type refreshTokenResponse struct {
 func (s *Server) getTokens(apiContext api.Context) error {
 	var tokens []types.AuthToken
 	if err := s.db.WithContext(apiContext.Context()).Where("user_id = ?", apiContext.UserID()).Find(&tokens).Error; err != nil {
-		return types2.NewErrHttp(http.StatusInternalServerError, fmt.Sprintf("error getting tokens: %v", err))
+		return types2.NewErrHTTP(http.StatusInternalServerError, fmt.Sprintf("error getting tokens: %v", err))
 	}
 
 	return apiContext.Write(tokens)
@@ -51,7 +51,7 @@ func (s *Server) getTokens(apiContext api.Context) error {
 func (s *Server) deleteToken(apiContext api.Context) error {
 	id := apiContext.PathValue("id")
 	if id == "" {
-		return types2.NewErrHttp(http.StatusBadRequest, "id path parameter is required")
+		return types2.NewErrHTTP(http.StatusBadRequest, "id path parameter is required")
 	}
 
 	if err := s.db.WithContext(apiContext.Context()).Where("user_id = ? AND id = ?", apiContext.UserID(), id).Delete(new(types.AuthToken)).Error; err != nil {
@@ -60,7 +60,7 @@ func (s *Server) deleteToken(apiContext api.Context) error {
 			status = http.StatusNotFound
 			err = fmt.Errorf("not found")
 		}
-		return types2.NewErrHttp(status, fmt.Sprintf("error deleting token: %v", err))
+		return types2.NewErrHTTP(status, fmt.Sprintf("error deleting token: %v", err))
 	}
 
 	return apiContext.Write(map[string]any{"deleted": true})
@@ -74,7 +74,7 @@ func (s *Server) newToken(apiContext api.Context) error {
 	namespace, name := apiContext.AuthProviderNameAndNamespace()
 	userID := apiContext.UserID()
 	if namespace == "" || name == "" || userID <= 0 {
-		return types2.NewErrHttp(http.StatusForbidden, "forbidden")
+		return types2.NewErrHTTP(http.StatusForbidden, "forbidden")
 	}
 
 	var customExpiration time.Duration
@@ -82,54 +82,45 @@ func (s *Server) newToken(apiContext api.Context) error {
 		request := new(createTokenRequest)
 		err := apiContext.Read(request)
 		if err != nil {
-			return types2.NewErrHttp(http.StatusBadRequest, fmt.Sprintf("invalid create create token request body: %v", err))
+			return types2.NewErrHTTP(http.StatusBadRequest, fmt.Sprintf("invalid create create token request body: %v", err))
 		}
 
 		if request.ExpiresIn != "" {
 			customExpiration, err = ktime.ParseDuration(request.ExpiresIn)
 			if err != nil {
-				return types2.NewErrHttp(http.StatusBadRequest, fmt.Sprintf("invalid expiresIn duration: %v", err))
+				return types2.NewErrHTTP(http.StatusBadRequest, fmt.Sprintf("invalid expiresIn duration: %v", err))
 			}
 		}
 	}
 
 	randBytes := make([]byte, randomTokenLength+tokenIDLength)
 	if _, err := rand.Read(randBytes); err != nil {
-		return types2.NewErrHttp(http.StatusInternalServerError, fmt.Sprintf("error refreshing token: %v", err))
+		return types2.NewErrHTTP(http.StatusInternalServerError, fmt.Sprintf("error refreshing token: %v", err))
 	}
 
 	id := randBytes[:tokenIDLength]
 	token := randBytes[tokenIDLength:]
 
-	tkn := &types.AuthToken{
-		ID:                    fmt.Sprintf("%x", id),
-		UserID:                userID,
-		HashedToken:           hashToken(fmt.Sprintf("%x", token)),
-		ExpiresAt:             time.Now().Add(customExpiration),
-		AuthProviderNamespace: namespace,
-		AuthProviderName:      name,
-	}
-
 	// Make sure the auth provider exists.
 	if providerList := s.dispatcher.ListConfiguredAuthProviders(namespace); !slices.Contains(providerList, name) {
-		return types2.NewErrHttp(http.StatusNotFound, "auth provider not found")
+		return types2.NewErrHTTP(http.StatusNotFound, "auth provider not found")
 	}
 
 	return apiContext.Write(refreshTokenResponse{
 		Token:     publicToken(id, token),
-		ExpiresAt: tkn.ExpiresAt,
+		ExpiresAt: time.Now().Add(customExpiration),
 	})
 }
 
 func (s *Server) tokenRequest(apiContext api.Context) error {
 	reqObj := new(tokenRequestRequest)
 	if err := json.NewDecoder(apiContext.Request.Body).Decode(reqObj); err != nil {
-		return types2.NewErrHttp(http.StatusBadRequest, fmt.Sprintf("invalid token request body: %v", err))
+		return types2.NewErrHTTP(http.StatusBadRequest, fmt.Sprintf("invalid token request body: %v", err))
 	}
 
 	if reqObj.ProviderName != "" {
 		if providerList := s.dispatcher.ListConfiguredAuthProviders(reqObj.ProviderNamespace); !slices.Contains(providerList, reqObj.ProviderName) {
-			return types2.NewErrHttp(http.StatusBadRequest, fmt.Sprintf("auth provider %q not found", reqObj.ProviderName))
+			return types2.NewErrHTTP(http.StatusBadRequest, fmt.Sprintf("auth provider %q not found", reqObj.ProviderName))
 		}
 	}
 
@@ -140,9 +131,9 @@ func (s *Server) tokenRequest(apiContext api.Context) error {
 
 	if err := s.db.WithContext(apiContext.Context()).Create(tokenReq).Error; err != nil {
 		if errors.Is(err, gorm.ErrDuplicatedKey) {
-			return types2.NewErrHttp(http.StatusConflict, "token request already exists")
+			return types2.NewErrHTTP(http.StatusConflict, "token request already exists")
 		}
-		return types2.NewErrHttp(http.StatusInternalServerError, err.Error())
+		return types2.NewErrHTTP(http.StatusInternalServerError, err.Error())
 	}
 
 	if reqObj.ProviderName != "" {
@@ -158,7 +149,7 @@ func (s *Server) redirectForTokenRequest(apiContext api.Context) error {
 
 	if namespace != "" && name != "" {
 		if providerList := s.dispatcher.ListConfiguredAuthProviders(namespace); !slices.Contains(providerList, name) {
-			return types2.NewErrHttp(http.StatusBadRequest, fmt.Sprintf("auth provider %q not found", name))
+			return types2.NewErrHTTP(http.StatusBadRequest, fmt.Sprintf("auth provider %q not found", name))
 		}
 	}
 
@@ -167,7 +158,7 @@ func (s *Server) redirectForTokenRequest(apiContext api.Context) error {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return types2.NewErrNotFound("token not found")
 		}
-		return types2.NewErrHttp(http.StatusInternalServerError, err.Error())
+		return types2.NewErrHTTP(http.StatusInternalServerError, err.Error())
 	}
 
 	return apiContext.Write(map[string]any{"token-path": fmt.Sprintf("%s/api/oauth/start/%s/%s/%s", s.baseURL, tokenReq.ID, namespace, name)})
@@ -239,7 +230,7 @@ func (s *Server) errorToken(ctx context.Context, tr *types.TokenRequest, code in
 		}
 	}
 
-	return types2.NewErrHttp(code, err.Error())
+	return types2.NewErrHTTP(code, err.Error())
 }
 
 // autoCleanupTokens will delete token requests that have been retrieved and are older than the cleanupTick.

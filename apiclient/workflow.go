@@ -20,7 +20,7 @@ func (c *Client) UpdateWorkflow(ctx context.Context, id string, manifest types.W
 }
 
 func (c *Client) GetWorkflow(ctx context.Context, id string) (*types.Workflow, error) {
-	_, resp, err := c.doRequest(ctx, http.MethodGet, fmt.Sprintf("/workflows/"+id), nil)
+	_, resp, err := c.doRequest(ctx, http.MethodGet, fmt.Sprintf("/workflows/%s", id), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -29,7 +29,7 @@ func (c *Client) GetWorkflow(ctx context.Context, id string) (*types.Workflow, e
 }
 
 func (c *Client) CreateWorkflow(ctx context.Context, workflow types.WorkflowManifest) (*types.Workflow, error) {
-	_, resp, err := c.postJSON(ctx, fmt.Sprintf("/workflows"), workflow)
+	_, resp, err := c.postJSON(ctx, "/workflows", workflow)
 	if err != nil {
 		return nil, err
 	}
@@ -106,7 +106,7 @@ func (c *Client) ListWorkflows(ctx context.Context, opts ListWorkflowsOptions) (
 }
 
 func (c *Client) DeleteWorkflow(ctx context.Context, id string) error {
-	_, resp, err := c.doRequest(ctx, http.MethodDelete, fmt.Sprintf("/workflows/"+id), nil)
+	_, resp, err := c.doRequest(ctx, http.MethodDelete, fmt.Sprintf("/workflows/%s", id), nil)
 	if err != nil {
 		return err
 	}

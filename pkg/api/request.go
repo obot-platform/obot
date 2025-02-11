@@ -112,7 +112,7 @@ type BodyOptions struct {
 func (r *Context) Body(opts ...BodyOptions) (_ []byte, err error) {
 	defer func() {
 		if maxErr := (*http.MaxBytesError)(nil); errors.As(err, &maxErr) {
-			err = types.NewErrHttp(http.StatusRequestEntityTooLarge, "request body too large")
+			err = types.NewErrHTTP(http.StatusRequestEntityTooLarge, "request body too large")
 		}
 		_, _ = io.Copy(io.Discard, r.Request.Body)
 	}()

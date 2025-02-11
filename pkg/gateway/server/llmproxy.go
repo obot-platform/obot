@@ -15,7 +15,7 @@ import (
 func (s *Server) llmProxy(req api.Context) error {
 	token, err := s.tokenService.DecodeToken(strings.TrimPrefix(req.Request.Header.Get("Authorization"), "Bearer "))
 	if err != nil {
-		return types2.NewErrHttp(http.StatusUnauthorized, fmt.Sprintf("invalid token: %v", err))
+		return types2.NewErrHTTP(http.StatusUnauthorized, fmt.Sprintf("invalid token: %v", err))
 	}
 
 	if err = s.db.WithContext(req.Context()).Create(&types.LLMProxyActivity{

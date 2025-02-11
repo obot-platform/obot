@@ -21,17 +21,17 @@ const expirationDur = 7 * 24 * time.Hour
 func (s *Server) oauth(apiContext api.Context) error {
 	namespace := apiContext.PathValue("namespace")
 	if namespace == "" {
-		return types2.NewErrHttp(http.StatusBadRequest, "no namespace path parameter provided")
+		return types2.NewErrHTTP(http.StatusBadRequest, "no namespace path parameter provided")
 	}
 
 	name := apiContext.PathValue("name")
 	if name == "" {
-		return types2.NewErrHttp(http.StatusBadRequest, "no name path parameter provided")
+		return types2.NewErrHTTP(http.StatusBadRequest, "no name path parameter provided")
 	}
 
 	// Check to make sure this auth provider exists.
 	if providerList := s.dispatcher.ListConfiguredAuthProviders(namespace); !slices.Contains(providerList, name) {
-		return types2.NewErrHttp(http.StatusNotFound, "auth provider not found")
+		return types2.NewErrHTTP(http.StatusNotFound, "auth provider not found")
 	}
 
 	state, err := s.createState(apiContext.Context(), apiContext.PathValue("id"))
@@ -59,28 +59,28 @@ func (s *Server) oauth(apiContext api.Context) error {
 func (s *Server) redirect(apiContext api.Context) error {
 	namespace := apiContext.PathValue("namespace")
 	if namespace == "" {
-		return types2.NewErrHttp(http.StatusBadRequest, "no namespace path parameter provided")
+		return types2.NewErrHTTP(http.StatusBadRequest, "no namespace path parameter provided")
 	}
 
 	name := apiContext.PathValue("name")
 	if name == "" {
-		return types2.NewErrHttp(http.StatusBadRequest, "no name path parameter provided")
+		return types2.NewErrHTTP(http.StatusBadRequest, "no name path parameter provided")
 	}
 
 	// Check to make sure this auth provider exists.
 
 	if providerList := s.dispatcher.ListConfiguredAuthProviders(namespace); !slices.Contains(providerList, name) {
-		return types2.NewErrHttp(http.StatusNotFound, "auth provider not found")
+		return types2.NewErrHTTP(http.StatusNotFound, "auth provider not found")
 	}
 
 	tr, err := s.verifyState(apiContext.Context(), apiContext.FormValue("state"))
 	if err != nil {
-		return types2.NewErrHttp(http.StatusBadRequest, fmt.Sprintf("invalid state: %v", err))
+		return types2.NewErrHTTP(http.StatusBadRequest, fmt.Sprintf("invalid state: %v", err))
 	}
 
 	randBytes := make([]byte, tokenIDLength+randomTokenLength)
 	if _, err := rand.Read(randBytes); err != nil {
-		return types2.NewErrHttp(http.StatusInternalServerError, fmt.Sprintf("could not generate token id: %v", err))
+		return types2.NewErrHTTP(http.StatusInternalServerError, fmt.Sprintf("could not generate token id: %v", err))
 	}
 
 	id := randBytes[:tokenIDLength]

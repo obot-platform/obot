@@ -122,7 +122,7 @@ func (s *Server) createOAuthApp(apiContext api.Context) error {
 	}
 
 	if len(existingApps.Items) > 0 {
-		return types2.NewErrHttp(http.StatusConflict, fmt.Sprintf("OAuth app with alias %s already exists", appManifest.Alias))
+		return types2.NewErrHTTP(http.StatusConflict, fmt.Sprintf("OAuth app with alias %s already exists", appManifest.Alias))
 	}
 
 	app := v1.OAuthApp{
@@ -546,7 +546,7 @@ func (s *Server) getTokenOAuthApp(apiContext api.Context) error {
 	if hash != challenge.Challenge {
 		// This is an invalid request, possibly an unauthorized attempt to obtain a token.
 		// Return a 404 to mask that this matched a real challenge.
-		return types2.NewErrHttp(http.StatusNotFound, "challenge not found")
+		return types2.NewErrHTTP(http.StatusNotFound, "challenge not found")
 	}
 
 	// Look up the token response by the state.

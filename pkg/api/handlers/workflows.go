@@ -375,7 +375,7 @@ func (a *WorkflowHandler) EnsureCredentialForKnowledgeSource(req api.Context) er
 		return fmt.Errorf("failed to get tool reference %v", ref)
 	}
 	if toolReference.Status.Tool == nil {
-		return types.NewErrHttp(http.StatusTooEarly, "tool reference is not ready yet")
+		return types.NewErrHTTP(http.StatusTooEarly, "tool reference is not ready yet")
 	}
 
 	if len(toolReference.Status.Tool.Credentials) == 0 {

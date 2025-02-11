@@ -10,7 +10,7 @@ import (
 )
 
 func (c *Client) GetEmailReceiver(ctx context.Context, id string) (*types.EmailReceiver, error) {
-	_, resp, err := c.doRequest(ctx, http.MethodGet, fmt.Sprintf("/email-receivers/"+id), nil)
+	_, resp, err := c.doRequest(ctx, http.MethodGet, fmt.Sprintf("/email-receivers/%s", id), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -41,7 +41,7 @@ func (c *Client) ListEmailReceivers(ctx context.Context) (result types.EmailRece
 }
 
 func (c *Client) DeleteEmailReceiver(ctx context.Context, id string) error {
-	_, resp, err := c.doRequest(ctx, http.MethodDelete, fmt.Sprintf("/email-receivers/"+id), nil)
+	_, resp, err := c.doRequest(ctx, http.MethodDelete, fmt.Sprintf("/email-receivers/%s", id), nil)
 	if err != nil {
 		return err
 	}

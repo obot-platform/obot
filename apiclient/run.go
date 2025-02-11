@@ -44,7 +44,7 @@ func (c *Client) StreamRuns(ctx context.Context, opts ListRunsOptions) (result <
 }
 
 func (c *Client) GetRun(ctx context.Context, id string) (result *types.Run, err error) {
-	_, resp, err := c.doRequest(ctx, http.MethodGet, fmt.Sprintf("/runs/"+id), nil)
+	_, resp, err := c.doRequest(ctx, http.MethodGet, fmt.Sprintf("/runs/%s", id), nil)
 	if err != nil {
 		return
 	}
@@ -54,7 +54,7 @@ func (c *Client) GetRun(ctx context.Context, id string) (result *types.Run, err 
 }
 
 func (c *Client) DeleteRun(ctx context.Context, id string) error {
-	_, resp, err := c.doRequest(ctx, http.MethodDelete, fmt.Sprintf("/runs/"+id), nil)
+	_, resp, err := c.doRequest(ctx, http.MethodDelete, fmt.Sprintf("/runs/%s", id), nil)
 	if err != nil {
 		return err
 	}

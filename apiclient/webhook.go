@@ -10,7 +10,7 @@ import (
 )
 
 func (c *Client) GetWebhook(ctx context.Context, id string) (result *types.Webhook, _ error) {
-	_, resp, err := c.doRequest(ctx, http.MethodGet, fmt.Sprintf("/webhooks/"+id), nil)
+	_, resp, err := c.doRequest(ctx, http.MethodGet, fmt.Sprintf("/webhooks/%s", id), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -41,7 +41,7 @@ func (c *Client) ListWebhooks(ctx context.Context) (result types.WebhookList, _ 
 }
 
 func (c *Client) DeleteWebhook(ctx context.Context, id string) error {
-	_, resp, err := c.doRequest(ctx, http.MethodDelete, fmt.Sprintf("/webhooks/"+id), nil)
+	_, resp, err := c.doRequest(ctx, http.MethodDelete, fmt.Sprintf("/webhooks/%s", id), nil)
 	if err != nil {
 		return err
 	}

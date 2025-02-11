@@ -406,7 +406,7 @@ func (a *AssistantHandler) UploadKnowledge(req api.Context) error {
 	}
 
 	if len(thread.Status.KnowledgeSetNames) == 0 {
-		return types.NewErrHttp(http.StatusTooEarly, "knowledge set is not available yet")
+		return types.NewErrHTTP(http.StatusTooEarly, "knowledge set is not available yet")
 	}
 
 	ws, err := getWorkspaceFromKnowledgeSet(req, thread.Status.KnowledgeSetNames[0])
@@ -424,7 +424,7 @@ func (a *AssistantHandler) DeleteKnowledge(req api.Context) error {
 	}
 
 	if len(thread.Status.KnowledgeSetNames) == 0 {
-		return types.NewErrHttp(http.StatusTooEarly, "knowledge set is not created yet")
+		return types.NewErrHTTP(http.StatusTooEarly, "knowledge set is not created yet")
 	}
 
 	return deleteKnowledge(req, req.PathValue("file"), thread.Status.KnowledgeSetNames[0])

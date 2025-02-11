@@ -316,7 +316,7 @@ func (a *ThreadHandler) UploadFile(req api.Context) error {
 	}
 
 	if thread.Status.WorkspaceID == "" {
-		return types.NewErrHttp(http.StatusTooEarly, fmt.Sprintf("no workspace found for thread %s", req.PathValue("id")))
+		return types.NewErrHTTP(http.StatusTooEarly, fmt.Sprintf("no workspace found for thread %s", req.PathValue("id")))
 	}
 
 	_, err := uploadFileToWorkspace(req.Context(), req, a.gptscript, thread.Status.WorkspaceID, "files/")
@@ -368,7 +368,7 @@ func (a *ThreadHandler) UploadKnowledge(req api.Context) error {
 	}
 
 	if len(thread.Status.KnowledgeSetNames) == 0 {
-		return types.NewErrHttp(http.StatusTooEarly, "knowledge set is not available yet")
+		return types.NewErrHTTP(http.StatusTooEarly, "knowledge set is not available yet")
 	}
 
 	ws, err := getWorkspaceFromKnowledgeSet(req, thread.Status.KnowledgeSetNames[0])
@@ -390,7 +390,7 @@ func (a *ThreadHandler) DeleteKnowledge(req api.Context) error {
 	}
 
 	if len(thread.Status.KnowledgeSetNames) == 0 {
-		return types.NewErrHttp(http.StatusTooEarly, fmt.Sprintf("thread %q knowledge set is not created yet", thread.Name))
+		return types.NewErrHTTP(http.StatusTooEarly, fmt.Sprintf("thread %q knowledge set is not created yet", thread.Name))
 	}
 
 	return deleteKnowledge(req, req.PathValue("file"), thread.Status.KnowledgeSetNames[0])

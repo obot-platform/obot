@@ -15,7 +15,7 @@ func (e *ErrHTTP) Error() string {
 	return fmt.Sprintf("error code %d (%s): %s", e.Code, http.StatusText(e.Code), e.Message)
 }
 
-func NewErrHttp(code int, message string) *ErrHTTP {
+func NewErrHTTP(code int, message string) *ErrHTTP {
 	return &ErrHTTP{
 		Code:    code,
 		Message: message,
@@ -23,7 +23,7 @@ func NewErrHttp(code int, message string) *ErrHTTP {
 }
 
 func NewErrBadRequest(message string, args ...interface{}) *ErrHTTP {
-	return NewErrHttp(http.StatusBadRequest, fmt.Sprintf(message, args...))
+	return NewErrHTTP(http.StatusBadRequest, fmt.Sprintf(message, args...))
 }
 
 func NewErrNotFound(message string, args ...any) *ErrHTTP {
@@ -33,7 +33,7 @@ func NewErrNotFound(message string, args ...any) *ErrHTTP {
 	if len(args) > 0 {
 		message = fmt.Sprintf(message, args...)
 	}
-	return NewErrHttp(http.StatusNotFound, message)
+	return NewErrHTTP(http.StatusNotFound, message)
 }
 
 func IsNotFound(err error) bool {

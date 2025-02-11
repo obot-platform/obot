@@ -448,7 +448,7 @@ func (a *AgentHandler) UploadKnowledgeFile(req api.Context) error {
 	}
 
 	if len(knowledgeSetNames) == 0 {
-		return types.NewErrHttp(http.StatusTooEarly, fmt.Sprintf("agent %q knowledge set is not created yet", agentName))
+		return types.NewErrHTTP(http.StatusTooEarly, fmt.Sprintf("agent %q knowledge set is not created yet", agentName))
 	}
 
 	ws, err := getWorkspaceFromKnowledgeSet(req, knowledgeSetNames[0])
@@ -493,7 +493,7 @@ func (a *AgentHandler) DeleteKnowledgeFile(req api.Context) error {
 	}
 
 	if len(knowledgeSetNames) == 0 {
-		return types.NewErrHttp(http.StatusTooEarly, fmt.Sprintf("agent %q knowledge set is not created yet", agentName))
+		return types.NewErrHTTP(http.StatusTooEarly, fmt.Sprintf("agent %q knowledge set is not created yet", agentName))
 	}
 	return deleteKnowledge(req, req.PathValue("file"), knowledgeSetNames[0])
 }
@@ -552,7 +552,7 @@ func (a *AgentHandler) UpdateKnowledgeSource(req api.Context) error {
 	}
 
 	if len(knowledgeSetNames) == 0 {
-		return types.NewErrHttp(http.StatusTooEarly, fmt.Sprintf("agent %q knowledge set is not created yet", agentName))
+		return types.NewErrHTTP(http.StatusTooEarly, fmt.Sprintf("agent %q knowledge set is not created yet", agentName))
 	}
 
 	var knowledgeSource v1.KnowledgeSource
@@ -583,7 +583,7 @@ func (a *AgentHandler) ReIngestKnowledgeFile(req api.Context) error {
 	}
 
 	if len(knowledgeSetNames) == 0 {
-		return types.NewErrHttp(http.StatusTooEarly, fmt.Sprintf("agent %q knowledge set is not created yet", agentName))
+		return types.NewErrHTTP(http.StatusTooEarly, fmt.Sprintf("agent %q knowledge set is not created yet", agentName))
 	}
 
 	var knowledgeFile v1.KnowledgeFile
@@ -627,7 +627,7 @@ func (a *AgentHandler) ReSyncKnowledgeSource(req api.Context) error {
 	}
 
 	if len(knowledgeSetNames) == 0 {
-		return types.NewErrHttp(http.StatusTooEarly, fmt.Sprintf("agent %q knowledge set is not created yet", agentName))
+		return types.NewErrHTTP(http.StatusTooEarly, fmt.Sprintf("agent %q knowledge set is not created yet", agentName))
 	}
 
 	var knowledgeSource v1.KnowledgeSource
@@ -685,7 +685,7 @@ func (a *AgentHandler) DeleteKnowledgeSource(req api.Context) error {
 	}
 
 	if len(knowledgeSetNames) == 0 {
-		return types.NewErrHttp(http.StatusTooEarly, fmt.Sprintf("agent %q knowledge set is not created yet", agentName))
+		return types.NewErrHTTP(http.StatusTooEarly, fmt.Sprintf("agent %q knowledge set is not created yet", agentName))
 	}
 
 	var knowledgeSource v1.KnowledgeSource
@@ -740,7 +740,7 @@ func (a *AgentHandler) EnsureCredentialForKnowledgeSource(req api.Context) error
 		return fmt.Errorf("failed to get tool reference %v", ref)
 	}
 	if toolReference.Status.Tool == nil {
-		return types.NewErrHttp(http.StatusTooEarly, "tool reference is not ready yet")
+		return types.NewErrHTTP(http.StatusTooEarly, "tool reference is not ready yet")
 	}
 
 	if len(toolReference.Status.Tool.Credentials) == 0 {
@@ -940,7 +940,7 @@ func runAuthForAgent(ctx context.Context, c kclient.WithWatch, invoker *invoke.I
 			credentials = append(credentials, credentails...)
 		} else if err := c.Get(ctx, kclient.ObjectKey{Namespace: agent.Namespace, Name: tool}, &toolRef); err == nil {
 			if toolRef.Status.Tool == nil {
-				return nil, types.NewErrHttp(http.StatusTooEarly, fmt.Sprintf("tool %q is not ready", tool))
+				return nil, types.NewErrHTTP(http.StatusTooEarly, fmt.Sprintf("tool %q is not ready", tool))
 			}
 
 			credentials = append(credentials, toolRef.Status.Tool.Credentials...)

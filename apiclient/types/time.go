@@ -59,10 +59,10 @@ func (t Time) ToUnstructured() interface{} {
 	return string(buf)
 }
 
-func (_ Time) OpenAPISchemaType() []string {
+func (Time) OpenAPISchemaType() []string {
 	return []string{"string"}
 }
 
-func (_ Time) OpenAPISchemaFormat() string {
+func (Time) OpenAPISchemaFormat() string {
 	return "date-time"
 }

@@ -32,7 +32,7 @@ func listFiles(ctx context.Context, req api.Context, gClient *gptscript.GPTScrip
 
 func listFileFromWorkspace(ctx context.Context, req api.Context, gClient *gptscript.GPTScript, opts gptscript.ListFilesInWorkspaceOptions) error {
 	if opts.WorkspaceID == "" {
-		return types.NewErrHttp(http.StatusTooEarly, "workspace is not available yet")
+		return types.NewErrHTTP(http.StatusTooEarly, "workspace is not available yet")
 	}
 	files, err := gClient.ListFilesInWorkspace(ctx, opts)
 	if err != nil {

@@ -62,7 +62,7 @@ func (c *Client) DeleteToolReference(ctx context.Context, id string, toolType ty
 }
 
 func (c *Client) CreateToolReference(ctx context.Context, manifest types.ToolReferenceManifest) (*types.ToolReference, error) {
-	_, resp, err := c.postJSON(ctx, fmt.Sprintf("/tool-references"), &manifest)
+	_, resp, err := c.postJSON(ctx, "/tool-references", &manifest)
 	if err != nil {
 		return nil, err
 	}

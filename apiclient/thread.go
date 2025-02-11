@@ -10,7 +10,7 @@ import (
 )
 
 func (c *Client) DeleteThread(ctx context.Context, id string) error {
-	_, resp, err := c.doRequest(ctx, http.MethodDelete, fmt.Sprintf("/threads/"+id), nil)
+	_, resp, err := c.doRequest(ctx, http.MethodDelete, fmt.Sprintf("/threads/%s", id), nil)
 	if err != nil {
 		return err
 	}
@@ -53,7 +53,7 @@ func (c *Client) UpdateThread(ctx context.Context, id string, thread types.Threa
 }
 
 func (c *Client) GetThread(ctx context.Context, threadID string) (result *types.Thread, err error) {
-	_, resp, err := c.doRequest(ctx, http.MethodGet, fmt.Sprintf("/threads/"+threadID), nil)
+	_, resp, err := c.doRequest(ctx, http.MethodGet, fmt.Sprintf("/threads/%s", threadID), nil)
 	if err != nil {
 		return
 	}

@@ -20,7 +20,7 @@ func (s *Server) getCurrentUser(apiContext api.Context) error {
 	user, err := s.client.User(apiContext.Context(), apiContext.User.GetName())
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		// This shouldn't happen, but, if it does, then the user would be unauthorized because we can't identify them.
-		return types2.NewErrHttp(http.StatusUnauthorized, "unauthorized")
+		return types2.NewErrHTTP(http.StatusUnauthorized, "unauthorized")
 	} else if err != nil {
 		return err
 	}
@@ -59,7 +59,7 @@ func (s *Server) getUsers(apiContext api.Context) error {
 func (s *Server) getUser(apiContext api.Context) error {
 	username := apiContext.PathValue("username")
 	if username == "" {
-		return types2.NewErrHttp(http.StatusBadRequest, "username path parameter is required")
+		return types2.NewErrHTTP(http.StatusBadRequest, "username path parameter is required")
 	}
 
 	user, err := s.client.User(apiContext.Context(), username)
@@ -79,21 +79,21 @@ func (s *Server) updateUser(apiContext api.Context) error {
 
 	username := apiContext.PathValue("username")
 	if username == "" {
-		return types2.NewErrHttp(http.StatusBadRequest, "username path parameter is required")
+		return types2.NewErrHTTP(http.StatusBadRequest, "username path parameter is required")
 	}
 
 	if !actingUserIsAdmin && requestingUsername != username {
-		return types2.NewErrHttp(http.StatusForbidden, "only admins can update other users")
+		return types2.NewErrHTTP(http.StatusForbidden, "only admins can update other users")
 	}
 
 	user := new(types.User)
 	if err := apiContext.Read(user); err != nil {
-		return types2.NewErrHttp(http.StatusBadRequest, "invalid user request body")
+		return types2.NewErrHTTP(http.StatusBadRequest, "invalid user request body")
 	}
 
 	if user.Timezone != "" {
 		if _, err := time.LoadLocation(user.Timezone); err != nil {
-			return types2.NewErrHttp(http.StatusBadRequest, "invalid timezone")
+			return types2.NewErrHTTP(http.StatusBadRequest, "invalid timezone")
 		}
 	}
 
@@ -109,7 +109,7 @@ func (s *Server) updateUser(apiContext api.Context) error {
 		} else if ae := (*client.AlreadyExistsError)(nil); errors.As(err, &ae) {
 			status = http.StatusConflict
 		}
-		return types2.NewErrHttp(status, fmt.Sprintf("failed to update user: %v", err))
+		return types2.NewErrHTTP(status, fmt.Sprintf("failed to update user: %v", err))
 	}
 
 	return apiContext.Write(types.ConvertUser(existingUser, s.client.IsExplicitAdmin(existingUser.Email)))
@@ -118,7 +118,7 @@ func (s *Server) updateUser(apiContext api.Context) error {
 func (s *Server) deleteUser(apiContext api.Context) error {
 	username := apiContext.PathValue("username")
 	if username == "" {
-		return types2.NewErrHttp(http.StatusBadRequest, "username path parameter is required")
+		return types2.NewErrHTTP(http.StatusBadRequest, "username path parameter is required")
 	}
 
 	status := http.StatusInternalServerError
@@ -129,7 +129,7 @@ func (s *Server) deleteUser(apiContext api.Context) error {
 		} else if lae := (*client.LastAdminError)(nil); errors.As(err, &lae) {
 			status = http.StatusBadRequest
 		}
-		return types2.NewErrHttp(status, fmt.Sprintf("failed to delete user: %v", err))
+		return types2.NewErrHTTP(status, fmt.Sprintf("failed to delete user: %v", err))
 	}
 
 	return apiContext.Write(types.ConvertUser(existingUser, s.client.IsExplicitAdmin(existingUser.Email)))

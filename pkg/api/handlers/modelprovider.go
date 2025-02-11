@@ -180,12 +180,12 @@ func (mp *ModelProviderHandler) Validate(req api.Context) error {
 				ref.Name,
 			)
 		}
-		return types.NewErrHttp(http.StatusUnprocessableEntity, strings.Trim(err.Error(), "\"'"))
+		return types.NewErrHTTP(http.StatusUnprocessableEntity, strings.Trim(err.Error(), "\"'"))
 	}
 
 	var validationError ValidationError
 	if json.Unmarshal([]byte(res.Output), &validationError) == nil && validationError.Err != "" {
-		return types.NewErrHttp(http.StatusUnprocessableEntity, validationError.Error())
+		return types.NewErrHTTP(http.StatusUnprocessableEntity, validationError.Error())
 	}
 
 	return nil

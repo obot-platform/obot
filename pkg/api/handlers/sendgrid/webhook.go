@@ -26,18 +26,18 @@ func (h *InboundWebhookHandler) InboundWebhookHandler(req api.Context) error {
 	if h.username != "" && h.password != "" {
 		username, password, ok := req.Request.BasicAuth()
 		if !ok || username != h.username || password != h.password {
-			return types.NewErrHttp(http.StatusUnauthorized, "Invalid credentials")
+			return types.NewErrHTTP(http.StatusUnauthorized, "Invalid credentials")
 		}
 	}
 
 	inboundEmail, err := inbound.Parse(req.Request)
 	if err != nil {
-		return types.NewErrHttp(http.StatusBadRequest, fmt.Sprintf("Failed to parse inbound email: %v", err))
+		return types.NewErrHTTP(http.StatusBadRequest, fmt.Sprintf("Failed to parse inbound email: %v", err))
 	}
 
 	subject := inboundEmail.Headers["Subject"]
 	if err := h.emailTrigger.Handler(req.Context(), inboundEmail.Envelope.From, inboundEmail.Envelope.To, subject, []byte(inboundEmail.TextBody)); err != nil {
-		return types.NewErrHttp(http.StatusInternalServerError, fmt.Sprintf("Failed to handle inbound email: %v", err))
+		return types.NewErrHTTP(http.StatusInternalServerError, fmt.Sprintf("Failed to handle inbound email: %v", err))
 	}
 
 	req.WriteHeader(http.StatusOK)
