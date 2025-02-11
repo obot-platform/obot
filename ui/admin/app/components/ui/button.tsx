@@ -6,7 +6,7 @@ import * as React from "react";
 import { cn } from "~/lib/utils";
 
 const buttonVariants = cva(
-	"inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium transition-colors hover:shadow-inner focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0",
+	"relative inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium transition-colors hover:shadow-inner focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0",
 	{
 		variants: {
 			variant: {
@@ -89,28 +89,22 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
 				ref={ref}
 				{...props}
 			>
-				{getContent()}
-			</Comp>
-		);
-
-		function getContent() {
-			if ((size === "icon" || size === "icon-sm") && loading)
-				return <Loader2 className="animate-spin" />;
-
-			return loading ? (
-				<div className="flex items-center gap-2">
-					<Loader2 className="mr-2 animate-spin" />
-					{children}
-					{endContent}
-				</div>
-			) : (
-				<div className={cn("flex items-center gap-2", classNames?.content)}>
+				<div
+					className={cn("flex items-center gap-2", classNames?.content, {
+						invisible: loading,
+					})}
+				>
 					{startContent}
 					{children}
 					{endContent}
 				</div>
-			);
-		}
+				{loading && (
+					<div className="absolute inset-0 flex items-center justify-center">
+						<Loader2 className="animate-spin" />
+					</div>
+				)}
+			</Comp>
+		);
 	}
 );
 Button.displayName = "Button";

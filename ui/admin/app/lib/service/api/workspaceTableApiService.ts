@@ -13,19 +13,6 @@ import {
 
 const param = (x: string) => x as Todo;
 
-const Keys = {
-	getTables: (namespace: TableNamespace, entityId: string) => [
-		namespace,
-		entityId,
-		"tables",
-	],
-	getTableRows: (
-		namespace: TableNamespace,
-		entityId: string,
-		tableName: string
-	) => [...Keys.getTables(namespace, entityId), tableName],
-};
-
 const getTables = createFetcher(
 	QueryService.queryable.extend({
 		namespace: z.nativeEnum(TableNamespace),
