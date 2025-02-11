@@ -111,9 +111,14 @@ func (i *InvokeHandler) Invoke(req api.Context) error {
 		return req.WriteEvents(resp.Events)
 	}
 
+	var runID string
+	if resp.Run != nil {
+		runID = resp.Run.Name
+	}
+
 	req.ResponseWriter.Header().Set("Content-Type", "application/json")
 	return req.Write(map[string]string{
 		"threadID": resp.Thread.Name,
-		"runID":    resp.Run.Name,
+		"runID":    runID,
 	})
 }
