@@ -5,7 +5,6 @@ import {
 	ClientLoaderFunctionArgs,
 	MetaFunction,
 	useLoaderData,
-	useNavigate,
 } from "react-router";
 import { $path } from "safe-routes";
 import useSWR, { preload } from "swr";
@@ -56,11 +55,11 @@ export async function clientLoader({
 }
 
 export default function TaskRuns() {
-	const navigate = useNavigate();
 	const [search, setSearch] = useState("");
-	const { onRowClick, onCtrlClick } = useRowNavigate<Thread>(
-		"/chat-threads/:id",
-		"id"
+	const navigate = useRowNavigate((value: Thread | string) =>
+		typeof value === "string"
+			? value
+			: $path("/chat-threads/:id", { id: value.id })
 	);
 	const { agentId, userId } = useLoaderData<typeof clientLoader>();
 
@@ -140,8 +139,8 @@ export default function TaskRuns() {
 				data={itemsToDisplay}
 				sort={[{ id: "created", desc: true }]}
 				disableClickPropagation={(cell) => cell.id.includes("actions")}
-				onRowClick={onRowClick}
-				onCtrlClick={onCtrlClick}
+				onRowClick={navigate.internal}
+				onCtrlClick={navigate.external}
 			/>
 		</ScrollArea>
 	);
@@ -161,7 +160,7 @@ export default function TaskRuns() {
 							})) ?? []
 						}
 						onSelect={(value) => {
-							navigate(
+							navigate.internal(
 								$path("/chat-threads", {
 									agentId: value,
 									...(userId && { userId }),
@@ -184,7 +183,7 @@ export default function TaskRuns() {
 							})) ?? []
 						}
 						onSelect={(value) => {
-							navigate(
+							navigate.internal(
 								$path("/chat-threads", {
 									userId: value,
 									...(agentId && { agentId }),

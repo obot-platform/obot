@@ -1,10 +1,6 @@
 import { ColumnDef, createColumnHelper } from "@tanstack/react-table";
 import { useMemo, useState } from "react";
-import {
-	ClientLoaderFunctionArgs,
-	useLoaderData,
-	useNavigate,
-} from "react-router";
+import { ClientLoaderFunctionArgs, useLoaderData } from "react-router";
 import { $path } from "safe-routes";
 import useSWR, { preload } from "swr";
 
@@ -55,10 +51,8 @@ export async function clientLoader({
 
 export default function Tasks() {
 	const [search, setSearch] = useState("");
-	const navigate = useNavigate();
-	const { onRowClick, onCtrlClick } = useRowNavigate<Workflow>(
-		"/tasks/:id",
-		"id"
+	const navigate = useRowNavigate((value: Workflow | string) =>
+		typeof value === "string" ? value : $path("/tasks/:id", { id: value.id })
 	);
 	const { taskId, userId, agentId } = useLoaderData<typeof clientLoader>();
 
@@ -168,8 +162,8 @@ export default function Tasks() {
 						columns={getColumns()}
 						data={data}
 						sort={[{ id: "created", desc: true }]}
-						onRowClick={onRowClick}
-						onCtrlClick={onCtrlClick}
+						onRowClick={navigate.internal}
+						onCtrlClick={navigate.external}
 					/>
 				</div>
 			</div>
@@ -191,7 +185,7 @@ export default function Tasks() {
 							})) ?? []
 						}
 						onSelect={(value) => {
-							navigate(
+							navigate.internal(
 								$path("/tasks", {
 									taskId: value,
 									...(agentId && { agentId }),
@@ -215,7 +209,7 @@ export default function Tasks() {
 							})) ?? []
 						}
 						onSelect={(value) => {
-							navigate(
+							navigate.internal(
 								$path("/tasks", {
 									agentId: value,
 									...(taskId && { taskId }),
@@ -239,7 +233,7 @@ export default function Tasks() {
 							})) ?? []
 						}
 						onSelect={(value) => {
-							navigate(
+							navigate.internal(
 								$path("/tasks", {
 									userId: value,
 									...(taskId && { taskId }),

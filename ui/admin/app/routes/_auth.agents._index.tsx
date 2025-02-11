@@ -2,7 +2,7 @@ import { PlusIcon } from "@radix-ui/react-icons";
 import { ColumnDef, createColumnHelper } from "@tanstack/react-table";
 import { SquarePen } from "lucide-react";
 import { useMemo } from "react";
-import { MetaFunction, useNavigate } from "react-router";
+import { MetaFunction } from "react-router";
 import { $path } from "safe-routes";
 import useSWR, { preload } from "swr";
 
@@ -38,10 +38,8 @@ const CapabilityTools = [
 	CapabilityTool.Tasks,
 ];
 export default function Agents() {
-	const navigate = useNavigate();
-	const { onRowClick, onCtrlClick } = useRowNavigate<Agent>(
-		"/agents/:id",
-		"id"
+	const navigate = useRowNavigate((agent: Agent) =>
+		$path("/agents/:id", { id: agent.id })
 	);
 	const getThreads = useSWR(ThreadsService.getThreads.key(), () =>
 		ThreadsService.getThreads()
@@ -80,11 +78,7 @@ export default function Agents() {
 									} as Agent,
 								}).then((agent) => {
 									getAgents.mutate();
-									navigate(
-										$path("/agents/:id", {
-											id: agent.id,
-										})
-									);
+									navigate.internal(agent);
 								});
 							}}
 						>
@@ -98,8 +92,8 @@ export default function Agents() {
 						data={agents}
 						sort={[{ id: "created", desc: true }]}
 						disableClickPropagation={(cell) => cell.id.includes("action")}
-						onRowClick={onRowClick}
-						onCtrlClick={onCtrlClick}
+						onRowClick={navigate.internal}
+						onCtrlClick={navigate.external}
 					/>
 				</div>
 			</div>

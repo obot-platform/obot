@@ -6,7 +6,6 @@ import {
 	Link,
 	MetaFunction,
 	useLoaderData,
-	useNavigate,
 } from "react-router";
 import { $path } from "safe-routes";
 import useSWR, { preload } from "swr";
@@ -59,10 +58,10 @@ export async function clientLoader({
 
 export default function TaskRuns() {
 	const [search, setSearch] = useState("");
-	const navigate = useNavigate();
-	const { onRowClick, onCtrlClick } = useRowNavigate<Thread>(
-		"/task-runs/:id",
-		"id"
+	const navigate = useRowNavigate((value: Thread | string) =>
+		typeof value === "string"
+			? value
+			: $path("/task-runs/:id", { id: value.id })
 	);
 	const { taskId, userId } = useLoaderData<typeof clientLoader>();
 
@@ -154,8 +153,8 @@ export default function TaskRuns() {
 				data={itemsToDisplay}
 				sort={[{ id: "created", desc: true }]}
 				disableClickPropagation={(cell) => cell.id.includes("actions")}
-				onRowClick={onRowClick}
-				onCtrlClick={onCtrlClick}
+				onRowClick={navigate.internal}
+				onCtrlClick={navigate.external}
 			/>
 		</ScrollArea>
 	);
@@ -175,7 +174,7 @@ export default function TaskRuns() {
 							})) ?? []
 						}
 						onSelect={(value) => {
-							navigate(
+							navigate.internal(
 								$path("/task-runs", {
 									taskId: value,
 									...(userId && { userId }),
@@ -198,7 +197,7 @@ export default function TaskRuns() {
 							})) ?? []
 						}
 						onSelect={(value) => {
-							navigate(
+							navigate.internal(
 								$path("/task-runs", {
 									userId: value,
 									...(taskId && { taskId }),

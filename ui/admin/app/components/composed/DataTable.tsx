@@ -9,7 +9,6 @@ import {
 } from "@tanstack/react-table";
 import { ListFilterIcon } from "lucide-react";
 import { useNavigate } from "react-router";
-import { $path, RoutesWithParams } from "safe-routes";
 
 import { cn } from "~/lib/utils";
 
@@ -123,20 +122,13 @@ export function DataTable<TData, TValue>({
 	}
 }
 
-export const useRowNavigate = <TData extends Record<string, unknown>>(
-	url: keyof RoutesWithParams,
-	property: keyof TData &
-		keyof {
-			[K in keyof TData as TData[K] extends string | number
-				? K
-				: never]: TData[K];
-		}
+export const useRowNavigate = <TData extends object | string>(
+	getPath: (row: TData) => string
 ) => {
 	const navigate = useNavigate();
 
 	const handleAction = (row: TData, ctrl: boolean) => {
-		const path = $path(url, { id: String(row[property]) });
-
+		const path = getPath(row);
 		if (ctrl) {
 			window.open(`/admin${path}`, "_blank");
 		} else {
@@ -145,8 +137,8 @@ export const useRowNavigate = <TData extends Record<string, unknown>>(
 	};
 
 	return {
-		onRowClick: (row: TData) => handleAction(row, false),
-		onCtrlClick: (row: TData) => handleAction(row, true),
+		internal: (row: TData) => handleAction(row, false),
+		external: (row: TData) => handleAction(row, true),
 	};
 };
 
