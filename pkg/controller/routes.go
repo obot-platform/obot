@@ -62,7 +62,6 @@ func (c *Controller) setupRoutes() error {
 	root.Type(&v1.Thread{}).HandlerFunc(threads.CreateKnowledgeSet)
 	root.Type(&v1.Thread{}).HandlerFunc(threads.WorkflowState)
 	root.Type(&v1.Thread{}).HandlerFunc(knowledgesummary.Summarize)
-	root.Type(&v1.Thread{}).HandlerFunc(toolRef.MigrateToolNames)
 	root.Type(&v1.Thread{}).FinalizeFunc(v1.ThreadFinalizer, credentialCleanup.Remove)
 
 	// KnowledgeSummary
@@ -76,7 +75,6 @@ func (c *Controller) setupRoutes() error {
 	root.Type(&v1.Workflow{}).HandlerFunc(alias.AssignAlias)
 	root.Type(&v1.Workflow{}).HandlerFunc(toolInfo.SetToolInfoStatus)
 	root.Type(&v1.Workflow{}).HandlerFunc(generationed.UpdateObservedGeneration)
-	root.Type(&v1.Workflow{}).HandlerFunc(toolRef.MigrateToolNames)
 	root.Type(&v1.Workflow{}).FinalizeFunc(v1.WorkflowFinalizer, credentialCleanup.Remove)
 
 	// WorkflowExecutions
@@ -90,7 +88,6 @@ func (c *Controller) setupRoutes() error {
 	root.Type(&v1.Agent{}).HandlerFunc(alias.AssignAlias)
 	root.Type(&v1.Agent{}).HandlerFunc(toolInfo.SetToolInfoStatus)
 	root.Type(&v1.Agent{}).HandlerFunc(generationed.UpdateObservedGeneration)
-	root.Type(&v1.Agent{}).HandlerFunc(toolRef.MigrateToolNames)
 	root.Type(&v1.Agent{}).FinalizeFunc(v1.AgentFinalizer, credentialCleanup.Remove)
 
 	// Uploads
@@ -170,7 +167,6 @@ func (c *Controller) setupRoutes() error {
 	steps.HandlerFunc(changeWorkflowStepOwnerGVK)
 	steps.HandlerFunc(cleanup.Cleanup)
 	steps.HandlerFunc(handlers.GCOrphans)
-	steps.HandlerFunc(toolRef.MigrateToolNames)
 
 	running := steps.Middleware(workflowStep.Preconditions)
 	running.HandlerFunc(workflowStep.RunInvoke)
