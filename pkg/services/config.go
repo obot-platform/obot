@@ -124,7 +124,8 @@ var requiredEnvs = []string{
 	// Encryption,
 	"GPTSCRIPT_ENCRYPTION_CONFIG_FILE",
 	// XDG stuff
-	"XDG_CONFIG_HOME", "XDG_DATA_HOME", "XDG_CACHE_HOME"}
+	"XDG_CONFIG_HOME", "XDG_DATA_HOME", "XDG_CACHE_HOME",
+}
 
 func copyKeys(envs []string) []string {
 	seen := make(map[string]struct{})
@@ -370,6 +371,18 @@ func New(ctx context.Context, config Config) (*Services, error) {
 
 	if config.EmailServerName != "" && config.EnableSMTPServer {
 		go smtp.Start(ctx, storageClient, config.EmailServerName)
+	}
+
+	run, err := c.Run(ctx, fmt.Sprintf("Validate Environment Variables from %s", workspaceTool), gptscript.Options{
+		Input: fmt.Sprintf(`{"provider":"%s"}`, config.WorkspaceProviderType),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to validate environment variables: %w", err)
+	}
+
+	_, err = run.Text()
+	if err != nil {
+		return nil, fmt.Errorf("failed to validate environment variables: %w", err)
 	}
 
 	// For now, always auto-migrate the gateway database

@@ -299,8 +299,8 @@ github.com/gptscript-ai/chat-completion-client v0.0.0-20250128181713-57857b74f9f
 github.com/gptscript-ai/chat-completion-client v0.0.0-20250128181713-57857b74f9f1/go.mod h1:7P/o6/IWa1KqsntVf68hSnLKuu3+xuqm6lYhch1w4jo=
 github.com/gptscript-ai/cmd v0.0.0-20250122115124-a3d65e9d2432 h1:cJh/Hl1HFd1qLpdkaZvsFTC2mXlIuiK7FgvSfaSOWmw=
 github.com/gptscript-ai/cmd v0.0.0-20250122115124-a3d65e9d2432/go.mod h1:DJAo1xTht1LDkNYFNydVjTHd576TC7MlpsVRl3oloVw=
-github.com/gptscript-ai/go-gptscript v0.9.6-0.20250204133419-744b25b84a61 h1:QxLjsLOYlsVLPwuRkP0Q8EcAoZT1s8vU2ZBSX0+R6CI=
-github.com/gptscript-ai/go-gptscript v0.9.6-0.20250204133419-744b25b84a61/go.mod h1:/FVuLwhz+sIfsWUgUHWKi32qT0i6+IXlUlzs70KKt/Q=
+github.com/gptscript-ai/go-gptscript v0.9.6-0.20250211184209-834896a4bb9f h1:h3evXo0m2o6TjUnnzbE9Nh7XlsZUeWjrWAS72SpIUkI=
+github.com/gptscript-ai/go-gptscript v0.9.6-0.20250211184209-834896a4bb9f/go.mod h1:/FVuLwhz+sIfsWUgUHWKi32qT0i6+IXlUlzs70KKt/Q=
 github.com/gptscript-ai/gptscript v0.9.6-0.20250206173916-bf1b00027193 h1:bHf+rNjevQ3mD/e0yrPDZ+E5unff8z9pSuC1B92uphg=
 github.com/gptscript-ai/gptscript v0.9.6-0.20250206173916-bf1b00027193/go.mod h1:uvb92bYHRX9wFHSS1jkg5Y7GBQgTb8iHP+l/wPsWCx8=
 github.com/gptscript-ai/tui v0.0.0-20250204145344-33cd15de4cee h1:70PHW6Xw70yNNZ5aX936XqcMLwNmfMZpCV3FCOGKpxE=

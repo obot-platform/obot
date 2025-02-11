@@ -18,7 +18,7 @@ require (
 	github.com/gorilla/websocket v1.5.0
 	github.com/gptscript-ai/chat-completion-client v0.0.0-20250128181713-57857b74f9f1
 	github.com/gptscript-ai/cmd v0.0.0-20250122115124-a3d65e9d2432
-	github.com/gptscript-ai/go-gptscript v0.9.6-0.20250204133419-744b25b84a61
+	github.com/gptscript-ai/go-gptscript v0.9.6-0.20250211184209-834896a4bb9f
 	github.com/gptscript-ai/gptscript v0.9.6-0.20250206173916-bf1b00027193
 	github.com/liggitt/tabwriter v0.0.0-20181228230101-89fcab3d43de
 	github.com/mhale/smtpd v0.8.3
