@@ -124,6 +124,11 @@ if [ ! -e aws-encryption-provider ]; then
 fi
 cd aws-encryption-provider
 go build -o "${BIN_DIR}/aws-encryption-provider" cmd/server/main.go
+OBOT_SERVER_VERSIONS="$(cat <<VERSIONS
+"github.com/kubernetes-sigs/aws-encryption-provider": "$(git rev-parse --short HEAD)"
+${OBOT_SERVER_VERSIONS}
+VERSIONS
+)"
 cd ..
 
 if [ ! -e k8s-cloudkms-plugin ]; then
@@ -131,10 +136,8 @@ if [ ! -e k8s-cloudkms-plugin ]; then
 fi
 cd k8s-cloudkms-plugin
 go build -ldflags "-s -w -extldflags 'static'" -installsuffix cgo -tags netgo -o "${BIN_DIR}/gcp-encryption-provider" cmd/k8s-cloudkms-plugin/main.go
-cd ../..
-
 OBOT_SERVER_VERSIONS="$(cat <<VERSIONS
-"github.com/kubernetes-sigs/aws-encryption-provider": "$(git rev-parse --short HEAD)"
+"github.com/kubernetes-sigs/gcp-encryption-provider": "$(git rev-parse --short HEAD)"
 ${OBOT_SERVER_VERSIONS}
 VERSIONS
 )"
