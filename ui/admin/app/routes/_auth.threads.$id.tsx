@@ -103,11 +103,9 @@ export default function ChatAgent() {
 						variant="outline"
 						size="icon"
 						className="absolute left-4 top-4 z-10"
-						asChild
+						onClick={() => navigate(-1)}
 					>
-						<Button size="icon" variant="outline" onClick={() => navigate(-1)}>
-							<ArrowLeftIcon className="h-4 w-4" />
-						</Button>
+						<ArrowLeftIcon className="h-4 w-4" />
 					</Button>
 				</TooltipTrigger>
 				<TooltipContent>Go Back</TooltipContent>

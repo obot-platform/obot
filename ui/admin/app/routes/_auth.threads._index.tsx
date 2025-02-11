@@ -4,7 +4,6 @@ import { PuzzleIcon, Trash, XIcon } from "lucide-react";
 import { useMemo } from "react";
 import {
 	ClientLoaderFunctionArgs,
-	Link,
 	MetaFunction,
 	useLoaderData,
 	useNavigate,
@@ -27,6 +26,7 @@ import { timeSince } from "~/lib/utils";
 
 import { DataTable } from "~/components/composed/DataTable";
 import { Button } from "~/components/ui/button";
+import { Link } from "~/components/ui/link";
 import { ScrollArea } from "~/components/ui/scroll-area";
 import {
 	Tooltip,
@@ -193,15 +193,16 @@ export default function Threads() {
 					<div className="flex justify-end gap-2">
 						<Tooltip>
 							<TooltipTrigger asChild>
-								<Button variant="ghost" size="icon" asChild>
-									<Link
-										to={$path("/threads/:id", {
-											id: row.original.id,
-										})}
-									>
-										<ReaderIcon width={21} height={21} />
-									</Link>
-								</Button>
+								<Link
+									to={$path("/threads/:id", {
+										id: row.original.id,
+									})}
+									as="button"
+									variant="ghost"
+									size="icon"
+								>
+									<ReaderIcon width={21} height={21} />
+								</Link>
 							</TooltipTrigger>
 
 							<TooltipContent>
