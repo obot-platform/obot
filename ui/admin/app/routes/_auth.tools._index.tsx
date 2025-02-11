@@ -34,7 +34,7 @@ export default function Tools() {
 	);
 
 	const toolMap = useMemo(
-		() => convertToolReferencesToMap(getTools.data),
+		() => convertToolReferencesToMap(getTools.data, true),
 		[getTools.data]
 	);
 

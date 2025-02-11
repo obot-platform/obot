@@ -55,13 +55,19 @@ export function isCapabilityTool(toolReference: ToolReference) {
 	return toolReference.metadata?.category === CapabilitiesToolCategory;
 }
 
-export function convertToolReferencesToMap(toolReferences: ToolReference[]) {
+export function convertToolReferencesToMap(
+	toolReferences: ToolReference[],
+	includeCapabilities?: boolean
+) {
 	// Convert array of tools to a map keyed by tool name
 	const toolMap = new Map(toolReferences.map((tool) => [tool.id, tool]));
 	const result: ToolMap = {};
 
 	for (const toolReference of toolReferences) {
-		if (toolReference.deleted || isCapabilityTool(toolReference)) {
+		if (
+			toolReference.deleted ||
+			(isCapabilityTool(toolReference) && !includeCapabilities)
+		) {
 			continue;
 		}
 

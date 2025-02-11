@@ -1,15 +1,17 @@
 import { useMemo } from "react";
 
 import {
+	CapabilitiesToolCategory,
 	CustomToolsToolCategory,
 	ToolReference,
+	isCapabilityTool,
 } from "~/lib/model/toolReferences";
 
 import { BundleToolList } from "~/components/tools/toolGrid/BundleToolList";
 import { ToolCard } from "~/components/tools/toolGrid/ToolCard";
 
 export function ToolGrid({ toolMap }: { toolMap: [string, ToolReference][] }) {
-	const { customTools, builtinTools } = useMemo(() => {
+	const { customTools, builtinTools, capabilities } = useMemo(() => {
 		return separateCustomAndBuiltinTools(toolMap);
 	}, [toolMap]);
 
@@ -50,6 +52,15 @@ export function ToolGrid({ toolMap }: { toolMap: [string, ToolReference][] }) {
 					</div>
 				</div>
 			)}
+
+			{capabilities.length > 0 && (
+				<div className="flex flex-col gap-4">
+					<h3>{CapabilitiesToolCategory}</h3>
+					<div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
+						{capabilities.map(renderToolCard)}
+					</div>
+				</div>
+			)}
 		</div>
 	);
 
@@ -71,16 +82,19 @@ export function ToolGrid({ toolMap }: { toolMap: [string, ToolReference][] }) {
 		return toolMap.reduce<{
 			customTools: ToolReference[];
 			builtinTools: ToolReference[];
+			capabilities: ToolReference[];
 		}>(
 			(acc, [_, tool]) => {
-				if (tool.builtin) {
+				if (isCapabilityTool(tool)) {
+					acc.capabilities.push(tool);
+				} else if (tool.builtin) {
 					acc.builtinTools.push(tool);
 				} else {
 					acc.customTools.push(tool);
 				}
 				return acc;
 			},
-			{ customTools: [], builtinTools: [] }
+			{ customTools: [], builtinTools: [], capabilities: [] }
 		);
 	}
 }
