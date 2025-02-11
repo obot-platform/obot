@@ -1,5 +1,5 @@
 import { ArrowDown } from "lucide-react";
-import React from "react";
+import React, { useEffect, useState } from "react";
 
 import { Button } from "~/components/ui/button";
 import {
@@ -7,14 +7,12 @@ import {
 	TooltipContent,
 	TooltipTrigger,
 } from "~/components/ui/tooltip";
-import { useDebouncedValue } from "~/hooks/useDebounce";
 
 type ScrollToBottomProps = {
 	scrollContainerEl: HTMLElement | null;
 	disabled?: boolean;
 	onClick?: (e: React.MouseEvent<HTMLButtonElement>) => void;
 	offset?: number;
-	delay?: number;
 	behavior?: ScrollBehavior;
 };
 
@@ -22,20 +20,26 @@ function ScrollToBottom({
 	scrollContainerEl,
 	disabled = false,
 	onClick,
-	delay = 500,
 	behavior = "instant",
 }: ScrollToBottomProps) {
-	const isScrolledToBottom = getIsScrolledToBottom();
-	const debounced = useDebouncedValue(isScrolledToBottom, delay);
+	const [isScrolledToBottom, setIsScrolledToBottom] = useState(false);
 
-	const calc = () => {
-		if (isScrolledToBottom) return false;
-		return !debounced;
-	};
+	useEffect(() => {
+		if (!scrollContainerEl) return;
+
+		const handler = () => {
+			setIsScrolledToBottom(getIsScrolledToBottom(scrollContainerEl));
+		};
+
+		scrollContainerEl.addEventListener("scroll", handler);
+
+		return () => scrollContainerEl.removeEventListener("scroll", handler);
+	}, [scrollContainerEl]);
 
 	return (
 		!disabled &&
-		calc() && (
+		scrollContainerEl &&
+		!isScrolledToBottom && (
 			<Tooltip delayDuration={300}>
 				<TooltipTrigger asChild>
 					<Button
@@ -43,7 +47,7 @@ function ScrollToBottom({
 						variant="ghost"
 						className="absolute bottom-2 left-1/2 -translate-x-1/2 rounded-full border bg-background"
 						onClick={(e) => {
-							scrollToBottom();
+							scrollToBottom(scrollContainerEl, behavior);
 							onClick?.(e);
 						}}
 					>
@@ -55,22 +59,22 @@ function ScrollToBottom({
 			</Tooltip>
 		)
 	);
+}
 
-	function getIsScrolledToBottom() {
-		if (!scrollContainerEl) return false;
+function scrollToBottom(container: HTMLElement, behavior: ScrollBehavior) {
+	if (!container) return;
 
-		const { scrollTop, scrollHeight, clientHeight } = scrollContainerEl;
-		return scrollHeight - scrollTop - clientHeight === 0;
-	}
+	container.scrollTo({
+		top: container.scrollHeight,
+		behavior,
+	});
+}
 
-	function scrollToBottom() {
-		if (!scrollContainerEl) return;
+function getIsScrolledToBottom(container: HTMLElement) {
+	if (!container) return false;
 
-		scrollContainerEl.scrollTo({
-			top: scrollContainerEl.scrollHeight,
-			behavior,
-		});
-	}
+	const { scrollTop, scrollHeight, clientHeight } = container;
+	return scrollHeight - scrollTop - clientHeight < 1;
 }
 
 export { ScrollToBottom };
