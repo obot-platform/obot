@@ -24,7 +24,6 @@ import {
 } from "~/components/composed/DataTable";
 import { Filters } from "~/components/composed/Filters";
 import { SearchInput } from "~/components/composed/SearchInput";
-import { Button } from "~/components/ui/button";
 import { Link } from "~/components/ui/link";
 import { ScrollArea } from "~/components/ui/scroll-area";
 import {
