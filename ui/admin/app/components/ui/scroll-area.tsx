@@ -50,15 +50,18 @@ const ScrollArea = React.forwardRef<
 	}, [startScrollAt]);
 
 	const contentRef = React.useRef<HTMLDivElement | null>(null);
-	useOnResize(contentRef, () => {
-		if (shouldStickToBottom && enableScrollStick === "bottom") {
-			const el = viewportRef.current;
-			if (!el) return;
+	useOnResize(
+		contentRef,
+		React.useCallback(() => {
+			if (shouldStickToBottom && enableScrollStick === "bottom") {
+				const el = viewportRef.current;
+				if (!el) return;
 
-			const maxScrollHeight = el.scrollHeight - el.clientHeight;
-			el.scrollTop = maxScrollHeight;
-		}
-	});
+				const maxScrollHeight = el.scrollHeight - el.clientHeight;
+				el.scrollTop = maxScrollHeight;
+			}
+		}, [enableScrollStick, shouldStickToBottom])
+	);
 
 	const initRef = React.useCallback((node: HTMLDivElement | null) => {
 		setViewportEl(node);
@@ -73,7 +76,7 @@ const ScrollArea = React.forwardRef<
 		>
 			<ScrollAreaPrimitive.Viewport
 				className={cn(
-					// [&>div]:!block” is a workaround to fix width expansion issues caused by the viewport
+					// "[&>div]:!block" is a workaround to fix width expansion issues caused by the viewport
 					// setting `display: table` in the `ScrollAreaPrimitive.Viewport` component.
 					// This is a known issue with Radix UI ScrollArea.
 					// https://github.com/radix-ui/primitives/issues/2722

@@ -25,6 +25,7 @@ import {
 import { Form } from "~/components/ui/form";
 import { Link } from "~/components/ui/link";
 import { Markdown } from "~/components/ui/markdown";
+import { ScrollArea } from "~/components/ui/scroll-area";
 import { useAnimatedText } from "~/hooks/messages/useAnimatedText";
 import { useAsync } from "~/hooks/useAsync";
 
@@ -257,20 +258,26 @@ export function PromptMessage({
 						</Button>
 					</DialogTrigger>
 
-					<DialogContent>
-						<DialogHeader>
-							<DialogTitle>{getCtaText()}</DialogTitle>
-						</DialogHeader>
+					<DialogContent className="p-0">
+						<ScrollArea
+							className="max-h-[80vh]"
+							classNames={{ viewport: "p-6" }}
+							enableScrollTo="bottom"
+						>
+							<DialogHeader>
+								<DialogTitle>{getCtaText()}</DialogTitle>
+							</DialogHeader>
 
-						<Markdown>{prompt.message}</Markdown>
+							<Markdown>{prompt.message}</Markdown>
 
-						<PromptAuthForm
-							prompt={prompt}
-							onSuccess={() => {
-								setOpen(false);
-								setIsSubmitted(true);
-							}}
-						/>
+							<PromptAuthForm
+								prompt={prompt}
+								onSuccess={() => {
+									setOpen(false);
+									setIsSubmitted(true);
+								}}
+							/>
+						</ScrollArea>
 					</DialogContent>
 				</Dialog>
 			)}
