@@ -308,11 +308,11 @@ func Router(services *services.Services) (http.Handler, error) {
 	mux.HandleFunc("POST /api/cronjobs/{id}", cronJobs.Execute)
 
 	// DaemonTriggers
-	mux.HandleFunc("GET /api/daemon-triggers/{id}", cronJobs.ByID)
-	mux.HandleFunc("GET /api/daemon-triggers", cronJobs.List)
+	mux.HandleFunc("GET /api/daemon-triggers/{id}", daemonTriggers.ByID)
+	mux.HandleFunc("GET /api/daemon-triggers", daemonTriggers.List)
 	mux.HandleFunc("POST /api/daemon-triggers", daemonTriggers.Create)
 	mux.HandleFunc("PUT /api/daemon-triggers/{id}", daemonTriggers.Update)
-	mux.HandleFunc("DELETE /api/daemon-triggers/{id}", cronJobs.Delete)
+	mux.HandleFunc("DELETE /api/daemon-triggers/{id}", daemonTriggers.Delete)
 
 	// debug
 	mux.HTTPHandle("GET /debug/pprof/", http.DefaultServeMux)

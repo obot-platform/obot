@@ -116,6 +116,7 @@ func convertWorkflowExecution(we v1.WorkflowExecution) types.WorkflowExecution {
 		Error:     we.Status.Error,
 		StartTime: *types.NewTime(we.CreationTimestamp.Time),
 		EndTime:   endTime,
+		State:     string(we.Status.State),
 	}
 }
 

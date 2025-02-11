@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/gptscript-ai/go-gptscript"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
@@ -63,12 +64,12 @@ func (h *DaemonTriggerProviderHandler) ByID(req api.Context) error {
 		}
 	}
 
-	authProvider, err := convertToolReferenceToTriggerProvider(ref, credEnvVars)
+	daemonTriggerProvider, err := convertToolReferenceToDaemonTriggerProvider(ref, credEnvVars)
 	if err != nil {
 		return err
 	}
 
-	return req.Write(authProvider)
+	return req.Write(daemonTriggerProvider)
 }
 
 func (h *DaemonTriggerProviderHandler) List(req api.Context) error {
@@ -106,12 +107,12 @@ func (h *DaemonTriggerProviderHandler) List(req api.Context) error {
 		if !ok {
 			env = credMap[system.GenericDaemonTriggerProviderCredentialContext+ref.Name]
 		}
-		authProvider, err := convertToolReferenceToTriggerProvider(ref, env)
+		daemonTriggerProvider, err := convertToolReferenceToDaemonTriggerProvider(ref, env)
 		if err != nil {
 			log.Warnf("failed to convert trigger provider %q: %v", ref.Name, err)
 			continue
 		}
-		resp = append(resp, authProvider)
+		resp = append(resp, daemonTriggerProvider)
 	}
 
 	return req.Write(types.DaemonTriggerProviderList{Items: resp})
@@ -175,8 +176,8 @@ func (h *DaemonTriggerProviderHandler) Configure(req api.Context) error {
 
 type DaemonTriggerOptions struct {
 	// TODO(njhale): Use a real JSON schema type for this.
-	Schema map[string]interface{} `json:"schema,omitempty"`
-	Err    string                 `json:"error,omitempty"`
+	Schema openapi3.Schema `json:"schema,omitempty"`
+	Err    string          `json:"error,omitempty"`
 }
 
 func (e *DaemonTriggerOptions) Error() string {
@@ -303,7 +304,7 @@ func (h *DaemonTriggerProviderHandler) Reveal(req api.Context) error {
 	return types.NewErrNotFound("no credential found for %q", ref.Name)
 }
 
-func convertToolReferenceToTriggerProvider(ref v1.ToolReference, credEnvVars map[string]string) (types.DaemonTriggerProvider, error) {
+func convertToolReferenceToDaemonTriggerProvider(ref v1.ToolReference, credEnvVars map[string]string) (types.DaemonTriggerProvider, error) {
 	name := ref.Name
 	if ref.Status.Tool != nil {
 		name = ref.Status.Tool.Name

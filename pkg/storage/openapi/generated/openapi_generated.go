@@ -1326,12 +1326,25 @@ func schema_obot_platform_obot_apiclient_types_DaemonTrigger(ref common.Referenc
 							Ref:     ref("github.com/obot-platform/obot/apiclient/types.DaemonTriggerManifest"),
 						},
 					},
+					"workflowExecutions": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/obot-platform/obot/apiclient/types.WorkflowExecution"),
+									},
+								},
+							},
+						},
+					},
 				},
 				Required: []string{"Metadata", "DaemonTriggerManifest"},
 			},
 		},
 		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.DaemonTriggerManifest", "github.com/obot-platform/obot/apiclient/types.Metadata"},
+			"github.com/obot-platform/obot/apiclient/types.DaemonTriggerManifest", "github.com/obot-platform/obot/apiclient/types.Metadata", "github.com/obot-platform/obot/apiclient/types.WorkflowExecution"},
 	}
 }
 
@@ -1390,37 +1403,22 @@ func schema_obot_platform_obot_apiclient_types_DaemonTriggerManifest(ref common.
 							Format:  "",
 						},
 					},
-					"providerName": {
+					"provider": {
 						SchemaProps: spec.SchemaProps{
 							Default: "",
 							Type:    []string{"string"},
 							Format:  "",
 						},
 					},
-					"providerNamespace": {
+					"options": {
 						SchemaProps: spec.SchemaProps{
 							Default: "",
 							Type:    []string{"string"},
 							Format:  "",
-						},
-					},
-					"config": {
-						SchemaProps: spec.SchemaProps{
-							Type: []string{"object"},
-							AdditionalProperties: &spec.SchemaOrBool{
-								Allows: true,
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Default: "",
-										Type:    []string{"string"},
-										Format:  "",
-									},
-								},
-							},
 						},
 					},
 				},
-				Required: []string{"workflow", "name", "description", "providerName", "providerNamespace", "config"},
+				Required: []string{"workflow", "name", "description", "provider", "options"},
 			},
 		},
 	}
@@ -1538,6 +1536,20 @@ func schema_obot_platform_obot_apiclient_types_DaemonTriggerProviderStatus(ref c
 							Default: false,
 							Type:    []string{"boolean"},
 							Format:  "",
+						},
+					},
+					"obotScopes": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
 						},
 					},
 					"requiredConfigurationParameters": {
@@ -5134,6 +5146,12 @@ func schema_obot_platform_obot_apiclient_types_WorkflowExecution(ref common.Refe
 							Format: "",
 						},
 					},
+					"state": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
 				},
 				Required: []string{"Metadata", "startTime", "endTime", "input"},
 			},
@@ -6232,15 +6250,8 @@ func schema_storage_apis_obotobotai_v1_DaemonTriggerSpec(ref common.ReferenceCal
 							Format:  "",
 						},
 					},
-					"ProviderToolReference": {
-						SchemaProps: spec.SchemaProps{
-							Default: "",
-							Type:    []string{"string"},
-							Format:  "",
-						},
-					},
 				},
-				Required: []string{"DaemonTriggerManifest", "ThreadName", "ProviderToolReference"},
+				Required: []string{"DaemonTriggerManifest", "ThreadName"},
 			},
 		},
 		Dependencies: []string{
@@ -6254,12 +6265,7 @@ func schema_storage_apis_obotobotai_v1_DaemonTriggerStatus(ref common.ReferenceC
 			SchemaProps: spec.SchemaProps{
 				Type: []string{"object"},
 				Properties: map[string]spec.Schema{
-					"lastConfigured": {
-						SchemaProps: spec.SchemaProps{
-							Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.Time"),
-						},
-					},
-					"isConfigurationValid": {
+					"optionsValid": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"boolean"},
 							Format: "",
@@ -6274,8 +6280,6 @@ func schema_storage_apis_obotobotai_v1_DaemonTriggerStatus(ref common.ReferenceC
 				},
 			},
 		},
-		Dependencies: []string{
-			"k8s.io/apimachinery/pkg/apis/meta/v1.Time"},
 	}
 }
 
@@ -9468,6 +9472,7 @@ func schema_storage_apis_obotobotai_v1_WorkflowExecution(ref common.ReferenceCal
 						},
 					},
 				},
+				Required: []string{"spec"},
 			},
 		},
 		Dependencies: []string{
@@ -9544,8 +9549,9 @@ func schema_storage_apis_obotobotai_v1_WorkflowExecutionSpec(ref common.Referenc
 					},
 					"workflowName": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
 						},
 					},
 					"webhookName": {
@@ -9609,6 +9615,7 @@ func schema_storage_apis_obotobotai_v1_WorkflowExecutionSpec(ref common.Referenc
 						},
 					},
 				},
+				Required: []string{"workflowName"},
 			},
 		},
 	}

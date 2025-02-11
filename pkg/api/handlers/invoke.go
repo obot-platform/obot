@@ -70,7 +70,7 @@ func (i *InvokeHandler) Invoke(req api.Context) error {
 	}
 
 	if agent.Name == "" && wf.Name == "" {
-		return apierrors.NewBadRequest("invalid id, most be agent or workflow id")
+		return apierrors.NewBadRequest("invalid id, must be agent or workflow id")
 	}
 
 	input, err := req.Body()
@@ -81,6 +81,7 @@ func (i *InvokeHandler) Invoke(req api.Context) error {
 	var resp *invoke.Response
 
 	if agent.Name != "" {
+		// Invoke the Agent
 		resp, err = i.invoker.Agent(req.Context(), req.Storage, &agent, string(input), invoke.Options{
 			ThreadName:   threadID,
 			Synchronous:  synchronous,
@@ -91,6 +92,8 @@ func (i *InvokeHandler) Invoke(req api.Context) error {
 			return err
 		}
 	} else {
+		// Invoke the workflow
+		// This will produce a WorkflowExecution
 		if threadID == "" || stepID != "" {
 			synchronous = false
 		}
@@ -107,13 +110,19 @@ func (i *InvokeHandler) Invoke(req api.Context) error {
 
 	req.ResponseWriter.Header().Set("X-Obot-Thread-Id", resp.Thread.Name)
 
+	log.Warnf("synchronous: %t", synchronous)
 	if synchronous {
 		return req.WriteEvents(resp.Events)
+	}
+
+	var runID string
+	if resp.Run != nil {
+		runID = resp.Run.Name
 	}
 
 	req.ResponseWriter.Header().Set("Content-Type", "application/json")
 	return req.Write(map[string]string{
 		"threadID": resp.Thread.Name,
-		"runID":    resp.Run.Name,
+		"runID":    runID,
 	})
 }

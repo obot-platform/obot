@@ -9,7 +9,6 @@ import (
 )
 
 var (
-	// TODO(njhale): Should this be aliasable?
 	_ fields.Fields = (*DaemonTrigger)(nil)
 	_ Generationed  = (*DaemonTrigger)(nil)
 )
@@ -34,15 +33,12 @@ type DaemonTrigger struct {
 
 type DaemonTriggerSpec struct {
 	types.DaemonTriggerManifest
-	ThreadName            string
-	ProviderToolReference string
+	ThreadName string
 }
 
 type DaemonTriggerStatus struct {
-	// TODO(njhale): What other fields do we need here to track if the trigger is configured correctly on the daemon side
-	LastConfigured       *metav1.Time `json:"lastConfigured,omitempty"`
-	IsConfigurationValid *bool        `json:"isConfigurationValid,omitempty"`
-	ObservedGeneration   int64        `json:"observedGeneration,omitempty"`
+	OptionsValid       *bool `json:"optionsValid,omitempty"`
+	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 }
 
 func (d *DaemonTrigger) Has(field string) (exists bool) {
@@ -55,21 +51,22 @@ func (d *DaemonTrigger) Get(field string) (value string) {
 		return d.Spec.ThreadName
 	case "spec.workflow":
 		return d.Spec.Workflow
+	case "spec.provider":
+		return d.Spec.Provider
 	}
 	return ""
 }
 
 func (d *DaemonTrigger) FieldNames() []string {
-	return []string{"spec.threadName", "spec.workflow"}
+	return []string{"spec.threadName", "spec.workflow", "spec.provider"}
 }
 
 func (*DaemonTrigger) GetColumns() [][]string {
 	return [][]string{
 		{"Name", "Name"},
 		{"Workflow", "Spec.Workflow"},
-		{"Provider Tool", "Spec.ProviderToolReference"},
-		{"Last Configured", "Status.LastConfigured"},
-		{"Configuration Valid", "Status.IsConfigurationValid"},
+		{"Daemon Trigger Provider", "Spec.Provider"},
+		{"Configuration Valid", "Status.OptionsValid"},
 		{"Created", "{{ago .CreationTimestamp}}"},
 		{"Description", "Spec.Description"},
 	}
@@ -83,6 +80,6 @@ func (d *DaemonTrigger) SetObservedGeneration(gen int64) {
 	d.Status.ObservedGeneration = gen
 }
 
-func (d *DaemonTrigger) DeleteRefs() []Ref {
+func (*DaemonTrigger) DeleteRefs() []Ref {
 	return nil
 }

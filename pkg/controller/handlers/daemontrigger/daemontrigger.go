@@ -22,14 +22,15 @@ func New(dispatcher *dispatcher.Dispatcher) *Handler {
 func (h *Handler) EnsureDaemonTriggerProvider(req router.Request, resp router.Response) error {
 	daemonTrigger := req.Object.(*v1.DaemonTrigger)
 
-	providerName, providerNamespace := daemonTrigger.Spec.ProviderName, daemonTrigger.Spec.ProviderNamespace
-	url, err := h.dispatcher.URLForDaemonTriggerProvider(req.Ctx, providerNamespace, providerName)
-	if err != nil {
-		return err
-	}
+	// TODO(njhale): Ensure the namespace is correct for this
+	log.Warnf("EnsureDaemonTriggerProvider called for daemon trigger %s/%s", req.Namespace, daemonTrigger.Spec.Provider)
+	//url, err := h.dispatcher.URLForDaemonTriggerProvider(req.Ctx, req.Namespace, daemonTrigger.Spec.Provider)
+	//if err != nil {
+	//	return err
+	//}
 
 	// TODO(njhale): Remove debug logging
-	log.Warnf("Daemon trigger provider running at: %q", url.String())
+	//log.Warnf("Daemon trigger provider running at: %q", url.String())
 
 	return nil
 }

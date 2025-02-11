@@ -74,6 +74,8 @@ var staticScopeRules = map[string][]string{
 	WorkflowsManageScope: {
 		"/api/workflows/",
 		"/api/daemon-triggers/",
+		"POST /api/invoke/",
+		"GET /api/threads/{id}/events",
 	},
 }
 
