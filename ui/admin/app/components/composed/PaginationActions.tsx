@@ -20,6 +20,8 @@ export function PaginationActions({
 	const hasNextPage = nextPage != null;
 	const hasPreviousPage = previousPage != null;
 
+	const currentPage = totalPages ? page + 1 : 0;
+
 	return (
 		<div className="flex flex-nowrap items-center justify-center gap-2">
 			<Button
@@ -32,7 +34,7 @@ export function PaginationActions({
 			</Button>
 
 			<p className="min-w-fit">
-				{page + 1} / {totalPages}
+				{currentPage} / {totalPages}
 			</p>
 
 			<Button
