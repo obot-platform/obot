@@ -9,6 +9,7 @@ import {
 	mockedWorkspaceFilesToolReference,
 } from "test/mocks/models/toolReferences";
 
+import { OAuthApp } from "~/lib/model/oauthApps";
 import { EntityList } from "~/lib/model/primitives";
 import { ToolReference } from "~/lib/model/toolReferences";
 import { ApiRoutes } from "~/lib/routers/apiRoutes";
@@ -31,6 +32,11 @@ export const toolsHandlers = [
 	http.get(ApiRoutes.toolReferences.base({ type: "tool" }).path, () => {
 		return HttpResponse.json<EntityList<ToolReference>>({
 			items: mockedToolReferences,
+		});
+	}),
+	http.get(ApiRoutes.oauthApps.getOauthApps().path, () => {
+		return HttpResponse.json<EntityList<OAuthApp>>({
+			items: [],
 		});
 	}),
 ];
