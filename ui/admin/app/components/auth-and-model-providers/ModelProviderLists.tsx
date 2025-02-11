@@ -57,7 +57,7 @@ export function ModelProviderList({
 									</span>
 								)}
 							</Badge>
-							<ProviderConfigure provider={modelProvider} disabled={false} />
+							<ProviderConfigure provider={modelProvider} />
 						</CardContent>
 					</Card>
 				))}

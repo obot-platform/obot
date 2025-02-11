@@ -63,7 +63,7 @@ func ensureIdentity(tx *gorm.DB, id *types.Identity, timezone string, role types
 	if user.ID != 0 {
 		userQuery = userQuery.Where("id = ?", user.ID)
 	} else {
-		userQuery = userQuery.Where("username = ?", user.Username)
+		userQuery = userQuery.Where("email = ?", user.Email)
 	}
 
 	if err := userQuery.First(&user).Error; errors.Is(err, gorm.ErrRecordNotFound) {

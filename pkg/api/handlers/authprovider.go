@@ -132,19 +132,6 @@ func (ap *AuthProviderHandler) Configure(req api.Context) error {
 		return types.NewErrBadRequest("%q is not an auth provider", ref.Name)
 	}
 
-	// Check to see if there are any other configured auth providers.
-	// For now, we only support one auth provider at a time to be configured.
-	allAuthProviders, err := ap.listAuthProviders(req)
-	if err != nil {
-		return err
-	}
-
-	for _, ap := range allAuthProviders {
-		if ap.Configured && (ap.Name != authProviderNameFromToolRef(ref) || ap.Namespace != ref.Namespace) {
-			return types.NewErrBadRequest("another auth provider is already configured")
-		}
-	}
-
 	var envVars map[string]string
 	if err := req.Read(&envVars); err != nil {
 		return err
