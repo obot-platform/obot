@@ -1,6 +1,10 @@
 import { ColumnDef, createColumnHelper } from "@tanstack/react-table";
 import { useMemo, useState } from "react";
-import { ClientLoaderFunctionArgs, useLoaderData } from "react-router";
+import {
+	ClientLoaderFunctionArgs,
+	MetaFunction,
+	useLoaderData,
+} from "react-router";
 import { $path } from "safe-routes";
 import useSWR, { preload } from "swr";
 
@@ -277,4 +281,8 @@ const columnHelper = createColumnHelper<Task>();
 
 export const handle: RouteHandle = {
 	breadcrumb: () => [{ content: "Tasks" }],
+};
+
+export const meta: MetaFunction = () => {
+	return [{ title: `Obot • Tasks` }];
 };
