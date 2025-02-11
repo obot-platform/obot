@@ -42,16 +42,5 @@ func (h *Handler) MigrateToolNames(req router.Request, _ router.Response) error 
 		return nil
 	}
 
-	switch o := req.Object.(type) {
-	case *v1.Agent:
-		o.Spec.Manifest.Tools = tools
-	case *v1.Workflow:
-		o.Spec.Manifest.Tools = tools
-	case *v1.Thread:
-		o.Spec.Manifest.Tools = tools
-	case *v1.WorkflowStep:
-		o.Spec.Step.Tools = tools
-	}
-
 	return req.Client.Update(req.Ctx, req.Object)
 }

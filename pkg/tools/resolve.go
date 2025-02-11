@@ -11,15 +11,14 @@ import (
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func ResolveToolReferences(ctx context.Context, gptClient *gptscript.GPTScript, name, reference string, builtin bool, toolType types.ToolReferenceType) ([]client.Object, error) {
+func ResolveToolReferences(ctx context.Context, gptClient *gptscript.GPTScript, name, reference string, builtin bool, toolType types.ToolReferenceType) ([]*v1.ToolReference, error) {
 	annotations := map[string]string{
 		"obot.obot.ai/timestamp": time.Now().String(),
 	}
 
-	var result []client.Object
+	var result []*v1.ToolReference
 
 	prg, err := gptClient.LoadFile(ctx, reference)
 	if err != nil {

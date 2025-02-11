@@ -142,8 +142,7 @@ func (a *ToolReferenceHandler) Create(req api.Context) (err error) {
 		}
 	}
 
-	toolRef := toolRefs[0].(*v1.ToolReference)
-	return req.Write(convertToolReference(*toolRef))
+	return req.Write(convertToolReference(*toolRefs[0]))
 }
 
 func (a *ToolReferenceHandler) Delete(req api.Context) error {
@@ -171,7 +170,7 @@ func (a *ToolReferenceHandler) Delete(req api.Context) error {
 		return types.NewErrBadRequest("cannot delete builtin tool reference %s", id)
 	}
 
-	if !toolRef.Spec.Bundle {
+	if !toolRef.Spec.Bundle && toolRef.Spec.BundleToolName != "" {
 		return types.NewErrBadRequest("cannot delete child tool that belongs to a bundle tool")
 	}
 

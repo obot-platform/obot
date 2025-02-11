@@ -83,7 +83,9 @@ func (h *Handler) toolsToToolReferences(ctx context.Context, toolType types.Tool
 			continue
 		}
 
-		result = append(result, toolRefs...)
+		for _, toolRef := range toolRefs {
+			result = append(result, toolRef)
+		}
 	}
 
 	return
