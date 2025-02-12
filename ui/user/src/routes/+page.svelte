@@ -76,17 +76,8 @@
 		<div class="mt-32 flex flex-col items-center gap-4">
 			{#each authProviders as provider}
 				<a
-					onclick={() => {
-						window.location.href =
-							'/oauth2/start?rd=' +
-							window.location.pathname +
-							'&obot-auth-provider=' +
-							provider.namespace +
-							'/' +
-							provider.id;
-					}}
 					rel="external"
-					href={`/oauth2/start?obot-auth-provider=${provider.namespace}/${provider.id}&rd=/`}
+					href={`/oauth2/start?rd=${new URL(window.location.href).searchParams.get('rd') || window.location.pathname}&obot-auth-provider=${provider.namespace}/${provider.id}`}
 					class="group flex items-center gap-1 rounded-full bg-black p-2 px-8 text-lg font-semibold text-white dark:bg-white dark:text-black"
 				>
 					{#if provider.icon}

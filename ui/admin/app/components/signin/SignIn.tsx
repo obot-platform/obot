@@ -59,7 +59,7 @@ export function SignIn({ className }: SignInProps) {
 						variant="secondary"
 						className="mb-4 w-full"
 						onClick={() => {
-							window.location.href = `/oauth2/start?rd=/admin/&obot-auth-provider=default/${provider.id}`;
+							window.location.href = `/oauth2/start?rd=${window.location.pathname}&obot-auth-provider=default/${provider.id}`;
 						}}
 					>
 						<ProviderIcon provider={provider} size="md" />
