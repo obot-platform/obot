@@ -383,6 +383,9 @@ func New(ctx context.Context, config Config) (*Services, error) {
 
 	run, err := c.Run(ctx, fmt.Sprintf("Validate Environment Variables from %s", workspaceTool), gptscript.Options{
 		Input: fmt.Sprintf(`{"provider":"%s"}`, config.WorkspaceProviderType),
+		GlobalOptions: gptscript.GlobalOptions{
+			Env: os.Environ(),
+		},
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to validate environment variables: %w", err)
