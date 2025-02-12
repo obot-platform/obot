@@ -16,10 +16,10 @@ import { $path } from "safe-routes";
 import useSWR from "swr";
 
 import { Agent } from "~/lib/model/agents";
-import { runStateToBadgeColor } from "~/lib/model/runs";
 import { Thread } from "~/lib/model/threads";
 import { Workflow } from "~/lib/model/workflows";
 import { ThreadsService } from "~/lib/service/api/threadsService";
+import { UserService } from "~/lib/service/api/userService";
 import { WorkspaceTableApiService } from "~/lib/service/api/workspaceTableApiService";
 import { PaginationInfo } from "~/lib/service/queryService";
 import { cn, noop } from "~/lib/utils";
@@ -41,7 +41,6 @@ import {
 	AccordionItem,
 	AccordionTrigger,
 } from "~/components/ui/accordion";
-import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
 import { Card, CardContent } from "~/components/ui/card";
 import { ClickableDiv } from "~/components/ui/clickable-div";
@@ -97,6 +96,10 @@ export function ThreadMeta({ entity, thread, className }: ThreadMetaProps) {
 		mutate: mutateTasks,
 	} = useThreadTasks(isAgent ? thread.id : undefined);
 
+	const { data: user } = useSWR(
+		...UserService.getUser.swr({ username: thread.userID })
+	);
+
 	const { dialogProps, interceptAsync } = useConfirmationDialog();
 
 	const tableStore = usePagination({ pageSize });
@@ -130,35 +133,16 @@ export function ThreadMeta({ entity, thread, className }: ThreadMetaProps) {
 								</td>
 								<td className="text-right">
 									<div className="flex items-center justify-end gap-2">
-										<span>{entity.name}</span>
-
-										<Link
-											to={assistantLink}
-											as="button"
-											variant="ghost"
-											size="icon"
-										>
-											{isAgent ? (
-												<EditIcon className="h-4 w-4" />
-											) : (
-												<ExternalLink className="h-4 w-4" />
-											)}
-										</Link>
+										<Link to={assistantLink}>{entity.name}</Link>
 									</div>
 								</td>
 							</tr>
 							<tr className="border-foreground/25">
-								<td className="py-2 pr-4 font-medium">State</td>
+								<td className="py-2 pr-4 font-medium">User</td>
 								<td className="text-right">
-									<Badge
-										variant="outline"
-										className={cn(
-											runStateToBadgeColor(thread.state),
-											"text-white"
-										)}
-									>
-										{thread.state}
-									</Badge>
+									<Link to={$path("/users", { userId: thread.userID })}>
+										{user?.username}
+									</Link>
 								</td>
 							</tr>
 							{thread.currentRunId && (

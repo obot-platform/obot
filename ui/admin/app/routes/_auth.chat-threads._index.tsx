@@ -41,7 +41,7 @@ export async function clientLoader({
 	await Promise.all([
 		preload(...AgentService.getAgents.swr({})),
 		preload(ThreadsService.getThreads.key(), ThreadsService.getThreads),
-		preload(UserService.getUsers.key(), UserService.getUsers),
+		preload(...UserService.getUsers.swr({})),
 	]);
 
 	const { query } = RouteService.getRouteInfo(
@@ -68,7 +68,7 @@ export default function TaskRuns() {
 	);
 
 	const getAgents = useSWR(...AgentService.getAgents.swr({}));
-	const getUsers = useSWR(UserService.getUsers.key(), UserService.getUsers);
+	const getUsers = useSWR(...UserService.getUsers.swr({}));
 
 	const threads = useMemo(() => {
 		if (!getThreads.data) return [];

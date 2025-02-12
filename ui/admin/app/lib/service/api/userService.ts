@@ -1,18 +1,25 @@
+import { z } from "zod";
+
+import { EntityList } from "~/lib/model/primitives";
 import { User } from "~/lib/model/users";
-import { ApiRoutes, revalidateWhere } from "~/lib/routers/apiRoutes";
+import { ApiRoutes } from "~/lib/routers/apiRoutes";
 import { request } from "~/lib/service/api/primitives";
+import { createFetcher } from "~/lib/service/api/service-primitives";
 
-async function getUsers() {
-	const res = await request<{ items: User[] }>({
-		url: ApiRoutes.users.base().url,
-		errorMessage: "Failed to fetch users",
-	});
+const handleGetUsers = createFetcher(
+	z.object({ filters: z.object({ userId: z.string().optional() }).optional() }),
+	async ({ filters = {} }, { signal }) => {
+		const { url } = ApiRoutes.users.base();
+		const { data } = await request<EntityList<User>>({ url, signal });
 
-	return res.data.items ?? ([] as User[]);
-}
-getUsers.key = () => ({ url: ApiRoutes.users.base().path }) as const;
-getUsers.revalidate = () =>
-	revalidateWhere((url) => url.includes(ApiRoutes.users.base().path));
+		const { userId } = filters;
+
+		if (userId) data.items = data.items?.filter((u) => u.id === userId);
+
+		return data.items ?? [];
+	},
+	() => ApiRoutes.users.base().path
+);
 
 async function getMe() {
 	const res = await request<User>({
@@ -35,8 +42,19 @@ async function updateUser(username: string, user: Partial<User>) {
 	return data;
 }
 
+const handleGetUser = createFetcher(
+	z.object({ username: z.string() }),
+	async ({ username }, { signal }) => {
+		const { url } = ApiRoutes.users.getOne(username);
+		const { data } = await request<User>({ url, signal });
+		return data;
+	},
+	() => ApiRoutes.users.getOne(":username").path
+);
+
 export const UserService = {
 	getMe,
-	getUsers,
+	getUsers: handleGetUsers,
 	updateUser,
+	getUser: handleGetUser,
 };

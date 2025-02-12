@@ -44,7 +44,7 @@ export async function clientLoader({
 		preload(...AgentService.getAgents.swr({})),
 		preload(WorkflowService.getWorkflows.key(), WorkflowService.getWorkflows),
 		preload(ThreadsService.getThreads.key(), ThreadsService.getThreads),
-		preload(UserService.getUsers.key(), UserService.getUsers),
+		preload(...UserService.getUsers.swr({})),
 	]);
 
 	const { query } = RouteService.getRouteInfo(
@@ -76,7 +76,7 @@ export default function TaskRuns() {
 	);
 
 	const getAgents = useSWR(...AgentService.getAgents.swr({}));
-	const getUsers = useSWR(UserService.getUsers.key(), UserService.getUsers);
+	const getUsers = useSWR(...UserService.getUsers.swr({}));
 
 	const agentThreadMap = useMemo(() => {
 		const agentMap = new Map(getAgents.data?.map((agent) => [agent.id, agent]));

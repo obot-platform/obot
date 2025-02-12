@@ -214,6 +214,8 @@ export const ApiRoutes = {
 	users: {
 		base: () => buildUrl("/users"),
 		updateUser: (username: string) => buildUrl(`/users/${username}`),
+		getOne: (username: string) =>
+			buildUrl(`/users/${username}`, { "by-id": true }),
 	},
 	workspace: {
 		getTables: (namespace: TableNamespace, entityId: string) =>

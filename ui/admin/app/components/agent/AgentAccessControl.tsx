@@ -28,8 +28,7 @@ type AgentAccessControlProps = {
 
 export function AgentAccessControl({ agent }: AgentAccessControlProps) {
 	const { data: users, isLoading: usersLoading } = useSWR(
-		UserService.getUsers.key(),
-		UserService.getUsers
+		...UserService.getUsers.swr({})
 	);
 
 	const { authEnabled } = useAuthStatus();

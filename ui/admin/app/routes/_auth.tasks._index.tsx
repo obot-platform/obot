@@ -61,7 +61,7 @@ export default function Tasks() {
 	const { taskId, userId, agentId } = useLoaderData<typeof clientLoader>();
 
 	const getAgents = useSWR(...AgentService.getAgents.swr({}));
-	const getUsers = useSWR(UserService.getUsers.key(), UserService.getUsers);
+	const getUsers = useSWR(...UserService.getUsers.swr({}));
 
 	const getThreads = useSWR(
 		ThreadsService.getThreads.key(),

@@ -1,7 +1,11 @@
 import { ColumnDef, createColumnHelper } from "@tanstack/react-table";
 import { ShieldAlertIcon } from "lucide-react";
 import { useMemo } from "react";
-import { MetaFunction } from "react-router";
+import {
+	ClientLoaderFunctionArgs,
+	MetaFunction,
+	useLoaderData,
+} from "react-router";
 import { $path } from "safe-routes";
 import useSWR, { preload } from "swr";
 
@@ -11,9 +15,11 @@ import { ThreadsService } from "~/lib/service/api/threadsService";
 import { UserService } from "~/lib/service/api/userService";
 import { VersionApiService } from "~/lib/service/api/versionApiService";
 import { RouteHandle } from "~/lib/service/routeHandles";
+import { RouteQueryParams, RouteService } from "~/lib/service/routeService";
 import { pluralize, timeSince } from "~/lib/utils";
 
 import { DataTable } from "~/components/composed/DataTable";
+import { Filters } from "~/components/composed/Filters";
 import { Button } from "~/components/ui/button";
 import { Link } from "~/components/ui/link";
 import {
@@ -23,23 +29,30 @@ import {
 } from "~/components/ui/tooltip";
 import { UserActionsDropdown } from "~/components/user/UserActionsDropdown";
 
-export async function clientLoader() {
+export type SearchParams = RouteQueryParams<"usersSchema">;
+
+export async function clientLoader({ request }: ClientLoaderFunctionArgs) {
 	await VersionApiService.requireAuthEnabled();
 
-	const users = await preload(UserService.getUsers.key(), UserService.getUsers);
+	const query = RouteService.getQueryParams(
+		"/users",
+		new URL(request.url).search
+	);
+
+	const filters = query?.userId ? { userId: query.userId } : undefined;
+
+	const users = await preload(...UserService.getUsers.swr({ filters }));
 
 	if (users.length > 0) {
 		await preload(ThreadsService.getThreads.key(), ThreadsService.getThreads);
 	}
 
-	return null;
+	return { filters };
 }
 
 export default function Users() {
-	const { data: users = [] } = useSWR(
-		UserService.getUsers.key(),
-		UserService.getUsers
-	);
+	const { filters } = useLoaderData<typeof clientLoader>();
+	const { data: users = [] } = useSWR(...UserService.getUsers.swr({ filters }));
 
 	const { data: threads } = useSWR(
 		() => users.length > 0 && ThreadsService.getThreads.key(),
@@ -57,10 +70,14 @@ export default function Users() {
 		}, new Map<string, Thread[]>());
 	}, [threads]);
 
+	const userMap = new Map(users.map((u) => [u.id, u]));
+
 	return (
 		<div>
 			<div className="flex h-full flex-col gap-4 p-8">
 				<h2 className="mb-4">Users</h2>
+
+				<Filters userMap={userMap} url="/users" />
 				<DataTable
 					columns={getColumns()}
 					data={users}
