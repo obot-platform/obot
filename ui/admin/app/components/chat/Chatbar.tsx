@@ -93,7 +93,10 @@ export function Chatbar({ className }: ChatbarProps) {
 										)}
 									</Button>
 								</ModelProviderTooltip>
-								<ChatRunInfo messages={messages} isRunning={isRunning} />
+								<ChatRunInfo
+									messages={messages}
+									isRunning={isRunning || isInvoking}
+								/>
 							</div>
 							<ChatActions className="p-2" />
 						</div>

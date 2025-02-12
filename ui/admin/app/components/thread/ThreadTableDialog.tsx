@@ -219,9 +219,10 @@ export function ThreadTableDialog({
 					</ExpandAndCollapse>
 
 					{updateStatus && (
-						<AnimatePresence>
+						<AnimatePresence mode="wait">
 							<SlideInOut
-								direction="up"
+								direction={{ in: "up", out: "down" }}
+								key={updateStatus.text}
 								className={cn(
 									"flex w-full items-center justify-end gap-2 text-muted-foreground",
 									{

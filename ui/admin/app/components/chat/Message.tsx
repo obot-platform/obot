@@ -1,6 +1,6 @@
 import "@radix-ui/react-tooltip";
 import { AlertCircleIcon, WrenchIcon } from "lucide-react";
-import React, { useMemo, useState } from "react";
+import React, { useDeferredValue, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 
 import { AgentIcons } from "~/lib/model/agents";
@@ -50,9 +50,8 @@ export const Message = React.memo(
 		// prevent animation for messages that never run
 		// only calculate on mount because we don't want to stop animation when the message finishes streaming
 		const [shouldAnimate] = useState(isRunning);
-		const animatedText = useAnimatedText(
-			message.text,
-			!shouldAnimate || isUser || !!toolCall
+		const animatedText = useDeferredValue(
+			useAnimatedText(message.text, !shouldAnimate || isUser || !!toolCall)
 		);
 
 		const parsedMessage = useMemo(() => {

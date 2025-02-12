@@ -116,6 +116,24 @@ export function ToolCatalog({
 		onUpdateTools(newTools, updatedOauths);
 	};
 
+	function getCategory(tool: ToolReference) {
+		if (tool.metadata?.category) return tool.metadata.category;
+		if (tool.builtin) return UncategorizedToolCategory;
+		return CustomToolsToolCategory;
+	}
+
+	const toolGroups = results.reduce<Record<string, ToolReference[]>>(
+		(acc, [_, tool]) => {
+			const category = getCategory(tool);
+
+			if (!acc[category]) {
+				acc[category] = [];
+			}
+			acc[category].push(tool);
+			return acc;
+		},
+		{}
+	);
 	return (
 		<Command
 			className={cn(
@@ -138,21 +156,7 @@ export function ToolCatalog({
 						No results found.
 					</small>
 				</CommandEmpty>
-				{Object.entries(
-					results.reduce<Record<string, ToolReference[]>>((acc, [_, tool]) => {
-						const category = tool.metadata?.category
-							? tool.metadata?.category
-							: tool.builtin
-								? UncategorizedToolCategory
-								: CustomToolsToolCategory;
-
-						if (!acc[category]) {
-							acc[category] = [];
-						}
-						acc[category].push(tool);
-						return acc;
-					}, {})
-				).map(([category, tools]) => (
+				{Object.entries(toolGroups).map(([category, tools]) => (
 					<ToolCatalogGroup
 						key={category}
 						category={category}
