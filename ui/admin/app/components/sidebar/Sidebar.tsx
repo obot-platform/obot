@@ -52,6 +52,16 @@ const items = [
 		icon: MessageSquare,
 	},
 	{
+		title: "Tasks",
+		url: $path("/tasks"),
+		icon: PuzzleIcon,
+	},
+	{
+		title: "Task Runs",
+		url: $path("/task-runs"),
+		icon: CpuIcon,
+	},
+	{
 		title: "Tools",
 		url: $path("/tools"),
 		icon: Wrench,
@@ -61,16 +71,6 @@ const items = [
 		url: $path("/users"),
 		icon: User,
 		requiresAuth: true,
-	},
-	{
-		title: "Tasks",
-		url: $path("/tasks"),
-		icon: PuzzleIcon,
-	},
-	{
-		title: "Task Runs",
-		url: $path("/task-runs"),
-		icon: CpuIcon,
 	},
 	{
 		title: "Model Providers",

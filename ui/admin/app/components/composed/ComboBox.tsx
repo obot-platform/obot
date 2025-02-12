@@ -235,7 +235,7 @@ function ComboBoxList<T extends BaseOption>({
 		return (
 			<CommandItem
 				key={option.id}
-				value={option.name}
+				value={option.id}
 				onSelect={() => {
 					onChange(option);
 					if (closeOnSelect) setOpen(false);
