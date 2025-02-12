@@ -161,6 +161,9 @@ export const DataTableFilter = ({
 			placeholder={field}
 			onChange={(option) => onSelect(option?.id ?? "")}
 			options={values}
+			classNames={{
+				command: "min-w-64",
+			}}
 		/>
 	);
 };

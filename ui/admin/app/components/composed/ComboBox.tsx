@@ -1,6 +1,8 @@
 import { CheckIcon, ChevronsUpDownIcon } from "lucide-react";
 import { ReactNode, useState } from "react";
 
+import { cn } from "~/lib/utils";
+
 import { Button, ButtonProps } from "~/components/ui/button";
 import {
 	Command,
@@ -20,7 +22,8 @@ import { useIsMobile } from "~/hooks/use-mobile";
 
 type BaseOption = {
 	id: string;
-	name?: string | undefined;
+	name?: string;
+	sublabel?: string;
 };
 
 type GroupedOption<T extends BaseOption> = {
@@ -42,6 +45,9 @@ type ComboBoxProps<T extends BaseOption> = {
 	renderOption?: (option: T) => ReactNode;
 	validateCreate?: (value: string) => boolean;
 	value?: T | null;
+	classNames?: {
+		command?: string;
+	};
 };
 
 export function ComboBox<T extends BaseOption>({
@@ -125,6 +131,7 @@ function ComboBoxList<T extends BaseOption>({
 	placeholder = "Filter...",
 	emptyLabel = "No results found.",
 	closeOnSelect = true,
+	classNames,
 }: { setOpen: (open: boolean) => void } & ComboBoxProps<T>) {
 	const [filteredOptions, setFilteredOptions] =
 		useState<typeof options>(options);
@@ -173,7 +180,10 @@ function ComboBoxList<T extends BaseOption>({
 	return (
 		<Command
 			shouldFilter={false}
-			className="max-h-[50vh] w-[var(--radix-popper-anchor-width)]"
+			className={cn(
+				"max-h-[50vh] w-[var(--radix-popper-anchor-width)]",
+				classNames?.command
+			)}
 		>
 			<CommandInput
 				placeholder={placeholder}
@@ -244,6 +254,12 @@ function ComboBoxList<T extends BaseOption>({
 			>
 				<span>
 					{renderOption ? renderOption(option) : (option.name ?? option.id)}
+					{option.sublabel && (
+						<span className="text-xs text-muted-foreground">
+							{" "}
+							({option.sublabel})
+						</span>
+					)}
 				</span>
 				{value?.id === option.id && <CheckIcon className="h-4 w-4" />}
 			</CommandItem>

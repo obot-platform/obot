@@ -75,7 +75,20 @@ export default function TaskRuns() {
 		WorkflowService.getWorkflows
 	);
 
+	const getAgents = useSWR(...AgentService.getAgents.swr({}));
 	const getUsers = useSWR(UserService.getUsers.key(), UserService.getUsers);
+
+	const agentThreadMap = useMemo(() => {
+		const agentMap = new Map(getAgents.data?.map((agent) => [agent.id, agent]));
+		return new Map(
+			getThreads?.data
+				?.filter((thread) => thread.agentID)
+				.map((thread) => {
+					const agent = agentMap.get(thread.agentID!);
+					return [thread.id, agent?.name ?? "-"];
+				})
+		);
+	}, [getAgents.data, getThreads.data]);
 
 	const workflowMap = useMemo(
 		() =>
@@ -128,6 +141,15 @@ export default function TaskRuns() {
 		return filteredThreads;
 	}, [threads, taskId, userId]);
 
+	const namesCount = useMemo(() => {
+		return (
+			getWorkflows.data?.reduce<Record<string, number>>((acc, workflow) => {
+				acc[workflow.name] = (acc[workflow.name] || 0) + 1;
+				return acc;
+			}, {}) ?? {}
+		);
+	}, [getWorkflows.data]);
+
 	const itemsToDisplay = search
 		? data.filter(
 				(item) =>
@@ -171,6 +193,10 @@ export default function TaskRuns() {
 							getWorkflows.data?.map((workflow) => ({
 								id: workflow.id,
 								name: workflow.name,
+								sublabel:
+									namesCount?.[workflow.name] > 1
+										? agentThreadMap.get(workflow.threadID ?? "")
+										: "",
 							})) ?? []
 						}
 						onSelect={(value) => {

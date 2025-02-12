@@ -143,6 +143,13 @@ export default function Tasks() {
 		return filteredTasks;
 	}, [tasks, search, agentId, userId, taskId]);
 
+	const namesCount = useMemo(() => {
+		return data.reduce<Record<string, number>>((acc, task) => {
+			acc[task.name] = (acc[task.name] || 0) + 1;
+			return acc;
+		}, {});
+	}, [data]);
+
 	return (
 		<div>
 			<div className="flex h-full flex-col gap-4 p-6">
@@ -183,9 +190,10 @@ export default function Tasks() {
 						key={column.id}
 						field="Task"
 						values={
-							getWorkflows.data?.map((workflow) => ({
-								id: workflow.id,
-								name: workflow.name,
+							data?.map((task) => ({
+								id: task.id,
+								name: task.name,
+								sublabel: namesCount[task.name] > 1 ? task.agent : "",
 							})) ?? []
 						}
 						onSelect={(value) => {
