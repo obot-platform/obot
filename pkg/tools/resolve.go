@@ -3,6 +3,7 @@ package tools
 import (
 	"context"
 	"fmt"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -51,12 +52,29 @@ func ResolveToolReferences(ctx context.Context, gptClient *gptscript.GPTScript, 
 		return result, nil
 	}
 
-	for _, peerToolID := range tool.LocalTools {
+	var exportToolIDs []string
+	for _, export := range tool.Export {
+		tools := tool.ToolMapping[export]
+		for _, t := range tools {
+			exportToolIDs = append(exportToolIDs, t.ToolID)
+		}
+	}
+
+	for _, peerToolID := range exportToolIDs {
 		if peerToolID == prg.EntryToolID {
 			continue
 		}
 
 		peerTool := prg.ToolSet[peerToolID]
+		ref, _, _ := strings.Cut(peerToolID, ":")
+		toolRef := reference
+		if strings.HasPrefix(ref, "./") || strings.HasPrefix(ref, "../") {
+			relPath, err := filepath.Rel(peerTool.WorkingDir, ref)
+			if err != nil {
+				return nil, err
+			}
+			toolRef = filepath.Join(toolRef, relPath)
+		}
 		if isValidTool(peerTool) {
 			toolName := resolveToolReferenceName(toolType, false, peerTool.MetaData["category"] == "Capability", name, peerTool.Name)
 			result = append(result, &v1.ToolReference{
@@ -68,7 +86,7 @@ func ResolveToolReferences(ctx context.Context, gptClient *gptscript.GPTScript, 
 				},
 				Spec: v1.ToolReferenceSpec{
 					Type:           toolType,
-					Reference:      fmt.Sprintf("%s from %s", peerTool.Name, reference),
+					Reference:      fmt.Sprintf("%s from %s", peerTool.Name, toolRef),
 					Builtin:        builtin,
 					BundleToolName: entryTool.Name,
 				},
