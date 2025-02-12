@@ -3,7 +3,14 @@ import { EntityMeta } from "~/lib/model/primitives";
 export type CronJobBase = {
 	description: string;
 	workflow: string;
-	schedule: string; // cron string
+	schedule?: string; // cron string
+	taskSchedule?: {
+		interval: "hourly" | "monthly" | "daily" | "weekly";
+		day: number;
+		hour: number;
+		minute: number;
+		weekday: number;
+	};
 	input?: string;
 };
 

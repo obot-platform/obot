@@ -11,6 +11,13 @@ const defaultSchedule = {
 	schedule: "0 * * * *", // default: on the hour
 	description: "",
 	input: "",
+	taskSchedule: {
+		interval: "hourly" as const,
+		minute: 0,
+		hour: 0,
+		day: 0,
+		weekday: 0,
+	},
 };
 
 export function WorkflowScheduleTab({ workflowId }: { workflowId: string }) {
@@ -19,12 +26,13 @@ export function WorkflowScheduleTab({ workflowId }: { workflowId: string }) {
 
 	const handleCronJobScheduleUpdate = (
 		cronJob: CronJob,
-		newSchedule: string
+		cronString: string
 	) => {
 		const { id: cronJobId, ...rest } = cronJob;
 		updateCronJob(cronJobId, {
 			...rest,
-			schedule: newSchedule,
+			schedule: cronString,
+			taskSchedule: cronToTaskSchedule(cronString),
 		});
 	};
 
@@ -41,7 +49,11 @@ export function WorkflowScheduleTab({ workflowId }: { workflowId: string }) {
 							onChange={(newSchedule) =>
 								handleCronJobScheduleUpdate(cronJob, newSchedule)
 							}
-							value={cronJob?.schedule ?? ""}
+							value={
+								(cronJob?.taskSchedule
+									? taskScheduleToCron(cronJob.taskSchedule)
+									: cronJob?.schedule) ?? ""
+							}
 						/>
 						<Button
 							size="icon"
@@ -71,4 +83,100 @@ export function WorkflowScheduleTab({ workflowId }: { workflowId: string }) {
 			</Button>
 		</div>
 	);
+
+	function taskScheduleToCron(
+		schedule: CronJob["taskSchedule"]
+	): string | null {
+		if (!schedule) return null;
+
+		switch (schedule.interval) {
+			case "hourly":
+				if (schedule.minute === 0) {
+					return "0 * * * *"; // On the hour
+				}
+				return `*/${schedule.minute} * * * *`; // Every X minutes
+
+			case "daily":
+				return `${schedule.minute} ${schedule.hour} * * *`;
+
+			case "weekly":
+				return `${schedule.minute} ${schedule.hour} * * ${schedule.weekday}`;
+
+			case "monthly": {
+				// -1 represents last day & days in taskSchedule start from 0 index
+				const day = schedule.day === -1 ? "L" : schedule.day + 1;
+				return `${schedule.minute} ${schedule.hour} ${day} * *`;
+			}
+			default:
+				return "0 * * * *"; // Default to hourly
+		}
+	}
+
+	function cronToTaskSchedule(
+		cronString: string
+	): CronJob["taskSchedule"] | undefined {
+		// Match groups: (minute) (hour) (day) (month) (weekday)
+		const matches = cronString.match(/^(\S+)\s+(\S+)\s+(\S+)\s+(\S+)\s+(\S+)$/);
+		if (!matches) return;
+
+		const [_, minute, hour, day, _month, weekday] = matches;
+
+		// Hourly patterns
+		if (minute === "0" && hour === "*") {
+			return { interval: "hourly", minute: 0, hour: 0, day: 0, weekday: 0 };
+		}
+		const minuteInterval = minute.match(/^\*\/(\d+)$/);
+		if (minuteInterval && hour === "*") {
+			return {
+				interval: "hourly",
+				minute: parseInt(minuteInterval[1]),
+				hour: 0,
+				day: 0,
+				weekday: 0,
+			};
+		}
+
+		// Daily pattern: 0 6 * * *
+		if (
+			minute === "0" &&
+			/^\d+$/.test(hour) &&
+			day === "*" &&
+			weekday === "*"
+		) {
+			return {
+				interval: "daily",
+				minute: 0,
+				hour: parseInt(hour),
+				day: 0,
+				weekday: 0,
+			};
+		}
+
+		// Weekly pattern: 0 0 * * 3
+		if (minute === "0" && hour === "0" && day === "*" && /^\d$/.test(weekday)) {
+			return {
+				interval: "weekly",
+				minute: 0,
+				hour: 0,
+				day: 0,
+				weekday: parseInt(weekday),
+			};
+		}
+
+		// Monthly patterns: "0 0 15 * *" or "0 0 L * *"
+		if (
+			minute === "0" &&
+			hour === "0" &&
+			(day === "L" || /^\d+$/.test(day)) &&
+			weekday === "*"
+		) {
+			return {
+				interval: "monthly",
+				minute: 0,
+				hour: 0,
+				day: day === "L" ? -1 : parseInt(day) - 1, // day starts from 0 index
+				weekday: 0,
+			};
+		}
+	}
 }
