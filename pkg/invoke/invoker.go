@@ -156,6 +156,7 @@ func (r *Response) Result(ctx context.Context) (TaskResult, error) {
 
 type Options struct {
 	Synchronous           bool
+	EphemeralThread       bool
 	ThreadName            string
 	WorkflowStepName      string
 	WorkflowStepID        string
@@ -217,7 +218,7 @@ func getThreadForAgent(ctx context.Context, c kclient.WithWatch, agent *v1.Agent
 		parentThreadName = run.Spec.ThreadName
 	}
 
-	return CreateThreadForAgent(ctx, c, agent, opt.ThreadName, parentThreadName, opt.UserUID)
+	return CreateThreadForAgent(ctx, c, agent, opt.ThreadName, parentThreadName, opt.UserUID, opt.EphemeralThread)
 }
 
 func CreateThreadForProject(ctx context.Context, c kclient.WithWatch, projectThread *v1.Thread, userUID string) (*v1.Thread, error) {
@@ -243,14 +244,14 @@ func CreateThreadForProject(ctx context.Context, c kclient.WithWatch, projectThr
 }
 
 func CreateProjectForAgent(ctx context.Context, c kclient.WithWatch, agent *v1.Agent, name, userUID string) (*v1.Thread, error) {
-	return createThreadForAgent(ctx, c, agent, "", "", userUID, true, name)
+	return createThreadForAgent(ctx, c, agent, "", "", userUID, true, false, name)
 }
 
-func CreateThreadForAgent(ctx context.Context, c kclient.WithWatch, agent *v1.Agent, threadName, parentThreadName, userUID string) (*v1.Thread, error) {
-	return createThreadForAgent(ctx, c, agent, threadName, parentThreadName, userUID, false, "")
+func CreateThreadForAgent(ctx context.Context, c kclient.WithWatch, agent *v1.Agent, threadName, parentThreadName, userUID string, ephemeral bool) (*v1.Thread, error) {
+	return createThreadForAgent(ctx, c, agent, threadName, parentThreadName, userUID, false, ephemeral, "")
 }
 
-func createThreadForAgent(ctx context.Context, c kclient.WithWatch, agent *v1.Agent, threadName, parentThreadName, userUID string, project bool, projectName string) (*v1.Thread, error) {
+func createThreadForAgent(ctx context.Context, c kclient.WithWatch, agent *v1.Agent, threadName, parentThreadName, userUID string, project, ephemeral bool, projectName string) (*v1.Thread, error) {
 	var (
 		fromWorkspaceNames []string
 		err                error
@@ -271,7 +272,7 @@ func createThreadForAgent(ctx context.Context, c kclient.WithWatch, agent *v1.Ag
 		return nil, err
 	}
 
-	thread := v1.Thread{
+	thread := &v1.Thread{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: system.ThreadPrefix,
 			Name:         threadName,
@@ -283,6 +284,7 @@ func createThreadForAgent(ctx context.Context, c kclient.WithWatch, agent *v1.Ag
 				Tools:       agent.Spec.Manifest.DefaultThreadTools,
 				Description: projectName,
 			},
+			Ephemeral:          ephemeral,
 			AgentName:          agent.Name,
 			ParentThreadName:   parentThreadName,
 			FromWorkspaceNames: fromWorkspaceNames,
@@ -291,7 +293,7 @@ func createThreadForAgent(ctx context.Context, c kclient.WithWatch, agent *v1.Ag
 			TextEmbeddingModel: agentKnowledgeSet.Spec.TextEmbeddingModel,
 		},
 	}
-	return &thread, c.Create(ctx, &thread)
+	return thread, c.Create(ctx, thread)
 }
 
 func (i *Invoker) updateThreadFields(ctx context.Context, c kclient.WithWatch, agent *v1.Agent, thread *v1.Thread) error {
@@ -306,7 +308,7 @@ func (i *Invoker) updateThreadFields(ctx context.Context, c kclient.WithWatch, a
 	return nil
 }
 
-func (i *Invoker) Agent(ctx context.Context, c kclient.WithWatch, agent *v1.Agent, input string, opt Options) (_ *Response, err error) {
+func (i *Invoker) Agent(ctx context.Context, c kclient.WithWatch, agent *v1.Agent, input string, opt Options) (*Response, error) {
 	thread, err := getThreadForAgent(ctx, c, agent, opt)
 	if err != nil {
 		return nil, err

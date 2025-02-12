@@ -211,7 +211,7 @@ func getDefaultProjectThreadName(req api.Context, agentID string) (*v1.Thread, e
 		return nil, err
 	}
 
-	newThread, err := invoke.CreateThreadForAgent(req.Context(), req.Storage, agent, id, "", req.User.GetUID())
+	newThread, err := invoke.CreateThreadForAgent(req.Context(), req.Storage, agent, id, "", req.User.GetUID(), false)
 	if apierrors.IsAlreadyExists(err) {
 		return &thread, req.Get(&thread, id)
 	}

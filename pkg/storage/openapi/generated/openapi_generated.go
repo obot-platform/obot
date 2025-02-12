@@ -3881,6 +3881,12 @@ func schema_obot_platform_obot_apiclient_types_Thread(ref common.ReferenceCallba
 							Format: "",
 						},
 					},
+					"ephemeral": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
+						},
+					},
 					"env": {
 						SchemaProps: spec.SchemaProps{
 							Type: []string{"array"},
@@ -8256,6 +8262,13 @@ func schema_storage_apis_obotobotai_v1_ThreadSpec(ref common.ReferenceCallback) 
 									},
 								},
 							},
+						},
+					},
+					"ephemeral": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Ephemeral means that this thread is used once and then can be deleted",
+							Type:        []string{"boolean"},
+							Format:      "",
 						},
 					},
 				},

@@ -62,6 +62,7 @@ func (c *Controller) setupRoutes() error {
 	root.Type(&v1.Thread{}).HandlerFunc(threads.CreateKnowledgeSet)
 	root.Type(&v1.Thread{}).HandlerFunc(threads.WorkflowState)
 	root.Type(&v1.Thread{}).HandlerFunc(knowledgesummary.Summarize)
+	root.Type(&v1.Thread{}).HandlerFunc(threads.CleanupEphemeralThreads)
 	root.Type(&v1.Thread{}).FinalizeFunc(v1.ThreadFinalizer, credentialCleanup.Remove)
 
 	// KnowledgeSummary

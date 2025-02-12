@@ -2,6 +2,7 @@ package threads
 
 import (
 	"context"
+	"time"
 
 	"github.com/gptscript-ai/go-gptscript"
 	"github.com/obot-platform/nah/pkg/name"
@@ -139,4 +140,30 @@ func (t *Handler) CreateKnowledgeSet(req router.Request, _ router.Response) erro
 
 	thread.Status.KnowledgeSetNames = append(thread.Status.KnowledgeSetNames, ws.Name)
 	return req.Client.Status().Update(req.Ctx, thread)
+}
+
+func (t *Handler) CleanupEphemeralThreads(req router.Request, _ router.Response) error {
+	thread := req.Object.(*v1.Thread)
+	if !thread.Spec.Ephemeral && !thread.Spec.SystemTask {
+		// Everything here this is just to catch "ephemeral" threads from before ephemeral threads were implemented.
+		thread.Spec.Ephemeral = thread.Spec.AgentName == "" &&
+			thread.Spec.ParentThreadName == "" &&
+			thread.Spec.WebhookName == "" &&
+			thread.Spec.CronJobName == "" &&
+			thread.Spec.EmailReceiverName == "" &&
+			thread.Spec.WorkflowName == "" &&
+			thread.Spec.WorkflowExecutionName == "" &&
+			thread.Spec.OAuthAppLoginName == "" &&
+			thread.Spec.KnowledgeSetName == "" &&
+			thread.Spec.KnowledgeSourceName == ""
+		if thread.Spec.Ephemeral {
+			return req.Client.Update(req.Ctx, thread)
+		}
+	}
+	if !thread.Spec.Ephemeral ||
+		thread.CreationTimestamp.After(time.Now().Add(-12*time.Hour)) {
+		return nil
+	}
+
+	return kclient.IgnoreNotFound(req.Delete(thread))
 }

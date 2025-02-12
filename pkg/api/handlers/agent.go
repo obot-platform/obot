@@ -962,6 +962,7 @@ func runAuthForAgent(ctx context.Context, c kclient.WithWatch, invoker *invoke.I
 
 	return invoker.Agent(ctx, c, agent, "", invoke.Options{
 		Synchronous:           true,
+		EphemeralThread:       true,
 		ThreadCredentialScope: new(bool),
 	})
 }

@@ -87,6 +87,8 @@ type ThreadSpec struct {
 	Project bool `json:"project,omitempty"`
 	// Env is the environment variable keys that expected to be set in the credential that matches the thread.Name
 	Env []string `json:"env,omitempty"`
+	// Ephemeral means that this thread is used once and then can be deleted
+	Ephemeral bool `json:"ephemeral,omitempty"`
 }
 
 func (in *Thread) DeleteRefs() []Ref {

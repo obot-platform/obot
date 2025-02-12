@@ -33,6 +33,7 @@ type Thread struct {
 	UserID          string   `json:"userID,omitempty"`
 	Abort           bool     `json:"abort,omitempty"`
 	SystemTask      bool     `json:"systemTask,omitempty"`
+	Ephemeral       bool     `json:"ephemeral,omitempty"`
 	Env             []string `json:"env,omitempty"`
 }
 

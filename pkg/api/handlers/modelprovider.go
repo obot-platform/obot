@@ -156,14 +156,13 @@ func (mp *ModelProviderHandler) Validate(req api.Context) error {
 		},
 		Spec: v1.ThreadSpec{
 			SystemTask: true,
+			Ephemeral:  true,
 		},
 	}
 
 	if err := req.Create(thread); err != nil {
 		return fmt.Errorf("failed to create thread: %w", err)
 	}
-
-	defer func() { _ = req.Delete(thread) }()
 
 	task, err := mp.invoker.SystemTask(req.Context(), thread, "validate from "+ref.Spec.Reference, "", invoke.SystemTaskOptions{Env: envs})
 	if err != nil {
