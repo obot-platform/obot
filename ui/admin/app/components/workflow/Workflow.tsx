@@ -8,7 +8,6 @@ import {
 } from "lucide-react";
 import { useCallback, useState } from "react";
 
-import { AssistantNamespace } from "~/lib/model/assistants";
 import { CapabilityTool } from "~/lib/model/toolReferences";
 import { Workflow as WorkflowType } from "~/lib/model/workflows";
 import { cn } from "~/lib/utils";
@@ -17,7 +16,6 @@ import { AgentForm } from "~/components/agent";
 import { AgentCapabilityForm } from "~/components/agent/shared/AgentCapabilityForm";
 import { AgentModelSelect } from "~/components/agent/shared/AgentModelSelect";
 import { EnvironmentVariableSection } from "~/components/agent/shared/EnvironmentVariableSection";
-import { ToolAuthenticationStatus } from "~/components/agent/shared/ToolAuthenticationStatus";
 import { AgentKnowledgePanel } from "~/components/knowledge";
 import { BasicToolForm } from "~/components/tools/BasicToolForm";
 import {
@@ -52,8 +50,7 @@ export function Workflow(props: WorkflowProps) {
 }
 
 function WorkflowContent({ className }: WorkflowProps) {
-	const { workflow, updateWorkflow, isUpdating, lastUpdated, refreshWorkflow } =
-		useWorkflow();
+	const { workflow, updateWorkflow, isUpdating, lastUpdated } = useWorkflow();
 
 	const [workflowUpdates, setWorkflowUpdates] = useState(workflow);
 
@@ -121,14 +118,6 @@ function WorkflowContent({ className }: WorkflowProps) {
 							partialSetWorkflow({ tools, oauthApps: toolOauths ?? [] })
 						}
 						oauths={workflow.oauthApps}
-						renderActions={(tool) => (
-							<ToolAuthenticationStatus
-								namespace={AssistantNamespace.Workflows}
-								entityId={workflow.id}
-								tool={tool}
-								onUpdate={refreshWorkflow}
-							/>
-						)}
 					/>
 				</div>
 
