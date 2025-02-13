@@ -102,11 +102,14 @@ describe(Agent, () => {
 		const modifiedValue = faker.word.words({ count: { min: 2, max: 5 } });
 
 		if (!as) {
-			await userEvent.type(screen.getByDisplayValue(searchFor), modifiedValue);
+			await userEvent.type(screen.getByDisplayValue(searchFor), modifiedValue, {
+				delay: 0,
+			});
 		} else if (as === "placeholder") {
 			await userEvent.type(
 				screen.getByPlaceholderText(searchFor),
-				modifiedValue
+				modifiedValue,
+				{ delay: 0 }
 			);
 		} else if (as === "textbox") {
 			const heading = screen.getByRole("heading", { name: searchFor });
