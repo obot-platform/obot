@@ -126,6 +126,7 @@ describe(Agent, () => {
 				),
 			{ timeout: 1000 }
 		);
+		expect(putSpy).toHaveBeenCalledTimes(1);
 	});
 
 	it("Updating icon triggers save", async () => {
