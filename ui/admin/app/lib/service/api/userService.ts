@@ -7,7 +7,9 @@ import { request } from "~/lib/service/api/primitives";
 import { createFetcher } from "~/lib/service/api/service-primitives";
 
 const handleGetUsers = createFetcher(
-	z.object({ filters: z.object({ userId: z.string().optional() }).optional() }),
+	z.object({
+		filters: z.object({ userId: z.string().optional() }).optional(),
+	}),
 	async ({ filters = {} }, { signal }) => {
 		const { url } = ApiRoutes.users.base();
 		const { data } = await request<EntityList<User>>({ url, signal });

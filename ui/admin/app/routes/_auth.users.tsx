@@ -5,6 +5,7 @@ import {
 	ClientLoaderFunctionArgs,
 	MetaFunction,
 	useLoaderData,
+	useNavigate,
 } from "react-router";
 import { $path } from "safe-routes";
 import useSWR, { preload } from "swr";
@@ -18,7 +19,7 @@ import { RouteHandle } from "~/lib/service/routeHandles";
 import { RouteQueryParams, RouteService } from "~/lib/service/routeService";
 import { pluralize, timeSince } from "~/lib/utils";
 
-import { DataTable } from "~/components/composed/DataTable";
+import { DataTable, DataTableFilter } from "~/components/composed/DataTable";
 import { Filters } from "~/components/composed/Filters";
 import { Button } from "~/components/ui/button";
 import { Link } from "~/components/ui/link";
@@ -39,15 +40,13 @@ export async function clientLoader({ request }: ClientLoaderFunctionArgs) {
 		new URL(request.url).search
 	);
 
-	const filters = query?.userId ? { userId: query.userId } : undefined;
-
-	const users = await preload(...UserService.getUsers.swr({ filters }));
+	const users = await preload(...UserService.getUsers.swr({ filters: query }));
 
 	if (users.length > 0) {
 		await preload(ThreadsService.getThreads.key(), ThreadsService.getThreads);
 	}
 
-	return { filters };
+	return { filters: query };
 }
 
 export default function Users() {
@@ -72,12 +71,15 @@ export default function Users() {
 
 	const userMap = new Map(users.map((u) => [u.id, u]));
 
+	const navigate = useNavigate();
+
 	return (
 		<div>
 			<div className="flex h-full flex-col gap-4 p-8">
 				<h2 className="mb-4">Users</h2>
 
 				<Filters userMap={userMap} url="/users" />
+
 				<DataTable
 					columns={getColumns()}
 					data={users}
@@ -90,7 +92,19 @@ export default function Users() {
 	function getColumns(): ColumnDef<User, string>[] {
 		return [
 			columnHelper.accessor("email", {
-				header: "Email",
+				header: ({ column }) => (
+					<DataTableFilter
+						key={column.id}
+						field="User"
+						values={
+							users?.map((user) => ({
+								id: user.id,
+								name: user.email,
+							})) ?? []
+						}
+						onSelect={(userId) => navigate($path("/chat-threads", { userId }))}
+					/>
+				),
 			}),
 			columnHelper.display({
 				id: "thread",

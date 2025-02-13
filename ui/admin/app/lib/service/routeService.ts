@@ -26,7 +26,7 @@ const QuerySchemas = {
 		userId: z.string().nullish(),
 		taskId: z.string().nullish(),
 	}),
-	usersSchema: z.object({ userId: z.string().nullish() }),
+	usersSchema: z.object({ userId: z.string().optional() }),
 } as const;
 
 function parseQuery<T extends ZodType>(search: string, schema: T) {

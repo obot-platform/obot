@@ -137,14 +137,16 @@ export function ThreadMeta({ entity, thread, className }: ThreadMetaProps) {
 									</div>
 								</td>
 							</tr>
-							<tr className="border-foreground/25">
-								<td className="py-2 pr-4 font-medium">User</td>
-								<td className="text-right">
-									<Link to={$path("/users", { userId: thread.userID })}>
-										{user?.username}
-									</Link>
-								</td>
-							</tr>
+							{thread.userID && (
+								<tr className="border-foreground/25">
+									<td className="py-2 pr-4 font-medium">User</td>
+									<td className="text-right">
+										<Link to={$path("/users", { userId: thread.userID })}>
+											{user?.username ?? thread.userID}
+										</Link>
+									</td>
+								</tr>
+							)}
 							{thread.currentRunId && (
 								<tr className="border-foreground/25">
 									<td className="py-2 pr-4 font-medium">Current Run ID</td>

@@ -57,27 +57,26 @@ func (s *Server) getUsers(apiContext api.Context) error {
 }
 
 func (s *Server) getUser(apiContext api.Context) error {
-
 	var (
-		useId    = apiContext.URL.Query().Get("by-id") == "true"
-		nameOrId = apiContext.PathValue("username_or_id")
-		user     *types.User
+		getByID      = apiContext.URL.Query().Get("by-id") == "true"
+		usernameOrID = apiContext.PathValue("username_or_id")
+		user         *types.User
 	)
 
-	if nameOrId == "" {
+	if usernameOrID == "" {
 		return types2.NewErrHTTP(http.StatusBadRequest, "username path parameter is required")
 	}
 
 	var err error
-	if useId {
-		user, err = s.client.UserByID(apiContext.Context(), nameOrId)
+	if getByID {
+		user, err = s.client.UserByID(apiContext.Context(), usernameOrID)
 	} else {
-		user, err = s.client.User(apiContext.Context(), nameOrId)
+		user, err = s.client.User(apiContext.Context(), usernameOrID)
 	}
 
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return types2.NewErrNotFound("user %s not found", nameOrId)
+			return types2.NewErrNotFound("user %s not found", usernameOrID)
 		}
 		return fmt.Errorf("failed to get user: %v", err)
 	}
