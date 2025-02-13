@@ -102,7 +102,7 @@ export default function Users() {
 								name: user.email,
 							})) ?? []
 						}
-						onSelect={(userId) => navigate($path("/chat-threads", { userId }))}
+						onSelect={(userId) => navigate($path("/users", { userId }))}
 					/>
 				),
 			}),
