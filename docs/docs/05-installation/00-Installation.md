@@ -77,7 +77,7 @@ docker logs -f <container_id>
 
 ### Helm
 
-If you would like to install Obot on a Kubernetes cluster, you can use the Helm chart. We are currently working on the Helm chart and have made it available for testing here: [obot-helm](https://github.com/obot-platform/obot/tree/main/chart)
+If you would like to install Obot on a Kubernetes cluster, you can use the Helm chart. We are currently working on the Helm chart and have made it available for testing here: [obot-helm](https://charts.obot.ai/)
 
 ## Next Steps
 
