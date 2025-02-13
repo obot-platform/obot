@@ -1,3 +1,4 @@
+import { ComponentProps } from "react";
 import useMeasure from "react-use-measure";
 
 import { cn } from "~/lib/utils";
@@ -6,17 +7,16 @@ import { Animate } from "~/components/ui/animate";
 
 type Axis = "width" | "height";
 
-const defaultAxis: Axis[] = ["width", "height"];
-
 export function AnimateResize({
 	children,
-	axis = defaultAxis,
+	axis,
 	classes = {},
+	...restProps
 }: {
 	children: React.ReactNode;
-	axis?: Axis | Axis[];
+	axis: Axis | Axis[];
 	classes?: { container?: string; content?: string };
-}) {
+} & ComponentProps<typeof Animate.div>) {
 	const [ref, bounds] = useMeasure();
 
 	const _axis = Array.isArray(axis) ? axis : [axis];
@@ -28,6 +28,7 @@ export function AnimateResize({
 		<Animate.div
 			animate={{ width, height }}
 			className={cn("flex overflow-hidden", classes.container)}
+			{...restProps}
 		>
 			<div ref={ref} className={classes.content}>
 				{children}

@@ -66,7 +66,7 @@ export function AgentAlias({ agent, onChange }: AgentAliasProps) {
 								rel="noreferrer"
 								className="group flex items-center gap-2"
 							>
-								<AnimateResize>
+								<AnimateResize axis="width">
 									<span className="group-hover:hidden">Try it Out!</span>
 									<span className="hidden group-hover:block">{agentUrl}</span>
 								</AnimateResize>
