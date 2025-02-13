@@ -271,7 +271,7 @@ export function ThreadTableDialog({
 			<TableRow {...trProps} key={rowKey(row, index)}>
 				{columns?.map((col) => (
 					<TableCell key={col}>
-						<p>{row[col]}</p>
+						<p>{String(row[col] ?? "")}</p>
 					</TableCell>
 				))}
 			</TableRow>
@@ -295,8 +295,8 @@ export function ThreadTableDialog({
 		);
 	}
 
-	function rowKey(row: Record<string, string>, index: number) {
-		return `${index} ${Object.values(row).join("-")}`;
+	function rowKey(row: Record<string, unknown>, index: number) {
+		return `${index} ${Object.values(row).map(String).join("-")}`;
 	}
 
 	function renderSkeletonHead(cols = 3) {

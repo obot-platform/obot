@@ -16,8 +16,7 @@ import {
 	type TaskRun,
 	type TaskRunList,
 	type Version,
-	type TableList,
-	type Rows
+	type Table
 } from './types';
 
 function assistantID(): string {
@@ -426,13 +425,24 @@ export async function listTaskRuns(id: string): Promise<TaskRunList> {
 }
 
 export async function listTables() {
-	return (await doGet(`/assistants/${assistantID()}/projects/${projectID()}/tables`)) as TableList;
+	const tables = (await doGet(
+		`/assistants/${assistantID()}/projects/${projectID()}/tables`
+	)) as Table[];
+	return { tables: tables };
 }
 
 export async function getRows(table: string) {
-	return (await doGet(
+	const response = (await doGet(
 		`/assistants/${assistantID()}/projects/${projectID()}/tables/${table}/rows`
-	)) as Rows;
+	)) as Record<string, unknown>[];
+
+	// Get unique column names from all rows
+	const columns = Array.from(new Set(response.flatMap((row) => Object.keys(row))));
+
+	return {
+		columns,
+		rows: response
+	};
 }
 
 export async function sendCredentials(id: string, credentials: Record<string, string>) {

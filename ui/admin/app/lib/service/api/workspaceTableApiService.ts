@@ -5,11 +5,7 @@ import { request } from "~/lib/service/api/primitives";
 import { createFetcher } from "~/lib/service/api/service-primitives";
 import { QueryService } from "~/lib/service/queryService";
 
-import {
-	TableNamespace,
-	WorkspaceTable,
-	WorkspaceTableRows,
-} from "~/components/model/tables";
+import { TableNamespace, WorkspaceTable } from "~/components/model/tables";
 
 const param = (x: string) => x as Todo;
 
@@ -20,11 +16,11 @@ const getTables = createFetcher(
 		filters: z.object({ search: z.string() }).partial().nullish(),
 	}),
 	async ({ namespace, entityId, filters, query }) => {
-		const { data } = await request<{ tables: Nullish<WorkspaceTable[]> }>({
+		const { data } = await request<WorkspaceTable[]>({
 			url: ApiRoutes.workspace.getTables(namespace, entityId).url,
 		});
 
-		const items = data.tables ?? [];
+		const items = data ?? [];
 		const searched = QueryService.handleSearch(items, {
 			key: (table) => table.name,
 			search: filters?.search,
@@ -46,12 +42,17 @@ const getTableRows = createFetcher(
 		{ namespace, entityId, tableName, filters, query },
 		{ signal } = {}
 	) => {
-		const { data } = await request<WorkspaceTableRows>({
+		const { data } = await request<Record<string, unknown>[]>({
 			url: ApiRoutes.workspace.getTableRows(namespace, entityId, tableName).url,
 			signal,
 		});
 
-		const searched = QueryService.handleSearch(data.rows ?? [], {
+		// Get unique column names from all rows
+		const columns = Array.from(
+			new Set((data ?? []).flatMap((row) => Object.keys(row)))
+		);
+
+		const searched = QueryService.handleSearch(data ?? [], {
 			key: (row) => Object.values(row).join("|"),
 			search: filters?.search,
 		});
@@ -61,9 +62,7 @@ const getTableRows = createFetcher(
 			query.pagination
 		);
 
-		data.rows = rows;
-
-		return { ...data, ...rest };
+		return { columns, rows, ...rest };
 	},
 	() =>
 		ApiRoutes.workspace.getTableRows(
