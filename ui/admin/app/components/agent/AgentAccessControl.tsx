@@ -20,7 +20,6 @@ import {
 	TooltipContent,
 	TooltipTrigger,
 } from "~/components/ui/tooltip";
-import { useAuthStatus } from "~/hooks/auth/useAuthStatus";
 
 type AgentAccessControlProps = {
 	agent: Agent;
@@ -30,10 +29,6 @@ export function AgentAccessControl({ agent }: AgentAccessControlProps) {
 	const { data: users, isLoading: usersLoading } = useSWR(
 		...UserService.getUsers.swr({})
 	);
-
-	const { authEnabled } = useAuthStatus();
-
-	if (!authEnabled) return null;
 
 	return (
 		<Dialog>
