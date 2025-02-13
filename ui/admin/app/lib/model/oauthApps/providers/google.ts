@@ -23,9 +23,17 @@ const scopes = [
 	"https://www.googleapis.com/auth/gmail.readonly",
 	"https://www.googleapis.com/auth/gmail.compose",
 	"https://www.googleapis.com/auth/drive",
+	"https://www.googleapis.com/auth/webmasters",
+	"https://www.googleapis.com/auth/webmasters.readonly",
 ];
 
-const enabledApis = ["Google Drive", "Google Sheets", "Google Docs", "Gmail"];
+const enabledApis = [
+	"Google Drive",
+	"Google Sheets",
+	"Google Docs",
+	"Gmail",
+	"Google Search Console",
+];
 
 const steps: OAuthFormStep<typeof schema.shape>[] = [
 	{
