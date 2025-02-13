@@ -17,6 +17,7 @@ const defaultSchedule = {
 		hour: 0,
 		day: 0,
 		weekday: 0,
+		timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
 	},
 };
 
@@ -32,7 +33,7 @@ export function WorkflowScheduleTab({ workflowId }: { workflowId: string }) {
 		updateCronJob(cronJobId, {
 			...rest,
 			schedule: cronString,
-			taskSchedule: cronToTaskSchedule(cronString),
+			taskSchedule: cronToTaskSchedule(cronString, cronJob.timezone),
 		});
 	};
 
@@ -116,7 +117,8 @@ export function WorkflowScheduleTab({ workflowId }: { workflowId: string }) {
 	}
 
 	function cronToTaskSchedule(
-		cronString: string
+		cronString: string,
+		timezone: string
 	): CronJob["taskSchedule"] | undefined {
 		// Match groups: (minute) (hour) (day) (month) (weekday)
 		const matches = cronString.match(/^(\S+)\s+(\S+)\s+(\S+)\s+(\S+)\s+(\S+)$/);
@@ -126,7 +128,14 @@ export function WorkflowScheduleTab({ workflowId }: { workflowId: string }) {
 
 		// Hourly patterns
 		if (minute === "0" && hour === "*") {
-			return { interval: "hourly", minute: 0, hour: 0, day: 0, weekday: 0 };
+			return {
+				interval: "hourly",
+				minute: 0,
+				hour: 0,
+				day: 0,
+				weekday: 0,
+				timezone,
+			};
 		}
 		const minuteInterval = minute.match(/^\*\/(\d+)$/);
 		if (minuteInterval && hour === "*") {
@@ -136,6 +145,7 @@ export function WorkflowScheduleTab({ workflowId }: { workflowId: string }) {
 				hour: 0,
 				day: 0,
 				weekday: 0,
+				timezone,
 			};
 		}
 
@@ -152,6 +162,7 @@ export function WorkflowScheduleTab({ workflowId }: { workflowId: string }) {
 				hour: parseInt(hour),
 				day: 0,
 				weekday: 0,
+				timezone,
 			};
 		}
 
@@ -163,6 +174,7 @@ export function WorkflowScheduleTab({ workflowId }: { workflowId: string }) {
 				hour: 0,
 				day: 0,
 				weekday: parseInt(weekday),
+				timezone,
 			};
 		}
 
@@ -179,6 +191,7 @@ export function WorkflowScheduleTab({ workflowId }: { workflowId: string }) {
 				hour: 0,
 				day: day === "L" ? -1 : parseInt(day) - 1, // day starts from 0 index
 				weekday: 0,
+				timezone,
 			};
 		}
 	}

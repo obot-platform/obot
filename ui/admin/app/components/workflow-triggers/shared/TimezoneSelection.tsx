@@ -7,11 +7,9 @@ type TimezoneSelectionProps = {
 };
 
 export function TimezoneSelection({ timezone }: TimezoneSelectionProps) {
-	const defaultTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-
 	return (
 		<div className="flex-r flex items-center">
-			{timezone && timezone !== defaultTimezone && (
+			{timezone && (
 				<>
 					<GlobeIcon className="mr-2 h-4 w-4 text-muted-foreground" />
 					<Label className="text-sm text-muted-foreground">{timezone}</Label>
