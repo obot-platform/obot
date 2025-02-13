@@ -4,6 +4,7 @@ import { Links, Meta, Outlet, Scripts, ScrollRestoration } from "react-router";
 import { SWRConfig } from "swr";
 
 import { AuthProvider } from "~/components/auth/AuthContext";
+import { NavigationProgress } from "~/components/composed/NavigationProgress";
 import { LayoutProvider } from "~/components/layout/LayoutProvider";
 import { ThemeProvider } from "~/components/theme";
 import { LoadingSpinner } from "~/components/ui/LoadingSpinner";
@@ -58,6 +59,7 @@ export default function App() {
 					<TooltipProvider>
 						<SidebarProvider>
 							<LayoutProvider>
+								<NavigationProgress />
 								<Outlet />
 							</LayoutProvider>
 						</SidebarProvider>
