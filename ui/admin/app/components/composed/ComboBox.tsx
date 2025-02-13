@@ -255,10 +255,10 @@ function ComboBoxList<T extends BaseOption>({
 				<span>
 					{renderOption ? renderOption(option) : (option.name ?? option.id)}
 					{option.sublabel && (
-						<span className="text-xs text-muted-foreground">
+						<small className="text-muted-foreground">
 							{" "}
 							({option.sublabel})
-						</span>
+						</small>
 					)}
 				</span>
 				{value?.id === option.id && <CheckIcon className="h-4 w-4" />}
