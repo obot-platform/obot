@@ -20,6 +20,7 @@ import { timeSince } from "~/lib/utils";
 import {
 	DataTable,
 	DataTableFilter,
+	DataTableTimeFilter,
 	useRowNavigate,
 } from "~/components/composed/DataTable";
 import { Filters } from "~/components/composed/Filters";
@@ -60,7 +61,7 @@ export default function TaskRuns() {
 			? value
 			: $path("/chat-threads/:id", { id: value.id })
 	);
-	const { agentId, userId } = useLoaderData<typeof clientLoader>();
+	const { agentId, userId, created } = useLoaderData<typeof clientLoader>();
 
 	const getThreads = useSWR(
 		ThreadsService.getThreads.key(),
@@ -89,8 +90,20 @@ export default function TaskRuns() {
 			);
 		}
 
+		if (created) {
+			const createdDate = new Date(created);
+			filteredThreads = filteredThreads.filter((thread) => {
+				const threadDate = new Date(thread.created);
+				return (
+					threadDate.getFullYear() === createdDate.getFullYear() &&
+					threadDate.getMonth() === createdDate.getMonth() &&
+					threadDate.getDate() === createdDate.getDate()
+				);
+			});
+		}
+
 		return filteredThreads;
-	}, [getThreads.data, agentId, userId]);
+	}, [getThreads.data, agentId, userId, created]);
 
 	const agentMap = useMemo(
 		() => new Map(getAgents.data?.map((agent) => [agent.id, agent])),
@@ -163,6 +176,7 @@ export default function TaskRuns() {
 								$path("/chat-threads", {
 									agentId: value,
 									...(userId && { userId }),
+									...(created && { created }),
 								})
 							);
 						}}
@@ -186,6 +200,7 @@ export default function TaskRuns() {
 								$path("/chat-threads", {
 									userId: value,
 									...(agentId && { agentId }),
+									...(created && { created }),
 								})
 							);
 						}}
@@ -194,7 +209,22 @@ export default function TaskRuns() {
 			}),
 			columnHelper.accessor("created", {
 				id: "created",
-				header: "Created",
+				header: ({ column }) => (
+					<DataTableTimeFilter
+						key={column.id}
+						field="Created"
+						date={created ? new Date(created) : undefined}
+						onSelect={(date) => {
+							navigate.internal(
+								$path("/chat-threads", {
+									created: date?.toISOString(),
+									...(agentId && { agentId }),
+									...(userId && { userId }),
+								})
+							);
+						}}
+					/>
+				),
 				cell: (info) => (
 					<p>{timeSince(new Date(info.row.original.created))} ago</p>
 				),

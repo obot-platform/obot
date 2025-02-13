@@ -13,6 +13,13 @@ import { useNavigate } from "react-router";
 import { cn } from "~/lib/utils";
 
 import { ComboBox } from "~/components/composed/ComboBox";
+import { Button } from "~/components/ui/button";
+import { Calendar } from "~/components/ui/calendar";
+import {
+	Popover,
+	PopoverContent,
+	PopoverTrigger,
+} from "~/components/ui/popover";
 import {
 	Table,
 	TableBody,
@@ -189,5 +196,40 @@ export const DataTableFilter = ({
 				command: "min-w-64",
 			}}
 		/>
+	);
+};
+
+export const DataTableTimeFilter = ({
+	date,
+	field,
+	onSelect,
+}: {
+	date?: Date;
+	field: string;
+	onSelect: (selectedDate?: Date) => void;
+}) => {
+	return (
+		<Popover>
+			<PopoverTrigger asChild>
+				<Button
+					variant="text"
+					endContent={<ListFilterIcon />}
+					className="w-full p-0"
+					classNames={{
+						content: "w-full justify-between",
+					}}
+				>
+					{field}
+				</Button>
+			</PopoverTrigger>
+			<PopoverContent>
+				<Calendar
+					mode="single"
+					selected={date}
+					onSelect={onSelect}
+					initialFocus
+				/>
+			</PopoverContent>
+		</Popover>
 	);
 };

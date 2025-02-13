@@ -20,6 +20,7 @@ import { timeSince } from "~/lib/utils/time";
 import {
 	DataTable,
 	DataTableFilter,
+	DataTableTimeFilter,
 	useRowNavigate,
 } from "~/components/composed/DataTable";
 import { Filters } from "~/components/composed/Filters";
@@ -58,7 +59,8 @@ export default function Tasks() {
 	const navigate = useRowNavigate((value: Workflow | string) =>
 		typeof value === "string" ? value : $path("/tasks/:id", { id: value.id })
 	);
-	const { taskId, userId, agentId } = useLoaderData<typeof clientLoader>();
+	const { taskId, userId, agentId, created } =
+		useLoaderData<typeof clientLoader>();
 
 	const getAgents = useSWR(...AgentService.getAgents.swr({}));
 	const getUsers = useSWR(...UserService.getUsers.swr({}));
@@ -131,6 +133,18 @@ export default function Tasks() {
 			filteredTasks = filteredTasks.filter((item) => item.id === taskId);
 		}
 
+		if (created) {
+			const createdDate = new Date(created);
+			filteredTasks = filteredTasks.filter((item) => {
+				const taskDate = new Date(item.created);
+				return (
+					taskDate.getFullYear() === createdDate.getFullYear() &&
+					taskDate.getMonth() === createdDate.getMonth() &&
+					taskDate.getDate() === createdDate.getDate()
+				);
+			});
+		}
+
 		filteredTasks = search
 			? filteredTasks.filter(
 					(item) =>
@@ -141,7 +155,7 @@ export default function Tasks() {
 			: filteredTasks;
 
 		return filteredTasks;
-	}, [tasks, search, agentId, userId, taskId]);
+	}, [tasks, search, agentId, userId, taskId, created]);
 
 	const namesCount = useMemo(() => {
 		return data.reduce<Record<string, number>>((acc, task) => {
@@ -276,7 +290,23 @@ export default function Tasks() {
 			}),
 			columnHelper.accessor("created", {
 				id: "created",
-				header: "Created",
+				header: ({ column }) => (
+					<DataTableTimeFilter
+						key={column.id}
+						field="Created"
+						date={created ? new Date(created) : undefined}
+						onSelect={(date) => {
+							navigate.internal(
+								$path("/tasks", {
+									created: date?.toISOString() ?? "",
+									...(taskId && { taskId }),
+									...(agentId && { agentId }),
+									...(userId && { userId }),
+								})
+							);
+						}}
+					/>
+				),
 				cell: (info) => (
 					<p>{timeSince(new Date(info.row.original.created))} ago</p>
 				),

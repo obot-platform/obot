@@ -22,6 +22,7 @@ import { timeSince } from "~/lib/utils";
 import {
 	DataTable,
 	DataTableFilter,
+	DataTableTimeFilter,
 	useRowNavigate,
 } from "~/components/composed/DataTable";
 import { Filters } from "~/components/composed/Filters";
@@ -63,7 +64,7 @@ export default function TaskRuns() {
 			? value
 			: $path("/task-runs/:id", { id: value.id })
 	);
-	const { taskId, userId } = useLoaderData<typeof clientLoader>();
+	const { taskId, userId, created } = useLoaderData<typeof clientLoader>();
 
 	const getThreads = useSWR(
 		ThreadsService.getThreads.key(),
@@ -138,8 +139,20 @@ export default function TaskRuns() {
 			filteredThreads = threads.filter((thread) => thread.userID === userId);
 		}
 
+		if (created) {
+			const createdDate = new Date(created);
+			filteredThreads = filteredThreads.filter((thread) => {
+				const threadDate = new Date(thread.created);
+				return (
+					threadDate.getFullYear() === createdDate.getFullYear() &&
+					threadDate.getMonth() === createdDate.getMonth() &&
+					threadDate.getDate() === createdDate.getDate()
+				);
+			});
+		}
+
 		return filteredThreads;
-	}, [threads, taskId, userId]);
+	}, [threads, taskId, userId, created]);
 
 	const namesCount = useMemo(() => {
 		return (
@@ -235,7 +248,22 @@ export default function TaskRuns() {
 			}),
 			columnHelper.accessor("created", {
 				id: "created",
-				header: "Created",
+				header: ({ column }) => (
+					<DataTableTimeFilter
+						key={column.id}
+						field="Created"
+						date={created ? new Date(created) : undefined}
+						onSelect={(date) => {
+							navigate.internal(
+								$path("/task-runs", {
+									created: date?.toISOString(),
+									...(taskId && { taskId }),
+									...(userId && { userId }),
+								})
+							);
+						}}
+					/>
+				),
 				cell: (info) => (
 					<p>{timeSince(new Date(info.row.original.created))} ago</p>
 				),

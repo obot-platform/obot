@@ -14,6 +14,7 @@ const QuerySchemas = {
 	}),
 	threadsListSchema: z.object({
 		agentId: z.string().nullish(),
+		created: z.string().nullish(),
 		userId: z.string().nullish(),
 		taskId: z.string().nullish(),
 		from: z.enum(["tasks", "agents", "users"]).nullish().catch(null),
@@ -23,6 +24,7 @@ const QuerySchemas = {
 	}),
 	tasksSchema: z.object({
 		agentId: z.string().nullish(),
+		created: z.string().nullish(),
 		userId: z.string().nullish(),
 		taskId: z.string().nullish(),
 	}),

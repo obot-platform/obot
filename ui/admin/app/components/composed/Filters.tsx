@@ -14,6 +14,7 @@ type QueryParams = {
 	agentId?: string;
 	userId?: string;
 	taskId?: string;
+	created?: string;
 };
 
 export function Filters({
@@ -74,6 +75,13 @@ export function Filters({
 					label: "Task",
 					value: workflowMap?.get(filters.taskId)?.name ?? filters.taskId,
 					onRemove: () => updateFilters("taskId"),
+				},
+			"created" in filters &&
+				filters.created && {
+					key: "created",
+					label: "Created",
+					value: new Date(filters.created).toLocaleDateString(),
+					onRemove: () => updateFilters("created"),
 				},
 		].filter((x) => !!x);
 	}, [navigate, searchParams, agentMap, userMap, workflowMap, url]);
