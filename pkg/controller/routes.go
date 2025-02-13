@@ -7,6 +7,7 @@ import (
 	"github.com/obot-platform/obot/pkg/controller/handlers/alias"
 	"github.com/obot-platform/obot/pkg/controller/handlers/cleanup"
 	"github.com/obot-platform/obot/pkg/controller/handlers/cronjob"
+	"github.com/obot-platform/obot/pkg/controller/handlers/daemontrigger"
 	"github.com/obot-platform/obot/pkg/controller/handlers/knowledgefile"
 	"github.com/obot-platform/obot/pkg/controller/handlers/knowledgeset"
 	"github.com/obot-platform/obot/pkg/controller/handlers/knowledgesource"
@@ -42,6 +43,7 @@ func (c *Controller) setupRoutes() error {
 	runs := runs.New(c.services.Invoker)
 	webHooks := webhook.New()
 	cronJobs := cronjob.New()
+	daemonTriggers := daemontrigger.New(c.services.ProviderDispatcher)
 	oauthLogins := oauthapp.NewLogin(c.services.Invoker, c.services.ServerURL)
 	knowledgesummary := knowledgesummary.NewHandler(c.services.GPTClient)
 	toolInfo := toolinfo.New(c.services.GPTClient)
@@ -104,6 +106,7 @@ func (c *Controller) setupRoutes() error {
 	root.Type(&v1.ToolReference{}).HandlerFunc(cleanup.Cleanup)
 	root.Type(&v1.ToolReference{}).HandlerFunc(toolRef.Populate)
 	root.Type(&v1.ToolReference{}).HandlerFunc(toolRef.BackPopulateModels)
+	root.Type(&v1.ToolReference{}).HandlerFunc(toolRef.EnsureDaemonTriggerProvider)
 	root.Type(&v1.ToolReference{}).IncludeFinalizing().HandlerFunc(removeOldFinalizers)
 	root.Type(&v1.ToolReference{}).FinalizeFunc(v1.ToolReferenceFinalizer, toolRef.CleanupModelProvider)
 
@@ -152,6 +155,9 @@ func (c *Controller) setupRoutes() error {
 	// Cronjobs
 	root.Type(&v1.CronJob{}).HandlerFunc(cronJobs.SetSuccessRunTime)
 	root.Type(&v1.CronJob{}).HandlerFunc(cronJobs.Run)
+
+	// Daemon Triggers
+	root.Type(&v1.DaemonTrigger{}).HandlerFunc(daemonTriggers.EnsureDaemonTriggerProvider)
 
 	// OAuthApps
 	root.Type(&v1.OAuthApp{}).HandlerFunc(cleanup.Cleanup)

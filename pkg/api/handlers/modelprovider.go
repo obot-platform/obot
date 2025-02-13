@@ -230,7 +230,9 @@ func (mp *ModelProviderHandler) Configure(req api.Context) error {
 		return fmt.Errorf("failed to create credential: %w", err)
 	}
 
-	mp.dispatcher.StopModelProvider(ref.Namespace, ref.Name)
+	if err := mp.dispatcher.StopProvider(types.ToolReferenceTypeModelProvider, ref.Namespace, ref.Name); err != nil {
+		return fmt.Errorf("failed to stop model provider: %w", err)
+	}
 
 	if ref.Annotations[v1.ModelProviderSyncAnnotation] == "" {
 		if ref.Annotations == nil {
@@ -264,7 +266,9 @@ func (mp *ModelProviderHandler) Deconfigure(req api.Context) error {
 	}
 
 	// Stop the model provider so that the credential is completely removed from the system.
-	mp.dispatcher.StopModelProvider(ref.Namespace, ref.Name)
+	if err := mp.dispatcher.StopProvider(types.ToolReferenceTypeModelProvider, ref.Namespace, ref.Name); err != nil {
+		return fmt.Errorf("failed to stop model provider: %w", err)
+	}
 
 	if ref.Annotations[v1.ModelProviderSyncAnnotation] == "" {
 		if ref.Annotations == nil {

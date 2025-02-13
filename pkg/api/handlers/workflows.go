@@ -20,6 +20,7 @@ import (
 	apierror "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -435,13 +436,15 @@ func (a *WorkflowHandler) EnsureCredentialForKnowledgeSource(req api.Context) er
 
 func (a *WorkflowHandler) WorkflowExecutions(req api.Context) error {
 	var (
-		id = req.PathValue("id")
+		id   = req.PathValue("id")
+		wfes v1.WorkflowExecutionList
 	)
-
-	var wfes v1.WorkflowExecutionList
-	if err := req.List(&wfes, kclient.MatchingFields{
-		"spec.workflowName": id,
+	if err := req.List(&wfes, &client.ListOptions{
+		FieldSelector: fields.SelectorFromSet(map[string]string{
+			"spec.workflowName": id,
+		}),
 	}); err != nil {
+		log.Warnf("failed to list workflow executions: %v", err)
 		return err
 	}
 

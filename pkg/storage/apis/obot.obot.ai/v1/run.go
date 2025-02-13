@@ -17,10 +17,11 @@ const (
 	AgentFinalizer           = "obot.obot.ai/agent"
 	WorkflowFinalizer        = "obot.obot.ai/workflow"
 
-	ModelProviderSyncAnnotation = "obot.ai/model-provider-sync"
-	WorkflowSyncAnnotation      = "obot.ai/workflow-sync"
-	AgentSyncAnnotation         = "obot.ai/agent-sync"
-	AuthProviderSyncAnnotation  = "obot.ai/auth-provider-sync"
+	ModelProviderSyncAnnotation         = "obot.ai/model-provider-sync"
+	AuthProviderSyncAnnotation          = "obot.ai/auth-provider-sync"
+	DaemonTriggerProviderSyncAnnotation = "obot.ai/trigger-provider-sync"
+	WorkflowSyncAnnotation              = "obot.ai/workflow-sync"
+	AgentSyncAnnotation                 = "obot.ai/agent-sync"
 )
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

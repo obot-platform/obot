@@ -158,6 +158,7 @@ type Options struct {
 	Synchronous           bool
 	EphemeralThread       bool
 	ThreadName            string
+	WorkflowName          string
 	WorkflowStepName      string
 	WorkflowStepID        string
 	WorkflowExecutionName string
@@ -381,7 +382,6 @@ type runOptions struct {
 	GenerateName          string
 	AgentName             string
 	Synchronous           bool
-	WorkflowName          string
 	WorkflowExecutionName string
 	WorkflowStepName      string
 	WorkflowStepID        string
@@ -427,7 +427,7 @@ func (i *Invoker) createRun(ctx context.Context, c kclient.WithWatch, thread *v1
 			Synchronous:           opts.Synchronous,
 			ThreadName:            thread.Name,
 			AgentName:             opts.AgentName,
-			WorkflowName:          opts.WorkflowName,
+			WorkflowName:          thread.Spec.WorkflowName,
 			WorkflowExecutionName: opts.WorkflowExecutionName,
 			WorkflowStepName:      opts.WorkflowStepName,
 			WorkflowStepID:        opts.WorkflowStepID,

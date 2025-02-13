@@ -10,6 +10,7 @@ const (
 	ToolReferenceTypeSystem                  ToolReferenceType = "system"
 	ToolReferenceTypeModelProvider           ToolReferenceType = "modelProvider"
 	ToolReferenceTypeAuthProvider            ToolReferenceType = "authProvider"
+	ToolReferenceTypeDaemonTriggerProvider   ToolReferenceType = "daemonTriggerProvider"
 )
 
 type ToolReferenceManifest struct {
