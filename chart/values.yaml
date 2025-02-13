@@ -4,8 +4,8 @@ replicaCount: 1
 image:
   # image.repository -- The name of the docker repository for Obot
   repository: ghcr.io/obot-platform/obot-enterprise
-  # image.tag -- The docker tag to pull for obot
-  tag: latest
+  # image.tag -- The docker tag to pull for obot. If blank, will default to the chart appVersion
+  tag: ""
   # image.pullPolicy -- Kubernetes image pullPolicy to use for Obot
   pullPolicy: IfNotPresent
 
