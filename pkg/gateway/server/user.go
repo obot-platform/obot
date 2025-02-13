@@ -37,7 +37,7 @@ func (s *Server) getCurrentUser(apiContext api.Context) error {
 		}
 	}
 
-	return apiContext.Write(types.ConvertUser(user, s.client.IsExplicitAdmin(user.Email)))
+	return apiContext.Write(types.ConvertUser(user, s.client.IsExplicitAdmin(user.Email), &name))
 }
 
 func (s *Server) getUsers(apiContext api.Context) error {
@@ -49,7 +49,7 @@ func (s *Server) getUsers(apiContext api.Context) error {
 	items := make([]types2.User, 0, len(users))
 	for _, user := range users {
 		if user.Username != "bootstrap" && user.Email != "" { // Filter out the bootstrap admin
-			items = append(items, *types.ConvertUser(&user, s.client.IsExplicitAdmin(user.Email)))
+			items = append(items, *types.ConvertUser(&user, s.client.IsExplicitAdmin(user.Email), nil))
 		}
 	}
 
@@ -81,7 +81,7 @@ func (s *Server) getUser(apiContext api.Context) error {
 		return fmt.Errorf("failed to get user: %v", err)
 	}
 
-	return apiContext.Write(types.ConvertUser(user, s.client.IsExplicitAdmin(user.Email)))
+	return apiContext.Write(types.ConvertUser(user, s.client.IsExplicitAdmin(user.Email), nil))
 }
 
 func (s *Server) updateUser(apiContext api.Context) error {
@@ -123,7 +123,7 @@ func (s *Server) updateUser(apiContext api.Context) error {
 		return types2.NewErrHTTP(status, fmt.Sprintf("failed to update user: %v", err))
 	}
 
-	return apiContext.Write(types.ConvertUser(existingUser, s.client.IsExplicitAdmin(existingUser.Email)))
+	return apiContext.Write(types.ConvertUser(existingUser, s.client.IsExplicitAdmin(existingUser.Email), nil))
 }
 
 func (s *Server) deleteUser(apiContext api.Context) error {
@@ -143,5 +143,5 @@ func (s *Server) deleteUser(apiContext api.Context) error {
 		return types2.NewErrHTTP(status, fmt.Sprintf("failed to delete user: %v", err))
 	}
 
-	return apiContext.Write(types.ConvertUser(existingUser, s.client.IsExplicitAdmin(existingUser.Email)))
+	return apiContext.Write(types.ConvertUser(existingUser, s.client.IsExplicitAdmin(existingUser.Email), nil))
 }

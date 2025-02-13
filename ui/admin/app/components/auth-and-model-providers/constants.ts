@@ -17,10 +17,3 @@ export const RecommendedModelProviders = [
 	CommonModelProviderIds.OPENAI,
 	CommonModelProviderIds.AZURE_OPENAI,
 ];
-
-export const CommonAuthProviderIds = {
-	GOOGLE: "google-auth-provider",
-	GITHUB: "github-auth-provider",
-	OKTA: "okta-auth-provider",
-	ENTRA: "entra-auth-provider",
-};

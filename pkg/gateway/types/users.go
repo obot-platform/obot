@@ -20,12 +20,12 @@ type User struct {
 	Timezone  string      `json:"timezone"`
 }
 
-func ConvertUser(u *User, roleFixed bool) *types2.User {
+func ConvertUser(u *User, roleFixed bool, authProviderName *string) *types2.User {
 	if u == nil {
 		return nil
 	}
 
-	return &types2.User{
+	user := &types2.User{
 		Metadata: types2.Metadata{
 			ID:      fmt.Sprint(u.ID),
 			Created: *types2.NewTime(u.CreatedAt),
@@ -37,6 +37,12 @@ func ConvertUser(u *User, roleFixed bool) *types2.User {
 		IconURL:       u.IconURL,
 		Timezone:      u.Timezone,
 	}
+
+	if authProviderName != nil {
+		user.AuthProvider = *authProviderName
+	}
+
+	return user
 }
 
 type UserQuery struct {

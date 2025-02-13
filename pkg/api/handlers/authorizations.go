@@ -104,7 +104,7 @@ func (a *AuthorizationHandler) ListAgentAuthorizations(req api.Context) error {
 		if err != nil {
 			log.Errorf("failed to get user for authorization list %s: %v", grant.Spec.UserID, err)
 		} else if user != nil {
-			auth.User = types2.ConvertUser(user, a.userClient.IsExplicitAdmin(user.Email))
+			auth.User = types2.ConvertUser(user, a.userClient.IsExplicitAdmin(user.Email), nil)
 		}
 
 		result.Items = append(result.Items, auth)
