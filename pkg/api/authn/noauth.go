@@ -27,6 +27,7 @@ func (n *NoAuth) AuthenticateRequest(req *http.Request) (*authenticator.Response
 		req.Context(),
 		&types.Identity{
 			ProviderUsername: "nobody",
+			ProviderUserID:   "nobody",
 		},
 		req.Header.Get("X-Obot-User-Timezone"),
 		types2.RoleAdmin,

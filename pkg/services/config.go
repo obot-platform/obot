@@ -364,6 +364,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		// is enabled.
 		if err := gatewayClient.RemoveIdentity(ctx, &types.Identity{
 			ProviderUsername: "nobody",
+			ProviderUserID:   "nobody",
 		}); err != nil {
 			return nil, fmt.Errorf(`failed to remove "nobody" user and identity from database: %w`, err)
 		}

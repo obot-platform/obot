@@ -37,6 +37,7 @@ func (u UserDecorator) AuthenticateRequest(req *http.Request) (*authenticator.Re
 		AuthProviderName:      firstValue(resp.User.GetExtra(), "auth_provider_name"),
 		AuthProviderNamespace: firstValue(resp.User.GetExtra(), "auth_provider_namespace"),
 		ProviderUsername:      resp.User.GetName(),
+		ProviderUserID:        resp.User.GetUID(),
 	}, req.Header.Get("X-Obot-User-Timezone"))
 	if err != nil {
 		return nil, false, err
