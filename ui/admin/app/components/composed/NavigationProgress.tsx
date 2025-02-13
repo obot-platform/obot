@@ -16,15 +16,14 @@ export function NavigationProgress() {
 	}, [navigation.state]);
 
 	const getConfig = () => {
-		if (state === "hide") {
-			return { duration: 1, hidden: true };
+		switch (state) {
+			case "hide":
+				return { duration: 1, hidden: true };
+			case "start":
+				return { target: "90%", duration: 60 };
+			default:
+				return { target: "100%", duration: 0.3, complete: true };
 		}
-
-		if (state === "start") {
-			return { target: "90%", duration: 60 };
-		}
-
-		return { target: "100%", duration: 0.3, complete: true };
 	};
 
 	const { target, duration, hidden, complete } = getConfig();
