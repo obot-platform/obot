@@ -47,6 +47,9 @@ export function DataTable<TData, TValue>({
 	onCtrlClick,
 }: DataTableProps<TData, TValue>) {
 	const table = useReactTable({
+		enableColumnResizing: true,
+		columnResizeMode: "onChange",
+		columnResizeDirection: "ltr",
 		data,
 		columns,
 		state: { sorting: sort },
@@ -61,13 +64,33 @@ export function DataTable<TData, TValue>({
 					<TableRow key={headerGroup.id} className="p-4">
 						{headerGroup.headers.map((header) => {
 							return (
-								<TableHead key={header.id}>
-									{header.isPlaceholder
-										? null
-										: flexRender(
-												header.column.columnDef.header,
-												header.getContext()
-											)}
+								<TableHead
+									key={header.id}
+									style={{ width: header.getSize() }}
+									className="space-between group relative px-0"
+								>
+									<div className="flex h-full w-full items-center justify-between">
+										{header.isPlaceholder ? null : (
+											<div className="w-full px-2">
+												{flexRender(
+													header.column.columnDef.header,
+													header.getContext()
+												)}
+											</div>
+										)}
+										{header.column.getCanResize() && (
+											<button
+												onMouseDown={header.getResizeHandler()}
+												onTouchStart={header.getResizeHandler()}
+												className={cn(
+													"h-full w-1 cursor-col-resize self-end group-hover:bg-muted-foreground/30",
+													{
+														isResizing: header.column.getIsResizing(),
+													}
+												)}
+											></button>
+										)}
+									</div>
 								</TableHead>
 							);
 						})}
@@ -115,6 +138,7 @@ export function DataTable<TData, TValue>({
 						onRowClick?.(cell.row.original);
 					}
 				}}
+				style={{ width: cell.column.getSize() }}
 			>
 				{flexRender(cell.column.columnDef.cell, cell.getContext())}
 			</TableCell>
