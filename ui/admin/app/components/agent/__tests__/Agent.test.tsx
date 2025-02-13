@@ -102,22 +102,19 @@ describe(Agent, () => {
 		const modifiedValue = faker.word.words({ count: { min: 2, max: 5 } });
 
 		if (!as) {
-			await userEvent.type(screen.getByDisplayValue(searchFor), modifiedValue, {
-				delay: 0,
-			});
+			await userEvent.click(screen.getByDisplayValue(searchFor));
+			await userEvent.paste(modifiedValue);
 		} else if (as === "placeholder") {
-			await userEvent.type(
-				screen.getByPlaceholderText(searchFor),
-				modifiedValue,
-				{ delay: 0 }
-			);
+			await userEvent.click(screen.getByPlaceholderText(searchFor));
+			await userEvent.paste(modifiedValue);
 		} else if (as === "textbox") {
 			const heading = screen.getByRole("heading", { name: searchFor });
 			const textbox = within(heading.parentElement!).queryAllByRole("textbox")[
 				index ?? 0
 			];
 
-			await userEvent.type(textbox, modifiedValue, { delay: 0 });
+			await userEvent.click(textbox);
+			await userEvent.paste(modifiedValue);
 		}
 
 		await waitFor(
