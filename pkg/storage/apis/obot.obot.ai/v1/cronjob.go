@@ -8,7 +8,10 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-var _ fields.Fields = (*CronJob)(nil)
+var (
+	_ fields.Fields = (*CronJob)(nil)
+	_ DeleteRefs    = (*CronJob)(nil)
+)
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
@@ -50,7 +53,9 @@ func (*CronJob) GetColumns() [][]string {
 }
 
 func (c *CronJob) DeleteRefs() []Ref {
-	return nil
+	return []Ref{
+		{ObjType: &Workflow{}, Name: c.Spec.Workflow, Alias: c.Spec.Workflow},
+	}
 }
 
 type CronJobSpec struct {

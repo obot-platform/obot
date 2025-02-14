@@ -38,6 +38,16 @@ func Cleanup(req router.Request, _ router.Response) error {
 			objType = o.(kclient.Object)
 		}
 
+		if ref.Alias != "" {
+			var alias v1.Alias
+			if err := req.Get(&alias, namespace, ref.Alias); !apierrors.IsNotFound(err) {
+				return err
+			}
+			if err := req.Get(untriggered.UncachedGet(&alias), namespace, ref.Alias); !apierrors.IsNotFound(err) {
+				return err
+			}
+		}
+
 		if err := req.Get(objType, namespace, ref.Name); apierrors.IsNotFound(err) {
 			if err := req.Get(untriggered.UncachedGet(objType), namespace, ref.Name); apierrors.IsNotFound(err) {
 				log.Infof("Deleting %s/%s due to missing %s", namespace, req.Name, ref.Name)

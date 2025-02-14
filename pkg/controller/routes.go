@@ -110,6 +110,7 @@ func (c *Controller) setupRoutes() error {
 	// EmailReceivers
 	root.Type(&v1.EmailReceiver{}).HandlerFunc(alias.AssignAlias)
 	root.Type(&v1.EmailReceiver{}).HandlerFunc(generationed.UpdateObservedGeneration)
+	root.Type(&v1.EmailReceiver{}).HandlerFunc(cleanup.Cleanup)
 
 	// Models
 	root.Type(&v1.Model{}).HandlerFunc(deleteOldModel)
@@ -148,10 +149,12 @@ func (c *Controller) setupRoutes() error {
 	root.Type(&v1.Webhook{}).HandlerFunc(alias.AssignAlias)
 	root.Type(&v1.Webhook{}).HandlerFunc(webHooks.SetSuccessRunTime)
 	root.Type(&v1.Webhook{}).HandlerFunc(generationed.UpdateObservedGeneration)
+	root.Type(&v1.Webhook{}).HandlerFunc(cleanup.Cleanup)
 
 	// Cronjobs
 	root.Type(&v1.CronJob{}).HandlerFunc(cronJobs.SetSuccessRunTime)
 	root.Type(&v1.CronJob{}).HandlerFunc(cronJobs.Run)
+	root.Type(&v1.CronJob{}).HandlerFunc(cleanup.Cleanup)
 
 	// OAuthApps
 	root.Type(&v1.OAuthApp{}).HandlerFunc(cleanup.Cleanup)

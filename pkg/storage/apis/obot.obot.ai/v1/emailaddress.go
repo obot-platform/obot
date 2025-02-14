@@ -12,6 +12,7 @@ var (
 	_ Aliasable     = (*EmailReceiver)(nil)
 	_ Generationed  = (*EmailReceiver)(nil)
 	_ fields.Fields = (*EmailReceiver)(nil)
+	_ DeleteRefs    = (*EmailReceiver)(nil)
 )
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -73,7 +74,9 @@ func (*EmailReceiver) GetColumns() [][]string {
 }
 
 func (in *EmailReceiver) DeleteRefs() []Ref {
-	return nil
+	return []Ref{
+		{ObjType: &Workflow{}, Name: in.Spec.Workflow, Alias: in.Spec.Workflow},
+	}
 }
 
 type EmailReceiverSpec struct {

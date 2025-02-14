@@ -146,12 +146,12 @@ export const ApiRoutes = {
 			buildUrl(`/agents/${agentId}/files/${fileName}`),
 	},
 	workflows: {
-		base: () => buildUrl("/workflows"),
-		getById: (workflowId: string) => buildUrl(`/workflows/${workflowId}`),
+		base: () => buildUrl("/tasks"),
+		getById: (workflowId: string) => buildUrl(`/tasks/${workflowId}`),
 		authenticate: (workflowId: string) =>
-			buildUrl(`/workflows/${workflowId}/authenticate`),
+			buildUrl(`/tasks/${workflowId}/authenticate`),
 		deleteWithTriggers: (workflowId: string) =>
-			buildUrl(`/workflows/${workflowId}`, { "delete-triggers": "true" }),
+			buildUrl(`/tasks/${workflowId}`),
 	},
 	toolAuthentication: {
 		authenticate: (namespace: AssistantNamespace, entityId: string) =>
