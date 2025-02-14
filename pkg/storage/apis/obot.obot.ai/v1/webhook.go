@@ -12,6 +12,7 @@ var (
 	_ Aliasable     = (*Webhook)(nil)
 	_ fields.Fields = (*Webhook)(nil)
 	_ Generationed  = (*Webhook)(nil)
+	_ DeleteRefs    = (*Webhook)(nil)
 )
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -74,7 +75,9 @@ func (*Webhook) GetColumns() [][]string {
 }
 
 func (w *Webhook) DeleteRefs() []Ref {
-	return nil
+	return []Ref{
+		{ObjType: &Workflow{}, Name: w.Spec.Workflow, Alias: w.Spec.Workflow},
+	}
 }
 
 type WebhookSpec struct {

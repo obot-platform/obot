@@ -8,6 +8,7 @@ type Ref struct {
 	ObjType   kclient.Object
 	Namespace string
 	Name      string
+	Alias     string
 	Kind      string
 }
 
