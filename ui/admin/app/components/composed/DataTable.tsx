@@ -8,6 +8,8 @@ import {
 	useReactTable,
 } from "@tanstack/react-table";
 import { ListFilterIcon } from "lucide-react";
+import { useState } from "react";
+import { DateRange } from "react-day-picker";
 import { useNavigate } from "react-router";
 
 import { cn } from "~/lib/utils";
@@ -200,14 +202,15 @@ export const DataTableFilter = ({
 };
 
 export const DataTableTimeFilter = ({
-	date,
+	dateRange,
 	field,
 	onSelect,
 }: {
-	date?: Date;
+	dateRange: DateRange;
 	field: string;
-	onSelect: (selectedDate?: Date) => void;
+	onSelect: (range: DateRange) => void;
 }) => {
+	const [range, setRange] = useState<DateRange | undefined>(dateRange);
 	return (
 		<Popover>
 			<PopoverTrigger asChild>
@@ -224,9 +227,14 @@ export const DataTableTimeFilter = ({
 			</PopoverTrigger>
 			<PopoverContent>
 				<Calendar
-					mode="single"
-					selected={date}
-					onSelect={onSelect}
+					mode="range"
+					selected={range}
+					onSelect={(range) => {
+						setRange(range);
+						if (range?.from && range?.to) {
+							onSelect(range);
+						}
+					}}
 					initialFocus
 				/>
 			</PopoverContent>

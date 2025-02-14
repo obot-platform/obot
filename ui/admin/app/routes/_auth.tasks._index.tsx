@@ -15,6 +15,7 @@ import { UserService } from "~/lib/service/api/userService";
 import { WorkflowService } from "~/lib/service/api/workflowService";
 import { RouteHandle } from "~/lib/service/routeHandles";
 import { RouteService } from "~/lib/service/routeService";
+import { filterByCreatedRange } from "~/lib/utils/filter";
 import { timeSince } from "~/lib/utils/time";
 
 import {
@@ -59,7 +60,7 @@ export default function Tasks() {
 	const navigate = useRowNavigate((value: Workflow | string) =>
 		typeof value === "string" ? value : $path("/tasks/:id", { id: value.id })
 	);
-	const { taskId, userId, agentId, created } =
+	const { taskId, userId, agentId, start, end } =
 		useLoaderData<typeof clientLoader>();
 
 	const getAgents = useSWR(...AgentService.getAgents.swr({}));
@@ -133,16 +134,8 @@ export default function Tasks() {
 			filteredTasks = filteredTasks.filter((item) => item.id === taskId);
 		}
 
-		if (created) {
-			const createdDate = new Date(created);
-			filteredTasks = filteredTasks.filter((item) => {
-				const taskDate = new Date(item.created);
-				return (
-					taskDate.getFullYear() === createdDate.getFullYear() &&
-					taskDate.getMonth() === createdDate.getMonth() &&
-					taskDate.getDate() === createdDate.getDate()
-				);
-			});
+		if (start) {
+			filteredTasks = filterByCreatedRange(filteredTasks, start, end);
 		}
 
 		filteredTasks = search
@@ -155,7 +148,7 @@ export default function Tasks() {
 			: filteredTasks;
 
 		return filteredTasks;
-	}, [tasks, search, agentId, userId, taskId, created]);
+	}, [tasks, search, agentId, userId, taskId, start, end]);
 
 	const namesCount = useMemo(() => {
 		return data.reduce<Record<string, number>>((acc, task) => {
@@ -294,11 +287,15 @@ export default function Tasks() {
 					<DataTableTimeFilter
 						key={column.id}
 						field="Created"
-						date={created ? new Date(created) : undefined}
-						onSelect={(date) => {
+						dateRange={{
+							from: start ? new Date(start) : undefined,
+							to: end ? new Date(end) : undefined,
+						}}
+						onSelect={(range) => {
 							navigate.internal(
 								$path("/tasks", {
-									created: date?.toISOString() ?? "",
+									...(range.from && { start: range.from.toDateString() }),
+									...(range.to && { end: range.to.toDateString() }),
 									...(taskId && { taskId }),
 									...(agentId && { agentId }),
 									...(userId && { userId }),

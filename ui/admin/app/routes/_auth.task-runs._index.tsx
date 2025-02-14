@@ -18,6 +18,7 @@ import { WorkflowService } from "~/lib/service/api/workflowService";
 import { RouteHandle } from "~/lib/service/routeHandles";
 import { RouteQueryParams, RouteService } from "~/lib/service/routeService";
 import { timeSince } from "~/lib/utils";
+import { filterByCreatedRange } from "~/lib/utils/filter";
 
 import {
 	DataTable,
@@ -64,7 +65,7 @@ export default function TaskRuns() {
 			? value
 			: $path("/task-runs/:id", { id: value.id })
 	);
-	const { taskId, userId, created } = useLoaderData<typeof clientLoader>();
+	const { taskId, userId, start, end } = useLoaderData<typeof clientLoader>();
 
 	const getThreads = useSWR(
 		ThreadsService.getThreads.key(),
@@ -139,20 +140,12 @@ export default function TaskRuns() {
 			filteredThreads = threads.filter((thread) => thread.userID === userId);
 		}
 
-		if (created) {
-			const createdDate = new Date(created);
-			filteredThreads = filteredThreads.filter((thread) => {
-				const threadDate = new Date(thread.created);
-				return (
-					threadDate.getFullYear() === createdDate.getFullYear() &&
-					threadDate.getMonth() === createdDate.getMonth() &&
-					threadDate.getDate() === createdDate.getDate()
-				);
-			});
+		if (start) {
+			filteredThreads = filterByCreatedRange(filteredThreads, start, end);
 		}
 
 		return filteredThreads;
-	}, [threads, taskId, userId, created]);
+	}, [threads, taskId, userId, start, end]);
 
 	const namesCount = useMemo(() => {
 		return (
@@ -252,11 +245,15 @@ export default function TaskRuns() {
 					<DataTableTimeFilter
 						key={column.id}
 						field="Created"
-						date={created ? new Date(created) : undefined}
-						onSelect={(date) => {
+						dateRange={{
+							from: start ? new Date(start) : undefined,
+							to: end ? new Date(end) : undefined,
+						}}
+						onSelect={(range) => {
 							navigate.internal(
 								$path("/task-runs", {
-									created: date?.toISOString(),
+									start: range.from?.toDateString(),
+									end: range.to?.toDateString(),
 									...(taskId && { taskId }),
 									...(userId && { userId }),
 								})

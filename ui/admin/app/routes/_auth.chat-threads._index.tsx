@@ -16,6 +16,7 @@ import { UserService } from "~/lib/service/api/userService";
 import { RouteHandle } from "~/lib/service/routeHandles";
 import { RouteQueryParams, RouteService } from "~/lib/service/routeService";
 import { timeSince } from "~/lib/utils";
+import { filterByCreatedRange } from "~/lib/utils/filter";
 
 import {
 	DataTable,
@@ -61,7 +62,7 @@ export default function TaskRuns() {
 			? value
 			: $path("/chat-threads/:id", { id: value.id })
 	);
-	const { agentId, userId, created } = useLoaderData<typeof clientLoader>();
+	const { agentId, userId, start, end } = useLoaderData<typeof clientLoader>();
 
 	const getThreads = useSWR(
 		ThreadsService.getThreads.key(),
@@ -90,20 +91,12 @@ export default function TaskRuns() {
 			);
 		}
 
-		if (created) {
-			const createdDate = new Date(created);
-			filteredThreads = filteredThreads.filter((thread) => {
-				const threadDate = new Date(thread.created);
-				return (
-					threadDate.getFullYear() === createdDate.getFullYear() &&
-					threadDate.getMonth() === createdDate.getMonth() &&
-					threadDate.getDate() === createdDate.getDate()
-				);
-			});
+		if (start) {
+			filteredThreads = filterByCreatedRange(filteredThreads, start, end);
 		}
 
 		return filteredThreads;
-	}, [getThreads.data, agentId, userId, created]);
+	}, [getThreads.data, agentId, userId, start, end]);
 
 	const agentMap = useMemo(
 		() => new Map(getAgents.data?.map((agent) => [agent.id, agent])),
@@ -176,7 +169,8 @@ export default function TaskRuns() {
 								$path("/chat-threads", {
 									agentId: value,
 									...(userId && { userId }),
-									...(created && { created }),
+									...(start && { start }),
+									...(end && { end }),
 								})
 							);
 						}}
@@ -200,7 +194,8 @@ export default function TaskRuns() {
 								$path("/chat-threads", {
 									userId: value,
 									...(agentId && { agentId }),
-									...(created && { created }),
+									...(start && { start }),
+									...(end && { end }),
 								})
 							);
 						}}
@@ -213,11 +208,15 @@ export default function TaskRuns() {
 					<DataTableTimeFilter
 						key={column.id}
 						field="Created"
-						date={created ? new Date(created) : undefined}
-						onSelect={(date) => {
+						dateRange={{
+							from: start ? new Date(start) : undefined,
+							to: end ? new Date(end) : undefined,
+						}}
+						onSelect={(range) => {
 							navigate.internal(
 								$path("/chat-threads", {
-									created: date?.toISOString(),
+									start: range.from?.toDateString(),
+									end: range.to?.toDateString(),
 									...(agentId && { agentId }),
 									...(userId && { userId }),
 								})
