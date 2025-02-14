@@ -30,12 +30,12 @@ func ConvertUser(u *User, roleFixed bool, authProviderName string) *types2.User 
 			ID:      fmt.Sprint(u.ID),
 			Created: *types2.NewTime(u.CreatedAt),
 		},
-		Username:      u.Username,
-		Email:         u.Email,
-		Role:          u.Role,
-		ExplicitAdmin: roleFixed,
-		IconURL:       u.IconURL,
-		Timezone:      u.Timezone,
+		Username:            u.Username,
+		Email:               u.Email,
+		Role:                u.Role,
+		ExplicitAdmin:       roleFixed,
+		IconURL:             u.IconURL,
+		Timezone:            u.Timezone,
 		CurrentAuthProvider: authProviderName,
 	}
 
