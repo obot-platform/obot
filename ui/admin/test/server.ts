@@ -5,5 +5,5 @@ import { defaultMockedHandlers } from "test/mocks/handlers/default";
 // Setup requests interception using the given handlers
 export const server = setupServer(...defaultMockedHandlers);
 export const overrideServer = (handlers: RequestHandler[]) => {
-	server.use(...defaultMockedHandlers, ...handlers);
+	server.use(...handlers, ...defaultMockedHandlers);
 };

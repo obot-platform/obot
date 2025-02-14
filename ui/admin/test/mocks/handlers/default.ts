@@ -16,9 +16,7 @@ export const defaultMockedHandlers = [
 		return HttpResponse.json<Version>(mockedVersion);
 	}),
 	http.get(ApiRoutes.me().path, () => {
-		return HttpResponse.json<{ data: User }>({
-			data: mockedUser,
-		});
+		return HttpResponse.json<User>(mockedUser);
 	}),
 ];
 

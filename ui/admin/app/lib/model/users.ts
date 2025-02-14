@@ -1,3 +1,4 @@
+import { CommonAuthProviderId } from "~/lib/model/auth";
 import { EntityMeta } from "~/lib/model/primitives";
 
 export type User = EntityMeta & {
@@ -7,6 +8,7 @@ export type User = EntityMeta & {
 	iconURL: string;
 	timezone: string;
 	explicitAdmin: boolean;
+	currentAuthProvider?: CommonAuthProviderId;
 };
 
 export const Role = {
