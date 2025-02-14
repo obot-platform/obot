@@ -20,7 +20,7 @@ describe(UserMenu, () => {
 			http.get(ApiRoutes.me().path, () => {
 				return HttpResponse.json<User>({
 					...mockedUser,
-					authProvider: CommonAuthProviderIds.GITHUB,
+					currentAuthProvider: CommonAuthProviderIds.GITHUB,
 				});
 			}),
 		]);
@@ -35,7 +35,7 @@ describe(UserMenu, () => {
 			http.get(ApiRoutes.me().url, () => {
 				return HttpResponse.json<User>({
 					...mockedUser,
-					authProvider: CommonAuthProviderIds.GOOGLE,
+					currentAuthProvider: CommonAuthProviderIds.GOOGLE,
 				});
 			}),
 		]);
