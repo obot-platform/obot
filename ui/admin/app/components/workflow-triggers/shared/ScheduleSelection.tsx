@@ -6,12 +6,14 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "~/components/ui/select";
+import { TimezoneSelection } from "~/components/workflow-triggers/shared/TimezoneSelection";
 
 type ScheduleSelectionProps = {
 	disabled?: boolean;
 	label?: string;
 	onChange: (schedule: string) => void;
 	value: string;
+	timezone: string;
 };
 
 export function ScheduleSelection({
@@ -19,6 +21,7 @@ export function ScheduleSelection({
 	label,
 	onChange,
 	value,
+	timezone,
 }: ScheduleSelectionProps) {
 	const cronFrequency = getCronFrequency(value ?? "");
 
@@ -73,6 +76,7 @@ export function ScheduleSelection({
 						))}
 					</SelectContent>
 				</Select>
+				<TimezoneSelection timezone={timezone} />
 			</div>
 		</fieldset>
 	);

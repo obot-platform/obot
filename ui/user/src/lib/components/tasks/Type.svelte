@@ -18,6 +18,7 @@
 		return Object.keys(task?.onDemand?.params ?? {}).length === 0;
 	});
 	let version: Version = $state({});
+	let defaultTimezone = $state(Intl.DateTimeFormat().resolvedOptions().timeZone);
 	let options = $derived.by(() => {
 		const options: Record<string, string> = {
 			onDemand: 'on demand',
@@ -61,7 +62,8 @@
 					hour: 0,
 					minute: 0,
 					day: 0,
-					weekday: 0
+					weekday: 0,
+					timezone: defaultTimezone
 				},
 				webhook: undefined,
 				email: undefined,
