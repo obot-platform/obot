@@ -25,7 +25,7 @@ func ConvertUser(u *User, roleFixed bool, authProviderName string) *types2.User 
 		return nil
 	}
 
-	user := &types2.User{
+	return &types2.User{
 		Metadata: types2.Metadata{
 			ID:      fmt.Sprint(u.ID),
 			Created: *types2.NewTime(u.CreatedAt),
@@ -38,8 +38,6 @@ func ConvertUser(u *User, roleFixed bool, authProviderName string) *types2.User 
 		Timezone:            u.Timezone,
 		CurrentAuthProvider: authProviderName,
 	}
-
-	return user
 }
 
 type UserQuery struct {
