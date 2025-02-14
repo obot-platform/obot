@@ -1195,6 +1195,7 @@ func convertTask(workflow v1.Workflow, trigger *triggers) types.Task {
 		Metadata:     MetadataFrom(&workflow),
 		TaskManifest: ConvertTaskManifest(&workflow.Spec.Manifest),
 		Alias:        workflow.Namespace + "/" + workflow.Spec.Manifest.Alias,
+		ThreadID:     workflow.Spec.ThreadName,
 	}
 	if trigger != nil && trigger.CronJob != nil && trigger.CronJob.Name != "" {
 		task.Schedule = trigger.CronJob.Spec.TaskSchedule

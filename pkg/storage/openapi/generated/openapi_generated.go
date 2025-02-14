@@ -3702,6 +3702,12 @@ func schema_obot_platform_obot_apiclient_types_Task(ref common.ReferenceCallback
 							Ref:     ref("github.com/obot-platform/obot/apiclient/types.TaskManifest"),
 						},
 					},
+					"threadID": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
 					"alias": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
