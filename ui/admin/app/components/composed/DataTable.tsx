@@ -90,7 +90,7 @@ export function DataTable<TData, TValue>({
 												onMouseDown={header.getResizeHandler()}
 												onTouchStart={header.getResizeHandler()}
 												className={cn(
-													"h-full w-1 cursor-col-resize self-end group-hover:bg-muted-foreground/30",
+													"mx-2 h-full w-1 cursor-col-resize self-end group-hover:bg-muted-foreground/30",
 													{
 														isResizing: header.column.getIsResizing(),
 													}
