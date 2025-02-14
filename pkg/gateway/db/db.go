@@ -51,7 +51,10 @@ func (db *DB) AutoMigrate() (err error) {
 		}
 
 		if exists {
-			// Check if migration for Identity table is needed
+			// The identities table needs to have auth_provider_namespace,auth_provider_name,provider_user_id as a primary key.
+			// It used to have auth_provider_namespace,auth_provider_name,provider_username as a primary key.
+
+			// Check if the migration is needed.
 			var needsIdentityMigration bool
 			if err := tx.Raw(`
 				SELECT COUNT(*) = 0 as needs_migration
@@ -64,7 +67,7 @@ func (db *DB) AutoMigrate() (err error) {
 			}
 
 			if needsIdentityMigration {
-				// Migration: Add provider_user_id to Identity table and update primary key
+				// Add provider_user_id to identities table and update primary key.
 				if err := tx.Exec(`
 				-- Drop existing primary key
 				ALTER TABLE identities DROP CONSTRAINT identities_pkey;
