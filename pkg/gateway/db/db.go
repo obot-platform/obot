@@ -38,21 +38,34 @@ func (db *DB) AutoMigrate() (err error) {
 
 	// Only run PostgreSQL-specific migrations if using PostgreSQL
 	if db.gormDB.Dialector.Name() == "postgres" {
-		// Check if migration for Identity table is needed
-		var needsIdentityMigration bool
+		// Check if the identities table exists
+		var exists bool
 		if err := tx.Raw(`
-			SELECT COUNT(*) = 0 as needs_migration
-			FROM information_schema.key_column_usage 
-			WHERE table_name = 'identities' 
-			AND constraint_name = 'identities_pkey' 
-			AND column_name = 'provider_user_id'
-		`).Scan(&needsIdentityMigration).Error; err != nil {
+			SELECT EXISTS (
+				SELECT 1
+				FROM information_schema.tables
+				WHERE table_name = 'identities'
+			)
+		`).Scan(&exists).Error; err != nil {
 			return err
 		}
 
-		if needsIdentityMigration {
-			// Migration: Add provider_user_id to Identity table and update primary key
-			if err := tx.Exec(`
+		if exists {
+			// Check if migration for Identity table is needed
+			var needsIdentityMigration bool
+			if err := tx.Raw(`
+				SELECT COUNT(*) = 0 as needs_migration
+				FROM information_schema.key_column_usage
+				WHERE table_name = 'identities'
+				AND constraint_name = 'identities_pkey'
+				AND column_name = 'provider_user_id'
+			`).Scan(&needsIdentityMigration).Error; err != nil {
+				return err
+			}
+
+			if needsIdentityMigration {
+				// Migration: Add provider_user_id to Identity table and update primary key
+				if err := tx.Exec(`
 				-- Drop existing primary key
 				ALTER TABLE identities DROP CONSTRAINT identities_pkey;
 				
@@ -63,9 +76,10 @@ func (db *DB) AutoMigrate() (err error) {
 				UPDATE identities SET provider_user_id = 'OBOT_PLACEHOLDER_' || provider_username WHERE provider_user_id = '';
 				
 				-- Add new primary key
-				ALTER TABLE identities ADD PRIMARY KEY (auth_provider_name, auth_provider_namespace, provider_user_id);
-			`).Error; err != nil {
-				return err
+					ALTER TABLE identities ADD PRIMARY KEY (auth_provider_name, auth_provider_namespace, provider_user_id);
+				`).Error; err != nil {
+					return err
+				}
 			}
 		}
 	}
