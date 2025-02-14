@@ -12,7 +12,9 @@ import (
 	"github.com/obot-platform/obot/pkg/render"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	apierror "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/util/sets"
+	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type Handler struct {
@@ -102,6 +104,47 @@ func (h *Handler) RemoveUnneededCredentials(req router.Request, _ router.Respons
 	for _, cred := range toolInfos {
 		for _, name := range cred.CredentialNames {
 			credentialNames[name] = struct{}{}
+		}
+	}
+
+	var knowledgeSets v1.KnowledgeSetList
+	switch req.Object.(type) {
+	case *v1.Workflow:
+		if err := req.List(&knowledgeSets, &kclient.ListOptions{
+			Namespace: req.Namespace,
+			FieldSelector: fields.SelectorFromSet(map[string]string{
+				"spec.workflowName": req.Object.GetName(),
+			}),
+		}); err != nil {
+			return err
+		}
+
+	case *v1.Agent:
+		if err := req.List(&knowledgeSets, &kclient.ListOptions{
+			Namespace: req.Namespace,
+			FieldSelector: fields.SelectorFromSet(map[string]string{
+				"spec.agentName": req.Object.GetName(),
+			}),
+		}); err != nil {
+			return err
+		}
+	}
+
+	for _, knowledgeSet := range knowledgeSets.Items {
+		var knowledgeSources v1.KnowledgeSourceList
+		if err := req.List(&knowledgeSources, &kclient.ListOptions{
+			Namespace: req.Namespace,
+			FieldSelector: fields.SelectorFromSet(map[string]string{
+				"spec.knowledgeSetName": knowledgeSet.Name,
+			}),
+		}); err != nil {
+			return err
+		}
+
+		for _, knowledgeSource := range knowledgeSources.Items {
+			if sourceType := string(knowledgeSource.Spec.Manifest.GetType()); sourceType != "" {
+				credentialNames[sourceType+".sync-file"] = struct{}{}
+			}
 		}
 	}
 
