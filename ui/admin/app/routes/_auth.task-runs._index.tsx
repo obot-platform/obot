@@ -65,7 +65,8 @@ export default function TaskRuns() {
 			? value
 			: $path("/task-runs/:id", { id: value.id })
 	);
-	const { taskId, userId, start, end } = useLoaderData<typeof clientLoader>();
+	const { taskId, userId, createdStart, createdEnd } =
+		useLoaderData<typeof clientLoader>();
 
 	const getThreads = useSWR(
 		ThreadsService.getThreads.key(),
@@ -140,12 +141,16 @@ export default function TaskRuns() {
 			filteredThreads = threads.filter((thread) => thread.userID === userId);
 		}
 
-		if (start) {
-			filteredThreads = filterByCreatedRange(filteredThreads, start, end);
+		if (createdStart) {
+			filteredThreads = filterByCreatedRange(
+				filteredThreads,
+				createdStart,
+				createdEnd
+			);
 		}
 
 		return filteredThreads;
-	}, [threads, taskId, userId, start, end]);
+	}, [threads, taskId, userId, createdStart, createdEnd]);
 
 	const namesCount = useMemo(() => {
 		return (
@@ -246,14 +251,14 @@ export default function TaskRuns() {
 						key={column.id}
 						field="Created"
 						dateRange={{
-							from: start ? new Date(start) : undefined,
-							to: end ? new Date(end) : undefined,
+							from: createdStart ? new Date(createdStart) : undefined,
+							to: createdEnd ? new Date(createdEnd) : undefined,
 						}}
 						onSelect={(range) => {
 							navigate.internal(
 								$path("/task-runs", {
-									start: range.from?.toDateString(),
-									end: range.to?.toDateString(),
+									createdStart: range.from?.toDateString(),
+									createdEnd: range.to?.toDateString(),
 									...(taskId && { taskId }),
 									...(userId && { userId }),
 								})

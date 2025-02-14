@@ -62,7 +62,8 @@ export default function TaskRuns() {
 			? value
 			: $path("/chat-threads/:id", { id: value.id })
 	);
-	const { agentId, userId, start, end } = useLoaderData<typeof clientLoader>();
+	const { agentId, userId, createdStart, createdEnd } =
+		useLoaderData<typeof clientLoader>();
 
 	const getThreads = useSWR(
 		ThreadsService.getThreads.key(),
@@ -91,12 +92,16 @@ export default function TaskRuns() {
 			);
 		}
 
-		if (start) {
-			filteredThreads = filterByCreatedRange(filteredThreads, start, end);
+		if (createdStart) {
+			filteredThreads = filterByCreatedRange(
+				filteredThreads,
+				createdStart,
+				createdEnd
+			);
 		}
 
 		return filteredThreads;
-	}, [getThreads.data, agentId, userId, start, end]);
+	}, [getThreads.data, agentId, userId, createdStart, createdEnd]);
 
 	const agentMap = useMemo(
 		() => new Map(getAgents.data?.map((agent) => [agent.id, agent])),
@@ -169,8 +174,8 @@ export default function TaskRuns() {
 								$path("/chat-threads", {
 									agentId: value,
 									...(userId && { userId }),
-									...(start && { start }),
-									...(end && { end }),
+									...(createdStart && { createdStart }),
+									...(createdEnd && { createdEnd }),
 								})
 							);
 						}}
@@ -194,8 +199,8 @@ export default function TaskRuns() {
 								$path("/chat-threads", {
 									userId: value,
 									...(agentId && { agentId }),
-									...(start && { start }),
-									...(end && { end }),
+									...(createdStart && { createdStart }),
+									...(createdEnd && { createdEnd }),
 								})
 							);
 						}}
@@ -209,14 +214,14 @@ export default function TaskRuns() {
 						key={column.id}
 						field="Created"
 						dateRange={{
-							from: start ? new Date(start) : undefined,
-							to: end ? new Date(end) : undefined,
+							from: createdStart ? new Date(createdStart) : undefined,
+							to: createdEnd ? new Date(createdEnd) : undefined,
 						}}
 						onSelect={(range) => {
 							navigate.internal(
 								$path("/chat-threads", {
-									start: range.from?.toDateString(),
-									end: range.to?.toDateString(),
+									createdStart: range.from?.toDateString(),
+									createdEnd: range.to?.toDateString(),
 									...(agentId && { agentId }),
 									...(userId && { userId }),
 								})

@@ -60,7 +60,7 @@ export default function Tasks() {
 	const navigate = useRowNavigate((value: Workflow | string) =>
 		typeof value === "string" ? value : $path("/tasks/:id", { id: value.id })
 	);
-	const { taskId, userId, agentId, start, end } =
+	const { taskId, userId, agentId, createdStart, createdEnd } =
 		useLoaderData<typeof clientLoader>();
 
 	const getAgents = useSWR(...AgentService.getAgents.swr({}));
@@ -134,8 +134,12 @@ export default function Tasks() {
 			filteredTasks = filteredTasks.filter((item) => item.id === taskId);
 		}
 
-		if (start) {
-			filteredTasks = filterByCreatedRange(filteredTasks, start, end);
+		if (createdStart) {
+			filteredTasks = filterByCreatedRange(
+				filteredTasks,
+				createdStart,
+				createdEnd
+			);
 		}
 
 		filteredTasks = search
@@ -148,7 +152,7 @@ export default function Tasks() {
 			: filteredTasks;
 
 		return filteredTasks;
-	}, [tasks, search, agentId, userId, taskId, start, end]);
+	}, [tasks, search, agentId, userId, taskId, createdStart, createdEnd]);
 
 	const namesCount = useMemo(() => {
 		return data.reduce<Record<string, number>>((acc, task) => {
@@ -288,14 +292,16 @@ export default function Tasks() {
 						key={column.id}
 						field="Created"
 						dateRange={{
-							from: start ? new Date(start) : undefined,
-							to: end ? new Date(end) : undefined,
+							from: createdStart ? new Date(createdStart) : undefined,
+							to: createdEnd ? new Date(createdEnd) : undefined,
 						}}
 						onSelect={(range) => {
 							navigate.internal(
 								$path("/tasks", {
-									...(range.from && { start: range.from.toDateString() }),
-									...(range.to && { end: range.to.toDateString() }),
+									...(range.from && {
+										createdStart: range.from.toDateString(),
+									}),
+									...(range.to && { createdEnd: range.to.toDateString() }),
 									...(taskId && { taskId }),
 									...(agentId && { agentId }),
 									...(userId && { userId }),
