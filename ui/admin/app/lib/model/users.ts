@@ -8,7 +8,7 @@ export type User = EntityMeta & {
 	iconURL: string;
 	timezone: string;
 	explicitAdmin: boolean;
-	authProvider?: CommonAuthProviderId;
+	currentAuthProvider?: CommonAuthProviderId;
 };
 
 export const Role = {

@@ -82,7 +82,7 @@ export const UserMenu: React.FC<UserMenuProps> = ({
 	);
 
 	function getDisplayName(user?: UserModel) {
-		if (user?.authProvider === CommonAuthProviderIds.GITHUB) {
+		if (user?.currentAuthProvider === CommonAuthProviderIds.GITHUB) {
 			return user.username;
 		}
 

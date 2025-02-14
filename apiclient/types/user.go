@@ -22,7 +22,7 @@ type User struct {
 	Email         string `json:"email,omitempty"`
 	IconURL       string `json:"iconURL,omitempty"`
 	Timezone      string `json:"timezone,omitempty"`
-	AuthProvider  string `json:"authProvider,omitempty"`
+	CurrentAuthProvider  string `json:"currentAuthProvider,omitempty"`
 }
 
 type UserList List[User]

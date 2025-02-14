@@ -20,7 +20,7 @@ type User struct {
 	Timezone  string      `json:"timezone"`
 }
 
-func ConvertUser(u *User, roleFixed bool, authProviderName *string) *types2.User {
+func ConvertUser(u *User, roleFixed bool, authProviderName string) *types2.User {
 	if u == nil {
 		return nil
 	}
@@ -36,10 +36,7 @@ func ConvertUser(u *User, roleFixed bool, authProviderName *string) *types2.User
 		ExplicitAdmin: roleFixed,
 		IconURL:       u.IconURL,
 		Timezone:      u.Timezone,
-	}
-
-	if authProviderName != nil {
-		user.AuthProvider = *authProviderName
+		CurrentAuthProvider: authProviderName,
 	}
 
 	return user
