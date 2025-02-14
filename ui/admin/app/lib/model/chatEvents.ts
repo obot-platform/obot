@@ -3,6 +3,8 @@ export type ToolInput = {
 	content: string;
 };
 
+export type KnowledgeToolOutput = { url?: string; content: string }[];
+
 export type ToolCall = {
 	name: string;
 	description: string;
