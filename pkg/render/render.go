@@ -174,7 +174,7 @@ func OAuthAppEnv(ctx context.Context, db kclient.Client, oauthAppNames []string,
 	activeIntegrations := map[string]v1.OAuthApp{}
 	for _, name := range slices.Sorted(maps.Keys(apps)) {
 		app := apps[name]
-		if app.Spec.Manifest.Global == nil || !*app.Spec.Manifest.Global || app.Spec.Manifest.ClientID == "" || app.Spec.Manifest.ClientSecret == "" || app.Spec.Manifest.Alias == "" {
+		if app.Spec.Manifest.Global == nil || !*app.Spec.Manifest.Global || app.Spec.Manifest.ClientID == "" || app.Spec.Manifest.Alias == "" {
 			continue
 		}
 		activeIntegrations[app.Spec.Manifest.Alias] = app
@@ -188,8 +188,8 @@ func OAuthAppEnv(ctx context.Context, db kclient.Client, oauthAppNames []string,
 		if app.Spec.Manifest.Alias == "" {
 			return nil, fmt.Errorf("oauth app %s has no integration name", app.Name)
 		}
-		if app.Spec.Manifest.ClientID == "" || app.Spec.Manifest.ClientSecret == "" {
-			return nil, fmt.Errorf("oauth app %s has no client id or secret", app.Name)
+		if app.Spec.Manifest.ClientID == "" {
+			return nil, fmt.Errorf("oauth app %s has no client id", app.Name)
 		}
 
 		activeIntegrations[app.Spec.Manifest.Alias] = app
