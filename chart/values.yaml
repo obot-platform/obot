@@ -2,7 +2,8 @@
 replicaCount: 1
 
 image:
-  # image.repository -- The name of the docker repository for Obot
+  # image.repository -- The name of the docker repository for Obot. `ghcr.io/obot-platform/obot` for open-source or `ghcr.io/obot-platform/obot-enterprise` for enterprise.
+  # Please note that for enterprise you will need to set an `imagePullSecret`
   repository: ghcr.io/obot-platform/obot-enterprise
   # image.tag -- The docker tag to pull for obot. If blank, will default to the chart appVersion
   tag: ""
@@ -84,7 +85,7 @@ config:
   # config.obotServerHostname -- The hostname of your Obot instance, including protocol
   obotServerHostname: ""
   # config.obotWorkspaceProviderType -- Configures the storage backend for workspaces in Obot. Can be 's3' or 'directory'
-  obotWorkspaceProviderType: "s3"
+  obotWorkspaceProviderType: "directory"
   # config.openaiApiKey -- An OpenAI API Key used to configure access to OpenAI models, which are the default in Obot.
   openaiApiKey: ""
   # config.workspaceProviderS3BaseEndpoint -- If config.obotWorkspaceProviderType is 's3' and you are not using AWS S3, this needs to be set to the S3 api endpoint of your provider.
@@ -97,6 +98,23 @@ extraEnv: { }
 
 # resources -- Resource requests and limits to use for Obot
 resources: { }
+
+persistence:
+  #persistence.enabled -- Enables persistence of workspaces using a PVC when config.obotWorkspaceProviderType is `directory`
+  enabled: true
+  # persistence.path -- The path the volume will be mounted
+  path: /data
+  # persistence.storageClass -- Persistent Volume storage class
+  # If defined, storageClassName: <storageClass>
+  # If set to "-", storageClassName: "", which disables dynamic provisioning
+  # If undefined (the default) or set to null, no storageClassName spec is set, choosing the default provisioner
+  storageClass: ""
+  # persistence.accessModes -- Persistent Volume access modes
+  accessModes:
+    - ReadWriteOnce
+  # persistence.size --e Persistent Volume size
+  size: 8Gi
+  existingClaim: ""
 
 serviceAccount:
   # serviceAccount.create - Specifies whether a service account should be created
