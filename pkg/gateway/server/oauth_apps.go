@@ -126,8 +126,6 @@ func (s *Server) createOAuthApp(apiContext api.Context) error {
 		return types2.NewErrHTTP(http.StatusConflict, fmt.Sprintf("OAuth app with alias %s already exists", appManifest.Alias))
 	}
 
-	fmt.Printf("appManifest: %+v\n", appManifest)
-
 	// Store the client secret as a credential.
 	credential := gptscript.Credential{
 		Context:  fmt.Sprintf("%s-%s", appManifest.Alias, appManifest.ClientID),
