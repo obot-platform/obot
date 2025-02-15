@@ -24,5 +24,4 @@ const (
 
 	GenericModelProviderCredentialContext = "model-provider"
 	GenericAuthProviderCredentialContext  = "auth-provider"
-	GenericOAuthAppCredentialContext      = "oauth-app"
 )
