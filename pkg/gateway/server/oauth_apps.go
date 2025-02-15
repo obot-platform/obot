@@ -338,9 +338,15 @@ func (s *Server) refreshOAuthApp(apiContext api.Context) error {
 		return apierrors.NewBadRequest("missing refresh_token query parameter")
 	}
 
+	// Reveal the credential to get the client secret.
+	cred, err := s.gptClient.RevealCredential(apiContext.Context(), []string{fmt.Sprintf("%s-%s", app.Spec.Manifest.Alias, app.Spec.Manifest.ClientID)}, app.Spec.Manifest.Alias)
+	if err != nil {
+		return err
+	}
+
 	data := url.Values{}
 	data.Set("client_id", app.Spec.Manifest.ClientID)
-	data.Set("client_secret", app.Spec.Manifest.ClientSecret)
+	data.Set("client_secret", cred.Env["client_secret"])
 	if app.Spec.Manifest.Type != types2.OAuthAppTypeSalesforce {
 		data.Set("scope", scope)
 	}
@@ -431,10 +437,16 @@ func (s *Server) callbackOAuthApp(apiContext api.Context) error {
 		return apierrors.NewBadRequest("missing state query parameter")
 	}
 
+	// Reveal the credential to get the client secret.
+	cred, err := s.gptClient.RevealCredential(apiContext.Context(), []string{fmt.Sprintf("%s-%s", app.Spec.Manifest.Alias, app.Spec.Manifest.ClientID)}, app.Spec.Manifest.Alias)
+	if err != nil {
+		return err
+	}
+
 	// Build and make the request to get the tokens.
 	data := url.Values{}
 	data.Set("client_id", app.Spec.Manifest.ClientID)
-	data.Set("client_secret", app.Spec.Manifest.ClientSecret) // Including the client secret in the body is not strictly required in the OAuth2 RFC, but some providers require it anyway.
+	data.Set("client_secret", cred.Env["client_secret"]) // Including the client secret in the body is not strictly required in the OAuth2 RFC, but some providers require it anyway.
 	data.Set("code", code)
 	data.Set("redirect_uri", app.RedirectURL(s.baseURL))
 	data.Set("grant_type", "authorization_code")
@@ -449,7 +461,7 @@ func (s *Server) callbackOAuthApp(apiContext api.Context) error {
 	}
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	if app.Spec.Manifest.Type != types2.OAuthAppTypeGoogle {
-		req.SetBasicAuth(url.QueryEscape(app.Spec.Manifest.ClientID), url.QueryEscape(app.Spec.Manifest.ClientSecret))
+		req.SetBasicAuth(url.QueryEscape(app.Spec.Manifest.ClientID), url.QueryEscape(cred.Env["client_secret"]))
 	}
 
 	resp, err := http.DefaultClient.Do(req)
