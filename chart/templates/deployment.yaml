@@ -41,6 +41,11 @@ spec:
               port: http
             failureThreshold: 5
             periodSeconds: 10
+          {{- if and (eq .Values.config.obotWorkspaceProviderType "directory") .Values.persistence.enabled }}
+          volumeMounts:
+            - mountPath: {{ .Values.persistence.path }}
+              name: data
+          {{- end }}
           env:
             - name: "OBOT_SERVER_ENABLE_AUTHENTICATION"
               value: {{ .Values.config.obotServerEnableAuthentication | quote }}
@@ -159,3 +164,9 @@ spec:
             {{- end }}
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
+      {{- if and (eq .Values.config.obotWorkspaceProviderType "directory") .Values.persistence.enabled }}
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: {{ ternary .Values.persistence.existingClaim (print .Release.Name "-pvc") (ne .Values.persistence.existingClaim "") }}
+      {{- end }}
