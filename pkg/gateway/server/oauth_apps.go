@@ -15,6 +15,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/gptscript-ai/go-gptscript"
 	types2 "github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/alias"
 	"github.com/obot-platform/obot/pkg/api"
@@ -125,6 +126,20 @@ func (s *Server) createOAuthApp(apiContext api.Context) error {
 		return types2.NewErrHTTP(http.StatusConflict, fmt.Sprintf("OAuth app with alias %s already exists", appManifest.Alias))
 	}
 
+	// Store the client secret as a credential.
+	credential := gptscript.Credential{
+		Context:  fmt.Sprintf("%s-%s", appManifest.Alias, appManifest.ClientID),
+		ToolName: appManifest.Alias,
+		Type:     gptscript.CredentialTypeTool,
+		Env:      map[string]string{"client_secret": appManifest.ClientSecret},
+	}
+	if err := s.gptClient.CreateCredential(apiContext.Context(), credential); err != nil {
+		return err
+	}
+
+	// Overwrite the client secret with an empty string so that it is not stored alongside the rest of the configuration.
+	appManifest.ClientSecret = ""
+
 	app := v1.OAuthApp{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: system.OAuthAppPrefix,
@@ -159,6 +174,24 @@ func (s *Server) updateOAuthApp(apiContext api.Context) error {
 		return apierrors.NewBadRequest(fmt.Sprintf("invalid OAuth app: %s", err))
 	}
 
+	// Delete the existing credential and recreate it.
+	if err := s.gptClient.DeleteCredential(apiContext.Context(), fmt.Sprintf("%s-%s", originalApp.Spec.Manifest.Alias, originalApp.Spec.Manifest.ClientID), originalApp.Spec.Manifest.Alias); err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
+		return err
+	}
+
+	credential := gptscript.Credential{
+		Context:  fmt.Sprintf("%s-%s", merged.Alias, merged.ClientID),
+		ToolName: merged.Alias,
+		Type:     gptscript.CredentialTypeTool,
+		Env:      map[string]string{"client_secret": merged.ClientSecret},
+	}
+	if err := s.gptClient.CreateCredential(apiContext.Context(), credential); err != nil {
+		return err
+	}
+
+	// Overwrite the client secret with an empty string so that it is not stored alongside the rest of the configuration.
+	merged.ClientSecret = ""
+
 	// Update the app.
 	originalApp.Spec.Manifest = merged
 	if err := apiContext.Update(&originalApp); err != nil {
@@ -170,6 +203,16 @@ func (s *Server) updateOAuthApp(apiContext api.Context) error {
 
 // deleteOAuthApp deletes an existing OAuth app registration from the database (admin only).
 func (s *Server) deleteOAuthApp(apiContext api.Context) error {
+	// Delete the credential.
+	var app v1.OAuthApp
+	if err := apiContext.Get(&app, apiContext.PathValue("id")); err != nil {
+		return err
+	}
+
+	if err := s.gptClient.DeleteCredential(apiContext.Context(), fmt.Sprintf("%s-%s", app.Spec.Manifest.Alias, app.Spec.Manifest.ClientID), app.Spec.Manifest.Alias); err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
+		return err
+	}
+
 	return apiContext.Delete(&v1.OAuthApp{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      strings.ToLower(apiContext.PathValue("id")),
@@ -293,9 +336,15 @@ func (s *Server) refreshOAuthApp(apiContext api.Context) error {
 		return apierrors.NewBadRequest("missing refresh_token query parameter")
 	}
 
+	// Reveal the credential to get the client secret.
+	cred, err := s.gptClient.RevealCredential(apiContext.Context(), []string{fmt.Sprintf("%s-%s", app.Spec.Manifest.Alias, app.Spec.Manifest.ClientID)}, app.Spec.Manifest.Alias)
+	if err != nil {
+		return err
+	}
+
 	data := url.Values{}
 	data.Set("client_id", app.Spec.Manifest.ClientID)
-	data.Set("client_secret", app.Spec.Manifest.ClientSecret)
+	data.Set("client_secret", cred.Env["client_secret"])
 	if app.Spec.Manifest.Type != types2.OAuthAppTypeSalesforce {
 		data.Set("scope", scope)
 	}
@@ -386,10 +435,16 @@ func (s *Server) callbackOAuthApp(apiContext api.Context) error {
 		return apierrors.NewBadRequest("missing state query parameter")
 	}
 
+	// Reveal the credential to get the client secret.
+	cred, err := s.gptClient.RevealCredential(apiContext.Context(), []string{fmt.Sprintf("%s-%s", app.Spec.Manifest.Alias, app.Spec.Manifest.ClientID)}, app.Spec.Manifest.Alias)
+	if err != nil {
+		return err
+	}
+
 	// Build and make the request to get the tokens.
 	data := url.Values{}
 	data.Set("client_id", app.Spec.Manifest.ClientID)
-	data.Set("client_secret", app.Spec.Manifest.ClientSecret) // Including the client secret in the body is not strictly required in the OAuth2 RFC, but some providers require it anyway.
+	data.Set("client_secret", cred.Env["client_secret"]) // Including the client secret in the body is not strictly required in the OAuth2 RFC, but some providers require it anyway.
 	data.Set("code", code)
 	data.Set("redirect_uri", app.RedirectURL(s.baseURL))
 	data.Set("grant_type", "authorization_code")
@@ -404,7 +459,7 @@ func (s *Server) callbackOAuthApp(apiContext api.Context) error {
 	}
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	if app.Spec.Manifest.Type != types2.OAuthAppTypeGoogle {
-		req.SetBasicAuth(url.QueryEscape(app.Spec.Manifest.ClientID), url.QueryEscape(app.Spec.Manifest.ClientSecret))
+		req.SetBasicAuth(url.QueryEscape(app.Spec.Manifest.ClientID), url.QueryEscape(cred.Env["client_secret"]))
 	}
 
 	resp, err := http.DefaultClient.Do(req)

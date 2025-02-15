@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/gptscript-ai/go-gptscript"
 	"github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/gateway/db"
 	"github.com/obot-platform/obot/pkg/gateway/server/dispatcher"
@@ -25,9 +26,10 @@ type Server struct {
 	client         *client.Client
 	tokenService   *jwt.TokenService
 	dispatcher     *dispatcher.Dispatcher
+	gptClient      *gptscript.GPTScript
 }
 
-func New(ctx context.Context, db *db.DB, tokenService *jwt.TokenService, modelProviderDispatcher *dispatcher.Dispatcher, adminEmails []string, opts Options) (*Server, error) {
+func New(ctx context.Context, g *gptscript.GPTScript, db *db.DB, tokenService *jwt.TokenService, modelProviderDispatcher *dispatcher.Dispatcher, adminEmails []string, opts Options) (*Server, error) {
 	if err := db.AutoMigrate(); err != nil {
 		return nil, fmt.Errorf("auto migrate failed: %w", err)
 	}
@@ -46,6 +48,7 @@ func New(ctx context.Context, db *db.DB, tokenService *jwt.TokenService, modelPr
 		client:       client.New(db, adminEmails),
 		tokenService: tokenService,
 		dispatcher:   modelProviderDispatcher,
+		gptClient:    g,
 	}
 
 	go s.autoCleanupTokens(ctx)
