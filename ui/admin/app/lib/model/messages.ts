@@ -1,4 +1,9 @@
-import { AuthPrompt, ChatEvent, ToolCall } from "~/lib/model/chatEvents";
+import {
+	AuthPrompt,
+	ChatEvent,
+	KnowledgeToolOutput,
+	ToolCall,
+} from "~/lib/model/chatEvents";
 import { Run } from "~/lib/model/runs";
 
 export interface Message {
@@ -14,6 +19,7 @@ export interface Message {
 	error?: boolean;
 	contentID?: string;
 	time?: Date | string;
+	knowledgeSources?: KnowledgeToolOutput;
 }
 
 export const runsToMessages = (runs: Run[]) => {

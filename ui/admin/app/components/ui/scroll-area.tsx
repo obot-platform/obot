@@ -17,9 +17,11 @@ const ScrollArea = React.forwardRef<
 		startScrollAt?: "bottom";
 		enableScrollStick?: "bottom";
 		enableScrollTo?: "bottom";
+		orientation?: "vertical" | "horizontal";
 		classNames?: {
 			root?: string;
 			viewport?: string;
+			content?: string;
 		};
 	}
 >((props, ref) => {
@@ -29,6 +31,7 @@ const ScrollArea = React.forwardRef<
 		startScrollAt,
 		enableScrollTo,
 		enableScrollStick,
+		orientation = "vertical",
 		classNames = {},
 		...rootProps
 	} = props;
@@ -82,7 +85,7 @@ const ScrollArea = React.forwardRef<
 					// setting `display: table` in the `ScrollAreaPrimitive.Viewport` component.
 					// This is a known issue with Radix UI ScrollArea.
 					// https://github.com/radix-ui/primitives/issues/2722
-					"h-full max-h-[inherit] w-full scroll-smooth rounded-[inherit] [&>div]:!block",
+					"h-full max-h-[inherit] w-full max-w-[inherit] scroll-smooth rounded-[inherit] [&>div]:!block",
 					classNames.viewport
 				)}
 				ref={initRef}
@@ -94,7 +97,9 @@ const ScrollArea = React.forwardRef<
 					}
 				}}
 			>
-				<div ref={contentRef}>{children}</div>
+				<div ref={contentRef} className={classNames.content}>
+					{children}
+				</div>
 				{enableScrollTo === "bottom" && (
 					<ScrollToBottom
 						behavior="smooth"
@@ -104,7 +109,7 @@ const ScrollArea = React.forwardRef<
 					/>
 				)}
 			</ScrollAreaPrimitive.Viewport>
-			<ScrollBar />
+			<ScrollBar orientation={orientation} />
 			<ScrollAreaPrimitive.Corner />
 		</ScrollAreaPrimitive.Root>
 	);

@@ -51,9 +51,12 @@ export const Message = React.memo(
 		// prevent animation for messages that never run
 		// only calculate on mount because we don't want to stop animation when the message finishes streaming
 		const [shouldAnimate] = useState(isRunning);
-		const animatedText = useDeferredValue(
-			useAnimatedText(message.text, !shouldAnimate || isUser || !!toolCall)
+		const [_animatedText, isAnimating] = useAnimatedText(
+			message.text,
+			!shouldAnimate || isUser || !!toolCall
 		);
+
+		const animatedText = useDeferredValue(_animatedText);
 
 		const parsedMessage = useMemo(() => {
 			if (OpenMarkdownLinkRegex.test(animatedText)) {
@@ -90,17 +93,13 @@ export const Message = React.memo(
 				>
 					<div
 						className={cn({
-							"rounded-xl border border-error bg-error-foreground":
+							"rounded-xl border border-error bg-error-foreground p-4":
 								message.error,
 							"max-w-[80%] rounded-2xl bg-accent p-4": isUser,
 							"w-full max-w-full": !isUser,
 						})}
 					>
-						<div
-							className={cn(
-								"flex max-w-full items-center gap-2 overflow-hidden"
-							)}
-						>
+						<div className="flex max-w-full items-center gap-2 overflow-hidden">
 							{message.aborted && (
 								<AlertCircleIcon className="h-5 w-5 text-muted-foreground" />
 							)}
@@ -117,14 +116,21 @@ export const Message = React.memo(
 							{message.prompt ? (
 								<PromptMessage prompt={message.prompt} isRunning={isRunning} />
 							) : (
-								<Markdown
-									className={cn({
-										"prose-invert text-accent-foreground": isUser,
-										"text-muted-foreground": message.aborted,
-									})}
-								>
-									{parsedMessage || "Waiting for more information..."}
-								</Markdown>
+								<div className="flex w-full flex-col">
+									<Markdown
+										className={cn({
+											"prose-invert text-accent-foreground": isUser,
+											"text-muted-foreground": message.aborted,
+										})}
+									>
+										{parsedMessage || "Waiting for more information..."}
+									</Markdown>
+
+									<SourceCitations
+										message={message}
+										show={!isAnimating || !shouldAnimate}
+									/>
+								</div>
 							)}
 
 							{toolCall && (
@@ -350,5 +356,61 @@ export function PromptAuthForm({
 				</Button>
 			</form>
 		</Form>
+	);
+}
+
+export function SourceCitations({
+	message,
+	show,
+}: {
+	message: MessageType;
+	show: boolean;
+}) {
+	if (!message.knowledgeSources || !show) return null;
+
+	const formatUrl = (url: string) => {
+		return url.replace(/(https?:\/\/)?(www\.)?/, "");
+	};
+
+	const citations = new Map(
+		message.knowledgeSources
+			.filter((s) => !!s.url)
+			.map((s) => {
+				return [
+					formatUrl(s.url as string),
+					{ ...s, url: new URL(s.url as string) },
+				];
+			})
+	);
+
+	console.log(citations);
+
+	console.log(message.knowledgeSources);
+
+	return (
+		<div className="flex flex-col gap-2 pt-4">
+			<h4>Sources</h4>
+			<div className="flex flex-wrap gap-2 pb-3">
+				{Array.from(citations.entries()).map(([key, { url }]) => (
+					<Link
+						as="button"
+						variant="secondary"
+						size="sm"
+						to={url.toString()}
+						target="_blank"
+						rel="noreferrer"
+						key={key}
+					>
+						<img
+							src={`${url.origin}/favicon.ico`}
+							alt="Favicon"
+							onError={(e) => (e.currentTarget.src = "/favicon.ico")}
+							className="size-4"
+						/>
+						{key.length > 25 ? key.slice(0, 25) + "..." : key}
+					</Link>
+				))}
+			</div>
+		</div>
 	);
 }

@@ -1,8 +1,9 @@
 import { createStore } from "zustand";
 
-import { ChatEvent } from "~/lib/model/chatEvents";
+import { ChatEvent, KnowledgeToolOutput } from "~/lib/model/chatEvents";
 import { Message, promptMessage, toolCallMessage } from "~/lib/model/messages";
 import { ThreadsService } from "~/lib/service/api/threadsService";
+import { handleTry } from "~/lib/utils/handleTry";
 
 type EventInitConfig = {
 	onEvent: (event: ChatEvent) => void;
@@ -20,6 +21,9 @@ export type MessageStore = {
 
 export const createMessageStore = () => {
 	return createStore<MessageStore>()((set, get) => {
+		// pseudo private instance variable
+		let parsedKnowledgeOutput: KnowledgeToolOutput | undefined;
+
 		return {
 			messages: [],
 			cleanupFns: [],
@@ -43,6 +47,8 @@ export const createMessageStore = () => {
 				const event = JSON.parse(chunk.data) as ChatEvent;
 
 				onEvent?.(event);
+
+				console.log(event);
 
 				if (event.replayComplete) {
 					replayComplete = true;
@@ -169,31 +175,46 @@ export const createMessageStore = () => {
 						runId: runID,
 						contentID,
 						time,
+						knowledgeSources: parsedKnowledgeOutput,
 					});
+
+					parsedKnowledgeOutput = undefined;
 					return { messages: copy };
 				}
 
 				return { messages: copy };
 			});
 		}
-	});
-};
 
-const handleToolCallEvent = (messages: Message[], event: ChatEvent) => {
-	if (!event.toolCall) return messages;
+		function handleToolCallEvent(messages: Message[], event: ChatEvent) {
+			if (!event.toolCall) return messages;
 
-	const { toolCall } = event;
-	if (toolCall.output) {
-		// const index = findIndexLastPendingToolCall(messages);
-		const index = messages.findLastIndex((m) => m.tools && !m.tools[0].output);
-		if (index !== -1) {
-			// update the found pending toolcall message (without output)
-			messages[index].tools = [toolCall];
+			const { toolCall } = event;
+
+			// if the toolCall is an output event
+			if (toolCall.output) {
+				if (toolCall.name === "Knowledge") {
+					const [_, output] = handleTry(
+						() => JSON.parse(toolCall.output) as KnowledgeToolOutput
+					);
+
+					// hoist knowledge source citations for use in the next content-based message
+					if (output) parsedKnowledgeOutput = output;
+				}
+
+				const index = messages.findLastIndex(
+					(m) => m.tools && !m.tools[0].output
+				);
+				if (index !== -1) {
+					// update the previous pending toolcall message (without output)
+					messages[index].tools = [toolCall];
+					return messages;
+				}
+			}
+
+			// otherwise add a new toolcall message
+			messages.push(toolCallMessage(toolCall));
 			return messages;
 		}
-	}
-
-	// otherwise add a new toolcall message
-	messages.push(toolCallMessage(toolCall));
-	return messages;
+	});
 };
