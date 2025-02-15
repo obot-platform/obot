@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg
+   width="41.244556"
+   height="41.821583"
+   fill="none"
+   version="1.1"
+   id="svg7"
+   sodipodi:docname="tavily.svg"
+   inkscape:version="1.4 (e7c3feb100, 2024-10-09)"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <defs
+     id="defs7" />
+  <sodipodi:namedview
+     id="namedview7"
+     pagecolor="#ffffff"
+     bordercolor="#666666"
+     borderopacity="1.0"
+     inkscape:showpageshadow="2"
+     inkscape:pageopacity="0.0"
+     inkscape:pagecheckerboard="0"
+     inkscape:deskcolor="#d1d1d1"
+     inkscape:zoom="18.404762"
+     inkscape:cx="63.407503"
+     inkscape:cy="20.891332"
+     inkscape:window-width="3840"
+     inkscape:window-height="1018"
+     inkscape:window-x="0"
+     inkscape:window-y="0"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="svg7" />
+  <path
+     d="m 15.857558,0.87602354 4.921,7.78999996 c 0.79,1.252 -0.108,2.8830005 -1.588,2.8830005 h -2.013 v 11.663 h -2.91 V 2.3539187e-5 c 0.61,0 1.22,0.292000000813 1.59,0.876000000813 z"
+     fill="#8fbcfa"
+     id="path1" />
+  <path
+     d="M 7.7595581,8.6670235 12.680558,0.87602354 a 1.864,1.864 0 0 1 1.59,-0.876000000813 V 23.212024 a 4.87,4.87 0 0 0 -0.252,-0.006 c -0.99,0 -1.907,0.311 -2.658,0.842 v -12.499 H 9.3475581 c -1.48,0 -2.38,-1.6310005 -1.589,-2.8820005 z"
+     fill="#468bff"
+     id="path2" />
+  <path
+     d="m 29.695558,30.912024 h -12.247 a 4.596,4.596 0 0 0 1.219,-2.91 h 22.577 c 0,0.61 -0.292,1.22 -0.875,1.59 l -7.792,4.92 c -1.251,0.791 -2.883,-0.108 -2.883,-1.588 v -2.012 z"
+     fill="#fdbb11"
+     id="path3" />
+  <path
+     d="m 32.577558,21.493024 7.79,4.921 c 0.585,0.369 0.876,0.979 0.876,1.589 h -22.576 a 4.619,4.619 0 0 0 -0.858,-2.91 h 11.887 v -2.011 c 0,-1.48 1.631,-2.38 2.882,-1.589 z"
+     fill="#f6d785"
+     id="path4" />
+  <path
+     d="m 7.6575581,34.162024 -7.10700001,7.108 a 1.864,1.864 0 0 0 1.74200001,0.504 l 8.9889999,-2.03 c 1.443,-0.325 1.961,-2.114 0.915,-3.16 l -1.423,-1.423 5.356,-5.356 a 2.805,2.805 0 0 0 0,-3.966 l -0.074,-0.075 z"
+     fill="#ff9a9d"
+     id="path5" />
+  <path
+     d="m 6.6605581,31.047024 5.3549999,-5.356 a 2.805,2.805 0 0 1 3.967,0 l 0.074,0.074 -8.3969999,8.397 -7.10800001,7.108 a 1.864,1.864 0 0 1 -0.504,-1.742 l 2.02900001,-8.989 c 0.325,-1.444 2.115,-1.961 3.161,-0.915 z"
+     fill="#fe363b"
+     id="path6" />
+</svg>
