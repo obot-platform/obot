@@ -152,6 +152,7 @@ func (b *Bootstrap) AuthenticateRequest(req *http.Request) (*authenticator.Respo
 		req.Context(),
 		&types.Identity{
 			ProviderUsername: "bootstrap",
+			ProviderUserID:   "bootstrap",
 		},
 		req.Header.Get("X-Obot-User-Timezone"),
 		types2.RoleAdmin,

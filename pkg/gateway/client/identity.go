@@ -3,6 +3,7 @@ package client
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	types2 "github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/gateway/types"
@@ -37,14 +38,39 @@ func (c *Client) EnsureIdentityWithRole(ctx context.Context, id *types.Identity,
 func ensureIdentity(tx *gorm.DB, id *types.Identity, timezone string, role types2.Role) (*types.User, error) {
 	email := id.Email
 	if err := tx.First(id).Error; errors.Is(err, gorm.ErrRecordNotFound) {
-		if err = tx.Create(id).Error; err != nil {
+		// Before we try creating a new identity, we need to check if there is one that has not been fully migrated yet.
+		migratedIdentity := &types.Identity{
+			ProviderUsername:      id.ProviderUsername,
+			ProviderUserID:        fmt.Sprintf("OBOT_PLACEHOLDER_%s", id.ProviderUsername),
+			AuthProviderName:      id.AuthProviderName,
+			AuthProviderNamespace: id.AuthProviderNamespace,
+		}
+		if err := tx.First(migratedIdentity).Error; errors.Is(err, gorm.ErrRecordNotFound) {
+			// If the identity does not exist, we can create it.
+			if err = tx.Create(id).Error; err != nil {
+				return nil, err
+			}
+		} else if err != nil {
 			return nil, err
+		} else {
+			// The migrated identity exists. We need to update it with the right provider_user_id.
+			if err := tx.Model(&migratedIdentity).Where("provider_user_id = ?", fmt.Sprintf("OBOT_PLACEHOLDER_%s", id.ProviderUsername)).Update("provider_user_id", id.ProviderUserID).Error; err != nil {
+				return nil, err
+			}
+
+			// Now we should be able to load the identity.
+			if err := tx.First(id).Error; err != nil {
+				return nil, err
+			}
 		}
 	} else if err != nil {
 		return nil, err
-	} else if id.Email != email {
+	}
+
+	// Check to see if the email got updated.
+	if id.Email != email {
 		id.Email = email
-		if err = tx.Updates(id).Error; err != nil {
+		if err := tx.Updates(id).Error; err != nil {
 			return nil, err
 		}
 	}
