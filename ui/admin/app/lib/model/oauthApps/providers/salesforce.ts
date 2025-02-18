@@ -28,24 +28,30 @@ const steps: OAuthFormStep<typeof schema.shape>[] = [
 			"- Click the `Create` button.\n",
 	},
 	{
+		type: "markdown",
+		text:
+			"### Step 2: Configure OAuth Settings\n" +
+			"- Expand the 'Api (Enable OAuth Settings)' section, and check the box to Enable OAuth.\n" +
+			"- Enter your callback url\n",
+	},
+	{
 		type: "copy",
 		text: getOAuthLinks("salesforce").redirectURL,
 	},
 	{
 		type: "markdown",
 		text:
-			"### Step 2: Configure OAuth Settings\n" +
-			"- Expand the 'Api (Enable OAuth Settings)' section, and check the box to Enable OAuth.\n" +
-			"- Enter your callback url\n" +
-			"- Select the 'api' and 'refresh_token' OAuth Scopes from the list.\n" +
-			"- Uncheck 'Require Proof Key for Code Exchange.'\n" +
+			"- In the 'App Settings' section\n" +
+			"  - Select the `Manage user data via APIs (api)` and `Perform requests at any time (refresh_token, offline_access)` OAuth Scopes from the list.\n" +
+			"- In the 'Security' section\n" +
+			"  - Uncheck 'Require Proof Key for Code Exchange.'\n" +
 			"- Click the 'Create' button.\n",
 	},
 	{
 		type: "markdown",
 		text:
 			"### Step 3: Configure App Policies\n" +
-			"- Under the Policies tab, click 'Edit'.\n" +
+			"- Under the Policies tab, click 'Edit' and expand the 'OAuth Policies' section.\n" +
 			"- Inside the 'App Authorization' box" +
 			"  - (Optionally) Change 'IP Relaxation' to 'Relax IP Restrictions.'\n" +
 			"- Click 'Save.'\n",
@@ -54,9 +60,9 @@ const steps: OAuthFormStep<typeof schema.shape>[] = [
 		type: "markdown",
 		text:
 			"### Step 4: Register your OAuth App credentials with Obot\n" +
-			"- Navigate to the `Settings` tab in the sidebar.\n" +
-			"- Enter the `Consumer Key and Secret` from the `Settings -> OAuth Settings` section into the fields below.\n" +
-			"- Enter your Salesforce instance URL into the field below.\n",
+			"- From the 'Settings' tab for your External Client App\n" +
+			"  - Expand the 'OAuth Settings' box and then click 'Consumer Key and Secret' from inside the 'App Settings' block." +
+			"- Enter the `Consumer Key and Secret` into the fields below, along with your Salesforce instance URL.\n",
 	},
 	{ type: "input", input: "clientID", label: "Consumer Key" },
 	{
