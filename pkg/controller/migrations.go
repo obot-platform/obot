@@ -56,3 +56,18 @@ func changeWorkflowStepOwnerGVK(req router.Request, _ router.Response) error {
 	}
 	return nil
 }
+
+func setWorkflowAdditionalCredentialContexts(req router.Request, _ router.Response) error {
+	wf := req.Object.(*v1.Workflow)
+	if len(wf.Spec.AdditionalCredentialContexts) != 0 {
+		return nil
+	}
+
+	var thread v1.Thread
+	if err := req.Get(&thread, wf.Namespace, wf.Spec.ThreadName); err != nil {
+		return err
+	}
+
+	wf.Spec.AdditionalCredentialContexts = []string{thread.Spec.AgentName}
+	return req.Client.Update(req.Ctx, wf)
+}

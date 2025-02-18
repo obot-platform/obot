@@ -535,7 +535,7 @@ func (t *TaskHandler) getAssistantThreadAndManifestFromRequest(req api.Context) 
 }
 
 func (t *TaskHandler) Create(req api.Context) error {
-	_, thread, workflowManifest, taskManifest, err := t.getAssistantThreadAndManifestFromRequest(req)
+	agent, thread, workflowManifest, taskManifest, err := t.getAssistantThreadAndManifestFromRequest(req)
 	if err != nil {
 		return err
 	}
@@ -557,11 +557,12 @@ func (t *TaskHandler) Create(req api.Context) error {
 			Namespace:    req.Namespace(),
 		},
 		Spec: v1.WorkflowSpec{
-			ThreadName:          thread.Name,
-			Manifest:            workflowManifest,
-			KnowledgeSetNames:   thread.Status.KnowledgeSetNames,
-			WorkspaceName:       workspace.Name,
-			CredentialContextID: thread.Name,
+			ThreadName:                   thread.Name,
+			Manifest:                     workflowManifest,
+			KnowledgeSetNames:            thread.Status.KnowledgeSetNames,
+			WorkspaceName:                workspace.Name,
+			CredentialContextID:          thread.Name,
+			AdditionalCredentialContexts: []string{agent.Name},
 		},
 	}
 

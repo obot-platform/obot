@@ -78,12 +78,13 @@ func (a *Agent) FieldNames() []string {
 }
 
 type AgentSpec struct {
-	Manifest            types.AgentManifest `json:"manifest,omitempty"`
-	SystemTools         []string            `json:"systemTools,omitempty"`
-	ContextInput        string              `json:"contextInput,omitempty"`
-	InputFilters        []string            `json:"inputFilters,omitempty"`
-	CredentialContextID string              `json:"credentialContextID,omitempty"`
-	Env                 []string            `json:"env,omitempty"`
+	Manifest                     types.AgentManifest `json:"manifest,omitempty"`
+	SystemTools                  []string            `json:"systemTools,omitempty"`
+	ContextInput                 string              `json:"contextInput,omitempty"`
+	InputFilters                 []string            `json:"inputFilters,omitempty"`
+	CredentialContextID          string              `json:"credentialContextID,omitempty"`
+	AdditionalCredentialContexts []string            `json:"additionalCredentialContexts,omitempty"`
+	Env                          []string            `json:"env,omitempty"`
 }
 
 type AgentStatus struct {

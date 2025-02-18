@@ -80,11 +80,12 @@ func (in *Workflow) SetToolInfos(toolInfos map[string]types.ToolInfo) {
 }
 
 type WorkflowSpec struct {
-	ThreadName          string                 `json:"threadName,omitempty"`
-	Manifest            types.WorkflowManifest `json:"manifest,omitempty"`
-	CredentialContextID string                 `json:"credentialContextID,omitempty"`
-	KnowledgeSetNames   []string               `json:"knowledgeSetNames,omitempty"`
-	WorkspaceName       string                 `json:"workspaceName,omitempty"`
+	ThreadName                   string                 `json:"threadName,omitempty"`
+	Manifest                     types.WorkflowManifest `json:"manifest,omitempty"`
+	CredentialContextID          string                 `json:"credentialContextID,omitempty"`
+	AdditionalCredentialContexts []string               `json:"additionalCredentialContexts,omitempty"`
+	KnowledgeSetNames            []string               `json:"knowledgeSetNames,omitempty"`
+	WorkspaceName                string                 `json:"workspaceName,omitempty"`
 }
 
 func (in *Workflow) DeleteRefs() []Ref {
