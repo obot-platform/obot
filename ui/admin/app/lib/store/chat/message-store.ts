@@ -53,8 +53,6 @@ export const createMessageStore = () => {
 
 				onEvent?.(event);
 
-				console.log(event);
-
 				if (event.replayComplete) {
 					replayComplete = true;
 					replayMessages.forEach(get().processEvent);
