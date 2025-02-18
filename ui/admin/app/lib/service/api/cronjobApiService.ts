@@ -10,19 +10,19 @@ const getAll = createFetcher(
 	z.object({
 		filters: z
 			.object({
-				workflowId: z.string().optional(),
+				taskId: z.string().optional(),
 			})
 			.optional(),
 	}),
 	async function getCronJobs({ filters = {} }, { signal }) {
-		const { workflowId } = filters;
+		const { taskId } = filters;
 
 		const { url } = ApiRoutes.cronjobs.getCronJobs();
 		const { data } = await request<EntityList<CronJob>>({ url, signal });
 
-		if (!workflowId) return data.items ?? [];
+		if (!taskId) return data.items ?? [];
 
-		return data.items?.filter((item) => item.workflow === workflowId) ?? [];
+		return data.items?.filter((item) => item.workflow === taskId) ?? [];
 	},
 	() => ApiRoutes.cronjobs.getCronJobs().path
 );

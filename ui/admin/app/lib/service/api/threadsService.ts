@@ -2,8 +2,8 @@ import { z } from "zod";
 
 import { ChatEvent } from "~/lib/model/chatEvents";
 import { EntityList } from "~/lib/model/primitives";
+import { Task } from "~/lib/model/tasks";
 import { Thread, UpdateThread } from "~/lib/model/threads";
-import { Workflow } from "~/lib/model/workflows";
 import { WorkspaceFile } from "~/lib/model/workspace";
 import { ApiRoutes } from "~/lib/routers/apiRoutes";
 import { request } from "~/lib/service/api/primitives";
@@ -92,15 +92,15 @@ const getThreadEventSource = (threadId: string) => {
 	);
 };
 
-const handleGetWorkflows = createFetcher(
+const handleGetTasks = createFetcher(
 	z.object({ threadId: z.string() }),
 	async ({ threadId }, { signal }) => {
-		const { url } = ApiRoutes.threads.getWorkflowsForThread(threadId);
-		const { data } = await request<EntityList<Workflow>>({ url, signal });
+		const { url } = ApiRoutes.threads.getTasksForThread(threadId);
+		const { data } = await request<EntityList<Task>>({ url, signal });
 
 		return data.items ?? [];
 	},
-	() => ApiRoutes.threads.getWorkflowsForThread(":threadId").path
+	() => ApiRoutes.threads.getTasksForThread(":threadId").path
 );
 
 const deleteThread = async (threadId: string) => {
@@ -152,7 +152,7 @@ export const ThreadsService = {
 	getThreadById: handleGetById,
 	getThreadsByAgent: handleGetByAgent,
 	getThreadEvents: handleGetThreadEvents,
-	getWorkflowsForThread: handleGetWorkflows,
+	getTasksForThread: handleGetTasks,
 	getFiles: handleGetFiles,
 	getThreadEventSource,
 	updateThreadById,

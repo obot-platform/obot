@@ -8,11 +8,11 @@ import {
 import { $path } from "safe-routes";
 import useSWR, { preload } from "swr";
 
-import { Workflow } from "~/lib/model/workflows";
+import { Task } from "~/lib/model/tasks";
 import { AgentService } from "~/lib/service/api/agentService";
+import { TaskService } from "~/lib/service/api/taskService";
 import { ThreadsService } from "~/lib/service/api/threadsService";
 import { UserService } from "~/lib/service/api/userService";
-import { WorkflowService } from "~/lib/service/api/workflowService";
 import { RouteHandle } from "~/lib/service/routeHandles";
 import { RouteService } from "~/lib/service/routeService";
 import { filterByCreatedRange } from "~/lib/utils/filter";
@@ -28,7 +28,7 @@ import { Filters } from "~/components/composed/Filters";
 import { SearchInput } from "~/components/composed/SearchInput";
 import { Link } from "~/components/ui/link";
 
-type Task = Workflow & {
+type TableTask = Task & {
 	agent: string;
 	agentID: string;
 	threadCount: number;
@@ -41,7 +41,7 @@ export async function clientLoader({
 	request,
 }: ClientLoaderFunctionArgs) {
 	await Promise.all([
-		preload(WorkflowService.getWorkflows.key(), WorkflowService.getWorkflows),
+		preload(TaskService.getTasks.key(), TaskService.getTasks),
 		preload(...ThreadsService.getThreads.swr({})),
 		preload(...AgentService.getAgents.swr({})),
 	]);
@@ -57,7 +57,7 @@ export async function clientLoader({
 
 export default function Tasks() {
 	const [search, setSearch] = useState("");
-	const navigate = useRowNavigate((value: Workflow | string) =>
+	const navigate = useRowNavigate((value: Task | string) =>
 		typeof value === "string" ? value : $path("/tasks/:id", { id: value.id })
 	);
 	const { taskId, userId, agentId, createdStart, createdEnd } =
@@ -67,10 +67,7 @@ export default function Tasks() {
 	const getUsers = useSWR(...UserService.getUsers.swr({}));
 
 	const getThreads = useSWR(...ThreadsService.getThreads.swr({}));
-	const getWorkflows = useSWR(
-		WorkflowService.getWorkflows.key(),
-		WorkflowService.getWorkflows
-	);
+	const getTasks = useSWR(TaskService.getTasks.key(), TaskService.getTasks);
 
 	const agentMap = useMemo(() => {
 		return new Map(getAgents.data?.map((agent) => [agent.id, agent]));
@@ -80,13 +77,11 @@ export default function Tasks() {
 		return new Map(getUsers.data?.map((user) => [user.id, user]));
 	}, [getUsers.data]);
 
-	const workflowMap = useMemo(() => {
-		return new Map(
-			getWorkflows.data?.map((workflow) => [workflow.id, workflow])
-		);
-	}, [getWorkflows.data]);
+	const taskMap = useMemo(() => {
+		return new Map(getTasks.data?.map((task) => [task.id, task]));
+	}, [getTasks.data]);
 
-	const tasks: Task[] = useMemo(() => {
+	const tasks: TableTask[] = useMemo(() => {
 		const threadsMap = new Map(
 			getThreads.data?.map((thread) => [thread.id, thread])
 		);
@@ -100,21 +95,21 @@ export default function Tasks() {
 			},
 			{}
 		);
-
 		return (
-			getWorkflows.data?.map((workflow) => {
-				const rootThread = threadsMap.get(workflow.threadID ?? "");
+			getTasks.data?.map((task) => {
+				const rootThread = threadsMap.get(task.threadID ?? "");
 				return {
-					...workflow,
+					...task,
 					agentID: rootThread?.agentID ?? "",
 					agent: agentMap.get(rootThread?.agentID ?? "")?.name ?? "-",
-					threadCount: threadCounts?.[workflow.id] || 0,
+					threadCount: threadCounts?.[task.id] || 0,
 					user: userMap.get(rootThread?.userID ?? "")?.email ?? "-",
 					userID: rootThread?.userID ?? "",
 				};
 			}) ?? []
 		);
-	}, [getWorkflows.data, agentMap, getThreads.data, userMap]);
+		return [];
+	}, [getTasks.data, agentMap, getThreads.data, userMap]);
 
 	const data = useMemo(() => {
 		let filteredTasks = tasks;
@@ -173,7 +168,7 @@ export default function Tasks() {
 					<Filters
 						userMap={userMap}
 						agentMap={agentMap}
-						workflowMap={workflowMap}
+						taskMap={taskMap}
 						url="/tasks"
 					/>
 
@@ -313,7 +308,7 @@ export default function Tasks() {
 	}
 }
 
-const columnHelper = createColumnHelper<Task>();
+const columnHelper = createColumnHelper<TableTask>();
 
 export const handle: RouteHandle = {
 	breadcrumb: () => [{ content: "Tasks" }],

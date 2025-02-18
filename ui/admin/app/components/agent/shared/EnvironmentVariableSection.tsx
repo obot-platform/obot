@@ -3,7 +3,6 @@ import { toast } from "sonner";
 
 import { Agent } from "~/lib/model/agents";
 import { EnvVariable } from "~/lib/model/environmentVariables";
-import { Workflow } from "~/lib/model/workflows";
 import { EnvironmentApiService } from "~/lib/service/api/EnvironmentApiService";
 
 import { EnvForm } from "~/components/agent/shared/AgentEnvironmentVariableForm";
@@ -21,9 +20,9 @@ import {
 import { useAsync } from "~/hooks/useAsync";
 
 type EnvironmentVariableSectionProps = {
-	entity: Agent | Workflow;
-	entityType: "agent" | "workflow";
-	onUpdate: (env: Partial<Agent | Workflow>) => void;
+	entity: Agent;
+	entityType: "agent";
+	onUpdate: (env: Partial<Agent>) => void;
 };
 
 export function EnvironmentVariableSection({

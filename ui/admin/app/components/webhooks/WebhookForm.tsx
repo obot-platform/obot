@@ -1,6 +1,6 @@
 import useSWR from "swr";
 
-import { WorkflowService } from "~/lib/service/api/workflowService";
+import { TaskService } from "~/lib/service/api/taskService";
 import { cn, getAliasFrom } from "~/lib/utils";
 
 import {
@@ -50,11 +50,11 @@ export function WebhookFormContent({ hideTitle }: WebhookFormContentProps) {
 
 	const { watch, control } = form;
 
-	const getWorkflows = useSWR(WorkflowService.getWorkflows.key(), () =>
-		WorkflowService.getWorkflows()
+	const getTasks = useSWR(TaskService.getTasks.key(), () =>
+		TaskService.getTasks()
 	);
 
-	const workflows = getWorkflows.data;
+	const tasks = getTasks.data;
 
 	const removeSecret = watch("removeSecret");
 
@@ -177,23 +177,23 @@ export function WebhookFormContent({ hideTitle }: WebhookFormContentProps) {
 	function getWorkflowOptions() {
 		const workflow = watch("workflow");
 
-		if (getWorkflows.isLoading)
+		if (getTasks.isLoading)
 			return (
 				<SelectItem value={workflow || "loading"} disabled>
 					Loading workflows...
 				</SelectItem>
 			);
 
-		if (!workflows?.length)
+		if (!tasks?.length)
 			return (
 				<SelectItem value={workflow || "empty"} disabled>
 					No workflows found
 				</SelectItem>
 			);
 
-		return workflows.map((workflow) => (
-			<SelectItem key={workflow.id} value={workflow.id}>
-				{workflow.name}
+		return tasks.map((task) => (
+			<SelectItem key={task.id} value={task.id}>
+				{task.name}
 			</SelectItem>
 		));
 	}

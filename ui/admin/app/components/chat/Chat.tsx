@@ -1,11 +1,10 @@
-import { ComponentProps, useState } from "react";
+import { ComponentProps } from "react";
 
 import { cn } from "~/lib/utils";
 
 import { useChat } from "~/components/chat/ChatContext";
 import { Chatbar } from "~/components/chat/Chatbar";
 import { MessagePane } from "~/components/chat/MessagePane";
-import { RunWorkflow } from "~/components/chat/RunWorkflow";
 
 type ChatProps = {
 	className?: string;
@@ -16,17 +15,12 @@ type ChatProps = {
 };
 
 export function Chat({ className, classNames }: ChatProps) {
-	const { id, messages, threadId, mode, invoke, readOnly } = useChat();
-	const [runTriggered, setRunTriggered] = useState(false);
+	const { id, messages, mode, readOnly } = useChat();
 
-	const showMessagePane =
-		mode === "agent" ||
-		(mode === "workflow" && (threadId || runTriggered || !readOnly));
-
-	const showStartButtonPane = mode === "workflow" && !readOnly;
+	const showMessagePane = mode === "agent";
 
 	return (
-		<div className={`flex h-full flex-col pb-5 ${className}`}>
+		<div id={id} className={`flex h-full flex-col pb-5 ${className}`}>
 			{showMessagePane && (
 				<div className="flex-grow overflow-hidden">
 					<MessagePane
@@ -41,28 +35,6 @@ export function Chat({ className, classNames }: ChatProps) {
 			)}
 
 			{mode === "agent" && !readOnly && <Chatbar className="px-20" />}
-
-			{showStartButtonPane && (
-				<div
-					className={cn("mb-4 px-20", {
-						"flex h-full items-center justify-center": !threadId,
-					})}
-				>
-					<RunWorkflow
-						workflowId={id}
-						onSubmit={(params) => {
-							setRunTriggered(true);
-							invoke(params && JSON.stringify(params));
-						}}
-						className={cn({ "w-full": threadId })}
-						popoverContentProps={{
-							className: cn({ "translate-y-[-50%]": !threadId }),
-						}}
-					>
-						Run
-					</RunWorkflow>
-				</div>
-			)}
 		</div>
 	);
 }

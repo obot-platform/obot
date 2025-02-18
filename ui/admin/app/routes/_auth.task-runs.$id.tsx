@@ -12,8 +12,8 @@ import { preload } from "swr";
 
 import { KnowledgeFileNamespace } from "~/lib/model/knowledge";
 import { KnowledgeFileService } from "~/lib/service/api/knowledgeFileApiService";
+import { TaskService } from "~/lib/service/api/taskService";
 import { ThreadsService } from "~/lib/service/api/threadsService";
-import { WorkflowService } from "~/lib/service/api/workflowService";
 import { RouteHandle } from "~/lib/service/routeHandles";
 import { RouteService } from "~/lib/service/routeService";
 
@@ -52,10 +52,10 @@ export const clientLoader = async ({
 	const thread = await preload(...ThreadsService.getThreadById.swr({ id }));
 	if (!thread) throw redirect("/threads");
 
-	const [workflow] = await Promise.all([
+	const [task] = await Promise.all([
 		thread.workflowID
-			? preload(WorkflowService.getWorkflowById.key(thread.workflowID), () =>
-					WorkflowService.getWorkflowById(thread.workflowID)
+			? preload(TaskService.getTaskById.key(thread.workflowID), () =>
+					TaskService.getTaskById(thread.workflowID)
 				)
 			: null,
 		preload(
@@ -71,13 +71,13 @@ export const clientLoader = async ({
 		),
 	]);
 
-	if (!workflow) throw redirect("/tasks");
+	if (!task) throw redirect("/tasks");
 
-	return { thread, workflow };
+	return { thread, task };
 };
 
 export default function TaskRuns() {
-	const { thread, workflow } = useLoaderData<typeof clientLoader>();
+	const { thread, task } = useLoaderData<typeof clientLoader>();
 
 	const navigate = useNavigate();
 	return (
@@ -93,12 +93,7 @@ export default function TaskRuns() {
 
 			<ResizablePanelGroup direction="horizontal" className="flex-auto">
 				<ResizablePanel defaultSize={70} minSize={25}>
-					<ChatProvider
-						id={workflow.id}
-						mode="agent"
-						readOnly
-						threadId={thread.id}
-					>
+					<ChatProvider id={task.id} mode="agent" readOnly threadId={thread.id}>
 						<Chat />
 					</ChatProvider>
 				</ResizablePanel>
@@ -108,7 +103,7 @@ export default function TaskRuns() {
 						<ThreadMeta
 							className="rounded-none border-none"
 							thread={thread}
-							entity={workflow}
+							entity={task}
 						/>
 					</ScrollArea>
 				</ResizablePanel>

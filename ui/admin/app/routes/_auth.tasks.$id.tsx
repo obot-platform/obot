@@ -11,18 +11,14 @@ import { $path } from "safe-routes";
 import useSWR, { preload } from "swr";
 
 import { CronJobApiService } from "~/lib/service/api/cronjobApiService";
+import { TaskService } from "~/lib/service/api/taskService";
 import { WebhookApiService } from "~/lib/service/api/webhookApiService";
-import { WorkflowService } from "~/lib/service/api/workflowService";
 import { RouteHandle } from "~/lib/service/routeHandles";
 import { RouteQueryParams, RouteService } from "~/lib/service/routeService";
+import { cn } from "~/lib/utils";
 
-import { Chat, ChatProvider } from "~/components/chat";
-import {
-	ResizableHandle,
-	ResizablePanel,
-	ResizablePanelGroup,
-} from "~/components/ui/resizable";
-import { Workflow } from "~/components/workflow";
+import { Task } from "~/components/task";
+import { ScrollArea } from "~/components/ui/scroll-area";
 
 export type SearchParams = RouteQueryParams<"taskSchema">;
 
@@ -38,9 +34,9 @@ export const clientLoader = async ({
 
 	if (!pathParams.id) throw redirect($path("/tasks"));
 
-	const [workflow] = await Promise.all([
-		preload(WorkflowService.getWorkflowById.key(pathParams.id), () =>
-			WorkflowService.getWorkflowById(pathParams.id)
+	const [task] = await Promise.all([
+		preload(TaskService.getTaskById.key(pathParams.id), () =>
+			TaskService.getTaskById(pathParams.id)
 		),
 		preload(...CronJobApiService.getCronJobs.swr({})),
 		preload(WebhookApiService.getWebhooks.key(), () =>
@@ -48,54 +44,40 @@ export const clientLoader = async ({
 		),
 	]);
 
-	if (!workflow) throw redirect($path("/tasks"));
+	if (!task) throw redirect($path("/tasks"));
 
-	return { workflow, threadId: query?.threadId };
+	return { task, threadId: query?.threadId };
 };
 
 export default function UserTask() {
-	const { workflow, threadId } = useLoaderData<typeof clientLoader>();
+	const { task } = useLoaderData<typeof clientLoader>();
 	const navigate = useNavigate();
 	const onPersistThreadId = useCallback(
 		(threadId: string) =>
-			navigate($path("/tasks/:id", { id: workflow.id }, { threadId })),
-		[navigate, workflow.id]
+			navigate($path("/tasks/:id", { id: task.id }, { threadId })),
+		[navigate, task.id]
 	);
 
 	return (
-		<div className="relative flex h-full flex-col overflow-hidden">
-			<ChatProvider
-				id={workflow.id}
-				mode="workflow"
-				threadId={threadId}
-				onCreateThreadId={onPersistThreadId}
+		<ScrollArea className="h-full" enableScrollStick="bottom">
+			<div
+				className={cn("relative mx-auto flex h-full max-w-screen-md flex-col")}
 			>
-				<ResizablePanelGroup direction="horizontal" className="flex-auto">
-					<ResizablePanel className="">
-						<Workflow
-							workflow={workflow}
-							onPersistThreadId={onPersistThreadId}
-						/>
-					</ResizablePanel>
-					<ResizableHandle withHandle />
-					<ResizablePanel>
-						<Chat className="bg-background-secondary" />
-					</ResizablePanel>
-				</ResizablePanelGroup>
-			</ChatProvider>
-		</div>
+				<Task task={task} onPersistThreadId={onPersistThreadId} />
+			</div>
+		</ScrollArea>
 	);
 }
 
 const TaskBreadcrumb = () => {
 	const match = useMatch("/tasks/:id");
 
-	const { data: workflow } = useSWR(
-		WorkflowService.getWorkflowById.key(match?.params.id || ""),
-		({ workflowId }) => WorkflowService.getWorkflowById(workflowId)
+	const { data: task } = useSWR(
+		TaskService.getTaskById.key(match?.params.id || ""),
+		({ taskId }) => TaskService.getTaskById(taskId)
 	);
 
-	return workflow?.name;
+	return task?.name;
 };
 
 export const handle: RouteHandle = {
@@ -106,5 +88,5 @@ export const handle: RouteHandle = {
 };
 
 export const meta: MetaFunction<typeof clientLoader> = ({ data }) => {
-	return [{ title: `Task • ${data?.workflow.name}` }];
+	return [{ title: `Task • ${data?.task.name}` }];
 };

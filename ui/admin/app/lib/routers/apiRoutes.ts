@@ -145,13 +145,11 @@ export const ApiRoutes = {
 		uploadWorkspaceFile: (agentId: string, fileName: string) =>
 			buildUrl(`/agents/${agentId}/files/${fileName}`),
 	},
-	workflows: {
+	tasks: {
 		base: () => buildUrl("/tasks"),
-		getById: (workflowId: string) => buildUrl(`/tasks/${workflowId}`),
-		authenticate: (workflowId: string) =>
-			buildUrl(`/tasks/${workflowId}/authenticate`),
-		deleteWithTriggers: (workflowId: string) =>
-			buildUrl(`/tasks/${workflowId}`),
+		getById: (taskId: string) => buildUrl(`/tasks/${taskId}`),
+		authenticate: (taskId: string) => buildUrl(`/tasks/${taskId}/authenticate`),
+		deleteWithTriggers: (taskId: string) => buildUrl(`/tasks/${taskId}`),
 	},
 	toolAuthentication: {
 		authenticate: (namespace: AssistantNamespace, entityId: string) =>
@@ -177,8 +175,8 @@ export const ApiRoutes = {
 		getById: (threadId: string) => buildUrl(`/threads/${threadId}`),
 		updateById: (threadId: string) => buildUrl(`/threads/${threadId}`),
 		getByAgent: (agentId: string) => buildUrl(`/agents/${agentId}/threads`),
-		getWorkflowsForThread: (threadId: string) =>
-			buildUrl(`/threads/${threadId}/workflows`),
+		getTasksForThread: (threadId: string) =>
+			buildUrl(`/threads/${threadId}/tasks`),
 		events: (
 			threadId: string,
 			params?: {

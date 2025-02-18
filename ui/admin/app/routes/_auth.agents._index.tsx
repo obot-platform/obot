@@ -47,8 +47,8 @@ export default function Agents() {
 		if (!getThreads.data) return {};
 		return getThreads.data.reduce(
 			(acc, thread) => {
-				acc[thread.agentID ?? thread.workflowID] =
-					(acc[thread.agentID ?? thread.workflowID] || 0) + 1;
+				if (!thread.agentID) return acc;
+				acc[thread.agentID] = (acc[thread.agentID] || 0) + 1;
 				return acc;
 			},
 			{} as Record<string, number>

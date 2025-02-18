@@ -4,8 +4,8 @@ import { useNavigate, useSearchParams } from "react-router";
 import { $path, Routes } from "safe-routes";
 
 import { Agent } from "~/lib/model/agents";
+import { Task } from "~/lib/model/tasks";
 import { User } from "~/lib/model/users";
-import { Workflow } from "~/lib/model/workflows";
 import { RouteService } from "~/lib/service/routeService";
 
 import { Button } from "~/components/ui/button";
@@ -21,12 +21,12 @@ type QueryParams = {
 export function Filters({
 	agentMap,
 	userMap,
-	workflowMap,
+	taskMap,
 	url,
 }: {
 	agentMap?: Map<string, Agent>;
 	userMap?: Map<string, User>;
-	workflowMap?: Map<string, Workflow>;
+	taskMap?: Map<string, Task>;
 	url: keyof Routes;
 }) {
 	const [searchParams] = useSearchParams();
@@ -72,10 +72,10 @@ export function Filters({
 				},
 			"taskId" in filters &&
 				filters.taskId &&
-				workflowMap && {
+				taskMap && {
 					key: "taskId",
 					label: "Task",
-					value: workflowMap?.get(filters.taskId)?.name ?? filters.taskId,
+					value: taskMap?.get(filters.taskId)?.name ?? filters.taskId,
 					onRemove: () => deleteFilters("taskId"),
 				},
 			"createdStart" in filters &&
@@ -86,7 +86,7 @@ export function Filters({
 					onRemove: () => deleteFilters("createdStart", "createdEnd"),
 				},
 		].filter((x) => !!x);
-	}, [navigate, searchParams, agentMap, userMap, workflowMap, url]);
+	}, [navigate, searchParams, agentMap, userMap, taskMap, url]);
 
 	return (
 		<div className="flex gap-2 pb-2">

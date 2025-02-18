@@ -3,19 +3,19 @@ import { ApiRoutes, revalidateWhere } from "~/lib/routers/apiRoutes";
 import { request } from "~/lib/service/api/primitives";
 
 type WebhookFilters = {
-	workflowId?: string;
+	taskId?: string;
 };
 
 async function getWebhooks(filters?: WebhookFilters) {
-	const { workflowId } = filters ?? {};
+	const { taskId } = filters ?? {};
 
 	const { data } = await request<{ items: Webhook[] }>({
 		url: ApiRoutes.webhooks.getWebhooks().url,
 	});
 
-	if (!workflowId) return data.items ?? [];
+	if (!taskId) return data.items ?? [];
 
-	return data.items?.filter((item) => item.workflow === workflowId) ?? [];
+	return data.items?.filter((item) => item.workflow === taskId) ?? [];
 }
 getWebhooks.key = (filters: WebhookFilters = {}) => ({
 	url: ApiRoutes.webhooks.getWebhooks().path,

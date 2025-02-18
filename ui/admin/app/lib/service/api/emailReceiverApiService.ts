@@ -8,19 +8,19 @@ import { ApiRoutes, revalidateWhere } from "~/lib/routers/apiRoutes";
 import { request } from "~/lib/service/api/primitives";
 
 type EmailReceiverFilters = {
-	workflowId?: string;
+	taskId?: string;
 };
 
 async function getEmailReceivers(filters?: EmailReceiverFilters) {
-	const { workflowId } = filters ?? {};
+	const { taskId } = filters ?? {};
 
 	const { data } = await request<EntityList<EmailReceiver>>({
 		url: ApiRoutes.emailReceivers.getEmailReceivers().url,
 	});
 
-	if (!workflowId) return data.items ?? [];
+	if (!taskId) return data.items ?? [];
 
-	return data.items?.filter((item) => item.workflow === workflowId) ?? [];
+	return data.items?.filter((item) => item.workflow === taskId) ?? [];
 }
 getEmailReceivers.key = (filters: EmailReceiverFilters = {}) => ({
 	url: ApiRoutes.emailReceivers.getEmailReceivers().path,

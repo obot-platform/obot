@@ -1,5 +1,9 @@
 import { EntityMeta } from "~/lib/model/primitives";
-import { Template } from "~/lib/model/workflows";
+
+export type Template = {
+	name: string;
+	args: Record<string, string>;
+};
 
 export type ToolReferenceBase = {
 	name: string;

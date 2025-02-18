@@ -16,8 +16,8 @@ import { $path } from "safe-routes";
 import useSWR from "swr";
 
 import { Agent } from "~/lib/model/agents";
+import { Task } from "~/lib/model/tasks";
 import { Thread } from "~/lib/model/threads";
-import { Workflow } from "~/lib/model/workflows";
 import { ThreadsService } from "~/lib/service/api/threadsService";
 import { UserService } from "~/lib/service/api/userService";
 import { WorkspaceTableApiService } from "~/lib/service/api/workspaceTableApiService";
@@ -57,7 +57,7 @@ import { useConfirmationDialog } from "~/hooks/component-helpers/useConfirmation
 import { usePagination } from "~/hooks/pagination/usePagination";
 
 interface ThreadMetaProps {
-	entity: Agent | Workflow;
+	entity: Agent | Task;
 	thread: Thread;
 	className?: string;
 }

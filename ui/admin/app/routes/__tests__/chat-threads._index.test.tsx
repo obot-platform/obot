@@ -14,7 +14,6 @@ import { Agent } from "~/lib/model/agents";
 import { EntityList } from "~/lib/model/primitives";
 import { Thread } from "~/lib/model/threads";
 import { User } from "~/lib/model/users";
-import { Workflow } from "~/lib/model/workflows";
 import { ApiRoutes } from "~/lib/routers/apiRoutes";
 
 import ChatThreads from "~/routes/_auth.chat-threads._index";
@@ -26,7 +25,6 @@ vi.mock("react-router", async () => {
 		useLoaderData: vi.fn(() => ({
 			// Mock the loader data that matches clientLoader return type
 			agentId: undefined,
-			workflowId: undefined,
 			userId: undefined,
 		})),
 		useNavigate: vi.fn(() => vi.fn()),
@@ -45,11 +43,6 @@ describe(ChatThreads, () => {
 			http.get(ApiRoutes.agents.base().url, () => {
 				return HttpResponse.json<EntityList<Agent>>({
 					items: [mockedAgent],
-				});
-			}),
-			http.get(ApiRoutes.workflows.base().url, () => {
-				return HttpResponse.json<EntityList<Workflow>>({
-					items: [],
 				});
 			}),
 			http.get(ApiRoutes.users.base().url, () => {

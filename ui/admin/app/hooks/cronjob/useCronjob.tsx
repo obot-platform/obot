@@ -6,13 +6,13 @@ import { CronJobApiService } from "~/lib/service/api/cronjobApiService";
 
 import { useAsync } from "~/hooks/useAsync";
 
-export function useCronjob(workflowId?: string) {
+export function useCronjob(taskId?: string) {
 	const getCronJobs = useSWR(
-		...CronJobApiService.getCronJobs.swr({ filters: { workflowId } })
+		...CronJobApiService.getCronJobs.swr({ filters: { taskId } })
 	);
 
 	const cronJobs = getCronJobs.data
-		?.filter((cronJob) => cronJob.workflow === workflowId)
+		?.filter((cronJob) => cronJob.workflow === taskId)
 		.sort((cronJobA, cronJobB) => cronJobA.id.localeCompare(cronJobB.id));
 
 	const createCronJob = useAsync(CronJobApiService.createCronJob, {

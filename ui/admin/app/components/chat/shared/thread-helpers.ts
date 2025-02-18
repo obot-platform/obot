@@ -137,7 +137,7 @@ export function useThreadTableRows({
 
 export const useThreadTasks = (agentThreadId?: string) => {
 	const { data: tasks, ...rest } = useSWR(
-		...ThreadsService.getWorkflowsForThread.swr({ threadId: agentThreadId })
+		...ThreadsService.getTasksForThread.swr({ threadId: agentThreadId })
 	);
 
 	const getThreads = useSWR(

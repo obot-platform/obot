@@ -22,5 +22,4 @@ async function invokeAsync({
 
 export const InvokeService = {
 	invokeAgent: invokeAsync,
-	invokeWorkflow: invokeAsync,
 };
