@@ -1,6 +1,11 @@
 import { createStore } from "zustand";
 
-import { ChatEvent, KnowledgeToolOutput } from "~/lib/model/chatEvents";
+import {
+	ChatEvent,
+	GoogleSearchOutput,
+	KnowledgeToolOutput,
+	ToolCall,
+} from "~/lib/model/chatEvents";
 import { Message, promptMessage, toolCallMessage } from "~/lib/model/messages";
 import { ThreadsService } from "~/lib/service/api/threadsService";
 import { handleTry } from "~/lib/utils/handleTry";
@@ -22,7 +27,7 @@ export type MessageStore = {
 export const createMessageStore = () => {
 	return createStore<MessageStore>()((set, get) => {
 		// pseudo private instance variable
-		let parsedKnowledgeOutput: KnowledgeToolOutput | undefined;
+		let parsedSources: { url?: string; content: string }[] = [];
 
 		return {
 			messages: [],
@@ -175,10 +180,11 @@ export const createMessageStore = () => {
 						runId: runID,
 						contentID,
 						time,
-						knowledgeSources: parsedKnowledgeOutput,
+						knowledgeSources: parsedSources.length ? parsedSources : undefined,
 					});
 
-					parsedKnowledgeOutput = undefined;
+					// reset the knowledge output for the next message
+					parsedSources = [];
 					return { messages: copy };
 				}
 
@@ -191,17 +197,12 @@ export const createMessageStore = () => {
 
 			const { toolCall } = event;
 
+			const sources = pullSources(toolCall);
+
+			if (sources) parsedSources.push(...sources);
+
 			// if the toolCall is an output event
 			if (toolCall.output) {
-				if (toolCall.name === "Knowledge") {
-					const [_, output] = handleTry(
-						() => JSON.parse(toolCall.output) as KnowledgeToolOutput
-					);
-
-					// hoist knowledge source citations for use in the next content-based message
-					if (output) parsedKnowledgeOutput = output;
-				}
-
 				const index = messages.findLastIndex(
 					(m) => m.tools && !m.tools[0].output
 				);
@@ -218,3 +219,21 @@ export const createMessageStore = () => {
 		}
 	});
 };
+
+function pullSources(toolCall: ToolCall) {
+	if (!toolCall.output) return;
+
+	const [err, output] = handleTry(() => JSON.parse(toolCall.output));
+
+	if (err) return [];
+
+	if (toolCall.name === "Knowledge") {
+		const o = output as KnowledgeToolOutput;
+		return o;
+	}
+
+	if (toolCall.name === "Search") {
+		const o = output as GoogleSearchOutput;
+		return o.results;
+	}
+}
