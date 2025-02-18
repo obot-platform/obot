@@ -1,7 +1,6 @@
 import { useMemo } from "react";
 
 import {
-	CapabilitiesToolCategory,
 	CustomToolsToolCategory,
 	ToolReference,
 	isCapabilityTool,
@@ -55,7 +54,7 @@ export function ToolGrid({ toolMap }: { toolMap: [string, ToolReference][] }) {
 
 			{capabilities.length > 0 && (
 				<div className="flex flex-col gap-4">
-					<h3>{CapabilitiesToolCategory}</h3>
+					<h3>Capabilities</h3>
 					<div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
 						{capabilities.map(renderToolCard)}
 					</div>
