@@ -74,9 +74,7 @@ func abortThread(req api.Context, thread *v1.Thread) error {
 }
 
 func (a *AssistantHandler) Invoke(req api.Context) error {
-	var (
-		id = req.PathValue("id")
-	)
+	id := req.PathValue("id")
 
 	agent, err := getAssistant(req, id)
 	if err != nil {
@@ -94,8 +92,9 @@ func (a *AssistantHandler) Invoke(req api.Context) error {
 	}
 
 	resp, err := a.invoker.Agent(req.Context(), req.Storage, agent, string(input), invoke.Options{
-		ThreadName: thread.Name,
-		UserUID:    req.User.GetUID(),
+		GenerateName: system.ChatRunPrefix,
+		ThreadName:   thread.Name,
+		UserUID:      req.User.GetUID(),
 	})
 	if err != nil {
 		return err
