@@ -18,6 +18,7 @@ import (
 	"github.com/obot-platform/obot/pkg/alias"
 	"github.com/obot-platform/obot/pkg/api/handlers/providers"
 	"github.com/obot-platform/obot/pkg/invoke"
+	"github.com/obot-platform/obot/pkg/jwt"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -27,29 +28,39 @@ import (
 )
 
 type Dispatcher struct {
-	invoker                     *invoke.Invoker
-	gptscript                   *gptscript.GPTScript
-	client                      kclient.Client
-	modelLock                   *sync.RWMutex
-	modelUrls                   map[string]*url.URL
-	authLock                    *sync.RWMutex
-	authUrls                    map[string]*url.URL
+	invoker      *invoke.Invoker
+	gptscript    *gptscript.GPTScript
+	client       kclient.Client
+	tokenService *jwt.TokenService
+
+	modelProviderLock *sync.RWMutex
+	modelProviderURLs map[string]*url.URL
+
+	authProviderLock            *sync.RWMutex
+	authProviderURLs            map[string]*url.URL
 	configuredAuthProvidersLock *sync.RWMutex
 	configuredAuthProviders     []string
-	openAICred                  string
+
+	daemonTriggerProviderLock *sync.RWMutex
+	daemonTriggerProviderURLs map[string]*url.URL
+
+	openAICred string
 }
 
-func New(ctx context.Context, invoker *invoke.Invoker, c kclient.Client, gClient *gptscript.GPTScript) *Dispatcher {
+func New(ctx context.Context, invoker *invoke.Invoker, c kclient.Client, gClient *gptscript.GPTScript, tokenService *jwt.TokenService) *Dispatcher {
 	d := &Dispatcher{
 		invoker:                     invoker,
 		gptscript:                   gClient,
 		client:                      c,
-		modelLock:                   new(sync.RWMutex),
-		modelUrls:                   make(map[string]*url.URL),
-		authLock:                    new(sync.RWMutex),
-		authUrls:                    make(map[string]*url.URL),
+		tokenService:                tokenService,
+		modelProviderLock:           new(sync.RWMutex),
+		modelProviderURLs:           make(map[string]*url.URL),
+		authProviderLock:            new(sync.RWMutex),
+		authProviderURLs:            make(map[string]*url.URL),
 		configuredAuthProvidersLock: new(sync.RWMutex),
 		configuredAuthProviders:     make([]string, 0),
+		daemonTriggerProviderLock:   new(sync.RWMutex),
+		daemonTriggerProviderURLs:   make(map[string]*url.URL),
 	}
 
 	d.UpdateConfiguredAuthProviders(ctx)
@@ -60,19 +71,19 @@ func New(ctx context.Context, invoker *invoke.Invoker, c kclient.Client, gClient
 func (d *Dispatcher) URLForAuthProvider(ctx context.Context, namespace, authProviderName string) (*url.URL, error) {
 	key := namespace + "/" + authProviderName
 	// Check the map with the read lock.
-	d.authLock.RLock()
-	u, ok := d.authUrls[key]
-	d.authLock.RUnlock()
+	d.authProviderLock.RLock()
+	u, ok := d.authProviderURLs[key]
+	d.authProviderLock.RUnlock()
 	if ok && engine.IsDaemonRunning(u.String()) {
 		return u, nil
 	}
 
-	d.authLock.Lock()
-	defer d.authLock.Unlock()
+	d.authProviderLock.Lock()
+	defer d.authProviderLock.Unlock()
 
 	// If we didn't find anything with the read lock, check with the write lock.
 	// It could be that another thread beat us to the write lock and added the auth provider we desire.
-	u, ok = d.authUrls[key]
+	u, ok = d.authProviderURLs[key]
 	if ok && engine.IsDaemonRunning(u.String()) {
 		return u, nil
 	}
@@ -83,16 +94,16 @@ func (d *Dispatcher) URLForAuthProvider(ctx context.Context, namespace, authProv
 		return nil, err
 	}
 
-	d.authUrls[key] = u
+	d.authProviderURLs[key] = u
 	return u, nil
 }
 
 func (d *Dispatcher) URLForModelProvider(ctx context.Context, namespace, modelProviderName string) (*url.URL, string, error) {
 	key := namespace + "/" + modelProviderName
 	// Check the map with the read lock.
-	d.modelLock.RLock()
-	u, ok := d.modelUrls[key]
-	d.modelLock.RUnlock()
+	d.modelProviderLock.RLock()
+	u, ok := d.modelProviderURLs[key]
+	d.modelProviderLock.RUnlock()
 	if ok && (u.Hostname() != "127.0.0.1" || engine.IsDaemonRunning(u.String())) {
 		if u.Host == "api.openai.com" {
 			return u, d.openAICred, nil
@@ -100,12 +111,12 @@ func (d *Dispatcher) URLForModelProvider(ctx context.Context, namespace, modelPr
 		return u, "", nil
 	}
 
-	d.modelLock.Lock()
-	defer d.modelLock.Unlock()
+	d.modelProviderLock.Lock()
+	defer d.modelProviderLock.Unlock()
 
 	// If we didn't find anything with the read lock, check with the write lock.
 	// It could be that another thread beat us to the write lock and added the model provider we desire.
-	u, ok = d.modelUrls[key]
+	u, ok = d.modelProviderURLs[key]
 	if ok && (u.Hostname() != "127.0.0.1" || engine.IsDaemonRunning(u.String())) {
 		if u.Host == "api.openai.com" {
 			return u, d.openAICred, nil
@@ -119,7 +130,7 @@ func (d *Dispatcher) URLForModelProvider(ctx context.Context, namespace, modelPr
 		return nil, "", err
 	}
 
-	d.modelUrls[key] = u
+	d.modelProviderURLs[key] = u
 	if u.Host == "api.openai.com" {
 		return u, d.openAICred, nil
 	}
@@ -127,30 +138,65 @@ func (d *Dispatcher) URLForModelProvider(ctx context.Context, namespace, modelPr
 	return u, "", nil
 }
 
-func (d *Dispatcher) StopModelProvider(namespace, modelProviderName string) {
-	key := namespace + "/" + modelProviderName
-	d.modelLock.Lock()
-	defer d.modelLock.Unlock()
-
-	u := d.modelUrls[key]
-	if u != nil && u.Hostname() == "127.0.0.1" && engine.IsDaemonRunning(u.String()) {
-		engine.StopDaemon(u.String())
+func (d *Dispatcher) URLForDaemonTriggerProvider(ctx context.Context, namespace, daemonTriggerProviderName string) (*url.URL, error) {
+	key := namespace + "/" + daemonTriggerProviderName
+	// Check the map with the read lock.
+	d.daemonTriggerProviderLock.RLock()
+	u, ok := d.daemonTriggerProviderURLs[key]
+	d.daemonTriggerProviderLock.RUnlock()
+	if ok && engine.IsDaemonRunning(u.String()) {
+		return u, nil
 	}
 
-	delete(d.modelUrls, key)
+	d.daemonTriggerProviderLock.Lock()
+	defer d.daemonTriggerProviderLock.Unlock()
+
+	// If we didn't find anything with the read lock, check with the write lock.
+	// It could be that another thread beat us to the write lock and added the daemon trigger provider we desire.
+	u, ok = d.daemonTriggerProviderURLs[key]
+	if ok && engine.IsDaemonRunning(u.String()) {
+		return u, nil
+	}
+
+	// We didn't find the daemon trigger provider (or the daemon stopped for some reason), so start it and add it to the map.
+	u, err := d.startDaemonTriggerProvider(ctx, namespace, daemonTriggerProviderName)
+	if err != nil {
+		return nil, err
+	}
+
+	d.daemonTriggerProviderURLs[key] = u
+	return u, nil
 }
 
-func (d *Dispatcher) StopAuthProvider(namespace, authProviderName string) {
-	key := namespace + "/" + authProviderName
-	d.authLock.Lock()
-	defer d.authLock.Unlock()
-
-	u := d.authUrls[key]
-	if u != nil && u.Hostname() == "127.0.0.1" && engine.IsDaemonRunning(u.String()) {
-		engine.StopDaemon(u.String())
+func (d *Dispatcher) StopProvider(providerType types.ToolReferenceType, namespace, providerName string) error {
+	var (
+		providerURLs map[string]*url.URL
+		key          = namespace + "/" + providerName
+	)
+	switch providerType {
+	case types.ToolReferenceTypeModelProvider:
+		d.modelProviderLock.Lock()
+		defer d.modelProviderLock.Unlock()
+		providerURLs = d.modelProviderURLs
+	case types.ToolReferenceTypeAuthProvider:
+		d.authProviderLock.Lock()
+		defer d.authProviderLock.Unlock()
+		providerURLs = d.authProviderURLs
+	case types.ToolReferenceTypeDaemonTriggerProvider:
+		d.daemonTriggerProviderLock.Lock()
+		defer d.daemonTriggerProviderLock.Unlock()
+		providerURLs = d.daemonTriggerProviderURLs
+	default:
+		return types.NewErrBadRequest("unknown provider type: %s", providerType)
 	}
 
-	delete(d.authUrls, key)
+	u := providerURLs[key]
+	if u != nil && (u.Hostname() != "127.0.0.1" || engine.IsDaemonRunning(u.String())) {
+		engine.StopDaemon(u.String())
+	}
+	delete(providerURLs, key)
+
+	return nil
 }
 
 func (d *Dispatcher) TransformRequest(req *http.Request, namespace string) error {
@@ -164,7 +210,7 @@ func (d *Dispatcher) TransformRequest(req *http.Request, namespace string) error
 		return fmt.Errorf("missing model in body")
 	}
 
-	model, err := d.getModelProviderForModel(req.Context(), namespace, modelStr)
+	model, err := d.getProviderForModel(req.Context(), namespace, modelStr)
 	if err != nil {
 		return fmt.Errorf("failed to get model: %w", err)
 	}
@@ -177,7 +223,7 @@ func (d *Dispatcher) TransformRequest(req *http.Request, namespace string) error
 	return d.transformRequest(req, *u, body, model.Spec.Manifest.TargetModel, token)
 }
 
-func (d *Dispatcher) getModelProviderForModel(ctx context.Context, namespace, model string) (*v1.Model, error) {
+func (d *Dispatcher) getProviderForModel(ctx context.Context, namespace, model string) (*v1.Model, error) {
 	m, err := alias.GetFromScope(ctx, d.client, "Model", namespace, model)
 	if err != nil {
 		return nil, err
@@ -265,6 +311,85 @@ func (d *Dispatcher) startModelProvider(ctx context.Context, namespace, modelPro
 
 	task, err := d.invoker.SystemTask(ctx, thread, modelProviderName, "", invoke.SystemTaskOptions{
 		CredentialContextIDs: credCtx,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	result, err := task.Result(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	return url.Parse(strings.TrimSpace(result.Output))
+}
+
+func (d *Dispatcher) startDaemonTriggerProvider(ctx context.Context, namespace, daemonTriggerProviderName string) (*url.URL, error) {
+	thread := &v1.Thread{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      system.ThreadPrefix + daemonTriggerProviderName,
+			Namespace: namespace,
+		},
+		Spec: v1.ThreadSpec{
+			SystemTask: true,
+		},
+	}
+
+	if err := d.client.Get(ctx, kclient.ObjectKey{Namespace: thread.Namespace, Name: thread.Name}, thread); apierrors.IsNotFound(err) {
+		if err = d.client.Create(ctx, thread); err != nil {
+			return nil, fmt.Errorf("failed to create thread: %w", err)
+		}
+	} else if err != nil {
+		return nil, fmt.Errorf("failed to get thread: %w", err)
+	}
+
+	var daemonTriggerProvider v1.ToolReference
+	if err := d.client.Get(ctx, kclient.ObjectKey{Namespace: namespace, Name: daemonTriggerProviderName}, &daemonTriggerProvider); err != nil || daemonTriggerProvider.Spec.Type != types.ToolReferenceTypeDaemonTriggerProvider {
+		return nil, fmt.Errorf("failed to get daemon trigger provider: %w", err)
+	}
+
+	credCtx := []string{string(daemonTriggerProvider.UID), system.GenericDaemonTriggerProviderCredentialContext}
+	if daemonTriggerProvider.Status.Tool == nil {
+		return nil, fmt.Errorf("daemon trigger provider %q has not been resolved", daemonTriggerProviderName)
+	}
+
+	// Ensure that the model provider has been configured so that we don't get stuck waiting on a prompt.
+	dtps, err := providers.ConvertDaemonTriggerProviderToolRef(daemonTriggerProvider, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to convert daemon trigger provider: %w", err)
+	}
+	if len(dtps.RequiredConfigurationParameters) > 0 {
+		cred, err := d.gptscript.RevealCredential(ctx, credCtx, daemonTriggerProviderName)
+		if err != nil {
+			return nil, fmt.Errorf("daemon trigger provider is not configured: %w", err)
+		}
+
+		dtps, err = providers.ConvertDaemonTriggerProviderToolRef(daemonTriggerProvider, cred.Env)
+		if err != nil {
+			return nil, fmt.Errorf("failed to convert daemon trigger provider: %w", err)
+		}
+
+		if len(dtps.MissingConfigurationParameters) > 0 {
+			return nil, fmt.Errorf("daemon trigger provider is not configured: missing configuration parameters %s", strings.Join(dtps.MissingConfigurationParameters, ", "))
+		}
+	}
+
+	// Craft a token with the required Obot scopes (if the daemon requires Obot API access)
+	var env []string
+	if len(dtps.ObotScopes) > 0 {
+		obotToken, err := d.tokenService.NewToken(jwt.TokenContext{
+			Scope:       namespace,
+			ExtraScopes: dtps.ObotScopes,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("failed to Obot token for daemon trigger provider: %w", err)
+		}
+		env = append(env, fmt.Sprintf("OBOT_API_TOKEN=%s", obotToken))
+	}
+
+	task, err := d.invoker.SystemTask(ctx, thread, daemonTriggerProviderName, "", invoke.SystemTaskOptions{
+		CredentialContextIDs: credCtx,
+		Env:                  env,
 	})
 	if err != nil {
 		return nil, err

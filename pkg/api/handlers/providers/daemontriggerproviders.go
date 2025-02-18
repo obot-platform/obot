@@ -8,14 +8,7 @@ import (
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 )
 
-type ProviderMeta struct {
-	types.CommonProviderMetadata
-	ObotScopes      []string                               `json:"obotScopes"`
-	EnvVars         []types.ProviderConfigurationParameter `json:"envVars"`
-	OptionalEnvVars []types.ProviderConfigurationParameter `json:"optionalEnvVars"`
-}
-
-func ConvertModelProviderToolRef(toolRef v1.ToolReference, cred map[string]string) (*types.ModelProviderStatus, error) {
+func ConvertDaemonTriggerProviderToolRef(toolRef v1.ToolReference, cred map[string]string) (*types.DaemonTriggerProviderStatus, error) {
 	var (
 		providerMeta   ProviderMeta
 		missingEnvVars []string
@@ -34,17 +27,10 @@ func ConvertModelProviderToolRef(toolRef v1.ToolReference, cred map[string]strin
 		}
 	}
 
-	var modelsPopulated *bool
-	configured := toolRef.Status.Tool != nil && len(missingEnvVars) == 0
-	if configured {
-		modelsPopulated = new(bool)
-		*modelsPopulated = toolRef.Status.ObservedGeneration == toolRef.Generation
-	}
-
-	return &types.ModelProviderStatus{
+	return &types.DaemonTriggerProviderStatus{
 		CommonProviderMetadata:          providerMeta.CommonProviderMetadata,
-		Configured:                      configured,
-		ModelsBackPopulated:             modelsPopulated,
+		ObotScopes:                      providerMeta.ObotScopes,
+		Configured:                      toolRef.Status.Tool != nil && len(missingEnvVars) == 0,
 		RequiredConfigurationParameters: providerMeta.EnvVars,
 		OptionalConfigurationParameters: providerMeta.OptionalEnvVars,
 		MissingConfigurationParameters:  missingEnvVars,

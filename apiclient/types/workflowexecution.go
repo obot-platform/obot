@@ -7,6 +7,7 @@ type WorkflowExecution struct {
 	EndTime   *Time            `json:"endTime"`
 	Input     string           `json:"input"`
 	Error     string           `json:"error,omitempty"`
+	State     string           `json:"state,omitempty"`
 }
 
 type WorkflowExecutionList List[WorkflowExecution]
