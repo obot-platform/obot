@@ -383,10 +383,6 @@ export function SourceCitations({
 			})
 	);
 
-	console.log(citations);
-
-	console.log(message.knowledgeSources);
-
 	return (
 		<div className="flex flex-col gap-2 pt-4">
 			<h4>Sources</h4>
