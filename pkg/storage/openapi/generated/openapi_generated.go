@@ -5463,6 +5463,20 @@ func schema_storage_apis_obotobotai_v1_AgentSpec(ref common.ReferenceCallback) c
 							Format: "",
 						},
 					},
+					"additionalCredentialContexts": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
 					"env": {
 						SchemaProps: spec.SchemaProps{
 							Type: []string{"array"},
@@ -9340,6 +9354,20 @@ func schema_storage_apis_obotobotai_v1_WorkflowSpec(ref common.ReferenceCallback
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
 							Format: "",
+						},
+					},
+					"additionalCredentialContexts": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
 						},
 					},
 					"knowledgeSetNames": {

@@ -173,6 +173,11 @@ func (in *AgentSpec) DeepCopyInto(out *AgentSpec) {
 		*out = make([]string, len(*in))
 		copy(*out, *in)
 	}
+	if in.AdditionalCredentialContexts != nil {
+		in, out := &in.AdditionalCredentialContexts, &out.AdditionalCredentialContexts
+		*out = make([]string, len(*in))
+		copy(*out, *in)
+	}
 	if in.Env != nil {
 		in, out := &in.Env, &out.Env
 		*out = make([]string, len(*in))
@@ -2186,6 +2191,11 @@ func (in *WorkflowList) DeepCopyObject() runtime.Object {
 func (in *WorkflowSpec) DeepCopyInto(out *WorkflowSpec) {
 	*out = *in
 	in.Manifest.DeepCopyInto(&out.Manifest)
+	if in.AdditionalCredentialContexts != nil {
+		in, out := &in.AdditionalCredentialContexts, &out.AdditionalCredentialContexts
+		*out = make([]string, len(*in))
+		copy(*out, *in)
+	}
 	if in.KnowledgeSetNames != nil {
 		in, out := &in.KnowledgeSetNames, &out.KnowledgeSetNames
 		*out = make([]string, len(*in))
