@@ -54,6 +54,7 @@ export function SignIn({ className }: SignInProps) {
 						variant="secondary"
 						className="mb-4 w-full"
 						onClick={() => {
+							localStorage.setItem("preAuthRedirect", window.location.href);
 							window.location.href = `/oauth2/start?rd=${window.location.pathname}&obot-auth-provider=default/${provider.id}`;
 						}}
 					>
