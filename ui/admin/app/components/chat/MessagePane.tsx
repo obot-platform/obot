@@ -67,7 +67,7 @@ export function MessagePane({
 							<Message
 								key={i}
 								message={message}
-								isRunning={isRunning}
+								isRunning={isRunning && i === messages.length - 1}
 								icons={icons}
 								isDarkMode={isDarkMode}
 								isMostRecent={i === messages.length - 1}
