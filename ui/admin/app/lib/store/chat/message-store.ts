@@ -4,6 +4,7 @@ import {
 	ChatEvent,
 	GoogleSearchOutput,
 	KnowledgeToolOutput,
+	TavilySearchOutput,
 	ToolCall,
 } from "~/lib/model/chatEvents";
 import { Message, promptMessage, toolCallMessage } from "~/lib/model/messages";
@@ -196,7 +197,6 @@ export const createMessageStore = () => {
 			const { toolCall } = event;
 
 			const sources = pullSources(toolCall);
-
 			if (sources) parsedSources.push(...sources);
 
 			// if the toolCall is an output event
@@ -223,7 +223,10 @@ function pullSources(toolCall: ToolCall) {
 
 	const [err, output] = handleTry(() => JSON.parse(toolCall.output));
 
-	if (err) return [];
+	if (err) {
+		console.error(err);
+		return [];
+	}
 
 	if (toolCall.name === "Knowledge") {
 		const o = output as KnowledgeToolOutput;
@@ -231,6 +234,12 @@ function pullSources(toolCall: ToolCall) {
 	}
 
 	if (toolCall.name === "Search") {
+		if (toolCall.metadata?.toolBundle === "Tavily Search") {
+			const o = output as TavilySearchOutput;
+
+			return o.results;
+		}
+
 		const o = output as GoogleSearchOutput;
 		return o.results;
 	}

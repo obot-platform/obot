@@ -3,12 +3,29 @@ export type ToolInput = {
 	content: string;
 };
 
-export type KnowledgeToolOutput = { url?: string; content: string }[];
+export type KnowledgeToolOutput = {
+	url?: string;
+	content: string;
+}[];
 
 export type GoogleSearchOutput = {
 	duration: { search: number; refine: number; response: number };
 	query: string;
 	results: { url: string; content: string }[];
+};
+
+export type TavilySearchOutput = {
+	query: string;
+	follow_up_questions: string;
+	answer: string;
+	images: string[];
+	results: {
+		title: string;
+		url: string;
+		content: string;
+		score: number;
+		raw_content: string;
+	}[];
 };
 
 export type ToolCall = {
@@ -19,6 +36,7 @@ export type ToolCall = {
 	metadata?: {
 		category?: string;
 		icon?: string;
+		toolBundle?: string;
 	};
 };
 
