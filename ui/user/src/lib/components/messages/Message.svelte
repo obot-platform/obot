@@ -9,6 +9,7 @@
 	import { formatTime } from '$lib/time';
 	import { popover } from '$lib/actions';
 	import { assistants } from '$lib/stores/index';
+	import { fly } from 'svelte/transition';
 
 	interface Props {
 		msg: Message;
@@ -32,6 +33,10 @@
 
 	let promptCredentials = $state<Record<string, string>>({});
 	let credentialsSubmitted = $state(false);
+
+	$effect(() => {
+		if (msg.citations) console.log(msg.citations);
+	});
 
 	$effect(() => {
 		if (msg.toolCall && msg.sourceName === 'Shell') {
@@ -70,6 +75,17 @@
 		if (msg.file?.filename) {
 			onLoadFile(msg.file?.filename);
 		}
+	}
+
+	function citationDislplayUrl(url: string) {
+		// remove the protocol and www.
+		const res = url.replace(/^(.+:\/\/)?(www\.)?/, '');
+		return res.length > 25 ? res.slice(0, 25) + '...' : res;
+	}
+
+	function citationFavicon(url: string) {
+		const _url = new URL(url);
+		return _url.origin + '/favicon.ico';
 	}
 </script>
 
@@ -112,6 +128,7 @@
 		{/if}
 
 		{@render files()}
+		{@render citations()}
 		{@render loading()}
 	</div>
 {/snippet}
@@ -292,6 +309,31 @@
 				<Loading class="mx-1.5" />
 				<span class="text-sm font-normal text-gray dark:text-gray-400">Loading...</span>
 			{/if}
+		</div>
+	{/if}
+{/snippet}
+
+{#snippet citations()}
+	{#if msg.citations && msg.citations.length > 0}
+		<div class="mt-2 flex flex-wrap gap-2">
+			{#each msg.citations.map((c) => c.url).filter((c) => c !== undefined) as url, i}
+				{#if msg.done}
+					<a
+						href={url}
+						target="_blank"
+						class="flex w-fit items-center gap-2 rounded-full bg-gray-100 p-2 text-sm dark:bg-gray-900"
+						transition:fly={{ y: 100, delay: 50 * i, duration: 250 }}
+					>
+						<img
+							src={citationFavicon(url)}
+							alt="Favicon"
+							class="size-4"
+							onerror={(e) => ((e.currentTarget as HTMLImageElement).src = '/favicon.ico')}
+						/>
+						{citationDislplayUrl(url)}
+					</a>
+				{/if}
+			{/each}
 		</div>
 	{/if}
 {/snippet}

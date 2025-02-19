@@ -55,7 +55,7 @@
 <div>
 	<div
 		bind:this={messagesDiv}
-		class="flex h-dvh w-full justify-center overflow-auto transition-all scrollbar-none"
+		class="flex h-dvh w-full justify-center overflow-auto scroll-smooth transition-all scrollbar-none"
 		use:autoscroll
 	>
 		<div class="flex w-full max-w-[900px] flex-col px-8 pt-24 transition-all">

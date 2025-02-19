@@ -1,5 +1,5 @@
 import editor from '$lib/stores/editor.svelte';
-import type { Explain, InputMessage, Message, Messages, Progress } from './types';
+import type { CitationSource, Explain, InputMessage, Message, Messages, Progress } from './types';
 
 const errorIcon = 'Error';
 const assistantIcon = 'Assistant';
@@ -156,6 +156,8 @@ function toMessages(progresses: Progress[]): Messages {
 	let parentRunID: string | undefined;
 	let inProgress = false;
 
+	let sources: CitationSource[] = [];
+
 	for (const [i, progress] of progresses.entries()) {
 		if (progress.error) {
 			if (progress.runID) {
@@ -221,7 +223,8 @@ function toMessages(progresses: Progress[]): Messages {
 				found.message.push(progress.content);
 				found.time = new Date(progress.time);
 			} else {
-				messages.push(newContentMessage(progress));
+				messages.push(newContentMessage(progress, sources.length ? sources : undefined));
+				sources = [];
 			}
 		} else if (progress.toolInput) {
 			const found = messages.findLast(
@@ -241,7 +244,30 @@ function toMessages(progresses: Progress[]): Messages {
 					msg.ignore = true;
 				}
 			}
+
 			messages.push(newContentMessage(progress));
+
+			if (!progress.toolCall.output) continue;
+
+			try {
+				const output = JSON.parse(progress.toolCall.output);
+
+				switch (true) {
+					case progress.toolCall.name === 'Knowledge':
+						sources.push(...(output as CitationSource[]));
+						break;
+					case progress.toolCall.name === 'Search' &&
+						progress.toolCall.metadata?.toolBundle === 'Tavily Search':
+						sources.push(...(output.results as CitationSource[]));
+						break;
+					case progress.toolCall.name === 'Search' &&
+						progress.toolCall.metadata?.toolBundle === 'Google Search':
+						sources.push(...(output.results as CitationSource[]));
+						break;
+				}
+			} catch (_) {
+				// ignore error
+			}
 		}
 	}
 
@@ -311,14 +337,15 @@ function newErrorMessage(progress: Progress): Message {
 	};
 }
 
-function newContentMessage(progress: Progress): Message {
+function newContentMessage(progress: Progress, citations?: CitationSource[]): Message {
 	const result: Message = {
 		time: new Date(progress.time),
 		runID: progress.runID || '',
 		icon: assistantIcon,
 		sourceName: 'Assistant',
 		message: [progress.toolInput?.input ?? progress.content],
-		contentID: progress.contentID
+		contentID: progress.contentID,
+		citations
 	};
 
 	if (progress.toolInput) {

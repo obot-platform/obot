@@ -69,6 +69,8 @@ type WorkflowCall = {
 	input?: string;
 };
 
+export type CitationSource = { url?: string; content?: string };
+
 export interface Message {
 	runID: string;
 	parentRunID?: string;
@@ -90,6 +92,7 @@ export interface Message {
 	fields?: PromptField[];
 	promptId?: string;
 	contentID?: string;
+	citations?: CitationSource[];
 }
 
 export interface InvokeInput {
