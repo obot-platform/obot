@@ -35,10 +35,6 @@
 	let credentialsSubmitted = $state(false);
 
 	$effect(() => {
-		if (msg.citations) console.log(msg.citations);
-	});
-
-	$effect(() => {
 		if (msg.toolCall && msg.sourceName === 'Shell') {
 			try {
 				shell.input = JSON.parse(msg.toolCall?.input ?? '').CMD ?? '';
