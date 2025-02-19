@@ -4,6 +4,7 @@ import {
 	PaintbrushIcon,
 	PaletteIcon,
 	PencilIcon,
+	SlashIcon,
 } from "lucide-react";
 import { useState } from "react";
 
@@ -216,6 +217,24 @@ export function AgentIcon({ icons, onChange, name }: AgentIconProps) {
 						/>
 					</DropdownMenuItem>
 				))}
+				<DropdownMenuItem
+					onClick={() => {
+						onChange({
+							icon: generateIconUrl(iconOptions[obotIconIndex], false),
+							iconDark: generateIconUrl(iconOptions[obotIconIndex], true),
+							collapsed: "",
+							collapsedDark: "",
+						});
+					}}
+				>
+					<div
+						className={cn(
+							"flex h-8 w-8 items-center justify-center rounded-sm border border-foreground"
+						)}
+					>
+						<SlashIcon />
+					</div>
+				</DropdownMenuItem>
 			</div>
 		);
 	}
