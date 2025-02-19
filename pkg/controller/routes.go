@@ -72,7 +72,6 @@ func (c *Controller) setupRoutes() error {
 	root.Type(&v1.Workflow{}).HandlerFunc(workflow.EnsureIDs)
 	root.Type(&v1.Workflow{}).HandlerFunc(workflow.CreateWorkspaceAndKnowledgeSet)
 	root.Type(&v1.Workflow{}).HandlerFunc(workflow.BackPopulateAuthStatus)
-	root.Type(&v1.Workflow{}).HandlerFunc(setWorkflowAdditionalCredentialContexts)
 	root.Type(&v1.Workflow{}).HandlerFunc(cleanup.Cleanup)
 	root.Type(&v1.Workflow{}).HandlerFunc(alias.AssignAlias)
 	root.Type(&v1.Workflow{}).HandlerFunc(toolInfo.SetToolInfoStatus)

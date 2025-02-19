@@ -81,9 +81,7 @@ func Workflow(ctx context.Context, c kclient.Client, wf *v1.Workflow, opts Workf
 		agent.Spec.CredentialContextID = wf.Spec.CredentialContextID
 	}
 
-	if len(wf.Spec.AdditionalCredentialContexts) != 0 {
-		agent.Spec.AdditionalCredentialContexts = wf.Spec.AdditionalCredentialContexts
-	}
+	agent.Spec.AdditionalCredentialContexts = wf.Spec.AdditionalCredentialContexts
 
 	if step := opts.Step; step != nil {
 		if step.Cache != nil {
