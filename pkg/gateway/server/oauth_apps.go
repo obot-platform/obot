@@ -266,7 +266,13 @@ func (s *Server) authorizeOAuthApp(apiContext api.Context) error {
 	// Slack is annoying and makes us call this query parameter user_scope instead of scope.
 	// user_scope is used for delegated user permissions (which is what we want), while just scope is used for bot permissions.
 	if app.Spec.Manifest.Type == types2.OAuthAppTypeSlack {
-		q.Set("user_scope", scope)
+		if scope != "" {
+			q.Set("scope", scope)
+		}
+		userScope := apiContext.URL.Query().Get("user_scope")
+		if userScope != "" {
+			q.Set("user_scope", userScope)
+		}
 	} else {
 		q.Set("scope", scope)
 	}
@@ -430,12 +436,18 @@ func (s *Server) callbackOAuthApp(apiContext api.Context) error {
 		}
 
 		tokenResp = &types.OAuthTokenResponse{
-			State:       state,
-			Scope:       slackTokenResp.AuthedUser.Scope,
-			AccessToken: slackTokenResp.AuthedUser.AccessToken,
-			Ok:          slackTokenResp.Ok,
-			Error:       slackTokenResp.Error,
-			CreatedAt:   time.Now(),
+			State:     state,
+			Ok:        slackTokenResp.Ok,
+			Error:     slackTokenResp.Error,
+			CreatedAt: time.Now(),
+		}
+
+		if slackTokenResp.AuthedUser.AccessToken != "" {
+			tokenResp.AccessToken = slackTokenResp.AuthedUser.AccessToken
+			tokenResp.Scope = slackTokenResp.AuthedUser.Scope
+		} else if slackTokenResp.AccessToken != "" {
+			tokenResp.AccessToken = slackTokenResp.AccessToken
+			tokenResp.Scope = slackTokenResp.Scope
 		}
 	case types2.OAuthAppTypeGitHub:
 		// Read the response body

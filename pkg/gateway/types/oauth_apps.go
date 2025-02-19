@@ -225,6 +225,8 @@ type SlackOAuthTokenResponse struct {
 		Scope       string `json:"scope"`
 		AccessToken string `json:"access_token"`
 	} `json:"authed_user"`
+	AccessToken string `json:"access_token"`
+	Scope       string `json:"scope"`
 }
 
 type OAuthTokenRequestChallenge struct {
