@@ -12,66 +12,94 @@ import type { InvokeInput, Messages, Progress, TaskRun } from './types';
 export class Thread {
 	replayComplete: boolean = false;
 	pending: boolean = $state(false);
+	threadID?: string;
+
 	readonly #onError: ((error: Error) => void) | undefined;
 	#es: EventSource;
 	readonly #progresses: Progress[] = [];
+	readonly #task?: {
+		id: string;
+	};
+	readonly #runID?: string;
+	readonly #onClose?: () => boolean;
+	readonly #authenticate?: {
+		tools?: string[];
+	};
 
 	constructor(opts?: {
+		threadID?: string;
 		task?: {
 			id: string;
 		};
 		runID?: string;
-		onError?: (error: Error) => void;
-		onClose?: () => void;
-	}) {
-		const reconnect = (): EventSource => {
-			console.log('Message EventSource initializing');
-			this.replayComplete = false;
-			let opened = false;
-			const es = newMessageEventSource({
-				task: opts?.task,
-				runID: opts?.runID
-			});
-			es.onmessage = (e) => {
-				this.handleMessage(e);
-			};
-			es.onopen = () => {
-				console.log('Message EventSource opened');
-				opened = true;
-			};
-			es.addEventListener('reconnect', () => {
-				setTimeout(() => {
-					console.log('Message EventSource reconnecting');
-					opts?.onClose?.();
-					es.close();
-					this.#es = reconnect();
-				}, 5000);
-			});
-			es.addEventListener('close', () => {
-				console.log('Message EventSource closed by server');
-				es.dispatchEvent(new Event('reconnect'));
-			});
-			es.onerror = (e: Event) => {
-				if (e.eventPhase === EventSource.CLOSED) {
-					console.log('Message EventSource closed');
-					if (opened) {
-						opened = false;
-					} else {
-						console.log('Message EventSource failed to open');
-						es.dispatchEvent(new Event('reconnect'));
-					}
-				}
-			};
-			return es;
+		authenticate?: {
+			tools?: string[];
 		};
-
-		this.#es = reconnect();
+		onError?: (error: Error) => void;
+		// Return true to reconnect, false to close
+		onClose?: () => boolean;
+	}) {
+		this.threadID = opts?.threadID;
+		this.#task = opts?.task;
+		this.#runID = opts?.runID;
+		this.#authenticate = opts?.authenticate;
 		this.#onError = opts?.onError;
+		this.#onClose = opts?.onClose;
+		this.#es = this.#reconnect();
+	}
+
+	#reconnect(): EventSource {
+		console.log('Message EventSource initializing');
+		this.replayComplete = false;
+		let opened = false;
+		const es = newMessageEventSource({
+			threadID: this.threadID,
+			task: this.#task,
+			runID: this.#runID,
+			authenticate: this.#authenticate
+		});
+		es.onmessage = (e) => {
+			this.handleMessage(e);
+		};
+		es.onopen = (e) => {
+			console.log('Message EventSource opened', e);
+			opened = true;
+		};
+		es.addEventListener('reconnect', () => {
+			setTimeout(() => {
+				console.log('Message EventSource reconnecting');
+				es.close();
+				this.#es = this.#reconnect();
+			}, 5000);
+		});
+		es.addEventListener('close', () => {
+			console.log('Message EventSource closed by server');
+			if (this.#onClose?.() ?? true) {
+				es.dispatchEvent(new Event('reconnect'));
+			}
+		});
+		es.onerror = (e: Event) => {
+			if (e.eventPhase === EventSource.CLOSED) {
+				console.log('Message EventSource closed');
+				if (opened) {
+					opened = false;
+				} else {
+					console.log('Message EventSource failed to open');
+					es.dispatchEvent(new Event('reconnect'));
+				}
+			}
+		};
+		return es;
 	}
 
 	async abort() {
+		if (!this.threadID) {
+			return;
+		}
 		try {
-			await ChatAbort();
+			await ChatAbort({
+				threadID: this.threadID
+			});
 		} finally {
 			this.pending = false;
 		}
@@ -126,6 +154,9 @@ export class Thread {
 		const progress = JSON.parse(event.data) as Progress;
 		if (progress.replayComplete) {
 			this.replayComplete = true;
+		}
+		if (progress.threadID) {
+			this.threadID = progress.threadID;
 		}
 		if (progress.error) {
 			if (progress.error.includes('abort')) {

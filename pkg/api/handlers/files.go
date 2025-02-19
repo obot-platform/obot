@@ -61,12 +61,11 @@ func listKnowledgeFiles(req api.Context, agentName, threadName, knowledgeSetName
 		knowledgeSourceName = knowledgeSource.Name
 	}
 
-	if err := req.Storage.List(req.Context(), &files, &client.ListOptions{
+	if err := req.List(&files, &client.ListOptions{
 		FieldSelector: fields.SelectorFromSet(selectors.RemoveEmpty(map[string]string{
 			"spec.knowledgeSetName":    knowledgeSetName,
 			"spec.knowledgeSourceName": knowledgeSourceName,
 		})),
-		Namespace: req.Namespace(),
 	}); err != nil {
 		return err
 	}

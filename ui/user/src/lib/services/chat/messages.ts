@@ -328,12 +328,22 @@ function newWaitingOnModelMessage(progress: Progress): Message {
 }
 
 function newErrorMessage(progress: Progress): Message {
+	let message = progress.error;
+	let ignore = false;
+	if (message === 'timeout waiting for prompt response from user') {
+		message = 'Credentials were not entered within 5 minutes, please try again.';
+	} else if (message === 'thread was aborted, cancelling run') {
+		ignore = true;
+	} else if (!message) {
+		message = 'Error';
+	}
 	return {
 		time: new Date(progress.time),
 		runID: progress.runID || '',
 		icon: errorIcon,
 		sourceName: 'Assistant',
-		message: [progress.error ?? 'Error']
+		message: [message],
+		ignore: ignore
 	};
 }
 

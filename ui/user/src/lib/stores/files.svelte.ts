@@ -1,12 +1,12 @@
 import { listFiles } from '$lib/services/chat/operations';
 import { type File } from '$lib/services/chat/types';
-import context from '$lib/stores/context';
+import { onInit } from '$lib/stores/context.svelte';
 
 const store = $state({
 	items: [] as File[]
 });
 
-context.init(async () => {
+onInit(async () => {
 	store.items = (await listFiles()).items;
 });
 

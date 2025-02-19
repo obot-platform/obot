@@ -1,6 +1,6 @@
 import { getVersion } from '$lib/services/chat/operations';
 import { type Version } from '$lib/services/chat/types';
-import context from '$lib/stores/context';
+import { onInit } from '$lib/stores/context.svelte';
 
 const store = $state({
 	current: {
@@ -9,7 +9,7 @@ const store = $state({
 	} as Version
 });
 
-context.init(async () => {
+onInit(async () => {
 	store.current = await getVersion();
 });
 

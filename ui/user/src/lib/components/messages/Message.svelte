@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { Tween } from 'svelte/motion';
-	import type { Message } from '$lib/services';
+	import { ChatService, type Message } from '$lib/services';
 	import Loading from '$lib/icons/Loading.svelte';
 	import highlight from 'highlight.js';
 	import MessageIcon from '$lib/components/messages/MessageIcon.svelte';
@@ -15,14 +15,21 @@
 	interface Props {
 		msg: Message;
 		onLoadFile?: (filename: string) => void;
-		onSendCredentials: (id: string, credentials: Record<string, string>) => void;
+		onSendCredentials?: (id: string, credentials: Record<string, string>) => void;
+		onSendCredentialsCancel?: (id: string) => void;
 	}
 
-	let { msg, onLoadFile = () => {}, onSendCredentials }: Props = $props();
+	let {
+		msg,
+		onLoadFile = () => {},
+		onSendCredentials = ChatService.sendCredentials,
+		onSendCredentialsCancel
+	}: Props = $props();
 
 	let content = $derived(msg.message ? msg.message.join('') : '');
 	let fullWidth = !msg.sent && !msg.oauthURL && !msg.tool;
 	let showBubble = msg.sent;
+	let isPrompt = msg.fields && msg.promptId;
 	let renderMarkdown = !msg.sent && !msg.oauthURL && !msg.tool;
 	let toolTT = popover({
 		placement: 'bottom-start'
@@ -126,12 +133,10 @@
 		class:flex={showBubble}
 		class:contents={!showBubble}
 		class:message-content={renderMarkdown}
-		class="flex flex-col rounded-3xl bg-gray-70 px-6 py-4 text-black dark:bg-gray-950 dark:text-white"
+		class="flex w-full flex-col overflow-auto rounded-3xl bg-gray-70 px-6 py-4 text-black dark:bg-gray-950 dark:text-white"
 	>
 		{#if msg.oauthURL}
 			{@render oauth()}
-		{:else if msg.fields && msg.promptId}
-			{@render promptAuth()}
 		{:else if content}
 			{#if msg.sourceName !== 'Abort Current Task'}
 				{@render messageContent()}
@@ -292,9 +297,9 @@
 
 			{#each msg.fields as field}
 				<div class="flex flex-col gap-1">
-					<label for={field.name} class="text-sm font-medium">{field.name}</label>
+					<label for={field.name} class="mt-1 text-sm font-medium">{field.name}</label>
 					<input
-						class="rounded-lg bg-gray-100 p-2 outline-none dark:bg-gray-900"
+						class="rounded-lg bg-white p-2 outline-none dark:bg-gray-900"
 						type={field.sensitive ? 'password' : 'text'}
 						name={field.name}
 						bind:value={promptCredentials[field.name]}
@@ -305,12 +310,18 @@
 				</div>
 			{/each}
 
-			<button
-				class="self-end rounded-full px-4 py-2 text-black hover:bg-gray-500 hover:text-white dark:text-white"
-				type="submit"
+			<div class="item-center flex gap-2 self-end">
+				{#if onSendCredentialsCancel}
+					<button
+						class="button-secondary"
+						onclick={() => onSendCredentialsCancel(msg.promptId ?? '')}>Cancel</button
+					>
+				{/if}
+				<button class="button-primary" type="submit">Submit</button>
+			</div>
+			<span class="mt-1 flex grow items-end self-end text-sm text-gray"
+				>*The submitted contents are not visible to AI.</span
 			>
-				Submit
-			</button>
 		</form>
 	{/if}
 {/snippet}
@@ -352,25 +363,35 @@
 {/snippet}
 
 {#if !msg.ignore}
-	<div class="group relative flex items-start gap-3" class:justify-end={msg.sent}>
+	<div
+		class="group relative flex items-start gap-3 {isPrompt
+			? '-m-5 rounded-3xl bg-gray-100 p-5 dark:bg-gray-950'
+			: ''}"
+		class:justify-end={msg.sent}
+	>
 		{#if !msg.sent}
 			<MessageIcon {msg} />
 		{/if}
 
 		<div class="flex w-full flex-col" class:w-full={fullWidth}>
-			{#if !msg.sent}
-				{@render nameAndTime()}
-			{/if}
-			{@render messageBody()}
-			{#if msg.sent}
-				{@render time()}
+			{#if isPrompt}
+				{@render promptAuth()}
+			{:else}
+				{#if !msg.sent}
+					{@render nameAndTime()}
+				{/if}
+				{@render messageBody()}
+				{#if msg.sent}
+					{@render time()}
+				{/if}
 			{/if}
 		</div>
 		{#if msg.aborted}
 			<div
-				class="pointer-events-none absolute bottom-0 z-20 flex h-full w-full items-center justify-center bg-white bg-opacity-60 text-xl font-semibold text-black text-opacity-30 dark:bg-black dark:bg-opacity-60 dark:text-white dark:text-opacity-30"
+				class="pointer-events-none absolute bottom-0 z-10 flex h-full w-full flex-col items-center justify-center bg-white bg-opacity-60 text-xl font-semibold text-black text-opacity-30 dark:bg-black dark:bg-opacity-60 dark:text-white dark:text-opacity-30"
 			>
-				Aborted
+				<p>Aborted</p>
+				<p class="text-xs">This content will be ignored.</p>
 			</div>
 		{/if}
 	</div>

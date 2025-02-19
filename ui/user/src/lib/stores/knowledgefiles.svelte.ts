@@ -1,12 +1,12 @@
 import { listKnowledgeFiles } from '$lib/services/chat/operations';
 import type { KnowledgeFile } from '$lib/services/chat/types';
-import context from '$lib/stores/context';
+import { onInit } from '$lib/stores/context.svelte';
 
 const store = $state({
 	items: [] as KnowledgeFile[]
 });
 
-context.init(async () => {
+onInit(async () => {
 	store.items = (await listKnowledgeFiles()).items;
 });
 

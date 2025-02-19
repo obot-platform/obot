@@ -51,7 +51,7 @@
 
 		const url =
 			window.location.protocol.replaceAll('http', 'ws') +
-			`//${window.location.host}/api/assistants/${assistants.current().id}/projects/${context.getContext().projectID}/shell`;
+			`//${window.location.host}/api/assistants/${assistants.current().id}/projects/${context.projectID}/shell`;
 		const socket = new WebSocket(url);
 		connectState = 'connecting';
 		socket.onmessage = (event) => {

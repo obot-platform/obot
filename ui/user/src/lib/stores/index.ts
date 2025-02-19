@@ -9,4 +9,6 @@ export { default as knowledgeFiles } from './knowledgefiles.svelte';
 export { default as editor } from './editor.svelte';
 export { default as term } from './term.svelte';
 export { default as version } from './version.svelte';
-export { default as context } from './context';
+export { default as context } from './context.svelte';
+export { default as threads } from './threads.svelte';
+export { default as projects } from './projects.svelte';

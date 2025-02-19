@@ -288,7 +288,7 @@ func convertTaskRun(workflow *v1.Workflow, wfe *v1.WorkflowExecution) types.Task
 		Metadata:  MetadataFrom(wfe),
 		TaskID:    workflow.Name,
 		Input:     wfe.Spec.Input,
-		Task:      convertTaskManifest(wfe.Status.WorkflowManifest),
+		Task:      ConvertTaskManifest(wfe.Status.WorkflowManifest),
 		StartTime: types.NewTime(wfe.CreationTimestamp.Time),
 		EndTime:   endTime,
 		Error:     wfe.Status.Error,
@@ -526,7 +526,7 @@ func (t *TaskHandler) getAssistantThreadAndManifestFromRequest(req api.Context) 
 		return nil, nil, types.WorkflowManifest{}, types.TaskManifest{}, err
 	}
 
-	wfManifest, err := toWorkflowManifest(req.Context(), req.Storage, &agent, thread, manifest)
+	wfManifest, err := ToWorkflowManifest(req.Context(), req.Storage, &agent, thread, manifest)
 	if err != nil {
 		return nil, nil, types.WorkflowManifest{}, types.TaskManifest{}, err
 	}
@@ -579,7 +579,7 @@ func (t *TaskHandler) Create(req api.Context) error {
 	return req.WriteCreated(convertTask(workflow, trigger))
 }
 
-func toWorkflowManifest(ctx context.Context, c kclient.Client, agent *v1.Agent, thread *v1.Thread, manifest types.TaskManifest) (types.WorkflowManifest, error) {
+func ToWorkflowManifest(ctx context.Context, c kclient.Client, agent *v1.Agent, thread *v1.Thread, manifest types.TaskManifest) (types.WorkflowManifest, error) {
 	workflowManifest := types.WorkflowManifest{
 		AgentManifest: agent.Spec.Manifest,
 	}
@@ -692,7 +692,7 @@ func getThreadForScope(req api.Context) (*v1.Thread, error) {
 	assistantID := req.PathValue("assistant_id")
 
 	if assistantID != "" {
-		thread, err := getProjectThread(req, assistantID)
+		thread, err := getProjectThread(req)
 		if err != nil {
 			return nil, err
 		}
@@ -790,7 +790,7 @@ func (t *TaskHandler) List(req api.Context) error {
 	return req.Write(taskList)
 }
 
-func convertTaskManifest(manifest *types.WorkflowManifest) types.TaskManifest {
+func ConvertTaskManifest(manifest *types.WorkflowManifest) types.TaskManifest {
 	if manifest == nil {
 		return types.TaskManifest{}
 	}
@@ -804,7 +804,7 @@ func convertTaskManifest(manifest *types.WorkflowManifest) types.TaskManifest {
 func convertTask(workflow v1.Workflow, trigger *triggers) types.Task {
 	task := types.Task{
 		Metadata:     MetadataFrom(&workflow),
-		TaskManifest: convertTaskManifest(&workflow.Spec.Manifest),
+		TaskManifest: ConvertTaskManifest(&workflow.Spec.Manifest),
 		Alias:        workflow.Namespace + "/" + workflow.Spec.Manifest.Alias,
 	}
 	if trigger != nil && trigger.CronJob != nil && trigger.CronJob.Name != "" {

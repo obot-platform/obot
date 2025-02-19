@@ -22,3 +22,22 @@ type ThreadAuthorizationManifest struct {
 }
 
 type ThreadAuthorizationList List[ThreadAuthorization]
+
+type ProjectAuthorization struct {
+	Project  *Project `json:"project,omitempty"`
+	Target   string   `json:"target,omitempty"`
+	Accepted bool     `json:"accepted,omitempty"`
+}
+
+type ProjectAuthorizationList List[ProjectAuthorization]
+
+type TemplateAuthorization struct {
+	TemplateAuthorizationManifest
+}
+
+type TemplateAuthorizationManifest struct {
+	UserID     string `json:"userID,omitempty"`
+	TemplateID string `json:"templateID,omitempty"`
+}
+
+type TemplateAuthorizationList List[TemplateAuthorization]

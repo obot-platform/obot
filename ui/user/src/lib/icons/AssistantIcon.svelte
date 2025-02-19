@@ -1,46 +1,78 @@
 <script lang="ts">
-	import { assistants } from '$lib/stores';
+	import { assistants, context } from '$lib/stores';
 	import { darkMode } from '$lib/stores';
-	import type { Assistant } from '$lib/services';
+	import type { Project } from '$lib/services';
 	import { twMerge } from 'tailwind-merge';
+	import type { ProjectTemplate } from '$lib/services/index.js';
 
 	interface Props {
-		id?: string;
 		class?: string;
+		project?: Project;
+		template?: ProjectTemplate;
+		id?: string;
 	}
 
-	let { id, class: klass }: Props = $props();
-
+	let { project: projectArg, class: klass, id, template }: Props = $props();
+	let project = $derived(projectArg || context.project);
 	let assistant = $derived(
 		assistants.items.find((a) => {
-			if (id) {
-				return a.id === id;
+			if (id && id && a.id === id) {
+				return true;
+			}
+			if (project?.assistantID) {
+				return a.id === project.assistantID;
+			}
+			if (template?.assistantID) {
+				return a.id === template.assistantID;
 			}
 			return a.current;
 		})
 	);
+	let icon = $derived.by(getIcon);
 
-	function getIcon(a: Assistant | undefined): string {
-		if (!a) {
-			return '';
+	function getLightIcon(): string {
+		if (project?.icons?.icon) {
+			return project.icons.icon;
 		}
+		if (template?.icons?.icon) {
+			return template.icons.icon;
+		}
+		if (assistant?.icons?.icon) {
+			return assistant.icons.icon;
+		}
+		return '';
+	}
 
-		if (darkMode.isDark) {
-			return (a.icons.iconDark ? a.icons.iconDark : a.icons.icon) ?? '';
+	function getDarkIcon(): string {
+		if (project?.icons?.iconDark) {
+			return project.icons.iconDark;
 		}
-		return a.icons.icon ?? '';
+		if (assistant?.icons?.iconDark) {
+			return assistant.icons.iconDark;
+		}
+		return '';
+	}
+
+	function getIcon(): string {
+		if (darkMode.isDark && getDarkIcon()) {
+			return getDarkIcon();
+		}
+		if (getLightIcon()) {
+			return getLightIcon();
+		}
+		return '';
 	}
 </script>
 
-{#if getIcon(assistant)}
-	<img src={getIcon(assistant)} alt="assistant icon" class={twMerge('h-5 w-5', klass)} />
+{#if icon}
+	<img src={icon} alt="assistant icon" class={twMerge('h-8 w-8', klass)} />
 {:else}
 	<div
 		class={twMerge(
-			'flex h-5 w-5 items-center justify-center rounded-full bg-gray-200 dark:bg-gray',
+			'flex h-8 w-8 items-center justify-center rounded-full bg-gray-200 text-on-background dark:bg-gray',
 			klass
 		)}
 	>
-		{assistant?.name ? assistant.name[0].toUpperCase() : '?'}
+		{project?.name ? project.name[0].toUpperCase() : '?'}
 	</div>
 {/if}

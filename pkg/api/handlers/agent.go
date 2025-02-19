@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"reflect"
+	"slices"
 	"strings"
 
 	"github.com/gptscript-ai/go-gptscript"
@@ -61,7 +62,7 @@ func (a *AgentHandler) Authenticate(req api.Context) (err error) {
 		return err
 	}
 
-	resp, err := runAuthForAgent(req.Context(), req.Storage, a.invoker, a.gptscript, agent.DeepCopy(), id, tools)
+	resp, err := runAuthForAgent(req.Context(), req.Storage, a.invoker, a.gptscript, &agent, id, tools)
 	if err != nil {
 		return err
 	}
@@ -663,8 +664,8 @@ func (a *AgentHandler) ListKnowledgeSources(req api.Context) error {
 	}
 
 	var knowledgeSourceList v1.KnowledgeSourceList
-	if err := req.Storage.List(req.Context(), &knowledgeSourceList,
-		kclient.InNamespace(req.Namespace()), kclient.MatchingFields{
+	if err := req.List(&knowledgeSourceList,
+		kclient.MatchingFields{
 			"spec.knowledgeSetName": knowledgeSetNames[0],
 		}); err != nil {
 		return err
@@ -943,6 +944,13 @@ func runAuthForAgent(ctx context.Context, c kclient.WithWatch, invoker *invoke.I
 				return nil, types.NewErrHTTP(http.StatusTooEarly, fmt.Sprintf("tool %q is not ready", tool))
 			}
 
+			if !slices.Contains(slices.Concat(agent.Spec.Manifest.Tools,
+				agent.Spec.Manifest.AvailableThreadTools,
+				agent.Spec.Manifest.DefaultThreadTools,
+			), tool) {
+				return nil, types.NewErrBadRequest("tool %q is not valid for this agent", tool)
+			}
+
 			credentials = append(credentials, toolRef.Status.Tool.Credentials...)
 
 			// Reset the fields we care about so that we can use the same variable for the whole loop.
@@ -952,6 +960,7 @@ func runAuthForAgent(ctx context.Context, c kclient.WithWatch, invoker *invoke.I
 		}
 	}
 
+	agent = agent.DeepCopy()
 	agent.Spec.Manifest.Prompt = "#!sys.echo\nDONE"
 	agent.Spec.Manifest.Tools = tools
 	agent.Spec.Manifest.AvailableThreadTools = nil

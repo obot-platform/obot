@@ -14,6 +14,7 @@ import (
 	"github.com/obot-platform/obot/pkg/controller/handlers/oauthapp"
 	"github.com/obot-platform/obot/pkg/controller/handlers/runs"
 	"github.com/obot-platform/obot/pkg/controller/handlers/threads"
+	"github.com/obot-platform/obot/pkg/controller/handlers/threadtemplate"
 	"github.com/obot-platform/obot/pkg/controller/handlers/toolinfo"
 	"github.com/obot-platform/obot/pkg/controller/handlers/toolreference"
 	"github.com/obot-platform/obot/pkg/controller/handlers/webhook"
@@ -60,6 +61,7 @@ func (c *Controller) setupRoutes() error {
 	root.Type(&v1.Thread{}).HandlerFunc(cleanup.Cleanup)
 	root.Type(&v1.Thread{}).HandlerFunc(threads.CreateWorkspaces)
 	root.Type(&v1.Thread{}).HandlerFunc(threads.CreateKnowledgeSet)
+	root.Type(&v1.Thread{}).HandlerFunc(threads.CreateFromTemplate)
 	root.Type(&v1.Thread{}).HandlerFunc(threads.WorkflowState)
 	root.Type(&v1.Thread{}).HandlerFunc(knowledgesummary.Summarize)
 	root.Type(&v1.Thread{}).HandlerFunc(threads.CleanupEphemeralThreads)
@@ -164,6 +166,15 @@ func (c *Controller) setupRoutes() error {
 
 	// Alias
 	root.Type(&v1.Alias{}).HandlerFunc(alias.UnassignAlias)
+
+	// Thread Authorizations
+	root.Type(&v1.ThreadAuthorization{}).HandlerFunc(cleanup.Cleanup)
+
+	// ThreadTemplates
+	root.Type(&v1.ThreadTemplate{}).HandlerFunc(threadtemplate.CreateTemplate)
+
+	// ThreadTemplate Authorizations
+	root.Type(&v1.ThreadTemplateAuthorization{}).HandlerFunc(cleanup.Cleanup)
 
 	// WorkflowSteps
 	steps := root.Type(&v1.WorkflowStep{})

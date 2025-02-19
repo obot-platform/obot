@@ -3,7 +3,6 @@ package handlers
 import (
 	"fmt"
 	"net/http"
-	"slices"
 	"strconv"
 	"strings"
 
@@ -41,11 +40,8 @@ func convertThread(thread v1.Thread) types.Thread {
 		parent = strings.Replace(thread.Status.PreviousThreadName, system.ThreadPrefix, system.ProjectPrefix, 1)
 	}
 	return types.Thread{
-		Metadata: MetadataFrom(&thread),
-		ThreadManifest: types.ThreadManifest{
-			Description: thread.Spec.Manifest.Description,
-			Tools:       thread.Spec.Manifest.Tools,
-		},
+		Metadata:        MetadataFrom(&thread),
+		ThreadManifest:  thread.Spec.Manifest,
 		AgentID:         thread.Spec.AgentName,
 		WorkflowID:      thread.Spec.WorkflowName,
 		WebhookID:       thread.Spec.WebhookName,
@@ -58,6 +54,7 @@ func convertThread(thread v1.Thread) types.Thread {
 		Abort:           thread.Spec.Abort,
 		SystemTask:      thread.Spec.SystemTask,
 		Ephemeral:       thread.Spec.Ephemeral,
+		Project:         thread.Spec.Project,
 		Env:             thread.Spec.Env,
 	}
 }
@@ -216,7 +213,6 @@ func (a *ThreadHandler) Update(req api.Context) error {
 		id        = req.PathValue("id")
 		newThread types.ThreadManifest
 		existing  v1.Thread
-		agent     v1.Agent
 	)
 
 	if err := req.Get(&existing, id); err != nil {
@@ -227,23 +223,8 @@ func (a *ThreadHandler) Update(req api.Context) error {
 		return err
 	}
 
-	if existing.Spec.AgentName != "" {
-		if err := req.Get(&agent, existing.Spec.AgentName); err != nil {
-			return err
-		}
-		for _, newTool := range newThread.Tools {
-			if !slices.Contains(agent.Spec.Manifest.AvailableThreadTools, newTool) && !slices.Contains(agent.Spec.Manifest.DefaultThreadTools, newTool) {
-				return types.NewErrBadRequest("tool %s is not available for agent %s", newTool, agent.Name)
-			}
-		}
-		maxThreadTools := agent.Spec.Manifest.MaxThreadTools
-		if maxThreadTools == 0 {
-			maxThreadTools = DefaultMaxUserThreadTools
-		}
-		if len(newThread.Tools) > maxThreadTools {
-			return types.NewErrBadRequest("too many tools, max %d", maxThreadTools)
-		}
-	}
+	// Don't allow update of tools here, do it with the /tools endpoing
+	newThread.Tools = existing.Spec.Manifest.Tools
 
 	existing.Spec.Manifest = newThread
 	if err := req.Update(&existing); err != nil {

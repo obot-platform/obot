@@ -6,7 +6,9 @@ import (
 
 	"github.com/gptscript-ai/go-gptscript"
 	"github.com/obot-platform/nah/pkg/name"
+	"github.com/obot-platform/nah/pkg/randomtoken"
 	"github.com/obot-platform/nah/pkg/router"
+	"github.com/obot-platform/obot/pkg/api/handlers"
 	"github.com/obot-platform/obot/pkg/create"
 	"github.com/obot-platform/obot/pkg/projects"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
@@ -94,6 +96,90 @@ func (t *Handler) CreateWorkspaces(req router.Request, _ router.Response) error 
 	return nil
 }
 
+func (t *Handler) CreateFromTemplate(req router.Request, _ router.Response) (err error) {
+	thread := req.Object.(*v1.Thread)
+	if thread.Spec.ThreadTemplateName == "" ||
+		thread.Status.TemplateLoaded ||
+		len(thread.Status.KnowledgeSetNames) == 0 ||
+		thread.Status.WorkspaceName == "" ||
+		thread.Status.WorkspaceID == "" {
+		return nil
+	}
+
+	defer func() {
+		if err == nil {
+			thread.Status.TemplateLoaded = true
+			err = req.Client.Status().Update(req.Ctx, thread)
+		}
+	}()
+
+	tt := new(v1.ThreadTemplate)
+	if err := req.Get(tt, req.Namespace, thread.Spec.ThreadTemplateName); err != nil {
+		return err
+	}
+
+	if len(tt.Status.Tasks) == 0 {
+		return nil
+	}
+
+	agent := new(v1.Agent)
+	if err := req.Get(agent, req.Namespace, thread.Spec.AgentName); err != nil {
+		return err
+	}
+
+	var tasks v1.WorkflowList
+	if err := req.Client.List(req.Ctx, &tasks, kclient.InNamespace(req.Namespace), kclient.MatchingFields{
+		"spec.threadName": thread.Name,
+	}); err != nil {
+		return err
+	}
+
+	for _, taskToCreate := range tt.Status.Tasks {
+		var found bool
+		for _, existingTask := range tasks.Items {
+			if existingTask.Spec.Manifest.Name == taskToCreate.Name {
+				found = true
+				break
+			}
+		}
+
+		if found {
+			continue
+		}
+
+		manifest, err := handlers.ToWorkflowManifest(req.Ctx, req.Client, agent, thread, taskToCreate)
+		if err != nil {
+			return err
+		}
+
+		alias, err := randomtoken.Generate()
+		if err != nil {
+			return err
+		}
+		manifest.Alias = alias[:16]
+
+		task := v1.Workflow{
+			ObjectMeta: metav1.ObjectMeta{
+				GenerateName: system.WorkflowPrefix,
+				Namespace:    req.Namespace,
+			},
+			Spec: v1.WorkflowSpec{
+				ThreadName:          thread.Name,
+				Manifest:            manifest,
+				CredentialContextID: thread.Name,
+				KnowledgeSetNames:   thread.Status.KnowledgeSetNames,
+				WorkspaceName:       thread.Status.WorkspaceName,
+			},
+		}
+
+		if err := req.Client.Create(req.Ctx, &task); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 func (t *Handler) CreateKnowledgeSet(req router.Request, _ router.Response) error {
 	thread := req.Object.(*v1.Thread)
 	if len(thread.Status.KnowledgeSetNames) > 0 || thread.Spec.AgentName == "" {
@@ -114,6 +200,18 @@ func (t *Handler) CreateKnowledgeSet(req router.Request, _ router.Response) erro
 		return req.Client.Status().Update(req.Ctx, thread)
 	}
 
+	var cloneWorkspaceName string
+	if thread.Spec.ThreadTemplateName != "" {
+		tt := new(v1.ThreadTemplate)
+		if err := req.Get(tt, req.Namespace, thread.Spec.ThreadTemplateName); err != nil {
+			return err
+		}
+		if !tt.Status.Ready {
+			return nil
+		}
+		cloneWorkspaceName = tt.Status.KnowledgeWorkspaceName
+	}
+
 	ws := &v1.KnowledgeSet{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:       name.SafeConcatName(system.KnowledgeSetPrefix, thread.Name),
@@ -121,8 +219,9 @@ func (t *Handler) CreateKnowledgeSet(req router.Request, _ router.Response) erro
 			Finalizers: []string{v1.KnowledgeSetFinalizer},
 		},
 		Spec: v1.KnowledgeSetSpec{
-			ThreadName:         thread.Name,
-			TextEmbeddingModel: thread.Spec.TextEmbeddingModel,
+			ThreadName:             thread.Name,
+			TextEmbeddingModel:     thread.Spec.TextEmbeddingModel,
+			CloneFromWorkspaceName: cloneWorkspaceName,
 		},
 	}
 

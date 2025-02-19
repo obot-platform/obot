@@ -8,6 +8,7 @@ if (typeof window !== 'undefined') {
 
 interface GetOptions {
 	blob?: boolean;
+	dontLogErrors?: boolean;
 }
 
 export async function doGet(path: string, opts?: GetOptions): Promise<unknown> {
@@ -23,6 +24,9 @@ export async function doGet(path: string, opts?: GetOptions): Promise<unknown> {
 	if (!resp.ok) {
 		const body = await resp.text();
 		const e = new Error(`${resp.status} ${path}: ${body}`);
+		if (opts?.dontLogErrors) {
+			throw e;
+		}
 		errors.items.push(e);
 		throw e;
 	}
@@ -95,11 +99,7 @@ export async function doWithBody(
 		if (opts?.dontLogErrors) {
 			throw e;
 		}
-		if (e instanceof Error) {
-			errors.items.push(e);
-		} else {
-			errors.items.push(new Error(`${e}`));
-		}
+		errors.append(e);
 		throw e;
 	}
 }

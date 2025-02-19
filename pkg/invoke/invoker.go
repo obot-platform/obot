@@ -243,15 +243,15 @@ func CreateThreadForProject(ctx context.Context, c kclient.WithWatch, projectThr
 	return &thread, c.Create(ctx, &thread)
 }
 
-func CreateProjectForAgent(ctx context.Context, c kclient.WithWatch, agent *v1.Agent, name, userUID string) (*v1.Thread, error) {
-	return createThreadForAgent(ctx, c, agent, "", "", userUID, true, false, name)
+func CreateProjectForAgent(ctx context.Context, c kclient.WithWatch, agent *v1.Agent, template *v1.ThreadTemplate, name, userUID string) (*v1.Thread, error) {
+	return createThreadForAgent(ctx, c, agent, template, "", "", userUID, true, false, name)
 }
 
 func CreateThreadForAgent(ctx context.Context, c kclient.WithWatch, agent *v1.Agent, threadName, parentThreadName, userUID string, ephemeral bool) (*v1.Thread, error) {
-	return createThreadForAgent(ctx, c, agent, threadName, parentThreadName, userUID, false, ephemeral, "")
+	return createThreadForAgent(ctx, c, agent, nil, threadName, parentThreadName, userUID, false, ephemeral, "")
 }
 
-func createThreadForAgent(ctx context.Context, c kclient.WithWatch, agent *v1.Agent, threadName, parentThreadName, userUID string, project, ephemeral bool, projectName string) (*v1.Thread, error) {
+func createThreadForAgent(ctx context.Context, c kclient.WithWatch, agent *v1.Agent, template *v1.ThreadTemplate, threadName, parentThreadName, userUID string, project bool, ephemeral bool, projectName string) (*v1.Thread, error) {
 	var (
 		fromWorkspaceNames []string
 		err                error
@@ -281,8 +281,8 @@ func createThreadForAgent(ctx context.Context, c kclient.WithWatch, agent *v1.Ag
 		},
 		Spec: v1.ThreadSpec{
 			Manifest: types.ThreadManifest{
-				Tools:       agent.Spec.Manifest.DefaultThreadTools,
-				Description: projectName,
+				Tools: agent.Spec.Manifest.DefaultThreadTools,
+				Name:  projectName,
 			},
 			Ephemeral:          ephemeral,
 			AgentName:          agent.Name,
@@ -293,6 +293,17 @@ func createThreadForAgent(ctx context.Context, c kclient.WithWatch, agent *v1.Ag
 			TextEmbeddingModel: agentKnowledgeSet.Spec.TextEmbeddingModel,
 		},
 	}
+	if template != nil {
+		thread.Spec.Manifest = template.Status.Manifest
+		thread.Spec.ThreadTemplateName = template.Name
+		if template.Status.WorkspaceName != "" {
+			thread.Spec.FromWorkspaceNames = []string{template.Status.WorkspaceName}
+		}
+		if projectName != "" {
+			thread.Spec.Manifest.Name = projectName
+		}
+	}
+
 	return thread, c.Create(ctx, thread)
 }
 
@@ -308,6 +319,15 @@ func (i *Invoker) updateThreadFields(ctx context.Context, c kclient.WithWatch, a
 	return nil
 }
 
+func (i *Invoker) Thread(ctx context.Context, c kclient.WithWatch, thread *v1.Thread, input string, opt Options) (_ *Response, err error) {
+	var agent v1.Agent
+	if err := c.Get(ctx, router.Key(thread.Namespace, thread.Spec.AgentName), &agent); err != nil {
+		return nil, err
+	}
+	opt.ThreadName = thread.Name
+	return i.Agent(ctx, c, &agent, input, opt)
+}
+
 func (i *Invoker) Agent(ctx context.Context, c kclient.WithWatch, agent *v1.Agent, input string, opt Options) (*Response, error) {
 	thread, err := getThreadForAgent(ctx, c, agent, opt)
 	if err != nil {
@@ -320,7 +340,7 @@ func (i *Invoker) Agent(ctx context.Context, c kclient.WithWatch, agent *v1.Agen
 
 	credContextIDs := []string{thread.Name}
 	if thread.Spec.ParentThreadName != "" {
-		credContextIDs, err = projects.ParentThreadIDs(ctx, c, thread)
+		credContextIDs, err = projects.ThreadIDs(ctx, c, thread)
 		if err != nil {
 			return nil, err
 		}

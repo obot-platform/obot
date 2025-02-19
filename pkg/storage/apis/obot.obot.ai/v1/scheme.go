@@ -69,6 +69,10 @@ func AddToSchemeWithGV(scheme *runtime.Scheme, schemeGroupVersion schema.GroupVe
 		&DefaultModelAliasList{},
 		&Tool{},
 		&ToolList{},
+		&ThreadTemplate{},
+		&ThreadTemplateList{},
+		&ThreadTemplateAuthorization{},
+		&ThreadTemplateAuthorizationList{},
 	); err != nil {
 		return err
 	}

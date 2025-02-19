@@ -3,10 +3,11 @@ package types
 type Project struct {
 	Metadata
 	ProjectManifest
+	AssistantID string `json:"assistantID,omitempty"`
 }
 
 type ProjectManifest struct {
-	Name string `json:"name,omitempty"`
+	ThreadManifest
 }
 
 type ProjectList List[Project]

@@ -1,19 +1,15 @@
 package handlers
 
 import (
-	"crypto/sha256"
 	"errors"
-	"fmt"
 	"io"
 	"maps"
 	"net/http"
-	"regexp"
 	"slices"
 	"sort"
 	"strings"
 
 	"github.com/gptscript-ai/go-gptscript"
-	"github.com/obot-platform/nah/pkg/name"
 	"github.com/obot-platform/nah/pkg/router"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/alias"
@@ -23,6 +19,7 @@ import (
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/client-go/util/retry"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -52,37 +49,37 @@ func getAssistant(req api.Context, id string) (*v1.Agent, error) {
 
 func (a *AssistantHandler) Abort(req api.Context) error {
 	var (
-		id = req.PathValue("id")
+		thread v1.Thread
 	)
 
-	thread, err := getProjectThread(req, id)
-	if err != nil {
+	if err := req.Get(&thread, req.PathValue("thread_id")); err != nil {
 		return err
 	}
 
-	return abortThread(req, thread)
+	return abortThread(req, &thread)
 }
 
 func abortThread(req api.Context, thread *v1.Thread) error {
-	if !thread.Spec.Abort {
-		thread.Spec.Abort = true
-		if err := req.Update(thread); err != nil {
+	return retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		if err := req.Storage.Get(req.Context(), kclient.ObjectKeyFromObject(thread), thread); err != nil {
 			return err
 		}
-	}
-	return nil
+		if !thread.Spec.Abort {
+			thread.Spec.Abort = true
+			if err := req.Update(thread); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
 }
 
 func (a *AssistantHandler) Invoke(req api.Context) error {
-	id := req.PathValue("id")
+	var (
+		thread v1.Thread
+	)
 
-	agent, err := getAssistant(req, id)
-	if err != nil {
-		return err
-	}
-
-	thread, err := getProjectThread(req, id)
-	if err != nil {
+	if err := req.Get(&thread, req.PathValue("thread_id")); err != nil {
 		return err
 	}
 
@@ -91,9 +88,8 @@ func (a *AssistantHandler) Invoke(req api.Context) error {
 		return err
 	}
 
-	resp, err := a.invoker.Agent(req.Context(), req.Storage, agent, string(input), invoke.Options{
+	resp, err := a.invoker.Thread(req.Context(), req.Storage, &thread, string(input), invoke.Options{
 		GenerateName: system.ChatRunPrefix,
-		ThreadName:   thread.Name,
 		UserUID:      req.User.GetUID(),
 	})
 	if err != nil {
@@ -102,9 +98,9 @@ func (a *AssistantHandler) Invoke(req api.Context) error {
 	defer resp.Close()
 
 	req.ResponseWriter.Header().Set("X-Obot-Thread-Id", resp.Thread.Name)
-
 	return req.WriteCreated(map[string]string{
 		"threadID": resp.Thread.Name,
+		"runID":    resp.Run.Name,
 	})
 }
 
@@ -175,54 +171,24 @@ func convertAssistant(agent v1.Agent) types.Assistant {
 		IntroductionMessage: agent.Spec.Manifest.IntroductionMessage,
 		Icons:               icons,
 	}
-	if agent.Spec.Manifest.Alias != "" {
-		assistant.ID = agent.Spec.Manifest.Alias
+	if agent.Status.AliasAssigned {
+		assistant.Alias = agent.Spec.Manifest.Alias
 	}
 	return assistant
 }
 
-var validAgentID = regexp.MustCompile(`^[a-z][a-z0-9-]*[a-z0-9]$`)
-
-func normalizeAgentID(id string) string {
-	if !validAgentID.MatchString(id) {
-		return fmt.Sprintf("%x", sha256.Sum256([]byte(id)))[:12]
-	}
-	return id
-}
-
-func getDefaultProjectThreadName(req api.Context, agentID string) (*v1.Thread, error) {
-	id := req.User.GetUID()
-	if id == "" {
-		id = "none"
-	}
-	id = name.SafeConcatNameWithSeparatorAndLength(64, ".", system.ThreadPrefix,
-		normalizeAgentID(agentID), id)
-
-	var thread v1.Thread
-	if err := req.Get(&thread, id); kclient.IgnoreNotFound(err) != nil {
-		return nil, err
-	} else if err == nil {
-		return &thread, nil
-	}
-
-	agent, err := getAssistant(req, agentID)
-	if err != nil {
-		return nil, err
-	}
-
-	newThread, err := invoke.CreateThreadForAgent(req.Context(), req.Storage, agent, id, "", req.User.GetUID(), false)
-	if apierrors.IsAlreadyExists(err) {
-		return &thread, req.Get(&thread, id)
-	}
-	return newThread, err
-}
-
-func getProjectThread(req api.Context, agentID string) (*v1.Thread, error) {
+func getProjectThread(req api.Context) (*v1.Thread, error) {
 	var projectID = req.PathValue("project_id")
-	if projectID == "" || projectID == "default" {
-		return getDefaultProjectThreadName(req, agentID)
+	if projectID == "" {
+		return nil, types.NewErrNotFound("missing project id %s")
 	}
-	return nil, types.NewErrNotFound("project %s not found", projectID)
+	var thread v1.Thread
+	if err := req.Get(&thread, strings.Replace(projectID, system.ProjectPrefix, system.ThreadPrefix, 1)); apierrors.IsNotFound(err) {
+		return nil, types.NewErrNotFound("project %s not found", projectID)
+	} else if err != nil {
+		return nil, err
+	}
+	return &thread, nil
 }
 
 func (a *AssistantHandler) DeleteCredential(req api.Context) error {
@@ -265,12 +231,11 @@ func (a *AssistantHandler) ListCredentials(req api.Context) error {
 
 func (a *AssistantHandler) Events(req api.Context) error {
 	var (
-		id    = req.PathValue("id")
-		runID = req.Request.Header.Get("Last-Event-ID")
+		runID  = req.Request.Header.Get("Last-Event-ID")
+		thread v1.Thread
 	)
 
-	thread, err := getProjectThread(req, id)
-	if err != nil {
+	if err := req.Get(&thread, req.PathValue("thread_id")); err != nil {
 		return err
 	}
 
@@ -486,7 +451,7 @@ func (a *AssistantHandler) AddTool(req api.Context) (retErr error) {
 		return err
 	}
 
-	thread, err := getProjectThread(req, id)
+	thread, err := getProjectThread(req)
 	if err != nil {
 		return err
 	}
@@ -515,17 +480,25 @@ func (a *AssistantHandler) AddTool(req api.Context) (retErr error) {
 		return types.NewErrBadRequest("tool %s is not available", tool)
 	}
 
+	maxTools := DefaultMaxUserThreadTools
+	if agent.Spec.Manifest.MaxThreadTools > 0 {
+		maxTools = agent.Spec.Manifest.MaxThreadTools
+	}
+
+	if len(thread.Spec.Manifest.Tools) >= maxTools {
+		return types.NewErrBadRequest("maximum number of tools (%d) reached", maxTools)
+	}
+
 	thread.Spec.Manifest.Tools = append(thread.Spec.Manifest.Tools, tool)
 	return req.Update(thread)
 }
 
 func (a *AssistantHandler) DeleteTool(req api.Context) error {
 	var (
-		id     = req.PathValue("assistant_id")
 		toolID = req.PathValue("tool")
 	)
 
-	thread, err := getProjectThread(req, id)
+	thread, err := getProjectThread(req)
 	if err != nil {
 		return err
 	}
@@ -557,11 +530,10 @@ func (a *AssistantHandler) DeleteTool(req api.Context) error {
 
 func (a *AssistantHandler) RemoveTool(req api.Context) error {
 	var (
-		id   = req.PathValue("assistant_id")
 		tool = req.PathValue("tool")
 	)
 
-	thread, err := getProjectThread(req, id)
+	thread, err := getProjectThread(req)
 	if err != nil {
 		return err
 	}
@@ -580,6 +552,59 @@ func (a *AssistantHandler) RemoveTool(req api.Context) error {
 	return a.Tools(req)
 }
 
+func (a *AssistantHandler) SetTools(req api.Context) error {
+	var (
+		tools    types.AssistantToolList
+		agent    v1.Agent
+		toolList []string
+	)
+
+	thread, err := getThreadForScope(req)
+	if err != nil {
+		return err
+	}
+
+	if err := req.Get(&agent, thread.Spec.AgentName); err != nil {
+		return err
+	}
+
+	if err := req.Read(&tools); err != nil {
+		return err
+	}
+
+	for _, tool := range tools.Items {
+		if tool.Enabled && !tool.Builtin {
+			toolList = append(toolList, tool.ID)
+		}
+	}
+
+	if slices.Equal(thread.Spec.Manifest.Tools, toolList) {
+		return a.Tools(req)
+	}
+
+	for _, tool := range toolList {
+		if !slices.Contains(agent.Spec.Manifest.DefaultThreadTools, tool) && !slices.Contains(agent.Spec.Manifest.AvailableThreadTools, tool) {
+			return types.NewErrBadRequest("tool %s is not available for this agent", tool)
+		}
+	}
+
+	maxThreadTools := DefaultMaxUserThreadTools
+	if agent.Spec.Manifest.MaxThreadTools > 0 {
+		maxThreadTools = agent.Spec.Manifest.MaxThreadTools
+	}
+
+	if len(toolList) > maxThreadTools {
+		return types.NewErrBadRequest("too many tools for this agent")
+	}
+
+	thread.Spec.Manifest.Tools = toolList
+	if err := req.Update(thread); err != nil {
+		return err
+	}
+
+	return a.Tools(req)
+}
+
 func (a *AssistantHandler) Tools(req api.Context) error {
 	var (
 		id = req.PathValue("assistant_id")
@@ -590,7 +615,7 @@ func (a *AssistantHandler) Tools(req api.Context) error {
 		return err
 	}
 
-	thread, err := getProjectThread(req, id)
+	thread, err := getProjectThread(req)
 	if err != nil {
 		return err
 	}

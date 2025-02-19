@@ -29,11 +29,12 @@ func Router(services *services.Services) (http.Handler, error) {
 	modelProviders := handlers.NewModelProviderHandler(services.GPTClient, services.ProviderDispatcher, services.Invoker)
 	authProviders := handlers.NewAuthProviderHandler(services.GPTClient, services.ProviderDispatcher)
 	prompt := handlers.NewPromptHandler(services.GPTClient)
-	emailreceiver := handlers.NewEmailReceiverHandler(services.EmailServerName)
+	emailReceiver := handlers.NewEmailReceiverHandler(services.EmailServerName)
 	defaultModelAliases := handlers.NewDefaultModelAliasHandler()
 	version := handlers.NewVersionHandler(services.EmailServerName, services.SupportDocker, services.AuthEnabled)
 	tables := handlers.NewTableHandler(services.GPTClient)
-	projects := handlers.NewProjectsHandler(services.Router.Backend())
+	projects := handlers.NewProjectsHandler(services.Router.Backend(), services.Invoker, services.GPTClient)
+	templates := handlers.NewTemplateHandler(services.Router.Backend())
 
 	sendgridWebhookHandler := sendgrid.NewInboundWebhookHandler(services.StorageClient, services.EmailServerName, services.SendgridWebhookUsername, services.SendgridWebhookPassword)
 
@@ -62,19 +63,29 @@ func Router(services *services.Services) (http.Handler, error) {
 	mux.HandleFunc("POST /api/agents/{id}/authorizations/add", auths.AddAgentAuthorization)
 	mux.HandleFunc("POST /api/agents/{id}/authorizations/remove", auths.RemoveAgentAuthorization)
 
+	// Templates
+	mux.HandleFunc("GET /api/templates", templates.ListTemplates)
+	mux.HandleFunc("GET /api/templates/{id}", templates.GetTemplate)
+
+	// Projects
+	mux.HandleFunc("GET /api/projects", projects.ListProjects)
+
 	// Assistants
 	mux.HandleFunc("GET /api/assistants", assistants.List)
 	mux.HandleFunc("GET /api/assistants/{id}", assistants.Get)
-	mux.HandleFunc("GET /api/assistants/{assistant_id}/projects/{project_id}/credentials", assistants.ListCredentials)
+	mux.HandleFunc("GET /api/assistants/{assistant_id}/projects/{project_id}/credentials", projects.ListCredentials)
 	mux.HandleFunc("DELETE /api/assistants/{assistant_id}/projects/{project_id}/credentials/{cred_id}", assistants.DeleteCredential)
-	mux.HandleFunc("GET /api/assistants/{id}/projects/{project_id}/events", assistants.Events)
-	mux.HandleFunc("POST /api/assistants/{id}/projects/{project_id}/abort", assistants.Abort)
-	mux.HandleFunc("POST /api/assistants/{id}/projects/{project_id}/invoke", assistants.Invoke)
+	mux.HandleFunc("GET /api/assistants/{id}/projects/{project_id}/threads/{thread_id}/events", assistants.Events)
+	mux.HandleFunc("POST /api/assistants/{id}/projects/{project_id}/threads/{thread_id}/abort", assistants.Abort)
+	mux.HandleFunc("POST /api/assistants/{id}/projects/{project_id}/threads/{thread_id}/invoke", assistants.Invoke)
 	// Assistant tools
 	mux.HandleFunc("GET /api/assistants/{assistant_id}/projects/{project_id}/tools", assistants.Tools)
 	mux.HandleFunc("DELETE /api/assistants/{assistant_id}/projects/{project_id}/tools/{tool}", assistants.RemoveTool)
 	mux.HandleFunc("DELETE /api/assistants/{assistant_id}/projects/{project_id}/tools/{tool}/custom", assistants.DeleteTool)
+	mux.HandleFunc("GET /api/assistants/{assistant_id}/projects/{project_id}/tools/{tools}/authenticate", projects.Authenticate)
+	mux.HandleFunc("DELETE /api/assistants/{assistant_id}/projects/{project_id}/tools/{tools}/deauthenticate", projects.DeAuthenticate)
 	mux.HandleFunc("PUT /api/assistants/{assistant_id}/projects/{project_id}/tools/{tool}", assistants.AddTool)
+	mux.HandleFunc("PUT /api/assistants/{assistant_id}/projects/{project_id}/tools", assistants.SetTools)
 	// Assistant files
 	mux.HandleFunc("GET /api/assistants/{assistant_id}/projects/{project_id}/files", assistants.Files)
 	mux.HandleFunc("GET /api/assistants/{assistant_id}/projects/{project_id}/file/{file...}", assistants.GetFile)
@@ -133,12 +144,27 @@ func Router(services *services.Services) (http.Handler, error) {
 	// Projects
 	mux.HandleFunc("GET /api/assistants/{assistant_id}/projects", projects.ListProjects)
 	mux.HandleFunc("POST /api/assistants/{assistant_id}/projects", projects.CreateProject)
+	mux.HandleFunc("GET /api/assistants/{assistant_id}/projects/{project_id}", projects.GetProject)
+	mux.HandleFunc("GET /api/assistants/{assistant_id}/projects/{project_id}/authorizations", projects.ListAuthorizations)
+	mux.HandleFunc("PUT /api/assistants/{assistant_id}/projects/{project_id}/authorizations", projects.UpdateAuthorizations)
+	mux.HandleFunc("GET /api/assistants/{assistant_id}/pending-authorizations", projects.ListPendingAuthorizations)
+	mux.HandleFunc("PUT /api/assistants/{assistant_id}/pending-authorizations/{project_id}", projects.AcceptPendingAuthorization)
+	mux.HandleFunc("DELETE /api/assistants/{assistant_id}/pending-authorizations/{project_id}", projects.RejectPendingAuthorization)
+	mux.HandleFunc("PUT /api/assistants/{assistant_id}/projects/{project_id}", projects.UpdateProject)
 	mux.HandleFunc("DELETE /api/assistants/{assistant_id}/projects/{project_id}", projects.DeleteProject)
 
 	// Project Threads
 	mux.HandleFunc("GET /api/assistants/{assistant_id}/projects/{project_id}/threads", projects.ListProjectThreads)
 	mux.HandleFunc("POST /api/assistants/{assistant_id}/projects/{project_id}/threads", projects.CreateProjectThread)
 	mux.HandleFunc("DELETE /api/assistants/{assistant_id}/projects/{project_id}/threads/{thread_id}", projects.DeleteProjectThread)
+	mux.HandleFunc("PUT /api/assistants/{assistant_id}/projects/{project_id}/threads/{id}", threads.Update)
+
+	// Project Templates
+	mux.HandleFunc("GET /api/assistants/{assistant_id}/projects/{project_id}/templates", projects.ListTemplates)
+	mux.HandleFunc("POST /api/assistants/{assistant_id}/projects/{project_id}/templates", projects.CreateTemplate)
+	mux.HandleFunc("GET /api/assistants/{assistant_id}/projects/{project_id}/templates/{id}", projects.GetTemplate)
+	mux.HandleFunc("DELETE /api/assistants/{assistant_id}/projects/{project_id}/templates/{id}", projects.DeleteTemplate)
+	mux.HandleFunc("POST /api/templates/{template_id}/projects", projects.CreateProject)
 
 	// Tables
 	mux.HandleFunc("GET /api/assistants/{assistant_id}/projects/{project_id}/tables", tables.ListTables)
@@ -287,15 +313,15 @@ func Router(services *services.Services) (http.Handler, error) {
 	mux.HandleFunc("POST /api/sendgrid", sendgridWebhookHandler.InboundWebhookHandler)
 
 	// Email Receivers
-	mux.HandleFunc("POST /api/email-receivers", emailreceiver.Create)
-	mux.HandleFunc("GET /api/email-receivers", emailreceiver.List)
-	mux.HandleFunc("GET /api/email-receivers/{id}", emailreceiver.ByID)
-	mux.HandleFunc("DELETE /api/email-receivers/{id}", emailreceiver.Delete)
-	mux.HandleFunc("PUT /api/email-receivers/{id}", emailreceiver.Update)
+	mux.HandleFunc("POST /api/email-receivers", emailReceiver.Create)
+	mux.HandleFunc("GET /api/email-receivers", emailReceiver.List)
+	mux.HandleFunc("GET /api/email-receivers/{id}", emailReceiver.ByID)
+	mux.HandleFunc("DELETE /api/email-receivers/{id}", emailReceiver.Delete)
+	mux.HandleFunc("PUT /api/email-receivers/{id}", emailReceiver.Update)
 
 	// Email Receivers for generic create
-	mux.HandleFunc("POST /api/emailreceivers", emailreceiver.Create)
-	mux.HandleFunc("GET /api/emailreceivers/{id}", emailreceiver.ByID)
+	mux.HandleFunc("POST /api/emailreceivers", emailReceiver.Create)
+	mux.HandleFunc("GET /api/emailreceivers/{id}", emailReceiver.ByID)
 
 	// CronJobs
 	mux.HandleFunc("POST /api/cronjobs", cronJobs.Create)

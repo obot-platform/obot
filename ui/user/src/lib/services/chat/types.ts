@@ -14,6 +14,7 @@ export interface Progress {
 	workflowCall?: WorkflowCall;
 	waitingOnModel?: boolean;
 	error?: string;
+	threadID?: string;
 	runComplete?: boolean;
 	replayComplete?: boolean;
 }
@@ -179,11 +180,12 @@ export interface AssistantIcons {
 
 export interface Assistant {
 	id: string;
+	alias?: string;
 	default?: boolean;
 	name?: string;
 	description?: string;
 	current?: boolean;
-	icons: AssistantIcons;
+	icons?: AssistantIcons;
 	starterMessages?: string[];
 	introductionMessage?: string;
 }
@@ -276,8 +278,81 @@ export interface Rows {
 	rows: Record<string, unknown>[];
 }
 
-export interface Context {
-	assistantID: string;
-	projectID: string;
-	valid?: boolean;
+export interface Thread {
+	id: string;
+	created: string;
+	name: string;
+}
+
+export interface ThreadList {
+	items: Thread[];
+}
+
+export interface Project {
+	id: string;
+	assistantID?: string;
+	created: string;
+	name: string;
+	description?: string;
+	icons?: AssistantIcons;
+	starterMessages?: string[];
+	introductionMessage?: string;
+	prompt?: string;
+	locked?: boolean;
+}
+
+export interface ProjectList {
+	items: Project[];
+}
+
+export interface ProjectTemplate {
+	id: string;
+	created: string;
+	name: string;
+	description?: string;
+	icons?: AssistantIcons;
+	assistantID?: string;
+	starterMessages?: string[];
+	introductionMessage?: string;
+	prompt?: string;
+	tasks?: Task[];
+	ready?: boolean;
+	publicID?: string;
+}
+
+export interface ProjectTemplateList {
+	items: ProjectTemplate[];
+}
+
+export interface ProjectAuthorization {
+	project?: Project;
+	target: string;
+	accepted?: boolean;
+}
+
+export interface ProjectAuthorizationList {
+	items: ProjectAuthorization[];
+}
+
+export interface ProjectCredential {
+	toolID: string;
+	icon?: string;
+	toolName?: string;
+	exists?: boolean;
+}
+
+export interface ProjectCredentialList {
+	items: ProjectCredential[];
+}
+
+export interface AuthProvider {
+	configured: boolean;
+	icon?: string;
+	name: string;
+	namespace: string;
+	id: string;
+}
+
+export interface AuthProviderList {
+	items: AuthProvider[];
 }

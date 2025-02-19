@@ -58,6 +58,7 @@ var _ fields.Fields = (*Workspace)(nil)
 func (in *Workspace) DeleteRefs() []Ref {
 	return []Ref{
 		{ObjType: new(Thread), Name: in.Spec.ThreadName},
+		{ObjType: new(ThreadTemplate), Name: in.Spec.ThreadTemplateName},
 		{ObjType: new(Agent), Name: in.Spec.AgentName},
 		{ObjType: new(Workflow), Name: in.Spec.WorkflowName},
 		{ObjType: new(KnowledgeSet), Name: in.Spec.KnowledgeSetName},
@@ -68,6 +69,7 @@ func (in *Workspace) DeleteRefs() []Ref {
 type WorkspaceSpec struct {
 	AgentName           string   `json:"agentName,omitempty"`
 	WorkflowName        string   `json:"workflowName,omitempty"`
+	ThreadTemplateName  string   `json:"threadTemplateName,omitempty"`
 	ThreadName          string   `json:"threadName,omitempty"`
 	KnowledgeSetName    string   `json:"knowledgeSetName,omitempty"`
 	KnowledgeSourceName string   `json:"knowledgeSourceName,omitempty"`

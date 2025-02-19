@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Maximize, X, Download, Columns2 } from 'lucide-svelte';
+	import { X, Download } from 'lucide-svelte';
 	import { EditorService } from '$lib/services';
 	import { term } from '$lib/stores';
 
@@ -7,7 +7,6 @@
 		navBar?: boolean;
 	}
 
-	let editorMaxSize = EditorService.maxSize;
 	let { navBar = false }: Props = $props();
 
 	let show = $derived(navBar || EditorService.items.length <= 1);
@@ -19,25 +18,6 @@
 
 {#if show}
 	<div class="flex">
-		{#if $editorMaxSize}
-			<button
-				class="icon-button hidden md:block"
-				onclick={() => {
-					editorMaxSize.set(false);
-				}}
-			>
-				<Columns2 class="h-5 w-5" />
-			</button>
-		{:else}
-			<button
-				class="icon-button hidden md:block"
-				onclick={() => {
-					editorMaxSize.set(true);
-				}}
-			>
-				<Maximize class="h-5 w-5" />
-			</button>
-		{/if}
 		{#if downloadable}
 			<button
 				class="icon-button"
@@ -57,8 +37,7 @@
 		<button
 			class="icon-button"
 			onclick={() => {
-				EditorService.maxSize.set(false);
-				EditorService.visible.set(false);
+				EditorService.setVisible(false);
 				term.open = false;
 			}}
 		>

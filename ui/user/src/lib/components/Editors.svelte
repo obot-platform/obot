@@ -13,7 +13,7 @@
 	import { term } from '$lib/stores';
 	import Tool from '$lib/components/tool/Tool.svelte';
 
-	const editorVisible = EditorService.visible;
+	let editorVisible = $derived(EditorService.isVisible());
 
 	function onFileChanged(name: string, contents: string) {
 		for (const item of EditorService.items) {
@@ -30,19 +30,19 @@
 </script>
 
 <div class="flex h-full flex-col">
-	{#if $editorVisible}
+	{#if editorVisible}
 		{#if EditorService.items.length > 1 || (!EditorService.items[0].task && !EditorService.items[0].table && !EditorService.items[0].generic)}
-			<div class="flex rounded-3xl border-gray-100 pt-2">
-				<ul class="flex flex-1 flex-wrap text-center text-sm">
+			<div class="-mx-5 -mt-3 flex border-b-2 border-surface2 px-2 pb-2">
+				<ul class="flex flex-1 flex-wrap gap-2 text-center text-sm">
 					{#each EditorService.items as item}
-						<li class="pb-2 pl-2">
+						<li>
 							<div
 								role="none"
 								class:selected={item.selected}
 								onclick={() => {
 									EditorService.select(item.id);
 								}}
-								class="active group flex rounded-3xl bg-gray-70 px-4 py-3 text-black dark:bg-gray-950 dark:text-gray-50"
+								class="colors-surface1 group flex rounded-3xl px-4 py-3"
 							>
 								<div class="flex flex-1 items-center gap-2 ps-2">
 									{#if item.table}
@@ -103,12 +103,9 @@
 		{/each}
 	{/if}
 	{#if term.open}
-		{#if !$editorVisible}
-			<div class="self-end">
-				<Controls />
-			</div>
-		{/if}
-		<div class="p-5 {$editorVisible ? 'h-1/2' : 'h-full'}">
+		<div
+			class={editorVisible ? '-mx-5 -mb-3 h-1/2 border-t-4 border-surface1 px-2 pt-2' : 'h-full'}
+		>
 			<Terminal />
 		</div>
 	{/if}
@@ -116,6 +113,6 @@
 
 <style lang="postcss">
 	.selected {
-		@apply bg-blue text-white shadow-md;
+		@apply bg-blue text-white;
 	}
 </style>

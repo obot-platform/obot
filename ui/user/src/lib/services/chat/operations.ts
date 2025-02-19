@@ -1,6 +1,8 @@
-import context from '$lib/stores/context';
+import context from '$lib/stores/context.svelte';
 import { baseURL, doDelete, doGet, doPost, doPut } from './http';
 import {
+	type AuthProvider,
+	type AuthProviderList,
 	type AssistantToolList,
 	type AssistantTool,
 	type Assistant,
@@ -15,17 +17,29 @@ import {
 	type TaskList,
 	type TaskRun,
 	type TaskRunList,
+	type Thread,
+	type ThreadList,
 	type Version,
 	type TableList,
-	type Rows
+	type Rows,
+	type ProjectList,
+	type Project,
+	type ProjectAuthorizationList,
+	type ProjectCredentialList,
+	type ProjectTemplate,
+	type ProjectTemplateList
 } from './types';
 
 function assistantID(): string {
-	return context.getContext().assistantID;
+	return context.assistantID;
 }
 
 function projectID(): string {
-	return context.getContext().projectID;
+	return context.projectID;
+}
+
+function currentThreadID(): string | undefined {
+	return context.currentThreadID;
 }
 
 export async function getProfile(): Promise<Profile> {
@@ -155,9 +169,10 @@ function removedDeleted<V extends Deleted, T extends DeletedItems<V>>(items: T):
 	return items;
 }
 
-export async function listKnowledgeFiles(): Promise<KnowledgeFiles> {
+export async function listKnowledgeFiles(opts?: { projectID?: string }): Promise<KnowledgeFiles> {
+	const p = opts?.projectID ?? projectID();
 	const files = (await doGet(
-		`/assistants/${assistantID()}/projects/${projectID()}/knowledge`
+		`/assistants/${assistantID()}/projects/${p}/knowledge`
 	)) as KnowledgeFiles;
 	if (!files.items) {
 		files.items = [];
@@ -199,17 +214,23 @@ function cleanInvokeInput(input: string | InvokeInput): InvokeInput | string {
 
 export async function invoke(msg: string | InvokeInput) {
 	msg = cleanInvokeInput(msg);
-	await doPost(`/assistants/${assistantID()}/projects/${projectID()}/invoke`, msg);
+	await doPost(
+		`/assistants/${assistantID()}/projects/${projectID()}/threads/${currentThreadID()}/invoke`,
+		msg
+	);
 }
 
-export async function abort(opts?: { taskID?: string; runID?: string }) {
+export async function abort(opts?: { threadID?: string; taskID?: string; runID?: string }) {
 	if (opts?.taskID && opts?.runID) {
 		return await doPost(
 			`/assistants/${assistantID()}/projects/${projectID()}/tasks/${opts.taskID}/runs/${opts.runID}/abort`,
 			{}
 		);
 	}
-	await doPost(`/assistants/${assistantID()}/projects/${projectID()}/abort`, {});
+	await doPost(
+		`/assistants/${assistantID()}/projects/${projectID()}/threads/${opts?.threadID}/abort`,
+		{}
+	);
 }
 
 export async function listCredentials(): Promise<CredentialList> {
@@ -362,12 +383,214 @@ export async function runTask(
 	return (await doPost(url, opts?.input ?? {})) as TaskRun;
 }
 
+export async function deleteThread(threadID: string) {
+	return doDelete(`/assistants/${assistantID()}/projects/${projectID()}/threads/${threadID}`);
+}
+
+export async function updateThread(thread: Thread): Promise<Thread> {
+	return (await doPut(
+		`/assistants/${assistantID()}/projects/${projectID()}/threads/${thread.id}`,
+		thread
+	)) as Thread;
+}
+
+export async function deleteProjectTemplate(projectID: string, projectTemplateID: string) {
+	return doDelete(
+		`/assistants/${assistantID()}/projects/${projectID}/templates/${projectTemplateID}`
+	);
+}
+
+export async function listProjectTemplates(opts?: {
+	projectID?: string;
+}): Promise<ProjectTemplateList> {
+	let url = '/templates';
+	if (opts?.projectID) {
+		url = `/assistants/${assistantID()}/projects/${opts.projectID}/templates`;
+	}
+	const list = (await doGet(url)) as ProjectTemplateList;
+	if (!list.items) {
+		list.items = [];
+	}
+	return list;
+}
+
+export async function getPublicTemplate(templateID: string): Promise<ProjectTemplate | undefined> {
+	try {
+		return (await doGet(`/templates/${templateID}`, {
+			dontLogErrors: true
+		})) as ProjectTemplate;
+	} catch (e) {
+		if ((e as Error).message.includes('404')) {
+			return;
+		}
+		throw e;
+	}
+}
+
+export async function getProjectTemplate(
+	projectID: string,
+	projectTemplateID: string
+): Promise<ProjectTemplate> {
+	return (await doGet(
+		`/assistants/${assistantID()}/projects/${projectID}/templates/${projectTemplateID}`
+	)) as ProjectTemplate;
+}
+
+export async function createProjectTemplate(
+	projectID: string,
+	opts?: {
+		shareCredentials?: boolean;
+	}
+): Promise<ProjectTemplate> {
+	return (await doPost(
+		`/assistants/${assistantID()}/projects/${projectID}/templates`,
+		opts ?? {}
+	)) as ProjectTemplate;
+}
+
+export async function createThread(): Promise<Thread> {
+	return (await doPost(
+		`/assistants/${assistantID()}/projects/${projectID()}/threads`,
+		{}
+	)) as Thread;
+}
+
+export async function listThreads(): Promise<ThreadList> {
+	const list = (await doGet(
+		`/assistants/${assistantID()}/projects/${projectID()}/threads`
+	)) as ThreadList;
+	if (!list.items) {
+		list.items = [];
+	}
+	list.items.sort((a, b) => {
+		return b.created.localeCompare(a.created);
+	});
+	return list;
+}
+
+export async function acceptPendingAuthorization(projectID: string) {
+	return doPut(`/assistants/${assistantID()}/pending-authorizations/${projectID}`, {});
+}
+
+export async function rejectPendingAuthorization(projectID: string) {
+	return doDelete(`/assistants/${assistantID()}/pending-authorizations/${projectID}`);
+}
+
+export async function listPendingAuthorizations(): Promise<ProjectAuthorizationList> {
+	const list = (await doGet(
+		`/assistants/${assistantID()}/pending-authorizations`
+	)) as ProjectAuthorizationList;
+	if (!list.items) {
+		list.items = [];
+	}
+	return list;
+}
+
+export async function updateProjectTools(
+	projectID: string,
+	tools: AssistantToolList
+): Promise<AssistantToolList> {
+	const list = (await doPut(
+		`/assistants/${assistantID()}/projects/${projectID}/tools`,
+		tools
+	)) as AssistantToolList;
+	if (!list.items) {
+		list.items = [];
+	}
+	return list;
+}
+
+export async function updateProjectAuthorizations(
+	projectID: string,
+	authorizations: ProjectAuthorizationList
+): Promise<ProjectAuthorizationList> {
+	const list = (await doPut(
+		`/assistants/${assistantID()}/projects/${projectID}/authorizations`,
+		authorizations
+	)) as ProjectAuthorizationList;
+	if (!list.items) {
+		list.items = [];
+	}
+	return list;
+}
+
+export async function listProjectCredentials(projectID: string): Promise<ProjectCredentialList> {
+	const list = (await doGet(
+		`/assistants/${assistantID()}/projects/${projectID}/credentials`
+	)) as ProjectCredentialList;
+	if (!list.items) {
+		list.items = [];
+	}
+	return list;
+}
+
+export async function listProjectAuthorizations(id: string): Promise<ProjectAuthorizationList> {
+	const list = (await doGet(
+		`/assistants/${assistantID()}/projects/${id}/authorizations`
+	)) as ProjectAuthorizationList;
+	if (!list.items) {
+		list.items = [];
+	}
+	return list;
+}
+
+export async function deleteProjectCredential(toolID: string) {
+	return doDelete(
+		`/assistants/${assistantID()}/projects/${projectID()}/tools/${toolID}/deauthenticate`
+	);
+}
+
+export async function createProjectFromTemplate(
+	template: ProjectTemplate,
+	opts?: {
+		name?: string;
+	}
+): Promise<Project> {
+	return (await doPost(`/templates/${template.id}/projects`, opts ?? {})) as Project;
+}
+
+export async function createProject(opts?: { name: string; default?: boolean }): Promise<Project> {
+	return (await doPost(`/assistants/${assistantID()}/projects`, opts ?? {})) as Project;
+}
+
+export async function getProject(id: string): Promise<Project> {
+	return (await doGet(`/assistants/${assistantID()}/projects/${id}`)) as Project;
+}
+
+export async function deleteProject(id: string) {
+	return doDelete(`/assistants/${assistantID()}/projects/${id}`);
+}
+
+export async function updateProject(project: Project): Promise<Project> {
+	return (await doPut(`/assistants/${assistantID()}/projects/${project.id}`, project)) as Project;
+}
+
+export async function listProjects(opts?: { assistantID?: string }): Promise<ProjectList> {
+	let url = '/projects';
+	if (opts?.assistantID) {
+		url = `/assistants/${opts.assistantID}/projects`;
+	}
+	const list = (await doGet(url)) as ProjectList;
+	if (!list.items) {
+		list.items = [];
+	}
+	return list;
+}
+
 export function newMessageEventSource(opts?: {
+	authenticate?: {
+		tools?: string[];
+	};
+	threadID?: string;
 	task?: {
 		id: string;
 	};
 	runID?: string;
 }): EventSource {
+	if (opts?.authenticate?.tools) {
+		const url = `/assistants/${assistantID()}/projects/${projectID()}/tools/${opts.authenticate.tools.join(',')}/authenticate`;
+		return new EventSource(baseURL + url);
+	}
 	if (opts?.task) {
 		let url = `/assistants/${assistantID()}/projects/${projectID()}/tasks/${opts.task.id}/events`;
 		if (opts.runID) {
@@ -375,7 +598,10 @@ export function newMessageEventSource(opts?: {
 		}
 		return new EventSource(baseURL + `${url}`);
 	}
-	return new EventSource(baseURL + `/assistants/${assistantID()}/projects/${projectID()}/events`);
+	return new EventSource(
+		baseURL +
+			`/assistants/${assistantID()}/projects/${projectID()}/threads/${opts?.threadID}/events`
+	);
 }
 
 export async function listTasks(): Promise<TaskList> {
@@ -437,4 +663,12 @@ export async function getRows(table: string) {
 
 export async function sendCredentials(id: string, credentials: Record<string, string>) {
 	return await doPost('/prompt', { id, response: credentials });
+}
+
+export async function listAuthProviders(): Promise<AuthProvider[]> {
+	const list = (await doGet('/auth-providers')) as AuthProviderList;
+	if (!list.items) {
+		list.items = [];
+	}
+	return list.items.filter((provider) => provider.configured);
 }

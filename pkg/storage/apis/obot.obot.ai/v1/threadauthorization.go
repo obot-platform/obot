@@ -2,6 +2,7 @@ package v1
 
 import (
 	"slices"
+	"strconv"
 
 	"github.com/obot-platform/nah/pkg/fields"
 	"github.com/obot-platform/obot/apiclient/types"
@@ -42,16 +43,19 @@ func (in *ThreadAuthorization) Get(field string) (value string) {
 		return in.Spec.UserID
 	case "spec.threadID":
 		return in.Spec.ThreadID
+	case "spec.accepted":
+		return strconv.FormatBool(in.Spec.Accepted)
 	}
 	return ""
 }
 
 func (in *ThreadAuthorization) FieldNames() []string {
-	return []string{"spec.userID", "spec.threadID"}
+	return []string{"spec.userID", "spec.threadID", "spec.accepted"}
 }
 
 type ThreadAuthorizationSpec struct {
 	types.ThreadAuthorizationManifest
+	Accepted bool `json:"accepted,omitempty"`
 }
 
 type ThreadAuthorizationStatus struct {

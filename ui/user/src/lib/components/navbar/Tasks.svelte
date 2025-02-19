@@ -62,10 +62,7 @@
 			</ul>
 		{/if}
 		<div class="flex justify-end">
-			<button
-				onclick={newTask}
-				class="-mb-3 -mr-3 mt-3 flex items-center justify-end gap-2 rounded-3xl p-3 px-4 hover:bg-gray-500 hover:text-white"
-			>
+			<button onclick={newTask} class="button -mb-3 -mr-3 mt-3 flex items-center justify-end gap-2">
 				Add Task
 				<Plus class="ms-1 h-5 w-5" />
 			</button>

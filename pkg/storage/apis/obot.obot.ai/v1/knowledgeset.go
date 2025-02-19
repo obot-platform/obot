@@ -25,6 +25,9 @@ type KnowledgeSetSpec struct {
 	ThreadName string `json:"threadName,omitempty"`
 	// TextEmbeddingModel is set when the model is predetermined on creation. For example, agent threads.
 	TextEmbeddingModel string `json:"textEmbeddingModel,omitempty"`
+
+	// CloneFromWorkspaceName is the name of the workspace that will be copied to this knowledge set
+	CloneFromWorkspaceName string `json:"cloneFromWorkspaceName,omitempty"`
 }
 
 func (in *KnowledgeSet) GetColumns() [][]string {

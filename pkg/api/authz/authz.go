@@ -110,7 +110,11 @@ func (a *Authorizer) Authorize(req *http.Request, user user.Info) bool {
 		return true
 	}
 
-	return a.authorizeAssistant(req, user)
+	if a.authorizeAssistant(req, user) {
+		return true
+	}
+
+	return authorizeUI(req, user)
 }
 
 type rule struct {

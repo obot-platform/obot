@@ -34,12 +34,19 @@ type Thread struct {
 	Abort           bool     `json:"abort,omitempty"`
 	SystemTask      bool     `json:"systemTask,omitempty"`
 	Ephemeral       bool     `json:"ephemeral,omitempty"`
+	Project         bool     `json:"project,omitempty"`
 	Env             []string `json:"env,omitempty"`
 }
 
 type ThreadList List[Thread]
 
 type ThreadManifest struct {
-	Tools       []string `json:"tools,omitempty"`
-	Description string   `json:"description,omitempty"`
+	Name                 string      `json:"name"`
+	Tools                []string    `json:"tools,omitempty"`
+	Description          string      `json:"description,omitempty"`
+	Icons                *AgentIcons `json:"icons"`
+	Prompt               string      `json:"prompt"`
+	KnowledgeDescription string      `json:"knowledgeDescription"`
+	IntroductionMessage  string      `json:"introductionMessage"`
+	StarterMessages      []string    `json:"starterMessages"`
 }

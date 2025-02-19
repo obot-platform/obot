@@ -6,6 +6,7 @@ type Assistant struct {
 	Default             bool       `json:"default"`
 	Description         string     `json:"description"`
 	Icons               AgentIcons `json:"icons"`
+	Alias               string     `json:"alias,omitempty"`
 	IntroductionMessage string     `json:"introductionMessage"`
 	StarterMessages     []string   `json:"starterMessages"`
 	EntityID            string     `json:"entityID"`

@@ -56,6 +56,8 @@ func (in *Thread) GetColumns() [][]string {
 
 type ThreadSpec struct {
 	Manifest types.ThreadManifest `json:"manifest,omitempty"`
+	// ThreadTemplateName is the thread template that will be used to create this thread (for the knowledge and file workspaces)
+	ThreadTemplateName string `json:"threadTemplateName,omitempty"`
 	// ParentThreadName The scope of this thread will inherit the scope of the parent thread
 	ParentThreadName string `json:"parentThreadName,omitempty"`
 	// AgentName is the associated agent for this thread. This value could change between multiple runs
@@ -105,9 +107,6 @@ func (in *Thread) DeleteRefs() []Ref {
 		{ObjType: &Workspace{}, Name: in.Status.WorkspaceName},
 		{ObjType: &OAuthAppLogin{}, Name: in.Spec.OAuthAppLoginName},
 	}
-	for _, name := range in.Spec.FromWorkspaceNames {
-		refs = append(refs, Ref{ObjType: &Workspace{}, Name: name})
-	}
 	return refs
 }
 
@@ -120,6 +119,7 @@ type ThreadStatus struct {
 	WorkspaceName      string                   `json:"workspaceName,omitempty"`
 	PreviousThreadName string                   `json:"previousThreadName,omitempty"`
 	KnowledgeSetNames  []string                 `json:"knowledgeSetNames,omitempty"`
+	TemplateLoaded     bool                     `json:"templateLoaded,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

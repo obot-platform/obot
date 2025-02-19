@@ -8,3 +8,12 @@ type Credential struct {
 }
 
 type CredentialList List[Credential]
+
+type ProjectCredential struct {
+	ToolID   string `json:"toolID,omitempty"`
+	ToolName string `json:"toolName,omitempty"`
+	Icon     string `json:"icon,omitempty"`
+	Exists   bool   `json:"exists"`
+}
+
+type ProjectCredentialList List[ProjectCredential]

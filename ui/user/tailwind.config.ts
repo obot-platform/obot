@@ -3,6 +3,15 @@ import type { Config } from 'tailwindcss';
 import colors from 'tailwindcss/colors';
 
 const grayBase = 2.5;
+const surfaceNames = ['background', 'surface1', 'surface2', 'surface3'];
+const surfaces = surfaceNames.reduce(
+	(acc, name) => {
+		acc[`${name}`] = `var(--${name})`;
+		acc[`on-${name}`] = `var(--on-${name})`;
+		return acc;
+	},
+	{} as Record<string, string>
+);
 
 export default {
 	content: [
@@ -63,6 +72,7 @@ export default {
 		},
 
 		colors: {
+			...surfaces,
 			transparent: 'transparent',
 			current: 'currentColor',
 			white: colors.white,

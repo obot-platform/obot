@@ -20,6 +20,9 @@ type Progress struct {
 	// If RunID is not populated, the event will not specify tied to any particular run
 	RunID string `json:"runID,omitempty"`
 
+	// ThreadID may be populated on any event indicating the current thread of the event stream
+	ThreadID string `json:"threadID,omitempty"`
+
 	// ParentRunID is the parent run of the run that is specified in the RunID field
 	ParentRunID string `json:"parentRunID,omitempty"`
 

@@ -161,11 +161,10 @@ func (a *ModelHandler) Create(req api.Context) error {
 func (a *ModelHandler) Delete(req api.Context) error {
 	model := req.PathValue("id")
 	var agents v1.AgentList
-	if err := req.Storage.List(req.Context(), &agents, &kclient.ListOptions{
+	if err := req.List(&agents, &kclient.ListOptions{
 		FieldSelector: fields.SelectorFromSet(selectors.RemoveEmpty(map[string]string{
 			"spec.manifest.model": model,
 		})),
-		Namespace: req.Namespace(),
 	}); err != nil {
 		return fmt.Errorf("failed to list agents: %w", err)
 	}

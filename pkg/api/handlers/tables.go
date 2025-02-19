@@ -22,13 +22,12 @@ func NewTableHandler(gptScript *gptscript.GPTScript) *TableHandler {
 
 func (t *TableHandler) ListTables(req api.Context) error {
 	var (
-		assistantID = req.PathValue("assistant_id")
-		result      = types.TableList{
+		result = types.TableList{
 			Items: []types.Table{},
 		}
 	)
 
-	thread, err := getProjectThread(req, assistantID)
+	thread, err := getProjectThread(req)
 	if err != nil {
 		return err
 	}
@@ -44,9 +43,8 @@ var validTableName = regexp.MustCompile(`^[a-zA-Z_][a-zA-Z0-9_]*$`)
 
 func (t *TableHandler) GetRows(req api.Context) error {
 	var (
-		assistantID = req.PathValue("assistant_id")
-		tableName   = req.PathValue("table_name")
-		result      = types.TableRowList{
+		tableName = req.PathValue("table_name")
+		result    = types.TableRowList{
 			Items: []types.TableRow{},
 		}
 	)
@@ -55,7 +53,7 @@ func (t *TableHandler) GetRows(req api.Context) error {
 		return types.NewErrBadRequest("invalid table name %s", tableName)
 	}
 
-	thread, err := getProjectThread(req, assistantID)
+	thread, err := getProjectThread(req)
 	if err != nil {
 		return err
 	}

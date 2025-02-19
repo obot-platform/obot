@@ -1,13 +1,8 @@
-import { context } from '$lib/stores';
+import { init } from '$lib/stores/context.svelte';
 
 export const prerender = 'auto';
 
 export async function load({ params }) {
 	const { agent } = params;
-
-	context.setContext({
-		assistantID: agent,
-		projectID: 'default',
-		valid: true
-	});
+	await init(agent);
 }

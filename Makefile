@@ -54,7 +54,7 @@ package-tools:
 tidy:
 	go mod tidy
 
-GOLANGCI_LINT_VERSION ?= v1.62.2
+GOLANGCI_LINT_VERSION ?= v1.64.5
 setup-env:
 	if ! command -v golangci-lint &> /dev/null; then \
   		echo "Could not find golangci-lint, installing version $(GOLANGCI_LINT_VERSION)."; \

@@ -2,18 +2,129 @@
 @tailwind components;
 @tailwind utilities;
 
+.icon-button-colors {
+	@apply text-gray hover:bg-gray-100 focus:outline-none dark:text-gray-400 dark:hover:bg-gray-700;
+}
+
 .icon-button {
-	@apply min-h-10 min-w-10 rounded-lg p-2.5 text-sm text-gray hover:bg-gray-100 focus:outline-none dark:text-gray-400 dark:hover:bg-gray-700;
+	@apply icon-button-colors min-h-10 min-w-10 rounded-lg p-2.5 text-sm;
+}
+
+.icon-default-size {
+	@apply h-5 w-5;
 }
 
 .icon-default {
-	@apply h-5 w-5 text-gray;
+	@apply icon-default-size text-gray;
 }
 
 body {
 	@apply bg-white text-black dark:bg-black dark:text-gray-50;
 }
 
+.button-layout {
+	@apply rounded-3xl border-2 px-5 py-2;
+}
+
+.button-colors {
+	@apply border-gray-100 bg-gray-100 hover:border-gray-200 hover:bg-gray-200 dark:border-gray-900 dark:bg-gray-900 dark:hover:border-gray-800 dark:hover:bg-gray-800;
+}
+
+.button {
+	@apply button-layout button-colors;
+}
+
+.button-secondary-colors {
+	@apply border-gray-100 hover:border-gray-200 hover:bg-gray-200 dark:border-gray-900 dark:hover:border-gray-800 dark:hover:bg-gray-800;
+}
+
+.button-secondary {
+	@apply button-layout button-secondary-colors;
+}
+
+.button-primary-colors {
+	@apply border-blue bg-blue text-white hover:border-blue-400 hover:bg-blue-400 dark:text-gray-50;
+}
+
+.button-primary {
+	@apply button-layout button-primary-colors;
+}
+
 .text-input {
 	@apply w-full rounded-lg bg-gray-100 p-2 outline-none focus:ring-2 focus:ring-blue dark:bg-gray-900;
+}
+
+dialog::backdrop {
+	@apply bg-black bg-opacity-60;
+}
+
+:root {
+	--black: hsl(0 0 0);
+	--white: hsl(0 0 100);
+	--gray-50: hsl(0 0 calc(2.5 + 95));
+	--gray-60: hsl(0 0 calc(2.5 + 94));
+	--gray-70: hsl(0 0 calc(2.5 + 93));
+	--gray-80: hsl(0 0 calc(2.5 + 92));
+	--gray-90: hsl(0 0 calc(2.5 + 91));
+	--gray-100: hsl(0 0 calc(2.5 + 90));
+	--gray-200: hsl(0 0 calc(2.5 + 80));
+	--gray-300: hsl(0 0 calc(2.5 + 70));
+	--gray-400: hsl(0 0 calc(2.5 + 60));
+	--gray-500: hsl(0 0 calc(2.5 + 50));
+	--gray-600: hsl(0 0 calc(2.5 + 40));
+	--gray-700: hsl(0 0 calc(2.5 + 30));
+	--gray-800: hsl(0 0 calc(2.5 + 20));
+	--gray-900: hsl(0 0 calc(2.5 + 10));
+	--gray-910: hsl(0 0 calc(2.5 + 9));
+	--gray-920: hsl(0 0 calc(2.5 + 8));
+	--gray-930: hsl(0 0 calc(2.5 + 7));
+	--gray-940: hsl(0 0 calc(2.5 + 6));
+	--gray-950: hsl(0 0 calc(2.5 + 5));
+	--gray-960: hsl(0 0 calc(2.5 + 4));
+	--gray-970: hsl(0 0 calc(2.5 + 3));
+	--gray-980: hsl(0 0 calc(2.5 + 2));
+	--gray-990: hsl(0 0 calc(2.5 + 1));
+}
+
+.dark {
+	--background: var(--black);
+	--on-background: var(--gray-50);
+	--surface1: var(--gray-950);
+	--on-surface1: var(--gray-50);
+	--surface2: var(--gray-900);
+	--on-surface2: var(--gray-50);
+	--surface3: var(--gray-800);
+	--on-surface3: var(--gray-50);
+}
+
+html {
+	--background: var(--white);
+	--on-background: var(--black);
+	--surface1: var(--gray-70);
+	--on-surface1: var(--black);
+	--surface2: var(--gray-100);
+	--on-surface2: var(--black);
+	--surface3: var(--gray-200);
+	--on-surface3: var(--black);
+}
+
+.colors-background {
+	@apply bg-background text-on-background;
+}
+
+.colors-surface1 {
+	@apply bg-surface1 text-on-surface1;
+}
+
+.colors-surface2 {
+	@apply bg-surface2 text-on-surface2;
+}
+
+.colors-surface3 {
+	@apply bg-surface3 text-on-surface3;
+}
+
+textarea,
+input {
+	@apply bg-background text-on-background;
 }

@@ -2,42 +2,16 @@ import { type EditorItem } from '$lib/stores/editor.svelte';
 import editorStore from '$lib/stores/editor.svelte';
 import tasks from '$lib/stores/tasks.svelte';
 import ChatService from '../chat';
-import { type Writable, writable } from 'svelte/store';
 
-const visible = writable(false);
-const maxSize = writable(false);
+let visible = $state(false);
 const items = editorStore.items;
 
-const editor: Editor = {
-	remove,
-	load,
-	download,
-	select,
-	items,
-	maxSize,
-	visible
-};
+function isVisible(): boolean {
+	return visible;
+}
 
-export interface Editor {
-	load: (
-		id: string,
-		opts?: {
-			taskID?: string;
-			runID?: string;
-		}
-	) => Promise<void>;
-	download: (
-		id: string,
-		opts?: {
-			taskID?: string;
-			runID?: string;
-		}
-	) => Promise<void>;
-	remove: (name: string) => void;
-	select: (name: string) => void;
-	items: EditorItem[];
-	visible: Writable<boolean>;
-	maxSize: Writable<boolean>;
+function setVisible(value: boolean) {
+	visible = value;
 }
 
 function hasItem(id: string): boolean {
@@ -58,26 +32,26 @@ async function load(
 	}
 	if (hasItem(fileID)) {
 		select(fileID);
-		visible.set(true);
+		visible = true;
 		return;
 	}
 	if (id.startsWith('tl1')) {
 		await genericLoad(id);
-		visible.set(true);
+		visible = true;
 		return;
 	}
 	if (id.startsWith('w1')) {
 		await loadTask(id);
-		visible.set(true);
+		visible = true;
 		return;
 	}
 	if (id.startsWith('table://')) {
 		await loadTable(id);
-		visible.set(true);
+		visible = true;
 		return;
 	}
 	await loadFile(id, opts);
-	visible.set(true);
+	visible = true;
 }
 
 async function loadTable(id: string) {
@@ -214,8 +188,16 @@ function remove(id: string) {
 	}
 
 	if (items.length === 0) {
-		visible.set(false);
+		visible = false;
 	}
 }
 
-export default editor;
+export default {
+	remove,
+	load,
+	download,
+	select,
+	items,
+	isVisible,
+	setVisible
+};

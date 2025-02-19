@@ -1,6 +1,6 @@
 import { getAssistant, listAssistants } from '$lib/services/chat/operations';
 import { type Assistant } from '$lib/services/chat/types';
-import context from '$lib/stores/context';
+import context, { onInit } from '$lib/stores/context.svelte';
 
 const defaultAssistant: Assistant = {
 	id: '',
@@ -11,8 +11,11 @@ const store = $state({
 	items: [] as Assistant[],
 	loaded: false,
 	current: () => {
-		const id = context.getContext().assistantID;
-		return store.items.find((assistant) => assistant.id === id) || defaultAssistant;
+		const id = context.assistantID;
+		return (
+			store.items.find((assistant) => assistant.alias === id || assistant.id === id) ||
+			defaultAssistant
+		);
 	},
 	load: async () => {
 		store.items = (await listAssistants()).items;
@@ -20,14 +23,16 @@ const store = $state({
 	}
 });
 
-context.init(() => {
+onInit(() => {
 	listAssistants().then((assistants) => {
 		store.items = assistants.items;
 		store.loaded = true;
 
-		const currentID = context.getContext().assistantID;
+		const currentID = context.assistantID;
 		if (currentID) {
-			const assistant = store.items.find((assistant) => assistant.id === currentID);
+			const assistant = store.items.find(
+				(assistant) => assistant.id === currentID || assistant.alias === currentID
+			);
 			if (assistant) {
 				assistant.current = true;
 			} else {

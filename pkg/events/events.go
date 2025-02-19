@@ -431,7 +431,10 @@ func (e *Emitter) streamEvents(ctx context.Context, run v1.Run, opts WatchOption
 		opts.History = false
 	}
 
-	var state *printState
+	var (
+		state              *printState
+		replayCompleteSent bool
+	)
 	for {
 		state = newPrintState(state)
 
@@ -440,9 +443,17 @@ func (e *Emitter) streamEvents(ctx context.Context, run v1.Run, opts WatchOption
 				return err
 			}
 			if run.Status.EndTime.IsZero() {
+				replayCompleteSent = true
 				result <- types.Progress{
 					ReplayComplete: true,
+					ThreadID:       run.Spec.ThreadName,
 				}
+			}
+		} else if !replayCompleteSent {
+			replayCompleteSent = true
+			result <- types.Progress{
+				ReplayComplete: true,
+				ThreadID:       run.Spec.ThreadName,
 			}
 		}
 
@@ -457,6 +468,7 @@ func (e *Emitter) streamEvents(ctx context.Context, run v1.Run, opts WatchOption
 		if opts.History && !run.Status.EndTime.IsZero() {
 			result <- types.Progress{
 				ReplayComplete: true,
+				ThreadID:       run.Spec.ThreadName,
 			}
 		}
 

@@ -9,6 +9,11 @@
 	import Tables from '$lib/components/navbar/Tables.svelte';
 	import { tools } from '$lib/stores';
 	import Term from '$lib/components/navbar/Term.svelte';
+	import Projects from '$lib/components/navbar/Projects.svelte';
+	import New from '$lib/components/New.svelte';
+	import Settings from '$lib/components/navbar/Settings.svelte';
+	import { context } from '$lib/stores';
+	import Threads from '$lib/components/navbar/Threads.svelte';
 
 	function hasOptionalTools() {
 		for (const tool of tools.items) {
@@ -18,43 +23,42 @@
 		}
 		return false;
 	}
-
-	function hasTool(tool: string) {
-		for (const t of tools.items) {
-			if (t.id === tool) {
-				return t.enabled || t.builtin;
-			}
-		}
-		return false;
-	}
 </script>
 
-<nav
-	class="fixed z-40
-w-full
-via-80%"
->
+<New />
+
+<nav class="w-full via-80%">
 	<div class="bg-white p-3 dark:bg-black">
 		<div class="flex items-center justify-between">
-			<Logo />
+			{#if tools.hasTool('projects')}
+				<Projects />
+			{:else}
+				<Logo />
+			{/if}
+			{#if tools.hasTool('threads')}
+				<Threads />
+			{/if}
 			<div class="grow"></div>
-			{#if hasTool('tasks')}
+			{#if tools.hasTool('tasks')}
 				<Tasks />
 			{/if}
-			{#if hasTool('database')}
+			{#if tools.hasTool('database')}
 				<Tables />
 			{/if}
-			{#if hasTool('knowledge')}
+			{#if !tools.hasTool('projects') && tools.hasTool('knowledge')}
 				<KnowledgeFile />
 			{/if}
-			{#if hasTool('workspace-files')}
+			{#if tools.hasTool('workspace-files')}
 				<Files />
 			{/if}
-			{#if hasTool('shell')}
+			{#if tools.hasTool('shell')}
 				<Term />
 			{/if}
-			{#if hasOptionalTools()}
+			{#if !tools.hasTool('projects') && hasOptionalTools()}
 				<Tools />
+			{/if}
+			{#if !context.project?.locked && tools.hasTool('projects')}
+				<Settings />
 			{/if}
 			<DarkModeToggle />
 			<Profile />

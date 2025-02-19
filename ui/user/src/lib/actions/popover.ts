@@ -71,7 +71,7 @@ export default function popover(opts?: PopoverOptions): Popover {
 
 			if (!opts?.hover) {
 				const div = document.createElement('div');
-				div.classList.add('fixed', 'inset-0', 'z-20', 'cursor-default');
+				div.classList.add('fixed', 'inset-0', 'z-10', 'cursor-default');
 				div.onclick = () => {
 					open.set(false);
 					div.remove();
@@ -90,6 +90,16 @@ export default function popover(opts?: PopoverOptions): Popover {
 		tooltip.classList.add('transition-opacity');
 		tooltip.classList.add('duration-300');
 		tooltip.classList.add('opacity-0');
+
+		let hasZIndex = false;
+		tooltip.classList.forEach((className) => {
+			if (className.startsWith('z-')) {
+				hasZIndex = true;
+			}
+		});
+		if (!hasZIndex) {
+			tooltip.classList.add('z-30');
+		}
 
 		if (opts?.hover) {
 			ref.addEventListener('mouseenter', () => {

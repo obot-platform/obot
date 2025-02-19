@@ -3,7 +3,7 @@
 	import { editor } from '$lib/stores';
 	import { autoHeight } from '$lib/actions/textarea.js';
 	import { ArrowUp, LoaderCircle } from 'lucide-svelte';
-	import { tick } from 'svelte';
+	import { onMount, tick } from 'svelte';
 
 	interface Props {
 		onFocus?: () => void;
@@ -74,6 +74,10 @@
 		e.preventDefault();
 		await submit();
 	}
+
+	onMount(() => {
+		focus();
+	});
 </script>
 
 <div class="w-full max-w-[700px]">
@@ -82,6 +86,7 @@
 		class="flex items-center rounded-3xl
 	bg-gray-70
 	!px-3
+	py-1
 	focus-within:border-none
 	focus-within:shadow-md
 	focus-within:ring-1
@@ -109,7 +114,7 @@
 		<button
 			type="submit"
 			onclick={() => submit()}
-			class="rounded-full bg-gray-70 !p-1
+			class="rounded-full bg-gray-70 p-2
 			text-blue
 			hover:border-none
 			hover:bg-gray-100

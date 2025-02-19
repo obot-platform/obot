@@ -5,13 +5,13 @@
 	import DarkModeToggle from '$lib/components/navbar/DarkModeToggle.svelte';
 	import { darkMode } from '$lib/stores';
 	import { Book } from 'lucide-svelte/icons';
-	import { listAuthProviders, type AuthProvider } from '$lib/auth';
 	import { onMount } from 'svelte';
+	import { type AuthProvider, ChatService } from '$lib/services';
 
 	let authProviders: AuthProvider[] = $state([]);
 
 	onMount(async () => {
-		authProviders = await listAuthProviders();
+		authProviders = await ChatService.listAuthProviders();
 		try {
 			await assistants.load();
 		} catch {
@@ -22,12 +22,12 @@
 	let div: HTMLElement;
 
 	$effect(() => {
-		let id = assistants.items.find((assistant) => assistant.default)?.id;
-		if (!id) {
-			id = assistants.items.find((assistant) => assistant.id !== '')?.id;
+		let a = assistants.items.find((assistant) => assistant.default);
+		if (!a) {
+			a = assistants.items.find((assistant) => assistant.id !== '');
 		}
-		if (id) {
-			goto(`/${id}`);
+		if (a) {
+			goto(`/${a.alias || a.id}`);
 		} else if (assistants.loaded) {
 			window.location.href = '/admin/';
 		}

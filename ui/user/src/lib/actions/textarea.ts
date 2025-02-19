@@ -5,7 +5,12 @@ export function resize(node: HTMLTextAreaElement) {
 
 export function autoHeight(node: HTMLTextAreaElement) {
 	if ('fieldSizing' in node.style) {
-		node.style.fieldSizing = 'content';
+		if (node.value === '') {
+			// This is so that rows=2 works
+			node.style.fieldSizing = 'fixed';
+		} else {
+			node.style.fieldSizing = 'content';
+		}
 	}
 	node.onkeyup = () => resize(node);
 	node.onfocus = () => resize(node);
