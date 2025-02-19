@@ -4,13 +4,13 @@ import { useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 
-import {
-	ControlledAutosizeTextarea,
-	ControlledInput,
-} from "~/components/form/controlledInputs";
+import { ControlledInput } from "~/components/form/controlledInputs";
 import { Button } from "~/components/ui/button";
 import { CardDescription } from "~/components/ui/card";
 import { Form } from "~/components/ui/form";
+import { MarkdownEditor } from "~/components/ui/markdown";
+
+export { MDXEditor } from "@mdxeditor/editor";
 
 const formSchema = z.object({
 	introductionMessage: z.string().optional(),
@@ -77,12 +77,11 @@ export function AgentIntroForm({
 					The introduction is <b>Markdown</b> syntax supported.
 				</CardDescription>
 
-				<ControlledAutosizeTextarea
-					control={form.control}
-					autoComplete="off"
-					name="introductionMessage"
-					maxHeight={300}
-					placeholder="Give the agent a friendly introduction message."
+				<MarkdownEditor
+					markdown={form.watch("introductionMessage") ?? ""}
+					onChange={(markdown) =>
+						form.setValue("introductionMessage", markdown)
+					}
 				/>
 
 				<p className="flex items-end justify-between pt-2 font-normal">

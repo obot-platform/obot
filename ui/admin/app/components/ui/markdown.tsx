@@ -1,12 +1,40 @@
+import {
+	BlockTypeSelect,
+	BoldItalicUnderlineToggles,
+	CodeToggle,
+	CreateLink,
+	InsertImage,
+	ListsToggle,
+	MDXEditor,
+	MDXEditorMethods,
+	Separator,
+	StrikeThroughSupSubToggles,
+	UndoRedo,
+	codeBlockPlugin,
+	headingsPlugin,
+	imagePlugin,
+	linkDialogPlugin,
+	linkPlugin,
+	listsPlugin,
+	markdownShortcutPlugin,
+	quotePlugin,
+	tablePlugin,
+	thematicBreakPlugin,
+	toolbarPlugin,
+} from "@mdxeditor/editor";
+import "@mdxeditor/editor/style.css";
+import { useEffect, useRef } from "react";
 import ReactMarkdown, { defaultUrlTransform } from "react-markdown";
 import rehypeExternalLinks from "rehype-external-links";
 import rehypeRaw from "rehype-raw";
 import rehypeSanitize from "rehype-sanitize";
 import remarkGfm from "remark-gfm";
 
+import { AppTheme } from "~/lib/service/themeService";
 import { cn } from "~/lib/utils/cn";
 
 import { CustomMarkdownComponents } from "~/components/react-markdown";
+import { useTheme } from "~/components/theme";
 
 // Allow links for file references in messages if it starts with file://, otherwise this will cause an empty href and cause app to reload when clicking on it
 export const urlTransformAllowFiles = (u: string) => {
@@ -49,5 +77,74 @@ export function Markdown({
 		>
 			{children}
 		</ReactMarkdown>
+	);
+}
+
+export function MarkdownEditor({
+	className,
+	markdown,
+	onChange,
+}: {
+	className?: string;
+	markdown: string;
+	onChange: (markdown: string) => void;
+}) {
+	const { theme } = useTheme();
+	const isDarkMode = theme === AppTheme.Dark;
+	const ref = useRef<MDXEditorMethods>(null);
+
+	useEffect(() => {
+		if (ref.current) {
+			ref.current.setMarkdown(markdown);
+		}
+	}, [markdown]);
+
+	return (
+		<MDXEditor
+			ref={ref}
+			className={cn(
+				{
+					"dark-theme": isDarkMode,
+				},
+				"flex flex-col rounded-md p-0.5 ring-1 ring-inset ring-input has-[:focus-visible]:outline has-[:focus-visible]:outline-1 has-[:focus-visible]:outline-ring",
+				className
+			)}
+			markdown={markdown}
+			onChange={onChange}
+			contentEditableClassName={cn(
+				"h-16 overflow-y-hidden transition-all duration-200 focus:h-auto focus:max-h-64 focus:overflow-y-auto"
+			)}
+			plugins={[
+				toolbarPlugin({
+					toolbarContents: () => (
+						<>
+							<UndoRedo />
+							<Separator />
+							<BoldItalicUnderlineToggles />
+							<CodeToggle />
+							<Separator />
+							<StrikeThroughSupSubToggles />
+							<Separator />
+							<ListsToggle />
+							<Separator />
+							<BlockTypeSelect />
+							<Separator />
+							<CreateLink />
+							<InsertImage />
+						</>
+					),
+				}),
+				headingsPlugin(),
+				imagePlugin(),
+				linkPlugin(),
+				linkDialogPlugin(),
+				tablePlugin(),
+				listsPlugin(),
+				thematicBreakPlugin(),
+				markdownShortcutPlugin(),
+				codeBlockPlugin({ defaultCodeBlockLanguage: "txt" }),
+				quotePlugin(),
+			]}
+		/>
 	);
 }
