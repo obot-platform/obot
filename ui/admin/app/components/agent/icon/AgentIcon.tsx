@@ -1,4 +1,10 @@
-import { EraserIcon, LinkIcon, PaintbrushIcon, PencilIcon } from "lucide-react";
+import {
+	EraserIcon,
+	LinkIcon,
+	PaintbrushIcon,
+	PaletteIcon,
+	PencilIcon,
+} from "lucide-react";
 import { useState } from "react";
 
 import { AgentIcons } from "~/lib/model/agents";
@@ -38,6 +44,37 @@ const iconOptions = [
 	"obot_alt_10",
 ];
 
+const colors = [
+	{
+		name: "purple",
+		value: "#380067",
+	},
+	{
+		name: "blue",
+		value: "#4f73f3",
+	},
+	{
+		name: "teal",
+		value: "#2ddcec",
+	},
+	{
+		name: "green",
+		value: "#06eaa7",
+	},
+	{
+		name: "red",
+		value: "#ff4044",
+	},
+	{
+		name: "yellow",
+		value: "#fdcc11",
+	},
+	{
+		name: "orange",
+		value: "#ff7240",
+	},
+];
+
 type AgentIconProps = {
 	icons: AgentIcons | null;
 	onChange: (icons: AgentIcons | null) => void;
@@ -50,6 +87,9 @@ export function AgentIcon({ icons, onChange, name }: AgentIconProps) {
 
 	const { icon = "", iconDark = "" } = icons ?? {};
 	const isDarkMode = theme === AppTheme.Dark;
+	const obotIconIndex = iconOptions.findIndex((option) =>
+		icon.includes(option)
+	);
 	return (
 		<>
 			<DropdownMenu>
@@ -82,6 +122,18 @@ export function AgentIcon({ icons, onChange, name }: AgentIconProps) {
 							</DropdownMenuSubContent>
 						</DropdownMenuPortal>
 					</DropdownMenuSub>
+					{obotIconIndex !== -1 && (
+						<DropdownMenuSub>
+							<DropdownMenuSubTrigger className="flex items-center gap-2">
+								<PaletteIcon size={16} /> Choose Color
+							</DropdownMenuSubTrigger>
+							<DropdownMenuPortal>
+								<DropdownMenuSubContent>
+									{renderColorOptions()}
+								</DropdownMenuSubContent>
+							</DropdownMenuPortal>
+						</DropdownMenuSub>
+					)}
 					<DropdownMenuItem
 						className="flex items-center gap-2"
 						onClick={() => setImageUrlDialogOpen(true)}
@@ -135,7 +187,40 @@ export function AgentIcon({ icons, onChange, name }: AgentIconProps) {
 		);
 	}
 
-	function generateIconUrl(icon: string, dark = false) {
-		return `/agent/images/${icon}${dark ? "_dark" : ""}.svg`;
+	function renderColorOptions() {
+		return (
+			<div className="grid grid-cols-4 gap-2 p-2">
+				{colors.map((color) => (
+					<DropdownMenuItem
+						key={color.name}
+						onClick={() => {
+							onChange({
+								icon: generateIconUrl(
+									iconOptions[obotIconIndex],
+									false,
+									color.name
+								),
+								iconDark: generateIconUrl(
+									iconOptions[obotIconIndex],
+									false,
+									color.name
+								),
+								collapsed: "",
+								collapsedDark: "",
+							});
+						}}
+					>
+						<div
+							className={cn("h-8 w-8 rounded-sm")}
+							style={{ backgroundColor: color.value }}
+						/>
+					</DropdownMenuItem>
+				))}
+			</div>
+		);
+	}
+
+	function generateIconUrl(icon: string, dark = false, color = "") {
+		return `/agent/images/${icon}${dark ? "_dark" : ""}${color ? `_${color}` : ""}.svg`;
 	}
 }

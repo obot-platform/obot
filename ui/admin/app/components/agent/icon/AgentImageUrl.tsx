@@ -141,7 +141,7 @@ export function AgentImageUrl({
 	function getDefaultUrl(url?: string) {
 		if (!url) return "";
 
-		const isDefaultAsset = url.toLowerCase().startsWith("/admin/assets/agent/");
+		const isDefaultAsset = url.toLowerCase().startsWith("/agent/images/obot_");
 		return isDefaultAsset ? "" : url;
 	}
 }
