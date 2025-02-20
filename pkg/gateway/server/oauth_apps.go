@@ -403,7 +403,8 @@ func (s *Server) callbackOAuthApp(apiContext api.Context) error {
 		return fmt.Errorf("failed to create token request: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	if app.Spec.Manifest.Type != types2.OAuthAppTypeGoogle {
+	if app.Spec.Manifest.Type != types2.OAuthAppTypeGoogle &&
+		app.Spec.Manifest.Type != types2.OAuthAppTypePagerDuty {
 		req.SetBasicAuth(url.QueryEscape(app.Spec.Manifest.ClientID), url.QueryEscape(app.Spec.Manifest.ClientSecret))
 	}
 

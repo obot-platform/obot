@@ -13,6 +13,7 @@ export const OAuthProvider = {
 	Notion: "notion",
 	Zoom: "zoom",
 	LinkedIn: "linkedin",
+	PagerDuty: "pagerduty",
 	Custom: "custom",
 } as const;
 export type OAuthProvider = (typeof OAuthProvider)[keyof typeof OAuthProvider];

@@ -34,6 +34,9 @@ const (
 
 	LinkedInAuthorizeURL = "https://www.linkedin.com/oauth/v2/authorization"
 	LinkedInTokenURL     = "https://www.linkedin.com/oauth/v2/accessToken"
+
+	PagerDutyAuthorizeURL = "https://identity.pagerduty.com/oauth/authorize"
+	PagerDutyTokenURL     = "https://identity.pagerduty.com/oauth/token"
 )
 
 var (
@@ -85,6 +88,9 @@ func ValidateAndSetDefaultsOAuthAppManifest(r *types.OAuthAppManifest, create bo
 	case types.OAuthAppTypeLinkedIn:
 		r.AuthURL = LinkedInAuthorizeURL
 		r.TokenURL = LinkedInTokenURL
+	case types.OAuthAppTypePagerDuty:
+		r.AuthURL = PagerDutyAuthorizeURL
+		r.TokenURL = PagerDutyTokenURL
 	case types.OAuthAppTypeSalesforce:
 		salesforceAuthorizeFragment := "/services/oauth2/authorize"
 		salesforceTokenFragment := "/services/oauth2/token"

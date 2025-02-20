@@ -11,6 +11,7 @@ import {
 	FaSalesforce,
 	FaSlack,
 } from "react-icons/fa";
+import { SiPagerduty } from "react-icons/si";
 
 import { OAuthProvider } from "~/lib/model/oauthApps/oauth-helpers";
 import { cn } from "~/lib/utils";
@@ -26,6 +27,7 @@ const IconMap = {
 	[OAuthProvider.Notion]: NotionLogoIcon,
 	[OAuthProvider.Zoom]: BiLogoZoom,
 	[OAuthProvider.LinkedIn]: FaLinkedin,
+	[OAuthProvider.PagerDuty]: SiPagerduty,
 	[OAuthProvider.Custom]: KeyIcon,
 };
 
