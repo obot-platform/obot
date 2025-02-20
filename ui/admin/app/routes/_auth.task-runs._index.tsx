@@ -3,7 +3,6 @@ import { ColumnDef, createColumnHelper } from "@tanstack/react-table";
 import { useMemo, useState } from "react";
 import {
 	ClientLoaderFunctionArgs,
-	Link,
 	MetaFunction,
 	useLoaderData,
 } from "react-router";
@@ -28,7 +27,7 @@ import {
 } from "~/components/composed/DataTable";
 import { Filters } from "~/components/composed/Filters";
 import { SearchInput } from "~/components/composed/SearchInput";
-import { Button } from "~/components/ui/button";
+import { Link } from "~/components/ui/link";
 import { ScrollArea } from "~/components/ui/scroll-area";
 import {
 	Tooltip,
@@ -211,6 +210,19 @@ export default function TaskRuns() {
 						}}
 					/>
 				),
+				cell: (info) => (
+					<div className="flex items-center gap-2">
+						<Link
+							onClick={(event) => event.stopPropagation()}
+							to={$path("/tasks/:id", {
+								id: info.row.original.workflowID!,
+							})}
+							className="px-0"
+						>
+							<p>{info.getValue()}</p>
+						</Link>
+					</div>
+				),
 			}),
 			columnHelper.accessor((thread) => thread.userName, {
 				id: "User",
@@ -268,15 +280,15 @@ export default function TaskRuns() {
 					<div className="flex justify-end gap-2">
 						<Tooltip>
 							<TooltipTrigger asChild>
-								<Button variant="ghost" size="icon">
-									<Link
-										to={$path("/task-runs/:id", {
-											id: row.original.id,
-										})}
-									>
-										<ReaderIcon width={21} height={21} />
-									</Link>
-								</Button>
+								<Link
+									as="button"
+									to={$path("/task-runs/:id", {
+										id: row.original.id,
+									})}
+									variant="ghost"
+								>
+									<ReaderIcon width={21} height={21} />
+								</Link>
 							</TooltipTrigger>
 
 							<TooltipContent>
