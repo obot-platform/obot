@@ -90,7 +90,6 @@ describe(Agent, () => {
 			"placeholder",
 		],
 		["prompt", "Instructions", "textbox", 2],
-		["introductionMessage", "Introductions", "textbox"],
 	])("Updating %s triggers save", async (field, searchFor, as, index = 0) => {
 		const putSpy = setupServer(mockedAgent);
 		render(

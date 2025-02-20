@@ -11,33 +11,10 @@ body {
 	}
 }
 
-.mdxeditor ol {
-	@apply list-decimal list-inside px-4;
-}
-
-.mdxeditor ul {
-	@apply list-disc list-inside px-4;
-}
-
-.mdxeditor ul li[role="checkbox"]::before {
-	@apply top-1;
-}
-
-.mdxeditor-popup-container {
-	@apply p-0 bg-background;
-}
-  
-.mdxeditor-popup-container button {
-	@apply bg-primary border-0;
-}
-
-.mdxeditor-popup-container input {
-	@apply flex items-center rounded-md border border-input bg-background text-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground has-[:disabled]:cursor-not-allowed has-[:disabled]:opacity-50 has-[:focus-visible]:ring-1 has-[:focus-visible]:ring-ring;
-}
-
 @layer base {
 	:root {
 		/* Start theme colors (Not accessible by Tailwind) */
+
 		--main-surface-primary: 0 0% 98%;
 		--main-surface-secondary: 223 5% 95%;
 
@@ -116,6 +93,7 @@ body {
 		color-scheme: dark;
 
 		/* Start theme colors (Not accessible by Tailwind) */
+
 		--main-surface-secondary: 223 20% 10%;
 		--main-surface-primary: 223 20% 5%;
 

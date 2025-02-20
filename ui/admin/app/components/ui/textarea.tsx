@@ -116,7 +116,6 @@ const useAutosizeTextArea = ({
 
 	const resize = React.useCallback(
 		(node: HTMLTextAreaElement) => {
-			console.log("resize", node, minHeight, maxHeight, initRef);
 			// Reset the height to auto to get the correct scrollHeight
 			node.style.height = "auto";
 
