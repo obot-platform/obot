@@ -4,11 +4,17 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 
 	types2 "github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/gateway/types"
 	"gorm.io/gorm"
 )
+
+var verifiedAuthProviders = []string{
+	"default/google-auth-provider",
+	"default/github-auth-provider",
+}
 
 // EnsureIdentity ensures that the given identity exists in the database, and returns the user associated with it.
 func (c *Client) EnsureIdentity(ctx context.Context, id *types.Identity, timezone string) (*types.User, error) {
@@ -36,8 +42,13 @@ func (c *Client) EnsureIdentityWithRole(ctx context.Context, id *types.Identity,
 
 // ensureIdentity ensures that the given identity exists in the database, and returns the user associated with it.
 func ensureIdentity(tx *gorm.DB, id *types.Identity, timezone string, role types2.Role) (*types.User, error) {
+	verified := slices.Contains(verifiedAuthProviders, fmt.Sprintf("%s/%s", id.AuthProviderNamespace, id.AuthProviderName))
+
 	email := id.Email
+
+	// See if the identity already exists.
 	if err := tx.First(id).Error; errors.Is(err, gorm.ErrRecordNotFound) {
+		// The identity does not exist.
 		// Before we try creating a new identity, we need to check if there is one that has not been fully migrated yet.
 		migratedIdentity := &types.Identity{
 			ProviderUsername:      id.ProviderUsername,
@@ -46,7 +57,7 @@ func ensureIdentity(tx *gorm.DB, id *types.Identity, timezone string, role types
 			AuthProviderNamespace: id.AuthProviderNamespace,
 		}
 		if err := tx.First(migratedIdentity).Error; errors.Is(err, gorm.ErrRecordNotFound) {
-			// If the identity does not exist, we can create it.
+			// The identity does not exist, so create it.
 			if err = tx.Create(id).Error; err != nil {
 				return nil, err
 			}
@@ -76,47 +87,73 @@ func ensureIdentity(tx *gorm.DB, id *types.Identity, timezone string, role types
 	}
 
 	user := &types.User{
-		ID:       id.UserID,
-		Username: id.ProviderUsername,
-		Email:    id.Email,
-		Role:     role,
+		ID:            id.UserID,
+		Username:      id.ProviderUsername,
+		Email:         id.Email,
+		VerifiedEmail: &verified,
+		Role:          role,
 	}
 	if user.Role == types2.RoleUnknown {
 		user.Role = types2.RoleBasic
 	}
 
+	var checkForExistingUser bool
 	userQuery := tx
 	if user.ID != 0 {
+		// Check for an existing user with this exact ID.
 		userQuery = userQuery.Where("id = ?", user.ID)
+		checkForExistingUser = true
+	} else if verified {
+		// Check for an existing user with this exact verified email address.
+		// We check for both true and null values, because the email might have been verified before we started tracking verified emails.
+		userQuery = userQuery.Where("email = ? and (verified_email = true or verified_email is null)", user.Email)
+		checkForExistingUser = true
+	}
+
+	if checkForExistingUser {
+		if err := userQuery.First(&user).Error; errors.Is(err, gorm.ErrRecordNotFound) {
+			if err = tx.Create(&user).Error; err != nil {
+				return nil, err
+			}
+		} else if err != nil {
+			return nil, err
+		} else {
+			// We're using an existing user. See if there are any fields that need to be updated.
+			var userChanged bool
+			if role != types2.RoleUnknown && user.Role != role {
+				user.Role = role
+				userChanged = true
+			}
+
+			if user.Timezone == "" && timezone != "" {
+				user.Timezone = timezone
+				userChanged = true
+			}
+
+			// Update the verified email status if needed.
+			// This can happen in two cases:
+			// 1. The user was created before we started tracking verified emails (user.VerifiedEmail is nil)
+			// 2. The user was created before we started tracking verified emails, and associated with both a verified
+			//    and unverified auth provider. They logged in with the unverified provider and we marked the email as unverified,
+			//    but now they've logged in with the verified provider and we can mark the email as verified. (verified is true, but user.VerifiedEmail is false)
+			if user.VerifiedEmail == nil || (verified && !*user.VerifiedEmail) {
+				user.VerifiedEmail = &verified
+				userChanged = true
+			}
+
+			if userChanged {
+				if err := tx.Updates(user).Error; err != nil {
+					return nil, err
+				}
+			}
+		}
 	} else {
-		userQuery = userQuery.Where("email = ?", user.Email)
-	}
-
-	if err := userQuery.First(&user).Error; errors.Is(err, gorm.ErrRecordNotFound) {
-		if err = tx.Create(&user).Error; err != nil {
-			return nil, err
-		}
-	} else if err != nil {
-		return nil, err
-	}
-
-	var userChanged bool
-	if role != types2.RoleUnknown && user.Role != role {
-		user.Role = role
-		userChanged = true
-	}
-
-	if user.Timezone == "" && timezone != "" {
-		user.Timezone = timezone
-		userChanged = true
-	}
-
-	if userChanged {
-		if err := tx.Updates(user).Error; err != nil {
+		if err := tx.Create(&user).Error; err != nil {
 			return nil, err
 		}
 	}
 
+	// Update the user ID saved on the identity if needed.
 	if id.UserID != user.ID {
 		id.UserID = user.ID
 		if err := tx.Updates(id).Error; err != nil {
