@@ -1,5 +1,7 @@
 import { Slot } from "@radix-ui/react-slot";
 import { TooltipContentProps } from "@radix-ui/react-tooltip";
+import { useEffect, useState } from "react";
+import { useRef } from "react";
 
 import { cn } from "~/lib/utils";
 
@@ -31,9 +33,21 @@ export function Truncate({
 	tooltipContentProps?: TooltipContentProps;
 }) {
 	const Comp = asChild ? Slot : "p";
+	const contentRef = useRef<HTMLDivElement>(null);
+	const [isContentTruncated, setIsContentTruncated] = useState(false);
+
+	useEffect(() => {
+		const element = contentRef.current;
+		if (!element) return;
+
+		// Check if content is actually truncated
+		const isTruncated = element.scrollHeight > element.clientHeight;
+		setIsContentTruncated(isTruncated);
+	}, [children]);
 
 	const content = (
 		<Comp
+			ref={contentRef}
 			className={cn(
 				{
 					"line-clamp-1": clamp && clampLength === 1,
@@ -47,7 +61,7 @@ export function Truncate({
 		</Comp>
 	);
 
-	if (disableTooltip) {
+	if (disableTooltip || !isContentTruncated) {
 		return content;
 	}
 
@@ -62,7 +76,7 @@ export function Truncate({
 			</TooltipContent>
 
 			<TooltipTrigger asChild>
-				<div className={cn("cursor-pointer", className)}>{content}</div>
+				<div className={cn("cursor-help", className)}>{content}</div>
 			</TooltipTrigger>
 		</Tooltip>
 	);
