@@ -144,6 +144,8 @@ export const ApiRoutes = {
 			buildUrl(`/agents/${agentId}/files/${fileName}`),
 		uploadWorkspaceFile: (agentId: string, fileName: string) =>
 			buildUrl(`/agents/${agentId}/files/${fileName}`),
+		getThreadsForAgent: (agentId: string) =>
+			buildUrl(`/agents/${agentId}/threads`),
 	},
 	tasks: {
 		base: () => buildUrl("/tasks"),

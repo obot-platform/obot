@@ -46,9 +46,9 @@ export function EmailReceiverForm({
 	onContinue,
 	hideTitle,
 }: EmailRecieverFormProps) {
-	const getTasks = useSWR(TaskService.getTasks.key(), () =>
-		TaskService.getTasks()
-	);
+	const getTasks = useSWR(...TaskService.getTasks.swr({}), {
+		fallbackData: [],
+	});
 
 	const handleSubmitSuccess = () => {
 		if (emailReceiver?.id) {

@@ -35,9 +35,7 @@ export const clientLoader = async ({
 	if (!pathParams.id) throw redirect($path("/tasks"));
 
 	const [task] = await Promise.all([
-		preload(TaskService.getTaskById.key(pathParams.id), () =>
-			TaskService.getTaskById(pathParams.id)
-		),
+		preload(...TaskService.getTaskById.swr({ taskId: pathParams.id })),
 		preload(...CronJobApiService.getCronJobs.swr({})),
 		preload(WebhookApiService.getWebhooks.key(), () =>
 			WebhookApiService.getWebhooks()
@@ -73,8 +71,7 @@ const TaskBreadcrumb = () => {
 	const match = useMatch("/tasks/:id");
 
 	const { data: task } = useSWR(
-		TaskService.getTaskById.key(match?.params.id || ""),
-		({ taskId }) => TaskService.getTaskById(taskId)
+		...TaskService.getTaskById.swr({ taskId: match?.params.id })
 	);
 
 	return task?.name;

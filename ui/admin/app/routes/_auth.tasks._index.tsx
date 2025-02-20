@@ -41,7 +41,7 @@ export async function clientLoader({
 	request,
 }: ClientLoaderFunctionArgs) {
 	await Promise.all([
-		preload(TaskService.getTasks.key(), TaskService.getTasks),
+		preload(...TaskService.getTasks.swr({})),
 		preload(...ThreadsService.getThreads.swr({})),
 		preload(...AgentService.getAgents.swr({})),
 	]);
@@ -67,7 +67,7 @@ export default function Tasks() {
 	const getUsers = useSWR(...UserService.getUsers.swr({}));
 
 	const getThreads = useSWR(...ThreadsService.getThreads.swr({}));
-	const getTasks = useSWR(TaskService.getTasks.key(), TaskService.getTasks);
+	const getTasks = useSWR(...TaskService.getTasks.swr({}));
 
 	const agentMap = useMemo(() => {
 		return new Map(getAgents.data?.map((agent) => [agent.id, agent]));
@@ -233,6 +233,19 @@ export default function Tasks() {
 							);
 						}}
 					/>
+				),
+				cell: (info) => (
+					<div className="flex items-center gap-2">
+						<Link
+							onClick={(event) => event.stopPropagation()}
+							to={$path("/agents/:id", {
+								id: info.row.original.agentID,
+							})}
+							className="px-0"
+						>
+							<p>{info.getValue()}</p>
+						</Link>
+					</div>
 				),
 			}),
 			columnHelper.accessor("user", {

@@ -32,11 +32,9 @@ export function TaskProvider({
 }) {
 	const taskId = initialTask.id;
 
-	const getTask = useSWR(
-		TaskService.getTaskById.key(taskId),
-		({ taskId }) => TaskService.getTaskById(taskId),
-		{ fallbackData: initialTask }
-	);
+	const getTask = useSWR(...TaskService.getTaskById.swr({ taskId }), {
+		fallbackData: initialTask,
+	});
 
 	const [lastUpdated, setLastSaved] = useState<Date>();
 

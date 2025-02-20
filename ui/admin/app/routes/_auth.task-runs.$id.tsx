@@ -54,9 +54,7 @@ export const clientLoader = async ({
 
 	const [task] = await Promise.all([
 		thread.workflowID
-			? preload(TaskService.getTaskById.key(thread.workflowID), () =>
-					TaskService.getTaskById(thread.workflowID)
-				)
+			? preload(...TaskService.getTaskById.swr({ taskId: thread.workflowID }))
 			: null,
 		preload(
 			KnowledgeFileService.getKnowledgeFiles.key(

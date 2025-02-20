@@ -9,6 +9,7 @@ import useSWR, { preload } from "swr";
 import { Agent } from "~/lib/model/agents";
 import { CapabilityTool } from "~/lib/model/toolReferences";
 import { AgentService } from "~/lib/service/api/agentService";
+import { TaskService } from "~/lib/service/api/taskService";
 import { ThreadsService } from "~/lib/service/api/threadsService";
 import { generateRandomName } from "~/lib/service/nameGenerator";
 import { timeSince } from "~/lib/utils";
@@ -42,7 +43,13 @@ export default function Agents() {
 		$path("/agents/:id", { id: agent.id })
 	);
 	const getThreads = useSWR(...ThreadsService.getThreads.swr({}));
-
+	const getTasks = useSWR(...TaskService.getTasks.swr({}), {
+		fallbackData: [],
+	});
+	const threadsMap = useMemo(
+		() => new Map(getThreads.data?.map((thread) => [thread.id, thread])),
+		[getThreads.data]
+	);
 	const threadCounts = useMemo(() => {
 		if (!getThreads.data) return {};
 		return getThreads.data.reduce(
@@ -55,9 +62,31 @@ export default function Agents() {
 		);
 	}, [getThreads.data]);
 
+	const taskCounts = useMemo(() => {
+		if (!getTasks.data) return {};
+
+		return getTasks.data.reduce(
+			(acc, task) => {
+				const agentId = threadsMap.get(task.threadID)?.agentID;
+				if (!agentId) return acc;
+				acc[agentId] = (acc[agentId] || 0) + 1;
+				return acc;
+			},
+			{} as Record<string, number>
+		);
+	}, [getTasks.data, threadsMap]);
+
 	const getAgents = useSWR(...AgentService.getAgents.swr({}));
 
-	const agents = getAgents.data || [];
+	const agents = useMemo(() => {
+		return (
+			getAgents.data?.map((agent) => ({
+				...agent,
+				threadCount: threadCounts[agent.id] || 0,
+				taskCount: taskCounts[agent.id] || 0,
+			})) ?? []
+		);
+	}, [getAgents.data, threadCounts, taskCounts]);
 
 	return (
 		<div>
@@ -98,7 +127,7 @@ export default function Agents() {
 		</div>
 	);
 
-	function getColumns(): ColumnDef<Agent, string>[] {
+	function getColumns(): ColumnDef<(typeof agents)[0], string>[] {
 		return [
 			columnHelper.accessor("name", {
 				header: "Name",
@@ -106,7 +135,7 @@ export default function Agents() {
 			columnHelper.accessor("description", {
 				header: "Description",
 			}),
-			columnHelper.accessor((agent) => threadCounts[agent.id]?.toString(), {
+			columnHelper.accessor((agent) => agent.threadCount.toString(), {
 				id: "threads-action",
 				header: "Threads",
 				cell: (info) => (
@@ -119,6 +148,23 @@ export default function Agents() {
 							className="px-0"
 						>
 							{info.getValue() || 0} Threads
+						</Link>
+					</div>
+				),
+			}),
+			columnHelper.accessor((agent) => agent.taskCount.toString(), {
+				id: "tasks-action",
+				header: "Tasks",
+				cell: (info) => (
+					<div className="flex items-center gap-2">
+						<Link
+							to={$path("/tasks", {
+								agentId: info.row.original.id,
+								from: "agents",
+							})}
+							className="px-0"
+						>
+							{info.getValue() || 0} Tasks
 						</Link>
 					</div>
 				),
@@ -161,7 +207,12 @@ export default function Agents() {
 	}
 }
 
-const columnHelper = createColumnHelper<Agent>();
+const columnHelper = createColumnHelper<
+	Agent & {
+		threadCount: number;
+		taskCount: number;
+	}
+>();
 
 export const meta: MetaFunction = () => {
 	return [{ title: "Obot • Agents" }];

@@ -178,6 +178,19 @@ export default function TaskRuns() {
 						}}
 					/>
 				),
+				cell: (info) => (
+					<div className="flex items-center gap-2">
+						<Link
+							onClick={(event) => event.stopPropagation()}
+							to={$path("/agents/:id", {
+								id: info.row.original.agentID!,
+							})}
+							className="px-0"
+						>
+							<p>{info.getValue()}</p>
+						</Link>
+					</div>
+				),
 			}),
 			columnHelper.accessor((thread) => thread.userName, {
 				id: "User",

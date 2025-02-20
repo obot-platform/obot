@@ -44,7 +44,7 @@ export async function clientLoader({
 }: ClientLoaderFunctionArgs) {
 	await Promise.all([
 		preload(...AgentService.getAgents.swr({})),
-		preload(TaskService.getTasks.key(), TaskService.getTasks),
+		preload(...TaskService.getTasks.swr({})),
 		preload(...ThreadsService.getThreads.swr({})),
 		preload(...UserService.getUsers.swr({})),
 	]);
@@ -69,9 +69,7 @@ export default function TaskRuns() {
 		useLoaderData<typeof clientLoader>();
 
 	const getThreads = useSWR(...ThreadsService.getThreads.swr({}));
-
-	const getTasks = useSWR(TaskService.getTasks.key(), TaskService.getTasks);
-
+	const getTasks = useSWR(...TaskService.getTasks.swr({}));
 	const getAgents = useSWR(...AgentService.getAgents.swr({}));
 	const getUsers = useSWR(...UserService.getUsers.swr({}));
 
