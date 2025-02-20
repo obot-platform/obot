@@ -46,7 +46,7 @@ async function authenticateTask(taskId: string) {
 		method: "POST",
 		headers: { Accept: "text/event-stream" },
 		responseType: "stream",
-		errorMessage: "Failed to invoke agenticate task",
+		errorMessage: "Failed to invoke authenticate task",
 	});
 
 	const reader = response.data
