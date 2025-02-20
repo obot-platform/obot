@@ -14,12 +14,16 @@ func SetAdditionalCredentialContexts(ctx context.Context, client kclient.Client)
 	}
 
 	for _, wf := range workflows.Items {
-		if len(wf.Spec.AdditionalCredentialContexts) != 0 {
+		if len(wf.Spec.AdditionalCredentialContexts) != 0 || wf.Spec.ThreadName == "" {
 			continue
 		}
 
 		var thread v1.Thread
-		if err := client.Get(ctx, kclient.ObjectKey{Namespace: wf.Namespace, Name: wf.Spec.ThreadName}, &thread); err != nil || thread.Spec.AgentName == "" {
+		if err := client.Get(ctx, kclient.ObjectKey{Namespace: wf.Namespace, Name: wf.Spec.ThreadName}, &thread); err != nil {
+			return err
+		}
+
+		if thread.Spec.AgentName == "" {
 			continue
 		}
 
