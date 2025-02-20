@@ -26,8 +26,7 @@ const formSchema = z.object({
 			collapsed: z.string(),
 			collapsedDark: z.string(),
 		})
-		.nullable()
-		.optional(),
+		.nullish(),
 });
 
 export type AgentInfoFormValues = z.infer<typeof formSchema>;

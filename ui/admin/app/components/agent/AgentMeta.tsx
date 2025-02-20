@@ -1,4 +1,3 @@
-import { PuzzleIcon } from "lucide-react";
 import { useMemo } from "react";
 import { $path } from "safe-routes";
 import useSWR from "swr";

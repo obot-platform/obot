@@ -15,12 +15,12 @@ type ChatProps = {
 };
 
 export function Chat({ className, classNames }: ChatProps) {
-	const { id, messages, mode, readOnly } = useChat();
+	const { messages, mode, readOnly } = useChat();
 
 	const showMessagePane = mode === "agent";
 
 	return (
-		<div id={id} className={`flex h-full flex-col pb-5 ${className}`}>
+		<div className={cn("flex h-full flex-col pb-5", className)}>
 			{showMessagePane && (
 				<div className="flex-grow overflow-hidden">
 					<MessagePane
