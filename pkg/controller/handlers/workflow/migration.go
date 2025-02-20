@@ -20,12 +20,12 @@ func SetAdditionalCredentialContexts(ctx context.Context, client kclient.Client)
 
 		var thread v1.Thread
 		if err := client.Get(ctx, kclient.ObjectKey{Namespace: wf.Namespace, Name: wf.Spec.ThreadName}, &thread); err != nil || thread.Spec.AgentName == "" {
-			return err
+			continue
 		}
 
 		wf.Spec.AdditionalCredentialContexts = []string{thread.Spec.AgentName}
 		if err := client.Update(ctx, &wf); err != nil {
-			return err
+			continue
 		}
 	}
 	return nil
