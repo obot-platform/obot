@@ -1,7 +1,6 @@
 import { Slot } from "@radix-ui/react-slot";
 import { TooltipContentProps } from "@radix-ui/react-tooltip";
-import { useEffect, useState } from "react";
-import { useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { cn } from "~/lib/utils";
 

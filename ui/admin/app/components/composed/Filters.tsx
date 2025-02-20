@@ -40,7 +40,7 @@ export function Filters({
 			) as QueryParams) ?? {};
 		const { ...filters } = query; // TODO: from
 
-		const updateFilters = (...params: (keyof QueryParams)[]) => {
+		const deleteFilters = (...params: (keyof QueryParams)[]) => {
 			const newQuery = { ...query };
 			params.forEach((param) => delete newQuery[param]);
 
@@ -60,7 +60,7 @@ export function Filters({
 					key: "agentId",
 					label: "Agent",
 					value: agentMap.get(filters.agentId)?.name ?? filters.agentId,
-					onRemove: () => updateFilters("agentId"),
+					onRemove: () => deleteFilters("agentId"),
 				},
 			"userId" in filters &&
 				filters.userId &&
@@ -68,7 +68,7 @@ export function Filters({
 					key: "userId",
 					label: "User",
 					value: userMap.get(filters.userId)?.email ?? filters.userId,
-					onRemove: () => updateFilters("userId"),
+					onRemove: () => deleteFilters("userId"),
 				},
 			"taskId" in filters &&
 				filters.taskId &&
@@ -76,14 +76,14 @@ export function Filters({
 					key: "taskId",
 					label: "Task",
 					value: workflowMap?.get(filters.taskId)?.name ?? filters.taskId,
-					onRemove: () => updateFilters("taskId"),
+					onRemove: () => deleteFilters("taskId"),
 				},
 			"createdStart" in filters &&
 				filters.createdStart && {
 					key: "createdStart",
 					label: "Created",
 					value: `${new Date(filters.createdStart).toLocaleDateString()} ${filters.createdEnd ? `- ${new Date(filters.createdEnd).toLocaleDateString()}` : ""}`,
-					onRemove: () => updateFilters("createdStart", "createdEnd"),
+					onRemove: () => deleteFilters("createdStart", "createdEnd"),
 				},
 		].filter((x) => !!x);
 	}, [navigate, searchParams, agentMap, userMap, workflowMap, url]);
