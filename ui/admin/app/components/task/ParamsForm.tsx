@@ -43,7 +43,7 @@ export function ParamsForm({
 	return (
 		<NameDescriptionForm
 			asCard
-			addLabel="Add Parameter"
+			addLabel="Add Argument"
 			defaultValues={defaultValues}
 			onChange={(values) => onChange?.({ params: convertTo(values) })}
 		/>
