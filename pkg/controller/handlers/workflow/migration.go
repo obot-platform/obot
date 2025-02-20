@@ -29,7 +29,7 @@ func SetAdditionalCredentialContexts(ctx context.Context, client kclient.Client)
 
 		wf.Spec.AdditionalCredentialContexts = []string{thread.Spec.AgentName}
 		if err := client.Update(ctx, &wf); err != nil {
-			continue
+			return err
 		}
 	}
 	return nil
