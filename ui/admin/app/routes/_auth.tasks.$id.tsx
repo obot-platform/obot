@@ -18,6 +18,12 @@ import { RouteQueryParams, RouteService } from "~/lib/service/routeService";
 import { cn } from "~/lib/utils";
 
 import { Task } from "~/components/task";
+import { TaskMeta } from "~/components/task/TaskMeta";
+import {
+	ResizableHandle,
+	ResizablePanel,
+	ResizablePanelGroup,
+} from "~/components/ui/resizable";
 import { ScrollArea } from "~/components/ui/scroll-area";
 
 export type SearchParams = RouteQueryParams<"taskSchema">;
@@ -57,13 +63,21 @@ export default function UserTask() {
 	);
 
 	return (
-		<ScrollArea className="h-full" enableScrollStick="bottom">
-			<div
-				className={cn("relative mx-auto flex h-full max-w-screen-md flex-col")}
-			>
-				<Task task={task} onPersistThreadId={onPersistThreadId} />
-			</div>
-		</ScrollArea>
+		<ResizablePanelGroup direction="horizontal" className="flex-auto">
+			<ResizablePanel defaultSize={65} minSize={25}>
+				<ScrollArea className="h-full" enableScrollStick="bottom">
+					<div className={cn("relative mx-auto flex h-full flex-col")}>
+						<Task task={task} onPersistThreadId={onPersistThreadId} />
+					</div>
+				</ScrollArea>
+			</ResizablePanel>
+			<ResizableHandle />
+			<ResizablePanel defaultSize={35} minSize={35}>
+				<ScrollArea className="h-full">
+					<TaskMeta task={task} />
+				</ScrollArea>
+			</ResizablePanel>
+		</ResizablePanelGroup>
 	);
 }
 

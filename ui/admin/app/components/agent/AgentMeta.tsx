@@ -3,15 +3,15 @@ import { $path } from "safe-routes";
 import useSWR from "swr";
 
 import { Agent } from "~/lib/model/agents";
-import { AgentService } from "~/lib/service/api/agentService";
 import { TaskService } from "~/lib/service/api/taskService";
+import { ThreadsService } from "~/lib/service/api/threadsService";
 
 import { Card, CardContent } from "~/components/ui/card";
 import { Link } from "~/components/ui/link";
 
 export function AgentMeta({ agent }: { agent: Agent }) {
 	const { data: threads } = useSWR(
-		...AgentService.getThreadsForAgent.swr({ agentId: agent.id })
+		...ThreadsService.getThreadsByAgent.swr({ agentId: agent.id })
 	);
 
 	const threadsMap = useMemo(

@@ -7,7 +7,6 @@ import {
 	UpdateAgent,
 } from "~/lib/model/agents";
 import { EntityList } from "~/lib/model/primitives";
-import { Thread } from "~/lib/model/threads";
 import { WorkspaceFile } from "~/lib/model/workspace";
 import { ApiRoutes } from "~/lib/routers/apiRoutes";
 import { request } from "~/lib/service/api/primitives";
@@ -206,24 +205,9 @@ async function downloadWorkspaceFile(agentId: string, fileName: string) {
 	);
 }
 
-const getThreadsForAgent = createFetcher(
-	z.object({ agentId: z.string() }),
-	async ({ agentId }, { signal }) => {
-		const res = await request<{ items: Thread[] }>({
-			url: ApiRoutes.agents.getThreadsForAgent(agentId).url,
-			errorMessage: "Failed to fetch agents",
-			signal,
-		});
-
-		return res.data.items ?? [];
-	},
-	() => ApiRoutes.agents.getThreadsForAgent(":agentId").path
-);
-
 export const AgentService = {
 	getAgents: getAgents,
 	getAgentById: getAgentById,
-	getThreadsForAgent: getThreadsForAgent,
 	createAgent: createAgent,
 	updateAgent: updateAgent,
 	deleteAgent: deleteAgent,
