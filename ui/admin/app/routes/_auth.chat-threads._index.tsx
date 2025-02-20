@@ -217,8 +217,8 @@ export default function TaskRuns() {
 						onSelect={(range) => {
 							navigate.internal(
 								$path("/chat-threads", {
-									createdStart: range?.from?.toDateString(),
-									createdEnd: range?.to?.toDateString(),
+									createdStart: range?.from?.toDateString() ?? "",
+									createdEnd: range?.to?.toDateString() ?? "",
 									...(agentId && { agentId }),
 									...(userId && { userId }),
 								})
