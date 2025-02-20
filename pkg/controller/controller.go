@@ -7,7 +7,6 @@ import (
 	"github.com/obot-platform/nah/pkg/router"
 	"github.com/obot-platform/obot/pkg/controller/data"
 	"github.com/obot-platform/obot/pkg/controller/handlers/toolreference"
-	"github.com/obot-platform/obot/pkg/controller/handlers/workflow"
 	"github.com/obot-platform/obot/pkg/services"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -43,9 +42,6 @@ func (c *Controller) PreStart(ctx context.Context) error {
 	}
 	if err := toolreference.MigrateToolNames(ctx, c.services.StorageClient); err != nil {
 		return fmt.Errorf("failed to migrate tool names: %w", err)
-	}
-	if err := workflow.SetAdditionalCredentialContexts(ctx, c.services.StorageClient); err != nil {
-		return fmt.Errorf("failed to set workflow additional credential contexts: %w", err)
 	}
 	return nil
 }
