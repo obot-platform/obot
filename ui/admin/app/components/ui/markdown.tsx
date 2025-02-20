@@ -30,7 +30,6 @@ import rehypeRaw from "rehype-raw";
 import rehypeSanitize from "rehype-sanitize";
 import remarkGfm from "remark-gfm";
 
-import { AppTheme } from "~/lib/service/themeService";
 import { cn } from "~/lib/utils/cn";
 
 import { CustomMarkdownComponents } from "~/components/react-markdown";
@@ -90,8 +89,7 @@ export function MarkdownEditor({
 	markdown: string;
 	onChange: (markdown: string) => void;
 }) {
-	const { theme } = useTheme();
-	const isDarkMode = theme === AppTheme.Dark;
+	const { isDark } = useTheme();
 	const ref = useRef<MDXEditorMethods>(null);
 	const [isExpanded, setIsExpanded] = useState(false);
 
@@ -107,7 +105,7 @@ export function MarkdownEditor({
 				ref={ref}
 				className={cn(
 					{
-						"dark-theme": isDarkMode,
+						"dark-theme": isDark,
 					},
 					"flex flex-col rounded-md p-0.5 ring-1 ring-inset ring-input has-[:focus-visible]:outline has-[:focus-visible]:outline-1 has-[:focus-visible]:outline-ring",
 					className
