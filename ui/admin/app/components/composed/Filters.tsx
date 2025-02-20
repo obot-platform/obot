@@ -14,7 +14,8 @@ type QueryParams = {
 	agentId?: string;
 	userId?: string;
 	taskId?: string;
-	created?: string;
+	createdStart?: string;
+	createdEnd?: string;
 };
 
 export function Filters({
@@ -39,9 +40,10 @@ export function Filters({
 			) as QueryParams) ?? {};
 		const { ...filters } = query; // TODO: from
 
-		const updateFilters = (param: keyof QueryParams) => {
+		const updateFilters = (...params: (keyof QueryParams)[]) => {
 			const newQuery = { ...query };
-			delete newQuery[param];
+			params.forEach((param) => delete newQuery[param]);
+
 			// Filter out null/undefined values and ensure all values are strings
 			const cleanQuery = Object.fromEntries(
 				Object.entries(newQuery)
@@ -76,12 +78,12 @@ export function Filters({
 					value: workflowMap?.get(filters.taskId)?.name ?? filters.taskId,
 					onRemove: () => updateFilters("taskId"),
 				},
-			"created" in filters &&
-				filters.created && {
-					key: "created",
+			"createdStart" in filters &&
+				filters.createdStart && {
+					key: "createdStart",
 					label: "Created",
-					value: new Date(filters.created).toLocaleDateString(),
-					onRemove: () => updateFilters("created"),
+					value: `${new Date(filters.createdStart).toLocaleDateString()} ${filters.createdEnd ? `- ${new Date(filters.createdEnd).toLocaleDateString()}` : ""}`,
+					onRemove: () => updateFilters("createdStart", "createdEnd"),
 				},
 		].filter((x) => !!x);
 	}, [navigate, searchParams, agentMap, userMap, workflowMap, url]);

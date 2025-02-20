@@ -295,10 +295,8 @@ export default function Tasks() {
 						onSelect={(range) => {
 							navigate.internal(
 								$path("/tasks", {
-									...(range.from && {
-										createdStart: range.from.toDateString(),
-									}),
-									...(range.to && { createdEnd: range.to.toDateString() }),
+									createdStart: range?.from?.toDateString() ?? "",
+									createdEnd: range?.to?.toDateString() ?? "",
 									...(taskId && { taskId }),
 									...(agentId && { agentId }),
 									...(userId && { userId }),

@@ -208,7 +208,7 @@ export const DataTableTimeFilter = ({
 }: {
 	dateRange: DateRange;
 	field: string;
-	onSelect: (range: DateRange) => void;
+	onSelect: (range?: DateRange) => void;
 }) => {
 	const [range, setRange] = useState<DateRange | undefined>(dateRange);
 	return (
@@ -231,12 +231,21 @@ export const DataTableTimeFilter = ({
 					selected={range}
 					onSelect={(range) => {
 						setRange(range);
-						if (range?.from && range?.to) {
-							onSelect(range);
-						}
 					}}
 					initialFocus
 				/>
+				<div className="flex justify-between gap-2">
+					<Button
+						variant="secondary"
+						onClick={() => {
+							setRange(undefined);
+							onSelect(undefined);
+						}}
+					>
+						Clear
+					</Button>
+					<Button onClick={() => onSelect(range)}>Apply</Button>
+				</div>
 			</PopoverContent>
 		</Popover>
 	);
