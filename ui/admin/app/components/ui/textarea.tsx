@@ -112,22 +112,24 @@ const useAutosizeTextArea = ({
 	maxHeight = Number.MAX_SAFE_INTEGER,
 	minHeight = 0,
 }: UseAutosizeTextAreaProps) => {
-	const [init, setInit] = React.useState(true);
+	const initRef = React.useRef(true);
 
 	const resize = React.useCallback(
 		(node: HTMLTextAreaElement) => {
+			console.log("resize", node, minHeight, maxHeight, initRef);
 			// Reset the height to auto to get the correct scrollHeight
 			node.style.height = "auto";
 
 			const offsetBorder = 2;
 
-			if (init) {
+			if (initRef.current) {
 				node.style.minHeight = `${minHeight + offsetBorder}px`;
 				if (maxHeight > minHeight) {
 					node.style.maxHeight = `${maxHeight}px`;
 				}
 				node.style.height = `${minHeight + offsetBorder}px`;
-				setInit(false);
+				initRef.current = false;
+				return;
 			}
 
 			const newHeight = Math.min(
@@ -137,25 +139,38 @@ const useAutosizeTextArea = ({
 
 			node.style.height = `${newHeight}px`;
 		},
-		[maxHeight, minHeight, setInit, init]
+		[maxHeight, minHeight]
 	);
 
 	const initResizer = React.useCallback(
 		(node: HTMLTextAreaElement) => {
-			node.onkeyup = () => resize(node);
-			node.onfocus = () => resize(node);
-			node.oninput = () => resize(node);
-			node.onresize = () => resize(node);
-			node.onchange = () => resize(node);
+			const handleResize = () => resize(node);
 
-			resize(node);
+			node.addEventListener("input", handleResize);
+			node.addEventListener("focus", handleResize);
+			node.addEventListener("change", handleResize);
+			node.addEventListener("keyup", handleResize);
+			node.addEventListener("resize", handleResize);
+			if (initRef.current) {
+				resize(node);
+			}
+
+			// Cleanup function to remove event listeners
+			return () => {
+				node.removeEventListener("input", handleResize);
+				node.removeEventListener("focus", handleResize);
+				node.removeEventListener("change", handleResize);
+				node.removeEventListener("keyup", handleResize);
+				node.removeEventListener("resize", handleResize);
+			};
 		},
 		[resize]
 	);
 
 	React.useEffect(() => {
 		if (textAreaRef) {
-			initResizer(textAreaRef);
+			const cleanup = initResizer(textAreaRef);
+			return cleanup;
 		}
 	}, [initResizer, textAreaRef]);
 

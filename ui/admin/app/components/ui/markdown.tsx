@@ -23,7 +23,7 @@ import {
 	toolbarPlugin,
 } from "@mdxeditor/editor";
 import "@mdxeditor/editor/style.css";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import ReactMarkdown, { defaultUrlTransform } from "react-markdown";
 import rehypeExternalLinks from "rehype-external-links";
 import rehypeRaw from "rehype-raw";
@@ -92,6 +92,7 @@ export function MarkdownEditor({
 	const { theme } = useTheme();
 	const isDarkMode = theme === AppTheme.Dark;
 	const ref = useRef<MDXEditorMethods>(null);
+	const [isExpanded, setIsExpanded] = useState(false);
 
 	useEffect(() => {
 		if (ref.current) {
@@ -100,51 +101,53 @@ export function MarkdownEditor({
 	}, [markdown]);
 
 	return (
-		<MDXEditor
-			ref={ref}
-			className={cn(
-				{
-					"dark-theme": isDarkMode,
-				},
-				"flex flex-col rounded-md p-0.5 ring-1 ring-inset ring-input has-[:focus-visible]:outline has-[:focus-visible]:outline-1 has-[:focus-visible]:outline-ring",
-				className
-			)}
-			markdown={markdown}
-			onChange={onChange}
-			contentEditableClassName={cn(
-				"h-16 overflow-y-hidden transition-all duration-200 focus:h-auto focus:max-h-64 focus:overflow-y-auto"
-			)}
-			plugins={[
-				toolbarPlugin({
-					toolbarContents: () => (
-						<>
-							<UndoRedo />
-							<Separator />
-							<BoldItalicUnderlineToggles />
-							<CodeToggle />
-							<Separator />
-							<StrikeThroughSupSubToggles />
-							<Separator />
-							<ListsToggle />
-							<Separator />
-							<BlockTypeSelect />
-							<Separator />
-							<CreateLink />
-							<InsertImage />
-						</>
-					),
-				}),
-				headingsPlugin(),
-				imagePlugin(),
-				linkPlugin(),
-				linkDialogPlugin(),
-				tablePlugin(),
-				listsPlugin(),
-				thematicBreakPlugin(),
-				markdownShortcutPlugin(),
-				codeBlockPlugin({ defaultCodeBlockLanguage: "txt" }),
-				quotePlugin(),
-			]}
-		/>
+		<div onFocusCapture={() => setIsExpanded(true)}>
+			<MDXEditor
+				ref={ref}
+				className={cn(
+					{
+						"dark-theme": isDarkMode,
+					},
+					"flex flex-col rounded-md p-0.5 ring-1 ring-inset ring-input has-[:focus-visible]:outline has-[:focus-visible]:outline-1 has-[:focus-visible]:outline-ring",
+					className
+				)}
+				contentEditableClassName={cn(
+					isExpanded ? "h-[300px] overflow-y-auto" : "h-[54px] overflow-hidden"
+				)}
+				markdown={markdown}
+				onChange={onChange}
+				plugins={[
+					toolbarPlugin({
+						toolbarContents: () => (
+							<>
+								<UndoRedo />
+								<Separator />
+								<BoldItalicUnderlineToggles />
+								<CodeToggle />
+								<Separator />
+								<StrikeThroughSupSubToggles />
+								<Separator />
+								<ListsToggle />
+								<Separator />
+								<BlockTypeSelect />
+								<Separator />
+								<CreateLink />
+								<InsertImage />
+							</>
+						),
+					}),
+					headingsPlugin(),
+					imagePlugin(),
+					linkPlugin(),
+					linkDialogPlugin(),
+					tablePlugin(),
+					listsPlugin(),
+					thematicBreakPlugin(),
+					markdownShortcutPlugin(),
+					codeBlockPlugin({ defaultCodeBlockLanguage: "txt" }),
+					quotePlugin(),
+				]}
+			/>
+		</div>
 	);
 }
