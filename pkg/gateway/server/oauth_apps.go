@@ -465,14 +465,9 @@ func (s *Server) callbackOAuthApp(apiContext api.Context) error {
 		return fmt.Errorf("failed to create token request: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-<<<<<<< HEAD
 	if app.Spec.Manifest.Type != types2.OAuthAppTypeGoogle &&
 		app.Spec.Manifest.Type != types2.OAuthAppTypePagerDuty {
 		req.SetBasicAuth(url.QueryEscape(app.Spec.Manifest.ClientID), url.QueryEscape(cred.Env["CLIENT_SECRET"]))
-=======
-	if app.Spec.Manifest.Type != types2.OAuthAppTypeGoogle {
-		req.SetBasicAuth(url.QueryEscape(app.Spec.Manifest.ClientID), url.QueryEscape(cred.Env["CLIENT_SECRET"]))
->>>>>>> d61e017b (fix: store oauth app client secrets as credentials)
 	}
 
 	resp, err := http.DefaultClient.Do(req)
