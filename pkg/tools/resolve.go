@@ -67,6 +67,9 @@ func ResolveToolReferences(ctx context.Context, gptClient *gptscript.GPTScript, 
 
 		peerTool := prg.ToolSet[peerToolID]
 		toolRef := reference
+		if strings.HasSuffix(filepath.Base(reference), ".gpt") {
+			toolRef = filepath.Dir(reference)
+		}
 		if !strings.HasPrefix(peerTool.Source.Location, "http://") && !strings.HasPrefix(peerTool.Source.Location, "https://") {
 			relPath, err := filepath.Rel(peerTool.WorkingDir, peerTool.Source.Location)
 			if err != nil {

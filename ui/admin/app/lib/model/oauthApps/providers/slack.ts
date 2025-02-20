@@ -12,7 +12,7 @@ const schema = z.object({
 	clientSecret: z.string().min(1, "Client Secret is required"),
 });
 
-const scopes = [
+const userScopes = [
 	"channels:history",
 	"groups:history",
 	"im:history",
@@ -29,6 +29,8 @@ const scopes = [
 	"mpim:write",
 	"im:write",
 ];
+
+const botScopes = ["chat:write", "im:write", "users:read"];
 
 const steps: OAuthFormStep<typeof schema.shape>[] = [
 	{
@@ -75,7 +77,7 @@ const steps: OAuthFormStep<typeof schema.shape>[] = [
 	{
 		type: "markdown",
 		text:
-			"### Step 3: Add Scopes\n" +
+			"### Step 3: Add User Scopes\n" +
 			"- Navigate to the `OAuth & Permissions` tab from the sidebar.\n" +
 			"- Locate the `User Token Scopes` section and add the following scopes:\n",
 	},
@@ -83,10 +85,10 @@ const steps: OAuthFormStep<typeof schema.shape>[] = [
 		type: "sectionGroup",
 		sections: [
 			{
-				title: "Scopes: ",
+				title: "User Scopes: ",
 				displayStepsInline: true,
 				defaultOpen: true,
-				steps: scopes.map(
+				steps: userScopes.map(
 					(scope) =>
 						({
 							type: "copy",
@@ -99,14 +101,38 @@ const steps: OAuthFormStep<typeof schema.shape>[] = [
 	{
 		type: "markdown",
 		text:
-			"### Step 4: Install the App\n" +
+			"### Step 4: Add Bot Scopes\n" +
+			"- Navigate to the `OAuth & Permissions` tab from the sidebar.\n" +
+			"- Locate the `Bot Token Scopes` section and add the following scopes:\n",
+	},
+	{
+		type: "sectionGroup",
+		sections: [
+			{
+				title: "Bot Scopes: ",
+				displayStepsInline: true,
+				defaultOpen: true,
+				steps: botScopes.map(
+					(scope) =>
+						({
+							type: "copy",
+							text: scope,
+						}) as OAuthFormStep<typeof schema.shape>
+				),
+			},
+		],
+	},
+	{
+		type: "markdown",
+		text:
+			"### Step 5: Install the App\n" +
 			"- Navigate to the `OAuth & Permissions` tab from the sidebar.\n" +
 			"- Click on the `Install App to Workspace` (or `Reinstall to <App Name>` if it's already installed) button.\n",
 	},
 	{
 		type: "markdown",
 		text:
-			"### Step 5: Register OAuth App in Obot\n" +
+			"### Step 6: Register OAuth App in Obot\n" +
 			"Click the `Basic Information` section in the side nav, locate the `Client ID` and `Client Secret` fields, copy/paste them into the form below, and click `Submit`.\n",
 	},
 	{ type: "input", input: "clientID", label: "Client ID" },
