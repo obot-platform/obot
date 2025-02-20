@@ -43,7 +43,7 @@ export function AgentMeta({ agent }: { agent: Agent }) {
 								</td>
 							</tr>
 							<tr className="border-foreground/25">
-								<td className="py-2 pr-4 font-medium">Threads</td>
+								<td className="py-2 pr-4 font-medium">Tasks</td>
 								<td className="text-right">
 									<Link to={$path("/tasks", { agentId: agent.id })}>
 										{agentTasks?.length ?? 0} Tasks
