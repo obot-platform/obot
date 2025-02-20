@@ -1,0 +1,20 @@
+[class*="_selectTrigger"] {
+    @apply bg-transparent text-foreground;
+}
+[class*="_linkDialogPopoverContent"],
+[class*="_dialogContent"],
+.mdxeditor-select-content {
+    @apply bg-background;
+}
+.mdxeditor-toolbar {
+    @apply bg-background-secondary;
+}
+.mdxeditor-popup-container input {
+    @apply bg-background;
+}
+[class*="_primaryButton"]{
+    @apply flex-row relative justify-center whitespace-nowrap text-sm font-medium transition-colors hover:shadow-inner focus-visible:outline-none focus-visible:ring-1 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 bg-primary text-primary-foreground shadow hover:bg-primary/80 focus-visible:ring-foreground h-9 px-4 py-2 rounded-full flex items-center gap-2 border-0;
+}
+[class*="_secondaryButton"] {
+    @apply relative inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium transition-colors hover:shadow-inner focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 bg-secondary text-secondary-foreground shadow-sm hover:bg-secondary/80 h-9 px-4 py-2 rounded-full border-0;
+}

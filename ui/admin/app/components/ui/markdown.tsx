@@ -35,6 +35,7 @@ import { cn } from "~/lib/utils/cn";
 
 import { CustomMarkdownComponents } from "~/components/react-markdown";
 import { useTheme } from "~/components/theme";
+import "~/components/ui/markdown.css";
 
 // Allow links for file references in messages if it starts with file://, otherwise this will cause an empty href and cause app to reload when clicking on it
 export const urlTransformAllowFiles = (u: string) => {
