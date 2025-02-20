@@ -117,7 +117,6 @@ export default function Users() {
 									userId: row.original.id,
 									from: "users",
 								})}
-								className="underline"
 							>
 								View {thread.length}{" "}
 								{pluralize(thread.length, "Thread", "Threads")}
