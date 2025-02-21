@@ -51,7 +51,7 @@
 		{#if files.items.length === 0}
 			<p class="pb-3 pt-6 text-center text-sm text-gray dark:text-gray-300">No files</p>
 		{:else}
-			<ul class="space-y-4 px-3 py-6 text-sm">
+			<ul class="space-y-4 px-3 py-6 text-sm overflow-y-auto max-h-[60vh]">
 				{#each files.items as file}
 					<li class="group">
 						<div class="flex">
