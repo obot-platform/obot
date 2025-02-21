@@ -64,6 +64,28 @@ func Agent(ctx context.Context, db kclient.Client, agent *v1.Agent, oauthServerU
 		}
 	}
 
+	if opts.Thread != nil {
+		threadPrompt := opts.Thread.Spec.Manifest.Prompt
+		if threadPrompt == "" {
+			parentThread, err := projects.Recurse(ctx, db, opts.Thread, func(parentThread *v1.Thread) (bool, error) {
+				return parentThread.Spec.Manifest.Prompt != "", nil
+			})
+			if err != nil {
+				return nil, nil, err
+			}
+			if parentThread != nil && parentThread.Spec.Manifest.Prompt != "" {
+				threadPrompt = parentThread.Spec.Manifest.Prompt
+			}
+		}
+		if threadPrompt != "" {
+			if mainTool.Instructions == "" {
+				mainTool.Instructions = threadPrompt
+			} else {
+				mainTool.Instructions += "\n\n" + threadPrompt
+			}
+		}
+	}
+
 	if mainTool.Instructions == "" {
 		mainTool.Instructions = v1.DefaultAgentPrompt
 	}
