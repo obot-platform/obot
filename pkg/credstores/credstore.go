@@ -25,12 +25,12 @@ func (o *Options) Validate() error {
 		if o.AWSKMSKeyARN == "" {
 			return fmt.Errorf("missing AWS KMS key ARN")
 		}
-		o.EncryptionConfigFile = "./aws-encryption.yaml"
+		o.EncryptionConfigFile = "/aws-encryption.yaml"
 	case "gcp":
 		if o.GCPKMSKeyURI == "" {
 			return fmt.Errorf("missing GCP KMS key URI")
 		}
-		o.EncryptionConfigFile = "./gcp-encryption.yaml"
+		o.EncryptionConfigFile = "/gcp-encryption.yaml"
 	case "custom":
 		if o.EncryptionConfigFile == "" {
 			return fmt.Errorf("missing custom encryption config file")
