@@ -1,13 +1,17 @@
-[class*="_selectTrigger"] {
-	@apply bg-transparent text-foreground;
+[class*="_selectTrigger"],
+.cm-gutters,
+.cm-gutterElement {
+	@apply bg-transparent text-muted-foreground;
 }
 [class*="_linkDialogPopoverContent"],
 [class*="_dialogContent"],
+.mdxeditor-diff-source-wrapper .cm-editor,
 .mdxeditor-select-content {
 	@apply bg-background;
 }
-.mdxeditor-toolbar {
-	@apply bg-background-secondary;
+.mdxeditor-toolbar,
+.cm-activeLineGutter {
+	@apply !bg-background-secondary;
 }
 .mdxeditor-popup-container input {
 	@apply bg-background;
@@ -17,4 +21,13 @@
 }
 [class*="_secondaryButton"] {
 	@apply relative inline-flex h-9 items-center justify-center gap-2 whitespace-nowrap rounded-full border-0 bg-secondary px-4 py-2 text-sm font-medium text-secondary-foreground shadow-sm transition-colors hover:bg-secondary/80 hover:shadow-inner focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0;
+}
+.mdxeditor ul {
+	@apply list-disc px-4;
+}
+.mdxeditor ol {
+	@apply list-decimal px-4;
+}
+.mdxeditor-source-editor {
+	@apply overflow-auto max-h-[300px];
 }
