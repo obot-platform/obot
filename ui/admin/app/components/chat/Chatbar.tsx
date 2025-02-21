@@ -69,7 +69,7 @@ export function Chatbar({ className }: ChatbarProps) {
 						}
 					}}
 					maxHeight={200}
-					minHeight={32}
+					rows={1}
 					onChange={(e) => setInput(e.target.value)}
 					placeholder="Type your message..."
 					bottomContent={

@@ -97,7 +97,7 @@ export const StepBase = memo(function StepBase({
 						onChange={(e) => fieldConfig.onChange(e.target.value)}
 						placeholder={fieldConfig.placeholder}
 						maxHeight={100}
-						minHeight={32}
+						rows={1}
 						className="flex-grow bg-background"
 						onClick={(e) => e.stopPropagation()}
 					/>
