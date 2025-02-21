@@ -73,6 +73,6 @@
 			klass
 		)}
 	>
-		{project?.name ? project.name[0].toUpperCase() : '?'}
+		{project?.name ? project.name[0].toUpperCase() : assistant?.name ? assistant.name[0].toUpperCase() : '?'}
 	</div>
 {/if}
