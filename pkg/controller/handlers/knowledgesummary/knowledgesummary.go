@@ -52,6 +52,8 @@ func toHash(files []v1.KnowledgeFile) string {
 		digest.Write([]byte{'\x00'})
 		digest.Write([]byte(file.Status.State))
 		digest.Write([]byte{'\x00'})
+		digest.Write([]byte(file.Status.Checksum))
+		digest.Write([]byte{'\x00'})
 	}
 	return fmt.Sprintf("%x", digest.Sum(nil))
 }

@@ -164,43 +164,43 @@ type Options struct {
 	PreviousRunName       string
 	ForceNoResume         bool
 	CreateThread          bool
-	ThreadCredentialScope *bool
+	CredentialContextIDs  []string
 	UserUID               string
 	GenerateName          string
 }
 
-func (i *Invoker) getChatState(ctx context.Context, c kclient.Client, run *v1.Run) (result, lastThreadName string, _ error) {
+func (i *Invoker) getChatState(ctx context.Context, c kclient.Client, run *v1.Run) (result string, _ error) {
 	if run.Spec.PreviousRunName == "" {
-		return "", "", nil
+		return "", nil
 	}
 
 	for {
 		// look for the last valid state
 		var previousRun v1.Run
 		if err := c.Get(ctx, router.Key(run.Namespace, run.Spec.PreviousRunName), &previousRun); err != nil {
-			return "", "", err
+			return "", err
 		}
 		if previousRun.Status.State == gptscript.Continue {
 			break
 		}
 		if previousRun.Spec.PreviousRunName == "" {
-			return "", "", nil
+			return "", nil
 		}
 		run = &previousRun
 	}
 
 	var lastRun v1.RunState
 	if err := c.Get(ctx, router.Key(run.Namespace, run.Spec.PreviousRunName), &lastRun); apierror.IsNotFound(err) {
-		return "", "", nil
+		return "", nil
 	} else if err != nil {
-		return "", "", err
+		return "", err
 	}
 
 	if len(lastRun.Spec.ChatState) == 0 {
-		return "", lastRun.Spec.ThreadName, nil
+		return "", nil
 	}
 	err := gz.Decompress(&result, lastRun.Spec.ChatState)
-	return result, lastRun.Spec.ThreadName, err
+	return result, err
 }
 
 func getThreadForAgent(ctx context.Context, c kclient.WithWatch, agent *v1.Agent, opt Options) (*v1.Thread, error) {
@@ -218,60 +218,33 @@ func getThreadForAgent(ctx context.Context, c kclient.WithWatch, agent *v1.Agent
 		parentThreadName = run.Spec.ThreadName
 	}
 
-	return CreateThreadForAgent(ctx, c, agent, opt.ThreadName, parentThreadName, opt.UserUID, opt.EphemeralThread)
+	return createThreadForAgent(ctx, c, agent, opt.ThreadName, parentThreadName, opt.UserUID, opt.EphemeralThread)
 }
 
-func CreateThreadForProject(ctx context.Context, c kclient.WithWatch, projectThread *v1.Thread, userUID string) (*v1.Thread, error) {
-	var agent v1.Agent
-	if err := c.Get(ctx, router.Key(projectThread.Namespace, projectThread.Spec.AgentName), &agent); err != nil {
-		return nil, err
-	}
-
+func CreateProjectFromProject(ctx context.Context, c kclient.WithWatch, projectThread *v1.Thread, threadName, userUID string) (*v1.Thread, error) {
 	thread := v1.Thread{
 		ObjectMeta: metav1.ObjectMeta{
-			GenerateName: system.ThreadPrefix,
-			Namespace:    agent.Namespace,
-			Finalizers:   []string{v1.ThreadFinalizer},
+			Name:       threadName,
+			Namespace:  projectThread.Namespace,
+			Finalizers: []string{v1.ThreadFinalizer},
 		},
 		Spec: v1.ThreadSpec{
-			AgentName:        agent.Name,
+			Manifest: types.ThreadManifest{
+				Name:        projectThread.Spec.Manifest.Name,
+				Description: projectThread.Spec.Manifest.Description,
+				Icons:       projectThread.Spec.Manifest.Icons,
+			},
+			AgentName:        projectThread.Spec.AgentName,
 			ParentThreadName: projectThread.Name,
-			UserUID:          userUID,
+			UserID:           userUID,
+			Project:          true,
 		},
 	}
 
 	return &thread, c.Create(ctx, &thread)
 }
 
-func CreateProjectForAgent(ctx context.Context, c kclient.WithWatch, agent *v1.Agent, template *v1.ThreadTemplate, name, userUID string) (*v1.Thread, error) {
-	return createThreadForAgent(ctx, c, agent, template, "", "", userUID, true, false, name)
-}
-
-func CreateThreadForAgent(ctx context.Context, c kclient.WithWatch, agent *v1.Agent, threadName, parentThreadName, userUID string, ephemeral bool) (*v1.Thread, error) {
-	return createThreadForAgent(ctx, c, agent, nil, threadName, parentThreadName, userUID, false, ephemeral, "")
-}
-
-func createThreadForAgent(ctx context.Context, c kclient.WithWatch, agent *v1.Agent, template *v1.ThreadTemplate, threadName, parentThreadName, userUID string, project bool, ephemeral bool, projectName string) (*v1.Thread, error) {
-	var (
-		fromWorkspaceNames []string
-		err                error
-	)
-
-	if agent.Name != "" {
-		agent, err = wait.For(ctx, c, agent, func(agent *v1.Agent) (bool, error) {
-			return agent.Status.WorkspaceName != "" && len(agent.Status.KnowledgeSetNames) > 0, nil
-		})
-		if err != nil {
-			return nil, err
-		}
-		fromWorkspaceNames = []string{agent.Status.WorkspaceName}
-	}
-
-	var agentKnowledgeSet v1.KnowledgeSet
-	if err = c.Get(ctx, router.Key(agent.Namespace, agent.Status.KnowledgeSetNames[0]), &agentKnowledgeSet); err != nil {
-		return nil, err
-	}
-
+func createThreadForAgent(ctx context.Context, c kclient.WithWatch, agent *v1.Agent, threadName, parentThreadName, userID string, ephemeral bool) (*v1.Thread, error) {
 	thread := &v1.Thread{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: system.ThreadPrefix,
@@ -282,41 +255,15 @@ func createThreadForAgent(ctx context.Context, c kclient.WithWatch, agent *v1.Ag
 		Spec: v1.ThreadSpec{
 			Manifest: types.ThreadManifest{
 				Tools: agent.Spec.Manifest.DefaultThreadTools,
-				Name:  projectName,
 			},
-			Ephemeral:          ephemeral,
-			AgentName:          agent.Name,
-			ParentThreadName:   parentThreadName,
-			FromWorkspaceNames: fromWorkspaceNames,
-			Project:            project,
-			UserUID:            userUID,
-			TextEmbeddingModel: agentKnowledgeSet.Spec.TextEmbeddingModel,
+			Ephemeral:        ephemeral,
+			AgentName:        agent.Name,
+			ParentThreadName: parentThreadName,
+			UserID:           userID,
 		},
-	}
-	if template != nil {
-		thread.Spec.Manifest = template.Status.Manifest
-		thread.Spec.ThreadTemplateName = template.Name
-		if template.Status.WorkspaceName != "" {
-			thread.Spec.FromWorkspaceNames = []string{template.Status.WorkspaceName}
-		}
-		if projectName != "" {
-			thread.Spec.Manifest.Name = projectName
-		}
 	}
 
 	return thread, c.Create(ctx, thread)
-}
-
-func (i *Invoker) updateThreadFields(ctx context.Context, c kclient.WithWatch, agent *v1.Agent, thread *v1.Thread) error {
-	var updated bool
-	if thread.Spec.AgentName != agent.Name {
-		thread.Spec.AgentName = agent.Name
-		updated = true
-	}
-	if updated {
-		return c.Status().Update(ctx, thread)
-	}
-	return nil
 }
 
 func (i *Invoker) Thread(ctx context.Context, c kclient.WithWatch, thread *v1.Thread, input string, opt Options) (_ *Response, err error) {
@@ -334,36 +281,38 @@ func (i *Invoker) Agent(ctx context.Context, c kclient.WithWatch, agent *v1.Agen
 		return nil, err
 	}
 
+	if thread.Spec.AgentName != agent.Name {
+		return nil, fmt.Errorf("thread %q is not associated with agent %q", thread.Name, agent.Name)
+	}
+
 	if err := unAbortThread(ctx, c, thread); err != nil {
 		return nil, err
 	}
 
-	credContextIDs := []string{thread.Name}
-	if thread.Spec.ParentThreadName != "" {
-		credContextIDs, err = projects.ThreadIDs(ctx, c, thread)
-		if err != nil {
-			return nil, err
+	var credContextIDs []string
+	if opt.CredentialContextIDs != nil {
+		credContextIDs = opt.CredentialContextIDs
+	} else {
+		credContextIDs = []string{thread.Name}
+		if thread.Spec.ParentThreadName != "" {
+			credContextIDs, err = projects.ThreadIDs(ctx, c, thread)
+			if err != nil {
+				return nil, err
+			}
+			credContextIDs[0] = credContextIDs[1] + "-local"
+		}
+		if agent.Name != "" {
+			credContextIDs = append(credContextIDs, agent.Name)
+		}
+		if agent.Namespace != "" {
+			credContextIDs = append(credContextIDs, agent.Namespace)
 		}
 	}
-	if opt.ThreadCredentialScope != nil && !*opt.ThreadCredentialScope {
-		credContextIDs = nil
-	}
-	if agent.Spec.CredentialContextID != "" {
-		credContextIDs = append(credContextIDs, agent.Spec.CredentialContextID)
-	} else if agent.Name != "" {
-		credContextIDs = append(credContextIDs, agent.Name)
-	}
-	credContextIDs = append(credContextIDs, agent.Spec.AdditionalCredentialContexts...)
-	credContextIDs = append(credContextIDs, agent.Namespace)
 
 	tools, extraEnv, err := render.Agent(ctx, c, agent, i.serverURL, render.AgentOptions{
 		Thread: thread,
 	})
 	if err != nil {
-		return nil, err
-	}
-
-	if err := i.updateThreadFields(ctx, c, agent, thread); err != nil {
 		return nil, err
 	}
 
@@ -419,6 +368,10 @@ func isEphemeral(run *v1.Run) bool {
 }
 
 func (i *Invoker) createRun(ctx context.Context, c kclient.WithWatch, thread *v1.Thread, tool any, input string, opts runOptions) (*Response, error) {
+	if thread.Spec.Project {
+		return nil, fmt.Errorf("project threads cannot be invoked")
+	}
+
 	previousRunName := thread.Status.LastRunName
 	if opts.PreviousRunName != "" {
 		previousRunName = opts.PreviousRunName
@@ -546,26 +499,26 @@ func (i *Invoker) Resume(ctx context.Context, c kclient.WithWatch, thread *v1.Th
 			if thread.Spec.Abort {
 				return false, fmt.Errorf("thread was aborted while waiting for workspace")
 			}
-			return thread.Status.WorkspaceID != "", nil
+			return thread.Status.Created, nil
 		})
 		if err != nil {
 			return fmt.Errorf("failed to wait for thread to be ready: %w", err)
 		}
 	}
 
-	chatState, prevThreadName, err := i.getChatState(ctx, c, run)
+	chatState, err := i.getChatState(ctx, c, run)
 	if err != nil {
 		return err
 	}
 
 	var userID, userName, userEmail, userTimezone string
-	if thread.Spec.UserUID != "" && thread.Spec.UserUID != "anonymous" && thread.Spec.UserUID != "nobody" {
-		u, err := i.gatewayClient.UserByID(ctx, thread.Spec.UserUID)
+	if thread.Spec.UserID != "" && thread.Spec.UserID != "anonymous" && thread.Spec.UserID != "nobody" {
+		u, err := i.gatewayClient.UserByID(ctx, thread.Spec.UserID)
 		if err != nil {
 			return fmt.Errorf("failed to get user: %w", err)
 		}
 
-		userID, userName, userEmail, userTimezone = thread.Spec.UserUID, u.Username, u.Email, u.Timezone
+		userID, userName, userEmail, userTimezone = thread.Spec.UserID, u.Username, u.Email, u.Timezone
 	}
 
 	token, err := i.tokenService.NewToken(jwt.TokenContext{
@@ -667,10 +620,10 @@ func (i *Invoker) Resume(ctx context.Context, c kclient.WithWatch, thread *v1.Th
 		return fmt.Errorf("invalid tool definition: %s", run.Spec.Tool)
 	}
 
-	return i.stream(ctx, c, prevThreadName, thread, run, runResp)
+	return i.stream(ctx, c, thread, run, runResp)
 }
 
-func (i *Invoker) saveState(ctx context.Context, c kclient.Client, prevThreadName string, thread *v1.Thread, run *v1.Run, runResp *gptscript.Run, retErr error) error {
+func (i *Invoker) saveState(ctx context.Context, c kclient.Client, thread *v1.Thread, run *v1.Run, runResp *gptscript.Run, retErr error) error {
 	if isEphemeral(run) {
 		// Ephemeral run, don't save state
 		return retErr
@@ -678,7 +631,7 @@ func (i *Invoker) saveState(ctx context.Context, c kclient.Client, prevThreadNam
 
 	var err error
 	for j := 0; j < 3; j++ {
-		err = i.doSaveState(ctx, c, prevThreadName, thread, run, runResp, retErr)
+		err = i.doSaveState(ctx, c, thread, run, runResp, retErr)
 		if err == nil {
 			return retErr
 		}
@@ -700,7 +653,7 @@ func (i *Invoker) saveState(ctx context.Context, c kclient.Client, prevThreadNam
 	return retErr
 }
 
-func (i *Invoker) doSaveState(ctx context.Context, c kclient.Client, prevThreadName string, thread *v1.Thread, run *v1.Run, runResp *gptscript.Run, retErr error) error {
+func (i *Invoker) doSaveState(ctx context.Context, c kclient.Client, thread *v1.Thread, run *v1.Run, runResp *gptscript.Run, retErr error) error {
 	var (
 		runStateSpec v1.RunStateSpec
 		runChanged   bool
@@ -836,9 +789,6 @@ func (i *Invoker) doSaveState(ctx context.Context, c kclient.Client, prevThreadN
 		}
 
 		if final && thread.Status.LastRunName != run.Name {
-			if prevThreadName != "" && prevThreadName != thread.Name {
-				thread.Status.PreviousThreadName = prevThreadName
-			}
 			thread.Status.CurrentRunName = ""
 			thread.Status.LastRunName = run.Name
 			thread.Status.LastRunState = run.Status.State
@@ -913,7 +863,7 @@ func getCredentialCallingTool(runResp *gptscript.Run) (result gptscript.Tool) {
 	return
 }
 
-func (i *Invoker) stream(ctx context.Context, c kclient.WithWatch, prevThreadName string, thread *v1.Thread, run *v1.Run, runResp *gptscript.Run) (retErr error) {
+func (i *Invoker) stream(ctx context.Context, c kclient.WithWatch, thread *v1.Thread, run *v1.Run, runResp *gptscript.Run) (retErr error) {
 	var (
 		runEvent = runResp.Events()
 		wg       sync.WaitGroup
@@ -927,7 +877,7 @@ func (i *Invoker) stream(ctx context.Context, c kclient.WithWatch, prevThreadNam
 		// Don't use parent context because it may be canceled and we still want to save the state
 		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 		defer cancel()
-		retErr = i.saveState(ctx, c, prevThreadName, thread, run, runResp, retErr)
+		retErr = i.saveState(ctx, c, thread, run, runResp, retErr)
 		if retErr != nil {
 			log.Errorf("failed to save state: %v", retErr)
 		}
@@ -946,7 +896,7 @@ func (i *Invoker) stream(ctx context.Context, c kclient.WithWatch, prevThreadNam
 			case <-saveCtx.Done():
 				return
 			case <-time.After(time.Second):
-				_ = i.saveState(ctx, c, prevThreadName, thread, run, runResp, nil)
+				_ = i.saveState(ctx, c, thread, run, runResp, nil)
 			}
 		}
 	}()

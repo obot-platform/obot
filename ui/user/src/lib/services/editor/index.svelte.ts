@@ -1,160 +1,171 @@
-import { type EditorItem } from '$lib/stores/editor.svelte';
-import editorStore from '$lib/stores/editor.svelte';
-import tasks from '$lib/stores/tasks.svelte';
+import type { Project, Task } from '$lib/services';
 import ChatService from '../chat';
 
-let visible = $state(false);
-const items = editorStore.items;
-
-function isVisible(): boolean {
-	return visible;
+export interface EditorItem {
+	id: string;
+	name: string;
+	file?: {
+		contents: string;
+		modified?: boolean;
+		buffer: string;
+		threadID?: string;
+		blob?: Blob;
+		taskID?: string;
+		runID?: string;
+	};
+	task?: Task;
+	table?: {
+		name: string;
+	};
+	selected?: boolean;
+	generic?: boolean;
 }
 
-function setVisible(value: boolean) {
-	visible = value;
-}
-
-function hasItem(id: string): boolean {
+function hasItem(items: EditorItem[], id: string): boolean {
 	const item = items?.find((item) => item.id === id);
 	return item !== undefined;
 }
 
 async function load(
+	items: EditorItem[],
+	project: Project,
 	id: string,
 	opts?: {
 		taskID?: string;
+		threadID?: string;
 		runID?: string;
 	}
 ) {
 	let fileID = id;
 	if (opts?.taskID && opts?.runID) {
 		fileID = `${opts.taskID}/${opts.runID}/${id}`;
+	} else if (opts?.threadID) {
+		fileID = `${opts.threadID}/${id}`;
 	}
-	if (hasItem(fileID)) {
-		select(fileID);
-		visible = true;
-		return;
+	if (hasItem(items, fileID)) {
+		select(items, fileID);
+	} else if (id.startsWith('tl1')) {
+		await genericLoad(items, id);
+	} else if (id.startsWith('w1')) {
+		await loadTask(items, project, id);
+	} else if (id.startsWith('table://')) {
+		await loadTable(items, id);
+	} else {
+		await loadFile(items, project, id, opts);
 	}
-	if (id.startsWith('tl1')) {
-		await genericLoad(id);
-		visible = true;
-		return;
-	}
-	if (id.startsWith('w1')) {
-		await loadTask(id);
-		visible = true;
-		return;
-	}
-	if (id.startsWith('table://')) {
-		await loadTable(id);
-		visible = true;
-		return;
-	}
-	await loadFile(id, opts);
-	visible = true;
 }
 
-async function loadTable(id: string) {
+async function loadTable(items: EditorItem[], id: string) {
 	const tableName = id.split('table://')[1];
 	const targetFile: EditorItem = {
 		id: id,
 		name: tableName,
-		contents: '',
-		buffer: '',
-		modified: false,
 		selected: true,
-		table: tableName
+		table: {
+			name: tableName
+		}
 	};
 	items.push(targetFile);
-	select(id);
+	select(items, id);
 }
 
-async function genericLoad(id: string) {
+async function genericLoad(items: EditorItem[], id: string) {
 	const targetFile: EditorItem = {
 		id: id,
 		name: id,
-		generic: true,
-		contents: '',
-		buffer: ''
+		generic: true
 	};
 	items.push(targetFile);
-	select(id);
+	select(items, id);
 }
 
-async function loadTask(taskID: string) {
+async function loadTask(items: EditorItem[], project: Project, taskID: string) {
 	try {
-		let task = tasks.items.find((task) => task.id === taskID);
-		if (!task) {
-			task = await ChatService.getTask(taskID);
-			tasks.items.push(task);
-		}
+		const task = await ChatService.getTask(project.assistantID, project.id, taskID);
 		const targetFile: EditorItem = {
 			id: taskID,
 			name: task.name ?? `Task ${taskID}`,
-			contents: '',
-			buffer: '',
-			modified: false,
-			selected: true,
-			task
+			task: task
 		};
 		items.push(targetFile);
-		select(task.id);
+		select(items, task.id);
 	} catch {
 		// ignore error
 	}
 }
 
-async function download(id: string, opts?: { taskID?: string; runID?: string }) {
-	const item = items.find((item) => item.id === id);
-	if (item && item.modified && item.buffer) {
-		await ChatService.saveContents(item.id, item.buffer, opts);
-		item.contents = item.buffer;
-		item.modified = false;
-		item.blob = undefined;
+async function download(
+	items: EditorItem[],
+	project: Project,
+	id: string,
+	opts?: {
+		taskID?: string;
+		threadID?: string;
+		runID?: string;
 	}
-	await ChatService.download(id, opts);
+) {
+	const item = items.find((item) => item.id === id);
+	if (item?.file && item.file.modified && item.file.buffer) {
+		await ChatService.saveContents(
+			project.assistantID,
+			project.id,
+			item.id,
+			item.file.buffer,
+			opts
+		);
+		item.file.contents = item.file.buffer;
+		item.file.modified = false;
+		item.file.blob = undefined;
+	}
+	await ChatService.download(project.assistantID, project.assistantID, id, opts);
 }
 
 async function loadFile(
+	items: EditorItem[],
+	project: Project,
 	file: string,
 	opts?: {
 		taskID?: string;
+		threadID?: string;
 		runID?: string;
 	}
 ) {
 	try {
-		const blob = await ChatService.getFile(file, opts);
+		const blob = await ChatService.getFile(project.assistantID, project.id, file, opts);
 		const contents = await blob.text();
 		let fileID = file;
 		if (opts?.taskID && opts?.runID) {
 			fileID = `${opts.taskID}/${opts.runID}/${file}`;
 		}
-		const targetFile = {
+		const targetFile: EditorItem = {
 			id: fileID,
-			taskID: opts?.taskID,
-			runID: opts?.runID,
+			file: {
+				threadID: opts?.threadID,
+				buffer: '',
+				modified: false,
+				taskID: opts?.taskID,
+				runID: opts?.runID,
+				contents,
+				blob
+			},
 			name: file,
-			contents,
-			blob: blob,
-			buffer: '',
-			modified: false,
 			selected: true
 		};
 		for (let i = 0; i < items.length; i++) {
 			if (items[i].id === targetFile.id) {
 				items[i] = targetFile;
-				select(targetFile.id);
+				select(items, targetFile.id);
 				return;
 			}
 		}
 		items.push(targetFile);
-		select(targetFile.id);
+		select(items, targetFile.id);
 	} catch {
 		// ignore error
 	}
 }
 
-function select(id: string) {
+function select(items: EditorItem[], id: string) {
 	if (!id) {
 		return;
 	}
@@ -174,30 +185,25 @@ function select(id: string) {
 	}
 }
 
-function remove(id: string) {
+function remove(items: EditorItem[], id: string): boolean {
 	for (let i = 0; i < items.length; i++) {
 		if (items[i].id === id) {
 			if (i > 0) {
-				select(items[i - 1].id);
+				select(items, items[i - 1].id);
 			} else if (items.length > 1) {
-				select(items[i + 1].id);
+				select(items, items[i + 1].id);
 			}
 			items.splice(i, 1);
 			break;
 		}
 	}
 
-	if (items.length === 0) {
-		visible = false;
-	}
+	return items.length === 0;
 }
 
 export default {
 	remove,
 	load,
 	download,
-	select,
-	items,
-	isVisible,
-	setVisible
+	select
 };

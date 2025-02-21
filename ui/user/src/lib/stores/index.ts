@@ -1,14 +1,4 @@
 export { default as darkMode } from './darkmode.svelte';
 export { default as profile } from './profile.svelte';
 export { default as errors } from './errors.svelte';
-export { default as assistants } from './assistants.svelte';
-export { default as tools } from './tools.svelte';
-export { default as tasks } from './tasks.svelte';
-export { default as files } from './files.svelte';
-export { default as knowledgeFiles } from './knowledgefiles.svelte';
-export { default as editor } from './editor.svelte';
 export { default as term } from './term.svelte';
-export { default as version } from './version.svelte';
-export { default as context } from './context.svelte';
-export { default as threads } from './threads.svelte';
-export { default as projects } from './projects.svelte';

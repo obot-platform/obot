@@ -129,12 +129,25 @@ func (h *Handler) CheckHasContent(req router.Request, _ router.Response) error {
 
 func (h *Handler) SetEmbeddingModel(req router.Request, _ router.Response) error {
 	ks := req.Object.(*v1.KnowledgeSet)
-	if !ks.Status.HasContent || ks.Status.TextEmbeddingModel != "" {
+	if ks.Status.TextEmbeddingModel != "" {
 		return nil
 	}
 
-	if ks.Spec.TextEmbeddingModel != "" {
-		ks.Status.TextEmbeddingModel = ks.Spec.TextEmbeddingModel
+	for _, ksName := range ks.Spec.RelatedKnowledgeSetNames {
+		var relatedKS v1.KnowledgeSet
+		if err := req.Get(&relatedKS, req.Namespace, ksName); apierrors.IsNotFound(err) {
+			continue
+		} else if err != nil {
+			return err
+		}
+
+		if relatedKS.Status.TextEmbeddingModel != "" {
+			ks.Status.TextEmbeddingModel = relatedKS.Status.TextEmbeddingModel
+			return req.Client.Status().Update(req.Ctx, ks)
+		}
+	}
+
+	if !ks.Status.HasContent {
 		return nil
 	}
 
@@ -144,7 +157,6 @@ func (h *Handler) SetEmbeddingModel(req router.Request, _ router.Response) error
 	}
 
 	ks.Status.TextEmbeddingModel = defaultEmbeddingModel.Spec.Manifest.Model
-
 	return nil
 }
 

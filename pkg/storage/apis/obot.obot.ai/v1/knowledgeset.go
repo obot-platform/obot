@@ -19,15 +19,12 @@ type KnowledgeSetSpec struct {
 
 	// AgentName is the name of the agent that created and owns this knowledge set
 	AgentName string `json:"agentName,omitempty"`
-	// WorkflowName is the name of the workflow that created and owns this knowledge set
-	WorkflowName string `json:"workflowName,omitempty"`
 	// ThreadName is the name of the thread that created and owns this knowledge set
 	ThreadName string `json:"threadName,omitempty"`
-	// TextEmbeddingModel is set when the model is predetermined on creation. For example, agent threads.
-	TextEmbeddingModel string `json:"textEmbeddingModel,omitempty"`
 
-	// CloneFromWorkspaceName is the name of the workspace that will be copied to this knowledge set
-	CloneFromWorkspaceName string `json:"cloneFromWorkspaceName,omitempty"`
+	// RelatedKnowledgeSetNames is a list of knowledge set that must match the same text embedding model
+	// The best effort will be made to keep the same text embedding model used for the related knowledge sets
+	RelatedKnowledgeSetNames []string `json:"relatedKnowledgeSetNames,omitempty"`
 }
 
 func (in *KnowledgeSet) GetColumns() [][]string {
@@ -42,7 +39,6 @@ func (in *KnowledgeSet) GetColumns() [][]string {
 func (in *KnowledgeSet) DeleteRefs() []Ref {
 	return []Ref{
 		{ObjType: &Agent{}, Name: in.Spec.AgentName},
-		{ObjType: &Workflow{}, Name: in.Spec.WorkflowName},
 		{ObjType: &Thread{}, Name: in.Spec.ThreadName},
 	}
 }

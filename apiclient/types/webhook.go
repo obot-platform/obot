@@ -12,7 +12,7 @@ type WebhookManifest struct {
 	Name             string   `json:"name"`
 	Description      string   `json:"description"`
 	Alias            string   `json:"alias"`
-	Workflow         string   `json:"workflow"`
+	WorkflowName     string   `json:"workflowName"`
 	Headers          []string `json:"headers"`
 	Secret           string   `json:"secret"`
 	ValidationHeader string   `json:"validationHeader"`

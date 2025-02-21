@@ -1,14 +1,16 @@
 <script lang="ts">
 	import { Thread } from '$lib/services/chat/thread.svelte';
-	import type { Messages } from '$lib/services';
+	import type { Messages, Project } from '$lib/services';
 	import Message from '$lib/components/messages/Message.svelte';
 
 	interface Props {
 		toolID: string;
 		onClose?: () => void | Promise<void>;
+		project: Project;
+		local?: boolean;
 	}
 
-	let { toolID, onClose }: Props = $props();
+	let { toolID, onClose, project, local }: Props = $props();
 	let authMessages = $state<Messages>();
 	let thread = $state<Thread>();
 
@@ -18,9 +20,10 @@
 	}
 
 	function auth(toolID: string) {
-		const t = new Thread({
+		const t = new Thread(project, {
 			authenticate: {
-				tools: [toolID]
+				tools: [toolID],
+				local
 			},
 			onError: () => {
 				// ignore the error. This is so it doesn't get globally printed
@@ -52,7 +55,7 @@
 {#if authMessages}
 	<div class="flex flex-col gap-5 p-5">
 		{#each authMessages.messages as msg}
-			<Message {msg} onSendCredentialsCancel={() => authCancel()} />
+			<Message {msg} {project} onSendCredentialsCancel={() => authCancel()} />
 		{/each}
 	</div>
 {/if}

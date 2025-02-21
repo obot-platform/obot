@@ -30,16 +30,13 @@ type AgentHandler struct {
 	gptscript *gptscript.GPTScript
 	invoker   *invoke.Invoker
 	serverURL string
-	// This is currently a hack to access the workflow handler
-	workflowHandler *WorkflowHandler
 }
 
 func NewAgentHandler(gClient *gptscript.GPTScript, invoker *invoke.Invoker, serverURL string) *AgentHandler {
 	return &AgentHandler{
-		serverURL:       serverURL,
-		gptscript:       gClient,
-		invoker:         invoker,
-		workflowHandler: NewWorkflowHandler(gClient, serverURL, invoker),
+		serverURL: serverURL,
+		gptscript: gClient,
+		invoker:   invoker,
 	}
 }
 
@@ -62,7 +59,7 @@ func (a *AgentHandler) Authenticate(req api.Context) (err error) {
 		return err
 	}
 
-	resp, err := runAuthForAgent(req.Context(), req.Storage, a.invoker, a.gptscript, &agent, id, tools)
+	resp, err := runAuthForAgent(req.Context(), req.Storage, a.invoker, a.gptscript, &agent, id, tools, req.User.GetUID())
 	if err != nil {
 		return err
 	}
@@ -333,17 +330,9 @@ func (a *AgentHandler) List(req api.Context) error {
 	return req.Write(types.AgentList{Items: resp})
 }
 
-func (a *AgentHandler) getWorkspaceName(req api.Context, agentOrWorkflowName string) (string, error) {
-	if system.IsWorkflowID(agentOrWorkflowName) {
-		var wf v1.Workflow
-		if err := req.Get(&wf, agentOrWorkflowName); err != nil {
-			return "", err
-		}
-		return wf.Status.WorkspaceName, nil
-	}
-
+func (a *AgentHandler) getWorkspaceName(req api.Context, agentName string) (string, error) {
 	var agent v1.Agent
-	if err := req.Get(&agent, agentOrWorkflowName); err != nil {
+	if err := req.Get(&agent, agentName); err != nil {
 		return "", err
 	}
 
@@ -400,17 +389,9 @@ func (a *AgentHandler) DeleteFile(req api.Context) error {
 	return deleteFile(req.Context(), req, a.gptscript, workspaceName, "files/")
 }
 
-func (a *AgentHandler) getKnowledgeSetsAndName(req api.Context, agentOrWorkflowName string) ([]string, string, error) {
-	if system.IsWorkflowID(agentOrWorkflowName) {
-		var wf v1.Workflow
-		if err := req.Get(&wf, agentOrWorkflowName); err != nil {
-			return nil, "", err
-		}
-		return wf.Status.KnowledgeSetNames, wf.Name, nil
-	}
-
+func (a *AgentHandler) getKnowledgeSetsAndName(req api.Context, agentName string) ([]string, string, error) {
 	var agent v1.Agent
-	if err := req.Get(&agent, agentOrWorkflowName); err != nil {
+	if err := req.Get(&agent, agentName); err != nil {
 		return nil, "", err
 	}
 
@@ -717,10 +698,6 @@ func (a *AgentHandler) DeleteKnowledgeSource(req api.Context) error {
 
 func (a *AgentHandler) EnsureCredentialForKnowledgeSource(req api.Context) error {
 	agentID := req.PathValue("id")
-	if system.IsWorkflowID(agentID) {
-		return a.workflowHandler.EnsureCredentialForKnowledgeSource(req)
-	}
-
 	var agent v1.Agent
 	if err := req.Get(&agent, agentID); err != nil {
 		return err
@@ -931,7 +908,7 @@ func MetadataFrom(obj kclient.Object, linkKV ...string) types.Metadata {
 	return m
 }
 
-func runAuthForAgent(ctx context.Context, c kclient.WithWatch, invoker *invoke.Invoker, gClient *gptscript.GPTScript, agent *v1.Agent, credContext string, tools []string) (*invoke.Response, error) {
+func runAuthForAgent(ctx context.Context, c kclient.WithWatch, invoker *invoke.Invoker, gClient *gptscript.GPTScript, agent *v1.Agent, credContext string, tools []string, userID string) (*invoke.Response, error) {
 	credentials := make([]string, 0, len(tools))
 
 	var toolRef v1.ToolReference
@@ -975,13 +952,13 @@ func runAuthForAgent(ctx context.Context, c kclient.WithWatch, invoker *invoke.I
 	agent.Spec.Manifest.AvailableThreadTools = nil
 	agent.Spec.Manifest.DefaultThreadTools = nil
 	agent.Spec.Manifest.Credentials = credentials
-	agent.Spec.CredentialContextID = credContext
 	agent.Name = ""
 
 	return invoker.Agent(ctx, c, agent, "", invoke.Options{
-		Synchronous:           true,
-		EphemeralThread:       true,
-		ThreadCredentialScope: new(bool),
+		Synchronous:          true,
+		EphemeralThread:      true,
+		UserUID:              userID,
+		CredentialContextIDs: []string{credContext},
 	})
 }
 

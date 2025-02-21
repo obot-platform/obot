@@ -4,7 +4,6 @@ type ToolReferenceType string
 
 const (
 	ToolReferenceTypeTool                    ToolReferenceType = "tool"
-	ToolReferenceTypeStepTemplate            ToolReferenceType = "stepTemplate"
 	ToolReferenceTypeKnowledgeDataSource     ToolReferenceType = "knowledgeDataSource"
 	ToolReferenceTypeKnowledgeDocumentLoader ToolReferenceType = "knowledgeDocumentLoader"
 	ToolReferenceTypeSystem                  ToolReferenceType = "system"

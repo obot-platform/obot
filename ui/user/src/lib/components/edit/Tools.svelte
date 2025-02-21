@@ -1,19 +1,18 @@
 <script lang="ts">
-	import { ChatService, type Project } from '$lib/services';
 	import CollapsePane from '$lib/components/edit/CollapsePane.svelte';
 	import { Plus, X } from 'lucide-svelte/icons';
-	import { tools } from '$lib/stores';
 	import { type AssistantTool } from '$lib/services';
 	import { popover } from '$lib/actions';
 	import { fade } from 'svelte/transition';
 
 	interface Props {
-		project: Project;
+		tools: AssistantTool[];
+		onNewTools: (tools: AssistantTool[]) => Promise<void>;
 	}
 
-	let { project }: Props = $props();
-	let enabledList = $derived(tools.items.filter((t) => !t.builtin && t.enabled));
-	let disabledList = $derived(tools.items.filter((t) => !t.builtin && !t.enabled));
+	let { tools, onNewTools }: Props = $props();
+	let enabledList = $derived(tools.filter((t) => !t.builtin && t.enabled));
+	let disabledList = $derived(tools.filter((t) => !t.builtin && !t.enabled));
 	let { ref, tooltip, toggle } = popover();
 
 	async function modify(tool: AssistantTool, remove: boolean) {
@@ -29,11 +28,7 @@
 				}
 			];
 		}
-		tools.items = (
-			await ChatService.updateProjectTools(project.id, {
-				items: newTools
-			})
-		).items;
+		await onNewTools(newTools);
 		if (!remove) {
 			toggle();
 		}

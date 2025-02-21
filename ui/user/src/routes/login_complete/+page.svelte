@@ -1,6 +1,3 @@
-<script lang="ts">
-</script>
-
 <main id="main-content" class="flex h-dvh justify-center">
 	<div class="relative mt-32 text-center">
 		<img

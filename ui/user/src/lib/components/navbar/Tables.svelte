@@ -1,17 +1,25 @@
 <script lang="ts">
-	import { ChatService, EditorService, type TableList } from '$lib/services';
+	import { ChatService, EditorService, type Project, type TableList } from '$lib/services';
 	import Menu from '$lib/components/navbar/Menu.svelte';
 	import { Table } from 'lucide-svelte';
 	import { popover } from '$lib/actions';
+	import type { EditorItem } from '$lib/services/editor/index.svelte';
+	import { getLayout } from '$lib/context/layout.svelte';
 
-	async function loadTables() {
-		tables = await ChatService.listTables();
+	interface Props {
+		project: Project;
+		items: EditorItem[];
 	}
 
-	let { tooltip, ref } = popover({ placement: 'top-start', offset: 10, hover: true });
+	async function loadTables() {
+		tables = await ChatService.listTables(project.assistantID, project.id);
+	}
 
+	let { project, items = $bindable() }: Props = $props();
+	let { tooltip, ref } = popover({ placement: 'top-start', offset: 10, hover: true });
 	let menu: ReturnType<typeof Menu>;
 	let tables: TableList | undefined = $state();
+	const layout = getLayout();
 </script>
 
 <Menu
@@ -36,7 +44,8 @@
 							<button
 								class="flex flex-1 items-center"
 								onclick={async () => {
-									await EditorService.load('table://' + table.name);
+									await EditorService.load(items, project, 'table://' + table.name);
+									layout.fileEditorOpen = true;
 									menu?.toggle(false);
 								}}
 							>

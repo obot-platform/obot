@@ -33,14 +33,14 @@ func (in *EmailReceiver) Get(field string) (value string) {
 	switch field {
 	case "spec.threadName":
 		return in.Spec.ThreadName
-	case "spec.workflow":
-		return in.Spec.Workflow
+	case "spec.workflowName":
+		return in.Spec.WorkflowName
 	}
 	return ""
 }
 
 func (in *EmailReceiver) FieldNames() []string {
-	return []string{"spec.threadName", "spec.workflow"}
+	return []string{"spec.threadName", "spec.workflowName"}
 }
 
 func (in *EmailReceiver) GetAliasName() string {
@@ -75,7 +75,7 @@ func (*EmailReceiver) GetColumns() [][]string {
 
 func (in *EmailReceiver) DeleteRefs() []Ref {
 	return []Ref{
-		{ObjType: &Workflow{}, Name: in.Spec.Workflow, Alias: in.Spec.Workflow},
+		{ObjType: &Workflow{}, Name: in.Spec.WorkflowName},
 	}
 }
 

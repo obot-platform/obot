@@ -11,9 +11,7 @@ import (
 	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/events"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
-	"github.com/obot-platform/obot/pkg/system"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 const DefaultMaxUserThreadTools = 5
@@ -35,9 +33,11 @@ func convertThread(thread v1.Thread) types.Thread {
 	if thread.Status.WorkflowState != "" {
 		state = string(thread.Status.WorkflowState)
 	}
-	parent := thread.Spec.ParentThreadName
-	if parent == "" {
-		parent = strings.Replace(thread.Status.PreviousThreadName, system.ThreadPrefix, system.ProjectPrefix, 1)
+	var env []string
+	for _, e := range thread.Spec.Env {
+		if e.Existing && e.Value == "" {
+			env = append(env, e.Name)
+		}
 	}
 	return types.Thread{
 		Metadata:        MetadataFrom(&thread),
@@ -49,13 +49,13 @@ func convertThread(thread v1.Thread) types.Thread {
 		LastRunID:       thread.Status.LastRunName,
 		CurrentRunID:    thread.Status.CurrentRunName,
 		State:           state,
-		ProjectID:       parent,
-		UserID:          thread.Spec.UserUID,
+		ProjectID:       thread.Spec.ParentThreadName,
+		UserID:          thread.Spec.UserID,
 		Abort:           thread.Spec.Abort,
 		SystemTask:      thread.Spec.SystemTask,
 		Ephemeral:       thread.Spec.Ephemeral,
 		Project:         thread.Spec.Project,
-		Env:             thread.Spec.Env,
+		Env:             env,
 	}
 }
 
@@ -74,71 +74,6 @@ func (a *ThreadHandler) Abort(req api.Context) error {
 	}
 
 	return req.Write(thread)
-}
-
-func (a *ThreadHandler) WorkflowExecutions(req api.Context) error {
-	var (
-		id         = req.PathValue("id")
-		workflowID = req.PathValue("workflow_id")
-	)
-
-	var workflowExecutions v1.WorkflowExecutionList
-	if err := req.List(&workflowExecutions, kclient.MatchingFields{
-		"spec.threadName":   id,
-		"spec.workflowName": workflowID,
-	}); err != nil {
-		return err
-	}
-
-	var resp types.WorkflowExecutionList
-	for _, we := range workflowExecutions.Items {
-		resp.Items = append(resp.Items, convertWorkflowExecution(we))
-	}
-
-	return req.Write(resp)
-}
-
-func convertWorkflowExecution(we v1.WorkflowExecution) types.WorkflowExecution {
-	var w types.WorkflowManifest
-	if we.Status.WorkflowManifest != nil {
-		w = *we.Status.WorkflowManifest
-	}
-	var endTime *types.Time
-	if we.Status.EndTime != nil {
-		endTime = types.NewTime(we.Status.EndTime.Time)
-	}
-	return types.WorkflowExecution{
-		Metadata:  MetadataFrom(&we),
-		Workflow:  w,
-		Input:     we.Spec.Input,
-		Error:     we.Status.Error,
-		StartTime: *types.NewTime(we.CreationTimestamp.Time),
-		EndTime:   endTime,
-	}
-}
-
-func (a *ThreadHandler) Workflows(req api.Context) error {
-	var (
-		id = req.PathValue("id")
-	)
-
-	var workflows v1.WorkflowList
-	if err := req.List(&workflows, kclient.MatchingFields{
-		"spec.threadName": id,
-	}); err != nil {
-		return err
-	}
-
-	var resp types.WorkflowList
-	for _, workflow := range workflows.Items {
-		wf, err := convertWorkflow(workflow, "", req.APIBaseURL)
-		if err != nil {
-			return err
-		}
-		resp.Items = append(resp.Items, *wf)
-	}
-
-	return req.Write(resp)
 }
 
 func (a *ThreadHandler) Events(req api.Context) error {
@@ -252,74 +187,6 @@ func (a *ThreadHandler) List(req api.Context) error {
 	}
 
 	return req.Write(resp)
-}
-
-func (a *ThreadHandler) Files(req api.Context) error {
-	var (
-		threadID = req.PathValue("id")
-	)
-
-	var thread v1.Thread
-	if err := req.Get(&thread, threadID); err != nil {
-		return err
-	}
-
-	if thread.Status.WorkspaceID == "" {
-		return req.Write(types.FileList{Items: []types.File{}})
-	}
-
-	return listFileFromWorkspace(req.Context(), req, a.gptscript, gptscript.ListFilesInWorkspaceOptions{
-		WorkspaceID: thread.Status.WorkspaceID,
-		Prefix:      "files/",
-	})
-}
-
-func (a *ThreadHandler) GetFile(req api.Context) error {
-	var (
-		threadID = req.PathValue("id")
-	)
-
-	var thread v1.Thread
-	if err := req.Get(&thread, threadID); err != nil {
-		return err
-	}
-
-	if thread.Status.WorkspaceID == "" {
-		return types.NewErrNotFound("no workspace found for thread %s", req.PathValue("id"))
-	}
-
-	return getFileInWorkspace(req.Context(), req, a.gptscript, thread.Status.WorkspaceID, "files/")
-}
-
-func (a *ThreadHandler) UploadFile(req api.Context) error {
-	var thread v1.Thread
-	if err := req.Get(&thread, req.PathValue("id")); err != nil {
-		return err
-	}
-
-	if thread.Status.WorkspaceID == "" {
-		return types.NewErrHTTP(http.StatusTooEarly, fmt.Sprintf("no workspace found for thread %s", req.PathValue("id")))
-	}
-
-	_, err := uploadFileToWorkspace(req.Context(), req, a.gptscript, thread.Status.WorkspaceID, "files/")
-	return err
-}
-
-func (a *ThreadHandler) DeleteFile(req api.Context) error {
-	var (
-		threadID = req.PathValue("id")
-	)
-
-	var thread v1.Thread
-	if err := req.Get(&thread, threadID); err != nil {
-		return err
-	}
-
-	if thread.Status.WorkspaceID == "" {
-		return nil
-	}
-
-	return deleteFileFromWorkspaceID(req.Context(), req, a.gptscript, thread.Status.WorkspaceID, "files/")
 }
 
 func (a *ThreadHandler) Knowledge(req api.Context) error {

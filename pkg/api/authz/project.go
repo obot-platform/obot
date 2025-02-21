@@ -33,6 +33,10 @@ func (a *Authorizer) checkProject(req *http.Request, resources *Resources, user 
 		agentID = resources.Authorizated.Assistant.Name
 	}
 
+	if !thread.Spec.Project {
+		return false, nil
+	}
+
 	if !a.projectIsAuthorized(req.Context(), agentID, &thread, validUserIDs) {
 		return false, nil
 	}
@@ -42,9 +46,6 @@ func (a *Authorizer) checkProject(req *http.Request, resources *Resources, user 
 }
 
 func (a *Authorizer) projectIsAuthorized(ctx context.Context, agentID string, thread *v1.Thread, validUserIDs []string) bool {
-	if !thread.Spec.Project {
-		return false
-	}
 	if agentID != "" {
 		// If agent is available, make sure it's related
 		if thread.Spec.AgentName != agentID {
@@ -52,7 +53,7 @@ func (a *Authorizer) projectIsAuthorized(ctx context.Context, agentID string, th
 		}
 	}
 
-	if slices.Contains(validUserIDs, thread.Spec.UserUID) {
+	if slices.Contains(validUserIDs, thread.Spec.UserID) {
 		return true
 	}
 

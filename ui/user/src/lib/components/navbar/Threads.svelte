@@ -1,10 +1,15 @@
 <script lang="ts">
-	import { SidebarOpen } from 'lucide-svelte';
-	import { context } from '$lib/stores';
+	import { MessageCirclePlus, SidebarOpen } from 'lucide-svelte';
+	import { getLayout } from '$lib/context/layout.svelte';
+
+	const layout = getLayout();
 </script>
 
-{#if !context.sidebarOpen}
-	<button class="icon-button" onclick={() => (context.sidebarOpen = !context.sidebarOpen)}>
-		<SidebarOpen />
+{#if !layout.threadsOpen}
+	<button class="icon-button" onclick={() => (layout.threadsOpen = !layout.threadsOpen)}>
+		<SidebarOpen class="icon-default" />
+	</button>
+	<button class="icon-button" onclick={() => (layout.threadsOpen = !layout.threadsOpen)}>
+		<MessageCirclePlus class="icon-default" />
 	</button>
 {/if}

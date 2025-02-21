@@ -112,15 +112,12 @@ func (a *RunHandler) stream(req api.Context, criteria func(*v1.Run) bool) error 
 	return nil
 }
 
-func runCriteria(agentName, threadName, workflowName string) func(*v1.Run) bool {
+func runCriteria(agentName, threadName string) func(*v1.Run) bool {
 	return func(run *v1.Run) bool {
 		if agentName != "" && run.Spec.AgentName != agentName {
 			return false
 		}
 		if threadName != "" && run.Spec.ThreadName != threadName {
-			return false
-		}
-		if workflowName != "" && run.Spec.WorkflowName != workflowName {
 			return false
 		}
 		return true
@@ -156,8 +153,7 @@ func (a *RunHandler) Delete(req api.Context) error {
 func (a *RunHandler) List(req api.Context) error {
 	var (
 		criteria = runCriteria(req.PathValue("agent"),
-			req.PathValue("thread"),
-			req.PathValue("workflow"))
+			req.PathValue("thread"))
 		runList v1.RunList
 	)
 

@@ -1,92 +1,70 @@
 <script lang="ts">
 	import AssistantIcon from '$lib/icons/AssistantIcon.svelte';
-	import { assistants, context, projects } from '$lib/stores';
-	import type { Assistant, Project } from '$lib/services';
-	import { Check, ChevronDown, Plus } from 'lucide-svelte/icons';
+	import { ChatService, type Project } from '$lib/services';
+	import { Check, ChevronDown } from 'lucide-svelte/icons';
 	import { popover } from '$lib/actions';
-	import New from '$lib/components/New.svelte';
+	import { getLayout } from '$lib/context/layout.svelte';
+
+	interface Props {
+		project: Project;
+	}
+
+	let { project }: Props = $props();
+	let projects = $state<Project[]>([]);
+	let layout = getLayout();
 
 	let { ref, tooltip, toggle } = popover({
 		placement: 'bottom-start'
 	});
-
-	let name = $derived.by(() => {
-		return projectName(context.project);
-	});
-
-	let newDialog: ReturnType<typeof New>;
-
-	function projectName(p?: Project): string {
-		if (p?.name) {
-			return p?.name;
-		}
-		const assistant = getAssistant(p);
-		if (assistant?.name) {
-			return assistant.name;
-		}
-		return 'Untitled';
-	}
-
-	function getAssistant(p?: Project): Assistant | undefined {
-		let assistant = assistants.items.find((a) => a.id === p?.assistantID);
-		if (!assistant) {
-			assistant = assistants.current();
-		}
-		return assistant;
-	}
-
-	function projectDescription(p?: Project): string {
-		if (p?.description) {
-			return p?.description;
-		}
-		const assistant = getAssistant(p);
-		if (assistant?.description) {
-			return assistant.description;
-		}
-		return 'Untitled';
-	}
 </script>
 
 <button
-	class="flex items-center gap-2 rounded-lg p-2 hover:bg-surface2"
+	class="flex items-center gap-2 rounded-lg p-2"
+	class:hover:bg-surface2={!layout.projectEditorOpen}
+	class:cursor-default={layout.projectEditorOpen}
 	use:ref
 	onclick={async () => {
-		await projects.reload();
+		if (layout.projectEditorOpen) {
+			toggle(false);
+			return;
+		}
+		projects = (await ChatService.listProjects()).items;
 		toggle();
 	}}
 >
-	<AssistantIcon />
-	<span class="text-xl font-semibold text-on-background">{name}</span>
-	<ChevronDown class="text-gray" />
+	<AssistantIcon {project} />
+	<span class="text-xl font-semibold text-on-background">{project.name || 'Untitled'}</span>
+	{#if !layout.projectEditorOpen}
+		<ChevronDown class="text-gray" />
+	{/if}
 </button>
 
-<div use:tooltip class="flex min-w-[250px] flex-col rounded-3xl bg-surface1 p-2">
-	{#each projects.items as project}
+{#if !layout.projectEditorOpen}
+	<div use:tooltip class="flex min-w-[250px] flex-col rounded-3xl bg-surface1 p-2">
+		{#each projects as p}
+			<a
+				href="/o/{p.id}"
+				rel="external"
+				class="flex items-center gap-2 rounded-3xl p-2 hover:bg-surface2"
+			>
+				<AssistantIcon project={p} />
+				<div class="flex grow flex-col">
+					<span class="text-sm font-medium text-on-background">{p.name || 'Untitled'}</span>
+					{#if p.description}
+						<p class="text-xs text-gray">{p.description}</p>
+					{/if}
+				</div>
+				{#if p.id === project.id}
+					<Check class="h-5 w-5 text-gray" />
+				{/if}
+			</a>
+		{/each}
 		<a
-			href="/{getAssistant(project)?.alias || project.assistantID}/p/{project.id}"
-			rel="external"
-			class="flex items-center gap-2 rounded-3xl p-2 hover:bg-surface2"
+			href="/home"
+			class="flex items-center justify-center gap-2 rounded-3xl px-2 py-4 text-gray hover:bg-surface2"
 		>
-			<AssistantIcon {project} />
-			<div class="flex grow flex-col">
-				<span class="text-sm font-medium text-on-background">{projectName(project)}</span>
-				<p class="text-xs text-gray">{projectDescription(project)}</p>
-			</div>
-			{#if project.id === context.project?.id}
-				<Check class="h-5 w-5 text-gray" />
-			{/if}
+			<img src="/user/images/obot-icon-blue.svg" class="h-5" alt="Obot icon" />
+			<span class="text-sm font-medium text-gray">Obots</span>
 		</a>
-	{/each}
-	<button
-		class="flex items-center justify-center gap-2 rounded-3xl px-2 py-4 text-gray hover:bg-surface2"
-		onclick={async () => {
-			await newDialog.show();
-			toggle();
-		}}
-	>
-		<Plus class="h-5 w-5 text-gray" />
-		<span class="text-sm font-medium text-gray">New Obot</span>
-	</button>
-</div>
-
-<New bind:this={newDialog} />
+	</div>
+{/if}

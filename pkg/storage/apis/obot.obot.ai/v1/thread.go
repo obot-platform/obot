@@ -18,6 +18,22 @@ type Thread struct {
 	Status ThreadStatus `json:"status,omitempty"`
 }
 
+func (in *Thread) IsProjectBased() bool {
+	return in.Spec.Project || in.Spec.ParentThreadName != ""
+}
+
+func (in *Thread) IsUserThread() bool {
+	return in.IsProjectBased() && !in.Spec.Project && in.Spec.ParentThreadName != ""
+}
+
+func (in *Thread) IsProjectThread() bool {
+	return in.IsProjectBased() && in.Spec.Project
+}
+
+func (in *Thread) IsEditor() bool {
+	return in.Spec.Project && in.Spec.ParentThreadName == ""
+}
+
 func (in *Thread) Has(field string) (exists bool) {
 	return slices.Contains(in.FieldNames(), field)
 }
@@ -27,7 +43,7 @@ func (in *Thread) Get(field string) (value string) {
 	case "spec.agentName":
 		return in.Spec.AgentName
 	case "spec.userUID":
-		return in.Spec.UserUID
+		return in.Spec.UserID
 	case "spec.project":
 		if in.Spec.Project {
 			return "true"
@@ -56,12 +72,29 @@ func (in *Thread) GetColumns() [][]string {
 
 type ThreadSpec struct {
 	Manifest types.ThreadManifest `json:"manifest,omitempty"`
-	// ThreadTemplateName is the thread template that will be used to create this thread (for the knowledge and file workspaces)
-	ThreadTemplateName string `json:"threadTemplateName,omitempty"`
-	// ParentThreadName The scope of this thread will inherit the scope of the parent thread
+	// ParentThreadName The scope of this thread will inherit the scope of the parent thread. The parent should always be a project thread.
 	ParentThreadName string `json:"parentThreadName,omitempty"`
-	// AgentName is the associated agent for this thread. This value could change between multiple runs
+	// AgentName is the associated agent for this thread.
 	AgentName string `json:"agentName,omitempty"`
+	// WorkspaceName is the workspace that will be used by this thread and a new workspace will not be created
+	WorkspaceName string `json:"workspaceName,omitempty"`
+	// UserID is the user that created this thread (notice the json field name is userUID, we should probably rename that too at some point)
+	UserID string `json:"userUID,omitempty"`
+	// SystemTask means that this thread was created for non-user purpose for backend operations
+	SystemTask bool `json:"systemTask,omitempty"`
+	// Abort means that this thread should be aborted immediately
+	Abort bool `json:"abort,omitempty"`
+	// This thread is a project thread which essentially used as a scope and not really used as a thread to chat with
+	Project bool `json:"project,omitempty"`
+	// Env is the environment variable keys that expected to be set in the credential that matches the thread.Name
+	Env []types.EnvVar `json:"env,omitempty"`
+	// Ephemeral means that this thread is used once and then can be deleted after an interval
+	Ephemeral bool `json:"ephemeral,omitempty"`
+	// SystemTools are tools that are set on this thread but not visible to the user
+	SystemTools []string `json:"systemTools,omitempty"`
+
+	// Owners
+
 	// WorkflowName is the workflow owner of the thread
 	WorkflowName string `json:"workflowName,omitempty"`
 	// WorkflowExecutionName is the workflow execution owner of the thread
@@ -76,21 +109,8 @@ type ThreadSpec struct {
 	EmailReceiverName string `json:"emailReceiverName,omitempty"`
 	// CronJobName is the cron job owner of the thread
 	CronJobName string `json:"cronJobName,omitempty"`
-	// WorkspaceName is the workspace that will be used by this thread and a new workspace will not be created
-	WorkspaceName      string   `json:"workspaceName,omitempty"`
-	FromWorkspaceNames []string `json:"fromWorkspaceNames,omitempty"`
-	OAuthAppLoginName  string   `json:"oAuthAppLoginName,omitempty"`
-	// UserUID is the user that created this thread
-	UserUID            string `json:"userUID,omitempty"`
-	TextEmbeddingModel string `json:"textEmbeddingModel,omitempty"`
-	SystemTask         bool   `json:"systemTask,omitempty"`
-	Abort              bool   `json:"abort,omitempty"`
-	// This thread is a project thread which essentially used as a scope and not really used as a thread to chat with
-	Project bool `json:"project,omitempty"`
-	// Env is the environment variable keys that expected to be set in the credential that matches the thread.Name
-	Env []string `json:"env,omitempty"`
-	// Ephemeral means that this thread is used once and then can be deleted
-	Ephemeral bool `json:"ephemeral,omitempty"`
+	// OAuthAppLoginName is the oauth app login owner of the thread
+	OAuthAppLoginName string `json:"oAuthAppLoginName,omitempty"`
 }
 
 func (in *Thread) DeleteRefs() []Ref {
@@ -101,7 +121,6 @@ func (in *Thread) DeleteRefs() []Ref {
 		{ObjType: &CronJob{}, Name: in.Spec.CronJobName},
 		{ObjType: &Webhook{}, Name: in.Spec.WebhookName},
 		{ObjType: &EmailReceiver{}, Name: in.Spec.EmailReceiverName},
-		{ObjType: &Thread{}, Name: in.Status.PreviousThreadName},
 		{ObjType: &KnowledgeSource{}, Name: in.Spec.KnowledgeSourceName},
 		{ObjType: &KnowledgeSet{}, Name: in.Spec.KnowledgeSetName},
 		{ObjType: &Workspace{}, Name: in.Spec.WorkspaceName},
@@ -112,15 +131,16 @@ func (in *Thread) DeleteRefs() []Ref {
 }
 
 type ThreadStatus struct {
-	LastRunName        string                   `json:"lastRunName,omitempty"`
-	CurrentRunName     string                   `json:"currentRunName,omitempty"`
-	LastRunState       gptscriptclient.RunState `json:"lastRunState,omitempty"`
-	WorkflowState      types.WorkflowState      `json:"workflowState,omitempty"`
-	WorkspaceID        string                   `json:"workspaceID,omitempty"`
-	WorkspaceName      string                   `json:"workspaceName,omitempty"`
-	PreviousThreadName string                   `json:"previousThreadName,omitempty"`
-	KnowledgeSetNames  []string                 `json:"knowledgeSetNames,omitempty"`
-	TemplateLoaded     bool                     `json:"templateLoaded,omitempty"`
+	LastRunName            string                   `json:"lastRunName,omitempty"`
+	CurrentRunName         string                   `json:"currentRunName,omitempty"`
+	LastRunState           gptscriptclient.RunState `json:"lastRunState,omitempty"`
+	WorkflowState          types.WorkflowState      `json:"workflowState,omitempty"`
+	WorkspaceID            string                   `json:"workspaceID,omitempty"`
+	WorkspaceName          string                   `json:"workspaceName,omitempty"`
+	KnowledgeSetNames      []string                 `json:"knowledgeSetNames,omitempty"`
+	SharedKnowledgeSetName string                   `json:"sharedKnowledgeSetName,omitempty"`
+	LocalWorkspaceName     string                   `json:"localWorkspaceName,omitempty"`
+	Created                bool                     `json:"created,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

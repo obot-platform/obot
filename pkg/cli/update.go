@@ -27,12 +27,12 @@ func (l *Update) Run(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	var newManifest types.WorkflowManifest
-	if err := yaml.Unmarshal(data, &newManifest); err != nil {
-		return err
-	}
-
 	if system.IsWorkflowID(id) {
+		var newManifest types.WorkflowManifest
+		if err := yaml.Unmarshal(data, &newManifest); err != nil {
+			return err
+		}
+
 		wf, err := l.root.Client.UpdateWorkflow(cmd.Context(), id, newManifest)
 		if err != nil {
 			return err
@@ -45,7 +45,12 @@ func (l *Update) Run(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
-	agent, err := l.root.Client.UpdateAgent(cmd.Context(), id, newManifest.AgentManifest)
+	var newManifest types.AgentManifest
+	if err := yaml.Unmarshal(data, &newManifest); err != nil {
+		return err
+	}
+
+	agent, err := l.root.Client.UpdateAgent(cmd.Context(), id, newManifest)
 	if err != nil {
 		return err
 	}

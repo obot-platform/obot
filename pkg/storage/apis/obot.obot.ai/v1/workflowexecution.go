@@ -35,8 +35,6 @@ func (in *WorkflowExecution) Get(field string) string {
 			return in.Spec.CronJobName
 		case "spec.workflowName":
 			return in.Spec.WorkflowName
-		case "spec.parentRunName":
-			return in.Spec.ParentRunName
 		}
 	}
 
@@ -67,18 +65,13 @@ func (in *WorkflowExecution) GetColumns() [][]string {
 type WorkflowExecutionSpec struct {
 	Input string `json:"input,omitempty"`
 	// ThreadName is the name of the thread that owns this execution, which is the same as the owning thread of the workflow.
-	ThreadName            string `json:"threadName,omitempty"`
-	WorkflowName          string `json:"workflowName,omitempty"`
-	WebhookName           string `json:"webhookName,omitempty"`
-	EmailReceiverName     string `json:"emailReceiverName,omitempty"`
-	CronJobName           string `json:"cronJobName,omitempty"`
-	ParentThreadName      string `json:"parentThreadName,omitempty"`
-	ParentRunName         string `json:"parentRunName,omitempty"`
-	AfterWorkflowStepName string `json:"afterWorkflowStepName,omitempty"`
-	WorkspaceName         string `json:"workspaceName,omitempty"`
-	WorkflowGeneration    int64  `json:"workflowGeneration,omitempty"`
-	RunUntilStep          string `json:"runUntilStep,omitempty"`
-	ThreadCredentialScope *bool  `json:"threadCredentialScope,omitempty"`
+	ThreadName         string `json:"threadName,omitempty"`
+	WorkflowName       string `json:"workflowName,omitempty"`
+	WebhookName        string `json:"webhookName,omitempty"`
+	EmailReceiverName  string `json:"emailReceiverName,omitempty"`
+	CronJobName        string `json:"cronJobName,omitempty"`
+	WorkflowGeneration int64  `json:"workflowGeneration,omitempty"`
+	RunUntilStep       string `json:"runUntilStep,omitempty"`
 }
 
 func (in *WorkflowExecution) DeleteRefs() []Ref {

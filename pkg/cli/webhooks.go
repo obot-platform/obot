@@ -53,7 +53,7 @@ func (l *Webhooks) Run(cmd *cobra.Command, args []string) error {
 
 	w := newTable("ID", "NAME", "DESCRIPTION", "WORKFLOW", "LASTRUN", "CREATED")
 	for _, wh := range whs.Items {
-		w.WriteRow(wh.ID, wh.Name, truncate(wh.Description, l.Wide), wh.Workflow,
+		w.WriteRow(wh.ID, wh.Name, truncate(wh.Description, l.Wide), wh.WorkflowName,
 			humanize.Time(wh.LastSuccessfulRunCompleted.GetTime()),
 			humanize.Time(wh.Created.Time))
 	}

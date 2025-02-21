@@ -1,4 +1,4 @@
-import editor from '$lib/stores/editor.svelte';
+import type { EditorItem } from '$lib/services/editor/index.svelte';
 import type { CitationSource, Explain, InputMessage, Message, Messages, Progress } from './types';
 
 const errorIcon = 'Error';
@@ -17,27 +17,29 @@ function toMessageFromInput(s: string): string {
 	return s;
 }
 
-function setFileContent(name: string, content: string, full: boolean = false) {
-	const existing = editor.items.find((f) => f.id === name);
-	if (existing) {
+function setFileContent(items: EditorItem[], name: string, content: string, full: boolean = false) {
+	const existing = items.find((f) => f.id === name);
+	if (existing && existing.file) {
 		if (full) {
-			existing.contents = content;
-		} else if (content.length < existing.contents.length) {
-			existing.contents = content + existing.contents.slice(content.length);
+			existing.file.contents = content;
+		} else if (content.length < existing.file.contents.length) {
+			existing.file.contents = content + existing.file.contents.slice(content.length);
 		} else {
-			existing.contents = content;
+			existing.file.contents = content;
 		}
 	} else {
-		editor.items.push({
+		items.push({
 			id: name,
 			name: name,
-			contents: content,
-			buffer: ''
+			file: {
+				contents: content,
+				buffer: ''
+			}
 		});
 	}
 
 	// select the file
-	editor.items.forEach((f) => {
+	items.forEach((f) => {
 		f.selected = f.name === name;
 	});
 }
@@ -71,15 +73,33 @@ function reformatInputMessage(msg: Message) {
 
 function getFilenameAndContent(content: string) {
 	let testContent = content;
+	let partial = false;
+	let obj = undefined;
 	while (testContent) {
 		try {
 			if (!testContent.endsWith('"}')) {
-				return JSON.parse(testContent + '"}');
+				partial = true;
+				obj = JSON.parse(testContent + '"}');
+			} else {
+				obj = JSON.parse(testContent);
 			}
-			return JSON.parse(testContent);
+			break;
 		} catch {
+			partial = true;
 			testContent = testContent.slice(0, -1);
 		}
+	}
+	if (obj) {
+		const entries = Object.entries(obj);
+		const contentFirst = entries.length > 0 && entries[0][0] === 'content';
+		if (contentFirst && partial) {
+			// The filename might be incomplete, so remove it
+			obj.filename = '';
+		}
+		return {
+			filename: obj.filename,
+			content: obj.content
+		};
 	}
 	return {
 		filename: '',
@@ -87,16 +107,12 @@ function getFilenameAndContent(content: string) {
 	};
 }
 
-function reformatWriteMessage(msg: Message, last: boolean) {
+function reformatWriteMessage(items: EditorItem[], msg: Message, last: boolean) {
 	msg.icon = 'Pencil';
 	msg.done = !last || msg.toolCall !== undefined;
 	msg.sourceName = msg.done ? 'Wrote to Workspace' : 'Writing to Workspace';
-	let content = msg.message.join('').trim();
-	if (!content.endsWith('"}')) {
-		content += '"}';
-	}
 	try {
-		const obj = getFilenameAndContent(content);
+		const obj = getFilenameAndContent(msg.message.join('').trim());
 		if (obj.filename) {
 			msg.file = {
 				filename: obj.filename,
@@ -113,17 +129,17 @@ function reformatWriteMessage(msg: Message, last: boolean) {
 	}
 
 	if (last && msg.file?.filename && msg.file?.content) {
-		setFileContent(msg.file.filename, msg.file.content, msg.toolCall !== undefined);
+		setFileContent(items, msg.file.filename, msg.file.content, msg.toolCall !== undefined);
 	}
 }
 
-export function buildMessagesFromProgress(progresses: Progress[]): Messages {
+export function buildMessagesFromProgress(items: EditorItem[], progresses: Progress[]): Messages {
 	const messages = toMessages(progresses);
 
 	// Post Process for much more better-ness
 	messages.messages.forEach((item, i) => {
 		if (item.tool && item.sourceName == 'workspace_write') {
-			reformatWriteMessage(item, i == messages.messages.length - 1);
+			reformatWriteMessage(items, item, i == messages.messages.length - 1);
 			return;
 		} else if (item.sent) {
 			reformatInputMessage(item);

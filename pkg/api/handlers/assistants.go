@@ -255,64 +255,6 @@ func (a *AssistantHandler) Events(req api.Context) error {
 	return req.WriteEvents(events)
 }
 
-func (a *AssistantHandler) Files(req api.Context) error {
-	thread, err := getThreadForScope(req)
-	if apierrors.IsNotFound(err) {
-		return req.Write(types.FileList{Items: []types.File{}})
-	} else if err != nil {
-		return err
-	}
-
-	if thread.Status.WorkspaceID == "" {
-		return req.Write(types.FileList{Items: []types.File{}})
-	}
-
-	return listFileFromWorkspace(req.Context(), req, a.gptScript, gptscript.ListFilesInWorkspaceOptions{
-		WorkspaceID: thread.Status.WorkspaceID,
-		Prefix:      "files/",
-	})
-}
-
-func (a *AssistantHandler) GetFile(req api.Context) error {
-	thread, err := getThreadForScope(req)
-	if err != nil {
-		return err
-	}
-
-	if thread.Status.WorkspaceID == "" {
-		return types.NewErrNotFound("no workspace found")
-	}
-
-	return getFileInWorkspace(req.Context(), req, a.gptScript, thread.Status.WorkspaceID, "files/")
-}
-
-func (a *AssistantHandler) UploadFile(req api.Context) error {
-	thread, err := getThreadForScope(req)
-	if err != nil {
-		return err
-	}
-
-	if thread.Status.WorkspaceID == "" {
-		return types.NewErrNotFound("no workspace found")
-	}
-
-	_, err = uploadFileToWorkspace(req.Context(), req, a.gptScript, thread.Status.WorkspaceID, "files/")
-	return err
-}
-
-func (a *AssistantHandler) DeleteFile(req api.Context) error {
-	thread, err := getThreadForScope(req)
-	if err != nil {
-		return err
-	}
-
-	if thread.Status.WorkspaceID == "" {
-		return nil
-	}
-
-	return deleteFileFromWorkspaceID(req.Context(), req, a.gptScript, thread.Status.WorkspaceID, "files/")
-}
-
 func (a *AssistantHandler) SetEnv(req api.Context) error {
 	thread, err := getThreadForScope(req)
 	if err != nil {
@@ -328,7 +270,14 @@ func (a *AssistantHandler) SetEnv(req api.Context) error {
 		return err
 	}
 
-	thread.Spec.Env = slices.Collect(maps.Keys(envs))
+	var envVars []types.EnvVar
+	for _, k := range slices.Sorted(maps.Keys(envs)) {
+		envVars = append(envVars, types.EnvVar{
+			Name:     k,
+			Existing: true,
+		})
+	}
+	thread.Spec.Env = envVars
 	if err := req.Update(thread); err != nil {
 		return err
 	}

@@ -1,19 +1,19 @@
 <script lang="ts">
 	import { Info, OctagonX, Play, X } from 'lucide-svelte';
-	import { ChatService, type Task, type TaskRun } from '$lib/services';
+	import { ChatService, type Project, type Task, type TaskRun } from '$lib/services';
 	import { onDestroy, onMount } from 'svelte';
 	import { Trash } from 'lucide-svelte/icons';
 	import { formatTime } from '$lib/time';
 	import Confirm from '$lib/components/Confirm.svelte';
 	import Input from '$lib/components/tasks/Input.svelte';
-	import { assistants } from '$lib/stores/index';
 
 	interface Props {
 		id: string;
 		onSelect?: (runId: string) => void | Promise<void>;
+		project: Project;
 	}
 
-	let { id, onSelect }: Props = $props();
+	let { id, onSelect, project }: Props = $props();
 	let runs: TaskRun[] = $state([]);
 	let timeout: number;
 	let selected = $state('');
@@ -29,9 +29,7 @@
 	});
 
 	onMount(() => {
-		if (assistants.current().id) {
-			listRuns();
-		}
+		listRuns();
 	});
 
 	async function select(runID: string) {
@@ -44,9 +42,7 @@
 
 	async function listRuns() {
 		try {
-			if (assistants.current().id && id) {
-				runs = (await ChatService.listTaskRuns(id)).items;
-			}
+			runs = (await ChatService.listTaskRuns(project.assistantID, project.id, id)).items;
 		} finally {
 			if (timeout) {
 				clearTimeout(timeout);
@@ -58,7 +54,7 @@
 
 	async function run(withInput?: string) {
 		if (!withInput) {
-			taskToRun = await ChatService.getTask(id);
+			taskToRun = await ChatService.getTask(project.assistantID, project.id, id);
 			if (taskToRun.onDemand?.params && Object.keys(taskToRun.onDemand.params).length > 0) {
 				inputDialog?.showModal();
 				return;
@@ -70,29 +66,29 @@
 		}
 
 		inputDialog?.close();
-		if (assistants.current().id && id) {
-			const newRun = await ChatService.runTask(id, {
+		if (id) {
+			const newRun = await ChatService.runTask(project.assistantID, project.id, id, {
 				input: withInput
 			});
-			runs = (await ChatService.listTaskRuns(id)).items;
+			runs = (await ChatService.listTaskRuns(project.assistantID, project.id, id)).items;
 			await select(newRun.id);
 		}
 	}
 
 	async function abort(runId: string) {
-		if (assistants.current().id && id) {
-			await ChatService.abort({
+		if (id) {
+			await ChatService.abort(project.assistantID, project.id, {
 				taskID: id,
 				runID: runId
 			});
-			runs = (await ChatService.listTaskRuns(id)).items;
+			runs = (await ChatService.listTaskRuns(project.assistantID, project.id, id)).items;
 		}
 	}
 
 	async function deleteTask(runId: string) {
-		if (assistants.current().id && id) {
-			await ChatService.deleteTaskRun(id, runId);
-			runs = (await ChatService.listTaskRuns(id)).items;
+		if (id) {
+			await ChatService.deleteTaskRun(project.assistantID, project.id, id, runId);
+			runs = (await ChatService.listTaskRuns(project.assistantID, project.id, id)).items;
 			if (selected === runId) {
 				await select(runId);
 			}
@@ -214,7 +210,7 @@
 	class="relative rounded-3xl border-white bg-white p-5 text-black dark:bg-black dark:text-gray-50 md:min-w-[500px]"
 >
 	<h4 class="text-xl font-semibold">Arguments</h4>
-	<Input editMode task={taskToRun} bind:input={taskInput}></Input>
+	<Input editMode task={taskToRun} bind:input={taskInput} {project}></Input>
 	<div class="mt-5 flex w-full justify-end">
 		{@render runButton({
 			input: taskInput,

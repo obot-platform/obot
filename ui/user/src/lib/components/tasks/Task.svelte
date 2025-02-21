@@ -1,6 +1,5 @@
 <script lang="ts">
-	import { tasks } from '$lib/stores';
-	import { ChatService, EditorService, type Task } from '$lib/services';
+	import { ChatService, EditorService, type Project, type Task } from '$lib/services';
 	import { Trash } from 'lucide-svelte/icons';
 	import { Pen, PenOff } from 'lucide-svelte';
 	import { onDestroy } from 'svelte';
@@ -9,14 +8,16 @@
 	import Steps from '$lib/components/tasks/Steps.svelte';
 	import Controls from '$lib/components/editor/Controls.svelte';
 	import Confirm from '$lib/components/Confirm.svelte';
-	import { assistants } from '$lib/stores/index';
+	import type { EditorItem } from '$lib/services/editor/index.svelte';
 
 	interface Props {
 		id: string;
+		project: Project;
+		items: EditorItem[];
 		onChanged?: (task: Task) => void | Promise<void>;
 	}
 
-	let { id, onChanged }: Props = $props();
+	let { id, onChanged, project, items = $bindable() }: Props = $props();
 	let savedTask = $state<string>();
 	let selectedRun = $state<string>('');
 	let displayedRun = $state<string>('');
@@ -42,12 +43,11 @@
 			if (displayedRun === selectedRun) {
 				return;
 			}
-			ChatService.getTaskRun(id, selectedRun).then((run) => {
+			ChatService.getTaskRun(project.assistantID, project.id, id, selectedRun).then((run) => {
 				task = {
 					...task,
 					steps: run.task.steps
 				};
-				console.log($state.snapshot(task.steps));
 			});
 			displayedRun = selectedRun;
 			savedTask = '';
@@ -56,8 +56,8 @@
 
 		displayedRun = '';
 
-		if (assistants.current().id && !savedTask) {
-			ChatService.getTask(id).then((newTask) => {
+		if (!savedTask) {
+			ChatService.getTask(project.assistantID, project.id, id).then((newTask) => {
 				savedTask = JSON.stringify(newTask);
 				task = newTask;
 			});
@@ -101,8 +101,8 @@
 
 	async function deleteTask() {
 		toDelete = false;
-		await tasks.remove(id);
-		EditorService.remove(id);
+		await ChatService.deleteTask(project.assistantID, project.id, id);
+		EditorService.remove(items, id);
 	}
 
 	async function saveOnEnter(e: KeyboardEvent) {
@@ -117,7 +117,7 @@
 			return;
 		}
 
-		task = await tasks.update(task);
+		task = await ChatService.saveTask(project.assistantID, project.id, task);
 		savedTask = JSON.stringify(task);
 		onChanged?.(task);
 	}
@@ -148,6 +148,7 @@
 	<div class="overflow-auto">
 		{#if !editMode}
 			<Runs
+				{project}
 				{id}
 				onSelect={(i) => {
 					selectedRun = i;
@@ -168,6 +169,8 @@
 			{task}
 			{editMode}
 			{selectedRun}
+			{project}
+			{items}
 			onChanged={async (t) => {
 				task = t;
 				await save();
@@ -195,7 +198,7 @@
 		<button class="icon-button" onclick={() => (toDelete = true)}>
 			<Trash class="h-5 w-5" />
 		</button>
-		<Controls />
+		<Controls {project} {items} />
 	</div>
 
 	<div class="m-2 grow place-content-end self-end text-gray-300">id: {id}</div>

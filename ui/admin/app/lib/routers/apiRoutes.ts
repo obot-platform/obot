@@ -146,9 +146,9 @@ export const ApiRoutes = {
 		getWorkspaceFile: (agentId: string, fileName: string) =>
 			buildUrl(`/agents/${agentId}/file/${fileName}`),
 		removeWorkspaceFile: (agentId: string, fileName: string) =>
-			buildUrl(`/agents/${agentId}/files/${fileName}`),
+			buildUrl(`/agents/${agentId}/file/${fileName}`),
 		uploadWorkspaceFile: (agentId: string, fileName: string) =>
-			buildUrl(`/agents/${agentId}/files/${fileName}`),
+			buildUrl(`/agents/${agentId}/file/${fileName}`),
 		getThreadsForAgent: (agentId: string) =>
 			buildUrl(`/agents/${agentId}/threads`),
 	},
@@ -196,7 +196,7 @@ export const ApiRoutes = {
 		getFiles: (threadId: string) => buildUrl(`/threads/${threadId}/files`),
 		abortById: (threadId: string) => buildUrl(`/threads/${threadId}/abort`),
 		downloadFile: (threadId: string, filePath: string) =>
-			buildUrl(`/threads/${threadId}/files/${filePath}`),
+			buildUrl(`/threads/${threadId}/file/${filePath}`),
 	},
 	prompt: {
 		base: () => buildUrl("/prompt"),

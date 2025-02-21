@@ -1,48 +1,55 @@
 <script lang="ts">
 	import { Plus, Wrench } from 'lucide-svelte/icons';
-	import { tools, version } from '$lib/stores';
-	import { ChatService, EditorService } from '$lib/services';
+	import {
+		type AssistantTool,
+		ChatService,
+		EditorService,
+		type Project,
+		type Version
+	} from '$lib/services';
 	import { newTool } from '$lib/components/tool/Tool.svelte';
 	import Menu from '$lib/components/navbar/Menu.svelte';
 	import { PenBox } from 'lucide-svelte';
 	import { isCapabilityTool } from '$lib/model/tools';
+	import type { EditorItem } from '$lib/services/editor/index.svelte';
+	import { getLayout } from '$lib/context/layout.svelte';
+
+	interface Prop {
+		project: Project;
+		items: EditorItem[];
+		tools: AssistantTool[];
+		version: Version;
+	}
 
 	let menu = $state<ReturnType<typeof Menu>>();
+	let { project, items = $bindable(), tools, version }: Prop = $props();
+	const layout = getLayout();
 
 	async function addTool() {
-		const tool = await ChatService.createTool(newTool);
-		await EditorService.load(tool.id);
+		const tool = await ChatService.createTool(project.assistantID, project.id, newTool);
+		await EditorService.load(items, project, tool.id);
+		layout.fileEditorOpen = true;
 		menu?.toggle(false);
 	}
 
 	async function editTool(id: string) {
-		await EditorService.load(id);
+		await EditorService.load(items, project, id);
+		layout.fileEditorOpen = true;
 		menu?.toggle(false);
 	}
 
 	async function onLoad() {
-		tools.items = (await ChatService.listTools()).items;
-	}
-
-	async function updateTool(enabled: boolean, tool: string | undefined) {
-		if (!tool) {
-			return;
-		}
-		if (enabled) {
-			tools.items = (await ChatService.enableTool(tool)).items;
-		} else {
-			tools.items = (await ChatService.disableTool(tool)).items;
-		}
+		tools = (await ChatService.listTools(project.assistantID, project.id)).items;
 	}
 </script>
 
-<Menu bind:this={menu} title="Tools" description="Enable or disable available tools" {onLoad}>
+<Menu bind:this={menu} title="Tools" description="Available tools" {onLoad}>
 	{#snippet icon()}
 		<Wrench class="h-5 w-5" />
 	{/snippet}
 	{#snippet body()}
 		<ul class="space-y-4 py-6 text-sm">
-			{#each tools.items as tool, i}
+			{#each tools as tool, i}
 				{#if !isCapabilityTool(tool.id)}
 					<li>
 						<div class="flex">
@@ -65,14 +72,6 @@
 									</p>
 								</div>
 							</div>
-							<input
-								id="checkbox-item-{i}"
-								type="checkbox"
-								checked={tool.enabled}
-								onchange={(e) => updateTool(e.currentTarget.checked, tool.id)}
-								disabled={tool.builtin}
-								class="h-4 w-4 self-center"
-							/>
 							<button
 								class="p-1"
 								class:invisible={!tool.id.startsWith('tl1')}
@@ -85,7 +84,7 @@
 				{/if}
 			{/each}
 		</ul>
-		{#if version.current.dockerSupported}
+		{#if version.dockerSupported}
 			<div class="flex justify-end">
 				<button
 					onclick={addTool}

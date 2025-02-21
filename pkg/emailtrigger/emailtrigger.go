@@ -8,6 +8,7 @@ import (
 	"path"
 	"strings"
 
+	"github.com/obot-platform/nah/pkg/router"
 	"github.com/obot-platform/obot/logger"
 	"github.com/obot-platform/obot/pkg/alias"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
@@ -95,7 +96,7 @@ func (h *EmailHandler) dispatchEmail(ctx context.Context, email v1.EmailReceiver
 	}
 
 	var workflow v1.Workflow
-	if err = alias.Get(ctx, h.c, &workflow, email.Namespace, email.Spec.Workflow); err != nil {
+	if err := h.c.Get(ctx, router.Key(email.Namespace, email.Spec.WorkflowName), &workflow); err != nil {
 		return err
 	}
 

@@ -52,7 +52,7 @@ func (l *EmailReceivers) Run(cmd *cobra.Command, args []string) error {
 
 	w := newTable("ID", "NAME", "DESCRIPTION", "WORKFLOW", "ADDRESS", "CREATED")
 	for _, er := range ers.Items {
-		w.WriteRow(er.ID, er.Name, truncate(er.Description, l.Wide), er.Workflow,
+		w.WriteRow(er.ID, er.Name, truncate(er.Description, l.Wide), er.WorkflowName,
 			er.EmailAddress,
 			humanize.Time(er.Created.Time))
 	}

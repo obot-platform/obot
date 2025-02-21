@@ -7,7 +7,6 @@ import (
 
 	"github.com/adhocore/gronx"
 	"github.com/obot-platform/obot/apiclient/types"
-	"github.com/obot-platform/obot/pkg/alias"
 	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/controller/handlers/cronjob"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
@@ -110,7 +109,7 @@ func (a *CronJobHandler) Execute(req api.Context) error {
 	}
 
 	var workflow v1.Workflow
-	if err := alias.Get(req.Context(), req.Storage, &workflow, cronJob.Namespace, cronJob.Spec.Workflow); err != nil {
+	if err := req.Get(&workflow, cronJob.Spec.WorkflowName); err != nil {
 		return err
 	}
 
@@ -157,7 +156,7 @@ func parseAndValidateCronManifest(req api.Context) (*types.CronJobManifest, erro
 	}
 
 	var workflow v1.Workflow
-	if err := alias.Get(req.Context(), req.Storage, &workflow, req.Namespace(), manifest.Workflow); err != nil {
+	if err := req.Get(&workflow, manifest.WorkflowName); err != nil {
 		return nil, err
 	}
 

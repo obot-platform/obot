@@ -49,7 +49,7 @@ printf "The current temperature in %s is %.2f°F.\\n" "$CITY" "$RANDOM_TEMPERATU
 <script lang="ts">
 	import { autoHeight } from '$lib/actions/textarea.js';
 	import { Container, X, ChevronDown, ChevronUp } from 'lucide-svelte';
-	import { type AssistantTool, ChatService, EditorService } from '$lib/services';
+	import { type AssistantTool, ChatService, EditorService, type Project } from '$lib/services';
 	import Confirm from '$lib/components/Confirm.svelte';
 	import Dropdown from '$lib/components/tasks/Dropdown.svelte';
 	import Env from '$lib/components/tool/Env.svelte';
@@ -58,13 +58,15 @@ printf "The current temperature in %s is %.2f°F.\\n" "$CITY" "$RANDOM_TEMPERATU
 	import Codemirror from '$lib/components/editor/Codemirror.svelte';
 	import Controls from '$lib/components/editor/Controls.svelte';
 	import { Trash } from 'lucide-svelte/icons';
-	import type { EditorItem } from '$lib/stores/editor.svelte';
+	import type { EditorItem } from '$lib/services/editor/index.svelte';
 
 	interface Props {
 		id: string;
+		project: Project;
+		items: EditorItem[];
 	}
 
-	let { id }: Props = $props();
+	let { id, project, items = $bindable() }: Props = $props();
 
 	const blankTool: AssistantTool = {
 		id,
@@ -89,18 +91,22 @@ printf "The current temperature in %s is %.2f°F.\\n" "$CITY" "$RANDOM_TEMPERATU
 	let editorFile = $state<EditorItem>({
 		id: '',
 		name: '',
-		contents: '',
-		buffer: ''
+		file: {
+			contents: '',
+			buffer: ''
+		}
 	});
 	let testOutput = $state<Promise<{ output: string }>>();
 	let dialog: HTMLDialogElement;
 
 	$effect(() => {
-		const item = EditorService.items.find((item) => item.id === id);
+		const item = items.find((item) => item.id === id);
 		if (item) {
 			item.name = tool.name ? tool.name : tool.id;
-			item.contents = JSON.stringify(saved);
-			item.buffer = JSON.stringify(tool);
+			item.file = {
+				contents: JSON.stringify(saved),
+				buffer: JSON.stringify(tool)
+			};
 		}
 	});
 
@@ -122,8 +128,8 @@ printf "The current temperature in %s is %.2f°F.\\n" "$CITY" "$RANDOM_TEMPERATU
 		if (!id) {
 			return;
 		}
-		await ChatService.deleteTool(id);
-		EditorService.remove(id);
+		await ChatService.deleteTool(project.assistantID, project.id, id);
+		EditorService.remove(items, id);
 	}
 
 	function toMap(values: { key: string; value: string }[]): Record<string, string> {
@@ -134,7 +140,7 @@ printf "The current temperature in %s is %.2f°F.\\n" "$CITY" "$RANDOM_TEMPERATU
 		const newEnv = toMap(envs);
 		tool.params = toMap(params);
 		if (id) {
-			await ChatService.updateTool(tool, { env: newEnv });
+			await ChatService.updateTool(project.assistantID, project.id, tool, { env: newEnv });
 		}
 		await load();
 	}
@@ -148,6 +154,8 @@ printf "The current temperature in %s is %.2f°F.\\n" "$CITY" "$RANDOM_TEMPERATU
 		testTool.params = toMap(params);
 
 		testOutput = ChatService.testTool(
+			project.assistantID,
+			project.id,
 			testTool,
 			Object.fromEntries(input.map(({ key, value }) => [key, value])),
 			{
@@ -168,7 +176,9 @@ printf "The current temperature in %s is %.2f°F.\\n" "$CITY" "$RANDOM_TEMPERATU
 			return;
 		}
 		tool.instructions = defaultInstructions[newType];
-		editorFile.contents = tool.instructions;
+		if (editorFile.file) {
+			editorFile.file.contents = tool.instructions;
+		}
 		tool.toolType = newType;
 		if (newType === 'container') {
 			tool.image = 'ghcr.io/otto8-ai/get-weather';
@@ -179,7 +189,7 @@ printf "The current temperature in %s is %.2f°F.\\n" "$CITY" "$RANDOM_TEMPERATU
 		if (!id || typeof window === 'undefined') {
 			return;
 		}
-		tool = await ChatService.getTool(id);
+		tool = await ChatService.getTool(project.assistantID, project.id, id);
 
 		if (!tool.toolType) {
 			tool.toolType = 'javascript';
@@ -190,14 +200,16 @@ printf "The current temperature in %s is %.2f°F.\\n" "$CITY" "$RANDOM_TEMPERATU
 		}
 
 		saved = { ...tool };
-		const newEnvs = await ChatService.getToolEnv(id);
+		const newEnvs = await ChatService.getToolEnv(project.assistantID, project.id, id);
 		envs = Object.entries(newEnvs).map(([key, value]) => ({ key, value, editing: masked }));
 		savedEnd = Object.entries(newEnvs).map(([key, value]) => ({ key, value, editing: masked }));
 		params = Object.entries(tool.params ?? {}).map(([key, value]) => ({ key, value }));
 
 		editorFile.id = tool.id;
 		editorFile.name = tool.name ?? tool.id;
-		editorFile.contents = tool.instructions ?? '';
+		if (editorFile.file) {
+			editorFile.file.contents = tool.instructions ?? '';
+		}
 	}
 </script>
 
@@ -206,7 +218,7 @@ printf "The current temperature in %s is %.2f°F.\\n" "$CITY" "$RANDOM_TEMPERATU
 		<button class="icon-button" onclick={() => (requestDelete = true)}>
 			<Trash class="h-5 w-5" />
 		</button>
-		<Controls />
+		<Controls {project} {items} />
 	</div>
 
 	{#await loaded then}
@@ -254,6 +266,7 @@ printf "The current temperature in %s is %.2f°F.\\n" "$CITY" "$RANDOM_TEMPERATU
 					<input bind:value={tool.image} class="text-input" placeholder="Container image name" />
 				{:else}
 					<Codemirror
+						{items}
 						class="w-full"
 						file={editorFile}
 						onFileChanged={(_, c) => {
@@ -313,8 +326,6 @@ printf "The current temperature in %s is %.2f°F.\\n" "$CITY" "$RANDOM_TEMPERATU
 			<div class="flex flex-col gap-2 rounded-3xl bg-gray-50 p-5 dark:bg-gray-950">
 				<h4 class="text-xl font-semibold">Calling Instructions</h4>
 				<textarea
-					onchange={() => console.log('changed')}
-					onfocus={() => console.log('changed')}
 					bind:value={tool.context}
 					use:autoHeight
 					rows="1"

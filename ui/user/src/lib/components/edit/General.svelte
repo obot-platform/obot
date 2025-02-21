@@ -17,7 +17,7 @@
 			urlIcon = undefined;
 		}
 	});
-	let { project }: Props = $props();
+	let { project = $bindable() }: Props = $props();
 	let { ref, tooltip, toggle } = popover();
 	let urlIcon:
 		| {
@@ -27,7 +27,7 @@
 		| undefined = $state();
 </script>
 
-<CollapsePane header="General">
+<CollapsePane header="General" open>
 	<div class="flex flex-col gap-2">
 		<div class="mb-2 flex items-center gap-5">
 			<button class="icon-button flex items-center gap-2" use:ref onclick={() => toggle()}>
@@ -107,20 +107,24 @@
 			</div>
 		</div>
 		<div class="flex flex-col gap-2">
-			<label for="project-name" class="text-sm">Name</label>
+			<label for="project-name" class="text-sm" class:opacity-0={!project.name}>Name</label>
 			<input
 				id="project-name"
 				type="text"
+				placeholder="Name"
 				class="bg-surface grow rounded-lg p-2"
 				bind:value={project.name}
 			/>
 		</div>
 		<div class="flex flex-col gap-2">
-			<label for="project-desc" class="text-sm">Description</label>
+			<label for="project-desc" class="text-sm" class:opacity-0={!project.description}
+				>Description</label
+			>
 			<textarea
 				id="project-desc"
 				class="bg-surface grow resize-none rounded-lg p-2"
 				rows="1"
+				placeholder="Description"
 				use:autoHeight
 				bind:value={project.description}
 			></textarea>

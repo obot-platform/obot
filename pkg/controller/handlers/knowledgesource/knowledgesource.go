@@ -216,14 +216,6 @@ func getThread(ctx context.Context, c kclient.WithWatch, source *v1.KnowledgeSou
 }
 
 func getAuthStatus(ctx context.Context, c kclient.Client, knowledgeSet *v1.KnowledgeSet, toolReferenceName string) (string, types.OAuthAppLoginAuthStatus, error) {
-	if knowledgeSet.Spec.WorkflowName != "" {
-		var workflow v1.Workflow
-		if err := c.Get(ctx, router.Key(knowledgeSet.Namespace, knowledgeSet.Spec.WorkflowName), &workflow); err != nil {
-			return "", types.OAuthAppLoginAuthStatus{}, err
-		}
-		return workflow.Name, workflow.Status.AuthStatus[toolReferenceName], nil
-	}
-
 	var agent v1.Agent
 	if err := c.Get(ctx, router.Key(knowledgeSet.Namespace, knowledgeSet.Spec.AgentName), &agent); err != nil {
 		return "", types.OAuthAppLoginAuthStatus{}, err

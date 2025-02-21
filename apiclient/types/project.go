@@ -4,6 +4,7 @@ type Project struct {
 	Metadata
 	ProjectManifest
 	AssistantID string `json:"assistantID,omitempty"`
+	Editor      bool   `json:"editor"`
 }
 
 type ProjectManifest struct {

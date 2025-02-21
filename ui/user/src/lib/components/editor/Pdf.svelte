@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { EditorItem } from '$lib/stores/editor.svelte';
+	import type { EditorItem } from '$lib/services/editor/index.svelte';
 
 	type Props = {
 		file: EditorItem;
@@ -11,9 +11,9 @@
 	let blobUrl = $state<string>();
 
 	$effect(() => {
-		if (!file.blob) return;
+		if (!file.file?.blob) return;
 
-		const url = URL.createObjectURL(new Blob([file.blob], { type: 'application/pdf' }));
+		const url = URL.createObjectURL(new Blob([file.file?.blob], { type: 'application/pdf' }));
 		blobUrl = url;
 
 		return () => URL.revokeObjectURL(url);

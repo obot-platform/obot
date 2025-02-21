@@ -17,12 +17,12 @@ import (
 
 	"github.com/gptscript-ai/go-gptscript"
 	types2 "github.com/obot-platform/obot/apiclient/types"
+	"github.com/obot-platform/obot/logger"
 	"github.com/obot-platform/obot/pkg/alias"
 	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/api/handlers"
 	kcontext "github.com/obot-platform/obot/pkg/gateway/context"
 	"github.com/obot-platform/obot/pkg/gateway/types"
-	"github.com/obot-platform/obot/pkg/mvl"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/storage/selectors"
 	"github.com/obot-platform/obot/pkg/system"
@@ -658,7 +658,7 @@ func (s *Server) getTokenOAuthApp(apiContext api.Context) error {
 
 		return tx.Where("state = ?", state).Delete(&tokenResp).Error
 	}); err != nil {
-		logger := mvl.Package()
+		logger := logger.Package()
 		logger.Debugf("failed to delete OAuth token request challenge: %v", err)
 	}
 

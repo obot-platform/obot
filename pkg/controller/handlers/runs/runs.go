@@ -64,7 +64,7 @@ func (h *Handler) Resume(req router.Request, _ router.Response) error {
 		}
 	}
 
-	if run.Spec.Synchronous || thread.Status.WorkspaceID == "" {
+	if run.Spec.Synchronous || !thread.Status.Created {
 		return nil
 	}
 

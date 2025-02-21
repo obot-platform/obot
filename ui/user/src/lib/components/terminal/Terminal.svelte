@@ -2,9 +2,15 @@
 	import { onDestroy, onMount } from 'svelte';
 	import '@xterm/xterm/css/xterm.css';
 	import { RefreshCcw } from 'lucide-svelte';
-	import { assistants, context, term } from '$lib/stores';
+	import { term } from '$lib/stores';
 	import Env from '$lib/components/terminal/Env.svelte';
+	import type { Project } from '$lib/services';
 
+	interface Props {
+		project: Project;
+	}
+
+	let { project }: Props = $props();
 	let terminalContainer: HTMLElement;
 	let close: () => void;
 	let connectState = $state('disconnected');
@@ -51,7 +57,7 @@
 
 		const url =
 			window.location.protocol.replaceAll('http', 'ws') +
-			`//${window.location.host}/api/assistants/${assistants.current().id}/projects/${context.projectID}/shell`;
+			`//${window.location.host}/api/assistants/${project.assistantID}/projects/${project.id}/shell`;
 		const socket = new WebSocket(url);
 		connectState = 'connecting';
 		socket.onmessage = (event) => {
@@ -126,7 +132,7 @@
 	</div>
 </div>
 
-<Env bind:this={envDialog} />
+<Env bind:this={envDialog} {project} />
 
 <style lang="postcss">
 	:global {

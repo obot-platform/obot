@@ -3,7 +3,7 @@
 	import Milkdown from '$lib/components/editor/Milkdown.svelte';
 	import Table from '$lib/components/editor/Table.svelte';
 	import Codemirror from '$lib/components/editor/Codemirror.svelte';
-	import { ChatService, EditorService, type InvokeInput } from '$lib/services';
+	import { ChatService, EditorService, type InvokeInput, type Project } from '$lib/services';
 	import Task from '$lib/components/tasks/Task.svelte';
 	import Controls from '$lib/components/editor/Controls.svelte';
 	import Image from '$lib/components/editor/Image.svelte';
@@ -13,37 +13,48 @@
 	import { term } from '$lib/stores';
 	import Tool from '$lib/components/tool/Tool.svelte';
 	import Pdf from './editor/Pdf.svelte';
+	import { getLayout } from '$lib/context/layout.svelte';
+	import type { EditorItem } from '$lib/services/editor/index.svelte';
 
-	let editorVisible = $derived(EditorService.isVisible());
+	interface Props {
+		project: Project;
+		currentThreadID?: string;
+		items: EditorItem[];
+	}
+
+	let { project, currentThreadID, items = $bindable() }: Props = $props();
+	const layout = getLayout();
 
 	let height = $state<number>();
 
 	function onFileChanged(name: string, contents: string) {
-		for (const item of EditorService.items) {
-			if (item.name === name) {
-				item.buffer = contents;
-				item.modified = true;
+		for (const item of items) {
+			if (item.name === name && item.file) {
+				item.file.buffer = contents;
+				item.file.modified = true;
 			}
 		}
 	}
 
 	async function onInvoke(invoke: InvokeInput) {
-		await ChatService.invoke(invoke);
+		if (currentThreadID) {
+			await ChatService.invoke(project.assistantID, project.id, currentThreadID, invoke);
+		}
 	}
 </script>
 
 <div class="flex h-full flex-col">
-	{#if editorVisible}
-		{#if EditorService.items.length > 1 || (!EditorService.items[0].task && !EditorService.items[0].table && !EditorService.items[0].generic)}
+	{#if layout.fileEditorOpen}
+		{#if items.length > 1 || (!items[0].task && !items[0].table && !items[0].generic)}
 			<div class="-mx-5 -mt-3 flex border-b-2 border-surface2 px-2 pb-2">
 				<ul class="flex flex-1 flex-wrap gap-2 text-center text-sm">
-					{#each EditorService.items as item}
+					{#each items as item}
 						<li>
 							<div
 								role="none"
 								class:selected={item.selected}
 								onclick={() => {
-									EditorService.select(item.id);
+									EditorService.select(items, item.id);
 								}}
 								class="colors-surface1 group flex rounded-3xl px-4 py-3"
 							>
@@ -64,7 +75,7 @@
 								<button
 									class="ml-2"
 									onclick={() => {
-										EditorService.remove(item.id);
+										EditorService.remove(items, item.id);
 									}}
 								>
 									<X
@@ -77,20 +88,22 @@
 						</li>
 					{/each}
 				</ul>
-				<Controls navBar />
+				<Controls navBar {project} {items} />
 			</div>
 		{/if}
 
-		{#each EditorService.items as file}
+		{#each items as file}
 			<div class:hidden={!file.selected} class="flex-1 overflow-auto" bind:clientHeight={height}>
 				{#if file.name.toLowerCase().endsWith('.md')}
-					<Milkdown {file} {onFileChanged} {onInvoke} />
+					<Milkdown {file} {onFileChanged} {onInvoke} {items} />
 				{:else if file.name.toLowerCase().endsWith('.pdf')}
 					<Pdf {file} {height} />
-				{:else if file.table}
-					<Table tableName={file.table} />
+				{:else if file.table?.name}
+					<Table tableName={file.table?.name} {project} {currentThreadID} {items} />
 				{:else if file.task}
 					<Task
+						{project}
+						{items}
 						id={file.id}
 						onChanged={(task) => {
 							file.task = task;
@@ -100,18 +113,20 @@
 				{:else if isImage(file.name)}
 					<Image {file} />
 				{:else if file.id.startsWith('tl1')}
-					<Tool id={file.id} />
+					<Tool id={file.id} {project} {items} />
 				{:else}
-					<Codemirror {file} {onFileChanged} {onInvoke} />
+					<Codemirror {file} {onFileChanged} {onInvoke} {items} />
 				{/if}
 			</div>
 		{/each}
 	{/if}
 	{#if term.open}
 		<div
-			class={editorVisible ? '-mx-5 -mb-3 h-1/2 border-t-4 border-surface1 px-2 pt-2' : 'h-full'}
+			class={layout.fileEditorOpen
+				? '-mx-5 -mb-3 h-1/2 border-t-4 border-surface1 px-2 pt-2'
+				: 'h-full'}
 		>
-			<Terminal />
+			<Terminal {project} />
 		</div>
 	{/if}
 </div>

@@ -1,26 +1,29 @@
 <script lang="ts">
-	import { ChatService, type Rows } from '$lib/services';
+	import { ChatService, type Project, type Rows } from '$lib/services';
 	import { RefreshCw, Table } from 'lucide-svelte';
 	import Controls from '$lib/components/editor/Controls.svelte';
 	import Input from '$lib/components/messages/Input.svelte';
-	import { assistants } from '$lib/stores/index';
+	import type { EditorItem } from '$lib/services/editor/index.svelte';
 
 	interface Props {
 		tableName: string;
+		project: Project;
+		items: EditorItem[];
+		currentThreadID?: string;
 	}
 
-	let { tableName }: Props = $props();
+	let { tableName, project, currentThreadID, items }: Props = $props();
 	let data: Rows | undefined = $state<Rows>();
 	let loading: Promise<Rows> | undefined = $state();
 
 	async function loadData() {
-		loading = ChatService.getRows(tableName);
+		loading = ChatService.getRows(project.assistantID, project.id, tableName);
 		data = await loading;
 		loading = undefined;
 	}
 
 	$effect(() => {
-		if (data === undefined && loading === undefined && tableName != '' && assistants.current().id) {
+		if (data === undefined && loading === undefined && tableName != '') {
 			loadData();
 		}
 	});
@@ -46,13 +49,17 @@
 			<Input
 				placeholder="Modify table or data"
 				onSubmit={async (i) => {
-					await ChatService.invoke({
+					if (!currentThreadID) {
+						return;
+					}
+					await ChatService.invoke(project.assistantID, project.id, currentThreadID, {
 						prompt: `In the database table '${tableName}' do the following instruction:\n${i.prompt}`
 					});
 				}}
+				{items}
 			/>
 		</div>
-		<Controls />
+		<Controls {project} {items} />
 	</div>
 	<div class="w-full overflow-auto">
 		<table class="w-full table-auto text-left">

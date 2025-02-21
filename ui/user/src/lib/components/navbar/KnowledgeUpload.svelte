@@ -1,23 +1,22 @@
 <script lang="ts">
 	import { Upload } from 'lucide-svelte/icons';
-	import { ChatService } from '$lib/services';
+	import { ChatService, type Project } from '$lib/services';
 	import type { KnowledgeFile } from '$lib/services';
 	import Loading from '$lib/icons/Loading.svelte';
 	import Error from '$lib/components/Error.svelte';
-	import { knowledgeFiles } from '$lib/stores';
 
 	interface Props {
 		onUpload?: () => void | Promise<void>;
+		project: Project;
 	}
 
-	let { onUpload }: Props = $props();
+	let { onUpload, project }: Props = $props();
 
 	let files = $state<FileList>();
 	let uploadInProgress = $state<Promise<KnowledgeFile>>();
 
 	function reloadFiles() {
-		ChatService.listKnowledgeFiles().then((files) => {
-			knowledgeFiles.items = files.items;
+		ChatService.listKnowledgeFiles(project.assistantID, project.id).then((files) => {
 			const pending = files.items.find(
 				(file) => file.state === 'pending' || file.state === 'ingesting'
 			);
@@ -32,7 +31,7 @@
 			return;
 		}
 
-		uploadInProgress = ChatService.uploadKnowledge(files[0]);
+		uploadInProgress = ChatService.uploadKnowledge(project.assistantID, project.id, files[0]);
 		uploadInProgress
 			.then(() => {
 				onUpload?.();

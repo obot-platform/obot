@@ -266,7 +266,7 @@ func (a *WebhookHandler) Execute(req api.Context) error {
 	}
 
 	var workflow v1.Workflow
-	if err := alias.Get(req.Context(), req.Storage, &workflow, req.Namespace(), webhook.Spec.WebhookManifest.Workflow); err != nil {
+	if err := req.Get(&workflow, webhook.Spec.WebhookManifest.WorkflowName); err != nil {
 		return err
 	}
 
@@ -313,15 +313,13 @@ func validateSecretHeader(secret string, body []byte, values []string) error {
 
 func validateManifest(req api.Context, manifest types.WebhookManifest) error {
 	// Ensure that the WorkflowID is set and the workflow exists
-	if manifest.Workflow == "" {
+	if manifest.WorkflowName == "" {
 		return apierrors.NewBadRequest("webhook manifest must have a workflow name")
 	}
 
 	var workflow v1.Workflow
-	if system.IsWorkflowID(manifest.Workflow) {
-		if err := req.Get(&workflow, manifest.Workflow); err != nil {
-			return err
-		}
+	if err := req.Get(&workflow, manifest.WorkflowName); err != nil {
+		return err
 	}
 
 	// On creation, the user must set both the validation header and secret or set neither.

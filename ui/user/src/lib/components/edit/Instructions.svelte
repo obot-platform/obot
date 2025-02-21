@@ -7,17 +7,20 @@
 		project: Project;
 	}
 
-	let { project }: Props = $props();
+	let { project = $bindable() }: Props = $props();
 </script>
 
-<CollapsePane header="Instructions">
+<CollapsePane header="Instructions" open>
 	<div class="flex flex-col gap-2">
 		<div class="flex flex-col gap-2">
-			<label for="project-instructions" class="text-sm">Instructions</label>
+			<label for="project-instructions" class="text-sm" class:opacity-0={!project.prompt}
+				>Instructions</label
+			>
 			<textarea
 				id="project-instructions"
 				class="bg-surface grow resize-none rounded-lg p-2"
 				rows="3"
+				placeholder="Instructions"
 				use:autoHeight
 				bind:value={project.prompt}
 			></textarea>

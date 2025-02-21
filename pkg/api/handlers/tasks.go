@@ -1,12 +1,8 @@
 package handlers
 
 import (
-	"context"
-	"errors"
 	"fmt"
 	"net/http"
-	"slices"
-	"strings"
 	"time"
 	"unicode/utf8"
 
@@ -17,7 +13,6 @@ import (
 	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/events"
 	"github.com/obot-platform/obot/pkg/invoke"
-	"github.com/obot-platform/obot/pkg/render"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/obot-platform/obot/pkg/wait"
@@ -377,9 +372,7 @@ func (t *TaskHandler) run(req api.Context, workflow *v1.Workflow, threadName str
 	} else {
 		resp, err := t.invoker.Workflow(req.Context(), req.Storage, workflow, string(input), invoke.WorkflowOptions{
 			WorkflowExecutionName: editorWFE(req, workflow.Name),
-			OwningThreadName:      threadName,
 			StepID:                stepID,
-			ThreadCredentialScope: new(bool),
 		})
 		if err != nil {
 			return err
@@ -441,17 +434,7 @@ func (t *TaskHandler) Update(req api.Context) error {
 		return err
 	}
 
-	alias := workflow.Spec.Manifest.Alias
-	if alias == "" {
-		alias, err = randomtoken.Generate()
-		if err != nil {
-			return err
-		}
-		alias = alias[:16]
-	}
-
 	workflow.Spec.Manifest = manifest
-	workflow.Spec.Manifest.Alias = alias
 	if err := req.Update(&workflow); err != nil {
 		return err
 	}
@@ -475,17 +458,7 @@ func (t *TaskHandler) UpdateFromScope(req api.Context) error {
 		return err
 	}
 
-	alias := workflow.Spec.Manifest.Alias
-	if alias == "" {
-		alias, err = randomtoken.Generate()
-		if err != nil {
-			return err
-		}
-		alias = alias[:16]
-	}
-
 	workflow.Spec.Manifest = manifest
-	workflow.Spec.Manifest.Alias = alias
 	if err := req.Update(workflow); err != nil {
 		return err
 	}
@@ -569,8 +542,8 @@ func (t *TaskHandler) updateEmail(req api.Context, workflow *v1.Workflow, task t
 			},
 			Spec: v1.EmailReceiverSpec{
 				EmailReceiverManifest: types.EmailReceiverManifest{
-					Alias:    workflow.Spec.Manifest.Alias,
-					Workflow: workflow.Name,
+					Alias:        workflow.Spec.Manifest.Alias,
+					WorkflowName: workflow.Name,
 				},
 				ThreadName: workflow.Spec.ThreadName,
 			},
@@ -607,8 +580,8 @@ func (t *TaskHandler) updateWebhook(req api.Context, workflow *v1.Workflow, task
 			},
 			Spec: v1.WebhookSpec{
 				WebhookManifest: types.WebhookManifest{
-					Alias:    workflow.Spec.Manifest.Alias,
-					Workflow: workflow.Name,
+					Alias:        workflow.Spec.Manifest.Alias,
+					WorkflowName: workflow.Name,
 				},
 				ThreadName: workflow.Spec.ThreadName,
 			},
@@ -645,7 +618,7 @@ func (t *TaskHandler) updateCron(req api.Context, workflow *v1.Workflow, task ty
 			},
 			Spec: v1.CronJobSpec{
 				CronJobManifest: types.CronJobManifest{
-					Workflow:     workflow.Name,
+					WorkflowName: workflow.Name,
 					TaskSchedule: task.Schedule,
 				},
 				ThreadName: workflow.Spec.ThreadName,
@@ -673,26 +646,17 @@ func (t *TaskHandler) getThreadAndManifestFromRequest(req api.Context) (*v1.Thre
 		return nil, types.WorkflowManifest{}, types.TaskManifest{}, err
 	}
 
-	wfManifest, manifest, err := t.getManifestFromRequest(req, thread)
+	wfManifest, manifest, err := t.getManifestFromRequest(req)
 	return thread, wfManifest, manifest, err
 }
 
-func (t *TaskHandler) getManifestFromRequest(req api.Context, thread *v1.Thread) (types.WorkflowManifest, types.TaskManifest, error) {
-	var agent v1.Agent
-	if err := req.Get(&agent, thread.Spec.AgentName); err != nil {
-		return types.WorkflowManifest{}, types.TaskManifest{}, err
-	}
-
+func (t *TaskHandler) getManifestFromRequest(req api.Context) (types.WorkflowManifest, types.TaskManifest, error) {
 	var manifest types.TaskManifest
 	if err := req.Read(&manifest); err != nil {
 		return types.WorkflowManifest{}, types.TaskManifest{}, err
 	}
 
-	wfManifest, err := ToWorkflowManifest(req.Context(), req.Storage, &agent, thread, manifest)
-	if err != nil {
-		return types.WorkflowManifest{}, types.TaskManifest{}, err
-	}
-
+	wfManifest := ToWorkflowManifest(manifest)
 	return wfManifest, manifest, nil
 }
 
@@ -702,7 +666,7 @@ func (t *TaskHandler) getThreadAndManifestFromWorkflow(req api.Context, workflow
 		return nil, types.WorkflowManifest{}, types.TaskManifest{}, err
 	}
 
-	wfManifest, manifest, err := t.getManifestFromRequest(req, &thread)
+	wfManifest, manifest, err := t.getManifestFromRequest(req)
 	return &thread, wfManifest, manifest, err
 }
 
@@ -719,18 +683,7 @@ func (t *TaskHandler) CreateFromScope(req api.Context) error {
 
 	workflowManifest.Alias, err = randomtoken.Generate()
 	if err != nil {
-		return err
-	}
-	workflowManifest.Alias = workflowManifest.Alias[:16]
-
-	var additionalCredentialContexts []string
-	if thread.Spec.AgentName != "" {
-		additionalCredentialContexts = append(additionalCredentialContexts, thread.Spec.AgentName)
-	}
-
-	var agent v1.Agent
-	if err := req.Get(&agent, thread.Spec.AgentName); err != nil {
-		return err
+		return fmt.Errorf("failed to generate alias: %w", err)
 	}
 
 	workflow := v1.Workflow{
@@ -739,12 +692,8 @@ func (t *TaskHandler) CreateFromScope(req api.Context) error {
 			Namespace:    req.Namespace(),
 		},
 		Spec: v1.WorkflowSpec{
-			ThreadName:                   thread.Name,
-			Manifest:                     workflowManifest,
-			KnowledgeSetNames:            append(agent.Status.KnowledgeSetNames, thread.Status.KnowledgeSetNames...),
-			WorkspaceName:                workspace.Name,
-			CredentialContextID:          thread.Name,
-			AdditionalCredentialContexts: additionalCredentialContexts,
+			ThreadName: thread.Name,
+			Manifest:   workflowManifest,
 		},
 	}
 
@@ -761,261 +710,18 @@ func (t *TaskHandler) CreateFromScope(req api.Context) error {
 	return req.WriteCreated(convertTask(workflow, trigger))
 }
 
-func (t *TaskHandler) Script(req api.Context) error {
-	var (
-		id     = req.Request.PathValue("id")
-		stepID = req.Request.URL.Query().Get("step")
-		wf     v1.Workflow
-	)
-	if err := req.Get(&wf, id); err != nil {
-		return fmt.Errorf("failed to get workflow with id %s: %w", id, err)
+func ToWorkflowManifest(manifest types.TaskManifest) types.WorkflowManifest {
+	return types.WorkflowManifest{
+		Steps: toWorkflowSteps(manifest.Steps),
 	}
-
-	step, _ := types.FindStep(&wf.Spec.Manifest, stepID)
-	agent, err := render.Workflow(req.Context(), req.Storage, &wf, render.WorkflowOptions{
-		Step: step,
-	})
-	if err != nil {
-		return err
-	}
-
-	tools, extraEnv, err := render.Agent(req.Context(), req.Storage, agent, t.serverURL, render.AgentOptions{})
-	if err != nil {
-		return err
-	}
-
-	nodes := gptscript.ToolDefsToNodes(tools)
-	nodes = append(nodes, gptscript.Node{
-		TextNode: &gptscript.TextNode{
-			Text: "!obot-extra-env\n" + strings.Join(extraEnv, "\n"),
-		},
-	})
-
-	script, err := req.GPTClient.Fmt(req.Context(), nodes)
-	if err != nil {
-		return err
-	}
-
-	return req.Write(script)
-}
-
-func (t *TaskHandler) Authenticate(req api.Context) error {
-	var (
-		id       = req.PathValue("id")
-		workflow v1.Workflow
-		tools    []string
-	)
-
-	if err := req.Read(&tools); err != nil {
-		return fmt.Errorf("failed to read tools from request body: %w", err)
-	}
-
-	if len(tools) == 0 {
-		return types.NewErrBadRequest("no tools provided for authentication")
-	}
-
-	if err := req.Get(&workflow, id); err != nil {
-		return err
-	}
-
-	agent, err := render.Workflow(req.Context(), req.Storage, &workflow, render.WorkflowOptions{})
-	if err != nil {
-		return err
-	}
-
-	resp, err := runAuthForAgent(req.Context(), req.Storage, t.invoker, t.gptscript, agent, id, tools)
-	if err != nil {
-		return err
-	}
-	defer func() {
-		resp.Close()
-		if kickErr := kickWorkflow(req.Context(), req.Storage, &workflow); kickErr != nil && err == nil {
-			err = fmt.Errorf("failed to update workflow status: %w", kickErr)
-		}
-	}()
-
-	req.ResponseWriter.Header().Set("X-Obot-Thread-Id", resp.Thread.Name)
-	return req.WriteEvents(resp.Events)
-}
-
-func (t *TaskHandler) DeAuthenticate(req api.Context) error {
-	var (
-		id    = req.PathValue("id")
-		wf    v1.Workflow
-		tools []string
-	)
-
-	if err := req.Read(&tools); err != nil {
-		return fmt.Errorf("failed to read tools from request body: %w", err)
-	}
-
-	if len(tools) == 0 {
-		return types.NewErrBadRequest("no tools provided for de-authentication")
-	}
-
-	if err := req.Get(&wf, id); err != nil {
-		return err
-	}
-
-	errs := removeToolCredentials(req.Context(), req.Storage, t.gptscript, id, wf.Namespace, tools)
-
-	if err := kickWorkflow(req.Context(), req.Storage, &wf); err != nil {
-		errs = append(errs, fmt.Errorf("failed to update workflow status: %w", err))
-	}
-
-	return errors.Join(errs...)
-}
-
-func (t *TaskHandler) EnsureCredentialForKnowledgeSource(req api.Context) error {
-	var wf v1.Workflow
-	if err := req.Get(&wf, req.PathValue("id")); err != nil {
-		return err
-	}
-
-	var knowledgeSet v1.KnowledgeSet
-	if len(wf.Status.KnowledgeSetNames) > 0 {
-		if err := req.Get(&knowledgeSet, wf.Status.KnowledgeSetNames[0]); err != nil {
-			return fmt.Errorf("failed to get workflow knowledge set: %w", err)
-		}
-	}
-
-	ref := req.PathValue("ref")
-	authStatus := wf.Status.AuthStatus[ref]
-
-	// If auth is not required, then don't continue.
-	if authStatus.Required != nil && !*authStatus.Required {
-		resp, err := convertWorkflow(wf, knowledgeSet.Status.TextEmbeddingModel, req.APIBaseURL)
-		if err != nil {
-			return err
-		}
-
-		return req.WriteCreated(resp)
-	}
-
-	var toolReference v1.ToolReference
-	if err := req.Get(&toolReference, ref); err != nil {
-		return fmt.Errorf("failed to get tool reference %v", ref)
-	}
-	if toolReference.Status.Tool == nil {
-		return types.NewErrHTTP(http.StatusTooEarly, "tool reference is not ready yet")
-	}
-
-	if len(toolReference.Status.Tool.Credentials) == 0 {
-		// The only way to get here is if the controller hasn't set the field yet.
-		if wf.Status.AuthStatus == nil {
-			wf.Status.AuthStatus = make(map[string]types.OAuthAppLoginAuthStatus)
-		}
-
-		authStatus.Required = &[]bool{false}[0]
-		wf.Status.AuthStatus[ref] = authStatus
-		resp, err := convertWorkflow(wf, knowledgeSet.Status.TextEmbeddingModel, req.APIBaseURL)
-		if err != nil {
-			return err
-		}
-
-		return req.WriteCreated(resp)
-	}
-
-	oauthLogin := &v1.OAuthAppLogin{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      system.OAuthAppLoginPrefix + wf.Name + ref,
-			Namespace: req.Namespace(),
-		},
-		Spec: v1.OAuthAppLoginSpec{
-			CredentialContext: wf.Name,
-			ToolReference:     ref,
-			OAuthApps:         []string{toolReference.Status.Tool.Metadata["oauth"]},
-		},
-	}
-
-	if err := req.Delete(oauthLogin); err != nil {
-		return err
-	}
-
-	oauthLogin, err := wait.For(req.Context(), req.Storage, oauthLogin, func(obj *v1.OAuthAppLogin) (bool, error) {
-		return obj.Status.External.Authenticated || obj.Status.External.Error != "" || obj.Status.External.URL != "", nil
-	}, wait.Option{
-		Create: true,
-	})
-	if err != nil {
-		return fmt.Errorf("failed to ensure credential for workflow %q: %w", wf.Name, err)
-	}
-
-	// Don't need to actually update the knowledge ref, there is a controller that will do that.
-	if wf.Status.AuthStatus == nil {
-		wf.Status.AuthStatus = make(map[string]types.OAuthAppLoginAuthStatus)
-	}
-	wf.Status.AuthStatus[ref] = oauthLogin.Status.External
-
-	resp, err := convertWorkflow(wf, knowledgeSet.Status.TextEmbeddingModel, req.APIBaseURL)
-	if err != nil {
-		return err
-	}
-
-	return req.WriteCreated(resp)
-}
-
-func ToWorkflowManifest(ctx context.Context, c kclient.Client, agent *v1.Agent, thread *v1.Thread, manifest types.TaskManifest) (types.WorkflowManifest, error) {
-	workflowManifest := types.WorkflowManifest{
-		AgentManifest: agent.Spec.Manifest,
-	}
-
-	workflowManifest.AgentManifest.Env = append(workflowManifest.AgentManifest.Env, types.EnvVar{
-		Name:  "DATABASE_WORKSPACE_ID",
-		Value: thread.Status.WorkspaceID,
-	})
-
-	for _, env := range thread.Spec.Env {
-		workflowManifest.AgentManifest.Env = append(workflowManifest.AgentManifest.Env, types.EnvVar{
-			Name:     env,
-			Existing: true,
-		})
-	}
-
-	for _, tool := range thread.Spec.Manifest.Tools {
-		if !slices.Contains(workflowManifest.Tools, tool) {
-			workflowManifest.Tools = append(workflowManifest.Tools, tool)
-		}
-	}
-
-	workflowManifest.Steps = toWorkflowSteps(manifest.Steps)
-	workflowManifest.Name = manifest.Name
-	workflowManifest.Description = manifest.Description
-
-	credTool, err := render.ResolveToolReference(ctx, c, "", thread.Namespace, system.ExistingCredTool)
-	if err != nil {
-		return types.WorkflowManifest{}, err
-	}
-	workflowManifest.Credentials = []string{credTool + " as " + thread.Name}
-
-	if manifest.OnDemand != nil {
-		workflowManifest.Params = manifest.OnDemand.Params
-	}
-
-	return workflowManifest, nil
 }
 
 func toWorkflowSteps(steps []types.TaskStep) []types.Step {
 	workflowSteps := make([]types.Step, 0, len(steps))
 	for _, step := range steps {
-		workflowSteps = append(workflowSteps, types.Step{
-			ID:   step.ID,
-			Step: step.Step,
-			If:   toWorkflowIf(step.If),
-		})
+		workflowSteps = append(workflowSteps, types.Step(step))
 	}
 	return workflowSteps
-}
-
-func toWorkflowIf(ifStep *types.TaskIf) *types.If {
-	if ifStep == nil {
-		return nil
-	}
-	return &types.If{
-		Condition: ifStep.Condition,
-		Steps:     toWorkflowSteps(ifStep.Steps),
-		Else:      toWorkflowSteps(ifStep.Else),
-	}
 }
 
 func (t *TaskHandler) Get(req api.Context) error {
@@ -1078,43 +784,49 @@ func (t *TaskHandler) getTask(req api.Context) (*v1.Workflow, *v1.Thread, error)
 }
 
 func getThreadForScope(req api.Context) (*v1.Thread, error) {
-	assistantID := req.PathValue("assistant_id")
+	var (
+		assistantID = req.PathValue("assistant_id")
+		threadID    = req.PathValue("thread_id")
+	)
 
-	if assistantID != "" {
-		thread, err := getProjectThread(req)
-		if err != nil {
+	if threadID != "" {
+		var thread v1.Thread
+		if err := req.Get(&thread, threadID); err != nil {
 			return nil, err
 		}
-
-		taskID := req.PathValue("task_id")
-		runID := req.PathValue("run_id")
-		if taskID != "" && runID != "" {
-			if runID == "editor" {
-				runID = editorWFE(req, taskID)
-			}
-			var wfe v1.WorkflowExecution
-			if err := req.Get(&wfe, runID); err != nil {
-				return nil, err
-			}
-			if wfe.Spec.ThreadName != thread.Name {
-				return nil, types.NewErrHTTP(http.StatusForbidden, "task run does not belong to the thread")
-			}
-			if wfe.Spec.WorkflowName != taskID {
-				return nil, types.NewErrNotFound("task run not found")
-			}
-			return thread, req.Get(thread, wfe.Status.ThreadName)
-		}
-
-		return thread, nil
+		return &thread, nil
 	}
 
-	threadID := req.PathValue("thread_id")
+	if assistantID == "" {
+		// This isn't actually required, but was more just left over from a refactor and let it be
+		return nil, types.NewErrBadRequest("assistant scope is required")
+	}
 
-	var thread v1.Thread
-	if err := req.Get(&thread, threadID); err != nil {
+	thread, err := getProjectThread(req)
+	if err != nil {
 		return nil, err
 	}
-	return &thread, nil
+
+	taskID := req.PathValue("task_id")
+	runID := req.PathValue("run_id")
+	if taskID != "" && runID != "" {
+		if runID == "editor" {
+			runID = editorWFE(req, taskID)
+		}
+		var wfe v1.WorkflowExecution
+		if err := req.Get(&wfe, runID); err != nil {
+			return nil, err
+		}
+		if wfe.Spec.ThreadName != thread.Name {
+			return nil, types.NewErrHTTP(http.StatusForbidden, "task run does not belong to the thread")
+		}
+		if wfe.Spec.WorkflowName != taskID {
+			return nil, types.NewErrNotFound("task run not found")
+		}
+		return thread, req.Get(thread, wfe.Status.ThreadName)
+	}
+
+	return thread, nil
 }
 
 func (t *TaskHandler) List(req api.Context) error {
@@ -1190,9 +902,7 @@ func ConvertTaskManifest(manifest *types.WorkflowManifest) types.TaskManifest {
 		return types.TaskManifest{}
 	}
 	return types.TaskManifest{
-		Name:        manifest.Name,
-		Description: manifest.Description,
-		Steps:       toTaskSteps(manifest.Steps),
+		Steps: toTaskSteps(manifest.Steps),
 	}
 }
 
@@ -1200,7 +910,6 @@ func convertTask(workflow v1.Workflow, trigger *triggers) types.Task {
 	task := types.Task{
 		Metadata:     MetadataFrom(&workflow),
 		TaskManifest: ConvertTaskManifest(&workflow.Spec.Manifest),
-		Alias:        workflow.Namespace + "/" + workflow.Spec.Manifest.Alias,
 		ThreadID:     workflow.Spec.ThreadName,
 	}
 	if trigger != nil && trigger.CronJob != nil && trigger.CronJob.Name != "" {
@@ -1224,22 +933,7 @@ func convertTask(workflow v1.Workflow, trigger *triggers) types.Task {
 func toTaskSteps(steps []types.Step) []types.TaskStep {
 	taskSteps := make([]types.TaskStep, 0, len(steps))
 	for _, step := range steps {
-		taskSteps = append(taskSteps, types.TaskStep{
-			ID:   step.ID,
-			Step: step.Step,
-			If:   toIf(step.If),
-		})
+		taskSteps = append(taskSteps, types.TaskStep(step))
 	}
 	return taskSteps
-}
-
-func toIf(ifStep *types.If) *types.TaskIf {
-	if ifStep == nil {
-		return nil
-	}
-	return &types.TaskIf{
-		Condition: ifStep.Condition,
-		Steps:     toTaskSteps(ifStep.Steps),
-		Else:      toTaskSteps(ifStep.Else),
-	}
 }

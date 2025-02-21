@@ -7,7 +7,6 @@ import (
 	"github.com/adhocore/gronx"
 	"github.com/obot-platform/nah/pkg/router"
 	"github.com/obot-platform/obot/apiclient/types"
-	"github.com/obot-platform/obot/pkg/alias"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	apierror "k8s.io/apimachinery/pkg/api/errors"
@@ -60,10 +59,9 @@ func (h *Handler) Run(req router.Request, resp router.Response) error {
 	}
 
 	var workflow v1.Workflow
-	if err := alias.Get(req.Ctx, req.Client, &workflow, cj.Namespace, cj.Spec.Workflow); err != nil {
-		if apierror.IsNotFound(err) {
-			return nil
-		}
+	if err := req.Get(&workflow, cj.Namespace, cj.Spec.WorkflowName); apierror.IsNotFound(err) {
+		return nil
+	} else if err != nil {
 		return err
 	}
 
@@ -85,7 +83,6 @@ func (h *Handler) Run(req router.Request, resp router.Response) error {
 	}
 
 	cj.Status.LastRunStartedAt = &[]metav1.Time{metav1.Now()}[0]
-
 	return nil
 }
 

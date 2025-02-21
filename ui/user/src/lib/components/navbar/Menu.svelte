@@ -62,7 +62,7 @@
 	{@render icon()}
 </button>
 
-<div use:tooltip class="z-30 w-screen px-2 md:w-96">
+<div use:tooltip class="z-30 w-screen px-2 md:w-96" onclick={() => toggle(false)} role="none">
 	<div
 		class="flex w-full flex-col divide-y
 		divide-gray-200

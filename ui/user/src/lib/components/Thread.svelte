@@ -2,31 +2,30 @@
 	import { sticktobottom, type StickToBottomControls } from '$lib/actions/div.svelte';
 	import Input from '$lib/components/messages/Input.svelte';
 	import Message from '$lib/components/messages/Message.svelte';
-	import { toHTMLFromMarkdown } from '$lib/markdown';
-	import { EditorService, type Assistant, type Messages } from '$lib/services';
 	import { Thread } from '$lib/services/chat/thread.svelte';
-	import { assistants, context } from '$lib/stores';
-	import { onDestroy } from 'svelte';
+	import { ChatService, EditorService, type Messages, type Project } from '$lib/services';
 	import { fade } from 'svelte/transition';
+	import { onDestroy, onMount } from 'svelte';
+	import { toHTMLFromMarkdown } from '$lib/markdown';
+	import type { EditorItem } from '$lib/services/editor/index.svelte';
+	import { getLayout } from '$lib/context/layout.svelte';
 
 	interface Props {
 		id?: string;
+		project: Project;
+		items: EditorItem[];
 	}
 
 	let container = $state<HTMLDivElement>();
 	let messages: Messages = $state({ messages: [], inProgress: false });
 	let thread: Thread | undefined = $state<Thread>();
 	let messagesDiv = $state<HTMLDivElement>();
-	let currentAssistant = $state<Assistant>();
-	let { id }: Props = $props();
-	let intro = $derived(
-		context.project?.introductionMessage || currentAssistant?.introductionMessage || undefined
-	);
-	let starters = $derived.by(() => {
-		if (context.project?.starterMessages && context.project?.starterMessages.length > 0) {
-			return context.project?.starterMessages;
+	let { id = $bindable(), project, items }: Props = $props();
+
+	onMount(async () => {
+		if (!id) {
+			id = (await ChatService.createThread(project.assistantID, project.id)).id;
 		}
-		return currentAssistant?.starterMessages;
 	});
 
 	let scrollSmooth = $state(false);
@@ -40,13 +39,6 @@
 	});
 
 	$effect(() => {
-		const a = assistants.current();
-		if (a) {
-			currentAssistant = a;
-		} else {
-			return;
-		}
-
 		if (thread && thread.threadID !== id) {
 			thread?.close?.();
 			thread = undefined;
@@ -60,7 +52,7 @@
 			return;
 		}
 
-		const newThread = new Thread({
+		const newThread = new Thread(project, {
 			threadID: id,
 			onError: () => {
 				// ignore errors they are rendered as messages
@@ -84,8 +76,10 @@
 		thread?.close?.();
 	});
 
+	const layout = getLayout();
 	function onLoadFile(filename: string) {
-		EditorService.load(filename);
+		EditorService.load(items, project, filename);
+		layout.fileEditorOpen = true;
 	}
 
 	function onSendCredentials(id: string, credentials: Record<string, string>) {
@@ -110,13 +104,13 @@
 			class:justify-center={!thread}
 		>
 			<div class="message-content self-center">
-				{#if intro}
-					{@html toHTMLFromMarkdown(intro)}
+				{#if project?.introductionMessage}
+					{@html toHTMLFromMarkdown(project?.introductionMessage)}
 				{/if}
 			</div>
 			<div class="grid gap-2 self-center md:grid-cols-3">
 				{#if thread}
-					{#each starters ?? [] as msg}
+					{#each project.starterMessages ?? [] as msg}
 						<button
 							class="rounded-3xl border-2 border-blue p-5 hover:bg-surface1"
 							onclick={() => {
@@ -130,6 +124,7 @@
 			</div>
 			{#each messages.messages as msg}
 				<Message
+					{project}
 					{msg}
 					{onLoadFile}
 					{onSendCredentials}
@@ -154,6 +149,7 @@
 						scrollControls?.stickToBottom();
 						thread?.invoke(i);
 					}}
+					bind:items
 				/>
 			{/if}
 		</div>

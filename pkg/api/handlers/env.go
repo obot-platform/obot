@@ -10,7 +10,6 @@ import (
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
-	"github.com/obot-platform/obot/pkg/system"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -108,24 +107,9 @@ func RevealEnv(req api.Context) error {
 }
 
 func getObjectAndEnv(ctx context.Context, client kclient.Client, namespace, id string) (kclient.Object, *[]types.EnvVar, error) {
-	switch {
-	case system.IsAgentID(id):
-		var agent v1.Agent
-		if err := client.Get(ctx, kclient.ObjectKey{Namespace: namespace, Name: id}, &agent); err != nil {
-			return nil, nil, err
-		}
-
-		return &agent, &agent.Spec.Manifest.Env, nil
-
-	case system.IsWorkflowID(id):
-		var wf v1.Workflow
-		if err := client.Get(ctx, kclient.ObjectKey{Namespace: namespace, Name: id}, &wf); err != nil {
-			return nil, nil, err
-		}
-
-		return &wf, &wf.Spec.Manifest.Env, nil
-
-	default:
-		return nil, nil, types.NewErrBadRequest("%s is not an agent nor workflow", id)
+	var agent v1.Agent
+	if err := client.Get(ctx, kclient.ObjectKey{Namespace: namespace, Name: id}, &agent); err != nil {
+		return nil, nil, err
 	}
+	return &agent, &agent.Spec.Manifest.Env, nil
 }

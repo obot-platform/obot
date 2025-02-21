@@ -4,6 +4,7 @@ import "strings"
 
 const (
 	ThreadPrefix              = "t1"
+	ThreadSharePrefix         = "ts1"
 	ThreadAuthorizationPrefix = "ta1"
 	AgentPrefix               = "a1"
 	RunPrefix                 = "r1"

@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { profile } from '$lib/stores';
 
-	let initials = $state('08');
+	let initials = $state('?');
 
 	$effect(() => {
 		if (profile.current.email) {

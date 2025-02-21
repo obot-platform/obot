@@ -20,6 +20,24 @@ func NewTableHandler(gptScript *gptscript.GPTScript) *TableHandler {
 	}
 }
 
+func getDBWorkspaceID(req api.Context) (string, error) {
+	thread, err := getProjectThread(req)
+	if err != nil {
+		return "", err
+	}
+
+	if thread.Status.LocalWorkspaceName == "" {
+		return "", nil
+	}
+
+	var workspace v1.Workspace
+	if err := req.Get(&workspace, thread.Status.LocalWorkspaceName); err != nil {
+		return "", err
+	}
+
+	return workspace.Status.WorkspaceID, nil
+}
+
 func (t *TableHandler) ListTables(req api.Context) error {
 	var (
 		result = types.TableList{
@@ -27,16 +45,16 @@ func (t *TableHandler) ListTables(req api.Context) error {
 		}
 	)
 
-	thread, err := getProjectThread(req)
+	workspaceID, err := getDBWorkspaceID(req)
 	if err != nil {
 		return err
 	}
 
-	if thread.Status.WorkspaceID == "" {
+	if workspaceID == "" {
 		return req.Write(result)
 	}
 
-	return listTablesInWorkspace(req, t.gptScript, thread.Status.WorkspaceID)
+	return listTablesInWorkspace(req, t.gptScript, workspaceID)
 }
 
 var validTableName = regexp.MustCompile(`^[a-zA-Z_][a-zA-Z0-9_]*$`)
@@ -53,16 +71,16 @@ func (t *TableHandler) GetRows(req api.Context) error {
 		return types.NewErrBadRequest("invalid table name %s", tableName)
 	}
 
-	thread, err := getProjectThread(req)
+	workspaceID, err := getDBWorkspaceID(req)
 	if err != nil {
 		return err
 	}
 
-	if thread.Status.WorkspaceID == "" {
+	if workspaceID == "" {
 		return req.Write(result)
 	}
 
-	return listTableRows(req, t.gptScript, thread.Status.WorkspaceID, tableName)
+	return listTableRows(req, t.gptScript, workspaceID, tableName)
 }
 
 func listTablesInWorkspace(req api.Context, gClient *gptscript.GPTScript, workspaceID string) error {

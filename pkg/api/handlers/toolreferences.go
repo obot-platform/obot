@@ -122,7 +122,7 @@ func (a *ToolReferenceHandler) Create(req api.Context) (err error) {
 	switch newToolReference.ToolType {
 	case "":
 		newToolReference.ToolType = types.ToolReferenceTypeTool
-	case types.ToolReferenceTypeTool, types.ToolReferenceTypeStepTemplate:
+	case types.ToolReferenceTypeTool:
 	default:
 		return apierrors.NewBadRequest(fmt.Sprintf("invalid tool type %s", newToolReference.ToolType))
 	}

@@ -14,7 +14,6 @@
 
 	$effect(() => {
 		if (show && div) {
-			console.log('focused');
 			div.focus();
 		}
 	});
@@ -29,7 +28,6 @@
  justify-center overflow-y-auto overflow-x-hidden bg-black bg-opacity-50 md:inset-0"
 	role="none"
 	onkeydown={(e) => {
-		console.log('onkeydown', e.key);
 		if (e.key === 'Escape') {
 			oncancel();
 		}

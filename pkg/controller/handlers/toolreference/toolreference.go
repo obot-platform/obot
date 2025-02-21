@@ -44,7 +44,6 @@ type indexEntry struct {
 
 type index struct {
 	Tools                    map[string]indexEntry `json:"tools,omitempty"`
-	StepTemplates            map[string]indexEntry `json:"stepTemplates,omitempty"`
 	KnowledgeDataSources     map[string]indexEntry `json:"knowledgeDataSources,omitempty"`
 	KnowledgeDocumentLoaders map[string]indexEntry `json:"knowledgeDocumentLoaders,omitempty"`
 	System                   map[string]indexEntry `json:"system,omitempty"`
@@ -135,7 +134,6 @@ func (h *Handler) readFromRegistry(ctx context.Context, c client.Client) error {
 		toAdd = append(toAdd, h.toolsToToolReferences(ctx, types.ToolReferenceTypeModelProvider, registryURL, index.ModelProviders)...)
 		toAdd = append(toAdd, h.toolsToToolReferences(ctx, types.ToolReferenceTypeAuthProvider, registryURL, index.AuthProviders)...)
 		toAdd = append(toAdd, h.toolsToToolReferences(ctx, types.ToolReferenceTypeTool, registryURL, index.Tools)...)
-		toAdd = append(toAdd, h.toolsToToolReferences(ctx, types.ToolReferenceTypeStepTemplate, registryURL, index.StepTemplates)...)
 		toAdd = append(toAdd, h.toolsToToolReferences(ctx, types.ToolReferenceTypeKnowledgeDataSource, registryURL, index.KnowledgeDataSources)...)
 		toAdd = append(toAdd, h.toolsToToolReferences(ctx, types.ToolReferenceTypeKnowledgeDocumentLoader, registryURL, index.KnowledgeDocumentLoaders)...)
 	}

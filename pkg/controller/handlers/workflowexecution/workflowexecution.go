@@ -43,11 +43,6 @@ func (h *Handler) Run(req router.Request, _ router.Response) error {
 		return err
 	}
 
-	// Wait for workspaces
-	if wf.Status.WorkspaceName == "" {
-		return nil
-	}
-
 	if err := h.loadManifest(req, we); err != nil {
 		return err
 	}
@@ -66,7 +61,7 @@ func (h *Handler) Run(req router.Request, _ router.Response) error {
 
 	var (
 		steps        []kclient.Object
-		lastStepName = we.Spec.AfterWorkflowStepName
+		lastStepName string
 	)
 
 	for _, step := range we.Status.WorkflowManifest.Steps {
@@ -120,19 +115,9 @@ func (h *Handler) loadManifest(req router.Request, we *v1.WorkflowExecution) err
 }
 
 func (h *Handler) newThread(ctx context.Context, c kclient.Client, wf *v1.Workflow, we *v1.WorkflowExecution) (*v1.Thread, error) {
-	workspaceName := we.Spec.WorkspaceName
-	if workspaceName == "" && wf.Spec.ThreadName != "" {
-		var thread v1.Thread
-		if err := c.Get(ctx, kclient.ObjectKey{Namespace: we.Namespace, Name: wf.Spec.ThreadName}, &thread); err != nil {
-			return nil, err
-		}
-		if thread.Status.WorkspaceName != "" {
-			workspaceName = thread.Status.WorkspaceName
-		}
-	}
-
-	if workspaceName == "" {
-		workspaceName = wf.Status.WorkspaceName
+	var projectThread v1.Thread
+	if err := c.Get(ctx, router.Key(wf.Namespace, wf.Spec.ThreadName), &projectThread); err != nil {
+		return nil, err
 	}
 
 	thread := v1.Thread{
@@ -142,13 +127,20 @@ func (h *Handler) newThread(ctx context.Context, c kclient.Client, wf *v1.Workfl
 			Finalizers:   []string{v1.ThreadFinalizer},
 		},
 		Spec: v1.ThreadSpec{
-			ParentThreadName:      we.Spec.ParentThreadName,
+			ParentThreadName:      projectThread.Name,
+			AgentName:             projectThread.Spec.AgentName,
 			WorkflowName:          we.Spec.WorkflowName,
 			WorkflowExecutionName: we.Name,
 			WebhookName:           we.Spec.WebhookName,
 			EmailReceiverName:     we.Spec.EmailReceiverName,
 			CronJobName:           we.Spec.CronJobName,
-			FromWorkspaceNames:    []string{workspaceName},
+			Env: []types.EnvVar{
+				{
+					Name:  "WORKFLOW_INPUT",
+					Value: we.Spec.Input,
+				},
+			},
+			SystemTools: []string{system.WorkflowTool, system.TasksWorkflowTool},
 		},
 	}
 

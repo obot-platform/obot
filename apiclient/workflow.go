@@ -28,16 +28,6 @@ func (c *Client) GetWorkflow(ctx context.Context, id string) (*types.Workflow, e
 	return toObject(resp, &types.Workflow{})
 }
 
-func (c *Client) CreateWorkflow(ctx context.Context, workflow types.WorkflowManifest) (*types.Workflow, error) {
-	_, resp, err := c.postJSON(ctx, "/workflows", workflow)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	return toObject(resp, &types.Workflow{})
-}
-
 type ListWorkflowExecutionsOptions struct {
 	ThreadID string
 }
@@ -65,7 +55,6 @@ func (c *Client) ListWorkflowExecutions(ctx context.Context, workflowID string, 
 }
 
 type ListWorkflowsOptions struct {
-	Alias    string
 	ThreadID string
 }
 
@@ -90,16 +79,6 @@ func (c *Client) ListWorkflows(ctx context.Context, opts ListWorkflowsOptions) (
 	_, err = toObject(resp, &result)
 	if err != nil {
 		return result, err
-	}
-
-	if opts.Alias != "" {
-		var filtered types.WorkflowList
-		for _, workflow := range result.Items {
-			if workflow.Alias == opts.Alias && workflow.AliasAssigned != nil && *workflow.AliasAssigned {
-				filtered.Items = append(filtered.Items, workflow)
-			}
-		}
-		result = filtered
 	}
 
 	return

@@ -45,10 +45,10 @@
 	import { MessageSquareText, CircleHelp } from 'lucide-svelte/icons';
 	import { darkMode } from '$lib/stores';
 	import Input from '$lib/components/messages/Input.svelte';
-	import type { EditorItem } from '$lib/stores/editor.svelte';
 	import type { InvokeInput } from '$lib/services';
 	import { tick } from 'svelte';
 	import { twMerge } from 'tailwind-merge';
+	import type { EditorItem } from '$lib/services/editor/index.svelte';
 
 	const cursorTooltipField = StateField.define<readonly Tooltip[]>({
 		create: createTooltips,
@@ -63,9 +63,10 @@
 		onInvoke?: (invoke: InvokeInput) => void | Promise<void>;
 		onFileChanged?: (name: string, contents: string) => void;
 		class?: string;
+		items: EditorItem[];
 	}
 
-	let { file, onInvoke, onFileChanged, class: klass = '' }: Props = $props();
+	let { file, onInvoke, onFileChanged, class: klass = '', items }: Props = $props();
 	let lastSetValue = '';
 	let focused = $state(false);
 	let ttState: EditorState | undefined = $state();
@@ -103,7 +104,9 @@
 	])();
 
 	$effect(() => {
-		setValue(file?.contents);
+		if (file?.file?.contents) {
+			setValue(file.file.contents);
+		}
 		if (!focused) {
 			// hide()
 		}
@@ -179,7 +182,7 @@
 		} as Record<string, () => LanguageSupport>;
 
 		const langExtension = languages[ext] ?? javascript;
-		lastSetValue = file.contents;
+		lastSetValue = file?.file?.contents ?? '';
 
 		const updater = EditorView.updateListener.of((update) => {
 			if (update.docChanged && focused) {
@@ -190,7 +193,7 @@
 		// initial state is never use because it's immediately replaced by the reloadDarkMode
 		// below, so the reloadDarkMode is real constructor
 		let state: EditorState = EditorState.create({
-			doc: file.contents
+			doc: file?.file?.contents
 		});
 
 		view = new EditorView({
@@ -308,7 +311,7 @@
 			<MessageSquareText class="h-5 w-5" />
 		</button>
 		<div class:hidden={!ttImprove} class="flex w-full max-w-[700px]">
-			<Input {onSubmit} bind:this={input} placeholder="Instructions..." />
+			<Input {onSubmit} bind:this={input} placeholder="Instructions..." {items} />
 		</div>
 	</div>
 </div>

@@ -1,4 +1,5 @@
 import { buildMessagesFromProgress } from '$lib/services/chat/messages';
+import type { EditorItem } from '$lib/services/editor/index.svelte';
 import errors from '$lib/stores/errors.svelte';
 import {
 	abort as ChatAbort,
@@ -7,7 +8,7 @@ import {
 	sendCredentials as ChatSendCredentials
 } from './operations';
 import { newMessageEventSource } from './operations';
-import type { InvokeInput, Messages, Progress, TaskRun } from './types';
+import type { InvokeInput, Messages, Progress, Project, TaskRun } from './types';
 
 export class Thread {
 	replayComplete: boolean = false;
@@ -17,6 +18,7 @@ export class Thread {
 	readonly #onError: ((error: Error) => void) | undefined;
 	#es: EventSource;
 	readonly #progresses: Progress[] = [];
+	readonly #project: Project;
 	readonly #task?: {
 		id: string;
 	};
@@ -25,34 +27,44 @@ export class Thread {
 	readonly #authenticate?: {
 		tools?: string[];
 	};
+	readonly #items: EditorItem[] = [];
 
-	constructor(opts?: {
-		threadID?: string;
-		task?: {
-			id: string;
-		};
-		runID?: string;
-		authenticate?: {
-			tools?: string[];
-		};
-		onError?: (error: Error) => void;
-		// Return true to reconnect, false to close
-		onClose?: () => boolean;
-	}) {
+	constructor(
+		project: Project,
+		opts?: {
+			threadID?: string;
+			task?: {
+				id: string;
+			};
+			runID?: string;
+			authenticate?: {
+				tools?: string[];
+				local?: boolean;
+			};
+			onError?: (error: Error) => void;
+			// Return true to reconnect, false to close
+			onClose?: () => boolean;
+			items?: EditorItem[];
+		}
+	) {
 		this.threadID = opts?.threadID;
+		this.#project = project;
 		this.#task = opts?.task;
 		this.#runID = opts?.runID;
 		this.#authenticate = opts?.authenticate;
 		this.#onError = opts?.onError;
 		this.#onClose = opts?.onClose;
 		this.#es = this.#reconnect();
+		if (opts?.items) {
+			this.#items = opts.items;
+		}
 	}
 
 	#reconnect(): EventSource {
 		console.log('Message EventSource initializing');
 		this.replayComplete = false;
 		let opened = false;
-		const es = newMessageEventSource({
+		const es = newMessageEventSource(this.#project.assistantID, this.#project.id, {
 			threadID: this.threadID,
 			task: this.#task,
 			runID: this.#runID,
@@ -97,7 +109,7 @@ export class Thread {
 			return;
 		}
 		try {
-			await ChatAbort({
+			await ChatAbort(this.#project.assistantID, this.#project.id, {
 				threadID: this.threadID
 			});
 		} finally {
@@ -107,7 +119,9 @@ export class Thread {
 
 	async invoke(input: InvokeInput | string) {
 		this.pending = true;
-		await ChatInvoke(input);
+		if (this.threadID) {
+			await ChatInvoke(this.#project.assistantID, this.#project.id, this.threadID, input);
+		}
 	}
 
 	async sendCredentials(id: string, response: Record<string, string>) {
@@ -138,14 +152,14 @@ export class Thread {
 		}
 
 		for (const [stepID, msgs] of newMessages) {
-			this.onStepMessages(stepID, buildMessagesFromProgress(msgs));
+			this.onStepMessages(stepID, buildMessagesFromProgress(this.#items, msgs));
 		}
 	}
 
 	#onProgress(progress: Progress) {
 		this.#progresses.push(progress);
 		if (this.replayComplete) {
-			this.onMessages(buildMessagesFromProgress(this.#progresses));
+			this.onMessages(buildMessagesFromProgress(this.#items, this.#progresses));
 			this.#handleSteps();
 		}
 	}
@@ -179,7 +193,7 @@ export class Thread {
 		}
 	): Promise<TaskRun> {
 		this.pending = true;
-		return await ChatRunTask(taskID, opts);
+		return await ChatRunTask(this.#project.assistantID, this.#project.id, taskID, opts);
 	}
 
 	close() {

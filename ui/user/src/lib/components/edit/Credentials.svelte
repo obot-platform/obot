@@ -1,29 +1,35 @@
 <script lang="ts">
-	import { ChatService, type Project, type ProjectCredential } from '$lib/services';
+	import {
+		type AssistantTool,
+		ChatService,
+		type Project,
+		type ProjectCredential
+	} from '$lib/services';
 	import CollapsePane from '$lib/components/edit/CollapsePane.svelte';
 	import { Plus, X } from 'lucide-svelte/icons';
-	import { tools } from '$lib/stores';
 	import { popover } from '$lib/actions';
 	import { fade } from 'svelte/transition';
 	import CredentialAuth from '$lib/components/edit/CredentialAuth.svelte';
 
 	interface Props {
 		project: Project;
+		local?: boolean;
+		tools: AssistantTool[];
 	}
 
-	let { project }: Props = $props();
+	let { project, tools, local }: Props = $props();
 	let { ref, tooltip, toggle } = popover();
 	let credentials = $state<ProjectCredential[]>();
 	let credentialsAvailable = $derived.by(() => {
 		return credentials?.filter((cred) => {
-			return tools.items.find((tool) => {
+			return tools.find((tool) => {
 				return tool.enabled && cred.toolID === tool.id && !cred.exists;
 			});
 		});
 	});
 	let credentialsExists = $derived.by(() => {
 		return credentials?.filter((cred) => {
-			return tools.items.find((tool) => {
+			return tools.find((tool) => {
 				return tool.enabled && cred.toolID === tool.id && cred.exists;
 			});
 		});
@@ -31,12 +37,22 @@
 	let authDialog: ReturnType<typeof CredentialAuth>;
 	let credToAuth = $state<string>('');
 
-	async function reload() {
-		credentials = (await ChatService.listProjectCredentials(project.id)).items;
+	export async function reload() {
+		if (local) {
+			credentials = (await ChatService.listProjectLocalCredentials(project.assistantID, project.id))
+				.items;
+		} else {
+			credentials = (await ChatService.listProjectCredentials(project.assistantID, project.id))
+				.items;
+		}
 	}
 
 	async function removeCred(cred: ProjectCredential) {
-		await ChatService.deleteProjectCredential(cred.toolID);
+		if (local) {
+			await ChatService.deleteProjectLocalCredential(project.assistantID, project.id, cred.toolID);
+		} else {
+			await ChatService.deleteProjectCredential(project.assistantID, project.id, cred.toolID);
+		}
 		return reload();
 	}
 
@@ -48,7 +64,7 @@
 </script>
 
 {#snippet credentialList(creds: ProjectCredential[], remove: boolean)}
-	<ul class="flex flex-col gap-2">
+	<div class="flex grow flex-col gap-2">
 		{#each creds ?? [] as cred}
 			{#key cred.toolID}
 				<div
@@ -78,11 +94,14 @@
 				</div>
 			{/key}
 		{/each}
-	</ul>
+		{#if !creds || creds.length === 0}
+			<span class="place-self-center self-center text-sm">No credentials found.</span>
+		{/if}
+	</div>
 {/snippet}
 
-<CollapsePane header="Credentials" onOpen={() => reload()}>
-	<div class="flex flex-col gap-2">
+{#snippet body()}
+	<div class="flex grow flex-col gap-2">
 		{#if credentialsExists}
 			{@render credentialList(credentialsExists, true)}
 		{/if}
@@ -105,6 +124,20 @@
 		>
 			{@render credentialList(credentialsAvailable ?? [], false)}
 		</div>
-		<CredentialAuth bind:this={authDialog} toolID={credToAuth} onClose={() => reload()} />
+		<CredentialAuth
+			bind:this={authDialog}
+			toolID={credToAuth}
+			{project}
+			onClose={() => reload()}
+			{local}
+		/>
 	</div>
-</CollapsePane>
+{/snippet}
+
+{#if local}
+	{@render body()}
+{:else}
+	<CollapsePane header="Credentials" onOpen={() => reload()}>
+		{@render body()}
+	</CollapsePane>
+{/if}

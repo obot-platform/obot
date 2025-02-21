@@ -1,18 +1,20 @@
 <script lang="ts">
 	import { FileText, Trash } from 'lucide-svelte/icons';
-	import { ChatService, EditorService, type Files } from '$lib/services';
+	import { ChatService, EditorService, type Files, type Project } from '$lib/services';
 	import { Download, RotateCw } from 'lucide-svelte';
 	import { onDestroy } from 'svelte';
 	import Confirm from '$lib/components/Confirm.svelte';
-	import { assistants } from '$lib/stores/index';
+	import type { EditorItem } from '$lib/services/editor/index.svelte';
 
 	interface Props {
 		taskID: string;
 		runID: string;
 		running?: boolean;
+		project: Project;
+		items: EditorItem[];
 	}
 
-	let { taskID, runID, running }: Props = $props();
+	let { taskID, runID, running, project, items = $bindable() }: Props = $props();
 	let loading = $state(false);
 	let fileToDelete: string | undefined = $state();
 	let interval: number;
@@ -20,7 +22,7 @@
 	async function loadFiles() {
 		try {
 			loading = true;
-			files = await ChatService.listFiles({
+			files = await ChatService.listFiles(project.assistantID, project.id, {
 				taskID,
 				runID
 			});
@@ -33,7 +35,7 @@
 		if (!fileToDelete) {
 			return;
 		}
-		await ChatService.deleteFile(fileToDelete, {
+		await ChatService.deleteFile(project.assistantID, project.id, fileToDelete, {
 			taskID,
 			runID
 		});
@@ -52,7 +54,7 @@
 	});
 
 	$effect(() => {
-		if (!files && assistants.current().id) {
+		if (!files) {
 			loadFiles();
 		}
 	});
@@ -85,7 +87,7 @@
 						<button
 							class="flex flex-1 items-center"
 							onclick={async () => {
-								await EditorService.load(file.name, {
+								await EditorService.load(items, project, file.name, {
 									taskID,
 									runID
 								});
@@ -97,7 +99,7 @@
 						<button
 							class="ms-2 hidden group-hover:block"
 							onclick={() => {
-								EditorService.download(file.name, {
+								EditorService.download(items, project, file.name, {
 									taskID,
 									runID
 								});

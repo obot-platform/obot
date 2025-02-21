@@ -8,11 +8,13 @@ if (typeof window !== 'undefined') {
 
 interface GetOptions {
 	blob?: boolean;
+	fetch?: typeof fetch;
 	dontLogErrors?: boolean;
 }
 
 export async function doGet(path: string, opts?: GetOptions): Promise<unknown> {
-	const resp = await fetch(baseURL + path, {
+	const f = opts?.fetch || fetch;
+	const resp = await f(baseURL + path, {
 		headers: {
 			// Pass the browser timezone as a request header.
 			// This is consumed during authentication to set the user's default timezone in Obot.
@@ -77,6 +79,7 @@ export async function doWithBody(
 	input?: string | object | Blob,
 	opts?: {
 		dontLogErrors?: boolean;
+		fetch?: typeof fetch;
 	}
 ): Promise<unknown> {
 	let headers: Record<string, string> | undefined;
@@ -89,7 +92,8 @@ export async function doWithBody(
 		headers = { 'Content-Type': 'text/plain' };
 	}
 	try {
-		const resp = await fetch(baseURL + path, {
+		const f = opts?.fetch || fetch;
+		const resp = await f(baseURL + path, {
 			method: method,
 			headers: headers,
 			body: input
@@ -109,6 +113,7 @@ export async function doPost(
 	input: string | object | Blob,
 	opts?: {
 		dontLogErrors?: boolean;
+		fetch?: typeof fetch;
 	}
 ): Promise<unknown> {
 	return await doWithBody('POST', path, input, opts);

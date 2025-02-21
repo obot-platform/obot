@@ -1,47 +1,67 @@
 <script lang="ts">
 	import { Plus, Trash } from 'lucide-svelte/icons';
-	import { tasks } from '$lib/stores';
-	import { EditorService, type Task } from '$lib/services';
+	import { ChatService, EditorService, type Project, type Task } from '$lib/services';
 	import Confirm from '$lib/components/Confirm.svelte';
 	import { CheckSquare } from 'lucide-svelte';
 	import Menu from '$lib/components/navbar/Menu.svelte';
+	import type { EditorItem } from '$lib/services/editor/index.svelte';
+	import { getLayout } from '$lib/context/layout.svelte';
+
+	interface Props {
+		project: Project;
+		items: EditorItem[];
+	}
+
+	let { project, items = $bindable() }: Props = $props();
+	let tasks = $state<Task[]>([]);
+	const layout = getLayout();
 
 	async function deleteTask() {
 		if (!taskToDelete?.id) {
 			return;
 		}
-		await tasks.remove(taskToDelete.id);
-		EditorService.remove(taskToDelete.id);
+		await ChatService.deleteTask(project.assistantID, project.id, taskToDelete.id);
+		EditorService.remove(items, taskToDelete.id);
 		menu?.toggle(false);
 		taskToDelete = undefined;
 	}
 
 	async function newTask() {
-		const task = await tasks.create();
-		await EditorService.load(task.id);
+		const task = await ChatService.createTask(project.assistantID, project.id, {
+			id: '',
+			name: 'New Task',
+			steps: []
+		});
+		await EditorService.load(items, project, task.id);
+		layout.fileEditorOpen = true;
 		menu?.toggle(false);
+	}
+
+	async function reload() {
+		tasks = (await ChatService.listTasks(project.assistantID, project.id)).items;
 	}
 
 	let taskToDelete = $state<Task | undefined>();
 	let menu = $state<ReturnType<typeof Menu>>();
 </script>
 
-<Menu bind:this={menu} title="Tasks" description="Helpful automations" onLoad={tasks.reload}>
+<Menu bind:this={menu} title="Tasks" description="Helpful automations" onLoad={() => reload()}>
 	{#snippet icon()}
 		<CheckSquare class="h-5 w-5" />
 	{/snippet}
 	{#snippet body()}
-		{#if tasks.items.length === 0}
+		{#if tasks.length === 0}
 			<p class="p-6 text-center text-sm text-gray dark:text-gray-300">No tasks</p>
 		{:else}
 			<ul class="space-y-4 py-6 text-sm">
-				{#each tasks.items.values() as task}
+				{#each tasks as task}
 					<li class="group">
 						<div class="flex">
 							<button
 								class="flex flex-1 items-center"
 								onclick={async () => {
-									await EditorService.load(task.id);
+									await EditorService.load(items, project, task.id);
+									layout.fileEditorOpen = true;
 									menu?.toggle(false);
 								}}
 							>

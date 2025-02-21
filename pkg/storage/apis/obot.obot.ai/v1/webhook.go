@@ -26,7 +26,7 @@ type Webhook struct {
 }
 
 func (w *Webhook) FieldNames() []string {
-	return []string{"spec.threadName", "spec.workflow"}
+	return []string{"spec.threadName", "spec.workflowName"}
 }
 
 func (w *Webhook) Has(field string) (exists bool) {
@@ -37,8 +37,8 @@ func (w *Webhook) Get(field string) (value string) {
 	switch field {
 	case "spec.threadName":
 		return w.Spec.ThreadName
-	case "spec.workflow":
-		return w.Spec.Workflow
+	case "spec.workflowName":
+		return w.Spec.WorkflowName
 	}
 	return ""
 }
@@ -76,7 +76,7 @@ func (*Webhook) GetColumns() [][]string {
 
 func (w *Webhook) DeleteRefs() []Ref {
 	return []Ref{
-		{ObjType: &Workflow{}, Name: w.Spec.Workflow, Alias: w.Spec.Workflow},
+		{ObjType: &Workflow{}, Name: w.Spec.WorkflowName},
 	}
 }
 

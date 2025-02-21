@@ -1,5 +1,11 @@
 <script lang="ts">
-	import { ChatService, type Messages, type Task, type TaskStep } from '$lib/services';
+	import {
+		ChatService,
+		type Messages,
+		type Project,
+		type Task,
+		type TaskStep
+	} from '$lib/services';
 	import { onDestroy } from 'svelte';
 	import Step from '$lib/components/tasks/Step.svelte';
 	import { LoaderCircle, OctagonX, Play } from 'lucide-svelte';
@@ -9,6 +15,7 @@
 	import Type from '$lib/components/tasks/Type.svelte';
 	import Files from '$lib/components/tasks/Files.svelte';
 	import { errors } from '$lib/stores';
+	import type { EditorItem } from '$lib/services/editor/index.svelte';
 
 	interface Props {
 		task: Task;
@@ -16,9 +23,11 @@
 		onChanged?: (task: Task) => void | Promise<void>;
 		save?: (steps: TaskStep[]) => void | Promise<void>;
 		selectedRun?: string;
+		project: Project;
+		items: EditorItem[];
 	}
 
-	let { task, editMode = false, save, onChanged, selectedRun }: Props = $props();
+	let { task, editMode = false, save, onChanged, selectedRun, project, items }: Props = $props();
 
 	let stepMessages = new SvelteMap<string, Messages>();
 	let allMessages = $state<Messages>({ messages: [], inProgress: false });
@@ -65,7 +74,7 @@
 
 	function newThread(runID?: string) {
 		closeThread();
-		thread = new Thread({
+		thread = new Thread(project, {
 			onError: errors.items.push,
 			task: task,
 			runID: runID
@@ -82,7 +91,7 @@
 
 	async function click() {
 		if (running || pending) {
-			return await ChatService.abort({
+			return await ChatService.abort(project.assistantID, project.id, {
 				taskID: task.id,
 				runID: 'editor'
 			});
@@ -109,7 +118,7 @@
 	}
 </script>
 
-<Input {editMode} bind:input {task} displayRunID={selectedRun} />
+<Input {editMode} bind:input {task} displayRunID={selectedRun} {project} />
 
 <div class="mt-8 rounded-3xl bg-gray-50 p-5 dark:bg-gray-950">
 	<div class="flex items-center justify-between">
@@ -147,6 +156,7 @@
 					{stepMessages}
 					{editMode}
 					{pending}
+					{project}
 				/>
 			{/key}
 		{/if}
@@ -154,7 +164,7 @@
 </div>
 
 {#if selectedRun}
-	<Files taskID={task.id} runID={selectedRun} running={running || pending} />
+	<Files taskID={task.id} runID={selectedRun} running={running || pending} {project} {items} />
 {:else if editMode}
-	<Files taskID={task.id} runID="editor" running={running || pending} />
+	<Files taskID={task.id} runID="editor" running={running || pending} {project} {items} />
 {/if}

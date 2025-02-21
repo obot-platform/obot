@@ -2,15 +2,12 @@ package threads
 
 import (
 	"context"
+	"fmt"
+	"slices"
 	"time"
 
 	"github.com/gptscript-ai/go-gptscript"
-	"github.com/obot-platform/nah/pkg/name"
-	"github.com/obot-platform/nah/pkg/randomtoken"
 	"github.com/obot-platform/nah/pkg/router"
-	"github.com/obot-platform/obot/pkg/api/handlers"
-	"github.com/obot-platform/obot/pkg/create"
-	"github.com/obot-platform/obot/pkg/projects"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -41,43 +38,137 @@ func (t *Handler) WorkflowState(req router.Request, _ router.Response) error {
 	return nil
 }
 
-func getWorkspace(ctx context.Context, c kclient.WithWatch, thread *v1.Thread) (*v1.Workspace, error) {
-	if thread.Spec.WorkspaceName != "" {
-		ws := new(v1.Workspace)
-		return ws, c.Get(ctx, kclient.ObjectKey{Namespace: thread.Namespace, Name: thread.Spec.WorkspaceName}, ws)
+func getParentWorkspaceNames(ctx context.Context, c kclient.Client, thread *v1.Thread) ([]string, bool, error) {
+	var result []string
+
+	if thread.Spec.Project {
+		// Projects don't copy the parents
+		return nil, true, nil
 	}
+
+	parentThreadName := thread.Spec.ParentThreadName
+	for parentThreadName != "" {
+		var parentThread v1.Thread
+		if err := c.Get(ctx, kclient.ObjectKey{Namespace: thread.Namespace, Name: parentThreadName}, &parentThread); err != nil {
+			return nil, false, err
+		}
+		if !parentThread.Spec.Project {
+			return nil, false, fmt.Errorf("parent thread %s is not a project", parentThreadName)
+		}
+		if !parentThread.Status.Created {
+			return nil, false, nil
+		}
+		if parentThread.Status.WorkspaceName == "" {
+			return nil, false, nil
+		}
+		result = append(result, parentThread.Status.WorkspaceName)
+		parentThreadName = parentThread.Spec.ParentThreadName
+	}
+
+	if thread.Spec.AgentName != "" {
+		var agent v1.Agent
+		if err := c.Get(ctx, kclient.ObjectKey{Namespace: thread.Namespace, Name: thread.Spec.AgentName}, &agent); err != nil {
+			return nil, false, err
+		}
+		if agent.Status.WorkspaceName == "" {
+			// Waiting for the agent to be created
+			return nil, false, nil
+		}
+		result = append(result, agent.Status.WorkspaceName)
+	}
+
+	slices.Reverse(result)
+	return result, true, nil
+}
+
+func (t *Handler) CreateLocalWorkspace(req router.Request, _ router.Response) error {
+	thread := req.Object.(*v1.Thread)
+	if thread.Status.LocalWorkspaceName != "" || !thread.IsProjectBased() {
+		return nil
+	}
+
+	var (
+		parentThread       v1.Thread
+		fromWorkspaceNames []string
+	)
 
 	if thread.Spec.ParentThreadName != "" {
-		parentThread, err := projects.Recurse(ctx, c, thread, func(parentThread *v1.Thread) (bool, error) {
-			return parentThread.Status.WorkspaceName != "", nil
-		})
-		if err != nil {
-			return nil, err
+		if err := req.Client.Get(req.Ctx, router.Key(thread.Namespace, thread.Spec.ParentThreadName), &parentThread); err != nil {
+			return err
 		}
-		ws := new(v1.Workspace)
-		return ws, c.Get(ctx, kclient.ObjectKey{Namespace: thread.Namespace, Name: parentThread.Status.WorkspaceName}, ws)
+		if parentThread.Status.LocalWorkspaceName == "" {
+			// Wait to be created
+			return nil
+		}
+		fromWorkspaceNames = append(fromWorkspaceNames, parentThread.Status.LocalWorkspaceName)
 	}
 
-	ws := &v1.Workspace{
+	if thread.IsUserThread() {
+		thread.Status.LocalWorkspaceName = parentThread.Status.LocalWorkspaceName
+		return req.Client.Status().Update(req.Ctx, thread)
+	}
+
+	if !thread.IsProjectThread() {
+		// this should never be hit
+		panic("only project threads can create local workspace")
+	}
+
+	ws := v1.Workspace{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace:  thread.Namespace,
-			Name:       system.WorkspacePrefix + thread.Name,
-			Finalizers: []string{v1.WorkspaceFinalizer},
+			Namespace:    thread.Namespace,
+			GenerateName: system.WorkspacePrefix,
+			Finalizers:   []string{v1.WorkspaceFinalizer},
 		},
 		Spec: v1.WorkspaceSpec{
 			ThreadName:         thread.Name,
-			FromWorkspaceNames: thread.Spec.FromWorkspaceNames,
+			FromWorkspaceNames: fromWorkspaceNames,
 		},
 	}
 
-	return ws, create.IfNotExists(ctx, c, ws)
+	if err := req.Client.Create(req.Ctx, &ws); err != nil {
+		return err
+	}
+
+	thread.Status.LocalWorkspaceName = ws.Name
+	return req.Client.Status().Update(req.Ctx, thread)
+}
+
+func getWorkspace(ctx context.Context, c kclient.WithWatch, thread *v1.Thread) (*v1.Workspace, error) {
+	var ws v1.Workspace
+
+	if thread.Spec.WorkspaceName != "" {
+		return &ws, c.Get(ctx, kclient.ObjectKey{Namespace: thread.Namespace, Name: thread.Spec.WorkspaceName}, &ws)
+	}
+
+	if thread.Status.WorkspaceName != "" {
+		return &ws, c.Get(ctx, kclient.ObjectKey{Namespace: thread.Namespace, Name: thread.Status.WorkspaceName}, &ws)
+	}
+
+	parents, ok, err := getParentWorkspaceNames(ctx, c, thread)
+	if err != nil || !ok {
+		return nil, err
+	}
+
+	ws = v1.Workspace{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace:    thread.Namespace,
+			GenerateName: system.WorkspacePrefix,
+			Finalizers:   []string{v1.WorkspaceFinalizer},
+		},
+		Spec: v1.WorkspaceSpec{
+			ThreadName:         thread.Name,
+			FromWorkspaceNames: parents,
+		},
+	}
+
+	return &ws, c.Create(ctx, &ws)
 }
 
 func (t *Handler) CreateWorkspaces(req router.Request, _ router.Response) error {
 	thread := req.Object.(*v1.Thread)
 
 	ws, err := getWorkspace(req.Ctx, req.Client, thread)
-	if err != nil || ws.Status.WorkspaceID == "" {
+	if err != nil || ws == nil {
 		return err
 	}
 
@@ -96,88 +187,20 @@ func (t *Handler) CreateWorkspaces(req router.Request, _ router.Response) error 
 	return nil
 }
 
-func (t *Handler) CreateFromTemplate(req router.Request, _ router.Response) (err error) {
-	thread := req.Object.(*v1.Thread)
-	if thread.Spec.ThreadTemplateName == "" ||
-		thread.Status.TemplateLoaded ||
-		len(thread.Status.KnowledgeSetNames) == 0 ||
-		thread.Status.WorkspaceName == "" ||
-		thread.Status.WorkspaceID == "" {
-		return nil
+func createKnowledgeSet(ctx context.Context, c kclient.Client, thread *v1.Thread, relatedKnowledgeSets []string) (*v1.KnowledgeSet, error) {
+	var ks = v1.KnowledgeSet{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace:    thread.Namespace,
+			GenerateName: system.KnowledgeSetPrefix,
+			Finalizers:   []string{v1.KnowledgeSetFinalizer},
+		},
+		Spec: v1.KnowledgeSetSpec{
+			ThreadName:               thread.Name,
+			RelatedKnowledgeSetNames: relatedKnowledgeSets,
+		},
 	}
 
-	defer func() {
-		if err == nil {
-			thread.Status.TemplateLoaded = true
-			err = req.Client.Status().Update(req.Ctx, thread)
-		}
-	}()
-
-	tt := new(v1.ThreadTemplate)
-	if err := req.Get(tt, req.Namespace, thread.Spec.ThreadTemplateName); err != nil {
-		return err
-	}
-
-	if len(tt.Status.Tasks) == 0 {
-		return nil
-	}
-
-	agent := new(v1.Agent)
-	if err := req.Get(agent, req.Namespace, thread.Spec.AgentName); err != nil {
-		return err
-	}
-
-	var tasks v1.WorkflowList
-	if err := req.Client.List(req.Ctx, &tasks, kclient.InNamespace(req.Namespace), kclient.MatchingFields{
-		"spec.threadName": thread.Name,
-	}); err != nil {
-		return err
-	}
-
-	for _, taskToCreate := range tt.Status.Tasks {
-		var found bool
-		for _, existingTask := range tasks.Items {
-			if existingTask.Spec.Manifest.Name == taskToCreate.Name {
-				found = true
-				break
-			}
-		}
-
-		if found {
-			continue
-		}
-
-		manifest, err := handlers.ToWorkflowManifest(req.Ctx, req.Client, agent, thread, taskToCreate)
-		if err != nil {
-			return err
-		}
-
-		alias, err := randomtoken.Generate()
-		if err != nil {
-			return err
-		}
-		manifest.Alias = alias[:16]
-
-		task := v1.Workflow{
-			ObjectMeta: metav1.ObjectMeta{
-				GenerateName: system.WorkflowPrefix,
-				Namespace:    req.Namespace,
-			},
-			Spec: v1.WorkflowSpec{
-				ThreadName:          thread.Name,
-				Manifest:            manifest,
-				CredentialContextID: thread.Name,
-				KnowledgeSetNames:   thread.Status.KnowledgeSetNames,
-				WorkspaceName:       thread.Status.WorkspaceName,
-			},
-		}
-
-		if err := req.Client.Create(req.Ctx, &task); err != nil {
-			return err
-		}
-	}
-
-	return nil
+	return &ks, c.Create(ctx, &ks)
 }
 
 func (t *Handler) CreateKnowledgeSet(req router.Request, _ router.Response) error {
@@ -186,79 +209,77 @@ func (t *Handler) CreateKnowledgeSet(req router.Request, _ router.Response) erro
 		return nil
 	}
 
-	if thread.Spec.ParentThreadName != "" {
-		parentThread, err := projects.Recurse(req.Ctx, req.Client, thread, func(parentThread *v1.Thread) (bool, error) {
-			return len(parentThread.Status.KnowledgeSetNames) > 0, nil
-		})
-		if err != nil {
+	var relatedKnowledgeSets []string
+	var parentThreadName = thread.Spec.ParentThreadName
+
+	for parentThreadName != "" {
+		var parentThread v1.Thread
+		if err := req.Client.Get(req.Ctx, kclient.ObjectKey{Namespace: thread.Namespace, Name: parentThreadName}, &parentThread); err != nil {
 			return err
 		}
-		if len(parentThread.Status.KnowledgeSetNames) == 0 {
+		if !parentThread.Spec.Project {
+			return fmt.Errorf("parent thread %s is not a project", parentThreadName)
+		}
+		if parentThread.Status.SharedKnowledgeSetName == "" {
 			return nil
 		}
-		thread.Status.KnowledgeSetNames = parentThread.Status.KnowledgeSetNames
+		relatedKnowledgeSets = append(relatedKnowledgeSets, parentThread.Status.SharedKnowledgeSetName)
+		parentThreadName = parentThread.Spec.ParentThreadName
+	}
+
+	if thread.Status.SharedKnowledgeSetName == "" {
+		shared, err := createKnowledgeSet(req.Ctx, req.Client, thread, relatedKnowledgeSets)
+		if err != nil {
+			_ = req.Client.Delete(req.Ctx, shared)
+			return err
+		}
+
+		thread.Status.SharedKnowledgeSetName = shared.Name
+		if err := req.Client.Status().Update(req.Ctx, thread); err != nil {
+			_ = req.Client.Delete(req.Ctx, shared)
+			return err
+		}
+	}
+
+	relatedKnowledgeSets = append(relatedKnowledgeSets, thread.Status.SharedKnowledgeSetName)
+	thread.Status.KnowledgeSetNames = relatedKnowledgeSets
+	return req.Client.Status().Update(req.Ctx, thread)
+}
+
+func (t *Handler) SetCreated(req router.Request, _ router.Response) error {
+	thread := req.Object.(*v1.Thread)
+	if thread.Status.Created {
+		return nil
+	}
+
+	if thread.Status.WorkspaceID == "" {
+		return nil
+	}
+
+	if thread.IsProjectBased() && thread.Status.LocalWorkspaceName == "" {
+		return nil
+	}
+
+	if thread.Spec.AgentName == "" {
+		// Non-agent thread is ready at this point
+		thread.Status.Created = true
 		return req.Client.Status().Update(req.Ctx, thread)
 	}
 
-	var cloneWorkspaceName string
-	if thread.Spec.ThreadTemplateName != "" {
-		tt := new(v1.ThreadTemplate)
-		if err := req.Get(tt, req.Namespace, thread.Spec.ThreadTemplateName); err != nil {
-			return err
-		}
-		if !tt.Status.Ready {
-			return nil
-		}
-		cloneWorkspaceName = tt.Status.KnowledgeWorkspaceName
+	if thread.Status.SharedKnowledgeSetName == "" {
+		return nil
 	}
 
-	ws := &v1.KnowledgeSet{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:       name.SafeConcatName(system.KnowledgeSetPrefix, thread.Name),
-			Namespace:  req.Namespace,
-			Finalizers: []string{v1.KnowledgeSetFinalizer},
-		},
-		Spec: v1.KnowledgeSetSpec{
-			ThreadName:             thread.Name,
-			TextEmbeddingModel:     thread.Spec.TextEmbeddingModel,
-			CloneFromWorkspaceName: cloneWorkspaceName,
-		},
+	if len(thread.Status.KnowledgeSetNames) == 0 {
+		return nil
 	}
 
-	if err := create.OrGet(req.Ctx, req.Client, ws); err != nil {
-		return err
-	}
-
-	if ws.Spec.TextEmbeddingModel != thread.Spec.TextEmbeddingModel {
-		// The thread knowledge set must have the same text embedding model as its agent.
-		ws.Spec.TextEmbeddingModel = thread.Spec.TextEmbeddingModel
-		if err := req.Client.Update(req.Ctx, ws); err != nil {
-			return err
-		}
-	}
-
-	thread.Status.KnowledgeSetNames = append(thread.Status.KnowledgeSetNames, ws.Name)
-	return req.Client.Status().Update(req.Ctx, thread)
+	thread.Status.Created = true
+	return req.Client.Update(req.Ctx, thread)
 }
 
 func (t *Handler) CleanupEphemeralThreads(req router.Request, _ router.Response) error {
 	thread := req.Object.(*v1.Thread)
-	if !thread.Spec.Ephemeral && !thread.Spec.SystemTask {
-		// Everything here this is just to catch "ephemeral" threads from before ephemeral threads were implemented.
-		thread.Spec.Ephemeral = thread.Spec.AgentName == "" &&
-			thread.Spec.ParentThreadName == "" &&
-			thread.Spec.WebhookName == "" &&
-			thread.Spec.CronJobName == "" &&
-			thread.Spec.EmailReceiverName == "" &&
-			thread.Spec.WorkflowName == "" &&
-			thread.Spec.WorkflowExecutionName == "" &&
-			thread.Spec.OAuthAppLoginName == "" &&
-			thread.Spec.KnowledgeSetName == "" &&
-			thread.Spec.KnowledgeSourceName == ""
-		if thread.Spec.Ephemeral {
-			return req.Client.Update(req.Ctx, thread)
-		}
-	}
 	if !thread.Spec.Ephemeral ||
 		thread.CreationTimestamp.After(time.Now().Add(-12*time.Hour)) {
 		return nil

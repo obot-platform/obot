@@ -1,34 +1,38 @@
 <script lang="ts">
-	import { assistants } from '$lib/stores';
 	import { profile } from '$lib/stores';
 	import { goto } from '$app/navigation';
 	import DarkModeToggle from '$lib/components/navbar/DarkModeToggle.svelte';
 	import { darkMode } from '$lib/stores';
 	import { Book } from 'lucide-svelte/icons';
 	import { onMount } from 'svelte';
-	import { type AuthProvider, ChatService } from '$lib/services';
+	import { type PageProps } from './$types';
+	import { browser } from '$app/environment';
 
-	let authProviders: AuthProvider[] = $state([]);
+	let { data }: PageProps = $props();
+	let { authProviders, assistants, assistantsLoaded } = data;
 
 	onMount(async () => {
-		authProviders = await ChatService.listAuthProviders();
-		try {
-			await assistants.load();
-		} catch {
+		if (!assistantsLoaded) {
 			show();
 		}
 	});
 
 	let div: HTMLElement;
+	let rd = $derived.by(() => {
+		if (browser) {
+			const rd = new URL(window.location.href).searchParams.get('rd');
+			if (rd) {
+				return rd;
+			}
+		}
+		return '/';
+	});
 
 	$effect(() => {
-		let a = assistants.items.find((assistant) => assistant.default);
-		if (!a) {
-			a = assistants.items.find((assistant) => assistant.id !== '');
-		}
-		if (a) {
-			goto(`/${a.alias || a.id}`);
-		} else if (assistants.loaded) {
+		let a = assistants.find((assistant) => assistant.default);
+		if (a || assistants.length === 1) {
+			goto(`/home`);
+		} else if (assistantsLoaded) {
 			window.location.href = '/admin/';
 		}
 	});
@@ -77,7 +81,7 @@
 			{#each authProviders as provider}
 				<a
 					rel="external"
-					href={`/oauth2/start?rd=${new URL(window.location.href).searchParams.get('rd') || window.location.pathname}&obot-auth-provider=${provider.namespace}/${provider.id}`}
+					href="/oauth2/start?rd={rd}&obot-auth-provider={provider.namespace}/{provider.id}"
 					class="group flex items-center gap-1 rounded-full bg-black p-2 px-8 text-lg font-semibold text-white dark:bg-white dark:text-black"
 				>
 					{#if provider.icon}

@@ -9,11 +9,13 @@ import (
 	"strings"
 
 	"github.com/gptscript-ai/go-gptscript"
+	"github.com/obot-platform/nah/pkg/router"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/gz"
 	"github.com/obot-platform/obot/pkg/projects"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
+	"github.com/obot-platform/obot/pkg/wait"
 	apierror "k8s.io/apimachinery/pkg/api/errors"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -26,6 +28,27 @@ var DefaultAgentParams = []string{
 
 type AgentOptions struct {
 	Thread *v1.Thread
+}
+
+func stringAppend(first, second string) string {
+	if first == "" {
+		return second
+	}
+	if second == "" {
+		return first
+	}
+	return first + "\n\n" + second
+}
+
+func Thread(ctx context.Context, db kclient.Client, thread *v1.Thread, oauthServerURL string) (_ []gptscript.ToolDef, extraEnv []string, _ error) {
+	var agent v1.Agent
+	if err := db.Get(ctx, router.Key(thread.Namespace, thread.Spec.AgentName), &agent); err != nil {
+		return nil, nil, err
+	}
+
+	return Agent(ctx, db, &agent, oauthServerURL, AgentOptions{
+		Thread: thread,
+	})
 }
 
 func Agent(ctx context.Context, db kclient.Client, agent *v1.Agent, oauthServerURL string, opts AgentOptions) (_ []gptscript.ToolDef, extraEnv []string, _ error) {
@@ -64,9 +87,33 @@ func Agent(ctx context.Context, db kclient.Client, agent *v1.Agent, oauthServerU
 		}
 	}
 
+	if opts.Thread != nil && !opts.Thread.Status.Created {
+		w, ok := db.(kclient.WithWatch)
+		if ok {
+			thread, err := wait.For(ctx, w, opts.Thread, func(thread *v1.Thread) (bool, error) {
+				return thread.Status.Created, nil
+			})
+			if err != nil {
+				return nil, nil, err
+			}
+			opts.Thread = thread
+		}
+	}
+
+	if opts.Thread != nil {
+		threadWithPrompt, err := projects.GetFirst(ctx, db, opts.Thread, func(parentThread *v1.Thread) (bool, error) {
+			return parentThread.Spec.Manifest.Prompt != "", nil
+		})
+		if err != nil {
+			return nil, nil, err
+		}
+		mainTool.Instructions = stringAppend(mainTool.Instructions, threadWithPrompt.Spec.Manifest.Prompt)
+	}
+
 	if mainTool.Instructions == "" {
 		mainTool.Instructions = v1.DefaultAgentPrompt
 	}
+
 	var otherTools []gptscript.ToolDef
 
 	extraEnv, added, err := configureKnowledgeEnvs(ctx, db, agent, opts.Thread, extraEnv)
@@ -75,18 +122,14 @@ func Agent(ctx context.Context, db kclient.Client, agent *v1.Agent, oauthServerU
 	}
 
 	if opts.Thread != nil {
-		tools := opts.Thread.Spec.Manifest.Tools
-		if len(tools) == 0 && opts.Thread.Spec.ParentThreadName != "" {
-			parentThread, err := projects.Recurse(ctx, db, opts.Thread, func(parentThread *v1.Thread) (bool, error) {
-				return len(parentThread.Spec.Manifest.Tools) > 0, nil
-			})
-			if err != nil {
-				return nil, nil, err
-			}
-			tools = parentThread.Spec.Manifest.Tools
+		threadWithTools, err := projects.GetFirst(ctx, db, opts.Thread, func(parentThread *v1.Thread) (bool, error) {
+			return len(parentThread.Spec.Manifest.Tools) > 0, nil
+		})
+		if err != nil {
+			return nil, nil, err
 		}
 
-		for _, t := range tools {
+		for _, t := range threadWithTools.Spec.Manifest.Tools {
 			if !added && t == knowledgeToolName {
 				continue
 			}
@@ -107,7 +150,14 @@ func Agent(ctx context.Context, db kclient.Client, agent *v1.Agent, oauthServerU
 
 		mainTool.Credentials = append(mainTool.Credentials, credTool+" as "+opts.Thread.Name)
 
-		threadEnvs := opts.Thread.Spec.Env
+		var threadEnvs []string
+		for _, threadEnv := range opts.Thread.Spec.Env {
+			if threadEnv.Existing && threadEnv.Name != "" {
+				threadEnvs = append(threadEnvs, threadEnv.Name)
+			} else if threadEnv.Value != "" {
+				extraEnv = append(extraEnv, fmt.Sprintf("%s=%s", threadEnv.Name, threadEnv.Value))
+			}
+		}
 		for _, env := range agent.Spec.Manifest.Env {
 			if env.Existing && env.Name != "" {
 				threadEnvs = append(threadEnvs, env.Name)
@@ -116,6 +166,14 @@ func Agent(ctx context.Context, db kclient.Client, agent *v1.Agent, oauthServerU
 
 		if len(threadEnvs) > 0 {
 			extraEnv = append(extraEnv, fmt.Sprintf("OBOT_THREAD_ENVS=%s", strings.Join(threadEnvs, ",")))
+		}
+
+		if opts.Thread.Status.LocalWorkspaceName != "" {
+			var workspace v1.Workspace
+			if err := db.Get(ctx, router.Key(opts.Thread.Namespace, opts.Thread.Status.LocalWorkspaceName), &workspace); err != nil {
+				return nil, nil, err
+			}
+			extraEnv = append(extraEnv, fmt.Sprintf("DATABASE_WORKSPACE_ID=%s", workspace.Status.WorkspaceID))
 		}
 	}
 
@@ -134,25 +192,17 @@ func Agent(ctx context.Context, db kclient.Client, agent *v1.Agent, oauthServerU
 		otherTools = append(otherTools, tools...)
 	}
 
-	for _, tool := range agent.Spec.SystemTools {
-		if !added && tool == knowledgeToolName {
-			continue
+	if opts.Thread != nil {
+		for _, tool := range opts.Thread.Spec.SystemTools {
+			if !added && tool == knowledgeToolName {
+				continue
+			}
+			name, err := ResolveToolReference(ctx, db, "", agent.Namespace, tool)
+			if err != nil {
+				return nil, nil, err
+			}
+			mainTool.Tools = append(mainTool.Tools, name)
 		}
-		name, err := ResolveToolReference(ctx, db, "", agent.Namespace, tool)
-		if err != nil {
-			return nil, nil, err
-		}
-		mainTool.Tools = append(mainTool.Tools, name)
-	}
-
-	mainTool, otherTools, err = addAgentTools(ctx, db, agent, mainTool, otherTools)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	mainTool, otherTools, err = addWorkflowTools(ctx, db, agent, mainTool, otherTools)
-	if err != nil {
-		return nil, nil, err
 	}
 
 	oauthEnv, err := OAuthAppEnv(ctx, db, agent.Spec.Manifest.OAuthApps, agent.Namespace, oauthServerURL)
@@ -271,84 +321,6 @@ func configureKnowledgeEnvs(ctx context.Context, db kclient.Client, agent *v1.Ag
 	return extraEnv, false, nil
 }
 
-func addWorkflowTools(ctx context.Context, db kclient.Client, agent *v1.Agent, mainTool gptscript.ToolDef, otherTools []gptscript.ToolDef) (_ gptscript.ToolDef, _ []gptscript.ToolDef, _ error) {
-	if len(agent.Spec.Manifest.Workflows) == 0 {
-		return mainTool, otherTools, nil
-	}
-
-	wfs, err := WorkflowByName(ctx, db, agent.Namespace)
-	if err != nil {
-		return mainTool, nil, err
-	}
-
-	for _, wfRef := range agent.Spec.Manifest.Workflows {
-		wf, ok := wfs[wfRef]
-		if !ok {
-			continue
-		}
-		wfTool := manifestToTool(wf.Spec.Manifest.AgentManifest, "workflow", wfRef, wf.Name)
-		mainTool.Tools = append(mainTool.Tools, wfTool.Name+" as "+wfRef)
-		otherTools = append(otherTools, wfTool)
-	}
-
-	return mainTool, otherTools, nil
-}
-
-func addAgentTools(ctx context.Context, db kclient.Client, agent *v1.Agent, mainTool gptscript.ToolDef, otherTools []gptscript.ToolDef) (_ gptscript.ToolDef, _ []gptscript.ToolDef, _ error) {
-	if len(agent.Spec.Manifest.Agents) == 0 {
-		return mainTool, otherTools, nil
-	}
-
-	agents, err := agentsByName(ctx, db, agent.Namespace)
-	if err != nil {
-		return mainTool, otherTools, err
-	}
-
-	for _, agentRef := range agent.Spec.Manifest.Agents {
-		agent, ok := agents[agentRef]
-		if !ok {
-			continue
-		}
-		agentTool := manifestToTool(agent.Spec.Manifest, "agent", agentRef, agent.Name)
-		mainTool.Tools = append(mainTool.Tools, agentTool.Name+" as "+agentRef)
-		otherTools = append(otherTools, agentTool)
-	}
-
-	return mainTool, otherTools, nil
-}
-
-func manifestToTool(manifest types.AgentManifest, agentType, ref, id string) gptscript.ToolDef {
-	toolDef := gptscript.ToolDef{
-		Name:        manifest.Name,
-		Description: agentType + " described as: " + manifest.Description,
-		Arguments:   manifest.GetParams(),
-		Chat:        true,
-	}
-	if toolDef.Name == "" {
-		toolDef.Name = ref
-	}
-	if manifest.Description == "" {
-		toolDef.Description = fmt.Sprintf("Invokes %s named %s", agentType, ref)
-	}
-	if agentType == "agent" {
-		if len(manifest.Params) == 0 {
-			toolDef.Arguments = gptscript.ObjectSchema(DefaultAgentParams...)
-		}
-	}
-	toolDef.Instructions = fmt.Sprintf(`#!/bin/bash
-#OBOT_SUBCALL: TARGET: %s
-INPUT=$(${GPTSCRIPT_BIN} getenv GPTSCRIPT_INPUT)
-if echo "${INPUT}" | grep -q '^{'; then
-	echo '{"%s":"%s","type":"ObotSubFlow",'
-	echo '"input":'"${INPUT}"
-	echo '}'
-else
-	${GPTSCRIPT_BIN} sys.chat.finish "${INPUT}"
-fi
-`, id, agentType, id)
-	return toolDef
-}
-
 func oauthAppsByName(ctx context.Context, c kclient.Client, namespace string) (map[string]v1.OAuthApp, error) {
 	var apps v1.OAuthAppList
 	err := c.List(ctx, &apps, &kclient.ListOptions{
@@ -366,72 +338,6 @@ func oauthAppsByName(ctx context.Context, c kclient.Client, namespace string) (m
 	for _, app := range apps.Items {
 		if app.Spec.Manifest.Alias != "" {
 			result[app.Spec.Manifest.Alias] = app
-		}
-	}
-
-	return result, nil
-}
-
-func agentsByName(ctx context.Context, db kclient.Client, namespace string) (map[string]v1.Agent, error) {
-	var agents v1.AgentList
-	err := db.List(ctx, &agents, &kclient.ListOptions{
-		Namespace: namespace,
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	sort.Slice(agents.Items, func(i, j int) bool {
-		return agents.Items[i].Name < agents.Items[j].Name
-	})
-
-	result := map[string]v1.Agent{}
-	for _, agent := range agents.Items {
-		result[agent.Name] = agent
-	}
-
-	for _, agent := range agents.Items {
-		if agent.Spec.Manifest.Alias != "" && agent.Status.AliasAssigned {
-			result[agent.Spec.Manifest.Alias] = agent
-		}
-	}
-
-	for _, agent := range agents.Items {
-		if _, exists := result[agent.Spec.Manifest.Name]; !exists && agent.Spec.Manifest.Name != "" {
-			result[agent.Spec.Manifest.Name] = agent
-		}
-	}
-
-	return result, nil
-}
-
-func WorkflowByName(ctx context.Context, db kclient.Client, namespace string) (map[string]v1.Workflow, error) {
-	var workflows v1.WorkflowList
-	err := db.List(ctx, &workflows, &kclient.ListOptions{
-		Namespace: namespace,
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	sort.Slice(workflows.Items, func(i, j int) bool {
-		return workflows.Items[i].Name < workflows.Items[j].Name
-	})
-
-	result := map[string]v1.Workflow{}
-	for _, workflow := range workflows.Items {
-		result[workflow.Name] = workflow
-	}
-
-	for _, workflow := range workflows.Items {
-		if workflow.Spec.Manifest.Alias != "" && workflow.Status.AliasAssigned {
-			result[workflow.Spec.Manifest.Alias] = workflow
-		}
-	}
-
-	for _, workflow := range workflows.Items {
-		if _, exists := result[workflow.Spec.Manifest.Name]; !exists && workflow.Spec.Manifest.Name != "" {
-			result[workflow.Spec.Manifest.Name] = workflow
 		}
 	}
 

@@ -11,7 +11,7 @@ type EmailReceiverManifest struct {
 	Name           string   `json:"name"`
 	Description    string   `json:"description"`
 	Alias          string   `json:"alias,omitempty"`
-	Workflow       string   `json:"workflow"`
+	WorkflowName   string   `json:"workflowName"`
 	AllowedSenders []string `json:"allowedSenders,omitempty"`
 }
 

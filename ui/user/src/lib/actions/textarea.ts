@@ -12,6 +12,7 @@ export function autoHeight(node: HTMLTextAreaElement) {
 			node.style.fieldSizing = 'content';
 		}
 	}
+	node.classList.add('scrollbar-none');
 	node.onkeyup = () => resize(node);
 	node.onfocus = () => resize(node);
 	node.oninput = () => resize(node);

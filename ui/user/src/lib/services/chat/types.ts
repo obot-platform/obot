@@ -294,7 +294,7 @@ export interface ThreadList {
 
 export interface Project {
 	id: string;
-	assistantID?: string;
+	assistantID: string;
 	created: string;
 	name: string;
 	description?: string;
@@ -302,30 +302,25 @@ export interface Project {
 	starterMessages?: string[];
 	introductionMessage?: string;
 	prompt?: string;
-	locked?: boolean;
+	editor?: boolean;
 }
 
 export interface ProjectList {
 	items: Project[];
 }
 
-export interface ProjectTemplate {
-	id: string;
-	created: string;
-	name: string;
+export interface ProjectShare {
+	publicID: string;
+	projectID: string;
+	public: boolean;
+	Users?: string[];
+	name?: string;
 	description?: string;
 	icons?: AssistantIcons;
-	assistantID?: string;
-	starterMessages?: string[];
-	introductionMessage?: string;
-	prompt?: string;
-	tasks?: Task[];
-	ready?: boolean;
-	publicID?: string;
 }
 
-export interface ProjectTemplateList {
-	items: ProjectTemplate[];
+export interface ProjectShareList {
+	items: ProjectShare[];
 }
 
 export interface ProjectAuthorization {

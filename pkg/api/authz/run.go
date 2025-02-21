@@ -10,7 +10,7 @@ import (
 )
 
 func (a *Authorizer) checkRun(req *http.Request, resources *Resources, _ user.Info) (bool, error) {
-	if resources.RunID == "" {
+	if resources.RunID == "" || resources.RunID == "editor" {
 		return true, nil
 	}
 

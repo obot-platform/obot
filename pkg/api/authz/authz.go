@@ -24,13 +24,6 @@ var staticRules = map[string][]string{
 		"/",
 	},
 	anyGroup: {
-		// Allow access to the UI
-		"/admin/",
-		"/{$}",
-
-		"/user/images/",
-		"/_app/",
-
 		// Allow access to the oauth2 endpoints
 		"/oauth2/",
 

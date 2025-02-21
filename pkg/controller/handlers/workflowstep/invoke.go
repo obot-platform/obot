@@ -20,10 +20,6 @@ func (h *Handler) RunInvoke(req router.Request, _ router.Response) error {
 		lastRunName string
 	)
 
-	if step.Spec.Step.If != nil || step.Spec.Step.While != nil {
-		return nil
-	}
-
 	if step.Spec.AfterWorkflowStepName != "" {
 		var previousStep v1.WorkflowStep
 		if err := client.Get(ctx, router.Key(step.Namespace, step.Spec.AfterWorkflowStepName), &previousStep); err != nil {

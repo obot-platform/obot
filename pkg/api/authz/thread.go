@@ -23,6 +23,11 @@ func (a *Authorizer) checkThread(req *http.Request, resources *Resources, user u
 		return false, err
 	}
 
+	if thread.Spec.UserID == user.GetUID() {
+		resources.Authorizated.Thread = &thread
+		return true, nil
+	}
+
 	if thread.Spec.Project {
 		return false, nil
 	}

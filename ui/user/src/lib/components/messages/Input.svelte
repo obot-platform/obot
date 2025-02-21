@@ -1,9 +1,9 @@
 <script lang="ts">
 	import { type InvokeInput } from '$lib/services';
-	import { editor } from '$lib/stores';
 	import { autoHeight } from '$lib/actions/textarea.js';
 	import { ArrowUp, LoaderCircle } from 'lucide-svelte';
 	import { onMount, tick } from 'svelte';
+	import type { EditorItem } from '$lib/services/editor/index.svelte';
 
 	interface Props {
 		onFocus?: () => void;
@@ -12,6 +12,7 @@
 		placeholder?: string;
 		readonly?: boolean;
 		pending?: boolean;
+		items: EditorItem[];
 	}
 
 	let {
@@ -20,7 +21,8 @@
 		onAbort,
 		readonly,
 		pending,
-		placeholder = 'Your message...'
+		placeholder = 'Your message...',
+		items = $bindable()
 	}: Props = $props();
 
 	let value = $state('');
@@ -36,12 +38,12 @@
 			changedFiles: {}
 		};
 
-		for (const file of editor.items) {
-			if (file.modified && !file.taskID) {
+		for (const file of items) {
+			if (file && file.file?.modified && !file.file?.taskID) {
 				if (!input.changedFiles) {
 					input.changedFiles = {};
 				}
-				input.changedFiles[file.name] = file.buffer;
+				input.changedFiles[file.name] = file.file.buffer;
 			}
 		}
 
@@ -53,11 +55,11 @@
 		}
 
 		if (input.changedFiles) {
-			for (const file of editor.items) {
-				if (input.changedFiles[file.name]) {
-					file.contents = input.changedFiles[file.name];
-					file.modified = false;
-					file.buffer = '';
+			for (const file of items) {
+				if (input.changedFiles[file.name] && file.file) {
+					file.file.contents = input.changedFiles[file.name];
+					file.file.modified = false;
+					file.file.buffer = '';
 				}
 			}
 		}
@@ -72,6 +74,9 @@
 			return;
 		}
 		e.preventDefault();
+		if (readonly || pending) {
+			return;
+		}
 		await submit();
 	}
 

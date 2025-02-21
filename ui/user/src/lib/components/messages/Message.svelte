@@ -1,19 +1,18 @@
 <script lang="ts">
 	import MessageIcon from '$lib/components/messages/MessageIcon.svelte';
 	import { FileText, Pencil } from 'lucide-svelte/icons';
-	import { toHTMLFromMarkdown } from '$lib/markdown.js';
-	import { ChatService, type Message } from '$lib/services';
-	import { assistants } from '$lib/stores/index';
-	import { formatTime } from '$lib/time';
-	import highlight from 'highlight.js';
-	import { Paperclip, X } from 'lucide-svelte';
 	import { Tween } from 'svelte/motion';
+	import { ChatService, type Message, type Project } from '$lib/services';
+	import highlight from 'highlight.js';
+	import { toHTMLFromMarkdown } from '$lib/markdown.js';
+	import { Paperclip, X } from 'lucide-svelte';
+	import { formatTime } from '$lib/time';
 	import { popover } from '$lib/actions';
-	import context from '$lib/stores/context.svelte';
 	import { fly } from 'svelte/transition';
 
 	interface Props {
 		msg: Message;
+		project: Project;
 		onLoadFile?: (filename: string) => void;
 		onSendCredentials?: (id: string, credentials: Record<string, string>) => void;
 		onSendCredentialsCancel?: (id: string) => void;
@@ -21,6 +20,7 @@
 
 	let {
 		msg,
+		project,
 		onLoadFile = () => {},
 		onSendCredentials = ChatService.sendCredentials,
 		onSendCredentialsCancel
@@ -93,7 +93,6 @@
 	});
 
 	function fileLoad() {
-		console.log('fileLoad');
 		if (msg.file?.filename) {
 			onLoadFile(msg.file?.filename);
 		}
@@ -108,7 +107,7 @@
 		if (!url) return undefined;
 
 		if (url.startsWith(citationKnowledgePrefix)) {
-			return `/api/assistants/${context.assistantID}/projects/${context.projectID}/knowledge/${url.slice(citationKnowledgePrefix.length)}`;
+			return `/api/assistants/${project.assistantID}/projects/${project.id}/knowledge/${url.slice(citationKnowledgePrefix.length)}`;
 		}
 
 		return url;
@@ -156,7 +155,7 @@
 	<div class="mb-1 flex items-center space-x-2">
 		{#if msg.sourceName}
 			<span class="text-sm font-semibold"
-				>{msg.sourceName === 'Assistant' ? assistants.current().name : msg.sourceName}</span
+				>{msg.sourceName === 'Assistant' ? project?.name : msg.sourceName}</span
 			>
 		{/if}
 		{#if msg.time}
@@ -258,8 +257,9 @@
 		class="text-left text-xs text-gray underline opacity-0 transition-opacity group-hover:opacity-100"
 		onclick={() => {
 			toolTT.toggle();
-		}}>Details</button
-	>
+		}}
+		>Details
+	</button>
 	<div
 		use:toolTT.tooltip
 		class="z-40 flex flex-col gap-2 rounded-3xl bg-gray-70 p-5 dark:bg-gray-900 dark:text-gray-50"
@@ -352,8 +352,9 @@
 				{#if onSendCredentialsCancel}
 					<button
 						class="button-secondary"
-						onclick={() => onSendCredentialsCancel(msg.promptId ?? '')}>Cancel</button
-					>
+						onclick={() => onSendCredentialsCancel(msg.promptId ?? '')}
+						>Cancel
+					</button>
 				{/if}
 				<button class="button-primary" type="submit">Submit</button>
 			</div>
@@ -399,7 +400,9 @@
 		class:justify-end={msg.sent}
 	>
 		{#if !msg.sent}
-			<div class="mr-3"><MessageIcon {msg} /></div>
+			<div class="mr-3">
+				<MessageIcon {msg} {project} />
+			</div>
 		{/if}
 
 		<div class="flex w-full flex-col" class:w-full={fullWidth}>

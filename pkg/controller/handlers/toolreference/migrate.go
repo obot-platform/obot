@@ -57,12 +57,8 @@ func MigrateToolNames(ctx context.Context, client kclient.Client) error {
 		switch o := obj.(type) {
 		case *v1.Agent:
 			tools = o.Spec.Manifest.Tools
-		case *v1.Workflow:
-			tools = o.Spec.Manifest.Tools
 		case *v1.Thread:
 			tools = o.Spec.Manifest.Tools
-		case *v1.WorkflowStep:
-			tools = o.Spec.Step.Tools
 		}
 		modified := false
 		for i, tool := range tools {

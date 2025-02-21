@@ -68,24 +68,6 @@ func (l *Credentials) Run(cmd *cobra.Command, _ []string) error {
 				creds.Items = append(creds.Items, cred)
 			}
 		}
-
-		wfs, err := l.root.Client.ListWorkflows(cmd.Context(), apiclient.ListWorkflowsOptions{})
-		if err != nil {
-			return err
-		}
-
-		for _, wf := range wfs.Items {
-			wfCreds, err := l.root.Client.ListCredentials(cmd.Context(), apiclient.ListCredentialsOptions{
-				WorkflowID: wf.ID,
-			})
-			if err != nil {
-				return err
-			}
-			for _, cred := range wfCreds.Items {
-				cred.Name = fmt.Sprintf("%s::%s", wf.ID, cred.Name)
-				creds.Items = append(creds.Items, cred)
-			}
-		}
 	}
 
 	if l.Quiet {

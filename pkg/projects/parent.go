@@ -27,7 +27,10 @@ func ThreadIDs(ctx context.Context, c kclient.Client, thread *v1.Thread) ([]stri
 	return append([]string{thread.Name}, parentIDs...), nil
 }
 
-func Recurse(ctx context.Context, c kclient.Client, thread *v1.Thread, check func(*v1.Thread) (bool, error)) (*v1.Thread, error) {
+func GetFirst(ctx context.Context, c kclient.Client, thread *v1.Thread, check func(*v1.Thread) (bool, error)) (*v1.Thread, error) {
+	if ok, err := check(thread); ok || err != nil {
+		return thread, err
+	}
 	if thread.Spec.ParentThreadName == "" {
 		return thread, nil
 	}
@@ -37,9 +40,5 @@ func Recurse(ctx context.Context, c kclient.Client, thread *v1.Thread, check fun
 		return nil, err
 	}
 
-	if ok, err := check(parentThread); ok || err != nil {
-		return parentThread, err
-	}
-
-	return Recurse(ctx, c, parentThread, check)
+	return GetFirst(ctx, c, parentThread, check)
 }

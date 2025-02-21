@@ -1,6 +1,12 @@
 <script lang="ts">
 	import Self from './Step.svelte';
-	import { ChatService, type Messages, type Task, type TaskStep } from '$lib/services';
+	import {
+		ChatService,
+		type Messages,
+		type Project,
+		type Task,
+		type TaskStep
+	} from '$lib/services';
 	import Message from '$lib/components/messages/Message.svelte';
 	import { Plus, Trash } from 'lucide-svelte/icons';
 	import { LoaderCircle, OctagonX, Play, RefreshCcw, Save, Undo } from 'lucide-svelte';
@@ -17,6 +23,7 @@
 		pending?: boolean;
 		editMode?: boolean;
 		stepMessages?: Map<string, Messages>;
+		project: Project;
 	}
 
 	let {
@@ -27,7 +34,8 @@
 		index,
 		editMode = false,
 		pending,
-		stepMessages
+		stepMessages,
+		project
 	}: Props = $props();
 
 	let step = $derived(task.steps[index]);
@@ -140,7 +148,7 @@
 
 	async function doRun() {
 		if ((running || pending) && editMode) {
-			await ChatService.abort({
+			await ChatService.abort(project.assistantID, project.id, {
 				taskID: task.id,
 				runID: 'editor'
 			});
@@ -226,7 +234,7 @@
 		>
 			{#each messages as msg}
 				{#if !msg.sent}
-					<Message {msg} />
+					<Message {msg} {project} />
 				{/if}
 			{/each}
 			{#if stale}
@@ -250,6 +258,7 @@
 			index={index + 1}
 			{stepMessages}
 			parentStale={stale}
+			{project}
 		/>
 	{/key}
 {/if}

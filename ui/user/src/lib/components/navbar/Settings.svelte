@@ -1,8 +1,13 @@
 <script lang="ts">
 	import { Settings } from 'lucide-svelte';
-	import { context } from '$lib/stores';
+	import { getLayout } from '$lib/context/layout.svelte';
+
+	const layout = getLayout();
 </script>
 
-<button class="icon-button hidden md:flex" onclick={() => (context.editMode = !context.editMode)}>
+<button
+	class="icon-button hidden md:flex"
+	onclick={() => (layout.projectEditorOpen = !layout.projectEditorOpen)}
+>
 	<Settings class="icon-default" />
 </button>

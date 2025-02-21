@@ -23,9 +23,7 @@ func (i *InvokeHandler) Invoke(req api.Context) error {
 	var (
 		id          = req.PathValue("id")
 		agent       v1.Agent
-		wf          v1.Workflow
 		threadID    = req.PathValue("thread")
-		stepID      = req.URL.Query().Get("step")
 		synchronous = req.URL.Query().Get("async") != "true"
 	)
 
@@ -38,38 +36,20 @@ func (i *InvokeHandler) Invoke(req api.Context) error {
 		if err := req.Get(&thread, id); err != nil {
 			return err
 		}
-		if thread.Spec.AgentName != "" {
-			if err := req.Get(&agent, thread.Spec.AgentName); err != nil {
-				return err
-			}
-		} else if thread.Spec.WorkflowName != "" {
-			if err := req.Get(&wf, thread.Spec.WorkflowName); err != nil {
-				return err
-			}
+		if err := req.Get(&agent, thread.Spec.AgentName); err != nil {
+			return err
 		}
 	} else if system.IsAgentID(id) {
 		if err := req.Get(&agent, id); err != nil {
 			return err
 		}
-	} else if system.IsWorkflowID(id) {
-		if err := req.Get(&wf, id); err != nil {
-			return err
-		}
 	} else {
-		err := alias.Get(req.Context(), req.Storage, &agent, req.Namespace(), id)
-		if apierrors.IsNotFound(err) {
-			newErr := alias.Get(req.Context(), req.Storage, &wf, req.Namespace(), id)
-			if apierrors.IsNotFound(newErr) {
-				return err
-			} else if newErr != nil {
-				return newErr
-			}
-		} else if err != nil {
+		if err := alias.Get(req.Context(), req.Storage, &agent, req.Namespace(), id); err != nil {
 			return err
 		}
 	}
 
-	if agent.Name == "" && wf.Name == "" {
+	if agent.Name == "" {
 		return apierrors.NewBadRequest("invalid id, most be agent or workflow id")
 	}
 
@@ -78,31 +58,15 @@ func (i *InvokeHandler) Invoke(req api.Context) error {
 		return err
 	}
 
-	var resp *invoke.Response
-
-	if agent.Name != "" {
-		resp, err = i.invoker.Agent(req.Context(), req.Storage, &agent, string(input), invoke.Options{
-			GenerateName: system.ChatRunPrefix,
-			ThreadName:   threadID,
-			Synchronous:  synchronous,
-			CreateThread: true,
-			UserUID:      req.User.GetUID(),
-		})
-		if err != nil {
-			return err
-		}
-	} else {
-		if threadID == "" || stepID != "" {
-			synchronous = false
-		}
-		resp, err = i.invoker.Workflow(req.Context(), req.Storage, &wf, string(input), invoke.WorkflowOptions{
-			Synchronous: synchronous,
-			ThreadName:  threadID,
-			StepID:      stepID,
-		})
-		if err != nil {
-			return err
-		}
+	resp, err := i.invoker.Agent(req.Context(), req.Storage, &agent, string(input), invoke.Options{
+		GenerateName: system.ChatRunPrefix,
+		ThreadName:   threadID,
+		Synchronous:  synchronous,
+		CreateThread: true,
+		UserUID:      req.User.GetUID(),
+	})
+	if err != nil {
+		return err
 	}
 	defer resp.Close()
 

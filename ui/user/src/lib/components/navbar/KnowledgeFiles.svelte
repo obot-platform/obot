@@ -1,23 +1,33 @@
 <script lang="ts">
+	import { Brain } from 'lucide-svelte/icons';
+	import {
+		ChatService,
+		type Project,
+		type KnowledgeFile as KnowledgeFileType
+	} from '$lib/services';
 	import Confirm from '$lib/components/Confirm.svelte';
 	import KnowledgeUpload from '$lib/components/navbar/KnowledgeUpload.svelte';
 	import Menu from '$lib/components/navbar/Menu.svelte';
-	import { ChatService } from '$lib/services';
-	import { knowledgeFiles } from '$lib/stores';
-	import { Brain } from 'lucide-svelte/icons';
 	import KnowledgeFile from './KnowledgeFile.svelte';
 
-	async function loadFiles() {
-		knowledgeFiles.items = (await ChatService.listKnowledgeFiles()).items;
+	interface Props {
+		project: Project;
 	}
 
-	let fileToDelete = $state<string | undefined>();
+	let { project }: Props = $props();
+	let knowledgeFiles = $state<KnowledgeFileType[]>([]);
+
+	async function loadFiles() {
+		knowledgeFiles = (await ChatService.listKnowledgeFiles(project.assistantID, project.id)).items;
+	}
+
+	let fileToDelete = $state<string>();
 
 	async function deleteFile() {
 		if (!fileToDelete) {
 			return;
 		}
-		await ChatService.deleteKnowledgeFile(fileToDelete);
+		await ChatService.deleteKnowledgeFile(project.assistantID, project.id, fileToDelete);
 		await loadFiles();
 		fileToDelete = undefined;
 	}
@@ -32,11 +42,11 @@
 		<Brain class="h-5 w-5" />
 	{/snippet}
 	{#snippet body()}
-		{#if knowledgeFiles.items.length === 0}
+		{#if knowledgeFiles.length === 0}
 			<p class="p-6 text-center text-sm text-gray dark:text-gray-300">No files</p>
 		{:else}
 			<ul class="space-y-3 px-3 py-6 text-sm">
-				{#each knowledgeFiles.items as file}
+				{#each knowledgeFiles as file}
 					<KnowledgeFile
 						{file}
 						onDelete={() => {
@@ -46,7 +56,7 @@
 				{/each}
 			</ul>
 		{/if}
-		<KnowledgeUpload onUpload={loadFiles} />
+		<KnowledgeUpload onUpload={loadFiles} {project} />
 	{/snippet}
 </Menu>
 

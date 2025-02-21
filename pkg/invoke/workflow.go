@@ -7,8 +7,6 @@ import (
 
 	"github.com/obot-platform/nah/pkg/router"
 	"github.com/obot-platform/obot/apiclient/types"
-	"github.com/obot-platform/obot/pkg/events"
-	"github.com/obot-platform/obot/pkg/render"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/obot-platform/obot/pkg/wait"
@@ -19,13 +17,8 @@ import (
 )
 
 type WorkflowOptions struct {
-	Synchronous           bool
-	ThreadName            string
 	StepID                string
-	OwningThreadName      string
 	WorkflowExecutionName string
-	ThreadCredentialScope *bool
-	Events                bool
 }
 
 func (i *Invoker) startWorkflow(ctx context.Context, c kclient.WithWatch, wf *v1.Workflow, input string, opt WorkflowOptions) (*v1.WorkflowExecution, *v1.Thread, error) {
@@ -36,10 +29,9 @@ func (i *Invoker) startWorkflow(ctx context.Context, c kclient.WithWatch, wf *v1
 			Namespace:    wf.Namespace,
 		},
 		Spec: v1.WorkflowExecutionSpec{
-			ThreadName:            opt.OwningThreadName,
-			Input:                 input,
-			WorkflowName:          wf.Name,
-			ThreadCredentialScope: opt.ThreadCredentialScope,
+			Input:        input,
+			ThreadName:   wf.Spec.ThreadName,
+			WorkflowName: wf.Name,
 		},
 	}
 
@@ -47,44 +39,26 @@ func (i *Invoker) startWorkflow(ctx context.Context, c kclient.WithWatch, wf *v1
 		return nil, nil, err
 	}
 
-	w, err := c.Watch(ctx, &v1.WorkflowExecutionList{}, kclient.InNamespace(wfe.Namespace), kclient.MatchingFields{"metadata.name": wfe.Name})
+	wfe, err := wait.For(ctx, c, wfe, func(wfe *v1.WorkflowExecution) (bool, error) {
+		if wfe.Status.State == types.WorkflowStateError {
+			return false, fmt.Errorf("workflow failed: %s", wfe.Status.Error)
+		}
+		return wfe.Status.ThreadName != "", nil
+	})
 	if err != nil {
 		return nil, nil, err
 	}
 
-	defer func() {
-		w.Stop()
-		//nolint:revive
-		for range w.ResultChan() {
-		}
-	}()
-
-	for event := range w.ResultChan() {
-		wfe, ok := event.Object.(*v1.WorkflowExecution)
-		if !ok {
-			continue
-		}
-
-		if wfe.Status.State == types.WorkflowStateError {
-			return nil, nil, fmt.Errorf("workflow failed: %s", wfe.Status.Error)
-		}
-
-		if wfe.Status.ThreadName != "" {
-			var thread v1.Thread
-			return wfe, &thread, c.Get(ctx, router.Key(wfe.Namespace, wfe.Status.ThreadName), &thread)
-		}
-	}
-
-	return nil, nil, fmt.Errorf("workflow did not start")
+	var thread v1.Thread
+	return wfe, &thread, c.Get(ctx, router.Key(wfe.Namespace, wfe.Status.ThreadName), &thread)
 }
 
 func (i *Invoker) Workflow(ctx context.Context, c kclient.WithWatch, wf *v1.Workflow, input string, opt WorkflowOptions) (*Response, error) {
 	var (
-		thread     *v1.Thread
-		err        error
-		rerun      bool
-		threadName string
-		wfe        = &v1.WorkflowExecution{}
+		thread *v1.Thread
+		err    error
+		rerun  bool
+		wfe    = &v1.WorkflowExecution{}
 	)
 
 	if opt.WorkflowExecutionName != "" {
@@ -92,42 +66,23 @@ func (i *Invoker) Workflow(ctx context.Context, c kclient.WithWatch, wf *v1.Work
 			return nil, err
 		} else if err == nil {
 			wfe, err = wait.For(ctx, c, wfe, func(wfe *v1.WorkflowExecution) (bool, error) {
+				if wfe.Status.State == types.WorkflowStateError {
+					return false, fmt.Errorf("workflow failed: %s", wfe.Status.Error)
+				}
 				return wfe.Status.ThreadName != "", nil
 			})
 			if err != nil {
 				return nil, err
 			}
-			threadName = wfe.Status.ThreadName
 			rerun = true
 		}
-	} else if opt.ThreadName != "" {
-		threadName = opt.ThreadName
 	}
 
 	if rerun {
-		wfe, thread, err = i.rerunThreadWithRetry(ctx, c, wf, threadName, opt.StepID, input)
+		wfe, thread, err = i.rerunThreadWithRetry(ctx, c, wf, wfe.Status.ThreadName, opt.StepID, input)
 		if err != nil {
 			return nil, err
 		}
-	} else if threadName != "" {
-		thread = &v1.Thread{}
-		if err := c.Get(ctx, router.Key(wf.Namespace, threadName), thread); err != nil {
-			return nil, err
-		}
-		if err := c.Get(ctx, router.Key(wf.Namespace, thread.Spec.WorkflowExecutionName), wfe); err != nil {
-			return nil, err
-		}
-		agent, err := render.Workflow(ctx, c, wf, render.WorkflowOptions{
-			Input:            wfe.Spec.Input,
-			ManifestOverride: wfe.Status.WorkflowManifest,
-		})
-		if err != nil {
-			return nil, err
-		}
-		return i.Agent(ctx, c, agent, input, Options{
-			ThreadName:  threadName,
-			Synchronous: opt.Synchronous,
-		})
 	} else {
 		wfe, thread, err = i.startWorkflow(ctx, c, wf, input, opt)
 		if err != nil {
@@ -135,33 +90,13 @@ func (i *Invoker) Workflow(ctx context.Context, c kclient.WithWatch, wf *v1.Work
 		}
 	}
 
-	if !opt.Events {
-		closedChan := make(chan types.Progress)
-		close(closedChan)
-		return &Response{
-			cancel:            func() {},
-			Thread:            thread,
-			WorkflowExecution: wfe,
-			Events:            closedChan,
-		}, nil
-	}
-
-	run, prg, err := i.events.Watch(ctx, thread.Namespace, events.WatchOptions{
-		History:               true,
-		ThreadName:            thread.Name,
-		ThreadResourceVersion: thread.ResourceVersion,
-		Follow:                true,
-	})
-	if err != nil {
-		return nil, err
-	}
-
+	closedChan := make(chan types.Progress)
+	close(closedChan)
 	return &Response{
 		cancel:            func() {},
 		Thread:            thread,
-		Run:               run,
 		WorkflowExecution: wfe,
-		Events:            prg,
+		Events:            closedChan,
 	}, nil
 }
 

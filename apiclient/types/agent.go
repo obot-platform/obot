@@ -39,8 +39,6 @@ type AgentManifest struct {
 	Alias                string            `json:"alias"`
 	Prompt               string            `json:"prompt"`
 	KnowledgeDescription string            `json:"knowledgeDescription"`
-	Agents               []string          `json:"agents"`
-	Workflows            []string          `json:"workflows"`
 	Tools                []string          `json:"tools"`
 	AvailableThreadTools []string          `json:"availableThreadTools"`
 	DefaultThreadTools   []string          `json:"defaultThreadTools"`

@@ -6,7 +6,6 @@
 	import '@milkdown/crepe/theme/frame.css';
 	import { listener, listenerCtx } from '@milkdown/kit/plugin/listener';
 	import { replaceAll } from '@milkdown/utils';
-	import type { EditorItem } from '$lib/stores/editor.svelte';
 	import type { InvokeInput } from '$lib/services';
 	import type { EditorState } from '@milkdown/prose/state';
 	import type { EditorView } from '@milkdown/prose/view';
@@ -19,14 +18,16 @@
 	import { type Ctx } from '@milkdown/ctx';
 	import { toggleStrongCommand, toggleEmphasisCommand } from '@milkdown/kit/preset/commonmark';
 	import { toggleStrikethroughCommand } from '@milkdown/kit/preset/gfm';
+	import type { EditorItem } from '$lib/services/editor/index.svelte';
 
 	interface Props {
 		file: EditorItem;
 		onInvoke?: (invoke: InvokeInput) => void | Promise<void>;
 		onFileChanged?: (name: string, contents: string) => void;
+		items: EditorItem[];
 	}
 
-	let { file, onFileChanged, onInvoke }: Props = $props();
+	let { file, onFileChanged, onInvoke, items }: Props = $props();
 
 	let ttDiv: HTMLDivElement | undefined = $state();
 	let provider: TooltipProvider | undefined = $derived.by(() => {
@@ -53,7 +54,9 @@
 	let editorView: EditorView | undefined = $state();
 
 	$effect(() => {
-		setValue(file?.contents);
+		if (file?.file?.contents) {
+			setValue(file?.file?.contents);
+		}
 		if (!focused && !ttImprove) {
 			// hide()
 		}
@@ -126,11 +129,11 @@
 	}
 
 	function editor(node: HTMLElement) {
-		lastSetValue = file.contents;
+		lastSetValue = file.file?.contents ?? '';
 
 		crepe = new Crepe({
 			root: node,
-			defaultValue: file.contents,
+			defaultValue: file.file?.contents,
 			features: {
 				[Crepe.Feature.Toolbar]: false
 			}
@@ -225,7 +228,7 @@
 		<MessageSquareText class="h-5 w-5" />
 	</button>
 	<div class:hidden={!ttImprove} class="flex w-full max-w-[700px]">
-		<Input {onSubmit} bind:this={input} placeholder="Instructions..." />
+		<Input {onSubmit} bind:this={input} placeholder="Instructions..." {items} />
 	</div>
 </div>
 
@@ -244,14 +247,17 @@
 		}
 
 		.milkdown {
-			--crepe-font-title: 'Poppins', 'ui-sans-serif', 'system-ui', '-apple-system', 'system-ui',
-				'Segoe UI', 'Roboto', 'Helvetica Neue', 'Arial', 'Noto Sans', 'sans-serif',
-				'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
-			--crepe-font-default: 'Poppins', 'ui-sans-serif', 'system-ui', '-apple-system', 'system-ui',
-				'Segoe UI', 'Roboto', 'Helvetica Neue', 'Arial', 'Noto Sans', 'sans-serif',
-				'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
-			--crepe-font-code: 'ui-monospace', 'SFMono-Regular', 'Menlo', 'Monaco', 'Consolas',
-				'Liberation Mono', 'Courier New', 'monospace';
+			--crepe-font-title:
+				'Poppins', 'ui-sans-serif', 'system-ui', '-apple-system', 'system-ui', 'Segoe UI', 'Roboto',
+				'Helvetica Neue', 'Arial', 'Noto Sans', 'sans-serif', 'Apple Color Emoji', 'Segoe UI Emoji',
+				'Segoe UI Symbol', 'Noto Color Emoji';
+			--crepe-font-default:
+				'Poppins', 'ui-sans-serif', 'system-ui', '-apple-system', 'system-ui', 'Segoe UI', 'Roboto',
+				'Helvetica Neue', 'Arial', 'Noto Sans', 'sans-serif', 'Apple Color Emoji', 'Segoe UI Emoji',
+				'Segoe UI Symbol', 'Noto Color Emoji';
+			--crepe-font-code:
+				'ui-monospace', 'SFMono-Regular', 'Menlo', 'Monaco', 'Consolas', 'Liberation Mono',
+				'Courier New', 'monospace';
 		}
 
 		.milkdown .ProseMirror {
@@ -276,10 +282,10 @@
 			--crepe-color-hover: #232323;
 			--crepe-color-selected: #2f2f2f;
 			--crepe-color-inline-area: #2b2b2b;
-			--crepe-shadow-1: 0px 1px 2px 0px rgba(255, 255, 255, 0.3),
-				0px 1px 3px 1px rgba(255, 255, 255, 0.15);
-			--crepe-shadow-2: 0px 1px 2px 0px rgba(255, 255, 255, 0.3),
-				0px 2px 6px 2px rgba(255, 255, 255, 0.15);
+			--crepe-shadow-1:
+				0px 1px 2px 0px rgba(255, 255, 255, 0.3), 0px 1px 3px 1px rgba(255, 255, 255, 0.15);
+			--crepe-shadow-2:
+				0px 1px 2px 0px rgba(255, 255, 255, 0.3), 0px 2px 6px 2px rgba(255, 255, 255, 0.15);
 		}
 	}
 </style>

@@ -1,16 +1,16 @@
 <script lang="ts">
-	import { ChatService, type Task } from '$lib/services';
+	import { ChatService, type Project, type Task } from '$lib/services';
 	import { autoHeight } from '$lib/actions/textarea.js';
-	import { assistants } from '$lib/stores';
 
 	interface Props {
 		editMode?: boolean;
 		input?: string;
 		displayRunID?: string;
 		task?: Task;
+		project: Project;
 	}
 
-	let { editMode = false, input = $bindable(''), task, displayRunID }: Props = $props();
+	let { editMode = false, input = $bindable(''), task, displayRunID, project }: Props = $props();
 	let show: boolean = $derived.by(() => {
 		if (task?.schedule) {
 			return false;
@@ -51,7 +51,7 @@
 	$effect(display);
 
 	function display() {
-		if (editMode || !displayRunID || !assistants.current().id || !task?.id) {
+		if (editMode || !displayRunID || !task?.id) {
 			currentDisplayRunID = '';
 			return;
 		}
@@ -60,24 +60,26 @@
 			return;
 		}
 
-		ChatService.getTaskRun(task.id, displayRunID).then((taskRun) => {
-			if (!taskRun?.input) {
-				return;
-			}
-
-			try {
-				const inputObj = JSON.parse(taskRun.input);
-				if (inputObj.type === 'email') {
-					emailInput = inputObj;
-				} else if (inputObj.type === 'webhook') {
-					payload = inputObj.payload;
-				} else {
-					params = inputObj;
+		ChatService.getTaskRun(project.assistantID, project.id, task.id, displayRunID).then(
+			(taskRun) => {
+				if (!taskRun?.input) {
+					return;
 				}
-			} catch {
-				// ignore
+
+				try {
+					const inputObj = JSON.parse(taskRun.input);
+					if (inputObj.type === 'email') {
+						emailInput = inputObj;
+					} else if (inputObj.type === 'webhook') {
+						payload = inputObj.payload;
+					} else {
+						params = inputObj;
+					}
+				} catch {
+					// ignore
+				}
 			}
-		});
+		);
 
 		currentDisplayRunID = displayRunID;
 	}

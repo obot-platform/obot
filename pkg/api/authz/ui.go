@@ -5,9 +5,14 @@ import (
 )
 
 var uiResources = []string{
+	"GET /{$}",
+	"GET /admin/",
+	"GET /agent/images/",
+	"GET /_app/",
 	"GET /{assistant}",
-	"GET /{assistant}/p/{project}",
-	"GET /o/{project}",
+	"GET /o/",
+	"GET /s/",
+	"GET /user/images/",
 }
 
 func (a *Authorizer) checkUI(req *http.Request) bool {

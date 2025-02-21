@@ -20,6 +20,74 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+type FilesHandler struct {
+	gptScript *gptscript.GPTScript
+}
+
+func NewFilesHandler(gClient *gptscript.GPTScript) *FilesHandler {
+	return &FilesHandler{
+		gptScript: gClient,
+	}
+}
+
+func (f *FilesHandler) Files(req api.Context) error {
+	thread, err := getThreadForScope(req)
+	if apierrors.IsNotFound(err) {
+		return req.Write(types.FileList{Items: []types.File{}})
+	} else if err != nil {
+		return err
+	}
+
+	if thread.Status.WorkspaceID == "" {
+		return req.Write(types.FileList{Items: []types.File{}})
+	}
+
+	return listFileFromWorkspace(req.Context(), req, f.gptScript, gptscript.ListFilesInWorkspaceOptions{
+		WorkspaceID: thread.Status.WorkspaceID,
+		Prefix:      "files/",
+	})
+}
+
+func (f *FilesHandler) GetFile(req api.Context) error {
+	thread, err := getThreadForScope(req)
+	if err != nil {
+		return err
+	}
+
+	if thread.Status.WorkspaceID == "" {
+		return types.NewErrNotFound("no workspace found")
+	}
+
+	return getFileInWorkspace(req.Context(), req, f.gptScript, thread.Status.WorkspaceID, "files/")
+}
+
+func (f *FilesHandler) UploadFile(req api.Context) error {
+	thread, err := getThreadForScope(req)
+	if err != nil {
+		return err
+	}
+
+	if thread.Status.WorkspaceID == "" {
+		return types.NewErrNotFound("no workspace found")
+	}
+
+	_, err = uploadFileToWorkspace(req.Context(), req, f.gptScript, thread.Status.WorkspaceID, "files/")
+	return err
+}
+
+func (f *FilesHandler) DeleteFile(req api.Context) error {
+	thread, err := getThreadForScope(req)
+	if err != nil {
+		return err
+	}
+
+	if thread.Status.WorkspaceID == "" {
+		return nil
+	}
+
+	return deleteFileFromWorkspaceID(req.Context(), req, f.gptScript, thread.Status.WorkspaceID, "files/")
+}
+
 func listFiles(ctx context.Context, req api.Context, gClient *gptscript.GPTScript, workspaceName string) error {
 	var ws v1.Workspace
 	if err := req.Get(&ws, workspaceName); err != nil {

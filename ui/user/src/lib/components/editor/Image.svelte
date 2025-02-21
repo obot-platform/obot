@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { EditorItem } from '$lib/stores/editor.svelte';
+	import type { EditorItem } from '$lib/services/editor/index.svelte';
 
 	interface Props {
 		file: EditorItem;
@@ -16,8 +16,8 @@
 
 	let { file }: Props = $props();
 	let src: Promise<string> | undefined = $derived.by(() => {
-		if (file?.blob) {
-			return toDataURL(file.blob);
+		if (file?.file?.blob) {
+			return toDataURL(file.file.blob);
 		}
 	});
 </script>

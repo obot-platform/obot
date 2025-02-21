@@ -9,7 +9,6 @@ import (
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/invoke"
-	"github.com/obot-platform/obot/pkg/projects"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -256,6 +255,52 @@ func (h *ProjectsHandler) UpdateProject(req api.Context) error {
 	return req.Write(convertProject(&thread))
 }
 
+func (h *ProjectsHandler) CopyProject(req api.Context) error {
+	var (
+		thread     v1.Thread
+		projectID  = req.PathValue("project_id")
+		threadName = strings.Replace(projectID, system.ProjectPrefix, system.ThreadPrefix, 1)
+	)
+	if err := req.Get(&thread, threadName); err != nil {
+		return err
+	}
+
+	for thread.Spec.ParentThreadName != "" {
+		if err := req.Get(&thread, thread.Spec.ParentThreadName); err != nil {
+			return err
+		}
+	}
+
+	if !thread.Spec.Project {
+		return types.NewErrBadRequest("invalid project %s", projectID)
+	}
+
+	newThread := v1.Thread{
+		ObjectMeta: metav1.ObjectMeta{
+			GenerateName: system.ThreadPrefix,
+			Namespace:    req.Namespace(),
+		},
+		Spec: v1.ThreadSpec{
+			Manifest:  thread.Spec.Manifest,
+			AgentName: thread.Spec.AgentName,
+			Project:   true,
+			UserID:    req.User.GetUID(),
+		},
+	}
+
+	if newThread.Spec.Manifest.Name != "" {
+		newThread.Spec.Manifest.Name = "Copy of " + newThread.Spec.Manifest.Name
+	} else {
+		newThread.Spec.Manifest.Name = "Copy"
+	}
+
+	if err := req.Create(&newThread); err != nil {
+		return err
+	}
+
+	return req.Write(convertProject(&newThread))
+}
+
 func (h *ProjectsHandler) GetProject(req api.Context) error {
 	var (
 		thread    v1.Thread
@@ -272,6 +317,8 @@ func (h *ProjectsHandler) ListProjects(req api.Context) error {
 		assistantID = req.PathValue("assistant_id")
 		agent       *v1.Agent
 		err         error
+		hasEditor   = req.URL.Query().Has("editor")
+		isEditor    = req.URL.Query().Get("editor") == "true"
 	)
 	if assistantID != "" {
 		agent, err = getAssistant(req, assistantID)
@@ -285,7 +332,21 @@ func (h *ProjectsHandler) ListProjects(req api.Context) error {
 		return err
 	}
 
+	if hasEditor {
+		projects.Items = filterEditorProjects(projects.Items, isEditor)
+	}
+
 	return req.Write(projects)
+}
+
+func filterEditorProjects(projects []types.Project, isEditor bool) []types.Project {
+	result := make([]types.Project, 0, len(projects))
+	for _, project := range projects {
+		if project.Editor == isEditor {
+			result = append(result, project)
+		}
+	}
+	return result
 }
 
 func (h *ProjectsHandler) getProjectThread(req api.Context) (*v1.Thread, error) {
@@ -310,53 +371,16 @@ func (h *ProjectsHandler) DeleteProject(req api.Context) error {
 	return req.Delete(project)
 }
 
-func getThreadTemplate(req api.Context, id string) (*v1.ThreadTemplate, error) {
-	if system.IsThreadTemplateID(id) {
-		var template v1.ThreadTemplate
-		if err := req.Get(&template, id); err != nil {
-			return nil, err
-		}
-		return &template, nil
-	}
-
-	var list v1.ThreadTemplateList
-	if err := req.List(&list, kclient.MatchingFields{
-		"status.publicID": id,
-	}); err != nil {
-		return nil, err
-	}
-
-	if len(list.Items) == 0 {
-		return nil, types.NewErrNotFound("template %s not found", id)
-	}
-
-	return &list.Items[0], nil
-}
-
 func (h *ProjectsHandler) CreateProject(req api.Context) error {
 	var (
-		assistantID    = req.PathValue("assistant_id")
-		templateID     = req.PathValue("template_id")
-		agent          *v1.Agent
-		threadTemplate *v1.ThreadTemplate
-		err            error
+		assistantID = req.PathValue("assistant_id")
+		agent       *v1.Agent
+		err         error
 	)
-	if assistantID != "" {
-		agent, err = getAssistant(req, assistantID)
-		if err != nil {
-			return err
-		}
-	}
 
-	if templateID != "" {
-		threadTemplate, err = getThreadTemplate(req, templateID)
-		if err != nil {
-			return err
-		}
-		agent = &v1.Agent{}
-		if err := req.Get(agent, threadTemplate.Status.AgentName); err != nil {
-			return err
-		}
+	agent, err = getAssistant(req, assistantID)
+	if err != nil {
+		return err
 	}
 
 	var project types.ProjectManifest
@@ -364,8 +388,25 @@ func (h *ProjectsHandler) CreateProject(req api.Context) error {
 		return err
 	}
 
-	thread, err := invoke.CreateProjectForAgent(req.Context(), req.Storage, agent, threadTemplate, project.Name, req.User.GetUID())
-	if err != nil {
+	thread := &v1.Thread{
+		ObjectMeta: metav1.ObjectMeta{
+			GenerateName: system.ThreadPrefix,
+			Namespace:    agent.Namespace,
+			Finalizers:   []string{v1.ThreadFinalizer},
+		},
+		Spec: v1.ThreadSpec{
+			Manifest: types.ThreadManifest{
+				Tools:       agent.Spec.Manifest.DefaultThreadTools,
+				Name:        project.Name,
+				Description: project.Description,
+			},
+			AgentName: agent.Name,
+			Project:   true,
+			UserID:    req.User.GetUID(),
+		},
+	}
+
+	if err := req.Create(thread); err != nil {
 		return err
 	}
 
@@ -448,6 +489,7 @@ func convertProject(thread *v1.Thread) types.Project {
 			ThreadManifest: thread.Spec.Manifest,
 		},
 		AssistantID: thread.Spec.AgentName,
+		Editor:      thread.IsEditor(),
 	}
 	p.Type = "project"
 	p.ID = strings.Replace(p.ID, system.ThreadPrefix, system.ProjectPrefix, 1)
@@ -468,12 +510,24 @@ func (h *ProjectsHandler) CreateProjectThread(req api.Context) error {
 		return err
 	}
 
-	thread, err := invoke.CreateThreadForProject(req.Context(), req.Storage, projectThread, req.User.GetUID())
-	if err != nil {
+	thread := v1.Thread{
+		ObjectMeta: metav1.ObjectMeta{
+			GenerateName: system.ThreadPrefix,
+			Namespace:    projectThread.Namespace,
+			Finalizers:   []string{v1.ThreadFinalizer},
+		},
+		Spec: v1.ThreadSpec{
+			AgentName:        projectThread.Spec.AgentName,
+			ParentThreadName: projectThread.Name,
+			UserID:           req.User.GetUID(),
+		},
+	}
+
+	if err := req.Create(&thread); err != nil {
 		return err
 	}
 
-	return req.WriteCreated(convertThread(*thread))
+	return req.WriteCreated(convertThread(thread))
 }
 
 func (h *ProjectsHandler) ListProjectThreads(req api.Context) error {
@@ -503,20 +557,28 @@ func (h *ProjectsHandler) ListProjectThreads(req api.Context) error {
 	return req.Write(result)
 }
 
+func (h *ProjectsHandler) ListLocalCredentials(req api.Context) error {
+	return h.listCredentials(req, true)
+}
+
 func (h *ProjectsHandler) ListCredentials(req api.Context) error {
+	return h.listCredentials(req, false)
+}
+
+func (h *ProjectsHandler) listCredentials(req api.Context, local bool) error {
 	var (
 		tools               = make(map[string]struct{})
 		existingCredentials = make(map[string]struct{})
 		result              types.ProjectCredentialList
 	)
 
-	agent, err := getAssistant(req, req.PathValue("assistant_id"))
+	thread, err := getThreadForScope(req)
 	if err != nil {
 		return err
 	}
 
-	thread, err := getProjectThread(req)
-	if err != nil {
+	var agent v1.Agent
+	if err := req.Get(&agent, thread.Spec.AgentName); err != nil {
 		return err
 	}
 
@@ -528,14 +590,13 @@ func (h *ProjectsHandler) ListCredentials(req api.Context) error {
 		tools[tool] = struct{}{}
 	}
 
-	credContextIDs, err := projects.ThreadIDs(req.Context(), req.Storage, thread)
-	if err != nil {
-		return err
+	credContextID := thread.Name
+	if local {
+		credContextID = thread.Name + "-local"
 	}
 
-	credContextIDs = append(credContextIDs, thread.Spec.AgentName)
 	creds, err := req.GPTClient.ListCredentials(req.Context(), gptscript.ListCredentialsOptions{
-		CredentialContexts: credContextIDs,
+		CredentialContexts: []string{credContextID},
 	})
 	if err != nil {
 		return err
@@ -576,7 +637,15 @@ func (h *ProjectsHandler) ListCredentials(req api.Context) error {
 	return req.Write(result)
 }
 
+func (h *ProjectsHandler) LocalAuthenticate(req api.Context) (err error) {
+	return h.authenticate(req, true)
+}
+
 func (h *ProjectsHandler) Authenticate(req api.Context) (err error) {
+	return h.authenticate(req, false)
+}
+
+func (h *ProjectsHandler) authenticate(req api.Context, local bool) (err error) {
 	var (
 		agent v1.Agent
 		tools = strings.Split(req.PathValue("tools"), ",")
@@ -595,7 +664,11 @@ func (h *ProjectsHandler) Authenticate(req api.Context) (err error) {
 		return err
 	}
 
-	resp, err := runAuthForAgent(req.Context(), req.Storage, h.invoker, h.gptScript, &agent, thread.Name, tools)
+	credContext := thread.Name
+	if local {
+		credContext = thread.Name + "-local"
+	}
+	resp, err := runAuthForAgent(req.Context(), req.Storage, h.invoker, h.gptScript, &agent, credContext, tools, req.User.GetUID())
 	if err != nil {
 		return err
 	}
@@ -604,7 +677,15 @@ func (h *ProjectsHandler) Authenticate(req api.Context) (err error) {
 	return req.WriteEvents(resp.Events)
 }
 
+func (h *ProjectsHandler) LocalDeAuthenticate(req api.Context) error {
+	return h.deAuthenticate(req, true)
+}
+
 func (h *ProjectsHandler) DeAuthenticate(req api.Context) error {
+	return h.deAuthenticate(req, false)
+}
+
+func (h *ProjectsHandler) deAuthenticate(req api.Context, local bool) error {
 	var (
 		agent v1.Agent
 		tools = strings.Split(req.PathValue("tools"), ",")
@@ -623,100 +704,11 @@ func (h *ProjectsHandler) DeAuthenticate(req api.Context) error {
 		return err
 	}
 
-	errs := removeToolCredentials(req.Context(), req.Storage, h.gptScript, thread.Name, agent.Namespace, tools)
+	credContext := thread.Name
+	if local {
+		credContext = thread.Name + "-local"
+	}
+
+	errs := removeToolCredentials(req.Context(), req.Storage, h.gptScript, credContext, agent.Namespace, tools)
 	return errors.Join(errs...)
-}
-
-func (h *ProjectsHandler) ListTemplates(req api.Context) error {
-	var (
-		templates v1.ThreadTemplateList
-		result    types.ProjectTemplateList
-	)
-
-	thread, err := getThreadForScope(req)
-	if err != nil {
-		return err
-	}
-
-	if err := req.List(&templates, kclient.MatchingFields{
-		"spec.projectThreadName": thread.Name,
-	}); err != nil {
-		return err
-	}
-
-	for _, template := range templates.Items {
-		result.Items = append(result.Items, convertThreadTemplate(template))
-	}
-
-	return req.Write(result)
-}
-
-func (h *ProjectsHandler) DeleteTemplate(req api.Context) error {
-	thread, err := getThreadForScope(req)
-	if err != nil {
-		return err
-	}
-
-	var template v1.ThreadTemplate
-	if err := req.Get(&template, req.PathValue("id")); err != nil {
-		return err
-	}
-
-	if template.Spec.ProjectThreadName != thread.Name {
-		return types.NewErrNotFound("template %s not found", req.PathValue("id"))
-	}
-
-	return req.Delete(&template)
-}
-
-func (h *ProjectsHandler) GetTemplate(req api.Context) error {
-	thread, err := getThreadForScope(req)
-	if err != nil {
-		return err
-	}
-
-	var template v1.ThreadTemplate
-	if err := req.Get(&template, req.PathValue("id")); err != nil {
-		return err
-	}
-
-	if template.Spec.ProjectThreadName != thread.Name {
-		return types.NewErrNotFound("template %s not found", req.PathValue("id"))
-	}
-
-	return req.Write(convertThreadTemplate(template))
-}
-
-func (h *ProjectsHandler) CreateTemplate(req api.Context) error {
-	thread, err := getThreadForScope(req)
-	if err != nil {
-		return err
-	}
-
-	template := v1.ThreadTemplate{
-		ObjectMeta: metav1.ObjectMeta{
-			GenerateName: system.ThreadTemplatePrefix,
-			Namespace:    req.Namespace(),
-		},
-		Spec: v1.ThreadTemplateSpec{
-			ProjectThreadName: thread.Name,
-			UserID:            req.User.GetUID(),
-		},
-	}
-	if err := req.Create(&template); err != nil {
-		return err
-	}
-
-	return req.WriteCreated(convertThreadTemplate(template))
-}
-
-func convertThreadTemplate(template v1.ThreadTemplate) types.ProjectTemplate {
-	return types.ProjectTemplate{
-		Metadata:       MetadataFrom(&template),
-		ThreadManifest: template.Status.Manifest,
-		Tasks:          template.Status.Tasks,
-		AssistantID:    template.Status.AgentName,
-		PublicID:       template.Status.PublicID,
-		Ready:          template.Status.Ready,
-	}
 }

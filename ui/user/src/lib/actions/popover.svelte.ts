@@ -12,7 +12,7 @@ import type { Action, ActionReturn } from 'svelte/action';
 interface Popover {
 	ref: Action;
 	tooltip: Action;
-	toggle: (newOpen?: boolean) => void;
+	toggle: (newOpenValue?: boolean) => void;
 }
 
 interface PopoverOptions extends Partial<ComputePositionConfig> {
@@ -135,12 +135,12 @@ export default function popover(opts?: PopoverOptions): Popover {
 			tooltip = node;
 			return build();
 		},
-		toggle: (newOpen?: boolean) => {
+		toggle: (newOpenValue?: boolean) => {
 			if (!open && !opts?.hover) {
 				document.dispatchEvent(new CustomEvent('toolOpen', { detail: id.toString() }));
 			}
 
-			open = newOpen ?? !open;
+			open = newOpenValue ?? !open;
 		}
 	};
 }

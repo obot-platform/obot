@@ -4,7 +4,6 @@ type Task struct {
 	Metadata
 	TaskManifest
 	ThreadID string `json:"threadID,omitempty"`
-	Alias    string `json:"alias,omitempty"`
 }
 
 type TaskList List[Task]
@@ -39,15 +38,8 @@ type Schedule struct {
 }
 
 type TaskStep struct {
-	ID   string  `json:"id,omitempty"`
-	If   *TaskIf `json:"if,omitempty"`
-	Step string  `json:"step,omitempty"`
-}
-
-type TaskIf struct {
-	Condition string     `json:"condition,omitempty"`
-	Steps     []TaskStep `json:"steps,omitempty"`
-	Else      []TaskStep `json:"else,omitempty"`
+	ID   string `json:"id,omitempty"`
+	Step string `json:"step,omitempty"`
 }
 
 type TaskRun struct {
