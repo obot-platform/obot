@@ -28,7 +28,7 @@ func ThreadIDs(ctx context.Context, c kclient.Client, thread *v1.Thread) ([]stri
 }
 
 func Recurse(ctx context.Context, c kclient.Client, thread *v1.Thread, check func(*v1.Thread) (bool, error)) (*v1.Thread, error) {
-	if thread.Spec.ParentThreadName == "" {
+	if thread == nil || thread.Spec.ParentThreadName == "" {
 		return thread, nil
 	}
 
