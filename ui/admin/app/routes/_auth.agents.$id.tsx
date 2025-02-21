@@ -62,7 +62,7 @@ export default function ChatAgent() {
 
 	return (
 		<ResizablePanelGroup direction="horizontal" className="flex-auto">
-			<ResizablePanel defaultSize={75} minSize={25}>
+			<ResizablePanel defaultSize={70} minSize={25}>
 				<ScrollArea className="h-full" enableScrollStick="bottom">
 					<div className={cn("relative mx-auto flex h-full flex-col")}>
 						<AgentProvider agent={agent}>
@@ -72,7 +72,7 @@ export default function ChatAgent() {
 				</ScrollArea>
 			</ResizablePanel>
 			<ResizableHandle />
-			<ResizablePanel defaultSize={25} minSize={25}>
+			<ResizablePanel defaultSize={30} minSize={25}>
 				<ScrollArea className="h-full">
 					<AgentMeta agent={agent} />
 				</ScrollArea>

@@ -64,7 +64,7 @@ export default function UserTask() {
 
 	return (
 		<ResizablePanelGroup direction="horizontal" className="flex-auto">
-			<ResizablePanel defaultSize={65} minSize={25}>
+			<ResizablePanel defaultSize={70} minSize={25}>
 				<ScrollArea className="h-full" enableScrollStick="bottom">
 					<div className={cn("relative mx-auto flex h-full flex-col")}>
 						<Task task={task} onPersistThreadId={onPersistThreadId} />
@@ -72,7 +72,7 @@ export default function UserTask() {
 				</ScrollArea>
 			</ResizablePanel>
 			<ResizableHandle />
-			<ResizablePanel defaultSize={35} minSize={35}>
+			<ResizablePanel defaultSize={30} minSize={25}>
 				<ScrollArea className="h-full">
 					<TaskMeta task={task} />
 				</ScrollArea>
