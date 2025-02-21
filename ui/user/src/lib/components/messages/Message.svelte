@@ -1,15 +1,14 @@
 <script lang="ts">
-	import { Tween } from 'svelte/motion';
-	import { ChatService, type Message } from '$lib/services';
-	import Loading from '$lib/icons/Loading.svelte';
-	import highlight from 'highlight.js';
-	import MessageIcon from '$lib/components/messages/MessageIcon.svelte';
-	import { FileText, Pencil } from 'lucide-svelte/icons';
-	import { toHTMLFromMarkdown } from '$lib/markdown.js';
-	import { Paperclip, X } from 'lucide-svelte';
-	import { formatTime } from '$lib/time';
 	import { popover } from '$lib/actions';
+	import MessageIcon from '$lib/components/messages/MessageIcon.svelte';
+	import { toHTMLFromMarkdown } from '$lib/markdown.js';
+	import { ChatService, type Message } from '$lib/services';
 	import { assistants } from '$lib/stores/index';
+	import { formatTime } from '$lib/time';
+	import highlight from 'highlight.js';
+	import { Paperclip, X } from 'lucide-svelte';
+	import { FileText, Pencil } from 'lucide-svelte/icons';
+	import { Tween } from 'svelte/motion';
 	import { fly } from 'svelte/transition';
 
 	interface Props {
@@ -46,6 +45,7 @@
 	let cursor = new Tween(0);
 	let prevContent = $state('');
 	let animatedText = $derived(shouldAnimate ? content.slice(0, cursor.current) : content);
+	let animating = $state(false);
 
 	$effect(() => {
 		if (!shouldAnimate) return;
@@ -55,7 +55,8 @@
 		}
 		prevContent = content;
 
-		cursor.set(content.length, { duration: 500 });
+		animating = true;
+		cursor.set(content.length, { duration: 500 }).then(() => (animating = false));
 	});
 
 	$effect(() => {
@@ -147,7 +148,6 @@
 
 		{@render files()}
 		{@render citations()}
-		{@render loading()}
 	</div>
 {/snippet}
 
@@ -264,7 +264,9 @@
 		{/each}
 		{@render explain()}
 	{:else}
-		{@html toHTMLFromMarkdown(animatedText)}
+		<div class:loading-container={!msg.done || animating}>
+			{@html toHTMLFromMarkdown(animatedText + `<span data-end-indicator></span>`)}
+		</div>
 	{/if}
 {/snippet}
 
@@ -326,17 +328,6 @@
 	{/if}
 {/snippet}
 
-{#snippet loading()}
-	{#if !msg.sent}
-		<div class="mt-3 flex">
-			{#if !msg.done}
-				<Loading class="mx-1.5" />
-				<span class="text-sm font-normal text-gray dark:text-gray-400">Loading...</span>
-			{/if}
-		</div>
-	{/if}
-{/snippet}
-
 {#snippet citations()}
 	{#if msg.citations && msg.citations.length > 0}
 		<div class="mt-2 flex flex-wrap gap-2">
@@ -370,7 +361,7 @@
 		class:justify-end={msg.sent}
 	>
 		{#if !msg.sent}
-			<MessageIcon {msg} />
+			<div class="sticky top-10 z-10 mr-3"><MessageIcon {msg} /></div>
 		{/if}
 
 		<div class="flex w-full flex-col" class:w-full={fullWidth}>
@@ -446,6 +437,14 @@
 
 		.message-content code {
 			@apply scrollbar-none;
+		}
+
+		span[data-end-indicator] {
+			@apply invisible;
+		}
+
+		.loading-container span[data-end-indicator] {
+			@apply visible ml-1 inline-block size-4 animate-pulse rounded-full bg-gray-700 align-middle text-transparent dark:bg-gray-300;
 		}
 	}
 </style>

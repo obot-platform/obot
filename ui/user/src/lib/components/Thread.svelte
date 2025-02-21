@@ -1,18 +1,19 @@
 <script lang="ts">
+	import { sticktobottom } from '$lib/actions/div';
 	import Input from '$lib/components/messages/Input.svelte';
-	import { autoscroll } from '$lib/actions/div';
-	import { Thread } from '$lib/services/chat/thread.svelte';
-	import { type Assistant, EditorService, type Messages } from '$lib/services';
 	import Message from '$lib/components/messages/Message.svelte';
-	import { fade } from 'svelte/transition';
-	import { onDestroy } from 'svelte';
 	import { toHTMLFromMarkdown } from '$lib/markdown';
+	import { type Assistant, EditorService, type Messages } from '$lib/services';
+	import { Thread } from '$lib/services/chat/thread.svelte';
 	import { assistants, context } from '$lib/stores';
+	import { onDestroy } from 'svelte';
+	import { fade } from 'svelte/transition';
 
 	interface Props {
 		id?: string;
 	}
 
+	let container = $state<HTMLDivElement>();
 	let messages: Messages = $state({ messages: [], inProgress: false });
 	let thread: Thread | undefined = $state<Thread>();
 	let messagesDiv = $state<HTMLDivElement>();
@@ -26,6 +27,16 @@
 			return context.project?.starterMessages;
 		}
 		return currentAssistant?.starterMessages;
+	});
+
+	let scrollSmooth = $state(false);
+	$effect(() => {
+		const update = () => (scrollSmooth = true);
+		container?.addEventListener('scroll', update);
+		return () => {
+			container?.removeEventListener('scroll', update);
+			scrollSmooth = false;
+		};
 	});
 
 	$effect(() => {
@@ -82,8 +93,10 @@
 
 <div class="relative w-full">
 	<div
-		class="flex h-full grow justify-center overflow-y-auto scroll-smooth scrollbar-none"
-		use:autoscroll
+		bind:this={container}
+		class="flex h-full grow justify-center overflow-y-auto scrollbar-none"
+		class:scroll-smooth={scrollSmooth}
+		use:sticktobottom
 	>
 		<div
 			in:fade|global
@@ -133,7 +146,7 @@
 						await thread?.abort();
 					}}
 					onSubmit={async (i) => {
-						messagesDiv?.scrollTo({ top: messagesDiv?.scrollHeight });
+						container?.scrollTo({ top: container?.scrollHeight - container?.clientHeight });
 						await thread?.invoke(i);
 					}}
 				/>
