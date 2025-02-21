@@ -16,9 +16,11 @@ import { cn } from "~/lib/utils";
 import { Agent } from "~/components/agent";
 import { AgentProvider } from "~/components/agent/AgentContext";
 import { AgentMeta } from "~/components/agent/AgentMeta";
-import { ResizableHandle } from "~/components/ui/resizable";
-import { ResizablePanelGroup } from "~/components/ui/resizable";
-import { ResizablePanel } from "~/components/ui/resizable";
+import {
+	ResizableHandle,
+	ResizablePanel,
+	ResizablePanelGroup,
+} from "~/components/ui/resizable";
 import { ScrollArea } from "~/components/ui/scroll-area";
 
 export type SearchParams = RouteQueryParams<"agentSchema">;

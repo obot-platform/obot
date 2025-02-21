@@ -50,9 +50,7 @@ export function WebhookFormContent({ hideTitle }: WebhookFormContentProps) {
 
 	const { watch, control } = form;
 
-	const getTasks = useSWR(TaskService.getTasks.key(), () =>
-		TaskService.getTasks()
-	);
+	const getTasks = useSWR(...TaskService.getTasks.swr({}));
 
 	const tasks = getTasks.data;
 
