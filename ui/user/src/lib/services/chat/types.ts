@@ -244,6 +244,7 @@ export interface Schedule {
 	minute: number;
 	day: number;
 	weekday: number;
+	timezone: string;
 }
 
 export interface TaskList {
