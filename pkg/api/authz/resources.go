@@ -1,17 +1,14 @@
 package authz
 
 import (
-	"bytes"
-	"context"
-	"io"
 	"net/http"
+	"slices"
 
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apiserver/pkg/authentication/user"
 )
 
-var resources = []string{
+var apiResources = []string{
 	"GET    /api/assistants",
 	"GET    /api/assistants/{assistant_id}",
 	"GET    /api/assistants/{assistant_id}/pending-authorizations",
@@ -133,107 +130,68 @@ type ResourcesAuthorized struct {
 	PendingAuthorization *v1.ThreadAuthorization
 }
 
-func handleError(rw http.ResponseWriter, err error) {
-	if apierrors.IsNotFound(err) {
-		http.Error(rw, err.Error(), http.StatusNotFound)
-	} else if err != nil {
-		http.Error(rw, err.Error(), http.StatusForbidden)
-	} else {
-		rw.WriteHeader(http.StatusForbidden)
-	}
-}
-
-type userKey struct{}
-
-func (a *Authorizer) evaluateResources(rw http.ResponseWriter, req *http.Request) {
-	user, ok := req.Context().Value(userKey{}).(user.Info)
-	if !ok {
-		return
-	}
-
+func (a *Authorizer) evaluateResources(req *http.Request, vars GetVar, user user.Info) (bool, error) {
 	resources := Resources{
-		AssistantID:            req.PathValue("assistant_id"),
-		ProjectID:              req.PathValue("project_id"),
-		ThreadID:               req.PathValue("thread_id"),
-		TemplateID:             req.PathValue("template_id"),
-		TaskID:                 req.PathValue("task_id"),
-		RunID:                  req.PathValue("run_id"),
-		WorkflowID:             req.PathValue("workflow_id"),
-		PendingAuthorizationID: req.PathValue("pending_authorization_id"),
+		AssistantID:            vars("assistant_id"),
+		ProjectID:              vars("project_id"),
+		ThreadID:               vars("thread_id"),
+		TemplateID:             vars("template_id"),
+		TaskID:                 vars("task_id"),
+		RunID:                  vars("run_id"),
+		WorkflowID:             vars("workflow_id"),
+		PendingAuthorizationID: vars("pending_authorization_id"),
 	}
 
 	if ok, err := a.checkAssistant(req, &resources, user); !ok || err != nil {
-		handleError(rw, err)
-		return
+		return false, err
 	}
 
 	if ok, err := a.checkProject(req, &resources, user); !ok || err != nil {
-		handleError(rw, err)
-		return
+		return false, err
 	}
 
 	if ok, err := a.checkThread(req, &resources, user); !ok || err != nil {
-		handleError(rw, err)
-		return
+		return false, err
 	}
 
 	if ok, err := a.checkTemplate(req, &resources, user); !ok || err != nil {
-		handleError(rw, err)
-		return
+		return false, err
 	}
 
 	if ok, err := a.checkTask(req, &resources, user); !ok || err != nil {
-		handleError(rw, err)
-		return
+		return false, err
 	}
 
 	if ok, err := a.checkRun(req, &resources, user); !ok || err != nil {
-		handleError(rw, err)
-		return
+		return false, err
 	}
 
 	if ok, err := a.checkWorkflow(req, &resources, user); !ok || err != nil {
-		handleError(rw, err)
-		return
+		return false, err
 	}
 
 	if ok, err := a.checkPendingAuthorization(req, &resources, user); !ok || err != nil {
-		handleError(rw, err)
-		return
+		return false, err
 	}
 
-	if ok, err := a.checkUI(req, &resources, user); !ok || err != nil {
-		handleError(rw, err)
-		return
-	}
-
-	rw.WriteHeader(http.StatusAccepted)
+	return true, nil
 }
 
-type responseWriter struct {
-	io.Writer
-	code int
-}
-
-func (r *responseWriter) Header() http.Header {
-	return http.Header{}
-}
-
-func (r *responseWriter) WriteHeader(statusCode int) {
-	r.code = statusCode
-}
-
-func (a *Authorizer) authorizeResource(req *http.Request, user user.Info) bool {
-	h, pattern := a.resourcesMux.Handler(req)
-	if pattern == "" {
+func (a *Authorizer) authorizeAPIResources(req *http.Request, user user.Info) bool {
+	vars, matches := a.apiResources.Match(req)
+	if !matches {
 		return false
 	}
 
-	buffer := bytes.NewBuffer(nil)
-	rw := responseWriter{
-		Writer: buffer,
+	if !slices.Contains(user.GetGroups(), AuthenticatedGroup) {
+		// All API resources access must be authenticated
+		return false
 	}
 
-	h.ServeHTTP(&rw, req.WithContext(context.WithValue(req.Context(), userKey{}, user)))
-	return rw.code == http.StatusAccepted
+	ok, err := a.evaluateResources(req, vars, user)
+	if err != nil {
+		return false
+	}
+
+	return ok
 }

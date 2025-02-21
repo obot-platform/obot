@@ -2,15 +2,22 @@ package authz
 
 import (
 	"net/http"
-
-	"k8s.io/apiserver/pkg/authentication/user"
 )
 
-func (a *Authorizer) checkUI(req *http.Request, _ *Resources, _ user.Info) (bool, error) {
-	var ui = req.PathValue("ui")
-	if ui == "" {
-		return true, nil
+var uiResources = []string{
+	"GET /{assistant}",
+	"GET /{assistant}/p/{project}",
+	"GET /o/{project}",
+}
+
+func (a *Authorizer) checkUI(req *http.Request) bool {
+	vars, match := a.uiResources.Match(req)
+	if !match {
+		return false
 	}
-	// Ensure the URL does not start with /api
-	return ui != "api", nil
+	if vars("assistant") == "api" {
+		return false
+	}
+	// Matches and is not API
+	return true
 }

@@ -63,7 +63,7 @@
 <div use:tooltip class="flex min-w-[250px] flex-col rounded-3xl bg-surface1 p-2">
 	{#each projects.items as project}
 		<a
-			href="/{getAssistant(project)?.alias || project.assistantID}/projects/{project.id}"
+			href="/{getAssistant(project)?.alias || project.assistantID}/p/{project.id}"
 			rel="external"
 			class="flex items-center gap-2 rounded-3xl p-2 hover:bg-surface2"
 		>

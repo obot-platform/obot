@@ -21,7 +21,7 @@
 				name: newName
 			});
 			const assistant = assistants.items.find((a) => a.id === project.assistantID);
-			window.location.href = `/${assistant?.alias || project.assistantID}/projects/${project.id}`;
+			window.location.href = `/${assistant?.alias || project.assistantID}/p/${project.id}`;
 		}
 		dialog.close();
 	}

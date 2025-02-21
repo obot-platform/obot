@@ -27,7 +27,7 @@ var staticRules = map[string][]string{
 		// Allow access to the UI
 		"/admin/",
 		"/{$}",
-		"/{agent}",
+
 		"/user/images/",
 		"/_app/",
 
@@ -56,8 +56,6 @@ var staticRules = map[string][]string{
 
 		"GET /api/auth-providers",
 		"GET /api/auth-providers/{id}",
-
-		"GET /o/{id}",
 	},
 	AuthenticatedGroup: {
 		"/api/oauth/redirect/{namespace}/{name}",
@@ -85,21 +83,17 @@ var devModeRules = map[string][]string{
 type Authorizer struct {
 	rules        []rule
 	storage      kclient.Client
-	resourcesMux *http.ServeMux
+	apiResources *pathMatcher
+	uiResources  *pathMatcher
 }
 
 func NewAuthorizer(storage kclient.Client, devMode bool) *Authorizer {
-	a := &Authorizer{
+	return &Authorizer{
 		rules:        defaultRules(devMode),
 		storage:      storage,
-		resourcesMux: http.NewServeMux(),
+		apiResources: newPathMatcher(apiResources...),
+		uiResources:  newPathMatcher(uiResources...),
 	}
-
-	for _, resource := range resources {
-		a.resourcesMux.HandleFunc(resource, a.evaluateResources)
-	}
-
-	return a
 }
 
 func (a *Authorizer) Authorize(req *http.Request, user user.Info) bool {
@@ -112,7 +106,11 @@ func (a *Authorizer) Authorize(req *http.Request, user user.Info) bool {
 		}
 	}
 
-	return a.authorizeResource(req, user)
+	if a.authorizeAPIResources(req, user) {
+		return true
+	}
+
+	return a.checkUI(req)
 }
 
 type rule struct {
