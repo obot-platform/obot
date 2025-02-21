@@ -1,16 +1,20 @@
 import {
 	BlockTypeSelect,
 	BoldItalicUnderlineToggles,
-	CodeToggle,
+	ChangeCodeMirrorLanguage,
+	ConditionalContents,
 	CreateLink,
+	DiffSourceToggleWrapper,
+	InsertCodeBlock,
 	InsertImage,
 	ListsToggle,
 	MDXEditor,
 	MDXEditorMethods,
 	Separator,
-	StrikeThroughSupSubToggles,
 	UndoRedo,
 	codeBlockPlugin,
+	codeMirrorPlugin,
+	diffSourcePlugin,
 	headingsPlugin,
 	imagePlugin,
 	linkDialogPlugin,
@@ -94,13 +98,23 @@ export function MarkdownEditor({
 	const [isExpanded, setIsExpanded] = useState(false);
 
 	useEffect(() => {
-		if (ref.current) {
+		if (ref.current && ref.current.getMarkdown() !== markdown) {
 			ref.current.setMarkdown(markdown);
 		}
 	}, [markdown]);
 
+	const handlePaste = (event: React.ClipboardEvent<HTMLDivElement>) => {
+		event.stopPropagation();
+		const text = event.clipboardData.getData("text/plain");
+		ref.current?.insertMarkdown(text);
+		onChange(`${markdown}\n${text}`);
+	};
+
 	return (
-		<div onFocusCapture={() => setIsExpanded(true)}>
+		<div
+			onFocusCapture={() => setIsExpanded(true)}
+			onPasteCapture={handlePaste}
+		>
 			<MDXEditor
 				ref={ref}
 				className={cn(
@@ -118,13 +132,25 @@ export function MarkdownEditor({
 				plugins={[
 					toolbarPlugin({
 						toolbarContents: () => (
-							<>
+							<DiffSourceToggleWrapper>
 								<UndoRedo />
 								<Separator />
 								<BoldItalicUnderlineToggles />
-								<CodeToggle />
-								<Separator />
-								<StrikeThroughSupSubToggles />
+								<ConditionalContents
+									options={[
+										{
+											when: (editor) => editor?.editorType === "codeblock",
+											contents: () => <ChangeCodeMirrorLanguage />,
+										},
+										{
+											fallback: () => (
+												<>
+													<InsertCodeBlock />
+												</>
+											),
+										},
+									]}
+								/>
 								<Separator />
 								<ListsToggle />
 								<Separator />
@@ -132,7 +158,8 @@ export function MarkdownEditor({
 								<Separator />
 								<CreateLink />
 								<InsertImage />
-							</>
+								<Separator />
+							</DiffSourceToggleWrapper>
 						),
 					}),
 					headingsPlugin(),
@@ -143,9 +170,16 @@ export function MarkdownEditor({
 					listsPlugin(),
 					thematicBreakPlugin(),
 					markdownShortcutPlugin(),
-					codeBlockPlugin({ defaultCodeBlockLanguage: "txt" }),
+					codeBlockPlugin({ defaultCodeBlockLanguage: "js" }),
+					codeMirrorPlugin({
+						codeBlockLanguages: { js: "JavaScript", css: "CSS" },
+					}),
 					quotePlugin(),
+					diffSourcePlugin({
+						readOnlyDiff: true,
+					}),
 				]}
+				suppressHtmlProcessing
 			/>
 		</div>
 	);
