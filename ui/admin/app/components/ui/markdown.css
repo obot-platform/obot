@@ -29,5 +29,5 @@
 	@apply list-decimal px-4;
 }
 .mdxeditor-source-editor {
-	@apply overflow-auto max-h-[300px];
+	@apply max-h-[300px] overflow-auto;
 }
