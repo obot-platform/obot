@@ -62,6 +62,12 @@ func Init(ctx context.Context, toolRegistries []string, dsn string, opts Options
 		}
 	}
 
+	if opts.EncryptionConfigFile != "" {
+		log.Infof("Credstore: Using encryption config file: %s", opts.EncryptionConfigFile)
+	} else {
+		log.Warnf("Credstore: No encryption config file provided, using unencrypted storage")
+	}
+
 	// Set up database
 	switch {
 	case strings.HasPrefix(dsn, "sqlite://"):
