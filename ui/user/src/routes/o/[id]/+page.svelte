@@ -2,12 +2,14 @@
 	import New from '$lib/components/New.svelte';
 	import { onMount } from 'svelte';
 	import { assistants, darkMode } from '$lib/stores';
+	import { page } from '$app/stores';
+	import { get } from 'svelte/store';
 
 	let dialog: ReturnType<typeof New>;
 
 	onMount(async () => {
 		await assistants.load();
-		dialog?.show();
+		dialog?.show(get(page).params.id);
 	});
 </script>
 

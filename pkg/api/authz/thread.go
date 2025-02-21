@@ -2,7 +2,6 @@ package authz
 
 import (
 	"net/http"
-	"strings"
 
 	"github.com/gptscript-ai/gptscript/pkg/types"
 	"github.com/obot-platform/nah/pkg/router"
@@ -11,70 +10,37 @@ import (
 	"k8s.io/apiserver/pkg/authentication/user"
 )
 
-func authorizeThread(req *http.Request, user user.Info) bool {
-	thread := types.FirstSet(user.GetExtra()["obot:threadID"]...)
-	agent := types.FirstSet(user.GetExtra()["obot:agentID"]...)
-	if thread == "" || agent == "" {
-		return false
-	}
-	if req.Method == "GET" && strings.HasPrefix(req.URL.Path, "/api/threads/"+thread+"/") {
-		return true
-	}
-	if req.Method == "POST" && strings.HasPrefix(req.URL.Path, "/api/threads/"+thread+"/tasks/") {
-		return true
-	}
-
-	return false
-}
-
-func (a *Authorizer) authorizeThreadFileDownload(req *http.Request, user user.Info) bool {
-	if req.Method != http.MethodGet {
-		return false
-	}
-
-	if !strings.HasPrefix(req.URL.Path, "/api/threads/") {
-		return false
-	}
-
-	parts := strings.Split(req.URL.Path, "/")
-	if len(parts) < 6 {
-		return false
-	}
-	if parts[0] != "" ||
-		parts[1] != "api" ||
-		parts[2] != "threads" ||
-		parts[4] != "files" {
-		return false
+func (a *Authorizer) checkThread(req *http.Request, resources *Resources, user user.Info) (bool, error) {
+	if resources.ThreadID == "" {
+		return true, nil
 	}
 
 	var (
-		id     = parts[3]
 		thread v1.Thread
 	)
-	if err := a.storage.Get(req.Context(), router.Key(system.DefaultNamespace, id), &thread); err != nil {
-		return false
+
+	if err := a.storage.Get(req.Context(), router.Key(system.DefaultNamespace, resources.ThreadID), &thread); err != nil {
+		return false, err
 	}
 
-	if thread.Spec.UserUID == user.GetUID() {
-		return true
+	if thread.Spec.Project {
+		return false, nil
 	}
 
-	if thread.Spec.WorkflowName == "" {
-		return false
+	if resources.Authorizated.Project == nil {
+		threadID := types.FirstSet(user.GetExtra()["obot:threadID"]...)
+		agentID := types.FirstSet(user.GetExtra()["obot:agentID"]...)
+		if threadID == "" || agentID == "" {
+			return false, nil
+		}
+
+		return threadID == thread.Name && thread.Spec.AgentName == agentID, nil
 	}
 
-	var workflow v1.Workflow
-	if err := a.storage.Get(req.Context(), router.Key(thread.Namespace, thread.Spec.WorkflowName), &workflow); err != nil {
-		return false
+	if resources.Authorizated.Project.Name != thread.Spec.ParentThreadName {
+		return false, nil
 	}
 
-	if workflow.Spec.ThreadName == "" {
-		return false
-	}
-
-	if err := a.storage.Get(req.Context(), router.Key(system.DefaultNamespace, workflow.Spec.ThreadName), &thread); err != nil {
-		return false
-	}
-
-	return thread.Spec.UserUID == user.GetUID()
+	resources.Authorizated.Thread = &thread
+	return true, nil
 }
