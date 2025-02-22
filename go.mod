@@ -18,8 +18,8 @@ require (
 	github.com/gorilla/websocket v1.5.0
 	github.com/gptscript-ai/chat-completion-client v0.0.0-20250128181713-57857b74f9f1
 	github.com/gptscript-ai/cmd v0.0.0-20250122115124-a3d65e9d2432
-	github.com/gptscript-ai/go-gptscript v0.9.6-0.20250211184209-834896a4bb9f
-	github.com/gptscript-ai/gptscript v0.9.6-0.20250206173916-bf1b00027193
+	github.com/gptscript-ai/go-gptscript v0.9.6-0.20250222170845-eee4337500a6
+	github.com/gptscript-ai/gptscript v0.9.6-0.20250222165900-86e85f032cc9
 	github.com/liggitt/tabwriter v0.0.0-20181228230101-89fcab3d43de
 	github.com/mhale/smtpd v0.8.3
 	github.com/obot-platform/kinm v0.0.0-20250116162656-270198b40c6d
@@ -104,7 +104,7 @@ require (
 	github.com/felixge/httpsnoop v1.0.4 // indirect
 	github.com/fsnotify/fsnotify v1.7.0 // indirect
 	github.com/fxamacker/cbor/v2 v2.7.0 // indirect
-	github.com/getkin/kin-openapi v0.128.0 // indirect
+	github.com/getkin/kin-openapi v0.129.0 // indirect
 	github.com/glebarez/go-sqlite v1.21.2 // indirect
 	github.com/glebarez/sqlite v1.11.0 // indirect
 	github.com/go-errors/errors v1.4.2 // indirect
@@ -138,7 +138,6 @@ require (
 	github.com/hashicorp/golang-lru/v2 v2.0.7 // indirect
 	github.com/imdario/mergo v0.3.16 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
-	github.com/invopop/yaml v0.3.1 // indirect
 	github.com/jackc/pgpassfile v1.0.0 // indirect
 	github.com/jackc/pgservicefile v0.0.0-20231201235250-de7065d80cb9 // indirect
 	github.com/jackc/pgx/v5 v5.5.5 // indirect
@@ -180,6 +179,8 @@ require (
 	github.com/mxk/go-flowrate v0.0.0-20140419014527-cca7078d478f // indirect
 	github.com/nwaples/rardecode/v2 v2.1.0 // indirect
 	github.com/nxadm/tail v1.4.11 // indirect
+	github.com/oasdiff/yaml v0.0.0-20241210131133-6b86fb107d80 // indirect
+	github.com/oasdiff/yaml3 v0.0.0-20241210130736-a94c01f36349 // indirect
 	github.com/olekukonko/tablewriter v0.0.6-0.20230925090304-df64c4bbad77 // indirect
 	github.com/onsi/ginkgo/v2 v2.20.2 // indirect
 	github.com/opencontainers/go-digest v1.0.0 // indirect
