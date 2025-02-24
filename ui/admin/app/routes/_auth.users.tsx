@@ -40,7 +40,7 @@ export async function clientLoader({ request }: ClientLoaderFunctionArgs) {
 		new URL(request.url).search
 	);
 
-	const users = await preload(...UserService.getUsers.swr({ filters: query }));
+	const users = await preload(...UserService.getUsers.swr({}));
 
 	if (users.length > 0) {
 		await preload(...ThreadsService.getThreads.swr({}));
@@ -51,7 +51,15 @@ export async function clientLoader({ request }: ClientLoaderFunctionArgs) {
 
 export default function Users() {
 	const { filters } = useLoaderData<typeof clientLoader>();
-	const { data: users = [] } = useSWR(...UserService.getUsers.swr({ filters }));
+	const getUsers = useSWR(...UserService.getUsers.swr({}));
+
+	const users = useMemo(() => {
+		if (!getUsers.data) return [];
+
+		return filters?.userId
+			? getUsers.data.filter((user) => user.id === filters.userId)
+			: getUsers.data;
+	}, [getUsers.data, filters]);
 
 	const { data: threads } = useSWR(
 		...ThreadsService.getThreads.swr({}, { enabled: !!users.length })
@@ -96,7 +104,7 @@ export default function Users() {
 						key={column.id}
 						field="User"
 						values={
-							users?.map((user) => ({
+							getUsers.data?.map((user) => ({
 								id: user.id,
 								name: user.email,
 							})) ?? []
