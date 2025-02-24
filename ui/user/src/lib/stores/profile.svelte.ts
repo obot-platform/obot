@@ -19,7 +19,7 @@ async function init() {
 				iconURL: '',
 				role: 0,
 				unauthorized: true,
-				username: ''
+				username: '',
 			};
 		} else {
 			setTimeout(init, 5000);
