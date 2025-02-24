@@ -133,6 +133,6 @@ blockquote {
 	@apply border-l-2 border-gray-200 pl-4 italic;
 }
 
-li:has(input[type="checkbox"])::marker {
+li:has(input[type='checkbox'])::marker {
 	@apply text-transparent;
 }
