@@ -1,5 +1,4 @@
 import { SettingsIcon } from "lucide-react";
-import { toast } from "sonner";
 import { mutate } from "swr";
 
 import { OAuthApp, OAuthAppParams } from "~/lib/model/oauthApps";
@@ -41,7 +40,6 @@ export function ConfigureOAuthApp({
 		await mutate(OauthAppService.getOauthApps.key());
 
 		modal.onClose();
-		toast.success(`${spec.displayName} OAuth configuration created`);
 		onSuccess();
 	});
 
@@ -56,7 +54,6 @@ export function ConfigureOAuthApp({
 		await mutate(OauthAppService.getOauthApps.key());
 
 		modal.onClose();
-		toast.success(`${spec.displayName} OAuth configuration updated`);
 		onSuccess();
 	});
 

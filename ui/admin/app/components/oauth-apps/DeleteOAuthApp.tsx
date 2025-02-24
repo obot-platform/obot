@@ -1,4 +1,3 @@
-import { toast } from "sonner";
 import { mutate } from "swr";
 
 import { OauthAppService } from "~/lib/service/api/oauthAppService";
@@ -25,8 +24,6 @@ export function DeleteOAuthApp({
 	const deleteOAuthApp = useAsync(async () => {
 		await OauthAppService.deleteOauthApp(appId);
 		await mutate(OauthAppService.getOauthApps.key());
-
-		toast.success(`${name} OAuth configuration deleted`);
 	});
 
 	const title = `Delete ${name} OAuth`;

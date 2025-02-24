@@ -1,5 +1,3 @@
-import { useState } from "react";
-
 import { OAuthApp, OAuthAppSpecMap } from "~/lib/model/oauthApps";
 import {
 	OAuthAppSpec,
@@ -9,13 +7,10 @@ import {
 import { ConfigureOAuthApp } from "~/components/oauth-apps/ConfigureOAuthApp";
 import { DeleteOAuthApp } from "~/components/oauth-apps/DeleteOAuthApp";
 import { OAuthAppTypeIcon } from "~/components/oauth-apps/OAuthAppTypeIcon";
-import { Button } from "~/components/ui/button";
 import {
 	Dialog,
-	DialogClose,
 	DialogContent,
 	DialogDescription,
-	DialogFooter,
 	DialogHeader,
 	DialogTitle,
 } from "~/components/ui/dialog";
@@ -37,8 +32,6 @@ export function OAuthAppDetail({
 	onOpenChange: (open: boolean) => void;
 	onSuccess?: () => void;
 }) {
-	const [successModalOpen, setSuccessModalOpen] = useState(false);
-
 	const oAuthApp = useOAuthAppInfo(type);
 
 	const spec = type !== "custom" ? OAuthAppSpecMap[type] : null;
@@ -48,51 +41,29 @@ export function OAuthAppDetail({
 	}
 
 	const handleSuccess = () => {
-		setSuccessModalOpen(true);
 		onSuccess?.();
 	};
 
 	return (
-		<>
-			<Dialog open={open} onOpenChange={onOpenChange}>
-				<DialogDescription hidden>OAuth App Details</DialogDescription>
+		<Dialog open={open} onOpenChange={onOpenChange}>
+			<DialogDescription hidden>OAuth App Details</DialogDescription>
 
-				<DialogContent>
-					<DialogHeader>
-						<DialogTitle className="flex items-center gap-2">
-							<OAuthAppTypeIcon type={type} />
+			<DialogContent>
+				<DialogHeader>
+					<DialogTitle className="flex items-center gap-2">
+						<OAuthAppTypeIcon type={type} />
 
-							<span>{spec.displayName}</span>
-						</DialogTitle>
-					</DialogHeader>
-
-					{oAuthApp ? (
-						<Content app={oAuthApp} spec={spec} onSuccess={handleSuccess} />
-					) : (
-						<EmptyContent spec={spec} onSuccess={handleSuccess} />
-					)}
-				</DialogContent>
-			</Dialog>
-
-			<Dialog open={successModalOpen} onOpenChange={setSuccessModalOpen}>
-				<DialogContent>
-					<DialogTitle>
-						Successfully Configured {spec.displayName} OAuth App
+						<span>{spec.displayName}</span>
 					</DialogTitle>
+				</DialogHeader>
 
-					<DialogDescription>
-						Obot will now use your custom {spec.displayName} OAuth app to
-						authenticate users.
-					</DialogDescription>
-
-					<DialogFooter>
-						<DialogClose asChild>
-							<Button className="w-full">Close</Button>
-						</DialogClose>
-					</DialogFooter>
-				</DialogContent>
-			</Dialog>
-		</>
+				{oAuthApp ? (
+					<Content app={oAuthApp} spec={spec} onSuccess={handleSuccess} />
+				) : (
+					<EmptyContent spec={spec} onSuccess={handleSuccess} />
+				)}
+			</DialogContent>
+		</Dialog>
 	);
 }
 
