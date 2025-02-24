@@ -44,5 +44,5 @@
 	@apply bg-transparent;
 }
 [class*="_listItemChecked"]::after {
-	@apply bg-transparent border-primary top-[0.4rem];
+	@apply top-[0.4rem] border-primary bg-transparent;
 }
