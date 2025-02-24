@@ -92,6 +92,7 @@ func Router(services *services.Services) (http.Handler, error) {
 	mux.HandleFunc("DELETE /api/assistants/{assistant_id}/projects/{project_id}/files/{file...}", assistants.DeleteFile)
 	// Assistant knowledge files
 	mux.HandleFunc("GET /api/assistants/{assistant_id}/projects/{project_id}/knowledge", assistants.Knowledge)
+	mux.HandleFunc("GET /api/assistants/{assistant_id}/projects/{project_id}/knowledge/{file}", assistants.GetKnowledgeFile)
 	mux.HandleFunc("POST /api/assistants/{assistant_id}/projects/{project_id}/knowledge/{file}", assistants.UploadKnowledge)
 	mux.HandleFunc("DELETE /api/assistants/{assistant_id}/projects/{project_id}/knowledge/{file...}", assistants.DeleteKnowledge)
 	// Env
