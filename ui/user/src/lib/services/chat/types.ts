@@ -142,6 +142,8 @@ export interface Profile {
 	loaded?: boolean;
 	isAdmin?: () => boolean;
 	unauthorized?: boolean;
+	username: string;
+	currentAuthProvider?: string;
 }
 
 export interface Files {

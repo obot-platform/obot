@@ -1,7 +1,7 @@
 <script lang="ts">
 	import ProfileIcon from '$lib/components/profile/ProfileIcon.svelte';
 	import { profile } from '$lib/stores';
-	import { ChatService, type CredentialList } from '$lib/services';
+	import { ChatService, type CredentialList, type Profile } from '$lib/services';
 	import { Trash } from 'lucide-svelte/icons';
 	import Menu from '$lib/components/navbar/Menu.svelte';
 
@@ -15,9 +15,15 @@
 	async function load() {
 		credentials = await ChatService.listCredentials();
 	}
+
+	function getDisplayName(profile?: Profile) {
+		const displayName =
+			profile?.currentAuthProvider === 'github-auth-provider' ? profile.username : profile?.email;
+		return displayName || 'Anonymous';
+	}
 </script>
 
-<Menu title={profile.current.email || 'Anonymous'} onLoad={load}>
+<Menu title={getDisplayName(profile.current)} onLoad={load}>
 	{#snippet icon()}
 		<ProfileIcon />
 	{/snippet}
