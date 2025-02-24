@@ -15,15 +15,9 @@
 	async function load() {
 		credentials = await ChatService.listCredentials();
 	}
-
-	function getDisplayName(profile?: Profile) {
-		const displayName =
-			profile?.currentAuthProvider === 'github-auth-provider' ? profile.username : profile?.email;
-		return displayName || 'Anonymous';
-	}
 </script>
 
-<Menu title={getDisplayName(profile.current)} onLoad={load}>
+<Menu title={profile.current.getDisplayName?.() || 'Anonymous'} onLoad={load}>
 	{#snippet icon()}
 		<ProfileIcon />
 	{/snippet}
