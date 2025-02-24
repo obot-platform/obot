@@ -31,3 +31,18 @@
 .mdxeditor-source-editor {
 	@apply max-h-[300px] overflow-auto;
 }
+.mdxeditor-popup-container {
+	@apply z-10;
+}
+[class*="_contentEditable"] a {
+	@apply cursor-pointer font-semibold text-primary hover:text-primary/70 hover:underline;
+}
+[class*="_listItem"]::before {
+	@apply top-1;
+}
+[class*="_listItemChecked"]::before {
+	@apply bg-transparent;
+}
+[class*="_listItemChecked"]::after {
+	@apply bg-transparent border-primary top-[0.4rem];
+}
