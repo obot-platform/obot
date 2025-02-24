@@ -3,9 +3,12 @@ package credstores
 import (
 	"context"
 	"fmt"
+	"io"
+	"net/http"
 	"os"
 	"os/exec"
 	"strings"
+	"time"
 
 	"github.com/gptscript-ai/gptscript/pkg/input"
 	"github.com/gptscript-ai/gptscript/pkg/loader"
@@ -92,6 +95,7 @@ func setUpGoogleKMS(ctx context.Context, kmsKeyURI, configFile string) error {
 		"gcp-encryption-provider",
 		"--logtostderr",
 		"--path-to-unix-socket=/tmp/gcp-cred-socket.sock",
+		"--healthz-port=22222",
 		"--key-uri="+kmsKeyURI)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
@@ -107,6 +111,20 @@ func setUpGoogleKMS(ctx context.Context, kmsKeyURI, configFile string) error {
 			log.Fatalf("gcp-encryption-provider exited: %v", err)
 		}
 	}()
+
+	time.Sleep(time.Second)
+
+	resp, err := http.Get("http://localhost:22222/healthz")
+	if err != nil || resp.StatusCode != http.StatusOK {
+		if resp != nil {
+			log.Errorf("gcp-encryption-provider health check failed with status code %d", resp.StatusCode)
+			body, _ := io.ReadAll(resp.Body)
+			log.Errorf("gcp-encryption-provider health check response: %s", body)
+			defer resp.Body.Close()
+		} else {
+			log.Errorf("gcp-encryption-provider health check failed: %v", err)
+		}
+	}
 
 	return nil
 }
