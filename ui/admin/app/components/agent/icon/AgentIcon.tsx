@@ -123,18 +123,21 @@ export function AgentIcon({ icons, onChange, name }: AgentIconProps) {
 							</DropdownMenuSubContent>
 						</DropdownMenuPortal>
 					</DropdownMenuSub>
-					{obotIconIndex !== -1 && (
-						<DropdownMenuSub>
-							<DropdownMenuSubTrigger className="flex items-center gap-2">
-								<PaletteIcon size={16} /> Choose Color
-							</DropdownMenuSubTrigger>
-							<DropdownMenuPortal>
-								<DropdownMenuSubContent>
-									{renderColorOptions()}
-								</DropdownMenuSubContent>
-							</DropdownMenuPortal>
-						</DropdownMenuSub>
-					)}
+					<DropdownMenuSub>
+						<DropdownMenuSubTrigger
+							className={cn("flex items-center gap-2", {
+								"opacity-50": obotIconIndex === -1,
+							})}
+							disabled={obotIconIndex === -1}
+						>
+							<PaletteIcon size={16} /> Choose Color
+						</DropdownMenuSubTrigger>
+						<DropdownMenuPortal>
+							<DropdownMenuSubContent>
+								{renderColorOptions()}
+							</DropdownMenuSubContent>
+						</DropdownMenuPortal>
+					</DropdownMenuSub>
 					<DropdownMenuItem
 						className="flex items-center gap-2"
 						onClick={() => setImageUrlDialogOpen(true)}
