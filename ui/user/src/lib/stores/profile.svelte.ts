@@ -18,7 +18,8 @@ async function init() {
 				email: '',
 				iconURL: '',
 				role: 0,
-				unauthorized: true
+				unauthorized: true,
+				username: '',
 			};
 		} else {
 			setTimeout(init, 5000);
