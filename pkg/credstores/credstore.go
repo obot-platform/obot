@@ -112,18 +112,26 @@ func setUpGoogleKMS(ctx context.Context, kmsKeyURI, configFile string) error {
 		}
 	}()
 
-	time.Sleep(time.Second)
+	// Wait for the encryption provider to be ready
+	var successful bool
+	for range 5 {
+		time.Sleep(time.Second)
 
-	resp, err := http.Get("http://localhost:22222/healthz")
-	if err != nil || resp.StatusCode != http.StatusOK {
-		if resp != nil {
-			log.Errorf("gcp-encryption-provider health check failed with status code %d", resp.StatusCode)
+		resp, err := http.Get("http://localhost:22222/healthz")
+		if err == nil {
+			if resp.StatusCode == http.StatusOK {
+				successful = true
+				break
+			}
 			body, _ := io.ReadAll(resp.Body)
-			log.Errorf("gcp-encryption-provider health check response: %s", body)
-			defer resp.Body.Close()
-		} else {
-			log.Errorf("gcp-encryption-provider health check failed: %v", err)
+			log.Errorf("gcp-encryption-provider health check failed: %s", body)
+			_ = resp.Body.Close()
+			return fmt.Errorf("gcp-encryption-provider health check failed: %d", resp.StatusCode)
 		}
+	}
+
+	if !successful {
+		return fmt.Errorf("timed out waiting for gcp-encryption-provider to be ready")
 	}
 
 	return nil
