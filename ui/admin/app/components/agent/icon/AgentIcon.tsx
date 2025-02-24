@@ -85,25 +85,12 @@ type AgentIconProps = {
 export function AgentIcon({ icons, onChange, name }: AgentIconProps) {
 	const { theme } = useTheme();
 	const [imageUrlDialogOpen, setImageUrlDialogOpen] = useState(false);
-	const [showFallback, setShowFallback] = useState(false);
 
 	const { icon = "", iconDark = "" } = icons ?? {};
 	const isDarkMode = theme === AppTheme.Dark;
 	const obotIconIndex = iconOptions.findIndex((option) =>
 		icon.includes(option)
 	);
-
-	const handleLoadingStatusChange = (
-		status: "idle" | "loading" | "loaded" | "error"
-	) => {
-		// ignore loading & idle
-		if (status === "error") {
-			setShowFallback(true);
-		}
-		if (status === "loaded") {
-			setShowFallback(false);
-		}
-	};
 	return (
 		<>
 			<DropdownMenu>
@@ -112,15 +99,10 @@ export function AgentIcon({ icons, onChange, name }: AgentIconProps) {
 						<DropdownMenuTrigger asChild>
 							<Button variant="ghost" size="icon-xl" className="group relative">
 								<Avatar className="size-20">
-									<AvatarImage
-										src={iconDark && isDarkMode ? iconDark : icon}
-										onLoadingStatusChange={handleLoadingStatusChange}
-									/>
-									{showFallback && (
-										<AvatarFallback className="text-[3.5rem] font-semibold">
-											{name?.charAt(0) ?? ""}
-										</AvatarFallback>
-									)}
+									<AvatarImage src={iconDark && isDarkMode ? iconDark : icon} />
+									<AvatarFallback className="text-[3.5rem] font-semibold">
+										{name?.charAt(0) ?? ""}
+									</AvatarFallback>
 								</Avatar>
 								<div className="absolute -right-1 top-0 items-center justify-center rounded-full bg-primary-foreground p-2 opacity-0 drop-shadow-md transition group-hover:opacity-100 group-focus:opacity-100">
 									<PencilIcon className="!size-4" />
