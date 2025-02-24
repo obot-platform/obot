@@ -14,6 +14,7 @@ export type Thread = EntityMeta &
 		parentThreadId?: string;
 		lastRunID?: string;
 		userID?: string;
+		project?: boolean;
 	} & (
 		| { agentID: string; workflowID?: never }
 		| { agentID?: never; workflowID: string }

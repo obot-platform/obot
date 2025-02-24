@@ -74,7 +74,7 @@ export default function TaskRuns() {
 		if (!getThreads.data) return [];
 
 		let filteredThreads = getThreads.data.filter(
-			(thread) => thread.agentID && !thread.deleted
+			(thread) => thread.agentID && !thread.deleted && !thread.project
 		);
 
 		if (agentId) {
