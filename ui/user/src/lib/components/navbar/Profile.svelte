@@ -1,7 +1,7 @@
 <script lang="ts">
 	import ProfileIcon from '$lib/components/profile/ProfileIcon.svelte';
 	import { profile } from '$lib/stores';
-	import { ChatService, type CredentialList, type Profile } from '$lib/services';
+	import { ChatService, type CredentialList } from '$lib/services';
 	import { Trash } from 'lucide-svelte/icons';
 	import Menu from '$lib/components/navbar/Menu.svelte';
 
