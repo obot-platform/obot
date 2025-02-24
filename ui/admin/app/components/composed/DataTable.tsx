@@ -227,6 +227,10 @@ export const DataTableTimeFilter = ({
 			</PopoverTrigger>
 			<PopoverContent>
 				<Calendar
+					classNames={{
+						caption: "flex items-center justify-between gap-4 pl-2",
+						nav: "flex gap-4",
+					}}
 					mode="range"
 					selected={range}
 					onSelect={(range) => {
