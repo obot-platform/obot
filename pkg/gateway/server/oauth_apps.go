@@ -343,15 +343,27 @@ func (s *Server) refreshOAuthApp(apiContext api.Context) error {
 		return apierrors.NewBadRequest("missing refresh_token query parameter")
 	}
 
+	var clientSecret string
+
 	// Reveal the credential to get the client secret.
 	cred, err := s.gptClient.RevealCredential(apiContext.Context(), []string{app.Name}, app.Spec.Manifest.Alias)
 	if err != nil {
-		return err
+		if errors.Is(err, gptscript.ErrNotFound{}) {
+			if app.Spec.Manifest.ClientSecret != "" {
+				clientSecret = app.Spec.Manifest.ClientSecret
+			} else {
+				return fmt.Errorf("failed to reveal credential: %w", err)
+			}
+		} else {
+			return err
+		}
+	} else {
+		clientSecret = cred.Env["CLIENT_SECRET"]
 	}
 
 	data := url.Values{}
 	data.Set("client_id", app.Spec.Manifest.ClientID)
-	data.Set("client_secret", cred.Env["CLIENT_SECRET"])
+	data.Set("client_secret", clientSecret)
 	if app.Spec.Manifest.Type != types2.OAuthAppTypeSalesforce {
 		data.Set("scope", scope)
 	}
@@ -442,16 +454,28 @@ func (s *Server) callbackOAuthApp(apiContext api.Context) error {
 		return apierrors.NewBadRequest("missing state query parameter")
 	}
 
+	var clientSecret string
+
 	// Reveal the credential to get the client secret.
 	cred, err := s.gptClient.RevealCredential(apiContext.Context(), []string{app.Name}, app.Spec.Manifest.Alias)
 	if err != nil {
-		return err
+		if errors.Is(err, gptscript.ErrNotFound{}) {
+			if app.Spec.Manifest.ClientSecret != "" {
+				clientSecret = app.Spec.Manifest.ClientSecret
+			} else {
+				return fmt.Errorf("failed to reveal credential: %w", err)
+			}
+		} else {
+			return err
+		}
+	} else {
+		clientSecret = cred.Env["CLIENT_SECRET"]
 	}
 
 	// Build and make the request to get the tokens.
 	data := url.Values{}
 	data.Set("client_id", app.Spec.Manifest.ClientID)
-	data.Set("client_secret", cred.Env["CLIENT_SECRET"]) // Including the client secret in the body is not strictly required in the OAuth2 RFC, but some providers require it anyway.
+	data.Set("client_secret", clientSecret) // Including the client secret in the body is not strictly required in the OAuth2 RFC, but some providers require it anyway.
 	data.Set("code", code)
 	data.Set("redirect_uri", app.RedirectURL(s.baseURL))
 	data.Set("grant_type", "authorization_code")
@@ -467,7 +491,7 @@ func (s *Server) callbackOAuthApp(apiContext api.Context) error {
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	if app.Spec.Manifest.Type != types2.OAuthAppTypeGoogle &&
 		app.Spec.Manifest.Type != types2.OAuthAppTypePagerDuty {
-		req.SetBasicAuth(url.QueryEscape(app.Spec.Manifest.ClientID), url.QueryEscape(cred.Env["CLIENT_SECRET"]))
+		req.SetBasicAuth(url.QueryEscape(app.Spec.Manifest.ClientID), url.QueryEscape(clientSecret))
 	}
 
 	resp, err := http.DefaultClient.Do(req)
