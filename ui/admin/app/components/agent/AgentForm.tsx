@@ -59,10 +59,6 @@ export function AgentForm({
 	});
 
 	useEffect(() => {
-		if (agent) form.reset(agent);
-	}, [agent, form]);
-
-	useEffect(() => {
 		return form.watch((values) => {
 			if (!onChange) return;
 

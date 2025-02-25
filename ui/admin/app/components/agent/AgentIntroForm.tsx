@@ -34,18 +34,10 @@ export function AgentIntroForm({
 		resolver: zodResolver(formSchema),
 		mode: "onChange",
 		defaultValues: {
-			introductionMessage: "",
-			starterMessages: [],
+			introductionMessage: agent.introductionMessage ?? "",
+			starterMessages: agent.starterMessages ?? [],
 		},
 	});
-
-	useEffect(() => {
-		if (agent)
-			form.reset({
-				introductionMessage: agent.introductionMessage ?? "",
-				starterMessages: agent.starterMessages ?? [],
-			});
-	}, [agent, form]);
 
 	useEffect(() => {
 		return form.watch((values) => {
