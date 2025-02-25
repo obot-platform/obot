@@ -339,6 +339,18 @@ func (a *ThreadHandler) Knowledge(req api.Context) error {
 	return listKnowledgeFiles(req, "", thread.Name, thread.Status.KnowledgeSetNames[0], nil)
 }
 
+func (a *ThreadHandler) GetKnowledgeFile(req api.Context) error {
+	var (
+		threadID = req.PathValue("id")
+	)
+
+	var thread v1.Thread
+	if err := req.Get(&thread, threadID); err != nil {
+		return err
+	}
+	return getKnowledgeFile(req, a.gptscript, &thread, nil, req.PathValue("file"))
+}
+
 func (a *ThreadHandler) UploadKnowledge(req api.Context) error {
 	var (
 		threadID = req.PathValue("id")

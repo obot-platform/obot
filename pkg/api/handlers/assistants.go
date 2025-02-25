@@ -5,7 +5,6 @@ import (
 	"io"
 	"maps"
 	"net/http"
-	"net/url"
 	"slices"
 	"sort"
 	"strings"
@@ -365,49 +364,11 @@ func (a *AssistantHandler) Knowledge(req api.Context) error {
 }
 
 func (a *AssistantHandler) GetKnowledgeFile(req api.Context) error {
-	var (
-		file         = req.PathValue("file")
-		knowledgeSet string
-	)
-
 	thread, err := getThreadForScope(req)
 	if err != nil {
 		return err
 	}
-
-	file, err = url.PathUnescape(file)
-	if err != nil {
-		return types.NewErrBadRequest("invalid knowledgeFile reference")
-	}
-
-	parts := strings.Split(file, "::")
-	if len(parts) != 2 {
-		return types.NewErrBadRequest("invalid knowledgeFile path")
-	}
-	knowledgeSet, file = parts[0], parts[1]
-
-	if parts := strings.Split(knowledgeSet, "/"); len(parts) > 1 {
-		knowledgeSet = parts[1] // may come in as <namespace>/<knowledgeset>, we don't care about the namespace right now
-	}
-
-	// make sure that the selected knowledge set belongs either to the thread or to the agent
-	if !slices.Contains(thread.Status.KnowledgeSetNames, knowledgeSet) {
-		agent, err := getAssistant(req, thread.Spec.AgentName)
-		if err != nil {
-			return err
-		}
-		if !slices.Contains(agent.Status.KnowledgeSetNames, knowledgeSet) {
-			return types.NewErrNotFound("knowledge set %s not part of current thread or agent", knowledgeSet)
-		}
-	}
-
-	ws, err := getWorkspaceFromKnowledgeSet(req, knowledgeSet)
-	if err != nil {
-		return err
-	}
-
-	req.SetPathValue("file", file)
-	return getFileInWorkspace(req.Context(), req, a.gptScript, ws.Status.WorkspaceID, "") // knowledge files are stored in the root of the workspace (we have one workspace per knowledge set)
+	return getKnowledgeFile(req, a.gptScript, thread, nil, req.PathValue("file"))
 }
 
 func (a *AssistantHandler) UploadKnowledge(req api.Context) error {

@@ -4,7 +4,9 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"net/url"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/gptscript-ai/go-gptscript"
@@ -50,6 +52,63 @@ func getWorkspaceFromKnowledgeSet(req api.Context, knowledgeSetName string) (*v1
 
 	var ws v1.Workspace
 	return &ws, req.Get(&ws, knowledgeSet.Status.WorkspaceName)
+}
+
+// getKnowledgeFile retrieves a knowledge file from the workspace associated with the knowledge set.
+// It works for both thread and agent knowledge sets. If the knowledge set is not found in the thread, it will be looked up in the agent.
+func getKnowledgeFile(req api.Context, gClient *gptscript.GPTScript, thread *v1.Thread, agent *v1.Agent, fileRef string) error {
+	var err error
+
+	// make sure that the selected knowledge set belongs either to the thread or to the agent
+	var knowledgeSetNames []string
+	if thread != nil {
+		knowledgeSetNames = thread.Status.KnowledgeSetNames
+		if agent == nil {
+			agent, err = getAssistant(req, thread.Spec.AgentName)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	if agent != nil {
+		knowledgeSetNames = append(knowledgeSetNames, agent.Status.KnowledgeSetNames...)
+	}
+
+	return getKnowledgeFileFromAllowedSets(req, gClient, knowledgeSetNames, fileRef)
+}
+
+// getKnowledgeFileFromAllowedSets retrieves a knowledge file from the workspace associated with the knowledge set, if the knowledge set is in the list of allowed knowledge sets.
+// The fileRef is expected to be in the URL-encoded format [<knowledgeSet.Namespace>/]<knowledgeSet.Name>::<filename>.
+func getKnowledgeFileFromAllowedSets(req api.Context, gClient *gptscript.GPTScript, knowledgeSetNames []string, fileRef string) error {
+	var knowledgeSetName string
+
+	file, err := url.PathUnescape(fileRef)
+	if err != nil {
+		return types.NewErrBadRequest("invalid knowledgeFile reference")
+	}
+
+	parts := strings.Split(file, "::")
+	if len(parts) != 2 {
+		return types.NewErrBadRequest("invalid knowledgeFile path")
+	}
+	knowledgeSetName, file = parts[0], parts[1]
+
+	if parts := strings.Split(knowledgeSetName, "/"); len(parts) > 1 {
+		knowledgeSetName = parts[1] // may come in as <namespace>/<knowledgeset>, we don't care about the namespace right now
+	}
+
+	if !slices.Contains(knowledgeSetNames, knowledgeSetName) {
+		return types.NewErrNotFound("knowledge set %q not accessible", knowledgeSetName)
+	}
+
+	ws, err := getWorkspaceFromKnowledgeSet(req, knowledgeSetName)
+	if err != nil {
+		return err
+	}
+
+	req.SetPathValue("file", file)
+	return getFileInWorkspace(req.Context(), req, gClient, ws.Status.WorkspaceID, "") // knowledge files are stored in the root of the workspace (we have one workspace per knowledge set)
 }
 
 func listKnowledgeFiles(req api.Context, agentName, threadName, knowledgeSetName string, knowledgeSource *v1.KnowledgeSource) error {

@@ -442,6 +442,15 @@ func (a *AgentHandler) ListKnowledgeFiles(req api.Context) error {
 	return listKnowledgeFiles(req, agentName, "", knowledgeSetNames[0], knowledgeSource)
 }
 
+func (a *AgentHandler) GetKnowledgeFile(req api.Context) error {
+	knowledgeSetNames, _, err := a.getKnowledgeSetsAndName(req, req.PathValue("agent_id"))
+	if err != nil {
+		return err
+	}
+
+	return getKnowledgeFileFromAllowedSets(req, a.gptscript, knowledgeSetNames, req.PathValue("file"))
+}
+
 func (a *AgentHandler) UploadKnowledgeFile(req api.Context) error {
 	knowledgeSetNames, agentName, err := a.getKnowledgeSetsAndName(req, req.PathValue("id"))
 	if err != nil {
