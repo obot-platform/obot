@@ -348,7 +348,8 @@ func (s *Server) refreshOAuthApp(apiContext api.Context) error {
 	// Reveal the credential to get the client secret.
 	cred, err := s.gptClient.RevealCredential(apiContext.Context(), []string{app.Name}, app.Spec.Manifest.Alias)
 	if err != nil {
-		if errors.Is(err, gptscript.ErrNotFound{}) {
+		var errNotFound gptscript.ErrNotFound
+		if errors.As(err, &errNotFound) {
 			if app.Spec.Manifest.ClientSecret != "" {
 				clientSecret = app.Spec.Manifest.ClientSecret
 			} else {
@@ -459,7 +460,8 @@ func (s *Server) callbackOAuthApp(apiContext api.Context) error {
 	// Reveal the credential to get the client secret.
 	cred, err := s.gptClient.RevealCredential(apiContext.Context(), []string{app.Name}, app.Spec.Manifest.Alias)
 	if err != nil {
-		if errors.Is(err, gptscript.ErrNotFound{}) {
+		var errNotFound gptscript.ErrNotFound
+		if errors.As(err, &errNotFound) {
 			if app.Spec.Manifest.ClientSecret != "" {
 				clientSecret = app.Spec.Manifest.ClientSecret
 			} else {
