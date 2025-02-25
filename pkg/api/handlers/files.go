@@ -177,6 +177,7 @@ func getFileInWorkspace(ctx context.Context, req api.Context, gClient *gptscript
 	}
 
 	req.ResponseWriter.Header().Set("Content-Type", "application/octet-stream")
+	req.ResponseWriter.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"", file)) // make sure the file is downloaded with only the filename, not e.g. the dataset prefix
 	_, err = req.ResponseWriter.Write(data)
 	return err
 }

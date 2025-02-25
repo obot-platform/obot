@@ -5,6 +5,7 @@ import (
 	"io"
 	"maps"
 	"net/http"
+	"net/url"
 	"slices"
 	"sort"
 	"strings"
@@ -364,7 +365,6 @@ func (a *AssistantHandler) Knowledge(req api.Context) error {
 }
 
 func (a *AssistantHandler) GetKnowledgeFile(req api.Context) error {
-
 	var (
 		file         = req.PathValue("file")
 		knowledgeSet string
@@ -373,6 +373,11 @@ func (a *AssistantHandler) GetKnowledgeFile(req api.Context) error {
 	thread, err := getThreadForScope(req)
 	if err != nil {
 		return err
+	}
+
+	file, err = url.PathUnescape(file)
+	if err != nil {
+		return types.NewErrBadRequest("invalid knowledgeFile reference")
 	}
 
 	parts := strings.Split(file, "::")

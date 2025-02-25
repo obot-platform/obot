@@ -254,7 +254,7 @@ function toMessages(progresses: Progress[]): Messages {
 
 				switch (true) {
 					case progress.toolCall.name === 'Knowledge':
-						sources.push(...(output as CitationSource[]));
+						sources.push(...(output as CitationSource[]).map((s) => ({ ...s, type: 'Knowledge' })));
 						break;
 					case progress.toolCall.name === 'Search' &&
 						progress.toolCall.metadata?.toolBundle === 'Tavily Search':

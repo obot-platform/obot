@@ -1,14 +1,15 @@
 <script lang="ts">
-	import { popover } from '$lib/actions';
 	import MessageIcon from '$lib/components/messages/MessageIcon.svelte';
+	import { FileText, Pencil } from 'lucide-svelte/icons';
 	import { toHTMLFromMarkdown } from '$lib/markdown.js';
 	import { ChatService, type Message } from '$lib/services';
 	import { assistants } from '$lib/stores/index';
 	import { formatTime } from '$lib/time';
 	import highlight from 'highlight.js';
 	import { Paperclip, X } from 'lucide-svelte';
-	import { FileText, Pencil } from 'lucide-svelte/icons';
 	import { Tween } from 'svelte/motion';
+	import { popover } from '$lib/actions';
+	import context from '$lib/stores/context.svelte';
 	import { fly } from 'svelte/transition';
 
 	interface Props {
@@ -98,15 +99,50 @@
 		}
 	}
 
-	function citationDislplayUrl(url: string) {
+	// Citations
+
+	// citation urls starting with knowledge:// mean it's a local file
+	const citationKnowledgePrefix = 'knowledge://';
+
+	function citationURL(url: string | undefined) {
+		if (!url) return undefined;
+
+		if (url.startsWith(citationKnowledgePrefix)) {
+			return `/api/assistants/${context.assistantID}/projects/${context.projectID}/knowledge/${url.slice(citationKnowledgePrefix.length)}`;
+		}
+
+		return url;
+	}
+
+	function citationDisplayURL(url: string) {
+		if (url.startsWith(citationKnowledgePrefix)) {
+			// return only the last path element (file name)
+			return url.split('::').pop() ?? url;
+		}
+
 		// remove the protocol and www.
 		const res = url.replace(/^(.+:\/\/)?(www\.)?/, '');
 		return res.length > 25 ? res.slice(0, 25) + '...' : res;
 	}
 
 	function citationFavicon(url: string) {
+		if (url.startsWith(citationKnowledgePrefix)) {
+			return '/favicon';
+		}
+
 		const _url = new URL(url);
 		return _url.origin + '/favicon.ico';
+	}
+
+	function deduplicateCitations(citations: string[]) {
+		const seen = new Set<string>();
+		return citations.filter((url) => {
+			if (seen.has(url)) {
+				return false;
+			}
+			seen.add(url);
+			return true;
+		});
 	}
 </script>
 
@@ -331,10 +367,12 @@
 {#snippet citations()}
 	{#if msg.citations && msg.citations.length > 0}
 		<div class="mt-2 flex flex-wrap gap-2">
-			{#each msg.citations.map((c) => c.url).filter((c) => c !== undefined) as url, i}
+			{#each deduplicateCitations(msg.citations
+					.map((c) => c.url)
+					.filter((url) => url !== undefined)) as url, i}
 				{#if msg.done}
 					<a
-						href={url}
+						href={citationURL(url)}
 						target="_blank"
 						class="flex w-fit items-center gap-2 rounded-full bg-gray-100 p-2 text-sm dark:bg-gray-900"
 						transition:fly={{ y: 100, delay: 50 * i, duration: 250 }}
@@ -345,7 +383,7 @@
 							class="size-4"
 							onerror={(e) => ((e.currentTarget as HTMLImageElement).src = '/favicon.ico')}
 						/>
-						{citationDislplayUrl(url)}
+						{citationDisplayURL(url)}
 					</a>
 				{/if}
 			{/each}
