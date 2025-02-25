@@ -95,6 +95,7 @@ type ThreadSpec struct {
 
 func (in *Thread) DeleteRefs() []Ref {
 	refs := []Ref{
+		{ObjType: &Agent{}, Name: in.Spec.AgentName},
 		{ObjType: &WorkflowExecution{}, Name: in.Spec.WorkflowExecutionName},
 		{ObjType: &Workflow{}, Name: in.Spec.WorkflowName},
 		{ObjType: &CronJob{}, Name: in.Spec.CronJobName},
