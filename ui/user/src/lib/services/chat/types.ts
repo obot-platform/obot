@@ -213,7 +213,8 @@ export interface AssistantToolList {
 }
 
 export interface Credential {
-	name: string;
+	toolName: string;
+	icon: string;
 }
 
 export interface CredentialList {

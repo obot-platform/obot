@@ -26,14 +26,17 @@
 			{#if credentials && credentials?.items.length > 0}
 				<span class="mb-2">Credentials</span>
 				{#each credentials.items as cred}
-					{#if !cred.name.startsWith('tl1')}
+					{#if !cred.toolName.startsWith('tl1')}
 						<div class="flex justify-between">
-							<span>{cred.name}</span>
+							<div class="flex items-center gap-2">
+								<img alt={cred.toolName} src={cred.icon} class="h-5 w-5" />
+								<span>{cred.toolName}</span>
+							</div>
 							<button>
 								<Trash
 									class="h-5 w-5 text-gray"
 									onclick={() => {
-										deleteCred(cred.name);
+										deleteCred(cred.toolName);
 									}}
 								/>
 							</button>
