@@ -361,7 +361,7 @@
 		class:justify-end={msg.sent}
 	>
 		{#if !msg.sent}
-			<div class="sticky top-10 z-10 mr-3"><MessageIcon {msg} /></div>
+			<div class="mr-3"><MessageIcon {msg} /></div>
 		{/if}
 
 		<div class="flex w-full flex-col" class:w-full={fullWidth}>
@@ -444,7 +444,7 @@
 		}
 
 		.loading-container span[data-end-indicator] {
-			@apply visible ml-1 inline-block size-4 animate-pulse rounded-full bg-gray-700 align-middle text-transparent dark:bg-gray-300;
+			@apply visible relative -mt-[2px] ml-1 inline-block size-4 animate-pulse rounded-full bg-gray-400 align-middle text-transparent;
 		}
 	}
 </style>

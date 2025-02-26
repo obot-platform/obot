@@ -1,9 +1,9 @@
 <script lang="ts">
-	import { sticktobottom } from '$lib/actions/div';
+	import { sticktobottom, type StickToBottomControls } from '$lib/actions/div.svelte';
 	import Input from '$lib/components/messages/Input.svelte';
 	import Message from '$lib/components/messages/Message.svelte';
 	import { toHTMLFromMarkdown } from '$lib/markdown';
-	import { type Assistant, EditorService, type Messages } from '$lib/services';
+	import { EditorService, type Assistant, type Messages } from '$lib/services';
 	import { Thread } from '$lib/services/chat/thread.svelte';
 	import { assistants, context } from '$lib/stores';
 	import { onDestroy } from 'svelte';
@@ -78,6 +78,8 @@
 		thread = newThread;
 	});
 
+	let scrollControls = $state<StickToBottomControls>();
+
 	onDestroy(() => {
 		thread?.close?.();
 	});
@@ -96,12 +98,15 @@
 		bind:this={container}
 		class="flex h-full grow justify-center overflow-y-auto scrollbar-none"
 		class:scroll-smooth={scrollSmooth}
-		use:sticktobottom
+		use:sticktobottom={{
+			contentEl: messagesDiv,
+			setControls: (controls) => (scrollControls = controls)
+		}}
 	>
 		<div
 			in:fade|global
 			bind:this={messagesDiv}
-			class="flex w-full max-w-[1000px] flex-col justify-start gap-8 p-5 transition-all"
+			class="flex h-fit w-full max-w-[1000px] flex-col justify-start gap-8 p-5 transition-all"
 			class:justify-center={!thread}
 		>
 			<div class="message-content self-center">
@@ -145,9 +150,9 @@
 					onAbort={async () => {
 						await thread?.abort();
 					}}
-					onSubmit={async (i) => {
-						container?.scrollTo({ top: container?.scrollHeight - container?.clientHeight });
-						await thread?.invoke(i);
+					onSubmit={(i) => {
+						scrollControls?.stickToBottom();
+						thread?.invoke(i);
 					}}
 				/>
 			{/if}
