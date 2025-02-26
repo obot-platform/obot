@@ -20,7 +20,7 @@ export type MessageStore = {
 	source: EventSource | null;
 	isRunning: boolean;
 	cleanupFns: (() => void)[];
-	processEvent: (event: ChatEvent) => void;
+	processEvent: (event: ChatEvent, threadId?: string) => void;
 	init: (threadId: string, config?: EventInitConfig) => void;
 	reset: () => void;
 };
@@ -56,7 +56,7 @@ export const createMessageStore = () => {
 
 				if (event.replayComplete) {
 					replayComplete = true;
-					replayMessages.forEach(get().processEvent);
+					replayMessages.forEach((e) => get().processEvent(e, threadId));
 					replayMessages = [];
 				}
 
@@ -65,7 +65,7 @@ export const createMessageStore = () => {
 					return;
 				}
 
-				get().processEvent(event);
+				get().processEvent(event, threadId);
 			};
 
 			source.addEventListener("close", handleClose);
@@ -93,7 +93,7 @@ export const createMessageStore = () => {
 			});
 		}
 
-		function handleProcessEvent(event: ChatEvent) {
+		function handleProcessEvent(event: ChatEvent, threadId?: string) {
 			const {
 				content,
 				prompt,
@@ -127,58 +127,62 @@ export const createMessageStore = () => {
 					return { messages: copy };
 				}
 
+				const messageBase: Partial<Message> = {
+					threadId,
+					runId: runID,
+					contentID,
+					time,
+				};
+
 				if (error) {
 					if (error.includes("thread was aborted, cancelling run")) {
 						copy.push({
+							...messageBase,
 							sender: "agent",
 							text: "Message Aborted",
-							runId: runID,
-							contentID,
 							aborted: true,
-							time,
 						});
 
 						return { messages: copy };
 					}
 
 					copy.push({
+						...messageBase,
 						sender: "agent",
 						text: error,
-						runId: runID,
 						error: true,
-						contentID,
-						time,
 					});
 					return { messages: copy };
 				}
 
 				if (input) {
 					copy.push({
+						...messageBase,
 						sender: "user",
 						text: input,
-						runId: runID,
-						contentID,
-						time,
 					});
 					return { messages: copy };
 				}
 
 				if (toolCall) {
-					return { messages: handleToolCallEvent(copy, event) };
+					const toolCallMessage = handleToolCallEvent(copy, event);
+
+					if (toolCallMessage)
+						copy.push({ ...messageBase, ...toolCallMessage });
+
+					return { messages: copy };
 				}
 
 				if (prompt) {
-					copy.push(promptMessage(prompt, runID));
+					copy.push({ ...messageBase, ...promptMessage(prompt) });
 					return { messages: copy };
 				}
 
 				if (content) {
 					copy.push({
+						...messageBase,
 						sender: "agent",
 						text: content,
-						runId: runID,
-						contentID,
-						time,
 						knowledgeSources: parsedSources.length ? parsedSources : undefined,
 					});
 
@@ -192,7 +196,7 @@ export const createMessageStore = () => {
 		}
 
 		function handleToolCallEvent(messages: Message[], event: ChatEvent) {
-			if (!event.toolCall) return messages;
+			if (!event.toolCall) return null;
 
 			const { toolCall } = event;
 
@@ -207,13 +211,12 @@ export const createMessageStore = () => {
 				if (index !== -1) {
 					// update the previous pending toolcall message (without output)
 					messages[index].tools = [toolCall];
-					return messages;
+					return null;
 				}
 			}
 
 			// otherwise add a new toolcall message
-			messages.push(toolCallMessage(toolCall));
-			return messages;
+			return toolCallMessage(toolCall);
 		}
 	});
 };

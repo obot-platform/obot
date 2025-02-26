@@ -1,6 +1,7 @@
 import { KnowledgeFile, KnowledgeFileNamespace } from "~/lib/model/knowledge";
 import { ApiRoutes } from "~/lib/routers/apiRoutes";
 import { request } from "~/lib/service/api/primitives";
+import { downloadUrl } from "~/lib/utils/downloadFile";
 
 async function getKnowledgeFiles(
 	namespace: KnowledgeFileNamespace,
@@ -81,9 +82,24 @@ async function reingestFile(
 	return res.data;
 }
 
+async function downloadKnowledgeFile(
+	namespace: KnowledgeFileNamespace,
+	entityId: string,
+	fileName: string
+) {
+	const { url } = ApiRoutes.knowledgeFiles.getKnowledgeFileById(
+		namespace,
+		entityId,
+		fileName
+	);
+
+	downloadUrl(url, fileName);
+}
+
 export const KnowledgeFileService = {
 	getKnowledgeFiles,
 	addKnowledgeFiles,
 	deleteKnowledgeFile,
 	reingestFile,
+	downloadKnowledgeFile,
 };

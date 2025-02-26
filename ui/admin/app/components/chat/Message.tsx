@@ -1,11 +1,13 @@
 import "@radix-ui/react-tooltip";
-import { AlertCircleIcon, WrenchIcon } from "lucide-react";
+import { AlertCircleIcon, BrainIcon, WrenchIcon } from "lucide-react";
 import React, { useDeferredValue, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 
 import { AgentIcons } from "~/lib/model/agents";
 import { AuthPrompt } from "~/lib/model/chatEvents";
+import { KnowledgeFileNamespace } from "~/lib/model/knowledge";
 import { Message as MessageType } from "~/lib/model/messages";
+import { ApiRoutes } from "~/lib/routers/apiRoutes";
 import { PromptApiService } from "~/lib/service/api/PromptApi";
 import { cn, formatTime } from "~/lib/utils";
 
@@ -14,7 +16,7 @@ import { ToolCallInfo } from "~/components/chat/ToolCallInfo";
 import { ControlledInput } from "~/components/form/controlledInputs";
 import { ToolIcon } from "~/components/tools/ToolIcon";
 import { Avatar, AvatarFallback, AvatarImage } from "~/components/ui/avatar";
-import { Button } from "~/components/ui/button";
+import { Button, buttonVariants } from "~/components/ui/button";
 import {
 	Dialog,
 	DialogContent,
@@ -26,6 +28,11 @@ import { Form } from "~/components/ui/form";
 import { Link } from "~/components/ui/link";
 import { Markdown } from "~/components/ui/markdown";
 import { ScrollArea } from "~/components/ui/scroll-area";
+import {
+	Tooltip,
+	TooltipContent,
+	TooltipTrigger,
+} from "~/components/ui/tooltip";
 import { useAnimatedText } from "~/hooks/messages/useAnimatedText";
 import { useAsync } from "~/hooks/useAsync";
 
@@ -369,44 +376,80 @@ export function SourceCitations({
 	if (!message.knowledgeSources || !show) return null;
 
 	const formatUrl = (url: string) => {
-		return url.replace(/(https?:\/\/)?(www\.)?/, "");
+		return url.replace(/^(https?:\/\/)?(knowledge:\/\/)?/, "");
 	};
-
-	const citations = new Map(
-		message.knowledgeSources
-			.filter((s) => !!s.url)
-			.map((s) => {
-				return [
-					formatUrl(s.url as string),
-					{ ...s, url: new URL(s.url as string) },
-				];
-			})
-	);
 
 	return (
 		<div className="flex flex-col gap-2 pt-4">
 			<h4>Sources</h4>
 			<div className="flex flex-wrap gap-2 pb-3">
-				{Array.from(citations.entries()).map(([key, { url }]) => (
+				{message.knowledgeSources.map((s) => {
+					if (!s.url) return null;
+
+					if (s.url.startsWith("knowledge://"))
+						return renderKnowledgeSource(s.url);
+
+					return renderLink(s.url);
+				})}
+			</div>
+		</div>
+	);
+
+	function renderKnowledgeSource(url: string) {
+		if (!message.threadId) return null;
+
+		const filePath = url.replace("knowledge://", "");
+		const [_, fileName] = decodeURIComponent(filePath).split("::");
+
+		return (
+			<Tooltip>
+				<TooltipContent>{decodeURIComponent(url)}</TooltipContent>
+
+				<TooltipTrigger asChild>
+					<a
+						className={buttonVariants({ variant: "secondary", size: "sm" })}
+						key={url}
+						href={
+							ApiRoutes.knowledgeFiles.getKnowledgeFileById(
+								KnowledgeFileNamespace.Threads,
+								message.threadId,
+								filePath
+							).url
+						}
+						download={fileName}
+					>
+						<BrainIcon /> {fileName}
+					</a>
+				</TooltipTrigger>
+			</Tooltip>
+		);
+	}
+
+	function renderLink(url: string) {
+		const urlObj = new URL(url);
+		const formatted = formatUrl(url);
+		return (
+			<Tooltip>
+				<TooltipContent>{url}</TooltipContent>
+				<TooltipTrigger asChild>
 					<Link
 						as="button"
 						variant="secondary"
 						size="sm"
-						to={url.toString()}
+						to={url}
 						target="_blank"
 						rel="noreferrer"
-						key={key}
 					>
 						<img
-							src={`${url.origin}/favicon.ico`}
+							src={`${urlObj.origin}/favicon.ico`}
 							alt="Favicon"
 							onError={(e) => (e.currentTarget.src = "/favicon.ico")}
 							className="size-4"
 						/>
-						{key.length > 25 ? key.slice(0, 25) + "..." : key}
+						{formatted.length > 25 ? formatted.slice(0, 25) + "..." : formatted}
 					</Link>
-				))}
-			</div>
-		</div>
-	);
+				</TooltipTrigger>
+			</Tooltip>
+		);
+	}
 }

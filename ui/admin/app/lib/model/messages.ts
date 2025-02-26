@@ -1,6 +1,5 @@
 import {
 	AuthPrompt,
-	ChatEvent,
 	KnowledgeToolOutput,
 	ToolCall,
 } from "~/lib/model/chatEvents";
@@ -20,6 +19,7 @@ export interface Message {
 	contentID?: string;
 	time?: Date | string;
 	knowledgeSources?: KnowledgeToolOutput;
+	threadId?: string;
 }
 
 export const runsToMessages = (runs: Run[]) => {
@@ -48,56 +48,8 @@ export const toolCallMessage = (toolCall: ToolCall): Message => ({
 	tools: [toolCall],
 });
 
-export const promptMessage = (prompt: AuthPrompt, runID: string): Message => ({
+export const promptMessage = (prompt: AuthPrompt): Message => ({
 	sender: "agent",
 	text: prompt.message,
 	prompt,
-	runId: runID,
 });
-
-export const chatEventsToMessages = (events: ChatEvent[]) => {
-	const messages: Message[] = [];
-
-	for (const event of events) {
-		const { content, input, toolCall, runID, error, prompt } = event;
-
-		if (error) {
-			messages.push({
-				sender: "agent",
-				text: `Error: ${error}`,
-				runId: runID,
-				error: true,
-			});
-			continue;
-		}
-
-		if (input) {
-			messages.push({
-				sender: "user",
-				text: input,
-				runId: runID,
-			});
-			continue;
-		}
-
-		if (toolCall) {
-			messages.push(toolCallMessage(toolCall));
-			continue;
-		}
-
-		if (prompt) {
-			messages.push(promptMessage(prompt, runID));
-			continue;
-		}
-
-		if (content) {
-			messages.push({
-				sender: "agent",
-				text: content,
-				runId: runID,
-			});
-		}
-	}
-
-	return messages;
-};

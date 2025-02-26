@@ -103,6 +103,11 @@ export const ApiRoutes = {
 	knowledgeFiles: {
 		getKnowledgeFiles: (namespace: KnowledgeFileNamespace, entityId: string) =>
 			buildUrl(`/${namespace}/${entityId}/knowledge-files`),
+		getKnowledgeFileById: (
+			namespace: KnowledgeFileNamespace,
+			entityId: string,
+			fileName: string
+		) => buildUrl(`/${namespace}/${entityId}/knowledge-files/${fileName}`),
 		addKnowledgeFile: (
 			namespace: KnowledgeFileNamespace,
 			entityId: string,
