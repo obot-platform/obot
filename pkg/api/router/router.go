@@ -315,6 +315,14 @@ func Router(services *services.Services) (http.Handler, error) {
 
 	// debug
 	mux.HTTPHandle("GET /debug/pprof/", http.DefaultServeMux)
+	mux.HTTPHandle("GET /debug/triggers", http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		b, err := services.Router.DumpTriggers(true)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+		}
+
+		_, _ = w.Write(b)
+	}))
 
 	// Model providers
 	mux.HandleFunc("GET /api/model-providers", modelProviders.List)
