@@ -179,6 +179,8 @@ func (h *Handler) Populate(req router.Request, resp router.Response) error {
 	lastCheck, ok := h.lastChecks[toolRef.Name]
 	h.lastChecksLock.RUnlock()
 	if !ok {
+		// Tracking these times this way is not HA. However, we don't run this in an HA way right now.
+		// When we are ready to start exploring HA as an option, this will have to be changed.
 		lastCheck = time.Now()
 		h.lastChecksLock.Lock()
 		h.lastChecks[toolRef.Name] = time.Now()
