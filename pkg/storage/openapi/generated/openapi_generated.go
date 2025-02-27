@@ -9358,11 +9358,6 @@ func schema_storage_apis_obotobotai_v1_ToolReferenceStatus(ref common.ReferenceC
 							Format: "int64",
 						},
 					},
-					"lastReferenceCheck": {
-						SchemaProps: spec.SchemaProps{
-							Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.Time"),
-						},
-					},
 					"tool": {
 						SchemaProps: spec.SchemaProps{
 							Ref: ref("github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ToolShortDescription"),
@@ -9378,7 +9373,7 @@ func schema_storage_apis_obotobotai_v1_ToolReferenceStatus(ref common.ReferenceC
 			},
 		},
 		Dependencies: []string{
-			"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ToolShortDescription", "k8s.io/apimachinery/pkg/apis/meta/v1.Time"},
+			"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ToolShortDescription"},
 	}
 }
 

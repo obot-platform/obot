@@ -229,7 +229,6 @@ func NewStep(namespace, workflowExecutionName, afterStepName string, generation 
 	stepName = strings.ReplaceAll(stepName, "--", "-")
 
 	return &v1.WorkflowStep{
-		TypeMeta: metav1.TypeMeta{},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      stepName,
 			Namespace: namespace,

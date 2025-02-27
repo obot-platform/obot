@@ -9,6 +9,7 @@ import (
 	"os"
 	"regexp"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/gptscript-ai/go-gptscript"
@@ -30,9 +31,12 @@ import (
 	"sigs.k8s.io/yaml"
 )
 
-var log = logger.Package()
+var (
+	log           = logger.Package()
+	jsonErrRegexp = regexp.MustCompile(`\{.*"error":.*}`)
+)
 
-var jsonErrRegexp = regexp.MustCompile(`\{.*"error":.*}`)
+const toolRecheckPeriod = time.Hour
 
 type indexEntry struct {
 	Reference string `json:"reference,omitempty"`
@@ -49,10 +53,12 @@ type index struct {
 }
 
 type Handler struct {
-	gptClient     *gptscript.GPTScript
-	dispatcher    *dispatcher.Dispatcher
-	supportDocker bool
-	registryURLs  []string
+	gptClient      *gptscript.GPTScript
+	dispatcher     *dispatcher.Dispatcher
+	supportDocker  bool
+	registryURLs   []string
+	lastChecksLock *sync.RWMutex
+	lastChecks     map[string]time.Time
 }
 
 func New(gptClient *gptscript.GPTScript,
@@ -61,10 +67,12 @@ func New(gptClient *gptscript.GPTScript,
 	supportDocker bool,
 ) *Handler {
 	return &Handler{
-		gptClient:     gptClient,
-		dispatcher:    dispatcher,
-		registryURLs:  registryURLs,
-		supportDocker: supportDocker,
+		gptClient:      gptClient,
+		dispatcher:     dispatcher,
+		registryURLs:   registryURLs,
+		supportDocker:  supportDocker,
+		lastChecks:     make(map[string]time.Time),
+		lastChecksLock: new(sync.RWMutex),
 	}
 }
 
@@ -167,22 +175,39 @@ func (h *Handler) PollRegistries(ctx context.Context, c client.Client) {
 
 func (h *Handler) Populate(req router.Request, resp router.Response) error {
 	toolRef := req.Object.(*v1.ToolReference)
-	if retry := time.Until(toolRef.Status.LastReferenceCheck.Time); toolRef.Generation == toolRef.Status.ObservedGeneration && retry > -time.Hour {
-		resp.RetryAfter(time.Hour + retry)
-		return nil
+	h.lastChecksLock.RLock()
+	lastCheck, ok := h.lastChecks[toolRef.Name]
+	h.lastChecksLock.RUnlock()
+	if !ok {
+		lastCheck = time.Now()
+		h.lastChecksLock.Lock()
+		h.lastChecks[toolRef.Name] = time.Now()
+		h.lastChecksLock.Unlock()
 	}
 
+	var retry time.Duration
+	defer func() {
+		resp.RetryAfter(toolRecheckPeriod + retry)
+	}()
+
+	if retry = time.Until(lastCheck); ok && toolRef.Generation == toolRef.Status.ObservedGeneration && retry > -toolRecheckPeriod {
+		return nil
+	}
+	retry = 0
+
 	// Reset status
-	lastCheck := toolRef.Status.LastReferenceCheck
-	toolRef.Status.LastReferenceCheck = metav1.Now()
 	toolRef.Status.ObservedGeneration = toolRef.Generation
 	toolRef.Status.Reference = toolRef.Spec.Reference
 	toolRef.Status.Commit = ""
 	toolRef.Status.Tool = nil
 	toolRef.Status.Error = ""
 
+	h.lastChecksLock.Lock()
+	h.lastChecks[toolRef.Name] = time.Now()
+	h.lastChecksLock.Unlock()
+
 	prg, err := h.gptClient.LoadFile(req.Ctx, toolRef.Spec.Reference, gptscript.LoadOptions{
-		DisableCache: toolRef.Spec.ForceRefresh.After(lastCheck.Time),
+		DisableCache: toolRef.Spec.ForceRefresh.After(lastCheck),
 	})
 	if err != nil {
 		toolRef.Status.Error = err.Error()
