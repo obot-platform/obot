@@ -727,6 +727,12 @@ func (t *TaskHandler) CreateFromScope(req api.Context) error {
 	if thread.Spec.AgentName != "" {
 		additionalCredentialContexts = append(additionalCredentialContexts, thread.Spec.AgentName)
 	}
+
+	var agent v1.Agent
+	if err := req.Get(&agent, thread.Spec.AgentName); err != nil {
+		return err
+	}
+
 	workflow := v1.Workflow{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: system.WorkflowPrefix,
@@ -735,7 +741,7 @@ func (t *TaskHandler) CreateFromScope(req api.Context) error {
 		Spec: v1.WorkflowSpec{
 			ThreadName:                   thread.Name,
 			Manifest:                     workflowManifest,
-			KnowledgeSetNames:            thread.Status.KnowledgeSetNames,
+			KnowledgeSetNames:            append(agent.Status.KnowledgeSetNames, thread.Status.KnowledgeSetNames...),
 			WorkspaceName:                workspace.Name,
 			CredentialContextID:          thread.Name,
 			AdditionalCredentialContexts: additionalCredentialContexts,
