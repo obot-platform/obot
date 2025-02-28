@@ -7,6 +7,8 @@ import (
 	"github.com/obot-platform/obot/pkg/api/handlers/sendgrid"
 	"github.com/obot-platform/obot/pkg/services"
 	"github.com/obot-platform/obot/ui"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"k8s.io/component-base/metrics/legacyregistry"
 )
 
 func Router(services *services.Services) (http.Handler, error) {
@@ -316,7 +318,7 @@ func Router(services *services.Services) (http.Handler, error) {
 	mux.HandleFunc("PUT /api/cronjobs/{id}", cronJobs.Update)
 	mux.HandleFunc("POST /api/cronjobs/{id}", cronJobs.Execute)
 
-	// debug
+	// Debug
 	mux.HTTPHandle("GET /debug/pprof/", http.DefaultServeMux)
 	mux.HTTPHandle("GET /debug/triggers", http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		b, err := services.Router.DumpTriggers(true)
@@ -325,6 +327,11 @@ func Router(services *services.Services) (http.Handler, error) {
 		}
 
 		_, _ = w.Write(b)
+	}))
+
+	// Metrics
+	mux.HTTPHandle("GET /debug/metrics", promhttp.HandlerFor(legacyregistry.DefaultGatherer, promhttp.HandlerOpts{
+		ErrorHandling: promhttp.HTTPErrorOnError,
 	}))
 
 	// Model providers

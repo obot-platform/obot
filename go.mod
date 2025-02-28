@@ -28,6 +28,7 @@ require (
 	github.com/obot-platform/obot/apiclient v0.0.0-00010101000000-000000000000
 	github.com/obot-platform/obot/logger v0.0.0-20241217130503-4004a5c69f32
 	github.com/pkg/browser v0.0.0-20240102092130-5ac0b6a4141c
+	github.com/prometheus/client_golang v1.20.5
 	github.com/pterm/pterm v0.12.80
 	github.com/rs/cors v1.11.1
 	github.com/sendgrid/sendgrid-go v3.16.0+incompatible
@@ -43,6 +44,7 @@ require (
 	k8s.io/apimachinery v0.31.1
 	k8s.io/apiserver v0.31.1
 	k8s.io/client-go v0.31.1
+	k8s.io/component-base v0.31.1
 	k8s.io/gengo/v2 v2.0.0-20240911193312-2b36238f13e9
 	k8s.io/kube-openapi v0.0.0-20241009091222-67ed5848f094
 	k8s.io/kubectl v0.29.0
@@ -190,7 +192,6 @@ require (
 	github.com/pierrec/lz4/v4 v4.1.22 // indirect
 	github.com/pjbgf/sha1cd v0.3.2 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
-	github.com/prometheus/client_golang v1.20.5 // indirect
 	github.com/prometheus/client_model v0.6.1 // indirect
 	github.com/prometheus/common v0.60.0 // indirect
 	github.com/prometheus/procfs v0.15.1 // indirect
@@ -256,7 +257,6 @@ require (
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gorm.io/driver/postgres v1.5.11 // indirect
 	k8s.io/cli-runtime v0.29.0 // indirect
-	k8s.io/component-base v0.31.1 // indirect
 	k8s.io/klog/v2 v2.130.1 // indirect
 	k8s.io/kms v0.31.1 // indirect
 	k8s.io/utils v0.0.0-20240921022957-49e7df575cb6 // indirect

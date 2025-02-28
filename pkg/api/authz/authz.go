@@ -53,6 +53,7 @@ var staticRules = map[string][]string{
 		"POST /api/sendgrid",
 
 		"GET /api/healthz",
+		"GET /debug/metrics",
 
 		"GET /api/auth-providers",
 		"GET /api/auth-providers/{id}",
