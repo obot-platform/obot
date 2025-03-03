@@ -11,12 +11,12 @@
 	async function addTool() {
 		const tool = await ChatService.createTool(newTool);
 		await EditorService.load(tool.id);
-		menu?.open.set(false);
+		menu?.toggle(false);
 	}
 
 	async function editTool(id: string) {
 		await EditorService.load(id);
-		menu?.open.set(false);
+		menu?.toggle(false);
 	}
 
 	async function onLoad() {

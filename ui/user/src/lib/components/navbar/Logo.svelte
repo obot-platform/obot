@@ -97,7 +97,7 @@
 		</ul>
 	</div>
 	{#if assistants.items.length > 1}
-		<button class="h-full self-end pb-0.5" onclick={toggle}>
+		<button class="h-full self-end pb-0.5" onclick={() => toggle()}>
 			<ChevronDown
 				class="ms-2 h-5 w-5 rounded text-gray hover:bg-gray-100 hover:text-black hover:dark:bg-gray-700 hover:dark:text-white"
 			/>

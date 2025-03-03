@@ -8,13 +8,11 @@ import {
 } from '@floating-ui/dom';
 import { tick } from 'svelte';
 import type { Action, ActionReturn } from 'svelte/action';
-import { type Readable, type Writable, writable } from 'svelte/store';
 
-interface Popover extends Readable<boolean> {
+interface Popover {
 	ref: Action;
 	tooltip: Action;
-	open: Writable<boolean>;
-	toggle: () => void;
+	toggle: (newOpen?: boolean) => void;
 }
 
 interface PopoverOptions extends Partial<ComputePositionConfig> {
@@ -28,7 +26,7 @@ let id = 0;
 export default function popover(opts?: PopoverOptions): Popover {
 	let ref: HTMLElement;
 	let tooltip: HTMLElement;
-	const open = writable(false);
+	let open = $state(false);
 	const offsetSize = opts?.offset ?? 8;
 
 	function build(): ActionReturn | void {
@@ -37,35 +35,29 @@ export default function popover(opts?: PopoverOptions): Popover {
 		const selfId = id++;
 		document.addEventListener('toolOpen', (e: Event) => {
 			if (e instanceof CustomEvent && e.detail !== selfId.toString()) {
-				open.set(false);
+				open = false;
 			}
 		});
 
-		function updatePosition() {
-			computePosition(ref, tooltip, {
+		async function updatePosition() {
+			const { x, y } = await computePosition(ref, tooltip, {
 				placement: 'bottom-end',
-				middleware: [
-					flip(),
-					shift({
-						padding: offsetSize
-					}),
-					offset(offsetSize)
-				],
+				middleware: [flip(), shift({ padding: offsetSize }), offset(offsetSize)],
 				...opts
-			}).then(({ x, y }) => {
-				if (opts?.assign) {
-					opts.assign(x, y);
-				} else {
-					Object.assign(tooltip.style, {
-						left: `${x}px`,
-						top: `${y}px`
-					});
-				}
 			});
+
+			if (opts?.assign) {
+				opts.assign(x, y);
+			} else {
+				Object.assign(tooltip.style, {
+					left: `${x}px`,
+					top: `${y}px`
+				});
+			}
 		}
 
-		open.subscribe((value) => {
-			if (!value) {
+		$effect(() => {
+			if (!open) {
 				return;
 			}
 
@@ -73,15 +65,15 @@ export default function popover(opts?: PopoverOptions): Popover {
 				const div = document.createElement('div');
 				div.classList.add('fixed', 'inset-0', 'z-10', 'cursor-default');
 				div.onclick = () => {
-					open.set(false);
+					open = false;
 					div.remove();
 				};
+
 				document.body.append(div);
-				open.subscribe((value) => {
-					if (!value) {
-						div.remove();
-					}
-				});
+
+				return () => {
+					if (!open) div.remove();
+				};
 			}
 		});
 
@@ -103,16 +95,16 @@ export default function popover(opts?: PopoverOptions): Popover {
 
 		if (opts?.hover) {
 			ref.addEventListener('mouseenter', () => {
-				open.set(true);
+				open = true;
 			});
 			ref.addEventListener('mouseleave', () => {
-				open.set(false);
+				open = false;
 			});
 		}
 
 		let close: (() => void) | null;
-		open.subscribe((value) => {
-			if (value) {
+		$effect(() => {
+			if (open) {
 				tooltip.classList.remove('hidden');
 				tick().then(() => {
 					tooltip.classList.remove('opacity-0');
@@ -143,19 +135,12 @@ export default function popover(opts?: PopoverOptions): Popover {
 			tooltip = node;
 			return build();
 		},
-		open,
-		subscribe: open.subscribe,
-		toggle: () => {
-			open.update((value) => {
-				if (!value && !opts?.hover) {
-					document.dispatchEvent(
-						new CustomEvent('toolOpen', {
-							detail: id.toString()
-						})
-					);
-				}
-				return !value;
-			});
+		toggle: (newOpen?: boolean) => {
+			if (!open && !opts?.hover) {
+				document.dispatchEvent(new CustomEvent('toolOpen', { detail: id.toString() }));
+			}
+
+			open = newOpen ?? !open;
 		}
 	};
 }

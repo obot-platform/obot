@@ -12,14 +12,14 @@
 		}
 		await tasks.remove(taskToDelete.id);
 		EditorService.remove(taskToDelete.id);
-		menu?.open.set(false);
+		menu?.toggle(false);
 		taskToDelete = undefined;
 	}
 
 	async function newTask() {
 		const task = await tasks.create();
 		await EditorService.load(task.id);
-		menu?.open.set(false);
+		menu?.toggle(false);
 	}
 
 	let taskToDelete = $state<Task | undefined>();
@@ -42,7 +42,7 @@
 								class="flex flex-1 items-center"
 								onclick={async () => {
 									await EditorService.load(task.id);
-									menu?.open.set(false);
+									menu?.toggle(false);
 								}}
 							>
 								<CheckSquare class="h-5 w-5" />

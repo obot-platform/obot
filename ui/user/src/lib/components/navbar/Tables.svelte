@@ -37,7 +37,7 @@
 								class="flex flex-1 items-center"
 								onclick={async () => {
 									await EditorService.load('table://' + table.name);
-									menu?.open.set(false);
+									menu?.toggle(false);
 								}}
 							>
 								<Table class="h-5 w-5" />

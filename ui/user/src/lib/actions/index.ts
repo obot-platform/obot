@@ -1,1 +1,1 @@
-export { default as popover } from './popover';
+export { default as popover } from './popover.svelte';

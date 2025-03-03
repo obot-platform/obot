@@ -10,7 +10,7 @@
 
 	let { text, class: clazz = '' }: Props = $props();
 	let message = $state<string>('Copy');
-	let { ref, tooltip, open } = popover({
+	let { ref, tooltip } = popover({
 		placement: 'top-start',
 		offset: 1,
 		hover: true
@@ -22,9 +22,7 @@
 
 		navigator.clipboard.writeText(text);
 		message = 'Copied!';
-		open.set(true);
 		setTimeout(() => {
-			open.set(false);
 			message = 'Copy';
 		}, 750);
 	}

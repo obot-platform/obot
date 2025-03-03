@@ -14,7 +14,7 @@
 
 	let { onLoad, icon, body, title, description, show }: Props = $props();
 	let loading = $state(false);
-	const { ref, tooltip, toggle, open } = popover({
+	const { ref, tooltip, toggle } = popover({
 		placement: 'bottom',
 		offset: 0
 	});
@@ -22,7 +22,7 @@
 	$effect(() => {
 		// this is mostly for development, easy way to show a menu to develop it
 		if (show) {
-			open.set(true);
+			toggle(true);
 		}
 	});
 
@@ -47,7 +47,7 @@
 		}
 	}
 
-	export { toggle, open };
+	export { toggle };
 </script>
 
 <button
