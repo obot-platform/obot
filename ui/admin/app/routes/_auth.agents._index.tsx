@@ -80,11 +80,13 @@ export default function Agents() {
 
 	const agents = useMemo(() => {
 		return (
-			getAgents.data?.map((agent) => ({
-				...agent,
-				threadCount: threadCounts[agent.id] || 0,
-				taskCount: taskCounts[agent.id] || 0,
-			})) ?? []
+			getAgents.data
+				?.filter((agent) => !agent.deleted)
+				.map((agent) => ({
+					...agent,
+					threadCount: threadCounts[agent.id] || 0,
+					taskCount: taskCounts[agent.id] || 0,
+				})) ?? []
 		);
 	}, [getAgents.data, threadCounts, taskCounts]);
 
