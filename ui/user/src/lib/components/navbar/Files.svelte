@@ -8,6 +8,7 @@
 	import { isImage } from '$lib/image';
 	import Error from '$lib/components/Error.svelte';
 	import Loading from '$lib/icons/Loading.svelte';
+	import { popover } from '$lib/actions';
 
 	async function loadFiles() {
 		files.items = (await ChatService.listFiles()).items;
@@ -21,6 +22,8 @@
 		await loadFiles();
 		fileToDelete = undefined;
 	}
+
+	let { tooltip, ref } = popover({ placement: 'top-start', offset: 10, hover: true });
 
 	let fileToDelete = $state<string | undefined>();
 	let menu = $state<ReturnType<typeof Menu>>();
@@ -55,12 +58,19 @@
 				{#each files.items as file}
 					<li class="group">
 						<div class="flex">
+							<div use:tooltip class="rounded-xl bg-blue-500 p-2 text-white dark:text-black">
+								<p>
+									{file.name}
+								</p>
+							</div>
+
 							<button
 								class="flex flex-1 items-center"
 								onclick={async () => {
 									await EditorService.load(file.name);
 									menu?.open.set(false);
 								}}
+								use:ref
 							>
 								{#if isImage(file.name)}
 									<Image class="h-5 w-5" />

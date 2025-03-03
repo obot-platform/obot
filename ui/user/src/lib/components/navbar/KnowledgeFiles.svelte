@@ -1,11 +1,11 @@
 <script lang="ts">
-	import { Brain } from 'lucide-svelte/icons';
-	import { knowledgeFiles } from '$lib/stores';
-	import { ChatService } from '$lib/services';
 	import Confirm from '$lib/components/Confirm.svelte';
-	import KnowledgeFile from './KnowledgeFile.svelte';
 	import KnowledgeUpload from '$lib/components/navbar/KnowledgeUpload.svelte';
 	import Menu from '$lib/components/navbar/Menu.svelte';
+	import { ChatService } from '$lib/services';
+	import { knowledgeFiles } from '$lib/stores';
+	import { Brain } from 'lucide-svelte/icons';
+	import KnowledgeFile from './KnowledgeFile.svelte';
 
 	async function loadFiles() {
 		knowledgeFiles.items = (await ChatService.listKnowledgeFiles()).items;
@@ -37,14 +37,12 @@
 		{:else}
 			<ul class="space-y-3 px-3 py-6 text-sm">
 				{#each knowledgeFiles.items as file}
-					<li>
-						<KnowledgeFile
-							{file}
-							onDelete={() => {
-								fileToDelete = file.fileName;
-							}}
-						/>
-					</li>
+					<KnowledgeFile
+						{file}
+						onDelete={() => {
+							fileToDelete = file.fileName;
+						}}
+					/>
 				{/each}
 			</ul>
 		{/if}

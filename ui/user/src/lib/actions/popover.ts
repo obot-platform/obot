@@ -120,9 +120,7 @@ export default function popover(opts?: PopoverOptions): Popover {
 				updatePosition();
 				close = autoUpdate(ref, tooltip, updatePosition);
 			} else {
-				if (close) {
-					close();
-				}
+				close?.();
 				tooltip.classList.add('hidden');
 				tooltip.classList.add('opacity-0');
 				close = null;
@@ -130,10 +128,8 @@ export default function popover(opts?: PopoverOptions): Popover {
 		});
 
 		return {
-			destroy: function () {
-				if (close) {
-					close();
-				}
+			destroy() {
+				close?.();
 			}
 		};
 	}
