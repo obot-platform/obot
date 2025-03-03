@@ -5,6 +5,7 @@
 	import { newTool } from '$lib/components/tool/Tool.svelte';
 	import Menu from '$lib/components/navbar/Menu.svelte';
 	import { PenBox } from 'lucide-svelte';
+	import { isCapabilityTool } from '$lib/model/tools';
 
 	let menu = $state<ReturnType<typeof Menu>>();
 
@@ -42,7 +43,7 @@
 	{#snippet body()}
 		<ul class="space-y-4 py-6 text-sm">
 			{#each tools.items as tool, i}
-				{#if !tool.builtin}
+				{#if !isCapabilityTool(tool.id)}
 					<li>
 						<div class="flex">
 							{#if tool.icon}

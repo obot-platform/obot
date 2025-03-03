@@ -51,6 +51,8 @@ export const CapabilityTool = {
 	WorkspaceFiles: "workspace-files",
 	Database: "database",
 	Tasks: "tasks",
+	Projects: "projects",
+	Threads: "threads",
 } as const;
 export type CapabilityTool =
 	(typeof CapabilityTool)[keyof typeof CapabilityTool];
