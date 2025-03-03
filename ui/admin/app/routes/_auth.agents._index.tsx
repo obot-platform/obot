@@ -54,7 +54,7 @@ export default function Agents() {
 		if (!getThreads.data) return {};
 		return getThreads.data.reduce(
 			(acc, thread) => {
-				if (!thread.agentID) return acc;
+				if (!thread.agentID || thread.project) return acc;
 				acc[thread.agentID] = (acc[thread.agentID] || 0) + 1;
 				return acc;
 			},

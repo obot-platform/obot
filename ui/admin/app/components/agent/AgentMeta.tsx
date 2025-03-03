@@ -21,6 +21,7 @@ export function AgentMeta({ agent }: { agent: Agent }) {
 
 	const { data: tasks } = useSWR(...TaskService.getTasks.swr({}));
 	const agentTasks = tasks?.filter((task) => threadsMap.get(task.threadID));
+	const agentThreads = threads?.filter((thread) => !thread.project);
 
 	return (
 		<Card className="bg-0 h-full overflow-hidden">
@@ -38,7 +39,7 @@ export function AgentMeta({ agent }: { agent: Agent }) {
 								<td className="py-2 pr-4 font-medium">Threads</td>
 								<td className="text-right">
 									<Link to={$path("/chat-threads", { agentId: agent.id })}>
-										{threads?.length ?? 0} Threads
+										{agentThreads?.length ?? 0} Threads
 									</Link>
 								</td>
 							</tr>

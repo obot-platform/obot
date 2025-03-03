@@ -82,7 +82,12 @@ export default function TaskRuns() {
 		<div className="relative flex h-full flex-col overflow-hidden">
 			<Tooltip>
 				<TooltipTrigger asChild>
-					<Button size="icon" variant="outline" onClick={() => navigate(-1)}>
+					<Button
+						size="icon"
+						variant="outline"
+						onClick={() => navigate(-1)}
+						className="ml-4"
+					>
 						<ArrowLeftIcon className="h-4 w-4" />
 					</Button>
 				</TooltipTrigger>
