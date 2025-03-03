@@ -47,7 +47,10 @@
 				<div style="height: 76px">
 					<Navbar />
 				</div>
-				<main id="main-content" class="flex" style="height: calc(100% - 76px)">
+				<main
+					id="main-content"
+					class="flex h-[calc(100vh-76px)] max-w-[calc(100vw-24px)]"
+				>
 					<div
 						bind:this={mainInput}
 						id="main-input"
