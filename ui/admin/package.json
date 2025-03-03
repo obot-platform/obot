@@ -22,7 +22,7 @@
 		"@dnd-kit/utilities": "^3.2.2",
 		"@gptscript-ai/gptscript": "^0.9.5-rc5",
 		"@hookform/resolvers": "^3.9.0",
-		"@mdxeditor/editor": "^3.23.2",
+		"@mdxeditor/editor": "^3.25.0",
 		"@monaco-editor/react": "^4.6.0",
 		"@radix-ui/react-accordion": "^1.2.0",
 		"@radix-ui/react-alert-dialog": "^1.1.2",

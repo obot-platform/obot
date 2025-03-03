@@ -104,6 +104,11 @@ export function MarkdownEditor({
 	}, [markdown]);
 
 	const handlePaste = (event: React.ClipboardEvent<HTMLDivElement>) => {
+		const target = event.target as HTMLElement;
+		if (!target.closest('[class^="_contentEditable"]')) {
+			return;
+		}
+
 		event.stopPropagation();
 		const text = event.clipboardData.getData("text/plain");
 		ref.current?.insertMarkdown(text);
@@ -179,7 +184,6 @@ export function MarkdownEditor({
 						readOnlyDiff: true,
 					}),
 				]}
-				suppressHtmlProcessing
 			/>
 		</div>
 	);
