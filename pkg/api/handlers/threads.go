@@ -158,7 +158,7 @@ func (a *ThreadHandler) Update(req api.Context) error {
 		return err
 	}
 
-	// Don't allow update of tools here, do it with the /tools endpoing
+	// Don't allow update of tools here, do it with the /tools endpoint
 	newThread.Tools = existing.Spec.Manifest.Tools
 
 	existing.Spec.Manifest = newThread

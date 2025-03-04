@@ -40,7 +40,7 @@ func (c *Controller) setupRoutes() error {
 	knowledgeset := knowledgeset.New(c.services.Invoker)
 	knowledgesource := knowledgesource.NewHandler(c.services.Invoker, c.services.GPTClient)
 	knowledgefile := knowledgefile.New(c.services.Invoker, c.services.GPTClient, c.services.KnowledgeSetIngestionLimit)
-	runs := runs.New(c.services.Invoker)
+	runs := runs.New(c.services.Invoker, c.services.Router.Backend())
 	webHooks := webhook.New()
 	cronJobs := cronjob.New()
 	oauthLogins := oauthapp.NewLogin(c.services.Invoker, c.services.ServerURL)
@@ -55,6 +55,8 @@ func (c *Controller) setupRoutes() error {
 	root.Type(&v1.Run{}).HandlerFunc(cleanup.Cleanup)
 	root.Type(&v1.Run{}).HandlerFunc(runs.Resume)
 	root.Type(&v1.Run{}).HandlerFunc(workflow.GetTaskResult)
+	// This handler should be the last one so that deleting Runs will not be marked as inactive.
+	root.Type(&v1.Run{}).HandlerFunc(runs.MarkInactive)
 
 	// Threads
 	root.Type(&v1.Thread{}).HandlerFunc(cleanup.Cleanup)
@@ -66,6 +68,7 @@ func (c *Controller) setupRoutes() error {
 	root.Type(&v1.Thread{}).HandlerFunc(threads.CleanupEphemeralThreads)
 	root.Type(&v1.Thread{}).HandlerFunc(threads.SetCreated)
 	root.Type(&v1.Thread{}).FinalizeFunc(v1.ThreadFinalizer, credentialCleanup.Remove)
+	root.Type(&v1.Thread{}).FinalizeFunc(v1.ThreadFinalizer+"-child-cleanup", threads.ActivateRuns)
 
 	// KnowledgeSummary
 	root.Type(&v1.KnowledgeSummary{}).HandlerFunc(cleanup.Cleanup)

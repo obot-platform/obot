@@ -2,6 +2,7 @@ package v1
 
 import (
 	gptscriptclient "github.com/gptscript-ai/go-gptscript"
+	"github.com/obot-platform/nah/pkg/fields"
 	"github.com/obot-platform/obot/apiclient/types"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -23,6 +24,11 @@ const (
 	AuthProviderSyncAnnotation  = "obot.ai/auth-provider-sync"
 )
 
+var (
+	_ fields.Fields = (*Run)(nil)
+	_ DeleteRefs    = (*Run)(nil)
+)
+
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type Run struct {
@@ -40,6 +46,8 @@ func (in *Run) Has(field string) bool {
 func (in *Run) Get(field string) string {
 	if in != nil {
 		switch field {
+		case LabelInactive:
+			return in.Labels[LabelInactive]
 		case "spec.threadName":
 			return in.Spec.ThreadName
 		case "spec.previousRunName":
@@ -51,7 +59,7 @@ func (in *Run) Get(field string) string {
 }
 
 func (in *Run) FieldNames() []string {
-	return []string{"spec.threadName", "spec.previousRunName"}
+	return []string{"spec.threadName", "spec.previousRunName", LabelInactive}
 }
 
 func (in *Run) GetColumns() [][]string {

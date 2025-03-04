@@ -5,8 +5,10 @@ import (
 	"time"
 
 	"github.com/gptscript-ai/go-gptscript"
+	"github.com/obot-platform/nah/pkg/backend"
 	"github.com/obot-platform/nah/pkg/router"
 	"github.com/obot-platform/nah/pkg/untriggered"
+	"github.com/obot-platform/obot/pkg/controller/handlers/inactive"
 	"github.com/obot-platform/obot/pkg/invoke"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -16,10 +18,14 @@ import (
 
 type Handler struct {
 	invoker *invoke.Invoker
+	backend backend.Backend
 }
 
-func New(invoker *invoke.Invoker) *Handler {
-	return &Handler{invoker: invoker}
+func New(invoker *invoke.Invoker, backend backend.Backend) *Handler {
+	return &Handler{
+		invoker: invoker,
+		backend: backend,
+	}
 }
 
 func (*Handler) DeleteRunState(req router.Request, _ router.Response) error {
@@ -77,5 +83,19 @@ func (h *Handler) DeleteFinished(req router.Request, _ router.Response) error {
 		// These will be system tasks. Everything is a chat and finished with Continue status
 		return req.Delete(run)
 	}
+	return nil
+}
+
+func (h *Handler) MarkInactive(req router.Request, _ router.Response) error {
+	run := req.Object.(*v1.Run)
+	if run.DeletionTimestamp.IsZero() && run.Status.State == gptscript.Continue && run.Labels[v1.LabelInactive] != "true" {
+		v1.SetInactive(run)
+		if err := req.Client.Update(req.Ctx, run); err != nil {
+			return err
+		}
+
+		return inactive.RemoveFromCache(req.Ctx, h.backend, run)
+	}
+
 	return nil
 }
