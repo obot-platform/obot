@@ -24,6 +24,7 @@ const scopes = [
 	"meeting:write:meeting",
 	"meeting:read:list_meetings",
 	"meeting:read:past_meeting",
+	"meeting:read:list_past_instances",
 	"cloud_recording:read:list_recording_files",
 	"cloud_recording:read:list_user_recordings",
 ];
@@ -39,7 +40,7 @@ const steps: OAuthFormStep<z.infer<typeof schema>>[] = [
 			"- When asked `What kind of app are you creating?` in the pop-up window, select **General App** and click **Create**.\n" +
 			"- Now You should be redirected to the **App Basic Information** page.\n" +
 			"- In the **Select how the app is managed** section, make sure it is set to **User-managed**.\n" +
-			"- Scroll down to the **Oauth Information** section, copy the url below and paste it into the **OAuth Redirect URL** field.\n",
+			"- Scroll down to the **Oauth Information** section, copy the url below and paste it into both the **OAuth Redirect URL** field and the **OAuth Allow Lists** field.\n",
 	},
 	{
 		type: "copy",
