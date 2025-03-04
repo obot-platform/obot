@@ -712,7 +712,9 @@ func (t *TaskHandler) CreateFromScope(req api.Context) error {
 
 func ToWorkflowManifest(manifest types.TaskManifest) types.WorkflowManifest {
 	return types.WorkflowManifest{
-		Steps: toWorkflowSteps(manifest.Steps),
+		Name:        manifest.Name,
+		Description: manifest.Description,
+		Steps:       toWorkflowSteps(manifest.Steps),
 	}
 }
 
@@ -902,7 +904,9 @@ func ConvertTaskManifest(manifest *types.WorkflowManifest) types.TaskManifest {
 		return types.TaskManifest{}
 	}
 	return types.TaskManifest{
-		Steps: toTaskSteps(manifest.Steps),
+		Name:        manifest.Name,
+		Description: manifest.Description,
+		Steps:       toTaskSteps(manifest.Steps),
 	}
 }
 

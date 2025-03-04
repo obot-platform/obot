@@ -5140,6 +5140,18 @@ func schema_obot_platform_obot_apiclient_types_WorkflowManifest(ref common.Refer
 							Format:  "",
 						},
 					},
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"description": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
 				},
 				Required: []string{"alias", "steps", "output"},
 			},

@@ -10,7 +10,6 @@
 	import { newTool } from '$lib/components/tool/Tool.svelte';
 	import Menu from '$lib/components/navbar/Menu.svelte';
 	import { PenBox } from 'lucide-svelte';
-	import { isCapabilityTool } from '$lib/model/tools';
 	import type { EditorItem } from '$lib/services/editor/index.svelte';
 	import { getLayout } from '$lib/context/layout.svelte';
 
@@ -50,7 +49,7 @@
 	{#snippet body()}
 		<ul class="space-y-4 py-6 text-sm">
 			{#each tools as tool, i}
-				{#if !isCapabilityTool(tool.id)}
+				{#if !tool.builtin}
 					<li>
 						<div class="flex">
 							{#if tool.icon}
