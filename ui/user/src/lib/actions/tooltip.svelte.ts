@@ -3,32 +3,41 @@ import { tick } from 'svelte';
 import type { Action } from 'svelte/action';
 
 export type TooltipActionOptions = {
-	disabled?: boolean;
-	anchor?: HTMLElement;
+	disabled?: () => boolean;
 	placement?: Placement;
 	offset?: number;
 	delay?: number;
 };
 
-export const tooltip: Action<HTMLElement, TooltipActionOptions> = (node, options) => {
-	node.classList.add('hidden', 'absolute', 'transition-opacity', 'duration-300', 'opacity-0');
+export const createTooltip = (opts?: TooltipActionOptions) => {
+	let anchorRef = $state<HTMLElement | null>(null);
+	let contentRef = $state<HTMLElement | null>(null);
 
-	const hasZIndex = Array.from(node.classList).some((className) => className.startsWith('z-'));
-
-	if (!hasZIndex) {
-		node.classList.add('z-30');
-	}
+	const options = $state<TooltipActionOptions>({
+		placement: 'top',
+		offset: 2,
+		delay: 0,
+		...opts
+	});
 
 	$effect(() => {
-		const anchorEl = options.anchor;
+		contentRef?.classList.add(
+			'hidden',
+			'absolute',
+			'transition-opacity',
+			'duration-300',
+			'opacity-0'
+		);
+	});
 
-		if (!anchorEl) return;
+	const build = () => {
+		if (!anchorRef || !contentRef) return;
 
 		let close: (() => void) | undefined;
 		let timeout: number;
 
 		const handleOpen = () => {
-			if (!anchorEl || options.disabled) return;
+			if (!anchorRef || !contentRef || options.disabled?.()) return;
 
 			timeout = setTimeout(() => {
 				close = showTooltip();
@@ -40,51 +49,72 @@ export const tooltip: Action<HTMLElement, TooltipActionOptions> = (node, options
 			close?.();
 		};
 
-		anchorEl.addEventListener('mouseenter', handleOpen);
-		anchorEl.addEventListener('mouseleave', handleClose);
+		anchorRef.addEventListener('mouseenter', handleOpen);
+		anchorRef.addEventListener('mouseleave', handleClose);
 
 		return () => {
-			anchorEl.removeEventListener('mouseenter', handleOpen);
-			anchorEl.removeEventListener('mouseleave', handleClose);
+			anchorRef?.removeEventListener('mouseenter', handleOpen);
+			anchorRef?.removeEventListener('mouseleave', handleClose);
 			handleClose();
 		};
-	});
-
-	return {
-		update(newOpts) {
-			options = { ...options, ...newOpts };
-		}
 	};
 
+	const anchor: Action<HTMLElement> = (node) => {
+		anchorRef = node;
+
+		const cleanup = build();
+
+		return {
+			destroy() {
+				cleanup?.();
+				anchorRef = null;
+			}
+		};
+	};
+
+	const content: Action<HTMLElement> = (node) => {
+		contentRef = node;
+		const cleanup = build();
+
+		return {
+			destroy() {
+				cleanup?.();
+				contentRef = null;
+			}
+		};
+	};
+
+	return { anchor, content };
+
 	async function updatePosition() {
-		if (!options.anchor) return;
+		if (!anchorRef || !contentRef) return;
 
 		const offsetVal = options.offset ?? 2;
 
-		const { x, y } = await computePosition(options.anchor, node, {
+		const { x, y } = await computePosition(anchorRef, contentRef, {
 			placement: options.placement,
 			middleware: [flip(), shift({ padding: offsetVal }), offset(offsetVal)]
 		});
 
-		Object.assign(node.style, {
+		Object.assign(contentRef.style, {
 			left: `${x}px`,
 			top: `${y}px`
 		});
 	}
 
 	function showTooltip() {
-		if (!options.anchor) return;
+		if (!anchorRef || !contentRef) return;
 
-		node.classList.remove('hidden');
+		contentRef.classList.remove('hidden');
 		tick().then(() => {
-			node.classList.remove('opacity-0');
+			contentRef?.classList.remove('opacity-0');
 		});
 		updatePosition();
-		const close = autoUpdate(options.anchor, node, updatePosition);
+		const close = autoUpdate(anchorRef, contentRef, updatePosition);
 
 		return () => {
 			close();
-			node.classList.add('hidden', 'opacity-0');
+			contentRef?.classList.add('hidden', 'opacity-0');
 		};
 	}
 };
