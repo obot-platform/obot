@@ -6,6 +6,7 @@
 	import Menu from '$lib/components/navbar/Menu.svelte';
 	import type { EditorItem } from '$lib/services/editor/index.svelte';
 	import { getLayout } from '$lib/context/layout.svelte';
+	import Truncate from '$lib/components/shared/tooltip/Truncate.svelte';
 
 	interface Props {
 		project: Project;
@@ -65,16 +66,16 @@
 									menu?.toggle(false);
 								}}
 							>
-								<CheckSquare class="h-5 w-5" />
-								<span class="ms-3">{task.name}</span>
+								<CheckSquare class="size-5 min-w-fit" />
+								<Truncate class="ms-2 group-hover:underline" text={task.name ?? ''} />
 							</button>
 							<button
-								class="hidden group-hover:block"
+								class="invisible group-hover:visible"
 								onclick={() => {
 									taskToDelete = task;
 								}}
 							>
-								<Trash class="h-5 w-5 text-gray-400" />
+								<Trash class="size-5 text-gray-400" />
 							</button>
 						</div>
 					</li>

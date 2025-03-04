@@ -2,9 +2,9 @@
 	import { ChatService, EditorService, type Project, type TableList } from '$lib/services';
 	import Menu from '$lib/components/navbar/Menu.svelte';
 	import { Table } from 'lucide-svelte';
-	import { popover } from '$lib/actions';
 	import type { EditorItem } from '$lib/services/editor/index.svelte';
 	import { getLayout } from '$lib/context/layout.svelte';
+	import Truncate from '$lib/components/shared/tooltip/Truncate.svelte';
 
 	interface Props {
 		project: Project;
@@ -16,7 +16,7 @@
 	}
 
 	let { project, items = $bindable() }: Props = $props();
-	let { tooltip, ref } = popover({ placement: 'top-start', offset: 10, hover: true });
+
 	let menu: ReturnType<typeof Menu>;
 	let tables: TableList | undefined = $state();
 	const layout = getLayout();
@@ -49,17 +49,8 @@
 									menu?.toggle(false);
 								}}
 							>
-								<Table class="h-5 w-5" />
-								<span class="ms-3" use:ref>
-									{table.name.length > 25 ? table.name.slice(0, 25) + '...' : table.name}
-								</span>
-
-								<p
-									use:tooltip
-									class="max-w-md break-words rounded-xl bg-blue-500 p-2 text-white dark:text-black"
-								>
-									{table.name}
-								</p>
+								<Table class="h-5 w-5 min-w-fit" />
+								<Truncate class="ms-2 group-hover:underline" text={table.name} />
 							</button>
 						</div>
 					</li>
