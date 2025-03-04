@@ -116,11 +116,11 @@
 	function citationDisplayURL(url: string) {
 		if (url.startsWith(citationKnowledgePrefix)) {
 			// return only the last path element (file name)
-			return url.split('::').pop() ?? url;
+			return decodeURIComponent(url.split('::').pop() ?? url);
 		}
 
 		// remove the protocol and www.
-		const res = url.replace(/^(.+:\/\/)?(www\.)?/, '');
+		const res = decodeURIComponent(url).replace(/^(.+:\/\/)?(www\.)?/, '');
 		return res.length > 25 ? res.slice(0, 25) + '...' : res;
 	}
 
@@ -188,8 +188,7 @@
 
 {#snippet files()}
 	{#if msg.file?.filename}
-		<div
-			role="none"
+		<button
 			class="m-5 flex cursor-pointer flex-col
 		 divide-y divide-gray-300
 		 rounded-3xl border
@@ -197,16 +196,17 @@
 		 text-black shadow-lg
 		   dark:bg-black
 		    dark:text-gray-50"
+			onclick={fileLoad}
 		>
-			<div class="flex px-5 py-4">
-				<button onclick={fileLoad} class="flex grow justify-start gap-2">
+			<div class="flex px-5 py-4 gap-2">
+				<div class="flex grow justify-start gap-2">
 					<FileText />
 					<span>{msg.file.filename}</span>
-				</button>
-				<button onclick={fileLoad}>
+				</div>
+				<div>
 					<Pencil />
 					<span class="sr-only">Open</span>
-				</button>
+				</div>
 			</div>
 			<div class="relative">
 				<div class="whitespace-pre-wrap p-5 font-body text-gray-700 dark:text-gray-300">
@@ -216,7 +216,7 @@
 					class="absolute bottom-0 z-20 h-24 w-full rounded-3xl bg-gradient-to-b from-transparent to-white dark:to-black"
 				></div>
 			</div>
-		</div>
+		</button>
 	{/if}
 {/snippet}
 
