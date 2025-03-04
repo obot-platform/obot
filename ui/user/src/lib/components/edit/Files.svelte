@@ -10,6 +10,7 @@
 	import CollapsePane from '$lib/components/edit/CollapsePane.svelte';
 	import type { EditorItem } from '$lib/services/editor/index.svelte';
 	import { getLayout } from '$lib/context/layout.svelte';
+	import Truncate from '../shared/tooltip/Truncate.svelte';
 
 	interface Props {
 		project: Project;
@@ -76,13 +77,11 @@
 							}}
 						>
 							{#if isImage(file.name)}
-								<Image class="h-5 w-5" />
+								<Image class="size-5 min-w-fit" />
 							{:else}
-								<FileText class="h-5 w-5" />
+								<FileText class="size-5 min-w-fit" />
 							{/if}
-							<span class="ms-3"
-								>{file.name.length > 25 ? file.name.slice(0, 25) + '...' : file.name}</span
-							>
+							<Truncate class="ms-2 group-hover:underline" text={file.name} />
 						</button>
 						<button
 							class="ms-2 hidden group-hover:block"

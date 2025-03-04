@@ -42,14 +42,14 @@
 					<li class="group">
 						<div class="flex">
 							<button
-								class="flex flex-1 items-center"
+								class="flex max-w-full flex-1 items-center"
 								onclick={async () => {
 									await EditorService.load(items, project, 'table://' + table.name);
 									layout.fileEditorOpen = true;
 									menu?.toggle(false);
 								}}
 							>
-								<Table class="h-5 w-5 min-w-fit" />
+								<Table class="size-5 min-w-fit" />
 								<Truncate class="ms-2 group-hover:underline" text={table.name} />
 							</button>
 						</div>
