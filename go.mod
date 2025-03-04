@@ -3,6 +3,7 @@ module github.com/obot-platform/obot
 go 1.24.0
 
 replace (
+	github.com/obot-platform/nah => github.com/thedadams/nah v0.0.0-20250304005118-f2cfb1983bf3
 	github.com/obot-platform/obot/apiclient => ./apiclient
 	github.com/obot-platform/obot/logger => ./logger
 )

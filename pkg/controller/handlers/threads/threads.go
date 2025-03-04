@@ -2,18 +2,21 @@ package threads
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/gptscript-ai/go-gptscript"
 	"github.com/obot-platform/nah/pkg/name"
 	"github.com/obot-platform/nah/pkg/randomtoken"
 	"github.com/obot-platform/nah/pkg/router"
+	"github.com/obot-platform/nah/pkg/untriggered"
 	"github.com/obot-platform/obot/pkg/api/handlers"
 	"github.com/obot-platform/obot/pkg/create"
 	"github.com/obot-platform/obot/pkg/projects"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/fields"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -265,4 +268,24 @@ func (t *Handler) CleanupEphemeralThreads(req router.Request, _ router.Response)
 	}
 
 	return kclient.IgnoreNotFound(req.Delete(thread))
+}
+
+func (t *Handler) ActivateRuns(req router.Request, _ router.Response) error {
+	var runs v1.RunList
+	// This must be uncached since inactive things aren't in the cache.
+	if err := req.List(untriggered.UncachedList(&runs), &kclient.ListOptions{
+		Namespace:     req.Namespace,
+		FieldSelector: fields.SelectorFromSet(map[string]string{"spec.threadName": req.Object.GetName()}),
+	}); err != nil {
+		return fmt.Errorf("failed to list runs for thread %s: %w", req.Object.GetName(), err)
+	}
+
+	for _, run := range runs.Items {
+		v1.SetActive(&run)
+		if err := req.Client.Update(req.Ctx, &run); err != nil {
+			return fmt.Errorf("failed to update run %q to active: %w", run.Name, err)
+		}
+	}
+
+	return nil
 }

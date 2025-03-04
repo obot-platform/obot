@@ -460,8 +460,6 @@ github.com/oasdiff/yaml3 v0.0.0-20241210130736-a94c01f36349 h1:t05Ww3DxZutOqbMN+
 github.com/oasdiff/yaml3 v0.0.0-20241210130736-a94c01f36349/go.mod h1:y5+oSEHCPT/DGrS++Wc/479ERge0zTFxaF8PbGKcg2o=
 github.com/obot-platform/kinm v0.0.0-20250116162656-270198b40c6d h1:GzMvRkssr4jAa2YvQiv9eXhjuNpaZVab3GajE7+cQ3s=
 github.com/obot-platform/kinm v0.0.0-20250116162656-270198b40c6d/go.mod h1:RzrH0geIlbiTHDGZ8bpCk5k1hwdU9uu3l4zJn9n0pZU=
-github.com/obot-platform/nah v0.0.0-20250227230402-c8ac47e1add7 h1:IuG8TZqqxz5P1ZHj2aCxEEn6LGgHXeUVhkG/ELh2a8U=
-github.com/obot-platform/nah v0.0.0-20250227230402-c8ac47e1add7/go.mod h1:KG1jLO9FeYvCPGI0iDqe5oqDqOFLd3/dt/iwuMianmI=
 github.com/obot-platform/namegenerator v0.0.0-20241217121223-fc58bdb7dca2 h1:jiyBM/TYxU6UNVS9ff8Y8n55DOKDYohKkIZjfHpjfTY=
 github.com/obot-platform/namegenerator v0.0.0-20241217121223-fc58bdb7dca2/go.mod h1:isbKX6EfvvG/ojjFB2ZLyz27+2xoG3yRmpTSE+ytWEs=
 github.com/olekukonko/tablewriter v0.0.6-0.20230925090304-df64c4bbad77 h1:3bMMZ1f+GPXFQ1uNaYbO/uECWvSfqEA+ZEXn1rFAT88=
@@ -566,6 +564,8 @@ github.com/stretchr/testify v1.8.0/go.mod h1:yNjHg4UonilssWZ8iaSj1OCr/vHnekPRkoO
 github.com/stretchr/testify v1.8.1/go.mod h1:w2LPCIKwWwSfY2zedu0+kehJoqGctiVI29o6fzry7u4=
 github.com/stretchr/testify v1.10.0 h1:Xv5erBjTwe/5IxqUQTdXv5kgmIvbHo3QQyRwhJsOfJA=
 github.com/stretchr/testify v1.10.0/go.mod h1:r2ic/lqez/lEtzL7wO/rwa5dbSLXVDPFyf8C91i36aY=
+github.com/thedadams/nah v0.0.0-20250304005118-f2cfb1983bf3 h1:64jgQ1SwFDprEr/t1m1qovXlBFyqlizK6m6A585v1vs=
+github.com/thedadams/nah v0.0.0-20250304005118-f2cfb1983bf3/go.mod h1:be9DBO6pFx4yiKs9bm4GcuZgGX4OVpeRJclA9ojxzmo=
 github.com/therootcompany/xz v1.0.1 h1:CmOtsn1CbtmyYiusbfmhmkpAAETj0wBIH6kCYaX+xzw=
 github.com/therootcompany/xz v1.0.1/go.mod h1:3K3UH1yCKgBneZYhuQUvJ9HPD19UEXEI0BWbMn8qNMY=
 github.com/tidwall/gjson v1.18.0 h1:FIDeeyB800efLX89e5a8Y0BNH+LOngJyGrIWxG2FKQY=
