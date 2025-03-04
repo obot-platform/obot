@@ -190,8 +190,8 @@ export function AgentIcon({ icons, onChange, name }: AgentIconProps) {
 						key={icon}
 						onClick={() => {
 							onChange({
-								icon: generateIconUrl(icon, false, colors[colorIndex].name),
-								iconDark: generateIconUrl(icon, true, colors[colorIndex].name),
+								icon: generateIconUrl(icon, false, colors[colorIndex]?.name),
+								iconDark: generateIconUrl(icon, true, colors[colorIndex]?.name),
 								collapsed: "",
 								collapsedDark: "",
 							});
