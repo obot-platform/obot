@@ -92,6 +92,7 @@ export function AgentIcon({ icons, onChange, name }: AgentIconProps) {
 	const obotIconIndex = iconOptions.findIndex((option) =>
 		icon.includes(option)
 	);
+	const colorIndex = colors.findIndex((color) => icon.includes(color.name));
 
 	const handleLoadingStatusChange = (
 		status: "idle" | "loading" | "loaded" | "error"
@@ -189,8 +190,8 @@ export function AgentIcon({ icons, onChange, name }: AgentIconProps) {
 						key={icon}
 						onClick={() => {
 							onChange({
-								icon: generateIconUrl(icon),
-								iconDark: generateIconUrl(icon, true),
+								icon: generateIconUrl(icon, false, colors[colorIndex].name),
+								iconDark: generateIconUrl(icon, true, colors[colorIndex].name),
 								collapsed: "",
 								collapsedDark: "",
 							});
