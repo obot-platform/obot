@@ -198,7 +198,7 @@
 		    dark:text-gray-50"
 			onclick={fileLoad}
 		>
-			<div class="flex px-5 py-4 gap-2">
+			<div class="flex gap-2 px-5 py-4">
 				<div class="flex grow justify-start gap-2">
 					<FileText />
 					<span>{msg.file.filename}</span>
