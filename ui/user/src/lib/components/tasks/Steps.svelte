@@ -32,6 +32,7 @@
 	let stepMessages = new SvelteMap<string, Messages>();
 	let allMessages = $state<Messages>({ messages: [], inProgress: false });
 	let input = $state('');
+	let error = $state('');
 	let thread: Thread | undefined = $state<Thread>();
 	let pending = $derived(thread?.pending ?? false);
 	let running = $derived(allMessages.inProgress);
@@ -58,6 +59,7 @@
 				closeThread();
 			}
 		}
+		error = '';
 	}
 
 	function closeThread() {
@@ -90,6 +92,14 @@
 	}
 
 	async function click() {
+		error = '';
+
+		const hasAtLeastOneInstruction = task.steps.some((step) => (step.step ?? '').trim().length > 0);
+		if (!hasAtLeastOneInstruction) {
+			error = 'At least one instruction is required to run the task.';
+			return;
+		}
+
 		if (running || pending) {
 			return await ChatService.abort(project.assistantID, project.id, {
 				taskID: task.id,
@@ -103,6 +113,7 @@
 	}
 
 	async function run(step?: TaskStep, saveSteps?: TaskStep[]) {
+		error = '';
 		if (!thread || !task.id) {
 			return;
 		}
@@ -161,6 +172,10 @@
 			{/key}
 		{/if}
 	</ol>
+
+	{#if error}
+		<div class="mt-2 text-red-500">{error}</div>
+	{/if}
 </div>
 
 {#if selectedRun}
