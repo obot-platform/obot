@@ -2,6 +2,7 @@ package v1
 
 import (
 	"slices"
+	"strconv"
 
 	gptscriptclient "github.com/gptscript-ai/go-gptscript"
 	"github.com/obot-platform/obot/apiclient/types"
@@ -22,19 +23,18 @@ func (in *Thread) Has(field string) (exists bool) {
 	return slices.Contains(in.FieldNames(), field)
 }
 
-func (in *Thread) Get(field string) (value string) {
-	switch field {
-	case "spec.agentName":
-		return in.Spec.AgentName
-	case "spec.userUID":
-		return in.Spec.UserUID
-	case "spec.project":
-		if in.Spec.Project {
-			return "true"
+func (in *Thread) Get(field string) string {
+	if in != nil {
+		switch field {
+		case "spec.agentName":
+			return in.Spec.AgentName
+		case "spec.userUID":
+			return in.Spec.UserUID
+		case "spec.project":
+			return strconv.FormatBool(in.Spec.Project)
+		case "spec.parentThreadName":
+			return in.Spec.ParentThreadName
 		}
-		return "false"
-	case "spec.parentThreadName":
-		return in.Spec.ParentThreadName
 	}
 	return ""
 }
