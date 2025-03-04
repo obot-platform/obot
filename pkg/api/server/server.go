@@ -69,6 +69,17 @@ func (s *Server) wrap(f api.HandlerFunc) http.HandlerFunc {
 		}
 
 		if !s.authorizer.Authorize(req, user) {
+			if _, err := req.Cookie("obot_access_token"); err == nil && req.URL.Path == "/api/me" {
+				// Tell the browser to delete the obot_access_token cookie.
+				// If the user tried to access this path and was unauthorized, then something is wrong with their token.
+				http.SetCookie(rw, &http.Cookie{
+					Name:   "obot_access_token",
+					Value:  "",
+					Path:   "/",
+					MaxAge: -1,
+				})
+			}
+
 			http.Error(rw, "forbidden", http.StatusForbidden)
 			return
 		}

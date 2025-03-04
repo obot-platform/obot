@@ -11,13 +11,14 @@ import (
 )
 
 type User struct {
-	ID        uint        `json:"id" gorm:"primaryKey"`
-	CreatedAt time.Time   `json:"createdAt"`
-	Username  string      `json:"username" gorm:"unique"`
-	Email     string      `json:"email"`
-	Role      types2.Role `json:"role"`
-	IconURL   string      `json:"iconURL"`
-	Timezone  string      `json:"timezone"`
+	ID            uint        `json:"id" gorm:"primaryKey"`
+	CreatedAt     time.Time   `json:"createdAt"`
+	Username      string      `json:"username" gorm:"unique"`
+	Email         string      `json:"email"`
+	VerifiedEmail *bool       `json:"verifiedEmail,omitempty"`
+	Role          types2.Role `json:"role"`
+	IconURL       string      `json:"iconURL"`
+	Timezone      string      `json:"timezone"`
 }
 
 func ConvertUser(u *User, roleFixed bool, authProviderName string) *types2.User {
