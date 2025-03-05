@@ -39,9 +39,13 @@
 	let fileToDelete = $state<string | undefined>();
 	let menu = $state<ReturnType<typeof Menu>>();
 	let fileList = $state<FileList>();
-	let apiOpts = $derived({
-		threadID: currentThreadID
-	});
+	let apiOpts = $derived(
+		thread
+			? {
+					threadID: currentThreadID
+				}
+			: {}
+	);
 
 	let uploadInProgress = $state<Promise<Files>>();
 

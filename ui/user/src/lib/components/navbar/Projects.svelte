@@ -40,7 +40,12 @@
 </button>
 
 {#if !layout.projectEditorOpen}
-	<div use:tooltip class="flex min-w-[250px] flex-col rounded-3xl bg-surface1 p-2">
+	<div
+		use:tooltip
+		class="flex min-w-[250px] flex-col rounded-3xl bg-surface1 p-2"
+		role="none"
+		onclick={() => toggle(false)}
+	>
 		{#each projects as p}
 			<a
 				href="/o/{p.id}"

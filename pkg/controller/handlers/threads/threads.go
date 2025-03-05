@@ -212,6 +212,7 @@ func (t *Handler) CreateKnowledgeSet(req router.Request, _ router.Response) erro
 	var relatedKnowledgeSets []string
 	var parentThreadName = thread.Spec.ParentThreadName
 
+	// Grab parents first so we have the list for the "related knowledge sets" if we need to create a new one
 	for parentThreadName != "" {
 		var parentThread v1.Thread
 		if err := req.Client.Get(req.Ctx, kclient.ObjectKey{Namespace: thread.Namespace, Name: parentThreadName}, &parentThread); err != nil {
@@ -241,7 +242,7 @@ func (t *Handler) CreateKnowledgeSet(req router.Request, _ router.Response) erro
 		}
 	}
 
-	relatedKnowledgeSets = append(relatedKnowledgeSets, thread.Status.SharedKnowledgeSetName)
+	relatedKnowledgeSets = append([]string{thread.Status.SharedKnowledgeSetName}, relatedKnowledgeSets...)
 	thread.Status.KnowledgeSetNames = relatedKnowledgeSets
 	return req.Client.Status().Update(req.Ctx, thread)
 }

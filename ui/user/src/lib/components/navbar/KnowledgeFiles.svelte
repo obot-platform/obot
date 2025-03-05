@@ -12,22 +12,32 @@
 
 	interface Props {
 		project: Project;
+		currentThreadID?: string;
 	}
 
-	let { project }: Props = $props();
+	let { project, currentThreadID }: Props = $props();
 	let knowledgeFiles = $state<KnowledgeFileType[]>([]);
 
 	async function loadFiles() {
-		knowledgeFiles = (await ChatService.listKnowledgeFiles(project.assistantID, project.id)).items;
+		if (!currentThreadID) {
+			return;
+		}
+		knowledgeFiles = (
+			await ChatService.listKnowledgeFiles(project.assistantID, project.id, {
+				threadID: currentThreadID
+			})
+		).items;
 	}
 
 	let fileToDelete = $state<string>();
 
 	async function deleteFile() {
-		if (!fileToDelete) {
+		if (!fileToDelete || !currentThreadID) {
 			return;
 		}
-		await ChatService.deleteKnowledgeFile(project.assistantID, project.id, fileToDelete);
+		await ChatService.deleteKnowledgeFile(project.assistantID, project.id, fileToDelete, {
+			threadID: currentThreadID
+		});
 		await loadFiles();
 		fileToDelete = undefined;
 	}
@@ -56,7 +66,7 @@
 				{/each}
 			</ul>
 		{/if}
-		<KnowledgeUpload onUpload={loadFiles} {project} />
+		<KnowledgeUpload onUpload={loadFiles} {project} thread {currentThreadID} />
 	{/snippet}
 </Menu>
 

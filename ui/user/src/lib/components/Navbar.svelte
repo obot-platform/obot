@@ -2,7 +2,7 @@
 	import DarkModeToggle from '$lib/components/navbar/DarkModeToggle.svelte';
 	import Profile from '$lib/components/navbar/Profile.svelte';
 	import Files from '$lib/components/edit/Files.svelte';
-	import KnowledgeFile from '$lib/components/navbar/KnowledgeFiles.svelte';
+	import KnowledgeFiles from '$lib/components/navbar/KnowledgeFiles.svelte';
 	import Tasks from '$lib/components/navbar/Tasks.svelte';
 	import Tables from '$lib/components/navbar/Tables.svelte';
 	import Term from '$lib/components/navbar/Term.svelte';
@@ -40,10 +40,10 @@
 			{#if hasTool(tools, 'database')}
 				<Tables {project} {items} />
 			{/if}
-			{#if !hasTool(tools, 'projects') && hasTool(tools, 'knowledge')}
-				<KnowledgeFile {project} />
+			{#if hasTool(tools, 'knowledge') && currentThreadID}
+				<KnowledgeFiles {project} {currentThreadID} />
 			{/if}
-			{#if hasTool(tools, 'workspace-files')}
+			{#if hasTool(tools, 'workspace-files') && currentThreadID}
 				<Files {project} thread {currentThreadID} {items} />
 			{/if}
 			{#if hasTool(tools, 'shell')}

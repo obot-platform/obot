@@ -61,9 +61,16 @@ export async function listAssistants(opts?: { fetch?: Fetcher }): Promise<Assist
 export async function deleteKnowledgeFile(
 	assistantID: string,
 	projectID: string,
-	filename: string
+	filename: string,
+	opts?: {
+		threadID?: string;
+	}
 ) {
-	return doDelete(`/assistants/${assistantID}/projects/${projectID}/knowledge/${filename}`);
+	let url = `/assistants/${assistantID}/projects/${projectID}/knowledge/${filename}`;
+	if (opts?.threadID) {
+		url = `/assistants/${assistantID}/projects/${projectID}/threads/${opts.threadID}/knowledge-files/${filename}`;
+	}
+	return doDelete(url);
 }
 
 export async function deleteFile(
@@ -200,12 +207,16 @@ export async function getFile(
 export async function uploadKnowledge(
 	assistantID: string,
 	projectID: string,
-	file: File
+	file: File,
+	opts?: {
+		threadID?: string;
+	}
 ): Promise<KnowledgeFile> {
-	return (await doPost(
-		`/assistants/${assistantID}/projects/${projectID}/knowledge/${file.name}`,
-		file
-	)) as KnowledgeFile;
+	let url = `/assistants/${assistantID}/projects/${projectID}/knowledge/${file.name}`;
+	if (opts?.threadID) {
+		url = `/assistants/${assistantID}/projects/${projectID}/threads/${opts.threadID}/knowledge-files/${file.name}`;
+	}
+	return (await doPost(url, file)) as KnowledgeFile;
 }
 
 interface DeletedItems<T extends Deleted> {
@@ -223,11 +234,16 @@ function removedDeleted<V extends Deleted, T extends DeletedItems<V>>(items: T):
 
 export async function listKnowledgeFiles(
 	assistantID: string,
-	projectID: string
+	projectID: string,
+	opts?: {
+		threadID?: string;
+	}
 ): Promise<KnowledgeFiles> {
-	const files = (await doGet(
-		`/assistants/${assistantID}/projects/${projectID}/knowledge`
-	)) as KnowledgeFiles;
+	let url = `/assistants/${assistantID}/projects/${projectID}/knowledge`;
+	if (opts?.threadID) {
+		url = `/assistants/${assistantID}/projects/${projectID}/threads/${opts.threadID}/knowledge-files`;
+	}
+	const files = (await doGet(url)) as KnowledgeFiles;
 	if (!files.items) {
 		files.items = [];
 	}

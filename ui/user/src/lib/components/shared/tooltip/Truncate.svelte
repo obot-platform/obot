@@ -33,7 +33,7 @@
 <p
 	use:tooltip.content
 	class={[
-		'max-w-md break-words rounded-lg bg-blue-500 px-2 py-1 text-sm text-white dark:text-black',
+		'max-w-md break-words rounded-lg bg-blue px-2 py-1 text-sm text-white dark:text-black',
 		classes.tooltip
 	]}
 >

@@ -199,11 +199,11 @@ func (a *ThreadHandler) Knowledge(req api.Context) error {
 		return err
 	}
 
-	if len(thread.Status.KnowledgeSetNames) == 0 {
+	if thread.Status.SharedKnowledgeSetName == "" {
 		return req.Write(types.KnowledgeFileList{Items: []types.KnowledgeFile{}})
 	}
 
-	return listKnowledgeFiles(req, "", thread.Name, thread.Status.KnowledgeSetNames[0], nil)
+	return listKnowledgeFiles(req, "", thread.Name, thread.Status.SharedKnowledgeSetName, nil)
 }
 
 func (a *ThreadHandler) GetKnowledgeFile(req api.Context) error {
@@ -228,16 +228,16 @@ func (a *ThreadHandler) UploadKnowledge(req api.Context) error {
 		return err
 	}
 
-	if len(thread.Status.KnowledgeSetNames) == 0 {
+	if thread.Status.SharedKnowledgeSetName == "" {
 		return types.NewErrHTTP(http.StatusTooEarly, "knowledge set is not available yet")
 	}
 
-	ws, err := getWorkspaceFromKnowledgeSet(req, thread.Status.KnowledgeSetNames[0])
+	ws, err := getWorkspaceFromKnowledgeSet(req, thread.Status.SharedKnowledgeSetName)
 	if err != nil {
 		return err
 	}
 
-	return uploadKnowledgeToWorkspace(req, a.gptscript, ws, "", thread.Name, thread.Status.KnowledgeSetNames[0])
+	return uploadKnowledgeToWorkspace(req, a.gptscript, ws, "", thread.Name, thread.Status.SharedKnowledgeSetName)
 }
 
 func (a *ThreadHandler) DeleteKnowledge(req api.Context) error {
@@ -250,11 +250,30 @@ func (a *ThreadHandler) DeleteKnowledge(req api.Context) error {
 		return err
 	}
 
-	if len(thread.Status.KnowledgeSetNames) == 0 {
+	if thread.Status.SharedKnowledgeSetName == "" {
 		return types.NewErrHTTP(http.StatusTooEarly, fmt.Sprintf("thread %q knowledge set is not created yet", thread.Name))
 	}
 
-	return deleteKnowledge(req, req.PathValue("file"), thread.Status.KnowledgeSetNames[0])
+	return deleteKnowledge(req, req.PathValue("file"), thread.Status.SharedKnowledgeSetName)
+}
+
+func getThreadDBWorkspaceID(req api.Context, thread v1.Thread) (string, error) {
+	if thread.IsUserThread() {
+		if err := req.Get(&thread, thread.Spec.ParentThreadName); err != nil {
+			return "", err
+		}
+	}
+
+	if thread.Status.LocalWorkspaceName == "" {
+		return "", nil
+	}
+
+	var ws v1.Workspace
+	if err := req.Get(&ws, thread.Status.LocalWorkspaceName); err != nil {
+		return "", err
+	}
+
+	return ws.Status.WorkspaceID, nil
 }
 
 func (a *ThreadHandler) Tables(req api.Context) error {
@@ -267,11 +286,16 @@ func (a *ThreadHandler) Tables(req api.Context) error {
 		return err
 	}
 
-	if thread.Status.WorkspaceID == "" {
+	wsID, err := getThreadDBWorkspaceID(req, thread)
+	if err != nil {
+		return err
+	}
+
+	if wsID == "" {
 		return req.Write(types.TableList{Items: []types.Table{}})
 	}
 
-	return listTablesInWorkspace(req, a.gptscript, thread.Status.WorkspaceID)
+	return listTablesInWorkspace(req, a.gptscript, wsID)
 }
 
 func (a *ThreadHandler) TableRows(req api.Context) error {
@@ -285,9 +309,14 @@ func (a *ThreadHandler) TableRows(req api.Context) error {
 		return err
 	}
 
-	if thread.Status.WorkspaceID == "" {
+	wsID, err := getThreadDBWorkspaceID(req, thread)
+	if err != nil {
+		return err
+	}
+
+	if wsID == "" {
 		return req.Write(types.TableRowList{Items: []types.TableRow{}})
 	}
 
-	return listTableRows(req, a.gptscript, thread.Status.WorkspaceID, tableName)
+	return listTableRows(req, a.gptscript, wsID, tableName)
 }

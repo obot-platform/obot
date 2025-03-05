@@ -8,15 +8,22 @@
 	interface Props {
 		onUpload?: () => void | Promise<void>;
 		project: Project;
+		thread?: boolean;
+		currentThreadID?: string;
 	}
 
-	let { onUpload, project }: Props = $props();
+	let { onUpload, project, thread, currentThreadID }: Props = $props();
 
 	let files = $state<FileList>();
 	let uploadInProgress = $state<Promise<KnowledgeFile>>();
 
 	function reloadFiles() {
-		ChatService.listKnowledgeFiles(project.assistantID, project.id).then((files) => {
+		if (thread && !currentThreadID) {
+			return;
+		}
+		ChatService.listKnowledgeFiles(project.assistantID, project.id, {
+			threadID: currentThreadID
+		}).then((files) => {
 			const pending = files.items.find(
 				(file) => file.state === 'pending' || file.state === 'ingesting'
 			);
@@ -31,7 +38,13 @@
 			return;
 		}
 
-		uploadInProgress = ChatService.uploadKnowledge(project.assistantID, project.id, files[0]);
+		if (thread && !currentThreadID) {
+			return;
+		}
+
+		uploadInProgress = ChatService.uploadKnowledge(project.assistantID, project.id, files[0], {
+			threadID: currentThreadID
+		});
 		uploadInProgress
 			.then(() => {
 				onUpload?.();

@@ -29,10 +29,7 @@
 		</button>
 
 		{#snippet content()}
-			<p
-				class="rounded-xl bg-blue-500 px-2 py-1 text-white dark:text-black"
-				class:bg-red-600={isError}
-			>
+			<p class="rounded-xl bg-blue px-2 py-1 text-white dark:text-black" class:bg-red-600={isError}>
 				{isError ? (file.error ?? 'Failed') : file.fileName}
 			</p>
 		{/snippet}
