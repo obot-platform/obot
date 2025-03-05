@@ -23,9 +23,14 @@
 	interface Props {
 		project: Project;
 		tools: AssistantTool[];
+		currentThreadID?: string;
 	}
 
-	let { project = $bindable(), tools = $bindable() }: Props = $props();
+	let {
+		project = $bindable(),
+		tools = $bindable(),
+		currentThreadID = $bindable()
+	}: Props = $props();
 
 	const layout = getLayout();
 	let projectSaved = '';
@@ -120,7 +125,7 @@
 				class="size-full overflow-clip rounded-2xl transition-all"
 				class:rounded-none={!layout.projectEditorOpen}
 			>
-				<Obot {project} {tools} />
+				<Obot {project} {tools} bind:currentThreadID />
 			</div>
 			<div class="absolute bottom-2 left-2 z-30 hidden md:flex">
 				<Settings />

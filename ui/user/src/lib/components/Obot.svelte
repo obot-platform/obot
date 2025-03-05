@@ -48,7 +48,7 @@
 
 	<div class="flex h-full grow flex-col">
 		<div style="height: 76px">
-			<Navbar {project} {currentThreadID} tools={tools ?? []} {version} {items} />
+			<Navbar {project} bind:currentThreadID tools={tools ?? []} {version} {items} />
 		</div>
 		<main id="main-content" class="flex" style="height: calc(100% - 76px)">
 			<div
@@ -56,7 +56,7 @@
 				id="main-input"
 				class="flex h-full {editorVisible ? 'w-2/5' : 'grow'}"
 			>
-				<Thread bind:id={currentThreadID} {project} {items} />
+				<Thread bind:id={currentThreadID} {project} bind:items />
 			</div>
 
 			{#if editorVisible}

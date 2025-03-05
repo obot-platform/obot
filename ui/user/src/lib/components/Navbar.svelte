@@ -23,14 +23,14 @@
 		currentThreadID?: string;
 	}
 
-	let { project, tools, currentThreadID, version, items }: Props = $props();
+	let { project, tools, currentThreadID = $bindable(), version, items }: Props = $props();
 </script>
 
 <nav class="w-full via-80%" in:fade|global>
 	<div class="bg-white p-3 dark:bg-black">
 		<div class="flex items-center justify-between">
 			{#if hasTool(tools, 'threads')}
-				<Threads />
+				<Threads bind:currentThreadID {project} />
 			{/if}
 			<Projects {project} />
 			<div class="grow"></div>

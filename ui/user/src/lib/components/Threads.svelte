@@ -21,12 +21,14 @@
 	let name = $state('');
 	let isOpen = $state(false);
 	let layout = getLayout();
+	let lastSeenThreadID = $state('');
 
 	function isCurrentThread(thread: Thread) {
 		return currentThreadID === thread.id;
 	}
 
 	function setCurrentThread(id: string) {
+		lastSeenThreadID = id;
 		currentThreadID = id;
 	}
 
@@ -54,7 +56,7 @@
 		editMode = false;
 	}
 
-	async function createThread() {
+	export async function createThread() {
 		const thread = await ChatService.createThread(project.assistantID, project.id);
 		threads.splice(0, 0, thread);
 		setCurrentThread(thread.id);
@@ -72,6 +74,9 @@
 		await ChatService.deleteThread(project.assistantID, project.id, id);
 		threads = threads.filter((thread) => thread.id !== id);
 		setCurrentThread(threads[0]?.id ?? '');
+		if (threads.length === 0) {
+			togglePanel();
+		}
 	}
 
 	function selectThread(id: string) {
@@ -82,8 +87,12 @@
 		focusChat();
 	}
 
-	async function open() {
+	async function reloadThread() {
 		threads = (await ChatService.listThreads(project.assistantID, project.id)).items;
+	}
+
+	async function open() {
+		await reloadThread();
 		togglePanel();
 	}
 
@@ -98,6 +107,22 @@
 	$effect(() => {
 		if (layout.threadsOpen && !isOpen) {
 			open();
+		}
+	});
+
+	$effect(() => {
+		if (currentThreadID) {
+			const thread = threads.find((t) => t.id === currentThreadID);
+			if (thread) {
+				name = thread.name;
+			}
+		}
+	});
+
+	$effect(() => {
+		if (currentThreadID && lastSeenThreadID !== currentThreadID) {
+			reloadThread();
+			setCurrentThread(currentThreadID);
 		}
 	});
 </script>

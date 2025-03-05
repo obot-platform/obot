@@ -5,7 +5,7 @@
 	import { Thread } from '$lib/services/chat/thread.svelte';
 	import { ChatService, EditorService, type Messages, type Project } from '$lib/services';
 	import { fade } from 'svelte/transition';
-	import { onDestroy, onMount } from 'svelte';
+	import { onDestroy } from 'svelte';
 	import { toHTMLFromMarkdown } from '$lib/markdown';
 	import type { EditorItem } from '$lib/services/editor/index.svelte';
 	import { getLayout } from '$lib/context/layout.svelte';
@@ -16,19 +16,14 @@
 		items: EditorItem[];
 	}
 
+	let { id = $bindable(), project, items = $bindable() }: Props = $props();
+
 	let container = $state<HTMLDivElement>();
-	let messages: Messages = $state({ messages: [], inProgress: false });
-	let thread: Thread | undefined = $state<Thread>();
+	let messages = $state<Messages>({ messages: [], inProgress: false });
+	let thread = $state<Thread>();
 	let messagesDiv = $state<HTMLDivElement>();
-	let { id = $bindable(), project, items }: Props = $props();
-
-	onMount(async () => {
-		if (!id) {
-			id = (await ChatService.createThread(project.assistantID, project.id)).id;
-		}
-	});
-
 	let scrollSmooth = $state(false);
+
 	$effect(() => {
 		const update = () => (scrollSmooth = true);
 		container?.addEventListener('scroll', update);
@@ -39,6 +34,7 @@
 	});
 
 	$effect(() => {
+		// Close and recreate thread if id changes
 		if (thread && thread.threadID !== id) {
 			thread?.close?.();
 			thread = undefined;
@@ -48,10 +44,31 @@
 			};
 		}
 
-		if (thread || !id) {
-			return;
+		if (id && !thread) {
+			constructThread();
 		}
+	});
 
+	let scrollControls = $state<StickToBottomControls>();
+
+	onDestroy(() => {
+		thread?.close?.();
+	});
+
+	const layout = getLayout();
+	function onLoadFile(filename: string) {
+		EditorService.load(items, project, filename);
+		layout.fileEditorOpen = true;
+	}
+
+	async function ensureThread() {
+		if (!id) {
+			id = (await ChatService.createThread(project.assistantID, project.id)).id;
+			await constructThread();
+		}
+	}
+
+	async function constructThread() {
 		const newThread = new Thread(project, {
 			threadID: id,
 			onError: () => {
@@ -68,18 +85,6 @@
 		};
 
 		thread = newThread;
-	});
-
-	let scrollControls = $state<StickToBottomControls>();
-
-	onDestroy(() => {
-		thread?.close?.();
-	});
-
-	const layout = getLayout();
-	function onLoadFile(filename: string) {
-		EditorService.load(items, project, filename);
-		layout.fileEditorOpen = true;
 	}
 
 	function onSendCredentials(id: string, credentials: Record<string, string>) {
@@ -138,20 +143,19 @@
 		<div
 			class="absolute inset-x-0 bottom-0 z-10 flex justify-center bg-gradient-to-t from-white px-3 pb-8 pt-10 dark:from-black"
 		>
-			{#if thread}
-				<Input
-					readonly={messages.inProgress}
-					pending={thread?.pending}
-					onAbort={async () => {
-						await thread?.abort();
-					}}
-					onSubmit={(i) => {
-						scrollControls?.stickToBottom();
-						thread?.invoke(i);
-					}}
-					bind:items
-				/>
-			{/if}
+			<Input
+				readonly={messages.inProgress}
+				pending={thread?.pending}
+				onAbort={async () => {
+					await thread?.abort();
+				}}
+				onSubmit={async (i) => {
+					await ensureThread();
+					scrollControls?.stickToBottom();
+					await thread?.invoke(i);
+				}}
+				bind:items
+			/>
 		</div>
 	</div>
 </div>

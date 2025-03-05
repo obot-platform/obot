@@ -9,6 +9,7 @@
 	import { formatTime } from '$lib/time';
 	import { popover } from '$lib/actions';
 	import { fly } from 'svelte/transition';
+	import { waitingOnModelMessage } from '$lib/services/chat/messages';
 
 	interface Props {
 		msg: Message;
@@ -42,7 +43,10 @@
 	let promptCredentials = $state<Record<string, string>>({});
 	let credentialsSubmitted = $state(false);
 
-	const shouldAnimate = !msg.done && !msg.toolCall && !msg.promptId && !msg.sent;
+	let waiting = $derived(msg.message?.[0] === waitingOnModelMessage);
+	let shouldAnimate = $derived(
+		!msg.done && !msg.toolCall && !msg.promptId && !msg.sent && !waiting
+	);
 	let cursor = new Tween(0);
 	let prevContent = $state('');
 	let animatedText = $derived(shouldAnimate ? content.slice(0, cursor.current) : content);

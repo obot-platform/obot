@@ -333,13 +333,15 @@ function newPromptAuthMessage(progress: Progress): Message {
 	};
 }
 
+export const waitingOnModelMessage = 'Thinking really hard...';
+
 function newWaitingOnModelMessage(progress: Progress): Message {
 	return {
 		runID: progress.runID || '',
 		time: new Date(progress.time),
 		icon: assistantIcon,
 		sourceName: 'Assistant',
-		message: ['Thinking really hard...']
+		message: [waitingOnModelMessage]
 	};
 }
 

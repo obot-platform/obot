@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { profile } from '$lib/stores';
+	import { page } from '$app/state';
 	import EditMode from '$lib/components/EditMode.svelte';
 	import { type PageProps } from './$types';
 	import { initLayout } from '$lib/context/layout.svelte';
@@ -8,6 +9,7 @@
 	let { data }: PageProps = $props();
 	let project = $state(data.project);
 	let tools = $state(data.tools);
+	let currentThreadID = $state<string | undefined>(page.state.currentThreadID);
 	let title = $derived(project?.name || 'Obot');
 
 	initLayout({});
@@ -17,6 +19,13 @@
 		if (data.project.id !== project.id) {
 			project = data.project;
 			tools = data.tools;
+		}
+	});
+
+	$effect(() => {
+		if (currentThreadID) {
+			// Update the URL to reflect the current thread
+			window.history.replaceState({}, '', `/o/${project.id}/t/${currentThreadID}`);
 		}
 	});
 
@@ -37,9 +46,9 @@
 <div class="h-svh">
 	{#key project.id}
 		{#if project.editor}
-			<EditMode bind:project bind:tools />
+			<EditMode bind:project bind:tools bind:currentThreadID />
 		{:else}
-			<Obot {project} {tools} />
+			<Obot {project} {tools} bind:currentThreadID />
 			<p>Project not found.</p>
 		{/if}
 	{/key}
