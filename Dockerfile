@@ -52,7 +52,7 @@ COPY gcp-encryption.yaml /
 COPY --chmod=0755 run.sh /bin/run.sh
 
 COPY --link --from=tools /app/obot-tools /obot-tools
-COPY --link --from=tools /bin/*-encryption-provider /bin/
+COPY --from=tools /bin/*-encryption-provider /bin/
 COPY --from=bin /app/bin/obot /bin/
 
 EXPOSE 22
@@ -66,4 +66,4 @@ ENV NAH_THREADINESS=100
 ENV TERM=vt100
 WORKDIR /data
 VOLUME /data
-ENTRYPOINT ["/bin/run.sh"]
+ENTRYPOINT ["run.sh"]

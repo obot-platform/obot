@@ -46,6 +46,7 @@ jobs:
         project: bbqjs4tj1g
         context: .
         push: true
+        pull: true
         platforms: linux/amd64,linux/arm64
         tags: |
           ghcr.io/${{ github.repository }}:${{ github.ref_name }}
@@ -57,6 +58,7 @@ jobs:
         project: bbqjs4tj1g
         context: .
         push: true
+        pull: true
         platforms: linux/amd64,linux/arm64
         tags: |
           ghcr.io/${{ github.repository }}-enterprise:${{ github.ref_name }}
