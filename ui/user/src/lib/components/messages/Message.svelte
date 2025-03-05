@@ -72,10 +72,8 @@
 	});
 
 	$effect(() => {
-		// this is a hack to make sure this effect is run after the content is updated
-		if (content.length == 0) {
-			return;
-		}
+		// this is a hack to ensure the effect is run each time animatedText updates
+		void animatedText;
 
 		const blocks = document.querySelectorAll('.message-content pre > code');
 		blocks.forEach((block) => {
@@ -143,6 +141,19 @@
 			return true;
 		});
 	}
+
+	let markdownText = $derived.by(() => {
+		let text = animatedText;
+
+		// Count the number of code tags in the text
+		const codeOpenTagCount = (text.match(/```/g) || []).length;
+		// If there's an odd number of code tags, add a closing code tag
+		if (codeOpenTagCount % 2 !== 0) {
+			text += '\n```\n';
+		}
+
+		return text + '\n<span data-end-indicator></span>';
+	});
 </script>
 
 {#snippet time()}
@@ -301,7 +312,7 @@
 		{@render explain()}
 	{:else}
 		<div class:loading-container={!msg.done || animating}>
-			{@html toHTMLFromMarkdown(animatedText + `<span data-end-indicator></span>`)}
+			{@html toHTMLFromMarkdown(markdownText)}
 		</div>
 	{/if}
 {/snippet}
