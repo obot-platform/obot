@@ -73,7 +73,7 @@
 
 	$effect(() => {
 		// this is a hack to ensure the effect is run each time animatedText updates
-		void animatedText;
+		void markdownText;
 
 		const blocks = document.querySelectorAll('.message-content pre > code');
 		blocks.forEach((block) => {
