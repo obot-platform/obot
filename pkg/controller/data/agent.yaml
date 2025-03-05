@@ -8,6 +8,7 @@ metadata:
 spec:
   manifest:
     name: Obot
+    default: true
     description: Default Assistant
     icons:
       icon: /user/images/obot-icon-blue.svg

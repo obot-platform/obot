@@ -66,4 +66,4 @@ ENV NAH_THREADINESS=100
 ENV TERM=vt100
 WORKDIR /data
 VOLUME /data
-ENTRYPOINT ["run.sh"]
+ENTRYPOINT ["/bin/run.sh"]
