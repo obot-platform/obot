@@ -44,6 +44,8 @@ func (in *Thread) Get(field string) string {
 		switch field {
 		case "spec.agentName":
 			return in.Spec.AgentName
+		case "spec.userUID":
+			return in.Spec.UserID
 		case "spec.project":
 			return strconv.FormatBool(in.Spec.Project)
 		case "spec.parentThreadName":
