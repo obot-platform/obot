@@ -10,6 +10,7 @@
 	import { popover } from '$lib/actions';
 	import { fly } from 'svelte/transition';
 	import { waitingOnModelMessage } from '$lib/services/chat/messages';
+	import Loading from '$lib/icons/Loading.svelte';
 
 	interface Props {
 		msg: Message;
@@ -77,7 +78,7 @@
 
 	$effect(() => {
 		// this is a hack to ensure the effect is run each time animatedText updates
-		void markdownText;
+		void animatedText;
 
 		const blocks = document.querySelectorAll('.message-content pre > code');
 		blocks.forEach((block) => {
@@ -145,19 +146,6 @@
 			return true;
 		});
 	}
-
-	let markdownText = $derived.by(() => {
-		let text = animatedText;
-
-		// Count the number of code tags in the text
-		const codeOpenTagCount = (text.match(/```/g) || []).length;
-		// If there's an odd number of code tags, add a closing code tag
-		if (codeOpenTagCount % 2 !== 0) {
-			text += '\n```\n';
-		}
-
-		return text + '\n<span data-end-indicator></span>';
-	});
 </script>
 
 {#snippet time()}
@@ -315,8 +303,14 @@
 		{/each}
 		{@render explain()}
 	{:else}
-		<div class:loading-container={!msg.done || animating}>
-			{@html toHTMLFromMarkdown(markdownText)}
+		<div>
+			{@html toHTMLFromMarkdown(animatedText)}
+
+			{#if !msg.done || animating}
+				<p class="flex items-center gap-2 text-sm text-gray-500">
+					<Loading /> Loading...
+				</p>
+			{/if}
 		</div>
 	{/if}
 {/snippet}
