@@ -97,7 +97,8 @@ func UnassignAlias(req router.Request, _ router.Response) error {
 
 	aliasable, ok := target.(v1.Aliasable)
 	if !ok {
-		return fmt.Errorf("object %s does not support aliasing, invalid alias %s", src.Spec.TargetKind, src.Name)
+		log.Infof("Object %s does not support aliasing, invalid alias %s", src.Spec.TargetKind, src.Name)
+		return req.Delete(src)
 	}
 
 	// First check happy path, because this is the fastest and most common
