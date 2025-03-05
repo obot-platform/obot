@@ -86,6 +86,33 @@ const steps: OAuthFormStep<z.infer<typeof schema>>[] = [
 		label: "Client Secret",
 		inputType: "password",
 	},
+	{
+		type: "markdown",
+		text:
+			"### (Optional): Set up Third-Party Calendar and Contacts Integration\n" +
+			"This step is optional, but it is **recommended** to set up the calendar and contacts integration for a more seamless experience.\n" +
+			"For example, this allows retreiving Zoom meetings that the user has been invited to from a third-party calendar (Google, Exchange, Office 365, Apple iCloud). [Reference](https://support.zoom.com/hc/en/article?id=zm_kb&sysparm_article=KB0068615)\n" +
+			"1. Sign in to the [**Zoom Web Portal**](https://zoom.us/signin)\n" +
+			"2. Click [**Profile**](https://zoom.us/profile) on the left sidebar\n" +
+			"3. Under **Others**, in the **Calendar and Contact Integration** section, click **Configure Calendar and Contacts Service**.\n" +
+			"4. Select the service you want to integrate with\n" +
+			"5. Select the [**permissions for the service**](https://support.zoom.com/hc/en/article?id=zm_kb&sysparm_article=KB0068615#h_315f3b9f-cad0-4f58-b61e-2038423120f0)\n" +
+			"6. Click **Next**\n" +
+			"7. Follow the on-screen instructions to grant Zoom access to the calendar/contacts service.\n" +
+			"	- **Google:** You will be directed to Google's sign-in page. Sign in to your Google account. Click **Allow** to let Zoom access your contacts and Google Calendar.\n" +
+			"	- **Office 365 (Outlook):**\n" +
+			"		- **Authorize with OAuth 2.0:** Ensure this option is checked. \n" +
+			"		- [**Choose your permissions.**](https://support.zoom.com/hc/en/article?id=zm_kb&sysparm_article=KB0068615#h_3a42993c-e620-42fe-8da6-a4ee0bdf2fcd) \n" +
+			"		- Configure the type of Office 365 service.\n\n" +
+			"		**Note:** If your Zoom calendar authentication has been disconnected or expired, this may result in issues with event synchronization between Zoom and your third-party calendar. To avoid disruptions, you can sign up for email notifications. These notifications will remind you to reauthorize your calendar and will be sent to the email address associated with your calendar integration. Click [here](https://go.zoom.us/profile/setting?amp_device_id=6ad31d8d-0d04-4abe-bbf0-7d30b889bb62&tab=zoomMailCalendar) to enable notifications and restore event synchronization.\n" +
+			"	- **Exchange:** \n\n" +
+			"	    **Note:** When [impersonation account is enabled](https://support.zoom.com/hc/en/article?id=zm_kb&sysparm_article=KB0069503#h_01G81WMCGAQEP899T3DKXGW82F), you do not have to enter a password for calendar and contact integration, and all your meetings created from the Zoom web portal or on Outlook are synced to the Zoom app or web portal.\n" +
+			"		- **Exchange login username or UPN:** Enter the username or UPN associated with your Exchange account.\n" +
+			"		- **Exchange login password:** Enter the password associated with Exchange account.\n" +
+			"		- **Exchange Version:** Select the version of Exchange. If you are uncertain of the Exchange Version, please contact your internal IT team for more information.\n" +
+			"		- **EWS URL:** Enter your organization's EWS URL. Contact your internal IT team if you do not know the EWS URL.\n" +
+			"\nAfter allowing access, you will be redirected back to the Zoom web portal, which will indicate the permissions for the calendar and contacts integration.\n",
+	},
 ];
 
 export const ZoomOAuthApp = {
