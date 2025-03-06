@@ -212,6 +212,19 @@ export interface AssistantToolList {
 	items: AssistantTool[];
 }
 
+export interface ToolReference {
+	id: string;
+	name: string;
+	metadata?: {
+		icon?: string;
+	};
+}
+
+export interface ToolReferenceList {
+	readonly?: boolean;
+	items: ToolReference[];
+}
+
 export interface Credential {
 	toolName: string;
 	icon: string;
@@ -303,6 +316,7 @@ export interface Project {
 	introductionMessage?: string;
 	prompt?: string;
 	editor?: boolean;
+	tools?: string[];
 }
 
 export interface ProjectList {

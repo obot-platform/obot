@@ -1,11 +1,10 @@
 <script lang="ts">
 	import DarkModeToggle from '$lib/components/navbar/DarkModeToggle.svelte';
 	import { darkMode } from '$lib/stores';
-	import { Copy, ExternalLink, Trash2 } from 'lucide-svelte';
+	import { Copy, Trash2, WrenchIcon } from 'lucide-svelte';
 	import { Plus } from 'lucide-svelte/icons';
 	import Profile from '$lib/components/navbar/Profile.svelte';
-	import AssistantIcon from '$lib/icons/AssistantIcon.svelte';
-	import { ChatService } from '$lib/services';
+	import { ChatService, type ProjectShare } from '$lib/services';
 	import { errors } from '$lib/stores';
 	import { goto } from '$app/navigation';
 	import Notifications from '$lib/components/Notifications.svelte';
@@ -13,10 +12,17 @@
 	import DotDotDot from '$lib/components/DotDotDot.svelte';
 	import { type Project } from '$lib/services';
 	import Confirm from '$lib/components/Confirm.svelte';
+	import { twMerge } from 'tailwind-merge';
+	import Search from '$lib/components/Search.svelte';
 
 	let { data }: PageProps = $props();
 	let toDelete = $state<Project>();
 	let projects = $state(data.editorProjects);
+	let shares = $state<ProjectShare[]>(data.shares.filter((s) => !s.featured));
+	let featured = $state<ProjectShare[]>(data.shares.filter((s) => s.featured));
+	let tools = $state(new Map(data.tools.map((t) => [t.id, t])));
+	let searchResults = $state<(Project | ProjectShare)[]>([]);
+	let searchQuery = $state('');
 
 	async function createNew() {
 		const assistants = (await ChatService.listAssistants()).items;
@@ -37,6 +43,23 @@
 		const newProject = await ChatService.copyProject(project.assistantID, project.id);
 		projects.push(newProject);
 	}
+
+	function handleSearch(value: string) {
+		searchQuery = value;
+		searchResults = [...projects, ...shares, ...featured].filter(
+			(project) =>
+				project.name?.toLowerCase().includes(value.toLowerCase()) ||
+				project.description?.toLowerCase().includes(value.toLowerCase())
+		);
+	}
+
+	function getImage(project: Project | ProjectShare) {
+		const imageUrl = darkMode.isDark
+			? (project.icons?.iconDark ?? project.icons?.icon)
+			: project.icons?.icon;
+
+		return imageUrl ?? '/agent/images/placeholder.jpeg'; // need placeholder image
+	}
 </script>
 
 <div class="flex h-full flex-col items-center">
@@ -52,81 +75,121 @@
 	</div>
 
 	{#snippet menu(project: Project)}
-		<div class="absolute right-0.5 top-0.5">
-			<DotDotDot class="icon-button-colors min-h-10 min-w-10 rounded-full p-2.5 text-sm">
-				<div class="flex flex-col rounded-xl border-surface2 bg-surface1">
-					<button
-						class="flex items-center gap-2 rounded-t-xl px-4 py-2 hover:bg-surface3"
-						onclick={() => (toDelete = project)}
-					>
-						<Trash2 class="icon-default" />
-						<span>Delete</span>
-					</button>
-					<button
-						class="flex items-center gap-2 rounded-b-xl px-4 py-2 hover:bg-surface3"
-						onclick={() => copy(project)}
-					>
-						<Copy class="icon-default" />
-						<span>Copy</span>
-					</button>
-				</div>
-			</DotDotDot>
-		</div>
-	{/snippet}
-
-	<main class="colors-background container flex max-w-[1000px] flex-col justify-center p-5">
-		<div class="mt-24 flex w-full flex-col gap-5">
-			<div class="flex items-center justify-between">
-				<h3 class="text-2xl font-semibold">My Obots</h3>
-			</div>
-			<div class="flex flex-wrap gap-5 rounded-3xl">
-				{#each projects as project}
-					<a
-						href="/o/{project.id}"
-						class="button relative flex aspect-video w-48 flex-col items-center justify-center gap-2 rounded-3xl bg-surface1 p-5"
-					>
-						<div class="flex items-center gap-2">
-							<AssistantIcon {project} class="h-8 w-8" />
-							<span>{project.name || 'Untitled'}</span>
-						</div>
-						{#if project.description}
-							<p class="text-sm text-gray">This is a description</p>
-						{/if}
-						{@render menu(project)}
-					</a>
-				{/each}
+		<DotDotDot class="card-icon-button-colors min-h-10 min-w-10 rounded-full p-2.5 text-sm">
+			<div class="flex flex-col rounded-xl border-surface2 bg-surface1">
 				<button
-					class="button flex aspect-video w-48 items-center justify-center gap-2 rounded-3xl bg-surface1 p-5"
-					onclick={() => createNew()}
+					class="flex items-center gap-2 rounded-t-xl px-4 py-2 hover:bg-surface3"
+					onclick={() => (toDelete = project)}
 				>
-					<Plus class="h-5 w-5" />
-					<span class="text-lg">New Obot</span>
+					<Trash2 class="icon-default" />
+					<span>Delete</span>
+				</button>
+				<button
+					class="flex items-center gap-2 rounded-b-xl px-4 py-2 hover:bg-surface3"
+					onclick={() => copy(project)}
+				>
+					<Copy class="icon-default" />
+					<span>Copy</span>
 				</button>
 			</div>
+		</DotDotDot>
+	{/snippet}
 
-			{#if data.shares.length > 0}
-				<div class="mt-20 flex items-center justify-between">
-					<h3 class="text-2xl font-semibold">Featured</h3>
+	{#snippet projectCard(project: Project | ProjectShare)}
+		<a
+			href="/o/{'projectID' in project ? project.projectID : (project as Project).id}"
+			class="card relative z-20 flex-col overflow-hidden shadow-md"
+		>
+			<div class="absolute left-0 top-0 z-30 flex w-full items-center justify-end p-2">
+				<div class="flex items-center justify-end">
+					{#if 'id' in project}
+						{@render menu(project)}
+					{/if}
 				</div>
-				<div class="flex flex-col gap-2 rounded-3xl">
-					{#each data.shares as template}
-						<div class="flex w-full items-center gap-2 rounded-3xl bg-surface1 p-10 py-5">
-							<AssistantIcon project={template} class="h-8 w-8" />
-							<div>
-								<span>{template.name || 'Untitled'}</span>
-								{#if template.description}
-									<p class="text-sm text-gray">This is a description</p>
+			</div>
+			<div class="relative aspect-video">
+				<img
+					alt="obot logo"
+					src={getImage(project)}
+					class="absolute left-0 top-0 h-full w-full object-cover opacity-85"
+				/>
+				<div
+					class="absolute -bottom-0 left-0 z-10 h-2/4 w-full bg-gradient-to-b from-transparent via-transparent to-surface1 transition-colors duration-300"
+				></div>
+			</div>
+			<div class="flex h-full flex-col gap-2 px-4 py-2">
+				<h4 class="font-semibold">{project.name || 'Untitled'}</h4>
+				<p class="line-clamp-3 text-xs text-gray">{project.description}</p>
+
+				{#if 'tools' in project && project.tools}
+					<div class="mt-auto flex flex-wrap items-center justify-end gap-2">
+						{#each project.tools as tool}
+							{@const toolData = tools.get(tool)}
+							<div
+								class="flex w-fit items-center gap-1 rounded-2xl bg-surface2 p-2 transition-all duration-300"
+							>
+								{#if toolData?.metadata?.icon}
+									<img
+										alt={toolData.name || 'Unknown'}
+										src={toolData.metadata.icon}
+										class={twMerge(
+											'h-4 w-4',
+											toolData.metadata.icon.endsWith('.svg') && 'dark:invert'
+										)}
+									/>
+								{:else}
+									<WrenchIcon class="h-4 w-4" />
 								{/if}
 							</div>
-							<div class="grow"></div>
-							<a href="/s/{template.publicID}" class="button flex gap-2">
-								<ExternalLink class="h-5 w-5" />
-								Launch
-							</a>
-						</div>
-					{/each}
+						{/each}
+					</div>
+				{:else}
+					<div class="min-h-2"></div>
+					<!-- placeholder -->
+				{/if}
+			</div>
+		</a>
+	{/snippet}
+
+	<main class="colors-background flex w-full max-w-screen-2xl flex-col justify-center px-12 pb-12">
+		<div class="mt-8 flex w-full flex-col gap-8">
+			<Search onChange={handleSearch} />
+
+			{#if featured.length > 0 && !searchQuery}
+				<div class="flex w-full flex-col gap-4">
+					<h3 class="text-2xl font-semibold">Featured</h3>
+					<div class="featured-card-layout">
+						{#each featured as featuredShare}
+							{@render projectCard(featuredShare)}
+						{/each}
+					</div>
 				</div>
 			{/if}
+
+			<div class="flex w-full flex-col gap-4">
+				<h3 class="text-2xl font-semibold">My Obots</h3>
+				<div class="card-layout">
+					{#if searchQuery}
+						{#each searchResults as project}
+							{@render projectCard(project)}
+						{/each}
+						{#if searchResults.length === 0}
+							<p class="text-gray">No results found.</p>
+						{/if}
+					{:else}
+						{#each [...projects, ...shares] as project}
+							{@render projectCard(project)}
+						{/each}
+						<button
+							class="card flex items-center justify-center gap-1 shadow-md"
+							onclick={() => createNew()}
+						>
+							<Plus class="h-5 w-5" />
+							<span class="font-semibold">Create New Obot</span>
+						</button>
+					{/if}
+				</div>
+			</div>
 		</div>
 	</main>
 
@@ -147,3 +210,7 @@
 	}}
 	oncancel={() => (toDelete = undefined)}
 />
+
+<svelte:head>
+	<title>Obot | Home</title>
+</svelte:head>

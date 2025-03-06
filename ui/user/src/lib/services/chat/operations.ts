@@ -25,7 +25,8 @@ import {
 	type ProjectShareList,
 	type ProjectAuthorizationList,
 	type ProjectCredentialList,
-	type ProjectShare
+	type ProjectShare,
+	type ToolReferenceList
 } from './types';
 
 export type Fetcher = typeof fetch;
@@ -375,6 +376,14 @@ export async function createTool(
 		await saveToolEnv(assistantID, projectID, result.id, opts.env);
 	}
 	return result;
+}
+
+export async function listAllTools(opts?: { fetch: Fetcher }): Promise<ToolReferenceList> {
+	const list = (await doGet(`/tool-references?type=tool`, opts)) as ToolReferenceList;
+	if (!list.items) {
+		list.items = [];
+	}
+	return list;
 }
 
 export async function testTool(
