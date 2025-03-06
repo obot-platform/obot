@@ -57,7 +57,9 @@
 
 	const layout = getLayout();
 	function onLoadFile(filename: string) {
-		EditorService.load(items, project, filename);
+		EditorService.load(items, project, filename, {
+			threadID: id
+		});
 		layout.fileEditorOpen = true;
 	}
 

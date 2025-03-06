@@ -45,7 +45,7 @@
 
 <div class="flex h-full flex-col">
 	{#if layout.fileEditorOpen}
-		{#if items.length > 1 || (!items[0].task && !items[0].table && !items[0].generic)}
+		{#if items.length > 1 || (!items[0]?.task && !items[0]?.table && !items[0]?.generic)}
 			<div class="-mx-5 -mt-3 flex border-b-2 border-surface2 px-2 pb-2">
 				<ul class="flex flex-1 flex-wrap gap-2 text-center text-sm">
 					{#each items as item}
