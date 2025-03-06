@@ -66,9 +66,6 @@ func (i *Invoker) Workflow(ctx context.Context, c kclient.WithWatch, wf *v1.Work
 			return nil, err
 		} else if err == nil {
 			wfe, err = wait.For(ctx, c, wfe, func(wfe *v1.WorkflowExecution) (bool, error) {
-				if wfe.Status.State == types.WorkflowStateError {
-					return false, fmt.Errorf("workflow failed: %s", wfe.Status.Error)
-				}
 				return wfe.Status.ThreadName != "", nil
 			})
 			if err != nil {
