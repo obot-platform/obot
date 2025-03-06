@@ -57,6 +57,37 @@ func (h *Handler) Run(req router.Request, _ router.Response) error {
 		if err = req.Client.Status().Update(req.Ctx, we); err != nil {
 			return err
 		}
+	} else {
+		var thread v1.Thread
+		if err := req.Get(&thread, we.Namespace, we.Status.ThreadName); err != nil {
+			return err
+		}
+
+		var (
+			found = false
+			input = normalizeInput(we.Spec.Input)
+		)
+		for i, env := range thread.Spec.Env {
+			if env.Name == "WORKFLOW_INPUT" {
+				found = true
+				if env.Value != input {
+					thread.Spec.Env[i].Value = input
+					if err := req.Client.Update(req.Ctx, &thread); err != nil {
+						return err
+					}
+				}
+			}
+		}
+
+		if !found {
+			thread.Spec.Env = append(thread.Spec.Env, types.EnvVar{
+				Name:  "WORKFLOW_INPUT",
+				Value: input,
+			})
+			if err := req.Client.Update(req.Ctx, &thread); err != nil {
+				return err
+			}
+		}
 	}
 
 	var (
@@ -114,6 +145,13 @@ func (h *Handler) loadManifest(req router.Request, we *v1.WorkflowExecution) err
 	return nil
 }
 
+func normalizeInput(input string) string {
+	if input == "" {
+		return "{}"
+	}
+	return input
+}
+
 func (h *Handler) newThread(ctx context.Context, c kclient.Client, wf *v1.Workflow, we *v1.WorkflowExecution) (*v1.Thread, error) {
 	var projectThread v1.Thread
 	if err := c.Get(ctx, router.Key(wf.Namespace, wf.Spec.ThreadName), &projectThread); err != nil {
@@ -137,7 +175,7 @@ func (h *Handler) newThread(ctx context.Context, c kclient.Client, wf *v1.Workfl
 			Env: []types.EnvVar{
 				{
 					Name:  "WORKFLOW_INPUT",
-					Value: we.Spec.Input,
+					Value: normalizeInput(we.Spec.Input),
 				},
 			},
 			SystemTools: []string{system.WorkflowTool, system.TasksWorkflowTool},
