@@ -715,7 +715,15 @@ func ToWorkflowManifest(manifest types.TaskManifest) types.WorkflowManifest {
 		Name:        manifest.Name,
 		Description: manifest.Description,
 		Steps:       toWorkflowSteps(manifest.Steps),
+		Params:      toParams(manifest),
 	}
+}
+
+func toParams(manifest types.TaskManifest) map[string]string {
+	if manifest.OnDemand != nil {
+		return manifest.OnDemand.Params
+	}
+	return nil
 }
 
 func toWorkflowSteps(steps []types.TaskStep) []types.Step {
