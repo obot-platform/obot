@@ -28,7 +28,7 @@ func (in *Thread) IsUserThread() bool {
 }
 
 func (in *Thread) IsProjectThread() bool {
-	return in.IsProjectBased() && in.Spec.Project
+	return in.Spec.Project
 }
 
 func (in *Thread) IsEditor() bool {

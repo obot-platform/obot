@@ -522,6 +522,7 @@ func (i *Invoker) Resume(ctx context.Context, c kclient.WithWatch, thread *v1.Th
 	}
 
 	token, err := i.tokenService.NewToken(jwt.TokenContext{
+		Namespace:      run.Namespace,
 		RunID:          run.Name,
 		ThreadID:       thread.Name,
 		AgentID:        run.Spec.AgentName,

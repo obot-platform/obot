@@ -9,7 +9,6 @@ import (
 	types2 "github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/gateway/types"
-	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 )
 
 func (s *Server) llmProxy(req api.Context) error {
@@ -29,15 +28,9 @@ func (s *Server) llmProxy(req api.Context) error {
 		return fmt.Errorf("failed to create monitor: %w", err)
 	}
 
-	// Get the run so that we know what the namespace of the model provider is
-	var run v1.Run
-	if err = req.Get(&run, token.RunID); err != nil {
-		return fmt.Errorf("failed to get run: %w", err)
-	}
-
 	errChan := make(chan error, 1)
 	(&httputil.ReverseProxy{
-		Director: s.newDirector(run.Namespace, errChan),
+		Director: s.newDirector(token.Namespace, errChan),
 	}).ServeHTTP(req.ResponseWriter, req.Request)
 
 	return <-errChan

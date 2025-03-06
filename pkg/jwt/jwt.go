@@ -14,6 +14,7 @@ import (
 const secret = "this is secret"
 
 type TokenContext struct {
+	Namespace      string
 	RunID          string
 	ThreadID       string
 	AgentID        string
@@ -52,7 +53,7 @@ func (t *TokenService) AuthenticateRequest(req *http.Request) (*authenticator.Re
 }
 
 func (t *TokenService) DecodeToken(token string) (*TokenContext, error) {
-	tk, err := jwt.Parse(token, func(*jwt.Token) (interface{}, error) {
+	tk, err := jwt.Parse(token, func(*jwt.Token) (any, error) {
 		return []byte(secret), nil
 	})
 	if err != nil {
@@ -63,6 +64,7 @@ func (t *TokenService) DecodeToken(token string) (*TokenContext, error) {
 		return nil, err
 	}
 	return &TokenContext{
+		Namespace:      claims["Namespace"].(string),
 		RunID:          claims["RunID"].(string),
 		ThreadID:       claims["ThreadID"].(string),
 		AgentID:        claims["AgentID"].(string),
@@ -77,6 +79,7 @@ func (t *TokenService) DecodeToken(token string) (*TokenContext, error) {
 
 func (t *TokenService) NewToken(context TokenContext) (string, error) {
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+		"Namespace":      context.Namespace,
 		"RunID":          context.RunID,
 		"ThreadID":       context.ThreadID,
 		"AgentID":        context.AgentID,

@@ -46,7 +46,7 @@ func (c *Controller) setupRoutes() error {
 	oauthLogins := oauthapp.NewLogin(c.services.Invoker, c.services.ServerURL)
 	knowledgesummary := knowledgesummary.NewHandler(c.services.GPTClient)
 	toolInfo := toolinfo.New(c.services.GPTClient)
-	threads := threads.NewHandler(c.services.GPTClient)
+	threads := threads.NewHandler(c.services.GPTClient, c.services.Invoker)
 	credentialCleanup := cleanup.NewCredentials(c.services.GPTClient)
 
 	// Runs
@@ -67,6 +67,7 @@ func (c *Controller) setupRoutes() error {
 	root.Type(&v1.Thread{}).HandlerFunc(knowledgesummary.Summarize)
 	root.Type(&v1.Thread{}).HandlerFunc(threads.CleanupEphemeralThreads)
 	root.Type(&v1.Thread{}).HandlerFunc(threads.SetCreated)
+	root.Type(&v1.Thread{}).HandlerFunc(threads.GenerateName)
 	root.Type(&v1.Thread{}).FinalizeFunc(v1.ThreadFinalizer, credentialCleanup.Remove)
 	root.Type(&v1.Thread{}).FinalizeFunc(v1.ThreadFinalizer+"-child-cleanup", threads.ActivateRuns)
 

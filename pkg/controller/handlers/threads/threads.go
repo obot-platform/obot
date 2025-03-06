@@ -4,11 +4,13 @@ import (
 	"context"
 	"fmt"
 	"slices"
+	"strings"
 	"time"
 
 	"github.com/gptscript-ai/go-gptscript"
 	"github.com/obot-platform/nah/pkg/router"
 	"github.com/obot-platform/nah/pkg/untriggered"
+	"github.com/obot-platform/obot/pkg/invoke"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -18,10 +20,11 @@ import (
 
 type Handler struct {
 	gptScript *gptscript.GPTScript
+	invoker   *invoke.Invoker
 }
 
-func NewHandler(gptScript *gptscript.GPTScript) *Handler {
-	return &Handler{gptScript: gptScript}
+func NewHandler(gptScript *gptscript.GPTScript, invoker *invoke.Invoker) *Handler {
+	return &Handler{gptScript: gptScript, invoker: invoker}
 }
 
 func (t *Handler) WorkflowState(req router.Request, _ router.Response) error {
@@ -289,6 +292,28 @@ func (t *Handler) CleanupEphemeralThreads(req router.Request, _ router.Response)
 	}
 
 	return kclient.IgnoreNotFound(req.Delete(thread))
+}
+
+func (t *Handler) GenerateName(req router.Request, _ router.Response) error {
+	thread := req.Object.(*v1.Thread)
+	if !thread.IsUserThread() || thread.Spec.Manifest.Name != "" || thread.Status.LastRunName == "" || thread.Status.LastRunState != gptscript.Continue {
+		return nil
+	}
+
+	var run v1.Run
+	if err := req.Get(&run, thread.Namespace, thread.Status.LastRunName); err != nil {
+		return err
+	}
+
+	result, err := t.invoker.EphemeralThreadTask(req.Ctx, thread, gptscript.ToolDef{
+		Instructions: `Generate a concise (3 to 4 words) and descriptive thread name that encapsulates the main topic or theme of the following conversation starter. Do not enclose the title in quotes.`,
+	}, fmt.Sprintf("User Input: %s\n\nLLM Response: %s", run.Spec.Input, run.Status.Output))
+	if err != nil {
+		return fmt.Errorf("failed to generate thread name: %w", err)
+	}
+
+	thread.Spec.Manifest.Name = strings.TrimSpace(result)
+	return req.Client.Update(req.Ctx, thread)
 }
 
 func (t *Handler) ActivateRuns(req router.Request, _ router.Response) error {
