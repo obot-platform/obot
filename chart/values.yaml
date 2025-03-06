@@ -70,6 +70,12 @@ config:
   # config.knowledgeFileWorkers -- Advanced - sets the number of workers for knowledge
   knowledgeFileWorkers: "5"
 
+  # config.kinmDBConnections -- Advanced - the number of connections in the database pool for kinm
+  kinmDBConnections: "5"
+
+  # config.ignoreInactiveObjects -- whether the controller objects that have been marked as inactive
+  ignoreInactiveObjects: false
+
   # config.githubAuthToken -- A github PAT, used to authenticate tool pulls to avoid github ratelimiting
   githubAuthToken: ""
   # config.obotServerEnableAuthentication -- Enables authentication for Obot

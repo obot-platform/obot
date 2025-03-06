@@ -85,7 +85,21 @@ spec:
                 secretKeyRef:
                   name: {{ include "obot.config.secretName" . }}
                   key: knowledgeFileWorkers
-                {{- end }}
+            {{- end }}
+            {{- if .Values.config.kinmDBConnections }}
+            - name: "KINM_DB_CONNECTIONS"
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "obot.config.secretName" . }}
+                  key: kinmDBConnections
+            {{- end }}
+            {{- if .Values.config.ignoreInactiveObjects }}
+            - name: "OBOT_SERVER_IGNORE_INACTIVE"
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "obot.config.secretName" . }}
+                  key: ignoreInactiveObjects
+            {{- end }}
             {{- if .Values.config.githubAuthToken }}
             - name: "GITHUB_AUTH_TOKEN"
               valueFrom:
