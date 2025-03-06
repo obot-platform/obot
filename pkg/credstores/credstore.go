@@ -103,8 +103,13 @@ func setUpAzureKeyVault(ctx context.Context, keyvaultName, keyName, keyVersion, 
 		return fmt.Errorf("failed to set GPTSCRIPT_ENCRYPTION_CONFIG_FILE: %w", err)
 	}
 
+	if err := os.WriteFile("/tmp/azure.json", []byte(`{"useManagedIdentityExtension": true}`), 0600); err != nil {
+		return fmt.Errorf("failed to write Azure config file: %w", err)
+	}
+
 	cmd := exec.CommandContext(ctx,
 		"azure-encryption-provider",
+		"--config-file-path=/tmp/azure.json",
 		"--listen-addr=unix:///tmp/azure-cred-socket.sock",
 		"--keyvault-name="+keyvaultName,
 		"--key-name="+keyName,
