@@ -18,6 +18,7 @@
 	import { Plus } from 'lucide-svelte/icons';
 	import Files from '$lib/components/edit/Files.svelte';
 	import Tools from '$lib/components/navbar/Tools.svelte';
+	import type { UIEventHandler } from 'svelte/elements';
 
 	interface Props {
 		id?: string;
@@ -35,15 +36,6 @@
 	let scrollSmooth = $state(false);
 
 	$effect(() => {
-		const update = () => (scrollSmooth = true);
-		container?.addEventListener('scroll', update);
-		return () => {
-			container?.removeEventListener('scroll', update);
-			scrollSmooth = false;
-		};
-	});
-
-	$effect(() => {
 		// Close and recreate thread if id changes
 		if (thread && thread.threadID !== id) {
 			scrollSmooth = false;
@@ -54,6 +46,8 @@
 				inProgress: false
 			};
 		}
+
+		scrollSmooth = false;
 
 		if (id && !thread) {
 			constructThread();
@@ -101,6 +95,15 @@
 		thread = newThread;
 	}
 
+	const onScrollEnd: UIEventHandler<HTMLDivElement> = (e) => {
+		const isAtBottom =
+			e.currentTarget.scrollHeight - e.currentTarget.scrollTop - e.currentTarget.clientHeight <= 0;
+
+		if (isAtBottom) {
+			scrollSmooth = true;
+		}
+	};
+
 	function onSendCredentials(id: string, credentials: Record<string, string>) {
 		thread?.sendCredentials(id, credentials);
 	}
@@ -115,6 +118,7 @@
 			contentEl: messagesDiv,
 			setControls: (controls) => (scrollControls = controls)
 		}}
+		onscrollend={onScrollEnd}
 	>
 		<div
 			in:fade|global
