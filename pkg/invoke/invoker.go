@@ -14,7 +14,6 @@ import (
 
 	"github.com/gptscript-ai/go-gptscript"
 	"github.com/obot-platform/nah/pkg/router"
-	"github.com/obot-platform/nah/pkg/untriggered"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/logger"
 	"github.com/obot-platform/obot/pkg/events"
@@ -425,13 +424,8 @@ func (i *Invoker) createRun(ctx context.Context, c kclient.WithWatch, thread *v1
 
 	if !thread.Spec.SystemTask && !opts.Ephemeral {
 		err = retry.RetryOnConflict(retry.DefaultBackoff, func() error {
-			// Ensure that, regardless of which client is being used, we get an uncached version of the thread for updating.
-			// The first uncached.Get method ensures that we get an uncached version when calling this from a controller.
-			// That will fail when calling this outside a controller, so try a "bare" get in that case.
-			if err := c.Get(ctx, kclient.ObjectKeyFromObject(thread), untriggered.UncachedGet(thread)); err != nil {
-				if err := c.Get(ctx, kclient.ObjectKeyFromObject(thread), thread); err != nil {
-					return err
-				}
+			if err := i.uncached.Get(ctx, kclient.ObjectKeyFromObject(thread), thread); err != nil {
+				return err
 			}
 			thread.Status.CurrentRunName = run.Name
 			return c.Status().Update(ctx, thread)

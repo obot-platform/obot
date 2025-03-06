@@ -22,7 +22,7 @@ require (
 	github.com/gptscript-ai/gptscript v0.9.6-0.20250222165900-86e85f032cc9
 	github.com/liggitt/tabwriter v0.0.0-20181228230101-89fcab3d43de
 	github.com/mhale/smtpd v0.8.3
-	github.com/obot-platform/kinm v0.0.0-20250116162656-270198b40c6d
+	github.com/obot-platform/kinm v0.0.0-20250117161927-cefd352a44b5
 	github.com/obot-platform/nah v0.0.0-20250305151239-35a77e89a2eb
 	github.com/obot-platform/namegenerator v0.0.0-20241217121223-fc58bdb7dca2
 	github.com/obot-platform/obot/apiclient v0.0.0-00010101000000-000000000000
