@@ -63,6 +63,9 @@ type Config struct {
 	HelperModel                string   `usage:"The model used to generate names and descriptions" default:"gpt-4o-mini"`
 	AWSKMSKeyARN               string   `usage:"The ARN of the AWS KMS key to use for encrypting credential storage. Only used with the AWS encryption provider." env:"OBOT_AWS_KMS_KEY_ARN" name:"aws-kms-key-arn"`
 	GCPKMSKeyURI               string   `usage:"The URI of the Google Cloud KMS key to use for encrypting credential storage. Only used with the GCP encryption provider." env:"OBOT_GCP_KMS_KEY_URI" name:"gcp-kms-key-uri"`
+	AzureKeyVaultName          string   `usage:"The name of the Azure Key Vault to use for encrypting credential storage. Only used with the Azure encryption provider." env:"OBOT_AZURE_KEY_VAULT_NAME" name:"azure-key-vault-name"`
+	AzureKeyName               string   `usage:"The name of the Azure Key Vault key to use for encrypting credential storage. Only used with the Azure encryption provider." env:"OBOT_AZURE_KEY_NAME" name:"azure-key-vault-key-name"`
+	AzureKeyVersion            string   `usage:"The version of the Azure Key Vault key to use for encrypting credential storage. Only used with the Azure encryption provider." env:"OBOT_AZURE_KEY_VERSION" name:"azure-key-vault-key-version"`
 	EncryptionProvider         string   `usage:"The encryption provider to use. Options are AWS, GCP, None, or Custom. Default is None." default:"None"`
 	EncryptionConfigFile       string   `usage:"The path to the encryption configuration file. Only used with the Custom encryption provider."`
 	EmailServerName            string   `usage:"The name of the email server to display for email receivers"`
@@ -224,6 +227,9 @@ func New(ctx context.Context, config Config) (*Services, error) {
 	credStore, credStoreEnv, err := credstores.Init(ctx, config.ToolRegistries, config.DSN, credstores.Options{
 		AWSKMSKeyARN:         config.AWSKMSKeyARN,
 		GCPKMSKeyURI:         config.GCPKMSKeyURI,
+		AzureKeyVaultName:    config.AzureKeyVaultName,
+		AzureKeyName:         config.AzureKeyName,
+		AzureKeyVersion:      config.AzureKeyVersion,
 		EncryptionProvider:   config.EncryptionProvider,
 		EncryptionConfigFile: config.EncryptionConfigFile,
 	})

@@ -48,6 +48,7 @@ COPY --chmod=0755 /tools/package-chrome.sh /
 
 RUN /package-chrome.sh && rm /package-chrome.sh
 COPY aws-encryption.yaml /
+COPY azure-encryption.yaml /
 COPY gcp-encryption.yaml /
 COPY --chmod=0755 run.sh /bin/run.sh
 
