@@ -372,7 +372,15 @@ func (a *AgentHandler) UploadFile(req api.Context) error {
 		return err
 	}
 
-	if err := uploadFile(req.Context(), req, a.gptscript, workspaceName); err != nil {
+	var ws v1.Workspace
+	if err := req.Get(&ws, workspaceName); err != nil {
+		return fmt.Errorf("failed to get workspace with id %s: %w", workspaceName, err)
+	}
+
+	if _, err := uploadFileToWorkspace(req.Context(), req, a.gptscript, ws.Status.WorkspaceID, "files/", api.BodyOptions{
+		// 100MB
+		MaxBytes: 100 * 1024 * 1024,
+	}); err != nil {
 		return err
 	}
 

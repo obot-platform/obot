@@ -71,7 +71,10 @@ func (f *FilesHandler) UploadFile(req api.Context) error {
 		return types.NewErrNotFound("no workspace found")
 	}
 
-	_, err = uploadFileToWorkspace(req.Context(), req, f.gptScript, thread.Status.WorkspaceID, "files/")
+	_, err = uploadFileToWorkspace(req.Context(), req, f.gptScript, thread.Status.WorkspaceID, "files/", api.BodyOptions{
+		// 100MB
+		MaxBytes: 100 * 1024 * 1024,
+	})
 	return err
 }
 
@@ -280,16 +283,6 @@ func convertFile(file, prefix string) types.File {
 	return types.File{
 		Name: strings.TrimPrefix(file, prefix),
 	}
-}
-
-func uploadFile(ctx context.Context, req api.Context, gClient *gptscript.GPTScript, workspaceName string) error {
-	var ws v1.Workspace
-	if err := req.Get(&ws, workspaceName); err != nil {
-		return fmt.Errorf("failed to get workspace with id %s: %w", workspaceName, err)
-	}
-
-	_, err := uploadFileToWorkspace(ctx, req, gClient, ws.Status.WorkspaceID, "files/")
-	return err
 }
 
 func getFileInWorkspace(ctx context.Context, req api.Context, gClient *gptscript.GPTScript, workspaceID, prefix string) error {
