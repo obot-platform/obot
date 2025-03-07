@@ -37,6 +37,14 @@ func (h *ProjectShareHandler) CreateShare(req api.Context) error {
 		return err
 	}
 
+	if thread.Spec.ParentThreadName != "" {
+		return types.NewErrBadRequest("cannot create a share for an instance of another Obot")
+	}
+
+	if !thread.Spec.Project {
+		return types.NewErrBadRequest("only Obots can be shared")
+	}
+
 	threadShare := v1.ThreadShare{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      h.getProjectShareName(thread.Spec.UserID, projectID),
@@ -205,6 +213,7 @@ func (h *ProjectShareHandler) CreateProjectFromShare(req api.Context) error {
 		shareID         = req.PathValue("share_public_id")
 		threadShareList v1.ThreadShareList
 		baseProject     v1.Thread
+		create          = req.URL.Query().Has("create")
 		id              = name.SafeHashConcatName(system.ThreadPrefix, req.User.GetUID(), shareID)
 	)
 
@@ -228,8 +237,12 @@ func (h *ProjectShareHandler) CreateProjectFromShare(req api.Context) error {
 		return err
 	}
 
-	if baseProject.Spec.UserID == req.User.GetUID() {
+	if baseProject.Spec.UserID == req.User.GetUID() && !create {
 		return req.Write(convertProject(&baseProject))
+	}
+
+	if !baseProject.Spec.Project || baseProject.Spec.ParentThreadName != "" {
+		return types.NewErrBadRequest("only invalid Obot, failed to create new Obot from share")
 	}
 
 	newProject, err := invoke.CreateProjectFromProject(req.Context(), req.Storage, &baseProject, id, req.User.GetUID())

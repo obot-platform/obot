@@ -41,6 +41,7 @@ var staticRules = map[string][]string{
 		"GET /api/app-oauth/authorize/{id}",
 		"GET /api/app-oauth/refresh/{id}",
 		"GET /api/app-oauth/callback/{id}",
+		"GET /api/app-oauth/get-token/{id}",
 		"GET /api/app-oauth/get-token",
 
 		"POST /api/sendgrid",
@@ -50,6 +51,8 @@ var staticRules = map[string][]string{
 
 		"GET /api/auth-providers",
 		"GET /api/auth-providers/{id}",
+
+		"POST /api/slack/events",
 
 		// Allow public access to read display info for featured Obots
 		// This is used in the unauthenticated landing page

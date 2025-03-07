@@ -24,7 +24,7 @@ export class Thread {
 	readonly #task?: {
 		id: string;
 	};
-	readonly #runID?: string;
+	readonly runID?: string;
 	readonly #onClose?: () => boolean;
 	readonly #authenticate?: {
 		tools?: string[];
@@ -52,7 +52,7 @@ export class Thread {
 		this.threadID = opts?.threadID;
 		this.#project = project;
 		this.#task = opts?.task;
-		this.#runID = opts?.runID;
+		this.runID = opts?.runID;
 		this.#authenticate = opts?.authenticate;
 		this.#onError = opts?.onError;
 		this.#onClose = opts?.onClose;
@@ -70,7 +70,7 @@ export class Thread {
 		const es = newMessageEventSource(this.#project.assistantID, this.#project.id, {
 			threadID: this.threadID,
 			task: this.#task,
-			runID: this.#runID,
+			runID: this.runID,
 			authenticate: this.#authenticate
 		});
 		es.onmessage = (e) => {
@@ -167,7 +167,7 @@ export class Thread {
 				stepID,
 				buildMessagesFromProgress(this.#items, msgs, {
 					taskID: this.#task?.id,
-					runID: this.#runID,
+					runID: this.runID,
 					threadID: this.threadID
 				})
 			);
@@ -180,7 +180,7 @@ export class Thread {
 			this.onMessages(
 				buildMessagesFromProgress(this.#items, this.#progresses, {
 					taskID: this.#task?.id,
-					runID: this.#runID,
+					runID: this.runID,
 					threadID: this.threadID
 				})
 			);
@@ -219,7 +219,7 @@ export class Thread {
 		this.pending = true;
 		return await ChatRunTask(this.#project.assistantID, this.#project.id, taskID, {
 			stepID: stepID,
-			runID: this.#runID,
+			runID: this.runID,
 			...opts
 		});
 	}

@@ -1,18 +1,19 @@
 <script lang="ts">
 	import { profile } from '$lib/stores';
 	import { type PageProps } from './$types';
-	import { initLayout } from '$lib/context/layout.svelte';
 	import { goto } from '$app/navigation';
+	import { ChatService } from '$lib/services';
+	import { onMount } from 'svelte';
 
 	let { data }: PageProps = $props();
-	let project = $state(data.project);
-	let title = $derived(project?.name || 'Obot');
 
-	initLayout({
-		items: []
-	});
+	onMount(async () => {
+		// check if url has ?create in it
+		const urlParams = new URLSearchParams(window.location.search);
+		const project = await ChatService.createProjectFromShare(data.id, {
+			create: urlParams.has('create')
+		});
 
-	$effect(() => {
 		if (profile.current.unauthorized) {
 			// Redirect to the main page to log in.
 			window.location.href = `/?rd=${window.location.pathname}`;
@@ -23,7 +24,5 @@
 </script>
 
 <svelte:head>
-	{#if title}
-		<title>{title}</title>
-	{/if}
+	<title>Obot</title>
 </svelte:head>

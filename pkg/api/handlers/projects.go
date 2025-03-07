@@ -504,6 +504,7 @@ func convertProject(thread *v1.Thread) types.Project {
 		AssistantID:     thread.Spec.AgentName,
 		Editor:          thread.IsEditor(),
 		UserID:          thread.Spec.UserID,
+		Capabilities:    types.ProjectCapabilities(thread.Spec.Capabilities),
 	}
 	p.Type = "project"
 	p.ID = strings.Replace(p.ID, system.ThreadPrefix, system.ProjectPrefix, 1)
@@ -590,6 +591,7 @@ func (h *ProjectsHandler) ListProjectThreads(req api.Context) error {
 		// Field selectors don't work right now....
 		return h.streamThreads(req, func(t *v1.Thread) bool {
 			return !t.Spec.Project &&
+				!t.Spec.Ephemeral &&
 				t.Spec.ParentThreadName == projectThread.Name &&
 				t.Spec.UserID == req.User.GetUID()
 		})
@@ -608,6 +610,9 @@ func (h *ProjectsHandler) ListProjectThreads(req api.Context) error {
 	var result types.ThreadList
 	for _, thread := range threads.Items {
 		if !thread.DeletionTimestamp.IsZero() {
+			continue
+		}
+		if thread.Spec.Ephemeral {
 			continue
 		}
 		result.Items = append(result.Items, convertThread(thread))
@@ -727,7 +732,7 @@ func (h *ProjectsHandler) authenticate(req api.Context, local bool) (err error) 
 	if local {
 		credContext = thread.Name + "-local"
 	}
-	resp, err := runAuthForAgent(req.Context(), req.Storage, h.invoker, h.gptScript, &agent, credContext, tools, req.User.GetUID())
+	resp, err := runAuthForAgent(req.Context(), req.Storage, h.invoker, h.gptScript, &agent, credContext, tools, req.User.GetUID(), thread.Name)
 	if err != nil {
 		return err
 	}
