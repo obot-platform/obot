@@ -13,7 +13,6 @@
 	import { type Project } from '$lib/services';
 	import Confirm from '$lib/components/Confirm.svelte';
 	import { twMerge } from 'tailwind-merge';
-	import Search from '$lib/components/Search.svelte';
 
 	let { data }: PageProps = $props();
 	let toDelete = $state<Project>();
@@ -21,8 +20,6 @@
 	let shares = $state<ProjectShare[]>(data.shares.filter((s) => !s.featured));
 	let featured = $state<ProjectShare[]>(data.shares.filter((s) => s.featured));
 	let tools = $state(new Map(data.tools.map((t) => [t.id, t])));
-	let searchResults = $state<(Project | ProjectShare)[]>([]);
-	let searchQuery = $state('');
 
 	async function createNew() {
 		const assistants = (await ChatService.listAssistants()).items;
@@ -44,18 +41,9 @@
 		projects.push(newProject);
 	}
 
-	function handleSearch(value: string) {
-		searchQuery = value;
-		searchResults = [...projects, ...shares, ...featured].filter(
-			(project) =>
-				project.name?.toLowerCase().includes(value.toLowerCase()) ||
-				project.description?.toLowerCase().includes(value.toLowerCase())
-		);
-	}
-
 	function getImage(project: Project | ProjectShare) {
 		const imageUrl = darkMode.isDark
-			? (project.icons?.iconDark ?? project.icons?.icon)
+			? (project.icons?.iconDark || project.icons?.icon)
 			: project.icons?.icon;
 
 		return imageUrl ?? '/agent/images/placeholder.jpeg'; // need placeholder image
@@ -154,9 +142,7 @@
 
 	<main class="colors-background flex w-full max-w-screen-2xl flex-col justify-center px-12 pb-12">
 		<div class="mt-8 flex w-full flex-col gap-8">
-			<Search onChange={handleSearch} />
-
-			{#if featured.length > 0 && !searchQuery}
+			{#if featured.length > 0}
 				<div class="flex w-full flex-col gap-4">
 					<h3 class="text-2xl font-semibold">Featured</h3>
 					<div class="featured-card-layout">
@@ -170,25 +156,16 @@
 			<div class="flex w-full flex-col gap-4">
 				<h3 class="text-2xl font-semibold">My Obots</h3>
 				<div class="card-layout">
-					{#if searchQuery}
-						{#each searchResults as project}
-							{@render projectCard(project)}
-						{/each}
-						{#if searchResults.length === 0}
-							<p class="text-gray">No results found.</p>
-						{/if}
-					{:else}
-						{#each [...projects, ...shares] as project}
-							{@render projectCard(project)}
-						{/each}
-						<button
-							class="card flex items-center justify-center gap-1 shadow-md"
-							onclick={() => createNew()}
-						>
-							<Plus class="h-5 w-5" />
-							<span class="font-semibold">Create New Obot</span>
-						</button>
-					{/if}
+					{#each [...projects, ...shares] as project}
+						{@render projectCard(project)}
+					{/each}
+					<button
+						class="card flex items-center justify-center gap-1 shadow-md"
+						onclick={() => createNew()}
+					>
+						<Plus class="h-5 w-5" />
+						<span class="font-semibold">Create New Obot</span>
+					</button>
 				</div>
 			</div>
 		</div>
