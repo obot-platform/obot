@@ -46,136 +46,16 @@ spec:
             - mountPath: {{ .Values.persistence.path }}
               name: data
           {{- end }}
+          {{- if .Values.extraEnv }}
           env:
-            - name: "OBOT_SERVER_ENABLE_AUTHENTICATION"
-              value: {{ .Values.config.obotServerEnableAuthentication | quote }}
-            - name: "OBOT_SERVER_ENCRYPTION_PROVIDER"
-              value: {{ .Values.config.obotServerEncryptionProvider | quote }}
-            {{- if .Values.config.awsAccessKeyID }}
-            - name: "AWS_ACCESS_KEY_ID"
-              valueFrom:
-                secretKeyRef:
-                  name: {{ include "obot.config.secretName" . }}
-                  key: awsAccessKeyID
-            {{- end }}
-            {{- if .Values.config.awsRegion }}
-            - name: "AWS_REGION"
-              valueFrom:
-                secretKeyRef:
-                  name: {{ include "obot.config.secretName" . }}
-                  key: awsRegion
-            {{- end }}
-            {{- if .Values.config.awsSecretAccessKey }}
-            - name: "AWS_SECRET_ACCESS_KEY"
-              valueFrom:
-                secretKeyRef:
-                  name: {{ include "obot.config.secretName" . }}
-                  key: awsSecretAccessKey
-            {{- end }}
-            {{- if .Values.config.nahThreadiness }}
-            - name: "NAH_THREADINESS"
-              valueFrom:
-                secretKeyRef:
-                  name: {{ include "obot.config.secretName" . }}
-                  key: nahThreadiness
-            {{- end }}
-            {{- if .Values.config.knowledgeFileWorkers }}
-            - name: "OBOT_SERVER_KNOWLEDGE_FILE_WORKERS"
-              valueFrom:
-                secretKeyRef:
-                  name: {{ include "obot.config.secretName" . }}
-                  key: knowledgeFileWorkers
-            {{- end }}
-            {{- if .Values.config.kinmDBConnections }}
-            - name: "KINM_DB_CONNECTIONS"
-              valueFrom:
-                secretKeyRef:
-                  name: {{ include "obot.config.secretName" . }}
-                  key: kinmDBConnections
-            {{- end }}
-            {{- if .Values.config.ignoreInactiveObjects }}
-            - name: "OBOT_SERVER_IGNORE_INACTIVE"
-              valueFrom:
-                secretKeyRef:
-                  name: {{ include "obot.config.secretName" . }}
-                  key: ignoreInactiveObjects
-            {{- end }}
-            {{- if .Values.config.githubAuthToken }}
-            - name: "GITHUB_AUTH_TOKEN"
-              valueFrom:
-                secretKeyRef:
-                  name: {{ include "obot.config.secretName" . }}
-                  key: githubAuthToken
-            {{- end }}
-            {{- if .Values.config.gcpKMSKeyURI }}
-            - name: "OBOT_GCP_KMS_KEY_URI"
-              valueFrom:
-                secretKeyRef:
-                  name: {{ include "obot.config.secretName" . }}
-                  key: gcpKMSKeyURI
-            {{- end }}
-            {{- if .Values.config.obotServerAuthAdminEmails }}
-            - name: "OBOT_SERVER_AUTH_ADMIN_EMAILS"
-              valueFrom:
-                secretKeyRef:
-                  name: {{ include "obot.config.secretName" . }}
-                  key: obotServerAuthAdminEmails
-            {{- end }}
-            {{- if .Values.config.obotBootstrapToken }}
-            - name: "OBOT_BOOTSTRAP_TOKEN"
-              valueFrom:
-                secretKeyRef:
-                  name: {{ include "obot.config.secretName" . }}
-                  key: obotBootstrapToken
-            {{- end }}
-            {{- if .Values.config.obotServerDSN }}
-            - name: "OBOT_SERVER_DSN"
-              valueFrom:
-                secretKeyRef:
-                  name: {{ include "obot.config.secretName" . }}
-                  key: obotServerDSN
-            {{- end }}
-            {{- if .Values.config.obotServerHostname }}
-            - name: "OBOT_SERVER_HOSTNAME"
-              valueFrom:
-                secretKeyRef:
-                  name: {{ include "obot.config.secretName" . }}
-                  key: obotServerHostname
-            {{- end }}
-            {{- if .Values.config.obotWorkspaceProviderType }}
-            - name: "OBOT_WORKSPACE_PROVIDER_TYPE"
-              valueFrom:
-                secretKeyRef:
-                  name: {{ include "obot.config.secretName" . }}
-                  key: obotWorkspaceProviderType
-            {{- end }}
-            {{- if .Values.config.openaiApiKey }}
-            - name: "OPENAI_API_KEY"
-              valueFrom:
-                secretKeyRef:
-                  name: {{ include "obot.config.secretName" . }}
-                  key: openaiApiKey
-            {{- end }}
-            {{- if .Values.config.workspaceProviderS3BaseEndpoint }}
-            - name: "WORKSPACE_PROVIDER_S3_BASE_ENDPOINT"
-              valueFrom:
-                secretKeyRef:
-                  name: {{ include "obot.config.secretName" . }}
-                  key: workspaceProviderS3BaseEndpoint
-            {{- end }}
-            {{- if .Values.config.workspaceProviderS3Bucket }}
-            - name: "WORKSPACE_PROVIDER_S3_BUCKET"
-              valueFrom:
-                secretKeyRef:
-                  name: {{ include "obot.config.secretName" . }}
-                  key: workspaceProviderS3Bucket
-            {{- end }}
-            {{- if .Values.extraEnv }}
             {{- range $key, $value := .Values.extraEnv }}
             - name: {{ $key }}
               value: {{ $value | quote }}
             {{- end }}
-            {{- end }}
+          {{- end }}
+          envFrom:
+            - secretRef:
+                name: {{ if .Values.config.existingSecret }}{{ .Values.config.existingSecret }}{{ else }}{{ include "obot.config.secretName" . }}{{- end }}
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
       {{- if and (eq .Values.config.obotWorkspaceProviderType "directory") .Values.persistence.enabled }}
