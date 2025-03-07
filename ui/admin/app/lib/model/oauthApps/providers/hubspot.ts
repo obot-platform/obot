@@ -50,6 +50,7 @@ const steps: OAuthFormStep<typeof schema.shape>[] = [
 			"  - crm.objects.contacts.write\n" +
 			"  - crm.objects.deals.read\n" +
 			"  - crm.objects.deals.write\n" +
+			"  - crm.objects.owners.read\n" +
 			"  - sales-email-read\n" +
 			"  - tickets\n" +
 			"- Mark each scope as optional.\n" +
