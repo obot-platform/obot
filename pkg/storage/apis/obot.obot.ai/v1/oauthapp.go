@@ -82,6 +82,9 @@ func (r *OAuthApp) DeleteRefs() []Ref {
 
 type OAuthAppSpec struct {
 	Manifest types.OAuthAppManifest `json:"manifest,omitempty"`
+
+	// ThreadName is the name of the thread that will be used to authorize the OAuth app. This is used so that a thread/project can own an OAuth app like slack for its custom use.
+	ThreadName string `json:"threadName,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
