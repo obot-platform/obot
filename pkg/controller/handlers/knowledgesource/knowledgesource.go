@@ -156,28 +156,26 @@ func (k *Handler) saveProgress(ctx context.Context, c kclient.Client, source *v1
 func getThread(ctx context.Context, c kclient.WithWatch, source *v1.KnowledgeSource) (*v1.Thread, error) {
 	var update bool
 
-	if source.Status.WorkspaceName == "" {
-		ws := &v1.Workspace{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:       name.SafeConcatName(system.WorkspacePrefix, source.Name),
-				Namespace:  source.Namespace,
-				Finalizers: []string{v1.WorkspaceFinalizer},
-			},
-			Spec: v1.WorkspaceSpec{
-				KnowledgeSourceName: source.Name,
-			},
-		}
-		if err := create.OrGet(ctx, c, ws); err != nil {
-			return nil, err
-		}
+	ws := &v1.Workspace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:       name.SafeConcatName(system.WorkspacePrefix, source.Name),
+			Namespace:  source.Namespace,
+			Finalizers: []string{v1.WorkspaceFinalizer},
+		},
+		Spec: v1.WorkspaceSpec{
+			KnowledgeSourceName: source.Name,
+		},
+	}
+	if err := create.OrGet(ctx, c, ws); err != nil {
+		return nil, err
+	}
 
-		// Only update if the workspace ID is set. If it is not, then this will be re-triggered
-		// This allows the knowledge file controller to only trigger when the source is updated.
-		if ws.Status.WorkspaceID != "" {
-			source.Status.WorkspaceName = ws.Name
-			// We don't update immediately because the name is deterministic so we can save one update
-			update = true
-		}
+	// Only update if the workspace ID is set. If it is not, then this will be re-triggered
+	// This allows the knowledge file controller to only trigger when the source is updated.
+	if ws.Status.WorkspaceID != "" && source.Status.WorkspaceName != ws.Name {
+		source.Status.WorkspaceName = ws.Name
+		// We don't update immediately because the name is deterministic so we can save one update
+		update = true
 	}
 
 	thread := &v1.Thread{

@@ -458,8 +458,8 @@ github.com/oasdiff/yaml v0.0.0-20241210131133-6b86fb107d80 h1:nZspmSkneBbtxU9Top
 github.com/oasdiff/yaml v0.0.0-20241210131133-6b86fb107d80/go.mod h1:7tFDb+Y51LcDpn26GccuUgQXUk6t0CXZsivKjyimYX8=
 github.com/oasdiff/yaml3 v0.0.0-20241210130736-a94c01f36349 h1:t05Ww3DxZutOqbMN+7OIuqDwXbhl32HiZGpLy26BAPc=
 github.com/oasdiff/yaml3 v0.0.0-20241210130736-a94c01f36349/go.mod h1:y5+oSEHCPT/DGrS++Wc/479ERge0zTFxaF8PbGKcg2o=
-github.com/obot-platform/kinm v0.0.0-20250117161927-cefd352a44b5 h1:Yo6ecUttOJ39uzOgdEHbiXNPb6ewbcJzrJzAgd6Bc9Y=
-github.com/obot-platform/kinm v0.0.0-20250117161927-cefd352a44b5/go.mod h1:RzrH0geIlbiTHDGZ8bpCk5k1hwdU9uu3l4zJn9n0pZU=
+github.com/obot-platform/kinm v0.0.0-20250307014214-da1846b6055e h1:vwxGWx7aABILCqzfSgAokWOhfMTf9vsUI3CUjMisoiQ=
+github.com/obot-platform/kinm v0.0.0-20250307014214-da1846b6055e/go.mod h1:gEHgK9DhTCnAPpVIoPKnGSnLkHr4vB6JmVUlfvXL+Jw=
 github.com/obot-platform/nah v0.0.0-20250305151239-35a77e89a2eb h1:Cgf8prbkB2gwFAI2vsXRN1U7enKkFMYJjaUT+uNR7dc=
 github.com/obot-platform/nah v0.0.0-20250305151239-35a77e89a2eb/go.mod h1:be9DBO6pFx4yiKs9bm4GcuZgGX4OVpeRJclA9ojxzmo=
 github.com/obot-platform/namegenerator v0.0.0-20241217121223-fc58bdb7dca2 h1:jiyBM/TYxU6UNVS9ff8Y8n55DOKDYohKkIZjfHpjfTY=
