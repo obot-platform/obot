@@ -69,6 +69,10 @@ func (in *Thread) GetColumns() [][]string {
 	}
 }
 
+type ThreadCapabilities struct {
+	OnSlackMessage bool `json:"onSlackMessage"`
+}
+
 type ThreadSpec struct {
 	Manifest types.ThreadManifest `json:"manifest,omitempty"`
 	// ParentThreadName The scope of this thread will inherit the scope of the parent thread. The parent should always be a project thread.
@@ -93,6 +97,8 @@ type ThreadSpec struct {
 	Ephemeral bool `json:"ephemeral,omitempty"`
 	// SystemTools are tools that are set on this thread but not visible to the user
 	SystemTools []string `json:"systemTools,omitempty"`
+	// Capabilities are the capabilities of this thread
+	Capabilities ThreadCapabilities `json:"capabilities,omitempty"`
 
 	// Owners
 

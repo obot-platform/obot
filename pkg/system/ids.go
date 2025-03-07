@@ -26,6 +26,8 @@ const (
 	ToolPrefix                = "tl1"
 	ProjectPrefix             = "p1"
 	ThreadTemplatePrefix      = "tt1"
+	SlackReceiverPrefix       = "sr1"
+	SlackTriggerPrefix        = "st1"
 )
 
 func IsThreadID(id string) bool {

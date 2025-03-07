@@ -1,0 +1,118 @@
+package handlers
+
+import (
+	"github.com/gptscript-ai/go-gptscript"
+	"github.com/obot-platform/obot/apiclient/types"
+	"github.com/obot-platform/obot/pkg/api"
+	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
+	"github.com/obot-platform/obot/pkg/system"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+)
+
+type SlackHandler struct {
+	gptScript *gptscript.GPTScript
+}
+
+func NewSlackHandler(gptScript *gptscript.GPTScript) *SlackHandler {
+	return &SlackHandler{
+		gptScript: gptScript,
+	}
+}
+
+func (s *SlackHandler) Create(req api.Context) error {
+	thread, err := getThreadForScope(req)
+	if err != nil {
+		return err
+	}
+
+	var input types.SlackReceiver
+
+	if err := req.Read(&input); err != nil {
+		return err
+	}
+
+	slackReceiver := v1.SlackReceiver{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      system.SlackReceiverPrefix + thread.Name,
+			Namespace: req.Namespace(),
+		},
+		Spec: v1.SlackReceiverSpec{
+			Manifest:   input.SlackReceiverManifest,
+			ThreadName: thread.Name,
+		},
+	}
+
+	if err := req.Create(&slackReceiver); err != nil {
+		return err
+	}
+
+	if err := req.GPTClient.CreateCredential(req.Context(), newSlackCred(thread.Name, input.ClientSecret, input.SigningSecret)); err != nil {
+		return err
+	}
+
+	return req.WriteCreated(convertSlackReceiver(slackReceiver))
+}
+
+func newSlackCred(threadName, clientSecret, signingSecret string) gptscript.Credential {
+	return gptscript.Credential{
+		Context:  system.OAuthAppPrefix + threadName,
+		ToolName: string(types.OAuthAppTypeSlack),
+		Type:     gptscript.CredentialTypeTool,
+		Env: map[string]string{
+			"CLIENT_SECRET":  clientSecret,
+			"SIGNING_SECRET": signingSecret,
+		},
+	}
+}
+
+func convertSlackReceiver(slackReceiver v1.SlackReceiver) types.SlackReceiver {
+	return types.SlackReceiver{
+		Metadata:              MetadataFrom(&slackReceiver),
+		SlackReceiverManifest: slackReceiver.Spec.Manifest,
+	}
+}
+
+func (s *SlackHandler) Update(req api.Context) error {
+	thread, err := getThreadForScope(req)
+	if err != nil {
+		return err
+	}
+
+	var input types.SlackReceiver
+
+	if err := req.Read(&input); err != nil {
+		return err
+	}
+
+	var slackReceiver v1.SlackReceiver
+	if err := req.Get(&slackReceiver, system.SlackReceiverPrefix+thread.Name); err != nil {
+		return err
+	}
+
+	slackReceiver.Spec.Manifest = input.SlackReceiverManifest
+	if err := req.Update(&slackReceiver); err != nil {
+		return err
+	}
+
+	if input.ClientSecret != "" {
+		if err := req.GPTClient.CreateCredential(req.Context(), newSlackCred(slackReceiver.Spec.ThreadName, input.ClientSecret, input.SigningSecret)); err != nil {
+			return err
+		}
+	}
+
+	return req.Write(convertSlackReceiver(slackReceiver))
+}
+
+func (s *SlackHandler) Delete(req api.Context) error {
+	thread, err := getThreadForScope(req)
+	if err != nil {
+		return err
+	}
+
+	return req.Delete(&v1.SlackReceiver{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      system.SlackReceiverPrefix + thread.Name,
+			Namespace: req.Namespace(),
+		},
+	})
+}

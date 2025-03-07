@@ -15,6 +15,7 @@ import (
 	"github.com/obot-platform/obot/pkg/controller/handlers/projects"
 	"github.com/obot-platform/obot/pkg/controller/handlers/runs"
 	"github.com/obot-platform/obot/pkg/controller/handlers/runstates"
+	"github.com/obot-platform/obot/pkg/controller/handlers/slackreceiver"
 	"github.com/obot-platform/obot/pkg/controller/handlers/threads"
 	"github.com/obot-platform/obot/pkg/controller/handlers/threadshare"
 	"github.com/obot-platform/obot/pkg/controller/handlers/toolinfo"
@@ -79,6 +80,7 @@ func (c *Controller) setupRoutes() error {
 	root.Type(&v1.Thread{}).HandlerFunc(threads.CopyToolsFromSource)
 	root.Type(&v1.Thread{}).HandlerFunc(threads.SetCreated)
 	root.Type(&v1.Thread{}).HandlerFunc(threads.EnsureLastAndCurrentRunActive)
+	root.Type(&v1.Thread{}).HandlerFunc(threads.SlackCapability)
 	root.Type(&v1.Thread{}).FinalizeFunc(v1.ThreadFinalizer, credentialCleanup.Remove)
 	root.Type(&v1.Thread{}).FinalizeFunc(v1.ThreadFinalizer+"-child-cleanup", threads.ActivateRuns)
 
@@ -190,6 +192,13 @@ func (c *Controller) setupRoutes() error {
 
 	// Tools
 	root.Type(&v1.Tool{}).HandlerFunc(cleanup.Cleanup)
+
+	// SlackReceiver
+	root.Type(&v1.SlackReceiver{}).HandlerFunc(cleanup.Cleanup)
+	root.Type(&v1.SlackReceiver{}).HandlerFunc(slackreceiver.CreateOAuthApp)
+
+	// SlackTrigger
+	root.Type(&v1.SlackTrigger{}).HandlerFunc(cleanup.Cleanup)
 
 	c.toolRefHandler = toolRef
 	return nil

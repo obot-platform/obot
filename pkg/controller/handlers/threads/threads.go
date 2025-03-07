@@ -340,6 +340,7 @@ func (t *Handler) CleanupEphemeralThreads(req router.Request, _ router.Response)
 func (t *Handler) GenerateName(req router.Request, _ router.Response) error {
 	thread := req.Object.(*v1.Thread)
 	if !(thread.IsUserThread() && thread.Spec.Manifest.Name == "" && thread.Status.LastRunName != "" &&
+		!thread.Spec.Ephemeral &&
 		(thread.Status.LastRunState == v1.Continue || thread.Status.LastRunState == v1.Waiting)) {
 		return nil
 	}

@@ -17,12 +17,14 @@ import (
 	"time"
 
 	"github.com/gptscript-ai/go-gptscript"
+	"github.com/obot-platform/nah/pkg/name"
 	types2 "github.com/obot-platform/obot/apiclient/types"
-	"github.com/obot-platform/obot/logger"
+	loggerPackage "github.com/obot-platform/obot/logger"
 	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/api/handlers"
 	kcontext "github.com/obot-platform/obot/pkg/gateway/context"
 	"github.com/obot-platform/obot/pkg/gateway/types"
+	hash2 "github.com/obot-platform/obot/pkg/hash"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/storage/selectors"
 	"github.com/obot-platform/obot/pkg/system"
@@ -32,6 +34,8 @@ import (
 	"k8s.io/apimachinery/pkg/fields"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
+
+var logger = loggerPackage.Package()
 
 // oAuthCleanup is a background task that deletes temporary OAuth-related objects that were created
 // more than five minutes ago.
@@ -434,6 +438,14 @@ func (s *Server) refreshOAuthApp(apiContext api.Context) error {
 	return apiContext.Write(tokenResp)
 }
 
+func firstValue(m map[string][]string, key string) string {
+	values := m[key]
+	if len(values) == 0 {
+		return ""
+	}
+	return values[0]
+}
+
 // callbackOAuthApp is the callback route that the OAuth provider will redirect the user to after they have authorized the app.
 // This route will exchange the authorization code for an access token and store it in the database, so that
 // the cred tool can request it.
@@ -528,6 +540,11 @@ func (s *Server) callbackOAuthApp(apiContext api.Context) error {
 			Ok:        slackTokenResp.Ok,
 			Error:     slackTokenResp.Error,
 			CreatedAt: time.Now(),
+			Data: map[string]string{
+				"slack_app_id":    slackTokenResp.AppID,
+				"slack_team_id":   slackTokenResp.Team.ID,
+				"slack_team_name": slackTokenResp.Team.Name,
+			},
 		}
 
 		if slackTokenResp.AuthedUser.AccessToken != "" {
@@ -619,6 +636,41 @@ func (s *Server) callbackOAuthApp(apiContext api.Context) error {
 	return nil
 }
 
+func (s *Server) storeSlackTrigger(apiContext api.Context, tokenResp types.OAuthTokenResponse) error {
+	slackAppID := tokenResp.Data["slack_app_id"]
+	slackTeamID := tokenResp.Data["slack_team_id"]
+	threadID := firstValue(apiContext.User.GetExtra(), "obot:threadID")
+	if slackAppID == "" || slackTeamID == "" || threadID == "" {
+		return nil
+	}
+
+	var thread v1.Thread
+	if err := apiContext.Get(&thread, threadID); err != nil {
+		return err
+	}
+
+	if thread.Spec.ParentThreadName == "" {
+		return nil
+	}
+
+	id := name.SafeHashConcatName(slackAppID, slackTeamID, thread.Spec.ParentThreadName)
+	name := system.SlackTriggerPrefix + hash2.String(id)[:12]
+	err := apiContext.Create(&v1.SlackTrigger{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: apiContext.Namespace(),
+		},
+		Spec: v1.SlackTriggerSpec{
+			AppID:      slackAppID,
+			TeamID:     slackTeamID,
+			ThreadName: thread.Spec.ParentThreadName,
+		},
+		Status: v1.SlackTriggerStatus{},
+	})
+
+	return kclient.IgnoreAlreadyExists(err)
+}
+
 // getTokenOAuthApp is a route that the cred tool will hit to get the OAuth token response after the user has authorized the app.
 // The cred tool must be able to provide the state parameter that it first generated in order to prove that it is the one that
 // started the OAuth flow.
@@ -663,8 +715,11 @@ func (s *Server) getTokenOAuthApp(apiContext api.Context) error {
 
 		return tx.Where("state = ?", state).Delete(&tokenResp).Error
 	}); err != nil {
-		logger := logger.Package()
 		logger.Debugf("failed to delete OAuth token request challenge: %v", err)
+	}
+
+	if err := s.storeSlackTrigger(apiContext, tokenResp); err != nil {
+		return fmt.Errorf("failed to store slack trigger: %w", err)
 	}
 
 	return apiContext.Write(tokenResp)

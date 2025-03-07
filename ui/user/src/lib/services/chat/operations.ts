@@ -837,8 +837,14 @@ export async function createProjectShare(assistantID: string, projectID: string)
 
 export async function createProjectFromShare(
 	id: string,
-	opts?: { fetch?: Fetcher }
+	opts?: {
+		fetch?: Fetcher;
+		create: boolean;
+	}
 ): Promise<Project> {
+	if (opts?.create) {
+		return (await doPost(`/shares/${id}?create`, {})) as Project;
+	}
 	return (await doPost(`/shares/${id}`, {}, opts)) as Project;
 }
 

@@ -224,6 +224,7 @@ type OAuthTokenResponse struct {
 	Error        string `json:"error"`
 	CreatedAt    time.Time
 	Extras       map[string]string `json:"extras" gorm:"serializer:json"`
+	Data         map[string]string `json:"data" gorm:"serializer:json"`
 }
 
 type GoogleOAuthTokenResponse struct {
@@ -247,8 +248,13 @@ type SalesforceOAuthTokenResponse struct {
 }
 
 type SlackOAuthTokenResponse struct {
-	Ok         bool   `json:"ok"`
-	Error      string `json:"error"`
+	Ok    bool   `json:"ok"`
+	Error string `json:"error"`
+	AppID string `json:"app_id"`
+	Team  struct {
+		Name string `json:"name"`
+		ID   string `json:"id"`
+	} `json:"team"`
 	AuthedUser struct {
 		ID          string `json:"id"`
 		Scope       string `json:"scope"`

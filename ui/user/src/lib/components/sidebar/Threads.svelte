@@ -125,6 +125,7 @@
 		watchingThread = ChatService.watchThreads(project.assistantID, project.id, (thread) => {
 			if (thread.deleted) {
 				layout.threads = layout.threads?.filter((t) => t.id !== thread.id);
+				layout.taskRuns = layout.taskRuns?.filter((t) => t.id !== thread.id);
 				if (currentThreadID === thread.id) {
 					setCurrentThread(layout.threads?.[0]?.id ?? '');
 				}

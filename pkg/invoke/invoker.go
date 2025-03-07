@@ -175,6 +175,7 @@ type Options struct {
 	Synchronous           bool
 	EphemeralThread       bool
 	ThreadName            string
+	ParentThreadName      string
 	WorkflowStepName      string
 	WorkflowStepID        string
 	WorkflowExecutionName string
@@ -255,7 +256,9 @@ func getThreadForAgent(ctx context.Context, c kclient.WithWatch, agent *v1.Agent
 	}
 
 	var parentThreadName string
-	if opt.PreviousRunName != "" {
+	if opt.ParentThreadName != "" {
+		parentThreadName = opt.ParentThreadName
+	} else if opt.PreviousRunName != "" {
 		var run v1.Run
 		if err := c.Get(ctx, router.Key(agent.Namespace, opt.PreviousRunName), &run); err != nil {
 			return nil, err

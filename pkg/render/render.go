@@ -348,7 +348,7 @@ func OAuthAppEnv(ctx context.Context, db kclient.Client, oauthAppNames []string,
 		extraEnv = append(extraEnv,
 			fmt.Sprintf("GPTSCRIPT_OAUTH_%s_AUTH_URL=%s", integrationEnv, app.AuthorizeURL(serverURL)),
 			fmt.Sprintf("GPTSCRIPT_OAUTH_%s_REFRESH_URL=%s", integrationEnv, app.RefreshURL(serverURL)),
-			fmt.Sprintf("GPTSCRIPT_OAUTH_%s_TOKEN_URL=%s", integrationEnv, v1.OAuthAppGetTokenURL(serverURL)))
+			fmt.Sprintf("GPTSCRIPT_OAUTH_%s_TOKEN_URL=%s", integrationEnv, app.OAuthAppGetTokenURL(serverURL)))
 	}
 
 	return extraEnv, nil
@@ -479,6 +479,21 @@ func manifestToTool(manifest types.WorkflowManifest, taskInvoke, id string) gpts
 
 func oauthAppsByName(ctx context.Context, c kclient.Client, namespace string, oauthNames []string, thread *v1.Thread) (map[string]v1.OAuthApp, error) {
 	result := map[string]v1.OAuthApp{}
+
+	if thread != nil {
+		var apps v1.OAuthAppList
+		err := c.List(ctx, &apps, kclient.InNamespace(namespace), kclient.MatchingFields{
+			"spec.threadName": thread.Name,
+		})
+		if err != nil {
+			return nil, err
+		}
+
+		for _, app := range apps.Items {
+			result[app.Spec.Manifest.Alias] = app
+		}
+	}
+
 	for _, oauthName := range oauthNames {
 		if strings.HasPrefix(oauthName, system.OAuthAppPrefix) {
 			var oauthApp v1.OAuthApp
@@ -486,7 +501,7 @@ func oauthAppsByName(ctx context.Context, c kclient.Client, namespace string, oa
 				return nil, err
 			}
 			result[oauthApp.Spec.Manifest.Alias] = oauthApp
-		} else {
+		} else if _, ok := result[oauthName]; !ok {
 			var apps v1.OAuthAppList
 			err := c.List(ctx, &apps, kclient.InNamespace(namespace), kclient.MatchingFields{
 				"spec.manifest.alias": oauthName,
@@ -504,20 +519,6 @@ func oauthAppsByName(ctx context.Context, c kclient.Client, namespace string, oa
 				return nil, fmt.Errorf("expected to find 1 OAuthApp with name %q but found %d", oauthName, len(filtered))
 			}
 			result[filtered[0].Spec.Manifest.Alias] = filtered[0]
-		}
-	}
-
-	if thread != nil {
-		var apps v1.OAuthAppList
-		err := c.List(ctx, &apps, kclient.InNamespace(namespace), kclient.MatchingFields{
-			"spec.threadName": thread.Name,
-		})
-		if err != nil {
-			return nil, err
-		}
-
-		for _, app := range apps.Items {
-			result[app.Spec.Manifest.Alias] = app
 		}
 	}
 

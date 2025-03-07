@@ -71,6 +71,10 @@ func AddToSchemeWithGV(scheme *runtime.Scheme, schemeGroupVersion schema.GroupVe
 		&ToolList{},
 		&ThreadShare{},
 		&ThreadShareList{},
+		&SlackTrigger{},
+		&SlackTriggerList{},
+		&SlackReceiver{},
+		&SlackReceiverList{},
 	); err != nil {
 		return err
 	}

@@ -492,8 +492,11 @@ func validate(task types.TaskManifest) error {
 	if task.OnDemand != nil {
 		count++
 	}
+	if task.OnSlackMessage != nil {
+		count++
+	}
 	if count > 1 {
-		return types.NewErrBadRequest("only one trigger is allowed, schedule, webhook, onDemand, or email")
+		return types.NewErrBadRequest("only one trigger is allowed, schedule, webhook, onDemand, onSlackMessage, or email")
 	}
 	return nil
 }
@@ -717,10 +720,11 @@ func (t *TaskHandler) CreateFromScope(req api.Context) error {
 
 func ToWorkflowManifest(manifest types.TaskManifest) types.WorkflowManifest {
 	return types.WorkflowManifest{
-		Name:        manifest.Name,
-		Description: manifest.Description,
-		Steps:       toWorkflowSteps(manifest.Steps),
-		Params:      toParams(manifest),
+		Name:           manifest.Name,
+		Description:    manifest.Description,
+		Steps:          toWorkflowSteps(manifest.Steps),
+		Params:         toParams(manifest),
+		OnSlackMessage: manifest.OnSlackMessage,
 	}
 }
 
@@ -938,9 +942,10 @@ func ConvertTaskManifest(manifest *types.WorkflowManifest) types.TaskManifest {
 		return types.TaskManifest{}
 	}
 	return types.TaskManifest{
-		Name:        manifest.Name,
-		Description: manifest.Description,
-		Steps:       toTaskSteps(manifest.Steps),
+		Name:           manifest.Name,
+		Description:    manifest.Description,
+		Steps:          toTaskSteps(manifest.Steps),
+		OnSlackMessage: manifest.OnSlackMessage,
 	}
 }
 

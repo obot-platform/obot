@@ -76,6 +76,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/apiclient/types.Project":                                    schema_obot_platform_obot_apiclient_types_Project(ref),
 		"github.com/obot-platform/obot/apiclient/types.ProjectAuthorization":                       schema_obot_platform_obot_apiclient_types_ProjectAuthorization(ref),
 		"github.com/obot-platform/obot/apiclient/types.ProjectAuthorizationList":                   schema_obot_platform_obot_apiclient_types_ProjectAuthorizationList(ref),
+		"github.com/obot-platform/obot/apiclient/types.ProjectCapabilities":                        schema_obot_platform_obot_apiclient_types_ProjectCapabilities(ref),
 		"github.com/obot-platform/obot/apiclient/types.ProjectCredential":                          schema_obot_platform_obot_apiclient_types_ProjectCredential(ref),
 		"github.com/obot-platform/obot/apiclient/types.ProjectCredentialList":                      schema_obot_platform_obot_apiclient_types_ProjectCredentialList(ref),
 		"github.com/obot-platform/obot/apiclient/types.ProjectList":                                schema_obot_platform_obot_apiclient_types_ProjectList(ref),
@@ -91,6 +92,9 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/apiclient/types.Run":                                        schema_obot_platform_obot_apiclient_types_Run(ref),
 		"github.com/obot-platform/obot/apiclient/types.RunList":                                    schema_obot_platform_obot_apiclient_types_RunList(ref),
 		"github.com/obot-platform/obot/apiclient/types.Schedule":                                   schema_obot_platform_obot_apiclient_types_Schedule(ref),
+		"github.com/obot-platform/obot/apiclient/types.SlackReceiver":                              schema_obot_platform_obot_apiclient_types_SlackReceiver(ref),
+		"github.com/obot-platform/obot/apiclient/types.SlackReceiverList":                          schema_obot_platform_obot_apiclient_types_SlackReceiverList(ref),
+		"github.com/obot-platform/obot/apiclient/types.SlackReceiverManifest":                      schema_obot_platform_obot_apiclient_types_SlackReceiverManifest(ref),
 		"github.com/obot-platform/obot/apiclient/types.Step":                                       schema_obot_platform_obot_apiclient_types_Step(ref),
 		"github.com/obot-platform/obot/apiclient/types.StepTemplateInvoke":                         schema_obot_platform_obot_apiclient_types_StepTemplateInvoke(ref),
 		"github.com/obot-platform/obot/apiclient/types.Table":                                      schema_obot_platform_obot_apiclient_types_Table(ref),
@@ -100,6 +104,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/apiclient/types.TaskList":                                   schema_obot_platform_obot_apiclient_types_TaskList(ref),
 		"github.com/obot-platform/obot/apiclient/types.TaskManifest":                               schema_obot_platform_obot_apiclient_types_TaskManifest(ref),
 		"github.com/obot-platform/obot/apiclient/types.TaskOnDemand":                               schema_obot_platform_obot_apiclient_types_TaskOnDemand(ref),
+		"github.com/obot-platform/obot/apiclient/types.TaskOnSlackMessage":                         schema_obot_platform_obot_apiclient_types_TaskOnSlackMessage(ref),
 		"github.com/obot-platform/obot/apiclient/types.TaskRun":                                    schema_obot_platform_obot_apiclient_types_TaskRun(ref),
 		"github.com/obot-platform/obot/apiclient/types.TaskRunList":                                schema_obot_platform_obot_apiclient_types_TaskRunList(ref),
 		"github.com/obot-platform/obot/apiclient/types.TaskStep":                                   schema_obot_platform_obot_apiclient_types_TaskStep(ref),
@@ -198,11 +203,20 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.RunStateList":              schema_storage_apis_obotobotai_v1_RunStateList(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.RunStateSpec":              schema_storage_apis_obotobotai_v1_RunStateSpec(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.RunStatus":                 schema_storage_apis_obotobotai_v1_RunStatus(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.SlackReceiver":             schema_storage_apis_obotobotai_v1_SlackReceiver(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.SlackReceiverList":         schema_storage_apis_obotobotai_v1_SlackReceiverList(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.SlackReceiverSpec":         schema_storage_apis_obotobotai_v1_SlackReceiverSpec(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.SlackReceiverStatus":       schema_storage_apis_obotobotai_v1_SlackReceiverStatus(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.SlackTrigger":              schema_storage_apis_obotobotai_v1_SlackTrigger(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.SlackTriggerList":          schema_storage_apis_obotobotai_v1_SlackTriggerList(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.SlackTriggerSpec":          schema_storage_apis_obotobotai_v1_SlackTriggerSpec(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.SlackTriggerStatus":        schema_storage_apis_obotobotai_v1_SlackTriggerStatus(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.Thread":                    schema_storage_apis_obotobotai_v1_Thread(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ThreadAuthorization":       schema_storage_apis_obotobotai_v1_ThreadAuthorization(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ThreadAuthorizationList":   schema_storage_apis_obotobotai_v1_ThreadAuthorizationList(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ThreadAuthorizationSpec":   schema_storage_apis_obotobotai_v1_ThreadAuthorizationSpec(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ThreadAuthorizationStatus": schema_storage_apis_obotobotai_v1_ThreadAuthorizationStatus(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ThreadCapabilities":        schema_storage_apis_obotobotai_v1_ThreadCapabilities(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ThreadList":                schema_storage_apis_obotobotai_v1_ThreadList(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ThreadShare":               schema_storage_apis_obotobotai_v1_ThreadShare(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ThreadShareList":           schema_storage_apis_obotobotai_v1_ThreadShareList(ref),
@@ -2876,12 +2890,18 @@ func schema_obot_platform_obot_apiclient_types_Project(ref common.ReferenceCallb
 							Format: "",
 						},
 					},
+					"capabilities": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/obot-platform/obot/apiclient/types.ProjectCapabilities"),
+						},
+					},
 				},
-				Required: []string{"Metadata", "ProjectManifest", "editor"},
+				Required: []string{"Metadata", "ProjectManifest", "editor", "capabilities"},
 			},
 		},
 		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.Metadata", "github.com/obot-platform/obot/apiclient/types.ProjectManifest"},
+			"github.com/obot-platform/obot/apiclient/types.Metadata", "github.com/obot-platform/obot/apiclient/types.ProjectCapabilities", "github.com/obot-platform/obot/apiclient/types.ProjectManifest"},
 	}
 }
 
@@ -2941,6 +2961,24 @@ func schema_obot_platform_obot_apiclient_types_ProjectAuthorizationList(ref comm
 		},
 		Dependencies: []string{
 			"github.com/obot-platform/obot/apiclient/types.ProjectAuthorization"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_ProjectCapabilities(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"onSlackMessage": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
+						},
+					},
+				},
+			},
+		},
 	}
 }
 
@@ -3599,6 +3637,99 @@ func schema_obot_platform_obot_apiclient_types_Schedule(ref common.ReferenceCall
 	}
 }
 
+func schema_obot_platform_obot_apiclient_types_SlackReceiver(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"Metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/obot-platform/obot/apiclient/types.Metadata"),
+						},
+					},
+					"SlackReceiverManifest": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/obot-platform/obot/apiclient/types.SlackReceiverManifest"),
+						},
+					},
+					"clientSecret": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"signingSecret": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+				},
+				Required: []string{"Metadata", "SlackReceiverManifest"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.Metadata", "github.com/obot-platform/obot/apiclient/types.SlackReceiverManifest"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_SlackReceiverList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/obot-platform/obot/apiclient/types.SlackReceiver"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"items"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.SlackReceiver"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_SlackReceiverManifest(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "SlackReceiverManifest defines the configuration for a Slack receiver",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"appId": {
+						SchemaProps: spec.SchemaProps{
+							Description: "AppID corresponds to the App ID of the Slack app. It's important to not that this value is not validated. The user can insert whatever they want here. Don't trust this value. Use the value from oauth flow to validate the app.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"clientId": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
 func schema_obot_platform_obot_apiclient_types_Step(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -3853,12 +3984,17 @@ func schema_obot_platform_obot_apiclient_types_TaskManifest(ref common.Reference
 							Ref: ref("github.com/obot-platform/obot/apiclient/types.TaskOnDemand"),
 						},
 					},
+					"onSlackMessage": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.TaskOnSlackMessage"),
+						},
+					},
 				},
-				Required: []string{"name", "description", "steps", "schedule", "webhook", "email", "onDemand"},
+				Required: []string{"name", "description", "steps", "schedule", "webhook", "email", "onDemand", "onSlackMessage"},
 			},
 		},
 		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.Schedule", "github.com/obot-platform/obot/apiclient/types.TaskEmail", "github.com/obot-platform/obot/apiclient/types.TaskOnDemand", "github.com/obot-platform/obot/apiclient/types.TaskStep", "github.com/obot-platform/obot/apiclient/types.TaskWebhook"},
+			"github.com/obot-platform/obot/apiclient/types.Schedule", "github.com/obot-platform/obot/apiclient/types.TaskEmail", "github.com/obot-platform/obot/apiclient/types.TaskOnDemand", "github.com/obot-platform/obot/apiclient/types.TaskOnSlackMessage", "github.com/obot-platform/obot/apiclient/types.TaskStep", "github.com/obot-platform/obot/apiclient/types.TaskWebhook"},
 	}
 }
 
@@ -3884,6 +4020,16 @@ func schema_obot_platform_obot_apiclient_types_TaskOnDemand(ref common.Reference
 						},
 					},
 				},
+			},
+		},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_TaskOnSlackMessage(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
 			},
 		},
 	}
@@ -5383,12 +5529,17 @@ func schema_obot_platform_obot_apiclient_types_WorkflowManifest(ref common.Refer
 							Format: "",
 						},
 					},
+					"onSlackMessage": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.TaskOnSlackMessage"),
+						},
+					},
 				},
 				Required: []string{"alias", "steps", "output"},
 			},
 		},
 		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.Step"},
+			"github.com/obot-platform/obot/apiclient/types.Step", "github.com/obot-platform/obot/apiclient/types.TaskOnSlackMessage"},
 	}
 }
 
@@ -7654,6 +7805,13 @@ func schema_storage_apis_obotobotai_v1_OAuthAppSpec(ref common.ReferenceCallback
 							Format:      "",
 						},
 					},
+					"slackReceiverName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "The Slack receiver that created and owns this OAuth app",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 				},
 			},
 		},
@@ -8143,6 +8301,270 @@ func schema_storage_apis_obotobotai_v1_RunStatus(ref common.ReferenceCallback) c
 	}
 }
 
+func schema_storage_apis_obotobotai_v1_SlackReceiver(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"),
+						},
+					},
+					"spec": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.SlackReceiverSpec"),
+						},
+					},
+					"status": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.SlackReceiverStatus"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.SlackReceiverSpec", "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.SlackReceiverStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
+	}
+}
+
+func schema_storage_apis_obotobotai_v1_SlackReceiverList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"),
+						},
+					},
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.SlackReceiver"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"items"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.SlackReceiver", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
+	}
+}
+
+func schema_storage_apis_obotobotai_v1_SlackReceiverSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"manifest": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/obot-platform/obot/apiclient/types.SlackReceiverManifest"),
+						},
+					},
+					"threadName": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.SlackReceiverManifest"},
+	}
+}
+
+func schema_storage_apis_obotobotai_v1_SlackReceiverStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+			},
+		},
+	}
+}
+
+func schema_storage_apis_obotobotai_v1_SlackTrigger(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"),
+						},
+					},
+					"spec": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.SlackTriggerSpec"),
+						},
+					},
+					"status": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.SlackTriggerStatus"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.SlackTriggerSpec", "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.SlackTriggerStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
+	}
+}
+
+func schema_storage_apis_obotobotai_v1_SlackTriggerList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"),
+						},
+					},
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.SlackTrigger"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"items"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.SlackTrigger", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
+	}
+}
+
+func schema_storage_apis_obotobotai_v1_SlackTriggerSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"appID": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"teamID": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"threadName": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func schema_storage_apis_obotobotai_v1_SlackTriggerStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+			},
+		},
+	}
+}
+
 func schema_storage_apis_obotobotai_v1_Thread(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -8315,6 +8737,26 @@ func schema_storage_apis_obotobotai_v1_ThreadAuthorizationStatus(ref common.Refe
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
 				Type: []string{"object"},
+			},
+		},
+	}
+}
+
+func schema_storage_apis_obotobotai_v1_ThreadCapabilities(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"onSlackMessage": {
+						SchemaProps: spec.SchemaProps{
+							Default: false,
+							Type:    []string{"boolean"},
+							Format:  "",
+						},
+					},
+				},
+				Required: []string{"onSlackMessage"},
 			},
 		},
 	}
@@ -8656,6 +9098,13 @@ func schema_storage_apis_obotobotai_v1_ThreadSpec(ref common.ReferenceCallback) 
 							},
 						},
 					},
+					"capabilities": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Capabilities are the capabilities of this thread",
+							Default:     map[string]interface{}{},
+							Ref:         ref("github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ThreadCapabilities"),
+						},
+					},
 					"workflowName": {
 						SchemaProps: spec.SchemaProps{
 							Description: "WorkflowName is the workflow owner of the thread",
@@ -8716,7 +9165,7 @@ func schema_storage_apis_obotobotai_v1_ThreadSpec(ref common.ReferenceCallback) 
 			},
 		},
 		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.EnvVar", "github.com/obot-platform/obot/apiclient/types.ThreadManifest"},
+			"github.com/obot-platform/obot/apiclient/types.EnvVar", "github.com/obot-platform/obot/apiclient/types.ThreadManifest", "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ThreadCapabilities"},
 	}
 }
 

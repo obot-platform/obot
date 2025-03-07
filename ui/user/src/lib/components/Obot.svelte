@@ -98,14 +98,16 @@
 							{/if}
 						{/each}
 					{:else if layout.displayTaskRun}
-						<Task
-							{project}
-							task={{
-								...layout.displayTaskRun.task,
-								id: layout.displayTaskRun.taskID
-							}}
-							runID={layout.displayTaskRun.id}
-						/>
+						{#key layout.displayTaskRun.id}
+							<Task
+								{project}
+								task={{
+									...layout.displayTaskRun.task,
+									id: layout.displayTaskRun.taskID
+								}}
+								runID={layout.displayTaskRun.id}
+							/>
+						{/key}
 					{:else}
 						<Thread bind:id={currentThreadID} bind:project />
 					{/if}

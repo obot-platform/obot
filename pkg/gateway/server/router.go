@@ -57,6 +57,7 @@ func (s *Server) AddRoutes(mux *server.Server) {
 
 	// Route for credential tools to get their OAuth tokens
 	mux.HandleFunc("GET /api/app-oauth/get-token", wrap(s.getTokenOAuthApp))
+	mux.HandleFunc("GET /api/app-oauth/get-token/{id}", wrap(s.getTokenOAuthApp))
 
 	// LLM proxy
 	mux.HandleFunc("POST /api/llm-proxy/{path...}", s.llmProxy)

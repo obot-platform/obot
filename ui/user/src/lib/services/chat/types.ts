@@ -268,6 +268,7 @@ export interface Task {
 	email?: object;
 	webhook?: object;
 	onDemand?: OnDemand;
+	onSlackedMessage?: Record<string, never>;
 	alias?: string;
 }
 
@@ -346,6 +347,9 @@ export interface Project {
 	tools?: string[];
 	sharedTasks?: string[];
 	websiteKnowledge?: Sites;
+	capabilities: {
+		onSlackMessage?: boolean;
+	};
 }
 
 export interface ProjectList {
