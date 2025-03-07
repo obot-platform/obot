@@ -4,21 +4,9 @@
 
 	interface Props {
 		schedule?: Schedule;
-		editMode?: boolean;
-		onChanged?: (schedule: Schedule) => void | Promise<void>;
 	}
 
-	let {
-		editMode = false,
-		schedule = {
-			interval: '',
-			hour: 0,
-			minute: 0,
-			day: 0,
-			weekday: 0
-		},
-		onChanged
-	}: Props = $props();
+	let { schedule = $bindable() }: Props = $props();
 </script>
 
 <h3 class="text-lg font-semibold">Schedule</h3>
@@ -31,16 +19,14 @@
 			monthly: 'monthly'
 		}}
 		selected={schedule?.interval}
-		disabled={!editMode}
 		onSelected={(value) => {
-			onChanged?.({
-				...schedule,
-				interval: value
-			});
+			if (schedule) {
+				schedule.interval = value;
+			}
 		}}
 	/>
 
-	{#if schedule.interval === 'hourly'}
+	{#if schedule?.interval === 'hourly'}
 		<Dropdown
 			values={{
 				'0': 'on the hour',
@@ -49,20 +35,15 @@
 				'45': '45 minutes past'
 			}}
 			selected={schedule?.minute.toString()}
-			disabled={!editMode}
 			onSelected={(value) => {
-				onChanged?.({
-					...schedule,
-					minute: parseInt(value),
-					hour: 0,
-					day: 0,
-					weekday: 0
-				});
+				if (schedule) {
+					schedule.minute = parseInt(value);
+				}
 			}}
 		/>
 	{/if}
 
-	{#if schedule.interval === 'daily'}
+	{#if schedule?.interval === 'daily'}
 		<Dropdown
 			values={{
 				'0': 'midnight',
@@ -75,20 +56,15 @@
 				'21': '9 PM'
 			}}
 			selected={schedule?.hour.toString()}
-			disabled={!editMode}
 			onSelected={(value) => {
-				onChanged?.({
-					...schedule,
-					minute: 0,
-					hour: parseInt(value),
-					day: 0,
-					weekday: 0
-				});
+				if (schedule) {
+					schedule.hour = parseInt(value);
+				}
 			}}
 		/>
 	{/if}
 
-	{#if schedule.interval === 'weekly'}
+	{#if schedule?.interval === 'weekly'}
 		<Dropdown
 			values={{
 				'0': 'Sunday',
@@ -100,20 +76,15 @@
 				'6': 'Saturday'
 			}}
 			selected={schedule?.weekday.toString()}
-			disabled={!editMode}
 			onSelected={(value) => {
-				onChanged?.({
-					...schedule,
-					minute: 0,
-					hour: 0,
-					day: 0,
-					weekday: parseInt(value)
-				});
+				if (schedule) {
+					schedule.weekday = parseInt(value);
+				}
 			}}
 		/>
 	{/if}
 
-	{#if schedule.interval === 'monthly'}
+	{#if schedule?.interval === 'monthly'}
 		<Dropdown
 			values={{
 				'0': '1st',
@@ -126,15 +97,10 @@
 				'-1': 'last day'
 			}}
 			selected={schedule?.day.toString()}
-			disabled={!editMode}
 			onSelected={(value) => {
-				onChanged?.({
-					...schedule,
-					minute: 0,
-					hour: 0,
-					day: parseInt(value),
-					weekday: 0
-				});
+				if (schedule) {
+					schedule.day = parseInt(value);
+				}
 			}}
 		/>
 	{/if}

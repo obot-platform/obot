@@ -64,10 +64,12 @@
 
 <div use:tooltip class="z-30 w-screen px-2 md:w-96">
 	<div
-		class="flex w-full flex-col divide-y
+		class="colors-surface2 flex w-full flex-col
+		divide-y
 		divide-gray-200
-		rounded-3xl
-		 bg-gray-50 p-6 shadow dark:divide-gray-700 dark:bg-gray-950"
+		 rounded-3xl p-6 shadow
+		 dark:divide-gray-700
+"
 	>
 		<div class="mb-4">
 			<div class="flex justify-between">

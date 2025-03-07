@@ -1,26 +1,113 @@
 <script lang="ts">
-	import { FileText, Trash, Upload } from 'lucide-svelte/icons';
-	import { ChatService, EditorService, type File, type Files, type Project } from '$lib/services';
+	import { FileText, Trash, Upload, X } from 'lucide-svelte/icons';
+	import {
+		ChatService,
+		EditorService,
+		type File,
+		type Files,
+		type Project,
+		type Thread
+	} from '$lib/services';
 	import Confirm from '$lib/components/Confirm.svelte';
-	import Menu from '$lib/components/navbar/Menu.svelte';
 	import { Download, Image } from 'lucide-svelte';
 	import { isImage } from '$lib/image';
 	import Error from '$lib/components/Error.svelte';
 	import Loading from '$lib/icons/Loading.svelte';
 	import CollapsePane from '$lib/components/edit/CollapsePane.svelte';
-	import type { EditorItem } from '$lib/services/editor/index.svelte';
 	import { getLayout } from '$lib/context/layout.svelte';
-	import Truncate from '../shared/tooltip/Truncate.svelte';
+	import type { EditorItem } from '$lib/services/editor/index.svelte';
+	import FileEditors from '$lib/components/editor/FileEditors.svelte';
+	import { newFileMonitor } from '$lib/save.js';
+	import { onMount } from 'svelte';
+	import { overflowToolTip } from '$lib/actions/overflow';
+	import { popover } from '$lib/actions';
 
 	interface Props {
 		project: Project;
 		thread?: boolean;
 		currentThreadID?: string;
-		items: EditorItem[];
+	}
+
+	let { project, currentThreadID = $bindable(), thread = false }: Props = $props();
+
+	const layout = getLayout();
+	const fileMonitor = newFileMonitor(project);
+	let files = $state<File[]>([]);
+	let fileToDelete = $state<string | undefined>();
+	let fileList = $state<FileList>();
+	let items = $state<EditorItem[]>([]);
+	let editorDialog = $state<HTMLDialogElement>();
+	let apiOpts = $derived(
+		thread
+			? {
+					threadID: currentThreadID
+				}
+			: {}
+	);
+	let uploadInProgress = $state<Promise<Files>>();
+	let threadTT = popover();
+
+	if (!thread) {
+		onMount(() => fileMonitor.start());
+	}
+
+	$effect(() => {
+		if (!fileList?.length) {
+			return;
+		}
+
+		if (thread && !currentThreadID) {
+			createThread()
+				.then((t) => {
+					currentThreadID = t.id;
+				})
+				.catch(() => {
+					fileList = undefined;
+				});
+			return;
+		}
+
+		const file = fileList[0];
+		uploadInProgress = ChatService.saveFile(project.assistantID, project.id, file, apiOpts);
+		uploadInProgress
+			.then(() => {
+				if (file.name.endsWith('.pdf') && thread && currentThreadID) {
+					return ChatService.uploadKnowledge(project.assistantID, project.id, file, apiOpts);
+				}
+			})
+			.finally(() => {
+				uploadInProgress = undefined;
+				loadFiles();
+			});
+
+		fileList = undefined;
+	});
+
+	async function sleep(ms: number): Promise<void> {
+		return new Promise((resolve) => setTimeout(resolve, ms));
+	}
+
+	async function createThread(): Promise<Thread> {
+		let thread = await ChatService.createThread(project.assistantID, project.id);
+		while (!thread.ready) {
+			await sleep(1000);
+			thread = await ChatService.getThread(project.assistantID, project.id, thread.id);
+		}
+		return thread;
 	}
 
 	async function loadFiles() {
 		files = (await ChatService.listFiles(project.assistantID, project.id, apiOpts)).items;
+	}
+
+	async function editFile(file: File) {
+		if (thread) {
+			await EditorService.load(layout.items, project, file.name, apiOpts);
+			layout.fileEditorOpen = true;
+		} else {
+			await EditorService.load(items, project, file.name, apiOpts);
+			editorDialog?.showModal();
+		}
 	}
 
 	async function deleteFile() {
@@ -29,39 +116,12 @@
 		}
 		await ChatService.deleteFile(project.assistantID, project.id, fileToDelete, apiOpts);
 		await loadFiles();
+		if (fileToDelete.endsWith('.pdf') && thread && currentThreadID) {
+			await ChatService.deleteKnowledgeFile(project.assistantID, project.id, fileToDelete, apiOpts);
+		}
+		EditorService.remove(items, fileToDelete);
 		fileToDelete = undefined;
 	}
-
-	let { project, currentThreadID, thread = false, items = $bindable() }: Props = $props();
-
-	const layout = getLayout();
-	let files = $state<File[]>([]);
-	let fileToDelete = $state<string | undefined>();
-	let menu = $state<ReturnType<typeof Menu>>();
-	let fileList = $state<FileList>();
-	let apiOpts = $derived(
-		thread
-			? {
-					threadID: currentThreadID
-				}
-			: {}
-	);
-
-	let uploadInProgress = $state<Promise<Files>>();
-
-	$effect(() => {
-		if (!fileList?.length) {
-			return;
-		}
-
-		uploadInProgress = ChatService.saveFile(project.assistantID, project.id, fileList[0], apiOpts);
-		uploadInProgress.finally(() => {
-			uploadInProgress = undefined;
-			loadFiles();
-		});
-
-		fileList = undefined;
-	});
 </script>
 
 {#snippet body()}
@@ -73,11 +133,9 @@
 				<li class="group">
 					<div class="flex">
 						<button
-							class="flex flex-1 items-center"
+							class="flex w-4/5 flex-1 items-center text-start"
 							onclick={async () => {
-								await EditorService.load(items, project, file.name, apiOpts);
-								layout.fileEditorOpen = true;
-								menu?.toggle(false);
+								await editFile(file);
 							}}
 						>
 							{#if isImage(file.name)}
@@ -85,7 +143,7 @@
 							{:else}
 								<FileText class="size-5 min-w-fit" />
 							{/if}
-							<Truncate class="ms-2 group-hover:underline" text={file.name} />
+							<span use:overflowToolTip>{file.name}</span>
 						</button>
 						<button
 							class="ms-2 hidden group-hover:block"
@@ -128,22 +186,51 @@
 {/snippet}
 
 {#if thread}
-	<Menu
-		bind:this={menu}
-		title="Files"
-		description="Click to view or edit files"
-		onLoad={loadFiles}
-		{body}
+	<button
+		use:threadTT.ref
+		class="icon-button"
+		onclick={() => {
+			threadTT.toggle();
+			loadFiles();
+		}}
 	>
-		{#snippet icon()}
-			<FileText class="h-5 w-5" />
-		{/snippet}
-	</Menu>
+		<FileText class="h-5 w-5" />
+	</button>
+	<div use:threadTT.tooltip id="foo" class="colors-surface2 w-[400px] rounded-3xl">
+		<div class="flex flex-col p-5">
+			{@render body()}
+		</div>
+	</div>
 {:else}
 	<CollapsePane header="Files" onOpen={loadFiles}>
 		{@render body()}
 	</CollapsePane>
 {/if}
+
+<dialog
+	bind:this={editorDialog}
+	class="colors-surface1 relative h-full w-full rounded-3xl md:w-4/5"
+>
+	<button
+		class="icon-button absolute right-2 top-2"
+		onclick={async () => {
+			await fileMonitor.save();
+			editorDialog?.close();
+		}}
+	>
+		<X class="icon-default" />
+	</button>
+	<div class="flex h-full flex-col p-5">
+		{#each items as item}
+			{#if item.selected}
+				<h2 class="ml-2 text-2xl font-semibold">{item.name}</h2>
+			{/if}
+		{/each}
+		<div class="overflow-y-auto rounded-lg">
+			<FileEditors {project} onFileChanged={fileMonitor.onFileChange} bind:items />
+		</div>
+	</div>
+</dialog>
 
 <Confirm
 	show={fileToDelete !== undefined}

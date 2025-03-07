@@ -538,6 +538,19 @@ func (h *ProjectsHandler) CreateProjectThread(req api.Context) error {
 	return req.WriteCreated(convertThread(thread))
 }
 
+func (h *ProjectsHandler) GetProjectThread(req api.Context) error {
+	var (
+		id = req.PathValue("id")
+	)
+
+	var thread v1.Thread
+	if err := req.Get(&thread, id); err != nil {
+		return err
+	}
+
+	return req.Write(convertThread(thread))
+}
+
 func (h *ProjectsHandler) ListProjectThreads(req api.Context) error {
 	var (
 		threads v1.ThreadList

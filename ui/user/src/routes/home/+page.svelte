@@ -33,7 +33,7 @@
 		}
 
 		const project = await ChatService.createProject(defaultAssistant.id);
-		await goto(`/o/${project.id}`);
+		await goto(`/o/${project.id}?edit`);
 	}
 
 	async function copy(project: Project) {

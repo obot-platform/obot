@@ -8,11 +8,15 @@ import (
 	"time"
 
 	"github.com/gptscript-ai/go-gptscript"
+	"github.com/obot-platform/nah/pkg/name"
+	"github.com/obot-platform/nah/pkg/randomtoken"
 	"github.com/obot-platform/nah/pkg/router"
 	"github.com/obot-platform/nah/pkg/untriggered"
 	"github.com/obot-platform/obot/pkg/invoke"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
+	"k8s.io/apimachinery/pkg/api/equality"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
@@ -331,6 +335,92 @@ func (t *Handler) ActivateRuns(req router.Request, _ router.Response) error {
 			v1.SetActive(&run)
 			if err := req.Client.Update(req.Ctx, &run); err != nil {
 				return fmt.Errorf("failed to update run %q to active: %w", run.Name, err)
+			}
+		}
+	}
+
+	return nil
+}
+
+func (t *Handler) EnsureShared(req router.Request, _ router.Response) error {
+	wf := req.Object.(*v1.Workflow)
+	if !wf.Spec.ProjectScoped {
+		return nil
+	}
+
+	var sourceThread v1.Thread
+	if err := req.Get(&sourceThread, wf.Namespace, wf.Spec.SourceThreadName); apierrors.IsNotFound(err) {
+		return req.Delete(wf)
+	} else if err != nil {
+		return fmt.Errorf("failed to get source thread %s: %w", wf.Spec.SourceThreadName, err)
+	}
+
+	if !slices.Contains(sourceThread.Spec.Manifest.SharedTasks, wf.Spec.SourceWorkflowName) {
+		return req.Delete(wf)
+	}
+
+	return nil
+}
+
+func (t *Handler) CopyTasks(req router.Request, _ router.Response) error {
+	thread := req.Object.(*v1.Thread)
+	if !thread.Spec.Project || thread.Spec.ParentThreadName == "" {
+		return nil
+	}
+
+	var parentThread v1.Thread
+	if err := req.Get(&parentThread, thread.Namespace, thread.Spec.ParentThreadName); apierrors.IsNotFound(err) {
+		return nil
+	} else if err != nil {
+		return fmt.Errorf("failed to get parent thread %s: %w", thread.Spec.ParentThreadName, err)
+	}
+
+	for _, taskID := range parentThread.Spec.Manifest.SharedTasks {
+		var wf v1.Workflow
+		if err := req.Get(&wf, thread.Namespace, taskID); apierrors.IsNotFound(err) {
+			continue
+		} else if err != nil {
+			return fmt.Errorf("failed to get workflow %s: %w", taskID, err)
+		} else if wf.Spec.ThreadName != parentThread.Name {
+			continue
+		}
+
+		var (
+			targetWFName = name.SafeHashConcatName(wf.Name, thread.Name)
+			targetWF     v1.Workflow
+			newManifest  = wf.Spec.Manifest
+		)
+		if err := req.Get(&targetWF, thread.Namespace, targetWFName); apierrors.IsNotFound(err) {
+			newManifest.Alias, err = randomtoken.Generate()
+			if err != nil {
+				return err
+			}
+
+			err := req.Client.Create(req.Ctx, &v1.Workflow{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      targetWFName,
+					Namespace: thread.Namespace,
+				},
+				Spec: v1.WorkflowSpec{
+					ThreadName:         thread.Name,
+					Manifest:           newManifest,
+					ProjectScoped:      true,
+					SourceThreadName:   parentThread.Name,
+					SourceWorkflowName: wf.Name,
+				},
+			})
+			if err != nil {
+				return err
+			}
+		} else if err != nil {
+			return err
+		} else {
+			newManifest.Alias = targetWF.Spec.Manifest.Alias
+			if !equality.Semantic.DeepEqual(targetWF.Spec.Manifest, newManifest) {
+				targetWF.Spec.Manifest = newManifest
+				if err := req.Client.Update(req.Ctx, &targetWF); err != nil {
+					return fmt.Errorf("failed to update workflow %s: %w", targetWF.Name, err)
+				}
 			}
 		}
 	}

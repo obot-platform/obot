@@ -152,3 +152,7 @@ blockquote {
 li:has(input[type='checkbox'])::marker {
 	@apply text-transparent;
 }
+
+.tooltip {
+	@apply hidden rounded-lg bg-blue p-2 text-sm;
+}

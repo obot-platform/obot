@@ -11,6 +11,7 @@
 	import { fly } from 'svelte/transition';
 	import { waitingOnModelMessage } from '$lib/services/chat/messages';
 	import Loading from '$lib/icons/Loading.svelte';
+	import { fade } from 'svelte/transition';
 
 	interface Props {
 		msg: Message;
@@ -303,7 +304,7 @@
 		{/each}
 		{@render explain()}
 	{:else}
-		<div>
+		<div transition:fade={{ duration: 1000 }}>
 			{@html toHTMLFromMarkdown(animatedText)}
 
 			{#if !msg.done || animating}

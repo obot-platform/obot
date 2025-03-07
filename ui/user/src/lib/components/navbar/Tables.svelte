@@ -2,20 +2,18 @@
 	import { ChatService, EditorService, type Project, type TableList } from '$lib/services';
 	import Menu from '$lib/components/navbar/Menu.svelte';
 	import { Table } from 'lucide-svelte';
-	import type { EditorItem } from '$lib/services/editor/index.svelte';
 	import { getLayout } from '$lib/context/layout.svelte';
 	import Truncate from '$lib/components/shared/tooltip/Truncate.svelte';
 
 	interface Props {
 		project: Project;
-		items: EditorItem[];
 	}
 
 	async function loadTables() {
 		tables = await ChatService.listTables(project.assistantID, project.id);
 	}
 
-	let { project, items = $bindable() }: Props = $props();
+	let { project }: Props = $props();
 
 	let menu: ReturnType<typeof Menu>;
 	let tables: TableList | undefined = $state();
@@ -44,7 +42,7 @@
 							<button
 								class="flex max-w-full flex-1 items-center"
 								onclick={async () => {
-									await EditorService.load(items, project, 'table://' + table.name);
+									await EditorService.load(layout.items, project, 'table://' + table.name);
 									layout.fileEditorOpen = true;
 									menu?.toggle(false);
 								}}

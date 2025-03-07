@@ -45,21 +45,23 @@
 				<RefreshCw class="h-4 w-4" />
 			{/if}
 		</button>
-		<div class="grow px-2">
-			<Input
-				placeholder="Modify table or data"
-				onSubmit={async (i) => {
-					if (!currentThreadID) {
-						return;
-					}
-					await ChatService.invoke(project.assistantID, project.id, currentThreadID, {
-						prompt: `In the database table '${tableName}' do the following instruction:\n${i.prompt}`
-					});
-				}}
-				{items}
-			/>
-		</div>
-		<Controls {project} {items} />
+		{#if currentThreadID}
+			<div class="grow px-2">
+				<Input
+					placeholder="Modify table or data"
+					onSubmit={async (i) => {
+						if (!currentThreadID) {
+							return;
+						}
+						await ChatService.invoke(project.assistantID, project.id, currentThreadID, {
+							prompt: `In the database table '${tableName}' do the following instruction:\n${i.prompt}`
+						});
+					}}
+					{items}
+				/>
+			</div>
+		{/if}
+		<Controls {project} />
 	</div>
 	<div class="w-full overflow-auto">
 		<table class="w-full table-auto text-left">

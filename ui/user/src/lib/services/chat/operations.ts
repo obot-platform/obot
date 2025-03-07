@@ -524,6 +524,13 @@ export async function createThread(assistantID: string, projectID: string): Prom
 	return (await doPost(`/assistants/${assistantID}/projects/${projectID}/threads`, {})) as Thread;
 }
 
+export async function getThread(
+	assistantID: string,
+	projectID: string,
+	id: string
+): Promise<Thread> {
+	return (await doGet(`/assistants/${assistantID}/projects/${projectID}/threads/${id}`)) as Thread;
+}
 export async function listThreads(assistantID: string, projectID: string): Promise<ThreadList> {
 	const list = (await doGet(
 		`/assistants/${assistantID}/projects/${projectID}/threads`

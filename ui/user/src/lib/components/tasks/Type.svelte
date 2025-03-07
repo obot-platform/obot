@@ -5,11 +5,9 @@
 
 	interface Props {
 		task?: Task;
-		onChanged?: (task: Task) => void | Promise<void>;
-		editMode?: boolean;
 	}
 
-	let { task, onChanged, editMode = false }: Props = $props();
+	let { task = $bindable() }: Props = $props();
 
 	let inputVisible = $derived.by(() => {
 		if (task?.webhook || task?.schedule || task?.email) {
@@ -54,78 +52,54 @@
 			return;
 		}
 		if (value === 'schedule') {
-			await onChanged?.({
-				...task,
-				schedule: {
-					interval: 'hourly',
-					hour: 0,
-					minute: 0,
-					day: 0,
-					weekday: 0
-				},
-				webhook: undefined,
-				email: undefined,
-				onDemand: undefined
-			});
+			task.schedule = {
+				interval: 'hourly',
+				hour: 0,
+				minute: 0,
+				day: 0,
+				weekday: 0
+			};
+			task.webhook = undefined;
+			task.email = undefined;
+			task.onDemand = undefined;
 		}
 		if (value === 'webhook') {
-			await onChanged?.({
-				...task,
-				schedule: undefined,
-				webhook: {},
-				email: undefined,
-				onDemand: undefined
-			});
+			task.schedule = undefined;
+			task.webhook = {};
+			task.email = undefined;
+			task.onDemand = undefined;
 		}
 		if (value === 'email') {
-			await onChanged?.({
-				...task,
-				schedule: undefined,
-				webhook: undefined,
-				onDemand: undefined,
-				email: {}
-			});
+			task.schedule = undefined;
+			task.webhook = undefined;
+			task.onDemand = undefined;
+			task.email = {};
 		}
 		if (value === 'onDemand') {
-			await onChanged?.({
-				...task,
-				schedule: undefined,
-				webhook: undefined,
-				email: undefined,
-				onDemand: undefined
-			});
+			task.schedule = undefined;
+			task.webhook = undefined;
+			task.email = undefined;
+			task.onDemand = undefined;
 		}
 	}
 </script>
 
 <div class="flex flex-1 justify-end">
 	<div class="flex items-center">
-		{#if editMode}
-			<button
-				class="ml-2 flex items-center rounded-3xl p-2 px-4 text-gray hover:bg-gray-70 hover:text-black dark:hover:bg-gray-900 dark:hover:text-gray-50"
-				class:hidden={!inputVisible}
-				onclick={() => {
-					if (!task) {
-						return;
-					}
-					onChanged?.({
-						...task,
-						onDemand: {
-							params: { '': '' }
-						}
-					});
-				}}
-			>
-				Add Arguments
-			</button>
-		{/if}
+		<button
+			class="ml-2 flex items-center rounded-3xl p-2 px-4 text-gray hover:bg-gray-70 hover:text-black dark:hover:bg-gray-900 dark:hover:text-gray-50"
+			class:hidden={!inputVisible}
+			onclick={() => {
+				if (!task) {
+					return;
+				}
+				task.onDemand = {
+					params: { '': '' }
+				};
+			}}
+		>
+			Add Arguments
+		</button>
 	</div>
-	{#if editMode || !inputVisible}
-		<Dropdown
-			disabled={!editMode}
-			selected={selectedTrigger()}
-			values={options}
-			onSelected={selected}
-		/>
-	{/if}
+	<Dropdown selected={selectedTrigger()} values={options} onSelected={selected} />
 </div>

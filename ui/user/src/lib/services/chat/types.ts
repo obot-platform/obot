@@ -74,6 +74,7 @@ export type CitationSource = { url?: string; content?: string };
 
 export interface Message {
 	runID: string;
+	stepID?: string;
 	parentRunID?: string;
 	time?: Date;
 	sent?: boolean;
@@ -299,6 +300,7 @@ export interface Thread {
 	id: string;
 	created: string;
 	name: string;
+	ready?: boolean;
 }
 
 export interface ThreadList {
@@ -317,6 +319,7 @@ export interface Project {
 	prompt?: string;
 	editor?: boolean;
 	tools?: string[];
+	sharedTasks?: string[];
 }
 
 export interface ProjectList {

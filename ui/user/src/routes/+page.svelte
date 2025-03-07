@@ -31,7 +31,7 @@
 	$effect(() => {
 		let a = assistants.find((assistant) => assistant.default);
 		if (a || assistants.length === 1) {
-			goto(`/home`);
+			goto(`/home`, { replaceState: true });
 		} else if (assistantsLoaded) {
 			window.location.href = '/admin/';
 		}

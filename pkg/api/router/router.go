@@ -183,6 +183,7 @@ func Router(services *services.Services) (http.Handler, error) {
 	// Project Threads
 	mux.HandleFunc("POST /api/assistants/{assistant_id}/projects/{project_id}/threads", projects.CreateProjectThread)
 	mux.HandleFunc("GET /api/assistants/{assistant_id}/projects/{project_id}/threads", projects.ListProjectThreads)
+	mux.HandleFunc("GET /api/assistants/{assistant_id}/projects/{project_id}/threads/{id}", projects.GetProjectThread)
 	mux.HandleFunc("PUT /api/assistants/{assistant_id}/projects/{project_id}/threads/{id}", threads.Update)
 	mux.HandleFunc("DELETE /api/assistants/{assistant_id}/projects/{project_id}/threads/{thread_id}", projects.DeleteProjectThread)
 

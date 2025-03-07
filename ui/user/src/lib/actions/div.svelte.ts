@@ -9,7 +9,7 @@ type StickToBottomOptions = {
 	setControls?: (controls: StickToBottomControls) => void;
 };
 
-export const sticktobottom: Action<HTMLElement, StickToBottomOptions | undefined> = (
+export const stickToBottom: Action<HTMLElement, StickToBottomOptions | undefined> = (
 	node,
 	options = {}
 ) => {

@@ -62,7 +62,9 @@ export default function popover(opts?: PopoverOptions): Popover {
 			}
 
 			if (!opts?.hover) {
+				document.querySelector('#click-catch')?.remove();
 				const div = document.createElement('div');
+				div.id = 'click-catch';
 				div.classList.add('fixed', 'inset-0', 'z-10', 'cursor-default');
 				div.onclick = () => {
 					open = false;

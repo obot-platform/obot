@@ -218,7 +218,7 @@ printf "The current temperature in %s is %.2f°F.\\n" "$CITY" "$RANDOM_TEMPERATU
 		<button class="icon-button" onclick={() => (requestDelete = true)}>
 			<Trash class="h-5 w-5" />
 		</button>
-		<Controls {project} {items} />
+		<Controls {project} />
 	</div>
 
 	{#await loaded then}

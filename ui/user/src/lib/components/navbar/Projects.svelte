@@ -32,8 +32,8 @@
 		toggle();
 	}}
 >
-	<AssistantIcon {project} />
-	<span class="text-xl font-semibold text-on-background">{project.name || 'Untitled'}</span>
+	<span class="text-2xl font-semibold text-on-background">{project.name || 'Untitled'}</span>
+	<AssistantIcon {project} class="h-5 w-5" />
 	{#if !layout.projectEditorOpen}
 		<ChevronDown class="text-gray" />
 	{/if}

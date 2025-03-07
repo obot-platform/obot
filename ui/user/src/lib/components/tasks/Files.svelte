@@ -4,20 +4,20 @@
 	import { Download, RotateCw } from 'lucide-svelte';
 	import { onDestroy } from 'svelte';
 	import Confirm from '$lib/components/Confirm.svelte';
-	import type { EditorItem } from '$lib/services/editor/index.svelte';
+	import { getLayout } from '$lib/context/layout.svelte';
 
 	interface Props {
 		taskID: string;
 		runID: string;
 		running?: boolean;
 		project: Project;
-		items: EditorItem[];
 	}
 
-	let { taskID, runID, running, project, items = $bindable() }: Props = $props();
+	let { taskID, runID, running, project }: Props = $props();
 	let loading = $state(false);
 	let fileToDelete: string | undefined = $state();
 	let interval: number;
+	const layout = getLayout();
 
 	async function loadFiles() {
 		try {
@@ -87,7 +87,7 @@
 						<button
 							class="flex flex-1 items-center"
 							onclick={async () => {
-								await EditorService.load(items, project, file.name, {
+								await EditorService.load(layout.items, project, file.name, {
 									taskID,
 									runID
 								});
@@ -99,7 +99,7 @@
 						<button
 							class="ms-2 hidden group-hover:block"
 							onclick={() => {
-								EditorService.download(items, project, file.name, {
+								EditorService.download(layout.items, project, file.name, {
 									taskID,
 									runID
 								});

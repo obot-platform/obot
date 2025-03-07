@@ -571,7 +571,9 @@ func (e *Emitter) isWorkflowDone(ctx context.Context, run v1.Run, opts WatchOpti
 					if opts.FollowWorkflowExecutions {
 						next, err := e.getNextWorkflowRun(ctx, run)
 						if err != nil {
-							log.Errorf("failed to get next workflow run for last run %q: %v", run.Name, err)
+							if !errors.Is(err, context.Canceled) && !strings.Contains(err.Error(), "context canceled") {
+								log.Errorf("failed to get next workflow run for last run %q: %v", run.Name, err)
+							}
 						} else {
 							result <- next
 						}

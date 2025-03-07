@@ -4,16 +4,14 @@
 	import Confirm from '$lib/components/Confirm.svelte';
 	import { CheckSquare } from 'lucide-svelte';
 	import Menu from '$lib/components/navbar/Menu.svelte';
-	import type { EditorItem } from '$lib/services/editor/index.svelte';
 	import { getLayout } from '$lib/context/layout.svelte';
 	import Truncate from '$lib/components/shared/tooltip/Truncate.svelte';
 
 	interface Props {
 		project: Project;
-		items: EditorItem[];
 	}
 
-	let { project, items = $bindable() }: Props = $props();
+	let { project }: Props = $props();
 	let tasks = $state<Task[]>([]);
 	const layout = getLayout();
 
@@ -22,7 +20,7 @@
 			return;
 		}
 		await ChatService.deleteTask(project.assistantID, project.id, taskToDelete.id);
-		EditorService.remove(items, taskToDelete.id);
+		EditorService.remove(layout.items, taskToDelete.id);
 		menu?.toggle(false);
 		taskToDelete = undefined;
 	}
@@ -33,7 +31,7 @@
 			name: 'New Task',
 			steps: []
 		});
-		await EditorService.load(items, project, task.id);
+		await EditorService.load(layout.items, project, task.id);
 		layout.fileEditorOpen = true;
 		menu?.toggle(false);
 	}
@@ -61,7 +59,7 @@
 							<button
 								class="flex flex-1 items-center"
 								onclick={async () => {
-									await EditorService.load(items, project, task.id);
+									await EditorService.load(layout.items, project, task.id);
 									layout.fileEditorOpen = true;
 									menu?.toggle(false);
 								}}

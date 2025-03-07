@@ -3674,6 +3674,12 @@ func schema_obot_platform_obot_apiclient_types_Task(ref common.ReferenceCallback
 							Format: "",
 						},
 					},
+					"projectScoped": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
+						},
+					},
 				},
 				Required: []string{"Metadata", "TaskManifest"},
 			},
@@ -4110,6 +4116,12 @@ func schema_obot_platform_obot_apiclient_types_Thread(ref common.ReferenceCallba
 							},
 						},
 					},
+					"ready": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
+						},
+					},
 				},
 				Required: []string{"Metadata", "ThreadManifest"},
 			},
@@ -4280,6 +4292,20 @@ func schema_obot_platform_obot_apiclient_types_ThreadManifest(ref common.Referen
 						},
 					},
 					"starterMessages": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+					"sharedTasks": {
 						SchemaProps: spec.SchemaProps{
 							Type: []string{"array"},
 							Items: &spec.SchemaOrArray{
@@ -9465,6 +9491,24 @@ func schema_storage_apis_obotobotai_v1_WorkflowSpec(ref common.ReferenceCallback
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
 							Ref:     ref("github.com/obot-platform/obot/apiclient/types.WorkflowManifest"),
+						},
+					},
+					"projectScoped": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
+						},
+					},
+					"sourceThreadName": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"sourceWorkflowName": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
 						},
 					},
 				},

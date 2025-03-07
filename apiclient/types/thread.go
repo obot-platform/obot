@@ -36,6 +36,7 @@ type Thread struct {
 	Ephemeral       bool     `json:"ephemeral,omitempty"`
 	Project         bool     `json:"project,omitempty"`
 	Env             []string `json:"env,omitempty"`
+	Ready           bool     `json:"ready,omitempty"`
 }
 
 type ThreadList List[Thread]
@@ -49,4 +50,5 @@ type ThreadManifest struct {
 	KnowledgeDescription string      `json:"knowledgeDescription"`
 	IntroductionMessage  string      `json:"introductionMessage"`
 	StarterMessages      []string    `json:"starterMessages"`
+	SharedTasks          []string    `json:"sharedTasks,omitempty"`
 }

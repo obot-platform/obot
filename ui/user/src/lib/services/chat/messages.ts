@@ -169,6 +169,7 @@ export function buildMessagesFromProgress(items: EditorItem[], progresses: Progr
 function toMessages(progresses: Progress[]): Messages {
 	let messages: Message[] = [];
 	let lastRunID: string | undefined;
+	let lastStepID: string | undefined;
 	let parentRunID: string | undefined;
 	let inProgress = false;
 
@@ -183,6 +184,10 @@ function toMessages(progresses: Progress[]): Messages {
 					}
 				}
 			}
+		}
+
+		if (progress.step?.id) {
+			lastStepID = progress.step.id;
 		}
 
 		if (progress.runID) {
@@ -291,6 +296,13 @@ function toMessages(progresses: Progress[]): Messages {
 			} catch (_) {
 				// ignore error
 			}
+		}
+
+		if (lastStepID && messages.length > 0) {
+			messages[messages.length - 1].stepID = lastStepID;
+		}
+		if (!inProgress && lastStepID) {
+			lastStepID = undefined;
 		}
 	}
 

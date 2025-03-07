@@ -8,14 +8,16 @@
 	let project = $state(data.project);
 	let title = $derived(project?.name || 'Obot');
 
-	initLayout({});
+	initLayout({
+		items: []
+	});
 
 	$effect(() => {
 		if (profile.current.unauthorized) {
 			// Redirect to the main page to log in.
 			window.location.href = `/?rd=${window.location.pathname}`;
 		} else if (project.id) {
-			goto(`/o/${project.id}`);
+			goto(`/o/${project.id}`, { replaceState: true });
 		}
 	});
 </script>

@@ -1,4 +1,4 @@
-import type { Project, Task } from '$lib/services';
+import type { Project } from '$lib/services';
 import ChatService from '../chat';
 
 export interface EditorItem {
@@ -13,7 +13,6 @@ export interface EditorItem {
 		taskID?: string;
 		runID?: string;
 	};
-	task?: Task;
 	table?: {
 		name: string;
 	};
@@ -46,8 +45,6 @@ async function load(
 		select(items, fileID);
 	} else if (id.startsWith('tl1')) {
 		await genericLoad(items, id);
-	} else if (id.startsWith('w1')) {
-		await loadTask(items, project, id);
 	} else if (id.startsWith('table://')) {
 		await loadTable(items, id);
 	} else {
@@ -77,21 +74,6 @@ async function genericLoad(items: EditorItem[], id: string) {
 	};
 	items.push(targetFile);
 	select(items, id);
-}
-
-async function loadTask(items: EditorItem[], project: Project, taskID: string) {
-	try {
-		const task = await ChatService.getTask(project.assistantID, project.id, taskID);
-		const targetFile: EditorItem = {
-			id: taskID,
-			name: task.name ?? `Task ${taskID}`,
-			task: task
-		};
-		items.push(targetFile);
-		select(items, task.id);
-	} catch {
-		// ignore error
-	}
 }
 
 async function download(

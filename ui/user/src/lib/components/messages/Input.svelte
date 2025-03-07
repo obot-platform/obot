@@ -2,27 +2,29 @@
 	import { type InvokeInput } from '$lib/services';
 	import { autoHeight } from '$lib/actions/textarea.js';
 	import { ArrowUp, LoaderCircle } from 'lucide-svelte';
-	import { onMount, tick } from 'svelte';
+	import { onMount, type Snippet, tick } from 'svelte';
 	import type { EditorItem } from '$lib/services/editor/index.svelte';
 
 	interface Props {
 		onFocus?: () => void;
 		onSubmit?: (input: InvokeInput) => void | Promise<void>;
 		onAbort?: () => Promise<void>;
+		children?: Snippet;
 		placeholder?: string;
 		readonly?: boolean;
 		pending?: boolean;
-		items: EditorItem[];
+		items?: EditorItem[];
 	}
 
 	let {
 		onFocus,
 		onSubmit,
 		onAbort,
+		children,
 		readonly,
 		pending,
 		placeholder = 'Your message...',
-		items = $bindable()
+		items = $bindable([])
 	}: Props = $props();
 
 	let value = $state('');
@@ -88,51 +90,40 @@
 <div class="w-full max-w-[700px]">
 	<label for="chat" class="sr-only">Your messages</label>
 	<div
-		class="flex items-center rounded-3xl
-	bg-gray-70
-	!px-3
-	py-1
-	focus-within:border-none
-	focus-within:shadow-md
-	focus-within:ring-1
-	focus-within:ring-blue
-	dark:border-none
-	 dark:bg-gray-950"
+		class="relative flex flex-col items-center rounded-3xl bg-surface1 focus-within:shadow-md focus-within:ring-1 focus-within:ring-blue
+"
 	>
-		<textarea
-			use:autoHeight
-			id="chat"
-			rows="1"
-			bind:value
-			readonly={readonly || pending}
-			onkeydown={onKey}
-			bind:this={chat}
-			onfocus={onFocus}
-			class="peer
-			!ml-4
-			!mr-2
-			w-full
-			 resize-none bg-gray-70
-			 !p-2.5 outline-none scrollbar-none dark:bg-gray-950"
-			{placeholder}
-		></textarea>
-		<button
-			type="submit"
-			onclick={() => submit()}
-			class="rounded-full bg-gray-70 p-2
-			text-blue
-			hover:border-none
-			hover:bg-gray-100
-						 dark:bg-gray-950 dark:text-blue dark:hover:bg-gray-900"
-		>
-			{#if readonly}
-				<div class="m-1.5 h-3 w-3 place-self-center rounded-sm bg-blue"></div>
-			{:else if pending}
-				<LoaderCircle class="animate-spin" />
-			{:else}
-				<ArrowUp />
-			{/if}
-			<span class="sr-only">Send message</span>
-		</button>
+		<div class="flex w-full items-center px-6 py-4">
+			<textarea
+				use:autoHeight
+				id="chat"
+				rows="1"
+				bind:value
+				readonly={readonly || pending}
+				onkeydown={onKey}
+				bind:this={chat}
+				onfocus={onFocus}
+				class="grow resize-none border-none bg-surface1 outline-none"
+				{placeholder}
+			></textarea>
+			<button
+				type="submit"
+				onclick={() => submit()}
+				class="button-colors absolute bottom-2 right-2 rounded-full
+				p-2
+				text-blue
+				hover:border-none"
+			>
+				{#if readonly}
+					<div class="m-1.5 h-3 w-3 place-self-center rounded-sm bg-blue"></div>
+				{:else if pending}
+					<LoaderCircle class="animate-spin" />
+				{:else}
+					<ArrowUp />
+				{/if}
+				<span class="sr-only">Send message</span>
+			</button>
+		</div>
+		{@render children?.()}
 	</div>
 </div>

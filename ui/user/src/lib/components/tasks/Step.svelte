@@ -9,60 +9,38 @@
 	} from '$lib/services';
 	import Message from '$lib/components/messages/Message.svelte';
 	import { Plus, Trash } from 'lucide-svelte/icons';
-	import { LoaderCircle, OctagonX, Play, RefreshCcw, Save, Undo } from 'lucide-svelte';
+	import { LoaderCircle, OctagonX, Play, RefreshCcw } from 'lucide-svelte';
 	import { tick } from 'svelte';
 	import { autoHeight } from '$lib/actions/textarea.js';
 	import Confirm from '$lib/components/Confirm.svelte';
+	import { fade } from 'svelte/transition';
 
 	interface Props {
 		parentStale?: boolean;
-		onChange?: (steps: TaskStep[]) => void | Promise<void>;
-		run?: (step: TaskStep, steps?: TaskStep[]) => Promise<void>;
+		run?: (step: TaskStep) => Promise<void>;
 		task: Task;
 		index: number;
+		step: TaskStep;
 		pending?: boolean;
-		editMode?: boolean;
 		stepMessages?: Map<string, Messages>;
 		project: Project;
 	}
 
 	let {
 		parentStale,
-		onChange,
 		run,
-		task,
+		task = $bindable(),
 		index,
-		editMode = false,
+		step = $bindable(),
 		pending,
 		stepMessages,
 		project
 	}: Props = $props();
 
-	let step = $derived(task.steps[index]);
 	let messages = $derived(stepMessages?.get(step.id)?.messages ?? []);
-	let lastSeenValue: string | undefined = $state();
-	let currentValue = $state(task.steps[index].step);
-	let dirty = $derived(task.steps[index].step !== currentValue);
-	let stale: boolean = $derived(dirty || parentStale || !parentMatches());
 	let running = $derived(stepMessages?.get(step.id)?.inProgress ?? false);
-	let toDelete: boolean | undefined = $state();
-	let nextStep: Self | undefined = $state();
-
-	$effect(() => {
-		if (editMode) {
-			if (lastSeenValue !== step.step) {
-				currentValue = step.step;
-				lastSeenValue = step.step;
-			}
-		} else {
-			if (currentValue !== step.step) {
-				currentValue = step.step;
-			}
-			if (lastSeenValue !== '') {
-				lastSeenValue = '';
-			}
-		}
-	});
+	let stale: boolean = $derived(parentStale || !parentMatches());
+	let toDelete = $state<boolean>();
 
 	function parentMatches() {
 		if (running) {
@@ -81,53 +59,12 @@
 	}
 
 	async function deleteStep() {
-		toDelete = undefined;
-		const newSteps = [...task.steps];
-		newSteps.splice(index, 1);
-		await onChange?.(newSteps);
-	}
-
-	async function revert() {
-		if (dirty) {
-			currentValue = step.step;
-		}
-	}
-
-	function synchronized(newSteps?: TaskStep[]): TaskStep[] | undefined {
-		if (!newSteps && !dirty) {
-			return;
-		}
-
-		const retSteps = newSteps ?? [...task.steps];
-		if (dirty) {
-			retSteps[index] = {
-				...step,
-				step: currentValue
-			};
-		}
-
-		return retSteps;
-	}
-
-	export async function saveAll() {
-		await save();
-		if (nextStep) {
-			await nextStep.saveAll();
-		}
-	}
-
-	async function save(steps?: TaskStep[]) {
-		const newSteps = synchronized(steps);
-		if (newSteps) {
-			await onChange?.(newSteps);
-		}
+		task.steps = task.steps.filter((s) => s.id !== step.id);
 	}
 
 	async function addStep() {
 		const newStep = createStep();
-		const newSteps = [...task.steps];
-		newSteps.splice(index + 1, 0, newStep);
-		await save(newSteps);
+		task.steps.splice(index + 1, 0, newStep);
 		await tick();
 		document.getElementById('step' + newStep.id)?.focus();
 	}
@@ -147,90 +84,71 @@
 	}
 
 	async function doRun() {
-		if ((running || pending) && editMode) {
+		if (running || pending) {
 			await ChatService.abort(project.assistantID, project.id, {
 				taskID: task.id,
 				runID: 'editor'
 			});
 			return;
 		}
-		if (running || pending || !currentValue || currentValue?.trim() === '') {
+		if (running || pending || !step.step || step.step?.trim() === '') {
 			return;
 		}
-		await run?.(step, synchronized());
+		await run?.(step);
 	}
 </script>
 
 <li class="ms-6 marker:font-semibold">
 	<div class="flex items-center justify-between">
-		{#if editMode}
-			<textarea
-				{onkeydown}
-				rows="1"
-				placeholder="Instructions..."
-				use:autoHeight
-				id={'step' + step.id}
-				bind:value={currentValue}
-				class="flex-1 resize-none border-none bg-gray-50 outline-none dark:bg-gray-950"
-			></textarea>
-			<div class="flex gap-2 p-2">
-				<button class="rounded-lg p-2 hover:bg-gray-50 dark:hover:bg-gray-950" onclick={doRun}>
-					{#if running}
-						<OctagonX class="h-4 w-4" />
-					{:else if pending}
-						<LoaderCircle class="h-4 w-4 animate-spin" />
-					{:else if messages.length > 0}
-						<RefreshCcw class="h-4 w-4" />
-					{:else}
-						<Play class="h-4 w-4" />
-					{/if}
-				</button>
-				{#if dirty}
-					<button
-						class="-ml-3 rounded-lg p-2 hover:bg-gray-50 dark:hover:bg-gray-950"
-						onclick={revert}
-					>
-						<Undo class="h-4 w-4" />
-					</button>
-					<button
-						class="-ml-3 rounded-lg p-2 hover:bg-gray-50 dark:hover:bg-gray-950"
-						onclick={async () => {
-							await save();
-						}}
-					>
-						<Save class="h-4 w-4" />
-					</button>
+		<textarea
+			{onkeydown}
+			rows="1"
+			placeholder="Instructions..."
+			use:autoHeight
+			id={'step' + step.id}
+			bind:value={step.step}
+			class="flex-1 resize-none border-none bg-gray-50 outline-none dark:bg-gray-950"
+		></textarea>
+		<div class="flex gap-2 p-2">
+			<button class="rounded-lg p-2 hover:bg-gray-50 dark:hover:bg-gray-950" onclick={doRun}>
+				{#if running}
+					<OctagonX class="h-4 w-4" />
+				{:else if pending}
+					<LoaderCircle class="h-4 w-4 animate-spin" />
+				{:else if messages.length > 0}
+					<RefreshCcw class="h-4 w-4" />
+				{:else}
+					<Play class="h-4 w-4" />
 				{/if}
+			</button>
+			<button
+				class="-ml-3 rounded-lg p-2 hover:bg-gray-50 dark:hover:bg-gray-950"
+				onclick={() => {
+					if (step.step?.trim()) {
+						toDelete = true;
+					} else {
+						deleteStep();
+					}
+				}}
+			>
+				<Trash class="h-4 w-4" />
+			</button>
+			{#if step.step?.trim() !== ''}
 				<button
 					class="-ml-3 rounded-lg p-2 hover:bg-gray-50 dark:hover:bg-gray-950"
-					onclick={() => {
-						if (currentValue?.trim() === '') {
-							deleteStep();
-						} else {
-							toDelete = true;
-						}
-					}}
+					onclick={addStep}
 				>
-					<Trash class="h-4 w-4" />
+					<Plus class="h-4 w-4" />
 				</button>
-				{#if currentValue?.trim() !== ''}
-					<button
-						class="-ml-3 rounded-lg p-2 hover:bg-gray-50 dark:hover:bg-gray-950"
-						onclick={addStep}
-					>
-						<Plus class="h-4 w-4" />
-					</button>
-				{/if}
-			</div>
-		{:else}
-			<span>{currentValue}</span>
-		{/if}
+			{/if}
+		</div>
 	</div>
 	{#if messages.length > 0}
 		<div
-			class="relative my-3 -ml-6 rounded-3xl bg-white p-5 transition-transform dark:bg-black"
+			class="relative my-3 -ml-6 min-h-[150px] rounded-3xl bg-white p-5 transition-transform dark:bg-black"
 			class:border-2={running}
 			class:border-blue={running}
+			transition:fade
 		>
 			{#each messages as msg}
 				{#if !msg.sent}
@@ -249,13 +167,11 @@
 {#if task.steps.length > index + 1}
 	{#key task.steps[index + 1].id}
 		<Self
-			bind:this={nextStep}
-			{onChange}
 			{run}
 			{pending}
-			{editMode}
 			{task}
 			index={index + 1}
+			bind:step={task.steps[index + 1]}
 			{stepMessages}
 			parentStale={stale}
 			{project}

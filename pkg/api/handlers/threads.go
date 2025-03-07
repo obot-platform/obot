@@ -57,6 +57,7 @@ func convertThread(thread v1.Thread) types.Thread {
 		Ephemeral:       thread.Spec.Ephemeral,
 		Project:         thread.Spec.Project,
 		Env:             env,
+		Ready:           thread.Status.Created,
 	}
 }
 

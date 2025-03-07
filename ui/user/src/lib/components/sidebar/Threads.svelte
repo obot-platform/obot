@@ -1,11 +1,12 @@
 <script lang="ts">
-	import { MessageCirclePlus, PanelLeftClose, Pen, Save, Trash2 } from 'lucide-svelte';
+	import { MessageCirclePlus, Pen, Save, ScrollText, Trash2 } from 'lucide-svelte';
 	import { ChatService, type Project, type Thread } from '$lib/services';
 	import { tick } from 'svelte';
 	import { CircleX } from 'lucide-svelte/icons';
 	import { columnResize } from '$lib/actions/resize';
 	import { getLayout } from '$lib/context/layout.svelte.js';
-	import { slide, fade } from 'svelte/transition';
+	import { fade } from 'svelte/transition';
+	import { overflowToolTip } from '$lib/actions/overflow.js';
 
 	interface Props {
 		currentThreadID?: string;
@@ -24,12 +25,13 @@
 	let lastSeenThreadID = $state('');
 
 	function isCurrentThread(thread: Thread) {
-		return currentThreadID === thread.id;
+		return currentThreadID === thread.id && layout.editTaskID === undefined;
 	}
 
 	function setCurrentThread(id: string) {
 		lastSeenThreadID = id;
 		currentThreadID = id;
+		layout.items = [];
 	}
 
 	async function startEditName() {
@@ -83,6 +85,7 @@
 		if (editMode) {
 			return;
 		}
+		layout.editTaskID = undefined;
 		setCurrentThread(id);
 		focusChat();
 	}
@@ -99,13 +102,13 @@
 	function togglePanel() {
 		isOpen = !isOpen;
 		if (!isOpen) {
-			layout.threadsOpen = false;
+			layout.sidebarOpen = false;
 		}
 		focusChat();
 	}
 
 	$effect(() => {
-		if (layout.threadsOpen && !isOpen) {
+		if (layout.sidebarOpen && !isOpen) {
 			open();
 		}
 	});
@@ -128,26 +131,22 @@
 </script>
 
 {#if isOpen}
-	<div
-		bind:this={panel}
-		class="flex h-full w-[320px] min-w-[250px] flex-col bg-surface1 p-5"
-		transition:slide={{ axis: 'x', duration: 200 }}
-	>
+	<div bind:this={panel} class="flex flex-col">
 		<div class="mb-5 flex items-center gap-4">
-			<h2 class="text-lg">Threads</h2>
+			<ScrollText class="icon-default text-gray" />
+			<h2 class="grow text-lg">Threads</h2>
 			<button class="text-gray" onclick={createThread}>
 				<MessageCirclePlus class="h-5 w-5" />
 			</button>
-			<button onclick={togglePanel} class="ml-auto">
-				<PanelLeftClose class="h-5 w-5 text-gray" />
-			</button>
 		</div>
-		<ul class="flex min-w-[225px] flex-col overflow-y-hidden" transition:fade>
+		{#if threads.length === 0}
+			<p class="p-6 text-center text-sm text-gray dark:text-gray-300">No threads</p>
+		{/if}
+		<ul transition:fade>
 			{#each threads as thread}
 				<li
-					class="flex items-center gap-2 rounded-lg px-3 py-2 {isCurrentThread(thread)
-						? 'bg-gray-100 dark:bg-gray-900'
-						: ''}"
+					class:bg-surface2={isCurrentThread(thread)}
+					class="group flex items-center gap-2 rounded-lg px-3 py-2 hover:bg-surface3"
 				>
 					{#if editMode && isCurrentThread(thread)}
 						<!-- I have no idea why w-0 is needed here, otherwise the minimum width is too large -->
@@ -169,9 +168,13 @@
 							type="text"
 						/>
 					{:else}
-						<button class="grow text-left" onclick={() => selectThread(thread.id)}
-							>{thread.name || 'New Thread'}</button
+						<button
+							use:overflowToolTip
+							class="grow text-start"
+							onclick={() => selectThread(thread.id)}
 						>
+							{thread.name || 'New Thread'}
+						</button>
 					{/if}
 					{#if isCurrentThread(thread)}
 						{#if editMode}

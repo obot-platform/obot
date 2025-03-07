@@ -10,29 +10,27 @@
 	import { newTool } from '$lib/components/tool/Tool.svelte';
 	import Menu from '$lib/components/navbar/Menu.svelte';
 	import { PenBox } from 'lucide-svelte';
-	import type { EditorItem } from '$lib/services/editor/index.svelte';
 	import { getLayout } from '$lib/context/layout.svelte';
 
 	interface Prop {
 		project: Project;
-		items: EditorItem[];
 		tools: AssistantTool[];
 		version: Version;
 	}
 
 	let menu = $state<ReturnType<typeof Menu>>();
-	let { project, items = $bindable(), tools, version }: Prop = $props();
+	let { project, tools, version }: Prop = $props();
 	const layout = getLayout();
 
 	async function addTool() {
 		const tool = await ChatService.createTool(project.assistantID, project.id, newTool);
-		await EditorService.load(items, project, tool.id);
+		await EditorService.load(layout.items, project, tool.id);
 		layout.fileEditorOpen = true;
 		menu?.toggle(false);
 	}
 
 	async function editTool(id: string) {
-		await EditorService.load(items, project, id);
+		await EditorService.load(layout.items, project, id);
 		layout.fileEditorOpen = true;
 		menu?.toggle(false);
 	}

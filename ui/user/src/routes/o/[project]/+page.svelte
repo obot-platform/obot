@@ -12,7 +12,13 @@
 	let currentThreadID = $state<string | undefined>(page.state.currentThreadID);
 	let title = $derived(project?.name || 'Obot');
 
-	initLayout({});
+	initLayout({
+		sidebarOpen:
+			typeof window !== 'undefined' && new URL(window.location.href).searchParams.has('sidebar'),
+		projectEditorOpen:
+			typeof window !== 'undefined' && new URL(window.location.href).searchParams.has('edit'),
+		items: []
+	});
 
 	$effect(() => {
 		// This happens on page transitions

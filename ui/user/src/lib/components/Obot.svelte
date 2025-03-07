@@ -5,12 +5,14 @@
 	import { type AssistantTool, ChatService, type Project, type Version } from '$lib/services';
 	import Notifications from '$lib/components/Notifications.svelte';
 	import Thread from '$lib/components/Thread.svelte';
-	import Threads from '$lib/components/Threads.svelte';
 	import { columnResize } from '$lib/actions/resize';
-	import { hasTool } from '$lib/tools';
 	import { onMount } from 'svelte';
 	import { getLayout } from '$lib/context/layout.svelte';
 	import type { EditorItem } from '$lib/services/editor/index.svelte';
+	import Sidebar from '$lib/components/Sidebar.svelte';
+	import Task from '$lib/components/tasks/Task.svelte';
+	import { slide, fade } from 'svelte/transition';
+	import { SidebarOpen } from 'lucide-svelte';
 
 	interface Props {
 		project: Project;
@@ -41,30 +43,54 @@
 	});
 </script>
 
-<div class="colors-background flex h-full">
-	{#if hasTool(tools ?? [], 'threads')}
-		<Threads bind:currentThreadID {project} />
-	{/if}
+<div class="colors-background relative flex h-full flex-col">
+	<div class="h-[76px]">
+		<Navbar {project} />
+	</div>
 
-	<div class="flex h-full grow flex-col">
-		<div style="height: 76px">
-			<Navbar {project} bind:currentThreadID tools={tools ?? []} {version} {items} />
-		</div>
-		<main id="main-content" class="flex" style="height: calc(100% - 76px)">
-			<div
-				bind:this={mainInput}
-				id="main-input"
-				class="flex h-full {editorVisible ? 'w-2/5' : 'grow'}"
-			>
-				<Thread bind:id={currentThreadID} {project} bind:items />
+	<div
+		class="flex h-[calc(100%-76px)] rounded-t-3xl border-surface1"
+		class:border={layout.sidebarOpen && !layout.fileEditorOpen}
+	>
+		{#if layout.sidebarOpen && !layout.fileEditorOpen}
+			<div class="w-1/6 min-w-[250px]" transition:slide={{ axis: 'x' }}>
+				<Sidebar {project} bind:currentThreadID {tools} />
 			</div>
+		{:else if !layout.fileEditorOpen}
+			<button
+				class="icon-button absolute bottom-0 left-0 z-50 m-2"
+				in:fade={{ delay: 400 }}
+				onclick={() => (layout.sidebarOpen = true)}
+			>
+				<SidebarOpen class="icon-default" />
+			</button>
+		{/if}
 
-			{#if editorVisible}
+		<main id="main-content" class="flex grow">
+			{#if layout.editTaskID && layout.tasks}
+				{#each layout.tasks as task, i}
+					{#if task.id === layout.editTaskID}
+						{#key layout.editTaskID}
+							<Task {project} bind:task={layout.tasks[i]} />
+						{/key}
+					{/if}
+				{/each}
+			{:else}
+				<div
+					bind:this={mainInput}
+					id="main-input"
+					class="flex h-full {editorVisible ? 'w-2/5' : 'grow'}"
+				>
+					<Thread bind:id={currentThreadID} {project} {version} {tools} />
+				</div>
+			{/if}
+
+			{#if editorVisible && mainInput}
 				<div class="w-4 translate-x-4 cursor-col-resize" use:columnResize={mainInput}></div>
 				<div
 					class="w-3/5 grow rounded-tl-3xl border-4 border-b-0 border-r-0 border-surface2 p-5 transition-all"
 				>
-					<Editor {project} {currentThreadID} {items} />
+					<Editor {project} {currentThreadID} />
 				</div>
 			{/if}
 		</main>

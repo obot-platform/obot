@@ -1,22 +1,32 @@
 <script lang="ts">
-	import { sticktobottom, type StickToBottomControls } from '$lib/actions/div.svelte';
+	import { stickToBottom, type StickToBottomControls } from '$lib/actions/div.svelte';
 	import Input from '$lib/components/messages/Input.svelte';
 	import Message from '$lib/components/messages/Message.svelte';
 	import { Thread } from '$lib/services/chat/thread.svelte';
-	import { ChatService, EditorService, type Messages, type Project } from '$lib/services';
+	import {
+		type AssistantTool,
+		ChatService,
+		EditorService,
+		type Messages,
+		type Project,
+		type Version
+	} from '$lib/services';
 	import { fade } from 'svelte/transition';
 	import { onDestroy } from 'svelte';
 	import { toHTMLFromMarkdown } from '$lib/markdown';
-	import type { EditorItem } from '$lib/services/editor/index.svelte';
 	import { getLayout } from '$lib/context/layout.svelte';
+	import { Plus } from 'lucide-svelte/icons';
+	import Files from '$lib/components/edit/Files.svelte';
+	import Tools from '$lib/components/navbar/Tools.svelte';
 
 	interface Props {
 		id?: string;
 		project: Project;
-		items: EditorItem[];
+		tools: AssistantTool[];
+		version: Version;
 	}
 
-	let { id = $bindable(), project, items = $bindable() }: Props = $props();
+	let { id = $bindable(), project, version, tools }: Props = $props();
 
 	let container = $state<HTMLDivElement>();
 	let messages = $state<Messages>({ messages: [], inProgress: false });
@@ -36,6 +46,7 @@
 	$effect(() => {
 		// Close and recreate thread if id changes
 		if (thread && thread.threadID !== id) {
+			scrollSmooth = false;
 			thread?.close?.();
 			thread = undefined;
 			messages = {
@@ -57,7 +68,7 @@
 
 	const layout = getLayout();
 	function onLoadFile(filename: string) {
-		EditorService.load(items, project, filename, {
+		EditorService.load(layout.items, project, filename, {
 			threadID: id
 		});
 		layout.fileEditorOpen = true;
@@ -99,7 +110,7 @@
 		bind:this={container}
 		class="flex h-full grow justify-center overflow-y-auto scrollbar-none"
 		class:scroll-smooth={scrollSmooth}
-		use:sticktobottom={{
+		use:stickToBottom={{
 			contentEl: messagesDiv,
 			setControls: (controls) => (scrollControls = controls)
 		}}
@@ -116,18 +127,16 @@
 				{/if}
 			</div>
 			<div class="grid gap-2 self-center md:grid-cols-3">
-				{#if thread}
-					{#each project.starterMessages ?? [] as msg}
-						<button
-							class="rounded-3xl border-2 border-blue p-5 hover:bg-surface1"
-							onclick={() => {
-								thread?.invoke(msg);
-							}}
-						>
-							{msg}
-						</button>
-					{/each}
-				{/if}
+				{#each project.starterMessages ?? [] as msg}
+					<button
+						class="rounded-3xl border-2 border-blue p-5 hover:bg-surface1"
+						onclick={() => {
+							thread?.invoke(msg);
+						}}
+					>
+						{msg}
+					</button>
+				{/each}
 			</div>
 			{#each messages.messages as msg}
 				<Message
@@ -138,12 +147,12 @@
 					onSendCredentialsCancel={() => thread?.abort()}
 				/>
 			{/each}
-			<div class="min-h-28">
+			<div class="min-h-36">
 				<!-- Vertical Spacer -->
 			</div>
 		</div>
 		<div
-			class="absolute inset-x-0 bottom-0 z-10 flex justify-center bg-gradient-to-t from-white px-3 pb-8 pt-10 dark:from-black"
+			class="absolute inset-x-0 bottom-0 z-30 flex justify-center bg-gradient-to-t from-white px-3 pb-8 pt-10 dark:from-black"
 		>
 			<Input
 				readonly={messages.inProgress}
@@ -153,11 +162,20 @@
 				}}
 				onSubmit={async (i) => {
 					await ensureThread();
+					scrollSmooth = false;
 					scrollControls?.stickToBottom();
 					await thread?.invoke(i);
 				}}
-				bind:items
-			/>
+				bind:items={layout.items}
+			>
+				<div class="flex w-full">
+					<button class="m-2 rounded-full border border-surface3 p-2 text-gray">
+						<Plus className="icon-default" />
+					</button>
+					<Files thread {project} bind:currentThreadID={id} />
+					<Tools {project} {version} {tools} />
+				</div>
+			</Input>
 		</div>
 	</div>
 </div>

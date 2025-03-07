@@ -199,8 +199,7 @@ export class Thread {
 	}
 
 	close() {
-		if (this.#es.readyState !== EventSource.CLOSED) {
-			this.#es.close();
-		}
+		console.log('Thread closing');
+		this.#es.close();
 	}
 }

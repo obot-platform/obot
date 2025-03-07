@@ -3,22 +3,13 @@
 	import Schedule from '$lib/components/tasks/Schedule.svelte';
 	import { onMount } from 'svelte';
 	import OnDemand from '$lib/components/tasks/OnDemand.svelte';
+	import CopyButton from '$lib/components/CopyButton.svelte';
 
 	interface Props {
-		task?: Task;
-		onChanged?: (task: Task) => void | Promise<void>;
-		editMode?: boolean;
+		task: Task;
 	}
 
-	let {
-		task = {
-			name: 'Loading...',
-			steps: [],
-			id: ''
-		},
-		onChanged,
-		editMode = false
-	}: Props = $props();
+	let { task = $bindable() }: Props = $props();
 
 	let version: Version = $state({});
 	let email = $derived.by(() => {
@@ -29,7 +20,13 @@
 	});
 	let webhook = $derived.by(() => {
 		if (typeof window !== 'undefined' && task.alias) {
-			return window.location.protocol + '//' + window.location.host + '/api/webhooks/' + task.alias;
+			return (
+				window.location.protocol +
+				'//' +
+				window.location.host +
+				'/api/webhooks/default/' +
+				task.alias
+			);
 		}
 		return '';
 	});
@@ -76,46 +73,26 @@
 	<div class="mt-8 rounded-3xl bg-gray-50 p-5 dark:bg-gray-950">
 		<div class="flex items-center justify-between">
 			{#if selectedTrigger() === 'schedule'}
-				<Schedule
-					schedule={task.schedule}
-					{editMode}
-					onChanged={async (schedule) => {
-						await onChanged?.({
-							...task,
-							schedule
-						});
-					}}
-				/>
+				<Schedule bind:schedule={task.schedule} />
 			{/if}
 		</div>
 		{#if selectedTrigger() === 'webhook'}
-			<div class="flex justify-between pr-5">
+			<div class="flex flex-col justify-between gap-2 pr-5">
 				<h3 class="text-lg font-semibold">Webhook URL</h3>
-				<div class="flex">
+				<div class="flex gap-2">
+					<CopyButton text={webhook} />
 					{webhook}
 				</div>
 			</div>
 		{/if}
 		{#if selectedTrigger() === 'email' && email}
 			<div class="flex justify-between pr-5">
-				<h3 class="text-lg font-semibold">
-					{#if editMode}Email{/if}
-					Address
-				</h3>
+				<h3 class="text-lg font-semibold">Email Address</h3>
 				{email}
 			</div>
 		{/if}
 		{#if selectedTrigger() === 'onDemand'}
-			<OnDemand
-				{editMode}
-				onDemand={task.onDemand ?? {}}
-				onChanged={async (onDemand) => {
-					await onChanged?.({
-						...task,
-						onDemand
-					});
-				}}
-			/>
+			<OnDemand bind:onDemand={task.onDemand} />
 		{/if}
 	</div>
 {/if}

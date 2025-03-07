@@ -939,10 +939,11 @@ func ConvertTaskManifest(manifest *types.WorkflowManifest) types.TaskManifest {
 
 func convertTask(workflow v1.Workflow, trigger *triggers) types.Task {
 	task := types.Task{
-		Metadata:     MetadataFrom(&workflow),
-		TaskManifest: ConvertTaskManifest(&workflow.Spec.Manifest),
-		ThreadID:     workflow.Spec.ThreadName,
-		Alias:        workflow.Spec.Manifest.Alias,
+		Metadata:      MetadataFrom(&workflow),
+		TaskManifest:  ConvertTaskManifest(&workflow.Spec.Manifest),
+		ThreadID:      workflow.Spec.ThreadName,
+		Alias:         workflow.Spec.Manifest.Alias,
+		ProjectScoped: workflow.Spec.ProjectScoped,
 	}
 	if trigger != nil && trigger.CronJob != nil && trigger.CronJob.Name != "" {
 		task.Schedule = trigger.CronJob.Spec.TaskSchedule

@@ -18,7 +18,7 @@
 	import { slide } from 'svelte/transition';
 	import ShareDialog from '$lib/components/edit/ShareDialog.svelte';
 	import Files from '$lib/components/edit/Files.svelte';
-	import type { EditorItem } from '$lib/services/editor/index.svelte';
+	import Tasks from '$lib/components/edit/Tasks.svelte';
 
 	interface Props {
 		project: Project;
@@ -37,7 +37,6 @@
 	let timer: number = 0;
 	let nav = $state<HTMLDivElement>();
 	let toDelete = $state(false);
-	let items = $state<EditorItem[]>([]);
 
 	async function updateProject() {
 		if (JSON.stringify(project) === projectSaved) {
@@ -98,7 +97,8 @@
 				<Instructions bind:project />
 				<Tools {tools} {onNewTools} />
 				<Knowledge {project} />
-				<Files {project} {items} />
+				<Files {project} />
+				<Tasks {project} />
 				<Interface bind:project />
 				<Credentials {project} {tools} />
 				<Share {project} />
@@ -127,10 +127,12 @@
 			>
 				<Obot {project} {tools} bind:currentThreadID />
 			</div>
-			<div class="absolute bottom-2 left-2 z-30 hidden md:flex">
-				<Settings />
-				<ShareDialog {project} />
-			</div>
+			{#if (layout.sidebarOpen && !layout.fileEditorOpen) || layout.projectEditorOpen}
+				<div class="absolute bottom-2 left-2 z-30 hidden md:flex">
+					<Settings />
+					<ShareDialog {project} />
+				</div>
+			{/if}
 		</div>
 	</div>
 </div>
