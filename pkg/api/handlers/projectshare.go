@@ -169,6 +169,9 @@ func convertProjectShare(threadShare v1.ThreadShare) types.ProjectShare {
 		PublicID:             threadShare.Spec.PublicID,
 		Featured:             threadShare.Spec.Featured,
 		ProjectID:            strings.Replace(threadShare.Spec.ProjectThreadName, system.ThreadPrefix, system.ProjectPrefix, 1),
+		Name:                 threadShare.Status.Name,
+		Description:          threadShare.Status.Description,
+		Icons:                threadShare.Status.Icons,
 	}
 }
 

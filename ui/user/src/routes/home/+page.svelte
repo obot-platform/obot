@@ -97,12 +97,13 @@
 
 	{#snippet projectCard(project: Project | ProjectShare)}
 		<a
-			href="/o/{'projectID' in project ? project.projectID : (project as Project).id}"
+			href={'publicID' in project ? `/s/${project.publicID}` : `/o/${project.id}`}
+			data-sveltekit-preload-data={'publicID' in project ? 'off' : 'hover'}
 			class="card relative z-20 flex-col overflow-hidden shadow-md"
 		>
 			<div class="absolute left-0 top-0 z-30 flex w-full items-center justify-end p-2">
 				<div class="flex items-center justify-end">
-					{#if 'id' in project}
+					{#if !('publicID' in project)}
 						{@render menu(project)}
 					{/if}
 				</div>

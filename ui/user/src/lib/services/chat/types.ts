@@ -324,6 +324,7 @@ export interface ProjectList {
 }
 
 export interface ProjectShare {
+	id: string;
 	publicID: string;
 	projectID: string;
 	public: boolean;
