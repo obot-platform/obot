@@ -192,10 +192,10 @@
 {#snippet files()}
 	{#if msg.file?.filename}
 		<button
-			class="m-5 flex cursor-pointer flex-col
-		 divide-y divide-gray-300
-		 rounded-3xl border
-		 border-gray-300 bg-white
+			class="m-5 flex cursor-pointer flex-col divide-y
+		 divide-gray-300 rounded-3xl
+		 border border-gray-300
+		 bg-white text-start
 		 text-black shadow-lg
 		   dark:bg-black
 		    dark:text-gray-50"

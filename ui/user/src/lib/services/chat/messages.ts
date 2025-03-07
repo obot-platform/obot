@@ -254,10 +254,17 @@ function toMessages(progresses: Progress[]): Messages {
 				messages.push(newContentMessage(progress));
 			}
 		} else if (progress.toolCall) {
-			// once we see a toolCall ignore all previous toolInputs or toolCall
-			for (const msg of messages) {
-				if (msg.runID === progress.runID && (msg.toolInput || msg.toolCall)) {
-					msg.ignore = true;
+			if (progress.toolCall.output !== undefined) {
+				for (const msg of messages) {
+					if (msg.runID === progress.runID && msg.toolInput) {
+						msg.ignore = true;
+					} else if (
+						msg.runID == progress.runID &&
+						msg.toolCall &&
+						msg.toolCall.output === undefined
+					) {
+						msg.ignore = true;
+					}
 				}
 			}
 
