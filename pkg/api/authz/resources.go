@@ -115,6 +115,8 @@ var apiResources = []string{
 	"GET    /api/threads/{thread_id}/tasks/{task_id}/runs/{run_id}",
 	"GET    /api/threads/{thread_id}/workflows",
 	"GET    /api/threads/{thread_id}/workflows/{workflow_id}/executions",
+	"GET    /api/tool-references",
+	"GET    /api/tool-references/{id}",
 	"GET    /api/shares",
 	"POST   /api/shares/{share_public_id}",
 	"GET    /{ui}/projects/{id}",
