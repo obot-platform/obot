@@ -315,11 +315,13 @@ func (h *ProjectsHandler) GetProject(req api.Context) error {
 func (h *ProjectsHandler) ListProjects(req api.Context) error {
 	var (
 		assistantID = req.PathValue("assistant_id")
-		agent       *v1.Agent
-		err         error
 		hasEditor   = req.URL.Query().Has("editor")
 		isEditor    = req.URL.Query().Get("editor") == "true"
+
+		agent *v1.Agent
+		err   error
 	)
+
 	if assistantID != "" {
 		agent, err = getAssistant(req, assistantID)
 		if err != nil {
@@ -327,7 +329,7 @@ func (h *ProjectsHandler) ListProjects(req api.Context) error {
 		}
 	}
 
-	projects, err := h.getProjects(req, agent)
+	projects, err := h.getProjects(req, agent, req.UserIsAdmin() && req.URL.Query().Get("all") == "true")
 	if err != nil {
 		return err
 	}
@@ -420,16 +422,20 @@ func getEmail(req api.Context) (string, bool) {
 	return "", false
 }
 
-func (h *ProjectsHandler) getProjects(req api.Context, agent *v1.Agent) (result types.ProjectList, err error) {
+func (h *ProjectsHandler) getProjects(req api.Context, agent *v1.Agent, all bool) (result types.ProjectList, err error) {
 	var (
 		threads v1.ThreadList
 		auths   v1.ThreadAuthorizationList
 		seen    = make(map[string]bool)
 		fields  = kclient.MatchingFields{
 			"spec.project": "true",
-			"spec.userUID": req.User.GetUID(),
 		}
 	)
+
+	// If not all, filter for current user
+	if !all {
+		fields["spec.userUID"] = req.User.GetUID()
+	}
 
 	// Agent may be nil if
 	if agent != nil {
