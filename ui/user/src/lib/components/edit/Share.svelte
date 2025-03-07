@@ -4,6 +4,7 @@
 	import { Trash2 } from 'lucide-svelte';
 	import CopyButton from '$lib/components/CopyButton.svelte';
 	import { fade } from 'svelte/transition';
+	import { profile } from '$lib/stores';
 	import { Check } from 'lucide-svelte/icons';
 
 	interface Props {
@@ -44,6 +45,24 @@
 					<Trash2 class="h-4 w-4" />
 				</button>
 			</div>
+			{#if profile.current.isAdmin?.()}
+				<div class="flex gap-1">
+					<input
+						type="checkbox"
+						checked={share.featured}
+						onchange={async (e) => {
+							if (e.target instanceof HTMLInputElement) {
+								share = await ChatService.setFeatured(
+									project.assistantID,
+									project.id,
+									e.target.checked
+								);
+							}
+						}}
+					/>
+					<span class="text-sm">Featured</span>
+				</div>
+			{/if}
 			<p class="text-sm">
 				<b>Anyone with this link</b> can use this Obot, which includes <b>any credentials</b> assigned
 				to this Obot.

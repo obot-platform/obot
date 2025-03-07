@@ -97,6 +97,33 @@ func (h *ProjectShareHandler) ListFeatured(req api.Context) error {
 	})
 }
 
+func (h *ProjectShareHandler) SetFeatured(req api.Context) error {
+	var (
+		threadShare      v1.ThreadShare
+		projectID        = req.PathValue("project_id")
+		projectShareName = h.getProjectShareName(req.User, projectID)
+	)
+
+	if err := req.Get(&threadShare, projectShareName); err != nil {
+		return err
+	}
+
+	var featured struct {
+		Featured bool `json:"featured"`
+	}
+
+	if err := req.Read(&featured); err != nil {
+		return err
+	}
+
+	threadShare.Spec.Featured = featured.Featured
+	if err := req.Update(&threadShare); err != nil {
+		return err
+	}
+
+	return req.Write(convertProjectShare(threadShare))
+}
+
 func (h *ProjectShareHandler) UpdateShare(req api.Context) error {
 	var (
 		threadShare      v1.ThreadShare
@@ -140,6 +167,7 @@ func convertProjectShare(threadShare v1.ThreadShare) types.ProjectShare {
 		Metadata:             MetadataFrom(&threadShare),
 		ProjectShareManifest: threadShare.Spec.Manifest,
 		PublicID:             threadShare.Spec.PublicID,
+		Featured:             threadShare.Spec.Featured,
 		ProjectID:            strings.Replace(threadShare.Spec.ProjectThreadName, system.ThreadPrefix, system.ProjectPrefix, 1),
 	}
 }

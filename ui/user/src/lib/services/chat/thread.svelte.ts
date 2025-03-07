@@ -17,7 +17,8 @@ export class Thread {
 
 	readonly #onError: ((error: Error) => void) | undefined;
 	#es: EventSource;
-	readonly #progresses: Progress[] = [];
+	#progresses: Progress[] = [];
+	#count: number = 0;
 	readonly #project: Project;
 	readonly #task?: {
 		id: string;
@@ -61,7 +62,8 @@ export class Thread {
 	}
 
 	#reconnect(): EventSource {
-		console.log('Message EventSource initializing');
+		console.log('Message EventSource initializing', ++this.#count);
+		const currentID = this.#count;
 		this.replayComplete = false;
 		let opened = false;
 		const es = newMessageEventSource(this.#project.assistantID, this.#project.id, {
@@ -74,29 +76,29 @@ export class Thread {
 			this.handleMessage(e);
 		};
 		es.onopen = (e) => {
-			console.log('Message EventSource opened', e);
+			console.log('Message EventSource opened', currentID, e);
 			opened = true;
 		};
 		es.addEventListener('reconnect', () => {
 			setTimeout(() => {
-				console.log('Message EventSource reconnecting');
-				es.close();
+				console.log('Message EventSource reconnecting', currentID);
+				this.#es.close();
 				this.#es = this.#reconnect();
 			}, 5000);
 		});
 		es.addEventListener('close', () => {
-			console.log('Message EventSource closed by server');
+			console.log('Message EventSource closed by server', currentID);
 			if (this.#onClose?.() ?? true) {
 				es.dispatchEvent(new Event('reconnect'));
 			}
 		});
 		es.onerror = (e: Event) => {
 			if (e.eventPhase === EventSource.CLOSED) {
-				console.log('Message EventSource closed');
+				console.log('Message EventSource closed', currentID);
 				if (opened) {
 					opened = false;
 				} else {
-					console.log('Message EventSource failed to open');
+					console.log('Message EventSource failed to open', currentID);
 					es.dispatchEvent(new Event('reconnect'));
 				}
 			}

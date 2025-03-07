@@ -783,6 +783,12 @@ export async function listAuthProviders(opts?: { fetch?: Fetcher }): Promise<Aut
 	return list.items.filter((provider) => provider.configured);
 }
 
+export async function setFeatured(assistantID: string, projectID: string, featured: boolean) {
+	return (await doPut(`/assistants/${assistantID}/projects/${projectID}/featured`, {
+		featured
+	})) as ProjectShare;
+}
+
 export async function getProjectShare(
 	assistantID: string,
 	projectID: string

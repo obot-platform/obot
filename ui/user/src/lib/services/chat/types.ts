@@ -317,6 +317,7 @@ export interface ProjectShare {
 	name?: string;
 	description?: string;
 	icons?: AssistantIcons;
+	featured?: boolean;
 }
 
 export interface ProjectShareList {

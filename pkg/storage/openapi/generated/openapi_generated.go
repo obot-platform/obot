@@ -3024,6 +3024,12 @@ func schema_obot_platform_obot_apiclient_types_ProjectShare(ref common.Reference
 							Ref: ref("github.com/obot-platform/obot/apiclient/types.AgentIcons"),
 						},
 					},
+					"featured": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
+						},
+					},
 				},
 				Required: []string{"Metadata", "ProjectShareManifest", "icons"},
 			},

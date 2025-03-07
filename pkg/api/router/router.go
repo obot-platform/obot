@@ -75,6 +75,7 @@ func Router(services *services.Services) (http.Handler, error) {
 	mux.HandleFunc("DELETE /api/assistants/{assistant_id}/projects/{project_id}/share", projectShare.DeleteShare)
 	mux.HandleFunc("GET /api/assistants/{assistant_id}/projects/{project_id}/share", projectShare.GetShare)
 	mux.HandleFunc("PUT /api/assistants/{assistant_id}/projects/{project_id}/share", projectShare.UpdateShare)
+	mux.HandleFunc("PUT /api/assistants/{assistant_id}/projects/{project_id}/featured", projectShare.SetFeatured)
 	mux.HandleFunc("GET /api/shares", projectShare.ListFeatured)
 	mux.HandleFunc("POST /api/shares/{share_public_id}", projectShare.CreateProjectFromShare)
 
