@@ -551,6 +551,9 @@ func (h *ProjectsHandler) ListProjectThreads(req api.Context) error {
 
 	var result types.ThreadList
 	for _, thread := range threads.Items {
+		if !thread.DeletionTimestamp.IsZero() {
+			continue
+		}
 		result.Items = append(result.Items, convertThread(thread))
 	}
 

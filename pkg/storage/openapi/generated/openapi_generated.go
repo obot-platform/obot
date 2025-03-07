@@ -3650,6 +3650,12 @@ func schema_obot_platform_obot_apiclient_types_Task(ref common.ReferenceCallback
 							Format: "",
 						},
 					},
+					"alias": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
 				},
 				Required: []string{"Metadata", "TaskManifest"},
 			},

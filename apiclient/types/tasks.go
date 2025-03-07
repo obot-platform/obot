@@ -4,6 +4,7 @@ type Task struct {
 	Metadata
 	TaskManifest
 	ThreadID string `json:"threadID,omitempty"`
+	Alias    string `json:"alias,omitempty"`
 }
 
 type TaskList List[Task]

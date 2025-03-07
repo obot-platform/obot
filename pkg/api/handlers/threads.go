@@ -181,6 +181,9 @@ func (a *ThreadHandler) List(req api.Context) error {
 
 	var resp types.ThreadList
 	for _, thread := range threadList.Items {
+		if !thread.DeletionTimestamp.IsZero() {
+			continue
+		}
 		if agentName == "" || thread.Spec.AgentName == agentName {
 			resp.Items = append(resp.Items, convertThread(thread))
 		}

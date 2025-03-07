@@ -434,6 +434,14 @@ func (t *TaskHandler) Update(req api.Context) error {
 		return err
 	}
 
+	manifest.Alias = workflow.Spec.Manifest.Alias
+	if manifest.Alias == "" {
+		manifest.Alias, err = randomtoken.Generate()
+		if err != nil {
+			return err
+		}
+	}
+
 	workflow.Spec.Manifest = manifest
 	if err := req.Update(&workflow); err != nil {
 		return err
@@ -456,6 +464,14 @@ func (t *TaskHandler) UpdateFromScope(req api.Context) error {
 	_, manifest, task, err := t.getThreadAndManifestFromRequest(req)
 	if err != nil {
 		return err
+	}
+
+	manifest.Alias = workflow.Spec.Manifest.Alias
+	if manifest.Alias == "" {
+		manifest.Alias, err = randomtoken.Generate()
+		if err != nil {
+			return err
+		}
 	}
 
 	workflow.Spec.Manifest = manifest
@@ -897,6 +913,9 @@ func (t *TaskHandler) list(req api.Context, thread *v1.Thread) error {
 	taskList := types.TaskList{Items: make([]types.Task, 0, len(workflows.Items))}
 
 	for _, workflow := range workflows.Items {
+		if !workflow.DeletionTimestamp.IsZero() {
+			continue
+		}
 		taskList.Items = append(taskList.Items, convertTask(workflow, &triggers{
 			CronJob: cronMap[name.SafeHashConcatName(system.CronJobPrefix, workflow.Name)],
 			Webhook: webhookMap[name.SafeHashConcatName(system.WebhookPrefix, workflow.Name)],
@@ -923,6 +942,7 @@ func convertTask(workflow v1.Workflow, trigger *triggers) types.Task {
 		Metadata:     MetadataFrom(&workflow),
 		TaskManifest: ConvertTaskManifest(&workflow.Spec.Manifest),
 		ThreadID:     workflow.Spec.ThreadName,
+		Alias:        workflow.Spec.Manifest.Alias,
 	}
 	if trigger != nil && trigger.CronJob != nil && trigger.CronJob.Name != "" {
 		task.Schedule = trigger.CronJob.Spec.TaskSchedule

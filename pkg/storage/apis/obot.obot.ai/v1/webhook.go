@@ -67,7 +67,7 @@ func (*Webhook) GetColumns() [][]string {
 	return [][]string{
 		{"Name", "Name"},
 		{"Alias", "Spec.Alias"},
-		{"Workflow", "Spec.Workflow"},
+		{"Workflow", "Spec.WorkflowName"},
 		{"Created", "{{ago .CreationTimestamp}}"},
 		{"Last Success", "{{ago .Status.LastSuccessfulRunCompleted}}"},
 		{"Description", "Spec.Description"},
