@@ -38,8 +38,11 @@ func Router(services *services.Services) (http.Handler, error) {
 	projectShare := handlers.NewProjectShareHandler()
 	files := handlers.NewFilesHandler(services.GPTClient)
 	workflows := handlers.NewWorkflowHandler(services.GPTClient, services.ServerURL, services.Invoker)
+	slackTrigger := handlers.NewSlackTriggerHandler()
+	slackEventHandler := handlers.NewSlackEventHandler(services.Invoker, services.GPTClient)
 	sendgridWebhookHandler := sendgrid.NewInboundWebhookHandler(services.StorageClient, services.EmailServerName, services.SendgridWebhookUsername, services.SendgridWebhookPassword)
 	images := handlers.NewImageHandler(services.GatewayClient, services.GeminiClient)
+	slackHandler := handlers.NewSlackHandler(services.GPTClient)
 
 	// Version
 	mux.HandleFunc("GET /api/version", version.GetVersion)
@@ -128,6 +131,11 @@ func Router(services *services.Services) (http.Handler, error) {
 	// Project Env
 	mux.HandleFunc("GET /api/assistants/{assistant_id}/projects/{project_id}/env", assistants.GetEnv)
 	mux.HandleFunc("PUT /api/assistants/{assistant_id}/projects/{project_id}/env", assistants.SetEnv)
+
+	// Project Slack integration
+	mux.HandleFunc("POST /api/assistants/{assistant_id}/projects/{project_id}/slack", slackHandler.Configure)
+	mux.HandleFunc("PUT /api/assistants/{assistant_id}/projects/{project_id}/slack", slackHandler.Configure)
+	mux.HandleFunc("DELETE /api/assistants/{assistant_id}/projects/{project_id}/slack", slackHandler.DeleteConfiguration)
 
 	// Top level Tasks
 	mux.HandleFunc("GET /api/tasks", tasks.List)
@@ -341,6 +349,15 @@ func Router(services *services.Services) (http.Handler, error) {
 	mux.HandleFunc("DELETE /api/cronjobs/{id}", cronJobs.Delete)
 	mux.HandleFunc("POST /api/cronjobs/{id}", cronJobs.Execute)
 	mux.HandleFunc("PUT /api/cronjobs/{id}", cronJobs.Update)
+
+	// Slack Triggers
+	mux.HandleFunc("POST /api/slack-triggers", slackTrigger.Create)
+	mux.HandleFunc("GET /api/slack-triggers", slackTrigger.List)
+	mux.HandleFunc("GET /api/slack-triggers/{id}", slackTrigger.ByID)
+	mux.HandleFunc("DELETE /api/slack-triggers/{id}", slackTrigger.Delete)
+
+	// Slack event receiver
+	mux.HandleFunc("POST /api/slack/events", slackEventHandler.HandleEvent)
 
 	// Debug
 	mux.HTTPHandle("GET /debug/pprof/", http.DefaultServeMux)

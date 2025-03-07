@@ -14,6 +14,7 @@ const (
 	WorkflowStepPrefix        = "ws1"
 	WorkspacePrefix           = "wksp1"
 	WebhookPrefix             = "wh1"
+	SlackTriggerPrefix        = "st1"
 	CronJobPrefix             = "cj1"
 	KnowledgeSourcePrefix     = "ks1"
 	OAuthAppPrefix            = "oa1"
@@ -26,6 +27,7 @@ const (
 	ToolPrefix                = "tl1"
 	ProjectPrefix             = "p1"
 	ThreadTemplatePrefix      = "tt1"
+	SlackReceiverPrefix       = "sr1"
 )
 
 func IsThreadID(id string) bool {

@@ -12,12 +12,14 @@ import (
 	"github.com/gptscript-ai/go-gptscript"
 	"github.com/obot-platform/nah/pkg/router"
 	"github.com/obot-platform/obot/apiclient/types"
+	"github.com/obot-platform/obot/pkg/alias"
 	"github.com/obot-platform/obot/pkg/gz"
 	"github.com/obot-platform/obot/pkg/projects"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/obot-platform/obot/pkg/wait"
 	apierror "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/fields"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -239,6 +241,12 @@ func Agent(ctx context.Context, db kclient.Client, agent *v1.Agent, oauthServerU
 		return nil, nil, err
 	}
 
+	if opts.Thread != nil {
+		if err := overrideOAuthApps(ctx, db, agent, opts.Thread); err != nil {
+			return nil, nil, err
+		}
+	}
+
 	oauthEnv, err := OAuthAppEnv(ctx, db, agent.Spec.Manifest.OAuthApps, agent.Namespace, oauthServerURL)
 	if err != nil {
 		return nil, nil, err
@@ -247,6 +255,55 @@ func Agent(ctx context.Context, db kclient.Client, agent *v1.Agent, oauthServerU
 	extraEnv = append(extraEnv, oauthEnv...)
 
 	return append([]gptscript.ToolDef{mainTool}, otherTools...), extraEnv, nil
+}
+
+func overrideOAuthApps(ctx context.Context, db kclient.Client, agent *v1.Agent, thread *v1.Thread) error {
+	var parentThread v1.Thread
+	if thread.Spec.ParentThreadName == "" {
+		return nil
+	}
+	if err := db.Get(ctx, router.Key(thread.Namespace, thread.Spec.ParentThreadName), &parentThread); err != nil {
+		return err
+	}
+	threadOAuthApps := make(map[string]v1.OAuthApp)
+	var list v1.OAuthAppList
+	if err := db.List(ctx, &list, kclient.InNamespace(thread.Namespace), kclient.MatchingFieldsSelector{
+		Selector: fields.SelectorFromSet(map[string]string{
+			"spec.threadName": parentThread.Name,
+		}),
+	}); err != nil {
+		return err
+	}
+	for _, app := range list.Items {
+		threadOAuthApps[string(app.Spec.Manifest.Type)] = app
+	}
+
+	if len(threadOAuthApps) == 0 {
+		return nil
+	}
+
+	agentOauthApps := make([]v1.OAuthApp, 0, len(agent.Spec.Manifest.OAuthApps))
+	for _, appName := range agent.Spec.Manifest.OAuthApps {
+		var app v1.OAuthApp
+		if err := alias.Get(ctx, db, &app, thread.Namespace, appName); err != nil {
+			return err
+		}
+		agentOauthApps = append(agentOauthApps, app)
+	}
+
+	var updatedOAuthApps []string
+	for _, app := range agentOauthApps {
+		existingThreadApp, exists := threadOAuthApps[string(app.Spec.Manifest.Type)]
+		if !exists {
+			updatedOAuthApps = append(updatedOAuthApps, app.Name)
+		} else {
+			updatedOAuthApps = append(updatedOAuthApps, existingThreadApp.Name)
+		}
+	}
+
+	agent.Spec.Manifest.OAuthApps = updatedOAuthApps
+
+	return nil
 }
 
 func mergeWebsiteKnowledge(websiteKnowledge ...*types.WebsiteKnowledge) (result types.WebsiteKnowledge) {
@@ -335,7 +392,7 @@ func OAuthAppEnv(ctx context.Context, db kclient.Client, oauthAppNames []string,
 
 	for _, integration := range slices.Sorted(maps.Keys(activeIntegrations)) {
 		app := activeIntegrations[integration]
-		integrationEnv := strings.ReplaceAll(strings.ToUpper(app.Spec.Manifest.Alias), "-", "_")
+		integrationEnv := strings.ReplaceAll(strings.ToUpper(string(app.Spec.Manifest.Type)), "-", "_")
 
 		extraEnv = append(extraEnv,
 			fmt.Sprintf("GPTSCRIPT_OAUTH_%s_AUTH_URL=%s", integrationEnv, app.AuthorizeURL(serverURL)),
