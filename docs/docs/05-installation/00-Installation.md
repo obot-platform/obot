@@ -18,9 +18,7 @@ By default, the default Obot Docker setup will run a postgres database, and use 
 
 ### Production Considerations
 
-For a production setup, you will want to use an external Postgres database, and an S3-compatible storage provider for the workspace.
-
-To configure Obot to use
+For a production setup, you will want to use an external Postgres database, and an S3-compatible storage provider (or Azure Blob Storage) for the workspace.
 
 ## System requirements
 
