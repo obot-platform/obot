@@ -100,7 +100,7 @@ func (s *Server) oauthAppByID(apiContext api.Context) error {
 	return apiContext.Write(convertOAuthAppRegistrationToOAuthApp(app, s.baseURL))
 }
 
-// createOAuthApp creates a new OAuth app registration in the database (admin only).
+// CreateOAuthApp creates a new OAuth app registration in the database (admin only).
 func (s *Server) createOAuthApp(apiContext api.Context) error {
 	appManifest := new(types2.OAuthAppManifest)
 	if err := apiContext.Read(appManifest); err != nil {
@@ -150,6 +150,7 @@ func (s *Server) createOAuthApp(apiContext api.Context) error {
 		Type:     gptscript.CredentialTypeTool,
 		Env:      map[string]string{"CLIENT_SECRET": clientSecret},
 	}
+
 	if err := s.gptClient.CreateCredential(apiContext.Context(), credential); err != nil {
 		return err
 	}
