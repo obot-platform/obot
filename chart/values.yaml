@@ -92,6 +92,10 @@ config:
   workspaceProviderS3BaseEndpoint: ""
   # config.workspaceProviderS3Bucket -- The name of the S3 bucket to store workspaces in. Only used if config.obotWorkspaceProviderType is 's3'
   workspaceProviderS3Bucket: ""
+  # config.workspaceProviderAzureContainer -- The name of the Azure Blob Storage container to store workspaces in. Only used if config.obotWorkspaceProviderType is 'azure'
+  workspaceProviderAzureContainer: ""
+  # config.workspaceProviderAzureConnectionString -- The connection string for the Azure Blob Storage container to store workspaces in. Only used if config.obotWorkspaceProviderType is 'azure'
+  workspaceProviderAzureConnectionString: ""
 
 # extraEnv -- A map of additional environment variables to set
 extraEnv: { }
