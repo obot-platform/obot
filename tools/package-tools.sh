@@ -131,6 +131,18 @@ VERSIONS
 )"
 cd ..
 
+if [ ! -e kubernetes-kms ]; then
+    git clone --depth=1 https://github.com/Azure/kubernetes-kms
+fi
+cd kubernetes-kms
+go build -ldflags="-s -w" -o "${BIN_DIR}/azure-encryption-provider" cmd/server/main.go
+OBOT_SERVER_VERSIONS="$(cat <<VERSIONS
+"github.com/Azure/kubernetes-kms": "$(git rev-parse --short HEAD)"
+${OBOT_SERVER_VERSIONS}
+VERSIONS
+)"
+cd ..
+
 if [ ! -e k8s-cloudkms-plugin ]; then
 	git clone --depth=1 https://github.com/obot-platform/k8s-cloudkms-plugin
 fi

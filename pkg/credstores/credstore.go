@@ -18,6 +18,9 @@ import (
 type Options struct {
 	AWSKMSKeyARN         string
 	GCPKMSKeyURI         string
+	AzureKeyVaultName    string
+	AzureKeyName         string
+	AzureKeyVersion      string
 	EncryptionProvider   string
 	EncryptionConfigFile string
 }
@@ -34,6 +37,11 @@ func (o *Options) Validate() error {
 			return fmt.Errorf("missing GCP KMS key URI")
 		}
 		o.EncryptionConfigFile = "/gcp-encryption.yaml"
+	case "azure":
+		if o.AzureKeyVaultName == "" || o.AzureKeyName == "" || o.AzureKeyVersion == "" {
+			return fmt.Errorf("missing Azure Key Vault configuration")
+		}
+		o.EncryptionConfigFile = "/azure-encryption.yaml"
 	case "custom":
 		if o.EncryptionConfigFile == "" {
 			return fmt.Errorf("missing custom encryption config file")
@@ -63,6 +71,10 @@ func Init(ctx context.Context, toolRegistries []string, dsn string, opts Options
 		if err := setUpGoogleKMS(ctx, opts.GCPKMSKeyURI, opts.EncryptionConfigFile); err != nil {
 			return "", nil, fmt.Errorf("failed to setup Google Cloud KMS: %w", err)
 		}
+	case "azure":
+		if err := setUpAzureKeyVault(ctx, opts.AzureKeyVaultName, opts.AzureKeyName, opts.AzureKeyVersion, opts.EncryptionConfigFile); err != nil {
+			return "", nil, fmt.Errorf("failed to setup Azure Key Vault: %w", err)
+		}
 	}
 
 	if opts.EncryptionConfigFile != "" {
@@ -80,6 +92,45 @@ func Init(ctx context.Context, toolRegistries []string, dsn string, opts Options
 	default:
 		return "", nil, fmt.Errorf("unsupported database for credentials %s", strings.Split(dsn, "://")[0])
 	}
+}
+
+func setUpAzureKeyVault(ctx context.Context, keyvaultName, keyName, keyVersion, configFile string) error {
+	if keyvaultName == "" || keyName == "" || keyVersion == "" {
+		return fmt.Errorf("missing Azure Key Vault configuration")
+	}
+
+	if err := os.Setenv("GPTSCRIPT_ENCRYPTION_CONFIG_FILE", configFile); err != nil {
+		return fmt.Errorf("failed to set GPTSCRIPT_ENCRYPTION_CONFIG_FILE: %w", err)
+	}
+
+	if err := os.WriteFile("/tmp/azure.json", []byte(`{"useManagedIdentityExtension": true}`), 0600); err != nil {
+		return fmt.Errorf("failed to write Azure config file: %w", err)
+	}
+
+	cmd := exec.CommandContext(ctx,
+		"azure-encryption-provider",
+		"--config-file-path=/tmp/azure.json",
+		"--listen-addr=unix:///tmp/azure-cred-socket.sock",
+		"--keyvault-name="+keyvaultName,
+		"--key-name="+keyName,
+		"--key-version="+keyVersion,
+		"--healthz-port=22223")
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err := cmd.Start(); err != nil {
+		return err
+	}
+	go func() {
+		err := cmd.Wait()
+		select {
+		case <-ctx.Done():
+			// ignore error if we are shutting down
+		default:
+			log.Fatalf("azure-encryption-provider exited: %v", err)
+		}
+	}()
+
+	return nil
 }
 
 func setUpGoogleKMS(ctx context.Context, kmsKeyURI, configFile string) error {
