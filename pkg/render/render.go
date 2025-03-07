@@ -309,7 +309,7 @@ func OAuthAppEnv(ctx context.Context, db kclient.Client, oauthAppNames []string,
 
 	for _, integration := range slices.Sorted(maps.Keys(activeIntegrations)) {
 		app := activeIntegrations[integration]
-		integrationEnv := strings.ReplaceAll(strings.ToUpper(app.Spec.Manifest.Alias), "-", "_")
+		integrationEnv := strings.ReplaceAll(strings.ToUpper(string(app.Spec.Manifest.Type)), "-", "_")
 
 		extraEnv = append(extraEnv,
 			fmt.Sprintf("GPTSCRIPT_OAUTH_%s_AUTH_URL=%s", integrationEnv, app.AuthorizeURL(serverURL)),

@@ -49,13 +49,17 @@ func (in *Thread) Get(field string) string {
 			return strconv.FormatBool(in.Spec.Project)
 		case "spec.parentThreadName":
 			return in.Spec.ParentThreadName
+		case "spec.slackConfiguration.appID":
+			if in.Spec.SlackConfiguration != nil {
+				return in.Spec.SlackConfiguration.AppID
+			}
 		}
 	}
 	return ""
 }
 
 func (in *Thread) FieldNames() []string {
-	return []string{"spec.userUID", "spec.project", "spec.agentName", "spec.parentThreadName"}
+	return []string{"spec.userUID", "spec.project", "spec.agentName", "spec.parentThreadName", "spec.slackConfiguration.appID"}
 }
 
 func (in *Thread) GetColumns() [][]string {
@@ -93,6 +97,8 @@ type ThreadSpec struct {
 	Ephemeral bool `json:"ephemeral,omitempty"`
 	// SystemTools are tools that are set on this thread but not visible to the user
 	SystemTools []string `json:"systemTools,omitempty"`
+	// SlackConfiguration is the configuration for the slack integration
+	SlackConfiguration *SlackConfiguration `json:"slackConfiguration,omitempty"`
 
 	// Owners
 
@@ -112,6 +118,10 @@ type ThreadSpec struct {
 	CronJobName string `json:"cronJobName,omitempty"`
 	// OAuthAppLoginName is the oauth app login owner of the thread
 	OAuthAppLoginName string `json:"oAuthAppLoginName,omitempty"`
+}
+
+type SlackConfiguration struct {
+	AppID string `json:"appID,omitempty"`
 }
 
 func (in *Thread) DeleteRefs() []Ref {
