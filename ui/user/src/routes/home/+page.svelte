@@ -43,7 +43,7 @@
 
 	function getImage(project: Project | ProjectShare) {
 		const imageUrl = darkMode.isDark
-			? (project.icons?.iconDark || project.icons?.icon)
+			? project.icons?.iconDark || project.icons?.icon
 			: project.icons?.icon;
 
 		return imageUrl ?? '/agent/images/placeholder.jpeg'; // need placeholder image
