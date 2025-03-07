@@ -717,6 +717,22 @@ func (h *ProjectsHandler) authenticate(req api.Context, local bool) (err error) 
 		return err
 	}
 
+	var oauthApps v1.OAuthAppList
+	if err := req.List(&oauthApps); err != nil {
+		return err
+	}
+
+	for _, app := range oauthApps.Items {
+		if app.Spec.ThreadName == thread.Name {
+			for i, existingApp := range agent.Spec.Manifest.OAuthApps {
+				if existingApp == string(app.Spec.Manifest.Type) {
+					agent.Spec.Manifest.OAuthApps[i] = app.Name
+					break
+				}
+			}
+		}
+	}
+
 	credContext := thread.Name
 	if local {
 		credContext = thread.Name + "-local"
