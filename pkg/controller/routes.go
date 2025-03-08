@@ -12,6 +12,7 @@ import (
 	"github.com/obot-platform/obot/pkg/controller/handlers/knowledgesource"
 	"github.com/obot-platform/obot/pkg/controller/handlers/knowledgesummary"
 	"github.com/obot-platform/obot/pkg/controller/handlers/oauthapp"
+	"github.com/obot-platform/obot/pkg/controller/handlers/projects"
 	"github.com/obot-platform/obot/pkg/controller/handlers/runs"
 	"github.com/obot-platform/obot/pkg/controller/handlers/threads"
 	"github.com/obot-platform/obot/pkg/controller/handlers/threadshare"
@@ -48,6 +49,7 @@ func (c *Controller) setupRoutes() error {
 	toolInfo := toolinfo.New(c.services.GPTClient)
 	threads := threads.NewHandler(c.services.GPTClient, c.services.Invoker)
 	credentialCleanup := cleanup.NewCredentials(c.services.GPTClient)
+	projects := projects.NewHandler()
 
 	// Runs
 	root.Type(&v1.Run{}).FinalizeFunc(v1.RunFinalizer, runs.DeleteRunState)
@@ -68,6 +70,7 @@ func (c *Controller) setupRoutes() error {
 	root.Type(&v1.Thread{}).HandlerFunc(threads.CleanupEphemeralThreads)
 	root.Type(&v1.Thread{}).HandlerFunc(threads.SetCreated)
 	root.Type(&v1.Thread{}).HandlerFunc(threads.GenerateName)
+	root.Type(&v1.Thread{}).HandlerFunc(projects.CopyProjectInfo)
 	root.Type(&v1.Thread{}).FinalizeFunc(v1.ThreadFinalizer, credentialCleanup.Remove)
 	root.Type(&v1.Thread{}).FinalizeFunc(v1.ThreadFinalizer+"-child-cleanup", threads.ActivateRuns)
 
