@@ -141,6 +141,19 @@ type ThreadStatus struct {
 	SharedKnowledgeSetName string                   `json:"sharedKnowledgeSetName,omitempty"`
 	LocalWorkspaceName     string                   `json:"localWorkspaceName,omitempty"`
 	Created                bool                     `json:"created,omitempty"`
+
+	SlackConfiguration *SlackConfiguration `json:"slackConfiguration,omitempty"`
+}
+
+type SlackConfiguration struct {
+	AppID string `json:"appID,omitempty"`
+
+	Teams SlackTeam `json:"teams,omitempty"`
+}
+
+type SlackTeam struct {
+	ID   string `json:"id,omitempty"`
+	Name string `json:"name,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
