@@ -12,7 +12,6 @@ import (
 	"github.com/obot-platform/obot/pkg/system"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apiserver/pkg/authentication/user"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -27,21 +26,25 @@ func (h *ProjectShareHandler) CreateShare(req api.Context) error {
 	var (
 		threadShareManifest types.ProjectShareManifest
 		projectID           = req.PathValue("project_id")
-		projectShareName    = h.getProjectShareName(req.User, projectID)
 	)
 
 	if err := req.Read(&threadShareManifest); err != nil {
 		return err
 	}
 
+	thread, err := getProjectThread(req)
+	if err != nil {
+		return err
+	}
+
 	threadShare := v1.ThreadShare{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      projectShareName,
+			Name:      h.getProjectShareName(thread.Spec.UserID, projectID),
 			Namespace: req.Namespace(),
 		},
 		Spec: v1.ThreadShareSpec{
 			Manifest:          threadShareManifest,
-			UserID:            req.User.GetUID(),
+			UserID:            thread.Spec.UserID,
 			PublicID:          strings.ReplaceAll(uuid.New().String(), "-", ""),
 			ProjectThreadName: strings.Replace(projectID, system.ProjectPrefix, system.ThreadPrefix, 1),
 		},
@@ -53,18 +56,23 @@ func (h *ProjectShareHandler) CreateShare(req api.Context) error {
 	return req.WriteCreated(convertProjectShare(threadShare))
 }
 
-func (h *ProjectShareHandler) getProjectShareName(user user.Info, projectID string) string {
-	return name.SafeHashConcatName(system.ThreadSharePrefix, user.GetUID(),
+func (h *ProjectShareHandler) getProjectShareName(userID string, projectID string) string {
+	return name.SafeHashConcatName(system.ThreadSharePrefix, userID,
 		strings.Replace(projectID, system.ThreadPrefix, system.ProjectPrefix, 1))
 }
 
 func (h *ProjectShareHandler) GetShare(req api.Context) error {
 	var (
-		threadShare      v1.ThreadShare
-		projectID        = req.PathValue("project_id")
-		projectShareName = h.getProjectShareName(req.User, projectID)
+		threadShare v1.ThreadShare
+		projectID   = req.PathValue("project_id")
 	)
 
+	thread, err := getProjectThread(req)
+	if err != nil {
+		return err
+	}
+
+	projectShareName := h.getProjectShareName(thread.Spec.UserID, projectID)
 	if err := req.Get(&threadShare, projectShareName); apierrors.IsNotFound(err) {
 		return req.Write(convertProjectShare(v1.ThreadShare{
 			Spec: v1.ThreadShareSpec{
@@ -99,12 +107,16 @@ func (h *ProjectShareHandler) ListFeatured(req api.Context) error {
 
 func (h *ProjectShareHandler) SetFeatured(req api.Context) error {
 	var (
-		threadShare      v1.ThreadShare
-		projectID        = req.PathValue("project_id")
-		projectShareName = h.getProjectShareName(req.User, projectID)
+		threadShare v1.ThreadShare
+		projectID   = req.PathValue("project_id")
 	)
 
-	if err := req.Get(&threadShare, projectShareName); err != nil {
+	thread, err := getProjectThread(req)
+	if err != nil {
+		return err
+	}
+
+	if err := req.Get(&threadShare, h.getProjectShareName(thread.Spec.UserID, projectID)); err != nil {
 		return err
 	}
 
@@ -126,13 +138,17 @@ func (h *ProjectShareHandler) SetFeatured(req api.Context) error {
 
 func (h *ProjectShareHandler) UpdateShare(req api.Context) error {
 	var (
-		threadShare      v1.ThreadShare
-		manifest         types.ProjectShareManifest
-		projectID        = req.PathValue("project_id")
-		projectShareName = h.getProjectShareName(req.User, projectID)
+		threadShare v1.ThreadShare
+		manifest    types.ProjectShareManifest
+		projectID   = req.PathValue("project_id")
 	)
 
-	if err := req.Get(&threadShare, projectShareName); err != nil {
+	thread, err := getProjectThread(req)
+	if err != nil {
+		return err
+	}
+
+	if err := req.Get(&threadShare, h.getProjectShareName(thread.Spec.UserID, projectID)); err != nil {
 		return err
 	}
 
@@ -150,13 +166,17 @@ func (h *ProjectShareHandler) UpdateShare(req api.Context) error {
 
 func (h *ProjectShareHandler) DeleteShare(req api.Context) error {
 	var (
-		projectID        = req.PathValue("project_id")
-		projectShareName = h.getProjectShareName(req.User, projectID)
+		projectID = req.PathValue("project_id")
 	)
+
+	thread, err := getProjectThread(req)
+	if err != nil {
+		return err
+	}
 
 	return req.Delete(&v1.ThreadShare{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      projectShareName,
+			Name:      h.getProjectShareName(thread.Spec.UserID, projectID),
 			Namespace: req.Namespace(),
 		},
 	})
