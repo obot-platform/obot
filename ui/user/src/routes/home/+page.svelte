@@ -140,7 +140,9 @@
 		</a>
 	{/snippet}
 
-	<main class="colors-background flex w-full max-w-screen-2xl flex-col justify-center md:px-12 pb-12 px-4">
+	<main
+		class="colors-background flex w-full max-w-screen-2xl flex-col justify-center px-4 pb-12 md:px-12"
+	>
 		<div class="mt-8 flex w-full flex-col gap-8">
 			{#if featured.length > 0}
 				<div class="flex w-full flex-col gap-4">
@@ -160,10 +162,11 @@
 						{@render projectCard(project)}
 					{/each}
 					<button
-						class="card flex flex-col md:flex-row items-center justify-center shadow-md p-4 whitespace-nowrap"
+						class="card flex flex-col items-center justify-center whitespace-nowrap p-4 shadow-md md:flex-row"
 						onclick={() => createNew()}
 					>
-						<Plus class="md:h-5 md:w-5 h-8 w-8" /> <span class="font-semibold text-sm md:text-base">Create New Obot</span>
+						<Plus class="h-8 w-8 md:h-5 md:w-5" />
+						<span class="text-sm font-semibold md:text-base">Create New Obot</span>
 					</button>
 				</div>
 			</div>
