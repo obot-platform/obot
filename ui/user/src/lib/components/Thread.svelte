@@ -2,13 +2,14 @@
 	import { sticktobottom, type StickToBottomControls } from '$lib/actions/div.svelte';
 	import Input from '$lib/components/messages/Input.svelte';
 	import Message from '$lib/components/messages/Message.svelte';
-	import { Thread } from '$lib/services/chat/thread.svelte';
-	import { ChatService, EditorService, type Messages, type Project } from '$lib/services';
-	import { fade } from 'svelte/transition';
-	import { onDestroy } from 'svelte';
-	import { toHTMLFromMarkdown } from '$lib/markdown';
-	import type { EditorItem } from '$lib/services/editor/index.svelte';
 	import { getLayout } from '$lib/context/layout.svelte';
+	import { toHTMLFromMarkdown } from '$lib/markdown';
+	import { ChatService, EditorService, type Messages, type Project } from '$lib/services';
+	import { Thread } from '$lib/services/chat/thread.svelte';
+	import type { EditorItem } from '$lib/services/editor/index.svelte';
+	import { onDestroy } from 'svelte';
+	import type { UIEventHandler } from 'svelte/elements';
+	import { fade } from 'svelte/transition';
 
 	interface Props {
 		id?: string;
@@ -25,15 +26,6 @@
 	let scrollSmooth = $state(false);
 
 	$effect(() => {
-		const update = () => (scrollSmooth = true);
-		container?.addEventListener('scroll', update);
-		return () => {
-			container?.removeEventListener('scroll', update);
-			scrollSmooth = false;
-		};
-	});
-
-	$effect(() => {
 		// Close and recreate thread if id changes
 		if (thread && thread.threadID !== id) {
 			thread?.close?.();
@@ -43,6 +35,8 @@
 				inProgress: false
 			};
 		}
+
+		scrollSmooth = false;
 
 		if (id && !thread) {
 			constructThread();
@@ -89,6 +83,15 @@
 		thread = newThread;
 	}
 
+	const onScrollEnd: UIEventHandler<HTMLDivElement> = (e) => {
+		const isAtBottom =
+			e.currentTarget.scrollHeight - e.currentTarget.scrollTop - e.currentTarget.clientHeight <= 0;
+
+		if (isAtBottom) {
+			scrollSmooth = true;
+		}
+	};
+
 	function onSendCredentials(id: string, credentials: Record<string, string>) {
 		thread?.sendCredentials(id, credentials);
 	}
@@ -103,6 +106,7 @@
 			contentEl: messagesDiv,
 			setControls: (controls) => (scrollControls = controls)
 		}}
+		onscrollend={onScrollEnd}
 	>
 		<div
 			in:fade|global
