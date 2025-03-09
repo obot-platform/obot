@@ -153,7 +153,16 @@ export default function ProjectsPage() {
 						</div>
 					</div>
 
-					<DataTable columns={getColumns()} data={filteredProjects} />
+					<DataTable
+						columns={getColumns()}
+						data={filteredProjects.filter((p) => !p.parentID)}
+						groupBy={(row) => {
+							if (!row.parentID)
+								return filteredProjects.filter((p) => p.parentID === row.id);
+							else return [];
+						}}
+						sort={[{ id: "name", desc: false }]}
+					/>
 				</div>
 			</div>
 
@@ -245,7 +254,7 @@ export default function ProjectsPage() {
 					return (
 						<div className="flex flex-col">
 							<p className="flex items-center gap-2">
-								{childCount > 0 ? (
+								{childCount > 0 && (
 									<Link
 										to={$path("/obots", {
 											parentObotId: row.original.id,
@@ -254,10 +263,6 @@ export default function ProjectsPage() {
 									>
 										{childCount} spawned Obots
 									</Link>
-								) : (
-									<span className="text-muted-foreground">
-										No spawned Obots
-									</span>
 								)}
 							</p>
 
