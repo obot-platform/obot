@@ -1,10 +1,10 @@
 import { ColumnDef, createColumnHelper } from "@tanstack/react-table";
 import {
+	CrownIcon,
 	EllipsisIcon,
 	ExternalLinkIcon,
 	GlobeIcon,
 	LockIcon,
-	StarIcon,
 } from "lucide-react";
 import { useMemo } from "react";
 import { MetaFunction } from "react-router";
@@ -27,7 +27,11 @@ import { RouteQueryParams } from "~/lib/service/routeService";
 import { pluralize } from "~/lib/utils";
 
 import { ConfirmationDialog } from "~/components/composed/ConfirmationDialog";
-import { DataTable, DataTableFilter } from "~/components/composed/DataTable";
+import {
+	DataTable,
+	DataTableFilter,
+	DataTableTimeFilter,
+} from "~/components/composed/DataTable";
 import { Filters } from "~/components/composed/Filters";
 import { Button } from "~/components/ui/button";
 import {
@@ -81,8 +85,28 @@ export default function ProjectsPage() {
 	const filteredProjects = useMemo(() => {
 		let filtered = projects;
 
-		const { obotId, parentObotId, showChildren, shared } =
-			pageQuery.params ?? {};
+		const {
+			obotId,
+			parentObotId,
+			showChildren,
+			shared,
+			createdStart,
+			createdEnd,
+		} = pageQuery.params ?? {};
+
+		if (createdStart) {
+			filtered = filtered.filter((p) => {
+				const created = new Date(p.created);
+				return created >= new Date(createdStart);
+			});
+		}
+
+		if (createdEnd) {
+			filtered = filtered.filter((p) => {
+				const created = new Date(p.created);
+				return created <= new Date(createdEnd);
+			});
+		}
 
 		if (shared) {
 			filtered = filtered.filter(
@@ -280,6 +304,35 @@ export default function ProjectsPage() {
 					);
 				},
 			}),
+			columnHelper.accessor("created", {
+				header: ({ column }) => {
+					let from: Date | undefined;
+					let to: Date | undefined;
+
+					if (pageQuery.params?.createdStart)
+						from = new Date(pageQuery.params?.createdStart);
+
+					if (pageQuery.params?.createdEnd)
+						to = new Date(pageQuery.params?.createdEnd);
+
+					return (
+						<DataTableTimeFilter
+							key={column.id}
+							field="Created On"
+							dateRange={{ from, to }}
+							onSelect={(range) => {
+								if (range?.from)
+									pageQuery.update("createdStart", range.from.toDateString());
+								if (range?.to)
+									pageQuery.update("createdEnd", range.to.toDateString());
+							}}
+						/>
+					);
+				},
+				cell: ({ getValue }) => (
+					<p>{new Date(getValue()).toLocaleDateString()}</p>
+				),
+			}),
 			columnHelper.display({
 				id: "info",
 				cell: ({ row }) => {
@@ -375,7 +428,7 @@ function getShareStatus(share?: ProjectShare) {
 function renderShareIcon(privacy: ShareStatus) {
 	switch (privacy) {
 		case ShareStatus.Featured:
-			return <StarIcon key="star" className="text-warning" />;
+			return <CrownIcon key="star" className="text-warning" />;
 		case ShareStatus.Public:
 			return <GlobeIcon className="text-primary" key="globe" />;
 		case ShareStatus.Private:

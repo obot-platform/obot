@@ -39,6 +39,8 @@ const QuerySchemas = {
 		parentObotId: z.string().nullish(),
 		userId: z.string().nullish(),
 		shared: z.nativeEnum(ShareStatus).nullish().catch(null),
+		createdStart: z.string().nullish(),
+		createdEnd: z.string().nullish(),
 		showChildren: z
 			.boolean()
 			.nullish()
