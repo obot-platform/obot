@@ -4,7 +4,7 @@ import { AgentIcons } from "~/lib/model/agents";
 import { EntityMeta } from "~/lib/model/primitives";
 
 export type ThreadManifest = {
-	name: string;
+	name?: string;
 	description?: string;
 	tools?: string[];
 	icons?: Nullish<AgentIcons>;

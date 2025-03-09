@@ -53,10 +53,13 @@ export function useQueryInfo<T extends keyof Routes>(route: T) {
 
 	const remove = useCallback(
 		(param: keyof QueryInfo<T>) => {
-			setSearchParams((prev) => {
-				prev.delete(param as string);
-				return prev;
-			});
+			setSearchParams(
+				(prev) => {
+					prev.delete(param as string);
+					return prev;
+				},
+				{ replace: true }
+			);
 		},
 		[setSearchParams]
 	);

@@ -1,11 +1,22 @@
 import { ColumnDef, createColumnHelper } from "@tanstack/react-table";
-import { EllipsisIcon, ExternalLinkIcon } from "lucide-react";
+import {
+	EllipsisIcon,
+	ExternalLinkIcon,
+	GlobeIcon,
+	LockIcon,
+	StarIcon,
+} from "lucide-react";
 import { useMemo } from "react";
 import { MetaFunction } from "react-router";
 import { $path } from "safe-routes";
 import useSWR, { preload } from "swr";
 
-import { Project } from "~/lib/model/project";
+import {
+	Project,
+	ProjectShare,
+	ShareStatus,
+	getShareStatusLabel,
+} from "~/lib/model/project";
 import { getUserDisplayName } from "~/lib/model/users";
 import { UserRoutes } from "~/lib/routers/userRoutes";
 import { AgentService } from "~/lib/service/api/agentService";
@@ -40,6 +51,7 @@ export async function clientLoader() {
 		preload(...AgentService.getAgents.swr({})),
 		preload(...ThreadsService.getThreads.swr({})),
 		preload(...UserService.getUsers.swr({})),
+		preload(...ProjectApiService.getAllShares.swr({})),
 	]);
 }
 
@@ -59,11 +71,24 @@ export default function ProjectsPage() {
 		return projects.filter((p) => p.parentID === projectId).length;
 	}
 
+	const { data: shares } = useSWR(...ProjectApiService.getAllShares.swr({}));
+	const shareMap = useMemo(() => {
+		return new Map(
+			shares?.filter((s) => !!s.projectID).map((s) => [s.projectID!, s])
+		);
+	}, [shares]);
+
 	const filteredProjects = useMemo(() => {
 		let filtered = projects;
 
-		const { obotId, parentObotId, showChildren, agentId } =
+		const { obotId, parentObotId, showChildren, agentId, shared } =
 			pageQuery.params ?? {};
+
+		if (shared) {
+			filtered = filtered.filter(
+				(p) => getShareStatus(shareMap.get(p.id)) === shared
+			);
+		}
 
 		if (agentId) {
 			filtered = filtered.filter((p) => p.assistantID === agentId);
@@ -82,7 +107,7 @@ export default function ProjectsPage() {
 		}
 
 		return filtered;
-	}, [projects, pageQuery.params]);
+	}, [projects, pageQuery.params, shareMap]);
 
 	const { data: agents } = useSWR(...AgentService.getAgents.swr({}), {
 		suspense: true,
@@ -124,6 +149,15 @@ export default function ProjectsPage() {
 		interceptAsync(() => deleteProject.executeAsync({ id, agentId }));
 	};
 
+	const rows = useMemo(() => {
+		const filteredSet = new Set(filteredProjects.map((p) => p.id));
+
+		return filteredProjects.filter(
+			// allow top level projects or valid projects who's parent was filtered out
+			(p) => !p.parentID || !filteredSet.has(p.parentID)
+		);
+	}, [filteredProjects]);
+
 	return (
 		<div>
 			<div className="flex h-full flex-col gap-4 p-8">
@@ -155,7 +189,7 @@ export default function ProjectsPage() {
 
 					<DataTable
 						columns={getColumns()}
-						data={filteredProjects.filter((p) => !p.parentID)}
+						data={rows}
 						groupBy={(row) => {
 							if (!row.parentID)
 								return filteredProjects.filter((p) => p.parentID === row.id);
@@ -184,17 +218,43 @@ export default function ProjectsPage() {
 		return [
 			columnHelper.accessor("name", {
 				header: "Name",
-				cell: ({ row }) => (
-					<div>
-						<p>{row.original.name}</p>
-					</div>
-				),
+				cell: ({ row }) => <p>{row.original.name ?? "Untitled"}</p>,
 			}),
+			columnHelper.accessor(
+				(row) => getShareStatus(shareMap.get(row.id)) as string,
+				{
+					header: ({ column }) => (
+						<DataTableFilter
+							key={column.id}
+							values={Object.values(ShareStatus).map((p) => ({
+								id: p,
+								name: getShareStatusLabel(p),
+							}))}
+							field="Privacy"
+							onSelect={(value) =>
+								pageQuery.update("shared", value as ShareStatus)
+							}
+						/>
+					),
+					id: "privacy",
+					cell: ({ row }) => {
+						const shareState = getShareStatus(shareMap.get(row.original.id));
+						return (
+							<p className="flex items-center gap-2 [&_svg]:size-4">
+								{renderShareIcon(shareState)} {getShareStatusLabel(shareState)}
+							</p>
+						);
+					},
+				}
+			),
 			columnHelper.accessor("parentID", {
 				header: ({ column }) => (
 					<DataTableFilter
 						key={column.id}
-						values={projects.map((p) => ({ id: p.id, name: p.name }))}
+						values={projects.map((p) => ({
+							id: p.id,
+							name: p.name ?? "Untitled",
+						}))}
 						field="Spawned from"
 						onSelect={(value) => pageQuery.update("parentObotId", value)}
 					/>
@@ -319,6 +379,23 @@ export default function ProjectsPage() {
 				),
 			}),
 		];
+	}
+}
+
+function getShareStatus(share?: ProjectShare) {
+	if (share?.featured) return ShareStatus.Featured;
+	if (share?.public) return ShareStatus.Public;
+	return ShareStatus.Private;
+}
+
+function renderShareIcon(privacy: ShareStatus) {
+	switch (privacy) {
+		case ShareStatus.Featured:
+			return <StarIcon key="star" className="text-warning" />;
+		case ShareStatus.Public:
+			return <GlobeIcon className="text-primary" key="globe" />;
+		case ShareStatus.Private:
+			return <LockIcon key="lock" className="text-muted-foreground" />;
 	}
 }
 
