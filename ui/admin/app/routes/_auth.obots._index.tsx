@@ -81,17 +81,13 @@ export default function ProjectsPage() {
 	const filteredProjects = useMemo(() => {
 		let filtered = projects;
 
-		const { obotId, parentObotId, showChildren, agentId, shared } =
+		const { obotId, parentObotId, showChildren, shared } =
 			pageQuery.params ?? {};
 
 		if (shared) {
 			filtered = filtered.filter(
 				(p) => getShareStatus(shareMap.get(p.id)) === shared
 			);
-		}
-
-		if (agentId) {
-			filtered = filtered.filter((p) => p.assistantID === agentId);
 		}
 
 		if (obotId) {
@@ -167,12 +163,7 @@ export default function ProjectsPage() {
 					</div>
 
 					<div className="flex justify-between p-1">
-						<Filters
-							projectMap={projectMap}
-							userMap={userMap}
-							agentMap={agentMap}
-							url="/obots"
-						/>
+						<Filters projectMap={projectMap} userMap={userMap} url="/obots" />
 
 						<div className="flex items-center gap-2">
 							<Label htmlFor="show-children">Include spawned Obots</Label>
@@ -269,22 +260,6 @@ export default function ProjectsPage() {
 					);
 				},
 			}),
-			columnHelper.accessor("assistantID", {
-				id: "agent",
-				header: ({ column }) => (
-					<DataTableFilter
-						key={column.id}
-						values={agents?.map((a) => ({ id: a.id, name: a.name }))}
-						field="Agent"
-						onSelect={(value) => pageQuery.update("agentId", value)}
-					/>
-				),
-				cell: ({ getValue }) => (
-					<Link to={$path("/agents/:id", { id: getValue() })}>
-						{agentMap.get(getValue())?.name}
-					</Link>
-				),
-			}),
 			columnHelper.accessor("userID", {
 				id: "user",
 				header: ({ column }) => (
@@ -310,9 +285,33 @@ export default function ProjectsPage() {
 				cell: ({ row }) => {
 					const childCount = getChildCount(row.original.id);
 					const threadCount = threadCounts.get(row.original.id) ?? 0;
+					const baseAgent = agentMap.get(row.original.assistantID);
 
 					return (
 						<div className="flex flex-col">
+							{baseAgent && (
+								<p className="flex items-center gap-2 text-muted-foreground">
+									Base Agent:{" "}
+									<Link
+										to={$path("/agents/:id", { id: row.original.assistantID })}
+									>
+										{baseAgent.name}
+									</Link>
+								</p>
+							)}
+
+							<p className="flex items-center gap-2">
+								{threadCount > 0 && (
+									<Link
+										to={$path("/chat-threads", {
+											obotId: row.original.id,
+											from: "obots",
+										})}
+									>
+										{threadCount} {pluralize(threadCount, "thread", "threads")}
+									</Link>
+								)}
+							</p>
 							<p className="flex items-center gap-2">
 								{childCount > 0 && (
 									<Link
@@ -323,21 +322,6 @@ export default function ProjectsPage() {
 									>
 										{childCount} spawned Obots
 									</Link>
-								)}
-							</p>
-
-							<p className="flex items-center gap-2">
-								{threadCount > 0 ? (
-									<Link
-										to={$path("/chat-threads", {
-											obotId: row.original.id,
-											from: "obots",
-										})}
-									>
-										{threadCount} {pluralize(threadCount, "thread", "threads")}
-									</Link>
-								) : (
-									<span className="text-muted-foreground">No threads</span>
 								)}
 							</p>
 						</div>
