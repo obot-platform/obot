@@ -87,11 +87,15 @@ func (h *ProjectShareHandler) GetShare(req api.Context) error {
 func (h *ProjectShareHandler) ListFeatured(req api.Context) error {
 	var (
 		threadShareList v1.ThreadShareList
+		fields          = kclient.MatchingFields{}
+		all             = req.UserIsAdmin() && req.URL.Query().Get("all") == "true"
 	)
 
-	if err := req.List(&threadShareList, kclient.InNamespace(req.Namespace()), kclient.MatchingFields{
-		"spec.featured": "true",
-	}); err != nil {
+	if !all {
+		fields["spec.featured"] = "true"
+	}
+
+	if err := req.List(&threadShareList, kclient.InNamespace(req.Namespace()), fields); err != nil {
 		return err
 	}
 

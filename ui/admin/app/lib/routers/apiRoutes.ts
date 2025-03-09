@@ -207,6 +207,9 @@ export const ApiRoutes = {
 		deleteProject: (agentId: string, projectId: string) =>
 			buildUrl(`/assistants/${agentId}/projects/${projectId}`),
 	},
+	projectShares: {
+		getAll: () => buildUrl("/shares", { all: true }),
+	},
 	runs: {
 		base: () => buildUrl("/runs"),
 		getRunById: (runId: string) => buildUrl(`/runs/${runId}`),
