@@ -1,7 +1,7 @@
+import { handleRouteError } from '$lib/errors';
 import { ChatService } from '$lib/services';
 import { profile } from '$lib/stores';
 import type { PageLoad } from './$types';
-import { handleRouteError } from '$lib/errors';
 
 export const load: PageLoad = async ({ params, fetch }) => {
 	try {
