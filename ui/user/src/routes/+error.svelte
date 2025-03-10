@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { page } from '$app/state';
+	import CollapsePane from '$lib/components/edit/CollapsePane.svelte';
 
 	const errorTitles = {
 		403: 'Access Denied',
@@ -38,6 +39,20 @@
 		</div>
 	</div>
 	<p class="text-gray">{message}</p>
+
+	{#if page.error}
+		<div class="w-full max-w-xl overflow-hidden rounded-md mb-2">
+			<CollapsePane
+				header="More Details"
+				classes={{
+					header: 'bg-surface2 justify-between',
+					content: 'bg-surface1'
+				}}
+			>
+				<div class="">{page.error.message}</div>
+			</CollapsePane>
+		</div>
+	{/if}
 
 	<a href="/home" class="button-primary"> Go Home </a>
 </div>

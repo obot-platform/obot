@@ -3,12 +3,17 @@
 	import { ChevronUp } from 'lucide-svelte';
 	import { ChevronDown } from 'lucide-svelte/icons';
 	import { fade } from 'svelte/transition';
+	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
 		header: string;
 		children: Snippet;
 		open?: boolean;
 		onOpen?: () => void | Promise<void>;
+		classes?: {
+			header?: string;
+			content?: string;
+		};
 	}
 
 	onMount(() => {
@@ -17,13 +22,13 @@
 		}
 	});
 
-	let { header, children, open, onOpen }: Props = $props();
+	let { header, children, open, onOpen, classes }: Props = $props();
 </script>
 
 <div class="flex flex-col">
 	{#if header}
 		<button
-			class="flex items-center gap-2 px-5 py-2"
+			class={twMerge('flex items-center gap-2 px-5 py-2 justify-between', classes?.header)}
 			onclick={() => {
 				if (!open) {
 					onOpen?.();
@@ -32,7 +37,7 @@
 			}}
 		>
 			<span class="text-lg">{header}</span>
-			<span class="grow">
+			<span>
 				{#if open}
 					<ChevronUp />
 				{:else}
@@ -42,7 +47,11 @@
 		</button>
 	{/if}
 	{#if open}
-		<div in:fade class="flex flex-col border-surface3 p-5" class:border-t={header}>
+		<div
+			in:fade
+			class={twMerge('flex flex-col border-surface3 p-5', classes?.content)}
+			class:border-t={header}
+		>
 			{@render children()}
 		</div>
 	{/if}
