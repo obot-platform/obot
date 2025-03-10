@@ -28,7 +28,7 @@
 <div class="flex flex-col">
 	{#if header}
 		<button
-			class={twMerge('flex items-center gap-2 px-5 py-2 justify-between', classes?.header)}
+			class={twMerge('flex items-center justify-between gap-2 px-5 py-2', classes?.header)}
 			onclick={() => {
 				if (!open) {
 					onOpen?.();
