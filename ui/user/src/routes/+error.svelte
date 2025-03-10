@@ -41,7 +41,7 @@
 	<p class="text-gray">{message}</p>
 
 	{#if page.error}
-		<div class="w-full max-w-xl overflow-hidden rounded-md mb-2">
+		<div class="mb-2 w-full max-w-xl overflow-hidden rounded-md">
 			<CollapsePane
 				header="More Details"
 				classes={{
