@@ -52,7 +52,7 @@
 </script>
 
 <div class="flex w-full flex-col">
-	<div class="flex items-center">
+	<div class="mb-2 flex items-center">
 		<CheckSquare class="me-2 h-5 w-5 text-gray" />
 		<h2 class="grow text-lg">Tasks</h2>
 		<button class="icon-button" onclick={() => newTask()}>
@@ -62,10 +62,10 @@
 	{#if !layout.tasks || layout.tasks.length === 0}
 		<p class="p-6 text-center text-sm text-gray dark:text-gray-300">No tasks</p>
 	{:else}
-		<ul class="space-y-4 py-6">
+		<ul class="space-y-4 px-3">
 			{#each layout.tasks as task}
 				<li class="flex flex-col">
-					<div class="flex items-center">
+					<div class="flex items-center gap-3">
 						<button
 							use:overflowToolTip
 							class="flex w-[50%] flex-1 items-center"

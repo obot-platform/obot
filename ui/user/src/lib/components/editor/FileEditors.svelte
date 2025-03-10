@@ -21,7 +21,11 @@
 </script>
 
 {#each items as file}
-	<div class:hidden={!file.selected} class="flex-1 overflow-auto" bind:clientHeight={height}>
+	<div
+		class:hidden={!file.selected}
+		class="default-scrollbar-thin flex-1"
+		bind:clientHeight={height}
+	>
 		{#if file.name.toLowerCase().endsWith('.md')}
 			<Milkdown {file} {onFileChanged} {onInvoke} {items} />
 		{:else if file.name.toLowerCase().endsWith('.pdf')}

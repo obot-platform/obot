@@ -36,7 +36,7 @@
 <div class="flex h-full flex-col">
 	{#if layout.fileEditorOpen}
 		{#if layout.items.length > 1 || (!layout.items[0]?.table && !layout.items[0]?.generic)}
-			<div class="-mx-5 -mt-3 flex border-b-2 border-surface2 px-2 pb-2">
+			<div class="-ml-5 -mt-3 flex border-b-2 border-surface2 px-2 pb-2">
 				<ul class="flex flex-1 flex-wrap gap-2 text-center text-sm">
 					{#each layout.items as item}
 						<li>
@@ -88,7 +88,7 @@
 	{#if term.open}
 		<div
 			class={layout.fileEditorOpen
-				? '-mx-5 -mb-3 h-1/2 border-t-4 border-surface1 px-2 pt-2'
+				? '-mb-3 -ml-5 h-1/2 border-t-4 border-surface1 px-2 pt-2'
 				: 'h-full'}
 		>
 			<Terminal {project} />

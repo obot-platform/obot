@@ -132,7 +132,7 @@
 
 {#if isOpen}
 	<div bind:this={panel} class="flex flex-col">
-		<div class="mb-5 flex items-center gap-4">
+		<div class="mb-2 flex items-center gap-4">
 			<ScrollText class="icon-default text-gray" />
 			<h2 class="grow text-lg">Threads</h2>
 			<button class="text-gray" onclick={createThread}>

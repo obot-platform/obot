@@ -88,7 +88,7 @@
 			{#if editorVisible && mainInput}
 				<div class="w-4 translate-x-4 cursor-col-resize" use:columnResize={mainInput}></div>
 				<div
-					class="w-3/5 grow rounded-tl-3xl border-4 border-b-0 border-r-0 border-surface2 p-5 transition-all"
+					class="w-3/5 grow rounded-tl-3xl border-4 border-b-0 border-r-0 border-surface2 p-5 pb-0 pr-0 transition-all"
 				>
 					<Editor {project} {currentThreadID} />
 				</div>

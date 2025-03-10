@@ -72,10 +72,13 @@
 	});
 </script>
 
-<div class="colors-surface1 flex size-full flex-col">
+<div class="flex size-full flex-col bg-surface1">
 	{#if layout.projectEditorOpen}
 		<!-- Header -->
-		<div class="flex h-16 w-full items-center gap-2 p-5" transition:slide>
+		<div
+			class="z-10 flex h-16 w-full items-center gap-2 bg-surface1 p-5 shadow-md"
+			transition:slide
+		>
 			<img src="/user/images/obot-icon-blue.svg" class="h-8" alt="Obot icon" />
 			<h1 class="text-xl font-semibold">Obot Editor</h1>
 			<div class="grow"></div>
@@ -90,20 +93,24 @@
 			<!-- Left Nav -->
 			<div
 				bind:this={nav}
-				class="flex h-full w-1/4 min-w-[320px] flex-col overflow-auto pt-5"
+				class="inset-shadow-sm flex h-full w-1/4 min-w-[320px] flex-col overflow-hidden"
 				transition:slide={{ axis: 'x' }}
 			>
-				<General bind:project />
-				<Instructions bind:project />
-				<Tools {tools} {onNewTools} />
-				<Knowledge {project} />
-				<Files {project} />
-				<Tasks {project} />
-				<Interface bind:project />
-				<Credentials {project} {tools} />
-				<Share {project} />
-				<div class="grow"></div>
-				<div class="flex justify-end p-2">
+				<div
+					class="flex grow flex-col default-scrollbar-thin"
+				>
+					<General bind:project />
+					<Instructions bind:project />
+					<Tools {tools} {onNewTools} />
+					<Knowledge {project} />
+					<Files {project} />
+					<Tasks {project} />
+					<Interface bind:project />
+					<Credentials {project} {tools} />
+					<Share {project} />
+					<div class="grow"></div>
+				</div>
+				<div class="flex justify-end bg-surface1 p-2">
 					<button
 						class="button flex gap-1 text-gray"
 						onclick={() => {
