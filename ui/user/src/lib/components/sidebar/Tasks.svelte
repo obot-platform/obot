@@ -6,7 +6,6 @@
 	import { getLayout } from '$lib/context/layout.svelte';
 	import { onMount } from 'svelte';
 	import { overflowToolTip } from '$lib/actions/overflow';
-	import Runs from '$lib/components/sidebar/Runs.svelte';
 
 	interface Props {
 		project: Project;
@@ -90,7 +89,6 @@
 							<Trash class="size-5 text-gray-400" />
 						</button>
 					</div>
-					<Runs {project} {task} />
 				</li>
 			{/each}
 		</ul>

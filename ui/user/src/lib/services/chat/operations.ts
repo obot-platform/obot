@@ -1,3 +1,4 @@
+import { Channel } from '$lib/channel';
 import { baseURL, doDelete, doGet, doPost, doPut } from './http';
 import {
 	type AuthProvider,
@@ -531,6 +532,7 @@ export async function getThread(
 ): Promise<Thread> {
 	return (await doGet(`/assistants/${assistantID}/projects/${projectID}/threads/${id}`)) as Thread;
 }
+
 export async function listThreads(assistantID: string, projectID: string): Promise<ThreadList> {
 	const list = (await doGet(
 		`/assistants/${assistantID}/projects/${projectID}/threads`
@@ -542,6 +544,26 @@ export async function listThreads(assistantID: string, projectID: string): Promi
 		return b.created.localeCompare(a.created);
 	});
 	return list;
+}
+
+export async function* watchThreads(
+	assistantID: string,
+	projectID: string
+): AsyncGenerator<Thread> {
+	// This doesn't handle connection errors, should add that later
+	const c = new Channel<Thread>();
+	const es = new EventSource(baseURL + `/assistants/${assistantID}/projects/${projectID}/threads`);
+	es.onmessage = (e) => {
+		const thread = JSON.parse(e.data) as Thread;
+		c.send(thread);
+	};
+	try {
+		while (true) {
+			yield await c.receive();
+		}
+	} finally {
+		es.close();
+	}
 }
 
 export async function acceptPendingAuthorization(assistantID: string, projectID: string) {

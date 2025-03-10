@@ -47,7 +47,7 @@
 	{#snippet body()}
 		<ul class="space-y-4 py-6 text-sm">
 			{#each tools as tool, i}
-				{#if !tool.builtin}
+				{#if !tool.builtin && tool.enabled}
 					<li>
 						<div class="flex">
 							{#if tool.icon}

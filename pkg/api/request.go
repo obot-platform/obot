@@ -192,19 +192,20 @@ func (r *Context) Flush() {
 	}
 }
 
-func Watch[T client.Object](r Context, list client.ObjectList) (<-chan T, error) {
+func Watch[T client.Object](r Context, list client.ObjectList, opts ...client.ListOption) (<-chan T, error) {
 	if err := r.List(list); err != nil {
 		return nil, err
 	}
 
 	startList := list.DeepCopyObject().(client.ObjectList)
 
-	w, err := r.Storage.Watch(r.Request.Context(), list, &client.ListOptions{
+	watchOpts := append([]client.ListOption{&client.ListOptions{
 		Namespace: r.Namespace(),
 		Raw: &metav1.ListOptions{
 			ResourceVersion: list.GetResourceVersion(),
 		},
-	})
+	}}, opts...)
+	w, err := r.Storage.Watch(r.Request.Context(), list, watchOpts...)
 	if err != nil {
 		return nil, err
 	}

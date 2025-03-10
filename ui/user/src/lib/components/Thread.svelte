@@ -86,7 +86,8 @@
 			threadID: id,
 			onError: () => {
 				// ignore errors they are rendered as messages
-			}
+			},
+			items: layout.items
 		});
 
 		messages = {
@@ -130,8 +131,9 @@
 				{#each project.starterMessages ?? [] as msg}
 					<button
 						class="rounded-3xl border-2 border-blue p-5 hover:bg-surface1"
-						onclick={() => {
-							thread?.invoke(msg);
+						onclick={async () => {
+							await ensureThread();
+							await thread?.invoke(msg);
 						}}
 					>
 						{msg}

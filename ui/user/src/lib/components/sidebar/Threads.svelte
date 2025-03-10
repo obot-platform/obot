@@ -23,6 +23,7 @@
 	let isOpen = $state(false);
 	let layout = getLayout();
 	let lastSeenThreadID = $state('');
+	let watchingThread: Promise<void>;
 
 	function isCurrentThread(thread: Thread) {
 		return currentThreadID === thread.id && layout.editTaskID === undefined;
@@ -60,7 +61,10 @@
 
 	export async function createThread() {
 		const thread = await ChatService.createThread(project.assistantID, project.id);
-		threads.splice(0, 0, thread);
+		const found = threads.find((t) => t.id === thread.id);
+		if (!found) {
+			threads.splice(0, 0, thread);
+		}
 		setCurrentThread(thread.id);
 		focusChat();
 	}
@@ -90,8 +94,36 @@
 		focusChat();
 	}
 
+	async function watchThreads(): Promise<void> {
+		for await (const thread of ChatService.watchThreads(project.assistantID, project.id)) {
+			if (thread.deleted) {
+				threads = threads.filter((t) => t.id !== thread.id);
+				if (currentThreadID === thread.id) {
+					setCurrentThread(threads[0]?.id ?? '');
+				}
+				continue;
+			}
+
+			let found = false;
+			for (let i = 0; i < threads.length; i++) {
+				if (threads[i].id === thread.id) {
+					threads[i] = thread;
+					found = true;
+					break;
+				}
+			}
+
+			if (!found) {
+				threads.splice(0, 0, thread);
+			}
+		}
+	}
+
 	async function reloadThread() {
 		threads = (await ChatService.listThreads(project.assistantID, project.id)).items;
+		if (!watchingThread) {
+			watchingThread = watchThreads();
+		}
 	}
 
 	async function open() {
