@@ -2,6 +2,7 @@ import { CircleCheckIcon, CircleSlashIcon } from "lucide-react";
 import { Link } from "react-router";
 
 import { AuthProvider } from "~/lib/model/providers";
+import { cn } from "~/lib/utils";
 
 import { ProviderConfigure } from "~/components/auth-and-model-providers/ProviderConfigure";
 import { ProviderIcon } from "~/components/auth-and-model-providers/ProviderIcon";
@@ -19,12 +20,14 @@ export function AuthProviderList({
 			<div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
 				{authProviders.map((authProvider) => (
 					<Card key={authProvider.id}>
-						<CardHeader className="flex flex-row items-center justify-between pb-4 pt-2">
-							{authProvider.configured && (
-								<div className="flex flex-row items-center gap-2">
-									<ProviderMenu provider={authProvider} />
-								</div>
-							)}
+						<CardHeader className="flex flex-row items-center justify-end pb-4 pt-2">
+							<div
+								className={cn("flex flex-row items-center gap-2", {
+									invisible: !authProvider.configured,
+								})}
+							>
+								<ProviderMenu provider={authProvider} />
+							</div>
 							{!authProvider.configured && (
 								<div className="flex flex-row items-center gap-2" />
 							)}

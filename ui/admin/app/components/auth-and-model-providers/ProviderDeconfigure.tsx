@@ -55,13 +55,13 @@ export function ProviderDeconfigure({
 
 	return (
 		<Dialog open={open} onOpenChange={setOpen}>
-			<DialogTrigger>
+			<DialogTrigger asChild>
 				<DropdownMenuItem
 					onClick={(event) => {
 						event.preventDefault();
 						setOpen(true);
 					}}
-					className="text-destructive"
+					variant="destructive"
 				>
 					Deconfigure Provider
 				</DropdownMenuItem>

@@ -8,8 +8,6 @@ import {
 	DropdownMenu,
 	DropdownMenuContent,
 	DropdownMenuGroup,
-	DropdownMenuLabel,
-	DropdownMenuSeparator,
 	DropdownMenuTrigger,
 } from "~/components/ui/dropdown-menu";
 
@@ -25,10 +23,8 @@ export function ProviderMenu({
 					<EllipsisVerticalIcon />
 				</Button>
 			</DropdownMenuTrigger>
-			<DropdownMenuContent className="w-56" side="bottom" align="start">
+			<DropdownMenuContent className="w-56" side="left" align="start">
 				<DropdownMenuGroup>
-					<DropdownMenuLabel>{provider.name}</DropdownMenuLabel>
-					<DropdownMenuSeparator />
 					<ProviderDeconfigure provider={provider} />
 				</DropdownMenuGroup>
 			</DropdownMenuContent>
