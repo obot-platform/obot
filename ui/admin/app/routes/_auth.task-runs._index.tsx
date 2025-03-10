@@ -107,10 +107,10 @@ export default function TaskRuns() {
 				?.filter((thread) => thread.workflowID && !thread.deleted)
 				.map((thread) => {
 					const task = taskMap.get(thread.workflowID!);
-					const taskThread = threadMap.get(task?.threadID ?? "");
+					const taskThread = threadMap.get(task?.projectID ?? "");
 					return {
 						...thread,
-						parentName: task?.name ?? "Unnamed",
+						parentName: task?.name ?? "Untitled",
 						userName: userMap.get(taskThread?.userID ?? "")?.email ?? "-",
 						userID: taskThread?.userID ?? "",
 					};
@@ -196,7 +196,7 @@ export default function TaskRuns() {
 								name: task.name,
 								sublabel:
 									namesCount?.[task.name] > 1
-										? agentThreadMap.get(task.threadID ?? "")
+										? agentThreadMap.get(task.projectID ?? "")
 										: "",
 							})) ?? []
 						}
@@ -285,6 +285,7 @@ export default function TaskRuns() {
 									to={$path("/task-runs/:id", {
 										id: row.original.id,
 									})}
+									size="icon"
 									variant="ghost"
 								>
 									<ReaderIcon width={21} height={21} />

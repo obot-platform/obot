@@ -132,12 +132,13 @@ export default function TaskRuns() {
 			return threads.map((thread) => ({
 				...thread,
 				parentName:
-					(thread.agentID && agentMap.get(thread.agentID)?.name) ?? "Unnamed",
+					(thread.projectID && projectMap.get(thread.projectID)?.name) ??
+					"Untitled",
 				userName: thread.userID
 					? (userMap.get(thread.userID)?.email ?? "-")
 					: "-",
 			}));
-		}, [threads, agentMap, userMap]);
+		}, [threads, projectMap, userMap]);
 
 	const itemsToDisplay = search
 		? data.filter(
@@ -178,21 +179,21 @@ export default function TaskRuns() {
 	function getColumns(): ColumnDef<(typeof data)[0], string>[] {
 		return [
 			columnHelper.accessor((thread) => thread.parentName, {
-				id: "Agent",
+				id: "Obot",
 				header: ({ column }) => (
 					<DataTableFilter
 						key={column.id}
-						field="Agent"
+						field="Obot"
 						values={
-							getAgents.data?.map((agent) => ({
-								id: agent.id,
-								name: agent.name,
+							getProjects.data?.map((project) => ({
+								id: project.id,
+								name: project.name ?? "Untitled",
 							})) ?? []
 						}
 						onSelect={(value) => {
 							navigate.internal(
 								$path("/chat-threads", {
-									agentId: value,
+									obotId: value,
 									...(userId && { userId }),
 									...(createdStart && { createdStart }),
 									...(createdEnd && { createdEnd }),
@@ -205,8 +206,9 @@ export default function TaskRuns() {
 					<div className="flex items-center gap-2">
 						<Link
 							onClick={(event) => event.stopPropagation()}
-							to={$path("/agents/:id", {
-								id: info.row.original.agentID!,
+							to={$path("/obots", {
+								obotId: info.row.original.projectID!,
+								showChildren: true,
 							})}
 							className="px-0"
 						>

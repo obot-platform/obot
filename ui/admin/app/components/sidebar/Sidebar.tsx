@@ -43,7 +43,7 @@ import { useAuthStatus } from "~/hooks/auth/useAuthStatus";
 // Menu items.
 const items = [
 	{
-		title: "Agents",
+		title: "Base Agents",
 		url: $path("/agents"),
 		icon: BotIcon,
 	},

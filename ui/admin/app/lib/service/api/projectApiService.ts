@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 import { EntityList } from "~/lib/model/primitives";
-import { Project } from "~/lib/model/project";
+import { Project, ProjectShare } from "~/lib/model/project";
 import { ApiRoutes } from "~/lib/routers/apiRoutes";
 import { request } from "~/lib/service/api/primitives";
 import {
@@ -19,6 +19,26 @@ const getAllFetcher = createFetcher(
 	() => ApiRoutes.projects.getAll().path
 );
 
+const getByIdFetcher = createFetcher(
+	z.object({ id: z.string() }),
+	async ({ id }, { signal }) => {
+		const { url } = ApiRoutes.projects.getById(id);
+		const { data } = await request<Project>({ url, signal });
+		return data;
+	},
+	() => ApiRoutes.projects.getById(":id").path
+);
+
+const getAllSharesFetcher = createFetcher(
+	z.object({}),
+	async (_, { signal }) => {
+		const { url } = ApiRoutes.projectShares.getAll();
+		const { data } = await request<EntityList<ProjectShare>>({ url, signal });
+		return data.items ?? [];
+	},
+	() => ApiRoutes.projectShares.getAll().path
+);
+
 const deleteProjectMutator = createMutator(
 	async ({ id, agentId }: { id: string; agentId: string }, { signal }) => {
 		const { url } = ApiRoutes.projects.deleteProject(agentId, id);
@@ -28,5 +48,7 @@ const deleteProjectMutator = createMutator(
 
 export const ProjectApiService = {
 	getAll: getAllFetcher,
+	getById: getByIdFetcher,
+	getAllShares: getAllSharesFetcher,
 	delete: deleteProjectMutator,
 };

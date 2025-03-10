@@ -10,8 +10,11 @@ import {
 import { $path } from "safe-routes";
 import useSWR, { preload } from "swr";
 
+import { AgentService } from "~/lib/service/api/agentService";
 import { CronJobApiService } from "~/lib/service/api/cronjobApiService";
+import { ProjectApiService } from "~/lib/service/api/projectApiService";
 import { TaskService } from "~/lib/service/api/taskService";
+import { ThreadsService } from "~/lib/service/api/threadsService";
 import { WebhookApiService } from "~/lib/service/api/webhookApiService";
 import { RouteHandle } from "~/lib/service/routeHandles";
 import { RouteQueryParams, RouteService } from "~/lib/service/routeService";
@@ -32,7 +35,7 @@ export const clientLoader = async ({
 	params,
 	request,
 }: ClientLoaderFunctionArgs) => {
-	const { pathParams, query } = RouteService.getRouteInfo(
+	const { pathParams } = RouteService.getRouteInfo(
 		"/tasks/:id",
 		new URL(request.url),
 		params
@@ -40,8 +43,9 @@ export const clientLoader = async ({
 
 	if (!pathParams.id) throw redirect($path("/tasks"));
 
-	const [task] = await Promise.all([
+	const [task, threads] = await Promise.all([
 		preload(...TaskService.getTaskById.swr({ taskId: pathParams.id })),
+		preload(...ThreadsService.getThreads.swr({})),
 		preload(...CronJobApiService.getCronJobs.swr({})),
 		preload(WebhookApiService.getWebhooks.key(), () =>
 			WebhookApiService.getWebhooks()
@@ -50,11 +54,21 @@ export const clientLoader = async ({
 
 	if (!task) throw redirect($path("/tasks"));
 
-	return { task, threadId: query?.threadId };
+	const project = await preload(
+		...ProjectApiService.getById.swr({ id: task.projectID })
+	);
+	const agent = await preload(
+		...AgentService.getAgentById.swr({ agentId: project.assistantID })
+	);
+	const taskRuns = threads.filter((t) => t.workflowID === task.id).length;
+
+	return { task, agent, taskRuns, project };
 };
 
 export default function UserTask() {
-	const { task } = useLoaderData<typeof clientLoader>();
+	const pageData = useLoaderData<typeof clientLoader>();
+	const { task } = pageData;
+
 	const navigate = useNavigate();
 	const onPersistThreadId = useCallback(
 		(threadId: string) =>
@@ -74,7 +88,7 @@ export default function UserTask() {
 			<ResizableHandle />
 			<ResizablePanel defaultSize={30} minSize={25}>
 				<ScrollArea className="h-full">
-					<TaskMeta task={task} />
+					<TaskMeta {...pageData} />
 				</ScrollArea>
 			</ResizablePanel>
 		</ResizablePanelGroup>

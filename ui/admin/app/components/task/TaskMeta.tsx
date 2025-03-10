@@ -1,27 +1,21 @@
 import { $path } from "safe-routes";
-import useSWR from "swr";
 
+import { Agent } from "~/lib/model/agents";
+import { Project } from "~/lib/model/project";
 import { Task } from "~/lib/model/tasks";
-import { AgentService } from "~/lib/service/api/agentService";
-import { ThreadsService } from "~/lib/service/api/threadsService";
+import { pluralize } from "~/lib/utils";
 
 import { Card, CardContent } from "~/components/ui/card";
 import { Link } from "~/components/ui/link";
 
-export function TaskMeta({ task }: { task: Task }) {
-	const getThreads = useSWR(...ThreadsService.getThreads.swr({}));
-	const getAgents = useSWR(...AgentService.getAgents.swr({}));
+type TaskMetaProps = {
+	task: Task;
+	agent: Agent;
+	project: Project;
+	taskRuns: number;
+};
 
-	const taskRuns = getThreads?.data?.filter(
-		(thread) => thread.workflowID === task.id
-	);
-	const rootThread = getThreads?.data?.find(
-		(thread) => thread.id === task.threadID
-	);
-	const agent = getAgents?.data?.find(
-		(agent) => agent.id === rootThread?.agentID
-	);
-
+export function TaskMeta({ task, agent, project, taskRuns }: TaskMetaProps) {
 	return (
 		<Card className="bg-0 h-full overflow-hidden">
 			<CardContent className="space-y-4 pt-6">
@@ -34,21 +28,32 @@ export function TaskMeta({ task }: { task: Task }) {
 									{new Date(task.created).toLocaleString()}
 								</td>
 							</tr>
-							{agent && (
-								<tr className="border-foreground/25">
-									<td className="py-2 pr-4 font-medium">Agent</td>
-									<td className="text-right">
-										<Link to={$path("/agents/:id", { id: agent.id })}>
-											{agent.name}
-										</Link>
-									</td>
-								</tr>
-							)}
+							<tr className="border-foreground/25">
+								<td className="py-2 pr-4 font-medium">Obot</td>
+								<td className="text-right">
+									<Link
+										to={$path("/obots", {
+											obotId: project.id,
+											showChildren: true,
+										})}
+									>
+										{project.name}
+									</Link>
+								</td>
+							</tr>
+							<tr className="border-foreground/25">
+								<td className="py-2 pr-4 font-medium">Agent</td>
+								<td className="text-right">
+									<Link to={$path("/agents/:id", { id: agent.id })}>
+										{agent.name}
+									</Link>
+								</td>
+							</tr>
 							<tr className="border-foreground/25">
 								<td className="py-2 pr-4 font-medium">Task Runs</td>
 								<td className="text-right">
 									<Link to={$path("/task-runs", { taskId: task.id })}>
-										{taskRuns?.length ?? 0} Task Runs
+										{taskRuns} {pluralize(taskRuns, "Task Run")}
 									</Link>
 								</td>
 							</tr>

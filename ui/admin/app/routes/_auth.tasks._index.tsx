@@ -97,7 +97,7 @@ export default function Tasks() {
 		);
 		return (
 			getTasks.data?.map((task) => {
-				const rootThread = threadsMap.get(task.threadID ?? "");
+				const rootThread = threadsMap.get(task.projectID ?? "");
 				return {
 					...task,
 					agentID: rootThread?.agentID ?? "",

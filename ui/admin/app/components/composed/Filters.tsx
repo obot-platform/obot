@@ -4,7 +4,7 @@ import { useNavigate, useSearchParams } from "react-router";
 import { $path, Routes } from "safe-routes";
 
 import { Agent } from "~/lib/model/agents";
-import { Project } from "~/lib/model/project";
+import { Project, ShareStatus, getShareStatusLabel } from "~/lib/model/project";
 import { Task } from "~/lib/model/tasks";
 import { User } from "~/lib/model/users";
 import { RouteService } from "~/lib/service/routeService";
@@ -16,6 +16,7 @@ type QueryParams = {
 	userId?: string;
 	taskId?: string;
 	obotId?: string;
+	shared?: ShareStatus;
 	parentObotId?: string;
 	createdStart?: string;
 	createdEnd?: string;
@@ -63,7 +64,7 @@ export function Filters({
 				filters.agentId &&
 				agentMap && {
 					key: "agentId",
-					label: "Agent",
+					label: "Base Agent",
 					value: agentMap.get(filters.agentId)?.name ?? filters.agentId,
 					onRemove: () => deleteFilters("agentId"),
 				},
@@ -106,6 +107,13 @@ export function Filters({
 					value:
 						projectMap.get(filters.parentObotId)?.name ?? filters.parentObotId,
 					onRemove: () => deleteFilters("parentObotId"),
+				},
+			"shared" in filters &&
+				filters.shared && {
+					key: "shared",
+					label: "Shared",
+					value: getShareStatusLabel(filters.shared),
+					onRemove: () => deleteFilters("shared"),
 				},
 		].filter((x) => !!x);
 	}, [url, searchParams, agentMap, userMap, taskMap, projectMap, navigate]);

@@ -16,7 +16,7 @@ export type TaskBase = {
 		weekday: number;
 	} | null;
 	steps: Step[] | null;
-	threadID: string;
+	projectID: string;
 	webhook: object | null;
 };
 
