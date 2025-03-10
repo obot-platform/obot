@@ -98,6 +98,8 @@ config:
   workspaceProviderS3BaseEndpoint: ""
   # config.workspaceProviderS3Bucket -- The name of the S3 bucket to store workspaces in. Only used if config.obotWorkspaceProviderType is 's3'
   workspaceProviderS3Bucket: ""
+  # config.geminiApiKey -- A Google Gemini API Key used to configure access to the Gemini Developer API. This is used to generate images for Obots.
+  geminiApiKey: ""
 
 # extraEnv -- A map of additional environment variables to set
 extraEnv: { }

@@ -1,5 +1,6 @@
 import type { Project } from '$lib/services';
 import ChatService from '../chat';
+import { doPost } from '../chat/http';
 
 export interface EditorItem {
 	id: string;
@@ -18,6 +19,14 @@ export interface EditorItem {
 	};
 	selected?: boolean;
 	generic?: boolean;
+}
+
+export interface GenerateImageRequest {
+	prompt: string;
+}
+
+export interface GenerateImageResponse {
+	imageUrl: string;
 }
 
 function hasItem(items: EditorItem[], id: string): boolean {
@@ -183,9 +192,14 @@ function remove(items: EditorItem[], id: string): boolean {
 	return items.length === 0;
 }
 
+async function generateImage(prompt: string): Promise<GenerateImageResponse> {
+	return (await doPost('/generated/images', { prompt })) as GenerateImageResponse;
+}
+
 export default {
 	remove,
 	load,
 	download,
-	select
+	select,
+	generateImage
 };

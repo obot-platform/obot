@@ -38,8 +38,8 @@ func Router(services *services.Services) (http.Handler, error) {
 	projectShare := handlers.NewProjectShareHandler()
 	files := handlers.NewFilesHandler(services.GPTClient)
 	workflows := handlers.NewWorkflowHandler(services.GPTClient, services.ServerURL, services.Invoker)
-
 	sendgridWebhookHandler := sendgrid.NewInboundWebhookHandler(services.StorageClient, services.EmailServerName, services.SendgridWebhookUsername, services.SendgridWebhookPassword)
+	generatedImages := handlers.NewGeneratedImageHandler(services.GatewayClient, services.GeminiClient)
 
 	// Version
 	mux.HandleFunc("GET /api/version", version.GetVersion)
@@ -376,6 +376,10 @@ func Router(services *services.Services) (http.Handler, error) {
 	mux.HandleFunc("GET /api/workflows/{id}", workflows.ByID)
 	mux.HandleFunc("PUT /api/workflows/{id}", workflows.Update)
 	mux.HandleFunc("DELETE /api/workflows/{id}", workflows.Delete)
+
+	// Generated Images
+	mux.HandleFunc("POST /api/generated/images", generatedImages.GenerateImage)
+	mux.HandleFunc("GET /api/generated/images/{id}", generatedImages.GetGeneratedImage)
 
 	// Prompt
 	mux.HandleFunc("POST /api/prompt", prompt.Prompt)

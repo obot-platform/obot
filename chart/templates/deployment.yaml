@@ -170,6 +170,13 @@ spec:
                   name: {{ include "obot.config.secretName" . }}
                   key: workspaceProviderS3Bucket
             {{- end }}
+            {{- if .Values.config.geminiApiKey }}
+            - name: "GEMINI_API_KEY"
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "obot.config.secretName" . }}
+                  key: geminiApiKey
+            {{- end }}
             {{- if .Values.extraEnv }}
             {{- range $key, $value := .Values.extraEnv }}
             - name: {{ $key }}

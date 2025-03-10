@@ -13,6 +13,7 @@ var uiResources = []string{
 	"GET /o/",
 	"GET /s/",
 	"GET /user/images/",
+	"GET /api/generated/images/{id}",
 }
 
 func (a *Authorizer) checkUI(req *http.Request) bool {
