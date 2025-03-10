@@ -19,6 +19,16 @@ const getAllFetcher = createFetcher(
 	() => ApiRoutes.projects.getAll().path
 );
 
+const getByIdFetcher = createFetcher(
+	z.object({ id: z.string() }),
+	async ({ id }, { signal }) => {
+		const { url } = ApiRoutes.projects.getById(id);
+		const { data } = await request<Project>({ url, signal });
+		return data;
+	},
+	() => ApiRoutes.projects.getById(":id").path
+);
+
 const getAllSharesFetcher = createFetcher(
 	z.object({}),
 	async (_, { signal }) => {
@@ -38,6 +48,7 @@ const deleteProjectMutator = createMutator(
 
 export const ProjectApiService = {
 	getAll: getAllFetcher,
+	getById: getByIdFetcher,
 	getAllShares: getAllSharesFetcher,
 	delete: deleteProjectMutator,
 };

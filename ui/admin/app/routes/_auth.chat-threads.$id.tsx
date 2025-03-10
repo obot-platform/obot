@@ -13,6 +13,7 @@ import { preload } from "swr";
 import { KnowledgeFileNamespace } from "~/lib/model/knowledge";
 import { AgentService } from "~/lib/service/api/agentService";
 import { KnowledgeFileService } from "~/lib/service/api/knowledgeFileApiService";
+import { ProjectApiService } from "~/lib/service/api/projectApiService";
 import { ThreadsService } from "~/lib/service/api/threadsService";
 import { RouteHandle } from "~/lib/service/routeHandles";
 import { RouteService } from "~/lib/service/routeService";
@@ -52,8 +53,9 @@ export const clientLoader = async ({
 	const thread = await preload(...ThreadsService.getThreadById.swr({ id }));
 	if (!thread) throw redirect("/threads");
 
-	const [agent] = await Promise.all([
+	const [agent, project] = await Promise.all([
 		preload(...AgentService.getAgentById.swr({ agentId: thread.agentID })),
+		preload(...ProjectApiService.getById.swr({ id: thread.projectID })),
 		preload(
 			KnowledgeFileService.getKnowledgeFiles.key(
 				KnowledgeFileNamespace.Threads,
@@ -67,11 +69,11 @@ export const clientLoader = async ({
 		),
 	]);
 
-	return { thread, agent };
+	return { thread, agent, project };
 };
 
 export default function ChatThread() {
-	const { thread, agent } = useLoaderData<typeof clientLoader>();
+	const { thread, agent, project } = useLoaderData<typeof clientLoader>();
 
 	const navigate = useNavigate();
 	return (
@@ -112,6 +114,7 @@ export default function ChatThread() {
 							className="rounded-none border-none"
 							thread={thread}
 							entity={agent}
+							project={project}
 						/>
 					</ScrollArea>
 				</ResizablePanel>

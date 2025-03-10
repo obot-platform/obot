@@ -64,7 +64,7 @@ export function Filters({
 				filters.agentId &&
 				agentMap && {
 					key: "agentId",
-					label: "Agent",
+					label: "Base Agent",
 					value: agentMap.get(filters.agentId)?.name ?? filters.agentId,
 					onRemove: () => deleteFilters("agentId"),
 				},

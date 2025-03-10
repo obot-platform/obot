@@ -12,6 +12,7 @@ import { preload } from "swr";
 
 import { KnowledgeFileNamespace } from "~/lib/model/knowledge";
 import { KnowledgeFileService } from "~/lib/service/api/knowledgeFileApiService";
+import { ProjectApiService } from "~/lib/service/api/projectApiService";
 import { TaskService } from "~/lib/service/api/taskService";
 import { ThreadsService } from "~/lib/service/api/threadsService";
 import { RouteHandle } from "~/lib/service/routeHandles";
@@ -52,10 +53,11 @@ export const clientLoader = async ({
 	const thread = await preload(...ThreadsService.getThreadById.swr({ id }));
 	if (!thread) throw redirect("/threads");
 
-	const [task] = await Promise.all([
+	const [task, project] = await Promise.all([
 		thread.workflowID
 			? preload(...TaskService.getTaskById.swr({ taskId: thread.workflowID }))
 			: null,
+		preload(...ProjectApiService.getById.swr({ id: thread.projectID })),
 		preload(
 			KnowledgeFileService.getKnowledgeFiles.key(
 				KnowledgeFileNamespace.Threads,
@@ -71,11 +73,11 @@ export const clientLoader = async ({
 
 	if (!task) throw redirect("/tasks");
 
-	return { thread, task };
+	return { thread, task, project };
 };
 
 export default function TaskRuns() {
-	const { thread, task } = useLoaderData<typeof clientLoader>();
+	const { thread, task, project } = useLoaderData<typeof clientLoader>();
 
 	const navigate = useNavigate();
 	return (
@@ -107,6 +109,7 @@ export default function TaskRuns() {
 							className="rounded-none border-none"
 							thread={thread}
 							entity={task}
+							project={project}
 						/>
 					</ScrollArea>
 				</ResizablePanel>

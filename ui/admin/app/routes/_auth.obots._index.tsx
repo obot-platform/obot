@@ -92,6 +92,7 @@ export default function ProjectsPage() {
 			shared,
 			createdStart,
 			createdEnd,
+			agentId,
 		} = pageQuery.params ?? {};
 
 		if (createdStart) {
@@ -116,6 +117,10 @@ export default function ProjectsPage() {
 
 		if (obotId) {
 			filtered = filtered.filter((p) => p.id === obotId);
+		}
+
+		if (agentId) {
+			filtered = filtered.filter((p) => p.assistantID === agentId);
 		}
 
 		if (parentObotId) {
@@ -187,7 +192,12 @@ export default function ProjectsPage() {
 					</div>
 
 					<div className="flex justify-between p-1">
-						<Filters projectMap={projectMap} userMap={userMap} url="/obots" />
+						<Filters
+							projectMap={projectMap}
+							userMap={userMap}
+							agentMap={agentMap}
+							url="/obots"
+						/>
 
 						<div className="flex items-center gap-2">
 							<Label htmlFor="show-children">Include spawned Obots</Label>
@@ -321,6 +331,7 @@ export default function ProjectsPage() {
 							field="Created On"
 							dateRange={{ from, to }}
 							onSelect={(range) => {
+								if (!range) pageQuery.remove("createdStart");
 								if (range?.from)
 									pageQuery.update("createdStart", range.from.toDateString());
 								if (range?.to)
@@ -344,7 +355,7 @@ export default function ProjectsPage() {
 						<div className="flex flex-col">
 							{baseAgent && (
 								<p className="flex items-center gap-2 text-muted-foreground">
-									Base Agent:{" "}
+									<span className="min-w-fit">Base Agent: </span>
 									<Link
 										to={$path("/agents/:id", { id: row.original.assistantID })}
 									>

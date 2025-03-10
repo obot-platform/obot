@@ -67,7 +67,7 @@ export default function Agents() {
 
 		return getTasks.data.reduce(
 			(acc, task) => {
-				const agentId = threadsMap.get(task.threadID)?.agentID;
+				const agentId = threadsMap.get(task.projectID)?.agentID;
 				if (!agentId) return acc;
 				acc[agentId] = (acc[agentId] || 0) + 1;
 				return acc;

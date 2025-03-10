@@ -16,6 +16,7 @@ import { $path } from "safe-routes";
 import useSWR from "swr";
 
 import { Agent } from "~/lib/model/agents";
+import { Project } from "~/lib/model/project";
 import { Task } from "~/lib/model/tasks";
 import { Thread } from "~/lib/model/threads";
 import { ThreadsService } from "~/lib/service/api/threadsService";
@@ -58,13 +59,19 @@ import { usePagination } from "~/hooks/pagination/usePagination";
 
 interface ThreadMetaProps {
 	entity: Agent | Task;
+	project: Project;
 	thread: Thread;
 	className?: string;
 }
 
 const pageSize = 10;
 
-export function ThreadMeta({ entity, thread, className }: ThreadMetaProps) {
+export function ThreadMeta({
+	entity,
+	project,
+	thread,
+	className,
+}: ThreadMetaProps) {
 	const isAgent = entity.type === "agent";
 	const from = isAgent
 		? $path("/chat-threads/:id", { id: thread.id })
@@ -162,8 +169,17 @@ export function ThreadMeta({ entity, thread, className }: ThreadMetaProps) {
 							)}
 							{thread.projectID && (
 								<tr className="border-foreground/25">
-									<td className="py-2 pr-4 font-medium">Parent Thread ID</td>
-									<td className="text-right">{thread.projectID}</td>
+									<td className="py-2 pr-4 font-medium">Obot</td>
+									<td className="text-right">
+										<Link
+											to={$path("/obots", {
+												obotId: thread.projectID,
+												showChildren: true,
+											})}
+										>
+											{project.name}
+										</Link>
+									</td>
 								</tr>
 							)}
 							{thread.lastRunID && (

@@ -204,6 +204,7 @@ export const ApiRoutes = {
 	},
 	projects: {
 		getAll: () => buildUrl("/projects", { all: true }),
+		getById: (projectId: string) => buildUrl(`/projects/${projectId}`),
 		deleteProject: (agentId: string, projectId: string) =>
 			buildUrl(`/assistants/${agentId}/projects/${projectId}`),
 	},

@@ -35,6 +35,7 @@ const QuerySchemas = {
 	}),
 	usersSchema: z.object({ userId: z.string().optional() }),
 	obotsSchema: z.object({
+		agentId: z.string().nullish(),
 		obotId: z.string().nullish(),
 		parentObotId: z.string().nullish(),
 		userId: z.string().nullish(),

@@ -21,5 +21,5 @@ export const mockedTask: Task = {
 	email: null,
 	onDemand: null,
 	alias: "giving-turmeric",
-	threadID: "123",
+	projectID: "123",
 };

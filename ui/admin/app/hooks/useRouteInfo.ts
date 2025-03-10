@@ -43,10 +43,13 @@ export function useQueryInfo<T extends keyof Routes>(route: T) {
 			param: TKey,
 			value: QueryInfo<T>[TKey]
 		) => {
-			setSearchParams((prev) => {
-				prev.set(param as string, String(value));
-				return prev;
-			});
+			setSearchParams(
+				(prev) => {
+					prev.set(param as string, String(value));
+					return prev;
+				},
+				{ replace: true }
+			);
 		},
 		[setSearchParams]
 	);
