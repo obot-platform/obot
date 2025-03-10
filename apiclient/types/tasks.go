@@ -3,7 +3,7 @@ package types
 type Task struct {
 	Metadata
 	TaskManifest
-	ThreadID      string `json:"threadID,omitempty"`
+	ProjectID     string `json:"projectID,omitempty"`
 	Alias         string `json:"alias,omitempty"`
 	ProjectScoped bool   `json:"projectScoped,omitempty"`
 }

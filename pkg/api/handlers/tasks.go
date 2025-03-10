@@ -3,6 +3,7 @@ package handlers
 import (
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 	"unicode/utf8"
 
@@ -941,7 +942,7 @@ func convertTask(workflow v1.Workflow, trigger *triggers) types.Task {
 	task := types.Task{
 		Metadata:      MetadataFrom(&workflow),
 		TaskManifest:  ConvertTaskManifest(&workflow.Spec.Manifest),
-		ThreadID:      workflow.Spec.ThreadName,
+		ProjectID:     strings.Replace(workflow.Spec.ThreadName, system.ThreadPrefix, system.ProjectPrefix, 1),
 		Alias:         workflow.Spec.Manifest.Alias,
 		ProjectScoped: workflow.Spec.ProjectScoped,
 	}
