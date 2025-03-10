@@ -170,6 +170,20 @@ spec:
                   name: {{ include "obot.config.secretName" . }}
                   key: workspaceProviderS3Bucket
             {{- end }}
+            {{- if .Values.config.workspaceProviderAzureContainer }}
+            - name: "WORKSPACE_PROVIDER_AZURE_CONTAINER"
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "obot.config.secretName" . }}
+                  key: workspaceProviderAzureContainer
+            {{- end }}
+            {{- if .Values.config.workspaceProviderAzureConnectionString }}
+            - name: "WORKSPACE_PROVIDER_AZURE_CONNECTION_STRING"
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "obot.config.secretName" . }}
+                  key: workspaceProviderAzureConnectionString
+            {{- end }}
             {{- if .Values.extraEnv }}
             {{- range $key, $value := .Values.extraEnv }}
             - name: {{ $key }}
