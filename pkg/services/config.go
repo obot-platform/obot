@@ -35,6 +35,7 @@ import (
 	gserver "github.com/obot-platform/obot/pkg/gateway/server"
 	"github.com/obot-platform/obot/pkg/gateway/server/dispatcher"
 	"github.com/obot-platform/obot/pkg/gateway/types"
+	"github.com/obot-platform/obot/pkg/gemini"
 	"github.com/obot-platform/obot/pkg/invoke"
 	"github.com/obot-platform/obot/pkg/jwt"
 	"github.com/obot-platform/obot/pkg/proxy"
@@ -58,6 +59,7 @@ import (
 )
 
 type GatewayConfig gserver.Options
+type GeminiConfig gemini.Config
 
 type Config struct {
 	HTTPListenPort             int      `usage:"HTTP port to listen on" default:"8080" name:"http-listen-port"`
@@ -91,6 +93,7 @@ type Config struct {
 	SendgridWebhookUsername string `usage:"The username for the sendgrid webhook to authenticate with"`
 	SendgridWebhookPassword string `usage:"The password for the sendgrid webhook to authenticate with"`
 
+	GeminiConfig
 	GatewayConfig
 	services.Config
 }
@@ -118,6 +121,7 @@ type Services struct {
 	SupportDocker              bool
 	AuthEnabled                bool
 	AgentsDir                  string
+	GeminiClient               *gemini.Client
 
 	// Use basic auth for sendgrid webhook, if being set
 	SendgridWebhookUsername string
@@ -406,6 +410,18 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		go smtp.Start(ctx, storageClient, config.EmailServerName)
 	}
 
+	var geminiClient *gemini.Client
+	if config.GeminiAPIKey != "" {
+		// Enable gemini-powered image generation
+		geminiClient, err = gemini.NewClient(ctx, gemini.Config{
+			GeminiAPIKey:               config.GeminiAPIKey,
+			GeminiImageGenerationModel: config.GeminiImageGenerationModel,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("failed to create gemini client: %w", err)
+		}
+	}
+
 	run, err := c.Run(ctx, fmt.Sprintf("Validate Environment Variables from %s", workspaceTool), gptscript.Options{
 		Input: fmt.Sprintf(`{"provider":"%s"}`, config.WorkspaceProviderType),
 		GlobalOptions: gptscript.GlobalOptions{
@@ -453,6 +469,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		ProviderDispatcher:         providerDispatcher,
 		Bootstrapper:               bootstrapper,
 		AgentsDir:                  config.AgentsDir,
+		GeminiClient:               geminiClient,
 	}, nil
 }
 

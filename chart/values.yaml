@@ -94,10 +94,12 @@ config:
   OBOT_WORKSPACE_PROVIDER_TYPE: "directory"
   # config.OPENAI_API_KEY -- An OpenAI API Key used to configure access to OpenAI models, which are the default in Obot.
   OPENAI_API_KEY: ""
-  # config.WORKSPACE_PROVIDER_S3_BASE_ENDPOINT -- If config.obotWorkspaceProviderType is 's3' and you are not using AWS S3, this needs to be set to the S3 api endpoint of your provider.
+  # config.WORKSPACE_PROVIDER_S3_BASE_ENDPOINT -- If config.OBOT_WORKSPACE_PROVIDER_TYPE is 's3' and you are not using AWS S3, this needs to be set to the S3 api endpoint of your provider.
   WORKSPACE_PROVIDER_S3_BASE_ENDPOINT: ""
-  # config.WORKSPACE_PROVIDER_S3_BUCKET -- The name of the S3 bucket to store workspaces in. Only used if config.obotWorkspaceProviderType is 's3'
+  # config.WORKSPACE_PROVIDER_S3_BUCKET -- The name of the S3 bucket to store workspaces in. Only used if config.OBOT_WORKSPACE_PROVIDER_TYPE is 's3'
   WORKSPACE_PROVIDER_S3_BUCKET: ""
+  # config.GEMINI_API_KEY -- A Google Gemini API Key used to configure access to the Gemini Developer API. This is used to generate images for Obots.
+  GEMINI_API_KEY: ""
 
 # extraEnv -- A map of additional environment variables to set
 extraEnv: { }
@@ -106,7 +108,7 @@ extraEnv: { }
 resources: { }
 
 persistence:
-  #persistence.enabled -- Enables persistence of workspaces using a PVC when config.obotWorkspaceProviderType is `directory`
+  # persistence.enabled -- Enables persistence of workspaces using a PVC when config.OBOT_WORKSPACE_PROVIDER_TYPE is `directory`
   enabled: true
   # persistence.path -- The path the volume will be mounted
   path: /data

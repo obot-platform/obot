@@ -76,27 +76,36 @@ async function handleResponse(
 export async function doWithBody(
 	method: string,
 	path: string,
-	input?: string | object | Blob,
+	input?: string | object | Blob | FormData,
 	opts?: {
 		dontLogErrors?: boolean;
 		fetch?: typeof fetch;
 	}
 ): Promise<unknown> {
 	let headers: Record<string, string> | undefined;
-	if (input instanceof Blob) {
+	let body: BodyInit | undefined;
+
+	if (input instanceof FormData) {
+		// Let the browser automatically set the Content-Type with proper boundary.
+		body = input;
+		headers = undefined;
+	} else if (input instanceof Blob) {
+		body = input;
 		headers = { 'Content-Type': 'application/octet-stream' };
-	} else if (typeof input === 'object') {
-		input = JSON.stringify(input);
+	} else if (typeof input === 'object' && input !== null) {
+		body = JSON.stringify(input);
 		headers = { 'Content-Type': 'application/json' };
-	} else if (input) {
+	} else if (typeof input === 'string') {
+		body = input;
 		headers = { 'Content-Type': 'text/plain' };
 	}
+
 	try {
 		const f = opts?.fetch || fetch;
 		const resp = await f(baseURL + path, {
-			method: method,
-			headers: headers,
-			body: input
+			method,
+			headers,
+			body
 		});
 		return handleResponse(resp, path, opts);
 	} catch (e) {

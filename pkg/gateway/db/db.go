@@ -71,13 +71,13 @@ func (db *DB) AutoMigrate() (err error) {
 				if err := tx.Exec(`
 				-- Drop existing primary key
 				ALTER TABLE identities DROP CONSTRAINT identities_pkey;
-				
+
 				-- Add provider_user_id column
 				ALTER TABLE identities ADD COLUMN provider_user_id text NOT NULL DEFAULT '';
-				
+
 				-- Set placeholder values for existing records
 				UPDATE identities SET provider_user_id = 'OBOT_PLACEHOLDER_' || provider_username WHERE provider_user_id = '';
-				
+
 				-- Add new primary key
 					ALTER TABLE identities ADD PRIMARY KEY (auth_provider_name, auth_provider_namespace, provider_user_id);
 				`).Error; err != nil {
@@ -97,6 +97,7 @@ func (db *DB) AutoMigrate() (err error) {
 		types.OAuthTokenResponse{},
 		types.User{},
 		types.Identity{},
+		types.Image{},
 	)
 }
 

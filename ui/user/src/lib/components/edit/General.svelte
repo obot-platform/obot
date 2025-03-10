@@ -6,6 +6,8 @@
 	import { ChevronDown, CircleX } from 'lucide-svelte/icons';
 	import { autoHeight } from '$lib/actions/textarea';
 	import AssistantIcon from '$lib/icons/AssistantIcon.svelte';
+	import GenerateIcon from '$lib/components/edit/GenerateIcon.svelte';
+	import UploadIcon from './UploadIcon.svelte';
 
 	interface Props {
 		project: Project;
@@ -17,6 +19,7 @@
 			urlIcon = undefined;
 		}
 	});
+
 	let { project = $bindable() }: Props = $props();
 	let { ref, tooltip, toggle } = popover();
 	let urlIcon:
@@ -34,7 +37,7 @@
 				<AssistantIcon {project} class="h-8 w-8" />
 				<ChevronDown class="icon-default" />
 			</button>
-			<div use:tooltip class="z-20 flex flex-col rounded-3xl bg-surface2 p-3">
+			<div use:tooltip class="z-20 flex w-[350px] flex-col rounded-3xl bg-surface2 p-3">
 				{#if urlIcon}
 					<div class="flex flex-col gap-2 p-1">
 						<div class="flex flex-col gap-2">
@@ -67,41 +70,59 @@
 						</button>
 					</div>
 				{:else}
-					<div class="grid grid-cols-3">
-						{#each [1, 2, 3, 4, 5, 6, 7, 8, 9, 10] as i}
-							{@const newLight = `/agent/images/obot_alt_${i}.svg`}
-							{@const newDark = `/agent/images/obot_alt_${i}_dark.svg`}
+					<div class="flex flex-col items-center gap-2">
+						<div class="flex justify-center">
+							<AssistantIcon {project} class="h-56 w-56" />
+						</div>
+
+						<GenerateIcon {project} />
+
+						<div class="grid grid-cols-3 gap-2">
+							{#each [1, 2, 3, 4, 5, 6, 7, 8, 9, 10] as i}
+								{@const newLight = `/agent/images/obot_alt_${i}.svg`}
+								{@const newDark = `/agent/images/obot_alt_${i}_dark.svg`}
+								<button
+									class="icon-button"
+									onclick={() => {
+										project.icons = { icon: newLight, iconDark: newDark };
+										toggle();
+									}}
+								>
+									<img class="h-8 w-8" src={darkMode.isDark ? newDark : newLight} alt="Obot icon" />
+								</button>
+							{/each}
+
 							<button
-								class="icon-button"
+								class="icon-button flex items-center justify-center"
 								onclick={() => {
-									project.icons = { icon: newLight, iconDark: newDark };
+									project.icons = undefined;
 									toggle();
 								}}
 							>
-								<img class="h-8 w-8" src={darkMode.isDark ? newDark : newLight} alt="Obot icon" />
+								<CircleX class="h-5 w-5" />
 							</button>
-						{/each}
-						<button
-							class="icon-button flex items-center justify-center"
-							onclick={() => {
-								project.icons = undefined;
-								toggle();
-							}}
-						>
-							<CircleX class="h-5 w-5" />
-						</button>
-						<button
-							class="icon-button col-span-3"
-							onclick={() => {
-								if (project.icons?.icon && !project.icons.icon.startsWith('/agent/images/')) {
-									urlIcon = project.icons;
-								} else {
-									urlIcon = {};
-								}
-							}}
-						>
-							<span class="text-on-surface col-span-2 self-end">Custom URL</span>
-						</button>
+						</div>
+
+						<div class="grid grid-cols-2 gap-2">
+							<UploadIcon
+								label="Light Icon"
+								onUpload={(imageUrl: string) => {
+									project.icons = {
+										...project.icons,
+										icon: imageUrl
+									};
+								}}
+							/>
+							<UploadIcon
+								label="Dark Icon"
+								onUpload={(imageUrl: string) => {
+									project.icons = {
+										...project.icons,
+										iconDark: imageUrl
+									};
+								}}
+							/>
+						</div>
 					</div>
 				{/if}
 			</div>
