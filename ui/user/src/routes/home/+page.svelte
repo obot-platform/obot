@@ -46,7 +46,7 @@
 			? project.icons?.iconDark || project.icons?.icon
 			: project.icons?.icon;
 
-		return imageUrl ?? '/agent/images/placeholder.jpeg'; // need placeholder image
+		return imageUrl ?? '/agent/images/placeholder.webp'; // need placeholder image
 	}
 </script>
 
