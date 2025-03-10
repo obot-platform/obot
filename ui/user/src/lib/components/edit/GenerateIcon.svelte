@@ -15,7 +15,7 @@
 		hasGeneratedImage = !!project.icons?.icon?.startsWith('/api/generated/images/');
 	});
 
-	async function generateIcon(regenerate = false) {
+	async function generateIcon() {
 		if (!project.description) return;
 
 		isGenerating = true;
@@ -34,22 +34,27 @@
 	}
 </script>
 
-<div class="mt-2 flex flex-col gap-2">
+<div class="relative mt-2 flex flex-col gap-2">
+	{#if hasGeneratedImage && project.icons?.icon}
+		<div class="bg-surface flex h-64 w-64 justify-center rounded-lg p-2">
+			<img class="rounded" src={project.icons.icon} alt="Generated Icon Preview" />
+		</div>
+	{/if}
 	<div class="flex gap-2">
 		<button
 			class="icon-button flex flex-1 items-center justify-center gap-2 py-2"
-			onclick={() => generateIcon(false)}
+			onclick={() => generateIcon()}
 			disabled={isGenerating || !project.description}
 		>
 			{#if isGenerating}
 				<LoaderCircle class="h-5 w-5 animate-spin" />
-				<span class="text-on-surface"> Generating icon... </span>
+				<span class="text-on-surface">Generating icon...</span>
 			{:else if hasGeneratedImage}
 				<RefreshCw class="h-5 w-5" />
-				<span class="text-on-surface"> Regenerate icon </span>
+				<span class="text-on-surface">Regenerate icon</span>
 			{:else}
 				<Wand class="h-5 w-5" />
-				<span class="text-on-surface"> Generate icon from description </span>
+				<span class="text-on-surface">Generate icon from description</span>
 			{/if}
 		</button>
 	</div>
