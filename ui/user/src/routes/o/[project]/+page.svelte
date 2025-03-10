@@ -8,7 +8,7 @@
 
 	let { data }: PageProps = $props();
 	let project = $state(data.project);
-	let tools = $state(data.tools);
+	let tools = $state(data.tools ?? []);
 	let currentThreadID = $state<string | undefined>(page.state.currentThreadID);
 	let title = $derived(project?.name || 'Obot');
 
@@ -22,14 +22,14 @@
 
 	$effect(() => {
 		// This happens on page transitions
-		if (data.project.id !== project.id) {
+		if (data.project?.id !== project?.id) {
 			project = data.project;
-			tools = data.tools;
+			tools = data.tools ?? [];
 		}
 	});
 
 	$effect(() => {
-		if (currentThreadID) {
+		if (currentThreadID && project?.id) {
 			// Update the URL to reflect the current thread
 			window.history.replaceState({}, '', `/o/${project.id}/t/${currentThreadID}`);
 		}
@@ -50,12 +50,14 @@
 </svelte:head>
 
 <div class="h-svh">
-	{#key project.id}
-		{#if project.editor}
-			<EditMode bind:project bind:tools bind:currentThreadID />
-		{:else}
-			<Obot {project} {tools} bind:currentThreadID />
-			<p>Project not found.</p>
-		{/if}
-	{/key}
+	{#if project}
+		{#key project.id}
+			{#if project.editor}
+				<EditMode bind:project bind:tools bind:currentThreadID />
+			{:else}
+				<Obot {project} {tools} bind:currentThreadID />
+				<p>Project not found.</p>
+			{/if}
+		{/key}
+	{/if}
 </div>

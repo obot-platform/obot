@@ -16,7 +16,7 @@
 		if (profile.current.unauthorized) {
 			// Redirect to the main page to log in.
 			window.location.href = `/?rd=${window.location.pathname}`;
-		} else if (project.id) {
+		} else if (project?.id) {
 			goto(`/o/${project.id}`, { replaceState: true });
 		}
 	});
