@@ -27,6 +27,7 @@ const QuerySchemas = {
 		threadId: z.string().nullish(),
 	}),
 	tasksSchema: z.object({
+		obotId: z.string().nullish(),
 		agentId: z.string().nullish(),
 		userId: z.string().nullish(),
 		taskId: z.string().nullish(),

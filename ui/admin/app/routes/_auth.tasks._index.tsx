@@ -1,20 +1,18 @@
 import { ColumnDef, createColumnHelper } from "@tanstack/react-table";
 import { useMemo, useState } from "react";
-import {
-	ClientLoaderFunctionArgs,
-	MetaFunction,
-	useLoaderData,
-} from "react-router";
+import { ClientLoaderFunctionArgs, MetaFunction } from "react-router";
 import { $path } from "safe-routes";
 import useSWR, { preload } from "swr";
 
 import { Task } from "~/lib/model/tasks";
 import { AgentService } from "~/lib/service/api/agentService";
+import { ProjectApiService } from "~/lib/service/api/projectApiService";
 import { TaskService } from "~/lib/service/api/taskService";
 import { ThreadsService } from "~/lib/service/api/threadsService";
 import { UserService } from "~/lib/service/api/userService";
 import { RouteHandle } from "~/lib/service/routeHandles";
 import { RouteService } from "~/lib/service/routeService";
+import { pluralize } from "~/lib/utils";
 import { filterByCreatedRange } from "~/lib/utils/filter";
 import { timeSince } from "~/lib/utils/time";
 
@@ -27,6 +25,7 @@ import {
 import { Filters } from "~/components/composed/Filters";
 import { SearchInput } from "~/components/composed/SearchInput";
 import { Link } from "~/components/ui/link";
+import { useQueryInfo } from "~/hooks/useRouteInfo";
 
 type TableTask = Task & {
 	agent: string;
@@ -34,6 +33,8 @@ type TableTask = Task & {
 	threadCount: number;
 	user: string;
 	userID: string;
+	projectId: string;
+	project: string;
 };
 
 export async function clientLoader({
@@ -44,6 +45,7 @@ export async function clientLoader({
 		preload(...TaskService.getTasks.swr({})),
 		preload(...ThreadsService.getThreads.swr({})),
 		preload(...AgentService.getAgents.swr({})),
+		preload(...ProjectApiService.getAll.swr({})),
 	]);
 
 	const { query } = RouteService.getRouteInfo(
@@ -60,14 +62,14 @@ export default function Tasks() {
 	const navigate = useRowNavigate((value: Task | string) =>
 		typeof value === "string" ? value : $path("/tasks/:id", { id: value.id })
 	);
-	const { taskId, userId, agentId, createdStart, createdEnd } =
-		useLoaderData<typeof clientLoader>();
+
+	const pageQuery = useQueryInfo("/tasks");
 
 	const getAgents = useSWR(...AgentService.getAgents.swr({}));
 	const getUsers = useSWR(...UserService.getUsers.swr({}));
-
 	const getThreads = useSWR(...ThreadsService.getThreads.swr({}));
 	const getTasks = useSWR(...TaskService.getTasks.swr({}));
+	const getProjects = useSWR(...ProjectApiService.getAll.swr({}));
 
 	const agentMap = useMemo(() => {
 		return new Map(getAgents.data?.map((agent) => [agent.id, agent]));
@@ -81,11 +83,11 @@ export default function Tasks() {
 		return new Map(getTasks.data?.map((task) => [task.id, task]));
 	}, [getTasks.data]);
 
-	const tasks: TableTask[] = useMemo(() => {
-		const threadsMap = new Map(
-			getThreads.data?.map((thread) => [thread.id, thread])
-		);
+	const projectMap = useMemo(() => {
+		return new Map(getProjects.data?.map((project) => [project.id, project]));
+	}, [getProjects.data]);
 
+	const tasks: TableTask[] = useMemo(() => {
 		const threadCounts = getThreads.data?.reduce<Record<string, number>>(
 			(acc, thread) => {
 				if (!thread.workflowID) return acc;
@@ -97,22 +99,30 @@ export default function Tasks() {
 		);
 		return (
 			getTasks.data?.map((task) => {
-				const rootThread = threadsMap.get(task.projectID ?? "");
+				const project = projectMap.get(task.projectID);
 				return {
 					...task,
-					agentID: rootThread?.agentID ?? "",
-					agent: agentMap.get(rootThread?.agentID ?? "")?.name ?? "-",
+					agentID: project?.assistantID ?? "",
+					agent: agentMap.get(project?.assistantID ?? "")?.name ?? "-",
 					threadCount: threadCounts?.[task.id] || 0,
-					user: userMap.get(rootThread?.userID ?? "")?.email ?? "-",
-					userID: rootThread?.userID ?? "",
+					user: userMap.get(project?.userID ?? "")?.email ?? "-",
+					userID: project?.userID ?? "",
+					projectId: project?.id ?? "",
+					project: project?.name ?? "Untitled",
 				};
 			}) ?? []
 		);
-		return [];
-	}, [getTasks.data, agentMap, getThreads.data, userMap]);
+	}, [getThreads.data, getTasks.data, projectMap, agentMap, userMap]);
 
 	const data = useMemo(() => {
 		let filteredTasks = tasks;
+
+		const { agentId, userId, taskId, createdStart, createdEnd, obotId } =
+			pageQuery.params ?? {};
+
+		if (obotId) {
+			filteredTasks = filteredTasks.filter((item) => item.projectID === obotId);
+		}
 
 		if (agentId) {
 			filteredTasks = filteredTasks.filter((item) => item.agentID === agentId);
@@ -144,7 +154,7 @@ export default function Tasks() {
 			: filteredTasks;
 
 		return filteredTasks;
-	}, [tasks, search, agentId, userId, taskId, createdStart, createdEnd]);
+	}, [tasks, pageQuery.params, search]);
 
 	const namesCount = useMemo(() => {
 		return data.reduce<Record<string, number>>((acc, task) => {
@@ -169,6 +179,7 @@ export default function Tasks() {
 						userMap={userMap}
 						agentMap={agentMap}
 						taskMap={taskMap}
+						projectMap={projectMap}
 						url="/tasks"
 					/>
 
@@ -199,55 +210,42 @@ export default function Tasks() {
 								sublabel: namesCount[task.name] > 1 ? task.agent : "",
 							})) ?? []
 						}
-						onSelect={(value) => {
-							navigate.internal(
-								$path("/tasks", {
-									taskId: value,
-									...(agentId && { agentId }),
-									...(userId && { userId }),
-								})
-							);
-						}}
+						onSelect={(value) => pageQuery.update("taskId", value)}
 					/>
 				),
 			}),
-			columnHelper.accessor("agent", {
-				id: "Agent",
-				header: ({ column }) => (
-					<DataTableFilter
-						key={column.id}
-						field="Agent"
-						values={
-							getAgents.data?.map((agent) => ({
-								id: agent.id,
-								name: agent.name,
-							})) ?? []
-						}
-						onSelect={(value) => {
-							navigate.internal(
-								$path("/tasks", {
-									agentId: value,
-									...(taskId && { taskId }),
-									...(userId && { userId }),
-								})
-							);
-						}}
-					/>
-				),
-				cell: (info) => (
-					<div className="flex items-center gap-2">
-						<Link
-							onClick={(event) => event.stopPropagation()}
-							to={$path("/agents/:id", {
-								id: info.row.original.agentID,
-							})}
-							className="px-0"
-						>
-							<p>{info.getValue()}</p>
-						</Link>
-					</div>
-				),
-			}),
+			columnHelper.accessor(
+				(row) => projectMap.get(row.projectID)?.name ?? "Untitled",
+				{
+					id: "project",
+					header: ({ column }) => (
+						<DataTableFilter
+							key={column.id}
+							field="Obot"
+							values={
+								getProjects.data?.map((project) => ({
+									id: project.id,
+									name: project.name ?? "Untitled",
+								})) ?? []
+							}
+							onSelect={(value) => pageQuery.update("obotId", value)}
+						/>
+					),
+					cell: (info) => (
+						<div className="flex items-center gap-2">
+							<Link
+								onClick={(e) => e.stopPropagation()}
+								to={$path("/obots", {
+									obotId: info.row.original.projectId,
+								})}
+								className="px-0"
+							>
+								{info.getValue()}
+							</Link>
+						</div>
+					),
+				}
+			),
 			columnHelper.accessor("user", {
 				id: "User",
 				header: ({ column }) => (
@@ -260,20 +258,12 @@ export default function Tasks() {
 								name: user.email,
 							})) ?? []
 						}
-						onSelect={(value) => {
-							navigate.internal(
-								$path("/tasks", {
-									userId: value,
-									...(taskId && { taskId }),
-									...(agentId && { agentId }),
-								})
-							);
-						}}
+						onSelect={(value) => pageQuery.update("userId", value)}
 					/>
 				),
 			}),
 			columnHelper.accessor((item) => item.threadCount.toString(), {
-				id: "tasks-action",
+				id: "tasks",
 				header: "Runs",
 				cell: (info) => (
 					<div className="flex items-center gap-2">
@@ -285,7 +275,10 @@ export default function Tasks() {
 							})}
 							className="px-0"
 						>
-							<p>{info.getValue() || 0} Runs</p>
+							<p>
+								{info.getValue() || 0}{" "}
+								{pluralize(Number(info.getValue()), "Run")}
+							</p>
 						</Link>
 					</div>
 				),
@@ -297,19 +290,21 @@ export default function Tasks() {
 						key={column.id}
 						field="Created"
 						dateRange={{
-							from: createdStart ? new Date(createdStart) : undefined,
-							to: createdEnd ? new Date(createdEnd) : undefined,
+							from: pageQuery.params?.createdStart
+								? new Date(pageQuery.params.createdStart)
+								: undefined,
+							to: pageQuery.params?.createdEnd
+								? new Date(pageQuery.params.createdEnd)
+								: undefined,
 						}}
 						onSelect={(range) => {
-							navigate.internal(
-								$path("/tasks", {
-									createdStart: range?.from?.toDateString() ?? "",
-									createdEnd: range?.to?.toDateString() ?? "",
-									...(taskId && { taskId }),
-									...(agentId && { agentId }),
-									...(userId && { userId }),
-								})
-							);
+							if (range?.from)
+								pageQuery.update("createdStart", range.from.toDateString());
+							else pageQuery.remove("createdStart");
+
+							if (range?.to)
+								pageQuery.update("createdEnd", range.to.toDateString());
+							else pageQuery.remove("createdEnd");
 						}}
 					/>
 				),

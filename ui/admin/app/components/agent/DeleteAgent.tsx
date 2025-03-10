@@ -40,6 +40,7 @@ export function DeleteAgent({
 			>
 				<TooltipTrigger asChild>
 					<Button
+						onClick={(e) => e.stopPropagation()}
 						variant="ghost"
 						size="icon"
 						disabled={deleteAgent.isLoading}

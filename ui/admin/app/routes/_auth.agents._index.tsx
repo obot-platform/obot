@@ -1,18 +1,17 @@
 import { PlusIcon } from "@radix-ui/react-icons";
 import { ColumnDef, createColumnHelper } from "@tanstack/react-table";
 import { SquarePen } from "lucide-react";
-import { useMemo } from "react";
-import { MetaFunction } from "react-router";
+import { MetaFunction, useLoaderData } from "react-router";
 import { $path } from "safe-routes";
-import useSWR, { preload } from "swr";
+import { preload } from "swr";
 
 import { Agent } from "~/lib/model/agents";
 import { CapabilityTool } from "~/lib/model/toolReferences";
 import { AgentService } from "~/lib/service/api/agentService";
+import { ProjectApiService } from "~/lib/service/api/projectApiService";
 import { TaskService } from "~/lib/service/api/taskService";
-import { ThreadsService } from "~/lib/service/api/threadsService";
 import { generateRandomName } from "~/lib/service/nameGenerator";
-import { timeSince } from "~/lib/utils";
+import { pluralize, timeSince } from "~/lib/utils";
 
 import { DeleteAgent } from "~/components/agent/DeleteAgent";
 import { DataTable, useRowNavigate } from "~/components/composed/DataTable";
@@ -25,11 +24,39 @@ import {
 } from "~/components/ui/tooltip";
 
 export async function clientLoader() {
-	await Promise.all([
+	const [baseAgents, tasks, projects] = await Promise.all([
 		preload(...AgentService.getAgents.swr({})),
-		preload(...ThreadsService.getThreads.swr({})),
+		preload(...TaskService.getTasks.swr({})),
+		preload(...ProjectApiService.getAll.swr({})),
 	]);
-	return null;
+
+	const projectMap = new Map(projects.map((project) => [project.id, project]));
+
+	const taskCounts = tasks.reduce<Record<string, number>>((acc, task) => {
+		const agentId = projectMap.get(task.projectID)?.assistantID;
+		if (!agentId) return acc;
+		acc[agentId] = (acc[agentId] || 0) + 1;
+		return acc;
+	}, {});
+
+	const projectCounts = projects.reduce<Record<string, number>>(
+		(acc, { assistantID }) => {
+			if (!assistantID) return acc;
+			acc[assistantID] = (acc[assistantID] || 0) + 1;
+			return acc;
+		},
+		{}
+	);
+
+	const agents = baseAgents
+		.filter((agent) => !agent.deleted)
+		.map((agent) => ({
+			...agent,
+			taskCount: taskCounts[agent.id] || 0,
+			projectCount: projectCounts[agent.id] || 0,
+		}));
+
+	return { agents };
 }
 
 const CapabilityTools = [
@@ -39,56 +66,11 @@ const CapabilityTools = [
 	CapabilityTool.Tasks,
 ];
 export default function Agents() {
-	const navigate = useRowNavigate((agent: Agent) =>
-		$path("/agents/:id", { id: agent.id })
+	const { agents } = useLoaderData<typeof clientLoader>();
+
+	const navigate = useRowNavigate<Agent>(({ id }) =>
+		$path("/agents/:id", { id })
 	);
-	const getThreads = useSWR(...ThreadsService.getThreads.swr({}));
-	const getTasks = useSWR(...TaskService.getTasks.swr({}), {
-		fallbackData: [],
-	});
-	const threadsMap = useMemo(
-		() => new Map(getThreads.data?.map((thread) => [thread.id, thread])),
-		[getThreads.data]
-	);
-	const threadCounts = useMemo(() => {
-		if (!getThreads.data) return {};
-		return getThreads.data.reduce(
-			(acc, thread) => {
-				if (!thread.agentID || thread.project) return acc;
-				acc[thread.agentID] = (acc[thread.agentID] || 0) + 1;
-				return acc;
-			},
-			{} as Record<string, number>
-		);
-	}, [getThreads.data]);
-
-	const taskCounts = useMemo(() => {
-		if (!getTasks.data) return {};
-
-		return getTasks.data.reduce(
-			(acc, task) => {
-				const agentId = threadsMap.get(task.projectID)?.agentID;
-				if (!agentId) return acc;
-				acc[agentId] = (acc[agentId] || 0) + 1;
-				return acc;
-			},
-			{} as Record<string, number>
-		);
-	}, [getTasks.data, threadsMap]);
-
-	const getAgents = useSWR(...AgentService.getAgents.swr({}));
-
-	const agents = useMemo(() => {
-		return (
-			getAgents.data
-				?.filter((agent) => !agent.deleted)
-				.map((agent) => ({
-					...agent,
-					threadCount: threadCounts[agent.id] || 0,
-					taskCount: taskCounts[agent.id] || 0,
-				})) ?? []
-		);
-	}, [getAgents.data, threadCounts, taskCounts]);
 
 	return (
 		<div>
@@ -106,7 +88,7 @@ export default function Agents() {
 										tools: CapabilityTools,
 									} as Agent,
 								}).then((agent) => {
-									getAgents.mutate();
+									AgentService.getAgents.revalidate();
 									navigate.internal(agent);
 								});
 							}}
@@ -120,7 +102,6 @@ export default function Agents() {
 						columns={getColumns()}
 						data={agents}
 						sort={[{ id: "created", desc: true }]}
-						disableClickPropagation={(cell) => cell.id.includes("action")}
 						onRowClick={navigate.internal}
 						onCtrlClick={navigate.external}
 					/>
@@ -129,7 +110,7 @@ export default function Agents() {
 		</div>
 	);
 
-	function getColumns(): ColumnDef<(typeof agents)[0], string>[] {
+	function getColumns(): ColumnDef<AgentWithCounts, string>[] {
 		return [
 			columnHelper.accessor("name", {
 				header: "Name",
@@ -137,29 +118,31 @@ export default function Agents() {
 			columnHelper.accessor("description", {
 				header: "Description",
 			}),
-			columnHelper.accessor((agent) => agent.threadCount.toString(), {
-				id: "threads-action",
-				header: "Threads",
+			columnHelper.accessor((agent) => agent.projectCount.toString(), {
+				id: "projects",
+				header: "Obots",
 				cell: (info) => (
 					<div className="flex items-center gap-2">
 						<Link
-							to={$path("/chat-threads", {
+							onClick={(e) => e.stopPropagation()}
+							to={$path("/obots", {
 								agentId: info.row.original.id,
-								from: "agents",
+								showChildren: true,
 							})}
 							className="px-0"
 						>
-							{info.getValue() || 0} Threads
+							{info.getValue()} {pluralize(Number(info.getValue()), "Obot")}
 						</Link>
 					</div>
 				),
 			}),
 			columnHelper.accessor((agent) => agent.taskCount.toString(), {
-				id: "tasks-action",
+				id: "tasks",
 				header: "Tasks",
 				cell: (info) => (
 					<div className="flex items-center gap-2">
 						<Link
+							onClick={(e) => e.stopPropagation()}
 							to={$path("/tasks", {
 								agentId: info.row.original.id,
 								from: "agents",
@@ -185,6 +168,7 @@ export default function Agents() {
 						<Tooltip>
 							<TooltipTrigger asChild>
 								<Link
+									onClick={(e) => e.stopPropagation()}
 									to={$path("/agents/:id", {
 										id: row.original.id,
 									})}
@@ -209,12 +193,11 @@ export default function Agents() {
 	}
 }
 
-const columnHelper = createColumnHelper<
-	Agent & {
-		threadCount: number;
-		taskCount: number;
-	}
->();
+type AgentWithCounts = Awaited<
+	ReturnType<typeof clientLoader>
+>["agents"][number];
+
+const columnHelper = createColumnHelper<AgentWithCounts>();
 
 export const meta: MetaFunction = () => {
 	return [{ title: "Obot • Agents" }];
