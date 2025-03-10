@@ -96,9 +96,7 @@
 				class="inset-shadow-sm flex h-full w-1/4 min-w-[320px] flex-col overflow-hidden"
 				transition:slide={{ axis: 'x' }}
 			>
-				<div
-					class="flex grow flex-col default-scrollbar-thin"
-				>
+				<div class="default-scrollbar-thin flex grow flex-col">
 					<General bind:project />
 					<Instructions bind:project />
 					<Tools {tools} {onNewTools} />
