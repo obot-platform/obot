@@ -84,7 +84,7 @@ func (h *ProjectShareHandler) GetShare(req api.Context) error {
 	return req.Write(convertProjectShare(threadShare))
 }
 
-func (h *ProjectShareHandler) ListFeatured(req api.Context) error {
+func (h *ProjectShareHandler) ListShares(req api.Context) error {
 	var (
 		threadShareList v1.ThreadShareList
 		fields          = kclient.MatchingFields{}
