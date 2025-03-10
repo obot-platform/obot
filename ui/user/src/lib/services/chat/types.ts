@@ -299,6 +299,7 @@ export interface Rows {
 export interface Thread {
 	id: string;
 	created: string;
+	deleted?: string;
 	name: string;
 	ready?: boolean;
 }
