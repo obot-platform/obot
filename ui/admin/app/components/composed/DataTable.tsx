@@ -1,9 +1,12 @@
 import {
 	Cell,
 	ColumnDef,
+	ExpandedState,
+	GroupingState,
 	SortingState,
 	flexRender,
 	getCoreRowModel,
+	getExpandedRowModel,
 	getSortedRowModel,
 	useReactTable,
 } from "@tanstack/react-table";
@@ -35,11 +38,11 @@ interface DataTableProps<TData, TValue> {
 	columns: ColumnDef<TData, TValue>[];
 	data: TData[];
 	sort?: SortingState;
+	grouping?: GroupingState;
+	expanded?: ExpandedState;
 	rowClassName?: (row: TData) => string;
-	classNames?: {
-		row?: string;
-		cell?: string;
-	};
+	groupBy?: (row: TData, index: number) => TData[];
+	classNames?: { row?: string; cell?: string };
 	onRowClick?: (row: TData) => void;
 	onCtrlClick?: (row: TData) => void;
 	disableClickPropagation?: (cell: Cell<TData, TValue>) => boolean;
@@ -49,11 +52,13 @@ export function DataTable<TData, TValue>({
 	columns,
 	data,
 	sort,
+	expanded = true,
 	rowClassName,
 	classNames,
 	disableClickPropagation,
 	onRowClick,
 	onCtrlClick,
+	groupBy,
 }: DataTableProps<TData, TValue>) {
 	const table = useReactTable({
 		enableColumnResizing: true,
@@ -61,9 +66,11 @@ export function DataTable<TData, TValue>({
 		columnResizeDirection: "ltr",
 		data,
 		columns,
-		state: { sorting: sort },
+		state: { sorting: sort, expanded },
+		getSubRows: groupBy,
 		getCoreRowModel: getCoreRowModel(),
 		getSortedRowModel: getSortedRowModel(),
+		getExpandedRowModel: getExpandedRowModel(),
 	});
 
 	return (

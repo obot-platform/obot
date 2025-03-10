@@ -1,11 +1,22 @@
 import { ColumnDef, createColumnHelper } from "@tanstack/react-table";
-import { EllipsisIcon, ExternalLinkIcon } from "lucide-react";
+import {
+	CrownIcon,
+	EllipsisIcon,
+	ExternalLinkIcon,
+	GlobeIcon,
+	LockIcon,
+} from "lucide-react";
 import { useMemo } from "react";
 import { MetaFunction } from "react-router";
 import { $path } from "safe-routes";
 import useSWR, { preload } from "swr";
 
-import { Project } from "~/lib/model/project";
+import {
+	Project,
+	ProjectShare,
+	ShareStatus,
+	getShareStatusLabel,
+} from "~/lib/model/project";
 import { getUserDisplayName } from "~/lib/model/users";
 import { UserRoutes } from "~/lib/routers/userRoutes";
 import { AgentService } from "~/lib/service/api/agentService";
@@ -16,7 +27,11 @@ import { RouteQueryParams } from "~/lib/service/routeService";
 import { pluralize } from "~/lib/utils";
 
 import { ConfirmationDialog } from "~/components/composed/ConfirmationDialog";
-import { DataTable, DataTableFilter } from "~/components/composed/DataTable";
+import {
+	DataTable,
+	DataTableFilter,
+	DataTableTimeFilter,
+} from "~/components/composed/DataTable";
 import { Filters } from "~/components/composed/Filters";
 import { Button } from "~/components/ui/button";
 import {
@@ -40,6 +55,7 @@ export async function clientLoader() {
 		preload(...AgentService.getAgents.swr({})),
 		preload(...ThreadsService.getThreads.swr({})),
 		preload(...UserService.getUsers.swr({})),
+		preload(...ProjectApiService.getAllShares.swr({})),
 	]);
 }
 
@@ -59,14 +75,43 @@ export default function ProjectsPage() {
 		return projects.filter((p) => p.parentID === projectId).length;
 	}
 
+	const { data: shares } = useSWR(...ProjectApiService.getAllShares.swr({}));
+	const shareMap = useMemo(() => {
+		return new Map(
+			shares?.filter((s) => !!s.projectID).map((s) => [s.projectID!, s])
+		);
+	}, [shares]);
+
 	const filteredProjects = useMemo(() => {
 		let filtered = projects;
 
-		const { obotId, parentObotId, showChildren, agentId } =
-			pageQuery.params ?? {};
+		const {
+			obotId,
+			parentObotId,
+			showChildren,
+			shared,
+			createdStart,
+			createdEnd,
+		} = pageQuery.params ?? {};
 
-		if (agentId) {
-			filtered = filtered.filter((p) => p.assistantID === agentId);
+		if (createdStart) {
+			filtered = filtered.filter((p) => {
+				const created = new Date(p.created);
+				return created >= new Date(createdStart);
+			});
+		}
+
+		if (createdEnd) {
+			filtered = filtered.filter((p) => {
+				const created = new Date(p.created);
+				return created <= new Date(createdEnd);
+			});
+		}
+
+		if (shared) {
+			filtered = filtered.filter(
+				(p) => getShareStatus(shareMap.get(p.id)) === shared
+			);
 		}
 
 		if (obotId) {
@@ -82,7 +127,7 @@ export default function ProjectsPage() {
 		}
 
 		return filtered;
-	}, [projects, pageQuery.params]);
+	}, [projects, pageQuery.params, shareMap]);
 
 	const { data: agents } = useSWR(...AgentService.getAgents.swr({}), {
 		suspense: true,
@@ -124,6 +169,15 @@ export default function ProjectsPage() {
 		interceptAsync(() => deleteProject.executeAsync({ id, agentId }));
 	};
 
+	const rows = useMemo(() => {
+		const filteredSet = new Set(filteredProjects.map((p) => p.id));
+
+		return filteredProjects.filter(
+			// allow top level projects or valid projects who's parent was filtered out
+			(p) => !p.parentID || !filteredSet.has(p.parentID)
+		);
+	}, [filteredProjects]);
+
 	return (
 		<div>
 			<div className="flex h-full flex-col gap-4 p-8">
@@ -133,12 +187,7 @@ export default function ProjectsPage() {
 					</div>
 
 					<div className="flex justify-between p-1">
-						<Filters
-							projectMap={projectMap}
-							userMap={userMap}
-							agentMap={agentMap}
-							url="/obots"
-						/>
+						<Filters projectMap={projectMap} userMap={userMap} url="/obots" />
 
 						<div className="flex items-center gap-2">
 							<Label htmlFor="show-children">Include spawned Obots</Label>
@@ -153,7 +202,16 @@ export default function ProjectsPage() {
 						</div>
 					</div>
 
-					<DataTable columns={getColumns()} data={filteredProjects} />
+					<DataTable
+						columns={getColumns()}
+						data={rows}
+						groupBy={(row) => {
+							if (!row.parentID)
+								return filteredProjects.filter((p) => p.parentID === row.id);
+							else return [];
+						}}
+						sort={[{ id: "name", desc: false }]}
+					/>
 				</div>
 			</div>
 
@@ -175,17 +233,43 @@ export default function ProjectsPage() {
 		return [
 			columnHelper.accessor("name", {
 				header: "Name",
-				cell: ({ row }) => (
-					<div>
-						<p>{row.original.name}</p>
-					</div>
-				),
+				cell: ({ row }) => <p>{row.original.name ?? "Untitled"}</p>,
 			}),
+			columnHelper.accessor(
+				(row) => getShareStatus(shareMap.get(row.id)) as string,
+				{
+					header: ({ column }) => (
+						<DataTableFilter
+							key={column.id}
+							values={Object.values(ShareStatus).map((p) => ({
+								id: p,
+								name: getShareStatusLabel(p),
+							}))}
+							field="Privacy"
+							onSelect={(value) =>
+								pageQuery.update("shared", value as ShareStatus)
+							}
+						/>
+					),
+					id: "privacy",
+					cell: ({ row }) => {
+						const shareState = getShareStatus(shareMap.get(row.original.id));
+						return (
+							<p className="flex items-center gap-2 [&_svg]:size-4">
+								{renderShareIcon(shareState)} {getShareStatusLabel(shareState)}
+							</p>
+						);
+					},
+				}
+			),
 			columnHelper.accessor("parentID", {
 				header: ({ column }) => (
 					<DataTableFilter
 						key={column.id}
-						values={projects.map((p) => ({ id: p.id, name: p.name }))}
+						values={projects.map((p) => ({
+							id: p.id,
+							name: p.name ?? "Untitled",
+						}))}
 						field="Spawned from"
 						onSelect={(value) => pageQuery.update("parentObotId", value)}
 					/>
@@ -199,22 +283,6 @@ export default function ProjectsPage() {
 						</Link>
 					);
 				},
-			}),
-			columnHelper.accessor("assistantID", {
-				id: "agent",
-				header: ({ column }) => (
-					<DataTableFilter
-						key={column.id}
-						values={agents?.map((a) => ({ id: a.id, name: a.name }))}
-						field="Agent"
-						onSelect={(value) => pageQuery.update("agentId", value)}
-					/>
-				),
-				cell: ({ getValue }) => (
-					<Link to={$path("/agents/:id", { id: getValue() })}>
-						{agentMap.get(getValue())?.name}
-					</Link>
-				),
 			}),
 			columnHelper.accessor("userID", {
 				id: "user",
@@ -236,33 +304,57 @@ export default function ProjectsPage() {
 					);
 				},
 			}),
+			columnHelper.accessor("created", {
+				header: ({ column }) => {
+					let from: Date | undefined;
+					let to: Date | undefined;
+
+					if (pageQuery.params?.createdStart)
+						from = new Date(pageQuery.params?.createdStart);
+
+					if (pageQuery.params?.createdEnd)
+						to = new Date(pageQuery.params?.createdEnd);
+
+					return (
+						<DataTableTimeFilter
+							key={column.id}
+							field="Created On"
+							dateRange={{ from, to }}
+							onSelect={(range) => {
+								if (range?.from)
+									pageQuery.update("createdStart", range.from.toDateString());
+								if (range?.to)
+									pageQuery.update("createdEnd", range.to.toDateString());
+							}}
+						/>
+					);
+				},
+				cell: ({ getValue }) => (
+					<p>{new Date(getValue()).toLocaleDateString()}</p>
+				),
+			}),
 			columnHelper.display({
 				id: "info",
 				cell: ({ row }) => {
 					const childCount = getChildCount(row.original.id);
 					const threadCount = threadCounts.get(row.original.id) ?? 0;
+					const baseAgent = agentMap.get(row.original.assistantID);
 
 					return (
 						<div className="flex flex-col">
-							<p className="flex items-center gap-2">
-								{childCount > 0 ? (
+							{baseAgent && (
+								<p className="flex items-center gap-2 text-muted-foreground">
+									Base Agent:{" "}
 									<Link
-										to={$path("/obots", {
-											parentObotId: row.original.id,
-											showChildren: true,
-										})}
+										to={$path("/agents/:id", { id: row.original.assistantID })}
 									>
-										{childCount} spawned Obots
+										{baseAgent.name}
 									</Link>
-								) : (
-									<span className="text-muted-foreground">
-										No spawned Obots
-									</span>
-								)}
-							</p>
+								</p>
+							)}
 
 							<p className="flex items-center gap-2">
-								{threadCount > 0 ? (
+								{threadCount > 0 && (
 									<Link
 										to={$path("/chat-threads", {
 											obotId: row.original.id,
@@ -271,8 +363,18 @@ export default function ProjectsPage() {
 									>
 										{threadCount} {pluralize(threadCount, "thread", "threads")}
 									</Link>
-								) : (
-									<span className="text-muted-foreground">No threads</span>
+								)}
+							</p>
+							<p className="flex items-center gap-2">
+								{childCount > 0 && (
+									<Link
+										to={$path("/obots", {
+											parentObotId: row.original.id,
+											showChildren: true,
+										})}
+									>
+										{childCount} spawned Obots
+									</Link>
 								)}
 							</p>
 						</div>
@@ -314,6 +416,23 @@ export default function ProjectsPage() {
 				),
 			}),
 		];
+	}
+}
+
+function getShareStatus(share?: ProjectShare) {
+	if (share?.featured) return ShareStatus.Featured;
+	if (share?.public) return ShareStatus.Public;
+	return ShareStatus.Private;
+}
+
+function renderShareIcon(privacy: ShareStatus) {
+	switch (privacy) {
+		case ShareStatus.Featured:
+			return <CrownIcon key="star" className="text-warning" />;
+		case ShareStatus.Public:
+			return <GlobeIcon className="text-primary" key="globe" />;
+		case ShareStatus.Private:
+			return <LockIcon key="lock" className="text-muted-foreground" />;
 	}
 }
 
