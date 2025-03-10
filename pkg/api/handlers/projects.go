@@ -551,6 +551,25 @@ func (h *ProjectsHandler) GetProjectThread(req api.Context) error {
 	return req.Write(convertThread(thread))
 }
 
+func (h *ProjectsHandler) streamThreads(req api.Context, matches func(t *v1.Thread) bool, opts ...kclient.ListOption) error {
+	c, err := api.Watch[*v1.Thread](req, &v1.ThreadList{}, opts...)
+	if err != nil {
+		return err
+	}
+
+	req.ResponseWriter.Header().Set("Content-Type", "text/event-stream")
+	for thread := range c {
+		if !matches(thread) {
+			continue
+		}
+		if err := req.WriteDataEvent(convertThread(*thread)); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 func (h *ProjectsHandler) ListProjectThreads(req api.Context) error {
 	var (
 		threads v1.ThreadList
@@ -561,12 +580,22 @@ func (h *ProjectsHandler) ListProjectThreads(req api.Context) error {
 		return err
 	}
 
-	if err := req.List(&threads,
-		kclient.MatchingFields{
-			"spec.project":          "false",
-			"spec.parentThreadName": projectThread.Name,
-			"spec.userUID":          req.User.GetUID(),
-		}); err != nil {
+	if req.IsStreamRequested() {
+		// Field selectors don't work right now....
+		return h.streamThreads(req, func(t *v1.Thread) bool {
+			return !t.Spec.Project &&
+				t.Spec.ParentThreadName == projectThread.Name &&
+				t.Spec.UserID == req.User.GetUID()
+		})
+	}
+
+	selector := kclient.MatchingFields{
+		"spec.project":          "false",
+		"spec.parentThreadName": projectThread.Name,
+		"spec.userUID":          req.User.GetUID(),
+	}
+
+	if err := req.List(&threads, selector); err != nil {
 		return err
 	}
 
