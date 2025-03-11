@@ -300,6 +300,7 @@ func Router(services *services.Services) (http.Handler, error) {
 	mux.HandleFunc("DELETE /api/agents/{context}/credentials/{id}", handlers.DeleteCredential)
 	mux.HandleFunc("GET /api/credentials", handlers.ListCredentials)
 	mux.HandleFunc("DELETE /api/credentials/{id}", handlers.DeleteCredential)
+	mux.HandleFunc("POST /api/credentials/recreate-all", handlers.RecreateAllCredentials)
 	mux.HandleFunc("GET /api/threads/{context}/credentials", handlers.ListCredentials)
 	mux.HandleFunc("DELETE /api/threads/{context}/credentials/{id}", handlers.DeleteCredential)
 

@@ -17,10 +17,10 @@ require (
 	github.com/golang-jwt/jwt/v5 v5.2.1
 	github.com/google/uuid v1.6.0
 	github.com/gorilla/websocket v1.5.3
-	github.com/gptscript-ai/chat-completion-client v0.0.0-20250128181713-57857b74f9f1
+	github.com/gptscript-ai/chat-completion-client v0.0.0-20250224164718-139cb4507b1d
 	github.com/gptscript-ai/cmd v0.0.0-20250122115124-a3d65e9d2432
-	github.com/gptscript-ai/go-gptscript v0.9.6-0.20250222170845-eee4337500a6
-	github.com/gptscript-ai/gptscript v0.9.6-0.20250222165900-86e85f032cc9
+	github.com/gptscript-ai/go-gptscript v0.9.6-0.20250314150104-8d1f06fa87a4
+	github.com/gptscript-ai/gptscript v0.9.6-0.20250314150052-cee1a753e167
 	github.com/liggitt/tabwriter v0.0.0-20181228230101-89fcab3d43de
 	github.com/mhale/smtpd v0.8.3
 	github.com/obot-platform/kinm v0.0.0-20250307141751-3a6f13867f67
