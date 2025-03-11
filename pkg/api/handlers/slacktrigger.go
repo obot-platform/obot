@@ -6,6 +6,8 @@ import (
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/fields"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type SlackTriggerHandler struct{}
@@ -20,33 +22,26 @@ func (h *SlackTriggerHandler) Create(req api.Context) error {
 		return err
 	}
 
-	var workflow v1.Workflow
-	if err := req.Get(&workflow, manifest.WorkflowName); err != nil {
-		return err
+	// Validate manifest
+	if manifest.WorkflowName == "" {
+		return types.NewErrBadRequest("workflowName is required")
+	}
+	if manifest.ThreadName == "" {
+		return types.NewErrBadRequest("threadName is required")
 	}
 
-	var thread v1.Thread
-	if err := req.Get(&thread, workflow.Spec.ThreadName); err != nil {
-		return err
-	}
-
-	if manifest.TeamID != thread.Status.SlackConfiguration.Teams.ID {
-		return types.NewErrBadRequest("teamID does not match thread teamID")
-	}
-
-	// Check if trigger already exists for this workflow
 	var existingTriggers v1.SlackTriggerList
-	if err := req.List(&existingTriggers); err != nil {
+	if err := req.List(&existingTriggers, &client.ListOptions{
+		Namespace: req.Namespace(),
+		FieldSelector: fields.SelectorFromSet(map[string]string{
+			"spec.threadName": manifest.ThreadName,
+		}),
+	}); err != nil {
 		return err
 	}
 
-	for _, t := range existingTriggers.Items {
-		if t.Spec.WorkflowName == manifest.WorkflowName {
-			return types.NewErrBadRequest("slack trigger already exists for this workflow")
-		}
-		if t.Spec.TeamID == manifest.TeamID {
-			return types.NewErrBadRequest("slack trigger already exists for this team ID")
-		}
+	if len(existingTriggers.Items) > 0 {
+		return types.NewErrBadRequest("a slack trigger already exists for this project")
 	}
 
 	trigger := &v1.SlackTrigger{
@@ -56,8 +51,7 @@ func (h *SlackTriggerHandler) Create(req api.Context) error {
 		},
 		Spec: v1.SlackTriggerSpec{
 			WorkflowName: manifest.WorkflowName,
-			TeamID:       manifest.TeamID,
-			AppID:        manifest.AppID,
+			ThreadName:   manifest.ThreadName,
 		},
 	}
 
@@ -66,42 +60,6 @@ func (h *SlackTriggerHandler) Create(req api.Context) error {
 	}
 
 	return req.WriteCreated(convertSlackTrigger(*trigger))
-}
-
-func (h *SlackTriggerHandler) Update(req api.Context) error {
-	var (
-		id      = req.PathValue("id")
-		trigger v1.SlackTrigger
-	)
-
-	if err := req.Get(&trigger, id); err != nil {
-		return err
-	}
-
-	var manifest types.SlackTriggerManifest
-	if err := req.Read(&manifest); err != nil {
-		return err
-	}
-
-	var existingTriggers v1.SlackTriggerList
-	if err := req.List(&existingTriggers); err != nil {
-		return err
-	}
-
-	for _, t := range existingTriggers.Items {
-		if t.Spec.TeamID == manifest.TeamID && t.Name != id {
-			return types.NewErrBadRequest("slack trigger already exists for this team ID")
-		}
-	}
-
-	trigger.Spec.WorkflowName = manifest.WorkflowName
-	trigger.Spec.TeamID = manifest.TeamID
-
-	if err := req.Update(&trigger); err != nil {
-		return err
-	}
-
-	return req.Write(convertSlackTrigger(trigger))
 }
 
 func (h *SlackTriggerHandler) Delete(req api.Context) error {
@@ -118,8 +76,21 @@ func (h *SlackTriggerHandler) Delete(req api.Context) error {
 }
 
 func (h *SlackTriggerHandler) List(req api.Context) error {
+	var (
+		threadName = req.Request.URL.Query().Get("threadName")
+	)
+
+	listOptions := &client.ListOptions{
+		Namespace: req.Namespace(),
+	}
+	if threadName != "" {
+		listOptions.FieldSelector = fields.SelectorFromSet(map[string]string{
+			"spec.threadName": threadName,
+		})
+	}
+
 	var list v1.SlackTriggerList
-	if err := req.List(&list); err != nil {
+	if err := req.List(&list, listOptions); err != nil {
 		return err
 	}
 
@@ -149,7 +120,7 @@ func convertSlackTrigger(trigger v1.SlackTrigger) types.SlackTrigger {
 		Metadata: MetadataFrom(&trigger),
 		SlackTriggerManifest: types.SlackTriggerManifest{
 			WorkflowName: trigger.Spec.WorkflowName,
-			TeamID:       trigger.Spec.TeamID,
+			ThreadName:   trigger.Spec.ThreadName,
 		},
 	}
 }

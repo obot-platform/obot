@@ -8,8 +8,7 @@ export default defineConfig({
 			'/api': 'http://localhost:8080',
 			'/admin': 'http://localhost:8080',
 			'/oauth2': 'http://localhost:8080'
-		},
-		allowedHosts: ['04ac-70-184-112-91.ngrok-free.app']
+		}
 	},
 	plugins: [sveltekit()]
 });

@@ -195,7 +195,6 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.RunStateSpec":              schema_storage_apis_obotobotai_v1_RunStateSpec(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.RunStatus":                 schema_storage_apis_obotobotai_v1_RunStatus(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.SlackConfiguration":        schema_storage_apis_obotobotai_v1_SlackConfiguration(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.SlackTeam":                 schema_storage_apis_obotobotai_v1_SlackTeam(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.SlackTrigger":              schema_storage_apis_obotobotai_v1_SlackTrigger(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.SlackTriggerList":          schema_storage_apis_obotobotai_v1_SlackTriggerList(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.SlackTriggerSpec":          schema_storage_apis_obotobotai_v1_SlackTriggerSpec(ref),
@@ -3612,24 +3611,16 @@ func schema_obot_platform_obot_apiclient_types_SlackTriggerManifest(ref common.R
 							Format:      "",
 						},
 					},
-					"teamID": {
+					"threadName": {
 						SchemaProps: spec.SchemaProps{
-							Description: "TeamID is the Slack team/workspace ID",
-							Default:     "",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"appID": {
-						SchemaProps: spec.SchemaProps{
-							Description: "AppID is the Slack app ID",
+							Description: "ThreadName is the name of the project thread where the trigger will be created",
 							Default:     "",
 							Type:        []string{"string"},
 							Format:      "",
 						},
 					},
 				},
-				Required: []string{"workflowName", "teamID", "appID"},
+				Required: []string{"workflowName", "threadName"},
 			},
 		},
 	}
@@ -4427,8 +4418,22 @@ func schema_obot_platform_obot_apiclient_types_ThreadManifest(ref common.Referen
 							},
 						},
 					},
+					"oauthApps": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
 				},
-				Required: []string{"name", "icons", "prompt", "knowledgeDescription", "introductionMessage", "starterMessages"},
+				Required: []string{"name", "icons", "prompt", "knowledgeDescription", "introductionMessage", "starterMessages", "oauthApps"},
 			},
 		},
 		Dependencies: []string{
@@ -7476,13 +7481,6 @@ func schema_storage_apis_obotobotai_v1_OAuthAppSpec(ref common.ReferenceCallback
 							Ref:     ref("github.com/obot-platform/obot/apiclient/types.OAuthAppManifest"),
 						},
 					},
-					"threadName": {
-						SchemaProps: spec.SchemaProps{
-							Description: "ThreadName is the name of the thread that will be used to authorize the OAuth app. This is used so that a thread/project can own an OAuth app like slack for its custom use.",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
 				},
 			},
 		},
@@ -7976,38 +7974,6 @@ func schema_storage_apis_obotobotai_v1_SlackConfiguration(ref common.ReferenceCa
 							Format: "",
 						},
 					},
-					"teams": {
-						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref("github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.SlackTeam"),
-						},
-					},
-				},
-			},
-		},
-		Dependencies: []string{
-			"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.SlackTeam"},
-	}
-}
-
-func schema_storage_apis_obotobotai_v1_SlackTeam(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Type: []string{"object"},
-				Properties: map[string]spec.Schema{
-					"id": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-					"name": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
 				},
 			},
 		},
@@ -8119,24 +8085,16 @@ func schema_storage_apis_obotobotai_v1_SlackTriggerSpec(ref common.ReferenceCall
 							Format:      "",
 						},
 					},
-					"teamID": {
+					"threadName": {
 						SchemaProps: spec.SchemaProps{
-							Description: "TeamID is the Slack team/workspace ID",
-							Default:     "",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"appID": {
-						SchemaProps: spec.SchemaProps{
-							Description: "AppID is the Slack app ID",
+							Description: "ThreadName is the name of the project thread where the trigger will be created",
 							Default:     "",
 							Type:        []string{"string"},
 							Format:      "",
 						},
 					},
 				},
-				Required: []string{"workflowName", "teamID", "appID"},
+				Required: []string{"workflowName", "threadName"},
 			},
 		},
 	}
@@ -8694,6 +8652,12 @@ func schema_storage_apis_obotobotai_v1_ThreadSpec(ref common.ReferenceCallback) 
 							},
 						},
 					},
+					"slackConfiguration": {
+						SchemaProps: spec.SchemaProps{
+							Description: "SlackConfiguration is the configuration for the slack integration",
+							Ref:         ref("github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.SlackConfiguration"),
+						},
+					},
 					"workflowName": {
 						SchemaProps: spec.SchemaProps{
 							Description: "WorkflowName is the workflow owner of the thread",
@@ -8754,7 +8718,7 @@ func schema_storage_apis_obotobotai_v1_ThreadSpec(ref common.ReferenceCallback) 
 			},
 		},
 		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.EnvVar", "github.com/obot-platform/obot/apiclient/types.ThreadManifest"},
+			"github.com/obot-platform/obot/apiclient/types.EnvVar", "github.com/obot-platform/obot/apiclient/types.ThreadManifest", "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.SlackConfiguration"},
 	}
 }
 
@@ -8832,16 +8796,9 @@ func schema_storage_apis_obotobotai_v1_ThreadStatus(ref common.ReferenceCallback
 							Format: "",
 						},
 					},
-					"slackConfiguration": {
-						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.SlackConfiguration"),
-						},
-					},
 				},
 			},
 		},
-		Dependencies: []string{
-			"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.SlackConfiguration"},
 	}
 }
 

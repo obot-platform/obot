@@ -10,11 +10,8 @@ type SlackTriggerManifest struct {
 	// WorkflowName is the name of the workflow to trigger
 	WorkflowName string `json:"workflowName"`
 
-	// TeamID is the Slack team/workspace ID
-	TeamID string `json:"teamID"`
-
-	// AppID is the Slack app ID
-	AppID string `json:"appID"`
+	// ThreadName is the name of the project thread where the trigger will be created
+	ThreadName string `json:"threadName"`
 }
 
 type SlackTriggerList List[SlackTrigger]

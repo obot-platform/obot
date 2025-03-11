@@ -19,11 +19,26 @@ type SlackTriggerSpec struct {
 	// WorkflowName is the name of the workflow to trigger
 	WorkflowName string `json:"workflowName"`
 
-	// TeamID is the Slack team/workspace ID
-	TeamID string `json:"teamID"`
+	// ThreadName is the name of the project thread where the trigger will be created
+	ThreadName string `json:"threadName"`
+}
 
-	// AppID is the Slack app ID
-	AppID string `json:"appID"`
+func (r *SlackTrigger) Has(field string) bool {
+	return r.Get(field) != ""
+}
+
+func (r *SlackTrigger) Get(field string) string {
+	if r != nil {
+		switch field {
+		case "spec.threadName":
+			return r.Spec.ThreadName
+		}
+	}
+	return ""
+}
+
+func (r *SlackTrigger) FieldNames() []string {
+	return []string{"spec.threadName"}
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

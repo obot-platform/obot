@@ -51,4 +51,5 @@ type ThreadManifest struct {
 	IntroductionMessage  string      `json:"introductionMessage"`
 	StarterMessages      []string    `json:"starterMessages"`
 	SharedTasks          []string    `json:"sharedTasks,omitempty"`
+	OauthApps            []string    `json:"oauthApps"`
 }

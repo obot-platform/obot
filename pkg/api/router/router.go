@@ -34,7 +34,7 @@ func Router(services *services.Services) (http.Handler, error) {
 	defaultModelAliases := handlers.NewDefaultModelAliasHandler()
 	version := handlers.NewVersionHandler(services.EmailServerName, services.SupportDocker, services.AuthEnabled)
 	tables := handlers.NewTableHandler(services.GPTClient)
-	projects := handlers.NewProjectsHandler(services.Router.Backend(), services.Invoker, services.GPTClient)
+	projects := handlers.NewProjectsHandler(services.Router.Backend(), services.Invoker, services.GPTClient, services.ServerURL)
 	projectShare := handlers.NewProjectShareHandler()
 	files := handlers.NewFilesHandler(services.GPTClient)
 	workflows := handlers.NewWorkflowHandler(services.GPTClient, services.ServerURL, services.Invoker)
@@ -125,12 +125,9 @@ func Router(services *services.Services) (http.Handler, error) {
 	mux.HandleFunc("PUT /api/assistants/{assistant_id}/projects/{project_id}/env", assistants.SetEnv)
 
 	// Project Slack integration
-	mux.HandleFunc("GET /api/assistants/{assistant_id}/projects/{project_id}/slack/authorize", projects.SlackAuthorize)
-	mux.HandleFunc("POST /api/assistants/{assistant_id}/projects/{project_id}/slack/configure", projects.Configure)
-	mux.HandleFunc("DELETE /api/assistants/{assistant_id}/projects/{project_id}/slack/configuration", projects.DeleteConfiguration)
-
-	// Slack integration Callback
-	mux.HandleFunc("GET /api/slack/oauth/callback/{id}", projects.SlackCallback)
+	mux.HandleFunc("POST /api/assistants/{assistant_id}/projects/{project_id}/slack", projects.Configure)
+	mux.HandleFunc("PUT /api/assistants/{assistant_id}/projects/{project_id}/slack", projects.Configure)
+	mux.HandleFunc("DELETE /api/assistants/{assistant_id}/projects/{project_id}/slack", projects.DeleteConfiguration)
 
 	// Top level Tasks
 	mux.HandleFunc("GET /api/tasks", tasks.List)

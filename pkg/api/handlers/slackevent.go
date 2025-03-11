@@ -16,6 +16,8 @@ import (
 	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/invoke"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
+	"k8s.io/apimachinery/pkg/fields"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type SlackEventHandler struct {
@@ -45,7 +47,6 @@ type SlackEvent struct {
 }
 
 func (h *SlackEventHandler) HandleEvent(req api.Context) error {
-	// 1. Read and verify the request
 	body, err := io.ReadAll(req.Request.Body)
 	if err != nil {
 		return types.NewErrBadRequest("failed to read request body: %v", err)
@@ -57,61 +58,61 @@ func (h *SlackEventHandler) HandleEvent(req api.Context) error {
 		return types.NewErrBadRequest("failed to decode event: %v", err)
 	}
 
-	// Handle Slack URL verification challenge
 	if event.Type == "url_verification" {
 		return req.Write(map[string]string{"challenge": event.Challenge})
 	}
 
-	// Only handle app_mention events
 	if event.Event.Type != "app_mention" {
 		return req.Write(map[string]string{"status": "ignored"})
 	}
 
-	// 2. Find triggers matching the team ID
+	var threads v1.ThreadList
+	if err := req.List(&threads, &client.ListOptions{
+		Namespace: req.Namespace(),
+		FieldSelector: fields.SelectorFromSet(map[string]string{
+			"spec.slackConfiguration.appID": event.APIAppID,
+		}),
+	}); err != nil {
+		fmt.Println(err)
+		return err
+	}
+
+	if len(threads.Items) == 0 {
+		return types.NewErrBadRequest("no thread found for app ID")
+	}
+
 	var triggerList v1.SlackTriggerList
-	if err := req.List(&triggerList); err != nil {
+	if err := req.List(&triggerList, &client.ListOptions{
+		Namespace: req.Namespace(),
+		FieldSelector: fields.SelectorFromSet(map[string]string{
+			"spec.threadName": threads.Items[0].Name,
+		}),
+	}); err != nil {
 		return err
 	}
 
-	var matchingTrigger *v1.SlackTrigger
-	for _, trigger := range triggerList.Items {
-		if trigger.Spec.TeamID == event.TeamID && trigger.Spec.AppID == event.APIAppID {
-			matchingTrigger = &trigger
-			break
-		}
+	if len(triggerList.Items) == 0 {
+		return types.NewErrBadRequest("no trigger found for thread")
 	}
 
-	if matchingTrigger == nil {
-		return types.NewErrBadRequest("no trigger found for team ID")
-	}
-
-	// 3. Get workflow and thread
 	var workflow v1.Workflow
-	if err := req.Get(&workflow, matchingTrigger.Spec.WorkflowName); err != nil {
+	if err := req.Get(&workflow, triggerList.Items[0].Spec.WorkflowName); err != nil {
 		return err
 	}
 
-	var thread v1.Thread
-	if err := req.Get(&thread, workflow.Spec.ThreadName); err != nil {
-		return err
-	}
-
-	// Verify request signature
 	timestamp := req.Request.Header.Get("X-Slack-Request-Timestamp")
 	signature := req.Request.Header.Get("X-Slack-Signature")
 
-	// Reject requests older than 5 minutes
 	ts, err := strconv.ParseInt(timestamp, 10, 64)
 	if err != nil || time.Now().Unix()-ts > 300 {
 		return types.NewErrBadRequest("invalid timestamp")
 	}
 
-	// Get OAuth app for signing secret
 	var (
 		oauthApp      v1.OAuthApp
 		signingSecret string
 	)
-	if err := req.Get(&oauthApp, getOauthAppFromThreadName(thread.Name)); err != nil {
+	if err := req.Get(&oauthApp, getSlackOauthAppFromThreadName(threads.Items[0].Name)); err != nil {
 		return err
 	}
 	cred, err := h.gptscript.RevealCredential(req.Context(), []string{oauthApp.Name}, oauthApp.Spec.Manifest.Alias)
@@ -119,7 +120,6 @@ func (h *SlackEventHandler) HandleEvent(req api.Context) error {
 		return err
 	}
 
-	// Verify signature
 	signingSecret = cred.Env["SIGNING_SECRET"]
 	sigBase := fmt.Sprintf("v0:%s:%s", timestamp, string(body))
 	mac := hmac.New(sha256.New, []byte(signingSecret))
@@ -130,7 +130,6 @@ func (h *SlackEventHandler) HandleEvent(req api.Context) error {
 		return types.NewErrBadRequest("invalid signature")
 	}
 
-	// 4. Trigger workflow with parameters
 	threadID := event.Event.ThreadTS
 	if event.Event.ThreadTS == "" {
 		threadID = event.Event.TS
