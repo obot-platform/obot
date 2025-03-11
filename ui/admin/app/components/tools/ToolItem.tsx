@@ -8,6 +8,7 @@ import { ToolOauthConfig } from "~/components/tools//ToolOauthConfig";
 import { SelectToolAuth } from "~/components/tools/SelectToolAuth";
 import { ToolIcon } from "~/components/tools/ToolIcon";
 import { ToolTooltip } from "~/components/tools/ToolTooltip";
+import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
 import { Checkbox } from "~/components/ui/checkbox";
 import { CommandItem } from "~/components/ui/command";
@@ -17,11 +18,11 @@ type ToolItemProps = {
 	configured: boolean;
 	hideWarning?: boolean;
 	isSelected: boolean;
-	isBundleSelected: boolean;
 	onSelect: (oAuthToAdd?: string) => void;
 	expanded?: boolean;
 	onExpand?: (expanded: boolean) => void;
 	className?: string;
+	isGroup?: boolean;
 	isBundle?: boolean;
 };
 
@@ -30,11 +31,11 @@ export function ToolItem({
 	configured,
 	hideWarning,
 	isSelected,
-	isBundleSelected,
 	onSelect,
 	expanded,
 	onExpand,
 	className,
+	isGroup,
 	isBundle,
 }: ToolItemProps) {
 	const [toolOAuthDialogOpen, setToolOAuthDialogOpen] = useState(false);
@@ -67,7 +68,6 @@ export function ToolItem({
 			<CommandItem
 				className={cn("cursor-pointer", className)}
 				onSelect={available ? handleSelect : undefined}
-				disabled={isBundleSelected}
 			>
 				<ToolTooltip
 					tool={tool}
@@ -78,13 +78,11 @@ export function ToolItem({
 						<span
 							className={cn(
 								"flex w-full items-center gap-2 px-4 text-sm font-medium",
-								{
-									"px-0": isBundle,
-								}
+								{ "px-0": isGroup }
 							)}
 						>
 							{available ? (
-								<Checkbox checked={isSelected || isBundleSelected} />
+								<Checkbox checked={isSelected} />
 							) : !hideWarning ? (
 								<TriangleAlertIcon className="h-4 w-4 text-warning opacity-50" />
 							) : null}
@@ -99,10 +97,11 @@ export function ToolItem({
 									className="mr-2 h-4 w-4"
 								/>
 								{tool.name || normalizeToolID(tool.id)}
+								{isBundle && <Badge className="ms-2">Bundle</Badge>}
 							</span>
 						</span>
 
-						{isBundle && (
+						{isGroup && (
 							<Button
 								variant="link"
 								size="link-sm"

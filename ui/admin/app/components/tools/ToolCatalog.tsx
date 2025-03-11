@@ -86,8 +86,11 @@ export function ToolCatalog({
 		? filterToolCatalogBySearch(sortedValidCategories, search)
 		: sortedValidCategories;
 
-	const handleRemoveTool = (toolId: string, oauthToRemove?: string) => {
-		const updatedTools = selectedTools.filter((tool) => tool !== toolId);
+	const handleRemoveTool = (toolIds: string[], oauthToRemove?: string) => {
+		const toolsToRemoveSet = new Set(toolIds);
+		const updatedTools = selectedTools.filter(
+			(tool) => !toolsToRemoveSet.has(tool)
+		);
 		const stillHasOauth = updatedTools.some(
 			(tool) => oauthToolMap.get(tool) === oauthToRemove
 		);
@@ -98,14 +101,14 @@ export function ToolCatalog({
 	};
 
 	const handleAddTool = (
-		toolId: string,
+		toolIds: string[],
 		toolsToRemove: string[],
 		oauthToAdd?: string
 	) => {
 		const toolsToRemoveSet = new Set(toolsToRemove);
 		const newTools = [
 			...selectedTools.filter((tool) => !toolsToRemoveSet.has(tool)),
-			toolId,
+			...toolIds,
 		];
 
 		const updatedOauths =
