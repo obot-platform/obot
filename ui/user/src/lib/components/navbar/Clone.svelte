@@ -15,7 +15,6 @@
 	async function copy() {
 		dialog?.close();
 		const newProject = await ChatService.copyProject(project.assistantID, project.id);
-		console.log('old', project.id, 'new', newProject.id);
 		await goto(`/o/${newProject.id}`);
 	}
 </script>

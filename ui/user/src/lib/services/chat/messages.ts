@@ -17,8 +17,19 @@ function toMessageFromInput(s: string): string {
 	return s;
 }
 
-function setFileContent(items: EditorItem[], name: string, content: string, full: boolean = false) {
-	const existing = items.find((f) => f.id === name);
+function setFileContent(
+	items: EditorItem[],
+	name: string,
+	content: string,
+	full: boolean = false,
+	opts: {
+		threadID?: string;
+		taskID?: string;
+		runID?: string;
+	} = {}
+) {
+	const id = opts.runID ? `${opts.taskID}/${opts.runID}/${name}` : `${opts.threadID}/${name}`;
+	const existing = items.find((f) => f.id === id);
 	if (existing && existing.file) {
 		if (full) {
 			existing.file.contents = content;
@@ -29,7 +40,7 @@ function setFileContent(items: EditorItem[], name: string, content: string, full
 		}
 	} else {
 		items.push({
-			id: name,
+			id: id,
 			name: name,
 			file: {
 				contents: content,
@@ -107,7 +118,16 @@ function getFilenameAndContent(content: string) {
 	};
 }
 
-function reformatWriteMessage(items: EditorItem[], msg: Message, last: boolean) {
+function reformatWriteMessage(
+	items: EditorItem[],
+	msg: Message,
+	last: boolean,
+	opts: {
+		threadID?: string;
+		taskID?: string;
+		runID?: string;
+	} = {}
+) {
 	msg.icon = 'Pencil';
 	msg.done = !last || msg.toolCall !== undefined;
 	msg.sourceName = msg.done ? 'Wrote to Workspace' : 'Writing to Workspace';
@@ -129,17 +149,25 @@ function reformatWriteMessage(items: EditorItem[], msg: Message, last: boolean) 
 	}
 
 	if (last && msg.file?.filename && msg.file?.content) {
-		setFileContent(items, msg.file.filename, msg.file.content, msg.toolCall !== undefined);
+		setFileContent(items, msg.file.filename, msg.file.content, msg.toolCall !== undefined, opts);
 	}
 }
 
-export function buildMessagesFromProgress(items: EditorItem[], progresses: Progress[]): Messages {
+export function buildMessagesFromProgress(
+	items: EditorItem[],
+	progresses: Progress[],
+	opts: {
+		threadID?: string;
+		taskID?: string;
+		runID?: string;
+	}
+): Messages {
 	const messages = toMessages(progresses);
 
 	// Post Process for much more better-ness
 	messages.messages.forEach((item, i) => {
 		if (item.tool && item.sourceName == 'workspace_write') {
-			reformatWriteMessage(items, item, i == messages.messages.length - 1);
+			reformatWriteMessage(items, item, i == messages.messages.length - 1, opts);
 			return;
 		} else if (item.sent) {
 			reformatInputMessage(item);

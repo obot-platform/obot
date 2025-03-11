@@ -154,14 +154,27 @@ export class Thread {
 		}
 
 		for (const [stepID, msgs] of newMessages) {
-			this.onStepMessages(stepID, buildMessagesFromProgress(this.#items, msgs));
+			this.onStepMessages(
+				stepID,
+				buildMessagesFromProgress(this.#items, msgs, {
+					taskID: this.#task?.id,
+					runID: this.#runID,
+					threadID: this.threadID
+				})
+			);
 		}
 	}
 
 	#onProgress(progress: Progress) {
 		this.#progresses.push(progress);
 		if (this.replayComplete) {
-			this.onMessages(buildMessagesFromProgress(this.#items, this.#progresses));
+			this.onMessages(
+				buildMessagesFromProgress(this.#items, this.#progresses, {
+					taskID: this.#task?.id,
+					runID: this.#runID,
+					threadID: this.threadID
+				})
+			);
 			this.#handleSteps();
 		}
 	}

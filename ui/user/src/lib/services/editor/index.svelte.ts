@@ -118,6 +118,8 @@ async function loadFile(
 		let fileID = file;
 		if (opts?.taskID && opts?.runID) {
 			fileID = `${opts.taskID}/${opts.runID}/${file}`;
+		} else if (opts?.threadID) {
+			fileID = `${opts.threadID}/${file}`;
 		}
 		const targetFile: EditorItem = {
 			id: fileID,
