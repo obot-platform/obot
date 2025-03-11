@@ -27,10 +27,10 @@ type AssistantHandler struct {
 	invoker      *invoke.Invoker
 	events       *events.Emitter
 	gptScript    *gptscript.GPTScript
-	cachedClient kclient.Client
+	cachedClient kclient.WithWatch
 }
 
-func NewAssistantHandler(invoker *invoke.Invoker, events *events.Emitter, gptScript *gptscript.GPTScript, cachedClient kclient.Client) *AssistantHandler {
+func NewAssistantHandler(invoker *invoke.Invoker, events *events.Emitter, gptScript *gptscript.GPTScript, cachedClient kclient.WithWatch) *AssistantHandler {
 	return &AssistantHandler{
 		invoker:      invoker,
 		events:       events,
@@ -88,7 +88,7 @@ func (a *AssistantHandler) Invoke(req api.Context) error {
 		return err
 	}
 
-	resp, err := a.invoker.Thread(req.Context(), req.Storage, &thread, string(input), invoke.Options{
+	resp, err := a.invoker.Thread(req.Context(), a.cachedClient, &thread, string(input), invoke.Options{
 		GenerateName: system.ChatRunPrefix,
 		UserUID:      req.User.GetUID(),
 	})
