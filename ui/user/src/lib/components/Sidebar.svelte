@@ -23,8 +23,8 @@
 </script>
 
 <div class="relative flex size-full flex-col gap-3 bg-surface1">
-	<div class="flex justify-between h-[76px] items-center p-3">
-		<div class="flex items-center w-[calc(100%-42px)] h-[52px]">
+	<div class="flex h-[76px] items-center justify-between p-3">
+		<div class="flex h-[52px] w-[calc(100%-42px)] items-center">
 			<span class="flex-shrink-0"><Logo /></span>
 			<Projects {project} />
 		</div>

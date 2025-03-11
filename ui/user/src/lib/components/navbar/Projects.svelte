@@ -43,7 +43,7 @@
 {#if !layout.projectEditorOpen}
 	<div
 		use:tooltip
-		class="flex w-full h-full -translate-x-16 flex-col border-t-[1px] border-surface2 bg-surface1 p-2 shadow-inner"
+		class="flex h-full w-full -translate-x-16 flex-col border-t-[1px] border-surface2 bg-surface1 p-2 shadow-inner"
 		role="none"
 		onclick={() => toggle(false)}
 	>
@@ -57,11 +57,11 @@
 				<div class="flex grow flex-col">
 					<span class="text-sm font-semibold text-on-background">{p.name || 'Untitled'}</span>
 					{#if p.description}
-						<span class="text-xs font-light text-on-background line-clamp-1">{p.description}</span>
+						<span class="line-clamp-1 text-xs font-light text-on-background">{p.description}</span>
 					{/if}
 				</div>
 				{#if p.id === project.id}
-					<Check class="mr-2 h-5 w-5 text-gray flex-shrink-0" />
+					<Check class="mr-2 h-5 w-5 flex-shrink-0 text-gray" />
 				{/if}
 			</a>
 		{/each}

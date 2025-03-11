@@ -147,7 +147,7 @@
 			<div class="flex flex-wrap justify-center gap-4 px-4">
 				{#each project.starterMessages ?? [] as msg}
 					<button
-						class="w-52 rounded-2xl border border-surface3 bg-transparent p-4 text-left text-sm transition-all duration-300 hover:bg-surface2 font-light"
+						class="w-52 rounded-2xl border border-surface3 bg-transparent p-4 text-left text-sm font-light transition-all duration-300 hover:bg-surface2"
 						onclick={async () => {
 							await ensureThread();
 							await thread?.invoke(msg);

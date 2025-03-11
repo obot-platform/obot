@@ -51,7 +51,7 @@ body {
 }
 
 .button-icon-primary {
-	@apply rounded-full p-2 text-gray hover:bg-gray-100 focus:outline-none dark:hover:bg-gray-700/30 hover:text-blue;
+	@apply rounded-full p-2 text-gray hover:bg-gray-100 hover:text-blue focus:outline-none dark:hover:bg-gray-700/30;
 }
 
 .text-input {
