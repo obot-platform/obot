@@ -193,7 +193,7 @@
 {#snippet files()}
 	{#if msg.file?.filename}
 		<button
-			class="m-5 flex cursor-pointer flex-col divide-y
+			class="my-2 flex cursor-pointer flex-col divide-y
 		 divide-gray-300 rounded-3xl
 		 border border-gray-300
 		 bg-white text-start
@@ -410,9 +410,7 @@
 		class:justify-end={msg.sent}
 	>
 		{#if !msg.sent}
-			<div class="mr-3">
-				<MessageIcon {msg} {project} />
-			</div>
+			<MessageIcon {msg} />
 		{/if}
 
 		<div class="flex w-full flex-col" class:w-full={fullWidth}>

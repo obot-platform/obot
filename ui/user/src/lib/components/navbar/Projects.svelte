@@ -19,7 +19,7 @@
 </script>
 
 <button
-	class="flex items-center gap-2 rounded-lg p-2"
+	class="relative flex grow items-center justify-between gap-2 truncate rounded-xl p-2"
 	class:hover:bg-surface2={!layout.projectEditorOpen}
 	class:cursor-default={layout.projectEditorOpen}
 	use:ref
@@ -32,8 +32,9 @@
 		toggle();
 	}}
 >
-	<span class="text-2xl font-semibold text-on-background">{project.name || 'Untitled'}</span>
-	<AssistantIcon {project} class="h-5 w-5" />
+	<span class="max-w-[100% - 24px] truncate text-sm font-semibold text-on-background"
+		>{project.name || 'Untitled'}</span
+	>
 	{#if !layout.projectEditorOpen}
 		<ChevronDown class="text-gray" />
 	{/if}
@@ -42,34 +43,34 @@
 {#if !layout.projectEditorOpen}
 	<div
 		use:tooltip
-		class="flex min-w-[250px] flex-col rounded-3xl bg-surface1 p-2"
+		class="flex w-full h-full -translate-x-16 flex-col border-t-[1px] border-surface2 bg-surface1 p-2 shadow-inner"
 		role="none"
 		onclick={() => toggle(false)}
 	>
 		{#each projects as p}
 			<a
-				href="/o/{p.id}"
+				href="/o/{p.id}?sidebar=true"
 				rel="external"
 				class="flex items-center gap-2 rounded-3xl p-2 hover:bg-surface2"
 			>
-				<AssistantIcon project={p} />
+				<AssistantIcon project={p} class="flex-shrink-0" />
 				<div class="flex grow flex-col">
-					<span class="text-sm font-medium text-on-background">{p.name || 'Untitled'}</span>
+					<span class="text-sm font-semibold text-on-background">{p.name || 'Untitled'}</span>
 					{#if p.description}
-						<p class="text-xs text-gray">{p.description}</p>
+						<span class="text-xs font-light text-on-background line-clamp-1">{p.description}</span>
 					{/if}
 				</div>
 				{#if p.id === project.id}
-					<Check class="h-5 w-5 text-gray" />
+					<Check class="mr-2 h-5 w-5 text-gray flex-shrink-0" />
 				{/if}
 			</a>
 		{/each}
 		<a
 			href="/home"
-			class="flex items-center justify-center gap-2 rounded-3xl px-2 py-4 text-gray hover:bg-surface2"
+			class="flex items-center justify-center gap-2 rounded-xl px-2 py-4 text-gray hover:bg-surface2"
 		>
 			<img src="/user/images/obot-icon-blue.svg" class="h-5" alt="Obot icon" />
-			<span class="text-sm font-medium text-gray">Obots</span>
+			<span class="text-sm text-gray">See All Obots</span>
 		</a>
 	</div>
 {/if}

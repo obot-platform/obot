@@ -15,10 +15,10 @@
 	import { onDestroy } from 'svelte';
 	import { toHTMLFromMarkdown } from '$lib/markdown';
 	import { getLayout } from '$lib/context/layout.svelte';
-	import { Plus } from 'lucide-svelte/icons';
 	import Files from '$lib/components/edit/Files.svelte';
 	import Tools from '$lib/components/navbar/Tools.svelte';
 	import type { UIEventHandler } from 'svelte/elements';
+	import AssistantIcon from '$lib/icons/AssistantIcon.svelte';
 
 	interface Props {
 		id?: string;
@@ -109,7 +109,10 @@
 	}
 </script>
 
-<div class="relative w-full">
+<div class="relative w-full pb-32">
+	<div
+		class="absolute inset-x-0 bottom-32 z-30 h-14 w-full bg-gradient-to-t from-white dark:from-black"
+	></div>
 	<div
 		bind:this={container}
 		class="flex h-full grow justify-center overflow-y-auto scrollbar-none"
@@ -127,20 +130,30 @@
 			class:justify-center={!thread}
 		>
 			<div class="message-content self-center">
+				<div class="flex flex-col items-center justify-center pt-8 text-center">
+					<AssistantIcon {project} class="h-14 w-14 shadow-lg" />
+					<h4 class="!mb-1">{project.name || 'Untitled'}</h4>
+					{#if project.description}
+						<p class="max-w-sm text-xs text-gray">{project.description}</p>
+					{/if}
+					<div class="mt-4 h-[1px] w-96 max-w-sm rounded-full bg-surface1 dark:bg-surface2"></div>
+				</div>
 				{#if project?.introductionMessage}
-					{@html toHTMLFromMarkdown(project?.introductionMessage)}
+					<div class="pt-8">
+						{@html toHTMLFromMarkdown(project?.introductionMessage)}
+					</div>
 				{/if}
 			</div>
-			<div class="grid gap-2 self-center md:grid-cols-3">
+			<div class="flex flex-wrap justify-center gap-4 px-4">
 				{#each project.starterMessages ?? [] as msg}
 					<button
-						class="rounded-3xl border-2 border-blue p-5 hover:bg-surface1"
+						class="w-52 rounded-2xl border border-surface3 bg-transparent p-4 text-left text-sm transition-all duration-300 hover:bg-surface2 font-light"
 						onclick={async () => {
 							await ensureThread();
 							await thread?.invoke(msg);
 						}}
 					>
-						{msg}
+						<span class="line-clamp-3">{msg}</span>
 					</button>
 				{/each}
 			</div>
@@ -153,13 +166,11 @@
 					onSendCredentialsCancel={() => thread?.abort()}
 				/>
 			{/each}
-			<div class="min-h-36">
+			<div class="min-h-16">
 				<!-- Vertical Spacer -->
 			</div>
 		</div>
-		<div
-			class="absolute inset-x-0 bottom-0 z-30 flex justify-center bg-gradient-to-t from-white px-3 pb-8 pt-10 dark:from-black"
-		>
+		<div class="absolute inset-x-0 bottom-0 z-30 flex justify-center py-8">
 			<Input
 				readonly={messages.inProgress}
 				pending={thread?.pending}
@@ -174,10 +185,7 @@
 				}}
 				bind:items={layout.items}
 			>
-				<div class="flex w-full">
-					<button class="m-2 rounded-full border border-surface3 p-2 text-gray">
-						<Plus className="icon-default" />
-					</button>
+				<div class="flex w-fit items-center gap-1">
 					<Files thread {project} bind:currentThreadID={id} />
 					<Tools {project} {version} {tools} />
 				</div>

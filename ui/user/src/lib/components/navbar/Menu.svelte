@@ -2,8 +2,12 @@
 	import { popover } from '$lib/actions';
 	import type { Snippet } from 'svelte';
 	import { RotateCw } from 'lucide-svelte';
+	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
+		classes?: {
+			button?: string;
+		};
 		onLoad?: () => void | Promise<void>;
 		icon: Snippet;
 		show?: boolean;
@@ -12,7 +16,7 @@
 		description?: string;
 	}
 
-	let { onLoad, icon, body, title, description, show }: Props = $props();
+	let { onLoad, icon, body, title, description, show, classes }: Props = $props();
 	let loading = $state(false);
 	const { ref, tooltip, toggle } = popover({
 		placement: 'bottom',
@@ -52,7 +56,7 @@
 
 <button
 	use:ref
-	class="icon-button z-20"
+	class={twMerge("icon-button z-20", classes?.button)}
 	onclick={() => {
 		load();
 		toggle();

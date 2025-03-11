@@ -7,7 +7,7 @@
 }
 
 .icon-button {
-	@apply icon-button-colors min-h-10 min-w-10 rounded-lg p-2.5 text-sm;
+	@apply icon-button-colors min-h-10 min-w-10 rounded-lg p-2.5 text-sm transition-all duration-200;
 }
 
 .icon-default-size {
@@ -48,6 +48,10 @@ body {
 
 .button-primary {
 	@apply button-layout button-primary-colors;
+}
+
+.button-icon-primary {
+	@apply rounded-full p-2 text-gray hover:bg-gray-100 focus:outline-none dark:hover:bg-gray-700/30 hover:text-blue;
 }
 
 .text-input {
@@ -155,6 +159,11 @@ input {
 
 blockquote {
 	@apply border-l-2 border-gray-200 pl-4 italic;
+}
+
+.message-content ol,
+.message-content ul {
+	@apply !px-[18px];
 }
 
 li:has(input[type='checkbox'])::marker {

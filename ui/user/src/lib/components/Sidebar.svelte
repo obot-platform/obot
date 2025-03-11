@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { type AssistantTool, type Project } from '$lib/services';
 	import { KeyRound, SidebarClose } from 'lucide-svelte';
-	import AssistantIcon from '$lib/icons/AssistantIcon.svelte';
 	import Threads from '$lib/components/sidebar/Threads.svelte';
 	import Clone from '$lib/components/navbar/Clone.svelte';
 	import { hasTool } from '$lib/tools';
@@ -9,6 +8,8 @@
 	import Credentials from '$lib/components/navbar/Credentials.svelte';
 	import Tasks from '$lib/components/sidebar/Tasks.svelte';
 	import { getLayout } from '$lib/context/layout.svelte';
+	import Projects from './navbar/Projects.svelte';
+	import Logo from './navbar/Logo.svelte';
 
 	interface Props {
 		project: Project;
@@ -21,17 +22,15 @@
 	const layout = getLayout();
 </script>
 
-<div class="relative flex size-full flex-col gap-3 rounded-tl-3xl bg-surface1">
-	<button class="icon-button absolute right-1 top-1" onclick={() => (layout.sidebarOpen = false)}>
-		<SidebarClose class="icon-default" />
-	</button>
-
-	<div class="flex flex-col gap-2 p-3 pb-0">
-		<div class="flex items-center gap-2 rounded-lg">
-			<AssistantIcon {project} class="h-5 w-5" />
-			<span class="text-xl font-semibold text-on-background">{project.name || 'Untitled'}</span>
-			<div class="grow"></div>
+<div class="relative flex size-full flex-col gap-3 bg-surface1">
+	<div class="flex justify-between h-[76px] items-center p-3">
+		<div class="flex items-center w-[calc(100%-42px)] h-[52px]">
+			<span class="flex-shrink-0"><Logo /></span>
+			<Projects {project} />
 		</div>
+		<button class="icon-button" onclick={() => (layout.sidebarOpen = false)}>
+			<SidebarClose class="icon-default" />
+		</button>
 	</div>
 
 	<div class="default-scrollbar-thin flex w-full grow flex-col gap-2 p-3">

@@ -1,23 +1,25 @@
 <script lang="ts">
 	import DarkModeToggle from '$lib/components/navbar/DarkModeToggle.svelte';
 	import Profile from '$lib/components/navbar/Profile.svelte';
-	import Projects from '$lib/components/navbar/Projects.svelte';
-	import type { Project } from '$lib/services';
 	import { fade } from 'svelte/transition';
 	import Logo from '$lib/components/navbar/Logo.svelte';
+	import type { Snippet } from 'svelte';
 
 	interface Props {
-		project: Project;
+		children?: Snippet;
 	}
 
-	let { project }: Props = $props();
+	let { children }: Props = $props();
 </script>
 
 <nav class="w-full via-80%" in:fade|global>
 	<div class="bg-white p-3 dark:bg-black">
 		<div class="flex items-center justify-between">
-			<Logo />
-			<Projects {project} />
+			{#if children}
+				{@render children()}
+			{:else}
+				<Logo />
+			{/if}
 			<div class="grow"></div>
 			<DarkModeToggle />
 			<Profile />

@@ -40,7 +40,9 @@
 	}
 </script>
 
-<Menu bind:this={menu} title="Tools" description="Available tools" {onLoad}>
+<Menu bind:this={menu} title="Tools" description="Available tools" {onLoad} classes={{
+	button: "button-icon-primary"
+}}>
 	{#snippet icon()}
 		<Wrench class="h-5 w-5" />
 	{/snippet}

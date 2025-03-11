@@ -42,7 +42,7 @@
 </script>
 
 {#if icon}
-	<img src={icon} alt="assistant icon" class={twMerge('h-8 w-8', klass)} />
+	<img src={icon} alt="assistant icon" class={twMerge('h-8 w-8 rounded-full shadow-md', klass)} />
 {:else}
 	<div
 		class={twMerge(

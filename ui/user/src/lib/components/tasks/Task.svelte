@@ -51,7 +51,7 @@
 	});
 </script>
 
-<div class="flex w-full justify-center overflow-y-auto">
+<div class="flex w-full justify-center overflow-y-auto pl-10">
 	<!-- div in div is needed for the scrollbar to work so that space outside the max-width is still scrollable -->
 	<div
 		role="none"

@@ -188,7 +188,7 @@
 {#if thread}
 	<button
 		use:threadTT.ref
-		class="icon-button"
+		class="icon-button button-icon-primary"
 		onclick={() => {
 			threadTT.toggle();
 			loadFiles();
@@ -212,7 +212,7 @@
 	class="colors-surface1 relative h-full w-full rounded-3xl md:w-4/5"
 >
 	<button
-		class="icon-button absolute right-2 top-2"
+		class="button-icon-primary absolute right-2 top-2"
 		onclick={async () => {
 			await fileMonitor.save();
 			editorDialog?.close();

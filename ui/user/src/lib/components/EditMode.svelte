@@ -123,7 +123,7 @@
 			<div role="none" class="w-2 translate-x-2 cursor-col-resize" use:columnResize={nav}></div>
 		{/if}
 		<div
-			class="colors-surface3 h-full grow rounded-3xl p-2"
+			class="colors-surface3 h-full grow rounded-l-3xl border-r-0 p-2"
 			class:contents={!layout.projectEditorOpen}
 		>
 			<div

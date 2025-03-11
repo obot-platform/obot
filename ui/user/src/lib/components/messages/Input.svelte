@@ -87,13 +87,14 @@
 	});
 </script>
 
-<div class="w-full max-w-[700px]">
+<div class="w-full max-w-[1000px] px-5">
 	<label for="chat" class="sr-only">Your messages</label>
 	<div
-		class="relative flex flex-col items-center rounded-3xl bg-surface1 focus-within:shadow-md focus-within:ring-1 focus-within:ring-blue
+		class="relative flex flex-col items-center rounded-2xl bg-surface1 focus-within:shadow-md focus-within:ring-1 focus-within:ring-blue
+
 "
 	>
-		<div class="flex w-full items-center px-6 py-4">
+		<div class="flex w-full items-center gap-4 p-2">
 			<textarea
 				use:autoHeight
 				id="chat"
@@ -103,19 +104,19 @@
 				onkeydown={onKey}
 				bind:this={chat}
 				onfocus={onFocus}
-				class="grow resize-none border-none bg-surface1 outline-none"
+				class="grow resize-none rounded-xl border-none bg-surface1 p-3 pr-20 outline-none"
 				{placeholder}
 			></textarea>
+		</div>
+		<div class="flex w-full justify-between p-2 pt-0">
+			{@render children?.()}
 			<button
 				type="submit"
 				onclick={() => submit()}
-				class="button-colors absolute bottom-2 right-2 rounded-full
-				p-2
-				text-blue
-				hover:border-none"
+				class="button-colors rounded-full p-2 text-blue transition-all duration-100 hover:border-none"
 			>
 				{#if readonly}
-					<div class="m-1.5 h-3 w-3 place-self-center rounded-sm bg-blue"></div>
+					<div class="m-1.5 h-3 w-3 place-self-center rounded-sm bg-white"></div>
 				{:else if pending}
 					<LoaderCircle class="animate-spin" />
 				{:else}
@@ -124,6 +125,5 @@
 				<span class="sr-only">Send message</span>
 			</button>
 		</div>
-		{@render children?.()}
 	</div>
 </div>
