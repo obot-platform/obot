@@ -56,7 +56,6 @@
 				<EditMode bind:project bind:tools bind:currentThreadID />
 			{:else}
 				<Obot {project} {tools} bind:currentThreadID />
-				<p>Project not found.</p>
 			{/if}
 		{/key}
 	{/if}
