@@ -10,7 +10,7 @@
 	}
 
 	const DEFAULT_PROMPT =
-		'Based on the following character description: "{description}", draw an animated profile picture in a modern style with an upbeat and vibrant color palette.';
+		'Based on the following description of a mascot: "{description}", draw an animated profile picture in a modern style with an upbeat and vibrant color palette.';
 
 	let { project = $bindable() }: Props = $props();
 	let isGenerating = $state(false);
