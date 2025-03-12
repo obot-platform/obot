@@ -217,8 +217,21 @@ export interface AssistantToolList {
 export interface ToolReference {
 	id: string;
 	name: string;
+	description?: string;
+	active: boolean;
+	builtin: boolean;
+	bundle?: boolean;
+	bundleToolName?: string;
+	created: string;
+	credentials: string[];
+	reference: string;
+	resolved: boolean;
+	revision: string;
+	toolType: string;
+	type: string;
 	metadata?: {
 		icon?: string;
+		oath: string;
 	};
 }
 

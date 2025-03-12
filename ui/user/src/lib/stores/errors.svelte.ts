@@ -13,11 +13,14 @@ export function isError(value: unknown): value is Error {
 	);
 }
 
-function append(e: unknown) {
-	if (isError(e)) {
-		store.items.push(e);
-	} else {
-		store.items.push(new Error(String(e)));
+function append(e: unknown, duration?: number) {
+	const err = isError(e) ? e : new Error(String(e));
+	store.items.push(err);
+
+	if (duration) {
+		setTimeout(() => {
+			store.items = store.items.filter((x) => x !== err);
+		}, duration);
 	}
 }
 

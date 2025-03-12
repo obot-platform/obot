@@ -1,5 +1,6 @@
 import {
 	type ComputePositionConfig,
+	type Placement,
 	autoUpdate,
 	computePosition,
 	flip,
@@ -19,6 +20,8 @@ interface PopoverOptions extends Partial<ComputePositionConfig> {
 	hover?: boolean;
 	assign?: (x: number, y: number) => void;
 	offset?: number;
+	placement?: Placement;
+	fixed?: boolean;
 }
 
 let id = 0;
@@ -40,8 +43,12 @@ export default function popover(opts?: PopoverOptions): Popover {
 		});
 
 		async function updatePosition() {
+			if (opts?.fixed) {
+				return;
+			}
+
 			const { x, y } = await computePosition(ref, tooltip, {
-				placement: 'bottom-end',
+				placement: opts?.placement ?? 'bottom-end',
 				middleware: [flip(), shift({ padding: offsetSize }), offset(offsetSize)],
 				...opts
 			});
@@ -79,11 +86,13 @@ export default function popover(opts?: PopoverOptions): Popover {
 			}
 		});
 
-		tooltip.classList.add('hidden');
-		tooltip.classList.add('absolute');
-		tooltip.classList.add('transition-opacity');
-		tooltip.classList.add('duration-300');
-		tooltip.classList.add('opacity-0');
+		if (opts?.fixed) {
+			tooltip.classList.add('fixed');
+		} else {
+			tooltip.classList.add('absolute');
+		}
+
+		tooltip.classList.add('hidden', 'transition-opacity', 'duration-300', 'opacity-0');
 
 		let hasZIndex = false;
 		tooltip.classList.forEach((className) => {

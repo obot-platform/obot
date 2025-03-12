@@ -1,9 +1,9 @@
 <script lang="ts">
-	import CollapsePane from '$lib/components/edit/CollapsePane.svelte';
-	import { Plus, X } from 'lucide-svelte/icons';
-	import { type AssistantTool } from '$lib/services';
 	import { popover } from '$lib/actions';
-	import { fade } from 'svelte/transition';
+	import CollapsePane from '$lib/components/edit/CollapsePane.svelte';
+	import { type AssistantTool } from '$lib/services';
+	import { Plus, X } from 'lucide-svelte/icons';
+	import ToolCatalog from './ToolCatalog.svelte';
 
 	interface Props {
 		tools: AssistantTool[];
@@ -20,18 +20,9 @@
 		if (remove) {
 			newTools = newTools.filter((t) => t.id !== tool.id);
 		} else {
-			newTools = [
-				...newTools,
-				{
-					...tool,
-					enabled: true
-				}
-			];
+			newTools = [...newTools, { ...tool, enabled: true }];
 		}
 		await onNewTools(newTools);
-		if (!remove) {
-			toggle();
-		}
 	}
 </script>
 
@@ -71,16 +62,7 @@
 		<ul class="flex flex-col gap-2">
 			{@render toolList(enabledList, true, 'bg-surface2')}
 		</ul>
-		{#if disabledList.length > 0}
-			<div class="self-end" in:fade>
-				<button use:ref class="button flex items-center gap-1" onclick={() => toggle()}>
-					<Plus class="h-4 w-4" />
-					<span class="text-sm">Tool</span>
-				</button>
-			</div>
-			<div use:tooltip class="z-20 max-h-[500px] overflow-y-auto rounded-3xl bg-surface2 p-3">
-				{@render toolList(disabledList, false, 'bg-surface3')}
-			</div>
-		{/if}
+
+		<div class="self-end"><ToolCatalog {tools} onSelectTools={onNewTools} /></div>
 	</div>
 </CollapsePane>

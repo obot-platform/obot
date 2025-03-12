@@ -1,12 +1,12 @@
 <script lang="ts">
-	import { profile } from '$lib/stores';
-	import EditMode from '$lib/components/EditMode.svelte';
-	import { type PageProps } from './$types';
-	import { initLayout } from '$lib/context/layout.svelte';
-	import Obot from '$lib/components/Obot.svelte';
 	import { replaceState } from '$app/navigation';
+	import EditMode from '$lib/components/EditMode.svelte';
+	import Obot from '$lib/components/Obot.svelte';
+	import { initLayout } from '$lib/context/layout.svelte';
+	import { initToolReferences } from '$lib/context/toolReferences.svelte';
+	import { profile } from '$lib/stores';
 
-	let { data }: PageProps = $props();
+	let { data } = $props();
 	let project = $state(data.project);
 	let tools = $state(data.tools ?? []);
 	let currentThreadID = $state<string | undefined>(
@@ -14,6 +14,8 @@
 			undefined
 	);
 	let title = $derived(project?.name || 'Obot');
+
+	initToolReferences(data.toolReferences ?? []);
 
 	initLayout({
 		sidebarOpen: true,
