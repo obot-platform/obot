@@ -1,4 +1,4 @@
-{{- if and (eq .Values.config.obotWorkspaceProviderType "directory") .Values.persistence.enabled (not .Values.persistence.existingClaim) }}
+{{- if and (eq .Values.config.OBOT_WORKSPACE_PROVIDER_TYPE "directory") .Values.persistence.enabled (not .Values.persistence.existingClaim) }}
 kind: PersistentVolumeClaim
 apiVersion: v1
 metadata:

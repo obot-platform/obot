@@ -41,7 +41,7 @@ spec:
               port: http
             failureThreshold: 5
             periodSeconds: 10
-          {{- if and (eq .Values.config.obotWorkspaceProviderType "directory") .Values.persistence.enabled }}
+          {{- if and (eq .Values.config.OBOT_WORKSPACE_PROVIDER_TYPE "directory") .Values.persistence.enabled }}
           volumeMounts:
             - mountPath: {{ .Values.persistence.path }}
               name: data
@@ -58,7 +58,7 @@ spec:
                 name: {{ if .Values.config.existingSecret }}{{ .Values.config.existingSecret }}{{ else }}{{ include "obot.config.secretName" . }}{{- end }}
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
-      {{- if and (eq .Values.config.obotWorkspaceProviderType "directory") .Values.persistence.enabled }}
+      {{- if and (eq .Values.config.OBOT_WORKSPACE_PROVIDER_TYPE "directory") .Values.persistence.enabled }}
       volumes:
         - name: data
           persistentVolumeClaim:
