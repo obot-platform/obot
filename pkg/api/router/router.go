@@ -109,9 +109,12 @@ func Router(services *services.Services) (http.Handler, error) {
 
 	// Project files
 	mux.HandleFunc("GET /api/assistants/{assistant_id}/projects/{project_id}/file/{file...}", files.GetFile)
+	mux.HandleFunc("GET /api/assistants/{assistant_id}/projects/{project_id}/files/{file...}", files.GetFile)
 	mux.HandleFunc("POST /api/assistants/{assistant_id}/projects/{project_id}/file/{file...}", files.UploadFile)
+	mux.HandleFunc("POST /api/assistants/{assistant_id}/projects/{project_id}/files/{file...}", files.UploadFile)
 	mux.HandleFunc("GET /api/assistants/{assistant_id}/projects/{project_id}/files", files.Files)
 	mux.HandleFunc("DELETE /api/assistants/{assistant_id}/projects/{project_id}/file/{file...}", files.DeleteFile)
+	mux.HandleFunc("DELETE /api/assistants/{assistant_id}/projects/{project_id}/files/{file...}", files.DeleteFile)
 
 	// Project Knowledge files
 	mux.HandleFunc("GET /api/assistants/{assistant_id}/projects/{project_id}/knowledge", assistants.Knowledge)
@@ -129,9 +132,12 @@ func Router(services *services.Services) (http.Handler, error) {
 	mux.HandleFunc("GET /api/tasks/{id}", tasks.Get)
 	mux.HandleFunc("PUT /api/tasks/{id}", tasks.Update)
 	mux.HandleFunc("GET /api/tasks/{id}/file/{file...}", agents.GetFile)
+	mux.HandleFunc("GET /api/tasks/{id}/files/{file...}", agents.GetFile)
 	mux.HandleFunc("GET /api/tasks/{id}/files", agents.ListFiles)
 	mux.HandleFunc("DELETE /api/tasks/{id}/file/{file...}", agents.DeleteFile)
+	mux.HandleFunc("DELETE /api/tasks/{id}/files/{file...}", agents.DeleteFile)
 	mux.HandleFunc("POST /api/tasks/{id}/file/{file...}", agents.UploadFile)
+	mux.HandleFunc("POST /api/tasks/{id}/files/{file...}", agents.UploadFile)
 	mux.HandleFunc("POST /api/tasks/{id}/run", tasks.Run)
 	mux.HandleFunc("DELETE /api/tasks/{id}/runs/{run_id}", tasks.DeleteRun)
 	mux.HandleFunc("POST /api/tasks/{id}/runs/{run_id}/abort", tasks.AbortRun)
@@ -154,9 +160,12 @@ func Router(services *services.Services) (http.Handler, error) {
 	mux.HandleFunc("POST /api/assistants/{assistant_id}/projects/{project_id}/tasks/{id}/runs/{run_id}/events", tasks.AbortFromScope)
 	mux.HandleFunc("GET /api/assistants/{assistant_id}/projects/{project_id}/tasks/{id}/runs/{run_id}/events", tasks.EventsFromScope)
 	mux.HandleFunc("GET /api/assistants/{assistant_id}/projects/{project_id}/tasks/{task_id}/runs/{run_id}/file/{file...}", files.GetFile)
+	mux.HandleFunc("GET /api/assistants/{assistant_id}/projects/{project_id}/tasks/{task_id}/runs/{run_id}/files/{file...}", files.GetFile)
 	mux.HandleFunc("POST /api/assistants/{assistant_id}/projects/{project_id}/tasks/{task_id}/runs/{run_id}/file/{file...}", files.UploadFile)
+	mux.HandleFunc("POST /api/assistants/{assistant_id}/projects/{project_id}/tasks/{task_id}/runs/{run_id}/files/{file...}", files.UploadFile)
 	mux.HandleFunc("GET /api/assistants/{assistant_id}/projects/{project_id}/tasks/{task_id}/runs/{run_id}/files", files.Files)
 	mux.HandleFunc("DELETE /api/assistants/{assistant_id}/projects/{project_id}/tasks/{task_id}/runs/{run_id}/file/{file...}", files.DeleteFile)
+	mux.HandleFunc("DELETE /api/assistants/{assistant_id}/projects/{project_id}/tasks/{task_id}/runs/{run_id}/files/{file...}", files.DeleteFile)
 
 	// Top level Thread Tasks
 	mux.HandleFunc("POST /api/threads/{thread_id}/tasks", tasks.CreateFromScope)
@@ -193,9 +202,12 @@ func Router(services *services.Services) (http.Handler, error) {
 
 	// Agent files
 	mux.HandleFunc("GET /api/agents/{id}/file/{file...}", agents.GetFile)
+	mux.HandleFunc("GET /api/agents/{id}/files/{file...}", agents.GetFile)
 	mux.HandleFunc("GET /api/agents/{id}/files", agents.ListFiles)
 	mux.HandleFunc("DELETE /api/agents/{id}/file/{file...}", agents.DeleteFile)
+	mux.HandleFunc("DELETE /api/agents/{id}/files/{file...}", agents.DeleteFile)
 	mux.HandleFunc("POST /api/agents/{id}/file/{file...}", agents.UploadFile)
+	mux.HandleFunc("POST /api/agents/{id}/files/{file...}", agents.UploadFile)
 
 	// Agent knowledge files
 	mux.HandleFunc("GET /api/agents/{agent_id}/knowledge-files", agents.ListKnowledgeFiles)
@@ -234,8 +246,11 @@ func Router(services *services.Services) (http.Handler, error) {
 	// Project Thread Files
 	mux.HandleFunc("GET /api/assistants/{assistant_id}/projects/{project_id}/threads/{thread_id}/files", files.Files)
 	mux.HandleFunc("DELETE /api/assistants/{assistant_id}/projects/{project_id}/threads/{thread_id}/file/{file...}", files.DeleteFile)
+	mux.HandleFunc("DELETE /api/assistants/{assistant_id}/projects/{project_id}/threads/{thread_id}/files/{file...}", files.DeleteFile)
 	mux.HandleFunc("GET /api/assistants/{assistant_id}/projects/{project_id}/threads/{thread_id}/file/{file...}", files.GetFile)
+	mux.HandleFunc("GET /api/assistants/{assistant_id}/projects/{project_id}/threads/{thread_id}/files/{file...}", files.GetFile)
 	mux.HandleFunc("POST /api/assistants/{assistant_id}/projects/{project_id}/threads/{thread_id}/file/{file...}", files.UploadFile)
+	mux.HandleFunc("POST /api/assistants/{assistant_id}/projects/{project_id}/threads/{thread_id}/files/{file...}", files.UploadFile)
 
 	// Project Thread knowledge files
 	mux.HandleFunc("GET /api/assistants/{assistant_id}/projects/{project_id}/threads/{id}/knowledge-files", threads.Knowledge)
@@ -246,8 +261,11 @@ func Router(services *services.Services) (http.Handler, error) {
 	// Thread files
 	mux.HandleFunc("GET /api/threads/{thread_id}/files", files.Files)
 	mux.HandleFunc("DELETE /api/threads/{thread_id}/file/{file...}", files.DeleteFile)
+	mux.HandleFunc("DELETE /api/threads/{thread_id}/files/{file...}", files.DeleteFile)
 	mux.HandleFunc("GET /api/threads/{thread_id}/file/{file...}", files.GetFile)
+	mux.HandleFunc("GET /api/threads/{thread_id}/files/{file...}", files.GetFile)
 	mux.HandleFunc("POST /api/threads/{thread_id}/file/{file...}", files.UploadFile)
+	mux.HandleFunc("POST /api/threads/{thread_id}/files/{file...}", files.UploadFile)
 
 	// Thread knowledge files
 	mux.HandleFunc("GET /api/threads/{id}/knowledge-files", threads.Knowledge)
