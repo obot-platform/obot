@@ -171,6 +171,11 @@ func convertAssistant(agent v1.Agent) types.Assistant {
 		IntroductionMessage: agent.Spec.Manifest.IntroductionMessage,
 		Icons:               icons,
 	}
+	if agent.Spec.Manifest.MaxThreadTools == 0 {
+		assistant.MaxTools = DefaultMaxUserThreadTools
+	} else {
+		assistant.MaxTools = agent.Spec.Manifest.MaxThreadTools
+	}
 	if agent.Status.AliasAssigned {
 		assistant.Alias = agent.Spec.Manifest.Alias
 	}

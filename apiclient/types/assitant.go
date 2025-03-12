@@ -10,6 +10,7 @@ type Assistant struct {
 	IntroductionMessage string     `json:"introductionMessage"`
 	StarterMessages     []string   `json:"starterMessages"`
 	EntityID            string     `json:"entityID"`
+	MaxTools            int        `json:"maxTools,omitempty"`
 }
 
 type AssistantList List[Assistant]

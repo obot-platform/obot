@@ -192,6 +192,7 @@ export interface Assistant {
 	icons?: AssistantIcons;
 	starterMessages?: string[];
 	introductionMessage?: string;
+	maxTools?: number;
 }
 
 export interface AssistantTool {

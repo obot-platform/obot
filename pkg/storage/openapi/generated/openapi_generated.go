@@ -763,6 +763,12 @@ func schema_obot_platform_obot_apiclient_types_Assistant(ref common.ReferenceCal
 							Format:  "",
 						},
 					},
+					"maxTools": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"integer"},
+							Format: "int32",
+						},
+					},
 				},
 				Required: []string{"Metadata", "name", "default", "description", "icons", "introductionMessage", "starterMessages", "entityID"},
 			},
