@@ -75,15 +75,15 @@
 
 <div
 	use:catalog.tooltip
-	class="left-1/2 top-[15%] flex min-h-[500px] w-[500px] -translate-x-1/2 flex-col rounded-lg rounded-b-lg border border-surface3 bg-surface1 shadow-lg"
+	class="default-dialog left-1/2 top-[15%] flex min-h-[500px] w-[500px] -translate-x-1/2 flex-col"
 >
 	<div class="rounded-t-lg p-2">
 		<input
-			bind:this={input}
-			class="w-full rounded-lg p-2"
-			bind:value={search}
+			class="w-full rounded-lg bg-surface1 p-2"
 			type="text"
-			placeholder="Search"
+			placeholder="Search tools"
+			bind:this={input}
+			bind:value={search}
 		/>
 	</div>
 
