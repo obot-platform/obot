@@ -312,6 +312,7 @@ export interface Project {
 	id: string;
 	assistantID: string;
 	created: string;
+	deleted?: string;
 	name: string;
 	description?: string;
 	icons?: AssistantIcons;

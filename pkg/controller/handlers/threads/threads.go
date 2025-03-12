@@ -51,7 +51,17 @@ func getParentWorkspaceNames(ctx context.Context, c kclient.Client, thread *v1.T
 	var result []string
 
 	if thread.Spec.Project {
-		// Projects don't copy the parents
+		// Projects don't copy the parents/agent workspace unless it is a copy of another project
+		if thread.Spec.SourceThreadName != "" {
+			var sourceThread v1.Thread
+			if err := c.Get(ctx, kclient.ObjectKey{Namespace: thread.Namespace, Name: thread.Spec.SourceThreadName}, &sourceThread); err != nil {
+				return nil, false, err
+			}
+			if sourceThread.Status.WorkspaceName == "" {
+				return nil, false, nil
+			}
+			return []string{sourceThread.Status.WorkspaceName}, true, nil
+		}
 		return nil, true, nil
 	}
 
@@ -90,9 +100,9 @@ func getParentWorkspaceNames(ctx context.Context, c kclient.Client, thread *v1.T
 	return result, true, nil
 }
 
-func (t *Handler) CreateLocalWorkspace(req router.Request, _ router.Response) error {
+func (t *Handler) CreateSharedWorkspace(req router.Request, _ router.Response) error {
 	thread := req.Object.(*v1.Thread)
-	if thread.Status.LocalWorkspaceName != "" || !thread.IsProjectBased() {
+	if thread.Status.SharedWorkspaceName != "" || !thread.IsProjectBased() {
 		return nil
 	}
 
@@ -105,15 +115,15 @@ func (t *Handler) CreateLocalWorkspace(req router.Request, _ router.Response) er
 		if err := req.Client.Get(req.Ctx, router.Key(thread.Namespace, thread.Spec.ParentThreadName), &parentThread); err != nil {
 			return err
 		}
-		if parentThread.Status.LocalWorkspaceName == "" {
+		if parentThread.Status.SharedWorkspaceName == "" {
 			// Wait to be created
 			return nil
 		}
-		fromWorkspaceNames = append(fromWorkspaceNames, parentThread.Status.LocalWorkspaceName)
+		fromWorkspaceNames = append(fromWorkspaceNames, parentThread.Status.SharedWorkspaceName)
 	}
 
 	if thread.IsUserThread() {
-		thread.Status.LocalWorkspaceName = parentThread.Status.LocalWorkspaceName
+		thread.Status.SharedWorkspaceName = parentThread.Status.SharedWorkspaceName
 		return req.Client.Status().Update(req.Ctx, thread)
 	}
 
@@ -138,7 +148,7 @@ func (t *Handler) CreateLocalWorkspace(req router.Request, _ router.Response) er
 		return err
 	}
 
-	thread.Status.LocalWorkspaceName = ws.Name
+	thread.Status.SharedWorkspaceName = ws.Name
 	return req.Client.Status().Update(req.Ctx, thread)
 }
 
@@ -196,7 +206,7 @@ func (t *Handler) CreateWorkspaces(req router.Request, _ router.Response) error 
 	return nil
 }
 
-func createKnowledgeSet(ctx context.Context, c kclient.Client, thread *v1.Thread, relatedKnowledgeSets []string) (*v1.KnowledgeSet, error) {
+func createKnowledgeSet(ctx context.Context, c kclient.Client, thread *v1.Thread, relatedKnowledgeSets []string, from string) (*v1.KnowledgeSet, error) {
 	var ks = v1.KnowledgeSet{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace:    thread.Namespace,
@@ -206,6 +216,7 @@ func createKnowledgeSet(ctx context.Context, c kclient.Client, thread *v1.Thread
 		Spec: v1.KnowledgeSetSpec{
 			ThreadName:               thread.Name,
 			RelatedKnowledgeSetNames: relatedKnowledgeSets,
+			FromKnowledgeSetName:     from,
 		},
 	}
 
@@ -221,26 +232,45 @@ func (t *Handler) CreateKnowledgeSet(req router.Request, _ router.Response) erro
 	var relatedKnowledgeSets []string
 	var parentThreadName = thread.Spec.ParentThreadName
 
-	// Grab parents first so we have the list for the "related knowledge sets" if we need to create a new one
-	for parentThreadName != "" {
-		var parentThread v1.Thread
-		if err := req.Client.Get(req.Ctx, kclient.ObjectKey{Namespace: thread.Namespace, Name: parentThreadName}, &parentThread); err != nil {
+	if thread.Spec.SourceThreadName != "" {
+		var sourceThread v1.Thread
+		if err := req.Client.Get(req.Ctx, kclient.ObjectKey{Namespace: thread.Namespace, Name: thread.Spec.SourceThreadName}, &sourceThread); err != nil {
 			return err
 		}
-		if !parentThread.Spec.Project {
-			return fmt.Errorf("parent thread %s is not a project", parentThreadName)
-		}
-		if parentThread.Status.SharedKnowledgeSetName == "" {
+		if sourceThread.Status.SharedKnowledgeSetName == "" {
 			return nil
 		}
-		relatedKnowledgeSets = append(relatedKnowledgeSets, parentThread.Status.SharedKnowledgeSetName)
-		parentThreadName = parentThread.Spec.ParentThreadName
+		shared, err := createKnowledgeSet(req.Ctx, req.Client, thread, relatedKnowledgeSets, sourceThread.Status.SharedKnowledgeSetName)
+		if err != nil {
+			return err
+		}
+
+		thread.Status.SharedKnowledgeSetName = shared.Name
+		if err := req.Client.Status().Update(req.Ctx, thread); err != nil {
+			_ = req.Client.Delete(req.Ctx, shared)
+			return err
+		}
+	} else {
+		// Grab parents first so we have the list for the "related knowledge sets" if we need to create a new one
+		for parentThreadName != "" {
+			var parentThread v1.Thread
+			if err := req.Client.Get(req.Ctx, kclient.ObjectKey{Namespace: thread.Namespace, Name: parentThreadName}, &parentThread); err != nil {
+				return err
+			}
+			if !parentThread.Spec.Project {
+				return fmt.Errorf("parent thread %s is not a project", parentThreadName)
+			}
+			if parentThread.Status.SharedKnowledgeSetName == "" {
+				return nil
+			}
+			relatedKnowledgeSets = append(relatedKnowledgeSets, parentThread.Status.SharedKnowledgeSetName)
+			parentThreadName = parentThread.Spec.ParentThreadName
+		}
 	}
 
 	if thread.Status.SharedKnowledgeSetName == "" {
-		shared, err := createKnowledgeSet(req.Ctx, req.Client, thread, relatedKnowledgeSets)
+		shared, err := createKnowledgeSet(req.Ctx, req.Client, thread, relatedKnowledgeSets, "")
 		if err != nil {
-			_ = req.Client.Delete(req.Ctx, shared)
 			return err
 		}
 
@@ -266,7 +296,11 @@ func (t *Handler) SetCreated(req router.Request, _ router.Response) error {
 		return nil
 	}
 
-	if thread.IsProjectBased() && thread.Status.LocalWorkspaceName == "" {
+	if thread.IsProjectBased() && thread.Status.SharedWorkspaceName == "" {
+		return nil
+	}
+
+	if thread.Spec.SourceThreadName != "" && len(thread.Spec.Manifest.SharedTasks) > 0 && !thread.Status.Created {
 		return nil
 	}
 
@@ -362,7 +396,66 @@ func (t *Handler) EnsureShared(req router.Request, _ router.Response) error {
 	return nil
 }
 
-func (t *Handler) CopyTasks(req router.Request, _ router.Response) error {
+func (t *Handler) CopyTasksFromSource(req router.Request, _ router.Response) error {
+	thread := req.Object.(*v1.Thread)
+	if !thread.Spec.Project || thread.Spec.SourceThreadName == "" || thread.Spec.ParentThreadName != "" {
+		return nil
+	}
+
+	if thread.Status.CopiedTasks {
+		return nil
+	}
+
+	var (
+		modified     bool
+		newTaskNames []string
+		err          error
+	)
+	for _, taskName := range thread.Spec.Manifest.SharedTasks {
+		var task v1.Workflow
+		if err := req.Get(&task, thread.Namespace, taskName); apierrors.IsNotFound(err) {
+			modified = true
+			continue
+		} else if err != nil {
+			return err
+		}
+		if task.Spec.ThreadName == thread.Spec.SourceThreadName {
+			modified = true
+			newManifest := task.Spec.Manifest
+			newManifest.Alias, err = randomtoken.Generate()
+			if err != nil {
+				return err
+			}
+			wf := v1.Workflow{
+				ObjectMeta: metav1.ObjectMeta{
+					GenerateName: system.WorkflowPrefix,
+					Namespace:    thread.Namespace,
+				},
+				Spec: v1.WorkflowSpec{
+					ThreadName: thread.Name,
+					Manifest:   newManifest,
+				},
+			}
+			if err := req.Client.Create(req.Ctx, &wf); err != nil {
+				return err
+			}
+			newTaskNames = append(newTaskNames, wf.Name)
+		} else {
+			newTaskNames = append(newTaskNames, taskName)
+		}
+	}
+
+	if modified {
+		thread.Spec.Manifest.SharedTasks = newTaskNames
+		if err := req.Client.Update(req.Ctx, thread); err != nil {
+			return err
+		}
+	}
+	thread.Status.CopiedTasks = true
+	return req.Client.Status().Update(req.Ctx, thread)
+}
+
+func (t *Handler) CopyTasksFromParent(req router.Request, _ router.Response) error {
 	thread := req.Object.(*v1.Thread)
 	if !thread.Spec.Project || thread.Spec.ParentThreadName == "" {
 		return nil

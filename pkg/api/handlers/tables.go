@@ -26,12 +26,12 @@ func getDBWorkspaceID(req api.Context) (string, error) {
 		return "", err
 	}
 
-	if thread.Status.LocalWorkspaceName == "" {
+	if thread.Status.SharedWorkspaceName == "" {
 		return "", nil
 	}
 
 	var workspace v1.Workspace
-	if err := req.Get(&workspace, thread.Status.LocalWorkspaceName); err != nil {
+	if err := req.Get(&workspace, thread.Status.SharedWorkspaceName); err != nil {
 		return "", err
 	}
 

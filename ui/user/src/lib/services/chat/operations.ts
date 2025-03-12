@@ -699,6 +699,7 @@ export async function listProjects(opts?: {
 	if (!list.items) {
 		list.items = [];
 	}
+	list.items = list.items.filter((project) => !project.deleted);
 	return list;
 }
 

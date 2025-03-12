@@ -2800,6 +2800,12 @@ func schema_obot_platform_obot_apiclient_types_Project(ref common.ReferenceCallb
 							Format: "",
 						},
 					},
+					"sourceProjectID": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
 					"userID": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
@@ -6558,6 +6564,12 @@ func schema_storage_apis_obotobotai_v1_KnowledgeSetSpec(ref common.ReferenceCall
 							Format:      "",
 						},
 					},
+					"fromKnowledgeSetName": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
 					"relatedKnowledgeSetNames": {
 						SchemaProps: spec.SchemaProps{
 							Description: "RelatedKnowledgeSetNames is a list of knowledge set that must match the same text embedding model The best effort will be made to keep the same text embedding model used for the related knowledge sets",
@@ -8323,6 +8335,13 @@ func schema_storage_apis_obotobotai_v1_ThreadSpec(ref common.ReferenceCallback) 
 							Format:      "",
 						},
 					},
+					"sourceThreadName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "SourceThreadName is the thread that this thread was copied from",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 					"agentName": {
 						SchemaProps: spec.SchemaProps{
 							Description: "AgentName is the associated agent for this thread.",
@@ -8527,9 +8546,16 @@ func schema_storage_apis_obotobotai_v1_ThreadStatus(ref common.ReferenceCallback
 							Format: "",
 						},
 					},
-					"localWorkspaceName": {
+					"sharedWorkspaceName": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
+							Description: "SharedWorkspaceName is used primarily to store the database content and is scoped to the project and shared across threads",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"copiedTasks": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
 							Format: "",
 						},
 					},

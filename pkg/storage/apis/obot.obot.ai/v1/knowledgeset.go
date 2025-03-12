@@ -22,6 +22,8 @@ type KnowledgeSetSpec struct {
 	// ThreadName is the name of the thread that created and owns this knowledge set
 	ThreadName string `json:"threadName,omitempty"`
 
+	FromKnowledgeSetName string `json:"fromKnowledgeSetName,omitempty"`
+
 	// RelatedKnowledgeSetNames is a list of knowledge set that must match the same text embedding model
 	// The best effort will be made to keep the same text embedding model used for the related knowledge sets
 	RelatedKnowledgeSetNames []string `json:"relatedKnowledgeSetNames,omitempty"`

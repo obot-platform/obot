@@ -52,6 +52,7 @@ func (k *KnowledgeFile) PublicState() types.KnowledgeFileState {
 func (k *KnowledgeFile) DeleteRefs() []Ref {
 	return []Ref{
 		{ObjType: new(KnowledgeSource), Name: k.Spec.KnowledgeSourceName},
+		{ObjType: new(KnowledgeSet), Name: k.Spec.KnowledgeSetName},
 	}
 }
 

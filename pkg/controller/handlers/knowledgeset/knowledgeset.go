@@ -3,6 +3,7 @@ package knowledgeset
 import (
 	"context"
 	"fmt"
+	"path/filepath"
 
 	"github.com/obot-platform/nah/pkg/name"
 	"github.com/obot-platform/nah/pkg/router"
@@ -31,6 +32,29 @@ func createWorkspace(ctx context.Context, c kclient.Client, ks *v1.KnowledgeSet)
 		return nil
 	}
 
+	var (
+		fromWorkspaces []string
+	)
+	if ks.Spec.FromKnowledgeSetName != "" {
+		var fromKS v1.KnowledgeSet
+		if err := c.Get(ctx, router.Key(ks.Namespace, ks.Spec.FromKnowledgeSetName), &fromKS); err != nil {
+			return err
+		}
+
+		if fromKS.Status.WorkspaceName == "" {
+			return nil
+		}
+		fromWorkspaces = []string{fromKS.Status.WorkspaceName}
+
+		var fromWorkspace v1.Workspace
+		if err := c.Get(ctx, router.Key(ks.Namespace, fromKS.Status.WorkspaceName), &fromWorkspace); err != nil {
+			return err
+		}
+		if fromWorkspace.Status.WorkspaceID == "" {
+			return nil
+		}
+	}
+
 	ws := &v1.Workspace{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:       name.SafeConcatName(system.WorkspacePrefix, ks.Name),
@@ -38,7 +62,8 @@ func createWorkspace(ctx context.Context, c kclient.Client, ks *v1.KnowledgeSet)
 			Finalizers: []string{v1.WorkspaceFinalizer},
 		},
 		Spec: v1.WorkspaceSpec{
-			KnowledgeSetName: ks.Name,
+			KnowledgeSetName:   ks.Name,
+			FromWorkspaceNames: fromWorkspaces,
 		},
 	}
 	err := create.OrGet(ctx, c, ws)
@@ -50,6 +75,40 @@ func createWorkspace(ctx context.Context, c kclient.Client, ks *v1.KnowledgeSet)
 	// This will be triggered when that happens.
 	// This also allows the knowledge file to not trigger on the thread.
 	if ws.Status.WorkspaceID != "" {
+		// Copy files
+		if ks.Spec.FromKnowledgeSetName != "" {
+			var knowledgeFiles v1.KnowledgeFileList
+			if err := c.List(ctx, &knowledgeFiles, kclient.InNamespace(ks.Namespace), kclient.MatchingFields{
+				"spec.knowledgeSetName": ks.Spec.FromKnowledgeSetName,
+			}); err != nil {
+				return err
+			}
+			for _, sourceFile := range knowledgeFiles.Items {
+				if sourceFile.Spec.KnowledgeSourceName != "" {
+					continue
+				}
+				err := c.Create(ctx, &v1.KnowledgeFile{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: v1.ObjectNameFromAbsolutePath(
+							filepath.Join(ws.Status.WorkspaceID, sourceFile.Spec.FileName),
+						),
+						Namespace: ks.Namespace,
+					},
+					Spec: v1.KnowledgeFileSpec{
+						KnowledgeSetName: ks.Name,
+						Approved:         &[]bool{true}[0],
+						FileName:         sourceFile.Spec.FileName,
+						SizeInBytes:      sourceFile.Spec.SizeInBytes,
+					},
+				})
+				if apierrors.IsAlreadyExists(err) {
+					continue
+				} else if err != nil {
+					return err
+				}
+			}
+		}
+
 		ks.Status.WorkspaceName = ws.Name
 		return c.Status().Update(ctx, ks)
 	}

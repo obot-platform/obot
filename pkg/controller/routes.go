@@ -63,7 +63,7 @@ func (c *Controller) setupRoutes() error {
 	// Threads
 	root.Type(&v1.Thread{}).HandlerFunc(cleanup.Cleanup)
 	root.Type(&v1.Thread{}).HandlerFunc(threads.CreateWorkspaces)
-	root.Type(&v1.Thread{}).HandlerFunc(threads.CreateLocalWorkspace)
+	root.Type(&v1.Thread{}).HandlerFunc(threads.CreateSharedWorkspace)
 	root.Type(&v1.Thread{}).HandlerFunc(threads.CreateKnowledgeSet)
 	root.Type(&v1.Thread{}).HandlerFunc(threads.WorkflowState)
 	root.Type(&v1.Thread{}).HandlerFunc(knowledgesummary.Summarize)
@@ -71,7 +71,8 @@ func (c *Controller) setupRoutes() error {
 	root.Type(&v1.Thread{}).HandlerFunc(threads.SetCreated)
 	root.Type(&v1.Thread{}).HandlerFunc(threads.GenerateName)
 	root.Type(&v1.Thread{}).HandlerFunc(projects.CopyProjectInfo)
-	root.Type(&v1.Thread{}).HandlerFunc(threads.CopyTasks)
+	root.Type(&v1.Thread{}).HandlerFunc(threads.CopyTasksFromSource)
+	root.Type(&v1.Thread{}).HandlerFunc(threads.CopyTasksFromParent)
 	root.Type(&v1.Thread{}).FinalizeFunc(v1.ThreadFinalizer, credentialCleanup.Remove)
 	root.Type(&v1.Thread{}).FinalizeFunc(v1.ThreadFinalizer+"-child-cleanup", threads.ActivateRuns)
 

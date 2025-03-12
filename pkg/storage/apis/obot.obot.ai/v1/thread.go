@@ -74,6 +74,8 @@ type ThreadSpec struct {
 	Manifest types.ThreadManifest `json:"manifest,omitempty"`
 	// ParentThreadName The scope of this thread will inherit the scope of the parent thread. The parent should always be a project thread.
 	ParentThreadName string `json:"parentThreadName,omitempty"`
+	// SourceThreadName is the thread that this thread was copied from
+	SourceThreadName string `json:"sourceThreadName,omitempty"`
 	// AgentName is the associated agent for this thread.
 	AgentName string `json:"agentName,omitempty"`
 	// WorkspaceName is the workspace that will be used by this thread and a new workspace will not be created
@@ -126,6 +128,7 @@ func (in *Thread) DeleteRefs() []Ref {
 		{ObjType: &Workspace{}, Name: in.Spec.WorkspaceName},
 		{ObjType: &Workspace{}, Name: in.Status.WorkspaceName},
 		{ObjType: &OAuthAppLogin{}, Name: in.Spec.OAuthAppLoginName},
+		{ObjType: &Thread{}, Name: in.Spec.ParentThreadName},
 	}
 	return refs
 }
@@ -139,8 +142,10 @@ type ThreadStatus struct {
 	WorkspaceName          string                   `json:"workspaceName,omitempty"`
 	KnowledgeSetNames      []string                 `json:"knowledgeSetNames,omitempty"`
 	SharedKnowledgeSetName string                   `json:"sharedKnowledgeSetName,omitempty"`
-	LocalWorkspaceName     string                   `json:"localWorkspaceName,omitempty"`
-	Created                bool                     `json:"created,omitempty"`
+	// SharedWorkspaceName is used primarily to store the database content and is scoped to the project and shared across threads
+	SharedWorkspaceName string `json:"sharedWorkspaceName,omitempty"`
+	CopiedTasks         bool   `json:"copiedTasks,omitempty"`
+	Created             bool   `json:"created,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

@@ -168,9 +168,9 @@ func Agent(ctx context.Context, db kclient.Client, agent *v1.Agent, oauthServerU
 			extraEnv = append(extraEnv, fmt.Sprintf("OBOT_THREAD_ENVS=%s", strings.Join(threadEnvs, ",")))
 		}
 
-		if opts.Thread.Status.LocalWorkspaceName != "" {
+		if opts.Thread.Status.SharedWorkspaceName != "" {
 			var workspace v1.Workspace
-			if err := db.Get(ctx, router.Key(opts.Thread.Namespace, opts.Thread.Status.LocalWorkspaceName), &workspace); err != nil {
+			if err := db.Get(ctx, router.Key(opts.Thread.Namespace, opts.Thread.Status.SharedWorkspaceName), &workspace); err != nil {
 				return nil, nil, err
 			}
 			extraEnv = append(extraEnv, fmt.Sprintf("DATABASE_WORKSPACE_ID=%s", workspace.Status.WorkspaceID))

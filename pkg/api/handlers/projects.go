@@ -281,10 +281,11 @@ func (h *ProjectsHandler) CopyProject(req api.Context) error {
 			Namespace:    req.Namespace(),
 		},
 		Spec: v1.ThreadSpec{
-			Manifest:  thread.Spec.Manifest,
-			AgentName: thread.Spec.AgentName,
-			Project:   true,
-			UserID:    req.User.GetUID(),
+			Manifest:         thread.Spec.Manifest,
+			AgentName:        thread.Spec.AgentName,
+			SourceThreadName: thread.Name,
+			Project:          true,
+			UserID:           req.User.GetUID(),
 		},
 	}
 
@@ -494,10 +495,11 @@ func convertProject(thread *v1.Thread) types.Project {
 		ProjectManifest: types.ProjectManifest{
 			ThreadManifest: thread.Spec.Manifest,
 		},
-		ParentID:    strings.Replace(thread.Spec.ParentThreadName, system.ThreadPrefix, system.ProjectPrefix, 1),
-		AssistantID: thread.Spec.AgentName,
-		Editor:      thread.IsEditor(),
-		UserID:      thread.Spec.UserID,
+		ParentID:        strings.Replace(thread.Spec.ParentThreadName, system.ThreadPrefix, system.ProjectPrefix, 1),
+		SourceProjectID: strings.Replace(thread.Spec.SourceThreadName, system.ThreadPrefix, system.ProjectPrefix, 1),
+		AssistantID:     thread.Spec.AgentName,
+		Editor:          thread.IsEditor(),
+		UserID:          thread.Spec.UserID,
 	}
 	p.Type = "project"
 	p.ID = strings.Replace(p.ID, system.ThreadPrefix, system.ProjectPrefix, 1)
