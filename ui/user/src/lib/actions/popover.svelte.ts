@@ -22,6 +22,7 @@ interface PopoverOptions extends Partial<ComputePositionConfig> {
 	offset?: number;
 	placement?: Placement;
 	fixed?: boolean;
+	delay?: number;
 }
 
 let id = 0;
@@ -31,6 +32,7 @@ export default function popover(opts?: PopoverOptions): Popover {
 	let tooltip: HTMLElement;
 	let open = $state(false);
 	const offsetSize = opts?.offset ?? 8;
+	let hoverTimeout: number | null = null;
 
 	function build(): ActionReturn | void {
 		if (!ref || !tooltip) return;
@@ -106,9 +108,19 @@ export default function popover(opts?: PopoverOptions): Popover {
 
 		if (opts?.hover) {
 			ref.addEventListener('mouseenter', () => {
-				open = true;
+				if (hoverTimeout) {
+					clearTimeout(hoverTimeout);
+				}
+
+				hoverTimeout = setTimeout(() => {
+					open = true;
+				}, opts.delay ?? 150);
 			});
 			ref.addEventListener('mouseleave', () => {
+				if (hoverTimeout) {
+					clearTimeout(hoverTimeout);
+				}
+
 				open = false;
 			});
 		}
