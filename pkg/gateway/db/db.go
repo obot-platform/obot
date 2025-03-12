@@ -3,6 +3,7 @@ package db
 import (
 	"context"
 	"database/sql"
+	"fmt"
 
 	"github.com/obot-platform/obot/pkg/gateway/types"
 	"gorm.io/gorm"
@@ -85,6 +86,10 @@ func (db *DB) AutoMigrate() (err error) {
 				}
 			}
 		}
+	}
+
+	if err := tx.AutoMigrate(&GptscriptCredential{}); err != nil {
+		return fmt.Errorf("failed to auto migrate GptscriptCredential: %w", err)
 	}
 
 	return tx.AutoMigrate(
