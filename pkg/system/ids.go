@@ -14,6 +14,7 @@ const (
 	WorkflowStepPrefix        = "ws1"
 	WorkspacePrefix           = "wksp1"
 	WebhookPrefix             = "wh1"
+	SlackTriggerPrefix        = "st1"
 	CronJobPrefix             = "cj1"
 	KnowledgeSourcePrefix     = "ks1"
 	OAuthAppPrefix            = "oa1"
