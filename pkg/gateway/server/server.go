@@ -2,7 +2,6 @@ package server
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 
 	"github.com/gptscript-ai/go-gptscript"
@@ -30,10 +29,6 @@ type Server struct {
 }
 
 func New(ctx context.Context, g *gptscript.GPTScript, db *db.DB, tokenService *jwt.TokenService, modelProviderDispatcher *dispatcher.Dispatcher, adminEmails []string, opts Options) (*Server, error) {
-	if err := db.AutoMigrate(); err != nil {
-		return nil, fmt.Errorf("auto migrate failed: %w", err)
-	}
-
 	adminEmailsSet := make(map[string]struct{}, len(adminEmails))
 	for _, email := range adminEmails {
 		adminEmailsSet[email] = struct{}{}

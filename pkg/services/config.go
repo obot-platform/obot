@@ -240,6 +240,22 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		config.ToolRegistries = []string{"github.com/obot-platform/tools"}
 	}
 
+	storageClient, restConfig, dbAccess, err := storage.Start(ctx, config.Config)
+	if err != nil {
+		return nil, err
+	}
+
+	// For now, always auto-migrate.
+	gatewayDB, err := db.New(dbAccess.DB, dbAccess.SQLDB, true)
+	if err != nil {
+		return nil, err
+	}
+	// Important: the database needs to be auto-migrated before we create the cred store, so that
+	// the gptscript_credentials table is available.
+	if err := gatewayDB.AutoMigrate(); err != nil {
+		return nil, err
+	}
+
 	credStore, credStoreEnv, err := credstores.Init(ctx, config.ToolRegistries, config.DSN, credstores.Options{
 		AWSKMSKeyARN:         config.AWSKMSKeyARN,
 		GCPKMSKeyURI:         config.GCPKMSKeyURI,
@@ -249,11 +265,6 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		EncryptionProvider:   config.EncryptionProvider,
 		EncryptionConfigFile: config.EncryptionConfigFile,
 	})
-	if err != nil {
-		return nil, err
-	}
-
-	storageClient, restConfig, dbAccess, err := storage.Start(ctx, config.Config)
 	if err != nil {
 		return nil, err
 	}
@@ -334,12 +345,6 @@ func New(ctx context.Context, config Config) (*Services, error) {
 	}
 
 	apply.AddValidOwnerChange("otto-controller", "obot-controller")
-
-	// For now, always auto-migrate.
-	gatewayDB, err := db.New(dbAccess.DB, dbAccess.SQLDB, true)
-	if err != nil {
-		return nil, err
-	}
 
 	var (
 		tokenServer   = &jwt.TokenService{}
