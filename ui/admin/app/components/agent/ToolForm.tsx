@@ -235,7 +235,7 @@ export function ToolForm({
 					<ToolCatalogDialog
 						tools={toolFields.fields.map((field) => field.tool)}
 						onUpdateTools={(tools, oauths) => {
-							updateTools(tools, ToolVariant.FIXED, oauths);
+							updateTools(tools, ToolVariant.AVAILABLE, oauths);
 						}}
 						oauths={form.watch("oauthApps")}
 					/>

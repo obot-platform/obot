@@ -1,19 +1,18 @@
 <script lang="ts">
 	import { popover } from '$lib/actions';
 	import CollapsePane from '$lib/components/edit/CollapsePane.svelte';
-	import { type AssistantTool } from '$lib/services';
+	import { type Assistant, type AssistantTool } from '$lib/services';
 	import { Plus, X } from 'lucide-svelte/icons';
 	import ToolCatalog from './ToolCatalog.svelte';
 
 	interface Props {
 		tools: AssistantTool[];
 		onNewTools: (tools: AssistantTool[]) => Promise<void>;
+		assistant?: Assistant;
 	}
 
-	let { tools, onNewTools }: Props = $props();
+	let { tools, onNewTools, assistant }: Props = $props();
 	let enabledList = $derived(tools.filter((t) => !t.builtin && t.enabled));
-	let disabledList = $derived(tools.filter((t) => !t.builtin && !t.enabled));
-	let { ref, tooltip, toggle } = popover();
 
 	async function modify(tool: AssistantTool, remove: boolean) {
 		let newTools = enabledList;
@@ -63,6 +62,8 @@
 			{@render toolList(enabledList, true, 'bg-surface2')}
 		</ul>
 
-		<div class="self-end"><ToolCatalog {tools} onSelectTools={onNewTools} /></div>
+		<div class="self-end">
+			<ToolCatalog {tools} onSelectTools={onNewTools} maxTools={assistant?.maxTools} />
+		</div>
 	</div>
 </CollapsePane>

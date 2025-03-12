@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { Trash2 } from 'lucide-svelte';
 	import General from '$lib/components/edit/General.svelte';
-	import { type Project, ChatService, type AssistantTool } from '$lib/services';
+	import { type Project, ChatService, type AssistantTool, type Assistant } from '$lib/services';
 	import { onDestroy, onMount } from 'svelte';
 	import Instructions from '$lib/components/edit/Instructions.svelte';
 	import Interface from '$lib/components/edit/Interface.svelte';
@@ -24,12 +24,14 @@
 		project: Project;
 		tools: AssistantTool[];
 		currentThreadID?: string;
+		assistant?: Assistant;
 	}
 
 	let {
 		project = $bindable(),
 		tools = $bindable(),
-		currentThreadID = $bindable()
+		currentThreadID = $bindable(),
+		assistant
 	}: Props = $props();
 
 	const layout = getLayout();
@@ -99,7 +101,7 @@
 				<div class="default-scrollbar-thin flex grow flex-col">
 					<General bind:project />
 					<Instructions bind:project />
-					<Tools {tools} {onNewTools} />
+					<Tools {tools} {onNewTools} {assistant} />
 					<Knowledge {project} />
 					<Files {project} />
 					<Tasks {project} />

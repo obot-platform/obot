@@ -1,7 +1,3 @@
-<script lang="ts" module>
-	const MAX_TOOLS = 5;
-</script>
-
 <script lang="ts">
 	import { popover } from '$lib/actions';
 	import { getToolBundleMap } from '$lib/context/toolReferences.svelte';
@@ -12,9 +8,12 @@
 	interface Props {
 		tools: AssistantTool[];
 		onSelectTools: (tools: AssistantTool[]) => void;
+		maxTools?: number;
 	}
 
-	let { tools, onSelectTools }: Props = $props();
+	let { tools, onSelectTools, maxTools = Number.MAX_SAFE_INTEGER }: Props = $props();
+
+	console.log(maxTools);
 
 	let input = $state<HTMLInputElement>();
 
@@ -32,7 +31,7 @@
 	);
 
 	let canSelectMore = $derived(
-		Object.values(toolSelection).filter((t) => t.enabled).length < MAX_TOOLS
+		Object.values(toolSelection).filter((t) => t.enabled).length < maxTools
 	);
 
 	let catalog = popover({ fixed: true });
@@ -134,7 +133,11 @@
 								<input disabled type="checkbox" />
 							{/if}
 							<p class="flex items-center gap-2">
-								<img src={tool.metadata?.icon} alt={tool.name} class="size-6" />
+								<img
+									src={tool.metadata?.icon}
+									alt={tool.name}
+									class="size-6 rounded-lg bg-white p-1"
+								/>
 								{tool.name}
 							</p>
 
@@ -184,7 +187,7 @@
 					() => (bundleToolSelected ? true : tool.enabled), (val) => (tool.enabled = val)
 				}
 			/>
-			<img src={tool.icon} alt={tool.name} class="size-6" />
+			<img src={tool.icon} alt={tool.name} class="size-6 rounded-lg bg-white p-1" />
 			{toolReference.name}
 		</p>
 	</label>
