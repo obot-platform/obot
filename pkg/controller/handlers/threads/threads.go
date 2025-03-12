@@ -354,6 +354,44 @@ func (t *Handler) GenerateName(req router.Request, _ router.Response) error {
 	return req.Client.Update(req.Ctx, thread)
 }
 
+func (t *Handler) EnsureLastAndCurrentRunActive(req router.Request, _ router.Response) error {
+	thread := req.Object.(*v1.Thread)
+	if thread.Status.LastRunName != "" {
+		if err := t.activateRun(req.Ctx, req.Client, thread.Name, thread.Namespace, thread.Status.LastRunName); err != nil {
+			return err
+		}
+	}
+
+	if thread.Status.CurrentRunName != "" {
+		if err := t.activateRun(req.Ctx, req.Client, thread.Name, thread.Namespace, thread.Status.CurrentRunName); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (t *Handler) activateRun(ctx context.Context, client kclient.Client, threadName, namespace, name string) error {
+	var run v1.Run
+	if err := client.Get(ctx, kclient.ObjectKey{Namespace: namespace, Name: name}, &run); !apierrors.IsNotFound(err) {
+		return err
+	}
+
+	// This must be uncached since inactive things aren't in the cache.
+	if err := client.Get(ctx, kclient.ObjectKey{Namespace: namespace, Name: name}, untriggered.UncachedGet(&run)); err != nil {
+		return fmt.Errorf("failed to get run %s for thread %s: %w", name, threadName, err)
+	}
+
+	if !v1.IsActive(&run) {
+		v1.SetActive(&run)
+		if err := client.Update(ctx, &run); err != nil {
+			return fmt.Errorf("failed to update run %q to active: %w", run.Name, err)
+		}
+	}
+
+	return nil
+}
+
 func (t *Handler) ActivateRuns(req router.Request, _ router.Response) error {
 	var runs v1.RunList
 	// This must be uncached since inactive things aren't in the cache.

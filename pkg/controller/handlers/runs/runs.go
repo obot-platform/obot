@@ -88,7 +88,16 @@ func (h *Handler) DeleteFinished(req router.Request, _ router.Response) error {
 
 func (h *Handler) MarkInactive(req router.Request, _ router.Response) error {
 	run := req.Object.(*v1.Run)
-	if run.DeletionTimestamp.IsZero() && run.Status.State == gptscript.Continue && run.Labels[v1.LabelInactive] != "true" {
+	if !run.DeletionTimestamp.IsZero() || run.Status.State != gptscript.Continue || run.Labels[v1.LabelInactive] == "true" {
+		return nil
+	}
+
+	var thread v1.Thread
+	if err := req.Get(&thread, run.Namespace, run.Spec.ThreadName); err != nil {
+		return err
+	}
+
+	if thread.Status.LastRunName != run.Name && thread.Status.CurrentRunName != run.Name {
 		v1.SetInactive(run)
 		if err := req.Client.Update(req.Ctx, run); err != nil {
 			return err
@@ -96,6 +105,5 @@ func (h *Handler) MarkInactive(req router.Request, _ router.Response) error {
 
 		return inactive.RemoveFromCache(req.Ctx, h.backend, run)
 	}
-
 	return nil
 }

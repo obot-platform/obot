@@ -73,6 +73,7 @@ func (c *Controller) setupRoutes() error {
 	root.Type(&v1.Thread{}).HandlerFunc(projects.CopyProjectInfo)
 	root.Type(&v1.Thread{}).HandlerFunc(threads.CopyTasksFromSource)
 	root.Type(&v1.Thread{}).HandlerFunc(threads.CopyTasksFromParent)
+	root.Type(&v1.Thread{}).HandlerFunc(threads.EnsureLastAndCurrentRunActive)
 	root.Type(&v1.Thread{}).FinalizeFunc(v1.ThreadFinalizer, credentialCleanup.Remove)
 	root.Type(&v1.Thread{}).FinalizeFunc(v1.ThreadFinalizer+"-child-cleanup", threads.ActivateRuns)
 
