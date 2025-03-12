@@ -50,6 +50,11 @@ var staticRules = map[string][]string{
 
 		"GET /api/auth-providers",
 		"GET /api/auth-providers/{id}",
+
+		// Allow public access to read display info for featured Obots
+		// This is used in the unauthenticated landing page
+		"GET /api/shares",
+		"GET /api/tool-references",
 	},
 	AuthenticatedGroup: {
 		"/api/oauth/redirect/{namespace}/{name}",

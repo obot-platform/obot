@@ -64,6 +64,7 @@ type ThreadShareStatus struct {
 	Name        string            `json:"name,omitempty"`
 	Description string            `json:"description,omitempty"`
 	Icons       *types.AgentIcons `json:"icons"`
+	Tools       []string          `json:"tools,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

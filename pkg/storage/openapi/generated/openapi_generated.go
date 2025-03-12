@@ -3048,6 +3048,20 @@ func schema_obot_platform_obot_apiclient_types_ProjectShare(ref common.Reference
 							Format: "",
 						},
 					},
+					"tools": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
 				},
 				Required: []string{"Metadata", "ProjectShareManifest", "icons"},
 			},
@@ -8305,6 +8319,20 @@ func schema_storage_apis_obotobotai_v1_ThreadShareStatus(ref common.ReferenceCal
 					"icons": {
 						SchemaProps: spec.SchemaProps{
 							Ref: ref("github.com/obot-platform/obot/apiclient/types.AgentIcons"),
+						},
+					},
+					"tools": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
 						},
 					},
 				},

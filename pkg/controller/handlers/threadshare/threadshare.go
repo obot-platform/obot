@@ -21,6 +21,7 @@ func CopyProjectInfo(req router.Request, _ router.Response) error {
 		Name:        project.Spec.Manifest.Name,
 		Description: project.Spec.Manifest.Description,
 		Icons:       project.Spec.Manifest.Icons,
+		Tools:       project.Spec.Manifest.Tools,
 	}
 
 	if !equality.Semantic.DeepEqual(status, share.Status) {

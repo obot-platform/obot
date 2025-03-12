@@ -121,10 +121,7 @@
 									<img
 										alt={toolData.name || 'Unknown'}
 										src={toolData.metadata.icon}
-										class={twMerge(
-											'h-4 w-4',
-											toolData.metadata.icon.endsWith('.svg') && 'dark:invert'
-										)}
+										class={twMerge('h-4 w-4')}
 									/>
 								{:else}
 									<WrenchIcon class="h-4 w-4" />

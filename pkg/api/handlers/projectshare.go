@@ -196,6 +196,7 @@ func convertProjectShare(threadShare v1.ThreadShare) types.ProjectShare {
 		Name:                 threadShare.Status.Name,
 		Description:          threadShare.Status.Description,
 		Icons:                threadShare.Status.Icons,
+		Tools:                threadShare.Status.Tools,
 	}
 }
 

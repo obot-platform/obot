@@ -338,6 +338,7 @@ export interface ProjectShare {
 	description?: string;
 	icons?: AssistantIcons;
 	featured?: boolean;
+	tools?: string[];
 }
 
 export interface ProjectShareList {
