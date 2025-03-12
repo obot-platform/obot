@@ -20,7 +20,7 @@
 
 <dialog
 	bind:this={dialog}
-	class="colors-surface1 h-1/4 min-h-[300px] w-1/3 min-w-[300px] rounded-3xl p-5"
+	class="h-1/4 min-h-[300px] w-1/3 min-w-[300px] p-5 overflow-visible"
 >
 	<div class="flex h-full flex-col">
 		<button class="absolute right-0 top-0 p-3" onclick={() => dialog?.close()}>

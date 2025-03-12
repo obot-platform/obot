@@ -365,7 +365,7 @@ printf "The current temperature in %s is %.2f°F.\\n" "$CITY" "$RANDOM_TEMPERATU
 
 <dialog
 	bind:this={dialog}
-	class="w-11/12 max-w-[1000px] rounded-3xl dark:bg-gray-950 dark:text-gray-50"
+	class="w-11/12 max-w-[1000px]"
 >
 	<div class="relative flex flex-col p-5">
 		<div class="absolute right-0 top-0 flex p-5">

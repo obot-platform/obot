@@ -46,7 +46,7 @@
 
 <dialog
 	bind:this={dialog}
-	class="w-full max-w-3xl rounded-3xl bg-gray-50 text-black dark:bg-gray-950 dark:text-gray-50"
+	class="w-full max-w-3xl"
 >
 	<Env {envs} />
 	{#if error}

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { MessageCirclePlus, Pen, Save, ScrollText, Trash2 } from 'lucide-svelte';
+	import { Pen, Plus, Save, Trash2 } from 'lucide-svelte';
 	import { ChatService, type Project, type Thread } from '$lib/services';
 	import { onDestroy, onMount, tick } from 'svelte';
 	import { CircleX } from 'lucide-svelte/icons';
@@ -7,6 +7,7 @@
 	import { getLayout } from '$lib/context/layout.svelte.js';
 	import { fade } from 'svelte/transition';
 	import { overflowToolTip } from '$lib/actions/overflow.js';
+	import DotDotDot from '../DotDotDot.svelte';
 
 	interface Props {
 		currentThreadID?: string;
@@ -15,7 +16,6 @@
 
 	let { currentThreadID = $bindable(), project }: Props = $props();
 
-	let threads = $state<Thread[]>([]);
 	let panel = $state<HTMLDivElement>();
 	let input = $state<HTMLInputElement>();
 	let editMode = $state(false);
@@ -24,6 +24,7 @@
 	let layout = getLayout();
 	let lastSeenThreadID = $state('');
 	let watchingThread: (() => void) | undefined;
+	let displayCount = $state(10); // Number of threads to display initially
 
 	function isCurrentThread(thread: Thread) {
 		return currentThreadID === thread.id && layout.editTaskID === undefined;
@@ -35,15 +36,19 @@
 		layout.items = [];
 	}
 
+	function loadMore() {
+		displayCount += 10;
+	}
+
 	async function startEditName() {
-		const thread = threads.find(isCurrentThread);
+		const thread = layout.threads?.find(isCurrentThread);
 		name = thread?.name ?? '';
 		editMode = true;
 		tick().then(() => input?.focus());
 	}
 
 	async function saveName() {
-		let thread = threads.find(isCurrentThread);
+		let thread = layout.threads?.find(isCurrentThread);
 		if (!thread) {
 			editMode = false;
 			return;
@@ -51,9 +56,9 @@
 
 		thread.name = name;
 		thread = await ChatService.updateThread(project.assistantID, project.id, thread);
-		threads.forEach((t, i) => {
+		layout.threads?.forEach((t, i) => {
 			if (t.id === thread.id) {
-				threads[i] = thread;
+				layout.threads![i] = thread;
 			}
 		});
 		editMode = false;
@@ -61,9 +66,9 @@
 
 	export async function createThread() {
 		const thread = await ChatService.createThread(project.assistantID, project.id);
-		const found = threads.find((t) => t.id === thread.id);
+		const found = layout.threads?.find((t) => t.id === thread.id);
 		if (!found) {
-			threads.splice(0, 0, thread);
+			layout.threads?.splice(0, 0, thread);
 		}
 		setCurrentThread(thread.id);
 		focusChat();
@@ -78,9 +83,9 @@
 
 	async function deleteThread(id: string) {
 		await ChatService.deleteThread(project.assistantID, project.id, id);
-		threads = threads.filter((thread) => thread.id !== id);
-		setCurrentThread(threads[0]?.id ?? '');
-		if (threads.length === 0) {
+		layout.threads = layout.threads?.filter((thread) => thread.id !== id);
+		setCurrentThread(layout.threads?.[0]?.id ?? '');
+		if (layout.threads?.length === 0) {
 			togglePanel();
 		}
 	}
@@ -111,33 +116,46 @@
 			return;
 		}
 
-		console.log('watching threads', project.id);
 		watchingThread = ChatService.watchThreads(project.assistantID, project.id, (thread) => {
 			if (thread.deleted) {
-				threads = threads.filter((t) => t.id !== thread.id);
+				layout.threads = layout.threads?.filter((t) => t.id !== thread.id);
 				if (currentThreadID === thread.id) {
-					setCurrentThread(threads[0]?.id ?? '');
+					setCurrentThread(layout.threads?.[0]?.id ?? '');
 				}
 				return;
 			}
 
 			let found = false;
-			for (let i = 0; i < threads.length; i++) {
-				if (threads[i].id === thread.id) {
-					threads[i] = thread;
+			for (let i = 0; i < (layout.threads?.length ?? 0); i++) {
+				if (layout.threads?.[i].id === thread.id) {
+					layout.threads[i] = thread;
+					found = true;
+					break;
+				}
+			}
+
+			for (let i = 0; i < (layout.taskRuns?.length ?? 0); i++) {
+				if (layout.taskRuns?.[i].id === thread.id) {
+					layout.taskRuns[i] = thread;
 					found = true;
 					break;
 				}
 			}
 
 			if (!found) {
-				threads.splice(0, 0, thread);
+				if (thread.taskID) {
+					layout.taskRuns?.splice(0, 0, thread);
+					return;
+				}
+				layout.threads?.splice(0, 0, thread);
 			}
 		});
 	}
 
 	async function reloadThread() {
-		threads = (await ChatService.listThreads(project.assistantID, project.id)).items;
+		const threads = (await ChatService.listThreads(project.assistantID, project.id)).items;
+		layout.threads = threads.filter((t) => !t.deleted && !t.taskID);
+		layout.taskRuns = threads.filter((t) => !t.deleted && !!t.taskID);
 	}
 
 	async function open() {
@@ -161,41 +179,36 @@
 
 	$effect(() => {
 		if (currentThreadID) {
-			const thread = threads.find((t) => t.id === currentThreadID);
+			const thread = layout.threads?.find((t) => t.id === currentThreadID);
 			if (thread) {
 				name = thread.name;
+				if (lastSeenThreadID !== currentThreadID) {
+					reloadThread();
+					setCurrentThread(currentThreadID);
+				}
 			}
-		}
-	});
-
-	$effect(() => {
-		if (currentThreadID && lastSeenThreadID !== currentThreadID) {
-			reloadThread();
-			setCurrentThread(currentThreadID);
 		}
 	});
 </script>
 
 {#if isOpen}
 	<div bind:this={panel} class="flex flex-col">
-		<div class="mb-2 flex items-center gap-4">
-			<ScrollText class="icon-default text-gray" />
-			<h2 class="grow text-lg">Threads</h2>
-			<button class="text-gray" onclick={createThread}>
-				<MessageCirclePlus class="h-5 w-5" />
+		<div class="mb-1 flex items-center justify-between">
+			<p class="grow text-sm font-semibold">Threads</p>
+			<button class="icon-button" onclick={createThread}>
+				<Plus class="h-5 w-5" />
 			</button>
 		</div>
-		{#if threads.length === 0}
+		{#if layout.threads?.length === 0}
 			<p class="p-6 text-center text-sm text-gray dark:text-gray-300">No threads</p>
 		{/if}
 		<ul transition:fade>
-			{#each threads as thread}
+			{#each (layout.threads ?? []).slice(0, displayCount) as thread}
 				<li
 					class:bg-surface2={isCurrentThread(thread)}
-					class="group flex items-center gap-2 rounded-lg px-3 py-2 hover:bg-surface3"
+					class="group flex min-h-9 items-center gap-3 rounded-md p-2 text-xs font-light hover:bg-surface3"
 				>
 					{#if editMode && isCurrentThread(thread)}
-						<!-- I have no idea why w-0 is needed here, otherwise the minimum width is too large -->
 						<input
 							bind:value={name}
 							bind:this={input}
@@ -209,13 +222,14 @@
 										break;
 								}
 							}}
-							class="w-0 grow border-none bg-gray-100 outline-none ring-0 dark:bg-gray-900 dark:text-white"
+							class="w-0 grow border-none bg-transparent outline-none ring-0 dark:text-white"
 							placeholder="Enter name"
 							type="text"
 						/>
 					{:else}
 						<button
 							use:overflowToolTip
+							class:font-normal={isCurrentThread(thread)}
 							class="grow text-start"
 							onclick={() => selectThread(thread.id)}
 						>
@@ -224,23 +238,37 @@
 					{/if}
 					{#if isCurrentThread(thread)}
 						{#if editMode}
-							<button onclick={() => (editMode = false)}>
+							<button class="list-button-primary" onclick={() => (editMode = false)}>
 								<CircleX class="h-4 w-4" />
 							</button>
-							<button onclick={saveName}>
+							<button class="list-button-primary" onclick={saveName}>
 								<Save class="h-4 w-4" />
 							</button>
 						{:else}
-							<button onclick={startEditName}>
-								<Pen class="h-4 w-4" />
-							</button>
-							<button onclick={() => deleteThread(thread.id)}>
-								<Trash2 class="h-4 w-4" />
-							</button>
+							<DotDotDot class="p-0">
+								<div class="default-dialog flex min-w-40 flex-col p-2">
+									<button class="menu-button" onclick={startEditName}>
+										<Pen class="h-4 w-4" /> Edit
+									</button>
+									<button class="menu-button" onclick={() => deleteThread(thread.id)}>
+										<Trash2 class="h-4 w-4" /> Delete
+									</button>
+								</div>
+							</DotDotDot>
 						{/if}
 					{/if}
 				</li>
 			{/each}
+			{#if layout.threads?.length && layout.threads?.length > displayCount}
+				<li class="flex justify-center p-2">
+					<button
+						class="text-xs text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
+						onclick={loadMore}
+					>
+						Show More
+					</button>
+				</li>
+			{/if}
 		</ul>
 	</div>
 

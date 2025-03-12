@@ -4,17 +4,24 @@
 	import { Check, ChevronDown } from 'lucide-svelte/icons';
 	import { popover } from '$lib/actions';
 	import { getLayout } from '$lib/context/layout.svelte';
+	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
 		project: Project;
+		onOpenChange?: (open: boolean) => void;
 	}
 
-	let { project }: Props = $props();
+	let { project, onOpenChange: onProjectOpenChange }: Props = $props();
 	let projects = $state<Project[]>([]);
 	let layout = getLayout();
+	let open = $state(false);
 
 	let { ref, tooltip, toggle } = popover({
-		placement: 'bottom-start'
+		placement: 'bottom-start',
+		onOpenChange: (value) => {
+			open = value;
+			onProjectOpenChange?.(value);
+		}
 	});
 </script>
 
@@ -32,18 +39,20 @@
 		toggle();
 	}}
 >
-	<span class="max-w-[100% - 24px] truncate text-sm font-semibold text-on-background"
+	<span class="max-w-[100% - 24px] text-md truncate font-semibold text-on-background"
 		>{project.name || 'Untitled'}</span
 	>
 	{#if !layout.projectEditorOpen}
-		<ChevronDown class="text-gray" />
+		<div class={twMerge('text-gray transition-transform duration-200', open && 'rotate-180')}>
+			<ChevronDown />
+		</div>
 	{/if}
 </button>
 
 {#if !layout.projectEditorOpen}
 	<div
 		use:tooltip
-		class="flex h-full w-full -translate-x-16 flex-col border-t-[1px] border-surface2 bg-surface1 p-2 shadow-inner"
+		class="flex h-full w-full -translate-x-14 flex-col border-t-[1px] border-surface3 bg-surface2 p-2 shadow-inner"
 		role="none"
 		onclick={() => toggle(false)}
 	>
@@ -51,7 +60,7 @@
 			<a
 				href="/o/{p.id}?sidebar=true"
 				rel="external"
-				class="flex items-center gap-2 rounded-3xl p-2 hover:bg-surface2"
+				class="flex items-center gap-2 rounded-3xl p-2 hover:bg-surface3"
 			>
 				<AssistantIcon project={p} class="flex-shrink-0" />
 				<div class="flex grow flex-col">
@@ -67,7 +76,7 @@
 		{/each}
 		<a
 			href="/home"
-			class="flex items-center justify-center gap-2 rounded-xl px-2 py-4 text-gray hover:bg-surface2"
+			class="flex items-center justify-center gap-2 rounded-xl px-2 py-4 text-gray hover:bg-surface3"
 		>
 			<img src="/user/images/obot-icon-blue.svg" class="h-5" alt="Obot icon" />
 			<span class="text-sm text-gray">See All Obots</span>

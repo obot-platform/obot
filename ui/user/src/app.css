@@ -3,7 +3,7 @@
 @tailwind utilities;
 
 .icon-button-colors {
-	@apply text-gray hover:bg-gray-100 focus:outline-none dark:text-gray-400 dark:hover:bg-gray-700;
+	@apply text-gray hover:bg-surface3 focus:outline-none dark:text-gray-400;
 }
 
 .icon-button {
@@ -55,7 +55,11 @@ body {
 }
 
 .button-icon-primary {
-	@apply rounded-full p-2 text-gray hover:bg-gray-100 hover:text-blue focus:outline-none dark:hover:bg-gray-700/30;
+	@apply flex rounded-full p-2 text-gray hover:bg-gray-100 hover:text-blue focus:outline-none dark:hover:bg-gray-700/30 items-center justify-center;
+}
+
+.list-button-primary {
+	@apply button-icon-primary !p-0 hover:bg-transparent;
 }
 
 .text-input {
@@ -181,4 +185,12 @@ li:has(input[type='checkbox'])::marker {
 
 .tooltip {
 	@apply hidden rounded-lg bg-blue p-2 text-sm;
+}
+
+.default-dialog, dialog { 
+	@apply rounded-xl bg-white dark:bg-surface2 border-[1px] shadow-lg border-surface3 text-sm text-black dark:text-white;
+}
+
+.menu-button {
+	@apply icon-button flex items-center gap-2;
 }

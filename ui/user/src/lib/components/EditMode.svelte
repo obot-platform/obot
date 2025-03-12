@@ -13,10 +13,8 @@
 	import { columnResize } from '$lib/actions/resize';
 	import Obot from '$lib/components/Obot.svelte';
 	import { getLayout } from '$lib/context/layout.svelte';
-	import Settings from '$lib/components/navbar/Settings.svelte';
 	import { X } from 'lucide-svelte/icons';
 	import { slide } from 'svelte/transition';
-	import ShareDialog from '$lib/components/edit/ShareDialog.svelte';
 	import Files from '$lib/components/edit/Files.svelte';
 	import Tasks from '$lib/components/edit/Tasks.svelte';
 
@@ -81,7 +79,7 @@
 			class="z-10 flex h-16 w-full items-center gap-2 bg-surface1 p-5 shadow-md"
 			transition:slide
 		>
-			<img src="/user/images/obot-icon-blue.svg" class="h-8" alt="Obot icon" />
+			<a href="/home"><img src="/user/images/obot-icon-blue.svg" class="h-8" alt="Obot icon" /></a>
 			<h1 class="text-xl font-semibold">Obot Editor</h1>
 			<div class="grow"></div>
 			<button class="icon-button" onclick={() => (layout.projectEditorOpen = false)}>
@@ -134,12 +132,6 @@
 			>
 				<Obot {project} {tools} bind:currentThreadID />
 			</div>
-			{#if (layout.sidebarOpen && !layout.fileEditorOpen) || layout.projectEditorOpen}
-				<div class="absolute bottom-2 left-2 z-30 hidden md:flex">
-					<Settings />
-					<ShareDialog {project} />
-				</div>
-			{/if}
 		</div>
 	</div>
 </div>

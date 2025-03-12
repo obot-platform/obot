@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Settings } from 'lucide-svelte';
+	import { Pencil } from 'lucide-svelte';
 	import { getLayout } from '$lib/context/layout.svelte';
 
 	const layout = getLayout();
@@ -9,5 +9,5 @@
 	class="icon-button hidden md:flex"
 	onclick={() => (layout.projectEditorOpen = !layout.projectEditorOpen)}
 >
-	<Settings class="icon-default" />
+	<Pencil class="icon-default" />
 </button>

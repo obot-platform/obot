@@ -10,6 +10,7 @@
 	import { getLayout } from '$lib/context/layout.svelte';
 	import Projects from './navbar/Projects.svelte';
 	import Logo from './navbar/Logo.svelte';
+	import Settings from './navbar/Settings.svelte';
 
 	interface Props {
 		project: Project;
@@ -19,26 +20,41 @@
 
 	let { project, currentThreadID = $bindable(), tools }: Props = $props();
 	let credentials = $state<ReturnType<typeof Credentials>>();
+	let projectsOpen = $state(false);
 	const layout = getLayout();
 </script>
 
-<div class="relative flex size-full flex-col gap-3 bg-surface1">
+<div class="relative flex size-full flex-col bg-surface1">
 	<div class="flex h-[76px] items-center justify-between p-3">
-		<div class="flex h-[52px] w-[calc(100%-42px)] items-center">
-			<span class="flex-shrink-0"><Logo /></span>
-			<Projects {project} />
+		<div
+			class="flex h-[52px] items-center transition-all duration-300"
+			class:w-full={projectsOpen}
+			class:w-[calc(100%-42px)]={!projectsOpen}
+		>
+			<span class="flex-shrink-0"><Logo class="ml-0" /></span>
+			<Projects {project} onOpenChange={(open) => (projectsOpen = open)} />
 		</div>
-		<button class="icon-button" onclick={() => (layout.sidebarOpen = false)}>
+		<button
+			class:opacity-0={projectsOpen}
+			class:w-0={projectsOpen}
+			class:!min-w-0={projectsOpen}
+			class:!p-0={projectsOpen}
+			class="icon-button overflow-hidden transition-all duration-300"
+			onclick={() => (layout.sidebarOpen = false)}
+		>
 			<SidebarClose class="icon-default" />
 		</button>
 	</div>
 
-	<div class="default-scrollbar-thin flex w-full grow flex-col gap-2 p-3">
+	<div class="default-scrollbar-thin flex w-full grow flex-col gap-2 px-3 pb-5">
 		<Threads {project} bind:currentThreadID />
-		<Tasks {project} />
+		<Tasks {project} bind:currentThreadID />
 	</div>
 
-	<div class="flex justify-end gap-1 px-3 pb-2">
+	<div class="flex gap-1 px-3 pb-2">
+		{#if (layout.sidebarOpen && !layout.projectEditorOpen)}
+			<Settings />
+		{/if}
 		{#if hasTool(tools, 'shell')}
 			<Term />
 		{/if}

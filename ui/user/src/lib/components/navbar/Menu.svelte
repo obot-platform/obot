@@ -68,12 +68,7 @@
 
 <div use:tooltip class="z-30 w-screen px-2 md:w-96">
 	<div
-		class="colors-surface2 flex w-full flex-col
-		divide-y
-		divide-gray-200
-		 rounded-3xl p-6 shadow
-		 dark:divide-gray-700
-"
+		class="default-dialog flex w-full flex-col divide-y divide-gray-200 p-6 dark:divide-gray-700"
 	>
 		<div class="mb-4">
 			<div class="flex justify-between">

@@ -1,17 +1,17 @@
 <script lang="ts">
-	import { Plus, Trash } from 'lucide-svelte/icons';
+	import { Plus } from 'lucide-svelte/icons';
 	import { ChatService, type Project, type Task } from '$lib/services';
 	import Confirm from '$lib/components/Confirm.svelte';
-	import { CheckSquare, Play } from 'lucide-svelte';
 	import { getLayout } from '$lib/context/layout.svelte';
 	import { onMount } from 'svelte';
-	import { overflowToolTip } from '$lib/actions/overflow';
+	import TaskItem from './TaskItem.svelte';
 
 	interface Props {
 		project: Project;
+		currentThreadID?: string;
 	}
 
-	let { project }: Props = $props();
+	let { currentThreadID = $bindable(), project }: Props = $props();
 	const layout = getLayout();
 
 	async function deleteTask() {
@@ -51,9 +51,8 @@
 </script>
 
 <div class="flex w-full flex-col">
-	<div class="mb-2 flex items-center">
-		<CheckSquare class="me-2 h-5 w-5 text-gray" />
-		<h2 class="grow text-lg">Tasks</h2>
+	<div class="mb-2 flex items-center gap-1">
+		<p class="grow text-sm font-semibold">Tasks</p>
 		<button class="icon-button" onclick={() => newTask()}>
 			<Plus class="icon-default" />
 		</button>
@@ -61,35 +60,15 @@
 	{#if !layout.tasks || layout.tasks.length === 0}
 		<p class="p-6 text-center text-sm text-gray dark:text-gray-300">No tasks</p>
 	{:else}
-		<ul class="space-y-4 px-3">
-			{#each layout.tasks as task}
-				<li class="flex flex-col">
-					<div class="flex items-center gap-3">
-						<button
-							use:overflowToolTip
-							class="flex w-[50%] flex-1 items-center"
-							onclick={async () => {
-								layout.editTaskID = task.id;
-							}}
-						>
-							{task.name ?? ''}
-						</button>
-						<button
-							onclick={async () => {
-								await ChatService.runTask(project.assistantID, project.id, task.id);
-							}}
-						>
-							<Play class="size-5 text-gray-400" />
-						</button>
-						<button
-							onclick={() => {
-								taskToDelete = task;
-							}}
-						>
-							<Trash class="size-5 text-gray-400" />
-						</button>
-					</div>
-				</li>
+		<ul>
+			{#each layout.tasks as task, i}
+				<TaskItem
+					{task}
+					onDelete={() => (taskToDelete = task)}
+					taskRuns={layout.taskRuns?.filter((run) => run.taskID === task.id) ?? []}
+					expanded={i < 5}
+					bind:currentThreadID
+				/>
 			{/each}
 		</ul>
 	{/if}

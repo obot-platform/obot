@@ -60,6 +60,8 @@
 		thread?.close?.();
 	});
 
+	
+
 	const layout = getLayout();
 	function onLoadFile(filename: string) {
 		EditorService.load(layout.items, project, filename, {
@@ -138,10 +140,10 @@
 		>
 			<div class="message-content self-center">
 				<div class="flex flex-col items-center justify-center pt-8 text-center">
-					<AssistantIcon {project} class="h-14 w-14 shadow-lg" />
+					<AssistantIcon {project} class="h-24 w-24 shadow-lg" />
 					<h4 class="!mb-1">{project.name || 'Untitled'}</h4>
 					{#if project.description}
-						<p class="max-w-sm text-xs text-gray">{project.description}</p>
+						<p class="max-w-md text-gray">{project.description}</p>
 					{/if}
 					<div class="mt-4 h-[1px] w-96 max-w-sm rounded-full bg-surface1 dark:bg-surface2"></div>
 				</div>

@@ -19,7 +19,7 @@
 	<button class="icon-button" transition:fade onclick={() => shareDialog?.showModal()}>
 		<ShareIcon class="icon-default" />
 	</button>
-	<dialog class="colors-surface1 min-w-[320px] rounded-3xl p-5" bind:this={shareDialog}>
+	<dialog class="min-w-[320px] p-5" bind:this={shareDialog}>
 		<h2 class="font-semibold">Sharing</h2>
 		<Share dialog {project} />
 		<button class="absolute right-5 top-5" onclick={() => shareDialog?.close()}>

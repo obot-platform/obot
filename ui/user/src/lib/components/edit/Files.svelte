@@ -196,7 +196,7 @@
 	>
 		<FileText class="h-5 w-5" />
 	</button>
-	<div use:threadTT.tooltip id="foo" class="colors-surface2 w-[400px] rounded-3xl">
+	<div use:threadTT.tooltip id="foo" class="hidden default-dialog w-[400px]">
 		<div class="flex flex-col p-5">
 			{@render body()}
 		</div>
@@ -209,7 +209,7 @@
 
 <dialog
 	bind:this={editorDialog}
-	class="colors-surface1 relative h-full w-full rounded-3xl md:w-4/5"
+	class="relative h-full w-full md:w-4/5"
 >
 	<button
 		class="button-icon-primary absolute right-2 top-2"

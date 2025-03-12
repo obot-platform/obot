@@ -37,7 +37,7 @@
 				<AssistantIcon {project} class="h-8 w-8" />
 				<ChevronDown class="icon-default" />
 			</button>
-			<div use:tooltip class="z-20 flex w-[350px] flex-col rounded-3xl bg-surface2 p-3">
+			<div use:tooltip class="default-dialog z-20 flex w-[350px] flex-col p-3">
 				{#if urlIcon}
 					<div class="flex flex-col gap-2 p-1">
 						<div class="flex flex-col gap-2">

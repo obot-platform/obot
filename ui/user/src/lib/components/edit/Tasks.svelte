@@ -77,7 +77,7 @@
 
 <dialog
 	bind:this={editorDialog}
-	class="colors-background relative h-full w-full rounded-3xl md:w-4/5"
+	class="relative h-full w-full md:w-4/5"
 >
 	<button
 		class="icon-button absolute right-2 top-2"

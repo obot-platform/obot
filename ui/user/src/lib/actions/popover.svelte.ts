@@ -24,6 +24,7 @@ interface PopoverOptions extends Partial<ComputePositionConfig> {
 	placement?: Placement;
 	fixed?: boolean;
 	delay?: number;
+	onOpenChange?: (open: boolean) => void;
 }
 
 let id = 0;
@@ -42,6 +43,7 @@ export default function popover(opts?: PopoverOptions): Popover {
 		document.addEventListener('toolOpen', (e: Event) => {
 			if (e instanceof CustomEvent && e.detail !== selfId.toString()) {
 				open = false;
+				opts?.onOpenChange?.(open);
 			}
 		});
 
@@ -79,6 +81,7 @@ export default function popover(opts?: PopoverOptions): Popover {
 				div.onclick = () => {
 					open = false;
 					div.remove();
+					opts?.onOpenChange?.(open);
 				};
 
 				document.body.append(div);
@@ -104,7 +107,7 @@ export default function popover(opts?: PopoverOptions): Popover {
 			}
 		});
 		if (!hasZIndex) {
-			tooltip.classList.add('z-30');
+			tooltip.classList.add('z-40');
 		}
 
 		if (opts?.hover) {
@@ -115,6 +118,7 @@ export default function popover(opts?: PopoverOptions): Popover {
 
 				hoverTimeout = setTimeout(() => {
 					open = true;
+					opts?.onOpenChange?.(open);
 				}, opts.delay ?? 150);
 			});
 			ref.addEventListener('mouseleave', () => {
@@ -123,6 +127,7 @@ export default function popover(opts?: PopoverOptions): Popover {
 				}
 
 				open = false;
+				opts?.onOpenChange?.(open);
 			});
 		}
 
@@ -168,6 +173,7 @@ export default function popover(opts?: PopoverOptions): Popover {
 			}
 
 			open = newOpenValue ?? !open;
+			opts?.onOpenChange?.(open);
 		}
 	};
 }
