@@ -78,7 +78,7 @@ az role assignment create \
 
 ### 5. Get the Key Version
 
-1. Get the key version (optional, latest version will be used if not specified):
+1. Get the key version:
 
 ```bash
 az keyvault key show \
