@@ -212,7 +212,7 @@ export class Thread {
 	}
 
 	close() {
-		console.log('Thread closing');
+		console.log('Thread closing', this.threadID);
 		this.#es.close();
 	}
 }

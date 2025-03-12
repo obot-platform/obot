@@ -9,7 +9,6 @@ export interface Layout {
 	items: EditorItem[];
 	projectEditorOpen?: boolean;
 	fileEditorOpen?: boolean;
-	currentThreadID?: string;
 }
 
 export function initLayout(layout: Layout) {

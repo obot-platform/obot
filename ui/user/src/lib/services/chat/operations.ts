@@ -1,4 +1,3 @@
-import { Channel } from '$lib/channel';
 import { baseURL, doDelete, doGet, doPost, doPut } from './http';
 import {
 	type AuthProvider,
@@ -546,24 +545,20 @@ export async function listThreads(assistantID: string, projectID: string): Promi
 	return list;
 }
 
-export async function* watchThreads(
+export function watchThreads(
 	assistantID: string,
-	projectID: string
-): AsyncGenerator<Thread> {
+	projectID: string,
+	onThread: (t: Thread) => void
+): () => void {
 	// This doesn't handle connection errors, should add that later
-	const c = new Channel<Thread>();
 	const es = new EventSource(baseURL + `/assistants/${assistantID}/projects/${projectID}/threads`);
 	es.onmessage = (e) => {
 		const thread = JSON.parse(e.data) as Thread;
-		c.send(thread);
+		onThread(thread);
 	};
-	try {
-		while (true) {
-			yield await c.receive();
-		}
-	} finally {
+	return () => {
 		es.close();
-	}
+	};
 }
 
 export async function acceptPendingAuthorization(assistantID: string, projectID: string) {

@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { MessageCirclePlus, Pen, Save, ScrollText, Trash2 } from 'lucide-svelte';
 	import { ChatService, type Project, type Thread } from '$lib/services';
-	import { tick } from 'svelte';
+	import { onDestroy, onMount, tick } from 'svelte';
 	import { CircleX } from 'lucide-svelte/icons';
 	import { columnResize } from '$lib/actions/resize';
 	import { getLayout } from '$lib/context/layout.svelte.js';
@@ -23,7 +23,7 @@
 	let isOpen = $state(false);
 	let layout = getLayout();
 	let lastSeenThreadID = $state('');
-	let watchingThread: Promise<void>;
+	let watchingThread: (() => void) | undefined;
 
 	function isCurrentThread(thread: Thread) {
 		return currentThreadID === thread.id && layout.editTaskID === undefined;
@@ -94,14 +94,31 @@
 		focusChat();
 	}
 
+	onMount(() => {
+		watchThreads();
+	});
+
+	onDestroy(() => {
+		if (watchingThread) {
+			watchingThread();
+			watchingThread = undefined;
+			console.log('stop watching threads', project.id);
+		}
+	});
+
 	async function watchThreads(): Promise<void> {
-		for await (const thread of ChatService.watchThreads(project.assistantID, project.id)) {
+		if (watchingThread) {
+			return;
+		}
+
+		console.log('watching threads', project.id);
+		watchingThread = ChatService.watchThreads(project.assistantID, project.id, (thread) => {
 			if (thread.deleted) {
 				threads = threads.filter((t) => t.id !== thread.id);
 				if (currentThreadID === thread.id) {
 					setCurrentThread(threads[0]?.id ?? '');
 				}
-				continue;
+				return;
 			}
 
 			let found = false;
@@ -116,14 +133,11 @@
 			if (!found) {
 				threads.splice(0, 0, thread);
 			}
-		}
+		});
 	}
 
 	async function reloadThread() {
 		threads = (await ChatService.listThreads(project.assistantID, project.id)).items;
-		if (!watchingThread) {
-			watchingThread = watchThreads();
-		}
 	}
 
 	async function open() {
