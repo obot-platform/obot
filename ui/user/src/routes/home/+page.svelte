@@ -1,10 +1,10 @@
 <script lang="ts">
 	import DarkModeToggle from '$lib/components/navbar/DarkModeToggle.svelte';
 	import { darkMode } from '$lib/stores';
-	import { Copy, Trash2, WrenchIcon } from 'lucide-svelte';
+	import { Copy, Trash2 } from 'lucide-svelte';
 	import { Plus } from 'lucide-svelte/icons';
 	import Profile from '$lib/components/navbar/Profile.svelte';
-	import { ChatService, type ProjectShare } from '$lib/services';
+	import { ChatService, type ProjectShare, type ToolReference } from '$lib/services';
 	import { errors } from '$lib/stores';
 	import { goto } from '$app/navigation';
 	import Notifications from '$lib/components/Notifications.svelte';
@@ -12,7 +12,7 @@
 	import DotDotDot from '$lib/components/DotDotDot.svelte';
 	import { type Project } from '$lib/services';
 	import Confirm from '$lib/components/Confirm.svelte';
-	import { twMerge } from 'tailwind-merge';
+	import ToolPill from '$lib/components/ToolPill.svelte';
 
 	let { data }: PageProps = $props();
 	let toDelete = $state<Project>();
@@ -64,18 +64,12 @@
 
 	{#snippet menu(project: Project)}
 		<DotDotDot class="card-icon-button-colors min-h-10 min-w-10 rounded-full p-2.5 text-sm">
-			<div class="flex flex-col rounded-xl border-surface2 bg-surface1">
-				<button
-					class="flex items-center gap-2 rounded-t-xl px-4 py-2 hover:bg-surface3"
-					onclick={() => (toDelete = project)}
-				>
+			<div class="default-dialog flex flex-col p-2">
+				<button class="menu-button" onclick={() => (toDelete = project)}>
 					<Trash2 class="icon-default" />
 					<span>Delete</span>
 				</button>
-				<button
-					class="flex items-center gap-2 rounded-b-xl px-4 py-2 hover:bg-surface3"
-					onclick={() => copy(project)}
-				>
+				<button class="menu-button" onclick={() => copy(project)}>
 					<Copy class="icon-default" />
 					<span>Copy</span>
 				</button>
@@ -111,23 +105,21 @@
 				<p class="line-clamp-3 text-xs text-gray">{project.description}</p>
 
 				{#if 'tools' in project && project.tools}
-					<div class="mt-auto flex flex-wrap items-center justify-end gap-2">
-						{#each project.tools as tool}
+					<div class="mt-auto flex flex-wrap items-center justify-end gap-2 py-2">
+						{#each project.tools.slice(0, 3) as tool}
 							{@const toolData = tools.get(tool)}
-							<div
-								class="flex w-fit items-center gap-1 rounded-2xl bg-surface2 p-2 transition-all duration-300"
-							>
-								{#if toolData?.metadata?.icon}
-									<img
-										alt={toolData.name || 'Unknown'}
-										src={toolData.metadata.icon}
-										class={twMerge('h-4 w-4')}
-									/>
-								{:else}
-									<WrenchIcon class="h-4 w-4" />
-								{/if}
-							</div>
+							{#if toolData}
+								<ToolPill tool={toolData} />
+							{/if}
 						{/each}
+						{#if project.tools.length > 3}
+							<ToolPill
+								tools={project.tools
+									.slice(3)
+									.map((t) => tools.get(t))
+									.filter((t): t is ToolReference => !!t)}
+							/>
+						{/if}
 					</div>
 				{:else}
 					<div class="min-h-2"></div>
