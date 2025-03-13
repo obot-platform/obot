@@ -15,7 +15,27 @@
 	let { project = $bindable() }: Props = $props();
 	let isGenerating = $state(false);
 	let isCustomPrompt = $state(false);
-	let customPrompt = $state(DEFAULT_PROMPT.replace('{description}', project.description ?? ''));
+	let customPrompt = $state(
+		project.description ? DEFAULT_PROMPT.replace('{description}', project.description) : ''
+	);
+	let prevDescription = $state(project.description || '');
+
+	// Only update customPrompt when description changes and user hasn't made manual edits
+	$effect(() => {
+		const currentDescription = project.description || '';
+		if (currentDescription !== prevDescription) {
+			// Only update if the custom prompt still contains the previous description
+			// or if it's the default prompt
+			const currentPromptIsDefault =
+				customPrompt === DEFAULT_PROMPT.replace('{description}', prevDescription);
+
+			if (customPrompt === '' || currentPromptIsDefault) {
+				customPrompt = DEFAULT_PROMPT.replace('{description}', currentDescription);
+			}
+
+			prevDescription = currentDescription;
+		}
+	});
 
 	async function generateIcon(useCustomPrompt = false) {
 		if (!project.description && !useCustomPrompt) return;

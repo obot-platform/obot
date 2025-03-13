@@ -37,19 +37,10 @@
 		if (getLightIcon()) {
 			return getLightIcon();
 		}
-		return '';
+		return '/agent/images/placeholder.webp';
 	}
 </script>
 
 {#if icon}
 	<img src={icon} alt="assistant icon" class={twMerge('h-8 w-8 rounded-full shadow-md', klass)} />
-{:else}
-	<div
-		class={twMerge(
-			'flex h-8 w-8 items-center justify-center rounded-full bg-gray-200 text-on-background dark:bg-gray',
-			klass
-		)}
-	>
-		{project?.name ? project.name[0].toUpperCase() : '?'}
-	</div>
 {/if}

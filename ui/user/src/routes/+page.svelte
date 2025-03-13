@@ -1,14 +1,13 @@
 <script lang="ts">
 	import { profile } from '$lib/stores';
 	import { goto } from '$app/navigation';
-	import DarkModeToggle from '$lib/components/navbar/DarkModeToggle.svelte';
 	import { darkMode } from '$lib/stores';
 	import { X } from 'lucide-svelte';
 	import { onMount } from 'svelte';
 	import { type PageProps } from './$types';
 	import { browser } from '$app/environment';
-	import { type ProjectShare } from '$lib/services';
-	import { twMerge } from 'tailwind-merge';
+	import { type ProjectShare, type ToolReference } from '$lib/services';
+	import ToolPill from '$lib/components/ToolPill.svelte';
 
 	let { data }: PageProps = $props();
 	let { authProviders, assistants, assistantsLoaded, featuredProjectShares, tools } = data;
@@ -91,26 +90,26 @@
 		<div class="flex h-full flex-col gap-2 px-4 py-2">
 			<h4 class="font-semibold">{projectShare.name || 'Untitled'}</h4>
 			<p class="line-clamp-3 text-xs text-gray">{projectShare.description}</p>
-
 			{#if projectShare.tools}
-				<div class="mt-auto flex flex-wrap items-center justify-end gap-2">
-					{#each projectShare.tools as tool}
+				<div class="mt-auto flex flex-wrap items-center justify-end gap-2 py-2">
+					{#each projectShare.tools.slice(0, 3) as tool}
 						{@const toolData = tools.get(tool)}
-						<div
-							class="flex w-fit items-center gap-1 rounded-2xl bg-surface2 p-2 transition-all duration-300"
-						>
-							{#if toolData?.metadata?.icon}
-								<img
-									alt={toolData.name || 'Unknown'}
-									src={toolData.metadata.icon}
-									class={twMerge('h-4 w-4')}
-								/>
-							{/if}
-						</div>
+						{#if toolData}
+							<ToolPill tool={toolData} />
+						{/if}
 					{/each}
+					{#if projectShare.tools.length > 3}
+						<ToolPill
+							tools={projectShare.tools
+								.slice(3)
+								.map((t) => tools.get(t))
+								.filter((t): t is ToolReference => !!t)}
+						/>
+					{/if}
 				</div>
 			{:else}
 				<div class="min-h-2"></div>
+				<!-- placeholder -->
 			{/if}
 		</div>
 	</a>
@@ -123,30 +122,43 @@
 <div bind:this={div} class="relative hidden h-dvh w-full flex-col text-black dark:text-white">
 	<!-- Header with logo and navigation -->
 	<div class="colors-background flex h-16 w-full items-center p-5">
-		{#if darkMode.isDark}
-			<img src="/user/images/obot-logo-blue-white-text.svg" class="h-12" alt="Obot logo" />
-		{:else}
-			<img src="/user/images/obot-logo-blue-black-text.svg" class="h-12" alt="Obot logo" />
-		{/if}
+		<div class="relative flex items-end">
+			{#if darkMode.isDark}
+				<img src="/user/images/obot-logo-blue-white-text.svg" class="h-12" alt="Obot logo" />
+			{:else}
+				<img src="/user/images/obot-logo-blue-black-text.svg" class="h-12" alt="Obot logo" />
+			{/if}
+			<div class="ml-1.5 -translate-y-1">
+				<span
+					class="rounded-full border-2 border-blue-400 px-1.5 py-[1px] text-[10px] font-bold text-blue-400 dark:border-blue-400 dark:text-blue-400"
+				>
+					BETA
+				</span>
+			</div>
+		</div>
 		<div class="grow"></div>
 		<div class="flex items-center gap-4">
-			<a href="https://docs.obot.ai" class="icon-button" rel="external"> Docs </a>
-			<a href="https://discord.gg/obot" class="icon-button" rel="external">
+			<a href="https://docs.obot.ai" class="icon-button" rel="external" target="_blank">Docs</a>
+			<a href="https://discord.gg/9sSf4UyAMC" class="icon-button" rel="external" target="_blank">
 				{#if darkMode.isDark}
 					<img src="/user/images/discord-mark/discord-mark-white.svg" alt="Discord" class="h-6" />
 				{:else}
 					<img src="/user/images/discord-mark/discord-mark.svg" alt="Discord" class="h-6" />
 				{/if}
 			</a>
-			<a href="https://github.com/obot-platform/obot" class="icon-button">
+			<a
+				href="https://github.com/obot-platform/obot"
+				class="icon-button"
+				rel="external"
+				target="_blank"
+			>
 				{#if darkMode.isDark}
 					<img src="/user/images/github-mark/github-mark-white.svg" alt="GitHub" class="h-6" />
 				{:else}
 					<img src="/user/images/github-mark/github-mark.svg" alt="GitHub" class="h-6" />
 				{/if}
 			</a>
-			<DarkModeToggle />
-			<button class="icon-button" onclick={() => loginDialog?.showModal()}> Login </button>
+			<button class="icon-button" onclick={() => loginDialog?.showModal()}>Login</button>
 		</div>
 	</div>
 

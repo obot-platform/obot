@@ -1,5 +1,4 @@
 <script lang="ts">
-	import DarkModeToggle from '$lib/components/navbar/DarkModeToggle.svelte';
 	import { darkMode } from '$lib/stores';
 	import { Copy, Trash2 } from 'lucide-svelte';
 	import { Plus } from 'lucide-svelte/icons';
@@ -16,9 +15,17 @@
 
 	let { data }: PageProps = $props();
 	let toDelete = $state<Project>();
-	let projects = $state(data.editorProjects);
-	let shares = $state<ProjectShare[]>(data.shares.filter((s) => !s.featured));
 	let featured = $state<ProjectShare[]>(data.shares.filter((s) => s.featured));
+	let recentlyUsedProjects = $state<Project[]>(
+		data.editorProjects
+			.filter((p) => p.editor == false)
+			.sort((a, b) => new Date(b.created).getTime() - new Date(a.created).getTime())
+	);
+	let userProjects = $state<Project[]>(
+		data.editorProjects
+			.filter((p) => p.editor === true)
+			.sort((a, b) => new Date(b.created).getTime() - new Date(a.created).getTime())
+	);
 	let tools = $state(new Map(data.tools.map((t) => [t.id, t])));
 
 	async function createNew() {
@@ -38,7 +45,7 @@
 
 	async function copy(project: Project) {
 		const newProject = await ChatService.copyProject(project.assistantID, project.id);
-		projects.push(newProject);
+		await goto(`/o/${newProject.id}?edit`);
 	}
 
 	function getImage(project: Project | ProjectShare) {
@@ -52,23 +59,55 @@
 
 <div class="flex h-full flex-col items-center">
 	<div class="flex h-16 w-full items-center p-5">
-		{#if darkMode.isDark}
-			<img src="/user/images/obot-logo-blue-white-text.svg" class="h-12" alt="Obot logo" />
-		{:else}
-			<img src="/user/images/obot-logo-blue-black-text.svg" class="h-12" alt="Obot logo" />
-		{/if}
+		<div class="relative flex items-end">
+			{#if darkMode.isDark}
+				<img src="/user/images/obot-logo-blue-white-text.svg" class="h-12" alt="Obot logo" />
+			{:else}
+				<img src="/user/images/obot-logo-blue-black-text.svg" class="h-12" alt="Obot logo" />
+			{/if}
+			<div class="ml-1.5 -translate-y-1">
+				<span
+					class="rounded-full border-2 border-blue-400 px-1.5 py-[1px] text-[10px] font-bold text-blue-400 dark:border-blue-400 dark:text-blue-400"
+				>
+					BETA
+				</span>
+			</div>
+		</div>
 		<div class="grow"></div>
-		<DarkModeToggle />
-		<Profile />
+		<div class="flex items-center gap-4">
+			<a href="https://docs.obot.ai" rel="external" target="_blank" class="icon-button">Docs</a>
+			<a href="https://discord.gg/9sSf4UyAMC" rel="external" target="_blank" class="icon-button">
+				{#if darkMode.isDark}
+					<img src="/user/images/discord-mark/discord-mark-white.svg" alt="Discord" class="h-6" />
+				{:else}
+					<img src="/user/images/discord-mark/discord-mark.svg" alt="Discord" class="h-6" />
+				{/if}
+			</a>
+			<a
+				href="https://github.com/obot-platform/obot"
+				rel="external"
+				target="_blank"
+				class="icon-button"
+			>
+				{#if darkMode.isDark}
+					<img src="/user/images/github-mark/github-mark-white.svg" alt="GitHub" class="h-6" />
+				{:else}
+					<img src="/user/images/github-mark/github-mark.svg" alt="GitHub" class="h-6" />
+				{/if}
+			</a>
+			<Profile />
+		</div>
 	</div>
 
 	{#snippet menu(project: Project)}
 		<DotDotDot class="card-icon-button-colors min-h-10 min-w-10 rounded-full p-2.5 text-sm">
 			<div class="default-dialog flex flex-col p-2">
-				<button class="menu-button" onclick={() => (toDelete = project)}>
-					<Trash2 class="icon-default" />
-					<span>Delete</span>
-				</button>
+				{#if project.editor}
+					<button class="menu-button" onclick={() => (toDelete = project)}>
+						<Trash2 class="icon-default" />
+						<span>Delete</span>
+					</button>
+				{/if}
 				<button class="menu-button" onclick={() => copy(project)}>
 					<Copy class="icon-default" />
 					<span>Copy</span>
@@ -144,10 +183,21 @@
 				</div>
 			{/if}
 
+			{#if recentlyUsedProjects.length > 0}
+				<div class="flex w-full flex-col gap-4">
+					<h3 class="text-2xl font-semibold">Recently Used</h3>
+					<div class="card-layout">
+						{#each recentlyUsedProjects as project}
+							{@render projectCard(project)}
+						{/each}
+					</div>
+				</div>
+			{/if}
+
 			<div class="flex w-full flex-col gap-4">
 				<h3 class="text-2xl font-semibold">My Obots</h3>
 				<div class="card-layout">
-					{#each [...projects, ...shares] as project}
+					{#each userProjects as project}
 						{@render projectCard(project)}
 					{/each}
 					<button
@@ -172,7 +222,8 @@
 		if (!toDelete) return;
 		try {
 			await ChatService.deleteProject(toDelete.assistantID, toDelete.id);
-			projects = projects.filter((p) => p.id !== toDelete?.id);
+			featured = featured.filter((p) => p.id !== toDelete?.id);
+			userProjects = userProjects.filter((p) => p.id !== toDelete?.id);
 		} finally {
 			toDelete = undefined;
 		}

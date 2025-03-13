@@ -1,5 +1,4 @@
 <script lang="ts">
-	import DarkModeToggle from '$lib/components/navbar/DarkModeToggle.svelte';
 	import Profile from '$lib/components/navbar/Profile.svelte';
 	import { fade } from 'svelte/transition';
 	import Logo from '$lib/components/navbar/Logo.svelte';
@@ -21,7 +20,6 @@
 				<Logo />
 			{/if}
 			<div class="grow"></div>
-			<DarkModeToggle />
 			<Profile />
 		</div>
 	</div>

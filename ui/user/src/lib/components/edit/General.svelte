@@ -2,7 +2,6 @@
 	import type { Project } from '$lib/services';
 	import CollapsePane from '$lib/components/edit/CollapsePane.svelte';
 	import { popover } from '$lib/actions';
-	import { darkMode } from '$lib/stores';
 	import { ChevronDown, CircleX } from 'lucide-svelte/icons';
 	import { autoHeight } from '$lib/actions/textarea';
 	import AssistantIcon from '$lib/icons/AssistantIcon.svelte';
@@ -77,51 +76,28 @@
 
 						<GenerateIcon {project} />
 
-						<div class="grid grid-cols-3 gap-2">
-							{#each [1, 2, 3, 4, 5, 6, 7, 8, 9, 10] as i}
-								{@const newLight = `/agent/images/obot_alt_${i}.svg`}
-								{@const newDark = `/agent/images/obot_alt_${i}_dark.svg`}
-								<button
-									class="icon-button"
-									onclick={() => {
-										project.icons = { icon: newLight, iconDark: newDark };
-										toggle();
-									}}
-								>
-									<img class="h-8 w-8" src={darkMode.isDark ? newDark : newLight} alt="Obot icon" />
-								</button>
-							{/each}
+						<div class="flex justify-center">
+							<UploadIcon
+								label="Upload Icon"
+								onUpload={(imageUrl: string) => {
+									project.icons = {
+										...project.icons,
+										icon: imageUrl,
+										iconDark: undefined
+									};
+								}}
+							/>
 
 							<button
-								class="icon-button flex items-center justify-center"
+								class="icon-button flex items-center justify-center gap-2 py-2"
 								onclick={() => {
 									project.icons = undefined;
 									toggle();
 								}}
 							>
 								<CircleX class="h-5 w-5" />
+								<span class="text-sm">Remove icon</span>
 							</button>
-						</div>
-
-						<div class="grid grid-cols-2 gap-2">
-							<UploadIcon
-								label="Light Icon"
-								onUpload={(imageUrl: string) => {
-									project.icons = {
-										...project.icons,
-										icon: imageUrl
-									};
-								}}
-							/>
-							<UploadIcon
-								label="Dark Icon"
-								onUpload={(imageUrl: string) => {
-									project.icons = {
-										...project.icons,
-										iconDark: imageUrl
-									};
-								}}
-							/>
 						</div>
 					</div>
 				{/if}
