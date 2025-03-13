@@ -54,7 +54,7 @@ export const clientLoader = async ({
 	if (!thread) throw redirect("/threads");
 
 	const [agent, project] = await Promise.all([
-		preload(...AgentService.getAgentById.swr({ agentId: thread.agentID })),
+		preload(...AgentService.getAgentById.swr({ agentId: thread.assistantID })),
 		preload(...ProjectApiService.getById.swr({ id: thread.projectID })),
 		preload(
 			KnowledgeFileService.getKnowledgeFiles.key(

@@ -24,8 +24,8 @@ export type Thread = EntityMeta &
 		userID?: string;
 		project?: boolean;
 	} & (
-		| { agentID: string; workflowID?: never }
-		| { agentID?: never; workflowID: string }
+		| { assistantID: string; taskID?: never }
+		| { assistantID?: never; taskID: string }
 	);
 
 export type UpdateThread = ThreadManifest;

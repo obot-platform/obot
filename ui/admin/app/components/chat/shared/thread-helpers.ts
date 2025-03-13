@@ -77,7 +77,9 @@ export function useThreadFiles(
 export function useThreadAgents(threadId?: Nullish<string>) {
 	const { data: thread } = useThread(threadId);
 
-	return useSWR(...AgentService.getAgentById.swr({ agentId: thread?.agentID }));
+	return useSWR(
+		...AgentService.getAgentById.swr({ agentId: thread?.assistantID })
+	);
 }
 
 export function useThreadCredentials(threadId: Nullish<string>) {
@@ -146,9 +148,9 @@ export const useThreadTasks = (agentThreadId?: string) => {
 
 	const runCounts = getThreads.data?.reduce<Record<string, number>>(
 		(acc, thread) => {
-			if (!thread.workflowID) return acc;
+			if (!thread.taskID) return acc;
 
-			acc[thread.workflowID] = (acc[thread.workflowID] || 0) + 1;
+			acc[thread.taskID] = (acc[thread.taskID] || 0) + 1;
 			return acc;
 		},
 		{}

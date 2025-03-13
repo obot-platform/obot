@@ -60,7 +60,7 @@ export const clientLoader = async ({
 	const agent = await preload(
 		...AgentService.getAgentById.swr({ agentId: project.assistantID })
 	);
-	const taskRuns = threads.filter((t) => t.workflowID === task.id).length;
+	const taskRuns = threads.filter((t) => t.taskID === task.id).length;
 
 	return { task, agent, taskRuns, project };
 };

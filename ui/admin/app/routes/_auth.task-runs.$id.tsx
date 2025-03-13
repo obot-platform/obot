@@ -54,8 +54,8 @@ export const clientLoader = async ({
 	if (!thread) throw redirect("/threads");
 
 	const [task, project] = await Promise.all([
-		thread.workflowID
-			? preload(...TaskService.getTaskById.swr({ taskId: thread.workflowID }))
+		thread.taskID
+			? preload(...TaskService.getTaskById.swr({ taskId: thread.taskID }))
 			: null,
 		preload(...ProjectApiService.getById.swr({ id: thread.projectID })),
 		preload(

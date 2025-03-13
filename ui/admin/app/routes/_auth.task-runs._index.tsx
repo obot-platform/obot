@@ -76,9 +76,9 @@ export default function TaskRuns() {
 		const agentMap = new Map(getAgents.data?.map((agent) => [agent.id, agent]));
 		return new Map(
 			getThreads?.data
-				?.filter((thread) => thread.agentID)
+				?.filter((thread) => thread.assistantID)
 				.map((thread) => {
-					const agent = agentMap.get(thread.agentID!);
+					const agent = agentMap.get(thread.assistantID!);
 					return [thread.id, agent?.name ?? "-"];
 				})
 		);
@@ -104,9 +104,9 @@ export default function TaskRuns() {
 	})[] = useMemo(() => {
 		return (
 			getThreads.data
-				?.filter((thread) => thread.workflowID && !thread.deleted)
+				?.filter((thread) => thread.taskID && !thread.deleted)
 				.map((thread) => {
-					const task = taskMap.get(thread.workflowID!);
+					const task = taskMap.get(thread.taskID!);
 					const taskThread = threadMap.get(task?.projectID ?? "");
 					return {
 						...thread,
@@ -122,9 +122,7 @@ export default function TaskRuns() {
 		let filteredThreads = threads;
 
 		if (taskId) {
-			filteredThreads = threads.filter(
-				(thread) => thread.workflowID === taskId
-			);
+			filteredThreads = threads.filter((thread) => thread.taskID === taskId);
 		}
 
 		if (userId) {
@@ -215,7 +213,7 @@ export default function TaskRuns() {
 						<Link
 							onClick={(event) => event.stopPropagation()}
 							to={$path("/tasks/:id", {
-								id: info.row.original.workflowID!,
+								id: info.row.original.taskID!,
 							})}
 							className="px-0"
 						>

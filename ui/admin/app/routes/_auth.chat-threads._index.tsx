@@ -82,12 +82,12 @@ export default function TaskRuns() {
 		if (!getThreads.data) return [];
 
 		let filteredThreads = getThreads.data.filter(
-			(thread) => thread.agentID && !thread.deleted && !thread.project
+			(thread) => thread.assistantID && !thread.deleted && !thread.project
 		);
 
 		if (agentId) {
 			filteredThreads = filteredThreads.filter(
-				(thread) => thread.agentID === agentId
+				(thread) => thread.assistantID === agentId
 			);
 		}
 

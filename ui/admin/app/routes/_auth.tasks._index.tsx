@@ -90,9 +90,9 @@ export default function Tasks() {
 	const tasks: TableTask[] = useMemo(() => {
 		const threadCounts = getThreads.data?.reduce<Record<string, number>>(
 			(acc, thread) => {
-				if (!thread.workflowID) return acc;
+				if (!thread.taskID) return acc;
 
-				acc[thread.workflowID] = (acc[thread.workflowID] || 0) + 1;
+				acc[thread.taskID] = (acc[thread.taskID] || 0) + 1;
 				return acc;
 			},
 			{}
