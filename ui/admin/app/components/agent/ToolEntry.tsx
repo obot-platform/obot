@@ -7,6 +7,7 @@ import { ToolReferenceService } from "~/lib/service/api/toolreferenceService";
 import { Truncate } from "~/components/composed/typography";
 import { ToolIcon } from "~/components/tools/ToolIcon";
 import { LoadingSpinner } from "~/components/ui/LoadingSpinner";
+import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
 
 export function ToolEntry({
@@ -14,11 +15,13 @@ export function ToolEntry({
 	onDelete,
 	actions,
 	withDescription = false,
+	bundleBadge = false,
 }: {
 	tool: string;
 	onDelete?: (toolId: string, oauthToRemove?: string) => void;
 	actions?: React.ReactNode;
 	withDescription?: boolean;
+	bundleBadge?: boolean;
 }) {
 	const toolInfo = useToolReference(tool);
 	const description = toolInfo.toolReference?.description;
@@ -32,13 +35,24 @@ export function ToolEntry({
 						{toolInfo.icon}
 
 						<div className="flex flex-col">
-							<Truncate
-								classNames={{ content: "font-medium" }}
-								tooltipContent={withDescription ? toolInfo.label : description}
-								tooltipContentProps={{ align: "start", className: "max-w-xs" }}
-							>
-								{toolInfo.label}
-							</Truncate>
+							<span className="flex items-center gap-2">
+								<Truncate
+									classNames={{ content: "font-medium" }}
+									tooltipContent={
+										withDescription ? toolInfo.label : description
+									}
+									tooltipContentProps={{
+										align: "start",
+										className: "max-w-xs",
+									}}
+								>
+									{toolInfo.label}
+								</Truncate>
+
+								{bundleBadge && toolInfo.toolReference?.bundle && (
+									<Badge className="text-xs">Bundle</Badge>
+								)}
+							</span>
 
 							{withDescription && description && (
 								<Truncate tooltipContent={description} asChild>

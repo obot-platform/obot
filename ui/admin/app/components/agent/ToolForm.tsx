@@ -5,13 +5,19 @@ import useSWR from "swr";
 import { z } from "zod";
 
 import { Agent } from "~/lib/model/agents";
+import { ToolReference } from "~/lib/model/toolReferences";
 import { ToolReferenceService } from "~/lib/service/api/toolreferenceService";
 import { noop } from "~/lib/utils";
 
 import { ToolEntry } from "~/components/agent/ToolEntry";
 import { ToolCatalogDialog } from "~/components/tools/ToolCatalog";
+import {
+	Accordion,
+	AccordionContent,
+	AccordionItem,
+	AccordionTrigger,
+} from "~/components/ui/accordion";
 import { Animate, AnimatePresence } from "~/components/ui/animate";
-import { SlideInOut } from "~/components/ui/animate/slide-in-out";
 import { Form } from "~/components/ui/form";
 import {
 	Select,
@@ -20,6 +26,7 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "~/components/ui/select";
+import { useSlideInOut } from "~/hooks/animate/useSlideInOut";
 import { useCapabilityTools } from "~/hooks/tools/useCapabilityTools";
 
 const ToolVariant = {
@@ -91,6 +98,10 @@ export function ToolForm({
 		() => new Map(toolList.map((tool) => [tool.id, tool.metadata?.oauth])),
 		[toolList]
 	);
+
+	const toolMap = useMemo(() => {
+		return new Map(toolList.map((tool) => [tool.id, tool]));
+	}, [toolList]);
 
 	useEffect(() => {
 		const unchangedTools = compareArrays(
@@ -170,6 +181,39 @@ export function ToolForm({
 		.filter((field) => !capabilities.has(field.tool))
 		.toSorted((a, b) => a.tool.localeCompare(b.tool));
 
+	const getField = (tool: string) => {
+		const field = toolFields.fields.find((field) => field.tool === tool);
+		if (!field) throw new Error(`Field not found: ${tool}`);
+		return field;
+	};
+
+	const toolGroups = useMemo(() => {
+		const groups = new Map<string, { name: string; tools: string[] }>();
+
+		for (const field of sortedFields) {
+			const tool = toolMap.get(field.tool);
+			if (!tool) continue;
+
+			const bundleToolName = tool.bundleToolName ?? tool.id;
+			const group = groups.get(bundleToolName) ?? {
+				name: bundleToolName,
+				tools: [],
+			};
+
+			// make sure bundle tool is first
+			if (tool.bundle) {
+				group.tools.unshift(tool.id);
+			} else {
+				group.tools.push(tool.id);
+			}
+			groups.set(bundleToolName, group);
+		}
+
+		return groups;
+	}, [sortedFields, toolMap]);
+
+	const { exit: slideExit } = useSlideInOut({ direction: "right" });
+
 	return (
 		<Form {...form}>
 			<form
@@ -177,58 +221,34 @@ export function ToolForm({
 				className="flex flex-col gap-4"
 			>
 				<div className="mt-2 w-full">
-					<AnimatePresence mode="popLayout">
-						{sortedFields.map((field) => (
-							<SlideInOut
-								key={field.tool}
-								direction={{ in: "left", out: "right" }}
-								layout
-							>
-								<ToolEntry
-									tool={field.tool}
-									onDelete={removeTool}
-									actions={
-										<>
-											<Select
-												value={field.variant}
-												onValueChange={(value: ToolVariant) =>
-													updateVariant(field.tool, value)
-												}
-											>
-												<SelectTrigger className="w-36">
-													<SelectValue />
-												</SelectTrigger>
+					<Accordion type="multiple">
+						<AnimatePresence mode="popLayout">
+							{Array.from(toolGroups.values()).map((group) => {
+								const bundleTool = toolMap.get(group.name);
+								const bundleTools = group.tools
+									.map((tool) => toolMap.get(tool))
+									.filter((x) => !!x);
 
-												<SelectContent>
-													<SelectItem value={ToolVariant.FIXED}>
-														Always On
-													</SelectItem>
-													<SelectItem value={ToolVariant.DEFAULT}>
-														<p>
-															Optional
-															<span className="text-muted-foreground">
-																{" - On"}
-															</span>
-														</p>
-													</SelectItem>
-													<SelectItem value={ToolVariant.AVAILABLE}>
-														<p>
-															Optional
-															<span className="text-muted-foreground">
-																{" - Off"}
-															</span>
-														</p>
-													</SelectItem>
-												</SelectContent>
-											</Select>
+								if (!bundleTool || !bundleTools.length) return null;
 
-											{renderActions?.(field.tool)}
-										</>
-									}
-								/>
-							</SlideInOut>
-						))}
-					</AnimatePresence>
+								return (
+									<Animate.div key={group.name} layout>
+										<AccordionItem value={group.name}>
+											<AccordionTrigger value={group.name}>
+												<ToolEntry tool={group.name} />
+											</AccordionTrigger>
+
+											<AccordionContent className="flex flex-col gap-2 px-2">
+												<AnimatePresence mode="popLayout">
+													{bundleTools.map(renderToolEntry)}
+												</AnimatePresence>
+											</AccordionContent>
+										</AccordionItem>
+									</Animate.div>
+								);
+							})}
+						</AnimatePresence>
+					</Accordion>
 				</div>
 
 				<Animate.div layout className="flex justify-end">
@@ -243,6 +263,52 @@ export function ToolForm({
 			</form>
 		</Form>
 	);
+
+	function renderToolEntry(tool: ToolReference) {
+		const field = getField(tool.id);
+		return (
+			<Animate.div key={field.tool} exit={slideExit} layout>
+				<ToolEntry
+					bundleBadge
+					key={field.tool}
+					tool={field.tool}
+					onDelete={removeTool}
+					actions={
+						<>
+							<Select
+								value={field.variant}
+								onValueChange={(value: ToolVariant) =>
+									updateVariant(field.tool, value)
+								}
+							>
+								<SelectTrigger className="w-36">
+									<SelectValue />
+								</SelectTrigger>
+
+								<SelectContent>
+									<SelectItem value={ToolVariant.FIXED}>Always On</SelectItem>
+									<SelectItem value={ToolVariant.DEFAULT}>
+										<p>
+											Optional
+											<span className="text-muted-foreground">{" - On"}</span>
+										</p>
+									</SelectItem>
+									<SelectItem value={ToolVariant.AVAILABLE}>
+										<p>
+											Optional
+											<span className="text-muted-foreground">{" - Off"}</span>
+										</p>
+									</SelectItem>
+								</SelectContent>
+							</Select>
+
+							{renderActions?.(field.tool)}
+						</>
+					}
+				/>
+			</Animate.div>
+		);
+	}
 }
 
 function compareArrays(a: string[], b: string[]) {

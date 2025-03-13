@@ -19,13 +19,17 @@ import {
 	TooltipTrigger,
 } from "~/components/ui/tooltip";
 
+type BundleToolListProps = {
+	bundle: ToolReference;
+	tools: ToolReference[];
+	title?: string;
+};
+
 export function BundleToolList({
 	bundle,
 	tools,
-}: {
-	bundle: ToolReference;
-	tools: ToolReference[];
-}) {
+	title = "Bundle",
+}: BundleToolListProps) {
 	return (
 		<Dialog>
 			<Tooltip>
@@ -44,7 +48,7 @@ export function BundleToolList({
 								</Badge>
 							}
 						>
-							Bundle
+							{title}
 						</Button>
 					</DialogTrigger>
 				</TooltipTrigger>
@@ -53,7 +57,7 @@ export function BundleToolList({
 			<DialogContent className="gap-0 p-0">
 				<DialogHeader className="px-6 py-4">
 					<DialogTitle className="flex items-center gap-2">
-						{bundle.name} Bundle
+						{bundle.name} {title}
 					</DialogTitle>
 				</DialogHeader>
 
