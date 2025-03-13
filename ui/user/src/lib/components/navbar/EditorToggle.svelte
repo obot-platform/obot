@@ -77,7 +77,7 @@
 		<h4 class="w-full border-b border-surface2 p-1 text-lg font-semibold">
 			What would you like to do?
 		</h4>
-		<button class="button" onclick={() => copy(project)}>Clone {project.name}</button>
+		<button class="button" onclick={() => copy(project)}>Copy {project.name}</button>
 		<button class="button" onclick={() => createNew()}>Create New Obot</button>
 	</div>
 </dialog>
