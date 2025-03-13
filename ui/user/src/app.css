@@ -193,5 +193,5 @@ dialog {
 }
 
 .menu-button {
-	@apply icon-button flex items-center gap-2;
+	@apply flex min-h-10 min-w-10 items-center gap-2 rounded-lg p-2 text-sm transition-all duration-200 hover:bg-surface2 dark:hover:bg-surface3;
 }
