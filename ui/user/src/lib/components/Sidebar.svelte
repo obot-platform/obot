@@ -31,7 +31,14 @@
 			class:w-[calc(100%-42px)]={!projectsOpen}
 		>
 			<span class="flex-shrink-0"><Logo class="ml-0" /></span>
-			<Projects {project} onOpenChange={(open) => (projectsOpen = open)} />
+			<Projects
+				{project}
+				onOpenChange={(open) => (projectsOpen = open)}
+				disabled={layout.projectEditorOpen}
+				classes={{
+					tooltip: '-translate-x-14 border-t-[1px] border-surface3 bg-surface2 shadow-inner'
+				}}
+			/>
 		</div>
 		<button
 			class:opacity-0={projectsOpen}

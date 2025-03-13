@@ -3,17 +3,27 @@
 	import { ChatService, type Project } from '$lib/services';
 	import { Check, ChevronDown } from 'lucide-svelte/icons';
 	import { popover } from '$lib/actions';
-	import { getLayout } from '$lib/context/layout.svelte';
 	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
 		project: Project;
 		onOpenChange?: (open: boolean) => void;
+		disabled?: boolean;
+		classes?: {
+			button?: string;
+			tooltip?: string;
+		};
+		onlyEditable?: boolean;
 	}
 
-	let { project, onOpenChange: onProjectOpenChange }: Props = $props();
+	let {
+		project,
+		onOpenChange: onProjectOpenChange,
+		disabled,
+		classes,
+		onlyEditable
+	}: Props = $props();
 	let projects = $state<Project[]>([]);
-	let layout = getLayout();
 	let open = $state(false);
 
 	let { ref, tooltip, toggle } = popover({
@@ -26,39 +36,45 @@
 </script>
 
 <button
-	class="relative flex grow items-center justify-between gap-2 truncate rounded-xl p-2"
-	class:hover:bg-surface2={!layout.projectEditorOpen}
-	class:cursor-default={layout.projectEditorOpen}
+	class={twMerge(
+		'relative z-10 flex grow items-center justify-between gap-2 truncate rounded-xl p-2',
+		classes?.button
+	)}
+	class:hover:bg-surface2={!disabled}
+	class:cursor-default={disabled}
 	use:ref
 	onclick={async () => {
-		if (layout.projectEditorOpen) {
+		if (disabled) {
 			toggle(false);
 			return;
 		}
-		projects = (await ChatService.listProjects()).items;
+		const results = (await ChatService.listProjects()).items;
+		projects = onlyEditable
+			? results.filter((p) => !!p.editor)
+			: results;
 		toggle();
 	}}
 >
 	<span class="max-w-[100% - 24px] text-md truncate font-semibold text-on-background"
 		>{project.name || 'Untitled'}</span
 	>
-	{#if !layout.projectEditorOpen}
+	{#if !disabled}
 		<div class={twMerge('text-gray transition-transform duration-200', open && 'rotate-180')}>
 			<ChevronDown />
 		</div>
 	{/if}
 </button>
 
-{#if !layout.projectEditorOpen}
+{#if !disabled}
 	<div
 		use:tooltip
-		class="flex h-full w-full -translate-x-14 flex-col border-t-[1px] border-surface3 bg-surface2 p-2 shadow-inner"
+		class={twMerge('flex h-full w-full flex-col p-2', classes?.tooltip)}
 		role="none"
 		onclick={() => toggle(false)}
 	>
 		{#each projects as p}
 			<a
-				href="/o/{p.id}?sidebar=true"
+				href="/o/{p.id}?sidebar=true{onlyEditable ? '&edit' : ''}"
 				rel="external"
 				class="flex items-center gap-2 rounded-3xl p-2 hover:bg-surface3"
 			>

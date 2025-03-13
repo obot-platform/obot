@@ -5,6 +5,7 @@
 	import type { Snippet } from 'svelte';
 	import EditorToggle from './navbar/EditorToggle.svelte';
 	import type { Project } from '$lib/services';
+	import { getLayout } from '$lib/context/layout.svelte';
 
 	interface Props {
 		children?: Snippet;
@@ -13,6 +14,7 @@
 	}
 
 	let { children, showEditorButton, project }: Props = $props();
+	const layout = getLayout();
 </script>
 
 <nav class="w-full via-80%" in:fade|global>
@@ -27,7 +29,9 @@
 			{#if showEditorButton && project}
 				<EditorToggle {project} />
 			{/if}
-			<Profile />
+			{#if !layout.projectEditorOpen}
+				<Profile />
+			{/if}
 		</div>
 	</div>
 </nav>
