@@ -26,32 +26,36 @@
 </script>
 
 {#snippet toolList(tools: AssistantTool[], remove: boolean, bg: string)}
-	<ul class="flex flex-col gap-2">
-		{#each tools as tool}
-			{#key tool.id}
-				<div class="flex items-center justify-between gap-1 {bg} rounded-3xl px-5 py-4">
-					<div class="flex flex-col gap-1">
-						<div class="flex items-center gap-2">
+	<ul class="flex flex-col">
+		{#each tools as tool (tool.id)}
+			{@const tt = popover({ hover: true, placement: 'right', delay: 300 })}
+
+			<div class="flex w-full cursor-pointer items-start justify-between gap-1 p-2" use:tt.ref>
+				<div class="flex w-full flex-col gap-1">
+					<span class="flex w-full items-center justify-between gap-1 text-sm font-medium">
+						<span class="flex items-center gap-2">
 							{#if tool.icon}
 								<img
 									src={tool.icon}
-									class="h-6 rounded-md bg-white p-1"
+									class="size-6 rounded-md bg-white p-1"
 									alt="tool {tool.name} icon"
 								/>
 							{/if}
-							<span class="text-sm font-medium">{tool.name}</span>
-						</div>
-						<span class="text-xs">{tool.description}</span>
-					</div>
-					<button class="icon-button" onclick={() => modify(tool, remove)}>
-						{#if remove}
-							<X class="h-5 w-5" />
-						{:else}
-							<Plus class="h-5 w-5" />
-						{/if}
-					</button>
+							<p class="line-clamp-1">{tool.name}</p>
+						</span>
+						<button class="icon-button-small" onclick={() => modify(tool, remove)}>
+							{#if remove}
+								<X class="size-5" />
+							{:else}
+								<Plus class="size-5" />
+							{/if}
+						</button>
+					</span>
+					<span class="line-clamp-2 text-xs text-gray-500">{tool.description}</span>
 				</div>
-			{/key}
+
+				<p use:tt.tooltip class="max-w-64 rounded-lg bg-surface2 p-2 text-sm">{tool.description}</p>
+			</div>
 		{/each}
 	</ul>
 {/snippet}

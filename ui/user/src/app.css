@@ -14,6 +14,10 @@
 	@apply h-5 w-5;
 }
 
+.icon-button-small {
+	@apply icon-button-colors rounded-lg p-1 text-sm transition-all duration-200;
+}
+
 .icon-default {
 	@apply icon-default-size;
 }
