@@ -65,30 +65,23 @@
 			{#each taskRuns as taskRun}
 				<li class:bg-surface2={currentThreadID === taskRun.id} class="w-full">
 					<button
-						class="flex w-full justify-between rounded-md p-2 text-left hover:bg-surface3"
+						class="w-full rounded-md p-2 text-left hover:bg-surface3"
 						onclick={() => {
 							layout.editTaskID = undefined;
 							currentThreadID = taskRun.id;
 						}}
 					>
-						<span
-							>{new Date(taskRun.created)
-								.toLocaleString('en-US', {
-									year: 'numeric',
-									month: '2-digit',
-									day: '2-digit'
-								})
-								.replace(/\//g, '-')}
-						</span>
-						<span>
-							{new Date(taskRun.created)
-								.toLocaleString('en-US', {
-									hour: '2-digit',
-									minute: '2-digit',
-									hour12: true
-								})
-								.replace(/\//g, '-')}
-						</span>
+						{new Date(taskRun.created)
+							.toLocaleString(undefined, {
+								year: 'numeric',
+								month: '2-digit',
+								day: '2-digit',
+								hour: 'numeric',
+								minute: '2-digit',
+								hour12: true
+							})
+							.replace(/\//g, '-')
+							.replace(/,/g, '')}
 					</button>
 				</li>
 			{/each}
