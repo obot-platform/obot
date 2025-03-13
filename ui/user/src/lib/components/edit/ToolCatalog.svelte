@@ -193,10 +193,6 @@
 								{tool.name}
 							</p>
 
-							{#if tool.bundle && isToolEnabled(tool.id)}
-								<span class="justify-self-end text-xs text-gray-500">Bundle Selected</span>
-							{/if}
-
 							{#if selectedSubtools > 0}
 								<span class="justify-self-end text-xs text-gray-500">
 									{selectedSubtools} / {bundleTools.length} Selected
