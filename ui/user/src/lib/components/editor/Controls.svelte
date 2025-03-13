@@ -3,13 +3,15 @@
 	import { EditorService, type Project } from '$lib/services';
 	import { term } from '$lib/stores';
 	import { getLayout } from '$lib/context/layout.svelte';
+	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
 		navBar?: boolean;
 		project: Project;
+		class?: string;
 	}
 
-	let { navBar = false, project }: Props = $props();
+	let { navBar = false, project, class: className }: Props = $props();
 
 	const layout = getLayout();
 	let show = $derived(navBar || layout.items.length <= 1);
@@ -20,7 +22,7 @@
 </script>
 
 {#if show}
-	<div class="flex">
+	<div class={twMerge('flex items-start', className)}>
 		{#if downloadable}
 			<button
 				class="icon-button"
@@ -38,6 +40,7 @@
 				<Download class="h-5 w-5" />
 			</button>
 		{/if}
+
 		<button
 			class="icon-button"
 			onclick={() => {

@@ -99,7 +99,7 @@
 				<div
 					class={twMerge(
 						'invisible w-0 translate-x-full rounded-tl-3xl border-b-0 border-r-0 border-surface2 opacity-0 transition-transform duration-300',
-						editorVisible && '!visible w-3/5 !translate-x-0 border-4 p-5 pb-0 pr-0 !opacity-100'
+						editorVisible && '!visible w-3/5 !translate-x-0 border-4 ps-5 pt-5 !opacity-100'
 					)}
 				>
 					<Editor {project} {currentThreadID} />

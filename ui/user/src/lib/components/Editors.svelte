@@ -36,17 +36,18 @@
 <div class="flex h-full flex-col">
 	{#if layout.fileEditorOpen}
 		{#if layout.items.length > 1 || (!layout.items[0]?.table && !layout.items[0]?.generic)}
-			<div class="-ml-5 -mt-3 flex border-b-2 border-surface2 px-2 pb-2">
-				<ul class="flex flex-1 flex-wrap gap-2 text-center text-sm">
+			<div class="default-scrollbar-thin relative flex border-b-2 border-surface2">
+				<ul class="relative flex flex-1 gap-2 pb-2 text-center text-sm">
 					{#each layout.items as item}
 						<li>
+							<!-- TODO: div with onclick is not accessible, we'll need to update this in the future -->
 							<div
 								role="none"
 								class:selected={item.selected}
 								onclick={() => {
 									EditorService.select(layout.items, item.id);
 								}}
-								class="colors-surface1 group flex rounded-2xl px-4 py-3"
+								class="colors-surface1 group flex cursor-pointer rounded-2xl px-4 py-3"
 							>
 								<div class="flex flex-1 items-center gap-2 ps-2">
 									{#if item.table}
@@ -79,7 +80,7 @@
 						</li>
 					{/each}
 				</ul>
-				<Controls navBar {project} />
+				<Controls navBar {project} class="sticky right-0 z-10 bg-background px-2" />
 			</div>
 		{/if}
 
