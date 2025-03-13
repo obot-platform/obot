@@ -187,12 +187,35 @@ describe(Agent, () => {
 		);
 
 		const toolHeader = screen.getByRole("heading", { name: "Tools" });
-		const browserTool = await within(toolHeader.parentElement!).findByAltText(
-			mockedBrowserToolBundle[0].name
+		const browserHeading = await waitFor(() =>
+			within(toolHeader.parentElement!).findByAltText(
+				mockedBrowserToolBundle[0].name
+			)
 		);
-		const imageTool = await within(toolHeader.parentElement!).findByAltText(
-			mockedImageToolBundle[0].name
+		const imageHeading = await waitFor(() =>
+			within(toolHeader.parentElement!).findByAltText(
+				mockedImageToolBundle[0].name
+			)
 		);
+
+		await userEvent.click(browserHeading);
+		await userEvent.click(imageHeading);
+
+		const browserTool = (
+			await waitFor(() =>
+				within(toolHeader.parentElement!).findAllByAltText(
+					mockedBrowserToolBundle[0].name
+				)
+			)
+		)[1];
+
+		const imageTool = (
+			await waitFor(() =>
+				within(toolHeader.parentElement!).findAllByAltText(
+					mockedImageToolBundle[0].name
+				)
+			)
+		)[1];
 
 		expect(browserTool).toBeInTheDocument();
 		expect(imageTool).toBeInTheDocument();

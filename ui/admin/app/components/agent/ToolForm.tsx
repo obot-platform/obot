@@ -232,7 +232,7 @@ export function ToolForm({
 								if (!bundleTool || !bundleTools.length) return null;
 
 								return (
-									<Animate.div key={group.name} layout>
+									<Animate.div key={group.name} layout exit={slideExit}>
 										<AccordionItem value={group.name}>
 											<AccordionTrigger value={group.name}>
 												<ToolEntry tool={group.name} />
