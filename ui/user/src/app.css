@@ -55,7 +55,7 @@ body {
 }
 
 .button-icon-primary {
-	@apply flex rounded-full p-2 text-gray hover:bg-gray-100 hover:text-blue focus:outline-none dark:hover:bg-gray-700/30 items-center justify-center;
+	@apply flex items-center justify-center rounded-full p-2 text-gray hover:bg-gray-100 hover:text-blue focus:outline-none dark:hover:bg-gray-700/30;
 }
 
 .list-button-primary {
@@ -187,8 +187,9 @@ li:has(input[type='checkbox'])::marker {
 	@apply hidden rounded-lg bg-blue p-2 text-sm;
 }
 
-.default-dialog, dialog { 
-	@apply rounded-xl bg-white dark:bg-surface2 border-[1px] shadow-lg border-surface3 text-sm text-black dark:text-white;
+.default-dialog,
+dialog {
+	@apply rounded-xl border-[1px] border-surface3 bg-white text-sm text-black shadow-lg dark:bg-surface2 dark:text-white;
 }
 
 .menu-button {

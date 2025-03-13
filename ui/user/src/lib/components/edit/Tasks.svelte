@@ -75,10 +75,7 @@
 	</button>
 </CollapsePane>
 
-<dialog
-	bind:this={editorDialog}
-	class="relative h-full w-full md:w-4/5"
->
+<dialog bind:this={editorDialog} class="relative h-full w-full md:w-4/5">
 	<button
 		class="icon-button absolute right-2 top-2"
 		onclick={async () => {

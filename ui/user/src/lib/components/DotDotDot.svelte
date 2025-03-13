@@ -12,7 +12,13 @@
 		onClick?: () => void;
 	}
 
-	let { children, class: clazz = 'icon-button', placement = 'right-start', icon, onClick }: Props = $props();
+	let {
+		children,
+		class: clazz = 'icon-button',
+		placement = 'right-start',
+		icon,
+		onClick
+	}: Props = $props();
 	const { tooltip, ref, toggle } = popover({
 		placement
 	});

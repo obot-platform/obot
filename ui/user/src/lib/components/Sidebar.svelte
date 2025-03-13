@@ -52,7 +52,7 @@
 	</div>
 
 	<div class="flex gap-1 px-3 pb-2">
-		{#if (layout.sidebarOpen && !layout.projectEditorOpen)}
+		{#if layout.sidebarOpen && !layout.projectEditorOpen}
 			<Settings />
 		{/if}
 		{#if hasTool(tools, 'shell')}

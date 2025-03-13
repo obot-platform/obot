@@ -60,8 +60,6 @@
 		thread?.close?.();
 	});
 
-	
-
 	const layout = getLayout();
 	function onLoadFile(filename: string) {
 		EditorService.load(layout.items, project, filename, {

@@ -62,7 +62,7 @@
 	</div>
 	{#if expanded && taskRuns && taskRuns?.length > 0}
 		<ul class="flex flex-col pl-5 text-xs">
-			{#each taskRuns as taskRun, index}
+			{#each taskRuns as taskRun}
 				<li class:bg-surface2={currentThreadID === taskRun.id} class="w-full">
 					<button
 						class="flex w-full justify-between rounded-md p-2 text-left hover:bg-surface3"

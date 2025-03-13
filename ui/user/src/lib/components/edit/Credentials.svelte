@@ -120,7 +120,7 @@
 		{/if}
 		<div
 			use:tooltip
-			class="z-20 hidden max-h-[500px] overflow-y-auto scrollbar-thin default-dialog p-5"
+			class="default-dialog z-20 hidden max-h-[500px] overflow-y-auto p-5 scrollbar-thin"
 		>
 			{@render credentialList(credentialsAvailable ?? [], false)}
 		</div>
