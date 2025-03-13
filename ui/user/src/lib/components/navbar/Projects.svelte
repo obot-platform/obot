@@ -49,9 +49,7 @@
 			return;
 		}
 		const results = (await ChatService.listProjects()).items;
-		projects = onlyEditable
-			? results.filter((p) => !!p.editor)
-			: results;
+		projects = onlyEditable ? results.filter((p) => !!p.editor) : results;
 		toggle();
 	}}
 >

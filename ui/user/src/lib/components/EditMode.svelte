@@ -78,7 +78,7 @@
 	{#if layout.projectEditorOpen}
 		<!-- Header -->
 		<div
-			class="z-40 relative flex h-16 w-full items-center justify-between bg-surface1 p-3 shadow-md"
+			class="relative z-40 flex h-16 w-full items-center justify-between bg-surface1 p-3 shadow-md"
 			transition:slide
 		>
 			<div class="flex items-center gap-2">
@@ -86,9 +86,13 @@
 				>
 				<h1 class="text-xl font-semibold">Obot Editor</h1>
 			</div>
-			<div class="flex items-center grow gap-2 ml-8">
-				<p class="text-sm text-gray">Editing: </p>
-				<Projects {project} onlyEditable={true} classes={{ tooltip: 'h-[calc(100vh-64px)] -translate-x-2 bg-surface2 mt-1' }} />
+			<div class="ml-8 flex grow items-center gap-2">
+				<p class="text-sm text-gray">Editing:</p>
+				<Projects
+					{project}
+					onlyEditable={true}
+					classes={{ tooltip: 'h-[calc(100vh-64px)] -translate-x-2 bg-surface2 mt-1' }}
+				/>
 				<EditorToggle {project} />
 			</div>
 			<div class="flex items-center">

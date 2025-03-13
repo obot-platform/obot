@@ -13,7 +13,7 @@
 
 	let { project }: Props = $props();
 	let obotEditorDialog = $state<HTMLDialogElement>();
-	
+
 	async function createNew() {
 		const assistants = (await ChatService.listAssistants()).items;
 		let defaultAssistant = assistants.find((a) => a.default);
@@ -71,10 +71,12 @@
 
 <dialog bind:this={obotEditorDialog} class="w-full max-w-md p-4">
 	<div class="flex flex-col gap-4">
-		<button class="icon-button absolute top-2 right-4" onclick={() => obotEditorDialog?.close()}>
+		<button class="icon-button absolute right-4 top-2" onclick={() => obotEditorDialog?.close()}>
 			<X class="h-5 w-5" />
 		</button>
-		<h4 class="text-lg font-semibold w-full p-1 border-b border-surface2">What would you like to do?</h4>
+		<h4 class="w-full border-b border-surface2 p-1 text-lg font-semibold">
+			What would you like to do?
+		</h4>
 		<button class="button" onclick={() => copy(project)}>Clone {project.name}</button>
 		<button class="button" onclick={() => createNew()}>Create New Obot</button>
 	</div>

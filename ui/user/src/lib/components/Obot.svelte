@@ -58,10 +58,7 @@
 
 		<main id="main-content" class="flex max-w-full grow flex-col">
 			<div class="h-[76px] w-full">
-				<Navbar
-					showEditorButton={!projectEditorVisible}
-					{project}
-				>
+				<Navbar showEditorButton={!projectEditorVisible} {project}>
 					{#if !layout.sidebarOpen}
 						<Logo />
 						<button
