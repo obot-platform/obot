@@ -25,7 +25,7 @@
 	}
 </script>
 
-{#snippet toolList(tools: AssistantTool[], remove: boolean, bg: string)}
+{#snippet toolList(tools: AssistantTool[], remove: boolean)}
 	<ul class="flex flex-col">
 		{#each tools as tool (tool.id)}
 			{@const tt = popover({ hover: true, placement: 'right', delay: 300 })}
@@ -63,7 +63,7 @@
 <CollapsePane header="Tools">
 	<div class="flex flex-col gap-2">
 		<ul class="flex flex-col gap-2">
-			{@render toolList(enabledList, true, 'bg-surface2')}
+			{@render toolList(enabledList, true)}
 		</ul>
 
 		<div class="self-end">
