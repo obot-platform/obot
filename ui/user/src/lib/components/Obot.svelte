@@ -59,12 +59,15 @@
 		<main id="main-content" class="flex max-w-full grow flex-col">
 			<div class="h-[76px] w-full">
 				<Navbar>
-					{#if !layout.sidebarOpen}
+					{#if !layout.sidebarOpen || layout.fileEditorOpen}
 						<Logo />
 						<button
 							class="icon-button"
 							in:fade={{ delay: 400 }}
-							onclick={() => (layout.sidebarOpen = !layout.sidebarOpen)}
+							onclick={() => {
+								layout.sidebarOpen = true;
+								layout.fileEditorOpen = false;
+							}}
 						>
 							<SidebarOpen class="icon-default" />
 						</button>

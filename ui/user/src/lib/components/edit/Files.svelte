@@ -104,6 +104,7 @@
 		if (thread) {
 			await EditorService.load(layout.items, project, file.name, apiOpts);
 			layout.fileEditorOpen = true;
+			layout.sidebarOpen = false;
 		} else {
 			await EditorService.load(items, project, file.name, apiOpts);
 			editorDialog?.showModal();
