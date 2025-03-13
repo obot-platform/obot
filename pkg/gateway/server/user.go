@@ -17,7 +17,7 @@ import (
 var pkgLog = mvl.Package()
 
 func (s *Server) getCurrentUser(apiContext api.Context) error {
-	user, err := s.client.User(apiContext.Context(), apiContext.User.GetName())
+	user, err := apiContext.GatewayClient.User(apiContext.Context(), apiContext.User.GetName())
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		// This shouldn't happen, but, if it does, then the user would be unauthorized because we can't identify them.
 		return types2.NewErrHTTP(http.StatusUnauthorized, "unauthorized")
@@ -32,16 +32,16 @@ func (s *Server) getCurrentUser(apiContext api.Context) error {
 		if err != nil {
 			return fmt.Errorf("failmed to get auth provider URL: %v", err)
 		}
-		if err = s.client.UpdateProfileIconIfNeeded(apiContext.Context(), user, name, namespace, providerURL.String()); err != nil {
+		if err = apiContext.GatewayClient.UpdateProfileIconIfNeeded(apiContext.Context(), user, name, namespace, providerURL.String()); err != nil {
 			pkgLog.Warnf("failed to update profile icon for user %s: %v", user.Username, err)
 		}
 	}
 
-	return apiContext.Write(types.ConvertUser(user, s.client.IsExplicitAdmin(user.Email), name))
+	return apiContext.Write(types.ConvertUser(user, apiContext.GatewayClient.IsExplicitAdmin(user.Email), name))
 }
 
 func (s *Server) getUsers(apiContext api.Context) error {
-	users, err := s.client.Users(apiContext.Context(), types.NewUserQuery(apiContext.URL.Query()))
+	users, err := apiContext.GatewayClient.Users(apiContext.Context(), types.NewUserQuery(apiContext.URL.Query()))
 	if err != nil {
 		return fmt.Errorf("failed to get users: %v", err)
 	}
@@ -49,7 +49,7 @@ func (s *Server) getUsers(apiContext api.Context) error {
 	items := make([]types2.User, 0, len(users))
 	for _, user := range users {
 		if user.Username != "bootstrap" && user.Email != "" { // Filter out the bootstrap admin
-			items = append(items, *types.ConvertUser(&user, s.client.IsExplicitAdmin(user.Email), ""))
+			items = append(items, *types.ConvertUser(&user, apiContext.GatewayClient.IsExplicitAdmin(user.Email), ""))
 		}
 	}
 
@@ -69,9 +69,9 @@ func (s *Server) getUser(apiContext api.Context) error {
 
 	var err error
 	if getByID {
-		user, err = s.client.UserByID(apiContext.Context(), usernameOrID)
+		user, err = apiContext.GatewayClient.UserByID(apiContext.Context(), usernameOrID)
 	} else {
-		user, err = s.client.User(apiContext.Context(), usernameOrID)
+		user, err = apiContext.GatewayClient.User(apiContext.Context(), usernameOrID)
 	}
 
 	if err != nil {
@@ -81,7 +81,7 @@ func (s *Server) getUser(apiContext api.Context) error {
 		return fmt.Errorf("failed to get user: %v", err)
 	}
 
-	return apiContext.Write(types.ConvertUser(user, s.client.IsExplicitAdmin(user.Email), ""))
+	return apiContext.Write(types.ConvertUser(user, apiContext.GatewayClient.IsExplicitAdmin(user.Email), ""))
 }
 
 func (s *Server) updateUser(apiContext api.Context) error {
@@ -109,7 +109,7 @@ func (s *Server) updateUser(apiContext api.Context) error {
 	}
 
 	status := http.StatusInternalServerError
-	existingUser, err := s.client.UpdateUser(apiContext.Context(), actingUserIsAdmin, user, username)
+	existingUser, err := apiContext.GatewayClient.UpdateUser(apiContext.Context(), actingUserIsAdmin, user, username)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			status = http.StatusNotFound
@@ -123,7 +123,7 @@ func (s *Server) updateUser(apiContext api.Context) error {
 		return types2.NewErrHTTP(status, fmt.Sprintf("failed to update user: %v", err))
 	}
 
-	return apiContext.Write(types.ConvertUser(existingUser, s.client.IsExplicitAdmin(existingUser.Email), ""))
+	return apiContext.Write(types.ConvertUser(existingUser, apiContext.GatewayClient.IsExplicitAdmin(existingUser.Email), ""))
 }
 
 func (s *Server) deleteUser(apiContext api.Context) error {
@@ -133,7 +133,7 @@ func (s *Server) deleteUser(apiContext api.Context) error {
 	}
 
 	status := http.StatusInternalServerError
-	existingUser, err := s.client.DeleteUser(apiContext.Context(), username)
+	existingUser, err := apiContext.GatewayClient.DeleteUser(apiContext.Context(), username)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			status = http.StatusNotFound
@@ -143,5 +143,5 @@ func (s *Server) deleteUser(apiContext api.Context) error {
 		return types2.NewErrHTTP(status, fmt.Sprintf("failed to delete user: %v", err))
 	}
 
-	return apiContext.Write(types.ConvertUser(existingUser, s.client.IsExplicitAdmin(existingUser.Email), ""))
+	return apiContext.Write(types.ConvertUser(existingUser, apiContext.GatewayClient.IsExplicitAdmin(existingUser.Email), ""))
 }

@@ -55,11 +55,9 @@ func (a *RunHandler) Debug(req api.Context) error {
 		runID = req.PathValue("id")
 	)
 
-	var (
-		runState v1.RunState
-		run      v1.Run
-	)
-	if err := req.Get(&runState, runID); err != nil {
+	var run v1.Run
+	runState, err := req.GatewayClient.RunState(req.Context(), req.Namespace(), runID)
+	if err != nil {
 		return err
 	}
 	if err := req.Get(&run, runID); err != nil {
@@ -67,7 +65,7 @@ func (a *RunHandler) Debug(req api.Context) error {
 	}
 
 	frames := map[string]any{}
-	if err := gz.Decompress(&frames, runState.Spec.CallFrame); err != nil {
+	if err := gz.Decompress(&frames, runState.CallFrame); err != nil {
 		return err
 	}
 

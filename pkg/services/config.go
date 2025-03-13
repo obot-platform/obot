@@ -348,8 +348,8 @@ func New(ctx context.Context, config Config) (*Services, error) {
 
 	var (
 		tokenServer   = &jwt.TokenService{}
-		events        = events.NewEmitter(storageClient)
 		gatewayClient = client.New(gatewayDB, config.AuthAdminEmails)
+		events        = events.NewEmitter(storageClient, gatewayClient)
 		invoker       = invoke.NewInvoker(
 			storageClient,
 			c,
@@ -459,6 +459,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		GPTClient:             c,
 		APIServer: server.NewServer(
 			storageClient,
+			gatewayClient,
 			c,
 			authn.NewAuthenticator(authenticators),
 			authz.NewAuthorizer(r.Backend(), config.DevMode),

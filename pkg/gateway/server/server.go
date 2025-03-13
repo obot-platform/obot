@@ -5,7 +5,6 @@ import (
 	"net/http"
 
 	"github.com/gptscript-ai/go-gptscript"
-	"github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/gateway/db"
 	"github.com/obot-platform/obot/pkg/gateway/server/dispatcher"
 	"github.com/obot-platform/obot/pkg/jwt"
@@ -22,7 +21,6 @@ type Server struct {
 	db             *db.DB
 	baseURL, uiURL string
 	httpClient     *http.Client
-	client         *client.Client
 	tokenService   *jwt.TokenService
 	dispatcher     *dispatcher.Dispatcher
 	gptClient      *gptscript.GPTScript
@@ -40,7 +38,6 @@ func New(ctx context.Context, g *gptscript.GPTScript, db *db.DB, tokenService *j
 		baseURL:      opts.Hostname,
 		uiURL:        opts.UIHostname,
 		httpClient:   &http.Client{},
-		client:       client.New(db, adminEmails),
 		tokenService: tokenService,
 		dispatcher:   modelProviderDispatcher,
 		gptClient:    g,

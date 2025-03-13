@@ -24,10 +24,6 @@ type RunStateSpec struct {
 	Error      string `json:"error,omitempty"`
 }
 
-func (in *RunState) DeleteRefs() []Ref {
-	return []Ref{}
-}
-
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type RunStateList struct {

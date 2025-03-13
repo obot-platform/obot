@@ -18,6 +18,7 @@ import (
 	"github.com/obot-platform/obot/logger"
 	"github.com/obot-platform/obot/pkg/events"
 	"github.com/obot-platform/obot/pkg/gateway/client"
+	gtypes "github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/gz"
 	"github.com/obot-platform/obot/pkg/hash"
 	"github.com/obot-platform/obot/pkg/jwt"
@@ -70,8 +71,9 @@ type Response struct {
 	WorkflowExecution *v1.WorkflowExecution
 	Events            <-chan types.Progress
 
-	uncached kclient.WithWatch
-	cancel   func()
+	uncached      kclient.WithWatch
+	gatewayClient *client.Client
+	cancel        func()
 }
 
 type TaskResult struct {
@@ -95,20 +97,15 @@ func (e ErrToolResult) Error() string {
 }
 
 func (r *Response) Result(ctx context.Context) (TaskResult, error) {
-	if r.uncached == nil {
+	if r.uncached == nil || r.gatewayClient == nil {
 		panic("can not get resource of asynchronous task")
 	}
 	//nolint:revive
 	for range r.Events {
 	}
 
-	runState, err := wait.For(ctx, r.uncached, &v1.RunState{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      r.Run.Name,
-			Namespace: r.Run.Namespace,
-		},
-	}, func(run *v1.RunState) (bool, error) {
-		return run.Spec.Done, nil
+	runState, err := pollRunState(ctx, r.gatewayClient, r.Run, func(run *gtypes.RunState) (bool, error) {
+		return run.Done, nil
 	})
 	if apierror.IsNotFound(err) {
 		return TaskResult{}, ErrToolResult{
@@ -122,9 +119,9 @@ func (r *Response) Result(ctx context.Context) (TaskResult, error) {
 		panic("runState doesnt match")
 	}
 
-	if runState.Spec.Error != "" {
+	if runState.Error != "" {
 		return TaskResult{}, ErrToolResult{
-			Message: runState.Spec.Error,
+			Message: runState.Error,
 		}
 	}
 
@@ -134,7 +131,7 @@ func (r *Response) Result(ctx context.Context) (TaskResult, error) {
 		data      = map[string]any{}
 	)
 
-	if err := gz.Decompress(&content, runState.Spec.Output); err != nil {
+	if err := gz.Decompress(&content, runState.Output); err != nil {
 		return TaskResult{}, err
 	}
 
@@ -151,6 +148,27 @@ func (r *Response) Result(ctx context.Context) (TaskResult, error) {
 	return TaskResult{
 		Output: content,
 	}, nil
+}
+
+func pollRunState(ctx context.Context, c *client.Client, run *v1.Run, done func(*gtypes.RunState) (bool, error)) (*gtypes.RunState, error) {
+	ticker := time.NewTicker(time.Second)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		case <-ticker.C:
+			r, err := c.RunState(ctx, run.Namespace, run.Name)
+			if err != nil {
+				return nil, err
+			}
+			if stop, err := done(r); err != nil {
+				return nil, err
+			} else if stop {
+				return r, nil
+			}
+		}
+	}
 }
 
 type Options struct {
@@ -177,7 +195,13 @@ func (i *Invoker) getChatState(ctx context.Context, c kclient.Client, run *v1.Ru
 		// look for the last valid state
 		var previousRun v1.Run
 		if err := c.Get(ctx, router.Key(run.Namespace, run.Spec.PreviousRunName), &previousRun); err != nil {
-			return "", err
+			if !apierror.IsNotFound(err) {
+				return "", err
+			}
+			// If not found, use the uncached client
+			if err := i.uncached.Get(ctx, router.Key(run.Namespace, run.Spec.PreviousRunName), &previousRun); err != nil {
+				return "", err
+			}
 		}
 		if previousRun.Status.State == gptscript.Continue {
 			break
@@ -188,18 +212,18 @@ func (i *Invoker) getChatState(ctx context.Context, c kclient.Client, run *v1.Ru
 		run = &previousRun
 	}
 
-	var lastRun v1.RunState
-	if err := c.Get(ctx, router.Key(run.Namespace, run.Spec.PreviousRunName), &lastRun); apierror.IsNotFound(err) {
+	lastRun, err := i.gatewayClient.RunState(ctx, run.Namespace, run.Spec.PreviousRunName)
+	if apierror.IsNotFound(err) {
 		return "", nil
 	} else if err != nil {
 		return "", err
 	}
 
-	if len(lastRun.Spec.ChatState) == 0 {
+	if len(lastRun.ChatState) == 0 {
 		return "", nil
 	}
-	err := gz.Decompress(&result, lastRun.Spec.ChatState)
-	return result, err
+
+	return result, gz.Decompress(&result, lastRun.ChatState)
 }
 
 func getThreadForAgent(ctx context.Context, c kclient.WithWatch, agent *v1.Agent, opt Options) (*v1.Thread, error) {
@@ -463,6 +487,7 @@ func (i *Invoker) createRun(ctx context.Context, c kclient.WithWatch, thread *v1
 
 	resp.Events = events
 	resp.uncached = i.uncached
+	resp.gatewayClient = i.gatewayClient
 	resp.cancel = cancel
 	go func() {
 		if err := i.Resume(ctx, c, thread, &run); err != nil {
@@ -650,11 +675,13 @@ func (i *Invoker) saveState(ctx context.Context, c kclient.Client, thread *v1.Th
 
 func (i *Invoker) doSaveState(ctx context.Context, c kclient.Client, thread *v1.Thread, run *v1.Run, runResp *gptscript.Run, retErr error) error {
 	var (
-		runStateSpec v1.RunStateSpec
+		runStateSpec gtypes.RunState
 		runChanged   bool
 		err          error
 	)
 
+	runStateSpec.Name = run.Name
+	runStateSpec.Namespace = run.Namespace
 	runStateSpec.ThreadName = run.Spec.ThreadName
 	runStateSpec.Done = runResp.State().IsTerminal() || runResp.State() == gptscript.Continue
 	if retErr != nil {
@@ -689,27 +716,31 @@ func (i *Invoker) doSaveState(ctx context.Context, c kclient.Client, thread *v1.
 		}
 	}
 
-	var runState v1.RunState
-	if err := i.uncached.Get(ctx, router.Key(run.Namespace, run.Name), &runState); apierror.IsNotFound(err) {
-		runState = v1.RunState{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      run.Name,
-				Namespace: run.Namespace,
-			},
-			Spec: runStateSpec,
+	runState, err := i.gatewayClient.RunState(ctx, run.Namespace, run.Name)
+	if apierror.IsNotFound(err) {
+		runState = &gtypes.RunState{
+			Name:       run.Name,
+			Namespace:  run.Namespace,
+			ThreadName: runStateSpec.ThreadName,
+			Program:    runStateSpec.Program,
+			ChatState:  runStateSpec.ChatState,
+			CallFrame:  runStateSpec.CallFrame,
+			Output:     runStateSpec.Output,
+			Done:       runStateSpec.Done,
+			Error:      runStateSpec.Error,
 		}
-		if err := c.Create(ctx, &runState); err != nil {
+		if err := i.gatewayClient.CreateRunState(ctx, runState); err != nil {
 			return err
 		}
 	} else if err != nil {
 		return err
 	} else {
-		if !bytes.Equal(runState.Spec.CallFrame, runStateSpec.CallFrame) ||
-			!bytes.Equal(runState.Spec.ChatState, runStateSpec.ChatState) ||
-			runState.Spec.Done != runStateSpec.Done ||
-			runState.Spec.Error != runStateSpec.Error {
-			runState.Spec = runStateSpec
-			if err := i.uncached.Update(ctx, &runState); err != nil {
+		if !bytes.Equal(runState.CallFrame, runStateSpec.CallFrame) ||
+			!bytes.Equal(runState.ChatState, runStateSpec.ChatState) ||
+			runState.Done != runStateSpec.Done ||
+			runState.Error != runStateSpec.Error {
+			*runState = runStateSpec
+			if err := i.gatewayClient.UpdateRunState(ctx, runState); err != nil {
 				return err
 			}
 		}
@@ -986,10 +1017,10 @@ func (i *Invoker) stream(ctx context.Context, c kclient.WithWatch, thread *v1.Th
 						return err
 					}
 				}
-				timeoutCtx, timoutCancel := context.WithCancel(ctx)
-				abortTimeout = timoutCancel
+				timeoutCtx, timeoutCancel := context.WithCancel(ctx)
+				abortTimeout = timeoutCancel
 				go func() {
-					defer timoutCancel()
+					defer timeoutCancel()
 					select {
 					case <-timeoutCtx.Done():
 					case <-time.After(timeout):

@@ -14,6 +14,7 @@ import (
 	"github.com/obot-platform/obot/pkg/controller/handlers/oauthapp"
 	"github.com/obot-platform/obot/pkg/controller/handlers/projects"
 	"github.com/obot-platform/obot/pkg/controller/handlers/runs"
+	"github.com/obot-platform/obot/pkg/controller/handlers/runstates"
 	"github.com/obot-platform/obot/pkg/controller/handlers/threads"
 	"github.com/obot-platform/obot/pkg/controller/handlers/threadshare"
 	"github.com/obot-platform/obot/pkg/controller/handlers/toolinfo"
@@ -41,7 +42,7 @@ func (c *Controller) setupRoutes() error {
 	knowledgeset := knowledgeset.New(c.services.Invoker)
 	knowledgesource := knowledgesource.NewHandler(c.services.Invoker, c.services.GPTClient)
 	knowledgefile := knowledgefile.New(c.services.Invoker, c.services.GPTClient, c.services.KnowledgeSetIngestionLimit)
-	runs := runs.New(c.services.Invoker, c.services.Router.Backend())
+	runs := runs.New(c.services.Invoker, c.services.Router.Backend(), c.services.GatewayClient)
 	webHooks := webhook.New()
 	cronJobs := cronjob.New()
 	oauthLogins := oauthapp.NewLogin(c.services.Invoker, c.services.ServerURL)
@@ -50,6 +51,7 @@ func (c *Controller) setupRoutes() error {
 	threads := threads.NewHandler(c.services.GPTClient, c.services.Invoker)
 	credentialCleanup := cleanup.NewCredentials(c.services.GPTClient)
 	projects := projects.NewHandler()
+	runstates := runstates.NewHandler(c.services.GatewayClient)
 
 	// Runs
 	root.Type(&v1.Run{}).FinalizeFunc(v1.RunFinalizer, runs.DeleteRunState)
@@ -59,6 +61,9 @@ func (c *Controller) setupRoutes() error {
 	root.Type(&v1.Run{}).HandlerFunc(workflow.GetTaskResult)
 	// This handler should be the last one so that deleting Runs will not be marked as inactive.
 	root.Type(&v1.Run{}).HandlerFunc(runs.MarkInactive)
+
+	// Migrate RunStates
+	root.Type(&v1.RunState{}).HandlerFunc(runstates.Migrate)
 
 	// Threads
 	root.Type(&v1.Thread{}).HandlerFunc(cleanup.Cleanup)

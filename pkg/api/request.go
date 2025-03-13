@@ -12,6 +12,7 @@ import (
 	"github.com/gptscript-ai/go-gptscript"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api/authz"
+	gclient "github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/storage"
 	"github.com/obot-platform/obot/pkg/system"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -26,10 +27,11 @@ import (
 type Context struct {
 	http.ResponseWriter
 	*http.Request
-	GPTClient  *gptscript.GPTScript
-	Storage    storage.Client
-	User       user.Info
-	APIBaseURL string
+	GPTClient     *gptscript.GPTScript
+	Storage       storage.Client
+	GatewayClient *gclient.Client
+	User          user.Info
+	APIBaseURL    string
 }
 
 type (

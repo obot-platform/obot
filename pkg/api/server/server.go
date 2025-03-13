@@ -10,6 +10,7 @@ import (
 	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/api/authn"
 	"github.com/obot-platform/obot/pkg/api/authz"
+	gclient "github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/proxy"
 	"github.com/obot-platform/obot/pkg/storage"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -17,6 +18,7 @@ import (
 
 type Server struct {
 	storageClient storage.Client
+	gatewayClient *gclient.Client
 	gptClient     *gptscript.GPTScript
 	authenticator *authn.Authenticator
 	authorizer    *authz.Authorizer
@@ -26,9 +28,10 @@ type Server struct {
 	mux *http.ServeMux
 }
 
-func NewServer(storageClient storage.Client, gptClient *gptscript.GPTScript, authn *authn.Authenticator, authz *authz.Authorizer, proxyManager *proxy.Manager, baseURL string) *Server {
+func NewServer(storageClient storage.Client, gatewayClient *gclient.Client, gptClient *gptscript.GPTScript, authn *authn.Authenticator, authz *authz.Authorizer, proxyManager *proxy.Manager, baseURL string) *Server {
 	return &Server{
 		storageClient: storageClient,
+		gatewayClient: gatewayClient,
 		gptClient:     gptClient,
 		authenticator: authn,
 		authorizer:    authz,
@@ -95,6 +98,7 @@ func (s *Server) wrap(f api.HandlerFunc) http.HandlerFunc {
 			Request:        req,
 			GPTClient:      s.gptClient,
 			Storage:        s.storageClient,
+			GatewayClient:  s.gatewayClient,
 			User:           user,
 			APIBaseURL:     s.baseURL,
 		})

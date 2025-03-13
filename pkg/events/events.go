@@ -16,6 +16,7 @@ import (
 	"github.com/obot-platform/nah/pkg/typed"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/logger"
+	gclient "github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/gz"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
@@ -29,15 +30,17 @@ var log = logger.Package()
 
 type Emitter struct {
 	client        kclient.WithWatch
+	gatewayClient *gclient.Client
 	liveStates    map[string][]liveState
 	liveStateLock sync.RWMutex
 	liveBroadcast *sync.Cond
 }
 
-func NewEmitter(client kclient.WithWatch) *Emitter {
+func NewEmitter(client kclient.WithWatch, gatewayClient *gclient.Client) *Emitter {
 	e := &Emitter{
-		client:     client,
-		liveStates: map[string][]liveState{},
+		client:        client,
+		gatewayClient: gatewayClient,
+		liveStates:    map[string][]liveState{},
 	}
 	e.liveBroadcast = sync.NewCond(&e.liveStateLock)
 	return e
@@ -293,20 +296,8 @@ func (e *Emitter) printRun(ctx context.Context, state *printState, run v1.Run, r
 		}
 	}()
 
-	w, err := e.client.Watch(ctx, &v1.RunStateList{}, kclient.MatchingFields{"metadata.name": run.Name}, kclient.InNamespace(run.Namespace))
-	if err != nil {
-		return err
-	}
-
-	defer func() {
-		if w != nil {
-			w.Stop()
-			//nolint:revive
-			for range w.ResultChan() {
-			}
-		}
-	}()
-
+	ticker := time.NewTicker(time.Second)
+	defer ticker.Stop()
 	for {
 		select {
 		case <-ctx.Done():
@@ -336,36 +327,30 @@ func (e *Emitter) printRun(ctx context.Context, state *printState, run v1.Run, r
 					}
 				}
 			}
-		case event, ok := <-w.ResultChan():
-			if !ok {
-				// resume
-				w, err = e.client.Watch(ctx, &v1.RunStateList{}, kclient.MatchingFields{"metadata.name": run.Name}, kclient.InNamespace(run.Namespace))
-				if err != nil {
-					return err
-				}
+		case <-ticker.C:
+			runState, err := e.gatewayClient.RunState(ctx, run.Namespace, run.Name)
+			if apierrors.IsNotFound(err) {
 				continue
-			}
-			runState, ok := event.Object.(*v1.RunState)
-			if !ok {
-				continue
+			} else if err != nil {
+				return err
 			}
 			var (
 				prg        gptscript.Program
 				callFrames = gptscript.CallFrames{}
 			)
-			if len(runState.Spec.Program) != 0 {
-				if err := gz.Decompress(&prg, runState.Spec.Program); err != nil {
+			if len(runState.Program) != 0 {
+				if err := gz.Decompress(&prg, runState.Program); err != nil {
 					return err
 				}
 			}
-			if len(runState.Spec.CallFrame) != 0 {
-				if err := gz.Decompress(&callFrames, runState.Spec.CallFrame); err != nil {
+			if len(runState.CallFrame) != 0 {
+				if err := gz.Decompress(&callFrames, runState.CallFrame); err != nil {
 					return err
 				}
 			}
 
 			// Don't log historical runs that have errored
-			if runState.Spec.Done && runState.Spec.Error != "" && historical {
+			if runState.Done && runState.Error != "" && historical {
 				return nil
 			}
 
@@ -373,12 +358,12 @@ func (e *Emitter) printRun(ctx context.Context, state *printState, run v1.Run, r
 				return err
 			}
 
-			if runState.Spec.Done {
-				if runState.Spec.Error != "" {
+			if runState.Done {
+				if runState.Error != "" {
 					result <- types.Progress{
 						RunID: run.Name,
 						Time:  types.NewTime(time.Now()),
-						Error: runState.Spec.Error,
+						Error: runState.Error,
 					}
 				}
 				return nil

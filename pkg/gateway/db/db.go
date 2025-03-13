@@ -103,6 +103,7 @@ func (db *DB) AutoMigrate() (err error) {
 		types.User{},
 		types.Identity{},
 		types.Image{},
+		types.RunState{},
 	)
 }
 
