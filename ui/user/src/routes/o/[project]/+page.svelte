@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { replaceState } from '$app/navigation';
+	import { navigating } from '$app/state';
 	import EditMode from '$lib/components/EditMode.svelte';
 	import Obot from '$lib/components/Obot.svelte';
 	import { initLayout } from '$lib/context/layout.svelte';
@@ -23,6 +24,16 @@
 		projectEditorOpen:
 			typeof window !== 'undefined' && new URL(window.location.href).searchParams.has('edit'),
 		items: []
+	});
+
+	$effect(() => {
+		if (navigating) {
+			initLayout({
+				sidebarOpen: true,
+				projectEditorOpen: navigating.to?.url.searchParams.has('edit'),
+				items: []
+			});
+		}
 	});
 
 	$effect(() => {
