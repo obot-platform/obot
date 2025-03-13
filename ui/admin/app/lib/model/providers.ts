@@ -10,6 +10,7 @@ export type ProviderConfigurationParameter = {
 
 export type ProviderStatus = {
 	configured: boolean;
+	error?: string;
 	icon?: string;
 	iconDark?: string;
 	link?: string;

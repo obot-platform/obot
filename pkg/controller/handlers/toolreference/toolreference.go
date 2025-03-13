@@ -33,7 +33,7 @@ import (
 
 var (
 	log           = logger.Package()
-	jsonErrRegexp = regexp.MustCompile(`\{.*"error":.*}`)
+	jsonErrRegexp = regexp.MustCompile(`(?s)\{.*"error":.*}`)
 )
 
 const toolRecheckPeriod = time.Hour
@@ -374,9 +374,23 @@ func (h *Handler) BackPopulateModels(req router.Request, _ router.Response) erro
 			type errorResponse struct {
 				Error string `json:"error"`
 			}
+
+			// custom response from model-provider implementation
 			var eR errorResponse
 			if err := json.Unmarshal([]byte(match), &eR); err == nil {
 				toolRef.Status.Error = eR.Error
+			} else {
+				type openAIErrResponse struct {
+					Error struct {
+						Message string `json:"message"`
+					} `json:"error"`
+				}
+
+				// OpenAI API style response
+				var eR openAIErrResponse
+				if err := json.Unmarshal([]byte(match), &eR); err == nil {
+					toolRef.Status.Error = eR.Error.Message
+				}
 			}
 		}
 

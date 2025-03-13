@@ -2323,6 +2323,12 @@ func schema_obot_platform_obot_apiclient_types_ModelProviderStatus(ref common.Re
 							Ref:     ref("github.com/obot-platform/obot/apiclient/types.CommonProviderMetadata"),
 						},
 					},
+					"error": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
 					"configured": {
 						SchemaProps: spec.SchemaProps{
 							Default: false,

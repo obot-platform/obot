@@ -28,6 +28,7 @@ type ModelProviderManifest struct {
 
 type ModelProviderStatus struct {
 	CommonProviderMetadata
+	Error                           string                           `json:"error,omitempty"`
 	Configured                      bool                             `json:"configured"`
 	ModelsBackPopulated             *bool                            `json:"modelsBackPopulated,omitempty"`
 	RequiredConfigurationParameters []ProviderConfigurationParameter `json:"requiredConfigurationParameters,omitempty"`

@@ -42,6 +42,7 @@ func ConvertModelProviderToolRef(toolRef v1.ToolReference, cred map[string]strin
 
 	return &types.ModelProviderStatus{
 		CommonProviderMetadata:          providerMeta.CommonProviderMetadata,
+		Error:                           toolRef.Status.Error,
 		Configured:                      configured,
 		ModelsBackPopulated:             modelsPopulated,
 		RequiredConfigurationParameters: providerMeta.EnvVars,
