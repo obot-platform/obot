@@ -4,6 +4,7 @@
 	import type { AssistantTool, ToolReference } from '$lib/services/chat/types';
 	import { twMerge } from 'tailwind-merge';
 	import CollapsePane from './CollapsePane.svelte';
+	import { Plus } from 'lucide-svelte';
 
 	interface Props {
 		tools: AssistantTool[];
@@ -13,28 +14,39 @@
 
 	let { tools, onSelectTools, maxTools = Number.MAX_SAFE_INTEGER }: Props = $props();
 
-	console.log(maxTools);
-
 	let input = $state<HTMLInputElement>();
+	let search = $state('');
 
 	const bundleMap = getToolBundleMap();
 
-	let search = $state('');
-
-	let toolSelection = $state(
-		tools
+	function getSelectionMap() {
+		return tools
 			.filter((t) => !t.builtin)
 			.reduce<Record<string, AssistantTool>>((acc, tool) => {
 				acc[tool.id] = { ...tool };
 				return acc;
-			}, {})
-	);
+			}, {});
+	}
 
-	let canSelectMore = $derived(
-		Object.values(toolSelection).filter((t) => t.enabled).length < maxTools
+	let toolSelection = $state<Record<string, AssistantTool>>({});
+
+	$effect(() => {
+		if (catalog.open) {
+			toolSelection = getSelectionMap();
+		}
+	});
+
+	let maxExceeded = $derived(
+		Object.values(toolSelection).filter((t) => t.enabled).length > maxTools
 	);
 
 	let catalog = popover({ fixed: true });
+
+	function setToolEnabled(toolId: string, val?: boolean) {
+		if (toolId in toolSelection) {
+			toolSelection[toolId].enabled = val;
+		}
+	}
 
 	function shouldShowTool(tool: AssistantTool) {
 		if (!tool || !toolSelection[tool.id]) return false;
@@ -51,17 +63,6 @@
 		catalog.toggle(false);
 	}
 
-	function clearSubTools(toolRef: ToolReference) {
-		if (!toolRef.bundle) return;
-
-		const subtools =
-			bundleMap.get(toolRef.id)?.bundleTools.filter((t) => t.id in toolSelection) ?? [];
-
-		for (const subtool of subtools) {
-			toolSelection[subtool.id].enabled = false;
-		}
-	}
-
 	function clearBundle(toolRef: ToolReference) {
 		if (!toolRef.bundleToolName) return;
 
@@ -69,9 +70,55 @@
 			toolSelection[toolRef.bundleToolName].enabled = false;
 		}
 	}
+
+	function isToolEnabled(toolId: string) {
+		if (toolId in toolSelection) {
+			return toolSelection[toolId].enabled;
+		}
+
+		return false;
+	}
+
+	function setSubTools(toolId: string, val?: boolean) {
+		const toolItem = bundleMap.get(toolId);
+
+		if (!toolItem) return;
+
+		const subtools = toolItem.bundleTools ?? [];
+
+		for (const subtool of subtools) {
+			toolSelection[subtool.id].enabled = val;
+		}
+	}
+
+	function allSubtoolsEnabled(toolId: string) {
+		const toolItem = bundleMap.get(toolId);
+
+		if (!toolItem) return false;
+
+		const subtools = toolItem.bundleTools ?? [];
+		return subtools.every((t) => isToolEnabled(t.id));
+	}
+
+	function handleSetSubtool(toolref: ToolReference, val?: boolean) {
+		const { bundleToolName } = toolref;
+
+		if (!bundleToolName || !(toolref.id in toolSelection)) return;
+
+		const tool = toolSelection[toolref.id];
+
+		if (!val && isToolEnabled(bundleToolName)) {
+			setToolEnabled(bundleToolName, false);
+			setSubTools(bundleToolName, true);
+		}
+
+		tool.enabled = val;
+	}
 </script>
 
-<button class="button" use:catalog.ref onclick={() => catalog.toggle()}>Open Catalog</button>
+<button class="button flex items-center gap-2" use:catalog.ref onclick={() => catalog.toggle(true)}
+	><Plus class="size-4" /> Tools</button
+>
 
 <div
 	use:catalog.tooltip
@@ -87,8 +134,8 @@
 		/>
 	</div>
 
-	<p class={twMerge('text-center text-sm', canSelectMore && 'invisible')}>
-		Maximum number of tools selected
+	<p class={twMerge('text-center text-sm text-red-500', !maxExceeded && 'invisible')}>
+		Maximum number of tools exceeded for this Assistant. (Max: {maxTools})
 	</p>
 
 	<div class="default-scrollbar-thin flex max-h-[50vh] grow flex-col p-3">
@@ -112,7 +159,7 @@
 
 					{#snippet header()}
 						{@const bundleTool = toolSelection[tool.id]}
-						{@const disabled = !bundleTool?.enabled && !canSelectMore}
+						{@const allSelected = allSubtoolsEnabled(tool.id)}
 						{@const tt = popover({ hover: true, placement: 'left', fixed: false })}
 
 						<label
@@ -125,12 +172,17 @@
 							{#if !!bundleTool}
 								<input
 									type="checkbox"
-									{disabled}
-									onchange={() => clearSubTools(tool)}
+									onchange={() => setSubTools(tool.id, false)}
+									indeterminate={selectedSubtools > 0}
 									bind:checked={bundleTool.enabled}
 								/>
 							{:else}
-								<input disabled type="checkbox" />
+								<input
+									indeterminate={selectedSubtools > 0 && !allSelected}
+									checked={allSelected}
+									onchange={(e) => setSubTools(tool.id, e.currentTarget.checked)}
+									type="checkbox"
+								/>
 							{/if}
 							<p class="flex items-center gap-2">
 								<img
@@ -141,9 +193,13 @@
 								{tool.name}
 							</p>
 
+							{#if tool.bundle && isToolEnabled(tool.id)}
+								<span class="justify-self-end text-xs text-gray-500">Bundle Selected</span>
+							{/if}
+
 							{#if selectedSubtools > 0}
-								<span class="justify-self-end text-xs">
-									({selectedSubtools} Selected)
+								<span class="justify-self-end text-xs text-gray-500">
+									{selectedSubtools} / {bundleTools.length} Selected
 								</span>
 							{/if}
 						</label>
@@ -162,14 +218,12 @@
 	</div>
 
 	<div class="flex justify-end gap-2 p-2">
-		<button onclick={() => catalog.toggle(false)} class="button-secondary">Cancel</button>
-		<button onclick={handleSubmit} class="button">Apply</button>
+		<button onclick={handleSubmit} disabled={maxExceeded} class="button">Apply</button>
 	</div>
 </div>
 
 {#snippet toolItem(toolReference: ToolReference)}
 	{@const tool = toolSelection[toolReference.id]}
-	{@const disabled = !tool.enabled && !canSelectMore}
 	{@const bundleToolSelected =
 		!!toolReference.bundleToolName && !!toolSelection[toolReference.bundleToolName]?.enabled}
 	{@const { tooltip, ref } = popover({ hover: true, placement: 'left' })}
@@ -178,13 +232,13 @@
 		class="flex cursor-pointer items-center justify-between gap-2 rounded-lg p-2 hover:bg-surface3"
 		use:ref
 	>
-		<p class={twMerge('flex items-center gap-2', disabled && 'opacity-25')}>
+		<p class={twMerge('flex items-center gap-2')}>
 			<input
 				type="checkbox"
-				disabled={disabled || bundleToolSelected}
 				onchange={() => clearBundle(toolReference)}
 				bind:checked={
-					() => (bundleToolSelected ? true : tool.enabled), (val) => (tool.enabled = val)
+					() => (bundleToolSelected ? true : tool.enabled),
+					(val) => handleSetSubtool(toolReference, val)
 				}
 			/>
 			<img src={tool.icon} alt={tool.name} class="size-6 rounded-lg bg-white p-1" />

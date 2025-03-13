@@ -13,6 +13,7 @@ import type { Action, ActionReturn } from 'svelte/action';
 interface Popover {
 	ref: Action;
 	tooltip: Action;
+	open: boolean;
 	toggle: (newOpenValue?: boolean) => void;
 }
 
@@ -150,6 +151,9 @@ export default function popover(opts?: PopoverOptions): Popover {
 	}
 
 	return {
+		get open() {
+			return open;
+		},
 		ref: (node: HTMLElement) => {
 			ref = node;
 			return build();
