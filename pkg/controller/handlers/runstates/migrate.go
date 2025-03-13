@@ -2,6 +2,7 @@ package runstates
 
 import (
 	"github.com/obot-platform/nah/pkg/router"
+	"github.com/obot-platform/nah/pkg/untriggered"
 	gclient "github.com/obot-platform/obot/pkg/gateway/client"
 	gtypes "github.com/obot-platform/obot/pkg/gateway/types"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
@@ -22,7 +23,8 @@ func NewHandler(gatewayClient *gclient.Client) *Handler {
 func (h *Handler) Migrate(req router.Request, _ router.Response) error {
 	rs := req.Object.(*v1.RunState)
 	var run v1.Run
-	if err := req.Get(&run, rs.Namespace, rs.Name); err == nil {
+	// Use an uncached get because the run might not be in the cache.
+	if err := req.Get(untriggered.UncachedGet(&run), rs.Namespace, rs.Name); err == nil {
 		// If the run exists, then create the run state in the gateway database
 		if err := h.gatewayClient.CreateRunState(req.Ctx, &gtypes.RunState{
 			Namespace:  req.Object.GetNamespace(),

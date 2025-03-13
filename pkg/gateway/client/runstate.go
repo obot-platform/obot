@@ -22,13 +22,17 @@ func (c *Client) RunState(ctx context.Context, namespace, name string) (*types.R
 }
 
 func (c *Client) CreateRunState(ctx context.Context, runState *types.RunState) error {
-	if err := c.db.WithContext(ctx).Create(runState).Error; !errors.Is(err, gorm.ErrDuplicatedKey) {
-		return err
-	}
-	return apierrors.NewAlreadyExists(schema.GroupResource{
-		Group:    "obot.obot.ai",
-		Resource: "runstates",
-	}, runState.Name)
+	return c.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		// Get the run state. If it exists, return an already exists error, otherwise create it.
+		// We do this because trying to catch the gorm.ErrDuplicateKey doesn't work.
+		if err := tx.Where("name = ?", runState.Name).Where("namespace = ?", runState.Namespace).First(runState).Error; err == nil {
+			return apierrors.NewAlreadyExists(schema.GroupResource{
+				Group:    "obot.obot.ai",
+				Resource: "runstates",
+			}, runState.Name)
+		}
+		return tx.Create(runState).Error
+	})
 }
 
 func (c *Client) UpdateRunState(ctx context.Context, runState *types.RunState) error {
