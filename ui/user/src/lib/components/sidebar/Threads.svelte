@@ -260,13 +260,8 @@
 				</li>
 			{/each}
 			{#if layout.threads?.length && layout.threads?.length > displayCount}
-				<li class="flex justify-center p-2">
-					<button
-						class="text-xs text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
-						onclick={loadMore}
-					>
-						Show More
-					</button>
+				<li class="flex w-full justify-center rounded-md p-2 hover:bg-surface3">
+					<button class="w-full text-xs" onclick={loadMore}> Show More </button>
 				</li>
 			{/if}
 		</ul>

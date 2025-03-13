@@ -24,6 +24,11 @@
 	const layout = getLayout();
 
 	let expanded = $state(initialExpanded ?? false);
+	let displayCount = $state(10); // number of task runs to display initially
+
+	function loadMore() {
+		displayCount += 10;
+	}
 </script>
 
 <li class="group flex min-h-9 flex-col">
@@ -62,7 +67,7 @@
 	</div>
 	{#if expanded && taskRuns && taskRuns?.length > 0}
 		<ul class="flex flex-col pl-5 text-xs">
-			{#each taskRuns as taskRun}
+			{#each taskRuns.slice(0, displayCount) as taskRun}
 				<li class:bg-surface2={currentThreadID === taskRun.id} class="w-full">
 					<button
 						class="w-full rounded-md p-2 text-left hover:bg-surface3"
@@ -85,6 +90,11 @@
 					</button>
 				</li>
 			{/each}
+			{#if taskRuns?.length && taskRuns?.length > displayCount}
+				<li class="flex w-full justify-center rounded-md p-2 hover:bg-surface3">
+					<button class="w-full text-xs" onclick={loadMore}> Show More </button>
+				</li>
+			{/if}
 		</ul>
 	{/if}
 </li>
