@@ -3,9 +3,9 @@ package types
 type Task struct {
 	Metadata
 	TaskManifest
-	ProjectID     string `json:"projectID,omitempty"`
-	Alias         string `json:"alias,omitempty"`
-	ProjectScoped bool   `json:"projectScoped,omitempty"`
+	ProjectID string `json:"projectID,omitempty"`
+	Alias     string `json:"alias,omitempty"`
+	Managed   bool   `json:"managed"`
 }
 
 type TaskList List[Task]
@@ -47,6 +47,7 @@ type TaskStep struct {
 type TaskRun struct {
 	Metadata
 	TaskID    string       `json:"taskID,omitempty"`
+	ThreadID  string       `json:"threadID,omitempty"`
 	Input     string       `json:"input,omitempty"`
 	Task      TaskManifest `json:"task,omitempty"`
 	StartTime *Time        `json:"startTime,omitempty"`

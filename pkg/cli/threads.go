@@ -56,9 +56,9 @@ func (l *Threads) Run(cmd *cobra.Command, args []string) error {
 
 	w := newTable("ID", "PARENT_THREAD", "DESC", "AGENT/WF", "CURRENT/LASTRUN", "STATE", "CREATED")
 	for _, thread := range threads.Items {
-		agentWF := thread.AgentID
+		agentWF := thread.AssistantID
 		if agentWF == "" {
-			agentWF = thread.WorkflowID
+			agentWF = thread.TaskID
 		}
 		run := thread.CurrentRunID
 		if run == "" {

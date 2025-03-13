@@ -311,6 +311,9 @@
 				<p class="flex items-center gap-2 text-sm text-gray-500">
 					<Loading /> Loading...
 				</p>
+			{:else}
+				<!-- spacer -->
+				<div class="h-[28px]"></div>
 			{/if}
 		</div>
 	{/if}

@@ -393,6 +393,7 @@ func convertTaskRun(workflow *v1.Workflow, wfe *v1.WorkflowExecution) types.Task
 		Metadata:  MetadataFrom(wfe),
 		TaskID:    workflow.Name,
 		Input:     wfe.Spec.Input,
+		ThreadID:  wfe.Status.ThreadName,
 		Task:      ConvertTaskManifest(wfe.Status.WorkflowManifest),
 		StartTime: types.NewTime(wfe.CreationTimestamp.Time),
 		EndTime:   endTime,
@@ -940,11 +941,11 @@ func ConvertTaskManifest(manifest *types.WorkflowManifest) types.TaskManifest {
 
 func convertTask(workflow v1.Workflow, trigger *triggers) types.Task {
 	task := types.Task{
-		Metadata:      MetadataFrom(&workflow),
-		TaskManifest:  ConvertTaskManifest(&workflow.Spec.Manifest),
-		ProjectID:     strings.Replace(workflow.Spec.ThreadName, system.ThreadPrefix, system.ProjectPrefix, 1),
-		Alias:         workflow.Spec.Manifest.Alias,
-		ProjectScoped: workflow.Spec.ProjectScoped,
+		Metadata:     MetadataFrom(&workflow),
+		TaskManifest: ConvertTaskManifest(&workflow.Spec.Manifest),
+		ProjectID:    strings.Replace(workflow.Spec.ThreadName, system.ThreadPrefix, system.ProjectPrefix, 1),
+		Alias:        workflow.Spec.Manifest.Alias,
+		Managed:      workflow.Spec.Managed,
 	}
 	if trigger != nil && trigger.CronJob != nil && trigger.CronJob.Name != "" {
 		task.Schedule = trigger.CronJob.Spec.TaskSchedule

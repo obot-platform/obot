@@ -30,7 +30,9 @@ func NewThreadHandler(gClient *gptscript.GPTScript, events *events.Emitter) *Thr
 }
 
 func convertThread(thread v1.Thread) types.Thread {
-	var state = string(thread.Status.LastRunState)
+	var (
+		state = string(thread.Status.LastRunState)
+	)
 	if thread.Status.WorkflowState != "" {
 		state = string(thread.Status.WorkflowState)
 	}
@@ -43,8 +45,9 @@ func convertThread(thread v1.Thread) types.Thread {
 	return types.Thread{
 		Metadata:        MetadataFrom(&thread),
 		ThreadManifest:  thread.Spec.Manifest,
-		AgentID:         thread.Spec.AgentName,
-		WorkflowID:      thread.Spec.WorkflowName,
+		AssistantID:     thread.Spec.AgentName,
+		TaskID:          thread.Spec.WorkflowName,
+		TaskRunID:       thread.Spec.WorkflowExecutionName,
 		WebhookID:       thread.Spec.WebhookName,
 		EmailReceiverID: thread.Spec.EmailReceiverName,
 		LastRunID:       thread.Status.LastRunName,

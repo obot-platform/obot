@@ -43,7 +43,7 @@ func (in *Workflow) FieldNames() []string {
 type WorkflowSpec struct {
 	ThreadName         string                 `json:"threadName,omitempty"`
 	Manifest           types.WorkflowManifest `json:"manifest,omitempty"`
-	ProjectScoped      bool                   `json:"projectScoped,omitempty"`
+	Managed            bool                   `json:"managed,omitempty"`
 	SourceThreadName   string                 `json:"sourceThreadName,omitempty"`
 	SourceWorkflowName string                 `json:"sourceWorkflowName,omitempty"`
 }

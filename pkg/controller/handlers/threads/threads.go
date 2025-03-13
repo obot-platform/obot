@@ -416,7 +416,7 @@ func (t *Handler) ActivateRuns(req router.Request, _ router.Response) error {
 
 func (t *Handler) EnsureShared(req router.Request, _ router.Response) error {
 	wf := req.Object.(*v1.Workflow)
-	if !wf.Spec.ProjectScoped {
+	if !wf.Spec.Managed {
 		return nil
 	}
 
@@ -535,7 +535,7 @@ func (t *Handler) CopyTasksFromParent(req router.Request, _ router.Response) err
 				Spec: v1.WorkflowSpec{
 					ThreadName:         thread.Name,
 					Manifest:           newManifest,
-					ProjectScoped:      true,
+					Managed:            true,
 					SourceThreadName:   parentThread.Name,
 					SourceWorkflowName: wf.Name,
 				},

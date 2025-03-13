@@ -69,6 +69,9 @@
 	}
 
 	async function ensureThread() {
+		if (thread && thread.closed && id) {
+			await constructThread();
+		}
 		if (!id) {
 			id = (await ChatService.createThread(project.assistantID, project.id)).id;
 			await constructThread();
@@ -80,6 +83,10 @@
 			threadID: id,
 			onError: () => {
 				// ignore errors they are rendered as messages
+			},
+			onClose: () => {
+				// false means don't reconnect
+				return false;
 			},
 			items: layout.items
 		});

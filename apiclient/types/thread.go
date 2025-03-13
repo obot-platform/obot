@@ -22,8 +22,9 @@ func (in WorkflowState) IsTerminal() bool {
 type Thread struct {
 	Metadata
 	ThreadManifest
-	AgentID         string   `json:"agentID,omitempty"`
-	WorkflowID      string   `json:"workflowID,omitempty"`
+	AssistantID     string   `json:"assistantID,omitempty"`
+	TaskID          string   `json:"taskID,omitempty"`
+	TaskRunID       string   `json:"taskRunID,omitempty"`
 	WebhookID       string   `json:"webhookID,omitempty"`
 	EmailReceiverID string   `json:"emailReceiverID,omitempty"`
 	State           string   `json:"state,omitempty"`

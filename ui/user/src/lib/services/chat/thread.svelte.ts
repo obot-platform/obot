@@ -14,6 +14,7 @@ export class Thread {
 	replayComplete: boolean = false;
 	pending: boolean = $state(false);
 	threadID?: string;
+	closed: boolean = false;
 
 	readonly #onError: ((error: Error) => void) | undefined;
 	#es: EventSource;
@@ -81,6 +82,9 @@ export class Thread {
 		};
 		es.addEventListener('reconnect', () => {
 			setTimeout(() => {
+				if (this.closed) {
+					return;
+				}
 				console.log('Message EventSource reconnecting', currentID);
 				this.#es.close();
 				this.#es = this.#reconnect();
@@ -90,6 +94,8 @@ export class Thread {
 			console.log('Message EventSource closed by server', currentID);
 			if (this.#onClose?.() ?? true) {
 				es.dispatchEvent(new Event('reconnect'));
+			} else {
+				this.close();
 			}
 		});
 		es.onerror = (e: Event) => {
@@ -101,6 +107,9 @@ export class Thread {
 					console.log('Message EventSource failed to open', currentID);
 					es.dispatchEvent(new Event('reconnect'));
 				}
+			}
+			if (this.#onClose && !this.#onClose()) {
+				this.close();
 			}
 		};
 		return es;
@@ -213,6 +222,7 @@ export class Thread {
 
 	close() {
 		console.log('Thread closing', this.threadID);
+		this.closed = true;
 		this.#es.close();
 	}
 }

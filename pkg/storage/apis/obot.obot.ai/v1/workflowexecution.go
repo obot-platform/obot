@@ -57,7 +57,6 @@ func (in *WorkflowExecution) GetColumns() [][]string {
 		{"State", "Status.State"},
 		{"Thread", "Status.ThreadName"},
 		{"Workflow", "Spec.WorkflowName"},
-		{"After", "Spec.AfterWorkflowStepName"},
 		{"Created", "{{ago .CreationTimestamp}}"},
 	}
 }

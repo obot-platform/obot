@@ -273,6 +273,7 @@ export interface TaskRun {
 	id: string;
 	created: string;
 	taskID: string;
+	threadID?: string;
 	task: Task;
 	startTime?: string;
 	endTime?: string;
@@ -303,6 +304,8 @@ export interface Thread {
 	deleted?: string;
 	name: string;
 	ready?: boolean;
+	taskID?: string;
+	taskRunID?: string;
 }
 
 export interface ThreadList {
