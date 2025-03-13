@@ -22,7 +22,7 @@ func (c *Client) RunState(ctx context.Context, namespace, name string) (*types.R
 }
 
 func (c *Client) CreateRunState(ctx context.Context, runState *types.RunState) error {
-	if err := c.db.WithContext(ctx).Create(runState).Error; !errors.Is(err, gorm.ErrCheckConstraintViolated) {
+	if err := c.db.WithContext(ctx).Create(runState).Error; !errors.Is(err, gorm.ErrDuplicatedKey) {
 		return err
 	}
 	return apierrors.NewAlreadyExists(schema.GroupResource{

@@ -7,13 +7,11 @@ import (
 	"github.com/gptscript-ai/go-gptscript"
 	"github.com/obot-platform/nah/pkg/backend"
 	"github.com/obot-platform/nah/pkg/router"
-	"github.com/obot-platform/nah/pkg/untriggered"
 	"github.com/obot-platform/obot/pkg/controller/handlers/inactive"
 	gclient "github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/invoke"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -32,16 +30,6 @@ func New(invoker *invoke.Invoker, backend backend.Backend, gatewayClient *gclien
 }
 
 func (h *Handler) DeleteRunState(req router.Request, _ router.Response) error {
-	if err := req.Delete(untriggered.Get(&v1.RunState{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      req.Object.GetName(),
-			Namespace: req.Object.GetNamespace(),
-		},
-	})); !apierrors.IsNotFound(err) {
-		return err
-	}
-
-	// If the run state wasn't found in the Kubernetes database, then delete it from the gateway database.
 	return client.IgnoreNotFound(h.gatewayClient.DeleteRunState(req.Ctx, req.Object.GetNamespace(), req.Object.GetName()))
 }
 
