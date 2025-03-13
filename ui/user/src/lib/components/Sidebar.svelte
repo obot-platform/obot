@@ -10,7 +10,6 @@
 	import { getLayout } from '$lib/context/layout.svelte';
 	import Projects from './navbar/Projects.svelte';
 	import Logo from './navbar/Logo.svelte';
-	import Settings from './navbar/Settings.svelte';
 
 	interface Props {
 		project: Project;
@@ -51,10 +50,7 @@
 		<Tasks {project} bind:currentThreadID />
 	</div>
 
-	<div class="flex gap-1 px-3 pb-2">
-		{#if layout.sidebarOpen && !layout.projectEditorOpen}
-			<Settings />
-		{/if}
+	<div class="flex gap-1 px-3 py-2">
 		{#if hasTool(tools, 'shell')}
 			<Term />
 		{/if}

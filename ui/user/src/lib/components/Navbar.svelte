@@ -3,12 +3,16 @@
 	import { fade } from 'svelte/transition';
 	import Logo from '$lib/components/navbar/Logo.svelte';
 	import type { Snippet } from 'svelte';
+	import EditorToggle from './navbar/EditorToggle.svelte';
+	import type { Project } from '$lib/services';
 
 	interface Props {
 		children?: Snippet;
+		showEditorButton?: boolean;
+		project?: Project;
 	}
 
-	let { children }: Props = $props();
+	let { children, showEditorButton, project }: Props = $props();
 </script>
 
 <nav class="w-full via-80%" in:fade|global>
@@ -20,6 +24,9 @@
 				<Logo />
 			{/if}
 			<div class="grow"></div>
+			{#if showEditorButton && project}
+				<EditorToggle {project} />
+			{/if}
 			<Profile />
 		</div>
 	</div>
