@@ -162,7 +162,7 @@
 	{/snippet}
 
 	<main
-		class="colors-background flex w-full max-w-screen-2xl flex-col justify-center px-4 pb-12 md:px-12"
+		class="colors-background relative flex w-full max-w-screen-2xl flex-col justify-center px-4 pb-12 md:px-12"
 	>
 		<div class="mt-8 flex w-full flex-col gap-8">
 			{#if featured.length > 0}
@@ -188,7 +188,9 @@
 			{/if}
 
 			<div class="flex w-full flex-col gap-4">
-				<div class="flex items-center gap-4">
+				<div
+					class="sticky top-0 z-50 flex items-center gap-4 bg-white py-4 after:absolute after:-left-12 after:-z-10 after:h-[72px] after:w-[100vw] after:bg-white after:content-[''] dark:bg-black after:dark:bg-black"
+				>
 					<h3 class="text-2xl font-semibold">My Obots</h3>
 					<button
 						class="button flex items-center gap-1 text-xs font-medium"
