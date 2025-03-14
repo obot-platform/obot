@@ -53,10 +53,5 @@ func convertCredential(cred gptscript.Credential) types.Credential {
 }
 
 func RecreateAllCredentials(req api.Context) error {
-	err := req.GPTClient.RecreateAllCredentials(req.Context())
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return req.GPTClient.RecreateAllCredentials(req.Context())
 }
