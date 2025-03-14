@@ -81,6 +81,9 @@
 		role="none"
 		onclick={() => toggle(false)}
 	>
+		{#if onlyEditable}
+			<button class="button mb-2" onclick={() => createNew()}>Create New Obot</button>
+		{/if}
 		{#each projects as p}
 			<a
 				href="/o/{p.id}?sidebar=true{onlyEditable ? '&edit' : ''}"
@@ -99,9 +102,7 @@
 				{/if}
 			</a>
 		{/each}
-		{#if onlyEditable}
-			<button class="button" onclick={() => createNew()}>Create New Obot</button>
-		{:else}
+		{#if !onlyEditable}
 			<a
 				href="/home"
 				class="flex items-center justify-center gap-2 rounded-xl px-2 py-4 text-gray hover:bg-surface3"

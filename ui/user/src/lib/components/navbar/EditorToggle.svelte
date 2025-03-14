@@ -5,6 +5,7 @@
 	import { errors } from '$lib/stores';
 	import { goto } from '$app/navigation';
 	import { fade } from 'svelte/transition';
+	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
 		project: Project;
@@ -37,9 +38,19 @@
 			return;
 		}
 
+		if (project.editor) {
+			layout.projectEditorOpen = true;
+			return;
+		}
+
 		obotEditorDialog?.showModal();
 	}}
-	class="group relative mr-1 flex items-center gap-1 rounded-full bg-blue px-4 py-2 text-xs text-white duration-200 active:bg-blue-600"
+	class={twMerge(
+		'group relative mr-1 flex items-center rounded-full border p-2 text-xs text-gray transition-[background-color] duration-200',
+		layout.projectEditorOpen
+			? 'border-blue bg-blue px-4 text-white'
+			: 'border-surface3 bg-transparent hover:bg-blue hover:px-4 hover:text-white active:bg-blue-700'
+	)}
 	transition:fade
 >
 	{#if layout.projectEditorOpen}
@@ -47,7 +58,19 @@
 	{:else}
 		<Pencil class="h-5 w-5" />
 	{/if}
-	<span>{layout.projectEditorOpen ? 'Exit Editor' : 'Obot Editor'}</span>
+	{#if layout.projectEditorOpen}
+		<span class="ml-1">Exit Editor</span>
+	{:else}
+		<span
+			class="flex h-5 w-0 items-center overflow-hidden transition-[width] duration-300 group-hover:ml-2 group-hover:w-auto"
+		>
+			<span
+				class="delay-250 inline-block translate-x-full transition-[transform] duration-300 group-hover:translate-x-0"
+			>
+				Obot Editor
+			</span>
+		</span>
+	{/if}
 </button>
 
 <dialog bind:this={obotEditorDialog} class="w-full max-w-md p-4">

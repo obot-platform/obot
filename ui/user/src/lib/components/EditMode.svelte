@@ -19,6 +19,7 @@
 	import Profile from './navbar/Profile.svelte';
 	import EditorToggle from './navbar/EditorToggle.svelte';
 	import Projects from './navbar/Projects.svelte';
+	import { goto } from '$app/navigation';
 
 	interface Props {
 		project: Project;
@@ -72,6 +73,11 @@
 			timer = setInterval(updateProject, 1000);
 		});
 	});
+
+	async function copy() {
+		const newProject = await ChatService.copyProject(project.assistantID, project.id);
+		await goto(`/o/${newProject.id}?edit`);
+	}
 </script>
 
 <div class="flex size-full flex-col bg-surface1">
@@ -127,15 +133,18 @@
 					<Share {project} />
 					<div class="grow"></div>
 				</div>
-				<div class="flex justify-end bg-surface1 p-2">
+				<div class="flex justify-between bg-surface1 p-2">
+					<button class="button flex items-center gap-1 text-sm" onclick={() => copy()}>
+						<span>Copy</span>
+					</button>
 					<button
-						class="button flex gap-1 text-gray"
+						class="flex items-center gap-1 rounded-full bg-red-100 px-4 py-2 text-sm text-red-500 transition-all duration-200 hover:bg-red-500 hover:text-white"
 						onclick={() => {
 							toDelete = true;
 						}}
 					>
 						<Trash2 class="icon-default" />
-						<span>Remove</span>
+						<span>Delete</span>
 					</button>
 				</div>
 			</div>
