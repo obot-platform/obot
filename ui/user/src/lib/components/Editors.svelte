@@ -45,7 +45,7 @@
 			<div class="relative flex items-center border-b-2 border-surface2 pb-2">
 				<ul class="relative flex flex-1 items-center gap-1 text-center text-sm">
 					{#each layout.items as item (item.id)}
-						<li class="flex-1">
+						<li class="max-w-64 flex-1">
 							<!-- TODO: div with onclick is not accessible, we'll need to update this in the future -->
 							<div
 								role="none"
@@ -70,12 +70,7 @@
 									>
 
 									<button
-										class={twMerge(
-											'right-0 hidden rounded-lg p-1 group-hover:block',
-											item.selected
-												? 'bg-surface3 hover:bg-surface2'
-												: 'bg-surface1 hover:bg-surface3'
-										)}
+										class="right-0 hidden rounded-lg bg-surface3 p-1 group-hover:block hover:bg-surface2"
 										onclick={() => {
 											EditorService.remove(layout.items, item.id);
 											if (layout.items.length === 0) {

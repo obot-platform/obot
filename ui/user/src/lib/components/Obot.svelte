@@ -14,6 +14,7 @@
 	import { fade, slide } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';
 	import Logo from './navbar/Logo.svelte';
+	import { columnResize } from '$lib/actions/resize';
 
 	interface Props {
 		project: Project;
@@ -32,7 +33,7 @@
 	let editorVisible = $derived(layout.fileEditorOpen || term.open);
 	let version = $state<Version>({});
 
-	let mainInput = $state<HTMLDivElement>();
+	let fileEditor = $state<HTMLDivElement>();
 
 	onMount(async () => {
 		if (tools.length === 0) {
@@ -58,7 +59,7 @@
 		<main id="main-content" class="flex max-w-full grow flex-col">
 			<div class="h-[76px] w-full">
 				<Navbar showEditorButton={!layout.projectEditorOpen} {project}>
-					{#if !layout.sidebarOpen}
+					{#if !layout.sidebarOpen || layout.fileEditorOpen}
 						<Logo />
 						<button
 							class="icon-button"
@@ -73,6 +74,7 @@
 					{/if}
 				</Navbar>
 			</div>
+
 			<div class="flex h-[calc(100%-76px)] max-w-full grow">
 				{#if layout.editTaskID && layout.tasks}
 					{#each layout.tasks as task, i}
@@ -90,16 +92,24 @@
 						{/if}
 					{/each}
 				{:else}
-					<div bind:this={mainInput} id="main-input" class="flex h-full flex-1 justify-center">
+					<div id="main-input" class="flex h-full flex-1 justify-center">
 						<Thread bind:id={currentThreadID} {project} {version} {tools} />
 					</div>
 				{/if}
 
 				{#if editorVisible}
+					{#if fileEditor}
+						<div
+							class="w-4 translate-x-4 cursor-col-resize"
+							use:columnResize={{ column: fileEditor, direction: 'right' }}
+						></div>
+					{/if}
+
 					<div
 						transition:slide={{ axis: 'x' }}
+						bind:this={fileEditor}
 						class={twMerge(
-							'float-right mb-8 w-3/5 rounded-l-3xl border-4 border-r-0 border-surface2 ps-5 pt-5 transition-all duration-300'
+							'float-right mb-8 w-3/5 min-w-[320px] max-w-[calc(100%-320px)] rounded-l-3xl border-4 border-r-0 border-surface2 ps-5 pt-5'
 						)}
 					>
 						<Editor {project} {currentThreadID} />

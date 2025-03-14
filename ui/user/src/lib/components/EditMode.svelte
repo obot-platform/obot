@@ -148,7 +148,11 @@
 					</button>
 				</div>
 			</div>
-			<div role="none" class="w-2 translate-x-2 cursor-col-resize" use:columnResize={nav}></div>
+			<div
+				role="none"
+				class="w-2 translate-x-2 cursor-col-resize"
+				use:columnResize={{ column: nav }}
+			></div>
 		{/if}
 		<div
 			class="colors-surface3 h-full grow rounded-l-3xl border-r-0 p-2"

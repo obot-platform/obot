@@ -120,7 +120,7 @@
 	}
 </script>
 
-<div class="relative w-full max-w-[900px] pb-32">
+<div class="relative w-full pb-32">
 	<!-- Fade text in/out on scroll -->
 	<div
 		class="absolute inset-x-0 top-0 z-10 h-14 w-full bg-gradient-to-b from-white dark:from-black"
@@ -142,7 +142,7 @@
 		<div
 			in:fade|global
 			bind:this={messagesDiv}
-			class="flex h-fit w-full flex-col justify-start gap-8 p-5 transition-all"
+			class="flex h-fit w-full max-w-[900px] flex-col justify-start gap-8 p-5 transition-all"
 			class:justify-center={!thread}
 		>
 			<div class="message-content self-center">
@@ -152,7 +152,7 @@
 					{#if project.description}
 						<p class="max-w-md font-light text-gray">{project.description}</p>
 					{/if}
-					<div class="mt-4 h-[1px] w-96 max-w-sm rounded-full bg-surface1 dark:bg-surface2"></div>
+					<div class="mt-4 h-[1px] w-full max-w-sm rounded-full bg-surface1 dark:bg-surface2"></div>
 				</div>
 				{#if project?.introductionMessage}
 					<div class="pt-8">
@@ -188,7 +188,9 @@
 				<!-- Vertical Spacer -->
 			</div>
 		</div>
-		<div class="absolute inset-x-0 bottom-0 z-30 flex flex-col justify-center py-8">
+		<div
+			class="absolute inset-x-0 bottom-0 z-30 mx-auto flex max-w-[900px] flex-col justify-center py-8"
+		>
 			<Input
 				readonly={messages.inProgress}
 				pending={thread?.pending}
