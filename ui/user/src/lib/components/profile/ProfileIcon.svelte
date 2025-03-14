@@ -18,7 +18,12 @@
 </script>
 
 {#if profile.current.iconURL}
-	<img class="h-8 w-8 rounded-full" src={profile.current.iconURL} alt="profile" />
+	<img
+		class="h-8 w-8 rounded-full"
+		src={profile.current.iconURL}
+		alt="profile"
+		referrerpolicy="no-referrer"
+	/>
 {:else}
 	<div class="flex h-8 w-8 items-center justify-center rounded-full bg-gray-600 text-white">
 		{initials}
