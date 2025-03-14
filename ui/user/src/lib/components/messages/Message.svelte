@@ -202,7 +202,7 @@
 		    dark:text-gray-50"
 			onclick={fileLoad}
 		>
-			<div class="text-md flex gap-2 px-5 py-4">
+			<div class="flex gap-2 px-5 py-4 text-md">
 				<div class="flex grow justify-start gap-2">
 					<FileText />
 					<span>{msg.file.filename}</span>
@@ -213,7 +213,7 @@
 				</div>
 			</div>
 			<div class="relative">
-				<div class="text-md whitespace-pre-wrap p-5 font-body text-gray-700 dark:text-gray-300">
+				<div class="whitespace-pre-wrap p-5 font-body text-md text-gray-700 dark:text-gray-300">
 					{msg.file.content.split('\n').splice(0, 6).join('\n')}
 				</div>
 				<div
@@ -248,7 +248,7 @@
 					}}>{msg.explain.filename}</button
 				>
 			</div>
-			<div class="text-md whitespace-pre-wrap p-5 font-body text-gray-700 dark:text-gray-300">
+			<div class="whitespace-pre-wrap p-5 font-body text-md text-gray-700 dark:text-gray-300">
 				{msg.explain.selection}
 			</div>
 		</div>
@@ -465,7 +465,7 @@
 		}
 
 		.message-content p {
-			@apply text-md mb-4 text-gray-900 dark:text-gray-100;
+			@apply mb-4 text-md text-gray-900 dark:text-gray-100;
 		}
 
 		.message-content a {
@@ -481,7 +481,7 @@
 		}
 
 		.message-content ul li {
-			@apply text-md ps-2;
+			@apply ps-2 text-md;
 		}
 
 		.message-content code {
