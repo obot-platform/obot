@@ -704,6 +704,10 @@ func (t *TaskHandler) CreateFromScope(req api.Context) error {
 		return fmt.Errorf("failed to generate alias: %w", err)
 	}
 
+	if len(workflowManifest.Alias) > 12 {
+		workflowManifest.Alias = workflowManifest.Alias[:12]
+	}
+
 	workflow := v1.Workflow{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: system.WorkflowPrefix,

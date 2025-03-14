@@ -67,7 +67,7 @@ func (*EmailReceiver) GetColumns() [][]string {
 	return [][]string{
 		{"Name", "Name"},
 		{"Alias", "Spec.Alias"},
-		{"Workflow", "Spec.Workflow"},
+		{"Workflow", "Spec.WorkflowName"},
 		{"Created", "{{ago .CreationTimestamp}}"},
 		{"Description", "Spec.Description"},
 	}

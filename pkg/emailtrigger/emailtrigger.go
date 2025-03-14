@@ -54,8 +54,14 @@ func (h *EmailHandler) Handler(ctx context.Context, from string, to []string, su
 			ns = system.DefaultNamespace
 		}
 
+		aliasName := ""
+		parts := strings.Split(name, "-")
+		if len(parts) > 1 {
+			aliasName = parts[len(parts)-1]
+		}
+
 		var emailReceiver v1.EmailReceiver
-		if err = alias.Get(ctx, h.c, &emailReceiver, ns, name); apierror.IsNotFound(err) {
+		if err = alias.Get(ctx, h.c, &emailReceiver, ns, aliasName); apierror.IsNotFound(err) {
 			log.Infof("Skipping mail for %s: no receiver found", toAddr.Address)
 			continue
 		} else if err != nil {
