@@ -87,7 +87,7 @@
 	});
 </script>
 
-<div class="w-full max-w-[1000px] px-5">
+<div class="w-full px-5">
 	<label for="chat" class="sr-only">Your messages</label>
 	<div
 		class="relative flex flex-col items-center rounded-2xl bg-surface1 focus-within:shadow-md focus-within:ring-1 focus-within:ring-blue

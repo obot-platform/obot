@@ -1,20 +1,20 @@
 <script lang="ts">
-	import { term } from '$lib/stores';
-	import Navbar from '$lib/components/Navbar.svelte';
 	import Editor from '$lib/components/Editors.svelte';
-	import { type AssistantTool, ChatService, type Project, type Version } from '$lib/services';
+	import Navbar from '$lib/components/Navbar.svelte';
 	import Notifications from '$lib/components/Notifications.svelte';
-	import Thread from '$lib/components/Thread.svelte';
-	import { columnResize } from '$lib/actions/resize';
-	import { onMount } from 'svelte';
-	import { getLayout } from '$lib/context/layout.svelte';
-	import type { EditorItem } from '$lib/services/editor/index.svelte';
 	import Sidebar from '$lib/components/Sidebar.svelte';
 	import Task from '$lib/components/tasks/Task.svelte';
-	import { slide, fade } from 'svelte/transition';
+	import Thread from '$lib/components/Thread.svelte';
+	import { getLayout } from '$lib/context/layout.svelte';
+	import { type AssistantTool, ChatService, type Project, type Version } from '$lib/services';
+	import type { EditorItem } from '$lib/services/editor/index.svelte';
+	import { term } from '$lib/stores';
 	import { SidebarOpen } from 'lucide-svelte';
+	import { onMount } from 'svelte';
+	import { fade, slide } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';
 	import Logo from './navbar/Logo.svelte';
+	import { cubicOut, linear } from 'svelte/easing';
 
 	interface Props {
 		project: Project;
@@ -84,29 +84,24 @@
 						{/if}
 					{/each}
 				{:else}
-					<div
-						bind:this={mainInput}
-						id="main-input"
-						class="flex h-full {editorVisible ? 'w-2/5' : 'grow'}"
-					>
+					<div bind:this={mainInput} id="main-input" class="flex h-full flex-1 justify-center">
 						<Thread bind:id={currentThreadID} {project} {version} {tools} />
 					</div>
 				{/if}
 
-				{#if editorVisible && mainInput}
-					<div class="w-4 translate-x-4 cursor-col-resize" use:columnResize={mainInput}></div>
+				{#if editorVisible}
+					<div
+						transition:slide={{ axis: 'x' }}
+						class={twMerge(
+							'float-right mb-8 w-3/5 rounded-l-3xl border-4 border-r-0 border-surface2 ps-5 pt-5 transition-all duration-300'
+						)}
+					>
+						<Editor {project} {currentThreadID} />
+					</div>
 				{/if}
-				<div
-					class={twMerge(
-						'invisible w-0 translate-x-full rounded-tl-3xl border-b-0 border-r-0 border-surface2 opacity-0 transition-transform duration-300',
-						editorVisible && '!visible w-3/5 !translate-x-0 border-4 ps-5 pt-5 !opacity-100'
-					)}
-				>
-					<Editor {project} {currentThreadID} />
-				</div>
 			</div>
-		</main>
 
-		<Notifications />
+			<Notifications />
+		</main>
 	</div>
 </div>

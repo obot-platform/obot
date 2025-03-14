@@ -26,9 +26,10 @@
 		project: Project;
 		thread?: boolean;
 		currentThreadID?: string;
+		primary?: boolean;
 	}
 
-	let { project, currentThreadID = $bindable(), thread = false }: Props = $props();
+	let { project, currentThreadID = $bindable(), thread = false, primary = true }: Props = $props();
 
 	const layout = getLayout();
 	const fileMonitor = newFileMonitor(project);
@@ -37,13 +38,7 @@
 	let fileList = $state<FileList>();
 	let items = $state<EditorItem[]>([]);
 	let editorDialog = $state<HTMLDialogElement>();
-	let apiOpts = $derived(
-		thread
-			? {
-					threadID: currentThreadID
-				}
-			: {}
-	);
+	let apiOpts = $derived(thread ? { threadID: currentThreadID } : {});
 	let uploadInProgress = $state<Promise<Files>>();
 	let threadTT = popover();
 
@@ -105,6 +100,7 @@
 			await EditorService.load(layout.items, project, file.name, apiOpts);
 			layout.fileEditorOpen = true;
 			layout.sidebarOpen = false;
+			threadTT.toggle(false);
 		} else {
 			await EditorService.load(items, project, file.name, apiOpts);
 			editorDialog?.showModal();
@@ -135,9 +131,7 @@
 					<div class="flex">
 						<button
 							class="flex w-4/5 flex-1 items-center text-start"
-							onclick={async () => {
-								await editFile(file);
-							}}
+							onclick={() => editFile(file)}
 						>
 							{#if isImage(file.name)}
 								<Image class="size-5 min-w-fit" />
@@ -189,7 +183,8 @@
 {#if thread}
 	<button
 		use:threadTT.ref
-		class="icon-button button-icon-primary"
+		class="icon-button"
+		class:button-icon-primary={primary}
 		onclick={() => {
 			threadTT.toggle();
 			loadFiles();

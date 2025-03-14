@@ -1,13 +1,14 @@
 <script lang="ts">
-	import { FileText, X } from 'lucide-svelte/icons';
-	import { ChatService, EditorService, type InvokeInput, type Project } from '$lib/services';
+	import { popover } from '$lib/actions';
 	import Controls from '$lib/components/editor/Controls.svelte';
-	import { Table as TableIcon, Image as ImageIcon, Wrench } from 'lucide-svelte';
-	import { isImage } from '$lib/image';
-	import Terminal from '$lib/components/terminal/Terminal.svelte';
-	import { term } from '$lib/stores';
-	import { getLayout } from '$lib/context/layout.svelte';
 	import FileEditors from '$lib/components/editor/FileEditors.svelte';
+	import Terminal from '$lib/components/terminal/Terminal.svelte';
+	import { getLayout } from '$lib/context/layout.svelte';
+	import { ChatService, EditorService, type InvokeInput, type Project } from '$lib/services';
+	import { term } from '$lib/stores';
+	import { Download } from 'lucide-svelte';
+	import { X } from 'lucide-svelte/icons';
+	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
 		project: Project;
@@ -16,6 +17,11 @@
 
 	let { project, currentThreadID }: Props = $props();
 	const layout = getLayout();
+
+	let downloadable = $derived.by(() => {
+		const selected = layout.items.find((item) => item.selected);
+		return !!selected?.file;
+	});
 
 	function onFileChanged(name: string, contents: string) {
 		for (const item of layout.items) {
@@ -33,58 +39,90 @@
 	}
 </script>
 
-<div class="flex h-full flex-col">
+<div class="relative flex h-full flex-col">
 	{#if layout.fileEditorOpen}
 		{#if layout.items.length > 1 || (!layout.items[0]?.table && !layout.items[0]?.generic)}
-			<div class="default-scrollbar-thin relative flex border-b-2 border-surface2">
-				<ul class="relative flex flex-1 gap-2 pb-2 text-center text-sm">
-					{#each layout.items as item}
-						<li>
+			<div class="relative flex items-center border-b-2 border-surface2">
+				<ul class="relative flex flex-1 items-center gap-1 pb-2 text-center text-sm">
+					{#each layout.items as item (item.id)}
+						{@const tt = popover({ hover: true, placement: 'top' })}
+						<p use:tt.tooltip class="rounded-full bg-surface2 p-2">
+							{item.name}
+						</p>
+
+						<li class="flex-1">
 							<!-- TODO: div with onclick is not accessible, we'll need to update this in the future -->
 							<div
+								use:tt.ref
 								role="none"
-								class:selected={item.selected}
 								onclick={() => {
 									EditorService.select(layout.items, item.id);
 								}}
-								class="colors-surface1 group flex cursor-pointer rounded-2xl px-4 py-3"
+								class={twMerge(
+									'group relative flex cursor-pointer rounded-lg border-transparent bg-surface1 p-1 hover:bg-surface3',
+									item.selected && 'bg-surface3'
+								)}
 							>
-								<div class="flex flex-1 items-center gap-2 ps-2">
-									{#if item.table}
-										<TableIcon class="h-5 w-5" />
-									{:else if isImage(item.name)}
-										<ImageIcon class="h-5 w-5" />
-									{:else if item.id.startsWith('tl1')}
-										<Wrench class="h-5 w-5" />
-									{:else}
-										<FileText class="h-5 w-5" />
-									{/if}
-									<span>{item.name}</span>
-								</div>
-								<button
-									class="ml-2"
-									onclick={() => {
-										EditorService.remove(layout.items, item.id);
-										if (layout.items.length === 0) {
-											layout.fileEditorOpen = false;
-										}
-									}}
+								<div
+									class="relative flex w-full items-center justify-between gap-1 [&_svg]:size-4 [&_svg]:min-w-fit"
 								>
-									<X
-										class="h-5 w-5 {item.selected
-											? 'text-white'
-											: 'text-gray'} opacity-0 transition-all group-hover:opacity-100"
-									/>
-								</button>
+									<span class="line-clamp-1 break-all p-1">{item.name}</span>
+
+									<button
+										class={twMerge(
+											'right-0 hidden rounded-lg p-1 group-hover:block',
+											item.selected
+												? 'bg-surface3 hover:bg-surface2'
+												: 'bg-surface1 hover:bg-surface3'
+										)}
+										onclick={() => {
+											EditorService.remove(layout.items, item.id);
+											if (layout.items.length === 0) {
+												layout.fileEditorOpen = false;
+											}
+										}}
+									>
+										<X />
+									</button>
+								</div>
 							</div>
 						</li>
 					{/each}
 				</ul>
-				<Controls navBar {project} class="sticky right-0 z-10 bg-background px-2" />
+
+				<Controls navBar {project} class="bg-background px-2" {currentThreadID} />
 			</div>
 		{/if}
 
-		<FileEditors {project} {currentThreadID} {onFileChanged} {onInvoke} bind:items={layout.items} />
+		<div class="relative flex h-full flex-col">
+			<div class="default-scrollbar-thin relative flex-1">
+				<FileEditors
+					{project}
+					{currentThreadID}
+					{onFileChanged}
+					{onInvoke}
+					bind:items={layout.items}
+				/>
+			</div>
+
+			{#if downloadable}
+				<button
+					class="icon-button absolute right-5 top-5"
+					onclick={() => {
+						const selected = layout.items.find((item) => item.selected);
+						if (selected) {
+							EditorService.download(layout.items, project, selected.name, {
+								taskID: selected.file?.taskID,
+								runID: selected.file?.runID,
+								threadID: selected.file?.threadID
+							});
+						}
+					}}
+				>
+					<Download class="h-5 w-5" />
+				</button>
+			{/if}
+		</div>
 	{/if}
 	{#if term.open}
 		<div
@@ -96,9 +134,3 @@
 		</div>
 	{/if}
 </div>
-
-<style lang="postcss">
-	.selected {
-		@apply bg-blue text-white;
-	}
-</style>

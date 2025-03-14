@@ -116,10 +116,15 @@
 	}
 </script>
 
-<div class="relative w-full pb-32">
+<div class="relative w-full max-w-[900px] pb-32">
+	<!-- Fade text in/out on scroll -->
+	<div
+		class="absolute inset-x-0 top-0 z-30 h-14 w-full bg-gradient-to-b from-white dark:from-black"
+	></div>
 	<div
 		class="absolute inset-x-0 bottom-32 z-30 h-14 w-full bg-gradient-to-t from-white dark:from-black"
 	></div>
+
 	<div
 		bind:this={container}
 		class="flex h-full grow justify-center overflow-y-auto scrollbar-none"
@@ -133,7 +138,7 @@
 		<div
 			in:fade|global
 			bind:this={messagesDiv}
-			class="flex h-fit w-full max-w-[1000px] flex-col justify-start gap-8 p-5 transition-all"
+			class="flex h-fit w-full flex-col justify-start gap-8 p-5 transition-all"
 			class:justify-center={!thread}
 		>
 			<div class="message-content self-center">
