@@ -35,7 +35,17 @@
 		{:else if isImage(file.name)}
 			<Image {file} />
 		{:else}
-			<Codemirror {file} {onFileChanged} {onInvoke} {items} />
+			{#if [...(file?.file?.contents ?? '')].some((char) => char.charCodeAt(0) === 0)}
+				<div class="mx-2 mt-4 flex h-[calc(100vh-200px)] items-center justify-center border-l-2 border-gray-100 dark:border-gray-900">
+					<div class="absolute flex">
+						<div class="flex items-center justify-center rounded-3xl bg-gray-70 shadow-lg">
+							<span class="text-lg text-gray-500">Cannot display files of this type</span>
+						</div>
+					</div>
+				</div>
+			{:else}
+				<Codemirror {file} {onFileChanged} {onInvoke} {items} />
+			{/if}
 		{/if}
 	</div>
 {/each}
