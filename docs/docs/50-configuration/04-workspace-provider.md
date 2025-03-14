@@ -1,39 +1,38 @@
 # Workspace Provider
 
-In Obot, a workspace is where files are stored and manipulated by a user. By default, any workspace is a directory on local disk.
-However, in some server-based applications, this is not acceptable.
-The concept of a workspace provider is used to abstract away the concept of a workspace and use other options.
+Workspaces are where files are stored and manipulated in Obot. The default installation uses a local disk directory to provide workspaces. For production deployments, we recommend using cloud object stores like AWS S3 or Azure Blob Storage to ensure adequate storage capacity and high availability.
 
 This section describes the configuration of the workspace provider.
 
-#### `OBOT_WORKSPACE_PROVIDER_TYPE`
+## Provider Type Configuration
 
-The type of provider to use. The current options are `directory`, `s3`, or `azure`. Note that the `s3` provider is compatible with s3-compatible services like CloudFlare R2.
-The `azure` provider is for Azure Blob Storage.
+| Environment Variable | Description | Available Options |
+|----------------------|-------------|-------------------|
+| `OBOT_WORKSPACE_PROVIDER_TYPE` | The type of provider to use | `directory`, `s3`, `azure` |
 
-### The directory provider configuration
+> **Note**: The `s3` provider is compatible with S3-compatible services like CloudFlare R2. The `azure` provider is for Azure Blob Storage.
 
-#### `WORKSPACE_PROVIDER_DATA_HOME`
+## Directory Provider Configuration
 
-Specify the directory where workspaces are nested. The default is `$XDG_CONFIG_HOME/obot/workspace-provider`.
+| Environment Variable | Description | Default |
+|----------------------|-------------|---------|
+| `WORKSPACE_PROVIDER_DATA_HOME` | Directory where workspaces are nested | `$XDG_CONFIG_HOME/obot/workspace-provider` |
 
-### The s3 provider configuration
+## S3 Provider Configuration
 
-#### `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION`, `WORKSPACE_PROVIDER_S3_BUCKET`
+| Environment Variable | Required | Description |
+|----------------------|----------|-------------|
+| `AWS_ACCESS_KEY_ID` | Yes | AWS access key ID |
+| `AWS_SECRET_ACCESS_KEY` | Yes | AWS secret access key |
+| `AWS_REGION` | Yes | AWS region |
+| `WORKSPACE_PROVIDER_S3_BUCKET` | Yes | S3 bucket name |
+| `WORKSPACE_PROVIDER_S3_BASE_ENDPOINT` | Optional* | Base endpoint URL for S3-compatible services |
 
-Specifying these variables allows you to configure access to an s3 or s3-compatible bucket for the workspace provider to use.
-If the `OBOT_WORKSPACE_PROVIDER_TYPE` is `s3`, then all of these variables are required for proper configuration.
+> *Required when using S3-compatible services like CloudFlare R2
 
-#### `WORKSPACE_PROVIDER_S3_BASE_ENDPOINT`
+## Azure Provider Configuration
 
-This is necessary for using an s3-compatible service like CloudFlare R2.
-
-### The azure provider configuration
-
-#### `WORKSPACE_PROVIDER_AZURE_CONTAINER`
-
-Specify the name of the Azure Blob Storage container to use for the workspace provider.
-
-#### `WORKSPACE_PROVIDER_AZURE_CONNECTION_STRING`
-
-Specify the connection string for the Azure Blob Storage container to use for the workspace provider.
+| Environment Variable | Required | Description |
+|----------------------|----------|-------------|
+| `WORKSPACE_PROVIDER_AZURE_CONTAINER` | Yes | Azure Blob Storage container name |
+| `WORKSPACE_PROVIDER_AZURE_CONNECTION_STRING` | Yes | Azure Blob Storage connection string |

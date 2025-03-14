@@ -1,7 +1,5 @@
 # Encryption Providers
 
-## Setting up Google Cloud KMS Encryption Provider
-
 ## Setting up Azure Key Vault Encryption Provider
 
 This guide explains how to set up an Azure VM with a managed identity that can access an Azure Key Vault for encryption operations.

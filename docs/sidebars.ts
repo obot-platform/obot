@@ -13,7 +13,7 @@ const sidebars = {
         "concepts/tools",
         "concepts/users",
         "concepts/oauth-apps",
-        "concepts/models",
+        "concepts/tasks",
       ],
     },
     {
@@ -24,7 +24,6 @@ const sidebars = {
         "tutorials/github-ci-failure-notifier",
         "tutorials/knowledge-assistant",
         "tutorials/slack-alerts-assistant",
-        "tutorials/webhook-workflows",
       ],
     },
     {
