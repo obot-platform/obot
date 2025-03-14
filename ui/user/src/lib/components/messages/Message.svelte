@@ -156,7 +156,7 @@
 {/snippet}
 
 {#snippet nameAndTime()}
-	<div class="mb-1 flex items-center space-x-2">
+	<div class="mb-1 flex -translate-y-[2px] items-center space-x-2">
 		{#if msg.sourceName}
 			<span class="text-sm font-semibold"
 				>{msg.sourceName === 'Assistant' ? project?.name : msg.sourceName}</span
@@ -173,7 +173,7 @@
 		class:flex={showBubble}
 		class:contents={!showBubble}
 		class:message-content={renderMarkdown}
-		class="flex w-full flex-col overflow-auto rounded-3xl bg-gray-70 px-6 py-4 text-black dark:bg-gray-950 dark:text-white"
+		class="flex w-full flex-col overflow-auto rounded-2xl bg-gray-70 px-6 py-3 text-black dark:bg-gray-950 dark:text-white"
 	>
 		{#if msg.oauthURL}
 			{@render oauth()}
@@ -202,7 +202,7 @@
 		    dark:text-gray-50"
 			onclick={fileLoad}
 		>
-			<div class="flex gap-2 px-5 py-4">
+			<div class="text-md flex gap-2 px-5 py-4">
 				<div class="flex grow justify-start gap-2">
 					<FileText />
 					<span>{msg.file.filename}</span>
@@ -213,7 +213,7 @@
 				</div>
 			</div>
 			<div class="relative">
-				<div class="whitespace-pre-wrap p-5 font-body text-gray-700 dark:text-gray-300">
+				<div class="text-md whitespace-pre-wrap p-5 font-body text-gray-700 dark:text-gray-300">
 					{msg.file.content.split('\n').splice(0, 6).join('\n')}
 				</div>
 				<div
@@ -248,7 +248,7 @@
 					}}>{msg.explain.filename}</button
 				>
 			</div>
-			<div class="whitespace-pre-wrap p-5 font-body text-gray-700 dark:text-gray-300">
+			<div class="text-md whitespace-pre-wrap p-5 font-body text-gray-700 dark:text-gray-300">
 				{msg.explain.selection}
 			</div>
 		</div>
@@ -264,26 +264,23 @@
 		}}
 		>Details
 	</button>
-	<div
-		use:toolTT.tooltip
-		class="z-40 flex flex-col gap-2 rounded-3xl bg-gray-70 p-5 dark:bg-gray-900 dark:text-gray-50"
-	>
-		<div class="flex text-xl font-semibold">
+	<div use:toolTT.tooltip class="default-dialog flex flex-col gap-2 p-5">
+		<button
+			class="icon-button absolute right-2 top-2 self-end"
+			onclick={() => {
+				toolTT.toggle();
+			}}
+		>
+			<X class="h-4 w-4" />
+		</button>
+		<div class="mt-2 flex text-base font-semibold">
 			<span class="flex-1">Input</span>
-			<button
-				class="self-end rounded-lg p-2 hover:bg-white dark:hover:bg-black"
-				onclick={() => {
-					toolTT.toggle();
-				}}
-			>
-				<X class="h-4 w-4" />
-			</button>
 		</div>
-		<pre class="max-w-[500px] overflow-auto rounded-lg bg-white p-5 dark:bg-black">{msg.toolCall
-				?.input ?? 'None'}</pre>
-		<div class="text-xl font-semibold">Output</div>
-		<pre class="max-w-[500px] overflow-auto rounded-lg bg-white p-5 dark:bg-black">{msg.toolCall
-				?.output ?? 'None'}</pre>
+		<pre class="max-w-[500px] overflow-auto rounded-lg bg-surface1 px-4 py-2 dark:bg-black">{msg
+				.toolCall?.input ?? 'None'}</pre>
+		<div class="mt-4 text-base font-semibold">Output</div>
+		<pre class="max-w-[500px] overflow-auto rounded-lg bg-surface1 px-4 py-2 dark:bg-black">{msg
+				.toolCall?.output ?? 'None'}</pre>
 	</div>
 	{#if shell.input && shell.output}
 		<div class="mt-1 rounded-3xl bg-gray-100 p-5 dark:bg-gray-900 dark:text-gray-50">
@@ -300,7 +297,7 @@
 {#snippet messageContent()}
 	{#if msg.sent}
 		{#each content.split('\n') as line}
-			<p>{line}</p>
+			<p class="text-md">{line}</p>
 		{/each}
 		{@render explain()}
 	{:else}
@@ -313,7 +310,7 @@
 				</p>
 			{:else}
 				<!-- spacer -->
-				<div class="h-[28px]"></div>
+				<div class="h-4"></div>
 			{/if}
 		</div>
 	{/if}
@@ -444,31 +441,31 @@
 	/* The :global is to get rid of warnings about the selector not being found */
 	:global {
 		.message-content h1 {
-			@apply my-4 text-4xl font-extrabold text-black dark:text-gray-100;
+			@apply my-4 text-2xl font-extrabold text-black dark:text-gray-100;
 		}
 
 		.message-content h2 {
-			@apply my-4 text-3xl font-bold text-black dark:text-gray-100;
+			@apply my-4 text-xl font-bold text-black dark:text-gray-100;
 		}
 
 		.message-content h3 {
-			@apply my-4 text-2xl font-bold text-black dark:text-gray-100;
+			@apply my-4 text-base font-bold text-black dark:text-gray-100;
 		}
 
 		.message-content h4 {
-			@apply my-4 text-xl font-bold text-black dark:text-gray-100;
+			@apply my-4 text-base font-bold text-black dark:text-gray-100;
 		}
 
 		.message-content h5 {
-			@apply my-4 text-xl font-bold text-black dark:text-gray-100;
+			@apply my-4 text-base font-semibold text-black dark:text-gray-100;
 		}
 
 		.message-content h6 {
-			@apply my-4 text-lg font-bold text-black dark:text-gray-100;
+			@apply my-4 text-base font-bold text-black dark:text-gray-100;
 		}
 
 		.message-content p {
-			@apply mb-2 text-gray-900 dark:text-gray-100;
+			@apply text-md mb-4 text-gray-900 dark:text-gray-100;
 		}
 
 		.message-content a {
@@ -484,7 +481,7 @@
 		}
 
 		.message-content ul li {
-			@apply ps-2;
+			@apply text-md ps-2;
 		}
 
 		.message-content code {

@@ -24,6 +24,11 @@ export default {
 	plugins: [scrollbars],
 
 	theme: {
+		extend: {
+			fontSize: {
+				md: '0.9375rem'
+			}
+		},
 		fontFamily: {
 			sans: [
 				'Poppins',

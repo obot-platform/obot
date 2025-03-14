@@ -146,7 +146,7 @@
 					<AssistantIcon {project} class="h-24 w-24 shadow-lg" />
 					<h4 class="!mb-1">{project.name || 'Untitled'}</h4>
 					{#if project.description}
-						<p class="max-w-md text-gray">{project.description}</p>
+						<p class="max-w-md font-light text-gray">{project.description}</p>
 					{/if}
 					<div class="mt-4 h-[1px] w-96 max-w-sm rounded-full bg-surface1 dark:bg-surface2"></div>
 				</div>
@@ -156,19 +156,21 @@
 					</div>
 				{/if}
 			</div>
-			<div class="flex flex-wrap justify-center gap-4 px-4">
-				{#each project.starterMessages ?? [] as msg}
-					<button
-						class="w-52 rounded-2xl border border-surface3 bg-transparent p-4 text-left text-sm font-light transition-all duration-300 hover:bg-surface2"
-						onclick={async () => {
-							await ensureThread();
-							await thread?.invoke(msg);
-						}}
-					>
-						<span class="line-clamp-3">{msg}</span>
-					</button>
-				{/each}
-			</div>
+			{#if project.starterMessages?.length}
+				<div class="flex flex-wrap justify-center gap-4 px-4">
+					{#each project.starterMessages as msg}
+						<button
+							class="w-52 rounded-2xl border border-surface3 bg-transparent p-4 text-left text-sm font-light transition-all duration-300 hover:bg-surface2"
+							onclick={async () => {
+								await ensureThread();
+								await thread?.invoke(msg);
+							}}
+						>
+							<span class="line-clamp-3">{msg}</span>
+						</button>
+					{/each}
+				</div>
+			{/if}
 			{#each messages.messages as msg}
 				<Message
 					{project}
@@ -183,7 +185,7 @@
 			</div>
 		</div>
 		<div class="absolute inset-x-0 bottom-0 z-30 flex justify-center py-8">
-			<div class="w-full max-w-[1000px] px-5">
+			<div class="w-full max-w-[1000px]">
 				<Input
 					readonly={messages.inProgress}
 					pending={thread?.pending}
