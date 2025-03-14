@@ -27,12 +27,12 @@ func (a *Authorizer) checkThread(req *http.Request, resources *Resources, user u
 		return false, nil
 	}
 
-	if thread.Spec.UserID == user.GetUID() {
-		resources.Authorizated.Thread = &thread
-		return true, nil
-	}
-
 	if resources.Authorizated.Project == nil {
+		if thread.Spec.UserID == user.GetUID() {
+			resources.Authorizated.Thread = &thread
+			return true, nil
+		}
+
 		threadID := types.FirstSet(user.GetExtra()["obot:threadID"]...)
 		agentID := types.FirstSet(user.GetExtra()["obot:agentID"]...)
 		if threadID == "" || agentID == "" {
