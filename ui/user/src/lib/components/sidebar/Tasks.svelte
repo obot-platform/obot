@@ -64,6 +64,7 @@
 			{#each layout.tasks as task, i}
 				<TaskItem
 					{task}
+					{project}
 					onDelete={() => (taskToDelete = task)}
 					taskRuns={layout.taskRuns?.filter((run) => run.taskID === task.id) ?? []}
 					expanded={i < 5}

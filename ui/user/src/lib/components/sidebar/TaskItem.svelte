@@ -3,9 +3,10 @@
 	import { overflowToolTip } from '$lib/actions/overflow';
 	import DotDotDot from '../DotDotDot.svelte';
 	import { closeAll, getLayout, isSomethingSelected, openTask } from '$lib/context/layout.svelte';
-	import { type Task, type Thread } from '$lib/services';
-	import { twMerge } from 'tailwind-merge';
 	import { formatTime } from '$lib/time.js';
+	import { type Task, type Thread, type Project } from '$lib/services';
+	import { twMerge } from 'tailwind-merge';
+	import { ChatService } from '$lib/services';
 
 	interface Props {
 		task: Task;
@@ -13,6 +14,7 @@
 		taskRuns?: Thread[];
 		currentThreadID?: string;
 		expanded?: boolean;
+		project: Project;
 	}
 
 	let {
@@ -20,7 +22,8 @@
 		taskRuns,
 		onDelete,
 		currentThreadID = $bindable(),
-		expanded: initialExpanded
+		expanded: initialExpanded,
+		project
 	}: Props = $props();
 	const layout = getLayout();
 
@@ -29,6 +32,23 @@
 
 	function loadMore() {
 		displayCount += 10;
+	}
+
+	async function deleteTaskRun(taskRun: Thread) {
+		if (!taskRun.id || !task.id) return;
+
+		await ChatService.deleteTaskRun(project.assistantID, project.id, task.id, taskRun.taskRunID!);
+
+		// Update the local list to remove the deleted run
+		if (taskRuns) {
+			taskRuns = taskRuns.filter((run) => run.id !== taskRun.id);
+		}
+
+		// If this was the current thread, select another one
+		if (currentThreadID === taskRun.id) {
+			currentThreadID = '';
+			layout.items = [];
+		}
 	}
 </script>
 
@@ -73,15 +93,24 @@
 					class:bg-surface2={currentThreadID === taskRun.id && !isSomethingSelected(layout)}
 					class="w-full"
 				>
-					<button
-						class="w-full rounded-md p-2 text-left hover:bg-surface3"
-						onclick={() => {
-							closeAll(layout);
-							currentThreadID = taskRun.id;
-						}}
-					>
-						{formatTime(taskRun.created)}
-					</button>
+					<div class="flex items-center">
+						<button
+							class="w-full rounded-md p-2 text-left hover:bg-surface3"
+							onclick={() => {
+								closeAll(layout);
+								currentThreadID = taskRun.id;
+							}}
+						>
+							{formatTime(taskRun.created)}
+						</button>
+						<DotDotDot class="p-0 pr-2">
+							<div class="default-dialog flex min-w-max flex-col p-2">
+								<button class="menu-button" onclick={() => deleteTaskRun(taskRun)}>
+									<Trash2 class="h-4 w-4" /> Delete
+								</button>
+							</div>
+						</DotDotDot>
+					</div>
 				</li>
 			{/each}
 			{#if taskRuns?.length && taskRuns?.length > displayCount}
