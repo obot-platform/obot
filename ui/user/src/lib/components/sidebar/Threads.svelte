@@ -246,9 +246,9 @@
 							</button>
 						{:else}
 							<DotDotDot class="p-0">
-								<div class="default-dialog flex min-w-40 flex-col p-2">
+								<div class="default-dialog flex min-w-max flex-col p-2">
 									<button class="menu-button" onclick={startEditName}>
-										<Pen class="h-4 w-4" /> Edit
+										<Pen class="h-4 w-4" /> Rename
 									</button>
 									<button class="menu-button" onclick={() => deleteThread(thread.id)}>
 										<Trash2 class="h-4 w-4" /> Delete
