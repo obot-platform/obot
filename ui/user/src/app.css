@@ -58,6 +58,10 @@ body {
 	@apply flex items-center justify-center rounded-full p-2 text-gray hover:bg-gray-100 hover:text-blue focus:outline-none dark:hover:bg-gray-700/30;
 }
 
+.button-destructive {
+	@apply flex items-center gap-1 rounded-full bg-red-500/20 px-4 py-2 text-sm text-red-500 transition-all duration-200 hover:bg-red-500 hover:text-white;
+}
+
 .list-button-primary {
 	@apply button-icon-primary !p-0 hover:bg-transparent;
 }

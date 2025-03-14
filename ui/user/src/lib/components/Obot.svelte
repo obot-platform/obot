@@ -30,7 +30,6 @@
 	}: Props = $props();
 	let layout = getLayout();
 	let editorVisible = $derived(layout.fileEditorOpen || term.open);
-	let projectEditorVisible = $derived(layout.projectEditorOpen);
 	let version = $state<Version>({});
 
 	let mainInput = $state<HTMLDivElement>();
@@ -58,7 +57,7 @@
 
 		<main id="main-content" class="flex max-w-full grow flex-col">
 			<div class="h-[76px] w-full">
-				<Navbar showEditorButton={!projectEditorVisible} {project}>
+				<Navbar showEditorButton={!layout.projectEditorOpen} {project}>
 					{#if !layout.sidebarOpen}
 						<Logo />
 						<button
