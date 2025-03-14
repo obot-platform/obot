@@ -104,9 +104,9 @@
 
 <Input bind:input {task} />
 
-<div class="mt-8 rounded-3xl bg-gray-50 p-5 dark:bg-gray-950">
+<div class="rounded-2xl bg-gray-50 p-5 dark:bg-gray-950">
 	<div class="flex items-center justify-between">
-		<h4 class="text-xl font-semibold">Steps</h4>
+		<h4 class="text-lg font-semibold">Steps</h4>
 		<Type bind:task />
 		<div>
 			<button

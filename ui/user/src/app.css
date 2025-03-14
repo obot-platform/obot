@@ -7,7 +7,7 @@
 }
 
 .icon-button {
-	@apply icon-button-colors min-h-10 min-w-10 rounded-lg p-2.5 text-sm transition-all duration-200;
+	@apply icon-button-colors flex min-h-10 min-w-10 items-center justify-center rounded-full p-2.5 text-sm transition-all duration-200;
 }
 
 .icon-default-size {
@@ -31,11 +31,15 @@ body {
 }
 
 .button-colors {
-	@apply border-gray-100 bg-gray-100 hover:border-gray-200 hover:bg-gray-200 dark:border-gray-900 dark:bg-gray-900 dark:hover:border-gray-800 dark:hover:bg-gray-800;
+	@apply border-0 bg-gray-100 hover:bg-gray-200 dark:bg-gray-900 dark:hover:bg-gray-800;
 }
 
 .button {
 	@apply button-layout button-colors transition-colors duration-200;
+}
+
+.button-small {
+	@apply button flex items-center gap-1 text-sm;
 }
 
 .button-secondary-colors {
@@ -198,4 +202,8 @@ dialog {
 
 .menu-button {
 	@apply flex min-h-10 min-w-10 items-center gap-2 rounded-lg p-2 text-sm transition-all duration-200 hover:bg-surface2 dark:hover:bg-surface3;
+}
+
+.ghost-input {
+	@apply border-b border-transparent bg-transparent py-2 outline-none transition-all duration-300 focus:border-surface2;
 }

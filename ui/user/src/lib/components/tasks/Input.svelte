@@ -45,16 +45,16 @@
 </script>
 
 {#if show}
-	<div class="mt-8 rounded-3xl bg-gray-50 p-5 dark:bg-gray-950">
+	<div class="rounded-2xl bg-gray-50 p-5 dark:bg-gray-950">
 		{#if task?.onDemand?.params}
-			<h4 class="mb-3 text-xl font-semibold">Argument Values</h4>
+			<h4 class="mb-3 text-lg font-semibold">Argument Values</h4>
 			{#each Object.keys(task.onDemand.params) as key}
-				<div class="flex items-baseline">
+				<div class="flex items-baseline gap-2">
 					<label for="param-{key}" class="text-sm font-semibold capitalize">{key}</label>
 					<input
 						id="param-{key}"
 						bind:value={params[key]}
-						class="rounded-md bg-gray-50 p-2 outline-none dark:bg-gray-950"
+						class="ghost-input w-full !border-surface2"
 						placeholder="Enter value"
 					/>
 				</div>
@@ -106,7 +106,7 @@
 				bind:value={payload}
 				use:autoHeight
 				rows="1"
-				class="mt-2 w-full resize-none rounded-md bg-gray-50 p-2 outline-none dark:bg-gray-950"
+				class="ghost-input ml-1 w-full grow resize-none !border-surface2"
 				placeholder="Enter payload..."
 			></textarea>
 		{/if}

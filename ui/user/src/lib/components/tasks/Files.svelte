@@ -69,7 +69,7 @@
 </script>
 
 {#if files && files.items.length > 0}
-	<div class="mt-8 rounded-3xl bg-gray-50 p-5 dark:bg-gray-950">
+	<div class="rounded-3xl bg-gray-50 p-5 dark:bg-gray-950">
 		<div class="flex justify-between">
 			<h4 class="mb-3 text-xl font-semibold">Files</h4>
 			<button onclick={loadFiles}>

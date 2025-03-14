@@ -4,6 +4,7 @@
 	import { onMount } from 'svelte';
 	import OnDemand from '$lib/components/tasks/OnDemand.svelte';
 	import CopyButton from '$lib/components/CopyButton.svelte';
+	import { fade } from 'svelte/transition';
 
 	interface Props {
 		task: Task;
@@ -70,7 +71,7 @@
 </script>
 
 {#if visible}
-	<div class="mt-8 rounded-3xl bg-gray-50 p-5 dark:bg-gray-950">
+	<div class="rounded-2xl bg-gray-50 p-5 dark:bg-gray-950" transition:fade>
 		<div class="flex items-center justify-between">
 			{#if selectedTrigger() === 'schedule'}
 				<Schedule bind:schedule={task.schedule} />
@@ -79,7 +80,7 @@
 		{#if selectedTrigger() === 'webhook'}
 			<div class="flex flex-col justify-between gap-2 pr-5">
 				<h3 class="text-lg font-semibold">Webhook URL</h3>
-				<div class="flex gap-2">
+				<div class="flex gap-2 rounded-xl bg-surface2 px-4 py-2">
 					<CopyButton text={webhook} />
 					{webhook}
 				</div>

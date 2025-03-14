@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { OnDemand } from '$lib/services';
-	import { Trash2 } from 'lucide-svelte';
+	import { Plus, Trash2 } from 'lucide-svelte';
 
 	interface Props {
 		onDemand?: OnDemand;
@@ -19,7 +19,7 @@
 </script>
 
 <div class="flex flex-col gap-4">
-	<h4 class="text-xl font-semibold">Arguments</h4>
+	<h4 class="text-lg font-semibold">Arguments</h4>
 	<p class="text-sm text-gray">
 		Reference these values in your steps using <span class="font-mono text-black dark:text-white"
 			>$VAR</span
@@ -27,10 +27,10 @@
 	</p>
 
 	<table class="w-full text-left">
-		<thead class="font-semibold">
+		<thead class="text-sm">
 			<tr>
-				<th>Name</th>
-				<th>Description</th>
+				<th class="font-light">Name</th>
+				<th class="font-light">Description</th>
 			</tr>
 		</thead>
 		<tbody>
@@ -41,6 +41,7 @@
 							<input
 								value={key}
 								placeholder="Enter Name"
+								class="ghost-input w-3/4 !border-surface2"
 								oninput={(e) => {
 									if (e.target instanceof HTMLInputElement && onDemand?.params) {
 										const oldKey = order[i];
@@ -53,11 +54,15 @@
 							/>
 						</td>
 						<td>
-							<input bind:value={onDemand.params[order[i]]} placeholder="Add a good description" />
+							<input
+								class="ghost-input w-3/4 !border-surface2"
+								bind:value={onDemand.params[order[i]]}
+								placeholder="Add a good description"
+							/>
 						</td>
-						<td>
+						<td class="flex justify-end">
 							<button
-								class="icon-button-colors rounded-lg p-2"
+								class="icon-button"
 								onclick={() => {
 									const key = order[i];
 									order = order.filter((k) => k !== key);
@@ -66,7 +71,7 @@
 									}
 								}}
 							>
-								<Trash2 class="size-4" />
+								<Trash2 class="size-5" />
 							</button>
 						</td>
 					</tr>
@@ -76,12 +81,12 @@
 	</table>
 	<div class="self-end">
 		<button
-			class="button"
+			class="button-small"
 			onclick={() => {
 				order.push('');
 			}}
 		>
-			Add Argument
+			<Plus class="size-4" /> Argument
 		</button>
 	</div>
 </div>

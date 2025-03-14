@@ -8,7 +8,7 @@
 		type TaskStep
 	} from '$lib/services';
 	import Message from '$lib/components/messages/Message.svelte';
-	import { Plus, Trash } from 'lucide-svelte/icons';
+	import { Plus, Trash2 } from 'lucide-svelte/icons';
 	import { LoaderCircle, OctagonX, Play, RefreshCcw } from 'lucide-svelte';
 	import { tick } from 'svelte';
 	import { autoHeight } from '$lib/actions/textarea.js';
@@ -98,8 +98,8 @@
 	}
 </script>
 
-<li class="ms-6 marker:font-semibold">
-	<div class="flex items-center justify-between">
+<li class="ms-4">
+	<div class="flex items-center justify-between gap-6">
 		<textarea
 			{onkeydown}
 			rows="1"
@@ -107,22 +107,22 @@
 			use:autoHeight
 			id={'step' + step.id}
 			bind:value={step.step}
-			class="flex-1 resize-none border-none bg-gray-50 outline-none dark:bg-gray-950"
+			class="ghost-input ml-1 grow resize-none !border-surface2"
 		></textarea>
-		<div class="flex gap-2 p-2">
-			<button class="rounded-lg p-2 hover:bg-gray-50 dark:hover:bg-gray-950" onclick={doRun}>
+		<div class="flex">
+			<button class="icon-button" onclick={doRun}>
 				{#if running}
-					<OctagonX class="h-4 w-4" />
+					<OctagonX class="size-4" />
 				{:else if pending}
-					<LoaderCircle class="h-4 w-4 animate-spin" />
+					<LoaderCircle class="size-4 animate-spin" />
 				{:else if messages.length > 0}
-					<RefreshCcw class="h-4 w-4" />
+					<RefreshCcw class="size-4" />
 				{:else}
-					<Play class="h-4 w-4" />
+					<Play class="size-4" />
 				{/if}
 			</button>
 			<button
-				class="-ml-3 rounded-lg p-2 hover:bg-gray-50 dark:hover:bg-gray-950"
+				class="icon-button"
 				onclick={() => {
 					if (step.step?.trim()) {
 						toDelete = true;
@@ -131,15 +131,14 @@
 					}
 				}}
 			>
-				<Trash class="h-4 w-4" />
+				<Trash2 class="size-4" />
 			</button>
-			{#if step.step?.trim() !== ''}
-				<button
-					class="-ml-3 rounded-lg p-2 hover:bg-gray-50 dark:hover:bg-gray-950"
-					onclick={addStep}
-				>
-					<Plus class="h-4 w-4" />
+			{#if (step.step?.trim() || '').length > 0}
+				<button class="icon-button" onclick={addStep}>
+					<Plus class="size-4" />
 				</button>
+			{:else}
+				<div class="size-10"></div>
 			{/if}
 		</div>
 	</div>
