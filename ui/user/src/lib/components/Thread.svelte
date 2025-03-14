@@ -205,6 +205,9 @@
 						<Tools {project} {version} {tools} />
 					</div>
 				</Input>
+				<div class="mt-3 text-center text-xs font-light text-gray dark:text-gray-400">
+					Obots aren't perfect. Double check their work.
+				</div>
 			</div>
 		</div>
 	</div>
