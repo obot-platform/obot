@@ -31,6 +31,21 @@
 
 	let { project, currentThreadID = $bindable(), thread = false, primary = true }: Props = $props();
 
+	const knowledgeExtensions = [
+		'.pdf',
+		'.txt',
+		'.doc',
+		'.docx',
+		'.ppt',
+		'.pptx',
+		'.md',
+		'.rtf',
+		'.html',
+		'.odt',
+		'.ipynb',
+		'.json'
+	];
+	const accept = knowledgeExtensions.join(', ') + ',.csv , .jpg, .jpeg, .webp';
 	const layout = getLayout();
 	const fileMonitor = newFileMonitor(project);
 	let files = $state<File[]>([]);
@@ -40,6 +55,7 @@
 	let editorDialog = $state<HTMLDialogElement>();
 	let apiOpts = $derived(thread ? { threadID: currentThreadID } : {});
 	let uploadInProgress = $state<Promise<Files>>();
+	let menu = $state<ReturnType<typeof Menu>>();
 
 	if (!thread) {
 		onMount(() => fileMonitor.start());
@@ -65,7 +81,7 @@
 		uploadInProgress = ChatService.saveFile(project.assistantID, project.id, file, apiOpts);
 		uploadInProgress
 			.then(() => {
-				if (file.name.endsWith('.pdf') && thread && currentThreadID) {
+				if (isKnowledgeFile(file.name) && thread && currentThreadID) {
 					return ChatService.uploadKnowledge(project.assistantID, project.id, file, apiOpts);
 				}
 			})
@@ -76,6 +92,10 @@
 
 		fileList = undefined;
 	});
+
+	function isKnowledgeFile(name: string): boolean {
+		return knowledgeExtensions.some((ext) => name.toLowerCase().endsWith(ext));
+	}
 
 	async function sleep(ms: number): Promise<void> {
 		return new Promise((resolve) => setTimeout(resolve, ms));
@@ -98,6 +118,7 @@
 		if (thread) {
 			await EditorService.load(layout.items, project, file.name, apiOpts);
 			layout.fileEditorOpen = true;
+			menu?.toggle(false);
 		} else {
 			await EditorService.load(items, project, file.name, apiOpts);
 			editorDialog?.showModal();
@@ -110,7 +131,7 @@
 		}
 		await ChatService.deleteFile(project.assistantID, project.id, fileToDelete, apiOpts);
 		await loadFiles();
-		if (fileToDelete.endsWith('.pdf') && thread && currentThreadID) {
+		if (isKnowledgeFile(fileToDelete) && thread && currentThreadID) {
 			await ChatService.deleteKnowledgeFile(project.assistantID, project.id, fileToDelete, apiOpts);
 		}
 		EditorService.remove(items, fileToDelete);
@@ -164,7 +185,7 @@
 			class="-mb-3 -mr-3 mt-3 flex cursor-pointer justify-end gap-2 rounded-3xl p-3 px-4 hover:bg-gray-500 hover:text-white"
 		>
 			Upload
-			<input bind:files={fileList} type="file" class="hidden" />
+			<input bind:files={fileList} type="file" class="hidden" {accept} />
 			{#await uploadInProgress}
 				<Loading class="h-5 w-5" />
 			{:catch error}
@@ -180,6 +201,7 @@
 {#if thread}
 	<Menu
 		{body}
+		bind:this={menu}
 		title="Files"
 		description="Edited content available to AI."
 		onLoad={loadFiles}

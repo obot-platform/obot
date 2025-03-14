@@ -3,7 +3,6 @@
 	import { ChatService, type Project, type Thread } from '$lib/services';
 	import { onDestroy, onMount, tick } from 'svelte';
 	import { CircleX } from 'lucide-svelte/icons';
-	import { columnResize } from '$lib/actions/resize';
 	import { closeAll, getLayout, isSomethingSelected } from '$lib/context/layout.svelte.js';
 	import { fade } from 'svelte/transition';
 	import { overflowToolTip } from '$lib/actions/overflow.js';
@@ -16,7 +15,6 @@
 
 	let { currentThreadID = $bindable(), project }: Props = $props();
 
-	let panel = $state<HTMLDivElement>();
 	let input = $state<HTMLInputElement>();
 	let editMode = $state(false);
 	let name = $state('');
@@ -192,7 +190,7 @@
 </script>
 
 {#if isOpen}
-	<div bind:this={panel} class="flex flex-col">
+	<div class="flex flex-col">
 		<div class="mb-1 flex items-center justify-between">
 			<p class="grow text-sm font-semibold">Threads</p>
 			<button class="icon-button" onclick={createThread}>
@@ -266,6 +264,4 @@
 			{/if}
 		</ul>
 	</div>
-
-	<div class="w-2 cursor-col-resize" use:columnResize={panel}></div>
 {/if}
