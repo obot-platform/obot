@@ -78,7 +78,14 @@
 					{#each layout.tasks as task, i}
 						{#if task.id === layout.editTaskID}
 							{#key layout.editTaskID}
-								<Task {project} bind:task={layout.tasks[i]} />
+								<Task
+									{project}
+									bind:task={layout.tasks[i]}
+									onDelete={() => {
+										layout.editTaskID = undefined;
+										layout.tasks?.splice(i, 1);
+									}}
+								/>
 							{/key}
 						{/if}
 					{/each}

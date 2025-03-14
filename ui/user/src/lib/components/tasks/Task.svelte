@@ -11,9 +11,10 @@
 		task: Task;
 		project: Project;
 		onChanged?: (task: Task) => void | Promise<void>;
+		onDelete?: () => void | Promise<void>;
 	}
 
-	let { task = $bindable(), onChanged, project }: Props = $props();
+	let { task = $bindable(), onChanged, project, onDelete }: Props = $props();
 
 	const saver = newSaveMonitor(
 		() => task,
@@ -39,6 +40,7 @@
 	async function deleteTask() {
 		toDelete = false;
 		await ChatService.deleteTask(project.assistantID, project.id, task.id);
+		onDelete?.();
 	}
 
 	onDestroy(() => {
