@@ -296,8 +296,11 @@ func (e *Emitter) printRun(ctx context.Context, state *printState, run v1.Run, r
 		}
 	}()
 
-	ticker := time.NewTicker(time.Second)
-	defer ticker.Stop()
+	var (
+		tick   = immediately()
+		ticker *time.Ticker
+	)
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -327,7 +330,12 @@ func (e *Emitter) printRun(ctx context.Context, state *printState, run v1.Run, r
 					}
 				}
 			}
-		case <-ticker.C:
+		case <-tick:
+			if ticker == nil {
+				// now wait every second for new events
+				ticker = time.NewTicker(time.Second)
+				tick = ticker.C
+			}
 			runState, err := e.gatewayClient.RunState(ctx, run.Namespace, run.Name)
 			if apierrors.IsNotFound(err) {
 				continue
@@ -370,6 +378,12 @@ func (e *Emitter) printRun(ctx context.Context, state *printState, run v1.Run, r
 			}
 		}
 	}
+}
+
+func immediately() <-chan time.Time {
+	ch := make(chan time.Time)
+	close(ch)
+	return ch
 }
 
 func (e *Emitter) printParent(ctx context.Context, remaining int, state *printState, run v1.Run, result chan types.Progress) error {
