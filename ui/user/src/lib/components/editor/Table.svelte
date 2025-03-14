@@ -29,8 +29,8 @@
 	});
 </script>
 
-<div class="flex max-h-full max-w-full flex-col gap-5 py-5">
-	<div class="flex items-center">
+<div class="flex size-full flex-col gap-5 pb-5 pr-5">
+	<div class="flex items-center gap-2">
 		<div class="flex items-center gap-2">
 			<Table class="h-5 w-5" />
 			<h3 class="text-lg font-semibold">{tableName}</h3>
@@ -45,27 +45,12 @@
 				<RefreshCw class="h-4 w-4" />
 			{/if}
 		</button>
-		{#if currentThreadID}
-			<div class="grow px-2">
-				<Input
-					placeholder="Modify table or data"
-					onSubmit={async (i) => {
-						if (!currentThreadID) {
-							return;
-						}
-						await ChatService.invoke(project.assistantID, project.id, currentThreadID, {
-							prompt: `In the database table '${tableName}' do the following instruction:\n${i.prompt}`
-						});
-					}}
-					{items}
-				/>
-			</div>
-		{/if}
+		<div class="grow"></div>
 		<Controls {project} />
 	</div>
 	<div class="w-full overflow-auto">
 		<table class="w-full table-auto text-left">
-			<thead class="bg-gray-50 dark:bg-gray-950">
+			<thead class="bg-surface1">
 				<tr>
 					{#each data?.columns ?? [] as column}
 						<th>{column}</th>
@@ -83,11 +68,30 @@
 			</tbody>
 		</table>
 	</div>
+	{#if currentThreadID}
+		<p class="mt-10 text-gray">
+			You can modify the data and the schema of this table by enter your instructions below.
+		</p>
+		<div class="grow px-2">
+			<Input
+				placeholder="Insert some sample data."
+				onSubmit={async (i) => {
+					if (!currentThreadID) {
+						return;
+					}
+					await ChatService.invoke(project.assistantID, project.id, currentThreadID, {
+						prompt: `In the database table '${tableName}' do the following instruction:\n${i.prompt}`
+					});
+				}}
+				{items}
+			/>
+		</div>
+	{/if}
 </div>
 
 <style lang="postcss">
 	th,
 	td {
-		@apply border-collapse border border-gray p-2 px-4;
+		@apply border-collapse border border-surface3 p-2 px-4;
 	}
 </style>

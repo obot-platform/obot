@@ -28,7 +28,7 @@
 {#snippet toolList(tools: AssistantTool[], remove: boolean)}
 	<ul class="flex flex-col">
 		{#each tools as tool (tool.id)}
-			{@const tt = popover({ hover: true, placement: 'right', delay: 300 })}
+			{@const tt = popover({ hover: true, placement: 'top', delay: 300 })}
 
 			<div class="flex w-full cursor-pointer items-start justify-between gap-1 p-2" use:tt.ref>
 				<div class="flex w-full flex-col gap-1">
@@ -54,7 +54,7 @@
 					<span class="line-clamp-2 text-xs text-gray-500">{tool.description}</span>
 				</div>
 
-				<p use:tt.tooltip class="max-w-64 rounded-lg bg-surface2 p-2 text-sm">{tool.description}</p>
+				<p use:tt.tooltip class="tooltip max-w-64">{tool.description}</p>
 			</div>
 		{/each}
 	</ul>

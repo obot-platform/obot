@@ -40,9 +40,6 @@ func (c *Controller) PreStart(ctx context.Context) error {
 	if err := data.Data(ctx, c.services.StorageClient, c.services.AgentsDir); err != nil {
 		return fmt.Errorf("failed to apply data: %w", err)
 	}
-	if err := toolreference.MigrateToolNames(ctx, c.services.StorageClient); err != nil {
-		return fmt.Errorf("failed to migrate tool names: %w", err)
-	}
 	return nil
 }
 

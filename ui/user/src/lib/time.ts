@@ -13,10 +13,15 @@ export function formatTime(time: Date | string) {
 			minute: 'numeric'
 		});
 	}
-	return time.toLocaleDateString(undefined, {
-		month: 'short',
-		day: 'numeric',
-		hour: 'numeric',
-		minute: 'numeric'
-	});
+	return time
+		.toLocaleString(undefined, {
+			year: 'numeric',
+			month: '2-digit',
+			day: '2-digit',
+			hour: 'numeric',
+			minute: '2-digit',
+			hour12: true
+		})
+		.replace(/\//g, '-')
+		.replace(/,/g, '');
 }

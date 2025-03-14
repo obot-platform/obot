@@ -38,7 +38,7 @@
 	{/if}
 </div>
 
-<div use:tooltip class="default-dialog hidden p-2 text-xs">
+<div use:tooltip class="tooltip hidden">
 	{#if tool}
 		<p>{tool.name}</p>
 	{/if}

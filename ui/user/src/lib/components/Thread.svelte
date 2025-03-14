@@ -183,25 +183,27 @@
 			</div>
 		</div>
 		<div class="absolute inset-x-0 bottom-0 z-30 flex justify-center py-8">
-			<Input
-				readonly={messages.inProgress}
-				pending={thread?.pending}
-				onAbort={async () => {
-					await thread?.abort();
-				}}
-				onSubmit={async (i) => {
-					await ensureThread();
-					scrollSmooth = false;
-					scrollControls?.stickToBottom();
-					await thread?.invoke(i);
-				}}
-				bind:items={layout.items}
-			>
-				<div class="flex w-fit items-center gap-1">
-					<Files thread {project} bind:currentThreadID={id} />
-					<Tools {project} {version} {tools} />
-				</div>
-			</Input>
+			<div class="w-full max-w-[1000px] px-5">
+				<Input
+					readonly={messages.inProgress}
+					pending={thread?.pending}
+					onAbort={async () => {
+						await thread?.abort();
+					}}
+					onSubmit={async (i) => {
+						await ensureThread();
+						scrollSmooth = false;
+						scrollControls?.stickToBottom();
+						await thread?.invoke(i);
+					}}
+					bind:items={layout.items}
+				>
+					<div class="flex w-fit items-center gap-1">
+						<Files thread {project} bind:currentThreadID={id} />
+						<Tools {project} {version} {tools} />
+					</div>
+				</Input>
+			</div>
 		</div>
 	</div>
 </div>

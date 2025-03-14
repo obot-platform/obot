@@ -10,17 +10,28 @@
 		};
 		onLoad?: () => void | Promise<void>;
 		icon: Snippet;
+		showRefresh?: boolean;
 		show?: boolean;
 		body: Snippet;
+		header?: Snippet;
 		title: string;
 		description?: string;
 	}
 
-	let { onLoad, icon, body, title, description, show, classes }: Props = $props();
+	let {
+		onLoad,
+		icon,
+		header,
+		body,
+		title,
+		description,
+		show,
+		classes,
+		showRefresh = true
+	}: Props = $props();
 	let loading = $state(false);
 	const { ref, tooltip, toggle } = popover({
-		placement: 'bottom',
-		offset: 0
+		placement: 'bottom'
 	});
 
 	$effect(() => {
@@ -34,10 +45,10 @@
 		if (!onLoad) {
 			return;
 		}
-		loading = true;
-		const start = Date.now();
 		const ret = onLoad();
 		if (ret instanceof Promise) {
+			loading = true;
+			const start = Date.now();
 			ret.finally(() => {
 				const delay = 1000 - (Date.now() - start);
 				if (delay > 0) {
@@ -71,14 +82,18 @@
 		class="default-dialog flex w-full flex-col divide-y divide-gray-200 p-6 dark:divide-gray-700"
 	>
 		<div class="mb-4">
-			<div class="flex justify-between">
-				{title}
-				{#if onLoad}
-					<button onclick={load}>
-						<RotateCw class="h-4 w-4 {loading ? 'animate-spin' : ''}" />
-					</button>
-				{/if}
-			</div>
+			{#if header}
+				{@render header()}
+			{:else}
+				<div class="flex justify-between">
+					{title}
+					{#if onLoad && showRefresh}
+						<button onclick={load}>
+							<RotateCw class="h-4 w-4 {loading ? 'animate-spin' : ''}" />
+						</button>
+					{/if}
+				</div>
+			{/if}
 			{#if description}
 				<p class="mt-1 text-xs font-normal text-gray-700 dark:text-gray-300">{description}</p>
 			{/if}

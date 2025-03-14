@@ -87,6 +87,23 @@
 	});
 </script>
 
+{#snippet submitButton()}
+	<button
+		type="submit"
+		onclick={() => submit()}
+		class="button-colors rounded-full p-2 text-blue transition-all duration-100 hover:border-none"
+	>
+		{#if readonly}
+			<div class="m-1.5 h-3 w-3 place-self-center rounded-sm bg-white"></div>
+		{:else if pending}
+			<LoaderCircle class="animate-spin" />
+		{:else}
+			<ArrowUp />
+		{/if}
+		<span class="sr-only">Send message</span>
+	</button>
+{/snippet}
+
 <div class="w-full px-5">
 	<label for="chat" class="sr-only">Your messages</label>
 	<div
@@ -107,23 +124,16 @@
 				class="grow resize-none rounded-xl border-none bg-surface1 p-3 pr-20 outline-none"
 				{placeholder}
 			></textarea>
+			{#if !children}
+				{@render submitButton()}
+			{/if}
 		</div>
-		<div class="flex w-full justify-between p-2 pt-0">
-			{@render children?.()}
-			<button
-				type="submit"
-				onclick={() => submit()}
-				class="button-colors rounded-full p-2 text-blue transition-all duration-100 hover:border-none"
-			>
-				{#if readonly}
-					<div class="m-1.5 h-3 w-3 place-self-center rounded-sm bg-white"></div>
-				{:else if pending}
-					<LoaderCircle class="animate-spin" />
-				{:else}
-					<ArrowUp />
-				{/if}
-				<span class="sr-only">Send message</span>
-			</button>
-		</div>
+		{#if children}
+			<div class="flex w-full justify-between p-2 pt-0">
+				{@render children?.()}
+				<div class="grow"></div>
+				{@render submitButton()}
+			</div>
+		{/if}
 	</div>
 </div>

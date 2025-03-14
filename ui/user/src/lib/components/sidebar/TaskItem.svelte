@@ -2,9 +2,10 @@
 	import { ChevronDown, Pencil, Trash2 } from 'lucide-svelte/icons';
 	import { overflowToolTip } from '$lib/actions/overflow';
 	import DotDotDot from '../DotDotDot.svelte';
-	import { getLayout } from '$lib/context/layout.svelte';
+	import { closeAll, getLayout, isSomethingSelected, openTask } from '$lib/context/layout.svelte';
 	import { type Task, type Thread } from '$lib/services';
 	import { twMerge } from 'tailwind-merge';
+	import { formatTime } from '$lib/time.js';
 
 	interface Props {
 		task: Task;
@@ -54,7 +55,7 @@
 				<button
 					class="menu-button"
 					onclick={async () => {
-						layout.editTaskID = task.id;
+						openTask(layout, task.id);
 					}}
 				>
 					<Pencil class="size-4" /> Edit Task
@@ -68,25 +69,18 @@
 	{#if expanded && taskRuns && taskRuns?.length > 0}
 		<ul class="flex flex-col pl-5 text-xs">
 			{#each taskRuns.slice(0, displayCount) as taskRun}
-				<li class:bg-surface2={currentThreadID === taskRun.id} class="w-full">
+				<li
+					class:bg-surface2={currentThreadID === taskRun.id && !isSomethingSelected(layout)}
+					class="w-full"
+				>
 					<button
 						class="w-full rounded-md p-2 text-left hover:bg-surface3"
 						onclick={() => {
-							layout.editTaskID = undefined;
+							closeAll(layout);
 							currentThreadID = taskRun.id;
 						}}
 					>
-						{new Date(taskRun.created)
-							.toLocaleString(undefined, {
-								year: 'numeric',
-								month: '2-digit',
-								day: '2-digit',
-								hour: 'numeric',
-								minute: '2-digit',
-								hour12: true
-							})
-							.replace(/\//g, '-')
-							.replace(/,/g, '')}
+						{formatTime(taskRun.created)}
 					</button>
 				</li>
 			{/each}

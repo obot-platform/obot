@@ -13,6 +13,19 @@ export interface Layout {
 	fileEditorOpen?: boolean;
 }
 
+export function isSomethingSelected(layout: Layout) {
+	return layout.editTaskID;
+}
+
+export function closeAll(layout: Layout) {
+	layout.editTaskID = undefined;
+}
+
+export function openTask(layout: Layout, taskID?: string) {
+	closeAll(layout);
+	layout.editTaskID = taskID;
+}
+
 export function initLayout(layout: Layout) {
 	const data = $state<Layout>(layout);
 	setContext('layout', data);

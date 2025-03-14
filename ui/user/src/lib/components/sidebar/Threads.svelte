@@ -4,7 +4,7 @@
 	import { onDestroy, onMount, tick } from 'svelte';
 	import { CircleX } from 'lucide-svelte/icons';
 	import { columnResize } from '$lib/actions/resize';
-	import { getLayout } from '$lib/context/layout.svelte.js';
+	import { closeAll, getLayout, isSomethingSelected } from '$lib/context/layout.svelte.js';
 	import { fade } from 'svelte/transition';
 	import { overflowToolTip } from '$lib/actions/overflow.js';
 	import DotDotDot from '../DotDotDot.svelte';
@@ -27,7 +27,7 @@
 	let displayCount = $state(10); // Number of threads to display initially
 
 	function isCurrentThread(thread: Thread) {
-		return currentThreadID === thread.id && layout.editTaskID === undefined;
+		return currentThreadID === thread.id && !isSomethingSelected(layout);
 	}
 
 	function setCurrentThread(id: string) {
@@ -94,7 +94,7 @@
 		if (editMode) {
 			return;
 		}
-		layout.editTaskID = undefined;
+		closeAll(layout);
 		setCurrentThread(id);
 		focusChat();
 	}
@@ -206,7 +206,7 @@
 			{#each (layout.threads ?? []).slice(0, displayCount) as thread}
 				<li
 					class:bg-surface2={isCurrentThread(thread)}
-					class="group flex min-h-9 items-center gap-3 rounded-md p-2 text-xs font-light hover:bg-surface3"
+					class="group flex min-h-9 items-center gap-3 rounded-md text-xs font-light hover:bg-surface3"
 				>
 					{#if editMode && isCurrentThread(thread)}
 						<input
@@ -230,7 +230,7 @@
 						<button
 							use:overflowToolTip
 							class:font-normal={isCurrentThread(thread)}
-							class="grow text-start"
+							class="h-full grow p-2 text-start"
 							onclick={() => selectThread(thread.id)}
 						>
 							{thread.name || 'New Thread'}
@@ -245,7 +245,7 @@
 								<Save class="h-4 w-4" />
 							</button>
 						{:else}
-							<DotDotDot class="p-0">
+							<DotDotDot class="p-0 pr-2">
 								<div class="default-dialog flex min-w-max flex-col p-2">
 									<button class="menu-button" onclick={startEditName}>
 										<Pen class="h-4 w-4" /> Rename

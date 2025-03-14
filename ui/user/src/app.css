@@ -188,7 +188,7 @@ li:has(input[type='checkbox'])::marker {
 }
 
 .tooltip {
-	@apply hidden rounded-lg bg-blue p-2 text-sm;
+	@apply rounded-lg bg-surface2 p-2 text-sm font-light;
 }
 
 .default-dialog,

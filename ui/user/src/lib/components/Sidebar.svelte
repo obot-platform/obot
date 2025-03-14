@@ -10,6 +10,7 @@
 	import { getLayout } from '$lib/context/layout.svelte';
 	import Projects from './navbar/Projects.svelte';
 	import Logo from './navbar/Logo.svelte';
+	import Tables from '$lib/components/sidebar/Tables.svelte';
 
 	interface Props {
 		project: Project;
@@ -56,6 +57,9 @@
 	<div class="default-scrollbar-thin flex w-full grow flex-col gap-2 px-3 pb-5">
 		<Threads {project} bind:currentThreadID />
 		<Tasks {project} bind:currentThreadID />
+		{#if hasTool(tools, 'database')}
+			<Tables {project} />
+		{/if}
 	</div>
 
 	<div class="flex gap-1 px-3 py-2">

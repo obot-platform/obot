@@ -10,8 +10,11 @@
 	{#snippet icon()}
 		<ProfileIcon />
 	{/snippet}
-	{#snippet body()}
-		<div class="flex flex-col gap-2 py-2">
+	{#snippet header()}
+		<div class="flex w-full items-center justify-between">
+			<span>
+				{profile.current.getDisplayName?.() || 'Anonymous'}
+			</span>
 			<button
 				type="button"
 				onclick={() => {
@@ -26,6 +29,10 @@
 					<Moon class="h-5 w-5" />
 				{/if}
 			</button>
+		</div>
+	{/snippet}
+	{#snippet body()}
+		<div class="flex flex-col gap-2 py-2">
 			{#if profile.current.role === 1}
 				<a href="/admin/" rel="external" role="menuitem" class="icon-button" style="color: #f87171;"
 					>Admin</a

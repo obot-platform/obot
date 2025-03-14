@@ -20,7 +20,7 @@
 	import { newFileMonitor } from '$lib/save.js';
 	import { onMount } from 'svelte';
 	import { overflowToolTip } from '$lib/actions/overflow';
-	import { popover } from '$lib/actions';
+	import Menu from '$lib/components/navbar/Menu.svelte';
 
 	interface Props {
 		project: Project;
@@ -40,7 +40,6 @@
 	let editorDialog = $state<HTMLDialogElement>();
 	let apiOpts = $derived(thread ? { threadID: currentThreadID } : {});
 	let uploadInProgress = $state<Promise<Files>>();
-	let threadTT = popover();
 
 	if (!thread) {
 		onMount(() => fileMonitor.start());
@@ -99,8 +98,6 @@
 		if (thread) {
 			await EditorService.load(layout.items, project, file.name, apiOpts);
 			layout.fileEditorOpen = true;
-			layout.sidebarOpen = false;
-			threadTT.toggle(false);
 		} else {
 			await EditorService.load(items, project, file.name, apiOpts);
 			editorDialog?.showModal();
@@ -181,22 +178,19 @@
 {/snippet}
 
 {#if thread}
-	<button
-		use:threadTT.ref
-		class="icon-button"
-		class:button-icon-primary={primary}
-		onclick={() => {
-			threadTT.toggle();
-			loadFiles();
+	<Menu
+		{body}
+		title="Files"
+		description="Edited content available to AI."
+		onLoad={loadFiles}
+		classes={{
+			button: primary ? 'button-icon-primary' : ''
 		}}
 	>
-		<FileText class="h-5 w-5" />
-	</button>
-	<div use:threadTT.tooltip id="foo" class="default-dialog hidden w-[400px]">
-		<div class="flex flex-col p-5">
-			{@render body()}
-		</div>
-	</div>
+		{#snippet icon()}
+			<FileText class="h-5 w-5" />
+		{/snippet}
+	</Menu>
 {:else}
 	<CollapsePane header="Files" onOpen={loadFiles}>
 		{@render body()}

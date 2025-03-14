@@ -2,7 +2,7 @@
 	import { Plus } from 'lucide-svelte/icons';
 	import { ChatService, type Project, type Task } from '$lib/services';
 	import Confirm from '$lib/components/Confirm.svelte';
-	import { getLayout } from '$lib/context/layout.svelte';
+	import { getLayout, openTask } from '$lib/context/layout.svelte';
 	import { onMount } from 'svelte';
 	import TaskItem from './TaskItem.svelte';
 
@@ -20,7 +20,7 @@
 		}
 		await ChatService.deleteTask(project.assistantID, project.id, taskToDelete.id);
 		if (layout.editTaskID === taskToDelete.id) {
-			layout.editTaskID = undefined;
+			openTask(layout, undefined);
 		}
 		taskToDelete = undefined;
 		await reload();
@@ -32,11 +32,11 @@
 			name: 'New Task',
 			steps: []
 		});
-		layout.editTaskID = task.id;
 		if (!layout.tasks) {
 			layout.tasks = [];
 		}
 		layout.tasks.splice(0, 0, task);
+		openTask(layout, task.id);
 	}
 
 	async function reload() {
@@ -51,7 +51,7 @@
 </script>
 
 <div class="flex w-full flex-col">
-	<div class="mb-2 flex items-center gap-1">
+	<div class="mb-1 flex items-center gap-1">
 		<p class="grow text-sm font-semibold">Tasks</p>
 		<button class="icon-button" onclick={() => newTask()}>
 			<Plus class="icon-default" />

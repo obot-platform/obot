@@ -43,7 +43,8 @@
 <Menu
 	bind:this={menu}
 	title="Tools"
-	description="Available tools"
+	description="AI can use the following tools."
+	showRefresh={false}
 	{onLoad}
 	classes={{
 		button: 'button-icon-primary'
