@@ -4,6 +4,7 @@
 	import { ChatService, EditorService, type Project } from '$lib/services';
 	import { errors } from '$lib/stores';
 	import { goto } from '$app/navigation';
+	import { fade } from 'svelte/transition';
 
 	interface Props {
 		project: Project;
@@ -38,30 +39,15 @@
 
 		obotEditorDialog?.showModal();
 	}}
-	class="group relative mr-1 flex items-center gap-1 rounded-full bg-transparent py-2 text-xs text-gray transition-[background-color] duration-200 hover:bg-blue hover:text-white active:bg-blue-700"
-	class:hover:px-4={!layout.projectEditorOpen}
-	class:border-surface3={layout.projectEditorOpen}
-	class:border={layout.projectEditorOpen}
-	class:px-4={layout.projectEditorOpen}
+	class="group relative mr-1 flex items-center gap-1 rounded-full bg-blue px-4 py-2 text-xs text-white duration-200 active:bg-blue-600"
+	transition:fade
 >
 	{#if layout.projectEditorOpen}
 		<X class="h-5 w-5" />
 	{:else}
 		<Pencil class="h-5 w-5" />
 	{/if}
-	{#if layout.projectEditorOpen}
-		<span>Exit Editor</span>
-	{:else}
-		<span
-			class="w-0 overflow-hidden transition-[width] duration-300 group-hover:ml-2 group-hover:w-auto"
-		>
-			<span
-				class="delay-250 inline-block translate-x-full transition-[transform] duration-300 group-hover:translate-x-0"
-			>
-				Obot Editor
-			</span>
-		</span>
-	{/if}
+	<span>{layout.projectEditorOpen ? 'Exit Editor' : 'Obot Editor'}</span>
 </button>
 
 <dialog bind:this={obotEditorDialog} class="w-full max-w-md p-4">
