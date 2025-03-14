@@ -138,7 +138,7 @@
 						<span>Copy</span>
 					</button>
 					<button
-						class="flex items-center gap-1 rounded-full bg-red-100 px-4 py-2 text-sm text-red-500 transition-all duration-200 hover:bg-red-500 hover:text-white"
+						class="flex items-center gap-1 rounded-full bg-red-500/20 px-4 py-2 text-sm text-red-500 transition-all duration-200 hover:bg-red-500 hover:text-white"
 						onclick={() => {
 							toDelete = true;
 						}}
