@@ -66,7 +66,7 @@
 
 <dialog bind:this={obotEditorDialog} class="w-full max-w-md p-4">
 	<div class="flex flex-col gap-4">
-		<button class="icon-button absolute right-4 top-2" onclick={() => obotEditorDialog?.close()}>
+		<button class="icon-button absolute right-2 top-2" onclick={() => obotEditorDialog?.close()}>
 			<X class="h-5 w-5" />
 		</button>
 		<h4 class="w-full border-b border-surface2 p-1 text-lg font-semibold">
