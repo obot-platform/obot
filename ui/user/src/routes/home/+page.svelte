@@ -3,7 +3,7 @@
 	import { Copy, Pencil, Trash2 } from 'lucide-svelte';
 	import { Plus } from 'lucide-svelte/icons';
 	import Profile from '$lib/components/navbar/Profile.svelte';
-	import { ChatService, type ProjectShare, type ToolReference } from '$lib/services';
+	import { ChatService, EditorService, type ProjectShare, type ToolReference } from '$lib/services';
 	import { errors } from '$lib/stores';
 	import { goto } from '$app/navigation';
 	import Notifications from '$lib/components/Notifications.svelte';
@@ -30,18 +30,12 @@
 	let tools = $state(new Map(data.tools.map((t) => [t.id, t])));
 
 	async function createNew() {
-		const assistants = (await ChatService.listAssistants()).items;
-		let defaultAssistant = assistants.find((a) => a.default);
-		if (!defaultAssistant && assistants.length == 1) {
-			defaultAssistant = assistants[0];
+		try {
+			const project = await EditorService.createObot();
+			await goto(`/o/${project.id}?edit`);
+		} catch (error) {
+			errors.append((error as Error).message);
 		}
-		if (!defaultAssistant) {
-			errors.append(new Error('failed to find default assistant'));
-			return;
-		}
-
-		const project = await ChatService.createProject(defaultAssistant.id);
-		await goto(`/o/${project.id}?edit`);
 	}
 
 	async function copy(project: Project) {

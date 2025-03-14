@@ -88,11 +88,16 @@
 			</div>
 			<div class="ml-8 flex grow items-center gap-2">
 				<p class="text-sm text-gray">Editing:</p>
-				<Projects
-					{project}
-					onlyEditable={true}
-					classes={{ tooltip: 'h-[calc(100vh-64px)] -translate-x-2 bg-surface2 mt-1' }}
-				/>
+				<div class="relative flex grow">
+					<Projects
+						{project}
+						onlyEditable={true}
+						classes={{
+							button: 'bg-white dark:bg-black hover:bg-surface2 shadow-inner px-4',
+							tooltip: 'h-fit default-dialog rounded-b-lg shadow-inner -translate-y-2'
+						}}
+					/>
+				</div>
 				<EditorToggle {project} />
 			</div>
 			<div class="flex items-center">

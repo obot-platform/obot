@@ -205,11 +205,25 @@ async function uploadImage(file: File): Promise<ImageResponse> {
 	return (await doPost('/image/upload', formData)) as ImageResponse;
 }
 
+async function createObot() {
+	const assistants = (await ChatService.listAssistants()).items;
+	let defaultAssistant = assistants.find((a) => a.default);
+	if (!defaultAssistant && assistants.length == 1) {
+		defaultAssistant = assistants[0];
+	}
+	if (!defaultAssistant) {
+		throw new Error('failed to find default assistant');
+	}
+
+	return await ChatService.createProject(defaultAssistant.id);
+}
+
 export default {
 	remove,
 	load,
 	download,
 	select,
 	generateImage,
-	uploadImage
+	uploadImage,
+	createObot
 };

@@ -1,9 +1,11 @@
 <script lang="ts">
 	import AssistantIcon from '$lib/icons/AssistantIcon.svelte';
-	import { ChatService, type Project } from '$lib/services';
+	import { ChatService, EditorService, type Project } from '$lib/services';
 	import { Check, ChevronDown } from 'lucide-svelte/icons';
 	import { popover } from '$lib/actions';
 	import { twMerge } from 'tailwind-merge';
+	import { goto } from '$app/navigation';
+	import { errors } from '$lib/stores';
 
 	interface Props {
 		project: Project;
@@ -33,6 +35,15 @@
 			onProjectOpenChange?.(value);
 		}
 	});
+
+	async function createNew() {
+		try {
+			const project = await EditorService.createObot();
+			await goto(`/o/${project.id}?edit`);
+		} catch (error) {
+			errors.append((error as Error).message);
+		}
+	}
 </script>
 
 <button
@@ -88,12 +99,16 @@
 				{/if}
 			</a>
 		{/each}
-		<a
-			href="/home"
-			class="flex items-center justify-center gap-2 rounded-xl px-2 py-4 text-gray hover:bg-surface3"
-		>
-			<img src="/user/images/obot-icon-blue.svg" class="h-5" alt="Obot icon" />
-			<span class="text-sm text-gray">See All Obots</span>
-		</a>
+		{#if onlyEditable}
+			<button class="button" onclick={() => createNew()}>Create New Obot</button>
+		{:else}
+			<a
+				href="/home"
+				class="flex items-center justify-center gap-2 rounded-xl px-2 py-4 text-gray hover:bg-surface3"
+			>
+				<img src="/user/images/obot-icon-blue.svg" class="h-5" alt="Obot icon" />
+				<span class="text-sm text-gray">See All Obots</span>
+			</a>
+		{/if}
 	</div>
 {/if}
