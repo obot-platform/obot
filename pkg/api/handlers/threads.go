@@ -40,6 +40,8 @@ func convertThread(thread v1.Thread) types.Thread {
 	for _, e := range thread.Spec.Env {
 		if e.Existing && e.Value == "" {
 			env = append(env, e.Name)
+		} else {
+			env = append(env, fmt.Sprintf("%s=%s", e.Name, e.Value))
 		}
 	}
 	return types.Thread{

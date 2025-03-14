@@ -150,14 +150,22 @@ func Agent(ctx context.Context, db kclient.Client, agent *v1.Agent, oauthServerU
 
 		mainTool.Credentials = append(mainTool.Credentials, credTool+" as "+opts.Thread.Name)
 
+		threadWithEnv, err := projects.GetFirst(ctx, db, opts.Thread, func(parentThread *v1.Thread) (bool, error) {
+			return len(parentThread.Spec.Env) > 0, nil
+		})
+		if err != nil {
+			return nil, nil, err
+		}
+
 		var threadEnvs []string
-		for _, threadEnv := range opts.Thread.Spec.Env {
+		for _, threadEnv := range threadWithEnv.Spec.Env {
 			if threadEnv.Existing && threadEnv.Name != "" {
 				threadEnvs = append(threadEnvs, threadEnv.Name)
 			} else if threadEnv.Value != "" {
 				extraEnv = append(extraEnv, fmt.Sprintf("%s=%s", threadEnv.Name, threadEnv.Value))
 			}
 		}
+
 		for _, env := range agent.Spec.Manifest.Env {
 			if env.Existing && env.Name != "" {
 				threadEnvs = append(threadEnvs, env.Name)
