@@ -20,6 +20,12 @@
 
 	let downloadable = $derived.by(() => {
 		const selected = layout.items.find((item) => item.selected);
+
+		// embedded pdf viewer has it's own download button
+		if (selected?.name.toLowerCase().endsWith('.pdf')) {
+			return false;
+		}
+
 		return !!selected?.file;
 	});
 

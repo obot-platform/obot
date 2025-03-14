@@ -23,7 +23,7 @@
 {#each items as file}
 	<div
 		class:hidden={!file.selected}
-		class="default-scrollbar-thin flex-1"
+		class="default-scrollbar-thin h-full flex-1"
 		bind:clientHeight={height}
 	>
 		{#if file.name.toLowerCase().endsWith('.md')}
