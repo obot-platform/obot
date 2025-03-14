@@ -1,8 +1,6 @@
 # Threads
 
-A thread represents each chat conversation between an agent and a user or the execution of a workflow.
-On the Threads page, you'll find a list of all threads within your system.
-Clicking on a thread will display all related messages and metadata, such as files created or uploaded by the user.
-
-Deleting a thread will permanently remove it from the system.
-If a deleted thread was associated with an agent, the user's chat history with that agent will be lost, and any new conversation will start afresh.
+A thread represents each chat conversation between an obot and a user, or the execution of a task.
+If you want to start a new chat with an obot, you can open up the side panel and click the plus icon in the threads section.
+Each thread is a clean slate and will not have any of the messages from previous threads.
+Each thread also has its own credentials, so for any tools that require authentication, you will need to re-authenticate.
