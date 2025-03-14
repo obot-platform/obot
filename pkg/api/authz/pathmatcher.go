@@ -17,9 +17,13 @@ func newPathMatcher(paths ...string) *pathMatcher {
 type GetVar func(string) string
 
 func (p *pathMatcher) Match(req *http.Request) (GetVar, bool) {
-	_, pattern := p.m.Handler(req)
+	r := req.Clone(req.Context())
+	_, pattern := p.m.Handler(r)
 	if pattern == "" {
 		return nil, false
 	}
-	return req.PathValue, true
+
+	// Note: This will reset the path values for this request, otherwise they won't match what we have set in the authorize router.
+	p.m.ServeHTTP(nil, r)
+	return r.PathValue, true
 }
