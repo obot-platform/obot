@@ -94,7 +94,7 @@
 			</div>
 		{/if}
 
-		<div class="relative flex h-full flex-col">
+		<div class="relative flex h-full flex-col overflow-hidden">
 			<div class="default-scrollbar-thin relative flex-1">
 				<FileEditors
 					{project}

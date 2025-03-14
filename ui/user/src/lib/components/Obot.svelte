@@ -14,7 +14,6 @@
 	import { fade, slide } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';
 	import Logo from './navbar/Logo.svelte';
-	import { cubicOut, linear } from 'svelte/easing';
 
 	interface Props {
 		project: Project;

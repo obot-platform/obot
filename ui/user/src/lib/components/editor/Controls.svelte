@@ -1,8 +1,8 @@
 <script lang="ts">
-	import { X, Download } from 'lucide-svelte';
-	import { EditorService, type Project } from '$lib/services';
-	import { term } from '$lib/stores';
 	import { getLayout } from '$lib/context/layout.svelte';
+	import { type Project } from '$lib/services';
+	import { term } from '$lib/stores';
+	import { X } from 'lucide-svelte';
 	import { twMerge } from 'tailwind-merge';
 	import Files from '../edit/Files.svelte';
 
