@@ -4,7 +4,7 @@
 	import { ChatService, EditorService, type Project } from '$lib/services';
 	import { errors } from '$lib/stores';
 	import { goto } from '$app/navigation';
-	import { fade } from 'svelte/transition';
+	import { fade, fly, slide } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
@@ -29,9 +29,13 @@
 		const newProject = await ChatService.copyProject(project.assistantID, project.id);
 		await goto(`/o/${newProject.id}?edit`);
 	}
+
+	let hover = $state(false);
 </script>
 
 <button
+	onmouseenter={() => (hover = true)}
+	onmouseleave={() => (hover = false)}
 	onclick={() => {
 		if (layout.projectEditorOpen) {
 			layout.projectEditorOpen = false;
@@ -60,13 +64,9 @@
 	{/if}
 	{#if layout.projectEditorOpen}
 		<span class="ml-1">Exit Editor</span>
-	{:else}
-		<span
-			class="flex h-5 w-0 items-center overflow-hidden transition-[width] duration-300 group-hover:ml-2 group-hover:w-auto"
-		>
-			<span
-				class="delay-250 inline-block translate-x-full transition-[transform] duration-300 group-hover:translate-x-0"
-			>
+	{:else if hover}
+		<span class="flex h-5 items-center" transition:slide={{ axis: 'x' }}>
+			<span class="delay-250 ms-2 inline-block text-nowrap" transition:fly={{ x: 50 }}>
 				Obot Editor
 			</span>
 		</span>
