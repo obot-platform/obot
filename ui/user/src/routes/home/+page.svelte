@@ -188,7 +188,16 @@
 			{/if}
 
 			<div class="flex w-full flex-col gap-4">
-				<h3 class="text-2xl font-semibold">My Obots</h3>
+				<div class="flex items-center gap-4">
+					<h3 class="text-2xl font-semibold">My Obots</h3>
+					<button
+						class="button flex items-center gap-1 text-xs font-medium"
+						onclick={() => createNew()}
+					>
+						<Plus class="icon-default" />
+						<span>Create New Obot</span>
+					</button>
+				</div>
 				<div class="card-layout">
 					{#each userProjects as project}
 						{@render projectCard(project)}
