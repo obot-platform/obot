@@ -93,7 +93,14 @@
 					{/each}
 				{:else}
 					<div id="main-input" class="flex h-full flex-1 justify-center">
-						<Thread bind:id={currentThreadID} {project} {version} {tools} />
+						<Thread
+							bind:id={currentThreadID}
+							{project}
+							{version}
+							{tools}
+							isTaskRun={!!currentThreadID &&
+								!!layout.taskRuns?.some((run) => run.id === currentThreadID)}
+						/>
 					</div>
 				{/if}
 

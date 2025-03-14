@@ -26,9 +26,10 @@
 		project: Project;
 		tools: AssistantTool[];
 		version: Version;
+		isTaskRun?: boolean;
 	}
 
-	let { id = $bindable(), project, version, tools }: Props = $props();
+	let { id = $bindable(), project, version, tools, isTaskRun }: Props = $props();
 
 	let container = $state<HTMLDivElement>();
 	let messages = $state<Messages>({ messages: [], inProgress: false });
@@ -142,38 +143,41 @@
 		<div
 			in:fade|global
 			bind:this={messagesDiv}
-			class="flex h-fit w-full max-w-[900px] flex-col justify-start gap-8 p-5 transition-all"
+			class="flex h-fit w-full flex-col justify-start gap-8 p-5 transition-all"
 			class:justify-center={!thread}
 		>
-			<div class="message-content self-center">
-				<div class="flex flex-col items-center justify-center pt-8 text-center">
-					<AssistantIcon {project} class="h-24 w-24 shadow-lg" />
-					<h4 class="!mb-1">{project.name || 'Untitled'}</h4>
-					{#if project.description}
-						<p class="max-w-md font-light text-gray">{project.description}</p>
+			{#if !isTaskRun}
+				<div class="message-content self-center">
+					<div class="flex flex-col items-center justify-center pt-8 text-center">
+						<AssistantIcon {project} class="h-24 w-24 shadow-lg" />
+						<h4 class="!mb-1">{project.name || 'Untitled'}</h4>
+						{#if project.description}
+							<p class="max-w-md font-light text-gray">{project.description}</p>
+						{/if}
+						<div class="mt-4 h-[1px] w-96 max-w-sm rounded-full bg-surface1 dark:bg-surface2"></div>
+					</div>
+					{#if project?.introductionMessage}
+						<div class="pt-8">
+							{@html toHTMLFromMarkdown(project?.introductionMessage)}
+						</div>
 					{/if}
 					<div class="mt-4 h-[1px] w-full max-w-sm rounded-full bg-surface1 dark:bg-surface2"></div>
 				</div>
-				{#if project?.introductionMessage}
-					<div class="pt-8">
-						{@html toHTMLFromMarkdown(project?.introductionMessage)}
+				{#if project.starterMessages?.length}
+					<div class="flex flex-wrap justify-center gap-4 px-4">
+						{#each project.starterMessages as msg}
+							<button
+								class="w-52 rounded-2xl border border-surface3 bg-transparent p-4 text-left text-sm font-light transition-all duration-300 hover:bg-surface2"
+								onclick={async () => {
+									await ensureThread();
+									await thread?.invoke(msg);
+								}}
+							>
+								<span class="line-clamp-3">{msg}</span>
+							</button>
+						{/each}
 					</div>
 				{/if}
-			</div>
-			{#if project.starterMessages?.length}
-				<div class="flex flex-wrap justify-center gap-4 px-4">
-					{#each project.starterMessages as msg}
-						<button
-							class="w-52 rounded-2xl border border-surface3 bg-transparent p-4 text-left text-sm font-light transition-all duration-300 hover:bg-surface2"
-							onclick={async () => {
-								await ensureThread();
-								await thread?.invoke(msg);
-							}}
-						>
-							<span class="line-clamp-3">{msg}</span>
-						</button>
-					{/each}
-				</div>
 			{/if}
 			{#each messages.messages as msg}
 				<Message
