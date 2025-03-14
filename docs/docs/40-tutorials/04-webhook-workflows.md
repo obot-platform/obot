@@ -14,7 +14,7 @@ The On-Call engineer will receive this information as notes in the PagerDuty inc
 - A Kubernetes cluster that is configured to send alerts to PagerDuty.
 - A PagerDuty API Key.
 - Kubeconfig file from the Kubernetes cluster you would like to interact with. (The workflow users read/write permissions to the cluster )
-- Obot CLI installed and configured. See the [CLI installation instructions](/#getting-started)
+- Obot CLI installed and configured.
 - Obot server will need to be accessible from the internet.
 
 ## Set up the workflow
