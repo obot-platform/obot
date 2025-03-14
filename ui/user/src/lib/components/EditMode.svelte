@@ -94,7 +94,8 @@
 						onlyEditable={true}
 						classes={{
 							button: 'bg-white dark:bg-black hover:bg-surface2 shadow-inner px-4',
-							tooltip: 'h-fit default-dialog rounded-b-lg shadow-inner -translate-y-2'
+							tooltip:
+								'h-fit default-dialog rounded-b-lg shadow-inner -translate-y-1 max-h-[80vh] overflow-y-auto default-scrollbar-thin'
 						}}
 					/>
 				</div>

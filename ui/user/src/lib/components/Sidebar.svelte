@@ -36,7 +36,8 @@
 				onOpenChange={(open) => (projectsOpen = open)}
 				disabled={layout.projectEditorOpen}
 				classes={{
-					tooltip: '-translate-x-14 border-t-[1px] border-surface3 bg-surface2 shadow-inner'
+					tooltip:
+						'-translate-x-14 border-t-[1px] border-surface3 bg-surface2 shadow-inner max-h-[calc(100vh-66px)] overflow-y-auto default-scrollbar-thin'
 				}}
 			/>
 		</div>
