@@ -234,26 +234,32 @@
 							{thread.name || 'New Thread'}
 						</button>
 					{/if}
-					{#if isCurrentThread(thread)}
-						{#if editMode}
-							<button class="list-button-primary" onclick={() => (editMode = false)}>
-								<CircleX class="h-4 w-4" />
-							</button>
-							<button class="list-button-primary" onclick={saveName}>
-								<Save class="h-4 w-4" />
-							</button>
-						{:else}
-							<DotDotDot class="p-0 pr-2">
-								<div class="default-dialog flex min-w-max flex-col p-2">
-									<button class="menu-button" onclick={startEditName}>
-										<Pen class="h-4 w-4" /> Rename
-									</button>
-									<button class="menu-button" onclick={() => deleteThread(thread.id)}>
-										<Trash2 class="h-4 w-4" /> Delete
-									</button>
-								</div>
-							</DotDotDot>
-						{/if}
+					{#if isCurrentThread(thread) && editMode}
+						<button class="list-button-primary" onclick={() => (editMode = false)}>
+							<CircleX class="h-4 w-4" />
+						</button>
+						<button class="list-button-primary" onclick={saveName}>
+							<Save class="h-4 w-4" />
+						</button>
+					{:else}
+						<DotDotDot
+							class="p-0 pr-2 opacity-0 transition-opacity duration-200 group-hover:opacity-100"
+						>
+							<div class="default-dialog flex min-w-max flex-col p-2">
+								<button
+									class="menu-button"
+									onclick={() => {
+										selectThread(thread.id);
+										startEditName();
+									}}
+								>
+									<Pen class="h-4 w-4" /> Rename
+								</button>
+								<button class="menu-button" onclick={() => deleteThread(thread.id)}>
+									<Trash2 class="h-4 w-4" /> Delete
+								</button>
+							</div>
+						</DotDotDot>
 					{/if}
 				</li>
 			{/each}
