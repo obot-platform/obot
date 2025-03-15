@@ -4,7 +4,8 @@
 	import type { AssistantTool, ToolReference } from '$lib/services/chat/types';
 	import { twMerge } from 'tailwind-merge';
 	import CollapsePane from './CollapsePane.svelte';
-	import { Plus } from 'lucide-svelte';
+	import { Plus, X } from 'lucide-svelte';
+	import { responsive } from '$lib/stores';
 
 	interface Props {
 		tools: AssistantTool[];
@@ -40,7 +41,7 @@
 		Object.values(toolSelection).filter((t) => t.enabled).length > maxTools
 	);
 
-	let catalog = popover({ fixed: true });
+	let catalog = popover({ fixed: { x: 0, y: 0 } });
 
 	function setToolEnabled(toolId: string, val?: boolean) {
 		if (toolId in toolSelection) {
@@ -122,16 +123,22 @@
 
 <div
 	use:catalog.tooltip
-	class="default-dialog left-1/2 top-[15%] flex min-h-[500px] w-[500px] -translate-x-1/2 flex-col"
+	class="default-dialog !top-1/2 flex min-h-[500px] w-full -translate-y-1/2 flex-col p-2 md:!left-1/2 md:!top-[15%] md:w-[500px] md:!-translate-x-1/2 md:!translate-y-0"
 >
-	<div class="rounded-t-lg p-2">
-		<input
-			class="w-full rounded-lg bg-surface1 p-2"
-			type="text"
-			placeholder="Search tools"
-			bind:this={input}
-			bind:value={search}
-		/>
+	<div class="flex w-full items-center justify-between">
+		<div class="flex grow rounded-t-lg p-2">
+			<input
+				class="w-full rounded-lg bg-surface1 p-2"
+				type="text"
+				placeholder="Search tools"
+				bind:this={input}
+				bind:value={search}
+			/>
+		</div>
+		{#if responsive.isMobile}
+			<button onclick={() => catalog.toggle(false)} class="icon-button"><X class="size-4" /></button
+			>
+		{/if}
 	</div>
 
 	<p class={twMerge('text-center text-sm text-red-500', !maxExceeded && 'invisible')}>
@@ -160,7 +167,7 @@
 					{#snippet header()}
 						{@const bundleTool = toolSelection[tool.id]}
 						{@const allSelected = allSubtoolsEnabled(tool.id)}
-						{@const tt = popover({ hover: true, placement: 'left', fixed: false })}
+						{@const tt = popover({ hover: true, placement: 'left' })}
 
 						<label
 							class={twMerge(
