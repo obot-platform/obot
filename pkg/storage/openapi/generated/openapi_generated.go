@@ -125,6 +125,8 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/apiclient/types.WebhookList":                                schema_obot_platform_obot_apiclient_types_WebhookList(ref),
 		"github.com/obot-platform/obot/apiclient/types.WebhookManifest":                            schema_obot_platform_obot_apiclient_types_WebhookManifest(ref),
 		"github.com/obot-platform/obot/apiclient/types.WebsiteCrawlingConfig":                      schema_obot_platform_obot_apiclient_types_WebsiteCrawlingConfig(ref),
+		"github.com/obot-platform/obot/apiclient/types.WebsiteDefinition":                          schema_obot_platform_obot_apiclient_types_WebsiteDefinition(ref),
+		"github.com/obot-platform/obot/apiclient/types.WebsiteKnowledge":                           schema_obot_platform_obot_apiclient_types_WebsiteKnowledge(ref),
 		"github.com/obot-platform/obot/apiclient/types.Workflow":                                   schema_obot_platform_obot_apiclient_types_Workflow(ref),
 		"github.com/obot-platform/obot/apiclient/types.WorkflowCall":                               schema_obot_platform_obot_apiclient_types_WorkflowCall(ref),
 		"github.com/obot-platform/obot/apiclient/types.WorkflowExecution":                          schema_obot_platform_obot_apiclient_types_WorkflowExecution(ref),
@@ -681,12 +683,17 @@ func schema_obot_platform_obot_apiclient_types_AgentManifest(ref common.Referenc
 							},
 						},
 					},
+					"websiteKnowledge": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.WebsiteKnowledge"),
+						},
+					},
 				},
 				Required: []string{"name", "icons", "description", "default", "temperature", "cache", "alias", "prompt", "knowledgeDescription", "tools", "availableThreadTools", "defaultThreadTools", "oauthApps", "introductionMessage", "starterMessages", "maxThreadTools", "params", "model", "env", "credentials"},
 			},
 		},
 		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.AgentIcons", "github.com/obot-platform/obot/apiclient/types.EnvVar"},
+			"github.com/obot-platform/obot/apiclient/types.AgentIcons", "github.com/obot-platform/obot/apiclient/types.EnvVar", "github.com/obot-platform/obot/apiclient/types.WebsiteKnowledge"},
 	}
 }
 
@@ -769,12 +776,17 @@ func schema_obot_platform_obot_apiclient_types_Assistant(ref common.ReferenceCal
 							Format: "int32",
 						},
 					},
+					"websiteKnowledge": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.WebsiteKnowledge"),
+						},
+					},
 				},
 				Required: []string{"Metadata", "name", "default", "description", "icons", "introductionMessage", "starterMessages", "entityID"},
 			},
 		},
 		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.AgentIcons", "github.com/obot-platform/obot/apiclient/types.Metadata"},
+			"github.com/obot-platform/obot/apiclient/types.AgentIcons", "github.com/obot-platform/obot/apiclient/types.Metadata", "github.com/obot-platform/obot/apiclient/types.WebsiteKnowledge"},
 	}
 }
 
@@ -4364,12 +4376,17 @@ func schema_obot_platform_obot_apiclient_types_ThreadManifest(ref common.Referen
 							},
 						},
 					},
+					"websiteKnowledge": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.WebsiteKnowledge"),
+						},
+					},
 				},
 				Required: []string{"name", "icons", "prompt", "knowledgeDescription", "introductionMessage", "starterMessages"},
 			},
 		},
 		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.AgentIcons"},
+			"github.com/obot-platform/obot/apiclient/types.AgentIcons", "github.com/obot-platform/obot/apiclient/types.WebsiteKnowledge"},
 	}
 }
 
@@ -5003,6 +5020,64 @@ func schema_obot_platform_obot_apiclient_types_WebsiteCrawlingConfig(ref common.
 				},
 			},
 		},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_WebsiteDefinition(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"site": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"description": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_WebsiteKnowledge(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"sites": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/obot-platform/obot/apiclient/types.WebsiteDefinition"),
+									},
+								},
+							},
+						},
+					},
+					"siteTool": {
+						SchemaProps: spec.SchemaProps{
+							Description: "The tool to use for website search. If no values are set in Sites, this tool will be removed from agents tools. This value must also match a tool in the agent or threads tools.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.WebsiteDefinition"},
 	}
 }
 

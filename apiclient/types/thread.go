@@ -43,13 +43,14 @@ type Thread struct {
 type ThreadList List[Thread]
 
 type ThreadManifest struct {
-	Name                 string      `json:"name"`
-	Tools                []string    `json:"tools,omitempty"`
-	Description          string      `json:"description,omitempty"`
-	Icons                *AgentIcons `json:"icons"`
-	Prompt               string      `json:"prompt"`
-	KnowledgeDescription string      `json:"knowledgeDescription"`
-	IntroductionMessage  string      `json:"introductionMessage"`
-	StarterMessages      []string    `json:"starterMessages"`
-	SharedTasks          []string    `json:"sharedTasks,omitempty"`
+	Name                 string            `json:"name"`
+	Tools                []string          `json:"tools,omitempty"`
+	Description          string            `json:"description,omitempty"`
+	Icons                *AgentIcons       `json:"icons"`
+	Prompt               string            `json:"prompt"`
+	KnowledgeDescription string            `json:"knowledgeDescription"`
+	IntroductionMessage  string            `json:"introductionMessage"`
+	StarterMessages      []string          `json:"starterMessages"`
+	SharedTasks          []string          `json:"sharedTasks,omitempty"`
+	WebsiteKnowledge     *WebsiteKnowledge `json:"websiteKnowledge,omitempty"`
 }

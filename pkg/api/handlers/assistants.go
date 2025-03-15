@@ -170,6 +170,7 @@ func convertAssistant(agent v1.Agent) types.Assistant {
 		StarterMessages:     agent.Spec.Manifest.StarterMessages,
 		IntroductionMessage: agent.Spec.Manifest.IntroductionMessage,
 		Icons:               icons,
+		WebsiteKnowledge:    agent.Spec.Manifest.WebsiteKnowledge,
 	}
 	if agent.Spec.Manifest.MaxThreadTools == 0 {
 		assistant.MaxTools = DefaultMaxUserThreadTools

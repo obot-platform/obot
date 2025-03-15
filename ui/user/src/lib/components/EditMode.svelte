@@ -20,6 +20,7 @@
 	import EditorToggle from './navbar/EditorToggle.svelte';
 	import Projects from './navbar/Projects.svelte';
 	import { goto } from '$app/navigation';
+	import Sites from '$lib/components/edit/Sites.svelte';
 
 	interface Props {
 		project: Project;
@@ -126,6 +127,9 @@
 					<Instructions bind:project />
 					<Tools {tools} {onNewTools} {assistant} />
 					<Knowledge {project} />
+					{#if assistant?.websiteKnowledge?.siteTool}
+						<Sites {project} />
+					{/if}
 					<Files {project} />
 					<Tasks {project} />
 					<Interface bind:project />

@@ -542,6 +542,7 @@ export async function listThreads(assistantID: string, projectID: string): Promi
 	list.items.sort((a, b) => {
 		return b.created.localeCompare(a.created);
 	});
+	list.items = list.items.filter((t) => !t.deleted);
 	return list;
 }
 

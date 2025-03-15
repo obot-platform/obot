@@ -201,7 +201,7 @@
 			<p class="p-6 text-center text-sm text-gray dark:text-gray-300">No threads</p>
 		{/if}
 		<ul transition:fade>
-			{#each (layout.threads ?? []).slice(0, displayCount) as thread}
+			{#each (layout.threads ?? []).slice(0, displayCount) as thread (thread.id)}
 				<li
 					class:bg-surface2={isCurrentThread(thread)}
 					class="group flex min-h-9 items-center gap-3 rounded-md text-xs font-light hover:bg-surface3"

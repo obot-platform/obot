@@ -28,6 +28,9 @@ func ThreadIDs(ctx context.Context, c kclient.Client, thread *v1.Thread) ([]stri
 }
 
 func GetFirst(ctx context.Context, c kclient.Client, thread *v1.Thread, check func(*v1.Thread) (bool, error)) (*v1.Thread, error) {
+	if thread == nil {
+		return nil, nil
+	}
 	if ok, err := check(thread); ok || err != nil {
 		return thread, err
 	}

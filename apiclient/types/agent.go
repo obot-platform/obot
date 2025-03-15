@@ -29,6 +29,18 @@ type AgentIcons struct {
 	CollapsedDark string `json:"collapsedDark"`
 }
 
+type WebsiteKnowledge struct {
+	Sites []WebsiteDefinition `json:"sites,omitempty"`
+	// The tool to use for website search. If no values are set in Sites, this tool will be removed
+	// from agents tools. This value must also match a tool in the agent or threads tools.
+	SiteTool string `json:"siteTool,omitempty"`
+}
+
+type WebsiteDefinition struct {
+	Site        string `json:"site,omitempty"`
+	Description string `json:"description,omitempty"`
+}
+
 type AgentManifest struct {
 	Name                 string            `json:"name"`
 	Icons                *AgentIcons       `json:"icons"`
@@ -50,6 +62,7 @@ type AgentManifest struct {
 	Model                string            `json:"model"`
 	Env                  []EnvVar          `json:"env"`
 	Credentials          []string          `json:"credentials"`
+	WebsiteKnowledge     *WebsiteKnowledge `json:"websiteKnowledge,omitempty"`
 }
 
 func (m AgentManifest) GetParams() *openapi3.Schema {

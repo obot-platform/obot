@@ -39,7 +39,7 @@
 	</ul>
 {/snippet}
 
-<CollapsePane header="Knowledge" onOpen={() => reload()}>
+<CollapsePane header="File Knowledge" onOpen={() => reload()}>
 	<div class="flex flex-col gap-2">
 		<ul class="flex flex-col gap-2">
 			{@render toolList(knowledgeFiles)}

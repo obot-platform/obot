@@ -2,6 +2,7 @@ package render
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"maps"
 	"slices"
@@ -213,6 +214,11 @@ func Agent(ctx context.Context, db kclient.Client, agent *v1.Agent, oauthServerU
 		}
 	}
 
+	extraEnv, err = setWebSiteKnowledge(ctx, db, &mainTool, agent, opts.Thread, extraEnv)
+	if err != nil {
+		return nil, nil, err
+	}
+
 	oauthEnv, err := OAuthAppEnv(ctx, db, agent.Spec.Manifest.OAuthApps, agent.Namespace, oauthServerURL)
 	if err != nil {
 		return nil, nil, err
@@ -221,6 +227,60 @@ func Agent(ctx context.Context, db kclient.Client, agent *v1.Agent, oauthServerU
 	extraEnv = append(extraEnv, oauthEnv...)
 
 	return append([]gptscript.ToolDef{mainTool}, otherTools...), extraEnv, nil
+}
+
+func mergeWebsiteKnowledge(websiteKnowledge ...*types.WebsiteKnowledge) (result types.WebsiteKnowledge) {
+	for _, wk := range websiteKnowledge {
+		if wk == nil {
+			continue
+		}
+		if wk.SiteTool != "" {
+			result.SiteTool = wk.SiteTool
+		}
+		result.Sites = append(result.Sites, wk.Sites...)
+	}
+	result.Sites = slices.DeleteFunc(result.Sites, func(s types.WebsiteDefinition) bool {
+		return strings.TrimSpace(s.Site) == ""
+	})
+	return result
+}
+
+func setWebSiteKnowledge(ctx context.Context, db kclient.Client, mainTool *gptscript.ToolDef, agent *v1.Agent, thread *v1.Thread, extraEnv []string) ([]string, error) {
+	threadWithWebsiteKnowledge, err := projects.GetFirst(ctx, db, thread, func(parentThread *v1.Thread) (bool, error) {
+		return parentThread.Spec.Manifest.WebsiteKnowledge != nil, nil
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	var threadScoped *types.WebsiteKnowledge
+	if threadWithWebsiteKnowledge != nil {
+		threadScoped = threadWithWebsiteKnowledge.Spec.Manifest.WebsiteKnowledge
+	}
+
+	websiteKnowledge := mergeWebsiteKnowledge(agent.Spec.Manifest.WebsiteKnowledge, threadScoped)
+	if websiteKnowledge.SiteTool == "" {
+		return extraEnv, nil
+	}
+
+	if len(websiteKnowledge.Sites) == 0 {
+		toRemove, _, err := tool(ctx, db, agent.Namespace, websiteKnowledge.SiteTool)
+		if err != nil {
+			return nil, err
+		}
+		mainTool.Tools = slices.DeleteFunc(mainTool.Tools, func(tool string) bool {
+			return tool == toRemove
+		})
+		return extraEnv, nil
+	}
+
+	data, err := json.Marshal(websiteKnowledge)
+	if err != nil {
+		return nil, err
+	}
+
+	extraEnv = append(extraEnv, fmt.Sprintf("OBOT_WEBSITE_KNOWLEDGE=%s", string(data)))
+	return extraEnv, nil
 }
 
 func OAuthAppEnv(ctx context.Context, db kclient.Client, oauthAppNames []string, namespace, serverURL string) (extraEnv []string, _ error) {

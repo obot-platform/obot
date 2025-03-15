@@ -193,6 +193,7 @@ export interface Assistant {
 	starterMessages?: string[];
 	introductionMessage?: string;
 	maxTools?: number;
+	websiteKnowledge?: Sites;
 }
 
 export interface AssistantTool {
@@ -339,6 +340,7 @@ export interface Project {
 	editor?: boolean;
 	tools?: string[];
 	sharedTasks?: string[];
+	websiteKnowledge?: Sites;
 }
 
 export interface ProjectList {
@@ -393,4 +395,14 @@ export interface AuthProvider {
 
 export interface AuthProviderList {
 	items: AuthProvider[];
+}
+
+export interface Sites {
+	sites?: Site[];
+	siteTool?: string;
+}
+
+export interface Site {
+	site?: string;
+	description?: string;
 }
