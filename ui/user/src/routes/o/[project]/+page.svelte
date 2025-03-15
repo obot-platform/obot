@@ -74,7 +74,7 @@
 	{/if}
 </svelte:head>
 
-<div class="h-svh">
+<div class="h-svh w-screen overflow-hidden">
 	{#if project}
 		{#key project.id}
 			{#if project.editor}

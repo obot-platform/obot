@@ -45,7 +45,7 @@
 	});
 </script>
 
-<div class="colors-background relative flex h-full flex-col">
+<div class="colors-background relative flex h-full w-full max-w-full flex-col overflow-hidden">
 	<div
 		class="relative flex h-full border-surface1"
 		class:border={layout.sidebarOpen && !layout.fileEditorOpen}
