@@ -8,11 +8,8 @@ const sidebars = {
       type: "category",
       label: "Concepts",
       items: [
-        "concepts/agents",
+        "concepts/obots",
         "concepts/threads",
-        "concepts/tools",
-        "concepts/users",
-        "concepts/oauth-apps",
         "concepts/tasks",
       ],
     },
@@ -36,11 +33,13 @@ const sidebars = {
           label: "Configuration",
           items: [
             "configuration/general",
+            "configuration/agents",
             "configuration/auth-providers",
             "configuration/email-webhook",
             "configuration/encryption-providers",
             "configuration/model-providers",
             "configuration/workspace-provider",
+            "configuration/oauth-tools"
           ],
         },
         "enterprise",

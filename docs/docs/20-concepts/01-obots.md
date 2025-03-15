@@ -43,7 +43,7 @@ The location that files are stored in is called the workspace. This works differ
 
 ### Tasks
 
-TODO
+See [tasks](06-tasks.md).
 
 ### Interface
 

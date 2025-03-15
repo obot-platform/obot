@@ -13,7 +13,7 @@ created from the agent:
 - Knowledge: files uploaded by the obot creator to serve as a knowledge set for the obot to search when needed
 - Workspace Files: files uploaded by the obot creator and/or users to serve as a workspace for the obot to read and write to
 - Database: this is the SQLite database that the obot can use to store data
-- Tasks: TODO
+- Tasks: if disabled, users will not be able to create [tasks](../20-concepts/06-tasks.md) on the obot
 - Threads: if disabled, users will be limited to just one non-deletable thread with the obot
 
 ### Tools
