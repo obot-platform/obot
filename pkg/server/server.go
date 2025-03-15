@@ -82,9 +82,15 @@ func Run(ctx context.Context, c services.Config) error {
 		// Wait for controller to release the lease.
 		<-svcs.Router.Stopped()
 
-		log.Infof("Shutting down server")
-		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+		ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 		defer cancel()
+		log.Infof("Shutting down OTel SDK")
+		err := svcs.Otel.Shutdown(ctx)
+		if err != nil {
+			log.Errorf("Failed to shutdown OTel SDK: %v", err)
+		}
+
+		log.Infof("Shutting down server")
 		if err := s.Shutdown(ctx); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			log.Errorf("Failed to gracefully shutdown server: %v", err)
 		}

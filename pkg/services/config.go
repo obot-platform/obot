@@ -122,6 +122,7 @@ type Services struct {
 	AuthEnabled                bool
 	AgentsDir                  string
 	GeminiClient               *gemini.Client
+	Otel                       *Otel
 
 	// Use basic auth for sendgrid webhook, if being set
 	SendgridWebhookUsername string
@@ -447,6 +448,11 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		return nil, fmt.Errorf("failed to validate environment variables: %w", err)
 	}
 
+	otel, err := newOtel(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to bootstrap OTel SDK: %w", err)
+	}
+
 	// For now, always auto-migrate the gateway database
 	return &Services{
 		WorkspaceProviderType: config.WorkspaceProviderType,
@@ -481,6 +487,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		Bootstrapper:               bootstrapper,
 		AgentsDir:                  config.AgentsDir,
 		GeminiClient:               geminiClient,
+		Otel:                       otel,
 	}, nil
 }
 
