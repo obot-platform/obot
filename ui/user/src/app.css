@@ -201,7 +201,7 @@ dialog {
 }
 
 .menu-button {
-	@apply flex min-h-10 min-w-10 items-center gap-2 rounded-lg p-2 py-4 md:py-2 text-sm transition-all duration-200 hover:bg-surface2 dark:hover:bg-surface3;
+	@apply flex min-h-10 min-w-10 items-center gap-2 rounded-lg p-2 py-4 text-sm transition-all duration-200 hover:bg-surface2 dark:hover:bg-surface3 md:py-2;
 }
 
 .ghost-input {
