@@ -64,9 +64,9 @@
 		toggle();
 	}}
 >
-	<span class="text-md max-w-[100%-24px] truncate font-semibold text-on-background"
-		>{project.name || 'Untitled'}</span
-	>
+	<span class="max-w-[100%-24px] truncate text-md font-semibold text-on-background">
+		{project.name || 'Untitled'}
+	</span>
 	{#if !disabled}
 		<div class={twMerge('text-gray transition-transform duration-200', open && 'rotate-180')}>
 			<ChevronDown />

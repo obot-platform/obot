@@ -1,5 +1,5 @@
 const store = $state({
-	isMobile: false,
+	isMobile: false
 });
 
 if (typeof window !== 'undefined') {

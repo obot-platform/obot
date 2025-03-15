@@ -281,7 +281,7 @@
 		}
 
 		.milkdown .ProseMirror p {
-			@apply text-md mb-4 text-gray-900 dark:text-gray-100;
+			@apply mb-4 text-md text-gray-900 dark:text-gray-100;
 		}
 
 		.dark .milkdown {

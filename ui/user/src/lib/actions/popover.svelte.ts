@@ -22,7 +22,7 @@ interface PopoverOptions extends Partial<ComputePositionConfig> {
 	assign?: (x: number, y: number) => void;
 	offset?: number;
 	placement?: Placement;
-	fixed?: { x: number; y:number };
+	fixed?: { x: number; y: number };
 	delay?: number;
 	onOpenChange?: (open: boolean) => void;
 	slide?: boolean;
@@ -104,7 +104,13 @@ export default function popover(opts?: PopoverOptions): Popover {
 		}
 
 		if (opts?.slide) {
-			tooltip.classList.add('transition-[transform,opacity]', 'transform', 'duration-300', 'translate-x-full', 'opacity-0');
+			tooltip.classList.add(
+				'transition-[transform,opacity]',
+				'transform',
+				'duration-300',
+				'translate-x-full',
+				'opacity-0'
+			);
 		} else {
 			tooltip.classList.add('hidden', 'transition-opacity', 'duration-300', 'opacity-0');
 		}
