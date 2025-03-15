@@ -58,8 +58,6 @@ They give the user a choice of pre-written messages that they can send to the LL
 This is useful to help the user get started with the obot and to give them an idea of what they can do with it.
 Even when starter messages are set, users will still be able to start with their own message if they want.
 
-You can specify the model each agent will use. If you make no selection, the system default will be used. For more on models, see our [Models concept](models).
-
 ### Credentials
 
 Most tools in Obot require some form of authentication, such as an API key or OAuth 2.0, to access the services they interact with.
