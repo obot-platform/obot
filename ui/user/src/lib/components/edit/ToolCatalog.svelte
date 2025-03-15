@@ -4,7 +4,7 @@
 	import type { AssistantTool, ToolReference } from '$lib/services/chat/types';
 	import { twMerge } from 'tailwind-merge';
 	import CollapsePane from './CollapsePane.svelte';
-	import { Plus, X } from 'lucide-svelte';
+	import { Plus } from 'lucide-svelte';
 	import { responsive } from '$lib/stores';
 
 	interface Props {
