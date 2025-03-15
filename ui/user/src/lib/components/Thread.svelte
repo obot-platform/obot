@@ -161,7 +161,6 @@
 							{@html toHTMLFromMarkdown(project?.introductionMessage)}
 						</div>
 					{/if}
-					<div class="mt-4 h-[1px] w-full max-w-sm rounded-full bg-surface1 dark:bg-surface2"></div>
 				</div>
 				{#if project.starterMessages?.length}
 					<div class="flex flex-wrap justify-center gap-4 px-4">
