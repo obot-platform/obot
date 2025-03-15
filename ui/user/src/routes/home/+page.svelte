@@ -191,7 +191,7 @@
 
 			<div class="flex w-full flex-col gap-4">
 				<div
-					class="sticky top-0 z-50 flex items-center gap-4 bg-white px-4 py-4 dark:bg-black md:px-12"
+					class="sticky top-0 z-30 flex items-center gap-4 bg-white px-4 py-4 dark:bg-black md:px-12"
 				>
 					<h3 class="text-2xl font-semibold">My Obots</h3>
 					<button
