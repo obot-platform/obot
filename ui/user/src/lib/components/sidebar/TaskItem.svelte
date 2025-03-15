@@ -52,8 +52,8 @@
 	}
 </script>
 
-<li class="group flex min-h-9 flex-col">
-	<div class="flex items-center gap-3 rounded-md p-2">
+<li class="flex min-h-9 flex-col">
+	<div class="group flex items-center gap-3 rounded-md p-2 hover:bg-surface3">
 		<div class="flex grow items-center gap-1">
 			{#if taskRuns && taskRuns.length > 0}
 				<button onclick={() => (expanded = !expanded)}>
@@ -93,9 +93,9 @@
 					class:bg-surface2={currentThreadID === taskRun.id && !isSomethingSelected(layout)}
 					class="w-full"
 				>
-					<div class="flex items-center">
+					<div class="group flex items-center rounded-md hover:bg-surface3">
 						<button
-							class="w-full rounded-md p-2 text-left hover:bg-surface3"
+							class="w-full p-2 text-left"
 							onclick={() => {
 								closeAll(layout);
 								currentThreadID = taskRun.id;
@@ -103,7 +103,9 @@
 						>
 							{formatTime(taskRun.created)}
 						</button>
-						<DotDotDot class="p-0 pr-2">
+						<DotDotDot
+							class="p-0 pr-2 opacity-0 transition-opacity duration-200 group-hover:opacity-100"
+						>
 							<div class="default-dialog flex min-w-max flex-col p-2">
 								<button class="menu-button" onclick={() => deleteTaskRun(taskRun)}>
 									<Trash2 class="h-4 w-4" /> Delete
