@@ -261,7 +261,27 @@
 		}
 
 		.milkdown .ProseMirror {
-			@apply px-24 pb-4 pt-0;
+			@apply px-4 pb-4 pt-0 md:px-0;
+		}
+
+		.milkdown .ProseMirror h1 {
+			@apply my-4 text-2xl font-bold text-black dark:text-gray-100;
+		}
+
+		.milkdown .ProseMirror h2 {
+			@apply my-4 text-xl font-bold text-black dark:text-gray-100;
+		}
+
+		.milkdown .ProseMirror h3 {
+			@apply my-4 text-base font-bold text-black dark:text-gray-100;
+		}
+
+		.milkdown .ProseMirror h4 {
+			@apply my-4 text-base font-bold text-black dark:text-gray-100;
+		}
+
+		.milkdown .ProseMirror p {
+			@apply text-md mb-4 text-gray-900 dark:text-gray-100;
 		}
 
 		.dark .milkdown {

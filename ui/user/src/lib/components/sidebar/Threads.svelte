@@ -7,6 +7,7 @@
 	import { fade } from 'svelte/transition';
 	import { overflowToolTip } from '$lib/actions/overflow.js';
 	import DotDotDot from '../DotDotDot.svelte';
+	import { responsive } from '$lib/stores';
 
 	interface Props {
 		currentThreadID?: string;
@@ -68,6 +69,9 @@
 		if (!found) {
 			layout.threads?.splice(0, 0, thread);
 		}
+		if (responsive.isMobile) {
+			layout.sidebarOpen = false;
+		}
 		setCurrentThread(thread.id);
 		focusChat();
 	}
@@ -92,6 +96,11 @@
 		if (editMode) {
 			return;
 		}
+
+		if (responsive.isMobile) {
+			layout.sidebarOpen = false;
+		}
+
 		closeAll(layout);
 		setCurrentThread(id);
 		focusChat();

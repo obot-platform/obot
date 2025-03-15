@@ -22,9 +22,10 @@ interface PopoverOptions extends Partial<ComputePositionConfig> {
 	assign?: (x: number, y: number) => void;
 	offset?: number;
 	placement?: Placement;
-	fixed?: boolean;
+	fixed?: { x: number; y:number };
 	delay?: number;
 	onOpenChange?: (open: boolean) => void;
+	slide?: boolean;
 }
 
 let id = 0;
@@ -49,6 +50,10 @@ export default function popover(opts?: PopoverOptions): Popover {
 
 		async function updatePosition() {
 			if (opts?.fixed) {
+				Object.assign(tooltip.style, {
+					left: `${opts.fixed.x}px`,
+					top: `${opts.fixed.y}px`
+				});
 				return;
 			}
 
@@ -98,7 +103,11 @@ export default function popover(opts?: PopoverOptions): Popover {
 			tooltip.classList.add('absolute');
 		}
 
-		tooltip.classList.add('hidden', 'transition-opacity', 'duration-300', 'opacity-0');
+		if (opts?.slide) {
+			tooltip.classList.add('transition-[transform,opacity]', 'transform', 'duration-300', 'translate-x-full', 'opacity-0');
+		} else {
+			tooltip.classList.add('hidden', 'transition-opacity', 'duration-300', 'opacity-0');
+		}
 
 		let hasZIndex = false;
 		tooltip.classList.forEach((className) => {
@@ -134,15 +143,23 @@ export default function popover(opts?: PopoverOptions): Popover {
 		let close: (() => void) | null;
 		$effect(() => {
 			if (open) {
-				tooltip.classList.remove('hidden');
 				tick().then(() => {
+					if (opts?.slide) {
+						tooltip.classList.remove('translate-x-full');
+					} else {
+						tooltip.classList.remove('hidden');
+					}
 					tooltip.classList.remove('opacity-0');
 				});
 				updatePosition();
 				close = autoUpdate(ref, tooltip, updatePosition);
 			} else {
 				close?.();
-				tooltip.classList.add('hidden');
+				if (opts?.slide) {
+					tooltip.classList.add('translate-x-full');
+				} else {
+					tooltip.classList.add('hidden');
+				}
 				tooltip.classList.add('opacity-0');
 				close = null;
 			}

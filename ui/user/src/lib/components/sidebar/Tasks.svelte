@@ -5,6 +5,7 @@
 	import { Plus } from 'lucide-svelte/icons';
 	import { onMount } from 'svelte';
 	import TaskItem from './TaskItem.svelte';
+	import { responsive } from '$lib/stores';
 
 	interface Props {
 		project: Project;
@@ -36,6 +37,9 @@
 			layout.tasks = [];
 		}
 		layout.tasks.splice(0, 0, task);
+		if (responsive.isMobile) {
+			layout.sidebarOpen = false;
+		}
 		openTask(layout, task.id);
 	}
 

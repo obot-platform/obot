@@ -2,7 +2,7 @@
 	import { Pencil, X } from 'lucide-svelte';
 	import { getLayout } from '$lib/context/layout.svelte';
 	import { ChatService, EditorService, type Project } from '$lib/services';
-	import { errors } from '$lib/stores';
+	import { errors, responsive } from '$lib/stores';
 	import { goto } from '$app/navigation';
 	import { fade, fly, slide } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';
@@ -52,7 +52,7 @@
 	class={twMerge(
 		'group relative mr-1 flex items-center rounded-full border p-2 text-xs text-gray transition-[background-color] duration-200',
 		layout.projectEditorOpen
-			? 'border-blue bg-blue px-4 text-white'
+			? 'border-blue bg-blue text-white md:px-4'
 			: 'border-surface3 bg-transparent hover:bg-blue hover:px-4 hover:text-white active:bg-blue-700'
 	)}
 	transition:fade
@@ -62,9 +62,9 @@
 	{:else}
 		<Pencil class="h-5 w-5" />
 	{/if}
-	{#if layout.projectEditorOpen}
+	{#if layout.projectEditorOpen && !responsive.isMobile}
 		<span class="ml-1">Exit Editor</span>
-	{:else if hover}
+	{:else if hover && !responsive.isMobile}
 		<span class="flex h-5 items-center" transition:slide={{ axis: 'x' }}>
 			<span class="delay-250 ms-2 inline-block text-nowrap" transition:fly={{ x: 50 }}>
 				Obot Editor

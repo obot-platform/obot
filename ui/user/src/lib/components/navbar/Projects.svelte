@@ -64,7 +64,7 @@
 		toggle();
 	}}
 >
-	<span class="max-w-[100% - 24px] truncate text-md font-semibold text-on-background"
+	<span class="text-md max-w-[100%-24px] truncate font-semibold text-on-background"
 		>{project.name || 'Untitled'}</span
 	>
 	{#if !disabled}

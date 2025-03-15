@@ -46,86 +46,84 @@
 </script>
 
 <div class="relative flex h-full flex-col">
-	{#if layout.fileEditorOpen}
-		{#if layout.items.length > 1 || (!layout.items[0]?.table && !layout.items[0]?.generic)}
-			<div class="relative flex items-center border-b-2 border-surface2 pb-2">
-				<ul class="relative flex flex-1 items-center gap-1 text-center text-sm">
-					{#each layout.items as item (item.id)}
-						<li class="max-w-64 flex-1">
-							<!-- TODO: div with onclick is not accessible, we'll need to update this in the future -->
+	{#if layout.items.length > 1 || (!layout.items[0]?.table && !layout.items[0]?.generic)}
+		<div class="relative flex items-center border-b-2 border-surface2 pb-2 pl-2 md:pl-0">
+			<ul class="relative flex flex-1 items-center gap-1 text-center text-sm">
+				{#each layout.items as item (item.id)}
+					<li class="max-w-64 flex-1">
+						<!-- TODO: div with onclick is not accessible, we'll need to update this in the future -->
+						<div
+							role="none"
+							onclick={() => {
+								EditorService.select(layout.items, item.id);
+							}}
+							class={twMerge(
+								'group relative flex cursor-pointer rounded-lg border-transparent bg-surface1 p-1 hover:bg-surface3',
+								item.selected && 'bg-surface3'
+							)}
+						>
 							<div
-								role="none"
-								onclick={() => {
-									EditorService.select(layout.items, item.id);
-								}}
-								class={twMerge(
-									'group relative flex cursor-pointer rounded-lg border-transparent bg-surface1 p-1 hover:bg-surface3',
-									item.selected && 'bg-surface3'
-								)}
+								class="relative flex w-full items-center justify-between gap-1 [&_svg]:size-4 [&_svg]:min-w-fit"
 							>
-								<div
-									class="relative flex w-full items-center justify-between gap-1 [&_svg]:size-4 [&_svg]:min-w-fit"
+								<span
+									use:overflowToolTip={{
+										placement: 'top-start',
+										tooltipClass: 'min-w-fit break-words',
+										offset: 8
+									}}
+									class="line-clamp-1 break-all p-1">{item.name}</span
 								>
-									<span
-										use:overflowToolTip={{
-											placement: 'top-start',
-											tooltipClass: 'min-w-fit break-words',
-											offset: 8
-										}}
-										class="line-clamp-1 break-all p-1">{item.name}</span
-									>
 
-									<button
-										class="right-0 hidden rounded-lg bg-surface3 p-1 group-hover:block hover:bg-surface2"
-										onclick={() => {
-											EditorService.remove(layout.items, item.id);
-											if (layout.items.length === 0) {
-												layout.fileEditorOpen = false;
-											}
-										}}
-									>
-										<X />
-									</button>
-								</div>
+								<button
+									class="right-0 hidden rounded-lg bg-surface3 p-1 group-hover:block hover:bg-surface2"
+									onclick={() => {
+										EditorService.remove(layout.items, item.id);
+										if (layout.items.length === 0) {
+											layout.fileEditorOpen = false;
+										}
+									}}
+								>
+									<X />
+								</button>
 							</div>
-						</li>
-					{/each}
-				</ul>
+						</div>
+					</li>
+				{/each}
+			</ul>
 
-				<Controls navBar {project} class="bg-background px-2" {currentThreadID} />
-			</div>
-		{/if}
-
-		<div class="relative flex h-full flex-col overflow-hidden">
-			<div class="default-scrollbar-thin relative flex-1">
-				<FileEditors
-					{project}
-					{currentThreadID}
-					{onFileChanged}
-					{onInvoke}
-					bind:items={layout.items}
-				/>
-			</div>
-
-			{#if downloadable}
-				<button
-					class="icon-button absolute right-5 top-5"
-					onclick={() => {
-						const selected = layout.items.find((item) => item.selected);
-						if (selected) {
-							EditorService.download(layout.items, project, selected.name, {
-								taskID: selected.file?.taskID,
-								runID: selected.file?.runID,
-								threadID: selected.file?.threadID
-							});
-						}
-					}}
-				>
-					<Download class="h-5 w-5" />
-				</button>
-			{/if}
+			<Controls navBar {project} class="bg-background px-2" {currentThreadID} />
 		</div>
 	{/if}
+
+	<div class="relative flex h-full flex-col overflow-hidden">
+		<div class="default-scrollbar-thin relative flex-1">
+			<FileEditors
+				{project}
+				{currentThreadID}
+				{onFileChanged}
+				{onInvoke}
+				bind:items={layout.items}
+			/>
+		</div>
+
+		{#if downloadable}
+			<button
+				class="icon-button absolute right-5 top-5"
+				onclick={() => {
+					const selected = layout.items.find((item) => item.selected);
+					if (selected) {
+						EditorService.download(layout.items, project, selected.name, {
+							taskID: selected.file?.taskID,
+							runID: selected.file?.runID,
+							threadID: selected.file?.threadID
+						});
+					}
+				}}
+			>
+				<Download class="h-5 w-5" />
+			</button>
+		{/if}
+	</div>
 	{#if term.open}
 		<div
 			class={layout.fileEditorOpen

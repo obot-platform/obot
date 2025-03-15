@@ -6,6 +6,8 @@
 
 	interface Props {
 		classes?: {
+			container?: string;
+			dialog?: string;
 			button?: string;
 		};
 		onLoad?: () => void | Promise<void>;
@@ -16,6 +18,8 @@
 		header?: Snippet;
 		title: string;
 		description?: string;
+		slide?: boolean;
+		fixed?: { x: number; y: number };
 	}
 
 	let {
@@ -27,11 +31,15 @@
 		description,
 		show,
 		classes,
-		showRefresh = true
+		showRefresh = true,
+		slide,
+		fixed
 	}: Props = $props();
 	let loading = $state(false);
 	const { ref, tooltip, toggle } = popover({
-		placement: 'bottom'
+		placement: 'bottom',
+		slide,
+		fixed
 	});
 
 	$effect(() => {
@@ -77,9 +85,12 @@
 	{@render icon()}
 </button>
 
-<div use:tooltip class="z-30 w-screen px-2 md:w-96">
+<div use:tooltip class={twMerge('z-30 w-screen px-2 md:w-96', classes?.container)}>
 	<div
-		class="default-dialog flex w-full flex-col divide-y divide-gray-200 p-6 dark:divide-gray-700"
+		class={twMerge(
+			'default-dialog flex w-full flex-col divide-y divide-gray-200 p-6 dark:divide-gray-700',
+			classes?.dialog
+		)}
 	>
 		<div class="mb-4">
 			{#if header}

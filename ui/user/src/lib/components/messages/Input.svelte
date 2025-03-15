@@ -121,7 +121,7 @@
 				onkeydown={onKey}
 				bind:this={chat}
 				onfocus={onFocus}
-				class="grow resize-none rounded-xl border-none bg-surface1 p-3 pr-20 outline-none"
+				class="text-md grow resize-none rounded-xl border-none bg-surface1 p-3 pr-20 outline-none"
 				{placeholder}
 			></textarea>
 			{#if !children}

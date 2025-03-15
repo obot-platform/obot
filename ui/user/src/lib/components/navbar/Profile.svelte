@@ -1,12 +1,20 @@
 <script lang="ts">
 	import ProfileIcon from '$lib/components/profile/ProfileIcon.svelte';
-	import { profile } from '$lib/stores';
+	import { profile, responsive } from '$lib/stores';
 	import Menu from '$lib/components/navbar/Menu.svelte';
 	import { Moon, Sun } from 'lucide-svelte/icons';
 	import { darkMode } from '$lib/stores';
 </script>
 
-<Menu title={profile.current.getDisplayName?.() || 'Anonymous'}>
+<Menu
+	title={profile.current.getDisplayName?.() || 'Anonymous'}
+	slide={responsive.isMobile}
+	fixed={responsive.isMobile ? { x: 0, y: 64 } : undefined}
+	classes={{
+		container: responsive.isMobile ? '!rounded-none w-screen h-[calc(100vh-64px)] !p-0' : undefined,
+		dialog: responsive.isMobile ? '!rounded-none w-full h-full' : undefined
+	}}
+>
 	{#snippet icon()}
 		<ProfileIcon />
 	{/snippet}
@@ -37,6 +45,28 @@
 				<a href="/admin/" rel="external" role="menuitem" class="icon-button" style="color: #f87171;"
 					>Admin</a
 				>
+			{/if}
+			{#if responsive.isMobile}
+				<a href="https://docs.obot.ai" rel="external" target="_blank" class="icon-button">Docs</a>
+				<a href="https://discord.gg/9sSf4UyAMC" rel="external" target="_blank" class="icon-button">
+					{#if darkMode.isDark}
+						<img src="/user/images/discord-mark/discord-mark-white.svg" alt="Discord" class="h-6" />
+					{:else}
+						<img src="/user/images/discord-mark/discord-mark.svg" alt="Discord" class="h-6" />
+					{/if}
+				</a>
+				<a
+					href="https://github.com/obot-platform/obot"
+					rel="external"
+					target="_blank"
+					class="icon-button"
+				>
+					{#if darkMode.isDark}
+						<img src="/user/images/github-mark/github-mark-white.svg" alt="GitHub" class="h-6" />
+					{:else}
+						<img src="/user/images/github-mark/github-mark.svg" alt="GitHub" class="h-6" />
+					{/if}
+				</a>
 			{/if}
 			{#if profile.current.email}
 				<a href="/oauth2/sign_out?rd=/" rel="external" role="menuitem" class="icon-button"

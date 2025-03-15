@@ -16,17 +16,21 @@
 {:else if msg.icon === 'Assistant'}
 	<!-- Nothing -->
 {:else}
-	<div class="mr-3">
+	<div>
 		{#if msg.icon === 'Pencil'}
-			<Pencil class="h-8 w-8" />
+			<Pencil class="size-4 md:size-6" />
 		{:else if msg.icon === 'Assistant'}
 			<!-- Nothing -->
 		{:else if msg.icon === 'Profile'}
 			<ProfileIcon />
 		{:else if msg.icon === 'Error'}
-			<AlertCircle class="h-8 w-8 text-red-500" />
+			<AlertCircle class="size-4 text-red-500 md:size-6" />
 		{:else}
-			<img class="h-8 w-8 rounded-md bg-gray-100 p-1 text-blue" src={msg.icon} alt="message icon" />
+			<img
+				class="size-4 rounded-md bg-gray-100 p-1 text-blue md:size-6"
+				src={msg.icon}
+				alt="message icon"
+			/>
 		{/if}
 	</div>
 {/if}

@@ -5,7 +5,7 @@
 	import Obot from '$lib/components/Obot.svelte';
 	import { initLayout } from '$lib/context/layout.svelte';
 	import { initToolReferences } from '$lib/context/toolReferences.svelte';
-	import { profile } from '$lib/stores';
+	import { profile, responsive } from '$lib/stores';
 
 	let { data } = $props();
 	let project = $state(data.project);
@@ -19,7 +19,7 @@
 	initToolReferences(data.toolReferences ?? []);
 
 	initLayout({
-		sidebarOpen: true,
+		sidebarOpen: responsive.isMobile ? false : true,
 		// typeof window !== 'undefined' && new URL(window.location.href).searchParams.has('sidebar'),
 		projectEditorOpen:
 			typeof window !== 'undefined' && new URL(window.location.href).searchParams.has('edit'),

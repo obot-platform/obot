@@ -7,6 +7,7 @@
 	import { type Task, type Thread, type Project } from '$lib/services';
 	import { twMerge } from 'tailwind-merge';
 	import { ChatService } from '$lib/services';
+	import { responsive } from '$lib/stores';
 
 	interface Props {
 		task: Task;
@@ -75,6 +76,9 @@
 				<button
 					class="menu-button"
 					onclick={async () => {
+						if (responsive.isMobile) {
+							layout.sidebarOpen = false;
+						}
 						openTask(layout, task.id);
 					}}
 				>

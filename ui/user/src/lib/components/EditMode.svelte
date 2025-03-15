@@ -13,7 +13,7 @@
 	import { columnResize } from '$lib/actions/resize';
 	import Obot from '$lib/components/Obot.svelte';
 	import { getLayout } from '$lib/context/layout.svelte';
-	import { slide } from 'svelte/transition';
+	import { slide, fade } from 'svelte/transition';
 	import Files from '$lib/components/edit/Files.svelte';
 	import Tasks from '$lib/components/edit/Tasks.svelte';
 	import Profile from './navbar/Profile.svelte';
@@ -21,7 +21,8 @@
 	import Projects from './navbar/Projects.svelte';
 	import { goto } from '$app/navigation';
 	import Sites from '$lib/components/edit/Sites.svelte';
-
+	import { responsive } from '$lib/stores';
+	import { twMerge } from 'tailwind-merge';
 	interface Props {
 		project: Project;
 		tools: AssistantTool[];
@@ -85,32 +86,39 @@
 	{#if layout.projectEditorOpen}
 		<!-- Header -->
 		<div
-			class="relative z-40 flex h-16 w-full items-center justify-between bg-surface1 p-3 shadow-md"
+			class="relative z-40 flex h-16 w-full items-center justify-between gap-4 bg-surface1 p-3 shadow-md md:gap-8"
 			transition:slide
 		>
-			<div class="flex items-center gap-2">
+			<div class="flex flex-shrink-0 items-center gap-2">
 				<a href="/home"><img src="/user/images/obot-icon-blue.svg" class="h-8" alt="Obot icon" /></a
 				>
-				<h1 class="text-xl font-semibold">Obot Editor</h1>
+				{#if !responsive.isMobile}
+					<h1 class="text-xl font-semibold">Obot Editor</h1>
+				{/if}
 			</div>
-			<div class="ml-8 flex grow items-center gap-2">
+			<div class="flex grow items-center justify-between gap-2">
 				<p class="text-sm text-gray">Editing:</p>
-				<div class="relative flex grow">
+				<div class="relative flex max-w-[50vw] grow md:max-w-none">
 					<Projects
 						{project}
 						onlyEditable={true}
 						classes={{
 							button: 'bg-white dark:bg-black hover:bg-surface2 shadow-inner px-4',
-							tooltip:
-								'h-fit default-dialog rounded-b-lg shadow-inner -translate-y-1 max-h-[80vh] overflow-y-auto default-scrollbar-thin'
+							tooltip: twMerge(
+								'h-fit w-screen md:w-full default-dialog shadow-inner -translate-y-1 max-h-[80vh] overflow-y-auto default-scrollbar-thin',
+								responsive.isMobile &&
+									'!rounded-none !h-[calc(100vh-64px)] !-translate-x-[4px] !max-h-[calc(100vh-64px)] !translate-y-2'
+							)
 						}}
 					/>
 				</div>
 				<EditorToggle {project} />
 			</div>
-			<div class="flex items-center">
-				<Profile />
-			</div>
+			{#if !responsive.isMobile}
+				<div class="flex items-center">
+					<Profile />
+				</div>
+			{/if}
 		</div>
 	{/if}
 
@@ -119,8 +127,8 @@
 			<!-- Left Nav -->
 			<div
 				bind:this={nav}
-				class="inset-shadow-sm flex h-full w-1/4 min-w-[320px] flex-col overflow-hidden"
-				transition:slide={{ axis: 'x' }}
+				class="inset-shadow-sm flex h-full w-screen flex-col overflow-hidden md:w-1/4 md:min-w-[320px]"
+				transition:slide={responsive.isMobile ? { axis: 'y' } : { axis: 'x' }}
 			>
 				<div class="default-scrollbar-thin flex grow flex-col">
 					<General bind:project />
@@ -152,15 +160,18 @@
 					</button>
 				</div>
 			</div>
-			<div
-				role="none"
-				class="w-2 translate-x-2 cursor-col-resize"
-				use:columnResize={{ column: nav }}
-			></div>
+			{#if !responsive.isMobile}
+				<div
+					role="none"
+					class="w-2 translate-x-2 cursor-col-resize"
+					use:columnResize={{ column: nav }}
+				></div>
+			{/if}
 		{/if}
 		<div
 			class="colors-surface3 h-full grow rounded-l-3xl border-r-0 p-2"
 			class:contents={!layout.projectEditorOpen}
+			class:hidden={layout.projectEditorOpen && responsive.isMobile}
 		>
 			<div
 				class="size-full overflow-clip rounded-2xl transition-all"
