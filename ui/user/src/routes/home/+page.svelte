@@ -162,11 +162,11 @@
 	{/snippet}
 
 	<main
-		class="colors-background relative flex w-full max-w-screen-2xl flex-col justify-center px-4 pb-12 md:px-12"
+		class="colors-background relative flex w-full max-w-screen-2xl flex-col justify-center pb-12"
 	>
 		<div class="mt-8 flex w-full flex-col gap-8">
 			{#if featured.length > 0}
-				<div class="flex w-full flex-col gap-4">
+				<div class="flex w-full flex-col gap-4 px-4 md:px-12">
 					<h3 class="text-2xl font-semibold">Featured</h3>
 					<div class="featured-card-layout">
 						{#each featured as featuredShare}
@@ -177,7 +177,7 @@
 			{/if}
 
 			{#if recentlyUsedProjects.length > 0}
-				<div class="flex w-full flex-col gap-4">
+				<div class="flex w-full flex-col gap-4 px-4 md:px-12">
 					<h3 class="text-2xl font-semibold">Recently Used</h3>
 					<div class="card-layout">
 						{#each recentlyUsedProjects as project}
@@ -188,9 +188,7 @@
 			{/if}
 
 			<div class="flex w-full flex-col gap-4">
-				<div
-					class="sticky top-0 z-50 flex items-center gap-4 bg-white py-4 after:absolute after:-left-12 after:-z-10 after:h-[72px] after:w-[100vw] after:bg-white after:content-[''] dark:bg-black after:dark:bg-black"
-				>
+				<div class="sticky top-0 z-50 flex items-center gap-4 bg-white px-4 py-4 md:px-12">
 					<h3 class="text-2xl font-semibold">My Obots</h3>
 					<button
 						class="button flex items-center gap-1 text-xs font-medium"
@@ -200,7 +198,7 @@
 						<span>Create New Obot</span>
 					</button>
 				</div>
-				<div class="card-layout">
+				<div class="card-layout px-4 md:px-12">
 					{#each userProjects as project}
 						{@render projectCard(project)}
 					{/each}
