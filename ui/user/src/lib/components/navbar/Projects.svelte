@@ -25,8 +25,31 @@
 		classes,
 		onlyEditable
 	}: Props = $props();
+
 	let projects = $state<Project[]>([]);
+	let recentlyUsedLimit = $state(10);
+	let myObotsLimit = $state(10);
 	let open = $state(false);
+
+	let recentlyUsed = $derived(
+		projects.length === 0
+			? []
+			: onlyEditable
+				? []
+				: projects
+						.filter((p) => p.editor === false)
+						.sort((a, b) => new Date(b.created).getTime() - new Date(a.created).getTime())
+	);
+
+	let myObots = $derived(
+		projects.length === 0
+			? []
+			: onlyEditable
+				? projects
+				: projects
+						.filter((p) => p.editor === true)
+						.sort((a, b) => new Date(b.created).getTime() - new Date(a.created).getTime())
+	);
 
 	let { ref, tooltip, toggle } = popover({
 		placement: 'bottom-start',
@@ -42,6 +65,14 @@
 			await goto(`/o/${project.id}?edit`);
 		} catch (error) {
 			errors.append((error as Error).message);
+		}
+	}
+
+	function loadMore(category: 'recent' | 'myObots') {
+		if (category === 'recent') {
+			recentlyUsedLimit += 10;
+		} else {
+			myObotsLimit += 10;
 		}
 	}
 </script>
@@ -74,7 +105,7 @@
 	{/if}
 </button>
 
-{#if !disabled}
+{#if open}
 	<div
 		use:tooltip
 		class={twMerge('flex h-full w-full flex-col p-2', classes?.tooltip)}
@@ -83,29 +114,33 @@
 	>
 		{#if onlyEditable}
 			<button class="button mb-2" onclick={() => createNew()}>Create New Obot</button>
-		{/if}
-		{#each projects as p}
-			<a
-				href="/o/{p.id}?sidebar=true{onlyEditable ? '&edit' : ''}"
-				rel="external"
-				class="flex items-center gap-2 rounded-3xl p-2 hover:bg-surface3"
-			>
-				<AssistantIcon project={p} class="flex-shrink-0" />
-				<div class="flex grow flex-col">
-					<span class="text-sm font-semibold text-on-background">{p.name || 'Untitled'}</span>
-					{#if p.description}
-						<span class="line-clamp-1 text-xs font-light text-on-background">{p.description}</span>
-					{/if}
+
+			{#each myObots.slice(0, myObotsLimit) as p}
+				{@render ProjectItem(p, true)}
+			{/each}
+			{@render LoadMoreButton(myObots.length, myObotsLimit, 'myObots')}
+		{:else}
+			{#if recentlyUsed.length > 0}
+				<div class="flex flex-col">
+					<h3 class="mb-1 px-2 text-sm font-semibold">Recently Used</h3>
+					{#each recentlyUsed.slice(0, recentlyUsedLimit) as p}
+						{@render ProjectItem(p)}
+					{/each}
+					{@render LoadMoreButton(recentlyUsed.length, recentlyUsedLimit, 'recent')}
 				</div>
-				{#if p.id === project.id}
-					<Check class="mr-2 h-5 w-5 flex-shrink-0 text-gray" />
-				{/if}
-			</a>
-		{/each}
-		{#if !onlyEditable}
+			{/if}
+
+			<div class="mt-3 flex flex-col">
+				<h3 class="mb-1 px-2 text-sm font-semibold">My Obots</h3>
+				{#each myObots.slice(0, myObotsLimit) as p}
+					{@render ProjectItem(p)}
+				{/each}
+				{@render LoadMoreButton(myObots.length, myObotsLimit, 'myObots')}
+			</div>
+
 			<a
 				href="/home"
-				class="flex items-center justify-center gap-2 rounded-xl px-2 py-4 text-gray hover:bg-surface3"
+				class="mt-3 flex items-center justify-center gap-2 rounded-xl px-2 py-4 text-gray hover:bg-surface3"
 			>
 				<img src="/user/images/obot-icon-blue.svg" class="h-5" alt="Obot icon" />
 				<span class="text-sm text-gray">See All Obots</span>
@@ -113,3 +148,36 @@
 		{/if}
 	</div>
 {/if}
+
+{#snippet ProjectItem(p: Project, isEditable = false)}
+	<a
+		href="/o/{p.id}?sidebar=true{isEditable ? '&edit' : ''}"
+		rel="external"
+		class="flex items-center gap-2 rounded-3xl p-2 hover:bg-surface3"
+	>
+		<AssistantIcon project={p} class="flex-shrink-0" />
+		<div class="flex grow flex-col">
+			<span class="text-sm font-semibold text-on-background">{p.name || 'Untitled'}</span>
+			{#if p.description}
+				<span class="line-clamp-1 text-xs font-light text-on-background">{p.description}</span>
+			{/if}
+		</div>
+		{#if p.id === project.id}
+			<Check class="mr-2 h-5 w-5 flex-shrink-0 text-gray" />
+		{/if}
+	</a>
+{/snippet}
+
+{#snippet LoadMoreButton(totalLength: number, limit: number, category: 'recent' | 'myObots')}
+	{#if totalLength > limit}
+		<button
+			class="mt-1 w-full rounded py-1 text-sm text-blue-500 hover:bg-surface2"
+			onclick={(e) => {
+				e.stopPropagation();
+				loadMore(category);
+			}}
+		>
+			Load 10 more
+		</button>
+	{/if}
+{/snippet}
