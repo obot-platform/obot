@@ -71,7 +71,7 @@
 				{task.name ?? ''}
 			</div>
 		</div>
-		<DotDotDot class="p-0 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
+		<DotDotDot class="p-0 transition-opacity duration-200 group-hover:opacity-100 md:opacity-0">
 			<div class="default-dialog flex min-w-40 flex-col p-2">
 				<button
 					class="menu-button"

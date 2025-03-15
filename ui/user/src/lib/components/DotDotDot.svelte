@@ -3,6 +3,7 @@
 	import { EllipsisVertical } from 'lucide-svelte';
 	import { popover } from '$lib/actions';
 	import type { Placement } from '@floating-ui/dom';
+	import { responsive } from '$lib/stores';
 
 	interface Props {
 		children: Snippet;
@@ -20,7 +21,9 @@
 		onClick
 	}: Props = $props();
 	const { tooltip, ref, toggle } = popover({
-		placement
+		placement,
+		fixed: responsive.isMobile ? true : undefined,
+		slide: responsive.isMobile ? 'up' : undefined
 	});
 </script>
 
@@ -46,6 +49,7 @@
 		e.preventDefault();
 		toggle();
 	}}
+	class={responsive.isMobile ? 'bottom-0 left-0 w-full' : ''}
 >
 	{@render children()}
 </div>

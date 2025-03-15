@@ -252,7 +252,7 @@
 						</button>
 					{:else}
 						<DotDotDot
-							class="p-0 pr-2 opacity-0 transition-opacity duration-200 group-hover:opacity-100"
+							class="p-0 pr-2 transition-opacity duration-200 group-hover:opacity-100 md:opacity-0"
 						>
 							<div class="default-dialog flex min-w-max flex-col p-2">
 								<button
