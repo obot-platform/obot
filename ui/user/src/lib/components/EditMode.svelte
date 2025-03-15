@@ -13,7 +13,7 @@
 	import { columnResize } from '$lib/actions/resize';
 	import Obot from '$lib/components/Obot.svelte';
 	import { getLayout } from '$lib/context/layout.svelte';
-	import { slide, fade } from 'svelte/transition';
+	import { slide } from 'svelte/transition';
 	import Files from '$lib/components/edit/Files.svelte';
 	import Tasks from '$lib/components/edit/Tasks.svelte';
 	import Profile from './navbar/Profile.svelte';
