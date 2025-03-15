@@ -18,6 +18,7 @@
 		type Thread
 	} from '$lib/services';
 	import type { EditorItem } from '$lib/services/editor/index.svelte';
+	import { responsive } from '$lib/stores';
 	import { Download, Image } from 'lucide-svelte';
 	import { FileText, Trash, Upload, X } from 'lucide-svelte/icons';
 	import { onMount } from 'svelte';
@@ -210,8 +211,13 @@
 		description="Edited content available to AI."
 		onLoad={loadFiles}
 		classes={{
-			button: primary ? 'button-icon-primary' : ''
+			button: primary ? 'button-icon-primary' : '',
+			dialog: responsive.isMobile
+				? 'rounded-none max-h-[calc(100vh-64px)] left-0 bottom-0 w-full'
+				: ''
 		}}
+		slide={responsive.isMobile ? 'up' : undefined}
+		fixed={responsive.isMobile}
 	>
 		{#snippet icon()}
 			<FileText class="h-5 w-5" />

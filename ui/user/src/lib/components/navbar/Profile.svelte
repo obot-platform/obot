@@ -4,15 +4,19 @@
 	import Menu from '$lib/components/navbar/Menu.svelte';
 	import { Moon, Sun } from 'lucide-svelte/icons';
 	import { darkMode } from '$lib/stores';
+	import { twMerge } from 'tailwind-merge';
 </script>
 
 <Menu
 	title={profile.current.getDisplayName?.() || 'Anonymous'}
-	slide={responsive.isMobile}
-	fixed={responsive.isMobile ? { x: 0, y: 64 } : undefined}
+	slide={responsive.isMobile ? 'left' : undefined}
+	fixed={responsive.isMobile}
 	classes={{
-		container: responsive.isMobile ? '!rounded-none w-screen h-[calc(100vh-64px)] !p-0' : undefined,
-		dialog: responsive.isMobile ? '!rounded-none w-full h-full' : undefined
+		dialog: twMerge(
+			'px-4',
+			responsive.isMobile &&
+				'rounded-none h-[calc(100vh-64px)] p-4 left-0 top-[64px] !rounded-none w-full h-full'
+		)
 	}}
 >
 	{#snippet icon()}

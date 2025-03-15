@@ -41,7 +41,7 @@
 		Object.values(toolSelection).filter((t) => t.enabled).length > maxTools
 	);
 
-	let catalog = popover({ fixed: { x: 0, y: 0 } });
+	let catalog = popover({ fixed: true, slide: responsive.isMobile ? 'up' : undefined });
 
 	function setToolEnabled(toolId: string, val?: boolean) {
 		if (toolId in toolSelection) {
@@ -123,7 +123,7 @@
 
 <div
 	use:catalog.tooltip
-	class="default-dialog !top-1/2 flex min-h-[500px] w-full -translate-y-1/2 flex-col p-2 md:!left-1/2 md:!top-[15%] md:w-[500px] md:!-translate-x-1/2 md:!translate-y-0"
+	class="default-dialog bottom-0 left-0 w-full p-2 md:bottom-1/2 md:left-1/2 md:w-auto md:-translate-x-1/2 md:translate-y-1/2"
 >
 	<div class="flex w-full items-center justify-between">
 		<div class="flex grow rounded-t-lg p-2">
@@ -135,17 +135,9 @@
 				bind:value={search}
 			/>
 		</div>
-		{#if responsive.isMobile}
-			<button onclick={() => catalog.toggle(false)} class="icon-button"><X class="size-4" /></button
-			>
-		{/if}
 	</div>
 
-	<p class={twMerge('text-center text-sm text-red-500', !maxExceeded && 'invisible')}>
-		Maximum number of tools exceeded for this Assistant. (Max: {maxTools})
-	</p>
-
-	<div class="default-scrollbar-thin flex max-h-[50vh] grow flex-col p-3">
+	<div class="default-scrollbar-thin flex max-h-[50vh] grow flex-col">
 		{#each Array.from(bundleMap.values()).sort( (a, b) => a.tool.name.localeCompare(b.tool.name) ) as { tool, bundleTools }}
 			{@const hasBundle = tool.id in toolSelection}
 			{@const visibleBundleTools = bundleTools
@@ -158,7 +150,7 @@
 			{#if visibleBundleTools.length || shouldShowTool(toolSelection[tool.id])}
 				<CollapsePane
 					showDropdown={visibleBundleTools.length > 0}
-					classes={{ header: 'py-0', content: 'border-none py-0 px-7' }}
+					classes={{ header: 'py-0 pl-0 pr-3', content: 'border-none py-0 px-7' }}
 				>
 					{#each visibleBundleTools as subTool (subTool.id)}
 						{@render toolItem(subTool)}
@@ -220,7 +212,10 @@
 		{/each}
 	</div>
 
-	<div class="flex justify-end gap-2 p-2">
+	<div class="flex justify-between gap-2 p-2">
+		<p class={twMerge('max-w-72 text-left text-sm text-red-500', !maxExceeded && 'invisible')}>
+			Maximum number of tools exceeded for this Assistant. (Max: {maxTools})
+		</p>
 		<button onclick={handleSubmit} disabled={maxExceeded} class="button">Apply</button>
 	</div>
 </div>

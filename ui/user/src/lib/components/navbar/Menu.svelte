@@ -6,7 +6,6 @@
 
 	interface Props {
 		classes?: {
-			container?: string;
 			dialog?: string;
 			button?: string;
 		};
@@ -18,8 +17,8 @@
 		header?: Snippet;
 		title: string;
 		description?: string;
-		slide?: boolean;
-		fixed?: { x: number; y: number };
+		slide?: 'left' | 'up';
+		fixed?: boolean;
 	}
 
 	let {
@@ -85,30 +84,29 @@
 	{@render icon()}
 </button>
 
-<div use:tooltip class={twMerge('z-30 w-screen px-2 md:w-96', classes?.container)}>
-	<div
-		class={twMerge(
-			'default-dialog flex w-full flex-col divide-y divide-gray-200 p-6 dark:divide-gray-700',
-			classes?.dialog
-		)}
-	>
-		<div class="mb-4">
-			{#if header}
-				{@render header()}
-			{:else}
-				<div class="flex justify-between">
-					{title}
-					{#if onLoad && showRefresh}
-						<button onclick={load}>
-							<RotateCw class="h-4 w-4 {loading ? 'animate-spin' : ''}" />
-						</button>
-					{/if}
-				</div>
-			{/if}
-			{#if description}
-				<p class="mt-1 text-xs font-normal text-gray-700 dark:text-gray-300">{description}</p>
-			{/if}
-		</div>
-		{@render body()}
+<div
+	use:tooltip
+	class={twMerge(
+		'default-dialog z-30 flex w-screen flex-col divide-y divide-gray-200 p-6 dark:divide-gray-700 md:w-96',
+		classes?.dialog
+	)}
+>
+	<div class="mb-4">
+		{#if header}
+			{@render header()}
+		{:else}
+			<div class="flex justify-between">
+				{title}
+				{#if onLoad && showRefresh}
+					<button onclick={load}>
+						<RotateCw class="h-4 w-4 {loading ? 'animate-spin' : ''}" />
+					</button>
+				{/if}
+			</div>
+		{/if}
+		{#if description}
+			<p class="mt-1 text-xs font-normal text-gray-700 dark:text-gray-300">{description}</p>
+		{/if}
 	</div>
+	{@render body()}
 </div>

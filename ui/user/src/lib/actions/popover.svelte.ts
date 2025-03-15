@@ -22,10 +22,10 @@ interface PopoverOptions extends Partial<ComputePositionConfig> {
 	assign?: (x: number, y: number) => void;
 	offset?: number;
 	placement?: Placement;
-	fixed?: { x: number; y: number };
+	fixed?: boolean;
 	delay?: number;
 	onOpenChange?: (open: boolean) => void;
-	slide?: boolean;
+	slide?: 'left' | 'up';
 }
 
 let id = 0;
@@ -50,10 +50,6 @@ export default function popover(opts?: PopoverOptions): Popover {
 
 		async function updatePosition() {
 			if (opts?.fixed) {
-				Object.assign(tooltip.style, {
-					left: `${opts.fixed.x}px`,
-					top: `${opts.fixed.y}px`
-				});
 				return;
 			}
 
@@ -108,7 +104,7 @@ export default function popover(opts?: PopoverOptions): Popover {
 				'transition-[transform,opacity]',
 				'transform',
 				'duration-300',
-				'translate-x-full',
+				opts.slide === 'left' ? 'translate-x-full' : 'translate-y-full',
 				'opacity-0'
 			);
 		} else {
@@ -151,7 +147,9 @@ export default function popover(opts?: PopoverOptions): Popover {
 			if (open) {
 				tick().then(() => {
 					if (opts?.slide) {
-						tooltip.classList.remove('translate-x-full');
+						tooltip.classList.remove(
+							opts.slide === 'left' ? 'translate-x-full' : 'translate-y-full'
+						);
 					} else {
 						tooltip.classList.remove('hidden');
 					}
@@ -162,7 +160,7 @@ export default function popover(opts?: PopoverOptions): Popover {
 			} else {
 				close?.();
 				if (opts?.slide) {
-					tooltip.classList.add('translate-x-full');
+					tooltip.classList.add(opts.slide === 'left' ? 'translate-x-full' : 'translate-y-full');
 				} else {
 					tooltip.classList.add('hidden');
 				}

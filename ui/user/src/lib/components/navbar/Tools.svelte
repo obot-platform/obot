@@ -11,6 +11,7 @@
 	import Menu from '$lib/components/navbar/Menu.svelte';
 	import { PenBox } from 'lucide-svelte';
 	import { getLayout } from '$lib/context/layout.svelte';
+	import { responsive } from '$lib/stores';
 
 	interface Prop {
 		project: Project;
@@ -47,8 +48,13 @@
 	showRefresh={false}
 	{onLoad}
 	classes={{
-		button: 'button-icon-primary'
+		button: 'button-icon-primary',
+		dialog: responsive.isMobile
+			? 'rounded-none max-h-[calc(100vh-64px)] left-0 bottom-0 w-full'
+			: ''
 	}}
+	slide={responsive.isMobile ? 'up' : undefined}
+	fixed={responsive.isMobile}
 >
 	{#snippet icon()}
 		<Wrench class="h-5 w-5" />
