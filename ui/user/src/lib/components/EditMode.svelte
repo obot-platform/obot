@@ -112,13 +112,13 @@
 						}}
 					/>
 				</div>
-				<EditorToggle {project} />
 			</div>
-			{#if !responsive.isMobile}
-				<div class="flex items-center">
+			<div class="flex items-center">
+				<EditorToggle {project} />
+				{#if !responsive.isMobile}
 					<Profile />
-				</div>
-			{/if}
+				{/if}
+			</div>
 		</div>
 	{/if}
 

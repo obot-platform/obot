@@ -120,10 +120,10 @@
 <div class="relative w-full max-w-[900px] pb-32">
 	<!-- Fade text in/out on scroll -->
 	<div
-		class="absolute inset-x-0 top-0 z-30 h-14 w-full bg-gradient-to-b from-white dark:from-black"
+		class="absolute inset-x-0 top-0 z-20 h-14 w-full bg-gradient-to-b from-white dark:from-black"
 	></div>
 	<div
-		class="absolute inset-x-0 bottom-40 z-30 h-14 w-full bg-gradient-to-t from-white dark:from-black"
+		class="absolute inset-x-0 bottom-40 z-20 h-14 w-full bg-gradient-to-t from-white dark:from-black"
 	></div>
 
 	<div
@@ -187,7 +187,7 @@
 				<!-- Vertical Spacer -->
 			</div>
 		</div>
-		<div class="absolute inset-x-0 bottom-0 z-30 flex justify-center py-8">
+		<div class="absolute inset-x-0 bottom-0 z-20 flex justify-center py-4 md:py-8">
 			<div class="w-full max-w-[1000px]">
 				<Input
 					readonly={messages.inProgress}
