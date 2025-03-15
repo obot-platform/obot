@@ -84,7 +84,7 @@ body {
 
 .default-dialog,
 dialog {
-	@apply rounded-xl border-[1px] border-surface3 bg-white text-sm text-black shadow-lg dark:bg-surface2 dark:text-white;
+	@apply default-scrollbar-thin max-h-[80vh] rounded-xl border-[1px] border-surface3 bg-white text-sm text-black shadow-lg dark:bg-surface2 dark:text-white;
 }
 
 dialog::backdrop {
@@ -193,11 +193,6 @@ li:has(input[type='checkbox'])::marker {
 
 .tooltip {
 	@apply rounded-lg border border-surface3 bg-surface2 p-2 text-sm font-light shadow-sm;
-}
-
-.default-dialog,
-dialog {
-	@apply rounded-xl border-[1px] border-surface3 bg-white text-sm text-black shadow-lg dark:bg-surface2 dark:text-white;
 }
 
 .menu-button {

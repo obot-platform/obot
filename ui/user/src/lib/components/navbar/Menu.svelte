@@ -78,10 +78,8 @@
 </button>
 
 <div use:tooltip class="z-30 w-screen px-2 md:w-96">
-	<div
-		class="default-dialog flex w-full flex-col divide-y divide-gray-200 p-6 dark:divide-gray-700"
-	>
-		<div class="mb-4">
+	<div class="default-dialog flex w-full flex-col divide-y divide-gray-200 dark:divide-gray-700">
+		<div class="mb-4 px-6 pt-6">
 			{#if header}
 				{@render header()}
 			{:else}
@@ -98,6 +96,8 @@
 				<p class="mt-1 text-xs font-normal text-gray-700 dark:text-gray-300">{description}</p>
 			{/if}
 		</div>
-		{@render body()}
+		<div class="default-scrollbar-thin px-6 pb-6">
+			{@render body()}
+		</div>
 	</div>
 </div>
