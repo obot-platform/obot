@@ -139,11 +139,11 @@
 	</p>
 
 	<div class="default-scrollbar-thin flex max-h-[50vh] grow flex-col p-3">
-		{#each bundleMap.values() as { tool, bundleTools }}
+		{#each Array.from(bundleMap.values()).sort( (a, b) => a.tool.name.localeCompare(b.tool.name) ) as { tool, bundleTools }}
 			{@const hasBundle = tool.id in toolSelection}
-			{@const visibleBundleTools = bundleTools.filter(
-				(t) => t.id in toolSelection && shouldShowTool(toolSelection[t.id])
-			)}
+			{@const visibleBundleTools = bundleTools
+				.filter((t) => t.id in toolSelection && shouldShowTool(toolSelection[t.id]))
+				.sort((a, b) => a.name.localeCompare(b.name))}
 			{@const selectedSubtools = bundleTools.filter(
 				(t) => t.id in toolSelection && toolSelection[t.id].enabled
 			).length}
