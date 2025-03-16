@@ -28,6 +28,7 @@ const sidebars = {
       label: "Self Hosted",
       items: [
         "installation/Installation",
+        "installation/Quickstart",
         {
           type: "category",
           label: "Configuration",

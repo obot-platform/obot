@@ -1,22 +1,23 @@
 # Configure the GitHub CI Failure Notifier Obot
 
-The GitHub CI Failure Notifier Obot is an obot that sends a message to a Slack workspace when a GitHub Actions job fails.
+The **GitHub CI Failure Notifier Obot** is an obot that sends a message to a Slack workspace when a GitHub Actions job fails.
 
 ## Prerequisites
 
-- A GitHub repo that runs GitHub Actions jobs
-- A Slack workspace with the Obot Slack integration installed
+- A GitHub repository that runs GitHub Actions jobs  
+- A Slack workspace with the Obot Slack integration installed  
 
 ## Configuration
 
-### 1. Create a task on the obot
+### 1. Create a Task on the Obot
 
-In the Obot UI, open the side panel for your obot and click the `+` icon next to "Tasks".
-Set a name and description for the task.
+In the **Obot Editor**, open the obot you are configuring, and in the **Tasks** section on the left sidebar, click the `+` icon to add a new task.  
 
-Then, configure the following four steps on the task:
+- Set a **Name** and **Description** for the task.  
 
-```
+Then, configure the following four steps within the task:
+
+```text
 1. If the action field is not "completed", call the abort task tool. Otherwise, say "pipeline completed".
 
 2. Look at the steps. If none of the steps have status "failure", call the abort task tool. Otherwise, say "at least one step failed".
@@ -26,29 +27,42 @@ Then, configure the following four steps on the task:
 4. Send a Slack message to [person name or channel name] with details about the name of the repo, the job, the failed step(s), and the HTML URL in your message. Use plaintext (not Markdown). Also include your analysis about what went wrong.
 ```
 
-:::important
-Be sure to set the `[person name or channel name]` to the name of the Slack channel or user that you want to send the message to.
-:::
+> **Important:** Be sure to replace `[person name or channel name]` with the actual Slack channel or user where you want the message sent.
 
-Select "On Webhook" for the trigger. This will display the webhook URL that we will need for the next step.
+Set the **Trigger** to `On Webhook`. This will generate a webhook URL that you will use in the next step.
 
-### 2. Configure the GitHub webhook
+### 2. Configure the GitHub Webhook
 
-In your GitHub repo, go to Settings -> Webhooks. Click on the "Add webhook" button. Configure the following things on the webhook:
+In your GitHub repository:
 
-- Payload URL: the webhook URL that we got from the previous step.
-- Content type: application/json
-- Secret: leave blank
-- Which events would you like to trigger this webhook?: Let me select individual events.
-    - Select the following events:
-        - Workflow jobs
-    - Also be sure to uncheck "Pushes"
+- Go to **Settings** -> **Webhooks**.
+- Click **Add webhook**.
 
-Click the "Add webhook" button.
+Fill out the following fields:
 
-### 3. Test and authenticate
+- **Payload URL**: Paste the webhook URL you got from the previous step.
+- **Content type**: `application/json`
+- **Secret**: (leave blank)
+- **Which events would you like to trigger this webhook?**: Choose **Let me select individual events**.
+  - Check **Workflow jobs**.
+  - Make sure to uncheck **Pushes**.
 
-To test the webhook, manually trigger a job in your repo. The obot tasks should start running. There will be a few task runs that will abort because the job is not yet complete.
-The last task will continue to run and process the job results. It will attempt to get the logs of the failed job from GitHub.
-When this happens, you will be prompted to authenticate with GitHub. It will then attempt to send a message to Slack, and you will be prompted to authenticate with Slack.
-On future task runs, you will not be prompted to authenticate again.
+Click **Add webhook** to save it.
+
+### 3. Test and Authenticate
+
+To test the webhook:
+
+- Manually trigger a GitHub Actions job in your repository.
+
+The obot task should automatically start running. You may see some task runs that abort early if the job is not yet completed.
+
+Once the job finishes, the final task will:
+
+- Process the job results.
+- Attempt to retrieve logs of the failed job from GitHub.
+- Prompt you to authenticate with GitHub on the first run.
+- Attempt to send a Slack message with failure details.
+- Prompt you to authenticate with Slack on the first run.
+
+> ⚙️ After initial authentication, future runs will proceed without needing to authenticate again.

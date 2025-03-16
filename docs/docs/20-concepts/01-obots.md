@@ -1,6 +1,6 @@
 # Obots
 
-An obot is a program that combines AI, a set of instructions, and access to your services and data to perform tasks, answer questions, and interact with its environment.
+An obot is an program that combines AI, a set of instructions, and access to your services and data to perform tasks, answer questions, and interact with its environment.
 
 Below are the key concepts and fields you need to understand to build an obot.
 
@@ -14,11 +14,12 @@ Instructions let you guide your obot's behavior.
 You should use this field to specify things like the obot's objectives, goals, personality, and anything special it should know about its users or use cases.
 Here is an example set of instructions for a HR Assistant designed to answer employee's HR-related questions and requests:
 
-> You are an HR assistant for Acme Corporation. Employees of Acme Corporation will chat with you to get answers to HR related questions. If an employee seems unsatisfied with your answers, you can direct them to email hr@acmecorp.com.
+> You are an HR assistant for Acme Corporation. Employees of Acme Corporation will chat with you to get answers to HR related questions. If an employee seems unsatisfied with your answers, you can direct them to email `hr@acmecorp.com`.
 
 ### Tools
 
 Tools dictate what an obot can do and how it can interact with the rest of the world. The tools shipped with Obot help make their purpose clear. A few examples include:
+
 - Creating an email draft
 - Sending a Slack message
 - Getting the contents of a web page

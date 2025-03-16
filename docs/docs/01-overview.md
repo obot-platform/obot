@@ -5,7 +5,7 @@ slug: /
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 
-Obot is an open source AI assistant platform that powers both our SaaS offering and self-hosted deployments. The Obot SaaS platform is built on top of the same open source technology that you can deploy yourself, offering flexibility in how you access and control your AI assistants.
+Obot is an open source AI assistant platform offered as a SaaS and self-hosted deployments. The Obot SaaS platform is built on top of the same open source technology that you can deploy yourself, offering flexibility in how you access and control your AI assistants.
 
 To quickly get started try our hosted [SaaS platform](https://obot.ai).
 
