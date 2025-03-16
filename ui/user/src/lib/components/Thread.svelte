@@ -123,7 +123,7 @@
 		class="absolute inset-x-0 top-0 z-20 h-14 w-full bg-gradient-to-b from-white dark:from-black"
 	></div>
 	<div
-		class="absolute inset-x-0 bottom-40 z-20 h-14 w-full bg-gradient-to-t from-white dark:from-black"
+		class="absolute inset-x-0 bottom-36 z-20 h-14 w-full bg-gradient-to-t from-white dark:from-black"
 	></div>
 
 	<div
@@ -143,7 +143,7 @@
 			class:justify-center={!thread}
 		>
 			{#if !isTaskRun}
-				<div class="message-content self-center">
+				<div class="message-content w-full self-center">
 					<div class="flex flex-col items-center justify-center pt-8 text-center">
 						<AssistantIcon {project} class="h-24 w-24 shadow-lg" />
 						<h4 class="!mb-1">{project.name || 'Untitled'}</h4>
@@ -209,7 +209,7 @@
 					</div>
 				</Input>
 				<div
-					class="mt-3 grid grid-cols-[auto_auto] items-center justify-center gap-x-2 text-xs font-light"
+					class="mt-3 grid grid-cols-[auto_auto] items-center justify-center gap-x-2 px-5 text-xs font-light"
 				>
 					<span class="text-gray dark:text-gray-400"
 						>Obots aren't perfect. Double check their work.</span

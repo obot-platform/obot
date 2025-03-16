@@ -42,7 +42,7 @@
 	});
 </script>
 
-<div class="colors-background relative flex h-full flex-col">
+<div class="colors-background relative flex h-full flex-col overflow-hidden">
 	<div
 		class="relative flex h-full border-surface1"
 		class:border={layout.sidebarOpen && !layout.fileEditorOpen}
@@ -55,7 +55,7 @@
 
 		<main
 			id="main-content"
-			class="flex max-w-full grow flex-col"
+			class="flex max-w-full grow flex-col overflow-hidden"
 			class:hidden={layout.sidebarOpen && responsive.isMobile}
 		>
 			<div class="h-[76px] w-full">

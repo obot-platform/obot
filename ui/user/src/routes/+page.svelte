@@ -1,13 +1,14 @@
 <script lang="ts">
-	import { profile } from '$lib/stores';
+	import { profile, responsive } from '$lib/stores';
 	import { goto } from '$app/navigation';
 	import { darkMode } from '$lib/stores';
-	import { X } from 'lucide-svelte';
+	import { MenuIcon, X } from 'lucide-svelte';
 	import { onMount } from 'svelte';
 	import { type PageProps } from './$types';
 	import { browser } from '$app/environment';
 	import { type ProjectShare, type ToolReference } from '$lib/services';
 	import ToolPill from '$lib/components/ToolPill.svelte';
+	import Menu from '$lib/components/navbar/Menu.svelte';
 
 	let { data }: PageProps = $props();
 	let { authProviders, assistants, assistantsLoaded, featuredProjectShares, tools } = data;
@@ -115,6 +116,29 @@
 	</a>
 {/snippet}
 
+{#snippet navLinks()}
+	<a href="https://docs.obot.ai" class="icon-button" rel="external" target="_blank">Docs</a>
+	<a href="https://discord.gg/9sSf4UyAMC" class="icon-button" rel="external" target="_blank">
+		{#if darkMode.isDark}
+			<img src="/user/images/discord-mark/discord-mark-white.svg" alt="Discord" class="h-6" />
+		{:else}
+			<img src="/user/images/discord-mark/discord-mark.svg" alt="Discord" class="h-6" />
+		{/if}
+	</a>
+	<a
+		href="https://github.com/obot-platform/obot"
+		class="icon-button"
+		rel="external"
+		target="_blank"
+	>
+		{#if darkMode.isDark}
+			<img src="/user/images/github-mark/github-mark-white.svg" alt="GitHub" class="h-6" />
+		{:else}
+			<img src="/user/images/github-mark/github-mark.svg" alt="GitHub" class="h-6" />
+		{/if}
+	</a>
+{/snippet}
+
 <svelte:head>
 	<title>Obot - Do more with AI</title>
 </svelte:head>
@@ -138,27 +162,30 @@
 		</div>
 		<div class="grow"></div>
 		<div class="flex items-center gap-4">
-			<a href="https://docs.obot.ai" class="icon-button" rel="external" target="_blank">Docs</a>
-			<a href="https://discord.gg/9sSf4UyAMC" class="icon-button" rel="external" target="_blank">
-				{#if darkMode.isDark}
-					<img src="/user/images/discord-mark/discord-mark-white.svg" alt="Discord" class="h-6" />
-				{:else}
-					<img src="/user/images/discord-mark/discord-mark.svg" alt="Discord" class="h-6" />
-				{/if}
-			</a>
-			<a
-				href="https://github.com/obot-platform/obot"
-				class="icon-button"
-				rel="external"
-				target="_blank"
-			>
-				{#if darkMode.isDark}
-					<img src="/user/images/github-mark/github-mark-white.svg" alt="GitHub" class="h-6" />
-				{:else}
-					<img src="/user/images/github-mark/github-mark.svg" alt="GitHub" class="h-6" />
-				{/if}
-			</a>
+			{#if !responsive.isMobile}
+				{@render navLinks()}
+			{/if}
 			<button class="icon-button" onclick={() => loginDialog?.showModal()}>Login</button>
+			{#if responsive.isMobile}
+				<Menu
+					slide="left"
+					fixed
+					classes={{
+						dialog:
+							'rounded-none h-[calc(100vh-64px)] p-4 left-0 top-[64px] !rounded-none w-full h-full px-4 divide-transparent dark:divide-transparent'
+					}}
+					title=""
+				>
+					{#snippet icon()}
+						<MenuIcon />
+					{/snippet}
+					{#snippet body()}
+						<div class="flex flex-col gap-2 py-2">
+							{@render navLinks()}
+						</div>
+					{/snippet}
+				</Menu>
+			{/if}
 		</div>
 	</div>
 
@@ -166,14 +193,14 @@
 		class="colors-background mx-auto flex w-full max-w-screen-2xl flex-col justify-center px-4 pb-12 md:px-12"
 	>
 		<div class="mb-16 mt-16 flex flex-col items-center text-center">
-			<h1 class="text-4xl font-bold md:text-5xl">Do more with AI</h1>
-			<p class="mt-4 max-w-2xl text-xl">
+			<h1 class="text-2xl font-bold md:text-3xl">Do more with AI</h1>
+			<p class="mt-4 max-w-full text-base md:max-w-2xl md:text-xl">
 				Introducing Obot, a free platform for creating and sharing AI agents.
 			</p>
 		</div>
 
 		{#if featuredProjectShares.length > 0}
-			<div class="mb-12 mt-12 flex w-full flex-col gap-4">
+			<div class="my-4 flex w-full flex-col gap-4 md:my-12">
 				<div class="featured-card-layout">
 					{#each featuredProjectShares as projectShare}
 						{@render featuredProjectCard(projectShare)}
@@ -186,7 +213,7 @@
 	<!-- Login Modal -->
 	<dialog
 		bind:this={loginDialog}
-		class="colors-surface2 w-full max-w-md rounded-3xl p-6 shadow-lg backdrop:bg-black backdrop:bg-opacity-50"
+		class="colors-surface2 w-full max-w-sm rounded-3xl p-6 shadow-lg backdrop:bg-black backdrop:bg-opacity-50 md:max-w-md"
 	>
 		<div class="mb-6 flex items-center justify-between">
 			<h3 class="text-xl font-semibold">Login to Obot</h3>

@@ -91,22 +91,24 @@
 		classes?.dialog
 	)}
 >
-	<div class="mb-4">
-		{#if header}
-			{@render header()}
-		{:else}
-			<div class="flex justify-between">
-				{title}
-				{#if onLoad && showRefresh}
-					<button onclick={load}>
-						<RotateCw class="h-4 w-4 {loading ? 'animate-spin' : ''}" />
-					</button>
-				{/if}
-			</div>
-		{/if}
-		{#if description}
-			<p class="mt-1 text-xs font-normal text-gray-700 dark:text-gray-300">{description}</p>
-		{/if}
-	</div>
+	{#if header || description || title}
+		<div class="mb-4">
+			{#if header}
+				{@render header()}
+			{:else}
+				<div class="flex justify-between">
+					{title}
+					{#if onLoad && showRefresh}
+						<button onclick={load}>
+							<RotateCw class="h-4 w-4 {loading ? 'animate-spin' : ''}" />
+						</button>
+					{/if}
+				</div>
+			{/if}
+			{#if description}
+				<p class="mt-1 text-xs font-normal text-gray-700 dark:text-gray-300">{description}</p>
+			{/if}
+		</div>
+	{/if}
 	{@render body()}
 </div>
