@@ -82,7 +82,7 @@
 	}
 </script>
 
-<div class="flex size-full flex-col bg-surface1">
+<div class="flex size-full w-full max-w-full flex-col bg-surface1">
 	{#if layout.projectEditorOpen}
 		<!-- Header -->
 		<div
@@ -122,7 +122,7 @@
 		</div>
 	{/if}
 
-	<div class="flex grow overflow-auto">
+	<div class="flex h-full overflow-y-auto overflow-x-hidden">
 		{#if layout.projectEditorOpen}
 			<!-- Left Nav -->
 			<div
