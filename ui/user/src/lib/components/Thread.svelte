@@ -117,7 +117,7 @@
 	}
 </script>
 
-<div class="relative w-full max-w-[900px] pb-32">
+<div class="relative h-full w-full max-w-[900px] pb-32">
 	<!-- Fade text in/out on scroll -->
 	<div
 		class="absolute inset-x-0 top-0 z-20 h-14 w-full bg-gradient-to-b from-white dark:from-black"
