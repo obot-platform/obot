@@ -8,7 +8,6 @@ if (typeof window !== 'undefined') {
 
 	mediaQuery.addEventListener('change', (e) => {
 		store.isMobile = e.matches;
-		console.log(store.isMobile);
 	});
 }
 

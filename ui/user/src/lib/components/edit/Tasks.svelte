@@ -11,7 +11,7 @@
 	}
 
 	let { project }: Props = $props();
-	let editTask = $state<Task>();
+	let editIndex = $state<number>();
 	let editorDialog: HTMLDialogElement;
 	const layout = getLayout();
 
@@ -44,15 +44,20 @@
 		project.sharedTasks.push(newTask.id);
 	}
 
-	async function edit(task: Task) {
-		editTask = task;
+	async function edit(index: number) {
+		editIndex = index;
 		editorDialog?.showModal();
+	}
+
+	async function closeEdit() {
+		editIndex = undefined;
+		editorDialog?.close();
 	}
 </script>
 
 <CollapsePane header="Tasks">
 	<p class="mb-4">The follow tasks will be shared with users of this Obot.</p>
-	{#each layout.tasks ?? [] as task (task.id)}
+	{#each layout.tasks ?? [] as task, i (task.id)}
 		<div class="ml-4 flex items-center gap-2">
 			<input
 				checked={project.sharedTasks?.includes(task.id)}
@@ -64,7 +69,7 @@
 				}}
 			/>
 			<span class="mr-2">{task.name}</span>
-			<button class="icon-button" onclick={() => edit(task)}>
+			<button class="icon-button" onclick={() => edit(i)}>
 				<Edit class="icon-default" />
 			</button>
 		</div>
@@ -76,15 +81,10 @@
 </CollapsePane>
 
 <dialog bind:this={editorDialog} class="relative h-full w-full md:w-4/5">
-	<button
-		class="icon-button absolute right-2 top-2"
-		onclick={async () => {
-			editorDialog?.close();
-		}}
-	>
+	<button class="icon-button absolute right-2 top-2 z-10" onclick={() => closeEdit()}>
 		<X class="icon-default" />
 	</button>
-	{#if editTask}
-		<TaskEditor {project} bind:task={editTask} />
+	{#if editIndex !== undefined && layout.tasks}
+		<TaskEditor {project} bind:task={layout.tasks[editIndex]} />
 	{/if}
 </dialog>

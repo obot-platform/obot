@@ -33,6 +33,7 @@
 		lastSeenThreadID = id;
 		currentThreadID = id;
 		layout.items = [];
+		closeAll(layout);
 	}
 
 	function loadMore() {

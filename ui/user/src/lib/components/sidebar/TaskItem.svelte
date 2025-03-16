@@ -55,7 +55,7 @@
 
 <li class="flex min-h-9 flex-col">
 	<div class="group flex items-center gap-3 rounded-md p-2 hover:bg-surface3">
-		<div class="flex grow items-center gap-1">
+		<div class="flex grow items-center gap-1 truncate">
 			{#if taskRuns && taskRuns.length > 0}
 				<button onclick={() => (expanded = !expanded)}>
 					<ChevronDown
@@ -66,7 +66,7 @@
 			<div
 				use:overflowToolTip
 				class:font-normal={layout.editTaskID === task.id}
-				class="flex flex-1 grow items-center text-xs font-light"
+				class="grow text-xs font-light"
 			>
 				{task.name ?? ''}
 			</div>

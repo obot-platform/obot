@@ -89,7 +89,7 @@ export default function popover(opts?: PopoverOptions): Popover {
 					opts?.onOpenChange?.(open);
 				};
 
-				document.body.append(div);
+				ref.insertAdjacentElement('afterend', div);
 
 				return () => {
 					if (!open) div.remove();
@@ -128,21 +128,27 @@ export default function popover(opts?: PopoverOptions): Popover {
 		if (opts?.hover) {
 			ref.addEventListener('mouseenter', () => {
 				if (hoverTimeout) {
-					clearTimeout(hoverTimeout);
+					return;
 				}
 
 				hoverTimeout = setTimeout(() => {
-					open = true;
-					opts?.onOpenChange?.(open);
+					hoverTimeout = null;
+					if (!open) {
+						open = true;
+						opts?.onOpenChange?.(open);
+					}
 				}, opts.delay ?? 150);
 			});
 			ref.addEventListener('mouseleave', () => {
 				if (hoverTimeout) {
 					clearTimeout(hoverTimeout);
+					hoverTimeout = null;
 				}
 
-				open = false;
-				opts?.onOpenChange?.(open);
+				if (open) {
+					open = false;
+					opts?.onOpenChange?.(open);
+				}
 			});
 		}
 
@@ -156,9 +162,10 @@ export default function popover(opts?: PopoverOptions): Popover {
 						tooltip.classList.remove('hidden');
 					}
 					tooltip.classList.remove('opacity-0');
+					updatePosition().then(() => {
+						close = autoUpdate(ref, tooltip, updatePosition);
+					});
 				});
-				updatePosition();
-				close = autoUpdate(ref, tooltip, updatePosition);
 			} else {
 				close?.();
 				if (opts?.slide) {

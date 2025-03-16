@@ -15,7 +15,7 @@
 	let version: Version = $state({});
 	let email = $derived.by(() => {
 		if (version.emailDomain && task.alias) {
-			return `${task.name ? task.name.toLocaleLowerCase().replace(' ', '-') + '-' : ''}${task.alias.replace('/', '.')}@${version.emailDomain}`;
+			return `${task.name ? task.name.toLocaleLowerCase().replace(/[^a-z0-9]+/g, '-') + '-' : ''}${task.alias.replace('/', '.')}@${version.emailDomain}`;
 		}
 
 		return '';

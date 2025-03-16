@@ -65,15 +65,7 @@
 							<div
 								class="relative flex w-full items-center justify-between gap-1 [&_svg]:size-4 [&_svg]:min-w-fit"
 							>
-								<span
-									use:overflowToolTip={{
-										placement: 'top-start',
-										tooltipClass: 'min-w-fit break-words',
-										offset: 8
-									}}
-									class="line-clamp-1 break-all p-1">{item.name}</span
-								>
-
+								<span use:overflowToolTip class="p-1">{item.name}</span>
 								<button
 									class="right-0 hidden rounded-lg bg-surface3 p-1 group-hover:block hover:bg-surface2"
 									onclick={() => {

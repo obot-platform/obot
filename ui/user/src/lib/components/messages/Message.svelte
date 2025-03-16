@@ -194,13 +194,13 @@
 {#snippet files()}
 	{#if msg.file?.filename}
 		<button
-			class="my-2 flex cursor-pointer flex-col divide-y divide-gray-300 rounded-3xl border border-gray-300 bg-white text-start text-black shadow-lg dark:bg-black dark:text-gray-50"
+			class="my-2 flex max-w-[750px] cursor-pointer flex-col divide-y divide-gray-300 overflow-x-auto rounded-3xl border border-gray-300 bg-white text-start text-black shadow-lg dark:bg-black dark:text-gray-50"
 			onclick={fileLoad}
 		>
 			<div class="flex gap-2 px-5 py-4 text-md">
-				<div class="flex items-center justify-start gap-2">
+				<div class="flex items-center justify-start gap-2 truncate">
 					<FileText class="min-w-fit" />
-					<span use:overflowToolTip={{ placement: 'top' }}>{msg.file.filename}</span>
+					<span use:overflowToolTip>{msg.file.filename}</span>
 				</div>
 				<div>
 					<Pencil />

@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { type Task } from '$lib/services';
 	import { autoHeight } from '$lib/actions/textarea.js';
+	import { fade } from 'svelte/transition';
 
 	interface Props {
 		input?: string;
@@ -45,9 +46,9 @@
 </script>
 
 {#if show}
-	<div class="rounded-2xl bg-gray-50 p-5 dark:bg-gray-950">
+	<div class="rounded-2xl bg-gray-50 p-5 dark:bg-gray-950" transition:fade>
 		{#if task?.onDemand?.params}
-			<h4 class="mb-3 text-lg font-semibold">Argument Values</h4>
+			<h4 class="mb-3 text-lg font-semibold">Sample Argument Values</h4>
 			{#each Object.keys(task.onDemand.params) as key}
 				<div class="flex items-baseline gap-2">
 					<label for="param-{key}" class="text-sm font-semibold capitalize">{key}</label>
@@ -60,8 +61,8 @@
 				</div>
 			{/each}
 		{:else if task?.email}
-			<h4 class="text-xl font-semibold">Email</h4>
-			<div class="mt-5 flex flex-col gap-5 rounded-3xl bg-white p-5 dark:bg-black">
+			<h4 class="text-xl font-semibold">Sample Email</h4>
+			<div class="mt-5 flex flex-col gap-5 rounded-xl bg-white p-5 dark:bg-black">
 				<div class="flex items-baseline">
 					<label for="from" class="w-[70px] text-sm font-semibold">From</label>
 					<input
@@ -95,13 +96,13 @@
 						bind:value={emailInput.body}
 						use:autoHeight
 						rows="1"
-						class="mt-2 w-full resize-none rounded-3xl bg-gray-50 p-5 outline-none dark:bg-gray-950"
+						class="mt-2 w-full resize-none rounded-md bg-gray-50 p-5 outline-none dark:bg-gray-950"
 						placeholder="Email content"
 					></textarea>
 				</div>
 			</div>
 		{:else if task?.webhook}
-			<h3 class="text-lg font-semibold">Webhook Payload</h3>
+			<h3 class="text-lg font-semibold">Sample Webhook Payload</h3>
 			<textarea
 				bind:value={payload}
 				use:autoHeight

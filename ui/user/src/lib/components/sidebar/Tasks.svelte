@@ -65,7 +65,7 @@
 		<p class="p-6 text-center text-sm text-gray dark:text-gray-300">No tasks</p>
 	{:else}
 		<ul>
-			{#each layout.tasks as task, i}
+			{#each layout.tasks as task, i (task.id)}
 				<TaskItem
 					{task}
 					{project}

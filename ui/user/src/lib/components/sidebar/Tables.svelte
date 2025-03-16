@@ -30,10 +30,10 @@
 <div class="flex w-full flex-col">
 	<div class="mb-1 flex items-center gap-1">
 		<p class="text-sm font-semibold">Tables</p>
+		<div class="grow"></div>
 		<button class="icon-button" onclick={() => loadTables()}>
 			<RefreshCcw class="size-4" />
 		</button>
-		<div class="grow"></div>
 	</div>
 	<div>
 		{#if loadingTables}
@@ -44,7 +44,7 @@
 					<p class="pb-3 pt-6 text-center text-sm text-gray dark:text-gray-300">No tables</p>
 				{:else}
 					<ul>
-						{#each tables.tables as table}
+						{#each tables.tables as table (table.name)}
 							<li
 								class="group flex min-h-9 items-center gap-3 rounded-md text-xs font-light hover:bg-surface3"
 							>

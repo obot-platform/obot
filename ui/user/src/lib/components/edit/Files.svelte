@@ -148,7 +148,7 @@
 				<li class="group">
 					<div class="flex">
 						<button
-							class="flex w-4/5 flex-1 items-center text-start"
+							class="flex w-4/5 flex-1 items-center truncate text-start"
 							onclick={() => editFile(file)}
 						>
 							{#if isImage(file.name)}
@@ -156,9 +156,7 @@
 							{:else}
 								<FileText class="size-5 min-w-fit" />
 							{/if}
-							<span use:overflowToolTip={{ placement: 'top', tooltipClass: 'max-w-full' }}
-								>{file.name}</span
-							>
+							<span use:overflowToolTip>{file.name}</span>
 						</button>
 
 						<button

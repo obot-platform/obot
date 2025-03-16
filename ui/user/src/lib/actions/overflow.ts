@@ -1,42 +1,20 @@
 import popover from './popover.svelte.js';
-import type { Placement } from '@floating-ui/dom';
-import { twMerge } from 'tailwind-merge';
 
 function hasOverflow(element: HTMLElement) {
 	return element.scrollHeight > element.clientHeight || element.scrollWidth > element.clientWidth;
 }
 
-type OverflowTooltipOptions = {
-	placement?: Placement;
-	tooltipClass?: string;
-	offset?: number;
-};
+export function overflowToolTip(node: HTMLElement) {
+	const { ref, tooltip } = popover({
+		placement: 'top-end',
+		offset: 10,
+		hover: true
+	});
 
-export function overflowToolTip(
-	n: HTMLElement,
-	{ placement = 'top', tooltipClass, offset = 4 }: OverflowTooltipOptions = {}
-) {
-	const { ref, tooltip } = popover({ placement, offset, hover: true });
+	node.classList.add('truncate');
 
-	let node = n;
-
-	// this is a crappy workaround to make line-clamp work on elements that don't specify a line height by default
-	if (!['p', 'span'].includes(n.tagName)) {
-		const span = document.createElement('span');
-		span.textContent = n.textContent;
-		n.textContent = '';
-		n.appendChild(span);
-		node = span;
-	}
-
-	if (!getComputedStyle(node).lineHeight) {
-		node.classList.add('leading-2');
-	}
-
-	node.classList.add('line-clamp-1', 'break-all');
-
-	const p = document.createElement('p');
-	p.classList.add(...twMerge('tooltip break-all', tooltipClass).split(' '));
+	const p = document.createElement('p') as HTMLParagraphElement;
+	p.classList.add('tooltip');
 	p.textContent = node.textContent;
 
 	node.insertAdjacentElement('afterend', p);
@@ -44,6 +22,8 @@ export function overflowToolTip(
 		if (!hasOverflow(node)) {
 			e.stopImmediatePropagation();
 		}
+		// Update content if changed
+		p.textContent = node.textContent;
 	});
 
 	// Register after the above event listener to ensure we can stop propagation

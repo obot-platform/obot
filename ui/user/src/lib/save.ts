@@ -81,6 +81,7 @@ export function newSaveMonitor<T>(
 	}
 
 	function stop() {
+		save();
 		clearInterval(timer);
 	}
 
