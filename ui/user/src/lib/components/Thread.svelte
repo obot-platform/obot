@@ -208,8 +208,20 @@
 						<Tools {project} {version} {tools} />
 					</div>
 				</Input>
-				<div class="mt-3 text-center text-xs font-light text-gray dark:text-gray-400">
-					Obots aren't perfect. Double check their work.
+				<div
+					class="mt-3 grid grid-cols-[auto_auto] items-center justify-center gap-x-2 text-xs font-light"
+				>
+					<span class="text-gray dark:text-gray-400"
+						>Obots aren't perfect. Double check their work.</span
+					>
+					<a
+						href="https://github.com/obot-platform/obot/issues/new?template=bug_report.md"
+						target="_blank"
+						rel="noopener noreferrer"
+						class="whitespace-nowrap text-blue-500 hover:underline"
+					>
+						Report issues here
+					</a>
 				</div>
 			</div>
 		</div>
