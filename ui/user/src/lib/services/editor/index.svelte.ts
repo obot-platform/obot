@@ -108,7 +108,7 @@ async function download(
 		item.file.modified = false;
 		item.file.blob = undefined;
 	}
-	await ChatService.download(project.assistantID, project.assistantID, id, opts);
+	await ChatService.download(project.assistantID, project.id, id, opts);
 }
 
 async function loadFile(
