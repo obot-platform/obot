@@ -300,7 +300,7 @@ func (t *Handler) SetCreated(req router.Request, _ router.Response) error {
 		return nil
 	}
 
-	if thread.Spec.SourceThreadName != "" && len(thread.Spec.Manifest.SharedTasks) > 0 && !thread.Status.Created {
+	if thread.Spec.SourceThreadName != "" && len(thread.Spec.Manifest.SharedTasks) > 0 && !thread.Status.CopiedTasks {
 		return nil
 	}
 
