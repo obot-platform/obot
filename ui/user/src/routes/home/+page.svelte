@@ -101,12 +101,10 @@
 					<Copy class="icon-default" />
 					<span>Copy</span>
 				</button>
-				{#if project.editor}
-					<button class="menu-button" onclick={() => (toDelete = project)}>
-						<Trash2 class="icon-default" />
-						<span>Delete</span>
-					</button>
-				{/if}
+				<button class="menu-button" onclick={() => (toDelete = project)}>
+					<Trash2 class="icon-default" />
+					<span>{recentlyUsedProjects.some((p) => p.id === project.id) ? 'Remove' : 'Delete'}</span>
+				</button>
 			</div>
 		</DotDotDot>
 	{/snippet}
@@ -222,13 +220,16 @@
 </div>
 
 <Confirm
-	msg="Delete the Obot {toDelete?.name || 'Untitled'}?"
+	msg={recentlyUsedProjects.some((p) => p.id === toDelete?.id)
+		? `Remove recently used Obot ${toDelete?.name || 'Untitled'}?`
+		: `Delete the Obot ${toDelete?.name || 'Untitled'}?`}
 	show={!!toDelete}
 	onsuccess={async () => {
 		if (!toDelete) return;
 		try {
 			await ChatService.deleteProject(toDelete.assistantID, toDelete.id);
 			featured = featured.filter((p) => p.id !== toDelete?.id);
+			recentlyUsedProjects = recentlyUsedProjects.filter((p) => p.id !== toDelete?.id);
 			userProjects = userProjects.filter((p) => p.id !== toDelete?.id);
 		} finally {
 			toDelete = undefined;
