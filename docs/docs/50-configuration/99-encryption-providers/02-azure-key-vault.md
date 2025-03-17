@@ -1,6 +1,4 @@
-# Encryption Providers
-
-## Setting up Azure Key Vault Encryption Provider
+# Azure Key Vault
 
 This guide explains how to set up an Azure VM with a managed identity that can access an Azure Key Vault for encryption operations.
 
@@ -32,7 +30,7 @@ az keyvault create \
 az keyvault key create \
   --name your-key-name \
   --vault-name your-keyvault-name \
-  --size 2048 \
+  --size 4096 \
   --kty RSA
 ```
 

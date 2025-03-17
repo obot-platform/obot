@@ -37,10 +37,16 @@ const sidebars = {
             "configuration/agents",
             "configuration/auth-providers",
             "configuration/email-webhook",
-            "configuration/encryption-providers",
             "configuration/model-providers",
             "configuration/workspace-provider",
-            "configuration/oauth-tools"
+            "configuration/oauth-tools",
+            {
+              type: "category",
+              label: "Encryption Providers",
+              items: [
+                  "configuration/encryption-providers/azure-key-vault",
+              ]
+            }
           ],
         },
         "enterprise",
