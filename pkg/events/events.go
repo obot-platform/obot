@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/gptscript-ai/go-gptscript"
+	"github.com/gptscript-ai/gptscript/pkg/openai"
 	"github.com/obot-platform/nah/pkg/router"
 	"github.com/obot-platform/nah/pkg/typed"
 	"github.com/obot-platform/obot/apiclient/types"
@@ -800,7 +801,7 @@ func isSubCallTargetIDs(tool gptscript.Tool) (agentID string, workflowID string)
 }
 
 func printString(prg *gptscript.Program, time time.Time, runID string, toolMapping map[string]any, outputIndex int, out chan types.Progress, last, current string) string {
-	if len(last) > len(current) && strings.HasPrefix(last, current) {
+	if hasRolledBack(last, current) {
 		return last
 	}
 
@@ -827,11 +828,29 @@ func printString(prg *gptscript.Program, time time.Time, runID string, toolMappi
 	return current
 }
 
+func hasRolledBack(last string, current string) bool {
+	// Because we get events from two sources (live in memory, and persisted RunStates), it's possible we can
+	// get an old message. Typically, this is fine because we would have already printed all the old messages and we
+	// save that state. The issue is when we are still streaming the response of a message, and we get and old content of
+	// content.
+
+	// First detect if we are getting the "Waiting for model" message after we have already printed some content
+	if len(last) > 0 && current == openai.WaitingMessage {
+		return true
+	}
+
+	// Then check if we are current an old substring we have already printed.
+	if len(last) > len(current) && strings.HasPrefix(last, current) {
+		return true
+	}
+	return false
+}
+
 func printSubString(prg *gptscript.Program, time time.Time, runID string, toolMapping map[string]any, outputIndex, contentSuffixIndex int, out chan types.Progress, last, current string) string {
 	toPrint := current
 	if strings.HasPrefix(current, last) {
 		toPrint = current[len(last):]
-	} else if len(last) > len(current) && strings.HasPrefix(last, current) {
+	} else if hasRolledBack(last, current) {
 		return last
 	}
 
@@ -840,7 +859,7 @@ func printSubString(prg *gptscript.Program, time time.Time, runID string, toolMa
 		toolInput *types.ToolInput
 	)
 
-	toPrint, waitingOnModel := strings.CutPrefix(toPrint, "Waiting for model response...")
+	toPrint, waitingOnModel := strings.CutPrefix(toPrint, openai.WaitingMessage)
 	toPrint, toolPrint, isToolCall := strings.Cut(toPrint, "<tool call> ")
 
 	if isToolCall {
