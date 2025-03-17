@@ -2,6 +2,7 @@
 	import type { Project } from '$lib/services';
 	import CollapsePane from '$lib/components/edit/CollapsePane.svelte';
 	import { autoHeight } from '$lib/actions/textarea';
+	import { responsive } from '$lib/stores';
 
 	interface Props {
 		project: Project;
@@ -10,7 +11,7 @@
 	let { project = $bindable() }: Props = $props();
 </script>
 
-<CollapsePane header="Instructions" open>
+<CollapsePane header="Instructions" open={!responsive.isMobile}>
 	<div class="flex flex-col gap-2">
 		<div class="flex flex-col gap-2">
 			<label for="project-instructions" class="text-sm" class:opacity-0={!project.prompt}

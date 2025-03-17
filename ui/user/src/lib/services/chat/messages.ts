@@ -173,19 +173,12 @@ export function buildMessagesFromProgress(
 			reformatInputMessage(item);
 		}
 
-		if (item.toolInput) {
-			item.message = ['Preparing information...'];
-		} else if (item.toolCall) {
-			item.message = ['Calling...'];
-		}
-
 		// For all but last message
 		if (i < messages.messages.length - 1) {
 			if (item.oauthURL || item.promptId) {
 				item.ignore = true;
 			}
 			if (item.tool) {
-				item.done = true;
 				item.message = [];
 			}
 		}
@@ -203,7 +196,7 @@ function toMessages(progresses: Progress[]): Messages {
 
 	let sources: CitationSource[] = [];
 
-	for (const [i, progress] of progresses.entries()) {
+	for (const progress of progresses) {
 		if (progress.error) {
 			if (progress.runID) {
 				for (const message of messages) {
@@ -248,11 +241,6 @@ function toMessages(progresses: Progress[]): Messages {
 
 		if (progress.error) {
 			messages.push(newErrorMessage(progress));
-		} else if (progress.waitingOnModel) {
-			if (i === progresses.length - 1) {
-				// Only add if it's the last one
-				messages.push(newWaitingOnModelMessage(progress));
-			}
 		} else if (progress.prompt) {
 			if (progress.prompt.metadata?.authType === 'oauth') {
 				messages.push(newOAuthMessage(progress));
@@ -264,7 +252,7 @@ function toMessages(progresses: Progress[]): Messages {
 			// delete the current runID, this is to avoid duplicate messages
 			messages = messages.filter((m) => m.runID !== progress.runID);
 			messages.push(newInputMessage(progress, parentRunID));
-		} else if (progress.content) {
+		} else if (progress.content || progress.waitingOnModel) {
 			const found = messages.findLast(
 				(m) => m.contentID === progress.contentID && progress.contentID
 			);
@@ -287,21 +275,23 @@ function toMessages(progresses: Progress[]): Messages {
 				messages.push(newContentMessage(progress));
 			}
 		} else if (progress.toolCall) {
-			if (progress.toolCall.output !== undefined) {
-				for (const msg of messages) {
-					if (msg.runID === progress.runID && msg.toolInput) {
-						msg.ignore = true;
-					} else if (
-						msg.runID == progress.runID &&
-						msg.toolCall &&
-						msg.toolCall.output === undefined
-					) {
-						msg.ignore = true;
-					}
-				}
+			const found = messages.findLast(
+				(m) => m.contentID === progress.contentID && progress.contentID
+			);
+			if (found) {
+				found.toolCall = progress.toolCall;
+				found.done = progress.toolCall.output !== undefined;
+			} else {
+				messages.push(newContentMessage(progress));
 			}
 
-			messages.push(newContentMessage(progress));
+			for (const msg of messages) {
+				if (msg.runID === progress.runID && msg.toolInput) {
+					msg.ignore = true;
+				} else if (msg.runID === progress.runID && !msg.toolInput && !msg.toolCall) {
+					msg.done = true;
+				}
+			}
 
 			if (!progress.toolCall.output) continue;
 
@@ -379,16 +369,6 @@ function newPromptAuthMessage(progress: Progress): Message {
 
 export const waitingOnModelMessage = 'Thinking really hard...';
 
-function newWaitingOnModelMessage(progress: Progress): Message {
-	return {
-		runID: progress.runID || '',
-		time: new Date(progress.time),
-		icon: assistantIcon,
-		sourceName: 'Assistant',
-		message: [waitingOnModelMessage]
-	};
-}
-
 function newErrorMessage(progress: Progress): Message {
 	let message = progress.error;
 	let ignore = false;
@@ -441,9 +421,9 @@ function newContentMessage(progress: Progress, citations?: CitationSource[]): Me
 		if (progress.toolCall.metadata?.icon) {
 			result.icon = progress.toolCall.metadata.icon;
 		}
-		result.message = progress.toolCall.input ? [progress.toolCall.input] : [];
 		result.toolCall = progress.toolCall;
 		result.tool = true;
+		result.done = progress.toolCall.output !== undefined;
 	}
 
 	return result;

@@ -726,7 +726,7 @@ func (e *Emitter) printCall(ctx context.Context, namespace, runID string, prg *g
 		for _, callID := range slices.Sorted(maps.Keys(currentOutput.SubCalls)) {
 			subCall := currentOutput.SubCalls[callID]
 			output := getToolCallOutput(frames, callID)
-			if _, ok := last.SubCalls[callID]; !ok || lastPrint.toolCalls[callID] != output {
+			if _, ok := last.SubCalls[callID]; !ok || (lastPrint.toolCalls[callID] != output && output != "") {
 				if lastOutput, seenTool := lastPrint.toolCalls[callID]; !seenTool || lastOutput != output {
 					if tool, ok := prg.ToolSet[subCall.ToolID]; ok {
 						_, workflowID := isSubCallTargetIDs(tool)
@@ -757,6 +757,7 @@ func (e *Emitter) printCall(ctx context.Context, namespace, runID string, prg *g
 						}
 						out <- types.Progress{
 							RunID:        runID,
+							ContentID:    callID,
 							Time:         types.NewTime(call.Start),
 							ToolCall:     tc,
 							WorkflowCall: wc,

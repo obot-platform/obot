@@ -7,6 +7,7 @@
 	import AssistantIcon from '$lib/icons/AssistantIcon.svelte';
 	import GenerateIcon from '$lib/components/edit/GenerateIcon.svelte';
 	import UploadIcon from './UploadIcon.svelte';
+	import { responsive } from '$lib/stores';
 
 	interface Props {
 		project: Project;
@@ -29,7 +30,7 @@
 		| undefined = $state();
 </script>
 
-<CollapsePane header="General" open>
+<CollapsePane header="General" open={!responsive.isMobile}>
 	<div class="flex flex-col gap-2">
 		<div class="mb-2 flex items-center gap-5">
 			<button class="icon-button flex items-center gap-2" use:ref onclick={() => toggle()}>

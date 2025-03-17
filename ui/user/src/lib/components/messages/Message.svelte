@@ -9,7 +9,6 @@
 	import { formatTime } from '$lib/time';
 	import { popover } from '$lib/actions';
 	import { fly } from 'svelte/transition';
-	import { waitingOnModelMessage } from '$lib/services/chat/messages';
 	import Loading from '$lib/icons/Loading.svelte';
 	import { fade } from 'svelte/transition';
 	import { overflowToolTip } from '$lib/actions/overflow';
@@ -46,10 +45,7 @@
 	let promptCredentials = $state<Record<string, string>>({});
 	let credentialsSubmitted = $state(false);
 
-	let waiting = $derived(msg.message?.[0] === waitingOnModelMessage);
-	let shouldAnimate = $derived(
-		!msg.done && !msg.toolCall && !msg.promptId && !msg.sent && !waiting
-	);
+	let shouldAnimate = $derived(!msg.done && !msg.toolCall && !msg.promptId && !msg.sent);
 	let cursor = new Tween(0);
 	let prevContent = $state('');
 	let animatedText = $derived(shouldAnimate ? content.slice(0, cursor.current) : content);
@@ -160,11 +156,14 @@
 	<div class="mb-1 flex -translate-y-[2px] items-center space-x-2">
 		{#if msg.sourceName}
 			<span class="text-sm font-semibold"
-				>{msg.sourceName === 'Assistant' ? project?.name : msg.sourceName}</span
+				>{msg.sourceName === 'Assistant' ? project?.name || 'Obot' : msg.sourceName}</span
 			>
 		{/if}
 		{#if msg.time}
 			<span class="text-sm text-gray">{formatTime(msg.time)}</span>
+		{/if}
+		{#if !msg.done || animating}
+			<Loading class="size-4" />
 		{/if}
 	</div>
 {/snippet}
@@ -178,12 +177,12 @@
 	>
 		{#if msg.oauthURL}
 			{@render oauth()}
+		{:else if msg.toolCall}
+			{@render toolContent()}
 		{:else if content}
 			{#if msg.sourceName !== 'Abort Current Task'}
 				{@render messageContent()}
 			{/if}
-		{:else if msg.toolCall}
-			{@render toolContent()}
 		{/if}
 
 		{@render files()}
@@ -298,15 +297,6 @@
 	{:else}
 		<div transition:fade={{ duration: 1000 }}>
 			{@html toHTMLFromMarkdown(animatedText)}
-
-			{#if !msg.done || animating}
-				<p class="flex items-center gap-2 text-sm text-gray-500">
-					<Loading /> Loading...
-				</p>
-			{:else}
-				<!-- spacer -->
-				<div class="h-4"></div>
-			{/if}
 		</div>
 	{/if}
 {/snippet}
