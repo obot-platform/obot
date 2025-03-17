@@ -9,6 +9,8 @@ The **GitHub CI Failure Notifier Obot** is an obot that sends a message to a Sla
 
 ## Configuration
 
+Create a copy of the featured **GitHub CI Failure Notifier** obot and open it up.
+
 ### 1. Create a Task on the Obot
 
 In the **Obot Editor**, open the obot you are configuring, and in the **Tasks** section on the left sidebar, click the `+` icon to add a new task.  

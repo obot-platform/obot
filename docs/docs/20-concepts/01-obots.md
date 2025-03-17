@@ -1,6 +1,6 @@
 # Obots
 
-An obot is an program that combines AI, a set of instructions, and access to your services and data to perform tasks, answer questions, and interact with its environment.
+An obot is a program that combines AI, a set of instructions, and access to your services and data to perform tasks, answer questions, and interact with its environment.
 
 Below are the key concepts and fields you need to understand to build an obot.
 

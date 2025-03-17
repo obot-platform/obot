@@ -1,4 +1,3 @@
-
 # Create an HR Q&A Obot
 
 Obot makes it easy to create an **obot** that can answer questions about a set of documents using its built-in RAG (Retrieval-Augmented Generation) feature.  
