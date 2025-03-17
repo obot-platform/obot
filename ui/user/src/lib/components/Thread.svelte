@@ -19,6 +19,8 @@
 	import Tools from '$lib/components/navbar/Tools.svelte';
 	import type { UIEventHandler } from 'svelte/elements';
 	import AssistantIcon from '$lib/icons/AssistantIcon.svelte';
+	import { responsive } from '$lib/stores';
+	import { Bug } from 'lucide-svelte';
 
 	interface Props {
 		id?: string;
@@ -218,9 +220,13 @@
 						href="https://github.com/obot-platform/obot/issues/new?template=bug_report.md"
 						target="_blank"
 						rel="noopener noreferrer"
-						class="whitespace-nowrap text-blue-500 hover:underline"
+						class="whitespace-nowrap text-blue-500/50 hover:underline"
 					>
-						Report issues here
+						{#if responsive.isMobile}
+							<Bug class="h-4 w-4" />
+						{:else}
+							Report issues here
+						{/if}
 					</a>
 				</div>
 			</div>
