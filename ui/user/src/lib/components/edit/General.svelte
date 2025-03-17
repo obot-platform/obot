@@ -45,7 +45,7 @@
 				>
 					<AssistantIcon {project} class="size-24" />
 					<div
-						class="absolute -right-1 bottom-0 rounded-full bg-surface2 p-2 shadow-md transition-all duration-200 group-hover:bg-surface3"
+						class="absolute -right-1 bottom-0 rounded-full bg-surface1 p-2 shadow-md transition-all duration-200 group-hover:bg-surface3"
 					>
 						<Pencil class="size-4" />
 					</div>
