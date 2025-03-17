@@ -11,7 +11,7 @@
 	let { project = $bindable() }: Props = $props();
 </script>
 
-<CollapsePane header="Instructions">
+<CollapsePane header="Instructions" open>
 	<div class="flex flex-col gap-2">
 		<div class="flex flex-col gap-2">
 			<label for="project-instructions" use:reactiveLabel={{ value: project.prompt }}>
