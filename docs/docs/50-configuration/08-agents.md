@@ -24,8 +24,8 @@ default agent, make sure you choose the full set of tools that the users will ne
 
 Each tool can be configured in one of three modes:
 - Always On: every obot created from the agent will have this tool, and it cannot be toggled off when chatting directly with the agent.
-- Optional - On: obots created from the agent can choose to use this tool. When chatting with the agent (rather than an obot created from it), the tool will be available but can be toggled off.
-- Optional - Off: obots created from the agent can choose to use this tool. When chatting with the agent (rather than an obot created from it), the tool will not be available by default but can be toggled on.
+- Optional - On: obots created from the agent can choose to use this tool, and it will be on by default.
+- Optional - Off: obots created from the agent can choose to use this tool, and it will be off by default.
 
 Tools can also be pre-authenticated at the agent level, much like they can at the obot level. This is generally not recommended,
 unless you will be the only user of the agent.
