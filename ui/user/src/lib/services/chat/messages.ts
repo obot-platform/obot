@@ -82,7 +82,11 @@ function reformatInputMessage(msg: Message) {
 	}
 }
 
-function getFilenameAndContent(content: string) {
+function getFilenameAndContent(msg: Message) {
+	let content = msg.message.join('').trim();
+	if (msg.toolCall?.input) {
+		content = msg.toolCall.input.trim();
+	}
 	let testContent = content;
 	let partial = false;
 	let obj = undefined;
@@ -132,7 +136,7 @@ function reformatWriteMessage(
 	msg.done = !last || msg.toolCall !== undefined;
 	msg.sourceName = msg.done ? 'Wrote to Workspace' : 'Writing to Workspace';
 	try {
-		const obj = getFilenameAndContent(msg.message.join('').trim());
+		const obj = getFilenameAndContent(msg);
 		if (obj.filename) {
 			msg.file = {
 				filename: obj.filename,
