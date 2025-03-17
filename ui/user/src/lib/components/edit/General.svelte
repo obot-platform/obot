@@ -2,12 +2,13 @@
 	import type { Project } from '$lib/services';
 	import CollapsePane from '$lib/components/edit/CollapsePane.svelte';
 	import { popover } from '$lib/actions';
-	import { ChevronDown, CircleX } from 'lucide-svelte/icons';
+	import { ChevronRight, CircleX, Pencil } from 'lucide-svelte/icons';
 	import { autoHeight } from '$lib/actions/textarea';
 	import AssistantIcon from '$lib/icons/AssistantIcon.svelte';
 	import GenerateIcon from '$lib/components/edit/GenerateIcon.svelte';
 	import UploadIcon from './UploadIcon.svelte';
 	import { responsive } from '$lib/stores';
+	import { reactiveLabel } from '$lib/actions/reactiveLabel.svelte';
 
 	interface Props {
 		project: Project;
@@ -21,7 +22,10 @@
 	});
 
 	let { project = $bindable() }: Props = $props();
-	let { ref, tooltip, toggle } = popover();
+	let { ref, tooltip, toggle } = popover({
+		slide: responsive.isMobile ? 'left' : undefined,
+		fixed: responsive.isMobile ? true : false
+	});
 	let urlIcon:
 		| {
 				icon?: string;
@@ -30,14 +34,38 @@
 		| undefined = $state();
 </script>
 
-<CollapsePane header="General" open={!responsive.isMobile}>
-	<div class="flex flex-col gap-2">
-		<div class="mb-2 flex items-center gap-5">
-			<button class="icon-button flex items-center gap-2" use:ref onclick={() => toggle()}>
-				<AssistantIcon {project} class="h-8 w-8" />
-				<ChevronDown class="icon-default" />
-			</button>
-			<div use:tooltip class="default-dialog z-20 flex w-[350px] flex-col p-3">
+<CollapsePane header="General" open>
+	<div class="flex flex-col gap-4">
+		<div class="flex items-center gap-5">
+			<div class="flex w-full items-center justify-center">
+				<button
+					class="icon-button group relative flex items-center gap-2 !p-0 shadow-md"
+					use:ref
+					onclick={() => toggle()}
+				>
+					<AssistantIcon {project} class="size-24" />
+					<div
+						class="absolute -right-1 bottom-0 rounded-full bg-surface2 p-2 shadow-md transition-all duration-200 group-hover:bg-surface3"
+					>
+						<Pencil class="size-4" />
+					</div>
+				</button>
+			</div>
+			<div
+				use:tooltip
+				class="default-dialog left-0 top-16 z-20 flex h-[calc(100vh-64px)] w-screen flex-col px-4 md:left-auto md:top-auto md:h-auto md:w-[350px] md:py-6"
+			>
+				{#if responsive.isMobile}
+					<div class="relative mb-6 flex items-center justify-center border-b border-surface3 py-4">
+						<h4 class="text-lg font-medium">Edit Icon</h4>
+						<button
+							class="icon-button absolute right-0 top-1/2 -translate-y-1/2"
+							onclick={() => toggle()}
+						>
+							<ChevronRight class="size-6" />
+						</button>
+					</div>
+				{/if}
 				{#if urlIcon}
 					<div class="flex flex-col gap-2 p-1">
 						<div class="flex flex-col gap-2">
@@ -77,7 +105,9 @@
 
 						<GenerateIcon {project} />
 
-						<div class="flex justify-center">
+						<div
+							class="mt-4 flex w-full flex-col items-center justify-between gap-4 md:flex-row md:gap-0"
+						>
 							<UploadIcon
 								label="Upload Icon"
 								onUpload={(imageUrl: string) => {
@@ -104,8 +134,8 @@
 				{/if}
 			</div>
 		</div>
-		<div class="flex flex-col gap-2">
-			<label for="project-name" class="text-sm" class:opacity-0={!project.name}>Name</label>
+		<div class="flex flex-col gap-1">
+			<label for="project-name" use:reactiveLabel={{ value: project.name }}> Name </label>
 			<input
 				id="project-name"
 				type="text"
@@ -114,10 +144,10 @@
 				bind:value={project.name}
 			/>
 		</div>
-		<div class="flex flex-col gap-2">
-			<label for="project-desc" class="text-sm" class:opacity-0={!project.description}
-				>Description</label
-			>
+		<div class="flex flex-col gap-1">
+			<label for="project-desc" use:reactiveLabel={{ value: project.description }}>
+				Description
+			</label>
 			<textarea
 				id="project-desc"
 				class="bg-surface grow resize-none rounded-lg p-2"

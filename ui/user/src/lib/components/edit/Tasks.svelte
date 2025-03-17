@@ -56,7 +56,7 @@
 </script>
 
 <CollapsePane header="Tasks">
-	<p class="mb-4">The follow tasks will be shared with users of this Obot.</p>
+	<p class="mb-4 text-sm">The following tasks will be shared with users of this Obot.</p>
 	{#each layout.tasks ?? [] as task, i (task.id)}
 		<div class="ml-4 flex items-center gap-2">
 			<input
@@ -74,8 +74,8 @@
 			</button>
 		</div>
 	{/each}
-	<button class="button flex items-center gap-2 self-end" onclick={() => newTask()}>
-		<Plus class="icon-default" />
+	<button class="button flex items-center gap-1 self-end text-sm" onclick={() => newTask()}>
+		<Plus class="size-4" />
 		New Task
 	</button>
 </CollapsePane>

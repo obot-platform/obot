@@ -4,6 +4,7 @@
 	import { autoHeight } from '$lib/actions/textarea';
 	import { Plus } from 'lucide-svelte/icons';
 	import { Trash2 } from 'lucide-svelte';
+	import { reactiveLabel } from '$lib/actions/reactiveLabel.svelte';
 
 	interface Props {
 		project: Project;
@@ -15,11 +16,9 @@
 <CollapsePane header="Interface">
 	<div class="flex flex-col gap-2">
 		<div class="flex flex-col gap-2">
-			<label
-				for="project-instructions"
-				class="text-sm"
-				class:opacity-0={!project.introductionMessage}>Introduction</label
-			>
+			<label for="project-instructions" use:reactiveLabel={{ value: project.introductionMessage }}>
+				Introduction
+			</label>
 			<textarea
 				id="project-instructions"
 				class="bg-surface grow resize-none rounded-lg p-2"

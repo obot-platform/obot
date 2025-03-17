@@ -18,4 +18,21 @@ export function autoHeight(node: HTMLTextAreaElement) {
 	node.oninput = () => resize(node);
 	node.onresize = () => resize(node);
 	node.onchange = () => resize(node);
+
+	// Add resize observer to handle container resizing
+	const resizeObserver = new ResizeObserver(() => {
+		// Debounce the resize calculation
+		requestAnimationFrame(() => {
+			resize(node);
+		});
+	});
+
+	resizeObserver.observe(node.parentElement!);
+
+	// Clean up observer when element is destroyed
+	return {
+		destroy() {
+			resizeObserver.disconnect();
+		}
+	};
 }

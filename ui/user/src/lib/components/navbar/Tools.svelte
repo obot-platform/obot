@@ -100,10 +100,10 @@
 			<div class="flex justify-end">
 				<button
 					onclick={addTool}
-					class="-mb-3 -mr-3 mt-3 flex items-center justify-end gap-2 rounded-3xl p-3 px-4 hover:bg-gray-500 hover:text-white"
+					class="button -mb-3 -mr-3 mt-3 flex items-center justify-end gap-1 text-sm"
 				>
 					Add Custom Tool
-					<Plus class="ms-1 h-5 w-5" />
+					<Plus class="ms-1 size-4" />
 				</button>
 			</div>
 		{/if}

@@ -184,19 +184,17 @@
 	{/if}
 
 	<div class="flex justify-end">
-		<label
-			class="-mb-3 -mr-3 mt-3 flex cursor-pointer justify-end gap-2 rounded-3xl p-3 px-4 hover:bg-gray-500 hover:text-white"
-		>
-			Upload
-			<input bind:files={fileList} type="file" class="hidden" {accept} />
+		<label class="button -mb-3 -mr-3 mt-3 flex items-center justify-end gap-1 text-sm">
 			{#await uploadInProgress}
-				<Loading class="h-5 w-5" />
+				<Loading class="size-4" />
 			{:catch error}
 				<Error {error} />
 			{/await}
 			{#if !uploadInProgress}
-				<Upload class="h-5 w-5" />
+				<Upload class="size-4" />
 			{/if}
+			Upload
+			<input bind:files={fileList} type="file" class="hidden" {accept} />
 		</label>
 	</div>
 {/snippet}

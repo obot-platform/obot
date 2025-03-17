@@ -117,8 +117,10 @@
 	}
 </script>
 
-<button class="button flex items-center gap-2" use:catalog.ref onclick={() => catalog.toggle(true)}
-	><Plus class="size-4" /> Tools</button
+<button
+	class="button flex items-center gap-1 text-sm"
+	use:catalog.ref
+	onclick={() => catalog.toggle(true)}><Plus class="size-4" /> Tools</button
 >
 
 <div

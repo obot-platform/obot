@@ -42,7 +42,7 @@
 			}}
 		>
 			{#if typeof header === 'string'}
-				<span class="grow text-start text-lg">
+				<span class="grow text-start text-base font-extralight">
 					{header}
 				</span>
 			{:else}
@@ -63,7 +63,7 @@
 	{#if open}
 		<div
 			in:fade
-			class={twMerge('flex flex-col border-surface3 p-5', classes.content)}
+			class={twMerge('mx-5 flex flex-col border-surface3 py-5', classes.content)}
 			class:border-t={header}
 		>
 			{@render children()}
