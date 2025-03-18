@@ -24,9 +24,7 @@
 	let container: HTMLElement;
 
 	const { tooltip, ref, toggle } = popover({
-		placement,
-		fixed: responsive.isMobile ? true : undefined,
-		slide: responsive.isMobile ? 'up' : undefined
+		placement
 	});
 
 	$effect(() => {
@@ -66,7 +64,10 @@
 </button>
 <div
 	bind:this={tooltipEl}
-	use:tooltip
+	use:tooltip={{
+		fixed: responsive.isMobile ? true : undefined,
+		slide: responsive.isMobile ? 'up' : undefined
+	}}
 	role="none"
 	onclick={(e) => {
 		e.preventDefault();

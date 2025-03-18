@@ -1,6 +1,6 @@
 <script lang="ts">
 	import '../app.css';
-	import { darkMode, responsive } from '$lib/stores';
+	import { darkMode } from '$lib/stores';
 	import Notifications from '$lib/components/Notifications.svelte';
 
 	interface Props {
@@ -24,9 +24,7 @@
 	});
 </script>
 
-{#key responsive.isMobile}
-	{@render children?.()}
-{/key}
+{@render children?.()}
 
 <svelte:head>
 	<link rel="preconnect" href="https://fonts.googleapis.com" />
