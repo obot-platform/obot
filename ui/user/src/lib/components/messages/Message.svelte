@@ -347,6 +347,7 @@
 				{#if onSendCredentialsCancel}
 					<button
 						class="button-secondary"
+						type="button"
 						onclick={() => onSendCredentialsCancel(msg.promptId ?? '')}
 						>Cancel
 					</button>

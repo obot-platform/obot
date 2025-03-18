@@ -88,9 +88,6 @@
 		await ChatService.deleteThread(project.assistantID, project.id, id);
 		layout.threads = layout.threads?.filter((thread) => thread.id !== id);
 		setCurrentThread(layout.threads?.[0]?.id ?? '');
-		if (layout.threads?.length === 0) {
-			togglePanel();
-		}
 	}
 
 	function selectThread(id: string) {
