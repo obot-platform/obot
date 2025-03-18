@@ -130,7 +130,9 @@
 				class="inset-shadow-sm flex h-full w-screen flex-col overflow-hidden md:w-1/4 md:min-w-[320px]"
 				transition:slide={responsive.isMobile ? { axis: 'y' } : { axis: 'x' }}
 			>
-				<div class="default-scrollbar-thin flex grow flex-col !scrollbar-track-transparent">
+				<div
+					class="default-scrollbar-thin scrollbar-stable-gutter flex grow flex-col !scrollbar-track-transparent"
+				>
 					<General bind:project />
 					<Instructions bind:project />
 					<Tools {tools} {onNewTools} {assistant} />

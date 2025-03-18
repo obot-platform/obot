@@ -82,6 +82,10 @@ body {
 	@apply scrollbar scrollbar-track-surface1 scrollbar-thumb-surface3;
 }
 
+.scrollbar-stable-gutter {
+	scrollbar-gutter: stable;
+}
+
 .default-dialog,
 dialog {
 	@apply rounded-xl border-[1px] border-surface3 bg-white text-sm text-black shadow-lg dark:bg-surface2 dark:text-white;
