@@ -399,7 +399,8 @@ func addTasks(ctx context.Context, db kclient.Client, thread *v1.Thread, mainToo
 		return mainTool, nil, err
 	}
 
-	for _, wf := range wfs.Items {
+	added := map[string]struct{}{}
+	for i, wf := range wfs.Items {
 		if wf.Spec.Manifest.Name == "" {
 			continue
 		}
@@ -413,8 +414,12 @@ func addTasks(ctx context.Context, db kclient.Client, thread *v1.Thread, mainToo
 			}
 		}
 		wfTool := manifestToTool(wf.Spec.Manifest, taskInvoke, wf.Name)
+		if _, ok := added[wfTool.Name]; ok {
+			wfTool.Name = fmt.Sprintf("%s %d", wfTool.Name, i+1)
+		}
 		mainTool.Tools = append(mainTool.Tools, wfTool.Name)
 		otherTools = append(otherTools, wfTool)
+		added[wfTool.Name] = struct{}{}
 	}
 
 	return mainTool, otherTools, nil
