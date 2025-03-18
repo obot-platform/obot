@@ -51,8 +51,6 @@
 	let animatedText = $derived(shouldAnimate ? content.slice(0, cursor.current) : content);
 	let animating = $state(false);
 
-	console.log(msg.toolCall);
-
 	$effect(() => {
 		if (!shouldAnimate) return;
 
