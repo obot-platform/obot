@@ -49,6 +49,7 @@ type TaskRun struct {
 	TaskID    string       `json:"taskID,omitempty"`
 	ThreadID  string       `json:"threadID,omitempty"`
 	Input     string       `json:"input,omitempty"`
+	Output    string       `json:"output,omitempty"`
 	Task      TaskManifest `json:"task,omitempty"`
 	StartTime *Time        `json:"startTime,omitempty"`
 	EndTime   *Time        `json:"endTime,omitempty"`

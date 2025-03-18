@@ -7,7 +7,6 @@ const (
 	WorkflowStateRunning  WorkflowState = "Running"
 	WorkflowStateError    WorkflowState = "Error"
 	WorkflowStateComplete WorkflowState = "Complete"
-	WorkflowStateSubCall  WorkflowState = "SubCall"
 	WorkflowStateBlocked  WorkflowState = "Blocked"
 )
 

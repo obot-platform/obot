@@ -17,6 +17,7 @@ const (
 	DockerShellIDTool       = "docker-shell-id"
 	ExistingCredTool        = "existing-credential"
 	KnowledgeCredID         = "knowledge"
+	TaskInvoke              = "task-invoke"
 
 	DefaultNamespace = "default"
 

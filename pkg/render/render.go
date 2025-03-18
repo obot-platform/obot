@@ -41,17 +41,6 @@ func stringAppend(first, second string) string {
 	return first + "\n\n" + second
 }
 
-func Thread(ctx context.Context, db kclient.Client, thread *v1.Thread, oauthServerURL string) (_ []gptscript.ToolDef, extraEnv []string, _ error) {
-	var agent v1.Agent
-	if err := db.Get(ctx, router.Key(thread.Namespace, thread.Spec.AgentName), &agent); err != nil {
-		return nil, nil, err
-	}
-
-	return Agent(ctx, db, &agent, oauthServerURL, AgentOptions{
-		Thread: thread,
-	})
-}
-
 func Agent(ctx context.Context, db kclient.Client, agent *v1.Agent, oauthServerURL string, opts AgentOptions) (_ []gptscript.ToolDef, extraEnv []string, _ error) {
 	defer func() {
 		sort.Strings(extraEnv)
@@ -199,6 +188,11 @@ func Agent(ctx context.Context, db kclient.Client, agent *v1.Agent, oauthServerU
 		}
 
 		otherTools = append(otherTools, tools...)
+	}
+
+	mainTool, otherTools, err = addTasks(ctx, db, opts.Thread, mainTool, otherTools)
+	if err != nil {
+		return nil, nil, err
 	}
 
 	if opts.Thread != nil {
@@ -387,6 +381,61 @@ func configureKnowledgeEnvs(ctx context.Context, db kclient.Client, agent *v1.Ag
 	}
 
 	return extraEnv, false, nil
+}
+
+func addTasks(ctx context.Context, db kclient.Client, thread *v1.Thread, mainTool gptscript.ToolDef, otherTools []gptscript.ToolDef) (_ gptscript.ToolDef, _ []gptscript.ToolDef, _ error) {
+	if thread == nil || thread.Spec.ParentThreadName == "" {
+		return mainTool, otherTools, nil
+	}
+
+	var (
+		wfs        v1.WorkflowList
+		taskInvoke string
+	)
+	err := db.List(ctx, &wfs, kclient.InNamespace(thread.Namespace), kclient.MatchingFields{
+		"spec.threadName": thread.Spec.ParentThreadName,
+	})
+	if err != nil {
+		return mainTool, nil, err
+	}
+
+	for _, wf := range wfs.Items {
+		if wf.Spec.Manifest.Name == "" {
+			continue
+		}
+		if wf.Name == thread.Spec.WorkflowName {
+			continue // skip the workflow that created this thread
+		}
+		if taskInvoke == "" {
+			taskInvoke, err = ResolveToolReference(ctx, db, types.ToolReferenceTypeSystem, thread.Namespace, system.TaskInvoke)
+			if err != nil {
+				return mainTool, nil, err
+			}
+		}
+		wfTool := manifestToTool(wf.Spec.Manifest, taskInvoke, wf.Name)
+		mainTool.Tools = append(mainTool.Tools, wfTool.Name)
+		otherTools = append(otherTools, wfTool)
+	}
+
+	return mainTool, otherTools, nil
+}
+
+func manifestToTool(manifest types.WorkflowManifest, taskInvoke, id string) gptscript.ToolDef {
+	toolDef := gptscript.ToolDef{
+		Name:        "Task " + manifest.Name,
+		Description: "Task: " + manifest.Description,
+		Arguments:   types.GetParams(manifest.Params),
+		Tools: []string{
+			taskInvoke,
+		},
+		Chat: true,
+	}
+	if manifest.Description == "" {
+		toolDef.Description = fmt.Sprintf("Invokes task named %s", manifest.Name)
+	}
+	toolDef.Instructions = fmt.Sprintf(`#!sys.call %s
+%s`, taskInvoke, id)
+	return toolDef
 }
 
 func oauthAppsByName(ctx context.Context, c kclient.Client, namespace string) (map[string]v1.OAuthApp, error) {

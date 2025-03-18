@@ -1,7 +1,6 @@
 package v1
 
 import (
-	gptscriptclient "github.com/gptscript-ai/go-gptscript"
 	"github.com/obot-platform/nah/pkg/fields"
 	"github.com/obot-platform/obot/apiclient/types"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -91,6 +90,19 @@ type RunSpec struct {
 	CredentialContextIDs  []string                `json:"credentialContextIDs,omitempty"`
 	DefaultModel          string                  `json:"defaultModel,omitempty"`
 	Timeout               metav1.Duration         `json:"timeout,omitempty"`
+	ExternalCallResults   []ExternalCallResult    `json:"externalCallResults,omitempty"`
+}
+
+type ExternalCallResult struct {
+	ID   string `json:"id"`
+	Data string `json:"data"`
+}
+
+type ExternalCallResume struct {
+	// Type should equal "obotExternalCallResume"
+	Type   string             `json:"type"`
+	Call   ExternalCall       `json:"call"`
+	Result ExternalCallResult `json:"result"`
 }
 
 func (in *Run) DeleteRefs() []Ref {
@@ -101,14 +113,24 @@ func (in *Run) DeleteRefs() []Ref {
 	}
 }
 
+type RunStateState string
+
+const (
+	Creating RunStateState = "creating"
+	Running  RunStateState = "running"
+	Continue RunStateState = "continue"
+	Waiting  RunStateState = "waiting"
+	Finished RunStateState = "finished"
+	Error    RunStateState = "error"
+)
+
 type RunStatus struct {
-	Conditions []metav1.Condition       `json:"conditions,omitempty"`
-	State      gptscriptclient.RunState `json:"state,omitempty"`
-	Output     string                   `json:"output"`
-	EndTime    metav1.Time              `json:"endTime,omitempty"`
-	Error      string                   `json:"error,omitempty"`
-	SubCall    *SubCall                 `json:"subCall,omitempty"`
-	TaskResult *TaskResult              `json:"taskResult,omitempty"`
+	Conditions   []metav1.Condition `json:"conditions,omitempty"`
+	State        RunStateState      `json:"state,omitempty"`
+	Output       string             `json:"output"`
+	EndTime      metav1.Time        `json:"endTime,omitempty"`
+	Error        string             `json:"error,omitempty"`
+	ExternalCall *ExternalCall      `json:"externalCall,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

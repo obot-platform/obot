@@ -20,7 +20,6 @@ import (
 	gclient "github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/gz"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
-	"github.com/obot-platform/obot/pkg/system"
 	"github.com/obot-platform/obot/pkg/wait"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -316,17 +315,33 @@ func (e *Emitter) printRun(ctx context.Context, state *printState, run v1.Run, r
 			}
 			e.liveStateLock.RUnlock()
 			if liveStateLen < liveIndex {
-				return nil
+				_, err := e.gatewayClient.RunState(ctx, run.Namespace, run.Name)
+				if apierrors.IsNotFound(err) {
+					return nil
+				} else if err != nil {
+					return err
+				}
+				liveIndex = liveStateLen
+				continue
 			}
 			for _, toPrint := range notSeen {
 				if toPrint.Done {
-					return nil
+					runState, err := e.gatewayClient.RunState(ctx, run.Namespace, run.Name)
+					if err == nil && runState.Done {
+						return nil
+					} else if apierrors.IsNotFound(err) {
+						// ephemeral tasks this won't exist
+						return nil
+					} else if err != nil {
+						return err
+					}
+					continue
 				}
 
 				if toPrint.Progress != nil {
 					result <- *toPrint.Progress
 				} else {
-					if err := e.callToEvents(ctx, run.Namespace, run.Name, toPrint.Prg, *toPrint.Frames, state, result); err != nil {
+					if err := e.callToEvents(run, toPrint.Prg, *toPrint.Frames, state, result); err != nil {
 						return err
 					}
 				}
@@ -363,7 +378,7 @@ func (e *Emitter) printRun(ctx context.Context, state *printState, run v1.Run, r
 				return nil
 			}
 
-			if err := e.callToEvents(ctx, run.Namespace, run.Name, &prg, callFrames, state, result); err != nil {
+			if err := e.callToEvents(run, &prg, callFrames, state, result); err != nil {
 				return err
 			}
 
@@ -442,7 +457,7 @@ func (e *Emitter) streamEvents(ctx context.Context, run v1.Run, opts WatchOption
 			if err := e.printParent(ctx, opts.MaxRuns-1, state, run, result); !apierrors.IsNotFound(err) && err != nil {
 				return err
 			}
-			if run.Status.EndTime.IsZero() {
+			if run.Status.EndTime.IsZero() || run.Status.State == v1.Waiting {
 				replayCompleteSent = true
 				result <- types.Progress{
 					ReplayComplete: true,
@@ -484,30 +499,6 @@ func (e *Emitter) streamEvents(ctx context.Context, run v1.Run, opts WatchOption
 		opts.History = false
 		run = *nextRun
 	}
-}
-
-func (e *Emitter) getThreadID(ctx context.Context, namespace, runName, workflowName string) (string, error) {
-	w, err := e.client.Watch(ctx, &v1.WorkflowExecutionList{}, kclient.InNamespace(namespace), &kclient.MatchingFields{
-		"spec.parentRunName": runName,
-		"spec.workflowName":  workflowName,
-	})
-	if err != nil {
-		return "", err
-	}
-	defer func() {
-		w.Stop()
-		//nolint:revive
-		for range w.ResultChan() {
-		}
-	}()
-
-	for event := range w.ResultChan() {
-		if wfe, ok := event.Object.(*v1.WorkflowExecution); ok && wfe.Status.ThreadName != "" {
-			return wfe.Status.ThreadName, nil
-		}
-	}
-
-	return "", fmt.Errorf("no thread found for run %s and workflow %s", runName, workflowName)
 }
 
 func (e *Emitter) getNextWorkflowRun(ctx context.Context, run v1.Run) (*v1.Run, error) {
@@ -643,13 +634,13 @@ func (e *Emitter) findNextRun(ctx context.Context, run v1.Run, opts WatchOptions
 	}
 }
 
-func (e *Emitter) callToEvents(ctx context.Context, namespace, runID string, prg *gptscript.Program, frames gptscript.CallFrames, printed *printState, out chan types.Progress) error {
+func (e *Emitter) callToEvents(run v1.Run, prg *gptscript.Program, frames gptscript.CallFrames, printed *printState, out chan types.Progress) error {
 	parent := frames.ParentCallFrame()
 	if parent.ID == "" || parent.Start.IsZero() {
 		return nil
 	}
 
-	return e.printCall(ctx, namespace, runID, prg, &parent, frames, printed, out)
+	return e.printCall(run, prg, &parent, frames, printed, out)
 }
 
 func getStepTemplateInvoke(prg *gptscript.Program, call *gptscript.CallFrame, frames gptscript.CallFrames) *types.StepTemplateInvoke {
@@ -684,16 +675,16 @@ func getStepTemplateInvoke(prg *gptscript.Program, call *gptscript.CallFrame, fr
 	return nil
 }
 
-func (e *Emitter) printCall(ctx context.Context, namespace, runID string, prg *gptscript.Program, call *gptscript.CallFrame, frames gptscript.CallFrames, lastPrint *printState, out chan types.Progress) error {
+func (e *Emitter) printCall(run v1.Run, prg *gptscript.Program, call *gptscript.CallFrame, frames gptscript.CallFrames, lastPrint *printState, out chan types.Progress) error {
 	printed := lastPrint.frames[call.ID]
 	lastOutputs := printed.Outputs
 
-	if call.Input != "" && !printed.InputPrinted {
+	if run.Spec.Input != "" && !printed.InputPrinted {
 		out <- types.Progress{
-			RunID:                    runID,
+			RunID:                    run.Name,
 			Time:                     types.NewTime(call.Start),
 			Content:                  "\n",
-			Input:                    call.Input,
+			Input:                    run.Spec.Input,
 			InputIsStepTemplateInput: len(call.Tool.InputFilters) > 0,
 		}
 		printed.InputPrinted = true
@@ -702,7 +693,7 @@ func (e *Emitter) printCall(ctx context.Context, namespace, runID string, prg *g
 	if !printed.InputTranslatedPrinted {
 		if translated := getStepTemplateInvoke(prg, call, frames); translated != nil {
 			out <- types.Progress{
-				RunID:              runID,
+				RunID:              run.Name,
 				Time:               types.NewTime(call.Start),
 				StepTemplateInvoke: translated,
 			}
@@ -720,47 +711,30 @@ func (e *Emitter) printCall(ctx context.Context, namespace, runID string, prg *g
 		last := lastOutputs[i]
 
 		if last.Content != currentOutput.Content {
-			currentOutput.Content = printString(prg, call.Start, runID, toolMapping, i, out, last.Content, currentOutput.Content)
+			currentOutput.Content = printString(prg, call.Start, run.Name, toolMapping, i, out, last.Content, currentOutput.Content)
 		}
 
 		for _, callID := range slices.Sorted(maps.Keys(currentOutput.SubCalls)) {
 			subCall := currentOutput.SubCalls[callID]
 			output := getToolCallOutput(frames, callID)
+			taskID, taskRunID := getTaskRunID(frames, callID)
 			if _, ok := last.SubCalls[callID]; !ok || (lastPrint.toolCalls[callID] != output && output != "") {
 				if lastOutput, seenTool := lastPrint.toolCalls[callID]; !seenTool || lastOutput != output {
 					if tool, ok := prg.ToolSet[subCall.ToolID]; ok {
-						_, workflowID := isSubCallTargetIDs(tool)
-						var (
-							tc *types.ToolCall
-							wc *types.WorkflowCall
-						)
-						if workflowID == "" {
-							tc = &types.ToolCall{
-								Name:        tool.Name,
-								Description: tool.Description,
-								Input:       subCall.Input,
-								Output:      output,
-								Metadata:    tool.MetaData,
-							}
-						} else {
-							threadID, err := e.getThreadID(ctx, namespace, runID, workflowID)
-							if err != nil {
-								return err
-							}
-							wc = &types.WorkflowCall{
-								Name:        tool.Name,
-								Description: tool.Description,
-								Input:       subCall.Input,
-								WorkflowID:  workflowID,
-								ThreadID:    threadID,
-							}
+						tc := &types.ToolCall{
+							Name:        tool.Name,
+							Description: tool.Description,
+							TaskID:      taskID,
+							TaskRunID:   taskRunID,
+							Input:       subCall.Input,
+							Output:      output,
+							Metadata:    tool.MetaData,
 						}
 						out <- types.Progress{
-							RunID:        runID,
-							ContentID:    callID,
-							Time:         types.NewTime(call.Start),
-							ToolCall:     tc,
-							WorkflowCall: wc,
+							RunID:     run.Name,
+							ContentID: callID,
+							Time:      types.NewTime(call.Start),
+							ToolCall:  tc,
 						}
 					}
 					lastPrint.toolCalls[callID] = output
@@ -777,28 +751,42 @@ func (e *Emitter) printCall(ctx context.Context, namespace, runID string, prg *g
 	return nil
 }
 
+func getTaskRunID(frames gptscript.CallFrames, callID string) (string, string) {
+	frame := frames[callID]
+	var (
+		resume v1.ExternalCallResume
+		call   v1.ExternalCall
+	)
+
+	if err := json.Unmarshal([]byte(frame.Input), &resume); err == nil && resume.Type == "obotExternalCallResume" {
+		call = resume.Call
+	} else if len(frame.Output) == 1 {
+		if err := json.Unmarshal([]byte(frame.Output[0].Content), &call); err != nil && call.Type != "obotExternalCall" {
+			return "", ""
+		}
+	}
+
+	callData := struct {
+		TaskID string `json:"taskID"`
+	}{}
+	if err := json.Unmarshal([]byte(call.Data), &callData); err == nil && callData.TaskID != "" {
+		return callData.TaskID, call.ID
+	}
+
+	return "", ""
+}
+
 func getToolCallOutput(frames gptscript.CallFrames, callID string) string {
 	frame := frames[callID]
 	out := frame.Output
-	if len(out) == 1 && frame.Type == gptscript.EventTypeCallFinish {
-		return out[0].Content
+	if len(out) == 1 && (frame.Type == gptscript.EventTypeCallFinish || frame.Type == gptscript.EventTypeChat) {
+		var call v1.ExternalCall
+		if err := json.Unmarshal([]byte(out[0].Content), &call); err == nil && call.Type == "obotExternalCall" {
+			return ""
+		}
+		return strings.TrimPrefix(out[0].Content, "CHAT FINISH: ")
 	}
 	return ""
-}
-
-func isSubCallTargetIDs(tool gptscript.Tool) (agentID string, workflowID string) {
-	for _, line := range strings.Split(tool.Instructions, "\n") {
-		suffix, ok := strings.CutPrefix(line, "#OBOT_SUBCALL: TARGET: ")
-		if !ok {
-			continue
-		}
-		if system.IsWorkflowID(suffix) {
-			return "", suffix
-		} else if system.IsAgentID(suffix) {
-			return suffix, ""
-		}
-	}
-	return "", ""
 }
 
 func printString(prg *gptscript.Program, time time.Time, runID string, toolMapping map[string]any, outputIndex int, out chan types.Progress, last, current string) string {

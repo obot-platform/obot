@@ -30,20 +30,33 @@ func New(invoker *invoke.Invoker, backend backend.Backend, gatewayClient *gclien
 }
 
 func (h *Handler) DeleteRunState(req router.Request, _ router.Response) error {
+	run := req.Object.(*v1.Run)
+	if run.Status.ExternalCall != nil {
+		if err := client.IgnoreNotFound(h.gatewayClient.DeleteRunState(req.Ctx, run.Namespace,
+			v1.RunStateNameWithExternalID(run.Name, run.Status.ExternalCall.ID))); err != nil {
+			return err
+		}
+	}
+	for _, external := range run.Spec.ExternalCallResults {
+		if err := client.IgnoreNotFound(h.gatewayClient.DeleteRunState(req.Ctx, run.Namespace,
+			v1.RunStateNameWithExternalID(run.Name, external.ID))); err != nil {
+			return err
+		}
+	}
 	return client.IgnoreNotFound(h.gatewayClient.DeleteRunState(req.Ctx, req.Object.GetNamespace(), req.Object.GetName()))
 }
 
 func (h *Handler) Resume(req router.Request, _ router.Response) error {
 	run := req.Object.(*v1.Run)
 
-	if run.Status.State.IsTerminal() || run.Status.State == gptscript.Continue {
+	if gptscript.RunState(run.Status.State).IsTerminal() || run.Status.State == v1.Continue {
 		return nil
 	}
 
 	var thread v1.Thread
 	if err := req.Get(&thread, run.Namespace, run.Spec.ThreadName); apierrors.IsNotFound(err) {
 		run.Status.Error = fmt.Sprintf("thread %s not found", run.Spec.ThreadName)
-		run.Status.State = gptscript.Error
+		run.Status.State = v1.Error
 		return nil
 	} else if err != nil {
 		return err
@@ -51,14 +64,14 @@ func (h *Handler) Resume(req router.Request, _ router.Response) error {
 
 	if thread.Spec.Abort {
 		run.Status.Error = "thread was aborted"
-		run.Status.State = gptscript.Error
+		run.Status.State = v1.Error
 		return nil
 	}
 
 	if run.Spec.PreviousRunName != "" {
 		if err := req.Get(&v1.Run{}, run.Namespace, run.Spec.PreviousRunName); apierrors.IsNotFound(err) {
 			run.Status.Error = fmt.Sprintf("run %s not found: %s", run.Spec.PreviousRunName, run.Status.Error)
-			run.Status.State = gptscript.Error
+			run.Status.State = v1.Error
 			return nil
 		} else if err != nil {
 			return err
@@ -74,7 +87,7 @@ func (h *Handler) Resume(req router.Request, _ router.Response) error {
 
 func (h *Handler) DeleteFinished(req router.Request, _ router.Response) error {
 	run := req.Object.(*v1.Run)
-	if run.Status.State == gptscript.Finished && time.Since(run.Status.EndTime.Time) > 12*time.Hour || (run.Spec.Synchronous && run.Status.State == "" && time.Since(run.CreationTimestamp.Time) > 12*time.Hour) {
+	if run.Status.State == v1.Finished && time.Since(run.Status.EndTime.Time) > 12*time.Hour || (run.Spec.Synchronous && run.Status.State == "" && time.Since(run.CreationTimestamp.Time) > 12*time.Hour) {
 		// These will be system tasks. Everything is a chat and finished with Continue status
 		return req.Delete(run)
 	}
@@ -83,7 +96,7 @@ func (h *Handler) DeleteFinished(req router.Request, _ router.Response) error {
 
 func (h *Handler) MarkInactive(req router.Request, _ router.Response) error {
 	run := req.Object.(*v1.Run)
-	if !run.DeletionTimestamp.IsZero() || run.Status.State != gptscript.Continue || run.Labels[v1.LabelInactive] == "true" {
+	if !run.DeletionTimestamp.IsZero() || run.Status.State != v1.Continue || run.Labels[v1.LabelInactive] == "true" {
 		return nil
 	}
 

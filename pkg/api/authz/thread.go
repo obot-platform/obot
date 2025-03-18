@@ -39,7 +39,12 @@ func (a *Authorizer) checkThread(req *http.Request, resources *Resources, user u
 			return false, nil
 		}
 
-		return threadID == thread.Name && thread.Spec.AgentName == agentID, nil
+		if threadID == thread.Name && thread.Spec.AgentName == agentID {
+			resources.Authorizated.Thread = &thread
+			return true, nil
+		}
+
+		return false, nil
 	}
 
 	if resources.Authorizated.Project.Name != thread.Spec.ParentThreadName {

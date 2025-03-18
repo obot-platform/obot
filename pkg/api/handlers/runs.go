@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"github.com/gptscript-ai/go-gptscript"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/events"
@@ -23,11 +22,11 @@ func NewRunHandler(events *events.Emitter) *RunHandler {
 func convertRun(run v1.Run) types.Run {
 	state := "pending"
 	switch run.Status.State {
-	case gptscript.Creating, gptscript.Running:
+	case v1.Creating, v1.Running, v1.Waiting:
 		state = "running"
-	case gptscript.Continue, gptscript.Finished:
+	case v1.Continue, v1.Finished:
 		state = "completed"
-	case gptscript.Error:
+	case v1.Error:
 		state = "error"
 	}
 	result := types.Run{
@@ -42,10 +41,6 @@ func convertRun(run v1.Run) types.Run {
 		State:          state,
 		Output:         run.Status.Output,
 		Error:          run.Status.Error,
-	}
-	if run.Status.SubCall != nil {
-		result.SubCallWorkflowID = run.Status.SubCall.Workflow
-		result.SubCallInput = run.Status.SubCall.Input
 	}
 	return result
 }
@@ -73,6 +68,11 @@ func (a *RunHandler) Debug(req api.Context) error {
 		"spec":   run.Spec,
 		"frames": frames,
 		"status": run.Status,
+		"runState": map[string]any{
+			"output": runState.Output,
+			"error":  runState.Error,
+			"done":   runState.Done,
+		},
 	})
 }
 

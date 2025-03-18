@@ -59,6 +59,8 @@ type ToolCall = {
 	description?: string;
 	input?: string;
 	output?: string;
+	taskID?: string;
+	taskRunID?: string;
 	metadata?: { [key: string]: string };
 };
 

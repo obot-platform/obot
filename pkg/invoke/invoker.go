@@ -187,6 +187,28 @@ type Options struct {
 }
 
 func (i *Invoker) getChatState(ctx context.Context, c kclient.Client, run *v1.Run) (result string, _ error) {
+	if run.Status.State == v1.Waiting {
+		if run.Status.ExternalCall == nil {
+			return "", fmt.Errorf("invalid state, external call is unset")
+		}
+		id := v1.RunStateNameWithExternalID(run.Name, run.Status.ExternalCall.ID)
+		lastRun, err := i.gatewayClient.RunState(ctx, run.Namespace, id)
+		if apierror.IsNotFound(err) {
+			// Copy existing state for future idempotent calls
+			lastRun, err = i.gatewayClient.RunState(ctx, run.Namespace, run.Name)
+			if err != nil {
+				return "", err
+			}
+			lastRun.Name = id
+			if err := i.gatewayClient.CreateRunState(ctx, lastRun); err != nil {
+				return "", err
+			}
+		} else if err != nil {
+			return "", err
+		}
+		return result, gz.Decompress(&result, lastRun.ChatState)
+	}
+
 	if run.Spec.PreviousRunName == "" {
 		return "", nil
 	}
@@ -203,7 +225,7 @@ func (i *Invoker) getChatState(ctx context.Context, c kclient.Client, run *v1.Ru
 				return "", err
 			}
 		}
-		if previousRun.Status.State == gptscript.Continue {
+		if previousRun.Status.State == v1.RunStateState(gptscript.Continue) {
 			break
 		}
 		if previousRun.Spec.PreviousRunName == "" {
@@ -525,6 +547,35 @@ func (i *Invoker) Resume(ctx context.Context, c kclient.WithWatch, thread *v1.Th
 		}
 	}
 
+	input := run.Spec.Input
+	if run.Status.State == v1.Waiting {
+		if run.Status.ExternalCall == nil {
+			return fmt.Errorf("invalid state, external call should be set for waiting run")
+		}
+
+		found := false
+		for _, newInput := range run.Spec.ExternalCallResults {
+			if newInput.ID == run.Status.ExternalCall.ID {
+				inputData, err := json.Marshal(v1.ExternalCallResume{
+					Type:   "obotExternalCallResume",
+					Call:   *run.Status.ExternalCall,
+					Result: newInput,
+				})
+				if err != nil {
+					return fmt.Errorf("failed to marshal external call resume: %w", err)
+				}
+				input = string(inputData)
+				found = true
+				break
+			}
+		}
+
+		if !found {
+			// Still waiting for input
+			return nil
+		}
+	}
+
 	chatState, err := i.getChatState(ctx, c, run)
 	if err != nil {
 		return err
@@ -588,7 +639,7 @@ func (i *Invoker) Resume(ctx context.Context, c kclient.WithWatch, thread *v1.Th
 			DefaultModel:         run.Spec.DefaultModel,
 			DefaultModelProvider: modelProvider,
 		},
-		Input:              run.Spec.Input,
+		Input:              input,
 		Workspace:          thread.Status.WorkspaceID,
 		CredentialContexts: run.Spec.CredentialContextIDs,
 		ChatState:          chatState,
@@ -676,6 +727,7 @@ func (i *Invoker) saveState(ctx context.Context, c kclient.Client, thread *v1.Th
 func (i *Invoker) doSaveState(ctx context.Context, c kclient.Client, thread *v1.Thread, run *v1.Run, runResp *gptscript.Run, retErr error) error {
 	var (
 		runStateSpec gtypes.RunState
+		extCall      *v1.ExternalCall
 		runChanged   bool
 		err          error
 	)
@@ -693,6 +745,12 @@ func (i *Invoker) doSaveState(ctx context.Context, c kclient.Client, thread *v1.
 			runStateSpec.Output, err = gz.Compress(text)
 			if err != nil {
 				return err
+			}
+
+			extCall = toExternalCall(text)
+			if extCall != nil {
+				// waiting state
+				runStateSpec.Done = false
 			}
 		}
 	}
@@ -746,7 +804,10 @@ func (i *Invoker) doSaveState(ctx context.Context, c kclient.Client, thread *v1.
 		}
 	}
 
-	state := runResp.State()
+	state := v1.RunStateState(runResp.State())
+	if state == v1.Continue && extCall != nil {
+		state = v1.Waiting
+	}
 
 	if run.Status.State != state {
 		run.Status.State = state
@@ -755,7 +816,7 @@ func (i *Invoker) doSaveState(ctx context.Context, c kclient.Client, thread *v1.
 
 	var final bool
 	switch state {
-	case gptscript.Error:
+	case v1.Error:
 		final = true
 		errString := runResp.ErrorOutput()
 		if errString == "" {
@@ -765,7 +826,7 @@ func (i *Invoker) doSaveState(ctx context.Context, c kclient.Client, thread *v1.
 			run.Status.Error = errString
 			runChanged = true
 		}
-	case gptscript.Continue, gptscript.Finished:
+	case v1.Continue, v1.Finished, v1.Waiting:
 		final = true
 		text, err := runResp.Text()
 		if err != nil {
@@ -777,19 +838,18 @@ func (i *Invoker) doSaveState(ctx context.Context, c kclient.Client, thread *v1.
 			shortText = shortText[:runOutputMaxLength]
 		}
 		if run.Status.Output != shortText {
-			if run.Status.SubCall == nil && run.Status.TaskResult == nil {
+			if run.Status.ExternalCall == nil {
 				runChanged = true
 			}
-			run.Status.SubCall = toSubCall(text)
-			run.Status.TaskResult = toTaskResult(text)
-			if run.Status.SubCall == nil && run.Status.TaskResult == nil {
+			run.Status.ExternalCall = extCall
+			if run.Status.ExternalCall == nil {
 				run.Status.Output = shortText
 			}
 		}
 	}
 
-	if retErr != nil && !run.Status.State.IsTerminal() {
-		run.Status.State = gptscript.Error
+	if retErr != nil && !gptscript.RunState(run.Status.State).IsTerminal() {
+		run.Status.State = v1.RunStateState(gptscript.Error)
 		if run.Status.Error == "" {
 			run.Status.Error = retErr.Error()
 		}
@@ -797,6 +857,9 @@ func (i *Invoker) doSaveState(ctx context.Context, c kclient.Client, thread *v1.
 	}
 
 	if runChanged {
+		if run.Status.ExternalCall != nil && run.Status.State != v1.Waiting {
+			run.Status.ExternalCall = nil // clear external call if we are done
+		}
 		if run.Status.EndTime.IsZero() && final {
 			run.Status.EndTime = metav1.Now()
 		}
@@ -833,49 +896,12 @@ func (i *Invoker) doSaveState(ctx context.Context, c kclient.Client, thread *v1.
 
 	return retErr
 }
-
-type call struct {
-	Type     string `json:"type,omitempty"`
-	Workflow string `json:"workflow,omitempty"`
-	Input    any    `json:"input,omitempty"`
-}
-
-func toTaskResult(output string) *v1.TaskResult {
-	var call v1.TaskResult
-	if err := json.Unmarshal([]byte(strings.TrimSpace(output)), &call); err != nil || call.Type != "ObotTaskResult" || call.ID == "" {
+func toExternalCall(output string) *v1.ExternalCall {
+	var call v1.ExternalCall
+	if err := json.Unmarshal([]byte(strings.TrimSpace(output)), &call); err != nil || call.Type != "obotExternalCall" || call.ID == "" {
 		return nil
 	}
-
 	return &call
-}
-
-func toSubCall(output string) *v1.SubCall {
-	var call call
-	if err := json.Unmarshal([]byte(strings.TrimSpace(output)), &call); err != nil || call.Type != "ObotSubFlow" || call.Workflow == "" {
-		return nil
-	}
-
-	var inputString string
-	switch v := call.Input.(type) {
-	case string:
-		inputString = v
-	default:
-		inputBytes, err := json.Marshal(v)
-		if err != nil {
-			panic(err)
-		}
-		inputString = string(inputBytes)
-	}
-
-	if inputString == "{}" {
-		inputString = ""
-	}
-
-	return &v1.SubCall{
-		Type:     call.Type,
-		Workflow: call.Workflow,
-		Input:    inputString,
-	}
 }
 
 func getCredentialCallingTool(runResp *gptscript.Run) (result gptscript.Tool) {

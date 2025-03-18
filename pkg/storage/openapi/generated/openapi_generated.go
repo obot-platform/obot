@@ -128,7 +128,6 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/apiclient/types.WebsiteDefinition":                          schema_obot_platform_obot_apiclient_types_WebsiteDefinition(ref),
 		"github.com/obot-platform/obot/apiclient/types.WebsiteKnowledge":                           schema_obot_platform_obot_apiclient_types_WebsiteKnowledge(ref),
 		"github.com/obot-platform/obot/apiclient/types.Workflow":                                   schema_obot_platform_obot_apiclient_types_Workflow(ref),
-		"github.com/obot-platform/obot/apiclient/types.WorkflowCall":                               schema_obot_platform_obot_apiclient_types_WorkflowCall(ref),
 		"github.com/obot-platform/obot/apiclient/types.WorkflowExecution":                          schema_obot_platform_obot_apiclient_types_WorkflowExecution(ref),
 		"github.com/obot-platform/obot/apiclient/types.WorkflowExecutionList":                      schema_obot_platform_obot_apiclient_types_WorkflowExecutionList(ref),
 		"github.com/obot-platform/obot/apiclient/types.WorkflowList":                               schema_obot_platform_obot_apiclient_types_WorkflowList(ref),
@@ -157,6 +156,9 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.EmailReceiverSpec":         schema_storage_apis_obotobotai_v1_EmailReceiverSpec(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.EmailReceiverStatus":       schema_storage_apis_obotobotai_v1_EmailReceiverStatus(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.EmptyStatus":               schema_storage_apis_obotobotai_v1_EmptyStatus(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ExternalCall":              schema_storage_apis_obotobotai_v1_ExternalCall(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ExternalCallResult":        schema_storage_apis_obotobotai_v1_ExternalCallResult(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ExternalCallResume":        schema_storage_apis_obotobotai_v1_ExternalCallResume(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.KnowledgeFile":             schema_storage_apis_obotobotai_v1_KnowledgeFile(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.KnowledgeFileList":         schema_storage_apis_obotobotai_v1_KnowledgeFileList(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.KnowledgeFileSpec":         schema_storage_apis_obotobotai_v1_KnowledgeFileSpec(ref),
@@ -193,8 +195,6 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.RunStateList":              schema_storage_apis_obotobotai_v1_RunStateList(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.RunStateSpec":              schema_storage_apis_obotobotai_v1_RunStateSpec(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.RunStatus":                 schema_storage_apis_obotobotai_v1_RunStatus(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.SubCall":                   schema_storage_apis_obotobotai_v1_SubCall(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.TaskResult":                schema_storage_apis_obotobotai_v1_TaskResult(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.Thread":                    schema_storage_apis_obotobotai_v1_Thread(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ThreadAuthorization":       schema_storage_apis_obotobotai_v1_ThreadAuthorization(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ThreadAuthorizationList":   schema_storage_apis_obotobotai_v1_ThreadAuthorizationList(ref),
@@ -2744,12 +2744,6 @@ func schema_obot_platform_obot_apiclient_types_Progress(ref common.ReferenceCall
 							Ref:         ref("github.com/obot-platform/obot/apiclient/types.ToolCall"),
 						},
 					},
-					"workflowCall": {
-						SchemaProps: spec.SchemaProps{
-							Description: "ToolCall indicates the LLM is currently calling a tool.",
-							Ref:         ref("github.com/obot-platform/obot/apiclient/types.WorkflowCall"),
-						},
-					},
 					"waitingOnModel": {
 						SchemaProps: spec.SchemaProps{
 							Description: "WaitingOnModel indicates we are waiting for the model to start responding with content",
@@ -2783,7 +2777,7 @@ func schema_obot_platform_obot_apiclient_types_Progress(ref common.ReferenceCall
 			},
 		},
 		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.Prompt", "github.com/obot-platform/obot/apiclient/types.Step", "github.com/obot-platform/obot/apiclient/types.StepTemplateInvoke", "github.com/obot-platform/obot/apiclient/types.Time", "github.com/obot-platform/obot/apiclient/types.ToolCall", "github.com/obot-platform/obot/apiclient/types.ToolInput", "github.com/obot-platform/obot/apiclient/types.WorkflowCall"},
+			"github.com/obot-platform/obot/apiclient/types.Prompt", "github.com/obot-platform/obot/apiclient/types.Step", "github.com/obot-platform/obot/apiclient/types.StepTemplateInvoke", "github.com/obot-platform/obot/apiclient/types.Time", "github.com/obot-platform/obot/apiclient/types.ToolCall", "github.com/obot-platform/obot/apiclient/types.ToolInput"},
 	}
 }
 
@@ -3442,18 +3436,6 @@ func schema_obot_platform_obot_apiclient_types_Run(ref common.ReferenceCallback)
 							Format: "",
 						},
 					},
-					"subCallWorkflowID": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-					"subCallInput": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
 					"previousRunID": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
@@ -3886,6 +3868,12 @@ func schema_obot_platform_obot_apiclient_types_TaskRun(ref common.ReferenceCallb
 						},
 					},
 					"input": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"output": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
 							Format: "",
@@ -4414,6 +4402,18 @@ func schema_obot_platform_obot_apiclient_types_ToolCall(ref common.ReferenceCall
 						},
 					},
 					"description": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"taskID": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"taskRunID": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
 							Format: "",
@@ -5111,48 +5111,6 @@ func schema_obot_platform_obot_apiclient_types_Workflow(ref common.ReferenceCall
 		},
 		Dependencies: []string{
 			"github.com/obot-platform/obot/apiclient/types.Metadata", "github.com/obot-platform/obot/apiclient/types.WorkflowManifest"},
-	}
-}
-
-func schema_obot_platform_obot_apiclient_types_WorkflowCall(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Type: []string{"object"},
-				Properties: map[string]spec.Schema{
-					"name": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-					"description": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-					"threadID": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-					"workflowID": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-					"input": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-				},
-			},
-		},
 	}
 }
 
@@ -6296,6 +6254,98 @@ func schema_storage_apis_obotobotai_v1_EmptyStatus(ref common.ReferenceCallback)
 				Type: []string{"object"},
 			},
 		},
+	}
+}
+
+func schema_storage_apis_obotobotai_v1_ExternalCall(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"id": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"type": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"data": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func schema_storage_apis_obotobotai_v1_ExternalCallResult(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"id": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"data": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+				},
+				Required: []string{"id", "data"},
+			},
+		},
+	}
+}
+
+func schema_storage_apis_obotobotai_v1_ExternalCallResume(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"type": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Type should equal \"obotExternalCallResume\"",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"call": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ExternalCall"),
+						},
+					},
+					"result": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ExternalCallResult"),
+						},
+					},
+				},
+				Required: []string{"type", "call", "result"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ExternalCall", "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ExternalCallResult"},
 	}
 }
 
@@ -7756,12 +7806,25 @@ func schema_storage_apis_obotobotai_v1_RunSpec(ref common.ReferenceCallback) com
 							Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.Duration"),
 						},
 					},
+					"externalCallResults": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ExternalCallResult"),
+									},
+								},
+							},
+						},
+					},
 				},
 				Required: []string{"input"},
 			},
 		},
 		Dependencies: []string{
-			"k8s.io/apimachinery/pkg/apis/meta/v1.Duration"},
+			"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ExternalCallResult", "k8s.io/apimachinery/pkg/apis/meta/v1.Duration"},
 	}
 }
 
@@ -7956,14 +8019,9 @@ func schema_storage_apis_obotobotai_v1_RunStatus(ref common.ReferenceCallback) c
 							Format: "",
 						},
 					},
-					"subCall": {
+					"externalCall": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.SubCall"),
-						},
-					},
-					"taskResult": {
-						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.TaskResult"),
+							Ref: ref("github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ExternalCall"),
 						},
 					},
 				},
@@ -7971,67 +8029,7 @@ func schema_storage_apis_obotobotai_v1_RunStatus(ref common.ReferenceCallback) c
 			},
 		},
 		Dependencies: []string{
-			"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.SubCall", "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.TaskResult", "k8s.io/apimachinery/pkg/apis/meta/v1.Condition", "k8s.io/apimachinery/pkg/apis/meta/v1.Time"},
-	}
-}
-
-func schema_storage_apis_obotobotai_v1_SubCall(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Type: []string{"object"},
-				Properties: map[string]spec.Schema{
-					"type": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-					"workflow": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-					"input": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-				},
-			},
-		},
-	}
-}
-
-func schema_storage_apis_obotobotai_v1_TaskResult(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Type: []string{"object"},
-				Properties: map[string]spec.Schema{
-					"type": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-					"id": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-					"nextRunName": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-				},
-			},
-		},
+			"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ExternalCall", "k8s.io/apimachinery/pkg/apis/meta/v1.Condition", "k8s.io/apimachinery/pkg/apis/meta/v1.Time"},
 	}
 }
 
@@ -9521,6 +9519,13 @@ func schema_storage_apis_obotobotai_v1_WorkflowExecutionSpec(ref common.Referenc
 							Format: "",
 						},
 					},
+					"runName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "The Run that started this execution",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 				},
 			},
 		},
@@ -9833,19 +9838,6 @@ func schema_storage_apis_obotobotai_v1_WorkflowStepStatus(ref common.ReferenceCa
 							Format: "",
 						},
 					},
-					"subCalls": {
-						SchemaProps: spec.SchemaProps{
-							Type: []string{"array"},
-							Items: &spec.SchemaOrArray{
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref("github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.SubCall"),
-									},
-								},
-							},
-						},
-					},
 					"message": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
@@ -9881,8 +9873,6 @@ func schema_storage_apis_obotobotai_v1_WorkflowStepStatus(ref common.ReferenceCa
 				},
 			},
 		},
-		Dependencies: []string{
-			"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.SubCall"},
 	}
 }
 

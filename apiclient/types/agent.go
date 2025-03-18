@@ -65,14 +65,18 @@ type AgentManifest struct {
 	WebsiteKnowledge     *WebsiteKnowledge `json:"websiteKnowledge,omitempty"`
 }
 
-func (m AgentManifest) GetParams() *openapi3.Schema {
+func GetParams(params map[string]string) *openapi3.Schema {
 	var args []string
-	for _, k := range slices.Sorted(maps.Keys(m.Params)) {
+	for _, k := range slices.Sorted(maps.Keys(params)) {
 		args = append(args, k)
-		args = append(args, m.Params[k])
+		args = append(args, params[k])
 	}
 
 	return gptscript.ObjectSchema(args...)
+}
+
+func (m AgentManifest) GetParams() *openapi3.Schema {
+	return GetParams(m.Params)
 }
 
 type ToolInfo struct {

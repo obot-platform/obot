@@ -365,6 +365,7 @@ func (t *TaskHandler) run(req api.Context, workflow *v1.Workflow, threadName str
 				Input:        string(input),
 				ThreadName:   threadName,
 				WorkflowName: workflow.Name,
+				RunName:      getRunIDFromUser(req),
 			},
 		}
 		if err := req.Create(wfe); err != nil {
@@ -384,6 +385,14 @@ func (t *TaskHandler) run(req api.Context, workflow *v1.Workflow, threadName str
 	return req.WriteCreated(convertTaskRun(workflow, wfe))
 }
 
+func getRunIDFromUser(req api.Context) string {
+	v := req.User.GetExtra()["obot:runID"]
+	if len(v) == 1 {
+		return v[0]
+	}
+	return ""
+}
+
 func convertTaskRun(workflow *v1.Workflow, wfe *v1.WorkflowExecution) types.TaskRun {
 	var endTime *types.Time
 	if wfe.Status.EndTime != nil {
@@ -393,6 +402,7 @@ func convertTaskRun(workflow *v1.Workflow, wfe *v1.WorkflowExecution) types.Task
 		Metadata:  MetadataFrom(wfe),
 		TaskID:    workflow.Name,
 		Input:     wfe.Spec.Input,
+		Output:    wfe.Status.Output,
 		ThreadID:  wfe.Status.ThreadName,
 		Task:      ConvertTaskManifest(wfe.Status.WorkflowManifest),
 		StartTime: types.NewTime(wfe.CreationTimestamp.Time),
@@ -808,11 +818,23 @@ func (t *TaskHandler) getTask(req api.Context) (*v1.Workflow, *v1.Thread, error)
 		return nil, nil, err
 	}
 
-	if workflow.Spec.ThreadName != thread.Name {
+	if thread.Spec.Project {
+		if workflow.Spec.ThreadName != thread.Name {
+			return nil, nil, types.NewErrHTTP(http.StatusForbidden, "task does not belong to the thread")
+		}
+		return &workflow, thread, nil
+	}
+
+	if thread.Spec.ParentThreadName == "" || workflow.Spec.ThreadName != thread.Spec.ParentThreadName {
 		return nil, nil, types.NewErrHTTP(http.StatusForbidden, "task does not belong to the thread")
 	}
 
-	return &workflow, thread, nil
+	var projectThread v1.Thread
+	if err := req.Get(&projectThread, thread.Spec.ParentThreadName); err != nil {
+		return nil, nil, err
+	}
+
+	return &workflow, &projectThread, nil
 }
 
 func getThreadForScope(req api.Context) (*v1.Thread, error) {
@@ -878,7 +900,11 @@ func (t *TaskHandler) list(req api.Context, thread *v1.Thread) error {
 	selector := kclient.MatchingFields{}
 
 	if thread != nil && thread.Name != "" {
-		selector["spec.threadName"] = thread.Name
+		if !thread.Spec.Project && thread.Spec.ParentThreadName != "" {
+			selector["spec.threadName"] = thread.Spec.ParentThreadName
+		} else {
+			selector["spec.threadName"] = thread.Name
+		}
 	}
 
 	var crons v1.CronJobList

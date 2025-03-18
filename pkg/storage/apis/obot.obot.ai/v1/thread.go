@@ -4,7 +4,6 @@ import (
 	"slices"
 	"strconv"
 
-	gptscriptclient "github.com/gptscript-ai/go-gptscript"
 	"github.com/obot-platform/obot/apiclient/types"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -134,14 +133,14 @@ func (in *Thread) DeleteRefs() []Ref {
 }
 
 type ThreadStatus struct {
-	LastRunName            string                   `json:"lastRunName,omitempty"`
-	CurrentRunName         string                   `json:"currentRunName,omitempty"`
-	LastRunState           gptscriptclient.RunState `json:"lastRunState,omitempty"`
-	WorkflowState          types.WorkflowState      `json:"workflowState,omitempty"`
-	WorkspaceID            string                   `json:"workspaceID,omitempty"`
-	WorkspaceName          string                   `json:"workspaceName,omitempty"`
-	KnowledgeSetNames      []string                 `json:"knowledgeSetNames,omitempty"`
-	SharedKnowledgeSetName string                   `json:"sharedKnowledgeSetName,omitempty"`
+	LastRunName            string              `json:"lastRunName,omitempty"`
+	CurrentRunName         string              `json:"currentRunName,omitempty"`
+	LastRunState           RunStateState       `json:"lastRunState,omitempty"`
+	WorkflowState          types.WorkflowState `json:"workflowState,omitempty"`
+	WorkspaceID            string              `json:"workspaceID,omitempty"`
+	WorkspaceName          string              `json:"workspaceName,omitempty"`
+	KnowledgeSetNames      []string            `json:"knowledgeSetNames,omitempty"`
+	SharedKnowledgeSetName string              `json:"sharedKnowledgeSetName,omitempty"`
 	// SharedWorkspaceName is used primarily to store the database content and is scoped to the project and shared across threads
 	SharedWorkspaceName string `json:"sharedWorkspaceName,omitempty"`
 	CopiedTasks         bool   `json:"copiedTasks,omitempty"`

@@ -77,7 +77,6 @@ func (in *WorkflowStep) DeleteRefs() []Ref {
 type WorkflowStepStatus struct {
 	WorkflowGeneration int64               `json:"workflowGeneration,omitempty"`
 	State              types.WorkflowState `json:"state,omitempty"`
-	SubCalls           []SubCall           `json:"subCalls,omitempty"`
 	Error              string              `json:"message,omitempty"`
 	ThreadName         string              `json:"threadName,omitempty"`
 	RunNames           []string            `json:"runNames,omitempty"`
@@ -95,16 +94,10 @@ func (in WorkflowStepStatus) HasRunsSet() bool {
 	return in.LastRunName != "" || len(in.RunNames) > 0
 }
 
-type SubCall struct {
-	Type     string `json:"type,omitempty"`
-	Workflow string `json:"workflow,omitempty"`
-	Input    string `json:"input,omitempty"`
-}
-
-type TaskResult struct {
-	Type        string `json:"type,omitempty"`
-	ID          string `json:"id,omitempty"`
-	NextRunName string `json:"nextRunName,omitempty"`
+type ExternalCall struct {
+	ID   string `json:"id,omitempty"`
+	Type string `json:"type,omitempty"`
+	Data string `json:"data,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

@@ -71,12 +71,15 @@ type WorkflowExecutionSpec struct {
 	CronJobName        string `json:"cronJobName,omitempty"`
 	WorkflowGeneration int64  `json:"workflowGeneration,omitempty"`
 	RunUntilStep       string `json:"runUntilStep,omitempty"`
+	// The Run that started this execution
+	RunName string `json:"runName,omitempty"`
 }
 
 func (in *WorkflowExecution) DeleteRefs() []Ref {
 	return []Ref{
 		{ObjType: &Workflow{}, Name: in.Spec.WorkflowName},
 		{ObjType: &Thread{}, Name: in.Status.ThreadName},
+		{ObjType: &Run{}, Name: in.Spec.RunName},
 	}
 }
 

@@ -47,10 +47,6 @@ func (l *Runs) printRuns(i iter.Seq[types.Run], flush bool) error {
 		}
 
 		out := run.Output
-		if run.SubCallWorkflowID != "" {
-			out = "Workflow: " + run.SubCallWorkflowID + " ,Input: " + run.SubCallInput
-		}
-
 		w.WriteRow(run.ID, run.PreviousRunID, agentWF, run.ThreadID, run.WorkflowStepID, run.State, run.Input, out, humanize.Time(run.Created.Time))
 		if flush {
 			w.Flush()

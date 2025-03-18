@@ -11,6 +11,7 @@ import (
 	"github.com/obot-platform/obot/pkg/invoke"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
+	apierror "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -23,6 +24,39 @@ func New(invoker *invoke.Invoker) *Handler {
 	return &Handler{
 		invoker: invoker,
 	}
+}
+
+func (h *Handler) UpdateRun(req router.Request, _ router.Response) error {
+	var (
+		we = req.Object.(*v1.WorkflowExecution)
+	)
+	if !(we.Status.State == types.WorkflowStateComplete && we.Spec.RunName != "") {
+		return nil
+	}
+
+	var run v1.Run
+	if err := req.Get(&run, we.Namespace, we.Spec.RunName); apierror.IsNotFound(err) {
+		return nil
+	} else if err != nil {
+		return err
+	}
+
+	for _, result := range run.Spec.ExternalCallResults {
+		if result.ID == we.Name {
+			// Already set
+			return nil
+		}
+	}
+
+	if run.Status.ExternalCall != nil && run.Status.ExternalCall.ID == we.Name {
+		run.Spec.ExternalCallResults = append(run.Spec.ExternalCallResults, v1.ExternalCallResult{
+			ID:   we.Name,
+			Data: we.Status.Output,
+		})
+		return req.Client.Update(req.Ctx, &run)
+	}
+
+	return nil
 }
 
 func (h *Handler) Run(req router.Request, _ router.Response) error {

@@ -58,7 +58,6 @@ func (c *Controller) setupRoutes() error {
 	root.Type(&v1.Run{}).HandlerFunc(runs.DeleteFinished)
 	root.Type(&v1.Run{}).HandlerFunc(cleanup.Cleanup)
 	root.Type(&v1.Run{}).HandlerFunc(runs.Resume)
-	root.Type(&v1.Run{}).HandlerFunc(workflow.GetTaskResult)
 	// This handler should be the last one so that deleting Runs will not be marked as inactive.
 	root.Type(&v1.Run{}).HandlerFunc(runs.MarkInactive)
 
@@ -94,6 +93,7 @@ func (c *Controller) setupRoutes() error {
 	// WorkflowExecutions
 	root.Type(&v1.WorkflowExecution{}).HandlerFunc(cleanup.Cleanup)
 	root.Type(&v1.WorkflowExecution{}).HandlerFunc(workflowExecution.Run)
+	root.Type(&v1.WorkflowExecution{}).HandlerFunc(workflowExecution.UpdateRun)
 	root.Type(&v1.WorkflowExecution{}).HandlerFunc(workflowExecution.ReassignThread)
 
 	// Agents

@@ -1,15 +1,12 @@
 package workflowstep
 
 import (
-	"github.com/gptscript-ai/go-gptscript"
 	"github.com/obot-platform/nah/pkg/router"
 	"github.com/obot-platform/nah/pkg/untriggered"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/invoke"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/client-go/util/retry"
-	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 func (h *Handler) RunInvoke(req router.Request, _ router.Response) error {
@@ -57,41 +54,20 @@ func (h *Handler) RunInvoke(req router.Request, _ router.Response) error {
 		}
 	}
 
-	return h.setStepStateFromRun(req, step, &run)
+	return h.setStepStateFromRun(step, &run)
 }
 
-func (h *Handler) getResultFromNext(req router.Request, step *v1.WorkflowStep, run *v1.Run) error {
-	if run.Status.TaskResult.NextRunName == "" {
-		return nil
-	}
-	var nextRun v1.Run
-	if err := req.Get(&nextRun, step.Namespace, run.Status.TaskResult.NextRunName); kclient.IgnoreNotFound(err) != nil {
-		return err
-	} else if apierrors.IsNotFound(err) {
-		return nil
-	}
-	return h.setStepStateFromRun(req, step, &nextRun)
-}
-
-func (h *Handler) setStepStateFromRun(req router.Request, step *v1.WorkflowStep, run *v1.Run) error {
+func (h *Handler) setStepStateFromRun(step *v1.WorkflowStep, run *v1.Run) error {
 	switch run.Status.State {
-	case gptscript.Finished:
+	case v1.Finished:
 		step.Status.State = types.WorkflowStateBlocked
 		step.Status.LastRunName = step.Status.RunNames[0]
 		step.Status.Error = "Aborted"
-	case gptscript.Continue:
-		if run.Status.SubCall != nil {
-			step.Status.State = types.WorkflowStateSubCall
-			step.Status.SubCalls = []v1.SubCall{*run.Status.SubCall}
-		} else if run.Status.TaskResult != nil {
-			return h.getResultFromNext(req, step, run)
-		} else {
-			step.Status.State = types.WorkflowStateComplete
-			step.Status.LastRunName = step.Status.RunNames[0]
-			step.Status.SubCalls = nil
-		}
+	case v1.Continue:
+		step.Status.State = types.WorkflowStateComplete
+		step.Status.LastRunName = step.Status.RunNames[0]
 		step.Status.Error = ""
-	case gptscript.Error:
+	case v1.Error:
 		step.Status.State = types.WorkflowStateError
 		step.Status.LastRunName = step.Status.RunNames[0]
 		step.Status.Error = run.Status.Error

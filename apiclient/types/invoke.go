@@ -59,8 +59,6 @@ type Progress struct {
 	ToolInput *ToolInput `json:"toolInput,omitempty"`
 	// ToolCall indicates the LLM is currently calling a tool.
 	ToolCall *ToolCall `json:"toolCall,omitempty"`
-	// ToolCall indicates the LLM is currently calling a tool.
-	WorkflowCall *WorkflowCall `json:"workflowCall,omitempty"`
 	// WaitingOnModel indicates we are waiting for the model to start responding with content
 	WaitingOnModel bool `json:"waitingOnModel,omitempty"`
 	// Error indicates that an error occurred
@@ -120,15 +118,9 @@ type ToolInput struct {
 type ToolCall struct {
 	Name        string            `json:"name,omitempty"`
 	Description string            `json:"description,omitempty"`
+	TaskID      string            `json:"taskID,omitempty"`
+	TaskRunID   string            `json:"taskRunID,omitempty"`
 	Input       string            `json:"input,omitempty"`
 	Output      string            `json:"output,omitempty"`
 	Metadata    map[string]string `json:"metadata,omitempty"`
-}
-
-type WorkflowCall struct {
-	Name        string `json:"name,omitempty"`
-	Description string `json:"description,omitempty"`
-	ThreadID    string `json:"threadID,omitempty"`
-	WorkflowID  string `json:"workflowID,omitempty"`
-	Input       string `json:"input,omitempty"`
 }
