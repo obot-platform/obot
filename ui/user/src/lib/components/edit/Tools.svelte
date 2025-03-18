@@ -66,8 +66,8 @@
 			{@render toolList(enabledList, true)}
 		</ul>
 
-		<!-- <div class="self-end">
+		<div class="self-end">
 			<ToolCatalog {tools} onSelectTools={onNewTools} maxTools={assistant?.maxTools} />
-		</div> -->
+		</div>
 	</div>
 </CollapsePane>
