@@ -13,6 +13,7 @@ import type { Action } from 'svelte/action';
 interface TooltipOptions {
 	slide?: 'left' | 'up';
 	fixed?: boolean;
+	hover?: boolean;
 }
 
 interface Popover {
@@ -23,7 +24,6 @@ interface Popover {
 }
 
 interface PopoverOptions extends Partial<ComputePositionConfig> {
-	hover?: boolean;
 	assign?: (x: number, y: number) => void;
 	offset?: number;
 	placement?: Placement;
@@ -39,11 +39,19 @@ export default function popover(initialOptions?: PopoverOptions): Popover {
 	let hoverTimeout: number | null = null;
 
 	let open = $state(false);
-	const options = $state<PopoverOptions & TooltipOptions>(initialOptions ?? {});
+	let options = $state<PopoverOptions & TooltipOptions>(initialOptions ?? {});
 	const selfId = $state(id++);
 
+	// Create a new state to track when both elements are ready
+	let ready = $state(false);
+
+	// Function to check if both elements are ready
+	function checkReady() {
+		ready = !!(ref && tooltip);
+	}
+
 	$effect(() => {
-		if (!ref || !tooltip) return;
+		if (!ready) return;
 
 		const handler = (e: Event) => {
 			if (e instanceof CustomEvent && e.detail !== selfId.toString()) {
@@ -56,25 +64,25 @@ export default function popover(initialOptions?: PopoverOptions): Popover {
 	});
 
 	$effect(() => {
-		if (!ref || !tooltip) return;
+		if (!ready) return;
 		if (!open || options?.hover) return;
 
 		document.querySelector('#click-catch')?.remove();
 		const div = document.createElement('div');
 		div.id = 'click-catch';
-		div.classList.add('fixed', 'inset-0', 'z-10', 'cursor-default');
+		div.classList.add('fixed', 'inset-0', 'z-30', 'cursor-default');
 		div.onclick = () => {
 			open = false;
 			div.remove();
 			options?.onOpenChange?.(open);
 		};
 
-		ref.insertAdjacentElement('afterend', div);
+		document.body.appendChild(div);
 		return () => div.remove();
 	});
 
 	$effect(() => {
-		if (!ref || !tooltip || !options?.hover) return;
+		if (!ready || !options?.hover) return;
 
 		const onEnter = () => {
 			if (hoverTimeout) return;
@@ -108,7 +116,7 @@ export default function popover(initialOptions?: PopoverOptions): Popover {
 
 	let close: (() => void) | null;
 	$effect(() => {
-		if (!ref || !tooltip) return;
+		if (!ready) return;
 
 		// Remove all dynamically added classes for proper reset
 		tooltip.classList.remove(
@@ -131,11 +139,14 @@ export default function popover(initialOptions?: PopoverOptions): Popover {
 		tooltip.style.removeProperty('top');
 
 		tooltip.classList.add(options?.fixed ? 'fixed' : 'absolute');
+		// Always move tooltip to document.body
+		if (tooltip.parentElement !== document.body) {
+			document.body.appendChild(tooltip);
+		}
 
 		if (options?.slide) {
 			tooltip.classList.add(
-				'transition-[transform,opacity]',
-				'transform',
+				'transition-all',
 				'duration-300',
 				options.slide === 'left' ? 'translate-x-full' : 'translate-y-full',
 				'opacity-0'
@@ -208,17 +219,27 @@ export default function popover(initialOptions?: PopoverOptions): Popover {
 		},
 		ref: (node: HTMLElement) => {
 			ref = node;
+			checkReady();
 		},
 		tooltip: (node: HTMLElement, params?: TooltipOptions) => {
 			tooltip = node;
-			if (params) {
-				Object.assign(options, params);
-			}
+			// Create a new object to ensure reactivity
+			options = {
+				...initialOptions,
+				...params
+			};
+			checkReady();
 
 			return {
 				update(newParams?: TooltipOptions) {
 					if (newParams) {
 						Object.assign(options, newParams);
+					}
+				},
+				destroy() {
+					// Clean up the tooltip if it's in document.body
+					if (tooltip && tooltip.parentElement === document.body) {
+						tooltip.remove();
 					}
 				}
 			};

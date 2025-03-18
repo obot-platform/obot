@@ -18,14 +18,14 @@
 	const layout = getLayout();
 	let show = $derived(navBar || layout.items.length <= 1);
 
-	const fileTT = popover({ hover: true, placement: 'top' });
+	const fileTT = popover({ placement: 'top' });
 </script>
 
 {#if show}
 	<div class={twMerge('flex items-start', className)}>
 		{#if currentThreadID}
 			<div use:fileTT.ref>
-				<p use:fileTT.tooltip class="tooltip">Browse Files</p>
+				<p use:fileTT.tooltip={{ hover: true }} class="tooltip">Browse Files</p>
 				<Files {project} thread {currentThreadID} primary={false} />
 			</div>
 		{/if}

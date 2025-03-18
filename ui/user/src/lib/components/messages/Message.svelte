@@ -11,7 +11,7 @@
 	import Loading from '$lib/icons/Loading.svelte';
 	import { fade } from 'svelte/transition';
 	import { overflowToolTip } from '$lib/actions/overflow';
-	import popover from '$lib/actions/popover.svelte';
+	import { tooltip } from '$lib/actions/tooltip.svelte';
 
 	interface Props {
 		msg: Message;
@@ -51,9 +51,6 @@
 	let animating = $state(false);
 	let showToolInputDetails = $state(false);
 	let showToolOutputDetails = $state(false);
-
-	let copyTT = popover({ hover: true, placement: 'bottom' });
-	let editTT = popover({ hover: true, placement: 'bottom' });
 
 	$effect(() => {
 		if (!shouldAnimate) return;
@@ -510,24 +507,22 @@
 					<div class="mt-2 ml-2 flex gap-2">
 						<div>
 							<button
-								use:copyTT.ref
+								use:tooltip={'Copy message to clipboard'}
 								class="icon-button-small"
 								onclick={() => copyContentToClipboard()}
 							>
 								<Copy class="h-4 w-4" />
 							</button>
-							<p use:copyTT.tooltip class="tooltip">Copy message to clipboard</p>
 						</div>
 
 						<div>
 							<button
-								use:editTT.ref
+								use:tooltip={'Open message in editor'}
 								class="icon-button-small"
 								onclick={() => openContentInEditor()}
 							>
 								<Edit class="h-4 w-4" />
 							</button>
-							<p use:editTT.tooltip class="tooltip">Open message in editor</p>
 						</div>
 					</div>
 				{/if}

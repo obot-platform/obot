@@ -44,11 +44,7 @@ export async function getProfile(): Promise<Profile> {
 }
 
 export async function getVersion(): Promise<Version> {
-	return {
-		...((await doGet('/version')) as Version),
-		dockerSupported: true,
-		emailDomain: 'acorn.io'
-	};
+	return (await doGet('/version')) as Version;
 }
 
 export async function getAssistant(id: string, opts?: { fetch?: Fetcher }): Promise<Assistant> {

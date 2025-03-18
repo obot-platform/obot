@@ -12,8 +12,7 @@
 	let message = $state<string>('Copy');
 	let { ref, tooltip } = popover({
 		placement: 'top-start',
-		offset: 1,
-		hover: true
+		offset: 1
 	});
 
 	function copy() {
@@ -29,7 +28,7 @@
 </script>
 
 {#if text}
-	<div class="hidden" use:tooltip>
+	<div class="hidden" use:tooltip={{ hover: true }}>
 		<p
 			class="rounded-lg bg-gray-800 px-2 py-1 text-sm text-gray-50 shadow-sm dark:bg-gray-100 dark:text-black"
 		>

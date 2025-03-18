@@ -11,8 +11,7 @@
 	let { tool, tools }: Props = $props();
 	let { ref, tooltip } = popover({
 		placement: 'top-start',
-		offset: 4,
-		hover: true
+		offset: 4
 	});
 </script>
 
@@ -38,7 +37,7 @@
 	{/if}
 </div>
 
-<div use:tooltip class="tooltip hidden">
+<div use:tooltip={{ hover: true }} class="tooltip hidden">
 	{#if tool}
 		<p>{tool.name}</p>
 	{/if}

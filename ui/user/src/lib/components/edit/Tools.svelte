@@ -21,10 +21,7 @@
 	let enabledList = $derived(
 		toolsStore.current.tools.filter((t) => !t.builtin && t.enabled && t.id)
 	);
-	let typeSelectionTT = popover({
-		fixed: responsive.isMobile,
-		slide: responsive.isMobile ? 'up' : undefined
-	});
+	let typeSelectionTT = popover();
 	let customToolDialog = $state<HTMLDialogElement>();
 	let toEdit = $state<AssistantTool>();
 
@@ -54,13 +51,13 @@
 		typeSelectionTT.toggle(false);
 	}
 
-	let toolCatalog = popover({ fixed: true, slide: responsive.isMobile ? 'left' : undefined });
+	let toolCatalog = popover();
 </script>
 
 {#snippet toolList(tools: AssistantTool[])}
 	<ul class="flex flex-col gap-2">
 		{#each tools as tool (tool.id)}
-			{@const tt = popover({ hover: true, placement: 'top', delay: 300 })}
+			{@const tt = popover({ placement: 'top', delay: 300 })}
 
 			<div
 				class="bg-surface1 flex w-full cursor-pointer items-start justify-between gap-1 rounded-md p-2"
@@ -92,7 +89,7 @@
 					</div>
 				</div>
 
-				<p use:tt.tooltip class="tooltip max-w-64">{tool.description}</p>
+				<p use:tt.tooltip={{ hover: true }} class="tooltip max-w-64">{tool.description}</p>
 			</div>
 		{/each}
 	</ul>
@@ -114,7 +111,10 @@
 
 			<div
 				class="default-dialog bottom-0 left-0 w-full p-2 md:bottom-auto md:left-auto md:w-fit"
-				use:typeSelectionTT.tooltip
+				use:typeSelectionTT.tooltip={{
+					fixed: responsive.isMobile,
+					slide: responsive.isMobile ? 'up' : undefined
+				}}
 			>
 				<div class="flex flex-col gap-2">
 					<button
@@ -202,7 +202,7 @@
 				<button class="hidden" aria-label="Tools" use:toolCatalog.ref></button>
 			{/if}
 			<div
-				use:toolCatalog.tooltip
+				use:toolCatalog.tooltip={{ fixed: true, slide: responsive.isMobile ? 'left' : undefined }}
 				class="default-dialog bottom-0 left-0 h-screen w-full rounded-none p-2 md:bottom-1/2 md:left-1/2 md:h-fit md:w-auto md:-translate-x-1/2 md:translate-y-1/2 md:rounded-xl"
 			>
 				<ToolCatalog onSelectTools={onNewTools} onSubmit={() => toolCatalog.toggle(false)} />

@@ -23,7 +23,7 @@
 		);
 	}
 
-	let catalog = popover({ fixed: true, slide: responsive.isMobile ? 'up' : undefined });
+	let catalog = popover();
 </script>
 
 <Menu
@@ -83,7 +83,7 @@
 </Menu>
 
 <div
-	use:catalog.tooltip
+	use:catalog.tooltip={{ fixed: true, slide: responsive.isMobile ? 'up' : undefined }}
 	class="default-dialog bottom-0 left-0 h-screen w-full rounded-none p-2 md:bottom-1/2 md:left-1/2 md:h-fit md:w-auto md:-translate-x-1/2 md:translate-y-1/2 md:rounded-xl"
 >
 	<ToolCatalog
