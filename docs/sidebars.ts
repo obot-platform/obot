@@ -44,7 +44,9 @@ const sidebars = {
               type: "category",
               label: "Encryption Providers",
               items: [
+                  "configuration/encryption-providers/aws-kms",
                   "configuration/encryption-providers/azure-key-vault",
+                  "configuration/encryption-providers/google-cloud-kms"
               ]
             }
           ],
