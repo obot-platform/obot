@@ -16,7 +16,7 @@
 {:else if msg.icon === 'Assistant'}
 	<!-- Nothing -->
 {:else}
-	<div>
+	<div class="flex-shrink-0">
 		{#if msg.icon === 'Pencil'}
 			<Pencil class="size-4 md:size-6" />
 		{:else if msg.icon === 'Assistant'}

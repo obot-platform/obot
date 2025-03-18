@@ -1,6 +1,6 @@
 <script lang="ts">
 	import MessageIcon from '$lib/components/messages/MessageIcon.svelte';
-	import { FileText, Pencil } from 'lucide-svelte/icons';
+	import { FileText, Pencil, RotateCw } from 'lucide-svelte/icons';
 	import { Tween } from 'svelte/motion';
 	import { ChatService, type Message, type Project } from '$lib/services';
 	import highlight from 'highlight.js';
@@ -50,6 +50,8 @@
 	let prevContent = $state('');
 	let animatedText = $derived(shouldAnimate ? content.slice(0, cursor.current) : content);
 	let animating = $state(false);
+
+	console.log(msg.toolCall);
 
 	$effect(() => {
 		if (!shouldAnimate) return;
@@ -143,6 +145,45 @@
 			seen.add(url);
 			return true;
 		});
+	}
+
+	function formatJson(jsonString: string) {
+		try {
+			const parsed = JSON.parse(jsonString);
+			// Use null and 2 for consistent indentation, then trim any leading/trailing whitespace
+			let formatted = JSON.stringify(parsed, null, 2).trim();
+
+			// Replace decimal numbers (must come before integer replacement)
+			formatted = formatted.replace(
+				/: (\d+\.\d+)/g,
+				': <span class="text-blue-600 dark:text-blue-400">$1</span>'
+			);
+
+			// Replace integer numbers
+			formatted = formatted.replace(
+				/: (\d+)(?!\d*\.)/g,
+				': <span class="text-blue-600 dark:text-blue-400">$1</span>'
+			);
+
+			// Replace keys
+			formatted = formatted.replace(/"([^"]+)":/g, '<span class="text-blue">"$1"</span>:');
+
+			// Replace string values (must come after keys)
+			formatted = formatted.replace(/: "([^"]+)"/g, ': <span class="text-gray-500">"$1"</span>');
+
+			// Replace null
+			formatted = formatted.replace(/: (null)/g, ': <span class="text-gray-500">$1</span>');
+
+			// Replace brackets and braces
+			formatted = formatted.replace(
+				/([{}\[\]])/g,
+				'<span class="text-black dark:text-white">$1</span>'
+			);
+
+			return formatted;
+		} catch (error) {
+			return jsonString;
+		}
 	}
 </script>
 
@@ -249,14 +290,14 @@
 	{/if}
 {/snippet}
 
-{#snippet toolContent()}
+{#snippet outputDetails()}
 	<button
 		use:toolTT.ref
 		class="text-left text-xs text-gray underline opacity-0 transition-opacity group-hover:opacity-100"
 		onclick={() => {
 			toolTT.toggle();
 		}}
-		>Details
+		>Output Details
 	</button>
 	<div use:toolTT.tooltip class="default-dialog flex flex-col gap-2 p-5">
 		<button
@@ -265,17 +306,47 @@
 				toolTT.toggle();
 			}}
 		>
-			<X class="h-4 w-4" />
+			<X class="size-4" />
 		</button>
-		<div class="mt-2 flex text-base font-semibold">
-			<span class="flex-1">Input</span>
-		</div>
-		<pre class="max-w-[500px] overflow-auto rounded-lg bg-surface1 px-4 py-2 dark:bg-black">{msg
-				.toolCall?.input ?? 'None'}</pre>
-		<div class="mt-4 text-base font-semibold">Output</div>
-		<pre class="max-w-[500px] overflow-auto rounded-lg bg-surface1 px-4 py-2 dark:bg-black">{msg
-				.toolCall?.output ?? 'None'}</pre>
+		<div class="text-md font-semibold">Output</div>
+		<pre
+			class="default-scrollbar-thin max-h-[50vh] max-w-[80vw] overflow-auto rounded-lg bg-surface1 px-4 py-2 text-xs dark:bg-black md:max-h-[300px] md:max-w-[500px]">{@html formatJson(
+				msg.toolCall?.output ?? ''
+			)}</pre>
 	</div>
+{/snippet}
+
+{#snippet toolContent()}
+	{#if msg.toolCall?.input}
+		<div class="mb-2 flex items-center gap-4">
+			<span class="text-md">Inputting the following details...</span>
+			{#if msg.toolCall.output}
+				{@render outputDetails()}
+			{/if}
+		</div>
+		{@const parsedInput = (() => {
+			try {
+				return JSON.parse(msg.toolCall.input);
+			} catch {
+				return null;
+			}
+		})()}
+		{#if parsedInput}
+			{#each Object.entries(parsedInput) as [key, value]}
+				<div>
+					<span class="text-md font-semibold"
+						>{key
+							// Split on capital letters and numbers
+							.split(/(?=[A-Z0-9])/g)
+							// Convert first char to uppercase, rest to lowercase
+							.map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+							.join(' ')}:</span
+					>
+					<span class="text-md">"{typeof value === 'object' ? JSON.stringify(value) : value}"</span>
+				</div>
+			{/each}
+		{/if}
+	{/if}
 	{#if shell.input && shell.output}
 		<div class="mt-1 rounded-3xl bg-gray-100 p-5 dark:bg-gray-900 dark:text-gray-50">
 			<div class="pb-1 font-mono">
