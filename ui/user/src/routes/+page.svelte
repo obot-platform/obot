@@ -19,6 +19,10 @@
 		if (!assistantsLoaded) {
 			show();
 		}
+
+		if (browser && new URL(window.location.href).searchParams.get('rd')) {
+			loginDialog?.showModal();
+		}
 	});
 
 	let div: HTMLElement;
