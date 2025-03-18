@@ -180,6 +180,7 @@
 				<Message
 					{project}
 					{msg}
+					currentThreadID={id}
 					{onLoadFile}
 					{onSendCredentials}
 					onSendCredentialsCancel={() => thread?.abort()}
