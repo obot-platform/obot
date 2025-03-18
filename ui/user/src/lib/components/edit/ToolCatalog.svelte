@@ -41,7 +41,7 @@
 		Object.values(toolSelection).filter((t) => t.enabled).length > maxTools
 	);
 
-	let catalog = popover({ fixed: true, slide: responsive.isMobile ? 'up' : undefined });
+	let catalog = popover();
 
 	function setToolEnabled(toolId: string, val?: boolean) {
 		if (toolId in toolSelection) {
@@ -124,7 +124,7 @@
 >
 
 <div
-	use:catalog.tooltip
+	use:catalog.tooltip={{ fixed: true, slide: responsive.isMobile ? 'up' : undefined }}
 	class="default-dialog bottom-0 left-0 w-full p-2 md:bottom-1/2 md:left-1/2 md:w-auto md:-translate-x-1/2 md:translate-y-1/2"
 >
 	<div class="flex w-full items-center justify-between">
