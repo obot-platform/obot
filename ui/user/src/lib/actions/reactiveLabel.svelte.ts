@@ -5,7 +5,8 @@ interface ReactiveLabelParams {
 	height?: string;
 }
 
-export const reactiveLabel: Action<HTMLElement, ReactiveLabelParams> = (node, params) => {
+export const reactiveLabel: Action<HTMLElement, ReactiveLabelParams> = (node, initialParams) => {
+	let params = $state(initialParams ?? {});
 	// Add default classes that don't change
 	node.classList.add('origin-top', 'overflow-hidden', 'transition-all', 'duration-200');
 
@@ -25,4 +26,11 @@ export const reactiveLabel: Action<HTMLElement, ReactiveLabelParams> = (node, pa
 			node.classList.add('h-0', 'translate-y-full', 'opacity-0');
 		}
 	});
+
+	return {
+		update(newParams: ReactiveLabelParams) {
+			// Update the reactive state when parameters change
+			params = { ...newParams };
+		}
+	};
 };
