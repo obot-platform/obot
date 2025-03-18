@@ -1,6 +1,6 @@
 <script lang="ts">
 	import MessageIcon from '$lib/components/messages/MessageIcon.svelte';
-	import { FileText, Pencil, RotateCw } from 'lucide-svelte/icons';
+	import { FileText, Pencil } from 'lucide-svelte/icons';
 	import { Tween } from 'svelte/motion';
 	import { ChatService, type Message, type Project } from '$lib/services';
 	import highlight from 'highlight.js';
@@ -174,12 +174,12 @@
 
 			// Replace brackets and braces
 			formatted = formatted.replace(
-				/([{}\[\]])/g,
+				/([{}[\]])/g,
 				'<span class="text-black dark:text-white">$1</span>'
 			);
 
 			return formatted;
-		} catch (error) {
+		} catch (_error) {
 			return jsonString;
 		}
 	}
