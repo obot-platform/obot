@@ -22,10 +22,7 @@
 	});
 
 	let { project = $bindable() }: Props = $props();
-	let { ref, tooltip, toggle } = popover({
-		slide: responsive.isMobile ? 'left' : undefined,
-		fixed: responsive.isMobile ? true : false
-	});
+	let { ref, tooltip, toggle } = popover();
 	let urlIcon:
 		| {
 				icon?: string;
@@ -52,7 +49,10 @@
 				</button>
 			</div>
 			<div
-				use:tooltip
+				use:tooltip={{
+					slide: responsive.isMobile ? 'left' : undefined,
+					fixed: responsive.isMobile ? true : false
+				}}
 				class="default-dialog top-16 left-0 z-20 flex h-[calc(100vh-64px)] w-screen flex-col px-4 md:top-auto md:left-auto md:h-auto md:w-[350px] md:py-6"
 			>
 				{#if responsive.isMobile}

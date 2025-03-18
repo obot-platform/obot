@@ -7,8 +7,7 @@ function hasOverflow(element: HTMLElement) {
 export function overflowToolTip(node: HTMLElement) {
 	const { ref, tooltip } = popover({
 		placement: 'top-end',
-		offset: 10,
-		hover: true
+		offset: 10
 	});
 
 	node.classList.add('truncate');
@@ -27,6 +26,6 @@ export function overflowToolTip(node: HTMLElement) {
 	});
 
 	// Register after the above event listener to ensure we can stop propagation
-	tooltip(p);
+	tooltip(p, { hover: true });
 	ref(node);
 }

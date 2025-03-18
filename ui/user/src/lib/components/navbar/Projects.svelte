@@ -30,6 +30,7 @@
 	let recentlyUsedLimit = $state(10);
 	let myObotsLimit = $state(10);
 	let open = $state(false);
+	let buttonElement = $state<HTMLButtonElement>();
 
 	let recentlyUsed = $derived(
 		projects.length === 0
@@ -78,6 +79,7 @@
 </script>
 
 <button
+	bind:this={buttonElement}
 	class={twMerge(
 		'relative z-10 flex grow items-center justify-between gap-2 truncate rounded-xl p-2',
 		classes?.button
@@ -111,6 +113,7 @@
 		class={twMerge('flex h-full w-full flex-col p-2', classes?.tooltip)}
 		role="none"
 		onclick={() => toggle(false)}
+		style={onlyEditable ? `width: ${buttonElement?.clientWidth}px` : ''}
 	>
 		{#if onlyEditable}
 			<button class="button mb-2" onclick={() => createNew()}>Create New Obot</button>
