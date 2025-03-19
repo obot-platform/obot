@@ -200,12 +200,10 @@ export function ToolForm({
 				tools: [],
 			};
 
-			// make sure bundle tool is first
-			if (tool.bundle) {
-				group.tools.unshift(tool.id);
-			} else {
+			if (!tool.bundle) {
 				group.tools.push(tool.id);
 			}
+
 			groups.set(bundleToolName, group);
 		}
 

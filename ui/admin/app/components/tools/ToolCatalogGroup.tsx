@@ -37,7 +37,7 @@ export function ToolCatalogGroup({
 	};
 
 	const handleSelectAll = (bundleTool: ToolReference, toolOauth?: string) => {
-		const tools = [bundleTool, ...(bundleTool.tools ?? [])].map(({ id }) => id);
+		const tools = bundleTool.tools?.map(({ id }) => id) ?? [];
 
 		const add = !selectedTools.some((t) => tools.includes(t));
 		if (add) {
@@ -66,33 +66,30 @@ export function ToolCatalogGroup({
 							configured={configured}
 							isSelected={selectedTools.some((t) => allTools.includes(t))}
 							onSelect={(toolOauthToAdd) =>
-								handleSelectAll(tool, toolOauthToAdd)
+								tool.bundle
+									? handleSelectAll(tool, toolOauthToAdd)
+									: handleSelect(tool.id, toolOauthToAdd)
 							}
 							expanded={expanded[tool.id]}
+							canExpand={!!tool.tools?.length && tool.tools?.length > 0}
 							onExpand={(expanded) => {
-								setExpanded((prev) => ({
-									...prev,
-									[tool.id]: expanded,
-								}));
+								setExpanded((prev) => ({ ...prev, [tool.id]: expanded }));
 							}}
 							isGroup
 						/>
 
 						{expanded[tool.id] &&
-							[tool]
-								.concat(tool.tools ?? [])
-								.map((categoryTool, i) => (
-									<ToolItem
-										key={categoryTool.id}
-										configured={configured}
-										tool={categoryTool}
-										isSelected={selectedTools.includes(categoryTool.id)}
-										isBundle={i === 0}
-										onSelect={(toolOauthToAdd) =>
-											handleSelect(categoryTool.id, toolOauthToAdd)
-										}
-									/>
-								))}
+							tool.tools?.map((categoryTool) => (
+								<ToolItem
+									key={categoryTool.id}
+									configured={configured}
+									tool={categoryTool}
+									isSelected={selectedTools.includes(categoryTool.id)}
+									onSelect={(toolOauthToAdd) =>
+										handleSelect(categoryTool.id, toolOauthToAdd)
+									}
+								/>
+							))}
 					</Fragment>
 				);
 			})}
