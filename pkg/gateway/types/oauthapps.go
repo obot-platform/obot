@@ -37,6 +37,9 @@ const (
 
 	PagerDutyAuthorizeURL = "https://identity.pagerduty.com/oauth/authorize"
 	PagerDutyTokenURL     = "https://identity.pagerduty.com/oauth/token"
+
+	SmartThingsAuthorizeURL = "https://api.smartthings.com/oauth/authorize"
+	SmartThingsTokenURL     = "https://auth-global.api.smartthings.com/oauth/token"
 )
 
 var (
@@ -91,6 +94,9 @@ func ValidateAndSetDefaultsOAuthAppManifest(r *types.OAuthAppManifest, create bo
 	case types.OAuthAppTypePagerDuty:
 		r.AuthURL = PagerDutyAuthorizeURL
 		r.TokenURL = PagerDutyTokenURL
+	case types.OAuthAppTypeSmartThings:
+		r.AuthURL = SmartThingsAuthorizeURL
+		r.TokenURL = SmartThingsTokenURL
 	case types.OAuthAppTypeSalesforce:
 		salesforceAuthorizeFragment := "/services/oauth2/authorize"
 		salesforceTokenFragment := "/services/oauth2/token"

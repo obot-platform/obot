@@ -12,6 +12,7 @@ const (
 	OAuthAppTypeZoom         OAuthAppType = "zoom"
 	OAuthAppTypeLinkedIn     OAuthAppType = "linkedin"
 	OAuthAppTypePagerDuty    OAuthAppType = "pagerduty"
+	OAuthAppTypeSmartThings  OAuthAppType = "smartthings"
 	OAuthAppTypeCustom       OAuthAppType = "custom"
 )
 
