@@ -105,7 +105,7 @@ func (h *Handler) MarkInactive(req router.Request, _ router.Response) error {
 		return err
 	}
 
-	if thread.Status.LastRunName != run.Name && thread.Status.CurrentRunName != run.Name {
+	if thread.DeletionTimestamp.IsZero() && thread.Status.LastRunName != run.Name && thread.Status.CurrentRunName != run.Name {
 		v1.SetInactive(run)
 		if err := req.Client.Update(req.Ctx, run); err != nil {
 			return err
