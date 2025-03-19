@@ -144,7 +144,7 @@
 	</div>
 	{#if messages.length > 0}
 		<div
-			class="relative my-3 -ml-6 min-h-[150px] rounded-3xl bg-white p-5 transition-transform dark:bg-black"
+			class="relative my-3 -ml-6 flex min-h-[150px] flex-col gap-4 rounded-3xl bg-white p-5 transition-transform dark:bg-black"
 			class:border-2={running}
 			class:border-blue={running}
 			transition:fade
