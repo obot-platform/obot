@@ -85,7 +85,7 @@
 <div
 	use:tooltip={{ slide, fixed }}
 	class={twMerge(
-		'default-dialog z-30 flex w-screen flex-col divide-y divide-gray-200 p-6 md:w-96 dark:divide-gray-700',
+		'default-dialog flex w-screen flex-col divide-y divide-gray-200 p-6 md:w-96 dark:divide-gray-700',
 		classes?.dialog
 	)}
 >
