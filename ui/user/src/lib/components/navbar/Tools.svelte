@@ -79,7 +79,7 @@
 									<label for="checkbox-item-{i}" class="text-sm font-medium dark:text-gray-100"
 										>{tool.name}</label
 									>
-									<p class="text-xs font-normal text-gray dark:text-gray-300">
+									<p class="text-gray text-xs font-normal dark:text-gray-300">
 										{tool.description}
 									</p>
 								</div>
@@ -100,7 +100,7 @@
 			<div class="flex justify-end">
 				<button
 					onclick={addTool}
-					class="button -mb-3 -mr-3 mt-3 flex items-center justify-end gap-1 text-sm"
+					class="button mt-3 -mr-3 -mb-3 flex items-center justify-end gap-1 text-sm"
 				>
 					Add Custom Tool
 					<Plus class="ms-1 size-4" />

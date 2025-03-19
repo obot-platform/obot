@@ -87,7 +87,7 @@
 <div class="flex flex-1 justify-end">
 	<div class="flex items-center">
 		<button
-			class="ml-2 flex items-center rounded-3xl p-2 px-4 text-gray hover:bg-gray-70 hover:text-black dark:hover:bg-gray-900 dark:hover:text-gray-50"
+			class="text-gray hover:bg-gray-70 ml-2 flex items-center rounded-3xl p-2 px-4 hover:text-black dark:hover:bg-gray-900 dark:hover:text-gray-50"
 			class:hidden={!inputVisible}
 			onclick={() => {
 				if (!task) {

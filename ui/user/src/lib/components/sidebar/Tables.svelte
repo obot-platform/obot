@@ -38,15 +38,15 @@
 	<div>
 		{#if loadingTables}
 			{#await loadingTables}
-				<p in:fade class="pb-3 pt-6 text-center text-sm text-gray dark:text-gray-300">Loading...</p>
+				<p in:fade class="text-gray pt-6 pb-3 text-center text-sm dark:text-gray-300">Loading...</p>
 			{:then tables}
 				{#if !tables.tables || tables.tables.length === 0}
-					<p class="pb-3 pt-6 text-center text-sm text-gray dark:text-gray-300">No tables</p>
+					<p class="text-gray pt-6 pb-3 text-center text-sm dark:text-gray-300">No tables</p>
 				{:else}
 					<ul>
 						{#each tables.tables as table (table.name)}
 							<li
-								class="group flex min-h-9 items-center gap-3 rounded-md text-xs font-light hover:bg-surface3"
+								class="group hover:bg-surface3 flex min-h-9 items-center gap-3 rounded-md text-xs font-light"
 							>
 								<button
 									class="h-full w-full p-2 text-start capitalize"

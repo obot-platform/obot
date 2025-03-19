@@ -115,7 +115,7 @@
 			data-sveltekit-preload-data={'publicID' in project ? 'off' : 'hover'}
 			class="card relative z-20 flex-col overflow-hidden shadow-md"
 		>
-			<div class="absolute left-0 top-0 z-30 flex w-full items-center justify-end p-2">
+			<div class="absolute top-0 left-0 z-30 flex w-full items-center justify-end p-2">
 				<div class="flex items-center justify-end">
 					{#if !('publicID' in project)}
 						{@render menu(project)}
@@ -126,15 +126,15 @@
 				<img
 					alt="obot logo"
 					src={getProjectImage(project, darkMode.isDark)}
-					class="absolute left-0 top-0 h-full w-full object-cover opacity-85"
+					class="absolute top-0 left-0 h-full w-full object-cover opacity-85"
 				/>
 				<div
-					class="absolute -bottom-0 left-0 z-10 h-2/4 w-full bg-gradient-to-b from-transparent via-transparent to-surface1 transition-colors duration-300"
+					class="to-surface1 absolute -bottom-0 left-0 z-10 h-2/4 w-full bg-linear-to-b from-transparent via-transparent transition-colors duration-300"
 				></div>
 			</div>
 			<div class="flex h-full flex-col gap-2 px-4 py-2">
 				<h4 class="font-semibold">{project.name || 'Untitled'}</h4>
-				<p class="line-clamp-3 text-xs text-gray">{project.description}</p>
+				<p class="line-clamp-3 text-xs text-gray-500">{project.description}</p>
 
 				{#if 'tools' in project && project.tools}
 					<div class="mt-auto flex flex-wrap items-center justify-end gap-2 py-2">
@@ -162,7 +162,7 @@
 	{/snippet}
 
 	<main
-		class="colors-background relative flex w-full max-w-screen-2xl flex-col justify-center pb-12"
+		class="colors-background relative flex w-full max-w-(--breakpoint-2xl) flex-col justify-center pb-12"
 	>
 		<div class="mt-8 flex w-full flex-col gap-8">
 			{#if featured.length > 0}
@@ -189,7 +189,7 @@
 
 			<div class="flex w-full flex-col gap-4">
 				<div
-					class="sticky top-0 z-30 flex items-center gap-4 bg-white px-4 py-4 dark:bg-black md:px-12"
+					class="sticky top-0 z-30 flex items-center gap-4 bg-white px-4 py-4 md:px-12 dark:bg-black"
 				>
 					<h3 class="text-2xl font-semibold">My Obots</h3>
 					<button
@@ -205,7 +205,7 @@
 						{@render projectCard(project)}
 					{/each}
 					<button
-						class="card flex flex-col items-center justify-center whitespace-nowrap p-4 shadow-md md:flex-row"
+						class="card flex flex-col items-center justify-center p-4 whitespace-nowrap shadow-md md:flex-row"
 						onclick={() => createNew()}
 					>
 						<Plus class="h-8 w-8 md:h-5 md:w-5" />

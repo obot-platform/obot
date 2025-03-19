@@ -182,33 +182,33 @@
 <div use:editor onfocusin={() => (focused = true)} onfocusout={() => (focused = false)}></div>
 
 <div
-	class="absolute flex rounded-3xl bg-gray-70 shadow-lg dark:bg-gray-950"
+	class="bg-gray-70 absolute flex rounded-3xl shadow-lg dark:bg-gray-950"
 	bind:this={ttDiv}
 	class:hidden={!ttVisible}
 >
 	<button
-		class="flex items-center gap-2 rounded-s-3xl !border-none !p-4 ps-5 hover:bg-gray-100 dark:bg-gray-950 dark:hover:bg-gray-900"
+		class="flex items-center gap-2 rounded-s-3xl border-none! p-4! ps-5 hover:bg-gray-100 dark:bg-gray-950 dark:hover:bg-gray-900"
 		onclick={onBold}
 		class:hidden={ttImprove}
 	>
 		<Bold class="h-5 w-5" />
 	</button>
 	<button
-		class="flex items-center gap-2 !p-4 ps-5 hover:bg-gray-100 dark:hover:bg-gray-900"
+		class="flex items-center gap-2 p-4! ps-5 hover:bg-gray-100 dark:hover:bg-gray-900"
 		onclick={onItalic}
 		class:hidden={ttImprove}
 	>
 		<Italic class="h-5 w-5" />
 	</button>
 	<button
-		class="flex items-center gap-2 !p-4 ps-5 hover:bg-gray-100 dark:hover:bg-gray-900"
+		class="flex items-center gap-2 p-4! ps-5 hover:bg-gray-100 dark:hover:bg-gray-900"
 		onclick={onStrikethrough}
 		class:hidden={ttImprove}
 	>
 		<Strikethrough class="h-5 w-5" />
 	</button>
 	<button
-		class="flex items-center gap-2 !p-4 ps-5 hover:bg-gray-100 dark:hover:bg-gray-900"
+		class="flex items-center gap-2 p-4! ps-5 hover:bg-gray-100 dark:hover:bg-gray-900"
 		onclick={onExplain}
 		class:hidden={ttImprove}
 	>
@@ -216,7 +216,7 @@
 		<CircleHelp class="h-5 w-5" />
 	</button>
 	<button
-		class="flex items-center gap-2 rounded-e-3xl !p-4 ps-5 hover:bg-gray-100 dark:hover:bg-gray-900"
+		class="flex items-center gap-2 rounded-e-3xl p-4! ps-5 hover:bg-gray-100 dark:hover:bg-gray-900"
 		onclick={async () => {
 			ttImprove = true;
 			await tick();
@@ -234,16 +234,22 @@
 
 <style lang="postcss">
 	:global {
-		.milkdown milkdown-slash-menu {
-			@apply rounded-3xl border-none shadow-lg outline-none;
-		}
+		.milkdown {
+			& milkdown-slash-menu {
+				border-radius: 1.5rem; /* rounded-3xl */
+				border: none;
+				box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1); /* shadow-lg */
+				outline: none;
+			}
 
-		.milkdown milkdown-slash-menu .tab-group ul li {
-			@apply text-base font-normal;
-		}
+			& milkdown-slash-menu .tab-group ul li {
+				font-size: 1rem; /* text-base */
+				font-weight: 400; /* font-normal */
+			}
 
-		.milkdown milkdown-slash-menu .menu-groups .menu-group li > span {
-			@apply font-normal;
+			& milkdown-slash-menu .menu-groups .menu-group li > span {
+				font-weight: 400; /* font-normal */
+			}
 		}
 
 		.milkdown {
@@ -261,27 +267,54 @@
 		}
 
 		.milkdown .ProseMirror {
-			@apply px-4 pb-4 pt-0 md:px-0;
-		}
+			padding: 0 1rem 1rem 1rem; /* px-4 pt-0 pb-4 */
+			@media (min-width: 768px) {
+				padding-left: 0;
+				padding-right: 0; /* md:px-0 */
+			}
 
-		.milkdown .ProseMirror h1 {
-			@apply my-4 text-2xl font-bold text-black dark:text-gray-100;
-		}
+			& h1 {
+				margin-top: 1rem;
+				margin-bottom: 1rem; /* my-4 */
+				font-size: 1.5rem; /* text-2xl */
+				font-weight: 700; /* font-bold */
+				color: black;
+				.dark & {
+					color: var(--color-gray-100);
+				}
+			}
 
-		.milkdown .ProseMirror h2 {
-			@apply my-4 text-xl font-bold text-black dark:text-gray-100;
-		}
+			& h2 {
+				margin-top: 1rem;
+				margin-bottom: 1rem;
+				font-size: 1.25rem; /* text-xl */
+				font-weight: 700;
+				color: black;
+				.dark & {
+					color: var(--color-gray-100);
+				}
+			}
 
-		.milkdown .ProseMirror h3 {
-			@apply my-4 text-base font-bold text-black dark:text-gray-100;
-		}
+			& h3,
+			& h4 {
+				margin-top: 1rem;
+				margin-bottom: 1rem;
+				font-size: 1rem; /* text-base */
+				font-weight: 700;
+				color: black;
+				.dark & {
+					color: var(--color-gray-100);
+				}
+			}
 
-		.milkdown .ProseMirror h4 {
-			@apply my-4 text-base font-bold text-black dark:text-gray-100;
-		}
-
-		.milkdown .ProseMirror p {
-			@apply mb-4 text-md text-gray-900 dark:text-gray-100;
+			& p {
+				margin-bottom: 1rem;
+				font-size: var(--text-md);
+				color: var(--color-gray-900);
+				.dark & {
+					color: var(--color-gray-100);
+				}
+			}
 		}
 
 		.dark .milkdown {

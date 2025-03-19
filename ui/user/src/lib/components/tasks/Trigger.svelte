@@ -81,7 +81,7 @@
 		{#if selectedTrigger() === 'webhook'}
 			<div class="flex flex-col justify-between gap-2 pr-5">
 				<h3 class="text-lg font-semibold">Webhook URL</h3>
-				<div class="flex gap-2 rounded-xl bg-surface2 px-4 py-2">
+				<div class="bg-surface2 flex gap-2 rounded-xl px-4 py-2">
 					<CopyButton text={webhook} />
 					{webhook}
 				</div>

@@ -29,14 +29,14 @@
 	});
 </script>
 
-<div class="flex size-full flex-col gap-5 pb-5 pr-5">
+<div class="flex size-full flex-col gap-5 pr-5 pb-5">
 	<div class="flex items-center gap-2">
 		<div class="flex items-center gap-2">
 			<Table class="h-5 w-5" />
 			<h3 class="text-lg font-semibold">{tableName}</h3>
 		</div>
 		<button
-			class="flex items-center rounded-md p-3 text-gray hover:bg-gray-100 hover:dark:bg-gray-900"
+			class="text-gray flex items-center rounded-md p-3 hover:bg-gray-100 dark:hover:bg-gray-900"
 			onclick={loadData}
 		>
 			{#if loading}
@@ -69,7 +69,7 @@
 		</table>
 	</div>
 	{#if currentThreadID}
-		<p class="mt-10 text-gray">
+		<p class="text-gray mt-10">
 			You can modify the data and the schema of this table by enter your instructions below.
 		</p>
 		<div class="grow px-2">
@@ -92,6 +92,9 @@
 <style lang="postcss">
 	th,
 	td {
-		@apply border-collapse border border-surface3 p-2 px-4;
+		border-collapse: collapse;
+		border-width: 1px;
+		border-color: var(--surface3);
+		padding: 0.5rem 1rem; /* p-2 px-4 */
 	}
 </style>

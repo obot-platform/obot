@@ -12,7 +12,7 @@
 </script>
 
 <CollapsePane header="Website Knowledge">
-	<p class="mb-4 text-xs text-gray">Add websites to your Obot's knowledge base.</p>
+	<p class="text-gray mb-4 text-xs">Add websites to your Obot's knowledge base.</p>
 	<div class="flex flex-col gap-2">
 		{#if project.websiteKnowledge?.sites}
 			<table class="w-full text-left">
@@ -29,12 +29,12 @@
 								<input
 									bind:value={project.websiteKnowledge.sites[i].site}
 									placeholder="example.com"
-									class="ghost-input w-3/4 !border-surface2"
+									class="ghost-input border-surface2! w-3/4"
 								/>
 							</td>
 							<td>
 								<textarea
-									class="ghost-input w-5/6 resize-none !border-surface2"
+									class="ghost-input border-surface2! w-5/6 resize-none"
 									bind:value={project.websiteKnowledge.sites[i].description}
 									rows="1"
 									placeholder="Description"

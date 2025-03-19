@@ -27,14 +27,14 @@
 	let credentialsTT = popover({ hover: true, placement: 'right' });
 </script>
 
-<div class="relative flex size-full flex-col bg-surface1">
+<div class="bg-surface1 relative flex size-full flex-col">
 	<div class="flex h-[76px] items-center justify-between p-3">
 		<div
 			class="flex h-[52px] items-center transition-all duration-300"
 			class:w-full={projectsOpen}
 			class:w-[calc(100%-42px)]={!projectsOpen}
 		>
-			<span class="flex-shrink-0"><Logo class="ml-0" /></span>
+			<span class="shrink-0"><Logo class="ml-0" /></span>
 			<Projects
 				{project}
 				onOpenChange={(open) => (projectsOpen = open)}

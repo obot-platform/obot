@@ -23,7 +23,7 @@
 	<Copy class="icon-default" />
 </button>
 
-<dialog bind:this={dialog} class="relative min-w-[400px] max-w-md p-5">
+<dialog bind:this={dialog} class="relative max-w-md min-w-[400px] p-5">
 	<div class="flex flex-col">
 		<div class="mb-5 flex items-center gap-2">
 			<h1>Copy</h1>
@@ -37,7 +37,7 @@
 			<button class="button-primary" onclick={() => copy()}> Copy </button>
 		</div>
 
-		<button class="icon-button absolute right-2 top-2" onclick={() => dialog?.close()}>
+		<button class="icon-button absolute top-2 right-2" onclick={() => dialog?.close()}>
 			<X class="icon-default" />
 		</button>
 	</div>

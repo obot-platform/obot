@@ -58,7 +58,7 @@
 	{#if open}
 		<div
 			transition:slide
-			class={twMerge('flex flex-col border-surface1 bg-surface2 p-5 shadow-inner', classes.content)}
+			class={twMerge('border-surface1 bg-surface2 flex flex-col p-5 shadow-inner', classes.content)}
 			class:border-t={header}
 			class:border-b={header}
 		>

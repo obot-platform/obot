@@ -110,7 +110,7 @@
 		<Type bind:task />
 		<div>
 			<button
-				class="ml-2 flex items-center gap-2 rounded-3xl bg-blue px-5 py-2 text-white hover:bg-blue-400"
+				class="bg-blue ml-2 flex items-center gap-2 rounded-3xl px-5 py-2 text-white hover:bg-blue-400"
 				onclick={click}
 			>
 				{#if running}

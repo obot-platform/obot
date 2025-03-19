@@ -105,7 +105,7 @@
 								});
 							}}
 						>
-							<Download class="h-5 w-5 text-gray" />
+							<Download class="text-gray h-5 w-5" />
 						</button>
 						<button
 							class="ms-2 hidden group-hover:block"
@@ -113,7 +113,7 @@
 								fileToDelete = file.name;
 							}}
 						>
-							<Trash class="h-5 w-5 text-gray" />
+							<Trash class="text-gray h-5 w-5" />
 						</button>
 					</div>
 				</li>

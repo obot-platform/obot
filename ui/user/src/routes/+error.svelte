@@ -29,10 +29,10 @@
 			/>
 		</div>
 		<div
-			class="speech-bubble relative m-4 flex flex-col items-center justify-center rounded-md bg-surface2 p-4
-    after:absolute after:left-0 after:top-[50%] after:ml-[-40px] after:mt-[-20px] after:h-0
-    after:w-0 after:border-[40px] after:border-b-0 after:border-l-0
-    after:border-transparent after:border-r-surface2 after:content-['']"
+			class="speech-bubble bg-surface2 after:border-r-surface2 relative m-4 flex flex-col items-center justify-center rounded-md
+    p-4 after:absolute after:top-[50%] after:left-0 after:mt-[-20px] after:ml-[-40px]
+    after:h-0 after:w-0 after:border-[40px] after:border-b-0
+    after:border-l-0 after:border-transparent after:content-['']"
 		>
 			<div class="text-8xl font-bold">{page.status}</div>
 			<h1 class="text-xl font-semibold">{title}</h1>

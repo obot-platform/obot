@@ -15,7 +15,7 @@
 		dialog: twMerge(
 			'px-4',
 			responsive.isMobile &&
-				'rounded-none h-[calc(100vh-64px)] p-4 left-0 top-[64px] !rounded-none w-full h-full'
+				'rounded-none h-[calc(100vh-64px)] p-4 left-0 top-[64px] rounded-none! w-full h-full'
 		)
 	}}
 >

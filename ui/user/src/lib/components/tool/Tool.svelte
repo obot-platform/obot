@@ -214,7 +214,7 @@ printf "The current temperature in %s is %.2f°F.\\n" "$CITY" "$RANDOM_TEMPERATU
 </script>
 
 <div class="relative flex flex-col gap-5 rounded-s-3xl p-5">
-	<div class="absolute right-0 top-0 m-2 flex">
+	<div class="absolute top-0 right-0 m-2 flex">
 		<button class="icon-button" onclick={() => (requestDelete = true)}>
 			<Trash class="h-5 w-5" />
 		</button>
@@ -226,12 +226,12 @@ printf "The current temperature in %s is %.2f°F.\\n" "$CITY" "$RANDOM_TEMPERATU
 			<input
 				bind:value={tool.name}
 				placeholder="Enter Name"
-				class="text-xl font-semibold outline-none dark:bg-black"
+				class="text-xl font-semibold outline-hidden dark:bg-black"
 			/>
 			<input
 				bind:value={tool.description}
 				placeholder="Enter description (a good one is very helpful)"
-				class="outline-none dark:bg-black"
+				class="outline-hidden dark:bg-black"
 			/>
 		</div>
 
@@ -256,7 +256,7 @@ printf "The current temperature in %s is %.2f°F.\\n" "$CITY" "$RANDOM_TEMPERATU
 						container: 'Docker Image'
 					}}
 					selected={tool.toolType}
-					class="p-0 hover:bg-gray-50 hover:dark:bg-gray-950"
+					class="p-0 hover:bg-gray-50 dark:hover:bg-gray-950"
 					onSelected={switchType}
 				/>
 			</div>
@@ -279,7 +279,7 @@ printf "The current temperature in %s is %.2f°F.\\n" "$CITY" "$RANDOM_TEMPERATU
 				onclick={() => {
 					test(true);
 				}}
-				class="mt-3 self-end rounded-3xl bg-blue p-3 px-6 text-white"
+				class="bg-blue mt-3 self-end rounded-3xl p-3 px-6 text-white"
 			>
 				Test</button
 			>
@@ -287,18 +287,18 @@ printf "The current temperature in %s is %.2f°F.\\n" "$CITY" "$RANDOM_TEMPERATU
 
 		{#if testOutput}
 			<div class="relative flex flex-col gap-4 rounded-3xl bg-gray-50 p-5 dark:bg-gray-950">
-				<div class="absolute right-0 top-0 flex p-5">
+				<div class="absolute top-0 right-0 flex p-5">
 					<button onclick={() => (testOutput = undefined)}>
 						<X class="h-5 w-5" />
 					</button>
 				</div>
 				<h4 class="text-xl font-semibold">Output</h4>
 				<Params bind:params={input} input />
-				<div class="whitespace-pre-wrap font-mono text-sm">
+				<div class="font-mono text-sm whitespace-pre-wrap">
 					{#await testOutput}
 						Running...
 					{:then output}
-						<div class="whitespace-pre-wrap rounded-3xl bg-white p-5 font-mono dark:bg-black">
+						<div class="rounded-3xl bg-white p-5 font-mono whitespace-pre-wrap dark:bg-black">
 							{output.output}
 						</div>
 					{:catch error}
@@ -309,7 +309,7 @@ printf "The current temperature in %s is %.2f°F.\\n" "$CITY" "$RANDOM_TEMPERATU
 		{/if}
 
 		<button
-			class="flex items-center gap-2 self-end dark:text-gray"
+			class="dark:text-gray flex items-center gap-2 self-end"
 			onclick={() => (advanced = !advanced)}
 		>
 			<span>Advanced Options</span>
@@ -329,7 +329,7 @@ printf "The current temperature in %s is %.2f°F.\\n" "$CITY" "$RANDOM_TEMPERATU
 					bind:value={tool.context}
 					use:autoHeight
 					rows="1"
-					class="resize-none bg-gray-50 outline-none dark:bg-gray-950"
+					class="resize-none bg-gray-50 outline-hidden dark:bg-gray-950"
 					placeholder="(optional) More information on how or when AI should invoke this tool."
 				></textarea>
 			</div>
@@ -350,7 +350,7 @@ printf "The current temperature in %s is %.2f°F.\\n" "$CITY" "$RANDOM_TEMPERATU
 				</button>
 				<button
 					onclick={() => save()}
-					class="mt-3 gap-2 rounded-3xl bg-blue p-3 px-6 text-white hover:bg-blue-400 hover:text-white"
+					class="bg-blue mt-3 gap-2 rounded-3xl p-3 px-6 text-white hover:bg-blue-400 hover:text-white"
 				>
 					{#if id}
 						Save
@@ -365,7 +365,7 @@ printf "The current temperature in %s is %.2f°F.\\n" "$CITY" "$RANDOM_TEMPERATU
 
 <dialog bind:this={dialog} class="w-11/12 max-w-[1000px]">
 	<div class="relative flex flex-col p-5">
-		<div class="absolute right-0 top-0 flex p-5">
+		<div class="absolute top-0 right-0 flex p-5">
 			<button
 				onclick={() => {
 					dialog.close();
@@ -378,7 +378,7 @@ printf "The current temperature in %s is %.2f°F.\\n" "$CITY" "$RANDOM_TEMPERATU
 		<Params bind:params={input} autofocus input />
 		<button
 			onclick={() => test(false)}
-			class="mt-3 self-end rounded-3xl bg-blue p-3 px-6 text-white"
+			class="bg-blue mt-3 self-end rounded-3xl p-3 px-6 text-white"
 		>
 			Run</button
 		>
@@ -394,6 +394,7 @@ printf "The current temperature in %s is %.2f°F.\\n" "$CITY" "$RANDOM_TEMPERATU
 
 <style lang="postcss">
 	dialog::backdrop {
-		@apply bg-black bg-opacity-60;
+		background-color: black;
+		opacity: 0.6;
 	}
 </style>

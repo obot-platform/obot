@@ -54,7 +54,7 @@
 </script>
 
 <li class="flex min-h-9 flex-col">
-	<div class="group flex items-center gap-3 rounded-md p-2 hover:bg-surface3">
+	<div class="group hover:bg-surface3 flex items-center gap-3 rounded-md p-2">
 		<div class="flex grow items-center gap-1 truncate">
 			{#if taskRuns && taskRuns.length > 0}
 				<button onclick={() => (expanded = !expanded)}>
@@ -97,7 +97,7 @@
 					class:bg-surface2={currentThreadID === taskRun.id && !isSomethingSelected(layout)}
 					class="w-full"
 				>
-					<div class="group flex items-center rounded-md hover:bg-surface3">
+					<div class="group hover:bg-surface3 flex items-center rounded-md">
 						<button
 							class="w-full p-2 text-left"
 							onclick={() => {
@@ -120,7 +120,7 @@
 				</li>
 			{/each}
 			{#if taskRuns?.length && taskRuns?.length > displayCount}
-				<li class="flex w-full justify-center rounded-md p-2 hover:bg-surface3">
+				<li class="hover:bg-surface3 flex w-full justify-center rounded-md p-2">
 					<button class="w-full text-xs" onclick={loadMore}> Show More </button>
 				</li>
 			{/if}

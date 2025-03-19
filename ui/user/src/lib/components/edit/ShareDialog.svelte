@@ -22,7 +22,7 @@
 	<dialog class="min-w-[320px] p-5" bind:this={shareDialog}>
 		<h2 class="font-semibold">Sharing</h2>
 		<Share dialog {project} />
-		<button class="absolute right-5 top-5" onclick={() => shareDialog?.close()}>
+		<button class="absolute top-5 right-5" onclick={() => shareDialog?.close()}>
 			<X class="icon-default" />
 		</button>
 	</dialog>

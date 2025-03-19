@@ -205,13 +205,13 @@
 			</button>
 		</div>
 		{#if layout.threads?.length === 0}
-			<p class="p-6 text-center text-sm text-gray dark:text-gray-300">No threads</p>
+			<p class="text-gray p-6 text-center text-sm dark:text-gray-300">No threads</p>
 		{/if}
 		<ul transition:fade>
 			{#each (layout.threads ?? []).slice(0, displayCount) as thread (thread.id)}
 				<li
 					class:bg-surface2={isCurrentThread(thread)}
-					class="group flex min-h-9 items-center gap-3 rounded-md text-xs font-light hover:bg-surface3"
+					class="group hover:bg-surface3 flex min-h-9 items-center gap-3 rounded-md text-xs font-light"
 				>
 					{#if editMode && isCurrentThread(thread)}
 						<input
@@ -227,7 +227,7 @@
 										break;
 								}
 							}}
-							class="w-0 grow border-none bg-transparent outline-none ring-0 dark:text-white"
+							class="w-0 grow border-none bg-transparent ring-0 outline-hidden dark:text-white"
 							placeholder="Enter name"
 							type="text"
 						/>
@@ -271,7 +271,7 @@
 				</li>
 			{/each}
 			{#if layout.threads?.length && layout.threads?.length > displayCount}
-				<li class="flex w-full justify-center rounded-md p-2 hover:bg-surface3">
+				<li class="hover:bg-surface3 flex w-full justify-center rounded-md p-2">
 					<button class="w-full text-xs" onclick={loadMore}> Show More </button>
 				</li>
 			{/if}

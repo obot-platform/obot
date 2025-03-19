@@ -42,7 +42,7 @@
 								bind:value={param.key}
 								readonly={input}
 								placeholder="Enter name"
-								class="me-1 rounded-lg p-2 outline-none focus:ring-2 focus:ring-blue {input
+								class="focus:ring-blue me-1 rounded-lg p-2 outline-hidden focus:ring-2 {input
 									? 'bg-gray-50 dark:bg-gray-950'
 									: 'bg-gray-100 dark:bg-gray-900'}"
 							/></td

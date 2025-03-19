@@ -86,15 +86,15 @@
 			<img
 				alt={projectShare.name || 'Obot'}
 				src={getImage(projectShare)}
-				class="absolute left-0 top-0 h-full w-full object-cover opacity-85"
+				class="absolute top-0 left-0 h-full w-full object-cover opacity-85"
 			/>
 			<div
-				class="absolute -bottom-0 left-0 z-10 h-2/4 w-full bg-gradient-to-b from-transparent via-transparent to-surface1 transition-colors duration-300"
+				class="to-surface1 absolute -bottom-0 left-0 z-10 h-2/4 w-full bg-linear-to-b from-transparent via-transparent transition-colors duration-300"
 			></div>
 		</div>
 		<div class="flex h-full flex-col gap-2 px-4 py-2">
 			<h4 class="font-semibold">{projectShare.name || 'Untitled'}</h4>
-			<p class="line-clamp-3 text-xs text-gray">{projectShare.description}</p>
+			<p class="text-gray line-clamp-3 text-xs">{projectShare.description}</p>
 			{#if projectShare.tools}
 				<div class="mt-auto flex flex-wrap items-center justify-end gap-2 py-2">
 					{#each projectShare.tools.slice(0, 3) as tool}
@@ -176,7 +176,7 @@
 					fixed
 					classes={{
 						dialog:
-							'rounded-none h-[calc(100vh-64px)] p-4 left-0 top-[64px] !rounded-none w-full h-full px-4 divide-transparent dark:divide-transparent'
+							'rounded-none h-[calc(100vh-64px)] p-4 left-0 top-[64px] rounded-none! w-full h-full px-4 divide-transparent dark:divide-transparent'
 					}}
 					title=""
 				>
@@ -194,9 +194,9 @@
 	</div>
 
 	<main
-		class="colors-background mx-auto flex w-full max-w-screen-2xl flex-col justify-center px-4 pb-12 md:px-12"
+		class="colors-background mx-auto flex w-full max-w-(--breakpoint-2xl) flex-col justify-center px-4 pb-12 md:px-12"
 	>
-		<div class="mb-16 mt-16 flex flex-col items-center text-center">
+		<div class="mt-16 mb-16 flex flex-col items-center text-center">
 			<h1 class="text-2xl font-bold md:text-3xl">Do more with AI</h1>
 			<p class="mt-4 max-w-full text-base md:max-w-2xl md:text-xl">
 				Introducing Obot, a free platform for creating and sharing AI agents.
@@ -217,7 +217,7 @@
 	<!-- Login Modal -->
 	<dialog
 		bind:this={loginDialog}
-		class="colors-surface2 w-full max-w-sm rounded-3xl p-6 shadow-lg backdrop:bg-black backdrop:bg-opacity-50 md:max-w-md"
+		class="colors-surface2 backdrop:bg-opacity-50 w-full max-w-sm rounded-3xl p-6 shadow-lg backdrop:bg-black md:max-w-md"
 	>
 		<div class="mb-6 flex items-center justify-between">
 			<h3 class="text-xl font-semibold">Login to Obot</h3>
@@ -249,7 +249,7 @@
 							src={provider.icon}
 							alt={provider.name}
 						/>
-						<span class="flex-grow text-center">Login with {provider.name}</span>
+						<span class="grow text-center">Login with {provider.name}</span>
 					{/if}
 				</a>
 			{/each}

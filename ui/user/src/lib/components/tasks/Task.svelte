@@ -53,7 +53,7 @@
 	});
 </script>
 
-<div class="flex w-full justify-center overflow-y-auto scrollbar-none">
+<div class="scrollbar-none flex w-full justify-center overflow-y-auto">
 	<!-- div in div is needed for the scrollbar to work so that space outside the max-width is still scrollable -->
 	<div
 		role="none"
@@ -61,8 +61,8 @@
 		class="relative flex w-full max-w-[1200px] flex-col gap-4 rounded-s-3xl"
 	>
 		<div class="flex w-full justify-between gap-8 px-8 py-5">
-			<div class="flex grow flex-col gap-1 border-l-4 border-blue pl-4">
-				<strong class="text-xs text-blue">TASK</strong>
+			<div class="border-blue flex grow flex-col gap-1 border-l-4 pl-4">
+				<strong class="text-blue text-xs">TASK</strong>
 
 				<input class="ghost-input text-2xl font-semibold" bind:value={task.name} />
 
@@ -73,7 +73,7 @@
 				/>
 			</div>
 			<div class="flex items-center gap-2">
-				<button class="button-destructive !p-4" onclick={() => (toDelete = true)}>
+				<button class="button-destructive p-4!" onclick={() => (toDelete = true)}>
 					<Trash2 class="size-4" />
 				</button>
 			</div>

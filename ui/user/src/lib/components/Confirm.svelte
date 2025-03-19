@@ -24,8 +24,8 @@
 	tabIndex="-1"
 	class:hidden={!show}
 	class:flex={show}
-	class="fixed left-0 right-0 top-0 z-50 h-[calc(100%-1rem)] max-h-full w-full items-center
- justify-center overflow-y-auto overflow-x-hidden bg-black bg-opacity-50 md:inset-0"
+	class="bg-opacity-50 fixed top-0 right-0 left-0 z-50 h-[calc(100%-1rem)] max-h-full w-full
+ items-center justify-center overflow-x-hidden overflow-y-auto bg-black md:inset-0"
 	role="none"
 	onkeydown={(e) => {
 		if (e.key === 'Escape') {

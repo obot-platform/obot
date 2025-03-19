@@ -122,15 +122,15 @@
 <div class="relative h-full w-full max-w-[900px] pb-32">
 	<!-- Fade text in/out on scroll -->
 	<div
-		class="absolute inset-x-0 top-0 z-20 h-14 w-full bg-gradient-to-b from-white dark:from-black"
+		class="absolute inset-x-0 top-0 z-20 h-14 w-full bg-linear-to-b from-white dark:from-black"
 	></div>
 	<div
-		class="absolute inset-x-0 bottom-36 z-20 h-14 w-full bg-gradient-to-t from-white dark:from-black"
+		class="absolute inset-x-0 bottom-36 z-20 h-14 w-full bg-linear-to-t from-white dark:from-black"
 	></div>
 
 	<div
 		bind:this={container}
-		class="flex h-full grow justify-center overflow-y-auto overflow-x-hidden scrollbar-none"
+		class="scrollbar-none flex h-full grow justify-center overflow-x-hidden overflow-y-auto"
 		class:scroll-smooth={scrollSmooth}
 		use:stickToBottom={{
 			contentEl: messagesDiv,
@@ -148,11 +148,11 @@
 				<div class="message-content w-full self-center">
 					<div class="flex flex-col items-center justify-center pt-8 text-center">
 						<AssistantIcon {project} class="h-24 w-24 shadow-lg" />
-						<h4 class="!mb-1">{project.name || 'Untitled'}</h4>
+						<h4 class="mb-1!">{project.name || 'Untitled'}</h4>
 						{#if project.description}
-							<p class="max-w-md font-light text-gray">{project.description}</p>
+							<p class="text-gray max-w-md font-light">{project.description}</p>
 						{/if}
-						<div class="mt-4 h-[1px] w-96 max-w-sm rounded-full bg-surface1 dark:bg-surface2"></div>
+						<div class="bg-surface1 dark:bg-surface2 mt-4 h-[1px] w-96 max-w-sm rounded-full"></div>
 					</div>
 					{#if project?.introductionMessage}
 						<div class="pt-8">
@@ -164,7 +164,7 @@
 					<div class="flex flex-wrap justify-center gap-4 px-4">
 						{#each project.starterMessages as msg}
 							<button
-								class="w-52 rounded-2xl border border-surface3 bg-transparent p-4 text-left text-sm font-light transition-all duration-300 hover:bg-surface2"
+								class="border-surface3 hover:bg-surface2 w-52 rounded-2xl border bg-transparent p-4 text-left text-sm font-light transition-all duration-300"
 								onclick={async () => {
 									await ensureThread();
 									await thread?.invoke(msg);

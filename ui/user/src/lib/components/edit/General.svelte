@@ -39,13 +39,13 @@
 		<div class="flex items-center gap-5">
 			<div class="flex w-full items-center justify-center">
 				<button
-					class="icon-button group relative flex items-center gap-2 !p-0 shadow-md"
+					class="icon-button group relative flex items-center gap-2 p-0! shadow-md"
 					use:ref
 					onclick={() => toggle()}
 				>
 					<AssistantIcon {project} class="size-24" />
 					<div
-						class="absolute -right-1 bottom-0 rounded-full bg-surface1 p-2 shadow-md transition-all duration-200 group-hover:bg-surface3"
+						class="bg-surface1 group-hover:bg-surface3 absolute -right-1 bottom-0 rounded-full p-2 shadow-md transition-all duration-200"
 					>
 						<Pencil class="size-4" />
 					</div>
@@ -53,13 +53,13 @@
 			</div>
 			<div
 				use:tooltip
-				class="default-dialog left-0 top-16 z-20 flex h-[calc(100vh-64px)] w-screen flex-col px-4 md:left-auto md:top-auto md:h-auto md:w-[350px] md:py-6"
+				class="default-dialog top-16 left-0 z-20 flex h-[calc(100vh-64px)] w-screen flex-col px-4 md:top-auto md:left-auto md:h-auto md:w-[350px] md:py-6"
 			>
 				{#if responsive.isMobile}
-					<div class="relative mb-6 flex items-center justify-center border-b border-surface3 py-4">
+					<div class="border-surface3 relative mb-6 flex items-center justify-center border-b py-4">
 						<h4 class="text-lg font-medium">Edit Icon</h4>
 						<button
-							class="icon-button absolute right-0 top-1/2 -translate-y-1/2"
+							class="icon-button absolute top-1/2 right-0 -translate-y-1/2"
 							onclick={() => toggle()}
 						>
 							<ChevronRight class="size-6" />

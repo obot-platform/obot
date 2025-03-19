@@ -82,14 +82,14 @@
 	}
 </script>
 
-<div class="flex size-full flex-col bg-surface1">
+<div class="bg-surface1 flex size-full flex-col">
 	{#if layout.projectEditorOpen}
 		<!-- Header -->
 		<div
-			class="relative z-40 flex h-16 w-full items-center justify-between gap-4 bg-surface1 p-3 shadow-md md:gap-8"
+			class="bg-surface1 relative z-40 flex h-16 w-full items-center justify-between gap-4 p-3 shadow-md md:gap-8"
 			transition:slide
 		>
-			<div class="flex flex-shrink-0 items-center gap-2">
+			<div class="flex shrink-0 items-center gap-2">
 				<a href="/home"><img src="/user/images/obot-icon-blue.svg" class="h-8" alt="Obot icon" /></a
 				>
 				{#if !responsive.isMobile}
@@ -97,7 +97,7 @@
 				{/if}
 			</div>
 			<div class="flex grow items-center justify-between gap-2">
-				<p class="text-sm text-gray">Editing:</p>
+				<p class="text-gray text-sm">Editing:</p>
 				<div class="relative flex max-w-[50vw] grow md:max-w-none">
 					<Projects
 						{project}
@@ -107,7 +107,7 @@
 							tooltip: twMerge(
 								'h-fit w-screen md:w-full default-dialog shadow-inner -translate-y-1 max-h-[80vh] overflow-y-auto default-scrollbar-thin',
 								responsive.isMobile &&
-									'!rounded-none !h-[calc(100vh-64px)] !-translate-x-[4px] !max-h-[calc(100vh-64px)] !translate-y-2'
+									'rounded-none! h-[calc(100vh-64px)]! -translate-x-[4px]! max-h-[calc(100vh-64px)]! translate-y-2!'
 							)
 						}}
 					/>
@@ -127,11 +127,11 @@
 			<!-- Left Nav -->
 			<div
 				bind:this={nav}
-				class="inset-shadow-sm flex h-full w-screen flex-col overflow-hidden md:w-1/4 md:min-w-[320px]"
+				class="flex h-full w-screen flex-col overflow-hidden inset-shadow-xs md:w-1/4 md:min-w-[320px]"
 				transition:slide={responsive.isMobile ? { axis: 'y' } : { axis: 'x' }}
 			>
 				<div
-					class="default-scrollbar-thin scrollbar-stable-gutter flex grow flex-col !scrollbar-track-transparent"
+					class="default-scrollbar-thin scrollbar-stable-gutter scrollbar-track-transparent! flex grow flex-col"
 				>
 					<General bind:project />
 					<Instructions bind:project />
@@ -147,7 +147,7 @@
 					<Share {project} />
 					<div class="grow"></div>
 				</div>
-				<div class="flex justify-between bg-surface1 p-2">
+				<div class="bg-surface1 flex justify-between p-2">
 					<button class="button flex items-center gap-1 text-sm" onclick={() => copy()}>
 						<span>Copy</span>
 					</button>

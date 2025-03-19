@@ -53,7 +53,7 @@
 	{/snippet}
 	{#snippet body()}
 		{#if knowledgeFiles.length === 0}
-			<p class="p-6 text-center text-sm text-gray dark:text-gray-300">No files</p>
+			<p class="text-gray p-6 text-center text-sm dark:text-gray-300">No files</p>
 		{:else}
 			<ul class="space-y-3 px-3 py-6 text-sm">
 				{#each knowledgeFiles as file}

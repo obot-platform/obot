@@ -1,213 +1,554 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import 'tailwindcss';
 
-.icon-button-colors {
-	@apply text-gray hover:bg-surface3 focus:outline-none dark:text-gray-400;
+@plugin 'tailwind-scrollbar' {
+	nocompatible: true;
+	preferredstrategy: 'pseudoelements';
 }
 
-.icon-button {
-	@apply icon-button-colors flex min-h-10 min-w-10 items-center justify-center rounded-full p-2.5 text-sm transition-all duration-200;
+@custom-variant dark (&:is(.dark *));
+
+@theme {
+	--font-*: initial;
+	--font-sans:
+		Poppins, ui-sans-serif, system-ui, -apple-system, system-ui, Segoe UI, Roboto, Helvetica Neue,
+		Arial, Noto Sans, sans-serif, Apple Color Emoji, Segoe UI Emoji, Segoe UI Symbol,
+		Noto Color Emoji;
+	--font-body:
+		Poppins, ui-sans-serif, system-ui, -apple-system, system-ui, Segoe UI, Roboto, Helvetica Neue,
+		Arial, Noto Sans, sans-serif, Apple Color Emoji, Segoe UI Emoji, Segoe UI Symbol,
+		Noto Color Emoji;
+	--font-mono:
+		ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, Liberation Mono, Courier New, monospace;
+
+	--color-*: initial;
+	--color-background: var(--background);
+	--color-on-background: var(--on-background);
+	--color-surface1: var(--surface1);
+	--color-on-surface1: var(--on-surface1);
+	--color-surface2: var(--surface2);
+	--color-on-surface2: var(--on-surface2);
+	--color-surface3: var(--surface3);
+	--color-on-surface3: var(--on-surface3);
+	--color-transparent: transparent;
+	--color-current: currentColor;
+
+	--color-red-50: #fef2f2;
+	--color-red-100: #fee2e2;
+	--color-red-200: #fecaca;
+	--color-red-300: #fca5a5;
+	--color-red-400: #f87171;
+	--color-red-500: #ef4444;
+	--color-red-600: #dc2626;
+	--color-red-700: #b91c1c;
+	--color-red-800: #991b1b;
+	--color-red-900: #7f1d1d;
+	--color-red-950: #450a0a;
+
+	--color-blue-50: #eff5ff;
+	--color-blue-100: #dce7fd;
+	--color-blue-200: #c0d5fd;
+	--color-blue-300: #95bcfb;
+	--color-blue-400: #6397f7;
+	--color-blue-500: #4f7ef3;
+	--color-blue-600: #2953e7;
+	--color-blue-700: #213fd4;
+	--color-blue-800: #2135ac;
+	--color-blue-900: #203188;
+	--color-blue-950: #182153;
+	--color-blue: #4f7ef3;
+
+	--text-md: 0.9375rem;
+
+	--color-black: hsl(0 0 0);
+	--color-white: hsl(0 0 100);
+	--color-gray: hsl(0 0 calc(2.5 + 50));
+	--color-gray-50: hsl(0 0 calc(2.5 + 95));
+	--color-gray-60: hsl(0 0 calc(2.5 + 94));
+	--color-gray-70: hsl(0 0 calc(2.5 + 93));
+	--color-gray-80: hsl(0 0 calc(2.5 + 92));
+	--color-gray-90: hsl(0 0 calc(2.5 + 91));
+	--color-gray-100: hsl(0 0 calc(2.5 + 90));
+	--color-gray-200: hsl(0 0 calc(2.5 + 80));
+	--color-gray-300: hsl(0 0 calc(2.5 + 70));
+	--color-gray-400: hsl(0 0 calc(2.5 + 60));
+	--color-gray-500: hsl(0 0 calc(2.5 + 50));
+	--color-gray-600: hsl(0 0 calc(2.5 + 40));
+	--color-gray-700: hsl(0 0 calc(2.5 + 30));
+	--color-gray-800: hsl(0 0 calc(2.5 + 20));
+	--color-gray-900: hsl(0 0 calc(2.5 + 10));
+	--color-gray-910: hsl(0 0 calc(2.5 + 9));
+	--color-gray-920: hsl(0 0 calc(2.5 + 8));
+	--color-gray-930: hsl(0 0 calc(2.5 + 7));
+	--color-gray-940: hsl(0 0 calc(2.5 + 6));
+	--color-gray-950: hsl(0 0 calc(2.5 + 5));
+	--color-gray-960: hsl(0 0 calc(2.5 + 4));
+	--color-gray-970: hsl(0 0 calc(2.5 + 3));
+	--color-gray-980: hsl(0 0 calc(2.5 + 2));
+	--color-gray-990: hsl(0 0 calc(2.5 + 1));
 }
 
-.icon-default-size {
-	@apply h-5 w-5;
+/*
+  The default border color has changed to `currentColor` in Tailwind CSS v4,
+  so we've added these compatibility styles to make sure everything still
+  looks the same as it did with Tailwind CSS v3.
+
+  If we ever want to remove these styles, we need to add an explicit border
+  color utility to any element that depends on these defaults.
+*/
+@layer base {
+	*,
+	::after,
+	::before,
+	::backdrop,
+	::file-selector-button {
+		border-color: var(--color-gray-200, currentColor);
+	}
+
+	body {
+		background-color: white;
+		color: black;
+		.dark & {
+			background-color: black;
+			color: var(--color-gray-50);
+		}
+	}
+
+	dialog {
+		border-radius: 0.75rem; /* rounded-xl */
+		border-width: 1px;
+		border-color: var(--surface3);
+		background-color: white;
+		font-size: 0.875rem; /* text-sm */
+		color: black;
+		box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1); /* shadow-lg */
+		.dark & {
+			background-color: var(--surface2);
+			color: white;
+		}
+	}
+
+	dialog::backdrop {
+		background-color: black;
+		opacity: 0.6;
+	}
+
+	textarea,
+	input {
+		background-color: var(--background);
+		color: var(--on-background);
+	}
+
+	blockquote {
+		border-left-width: 2px;
+		border-color: var(--color-gray-200);
+		padding-left: 1rem; /* pl-4 */
+		font-style: italic;
+	}
+
+	li:has(input[type='checkbox'])::marker {
+		color: transparent;
+	}
+
+	button {
+		cursor: pointer;
+	}
 }
 
-.icon-button-small {
-	@apply icon-button-colors rounded-lg p-1 text-sm transition-all duration-200;
-}
+@layer components {
+	.icon-button-colors {
+		color: var(--color-gray-500);
+		&:hover {
+			background-color: var(--surface3);
+		}
+		&:focus {
+			outline: none;
+		}
+		.dark & {
+			color: var(--color-gray-400);
+		}
+	}
 
-.icon-default {
-	@apply icon-default-size;
-}
+	.icon-button {
+		display: flex;
+		min-height: 2.5rem; /* min-h-10 */
+		min-width: 2.5rem; /* min-w-10 */
+		align-items: center;
+		justify-content: center;
+		border-radius: 9999px; /* rounded-full */
+		padding: 0.625rem; /* p-2.5 */
+		font-size: 0.875rem; /* text-sm */
+		transition-property: all;
+		transition-duration: 200ms;
+		color: var(--color-gray-500);
+		&:hover {
+			background-color: var(--surface3);
+		}
+		&:focus {
+			outline: none;
+		}
+		.dark & {
+			color: var(--color-gray-400);
+		}
+	}
 
-body {
-	@apply bg-white text-black dark:bg-black dark:text-gray-50;
-}
+	.icon-default {
+		height: 1.25rem; /* h-5 */
+		width: 1.25rem; /* w-5 */
+	}
 
-.button-layout {
-	@apply rounded-3xl border-2 px-5 py-2;
-}
+	.icon-button-small {
+		border-radius: 0.5rem; /* rounded-lg */
+		padding: 0.25rem; /* p-1 */
+		font-size: 0.875rem; /* text-sm */
+		transition-property: all;
+		transition-duration: 200ms;
+		color: var(--color-gray-500);
+		&:hover {
+			background-color: var(--surface3);
+		}
+		&:focus {
+			outline: none;
+		}
+		.dark & {
+			color: var(--color-gray-400);
+		}
+	}
 
-.button-colors {
-	@apply border-0 bg-surface3 hover:bg-gray-200/50 dark:hover:bg-gray-700;
-}
+	.icon-default-size {
+		height: 1.25rem; /* h-5 */
+		width: 1.25rem; /* w-5 */
+	}
 
-.button {
-	@apply button-layout button-colors transition-colors duration-200;
-}
+	.button-layout {
+		border-radius: 1.5rem; /* rounded-3xl */
+		border-width: 2px; /* border-2 */
+		padding: 0.5rem 1.25rem; /* px-5 py-2 */
+	}
 
-.button-small {
-	@apply button flex items-center gap-1 text-sm;
-}
+	.button-colors {
+		background-color: var(--surface3);
+		border-width: 0;
+		&:hover {
+			background-color: rgb(229 231 235 / 0.5); /* bg-gray-200/50 */
+		}
+		.dark &:hover {
+			background-color: var(--color-gray-700);
+		}
+	}
 
-.button-secondary-colors {
-	@apply border-gray-100 hover:border-gray-200 hover:bg-gray-200 dark:border-gray-900 dark:hover:border-gray-800 dark:hover:bg-gray-800;
-}
+	.button {
+		border-radius: 1.5rem;
+		border-width: 2px;
+		padding: 0.5rem 1.25rem;
+		background-color: var(--surface3);
+		border-width: 0;
+		transition-property: color;
+		transition-duration: 200ms;
+		&:hover {
+			background-color: rgb(229 231 235 / 0.5);
+		}
+		.dark &:hover {
+			background-color: var(--color-gray-700);
+		}
+	}
 
-.button-secondary {
-	@apply button-layout button-secondary-colors;
-}
+	.button-small {
+		composes: button;
+		display: flex;
+		align-items: center;
+		gap: 0.25rem; /* gap-1 */
+		font-size: 0.875rem; /* text-sm */
+	}
 
-.button-primary-colors {
-	@apply border-blue bg-blue text-white hover:border-blue-400 hover:bg-blue-400 dark:text-gray-50;
-}
+	.button-secondary-colors {
+		border-color: var(--color-gray-100);
+		&:hover {
+			border-color: var(--color-gray-200);
+			background-color: var(--color-gray-200);
+		}
+		.dark & {
+			border-color: var(--color-gray-900);
+		}
+		.dark &:hover {
+			border-color: var(--color-gray-800);
+			background-color: var(--color-gray-800);
+		}
+	}
 
-.button-primary {
-	@apply button-layout button-primary-colors;
-}
+	.button-secondary {
+		composes: button-layout;
+		composes: button-secondary-colors;
+	}
 
-.button-icon-primary {
-	@apply flex items-center justify-center rounded-full p-2 text-gray hover:bg-gray-100 hover:text-blue focus:outline-none dark:hover:bg-gray-700/30;
-}
+	.button-primary-colors {
+		border-color: var(--color-blue);
+		background-color: var(--color-blue);
+		color: white;
+		&:hover {
+			border-color: var(--color-blue-400);
+			background-color: var(--color-blue-400);
+		}
+		.dark & {
+			color: var(--color-gray-50);
+		}
+	}
 
-.button-destructive {
-	@apply flex items-center gap-1 rounded-full bg-red-500/20 px-4 py-2 text-sm text-red-500 transition-all duration-200 hover:bg-red-500 hover:text-white;
-}
+	.button-primary {
+		composes: button-layout;
+		composes: button-primary-colors;
+	}
 
-.list-button-primary {
-	@apply button-icon-primary !p-0 hover:bg-transparent;
-}
+	.button-icon-primary {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		border-radius: 9999px; /* rounded-full */
+		padding: 0.5rem; /* p-2 */
+		color: var(--color-gray);
+		&:hover {
+			color: var(--color-blue);
+			background-color: var(--color-gray-100);
+		}
+		&:focus {
+			outline: none;
+		}
+		.dark &:hover {
+			background-color: rgb(55 65 81 / 0.3); /* bg-gray-700/30 */
+		}
+	}
 
-.text-input {
-	@apply w-full rounded-lg bg-gray-100 p-2 outline-none focus:ring-2 focus:ring-blue dark:bg-gray-900;
-}
+	.button-destructive {
+		display: flex;
+		align-items: center;
+		gap: 0.25rem;
+		border-radius: 9999px;
+		background-color: rgb(239 68 68 / 0.2); /* bg-red-500/20 */
+		padding: 1rem 1rem; /* px-4 py-2 */
+		font-size: 0.875rem;
+		color: var(--color-red-500);
+		transition-property: all;
+		transition-duration: 200ms;
+		&:hover {
+			background-color: var(--color-red-500);
+			color: white;
+		}
+	}
 
-.default-scrollbar-thin {
-	@apply overflow-auto scrollbar-thin scrollbar-track-surface2 scrollbar-thumb-surface3;
-}
+	.list-button-primary {
+		composes: button-icon-primary;
+		padding: 0 !important;
+		&:hover {
+			background-color: transparent;
+		}
+	}
 
-.default-scrollbar {
-	@apply scrollbar scrollbar-track-surface1 scrollbar-thumb-surface3;
-}
+	.text-input {
+		width: 100%;
+		border-radius: 0.5rem;
+		background-color: var(--color-gray-100);
+		padding: 0.5rem;
+		outline: none;
+		&:focus {
+			--tw-ring-width: 2px;
+			--tw-ring-color: var(--color-blue);
+			--tw-ring-offset-shadow: var(--tw-ring-inset) 0 0 0 var(--tw-ring-offset-width)
+				var(--tw-ring-offset-color);
+			--tw-ring-shadow: var(--tw-ring-inset) 0 0 0
+				calc(var(--tw-ring-width) + var(--tw-ring-offset-width)) var(--tw-ring-color);
+			box-shadow: var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow, 0 0 #0000);
+		}
+		.dark & {
+			background-color: var(--color-gray-900);
+		}
+	}
 
-.scrollbar-stable-gutter {
-	scrollbar-gutter: stable;
-}
+	.default-scrollbar-thin {
+		overflow: auto;
+		scrollbar-width: thin;
+		scrollbar-color: var(--surface3) var(--surface2);
+	}
 
-.default-dialog,
-dialog {
-	@apply rounded-xl border-[1px] border-surface3 bg-white text-sm text-black shadow-lg dark:bg-surface2 dark:text-white;
-}
+	.default-scrollbar {
+		scrollbar-color: var(--surface3) var(--surface1);
+	}
 
-dialog::backdrop {
-	@apply bg-black bg-opacity-60;
-}
+	.scrollbar-stable-gutter {
+		scrollbar-gutter: stable;
+	}
 
-:root {
-	--black: hsl(0 0 0);
-	--white: hsl(0 0 100);
-	--gray-50: hsl(0 0 calc(2.5 + 95));
-	--gray-60: hsl(0 0 calc(2.5 + 94));
-	--gray-70: hsl(0 0 calc(2.5 + 93));
-	--gray-80: hsl(0 0 calc(2.5 + 92));
-	--gray-90: hsl(0 0 calc(2.5 + 91));
-	--gray-100: hsl(0 0 calc(2.5 + 90));
-	--gray-200: hsl(0 0 calc(2.5 + 80));
-	--gray-300: hsl(0 0 calc(2.5 + 70));
-	--gray-400: hsl(0 0 calc(2.5 + 60));
-	--gray-500: hsl(0 0 calc(2.5 + 50));
-	--gray-600: hsl(0 0 calc(2.5 + 40));
-	--gray-700: hsl(0 0 calc(2.5 + 30));
-	--gray-800: hsl(0 0 calc(2.5 + 20));
-	--gray-900: hsl(0 0 calc(2.5 + 10));
-	--gray-910: hsl(0 0 calc(2.5 + 9));
-	--gray-920: hsl(0 0 calc(2.5 + 8));
-	--gray-930: hsl(0 0 calc(2.5 + 7));
-	--gray-940: hsl(0 0 calc(2.5 + 6));
-	--gray-950: hsl(0 0 calc(2.5 + 5));
-	--gray-960: hsl(0 0 calc(2.5 + 4));
-	--gray-970: hsl(0 0 calc(2.5 + 3));
-	--gray-980: hsl(0 0 calc(2.5 + 2));
-	--gray-990: hsl(0 0 calc(2.5 + 1));
+	.scrollbar-none {
+		scrollbar-width: none;
+	}
+
+	.default-dialog {
+		border-radius: 0.75rem;
+		border-width: 1px;
+		border-color: var(--surface3);
+		background-color: white;
+		font-size: 0.875rem;
+		color: black;
+		box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1);
+		.dark & {
+			background-color: var(--surface2);
+			color: white;
+		}
+	}
+
+	.colors-background {
+		background-color: var(--background);
+		color: var(--on-background);
+	}
+
+	.colors-surface1 {
+		background-color: var(--surface1);
+		color: var(--on-surface1);
+	}
+
+	.colors-surface2 {
+		background-color: var(--surface2);
+		color: var(--on-surface2);
+	}
+
+	.colors-surface3 {
+		background-color: var(--surface3);
+		color: var(--on-surface3);
+	}
+
+	.card {
+		display: flex;
+		min-height: 10rem; /* min-h-40 */
+		width: 100%;
+		gap: 0.5rem;
+		border-radius: 0.75rem;
+		background-color: var(--surface1);
+		transition-property: all;
+		transition-duration: 300ms;
+		&:hover {
+			transform: translateY(-0.5rem);
+			box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+		}
+	}
+
+	.card-icon-button-colors {
+		color: var(--on-surface1);
+		background-color: rgb(243 244 246 / 0.35);
+		transition-property: all;
+		transition-duration: 300ms;
+		&:hover {
+			background-color: rgb(243 244 246 / 0.75);
+		}
+		&:focus {
+			outline: none;
+		}
+		.dark & {
+			background-color: rgb(17 24 39 / 0.25);
+		}
+		.dark &:hover {
+			background-color: rgb(17 24 39 / 0.75);
+		}
+	}
+
+	.featured-card-layout {
+		margin-bottom: 2rem;
+		display: grid;
+		width: 100%;
+		gap: 1rem;
+		grid-template-columns: repeat(1, minmax(0, 1fr));
+		@media (min-width: 640px) {
+			grid-template-columns: repeat(2, minmax(0, 1fr));
+		}
+		@media (min-width: 1024px) {
+			grid-template-columns: repeat(3, minmax(0, 1fr));
+		}
+		@media (min-width: 1536px) {
+			grid-template-columns: repeat(4, minmax(0, 1fr));
+		}
+	}
+
+	.card-layout {
+		margin-bottom: 2rem;
+		display: grid;
+		gap: 1rem;
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+		@media (min-width: 640px) {
+			grid-template-columns: repeat(3, minmax(0, 1fr));
+		}
+		@media (min-width: 1024px) {
+			grid-template-columns: repeat(4, minmax(0, 1fr));
+		}
+		@media (min-width: 1536px) {
+			grid-template-columns: repeat(6, minmax(0, 1fr));
+		}
+	}
+
+	.tooltip {
+		border-radius: 0.5rem;
+		border: 1px solid var(--surface3);
+		background-color: var(--surface2);
+		padding: 0.5rem;
+		font-size: 0.875rem;
+		font-weight: 300;
+		box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+	}
+
+	.menu-button {
+		display: flex;
+		min-height: 2.5rem;
+		min-width: 2.5rem;
+		align-items: center;
+		gap: 0.5rem;
+		border-radius: 0.5rem;
+		padding: 0.5rem;
+		padding-top: 1rem;
+		padding-bottom: 1rem;
+		font-size: 0.875rem;
+		transition-property: all;
+		transition-duration: 200ms;
+		&:hover {
+			background-color: var(--surface2);
+		}
+		.dark &:hover {
+			background-color: var(--surface3);
+		}
+		@media (min-width: 768px) {
+			padding-top: 0.5rem;
+			padding-bottom: 0.5rem;
+		}
+	}
+
+	.ghost-input {
+		border-bottom-width: 1px;
+		border-color: transparent;
+		background-color: transparent;
+		padding-top: 0.5rem;
+		padding-bottom: 0.5rem;
+		outline: none;
+		transition-property: all;
+		transition-duration: 300ms;
+		&:focus {
+			border-color: var(--surface2);
+		}
+	}
 }
 
 .dark {
-	--background: var(--black);
-	--on-background: var(--gray-50);
-	--surface1: var(--gray-950);
-	--on-surface1: var(--gray-50);
-	--surface2: var(--gray-900);
-	--on-surface2: var(--gray-50);
-	--surface3: var(--gray-800);
-	--on-surface3: var(--gray-50);
+	--background: var(--color-black);
+	--on-background: var(--color-gray-50);
+	--surface1: var(--color-gray-950);
+	--on-surface1: var(--color-gray-50);
+	--surface2: var(--color-gray-900);
+	--on-surface2: var(--color-gray-50);
+	--surface3: var(--color-gray-800);
+	--on-surface3: var(--color-gray-50);
 }
 
 html {
-	--background: var(--white);
-	--on-background: var(--black);
-	--surface1: var(--gray-70);
-	--on-surface1: var(--black);
-	--surface2: var(--gray-100);
-	--on-surface2: var(--black);
-	--surface3: var(--gray-200);
-	--on-surface3: var(--black);
-}
-
-.colors-background {
-	@apply bg-background text-on-background;
-}
-
-.colors-surface1 {
-	@apply bg-surface1 text-on-surface1;
-}
-
-.colors-surface2 {
-	@apply bg-surface2 text-on-surface2;
-}
-
-.colors-surface3 {
-	@apply bg-surface3 text-on-surface3;
-}
-
-.card {
-	@apply flex min-h-40 w-full gap-2 rounded-xl bg-surface1 transition-all duration-300 hover:-translate-y-2 hover:shadow-md;
-}
-
-.card-icon-button-colors {
-	@apply bg-gray-100/35 text-on-surface1 transition-all duration-300 hover:bg-gray-100/75 focus:outline-none dark:bg-gray-900/25 dark:hover:bg-gray-900/75;
-}
-
-.featured-card-layout {
-	@apply mb-8 grid w-full grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4;
-}
-
-.card-layout {
-	@apply mb-8 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-6;
-}
-
-textarea,
-input {
-	@apply bg-background text-on-background;
-}
-
-blockquote {
-	@apply border-l-2 border-gray-200 pl-4 italic;
-}
-
-.message-content ol,
-.message-content ul {
-	@apply !px-[18px];
-}
-
-li:has(input[type='checkbox'])::marker {
-	@apply text-transparent;
-}
-
-.tooltip {
-	@apply rounded-lg border border-surface3 bg-surface2 p-2 text-sm font-light shadow-sm;
-}
-
-.default-dialog,
-dialog {
-	@apply rounded-xl border-[1px] border-surface3 bg-white text-sm text-black shadow-lg dark:bg-surface2 dark:text-white;
-}
-
-.menu-button {
-	@apply flex min-h-10 min-w-10 items-center gap-2 rounded-lg p-2 py-4 text-sm transition-all duration-200 hover:bg-surface2 dark:hover:bg-surface3 md:py-2;
-}
-
-.ghost-input {
-	@apply border-b border-transparent bg-transparent py-2 outline-none transition-all duration-300 focus:border-surface2;
+	--background: var(--color-white);
+	--on-background: var(--color-black);
+	--surface1: var(--color-gray-70);
+	--on-surface1: var(--color-black);
+	--surface2: var(--color-gray-100);
+	--on-surface2: var(--color-black);
+	--surface3: var(--color-gray-200);
+	--on-surface3: var(--color-black);
 }

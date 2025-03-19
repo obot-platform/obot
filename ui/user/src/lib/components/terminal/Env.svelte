@@ -51,12 +51,13 @@
 	{/if}
 	<div class="flex w-full items-center justify-end gap-2 p-5">
 		<button class="p-3 px-6" onclick={() => dialog.close()}> Cancel </button>
-		<button class="rounded-3xl bg-blue p-3 px-6 text-white" onclick={() => save()}> Save </button>
+		<button class="bg-blue rounded-3xl p-3 px-6 text-white" onclick={() => save()}> Save </button>
 	</div>
 </dialog>
 
 <style lang="postcss">
 	dialog::backdrop {
-		@apply bg-black bg-opacity-60;
+		background-color: black;
+		opacity: 0.6;
 	}
 </style>

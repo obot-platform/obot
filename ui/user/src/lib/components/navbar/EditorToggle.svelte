@@ -50,10 +50,10 @@
 		obotEditorDialog?.showModal();
 	}}
 	class={twMerge(
-		'group relative mr-1 flex items-center rounded-full border p-2 text-xs text-gray transition-[background-color] duration-200',
+		'group text-gray relative mr-1 flex items-center rounded-full border p-2 text-xs transition-[background-color] duration-200',
 		layout.projectEditorOpen
 			? 'border-blue bg-blue text-white md:px-4'
-			: 'border-surface3 bg-transparent hover:bg-blue hover:px-4 hover:text-white active:bg-blue-700'
+			: 'border-surface3 hover:bg-blue bg-transparent hover:px-4 hover:text-white active:bg-blue-700'
 	)}
 	transition:fade
 >
@@ -66,7 +66,7 @@
 		<span class="ml-1">Exit Editor</span>
 	{:else if hover && !responsive.isMobile}
 		<span class="flex h-5 items-center" transition:slide={{ axis: 'x' }}>
-			<span class="delay-250 ms-2 inline-block text-nowrap" transition:fly={{ x: 50 }}>
+			<span class="ms-2 inline-block text-nowrap delay-250" transition:fly={{ x: 50 }}>
 				Obot Editor
 			</span>
 		</span>
@@ -75,10 +75,10 @@
 
 <dialog bind:this={obotEditorDialog} class="w-full max-w-md p-4">
 	<div class="flex flex-col gap-4">
-		<button class="icon-button absolute right-2 top-2" onclick={() => obotEditorDialog?.close()}>
+		<button class="icon-button absolute top-2 right-2" onclick={() => obotEditorDialog?.close()}>
 			<X class="h-5 w-5" />
 		</button>
-		<h4 class="w-full border-b border-surface2 p-1 text-lg font-semibold">
+		<h4 class="border-surface2 w-full border-b p-1 text-lg font-semibold">
 			What would you like to do?
 		</h4>
 		{#if project.editor}

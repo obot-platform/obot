@@ -16,7 +16,7 @@
 {:else if msg.icon === 'Assistant'}
 	<!-- Nothing -->
 {:else}
-	<div class="flex-shrink-0">
+	<div class="shrink-0">
 		{#if msg.icon === 'Pencil'}
 			<Pencil class="size-4 md:size-6" />
 		{:else if msg.icon === 'Assistant'}
@@ -27,7 +27,7 @@
 			<AlertCircle class="size-4 text-red-500 md:size-6" />
 		{:else}
 			<img
-				class="size-4 rounded-md bg-gray-100 p-1 text-blue md:size-6"
+				class="text-blue size-4 rounded-md bg-gray-100 p-1 md:size-6"
 				src={msg.icon}
 				alt="message icon"
 			/>

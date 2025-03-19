@@ -33,14 +33,14 @@
 			toggle();
 		}}
 		class={twMerge(
-			'flex items-center gap-2 rounded-3xl p-3 px-4 capitalize hover:bg-gray-70 dark:hover:bg-gray-900',
+			'hover:bg-gray-70 flex items-center gap-2 rounded-3xl p-3 px-4 capitalize dark:hover:bg-gray-900',
 			kclass
 		)}
 	>
 		{selected ? values[selected] : values[''] || ''}
 		<ChevronDown />
 	</button>
-	<div use:tooltip class="z-30 min-w-[150px] rounded-3xl bg-white shadow dark:bg-gray-900">
+	<div use:tooltip class="z-30 min-w-[150px] rounded-3xl bg-white shadow-sm dark:bg-gray-900">
 		<ul>
 			{#each Object.keys(values) as key}
 				{@const value = values[key]}
@@ -61,9 +61,13 @@
 
 <style lang="postcss">
 	li:first-child button {
-		@apply rounded-t-3xl pt-4;
+		border-top-left-radius: 1.5rem;
+		border-top-right-radius: 1.5rem;
+		padding-top: 1rem;
 	}
 	li:last-child button {
-		@apply rounded-b-3xl pb-4;
+		border-bottom-left-radius: 1.5rem;
+		border-bottom-right-radius: 1.5rem;
+		padding-bottom: 1rem;
 	}
 </style>

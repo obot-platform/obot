@@ -31,7 +31,7 @@
 {#if text}
 	<div class="hidden" use:tooltip>
 		<p
-			class="rounded-lg bg-gray-800 px-2 py-1 text-sm text-gray-50 shadow dark:bg-gray-100 dark:text-black"
+			class="rounded-lg bg-gray-800 px-2 py-1 text-sm text-gray-50 shadow-sm dark:bg-gray-100 dark:text-black"
 		>
 			{message}
 		</p>

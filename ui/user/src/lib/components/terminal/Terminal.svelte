@@ -115,7 +115,7 @@
 		{/if}
 		<div class="absolute inset-x-0 top-0 z-10 mx-1 flex items-center justify-end gap-2 p-5">
 			<button
-				class="px-1 py-0.5 font-mono text-gray hover:bg-gray hover:text-white"
+				class="text-gray hover:bg-gray px-1 py-0.5 font-mono hover:text-white"
 				onclick={() => {
 					envDialog.show();
 				}}>$ENV_VARS</button
@@ -126,7 +126,7 @@
 				class:animate-pulse={connectState === 'connecting'}
 				class:text-gray={connectState === 'connected'}>{connectState}</span
 			>
-			<button onclick={closeTerm} class="ms-4 font-mono text-gray hover:text-white"> X </button>
+			<button onclick={closeTerm} class="text-gray ms-4 font-mono hover:text-white"> X </button>
 		</div>
 		<div class="m-2 flex h-full w-full" bind:this={terminalContainer}></div>
 	</div>
@@ -137,7 +137,10 @@
 <style lang="postcss">
 	:global {
 		.xterm > div {
-			@apply scrollbar-none;
+			scrollbar-width: none;
+			&::-webkit-scrollbar {
+				display: none;
+			}
 		}
 	}
 </style>

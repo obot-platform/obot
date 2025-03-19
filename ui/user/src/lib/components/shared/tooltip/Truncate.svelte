@@ -33,7 +33,7 @@
 <p
 	use:tooltip.content
 	class={[
-		'max-w-md break-words rounded-lg bg-blue px-2 py-1 text-sm text-white dark:text-black',
+		'bg-blue max-w-md rounded-lg px-2 py-1 text-sm break-words text-white dark:text-black',
 		classes.tooltip
 	]}
 >
@@ -43,7 +43,7 @@
 <span
 	bind:this={anchorRef}
 	use:tooltip.anchor
-	class={['line-clamp-1 break-words text-start', className]}
+	class={['line-clamp-1 text-start break-words', className]}
 >
 	{text}
 </span>

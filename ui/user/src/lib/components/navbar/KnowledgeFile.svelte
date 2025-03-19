@@ -29,7 +29,7 @@
 		</button>
 
 		{#snippet content()}
-			<p class="rounded-xl bg-blue px-2 py-1 text-white dark:text-black" class:bg-red-600={isError}>
+			<p class="bg-blue rounded-xl px-2 py-1 text-white dark:text-black" class:bg-red-600={isError}>
 				{isError ? (file.error ?? 'Failed') : file.fileName}
 			</p>
 		{/snippet}
@@ -43,6 +43,6 @@
 			}
 		}}
 	>
-		<Trash class="h-5 w-5 text-gray" />
+		<Trash class="text-gray h-5 w-5" />
 	</button>
 </div>

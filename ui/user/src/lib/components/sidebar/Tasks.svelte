@@ -62,7 +62,7 @@
 		</button>
 	</div>
 	{#if !layout.tasks || layout.tasks.length === 0}
-		<p class="p-6 text-center text-sm text-gray dark:text-gray-300">No tasks</p>
+		<p class="text-gray p-6 text-center text-sm dark:text-gray-300">No tasks</p>
 	{:else}
 		<ul>
 			{#each layout.tasks as task, i (task.id)}

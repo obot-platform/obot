@@ -69,7 +69,7 @@
 			</p>
 			<div class="flex gap-1">
 				<CopyButton text={url} />
-				<a href={url} class="overflow-hidden text-ellipsis text-sm hover:underline">{url}</a>
+				<a href={url} class="overflow-hidden text-sm text-ellipsis hover:underline">{url}</a>
 			</div>
 		</div>
 	{:else}

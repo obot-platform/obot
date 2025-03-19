@@ -55,7 +55,7 @@
 					<input
 						id="param-{key}"
 						bind:value={params[key]}
-						class="ghost-input w-full !border-surface2"
+						class="ghost-input border-surface2! w-full"
 						placeholder="Enter value"
 					/>
 				</div>
@@ -68,7 +68,7 @@
 					<input
 						id="from"
 						bind:value={emailInput.from}
-						class="rounded-md bg-gray-50 p-2 outline-none dark:bg-gray-950"
+						class="rounded-md bg-gray-50 p-2 outline-hidden dark:bg-gray-950"
 						placeholder=""
 					/>
 				</div>
@@ -77,7 +77,7 @@
 					<input
 						id="from"
 						bind:value={emailInput.to}
-						class="rounded-md bg-gray-50 p-2 outline-none dark:bg-gray-950"
+						class="rounded-md bg-gray-50 p-2 outline-hidden dark:bg-gray-950"
 						placeholder=""
 					/>
 				</div>
@@ -86,7 +86,7 @@
 					<input
 						id="from"
 						bind:value={emailInput.subject}
-						class="rounded-md bg-gray-50 p-2 outline-none dark:bg-gray-950"
+						class="rounded-md bg-gray-50 p-2 outline-hidden dark:bg-gray-950"
 						placeholder=""
 					/>
 				</div>
@@ -96,7 +96,7 @@
 						bind:value={emailInput.body}
 						use:autoHeight
 						rows="1"
-						class="mt-2 w-full resize-none rounded-md bg-gray-50 p-5 outline-none dark:bg-gray-950"
+						class="mt-2 w-full resize-none rounded-md bg-gray-50 p-5 outline-hidden dark:bg-gray-950"
 						placeholder="Email content"
 					></textarea>
 				</div>
@@ -107,7 +107,7 @@
 				bind:value={payload}
 				use:autoHeight
 				rows="1"
-				class="ghost-input ml-1 w-full grow resize-none !border-surface2"
+				class="ghost-input border-surface2! ml-1 w-full grow resize-none"
 				placeholder="Enter payload..."
 			></textarea>
 		{/if}

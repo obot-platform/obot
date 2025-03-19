@@ -289,7 +289,7 @@
 ></div>
 
 <div class="absolute flex">
-	<div class="flex rounded-3xl bg-gray-70 shadow-lg" bind:this={explain} class:hidden={!ttVisible}>
+	<div class="bg-gray-70 flex rounded-3xl shadow-lg" bind:this={explain} class:hidden={!ttVisible}>
 		<button
 			class="flex items-center gap-2 rounded-s-3xl p-4 ps-5 hover:bg-gray-100 dark:bg-gray-950 dark:hover:bg-gray-900"
 			onclick={onExplain}
@@ -319,7 +319,7 @@
 <style lang="postcss">
 	:global {
 		.ͼ2 .cm-tooltip {
-			@apply border-none;
+			border: none;
 		}
 		.cm-focused {
 			outline-style: none !important;

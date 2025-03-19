@@ -37,14 +37,14 @@
 							><input
 								bind:value={env.key}
 								placeholder="eg. SAMPLE_KEY"
-								class="ast bg-gray-50 outline-none dark:bg-gray-950"
+								class="ast bg-gray-50 outline-hidden dark:bg-gray-950"
 							/></td
 						>
 						<td
 							><textarea
 								use:autoHeight
 								placeholder="Enter value"
-								class="resize-none bg-gray-50 outline-none dark:bg-gray-950"
+								class="resize-none bg-gray-50 outline-hidden dark:bg-gray-950"
 								rows="1"
 								bind:value={env.editing}
 								onfocusin={(e) => {

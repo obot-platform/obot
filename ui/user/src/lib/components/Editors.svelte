@@ -47,7 +47,7 @@
 
 <div class="relative flex h-full flex-col">
 	{#if layout.items.length > 1 || (!layout.items[0]?.table && !layout.items[0]?.generic)}
-		<div class="relative flex items-center border-b-2 border-surface2 pb-2 pl-2 md:pl-0">
+		<div class="border-surface2 relative flex items-center border-b-2 pb-2 pl-2 md:pl-0">
 			<ul class="relative flex flex-1 items-center gap-1 text-center text-sm">
 				{#each layout.items as item (item.id)}
 					<li class="max-w-64 flex-1">
@@ -58,7 +58,7 @@
 								EditorService.select(layout.items, item.id);
 							}}
 							class={twMerge(
-								'group relative flex cursor-pointer rounded-lg border-transparent bg-surface1 p-1 hover:bg-surface3',
+								'group bg-surface1 hover:bg-surface3 relative flex cursor-pointer rounded-lg border-transparent p-1',
 								item.selected && 'bg-surface3'
 							)}
 						>
@@ -67,7 +67,7 @@
 							>
 								<span use:overflowToolTip class="p-1">{item.name}</span>
 								<button
-									class="right-0 hidden rounded-lg bg-surface3 p-1 group-hover:block hover:bg-surface2"
+									class="bg-surface3 hover:bg-surface2 right-0 hidden rounded-lg p-1 group-hover:block"
 									onclick={() => {
 										EditorService.remove(layout.items, item.id);
 										if (layout.items.length === 0) {
@@ -100,7 +100,7 @@
 
 		{#if downloadable}
 			<button
-				class="icon-button absolute right-5 top-5"
+				class="icon-button absolute top-5 right-5"
 				onclick={() => {
 					const selected = layout.items.find((item) => item.selected);
 					if (selected) {
@@ -119,7 +119,7 @@
 	{#if term.open}
 		<div
 			class={layout.fileEditorOpen
-				? '-mb-3 -ml-5 h-1/2 border-t-4 border-surface1 px-2 pt-2'
+				? 'border-surface1 -mb-3 -ml-5 h-1/2 border-t-4 px-2 pt-2'
 				: 'h-full'}
 		>
 			<Terminal {project} />

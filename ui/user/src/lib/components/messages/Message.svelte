@@ -261,7 +261,7 @@
 					{msg.file.content.split('\n').splice(0, 6).join('\n')}
 				</div>
 				<div
-					class="absolute bottom-0 z-20 h-24 w-full rounded-3xl bg-gradient-to-b from-transparent to-white dark:to-black"
+					class="bg-linear-to-b absolute bottom-0 z-20 h-24 w-full rounded-3xl from-transparent to-white dark:to-black"
 				></div>
 			</div>
 		</button>
@@ -392,7 +392,7 @@
 				<div class="flex flex-col gap-1">
 					<label for={field.name} class="mt-1 text-sm font-medium">{field.name}</label>
 					<input
-						class="rounded-lg bg-white p-2 outline-none dark:bg-gray-900"
+						class="outline-hidden rounded-lg bg-white p-2 dark:bg-gray-900"
 						type={field.sensitive ? 'password' : 'text'}
 						name={field.name}
 						bind:value={promptCredentials[field.name]}
@@ -486,60 +486,166 @@
 <style lang="postcss">
 	/* The :global is to get rid of warnings about the selector not being found */
 	:global {
-		.message-content h1 {
-			@apply my-4 text-2xl font-extrabold text-black dark:text-gray-100;
-		}
+		.message-content {
+			& h1 {
+				margin-top: 1rem;
+				margin-bottom: 1rem;
+				font-size: 1.5rem; /* text-2xl */
+				font-weight: 800; /* font-extrabold */
+				color: black;
+				.dark & {
+					color: var(--color-gray-100);
+				}
+			}
 
-		.message-content h2 {
-			@apply my-4 text-xl font-bold text-black dark:text-gray-100;
-		}
+			& h2 {
+				margin-top: 1rem;
+				margin-bottom: 1rem;
+				font-size: 1.25rem; /* text-xl */
+				font-weight: 700; /* font-bold */
+				color: black;
+				.dark & {
+					color: var(--color-gray-100);
+				}
+			}
 
-		.message-content h3 {
-			@apply my-4 text-base font-bold text-black dark:text-gray-100;
-		}
+			& h3,
+			& h4 {
+				margin-top: 1rem;
+				margin-bottom: 1rem;
+				font-size: 1rem; /* text-base */
+				font-weight: 700; /* font-bold */
+				color: black;
+				.dark & {
+					color: var(--color-gray-100);
+				}
+			}
 
-		.message-content h4 {
-			@apply my-4 text-base font-bold text-black dark:text-gray-100;
-		}
+			& h5 {
+				margin-top: 1rem;
+				margin-bottom: 1rem;
+				font-size: 1rem; /* text-base */
+				font-weight: 600; /* font-semibold */
+				color: black;
+				.dark & {
+					color: var(--color-gray-100);
+				}
+			}
 
-		.message-content h5 {
-			@apply my-4 text-base font-semibold text-black dark:text-gray-100;
-		}
+			& h6 {
+				margin-top: 1rem;
+				margin-bottom: 1rem;
+				font-size: 1rem; /* text-base */
+				font-weight: 700; /* font-bold */
+				color: black;
+				.dark & {
+					color: var(--color-gray-100);
+				}
+			}
 
-		.message-content h6 {
-			@apply my-4 text-base font-bold text-black dark:text-gray-100;
-		}
+			& p {
+				margin-bottom: 1rem;
+				font-size: var(--text-md);
+				color: var(--color-gray-900);
+				.dark & {
+					color: var(--color-gray-100);
+				}
+			}
 
-		.message-content p {
-			@apply mb-4 text-md text-gray-900 dark:text-gray-100;
-		}
+			& a {
+				font-weight: 500; /* font-medium */
+				color: var(--color-blue-600);
+				&:hover {
+					text-decoration: underline;
+				}
+				.dark & {
+					color: var(--color-gray-400);
+				}
+			}
 
-		.message-content a {
-			@apply font-medium text-blue-600 hover:underline dark:text-gray-400;
-		}
+			& ul {
+				position: relative;
+				margin-bottom: 1rem;
+				display: flex;
+				flex-direction: column;
+				list-style-position: outside;
+				list-style-type: disc;
+				padding-left: 18px;
+				padding-right: 18px;
+				color: var(--color-gray-900);
+				&::marker {
+					color: var(--color-gray-900);
+				}
+				.dark & {
+					color: var(--color-gray-100);
+					&::marker {
+						color: var(--color-gray-100);
+					}
+				}
+			}
 
-		.message-content ul {
-			@apply relative mb-4 flex list-outside list-disc flex-col px-1 text-gray-900 marker:text-gray-900 dark:text-gray-100 dark:marker:text-gray-100;
-		}
+			& ol {
+				position: relative;
+				margin-bottom: 1rem;
+				display: flex;
+				flex-direction: column;
+				list-style-position: outside;
+				list-style-type: decimal;
+				padding-left: 18px;
+				padding-right: 18px;
+				color: var(--color-gray-900);
+				&::marker {
+					color: var(--color-gray-900);
+				}
+				.dark & {
+					color: var(--color-gray-100);
+					&::marker {
+						color: var(--color-gray-100);
+					}
+				}
+			}
 
-		.message-content ol {
-			@apply relative mb-4 flex list-outside list-decimal flex-col px-1 text-gray-900 marker:text-gray-900 dark:text-gray-100 dark:marker:text-gray-100;
-		}
+			& ul li {
+				font-size: var(--text-md);
+				padding-left: 0.5rem; /* ps-2 */
+			}
 
-		.message-content ul li {
-			@apply ps-2 text-md;
-		}
-
-		.message-content code {
-			@apply text-xs scrollbar-none md:text-md;
+			& code {
+				scrollbar-width: none;
+				font-size: 0.75rem; /* text-xs */
+				@media (min-width: 768px) {
+					font-size: var(--text-md);
+				}
+			}
 		}
 
 		span[data-end-indicator] {
-			@apply invisible;
+			visibility: hidden;
 		}
 
 		.loading-container span[data-end-indicator] {
-			@apply visible relative -mt-[2px] ml-1 inline-block size-4 animate-pulse rounded-full bg-gray-400 align-middle text-transparent;
+			visibility: visible;
+			position: relative;
+			margin-top: -2px;
+			margin-left: 0.25rem;
+			display: inline-block;
+			height: 1rem; /* size-4 */
+			width: 1rem; /* size-4 */
+			border-radius: 9999px;
+			background-color: var(--color-gray-400);
+			vertical-align: middle;
+			color: transparent;
+			animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+		}
+
+		@keyframes pulse {
+			0%,
+			100% {
+				opacity: 1;
+			}
+			50% {
+				opacity: 0.5;
+			}
 		}
 	}
 </style>

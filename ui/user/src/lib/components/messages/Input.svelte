@@ -91,10 +91,10 @@
 	<button
 		type="submit"
 		onclick={() => submit()}
-		class="button-colors rounded-full p-2 text-blue transition-all duration-100 hover:border-none"
+		class="button-colors text-blue rounded-full p-2 transition-all duration-100 hover:border-none"
 	>
 		{#if readonly}
-			<div class="m-1.5 h-3 w-3 place-self-center rounded-sm bg-white"></div>
+			<div class="m-1.5 h-3 w-3 place-self-center rounded-xs bg-white"></div>
 		{:else if pending}
 			<LoaderCircle class="animate-spin" />
 		{:else}
@@ -107,7 +107,7 @@
 <div class="w-full px-5">
 	<label for="chat" class="sr-only">Your messages</label>
 	<div
-		class="relative flex flex-col items-center rounded-2xl bg-surface1 focus-within:shadow-md focus-within:ring-1 focus-within:ring-blue
+		class="bg-surface1 focus-within:ring-blue relative flex flex-col items-center rounded-2xl focus-within:shadow-md focus-within:ring-1
 
 "
 	>
@@ -121,7 +121,7 @@
 				onkeydown={onKey}
 				bind:this={chat}
 				onfocus={onFocus}
-				class="grow resize-none rounded-xl border-none bg-surface1 p-3 pr-20 text-md outline-none"
+				class="bg-surface1 text-md grow resize-none rounded-xl border-none p-3 pr-20 outline-hidden"
 				{placeholder}
 			></textarea>
 			{#if !children}

@@ -50,7 +50,7 @@
 	{/snippet}
 	{#snippet body()}
 		{#if tasks.length === 0}
-			<p class="p-6 text-center text-sm text-gray dark:text-gray-300">No tasks</p>
+			<p class="text-gray p-6 text-center text-sm dark:text-gray-300">No tasks</p>
 		{:else}
 			<ul class="space-y-4 py-6 text-sm">
 				{#each tasks as task}
@@ -81,7 +81,7 @@
 			</ul>
 		{/if}
 		<div class="flex justify-end">
-			<button onclick={newTask} class="button -mb-3 -mr-3 mt-3 flex items-center justify-end gap-2">
+			<button onclick={newTask} class="button mt-3 -mr-3 -mb-3 flex items-center justify-end gap-2">
 				Add Task
 				<Plus class="ms-1 h-5 w-5" />
 			</button>

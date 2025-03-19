@@ -68,7 +68,7 @@
 		{#each creds ?? [] as cred}
 			{#key cred.toolID}
 				<div
-					class="flex min-w-[200px] items-center justify-between gap-2 rounded-3xl bg-surface3 px-4 py-2"
+					class="bg-surface3 flex min-w-[200px] items-center justify-between gap-2 rounded-3xl px-4 py-2"
 				>
 					<div class="flex flex-col gap-1">
 						<div class="flex items-center gap-2">
@@ -120,7 +120,7 @@
 		{/if}
 		<div
 			use:tooltip
-			class="default-dialog z-20 hidden max-h-[500px] overflow-y-auto p-5 scrollbar-thin"
+			class="default-dialog scrollbar-thin z-20 hidden max-h-[500px] overflow-y-auto p-5"
 		>
 			{@render credentialList(credentialsAvailable ?? [], false)}
 		</div>

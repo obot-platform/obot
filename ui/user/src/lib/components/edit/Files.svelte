@@ -142,7 +142,7 @@
 
 {#snippet body()}
 	{#if files.length === 0}
-		<p class="pb-3 pt-6 text-center text-sm text-gray dark:text-gray-300">No files</p>
+		<p class="text-gray pt-6 pb-3 text-center text-sm dark:text-gray-300">No files</p>
 	{:else}
 		<ul class="max-h-[60vh] space-y-4 overflow-y-auto py-6 ps-3 text-sm">
 			{#each files as file}
@@ -166,7 +166,7 @@
 								EditorService.download([], project, file.name, apiOpts);
 							}}
 						>
-							<Download class="h-5 w-5 text-gray" />
+							<Download class="text-gray h-5 w-5" />
 						</button>
 
 						<button
@@ -175,7 +175,7 @@
 								fileToDelete = file.name;
 							}}
 						>
-							<Trash class="h-5 w-5 text-gray" />
+							<Trash class="text-gray h-5 w-5" />
 						</button>
 					</div>
 				</li>
@@ -184,7 +184,7 @@
 	{/if}
 
 	<div class="flex justify-end">
-		<label class="button -mb-3 -mr-3 mt-3 flex items-center justify-end gap-1 text-sm">
+		<label class="button mt-3 -mr-3 -mb-3 flex items-center justify-end gap-1 text-sm">
 			{#await uploadInProgress}
 				<Loading class="size-4" />
 			{:catch error}
@@ -227,7 +227,7 @@
 
 <dialog bind:this={editorDialog} class="relative h-full w-full md:w-4/5">
 	<button
-		class="button-icon-primary absolute right-2 top-2"
+		class="button-icon-primary absolute top-2 right-2"
 		onclick={async () => {
 			await fileMonitor.save();
 			editorDialog?.close();

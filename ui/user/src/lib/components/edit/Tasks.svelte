@@ -81,7 +81,7 @@
 </CollapsePane>
 
 <dialog bind:this={editorDialog} class="relative h-full w-full md:w-4/5">
-	<button class="icon-button absolute right-2 top-2 z-10" onclick={() => closeEdit()}>
+	<button class="icon-button absolute top-2 right-2 z-10" onclick={() => closeEdit()}>
 		<X class="icon-default" />
 	</button>
 	{#if editIndex !== undefined && layout.tasks}

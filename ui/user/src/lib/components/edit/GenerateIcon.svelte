@@ -59,9 +59,9 @@
 </script>
 
 <div class="relative mt-2 flex flex-col gap-2">
-	<div class="flex rounded-lg border border-surface3">
+	<div class="border-surface3 flex rounded-lg border">
 		<button
-			class="icon-button flex flex-1 cursor-pointer items-center justify-center gap-2 !rounded-l-lg !rounded-r-none border-r border-surface3 py-2"
+			class="icon-button border-surface3 flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-l-lg! rounded-r-none! border-r py-2"
 			onclick={() => (isCustomPrompt ? generateIcon(true) : generateIcon())}
 			disabled={isGenerating || (!project.description && !isCustomPrompt)}
 		>
@@ -76,7 +76,7 @@
 			{/if}
 		</button>
 		<button
-			class="icon-button flex items-center !rounded-l-none !rounded-r-lg px-2"
+			class="icon-button flex items-center rounded-l-none! rounded-r-lg! px-2"
 			onclick={() => (isCustomPrompt = !isCustomPrompt)}
 			disabled={isGenerating}
 		>
@@ -88,12 +88,12 @@
 		</button>
 	</div>
 	{#if isCustomPrompt}
-		<div in:fade class="flex flex-col gap-2 border-b border-surface3 bg-surface2 px-3 pb-6 pt-4">
+		<div in:fade class="border-surface3 bg-surface2 flex flex-col gap-2 border-b px-3 pt-4 pb-6">
 			<textarea
 				bind:value={customPrompt}
 				use:autoHeight
 				placeholder="Enter custom prompt for image generation..."
-				class="w-full resize-none rounded-lg bg-white p-2 text-sm outline-none dark:bg-black dark:text-gray-50"
+				class="w-full resize-none rounded-lg bg-white p-2 text-sm outline-hidden dark:bg-black dark:text-gray-50"
 				rows="3"
 			></textarea>
 		</div>

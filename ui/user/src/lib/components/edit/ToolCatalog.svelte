@@ -130,7 +130,7 @@
 	<div class="flex w-full items-center justify-between">
 		<div class="flex grow rounded-t-lg p-2">
 			<input
-				class="w-full rounded-lg bg-surface1 p-2"
+				class="bg-surface1 w-full rounded-lg p-2"
 				type="text"
 				placeholder="Search tools"
 				bind:this={input}
@@ -165,7 +165,7 @@
 
 						<label
 							class={twMerge(
-								'flex grow cursor-pointer items-center gap-2 rounded-lg p-2 hover:bg-surface3'
+								'hover:bg-surface3 flex grow cursor-pointer items-center gap-2 rounded-lg p-2'
 							)}
 							onclickcapture={(e) => e.stopPropagation()}
 							use:tt.ref
@@ -229,7 +229,7 @@
 	{@const { tooltip, ref } = popover({ hover: true, placement: 'left' })}
 
 	<label
-		class="flex cursor-pointer items-center justify-between gap-2 rounded-lg p-2 hover:bg-surface3"
+		class="hover:bg-surface3 flex cursor-pointer items-center justify-between gap-2 rounded-lg p-2"
 		use:ref
 	>
 		<p class={twMerge('flex items-center gap-2')}>

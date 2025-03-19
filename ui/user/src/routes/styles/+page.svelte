@@ -53,6 +53,13 @@
 
 <style lang="postcss">
 	.colors > div {
-		@apply flex size-36 items-center justify-center border-2 border-dotted border-on-background;
+		display: flex;
+		height: 9rem; /* size-36 */
+		width: 9rem; /* size-36 */
+		align-items: center;
+		justify-content: center;
+		border-width: 2px;
+		border-style: dotted;
+		border-color: var(--on-background);
 	}
 </style>

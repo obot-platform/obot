@@ -18,7 +18,7 @@
 
 <div
 	use:ref
-	class="flex w-fit cursor-help items-center gap-1 rounded-2xl bg-surface2 p-2 dark:bg-gray-500 dark:text-black"
+	class="bg-surface2 flex w-fit cursor-help items-center gap-1 rounded-2xl p-2 dark:bg-gray-500 dark:text-black"
 >
 	{#if tool}
 		{#if tool?.metadata?.icon}
@@ -47,7 +47,7 @@
 			{#each tools as tool}
 				<li class="flex items-center gap-2">
 					{#if tool?.metadata?.icon}
-						<div class="rounded-full bg-surface2 p-2 dark:bg-gray-100">
+						<div class="bg-surface2 rounded-full p-2 dark:bg-gray-100">
 							<img alt={tool.name || 'Unknown'} src={tool.metadata.icon} class="h-4 w-4" />
 						</div>
 					{:else}

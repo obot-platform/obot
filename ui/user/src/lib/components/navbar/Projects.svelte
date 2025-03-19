@@ -95,7 +95,7 @@
 		toggle();
 	}}
 >
-	<span class="max-w-[100%-24px] truncate text-md font-semibold text-on-background">
+	<span class="text-md text-on-background max-w-[100%-24px] truncate font-semibold">
 		{project.name || 'Untitled'}
 	</span>
 	{#if !disabled}
@@ -140,10 +140,10 @@
 
 			<a
 				href="/home"
-				class="mt-3 flex items-center justify-center gap-2 rounded-xl px-2 py-4 text-gray hover:bg-surface3"
+				class="text-gray hover:bg-surface3 mt-3 flex items-center justify-center gap-2 rounded-xl px-2 py-4"
 			>
 				<img src="/user/images/obot-icon-blue.svg" class="h-5" alt="Obot icon" />
-				<span class="text-sm text-gray">See All Obots</span>
+				<span class="text-gray text-sm">See All Obots</span>
 			</a>
 		{/if}
 	</div>
@@ -153,17 +153,17 @@
 	<a
 		href="/o/{p.id}?sidebar=true{isEditable ? '&edit' : ''}"
 		rel="external"
-		class="flex items-center gap-2 rounded-3xl p-2 hover:bg-surface3"
+		class="hover:bg-surface3 flex items-center gap-2 rounded-3xl p-2"
 	>
-		<AssistantIcon project={p} class="flex-shrink-0" />
+		<AssistantIcon project={p} class="shrink-0" />
 		<div class="flex grow flex-col">
-			<span class="text-sm font-semibold text-on-background">{p.name || 'Untitled'}</span>
+			<span class="text-on-background text-sm font-semibold">{p.name || 'Untitled'}</span>
 			{#if p.description}
-				<span class="line-clamp-1 text-xs font-light text-on-background">{p.description}</span>
+				<span class="text-on-background line-clamp-1 text-xs font-light">{p.description}</span>
 			{/if}
 		</div>
 		{#if p.id === project.id}
-			<Check class="mr-2 h-5 w-5 flex-shrink-0 text-gray" />
+			<Check class="text-gray mr-2 h-5 w-5 shrink-0" />
 		{/if}
 	</a>
 {/snippet}
@@ -171,7 +171,7 @@
 {#snippet LoadMoreButton(totalLength: number, limit: number, category: 'recent' | 'myObots')}
 	{#if totalLength > limit}
 		<button
-			class="mt-1 w-full rounded py-1 text-sm text-blue-500 hover:bg-surface2"
+			class="hover:bg-surface2 mt-1 w-full rounded-sm py-1 text-sm text-blue-500"
 			onclick={(e) => {
 				e.stopPropagation();
 				loadMore(category);
