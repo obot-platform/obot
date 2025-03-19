@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"time"
 
 	types2 "github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/gateway/types"
@@ -127,6 +128,11 @@ func ensureIdentity(tx *gorm.DB, id *types.Identity, timezone string, role types
 
 			if user.Timezone == "" && timezone != "" {
 				user.Timezone = timezone
+				userChanged = true
+			}
+
+			if time.Since(user.LastActiveDay) > 24*time.Hour {
+				user.LastActiveDay = time.Now().UTC().Truncate(24 * time.Hour)
 				userChanged = true
 			}
 

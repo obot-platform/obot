@@ -19,6 +19,8 @@ type User struct {
 	Role          types2.Role `json:"role"`
 	IconURL       string      `json:"iconURL"`
 	Timezone      string      `json:"timezone"`
+	// LastActiveDay is the time of the last request made by this user, currently at the 24 hour granularity.
+	LastActiveDay time.Time `json:"lastActiveDay"`
 }
 
 func ConvertUser(u *User, roleFixed bool, authProviderName string) *types2.User {
@@ -38,6 +40,7 @@ func ConvertUser(u *User, roleFixed bool, authProviderName string) *types2.User 
 		IconURL:             u.IconURL,
 		Timezone:            u.Timezone,
 		CurrentAuthProvider: authProviderName,
+		LastActiveDay:       *types2.NewTime(u.LastActiveDay),
 	}
 }
 

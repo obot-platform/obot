@@ -17,7 +17,7 @@ import { UserService } from "~/lib/service/api/userService";
 import { VersionApiService } from "~/lib/service/api/versionApiService";
 import { RouteHandle } from "~/lib/service/routeHandles";
 import { RouteQueryParams, RouteService } from "~/lib/service/routeService";
-import { pluralize, timeSince } from "~/lib/utils";
+import { daysSince, pluralize, timeSince } from "~/lib/utils";
 
 import { DataTable, DataTableFilter } from "~/components/composed/DataTable";
 import { Filters } from "~/components/composed/Filters";
@@ -167,6 +167,16 @@ export default function Users() {
 				cell: ({ row }) => (
 					<p>{timeSince(new Date(row.original.created))} ago</p>
 				),
+			}),
+			columnHelper.display({
+				id: "lastActiveDay",
+				header: "Last Active",
+				cell: ({ row }) =>
+					row.original.lastActiveDay ? (
+						<p>{daysSince(new Date(row.original.lastActiveDay))}</p>
+					) : (
+						<p>No activity</p>
+					),
 			}),
 			columnHelper.display({
 				id: "actions",

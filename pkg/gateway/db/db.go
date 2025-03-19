@@ -96,12 +96,11 @@ func (db *DB) AutoMigrate() (err error) {
 		types.AuthToken{},
 		types.TokenRequest{},
 		types.LLMProxyActivity{},
-		types.LLMProvider{},
-		types.Model{},
 		types.OAuthTokenRequestChallenge{},
 		types.OAuthTokenResponse{},
 		types.User{},
 		types.Identity{},
+		types.APIActivity{},
 		types.Image{},
 		types.RunState{},
 	)

@@ -16,13 +16,14 @@ func (u Role) HasRole(role Role) bool {
 
 type User struct {
 	Metadata
-	Username      string `json:"username,omitempty"`
-	Role          Role   `json:"role,omitempty"`
-	ExplicitAdmin bool   `json:"explicitAdmin,omitempty"`
-	Email         string `json:"email,omitempty"`
-	IconURL       string `json:"iconURL,omitempty"`
-	Timezone      string `json:"timezone,omitempty"`
-	CurrentAuthProvider  string `json:"currentAuthProvider,omitempty"`
+	Username            string `json:"username,omitempty"`
+	Role                Role   `json:"role,omitempty"`
+	ExplicitAdmin       bool   `json:"explicitAdmin,omitempty"`
+	Email               string `json:"email,omitempty"`
+	IconURL             string `json:"iconURL,omitempty"`
+	Timezone            string `json:"timezone,omitempty"`
+	CurrentAuthProvider string `json:"currentAuthProvider,omitempty"`
+	LastActiveDay       Time   `json:"lastActiveDay,omitzero"`
 }
 
 type UserList List[User]

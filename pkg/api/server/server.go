@@ -7,6 +7,7 @@ import (
 
 	"github.com/gptscript-ai/go-gptscript"
 	"github.com/obot-platform/obot/apiclient/types"
+	"github.com/obot-platform/obot/logger"
 	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/api/authn"
 	"github.com/obot-platform/obot/pkg/api/authz"
@@ -15,6 +16,8 @@ import (
 	"github.com/obot-platform/obot/pkg/storage"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 )
+
+var log = logger.Package()
 
 type Server struct {
 	storageClient storage.Client
@@ -63,6 +66,13 @@ func (s *Server) wrap(f api.HandlerFunc) http.HandlerFunc {
 		if err != nil {
 			http.Error(rw, err.Error(), http.StatusUnauthorized)
 			return
+		}
+
+		if strings.HasPrefix(req.URL.Path, "/api/") {
+			// Best effort
+			if err := s.gatewayClient.AddActivityForToday(req.Context(), user.GetUID()); err != nil {
+				log.Warnf("Failed to add activity tracking for user %s: %v", user.GetName(), err)
+			}
 		}
 
 		if user.GetExtra()["set-cookies"] != nil {

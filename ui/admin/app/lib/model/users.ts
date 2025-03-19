@@ -9,6 +9,7 @@ export type User = EntityMeta & {
 	timezone: string;
 	explicitAdmin: boolean;
 	currentAuthProvider?: CommonAuthProviderId;
+	lastActiveDay?: string; // date
 };
 
 export const Role = {
