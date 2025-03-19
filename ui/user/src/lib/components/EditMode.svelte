@@ -23,6 +23,7 @@
 	import Sites from '$lib/components/edit/Sites.svelte';
 	import { responsive } from '$lib/stores';
 	import { twMerge } from 'tailwind-merge';
+	import { stickToBottom } from '$lib/actions/div.svelte';
 	interface Props {
 		project: Project;
 		tools: AssistantTool[];
@@ -42,6 +43,8 @@
 	let timer: number = 0;
 	let nav = $state<HTMLDivElement>();
 	let toDelete = $state(false);
+
+	let editContainer = $state<HTMLDivElement>();
 
 	async function updateProject() {
 		if (JSON.stringify(project) === projectSaved) {
@@ -132,20 +135,23 @@
 			>
 				<div
 					class="default-scrollbar-thin scrollbar-stable-gutter flex grow flex-col !scrollbar-track-transparent"
+					use:stickToBottom={{ contentEl: editContainer }}
 				>
-					<General bind:project />
-					<Instructions bind:project />
-					<Tools {tools} {onNewTools} {assistant} />
-					<Knowledge {project} />
-					{#if assistant?.websiteKnowledge?.siteTool}
-						<Sites {project} />
-					{/if}
-					<Files {project} />
-					<Tasks {project} />
-					<Interface bind:project />
-					<Credentials {project} {tools} />
-					<Share {project} />
-					<div class="grow"></div>
+					<div bind:this={editContainer}>
+						<General bind:project />
+						<Instructions bind:project />
+						<Tools {tools} {onNewTools} {assistant} />
+						<Knowledge {project} />
+						{#if assistant?.websiteKnowledge?.siteTool}
+							<Sites {project} />
+						{/if}
+						<Files {project} />
+						<Tasks {project} />
+						<Interface bind:project />
+						<Credentials {project} {tools} />
+						<Share {project} />
+						<div class="grow"></div>
+					</div>
 				</div>
 				<div class="flex justify-between bg-surface1 p-2">
 					<button class="button flex items-center gap-1 text-sm" onclick={() => copy()}>
