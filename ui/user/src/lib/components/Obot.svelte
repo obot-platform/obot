@@ -78,6 +78,10 @@
 
 			<div class="flex h-[calc(100%-76px)] max-w-full grow">
 				{#if !responsive.isMobile || (responsive.isMobile && !editorVisible)}
+					{@const taskRun = currentThreadID
+						? layout.taskRuns?.find((run) => run.id === currentThreadID)
+						: undefined}
+
 					{#if layout.editTaskID && layout.tasks}
 						{#each layout.tasks as task, i}
 							{#if task.id === layout.editTaskID}
@@ -100,8 +104,8 @@
 								{project}
 								{version}
 								{tools}
-								isTaskRun={!!currentThreadID &&
-									!!layout.taskRuns?.some((run) => run.id === currentThreadID)}
+								taskRunId={taskRun?.taskRunID}
+								taskId={taskRun?.taskID}
 							/>
 						</div>
 					{/if}
