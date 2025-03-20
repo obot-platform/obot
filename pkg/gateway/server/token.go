@@ -118,10 +118,11 @@ func (s *Server) tokenRequest(apiContext api.Context) error {
 		return types2.NewErrHTTP(http.StatusBadRequest, fmt.Sprintf("invalid token request body: %v", err))
 	}
 
-	if reqObj.ProviderName != "" {
-		if providerList := s.dispatcher.ListConfiguredAuthProviders(reqObj.ProviderNamespace); !slices.Contains(providerList, reqObj.ProviderName) {
-			return types2.NewErrHTTP(http.StatusBadRequest, fmt.Sprintf("auth provider %q not found", reqObj.ProviderName))
-		}
+	if reqObj.ProviderName == "" || reqObj.ProviderNamespace == "" {
+		return types2.NewErrHTTP(http.StatusBadRequest, "provider name and namespace are required")
+	}
+	if providerList := s.dispatcher.ListConfiguredAuthProviders(reqObj.ProviderNamespace); !slices.Contains(providerList, reqObj.ProviderName) {
+		return types2.NewErrHTTP(http.StatusBadRequest, fmt.Sprintf("auth provider %q not found", reqObj.ProviderName))
 	}
 
 	tokenReq := &types.TokenRequest{
@@ -136,10 +137,7 @@ func (s *Server) tokenRequest(apiContext api.Context) error {
 		return types2.NewErrHTTP(http.StatusInternalServerError, err.Error())
 	}
 
-	if reqObj.ProviderName != "" {
-		return apiContext.Write(map[string]any{"token-path": fmt.Sprintf("%s/api/oauth/start/%s/%s/%s", s.baseURL, reqObj.ID, reqObj.ProviderNamespace, reqObj.ProviderName)})
-	}
-	return apiContext.Write(map[string]any{"token-path": fmt.Sprintf("%s/login?id=%s", s.uiURL, reqObj.ID)})
+	return apiContext.Write(map[string]any{"token-path": fmt.Sprintf("%s/api/oauth/start/%s/%s/%s", s.baseURL, reqObj.ID, reqObj.ProviderNamespace, reqObj.ProviderName)})
 }
 
 func (s *Server) redirectForTokenRequest(apiContext api.Context) error {
