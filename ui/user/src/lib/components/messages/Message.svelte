@@ -8,7 +8,7 @@
 	import { Paperclip, X } from 'lucide-svelte';
 	import { formatTime } from '$lib/time';
 	import { popover } from '$lib/actions';
-	import { fly } from 'svelte/transition';
+	import { fly, slide } from 'svelte/transition';
 	import Loading from '$lib/icons/Loading.svelte';
 	import { fade } from 'svelte/transition';
 	import { overflowToolTip } from '$lib/actions/overflow';
@@ -34,9 +34,6 @@
 	let showBubble = msg.sent;
 	let isPrompt = msg.fields && msg.promptId;
 	let renderMarkdown = !msg.sent && !msg.oauthURL && !msg.tool;
-	let toolTT = popover({
-		placement: 'bottom-start'
-	});
 	let shell = $state({
 		input: '',
 		output: ''
@@ -50,6 +47,8 @@
 	let prevContent = $state('');
 	let animatedText = $derived(shouldAnimate ? content.slice(0, cursor.current) : content);
 	let animating = $state(false);
+	let showToolInputDetails = $state(false);
+	let showToolOutputDetails = $state(false);
 
 	$effect(() => {
 		if (!shouldAnimate) return;
@@ -173,10 +172,14 @@
 			formatted = formatted.replace(/: (null)/g, ': <span class="text-gray-500">$1</span>');
 
 			// Replace brackets and braces
-			formatted = formatted.replace(
-				/([{}[\]])/g,
-				'<span class="text-black dark:text-white">$1</span>'
-			);
+			formatted = formatted.replace(/(".*?")|([{}[\]])/g, (match, stringContent, bracket) => {
+				if (stringContent) {
+					// If it's part of a string (within quotes), return as-is
+					return stringContent;
+				}
+				// If it's a bracket/brace outside of strings, wrap it
+				return `<span class="text-black dark:text-white">${bracket}</span>`;
+			});
 
 			return formatted;
 		} catch (_error) {
@@ -192,7 +195,7 @@
 {/snippet}
 
 {#snippet nameAndTime()}
-	<div class="mb-1 flex -translate-y-[2px] items-center space-x-2">
+	<div class="mb-1 flex items-center space-x-2">
 		{#if msg.sourceName}
 			<span class="text-sm font-semibold"
 				>{msg.sourceName === 'Assistant' ? project?.name || 'Obot' : msg.sourceName}</span
@@ -203,6 +206,15 @@
 		{/if}
 		{#if !msg.done || animating}
 			<Loading class="size-4" />
+		{/if}
+
+		{#if (msg.toolCall?.input || msg.toolCall?.output) && !msg.file}
+			<button
+				class="cursor-pointer text-xs text-gray underline"
+				onclick={() => (showToolInputDetails = !showToolInputDetails)}
+			>
+				{showToolInputDetails ? 'Hide' : 'Show'} Details
+			</button>
 		{/if}
 	</div>
 {/snippet}
@@ -288,40 +300,19 @@
 	{/if}
 {/snippet}
 
-{#snippet outputDetails()}
-	<button
-		use:toolTT.ref
-		class="text-left text-xs text-gray underline opacity-0 transition-opacity group-hover:opacity-100"
-		onclick={() => {
-			toolTT.toggle();
-		}}
-		>Output Details
-	</button>
-	<div use:toolTT.tooltip class="default-dialog flex flex-col gap-2 p-5">
-		<button
-			class="icon-button absolute right-2 top-2 self-end"
-			onclick={() => {
-				toolTT.toggle();
-			}}
-		>
-			<X class="size-4" />
-		</button>
-		<div class="text-md font-semibold">Output</div>
+{#snippet toolDetails(stringifiedJson: string, title: string)}
+	<div class="flex w-full flex-col gap-1">
+		<p class="p-0 text-xs font-semibold">{title}</p>
 		<pre
-			class="default-scrollbar-thin max-h-[50vh] max-w-[80vw] overflow-auto rounded-lg bg-surface1 px-4 py-2 text-xs dark:bg-black md:max-h-[300px] md:max-w-[500px]">{@html formatJson(
-				msg.toolCall?.output ?? ''
+			transition:slide={{ duration: 300 }}
+			class="default-scrollbar-thin max-h-[300px] w-fit max-w-full overflow-auto whitespace-pre-wrap break-all rounded-lg bg-surface1 px-4 py-2 text-xs dark:bg-black">{@html formatJson(
+				stringifiedJson ?? ''
 			)}</pre>
 	</div>
 {/snippet}
 
 {#snippet toolContent()}
-	{#if msg.toolCall?.input}
-		<div class="mb-2 flex items-center gap-4">
-			<span class="text-md">Inputting the following details...</span>
-			{#if msg.toolCall.output}
-				{@render outputDetails()}
-			{/if}
-		</div>
+	{#if msg.toolCall?.input && showToolInputDetails}
 		{@const parsedInput = (() => {
 			try {
 				return JSON.parse(msg.toolCall.input);
@@ -329,21 +320,22 @@
 				return null;
 			}
 		})()}
-		{#if parsedInput}
-			{#each Object.entries(parsedInput) as [key, value]}
-				<div>
-					<span class="text-md font-semibold"
-						>{key
-							// Split on capital letters and numbers
-							.split(/(?=[A-Z0-9])/g)
-							// Convert first char to uppercase, rest to lowercase
-							.map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-							.join(' ')}:</span
-					>
-					<span class="text-md">"{typeof value === 'object' ? JSON.stringify(value) : value}"</span>
-				</div>
-			{/each}
-		{/if}
+		<div transition:slide={{ duration: 300 }} class="mb-4 flex w-full flex-col justify-start gap-4">
+			{#if parsedInput}
+				{@render toolDetails(msg.toolCall.input, 'Input')}
+			{/if}
+			{#if msg.toolCall?.output}
+				<button
+					class="w-fit text-xs text-gray underline"
+					onclick={() => (showToolOutputDetails = !showToolOutputDetails)}
+				>
+					{showToolOutputDetails ? 'Hide' : 'Show'} Output
+				</button>
+				{#if showToolOutputDetails}
+					{@render toolDetails(msg.toolCall.output, 'Output')}
+				{/if}
+			{/if}
+		</div>
 	{/if}
 	{#if shell.input && shell.output}
 		<div class="mt-1 rounded-3xl bg-gray-100 p-5 dark:bg-gray-900 dark:text-gray-50">
