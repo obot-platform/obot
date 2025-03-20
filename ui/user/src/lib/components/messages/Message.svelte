@@ -189,7 +189,7 @@
 
 {#snippet time()}
 	{#if msg.time}
-		<span class="mt-2 self-end text-sm text-gray">{formatTime(msg.time)}</span>
+		<span class="text-gray mt-2 self-end text-sm">{formatTime(msg.time)}</span>
 	{/if}
 {/snippet}
 
@@ -201,7 +201,7 @@
 			>
 		{/if}
 		{#if msg.time}
-			<span class="text-sm text-gray">{formatTime(msg.time)}</span>
+			<span class="text-gray text-sm">{formatTime(msg.time)}</span>
 		{/if}
 		{#if !msg.done || animating}
 			<Loading class="size-4" />
@@ -209,7 +209,7 @@
 
 		{#if (msg.toolCall?.input || msg.toolCall?.output) && !msg.file}
 			<button
-				class="cursor-pointer text-xs text-gray underline"
+				class="text-gray cursor-pointer text-xs underline"
 				onclick={() => (showToolInputDetails = !showToolInputDetails)}
 			>
 				{showToolInputDetails ? 'Hide' : 'Show'} Details
@@ -223,7 +223,7 @@
 		class:flex={showBubble}
 		class:contents={!showBubble}
 		class:message-content={renderMarkdown}
-		class="flex w-full flex-col overflow-auto rounded-2xl bg-gray-70 px-6 py-3 text-black dark:bg-gray-950 dark:text-white"
+		class="bg-gray-70 flex w-full flex-col overflow-auto rounded-2xl px-6 py-3 text-black dark:bg-gray-950 dark:text-white"
 	>
 		{#if msg.oauthURL}
 			{@render oauth()}
@@ -246,7 +246,7 @@
 			class="my-2 flex max-w-[750px] cursor-pointer flex-col divide-y divide-gray-300 overflow-x-auto rounded-3xl border border-gray-300 bg-white text-start text-black shadow-lg dark:bg-black dark:text-gray-50"
 			onclick={fileLoad}
 		>
-			<div class="flex gap-2 px-5 py-4 text-md">
+			<div class="text-md flex gap-2 px-5 py-4">
 				<div class="flex items-center justify-start gap-2 truncate">
 					<FileText class="min-w-fit" />
 					<span use:overflowToolTip>{msg.file.filename}</span>
@@ -257,11 +257,11 @@
 				</div>
 			</div>
 			<div class="relative">
-				<div class="whitespace-pre-wrap p-5 font-body text-md text-gray-700 dark:text-gray-300">
+				<div class="font-body text-md p-5 whitespace-pre-wrap text-gray-700 dark:text-gray-300">
 					{msg.file.content.split('\n').splice(0, 6).join('\n')}
 				</div>
 				<div
-					class="bg-linear-to-b absolute bottom-0 z-20 h-24 w-full rounded-3xl from-transparent to-white dark:to-black"
+					class="absolute bottom-0 z-20 h-24 w-full rounded-3xl bg-linear-to-b from-transparent to-white dark:to-black"
 				></div>
 			</div>
 		</button>
@@ -272,7 +272,7 @@
 	{#if msg.explain}
 		<div
 			role="none"
-			class="-m-6 -mb-4 mt-2 flex flex-col
+			class="-m-6 mt-2 -mb-4 flex flex-col
 		 divide-y divide-gray-300
 		 rounded-3xl border
 		 border-gray-300 bg-white
@@ -292,7 +292,7 @@
 					}}>{msg.explain.filename}</button
 				>
 			</div>
-			<div class="whitespace-pre-wrap p-5 font-body text-md text-gray-700 dark:text-gray-300">
+			<div class="font-body text-md p-5 whitespace-pre-wrap text-gray-700 dark:text-gray-300">
 				{msg.explain.selection}
 			</div>
 		</div>
@@ -304,7 +304,7 @@
 		<p class="p-0 text-xs font-semibold">{title}</p>
 		<pre
 			transition:slide={{ duration: 300 }}
-			class="default-scrollbar-thin max-h-[300px] w-fit max-w-full overflow-auto whitespace-pre-wrap break-all rounded-lg bg-surface1 px-4 py-2 text-xs dark:bg-black">{@html formatJson(
+			class="default-scrollbar-thin bg-surface1 max-h-[300px] w-fit max-w-full overflow-auto rounded-lg px-4 py-2 text-xs break-all whitespace-pre-wrap dark:bg-black">{@html formatJson(
 				stringifiedJson ?? ''
 			)}</pre>
 	</div>
@@ -325,7 +325,7 @@
 			{/if}
 			{#if msg.toolCall?.output}
 				<button
-					class="w-fit text-xs text-gray underline"
+					class="text-gray w-fit text-xs underline"
 					onclick={() => (showToolOutputDetails = !showToolOutputDetails)}
 				>
 					{showToolOutputDetails ? 'Hide' : 'Show'} Output
@@ -364,7 +364,7 @@
 {#snippet oauth()}
 	<a
 		href={msg.oauthURL}
-		class="rounded-3xl bg-blue
+		class="bg-blue rounded-3xl
 						p-4
 						text-white
 					  hover:bg-blue-400"
@@ -392,7 +392,7 @@
 				<div class="flex flex-col gap-1">
 					<label for={field.name} class="mt-1 text-sm font-medium">{field.name}</label>
 					<input
-						class="outline-hidden rounded-lg bg-white p-2 dark:bg-gray-900"
+						class="rounded-lg bg-white p-2 outline-hidden dark:bg-gray-900"
 						type={field.sensitive ? 'password' : 'text'}
 						name={field.name}
 						bind:value={promptCredentials[field.name]}
@@ -414,7 +414,7 @@
 				{/if}
 				<button class="button-primary" type="submit">Submit</button>
 			</div>
-			<span class="mt-1 flex grow items-end self-end text-sm text-gray"
+			<span class="text-gray mt-1 flex grow items-end self-end text-sm"
 				>*The submitted contents are not visible to AI.</span
 			>
 		</form>
@@ -474,7 +474,7 @@
 		</div>
 		{#if msg.aborted}
 			<div
-				class="pointer-events-none absolute bottom-0 z-10 flex h-full w-full flex-col items-center justify-center bg-white bg-opacity-60 text-xl font-semibold text-black text-opacity-30 dark:bg-black dark:bg-opacity-60 dark:text-white dark:text-opacity-30"
+				class="bg-opacity-60 text-opacity-30 dark:bg-opacity-60 dark:text-opacity-30 pointer-events-none absolute bottom-0 z-10 flex h-full w-full flex-col items-center justify-center bg-white text-xl font-semibold text-black dark:bg-black dark:text-white"
 			>
 				<p>Aborted</p>
 				<p class="text-xs">This content will be ignored.</p>
