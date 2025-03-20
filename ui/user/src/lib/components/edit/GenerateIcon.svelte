@@ -61,7 +61,7 @@
 <div class="relative mt-2 flex flex-col gap-2">
 	<div class="border-surface3 flex rounded-lg border">
 		<button
-			class="icon-button border-surface3 flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-l-lg! rounded-r-none! border-r py-2"
+			class="icon-button border-surface3 flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-l-lg rounded-r-none border-r py-2"
 			onclick={() => (isCustomPrompt ? generateIcon(true) : generateIcon())}
 			disabled={isGenerating || (!project.description && !isCustomPrompt)}
 		>
@@ -76,7 +76,7 @@
 			{/if}
 		</button>
 		<button
-			class="icon-button flex items-center rounded-l-none! rounded-r-lg! px-2"
+			class="icon-button flex items-center rounded-l-none rounded-r-lg px-2"
 			onclick={() => (isCustomPrompt = !isCustomPrompt)}
 			disabled={isGenerating}
 		>

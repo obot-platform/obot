@@ -107,7 +107,7 @@
 			use:autoHeight
 			id={'step' + step.id}
 			bind:value={step.step}
-			class="ghost-input border-surface2! ml-1 grow resize-none"
+			class="ghost-input border-surface2 ml-1 grow resize-none"
 		></textarea>
 		<div class="flex">
 			<button class="icon-button" onclick={doRun}>

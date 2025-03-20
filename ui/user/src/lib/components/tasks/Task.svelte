@@ -73,7 +73,7 @@
 				/>
 			</div>
 			<div class="flex items-center gap-2">
-				<button class="button-destructive p-4!" onclick={() => (toDelete = true)}>
+				<button class="button-destructive p-4" onclick={() => (toDelete = true)}>
 					<Trash2 class="size-4" />
 				</button>
 			</div>

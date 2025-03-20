@@ -39,7 +39,7 @@
 		<div class="flex items-center gap-5">
 			<div class="flex w-full items-center justify-center">
 				<button
-					class="icon-button group relative flex items-center gap-2 p-0! shadow-md"
+					class="icon-button group relative flex items-center gap-2 p-0 shadow-md"
 					use:ref
 					onclick={() => toggle()}
 				>

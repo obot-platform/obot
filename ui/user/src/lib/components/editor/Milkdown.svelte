@@ -187,28 +187,28 @@
 	class:hidden={!ttVisible}
 >
 	<button
-		class="flex items-center gap-2 rounded-s-3xl border-none! p-4! ps-5 hover:bg-gray-100 dark:bg-gray-950 dark:hover:bg-gray-900"
+		class="flex items-center gap-2 rounded-s-3xl border-none p-4 ps-5 hover:bg-gray-100 dark:bg-gray-950 dark:hover:bg-gray-900"
 		onclick={onBold}
 		class:hidden={ttImprove}
 	>
 		<Bold class="h-5 w-5" />
 	</button>
 	<button
-		class="flex items-center gap-2 p-4! ps-5 hover:bg-gray-100 dark:hover:bg-gray-900"
+		class="flex items-center gap-2 p-4 ps-5 hover:bg-gray-100 dark:hover:bg-gray-900"
 		onclick={onItalic}
 		class:hidden={ttImprove}
 	>
 		<Italic class="h-5 w-5" />
 	</button>
 	<button
-		class="flex items-center gap-2 p-4! ps-5 hover:bg-gray-100 dark:hover:bg-gray-900"
+		class="flex items-center gap-2 p-4 ps-5 hover:bg-gray-100 dark:hover:bg-gray-900"
 		onclick={onStrikethrough}
 		class:hidden={ttImprove}
 	>
 		<Strikethrough class="h-5 w-5" />
 	</button>
 	<button
-		class="flex items-center gap-2 p-4! ps-5 hover:bg-gray-100 dark:hover:bg-gray-900"
+		class="flex items-center gap-2 p-4 ps-5 hover:bg-gray-100 dark:hover:bg-gray-900"
 		onclick={onExplain}
 		class:hidden={ttImprove}
 	>
@@ -216,7 +216,7 @@
 		<CircleHelp class="h-5 w-5" />
 	</button>
 	<button
-		class="flex items-center gap-2 rounded-e-3xl p-4! ps-5 hover:bg-gray-100 dark:hover:bg-gray-900"
+		class="flex items-center gap-2 rounded-e-3xl p-4 ps-5 hover:bg-gray-100 dark:hover:bg-gray-900"
 		onclick={async () => {
 			ttImprove = true;
 			await tick();

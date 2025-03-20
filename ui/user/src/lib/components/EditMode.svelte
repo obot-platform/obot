@@ -107,7 +107,7 @@
 							tooltip: twMerge(
 								'h-fit w-screen md:w-full default-dialog shadow-inner -translate-y-1 max-h-[80vh] overflow-y-auto default-scrollbar-thin',
 								responsive.isMobile &&
-									'rounded-none! h-[calc(100vh-64px)]! -translate-x-[4px]! max-h-[calc(100vh-64px)]! translate-y-2!'
+									'rounded-none h-[calc(100vh-64px)] -translate-x-[4px] max-h-[calc(100vh-64px)] translate-y-2'
 							)
 						}}
 					/>

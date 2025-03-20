@@ -29,12 +29,12 @@
 								<input
 									bind:value={project.websiteKnowledge.sites[i].site}
 									placeholder="example.com"
-									class="ghost-input border-surface2! w-3/4"
+									class="ghost-input border-surface2 w-3/4"
 								/>
 							</td>
 							<td>
 								<textarea
-									class="ghost-input border-surface2! w-5/6 resize-none"
+									class="ghost-input border-surface2 w-5/6 resize-none"
 									bind:value={project.websiteKnowledge.sites[i].description}
 									rows="1"
 									placeholder="Description"

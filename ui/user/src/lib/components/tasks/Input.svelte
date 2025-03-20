@@ -55,7 +55,7 @@
 					<input
 						id="param-{key}"
 						bind:value={params[key]}
-						class="ghost-input border-surface2! w-full"
+						class="ghost-input border-surface2 w-full"
 						placeholder="Enter value"
 					/>
 				</div>
@@ -107,7 +107,7 @@
 				bind:value={payload}
 				use:autoHeight
 				rows="1"
-				class="ghost-input border-surface2! ml-1 w-full grow resize-none"
+				class="ghost-input border-surface2 ml-1 w-full grow resize-none"
 				placeholder="Enter payload..."
 			></textarea>
 		{/if}

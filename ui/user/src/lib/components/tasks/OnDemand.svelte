@@ -41,7 +41,7 @@
 							<input
 								value={key}
 								placeholder="Enter Name"
-								class="ghost-input border-surface2! w-3/4"
+								class="ghost-input border-surface2 w-3/4"
 								oninput={(e) => {
 									if (e.target instanceof HTMLInputElement && onDemand?.params) {
 										const oldKey = order[i];
@@ -55,7 +55,7 @@
 						</td>
 						<td>
 							<input
-								class="ghost-input border-surface2! w-3/4"
+								class="ghost-input border-surface2 w-3/4"
 								bind:value={onDemand.params[order[i]]}
 								placeholder="Add a good description"
 							/>

@@ -176,7 +176,7 @@
 					fixed
 					classes={{
 						dialog:
-							'rounded-none h-[calc(100vh-64px)] p-4 left-0 top-[64px] rounded-none! w-full h-full px-4 divide-transparent dark:divide-transparent'
+							'rounded-none h-[calc(100vh-64px)] p-4 left-0 top-[64px] w-full h-full px-4 divide-transparent dark:divide-transparent'
 					}}
 					title=""
 				>
