@@ -2,7 +2,7 @@
 	import ProfileIcon from '$lib/components/profile/ProfileIcon.svelte';
 	import { profile, responsive } from '$lib/stores';
 	import Menu from '$lib/components/navbar/Menu.svelte';
-	import { Moon, Sun } from 'lucide-svelte/icons';
+	import { Book, LayoutDashboard, LogOut, Moon, Sun } from 'lucide-svelte/icons';
 	import { darkMode } from '$lib/stores';
 	import { twMerge } from 'tailwind-merge';
 </script>
@@ -13,8 +13,9 @@
 	fixed={responsive.isMobile}
 	classes={{
 		dialog: twMerge(
-			'px-4',
-			responsive.isMobile && 'rounded-none h-[calc(100vh-64px)] p-4 left-0 top-[64px] w-full h-full'
+			'p-0 md:w-72 overflow-hidden',
+			responsive.isMobile &&
+				'rounded-none h-[calc(100vh-64px)] left-0 top-[64px] !rounded-none w-full h-full'
 		)
 	}}
 >
@@ -22,60 +23,78 @@
 		<ProfileIcon />
 	{/snippet}
 	{#snippet header()}
-		<div class="flex w-full items-center justify-between">
-			<span>
-				{profile.current.getDisplayName?.() || 'Anonymous'}
-			</span>
+		<div class="flex w-full items-center justify-between p-4 pb-0">
+			<div class="flex items-center gap-3">
+				<ProfileIcon class="size-12" />
+				<div class="flex grow flex-col">
+					<span>
+						{profile.current.getDisplayName?.() || 'Anonymous'}
+					</span>
+					<span class="text-sm text-gray-500">
+						{profile.current.role === 1 ? 'Admin' : 'User'}
+					</span>
+				</div>
+			</div>
 			<button
 				type="button"
 				onclick={() => {
 					darkMode.setDark(!darkMode.isDark);
 				}}
 				role="menuitem"
-				class="icon-button"
+				class="after:content=[''] border-surface3 bg-surface2 dark:bg-surface3 relative cursor-pointer flex-col rounded-full border p-2 shadow-inner after:absolute after:top-1 after:left-1 after:z-0 after:size-7 after:rounded-full after:bg-transparent after:transition-all after:duration-200 dark:border-white/15"
+				class:after:translate-y-8={darkMode.isDark}
+				class:after:translate-y-0={!darkMode.isDark}
+				class:after:bg-white={!darkMode.isDark}
+				class:after:bg-surface1={darkMode.isDark}
 			>
-				{#if darkMode.isDark}
-					<Sun class="h-5 w-5" />
-				{:else}
-					<Moon class="h-5 w-5" />
-				{/if}
+				<Sun class="relative z-10 mb-3 size-5" />
+				<Moon class="relative z-10 size-5" />
 			</button>
 		</div>
 	{/snippet}
 	{#snippet body()}
-		<div class="flex flex-col gap-2 py-2">
+		<div class="flex flex-col gap-2 px-2 py-4">
 			{#if profile.current.role === 1}
-				<a href="/admin/" rel="external" role="menuitem" class="icon-button" style="color: #f87171;"
-					>Admin</a
+				<a href="/admin/" rel="external" role="menuitem" class="link"
+					><LayoutDashboard class="size-4" />Admin Dashboard</a
 				>
 			{/if}
 			{#if responsive.isMobile}
-				<a href="https://docs.obot.ai" rel="external" target="_blank" class="icon-button">Docs</a>
-				<a href="https://discord.gg/9sSf4UyAMC" rel="external" target="_blank" class="icon-button">
-					{#if darkMode.isDark}
-						<img src="/user/images/discord-mark/discord-mark-white.svg" alt="Discord" class="h-6" />
-					{:else}
-						<img src="/user/images/discord-mark/discord-mark.svg" alt="Discord" class="h-6" />
-					{/if}
-				</a>
-				<a
-					href="https://github.com/obot-platform/obot"
-					rel="external"
-					target="_blank"
-					class="icon-button"
+				<a href="https://docs.obot.ai" rel="external" target="_blank" class="link"
+					><Book class="size-4" />Docs</a
 				>
+				<a href="https://discord.gg/9sSf4UyAMC" rel="external" target="_blank" class="link">
 					{#if darkMode.isDark}
-						<img src="/user/images/github-mark/github-mark-white.svg" alt="GitHub" class="h-6" />
+						<img
+							src="/user/images/discord-mark/discord-mark-white.svg"
+							alt="Discord"
+							class="size-4"
+						/>
 					{:else}
-						<img src="/user/images/github-mark/github-mark.svg" alt="GitHub" class="h-6" />
+						<img src="/user/images/discord-mark/discord-mark.svg" alt="Discord" class="size-4" />
 					{/if}
+					Discord
+				</a>
+				<a href="https://github.com/obot-platform/obot" rel="external" target="_blank" class="link">
+					{#if darkMode.isDark}
+						<img src="/user/images/github-mark/github-mark-white.svg" alt="GitHub" class="size-4" />
+					{:else}
+						<img src="/user/images/github-mark/github-mark.svg" alt="GitHub" class="size-4" />
+					{/if}
+					Github
 				</a>
 			{/if}
 			{#if profile.current.email}
-				<a href="/oauth2/sign_out?rd=/" rel="external" role="menuitem" class="icon-button"
-					>Sign out</a
+				<a href="/oauth2/sign_out?rd=/" rel="external" role="menuitem" class="link"
+					><LogOut class="size-4" /> Log out</a
 				>
 			{/if}
 		</div>
 	{/snippet}
 </Menu>
+
+<style lang="postcss">
+	.link {
+		@apply text-md hover:bg-surface3 flex w-full items-center gap-2 rounded-lg px-2 py-2;
+	}
+</style>

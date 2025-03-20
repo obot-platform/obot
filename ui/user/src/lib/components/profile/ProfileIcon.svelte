@@ -1,5 +1,12 @@
 <script lang="ts">
 	import { profile } from '$lib/stores';
+	import { twMerge } from 'tailwind-merge';
+
+	interface Props {
+		class?: string;
+	}
+
+	let { class: klass }: Props = $props();
 
 	let initials = $state('?');
 
@@ -19,7 +26,7 @@
 
 {#if profile.current.iconURL}
 	<img
-		class="h-8 w-8 rounded-full"
+		class={twMerge('size-8 rounded-full', klass)}
 		src={profile.current.iconURL}
 		alt="profile"
 		referrerpolicy="no-referrer"

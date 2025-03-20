@@ -217,10 +217,9 @@
 	<!-- Login Modal -->
 	<dialog
 		bind:this={loginDialog}
-		class="colors-surface2 backdrop:bg-opacity-50 w-full max-w-sm rounded-3xl p-6 shadow-lg backdrop:bg-black md:max-w-md"
+		class="backdrop:bg-opacity-50 fixed top-1/2 left-1/2 m-0 h-dvh max-h-none w-full max-w-none -translate-x-1/2 -translate-y-1/2 rounded-none p-4 shadow-lg backdrop:bg-black md:max-h-fit md:max-w-md md:rounded-3xl"
 	>
-		<div class="mb-6 flex items-center justify-between">
-			<h3 class="text-xl font-semibold">Login to Obot</h3>
+		<div class="flex w-full justify-end">
 			<button
 				type="button"
 				class="icon-button"
@@ -230,26 +229,39 @@
 				<X size={24} />
 			</button>
 		</div>
+		<div class="relative z-10 mb-6 flex w-full flex-col items-center justify-center gap-6">
+			{#if darkMode.isDark}
+				<img src="/user/images/obot-logo-blue-white-text.svg" class="h-12" alt="Obot logo" />
+			{:else}
+				<img src="/user/images/obot-logo-blue-black-text.svg" class="h-12" alt="Obot logo" />
+			{/if}
+			<p class="px-8 text-center text-sm font-light text-gray-500 md:px-12 dark:text-gray-300">
+				You're almost there! Log in to start creating or interacting withyour Obot.
+			</p>
+			<h3 class="dark:bg-surface2 bg-white px-2 text-lg font-semibold">Sign in to Your Account</h3>
+		</div>
 
-		<div class="flex flex-col items-center gap-4">
+		<div
+			class="border-surface3 relative -top-[18px] flex -translate-y-5 flex-col items-center gap-4 rounded-xl border-2 px-4 pt-6 pb-4"
+		>
 			{#each authProviders as provider}
 				<a
 					rel="external"
 					href="/oauth2/start?rd={projectShareRedirect !== null
 						? projectShareRedirect
 						: rd}&obot-auth-provider={provider.namespace}/{provider.id}"
-					class="group flex w-full items-center justify-center gap-1 rounded-full bg-black p-2 px-8 text-lg font-semibold text-white dark:bg-white dark:text-black"
+					class="group bg-surface1 hover:bg-surface2 dark:bg-surface1 dark:hover:bg-surface3 flex w-full items-center justify-center gap-1.5 rounded-full p-2 px-8 text-lg font-semibold"
 					onclick={(e) => {
 						console.log(`post-auth redirect ${e.target}`);
 					}}
 				>
 					{#if provider.icon}
 						<img
-							class="h-6 w-6 rounded-full p-1 group-hover:bg-white"
+							class="h-6 w-6 rounded-full bg-transparent p-1 dark:bg-gray-600"
 							src={provider.icon}
 							alt={provider.name}
 						/>
-						<span class="grow text-center">Login with {provider.name}</span>
+						<span class="text-center text-sm font-light">Continue with {provider.name}</span>
 					{/if}
 				</a>
 			{/each}
