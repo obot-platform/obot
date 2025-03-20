@@ -236,7 +236,7 @@
 				<img src="/user/images/obot-logo-blue-black-text.svg" class="h-12" alt="Obot logo" />
 			{/if}
 			<p class="px-8 text-center text-sm font-light text-gray-500 md:px-12 dark:text-gray-300">
-				You're almost there! Log in to start creating or interacting withyour Obot.
+				You're almost there! Log in to start creating or interacting with your Obot.
 			</p>
 			<h3 class="dark:bg-surface2 bg-white px-2 text-lg font-semibold">Sign in to Your Account</h3>
 		</div>
