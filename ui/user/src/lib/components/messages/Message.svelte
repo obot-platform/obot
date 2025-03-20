@@ -5,9 +5,8 @@
 	import { ChatService, type Message, type Project } from '$lib/services';
 	import highlight from 'highlight.js';
 	import { toHTMLFromMarkdown } from '$lib/markdown.js';
-	import { Paperclip, X } from 'lucide-svelte';
+	import { Paperclip } from 'lucide-svelte';
 	import { formatTime } from '$lib/time';
-	import { popover } from '$lib/actions';
 	import { fly, slide } from 'svelte/transition';
 	import Loading from '$lib/icons/Loading.svelte';
 	import { fade } from 'svelte/transition';
