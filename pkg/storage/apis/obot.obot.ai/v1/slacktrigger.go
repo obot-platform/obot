@@ -37,6 +37,19 @@ func (r *SlackTrigger) Get(field string) string {
 	return ""
 }
 
+func (r *SlackTrigger) DeleteRefs() []Ref {
+	return []Ref{
+		{
+			ObjType: &Thread{},
+			Name:    r.Spec.ThreadName,
+		},
+		{
+			ObjType: &Workflow{},
+			Name:    r.Spec.WorkflowName,
+		},
+	}
+}
+
 func (r *SlackTrigger) FieldNames() []string {
 	return []string{"spec.threadName"}
 }

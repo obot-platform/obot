@@ -7,7 +7,6 @@ import (
 
 	"github.com/gptscript-ai/go-gptscript"
 	"github.com/obot-platform/obot/apiclient/types"
-	"github.com/obot-platform/obot/pkg/alias"
 	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/invoke"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
@@ -22,15 +21,13 @@ type ProjectsHandler struct {
 	cachedClient kclient.Client
 	invoker      *invoke.Invoker
 	gptScript    *gptscript.GPTScript
-	hostname     string
 }
 
-func NewProjectsHandler(cachedClient kclient.Client, invoker *invoke.Invoker, gptScript *gptscript.GPTScript, hostname string) *ProjectsHandler {
+func NewProjectsHandler(cachedClient kclient.Client, invoker *invoke.Invoker, gptScript *gptscript.GPTScript) *ProjectsHandler {
 	return &ProjectsHandler{
 		cachedClient: cachedClient,
 		invoker:      invoker,
 		gptScript:    gptScript,
-		hostname:     strings.TrimPrefix(strings.TrimPrefix(hostname, "https://"), "http://"),
 	}
 }
 
@@ -372,17 +369,6 @@ func (h *ProjectsHandler) DeleteProject(req api.Context) error {
 	project, err := h.getProjectThread(req)
 	if err != nil {
 		return err
-	}
-
-	if project.Spec.SlackConfiguration != nil {
-		var slackApp v1.OAuthApp
-		if err := req.Get(&slackApp, getSlackOauthAppFromThreadName(project.Name)); err != nil && !apierrors.IsNotFound(err) {
-			return err
-		} else if err == nil {
-			if err := req.Delete(&slackApp); err != nil && !apierrors.IsNotFound(err) {
-				return err
-			}
-		}
 	}
 
 	return req.Delete(project)
@@ -733,15 +719,11 @@ func (h *ProjectsHandler) authenticate(req api.Context, local bool) (err error) 
 		return err
 	}
 
-	if err = h.OverrideOauthApps(req, &agent, thread); err != nil {
-		return err
-	}
-
 	credContext := thread.Name
 	if local {
 		credContext = thread.Name + "-local"
 	}
-	resp, err := runAuthForAgent(req.Context(), req.Storage, h.invoker, h.gptScript, &agent, credContext, tools, req.User.GetUID())
+	resp, err := runAuthForAgent(req.Context(), req.Storage, h.invoker, h.gptScript, &agent, credContext, tools, req.User.GetUID(), thread.Name)
 	if err != nil {
 		return err
 	}
@@ -784,40 +766,4 @@ func (h *ProjectsHandler) deAuthenticate(req api.Context, local bool) error {
 
 	errs := removeToolCredentials(req.Context(), req.Storage, h.gptScript, credContext, agent.Namespace, tools)
 	return errors.Join(errs...)
-}
-
-// OverrideOauthApps overrides the oauth apps for the project
-func (h *ProjectsHandler) OverrideOauthApps(req api.Context, agent *v1.Agent, thread *v1.Thread) error {
-	// Create map of thread's oauth apps for faster lookup
-	threadOAuthApps := make(map[string]v1.OAuthApp)
-	for _, appName := range thread.Spec.Manifest.OauthApps {
-		var app v1.OAuthApp
-		if err := req.Get(&app, appName); err != nil {
-			return err
-		}
-		threadOAuthApps[string(app.Spec.Manifest.Type)] = app
-	}
-
-	agentOauthApps := make([]v1.OAuthApp, 0, len(agent.Spec.Manifest.OAuthApps))
-	for _, appName := range agent.Spec.Manifest.OAuthApps {
-		var app v1.OAuthApp
-		if err := alias.Get(req.Context(), req.Storage, &app, req.Namespace(), appName); err != nil {
-			return err
-		}
-		agentOauthApps = append(agentOauthApps, app)
-	}
-
-	var updatedOAuthApps []string
-	for _, app := range agentOauthApps {
-		existingThreadApp, exists := threadOAuthApps[string(app.Spec.Manifest.Type)]
-		if !exists {
-			updatedOAuthApps = append(updatedOAuthApps, app.Name)
-		} else {
-			updatedOAuthApps = append(updatedOAuthApps, existingThreadApp.Name)
-		}
-	}
-
-	agent.Spec.Manifest.OAuthApps = updatedOAuthApps
-
-	return nil
 }

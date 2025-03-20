@@ -34,7 +34,7 @@ func Router(services *services.Services) (http.Handler, error) {
 	defaultModelAliases := handlers.NewDefaultModelAliasHandler()
 	version := handlers.NewVersionHandler(services.EmailServerName, services.SupportDocker, services.AuthEnabled)
 	tables := handlers.NewTableHandler(services.GPTClient)
-	projects := handlers.NewProjectsHandler(services.Router.Backend(), services.Invoker, services.GPTClient, services.ServerURL)
+	projects := handlers.NewProjectsHandler(services.Router.Backend(), services.Invoker, services.GPTClient)
 	projectShare := handlers.NewProjectShareHandler()
 	files := handlers.NewFilesHandler(services.GPTClient)
 	workflows := handlers.NewWorkflowHandler(services.GPTClient, services.ServerURL, services.Invoker)
@@ -42,6 +42,7 @@ func Router(services *services.Services) (http.Handler, error) {
 	slackEventHandler := handlers.NewSlackEventHandler(services.Invoker, services.GPTClient)
 	sendgridWebhookHandler := sendgrid.NewInboundWebhookHandler(services.StorageClient, services.EmailServerName, services.SendgridWebhookUsername, services.SendgridWebhookPassword)
 	images := handlers.NewImageHandler(services.GatewayClient, services.GeminiClient)
+	slackHandler := handlers.NewSlackHandler(services.GPTClient)
 
 	// Version
 	mux.HandleFunc("GET /api/version", version.GetVersion)
@@ -129,9 +130,9 @@ func Router(services *services.Services) (http.Handler, error) {
 	mux.HandleFunc("PUT /api/assistants/{assistant_id}/projects/{project_id}/env", assistants.SetEnv)
 
 	// Project Slack integration
-	mux.HandleFunc("POST /api/assistants/{assistant_id}/projects/{project_id}/slack", projects.Configure)
-	mux.HandleFunc("PUT /api/assistants/{assistant_id}/projects/{project_id}/slack", projects.Configure)
-	mux.HandleFunc("DELETE /api/assistants/{assistant_id}/projects/{project_id}/slack", projects.DeleteConfiguration)
+	mux.HandleFunc("POST /api/assistants/{assistant_id}/projects/{project_id}/slack", slackHandler.Configure)
+	mux.HandleFunc("PUT /api/assistants/{assistant_id}/projects/{project_id}/slack", slackHandler.Configure)
+	mux.HandleFunc("DELETE /api/assistants/{assistant_id}/projects/{project_id}/slack", slackHandler.DeleteConfiguration)
 
 	// Top level Tasks
 	mux.HandleFunc("GET /api/tasks", tasks.List)

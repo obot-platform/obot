@@ -66,26 +66,32 @@ func (h *SlackEventHandler) HandleEvent(req api.Context) error {
 		return req.Write(map[string]string{"status": "ignored"})
 	}
 
-	var threads v1.ThreadList
-	if err := req.List(&threads, &client.ListOptions{
+	var slackReceivers v1.SlackReceiverList
+	if err := req.List(&slackReceivers, &client.ListOptions{
 		Namespace: req.Namespace(),
 		FieldSelector: fields.SelectorFromSet(map[string]string{
-			"spec.slackConfiguration.appID": event.APIAppID,
+			"spec.manifest.appID": event.APIAppID,
 		}),
 	}); err != nil {
-		fmt.Println(err)
 		return err
 	}
 
-	if len(threads.Items) == 0 {
-		return types.NewErrBadRequest("no thread found for app ID")
+	if len(slackReceivers.Items) == 0 {
+		return types.NewErrBadRequest("no slack receiver found for app ID")
+	}
+
+	slackReceiver := slackReceivers.Items[0]
+
+	var projectThread v1.Thread
+	if err := req.Get(&projectThread, slackReceiver.Spec.ThreadName); err != nil {
+		return err
 	}
 
 	var triggerList v1.SlackTriggerList
 	if err := req.List(&triggerList, &client.ListOptions{
 		Namespace: req.Namespace(),
 		FieldSelector: fields.SelectorFromSet(map[string]string{
-			"spec.threadName": threads.Items[0].Name,
+			"spec.threadName": projectThread.Name,
 		}),
 	}); err != nil {
 		return err
@@ -112,9 +118,23 @@ func (h *SlackEventHandler) HandleEvent(req api.Context) error {
 		oauthApp      v1.OAuthApp
 		signingSecret string
 	)
-	if err := req.Get(&oauthApp, getSlackOauthAppFromThreadName(threads.Items[0].Name)); err != nil {
+
+	var oauthApps v1.OAuthAppList
+	if err := req.List(&oauthApps, &client.ListOptions{
+		Namespace: req.Namespace(),
+		FieldSelector: fields.SelectorFromSet(map[string]string{
+			"spec.threadName": projectThread.Name,
+		}),
+	}); err != nil {
 		return err
 	}
+
+	if len(oauthApps.Items) == 0 {
+		return types.NewErrBadRequest("no oauth app found for thread")
+	}
+
+	oauthApp = oauthApps.Items[0]
+
 	cred, err := h.gptscript.RevealCredential(req.Context(), []string{oauthApp.Name}, oauthApp.Spec.Manifest.Alias)
 	if err != nil {
 		return err

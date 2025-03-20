@@ -42,8 +42,6 @@ type OAuthAppManifest struct {
 	Global *bool `json:"global,omitempty"`
 	// This field is only used by Salesforce
 	InstanceURL string `json:"instanceURL,omitempty"`
-	// SigningSecret is only used by Slack
-	SigningSecret string `json:"signingSecret,omitempty"`
 }
 
 type OAuthAppList List[OAuthApp]

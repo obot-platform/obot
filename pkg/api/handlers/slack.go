@@ -4,99 +4,105 @@ import (
 	"fmt"
 
 	"github.com/gptscript-ai/go-gptscript"
-	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
-	gatewayTypes "github.com/obot-platform/obot/pkg/gateway/types"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
+	"github.com/obot-platform/obot/pkg/storage/selectors"
+	"github.com/obot-platform/obot/pkg/system"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-var (
-	slackOAuthURL = "https://slack.com/oauth/v2/authorize"
-)
+type SlackHandler struct {
+	gptScript *gptscript.GPTScript
+}
 
-func (p *ProjectsHandler) Configure(req api.Context) error {
+func NewSlackHandler(gptScript *gptscript.GPTScript) *SlackHandler {
+	return &SlackHandler{
+		gptScript: gptScript,
+	}
+}
+
+func (s *SlackHandler) Configure(req api.Context) error {
 	thread, err := getThreadForScope(req)
 	if err != nil {
 		return err
 	}
 
-	var (
-		input struct {
-			AppID         string `json:"appID"`
-			SigningSecret string `json:"signingSecret"`
-			ClientID      string `json:"clientID"`
-			ClientSecret  string `json:"clientSecret"`
-		}
-	)
+	var input v1.SlackReceiverManifest
 
 	if err := req.Read(&input); err != nil {
 		return err
 	}
 
-	var threads v1.ThreadList
-	if err := req.List(&threads, &client.ListOptions{
-		Namespace: req.Namespace(),
-		FieldSelector: fields.SelectorFromSet(map[string]string{
-			"spec.slackConfiguration.appID": input.AppID,
-		}),
-	}); err != nil {
-		return err
-	}
-
-	for _, existingThread := range threads.Items {
-		if existingThread.Name != thread.Name {
-			return apierrors.NewBadRequest(fmt.Sprintf("Slack app ID %s is already configured for project %s",
-				input.AppID, existingThread.Name))
-		}
-	}
-
-	oauthAppName := getSlackOauthAppFromThreadName(thread.Name)
-
-	// Create OAuth app manifest for Slack
-	appManifest := &types.OAuthAppManifest{
-		Type:     types.OAuthAppTypeSlack,
-		ClientID: input.ClientID,
-		Alias:    oauthAppName,
-	}
-
-	if err := gatewayTypes.ValidateAndSetDefaultsOAuthAppManifest(appManifest, true); err != nil {
-		return apierrors.NewBadRequest(fmt.Sprintf("invalid OAuth app: %s", err))
-	}
+	var slackReceiver v1.SlackReceiver
 
 	if req.Method == "POST" {
-		// Create the OAuth app
-		app := v1.OAuthApp{
+		var slackReceivers v1.SlackReceiverList
+		if err := req.List(&slackReceivers, &client.ListOptions{
+			Namespace: req.Namespace(),
+		}); err != nil {
+			return err
+		}
+
+		for _, slackReceiver := range slackReceivers.Items {
+			if slackReceiver.Spec.Manifest.AppID == input.AppID {
+				return apierrors.NewBadRequest(fmt.Sprintf("Slack app ID %s is already configured for project %s",
+					input.AppID, slackReceiver.Name))
+			}
+
+			if slackReceiver.Spec.ThreadName == thread.Name {
+				return apierrors.NewBadRequest(fmt.Sprintf("Slack receiver for thread %s is already configured", thread.Name))
+			}
+		}
+
+		slackReceiver = v1.SlackReceiver{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      oauthAppName,
+				Name:      system.SlackReceiverPrefix + thread.Name,
 				Namespace: req.Namespace(),
 			},
-			Spec: v1.OAuthAppSpec{
-				Manifest: *appManifest,
+			Spec: v1.SlackReceiverSpec{
+				Manifest: v1.SlackReceiverManifest{
+					AppID:    input.AppID,
+					ClientID: input.ClientID,
+				},
+				ThreadName: thread.Name,
 			},
 		}
 
-		if err := req.Create(&app); err != nil {
+		if err := req.Create(&slackReceiver); err != nil {
 			return err
 		}
 	} else if req.Method == "PUT" {
-		var app v1.OAuthApp
-		if err := req.Get(&app, appManifest.Alias); err != nil {
+		var slackReceivers v1.SlackReceiverList
+		if err := req.List(&slackReceivers, &client.ListOptions{
+			Namespace: req.Namespace(),
+			FieldSelector: fields.SelectorFromSet(selectors.RemoveEmpty(map[string]string{
+				"spec.threadName": thread.Name,
+			})),
+		}); err != nil {
 			return err
 		}
 
-		app.Spec.Manifest = *appManifest
-		if err := req.Update(&app); err != nil {
+		if len(slackReceivers.Items) == 0 {
+			return apierrors.NewBadRequest(fmt.Sprintf("Slack receiver for app ID %s not found", input.AppID))
+		}
+
+		slackReceiver = slackReceivers.Items[0]
+		slackReceiver.Spec.Manifest.ClientID = input.ClientID
+		slackReceiver.Spec.Manifest.AppID = input.AppID
+		slackReceiver.Spec.Manifest.ClientSecret = ""
+		slackReceiver.Spec.Manifest.SigningSecret = ""
+
+		if err := req.Update(&slackReceiver); err != nil {
 			return err
 		}
 	}
-	thread.Spec.Manifest.OauthApps = append(thread.Spec.Manifest.OauthApps, oauthAppName)
 
-	// Store client secret as credential
+	oauthAppName := system.OAuthAppPrefix + thread.Name
 	credential := gptscript.Credential{
+		// Override the context and the tool name so that oauth app can use the credential directly without having to recreate
 		Context:  oauthAppName,
 		ToolName: oauthAppName,
 		Type:     gptscript.CredentialTypeTool,
@@ -106,49 +112,28 @@ func (p *ProjectsHandler) Configure(req api.Context) error {
 		},
 	}
 
-	if err := req.GPTClient.CreateCredential(req.Context(), credential); err != nil {
-		return err
-	}
-
-	thread.Spec.SlackConfiguration = &v1.SlackConfiguration{
-		AppID: input.AppID,
-	}
-
-	if err := req.Storage.Update(req.Context(), thread); err != nil {
-		return err
-	}
-
-	r := types.OAuthApp{
-		OAuthAppManifest: types.OAuthAppManifest{Name: oauthAppName},
-	}
-
-	return req.Write(r)
+	return req.GPTClient.CreateCredential(req.Context(), credential)
 }
 
-func (p *ProjectsHandler) DeleteConfiguration(req api.Context) error {
+func (s *SlackHandler) DeleteConfiguration(req api.Context) error {
 	thread, err := getThreadForScope(req)
 	if err != nil {
 		return err
 	}
 
-	if err := req.Delete(&v1.OAuthApp{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      getSlackOauthAppFromThreadName(thread.Name),
-			Namespace: req.Namespace(),
-		},
-	}); err != nil && !apierrors.IsNotFound(err) {
+	var slackReceivers v1.SlackReceiverList
+	if err := req.List(&slackReceivers, &client.ListOptions{
+		Namespace: req.Namespace(),
+		FieldSelector: fields.SelectorFromSet(selectors.RemoveEmpty(map[string]string{
+			"spec.threadName": thread.Name,
+		})),
+	}); err != nil {
 		return err
 	}
 
-	thread.Spec.SlackConfiguration = nil
-
-	if err := req.Storage.Update(req.Context(), thread); err != nil {
-		return err
+	if len(slackReceivers.Items) == 0 {
+		return apierrors.NewBadRequest(fmt.Sprintf("Slack receiver for thread %s not found", thread.Name))
 	}
 
-	return req.Write(struct{}{})
-}
-
-func getSlackOauthAppFromThreadName(name string) string {
-	return "slack-" + name
+	return req.Delete(&slackReceivers.Items[0])
 }
