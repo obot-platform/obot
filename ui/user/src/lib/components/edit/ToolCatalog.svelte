@@ -114,10 +114,10 @@
 
 <div class="w-full">
 	<h4
-		class="relative mx-2 mb-2 flex items-center justify-center border-b border-surface3 py-4 text-lg font-semibold md:justify-start"
+		class="border-surface3 relative mx-2 mb-2 flex items-center justify-center border-b py-4 text-lg font-semibold md:justify-start"
 	>
 		Modify Tools
-		<button class="icon-button absolute right-0 top-1" onclick={() => onSubmit?.()}>
+		<button class="icon-button absolute top-1 right-0" onclick={() => onSubmit?.()}>
 			{#if responsive.isMobile}
 				<ChevronRight class="size-6" />
 			{:else}

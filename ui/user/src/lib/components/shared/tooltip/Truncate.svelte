@@ -32,7 +32,7 @@
 		className: twMerge('tooltip', classes?.tooltip),
 		disabled
 	}}
-	class={['line-clamp-1 break-all text-start', className]}
+	class={['line-clamp-1 text-start break-all', className]}
 >
 	{text}
 </span>

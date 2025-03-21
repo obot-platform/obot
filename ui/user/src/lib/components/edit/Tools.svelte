@@ -33,14 +33,14 @@
 			{@const tt = popover({ hover: true, placement: 'top', delay: 300 })}
 
 			<div
-				class="flex w-full cursor-pointer items-start justify-between gap-1 rounded-md bg-surface1 p-2"
+				class="bg-surface1 flex w-full cursor-pointer items-start justify-between gap-1 rounded-md p-2"
 				use:tt.ref
 			>
 				<div class="flex w-full flex-col gap-1">
 					<div class="flex w-full items-center justify-between gap-1 text-sm font-medium">
 						<div class="flex items-center gap-2">
 							{#if tool.icon}
-								<div class="rounded-md bg-surface1 p-1 dark:bg-gray-200">
+								<div class="bg-surface1 rounded-md p-1 dark:bg-gray-200">
 									<img src={tool.icon} class="size-6" alt="tool {tool.name} icon" />
 								</div>
 							{/if}

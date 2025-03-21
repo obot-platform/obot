@@ -48,7 +48,7 @@
 
 <CollapsePane header="Tasks">
 	<div class="flex w-full flex-col gap-4">
-		<p class="text-sm text-gray">The following tasks will be shared with users of this Obot.</p>
+		<p class="text-gray text-sm">The following tasks will be shared with users of this Obot.</p>
 		<div class="flex flex-col">
 			{#each layout.tasks ?? [] as task, i (task.id)}
 				<div class="flex items-center justify-between gap-2">
@@ -70,7 +70,7 @@
 				</div>
 			{/each}
 			{#if layout.tasks?.length ?? 0 === 0}
-				<p class="pb-4 pt-6 text-center text-sm font-light text-gray">No tasks found.</p>
+				<p class="text-gray pt-6 pb-4 text-center text-sm font-light">No tasks found.</p>
 			{/if}
 		</div>
 		<button class="button flex items-center gap-1 self-end text-sm" onclick={() => newTask()}>
