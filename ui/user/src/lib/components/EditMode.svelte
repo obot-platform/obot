@@ -23,6 +23,7 @@
 	import Sites from '$lib/components/edit/Sites.svelte';
 	import { responsive } from '$lib/stores';
 	import { twMerge } from 'tailwind-merge';
+
 	interface Props {
 		project: Project;
 		tools: AssistantTool[];
@@ -135,7 +136,7 @@
 				>
 					<General bind:project />
 					<Instructions bind:project />
-					<Tools {tools} {onNewTools} {assistant} />
+					<Tools bind:tools {onNewTools} {assistant} {project} />
 					<Knowledge {project} />
 					{#if assistant?.websiteKnowledge?.siteTool}
 						<Sites {project} />

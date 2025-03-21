@@ -1,7 +1,7 @@
 <script lang="ts">
-	import Env from '$lib/components/tool/Env.svelte';
+	import Env from '$lib/components/edit/customtool/Env.svelte';
 	import { ChatService, type Project } from '$lib/services';
-	import { masked } from '$lib/components/tool/Env.svelte';
+	import { masked } from '$lib/components/edit/customtool/Env.svelte';
 
 	interface Props {
 		project: Project;

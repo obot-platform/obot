@@ -85,6 +85,15 @@
 		<X class="icon-default" />
 	</button>
 	{#if editIndex !== undefined && layout.tasks}
-		<TaskEditor {project} bind:task={layout.tasks[editIndex]} />
+		<TaskEditor
+			{project}
+			bind:task={layout.tasks[editIndex]}
+			onDelete={() => {
+				if (editIndex) {
+					layout.tasks?.splice(editIndex, 1);
+					closeEdit();
+				}
+			}}
+		/>
 	{/if}
 </dialog>

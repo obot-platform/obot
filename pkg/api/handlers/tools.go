@@ -47,6 +47,39 @@ func setEnvMap(req api.Context, gptScript *gptscript.GPTScript, threadName, tool
 	})
 }
 
+func (t *ToolHandler) UpdateTool(req api.Context) error {
+	var (
+		tool         = req.PathValue("tool")
+		toolManifest types.ToolManifest
+	)
+
+	//nolint:revive
+	if err := req.Read(&toolManifest); err != nil {
+		return err
+	}
+
+	thread, err := getProjectThread(req)
+	if err != nil {
+		return err
+	}
+
+	var customTool v1.Tool
+	if err := req.Get(&customTool, tool); err != nil {
+		return err
+	}
+
+	if customTool.Spec.ThreadName != thread.Name {
+		return types.NewErrNotFound("tool %s is not available", tool)
+	}
+
+	customTool.Spec.Manifest = toolManifest
+	if err := req.Update(&customTool); err != nil {
+		return err
+	}
+
+	return req.Write(convertTool(customTool, true))
+}
+
 func (t *ToolHandler) SetEnv(req api.Context) error {
 	toolID := req.PathValue("tool_id")
 	env := map[string]string{}
@@ -250,11 +283,6 @@ func (t *ToolHandler) Create(req api.Context) error {
 	}
 
 	if err := req.Create(&tool); err != nil {
-		return err
-	}
-
-	thread.Spec.Manifest.Tools = append(thread.Spec.Manifest.Tools, tool.Name)
-	if err := req.Update(thread); err != nil {
 		return err
 	}
 

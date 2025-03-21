@@ -15,11 +15,11 @@
 	let { envs = $bindable([]) }: Props = $props();
 </script>
 
-<div class="flex flex-col gap-4 rounded-3xl bg-gray-50 p-5 dark:bg-gray-950">
+<div class="bg-surface1 flex flex-col gap-4 rounded-lg p-5">
 	<div class="flex">
 		<h4 class="flex-1 text-xl font-semibold">Additional Environment Variables</h4>
 		<button onclick={() => envs.push({ key: '', value: '', editing: '' })}>
-			<Plus class="h-5 w-5" />
+			<Plus class="size-5" />
 		</button>
 	</div>
 	{#if envs.length !== 0}
@@ -37,14 +37,14 @@
 							><input
 								bind:value={env.key}
 								placeholder="eg. SAMPLE_KEY"
-								class="ast bg-gray-50 outline-hidden dark:bg-gray-950"
+								class="ast bg-surface1 outline-none"
 							/></td
 						>
 						<td
 							><textarea
 								use:autoHeight
 								placeholder="Enter value"
-								class="resize-none bg-gray-50 outline-hidden dark:bg-gray-950"
+								class="bg-surface1 resize-none outline-none"
 								rows="1"
 								bind:value={env.editing}
 								onfocusin={(e) => {
@@ -70,7 +70,7 @@
 						>
 						<td>
 							<button onclick={() => envs.splice(i, 1)}>
-								<Minus class="h-5 w-5" />
+								<Minus class="size-5" />
 							</button>
 						</td>
 					</tr>

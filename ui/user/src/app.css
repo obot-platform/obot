@@ -117,6 +117,7 @@
 		border-radius: 0.75rem; /* rounded-xl */
 		border-width: 1px;
 		border-color: var(--surface3);
+		margin: auto;
 		background-color: white;
 		font-size: 0.875rem; /* text-sm */
 		color: black;

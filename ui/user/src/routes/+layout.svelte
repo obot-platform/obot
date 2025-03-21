@@ -1,6 +1,7 @@
 <script lang="ts">
 	import '../app.css';
 	import { darkMode, responsive } from '$lib/stores';
+	import Notifications from '$lib/components/Notifications.svelte';
 
 	interface Props {
 		children?: import('svelte').Snippet;
@@ -52,3 +53,5 @@
 		rel="stylesheet"
 	/>
 </svelte:head>
+
+<Notifications />
