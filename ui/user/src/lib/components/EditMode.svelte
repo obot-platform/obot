@@ -23,7 +23,6 @@
 	import Sites from '$lib/components/edit/Sites.svelte';
 	import { responsive, tools } from '$lib/stores';
 	import { twMerge } from 'tailwind-merge';
-	import CollapsePane from './edit/CollapsePane.svelte';
 	interface Props {
 		project: Project;
 		currentThreadID?: string;

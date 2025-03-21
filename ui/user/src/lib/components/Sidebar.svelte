@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { type AssistantTool, type Project } from '$lib/services';
+	import { type Project } from '$lib/services';
 	import { KeyRound, SidebarClose } from 'lucide-svelte';
 	import Threads from '$lib/components/sidebar/Threads.svelte';
 	import Clone from '$lib/components/navbar/Clone.svelte';

@@ -21,7 +21,6 @@
 	import { responsive } from '$lib/stores';
 	import { Bug, Pencil, X } from 'lucide-svelte';
 	import { autoHeight } from '$lib/actions/textarea';
-	import GenerateIcon from './edit/GenerateIcon.svelte';
 	import EditIcon from './edit/EditIcon.svelte';
 
 	interface Props {

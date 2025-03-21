@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { type AssistantTool, type Project } from '$lib/services';
+	import { type Project } from '$lib/services';
 	import Credentials from '$lib/components/edit/Credentials.svelte';
 	import { X } from 'lucide-svelte/icons';
 
