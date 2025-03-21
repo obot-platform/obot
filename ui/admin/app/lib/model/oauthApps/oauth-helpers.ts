@@ -14,6 +14,7 @@ export const OAuthProvider = {
 	Zoom: "zoom",
 	LinkedIn: "linkedin",
 	PagerDuty: "pagerduty",
+	SmartThings: "smartthings",
 	Custom: "custom",
 } as const;
 export type OAuthProvider = (typeof OAuthProvider)[keyof typeof OAuthProvider];

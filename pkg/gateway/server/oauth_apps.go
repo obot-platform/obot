@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha256"
+	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -365,10 +366,12 @@ func (s *Server) refreshOAuthApp(apiContext api.Context) error {
 	data := url.Values{}
 	data.Set("client_id", app.Spec.Manifest.ClientID)
 	data.Set("client_secret", clientSecret)
-	if app.Spec.Manifest.Type != types2.OAuthAppTypeSalesforce {
+	if app.Spec.Manifest.Type != types2.OAuthAppTypeSalesforce && app.Spec.Manifest.Type != types2.OAuthAppTypeSmartThings {
 		data.Set("scope", scope)
 	}
-	data.Set("redirect_uri", app.RedirectURL(s.baseURL))
+	if app.Spec.Manifest.Type != types2.OAuthAppTypeSmartThings {
+		data.Set("redirect_uri", app.RedirectURL(s.baseURL))
+	}
 	data.Set("refresh_token", refreshToken)
 	data.Set("grant_type", "refresh_token")
 
@@ -377,7 +380,10 @@ func (s *Server) refreshOAuthApp(apiContext api.Context) error {
 		return fmt.Errorf("failed to make token request: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-
+	if app.Spec.Manifest.Type == types2.OAuthAppTypeSmartThings {
+		encodedAuth := base64.StdEncoding.EncodeToString([]byte(fmt.Sprintf("%s:%s", app.Spec.Manifest.ClientID, clientSecret)))
+		req.Header.Set("Authorization", fmt.Sprintf("Basic %s", encodedAuth))
+	}
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return fmt.Errorf("failed to make token request: %w", err)
