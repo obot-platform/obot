@@ -21,6 +21,7 @@
 	import AssistantIcon from '$lib/icons/AssistantIcon.svelte';
 	import { responsive } from '$lib/stores';
 	import { Bug } from 'lucide-svelte';
+	import { popover } from '$lib/actions';
 
 	interface Props {
 		id?: string;
@@ -37,6 +38,9 @@
 	let thread = $state<Thread>();
 	let messagesDiv = $state<HTMLDivElement>();
 	let scrollSmooth = $state(false);
+
+	const filesTT = popover({ hover: true, placement: 'top' });
+	const toolsTT = popover({ hover: true, placement: 'top' });
 
 	$effect(() => {
 		// Close and recreate thread if id changes
@@ -206,8 +210,15 @@
 					bind:items={layout.items}
 				>
 					<div class="flex w-fit items-center gap-1">
-						<Files thread {project} bind:currentThreadID={id} />
-						<Tools {project} {version} {tools} />
+						<div use:filesTT.ref>
+							<p use:filesTT.tooltip class="tooltip">Files</p>
+							<Files thread {project} bind:currentThreadID={id} />
+						</div>
+
+						<div use:toolsTT.ref>
+							<p use:toolsTT.tooltip class="tooltip">Tools</p>
+							<Tools {project} {version} {tools} />
+						</div>
 					</div>
 				</Input>
 				<div
