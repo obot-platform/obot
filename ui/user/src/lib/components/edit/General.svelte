@@ -134,7 +134,7 @@
 				{/if}
 			</div>
 		</div>
-		<div class="flex flex-col gap-1">
+		<div class="flex flex-col">
 			<label for="project-name" use:reactiveLabel={{ value: project.name }}> Name </label>
 			<input
 				id="project-name"
@@ -144,7 +144,7 @@
 				bind:value={project.name}
 			/>
 		</div>
-		<div class="flex flex-col gap-1">
+		<div class="flex flex-col">
 			<label for="project-desc" use:reactiveLabel={{ value: project.description }}>
 				Description
 			</label>

@@ -11,16 +11,17 @@
 	import Menu from '$lib/components/navbar/Menu.svelte';
 	import { PenBox } from 'lucide-svelte';
 	import { getLayout } from '$lib/context/layout.svelte';
-	import { responsive } from '$lib/stores';
+	import { responsive, tools } from '$lib/stores';
+	import ToolCatalog from '../edit/ToolCatalog.svelte';
+	import popover from '$lib/actions/popover.svelte';
 
 	interface Prop {
 		project: Project;
-		tools: AssistantTool[];
 		version: Version;
 	}
 
 	let menu = $state<ReturnType<typeof Menu>>();
-	let { project, tools, version }: Prop = $props();
+	let { project, version }: Prop = $props();
 	const layout = getLayout();
 
 	async function addTool() {
@@ -36,9 +37,17 @@
 		menu?.toggle(false);
 	}
 
-	async function onLoad() {
-		tools = (await ChatService.listTools(project.assistantID, project.id)).items;
+	async function onNewTools(newTools: AssistantTool[]) {
+		tools.setTools(
+			(
+				await ChatService.updateProjectTools(project.assistantID, project.id, {
+					items: newTools
+				})
+			).items
+		);
 	}
+
+	let catalog = popover({ fixed: true, slide: responsive.isMobile ? 'up' : undefined });
 </script>
 
 <Menu
@@ -46,7 +55,6 @@
 	title="Tools"
 	description="AI can use the following tools."
 	showRefresh={false}
-	{onLoad}
 	classes={{
 		button: 'button-icon-primary',
 		dialog: responsive.isMobile
@@ -61,7 +69,7 @@
 	{/snippet}
 	{#snippet body()}
 		<ul class="space-y-4 py-6 text-sm">
-			{#each tools as tool, i}
+			{#each tools.current.tools as tool, i}
 				{#if !tool.builtin && tool.enabled}
 					<li>
 						<div class="flex">
@@ -96,16 +104,31 @@
 				{/if}
 			{/each}
 		</ul>
-		{#if version.dockerSupported}
-			<div class="flex justify-end">
-				<button
-					onclick={addTool}
-					class="button mt-3 -mr-3 -mb-3 flex items-center justify-end gap-1 text-sm"
-				>
+		<div class="-mb-2 flex items-center justify-end gap-2 pt-4">
+			{#if version.dockerSupported}
+				<button onclick={addTool} class="button flex items-center justify-end gap-1 text-sm">
 					Add Custom Tool
 					<Plus class="ms-1 size-4" />
 				</button>
-			</div>
-		{/if}
+			{/if}
+			<button
+				class="button flex items-center gap-1 text-sm"
+				use:catalog.ref
+				onclick={() => catalog.toggle(true)}><Plus class="size-4" /> Tools</button
+			>
+		</div>
 	{/snippet}
 </Menu>
+
+<div
+	use:catalog.tooltip
+	class="default-dialog bottom-0 left-0 h-screen w-full rounded-none p-2 md:bottom-1/2 md:left-1/2 md:h-fit md:w-auto md:-translate-x-1/2 md:translate-y-1/2 md:rounded-xl"
+>
+	<ToolCatalog
+		onSelectTools={onNewTools}
+		onSubmit={() => {
+			catalog.toggle(false);
+			menu?.toggle(false);
+		}}
+	/>
+</div>

@@ -4,6 +4,7 @@
 	import { getLayout } from '$lib/context/layout.svelte';
 	import { fade } from 'svelte/transition';
 	import { overflowToolTip } from '$lib/actions/overflow';
+	import { tooltip } from '$lib/actions/tooltip.svelte';
 
 	interface Props {
 		project: Project;
@@ -31,7 +32,11 @@
 	<div class="mb-1 flex items-center gap-1">
 		<p class="text-sm font-semibold">Tables</p>
 		<div class="grow"></div>
-		<button class="icon-button" onclick={() => loadTables()}>
+		<button
+			class="icon-button"
+			onclick={() => loadTables()}
+			use:tooltip={{ text: 'Refresh Tables' }}
+		>
 			<RefreshCcw class="size-4" />
 		</button>
 	</div>

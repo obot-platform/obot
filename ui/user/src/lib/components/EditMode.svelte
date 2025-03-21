@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Trash2 } from 'lucide-svelte';
+	import { GripVertical, Trash2 } from 'lucide-svelte';
 	import General from '$lib/components/edit/General.svelte';
 	import { type Project, ChatService, type AssistantTool, type Assistant } from '$lib/services';
 	import { onDestroy, onMount } from 'svelte';
@@ -21,27 +21,23 @@
 	import Projects from './navbar/Projects.svelte';
 	import { goto } from '$app/navigation';
 	import Sites from '$lib/components/edit/Sites.svelte';
-	import { responsive } from '$lib/stores';
+	import { responsive, tools } from '$lib/stores';
 	import { twMerge } from 'tailwind-merge';
+	import CollapsePane from './edit/CollapsePane.svelte';
 	interface Props {
 		project: Project;
-		tools: AssistantTool[];
 		currentThreadID?: string;
 		assistant?: Assistant;
 	}
 
-	let {
-		project = $bindable(),
-		tools = $bindable(),
-		currentThreadID = $bindable(),
-		assistant
-	}: Props = $props();
+	let { project = $bindable(), currentThreadID = $bindable(), assistant }: Props = $props();
 
 	const layout = getLayout();
 	let projectSaved = '';
 	let timer: number = 0;
 	let nav = $state<HTMLDivElement>();
 	let toDelete = $state(false);
+	let showAdvanced = $state(false);
 
 	async function updateProject() {
 		if (JSON.stringify(project) === projectSaved) {
@@ -56,11 +52,13 @@
 	}
 
 	async function onNewTools(newTools: AssistantTool[]) {
-		tools = (
-			await ChatService.updateProjectTools(project.assistantID, project.id, {
-				items: newTools
-			})
-		).items;
+		tools.setTools(
+			(
+				await ChatService.updateProjectTools(project.assistantID, project.id, {
+					items: newTools
+				})
+			).items
+		);
 	}
 
 	async function loadProject() {
@@ -135,17 +133,32 @@
 				>
 					<General bind:project />
 					<Instructions bind:project />
-					<Tools {tools} {onNewTools} {assistant} />
+					<Tools {onNewTools} />
 					<Knowledge {project} />
-					{#if assistant?.websiteKnowledge?.siteTool}
-						<Sites {project} />
+
+					{#if showAdvanced}
+						<div class="flex flex-col" transition:slide>
+							{#if assistant?.websiteKnowledge?.siteTool}
+								<Sites {project} />
+							{/if}
+							<Files {project} />
+							<Tasks {project} />
+							<Interface bind:project />
+							<Credentials {project} />
+							<Share {project} />
+						</div>
 					{/if}
-					<Files {project} />
-					<Tasks {project} />
-					<Interface bind:project />
-					<Credentials {project} {tools} />
-					<Share {project} />
-					<div class="grow"></div>
+
+					<div class="mt-auto">
+						<button
+							class="w-fit justify-start p-4 text-left text-sm text-gray hover:underline"
+							onclick={() => (showAdvanced = !showAdvanced)}
+						>
+							<span
+								>{showAdvanced ? 'Collapse Advanced Options...' : 'Show Advanced Options...'}</span
+							>
+						</button>
+					</div>
 				</div>
 				<div class="bg-surface1 flex justify-between p-2">
 					<button class="button flex items-center gap-1 text-sm" onclick={() => copy()}>
@@ -165,21 +178,25 @@
 			{#if !responsive.isMobile}
 				<div
 					role="none"
-					class="w-2 translate-x-2 cursor-col-resize"
+					class="relative cursor-col-resize border-r border-surface2 bg-transparent px-1"
 					use:columnResize={{ column: nav }}
-				></div>
+				>
+					<div class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-on-surface1">
+						<GripVertical class="size-3 text-surface3" />
+					</div>
+				</div>
 			{/if}
 		{/if}
 		<div
-			class="colors-surface3 h-full grow rounded-l-3xl border-r-0 p-2"
+			class="h-full grow border-r-0"
 			class:contents={!layout.projectEditorOpen}
 			class:hidden={layout.projectEditorOpen && responsive.isMobile}
 		>
 			<div
-				class="size-full overflow-clip rounded-2xl transition-all"
+				class="size-full overflow-clip transition-all"
 				class:rounded-none={!layout.projectEditorOpen}
 			>
-				<Obot {project} {tools} bind:currentThreadID />
+				<Obot {project} bind:currentThreadID />
 			</div>
 		</div>
 	</div>

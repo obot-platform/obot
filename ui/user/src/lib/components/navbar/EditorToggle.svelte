@@ -44,6 +44,7 @@
 
 		if (project.editor) {
 			layout.projectEditorOpen = true;
+			layout.sidebarOpen = false;
 			return;
 		}
 
