@@ -23,7 +23,7 @@
 		<ProfileIcon />
 	{/snippet}
 	{#snippet header()}
-		<div class="flex w-full items-center justify-between p-4 pb-0">
+		<div class="flex w-full items-center justify-between p-4">
 			<div class="flex items-center gap-3">
 				<ProfileIcon class="size-12" />
 				<div class="flex grow flex-col">
@@ -41,7 +41,7 @@
 					darkMode.setDark(!darkMode.isDark);
 				}}
 				role="menuitem"
-				class="after:content=[''] relative cursor-pointer flex-col rounded-full border border-surface3 bg-surface2 p-2 shadow-inner after:absolute after:left-1 after:top-1 after:z-0 after:size-7 after:rounded-full after:bg-transparent after:transition-all after:duration-200 dark:border-white/15 dark:bg-surface3"
+				class="after:content=[''] border-surface3 bg-surface2 dark:bg-surface3 relative cursor-pointer flex-col rounded-full border p-2 shadow-inner after:absolute after:top-1 after:left-1 after:z-0 after:size-7 after:rounded-full after:bg-transparent after:transition-all after:duration-200 dark:border-white/15"
 				class:dark-selected={darkMode.isDark}
 				class:light-selected={!darkMode.isDark}
 			>
@@ -51,7 +51,7 @@
 		</div>
 	{/snippet}
 	{#snippet body()}
-		<div class="flex flex-col gap-2 px-2 py-4">
+		<div class="flex flex-col gap-2 px-2 pb-4">
 			{#if profile.current.role === 1}
 				<a href="/admin/" rel="external" role="menuitem" class="link"
 					><LayoutDashboard class="size-4" />Admin Dashboard</a
@@ -93,14 +93,25 @@
 
 <style lang="postcss">
 	.link {
-		@apply text-md hover:bg-surface3 flex w-full items-center gap-2 rounded-lg px-2 py-2;
+		font-size: var(--text-md);
+		display: flex;
+		width: 100%;
+		align-items: center;
+		gap: 0.5rem;
+		border-radius: 0.5rem;
+		padding: 0.5rem;
+	}
+	.link:hover {
+		background-color: var(--surface3);
 	}
 
-	.dark-selected {
-		@apply after:translate-y-8 after:bg-surface1;
+	.dark-selected::after {
+		transform: translateY(2rem);
+		background-color: var(--surface1);
 	}
 
-	.light-selected {
-		@apply after:translate-y-0 after:bg-white;
+	.light-selected::after {
+		transform: translateY(0);
+		background-color: white;
 	}
 </style>

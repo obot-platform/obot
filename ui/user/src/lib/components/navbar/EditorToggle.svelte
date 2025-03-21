@@ -73,7 +73,7 @@
 	{/if}
 </button>
 
-<dialog bind:this={obotEditorDialog} class="w-full max-w-md p-4">
+<dialog bind:this={obotEditorDialog} class="centered w-full max-w-md p-4">
 	<div class="flex flex-col gap-4">
 		<button class="icon-button absolute top-2 right-2" onclick={() => obotEditorDialog?.close()}>
 			<X class="h-5 w-5" />
