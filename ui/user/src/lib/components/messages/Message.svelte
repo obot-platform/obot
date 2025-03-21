@@ -2,7 +2,7 @@
 	import MessageIcon from '$lib/components/messages/MessageIcon.svelte';
 	import { FileText, Pencil } from 'lucide-svelte/icons';
 	import { Tween } from 'svelte/motion';
-	import { ChatService, type Message, type Project } from '$lib/services';
+	import { ChatService, type Message, type Project, type Step } from '$lib/services';
 	import highlight from 'highlight.js';
 	import { toHTMLFromMarkdown } from '$lib/markdown.js';
 	import { Paperclip } from 'lucide-svelte';
@@ -15,6 +15,7 @@
 	interface Props {
 		msg: Message;
 		project: Project;
+		steps?: Step[];
 		onLoadFile?: (filename: string) => void;
 		onSendCredentials?: (id: string, credentials: Record<string, string>) => void;
 		onSendCredentialsCancel?: (id: string) => void;
@@ -23,12 +24,19 @@
 	let {
 		msg,
 		project,
+		steps,
 		onLoadFile = () => {},
 		onSendCredentials = ChatService.sendCredentials,
 		onSendCredentialsCancel
 	}: Props = $props();
 
-	let content = $derived(msg.message ? msg.message.join('') : '');
+	let content = $derived(
+		msg.message
+			? msg.stepID && steps && msg.sent
+				? `${steps.findIndex((step) => step.id === msg.stepID) + 1}. ${msg.message.join('')}`
+				: msg.message.join('')
+			: ''
+	);
 	let fullWidth = !msg.sent && !msg.oauthURL && !msg.tool;
 	let showBubble = msg.sent;
 	let isPrompt = msg.fields && msg.promptId;

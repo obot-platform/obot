@@ -9,6 +9,7 @@
 		EditorService,
 		type Messages,
 		type Project,
+		type TaskRun,
 		type Version
 	} from '$lib/services';
 	import { fade } from 'svelte/transition';
@@ -21,22 +22,25 @@
 	import AssistantIcon from '$lib/icons/AssistantIcon.svelte';
 	import { responsive } from '$lib/stores';
 	import { Bug } from 'lucide-svelte';
+	import { formatTime } from '$lib/time';
 
 	interface Props {
 		id?: string;
 		project: Project;
 		tools: AssistantTool[];
 		version: Version;
-		isTaskRun?: boolean;
+		taskRunId?: string;
+		taskId?: string;
 	}
 
-	let { id = $bindable(), project, version, tools, isTaskRun }: Props = $props();
+	let { id = $bindable(), project, version, tools, taskRunId, taskId }: Props = $props();
 
 	let container = $state<HTMLDivElement>();
 	let messages = $state<Messages>({ messages: [], inProgress: false });
 	let thread = $state<Thread>();
 	let messagesDiv = $state<HTMLDivElement>();
 	let scrollSmooth = $state(false);
+	let taskRun = $state<TaskRun | undefined>();
 
 	$effect(() => {
 		// Close and recreate thread if id changes
@@ -54,6 +58,10 @@
 
 		if (id && !thread) {
 			constructThread();
+		}
+
+		if (taskRunId && taskId) {
+			getTaskRun();
 		}
 	});
 
@@ -79,6 +87,14 @@
 			id = (await ChatService.createThread(project.assistantID, project.id)).id;
 			await constructThread();
 		}
+	}
+
+	async function getTaskRun() {
+		if (!taskId || !taskRunId) {
+			return;
+		}
+
+		taskRun = await ChatService.getTaskRun(project.assistantID, project.id, taskId, taskRunId);
 	}
 
 	async function constructThread() {
@@ -119,6 +135,15 @@
 	}
 </script>
 
+{#snippet taskRunTime(pretext: string, time: string | Date)}
+	<div class="flex items-center justify-center">
+		<div class="w-fit border-b border-t border-surface1 px-8 py-2 text-center text-xs">
+			<span class="font-semibold">{pretext}:</span>
+			<span>{formatTime(time)}</span>
+		</div>
+	</div>
+{/snippet}
+
 <div class="relative h-full w-full max-w-[900px] pb-32">
 	<!-- Fade text in/out on scroll -->
 	<div
@@ -144,7 +169,39 @@
 			class="flex h-fit w-full flex-col justify-start gap-8 p-5 transition-all"
 			class:justify-center={!thread}
 		>
-			{#if !isTaskRun}
+			{#if taskRunId}
+				{#if taskRun}
+					<div class="w-full pt-8">
+						<div class="mb-4 flex grow flex-col gap-1 border-l-4 border-blue pl-4">
+							<strong class="text-xs text-blue">TASK</strong>
+
+							<h1 class="text-2xl font-semibold">{taskRun.task.name}</h1>
+							{#if taskRun.task.description}
+								<p class="py-2 text-base text-gray dark:text-gray-300">
+									{taskRun.task.description}
+								</p>
+							{/if}
+						</div>
+						{#if taskRun.startTime}
+							{@render taskRunTime('Run Started', taskRun.startTime)}
+						{/if}
+						{#if taskRun.input}
+							{@const parsedInput = JSON.parse(taskRun.input)}
+							<div class="mt-8 flex flex-col gap-2">
+								<p class="text-md">Initializing run with the following input(s):</p>
+								{#each Object.entries(parsedInput) as [key, value]}
+									<div class="flex gap-2">
+										<span class="text-md font-semibold">{key}:</span>
+										<span class="text-md"
+											>"{typeof value === 'object' ? JSON.stringify(value) : value}"</span
+										>
+									</div>
+								{/each}
+							</div>
+						{/if}
+					</div>
+				{/if}
+			{:else}
 				<div class="message-content w-full self-center">
 					<div class="flex flex-col items-center justify-center pt-8 text-center">
 						<AssistantIcon {project} class="h-24 w-24 shadow-lg" />
@@ -183,8 +240,12 @@
 					{onLoadFile}
 					{onSendCredentials}
 					onSendCredentialsCancel={() => thread?.abort()}
+					steps={taskRun?.task.steps}
 				/>
 			{/each}
+			{#if taskRunId && taskRun?.endTime}
+				{@render taskRunTime('Run Ended', taskRun.endTime)}
+			{/if}
 			<div class="min-h-16">
 				<!-- Vertical Spacer -->
 			</div>
