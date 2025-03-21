@@ -5,7 +5,7 @@
 	import { CheckSquare } from 'lucide-svelte';
 	import Menu from '$lib/components/navbar/Menu.svelte';
 	import { getLayout } from '$lib/context/layout.svelte';
-	import Truncate from '$lib/components/shared/tooltip/Truncate.svelte';
+	import { overflowToolTip } from '$lib/actions/overflow';
 
 	interface Props {
 		project: Project;
@@ -57,7 +57,7 @@
 					<li class="group">
 						<div class="flex">
 							<button
-								class="flex flex-1 items-center"
+								class="flex flex-1 items-center truncate"
 								onclick={async () => {
 									await EditorService.load(layout.items, project, task.id);
 									layout.fileEditorOpen = true;
@@ -65,7 +65,8 @@
 								}}
 							>
 								<CheckSquare class="size-5 min-w-fit" />
-								<Truncate class="ms-2 group-hover:underline" text={task.name ?? ''} />
+								<span class="ms-2 group-hover:underline" use:overflowToolTip>{task.name ?? ''}</span
+								>
 							</button>
 							<button
 								class="invisible group-hover:visible"

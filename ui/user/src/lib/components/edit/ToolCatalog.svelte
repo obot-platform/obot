@@ -11,9 +11,15 @@
 		tools: AssistantTool[];
 		onSelectTools: (tools: AssistantTool[]) => void;
 		maxTools?: number;
+		dialogOnly?: boolean;
 	}
 
-	let { tools, onSelectTools, maxTools = Number.MAX_SAFE_INTEGER }: Props = $props();
+	let {
+		tools,
+		onSelectTools,
+		maxTools = Number.MAX_SAFE_INTEGER,
+		dialogOnly = false
+	}: Props = $props();
 
 	let input = $state<HTMLInputElement>();
 	let search = $state('');
@@ -42,6 +48,10 @@
 	);
 
 	let catalog = popover({ fixed: true, slide: responsive.isMobile ? 'up' : undefined });
+
+	export function open() {
+		catalog.toggle(true);
+	}
 
 	function setToolEnabled(toolId: string, val?: boolean) {
 		if (toolId in toolSelection) {
@@ -118,7 +128,7 @@
 </script>
 
 <button
-	class="button flex items-center gap-1 text-sm"
+	class={['button flex items-center gap-1 text-sm', dialogOnly && 'hidden']}
 	use:catalog.ref
 	onclick={() => catalog.toggle(true)}><Plus class="size-4" /> Tools</button
 >

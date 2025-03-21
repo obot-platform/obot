@@ -2130,12 +2130,6 @@ func schema_obot_platform_obot_apiclient_types_Metadata(ref common.ReferenceCall
 							Ref: ref("github.com/obot-platform/obot/apiclient/types.Time"),
 						},
 					},
-					"revision": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
 					"links": {
 						SchemaProps: spec.SchemaProps{
 							Type: []string{"object"},

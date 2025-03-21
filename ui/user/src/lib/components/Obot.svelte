@@ -1,12 +1,11 @@
 <script lang="ts">
 	import Editor from '$lib/components/Editors.svelte';
 	import Navbar from '$lib/components/Navbar.svelte';
-	import Notifications from '$lib/components/Notifications.svelte';
 	import Sidebar from '$lib/components/Sidebar.svelte';
 	import Task from '$lib/components/tasks/Task.svelte';
 	import Thread from '$lib/components/Thread.svelte';
 	import { getLayout } from '$lib/context/layout.svelte';
-	import { type AssistantTool, ChatService, type Project, type Version } from '$lib/services';
+	import { type AssistantTool, ChatService, type Project } from '$lib/services';
 	import type { EditorItem } from '$lib/services/editor/index.svelte';
 	import { responsive, term } from '$lib/stores';
 	import { SidebarOpen } from 'lucide-svelte';
@@ -30,14 +29,10 @@
 	}: Props = $props();
 	let layout = getLayout();
 	let editorVisible = $derived(layout.fileEditorOpen || term.open);
-	let version = $state<Version>({});
 
 	onMount(async () => {
 		if (tools.length === 0) {
 			tools = (await ChatService.listTools(project.assistantID, project.id)).items;
-		}
-		if (!version) {
-			version = await ChatService.getVersion();
 		}
 	});
 </script>
@@ -98,7 +93,6 @@
 							<Thread
 								bind:id={currentThreadID}
 								{project}
-								{version}
 								{tools}
 								isTaskRun={!!currentThreadID &&
 									!!layout.taskRuns?.some((run) => run.id === currentThreadID)}
@@ -116,8 +110,6 @@
 					<Editor {project} {currentThreadID} />
 				</div>
 			</div>
-
-			<Notifications />
 		</main>
 	</div>
 </div>

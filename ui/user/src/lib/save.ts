@@ -41,7 +41,7 @@ export function newFileMonitor(
 	};
 }
 
-interface SaveMonitor {
+export interface SaveMonitor {
 	start(): () => void;
 	save(): Promise<void>;
 	stop(): void;

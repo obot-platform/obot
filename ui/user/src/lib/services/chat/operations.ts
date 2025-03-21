@@ -417,11 +417,11 @@ export async function updateTool(
 	opts?: {
 		env?: Record<string, string>;
 	}
-): Promise<AssistantToolList> {
+): Promise<AssistantTool> {
 	const result = (await doPut(
 		`/assistants/${assistantID}/projects/${projectID}/tools/${tool.id}`,
 		tool
-	)) as AssistantToolList;
+	)) as AssistantTool;
 	if (opts?.env) {
 		await saveToolEnv(assistantID, projectID, tool.id, opts.env);
 	}

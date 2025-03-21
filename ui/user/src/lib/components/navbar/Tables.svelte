@@ -3,7 +3,7 @@
 	import Menu from '$lib/components/navbar/Menu.svelte';
 	import { Table } from 'lucide-svelte';
 	import { getLayout } from '$lib/context/layout.svelte';
-	import Truncate from '$lib/components/shared/tooltip/Truncate.svelte';
+	import { overflowToolTip } from '$lib/actions/overflow';
 
 	interface Props {
 		project: Project;
@@ -40,7 +40,7 @@
 					<li class="group">
 						<div class="flex">
 							<button
-								class="flex max-w-full flex-1 items-center"
+								class="flex max-w-full flex-1 items-center truncate"
 								onclick={async () => {
 									await EditorService.load(layout.items, project, 'table://' + table.name);
 									layout.fileEditorOpen = true;
@@ -48,7 +48,7 @@
 								}}
 							>
 								<Table class="size-5 min-w-fit" />
-								<Truncate class="ms-2 group-hover:underline" text={table.name} />
+								<span class="ms-2 group-hover:underline" use:overflowToolTip>{table.name}</span>
 							</button>
 						</div>
 					</li>

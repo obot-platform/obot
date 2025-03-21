@@ -1,7 +1,7 @@
 <script lang="ts">
-	import { ChatService, type Task, type Version } from '$lib/services';
-	import { onMount } from 'svelte';
+	import { type Task } from '$lib/services';
 	import Dropdown from '$lib/components/tasks/Dropdown.svelte';
+	import { version } from '$lib/stores';
 
 	interface Props {
 		task?: Task;
@@ -15,23 +15,18 @@
 		}
 		return Object.keys(task?.onDemand?.params ?? {}).length === 0;
 	});
-	let version: Version = $state({});
 	let options = $derived.by(() => {
 		const options: Record<string, string> = {
 			onDemand: 'on demand',
 			schedule: 'on interval',
 			webhook: 'on webhook'
 		};
-		if (version.emailDomain) {
+		if (version.current.emailDomain) {
 			options['email'] = 'on email';
 		}
 		// assigned later so it's rendered last
 		options['onDemand'] = 'on demand';
 		return options;
-	});
-
-	onMount(async () => {
-		version = await ChatService.getVersion();
 	});
 
 	function selectedTrigger(): string {
