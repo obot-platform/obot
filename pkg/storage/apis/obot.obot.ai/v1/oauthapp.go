@@ -50,6 +50,8 @@ func (r *OAuthApp) Get(field string) string {
 		switch field {
 		case "spec.manifest.alias":
 			return r.Spec.Manifest.Alias
+		case "spec.threadName":
+			return r.Spec.ThreadName
 		}
 	}
 
@@ -57,7 +59,7 @@ func (r *OAuthApp) Get(field string) string {
 }
 
 func (r *OAuthApp) FieldNames() []string {
-	return []string{"spec.manifest.alias"}
+	return []string{"spec.manifest.alias", "spec.threadName"}
 }
 
 func (r *OAuthApp) RedirectURL(baseURL string) string {
@@ -77,11 +79,12 @@ func (r *OAuthApp) RefreshURL(baseURL string) string {
 }
 
 func (r *OAuthApp) DeleteRefs() []Ref {
-	return nil
+	return []Ref{{ObjType: new(Thread), Name: r.Spec.ThreadName}}
 }
 
 type OAuthAppSpec struct {
-	Manifest types.OAuthAppManifest `json:"manifest,omitempty"`
+	Manifest   types.OAuthAppManifest `json:"manifest,omitempty"`
+	ThreadName string                 `json:"threadName,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

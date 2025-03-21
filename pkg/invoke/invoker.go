@@ -184,6 +184,7 @@ type Options struct {
 	CredentialContextIDs  []string
 	UserUID               string
 	GenerateName          string
+	ParentThreadName      string
 }
 
 func (i *Invoker) getChatState(ctx context.Context, c kclient.Client, run *v1.Run) (result string, _ error) {
@@ -263,6 +264,10 @@ func getThreadForAgent(ctx context.Context, c kclient.WithWatch, agent *v1.Agent
 		parentThreadName = run.Spec.ThreadName
 	}
 
+	if parentThreadName == "" && opt.ParentThreadName != "" {
+		parentThreadName = opt.ParentThreadName
+	}
+
 	return createThreadForAgent(ctx, c, agent, opt.ThreadName, parentThreadName, opt.UserUID, opt.EphemeralThread)
 }
 
@@ -326,7 +331,7 @@ func (i *Invoker) Agent(ctx context.Context, c kclient.WithWatch, agent *v1.Agen
 		return nil, err
 	}
 
-	if thread.Spec.AgentName != agent.Name {
+	if thread.Spec.AgentName != agent.Name && agent.Name != "" {
 		return nil, fmt.Errorf("thread %q is not associated with agent %q", thread.Name, agent.Name)
 	}
 

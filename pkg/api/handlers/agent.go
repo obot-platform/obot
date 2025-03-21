@@ -59,7 +59,7 @@ func (a *AgentHandler) Authenticate(req api.Context) (err error) {
 		return err
 	}
 
-	resp, err := runAuthForAgent(req.Context(), req.Storage, a.invoker, a.gptscript, &agent, id, tools, req.User.GetUID())
+	resp, err := runAuthForAgent(req.Context(), req.Storage, a.invoker, a.gptscript, &agent, id, tools, req.User.GetUID(), "")
 	if err != nil {
 		return err
 	}
@@ -916,7 +916,7 @@ func MetadataFrom(obj kclient.Object, linkKV ...string) types.Metadata {
 	return m
 }
 
-func runAuthForAgent(ctx context.Context, c kclient.WithWatch, invoker *invoke.Invoker, gClient *gptscript.GPTScript, agent *v1.Agent, credContext string, tools []string, userID string) (*invoke.Response, error) {
+func runAuthForAgent(ctx context.Context, c kclient.WithWatch, invoker *invoke.Invoker, gClient *gptscript.GPTScript, agent *v1.Agent, credContext string, tools []string, userID string, parentThreadName string) (*invoke.Response, error) {
 	credentials := make([]string, 0, len(tools))
 
 	var toolRef v1.ToolReference
@@ -967,6 +967,7 @@ func runAuthForAgent(ctx context.Context, c kclient.WithWatch, invoker *invoke.I
 		EphemeralThread:      true,
 		UserUID:              userID,
 		CredentialContextIDs: []string{credContext},
+		ParentThreadName:     parentThreadName,
 	})
 }
 
