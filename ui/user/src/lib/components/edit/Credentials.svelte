@@ -90,7 +90,7 @@
 			{/key}
 		{/each}
 		{#if !creds || creds.length === 0}
-			<span class="place-self-center self-center pb-4 pt-6 text-sm font-light text-gray"
+			<span class="text-gray place-self-center self-center pt-6 pb-4 text-sm font-light"
 				>No credentials found.</span
 			>
 		{/if}
