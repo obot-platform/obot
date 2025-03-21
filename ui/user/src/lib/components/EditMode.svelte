@@ -151,7 +151,7 @@
 
 					<div class="mt-auto">
 						<button
-							class="w-fit justify-start p-4 text-left text-sm text-gray hover:underline"
+							class="text-gray w-fit justify-start p-4 text-left text-sm hover:underline"
 							onclick={() => (showAdvanced = !showAdvanced)}
 						>
 							<span
@@ -178,11 +178,11 @@
 			{#if !responsive.isMobile}
 				<div
 					role="none"
-					class="relative cursor-col-resize border-r border-surface2 bg-transparent px-1"
+					class="border-surface2 relative cursor-col-resize border-r bg-transparent px-1"
 					use:columnResize={{ column: nav }}
 				>
-					<div class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-on-surface1">
-						<GripVertical class="size-3 text-surface3" />
+					<div class="text-on-surface1 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
+						<GripVertical class="text-surface3 size-3" />
 					</div>
 				</div>
 			{/if}
@@ -196,7 +196,7 @@
 				class="size-full overflow-clip transition-all"
 				class:rounded-none={!layout.projectEditorOpen}
 			>
-				<Obot {project} bind:currentThreadID />
+				<Obot bind:project bind:currentThreadID />
 			</div>
 		</div>
 	</div>

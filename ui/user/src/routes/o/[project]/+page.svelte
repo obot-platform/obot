@@ -87,7 +87,7 @@
 			{#if project.editor}
 				<EditMode bind:project bind:currentThreadID assistant={data.assistant} />
 			{:else}
-				<Obot {project} bind:currentThreadID />
+				<Obot bind:project bind:currentThreadID />
 			{/if}
 		{/key}
 	{/if}
