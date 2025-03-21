@@ -9,5 +9,5 @@ export function getProjectImage(project: Project | ProjectShare, isDarkMode: boo
 		? project.icons?.iconDark || project.icons?.icon
 		: project.icons?.icon;
 
-	return imageUrl ?? '/agent/images/placeholder.webp'; // need placeholder image
+	return imageUrl ?? '/agent/images/obot_placeholder.webp'; // need placeholder image
 }

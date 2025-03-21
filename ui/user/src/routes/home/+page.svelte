@@ -13,6 +13,7 @@
 	import Confirm from '$lib/components/Confirm.svelte';
 	import ToolPill from '$lib/components/ToolPill.svelte';
 	import { getProjectImage } from '$lib/image';
+	import { DEFAULT_PROJECT_NAME } from '$lib/constants';
 
 	let { data }: PageProps = $props();
 	let toDelete = $state<Project>();
@@ -133,8 +134,10 @@
 				></div>
 			</div>
 			<div class="flex h-full flex-col gap-2 px-4 py-2">
-				<h4 class="font-semibold">{project.name || 'Untitled'}</h4>
-				<p class="line-clamp-3 text-xs text-gray-500">{project.description}</p>
+				<h4 class="font-semibold">{project.name || DEFAULT_PROJECT_NAME}</h4>
+				<p class="line-clamp-3 text-xs text-gray-500">
+					{project.description || ''}
+				</p>
 
 				{#if 'tools' in project && project.tools}
 					<div class="mt-auto flex flex-wrap items-center justify-end gap-2 py-2">
@@ -221,8 +224,8 @@
 
 <Confirm
 	msg={recentlyUsedProjects.some((p) => p.id === toDelete?.id)
-		? `Remove recently used Obot ${toDelete?.name || 'Untitled'}?`
-		: `Delete the Obot ${toDelete?.name || 'Untitled'}?`}
+		? `Remove recently used Obot ${toDelete?.name || DEFAULT_PROJECT_NAME}?`
+		: `Delete the Obot ${toDelete?.name || DEFAULT_PROJECT_NAME}?`}
 	show={!!toDelete}
 	onsuccess={async () => {
 		if (!toDelete) return;

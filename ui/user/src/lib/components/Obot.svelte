@@ -4,36 +4,35 @@
 	import Sidebar from '$lib/components/Sidebar.svelte';
 	import Task from '$lib/components/tasks/Task.svelte';
 	import Thread from '$lib/components/Thread.svelte';
-	import { getLayout } from '$lib/context/layout.svelte';
-	import { type AssistantTool, ChatService, type Project } from '$lib/services';
+	import { ChatService, type Project } from '$lib/services';
 	import type { EditorItem } from '$lib/services/editor/index.svelte';
 	import { responsive } from '$lib/stores';
-	import { SidebarOpen } from 'lucide-svelte';
-	import { onMount } from 'svelte';
+	import { closeAll, getLayout } from '$lib/context/layout.svelte';
+	import { Plus, SidebarOpen } from 'lucide-svelte';
 	import { fade, slide } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';
 	import Logo from './navbar/Logo.svelte';
+	import { tooltip } from '$lib/actions/tooltip.svelte';
 
 	interface Props {
 		project: Project;
 		items?: EditorItem[];
-		tools?: AssistantTool[];
 		currentThreadID?: string;
 	}
 
-	let {
-		project,
-		tools = [],
-		currentThreadID = $bindable(),
-		items = $bindable([])
-	}: Props = $props();
+	let { project = $bindable(), currentThreadID = $bindable() }: Props = $props();
 	let layout = getLayout();
 
-	onMount(async () => {
-		if (tools.length === 0) {
-			tools = (await ChatService.listTools(project.assistantID, project.id)).items;
+	async function createNewThread() {
+		const thread = await ChatService.createThread(project.assistantID, project.id);
+		const found = layout.threads?.find((t) => t.id === thread.id);
+		if (!found) {
+			layout.threads?.splice(0, 0, thread);
 		}
-	});
+
+		closeAll(layout);
+		currentThreadID = thread.id;
+	}
 </script>
 
 <div class="colors-background relative flex h-full flex-col overflow-hidden">
@@ -43,7 +42,7 @@
 	>
 		{#if layout.sidebarOpen && !layout.fileEditorOpen}
 			<div class="w-screen min-w-screen md:w-1/6 md:min-w-[250px]" transition:slide={{ axis: 'x' }}>
-				<Sidebar {project} bind:currentThreadID {tools} />
+				<Sidebar {project} bind:currentThreadID />
 			</div>
 		{/if}
 
@@ -63,8 +62,17 @@
 								layout.sidebarOpen = true;
 								layout.fileEditorOpen = false;
 							}}
+							use:tooltip={'Open Sidebar'}
 						>
 							<SidebarOpen class="icon-default" />
+						</button>
+						<button
+							class="icon-button"
+							in:fade={{ delay: 400 }}
+							use:tooltip={'Start New Thread'}
+							onclick={() => createNewThread()}
+						>
+							<Plus class="icon-default" />
 						</button>
 					{/if}
 				</Navbar>
@@ -91,8 +99,7 @@
 						<div id="main-input" class="flex h-full max-w-full flex-1 justify-center">
 							<Thread
 								bind:id={currentThreadID}
-								{project}
-								{tools}
+								bind:project
 								isTaskRun={!!currentThreadID &&
 									!!layout.taskRuns?.some((run) => run.id === currentThreadID)}
 							/>
@@ -101,9 +108,9 @@
 				{/if}
 				<div
 					class={twMerge(
-						'border-surface2 colors-background absolute right-0 float-right w-full translate-x-full transform border-4 border-r-0 pt-2 transition-transform duration-300 md:mb-8 md:w-3/5 md:max-w-[calc(100%-320px)] md:min-w-[320px] md:rounded-l-3xl md:ps-5 md:pt-5',
+						'border-surface2 absolute right-0 float-right w-full translate-x-full transform border-4 border-r-0 pt-2 transition-transform duration-300 md:mb-8 md:w-3/5 md:max-w-[calc(100%-320px)] md:min-w-[320px] md:rounded-l-3xl md:ps-5 md:pt-5',
 						layout.fileEditorOpen && 'relative w-full translate-x-0',
-						!layout.fileEditorOpen && 'w-0!'
+						!layout.fileEditorOpen && 'w-0'
 					)}
 				>
 					<Editor {project} {currentThreadID} />

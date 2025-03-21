@@ -8,13 +8,14 @@
 	} from '$lib/services';
 	import { onDestroy } from 'svelte';
 	import Step from '$lib/components/tasks/Step.svelte';
-	import { LoaderCircle, OctagonX, Play } from 'lucide-svelte';
+	import { Eye, EyeClosed, LoaderCircle, OctagonX, Play } from 'lucide-svelte';
 	import { SvelteMap } from 'svelte/reactivity';
 	import { Thread } from '$lib/services/chat/thread.svelte';
 	import Input from '$lib/components/tasks/Input.svelte';
 	import Type from '$lib/components/tasks/Type.svelte';
 	import Files from '$lib/components/tasks/Files.svelte';
 	import { errors } from '$lib/stores';
+	import { tooltip } from '$lib/actions/tooltip.svelte';
 
 	interface Props {
 		task: Task;
@@ -31,6 +32,7 @@
 	let thread: Thread | undefined = $state<Thread>();
 	let pending = $derived(thread?.pending ?? false);
 	let running = $derived(allMessages.inProgress);
+	let showAllOutput = $state(true);
 
 	onDestroy(closeThread);
 	$effect(resetThread);
@@ -71,6 +73,7 @@
 
 	async function click() {
 		error = '';
+		showAllOutput = true;
 
 		const hasAtLeastOneInstruction = task.steps.some((step) => (step.step ?? '').trim().length > 0);
 		if (!hasAtLeastOneInstruction) {
@@ -108,9 +111,9 @@
 	<div class="flex items-center justify-between">
 		<h4 class="text-lg font-semibold">Steps</h4>
 		<Type bind:task />
-		<div>
+		<div class="bg-blue border-blue ml-2 flex items-center overflow-hidden rounded-2xl border">
 			<button
-				class="bg-blue ml-2 flex items-center gap-2 rounded-3xl px-5 py-2 text-white hover:bg-blue-400"
+				class="flex items-center gap-2 py-2 pr-5 pl-6 text-white transition-all duration-200 hover:bg-blue-400"
 				onclick={click}
 			>
 				{#if running}
@@ -122,6 +125,17 @@
 				{:else}
 					Test
 					<Play class="h-4 w-4" />
+				{/if}
+			</button>
+			<button
+				class="bg-blue border-l border-white px-3 py-2.5 transition-all duration-200 hover:bg-blue-400"
+				onclick={() => (showAllOutput = !showAllOutput)}
+				use:tooltip={'Toggle All Output Visbility'}
+			>
+				{#if showAllOutput}
+					<Eye class="size-5 text-white" />
+				{:else}
+					<EyeClosed class="size-5 text-white" />
 				{/if}
 			</button>
 		</div>
@@ -138,6 +152,7 @@
 					{stepMessages}
 					{pending}
 					{project}
+					showOutput={showAllOutput}
 				/>
 			{/key}
 		{/if}

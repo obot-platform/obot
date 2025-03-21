@@ -36,14 +36,15 @@
 				<KnowledgeFile {file} onDelete={() => remove(file)} />
 			{/key}
 		{/each}
+		{#if files.length === 0}
+			<p class="pt-6 pb-3 text-center text-sm font-light text-gray-500">No files</p>
+		{/if}
 	</ul>
 {/snippet}
 
 <CollapsePane header="File Knowledge" onOpen={() => reload()}>
-	<div class="flex flex-col gap-2">
-		<ul class="flex flex-col gap-2">
-			{@render toolList(knowledgeFiles)}
-		</ul>
+	<div class="flex flex-col gap-4">
+		{@render toolList(knowledgeFiles)}
 		<div class="self-end" in:fade>
 			<KnowledgeUpload onUpload={() => reload()} {project} />
 		</div>

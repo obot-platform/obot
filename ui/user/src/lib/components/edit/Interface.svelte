@@ -14,13 +14,13 @@
 </script>
 
 <CollapsePane header="Interface">
-	<div class="flex flex-col gap-2">
-		<div class="flex flex-col gap-2">
-			<label for="project-instructions" use:reactiveLabel={{ value: project.introductionMessage }}>
+	<div class="flex flex-col gap-4">
+		<div class="flex flex-col">
+			<label for="project-introduction" use:reactiveLabel={{ value: project.introductionMessage }}>
 				Introduction
 			</label>
 			<textarea
-				id="project-instructions"
+				id="project-introduction"
 				class="bg-surface grow resize-none rounded-lg p-2"
 				rows="3"
 				placeholder="Introduction"

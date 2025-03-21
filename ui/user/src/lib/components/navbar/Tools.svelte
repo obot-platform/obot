@@ -1,15 +1,29 @@
 <script lang="ts">
-	import { Wrench } from 'lucide-svelte/icons';
-	import { type AssistantTool, type Project } from '$lib/services';
+	import { Plus, Wrench } from 'lucide-svelte/icons';
+	import { ChatService, type AssistantTool, type Project } from '$lib/services';
 	import Menu from '$lib/components/navbar/Menu.svelte';
-	import { responsive } from '$lib/stores';
+	import { responsive, tools } from '$lib/stores';
+	import ToolCatalog from '../edit/ToolCatalog.svelte';
+	import popover from '$lib/actions/popover.svelte';
 
 	interface Prop {
 		project: Project;
-		tools: AssistantTool[];
 	}
 
-	let { tools }: Prop = $props();
+	let menu = $state<ReturnType<typeof Menu>>();
+	let { project }: Prop = $props();
+
+	async function onNewTools(newTools: AssistantTool[]) {
+		tools.setTools(
+			(
+				await ChatService.updateProjectTools(project.assistantID, project.id, {
+					items: newTools
+				})
+			).items
+		);
+	}
+
+	let catalog = popover({ fixed: true, slide: responsive.isMobile ? 'up' : undefined });
 </script>
 
 <Menu
@@ -29,8 +43,8 @@
 		<Wrench class="h-5 w-5" />
 	{/snippet}
 	{#snippet body()}
-		<ul class="space-y-4 py-6 text-sm">
-			{#each tools as tool, i}
+		<ul class="space-y-4 pb-4 text-sm">
+			{#each tools.current.tools as tool, i}
 				{#if !tool.builtin && tool.enabled}
 					<li>
 						<div class="flex">
@@ -58,5 +72,25 @@
 				{/if}
 			{/each}
 		</ul>
+		<div class="-mb-2 flex items-center justify-end gap-2 pt-4">
+			<button
+				class="button flex items-center gap-1 text-sm"
+				use:catalog.ref
+				onclick={() => catalog.toggle(true)}><Plus class="size-4" /> Tools</button
+			>
+		</div>
 	{/snippet}
 </Menu>
+
+<div
+	use:catalog.tooltip
+	class="default-dialog bottom-0 left-0 h-screen w-full rounded-none p-2 md:bottom-1/2 md:left-1/2 md:h-fit md:w-auto md:-translate-x-1/2 md:translate-y-1/2 md:rounded-xl"
+>
+	<ToolCatalog
+		onSelectTools={onNewTools}
+		onSubmit={() => {
+			catalog.toggle(false);
+			menu?.toggle(false);
+		}}
+	/>
+</div>

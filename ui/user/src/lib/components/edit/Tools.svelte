@@ -2,40 +2,37 @@
 	import { popover } from '$lib/actions';
 	import CollapsePane from '$lib/components/edit/CollapsePane.svelte';
 	import {
-		type Assistant,
 		type AssistantTool,
 		type AssistantToolType,
 		ChatService,
 		type Project
 	} from '$lib/services';
-	import { Plus, X } from 'lucide-svelte/icons';
 	import ToolCatalog from './ToolCatalog.svelte';
-	import { responsive, version } from '$lib/stores';
 	import CustomTool from '$lib/components/edit/CustomTool.svelte';
-	import { SquarePen } from 'lucide-svelte';
+	import { Plus, X, SquarePen } from 'lucide-svelte/icons';
+	import { responsive, tools as toolsStore, version } from '$lib/stores';
 
 	interface Props {
-		tools: AssistantTool[];
 		onNewTools: (tools: AssistantTool[]) => Promise<void>;
 		project: Project;
-		assistant?: Assistant;
 	}
 
-	let { tools = $bindable(), onNewTools, project, assistant }: Props = $props();
-	let enabledList = $derived(tools.filter((t) => !t.builtin && t.enabled && t.id));
+	let { onNewTools, project }: Props = $props();
+	let enabledList = $derived(
+		toolsStore.current.tools.filter((t) => !t.builtin && t.enabled && t.id)
+	);
 	let typeSelectionTT = popover({
 		fixed: responsive.isMobile,
 		slide: responsive.isMobile ? 'up' : undefined
 	});
-	let toolCatalog: ReturnType<typeof ToolCatalog>;
 	let customToolDialog = $state<HTMLDialogElement>();
 	let toEdit = $state<AssistantTool>();
 
 	async function remove(tool: AssistantTool) {
 		if (tool.toolType) {
-			tools = tools.filter((t) => t.id !== tool.id);
+			toolsStore.setTools(toolsStore.current.tools.filter((t) => t.id !== tool.id));
 		} else {
-			await onNewTools(tools.filter((t) => t.id !== tool.id));
+			await onNewTools(toolsStore.current.tools.filter((t) => t.id !== tool.id));
 		}
 	}
 
@@ -51,31 +48,38 @@
 			toolType: type
 		});
 
-		tools.push(newTool);
+		toolsStore.setTools([...toolsStore.current.tools, newTool]);
 		toEdit = newTool;
 		customToolDialog?.showModal();
 		typeSelectionTT.toggle(false);
 	}
+
+	let toolCatalog = popover({ fixed: true, slide: responsive.isMobile ? 'left' : undefined });
 </script>
 
 {#snippet toolList(tools: AssistantTool[])}
-	<ul class="flex flex-col">
+	<ul class="flex flex-col gap-2">
 		{#each tools as tool (tool.id)}
 			{@const tt = popover({ hover: true, placement: 'top', delay: 300 })}
 
-			<div class="flex w-full cursor-pointer items-start justify-between gap-1 p-2" use:tt.ref>
+			<div
+				class="bg-surface1 flex w-full cursor-pointer items-start justify-between gap-1 rounded-md p-2"
+				use:tt.ref
+			>
 				<div class="flex w-full flex-col gap-1">
 					<div class="flex w-full items-center justify-between gap-1 text-sm font-medium">
-						<span class="flex items-center gap-2">
+						<div class="flex items-center gap-2">
 							{#if tool.icon}
-								<img
-									src={tool.icon}
-									class="size-6 rounded-full bg-white p-1"
-									alt="tool {tool.name} icon"
-								/>
+								<div class="bg-surface1 flex-shrink-0 rounded-md p-1 dark:bg-gray-200">
+									<img src={tool.icon} class="size-6" alt="tool {tool.name} icon" />
+								</div>
 							{/if}
-							<p class="line-clamp-1">{tool.name || 'Untitled'}</p>
-						</span>
+							<div class="flex flex-col">
+								<p class="line-clamp-1">{tool.name || 'Untitled'}</p>
+								<span class="line-clamp-2 text-xs font-light text-gray-500">{tool.description}</span
+								>
+							</div>
+						</div>
 						{#if tool.toolType}
 							<button class="icon-button-small" onclick={() => edit(tool)}>
 								<SquarePen class="size-5" />
@@ -86,7 +90,6 @@
 							</button>
 						{/if}
 					</div>
-					<span class="line-clamp-2 text-xs text-gray-500">{tool.description}</span>
 				</div>
 
 				<p use:tt.tooltip class="tooltip max-w-64">{tool.description}</p>
@@ -97,9 +100,7 @@
 
 <CollapsePane header="Tools">
 	<div class="flex flex-col gap-2">
-		<ul class="flex flex-col gap-2">
-			{@render toolList(enabledList)}
-		</ul>
+		{@render toolList(enabledList)}
 
 		{#if version.current.dockerSupported}
 			<button
@@ -120,7 +121,7 @@
 						class="button flex items-center gap-2"
 						onclick={() => {
 							typeSelectionTT.toggle(false);
-							toolCatalog.open();
+							toolCatalog.toggle(true);
 						}}
 					>
 						From Catalog
@@ -172,10 +173,12 @@
 						bind:tool={toEdit}
 						{project}
 						onSave={async (tool) => {
-							tools = tools.map((t) => (t.id === tool.id ? tool : t));
+							toolsStore.setTools(
+								toolsStore.current.tools.map((t) => (t.id === tool.id ? tool : t))
+							);
 						}}
 						onDelete={async (tool) => {
-							tools = tools.filter((t) => t.id !== tool.id);
+							toolsStore.setTools(toolsStore.current.tools.filter((t) => t.id !== tool.id));
 							toEdit = undefined;
 							customToolDialog?.close();
 						}}
@@ -189,13 +192,19 @@
 		{/if}
 
 		<div class="self-end">
-			<ToolCatalog
-				bind:this={toolCatalog}
-				{tools}
-				onSelectTools={onNewTools}
-				maxTools={assistant?.maxTools}
-				dialogOnly={version.current.dockerSupported}
-			/>
+			{#if !version.current.dockerSupported}
+				<button
+					class="button flex items-center gap-1 text-sm"
+					use:toolCatalog.ref
+					onclick={() => toolCatalog.toggle(true)}><Plus class="size-4" /> Tools</button
+				>
+			{/if}
+			<div
+				use:toolCatalog.tooltip
+				class="default-dialog bottom-0 left-0 h-screen w-full rounded-none p-2 md:bottom-1/2 md:left-1/2 md:h-fit md:w-auto md:-translate-x-1/2 md:translate-y-1/2 md:rounded-xl"
+			>
+				<ToolCatalog onSelectTools={onNewTools} onSubmit={() => toolCatalog.toggle(false)} />
+			</div>
 		</div>
 	</div>
 </CollapsePane>

@@ -1,11 +1,10 @@
 <script lang="ts">
 	import AssistantIcon from '$lib/icons/AssistantIcon.svelte';
-	import { ChatService, EditorService, type Project } from '$lib/services';
+	import { ChatService, type Project } from '$lib/services';
 	import { Check, ChevronDown } from 'lucide-svelte/icons';
 	import { popover } from '$lib/actions';
 	import { twMerge } from 'tailwind-merge';
-	import { goto } from '$app/navigation';
-	import { errors } from '$lib/stores';
+	import { DEFAULT_PROJECT_NAME } from '$lib/constants';
 
 	interface Props {
 		project: Project;
@@ -59,15 +58,6 @@
 		}
 	});
 
-	async function createNew() {
-		try {
-			const project = await EditorService.createObot();
-			await goto(`/o/${project.id}?edit`);
-		} catch (error) {
-			errors.append((error as Error).message);
-		}
-	}
-
 	function loadMore(category: 'recent' | 'myObots') {
 		if (category === 'recent') {
 			recentlyUsedLimit += 10;
@@ -96,7 +86,7 @@
 	}}
 >
 	<span class="text-md text-on-background max-w-[100%-24px] truncate font-semibold">
-		{project.name || 'Untitled'}
+		{project.name || DEFAULT_PROJECT_NAME}
 	</span>
 	{#if !disabled}
 		<div class={twMerge('text-gray transition-transform duration-200', open && 'rotate-180')}>
@@ -113,8 +103,6 @@
 		onclick={() => toggle(false)}
 	>
 		{#if onlyEditable}
-			<button class="button mb-2" onclick={() => createNew()}>Create New Obot</button>
-
 			{#each myObots.slice(0, myObotsLimit) as p}
 				{@render ProjectItem(p, true)}
 			{/each}
@@ -157,7 +145,7 @@
 	>
 		<AssistantIcon project={p} class="shrink-0" />
 		<div class="flex grow flex-col">
-			<span class="text-on-background text-sm font-semibold">{p.name || 'Untitled'}</span>
+			<span class="text-on-background text-sm font-semibold">{p.name || DEFAULT_PROJECT_NAME}</span>
 			{#if p.description}
 				<span class="text-on-background line-clamp-1 text-xs font-light">{p.description}</span>
 			{/if}

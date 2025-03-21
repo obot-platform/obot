@@ -9,6 +9,7 @@
 	import { type ProjectShare, type ToolReference } from '$lib/services';
 	import ToolPill from '$lib/components/ToolPill.svelte';
 	import Menu from '$lib/components/navbar/Menu.svelte';
+	import { DEFAULT_PROJECT_NAME } from '$lib/constants';
 
 	let { data }: PageProps = $props();
 	let { authProviders, assistants, assistantsLoaded, featuredProjectShares, tools } = data;
@@ -64,7 +65,7 @@
 			? projectShare.icons?.iconDark || projectShare.icons?.icon
 			: projectShare.icons?.icon;
 
-		return imageUrl ?? '/agent/images/placeholder.webp';
+		return imageUrl ?? '/agent/images/obot_placeholder.webp';
 	}
 </script>
 
@@ -93,8 +94,10 @@
 			></div>
 		</div>
 		<div class="flex h-full flex-col gap-2 px-4 py-2">
-			<h4 class="font-semibold">{projectShare.name || 'Untitled'}</h4>
-			<p class="text-gray line-clamp-3 text-xs">{projectShare.description}</p>
+			<h4 class="font-semibold">{projectShare.name || DEFAULT_PROJECT_NAME}</h4>
+			<p class="text-gray line-clamp-3 text-xs">
+				{projectShare.description || ''}
+			</p>
 			{#if projectShare.tools}
 				<div class="mt-auto flex flex-wrap items-center justify-end gap-2 py-2">
 					{#each projectShare.tools.slice(0, 3) as tool}

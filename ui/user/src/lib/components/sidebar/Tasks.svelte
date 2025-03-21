@@ -2,10 +2,11 @@
 	import Confirm from '$lib/components/Confirm.svelte';
 	import { getLayout, openTask } from '$lib/context/layout.svelte';
 	import { ChatService, type Project, type Task } from '$lib/services';
-	import { Plus } from 'lucide-svelte/icons';
+	import { Plus, Trash2 } from 'lucide-svelte/icons';
 	import { onMount } from 'svelte';
-	import TaskItem from './TaskItem.svelte';
+	import TaskItem from '../shared/task/TaskItem.svelte';
 	import { responsive } from '$lib/stores';
+	import { tooltip } from '$lib/actions/tooltip.svelte';
 
 	interface Props {
 		project: Project;
@@ -57,7 +58,7 @@
 <div class="flex w-full flex-col">
 	<div class="mb-1 flex items-center gap-1">
 		<p class="grow text-sm font-semibold">Tasks</p>
-		<button class="icon-button" onclick={() => newTask()}>
+		<button class="icon-button" onclick={() => newTask()} use:tooltip={'Create New Task'}>
 			<Plus class="icon-default" />
 		</button>
 	</div>
@@ -69,11 +70,20 @@
 				<TaskItem
 					{task}
 					{project}
-					onDelete={() => (taskToDelete = task)}
 					taskRuns={layout.taskRuns?.filter((run) => run.taskID === task.id) ?? []}
 					expanded={i < 5}
 					bind:currentThreadID
-				/>
+				>
+					{#snippet taskActions()}
+						<button
+							class="p-0 pr-2 opacity-0 transition-opacity duration-200 group-hover:opacity-100"
+							onclick={() => (taskToDelete = task)}
+							use:tooltip={'Delete Task'}
+						>
+							<Trash2 class="size-4" />
+						</button>
+					{/snippet}
+				</TaskItem>
 			{/each}
 		</ul>
 	{/if}

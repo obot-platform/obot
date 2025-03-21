@@ -6,6 +6,7 @@
 	import { goto } from '$app/navigation';
 	import { fade, fly, slide } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';
+	import { DEFAULT_PROJECT_NAME } from '$lib/constants';
 
 	interface Props {
 		project: Project;
@@ -44,6 +45,7 @@
 
 		if (project.editor) {
 			layout.projectEditorOpen = true;
+			layout.sidebarOpen = false;
 			return;
 		}
 
@@ -73,7 +75,7 @@
 	{/if}
 </button>
 
-<dialog bind:this={obotEditorDialog} class="centered w-full max-w-md p-4">
+<dialog bind:this={obotEditorDialog} class="w-full max-w-md p-4">
 	<div class="flex flex-col gap-4">
 		<button class="icon-button absolute top-2 right-2" onclick={() => obotEditorDialog?.close()}>
 			<X class="h-5 w-5" />
@@ -83,10 +85,11 @@
 		</h4>
 		{#if project.editor}
 			<button class="button" onclick={() => (layout.projectEditorOpen = true)}
-				>Edit {project.name || 'Untitled'}</button
+				>Edit {project.name || DEFAULT_PROJECT_NAME}</button
 			>
 		{:else}
-			<button class="button" onclick={() => copy(project)}>Copy {project.name ?? 'Untitled'}</button
+			<button class="button" onclick={() => copy(project)}
+				>Copy {project.name ?? DEFAULT_PROJECT_NAME}</button
 			>
 		{/if}
 		<button class="button" onclick={() => createNew()}>Create New Obot</button>

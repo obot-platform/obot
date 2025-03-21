@@ -3,13 +3,7 @@
 	import Input from '$lib/components/messages/Input.svelte';
 	import Message from '$lib/components/messages/Message.svelte';
 	import { Thread } from '$lib/services/chat/thread.svelte';
-	import {
-		type AssistantTool,
-		ChatService,
-		EditorService,
-		type Messages,
-		type Project
-	} from '$lib/services';
+	import { ChatService, EditorService, type Messages, type Project } from '$lib/services';
 	import { fade } from 'svelte/transition';
 	import { onDestroy } from 'svelte';
 	import { toHTMLFromMarkdown } from '$lib/markdown';
@@ -19,22 +13,27 @@
 	import type { UIEventHandler } from 'svelte/elements';
 	import AssistantIcon from '$lib/icons/AssistantIcon.svelte';
 	import { responsive } from '$lib/stores';
-	import { Bug } from 'lucide-svelte';
+	import { Bug, Pencil, X } from 'lucide-svelte';
+	import { autoHeight } from '$lib/actions/textarea';
+	import EditIcon from './edit/EditIcon.svelte';
+	import { DEFAULT_PROJECT_DESCRIPTION, DEFAULT_PROJECT_NAME } from '$lib/constants';
+	import { tooltip } from '$lib/actions/tooltip.svelte';
 
 	interface Props {
 		id?: string;
 		project: Project;
-		tools: AssistantTool[];
 		isTaskRun?: boolean;
 	}
 
-	let { id = $bindable(), project, tools, isTaskRun }: Props = $props();
+	let { id = $bindable(), project = $bindable(), isTaskRun }: Props = $props();
 
 	let container = $state<HTMLDivElement>();
+	let messagesDiv = $state<HTMLDivElement>();
+	let nameInput: HTMLInputElement;
 	let messages = $state<Messages>({ messages: [], inProgress: false });
 	let thread = $state<Thread>();
-	let messagesDiv = $state<HTMLDivElement>();
 	let scrollSmooth = $state(false);
+	let editBasicDetails = $state(false);
 
 	$effect(() => {
 		// Close and recreate thread if id changes
@@ -52,6 +51,12 @@
 
 		if (id && !thread) {
 			constructThread();
+		}
+	});
+
+	$effect(() => {
+		if (editBasicDetails) {
+			setTimeout(() => nameInput?.focus(), 0);
 		}
 	});
 
@@ -117,6 +122,65 @@
 	}
 </script>
 
+{#snippet editBasicSection()}
+	<button
+		aria-label="backdrop"
+		class="fixed top-0 left-0 z-20 h-full w-full"
+		onclick={() => (editBasicDetails = false)}
+	></button>
+	<div class="relative z-30 mt-4 w-sm self-center border-2 border-transparent pt-4 md:w-md">
+		<div class="flex flex-col items-center justify-center text-center">
+			<EditIcon {project} />
+			<input
+				id="project-name"
+				type="text"
+				placeholder="Obot Name"
+				class="ghost-input border-b-surface1 mb-[1px] w-full pt-4 pb-0 text-center text-base font-bold"
+				bind:value={project.name}
+				bind:this={nameInput}
+			/>
+			<textarea
+				id="project-desc"
+				class="ghost-input border-b-surface1 text-md scrollbar-none mb-4 w-full grow resize-none pt-0.5 pb-0 text-center font-light"
+				rows="1"
+				placeholder="A short description of your Obot"
+				use:autoHeight
+				bind:value={project.description}
+			></textarea>
+		</div>
+		{#if project?.introductionMessage}
+			<div class="pt-8">
+				{@html toHTMLFromMarkdown(project?.introductionMessage)}
+			</div>
+		{/if}
+
+		<button class="icon-button absolute top-2 right-2" onclick={() => (editBasicDetails = false)}>
+			<X class="size-6" />
+		</button>
+
+		<div
+			class="bg-surface1 dark:bg-surface2 m-auto mt-4 h-[1px] w-96 max-w-sm self-center rounded-full"
+		></div>
+	</div>
+{/snippet}
+
+{#snippet basicSection()}
+	<div class="flex flex-col items-center justify-center text-center">
+		<AssistantIcon {project} class="h-24 w-24 shadow-lg" />
+		<h4 class="mb-1!">{project.name || DEFAULT_PROJECT_NAME}</h4>
+		<p class="text-gray w-sm font-light md:w-md">
+			{project.description || DEFAULT_PROJECT_DESCRIPTION}
+		</p>
+		<div class="bg-surface1 dark:bg-surface2 mt-4 h-[1px] w-96 max-w-sm rounded-full"></div>
+	</div>
+
+	<div
+		class="absolute top-4 right-4 opacity-0 transition-opacity duration-300 group-hover:opacity-100"
+	>
+		<Pencil class="text-surface3 size-6" />
+	</div>
+{/snippet}
+
 <div class="relative h-full w-full max-w-[900px] pb-32">
 	<!-- Fade text in/out on scroll -->
 	<div
@@ -143,21 +207,20 @@
 			class:justify-center={!thread}
 		>
 			{#if !isTaskRun}
-				<div class="message-content w-full self-center">
-					<div class="flex flex-col items-center justify-center pt-8 text-center">
-						<AssistantIcon {project} class="h-24 w-24 shadow-lg" />
-						<h4 class="mb-1!">{project.name || 'Untitled'}</h4>
-						{#if project.description}
-							<p class="text-gray max-w-md font-light">{project.description}</p>
-						{/if}
-						<div class="bg-surface1 dark:bg-surface2 mt-4 h-[1px] w-96 max-w-sm rounded-full"></div>
+				{#if editBasicDetails}
+					{@render editBasicSection()}
+				{:else if layout.projectEditorOpen}
+					<div class="message-content mt-4 w-fit self-center border-2 border-transparent pt-4">
+						{@render basicSection()}
 					</div>
-					{#if project?.introductionMessage}
-						<div class="pt-8">
-							{@html toHTMLFromMarkdown(project?.introductionMessage)}
-						</div>
-					{/if}
-				</div>
+				{:else}
+					<button
+						class="message-content group hover:bg-surface1 hover:border-surface2 relative mt-4 w-fit self-center rounded-md border-2 border-dashed border-transparent pt-4 transition-all duration-200"
+						onclick={() => (editBasicDetails = true)}
+					>
+						{@render basicSection()}
+					</button>
+				{/if}
 				{#if project.starterMessages?.length}
 					<div class="flex flex-wrap justify-center gap-4 px-4">
 						{#each project.starterMessages as msg}
@@ -204,10 +267,14 @@
 					bind:items={layout.items}
 				>
 					<div class="flex w-fit items-center gap-1">
-						<Files thread {project} bind:currentThreadID={id} />
-						<Tools {project} {tools} />
-					</div>
-				</Input>
+						<div use:tooltip={'Files'}>
+							<Files thread {project} bind:currentThreadID={id} />
+						</div>
+						<div use:tooltip={'Tools'}>
+							<Tools {project} />
+						</div>
+					</div></Input
+				>
 				<div
 					class="mt-3 grid grid-cols-[auto_auto] items-center justify-center gap-x-2 px-5 text-xs font-light"
 				>

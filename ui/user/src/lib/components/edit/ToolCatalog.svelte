@@ -4,22 +4,15 @@
 	import type { AssistantTool, ToolReference } from '$lib/services/chat/types';
 	import { twMerge } from 'tailwind-merge';
 	import CollapsePane from './CollapsePane.svelte';
-	import { Plus } from 'lucide-svelte';
-	import { responsive } from '$lib/stores';
+	import { responsive, tools } from '$lib/stores';
+	import { ChevronRight, X } from 'lucide-svelte';
 
 	interface Props {
-		tools: AssistantTool[];
 		onSelectTools: (tools: AssistantTool[]) => void;
-		maxTools?: number;
-		dialogOnly?: boolean;
+		onSubmit?: () => void;
 	}
 
-	let {
-		tools,
-		onSelectTools,
-		maxTools = Number.MAX_SAFE_INTEGER,
-		dialogOnly = false
-	}: Props = $props();
+	let { onSelectTools, onSubmit }: Props = $props();
 
 	let input = $state<HTMLInputElement>();
 	let search = $state('');
@@ -27,7 +20,7 @@
 	const bundleMap = getToolBundleMap();
 
 	function getSelectionMap() {
-		return tools
+		return tools.current.tools
 			.filter((t) => !t.builtin)
 			.reduce<Record<string, AssistantTool>>((acc, tool) => {
 				acc[tool.id] = { ...tool };
@@ -38,20 +31,12 @@
 	let toolSelection = $state<Record<string, AssistantTool>>({});
 
 	$effect(() => {
-		if (catalog.open) {
-			toolSelection = getSelectionMap();
-		}
+		toolSelection = getSelectionMap();
 	});
 
 	let maxExceeded = $derived(
-		Object.values(toolSelection).filter((t) => t.enabled).length > maxTools
+		Object.values(toolSelection).filter((t) => t.enabled).length > tools.current.maxTools
 	);
-
-	let catalog = popover({ fixed: true, slide: responsive.isMobile ? 'up' : undefined });
-
-	export function open() {
-		catalog.toggle(true);
-	}
 
 	function setToolEnabled(toolId: string, val?: boolean) {
 		if (toolId in toolSelection) {
@@ -71,7 +56,7 @@
 
 	function handleSubmit() {
 		onSelectTools(Object.values(toolSelection));
-		catalog.toggle(false);
+		onSubmit?.();
 	}
 
 	function clearBundle(toolRef: ToolReference) {
@@ -127,16 +112,19 @@
 	}
 </script>
 
-<button
-	class={['button flex items-center gap-1 text-sm', dialogOnly && 'hidden']}
-	use:catalog.ref
-	onclick={() => catalog.toggle(true)}><Plus class="size-4" /> Tools</button
->
-
-<div
-	use:catalog.tooltip
-	class="default-dialog bottom-0 left-0 w-full p-2 md:bottom-1/2 md:left-1/2 md:w-auto md:-translate-x-1/2 md:translate-y-1/2"
->
+<div class="w-full">
+	<h4
+		class="border-surface3 relative mx-2 mb-2 flex items-center justify-center border-b py-4 text-lg font-semibold md:justify-start"
+	>
+		Modify Tools
+		<button class="icon-button absolute top-1 right-0" onclick={() => onSubmit?.()}>
+			{#if responsive.isMobile}
+				<ChevronRight class="size-6" />
+			{:else}
+				<X class="size-6" />
+			{/if}
+		</button>
+	</h4>
 	<div class="flex w-full items-center justify-between">
 		<div class="flex grow rounded-t-lg p-2">
 			<input
@@ -226,7 +214,7 @@
 
 	<div class="flex justify-between gap-2 p-2">
 		<p class={twMerge('max-w-72 text-left text-sm text-red-500', !maxExceeded && 'invisible')}>
-			Maximum number of tools exceeded for this Assistant. (Max: {maxTools})
+			Maximum number of tools exceeded for this Assistant. (Max: {tools.current.maxTools})
 		</p>
 		<button onclick={handleSubmit} disabled={maxExceeded} class="button">Apply</button>
 	</div>

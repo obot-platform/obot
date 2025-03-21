@@ -92,7 +92,7 @@
 	)}
 >
 	{#if header || description || title}
-		<div class="mb-4">
+		<div class="mb-4 pb-2">
 			{#if header}
 				{@render header()}
 			{:else}

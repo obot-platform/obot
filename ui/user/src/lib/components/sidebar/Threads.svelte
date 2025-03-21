@@ -8,6 +8,7 @@
 	import { overflowToolTip } from '$lib/actions/overflow.js';
 	import DotDotDot from '../DotDotDot.svelte';
 	import { responsive } from '$lib/stores';
+	import { tooltip } from '$lib/actions/tooltip.svelte';
 
 	interface Props {
 		currentThreadID?: string;
@@ -200,7 +201,7 @@
 	<div class="flex flex-col">
 		<div class="mb-1 flex items-center justify-between">
 			<p class="grow text-sm font-semibold">Threads</p>
-			<button class="icon-button" onclick={createThread}>
+			<button class="icon-button" onclick={createThread} use:tooltip={'Start New Thread'}>
 				<Plus class="h-5 w-5" />
 			</button>
 		</div>

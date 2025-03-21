@@ -37,7 +37,7 @@
 		if (getLightIcon()) {
 			return getLightIcon();
 		}
-		return '/agent/images/placeholder.webp';
+		return '/agent/images/obot_placeholder.webp';
 	}
 </script>
 

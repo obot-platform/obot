@@ -62,7 +62,7 @@
 </script>
 
 <div class="flex justify-end">
-	<label class="button mt-3 -mr-3 -mb-3 flex items-center justify-end gap-1 text-sm">
+	<label class="button flex items-center justify-end gap-1 text-sm">
 		{#await uploadInProgress}
 			<Loading class="size-4" />
 		{:catch error}

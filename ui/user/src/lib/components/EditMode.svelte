@@ -1,7 +1,13 @@
 <script lang="ts">
-	import { Trash2 } from 'lucide-svelte';
+	import { GripVertical, Plus, Trash2 } from 'lucide-svelte';
 	import General from '$lib/components/edit/General.svelte';
-	import { type Project, ChatService, type AssistantTool, type Assistant } from '$lib/services';
+	import {
+		type Project,
+		ChatService,
+		type AssistantTool,
+		type Assistant,
+		EditorService
+	} from '$lib/services';
 	import { onDestroy, onMount } from 'svelte';
 	import Instructions from '$lib/components/edit/Instructions.svelte';
 	import Interface from '$lib/components/edit/Interface.svelte';
@@ -21,28 +27,22 @@
 	import Projects from './navbar/Projects.svelte';
 	import { goto } from '$app/navigation';
 	import Sites from '$lib/components/edit/Sites.svelte';
-	import { responsive } from '$lib/stores';
+	import { errors, responsive, tools } from '$lib/stores';
 	import { twMerge } from 'tailwind-merge';
-
 	interface Props {
 		project: Project;
-		tools: AssistantTool[];
 		currentThreadID?: string;
 		assistant?: Assistant;
 	}
 
-	let {
-		project = $bindable(),
-		tools = $bindable(),
-		currentThreadID = $bindable(),
-		assistant
-	}: Props = $props();
+	let { project = $bindable(), currentThreadID = $bindable(), assistant }: Props = $props();
 
 	const layout = getLayout();
 	let projectSaved = '';
 	let timer: number = 0;
 	let nav = $state<HTMLDivElement>();
 	let toDelete = $state(false);
+	let showAdvanced = $state(false);
 
 	async function updateProject() {
 		if (JSON.stringify(project) === projectSaved) {
@@ -57,16 +57,27 @@
 	}
 
 	async function onNewTools(newTools: AssistantTool[]) {
-		tools = (
-			await ChatService.updateProjectTools(project.assistantID, project.id, {
-				items: newTools
-			})
-		).items;
+		tools.setTools(
+			(
+				await ChatService.updateProjectTools(project.assistantID, project.id, {
+					items: newTools
+				})
+			).items
+		);
 	}
 
 	async function loadProject() {
 		// tools = (await ChatService.listTools(project.assistantID, project.id)).items;
 		projectSaved = JSON.stringify(project);
+	}
+
+	async function createNew() {
+		try {
+			const project = await EditorService.createObot();
+			await goto(`/o/${project.id}?edit`);
+		} catch (error) {
+			errors.append((error as Error).message);
+		}
 	}
 
 	onDestroy(() => clearInterval(timer));
@@ -97,9 +108,8 @@
 					<h1 class="text-xl font-semibold">Obot Editor</h1>
 				{/if}
 			</div>
-			<div class="flex grow items-center justify-between gap-2">
-				<p class="text-gray text-sm">Editing:</p>
-				<div class="relative flex max-w-[50vw] grow md:max-w-none">
+			<div class="flex grow items-center justify-center gap-2">
+				<div class="relative flex max-w-xs grow">
 					<Projects
 						{project}
 						onlyEditable={true}
@@ -113,6 +123,16 @@
 						}}
 					/>
 				</div>
+				<button
+					onclick={createNew}
+					class={twMerge(
+						!responsive.isMobile && 'button-small flex items-center gap-1 text-xs',
+						responsive.isMobile && 'icon-button bg-surface3'
+					)}
+				>
+					<Plus class="size-5" />
+					{responsive.isMobile ? '' : 'Create New Obot'}
+				</button>
 			</div>
 			<div class="flex items-center">
 				<EditorToggle {project} />
@@ -131,22 +151,35 @@
 				class="flex h-full w-screen flex-col overflow-hidden inset-shadow-xs md:w-1/4 md:min-w-[320px]"
 				transition:slide={responsive.isMobile ? { axis: 'y' } : { axis: 'x' }}
 			>
-				<div
-					class="default-scrollbar-thin scrollbar-stable-gutter scrollbar-track-transparent! flex grow flex-col"
-				>
+				<div class="default-scrollbar-thin flex grow flex-col">
 					<General bind:project />
 					<Instructions bind:project />
-					<Tools bind:tools {onNewTools} {assistant} {project} />
+					<Tools {onNewTools} {project} />
 					<Knowledge {project} />
-					{#if assistant?.websiteKnowledge?.siteTool}
-						<Sites {project} />
+
+					{#if showAdvanced}
+						<div class="flex flex-col" transition:slide>
+							{#if assistant?.websiteKnowledge?.siteTool}
+								<Sites {project} />
+							{/if}
+							<Files {project} />
+							<Tasks {project} bind:currentThreadID />
+							<Interface bind:project />
+							<Credentials {project} />
+							<Share {project} />
+						</div>
 					{/if}
-					<Files {project} />
-					<Tasks {project} />
-					<Interface bind:project />
-					<Credentials {project} {tools} />
-					<Share {project} />
-					<div class="grow"></div>
+
+					<div class="mt-auto">
+						<button
+							class="text-gray w-fit justify-start p-4 text-left text-sm hover:underline"
+							onclick={() => (showAdvanced = !showAdvanced)}
+						>
+							<span
+								>{showAdvanced ? 'Collapse Advanced Options...' : 'Show Advanced Options...'}</span
+							>
+						</button>
+					</div>
 				</div>
 				<div class="bg-surface1 flex justify-between p-2">
 					<button class="button flex items-center gap-1 text-sm" onclick={() => copy()}>
@@ -166,21 +199,25 @@
 			{#if !responsive.isMobile}
 				<div
 					role="none"
-					class="w-2 translate-x-2 cursor-col-resize"
+					class="border-surface2 dark:border-surface2/50 relative cursor-col-resize border-r bg-transparent pr-0.5 pl-1.5"
 					use:columnResize={{ column: nav }}
-				></div>
+				>
+					<div class="text-on-surface1 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
+						<GripVertical class="text-surface3 size-3" />
+					</div>
+				</div>
 			{/if}
 		{/if}
 		<div
-			class="h-full grow p-2"
+			class="h-full grow border-r-0"
 			class:contents={!layout.projectEditorOpen}
 			class:hidden={layout.projectEditorOpen && responsive.isMobile}
 		>
 			<div
-				class="size-full overflow-clip rounded-2xl transition-all"
+				class="size-full overflow-clip transition-all"
 				class:rounded-none={!layout.projectEditorOpen}
 			>
-				<Obot {project} {tools} bind:currentThreadID />
+				<Obot bind:project bind:currentThreadID />
 			</div>
 		</div>
 	</div>

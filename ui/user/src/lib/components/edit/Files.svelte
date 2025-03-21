@@ -142,7 +142,7 @@
 
 {#snippet body()}
 	{#if files.length === 0}
-		<p class="text-gray pt-6 pb-3 text-center text-sm dark:text-gray-300">No files</p>
+		<p class="text-gray pt-6 pb-3 text-center text-sm font-light dark:text-gray-300">No files</p>
 	{:else}
 		<ul class="max-h-[60vh] space-y-4 overflow-y-auto py-6 ps-3 text-sm">
 			{#each files as file}

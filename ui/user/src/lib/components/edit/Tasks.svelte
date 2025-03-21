@@ -1,18 +1,18 @@
 <script lang="ts">
 	import CollapsePane from '$lib/components/edit/CollapsePane.svelte';
-	import { getLayout } from '$lib/context/layout.svelte.js';
+	import { getLayout, openTask } from '$lib/context/layout.svelte.js';
 	import { ChatService, type Project, type Task } from '$lib/services';
-	import { Edit, Plus } from 'lucide-svelte/icons';
-	import TaskEditor from '$lib/components/tasks/Task.svelte';
-	import { X } from 'lucide-svelte';
+	import { Plus, Route, RouteOff } from 'lucide-svelte/icons';
+	import { onMount } from 'svelte';
+	import TaskItem from '../shared/task/TaskItem.svelte';
+	import { tooltip } from '$lib/actions/tooltip.svelte';
 
 	interface Props {
 		project: Project;
+		currentThreadID?: string;
 	}
 
-	let { project }: Props = $props();
-	let editIndex = $state<number>();
-	let editorDialog: HTMLDialogElement;
+	let { project, currentThreadID = $bindable() }: Props = $props();
 	const layout = getLayout();
 
 	function shareTask(task: Task, checked: boolean) {
@@ -42,58 +42,57 @@
 			project.sharedTasks = [];
 		}
 		project.sharedTasks.push(newTask.id);
+		openTask(layout, newTask.id);
 	}
 
-	async function edit(index: number) {
-		editIndex = index;
-		editorDialog?.showModal();
-	}
-
-	async function closeEdit() {
-		editIndex = undefined;
-		editorDialog?.close();
-	}
+	onMount(async () => {
+		layout.tasks = (await ChatService.listTasks(project.assistantID, project.id)).items;
+	});
 </script>
 
 <CollapsePane header="Tasks">
-	<p class="mb-4 text-sm">The following tasks will be shared with users of this Obot.</p>
-	{#each layout.tasks ?? [] as task, i (task.id)}
-		<div class="ml-4 flex items-center gap-2">
-			<input
-				checked={project.sharedTasks?.includes(task.id)}
-				type="checkbox"
-				onchange={(e) => {
-					if (e.target instanceof HTMLInputElement) {
-						shareTask(task, e.target.checked);
-					}
-				}}
-			/>
-			<span class="mr-2">{task.name}</span>
-			<button class="icon-button" onclick={() => edit(i)}>
-				<Edit class="icon-default" />
-			</button>
+	<div class="flex w-full flex-col gap-4">
+		<p class="text-gray text-sm">The following tasks will be shared with users of this Obot.</p>
+		<div class="flex flex-col">
+			{#if layout.tasks}
+				<ul class="-mx-3">
+					{#each layout.tasks as task, i (task.id)}
+						<TaskItem
+							{task}
+							{project}
+							taskRuns={layout.taskRuns?.filter((run) => run.taskID === task.id) ?? []}
+							expanded={i < 5}
+							classes={{
+								title: 'text-sm'
+							}}
+							bind:currentThreadID
+						>
+							{#snippet taskActions()}
+								<button
+									class="menu-button"
+									onclick={() => shareTask(task, !project.sharedTasks?.includes(task.id))}
+									use:tooltip={project.sharedTasks?.includes(task.id)
+										? 'This task is being shared with other users.'
+										: 'This task is private and only visible to you.'}
+								>
+									{#if project.sharedTasks?.includes(task.id)}
+										<Route class="size-4" />
+									{:else}
+										<RouteOff class="text-gray size-4" />
+									{/if}
+								</button>
+							{/snippet}
+						</TaskItem>
+					{/each}
+				</ul>
+			{/if}
+			{#if (layout.tasks?.length ?? 0) === 0}
+				<p class="text-gray pt-6 pb-4 text-center text-sm font-light">No tasks found.</p>
+			{/if}
 		</div>
-	{/each}
-	<button class="button flex items-center gap-1 self-end text-sm" onclick={() => newTask()}>
-		<Plus class="size-4" />
-		New Task
-	</button>
+		<button class="button flex items-center gap-1 self-end text-sm" onclick={() => newTask()}>
+			<Plus class="size-4" />
+			New Task
+		</button>
+	</div>
 </CollapsePane>
-
-<dialog bind:this={editorDialog} class="relative h-full w-full md:w-4/5">
-	<button class="icon-button absolute top-2 right-2 z-10" onclick={() => closeEdit()}>
-		<X class="icon-default" />
-	</button>
-	{#if editIndex !== undefined && layout.tasks}
-		<TaskEditor
-			{project}
-			bind:task={layout.tasks[editIndex]}
-			onDelete={() => {
-				if (editIndex) {
-					layout.tasks?.splice(editIndex, 1);
-					closeEdit();
-				}
-			}}
-		/>
-	{/if}
-</dialog>

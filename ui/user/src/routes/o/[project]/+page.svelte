@@ -5,12 +5,12 @@
 	import Obot from '$lib/components/Obot.svelte';
 	import { initLayout } from '$lib/context/layout.svelte';
 	import { initToolReferences } from '$lib/context/toolReferences.svelte';
-	import { profile } from '$lib/stores';
 	import { browser } from '$app/environment';
+	import { profile, tools } from '$lib/stores';
 
 	let { data } = $props();
 	let project = $state(data.project);
-	let tools = $state(data.tools ?? []);
+
 	let currentThreadID = $state<string | undefined>(
 		(browser && new URL(window.location.href).searchParams.get('thread')) || undefined
 	);
@@ -19,6 +19,9 @@
 	initToolReferences(data.toolReferences ?? []);
 
 	initialLayout();
+
+	tools.setTools(data.tools ?? []);
+	tools.setMaxTools(data.assistant?.maxTools ?? 5);
 
 	$effect(() => {
 		if (navigating) {
@@ -30,7 +33,6 @@
 		// This happens on page transitions
 		if (data.project?.id !== project?.id) {
 			project = data.project;
-			tools = data.tools ?? [];
 			currentThreadID =
 				(typeof window !== 'undefined' &&
 					new URL(window.location.href).searchParams.get('thread')) ||
@@ -39,6 +41,8 @@
 	});
 
 	$effect(() => {
+		if (typeof window === 'undefined') return;
+
 		const currentURL = new URL(window.location.href);
 		if (
 			currentThreadID &&
@@ -46,7 +50,10 @@
 			currentURL.searchParams.get('thread') !== currentThreadID
 		) {
 			currentURL.searchParams.set('thread', currentThreadID);
-			replaceState(currentURL.toString(), {});
+			// Only call replaceState if we're not in the initial navigation
+			if (!navigating) {
+				replaceState(currentURL.toString(), {});
+			}
 		}
 	});
 
@@ -83,9 +90,9 @@
 	{#if project}
 		{#key project.id}
 			{#if project.editor}
-				<EditMode bind:project bind:tools bind:currentThreadID assistant={data.assistant} />
+				<EditMode bind:project bind:currentThreadID assistant={data.assistant} />
 			{:else}
-				<Obot {project} {tools} bind:currentThreadID />
+				<Obot bind:project bind:currentThreadID />
 			{/if}
 		{/key}
 	{/if}
