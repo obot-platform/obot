@@ -41,11 +41,9 @@
 					darkMode.setDark(!darkMode.isDark);
 				}}
 				role="menuitem"
-				class="after:content=[''] border-surface3 bg-surface2 dark:bg-surface3 relative cursor-pointer flex-col rounded-full border p-2 shadow-inner after:absolute after:top-1 after:left-1 after:z-0 after:size-7 after:rounded-full after:bg-transparent after:transition-all after:duration-200 dark:border-white/15"
-				class:after:translate-y-8={darkMode.isDark}
-				class:after:translate-y-0={!darkMode.isDark}
-				class:after:bg-white={!darkMode.isDark}
-				class:after:bg-surface1={darkMode.isDark}
+				class="after:content=[''] relative cursor-pointer flex-col rounded-full border border-surface3 bg-surface2 p-2 shadow-inner after:absolute after:left-1 after:top-1 after:z-0 after:size-7 after:rounded-full after:bg-transparent after:transition-all after:duration-200 dark:border-white/15 dark:bg-surface3"
+				class:dark-selected={darkMode.isDark}
+				class:light-selected={!darkMode.isDark}
 			>
 				<Sun class="relative z-10 mb-3 size-5" />
 				<Moon class="relative z-10 size-5" />
@@ -96,5 +94,13 @@
 <style lang="postcss">
 	.link {
 		@apply text-md hover:bg-surface3 flex w-full items-center gap-2 rounded-lg px-2 py-2;
+	}
+
+	.dark-selected {
+		@apply after:translate-y-8 after:bg-surface1;
+	}
+
+	.light-selected {
+		@apply after:translate-y-0 after:bg-white;
 	}
 </style>
