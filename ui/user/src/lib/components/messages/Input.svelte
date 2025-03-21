@@ -1,9 +1,11 @@
 <script lang="ts">
 	import { type InvokeInput } from '$lib/services';
 	import { autoHeight } from '$lib/actions/textarea.js';
-	import { ArrowUp, LoaderCircle } from 'lucide-svelte';
-	import { onMount, type Snippet, tick } from 'svelte';
 	import type { EditorItem } from '$lib/services/editor/index.svelte';
+	import { ArrowUp, Check, LoaderCircle, X } from 'lucide-svelte';
+	import { onMount, type Snippet, tick } from 'svelte';
+	import { slide } from 'svelte/transition';
+	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
 		onFocus?: () => void;
@@ -14,6 +16,7 @@
 		readonly?: boolean;
 		pending?: boolean;
 		items?: EditorItem[];
+		uploadState?: 'idle' | 'uploading' | 'success' | 'error';
 	}
 
 	let {
@@ -23,6 +26,7 @@
 		children,
 		readonly,
 		pending,
+		uploadState,
 		placeholder = 'Your message...',
 		items = $bindable([])
 	}: Props = $props();
@@ -104,12 +108,44 @@
 	</button>
 {/snippet}
 
-<div class="w-full px-5">
-	<label for="chat" class="sr-only">Your messages</label>
-	<div
-		class="relative flex flex-col items-center rounded-2xl bg-surface1 focus-within:shadow-md focus-within:ring-1 focus-within:ring-blue
+{#snippet uploadStatus()}
+	{#if uploadState !== 'idle'}
+		<button
+			disabled
+			class={twMerge(
+				'me-2 flex items-center gap-2 rounded-full p-2 transition-colors duration-300',
+				uploadState === 'uploading' && 'bg-blue-100 text-blue-500',
+				uploadState === 'success' && 'bg-blue-100 text-blue-500',
+				uploadState === 'error' && 'bg-red-200 text-red-500'
+			)}
+			transition:slide={{ axis: 'x' }}
+		>
+			{#if uploadState === 'uploading'}
+				<LoaderCircle class="size-4 animate-spin" />
+			{:else if uploadState === 'success'}
+				<Check class="size-4" />
+			{:else if uploadState === 'error'}
+				<X class="size-4" />
+			{/if}
 
-"
+			{#key uploadState}
+				<span in:slide={{ axis: 'x' }} class="min-w-fit text-nowrap">
+					{#if uploadState === 'uploading'}
+						Uploading
+					{:else if uploadState === 'success'}
+						Upload Successful
+					{:else if uploadState === 'error'}
+						Upload Failed
+					{/if}
+				</span>
+			{/key}
+		</button>
+	{/if}
+{/snippet}
+
+<div class="relative w-full px-5">
+	<div
+		class="relative flex flex-col items-center rounded-2xl bg-surface1 focus-within:shadow-md focus-within:ring-1 focus-within:ring-blue"
 	>
 		<div class="flex w-full items-center gap-4 p-2">
 			<textarea
@@ -121,7 +157,7 @@
 				onkeydown={onKey}
 				bind:this={chat}
 				onfocus={onFocus}
-				class="grow resize-none rounded-xl border-none bg-surface1 p-3 pr-20 text-md outline-none"
+				class="grow resize-none rounded-xl border-none bg-transparent p-3 pr-20 text-md outline-none"
 				{placeholder}
 			></textarea>
 			{#if !children}
@@ -132,6 +168,7 @@
 			<div class="flex w-full justify-between p-2 pt-0">
 				{@render children?.()}
 				<div class="grow"></div>
+				{@render uploadStatus()}
 				{@render submitButton()}
 			</div>
 		{/if}

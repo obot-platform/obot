@@ -21,6 +21,9 @@
 	import AssistantIcon from '$lib/icons/AssistantIcon.svelte';
 	import { responsive } from '$lib/stores';
 	import { Bug } from 'lucide-svelte';
+	import { errors } from '$lib/stores';
+	import { twMerge } from 'tailwind-merge';
+	import { dragstate } from '$lib/actions/dragstate.svelte';
 
 	interface Props {
 		id?: string;
@@ -105,6 +108,8 @@
 		thread = newThread;
 	}
 
+	const drag = dragstate();
+
 	const onScrollEnd: UIEventHandler<HTMLDivElement> = (e) => {
 		const isAtBottom =
 			e.currentTarget.scrollHeight - e.currentTarget.scrollTop - e.currentTarget.clientHeight <= 0;
@@ -117,117 +122,169 @@
 	function onSendCredentials(id: string, credentials: Record<string, string>) {
 		thread?.sendCredentials(id, credentials);
 	}
+
+	let uploadState = $state<'idle' | 'uploading' | 'success' | 'error'>('idle');
+
+	async function ondrop(e: DragEvent) {
+		e.preventDefault();
+		e.stopPropagation();
+
+		drag.toggle(false);
+
+		const file = e.dataTransfer?.files[0];
+
+		if (file) {
+			uploadState = 'uploading';
+			try {
+				await ChatService.saveFile(project.assistantID, project.id, file, {
+					threadID: id
+				});
+				uploadState = 'success';
+			} catch (e) {
+				uploadState = 'error';
+				errors.append(e, 5000);
+			} finally {
+				setTimeout(() => {
+					uploadState = 'idle';
+				}, 2000);
+			}
+		}
+	}
+
+	function preventDefault(e: Event) {
+		e.preventDefault();
+		e.stopPropagation();
+	}
 </script>
 
-<div class="relative h-full w-full max-w-[900px] pb-32">
-	<!-- Fade text in/out on scroll -->
-	<div
-		class="absolute inset-x-0 top-0 z-20 h-14 w-full bg-gradient-to-b from-white dark:from-black"
-	></div>
-	<div
-		class="absolute inset-x-0 bottom-36 z-20 h-14 w-full bg-gradient-to-t from-white dark:from-black"
-	></div>
-
-	<div
-		bind:this={container}
-		class="flex h-full grow justify-center overflow-y-auto overflow-x-hidden scrollbar-none"
-		class:scroll-smooth={scrollSmooth}
-		use:stickToBottom={{
-			contentEl: messagesDiv,
-			setControls: (controls) => (scrollControls = controls)
-		}}
-		onscrollend={onScrollEnd}
-	>
-		<div
-			in:fade|global
-			bind:this={messagesDiv}
-			class="flex h-fit w-full flex-col justify-start gap-8 p-5 transition-all"
-			class:justify-center={!thread}
+<div id="main-input" class="relative flex h-full max-w-full flex-1 justify-center" use:drag.dragRef>
+	{#if drag.dragging}
+		<label
+			class="absolute inset-0 z-50 flex items-center justify-center bg-blue-50 opacity-50"
+			ondragover={preventDefault}
+			{ondrop}
 		>
-			{#if !isTaskRun}
-				<div class="message-content w-full self-center">
-					<div class="flex flex-col items-center justify-center pt-8 text-center">
-						<AssistantIcon {project} class="h-24 w-24 shadow-lg" />
-						<h4 class="!mb-1">{project.name || 'Untitled'}</h4>
-						{#if project.description}
-							<p class="max-w-md font-light text-gray">{project.description}</p>
+			<h3 class="rounded-xl border-2 border-dashed border-blue-500 p-4 text-2xl font-bold">
+				Drop files here
+			</h3>
+			<input type="file" class="hidden" {ondrop} />
+		</label>
+	{/if}
+
+	<div class={twMerge('relative h-full w-full max-w-[900px] pb-32')}>
+		<!-- Fade text in/out on scroll -->
+		<div
+			class="absolute inset-x-0 top-0 z-20 h-14 w-full bg-gradient-to-b from-white dark:from-black"
+		></div>
+		<div
+			class="absolute inset-x-0 bottom-36 z-20 h-14 w-full bg-gradient-to-t from-white dark:from-black"
+		></div>
+
+		<div
+			bind:this={container}
+			class="flex h-full grow justify-center overflow-y-auto overflow-x-hidden scrollbar-none"
+			class:scroll-smooth={scrollSmooth}
+			use:stickToBottom={{
+				contentEl: messagesDiv,
+				setControls: (controls) => (scrollControls = controls)
+			}}
+			onscrollend={onScrollEnd}
+		>
+			<div
+				in:fade|global
+				bind:this={messagesDiv}
+				class="flex h-fit w-full flex-col justify-start gap-8 p-5 transition-all"
+				class:justify-center={!thread}
+			>
+				{#if !isTaskRun}
+					<div class="message-content w-full self-center">
+						<div class="flex flex-col items-center justify-center pt-8 text-center">
+							<AssistantIcon {project} class="h-24 w-24 shadow-lg" />
+							<h4 class="!mb-1">{project.name || 'Untitled'}</h4>
+							{#if project.description}
+								<p class="max-w-md font-light text-gray">{project.description}</p>
+							{/if}
+							<div
+								class="mt-4 h-[1px] w-96 max-w-sm rounded-full bg-surface1 dark:bg-surface2"
+							></div>
+						</div>
+						{#if project?.introductionMessage}
+							<div class="pt-8">
+								{@html toHTMLFromMarkdown(project?.introductionMessage)}
+							</div>
 						{/if}
-						<div class="mt-4 h-[1px] w-96 max-w-sm rounded-full bg-surface1 dark:bg-surface2"></div>
 					</div>
-					{#if project?.introductionMessage}
-						<div class="pt-8">
-							{@html toHTMLFromMarkdown(project?.introductionMessage)}
+					{#if project.starterMessages?.length}
+						<div class="flex flex-wrap justify-center gap-4 px-4">
+							{#each project.starterMessages as msg}
+								<button
+									class="w-52 rounded-2xl border border-surface3 bg-transparent p-4 text-left text-sm font-light transition-all duration-300 hover:bg-surface2"
+									onclick={async () => {
+										await ensureThread();
+										await thread?.invoke(msg);
+									}}
+								>
+									<span class="line-clamp-3">{msg}</span>
+								</button>
+							{/each}
 						</div>
 					{/if}
-				</div>
-				{#if project.starterMessages?.length}
-					<div class="flex flex-wrap justify-center gap-4 px-4">
-						{#each project.starterMessages as msg}
-							<button
-								class="w-52 rounded-2xl border border-surface3 bg-transparent p-4 text-left text-sm font-light transition-all duration-300 hover:bg-surface2"
-								onclick={async () => {
-									await ensureThread();
-									await thread?.invoke(msg);
-								}}
-							>
-								<span class="line-clamp-3">{msg}</span>
-							</button>
-						{/each}
-					</div>
 				{/if}
-			{/if}
-			{#each messages.messages as msg}
-				<Message
-					{project}
-					{msg}
-					{onLoadFile}
-					{onSendCredentials}
-					onSendCredentialsCancel={() => thread?.abort()}
-				/>
-			{/each}
-			<div class="min-h-16">
-				<!-- Vertical Spacer -->
+				{#each messages.messages as msg}
+					<Message
+						{project}
+						{msg}
+						{onLoadFile}
+						{onSendCredentials}
+						onSendCredentialsCancel={() => thread?.abort()}
+					/>
+				{/each}
+				<div class="min-h-16">
+					<!-- Vertical Spacer -->
+				</div>
 			</div>
-		</div>
-		<div class="absolute inset-x-0 bottom-0 z-20 flex justify-center py-4 md:py-8">
-			<div class="w-full max-w-[1000px]">
-				<Input
-					readonly={messages.inProgress}
-					pending={thread?.pending}
-					onAbort={async () => {
-						await thread?.abort();
-					}}
-					onSubmit={async (i) => {
-						await ensureThread();
-						scrollSmooth = false;
-						scrollControls?.stickToBottom();
-						await thread?.invoke(i);
-					}}
-					bind:items={layout.items}
-				>
-					<div class="flex w-fit items-center gap-1">
-						<Files thread {project} bind:currentThreadID={id} />
-						<Tools {project} {version} {tools} />
+			<div class="absolute inset-x-0 bottom-0 z-20 flex justify-center py-4 md:py-8">
+				<div class="w-full max-w-[1000px]">
+					<Input
+						{uploadState}
+						readonly={messages.inProgress}
+						pending={thread?.pending}
+						onAbort={async () => {
+							await thread?.abort();
+						}}
+						onSubmit={async (i) => {
+							await ensureThread();
+							scrollSmooth = false;
+							scrollControls?.stickToBottom();
+							await thread?.invoke(i);
+						}}
+						bind:items={layout.items}
+					>
+						<div class="flex w-fit items-center gap-1">
+							<Files thread {project} bind:currentThreadID={id} />
+							<Tools {project} {version} {tools} />
+						</div>
+					</Input>
+
+					<div
+						class="mt-3 grid grid-cols-[auto_auto] items-center justify-center gap-x-2 px-5 text-xs font-light"
+					>
+						<span class="text-gray dark:text-gray-400"
+							>Obots aren't perfect. Double check their work.</span
+						>
+						<a
+							href="https://github.com/obot-platform/obot/issues/new?template=bug_report.md"
+							target="_blank"
+							rel="noopener noreferrer"
+							class="whitespace-nowrap text-blue-500/50 hover:underline"
+						>
+							{#if responsive.isMobile}
+								<Bug class="h-4 w-4" />
+							{:else}
+								Report issues here
+							{/if}
+						</a>
 					</div>
-				</Input>
-				<div
-					class="mt-3 grid grid-cols-[auto_auto] items-center justify-center gap-x-2 px-5 text-xs font-light"
-				>
-					<span class="text-gray dark:text-gray-400"
-						>Obots aren't perfect. Double check their work.</span
-					>
-					<a
-						href="https://github.com/obot-platform/obot/issues/new?template=bug_report.md"
-						target="_blank"
-						rel="noopener noreferrer"
-						class="whitespace-nowrap text-blue-500/50 hover:underline"
-					>
-						{#if responsive.isMobile}
-							<Bug class="h-4 w-4" />
-						{:else}
-							Report issues here
-						{/if}
-					</a>
 				</div>
 			</div>
 		</div>
