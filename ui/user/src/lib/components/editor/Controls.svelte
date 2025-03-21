@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { getLayout } from '$lib/context/layout.svelte';
 	import { type Project } from '$lib/services';
-	import { term } from '$lib/stores';
 	import { X } from 'lucide-svelte';
 	import { twMerge } from 'tailwind-merge';
 	import Files from '../edit/Files.svelte';
@@ -35,7 +34,6 @@
 			class="icon-button"
 			onclick={() => {
 				layout.fileEditorOpen = false;
-				term.open = false;
 			}}
 		>
 			<X class="h-5 w-5" />

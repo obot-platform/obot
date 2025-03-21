@@ -901,11 +901,10 @@ func (a *AgentHandler) WatchKnowledgeFile(req api.Context) error {
 
 func MetadataFrom(obj kclient.Object, linkKV ...string) types.Metadata {
 	m := types.Metadata{
-		ID:       obj.GetName(),
-		Created:  *types.NewTime(obj.GetCreationTimestamp().Time),
-		Links:    map[string]string{},
-		Type:     strings.ToLower(reflect.TypeOf(obj).Elem().Name()),
-		Revision: obj.GetResourceVersion(),
+		ID:      obj.GetName(),
+		Created: *types.NewTime(obj.GetCreationTimestamp().Time),
+		Links:   map[string]string{},
+		Type:    strings.ToLower(reflect.TypeOf(obj).Elem().Name()),
 	}
 	if delTime := obj.GetDeletionTimestamp(); delTime != nil {
 		m.Deleted = types.NewTime(delTime.Time)

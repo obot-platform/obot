@@ -32,7 +32,7 @@
 	async function createNew() {
 		try {
 			const project = await EditorService.createObot();
-			await goto(`/o/${project.id}?edit`);
+			await goto(`/o/${project.id}`);
 		} catch (error) {
 			errors.append((error as Error).message);
 		}
@@ -40,7 +40,7 @@
 
 	async function copy(project: Project) {
 		const newProject = await ChatService.copyProject(project.assistantID, project.id);
-		await goto(`/o/${newProject.id}?edit`);
+		await goto(`/o/${newProject.id}`);
 	}
 </script>
 

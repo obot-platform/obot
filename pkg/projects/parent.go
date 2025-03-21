@@ -27,6 +27,12 @@ func ThreadIDs(ctx context.Context, c kclient.Client, thread *v1.Thread) ([]stri
 	return append([]string{thread.Name}, parentIDs...), nil
 }
 
+func GetRoot(ctx context.Context, c kclient.Client, thread *v1.Thread) (*v1.Thread, error) {
+	return GetFirst(ctx, c, thread, func(t *v1.Thread) (bool, error) {
+		return t.Spec.ParentThreadName == "", nil
+	})
+}
+
 func GetFirst(ctx context.Context, c kclient.Client, thread *v1.Thread, check func(*v1.Thread) (bool, error)) (*v1.Thread, error) {
 	if thread == nil {
 		return nil, nil

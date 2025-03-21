@@ -101,9 +101,12 @@ func Router(services *services.Services) (http.Handler, error) {
 	// Project tools
 	mux.HandleFunc("PUT /api/assistants/{assistant_id}/projects/{project_id}/tools", assistants.SetTools)
 	mux.HandleFunc("GET /api/assistants/{assistant_id}/projects/{project_id}/tools", assistants.Tools)
+	mux.HandleFunc("POST /api/assistants/{assistant_id}/projects/{project_id}/tools", tools.Create)
 	mux.HandleFunc("GET /api/assistants/{assistant_id}/projects/{project_id}/tools/{tool_id}", tools.Get)
 	mux.HandleFunc("GET /api/assistants/{assistant_id}/projects/{project_id}/tools/{tool_id}/env", tools.GetEnv)
-	mux.HandleFunc("PUT /api/assistants/{assistant_id}/projects/{project_id}/tools/{tool}", assistants.AddTool)
+	mux.HandleFunc("PUT /api/assistants/{assistant_id}/projects/{project_id}/tools/{tool_id}/env", tools.SetEnv)
+	mux.HandleFunc("POST /api/assistants/{assistant_id}/projects/{project_id}/tools/{tool_id}/test", tools.Test)
+	mux.HandleFunc("PUT /api/assistants/{assistant_id}/projects/{project_id}/tools/{tool}", tools.UpdateTool)
 	mux.HandleFunc("DELETE /api/assistants/{assistant_id}/projects/{project_id}/tools/{tool}", assistants.RemoveTool)
 	mux.HandleFunc("DELETE /api/assistants/{assistant_id}/projects/{project_id}/tools/{tool}/custom", assistants.DeleteTool)
 
@@ -409,20 +412,6 @@ func Router(services *services.Services) (http.Handler, error) {
 
 	// Auth Provider tools
 	mux.HandleFunc("/oauth2/", services.ProxyManager.HandlerFunc)
-
-	// Docker stuff
-	if services.SupportDocker {
-		shell, err := handlers.NewShellHandler(services.Invoker)
-		if err != nil {
-			return nil, err
-		}
-		mux.HandleFunc("GET /api/assistants/{assistant_id}/projects/{project_id}/shell", shell.Shell)
-
-		// Tools
-		mux.HandleFunc("POST /api/assistants/{assistant_id}/projects/{project_id}/tools", tools.Create)
-		mux.HandleFunc("PUT /api/assistants/{assistant_id}/projects/{project_id}/tools/{tool_id}/env", tools.SetEnv)
-		mux.HandleFunc("POST /api/assistants/{assistant_id}/projects/{project_id}/tools/{tool_id}/test", tools.Test)
-	}
 
 	// Gateway APIs
 	services.GatewayServer.AddRoutes(services.APIServer)

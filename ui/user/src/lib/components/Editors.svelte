@@ -2,10 +2,8 @@
 	import { overflowToolTip } from '$lib/actions/overflow';
 	import Controls from '$lib/components/editor/Controls.svelte';
 	import FileEditors from '$lib/components/editor/FileEditors.svelte';
-	import Terminal from '$lib/components/terminal/Terminal.svelte';
 	import { getLayout } from '$lib/context/layout.svelte';
 	import { ChatService, EditorService, type InvokeInput, type Project } from '$lib/services';
-	import { term } from '$lib/stores';
 	import { Download } from 'lucide-svelte';
 	import { X } from 'lucide-svelte/icons';
 	import { twMerge } from 'tailwind-merge';
@@ -87,7 +85,7 @@
 		</div>
 	{/if}
 
-	<div class="relative flex h-full flex-col overflow-hidden">
+	<div class="relative flex h-full flex-col">
 		<div class="default-scrollbar-thin relative flex-1">
 			<FileEditors
 				{project}
@@ -116,13 +114,4 @@
 			</button>
 		{/if}
 	</div>
-	{#if term.open}
-		<div
-			class={layout.fileEditorOpen
-				? 'border-surface1 -mb-3 -ml-5 h-1/2 border-t-4 px-2 pt-2'
-				: 'h-full'}
-		>
-			<Terminal {project} />
-		</div>
-	{/if}
 </div>

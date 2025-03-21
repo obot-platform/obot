@@ -12,6 +12,7 @@ import (
 	"github.com/obot-platform/nah/pkg/randomtoken"
 	"github.com/obot-platform/nah/pkg/router"
 	"github.com/obot-platform/nah/pkg/untriggered"
+	"github.com/obot-platform/obot/pkg/create"
 	"github.com/obot-platform/obot/pkg/invoke"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
@@ -304,6 +305,10 @@ func (t *Handler) SetCreated(req router.Request, _ router.Response) error {
 		return nil
 	}
 
+	if thread.Spec.SourceThreadName != "" && !thread.Status.CopiedTools {
+		return nil
+	}
+
 	if thread.Spec.AgentName == "" {
 		// Non-agent thread is ready at this point
 		thread.Status.Created = true
@@ -491,6 +496,43 @@ func (t *Handler) CopyTasksFromSource(req router.Request, _ router.Response) err
 		}
 	}
 	thread.Status.CopiedTasks = true
+	return req.Client.Status().Update(req.Ctx, thread)
+}
+
+func (t *Handler) CopyToolsFromSource(req router.Request, _ router.Response) error {
+	thread := req.Object.(*v1.Thread)
+	if !thread.Spec.Project || thread.Spec.SourceThreadName == "" || thread.Spec.ParentThreadName != "" {
+		return nil
+	}
+
+	if thread.Status.CopiedTools {
+		return nil
+	}
+
+	var toolList v1.ToolList
+	if err := req.Client.List(req.Ctx, &toolList, kclient.InNamespace(thread.Namespace), kclient.MatchingFields{
+		"spec.threadName": thread.Spec.SourceThreadName,
+	}); err != nil {
+		return err
+	}
+
+	for _, tool := range toolList.Items {
+		newTool := v1.Tool{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      name.SafeHashConcatName(tool.Name, thread.Name),
+				Namespace: thread.Namespace,
+			},
+			Spec: v1.ToolSpec{
+				ThreadName: thread.Name,
+				Manifest:   tool.Spec.Manifest,
+			},
+		}
+		if err := create.IfNotExists(req.Ctx, req.Client, &newTool); err != nil {
+			return err
+		}
+	}
+
+	thread.Status.CopiedTools = true
 	return req.Client.Status().Update(req.Ctx, thread)
 }
 

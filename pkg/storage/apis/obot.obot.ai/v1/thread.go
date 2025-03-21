@@ -144,6 +144,7 @@ type ThreadStatus struct {
 	// SharedWorkspaceName is used primarily to store the database content and is scoped to the project and shared across threads
 	SharedWorkspaceName string `json:"sharedWorkspaceName,omitempty"`
 	CopiedTasks         bool   `json:"copiedTasks,omitempty"`
+	CopiedTools         bool   `json:"copiedTools,omitempty"`
 	Created             bool   `json:"created,omitempty"`
 }
 

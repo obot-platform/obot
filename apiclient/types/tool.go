@@ -3,7 +3,10 @@ package types
 type ToolType string
 
 const (
-	ToolTypeDocker = ToolType("docker")
+	ToolTypeContainer  = ToolType("container")
+	ToolTypeJavaScript = ToolType("javascript")
+	ToolTypePython     = ToolType("python")
+	ToolTypeScript     = ToolType("script")
 )
 
 type ToolManifest struct {

@@ -65,8 +65,8 @@ func Agent(ctx context.Context, db kclient.Client, agent *v1.Agent, oauthServerU
 		if env.Name == "" || env.Existing {
 			continue
 		}
-		if !validEnv.MatchString(env.Name) {
-			return nil, nil, fmt.Errorf("invalid env var %s, must match %s", env.Name, validEnv.String())
+		if !ValidEnv.MatchString(env.Name) {
+			return nil, nil, fmt.Errorf("invalid env var %s, must match %s", env.Name, ValidEnv.String())
 		}
 		if env.Value == "" {
 			mainTool.Credentials = append(mainTool.Credentials,
@@ -131,6 +131,29 @@ func Agent(ctx context.Context, db kclient.Client, agent *v1.Agent, oauthServerU
 				mainTool.Tools = append(mainTool.Tools, name)
 			}
 			otherTools = append(otherTools, tools...)
+		}
+
+		topMost, err := projects.GetRoot(ctx, db, opts.Thread)
+		if err != nil {
+			return nil, nil, err
+		}
+
+		var customTools v1.ToolList
+		if err := db.List(ctx, &customTools, kclient.InNamespace(topMost.Namespace), kclient.MatchingFields{
+			"spec.threadName": topMost.Name,
+		}); err != nil {
+			return nil, nil, err
+		}
+
+		for _, customTool := range customTools.Items {
+			toolDefs, err := CustomTool(ctx, db, customTool)
+			if err != nil {
+				return nil, nil, err
+			}
+			for _, toolDef := range toolDefs {
+				mainTool.Tools = append(mainTool.Tools, toolDef.Name)
+				otherTools = append(otherTools, toolDef)
+			}
 		}
 
 		credTool, err := ResolveToolReference(ctx, db, types.ToolReferenceTypeSystem, opts.Thread.Namespace, system.ExistingCredTool)

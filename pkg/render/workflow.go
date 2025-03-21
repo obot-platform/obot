@@ -13,7 +13,12 @@ import (
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-var validEnv = regexp.MustCompile("^[a-zA-Z_][a-zA-Z0-9_]*$")
+var (
+	ValidEnv      = regexp.MustCompile("^[a-zA-Z_][a-zA-Z0-9_]*$")
+	InvalidEnv    = regexp.MustCompile("^(OBOT|GPTSCRIPT|KNOW)")
+	ValidImage    = regexp.MustCompile("^[a-zA-Z0-9_][a-zA-Z0-9_.-:/]*$")
+	ValidToolType = regexp.MustCompile("^(container|script|javascript|python)$")
+)
 
 type WorkflowOptions struct {
 	Step             *types.Step
@@ -23,6 +28,30 @@ type WorkflowOptions struct {
 
 func IsExternalTool(tool string) bool {
 	return strings.ContainsAny(tool, ".\\/")
+}
+
+func IsValidEnv(env string) error {
+	if !ValidEnv.MatchString(env) {
+		return fmt.Errorf("invalid env var %s, must match %s", env, ValidEnv.String())
+	}
+	if InvalidEnv.MatchString(env) {
+		return fmt.Errorf("invalid env var %s, cannot start with OBOT, GPTSCRIPT or KNOW", env)
+	}
+	return nil
+}
+
+func IsValidImage(image string) error {
+	if !ValidImage.MatchString(image) {
+		return fmt.Errorf("invalid image name %s, must match %s", image, ValidImage.String())
+	}
+	return nil
+}
+
+func IsValidToolType(toolType types.ToolType) error {
+	if !ValidToolType.MatchString(string(toolType)) {
+		return fmt.Errorf("invalid tool type %s, must match %s", toolType, ValidToolType.String())
+	}
+	return nil
 }
 
 func ResolveToolReference(ctx context.Context, c kclient.Client, toolRefType types.ToolReferenceType, ns, name string) (string, error) {

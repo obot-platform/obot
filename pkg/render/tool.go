@@ -44,8 +44,8 @@ func CustomTool(ctx context.Context, c client.Client, tool v1.Tool) (toolDefs []
 	}
 
 	for _, env := range tool.Spec.Envs {
-		if !validEnv.MatchString(env) {
-			return nil, fmt.Errorf("invalid env var %s, must match %s", env, validEnv.String())
+		if err := IsValidEnv(env); err != nil {
+			return nil, err
 		}
 		envs = append(envs, env)
 	}
@@ -55,9 +55,15 @@ func CustomTool(ctx context.Context, c client.Client, tool v1.Tool) (toolDefs []
 		instructions = append(instructions, fmt.Sprintf("%q as obot_tool_envs", strings.Join(envs, ",")))
 	}
 	if tool.Spec.Manifest.Image != "" {
+		if err := IsValidImage(tool.Spec.Manifest.Image); err != nil {
+			return nil, err
+		}
 		instructions = append(instructions, fmt.Sprintf("%q as obot_tool_image", tool.Spec.Manifest.Image))
 	}
 	if tool.Spec.Manifest.ToolType != "" && tool.Spec.Manifest.ToolType != "docker" {
+		if err := IsValidToolType(tool.Spec.Manifest.ToolType); err != nil {
+			return nil, err
+		}
 		instructions = append(instructions, fmt.Sprintf("%q as obot_tool_type", tool.Spec.Manifest.ToolType))
 	}
 

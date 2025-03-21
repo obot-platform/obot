@@ -5,34 +5,24 @@
 	import Obot from '$lib/components/Obot.svelte';
 	import { initLayout } from '$lib/context/layout.svelte';
 	import { initToolReferences } from '$lib/context/toolReferences.svelte';
-	import { profile, responsive } from '$lib/stores';
+	import { profile } from '$lib/stores';
+	import { browser } from '$app/environment';
 
 	let { data } = $props();
 	let project = $state(data.project);
 	let tools = $state(data.tools ?? []);
 	let currentThreadID = $state<string | undefined>(
-		(typeof window !== 'undefined' && new URL(window.location.href).searchParams.get('thread')) ||
-			undefined
+		(browser && new URL(window.location.href).searchParams.get('thread')) || undefined
 	);
 	let title = $derived(project?.name || 'Obot');
 
 	initToolReferences(data.toolReferences ?? []);
 
-	initLayout({
-		sidebarOpen: responsive.isMobile ? false : true,
-		// typeof window !== 'undefined' && new URL(window.location.href).searchParams.has('sidebar'),
-		projectEditorOpen:
-			typeof window !== 'undefined' && new URL(window.location.href).searchParams.has('edit'),
-		items: []
-	});
+	initialLayout();
 
 	$effect(() => {
 		if (navigating) {
-			initLayout({
-				sidebarOpen: true,
-				projectEditorOpen: navigating.to?.url.searchParams.has('edit'),
-				items: []
-			});
+			initialLayout();
 		}
 	});
 
@@ -66,6 +56,21 @@
 			window.location.href = `/?rd=${window.location.pathname}`;
 		}
 	});
+
+	function qIsSet(key: string): boolean {
+		if (navigating?.to?.url.searchParams.has(key)) {
+			return true;
+		}
+		return browser && new URL(window.location.href).searchParams.has(key);
+	}
+
+	function initialLayout() {
+		initLayout({
+			sidebarOpen: qIsSet('sidebar'),
+			projectEditorOpen: qIsSet('edit'),
+			items: []
+		});
+	}
 </script>
 
 <svelte:head>

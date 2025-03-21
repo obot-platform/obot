@@ -1,10 +1,10 @@
 <script lang="ts">
-	import { ChatService, type Task, type Version } from '$lib/services';
+	import { type Task } from '$lib/services';
 	import Schedule from '$lib/components/tasks/Schedule.svelte';
-	import { onMount } from 'svelte';
 	import OnDemand from '$lib/components/tasks/OnDemand.svelte';
 	import CopyButton from '$lib/components/CopyButton.svelte';
 	import { fade } from 'svelte/transition';
+	import { version } from '$lib/stores';
 
 	interface Props {
 		task: Task;
@@ -12,10 +12,9 @@
 
 	let { task = $bindable() }: Props = $props();
 
-	let version: Version = $state({});
 	let email = $derived.by(() => {
-		if (version.emailDomain && task.alias) {
-			return `${task.name ? task.name.toLocaleLowerCase().replace(/[^a-z0-9]+/g, '-') + '-' : ''}${task.alias.replace('/', '.')}@${version.emailDomain}`;
+		if (version.current.emailDomain && task.alias) {
+			return `${task.name ? task.name.toLocaleLowerCase().replace(/[^a-z0-9]+/g, '-') + '-' : ''}${task.alias.replace('/', '.')}@${version.current.emailDomain}`;
 		}
 
 		return '';
@@ -51,10 +50,6 @@
 		) {
 			lastParamsSeen = task.onDemand.params;
 		}
-	});
-
-	onMount(async () => {
-		version = await ChatService.getVersion();
 	});
 
 	function selectedTrigger(): string {

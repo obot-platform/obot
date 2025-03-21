@@ -6,7 +6,10 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-var _ fields.Fields = (*Tool)(nil)
+var (
+	_ fields.Fields = (*Tool)(nil)
+	_ DeleteRefs    = (*Tool)(nil)
+)
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
@@ -16,6 +19,12 @@ type Tool struct {
 
 	Spec   ToolSpec   `json:"spec,omitempty"`
 	Status ToolStatus `json:"status,omitempty"`
+}
+
+func (in *Tool) DeleteRefs() []Ref {
+	return []Ref{
+		{ObjType: &Thread{}, Name: in.Spec.ThreadName},
+	}
 }
 
 type ToolSpec struct {

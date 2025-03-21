@@ -4,10 +4,10 @@ import (
 	"context"
 	"errors"
 	"maps"
-	"regexp"
 	"slices"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/gptscript-ai/go-gptscript"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
@@ -30,12 +30,10 @@ func NewToolHandler(gptScript *gptscript.GPTScript, invoke *invoke.Invoker) *Too
 	}
 }
 
-var invalidEnv = regexp.MustCompile("^(OBOT|GPTSCRIPT|KNOW)")
-
 func setEnvMap(req api.Context, gptScript *gptscript.GPTScript, threadName, toolName string, env map[string]string) error {
 	for k := range env {
-		if invalidEnv.MatchString(k) {
-			return types.NewErrBadRequest("invalid env key %s", k)
+		if err := render.IsValidEnv(k); err != nil {
+			return types.NewErrBadRequest("%v", err)
 		}
 	}
 
@@ -45,6 +43,39 @@ func setEnvMap(req api.Context, gptScript *gptscript.GPTScript, threadName, tool
 		Type:     gptscript.CredentialTypeTool,
 		Env:      env,
 	})
+}
+
+func (t *ToolHandler) UpdateTool(req api.Context) error {
+	var (
+		tool         = req.PathValue("tool")
+		toolManifest types.ToolManifest
+	)
+
+	//nolint:revive
+	if err := req.Read(&toolManifest); err != nil {
+		return err
+	}
+
+	thread, err := getProjectThread(req)
+	if err != nil {
+		return err
+	}
+
+	var customTool v1.Tool
+	if err := req.Get(&customTool, tool); err != nil {
+		return err
+	}
+
+	if customTool.Spec.ThreadName != thread.Name {
+		return types.NewErrNotFound("tool %s is not available", tool)
+	}
+
+	customTool.Spec.Manifest = toolManifest
+	if err := req.Update(&customTool); err != nil {
+		return err
+	}
+
+	return req.Write(convertTool(customTool, true))
 }
 
 func (t *ToolHandler) SetEnv(req api.Context) error {
@@ -149,7 +180,7 @@ func (t *ToolHandler) Test(req api.Context) error {
 		agent       v1.Agent
 		envs        []string
 		envNameList []string
-		testID      = system.ToolPrefix + "-test-cred"
+		testID      = system.ToolPrefix + "-" + uuid.NewString()
 	)
 
 	thread, err := getThreadForScope(req)
@@ -162,6 +193,12 @@ func (t *ToolHandler) Test(req api.Context) error {
 	}
 
 	for _, env := range agent.Spec.Manifest.Env {
+		if env.Name != "" && env.Value != "" {
+			envs = append(envs, env.Name+"="+env.Value)
+		}
+	}
+
+	for _, env := range thread.Spec.Env {
 		if env.Name != "" && env.Value != "" {
 			envs = append(envs, env.Name+"="+env.Value)
 		}
@@ -183,8 +220,8 @@ func (t *ToolHandler) Test(req api.Context) error {
 
 	if len(input.Env) > 0 {
 		for envName := range input.Env {
-			if invalidEnv.MatchString(envName) {
-				return types.NewErrBadRequest("invalid env key %s", envName)
+			if err := render.IsValidEnv(envName); err != nil {
+				return types.NewErrBadRequest("%v", err)
 			}
 			envNameList = append(envNameList, envName)
 		}
@@ -250,11 +287,6 @@ func (t *ToolHandler) Create(req api.Context) error {
 	}
 
 	if err := req.Create(&tool); err != nil {
-		return err
-	}
-
-	thread.Spec.Manifest.Tools = append(thread.Spec.Manifest.Tools, tool.Name)
-	if err := req.Update(thread); err != nil {
 		return err
 	}
 

@@ -198,6 +198,8 @@ export interface Assistant {
 	websiteKnowledge?: Sites;
 }
 
+export type AssistantToolType = 'javascript' | 'python' | 'script' | 'container' | undefined;
+
 export interface AssistantTool {
 	id: string;
 	name?: string;
@@ -205,7 +207,7 @@ export interface AssistantTool {
 	icon?: string;
 	enabled?: boolean;
 	builtin?: boolean;
-	toolType?: string;
+	toolType?: AssistantToolType;
 	image?: string;
 	instructions?: string;
 	context?: string;

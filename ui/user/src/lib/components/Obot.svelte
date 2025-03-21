@@ -1,14 +1,13 @@
 <script lang="ts">
 	import Editor from '$lib/components/Editors.svelte';
 	import Navbar from '$lib/components/Navbar.svelte';
-	import Notifications from '$lib/components/Notifications.svelte';
 	import Sidebar from '$lib/components/Sidebar.svelte';
 	import Task from '$lib/components/tasks/Task.svelte';
 	import Thread from '$lib/components/Thread.svelte';
 	import { getLayout } from '$lib/context/layout.svelte';
-	import { type AssistantTool, ChatService, type Project, type Version } from '$lib/services';
+	import { type AssistantTool, ChatService, type Project } from '$lib/services';
 	import type { EditorItem } from '$lib/services/editor/index.svelte';
-	import { responsive, term } from '$lib/stores';
+	import { responsive } from '$lib/stores';
 	import { SidebarOpen } from 'lucide-svelte';
 	import { onMount } from 'svelte';
 	import { fade, slide } from 'svelte/transition';
@@ -29,15 +28,10 @@
 		items = $bindable([])
 	}: Props = $props();
 	let layout = getLayout();
-	let editorVisible = $derived(layout.fileEditorOpen || term.open);
-	let version = $state<Version>({});
 
 	onMount(async () => {
 		if (tools.length === 0) {
 			tools = (await ChatService.listTools(project.assistantID, project.id)).items;
-		}
-		if (!version) {
-			version = await ChatService.getVersion();
 		}
 	});
 </script>
@@ -77,7 +71,7 @@
 			</div>
 
 			<div class="flex h-[calc(100%-76px)] max-w-full grow">
-				{#if !responsive.isMobile || (responsive.isMobile && !editorVisible)}
+				{#if !responsive.isMobile || (responsive.isMobile && !layout.fileEditorOpen)}
 					{#if layout.editTaskID && layout.tasks}
 						{#each layout.tasks as task, i}
 							{#if task.id === layout.editTaskID}
@@ -98,7 +92,6 @@
 							<Thread
 								bind:id={currentThreadID}
 								{project}
-								{version}
 								{tools}
 								isTaskRun={!!currentThreadID &&
 									!!layout.taskRuns?.some((run) => run.id === currentThreadID)}
@@ -109,15 +102,15 @@
 				<div
 					class={twMerge(
 						'border-surface2 absolute right-0 float-right w-full translate-x-full transform border-4 border-r-0 pt-2 transition-transform duration-300 md:mb-8 md:w-3/5 md:max-w-[calc(100%-320px)] md:min-w-[320px] md:rounded-l-3xl md:ps-5 md:pt-5',
-						editorVisible && 'relative w-full translate-x-0',
-						!editorVisible && 'w-0!'
+						layout.fileEditorOpen && 'relative w-full translate-x-0',
+						!layout.fileEditorOpen && 'w-0!'
 					)}
 				>
-					<Editor {project} {currentThreadID} />
+					<div class="colors-background">
+						<Editor {project} {currentThreadID} />
+					</div>
 				</div>
 			</div>
-
-			<Notifications />
 		</main>
 	</div>
 </div>

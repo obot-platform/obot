@@ -72,11 +72,12 @@ func (c *Controller) setupRoutes() error {
 	root.Type(&v1.Thread{}).HandlerFunc(threads.WorkflowState)
 	root.Type(&v1.Thread{}).HandlerFunc(knowledgesummary.Summarize)
 	root.Type(&v1.Thread{}).HandlerFunc(threads.CleanupEphemeralThreads)
-	root.Type(&v1.Thread{}).HandlerFunc(threads.SetCreated)
 	root.Type(&v1.Thread{}).HandlerFunc(threads.GenerateName)
 	root.Type(&v1.Thread{}).HandlerFunc(projects.CopyProjectInfo)
 	root.Type(&v1.Thread{}).HandlerFunc(threads.CopyTasksFromSource)
 	root.Type(&v1.Thread{}).HandlerFunc(threads.CopyTasksFromParent)
+	root.Type(&v1.Thread{}).HandlerFunc(threads.CopyToolsFromSource)
+	root.Type(&v1.Thread{}).HandlerFunc(threads.SetCreated)
 	root.Type(&v1.Thread{}).HandlerFunc(threads.EnsureLastAndCurrentRunActive)
 	root.Type(&v1.Thread{}).FinalizeFunc(v1.ThreadFinalizer, credentialCleanup.Remove)
 	root.Type(&v1.Thread{}).FinalizeFunc(v1.ThreadFinalizer+"-child-cleanup", threads.ActivateRuns)
@@ -188,6 +189,9 @@ func (c *Controller) setupRoutes() error {
 
 	// AgentAuthorizations
 	root.Type(&v1.AgentAuthorization{}).HandlerFunc(cleanup.Cleanup)
+
+	// Tools
+	root.Type(&v1.Tool{}).HandlerFunc(cleanup.Cleanup)
 
 	c.toolRefHandler = toolRef
 	return nil

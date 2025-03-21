@@ -4,7 +4,6 @@
 	import Threads from '$lib/components/sidebar/Threads.svelte';
 	import Clone from '$lib/components/navbar/Clone.svelte';
 	import { hasTool } from '$lib/tools';
-	import Term from '$lib/components/navbar/Term.svelte';
 	import Credentials from '$lib/components/navbar/Credentials.svelte';
 	import Tasks from '$lib/components/sidebar/Tasks.svelte';
 	import { getLayout } from '$lib/context/layout.svelte';
@@ -66,10 +65,6 @@
 	</div>
 
 	<div class="flex gap-1 px-3 py-2">
-		{#if hasTool(tools, 'shell')}
-			<Term />
-		{/if}
-
 		<p use:credentialsTT.tooltip class="tooltip">Credentials</p>
 
 		<button class="icon-button" onclick={() => credentials?.show()} use:credentialsTT.ref>

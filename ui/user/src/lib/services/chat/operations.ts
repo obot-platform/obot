@@ -417,11 +417,11 @@ export async function updateTool(
 	opts?: {
 		env?: Record<string, string>;
 	}
-): Promise<AssistantToolList> {
+): Promise<AssistantTool> {
 	const result = (await doPut(
 		`/assistants/${assistantID}/projects/${projectID}/tools/${tool.id}`,
 		tool
-	)) as AssistantToolList;
+	)) as AssistantTool;
 	if (opts?.env) {
 		await saveToolEnv(assistantID, projectID, tool.id, opts.env);
 	}
@@ -479,9 +479,15 @@ export async function saveToolEnv(
 	tool: string,
 	env: Record<string, string>
 ): Promise<Record<string, string>> {
+	const newEnv = { ...env };
+	for (const key in newEnv) {
+		if (newEnv[key].trim() === '') {
+			delete newEnv[key];
+		}
+	}
 	return (await doPut(
 		`/assistants/${assistantID}/projects/${projectID}/tools/${tool}/env`,
-		env
+		newEnv
 	)) as Record<string, string>;
 }
 

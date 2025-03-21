@@ -1,8 +1,6 @@
 package handlers
 
 import (
-	"errors"
-	"io"
 	"maps"
 	"net/http"
 	"slices"
@@ -12,6 +10,7 @@ import (
 	"github.com/gptscript-ai/go-gptscript"
 	"github.com/obot-platform/nah/pkg/router"
 	"github.com/obot-platform/obot/apiclient/types"
+	"github.com/obot-platform/obot/logger"
 	"github.com/obot-platform/obot/pkg/alias"
 	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/events"
@@ -22,6 +21,8 @@ import (
 	"k8s.io/client-go/util/retry"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
+
+var log = logger.Package()
 
 type AssistantHandler struct {
 	invoker      *invoke.Invoker
@@ -386,76 +387,6 @@ func appendTools(result *types.AssistantToolList, added map[string]bool, toolsBy
 	}
 }
 
-func (a *AssistantHandler) AddTool(req api.Context) (retErr error) {
-	defer func() {
-		if retErr == nil {
-			retErr = a.Tools(req)
-		}
-	}()
-
-	var (
-		id           = req.PathValue("assistant_id")
-		tool         = req.PathValue("tool")
-		toolManifest types.ToolManifest
-		hasBody      bool
-	)
-
-	//nolint:revive
-	if err := req.Read(&toolManifest); errors.Is(err, io.EOF) {
-	} else if err != nil {
-		return err
-	} else {
-		// only set has body if the id is a tool id and there's a body
-		hasBody = system.IsToolID(tool)
-	}
-
-	agent, err := getAssistant(req, id)
-	if err != nil {
-		return err
-	}
-
-	thread, err := getProjectThread(req)
-	if err != nil {
-		return err
-	}
-
-	if slices.Contains(thread.Spec.Manifest.Tools, tool) && !hasBody {
-		return nil
-	}
-
-	if system.IsToolID(tool) {
-		var customTool v1.Tool
-		if err := req.Get(&customTool, tool); err != nil {
-			return err
-		}
-		if customTool.Spec.ThreadName == thread.Name {
-			if hasBody {
-				customTool.Spec.Manifest = toolManifest
-				return req.Update(&customTool)
-			}
-			thread.Spec.Manifest.Tools = append(thread.Spec.Manifest.Tools, tool)
-			return req.Update(thread)
-		}
-	}
-
-	if !slices.Contains(agent.Spec.Manifest.AvailableThreadTools, tool) &&
-		!slices.Contains(agent.Spec.Manifest.DefaultThreadTools, tool) {
-		return types.NewErrBadRequest("tool %s is not available", tool)
-	}
-
-	maxTools := DefaultMaxUserThreadTools
-	if agent.Spec.Manifest.MaxThreadTools > 0 {
-		maxTools = agent.Spec.Manifest.MaxThreadTools
-	}
-
-	if len(thread.Spec.Manifest.Tools) >= maxTools {
-		return types.NewErrBadRequest("maximum number of tools (%d) reached", maxTools)
-	}
-
-	thread.Spec.Manifest.Tools = append(thread.Spec.Manifest.Tools, tool)
-	return req.Update(thread)
-}
-
 func (a *AssistantHandler) DeleteTool(req api.Context) error {
 	var (
 		toolID = req.PathValue("tool")
@@ -625,7 +556,7 @@ func (a *AssistantHandler) Tools(req api.Context) error {
 	}
 
 	for _, tool := range userTools.Items {
-		result.Items = append(result.Items, convertTool(tool, slices.Contains(thread.Spec.Manifest.Tools, tool.Name)))
+		result.Items = append(result.Items, convertTool(tool, true))
 	}
 
 	sort.Slice(result.Items, func(i, j int) bool {

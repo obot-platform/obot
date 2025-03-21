@@ -145,6 +145,7 @@ type Resources struct {
 	RunID                  string
 	WorkflowID             string
 	PendingAuthorizationID string
+	ToolID                 string
 	Authorizated           ResourcesAuthorized
 }
 
@@ -156,6 +157,7 @@ type ResourcesAuthorized struct {
 	Task                 *v1.Workflow
 	Run                  *v1.WorkflowExecution
 	Workflow             *v1.Workflow
+	Tool                 *v1.Tool
 	PendingAuthorization *v1.ThreadAuthorization
 }
 
@@ -169,6 +171,7 @@ func (a *Authorizer) evaluateResources(req *http.Request, vars GetVar, user user
 		WorkflowID:             vars("workflow_id"),
 		PendingAuthorizationID: vars("pending_authorization_id"),
 		ThreadShareID:          vars("share_public_id"),
+		ToolID:                 vars("tool_id"),
 	}
 
 	if ok, err := a.checkAssistant(req, &resources, user); !ok || err != nil {
@@ -196,6 +199,10 @@ func (a *Authorizer) evaluateResources(req *http.Request, vars GetVar, user user
 	}
 
 	if ok, err := a.checkWorkflow(req, &resources, user); !ok || err != nil {
+		return false, err
+	}
+
+	if ok, err := a.checkTools(req, &resources, user); !ok || err != nil {
 		return false, err
 	}
 

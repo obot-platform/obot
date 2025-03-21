@@ -1,24 +1,8 @@
-<script lang="ts" module>
-	export class NotificationMessage {
-		level: 'info' | 'error';
-		message: string;
-
-		constructor(messageOrError: string | Error, level?: 'info' | 'error') {
-			if (messageOrError instanceof Error) {
-				this.level = 'error';
-				this.message = messageOrError.message;
-			} else {
-				this.level = level || 'info';
-				this.message = messageOrError;
-			}
-		}
-	}
-</script>
-
 <script lang="ts">
 	import { CircleX } from 'lucide-svelte/icons';
 	import { X } from 'lucide-svelte/icons';
 	import { errors, profile } from '$lib/stores';
+	import { navigating } from '$app/state';
 
 	let div: HTMLElement;
 
@@ -26,6 +10,12 @@
 		if (profile.current.loaded && div.classList.contains('hidden')) {
 			div.classList.remove('hidden');
 			div.classList.add('flex');
+		}
+	});
+
+	$effect(() => {
+		if (navigating) {
+			errors.items = [];
 		}
 	});
 </script>

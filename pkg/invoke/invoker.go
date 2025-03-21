@@ -413,7 +413,7 @@ func isEphemeral(run *v1.Run) bool {
 }
 
 func (i *Invoker) createRun(ctx context.Context, c kclient.WithWatch, thread *v1.Thread, tool any, input string, opts runOptions) (*Response, error) {
-	if thread.Spec.Project {
+	if thread.Spec.Project && !opts.Ephemeral {
 		return nil, fmt.Errorf("project threads cannot be invoked")
 	}
 

@@ -8,8 +8,7 @@
 		ChatService,
 		EditorService,
 		type Messages,
-		type Project,
-		type Version
+		type Project
 	} from '$lib/services';
 	import { fade } from 'svelte/transition';
 	import { onDestroy } from 'svelte';
@@ -26,11 +25,10 @@
 		id?: string;
 		project: Project;
 		tools: AssistantTool[];
-		version: Version;
 		isTaskRun?: boolean;
 	}
 
-	let { id = $bindable(), project, version, tools, isTaskRun }: Props = $props();
+	let { id = $bindable(), project, tools, isTaskRun }: Props = $props();
 
 	let container = $state<HTMLDivElement>();
 	let messages = $state<Messages>({ messages: [], inProgress: false });
@@ -207,7 +205,7 @@
 				>
 					<div class="flex w-fit items-center gap-1">
 						<Files thread {project} bind:currentThreadID={id} />
-						<Tools {project} {version} {tools} />
+						<Tools {project} {tools} />
 					</div>
 				</Input>
 				<div

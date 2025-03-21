@@ -419,7 +419,13 @@ function newContentMessage(progress: Progress, citations?: CitationSource[]): Me
 
 	if (progress.toolCall) {
 		if (progress.toolCall.name) {
-			result.sourceName = progress.toolCall.name;
+			// turn camelCase into words
+			let sourceName = progress.toolCall.name.replace(/([a-z])([A-Z])/g, '$1 $2');
+			// turn snake_case into words
+			sourceName = sourceName.replace(/_/g, ' ');
+			// Capitalize first letter
+			sourceName = sourceName.charAt(0).toUpperCase() + sourceName.slice(1);
+			result.sourceName = sourceName;
 		}
 		result.sourceDescription = progress.toolCall.description;
 		if (progress.toolCall.metadata?.icon) {

@@ -204,7 +204,7 @@
 		{body}
 		bind:this={menu}
 		title="Files"
-		description="Edited content available to AI."
+		description="Content available to AI."
 		onLoad={loadFiles}
 		classes={{
 			button: primary ? 'button-icon-primary' : '',
