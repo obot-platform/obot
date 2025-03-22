@@ -165,28 +165,6 @@
 		class="colors-background relative flex w-full max-w-(--breakpoint-2xl) flex-col justify-center pb-12"
 	>
 		<div class="mt-8 flex w-full flex-col gap-8">
-			{#if featured.length > 0}
-				<div class="flex w-full flex-col gap-4 px-4 md:px-12">
-					<h3 class="text-2xl font-semibold">Featured</h3>
-					<div class="featured-card-layout">
-						{#each featured as featuredShare}
-							{@render projectCard(featuredShare)}
-						{/each}
-					</div>
-				</div>
-			{/if}
-
-			{#if recentlyUsedProjects.length > 0}
-				<div class="flex w-full flex-col gap-4 px-4 md:px-12">
-					<h3 class="text-2xl font-semibold">Recently Used</h3>
-					<div class="card-layout">
-						{#each recentlyUsedProjects as project}
-							{@render projectCard(project)}
-						{/each}
-					</div>
-				</div>
-			{/if}
-
 			<div class="flex w-full flex-col gap-4">
 				<div
 					class="sticky top-0 z-30 flex items-center gap-4 bg-white px-4 py-4 md:px-12 dark:bg-black"
@@ -213,6 +191,28 @@
 					</button>
 				</div>
 			</div>
+
+			{#if recentlyUsedProjects.length > 0}
+				<div class="flex w-full flex-col gap-4 px-4 md:px-12">
+					<h3 class="text-2xl font-semibold">Recently Used</h3>
+					<div class="card-layout">
+						{#each recentlyUsedProjects as project}
+							{@render projectCard(project)}
+						{/each}
+					</div>
+				</div>
+			{/if}
+
+			{#if featured.length > 0}
+				<div class="flex w-full flex-col gap-4 px-4 md:px-12">
+					<h3 class="text-2xl font-semibold">Featured</h3>
+					<div class="featured-card-layout">
+						{#each featured as featuredShare}
+							{@render projectCard(featuredShare)}
+						{/each}
+					</div>
+				</div>
+			{/if}
 		</div>
 	</main>
 
