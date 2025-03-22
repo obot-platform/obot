@@ -87,7 +87,7 @@
 <div
 	use:tooltip
 	class={twMerge(
-		'default-dialog z-30 flex w-screen flex-col divide-y divide-gray-200 p-6 md:w-96 dark:divide-gray-700',
+		'default-dialog z-40 flex w-screen flex-col divide-y divide-gray-200 p-6 md:w-96 dark:divide-gray-700',
 		classes?.dialog
 	)}
 >
