@@ -41,7 +41,7 @@
 		Object.values(toolSelection).filter((t) => t.enabled).length > maxTools
 	);
 
-	let catalog = popover({ fixed: true, slide: responsive.isMobile ? 'up' : undefined });
+	let catalog = popover();
 
 	function setToolEnabled(toolId: string, val?: boolean) {
 		if (toolId in toolSelection) {
@@ -124,7 +124,7 @@
 >
 
 <div
-	use:catalog.tooltip
+	use:catalog.tooltip={{ fixed: true, slide: responsive.isMobile ? 'up' : undefined }}
 	class="default-dialog bottom-0 left-0 w-full p-2 md:bottom-1/2 md:left-1/2 md:w-auto md:-translate-x-1/2 md:translate-y-1/2"
 >
 	<div class="flex w-full items-center justify-between">
@@ -161,7 +161,7 @@
 					{#snippet header()}
 						{@const bundleTool = toolSelection[tool.id]}
 						{@const allSelected = allSubtoolsEnabled(tool.id)}
-						{@const tt = popover({ hover: true, placement: 'left' })}
+						{@const tt = popover({ placement: 'left' })}
 
 						<label
 							class={twMerge(
@@ -201,7 +201,7 @@
 							{/if}
 						</label>
 
-						<p use:tt.tooltip class="tooltip max-w-64">
+						<p use:tt.tooltip={{ hover: true }} class="tooltip max-w-64">
 							{#if hasBundle}
 								{tool.description}
 							{:else}
@@ -226,7 +226,7 @@
 	{@const tool = toolSelection[toolReference.id]}
 	{@const bundleToolSelected =
 		!!toolReference.bundleToolName && !!toolSelection[toolReference.bundleToolName]?.enabled}
-	{@const { tooltip, ref } = popover({ hover: true, placement: 'left' })}
+	{@const { tooltip, ref } = popover({ placement: 'left' })}
 
 	<label
 		class="hover:bg-surface3 flex cursor-pointer items-center justify-between gap-2 rounded-lg p-2"
@@ -246,7 +246,7 @@
 		</p>
 	</label>
 
-	<p use:tooltip class="tooltip max-w-64">
+	<p use:tooltip={{ hover: true }} class="tooltip max-w-64">
 		{toolReference.description}
 	</p>
 {/snippet}

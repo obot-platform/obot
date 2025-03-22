@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onDestroy, type Snippet } from 'svelte';
+	import { type Snippet } from 'svelte';
 	import { EllipsisVertical } from 'lucide-svelte';
 	import { popover } from '$lib/actions';
 	import type { Placement } from '@floating-ui/dom';
@@ -20,32 +20,9 @@
 		icon,
 		onClick
 	}: Props = $props();
-	let tooltipEl: HTMLElement;
-	let container: HTMLElement;
 
 	const { tooltip, ref, toggle } = popover({
-		placement,
-		fixed: responsive.isMobile ? true : undefined,
-		slide: responsive.isMobile ? 'up' : undefined
-	});
-
-	$effect(() => {
-		if (responsive.isMobile && tooltipEl) {
-			// Create container and move tooltip into it
-			container = document.createElement('div');
-			document.body.appendChild(container);
-			container.appendChild(tooltipEl);
-
-			return () => {
-				// Clean up when mobile state changes or component destroys
-				container?.remove();
-			};
-		}
-	});
-
-	onDestroy(() => {
-		// Additional cleanup on component destruction
-		container?.remove();
+		placement
 	});
 </script>
 
@@ -65,8 +42,10 @@
 	{/if}
 </button>
 <div
-	bind:this={tooltipEl}
-	use:tooltip
+	use:tooltip={{
+		fixed: responsive.isMobile ? true : undefined,
+		slide: responsive.isMobile ? 'up' : undefined
+	}}
 	role="none"
 	onclick={(e) => {
 		e.preventDefault();

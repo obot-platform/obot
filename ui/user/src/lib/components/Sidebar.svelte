@@ -24,7 +24,7 @@
 	let projectsOpen = $state(false);
 	const layout = getLayout();
 
-	let credentialsTT = popover({ hover: true, placement: 'right' });
+	let credentialsTT = popover({ placement: 'right' });
 </script>
 
 <div class="bg-surface1 relative flex size-full flex-col">
@@ -41,7 +41,7 @@
 				disabled={layout.projectEditorOpen}
 				classes={{
 					tooltip:
-						'-translate-x-1 md:-translate-x-14 border-t-[1px] border-surface3 bg-surface2 shadow-inner max-h-[calc(100vh-66px)] overflow-y-auto default-scrollbar-thin'
+						'md:w-[250px] md:-translate-x-14 -translate-x-1 border-t-[1px] border-surface3 bg-surface2 shadow-inner max-h-[calc(100vh-66px)] overflow-y-auto default-scrollbar-thin'
 				}}
 			/>
 		</div>
@@ -70,7 +70,7 @@
 			<Term />
 		{/if}
 
-		<p use:credentialsTT.tooltip class="tooltip">Credentials</p>
+		<p use:credentialsTT.tooltip={{ hover: true }} class="tooltip">Credentials</p>
 
 		<button class="icon-button" onclick={() => credentials?.show()} use:credentialsTT.ref>
 			<KeyRound class="icon-default" />
