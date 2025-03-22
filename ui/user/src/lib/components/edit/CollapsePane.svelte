@@ -59,8 +59,6 @@
 		<div
 			transition:slide
 			class={twMerge('border-surface1 bg-surface2 flex flex-col p-5 shadow-inner', classes.content)}
-			class:border-t={header}
-			class:border-b={header}
 		>
 			{@render children()}
 		</div>

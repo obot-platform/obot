@@ -5,11 +5,11 @@
 	import Obot from '$lib/components/Obot.svelte';
 	import { initLayout } from '$lib/context/layout.svelte';
 	import { initToolReferences } from '$lib/context/toolReferences.svelte';
-	import { profile, responsive } from '$lib/stores';
+	import { profile, tools } from '$lib/stores';
 
 	let { data } = $props();
 	let project = $state(data.project);
-	let tools = $state(data.tools ?? []);
+
 	let currentThreadID = $state<string | undefined>(
 		(typeof window !== 'undefined' && new URL(window.location.href).searchParams.get('thread')) ||
 			undefined
@@ -19,17 +19,20 @@
 	initToolReferences(data.toolReferences ?? []);
 
 	initLayout({
-		sidebarOpen: responsive.isMobile ? false : true,
+		sidebarOpen: false,
 		// typeof window !== 'undefined' && new URL(window.location.href).searchParams.has('sidebar'),
 		projectEditorOpen:
 			typeof window !== 'undefined' && new URL(window.location.href).searchParams.has('edit'),
 		items: []
 	});
 
+	tools.setTools(data.tools ?? []);
+	tools.setMaxTools(data.assistant?.maxTools ?? 5);
+
 	$effect(() => {
 		if (navigating) {
 			initLayout({
-				sidebarOpen: true,
+				sidebarOpen: false,
 				projectEditorOpen: navigating.to?.url.searchParams.has('edit'),
 				items: []
 			});
@@ -40,7 +43,6 @@
 		// This happens on page transitions
 		if (data.project?.id !== project?.id) {
 			project = data.project;
-			tools = data.tools ?? [];
 			currentThreadID =
 				(typeof window !== 'undefined' &&
 					new URL(window.location.href).searchParams.get('thread')) ||
@@ -49,6 +51,8 @@
 	});
 
 	$effect(() => {
+		if (typeof window === 'undefined') return;
+
 		const currentURL = new URL(window.location.href);
 		if (
 			currentThreadID &&
@@ -56,7 +60,10 @@
 			currentURL.searchParams.get('thread') !== currentThreadID
 		) {
 			currentURL.searchParams.set('thread', currentThreadID);
-			replaceState(currentURL.toString(), {});
+			// Only call replaceState if we're not in the initial navigation
+			if (!navigating) {
+				replaceState(currentURL.toString(), {});
+			}
 		}
 	});
 
@@ -78,9 +85,9 @@
 	{#if project}
 		{#key project.id}
 			{#if project.editor}
-				<EditMode bind:project bind:tools bind:currentThreadID assistant={data.assistant} />
+				<EditMode bind:project bind:currentThreadID assistant={data.assistant} />
 			{:else}
-				<Obot {project} {tools} bind:currentThreadID />
+				<Obot bind:project bind:currentThreadID />
 			{/if}
 		{/key}
 	{/if}

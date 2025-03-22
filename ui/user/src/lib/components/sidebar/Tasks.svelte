@@ -6,6 +6,7 @@
 	import { onMount } from 'svelte';
 	import TaskItem from './TaskItem.svelte';
 	import { responsive } from '$lib/stores';
+	import { tooltip } from '$lib/actions/tooltip.svelte';
 
 	interface Props {
 		project: Project;
@@ -57,7 +58,7 @@
 <div class="flex w-full flex-col">
 	<div class="mb-1 flex items-center gap-1">
 		<p class="grow text-sm font-semibold">Tasks</p>
-		<button class="icon-button" onclick={() => newTask()}>
+		<button class="icon-button" onclick={() => newTask()} use:tooltip={{ text: 'Create New Task' }}>
 			<Plus class="icon-default" />
 		</button>
 	</div>

@@ -1,14 +1,13 @@
 <script lang="ts">
-	import { type AssistantTool, type Project } from '$lib/services';
+	import { type Project } from '$lib/services';
 	import Credentials from '$lib/components/edit/Credentials.svelte';
 	import { X } from 'lucide-svelte/icons';
 
 	interface Props {
 		project: Project;
-		tools: AssistantTool[];
 	}
 
-	let { project, tools }: Props = $props();
+	let { project }: Props = $props();
 	let dialog = $state<HTMLDialogElement>();
 	let credentials = $state<ReturnType<typeof Credentials>>();
 
@@ -27,6 +26,6 @@
 			<X class="icon-default" />
 		</button>
 		<h1 class="mb-10 text-xl font-semibold">Credentials</h1>
-		<Credentials bind:this={credentials} {project} {tools} local />
+		<Credentials bind:this={credentials} {project} local />
 	</div>
 </dialog>

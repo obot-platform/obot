@@ -1,120 +1,53 @@
-import { autoUpdate, computePosition, flip, offset, shift, type Placement } from '@floating-ui/dom';
-import { tick } from 'svelte';
+import popover from './popover.svelte';
+import type { Placement } from '@floating-ui/dom';
 import type { Action } from 'svelte/action';
+import { twMerge } from 'tailwind-merge';
 
-export type TooltipActionOptions = {
-	disabled?: () => boolean;
+interface TooltipOptions {
+	text: string;
+	className?: string;
 	placement?: Placement;
 	offset?: number;
 	delay?: number;
-};
+	disabled?: boolean;
+}
 
-export const createTooltip = (opts?: TooltipActionOptions) => {
-	let anchorRef = $state<HTMLElement | null>(null);
-	let contentRef = $state<HTMLElement | null>(null);
+export const tooltip: Action<HTMLElement, TooltipOptions> = (node, options) => {
+	if (!options?.text) return;
 
-	const options = $state<TooltipActionOptions>({
-		placement: 'top',
-		offset: 2,
-		delay: 0,
-		...opts
-	});
+	// the tooltip element
+	const tooltipEl = document.createElement('div');
+	tooltipEl.className = twMerge('tooltip', options.className);
+	tooltipEl.textContent = options.text;
 
-	$effect(() => {
-		contentRef?.classList.add(
-			'hidden',
-			'absolute',
-			'transition-opacity',
-			'duration-300',
-			'opacity-0'
-		);
-	});
-
-	const build = () => {
-		if (!anchorRef || !contentRef) return;
-
-		let close: (() => void) | undefined;
-		let timeout: number;
-
-		const handleOpen = () => {
-			if (!anchorRef || !contentRef || options.disabled?.()) return;
-
-			timeout = setTimeout(() => {
-				close = showTooltip();
-			}, options.delay ?? 0);
-		};
-
-		const handleClose = () => {
-			clearTimeout(timeout);
-			close?.();
-		};
-
-		anchorRef.addEventListener('mouseenter', handleOpen);
-		anchorRef.addEventListener('mouseleave', handleClose);
-
-		return () => {
-			anchorRef?.removeEventListener('mouseenter', handleOpen);
-			anchorRef?.removeEventListener('mouseleave', handleClose);
-			handleClose();
-		};
-	};
-
-	const anchor: Action<HTMLElement> = (node) => {
-		anchorRef = node;
-
-		const cleanup = build();
-
-		return {
-			destroy() {
-				cleanup?.();
-				anchorRef = null;
-			}
-		};
-	};
-
-	const content: Action<HTMLElement> = (node) => {
-		contentRef = node;
-		const cleanup = build();
-
-		return {
-			destroy() {
-				cleanup?.();
-				contentRef = null;
-			}
-		};
-	};
-
-	return { anchor, content };
-
-	async function updatePosition() {
-		if (!anchorRef || !contentRef) return;
-
-		const offsetVal = options.offset ?? 2;
-
-		const { x, y } = await computePosition(anchorRef, contentRef, {
-			placement: options.placement,
-			middleware: [flip(), shift({ padding: offsetVal }), offset(offsetVal)]
-		});
-
-		Object.assign(contentRef.style, {
-			left: `${x}px`,
-			top: `${y}px`
-		});
+	if (!options.disabled) {
+		document.body.appendChild(tooltipEl);
 	}
 
-	function showTooltip() {
-		if (!anchorRef || !contentRef) return;
+	const pop = popover({
+		hover: true,
+		placement: options.placement ?? 'top',
+		offset: options.offset ?? 8,
+		delay: options.delay ?? 150
+	});
 
-		contentRef.classList.remove('hidden');
-		tick().then(() => {
-			contentRef?.classList.remove('opacity-0');
-		});
-		updatePosition();
-		const close = autoUpdate(anchorRef, contentRef, updatePosition);
+	pop.ref(node);
+	pop.tooltip(tooltipEl);
 
-		return () => {
-			close();
-			contentRef?.classList.add('hidden', 'opacity-0');
-		};
-	}
+	return {
+		update(newOptions: TooltipOptions) {
+			if (newOptions.text) {
+				tooltipEl.textContent = newOptions.text;
+			}
+
+			if (newOptions.disabled) {
+				tooltipEl.remove();
+			} else {
+				document.body.appendChild(tooltipEl);
+			}
+		},
+		destroy() {
+			tooltipEl.remove();
+		}
+	};
 };

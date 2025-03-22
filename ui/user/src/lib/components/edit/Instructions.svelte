@@ -13,7 +13,7 @@
 
 <CollapsePane header="Instructions" open>
 	<div class="flex flex-col gap-2">
-		<div class="flex flex-col gap-2">
+		<div class="flex flex-col">
 			<label for="project-instructions" use:reactiveLabel={{ value: project.prompt }}>
 				Instructions
 			</label>

@@ -8,12 +8,13 @@
 		type TaskStep
 	} from '$lib/services';
 	import Message from '$lib/components/messages/Message.svelte';
-	import { Plus, Trash2 } from 'lucide-svelte/icons';
+	import { Eye, EyeClosed, Plus, Trash2 } from 'lucide-svelte/icons';
 	import { LoaderCircle, OctagonX, Play, RefreshCcw } from 'lucide-svelte';
 	import { tick } from 'svelte';
 	import { autoHeight } from '$lib/actions/textarea.js';
 	import Confirm from '$lib/components/Confirm.svelte';
-	import { fade } from 'svelte/transition';
+	import { slide } from 'svelte/transition';
+	import { tooltip } from '$lib/actions/tooltip.svelte';
 
 	interface Props {
 		parentStale?: boolean;
@@ -41,6 +42,7 @@
 	let running = $derived(stepMessages?.get(step.id)?.inProgress ?? false);
 	let stale: boolean = $derived(parentStale || !parentMatches());
 	let toDelete = $state<boolean>();
+	let showMessages = $state(true);
 
 	function parentMatches() {
 		if (running) {
@@ -98,6 +100,24 @@
 	}
 </script>
 
+{#snippet toggleMessagesButton()}
+	{#if messages.length > 0}
+		<button
+			class="icon-button"
+			onclick={() => (showMessages = !showMessages)}
+			use:tooltip={{ text: 'Toggle Output Visibility' }}
+		>
+			{#if showMessages}
+				<Eye class="size-4" />
+			{:else}
+				<EyeClosed class="size-4" />
+			{/if}
+		</button>
+	{:else}
+		<div class="size-10"></div>
+	{/if}
+{/snippet}
+
 <li class="ms-4">
 	<div class="flex items-center justify-between gap-6">
 		<textarea
@@ -110,7 +130,14 @@
 			class="ghost-input border-surface2 ml-1 grow resize-none"
 		></textarea>
 		<div class="flex">
-			<button class="icon-button" onclick={doRun}>
+			<button
+				class="icon-button"
+				onclick={doRun}
+				use:tooltip={{
+					text: running ? 'Abort' : messages.length > 0 ? 'Re-run Step' : 'Run Step',
+					disabled: pending
+				}}
+			>
 				{#if running}
 					<OctagonX class="size-4" />
 				{:else if pending}
@@ -130,36 +157,41 @@
 						deleteStep();
 					}
 				}}
+				use:tooltip={{ text: 'Delete Step' }}
 			>
 				<Trash2 class="size-4" />
 			</button>
 			{#if (step.step?.trim() || '').length > 0}
-				<button class="icon-button" onclick={addStep}>
+				<button class="icon-button" onclick={addStep} use:tooltip={{ text: 'Add Step' }}>
 					<Plus class="size-4" />
 				</button>
+				{@render toggleMessagesButton()}
 			{:else}
+				{@render toggleMessagesButton()}
 				<div class="size-10"></div>
 			{/if}
 		</div>
 	</div>
 	{#if messages.length > 0}
-		<div
-			class="relative my-3 -ml-6 min-h-[150px] rounded-3xl bg-white p-5 transition-transform dark:bg-black"
-			class:border-2={running}
-			class:border-blue={running}
-			transition:fade
-		>
-			{#each messages as msg}
-				{#if !msg.sent}
-					<Message {msg} {project} />
+		{#if showMessages}
+			<div
+				class="relative my-3 -ml-6 flex min-h-[150px] flex-col gap-4 rounded-3xl bg-white p-5 transition-transform dark:bg-black"
+				class:border-2={running}
+				class:border-blue={running}
+				transition:slide
+			>
+				{#each messages as msg}
+					{#if !msg.sent}
+						<Message {msg} {project} />
+					{/if}
+				{/each}
+				{#if stale}
+					<div
+						class="absolute inset-0 h-full w-full rounded-3xl bg-white opacity-80 dark:bg-black"
+					></div>
 				{/if}
-			{/each}
-			{#if stale}
-				<div
-					class="absolute inset-0 h-full w-full rounded-3xl bg-white opacity-80 dark:bg-black"
-				></div>
-			{/if}
-		</div>
+			</div>
+		{/if}
 	{/if}
 </li>
 

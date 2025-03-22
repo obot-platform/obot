@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { type AssistantTool, type Project } from '$lib/services';
+	import { type Project } from '$lib/services';
 	import { KeyRound, SidebarClose } from 'lucide-svelte';
 	import Threads from '$lib/components/sidebar/Threads.svelte';
 	import Clone from '$lib/components/navbar/Clone.svelte';
@@ -11,20 +11,18 @@
 	import Projects from './navbar/Projects.svelte';
 	import Logo from './navbar/Logo.svelte';
 	import Tables from '$lib/components/sidebar/Tables.svelte';
-	import { popover } from '$lib/actions';
+	import { tooltip } from '$lib/actions/tooltip.svelte';
+	import { tools } from '$lib/stores';
 
 	interface Props {
 		project: Project;
 		currentThreadID?: string;
-		tools: AssistantTool[];
 	}
 
-	let { project, currentThreadID = $bindable(), tools }: Props = $props();
+	let { project, currentThreadID = $bindable() }: Props = $props();
 	let credentials = $state<ReturnType<typeof Credentials>>();
 	let projectsOpen = $state(false);
 	const layout = getLayout();
-
-	let credentialsTT = popover({ hover: true, placement: 'right' });
 </script>
 
 <div class="bg-surface1 relative flex size-full flex-col">
@@ -52,6 +50,7 @@
 			class:!p-0={projectsOpen}
 			class="icon-button overflow-hidden transition-all duration-300"
 			onclick={() => (layout.sidebarOpen = false)}
+			use:tooltip={{ text: 'Close Sidebar' }}
 		>
 			<SidebarClose class="icon-default" />
 		</button>
@@ -60,23 +59,25 @@
 	<div class="default-scrollbar-thin flex w-full grow flex-col gap-2 px-3 pb-5">
 		<Threads {project} bind:currentThreadID />
 		<Tasks {project} bind:currentThreadID />
-		{#if hasTool(tools, 'database')}
+		{#if hasTool(tools.current.tools, 'database')}
 			<Tables {project} />
 		{/if}
 	</div>
 
 	<div class="flex gap-1 px-3 py-2">
-		{#if hasTool(tools, 'shell')}
+		{#if hasTool(tools.current.tools, 'shell')}
 			<Term />
 		{/if}
 
-		<p use:credentialsTT.tooltip class="tooltip">Credentials</p>
-
-		<button class="icon-button" onclick={() => credentials?.show()} use:credentialsTT.ref>
+		<button
+			class="icon-button"
+			onclick={() => credentials?.show()}
+			use:tooltip={{ text: 'Credentials' }}
+		>
 			<KeyRound class="icon-default" />
 		</button>
 
-		<Credentials bind:this={credentials} {project} {tools} />
+		<Credentials bind:this={credentials} {project} />
 		{#if !project.editor}
 			<Clone {project} />
 		{/if}

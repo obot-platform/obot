@@ -1,35 +1,30 @@
 <script lang="ts">
-	import {
-		type AssistantTool,
-		ChatService,
-		type Project,
-		type ProjectCredential
-	} from '$lib/services';
+	import { ChatService, type Project, type ProjectCredential } from '$lib/services';
 	import CollapsePane from '$lib/components/edit/CollapsePane.svelte';
 	import { Plus, X } from 'lucide-svelte/icons';
 	import { popover } from '$lib/actions';
 	import { fade } from 'svelte/transition';
 	import CredentialAuth from '$lib/components/edit/CredentialAuth.svelte';
+	import { tools } from '$lib/stores';
 
 	interface Props {
 		project: Project;
 		local?: boolean;
-		tools: AssistantTool[];
 	}
 
-	let { project, tools, local }: Props = $props();
+	let { project, local }: Props = $props();
 	let { ref, tooltip, toggle } = popover();
 	let credentials = $state<ProjectCredential[]>();
 	let credentialsAvailable = $derived.by(() => {
 		return credentials?.filter((cred) => {
-			return tools.find((tool) => {
+			return tools.current.tools.find((tool) => {
 				return tool.enabled && cred.toolID === tool.id && !cred.exists;
 			});
 		});
 	});
 	let credentialsExists = $derived.by(() => {
 		return credentials?.filter((cred) => {
-			return tools.find((tool) => {
+			return tools.current.tools.find((tool) => {
 				return tool.enabled && cred.toolID === tool.id && cred.exists;
 			});
 		});
@@ -95,7 +90,9 @@
 			{/key}
 		{/each}
 		{#if !creds || creds.length === 0}
-			<span class="place-self-center self-center text-sm">No credentials found.</span>
+			<span class="text-gray place-self-center self-center pt-6 pb-4 text-sm font-light"
+				>No credentials found.</span
+			>
 		{/if}
 	</div>
 {/snippet}
