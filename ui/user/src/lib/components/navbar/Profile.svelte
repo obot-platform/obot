@@ -13,7 +13,7 @@
 	fixed={responsive.isMobile}
 	classes={{
 		dialog: twMerge(
-			'p-0 md:w-72 overflow-hidden',
+			'p-0 md:w-fit overflow-hidden',
 			responsive.isMobile &&
 				'rounded-none h-[calc(100vh-64px)] left-0 top-[64px] !rounded-none w-full h-full'
 		)
@@ -23,7 +23,7 @@
 		<ProfileIcon />
 	{/snippet}
 	{#snippet header()}
-		<div class="flex w-full items-center justify-between p-4">
+		<div class="flex w-full items-center justify-between gap-8 p-4">
 			<div class="flex items-center gap-3">
 				<ProfileIcon class="size-12" />
 				<div class="flex grow flex-col">

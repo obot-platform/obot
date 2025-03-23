@@ -85,16 +85,8 @@
 		</div>
 	{/if}
 
-	<div class="relative flex h-full flex-col">
-		<div class="default-scrollbar-thin relative flex-1">
-			<FileEditors
-				{project}
-				{currentThreadID}
-				{onFileChanged}
-				{onInvoke}
-				bind:items={layout.items}
-			/>
-		</div>
+	<div class="default-scrollbar-thin relative flex grow flex-col overflow-y-auto">
+		<FileEditors {project} {currentThreadID} {onFileChanged} {onInvoke} bind:items={layout.items} />
 
 		{#if downloadable}
 			<button
