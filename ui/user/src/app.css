@@ -221,12 +221,6 @@
 		width: 1.25rem; /* w-5 */
 	}
 
-	.button-layout {
-		border-radius: 1.5rem; /* rounded-3xl */
-		border-width: 2px; /* border-2 */
-		padding: 0.5rem 1.25rem; /* px-5 py-2 */
-	}
-
 	.button-colors {
 		background-color: var(--surface3);
 		border-width: 0;
@@ -255,14 +249,30 @@
 	}
 
 	.button-small {
-		composes: button;
 		display: flex;
 		align-items: center;
 		gap: 0.25rem; /* gap-1 */
 		font-size: 0.875rem; /* text-sm */
+
+		border-radius: 1.5rem;
+		padding: 0.5rem 1.25rem;
+		background-color: var(--surface3);
+		border-width: 0;
+		transition-property: color;
+		transition-duration: 200ms;
+
+		&:hover {
+			background-color: rgb(229 231 235 / 0.5);
+		}
+		.dark &:hover {
+			background-color: var(--color-gray-700);
+		}
 	}
 
-	.button-secondary-colors {
+	.button-secondary {
+		border-radius: 1.5rem; /* rounded-3xl */
+		border-width: 2px; /* border-2 */
+		padding: 0.5rem 1.25rem; /* px-5 py-2 */
 		border-color: var(--color-gray-100);
 		&:hover {
 			border-color: var(--color-gray-200);
@@ -277,12 +287,10 @@
 		}
 	}
 
-	.button-secondary {
-		composes: button-layout;
-		composes: button-secondary-colors;
-	}
-
-	.button-primary-colors {
+	.button-primary {
+		border-radius: 1.5rem; /* rounded-3xl */
+		border-width: 2px; /* border-2 */
+		padding: 0.5rem 1.25rem; /* px-5 py-2 */
 		border-color: var(--color-blue);
 		background-color: var(--color-blue);
 		color: white;
@@ -293,11 +301,6 @@
 		.dark & {
 			color: var(--color-gray-50);
 		}
-	}
-
-	.button-primary {
-		composes: button-layout;
-		composes: button-primary-colors;
 	}
 
 	.button-icon-primary {
@@ -337,9 +340,20 @@
 	}
 
 	.list-button-primary {
-		composes: button-icon-primary;
-		padding: 0 !important;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		border-radius: 9999px; /* rounded-full */
+		color: var(--color-gray);
+		padding: 0;
+		&:focus {
+			outline: none;
+		}
+		.dark &:hover {
+			background-color: rgb(55 65 81 / 0.3); /* bg-gray-700/30 */
+		}
 		&:hover {
+			color: var(--color-blue);
 			background-color: transparent;
 		}
 	}

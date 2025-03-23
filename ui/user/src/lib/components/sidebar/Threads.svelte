@@ -227,7 +227,7 @@
 										break;
 								}
 							}}
-							class="w-0 grow border-none bg-transparent ring-0 outline-hidden dark:text-white"
+							class="mx-2 w-0 grow border-none bg-transparent ring-0 outline-hidden dark:text-white"
 							placeholder="Enter name"
 							type="text"
 						/>
@@ -246,7 +246,7 @@
 							<CircleX class="h-4 w-4" />
 						</button>
 						<button class="list-button-primary" onclick={saveName}>
-							<Save class="h-4 w-4" />
+							<Save class="mr-2 h-4 w-4" />
 						</button>
 					{:else}
 						<DotDotDot
