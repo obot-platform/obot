@@ -507,7 +507,7 @@
 				{/if}
 
 				{#if !msg.sent && msg.done && !msg.toolCall && msg.time && !animating}
-					<div class="ml-2 mt-2 flex gap-2">
+					<div class="mt-2 ml-2 flex gap-2">
 						<div>
 							<button
 								use:copyTT.ref
