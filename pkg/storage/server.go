@@ -13,6 +13,7 @@ import (
 	"github.com/obot-platform/obot/pkg/storage/scheme"
 	sservices "github.com/obot-platform/obot/pkg/storage/services"
 	"github.com/obot-platform/obot/pkg/version"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	k8sversion "k8s.io/apimachinery/pkg/version"
 	"k8s.io/apiserver/pkg/server/healthz"
 	"k8s.io/client-go/rest"
@@ -88,8 +89,17 @@ func startMinkServer(ctx context.Context, config sservices.Config, services *sse
 	_ = minkServer.Handler(ctx)
 
 	cfg := minkServer.Loopback
+	// Create an HTTP client so we can add the otel transport for metrics
+	httpClient, err := rest.HTTPClientFor(cfg)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	httpClient.Transport = otelhttp.NewTransport(httpClient.Transport)
+
 	c, err := client.NewWithWatch(cfg, client.Options{
-		Scheme: scheme.Scheme,
+		Scheme:     scheme.Scheme,
+		HTTPClient: httpClient,
 	})
 	return c, cfg, err
 }

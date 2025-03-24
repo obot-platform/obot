@@ -96,6 +96,7 @@ type Config struct {
 	GeminiConfig
 	GatewayConfig
 	services.Config
+	OtelOptions
 }
 
 type Services struct {
@@ -229,6 +230,12 @@ func newGPTScript(ctx context.Context,
 }
 
 func New(ctx context.Context, config Config) (*Services, error) {
+	// Setup Otel first so other services can use it.
+	otel, err := newOtel(ctx, config.OtelOptions)
+	if err != nil {
+		return nil, fmt.Errorf("failed to bootstrap OTel SDK: %w", err)
+	}
+
 	system.SetBinToSelf()
 
 	devPort, config := configureDevMode(config)
@@ -295,13 +302,13 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		config.UIHostname = "https://" + config.UIHostname
 	}
 
-	c, err := newGPTScript(ctx, config.EnvKeys, credStore, credStoreEnv)
+	gptscriptClient, err := newGPTScript(ctx, config.EnvKeys, credStore, credStoreEnv)
 	if err != nil {
 		return nil, err
 	}
 
 	if strings.HasPrefix(config.DSN, "postgres://") {
-		if err := c.CreateCredential(ctx, gptscript.Credential{
+		if err := gptscriptClient.CreateCredential(ctx, gptscript.Credential{
 			Context:  system.DefaultNamespace,
 			ToolName: system.KnowledgeCredID,
 			Type:     gptscript.CredentialTypeTool,
@@ -313,7 +320,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 			return nil, err
 		}
 	} else {
-		if err := c.DeleteCredential(ctx, system.DefaultNamespace, system.KnowledgeCredID); err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
+		if err := gptscriptClient.DeleteCredential(ctx, system.DefaultNamespace, system.KnowledgeCredID); err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
 			return nil, err
 		}
 	}
@@ -353,26 +360,26 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		events        = events.NewEmitter(storageClient, gatewayClient)
 		invoker       = invoke.NewInvoker(
 			storageClient,
-			c,
+			gptscriptClient,
 			gatewayClient,
 			config.Hostname,
 			config.HTTPListenPort,
 			tokenServer,
 			events,
 		)
-		providerDispatcher = dispatcher.New(ctx, invoker, storageClient, c)
+		providerDispatcher = dispatcher.New(ctx, invoker, storageClient, gptscriptClient)
 
 		proxyManager *proxy.Manager
 	)
 
-	bootstrapper, err := bootstrap.New(ctx, config.Hostname, gatewayClient, c, config.EnableAuthentication, config.ForceEnableBootstrap)
+	bootstrapper, err := bootstrap.New(ctx, config.Hostname, gatewayClient, gptscriptClient, config.EnableAuthentication, config.ForceEnableBootstrap)
 	if err != nil {
 		return nil, err
 	}
 
 	gatewayServer, err := gserver.New(
 		ctx,
-		c,
+		gptscriptClient,
 		gatewayDB,
 		tokenServer,
 		providerDispatcher,
@@ -433,7 +440,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		}
 	}
 
-	run, err := c.Run(ctx, fmt.Sprintf("Validate Environment Variables from %s", workspaceTool), gptscript.Options{
+	run, err := gptscriptClient.Run(ctx, fmt.Sprintf("Validate Environment Variables from %s", workspaceTool), gptscript.Options{
 		Input: fmt.Sprintf(`{"provider":"%s"}`, config.WorkspaceProviderType),
 		GlobalOptions: gptscript.GlobalOptions{
 			Env: os.Environ(),
@@ -448,11 +455,6 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		return nil, fmt.Errorf("failed to validate environment variables: %w", err)
 	}
 
-	otel, err := newOtel(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to bootstrap OTel SDK: %w", err)
-	}
-
 	// For now, always auto-migrate the gateway database
 	return &Services{
 		WorkspaceProviderType: config.WorkspaceProviderType,
@@ -462,11 +464,11 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		Events:                events,
 		StorageClient:         storageClient,
 		Router:                r,
-		GPTClient:             c,
+		GPTClient:             gptscriptClient,
 		APIServer: server.NewServer(
 			storageClient,
 			gatewayClient,
-			c,
+			gptscriptClient,
 			authn.NewAuthenticator(authenticators),
 			authz.NewAuthorizer(r.Backend(), config.DevMode),
 			proxyManager,
