@@ -9,29 +9,10 @@ The **GitHub CI Failure Notifier Obot** is an obot that sends a message to a Sla
 
 ## Configuration
 
-Create a copy of the featured **GitHub CI Failure Notifier** obot and open it up.
+### 1. Configure the Task
 
-### 1. Create a Task on the Obot
-
-In the **Obot Editor**, open the obot you are configuring, and in the **Tasks** section on the left sidebar, click the `+` icon to add a new task.  
-
-- Set a **Name** and **Description** for the task.  
-
-Then, configure the following four steps within the task:
-
-```text
-1. If the action field is not "completed", call the abort task tool. Otherwise, say "pipeline completed".
-
-2. Look at the steps. If none of the steps have status "failure", call the abort task tool. Otherwise, say "at least one step failed".
-
-3. Examine the logs by calling the tool to get them, with the proper owner, repo, and job ID. Do some analysis and see if you can figure out what went wrong.
-
-4. Send a Slack message to [person name or channel name] with details about the name of the repo, the job, the failed step(s), and the HTML URL in your message. Use plaintext (not Markdown). Also include your analysis about what went wrong.
-```
-
-> **Important:** Be sure to replace `[person name or channel name]` with the actual Slack channel or user where you want the message sent.
-
-Set the **Trigger** to `On Webhook`. This will generate a webhook URL that you will use in the next step.
+Open up the featured GitHub CI Failure Notifier obot, and edit the existing task called `Webhook`.
+Set the trigger to `On Webhook`. This will generate a webhook URL that you will use in the next step.
 
 ### 2. Configure the GitHub Webhook
 
