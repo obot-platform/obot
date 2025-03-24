@@ -46,7 +46,7 @@
 		'.ipynb',
 		'.json'
 	];
-	const accept = knowledgeExtensions.join(', ') + ',.csv , .jpg, .jpeg, .webp';
+	const accept = knowledgeExtensions.join(', ') + ',.csv, .png, .jpg, .jpeg, .webp';
 	const layout = getLayout();
 	const fileMonitor = newFileMonitor(project);
 	let files = $state<File[]>([]);
