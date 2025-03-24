@@ -3,7 +3,6 @@ module github.com/obot-platform/obot
 go 1.24.0
 
 replace (
-	github.com/gptscript-ai/cmd => ../cmd
 	github.com/obot-platform/kinm => ../kinm
 	github.com/obot-platform/nah => ../nah
 	github.com/obot-platform/obot/apiclient => ./apiclient
@@ -19,7 +18,7 @@ require (
 	github.com/golang-jwt/jwt/v5 v5.2.1
 	github.com/google/uuid v1.6.0
 	github.com/gptscript-ai/chat-completion-client v0.0.0-20250224164718-139cb4507b1d
-	github.com/gptscript-ai/cmd v0.0.0-20250122115124-a3d65e9d2432
+	github.com/gptscript-ai/cmd v0.0.0-20250324222528-f16f18548238
 	github.com/gptscript-ai/go-gptscript v0.9.6-0.20250331192455-415de950d72d
 	github.com/gptscript-ai/gptscript v0.9.6-0.20250328194144-ce3b7262ed0e
 	github.com/liggitt/tabwriter v0.0.0-20181228230101-89fcab3d43de
