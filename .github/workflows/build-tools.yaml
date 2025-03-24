@@ -69,7 +69,7 @@ jobs:
           username: ${{ secrets.GHCR_USERNAME }}
           password: ${{ secrets.GHCR_TOKEN }}
 
-      - name: Build and push enterprise-tools Docker image
+      - name: Build and push oss-tools Docker image
         uses: depot/build-push-action@v1
         with:
           project: bbqjs4tj1g
