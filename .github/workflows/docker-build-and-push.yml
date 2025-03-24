@@ -16,67 +16,94 @@ on:
       - chart/**
 
 jobs:
-  build:
+  oss-build:
     runs-on: depot-ubuntu-22.04
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    - name: Setup Depot
-      uses: depot/setup-action@v1
+      - name: Setup Depot
+        uses: depot/setup-action@v1
 
-    - name: Log in to GitHub Container Registry
-      uses: docker/login-action@v3
-      with:
-        registry: ghcr.io
-        username: ${{ secrets.GHCR_USERNAME }}
-        password: ${{ secrets.GHCR_TOKEN }}
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ secrets.GHCR_USERNAME }}
+          password: ${{ secrets.GHCR_TOKEN }}
 
-    - name: Log in to Docker Hub
-      if: ${{ github.ref_type == 'tag' && !contains(github.ref_name, '-rc') }}
-      uses: docker/login-action@v3
-      with:
-        username: ${{ secrets.DOCKERHUB_USERNAME }}
-        password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - name: Log in to Docker Hub
+        if: ${{ github.ref_type == 'tag' && !contains(github.ref_name, '-rc') }}
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-    - name: Build and push OSS Docker image
-      uses: depot/build-push-action@v1
-      with:
-        project: bbqjs4tj1g
-        context: .
-        push: true
-        pull: true
-        platforms: linux/amd64,linux/arm64
-        tags: |
-          ghcr.io/${{ github.repository }}:${{ github.ref_name }}
-          ${{ github.ref_type == 'tag' && !contains(github.ref_name, '-rc') && format('docker.io/obot/{0}:{1}', github.event.repository.name, github.ref_name) || '' }}
+      - name: Build and push OSS Docker image
+        uses: depot/build-push-action@v1
+        with:
+          project: bbqjs4tj1g
+          context: .
+          push: true
+          pull: true
+          platforms: linux/amd64,linux/arm64
+          tags: |
+            ghcr.io/${{ github.repository }}:${{ github.ref_name }}
+            ${{ github.ref_type == 'tag' && !contains(github.ref_name, '-rc') && format('docker.io/obot/{0}:{1}', github.event.repository.name, github.ref_name) || '' }}
 
-    - name: Build and push Enterprise Docker image
-      uses: depot/build-push-action@v1
-      with:
-        project: bbqjs4tj1g
-        context: .
-        push: true
-        pull: true
-        platforms: linux/amd64,linux/arm64
-        tags: |
-          ghcr.io/${{ github.repository }}-enterprise:${{ github.ref_name }}
-        secrets: |
-          GITHUB_TOKEN=${{ secrets.GHCR_TOKEN }}
-        build-args: |
-          TOOL_REGISTRY_REPOS=github.com/obot-platform/tools,github.com/obot-platform/enterprise-tools
+      - name: Setup crane
+        uses: imjasonh/setup-crane@v0.4
 
-    - name: Setup crane
-      uses: imjasonh/setup-crane@v0.4
+      - name: Copy OSS image to latest tag
+        if: ${{ github.ref_type == 'tag' && !contains(github.ref_name, '-rc') }}
+        run: |
+          crane tag ghcr.io/${{ github.repository }}:${{ github.ref_name }} latest
+          crane tag docker.io/obot/${{ github.event.repository.name }}:${{ github.ref_name }} latest
 
-    - name: Copy OSS image to latest tag
-      if: ${{ github.ref_type == 'tag' && !contains(github.ref_name, '-rc') }}
-      run: |
-        crane tag ghcr.io/${{ github.repository }}:${{ github.ref_name }} latest
-        crane tag docker.io/obot/${{ github.event.repository.name }}:${{ github.ref_name }} latest
+  enterprise-build:
+    runs-on: depot-ubuntu-22.04
 
-    - name: Copy Enterprise image to latest tag
-      if: ${{ github.ref_type == 'tag' && !contains(github.ref_name, '-rc') }}
-      run: |
-        crane tag ghcr.io/${{ github.repository }}-enterprise:${{ github.ref_name }} latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Depot
+        uses: depot/setup-action@v1
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ secrets.GHCR_USERNAME }}
+          password: ${{ secrets.GHCR_TOKEN }}
+
+      - name: Log in to Docker Hub
+        if: ${{ github.ref_type == 'tag' && !contains(github.ref_name, '-rc') }}
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build and push Enterprise Docker image
+        uses: depot/build-push-action@v1
+        with:
+          project: bbqjs4tj1g
+          context: .
+          push: true
+          pull: true
+          platforms: linux/amd64,linux/arm64
+          tags: |
+            ghcr.io/${{ github.repository }}-enterprise:${{ github.ref_name }}
+          secrets: |
+            GITHUB_TOKEN=${{ secrets.GHCR_TOKEN }}
+          build-args: |
+            TOOLS_IMAGE=obot-platform/obot/enterprise-tools
+
+      - name: Setup crane
+        uses: imjasonh/setup-crane@v0.4
+
+      - name: Copy Enterprise image to latest tag
+        if: ${{ github.ref_type == 'tag' && !contains(github.ref_name, '-rc') }}
+        run: |
+          crane tag ghcr.io/${{ github.repository }}-enterprise:${{ github.ref_name }} latest
