@@ -14,6 +14,9 @@ jobs:
   enterprise-build:
     if: github.event.repository.full_name == 'obot-platform/enterprise-tools' || github.event.repository.full_name == 'obot-platform/tools'
     runs-on: depot-ubuntu-22.04
+    concurrency:
+      group: enterprise-build
+      cancel-in-progress: true
     steps:
       - name: Print the dispatch source
         run: echo "Dispatched by ${{ github.event.repository.full_name }}"
@@ -48,6 +51,9 @@ jobs:
   oss-build:
     if: github.event.repository.full_name == 'obot-platform/tools'
     runs-on: depot-ubuntu-22.04
+    concurrency:
+      group: oss-build
+      cancel-in-progress: true
     steps:
       - name: Print the dispatch source
         run: echo "Dispatched by ${{ github.event.repository.full_name }}"
