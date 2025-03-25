@@ -105,9 +105,6 @@ async function save(
 		item.file.buffer,
 		opts
 	);
-	item.file.contents = item.file.buffer;
-	item.file.modified = false;
-	item.file.blob = undefined;
 }
 
 async function download(
