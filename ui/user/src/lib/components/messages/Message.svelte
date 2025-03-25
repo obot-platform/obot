@@ -258,7 +258,7 @@
 		class:flex={showBubble}
 		class:contents={!showBubble}
 		class:message-content={renderMarkdown}
-		class="bg-gray-70 flex w-full flex-col overflow-auto rounded-2xl px-6 py-3 text-black dark:bg-gray-950 dark:text-white"
+		class="bg-gray-70 flex w-full flex-col rounded-2xl px-6 py-3 text-black dark:bg-gray-950 dark:text-white"
 	>
 		{#if msg.oauthURL}
 			{@render oauth()}

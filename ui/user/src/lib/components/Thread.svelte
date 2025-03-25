@@ -181,29 +181,21 @@
 	</div>
 {/snippet}
 
-<div class="relative h-full w-full max-w-[900px] pb-32">
-	<!-- Fade text in/out on scroll -->
-	<div
-		class="absolute inset-x-0 top-0 z-20 h-14 w-full bg-linear-to-b from-white dark:from-black"
-	></div>
-	<div
-		class="absolute inset-x-0 bottom-36 z-20 h-14 w-full bg-linear-to-t from-white dark:from-black"
-	></div>
-
-	<div
-		bind:this={container}
-		class="scrollbar-none flex h-full grow justify-center overflow-x-hidden overflow-y-auto"
-		class:scroll-smooth={scrollSmooth}
-		use:stickToBottom={{
-			contentEl: messagesDiv,
-			setControls: (controls) => (scrollControls = controls)
-		}}
-		onscrollend={onScrollEnd}
-	>
+<div
+	class="thread-container scrollbar-none flex w-full grow justify-center overflow-y-auto"
+	bind:this={container}
+	class:scroll-smooth={scrollSmooth}
+	use:stickToBottom={{
+		contentEl: messagesDiv,
+		setControls: (controls) => (scrollControls = controls)
+	}}
+	onscrollend={onScrollEnd}
+>
+	<div class="relative flex w-full max-w-[900px] flex-col">
 		<div
 			in:fade|global
 			bind:this={messagesDiv}
-			class="flex h-fit w-full flex-col justify-start gap-8 p-5 transition-all"
+			class="flex w-full grow flex-col justify-start gap-8 p-5 transition-all"
 			class:justify-center={!thread}
 		>
 			{#if !isTaskRun}
@@ -247,11 +239,11 @@
 					onSendCredentialsCancel={() => thread?.abort()}
 				/>
 			{/each}
-			<div class="min-h-16">
+			<div class="min-h-4">
 				<!-- Vertical Spacer -->
 			</div>
 		</div>
-		<div class="absolute inset-x-0 bottom-0 z-20 flex justify-center py-4 md:py-8">
+		<div class="sticky bottom-0 z-30 flex justify-center bg-white pb-2 dark:bg-black">
 			<div class="w-full max-w-[1000px]">
 				<Input
 					readonly={messages.inProgress}
@@ -299,3 +291,29 @@
 		</div>
 	</div>
 </div>
+
+<style lang="postcss">
+	.thread-container {
+		&::before {
+			z-index: 20;
+			content: '';
+			position: absolute;
+			top: 0;
+			left: 0;
+			width: 100%;
+			height: 3.5rem;
+			background: linear-gradient(to top, transparent, var(--background));
+		}
+
+		&::after {
+			z-index: 20;
+			content: '';
+			position: absolute;
+			bottom: 9rem;
+			left: 0;
+			width: 100%;
+			height: 3.5rem;
+			background: linear-gradient(to bottom, transparent, var(--background));
+		}
+	}
+</style>

@@ -78,7 +78,7 @@
 				</Navbar>
 			</div>
 
-			<div class="flex h-[calc(100%-76px)] max-w-full grow">
+			<div class="relative flex h-[calc(100%-76px)] max-w-full grow">
 				{#if !responsive.isMobile || (responsive.isMobile && !layout.fileEditorOpen)}
 					{#if layout.editTaskID && layout.tasks}
 						{#each layout.tasks as task, i}
@@ -96,14 +96,12 @@
 							{/if}
 						{/each}
 					{:else}
-						<div id="main-input" class="flex h-full max-w-full flex-1 justify-center">
-							<Thread
-								bind:id={currentThreadID}
-								bind:project
-								isTaskRun={!!currentThreadID &&
-									!!layout.taskRuns?.some((run) => run.id === currentThreadID)}
-							/>
-						</div>
+						<Thread
+							bind:id={currentThreadID}
+							bind:project
+							isTaskRun={!!currentThreadID &&
+								!!layout.taskRuns?.some((run) => run.id === currentThreadID)}
+						/>
 					{/if}
 				{/if}
 				<div
