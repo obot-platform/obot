@@ -182,6 +182,7 @@
 {/snippet}
 
 <div
+	id="main-input"
 	class="thread-container scrollbar-none flex w-full grow justify-center overflow-y-auto"
 	bind:this={container}
 	class:scroll-smooth={scrollSmooth}
