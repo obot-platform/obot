@@ -1,4 +1,4 @@
-import { TriangleAlertIcon } from "lucide-react";
+import { ChevronDownIcon, TriangleAlertIcon } from "lucide-react";
 import { useState } from "react";
 
 import { ToolReference } from "~/lib/model/toolReferences";
@@ -20,6 +20,7 @@ type ToolItemProps = {
 	isSelected: boolean;
 	onSelect: (oAuthToAdd?: string) => void;
 	expanded?: boolean;
+	canExpand?: boolean;
 	onExpand?: (expanded: boolean) => void;
 	className?: string;
 	isGroup?: boolean;
@@ -33,6 +34,7 @@ export function ToolItem({
 	isSelected,
 	onSelect,
 	expanded,
+	canExpand,
 	onExpand,
 	className,
 	isGroup,
@@ -101,7 +103,7 @@ export function ToolItem({
 							</span>
 						</span>
 
-						{isGroup && (
+						{isGroup && canExpand && (
 							<Button
 								variant="link"
 								size="link-sm"
@@ -111,6 +113,12 @@ export function ToolItem({
 								}}
 							>
 								{expanded ? "Show Less" : "Show More"}
+								<ChevronDownIcon
+									className={cn(
+										"size-4 transition-transform duration-300",
+										expanded && "rotate-180"
+									)}
+								/>
 							</Button>
 						)}
 					</div>
