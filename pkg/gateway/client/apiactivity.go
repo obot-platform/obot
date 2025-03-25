@@ -29,5 +29,11 @@ func (c *Client) ActivitiesByUser(ctx context.Context, userID string, start, end
 
 func (c *Client) ActiveUsersByDate(ctx context.Context, start, end time.Time) ([]types.User, error) {
 	var users []types.User
-	return users, c.db.WithContext(ctx).Where("last_active_time >= ? AND last_active_time < ?", start, end).Find(&users).Error
+	return users, c.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var ids []string
+		if err := tx.Model(new(types.APIActivity)).Where("date >= ? AND date < ?", start, end).Pluck("user_id", &ids).Error; err != nil {
+			return err
+		}
+		return tx.Where("id IN (?)", ids).Find(&users).Error
+	})
 }
