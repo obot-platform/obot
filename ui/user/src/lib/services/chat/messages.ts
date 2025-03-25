@@ -170,7 +170,10 @@ export function buildMessagesFromProgress(
 
 	// Post Process for much more better-ness
 	messages.messages.forEach((item, i) => {
-		if (item.tool && item.sourceName == 'workspace_write') {
+		if (
+			item.tool &&
+			(item.sourceName == 'Workspace write' || item.sourceName == 'workspace_write')
+		) {
 			reformatWriteMessage(items, item, i == messages.messages.length - 1, opts);
 			return;
 		} else if (item.sent) {
