@@ -21,6 +21,7 @@
 		onLoadFile?: (filename: string) => void;
 		onSendCredentials?: (id: string, credentials: Record<string, string>) => void;
 		onSendCredentialsCancel?: (id: string) => void;
+		disableMessageToEditor?: boolean;
 	}
 
 	let {
@@ -29,7 +30,8 @@
 		currentThreadID,
 		onLoadFile = () => {},
 		onSendCredentials = ChatService.sendCredentials,
-		onSendCredentialsCancel
+		onSendCredentialsCancel,
+		disableMessageToEditor
 	}: Props = $props();
 
 	let content = $derived(
@@ -343,7 +345,7 @@
 		<p class="p-0 text-xs font-semibold">{title}</p>
 		<pre
 			transition:slide={{ duration: 300 }}
-			class="default-scrollbar-thin bg-surface1 max-h-[300px] w-fit max-w-full overflow-auto rounded-lg px-4 py-2 text-xs break-all whitespace-pre-wrap dark:bg-black">{@html formatJson(
+			class="default-scrollbar-thin bg-surface1 max-h-[300px] w-fit max-w-full overflow-auto rounded-lg px-4 py-2 text-xs break-all whitespace-pre-wrap">{@html formatJson(
 				stringifiedJson ?? ''
 			)}</pre>
 	</div>
@@ -462,7 +464,7 @@
 
 {#snippet citations()}
 	{#if msg.citations && msg.citations.length > 0}
-		<div class="mt-2 flex flex-wrap gap-2">
+		<div class="mb-4 flex flex-wrap gap-2">
 			{#each deduplicateCitations(msg.citations
 					.map((c) => c.url)
 					.filter((url) => url !== undefined)) as url, i}
@@ -515,7 +517,7 @@
 					{@render time()}
 				{/if}
 
-				{#if !msg.sent && msg.done && !msg.toolCall && msg.time && content && !animating}
+				{#if !msg.sent && msg.done && !msg.toolCall && msg.time && content && !animating && content.length > 0}
 					<div class="mt-2 -ml-1 flex gap-2">
 						<div>
 							<button
@@ -527,15 +529,17 @@
 							</button>
 						</div>
 
-						<div>
-							<button
-								use:tooltip={'Open message in editor'}
-								class="icon-button-small"
-								onclick={() => openContentInEditor()}
-							>
-								<Edit class="h-4 w-4" />
-							</button>
-						</div>
+						{#if !disableMessageToEditor}
+							<div>
+								<button
+									use:tooltip={'Open message in editor'}
+									class="icon-button-small"
+									onclick={() => openContentInEditor()}
+								>
+									<Edit class="h-4 w-4" />
+								</button>
+							</div>
+						{/if}
 					</div>
 				{/if}
 

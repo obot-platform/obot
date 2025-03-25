@@ -171,10 +171,7 @@
 					{/if}
 
 					<div class="mt-auto">
-						<button
-							class="text-gray w-fit justify-start p-4 text-left text-sm hover:underline"
-							onclick={() => (showAdvanced = !showAdvanced)}
-						>
+						<button class="button-text" onclick={() => (showAdvanced = !showAdvanced)}>
 							<span
 								>{showAdvanced ? 'Collapse Advanced Options...' : 'Show Advanced Options...'}</span
 							>

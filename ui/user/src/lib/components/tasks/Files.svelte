@@ -1,10 +1,11 @@
 <script lang="ts">
-	import { FileText, Trash } from 'lucide-svelte/icons';
+	import { FileText, Trash2 } from 'lucide-svelte/icons';
 	import { ChatService, EditorService, type Files, type Project } from '$lib/services';
 	import { Download, RotateCw } from 'lucide-svelte';
 	import { onDestroy } from 'svelte';
 	import Confirm from '$lib/components/Confirm.svelte';
 	import { getLayout } from '$lib/context/layout.svelte';
+	import { tooltip } from '$lib/actions/tooltip.svelte';
 
 	interface Props {
 		taskID: string;
@@ -70,17 +71,17 @@
 
 {#if files && files.items.length > 0}
 	<div class="rounded-3xl bg-gray-50 p-5 dark:bg-gray-950">
-		<div class="flex justify-between">
-			<h4 class="mb-3 text-xl font-semibold">Files</h4>
-			<button onclick={loadFiles}>
-				<RotateCw class="h-4 w-4 {loading ? 'animate-spin' : ''}" />
+		<div class="mb-3 flex items-center justify-between">
+			<h4 class="text-xl font-semibold">Files</h4>
+			<button onclick={loadFiles} use:tooltip={'Refresh Files'}>
+				<RotateCw class="size-5 {loading ? 'animate-spin' : ''}" />
 			</button>
 		</div>
 		<p class="text-gray">
 			Files are private to the task execution. On start of the task a copy of the global workspace
 			files is made, but no changes are persisted back to the global workspace.
 		</p>
-		<ul class="space-y-4 px-3 py-6 text-sm">
+		<ul class="space-y-4 py-6 text-sm">
 			{#each files.items as file}
 				<li class="group">
 					<div class="flex">
@@ -97,23 +98,25 @@
 							<span class="ms-3">{file.name}</span>
 						</button>
 						<button
-							class="ms-2 hidden group-hover:block"
+							class="icon-button ms-2 opacity-0 group-hover:opacity-100"
 							onclick={() => {
 								EditorService.download(layout.items, project, file.name, {
 									taskID,
 									runID
 								});
 							}}
+							use:tooltip={'Download File'}
 						>
-							<Download class="text-gray h-5 w-5" />
+							<Download class="text-gray size-5" />
 						</button>
 						<button
-							class="ms-2 hidden group-hover:block"
+							class="icon-button ms-2 opacity-0 group-hover:opacity-100"
 							onclick={() => {
 								fileToDelete = file.name;
 							}}
+							use:tooltip={'Delete File'}
 						>
-							<Trash class="text-gray h-5 w-5" />
+							<Trash2 class="text-gray size-5" />
 						</button>
 					</div>
 				</li>

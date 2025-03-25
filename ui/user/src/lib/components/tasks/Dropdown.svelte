@@ -23,8 +23,14 @@
 </script>
 
 {#if disabled}
-	<span class="flex items-center gap-2 rounded-3xl p-3 px-4 capitalize">
+	<span
+		class={twMerge(
+			'text-gray flex items-center justify-between gap-2 rounded-3xl p-3 px-4 capitalize dark:hover:bg-gray-900',
+			kclass
+		)}
+	>
 		{selected ? values[selected] : values[''] || ''}
+		<ChevronDown class="text-gray" />
 	</span>
 {:else}
 	<button
@@ -33,7 +39,7 @@
 			toggle();
 		}}
 		class={twMerge(
-			'hover:bg-gray-70 flex items-center gap-2 rounded-3xl p-3 px-4 capitalize dark:hover:bg-gray-900',
+			'hover:bg-gray-70 flex items-center justify-between gap-2 rounded-3xl p-3 px-4 capitalize dark:hover:bg-gray-900',
 			kclass
 		)}
 	>

@@ -8,11 +8,12 @@
 	import type { EditorItem } from '$lib/services/editor/index.svelte';
 	import { responsive } from '$lib/stores';
 	import { closeAll, getLayout } from '$lib/context/layout.svelte';
-	import { Plus, SidebarOpen } from 'lucide-svelte';
+	import { GripVertical, Plus, SidebarOpen } from 'lucide-svelte';
 	import { fade, slide } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';
 	import Logo from './navbar/Logo.svelte';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
+	import { columnResize } from '$lib/actions/resize';
 
 	interface Props {
 		project: Project;
@@ -22,6 +23,7 @@
 
 	let { project = $bindable(), currentThreadID = $bindable() }: Props = $props();
 	let layout = getLayout();
+	let editor: HTMLDivElement | undefined = $state();
 
 	async function createNewThread() {
 		const thread = await ChatService.createThread(project.assistantID, project.id);
@@ -80,6 +82,8 @@
 
 			<div class="relative flex h-[calc(100%-76px)] max-w-full grow">
 				{#if !responsive.isMobile || (responsive.isMobile && !layout.fileEditorOpen)}
+					{@const taskRun =
+						!!currentThreadID && layout.taskRuns?.find((run) => run.id === currentThreadID)}
 					{#if layout.editTaskID && layout.tasks}
 						{#each layout.tasks as task, i}
 							{#if task.id === layout.editTaskID}
@@ -95,22 +99,37 @@
 								{/key}
 							{/if}
 						{/each}
+					{:else if taskRun}
+						{@const task = layout.tasks?.find((t) => t.id === taskRun.taskID)}
+						{#if task}
+							<Task {project} {task} runId={taskRun.taskRunID} readOnly />
+						{/if}
 					{:else}
-						<Thread
-							bind:id={currentThreadID}
-							bind:project
-							isTaskRun={!!currentThreadID &&
-								!!layout.taskRuns?.some((run) => run.id === currentThreadID)}
-						/>
+						<Thread bind:id={currentThreadID} bind:project />
 					{/if}
 				{/if}
+
 				<div
+					bind:this={editor}
 					class={twMerge(
-						'border-surface2 absolute right-0 z-30 float-right w-full translate-x-full transform border-4 border-r-0 pt-2 transition-transform duration-300 md:mb-8 md:w-3/5 md:max-w-[calc(100%-320px)] md:min-w-[320px] md:rounded-l-3xl md:ps-5 md:pt-5',
+						'border-surface2 absolute right-0 z-30 float-right flex w-full translate-x-full transform border-4 border-r-0 transition-transform duration-300 md:w-3/5 md:max-w-[calc(100%-320px)] md:min-w-[320px] md:rounded-l-3xl',
 						layout.fileEditorOpen && 'relative w-full translate-x-0',
 						!layout.fileEditorOpen && 'w-0'
 					)}
 				>
+					{#if editor && layout.fileEditorOpen}
+						<div
+							use:columnResize={{ column: editor, direction: 'right' }}
+							class="relative h-full w-8 cursor-grab"
+							transition:slide={{ axis: 'x' }}
+						>
+							<div
+								class="text-on-surface1 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2"
+							>
+								<GripVertical class="text-surface3 size-3" />
+							</div>
+						</div>
+					{/if}
 					<Editor {project} {currentThreadID} />
 				</div>
 			</div>

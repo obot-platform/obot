@@ -3,14 +3,15 @@
 	import Schedule from '$lib/components/tasks/Schedule.svelte';
 	import OnDemand from '$lib/components/tasks/OnDemand.svelte';
 	import CopyButton from '$lib/components/CopyButton.svelte';
-	import { fade } from 'svelte/transition';
+	import { slide } from 'svelte/transition';
 	import { version } from '$lib/stores';
 
 	interface Props {
 		task: Task;
+		readOnly?: boolean;
 	}
 
-	let { task = $bindable() }: Props = $props();
+	let { task = $bindable(), readOnly }: Props = $props();
 
 	let email = $derived.by(() => {
 		if (version.current.emailDomain && task.alias) {
@@ -30,12 +31,6 @@
 			);
 		}
 		return '';
-	});
-	let visible: boolean = $derived.by(() => {
-		if (task.webhook || task.schedule || task.email) {
-			return true;
-		}
-		return Object.keys(task.onDemand?.params ?? {}).length > 0;
 	});
 	let lastParamsSeen: Record<string, string> = $state({});
 
@@ -66,33 +61,31 @@
 	}
 </script>
 
-{#if visible}
-	<div class="rounded-2xl bg-gray-50 p-5 dark:bg-gray-950" transition:fade>
-		<div class="flex items-center justify-between">
-			{#if selectedTrigger() === 'schedule'}
-				<Schedule bind:schedule={task.schedule} />
-			{/if}
-		</div>
-		{#if selectedTrigger() === 'webhook'}
-			<div class="flex flex-col justify-between gap-2 pr-5">
-				<h3 class="text-lg font-semibold">Webhook URL</h3>
-				<div class="bg-surface2 flex gap-2 rounded-xl px-4 py-2">
-					<CopyButton text={webhook} />
-					{webhook}
-				</div>
-			</div>
-		{/if}
-		{#if selectedTrigger() === 'email' && email}
-			<div class="flex flex-col justify-between gap-2 pr-5">
-				<h3 class="text-lg font-semibold">Email Address</h3>
-				<div class="flex gap-2">
-					<CopyButton text={email} />
-					{email}
-				</div>
-			</div>
-		{/if}
-		{#if selectedTrigger() === 'onDemand'}
-			<OnDemand bind:onDemand={task.onDemand} />
+<div transition:slide>
+	<div class="flex items-center justify-between">
+		{#if selectedTrigger() === 'schedule'}
+			<Schedule bind:schedule={task.schedule} {readOnly} />
 		{/if}
 	</div>
-{/if}
+	{#if selectedTrigger() === 'webhook'}
+		<div class="flex flex-col justify-between gap-2 pr-5">
+			<h4 class="text-base font-medium">Webhook URL</h4>
+			<div class="bg-surface2 flex gap-2 rounded-xl px-4 py-2">
+				<CopyButton text={webhook} />
+				{webhook}
+			</div>
+		</div>
+	{/if}
+	{#if selectedTrigger() === 'email' && email}
+		<div class="flex flex-col justify-between gap-2 pr-5">
+			<h4 class="text-base font-medium">Email Address</h4>
+			<div class="flex gap-2">
+				<CopyButton text={email} />
+				{email}
+			</div>
+		</div>
+	{/if}
+	{#if selectedTrigger() === 'onDemand'}
+		<OnDemand bind:onDemand={task.onDemand} {readOnly} />
+	{/if}
+</div>

@@ -4,14 +4,16 @@
 
 	interface Props {
 		schedule?: Schedule;
+		readOnly?: boolean;
 	}
 
-	let { schedule = $bindable() }: Props = $props();
+	let { schedule = $bindable(), readOnly }: Props = $props();
 </script>
 
-<h3 class="text-lg font-semibold">Schedule</h3>
-<div class="flex">
+<h4 class="text-base font-medium">Schedule</h4>
+<div class="flex gap-4 md:min-w-sm">
 	<Dropdown
+		class="bg-surface2 text-md flex grow"
 		values={{
 			hourly: 'hourly',
 			daily: 'daily',
@@ -24,10 +26,12 @@
 				schedule.interval = value;
 			}
 		}}
+		disabled={readOnly}
 	/>
 
 	{#if schedule?.interval === 'hourly'}
 		<Dropdown
+			class="bg-surface2 text-md flex grow"
 			values={{
 				'0': 'on the hour',
 				'15': '15 minutes past',
@@ -40,6 +44,7 @@
 					schedule.minute = parseInt(value);
 				}
 			}}
+			disabled={readOnly}
 		/>
 	{/if}
 
@@ -61,6 +66,7 @@
 					schedule.hour = parseInt(value);
 				}
 			}}
+			disabled={readOnly}
 		/>
 	{/if}
 
@@ -81,6 +87,7 @@
 					schedule.weekday = parseInt(value);
 				}
 			}}
+			disabled={readOnly}
 		/>
 	{/if}
 
@@ -102,6 +109,7 @@
 					schedule.day = parseInt(value);
 				}
 			}}
+			disabled={readOnly}
 		/>
 	{/if}
 </div>

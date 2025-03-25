@@ -59,7 +59,7 @@
 	}
 </script>
 
-<div class="relative flex h-full flex-col">
+<div class="relative flex h-full flex-col pt-3">
 	{#if layout.items.length > 1 || (!layout.items[0]?.table && !layout.items[0]?.generic)}
 		<div class="border-surface2 relative flex items-center border-b-2 pb-2 pl-2 md:pl-0">
 			<ul class="relative flex flex-1 items-center gap-1 text-center text-sm">

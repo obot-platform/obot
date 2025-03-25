@@ -22,12 +22,10 @@
 	interface Props {
 		id?: string;
 		project: Project;
-		isTaskRun?: boolean;
 	}
 
-	let { id = $bindable(), project = $bindable(), isTaskRun }: Props = $props();
+	let { id = $bindable(), project = $bindable() }: Props = $props();
 
-	let container = $state<HTMLDivElement>();
 	let messagesDiv = $state<HTMLDivElement>();
 	let nameInput: HTMLInputElement;
 	let messages = $state<Messages>({ messages: [], inProgress: false });
@@ -184,7 +182,6 @@
 <div
 	id="main-input"
 	class="thread-container default-scrollbar-thin flex w-full grow justify-center overflow-y-auto"
-	bind:this={container}
 	class:scroll-smooth={scrollSmooth}
 	use:stickToBottom={{
 		contentEl: messagesDiv,
@@ -199,41 +196,39 @@
 			class="flex w-full grow flex-col justify-start gap-8 p-5 transition-all"
 			class:justify-center={!thread}
 		>
-			{#if !isTaskRun}
-				{#if editBasicDetails}
-					{@render editBasicSection()}
-				{:else if layout.projectEditorOpen}
-					<div class="message-content mt-4 w-fit self-center border-2 border-transparent pt-4">
-						{@render basicSection()}
-					</div>
-				{:else}
-					<button
-						class="message-content group hover:bg-surface1 hover:border-surface2 relative mt-4 w-fit self-center rounded-md border-2 border-dashed border-transparent pt-4 transition-all duration-200"
-						onclick={() => (editBasicDetails = true)}
-					>
-						{@render basicSection()}
-					</button>
-				{/if}
-				{#if project?.introductionMessage}
-					<div class="message-content w-full self-center">
-						{@html toHTMLFromMarkdown(project?.introductionMessage)}
-					</div>
-				{/if}
-				{#if project.starterMessages?.length}
-					<div class="flex flex-wrap justify-center gap-4 px-4">
-						{#each project.starterMessages as msg}
-							<button
-								class="border-surface3 hover:bg-surface2 w-52 rounded-2xl border bg-transparent p-4 text-left text-sm font-light transition-all duration-300"
-								onclick={async () => {
-									await ensureThread();
-									await thread?.invoke(msg);
-								}}
-							>
-								<span class="line-clamp-3">{msg}</span>
-							</button>
-						{/each}
-					</div>
-				{/if}
+			{#if editBasicDetails}
+				{@render editBasicSection()}
+			{:else if layout.projectEditorOpen}
+				<div class="message-content mt-4 w-fit self-center border-2 border-transparent pt-4">
+					{@render basicSection()}
+				</div>
+			{:else}
+				<button
+					class="message-content group hover:bg-surface1 hover:border-surface2 relative mt-4 w-fit self-center rounded-md border-2 border-dashed border-transparent pt-4 transition-all duration-200"
+					onclick={() => (editBasicDetails = true)}
+				>
+					{@render basicSection()}
+				</button>
+			{/if}
+			{#if project?.introductionMessage}
+				<div class="message-content w-full self-center">
+					{@html toHTMLFromMarkdown(project?.introductionMessage)}
+				</div>
+			{/if}
+			{#if project.starterMessages?.length}
+				<div class="flex flex-wrap justify-center gap-4 px-4">
+					{#each project.starterMessages as msg}
+						<button
+							class="border-surface3 hover:bg-surface2 w-52 rounded-2xl border bg-transparent p-4 text-left text-sm font-light transition-all duration-300"
+							onclick={async () => {
+								await ensureThread();
+								await thread?.invoke(msg);
+							}}
+						>
+							<span class="line-clamp-3">{msg}</span>
+						</button>
+					{/each}
+				</div>
 			{/if}
 			{#each messages.messages as msg}
 				<Message
@@ -272,8 +267,8 @@
 						<div use:tooltip={'Tools'}>
 							<Tools {project} />
 						</div>
-					</div></Input
-				>
+					</div>
+				</Input>
 				<div
 					class="mt-3 grid grid-cols-[auto_auto] items-center justify-center gap-x-2 px-5 text-xs font-light"
 				>

@@ -13,7 +13,7 @@
 	import { tick } from 'svelte';
 	import { autoHeight } from '$lib/actions/textarea.js';
 	import Confirm from '$lib/components/Confirm.svelte';
-	import { slide } from 'svelte/transition';
+	import { fade, slide } from 'svelte/transition';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 
 	interface Props {
@@ -26,6 +26,7 @@
 		stepMessages?: Map<string, Messages>;
 		project: Project;
 		showOutput?: boolean;
+		readOnly?: boolean;
 	}
 
 	let {
@@ -37,7 +38,8 @@
 		pending,
 		stepMessages,
 		project,
-		showOutput: parentShowOutput
+		showOutput: parentShowOutput,
+		readOnly
 	}: Props = $props();
 
 	let messages = $derived(stepMessages?.get(step.id)?.messages ?? []);
@@ -96,8 +98,8 @@
 	async function doRun() {
 		if (running || pending) {
 			await ChatService.abort(project.assistantID, project.id, {
-				taskID: task.id,
-				runID: 'editor'
+				taskID: task.id
+				// runID: 'editor'
 			});
 			return;
 		}
@@ -108,22 +110,23 @@
 	}
 </script>
 
-{#snippet toggleMessagesButton()}
-	{#if messages.length > 0}
-		<button
-			class="icon-button"
-			onclick={() => (showOutput = !showOutput)}
-			use:tooltip={'Toggle Output Visibility'}
-		>
-			{#if showOutput}
-				<Eye class="size-4" />
-			{:else}
-				<EyeClosed class="size-4" />
-			{/if}
-		</button>
-	{:else}
-		<div class="size-10"></div>
-	{/if}
+{#snippet outputVisibilityButton()}
+	<div class="size-10">
+		{#if messages.length > 0}
+			<button
+				class="icon-button"
+				onclick={() => (showOutput = !showOutput)}
+				use:tooltip={'Toggle Output Visibility'}
+				transition:fade={{ duration: 200 }}
+			>
+				{#if showOutput}
+					<Eye class="size-4" />
+				{:else}
+					<EyeClosed class="size-4" />
+				{/if}
+			</button>
+		{/if}
+	</div>
 {/snippet}
 
 <li class="ms-4">
@@ -136,64 +139,75 @@
 			id={'step' + step.id}
 			bind:value={step.step}
 			class="ghost-input border-surface2 ml-1 grow resize-none"
+			disabled={readOnly}
 		></textarea>
 		<div class="flex">
-			<button
-				class="icon-button"
-				onclick={doRun}
-				use:tooltip={running
-					? 'Abort'
-					: pending
-						? 'Running...'
-						: messages.length > 0
-							? 'Re-run Step'
-							: 'Run Step'}
-			>
-				{#if running}
-					<OctagonX class="size-4" />
-				{:else if pending}
-					<LoaderCircle class="size-4 animate-spin" />
-				{:else if messages.length > 0}
-					<RefreshCcw class="size-4" />
-				{:else}
-					<Play class="size-4" />
-				{/if}
-			</button>
-			<button
-				class="icon-button"
-				onclick={() => {
-					if (step.step?.trim()) {
-						toDelete = true;
-					} else {
-						deleteStep();
-					}
-				}}
-				use:tooltip={'Delete Step'}
-			>
-				<Trash2 class="size-4" />
-			</button>
-			{#if (step.step?.trim() || '').length > 0}
-				<button class="icon-button" onclick={addStep} use:tooltip={'Add Step'}>
-					<Plus class="size-4" />
-				</button>
-				{@render toggleMessagesButton()}
+			{#if readOnly}
+				{@render outputVisibilityButton()}
 			{:else}
-				{@render toggleMessagesButton()}
-				<div class="size-10"></div>
+				<button
+					class="icon-button"
+					onclick={doRun}
+					use:tooltip={running
+						? 'Abort'
+						: pending
+							? 'Running...'
+							: messages.length > 0
+								? 'Re-run Step'
+								: 'Run Step'}
+				>
+					{#if running}
+						<OctagonX class="size-4" />
+					{:else if pending}
+						<LoaderCircle class="size-4 animate-spin" />
+					{:else if messages.length > 0}
+						<RefreshCcw class="size-4" />
+					{:else}
+						<Play class="size-4" />
+					{/if}
+				</button>
+				<button
+					class="icon-button"
+					onclick={() => {
+						if (step.step?.trim()) {
+							toDelete = true;
+						} else {
+							deleteStep();
+						}
+					}}
+					use:tooltip={'Delete Step'}
+				>
+					<Trash2 class="size-4" />
+				</button>
+				<div class="flex grow">
+					<div class="size-10">
+						{#if (step.step?.trim() || '').length > 0}
+							<button
+								class="icon-button"
+								onclick={addStep}
+								use:tooltip={'Add Step'}
+								transition:fade={{ duration: 200 }}
+							>
+								<Plus class="size-4" />
+							</button>
+						{/if}
+					</div>
+					{@render outputVisibilityButton()}
+				</div>
 			{/if}
 		</div>
 	</div>
 	{#if messages.length > 0}
 		{#if showOutput}
 			<div
-				class="relative my-3 -ml-6 flex min-h-[150px] flex-col gap-4 rounded-3xl bg-white p-5 transition-transform dark:bg-black"
+				class="relative my-3 -ml-4 flex min-h-[150px] flex-col gap-4 rounded-lg bg-white p-5 transition-transform dark:bg-black"
 				class:border-2={running}
 				class:border-blue={running}
 				transition:slide
 			>
 				{#each messages as msg}
 					{#if !msg.sent}
-						<Message {msg} {project} />
+						<Message {msg} {project} disableMessageToEditor />
 					{/if}
 				{/each}
 				{#if stale}
@@ -218,6 +232,7 @@
 			parentStale={stale}
 			{project}
 			showOutput={parentShowOutput}
+			{readOnly}
 		/>
 	{/key}
 {/if}

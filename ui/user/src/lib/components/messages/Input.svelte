@@ -4,6 +4,7 @@
 	import { ArrowUp, LoaderCircle } from 'lucide-svelte';
 	import { onMount, type Snippet, tick } from 'svelte';
 	import type { EditorItem } from '$lib/services/editor/index.svelte';
+	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
 		onFocus?: () => void;
@@ -28,10 +29,10 @@
 	}: Props = $props();
 
 	let value = $state('');
-	let chat: HTMLTextAreaElement;
+	let chat: HTMLTextAreaElement | undefined = $state<HTMLTextAreaElement>();
 
 	export function focus() {
-		chat.focus();
+		chat?.focus();
 	}
 
 	async function submit() {
@@ -68,7 +69,7 @@
 
 		value = '';
 		await tick();
-		chat.dispatchEvent(new Event('resize'));
+		chat?.dispatchEvent(new Event('resize'));
 	}
 
 	async function onKey(e: KeyboardEvent) {
@@ -107,11 +108,9 @@
 <div class="w-full px-5">
 	<label for="chat" class="sr-only">Your messages</label>
 	<div
-		class="bg-surface1 focus-within:ring-blue relative flex flex-col items-center rounded-2xl focus-within:shadow-md focus-within:ring-1
-
-"
+		class="bg-surface1 focus-within:ring-blue relative flex flex-col items-center rounded-2xl focus-within:shadow-md focus-within:ring-1"
 	>
-		<div class="flex w-full items-center gap-4 p-2">
+		<div class="flex h-fit w-full items-center gap-4 p-2">
 			<textarea
 				use:autoHeight
 				id="chat"
@@ -121,7 +120,9 @@
 				onkeydown={onKey}
 				bind:this={chat}
 				onfocus={onFocus}
-				class="bg-surface1 text-md grow resize-none rounded-xl border-none p-3 pr-20 outline-hidden"
+				class={twMerge(
+					'bg-surface1 text-md grow resize-none rounded-xl border-none p-3 pr-20 outline-hidden'
+				)}
 				{placeholder}
 			></textarea>
 			{#if !children}

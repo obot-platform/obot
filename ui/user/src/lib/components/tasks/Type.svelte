@@ -2,19 +2,14 @@
 	import { type Task } from '$lib/services';
 	import Dropdown from '$lib/components/tasks/Dropdown.svelte';
 	import { version } from '$lib/stores';
+	import Trigger from './Trigger.svelte';
 
 	interface Props {
 		task?: Task;
+		readOnly?: boolean;
 	}
 
-	let { task = $bindable() }: Props = $props();
-
-	let inputVisible = $derived.by(() => {
-		if (task?.webhook || task?.schedule || task?.email) {
-			return false;
-		}
-		return Object.keys(task?.onDemand?.params ?? {}).length === 0;
-	});
+	let { task = $bindable(), readOnly }: Props = $props();
 	let options = $derived.by(() => {
 		const options: Record<string, string> = {
 			onDemand: 'on demand',
@@ -79,22 +74,19 @@
 	}
 </script>
 
-<div class="flex flex-1 justify-end">
-	<div class="flex items-center">
-		<button
-			class="text-gray hover:bg-gray-70 ml-2 flex items-center rounded-3xl p-2 px-4 hover:text-black dark:hover:bg-gray-900 dark:hover:text-gray-50"
-			class:hidden={!inputVisible}
-			onclick={() => {
-				if (!task) {
-					return;
-				}
-				task.onDemand = {
-					params: { '': '' }
-				};
-			}}
-		>
-			Add Arguments
-		</button>
+<div class="flex grow flex-col rounded-2xl bg-gray-50 p-5 dark:bg-gray-950">
+	<div class="border-surface3 mb-4 flex items-center justify-between gap-4 border-b pb-4">
+		<h3 class="text-lg font-semibold">Trigger Type</h3>
+		<Dropdown
+			class="bg-surface2 md:min-w-sm"
+			selected={selectedTrigger()}
+			values={options}
+			onSelected={selected}
+			disabled={readOnly}
+		/>
 	</div>
-	<Dropdown selected={selectedTrigger()} values={options} onSelected={selected} />
+
+	{#if task}
+		<Trigger bind:task {readOnly} />
+	{/if}
 </div>

@@ -4,9 +4,10 @@
 
 	interface Props {
 		onDemand?: OnDemand;
+		readOnly?: boolean;
 	}
 
-	let { onDemand = $bindable() }: Props = $props();
+	let { onDemand = $bindable(), readOnly }: Props = $props();
 	let order = $state<string[]>([]);
 
 	$effect(() => {
@@ -19,22 +20,22 @@
 </script>
 
 <div class="flex flex-col gap-4">
-	<h4 class="text-lg font-semibold">Arguments</h4>
+	<h4 class="text-base font-medium">Arguments</h4>
 	<p class="text-gray text-sm">
 		Reference these values in your steps using <span class="font-mono text-black dark:text-white"
 			>$VAR</span
 		> syntax
 	</p>
 
-	<table class="w-full text-left">
-		<thead class="text-sm">
-			<tr>
-				<th class="font-light">Name</th>
-				<th class="font-light">Description</th>
-			</tr>
-		</thead>
-		<tbody>
-			{#if onDemand?.params}
+	{#if onDemand?.params}
+		<table class="w-full text-left">
+			<thead class="text-sm">
+				<tr>
+					<th class="font-light">Name</th>
+					<th class="font-light">Description</th>
+				</tr>
+			</thead>
+			<tbody>
 				{#each order as key, i (i)}
 					<tr class="group">
 						<td>
@@ -51,6 +52,7 @@
 										delete onDemand.params[oldKey];
 									}
 								}}
+								disabled={readOnly}
 							/>
 						</td>
 						<td>
@@ -58,35 +60,46 @@
 								class="ghost-input border-surface2 w-3/4"
 								bind:value={onDemand.params[order[i]]}
 								placeholder="Add a good description"
+								disabled={readOnly}
 							/>
 						</td>
-						<td class="flex justify-end">
-							<button
-								class="icon-button"
-								onclick={() => {
-									const key = order[i];
-									order = order.filter((k) => k !== key);
-									if (onDemand?.params) {
-										delete onDemand.params[key];
-									}
-								}}
-							>
-								<Trash2 class="size-5" />
-							</button>
-						</td>
+						{#if !readOnly}
+							<td class="flex justify-end">
+								<button
+									class="icon-button"
+									onclick={() => {
+										const key = order[i];
+										order = order.filter((k) => k !== key);
+										if (onDemand?.params) {
+											delete onDemand.params[key];
+										}
+									}}
+								>
+									<Trash2 class="size-5" />
+								</button>
+							</td>
+						{/if}
 					</tr>
 				{/each}
-			{/if}
-		</tbody>
-	</table>
-	<div class="self-end">
-		<button
-			class="button-small"
-			onclick={() => {
-				order.push('');
-			}}
-		>
-			<Plus class="size-4" /> Argument
-		</button>
-	</div>
+			</tbody>
+		</table>
+	{/if}
+	{#if !readOnly}
+		<div class="self-end">
+			<button
+				class="button-small"
+				onclick={() => {
+					if (!onDemand?.params) {
+						onDemand = {
+							params: { '': '' }
+						};
+					}
+
+					order.push('');
+				}}
+			>
+				<Plus class="size-4" /> Argument
+			</button>
+		</div>
+	{/if}
 </div>

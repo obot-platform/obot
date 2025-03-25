@@ -322,6 +322,18 @@
 		}
 	}
 
+	.button-text {
+		color: var(--color-gray);
+		width: fit-content;
+		justify-content: flex-start;
+		padding: 1rem;
+		text-align: left;
+		font-size: var(--text-sm);
+		&:hover {
+			text-decoration: underline;
+		}
+	}
+
 	.button-destructive {
 		display: flex;
 		align-items: center;
@@ -407,6 +419,61 @@
 		.dark & {
 			background-color: var(--surface2);
 			color: white;
+		}
+	}
+
+	.default-dialog-title {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		gap: 0.5rem;
+		font-size: 1.25rem;
+		font-weight: 600;
+	}
+
+	.default-dialog-mobile-title {
+		border-color: var(--surface3);
+		width: 100%;
+		border-bottom-width: 1px;
+		position: relative;
+		min-height: 3.5rem;
+		margin-bottom: 1rem;
+		padding: 0.5rem 0;
+		text-align: center;
+		justify-content: center;
+	}
+
+	.mobile-screen-dialog {
+		border-radius: unset;
+		height: 100%;
+		width: 100%;
+		max-width: 100vw;
+		max-height: 100vh; 
+		padding: 0 1rem 1rem 1rem;
+	}
+
+	.mobile-header-button {
+		position: absolute;
+		top: 50%;
+		transform: translateY(-50%);
+		right: 0;
+
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		border-radius: 9999px; /* rounded-full */
+		padding: 0.625rem; /* p-2.5 */
+		transition-property: all;
+		transition-duration: 200ms;
+		color: var(--color-gray-500);
+		&:hover {
+			background-color: var(--surface3);
+		}
+		&:focus {
+			outline: none;
+		}
+		.dark & {
+			color: var(--color-gray-400);
 		}
 	}
 
