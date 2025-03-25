@@ -34,25 +34,22 @@ export const timeSince = (date: Date) => {
 };
 
 export const daysSince = (date: Date) => {
-	const seconds = Math.floor(
-		(new Date().getTime() - Math.floor(date.getTime() / 86400000) * 86400000) /
-			1000
-	);
+	const seconds =
+		(Math.floor(new Date().getTime() / 86400000) -
+			Math.floor(date.getTime() / 86400000)) *
+		86400;
 
-	let interval = seconds / 31536000;
+	let interval = Math.floor(seconds / 31536000);
 
-	if (interval > 1) {
-		interval = Math.floor(interval);
+	if (interval >= 1) {
 		return interval + " " + pluralize(interval, "year", "years") + " ago";
 	}
-	interval = seconds / 2592000;
-	if (interval > 1) {
-		interval = Math.floor(interval);
+	interval = Math.floor(seconds / 2592000);
+	if (interval >= 1) {
 		return interval + " " + pluralize(interval, "month", "months") + " ago";
 	}
-	interval = seconds / 86400;
-	if (interval > 1) {
-		interval = Math.floor(interval);
+	interval = Math.floor(seconds / 86400);
+	if (interval >= 1) {
 		return interval + " " + pluralize(interval, "day", "days") + " ago";
 	}
 	return "Today";
