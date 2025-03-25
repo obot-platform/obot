@@ -601,3 +601,37 @@ func (t *Handler) CopyTasksFromParent(req router.Request, _ router.Response) err
 
 	return nil
 }
+
+func MigrateOauthAppsFromParent(ctx context.Context, c kclient.Client) error {
+	threads := v1.ThreadList{}
+	if err := c.List(ctx, &threads, &kclient.ListOptions{
+		FieldSelector: fields.SelectorFromSet(map[string]string{"spec.project": "true"}),
+	}); err != nil {
+		return fmt.Errorf("failed to list threads: %w", err)
+	}
+
+	for _, thread := range threads.Items {
+		if thread.Spec.AgentName == "" {
+			continue
+		}
+
+		if thread.Spec.Manifest.OauthApps != nil {
+			continue
+		}
+
+		var agent v1.Agent
+		if err := c.Get(ctx, kclient.ObjectKey{Namespace: thread.Namespace, Name: thread.Spec.AgentName}, &agent); apierrors.IsNotFound(err) {
+			continue
+		} else if err != nil {
+			return err
+		}
+
+		thread.Spec.Manifest.OauthApps = &agent.Spec.Manifest.OAuthApps
+
+		if err := c.Update(ctx, &thread); err != nil {
+			return fmt.Errorf("failed to update thread %s: %w", thread.Name, err)
+		}
+	}
+
+	return nil
+}

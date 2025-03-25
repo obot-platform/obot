@@ -13,14 +13,15 @@
 	import { responsive, tools as toolsStore, version } from '$lib/stores';
 
 	interface Props {
-		onNewTools: (tools: AssistantTool[]) => Promise<void>;
+		onNewTools: (tools: AssistantTool[], oauthApps: Set<string>) => Promise<void>;
 		project: Project;
 	}
 
-	let { onNewTools, project }: Props = $props();
 	let enabledList = $derived(
 		toolsStore.current.tools.filter((t) => !t.builtin && t.enabled && t.id)
 	);
+
+	let { onNewTools, project }: Props = $props();
 	let typeSelectionTT = popover({
 		fixed: responsive.isMobile,
 		slide: responsive.isMobile ? 'up' : undefined
@@ -32,7 +33,10 @@
 		if (tool.toolType) {
 			toolsStore.setTools(toolsStore.current.tools.filter((t) => t.id !== tool.id));
 		} else {
-			await onNewTools(toolsStore.current.tools.filter((t) => t.id !== tool.id));
+			await onNewTools(
+				toolsStore.current.tools.filter((t) => t.id !== tool.id),
+				new Set(project.oauthApps)
+			);
 		}
 	}
 
@@ -205,7 +209,11 @@
 				use:toolCatalog.tooltip
 				class="default-dialog bottom-0 left-0 h-screen w-full rounded-none p-2 md:bottom-1/2 md:left-1/2 md:h-fit md:w-auto md:-translate-x-1/2 md:translate-y-1/2 md:rounded-xl"
 			>
-				<ToolCatalog onSelectTools={onNewTools} onSubmit={() => toolCatalog.toggle(false)} />
+				<ToolCatalog
+					onSelectTools={onNewTools}
+					onSubmit={() => toolCatalog.toggle(false)}
+					oauthApps={new Set(project.oauthApps)}
+				/>
 			</div>
 		</div>
 	</div>

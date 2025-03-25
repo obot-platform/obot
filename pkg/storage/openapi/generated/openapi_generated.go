@@ -939,6 +939,20 @@ func schema_obot_platform_obot_apiclient_types_AssistantToolList(ref common.Refe
 							},
 						},
 					},
+					"oauthApps": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
 				},
 				Required: []string{"items"},
 			},
@@ -4418,6 +4432,20 @@ func schema_obot_platform_obot_apiclient_types_ThreadManifest(ref common.Referen
 					"websiteKnowledge": {
 						SchemaProps: spec.SchemaProps{
 							Ref: ref("github.com/obot-platform/obot/apiclient/types.WebsiteKnowledge"),
+						},
+					},
+					"oauthApps": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
 						},
 					},
 				},

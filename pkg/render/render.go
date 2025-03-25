@@ -218,6 +218,7 @@ func Agent(ctx context.Context, db kclient.Client, agent *v1.Agent, oauthServerU
 		return nil, nil, err
 	}
 
+	var oauthApps []string
 	if opts.Thread != nil {
 		for _, tool := range opts.Thread.Spec.SystemTools {
 			if !added && tool == knowledgeToolName {
@@ -229,6 +230,16 @@ func Agent(ctx context.Context, db kclient.Client, agent *v1.Agent, oauthServerU
 			}
 			mainTool.Tools = append(mainTool.Tools, name)
 		}
+
+		if opts.Thread.Spec.ParentThreadName != "" {
+			var parentThread v1.Thread
+			if err := db.Get(ctx, router.Key(opts.Thread.Namespace, opts.Thread.Spec.ParentThreadName), &parentThread); err != nil {
+				return nil, nil, err
+			}
+			if parentThread.Spec.Manifest.OauthApps != nil {
+				oauthApps = *parentThread.Spec.Manifest.OauthApps
+			}
+		}
 	}
 
 	extraEnv, err = setWebSiteKnowledge(ctx, db, &mainTool, agent, opts.Thread, extraEnv)
@@ -236,7 +247,7 @@ func Agent(ctx context.Context, db kclient.Client, agent *v1.Agent, oauthServerU
 		return nil, nil, err
 	}
 
-	oauthEnv, err := OAuthAppEnv(ctx, db, agent.Spec.Manifest.OAuthApps, agent.Namespace, oauthServerURL)
+	oauthEnv, err := OAuthAppEnv(ctx, db, oauthApps, agent.Namespace, oauthServerURL)
 	if err != nil {
 		return nil, nil, err
 	}

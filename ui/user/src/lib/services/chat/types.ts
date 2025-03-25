@@ -212,11 +212,14 @@ export interface AssistantTool {
 	instructions?: string;
 	context?: string;
 	params?: Record<string, string>;
+	supportsOAuthTokenPrompt?: boolean;
+	oauthApp?: string;
 }
 
 export interface AssistantToolList {
 	readonly?: boolean;
 	items: AssistantTool[];
+	oauthApps?: string[];
 }
 
 export interface ToolReference {
@@ -236,7 +239,8 @@ export interface ToolReference {
 	type: string;
 	metadata?: {
 		icon?: string;
-		oath: string;
+		supportsOAuthTokenPrompt?: boolean;
+		oauth?: string;
 	};
 }
 
@@ -345,6 +349,7 @@ export interface Project {
 	tools?: string[];
 	sharedTasks?: string[];
 	websiteKnowledge?: Sites;
+	oauthApps?: string[];
 }
 
 export interface ProjectList {

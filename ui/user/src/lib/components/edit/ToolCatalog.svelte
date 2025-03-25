@@ -8,14 +8,16 @@
 	import { ChevronRight, X } from 'lucide-svelte';
 
 	interface Props {
-		onSelectTools: (tools: AssistantTool[]) => void;
+		onSelectTools: (tools: AssistantTool[], oauthApps: Set<string>) => void;
+		oauthApps: Set<string>;
 		onSubmit?: () => void;
 	}
 
-	let { onSelectTools, onSubmit }: Props = $props();
+	let { onSelectTools, oauthApps, onSubmit }: Props = $props();
 
 	let input = $state<HTMLInputElement>();
 	let search = $state('');
+	let dialog = $state<HTMLDialogElement>();
 
 	const bundleMap = getToolBundleMap();
 
@@ -23,7 +25,11 @@
 		return tools.current.tools
 			.filter((t) => !t.builtin)
 			.reduce<Record<string, AssistantTool>>((acc, tool) => {
-				acc[tool.id] = { ...tool };
+				acc[tool.id] = {
+					...tool,
+					supportsOAuthTokenPrompt: tool.supportsOAuthTokenPrompt ?? false,
+					oauthApp: tool.oauthApp ?? ''
+				};
 				return acc;
 			}, {});
 	}
@@ -37,6 +43,32 @@
 	let maxExceeded = $derived(
 		Object.values(toolSelection).filter((t) => t.enabled).length > tools.current.maxTools
 	);
+
+	let catalog = popover({ fixed: true, slide: responsive.isMobile ? 'up' : undefined });
+
+	let selectedTool = $state<ToolReference | null>(null);
+
+	function handleToolClick(tool: ToolReference) {
+		if (tool.metadata?.supportsOAuthTokenPrompt) {
+			selectedTool = tool;
+			dialog?.showModal();
+		}
+	}
+
+	function handleAuthSelection(selection: 'oauth' | 'token') {
+		if (selection === 'oauth') {
+			if (selectedTool?.metadata?.oauth) {
+				oauthApps.add(selectedTool.metadata.oauth);
+			}
+		} else {
+			oauthApps.delete(selectedTool?.metadata?.oauth ?? '');
+		}
+		dialog?.close();
+	}
+
+	export function open() {
+		catalog.toggle(true);
+	}
 
 	function setToolEnabled(toolId: string, val?: boolean) {
 		if (toolId in toolSelection) {
@@ -55,8 +87,9 @@
 	}
 
 	function handleSubmit() {
-		onSelectTools(Object.values(toolSelection));
+		onSelectTools(Object.values(toolSelection), oauthApps);
 		onSubmit?.();
+		catalog.toggle(false);
 	}
 
 	function clearBundle(toolRef: ToolReference) {
@@ -83,7 +116,9 @@
 		const subtools = toolItem.bundleTools ?? [];
 
 		for (const subtool of subtools) {
-			toolSelection[subtool.id].enabled = val;
+			if (subtool.id in toolSelection) {
+				toolSelection[subtool.id].enabled = val;
+			}
 		}
 	}
 
@@ -137,6 +172,28 @@
 		</div>
 	</div>
 
+	<dialog
+		bind:this={dialog}
+		class="top-1/3 left-1/3 min-h-[200px] w-1/4 -translate-x-1/2 -translate-y-1/2 overflow-visible p-5"
+	>
+		<div class="flex h-full flex-col">
+			<button class="absolute top-0 right-0 p-3" onclick={() => dialog?.close()}>
+				<X class="icon-default" />
+			</button>
+			<h1 class="mb-4 text-xl font-semibold">Authentication Method</h1>
+			<p class="mb-4 text-sm text-gray-500">
+				This tool has personal access token (PAT) and OAuth support. Select the authentication
+				method you would like to use for this tool.
+			</p>
+			<div class="flex flex-col gap-2">
+				<button class="button" onclick={() => handleAuthSelection('oauth')}> OAuth </button>
+				<button class="button" onclick={() => handleAuthSelection('token')}>
+					Personal Access Token (PAT)
+				</button>
+			</div>
+		</div>
+	</dialog>
+
 	<div class="default-scrollbar-thin flex max-h-[50vh] grow flex-col">
 		{#each Array.from(bundleMap.values()).sort( (a, b) => a.tool.name.localeCompare(b.tool.name) ) as { tool, bundleTools }}
 			{@const hasBundle = tool.id in toolSelection}
@@ -171,7 +228,16 @@
 							{#if !!bundleTool}
 								<input
 									type="checkbox"
-									onchange={() => setSubTools(tool.id, false)}
+									onchange={() => {
+										setSubTools(tool.id, false);
+										if (bundleTool.enabled) {
+											handleToolClick(tool);
+										} else {
+											if (bundleTool.oauthApp) {
+												oauthApps.delete(bundleTool.oauthApp);
+											}
+										}
+									}}
 									indeterminate={selectedSubtools > 0}
 									bind:checked={bundleTool.enabled}
 								/>
@@ -179,7 +245,12 @@
 								<input
 									indeterminate={selectedSubtools > 0 && !allSelected}
 									checked={allSelected}
-									onchange={(e) => setSubTools(tool.id, e.currentTarget.checked)}
+									onchange={(e) => {
+										setSubTools(tool.id, e.currentTarget.checked);
+										if (allSelected) {
+											handleToolClick(tool);
+										}
+									}}
 									type="checkbox"
 								/>
 							{/if}
@@ -233,7 +304,12 @@
 		<p class={twMerge('flex items-center gap-2')}>
 			<input
 				type="checkbox"
-				onchange={() => clearBundle(toolReference)}
+				onchange={() => {
+					clearBundle(toolReference);
+					if (tool.enabled) {
+						handleToolClick(toolReference);
+					}
+				}}
 				bind:checked={
 					() => (bundleToolSelected ? true : tool.enabled),
 					(val) => handleSetSubtool(toolReference, val)

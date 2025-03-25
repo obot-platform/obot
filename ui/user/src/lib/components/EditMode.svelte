@@ -56,11 +56,12 @@
 		}
 	}
 
-	async function onNewTools(newTools: AssistantTool[]) {
+	async function onNewTools(newTools: AssistantTool[], oauthApps: Set<string>) {
 		tools.setTools(
 			(
 				await ChatService.updateProjectTools(project.assistantID, project.id, {
-					items: newTools
+					items: newTools,
+					oauthApps: Array.from(oauthApps || [])
 				})
 			).items
 		);

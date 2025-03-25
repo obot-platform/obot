@@ -6,6 +6,7 @@ import (
 
 	"github.com/obot-platform/nah/pkg/router"
 	"github.com/obot-platform/obot/pkg/controller/data"
+	"github.com/obot-platform/obot/pkg/controller/handlers/threads"
 	"github.com/obot-platform/obot/pkg/controller/handlers/toolreference"
 	"github.com/obot-platform/obot/pkg/services"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
@@ -39,6 +40,9 @@ func New(services *services.Services) (*Controller, error) {
 func (c *Controller) PreStart(ctx context.Context) error {
 	if err := data.Data(ctx, c.services.StorageClient, c.services.AgentsDir); err != nil {
 		return fmt.Errorf("failed to apply data: %w", err)
+	}
+	if err := threads.MigrateOauthAppsFromParent(ctx, c.services.StorageClient); err != nil {
+		return fmt.Errorf("failed to migrate oauth apps from parent: %w", err)
 	}
 	return nil
 }

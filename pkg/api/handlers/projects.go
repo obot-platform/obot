@@ -402,6 +402,7 @@ func (h *ProjectsHandler) CreateProject(req api.Context) error {
 				Tools:       agent.Spec.Manifest.DefaultThreadTools,
 				Name:        project.Name,
 				Description: project.Description,
+				OauthApps:   new([]string),
 			},
 			AgentName: agent.Name,
 			Project:   true,
@@ -723,7 +724,7 @@ func (h *ProjectsHandler) authenticate(req api.Context, local bool) (err error) 
 	if local {
 		credContext = thread.Name + "-local"
 	}
-	resp, err := runAuthForAgent(req.Context(), req.Storage, h.invoker, h.gptScript, &agent, credContext, tools, req.User.GetUID())
+	resp, err := runAuthForAgent(req.Context(), req.Storage, h.invoker, h.gptScript, &agent, credContext, tools, req.User.GetUID(), thread.Name)
 	if err != nil {
 		return err
 	}

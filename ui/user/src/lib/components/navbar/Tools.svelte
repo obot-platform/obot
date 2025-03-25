@@ -92,5 +92,6 @@
 			catalog.toggle(false);
 			menu?.toggle(false);
 		}}
+		oauthApps={new Set(project.oauthApps)}
 	/>
 </div>

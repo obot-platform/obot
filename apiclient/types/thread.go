@@ -52,4 +52,5 @@ type ThreadManifest struct {
 	StarterMessages      []string          `json:"starterMessages"`
 	SharedTasks          []string          `json:"sharedTasks,omitempty"`
 	WebsiteKnowledge     *WebsiteKnowledge `json:"websiteKnowledge,omitempty"`
+	OauthApps            *[]string         `json:"oauthApps,omitempty"`
 }

@@ -492,6 +492,7 @@ func (a *AssistantHandler) SetTools(req api.Context) error {
 	}
 
 	thread.Spec.Manifest.Tools = toolList
+	thread.Spec.Manifest.OauthApps = &tools.OauthApps
 	if err := req.Update(thread); err != nil {
 		return err
 	}
