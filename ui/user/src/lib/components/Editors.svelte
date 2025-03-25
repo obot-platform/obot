@@ -4,6 +4,7 @@
 	import FileEditors from '$lib/components/editor/FileEditors.svelte';
 	import { getLayout } from '$lib/context/layout.svelte';
 	import { ChatService, EditorService, type InvokeInput, type Project } from '$lib/services';
+	import type { EditorItem } from '$lib/services/editor/index.svelte';
 	import { Download } from 'lucide-svelte';
 	import { X } from 'lucide-svelte/icons';
 	import { twMerge } from 'tailwind-merge';
@@ -14,6 +15,7 @@
 	}
 
 	let { project, currentThreadID }: Props = $props();
+	let saveTimeout: ReturnType<typeof setTimeout>;
 	const layout = getLayout();
 
 	let downloadable = $derived.by(() => {
@@ -27,12 +29,26 @@
 		return !!selected?.file;
 	});
 
+	const debouncedSave = (item: EditorItem) => {
+		// Clear previous timeout
+		if (saveTimeout) clearTimeout(saveTimeout);
+
+		// Set new timeout for debounced save
+		saveTimeout = setTimeout(() => {
+			EditorService.save(item, project, {
+				taskID: item.file?.taskID,
+				runID: item.file?.runID,
+				threadID: item.file?.threadID
+			});
+		}, 300);
+	};
+
 	function onFileChanged(name: string, contents: string) {
-		for (const item of layout.items) {
-			if (item.name === name && item.file) {
-				item.file.buffer = contents;
-				item.file.modified = true;
-			}
+		const item = layout.items.find((item) => item.name === name);
+		if (item && item.file) {
+			item.file.buffer = contents;
+			item.file.modified = true;
+			debouncedSave(item);
 		}
 	}
 

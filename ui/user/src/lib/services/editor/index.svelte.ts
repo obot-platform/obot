@@ -85,30 +85,46 @@ async function genericLoad(items: EditorItem[], id: string) {
 	select(items, id);
 }
 
-async function download(
-	items: EditorItem[],
+async function save(
+	item: EditorItem,
 	project: Project,
-	id: string,
 	opts?: {
 		taskID?: string;
 		threadID?: string;
 		runID?: string;
 	}
 ) {
-	const item = items.find((item) => item.id === id);
-	if (item?.file && item.file.modified && item.file.buffer) {
-		await ChatService.saveContents(
-			project.assistantID,
-			project.id,
-			item.id,
-			item.file.buffer,
-			opts
-		);
-		item.file.contents = item.file.buffer;
-		item.file.modified = false;
-		item.file.blob = undefined;
+	if (!item.file || !item.file?.modified) {
+		return;
 	}
-	await ChatService.download(project.assistantID, project.id, id, opts);
+
+	await ChatService.saveContents(
+		project.assistantID,
+		project.id,
+		item.name,
+		item.file.buffer,
+		opts
+	);
+	item.file.contents = item.file.buffer;
+	item.file.modified = false;
+	item.file.blob = undefined;
+}
+
+async function download(
+	items: EditorItem[],
+	project: Project,
+	name: string,
+	opts?: {
+		taskID?: string;
+		threadID?: string;
+		runID?: string;
+	}
+) {
+	const item = items.find((item) => item.name === name);
+	if (item?.file && item.file.modified && item.file.buffer) {
+		await save(item, project, opts);
+	}
+	await ChatService.download(project.assistantID, project.id, name, opts);
 }
 
 async function loadFile(
@@ -225,5 +241,6 @@ export default {
 	select,
 	generateImage,
 	uploadImage,
-	createObot
+	createObot,
+	save
 };
