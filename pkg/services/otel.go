@@ -23,6 +23,7 @@ import (
 type OtelOptions struct {
 	SampleProb         float64 `usage:"The probability of sampling a trace" default:"0.1" name:"otel-sample-prob"`
 	BaseExportEndpoint string  `usage:"The base endpoint to export to, if not set, no metrics, tracing, or logging will be exported" name:"otel-base-export-endpoint"`
+	BearerToken        string  `usage:"Bearer token for authentication" name:"otel-bearer-token"`
 }
 
 type Otel struct {
@@ -99,7 +100,7 @@ func newTracerProvider(ctx context.Context, resource *resource.Resource, cfg Ote
 		err           error
 	)
 	if cfg.BaseExportEndpoint != "" {
-		traceExporter, err = otlptracegrpc.New(ctx, otlptracegrpc.WithEndpointURL(cfg.BaseExportEndpoint+"/v1/traces"))
+		traceExporter, err = otlptracegrpc.New(ctx, otlptracegrpc.WithEndpointURL(cfg.BaseExportEndpoint+"/v1/traces"), otlptracegrpc.WithHeaders(map[string]string{"Authorization": "Bearer " + cfg.BearerToken}))
 		if err != nil {
 			return nil, err
 		}
@@ -114,7 +115,7 @@ func newMeterProvider(ctx context.Context, resource *resource.Resource, cfg Otel
 		err            error
 	)
 	if cfg.BaseExportEndpoint != "" {
-		metricExporter, err = otlpmetricgrpc.New(ctx, otlpmetricgrpc.WithEndpointURL(cfg.BaseExportEndpoint+"/v1/metrics"))
+		metricExporter, err = otlpmetricgrpc.New(ctx, otlpmetricgrpc.WithEndpointURL(cfg.BaseExportEndpoint+"/v1/metrics"), otlpmetricgrpc.WithHeaders(map[string]string{"Authorization": "Bearer " + cfg.BearerToken}))
 		if err != nil {
 			return nil, err
 		}
@@ -129,7 +130,7 @@ func newLoggerProvider(ctx context.Context, resource *resource.Resource, cfg Ote
 		err         error
 	)
 	if cfg.BaseExportEndpoint != "" {
-		logExporter, err = otlploggrpc.New(ctx, otlploggrpc.WithEndpointURL(cfg.BaseExportEndpoint+"/v1/logs"))
+		logExporter, err = otlploggrpc.New(ctx, otlploggrpc.WithEndpointURL(cfg.BaseExportEndpoint+"/v1/logs"), otlploggrpc.WithHeaders(map[string]string{"Authorization": "Bearer " + cfg.BearerToken}))
 		if err != nil {
 			return nil, err
 		}
