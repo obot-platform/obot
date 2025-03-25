@@ -195,9 +195,11 @@
 			{#if !version.current.dockerSupported}
 				<button
 					class="button flex items-center gap-1 text-sm"
-					use:toolCatalog.ref
-					onclick={() => toolCatalog.toggle(true)}><Plus class="size-4" /> Tools</button
+					onclick={() => toolCatalog.toggle(true)}
+					use:toolCatalog.ref><Plus class="size-4" /> Tools</button
 				>
+			{:else}
+				<button class="hidden" aria-label="Tools" use:toolCatalog.ref></button>
 			{/if}
 			<div
 				use:toolCatalog.tooltip
