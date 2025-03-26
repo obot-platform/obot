@@ -14,6 +14,7 @@ interface TooltipOptions {
 	slide?: 'left' | 'up';
 	fixed?: boolean;
 	hover?: boolean;
+	disablePortal?: boolean;
 }
 
 interface Popover {
@@ -139,8 +140,8 @@ export default function popover(initialOptions?: PopoverOptions): Popover {
 		tooltip.style.removeProperty('top');
 
 		tooltip.classList.add(options?.fixed ? 'fixed' : 'absolute');
-		// Always move tooltip to document.body
-		if (tooltip.parentElement !== document.body) {
+		// Always move tooltip to document.body unless disablePortal is enabled
+		if (tooltip.parentElement !== document.body && !options?.disablePortal) {
 			document.body.appendChild(tooltip);
 		}
 
