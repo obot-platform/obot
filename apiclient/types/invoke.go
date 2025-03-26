@@ -89,9 +89,10 @@ type Prompt struct {
 
 // Field should match exactly what is in the GPTScript SDK
 type Field struct {
-	Name        string `json:"name,omitempty"`
-	Sensitive   *bool  `json:"sensitive,omitempty"`
-	Description string `json:"description,omitempty"`
+	Name        string   `json:"name,omitempty"`
+	Sensitive   *bool    `json:"sensitive,omitempty"`
+	Description string   `json:"description,omitempty"`
+	Options     []string `json:"options,omitempty"`
 }
 
 type Fields []Field
@@ -103,6 +104,7 @@ func ToFields(fields gptscript.Fields) Fields {
 			Name:        field.Name,
 			Sensitive:   field.Sensitive,
 			Description: field.Description,
+			Options:     field.Options,
 		}
 	}
 	return f
