@@ -1660,6 +1660,20 @@ func schema_obot_platform_obot_apiclient_types_Field(ref common.ReferenceCallbac
 							Format: "",
 						},
 					},
+					"options": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
 				},
 			},
 		},

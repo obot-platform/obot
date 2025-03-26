@@ -432,12 +432,22 @@
 			{#each msg.fields as field}
 				<div class="flex flex-col gap-1">
 					<label for={field.name} class="mt-1 text-sm font-medium">{field.name}</label>
-					<input
-						class="rounded-lg bg-white p-2 outline-hidden dark:bg-gray-900"
-						type={field.sensitive ? 'password' : 'text'}
-						name={field.name}
-						bind:value={promptCredentials[field.name]}
-					/>
+					{#if field.options}
+						<div class="flex flex-col gap-2">
+							{#each field.options as option}
+								<button class="button" onclick={() => (promptCredentials[field.name] = option)}>
+									{option}
+								</button>
+							{/each}
+						</div>
+					{:else}
+						<input
+							class="rounded-lg bg-white p-2 outline-hidden dark:bg-gray-900"
+							type={field.sensitive ? 'password' : 'text'}
+							name={field.name}
+							bind:value={promptCredentials[field.name]}
+						/>
+					{/if}
 					{#if field.description}
 						<p class="text-sm text-gray-500">{field.description}</p>
 					{/if}
