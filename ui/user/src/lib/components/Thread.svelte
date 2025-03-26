@@ -183,7 +183,7 @@
 
 <div
 	id="main-input"
-	class="thread-container scrollbar-none flex w-full grow justify-center overflow-y-auto"
+	class="thread-container default-scrollbar-thin flex w-full grow justify-center overflow-y-auto"
 	bind:this={container}
 	class:scroll-smooth={scrollSmooth}
 	use:stickToBottom={{

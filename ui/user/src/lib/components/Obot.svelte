@@ -106,7 +106,7 @@
 				{/if}
 				<div
 					class={twMerge(
-						'border-surface2 absolute right-0 float-right w-full translate-x-full transform border-4 border-r-0 pt-2 transition-transform duration-300 md:mb-8 md:w-3/5 md:max-w-[calc(100%-320px)] md:min-w-[320px] md:rounded-l-3xl md:ps-5 md:pt-5',
+						'border-surface2 absolute right-0 z-30 float-right w-full translate-x-full transform border-4 border-r-0 pt-2 transition-transform duration-300 md:mb-8 md:w-3/5 md:max-w-[calc(100%-320px)] md:min-w-[320px] md:rounded-l-3xl md:ps-5 md:pt-5',
 						layout.fileEditorOpen && 'relative w-full translate-x-0',
 						!layout.fileEditorOpen && 'w-0'
 					)}
