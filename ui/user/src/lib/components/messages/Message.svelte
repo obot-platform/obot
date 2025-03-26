@@ -503,7 +503,7 @@
 					{@render time()}
 				{/if}
 
-				{#if !msg.sent && msg.done && !msg.toolCall && msg.time && !animating}
+				{#if !msg.sent && msg.done && !msg.toolCall && msg.time && content && !animating}
 					<div class="mt-2 ml-2 flex gap-2">
 						<div>
 							<button
