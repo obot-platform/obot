@@ -214,6 +214,11 @@
 						{@render basicSection()}
 					</button>
 				{/if}
+				{#if project?.introductionMessage}
+					<div class="message-content w-full self-center">
+						{@html toHTMLFromMarkdown(project?.introductionMessage)}
+					</div>
+				{/if}
 				{#if project.starterMessages?.length}
 					<div class="flex flex-wrap justify-center gap-4 px-4">
 						{#each project.starterMessages as msg}
