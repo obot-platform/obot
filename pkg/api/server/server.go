@@ -68,7 +68,7 @@ func (s *Server) wrap(f api.HandlerFunc) http.HandlerFunc {
 			return
 		}
 
-		if strings.HasPrefix(req.URL.Path, "/api/") {
+		if strings.HasPrefix(req.URL.Path, "/api/") && user.GetUID() != "" && user.GetUID() != "anonymous" {
 			// Best effort
 			if err := s.gatewayClient.AddActivityForToday(req.Context(), user.GetUID()); err != nil {
 				log.Warnf("Failed to add activity tracking for user %s: %v", user.GetName(), err)
