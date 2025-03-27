@@ -12,8 +12,6 @@ import (
 var (
 	_ fields.Fields = (*OAuthApp)(nil)
 	_ fields.Fields = (*OAuthAppLogin)(nil)
-	_ Aliasable     = (*OAuthApp)(nil)
-	_ Generationed  = (*OAuthApp)(nil)
 )
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -24,22 +22,6 @@ type OAuthApp struct {
 	Spec              OAuthAppSpec `json:"spec,omitempty"`
 	Status            EmptyStatus  `json:"status,omitempty"`
 }
-
-func (r *OAuthApp) GetAliasName() string {
-	return r.Spec.Manifest.Alias
-}
-
-func (r *OAuthApp) SetAssigned(bool) {}
-
-func (r *OAuthApp) IsAssigned() bool {
-	return true
-}
-
-func (r *OAuthApp) GetObservedGeneration() int64 {
-	return r.Generation
-}
-
-func (r *OAuthApp) SetObservedGeneration(int64) {}
 
 func (r *OAuthApp) Has(field string) bool {
 	return r.Get(field) != ""
@@ -61,7 +43,7 @@ func (r *OAuthApp) FieldNames() []string {
 }
 
 func (r *OAuthApp) RedirectURL(baseURL string) string {
-	return fmt.Sprintf("%s/api/app-oauth/callback/%s", baseURL, r.Spec.Manifest.Alias)
+	return fmt.Sprintf("%s/api/app-oauth/callback/%s", baseURL, r.Name)
 }
 
 func OAuthAppGetTokenURL(baseURL string) string {
@@ -69,11 +51,11 @@ func OAuthAppGetTokenURL(baseURL string) string {
 }
 
 func (r *OAuthApp) AuthorizeURL(baseURL string) string {
-	return fmt.Sprintf("%s/api/app-oauth/authorize/%s", baseURL, r.Spec.Manifest.Alias)
+	return fmt.Sprintf("%s/api/app-oauth/authorize/%s", baseURL, r.Name)
 }
 
 func (r *OAuthApp) RefreshURL(baseURL string) string {
-	return fmt.Sprintf("%s/api/app-oauth/refresh/%s", baseURL, r.Spec.Manifest.Alias)
+	return fmt.Sprintf("%s/api/app-oauth/refresh/%s", baseURL, r.Name)
 }
 
 func (r *OAuthApp) DeleteRefs() []Ref {
@@ -82,6 +64,8 @@ func (r *OAuthApp) DeleteRefs() []Ref {
 
 type OAuthAppSpec struct {
 	Manifest types.OAuthAppManifest `json:"manifest,omitempty"`
+	// The project that owns this OAuth app
+	ThreadName string `json:"threadName,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
