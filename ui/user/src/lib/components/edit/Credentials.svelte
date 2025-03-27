@@ -117,7 +117,7 @@
 		{/if}
 		<div
 			use:tooltip={{ disablePortal: true }}
-			class="default-dialog scrollbar-thin z-20 hidden max-h-[500px] overflow-y-auto p-5"
+			class="default-dialog scrollbar-thin hidden max-h-[500px] overflow-y-auto p-5"
 		>
 			{@render credentialList(credentialsAvailable ?? [], false)}
 		</div>

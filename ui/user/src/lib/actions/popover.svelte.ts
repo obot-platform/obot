@@ -78,7 +78,11 @@ export default function popover(initialOptions?: PopoverOptions): Popover {
 			options?.onOpenChange?.(open);
 		};
 
-		document.body.appendChild(div);
+		if (options?.disablePortal) {
+			ref.insertAdjacentElement('afterend', div);
+		} else {
+			document.body.appendChild(div);
+		}
 		return () => div.remove();
 	});
 
