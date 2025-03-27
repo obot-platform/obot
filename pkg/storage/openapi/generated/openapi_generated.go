@@ -7745,8 +7745,9 @@ func schema_storage_apis_obotobotai_v1_OAuthAppSpec(ref common.ReferenceCallback
 					},
 					"threadName": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
+							Description: "The project that owns this OAuth app",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
 				},

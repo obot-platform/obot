@@ -59,44 +59,46 @@ func ValidateAndSetDefaultsOAuthAppManifest(r *types.OAuthAppManifest, create bo
 		errs = append(errs, fmt.Errorf("alias name can only contain alphanumeric characters and hyphens: %s", r.Alias))
 	}
 
+	var defaultAuthURL, defaultTokenURL string
+
 	switch r.Type {
 	case types.OAuthAppTypeAtlassian:
-		r.AuthURL = AtlassianAuthorizeURL
-		r.TokenURL = AtlassianTokenURL
+		defaultAuthURL = AtlassianAuthorizeURL
+		defaultTokenURL = AtlassianTokenURL
 	case types.OAuthAppTypeMicrosoft365:
 		tenantID := r.TenantID
 		if tenantID == "" {
 			tenantID = "common"
 		}
-		r.AuthURL = fmt.Sprintf("https://login.microsoftonline.com/%s/oauth2/v2.0/authorize", tenantID)
-		r.TokenURL = fmt.Sprintf("https://login.microsoftonline.com/%s/oauth2/v2.0/token", tenantID)
+		defaultAuthURL = fmt.Sprintf("https://login.microsoftonline.com/%s/oauth2/v2.0/authorize", tenantID)
+		defaultTokenURL = fmt.Sprintf("https://login.microsoftonline.com/%s/oauth2/v2.0/token", tenantID)
 	case types.OAuthAppTypeSlack:
-		r.AuthURL = SlackAuthorizeURL
-		r.TokenURL = SlackTokenURL
+		defaultAuthURL = SlackAuthorizeURL
+		defaultTokenURL = SlackTokenURL
 	case types.OAuthAppTypeNotion:
-		r.AuthURL = NotionAuthorizeURL
-		r.TokenURL = NotionTokenURL
+		defaultAuthURL = NotionAuthorizeURL
+		defaultTokenURL = NotionTokenURL
 	case types.OAuthAppTypeHubSpot:
-		r.AuthURL = HubSpotAuthorizeURL
-		r.TokenURL = HubSpotTokenURL
+		defaultAuthURL = HubSpotAuthorizeURL
+		defaultTokenURL = HubSpotTokenURL
 	case types.OAuthAppTypeGoogle:
-		r.AuthURL = GoogleAuthorizeURL
-		r.TokenURL = GoogleTokenURL
+		defaultAuthURL = GoogleAuthorizeURL
+		defaultTokenURL = GoogleTokenURL
 	case types.OAuthAppTypeGitHub:
-		r.AuthURL = GitHubAuthorizeURL
-		r.TokenURL = GitHubTokenURL
+		defaultAuthURL = GitHubAuthorizeURL
+		defaultTokenURL = GitHubTokenURL
 	case types.OAuthAppTypeZoom:
-		r.AuthURL = ZoomAuthorizeURL
-		r.TokenURL = ZoomTokenURL
+		defaultAuthURL = ZoomAuthorizeURL
+		defaultTokenURL = ZoomTokenURL
 	case types.OAuthAppTypeLinkedIn:
-		r.AuthURL = LinkedInAuthorizeURL
-		r.TokenURL = LinkedInTokenURL
+		defaultAuthURL = LinkedInAuthorizeURL
+		defaultTokenURL = LinkedInTokenURL
 	case types.OAuthAppTypePagerDuty:
-		r.AuthURL = PagerDutyAuthorizeURL
-		r.TokenURL = PagerDutyTokenURL
+		defaultAuthURL = PagerDutyAuthorizeURL
+		defaultTokenURL = PagerDutyTokenURL
 	case types.OAuthAppTypeSmartThings:
-		r.AuthURL = SmartThingsAuthorizeURL
-		r.TokenURL = SmartThingsTokenURL
+		defaultAuthURL = SmartThingsAuthorizeURL
+		defaultTokenURL = SmartThingsTokenURL
 	case types.OAuthAppTypeSalesforce:
 		salesforceAuthorizeFragment := "/services/oauth2/authorize"
 		salesforceTokenFragment := "/services/oauth2/token"
@@ -108,14 +110,21 @@ func ValidateAndSetDefaultsOAuthAppManifest(r *types.OAuthAppManifest, create bo
 			instanceURL.Scheme = "https"
 		}
 
-		r.AuthURL, err = url.JoinPath(instanceURL.String(), salesforceAuthorizeFragment)
+		defaultAuthURL, err = url.JoinPath(instanceURL.String(), salesforceAuthorizeFragment)
 		if err != nil {
 			errs = append(errs, err)
 		}
-		r.TokenURL, err = url.JoinPath(instanceURL.String(), salesforceTokenFragment)
+		defaultTokenURL, err = url.JoinPath(instanceURL.String(), salesforceTokenFragment)
 		if err != nil {
 			errs = append(errs, err)
 		}
+	}
+
+	if r.AuthURL == "" {
+		r.AuthURL = defaultAuthURL
+	}
+	if r.TokenURL == "" {
+		r.TokenURL = defaultTokenURL
 	}
 
 	if r.AuthURL == "" {
