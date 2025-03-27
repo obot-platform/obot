@@ -19,7 +19,6 @@ import (
 	"github.com/gptscript-ai/go-gptscript"
 	types2 "github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/logger"
-	"github.com/obot-platform/obot/pkg/alias"
 	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/api/handlers"
 	kcontext "github.com/obot-platform/obot/pkg/gateway/context"
@@ -692,8 +691,5 @@ func convertOAuthAppRegistrationToOAuthApp(app v1.OAuthApp, baseURL string) type
 
 func getOAuthAppFromName(apiContext api.Context) (*v1.OAuthApp, error) {
 	var oauthApp v1.OAuthApp
-	if err := alias.Get(apiContext.Context(), apiContext.Storage, &oauthApp, apiContext.Namespace(), apiContext.PathValue("id")); err != nil {
-		return nil, err
-	}
-	return &oauthApp, nil
+	return &oauthApp, apiContext.Get(&oauthApp, apiContext.PathValue("id"))
 }
