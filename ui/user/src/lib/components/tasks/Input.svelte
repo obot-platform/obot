@@ -41,44 +41,44 @@
 		<h4 class="mb-3 text-base font-semibold">Arguments</h4>
 		<div class="mt-4 flex flex-col items-baseline gap-4">
 			{#each Object.keys(task.onDemand.params) as key}
-				<div class="flex w-full flex-col">
+				<div class="flex w-full flex-col gap-1">
 					<label for="param-{key}" class="flex-1 text-sm font-light capitalize">{key}</label>
 					<input
 						id="param-{key}"
 						bind:value={params[key]}
-						class="ghost-input border-surface3 text-md w-full"
+						class="dark:bg-surface3 bg-surface2 flex grow rounded-md p-2 shadow-inner outline-hidden"
 						placeholder={task.onDemand.params[key]}
 					/>
 				</div>
 			{/each}
 		</div>
 	{:else if task?.email}
-		<h4 class="text-base font-semibold">Sample Email</h4>
-		<div class="mt-5 flex flex-col gap-5 rounded-xl bg-white p-5 dark:bg-black">
-			<div class="flex items-baseline">
-				<label for="from" class="w-[70px] text-sm font-semibold">From</label>
+		<h4 class="text-base font-semibold">Sample Email Details</h4>
+		<div class="mt-4 flex flex-col gap-4">
+			<div class="flex flex-col gap-1">
+				<label for="from" class="w-[70px] text-sm font-light">From</label>
 				<input
 					id="from"
 					bind:value={emailInput.from}
-					class="rounded-md bg-gray-50 p-2 outline-hidden dark:bg-gray-950"
+					class="dark:bg-surface3 bg-surface2 flex grow rounded-md p-2 shadow-inner outline-hidden"
 					placeholder=""
 				/>
 			</div>
-			<div class="flex items-baseline">
-				<label for="from" class="w-[70px] text-sm font-semibold">To</label>
+			<div class="flex flex-col gap-1">
+				<label for="from" class="w-[70px] text-sm font-light">To</label>
 				<input
 					id="from"
 					bind:value={emailInput.to}
-					class="rounded-md bg-gray-50 p-2 outline-hidden dark:bg-gray-950"
+					class="dark:bg-surface3 bg-surface2 flex grow rounded-md p-2 shadow-inner outline-hidden"
 					placeholder=""
 				/>
 			</div>
-			<div class="flex items-baseline">
-				<label for="from" class="w-[70px] text-sm font-semibold">Subject</label>
+			<div class="flex flex-col gap-1">
+				<label for="from" class="w-[70px] text-sm font-light">Subject</label>
 				<input
 					id="from"
 					bind:value={emailInput.subject}
-					class="rounded-md bg-gray-50 p-2 outline-hidden dark:bg-gray-950"
+					class="dark:bg-surface3 bg-surface2 flex grow rounded-md p-2 shadow-inner outline-hidden"
 					placeholder=""
 				/>
 			</div>
@@ -88,7 +88,7 @@
 					bind:value={emailInput.body}
 					use:autoHeight
 					rows="1"
-					class="mt-2 w-full resize-none rounded-md bg-gray-50 p-5 outline-hidden dark:bg-gray-950"
+					class="dark:bg-surface3 bg-surface2 mt-2 w-full resize-none rounded-md p-5 shadow-inner outline-hidden"
 					placeholder="Email content"
 				></textarea>
 			</div>
@@ -99,7 +99,7 @@
 			bind:value={payload}
 			use:autoHeight
 			rows="1"
-			class="ghost-input border-surface3 w-full grow resize-none border-b"
+			class="dark:bg-surface3 bg-surface2 mt-2 w-full resize-none rounded-md p-5 shadow-inner outline-hidden"
 			placeholder="Enter payload..."
 		></textarea>
 	{/if}
