@@ -61,7 +61,7 @@ func (h *Handler) Reconcile(req router.Request, _ router.Response) error {
 		Spec: v1.OAuthAppSpec{
 			Manifest: types.OAuthAppManifest{
 				ClientID: slackReceiver.Spec.Manifest.ClientID,
-				Alias:    oauthAppName,
+				Alias:    string(types.OAuthAppTypeSlack),
 				Type:     types.OAuthAppTypeSlack,
 			},
 			ThreadName: slackReceiver.Spec.ThreadName,
