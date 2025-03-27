@@ -24,6 +24,5 @@ type AssistantTool struct {
 }
 
 type AssistantToolList struct {
-	ReadOnly bool            `json:"readOnly,omitempty"`
-	Items    []AssistantTool `json:"items"`
+	Items []AssistantTool `json:"items"`
 }

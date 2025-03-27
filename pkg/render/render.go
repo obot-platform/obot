@@ -31,14 +31,14 @@ type AgentOptions struct {
 	Thread *v1.Thread
 }
 
-func stringAppend(first, second string) string {
+func stringAppend(first string, second ...string) string {
 	if first == "" {
-		return second
+		return strings.Join(second, "\n\n")
 	}
-	if second == "" {
+	if len(second) == 0 {
 		return first
 	}
-	return first + "\n\n" + second
+	return strings.Join(append([]string{first}, second...), "\n\n")
 }
 
 func Agent(ctx context.Context, db kclient.Client, agent *v1.Agent, oauthServerURL string, opts AgentOptions) (_ []gptscript.ToolDef, extraEnv []string, _ error) {
@@ -91,13 +91,16 @@ func Agent(ctx context.Context, db kclient.Client, agent *v1.Agent, oauthServerU
 	}
 
 	if opts.Thread != nil {
-		threadWithPrompt, err := projects.GetFirst(ctx, db, opts.Thread, func(parentThread *v1.Thread) (bool, error) {
-			return parentThread.Spec.Manifest.Prompt != "", nil
+		prompts, err := projects.GetStrings(ctx, db, opts.Thread, func(thread *v1.Thread) []string {
+			if thread.Spec.Manifest.Prompt == "" {
+				return nil
+			}
+			return []string{thread.Spec.Manifest.Prompt}
 		})
 		if err != nil {
 			return nil, nil, err
 		}
-		mainTool.Instructions = stringAppend(mainTool.Instructions, threadWithPrompt.Spec.Manifest.Prompt)
+		mainTool.Instructions = stringAppend(mainTool.Instructions, prompts...)
 	}
 
 	if mainTool.Instructions == "" {
@@ -112,14 +115,14 @@ func Agent(ctx context.Context, db kclient.Client, agent *v1.Agent, oauthServerU
 	}
 
 	if opts.Thread != nil {
-		threadWithTools, err := projects.GetFirst(ctx, db, opts.Thread, func(parentThread *v1.Thread) (bool, error) {
-			return len(parentThread.Spec.Manifest.Tools) > 0, nil
+		toolNames, err := projects.GetStrings(ctx, db, opts.Thread, func(thread *v1.Thread) []string {
+			return thread.Spec.Manifest.Tools
 		})
 		if err != nil {
 			return nil, nil, err
 		}
 
-		for _, t := range threadWithTools.Spec.Manifest.Tools {
+		for _, t := range toolNames {
 			if !added && t == knowledgeToolName {
 				continue
 			}

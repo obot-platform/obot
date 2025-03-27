@@ -275,9 +275,11 @@ func CreateProjectFromProject(ctx context.Context, c kclient.WithWatch, projectT
 		},
 		Spec: v1.ThreadSpec{
 			Manifest: types.ThreadManifest{
-				Name:        projectThread.Spec.Manifest.Name,
-				Description: projectThread.Spec.Manifest.Description,
-				Icons:       projectThread.Spec.Manifest.Icons,
+				ThreadManifestManagedFields: types.ThreadManifestManagedFields{
+					Name:        projectThread.Spec.Manifest.Name,
+					Description: projectThread.Spec.Manifest.Description,
+					Icons:       projectThread.Spec.Manifest.Icons,
+				},
 			},
 			AgentName:        projectThread.Spec.AgentName,
 			ParentThreadName: projectThread.Name,

@@ -15,7 +15,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-const DefaultMaxUserThreadTools = 5
+const DefaultMaxUserThreadTools = 100
 
 type ThreadHandler struct {
 	gptscript *gptscript.GPTScript

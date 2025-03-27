@@ -246,6 +246,10 @@ func Router(services *services.Services) (http.Handler, error) {
 	mux.HandleFunc("POST /api/threads/{id}/abort", threads.Abort)
 	mux.HandleFunc("GET /api/threads/{id}/events", threads.Events)
 
+	// Project Thread Tools
+	mux.HandleFunc("GET /api/assistants/{assistant_id}/projects/{project_id}/threads/{thread_id}/tools", assistants.Tools)
+	mux.HandleFunc("PUT /api/assistants/{assistant_id}/projects/{project_id}/threads/{thread_id}/tools", assistants.SetTools)
+
 	// Project Thread Files
 	mux.HandleFunc("GET /api/assistants/{assistant_id}/projects/{project_id}/threads/{thread_id}/files", files.Files)
 	mux.HandleFunc("DELETE /api/assistants/{assistant_id}/projects/{project_id}/threads/{thread_id}/file/{file...}", files.DeleteFile)

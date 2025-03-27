@@ -281,7 +281,9 @@ func (h *ProjectsHandler) CopyProject(req api.Context) error {
 			Namespace:    req.Namespace(),
 		},
 		Spec: v1.ThreadSpec{
-			Manifest:         thread.Spec.Manifest,
+			Manifest: types.ThreadManifest{
+				ThreadManifestManagedFields: thread.Spec.Manifest.ThreadManifestManagedFields,
+			},
 			AgentName:        thread.Spec.AgentName,
 			SourceThreadName: thread.Name,
 			Project:          true,
@@ -399,9 +401,11 @@ func (h *ProjectsHandler) CreateProject(req api.Context) error {
 		},
 		Spec: v1.ThreadSpec{
 			Manifest: types.ThreadManifest{
-				Tools:       agent.Spec.Manifest.DefaultThreadTools,
-				Name:        project.Name,
-				Description: project.Description,
+				Tools: agent.Spec.Manifest.DefaultThreadTools,
+				ThreadManifestManagedFields: types.ThreadManifestManagedFields{
+					Name:        project.Name,
+					Description: project.Description,
+				},
 			},
 			AgentName: agent.Name,
 			Project:   true,

@@ -113,6 +113,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/apiclient/types.ThreadAuthorizationManifest":                schema_obot_platform_obot_apiclient_types_ThreadAuthorizationManifest(ref),
 		"github.com/obot-platform/obot/apiclient/types.ThreadList":                                 schema_obot_platform_obot_apiclient_types_ThreadList(ref),
 		"github.com/obot-platform/obot/apiclient/types.ThreadManifest":                             schema_obot_platform_obot_apiclient_types_ThreadManifest(ref),
+		"github.com/obot-platform/obot/apiclient/types.ThreadManifestManagedFields":                schema_obot_platform_obot_apiclient_types_ThreadManifestManagedFields(ref),
 		"github.com/obot-platform/obot/apiclient/types.Time":                                       schema_obot_platform_obot_apiclient_types_Time(ref),
 		"github.com/obot-platform/obot/apiclient/types.ToolCall":                                   schema_obot_platform_obot_apiclient_types_ToolCall(ref),
 		"github.com/obot-platform/obot/apiclient/types.ToolInfo":                                   schema_obot_platform_obot_apiclient_types_ToolInfo(ref),
@@ -920,12 +921,6 @@ func schema_obot_platform_obot_apiclient_types_AssistantToolList(ref common.Refe
 			SchemaProps: spec.SchemaProps{
 				Type: []string{"object"},
 				Properties: map[string]spec.Schema{
-					"readOnly": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"boolean"},
-							Format: "",
-						},
-					},
 					"items": {
 						SchemaProps: spec.SchemaProps{
 							Type: []string{"array"},
@@ -4341,20 +4336,6 @@ func schema_obot_platform_obot_apiclient_types_ThreadManifest(ref common.Referen
 							Format:  "",
 						},
 					},
-					"tools": {
-						SchemaProps: spec.SchemaProps{
-							Type: []string{"array"},
-							Items: &spec.SchemaOrArray{
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Default: "",
-										Type:    []string{"string"},
-										Format:  "",
-									},
-								},
-							},
-						},
-					},
 					"description": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
@@ -4364,20 +4345,6 @@ func schema_obot_platform_obot_apiclient_types_ThreadManifest(ref common.Referen
 					"icons": {
 						SchemaProps: spec.SchemaProps{
 							Ref: ref("github.com/obot-platform/obot/apiclient/types.AgentIcons"),
-						},
-					},
-					"prompt": {
-						SchemaProps: spec.SchemaProps{
-							Default: "",
-							Type:    []string{"string"},
-							Format:  "",
-						},
-					},
-					"knowledgeDescription": {
-						SchemaProps: spec.SchemaProps{
-							Default: "",
-							Type:    []string{"string"},
-							Format:  "",
 						},
 					},
 					"introductionMessage": {
@@ -4401,7 +4368,87 @@ func schema_obot_platform_obot_apiclient_types_ThreadManifest(ref common.Referen
 							},
 						},
 					},
+					"websiteKnowledge": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.WebsiteKnowledge"),
+						},
+					},
+					"tools": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+					"prompt": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
 					"sharedTasks": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"name", "icons", "introductionMessage", "starterMessages", "prompt"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.AgentIcons", "github.com/obot-platform/obot/apiclient/types.WebsiteKnowledge"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_ThreadManifestManagedFields(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"description": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"icons": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.AgentIcons"),
+						},
+					},
+					"introductionMessage": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"starterMessages": {
 						SchemaProps: spec.SchemaProps{
 							Type: []string{"array"},
 							Items: &spec.SchemaOrArray{
@@ -4421,7 +4468,7 @@ func schema_obot_platform_obot_apiclient_types_ThreadManifest(ref common.Referen
 						},
 					},
 				},
-				Required: []string{"name", "icons", "prompt", "knowledgeDescription", "introductionMessage", "starterMessages"},
+				Required: []string{"name", "icons", "introductionMessage", "starterMessages"},
 			},
 		},
 		Dependencies: []string{

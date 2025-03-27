@@ -23,8 +23,8 @@ func (h *Handler) CopyProjectInfo(req router.Request, _ router.Response) error {
 		return err
 	}
 
-	if !equality.Semantic.DeepEqual(projectThread.Spec.Manifest, parentThread.Spec.Manifest) {
-		projectThread.Spec.Manifest = parentThread.Spec.Manifest
+	if !equality.Semantic.DeepEqual(projectThread.Spec.Manifest.ThreadManifestManagedFields, parentThread.Spec.Manifest.ThreadManifestManagedFields) {
+		projectThread.Spec.Manifest.ThreadManifestManagedFields = parentThread.Spec.Manifest.ThreadManifestManagedFields
 		return req.Client.Update(req.Ctx, projectThread)
 	}
 

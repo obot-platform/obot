@@ -2,6 +2,7 @@ package projects
 
 import (
 	"context"
+	"slices"
 
 	"github.com/obot-platform/nah/pkg/router"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
@@ -31,6 +32,32 @@ func GetRoot(ctx context.Context, c kclient.Client, thread *v1.Thread) (*v1.Thre
 	return GetFirst(ctx, c, thread, func(t *v1.Thread) (bool, error) {
 		return t.Spec.ParentThreadName == "", nil
 	})
+}
+
+func GetStrings(ctx context.Context, c kclient.Client, thread *v1.Thread, get func(*v1.Thread) []string) (result []string, _ error) {
+	if thread == nil {
+		return nil, nil
+	}
+	var parentThread v1.Thread
+	if thread.Spec.ParentThreadName != "" {
+		var err error
+		if err = c.Get(ctx, router.Key(thread.Namespace, thread.Spec.ParentThreadName), &parentThread); err != nil {
+			return nil, err
+		}
+
+		result, err = GetStrings(ctx, c, &parentThread, get)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	for _, newString := range get(thread) {
+		if !slices.Contains(result, newString) {
+			result = append(result, newString)
+		}
+	}
+
+	return result, nil
 }
 
 func GetFirst(ctx context.Context, c kclient.Client, thread *v1.Thread, check func(*v1.Thread) (bool, error)) (*v1.Thread, error) {

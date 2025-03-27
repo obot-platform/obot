@@ -15,6 +15,7 @@ import (
 	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/events"
 	"github.com/obot-platform/obot/pkg/invoke"
+	"github.com/obot-platform/obot/pkg/projects"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -491,6 +492,26 @@ func (a *AssistantHandler) SetTools(req api.Context) error {
 		return types.NewErrBadRequest("too many tools for this agent")
 	}
 
+	toolList = slices.DeleteFunc(toolList, func(s string) bool {
+		return slices.Contains(agent.Spec.Manifest.Tools, s)
+	})
+
+	if thread.Spec.ParentThreadName != "" {
+		var parentThread v1.Thread
+		if err := req.Get(&parentThread, thread.Spec.ParentThreadName); err != nil {
+			return err
+		}
+		builtinTools, err := projects.GetStrings(req.Context(), req.Storage, &parentThread, func(t *v1.Thread) []string {
+			return t.Spec.Manifest.Tools
+		})
+		if err != nil {
+			return err
+		}
+		toolList = slices.DeleteFunc(toolList, func(s string) bool {
+			return slices.Contains(builtinTools, s)
+		})
+	}
+
 	thread.Spec.Manifest.Tools = toolList
 	if err := req.Update(thread); err != nil {
 		return err
@@ -501,7 +522,8 @@ func (a *AssistantHandler) SetTools(req api.Context) error {
 
 func (a *AssistantHandler) Tools(req api.Context) error {
 	var (
-		id = req.PathValue("assistant_id")
+		id     = req.PathValue("assistant_id")
+		thread v1.Thread
 	)
 
 	agent, err := getAssistant(req, id)
@@ -509,13 +531,35 @@ func (a *AssistantHandler) Tools(req api.Context) error {
 		return err
 	}
 
-	thread, err := getProjectThread(req)
+	project, err := getThreadForScope(req)
 	if err != nil {
 		return err
 	}
 
+	if !project.Spec.Project {
+		thread = *project
+		var newProject v1.Thread
+		if err := req.Get(&newProject, project.Spec.ParentThreadName); err != nil {
+			return err
+		}
+		project = &newProject
+	}
+
+	var parentProject v1.Thread
+	if project.Spec.ParentThreadName != "" {
+		if err := req.Get(&parentProject, project.Spec.ParentThreadName); err != nil {
+			return err
+		}
+	}
+
 	enabledTool := make(map[string]bool)
 	for _, tool := range thread.Spec.Manifest.Tools {
+		enabledTool[tool] = true
+	}
+	for _, tool := range project.Spec.Manifest.Tools {
+		enabledTool[tool] = true
+	}
+	for _, tool := range parentProject.Spec.Manifest.Tools {
 		enabledTool[tool] = true
 	}
 
@@ -539,19 +583,20 @@ func (a *AssistantHandler) Tools(req api.Context) error {
 	)
 
 	appendTools(&result, added, toolsByName, true, true, agent.Spec.Manifest.Tools)
-
-	if thread.Name == "" {
-		result.ReadOnly = true
-		appendTools(&result, added, toolsByName, true, false, agent.Spec.Manifest.DefaultThreadTools)
-	} else {
-		appendTools(&result, added, toolsByName, true, false, thread.Spec.Manifest.Tools)
-		appendTools(&result, added, toolsByName, false, false, agent.Spec.Manifest.DefaultThreadTools)
-	}
-
+	appendTools(&result, added, toolsByName, true, true, parentProject.Spec.Manifest.Tools)
+	appendTools(&result, added, toolsByName, true, thread.Name != "", project.Spec.Manifest.Tools)
+	appendTools(&result, added, toolsByName, true, false, thread.Spec.Manifest.Tools)
+	appendTools(&result, added, toolsByName, false, false, agent.Spec.Manifest.DefaultThreadTools)
 	appendTools(&result, added, toolsByName, false, false, agent.Spec.Manifest.AvailableThreadTools)
 
-	var userTools v1.ToolList
-	if err := req.List(&userTools, kclient.MatchingFields{"spec.threadName": thread.Name}); err != nil {
+	var (
+		userTools      v1.ToolList
+		toolThreadName = project.Name
+	)
+	if project.Spec.ParentThreadName != "" {
+		toolThreadName = project.Spec.ParentThreadName
+	}
+	if err := req.List(&userTools, kclient.MatchingFields{"spec.threadName": toolThreadName}); err != nil {
 		return err
 	}
 
