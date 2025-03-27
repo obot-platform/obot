@@ -189,6 +189,11 @@ export function buildMessagesFromProgress(
 				item.message = [];
 			}
 		}
+
+		// Drop aborted message if previous message was also aborted
+		if (i > 0 && item.aborted && !item.ignore && messages.messages[i - 1].aborted) {
+			messages.messages[i - 1].ignore = true;
+		}
 	});
 
 	return messages;
