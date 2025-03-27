@@ -1,9 +1,10 @@
 <script lang="ts">
 	import { CircleAlert, X } from 'lucide-svelte/icons';
+	import type { Snippet } from 'svelte';
 
 	interface Props {
 		show: boolean;
-		msg?: string;
+		msg?: string | Snippet;
 		onsuccess: () => void;
 		oncancel: () => void;
 	}
@@ -46,7 +47,13 @@
 			</button>
 			<div class="p-4 text-center md:p-5">
 				<CircleAlert class="mx-auto mb-4 h-12 w-12 text-gray-400 dark:text-gray-100" />
-				<h3 class="mb-5 text-lg font-normal text-black dark:text-gray-100">{msg}</h3>
+				<h3 class="mb-5 break-words text-lg font-normal text-black dark:text-gray-100">
+					{#if typeof msg === 'string'}
+						{msg}
+					{:else}
+						{@render msg()}
+					{/if}
+				</h3>
 				<button
 					onclick={onsuccess}
 					type="button"

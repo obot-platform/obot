@@ -247,9 +247,13 @@
 	</div>
 </dialog>
 
+{#snippet msg()}
+	Are you sure you want to delete <span class="font-semibold">{fileToDelete}</span>?
+{/snippet}
+
 <Confirm
 	show={fileToDelete !== undefined}
-	msg={`Are you sure you want to delete ${fileToDelete}?`}
+	{msg}
 	onsuccess={deleteFile}
 	oncancel={() => (fileToDelete = undefined)}
 />
