@@ -354,6 +354,17 @@ func (e *Emitter) printRun(ctx context.Context, state *printState, run v1.Run, r
 			}
 			runState, err := e.gatewayClient.RunState(ctx, run.Namespace, run.Name)
 			if apierrors.IsNotFound(err) {
+				var checkRun v1.Run
+				if err := e.client.Get(ctx, router.Key(run.Namespace, run.Name), &checkRun); err == nil {
+					if checkRun.Status.Error != "" {
+						result <- types.Progress{
+							RunID: run.Name,
+							Time:  types.NewTime(time.Now()),
+							Error: checkRun.Status.Error,
+						}
+						return nil
+					}
+				}
 				continue
 			} else if err != nil {
 				return err

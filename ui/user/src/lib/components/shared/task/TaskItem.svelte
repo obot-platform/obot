@@ -1,7 +1,12 @@
 <script lang="ts">
 	import { ChevronDown, Trash2 } from 'lucide-svelte/icons';
 	import { overflowToolTip } from '$lib/actions/overflow';
-	import { closeAll, getLayout, isSomethingSelected, openTask } from '$lib/context/layout.svelte';
+	import {
+		getLayout,
+		isSomethingSelected,
+		openTask,
+		openTaskRun
+	} from '$lib/context/layout.svelte';
 	import { formatTime } from '$lib/time.js';
 	import { type Task, type Thread, type Project } from '$lib/services';
 	import { twMerge } from 'tailwind-merge';
@@ -75,7 +80,12 @@
 					if (responsive.isMobile) {
 						layout.sidebarOpen = false;
 					}
-					openTask(layout, task.id);
+					if (layout.editTaskID === task.id && expanded) {
+						expanded = false;
+					} else {
+						expanded = true;
+						openTask(layout, task.id);
+					}
 				}}
 			>
 				{task.name ?? ''}
@@ -96,9 +106,18 @@
 						>
 							<button
 								class="w-full p-2 text-left"
-								onclick={() => {
-									closeAll(layout);
-									currentThreadID = taskRun.id;
+								onclick={async () => {
+									if (taskRun.taskID && taskRun.taskRunID) {
+										openTaskRun(
+											layout,
+											await ChatService.getTaskRun(
+												project.assistantID,
+												project.id,
+												taskRun.taskID,
+												taskRun.taskRunID
+											)
+										);
+									}
 								}}
 							>
 								{formatTime(taskRun.created)}

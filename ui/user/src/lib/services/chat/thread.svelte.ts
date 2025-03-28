@@ -209,15 +209,19 @@ export class Thread {
 		this.pending = false;
 	}
 
-	async runTask(
+	async runStep(
 		taskID: string,
+		stepID: string,
 		opts?: {
-			stepID?: string;
 			input?: string | object;
 		}
 	): Promise<TaskRun> {
 		this.pending = true;
-		return await ChatRunTask(this.#project.assistantID, this.#project.id, taskID, opts);
+		return await ChatRunTask(this.#project.assistantID, this.#project.id, taskID, {
+			stepID: stepID,
+			runID: this.#runID,
+			...opts
+		});
 	}
 
 	close() {

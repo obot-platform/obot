@@ -468,7 +468,7 @@ func (a *AssistantHandler) SetTools(req api.Context) error {
 	}
 
 	for _, tool := range tools.Items {
-		if tool.Enabled && !tool.Builtin {
+		if tool.Enabled && !tool.Builtin && strings.HasPrefix(tool.Name, system.ToolPrefix) {
 			toolList = append(toolList, tool.ID)
 		}
 	}

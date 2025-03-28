@@ -14,7 +14,6 @@ import {
 	type Task,
 	type TaskList,
 	type TaskRun,
-	type TaskRunList,
 	type Thread,
 	type ThreadList,
 	type Version,
@@ -504,10 +503,16 @@ export async function runTask(
 	taskID: string,
 	opts?: {
 		stepID?: string;
+		runID?: string;
 		input?: string | object;
 	}
 ): Promise<TaskRun> {
-	const url = `/assistants/${assistantID}/projects/${projectID}/tasks/${taskID}/run?step=${opts?.stepID ?? ''}`;
+	let url = `/assistants/${assistantID}/projects/${projectID}/tasks/${taskID}/run`;
+	if (opts?.runID) {
+		url = `/assistants/${assistantID}/projects/${projectID}/tasks/${taskID}/runs/${opts.runID}/steps/${opts.stepID || '*'}/run`;
+	} else if (opts?.stepID) {
+		url += '?stepID=' + opts.stepID;
+	}
 	return (await doPost(url, opts?.input ?? {})) as TaskRun;
 }
 
@@ -727,11 +732,8 @@ export function newMessageEventSource(
 		}
 		return new EventSource(baseURL + url);
 	}
-	if (opts?.task) {
-		let url = `/assistants/${assistantID}/projects/${projectID}/tasks/${opts.task.id}/events`;
-		if (opts.runID) {
-			url = `/assistants/${assistantID}/projects/${projectID}/tasks/${opts.task.id}/runs/${opts.runID}/events`;
-		}
+	if (opts?.task?.id && opts?.runID) {
+		const url = `/assistants/${assistantID}/projects/${projectID}/tasks/${opts.task.id}/runs/${opts.runID}/events`;
 		return new EventSource(baseURL + `${url}`);
 	}
 	return new EventSource(
@@ -786,20 +788,6 @@ export async function deleteTaskRun(
 	runID: string
 ) {
 	return doDelete(`/assistants/${assistantID}/projects/${projectID}/tasks/${id}/runs/${runID}`);
-}
-
-export async function listTaskRuns(
-	assistantID: string,
-	projectID: string,
-	id: string
-): Promise<TaskRunList> {
-	const list = (await doGet(
-		`/assistants/${assistantID}/projects/${projectID}/tasks/${id}/runs`
-	)) as TaskRunList;
-	if (!list.items) {
-		list.items = [];
-	}
-	return list;
 }
 
 export async function listTables(assistantID: string, projectID: string): Promise<TableList> {

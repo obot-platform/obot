@@ -123,6 +123,9 @@ func Agent(ctx context.Context, db kclient.Client, agent *v1.Agent, oauthServerU
 		}
 
 		for _, t := range toolNames {
+			if strings.HasPrefix(t, system.ToolPrefix) {
+				continue
+			}
 			if !added && t == knowledgeToolName {
 				continue
 			}

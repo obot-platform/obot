@@ -8,6 +8,7 @@
 
 	interface Props {
 		task: Task;
+		runID?: string;
 		project: Project;
 		run: (step?: TaskStep) => Promise<void>;
 		stepMessages: SvelteMap<string, Messages>;
@@ -20,6 +21,7 @@
 
 	let {
 		task = $bindable(),
+		runID,
 		showAllOutput = $bindable(),
 		project,
 		run,
@@ -52,6 +54,7 @@
 			{#key task.steps[0].id}
 				<Step
 					{run}
+					{runID}
 					bind:task
 					bind:step={task.steps[0]}
 					index={0}
@@ -70,4 +73,6 @@
 	{/if}
 </div>
 
-<Files taskID={task.id} runID="editor" running={running || pending} {project} />
+{#if runID}
+	<Files taskID={task.id} {runID} running={running || pending} {project} />
+{/if}

@@ -3,6 +3,7 @@ package controller
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/obot-platform/nah/pkg/router"
 	"github.com/obot-platform/obot/pkg/controller/data"
@@ -45,7 +46,15 @@ func (c *Controller) PreStart(ctx context.Context) error {
 
 func (c *Controller) PostStart(ctx context.Context, client kclient.Client) {
 	go c.toolRefHandler.PollRegistries(ctx, client)
-	if err := c.toolRefHandler.EnsureOpenAIEnvCredentialAndDefaults(ctx, client); err != nil {
+	var err error
+	for range 3 {
+		err = c.toolRefHandler.EnsureOpenAIEnvCredentialAndDefaults(ctx, client)
+		if err == nil {
+			break
+		}
+		time.Sleep(500 * time.Millisecond) // wait a bit before retrying
+	}
+	if err != nil {
 		panic(fmt.Errorf("failed to ensure openai env credential and defaults: %w", err))
 	}
 }

@@ -22,6 +22,7 @@
 		task: Task;
 		index: number;
 		step: TaskStep;
+		runID?: string;
 		pending?: boolean;
 		stepMessages?: Map<string, Messages>;
 		project: Project;
@@ -35,6 +36,7 @@
 		task = $bindable(),
 		index,
 		step = $bindable(),
+		runID,
 		pending,
 		stepMessages,
 		project,
@@ -97,10 +99,12 @@
 
 	async function doRun() {
 		if (running || pending) {
-			await ChatService.abort(project.assistantID, project.id, {
-				taskID: task.id
-				// runID: 'editor'
-			});
+			if (runID) {
+				await ChatService.abort(project.assistantID, project.id, {
+					taskID: task.id,
+					runID: runID
+				});
+			}
 			return;
 		}
 		if (running || pending || !step.step || step.step?.trim() === '') {
@@ -224,6 +228,7 @@
 	{#key task.steps[index + 1].id}
 		<Self
 			{run}
+			{runID}
 			{pending}
 			{task}
 			index={index + 1}

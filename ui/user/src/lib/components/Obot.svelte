@@ -82,8 +82,6 @@
 
 			<div class="relative flex h-[calc(100%-76px)] max-w-full grow">
 				{#if !responsive.isMobile || (responsive.isMobile && !layout.fileEditorOpen)}
-					{@const taskRun =
-						!!currentThreadID && layout.taskRuns?.find((run) => run.id === currentThreadID)}
 					{#if layout.editTaskID && layout.tasks}
 						{#each layout.tasks as task, i}
 							{#if task.id === layout.editTaskID}
@@ -99,11 +97,15 @@
 								{/key}
 							{/if}
 						{/each}
-					{:else if taskRun}
-						{@const task = layout.tasks?.find((t) => t.id === taskRun.taskID)}
-						{#if task}
-							<Task {project} {task} runId={taskRun.taskRunID} readOnly />
-						{/if}
+					{:else if layout.displayTaskRun}
+						<Task
+							{project}
+							task={{
+								...layout.displayTaskRun.task,
+								id: layout.displayTaskRun.taskID
+							}}
+							runID={layout.displayTaskRun.id}
+						/>
 					{:else}
 						<Thread bind:id={currentThreadID} bind:project />
 					{/if}

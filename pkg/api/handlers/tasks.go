@@ -19,6 +19,7 @@ import (
 	"github.com/obot-platform/obot/pkg/wait"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -48,19 +49,16 @@ func (t *TaskHandler) Abort(req api.Context) error {
 }
 
 func (t *TaskHandler) AbortFromScope(req api.Context) error {
-	workflow, userThread, err := t.getTask(req)
+	workflow, projectThread, err := t.getTask(req)
 	if err != nil {
 		return err
 	}
 
-	return t.abort(req, workflow, userThread.Name)
+	return t.abort(req, workflow, projectThread.Name)
 }
 
 func (t *TaskHandler) abort(req api.Context, workflow *v1.Workflow, threadName string) error {
 	taskRunID := req.PathValue("run_id")
-	if taskRunID == "" {
-		taskRunID = editorWFE(req, workflow.Name)
-	}
 
 	wfe, err := wait.For(req.Context(), req.Storage, &v1.WorkflowExecution{
 		ObjectMeta: metav1.ObjectMeta{
@@ -109,9 +107,6 @@ func (t *TaskHandler) EventsFromScope(req api.Context) error {
 
 func (t *TaskHandler) streamEvents(req api.Context, workflow *v1.Workflow, threadName string) error {
 	taskRunID := req.PathValue("run_id")
-	if taskRunID == "" {
-		taskRunID = editorWFE(req, workflow.Name)
-	}
 
 	wfe, err := wait.For(req.Context(), req.Storage, &v1.WorkflowExecution{
 		ObjectMeta: metav1.ObjectMeta{
@@ -149,10 +144,6 @@ func (t *TaskHandler) streamEvents(req api.Context, workflow *v1.Workflow, threa
 	return req.WriteEvents(events)
 }
 
-func editorWFE(req api.Context, workflowName string) string {
-	return name.SafeHashConcatName(system.ThreadPrefix, workflowName, req.User.GetUID())
-}
-
 func (t *TaskHandler) AbortRun(req api.Context) error {
 	var workflow v1.Workflow
 	if err := req.Get(&workflow, req.PathValue("id")); err != nil {
@@ -177,10 +168,6 @@ func (t *TaskHandler) abortRun(req api.Context, workflow *v1.Workflow) error {
 		runID = req.PathValue("run_id")
 	)
 
-	if runID == "editor" {
-		runID = editorWFE(req, workflow.Name)
-	}
-
 	if err := req.Get(&wfe, runID); err != nil {
 		return err
 	}
@@ -197,15 +184,6 @@ func (t *TaskHandler) abortRun(req api.Context, workflow *v1.Workflow) error {
 	return abortThread(req, &thread)
 }
 
-func (t *TaskHandler) GetRun(req api.Context) error {
-	var workflow v1.Workflow
-	if err := req.Get(&workflow, req.PathValue("id")); err != nil {
-		return err
-	}
-
-	return t.getRun(req, &workflow)
-}
-
 func (t *TaskHandler) GetRunFromScope(req api.Context) error {
 	workflow, _, err := t.getTask(req)
 	if err != nil {
@@ -220,9 +198,6 @@ func (t *TaskHandler) getRun(req api.Context, workflow *v1.Workflow) error {
 		wfe   v1.WorkflowExecution
 		runID = req.PathValue("run_id")
 	)
-	if runID == "editor" {
-		runID = editorWFE(req, workflow.Name)
-	}
 	if err := req.Get(&wfe, runID); err != nil {
 		return err
 	}
@@ -298,14 +273,10 @@ func (t *TaskHandler) listRuns(req api.Context, workflow *v1.Workflow, userThrea
 	}
 
 	var (
-		result    types.TaskRunList
-		editorWFE = editorWFE(req, workflow.Name)
+		result types.TaskRunList
 	)
 
 	for _, wfe := range wfeList.Items {
-		if wfe.Name == editorWFE {
-			continue
-		}
 		result.Items = append(result.Items, convertTaskRun(workflow, &wfe))
 	}
 
@@ -322,16 +293,17 @@ func (t *TaskHandler) Run(req api.Context) error {
 }
 
 func (t *TaskHandler) RunFromScope(req api.Context) error {
-	workflow, userThread, err := t.getTask(req)
+	workflow, projectThread, err := t.getTask(req)
 	if err != nil {
 		return err
 	}
 
-	return t.run(req, workflow, userThread.Name)
+	return t.run(req, workflow, projectThread.Name)
 }
 
 func (t *TaskHandler) run(req api.Context, workflow *v1.Workflow, threadName string) error {
-	stepID := req.Request.URL.Query().Get("step")
+	stepID := req.PathValue("step_id")
+	runID := req.PathValue("run_id")
 
 	input, err := req.Body()
 	if err != nil {
@@ -355,7 +327,7 @@ func (t *TaskHandler) run(req api.Context, workflow *v1.Workflow, threadName str
 			return err
 		}
 		wfe = resp.WorkflowExecution
-	} else if stepID == "" {
+	} else if stepID == "" || runID == "" {
 		wfe = &v1.WorkflowExecution{
 			ObjectMeta: metav1.ObjectMeta{
 				GenerateName: system.WorkflowExecutionPrefix,
@@ -365,6 +337,7 @@ func (t *TaskHandler) run(req api.Context, workflow *v1.Workflow, threadName str
 				Input:        string(input),
 				ThreadName:   threadName,
 				WorkflowName: workflow.Name,
+				RunUntilStep: req.URL.Query().Get("stepID"),
 				RunName:      getRunIDFromUser(req),
 			},
 		}
@@ -373,7 +346,7 @@ func (t *TaskHandler) run(req api.Context, workflow *v1.Workflow, threadName str
 		}
 	} else {
 		resp, err := t.invoker.Workflow(req.Context(), req.Storage, workflow, string(input), invoke.WorkflowOptions{
-			WorkflowExecutionName: editorWFE(req, workflow.Name),
+			WorkflowExecutionName: runID,
 			StepID:                stepID,
 		})
 		if err != nil {
@@ -864,9 +837,6 @@ func getThreadForScope(req api.Context) (*v1.Thread, error) {
 	taskID := req.PathValue("task_id")
 	runID := req.PathValue("run_id")
 	if taskID != "" && runID != "" {
-		if runID == "editor" {
-			runID = editorWFE(req, taskID)
-		}
 		var wfe v1.WorkflowExecution
 		if err := req.Get(&wfe, runID); err != nil {
 			return nil, err
@@ -876,6 +846,11 @@ func getThreadForScope(req api.Context) (*v1.Thread, error) {
 		}
 		if wfe.Spec.WorkflowName != taskID {
 			return nil, types.NewErrNotFound("task run not found")
+		}
+		if wfe.Status.ThreadName == "" {
+			return nil, apierrors.NewNotFound(schema.GroupResource{
+				Resource: "runs",
+			}, runID)
 		}
 		return thread, req.Get(thread, wfe.Status.ThreadName)
 	}

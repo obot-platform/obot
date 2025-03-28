@@ -290,6 +290,7 @@ export interface TaskList {
 export interface TaskRun {
 	id: string;
 	created: string;
+	deleted?: string;
 	taskID: string;
 	threadID?: string;
 	task: Task;

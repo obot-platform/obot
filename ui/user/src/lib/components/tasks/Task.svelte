@@ -28,12 +28,13 @@
 		project: Project;
 		onChanged?: (task: Task) => void | Promise<void>;
 		onDelete?: () => void | Promise<void>;
-		readOnly?: boolean;
-		runId?: string;
+		runID?: string;
 	}
 
-	let { task = $bindable(), onChanged, project, onDelete, readOnly, runId }: Props = $props();
+	let { task = $bindable(), onChanged, project, onDelete, runID: inputRunID }: Props = $props();
 
+	const readOnly = !!inputRunID;
+	let runID = $state(inputRunID);
 	let thread: Thread | undefined = $state<Thread>();
 	let stepMessages = new SvelteMap<string, Messages>();
 	let allMessages = $state<Messages>({ messages: [], inProgress: false });
@@ -106,13 +107,17 @@
 	});
 
 	onDestroy(() => {
-		saver.stop();
+		if (!readOnly) {
+			saver.stop();
+		}
 		closeThread();
 	});
 
 	onMount(async () => {
 		task = await ChatService.getTask(project.assistantID, project.id, task.id);
-		saver.start();
+		if (!readOnly) {
+			saver.start();
+		}
 	});
 
 	onMount(() => {
@@ -121,7 +126,7 @@
 	});
 
 	function resetThread() {
-		if (!thread) {
+		if (!thread && runID) {
 			newThread();
 		}
 		error = '';
@@ -134,16 +139,17 @@
 
 		thread.close();
 		thread = undefined;
+		runID = undefined;
 		stepMessages.clear();
 		allMessages = { messages: [], inProgress: false };
 	}
 
-	function newThread(passedRunID?: string) {
+	function newThread() {
 		closeThread();
 		thread = new Thread(project, {
 			onError: errors.items.push,
 			task: task,
-			runID: passedRunID ? passedRunID : runId
+			runID: runID
 		});
 		stepMessages.clear();
 		thread.onStepMessages = (stepID, messages) => {
@@ -165,10 +171,13 @@
 		}
 
 		if (running || pending) {
-			return await ChatService.abort(project.assistantID, project.id, {
-				taskID: task.id
-				// runID: 'editor'
-			});
+			if (runID) {
+				return await ChatService.abort(project.assistantID, project.id, {
+					taskID: task.id,
+					runID: runID
+				});
+			}
+			return;
 		}
 
 		if (task.onDemand || task.email || task.webhook) {
@@ -179,15 +188,27 @@
 	}
 
 	async function run(step?: TaskStep) {
-		error = '';
-		if (!thread || !task.id) {
+		await saver.save();
+
+		if (running || pending) {
 			return;
 		}
 
-		await saver.save();
+		if (!step || !runID || !thread) {
+			if (thread && (running || pending)) {
+				await thread.abort();
+			}
+			closeThread();
+			runID = (
+				await ChatService.runTask(project.assistantID, project.id, task.id, {
+					stepID: step?.id,
+					input
+				})
+			).id;
+			return;
+		}
 
-		await thread.runTask(task.id, {
-			stepID: step?.id || '*',
+		await thread.runStep(task.id, step.id, {
 			input: input
 		});
 	}
@@ -312,6 +333,7 @@
 					bind:showAllOutput
 					{project}
 					{run}
+					{runID}
 					{stepMessages}
 					{pending}
 					{running}
