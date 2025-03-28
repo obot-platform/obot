@@ -2,14 +2,17 @@ package authz
 
 import (
 	"net/http"
+	"strings"
 
 	"github.com/obot-platform/nah/pkg/router"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
+	"github.com/obot-platform/obot/pkg/system"
 	"k8s.io/apiserver/pkg/authentication/user"
 )
 
 func (a *Authorizer) checkTools(req *http.Request, resources *Resources, _ user.Info) (bool, error) {
-	if resources.ToolID == "" {
+	// Skip this auth check if the request isn't for a custom tool
+	if resources.ToolID == "" || !strings.HasPrefix(resources.ToolID, system.ToolPrefix) {
 		return true, nil
 	}
 
