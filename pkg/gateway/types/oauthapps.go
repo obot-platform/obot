@@ -64,9 +64,9 @@ func ValidateAndSetDefaultsOAuthAppManifest(r *types.OAuthAppManifest, create bo
 		r.AuthURL = AtlassianAuthorizeURL
 		r.TokenURL = AtlassianTokenURL
 	case types.OAuthAppTypeMicrosoft365:
-		tenantID := r.TenantID
-		if tenantID == "" {
-			tenantID = "common"
+		tenantID := "common"
+		if r.TenantID != nil && *r.TenantID != "" {
+			tenantID = *r.TenantID
 		}
 		r.AuthURL = fmt.Sprintf("https://login.microsoftonline.com/%s/oauth2/v2.0/authorize", tenantID)
 		r.TokenURL = fmt.Sprintf("https://login.microsoftonline.com/%s/oauth2/v2.0/token", tenantID)
@@ -100,21 +100,26 @@ func ValidateAndSetDefaultsOAuthAppManifest(r *types.OAuthAppManifest, create bo
 	case types.OAuthAppTypeSalesforce:
 		salesforceAuthorizeFragment := "/services/oauth2/authorize"
 		salesforceTokenFragment := "/services/oauth2/token"
-		instanceURL, err := url.Parse(r.InstanceURL)
-		if err != nil {
-			errs = append(errs, err)
-		}
-		if instanceURL.Scheme != "" {
-			instanceURL.Scheme = "https"
-		}
 
-		r.AuthURL, err = url.JoinPath(instanceURL.String(), salesforceAuthorizeFragment)
-		if err != nil {
-			errs = append(errs, err)
-		}
-		r.TokenURL, err = url.JoinPath(instanceURL.String(), salesforceTokenFragment)
-		if err != nil {
-			errs = append(errs, err)
+		if r.InstanceURL == "" {
+			errs = append(errs, fmt.Errorf("missing instanceURL"))
+		} else {
+			instanceURL, err := url.Parse(r.InstanceURL)
+			if err != nil {
+				errs = append(errs, err)
+			}
+			if instanceURL.Scheme == "" {
+				instanceURL.Scheme = "https"
+			}
+
+			r.AuthURL, err = url.JoinPath(instanceURL.String(), salesforceAuthorizeFragment)
+			if err != nil {
+				errs = append(errs, err)
+			}
+			r.TokenURL, err = url.JoinPath(instanceURL.String(), salesforceTokenFragment)
+			if err != nil {
+				errs = append(errs, err)
+			}
 		}
 	}
 
@@ -171,7 +176,7 @@ func MergeOAuthAppManifests(r, other types.OAuthAppManifest) types.OAuthAppManif
 	if other.Type != "" {
 		retVal.Type = other.Type
 	}
-	if other.TenantID != "" {
+	if other.TenantID != nil {
 		retVal.TenantID = other.TenantID
 	}
 	if other.Name != "" {
@@ -188,6 +193,9 @@ func MergeOAuthAppManifests(r, other types.OAuthAppManifest) types.OAuthAppManif
 	}
 	if other.Global != nil {
 		retVal.Global = other.Global
+	}
+	if other.InstanceURL != "" {
+		retVal.InstanceURL = other.InstanceURL
 	}
 
 	return retVal

@@ -32,7 +32,7 @@ type OAuthAppManifest struct {
 	AuthURL  string `json:"authURL,omitempty"`
 	TokenURL string `json:"tokenURL,omitempty"`
 	// This field is only needed for Microsoft 365 OAuth apps.
-	TenantID string `json:"tenantID,omitempty"`
+	TenantID *string `json:"tenantID,omitempty"`
 	// This field is only needed for HubSpot OAuth apps.
 	AppID string `json:"appID,omitempty"`
 	// This field is optional for HubSpot OAuth apps.
