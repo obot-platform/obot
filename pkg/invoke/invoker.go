@@ -973,7 +973,7 @@ func (i *Invoker) stream(ctx context.Context, c kclient.WithWatch, thread *v1.Th
 	go timeoutAfter(runCtx, cancelRun, timeout)
 	if !isEphemeral(run) {
 		// Don't watch thread abort for ephemeral runs
-		go watchThreadAbort(runCtx, c, thread, cancelRun)
+		go i.watchThreadAbort(runCtx, c, thread, cancelRun, runResp)
 	}
 
 	var (
@@ -1070,10 +1070,19 @@ func (i *Invoker) stream(ctx context.Context, c kclient.WithWatch, thread *v1.Th
 	}
 }
 
-func watchThreadAbort(ctx context.Context, c kclient.WithWatch, thread *v1.Thread, cancel context.CancelCauseFunc) {
+func (i *Invoker) watchThreadAbort(ctx context.Context, c kclient.WithWatch, thread *v1.Thread, cancel context.CancelCauseFunc, run *gptscript.Run) {
 	_, _ = wait.For(ctx, c, thread, func(thread *v1.Thread) (bool, error) {
 		if thread.Spec.Abort {
-			cancel(fmt.Errorf("thread was aborted, cancelling run"))
+			// we should abort aggressive in the task so that the next step in task won't continue
+			if thread.Spec.WorkflowExecutionName != "" {
+				cancel(fmt.Errorf("thread was aborted, cancelling run"))
+				return true, nil
+			}
+			if err := i.gptClient.AbortRun(ctx, run); err != nil {
+				return false, err
+			}
+			// cancel the context after 30 seconds in case the abort doesn't work
+			go timeoutAfter(ctx, cancel, 30*time.Second)
 			return true, nil
 		}
 		return false, nil
