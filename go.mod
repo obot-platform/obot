@@ -3,8 +3,6 @@ module github.com/obot-platform/obot
 go 1.24.0
 
 replace (
-	github.com/obot-platform/kinm => ../kinm
-	github.com/obot-platform/nah => ../nah
 	github.com/obot-platform/obot/apiclient => ./apiclient
 	github.com/obot-platform/obot/logger => ./logger
 )
@@ -23,8 +21,8 @@ require (
 	github.com/gptscript-ai/gptscript v0.9.6-0.20250328194144-ce3b7262ed0e
 	github.com/liggitt/tabwriter v0.0.0-20181228230101-89fcab3d43de
 	github.com/mhale/smtpd v0.8.3
-	github.com/obot-platform/kinm v0.0.0-20250307141751-3a6f13867f67
-	github.com/obot-platform/nah v0.0.0-20250312003613-09e6e25e968f
+	github.com/obot-platform/kinm v0.0.0-20250328185534-d9c9de49cc20
+	github.com/obot-platform/nah v0.0.0-20250326134118-0dbe2ca62c9b
 	github.com/obot-platform/namegenerator v0.0.0-20241217121223-fc58bdb7dca2
 	github.com/obot-platform/obot/apiclient v0.0.0-00010101000000-000000000000
 	github.com/obot-platform/obot/logger v0.0.0-20241217130503-4004a5c69f32
