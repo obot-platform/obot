@@ -265,7 +265,7 @@
 							<Files thread {project} bind:currentThreadID={id} />
 						</div>
 						<div use:tooltip={'Tools'}>
-							<Tools {project} />
+							<Tools {project} currentThreadID={id} />
 						</div>
 					</div>
 				</Input>

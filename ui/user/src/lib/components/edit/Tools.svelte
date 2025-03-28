@@ -51,7 +51,7 @@
 		typeSelectionTT.toggle(false);
 	}
 
-	let toolCatalog = popover();
+	let toolCatalog = $state<HTMLDialogElement>();
 </script>
 
 {#snippet toolList(tools: AssistantTool[])}
@@ -96,6 +96,7 @@
 {/snippet}
 
 <CollapsePane header="Tools">
+	<p class="pb-4 text-sm text-gray-500">Tools added here are available to all threads.</p>
 	<div class="flex flex-col gap-2">
 		{@render toolList(enabledList)}
 
@@ -121,7 +122,7 @@
 						class="button flex items-center gap-2"
 						onclick={() => {
 							typeSelectionTT.toggle(false);
-							toolCatalog.toggle(true);
+							toolCatalog?.showModal();
 						}}
 					>
 						From Catalog
@@ -195,18 +196,21 @@
 			{#if !version.current.dockerSupported}
 				<button
 					class="button flex items-center gap-1 text-sm"
-					onclick={() => toolCatalog.toggle(true)}
-					use:toolCatalog.ref><Plus class="size-4" /> Tools</button
+					onclick={() => toolCatalog?.showModal()}><Plus class="size-4" /> Tools</button
 				>
-			{:else}
-				<button class="hidden" aria-label="Tools" use:toolCatalog.ref></button>
 			{/if}
-			<div
-				use:toolCatalog.tooltip={{ fixed: true, slide: responsive.isMobile ? 'left' : undefined }}
-				class="default-dialog bottom-0 left-0 h-screen w-full rounded-none p-2 md:bottom-1/2 md:left-1/2 md:h-fit md:w-auto md:-translate-x-1/2 md:translate-y-1/2 md:rounded-xl"
-			>
-				<ToolCatalog onSelectTools={onNewTools} onSubmit={() => toolCatalog.toggle(false)} />
-			</div>
 		</div>
 	</div>
 </CollapsePane>
+
+<dialog
+	bind:this={toolCatalog}
+	class="h-full max-h-[100vh] w-full max-w-[100vw] rounded-none md:h-fit md:w-[1200px] md:rounded-xl"
+>
+	<ToolCatalog
+		onSelectTools={onNewTools}
+		onSubmit={() => toolCatalog?.close()}
+		tools={toolsStore.current.tools}
+		maxTools={toolsStore.current.maxTools}
+	/>
+</dialog>

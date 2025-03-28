@@ -1,26 +1,80 @@
 <script lang="ts">
-	import { popover } from '$lib/actions';
 	import { getToolBundleMap } from '$lib/context/toolReferences.svelte';
 	import type { AssistantTool, ToolReference } from '$lib/services/chat/types';
-	import { twMerge } from 'tailwind-merge';
 	import CollapsePane from './CollapsePane.svelte';
-	import { responsive, tools } from '$lib/stores';
-	import { ChevronRight, X } from 'lucide-svelte';
+	import { responsive } from '$lib/stores';
+	import {
+		ChevronRight,
+		ChevronsLeft,
+		ChevronsRight,
+		Minus,
+		SquareMinus,
+		Wrench,
+		X
+	} from 'lucide-svelte';
+	import { onMount } from 'svelte';
+	import { fly } from 'svelte/transition';
+	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
 		onSelectTools: (tools: AssistantTool[]) => void;
 		onSubmit?: () => void;
+		tools: AssistantTool[];
+		maxTools: number;
+		title?: string;
 	}
 
-	let { onSelectTools, onSubmit }: Props = $props();
+	type ToolCatalog = { tool: ToolReference; bundleTools: ToolReference[] | undefined }[];
+
+	let { onSelectTools, onSubmit, tools, maxTools, title = 'Your Tools' }: Props = $props();
 
 	let input = $state<HTMLInputElement>();
+	let searchPopover = $state<HTMLDialogElement>();
 	let search = $state('');
+	let searchContainer = $state<HTMLDivElement>();
+	let direction = $state<'left' | 'right' | null>(null);
+	let showAvailableTools = $state(true);
+
+	$effect(() => {
+		if (responsive.isMobile) {
+			showAvailableTools = false;
+		} else {
+			showAvailableTools = true;
+		}
+	});
+
+	function handleSearchClickOutside(event: MouseEvent) {
+		if (responsive.isMobile) return;
+		if (searchContainer && !searchContainer.contains(event.target as Node) && searchPopover?.open) {
+			searchPopover.close();
+		}
+	}
+
+	function handleSubmit() {
+		onSelectTools(Object.values(toolSelection));
+		onSubmit?.();
+	}
+
+	function handleKeydown(event: KeyboardEvent) {
+		if (event.key === 'Escape') {
+			event.preventDefault(); // Prevent default ESC behavior
+			handleSubmit();
+		}
+	}
+
+	onMount(() => {
+		document.addEventListener('click', handleSearchClickOutside);
+		document.addEventListener('keydown', handleKeydown);
+		return () => {
+			document.removeEventListener('click', handleSearchClickOutside);
+			document.removeEventListener('keydown', handleKeydown);
+		};
+	});
 
 	const bundleMap = getToolBundleMap();
 
 	function getSelectionMap() {
-		return tools.current.tools
+		return tools
 			.filter((t) => !t.builtin)
 			.reduce<Record<string, AssistantTool>>((acc, tool) => {
 				acc[tool.id] = { ...tool };
@@ -29,95 +83,143 @@
 	}
 
 	let toolSelection = $state<Record<string, AssistantTool>>({});
+	let maxExceeded = $state(false);
 
 	$effect(() => {
 		toolSelection = getSelectionMap();
 	});
 
-	let maxExceeded = $derived(
-		Object.values(toolSelection).filter((t) => t.enabled).length > tools.current.maxTools
-	);
+	function getSearchResults() {
+		if (!search) return [];
 
-	function setToolEnabled(toolId: string, val?: boolean) {
-		if (toolId in toolSelection) {
-			toolSelection[toolId].enabled = val;
-		}
+		return Array.from(bundleMap.values()).reduce<ToolCatalog>((acc, { tool, bundleTools }) => {
+			if (!toolSelection[tool.id] || !tool) return acc;
+
+			const subToolMatches =
+				bundleTools?.filter((subtool) =>
+					[subtool.name, subtool.id, subtool.description].some((s) =>
+						s?.toLowerCase().includes(search.toLowerCase())
+					)
+				) ?? [];
+
+			if (subToolMatches.length > 0) {
+				acc.push({ tool, bundleTools: subToolMatches });
+				return acc;
+			}
+
+			if (
+				[tool.name, tool.id, tool.description].some((s) =>
+					s?.toLowerCase().includes(search.toLowerCase())
+				)
+			) {
+				acc.push({ tool, bundleTools: undefined });
+			}
+
+			return acc;
+		}, []);
 	}
 
-	function shouldShowTool(tool: AssistantTool) {
-		if (!tool || !toolSelection[tool.id]) return false;
+	function getEnabledTools() {
+		return Array.from(bundleMap.values()).reduce<ToolCatalog>((acc, { tool, bundleTools }) => {
+			if (!toolSelection[tool.id] || !tool) return acc;
+			if (bundleTools) {
+				const bundleEnabled = toolSelection[tool.id]?.enabled;
+				const someEnabled = bundleTools.some((t) => toolSelection[t.id]?.enabled);
+				if (!bundleEnabled && !someEnabled) return acc;
 
-		if (!search) return true;
+				acc.push({
+					tool,
+					bundleTools: bundleEnabled
+						? bundleTools
+						: bundleTools.filter((t) => toolSelection[t.id]?.enabled)
+				});
+			} else if (toolSelection[tool.id]?.enabled) {
+				acc.push({ tool, bundleTools: undefined });
+			}
 
-		return [tool.name, tool.id, tool.description].some((s) =>
-			s?.toLowerCase().includes(search.toLowerCase())
-		);
+			return acc;
+		}, []);
 	}
 
-	function handleSubmit() {
-		onSelectTools(Object.values(toolSelection));
-		onSubmit?.();
+	function getDisabledTools() {
+		return Array.from(bundleMap.values()).reduce<ToolCatalog>((acc, { tool, bundleTools }) => {
+			if (!toolSelection[tool.id] || !tool) return acc;
+			if (bundleTools) {
+				const bundleEnabled = toolSelection[tool.id]?.enabled;
+				if (bundleEnabled) return acc;
+
+				const hasDisabled = bundleTools.some((t) => !toolSelection[t.id]?.enabled);
+				if (hasDisabled) {
+					acc.push({ tool, bundleTools: bundleTools.filter((t) => !toolSelection[t.id]?.enabled) });
+				}
+			} else if (!toolSelection[tool.id]?.enabled) {
+				acc.push({ tool, bundleTools: undefined });
+			}
+
+			return acc;
+		}, []);
 	}
 
-	function clearBundle(toolRef: ToolReference) {
-		if (!toolRef.bundleToolName) return;
-
-		if (toolRef.bundleToolName in toolSelection) {
-			toolSelection[toolRef.bundleToolName].enabled = false;
-		}
+	function checkMaxExceeded() {
+		maxExceeded = Object.values(toolSelection).filter((t) => t.enabled).length > maxTools;
 	}
 
-	function isToolEnabled(toolId: string) {
-		if (toolId in toolSelection) {
-			return toolSelection[toolId].enabled;
-		}
-
-		return false;
-	}
-
-	function setSubTools(toolId: string, val?: boolean) {
-		const toolItem = bundleMap.get(toolId);
+	function toggleBundle(toolBundleId: string, val: boolean) {
+		const toolItem = bundleMap.get(toolBundleId);
 
 		if (!toolItem) return;
 
 		const subtools = toolItem.bundleTools ?? [];
+		console.log('subtools', subtools);
+		console.log(toolSelection[toolBundleId]);
 
 		for (const subtool of subtools) {
-			toolSelection[subtool.id].enabled = val;
-		}
-	}
-
-	function allSubtoolsEnabled(toolId: string) {
-		const toolItem = bundleMap.get(toolId);
-
-		if (!toolItem) return false;
-
-		const subtools = toolItem.bundleTools ?? [];
-		return subtools.every((t) => isToolEnabled(t.id));
-	}
-
-	function handleSetSubtool(toolref: ToolReference, val?: boolean) {
-		const { bundleToolName } = toolref;
-
-		if (!bundleToolName || !(toolref.id in toolSelection)) return;
-
-		const tool = toolSelection[toolref.id];
-
-		if (!val && isToolEnabled(bundleToolName)) {
-			setToolEnabled(bundleToolName, false);
-			setSubTools(bundleToolName, true);
+			toolSelection[subtool.id].enabled = false;
 		}
 
-		tool.enabled = val;
+		toolSelection[toolBundleId].enabled = val;
+		checkMaxExceeded();
+	}
+
+	function toggleTool(toolId: string, val: boolean, parentBundleId?: string) {
+		if (parentBundleId && toolSelection[parentBundleId]?.enabled) {
+			// If parent bundle is enabled and we're turning off a subtool,
+			// parent bundle is no longer enabled, but subtools other than the one
+			// being turned off are enabled
+
+			toolSelection[parentBundleId].enabled = false;
+			const subtools = bundleMap.get(parentBundleId)?.bundleTools ?? [];
+			for (const subtool of subtools) {
+				toolSelection[subtool.id].enabled = true;
+			}
+			toolSelection[toolId].enabled = false;
+			return;
+		}
+
+		if (parentBundleId && val) {
+			// If we're turning on a subtool, check if we've selected all subtools
+			const subtools = bundleMap.get(parentBundleId)?.bundleTools ?? [];
+			const allSubtoolsEnabled = subtools.every((t) => toolSelection[t.id]?.enabled);
+			if (allSubtoolsEnabled) {
+				toolSelection[parentBundleId].enabled = true;
+				for (const subtool of subtools) {
+					toolSelection[subtool.id].enabled = false;
+				}
+				return;
+			}
+		}
+
+		toolSelection[toolId].enabled = val;
+		checkMaxExceeded();
 	}
 </script>
 
-<div class="w-full">
+<div class="flex h-full w-full flex-col overflow-hidden md:h-[75vh]">
 	<h4
-		class="border-surface3 relative mx-2 mb-2 flex items-center justify-center border-b py-4 text-lg font-semibold md:justify-start"
+		class="border-surface3 relative mx-4 flex items-center justify-center border-b py-4 text-lg font-semibold md:justify-start"
 	>
-		Modify Tools
-		<button class="icon-button absolute top-1 right-0" onclick={() => onSubmit?.()}>
+		{title}
+		<button class="icon-button absolute top-2 right-0" onclick={() => handleSubmit()}>
 			{#if responsive.isMobile}
 				<ChevronRight class="size-6" />
 			{:else}
@@ -126,125 +228,316 @@
 		</button>
 	</h4>
 	<div class="flex w-full items-center justify-between">
-		<div class="flex grow rounded-t-lg p-2">
-			<input
-				class="bg-surface1 w-full rounded-lg p-2"
-				type="text"
-				placeholder="Search tools"
-				bind:this={input}
-				bind:value={search}
-			/>
+		<div class="flex grow rounded-t-lg p-4 md:relative" bind:this={searchContainer}>
+			{#if responsive.isMobile}
+				<button class="mock-input-btn" onclick={() => searchPopover?.show()}>
+					Search tools...
+				</button>
+			{:else}
+				{@render searchInput()}
+			{/if}
+			<dialog
+				bind:this={searchPopover}
+				class="default-scrollbar-thin absolute top-0 left-0 z-10 h-full w-full rounded-sm md:top-11 md:h-[50vh] md:w-[calc(100%-1rem)] md:overflow-y-auto"
+				class:hidden={!responsive.isMobile && !search}
+			>
+				<div class="flex h-full flex-col">
+					{#if responsive.isMobile}
+						<div class="flex w-full justify-between gap-2 p-4">
+							<div class="flex grow">
+								{@render searchInput()}
+							</div>
+							<div class="flex flex-shrink-0">
+								<button class="icon-button" onclick={() => searchPopover?.close()}>
+									<ChevronRight class="size-6" />
+								</button>
+							</div>
+						</div>
+					{/if}
+					<div class="default-scrollbar-thin flex min-h-0 grow flex-col overflow-y-auto">
+						{#each getSearchResults() as result}
+							{@render searchResult(result)}
+						{/each}
+						{#if getSearchResults().length === 0 && search}
+							<p class="px-4 py-2 text-sm text-gray-500">No results found</p>
+						{/if}
+					</div>
+				</div>
+			</dialog>
 		</div>
 	</div>
-
-	<div class="default-scrollbar-thin flex max-h-[50vh] grow flex-col">
-		{#each Array.from(bundleMap.values()).sort( (a, b) => a.tool.name.localeCompare(b.tool.name) ) as { tool, bundleTools }}
-			{@const hasBundle = tool.id in toolSelection}
-			{@const visibleBundleTools = bundleTools
-				.filter((t) => t.id in toolSelection && shouldShowTool(toolSelection[t.id]))
-				.sort((a, b) => a.name.localeCompare(b.name))}
-			{@const selectedSubtools = bundleTools.filter(
-				(t) => t.id in toolSelection && toolSelection[t.id].enabled
-			).length}
-
-			{#if visibleBundleTools.length || shouldShowTool(toolSelection[tool.id])}
-				<CollapsePane
-					showDropdown={visibleBundleTools.length > 0}
-					classes={{ header: 'py-0 pl-0 pr-3', content: 'border-none py-0 px-7' }}
-				>
-					{#each visibleBundleTools as subTool (subTool.id)}
-						{@render toolItem(subTool)}
+	<div class="flex min-h-0 w-full grow items-stretch px-4">
+		<!-- Selected Tools Column -->
+		{#if !responsive.isMobile || (responsive.isMobile && !showAvailableTools)}
+			<div
+				class="border-surface2 dark:border-surface1 flex flex-1 flex-col rounded-sm border-2"
+				transition:fly={showAvailableTools
+					? { x: 250, duration: 300, delay: 0 }
+					: { x: 250, duration: 300, delay: 300 }}
+			>
+				<h4 class="bg-surface1 flex px-4 py-2 text-base font-semibold">Selected Tools</h4>
+				<div class="default-scrollbar-thin h-inherit flex min-h-0 flex-1 flex-col overflow-y-auto">
+					{#each getEnabledTools() as { tool, bundleTools } (tool.id)}
+						<div transition:fly={{ x: 250, duration: 300 }}>
+							{@render toolItem(tool, bundleTools, true)}
+						</div>
 					{/each}
+				</div>
+			</div>
+		{/if}
 
-					{#snippet header()}
-						{@const bundleTool = toolSelection[tool.id]}
-						{@const allSelected = allSubtoolsEnabled(tool.id)}
-						{@const tt = popover({ placement: 'left' })}
+		<!-- Directional Bar -->
+		{#if responsive.isMobile && !showAvailableTools}
+			<button
+				transition:fly={showAvailableTools
+					? { x: 250, duration: 300, delay: 0 }
+					: { x: 250, duration: 300, delay: 300 }}
+				onclick={() => (showAvailableTools = !showAvailableTools)}
+				class="bg-surface1 h-inherit dark:border-surface2 flex min-h-0 w-8 flex-col items-center justify-center gap-2 border-l border-white px-2"
+			>
+				<ChevronsRight class="size-6 text-black dark:text-white" />
+			</button>
+		{:else if !responsive.isMobile}
+			<div
+				class="h-inherit bg-surface1 dark:border-surface2 mx-2 flex min-h-0 w-8 flex-col items-center justify-center gap-2 rounded-sm border-x border-white px-2"
+			>
+				{#if !direction}
+					<div class="flex flex-col">
+						<ChevronsRight class="size-6 text-gray-500" />
+						<ChevronsLeft class="size-6 text-gray-500" />
+					</div>
+				{:else if direction === 'right'}
+					<div>
+						<ChevronsRight class="text-blue size-6" />
+						<ChevronsLeft class="size-6 text-gray-500" />
+					</div>
+				{:else if direction === 'left'}
+					<div>
+						<ChevronsRight class="size-6 text-gray-500" />
+						<ChevronsLeft class="text-blue size-6" />
+					</div>
+				{/if}
+			</div>
+		{/if}
 
-						<label
-							class={twMerge(
-								'hover:bg-surface3 flex grow cursor-pointer items-center gap-2 rounded-lg p-2'
-							)}
-							onclickcapture={(e) => e.stopPropagation()}
-							use:tt.ref
-						>
-							{#if !!bundleTool}
-								<input
-									type="checkbox"
-									onchange={() => setSubTools(tool.id, false)}
-									indeterminate={selectedSubtools > 0}
-									bind:checked={bundleTool.enabled}
-								/>
-							{:else}
-								<input
-									indeterminate={selectedSubtools > 0 && !allSelected}
-									checked={allSelected}
-									onchange={(e) => setSubTools(tool.id, e.currentTarget.checked)}
-									type="checkbox"
-								/>
-							{/if}
-							<p class="flex items-center gap-2">
-								<img
-									src={tool.metadata?.icon}
-									alt={tool.name}
-									class="size-6 rounded-full bg-white p-1"
-								/>
-								{tool.name}
-							</p>
-
-							{#if selectedSubtools > 0}
-								<span class="justify-self-end text-xs text-gray-500">
-									{selectedSubtools} / {bundleTools.length} Selected
-								</span>
-							{/if}
-						</label>
-
-						<p use:tt.tooltip={{ hover: true }} class="tooltip max-w-64">
-							{#if hasBundle}
-								{tool.description}
-							{:else}
-								No bundle tool available for {tool.name}
-							{/if}
-						</p>
-					{/snippet}
-				</CollapsePane>
+		<!-- Unselected Tools Column -->
+		{#if !responsive.isMobile || (responsive.isMobile && showAvailableTools)}
+			<div
+				class="border-surface2 dark:border-surface1 flex flex-1 rounded-sm border-2"
+				transition:fly={showAvailableTools
+					? { x: 250, duration: 300, delay: 300 }
+					: { x: 250, duration: 300, delay: 0 }}
+			>
+				<div class="flex flex-1 flex-col">
+					<h4 class="bg-surface1 flex px-4 py-2 text-base font-semibold">Available Tools</h4>
+					<div
+						class="default-scrollbar-thin h-inherit flex min-h-0 flex-1 flex-col overflow-y-auto"
+					>
+						{#each getDisabledTools() as { tool, bundleTools } (tool.id)}
+							<div transition:fly={{ x: -250, duration: 300 }}>
+								{@render toolItem(tool, bundleTools, false)}
+							</div>
+						{/each}
+					</div>
+				</div>
+			</div>
+			{#if responsive.isMobile}
+				<button
+					transition:fly={showAvailableTools
+						? { x: 250, duration: 300, delay: 300 }
+						: { x: 250, duration: 300, delay: 0 }}
+					onclick={() => (showAvailableTools = !showAvailableTools)}
+					class="bg-surface1 text:border-black h-inherit dark:border-surface2 flex min-h-0 w-8 flex-col items-center justify-center gap-2 border-l border-white px-2"
+				>
+					<ChevronsLeft class="size-6 text-black dark:text-white" />
+				</button>
 			{/if}
-		{/each}
+		{/if}
 	</div>
 
-	<div class="flex justify-between gap-2 p-2">
-		<p class={twMerge('max-w-72 text-left text-sm text-red-500', !maxExceeded && 'invisible')}>
-			Maximum number of tools exceeded for this Assistant. (Max: {tools.current.maxTools})
-		</p>
-		<button onclick={handleSubmit} disabled={maxExceeded} class="button">Apply</button>
+	<div class="flex flex-col items-center gap-2 p-2 md:flex-row">
+		{#if maxExceeded}
+			<p class="text-left text-sm text-red-500">
+				Maximum number of tools exceeded for this Assistant. (Max: {maxTools})
+			</p>
+		{/if}
 	</div>
 </div>
 
-{#snippet toolItem(toolReference: ToolReference)}
-	{@const tool = toolSelection[toolReference.id]}
-	{@const bundleToolSelected =
-		!!toolReference.bundleToolName && !!toolSelection[toolReference.bundleToolName]?.enabled}
-	{@const { tooltip, ref } = popover({ placement: 'left' })}
-
-	<label
-		class="hover:bg-surface3 flex cursor-pointer items-center justify-between gap-2 rounded-lg p-2"
-		use:ref
-	>
-		<p class={twMerge('flex items-center gap-2')}>
-			<input
-				type="checkbox"
-				onchange={() => clearBundle(toolReference)}
-				bind:checked={
-					() => (bundleToolSelected ? true : tool.enabled),
-					(val) => handleSetSubtool(toolReference, val)
-				}
-			/>
-			<img src={tool.icon} alt={tool.name} class="size-6 rounded-full bg-white p-1" />
-			{toolReference.name}
-		</p>
-	</label>
-
-	<p use:tooltip={{ hover: true }} class="tooltip max-w-64">
-		{toolReference.description}
-	</p>
+{#snippet toolInfo(tool: ToolReference, headerLabel?: string)}
+	{#if tool.metadata?.icon}
+		<img
+			class="size-8 flex-shrink-0 rounded-md bg-white p-1 dark:bg-gray-600"
+			src={tool.metadata?.icon}
+			alt="message icon"
+		/>
+	{:else}
+		<Wrench class="size-8 flex-shrink-0 rounded-md bg-gray-100 p-1 text-black" />
+	{/if}
+	<span class="flex grow flex-col px-2 text-left">
+		<span>
+			{tool.name}
+			{#if headerLabel}
+				<span class="text-xs text-gray-500">{headerLabel}</span>
+			{/if}
+		</span>
+		<span class="text-gray text-xs font-normal dark:text-gray-300">
+			{tool.description}
+		</span>
+	</span>
 {/snippet}
+
+{#snippet toolItem(
+	tool: ToolReference,
+	bundleTools: ToolReference[] | undefined,
+	toggleValue: boolean
+)}
+	<CollapsePane
+		showDropdown={bundleTools && bundleTools.length > 0}
+		classes={{
+			header: 'py-0 pl-0 pr-3 hover:bg-surface2 dark:hover:bg-surface3',
+			content: 'border-none p-0 bg-surface2 shadow-none'
+		}}
+	>
+		{#if bundleTools && bundleTools.length > 0}
+			{#each bundleTools as subTool (subTool.id)}
+				{@render subToolItem(subTool, tool.id)}
+			{/each}
+		{/if}
+
+		{#snippet header()}
+			{@const isEnabled = toolSelection[tool.id]?.enabled}
+			{@const total = bundleMap.get(tool.id)?.bundleTools?.length ?? 0}
+			{@const subToolsSelectedCount = isEnabled ? total : (bundleTools?.length ?? 0)}
+
+			<button
+				onclick={(e) => {
+					e.stopPropagation();
+
+					if (bundleTools && bundleTools.length > 0) {
+						toggleBundle(tool.id, !toggleValue);
+					} else {
+						toggleTool(tool.id, true);
+					}
+				}}
+				onmouseenter={() => (direction = toggleValue ? 'right' : 'left')}
+				onmouseleave={() => (direction = null)}
+				class="group flex grow items-center justify-between gap-2 rounded-lg p-2 px-4"
+			>
+				{@render toolInfo(
+					tool,
+					subToolsSelectedCount !== total ? `${subToolsSelectedCount}/${total}` : undefined
+				)}
+				{@render chevronAction(toggleValue, 'translate-x-6')}
+			</button>
+		{/snippet}
+	</CollapsePane>
+{/snippet}
+
+{#snippet chevronAction(isEnabled?: boolean, containerClass?: string)}
+	<span
+		class={twMerge(
+			'flex items-center justify-center opacity-0 transition-opacity duration-200 group-hover:opacity-100',
+			containerClass
+		)}
+	>
+		{#if isEnabled}
+			<ChevronsRight class="text-blue animate-bounce-x size-10" />
+		{:else}
+			<ChevronsLeft class="text-blue animate-bounce-x size-10" />
+		{/if}
+	</span>
+{/snippet}
+
+{#snippet subToolItem(toolReference: ToolReference, parentBundleId?: string)}
+	{@const isEnabled =
+		(parentBundleId && toolSelection[parentBundleId]?.enabled) ||
+		toolSelection[toolReference.id]?.enabled}
+	<button
+		onclick={() => {
+			toggleTool(toolReference.id, !toolSelection[toolReference.id]?.enabled, parentBundleId);
+		}}
+		class="dark:bg-surface2 group hover:bg-surface2 dark:hover:bg-surface3 flex grow items-center gap-2 bg-white p-2 px-4 transition-opacity duration-200"
+		onmouseenter={() => (direction = isEnabled ? 'right' : 'left')}
+		onmouseleave={() => (direction = null)}
+	>
+		{@render toolInfo(toolReference)}
+		{@render chevronAction(isEnabled)}
+	</button>
+{/snippet}
+
+{#snippet searchInput()}
+	<input
+		class="bg-surface1 w-full rounded-lg p-2"
+		type="text"
+		placeholder="Search tools..."
+		bind:this={input}
+		bind:value={search}
+		onmousedown={() => {
+			if (!responsive.isMobile) {
+				searchPopover?.show();
+			}
+		}}
+	/>
+{/snippet}
+
+{#snippet searchResult({ tool, bundleTools }: ToolCatalog[0])}
+	{@const val = toolSelection[tool.id]?.enabled}
+	<button
+		class="hover:bg-surface2 dark:hover:bg-surface3 flex w-full px-4 py-2"
+		onclick={(e) => {
+			e.stopPropagation();
+			if (bundleTools && bundleTools.length > 0) {
+				toggleBundle(tool.id, !val);
+			} else {
+				toggleTool(tool.id, !val);
+			}
+		}}
+	>
+		{@render toolInfo(tool)}
+		{#if val}
+			<div class="mr-4 flex items-center">
+				<Minus class="size-6" />
+			</div>
+		{/if}
+	</button>
+	{#if bundleTools}
+		{#each bundleTools as subTool (subTool.id)}
+			{@const subToolVal = toolSelection[subTool.id]?.enabled}
+			<button
+				class="hover:bg-surface2 dark:hover:bg-surface3 flex w-full px-4 py-2"
+				onclick={(e) => {
+					e.stopPropagation();
+					toggleTool(subTool.id, val ? false : !subToolVal, tool.id);
+				}}
+			>
+				{@render toolInfo(subTool)}
+				{#if val}
+					<div class="mr-4 flex items-center">
+						<SquareMinus class="size-5" />
+					</div>
+				{:else if subToolVal}
+					<div class="mr-4 flex items-center">
+						<Minus class="size-6" />
+					</div>
+				{/if}
+			</button>
+		{/each}
+	{/if}
+{/snippet}
+
+<style lang="postcss">
+	@keyframes bounce-x {
+		0%,
+		100% {
+			transform: translateX(-25%);
+		}
+		50% {
+			transform: translateX(0);
+		}
+	}
+
+	:global(.animate-bounce-x) {
+		animation: bounce-x 1s infinite ease-in-out;
+	}
+</style>

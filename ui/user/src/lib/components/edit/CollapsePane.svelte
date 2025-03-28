@@ -55,7 +55,7 @@
 			{/if}
 		</button>
 	{/if}
-	{#if open}
+	{#if open && showDropdown}
 		<div
 			transition:slide
 			class={twMerge('border-surface1 bg-surface2 flex flex-col p-5 shadow-inner', classes.content)}

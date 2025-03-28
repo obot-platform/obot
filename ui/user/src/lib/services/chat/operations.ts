@@ -859,3 +859,29 @@ export async function listProjectShares(opts?: { fetch?: Fetcher }): Promise<Pro
 export async function copyProject(assistantID: string, projectID: string): Promise<Project> {
 	return (await doPost(`/assistants/${assistantID}/projects/${projectID}/copy`, {})) as Project;
 }
+
+export async function listProjectThreadTools(
+	assistantID: string,
+	projectID: string,
+	threadID: string
+): Promise<AssistantToolList> {
+	return (await doGet(
+		`/assistants/${assistantID}/projects/${projectID}/threads/${threadID}/tools`
+	)) as AssistantToolList;
+}
+
+export async function updateProjectThreadTools(
+	assistantID: string,
+	projectID: string,
+	threadID: string,
+	tools: AssistantToolList
+): Promise<AssistantToolList> {
+	const list = (await doPut(
+		`/assistants/${assistantID}/projects/${projectID}/threads/${threadID}/tools`,
+		tools
+	)) as AssistantToolList;
+	if (!list.items) {
+		list.items = [];
+	}
+	return list;
+}

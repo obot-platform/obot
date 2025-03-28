@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { autoHeight } from '$lib/actions/textarea';
 	import type { OnDemand } from '$lib/services';
 	import { Plus, Trash2 } from 'lucide-svelte';
 
@@ -38,11 +39,11 @@
 			<tbody>
 				{#each order as key, i (i)}
 					<tr class="group">
-						<td>
+						<td class="flex w-full justify-self-start pr-8">
 							<input
 								value={key}
 								placeholder="Enter Name"
-								class="ghost-input border-surface2 w-3/4"
+								class="ghost-input border-surface2 w-full"
 								oninput={(e) => {
 									if (e.target instanceof HTMLInputElement && onDemand?.params) {
 										const oldKey = order[i];
@@ -56,12 +57,14 @@
 							/>
 						</td>
 						<td>
-							<input
-								class="ghost-input border-surface2 w-3/4"
+							<textarea
+								use:autoHeight
 								bind:value={onDemand.params[order[i]]}
-								placeholder="Add a good description"
+								class="ghost-input border-surface2 w-full resize-none py-2.5"
 								disabled={readOnly}
-							/>
+								placeholder="Add a good description"
+								rows="1"
+							></textarea>
 						</td>
 						{#if !readOnly}
 							<td class="flex justify-end">

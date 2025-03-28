@@ -301,6 +301,10 @@
 		.dark & {
 			color: var(--color-gray-50);
 		}
+		&:disabled {
+			background-color: rgba(79, 126, 243, 0.5); /* bg-blue-500/50 */
+			border-color: transparent; /* border-blue-50/50 */
+		}
 	}
 
 	.button-icon-primary {
@@ -610,6 +614,20 @@
 		transition-duration: 300ms;
 		&:focus {
 			border-color: var(--surface2);
+		}
+	}
+
+	.mock-input-btn {
+		background-color: var(--color-surface1);
+		padding: 0.5rem;
+		color: var(--color-gray-500);
+		width: 100%;
+		border-radius: 0.5rem;
+		text-align: left;
+
+		.dark {
+			background-color: var(--color-black);
+			color: var(--color-gray-300);
 		}
 	}
 }
