@@ -7647,6 +7647,13 @@ func schema_storage_apis_obotobotai_v1_OAuthAppSpec(ref common.ReferenceCallback
 							Ref:     ref("github.com/obot-platform/obot/apiclient/types.OAuthAppManifest"),
 						},
 					},
+					"threadName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "The project that owns this OAuth app",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 				},
 			},
 		},
