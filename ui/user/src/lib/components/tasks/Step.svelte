@@ -48,7 +48,6 @@
 
 	$effect(() => {
 		if (parentShowOutput !== undefined) {
-			console.log('parentShowOutput', parentShowOutput);
 			showOutput = parentShowOutput;
 		}
 	});

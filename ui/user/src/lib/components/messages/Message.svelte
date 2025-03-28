@@ -1,6 +1,6 @@
 <script lang="ts">
 	import MessageIcon from '$lib/components/messages/MessageIcon.svelte';
-	import { FileText, Pencil, Copy, Edit } from 'lucide-svelte/icons';
+	import { FileText, Pencil, Copy, Edit, Info } from 'lucide-svelte/icons';
 	import { Tween } from 'svelte/motion';
 	import { ChatService, type Message, type Project } from '$lib/services';
 	import highlight from 'highlight.js';
@@ -12,6 +12,7 @@
 	import { fade } from 'svelte/transition';
 	import { overflowToolTip } from '$lib/actions/overflow';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
+	import { ABORTED_BY_USER_MESSAGE, ABORTED_THREAD_MESSAGE } from '$lib/constants';
 
 	interface Props {
 		msg: Message;
@@ -31,7 +32,13 @@
 		onSendCredentialsCancel
 	}: Props = $props();
 
-	let content = $derived(msg.message ? msg.message.join('') : '');
+	let content = $derived(
+		msg.message
+			? msg.message
+					.join('')
+					.replace(new RegExp(`${ABORTED_BY_USER_MESSAGE}|${ABORTED_THREAD_MESSAGE}`, 'g'), '')
+			: ''
+	);
 	let fullWidth = !msg.sent && !msg.oauthURL && !msg.tool;
 	let showBubble = msg.sent;
 	let isPrompt = msg.fields && msg.promptId;
@@ -481,11 +488,16 @@
 {/snippet}
 
 {#if !msg.ignore}
+	{@const isAbortedContent =
+		msg.aborted ||
+		msg.message.at(-1)?.toLowerCase().endsWith(ABORTED_BY_USER_MESSAGE) ||
+		msg.message.at(-1)?.toLowerCase().endsWith(ABORTED_THREAD_MESSAGE)}
 	<div
 		class="group relative flex items-start gap-3 {isPrompt
 			? '-m-5 rounded-3xl bg-gray-100 p-5 dark:bg-gray-950'
 			: ''}"
 		class:justify-end={msg.sent}
+		class:opacity-30={msg.aborted || isAbortedContent}
 	>
 		{#if !msg.sent}
 			<MessageIcon {msg} />
@@ -504,7 +516,7 @@
 				{/if}
 
 				{#if !msg.sent && msg.done && !msg.toolCall && msg.time && content && !animating}
-					<div class="mt-2 ml-2 flex gap-2">
+					<div class="mt-2 -ml-1 flex gap-2">
 						<div>
 							<button
 								use:tooltip={'Copy message to clipboard'}
@@ -526,17 +538,17 @@
 						</div>
 					</div>
 				{/if}
+
+				{#if isAbortedContent}
+					<div class="mt-2 flex w-full items-center gap-1" class:justify-end={msg.sent}>
+						<div class="flex-shrink-0">
+							<Info class="size-3" />
+						</div>
+						<p class="mb-0 text-xs">Aborted. This has been discarded.</p>
+					</div>
+				{/if}
 			{/if}
 		</div>
-
-		{#if msg.aborted}
-			<div
-				class="bg-opacity-60 text-opacity-30 dark:bg-opacity-60 dark:text-opacity-30 pointer-events-none absolute bottom-0 z-10 flex h-full w-full flex-col items-center justify-center bg-white text-xl font-semibold text-black dark:bg-black dark:text-white"
-			>
-				<p>Aborted</p>
-				<p class="text-xs">This content will be ignored.</p>
-			</div>
-		{/if}
 	</div>
 {/if}
 
@@ -606,6 +618,10 @@
 				color: var(--color-gray-900);
 				.dark & {
 					color: var(--color-gray-100);
+				}
+
+				&:last-child {
+					margin-bottom: 0;
 				}
 			}
 

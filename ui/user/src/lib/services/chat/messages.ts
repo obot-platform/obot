@@ -1,3 +1,4 @@
+import { ABORTED_BY_USER_MESSAGE, ABORTED_THREAD_MESSAGE } from '$lib/constants';
 import type { EditorItem } from '$lib/services/editor/index.svelte';
 import type { CitationSource, Explain, InputMessage, Message, Messages, Progress } from './types';
 
@@ -381,7 +382,10 @@ function newErrorMessage(progress: Progress): Message {
 	let ignore = false;
 	if (message === 'timeout waiting for prompt response from user') {
 		message = 'Credentials were not entered within 5 minutes, please try again.';
-	} else if (message === 'thread was aborted, cancelling run') {
+	} else if (
+		message?.toLowerCase().endsWith(ABORTED_THREAD_MESSAGE) ||
+		message?.toLowerCase().endsWith(ABORTED_BY_USER_MESSAGE)
+	) {
 		ignore = true;
 	} else if (!message) {
 		message = 'Error';
