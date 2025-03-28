@@ -544,7 +544,9 @@
 						<div class="flex-shrink-0">
 							<Info class="size-3" />
 						</div>
-						<p class="mb-0 text-xs">Aborted. This has been discarded.</p>
+						<p class="mb-0 text-xs">
+							Aborted. This {msg.toolCall ? 'call' : 'message'} has been discarded.
+						</p>
 					</div>
 				{/if}
 			{/if}
