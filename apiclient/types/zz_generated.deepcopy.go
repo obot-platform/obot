@@ -1267,6 +1267,11 @@ func (in *OAuthAppLoginAuthStatus) DeepCopy() *OAuthAppLoginAuthStatus {
 func (in *OAuthAppManifest) DeepCopyInto(out *OAuthAppManifest) {
 	*out = *in
 	in.Metadata.DeepCopyInto(&out.Metadata)
+	if in.TenantID != nil {
+		in, out := &in.TenantID, &out.TenantID
+		*out = new(string)
+		**out = **in
+	}
 	if in.Global != nil {
 		in, out := &in.Global, &out.Global
 		*out = new(bool)
