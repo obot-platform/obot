@@ -45,6 +45,7 @@ type PromptField = {
 	name: string;
 	description?: string;
 	sensitive?: boolean;
+	options?: string[];
 };
 
 type ToolInput = {

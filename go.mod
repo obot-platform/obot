@@ -5,6 +5,9 @@ go 1.24.0
 replace (
 	github.com/obot-platform/obot/apiclient => ./apiclient
 	github.com/obot-platform/obot/logger => ./logger
+
+	github.com/gptscript-ai/gptscript => ../gptscript
+	github.com/gptscript-ai/go-gptscript => ../go-gptscript
 )
 
 require (
