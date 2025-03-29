@@ -727,7 +727,7 @@ func (h *ProjectsHandler) authenticate(req api.Context, local bool) (err error) 
 	if local {
 		credContext = thread.Name + "-local"
 	}
-	resp, err := runAuthForAgent(req.Context(), req.Storage, h.invoker, h.gptScript, &agent, credContext, tools, req.User.GetUID())
+	resp, err := runAuthForAgent(req.Context(), req.Storage, h.invoker, h.gptScript, &agent, credContext, tools, req.User.GetUID(), thread.Name)
 	if err != nil {
 		return err
 	}

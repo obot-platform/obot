@@ -12,8 +12,6 @@ import (
 var (
 	_ fields.Fields = (*OAuthApp)(nil)
 	_ fields.Fields = (*OAuthAppLogin)(nil)
-	_ Aliasable     = (*OAuthApp)(nil)
-	_ Generationed  = (*OAuthApp)(nil)
 )
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -25,22 +23,6 @@ type OAuthApp struct {
 	Status            EmptyStatus  `json:"status,omitempty"`
 }
 
-func (r *OAuthApp) GetAliasName() string {
-	return r.Spec.Manifest.Alias
-}
-
-func (r *OAuthApp) SetAssigned(bool) {}
-
-func (r *OAuthApp) IsAssigned() bool {
-	return true
-}
-
-func (r *OAuthApp) GetObservedGeneration() int64 {
-	return r.Generation
-}
-
-func (r *OAuthApp) SetObservedGeneration(int64) {}
-
 func (r *OAuthApp) Has(field string) bool {
 	return r.Get(field) != ""
 }
@@ -50,6 +32,8 @@ func (r *OAuthApp) Get(field string) string {
 		switch field {
 		case "spec.manifest.alias":
 			return r.Spec.Manifest.Alias
+		case "spec.threadName":
+			return r.Spec.ThreadName
 		}
 	}
 
@@ -57,11 +41,11 @@ func (r *OAuthApp) Get(field string) string {
 }
 
 func (r *OAuthApp) FieldNames() []string {
-	return []string{"spec.manifest.alias"}
+	return []string{"spec.manifest.alias", "spec.threadName"}
 }
 
 func (r *OAuthApp) RedirectURL(baseURL string) string {
-	return fmt.Sprintf("%s/api/app-oauth/callback/%s", baseURL, r.Spec.Manifest.Alias)
+	return fmt.Sprintf("%s/api/app-oauth/callback/%s", baseURL, r.Name)
 }
 
 func OAuthAppGetTokenURL(baseURL string) string {
@@ -69,19 +53,21 @@ func OAuthAppGetTokenURL(baseURL string) string {
 }
 
 func (r *OAuthApp) AuthorizeURL(baseURL string) string {
-	return fmt.Sprintf("%s/api/app-oauth/authorize/%s", baseURL, r.Spec.Manifest.Alias)
+	return fmt.Sprintf("%s/api/app-oauth/authorize/%s", baseURL, r.Name)
 }
 
 func (r *OAuthApp) RefreshURL(baseURL string) string {
-	return fmt.Sprintf("%s/api/app-oauth/refresh/%s", baseURL, r.Spec.Manifest.Alias)
+	return fmt.Sprintf("%s/api/app-oauth/refresh/%s", baseURL, r.Name)
 }
 
 func (r *OAuthApp) DeleteRefs() []Ref {
-	return nil
+	return []Ref{{ObjType: new(Thread), Name: r.Spec.ThreadName}}
 }
 
 type OAuthAppSpec struct {
 	Manifest types.OAuthAppManifest `json:"manifest,omitempty"`
+	// The project that owns this OAuth app
+	ThreadName string `json:"threadName,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
