@@ -242,7 +242,7 @@ func Agent(ctx context.Context, db kclient.Client, agent *v1.Agent, oauthServerU
 		return nil, nil, err
 	}
 
-	oauthEnv, err := OAuthAppEnv(ctx, db, agent.Spec.Manifest.OAuthApps, agent.Namespace, oauthServerURL)
+	oauthEnv, err := OAuthAppEnv(ctx, db, agent.Spec.Manifest.OAuthApps, opts.Thread, agent.Namespace, oauthServerURL)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -306,8 +306,13 @@ func setWebSiteKnowledge(ctx context.Context, db kclient.Client, mainTool *gptsc
 	return extraEnv, nil
 }
 
-func OAuthAppEnv(ctx context.Context, db kclient.Client, oauthAppNames []string, namespace, serverURL string) (extraEnv []string, _ error) {
-	apps, err := oauthAppsByName(ctx, db, namespace)
+func OAuthAppEnv(ctx context.Context, db kclient.Client, oauthAppNames []string, thread *v1.Thread, namespace, serverURL string) (extraEnv []string, _ error) {
+	projectThread, err := projects.GetRoot(ctx, db, thread)
+	if err != nil {
+		return nil, err
+	}
+
+	apps, err := oauthAppsByName(ctx, db, namespace, oauthAppNames, projectThread)
 	if err != nil {
 		return nil, err
 	}
@@ -343,7 +348,7 @@ func OAuthAppEnv(ctx context.Context, db kclient.Client, oauthAppNames []string,
 		extraEnv = append(extraEnv,
 			fmt.Sprintf("GPTSCRIPT_OAUTH_%s_AUTH_URL=%s", integrationEnv, app.AuthorizeURL(serverURL)),
 			fmt.Sprintf("GPTSCRIPT_OAUTH_%s_REFRESH_URL=%s", integrationEnv, app.RefreshURL(serverURL)),
-			fmt.Sprintf("GPTSCRIPT_OAUTH_%s_TOKEN_URL=%s", integrationEnv, v1.OAuthAppGetTokenURL(serverURL)))
+			fmt.Sprintf("GPTSCRIPT_OAUTH_%s_TOKEN_URL=%s", integrationEnv, app.OAuthAppGetTokenURL(serverURL)))
 	}
 
 	return extraEnv, nil
@@ -472,23 +477,48 @@ func manifestToTool(manifest types.WorkflowManifest, taskInvoke, id string) gpts
 	return toolDef
 }
 
-func oauthAppsByName(ctx context.Context, c kclient.Client, namespace string) (map[string]v1.OAuthApp, error) {
-	var apps v1.OAuthAppList
-	err := c.List(ctx, &apps, &kclient.ListOptions{
-		Namespace: namespace,
-	})
-	if err != nil {
-		return nil, err
-	}
-
+func oauthAppsByName(ctx context.Context, c kclient.Client, namespace string, oauthNames []string, thread *v1.Thread) (map[string]v1.OAuthApp, error) {
 	result := map[string]v1.OAuthApp{}
-	for _, app := range apps.Items {
-		result[app.Name] = app
+
+	if thread != nil {
+		var apps v1.OAuthAppList
+		err := c.List(ctx, &apps, kclient.InNamespace(namespace), kclient.MatchingFields{
+			"spec.threadName": thread.Name,
+		})
+		if err != nil {
+			return nil, err
+		}
+
+		for _, app := range apps.Items {
+			result[app.Spec.Manifest.Alias] = app
+		}
 	}
 
-	for _, app := range apps.Items {
-		if app.Spec.Manifest.Alias != "" {
-			result[app.Spec.Manifest.Alias] = app
+	for _, oauthName := range oauthNames {
+		if strings.HasPrefix(oauthName, system.OAuthAppPrefix) {
+			var oauthApp v1.OAuthApp
+			if err := c.Get(ctx, kclient.ObjectKey{Namespace: namespace, Name: oauthName}, &oauthApp); err != nil {
+				return nil, err
+			}
+			result[oauthApp.Spec.Manifest.Alias] = oauthApp
+		} else if _, ok := result[oauthName]; !ok {
+			var apps v1.OAuthAppList
+			err := c.List(ctx, &apps, kclient.InNamespace(namespace), kclient.MatchingFields{
+				"spec.manifest.alias": oauthName,
+			})
+			if err != nil {
+				return nil, err
+			}
+			var filtered []v1.OAuthApp
+			for _, app := range apps.Items {
+				if app.Spec.ThreadName == "" {
+					filtered = append(filtered, app)
+				}
+			}
+			if len(filtered) != 1 {
+				return nil, fmt.Errorf("expected to find 1 OAuthApp with name %q but found %d", oauthName, len(filtered))
+			}
+			result[filtered[0].Spec.Manifest.Alias] = filtered[0]
 		}
 	}
 

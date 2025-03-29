@@ -11,12 +11,13 @@ type Workflow struct {
 type WorkflowList List[Workflow]
 
 type WorkflowManifest struct {
-	Alias       string            `json:"alias"`
-	Steps       []Step            `json:"steps"`
-	Params      map[string]string `json:"params,omitempty"`
-	Output      string            `json:"output"`
-	Name        string            `json:"name,omitempty"`
-	Description string            `json:"description,omitempty"`
+	Alias          string              `json:"alias"`
+	Steps          []Step              `json:"steps"`
+	Params         map[string]string   `json:"params,omitempty"`
+	Output         string              `json:"output"`
+	Name           string              `json:"name,omitempty"`
+	Description    string              `json:"description,omitempty"`
+	OnSlackMessage *TaskOnSlackMessage `json:"onSlackMessage,omitempty"`
 }
 
 type EnvVar struct {
