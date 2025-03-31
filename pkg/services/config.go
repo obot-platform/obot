@@ -30,6 +30,7 @@ import (
 	"github.com/obot-platform/obot/pkg/api/server/audit"
 	"github.com/obot-platform/obot/pkg/bootstrap"
 	"github.com/obot-platform/obot/pkg/credstores"
+	"github.com/obot-platform/obot/pkg/encryption"
 	"github.com/obot-platform/obot/pkg/events"
 	"github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/gateway/db"
@@ -63,6 +64,7 @@ type (
 	GatewayConfig gserver.Options
 	GeminiConfig  gemini.Config
 	AuditConfig   audit.Options
+	EncryptionConfig encryption.Options
 )
 
 type Config struct {
@@ -73,13 +75,6 @@ type Config struct {
 	ToolRegistries             []string `usage:"The remote tool references to the set of tool registries to use" default:"github.com/obot-platform/tools" split:"true"`
 	WorkspaceProviderType      string   `usage:"The type of workspace provider to use for non-knowledge workspaces" default:"directory" env:"OBOT_WORKSPACE_PROVIDER_TYPE"`
 	HelperModel                string   `usage:"The model used to generate names and descriptions" default:"gpt-4o-mini"`
-	AWSKMSKeyARN               string   `usage:"The ARN of the AWS KMS key to use for encrypting credential storage. Only used with the AWS encryption provider." env:"OBOT_AWS_KMS_KEY_ARN" name:"aws-kms-key-arn"`
-	GCPKMSKeyURI               string   `usage:"The URI of the Google Cloud KMS key to use for encrypting credential storage. Only used with the GCP encryption provider." env:"OBOT_GCP_KMS_KEY_URI" name:"gcp-kms-key-uri"`
-	AzureKeyVaultName          string   `usage:"The name of the Azure Key Vault to use for encrypting credential storage. Only used with the Azure encryption provider." env:"OBOT_AZURE_KEY_VAULT_NAME" name:"azure-key-vault-name"`
-	AzureKeyName               string   `usage:"The name of the Azure Key Vault key to use for encrypting credential storage. Only used with the Azure encryption provider." env:"OBOT_AZURE_KEY_NAME" name:"azure-key-vault-key-name"`
-	AzureKeyVersion            string   `usage:"The version of the Azure Key Vault key to use for encrypting credential storage. Only used with the Azure encryption provider." env:"OBOT_AZURE_KEY_VERSION" name:"azure-key-vault-key-version"`
-	EncryptionProvider         string   `usage:"The encryption provider to use. Options are AWS, GCP, None, or Custom. Default is None." default:"None"`
-	EncryptionConfigFile       string   `usage:"The path to the encryption configuration file. Only used with the Custom encryption provider."`
 	EmailServerName            string   `usage:"The name of the email server to display for email receivers"`
 	EnableSMTPServer           bool     `usage:"Enable SMTP server to receive emails" default:"false" env:"OBOT_ENABLE_SMTP_SERVER"`
 	Docker                     bool     `usage:"Enable Docker support" default:"false" env:"OBOT_DOCKER"`
@@ -99,6 +94,7 @@ type Config struct {
 
 	GeminiConfig
 	GatewayConfig
+	EncryptionConfig
 	services.Config
 	OtelOptions
 	AuditConfig
@@ -270,15 +266,11 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		return nil, err
 	}
 
-	credStore, credStoreEnv, err := credstores.Init(ctx, config.ToolRegistries, config.DSN, credstores.Options{
-		AWSKMSKeyARN:         config.AWSKMSKeyARN,
-		GCPKMSKeyURI:         config.GCPKMSKeyURI,
-		AzureKeyVaultName:    config.AzureKeyVaultName,
-		AzureKeyName:         config.AzureKeyName,
-		AzureKeyVersion:      config.AzureKeyVersion,
-		EncryptionProvider:   config.EncryptionProvider,
-		EncryptionConfigFile: config.EncryptionConfigFile,
-	})
+	if err := encryption.Init(ctx, encryption.Options(config.EncryptionConfig)); err != nil {
+		return nil, err
+	}
+
+	credStore, credStoreEnv, err := credstores.Init(config.ToolRegistries, config.DSN, config.EncryptionConfigFile)
 	if err != nil {
 		return nil, err
 	}
