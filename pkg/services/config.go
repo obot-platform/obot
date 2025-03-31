@@ -27,6 +27,7 @@ import (
 	"github.com/obot-platform/obot/pkg/api/authn"
 	"github.com/obot-platform/obot/pkg/api/authz"
 	"github.com/obot-platform/obot/pkg/api/server"
+	"github.com/obot-platform/obot/pkg/api/server/audit"
 	"github.com/obot-platform/obot/pkg/bootstrap"
 	"github.com/obot-platform/obot/pkg/credstores"
 	"github.com/obot-platform/obot/pkg/events"
@@ -58,8 +59,11 @@ import (
 	_ "github.com/obot-platform/nah/pkg/logrus"
 )
 
-type GatewayConfig gserver.Options
-type GeminiConfig gemini.Config
+type (
+	GatewayConfig gserver.Options
+	GeminiConfig  gemini.Config
+	AuditConfig   audit.Options
+)
 
 type Config struct {
 	HTTPListenPort             int      `usage:"HTTP port to listen on" default:"8080" name:"http-listen-port"`
@@ -97,6 +101,7 @@ type Config struct {
 	GatewayConfig
 	services.Config
 	OtelOptions
+	AuditConfig
 }
 
 type Services struct {
@@ -124,6 +129,7 @@ type Services struct {
 	AgentsDir                  string
 	GeminiClient               *gemini.Client
 	Otel                       *Otel
+	AuditLogger                audit.Logger
 
 	// Use basic auth for sendgrid webhook, if being set
 	SendgridWebhookUsername string
@@ -455,6 +461,11 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		return nil, fmt.Errorf("failed to validate environment variables: %w", err)
 	}
 
+	auditLogger, err := audit.New(ctx, config.Hostname, audit.Options(config.AuditConfig))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create audit logger: %w", err)
+	}
+
 	// For now, always auto-migrate the gateway database
 	return &Services{
 		WorkspaceProviderType: config.WorkspaceProviderType,
@@ -472,6 +483,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 			authn.NewAuthenticator(authenticators),
 			authz.NewAuthorizer(r.Backend(), config.DevMode),
 			proxyManager,
+			auditLogger,
 			config.Hostname,
 		),
 		TokenServer:                tokenServer,
@@ -490,6 +502,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		AgentsDir:                  config.AgentsDir,
 		GeminiClient:               geminiClient,
 		Otel:                       otel,
+		AuditLogger:                auditLogger,
 	}, nil
 }
 

@@ -94,6 +94,9 @@ func Run(ctx context.Context, c services.Config) error {
 		if err := s.Shutdown(ctx); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			log.Errorf("Failed to gracefully shutdown server: %v", err)
 		}
+
+		// Ensure that the audit logs are persisted.
+		svcs.AuditLogger.Close()
 	})
 
 	if err = s.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {

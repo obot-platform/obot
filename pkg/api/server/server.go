@@ -4,6 +4,7 @@ import (
 	"errors"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/gptscript-ai/go-gptscript"
 	"github.com/obot-platform/obot/apiclient/types"
@@ -11,6 +12,7 @@ import (
 	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/api/authn"
 	"github.com/obot-platform/obot/pkg/api/authz"
+	"github.com/obot-platform/obot/pkg/api/server/audit"
 	gclient "github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/proxy"
 	"github.com/obot-platform/obot/pkg/storage"
@@ -30,12 +32,13 @@ type Server struct {
 	authenticator *authn.Authenticator
 	authorizer    *authz.Authorizer
 	proxyManager  *proxy.Manager
+	auditLogger   audit.Logger
 	baseURL       string
 
 	mux *http.ServeMux
 }
 
-func NewServer(storageClient storage.Client, gatewayClient *gclient.Client, gptClient *gptscript.GPTScript, authn *authn.Authenticator, authz *authz.Authorizer, proxyManager *proxy.Manager, baseURL string) *Server {
+func NewServer(storageClient storage.Client, gatewayClient *gclient.Client, gptClient *gptscript.GPTScript, authn *authn.Authenticator, authz *authz.Authorizer, proxyManager *proxy.Manager, auditLogger audit.Logger, baseURL string) *Server {
 	return &Server{
 		storageClient: storageClient,
 		gatewayClient: gatewayClient,
@@ -44,8 +47,8 @@ func NewServer(storageClient storage.Client, gatewayClient *gclient.Client, gptC
 		authorizer:    authz,
 		proxyManager:  proxyManager,
 		baseURL:       baseURL + "/api",
-
-		mux: http.NewServeMux(),
+		auditLogger:   auditLogger,
+		mux:           http.NewServeMux(),
 	}
 }
 
@@ -78,10 +81,29 @@ func (s *Server) wrap(f api.HandlerFunc) http.HandlerFunc {
 			return
 		}
 
-		if strings.HasPrefix(req.URL.Path, "/api/") && user.GetUID() != "" && user.GetUID() != "anonymous" {
-			// Best effort
-			if err := s.gatewayClient.AddActivityForToday(req.Context(), user.GetUID()); err != nil {
-				log.Warnf("Failed to add activity tracking for user %s: %v", user.GetName(), err)
+		if strings.HasPrefix(req.URL.Path, "/api/") {
+			// Setup a new response writer for audit logging.
+			rw = &responseWriter{
+				ResponseWriter: rw,
+				auditEntry: audit.LogEntry{
+					Time:      time.Now(),
+					UserID:    user.GetUID(),
+					Username:  user.GetName(),
+					UserEmail: firstValue(user.GetExtra(), "email"),
+					Method:    req.Method,
+					Path:      req.URL.Path,
+					UserAgent: req.UserAgent(),
+					SourceIP:  getSourceIP(req),
+					Host:      req.Host,
+				},
+				auditLogger: s.auditLogger,
+			}
+
+			if user.GetUID() != "" && user.GetUID() != "anonymous" {
+				// Best effort
+				if err := s.gatewayClient.AddActivityForToday(req.Context(), user.GetUID()); err != nil {
+					log.Warnf("Failed to add activity tracking for user %s: %v", user.GetName(), err)
+				}
 			}
 		}
 
@@ -130,4 +152,55 @@ func (s *Server) wrap(f api.HandlerFunc) http.HandlerFunc {
 			http.Error(rw, err.Error(), http.StatusInternalServerError)
 		}
 	}
+}
+
+type responseWriter struct {
+	http.ResponseWriter
+	auditEntry  audit.LogEntry
+	auditLogger audit.Logger
+}
+
+func (rw *responseWriter) WriteHeader(code int) {
+	rw.auditEntry.ResponseCode = code
+	rw.ResponseWriter.WriteHeader(code)
+
+	if err := rw.auditLogger.LogEntry(rw.auditEntry); err != nil {
+		log.Errorf("Failed to log audit entry: %v", err)
+	}
+}
+
+func (rw *responseWriter) Flush() {
+	if f, ok := rw.ResponseWriter.(http.Flusher); ok {
+		f.Flush()
+	}
+}
+
+// getSourceIP extracts the real client IP address from the request.
+// It checks X-Forwarded-For and X-Real-IP headers before falling back to RemoteAddr.
+func getSourceIP(req *http.Request) string {
+	// Check X-Forwarded-For header first
+	if xff := req.Header.Get("X-Forwarded-For"); xff != "" {
+		// X-Forwarded-For can contain multiple IPs (client, proxy1, proxy2, ...)
+		// The leftmost one is the original client IP
+		ips := strings.Split(xff, ",")
+		if len(ips) > 0 {
+			return strings.TrimSpace(ips[0])
+		}
+	}
+
+	// Check X-Real-IP header next
+	if xrip := req.Header.Get("X-Real-IP"); xrip != "" {
+		return xrip
+	}
+
+	// Fall back to RemoteAddr
+	return req.RemoteAddr
+}
+
+func firstValue(m map[string][]string, key string) string {
+	values := m[key]
+	if len(values) == 0 {
+		return ""
+	}
+	return values[0]
 }

@@ -1,0 +1,147 @@
+package audit
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"strings"
+	"sync"
+	"time"
+
+	"github.com/obot-platform/obot/logger"
+	"github.com/obot-platform/obot/pkg/api/server/audit/store"
+)
+
+var log = logger.Package()
+
+type LogEntry struct {
+	Time         time.Time `json:"time"`
+	UserID       string    `json:"userID"`
+	Username     string    `json:"username"`
+	UserEmail    string    `json:"userEmail"`
+	Method       string    `json:"method"`
+	Path         string    `json:"path"`
+	UserAgent    string    `json:"userAgent"`
+	SourceIP     string    `json:"sourceIP"`
+	ResponseCode int       `json:"responseCode"`
+	Host         string    `json:"host"`
+}
+
+func (e LogEntry) bytes() ([]byte, error) {
+	return json.Marshal(e)
+}
+
+type Options struct {
+	AuditLogsEnabled          bool   `usage:"Enable audit logging" default:"false"`
+	AuditLogsMaxFileSize      int    `usage:"Audit log max file size in bytes, logs will be flushed when this size is exceeded" default:"1073741824"`
+	AuditLogsMaxFlushInterval int    `usage:"Audit log flush interval in seconds regardless of buffer size" default:"30"`
+	AuditLogsStoreDir         string `usage:"Audit log store directory, defaults to $XDG_DATA_HOME/obot/audit"`
+	AuditLogsCompressFile     bool   `usage:"Compress audit log files" default:"true"`
+}
+
+type Logger interface {
+	LogEntry(LogEntry) error
+	Close() error
+}
+
+type persistentLogger struct {
+	lock             sync.Mutex
+	persistSemaphore chan struct{}
+	store            store.Store
+	buffer           []byte
+}
+
+func New(ctx context.Context, host string, options Options) (Logger, error) {
+	if !options.AuditLogsEnabled {
+		return (*noOpLogger)(nil), nil
+	}
+
+	host, _, _ = strings.Cut(strings.TrimPrefix(strings.TrimPrefix(host, "https://"), "http://"), ":")
+
+	store, err := store.NewDiskStore(host, options.AuditLogsStoreDir, options.AuditLogsCompressFile)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create audit log store: %w", err)
+	}
+
+	l := &persistentLogger{
+		lock:             sync.Mutex{},
+		persistSemaphore: make(chan struct{}, 1),
+		store:            store,
+		buffer:           make([]byte, 0, options.AuditLogsMaxFileSize*2),
+	}
+
+	go l.startPersistenceLoop(ctx, time.Duration(options.AuditLogsMaxFlushInterval)*time.Second)
+	return l, nil
+}
+
+func (l *persistentLogger) LogEntry(entry LogEntry) error {
+	b, err := entry.bytes()
+	if err != nil {
+		return err
+	}
+
+	l.lock.Lock()
+	defer l.lock.Unlock()
+
+	l.buffer = append(l.buffer, b...)
+	if len(l.buffer) >= cap(l.buffer)/2 {
+		return l.persist()
+	}
+	return nil
+}
+
+func (l *persistentLogger) Close() error {
+	return l.persist()
+}
+
+func (l *persistentLogger) startPersistenceLoop(ctx context.Context, flushInterval time.Duration) {
+	ticker := time.NewTicker(flushInterval)
+	defer ticker.Stop()
+
+	var err error
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			if err = l.persist(); err != nil {
+				log.Errorf("Failed to persist audit log: %v", err)
+			}
+		}
+	}
+}
+
+func (l *persistentLogger) persist() error {
+	// Allow only one persistence operation at a time.
+	// That way, if the ticker or the file size exceeds the limit, only one
+	// persistence operation will be triggered.
+	select {
+	case l.persistSemaphore <- struct{}{}:
+		defer func() { <-l.persistSemaphore }()
+	default:
+		return nil
+	}
+
+	l.lock.Lock()
+	defer l.lock.Unlock()
+	if len(l.buffer) == 0 {
+		return nil
+	}
+
+	if err := l.store.Persist(l.buffer); err != nil {
+		return err
+	}
+
+	l.buffer = l.buffer[:0]
+	return nil
+}
+
+type noOpLogger struct{}
+
+func (l *noOpLogger) LogEntry(_ LogEntry) error {
+	return nil
+}
+
+func (l *noOpLogger) Close() error {
+	return nil
+}
