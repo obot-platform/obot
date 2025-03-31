@@ -266,7 +266,8 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		return nil, err
 	}
 
-	if err := encryption.Init(ctx, encryption.Options(config.EncryptionConfig)); err != nil {
+	encryptionConfig, err := encryption.Init(ctx, encryption.Options(config.EncryptionConfig))
+	if err != nil {
 		return nil, err
 	}
 
@@ -354,7 +355,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 
 	var (
 		tokenServer   = &jwt.TokenService{}
-		gatewayClient = client.New(gatewayDB, config.AuthAdminEmails)
+		gatewayClient = client.New(gatewayDB, encryptionConfig, config.AuthAdminEmails)
 		events        = events.NewEmitter(storageClient, gatewayClient)
 		invoker       = invoke.NewInvoker(
 			storageClient,
@@ -381,6 +382,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		gatewayDB,
 		tokenServer,
 		providerDispatcher,
+		encryptionConfig,
 		config.AuthAdminEmails,
 		gserver.Options(config.GatewayConfig),
 	)

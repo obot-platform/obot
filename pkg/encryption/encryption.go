@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/obot-platform/obot/logger"
+	"k8s.io/apiserver/pkg/server/options/encryptionconfig"
 )
 
 var log = logger.Package()
@@ -54,34 +55,34 @@ func (o *Options) Validate() error {
 	return nil
 }
 
-func Init(ctx context.Context, opts Options) error {
+func Init(ctx context.Context, opts Options) (*encryptionconfig.EncryptionConfiguration, error) {
 	if err := opts.Validate(); err != nil {
-		return err
+		return nil, err
 	}
 
 	// Set up encryption provider
 	switch strings.ToLower(opts.EncryptionProvider) {
 	case "aws":
 		if err := setUpAWSKMS(ctx, opts.AWSKMSKeyARN, opts.EncryptionConfigFile); err != nil {
-			return fmt.Errorf("failed to setup AWS KMS: %w", err)
+			return nil, fmt.Errorf("failed to setup AWS KMS: %w", err)
 		}
 	case "gcp":
 		if err := setUpGoogleKMS(ctx, opts.GCPKMSKeyURI, opts.EncryptionConfigFile); err != nil {
-			return fmt.Errorf("failed to setup Google Cloud KMS: %w", err)
+			return nil, fmt.Errorf("failed to setup Google Cloud KMS: %w", err)
 		}
 	case "azure":
 		if err := setUpAzureKeyVault(ctx, opts.AzureKeyVaultName, opts.AzureKeyName, opts.AzureKeyVersion, opts.EncryptionConfigFile); err != nil {
-			return fmt.Errorf("failed to setup Azure Key Vault: %w", err)
+			return nil, fmt.Errorf("failed to setup Azure Key Vault: %w", err)
 		}
 	}
 
 	if opts.EncryptionConfigFile != "" {
 		log.Infof("Encryption: Using encryption config file: %s", opts.EncryptionConfigFile)
-	} else {
-		log.Warnf("Encryption: No encryption config file provided, using unencrypted storage")
+		return encryptionconfig.LoadEncryptionConfig(ctx, opts.EncryptionConfigFile, false, "obot")
 	}
 
-	return nil
+	log.Warnf("Encryption: No encryption config file provided, using unencrypted storage")
+	return nil, nil
 }
 
 func setUpAzureKeyVault(ctx context.Context, keyvaultName, keyName, keyVersion, configFile string) error {

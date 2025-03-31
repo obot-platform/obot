@@ -8,6 +8,7 @@ import (
 	"github.com/obot-platform/obot/pkg/gateway/db"
 	"github.com/obot-platform/obot/pkg/gateway/server/dispatcher"
 	"github.com/obot-platform/obot/pkg/jwt"
+	"k8s.io/apiserver/pkg/server/options/encryptionconfig"
 )
 
 type Options struct {
@@ -25,10 +26,10 @@ type Server struct {
 	gptClient      *gptscript.GPTScript
 }
 
-func New(ctx context.Context, g *gptscript.GPTScript, db *db.DB, tokenService *jwt.TokenService, modelProviderDispatcher *dispatcher.Dispatcher, adminEmails []string, opts Options) (*Server, error) {
+func New(ctx context.Context, g *gptscript.GPTScript, db *db.DB, tokenService *jwt.TokenService, modelProviderDispatcher *dispatcher.Dispatcher, encryptionConfig *encryptionconfig.EncryptionConfiguration, adminEmails []string, opts Options) (*Server, error) {
 	s := &Server{
 		db:           db,
-		client:       client.New(db, adminEmails),
+		client:       client.New(db, encryptionConfig, adminEmails),
 		baseURL:      opts.Hostname,
 		uiURL:        opts.UIHostname,
 		tokenService: tokenService,

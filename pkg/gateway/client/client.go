@@ -2,21 +2,24 @@ package client
 
 import (
 	"github.com/obot-platform/obot/pkg/gateway/db"
+	"k8s.io/apiserver/pkg/server/options/encryptionconfig"
 )
 
 type Client struct {
-	db          *db.DB
-	adminEmails map[string]struct{}
+	db               *db.DB
+	encryptionConfig *encryptionconfig.EncryptionConfiguration
+	adminEmails      map[string]struct{}
 }
 
-func New(db *db.DB, adminEmails []string) *Client {
+func New(db *db.DB, encryptionConfig *encryptionconfig.EncryptionConfiguration, adminEmails []string) *Client {
 	adminEmailsSet := make(map[string]struct{}, len(adminEmails))
 	for _, email := range adminEmails {
 		adminEmailsSet[email] = struct{}{}
 	}
 	return &Client{
-		db:          db,
-		adminEmails: adminEmailsSet,
+		db:               db,
+		encryptionConfig: encryptionConfig,
+		adminEmails:      adminEmailsSet,
 	}
 }
 
