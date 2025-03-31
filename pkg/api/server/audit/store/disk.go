@@ -31,7 +31,7 @@ func NewDiskStore(host string, compress bool, options DiskStoreOptions) (Store, 
 }
 
 func (s *diskStore) Persist(b []byte) error {
-	fname := filename(s.host)
+	fname := filename(s.host, s.compress)
 
 	if err := s.ensureDir(); err != nil {
 		return err

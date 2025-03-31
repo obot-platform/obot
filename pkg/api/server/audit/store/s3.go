@@ -70,7 +70,7 @@ func (s *s3Store) Persist(b []byte) error {
 
 	_, err := s.client.PutObject(context.Background(), &s3.PutObjectInput{
 		Bucket: aws.String(s.bucket),
-		Key:    aws.String(filename(s.host)),
+		Key:    aws.String(filename(s.host, s.compress)),
 		Body:   reader,
 	})
 	return err
