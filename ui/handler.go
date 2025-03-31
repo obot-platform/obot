@@ -49,6 +49,9 @@ type uiServer struct {
 }
 
 func (s *uiServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	// Always include the X-Frame-Options header
+	w.Header().Set("X-Frame-Options", "DENY")
+
 	if oauth.HandleOAuthRedirect(w, r) {
 		return
 	}
