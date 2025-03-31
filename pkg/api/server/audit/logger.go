@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
 	"strings"
 	"sync"
 	"time"
@@ -59,17 +60,19 @@ type persistentLogger struct {
 	buffer           []byte
 }
 
-func New(ctx context.Context, host string, options Options) (Logger, error) {
+func New(ctx context.Context, options Options) (Logger, error) {
 	if options.AuditLogsMode == AuditLogsModeOff {
 		return (*noOpLogger)(nil), nil
 	}
 
-	host, _, _ = strings.Cut(strings.TrimPrefix(strings.TrimPrefix(host, "https://"), "http://"), ":")
+	host, err := os.Hostname()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get hostname: %w", err)
+	}
 
-	var (
-		s   store.Store
-		err error
-	)
+	host = strings.ReplaceAll(strings.ReplaceAll(host, " ", "_"), ".", "_")
+
+	var s store.Store
 	switch options.AuditLogsMode {
 	case AuditLogsModeDisk:
 		s, err = store.NewDiskStore(host, options.AuditLogsCompressFile, options.DiskStoreOptions)

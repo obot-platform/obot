@@ -461,7 +461,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		return nil, fmt.Errorf("failed to validate environment variables: %w", err)
 	}
 
-	auditLogger, err := audit.New(ctx, config.Hostname, audit.Options(config.AuditConfig))
+	auditLogger, err := audit.New(ctx, audit.Options(config.AuditConfig))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create audit logger: %w", err)
 	}
