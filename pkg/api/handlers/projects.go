@@ -281,9 +281,7 @@ func (h *ProjectsHandler) CopyProject(req api.Context) error {
 			Namespace:    req.Namespace(),
 		},
 		Spec: v1.ThreadSpec{
-			Manifest: types.ThreadManifest{
-				ThreadManifestManagedFields: thread.Spec.Manifest.ThreadManifestManagedFields,
-			},
+			Manifest:         thread.Spec.Manifest,
 			AgentName:        thread.Spec.AgentName,
 			SourceThreadName: thread.Name,
 			Project:          true,
