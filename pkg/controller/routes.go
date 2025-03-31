@@ -59,8 +59,6 @@ func (c *Controller) setupRoutes() error {
 	root.Type(&v1.Run{}).HandlerFunc(runs.DeleteFinished)
 	root.Type(&v1.Run{}).HandlerFunc(cleanup.Cleanup)
 	root.Type(&v1.Run{}).HandlerFunc(runs.Resume)
-	// This handler should be the last one so that deleting Runs will not be marked as inactive.
-	root.Type(&v1.Run{}).HandlerFunc(runs.MarkInactive)
 
 	// Migrate RunStates
 	root.Type(&v1.RunState{}).HandlerFunc(runstates.Migrate)
@@ -79,10 +77,9 @@ func (c *Controller) setupRoutes() error {
 	root.Type(&v1.Thread{}).HandlerFunc(threads.CopyTasksFromParent)
 	root.Type(&v1.Thread{}).HandlerFunc(threads.CopyToolsFromSource)
 	root.Type(&v1.Thread{}).HandlerFunc(threads.SetCreated)
-	root.Type(&v1.Thread{}).HandlerFunc(threads.EnsureLastAndCurrentRunActive)
 	root.Type(&v1.Thread{}).HandlerFunc(threads.SlackCapability)
+	root.Type(&v1.Thread{}).HandlerFunc(threads.RemoveOldFinalizers)
 	root.Type(&v1.Thread{}).FinalizeFunc(v1.ThreadFinalizer, credentialCleanup.Remove)
-	root.Type(&v1.Thread{}).FinalizeFunc(v1.ThreadFinalizer+"-child-cleanup", threads.ActivateRuns)
 
 	// KnowledgeSummary
 	root.Type(&v1.KnowledgeSummary{}).HandlerFunc(cleanup.Cleanup)

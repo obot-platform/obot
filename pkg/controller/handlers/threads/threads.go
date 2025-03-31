@@ -11,7 +11,6 @@ import (
 	"github.com/obot-platform/nah/pkg/name"
 	"github.com/obot-platform/nah/pkg/randomtoken"
 	"github.com/obot-platform/nah/pkg/router"
-	"github.com/obot-platform/nah/pkg/untriggered"
 	"github.com/obot-platform/obot/pkg/create"
 	"github.com/obot-platform/obot/pkg/invoke"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
@@ -19,7 +18,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/fields"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -361,66 +359,6 @@ func (t *Handler) GenerateName(req router.Request, _ router.Response) error {
 	return req.Client.Update(req.Ctx, thread)
 }
 
-func (t *Handler) EnsureLastAndCurrentRunActive(req router.Request, _ router.Response) error {
-	thread := req.Object.(*v1.Thread)
-	if thread.Status.LastRunName != "" {
-		if err := t.activateRun(req.Ctx, req.Client, thread.Name, thread.Namespace, thread.Status.LastRunName); err != nil {
-			return err
-		}
-	}
-
-	if thread.Status.CurrentRunName != "" {
-		if err := t.activateRun(req.Ctx, req.Client, thread.Name, thread.Namespace, thread.Status.CurrentRunName); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-func (t *Handler) activateRun(ctx context.Context, client kclient.Client, threadName, namespace, name string) error {
-	var run v1.Run
-	if err := client.Get(ctx, kclient.ObjectKey{Namespace: namespace, Name: name}, &run); !apierrors.IsNotFound(err) {
-		return err
-	}
-
-	// This must be uncached since inactive things aren't in the cache.
-	if err := client.Get(ctx, kclient.ObjectKey{Namespace: namespace, Name: name}, untriggered.UncachedGet(&run)); err != nil {
-		return fmt.Errorf("failed to get run %s for thread %s: %w", name, threadName, err)
-	}
-
-	if !v1.IsActive(&run) {
-		v1.SetActive(&run)
-		if err := client.Update(ctx, &run); err != nil {
-			return fmt.Errorf("failed to update run %q to active: %w", run.Name, err)
-		}
-	}
-
-	return nil
-}
-
-func (t *Handler) ActivateRuns(req router.Request, _ router.Response) error {
-	var runs v1.RunList
-	// This must be uncached since inactive things aren't in the cache.
-	if err := req.List(untriggered.UncachedList(&runs), &kclient.ListOptions{
-		Namespace:     req.Namespace,
-		FieldSelector: fields.SelectorFromSet(map[string]string{"spec.threadName": req.Object.GetName()}),
-	}); err != nil {
-		return fmt.Errorf("failed to list runs for thread %s: %w", req.Object.GetName(), err)
-	}
-
-	for _, run := range runs.Items {
-		if !v1.IsActive(&run) {
-			v1.SetActive(&run)
-			if err := req.Client.Update(req.Ctx, &run); err != nil {
-				return fmt.Errorf("failed to update run %q to active: %w", run.Name, err)
-			}
-		}
-	}
-
-	return nil
-}
-
 func (t *Handler) EnsureShared(req router.Request, _ router.Response) error {
 	wf := req.Object.(*v1.Workflow)
 	if !wf.Spec.Managed {
@@ -600,5 +538,19 @@ func (t *Handler) CopyTasksFromParent(req router.Request, _ router.Response) err
 		}
 	}
 
+	return nil
+}
+
+func (t *Handler) RemoveOldFinalizers(req router.Request, _ router.Response) error {
+	thread := req.Object.(*v1.Thread)
+
+	finalizerCount := len(thread.Finalizers)
+	thread.Finalizers = slices.DeleteFunc(thread.Finalizers, func(finalizer string) bool {
+		return finalizer == v1.ThreadFinalizer+"-child-cleanup"
+	})
+
+	if finalizerCount != len(thread.Finalizers) {
+		return req.Client.Update(req.Ctx, thread)
+	}
 	return nil
 }

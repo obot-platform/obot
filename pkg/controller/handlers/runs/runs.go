@@ -7,7 +7,6 @@ import (
 	"github.com/gptscript-ai/go-gptscript"
 	"github.com/obot-platform/nah/pkg/backend"
 	"github.com/obot-platform/nah/pkg/router"
-	"github.com/obot-platform/obot/pkg/controller/handlers/inactive"
 	gclient "github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/invoke"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
@@ -90,28 +89,6 @@ func (h *Handler) DeleteFinished(req router.Request, _ router.Response) error {
 	if run.Status.State == v1.Finished && time.Since(run.Status.EndTime.Time) > 12*time.Hour || (run.Spec.Synchronous && run.Status.State == "" && time.Since(run.CreationTimestamp.Time) > 12*time.Hour) {
 		// These will be system tasks. Everything is a chat and finished with Continue status
 		return req.Delete(run)
-	}
-	return nil
-}
-
-func (h *Handler) MarkInactive(req router.Request, _ router.Response) error {
-	run := req.Object.(*v1.Run)
-	if !run.DeletionTimestamp.IsZero() || run.Status.State != v1.Continue || run.Labels[v1.LabelInactive] == "true" {
-		return nil
-	}
-
-	var thread v1.Thread
-	if err := req.Get(&thread, run.Namespace, run.Spec.ThreadName); err != nil {
-		return err
-	}
-
-	if thread.DeletionTimestamp.IsZero() && thread.Status.LastRunName != run.Name && thread.Status.CurrentRunName != run.Name {
-		v1.SetInactive(run)
-		if err := req.Client.Update(req.Ctx, run); err != nil {
-			return err
-		}
-
-		return inactive.RemoveFromCache(req.Ctx, h.backend, run)
 	}
 	return nil
 }

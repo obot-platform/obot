@@ -7,8 +7,6 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
-	"reflect"
-	"slices"
 	"sort"
 	"strings"
 
@@ -20,7 +18,6 @@ import (
 	"github.com/gptscript-ai/gptscript/pkg/sdkserver"
 	"github.com/obot-platform/nah"
 	"github.com/obot-platform/nah/pkg/apply"
-	nfields "github.com/obot-platform/nah/pkg/fields"
 	"github.com/obot-platform/nah/pkg/leader"
 	"github.com/obot-platform/nah/pkg/router"
 	"github.com/obot-platform/nah/pkg/runtime"
@@ -47,12 +44,9 @@ import (
 	"github.com/obot-platform/obot/pkg/system"
 	coordinationv1 "k8s.io/api/coordination/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apiserver/pkg/authentication/authenticator"
 	"k8s.io/apiserver/pkg/authentication/request/union"
-	kcache "sigs.k8s.io/controller-runtime/pkg/cache"
-	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	// Setup nah logging
 	_ "github.com/obot-platform/nah/pkg/logrus"
@@ -87,7 +81,6 @@ type Config struct {
 	AuthAdminEmails            []string `usage:"Emails of admin users"`
 	AgentsDir                  string   `usage:"The directory to auto load agents on start (default $XDG_CONFIG_HOME/.obot/agents)"`
 	StaticDir                  string   `usage:"The directory to serve static files from"`
-	IgnoreInactive             bool     `usage:"Ignore inactive objects" default:"false"`
 
 	// Sendgrid webhook
 	SendgridWebhookUsername string `usage:"The username for the sendgrid webhook to authenticate with"`
@@ -317,20 +310,9 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		}
 	}
 
-	byObjectFieldSelectors := make(map[kclient.Object]kcache.ByObject)
-	if config.IgnoreInactive {
-		for _, t := range scheme.Scheme.AllKnownTypes() {
-			if v, ok := reflect.New(t).Interface().(nfields.Fields); ok && slices.Contains(v.FieldNames(), v1.LabelInactive) {
-				// Only add the field selector requirement to objects that support the field selector.
-				byObjectFieldSelectors[v.(kclient.Object)] = kcache.ByObject{Field: fields.OneTermEqualSelector(v1.LabelInactive, "")}
-			}
-		}
-	}
-
 	r, err := nah.NewRouter("obot-controller", &nah.Options{
 		RESTConfig:     restConfig,
 		Scheme:         scheme.Scheme,
-		ByObject:       byObjectFieldSelectors,
 		ElectionConfig: leader.NewDefaultElectionConfig("", "obot-controller", restConfig),
 		HealthzPort:    -1,
 		GVKThreadiness: map[schema.GroupVersionKind]int{

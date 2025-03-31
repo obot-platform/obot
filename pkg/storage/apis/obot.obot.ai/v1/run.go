@@ -45,8 +45,6 @@ func (in *Run) Has(field string) bool {
 func (in *Run) Get(field string) string {
 	if in != nil {
 		switch field {
-		case LabelInactive:
-			return in.Labels[LabelInactive]
 		case "spec.threadName":
 			return in.Spec.ThreadName
 		case "spec.previousRunName":
@@ -58,7 +56,7 @@ func (in *Run) Get(field string) string {
 }
 
 func (in *Run) FieldNames() []string {
-	return []string{"spec.threadName", "spec.previousRunName", LabelInactive}
+	return []string{"spec.threadName", "spec.previousRunName"}
 }
 
 func (in *Run) GetColumns() [][]string {

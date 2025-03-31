@@ -73,9 +73,6 @@ config:
   # config.KINM_DB_CONNECTIONS -- Advanced - the number of connections in the database pool for kinm
   KINM_DB_CONNECTIONS: "5"
 
-  # config.OBOT_SERVER_IGNORE_INACTIVE -- whether the controller processes objects that have been marked as inactive
-  OBOT_SERVER_IGNORE_INACTIVE: false
-
   # config.GITHUB_AUTH_TOKEN -- A github PAT, used to authenticate tool pulls to avoid github ratelimiting
   GITHUB_AUTH_TOKEN: ""
   # config.OBOT_SERVER_ENABLE_AUTHENTICATION -- Enables authentication for Obot
