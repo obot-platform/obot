@@ -14,6 +14,12 @@ import (
 
 var log = logger.Package()
 
+const (
+	AuditLogsModeOff  = "off"
+	AuditLogsModeDisk = "disk"
+	AuditLogsModeS3   = "s3"
+)
+
 type LogEntry struct {
 	Time         time.Time `json:"time"`
 	UserID       string    `json:"userID"`
@@ -32,11 +38,13 @@ func (e LogEntry) bytes() ([]byte, error) {
 }
 
 type Options struct {
-	AuditLogsEnabled          bool   `usage:"Enable audit logging" default:"false"`
+	AuditLogsMode             string `usage:"Enable audit logging" default:"off"`
 	AuditLogsMaxFileSize      int    `usage:"Audit log max file size in bytes, logs will be flushed when this size is exceeded" default:"1073741824"`
 	AuditLogsMaxFlushInterval int    `usage:"Audit log flush interval in seconds regardless of buffer size" default:"30"`
-	AuditLogsStoreDir         string `usage:"Audit log store directory, defaults to $XDG_DATA_HOME/obot/audit"`
 	AuditLogsCompressFile     bool   `usage:"Compress audit log files" default:"true"`
+
+	store.DiskStoreOptions
+	store.S3StoreOptions
 }
 
 type Logger interface {
@@ -52,21 +60,35 @@ type persistentLogger struct {
 }
 
 func New(ctx context.Context, host string, options Options) (Logger, error) {
-	if !options.AuditLogsEnabled {
+	if options.AuditLogsMode == AuditLogsModeOff {
 		return (*noOpLogger)(nil), nil
 	}
 
 	host, _, _ = strings.Cut(strings.TrimPrefix(strings.TrimPrefix(host, "https://"), "http://"), ":")
 
-	store, err := store.NewDiskStore(host, options.AuditLogsStoreDir, options.AuditLogsCompressFile)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create audit log store: %w", err)
+	var (
+		s   store.Store
+		err error
+	)
+	switch options.AuditLogsMode {
+	case AuditLogsModeDisk:
+		s, err = store.NewDiskStore(host, options.AuditLogsCompressFile, options.DiskStoreOptions)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create audit log store: %w", err)
+		}
+	case AuditLogsModeS3:
+		s, err = store.NewS3Store(host, options.AuditLogsCompressFile, options.S3StoreOptions)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create audit log store: %w", err)
+		}
+	default:
+		return nil, fmt.Errorf("invalid audit log mode: %s", options.AuditLogsMode)
 	}
 
 	l := &persistentLogger{
 		lock:             sync.Mutex{},
 		persistSemaphore: make(chan struct{}, 1),
-		store:            store,
+		store:            s,
 		buffer:           make([]byte, 0, options.AuditLogsMaxFileSize*2),
 	}
 

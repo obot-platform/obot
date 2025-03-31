@@ -10,13 +10,18 @@ import (
 	"github.com/adrg/xdg"
 )
 
+type DiskStoreOptions struct {
+	AuditLogsStoreDir string `usage:"Audit log store directory, defaults to $XDG_DATA_HOME/obot/audit"`
+}
+
 type diskStore struct {
 	dir      string
 	host     string
 	compress bool
 }
 
-func NewDiskStore(host, dir string, compress bool) (Store, error) {
+func NewDiskStore(host string, compress bool, options DiskStoreOptions) (Store, error) {
+	dir := options.AuditLogsStoreDir
 	if dir == "" {
 		dir = filepath.Join(xdg.DataHome, "obot", "audit")
 	}
