@@ -3630,8 +3630,15 @@ func schema_obot_platform_obot_apiclient_types_Schedule(ref common.ReferenceCall
 							Format:  "int32",
 						},
 					},
+					"timezone": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
 				},
-				Required: []string{"interval", "hour", "minute", "day", "weekday"},
+				Required: []string{"interval", "hour", "minute", "day", "weekday", "timezone"},
 			},
 		},
 	}

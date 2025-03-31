@@ -47,7 +47,8 @@
 				hour: 0,
 				minute: 0,
 				day: 0,
-				weekday: 0
+				weekday: 0,
+				timezone: Intl.DateTimeFormat().resolvedOptions().timeZone
 			};
 			task.webhook = undefined;
 			task.email = undefined;

@@ -41,6 +41,7 @@ type Schedule struct {
 	Minute   int    `json:"minute"`
 	Day      int    `json:"day"`
 	Weekday  int    `json:"weekday"`
+	TimeZone string `json:"timezone"`
 }
 
 type TaskStep struct {

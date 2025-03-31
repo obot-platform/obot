@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { Schedule } from '$lib/services';
 	import Dropdown from '$lib/components/tasks/Dropdown.svelte';
+	import { GlobeIcon } from 'lucide-svelte';
 
 	interface Props {
 		schedule?: Schedule;
@@ -8,6 +9,8 @@
 	}
 
 	let { schedule = $bindable(), readOnly }: Props = $props();
+
+	let defaultTimezone = $state(Intl.DateTimeFormat().resolvedOptions().timeZone);
 </script>
 
 <h4 class="text-base font-medium">Schedule</h4>
@@ -68,6 +71,12 @@
 			}}
 			disabled={readOnly}
 		/>
+		{#if schedule?.timezone && schedule.timezone !== defaultTimezone}
+			<div class="flex items-center gap-1">
+				<GlobeIcon class="text-muted-foreground mr-1 h-4 w-4" />
+				<span class="text-muted-foreground text-sm">{schedule.timezone}</span>
+			</div>
+		{/if}
 	{/if}
 
 	{#if schedule?.interval === 'weekly'}
@@ -89,6 +98,12 @@
 			}}
 			disabled={readOnly}
 		/>
+		{#if schedule?.timezone && schedule.timezone !== defaultTimezone}
+			<div class="flex items-center gap-1">
+				<GlobeIcon class="text-muted-foreground mr-1 h-4 w-4" />
+				<span class="text-muted-foreground text-sm">{schedule.timezone}</span>
+			</div>
+		{/if}
 	{/if}
 
 	{#if schedule?.interval === 'monthly'}
@@ -111,5 +126,11 @@
 			}}
 			disabled={readOnly}
 		/>
+		{#if schedule?.timezone && schedule.timezone !== defaultTimezone}
+			<div class="flex items-center gap-1">
+				<GlobeIcon class="text-muted-foreground mr-1 h-4 w-4" />
+				<span class="text-muted-foreground text-sm">{schedule.timezone}</span>
+			</div>
+		{/if}
 	{/if}
 </div>

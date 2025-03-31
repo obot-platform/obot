@@ -43,7 +43,7 @@ func (c *CronJob) FieldNames() []string {
 func (*CronJob) GetColumns() [][]string {
 	return [][]string{
 		{"Name", "Name"},
-		{"Workflow", "Spec.Workflow"},
+		{"Workflow", "Spec.WorkflowName"},
 		{"Schedule", "Spec.Schedule"},
 		{"Last Success", "{{ago .Status.LastSuccessfulRunCompleted}}"},
 		{"Last Run", "{{ago .Status.LastRunStartedAt}}"},
