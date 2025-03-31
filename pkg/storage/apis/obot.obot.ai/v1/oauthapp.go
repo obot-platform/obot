@@ -47,7 +47,11 @@ func (r *OAuthApp) FieldNames() []string {
 }
 
 func (r *OAuthApp) RedirectURL(baseURL string) string {
-	return fmt.Sprintf("%s/api/app-oauth/callback/%s", baseURL, r.Name)
+	name := r.Name
+	if r.Spec.ThreadName == "" {
+		name = r.Spec.Manifest.Alias
+	}
+	return fmt.Sprintf("%s/api/app-oauth/callback/%s", baseURL, name)
 }
 
 func (r *OAuthApp) OAuthAppGetTokenURL(baseURL string) string {

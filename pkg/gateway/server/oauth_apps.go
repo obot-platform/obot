@@ -746,5 +746,21 @@ func convertOAuthAppRegistrationToOAuthApp(app v1.OAuthApp, baseURL string) type
 
 func getOAuthAppFromName(apiContext api.Context) (*v1.OAuthApp, error) {
 	var oauthApp v1.OAuthApp
-	return &oauthApp, apiContext.Get(&oauthApp, apiContext.PathValue("id"))
+	id := apiContext.PathValue("id")
+	if !strings.HasPrefix(id, system.OAuthAppPrefix) {
+		var oauthApps v1.OAuthAppList
+		if err := apiContext.List(&oauthApps, &kclient.ListOptions{
+			FieldSelector: fields.SelectorFromSet(selectors.RemoveEmpty(map[string]string{
+				"spec.manifest.alias": id,
+			})),
+			Namespace: apiContext.Namespace(),
+		}); err != nil {
+			return nil, err
+		}
+		if len(oauthApps.Items) == 0 {
+			return nil, fmt.Errorf("oauth app %s not found", id)
+		}
+		return &oauthApps.Items[0], nil
+	}
+	return &oauthApp, apiContext.Get(&oauthApp, id)
 }
