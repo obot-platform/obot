@@ -104,6 +104,7 @@ config:
   WORKSPACE_PROVIDER_AZURE_CONTAINER: ""
   # config.WORKSPACE_PROVIDER_AZURE_CONNECTION_STRING -- The connection string for the Azure Blob Storage container to store workspaces in. Only used if config.OBOT_WORKSPACE_PROVIDER_TYPE is 'azure'
   WORKSPACE_PROVIDER_AZURE_CONNECTION_STRING: ""
+
   # config.OBOT_SERVER_OTEL_BASE_EXPORT_ENDPOINT -- The base export endpoint for OpenTelemetry
   OBOT_SERVER_OTEL_BASE_EXPORT_ENDPOINT: ""
   # config.OBOT_SERVER_OTEL_SAMPLE_PROB -- The sampling probability for OpenTelemetry
@@ -111,6 +112,14 @@ config:
   # config.OBOT_SERVER_OTEL_BEARER_TOKEN -- The bearer token for authentication with OpenTelemetry
   OBOT_SERVER_OTEL_BEARER_TOKEN: ""
 
+  # config.OBOT_SERVER_AUDIT_LOGS_MODE -- Configures the storage backend for audit logs in Obot. Can be 'off', 'disk', or 's3'
+  OBOT_SERVER_AUDIT_LOGS_MODE: "off"
+  # config.OBOT_SERVER_AUDIT_LOGS_STORE_S3BUCKET -- The name of the S3 bucket to store audit logs in. Only used if config.OBOT_SERVER_AUDIT_LOGS_MODE is 's3'
+  OBOT_SERVER_AUDIT_LOGS_STORE_S3BUCKET: ""
+  # config.OBOT_SERVER_AUDIT_LOGS_STORE_S3ENDPOINT -- If config.OBOT_SERVER_AUDIT_LOGS_MODE is 's3' and you are not using AWS S3, this needs to be set to the S3 api endpoint of your provider.
+  OBOT_SERVER_AUDIT_LOGS_STORE_S3ENDPOINT: ""
+  # config.OBOT_SERVER_AUDIT_LOGS_COMPRESS_FILE -- Whether to compress audit log files
+  OBOT_SERVER_AUDIT_LOGS_COMPRESS_FILE: true
 
 # extraEnv -- A map of additional environment variables to set
 extraEnv: { }
