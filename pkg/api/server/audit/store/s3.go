@@ -14,8 +14,9 @@ import (
 )
 
 type S3StoreOptions struct {
-	AuditLogsStoreS3Bucket   string `usage:"Audit log store S3 bucket"`
-	AuditLogsStoreS3Endpoint string `usage:"Audit log store S3 endpoint"`
+	AuditLogsStoreS3Bucket     string `usage:"Audit log store S3 bucket"`
+	AuditLogsStoreS3Endpoint   string `usage:"Audit log store S3 endpoint"`
+	AuditLogsStoreUsePathStyle bool   `usage:"Use path style for S3 object names"`
 }
 
 type s3Store struct {
@@ -26,7 +27,7 @@ type s3Store struct {
 
 func NewS3Store(host string, compress bool, options S3StoreOptions) (Store, error) {
 	if options.AuditLogsStoreS3Bucket == "" {
-		return nil, errors.New("Audit log store S3 bucket is required")
+		return nil, errors.New("audit log store S3 bucket is required")
 	}
 
 	cfg, err := config.LoadDefaultConfig(context.Background())
@@ -38,7 +39,7 @@ func NewS3Store(host string, compress bool, options S3StoreOptions) (Store, erro
 		if options.AuditLogsStoreS3Endpoint != "" {
 			o.BaseEndpoint = aws.String(options.AuditLogsStoreS3Endpoint)
 		}
-		o.RetryMaxAttempts = 1
+		o.UsePathStyle = options.AuditLogsStoreUsePathStyle
 	})
 
 	return &s3Store{

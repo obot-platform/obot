@@ -120,6 +120,8 @@ config:
   OBOT_SERVER_AUDIT_LOGS_STORE_S3ENDPOINT: ""
   # config.OBOT_SERVER_AUDIT_LOGS_COMPRESS_FILE -- Whether to compress audit log files
   OBOT_SERVER_AUDIT_LOGS_COMPRESS_FILE: true
+  # config.OBOT_SERVER_AUDIT_LOGS_USE_PATH_STYLE -- Whether to use path style for S3
+  OBOT_SERVER_AUDIT_LOGS_USE_PATH_STYLE: false
 
 # extraEnv -- A map of additional environment variables to set
 extraEnv: { }
