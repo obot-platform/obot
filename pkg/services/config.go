@@ -26,6 +26,7 @@ import (
 	"github.com/obot-platform/nah/pkg/runtime"
 	"github.com/obot-platform/obot/pkg/api/authn"
 	"github.com/obot-platform/obot/pkg/api/authz"
+	"github.com/obot-platform/obot/pkg/api/ratelimit"
 	"github.com/obot-platform/obot/pkg/api/server"
 	"github.com/obot-platform/obot/pkg/api/server/audit"
 	"github.com/obot-platform/obot/pkg/bootstrap"
@@ -65,6 +66,7 @@ type (
 	GeminiConfig     gemini.Config
 	AuditConfig      audit.Options
 	EncryptionConfig encryption.Options
+	RateLimitConfig  ratelimit.Config
 )
 
 type Config struct {
@@ -97,6 +99,7 @@ type Config struct {
 	EncryptionConfig
 	OtelOptions
 	AuditConfig
+	RateLimitConfig
 	services.Config
 }
 
@@ -391,7 +394,10 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		return nil, err
 	}
 
-	var authenticators authenticator.Request = gatewayServer
+	var (
+		authenticators authenticator.Request = gatewayServer
+		rateLimiter    ratelimit.Middleware  = new(ratelimit.NoopMiddleware)
+	)
 	if config.EnableAuthentication {
 		proxyManager = proxy.NewProxyManager(ctx, providerDispatcher)
 
@@ -414,6 +420,12 @@ func New(ctx context.Context, config Config) (*Services, error) {
 			ProviderUserID:   "nobody",
 		}); err != nil {
 			return nil, fmt.Errorf(`failed to remove "nobody" user and identity from database: %w`, err)
+		}
+
+		// Enable rate limiting for all requests.
+		rateLimiter, err = ratelimit.NewAuthGroupMiddleware(ratelimit.Config(config.RateLimitConfig))
+		if err != nil {
+			return nil, fmt.Errorf(`failed to  create rate limiter middleware: %w`, err)
 		}
 	} else {
 		// "Authentication Disabled" flow
@@ -462,6 +474,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 	}
 
 	// For now, always auto-migrate the gateway database
+
 	return &Services{
 		WorkspaceProviderType: config.WorkspaceProviderType,
 		ServerURL:             config.Hostname,
@@ -475,6 +488,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 			storageClient,
 			gatewayClient,
 			gptscriptClient,
+			rateLimiter,
 			authn.NewAuthenticator(authenticators),
 			authz.NewAuthorizer(r.Backend(), config.DevMode),
 			proxyManager,

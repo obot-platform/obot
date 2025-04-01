@@ -12,6 +12,7 @@ import (
 	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/api/authn"
 	"github.com/obot-platform/obot/pkg/api/authz"
+	"github.com/obot-platform/obot/pkg/api/ratelimit"
 	"github.com/obot-platform/obot/pkg/api/server/audit"
 	gclient "github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/proxy"
@@ -29,6 +30,7 @@ type Server struct {
 	storageClient storage.Client
 	gatewayClient *gclient.Client
 	gptClient     *gptscript.GPTScript
+	rateLimiter   ratelimit.Middleware
 	authenticator *authn.Authenticator
 	authorizer    *authz.Authorizer
 	proxyManager  *proxy.Manager
@@ -38,11 +40,22 @@ type Server struct {
 	mux *http.ServeMux
 }
 
-func NewServer(storageClient storage.Client, gatewayClient *gclient.Client, gptClient *gptscript.GPTScript, authn *authn.Authenticator, authz *authz.Authorizer, proxyManager *proxy.Manager, auditLogger audit.Logger, baseURL string) *Server {
+func NewServer(
+	storageClient storage.Client,
+	gatewayClient *gclient.Client,
+	gptClient *gptscript.GPTScript,
+	rateLimiter ratelimit.Middleware,
+	authn *authn.Authenticator,
+	authz *authz.Authorizer,
+	proxyManager *proxy.Manager,
+	auditLogger audit.Logger,
+	baseURL string,
+) *Server {
 	return &Server{
 		storageClient: storageClient,
 		gatewayClient: gatewayClient,
 		gptClient:     gptClient,
+		rateLimiter:   rateLimiter,
 		authenticator: authn,
 		authorizer:    authz,
 		proxyManager:  proxyManager,
@@ -66,7 +79,7 @@ func (s *Server) HTTPHandle(pattern string, f http.Handler) {
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	ctx, span := tracer.Start(r.Context(), "server")
 	defer span.End()
-	s.mux.ServeHTTP(w, r.WithContext(ctx))
+	s.rateLimiter.Limit(s.mux).ServeHTTP(w, r.WithContext(ctx))
 }
 
 func (s *Server) wrap(f api.HandlerFunc) http.HandlerFunc {
@@ -79,6 +92,11 @@ func (s *Server) wrap(f api.HandlerFunc) http.HandlerFunc {
 		if err != nil {
 			http.Error(rw, err.Error(), http.StatusUnauthorized)
 			return
+		}
+
+		// Register user with the rate limiter to set the appropriate rate limit.
+		if err := s.rateLimiter.RegisterUser(user); err != nil {
+			log.Errorf("Failed to register user for rate limiting: %v", err)
 		}
 
 		if strings.HasPrefix(req.URL.Path, "/api/") {

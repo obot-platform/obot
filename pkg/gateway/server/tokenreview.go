@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/obot-platform/obot/pkg/api/ratelimit"
 	"github.com/obot-platform/obot/pkg/gateway/types"
 	"gorm.io/gorm"
 	"k8s.io/apiserver/pkg/authentication/authenticator"
@@ -12,7 +13,8 @@ import (
 )
 
 func (s *Server) AuthenticateRequest(req *http.Request) (*authenticator.Response, bool, error) {
-	bearer := strings.TrimPrefix(req.Header.Get("Authorization"), "Bearer ")
+	authHeader := req.Header.Get("Authorization")
+	bearer := strings.TrimPrefix(authHeader, "Bearer ")
 	if bearer == "" {
 		return nil, false, nil
 	}
@@ -33,15 +35,24 @@ func (s *Server) AuthenticateRequest(req *http.Request) (*authenticator.Response
 		return nil, false, err
 	}
 
-	return &authenticator.Response{
-		User: &user.DefaultInfo{
-			Name: u.Username,
-			UID:  strconv.FormatUint(uint64(u.ID), 10),
-			Extra: map[string][]string{
-				"email":                   {u.Email},
-				"auth_provider_namespace": {namespace},
-				"auth_provider_name":      {name},
-			},
+	userInfo := &user.DefaultInfo{
+		Name: u.Username,
+		UID:  strconv.FormatUint(uint64(u.ID), 10),
+		Extra: map[string][]string{
+			"email":                   {u.Email},
+			"auth_provider_namespace": {namespace},
+			"auth_provider_name":      {name},
 		},
+	}
+
+	ratelimit.EnableAuthGroupRateLimit(
+		ratelimit.CredSourceTypeHeader,
+		"Authorization",
+		authHeader,
+		userInfo,
+	)
+
+	return &authenticator.Response{
+		User: userInfo,
 	}, true, nil
 }

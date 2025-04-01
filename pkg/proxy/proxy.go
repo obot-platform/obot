@@ -18,6 +18,7 @@ import (
 	"github.com/obot-platform/obot/logger"
 	"github.com/obot-platform/obot/pkg/accesstoken"
 	"github.com/obot-platform/obot/pkg/api"
+	"github.com/obot-platform/obot/pkg/api/ratelimit"
 	"github.com/obot-platform/obot/pkg/gateway/server/dispatcher"
 	"github.com/obot-platform/obot/pkg/system"
 	"k8s.io/apiserver/pkg/authentication/authenticator"
@@ -75,7 +76,7 @@ func (pm *Manager) cacheCleanup(ctx context.Context) {
 	}
 }
 
-func getTokenHash(req *http.Request) (string, error) {
+func getTokenCookie(req *http.Request) (*http.Cookie, error) {
 	c, err := req.Cookie(ObotAccessTokenCookie)
 	if errors.Is(err, http.ErrNoCookie) {
 		// Check the zero cookie. This one is present when the token is too large to fit in one cookie and
@@ -83,16 +84,25 @@ func getTokenHash(req *http.Request) (string, error) {
 		c, err = req.Cookie(ObotAccessTokenCookieZero)
 	}
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
+	return c, nil
+}
+
+func getTokenHash(c *http.Cookie) (string, error) {
 	h := sha256.New()
 	h.Write([]byte(c.Value))
 	return fmt.Sprintf("%x", h.Sum(nil)), nil
 }
 
 func (pm *Manager) AuthenticateRequest(req *http.Request) (*authenticator.Response, bool, error) {
-	tokenHash, err := getTokenHash(req)
+	tokenCookie, err := getTokenCookie(req)
+	if err != nil {
+		return nil, false, nil
+	}
+
+	tokenHash, err := getTokenHash(tokenCookie)
 	if err != nil {
 		return nil, false, nil
 	}
@@ -112,6 +122,12 @@ func (pm *Manager) AuthenticateRequest(req *http.Request) (*authenticator.Respon
 						provider:  system.DefaultNamespace + "/" + configuredProvider,
 						createdAt: time.Now(),
 					}
+					ratelimit.EnableAuthGroupRateLimit(
+						ratelimit.CredSourceTypeCookie,
+						tokenCookie.Name,
+						tokenCookie.Value,
+						resp.User.(*user.DefaultInfo),
+					)
 					pm.lock.Unlock()
 					return resp, true, nil
 				}

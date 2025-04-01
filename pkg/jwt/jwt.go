@@ -7,6 +7,7 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/obot-platform/nah/pkg/randomtoken"
 	"github.com/obot-platform/obot/pkg/api/authz"
+	"github.com/obot-platform/obot/pkg/api/ratelimit"
 	"k8s.io/apiserver/pkg/authentication/authenticator"
 	"k8s.io/apiserver/pkg/authentication/user"
 )
@@ -37,26 +38,41 @@ type TokenContext struct {
 type TokenService struct{}
 
 func (t *TokenService) AuthenticateRequest(req *http.Request) (*authenticator.Response, bool, error) {
-	token := strings.TrimPrefix(req.Header.Get("Authorization"), "Bearer ")
+	authHeader := req.Header.Get("Authorization")
+	if authHeader == "" {
+		return nil, false, nil
+	}
+
+	token := strings.TrimPrefix(authHeader, "Bearer ")
 	tokenContext, err := t.DecodeToken(token)
 	if err != nil {
 		return nil, false, nil
 	}
-	return &authenticator.Response{
-		User: &user.DefaultInfo{
-			Name: tokenContext.Scope,
-			Groups: []string{
-				authz.AuthenticatedGroup,
-			},
-			Extra: map[string][]string{
-				"obot:runID":     {tokenContext.RunID},
-				"obot:threadID":  {tokenContext.ThreadID},
-				"obot:agentID":   {tokenContext.AgentID},
-				"obot:userID":    {tokenContext.UserID},
-				"obot:userName":  {tokenContext.UserName},
-				"obot:userEmail": {tokenContext.UserEmail},
-			},
+
+	userInfo := &user.DefaultInfo{
+		Name: tokenContext.Scope,
+		Groups: []string{
+			authz.AuthenticatedGroup,
 		},
+		Extra: map[string][]string{
+			"obot:runID":     {tokenContext.RunID},
+			"obot:threadID":  {tokenContext.ThreadID},
+			"obot:agentID":   {tokenContext.AgentID},
+			"obot:userID":    {tokenContext.UserID},
+			"obot:userName":  {tokenContext.UserName},
+			"obot:userEmail": {tokenContext.UserEmail},
+		},
+	}
+
+	ratelimit.EnableAuthGroupRateLimit(
+		ratelimit.CredSourceTypeHeader,
+		"Authorization",
+		authHeader,
+		userInfo,
+	)
+
+	return &authenticator.Response{
+		User: userInfo,
 	}, true, nil
 }
 

@@ -13,6 +13,7 @@ import (
 	types2 "github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/api/authz"
+	"github.com/obot-platform/obot/pkg/api/ratelimit"
 	"github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/gateway/types"
 	"k8s.io/apiserver/pkg/authentication/authenticator"
@@ -161,12 +162,21 @@ func (b *Bootstrap) AuthenticateRequest(req *http.Request) (*authenticator.Respo
 		return nil, false, err
 	}
 
+	userInfo := &user.DefaultInfo{
+		Name:   "bootstrap",
+		UID:    fmt.Sprintf("%d", gatewayUser.ID),
+		Groups: []string{authz.AdminGroup, authz.AuthenticatedGroup},
+	}
+
+	ratelimit.EnableAuthGroupRateLimit(
+		ratelimit.CredSourceTypeHeader,
+		"Authorization",
+		authHeader,
+		userInfo,
+	)
+
 	return &authenticator.Response{
-		User: &user.DefaultInfo{
-			Name:   "bootstrap",
-			UID:    fmt.Sprintf("%d", gatewayUser.ID),
-			Groups: []string{authz.AdminGroup, authz.AuthenticatedGroup},
-		},
+		User: userInfo,
 	}, true, nil
 }
 
