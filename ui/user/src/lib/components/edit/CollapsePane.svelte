@@ -10,7 +10,7 @@
 		children: Snippet;
 		open?: boolean;
 		onOpen?: () => void | Promise<void>;
-		classes?: { header?: string; content?: string };
+		classes?: { header?: string; content?: string; root?: string };
 		showDropdown?: boolean;
 	}
 
@@ -31,7 +31,7 @@
 	}: Props = $props();
 </script>
 
-<div class="flex flex-col">
+<div class={twMerge('flex flex-col', classes.root)}>
 	{#if header}
 		<button
 			class={twMerge('flex items-center gap-2 px-5 py-2', classes.header)}

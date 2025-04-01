@@ -13,7 +13,7 @@
 		X
 	} from 'lucide-svelte';
 	import { onMount } from 'svelte';
-	import { fade, fly } from 'svelte/transition';
+	import { fly } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
@@ -36,12 +36,12 @@
 	let searchPopover = $state<HTMLDialogElement>();
 	let search = $state('');
 	let searchContainer = $state<HTMLDivElement>();
-	let direction = $state<'left' | 'right' | null>(null);
 	let showAvailableTools = $state(true);
 	let toolSelection = $state<Record<string, AssistantTool>>({});
 	let maxExceeded = $state(false);
 
 	function getSelectionMap() {
+		$inspect('tools', tools);
 		return tools
 			.filter((t) => !t.builtin)
 			.reduce<Record<string, AssistantTool>>((acc, tool) => {
@@ -89,6 +89,32 @@
 		};
 	});
 
+	const builtInTools = $derived.by(() => {
+		const ignore = new Set(['workspace-files', 'tasks', 'knowledge', 'database', 'time']);
+		const builtInToolMap = new Map<string, AssistantTool>(
+			tools.filter((t) => t.builtin && !ignore.has(t.id)).map((t) => [t.id, t])
+		);
+		return Array.from(getToolBundleMap().values()).reduce<ToolCatalog>(
+			(acc, { tool, bundleTools }) => {
+				if (builtInToolMap.has(tool.id)) {
+					acc.push({ tool, bundleTools, total: bundleTools?.length });
+					return acc;
+				}
+
+				const builtInSubtools =
+					bundleTools?.filter((subtool) => builtInToolMap.has(subtool.id)) ?? [];
+				if (builtInSubtools.length > 0) {
+					acc.push({
+						tool,
+						bundleTools: builtInSubtools,
+						total: builtInSubtools.length
+					});
+				}
+				return acc;
+			},
+			[]
+		);
+	});
 	const bundles: ToolCatalog = $derived.by(() => {
 		if (toolSelection) {
 			return Array.from(getToolBundleMap().values()).reduce<ToolCatalog>(
@@ -248,39 +274,34 @@
 			{@render searchDialog()}
 		</div>
 	</div>
-	<div class="flex min-h-0 w-full grow items-stretch px-4">
+	<div class="flex min-h-0 w-full grow items-stretch px-4 md:gap-2">
 		<!-- Selected Tools Column -->
 		{#if !responsive.isMobile || (responsive.isMobile && !showAvailableTools)}
 			{@const enabledTools = getEnabledTools()}
 			<div
-				class="border-surface2 dark:border-surface1 flex flex-1 flex-col rounded-sm border-2"
+				class="border-surface2 dark:border-surface1 flex flex-1 flex-col md:rounded-md md:border-2"
 				transition:fly={showAvailableTools
 					? { x: 250, duration: 300, delay: 0 }
 					: { x: 250, duration: 300, delay: 300 }}
 			>
 				<h4 class="bg-surface1 flex px-4 py-2 text-base font-semibold">Selected Tools</h4>
-				<div class="default-scrollbar-thin h-inherit flex min-h-0 flex-1 flex-col overflow-y-auto">
+				<div
+					class="default-scrollbar-thin h-inherit flex min-h-0 flex-1 grow flex-col overflow-y-auto"
+				>
 					{#each enabledTools as enabledCatalogItem (enabledCatalogItem.tool.id)}
 						<div transition:fly={{ x: 250, duration: 300 }}>
 							{@render catalogItem(enabledCatalogItem, true)}
 						</div>
 					{/each}
 					{#if enabledTools.length === 0}
-						<p
-							class="px-4 py-2 text-sm font-light text-gray-500"
-							transition:fade={{
-								delay: enabledTools.length > 0 ? 0 : 300,
-								duration: enabledTools.length > 0 ? 0 : 300
-							}}
-						>
-							No tools for this thread have been enabled.
-						</p>
+						<p class="p-4 text-sm text-gray-500">No tools selected.</p>
 					{/if}
 				</div>
+				{@render readOnlyTools()}
 			</div>
 		{/if}
 
-		<!-- Directional Bar -->
+		<!-- Mobile Directional Bar -->
 		{#if responsive.isMobile && !showAvailableTools}
 			<button
 				transition:fly={showAvailableTools
@@ -291,26 +312,13 @@
 			>
 				<ChevronsRight class="size-6 text-black dark:text-white" />
 			</button>
-		{:else if !responsive.isMobile}
-			<div
-				class="h-inherit bg-surface1 dark:border-surface2 mx-2 flex min-h-0 w-8 flex-col items-center justify-center gap-2 rounded-sm border-x border-white px-2"
-			>
-				<div class="flex flex-col">
-					<ChevronsRight
-						class={twMerge('size-6 text-gray-500', direction === 'right' && 'text-blue')}
-					/>
-					<ChevronsLeft
-						class={twMerge('size-6 text-gray-500', direction === 'left' && 'text-blue')}
-					/>
-				</div>
-			</div>
 		{/if}
 
 		<!-- Unselected Tools Column -->
 		{#if !responsive.isMobile || (responsive.isMobile && showAvailableTools)}
 			{@const disabledTools = getDisabledTools()}
 			<div
-				class="border-surface2 dark:border-surface1 flex flex-1 rounded-sm border-2"
+				class="border-surface2 dark:border-surface1 flex flex-1 md:rounded-md md:border-2"
 				transition:fly={showAvailableTools
 					? { x: 250, duration: 300, delay: 300 }
 					: { x: 250, duration: 300, delay: 0 }}
@@ -351,6 +359,26 @@
 	</div>
 </div>
 
+{#snippet readOnlyTools()}
+	{#if builtInTools.length > 0}
+		<CollapsePane
+			classes={{
+				content:
+					'default-scrollbar-thin flex min-h-0 flex-col overflow-y-auto p-0 pr-2 bg-surface1',
+				header: 'border-t-2 border-surface1 px-5',
+				root: 'min-h-0'
+			}}
+		>
+			{#snippet header()}
+				<span class="grow text-left text-sm font-medium">Built-in Tools</span>
+			{/snippet}
+			{#each builtInTools as builtInTool (builtInTool.tool.id)}
+				{@render catalogItem(builtInTool, true, true)}
+			{/each}
+		</CollapsePane>
+	{/if}
+{/snippet}
+
 {#snippet toolInfo(tool: ToolReference, headerLabel?: string)}
 	{#if tool.metadata?.icon}
 		<img
@@ -374,18 +402,21 @@
 	</span>
 {/snippet}
 
-{#snippet catalogItem(item: ToolCatalog[0], toggleValue: boolean)}
+{#snippet catalogItem(item: ToolCatalog[0], toggleValue: boolean, readOnly?: boolean)}
 	{@const { tool, bundleTools, total: subtoolsTotal } = item}
 	<CollapsePane
 		showDropdown={bundleTools && bundleTools.length > 0}
 		classes={{
-			header: 'group py-0 pl-0 pr-3 hover:bg-surface2 dark:hover:bg-surface3',
-			content: 'border-none p-0 bg-surface2 shadow-none'
+			header: twMerge(
+				'group py-0 pl-0 pr-3 ',
+				!readOnly && 'hover:bg-surface2 dark:hover:bg-surface3'
+			),
+			content: 'border-none p-0 bg-surface1 shadow-none'
 		}}
 	>
 		{#if bundleTools && bundleTools.length > 0}
 			{#each bundleTools as subTool (subTool.id)}
-				{@render subToolItem(subTool, item)}
+				{@render subToolItem(subTool, item, toggleValue, readOnly)}
 			{/each}
 		{/if}
 
@@ -404,26 +435,27 @@
 						toggleTool(tool.id, true);
 					}
 				}}
-				onmouseenter={() => (direction = toggleValue ? 'right' : 'left')}
-				onmouseleave={() => (direction = null)}
-				class="flex grow items-center justify-between gap-2 rounded-lg p-2 px-4"
+				class="flex grow items-center justify-between gap-2 rounded-lg p-2 px-4 disabled:cursor-not-allowed"
+				disabled={readOnly}
 			>
 				{#if !toggleValue}
 					<div
-						class="-mr-1 -ml-2 w-0 opacity-0 transition-all duration-200 group-hover:w-8 group-hover:opacity-100"
+						class="w-0 -translate-x-2 opacity-0 transition-all duration-200 group-hover:w-8 group-hover:opacity-100"
 					>
 						{@render chevronAction(toggleValue)}
 					</div>
 				{/if}
-				{@render toolInfo(
-					tool,
-					subToolsSelectedCount !== total ? `${subToolsSelectedCount}/${total}` : undefined
-				)}
+				<div class="flex grow items-center" class:-translate-x-3={!toggleValue}>
+					{@render toolInfo(
+						tool,
+						subToolsSelectedCount !== total ? `${subToolsSelectedCount}/${total}` : undefined
+					)}
+				</div>
 			</button>
 		{/snippet}
 
 		{#snippet endContent()}
-			{#if toggleValue}
+			{#if toggleValue && !readOnly}
 				<div
 					class="w-0 opacity-0 transition-all duration-200 group-hover:w-8 group-hover:opacity-100"
 				>
@@ -442,27 +474,34 @@
 		)}
 	>
 		{#if isEnabled}
-			<ChevronsRight class="text-blue/65 animate-bounce-x size-8" />
+			<ChevronsRight class="text-blue/65 animate-bounce-x size-6" />
 		{:else}
-			<ChevronsLeft class="text-blue/65 animate-bounce-x size-8" />
+			<ChevronsLeft class="text-blue/65 animate-bounce-x size-6" />
 		{/if}
 	</span>
 {/snippet}
 
-{#snippet subToolItem(toolReference: ToolReference, parent: ToolCatalog[0])}
+{#snippet subToolItem(
+	toolReference: ToolReference,
+	parent: ToolCatalog[0],
+	toggleValue: boolean,
+	readOnly?: boolean
+)}
 	{@const isEnabled =
 		(parent.tool.id && toolSelection[parent.tool.id]?.enabled) ||
 		toolSelection[toolReference.id]?.enabled}
 	<button
-		transition:fly={isEnabled ? { x: 250, duration: 300 } : { x: -250, duration: 300 }}
+		transition:fly={toggleValue ? { x: 250, duration: 300 } : { x: -250, duration: 300 }}
 		onclick={() => {
 			toggleTool(toolReference.id, !isEnabled, parent);
 		}}
-		class="dark:bg-surface2 group hover:bg-surface2 dark:hover:bg-surface3 flex grow items-center gap-2 bg-white p-2 px-4 transition-opacity duration-200"
-		onmouseenter={() => (direction = isEnabled ? 'right' : 'left')}
-		onmouseleave={() => (direction = null)}
+		class={twMerge(
+			'group flex grow items-center gap-2 p-2 px-4 transition-opacity duration-200',
+			readOnly && 'cursor-not-allowed',
+			!readOnly && 'dark:bg-surface2 hover:bg-surface2 dark:hover:bg-surface3 bg-white'
+		)}
 	>
-		{#if !isEnabled}
+		{#if !isEnabled && !readOnly}
 			<div
 				class="-mr-1 -ml-2 w-0 opacity-0 transition-all duration-200 group-hover:w-8 group-hover:opacity-100"
 			>
@@ -470,7 +509,7 @@
 			</div>
 		{/if}
 		{@render toolInfo(toolReference)}
-		{#if isEnabled}
+		{#if isEnabled && !readOnly}
 			{@render chevronAction(isEnabled, 'translate-x-3')}
 		{/if}
 	</button>
