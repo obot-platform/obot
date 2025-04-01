@@ -142,7 +142,7 @@
 
 {#snippet ProjectItem(p: Project, isEditable = false)}
 	<a
-		href="/o/{p.id}?sidebar=true{isEditable ? '&edit' : ''}"
+		href="/o/{p.id}{isEditable ? '?edit' : ''}"
 		rel="external"
 		class="hover:bg-surface3 flex items-center gap-2 rounded-3xl p-2"
 	>
