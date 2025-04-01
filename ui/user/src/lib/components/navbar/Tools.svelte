@@ -18,9 +18,11 @@
 			return;
 		}
 
-		await ChatService.updateProjectThreadTools(project.assistantID, project.id, currentThreadID, {
-			items: newTools
-		});
+		tools = (
+			await ChatService.updateProjectThreadTools(project.assistantID, project.id, currentThreadID, {
+				items: newTools
+			})
+		).items;
 	}
 
 	async function fetchThreadTools() {
