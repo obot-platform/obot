@@ -73,7 +73,7 @@
 
 	function initialLayout() {
 		initLayout({
-			sidebarOpen: qIsSet('sidebar'),
+			sidebarOpen: !qIsSet('edit'),
 			projectEditorOpen: qIsSet('edit'),
 			items: []
 		});

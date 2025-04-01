@@ -163,6 +163,14 @@
 		const threads = (await ChatService.listThreads(project.assistantID, project.id)).items;
 		layout.threads = threads.filter((t) => !t.deleted && !t.taskID);
 		layout.taskRuns = threads.filter((t) => !t.deleted && !!t.taskID);
+
+		if (layout.threads?.length && !currentThreadID) {
+			selectThread(layout.threads[0].id);
+		}
+
+		if (!layout.threads?.length && !currentThreadID) {
+			createThread();
+		}
 	}
 
 	async function open() {

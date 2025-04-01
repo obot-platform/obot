@@ -13,7 +13,7 @@
 		X
 	} from 'lucide-svelte';
 	import { onMount } from 'svelte';
-	import { fly } from 'svelte/transition';
+	import { fade, fly } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
@@ -268,7 +268,7 @@
 							{@render searchResult(result)}
 						{/each}
 						{#if getSearchResults().length === 0 && search}
-							<p class="px-4 py-2 text-sm text-gray-500">No results found</p>
+							<p class="px-4 py-2 text-sm font-light text-gray-500">No results found.</p>
 						{/if}
 					</div>
 				</div>
@@ -278,6 +278,7 @@
 	<div class="flex min-h-0 w-full grow items-stretch px-4">
 		<!-- Selected Tools Column -->
 		{#if !responsive.isMobile || (responsive.isMobile && !showAvailableTools)}
+			{@const enabledTools = getEnabledTools()}
 			<div
 				class="border-surface2 dark:border-surface1 flex flex-1 flex-col rounded-sm border-2"
 				transition:fly={showAvailableTools
@@ -286,11 +287,22 @@
 			>
 				<h4 class="bg-surface1 flex px-4 py-2 text-base font-semibold">Selected Tools</h4>
 				<div class="default-scrollbar-thin h-inherit flex min-h-0 flex-1 flex-col overflow-y-auto">
-					{#each getEnabledTools() as enabledCatalogItem (enabledCatalogItem.tool.id)}
+					{#each enabledTools as enabledCatalogItem (enabledCatalogItem.tool.id)}
 						<div transition:fly={{ x: 250, duration: 300 }}>
 							{@render catalogItem(enabledCatalogItem, true)}
 						</div>
 					{/each}
+					{#if enabledTools.length === 0}
+						<p
+							class="px-4 py-2 text-sm font-light text-gray-500"
+							transition:fade={{
+								delay: enabledTools.length > 0 ? 0 : 300,
+								duration: enabledTools.length > 0 ? 0 : 300
+							}}
+						>
+							No tools for this thread have been enabled.
+						</p>
+					{/if}
 				</div>
 			</div>
 		{/if}
@@ -310,27 +322,20 @@
 			<div
 				class="h-inherit bg-surface1 dark:border-surface2 mx-2 flex min-h-0 w-8 flex-col items-center justify-center gap-2 rounded-sm border-x border-white px-2"
 			>
-				{#if !direction}
-					<div class="flex flex-col">
-						<ChevronsRight class="size-6 text-gray-500" />
-						<ChevronsLeft class="size-6 text-gray-500" />
-					</div>
-				{:else if direction === 'right'}
-					<div>
-						<ChevronsRight class="text-blue size-6" />
-						<ChevronsLeft class="size-6 text-gray-500" />
-					</div>
-				{:else if direction === 'left'}
-					<div>
-						<ChevronsRight class="size-6 text-gray-500" />
-						<ChevronsLeft class="text-blue size-6" />
-					</div>
-				{/if}
+				<div class="flex flex-col">
+					<ChevronsRight
+						class={twMerge('size-6 text-gray-500', direction === 'right' && 'text-blue')}
+					/>
+					<ChevronsLeft
+						class={twMerge('size-6 text-gray-500', direction === 'left' && 'text-blue')}
+					/>
+				</div>
 			</div>
 		{/if}
 
 		<!-- Unselected Tools Column -->
 		{#if !responsive.isMobile || (responsive.isMobile && showAvailableTools)}
+			{@const disabledTools = getDisabledTools()}
 			<div
 				class="border-surface2 dark:border-surface1 flex flex-1 rounded-sm border-2"
 				transition:fly={showAvailableTools
@@ -342,7 +347,7 @@
 					<div
 						class="default-scrollbar-thin h-inherit flex min-h-0 flex-1 flex-col overflow-y-auto"
 					>
-						{#each getDisabledTools() as disabledCatalogItem (disabledCatalogItem.tool.id)}
+						{#each disabledTools as disabledCatalogItem (disabledCatalogItem.tool.id)}
 							<div transition:fly={{ x: -250, duration: 300 }}>
 								{@render catalogItem(disabledCatalogItem, false)}
 							</div>
