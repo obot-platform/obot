@@ -16,16 +16,14 @@ import (
 var log = logger.Package()
 
 const (
-	AuditLogsModeOff  = "off"
-	AuditLogsModeDisk = "disk"
-	AuditLogsModeS3   = "s3"
+	ModeOff  = "off"
+	ModeDisk = "disk"
+	ModeS3   = "s3"
 )
 
 type LogEntry struct {
 	Time         time.Time `json:"time"`
 	UserID       string    `json:"userID"`
-	Username     string    `json:"username"`
-	UserEmail    string    `json:"userEmail"`
 	Method       string    `json:"method"`
 	Path         string    `json:"path"`
 	UserAgent    string    `json:"userAgent"`
@@ -61,7 +59,7 @@ type persistentLogger struct {
 }
 
 func New(ctx context.Context, options Options) (Logger, error) {
-	if options.AuditLogsMode == AuditLogsModeOff {
+	if options.AuditLogsMode == ModeOff {
 		return (*noOpLogger)(nil), nil
 	}
 
@@ -74,12 +72,12 @@ func New(ctx context.Context, options Options) (Logger, error) {
 
 	var s store.Store
 	switch options.AuditLogsMode {
-	case AuditLogsModeDisk:
+	case ModeDisk:
 		s, err = store.NewDiskStore(host, options.AuditLogsCompressFile, options.DiskStoreOptions)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create audit log store: %w", err)
 		}
-	case AuditLogsModeS3:
+	case ModeS3:
 		s, err = store.NewS3Store(host, options.AuditLogsCompressFile, options.S3StoreOptions)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create audit log store: %w", err)

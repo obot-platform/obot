@@ -88,8 +88,6 @@ func (s *Server) wrap(f api.HandlerFunc) http.HandlerFunc {
 				auditEntry: audit.LogEntry{
 					Time:      time.Now(),
 					UserID:    user.GetUID(),
-					Username:  user.GetName(),
-					UserEmail: firstValue(user.GetExtra(), "email"),
 					Method:    req.Method,
 					Path:      req.URL.Path,
 					UserAgent: req.UserAgent(),
@@ -195,12 +193,4 @@ func getSourceIP(req *http.Request) string {
 
 	// Fall back to RemoteAddr
 	return req.RemoteAddr
-}
-
-func firstValue(m map[string][]string, key string) string {
-	values := m[key]
-	if len(values) == 0 {
-		return ""
-	}
-	return values[0]
 }
