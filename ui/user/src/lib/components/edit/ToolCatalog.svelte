@@ -379,7 +379,7 @@
 	<CollapsePane
 		showDropdown={bundleTools && bundleTools.length > 0}
 		classes={{
-			header: 'py-0 pl-0 pr-3 hover:bg-surface2 dark:hover:bg-surface3',
+			header: 'group py-0 pl-0 pr-3 hover:bg-surface2 dark:hover:bg-surface3',
 			content: 'border-none p-0 bg-surface2 shadow-none'
 		}}
 	>
@@ -406,14 +406,30 @@
 				}}
 				onmouseenter={() => (direction = toggleValue ? 'right' : 'left')}
 				onmouseleave={() => (direction = null)}
-				class="group flex grow items-center justify-between gap-2 rounded-lg p-2 px-4"
+				class="flex grow items-center justify-between gap-2 rounded-lg p-2 px-4"
 			>
+				{#if !toggleValue}
+					<div
+						class="-mr-1 -ml-2 w-0 opacity-0 transition-all duration-200 group-hover:w-8 group-hover:opacity-100"
+					>
+						{@render chevronAction(toggleValue)}
+					</div>
+				{/if}
 				{@render toolInfo(
 					tool,
 					subToolsSelectedCount !== total ? `${subToolsSelectedCount}/${total}` : undefined
 				)}
-				{@render chevronAction(toggleValue, 'translate-x-6')}
 			</button>
+		{/snippet}
+
+		{#snippet endContent()}
+			{#if toggleValue}
+				<div
+					class="w-0 opacity-0 transition-all duration-200 group-hover:w-8 group-hover:opacity-100"
+				>
+					{@render chevronAction(toggleValue, 'translate-x-2')}
+				</div>
+			{/if}
 		{/snippet}
 	</CollapsePane>
 {/snippet}
@@ -426,9 +442,9 @@
 		)}
 	>
 		{#if isEnabled}
-			<ChevronsRight class="text-blue animate-bounce-x size-10" />
+			<ChevronsRight class="text-blue/65 animate-bounce-x size-8" />
 		{:else}
-			<ChevronsLeft class="text-blue animate-bounce-x size-10" />
+			<ChevronsLeft class="text-blue/65 animate-bounce-x size-8" />
 		{/if}
 	</span>
 {/snippet}
@@ -446,8 +462,17 @@
 		onmouseenter={() => (direction = isEnabled ? 'right' : 'left')}
 		onmouseleave={() => (direction = null)}
 	>
+		{#if !isEnabled}
+			<div
+				class="-mr-1 -ml-2 w-0 opacity-0 transition-all duration-200 group-hover:w-8 group-hover:opacity-100"
+			>
+				{@render chevronAction(isEnabled)}
+			</div>
+		{/if}
 		{@render toolInfo(toolReference)}
-		{@render chevronAction(isEnabled)}
+		{#if isEnabled}
+			{@render chevronAction(isEnabled, 'translate-x-3')}
+		{/if}
 	</button>
 {/snippet}
 
@@ -546,7 +571,7 @@
 	@keyframes bounce-x {
 		0%,
 		100% {
-			transform: translateX(-25%);
+			transform: translateX(-20%);
 		}
 		50% {
 			transform: translateX(0);

@@ -5,6 +5,7 @@
 	import { slide } from 'svelte/transition';
 
 	interface Props {
+		endContent?: Snippet;
 		header: string | Snippet;
 		children: Snippet;
 		open?: boolean;
@@ -21,6 +22,7 @@
 
 	let {
 		header,
+		endContent,
 		children,
 		open = $bindable(false),
 		onOpen,
@@ -52,6 +54,9 @@
 				<span class:rotate-180={open} class="transition-transform duration-200">
 					<ChevronDown />
 				</span>
+			{/if}
+			{#if endContent}
+				{@render endContent()}
 			{/if}
 		</button>
 	{/if}
