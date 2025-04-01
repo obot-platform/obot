@@ -245,34 +245,7 @@
 			{:else}
 				{@render searchInput()}
 			{/if}
-			<dialog
-				bind:this={searchPopover}
-				class="default-scrollbar-thin absolute top-0 left-0 z-10 h-full w-full rounded-sm md:top-11 md:h-[50vh] md:w-[calc(100%-1rem)] md:overflow-y-auto"
-				class:hidden={!responsive.isMobile && !search}
-			>
-				<div class="flex h-full flex-col">
-					{#if responsive.isMobile}
-						<div class="flex w-full justify-between gap-2 p-4">
-							<div class="flex grow">
-								{@render searchInput()}
-							</div>
-							<div class="flex flex-shrink-0">
-								<button class="icon-button" onclick={() => searchPopover?.close()}>
-									<ChevronRight class="size-6" />
-								</button>
-							</div>
-						</div>
-					{/if}
-					<div class="default-scrollbar-thin flex min-h-0 grow flex-col overflow-y-auto">
-						{#each getSearchResults() as result}
-							{@render searchResult(result)}
-						{/each}
-						{#if getSearchResults().length === 0 && search}
-							<p class="px-4 py-2 text-sm font-light text-gray-500">No results found.</p>
-						{/if}
-					</div>
-				</div>
-			</dialog>
+			{@render searchDialog()}
 		</div>
 	</div>
 	<div class="flex min-h-0 w-full grow items-stretch px-4">
@@ -476,6 +449,37 @@
 		{@render toolInfo(toolReference)}
 		{@render chevronAction(isEnabled)}
 	</button>
+{/snippet}
+
+{#snippet searchDialog()}
+	<dialog
+		bind:this={searchPopover}
+		class="default-scrollbar-thin absolute top-0 left-0 z-10 h-full w-full rounded-sm md:top-11 md:h-[50vh] md:w-[calc(100%-1rem)] md:overflow-y-auto"
+		class:hidden={!responsive.isMobile && !search}
+	>
+		<div class="flex h-full flex-col">
+			{#if responsive.isMobile}
+				<div class="flex w-full justify-between gap-2 p-4">
+					<div class="flex grow">
+						{@render searchInput()}
+					</div>
+					<div class="flex flex-shrink-0">
+						<button class="icon-button" onclick={() => searchPopover?.close()}>
+							<ChevronRight class="size-6" />
+						</button>
+					</div>
+				</div>
+			{/if}
+			<div class="default-scrollbar-thin flex min-h-0 grow flex-col overflow-y-auto">
+				{#each getSearchResults() as result}
+					{@render searchResult(result)}
+				{/each}
+				{#if getSearchResults().length === 0 && search}
+					<p class="px-4 py-2 text-sm font-light text-gray-500">No results found.</p>
+				{/if}
+			</div>
+		</div>
+	</dialog>
 {/snippet}
 
 {#snippet searchInput()}
