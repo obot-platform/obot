@@ -3,9 +3,12 @@ kind: EncryptionConfiguration
 resources:
   - resources:
       - credentials
+      - runstates.obot.obot.ai
     providers:
       - kms:
           apiVersion: v2
           name: aws-kms
           endpoint: unix:///tmp/aws-cred-socket.sock
           timeout: 3s
+      - identity: {} # this fallback allows reading unencrypted secrets;
+        # for example, during initial migration

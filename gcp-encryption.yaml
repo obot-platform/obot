@@ -3,8 +3,11 @@ kind: EncryptionConfiguration
 resources:
   - resources:
       - credentials
+      - runstates.obot.obot.ai
     providers:
       - kms:
           apiVersion: v2
           name: google-cloud-kms
           endpoint: unix:///tmp/gcp-cred-socket.sock
+      - identity: {} # this fallback allows reading unencrypted secrets;
+        # for example, during initial migration
