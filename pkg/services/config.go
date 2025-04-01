@@ -61,9 +61,9 @@ import (
 )
 
 type (
-	GatewayConfig gserver.Options
-	GeminiConfig  gemini.Config
-	AuditConfig   audit.Options
+	GatewayConfig    gserver.Options
+	GeminiConfig     gemini.Config
+	AuditConfig      audit.Options
 	EncryptionConfig encryption.Options
 )
 
@@ -95,9 +95,9 @@ type Config struct {
 	GeminiConfig
 	GatewayConfig
 	EncryptionConfig
-	services.Config
 	OtelOptions
 	AuditConfig
+	services.Config
 }
 
 type Services struct {
