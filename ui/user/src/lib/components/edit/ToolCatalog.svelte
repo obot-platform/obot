@@ -24,7 +24,11 @@
 		title?: string;
 	}
 
-	type ToolCatalog = { tool: ToolReference; bundleTools: ToolReference[] | undefined }[];
+	type ToolCatalog = {
+		tool: ToolReference;
+		bundleTools: ToolReference[] | undefined;
+		total?: number;
+	}[];
 
 	let { onSelectTools, onSubmit, tools, maxTools, title = 'Your Tools' }: Props = $props();
 
@@ -34,6 +38,20 @@
 	let searchContainer = $state<HTMLDivElement>();
 	let direction = $state<'left' | 'right' | null>(null);
 	let showAvailableTools = $state(true);
+	let toolSelection = $state<Record<string, AssistantTool>>({});
+	let maxExceeded = $state(false);
+
+	function getSelectionMap() {
+		return tools
+			.filter((t) => !t.builtin)
+			.reduce<Record<string, AssistantTool>>((acc, tool) => {
+				acc[tool.id] = { ...tool };
+				return acc;
+			}, {});
+	}
+	$effect(() => {
+		toolSelection = getSelectionMap();
+	});
 
 	$effect(() => {
 		if (responsive.isMobile) {
@@ -71,29 +89,28 @@
 		};
 	});
 
-	const bundleMap = getToolBundleMap();
-
-	function getSelectionMap() {
-		return tools
-			.filter((t) => !t.builtin)
-			.reduce<Record<string, AssistantTool>>((acc, tool) => {
-				acc[tool.id] = { ...tool };
-				return acc;
-			}, {});
-	}
-
-	let toolSelection = $state<Record<string, AssistantTool>>({});
-	let maxExceeded = $state(false);
-
-	$effect(() => {
-		toolSelection = getSelectionMap();
+	const bundles: ToolCatalog = $derived.by(() => {
+		if (toolSelection) {
+			return Array.from(getToolBundleMap().values()).reduce<ToolCatalog>(
+				(acc, { tool, bundleTools }) => {
+					if (!toolSelection[tool.id]) return acc;
+					acc.push({
+						tool,
+						bundleTools: bundleTools?.filter((subtool) => toolSelection[subtool.id])
+					});
+					return acc;
+				},
+				[]
+			);
+		}
+		return [];
 	});
 
 	function getSearchResults() {
 		if (!search) return [];
 
-		return Array.from(bundleMap.values()).reduce<ToolCatalog>((acc, { tool, bundleTools }) => {
-			if (!toolSelection[tool.id] || !tool) return acc;
+		return bundles.reduce<ToolCatalog>((acc, { tool, bundleTools }) => {
+			if (!tool) return acc;
 
 			const subToolMatches =
 				bundleTools?.filter((subtool) =>
@@ -120,20 +137,20 @@
 	}
 
 	function getEnabledTools() {
-		return Array.from(bundleMap.values()).reduce<ToolCatalog>((acc, { tool, bundleTools }) => {
-			if (!toolSelection[tool.id] || !tool) return acc;
+		return bundles.reduce<ToolCatalog>((acc, { tool, bundleTools }) => {
+			if (!tool) return acc;
 			if (bundleTools) {
 				const bundleEnabled = toolSelection[tool.id]?.enabled;
-				const someEnabled = bundleTools.some((t) => toolSelection[t.id]?.enabled);
-				if (!bundleEnabled && !someEnabled) return acc;
+				const total = bundleTools.length;
+				const enabledSubtools = bundleTools.filter((t) => toolSelection[t.id].enabled);
+				if (!bundleEnabled && !enabledSubtools.length) return acc;
 
 				acc.push({
 					tool,
-					bundleTools: bundleEnabled
-						? bundleTools
-						: bundleTools.filter((t) => toolSelection[t.id]?.enabled)
+					bundleTools: bundleEnabled ? bundleTools : enabledSubtools,
+					total
 				});
-			} else if (toolSelection[tool.id]?.enabled) {
+			} else if (toolSelection[tool.id].enabled) {
 				acc.push({ tool, bundleTools: undefined });
 			}
 
@@ -142,17 +159,16 @@
 	}
 
 	function getDisabledTools() {
-		return Array.from(bundleMap.values()).reduce<ToolCatalog>((acc, { tool, bundleTools }) => {
-			if (!toolSelection[tool.id] || !tool) return acc;
+		return bundles.reduce<ToolCatalog>((acc, { tool, bundleTools }) => {
+			if (!tool) return acc;
 			if (bundleTools) {
-				const bundleEnabled = toolSelection[tool.id]?.enabled;
+				const bundleEnabled = toolSelection[tool.id].enabled;
 				if (bundleEnabled) return acc;
 
-				const hasDisabled = bundleTools.some((t) => !toolSelection[t.id]?.enabled);
-				if (hasDisabled) {
-					acc.push({ tool, bundleTools: bundleTools.filter((t) => !toolSelection[t.id]?.enabled) });
-				}
-			} else if (!toolSelection[tool.id]?.enabled) {
+				const total = bundleTools.length;
+				const disabledSubtools = bundleTools.filter((t) => !toolSelection[t.id].enabled);
+				acc.push({ tool, bundleTools: disabledSubtools, total });
+			} else if (!toolSelection[tool.id].enabled) {
 				acc.push({ tool, bundleTools: undefined });
 			}
 
@@ -164,16 +180,8 @@
 		maxExceeded = Object.values(toolSelection).filter((t) => t.enabled).length > maxTools;
 	}
 
-	function toggleBundle(toolBundleId: string, val: boolean) {
-		const toolItem = bundleMap.get(toolBundleId);
-
-		if (!toolItem) return;
-
-		const subtools = toolItem.bundleTools ?? [];
-		console.log('subtools', subtools);
-		console.log(toolSelection[toolBundleId]);
-
-		for (const subtool of subtools) {
+	function toggleBundle(toolBundleId: string, val: boolean, bundleTools: ToolReference[]) {
+		for (const subtool of bundleTools) {
 			toolSelection[subtool.id].enabled = false;
 		}
 
@@ -181,35 +189,36 @@
 		checkMaxExceeded();
 	}
 
-	function toggleTool(toolId: string, val: boolean, parentBundleId?: string) {
-		if (parentBundleId && toolSelection[parentBundleId]?.enabled) {
+	function toggleTool(toolId: string, val: boolean, parent?: ToolCatalog[0]) {
+		toolSelection[toolId].enabled = val;
+
+		const parentBundleId = parent?.tool.id;
+		if (parentBundleId && toolSelection[parentBundleId]?.enabled && !val) {
 			// If parent bundle is enabled and we're turning off a subtool,
 			// parent bundle is no longer enabled, but subtools other than the one
 			// being turned off are enabled
 
 			toolSelection[parentBundleId].enabled = false;
-			const subtools = bundleMap.get(parentBundleId)?.bundleTools ?? [];
-			for (const subtool of subtools) {
-				toolSelection[subtool.id].enabled = true;
+			for (const subtool of parent?.bundleTools ?? []) {
+				if (subtool.id !== toolId) {
+					toolSelection[subtool.id].enabled = true;
+				}
 			}
-			toolSelection[toolId].enabled = false;
 			return;
 		}
 
-		if (parentBundleId && val) {
-			// If we're turning on a subtool, check if we've selected all subtools
-			const subtools = bundleMap.get(parentBundleId)?.bundleTools ?? [];
-			const allSubtoolsEnabled = subtools.every((t) => toolSelection[t.id]?.enabled);
-			if (allSubtoolsEnabled) {
-				toolSelection[parentBundleId].enabled = true;
-				for (const subtool of subtools) {
+		if (parentBundleId && val && (parent?.bundleTools ?? []).length === 1) {
+			// If this is the last item in the bundle that is being enabled,
+			// enable the parent bundle
+			toolSelection[parentBundleId].enabled = true;
+			const bundleTools = bundles.find((b) => b.tool.id === parentBundleId)?.bundleTools;
+			if (bundleTools) {
+				for (const subtool of bundleTools) {
 					toolSelection[subtool.id].enabled = false;
 				}
-				return;
 			}
 		}
 
-		toolSelection[toolId].enabled = val;
 		checkMaxExceeded();
 	}
 </script>
@@ -277,9 +286,9 @@
 			>
 				<h4 class="bg-surface1 flex px-4 py-2 text-base font-semibold">Selected Tools</h4>
 				<div class="default-scrollbar-thin h-inherit flex min-h-0 flex-1 flex-col overflow-y-auto">
-					{#each getEnabledTools() as { tool, bundleTools } (tool.id)}
+					{#each getEnabledTools() as enabledCatalogItem (enabledCatalogItem.tool.id)}
 						<div transition:fly={{ x: 250, duration: 300 }}>
-							{@render toolItem(tool, bundleTools, true)}
+							{@render catalogItem(enabledCatalogItem, true)}
 						</div>
 					{/each}
 				</div>
@@ -333,9 +342,9 @@
 					<div
 						class="default-scrollbar-thin h-inherit flex min-h-0 flex-1 flex-col overflow-y-auto"
 					>
-						{#each getDisabledTools() as { tool, bundleTools } (tool.id)}
+						{#each getDisabledTools() as disabledCatalogItem (disabledCatalogItem.tool.id)}
 							<div transition:fly={{ x: -250, duration: 300 }}>
-								{@render toolItem(tool, bundleTools, false)}
+								{@render catalogItem(disabledCatalogItem, false)}
 							</div>
 						{/each}
 					</div>
@@ -387,11 +396,8 @@
 	</span>
 {/snippet}
 
-{#snippet toolItem(
-	tool: ToolReference,
-	bundleTools: ToolReference[] | undefined,
-	toggleValue: boolean
-)}
+{#snippet catalogItem(item: ToolCatalog[0], toggleValue: boolean)}
+	{@const { tool, bundleTools, total: subtoolsTotal } = item}
 	<CollapsePane
 		showDropdown={bundleTools && bundleTools.length > 0}
 		classes={{
@@ -401,21 +407,21 @@
 	>
 		{#if bundleTools && bundleTools.length > 0}
 			{#each bundleTools as subTool (subTool.id)}
-				{@render subToolItem(subTool, tool.id)}
+				{@render subToolItem(subTool, item)}
 			{/each}
 		{/if}
 
 		{#snippet header()}
 			{@const isEnabled = toolSelection[tool.id]?.enabled}
-			{@const total = bundleMap.get(tool.id)?.bundleTools?.length ?? 0}
+			{@const total = subtoolsTotal ?? 0}
 			{@const subToolsSelectedCount = isEnabled ? total : (bundleTools?.length ?? 0)}
 
 			<button
 				onclick={(e) => {
 					e.stopPropagation();
 
-					if (bundleTools && bundleTools.length > 0) {
-						toggleBundle(tool.id, !toggleValue);
+					if (bundleTools) {
+						toggleBundle(tool.id, !toggleValue, bundleTools);
 					} else {
 						toggleTool(tool.id, true);
 					}
@@ -449,13 +455,14 @@
 	</span>
 {/snippet}
 
-{#snippet subToolItem(toolReference: ToolReference, parentBundleId?: string)}
+{#snippet subToolItem(toolReference: ToolReference, parent: ToolCatalog[0])}
 	{@const isEnabled =
-		(parentBundleId && toolSelection[parentBundleId]?.enabled) ||
+		(parent.tool.id && toolSelection[parent.tool.id]?.enabled) ||
 		toolSelection[toolReference.id]?.enabled}
 	<button
+		transition:fly={isEnabled ? { x: 250, duration: 300 } : { x: -250, duration: 300 }}
 		onclick={() => {
-			toggleTool(toolReference.id, !toolSelection[toolReference.id]?.enabled, parentBundleId);
+			toggleTool(toolReference.id, !isEnabled, parent);
 		}}
 		class="dark:bg-surface2 group hover:bg-surface2 dark:hover:bg-surface3 flex grow items-center gap-2 bg-white p-2 px-4 transition-opacity duration-200"
 		onmouseenter={() => (direction = isEnabled ? 'right' : 'left')}
@@ -481,16 +488,16 @@
 	/>
 {/snippet}
 
-{#snippet searchResult({ tool, bundleTools }: ToolCatalog[0])}
+{#snippet searchResult({ tool, bundleTools, total }: ToolCatalog[0])}
 	{@const val = toolSelection[tool.id]?.enabled}
 	<button
 		class="hover:bg-surface2 dark:hover:bg-surface3 flex w-full px-4 py-2"
 		onclick={(e) => {
 			e.stopPropagation();
 			if (bundleTools && bundleTools.length > 0) {
-				toggleBundle(tool.id, !val);
+				toggleBundle(tool.id, !val, bundleTools);
 			} else {
-				toggleTool(tool.id, !val);
+				toggleTool(tool.id, !val, { tool, bundleTools, total });
 			}
 		}}
 	>
@@ -508,7 +515,7 @@
 				class="hover:bg-surface2 dark:hover:bg-surface3 flex w-full px-4 py-2"
 				onclick={(e) => {
 					e.stopPropagation();
-					toggleTool(subTool.id, val ? false : !subToolVal, tool.id);
+					toggleTool(subTool.id, val ? false : !subToolVal, { tool, bundleTools });
 				}}
 			>
 				{@render toolInfo(subTool)}
