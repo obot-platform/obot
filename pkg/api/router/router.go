@@ -28,7 +28,7 @@ func Router(services *services.Services) (http.Handler, error) {
 	models := handlers.NewModelHandler()
 	availableModels := handlers.NewAvailableModelsHandler(services.GPTClient, services.ProviderDispatcher)
 	modelProviders := handlers.NewModelProviderHandler(services.GPTClient, services.ProviderDispatcher, services.Invoker)
-	authProviders := handlers.NewAuthProviderHandler(services.GPTClient, services.ProviderDispatcher)
+	authProviders := handlers.NewAuthProviderHandler(services.GPTClient, services.ProviderDispatcher, services.PostgresDSN)
 	prompt := handlers.NewPromptHandler(services.GPTClient)
 	emailReceiver := handlers.NewEmailReceiverHandler(services.EmailServerName)
 	defaultModelAliases := handlers.NewDefaultModelAliasHandler()

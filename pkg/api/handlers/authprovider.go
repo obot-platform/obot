@@ -15,19 +15,25 @@ import (
 	"github.com/obot-platform/obot/pkg/gateway/server/dispatcher"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
+	"github.com/tidwall/gjson"
+	"gorm.io/driver/postgres"
+	"gorm.io/gorm"
+	"gorm.io/gorm/logger"
 	"k8s.io/apimachinery/pkg/fields"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type AuthProviderHandler struct {
-	gptscript  *gptscript.GPTScript
-	dispatcher *dispatcher.Dispatcher
+	gptscript   *gptscript.GPTScript
+	dispatcher  *dispatcher.Dispatcher
+	postgresDSN string
 }
 
-func NewAuthProviderHandler(gClient *gptscript.GPTScript, dispatcher *dispatcher.Dispatcher) *AuthProviderHandler {
+func NewAuthProviderHandler(gClient *gptscript.GPTScript, dispatcher *dispatcher.Dispatcher, postgresDSN string) *AuthProviderHandler {
 	return &AuthProviderHandler{
-		gptscript:  gClient,
-		dispatcher: dispatcher,
+		gptscript:   gClient,
+		dispatcher:  dispatcher,
+		postgresDSN: postgresDSN,
 	}
 }
 
@@ -143,6 +149,10 @@ func (ap *AuthProviderHandler) Configure(req api.Context) error {
 	}
 	envVars[providers.CookieSecretEnvVar] = cookieSecret
 
+	if ap.postgresDSN != "" {
+		envVars[providers.PostgresConnectionEnvVar] = ap.postgresDSN
+	}
+
 	// Allow for updating credentials. The only way to update a credential is to delete the existing one and recreate it.
 	cred, err := ap.gptscript.RevealCredential(req.Context(), []string{string(ref.UID), system.GenericAuthProviderCredentialContext}, ref.Name)
 	if err != nil {
@@ -219,6 +229,33 @@ func (ap *AuthProviderHandler) Deconfigure(req api.Context) error {
 		ref.Annotations[v1.AuthProviderSyncAnnotation] = "true"
 	} else {
 		delete(ref.Annotations, v1.AuthProviderSyncAnnotation)
+	}
+
+	// Drop the sessions table and session_locks table from the database, if it exists.
+	if ap.postgresDSN != "" {
+		db, err := gorm.Open(postgres.Open(ap.postgresDSN), &gorm.Config{
+			Logger: logger.Default.LogMode(logger.Silent),
+		})
+		if err != nil {
+			return fmt.Errorf("failed to connect to postgres: %w", err)
+		}
+		sqlDB, err := db.DB()
+		if err != nil {
+			return fmt.Errorf("failed to get underlying sql.DB: %w", err)
+		}
+		defer sqlDB.Close()
+
+		if meta, ok := ref.Status.Tool.Metadata["providerMeta"]; ok {
+			tablePrefix := gjson.Get(meta, "postgresTablePrefix").String()
+			if tablePrefix != "" {
+				if err := db.Exec("DROP TABLE IF EXISTS " + tablePrefix + "sessions;").Error; err != nil {
+					return fmt.Errorf("failed to drop sessions table: %w", err)
+				}
+				if err := db.Exec("DROP TABLE IF EXISTS " + tablePrefix + "session_locks;").Error; err != nil {
+					return fmt.Errorf("failed to drop session_locks table: %w", err)
+				}
+			}
+		}
 	}
 
 	return req.Update(&ref)

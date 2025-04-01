@@ -126,6 +126,7 @@ type Services struct {
 	GeminiClient               *gemini.Client
 	Otel                       *Otel
 	AuditLogger                audit.Logger
+	PostgresDSN                string
 
 	// Use basic auth for sendgrid webhook, if being set
 	SendgridWebhookUsername string
@@ -497,6 +498,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		GeminiClient:               geminiClient,
 		Otel:                       otel,
 		AuditLogger:                auditLogger,
+		PostgresDSN:                config.DSN,
 	}, nil
 }
 

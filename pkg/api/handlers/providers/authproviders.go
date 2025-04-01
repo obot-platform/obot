@@ -8,7 +8,10 @@ import (
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 )
 
-const CookieSecretEnvVar = "OBOT_AUTH_PROVIDER_COOKIE_SECRET"
+const (
+	CookieSecretEnvVar       = "OBOT_AUTH_PROVIDER_COOKIE_SECRET"
+	PostgresConnectionEnvVar = "OBOT_AUTH_PROVIDER_POSTGRES_CONNECTION_DSN"
+)
 
 func ConvertAuthProviderToolRef(toolRef v1.ToolReference, cred map[string]string) (*types.AuthProviderStatus, error) {
 	var (
