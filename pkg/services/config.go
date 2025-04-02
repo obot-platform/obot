@@ -461,6 +461,11 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		return nil, fmt.Errorf("failed to create audit logger: %w", err)
 	}
 
+	var postgresDSN string
+	if strings.HasPrefix(config.DSN, "postgres://") {
+		postgresDSN = config.DSN
+	}
+
 	// For now, always auto-migrate the gateway database
 	return &Services{
 		WorkspaceProviderType: config.WorkspaceProviderType,
@@ -498,7 +503,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		GeminiClient:               geminiClient,
 		Otel:                       otel,
 		AuditLogger:                auditLogger,
-		PostgresDSN:                config.DSN,
+		PostgresDSN:                postgresDSN,
 	}, nil
 }
 
