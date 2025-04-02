@@ -13,6 +13,10 @@ export function handleRouteError(e: unknown, path: string, profile?: Profile) {
 		throw error(403, e.message);
 	}
 
+	if (e.message?.includes('401') || e.message?.includes('unauthorized')) {
+		throw redirect(303, `/?rd=${path}`);
+	}
+
 	if (e.message?.includes('404') || e.message?.includes('not found')) {
 		throw error(404, e.message);
 	}

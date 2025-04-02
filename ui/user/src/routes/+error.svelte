@@ -3,12 +3,14 @@
 	import CollapsePane from '$lib/components/edit/CollapsePane.svelte';
 
 	const errorTitles = {
+		401: 'Unauthorized',
 		403: 'Access Denied',
 		404: 'Page Not Found',
 		500: 'Internal Server Error'
 	};
 
 	const defaultMessage = {
+		401: 'You are not logged in.',
 		403: 'You are not allowed to access this page.',
 		404: 'It looks like the page you are trying to access does not exist.',
 		500: 'An error occurred while loading the page.'

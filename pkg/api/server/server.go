@@ -3,6 +3,7 @@ package server
 import (
 	"errors"
 	"net/http"
+	"slices"
 	"strings"
 	"time"
 
@@ -123,7 +124,11 @@ func (s *Server) wrap(f api.HandlerFunc) http.HandlerFunc {
 				})
 			}
 
-			http.Error(rw, "forbidden", http.StatusForbidden)
+			if slices.Contains(user.GetGroups(), authz.UnauthenticatedGroup) {
+				http.Error(rw, "unauthorized", http.StatusUnauthorized)
+			} else {
+				http.Error(rw, "forbidden", http.StatusForbidden)
+			}
 			return
 		}
 
