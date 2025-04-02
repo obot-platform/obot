@@ -57,27 +57,6 @@
 	--color-blue-950: #182153;
 	--color-blue: #4f7ef3;
 
-	--color-purple-600: #2d0053;
-	--color-purple-500: #380067;
-	--color-purple-400: #4d008e;
-	--color-purple-300: #6300b5;
-	--color-purple-200: #7800dd;
-	--color-purple-100: #8d05ff;
-
-	--color-teal-800: #11acba;
-	--color-teal-700: #12bccc;
-	--color-teal-600: #14cdde;
-	--color-teal-500: #2ddcec;
-	--color-teal-400: #51e2ef;
-	--color-teal-300: #75e8f3;
-	--color-teal-200: #99eef6;
-	--color-teal-100: #bdf4f9;
-
-	
-	--color-yellow: #fdcc11;
-	--color-green: #06eaa7;
-	--color-orange: #ff7240;
-
 	--text-md: 0.9375rem;
 
 	--color-black: hsl(0 0 0);
@@ -520,7 +499,6 @@
 
 	.card {
 		display: flex;
-		min-height: 10rem; /* min-h-40 */
 		width: 100%;
 		gap: 0.5rem;
 		border-radius: 0.75rem;
@@ -562,10 +540,10 @@
 			grid-template-columns: repeat(2, minmax(0, 1fr));
 		}
 		@media (min-width: 1024px) {
-			grid-template-columns: repeat(3, minmax(0, 1fr));
+			grid-template-columns: repeat(2, minmax(0, 1fr));
 		}
 		@media (min-width: 1536px) {
-			grid-template-columns: repeat(4, minmax(0, 1fr));
+			grid-template-columns: repeat(2, minmax(0, 1fr));
 		}
 	}
 
@@ -573,15 +551,15 @@
 		margin-bottom: 2rem;
 		display: grid;
 		gap: 1rem;
-		grid-template-columns: repeat(2, minmax(0, 1fr));
+		grid-template-columns: repeat(1, minmax(0, 1fr));
 		@media (min-width: 640px) {
-			grid-template-columns: repeat(3, minmax(0, 1fr));
+			grid-template-columns: repeat(2, minmax(0, 1fr));
 		}
 		@media (min-width: 1024px) {
-			grid-template-columns: repeat(4, minmax(0, 1fr));
+			grid-template-columns: repeat(3, minmax(0, 1fr));
 		}
 		@media (min-width: 1536px) {
-			grid-template-columns: repeat(6, minmax(0, 1fr));
+			grid-template-columns: repeat(3, minmax(0, 1fr));
 		}
 	}
 

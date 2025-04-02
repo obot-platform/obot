@@ -7,6 +7,7 @@
 	import { initToolReferences } from '$lib/context/toolReferences.svelte';
 	import { browser } from '$app/environment';
 	import { profile, tools } from '$lib/stores';
+	import { qIsSet } from '$lib/url';
 
 	let { data } = $props();
 	let project = $state(data.project);
@@ -63,13 +64,6 @@
 			window.location.href = `/?rd=${window.location.pathname}`;
 		}
 	});
-
-	function qIsSet(key: string): boolean {
-		if (navigating?.to?.url.searchParams.has(key)) {
-			return true;
-		}
-		return browser && new URL(window.location.href).searchParams.has(key);
-	}
 
 	function initialLayout() {
 		initLayout({

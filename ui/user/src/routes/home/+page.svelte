@@ -3,7 +3,7 @@
 	import { Copy, Pencil, Trash2 } from 'lucide-svelte';
 	import { Plus } from 'lucide-svelte/icons';
 	import Profile from '$lib/components/navbar/Profile.svelte';
-	import { ChatService, EditorService, type ProjectShare, type ToolReference } from '$lib/services';
+	import { ChatService, EditorService } from '$lib/services';
 	import { errors, responsive } from '$lib/stores';
 	import { goto } from '$app/navigation';
 	import Notifications from '$lib/components/Notifications.svelte';
@@ -11,22 +11,20 @@
 	import DotDotDot from '$lib/components/DotDotDot.svelte';
 	import { type Project } from '$lib/services';
 	import Confirm from '$lib/components/Confirm.svelte';
-	import ToolPill from '$lib/components/ToolPill.svelte';
-	import { getProjectImage } from '$lib/image';
 	import { DEFAULT_PROJECT_NAME } from '$lib/constants';
+	import ObotCard from '$lib/components/ObotCard.svelte';
 
 	let { data }: PageProps = $props();
 	let toDelete = $state<Project>();
-	let featured = $state<ProjectShare[]>(data.shares.filter((s) => s.featured));
 	let recentlyUsedProjects = $state<Project[]>(
 		data.editorProjects
 			.filter((p) => p.editor == false)
 			.sort((a, b) => new Date(b.created).getTime() - new Date(a.created).getTime())
 	);
 	let userProjects = $state<Project[]>(
-		data.editorProjects
-			.filter((p) => p.editor === true)
-			.sort((a, b) => new Date(b.created).getTime() - new Date(a.created).getTime())
+		data.editorProjects.sort(
+			(a, b) => new Date(b.created).getTime() - new Date(a.created).getTime()
+		)
 	);
 	let tools = $state(new Map(data.tools.map((t) => [t.id, t])));
 
@@ -89,7 +87,7 @@
 		</div>
 	</div>
 
-	{#snippet menu(project: Project)}
+	{#snippet actionMenu(project: Project)}
 		<DotDotDot class="icon-button min-h-10 min-w-10 p-2.5 text-sm">
 			<div class="default-dialog flex flex-col p-2">
 				{#if project.editor}
@@ -110,116 +108,6 @@
 		</DotDotDot>
 	{/snippet}
 
-	{#snippet featuredCard(project: Project | ProjectShare)}
-		<a
-			href={'publicID' in project ? `/s/${project.publicID}` : `/o/${project.id}`}
-			data-sveltekit-preload-data={'publicID' in project ? 'off' : 'hover'}
-			class="card featured-card relative bg-transparent pt-15 pr-3 hover:shadow-none"
-		>
-			<div class="bg-surface1 relative z-10 flex grow flex-col rounded-xl shadow-md">
-				<div class="absolute top-0 left-0 z-30 flex w-full items-center justify-end p-2">
-					<div class="flex items-center justify-end">
-						{#if !('publicID' in project)}
-							{@render menu(project)}
-						{/if}
-					</div>
-				</div>
-				<div class="relative flex h-16 items-center justify-center">
-					<img
-						alt="obot logo"
-						src={getProjectImage(project, darkMode.isDark)}
-						class="absolute size-24 -translate-y-6 rounded-full shadow-md shadow-gray-500 dark:shadow-black"
-					/>
-				</div>
-				<div class="flex h-full flex-col gap-4 px-4 py-4">
-					<h4 class="text-center text-xl leading-5.5 font-semibold">
-						{project.name || DEFAULT_PROJECT_NAME}
-					</h4>
-					<p
-						class="line-clamp-3 flex grow items-center justify-center px-4 text-center text-sm leading-4.5 font-light text-gray-500"
-					>
-						{project.description || ''}
-					</p>
-
-					{#if 'tools' in project && project.tools}
-						<div class="mt-auto flex flex-wrap items-center justify-end gap-2">
-							{#each project.tools.slice(0, 3) as tool}
-								{@const toolData = tools.get(tool)}
-								{#if toolData}
-									<ToolPill tool={toolData} />
-								{/if}
-							{/each}
-							{#if project.tools.length > 3}
-								<ToolPill
-									tools={project.tools
-										.slice(3)
-										.map((t) => tools.get(t))
-										.filter((t): t is ToolReference => !!t)}
-								/>
-							{/if}
-						</div>
-					{:else}
-						<div class="min-h-2"></div>
-						<!-- placeholder -->
-					{/if}
-				</div>
-			</div>
-		</a>
-	{/snippet}
-
-	{#snippet projectCard(project: Project | ProjectShare)}
-		<a
-			href={'publicID' in project ? `/s/${project.publicID}` : `/o/${project.id}`}
-			data-sveltekit-preload-data={'publicID' in project ? 'off' : 'hover'}
-			class="card relative z-20 flex-col overflow-hidden shadow-md"
-		>
-			<div class="absolute top-0 left-0 z-30 flex w-full items-center justify-end p-2">
-				<div class="flex items-center justify-end">
-					{#if !('publicID' in project)}
-						{@render menu(project)}
-					{/if}
-				</div>
-			</div>
-			<div class="flex w-full items-center justify-center pt-4">
-				<img
-					alt="obot logo"
-					src={getProjectImage(project, darkMode.isDark)}
-					class="size-18 rounded-full"
-				/>
-			</div>
-			<div class="flex h-full flex-col gap-2 px-4 py-2">
-				<h4 class="text-md text-center leading-4.5 font-semibold">
-					{project.name || DEFAULT_PROJECT_NAME}
-				</h4>
-				<p class="line-clamp-3 text-center text-xs font-light text-gray-500">
-					{project.description || ''}
-				</p>
-
-				{#if 'tools' in project && project.tools}
-					<div class="mt-auto flex flex-wrap items-center justify-end gap-2 py-2">
-						{#each project.tools.slice(0, 3) as tool}
-							{@const toolData = tools.get(tool)}
-							{#if toolData}
-								<ToolPill tool={toolData} />
-							{/if}
-						{/each}
-						{#if project.tools.length > 3}
-							<ToolPill
-								tools={project.tools
-									.slice(3)
-									.map((t) => tools.get(t))
-									.filter((t): t is ToolReference => !!t)}
-							/>
-						{/if}
-					</div>
-				{:else}
-					<div class="min-h-2"></div>
-					<!-- placeholder -->
-				{/if}
-			</div>
-		</a>
-	{/snippet}
-
 	<main
 		class="colors-background relative flex w-full max-w-(--breakpoint-2xl) flex-col justify-center pb-12"
 	>
@@ -228,7 +116,7 @@
 				<div
 					class="sticky top-0 z-30 flex items-center gap-4 bg-white px-4 py-4 md:px-12 dark:bg-black"
 				>
-					<h3 class="text-2xl font-semibold">My Obots</h3>
+					<h3 class="flex flex-shrink-0 text-2xl font-semibold">My Obots</h3>
 					<button
 						class="button flex items-center gap-1 text-xs font-medium"
 						onclick={() => createNew()}
@@ -236,13 +124,31 @@
 						<Plus class="icon-default" />
 						<span>Create New Obot</span>
 					</button>
+					{#if !responsive.isMobile}
+						<div class="flex grow items-center justify-end">
+							<a href="/catalog?from=home" class="button-text items-center text-xs underline"
+								>View Obot Catalog</a
+							>
+						</div>
+					{/if}
 				</div>
+				{#if responsive.isMobile}
+					<div class="flex grow items-center justify-end">
+						<a href="/catalog?from=home" class="button-text items-center py-0 text-sm underline"
+							>View Obot Catalog</a
+						>
+					</div>
+				{/if}
 				<div class="card-layout px-4 md:px-12">
 					{#each userProjects as project}
-						{@render projectCard(project)}
+						<ObotCard {project} {tools}>
+							{#snippet menu()}
+								{@render actionMenu(project)}
+							{/snippet}
+						</ObotCard>
 					{/each}
 					<button
-						class="card flex flex-col items-center justify-center p-4 whitespace-nowrap shadow-md"
+						class="card flex min-h-36 flex-col items-center justify-center p-4 whitespace-nowrap shadow-md"
 						onclick={() => createNew()}
 					>
 						<Plus class="h-8 w-8" />
@@ -250,28 +156,6 @@
 					</button>
 				</div>
 			</div>
-
-			{#if recentlyUsedProjects.length > 0}
-				<div class="flex w-full flex-col gap-4 px-4 md:px-12">
-					<h3 class="text-2xl font-semibold">Recently Used</h3>
-					<div class="card-layout">
-						{#each recentlyUsedProjects as project}
-							{@render projectCard(project)}
-						{/each}
-					</div>
-				</div>
-			{/if}
-
-			{#if featured.length > 0}
-				<div class="flex w-full flex-col gap-4 px-4 md:px-12">
-					<h3 class="text-2xl font-semibold">Featured</h3>
-					<div class="featured-card-layout gap-8">
-						{#each featured.slice(0, 4) as featuredShare}
-							{@render featuredCard(featuredShare)}
-						{/each}
-					</div>
-				</div>
-			{/if}
 		</div>
 	</main>
 
@@ -287,7 +171,6 @@
 		if (!toDelete) return;
 		try {
 			await ChatService.deleteProject(toDelete.assistantID, toDelete.id);
-			featured = featured.filter((p) => p.id !== toDelete?.id);
 			recentlyUsedProjects = recentlyUsedProjects.filter((p) => p.id !== toDelete?.id);
 			userProjects = userProjects.filter((p) => p.id !== toDelete?.id);
 		} finally {
@@ -300,39 +183,3 @@
 <svelte:head>
 	<title>Obot | Home</title>
 </svelte:head>
-
-<style lang="postcss">
-	.featured-card {
-		&:after {
-			content: '';
-			z-index: 0;
-			position: absolute;
-			height: 100%;
-			width: calc(100% - 36px);
-			bottom: 0;
-			left: 12px;
-			transition: transform 0.2s ease-in-out;
-			background-image: linear-gradient(
-				to bottom right,
-				var(--color-blue-400),
-				var(--color-blue-600)
-			);
-			border-radius: var(--radius-xl);
-		}
-
-		&:hover {
-			&:after {
-				transform: rotate(2deg);
-			}
-		}
-
-		@media (min-width: 640px) {
-			&:after {
-				height: calc(100% - 12px);
-				width: calc(100% - 12px);
-				bottom: 12px;
-				left: -8px;
-			}
-		}
-	}
-</style>

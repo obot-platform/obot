@@ -6,10 +6,8 @@
 	import { onMount } from 'svelte';
 	import { type PageProps } from './$types';
 	import { browser } from '$app/environment';
-	import { type ProjectShare, type ToolReference } from '$lib/services';
-	import ToolPill from '$lib/components/ToolPill.svelte';
 	import Menu from '$lib/components/navbar/Menu.svelte';
-	import { DEFAULT_PROJECT_NAME } from '$lib/constants';
+	import FeaturedObotCard from '$lib/components/FeaturedObotCard.svelte';
 
 	let { data }: PageProps = $props();
 	let { authProviders, assistants, assistantsLoaded, featuredProjectShares, tools } = data;
@@ -59,69 +57,7 @@
 		div.classList.remove('hidden');
 		div.classList.add('flex');
 	}
-
-	function getImage(projectShare: ProjectShare) {
-		const imageUrl = darkMode.isDark
-			? projectShare.icons?.iconDark || projectShare.icons?.icon
-			: projectShare.icons?.icon;
-
-		return imageUrl ?? '/agent/images/obot_placeholder.webp';
-	}
 </script>
-
-{#snippet featuredProjectCard(projectShare: ProjectShare)}
-	<a
-		href="/"
-		data-sveltekit-preload-data="off"
-		class="card relative z-20 flex-col overflow-hidden shadow-md"
-		onclick={(e) => {
-			e.preventDefault();
-			// Set the login redirect to the project's share URL
-			if (browser) {
-				projectShareRedirect = `/s/${projectShare.publicID}`;
-				loginDialog?.showModal();
-			}
-		}}
-	>
-		<div class="relative aspect-video">
-			<img
-				alt={projectShare.name || 'Obot'}
-				src={getImage(projectShare)}
-				class="absolute top-0 left-0 h-full w-full object-cover opacity-85"
-			/>
-			<div
-				class="to-surface1 absolute -bottom-0 left-0 z-10 h-2/4 w-full bg-linear-to-b from-transparent via-transparent transition-colors duration-300"
-			></div>
-		</div>
-		<div class="flex h-full flex-col gap-2 px-4 py-2">
-			<h4 class="font-semibold">{projectShare.name || DEFAULT_PROJECT_NAME}</h4>
-			<p class="text-gray line-clamp-3 text-xs">
-				{projectShare.description || ''}
-			</p>
-			{#if projectShare.tools}
-				<div class="mt-auto flex flex-wrap items-center justify-end gap-2 py-2">
-					{#each projectShare.tools.slice(0, 3) as tool}
-						{@const toolData = tools.get(tool)}
-						{#if toolData}
-							<ToolPill tool={toolData} />
-						{/if}
-					{/each}
-					{#if projectShare.tools.length > 3}
-						<ToolPill
-							tools={projectShare.tools
-								.slice(3)
-								.map((t) => tools.get(t))
-								.filter((t): t is ToolReference => !!t)}
-						/>
-					{/if}
-				</div>
-			{:else}
-				<div class="min-h-2"></div>
-				<!-- placeholder -->
-			{/if}
-		</div>
-	</a>
-{/snippet}
 
 {#snippet navLinks()}
 	<a href="https://docs.obot.ai" class="icon-button" rel="external" target="_blank">Docs</a>
@@ -197,9 +133,9 @@
 	</div>
 
 	<main
-		class="colors-background mx-auto flex w-full max-w-(--breakpoint-2xl) flex-col justify-center px-4 pb-12 md:px-12"
+		class="colors-background mx-auto flex w-full max-w-(--breakpoint-2xl) flex-col items-center justify-center px-4 pb-12 md:px-12"
 	>
-		<div class="mt-16 mb-16 flex flex-col items-center text-center">
+		<div class="mt-16 mb-8 flex flex-col items-center text-center">
 			<h1 class="text-2xl font-bold md:text-3xl">Do more with AI</h1>
 			<p class="mt-4 max-w-full text-base md:max-w-2xl md:text-xl">
 				Introducing Obot, a free platform for creating and sharing AI agents.
@@ -207,12 +143,19 @@
 		</div>
 
 		{#if featuredProjectShares.length > 0}
-			<div class="my-4 flex w-full flex-col gap-4 md:my-12">
-				<div class="featured-card-layout">
-					{#each featuredProjectShares as projectShare}
-						{@render featuredProjectCard(projectShare)}
-					{/each}
-				</div>
+			<div class="featured-card-layout my-4 max-w-4xl gap-x-4 gap-y-6 md:gap-y-8">
+				{#each featuredProjectShares as projectShare}
+					<FeaturedObotCard
+						project={projectShare}
+						{tools}
+						onclick={() => {
+							if (browser) {
+								projectShareRedirect = `/s/${projectShare.publicID}`;
+								loginDialog?.showModal();
+							}
+						}}
+					/>
+				{/each}
 			</div>
 		{/if}
 	</main>
@@ -277,13 +220,3 @@
 		</div>
 	</dialog>
 </div>
-
-<style>
-	.featured-card-layout {
-		display: grid;
-		grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-		gap: 1.5rem;
-		margin: 0 auto;
-		max-width: 1200px;
-	}
-</style>
