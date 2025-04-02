@@ -27,7 +27,7 @@
 			{/if}
 			<div class="grow"></div>
 			{#if showEditorButton && project}
-				<EditorToggle {project} />
+				<EditorToggle />
 			{/if}
 			{#if !layout.projectEditorOpen}
 				<Profile />
