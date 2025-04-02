@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"slices"
 	"strings"
 	"unicode/utf8"
@@ -23,6 +24,23 @@ type Client struct {
 	Token        string
 	Cookie       *http.Cookie
 	tokenFetcher func(context.Context, string) (string, error)
+}
+
+func NewClientFromEnv() *Client {
+	url := os.Getenv("OBOT_SERVER_URL")
+	if url == "" {
+		url = "http://localhost:8080/api"
+	} else if !strings.HasSuffix(url, "/api") {
+		if strings.HasSuffix(url, "/") {
+			url = url[:len(url)-1]
+		}
+		url += "/api"
+	}
+	token := os.Getenv("OBOT_TOKEN")
+	return &Client{
+		BaseURL: url,
+		Token:   token,
+	}
 }
 
 func (c *Client) WithTokenFetcher(f func(context.Context, string) (string, error)) *Client {
