@@ -70,11 +70,7 @@ func (c *Client) DeleteRunState(ctx context.Context, namespace, name string) err
 }
 
 func (c *Client) encryptRunState(ctx context.Context, runState *types.RunState) error {
-	if c.encryptionConfig == nil {
-		return nil
-	}
-	transformer := c.encryptionConfig.Transformers[gr]
-	if transformer == nil {
+	if c.transformer == nil {
 		return nil
 	}
 
@@ -82,24 +78,20 @@ func (c *Client) encryptRunState(ctx context.Context, runState *types.RunState) 
 		err  error
 		errs []error
 	)
-	if runState.Output, err = transformer.TransformToStorage(ctx, runState.Output, nil); err != nil {
+	if runState.Output, err = c.transformer.TransformToStorage(ctx, runState.Output, nil); err != nil {
 		errs = append(errs, err)
 	}
-	if runState.CallFrame, err = transformer.TransformToStorage(ctx, runState.CallFrame, nil); err != nil {
+	if runState.CallFrame, err = c.transformer.TransformToStorage(ctx, runState.CallFrame, nil); err != nil {
 		errs = append(errs, err)
 	}
-	if runState.ChatState, err = transformer.TransformToStorage(ctx, runState.ChatState, nil); err != nil {
+	if runState.ChatState, err = c.transformer.TransformToStorage(ctx, runState.ChatState, nil); err != nil {
 		errs = append(errs, err)
 	}
 	return errors.Join(errs...)
 }
 
 func (c *Client) decryptRunState(ctx context.Context, runState *types.RunState) error {
-	if c.encryptionConfig == nil {
-		return nil
-	}
-	transformer := c.encryptionConfig.Transformers[gr]
-	if transformer == nil {
+	if c.transformer == nil {
 		return nil
 	}
 
@@ -107,15 +99,15 @@ func (c *Client) decryptRunState(ctx context.Context, runState *types.RunState) 
 		errs []error
 		err  error
 	)
-	runState.Output, _, err = transformer.TransformFromStorage(ctx, runState.Output, nil)
+	runState.Output, _, err = c.transformer.TransformFromStorage(ctx, runState.Output, nil)
 	if err != nil {
 		errs = append(errs, err)
 	}
-	runState.CallFrame, _, err = transformer.TransformFromStorage(ctx, runState.CallFrame, nil)
+	runState.CallFrame, _, err = c.transformer.TransformFromStorage(ctx, runState.CallFrame, nil)
 	if err != nil {
 		errs = append(errs, err)
 	}
-	runState.ChatState, _, err = transformer.TransformFromStorage(ctx, runState.ChatState, nil)
+	runState.ChatState, _, err = c.transformer.TransformFromStorage(ctx, runState.ChatState, nil)
 	if err != nil {
 		errs = append(errs, err)
 	}
