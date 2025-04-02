@@ -8,6 +8,7 @@ import (
 	"gorm.io/gorm"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apiserver/pkg/storage/value"
 )
 
 var (
@@ -78,13 +79,13 @@ func (c *Client) encryptRunState(ctx context.Context, runState *types.RunState) 
 		err  error
 		errs []error
 	)
-	if runState.Output, err = c.transformer.TransformToStorage(ctx, runState.Output, nil); err != nil {
+	if runState.Output, err = c.transformer.TransformToStorage(ctx, runState.Output, value.DefaultContext{}); err != nil {
 		errs = append(errs, err)
 	}
-	if runState.CallFrame, err = c.transformer.TransformToStorage(ctx, runState.CallFrame, nil); err != nil {
+	if runState.CallFrame, err = c.transformer.TransformToStorage(ctx, runState.CallFrame, value.DefaultContext{}); err != nil {
 		errs = append(errs, err)
 	}
-	if runState.ChatState, err = c.transformer.TransformToStorage(ctx, runState.ChatState, nil); err != nil {
+	if runState.ChatState, err = c.transformer.TransformToStorage(ctx, runState.ChatState, value.DefaultContext{}); err != nil {
 		errs = append(errs, err)
 	}
 	return errors.Join(errs...)
@@ -99,15 +100,15 @@ func (c *Client) decryptRunState(ctx context.Context, runState *types.RunState) 
 		errs []error
 		err  error
 	)
-	runState.Output, _, err = c.transformer.TransformFromStorage(ctx, runState.Output, nil)
+	runState.Output, _, err = c.transformer.TransformFromStorage(ctx, runState.Output, value.DefaultContext{})
 	if err != nil {
 		errs = append(errs, err)
 	}
-	runState.CallFrame, _, err = c.transformer.TransformFromStorage(ctx, runState.CallFrame, nil)
+	runState.CallFrame, _, err = c.transformer.TransformFromStorage(ctx, runState.CallFrame, value.DefaultContext{})
 	if err != nil {
 		errs = append(errs, err)
 	}
-	runState.ChatState, _, err = c.transformer.TransformFromStorage(ctx, runState.ChatState, nil)
+	runState.ChatState, _, err = c.transformer.TransformFromStorage(ctx, runState.ChatState, value.DefaultContext{})
 	if err != nil {
 		errs = append(errs, err)
 	}
