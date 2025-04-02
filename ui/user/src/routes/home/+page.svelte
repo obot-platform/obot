@@ -90,7 +90,7 @@
 	</div>
 
 	{#snippet menu(project: Project)}
-		<DotDotDot class="card-icon-button-colors min-h-10 min-w-10 rounded-full p-2.5 text-sm">
+		<DotDotDot class="icon-button min-h-10 min-w-10 p-2.5 text-sm">
 			<div class="default-dialog flex flex-col p-2">
 				{#if project.editor}
 					<button class="menu-button" onclick={() => goto(`/o/${project.id}?edit`)}>
@@ -110,6 +110,63 @@
 		</DotDotDot>
 	{/snippet}
 
+	{#snippet featuredCard(project: Project | ProjectShare)}
+		<a
+			href={'publicID' in project ? `/s/${project.publicID}` : `/o/${project.id}`}
+			data-sveltekit-preload-data={'publicID' in project ? 'off' : 'hover'}
+			class="card featured-card relative bg-transparent pt-15 pr-3 hover:shadow-none"
+		>
+			<div class="bg-surface1 relative z-10 flex grow flex-col rounded-xl shadow-md">
+				<div class="absolute top-0 left-0 z-30 flex w-full items-center justify-end p-2">
+					<div class="flex items-center justify-end">
+						{#if !('publicID' in project)}
+							{@render menu(project)}
+						{/if}
+					</div>
+				</div>
+				<div class="relative flex h-16 items-center justify-center">
+					<img
+						alt="obot logo"
+						src={getProjectImage(project, darkMode.isDark)}
+						class="absolute size-24 -translate-y-6 rounded-full shadow-md shadow-gray-500 dark:shadow-black"
+					/>
+				</div>
+				<div class="flex h-full flex-col gap-4 px-4 py-4">
+					<h4 class="text-center text-xl leading-5.5 font-semibold">
+						{project.name || DEFAULT_PROJECT_NAME}
+					</h4>
+					<p
+						class="line-clamp-3 flex grow items-center justify-center px-4 text-center text-sm leading-4.5 font-light text-gray-500"
+					>
+						{project.description || ''}
+					</p>
+
+					{#if 'tools' in project && project.tools}
+						<div class="mt-auto flex flex-wrap items-center justify-end gap-2">
+							{#each project.tools.slice(0, 3) as tool}
+								{@const toolData = tools.get(tool)}
+								{#if toolData}
+									<ToolPill tool={toolData} />
+								{/if}
+							{/each}
+							{#if project.tools.length > 3}
+								<ToolPill
+									tools={project.tools
+										.slice(3)
+										.map((t) => tools.get(t))
+										.filter((t): t is ToolReference => !!t)}
+								/>
+							{/if}
+						</div>
+					{:else}
+						<div class="min-h-2"></div>
+						<!-- placeholder -->
+					{/if}
+				</div>
+			</div>
+		</a>
+	{/snippet}
+
 	{#snippet projectCard(project: Project | ProjectShare)}
 		<a
 			href={'publicID' in project ? `/s/${project.publicID}` : `/o/${project.id}`}
@@ -123,19 +180,18 @@
 					{/if}
 				</div>
 			</div>
-			<div class="relative aspect-video">
+			<div class="flex w-full items-center justify-center pt-4">
 				<img
 					alt="obot logo"
 					src={getProjectImage(project, darkMode.isDark)}
-					class="absolute top-0 left-0 h-full w-full object-cover opacity-85"
+					class="size-18 rounded-full"
 				/>
-				<div
-					class="to-surface1 absolute -bottom-0 left-0 z-10 h-2/4 w-full bg-linear-to-b from-transparent via-transparent transition-colors duration-300"
-				></div>
 			</div>
 			<div class="flex h-full flex-col gap-2 px-4 py-2">
-				<h4 class="font-semibold">{project.name || DEFAULT_PROJECT_NAME}</h4>
-				<p class="line-clamp-3 text-xs text-gray-500">
+				<h4 class="text-md text-center leading-4.5 font-semibold">
+					{project.name || DEFAULT_PROJECT_NAME}
+				</h4>
+				<p class="line-clamp-3 text-center text-xs font-light text-gray-500">
 					{project.description || ''}
 				</p>
 
@@ -186,10 +242,10 @@
 						{@render projectCard(project)}
 					{/each}
 					<button
-						class="card flex flex-col items-center justify-center p-4 whitespace-nowrap shadow-md md:flex-row"
+						class="card flex flex-col items-center justify-center p-4 whitespace-nowrap shadow-md"
 						onclick={() => createNew()}
 					>
-						<Plus class="h-8 w-8 md:h-5 md:w-5" />
+						<Plus class="h-8 w-8" />
 						<span class="text-sm font-semibold md:text-base">Create New Obot</span>
 					</button>
 				</div>
@@ -209,9 +265,9 @@
 			{#if featured.length > 0}
 				<div class="flex w-full flex-col gap-4 px-4 md:px-12">
 					<h3 class="text-2xl font-semibold">Featured</h3>
-					<div class="featured-card-layout">
-						{#each featured as featuredShare}
-							{@render projectCard(featuredShare)}
+					<div class="featured-card-layout gap-8">
+						{#each featured.slice(0, 4) as featuredShare}
+							{@render featuredCard(featuredShare)}
 						{/each}
 					</div>
 				</div>
@@ -244,3 +300,39 @@
 <svelte:head>
 	<title>Obot | Home</title>
 </svelte:head>
+
+<style lang="postcss">
+	.featured-card {
+		&:after {
+			content: '';
+			z-index: 0;
+			position: absolute;
+			height: 100%;
+			width: calc(100% - 36px);
+			bottom: 0;
+			left: 12px;
+			transition: transform 0.2s ease-in-out;
+			background-image: linear-gradient(
+				to bottom right,
+				var(--color-blue-400),
+				var(--color-blue-600)
+			);
+			border-radius: var(--radius-xl);
+		}
+
+		&:hover {
+			&:after {
+				transform: rotate(2deg);
+			}
+		}
+
+		@media (min-width: 640px) {
+			&:after {
+				height: calc(100% - 12px);
+				width: calc(100% - 12px);
+				bottom: 12px;
+				left: -8px;
+			}
+		}
+	}
+</style>
