@@ -5,13 +5,21 @@ import (
 	"strings"
 
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/obot-platform/nah/pkg/randomtoken"
 	"github.com/obot-platform/obot/pkg/api/authz"
 	"k8s.io/apiserver/pkg/authentication/authenticator"
 	"k8s.io/apiserver/pkg/authentication/user"
 )
 
-// yeah, duh, this isn't secure, that's not the point right now.
-const secret = "this is secret"
+var secret string
+
+func init() {
+	var err error
+	secret, err = randomtoken.Generate()
+	if err != nil {
+		panic(err)
+	}
+}
 
 type TokenContext struct {
 	Namespace      string
