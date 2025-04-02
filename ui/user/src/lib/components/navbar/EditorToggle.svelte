@@ -1,35 +1,11 @@
 <script lang="ts">
 	import { Pencil, X } from 'lucide-svelte';
 	import { getLayout } from '$lib/context/layout.svelte';
-	import { ChatService, EditorService, type Project } from '$lib/services';
-	import { errors, responsive } from '$lib/stores';
-	import { goto } from '$app/navigation';
+	import { responsive } from '$lib/stores';
 	import { fade, fly, slide } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';
-	import { DEFAULT_PROJECT_NAME } from '$lib/constants';
-
-	interface Props {
-		project: Project;
-	}
 
 	const layout = getLayout();
-
-	let { project }: Props = $props();
-	let obotEditorDialog = $state<HTMLDialogElement>();
-
-	async function createNew() {
-		try {
-			const project = await EditorService.createObot();
-			await goto(`/o/${project.id}?edit`);
-		} catch (error) {
-			errors.append((error as Error).message);
-		}
-	}
-
-	async function copy(project: Project) {
-		const newProject = await ChatService.copyProject(project.assistantID, project.id);
-		await goto(`/o/${newProject.id}?edit`);
-	}
 
 	let hover = $state(false);
 </script>
@@ -43,13 +19,8 @@
 			return;
 		}
 
-		if (project.editor) {
-			layout.projectEditorOpen = true;
-			layout.sidebarOpen = false;
-			return;
-		}
-
-		obotEditorDialog?.showModal();
+		layout.projectEditorOpen = true;
+		layout.sidebarOpen = false;
 	}}
 	class={twMerge(
 		'group text-gray relative mr-1 flex items-center rounded-full border p-2 text-xs transition-[background-color] duration-200',
@@ -74,24 +45,3 @@
 		</span>
 	{/if}
 </button>
-
-<dialog bind:this={obotEditorDialog} class="w-full max-w-md p-4">
-	<div class="flex flex-col gap-4">
-		<button class="icon-button absolute top-2 right-2" onclick={() => obotEditorDialog?.close()}>
-			<X class="h-5 w-5" />
-		</button>
-		<h4 class="border-surface2 w-full border-b p-1 text-lg font-semibold">
-			What would you like to do?
-		</h4>
-		{#if project.editor}
-			<button class="button" onclick={() => (layout.projectEditorOpen = true)}
-				>Edit {project.name || DEFAULT_PROJECT_NAME}</button
-			>
-		{:else}
-			<button class="button" onclick={() => copy(project)}
-				>Copy {project.name ?? DEFAULT_PROJECT_NAME}</button
-			>
-		{/if}
-		<button class="button" onclick={() => createNew()}>Create New Obot</button>
-	</div>
-</dialog>
