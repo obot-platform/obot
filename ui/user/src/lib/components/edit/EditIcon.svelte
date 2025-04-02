@@ -34,15 +34,20 @@
 <div class="flex w-full items-center justify-center">
 	<button
 		class="icon-button group relative flex items-center gap-2 p-0 shadow-md"
+		class:cursor-default={!project.editor}
 		use:ref
 		onclick={() => toggle()}
+		disabled={!project.editor}
 	>
 		<AssistantIcon {project} class="size-24" />
-		<div
-			class="bg-surface1 group-hover:bg-surface3 absolute -right-1 bottom-0 rounded-full p-2 shadow-md transition-all duration-200"
-		>
-			<Pencil class="size-4" />
-		</div>
+
+		{#if project.editor}
+			<div
+				class="bg-surface1 group-hover:bg-surface3 absolute -right-1 bottom-0 rounded-full p-2 shadow-md transition-all duration-200"
+			>
+				<Pencil class="size-4" />
+			</div>
+		{/if}
 	</button>
 </div>
 <div

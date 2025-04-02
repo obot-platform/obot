@@ -32,7 +32,6 @@
 
 	let { onSelectTools, onSubmit, tools, maxTools, title = 'Your Tools' }: Props = $props();
 
-	let input = $state<HTMLInputElement>();
 	let searchPopover = $state<HTMLDialogElement>();
 	let search = $state('');
 	let searchContainer = $state<HTMLDivElement>();
@@ -551,7 +550,6 @@
 		class="bg-surface1 w-full rounded-lg p-2"
 		type="text"
 		placeholder="Search tools..."
-		bind:this={input}
 		bind:value={search}
 		onmousedown={() => {
 			if (!responsive.isMobile) {

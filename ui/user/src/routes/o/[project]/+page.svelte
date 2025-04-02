@@ -2,7 +2,6 @@
 	import { replaceState } from '$app/navigation';
 	import { navigating } from '$app/state';
 	import EditMode from '$lib/components/EditMode.svelte';
-	import Obot from '$lib/components/Obot.svelte';
 	import { initLayout } from '$lib/context/layout.svelte';
 	import { initToolReferences } from '$lib/context/toolReferences.svelte';
 	import { browser } from '$app/environment';
@@ -83,11 +82,7 @@
 <div class="h-svh">
 	{#if project}
 		{#key project.id}
-			{#if project.editor}
-				<EditMode bind:project bind:currentThreadID assistant={data.assistant} />
-			{:else}
-				<Obot bind:project bind:currentThreadID />
-			{/if}
+			<EditMode bind:project bind:currentThreadID assistant={data.assistant} />
 		{/key}
 	{/if}
 </div>

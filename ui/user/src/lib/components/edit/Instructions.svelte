@@ -9,20 +9,21 @@
 	}
 
 	let { project = $bindable() }: Props = $props();
+	const title = project.editor ? 'Instructions' : 'Additional Instructions';
 </script>
 
-<CollapsePane header="Instructions" open>
+<CollapsePane header={title} open>
 	<div class="flex flex-col gap-2">
 		<div class="flex flex-col">
 			<label for="project-instructions" use:reactiveLabel={{ value: project.prompt }}>
-				Instructions
+				{title}
 			</label>
 
 			<textarea
 				id="project-instructions"
 				class="bg-surface grow resize-none rounded-lg p-2"
 				rows="3"
-				placeholder="Instructions"
+				placeholder={title}
 				use:autoHeight
 				bind:value={project.prompt}
 			></textarea>

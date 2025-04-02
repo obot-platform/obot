@@ -135,7 +135,7 @@
 				</button>
 			</div>
 			<div class="flex items-center">
-				<EditorToggle {project} />
+				<EditorToggle />
 				{#if !responsive.isMobile}
 					<Profile />
 				{/if}
@@ -170,17 +170,21 @@
 						</div>
 					{/if}
 
-					<div class="mt-auto">
-						<button class="button-text" onclick={() => (showAdvanced = !showAdvanced)}>
-							<span
-								>{showAdvanced ? 'Collapse Advanced Options...' : 'Show Advanced Options...'}</span
-							>
-						</button>
-					</div>
+					{#if project.editor}
+						<div class="mt-auto">
+							<button class="button-text" onclick={() => (showAdvanced = !showAdvanced)}>
+								<span
+									>{showAdvanced
+										? 'Collapse Advanced Options...'
+										: 'Show Advanced Options...'}</span
+								>
+							</button>
+						</div>
+					{/if}
 				</div>
 				<div class="bg-surface1 flex justify-between p-2">
 					<button class="button flex items-center gap-1 text-sm" onclick={() => copy()}>
-						<span>Copy</span>
+						<span>Create a Copy</span>
 					</button>
 					<button
 						class="button-destructive"

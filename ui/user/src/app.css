@@ -138,6 +138,14 @@
 	input {
 		background-color: var(--background);
 		color: var(--on-background);
+
+		&:disabled {
+			color: var(--color-gray-300);
+		}
+
+		.dark &:disabled {
+			color: var(--color-gray-500);
+		}
 	}
 
 	blockquote {
