@@ -3,6 +3,7 @@ package client
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	"github.com/obot-platform/obot/pkg/gateway/types"
 	"gorm.io/gorm"
@@ -78,14 +79,16 @@ func (c *Client) encryptRunState(ctx context.Context, runState *types.RunState) 
 	var (
 		err  error
 		errs []error
+
+		dataCtx = value.DefaultContext(fmt.Sprintf("%s/%s/%s", gr.String(), runState.Namespace, runState.Name))
 	)
-	if runState.Output, err = c.transformer.TransformToStorage(ctx, runState.Output, value.DefaultContext{}); err != nil {
+	if runState.Output, err = c.transformer.TransformToStorage(ctx, runState.Output, dataCtx); err != nil {
 		errs = append(errs, err)
 	}
-	if runState.CallFrame, err = c.transformer.TransformToStorage(ctx, runState.CallFrame, value.DefaultContext{}); err != nil {
+	if runState.CallFrame, err = c.transformer.TransformToStorage(ctx, runState.CallFrame, dataCtx); err != nil {
 		errs = append(errs, err)
 	}
-	if runState.ChatState, err = c.transformer.TransformToStorage(ctx, runState.ChatState, value.DefaultContext{}); err != nil {
+	if runState.ChatState, err = c.transformer.TransformToStorage(ctx, runState.ChatState, dataCtx); err != nil {
 		errs = append(errs, err)
 	}
 	return errors.Join(errs...)
@@ -97,18 +100,20 @@ func (c *Client) decryptRunState(ctx context.Context, runState *types.RunState) 
 	}
 
 	var (
-		errs []error
 		err  error
+		errs []error
+
+		dataCtx = value.DefaultContext(fmt.Sprintf("%s/%s/%s", gr.String(), runState.Namespace, runState.Name))
 	)
-	runState.Output, _, err = c.transformer.TransformFromStorage(ctx, runState.Output, value.DefaultContext{})
+	runState.Output, _, err = c.transformer.TransformFromStorage(ctx, runState.Output, dataCtx)
 	if err != nil {
 		errs = append(errs, err)
 	}
-	runState.CallFrame, _, err = c.transformer.TransformFromStorage(ctx, runState.CallFrame, value.DefaultContext{})
+	runState.CallFrame, _, err = c.transformer.TransformFromStorage(ctx, runState.CallFrame, dataCtx)
 	if err != nil {
 		errs = append(errs, err)
 	}
-	runState.ChatState, _, err = c.transformer.TransformFromStorage(ctx, runState.ChatState, value.DefaultContext{})
+	runState.ChatState, _, err = c.transformer.TransformFromStorage(ctx, runState.ChatState, dataCtx)
 	if err != nil {
 		errs = append(errs, err)
 	}
