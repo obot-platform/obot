@@ -12,6 +12,8 @@ import (
 var (
 	_ fields.Fields = (*OAuthApp)(nil)
 	_ fields.Fields = (*OAuthAppLogin)(nil)
+	_ Aliasable     = (*OAuthApp)(nil)
+	_ Generationed  = (*OAuthApp)(nil)
 )
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -22,6 +24,26 @@ type OAuthApp struct {
 	Spec              OAuthAppSpec `json:"spec,omitempty"`
 	Status            EmptyStatus  `json:"status,omitempty"`
 }
+
+func (r *OAuthApp) GetAliasName() string {
+	if r.Spec.ThreadName == "" {
+		// Only non-project scoped oauth can have a true global alias
+		return r.Spec.Manifest.Alias
+	}
+	return ""
+}
+
+func (r *OAuthApp) SetAssigned(bool) {}
+
+func (r *OAuthApp) IsAssigned() bool {
+	return true
+}
+
+func (r *OAuthApp) GetObservedGeneration() int64 {
+	return r.Generation
+}
+
+func (r *OAuthApp) SetObservedGeneration(int64) {}
 
 func (r *OAuthApp) Has(field string) bool {
 	return r.Get(field) != ""

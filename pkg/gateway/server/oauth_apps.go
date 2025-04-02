@@ -20,6 +20,7 @@ import (
 	"github.com/obot-platform/nah/pkg/name"
 	types2 "github.com/obot-platform/obot/apiclient/types"
 	loggerPackage "github.com/obot-platform/obot/logger"
+	"github.com/obot-platform/obot/pkg/alias"
 	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/api/handlers"
 	kcontext "github.com/obot-platform/obot/pkg/gateway/context"
@@ -746,21 +747,8 @@ func convertOAuthAppRegistrationToOAuthApp(app v1.OAuthApp, baseURL string) type
 
 func getOAuthAppFromName(apiContext api.Context) (*v1.OAuthApp, error) {
 	var oauthApp v1.OAuthApp
-	id := apiContext.PathValue("id")
-	if !strings.HasPrefix(id, system.OAuthAppPrefix) {
-		var oauthApps v1.OAuthAppList
-		if err := apiContext.List(&oauthApps, &kclient.ListOptions{
-			FieldSelector: fields.SelectorFromSet(selectors.RemoveEmpty(map[string]string{
-				"spec.manifest.alias": id,
-			})),
-			Namespace: apiContext.Namespace(),
-		}); err != nil {
-			return nil, err
-		}
-		if len(oauthApps.Items) == 0 {
-			return nil, fmt.Errorf("oauth app %s not found", id)
-		}
-		return &oauthApps.Items[0], nil
+	if err := alias.Get(apiContext.Context(), apiContext.Storage, &oauthApp, apiContext.Namespace(), apiContext.PathValue("id")); err != nil {
+		return nil, err
 	}
-	return &oauthApp, apiContext.Get(&oauthApp, id)
+	return &oauthApp, nil
 }
