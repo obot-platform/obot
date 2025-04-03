@@ -1,13 +1,16 @@
 import { type Assistant, ChatService } from '$lib/services';
+import { sortByFeaturedNameOrder } from '$lib/sort';
 import type { PageLoad } from './$types';
 
 export const load: PageLoad = async ({ fetch }) => {
 	const authProviders = await ChatService.listAuthProviders({ fetch });
-	const featuredProjectShares = (await ChatService.listProjectShares({ fetch })).items.filter(
-		// Ensure the project has a name and description before showing it on the unauthenticated
-		// home page.
-		(projectShare) => projectShare.name && projectShare.description && projectShare.icons?.icon
-	);
+	const featuredProjectShares = (await ChatService.listProjectShares({ fetch })).items
+		.filter(
+			// Ensure the project has a name and description before showing it on the unauthenticated
+			// home page.
+			(projectShare) => projectShare.name && projectShare.description && projectShare.icons?.icon
+		)
+		.sort(sortByFeaturedNameOrder);
 	const tools = new Map((await ChatService.listAllTools({ fetch })).items.map((t) => [t.id, t]));
 	let assistantsLoaded = false;
 	let assistants: Assistant[] = [];

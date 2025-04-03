@@ -9,9 +9,12 @@
 	import { qIsSet } from '$lib/url';
 	import { ChevronsLeft } from 'lucide-svelte';
 	import FeaturedObotCard from '$lib/components/FeaturedObotCard.svelte';
+	import { sortByFeaturedNameOrder } from '$lib/sort';
 
 	let { data }: PageProps = $props();
-	let featured = $state<ProjectShare[]>(data.shares.filter((s) => s.featured));
+	let featured = $state<ProjectShare[]>(
+		data.shares.filter((s) => s.featured).sort(sortByFeaturedNameOrder)
+	);
 	let tools = $state(new Map(data.tools.map((t) => [t.id, t])));
 </script>
 
