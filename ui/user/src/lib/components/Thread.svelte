@@ -198,7 +198,7 @@
 		>
 			{#if editBasicDetails}
 				{@render editBasicSection()}
-			{:else if layout.projectEditorOpen}
+			{:else if layout.projectEditorOpen || !project.editor}
 				<div class="message-content mt-4 w-fit self-center border-2 border-transparent pt-4">
 					{@render basicSection()}
 				</div>
