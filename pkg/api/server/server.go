@@ -14,6 +14,8 @@ import (
 	"github.com/obot-platform/obot/pkg/api/authn"
 	"github.com/obot-platform/obot/pkg/api/authz"
 	"github.com/obot-platform/obot/pkg/api/server/audit"
+	"github.com/obot-platform/obot/pkg/api/server/ratelimiter"
+	"github.com/obot-platform/obot/pkg/api/server/requestinfo"
 	gclient "github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/proxy"
 	"github.com/obot-platform/obot/pkg/storage"
@@ -34,12 +36,13 @@ type Server struct {
 	authorizer    *authz.Authorizer
 	proxyManager  *proxy.Manager
 	auditLogger   audit.Logger
+	rateLimiter   *ratelimiter.RateLimiter
 	baseURL       string
 
 	mux *http.ServeMux
 }
 
-func NewServer(storageClient storage.Client, gatewayClient *gclient.Client, gptClient *gptscript.GPTScript, authn *authn.Authenticator, authz *authz.Authorizer, proxyManager *proxy.Manager, auditLogger audit.Logger, baseURL string) *Server {
+func NewServer(storageClient storage.Client, gatewayClient *gclient.Client, gptClient *gptscript.GPTScript, authn *authn.Authenticator, authz *authz.Authorizer, proxyManager *proxy.Manager, auditLogger audit.Logger, rateLimiter *ratelimiter.RateLimiter, baseURL string) *Server {
 	return &Server{
 		storageClient: storageClient,
 		gatewayClient: gatewayClient,
@@ -49,6 +52,7 @@ func NewServer(storageClient storage.Client, gatewayClient *gclient.Client, gptC
 		proxyManager:  proxyManager,
 		baseURL:       baseURL + "/api",
 		auditLogger:   auditLogger,
+		rateLimiter:   rateLimiter,
 		mux:           http.NewServeMux(),
 	}
 }
@@ -82,6 +86,18 @@ func (s *Server) wrap(f api.HandlerFunc) http.HandlerFunc {
 			return
 		}
 
+		if err := s.rateLimiter.ApplyLimit(user, rw, req); err != nil {
+			if errors.Is(err, ratelimiter.ErrRateLimitExceeded) {
+				// The user has exceeded their rate limit.
+				http.Error(rw, err.Error(), http.StatusTooManyRequests)
+				return
+			}
+
+			// There was an error applying the rate limit.
+			// Log it and move on so that a failure to apply rate limits doesn't take down the entire API.
+			log.Warnf("Failed to apply rate limits: %v", err)
+		}
+
 		if strings.HasPrefix(req.URL.Path, "/api/") {
 			// Setup a new response writer for audit logging.
 			rw = &responseWriter{
@@ -92,7 +108,7 @@ func (s *Server) wrap(f api.HandlerFunc) http.HandlerFunc {
 					Method:    req.Method,
 					Path:      req.URL.Path,
 					UserAgent: req.UserAgent(),
-					SourceIP:  getSourceIP(req),
+					SourceIP:  requestinfo.GetSourceIP(req),
 					Host:      req.Host,
 				},
 				auditLogger: s.auditLogger,
@@ -176,27 +192,4 @@ func (rw *responseWriter) Flush() {
 	if f, ok := rw.ResponseWriter.(http.Flusher); ok {
 		f.Flush()
 	}
-}
-
-// getSourceIP extracts the real client IP address from the request.
-// It checks X-Forwarded-For and X-Real-IP headers before falling back to RemoteAddr.
-func getSourceIP(req *http.Request) string {
-	// Check X-Forwarded-For header first
-	if xff := req.Header.Get("X-Forwarded-For"); xff != "" {
-		// X-Forwarded-For can contain multiple IPs (client, proxy1, proxy2, ...).
-		// A typical deployment of Obot will have a proxy in front of it that appends the request client's IP address (req.RemoteAddr) to the X-Forwarded-For header before forwarding the request to Obot.
-		// With that in mind, we choose the rightmost IP in the X-Forwarded-For header since it's the only IP address that is not spoofable by the client.
-		ips := strings.Split(xff, ",")
-		if len(ips) > 0 {
-			return strings.TrimSpace(ips[len(ips)-1])
-		}
-	}
-
-	// Check X-Real-IP header next
-	if xrip := req.Header.Get("X-Real-IP"); xrip != "" {
-		return xrip
-	}
-
-	// Fall back to RemoteAddr
-	return req.RemoteAddr
 }
