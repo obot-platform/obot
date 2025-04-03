@@ -260,12 +260,12 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		return nil, err
 	}
 
-	encryptionConfig, err := encryption.Init(ctx, encryption.Options(config.EncryptionConfig))
+	encryptionConfig, encryptionConfigFile, err := encryption.Init(ctx, encryption.Options(config.EncryptionConfig))
 	if err != nil {
 		return nil, err
 	}
 
-	credStore, credStoreEnv, err := credstores.Init(config.ToolRegistries, config.DSN, config.EncryptionConfigFile)
+	credStore, credStoreEnv, err := credstores.Init(config.ToolRegistries, config.DSN, encryptionConfigFile)
 	if err != nil {
 		return nil, err
 	}

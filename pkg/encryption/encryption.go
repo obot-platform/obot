@@ -48,6 +48,9 @@ func (o *Options) Validate() error {
 			return fmt.Errorf("missing custom encryption config file")
 		}
 	case "none", "":
+		if o.EncryptionConfigFile != "" {
+			return fmt.Errorf("encryption config file provided but encryption provider is set to 'none', use 'custom' encryption provider instead")
+		}
 	default:
 		return fmt.Errorf("invalid encryption provider %s", o.EncryptionProvider)
 	}
@@ -55,34 +58,35 @@ func (o *Options) Validate() error {
 	return nil
 }
 
-func Init(ctx context.Context, opts Options) (*encryptionconfig.EncryptionConfiguration, error) {
+func Init(ctx context.Context, opts Options) (*encryptionconfig.EncryptionConfiguration, string, error) {
 	if err := opts.Validate(); err != nil {
-		return nil, err
+		return nil, "", err
 	}
 
 	// Set up encryption provider
 	switch strings.ToLower(opts.EncryptionProvider) {
 	case "aws":
 		if err := setUpAWSKMS(ctx, opts.AWSKMSKeyARN, opts.EncryptionConfigFile); err != nil {
-			return nil, fmt.Errorf("failed to setup AWS KMS: %w", err)
+			return nil, "", fmt.Errorf("failed to setup AWS KMS: %w", err)
 		}
 	case "gcp":
 		if err := setUpGoogleKMS(ctx, opts.GCPKMSKeyURI, opts.EncryptionConfigFile); err != nil {
-			return nil, fmt.Errorf("failed to setup Google Cloud KMS: %w", err)
+			return nil, "", fmt.Errorf("failed to setup Google Cloud KMS: %w", err)
 		}
 	case "azure":
 		if err := setUpAzureKeyVault(ctx, opts.AzureKeyVaultName, opts.AzureKeyName, opts.AzureKeyVersion, opts.EncryptionConfigFile); err != nil {
-			return nil, fmt.Errorf("failed to setup Azure Key Vault: %w", err)
+			return nil, "", fmt.Errorf("failed to setup Azure Key Vault: %w", err)
 		}
 	}
 
 	if opts.EncryptionConfigFile != "" {
 		log.Infof("Encryption: Using encryption config file: %s", opts.EncryptionConfigFile)
-		return encryptionconfig.LoadEncryptionConfig(ctx, opts.EncryptionConfigFile, false, "obot")
+		ec, err := encryptionconfig.LoadEncryptionConfig(ctx, opts.EncryptionConfigFile, false, "obot")
+		return ec, opts.EncryptionConfigFile, err
 	}
 
 	log.Warnf("Encryption: No encryption config file provided, using unencrypted storage")
-	return nil, nil
+	return nil, "", nil
 }
 
 func setUpAzureKeyVault(ctx context.Context, keyvaultName, keyName, keyVersion, configFile string) error {
