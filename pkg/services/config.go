@@ -349,7 +349,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 			tokenServer,
 			events,
 		)
-		providerDispatcher = dispatcher.New(ctx, invoker, storageClient, gptscriptClient)
+		providerDispatcher = dispatcher.New(ctx, invoker, storageClient, gptscriptClient, config.DSN)
 
 		proxyManager *proxy.Manager
 	)

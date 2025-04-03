@@ -149,10 +149,6 @@ func (ap *AuthProviderHandler) Configure(req api.Context) error {
 	}
 	envVars[providers.CookieSecretEnvVar] = cookieSecret
 
-	if ap.postgresDSN != "" {
-		envVars[providers.PostgresConnectionEnvVar] = ap.postgresDSN
-	}
-
 	// Allow for updating credentials. The only way to update a credential is to delete the existing one and recreate it.
 	cred, err := ap.gptscript.RevealCredential(req.Context(), []string{string(ref.UID), system.GenericAuthProviderCredentialContext}, ref.Name)
 	if err != nil {

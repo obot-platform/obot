@@ -37,9 +37,10 @@ type Dispatcher struct {
 	configuredAuthProvidersLock *sync.RWMutex
 	configuredAuthProviders     []string
 	openAICred                  string
+	postgresDSN                 string
 }
 
-func New(ctx context.Context, invoker *invoke.Invoker, c kclient.Client, gClient *gptscript.GPTScript) *Dispatcher {
+func New(ctx context.Context, invoker *invoke.Invoker, c kclient.Client, gClient *gptscript.GPTScript, postgresDSN string) *Dispatcher {
 	d := &Dispatcher{
 		invoker:                     invoker,
 		gptscript:                   gClient,
@@ -50,6 +51,7 @@ func New(ctx context.Context, invoker *invoke.Invoker, c kclient.Client, gClient
 		authUrls:                    make(map[string]*url.URL),
 		configuredAuthProvidersLock: new(sync.RWMutex),
 		configuredAuthProviders:     make([]string, 0),
+		postgresDSN:                 postgresDSN,
 	}
 
 	d.UpdateConfiguredAuthProviders(ctx)
@@ -357,8 +359,15 @@ func (d *Dispatcher) startAuthProvider(ctx context.Context, namespace, authProvi
 		}
 	}
 
+	// Set up the Postgres connection string if it is available.
+	var envs []string
+	if d.postgresDSN != "" {
+		envs = append(envs, providers.PostgresConnectionEnvVar+"="+d.postgresDSN)
+	}
+
 	task, err := d.invoker.SystemTask(ctx, thread, authProviderName, "", invoke.SystemTaskOptions{
 		CredentialContextIDs: credCtx,
+		Env:                  envs,
 	})
 	if err != nil {
 		return nil, err
