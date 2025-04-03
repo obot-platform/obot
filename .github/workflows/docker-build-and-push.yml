@@ -42,6 +42,7 @@ jobs:
 
       - name: Build and push OSS Docker image
         uses: depot/build-push-action@v1
+        id: build-and-push
         with:
           project: bbqjs4tj1g
           context: .
@@ -51,6 +52,24 @@ jobs:
           tags: |
             ghcr.io/${{ github.repository }}:${{ github.ref_name }}
             ${{ github.ref_type == 'tag' && !contains(github.ref_name, '-rc') && format('docker.io/obot/{0}:{1}', github.event.repository.name, github.ref_name) || '' }}
+
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@v3.8.1
+        with:
+          cosign-release: 'v2.4.3'
+      - name: Check install!
+        run: cosign version
+
+      - name: Sign Images
+        env:
+          DIGEST: ${{ steps.build-and-push.outputs.digest }}
+          TAGS: ghcr.io/${{ github.repository }}:${{ github.ref_name }} ${{ github.ref_type == 'tag' && !contains(github.ref_name, '-rc') && format('docker.io/obot/{0}:{1}', github.event.repository.name, github.ref_name) || '' }}
+        run: |
+          images=""
+          for tag in ${TAGS}; do
+            images+="${tag}@${DIGEST} "
+          done
+          cosign sign --yes ${images}
 
       - name: Setup crane
         uses: imjasonh/setup-crane@v0.4
@@ -87,6 +106,7 @@ jobs:
 
       - name: Build and push Enterprise Docker image
         uses: depot/build-push-action@v1
+        id: build-and-push
         with:
           project: bbqjs4tj1g
           context: .
@@ -99,6 +119,24 @@ jobs:
             GITHUB_TOKEN=${{ secrets.GHCR_TOKEN }}
           build-args: |
             TOOLS_IMAGE=obot-platform/obot/enterprise-tools
+
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@v3.8.1
+        with:
+          cosign-release: 'v2.4.3'
+      - name: Check install!
+        run: cosign version
+
+      - name: Sign Images
+        env:
+          DIGEST: ${{ steps.build-and-push.outputs.digest }}
+          TAGS: ghcr.io/${{ github.repository }}-enterprise:${{ github.ref_name }}
+        run: |
+          images=""
+          for tag in ${TAGS}; do
+            images+="${tag}@${DIGEST} "
+          done
+          cosign sign --yes ${images}
 
       - name: Setup crane
         uses: imjasonh/setup-crane@v0.4

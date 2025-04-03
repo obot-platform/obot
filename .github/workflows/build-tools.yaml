@@ -34,6 +34,7 @@ jobs:
 
       - name: Build and push enterprise-tools Docker image
         uses: depot/build-push-action@v1
+        id: build-and-push
         with:
           project: bbqjs4tj1g
           context: .
@@ -47,6 +48,24 @@ jobs:
             GITHUB_TOKEN=${{ secrets.GHCR_TOKEN }}
           build-args: |
             TOOL_REGISTRY_REPOS=github.com/obot-platform/tools,github.com/obot-platform/enterprise-tools
+
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@v3.8.1
+        with:
+          cosign-release: 'v2.4.3'
+      - name: Check install!
+        run: cosign version
+
+      - name: Sign Images
+        env:
+          DIGEST: ${{ steps.build-and-push.outputs.digest }}
+          TAGS: ghcr.io/${{ github.repository }}/enterprise-tools:latest
+        run: |
+          images=""
+          for tag in ${TAGS}; do
+            images+="${tag}@${DIGEST} "
+          done
+          cosign sign --yes ${images}
 
   oss-build:
     if: github.event.client_payload.sender == 'obot-platform/tools'
@@ -71,6 +90,7 @@ jobs:
 
       - name: Build and push enterprise-tools Docker image
         uses: depot/build-push-action@v1
+        id: build-and-push
         with:
           project: bbqjs4tj1g
           context: .
@@ -84,3 +104,21 @@ jobs:
             GITHUB_TOKEN=${{ secrets.GHCR_TOKEN }}
           build-args: |
             TOOL_REGISTRY_REPOS=github.com/obot-platform/tools
+
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@v3.8.1
+        with:
+          cosign-release: 'v2.4.3'
+      - name: Check install!
+        run: cosign version
+
+      - name: Sign Images
+        env:
+          DIGEST: ${{ steps.build-and-push.outputs.digest }}
+          TAGS: ghcr.io/${{ github.repository }}/oss-tools:latest
+        run: |
+          images=""
+          for tag in ${TAGS}; do
+            images+="${tag}@${DIGEST} "
+          done
+          cosign sign --yes ${images}
