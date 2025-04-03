@@ -183,11 +183,12 @@ func (rw *responseWriter) Flush() {
 func getSourceIP(req *http.Request) string {
 	// Check X-Forwarded-For header first
 	if xff := req.Header.Get("X-Forwarded-For"); xff != "" {
-		// X-Forwarded-For can contain multiple IPs (client, proxy1, proxy2, ...)
-		// The leftmost one is the original client IP
+		// X-Forwarded-For can contain multiple IPs (client, proxy1, proxy2, ...).
+		// A typical deployment of Obot will have a proxy in front of it that appends the request client's IP address (req.RemoteAddr) to the X-Forwarded-For header before forwarding the request to Obot.
+		// With that in mind, we choose the rightmost IP in the X-Forwarded-For header since it's the only IP address that is not spoofable by the client.
 		ips := strings.Split(xff, ",")
 		if len(ips) > 0 {
-			return strings.TrimSpace(ips[0])
+			return strings.TrimSpace(ips[len(ips)-1])
 		}
 	}
 
