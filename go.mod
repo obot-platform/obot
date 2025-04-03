@@ -34,6 +34,7 @@ require (
 	github.com/pterm/pterm v0.12.80
 	github.com/rs/cors v1.11.1
 	github.com/sendgrid/sendgrid-go v3.16.0+incompatible
+	github.com/sethvargo/go-limiter v1.0.0
 	github.com/spf13/cobra v1.8.1
 	github.com/tidwall/gjson v1.18.0
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.60.0

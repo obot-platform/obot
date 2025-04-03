@@ -25,6 +25,7 @@ import (
 	"github.com/obot-platform/obot/pkg/api/authz"
 	"github.com/obot-platform/obot/pkg/api/server"
 	"github.com/obot-platform/obot/pkg/api/server/audit"
+	"github.com/obot-platform/obot/pkg/api/server/ratelimiter"
 	"github.com/obot-platform/obot/pkg/bootstrap"
 	"github.com/obot-platform/obot/pkg/credstores"
 	"github.com/obot-platform/obot/pkg/encryption"
@@ -56,10 +57,11 @@ import (
 )
 
 type (
-	GatewayConfig    gserver.Options
-	GeminiConfig     gemini.Config
-	AuditConfig      audit.Options
-	EncryptionConfig encryption.Options
+	GatewayConfig     gserver.Options
+	GeminiConfig      gemini.Config
+	AuditConfig       audit.Options
+	RateLimiterConfig ratelimiter.Options
+	EncryptionConfig  encryption.Options
 )
 
 type Config struct {
@@ -91,6 +93,7 @@ type Config struct {
 	EncryptionConfig
 	OtelOptions
 	AuditConfig
+	RateLimiterConfig
 	services.Config
 }
 
@@ -451,6 +454,11 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		return nil, fmt.Errorf("failed to create audit logger: %w", err)
 	}
 
+	rateLimiter, err := ratelimiter.New(ratelimiter.Options(config.RateLimiterConfig))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create rate limiter: %w", err)
+	}
+
 	// For now, always auto-migrate the gateway database
 	return &Services{
 		WorkspaceProviderType: config.WorkspaceProviderType,
@@ -469,6 +477,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 			authz.NewAuthorizer(r.Backend(), config.DevMode),
 			proxyManager,
 			auditLogger,
+			rateLimiter,
 			config.Hostname,
 		),
 		TokenServer:                tokenServer,
