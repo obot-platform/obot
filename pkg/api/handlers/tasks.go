@@ -20,6 +20,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/util/retry"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -520,6 +521,10 @@ func (t *TaskHandler) updateTrigger(req api.Context, workflow *v1.Workflow, task
 		return nil, err
 	}
 
+	if err := t.updateSlack(req, workflow, task); err != nil {
+		return nil, err
+	}
+
 	return &trigger, nil
 }
 
@@ -642,6 +647,21 @@ func (t *TaskHandler) updateCron(req api.Context, workflow *v1.Workflow, task ty
 	}
 
 	return nil
+}
+
+func (t *TaskHandler) updateSlack(req api.Context, workflow *v1.Workflow, task types.TaskManifest) error {
+	err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+		if err := req.Storage.Get(req.Context(), kclient.ObjectKeyFromObject(workflow), workflow); err != nil {
+			return err
+		}
+		if task.OnSlackMessage == nil {
+			workflow.Spec.Manifest.OnSlackMessage = nil
+		} else {
+			workflow.Spec.Manifest.OnSlackMessage = &types.TaskOnSlackMessage{}
+		}
+		return req.Update(workflow)
+	})
+	return err
 }
 
 func (t *TaskHandler) getThreadAndManifestFromRequest(req api.Context) (*v1.Thread, types.WorkflowManifest, types.TaskManifest, error) {
