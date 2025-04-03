@@ -336,6 +336,11 @@ func New(ctx context.Context, config Config) (*Services, error) {
 
 	apply.AddValidOwnerChange("otto-controller", "obot-controller")
 
+	var postgresDSN string
+	if strings.HasPrefix(config.DSN, "postgres://") {
+		postgresDSN = config.DSN
+	}
+
 	var (
 		tokenServer   = &jwt.TokenService{}
 		gatewayClient = client.New(gatewayDB, encryptionConfig, config.AuthAdminEmails)
@@ -349,7 +354,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 			tokenServer,
 			events,
 		)
-		providerDispatcher = dispatcher.New(ctx, invoker, storageClient, gptscriptClient, config.DSN)
+		providerDispatcher = dispatcher.New(ctx, invoker, storageClient, gptscriptClient, postgresDSN)
 
 		proxyManager *proxy.Manager
 	)
@@ -441,11 +446,6 @@ func New(ctx context.Context, config Config) (*Services, error) {
 	auditLogger, err := audit.New(ctx, audit.Options(config.AuditConfig))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create audit logger: %w", err)
-	}
-
-	var postgresDSN string
-	if strings.HasPrefix(config.DSN, "postgres://") {
-		postgresDSN = config.DSN
 	}
 
 	// For now, always auto-migrate the gateway database
