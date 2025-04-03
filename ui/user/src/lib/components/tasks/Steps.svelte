@@ -38,6 +38,7 @@
 		<h4 class="text-lg font-semibold">Steps</h4>
 		<button
 			class="icon-button"
+			data-testid="steps-toggle-output-btn"
 			onclick={() => (showAllOutput = !showAllOutput)}
 			use:tooltip={'Toggle All Output Visbility'}
 		>

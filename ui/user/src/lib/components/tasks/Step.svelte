@@ -119,6 +119,7 @@
 		{#if messages.length > 0}
 			<button
 				class="icon-button"
+				data-testid="step-toggle-output-btn"
 				onclick={() => (showOutput = !showOutput)}
 				use:tooltip={'Toggle Output Visibility'}
 				transition:fade={{ duration: 200 }}
@@ -151,6 +152,7 @@
 			{:else}
 				<button
 					class="icon-button"
+					data-testid="step-run-btn"
 					onclick={doRun}
 					use:tooltip={running
 						? 'Abort'
@@ -172,6 +174,7 @@
 				</button>
 				<button
 					class="icon-button"
+					data-testid="step-delete-btn"
 					onclick={() => {
 						if (step.step?.trim()) {
 							toDelete = true;
@@ -188,6 +191,7 @@
 						{#if (step.step?.trim() || '').length > 0}
 							<button
 								class="icon-button"
+								data-testid="step-add-btn"
 								onclick={addStep}
 								use:tooltip={'Add Step'}
 								transition:fade={{ duration: 200 }}

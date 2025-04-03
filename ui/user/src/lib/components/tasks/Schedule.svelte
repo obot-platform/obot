@@ -16,7 +16,7 @@
 <h4 class="text-base font-medium">Schedule</h4>
 <div class="flex gap-4 md:min-w-sm">
 	<Dropdown
-		class="bg-surface2 text-md flex grow"
+		class="schedule-dropdown"
 		values={{
 			hourly: 'hourly',
 			daily: 'daily',
@@ -34,7 +34,7 @@
 
 	{#if schedule?.interval === 'hourly'}
 		<Dropdown
-			class="bg-surface2 text-md flex grow"
+			class="schedule-dropdown"
 			values={{
 				'0': 'on the hour',
 				'15': '15 minutes past',
@@ -53,6 +53,7 @@
 
 	{#if schedule?.interval === 'daily'}
 		<Dropdown
+			class="schedule-dropdown"
 			values={{
 				'0': 'midnight',
 				'3': '3 AM',
@@ -81,6 +82,7 @@
 
 	{#if schedule?.interval === 'weekly'}
 		<Dropdown
+			class="schedule-dropdown"
 			values={{
 				'0': 'Sunday',
 				'1': 'Monday',
@@ -108,6 +110,7 @@
 
 	{#if schedule?.interval === 'monthly'}
 		<Dropdown
+			class="schedule-dropdown"
 			values={{
 				'0': '1st',
 				'1': '2nd',
@@ -134,3 +137,12 @@
 		{/if}
 	{/if}
 </div>
+
+<style lang="postcss">
+	:global(.schedule-dropdown) {
+		background-color: var(--surface2);
+		font-size: var(--text-md);
+		display: flex;
+		flex-grow: 1;
+	}
+</style>
