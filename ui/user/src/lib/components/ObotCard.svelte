@@ -5,6 +5,7 @@
 	import ToolPill from '$lib/components/ToolPill.svelte';
 	import { DEFAULT_PROJECT_NAME } from '$lib/constants';
 	import type { Snippet } from 'svelte';
+	import { UserPen } from 'lucide-svelte';
 
 	interface Props {
 		project: Project | ProjectShare;
@@ -40,27 +41,33 @@
 				</div>
 			{/if}
 		</div>
-		{#if 'tools' in project && project.tools}
-			{@const maxToolsToShow = responsive.isMobile ? 2 : 3}
-			<div class="mt-auto flex w-full flex-wrap justify-end gap-2">
-				{#each project.tools.slice(0, maxToolsToShow) as tool}
-					{@const toolData = tools.get(tool)}
-					{#if toolData}
-						<ToolPill tool={toolData} />
+		<div class="flex w-full justify-between">
+			{#if 'editor' in project && project.editor}
+				<span
+					class="bg-surface2 mt-auto flex h-fit w-fit gap-1 rounded-full px-3 py-1 text-xs font-light text-gray-500"
+				>
+					<UserPen class="size-4" /> Owner
+				</span>
+			{/if}
+			{#if 'tools' in project && project.tools}
+				{@const maxToolsToShow = responsive.isMobile ? 2 : 3}
+				<div class="mt-auto flex w-full flex-wrap justify-end gap-2">
+					{#each project.tools.slice(0, maxToolsToShow) as tool}
+						{@const toolData = tools.get(tool)}
+						{#if toolData}
+							<ToolPill tool={toolData} />
+						{/if}
+					{/each}
+					{#if project.tools.length > maxToolsToShow}
+						<ToolPill
+							tools={project.tools
+								.slice(maxToolsToShow)
+								.map((t) => tools.get(t))
+								.filter((t): t is ToolReference => !!t)}
+						/>
 					{/if}
-				{/each}
-				{#if project.tools.length > maxToolsToShow}
-					<ToolPill
-						tools={project.tools
-							.slice(maxToolsToShow)
-							.map((t) => tools.get(t))
-							.filter((t): t is ToolReference => !!t)}
-					/>
-				{/if}
-			</div>
-		{:else}
-			<div class="min-h-2"></div>
-			<!-- placeholder -->
-		{/if}
+				</div>
+			{/if}
+		</div>
 	</div>
 </a>
