@@ -18,9 +18,11 @@
 	{#snippet header()}
 		<span class="flex grow items-center gap-2 text-start text-base font-extralight">
 			General
-			<div use:tooltip={'Only the owner can modify this section.'}>
-				<Info class="size-4 text-gray-500 dark:text-gray-300" />
-			</div>
+			{#if !project.editor}
+				<div use:tooltip={'Only the owner can modify this section.'}>
+					<Info class="size-4 text-gray-500 dark:text-gray-300" />
+				</div>
+			{/if}
 		</span>
 	{/snippet}
 	<div class="flex flex-col gap-4">
