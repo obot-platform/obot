@@ -40,7 +40,6 @@
 	let maxExceeded = $state(false);
 
 	function getSelectionMap() {
-		$inspect('tools', tools);
 		return tools
 			.filter((t) => !t.builtin)
 			.reduce<Record<string, AssistantTool>>((acc, tool) => {
