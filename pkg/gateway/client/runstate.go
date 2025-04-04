@@ -40,14 +40,20 @@ func (c *Client) CreateRunState(ctx context.Context, runState *types.RunState) e
 		return err
 	}
 
-	return c.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	if err := c.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		// Get the run state. If it exists, return an already exists error, otherwise create it.
 		// We do this because trying to catch the gorm.ErrDuplicateKey doesn't work.
-		if err := tx.Where("name = ?", runState.Name).Where("namespace = ?", runState.Namespace).First(r).Error; err == nil {
-			return apierrors.NewAlreadyExists(gr, runState.Name)
+		if err := tx.Where("name = ?", r.Name).Where("namespace = ?", runState.Namespace).First(r).Error; err == nil {
+			return apierrors.NewAlreadyExists(gr, r.Name)
 		}
 		return tx.Create(r).Error
-	})
+	}); err != nil {
+		return err
+	}
+
+	runState.CreatedAt = r.CreatedAt
+	runState.UpdatedAt = r.UpdatedAt
+	return nil
 }
 
 func (c *Client) UpdateRunState(ctx context.Context, runState *types.RunState) error {
@@ -58,10 +64,15 @@ func (c *Client) UpdateRunState(ctx context.Context, runState *types.RunState) e
 		return err
 	}
 
-	if err := c.db.WithContext(ctx).Save(r).Error; !errors.Is(err, gorm.ErrRecordNotFound) {
+	if err := c.db.WithContext(ctx).Updates(r).Error; errors.Is(err, gorm.ErrRecordNotFound) {
+		return apierrors.NewNotFound(gr, runState.Name)
+	} else if err != nil {
 		return err
 	}
-	return apierrors.NewNotFound(gr, runState.Name)
+
+	runState.CreatedAt = r.CreatedAt
+	runState.UpdatedAt = r.UpdatedAt
+	return nil
 }
 
 func (c *Client) DeleteRunState(ctx context.Context, namespace, name string) error {
