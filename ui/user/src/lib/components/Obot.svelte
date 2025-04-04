@@ -113,27 +113,27 @@
 					{/if}
 				{/if}
 
+				{#if editor && layout.fileEditorOpen}
+					<div
+						use:columnResize={{ column: editor, direction: 'right' }}
+						class="relative h-full w-8 cursor-grab"
+						transition:slide={{ axis: 'x' }}
+					>
+						<div
+							class="text-on-surface1 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2"
+						>
+							<GripVertical class="text-surface3 size-3" />
+						</div>
+					</div>
+				{/if}
 				<div
 					bind:this={editor}
 					class={twMerge(
-						'border-surface2 absolute right-0 z-30 float-right flex w-full translate-x-full transform border-4 border-r-0 transition-transform duration-300 md:w-3/5 md:max-w-[calc(100%-320px)] md:min-w-[320px] md:rounded-l-3xl',
+						'border-surface2 absolute right-0 z-30 float-right flex w-full flex-shrink-0 translate-x-full transform border-4 border-r-0 transition-transform duration-300 md:w-3/5 md:max-w-[calc(100%-320px)] md:min-w-[320px] md:rounded-l-3xl',
 						layout.fileEditorOpen && 'relative w-full translate-x-0',
 						!layout.fileEditorOpen && 'w-0'
 					)}
 				>
-					{#if editor && layout.fileEditorOpen}
-						<div
-							use:columnResize={{ column: editor, direction: 'right' }}
-							class="relative h-full w-8 cursor-grab"
-							transition:slide={{ axis: 'x' }}
-						>
-							<div
-								class="text-on-surface1 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2"
-							>
-								<GripVertical class="text-surface3 size-3" />
-							</div>
-						</div>
-					{/if}
 					<Editor {project} {currentThreadID} />
 				</div>
 			</div>
