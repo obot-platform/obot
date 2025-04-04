@@ -22,7 +22,6 @@
 	import ChatInput from '../messages/Input.svelte';
 	import Input from './Input.svelte';
 	import Tools from '../navbar/Tools.svelte';
-
 	interface Props {
 		task: Task;
 		project: Project;
@@ -344,7 +343,7 @@
 
 			{#if showAdvancedOptions}
 				<div class="p-6" transition:fade>
-					<Type bind:task {readOnly} />
+					<Type bind:task {readOnly} {project} />
 				</div>
 			{/if}
 			<div class="grow"></div>

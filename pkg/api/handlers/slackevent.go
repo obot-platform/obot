@@ -175,8 +175,8 @@ func (h *SlackEventHandler) HandleEvent(req api.Context) error {
 		for _, workflow := range workflows.Items {
 			err := req.Create(&v1.WorkflowExecution{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      system.WorkflowExecutionPrefix,
-					Namespace: req.Namespace(),
+					GenerateName: system.WorkflowExecutionPrefix,
+					Namespace:    req.Namespace(),
 				},
 				Spec: v1.WorkflowExecutionSpec{
 					Input:        payload.String(),

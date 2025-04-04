@@ -14,6 +14,9 @@
 	import Logo from './navbar/Logo.svelte';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import { columnResize } from '$lib/actions/resize';
+	import { X } from 'lucide-svelte';
+	import CredentialAuth from '$lib/components/edit/CredentialAuth.svelte';
+	import type { ProjectCredential } from '$lib/services';
 
 	interface Props {
 		project: Project;
@@ -25,6 +28,11 @@
 	let layout = getLayout();
 	let editor: HTMLDivElement | undefined = $state();
 
+	let credentials = $state<ProjectCredential[]>([]);
+	let credDialog: HTMLDialogElement;
+	let credAuth: ReturnType<typeof CredentialAuth>;
+	let configDialog: HTMLDialogElement;
+
 	async function createNewThread() {
 		const thread = await ChatService.createThread(project.assistantID, project.id);
 		const found = layout.threads?.find((t) => t.id === thread.id);
@@ -35,6 +43,19 @@
 		closeAll(layout);
 		currentThreadID = thread.id;
 	}
+
+	$effect(() => {
+		ChatService.listProjectLocalCredentials(project.assistantID, project.id).then((creds) => {
+			credentials = creds.items;
+			if (
+				project.capabilities?.onSlackMessage &&
+				!credentials.find((c) => c.toolID === 'slack-bot-bundle')?.exists
+			) {
+				configDialog?.showModal();
+				return;
+			}
+		});
+	});
 </script>
 
 <div class="colors-background relative flex h-full flex-col overflow-hidden">
@@ -137,6 +158,48 @@
 					<Editor {project} {currentThreadID} />
 				</div>
 			</div>
+
+			<dialog bind:this={configDialog} class="default-dialog">
+				<div class="p-6">
+					<button class="absolute top-0 right-0 p-3" onclick={() => configDialog?.close()}>
+						<X class="icon-default" />
+					</button>
+					<h3 class="mb-4 text-lg font-semibold">Configure Slack</h3>
+					<p class="text-sm text-gray-600">
+						To run this task, you'll need to configure the Slack Bot tool first.
+					</p>
+					<div class="mt-6 flex justify-end gap-3">
+						<button
+							class="button"
+							onclick={() => {
+								configDialog?.close();
+								credDialog?.showModal();
+								credAuth?.show();
+							}}
+						>
+							Configure Now
+						</button>
+					</div>
+				</div>
+			</dialog>
+
+			<dialog
+				bind:this={credDialog}
+				class="max-h-[90vh] min-h-[300px] w-1/3 min-w-[300px] overflow-visible p-5"
+			>
+				<div class="flex h-full flex-col">
+					<button class="absolute top-0 right-0 p-3" onclick={() => credDialog?.close()}>
+						<X class="icon-default" />
+					</button>
+					<CredentialAuth
+						bind:this={credAuth}
+						{project}
+						local
+						toolID="slack-bot-bundle"
+						onClose={() => credDialog?.close()}
+					/>
+				</div>
+			</dialog>
 		</main>
 	</div>
 </div>

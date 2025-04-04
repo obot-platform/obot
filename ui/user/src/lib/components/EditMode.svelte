@@ -29,6 +29,8 @@
 	import Sites from '$lib/components/edit/Sites.svelte';
 	import { errors, responsive, tools } from '$lib/stores';
 	import { twMerge } from 'tailwind-merge';
+	import Slack from '$lib/components/slack/Slack.svelte';
+
 	interface Props {
 		project: Project;
 		currentThreadID?: string;
@@ -164,6 +166,7 @@
 							{/if}
 							<Files {project} />
 							<Tasks {project} bind:currentThreadID />
+							<Slack {project} />
 							<Interface bind:project />
 							<Credentials {project} />
 							<Share {project} />

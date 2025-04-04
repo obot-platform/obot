@@ -57,6 +57,9 @@
 		if (task.email) {
 			return 'email';
 		}
+		if (task.onSlackMessage) {
+			return 'slack';
+		}
 		return 'onDemand';
 	}
 </script>
@@ -87,5 +90,16 @@
 	{/if}
 	{#if selectedTrigger() === 'onDemand'}
 		<OnDemand bind:onDemand={task.onDemand} {readOnly} />
+	{/if}
+	{#if selectedTrigger() === 'slack'}
+		<div class="flex grow flex-col gap-4">
+			<div class="flex items-center justify-between">
+				<div class="flex gap-2">
+					<p class="text-sm text-gray-600 dark:text-gray-400">
+						This task will be triggered when you mention the bot in any Slack channel
+					</p>
+				</div>
+			</div>
+		</div>
 	{/if}
 </div>

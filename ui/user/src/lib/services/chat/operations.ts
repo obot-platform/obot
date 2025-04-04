@@ -25,7 +25,8 @@ import {
 	type ProjectAuthorizationList,
 	type ProjectCredentialList,
 	type ProjectShare,
-	type ToolReferenceList
+	type ToolReferenceList,
+	type SlackConfig
 } from './types';
 
 export type Fetcher = typeof fetch;
@@ -884,4 +885,23 @@ export async function updateProjectThreadTools(
 		list.items = [];
 	}
 	return list;
+}
+
+export async function configureProjectSlack(
+	assistantID: string,
+	projectID: string,
+	config: SlackConfig,
+	method: 'POST' | 'PUT' = 'POST'
+) {
+	if (method === 'POST') {
+		return (await doPost(
+			`/assistants/${assistantID}/projects/${projectID}/slack`,
+			config
+		)) as Project;
+	}
+	return (await doPut(`/assistants/${assistantID}/projects/${projectID}/slack`, config)) as Project;
+}
+
+export async function disableProjectSlack(assistantID: string, projectID: string) {
+	return doDelete(`/assistants/${assistantID}/projects/${projectID}/slack`);
 }
