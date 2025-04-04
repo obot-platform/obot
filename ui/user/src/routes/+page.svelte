@@ -10,21 +10,16 @@
 	import FeaturedObotCard from '$lib/components/FeaturedObotCard.svelte';
 
 	let { data }: PageProps = $props();
-	let { authProviders, assistants, assistantsLoaded, featuredProjectShares, tools } = data;
+	let { authProviders, featuredProjectShares, tools } = data;
 	let loginDialog = $state<HTMLDialogElement>();
 	let projectShareRedirect = $state<string | null>(null);
 
 	onMount(async () => {
-		if (!assistantsLoaded) {
-			show();
-		}
-
 		if (browser && new URL(window.location.href).searchParams.get('rd')) {
 			loginDialog?.showModal();
 		}
 	});
 
-	let div: HTMLElement;
 	let rd = $derived.by(() => {
 		if (browser) {
 			const rd = new URL(window.location.href).searchParams.get('rd');
@@ -39,24 +34,10 @@
 	});
 
 	$effect(() => {
-		let a = assistants.find((assistant) => assistant.default);
-		if (a || assistants.length === 1) {
+		if (profile.current.loaded) {
 			goto(`/home`, { replaceState: true });
-		} else if (assistantsLoaded) {
-			window.location.href = '/admin/';
 		}
 	});
-
-	$effect(() => {
-		if (profile.current.unauthorized) {
-			show();
-		}
-	});
-
-	function show() {
-		div.classList.remove('hidden');
-		div.classList.add('flex');
-	}
 </script>
 
 {#snippet navLinks()}
@@ -86,7 +67,7 @@
 	<title>Obot - Do more with AI</title>
 </svelte:head>
 
-<div bind:this={div} class="relative hidden h-dvh w-full flex-col text-black dark:text-white">
+<div class="relative h-dvh w-full flex-col text-black dark:text-white">
 	<!-- Header with logo and navigation -->
 	<div class="colors-background flex h-16 w-full items-center p-5">
 		<div class="relative flex items-end">

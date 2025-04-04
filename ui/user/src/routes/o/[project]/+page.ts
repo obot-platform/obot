@@ -1,3 +1,4 @@
+import { browser } from '$app/environment';
 import { handleRouteError } from '$lib/errors';
 import { ChatService } from '$lib/services';
 import { profile } from '$lib/stores';
@@ -14,6 +15,10 @@ export const load: PageLoad = async ({ params, fetch }) => {
 			ChatService.listTools(project.assistantID, project.id, { fetch }),
 			ChatService.getAssistant(project.assistantID, { fetch })
 		]);
+
+		if (browser) {
+			localStorage.setItem('lastVisitedObot', params.project);
+		}
 
 		return { project, tools: tools.items, toolReferences: toolReferences.items, assistant };
 	} catch (e) {

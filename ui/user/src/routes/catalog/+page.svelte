@@ -6,8 +6,8 @@
 	import Notifications from '$lib/components/Notifications.svelte';
 	import type { PageProps } from './$types';
 	import ObotCard from '$lib/components/ObotCard.svelte';
-	import { qIsSet } from '$lib/url';
-	import { ChevronsLeft } from 'lucide-svelte';
+	import { q, qIsSet } from '$lib/url';
+	import { ChevronLeft } from 'lucide-svelte';
 	import FeaturedObotCard from '$lib/components/FeaturedObotCard.svelte';
 	import { sortByFeaturedNameOrder } from '$lib/sort';
 
@@ -64,10 +64,14 @@
 
 	<main class="colors-background relative flex w-full flex-col items-center justify-center pb-12">
 		{#if qIsSet('from')}
-			<div class="flex w-full max-w-(--breakpoint-xl) flex-col justify-start md:px-8">
-				<a href="/home" class="button-text flex items-center gap-2 text-sm md:text-base"
-					><ChevronsLeft class="size-4" /> My Obots</a
+			{@const from = decodeURIComponent(q('from'))}
+			<div class="mt-8 flex w-full max-w-(--breakpoint-xl) flex-col justify-start md:px-8">
+				<a
+					href={from}
+					class="button-text flex w-fit items-center gap-1 pb-0 text-base font-semibold text-black md:text-lg dark:text-white"
 				>
+					<ChevronLeft class="size-5" />{from.includes('home') ? 'My Obots' : 'Go Back'}
+				</a>
 			</div>
 		{/if}
 		{#if qIsSet('new')}
@@ -82,7 +86,7 @@
 			</div>
 		{/if}
 		{#if featured.length > 0}
-			<div class="bg-surface2 mb-4 flex w-full flex-col items-center justify-center">
+			<div class="mb-4 flex w-full flex-col items-center justify-center">
 				<div class="flex w-full max-w-(--breakpoint-xl) flex-col gap-4 px-4 md:px-12">
 					<h3 class="mt-8 text-2xl font-semibold md:text-3xl">Featured</h3>
 					<div class="featured-card-layout gap-x-4 gap-y-6 sm:gap-y-8">

@@ -3,19 +3,26 @@
 	import { getProjectImage } from '$lib/image';
 	import type { Project, ProjectShare, ToolReference } from '$lib/services';
 	import { darkMode, responsive } from '$lib/stores';
+	import { twMerge } from 'tailwind-merge';
 	import ToolPill from './ToolPill.svelte';
 
 	interface Props {
 		project: Project | ProjectShare;
 		tools: Map<string, ToolReference>;
 		onclick?: () => void;
+		class?: string;
 	}
 
-	const { project, tools, onclick }: Props = $props();
+	const { project, tools, onclick, class: klass }: Props = $props();
 </script>
 
 {#snippet content()}
-	<div class="bg-surface1 z-10 flex w-full grow items-center rounded-xl p-4 shadow-md">
+	<div
+		class={twMerge(
+			'bg-surface1 z-10 flex w-full grow items-center rounded-xl p-4 shadow-md',
+			klass
+		)}
+	>
 		<img
 			alt="obot logo"
 			src={getProjectImage(project, darkMode.isDark)}
