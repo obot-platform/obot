@@ -14,7 +14,6 @@ type LLMProxyActivity struct {
 	AgentID        string
 	ThreadID       string
 	RunID          string
-	Username       string
 	Path           string
 }
 

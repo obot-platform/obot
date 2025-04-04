@@ -3,6 +3,7 @@ package client
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/obot-platform/obot/pkg/gateway/types"
@@ -29,7 +30,7 @@ func (c *Client) ActivitiesByUser(ctx context.Context, userID string, start, end
 
 func (c *Client) ActiveUsersByDate(ctx context.Context, start, end time.Time) ([]types.User, error) {
 	var users []types.User
-	return users, c.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	if err := c.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		var ids []string
 		if err := tx.Model(new(types.APIActivity)).
 			Where("date >= ? AND date < ?", start, end).
@@ -40,5 +41,15 @@ func (c *Client) ActiveUsersByDate(ctx context.Context, start, end time.Time) ([
 			return err
 		}
 		return tx.Where("id IN (?)", ids).Find(&users).Error
-	})
+	}); err != nil {
+		return nil, err
+	}
+
+	for i := range users {
+		if err := c.decryptUser(ctx, &users[i]); err != nil {
+			return nil, fmt.Errorf("failed to decrypt user: %w", err)
+		}
+	}
+
+	return users, nil
 }

@@ -39,53 +39,13 @@ func (db *DB) AutoMigrate() (err error) {
 
 	// Only run PostgreSQL-specific migrations if using PostgreSQL
 	if db.gormDB.Dialector.Name() == "postgres" {
-		// Check if the identities table exists
-		var exists bool
-		if err := tx.Raw(`
-			SELECT EXISTS (
-				SELECT 1
-				FROM information_schema.tables
-				WHERE table_name = 'identities'
-			)
-		`).Scan(&exists).Error; err != nil {
-			return err
+		if err = addAuthProviderNameAndNamespace(tx); err != nil {
+			return fmt.Errorf("failed to add auth provider name and namespace: %w", err)
 		}
+	}
 
-		if exists {
-			// The identities table needs to have auth_provider_namespace,auth_provider_name,provider_user_id as a primary key.
-			// It used to have auth_provider_namespace,auth_provider_name,provider_username as a primary key.
-
-			// Check if the migration is needed.
-			var needsIdentityMigration bool
-			if err := tx.Raw(`
-				SELECT COUNT(*) = 0 as needs_migration
-				FROM information_schema.key_column_usage
-				WHERE table_name = 'identities'
-				AND constraint_name = 'identities_pkey'
-				AND column_name = 'provider_user_id'
-			`).Scan(&needsIdentityMigration).Error; err != nil {
-				return err
-			}
-
-			if needsIdentityMigration {
-				// Add provider_user_id to identities table and update primary key.
-				if err := tx.Exec(`
-				-- Drop existing primary key
-				ALTER TABLE identities DROP CONSTRAINT identities_pkey;
-
-				-- Add provider_user_id column
-				ALTER TABLE identities ADD COLUMN provider_user_id text NOT NULL DEFAULT '';
-
-				-- Set placeholder values for existing records
-				UPDATE identities SET provider_user_id = 'OBOT_PLACEHOLDER_' || provider_username WHERE provider_user_id = '';
-
-				-- Add new primary key
-					ALTER TABLE identities ADD PRIMARY KEY (auth_provider_name, auth_provider_namespace, provider_user_id);
-				`).Error; err != nil {
-					return err
-				}
-			}
-		}
+	if err = addIdentityAndUserHashedFields(tx); err != nil {
+		return fmt.Errorf("failed to add identity and user hashed fields: %w", err)
 	}
 
 	if err := tx.AutoMigrate(&GptscriptCredential{}); err != nil {

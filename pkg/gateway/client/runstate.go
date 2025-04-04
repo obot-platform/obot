@@ -13,7 +13,7 @@ import (
 )
 
 var (
-	gr = schema.GroupResource{
+	runStatesGroupResource = schema.GroupResource{
 		Group:    "obot.obot.ai",
 		Resource: "runstates",
 	}
@@ -29,7 +29,7 @@ func (c *Client) RunState(ctx context.Context, namespace, name string) (*types.R
 	} else if !errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, err
 	}
-	return nil, apierrors.NewNotFound(gr, name)
+	return nil, apierrors.NewNotFound(runStatesGroupResource, name)
 }
 
 func (c *Client) CreateRunState(ctx context.Context, runState *types.RunState) error {
@@ -43,8 +43,8 @@ func (c *Client) CreateRunState(ctx context.Context, runState *types.RunState) e
 	if err := c.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		// Get the run state. If it exists, return an already exists error, otherwise create it.
 		// We do this because trying to catch the gorm.ErrDuplicateKey doesn't work.
-		if err := tx.Where("name = ?", r.Name).Where("namespace = ?", runState.Namespace).First(r).Error; err == nil {
-			return apierrors.NewAlreadyExists(gr, r.Name)
+		if err := tx.Where("name = ?", runState.Name).Where("namespace = ?", runState.Namespace).First(r).Error; err == nil {
+			return apierrors.NewAlreadyExists(runStatesGroupResource, runState.Name)
 		}
 		return tx.Create(r).Error
 	}); err != nil {
@@ -66,7 +66,7 @@ func (c *Client) UpdateRunState(ctx context.Context, runState *types.RunState) e
 
 	// Explicitly update the done, so that it is always set to the value that is sent by the caller.
 	if err := c.db.WithContext(ctx).Updates(r).Update("done", runState.Done).Error; errors.Is(err, gorm.ErrRecordNotFound) {
-		return apierrors.NewNotFound(gr, runState.Name)
+		return apierrors.NewNotFound(runStatesGroupResource, runState.Name)
 	} else if err != nil {
 		return err
 	}
@@ -84,7 +84,12 @@ func (c *Client) DeleteRunState(ctx context.Context, namespace, name string) err
 }
 
 func (c *Client) encryptRunState(ctx context.Context, runState *types.RunState) error {
-	if c.transformer == nil {
+	if c.encryptionConfig == nil {
+		return nil
+	}
+
+	transformer := c.encryptionConfig.Transformers[runStatesGroupResource]
+	if transformer == nil {
 		return nil
 	}
 
@@ -92,22 +97,27 @@ func (c *Client) encryptRunState(ctx context.Context, runState *types.RunState) 
 		err  error
 		errs []error
 
-		dataCtx = value.DefaultContext(fmt.Sprintf("%s/%s/%s", gr.String(), runState.Namespace, runState.Name))
+		dataCtx = runStateDataCtx(runState.Namespace, runState.Name)
 	)
-	if runState.Output, err = c.transformer.TransformToStorage(ctx, runState.Output, dataCtx); err != nil {
+	if runState.Output, err = transformer.TransformToStorage(ctx, runState.Output, dataCtx); err != nil {
 		errs = append(errs, err)
 	}
-	if runState.CallFrame, err = c.transformer.TransformToStorage(ctx, runState.CallFrame, dataCtx); err != nil {
+	if runState.CallFrame, err = transformer.TransformToStorage(ctx, runState.CallFrame, dataCtx); err != nil {
 		errs = append(errs, err)
 	}
-	if runState.ChatState, err = c.transformer.TransformToStorage(ctx, runState.ChatState, dataCtx); err != nil {
+	if runState.ChatState, err = transformer.TransformToStorage(ctx, runState.ChatState, dataCtx); err != nil {
 		errs = append(errs, err)
 	}
 	return errors.Join(errs...)
 }
 
 func (c *Client) decryptRunState(ctx context.Context, runState *types.RunState) error {
-	if c.transformer == nil {
+	if c.encryptionConfig == nil {
+		return nil
+	}
+
+	transformer := c.encryptionConfig.Transformers[runStatesGroupResource]
+	if transformer == nil {
 		return nil
 	}
 
@@ -115,20 +125,24 @@ func (c *Client) decryptRunState(ctx context.Context, runState *types.RunState) 
 		err  error
 		errs []error
 
-		dataCtx = value.DefaultContext(fmt.Sprintf("%s/%s/%s", gr.String(), runState.Namespace, runState.Name))
+		dataCtx = runStateDataCtx(runState.Namespace, runState.Name)
 	)
-	runState.Output, _, err = c.transformer.TransformFromStorage(ctx, runState.Output, dataCtx)
+	runState.Output, _, err = transformer.TransformFromStorage(ctx, runState.Output, dataCtx)
 	if err != nil {
 		errs = append(errs, err)
 	}
-	runState.CallFrame, _, err = c.transformer.TransformFromStorage(ctx, runState.CallFrame, dataCtx)
+	runState.CallFrame, _, err = transformer.TransformFromStorage(ctx, runState.CallFrame, dataCtx)
 	if err != nil {
 		errs = append(errs, err)
 	}
-	runState.ChatState, _, err = c.transformer.TransformFromStorage(ctx, runState.ChatState, dataCtx)
+	runState.ChatState, _, err = transformer.TransformFromStorage(ctx, runState.ChatState, dataCtx)
 	if err != nil {
 		errs = append(errs, err)
 	}
 
 	return errors.Join(errs...)
+}
+
+func runStateDataCtx(namespace, name string) value.Context {
+	return value.DefaultContext(fmt.Sprintf("%s/%s/%s", runStatesGroupResource.String(), namespace, name))
 }

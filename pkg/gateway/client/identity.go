@@ -2,6 +2,7 @@ package client
 
 import (
 	"context"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"slices"
@@ -9,19 +10,36 @@ import (
 
 	types2 "github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/gateway/types"
+	"github.com/obot-platform/obot/pkg/hash"
 	"gorm.io/gorm"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apiserver/pkg/storage/value"
 )
 
-var verifiedAuthProviders = []string{
-	"default/google-auth-provider",
-	"default/github-auth-provider",
-}
+var (
+	verifiedAuthProviders = []string{
+		"default/google-auth-provider",
+		"default/github-auth-provider",
+	}
+
+	identityGroupResource = schema.GroupResource{
+		Group:    "obot.obot.ai",
+		Resource: "identities",
+	}
+)
 
 func (c *Client) FindIdentitiesForUser(ctx context.Context, userID uint) ([]types.Identity, error) {
 	var identities []types.Identity
 	if err := c.db.WithContext(ctx).Where("user_id = ?", userID).Find(&identities).Error; err != nil {
 		return nil, err
 	}
+
+	for i := range identities {
+		if err := c.decryptIdentity(ctx, &identities[i]); err != nil {
+			return nil, fmt.Errorf("failed to decrypt identity: %w", err)
+		}
+	}
+
 	return identities, nil
 }
 
@@ -40,7 +58,7 @@ func (c *Client) EnsureIdentityWithRole(ctx context.Context, id *types.Identity,
 	var user *types.User
 	if err := c.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		var err error
-		user, err = ensureIdentity(tx, id, timezone, role)
+		user, err = c.ensureIdentity(ctx, tx, id, timezone, role)
 		return err
 	}); err != nil {
 		return nil, err
@@ -50,58 +68,69 @@ func (c *Client) EnsureIdentityWithRole(ctx context.Context, id *types.Identity,
 }
 
 // ensureIdentity ensures that the given identity exists in the database, and returns the user associated with it.
-func ensureIdentity(tx *gorm.DB, id *types.Identity, timezone string, role types2.Role) (*types.User, error) {
+func (c *Client) ensureIdentity(ctx context.Context, tx *gorm.DB, id *types.Identity, timezone string, role types2.Role) (*types.User, error) {
 	verified := slices.Contains(verifiedAuthProviders, fmt.Sprintf("%s/%s", id.AuthProviderNamespace, id.AuthProviderName))
 
 	email := id.Email
 
+	if id.ProviderUserID != "" {
+		id.HashedProviderUserID = hash.String(id.ProviderUserID)
+	}
+	if id.Email != "" {
+		id.HashedEmail = hash.String(id.Email)
+	}
 	// See if the identity already exists.
 	if err := tx.First(id).Error; errors.Is(err, gorm.ErrRecordNotFound) {
 		// The identity does not exist.
 		// Before we try creating a new identity, we need to check if there is one that has not been fully migrated yet.
 		migratedIdentity := &types.Identity{
 			ProviderUsername:      id.ProviderUsername,
-			ProviderUserID:        fmt.Sprintf("OBOT_PLACEHOLDER_%s", id.ProviderUsername),
+			HashedProviderUserID:  hash.String(fmt.Sprintf("OBOT_PLACEHOLDER_%s", id.ProviderUsername)),
 			AuthProviderName:      id.AuthProviderName,
 			AuthProviderNamespace: id.AuthProviderNamespace,
 		}
-		if err := tx.First(migratedIdentity).Error; errors.Is(err, gorm.ErrRecordNotFound) {
+		if err = tx.First(migratedIdentity).Error; errors.Is(err, gorm.ErrRecordNotFound) {
 			// The identity does not exist, so create it.
+			if err = c.encryptIdentity(ctx, id); err != nil {
+				return nil, fmt.Errorf("failed to encrypt identity: %w", err)
+			}
 			if err = tx.Create(id).Error; err != nil {
 				return nil, err
 			}
 		} else if err != nil {
 			return nil, err
 		} else {
+			if err = c.encryptIdentity(ctx, id); err != nil {
+				return nil, fmt.Errorf("failed to encrypt identity: %w", err)
+			}
+
 			// The migrated identity exists. We need to update it with the right provider_user_id.
-			if err := tx.Model(&migratedIdentity).Where("provider_user_id = ?", fmt.Sprintf("OBOT_PLACEHOLDER_%s", id.ProviderUsername)).Update("provider_user_id", id.ProviderUserID).Error; err != nil {
+			if err = tx.Model(&migratedIdentity).Where("hashed_provider_user_id = ?", migratedIdentity.HashedProviderUserID).Updates(map[string]any{"provider_user_id": id.ProviderUserID, "hashed_provider_user_id": id.HashedProviderUserID}).Error; err != nil {
 				return nil, err
 			}
 
 			// Now we should be able to load the identity.
-			if err := tx.First(id).Error; err != nil {
+			if err = tx.First(id).Error; err != nil {
 				return nil, err
 			}
 		}
 	} else if err != nil {
 		return nil, err
 	}
-
-	// Check to see if the email got updated.
-	if id.Email != email {
-		id.Email = email
-		if err := tx.Updates(id).Error; err != nil {
-			return nil, err
-		}
+	if err := c.decryptIdentity(ctx, id); err != nil {
+		return nil, fmt.Errorf("failed to decrypt identity: %w", err)
 	}
 
 	user := &types.User{
-		ID:            id.UserID,
-		Username:      id.ProviderUsername,
-		Email:         id.Email,
-		VerifiedEmail: &verified,
-		Role:          role,
+		ID:             id.UserID,
+		Username:       id.ProviderUsername,
+		HashedUsername: hash.String(id.ProviderUsername),
+		Email:          id.Email,
+		HashedEmail:    id.HashedEmail,
+		VerifiedEmail:  &verified,
+		Role:           role,
 	}
+
 	if user.Role == types2.RoleUnknown {
 		user.Role = types2.RoleBasic
 	}
@@ -115,18 +144,34 @@ func ensureIdentity(tx *gorm.DB, id *types.Identity, timezone string, role types
 	} else if verified {
 		// Check for an existing user with this exact verified email address.
 		// We check for both true and null values, because the email might have been verified before we started tracking verified emails.
-		userQuery = userQuery.Where("email = ? and (verified_email = true or verified_email is null)", user.Email)
+		userQuery = userQuery.Where("hashed_email = ? and (verified_email = true or verified_email is null)", user.HashedEmail)
 		checkForExistingUser = true
 	}
 
 	if checkForExistingUser {
-		if err := userQuery.First(&user).Error; errors.Is(err, gorm.ErrRecordNotFound) {
-			if err = tx.Create(&user).Error; err != nil {
+		// Copy the user so that we don't have to decrypt unless the user already exists.
+		u := *user
+		if err := userQuery.First(&u).Error; errors.Is(err, gorm.ErrRecordNotFound) {
+			if err = c.encryptUser(ctx, &u); err != nil {
+				return nil, fmt.Errorf("failed to encrypt user: %w", err)
+			}
+			if err = tx.Create(&u).Error; err != nil {
 				return nil, err
 			}
+
+			// Copy the auto-generated values back to the user object.
+			user.ID = u.ID
+			user.CreatedAt = u.CreatedAt
 		} else if err != nil {
 			return nil, err
 		} else {
+			if err = c.decryptUser(ctx, &u); err != nil {
+				return nil, fmt.Errorf("failed to decrypt user: %w", err)
+			}
+
+			// Copy the decrypted existing user back.
+			*user = u
+
 			// We're using an existing user. See if there are any fields that need to be updated.
 			var userChanged bool
 			if role != types2.RoleUnknown && user.Role != role {
@@ -156,20 +201,40 @@ func ensureIdentity(tx *gorm.DB, id *types.Identity, timezone string, role types
 			}
 
 			if userChanged {
-				if err := tx.Updates(user).Error; err != nil {
+				// Copy user so we don't have to decrypt
+				u = *user
+				if err := c.encryptUser(ctx, &u); err != nil {
+					return nil, fmt.Errorf("failed to encrypt user: %w", err)
+				}
+				if err = tx.Updates(u).Error; err != nil {
 					return nil, err
 				}
 			}
 		}
 	} else {
-		if err := tx.Create(&user).Error; err != nil {
+		// Copy the user so we don't have to decrypt
+		u := *user
+		if err := c.encryptUser(ctx, &u); err != nil {
+			return nil, fmt.Errorf("failed to encrypt user: %w", err)
+		}
+		if err := tx.Create(&u).Error; err != nil {
 			return nil, err
 		}
+
+		// Copy the values that were created instead of decrypting the whole object.
+		user.ID = u.ID
+		user.CreatedAt = u.CreatedAt
 	}
 
 	// Update the user ID saved on the identity if needed.
-	if id.UserID != user.ID {
+	if id.Email != email || id.UserID != user.ID {
+		id.Email = email
 		id.UserID = user.ID
+
+		if err := c.encryptIdentity(ctx, id); err != nil {
+			return nil, fmt.Errorf("failed to encrypt identity: %w", err)
+		}
+
 		if err := tx.Updates(id).Error; err != nil {
 			return nil, err
 		}
@@ -192,8 +257,8 @@ func (c *Client) RemoveIdentity(ctx context.Context, id *types.Identity) error {
 			userQuery = tx.Where("id = ?", id.UserID)
 		} else {
 			// Fall back to ProviderUsername
-			identityQuery = tx.Where("provider_username = ?", id.ProviderUsername)
-			userQuery = tx.Where("username = ?", id.ProviderUsername)
+			identityQuery = tx.Where("hashed_provider_user_id = ?", id.HashedProviderUserID)
+			userQuery = tx.Where("hashed_username = ?", hash.String(id.ProviderUsername))
 		}
 
 		// Attempt to delete the identity
@@ -208,4 +273,121 @@ func (c *Client) RemoveIdentity(ctx context.Context, id *types.Identity) error {
 
 		return nil
 	})
+}
+
+func (c *Client) encryptIdentity(ctx context.Context, identity *types.Identity) error {
+	if c.encryptionConfig == nil {
+		return nil
+	}
+
+	transformer := c.encryptionConfig.Transformers[userGroupResource]
+	if transformer == nil {
+		return nil
+	}
+
+	var (
+		b    []byte
+		err  error
+		errs []error
+
+		dataCtx = identityDataCtx(identity)
+	)
+	if b, err = transformer.TransformToStorage(ctx, []byte(identity.ProviderUsername), dataCtx); err != nil {
+		errs = append(errs, err)
+	} else {
+		identity.ProviderUsername = base64.StdEncoding.EncodeToString(b)
+	}
+	if b, err = transformer.TransformToStorage(ctx, []byte(identity.Email), dataCtx); err != nil {
+		errs = append(errs, err)
+	} else {
+		identity.Email = base64.StdEncoding.EncodeToString(b)
+	}
+	if b, err = transformer.TransformToStorage(ctx, []byte(identity.ProviderUserID), dataCtx); err != nil {
+		errs = append(errs, err)
+	} else {
+		identity.ProviderUserID = base64.StdEncoding.EncodeToString(b)
+	}
+	if b, err = transformer.TransformToStorage(ctx, []byte(identity.IconURL), dataCtx); err != nil {
+		errs = append(errs, err)
+	} else {
+		identity.IconURL = base64.StdEncoding.EncodeToString(b)
+	}
+
+	identity.Encrypted = true
+
+	return errors.Join(errs...)
+}
+
+func (c *Client) decryptIdentity(ctx context.Context, identity *types.Identity) error {
+	if !identity.Encrypted || c.encryptionConfig == nil {
+		return nil
+	}
+
+	transformer := c.encryptionConfig.Transformers[userGroupResource]
+	if transformer == nil {
+		return nil
+	}
+
+	var (
+		out, decoded []byte
+		n            int
+		err          error
+		errs         []error
+
+		dataCtx = identityDataCtx(identity)
+	)
+
+	decoded = make([]byte, base64.StdEncoding.DecodedLen(len(identity.ProviderUsername)))
+	n, err = base64.StdEncoding.Decode(decoded, []byte(identity.ProviderUsername))
+	if err == nil {
+		if out, _, err = transformer.TransformFromStorage(ctx, decoded[:n], dataCtx); err != nil {
+			errs = append(errs, err)
+		} else {
+			identity.ProviderUsername = string(out)
+		}
+	} else {
+		errs = append(errs, err)
+	}
+
+	decoded = make([]byte, base64.StdEncoding.DecodedLen(len(identity.Email)))
+	n, err = base64.StdEncoding.Decode(decoded, []byte(identity.Email))
+	if err == nil {
+		if out, _, err = transformer.TransformFromStorage(ctx, decoded[:n], dataCtx); err != nil {
+			errs = append(errs, err)
+		} else {
+			identity.Email = string(out)
+		}
+	} else {
+		errs = append(errs, err)
+	}
+
+	decoded = make([]byte, base64.StdEncoding.DecodedLen(len(identity.ProviderUserID)))
+	n, err = base64.StdEncoding.Decode(decoded, []byte(identity.ProviderUserID))
+	if err == nil {
+		if out, _, err = transformer.TransformFromStorage(ctx, decoded[:n], dataCtx); err != nil {
+			errs = append(errs, err)
+		} else {
+			identity.ProviderUserID = string(out)
+		}
+	} else {
+		errs = append(errs, err)
+	}
+
+	decoded = make([]byte, base64.StdEncoding.DecodedLen(len(identity.IconURL)))
+	n, err = base64.StdEncoding.Decode(decoded, []byte(identity.IconURL))
+	if err == nil {
+		if out, _, err = transformer.TransformFromStorage(ctx, decoded[:n], dataCtx); err != nil {
+			errs = append(errs, err)
+		} else {
+			identity.IconURL = string(out)
+		}
+	} else {
+		errs = append(errs, err)
+	}
+
+	return errors.Join(errs...)
+}
+
+func identityDataCtx(identity *types.Identity) value.Context {
+	return value.DefaultContext(fmt.Sprintf("%s/%s/%s/%s", identityGroupResource.String(), identity.AuthProviderNamespace, identity.AuthProviderName, identity.ProviderUserID))
 }

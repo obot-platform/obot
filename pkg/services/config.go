@@ -35,6 +35,7 @@ import (
 	"github.com/obot-platform/obot/pkg/gateway/server/dispatcher"
 	"github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/gemini"
+	"github.com/obot-platform/obot/pkg/hash"
 	"github.com/obot-platform/obot/pkg/invoke"
 	"github.com/obot-platform/obot/pkg/jwt"
 	"github.com/obot-platform/obot/pkg/proxy"
@@ -398,8 +399,9 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		// This reduces the chance that someone could authenticate as "nobody" and get admin access once authentication
 		// is enabled.
 		if err := gatewayClient.RemoveIdentity(ctx, &types.Identity{
-			ProviderUsername: "nobody",
-			ProviderUserID:   "nobody",
+			ProviderUsername:     "nobody",
+			ProviderUserID:       "nobody",
+			HashedProviderUserID: hash.String("nobody"),
 		}); err != nil {
 			return nil, fmt.Errorf(`failed to remove "nobody" user and identity from database: %w`, err)
 		}

@@ -3,13 +3,12 @@ package client
 import (
 	"github.com/obot-platform/obot/pkg/gateway/db"
 	"k8s.io/apiserver/pkg/server/options/encryptionconfig"
-	"k8s.io/apiserver/pkg/storage/value"
 )
 
 type Client struct {
-	db          *db.DB
-	transformer value.Transformer
-	adminEmails map[string]struct{}
+	db               *db.DB
+	encryptionConfig *encryptionconfig.EncryptionConfiguration
+	adminEmails      map[string]struct{}
 }
 
 func New(db *db.DB, encryptionConfig *encryptionconfig.EncryptionConfiguration, adminEmails []string) *Client {
@@ -17,14 +16,10 @@ func New(db *db.DB, encryptionConfig *encryptionconfig.EncryptionConfiguration, 
 	for _, email := range adminEmails {
 		adminEmailsSet[email] = struct{}{}
 	}
-	var transformer value.Transformer
-	if encryptionConfig != nil {
-		transformer = encryptionConfig.Transformers[gr]
-	}
 	return &Client{
-		db:          db,
-		transformer: transformer,
-		adminEmails: adminEmailsSet,
+		db:               db,
+		encryptionConfig: encryptionConfig,
+		adminEmails:      adminEmailsSet,
 	}
 }
 

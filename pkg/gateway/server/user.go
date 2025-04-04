@@ -59,6 +59,21 @@ func (s *Server) getUsers(apiContext api.Context) error {
 	return apiContext.Write(types2.UserList{Items: items})
 }
 
+func (s *Server) encryptAllUsers(apiContext api.Context) error {
+	users, err := apiContext.GatewayClient.Users(apiContext.Context(), types.NewUserQuery(apiContext.URL.Query()))
+	if err != nil {
+		return fmt.Errorf("failed to get users: %v", err)
+	}
+
+	for _, user := range users {
+		if _, err = s.client.UpdateUser(apiContext.Context(), apiContext.UserIsAdmin(), &user, user.Username); err != nil {
+			return fmt.Errorf("failed to encrypt user with id %d: %v", user.ID, err)
+		}
+	}
+
+	return apiContext.Write("done")
+}
+
 func (s *Server) getUser(apiContext api.Context) error {
 	var (
 		getByID      = apiContext.URL.Query().Get("by-id") == "true"

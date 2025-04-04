@@ -2,7 +2,6 @@ package server
 
 import (
 	"crypto/rand"
-	"crypto/sha256"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -12,6 +11,7 @@ import (
 	types2 "github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/gateway/types"
+	"github.com/obot-platform/obot/pkg/hash"
 	"gorm.io/gorm"
 )
 
@@ -91,7 +91,7 @@ func (s *Server) redirect(apiContext api.Context) error {
 	tkn := &types.AuthToken{
 		ID: fmt.Sprintf("%x", id),
 		// Hash the token again for long-term storage
-		HashedToken:           hashToken(fmt.Sprintf("%x", token)),
+		HashedToken:           hash.String(fmt.Sprintf("%x", token)),
 		ExpiresAt:             tr.ExpiresAt,
 		AuthProviderNamespace: namespace,
 		AuthProviderName:      name,
@@ -114,10 +114,6 @@ func (s *Server) redirect(apiContext api.Context) error {
 
 	http.Redirect(apiContext.ResponseWriter, apiContext.Request, tr.CompletionRedirectURL, http.StatusFound)
 	return nil
-}
-
-func hashToken(token string) string {
-	return fmt.Sprintf("%x", sha256.Sum256([]byte(token)))
 }
 
 func publicToken(id, token []byte) string {

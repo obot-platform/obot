@@ -4,6 +4,8 @@ resources:
   - resources:
       - credentials
       - runstates.obot.obot.ai
+      - users.obot.obot.ai
+      - identities.obot.obot.ai
     providers:
       - kms:
           apiVersion: v2
