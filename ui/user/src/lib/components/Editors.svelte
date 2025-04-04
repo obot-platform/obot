@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { overflowToolTip } from '$lib/actions/overflow';
+	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import Controls from '$lib/components/editor/Controls.svelte';
 	import FileEditors from '$lib/components/editor/FileEditors.svelte';
 	import { getLayout } from '$lib/context/layout.svelte';
@@ -7,7 +8,9 @@
 	import type { EditorItem } from '$lib/services/editor/index.svelte';
 	import { Download } from 'lucide-svelte';
 	import { X } from 'lucide-svelte/icons';
+	import { slide } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';
+	import Files from './edit/Files.svelte';
 
 	interface Props {
 		project: Project;
@@ -59,31 +62,38 @@
 	}
 </script>
 
-<div class="relative flex h-full w-full flex-col pt-3 pl-3">
+<div class="relative flex h-full w-full flex-col pt-0.5">
 	{#if layout.items.length > 1 || (!layout.items[0]?.table && !layout.items[0]?.generic)}
-		<div class="border-surface2 relative flex items-center border-b-2 pl-2 md:pl-0">
+		<div class="file-tabs relative flex items-center md:pl-0">
+			{#if currentThreadID}
+				<div use:tooltip={'Browse Files'} class="pl-1">
+					<Files {project} thread {currentThreadID} primary={false} />
+				</div>
+			{/if}
 			<ul
-				class="default-scrollbar-thin relative flex grow items-center gap-1 overflow-x-auto pb-2 text-center text-sm"
+				class="default-scrollbar-thin relative flex grow items-center gap-1 overflow-x-auto pl-1 text-center text-sm"
 			>
 				{#each layout.items as item (item.id)}
-					<li class="max-w-64">
-						<!-- TODO: div with onclick is not accessible, we'll need to update this in the future -->
+					<li class="flex max-w-[200px] min-w-[100px] flex-1" data-item-id={item.id}>
 						<div
 							role="none"
 							onclick={() => {
 								EditorService.select(layout.items, item.id);
 							}}
 							class={twMerge(
-								'group bg-surface1 hover:bg-surface3 relative flex cursor-pointer rounded-lg border-transparent p-1',
-								item.selected && 'bg-surface3'
+								'group bg-surface2 border-surface2 relative flex w-full cursor-pointer rounded-t-lg border-2 border-b-0 p-1 transition-colors duration-300',
+								item.selected && 'border-surface2 bg-white dark:bg-black',
+								!item.selected && 'hover:bg-surface3 hover:border-surface3'
 							)}
+							transition:slide={{ axis: 'x', duration: 200 }}
 						>
 							<div
-								class="relative flex w-full items-center justify-between gap-1 [&_svg]:size-4 [&_svg]:min-w-fit"
+								class="group/file relative flex w-full items-center justify-between gap-1 [&_svg]:size-4 [&_svg]:min-w-fit"
 							>
-								<span use:overflowToolTip class="p-1">{item.name}</span>
+								<span use:overflowToolTip class="truncate p-1">{item.name}</span>
 								<button
-									class="bg-surface3 hover:bg-surface2 right-0 hidden rounded-lg p-1 group-hover:block"
+									class="dark:hover-text-white w-0 flex-shrink-0 overflow-hidden rounded-lg text-gray-500 transition-all duration-300 group-hover/file:w-6 hover:text-black"
+									class:w-6={item.selected}
 									onclick={() => {
 										EditorService.remove(layout.items, item.id);
 										if (layout.items.length === 0) {
@@ -99,11 +109,11 @@
 				{/each}
 			</ul>
 
-			<Controls navBar {project} class="bg-background flex-shrink-0 px-2" {currentThreadID} />
+			<Controls navBar {project} class="flex-shrink-0 px-2" {currentThreadID} />
 		</div>
 	{/if}
 
-	<div class="default-scrollbar-thin relative flex grow flex-col overflow-y-auto">
+	<div class="default-scrollbar-thin relative flex grow flex-col overflow-y-auto pl-4">
 		<FileEditors {project} {currentThreadID} {onFileChanged} {onInvoke} bind:items={layout.items} />
 
 		{#if downloadable}
@@ -125,3 +135,18 @@
 		{/if}
 	</div>
 </div>
+
+<style lang="postcss">
+	.file-tabs {
+		&:after {
+			position: absolute;
+			content: '';
+			bottom: 1px;
+			left: 0;
+			width: 100%;
+			height: 2px;
+			background-color: var(--surface2);
+			z-index: -10;
+		}
+	}
+</style>
