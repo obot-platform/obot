@@ -70,6 +70,7 @@ var staticRules = map[string][]string{
 		"GET /api/version",
 		"POST /api/image/generate",
 		"POST /api/image/upload",
+		"POST /api/logout-all",
 	},
 }
 

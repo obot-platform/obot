@@ -17,6 +17,14 @@ var verifiedAuthProviders = []string{
 	"default/github-auth-provider",
 }
 
+func (c *Client) FindIdentitiesForUser(ctx context.Context, userID uint) ([]*types.Identity, error) {
+	var identities []*types.Identity
+	if err := c.db.WithContext(ctx).Where("user_id = ?", userID).Find(&identities).Error; err != nil {
+		return nil, err
+	}
+	return identities, nil
+}
+
 // EnsureIdentity ensures that the given identity exists in the database, and returns the user associated with it.
 func (c *Client) EnsureIdentity(ctx context.Context, id *types.Identity, timezone string) (*types.User, error) {
 	var role types2.Role
