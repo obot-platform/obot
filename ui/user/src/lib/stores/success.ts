@@ -22,4 +22,4 @@ export const success = (() => {
 			update((messages) => messages.filter((m) => m.id !== id));
 		}
 	};
-})(); 
+})();

@@ -108,7 +108,7 @@
 				<a href="/oauth2/sign_out?rd=/" rel="external" role="menuitem" class="link"
 					><LogOut class="size-4" /> Log out</a
 				>
-				<button onclick={() => showLogoutAllConfirm = true} class="link text-red-500">
+				<button onclick={() => (showLogoutAllConfirm = true)} class="link text-red-500">
 					<LogOut class="size-4" /> Log out all other sessions
 				</button>
 			{/if}
@@ -120,7 +120,7 @@
 	show={showLogoutAllConfirm}
 	msg="Are you sure you want to log out of all other sessions? This will sign you out of all other devices and browsers, except for this one."
 	onsuccess={logoutAll}
-	oncancel={() => showLogoutAllConfirm = false}
+	oncancel={() => (showLogoutAllConfirm = false)}
 />
 
 <style lang="postcss">
