@@ -64,7 +64,8 @@ func (c *Client) UpdateRunState(ctx context.Context, runState *types.RunState) e
 		return err
 	}
 
-	if err := c.db.WithContext(ctx).Updates(r).Error; errors.Is(err, gorm.ErrRecordNotFound) {
+	// Explicitly update the done, so that it is always set to the value that is sent by the caller.
+	if err := c.db.WithContext(ctx).Updates(r).Update("done", runState.Done).Error; errors.Is(err, gorm.ErrRecordNotFound) {
 		return apierrors.NewNotFound(gr, runState.Name)
 	} else if err != nil {
 		return err

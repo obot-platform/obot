@@ -353,7 +353,10 @@ func (e *Emitter) printRun(ctx context.Context, state *printState, run v1.Run, r
 				tick = ticker.C
 			}
 			runState, err := e.gatewayClient.RunState(ctx, run.Namespace, run.Name)
-			if apierrors.IsNotFound(err) {
+			// There was a previous bug that made it possible to have run states leftover from previous runs.
+			// If this run happens to coincide with an old run state, then wait for the run state to be updated.
+			// We know this is an old run state if the updated time is not zero and the updated time is before the run was created.
+			if apierrors.IsNotFound(err) || (!runState.UpdatedAt.IsZero() && runState.UpdatedAt.Before(run.CreationTimestamp.Time)) {
 				var checkRun v1.Run
 				if err := e.client.Get(ctx, router.Key(run.Namespace, run.Name), &checkRun); err == nil {
 					if checkRun.Status.Error != "" {
