@@ -83,14 +83,12 @@
 			</div>
 		{/if}
 		{#if featured.length > 0}
-			<div
-				class="bg-surface2 dark:bg-surface1 mb-4 flex w-full flex-col items-center justify-center"
-			>
+			<div class="mb-4 flex w-full flex-col items-center justify-center">
 				<div class="flex w-full max-w-(--breakpoint-xl) flex-col gap-4 px-4 md:px-12">
 					<h3 class="mt-8 text-2xl font-semibold md:text-3xl">Featured</h3>
 					<div class="featured-card-layout gap-x-4 gap-y-6 sm:gap-y-8">
 						{#each featured.slice(0, 4) as featuredShare}
-							<FeaturedObotCard class="dark:bg-black" project={featuredShare} {tools} />
+							<FeaturedObotCard project={featuredShare} {tools} />
 						{/each}
 					</div>
 				</div>

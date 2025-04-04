@@ -21,11 +21,10 @@ export const load: PageLoad = async ({ fetch }) => {
 		// do nothing
 	}
 
-	if (editorProjects.length > 0) {
-		const sortedProjects = editorProjects.sort(
-			(a, b) => new Date(b.created).getTime() - new Date(a.created).getTime()
-		);
-		throw redirect(303, `/o/${sortedProjects[0].id}`);
+	const lastVisitedObot = localStorage.getItem('lastVisitedObot');
+	const matchingProject = editorProjects.find((p) => p.id === lastVisitedObot);
+	if (lastVisitedObot && matchingProject) {
+		throw redirect(303, `/o/${matchingProject.id}`);
 	}
 
 	return {
