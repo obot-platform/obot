@@ -2,6 +2,7 @@
 	import '../app.css';
 	import { darkMode } from '$lib/stores';
 	import Notifications from '$lib/components/Notifications.svelte';
+	import ReLoginDialog from '$lib/components/ReLoginDialog.svelte';
 
 	interface Props {
 		children?: import('svelte').Snippet;
@@ -53,3 +54,4 @@
 </svelte:head>
 
 <Notifications />
+<ReLoginDialog />

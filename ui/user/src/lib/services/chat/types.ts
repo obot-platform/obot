@@ -149,6 +149,7 @@ export interface Profile {
 	unauthorized?: boolean;
 	username: string;
 	currentAuthProvider?: string;
+	expired?: boolean;
 }
 
 export interface Files {

@@ -30,9 +30,9 @@
 			return;
 		}
 
-		tools = (
-			await ChatService.listProjectThreadTools(project.assistantID, project.id, currentThreadID)
-		).items;
+		tools =
+			(await ChatService.listProjectThreadTools(project.assistantID, project.id, currentThreadID))
+				?.items ?? [];
 	}
 
 	$effect(() => {

@@ -1,3 +1,4 @@
+import { profile } from '$lib/stores';
 import errors from '$lib/stores/errors.svelte';
 
 export let baseURL = 'http://localhost:8080/api';
@@ -12,6 +13,24 @@ interface GetOptions {
 	dontLogErrors?: boolean;
 }
 
+function handle401Redirect() {
+	if (typeof window === 'undefined') return;
+	const currentPath = window.location.pathname;
+
+	// User was logged in, but the session expired
+	// Set expired and re-login dialog will show
+	if (profile.current.loaded === true) {
+		profile.current.expired = true;
+		return;
+	}
+
+	// Not logged in, so if the user is
+	// not already on login page, redirect to it
+	if (currentPath !== '/') {
+		window.location.href = `/?rd=${encodeURIComponent(currentPath)}`;
+	}
+}
+
 export async function doGet(path: string, opts?: GetOptions): Promise<unknown> {
 	const f = opts?.fetch || fetch;
 	const resp = await f(baseURL + path, {
@@ -24,6 +43,9 @@ export async function doGet(path: string, opts?: GetOptions): Promise<unknown> {
 	});
 
 	if (!resp.ok) {
+		if (resp.status === 401) {
+			handle401Redirect();
+		}
 		const body = await resp.text();
 		const e = new Error(`${resp.status} ${path}: ${body}`);
 		if (opts?.dontLogErrors) {
@@ -44,6 +66,10 @@ export async function doDelete(path: string): Promise<unknown> {
 	const resp = await fetch(baseURL + path, {
 		method: 'DELETE'
 	});
+
+	if (!resp.ok && resp.status === 401) {
+		handle401Redirect();
+	}
 	return handleResponse(resp, path);
 }
 
@@ -107,6 +133,10 @@ export async function doWithBody(
 			headers,
 			body
 		});
+
+		if (!resp.ok && resp.status === 401) {
+			handle401Redirect();
+		}
 		return handleResponse(resp, path, opts);
 	} catch (e) {
 		if (opts?.dontLogErrors) {
