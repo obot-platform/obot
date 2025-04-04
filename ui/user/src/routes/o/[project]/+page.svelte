@@ -50,10 +50,7 @@
 			currentURL.searchParams.get('thread') !== currentThreadID
 		) {
 			currentURL.searchParams.set('thread', currentThreadID);
-			// Only call replaceState if we're not in the initial navigation
-			if (!navigating) {
-				replaceState(currentURL.toString(), {});
-			}
+			replaceState(currentURL.toString(), {});
 		}
 	});
 
