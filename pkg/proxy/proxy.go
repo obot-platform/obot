@@ -340,6 +340,9 @@ func (p *Proxy) authenticateRequest(req *http.Request) (*authenticator.Response,
 		return nil, false, err
 	}
 
+	// Important: do not change the order of these checks.
+	// We rely on the preferred username from GitHub being the user ID in the sessions table.
+	// See pkg/gateway/server/logout_all.go for more details, as well as the GitHub auth provider code.
 	userName := ss.PreferredUsername
 	if userName == "" {
 		userName = ss.User

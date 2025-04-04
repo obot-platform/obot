@@ -61,4 +61,6 @@ func (s *Server) AddRoutes(mux *server.Server) {
 
 	// LLM proxy
 	mux.HandleFunc("POST /api/llm-proxy/{path...}", s.llmProxy)
+
+	mux.HandleFunc("POST /api/logout-all", wrap(s.logoutAll))
 }
