@@ -25,9 +25,10 @@
 		onInvoke?: (invoke: InvokeInput) => void | Promise<void>;
 		onFileChanged?: (name: string, contents: string) => void;
 		items: EditorItem[];
+		class?: string;
 	}
 
-	let { file, onFileChanged, onInvoke, items }: Props = $props();
+	let { file, onFileChanged, onInvoke, items, class: klass }: Props = $props();
 
 	let ttDiv: HTMLDivElement | undefined = $state();
 	let provider: TooltipProvider | undefined = $derived.by(() => {
@@ -179,44 +180,37 @@
 	}
 </script>
 
-<div use:editor onfocusin={() => (focused = true)} onfocusout={() => (focused = false)}></div>
+<div
+	class={klass}
+	use:editor
+	onfocusin={() => (focused = true)}
+	onfocusout={() => (focused = false)}
+></div>
 
 <div
-	class="bg-gray-70 absolute flex rounded-3xl shadow-lg dark:bg-gray-950"
+	class="bg-surface1 absolute flex rounded-3xl shadow-lg"
 	bind:this={ttDiv}
 	class:hidden={!ttVisible}
 >
 	<button
-		class="flex items-center gap-2 rounded-s-3xl border-none p-4 ps-5 hover:bg-gray-100 dark:bg-gray-950 dark:hover:bg-gray-900"
+		class="milkdown-action-btn rounded-s-3xl border-none"
 		onclick={onBold}
 		class:hidden={ttImprove}
 	>
 		<Bold class="h-5 w-5" />
 	</button>
-	<button
-		class="flex items-center gap-2 p-4 ps-5 hover:bg-gray-100 dark:hover:bg-gray-900"
-		onclick={onItalic}
-		class:hidden={ttImprove}
-	>
+	<button class="milkdown-action-btn" onclick={onItalic} class:hidden={ttImprove}>
 		<Italic class="h-5 w-5" />
 	</button>
-	<button
-		class="flex items-center gap-2 p-4 ps-5 hover:bg-gray-100 dark:hover:bg-gray-900"
-		onclick={onStrikethrough}
-		class:hidden={ttImprove}
-	>
+	<button class="milkdown-action-btn" onclick={onStrikethrough} class:hidden={ttImprove}>
 		<Strikethrough class="h-5 w-5" />
 	</button>
-	<button
-		class="flex items-center gap-2 p-4 ps-5 hover:bg-gray-100 dark:hover:bg-gray-900"
-		onclick={onExplain}
-		class:hidden={ttImprove}
-	>
+	<button class="milkdown-action-btn" onclick={onExplain} class:hidden={ttImprove}>
 		<span class="text-sm">Explain</span>
 		<CircleHelp class="h-5 w-5" />
 	</button>
 	<button
-		class="flex items-center gap-2 rounded-e-3xl p-4 ps-5 hover:bg-gray-100 dark:hover:bg-gray-900"
+		class="milkdown-action-btn rounded-e-3xl"
 		onclick={async () => {
 			ttImprove = true;
 			await tick();
@@ -234,6 +228,21 @@
 
 <style lang="postcss">
 	:global {
+		.milkdown-action-btn {
+			align-items: center;
+			display: flex;
+			gap: 0.5rem;
+			padding: 1rem;
+			padding-inline-start: 1.25rem;
+			&:hover {
+				background-color: var(--color-gray-100);
+			}
+
+			.dark &:hover {
+				background-color: var(--color-gray-900);
+			}
+		}
+
 		.milkdown {
 			& milkdown-slash-menu {
 				border-radius: 1.5rem; /* rounded-3xl */

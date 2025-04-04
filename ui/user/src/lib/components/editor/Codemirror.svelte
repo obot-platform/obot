@@ -181,7 +181,7 @@
 			rs: rust
 		} as Record<string, () => LanguageSupport>;
 
-		const langExtension = languages[ext] ?? javascript;
+		const langExtension = ext === 'txt' ? () => [] : (languages[ext] ?? javascript);
 		lastSetValue = file?.file?.contents ?? '';
 
 		const updater = EditorView.updateListener.of((update) => {
@@ -221,11 +221,17 @@
 
 	function newExplainToolTip(state: EditorState): TooltipView {
 		ttState = state;
+		const selectionFrom = state.selection.ranges[0].from;
+		const line = state.doc.lineAt(selectionFrom).number;
+
 		return {
 			dom: explain ?? document.createElement('div'),
 			offset: {
-				x: 0,
-				y: 12
+				// even though strictSide is false, the tooltip is still
+				// being positioned outside parent container
+				// adjusting offset of the tooltip highlighting in first 4 lines
+				x: line <= 4 ? 12 : 0,
+				y: line <= 4 ? -52 : 12
 			},
 			mount() {
 				ttVisible = true;
@@ -268,7 +274,7 @@
 				pos: state.selection.ranges[0].from,
 				end: state.selection.ranges[0].to,
 				above: true,
-				strictSide: true,
+				strictSide: false,
 				create: () => {
 					return newExplainToolTip(state);
 				},
@@ -285,7 +291,7 @@
 	use:editor
 	onfocusin={() => (focused = true)}
 	onfocusout={() => (focused = false)}
-	class={twMerge('mx-2 mt-4 border-l-2 border-gray-100 dark:border-gray-900', klass)}
+	class={twMerge('mx-2 mt-4 h-full border-l-2 border-gray-100 dark:border-gray-900', klass)}
 ></div>
 
 <div class="absolute flex">
@@ -318,6 +324,9 @@
 
 <style lang="postcss">
 	:global {
+		.cm-editor {
+			height: 100%;
+		}
 		.ͼ2 .cm-tooltip {
 			border: none;
 		}

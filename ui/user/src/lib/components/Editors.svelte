@@ -62,16 +62,16 @@
 	}
 </script>
 
-<div class="relative flex h-full w-full flex-col pt-0.5">
+<div class="relative flex h-full w-full flex-col">
 	{#if layout.items.length > 1 || (!layout.items[0]?.table && !layout.items[0]?.generic)}
-		<div class="file-tabs relative flex items-center md:pl-0">
+		<div class="file-tabs relative flex items-center pt-1">
 			{#if currentThreadID}
-				<div use:tooltip={'Browse Files'} class="pl-1">
+				<div use:tooltip={'Browse Files'} class="pb-1 pl-1">
 					<Files {project} thread {currentThreadID} primary={false} />
 				</div>
 			{/if}
 			<ul
-				class="default-scrollbar-thin relative flex grow items-center gap-1 overflow-x-auto pl-1 text-center text-sm"
+				class="default-scrollbar-thin relative mt-auto flex grow items-center gap-1 overflow-x-auto pl-1 text-center text-sm"
 			>
 				{#each layout.items as item (item.id)}
 					<li class="flex max-w-[200px] min-w-[100px] flex-1" data-item-id={item.id}>
@@ -92,7 +92,7 @@
 							>
 								<span use:overflowToolTip class="truncate p-1">{item.name}</span>
 								<button
-									class="dark:hover-text-white w-0 flex-shrink-0 overflow-hidden rounded-lg text-gray-500 transition-all duration-300 group-hover/file:w-6 hover:text-black"
+									class="hover:bg-surface2 flex h-6 w-0 flex-shrink-0 items-center justify-center overflow-hidden rounded-full text-gray-500 transition-all duration-300 group-hover/file:w-6"
 									class:w-6={item.selected}
 									onclick={() => {
 										EditorService.remove(layout.items, item.id);
@@ -109,11 +109,11 @@
 				{/each}
 			</ul>
 
-			<Controls navBar {project} class="flex-shrink-0 px-2" {currentThreadID} />
+			<Controls navBar {project} class="flex-shrink-0 px-2 pb-1" {currentThreadID} />
 		</div>
 	{/if}
 
-	<div class="default-scrollbar-thin relative flex grow flex-col overflow-y-auto pl-4">
+	<div class="default-scrollbar-thin relative flex grow flex-col overflow-y-auto">
 		<FileEditors {project} {currentThreadID} {onFileChanged} {onInvoke} bind:items={layout.items} />
 
 		{#if downloadable}
@@ -141,7 +141,7 @@
 		&:after {
 			position: absolute;
 			content: '';
-			bottom: 1px;
+			bottom: 0;
 			left: 0;
 			width: 100%;
 			height: 2px;

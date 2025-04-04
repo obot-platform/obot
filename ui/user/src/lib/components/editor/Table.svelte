@@ -29,7 +29,7 @@
 	});
 </script>
 
-<div class="flex size-full flex-col gap-5 pr-5 pb-5">
+<div class="flex size-full flex-col gap-5 p-5">
 	<div class="flex items-center gap-2">
 		<div class="flex items-center gap-2">
 			<Table class="h-5 w-5" />

@@ -27,7 +27,7 @@
 		bind:clientHeight={height}
 	>
 		{#if file.name.toLowerCase().endsWith('.md')}
-			<Milkdown {file} {onFileChanged} {onInvoke} {items} />
+			<Milkdown {file} {onFileChanged} {onInvoke} {items} class="p-5" />
 		{:else if file.name.toLowerCase().endsWith('.pdf')}
 			<Pdf {file} {height} />
 		{:else if file.table?.name}
@@ -37,7 +37,13 @@
 		{:else if [...(file?.file?.contents ?? '')].some((char) => char.charCodeAt(0) === 0)}
 			{@render unsupportedFile()}
 		{:else}
-			<Codemirror {file} {onFileChanged} {onInvoke} {items} />
+			<Codemirror
+				{file}
+				{onFileChanged}
+				{onInvoke}
+				{items}
+				class="m-0 overflow-hidden rounded-b-2xl"
+			/>
 		{/if}
 	</div>
 {/each}
