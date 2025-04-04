@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { darkMode } from '$lib/stores';
-	import { Copy, Pencil, Trash2 } from 'lucide-svelte';
+	import { Copy, Pencil, Trash2, UserPen, X } from 'lucide-svelte';
 	import { Plus } from 'lucide-svelte/icons';
 	import Profile from '$lib/components/navbar/Profile.svelte';
 	import { ChatService, EditorService } from '$lib/services';
@@ -8,11 +8,11 @@
 	import { goto } from '$app/navigation';
 	import Notifications from '$lib/components/Notifications.svelte';
 	import type { PageProps } from './$types';
-	import DotDotDot from '$lib/components/DotDotDot.svelte';
 	import { type Project } from '$lib/services';
 	import Confirm from '$lib/components/Confirm.svelte';
-	import { DEFAULT_PROJECT_NAME } from '$lib/constants';
+	import { DEFAULT_PROJECT_DESCRIPTION, DEFAULT_PROJECT_NAME } from '$lib/constants';
 	import ObotCard from '$lib/components/ObotCard.svelte';
+	import { tooltip } from '$lib/actions/tooltip.svelte';
 
 	let { data }: PageProps = $props();
 	let toDelete = $state<Project>();
@@ -20,6 +20,9 @@
 		data.editorProjects
 			.filter((p) => p.editor == false)
 			.sort((a, b) => new Date(b.created).getTime() - new Date(a.created).getTime())
+	);
+	let recentlyUsedProjectsMap = $derived.by(
+		() => new Map(recentlyUsedProjects.map((p) => [p.id, p]))
 	);
 	let userProjects = $state<Project[]>(
 		data.editorProjects.sort(
@@ -87,29 +90,8 @@
 		</div>
 	</div>
 
-	{#snippet actionMenu(project: Project)}
-		<DotDotDot class="icon-button min-h-10 min-w-10 p-2.5 text-sm">
-			<div class="default-dialog flex flex-col p-2">
-				{#if project.editor}
-					<button class="menu-button" onclick={() => goto(`/o/${project.id}?edit`)}>
-						<Pencil class="icon-default" />
-						<span>Edit</span>
-					</button>
-				{/if}
-				<button class="menu-button" onclick={() => copy(project)}>
-					<Copy class="icon-default" />
-					<span>Copy</span>
-				</button>
-				<button class="menu-button" onclick={() => (toDelete = project)}>
-					<Trash2 class="icon-default" />
-					<span>{recentlyUsedProjects.some((p) => p.id === project.id) ? 'Remove' : 'Delete'}</span>
-				</button>
-			</div>
-		</DotDotDot>
-	{/snippet}
-
 	<main
-		class="colors-background relative flex w-full max-w-(--breakpoint-2xl) flex-col justify-center pb-12"
+		class="colors-background relative flex w-full max-w-(--breakpoint-2xl) flex-col justify-center md:pb-12"
 	>
 		<div class="mt-8 flex w-full flex-col gap-8">
 			<div class="flex w-full flex-col gap-4">
@@ -126,35 +108,49 @@
 					</button>
 					{#if !responsive.isMobile}
 						<div class="flex grow items-center justify-end">
-							<a href="/catalog?from=home" class="button-text items-center text-xs underline"
+							<a href="/catalog?from=home" class="button-primary items-center text-xs"
 								>View Obot Catalog</a
 							>
 						</div>
 					{/if}
 				</div>
-				{#if responsive.isMobile}
-					<div class="flex grow items-center justify-end">
-						<a href="/catalog?from=home" class="button-text items-center py-0 text-sm underline"
-							>View Obot Catalog</a
-						>
-					</div>
-				{/if}
 				<div class="card-layout px-4 md:px-12">
 					{#each userProjects as project}
 						<ObotCard {project} {tools}>
-							{#snippet menu()}
-								{@render actionMenu(project)}
+							{#snippet actionContent()}
+								<button
+									class="icon-button opacity-0 transition-opacity duration-300 group-hover:opacity-100"
+									onclick={(e) => {
+										e.preventDefault();
+										toDelete = project;
+									}}
+									use:tooltip={recentlyUsedProjectsMap.has(project.id)
+										? 'Remove From My Obots'
+										: 'Delete Obot'}
+								>
+									{#if recentlyUsedProjectsMap.has(project.id)}
+										<X class="size-5" />
+									{:else}
+										<Trash2 class="size-4" />
+									{/if}
+								</button>
 							{/snippet}
 						</ObotCard>
 					{/each}
-					<button
-						class="card flex min-h-36 flex-col items-center justify-center p-4 whitespace-nowrap shadow-md"
-						onclick={() => createNew()}
-					>
-						<Plus class="h-8 w-8" />
-						<span class="text-sm font-semibold md:text-base">Create New Obot</span>
-					</button>
+
+					{#if userProjects.length === 0}
+						{@render placeholderBtn()}
+					{/if}
 				</div>
+
+				{#if responsive.isMobile}
+					<div class="sticky bottom-0 z-30 flex grow items-center bg-white px-4 py-2 dark:bg-black">
+						<a
+							href="/catalog?from=home"
+							class="button-primary w-full items-center text-center text-xs">View Obot Catalog</a
+						>
+					</div>
+				{/if}
 			</div>
 		</div>
 	</main>
@@ -162,8 +158,34 @@
 	<Notifications />
 </div>
 
+{#snippet placeholderBtn()}
+	<button
+		class="card flex min-h-36 flex-col items-center justify-center p-4 whitespace-nowrap shadow-md"
+		onclick={() => createNew()}
+	>
+		<div class="flex w-full">
+			<img alt="obot logo" src="/agent/images/obot_placeholder.webp" class="size-18 rounded-full" />
+			<div class="flex grow flex-col justify-between gap-2 pl-3">
+				<h4 class="text-md text-left leading-4.5 font-semibold">
+					{DEFAULT_PROJECT_NAME}
+				</h4>
+				<p class="line-clamp-3 grow text-left text-xs font-light text-gray-500">
+					{DEFAULT_PROJECT_DESCRIPTION}
+				</p>
+			</div>
+		</div>
+		<div class="flex w-full justify-between">
+			<span
+				class="bg-surface2 mt-auto flex h-fit w-fit gap-1 rounded-full px-3 py-1 text-xs font-light text-gray-500"
+			>
+				<UserPen class="size-4" /> Owner
+			</span>
+		</div>
+	</button>
+{/snippet}
+
 <Confirm
-	msg={recentlyUsedProjects.some((p) => p.id === toDelete?.id)
+	msg={toDelete?.id && recentlyUsedProjectsMap.has(toDelete.id)
 		? `Remove recently used Obot ${toDelete?.name || DEFAULT_PROJECT_NAME}?`
 		: `Delete the Obot ${toDelete?.name || DEFAULT_PROJECT_NAME}?`}
 	show={!!toDelete}

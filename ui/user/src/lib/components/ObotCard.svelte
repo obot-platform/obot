@@ -10,15 +10,15 @@
 	interface Props {
 		project: Project | ProjectShare;
 		tools: Map<string, ToolReference>;
-		menu?: Snippet;
+		actionContent?: Snippet;
 	}
-	let { project, tools, menu }: Props = $props();
+	let { project, tools, actionContent }: Props = $props();
 </script>
 
 <a
 	href={'publicID' in project ? `/s/${project.publicID}` : `/o/${project.id}`}
 	data-sveltekit-preload-data={'publicID' in project ? 'off' : 'hover'}
-	class="card relative z-20 flex-col overflow-hidden shadow-md"
+	class="card group relative z-20 flex-col overflow-hidden shadow-md"
 >
 	<div class="flex h-fit w-full flex-col gap-2 p-4 md:h-auto md:grow">
 		<div class="flex w-full">
@@ -35,9 +35,9 @@
 					{project.description}
 				</p>
 			</div>
-			{#if !('publicID' in project) && menu}
+			{#if !('publicID' in project) && actionContent}
 				<div class="translate-x-2 -translate-y-2">
-					{@render menu()}
+					{@render actionContent()}
 				</div>
 			{/if}
 		</div>

@@ -26,30 +26,9 @@
 	}: Props = $props();
 
 	let projects = $state<Project[]>([]);
-	let recentlyUsedLimit = $state(10);
-	let myObotsLimit = $state(10);
+	let limit = $state(10);
 	let open = $state(false);
 	let buttonElement = $state<HTMLButtonElement>();
-
-	let recentlyUsed = $derived(
-		projects.length === 0
-			? []
-			: onlyEditable
-				? []
-				: projects
-						.filter((p) => p.editor === false)
-						.sort((a, b) => new Date(b.created).getTime() - new Date(a.created).getTime())
-	);
-
-	let myObots = $derived(
-		projects.length === 0
-			? []
-			: onlyEditable
-				? projects
-				: projects
-						.filter((p) => p.editor === true)
-						.sort((a, b) => new Date(b.created).getTime() - new Date(a.created).getTime())
-	);
 
 	let { ref, tooltip, toggle } = popover({
 		placement: 'bottom-start',
@@ -59,12 +38,8 @@
 		}
 	});
 
-	function loadMore(category: 'recent' | 'myObots') {
-		if (category === 'recent') {
-			recentlyUsedLimit += 10;
-		} else {
-			myObotsLimit += 10;
-		}
+	function loadMore() {
+		limit += 10;
 	}
 </script>
 
@@ -105,38 +80,17 @@
 		onclick={() => toggle(false)}
 		style={onlyEditable ? `width: ${buttonElement?.clientWidth}px` : ''}
 	>
-		{#if onlyEditable}
-			{#each myObots.slice(0, myObotsLimit) as p}
-				{@render ProjectItem(p, true)}
-			{/each}
-			{@render LoadMoreButton(myObots.length, myObotsLimit, 'myObots')}
-		{:else}
-			{#if recentlyUsed.length > 0}
-				<div class="flex flex-col">
-					<h3 class="mb-1 px-2 text-sm font-semibold">Recently Used</h3>
-					{#each recentlyUsed.slice(0, recentlyUsedLimit) as p}
-						{@render ProjectItem(p)}
-					{/each}
-					{@render LoadMoreButton(recentlyUsed.length, recentlyUsedLimit, 'recent')}
-				</div>
-			{/if}
-
-			<div class="mt-3 flex flex-col">
-				<h3 class="mb-1 px-2 text-sm font-semibold">My Obots</h3>
-				{#each myObots.slice(0, myObotsLimit) as p}
-					{@render ProjectItem(p)}
-				{/each}
-				{@render LoadMoreButton(myObots.length, myObotsLimit, 'myObots')}
-			</div>
-
-			<a
-				href="/home"
-				class="text-gray hover:bg-surface3 mt-3 flex items-center justify-center gap-2 rounded-xl px-2 py-4"
-			>
-				<img src="/user/images/obot-icon-blue.svg" class="h-5" alt="Obot icon" />
-				<span class="text-gray text-sm">See All Obots</span>
-			</a>
-		{/if}
+		{#each projects.slice(0, limit) as p}
+			{@render ProjectItem(p, true)}
+		{/each}
+		{@render LoadMoreButton(projects.length, limit)}
+		<a
+			href={`/catalog?from=${encodeURIComponent(window.location.pathname)}`}
+			class="text-gray hover:bg-surface3 mt-3 flex items-center justify-center gap-2 rounded-xl px-2 py-4"
+		>
+			<img src="/user/images/obot-icon-blue.svg" class="h-5" alt="Obot icon" />
+			<span class="text-gray text-sm">View Obot Catalog</span>
+		</a>
 	</div>
 {/if}
 
@@ -159,13 +113,13 @@
 	</a>
 {/snippet}
 
-{#snippet LoadMoreButton(totalLength: number, limit: number, category: 'recent' | 'myObots')}
+{#snippet LoadMoreButton(totalLength: number, limit: number)}
 	{#if totalLength > limit}
 		<button
 			class="hover:bg-surface2 mt-1 w-full rounded-sm py-1 text-sm text-blue-500"
 			onclick={(e) => {
 				e.stopPropagation();
-				loadMore(category);
+				loadMore();
 			}}
 		>
 			Load 10 more
