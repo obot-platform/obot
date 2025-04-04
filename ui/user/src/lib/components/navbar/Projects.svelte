@@ -57,8 +57,7 @@
 			toggle(false);
 			return;
 		}
-		const results = (await ChatService.listProjects()).items;
-		projects = onlyEditable ? results.filter((p) => !!p.editor) : results;
+		projects = (await ChatService.listProjects()).items;
 		toggle();
 	}}
 >
@@ -81,7 +80,7 @@
 		style={onlyEditable ? `width: ${buttonElement?.clientWidth}px` : ''}
 	>
 		{#each projects.slice(0, limit) as p}
-			{@render ProjectItem(p, true)}
+			{@render ProjectItem(p, onlyEditable)}
 		{/each}
 		{@render LoadMoreButton(projects.length, limit)}
 		<a

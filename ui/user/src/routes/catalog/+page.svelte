@@ -7,7 +7,7 @@
 	import type { PageProps } from './$types';
 	import ObotCard from '$lib/components/ObotCard.svelte';
 	import { q, qIsSet } from '$lib/url';
-	import { ChevronsLeft } from 'lucide-svelte';
+	import { ChevronLeft } from 'lucide-svelte';
 	import FeaturedObotCard from '$lib/components/FeaturedObotCard.svelte';
 	import { sortByFeaturedNameOrder } from '$lib/sort';
 
@@ -65,10 +65,13 @@
 	<main class="colors-background relative flex w-full flex-col items-center justify-center pb-12">
 		{#if qIsSet('from')}
 			{@const from = decodeURIComponent(q('from'))}
-			<div class="flex w-full max-w-(--breakpoint-xl) flex-col justify-start md:px-8">
-				<a href={from} class="button-text flex items-center gap-2 text-sm md:text-base"
-					><ChevronsLeft class="size-4" />{from.includes('home') ? 'My Obots' : 'Go Back'}</a
+			<div class="mt-8 flex w-full max-w-(--breakpoint-xl) flex-col justify-start md:px-8">
+				<a
+					href={from}
+					class="button-text flex w-fit items-center gap-1 pb-0 text-base font-semibold text-black md:text-lg dark:text-white"
 				>
+					<ChevronLeft class="size-5" />{from.includes('home') ? 'My Obots' : 'Go Back'}
+				</a>
 			</div>
 		{/if}
 		{#if qIsSet('new')}

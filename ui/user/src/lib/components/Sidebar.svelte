@@ -38,7 +38,7 @@
 				disabled={layout.projectEditorOpen}
 				classes={{
 					tooltip:
-						'md:w-[250px] md:w-1/6 md:-translate-x-14 -translate-x-1 border-t-[1px] border-surface3 bg-surface2 shadow-inner max-h-[calc(100vh-66px)] overflow-y-auto default-scrollbar-thin'
+						'md:min-w-[250px] md:w-1/6 md:-translate-x-14 -translate-x-1 border-t-[1px] border-surface3 bg-surface2 shadow-inner max-h-[calc(100vh-66px)] overflow-y-auto default-scrollbar-thin'
 				}}
 			/>
 		</div>
