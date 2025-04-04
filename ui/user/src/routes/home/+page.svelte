@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { darkMode } from '$lib/stores';
-	import { Copy, Pencil, Trash2, UserPen, X } from 'lucide-svelte';
+	import { Trash2, UserPen, X } from 'lucide-svelte';
 	import { Plus } from 'lucide-svelte/icons';
 	import Profile from '$lib/components/navbar/Profile.svelte';
 	import { ChatService, EditorService } from '$lib/services';
@@ -38,11 +38,6 @@
 		} catch (error) {
 			errors.append((error as Error).message);
 		}
-	}
-
-	async function copy(project: Project) {
-		const newProject = await ChatService.copyProject(project.assistantID, project.id);
-		await goto(`/o/${newProject.id}`);
 	}
 </script>
 
