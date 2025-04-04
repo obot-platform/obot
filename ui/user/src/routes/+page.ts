@@ -1,3 +1,4 @@
+import { browser } from '$app/environment';
 import { ChatService, type Project } from '$lib/services';
 import { sortByFeaturedNameOrder } from '$lib/sort';
 import type { PageLoad } from './$types';
@@ -21,10 +22,12 @@ export const load: PageLoad = async ({ fetch }) => {
 		// do nothing
 	}
 
-	const lastVisitedObot = localStorage.getItem('lastVisitedObot');
-	const matchingProject = editorProjects.find((p) => p.id === lastVisitedObot);
-	if (lastVisitedObot && matchingProject) {
-		throw redirect(303, `/o/${matchingProject.id}`);
+	if (browser) {
+		const lastVisitedObot = localStorage.getItem('lastVisitedObot');
+		const matchingProject = editorProjects.find((p) => p.id === lastVisitedObot);
+		if (lastVisitedObot && matchingProject) {
+			throw redirect(303, `/o/${matchingProject.id}`);
+		}
 	}
 
 	return {
