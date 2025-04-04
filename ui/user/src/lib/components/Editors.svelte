@@ -62,7 +62,9 @@
 <div class="relative flex h-full w-full flex-col pt-3 pl-3">
 	{#if layout.items.length > 1 || (!layout.items[0]?.table && !layout.items[0]?.generic)}
 		<div class="border-surface2 relative flex items-center border-b-2 pl-2 md:pl-0">
-			<ul class="relative flex grow items-center gap-1 overflow-x-auto pb-2 text-center text-sm">
+			<ul
+				class="default-scrollbar-thin relative flex grow items-center gap-1 overflow-x-auto pb-2 text-center text-sm"
+			>
 				{#each layout.items as item (item.id)}
 					<li class="max-w-64">
 						<!-- TODO: div with onclick is not accessible, we'll need to update this in the future -->
