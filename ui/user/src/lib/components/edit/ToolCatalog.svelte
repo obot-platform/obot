@@ -81,7 +81,15 @@
 	});
 
 	const builtInTools = $derived.by(() => {
-		const ignore = new Set(['workspace-files', 'tasks', 'knowledge', 'database', 'time']);
+		const ignore = new Set([
+			'workspace-files',
+			'tasks',
+			'knowledge',
+			'database',
+			'time',
+			'threads',
+			'github-com-obot-platform-tools-search-tavily-websiteknowl-d2d96'
+		]);
 		const builtInToolMap = new Map<string, AssistantTool>(
 			tools.filter((t) => t.builtin && !ignore.has(t.id)).map((t) => [t.id, t])
 		);
@@ -357,7 +365,7 @@
 		<CollapsePane
 			classes={{
 				content:
-					'default-scrollbar-thin flex min-h-0 flex-col overflow-y-auto p-0 pr-2 bg-transparent',
+					'default-scrollbar-thin flex min-h-0 flex-col overflow-y-auto p-0 pr-2 bg-surface1',
 				header: 'border-t-2 border-surface1 dark:border-surface3 px-5',
 				root: 'min-h-0'
 			}}
@@ -401,7 +409,7 @@
 		showDropdown={bundleTools && bundleTools.length > 0}
 		classes={{
 			header: twMerge(
-				'group py-0 pl-0 pr-3 ',
+				'group py-0 pl-0 pr-3',
 				!readOnly && 'hover:bg-surface2 dark:hover:bg-surface3'
 			),
 			content: 'border-none p-0 bg-transparent shadow-none'
