@@ -5,7 +5,7 @@
 	import { initLayout } from '$lib/context/layout.svelte';
 	import { initToolReferences } from '$lib/context/toolReferences.svelte';
 	import { browser } from '$app/environment';
-	import { profile, tools } from '$lib/stores';
+	import { profile, responsive, tools } from '$lib/stores';
 	import { qIsSet } from '$lib/url';
 
 	let { data } = $props();
@@ -63,7 +63,7 @@
 
 	function initialLayout() {
 		initLayout({
-			sidebarOpen: !qIsSet('edit') || qIsSet('sidebar'),
+			sidebarOpen: (!qIsSet('edit') && !responsive.isMobile) || qIsSet('sidebar'),
 			projectEditorOpen: qIsSet('edit'),
 			items: []
 		});
