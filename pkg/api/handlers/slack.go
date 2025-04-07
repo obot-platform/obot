@@ -1,6 +1,8 @@
 package handlers
 
 import (
+	"errors"
+
 	"github.com/gptscript-ai/go-gptscript"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
@@ -28,6 +30,10 @@ func (s *SlackHandler) Create(req api.Context) error {
 	var input types.SlackReceiver
 
 	if err := req.Read(&input); err != nil {
+		return err
+	}
+
+	if err := validateSlackInput(input, false); err != nil {
 		return err
 	}
 
@@ -84,6 +90,10 @@ func (s *SlackHandler) Update(req api.Context) error {
 		return err
 	}
 
+	if err := validateSlackInput(input, true); err != nil {
+		return err
+	}
+
 	var slackReceiver v1.SlackReceiver
 	if err := req.Get(&slackReceiver, system.SlackReceiverPrefix+thread.Name); err != nil {
 		return err
@@ -94,10 +104,24 @@ func (s *SlackHandler) Update(req api.Context) error {
 		return err
 	}
 
-	if input.ClientSecret != "" {
+	if input.ClientSecret != "" || input.SigningSecret != "" {
 		if err := req.GPTClient.CreateCredential(req.Context(), newSlackCred(slackReceiver.Spec.ThreadName, input.ClientSecret, input.SigningSecret)); err != nil {
 			return err
 		}
+	}
+
+	return req.Write(convertSlackReceiver(slackReceiver))
+}
+
+func (s *SlackHandler) Get(req api.Context) error {
+	thread, err := getThreadForScope(req)
+	if err != nil {
+		return err
+	}
+
+	var slackReceiver v1.SlackReceiver
+	if err := req.Get(&slackReceiver, system.SlackReceiverPrefix+thread.Name); err != nil {
+		return err
 	}
 
 	return req.Write(convertSlackReceiver(slackReceiver))
@@ -115,4 +139,20 @@ func (s *SlackHandler) Delete(req api.Context) error {
 			Namespace: req.Namespace(),
 		},
 	})
+}
+
+func validateSlackInput(input types.SlackReceiver, update bool) error {
+	if input.AppID == "" {
+		return errors.New("appID is required")
+	}
+	if input.ClientID == "" {
+		return errors.New("clientID is required")
+	}
+	if input.ClientSecret == "" && !update {
+		return errors.New("clientSecret is required")
+	}
+	if input.SigningSecret == "" && !update {
+		return errors.New("signingSecret is required")
+	}
+	return nil
 }

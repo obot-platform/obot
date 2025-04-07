@@ -425,3 +425,8 @@ export interface SlackConfig {
 	clientSecret: string;
 	signingSecret: string;
 }
+
+export interface SlackReceiver {
+	appId: string;
+	clientId: string;
+}

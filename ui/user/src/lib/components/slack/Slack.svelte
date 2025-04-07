@@ -2,12 +2,16 @@
 	import CollapsePane from '$lib/components/edit/CollapsePane.svelte';
 	import type { Project } from '$lib/services';
 	import CopyButton from '$lib/components/CopyButton.svelte';
-	import { configureProjectSlack, disableProjectSlack } from '$lib/services/chat/operations';
+	import {
+		configureProjectSlack,
+		disableProjectSlack,
+		getProjectSlack
+	} from '$lib/services/chat/operations';
 	import { tools } from '$lib/stores';
 	import { ChatService, type AssistantTool } from '$lib/services';
-	import { Settings, X } from 'lucide-svelte';
+	import { Settings, X, CheckCircle } from 'lucide-svelte';
 	import { getLayout } from '$lib/context/layout.svelte';
-
+	import { responsive } from '$lib/stores';
 	interface Props {
 		project: Project;
 	}
@@ -30,51 +34,60 @@
 	let dialog: HTMLDialogElement;
 	let confirmDisable: HTMLDialogElement;
 	let addSlackBotTool: HTMLDialogElement;
-	let redirectUrl = $state(
+	let redirectUrl = $derived(
 		`${window.location.protocol}//${window.location.host}/api/app-oauth/callback/oa1t1${project.id.slice(2, 8)}`
 	);
-	let eventUrl = $state(`${window.location.protocol}//${window.location.host}/api/slack/events`);
+	let eventUrl = `${window.location.protocol}//${window.location.host}/api/slack/events`;
 	let config = $state({
 		appId: '',
 		clientId: '',
 		clientSecret: '',
 		signingSecret: ''
 	});
+	let slackEnabled = $derived(project.capabilities?.onSlackMessage);
+	let errorMessage = $state('');
 
-	let defaultMask = '***********';
-
-	if (project.capabilities?.onSlackMessage) {
-		config.appId = defaultMask;
-		config.clientId = defaultMask;
-		config.clientSecret = defaultMask;
-		config.signingSecret = defaultMask;
+	async function getSlackConfig() {
+		if (slackEnabled) {
+			try {
+				const response = await getProjectSlack(project.assistantID, project.id);
+				config.appId = response.appId;
+				config.clientId = response.clientId;
+			} catch (error) {
+				console.error('Failed to get Slack config:', error);
+			}
+		}
 	}
+
+	$effect(() => {
+		getSlackConfig();
+	});
+
 	async function handleSubmit() {
 		try {
-			if (config.appId === defaultMask) {
-				dialog.close();
-				return;
-			}
-			if (project.capabilities?.onSlackMessage) {
-				await configureProjectSlack(project.assistantID, project.id, config, 'PUT');
-			} else {
-				await configureProjectSlack(project.assistantID, project.id, config, 'POST');
-			}
+			let slackReceiver = await configureProjectSlack(
+				project.assistantID,
+				project.id,
+				config,
+				slackEnabled ? 'PUT' : 'POST'
+			);
 			project = await ChatService.getProject(project.id);
 			dialog.close();
 			addSlackBotTool.showModal();
-			config.appId = '';
-			config.clientId = '';
+			config.appId = slackReceiver.appId;
+			config.clientId = slackReceiver.clientId;
 			config.clientSecret = '';
 			config.signingSecret = '';
+			errorMessage = '';
 		} catch (error) {
-			console.error('Failed to configure Slack:', error);
+			errorMessage = 'Failed to configure Slack, error: ' + error;
 		}
 	}
 
 	async function disableSlack() {
 		await disableProjectSlack(project.assistantID, project.id);
 		project = await ChatService.getProject(project.id);
+		project.capabilities = { onSlackMessage: false };
 		confirmDisable.close();
 		config.appId = '';
 		config.clientId = '';
@@ -114,23 +127,35 @@
 </script>
 
 <CollapsePane header="Slack Integration">
-	<div class="flex flex-col gap-2 p-4">
+	<div class="flex w-full flex-col gap-4">
 		<p class="text-gray text-sm">
 			Enable this to trigger tasks from Slack messages that mention the slack bot you configured
 			with Obot.
 		</p>
-		<div class="flex items-center justify-end">
-			<button class="button" onclick={() => dialog.showModal()}>
-				<div class="flex items-center gap-2">
+		<button
+			class="button flex items-center gap-1 self-end text-sm"
+			onclick={() => dialog.showModal()}
+		>
+			<div class="flex items-center gap-2">
+				{#if slackEnabled}
+					<div class="flex items-center gap-2 text-green-500">
+						<CheckCircle size={16} />
+						<span>Enabled</span>
+					</div>
+				{:else}
 					<Settings size={16} />
-					Configure
-				</div>
-			</button>
-		</div>
+					<span>Configure</span>
+				{/if}
+			</div>
+		</button>
 	</div>
 </CollapsePane>
 
-<dialog bind:this={dialog} class="default-dialog w-1/2">
+<dialog
+	bind:this={dialog}
+	class="default-dialog md:w-1/2"
+	class:mobile-screen-dialog={responsive.isMobile}
+>
 	<div class="p-6">
 		<button class="absolute top-0 right-0 p-3" onclick={() => dialog?.close()}>
 			<X class="icon-default" />
@@ -155,7 +180,9 @@
 					<p class="text-sm text-gray-600">
 						In the "Redirect URLs" section, click "Add New Redirect URL"
 					</p>
-					<div class="mt-2 flex max-w-fit items-center gap-2 rounded bg-gray-100 p-2">
+					<div
+						class="mt-2 flex max-w-fit items-center gap-2 rounded bg-gray-100 p-2 dark:bg-gray-800"
+					>
 						<CopyButton text={redirectUrl} />
 						{redirectUrl}
 					</div>
@@ -167,14 +194,18 @@
 						Navigate to the "Event Subscriptions" tab from the sidebar
 					</p>
 					<p class="text-sm text-gray-600">Enable events and add the Request URL below:</p>
-					<div class="mt-2 flex max-w-fit items-center gap-2 rounded bg-gray-100 p-2">
+					<div
+						class="mt-2 flex max-w-fit items-center gap-2 rounded bg-gray-100 p-2 dark:bg-gray-800"
+					>
 						<CopyButton text={eventUrl} />
 						{eventUrl}
 					</div>
 					<p class="mt-2 text-sm text-gray-600">
 						Under "Subscribe to bot events", add the following events:
 					</p>
-					<div class="mt-2 flex max-w-fit items-center gap-2 rounded bg-gray-100 p-2">
+					<div
+						class="mt-2 flex max-w-fit items-center gap-2 rounded bg-gray-100 p-2 dark:bg-gray-800"
+					>
 						<CopyButton text={'app_mention'} />
 						app_mention
 					</div>
@@ -189,59 +220,87 @@
 						Locate the "Bot Token Scopes" section and add the following scopes:
 					</p>
 					<div class="mt-2 flex flex-wrap gap-1">
-						<div class="flex max-w-fit items-center gap-2 rounded-full bg-gray-100 px-3 py-1">
+						<div
+							class="flex max-w-fit items-center gap-2 rounded-full bg-gray-100 px-3 py-1 dark:bg-gray-800"
+						>
 							<CopyButton text="channels:history" />
 							channels:history
 						</div>
-						<div class="flex max-w-fit items-center gap-2 rounded-full bg-gray-100 px-3 py-1">
+						<div
+							class="flex max-w-fit items-center gap-2 rounded-full bg-gray-100 px-3 py-1 dark:bg-gray-800"
+						>
 							<CopyButton text="groups:history" />
 							groups:history
 						</div>
-						<div class="flex max-w-fit items-center gap-2 rounded-full bg-gray-100 px-3 py-1">
+						<div
+							class="flex max-w-fit items-center gap-2 rounded-full bg-gray-100 px-3 py-1 dark:bg-gray-800"
+						>
 							<CopyButton text="im:history" />
 							im:history
 						</div>
-						<div class="flex max-w-fit items-center gap-2 rounded-full bg-gray-100 px-3 py-1">
+						<div
+							class="flex max-w-fit items-center gap-2 rounded-full bg-gray-100 px-3 py-1 dark:bg-gray-800"
+						>
 							<CopyButton text="mpim:history" />
 							mpim:history
 						</div>
-						<div class="flex max-w-fit items-center gap-2 rounded-full bg-gray-100 px-3 py-1">
+						<div
+							class="flex max-w-fit items-center gap-2 rounded-full bg-gray-100 px-3 py-1 dark:bg-gray-800"
+						>
 							<CopyButton text="channels:read" />
 							channels:read
 						</div>
-						<div class="flex max-w-fit items-center gap-2 rounded-full bg-gray-100 px-3 py-1">
+						<div
+							class="flex max-w-fit items-center gap-2 rounded-full bg-gray-100 px-3 py-1 dark:bg-gray-800"
+						>
 							<CopyButton text="files:read" />
 							files:read
 						</div>
-						<div class="flex max-w-fit items-center gap-2 rounded-full bg-gray-100 px-3 py-1">
+						<div
+							class="flex max-w-fit items-center gap-2 rounded-full bg-gray-100 px-3 py-1 dark:bg-gray-800"
+						>
 							<CopyButton text="im:read" />
 							im:read
 						</div>
-						<div class="flex max-w-fit items-center gap-2 rounded-full bg-gray-100 px-3 py-1">
+						<div
+							class="flex max-w-fit items-center gap-2 rounded-full bg-gray-100 px-3 py-1 dark:bg-gray-800"
+						>
 							<CopyButton text="team:read" />
 							team:read
 						</div>
-						<div class="flex max-w-fit items-center gap-2 rounded-full bg-gray-100 px-3 py-1">
+						<div
+							class="flex max-w-fit items-center gap-2 rounded-full bg-gray-100 px-3 py-1 dark:bg-gray-800"
+						>
 							<CopyButton text="users:read" />
 							users:read
 						</div>
-						<div class="flex max-w-fit items-center gap-2 rounded-full bg-gray-100 px-3 py-1">
+						<div
+							class="flex max-w-fit items-center gap-2 rounded-full bg-gray-100 px-3 py-1 dark:bg-gray-800"
+						>
 							<CopyButton text="groups:read" />
 							groups:read
 						</div>
-						<div class="flex max-w-fit items-center gap-2 rounded-full bg-gray-100 px-3 py-1">
+						<div
+							class="flex max-w-fit items-center gap-2 rounded-full bg-gray-100 px-3 py-1 dark:bg-gray-800"
+						>
 							<CopyButton text="chat:write" />
 							chat:write
 						</div>
-						<div class="flex max-w-fit items-center gap-2 rounded-full bg-gray-100 px-3 py-1">
+						<div
+							class="flex max-w-fit items-center gap-2 rounded-full bg-gray-100 px-3 py-1 dark:bg-gray-800"
+						>
 							<CopyButton text="groups:write" />
 							groups:write
 						</div>
-						<div class="flex max-w-fit items-center gap-2 rounded-full bg-gray-100 px-3 py-1">
+						<div
+							class="flex max-w-fit items-center gap-2 rounded-full bg-gray-100 px-3 py-1 dark:bg-gray-800"
+						>
 							<CopyButton text="mpim:write" />
 							mpim:write
 						</div>
-						<div class="flex max-w-fit items-center gap-2 rounded-full bg-gray-100 px-3 py-1">
+						<div
+							class="flex max-w-fit items-center gap-2 rounded-full bg-gray-100 px-3 py-1 dark:bg-gray-800"
+						>
 							<CopyButton text="im:write" />
 							im:write
 						</div>
@@ -287,7 +346,7 @@
 							type="password"
 							id="clientSecret"
 							class="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
-							placeholder="Enter Client Secret"
+							placeholder={slackEnabled ? '***********' : 'Enter Client Secret'}
 							autocomplete="off"
 							bind:value={config.clientSecret}
 							oninput={(e) => (config.clientSecret = e.currentTarget.value)}
@@ -300,7 +359,7 @@
 							type="password"
 							id="signingSecret"
 							class="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
-							placeholder="Enter Signing Secret"
+							placeholder={slackEnabled ? '***********' : 'Enter Signing Secret'}
 							autocomplete="off"
 							bind:value={config.signingSecret}
 							oninput={(e) => (config.signingSecret = e.currentTarget.value)}
@@ -322,6 +381,12 @@
 					</button>
 				{/if}
 				<button class="button" onclick={handleSubmit}> Configure </button>
+			</div>
+
+			<div class="mt-4 flex justify-end">
+				{#if errorMessage}
+					<p class="text-red-500">{errorMessage}</p>
+				{/if}
 			</div>
 		</div>
 	</div>

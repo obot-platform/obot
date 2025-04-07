@@ -73,8 +73,15 @@ export async function doDelete(path: string): Promise<unknown> {
 	return handleResponse(resp, path);
 }
 
-export async function doPut(path: string, input?: string | object | Blob): Promise<unknown> {
-	return await doWithBody('PUT', path, input);
+export async function doPut(
+	path: string,
+	input?: string | object | Blob,
+	opts?: {
+		dontLogErrors?: boolean;
+		fetch?: typeof fetch;
+	}
+): Promise<unknown> {
+	return await doWithBody('PUT', path, input, opts);
 }
 
 async function handleResponse(
