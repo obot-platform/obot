@@ -19,7 +19,7 @@
 {#snippet content()}
 	<div
 		class={twMerge(
-			'bg-surface1 z-10 flex w-full grow items-center rounded-xl p-4 shadow-md',
+			'bg-surface1 z-10 flex w-full h-full grow items-center rounded-xl p-4 shadow-md',
 			klass
 		)}
 	>
