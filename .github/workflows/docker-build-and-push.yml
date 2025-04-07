@@ -4,6 +4,8 @@ permissions:
   id-token: write
   contents: read
   packages: write
+  actions: read
+  security-events: write
 
 on:
   push:
@@ -80,6 +82,37 @@ jobs:
           crane tag ghcr.io/${{ github.repository }}:${{ github.ref_name }} latest
           crane tag docker.io/obot/${{ github.event.repository.name }}:${{ github.ref_name }} latest
 
+  oss-image-scan:
+    runs-on: depot-ubuntu-22.04
+    needs: enterprise-build
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Depot
+        uses: depot/setup-action@v1
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ secrets.GHCR_USERNAME }}
+          password: ${{ secrets.GHCR_TOKEN }}
+
+      - name: Run Trivy
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: ghcr.io/${{ github.repository }}:${{ github.ref_name }}
+          skip-dirs: '**/venv'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+
+      - name: Upload SARIF file
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: trivy-results.sarif
+
   enterprise-build:
     runs-on: depot-ubuntu-22.04
 
@@ -145,3 +178,34 @@ jobs:
         if: ${{ github.ref_type == 'tag' && !contains(github.ref_name, '-rc') }}
         run: |
           crane tag ghcr.io/${{ github.repository }}-enterprise:${{ github.ref_name }} latest
+
+  enterprise-image-scan:
+    runs-on: depot-ubuntu-22.04
+    needs: enterprise-build
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Depot
+        uses: depot/setup-action@v1
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ secrets.GHCR_USERNAME }}
+          password: ${{ secrets.GHCR_TOKEN }}
+
+      - name: Run Trivy
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: ghcr.io/${{ github.repository }}-enterprise:${{ github.ref_name }}
+          skip-dirs: '**/venv'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+
+      - name: Upload SARIF file
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: trivy-results.sarif
