@@ -55,7 +55,7 @@
 		<p class="text-gray text-sm">The following tasks will be shared with users of this Obot.</p>
 		<div class="flex flex-col">
 			{#if layout.tasks}
-				<ul class="-mx-3">
+				<ul>
 					{#each layout.tasks as task, i (task.id)}
 						<TaskItem
 							{task}
@@ -69,7 +69,7 @@
 						>
 							{#snippet taskActions()}
 								<button
-									class="menu-button"
+									class="icon-button-small hover:bg-surface2 mr-2"
 									onclick={() => shareTask(task, !project.sharedTasks?.includes(task.id))}
 									use:tooltip={project.sharedTasks?.includes(task.id)
 										? 'This task is being shared with other users.'

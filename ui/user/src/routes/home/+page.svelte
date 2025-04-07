@@ -115,6 +115,7 @@
 							{#snippet actionContent()}
 								<button
 									class="icon-button opacity-0 transition-opacity duration-300 group-hover:opacity-100"
+									class:opacity-100={responsive.isMobile}
 									onclick={(e) => {
 										e.preventDefault();
 										toDelete = project;

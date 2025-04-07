@@ -41,16 +41,18 @@ printf "The current temperature in %s is %.2f°F.\\n" "$CITY" "$RANDOM_TEMPERATU
 
 <script lang="ts">
 	import { autoHeight } from '$lib/actions/textarea.js';
-	import { Container, X, ChevronDown, ChevronUp } from 'lucide-svelte';
+	import { Container, X, ChevronRight, Trash2, SquarePen } from 'lucide-svelte';
 	import { type AssistantTool, ChatService, type Project } from '$lib/services';
 	import Confirm from '$lib/components/Confirm.svelte';
 	import Env from '$lib/components/edit/customtool/Env.svelte';
 	import Params from '$lib/components/edit/customtool/Params.svelte';
 	import Codemirror from '$lib/components/editor/Codemirror.svelte';
-	import { Trash } from 'lucide-svelte/icons';
 	import type { EditorItem } from '$lib/services/editor/index.svelte.js';
 	import { onDestroy, onMount } from 'svelte';
 	import { newSaveMonitor, type SaveMonitor } from '$lib/save';
+	import { responsive } from '$lib/stores';
+	import { fade } from 'svelte/transition';
+	import { tooltip } from '$lib/actions/tooltip.svelte';
 
 	interface Props {
 		tool: AssistantTool;
@@ -111,16 +113,11 @@ printf "The current temperature in %s is %.2f°F.\\n" "$CITY" "$RANDOM_TEMPERATU
 	});
 
 	$effect(() => {
-		// compare the keys of params and input
-		const inputKeys = new Set(input.map((i) => i.key));
-		const paramKeys = new Set(params.map((p) => p.key));
-		if (inputKeys.size !== paramKeys.size || [...inputKeys].some((key) => !paramKeys.has(key))) {
-			// if they are different, set input to params
-			input = params.map((p) => ({
-				key: p.key,
-				value: input.find((i) => i.key === p.key)?.value ?? ''
-			}));
-		}
+		// Update input to match params keys with empty values
+		input = params.map((p) => ({
+			key: p.key,
+			value: ''
+		}));
 	});
 
 	function buildSaveState(): SaveState {
@@ -187,143 +184,198 @@ printf "The current temperature in %s is %.2f°F.\\n" "$CITY" "$RANDOM_TEMPERATU
 	}
 </script>
 
-<div class="relative flex flex-col gap-5 rounded-s-lg p-5">
-	<div class="absolute top-0 right-0 m-2 flex">
-		<button class="icon-button" onclick={() => (requestDelete = true)}>
-			<Trash class="size-5" />
-		</button>
-		<button class="icon-button" onclick={() => onClose?.()}>
-			<X class="size-5" />
-		</button>
-	</div>
+<div class="flex h-full flex-col">
+	{#if responsive.isMobile}
+		<h3 class="default-dialog-title" class:default-dialog-mobile-title={responsive.isMobile}>
+			<input
+				bind:value={tool.name}
+				placeholder="Enter Name"
+				class="w-full bg-inherit text-center text-xl font-semibold outline-none"
+			/>
+			<button class="icon-button mobile-header-button" onclick={() => onClose?.()}>
+				<ChevronRight class="size-6" />
+			</button>
+			<div class="absolute top-1/2 left-5 -z-10 -translate-y-1/2">
+				<SquarePen class="size-5 text-gray-500" />
+			</div>
+		</h3>
+	{/if}
 
-	<div class="flex flex-col">
-		<input
-			bind:value={tool.name}
-			placeholder="Enter Name"
-			class="bg-inherit text-xl font-semibold outline-none"
-		/>
-		<textarea
-			use:autoHeight
-			bind:value={tool.description}
-			placeholder="Enter description (a good one is very helpful)"
-			class="resize-none bg-inherit outline-none"
-		></textarea>
-	</div>
-
-	<Params bind:params />
-
-	<div class="bg-surface1 flex flex-col gap-4 rounded-lg p-5">
-		<div class="flex items-center">
-			<span class="flex-1 text-lg font-semibold">
-				{#if tool.toolType === 'container'}
-					Image
-				{:else if tool.toolType === 'script'}
-					Script
-				{:else}
-					Code
-				{/if}
-			</span>
-		</div>
-		<div class="flex w-full items-center gap-2">
-			{#if tool.toolType === 'container'}
-				<Container class="size-5" />
-				<input bind:value={tool.image} class="text-input" placeholder="Container image name" />
-			{:else}
-				<Codemirror
-					items={[]}
-					class="w-full"
-					file={editorFile}
-					onFileChanged={(_, c) => {
-						tool.instructions = c;
-					}}
-				/>
-			{/if}
-		</div>
-		<button
-			onclick={() => {
-				test(true);
-			}}
-			class="button-primary mt-3 self-end"
-		>
-			Test
-		</button>
-	</div>
-
-	{#if testOutput}
-		<div class="bg-surface1 relative flex flex-col gap-4 rounded-lg p-5">
-			<div class="absolute top-0 right-0 flex p-5">
-				<button onclick={() => (testOutput = undefined)}>
+	{#if !responsive.isMobile}
+		<div class="flex items-center justify-between gap-8 p-5 pr-3">
+			<input
+				bind:value={tool.name}
+				placeholder="Enter Name"
+				class="ghost-input dark:hover:border-surface3 w-full bg-inherit text-xl font-semibold outline-none"
+			/>
+			<div class="flex gap-2">
+				{@render deleteButton()}
+				<button class="icon-button h-fit" onclick={() => onClose?.()}>
 					<X class="size-5" />
 				</button>
-			</div>
-			<h4 class="text-xl font-semibold">Output</h4>
-			<Params bind:params={input} input />
-			<div class="font-mono text-sm whitespace-pre-wrap">
-				{#await testOutput}
-					Running...
-				{:then output}
-					<div class="rounded-lg bg-white p-5 font-mono whitespace-pre-wrap dark:bg-black">
-						{output.output}
-					</div>
-				{:catch error}
-					{error}
-				{/await}
 			</div>
 		</div>
 	{/if}
 
-	<button
-		class="dark:text-gray flex items-center gap-2 self-end"
-		onclick={() => (advanced = !advanced)}
-	>
-		<span>Advanced Options</span>
-		{#if advanced}
-			<ChevronUp class="size-5" />
-		{:else}
-			<ChevronDown class="size-5" />
-		{/if}
-	</button>
-
-	<div class:contents={advanced} class:hidden={!advanced}>
-		<Env bind:envs />
-
-		<div class="bg-surface1 flex flex-col gap-2 rounded-lg p-5">
-			<h4 class="text-xl font-semibold">Calling Instructions</h4>
+	<div class="default-scrollbar-thin relative flex grow flex-col gap-5 overflow-y-auto p-5 pt-0">
+		<div class="flex w-full justify-between gap-4">
 			<textarea
-				bind:value={tool.context}
 				use:autoHeight
 				rows="1"
-				class="resize-none bg-gray-50 outline-none dark:bg-gray-950"
-				placeholder="(optional) More information on how or when AI should invoke this tool."
+				bind:value={tool.description}
+				placeholder="Enter description (a good one is very helpful)"
+				class="ghost-input dark:hover:border-surface3 w-full resize-none bg-inherit outline-none"
 			></textarea>
+			{#if responsive.isMobile}
+				{@render deleteButton()}
+			{/if}
 		</div>
 
-		{#if tool.toolType !== 'container'}
-			<div class="bg-surface1 flex flex-col gap-4 rounded-lg p-5">
-				<h4 class="text-xl font-semibold">Runtime Docker Image</h4>
-				<div class="flex items-center gap-2">
+		<Params bind:params />
+
+		<div
+			class="bg-surface1 flex flex-col rounded-lg pb-1"
+			class:pb-5={tool.toolType === 'container'}
+		>
+			<div class="flex items-center">
+				<span class="flex-1 px-5 py-4 text-lg font-semibold">
+					{#if tool.toolType === 'container'}
+						Image
+					{:else if tool.toolType === 'script'}
+						Script
+					{:else}
+						Code
+					{/if}
+				</span>
+			</div>
+			<div class="flex w-full items-center gap-2" class:px-5={tool.toolType === 'container'}>
+				{#if tool.toolType === 'container'}
 					<Container class="size-5" />
-					<input bind:value={tool.image} class="text-input" placeholder="Container image name" />
+					<input
+						bind:value={tool.image}
+						class="text-input-filled w-full"
+						placeholder="Container image name"
+					/>
+				{:else}
+					<Codemirror
+						items={[]}
+						class="default-scrollbar-thin m-0 max-h-[50vh] w-full overflow-y-auto border-r-2"
+						file={editorFile}
+						onFileChanged={(_, c) => {
+							tool.instructions = c;
+						}}
+					/>
+				{/if}
+			</div>
+		</div>
+
+		{#if testOutput}
+			<div class="bg-surface1 relative flex flex-col gap-4 rounded-lg p-5" transition:fade>
+				<div class="absolute top-0 right-0 flex p-5">
+					<button onclick={() => (testOutput = undefined)}>
+						<X class="size-5" />
+					</button>
+				</div>
+				<h4 class="mb-4 text-xl font-semibold">Output</h4>
+				<Params bind:params bind:input classes={{ header: 'bg-surface1' }} />
+				<div class="font-mono text-sm whitespace-pre-wrap">
+					{#await testOutput}
+						Running...
+					{:then output}
+						<div class="rounded-lg bg-white p-5 font-mono whitespace-pre-wrap dark:bg-black">
+							{output.output}
+						</div>
+					{:catch error}
+						{error}
+					{/await}
 				</div>
 			</div>
 		{/if}
+		{#if advanced}
+			<div transition:fade class="flex flex-col gap-5">
+				<Env bind:envs />
+
+				<div class="bg-surface1 flex flex-col gap-2 rounded-lg p-5">
+					<h4 class="text-lg font-semibold">Calling Instructions</h4>
+					<textarea
+						bind:value={tool.context}
+						use:autoHeight
+						rows="1"
+						class="text-input-filled resize-none"
+						placeholder="(optional) More information on how or when AI should invoke this tool."
+					></textarea>
+				</div>
+
+				{#if tool.toolType !== 'container'}
+					<div class="bg-surface1 flex flex-col gap-4 rounded-lg p-5">
+						<h4 class="text-lg font-semibold">Runtime Docker Image</h4>
+						<div class="flex items-center gap-2">
+							<Container class="size-5" />
+							<input
+								bind:value={tool.image}
+								class="text-input-filled"
+								placeholder="Container image name"
+							/>
+						</div>
+					</div>
+				{/if}
+			</div>
+		{/if}
+	</div>
+
+	<div class="flex w-full flex-col items-center justify-between gap-4 p-5 md:flex-row">
+		<button
+			class="button-text flex items-center gap-2 p-0 text-xs md:text-sm"
+			onclick={() => (advanced = !advanced)}
+		>
+			<span>{advanced ? 'Collapse' : 'Show'} Advanced Options...</span>
+		</button>
+
+		<button
+			onclick={() => {
+				test(true);
+			}}
+			class="button-primary w-full md:w-fit md:min-w-36"
+		>
+			Test
+		</button>
 	</div>
 </div>
 
-<dialog bind:this={dialog} class="w-11/12 max-w-[1000px]">
-	<div class="relative flex flex-col p-5">
-		<div class="absolute top-0 right-0 flex p-5">
-			<button
-				onclick={() => {
-					dialog.close();
-				}}
-			>
+{#snippet deleteButton()}
+	<button
+		class="button-destructive h-fit p-2.5"
+		onclick={() => (requestDelete = true)}
+		use:tooltip={{ text: 'Delete Custom Tool', disablePortal: true }}
+	>
+		<Trash2 class="size-5" />
+	</button>
+{/snippet}
+
+<dialog
+	bind:this={dialog}
+	class="max-w-full md:min-w-md"
+	class:p-4={!responsive.isMobile}
+	class:mobile-screen-dialog={responsive.isMobile}
+>
+	<h4 class="default-dialog-title" class:default-dialog-mobile-title={responsive.isMobile}>
+		Input
+		<button
+			class="icon-button"
+			class:mobile-header-button={responsive.isMobile}
+			onclick={() => {
+				dialog.close();
+			}}
+		>
+			{#if responsive.isMobile}
+				<ChevronRight class="size-6" />
+			{:else}
 				<X class="size-5" />
-			</button>
-		</div>
-		<h4 class="mb-2 text-xl font-semibold">Input</h4>
-		<Params bind:params={input} autofocus input />
+			{/if}
+		</button>
+	</h4>
+	<div class="relative mt-5 flex flex-col">
+		<Params bind:params autofocus bind:input />
 		<button onclick={() => test(false)} class="button-primary mt-3 self-end"> Run </button>
 	</div>
 </dialog>

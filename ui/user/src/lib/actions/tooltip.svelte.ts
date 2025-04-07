@@ -1,15 +1,21 @@
 import popover from '$lib/actions/popover.svelte';
 
-export function tooltip(node: HTMLElement, opts: string | undefined) {
+interface TooltipOptions {
+	text: string;
+	disablePortal?: boolean;
+}
+
+export function tooltip(node: HTMLElement, opts: TooltipOptions | string | undefined) {
 	const tt = popover({ placement: 'top', delay: 300 });
 
 	const p = document.createElement('p');
 	p.classList.add('hidden', 'tooltip', 'max-w-64');
-	document.body.appendChild(p);
 
-	const update = (opts: string | undefined) => {
-		if (opts) {
+	const update = (opts: TooltipOptions | string | undefined) => {
+		if (typeof opts === 'string') {
 			p.textContent = opts;
+		} else if (opts?.text) {
+			p.textContent = opts.text;
 		}
 	};
 
@@ -17,8 +23,17 @@ export function tooltip(node: HTMLElement, opts: string | undefined) {
 		update(opts);
 	});
 
+	if (typeof opts === 'object' && opts?.disablePortal) {
+		node.insertAdjacentElement('afterend', p);
+	} else {
+		document.body.appendChild(p);
+	}
+
 	tt.ref(node);
-	tt.tooltip(p, { hover: true });
+	tt.tooltip(p, {
+		hover: true,
+		disablePortal: typeof opts === 'object' ? opts.disablePortal : false
+	});
 
 	return {
 		update,

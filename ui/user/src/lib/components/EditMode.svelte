@@ -27,10 +27,10 @@
 	import Projects from './navbar/Projects.svelte';
 	import { goto } from '$app/navigation';
 	import Sites from '$lib/components/edit/Sites.svelte';
-	import { errors, responsive, tools } from '$lib/stores';
+	import { errors, responsive, tools, version } from '$lib/stores';
 	import { twMerge } from 'tailwind-merge';
 	import Slack from '$lib/components/slack/Slack.svelte';
-
+	import CustomTools from './edit/CustomTools.svelte';
 	interface Props {
 		project: Project;
 		currentThreadID?: string;
@@ -111,7 +111,7 @@
 				{/if}
 			</div>
 			<div class="flex grow items-center justify-center gap-2">
-				<div class="relative flex max-w-xs grow">
+				<div class="relative flex max-w-48 grow md:max-w-xs">
 					<Projects
 						{project}
 						onlyEditable={true}
@@ -156,13 +156,16 @@
 				<div class="default-scrollbar-thin flex grow flex-col">
 					<General bind:project />
 					<Instructions bind:project />
-					<Tools {onNewTools} {project} />
+					<Tools {onNewTools} />
 					<Knowledge {project} />
 
 					{#if showAdvanced}
 						<div class="flex flex-col" transition:slide>
 							{#if assistant?.websiteKnowledge?.siteTool}
 								<Sites {project} />
+							{/if}
+							{#if version.current.dockerSupported}
+								<CustomTools {project} />
 							{/if}
 							<Files {project} />
 							<Tasks {project} bind:currentThreadID />

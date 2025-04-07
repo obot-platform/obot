@@ -1,7 +1,8 @@
 <script lang="ts">
 	import { autoHeight } from '$lib/actions/textarea';
+	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import type { OnDemand } from '$lib/services';
-	import { Plus, Trash2 } from 'lucide-svelte';
+	import { Minus, Plus } from 'lucide-svelte';
 
 	interface Props {
 		onDemand?: OnDemand;
@@ -32,18 +33,18 @@
 		<table class="w-full text-left">
 			<thead class="text-sm">
 				<tr>
-					<th class="font-light">Name</th>
-					<th class="font-light">Description</th>
+					<th class="font-medium">Name</th>
+					<th class="font-medium">Description</th>
 				</tr>
 			</thead>
 			<tbody>
 				{#each order as key, i (i)}
 					<tr class="group">
-						<td class="flex w-full justify-self-start pr-8">
+						<td class="w-1/2 pr-4 align-bottom">
 							<input
 								value={key}
 								placeholder="Enter Name"
-								class="ghost-input border-surface2 w-full"
+								class="text-input w-full"
 								oninput={(e) => {
 									if (e.target instanceof HTMLInputElement && onDemand?.params) {
 										const oldKey = order[i];
@@ -56,11 +57,11 @@
 								disabled={readOnly}
 							/>
 						</td>
-						<td>
+						<td class="w-1/2 pr-4 align-bottom">
 							<textarea
 								use:autoHeight
 								bind:value={onDemand.params[order[i]]}
-								class="ghost-input border-surface2 w-full resize-none py-2.5"
+								class="text-input w-full resize-none py-2.5 align-bottom"
 								disabled={readOnly}
 								placeholder="Add a good description"
 								rows="1"
@@ -77,8 +78,9 @@
 											delete onDemand.params[key];
 										}
 									}}
+									use:tooltip={'Remove Argument'}
 								>
-									<Trash2 class="size-5" />
+									<Minus class="size-5" />
 								</button>
 							</td>
 						{/if}

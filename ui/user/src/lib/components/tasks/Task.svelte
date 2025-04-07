@@ -412,7 +412,7 @@
 						{#if responsive.isMobile}
 							<ChevronRight class="size-6" />
 						{:else}
-							<X class="size-4" />
+							<X class="size-5" />
 						{/if}
 					</button>
 				</h3>
@@ -420,15 +420,12 @@
 					<Input bind:input {task} />
 				</div>
 				<div class="mt-4 flex w-full flex-col justify-between gap-4 md:flex-row md:justify-end">
-					<button class="button w-full md:w-fit" onclick={() => inputDialog?.close()}>
-						Cancel
-					</button>
 					<button
 						class="button-primary w-full md:w-fit"
 						onclick={() => {
 							run();
 							inputDialog?.close();
-						}}>Submit</button
+						}}>Run</button
 					>
 				</div>
 			</div>
