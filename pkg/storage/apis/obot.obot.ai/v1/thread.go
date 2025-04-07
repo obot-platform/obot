@@ -49,13 +49,15 @@ func (in *Thread) Get(field string) string {
 			return strconv.FormatBool(in.Spec.Project)
 		case "spec.parentThreadName":
 			return in.Spec.ParentThreadName
+		case "spec.systemTask":
+			return strconv.FormatBool(in.Spec.SystemTask)
 		}
 	}
 	return ""
 }
 
 func (in *Thread) FieldNames() []string {
-	return []string{"spec.userUID", "spec.project", "spec.agentName", "spec.parentThreadName"}
+	return []string{"spec.userUID", "spec.project", "spec.agentName", "spec.parentThreadName", "spec.systemTask"}
 }
 
 func (in *Thread) GetColumns() [][]string {
