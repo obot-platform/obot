@@ -250,7 +250,7 @@
 
 <div class="flex h-full w-full flex-col overflow-hidden md:h-[75vh]">
 	<h4
-		class="border-surface3 relative mx-4 mb-4 flex items-center justify-center border-b py-4 text-lg font-semibold md:justify-start"
+		class="border-surface3 relative mx-4 flex items-center justify-center border-b py-4 text-lg font-semibold md:mb-4 md:justify-start"
 	>
 		{#if responsive.isMobile}
 			<button class="icon-button absolute top-2 left-0" onclick={() => searchPopover?.show()}>
@@ -300,7 +300,7 @@
 					? { x: 250, duration: 300, delay: 0 }
 					: { x: 250, duration: 300, delay: 300 }}
 				onclick={() => (showAvailableTools = !showAvailableTools)}
-				class="bg-surface1 h-inherit dark:border-surface2 flex min-h-0 w-8 flex-col items-center justify-center gap-2 border-l border-white px-2"
+				class="h-inherit border-surface1 dark:border-surface3 flex min-h-0 w-8 flex-col items-center justify-center gap-2 border-l bg-transparent px-2"
 			>
 				<ChevronsRight class="size-6 text-black dark:text-white" />
 			</button>
@@ -334,7 +334,7 @@
 						? { x: 250, duration: 300, delay: 300 }
 						: { x: 250, duration: 300, delay: 0 }}
 					onclick={() => (showAvailableTools = !showAvailableTools)}
-					class="bg-surface1 text:border-black h-inherit dark:border-surface2 flex min-h-0 w-8 flex-col items-center justify-center gap-2 border-l border-white px-2"
+					class="text:border-black h-inherit dark:border-surface3 border-surface1 flex min-h-0 w-8 flex-col items-center justify-center gap-2 border-l px-2"
 				>
 					<ChevronsLeft class="size-6 text-black dark:text-white" />
 				</button>
@@ -343,17 +343,20 @@
 	</div>
 
 	<div class="flex w-full items-center justify-between">
-		<div class="flex grow rounded-t-lg p-4 pb-0 md:relative" bind:this={searchContainer}>
+		<div class="flex grow md:relative" bind:this={searchContainer}>
 			{#if !responsive.isMobile}
-				{@render searchInput()}
+				<div class="w-full p-4">
+					{@render searchInput()}
+				</div>
 			{/if}
+
 			{@render searchDialog()}
 		</div>
 	</div>
 
-	<div class="flex flex-col items-center gap-2 p-2 md:flex-row">
+	<div class="flex flex-col items-center gap-2 md:flex-row">
 		{#if maxExceeded}
-			<p class="text-left text-sm text-red-500">
+			<p class="p-2 text-left text-sm text-red-500">
 				Maximum number of tools exceeded for this Assistant. (Max: {maxTools})
 			</p>
 		{/if}
@@ -519,7 +522,7 @@
 {#snippet searchDialog()}
 	<dialog
 		bind:this={searchPopover}
-		class="default-scrollbar-thin absolute bottom-0 left-0 z-10 h-full w-full rounded-sm md:bottom-12 md:h-fit md:max-h-[50vh] md:w-[calc(100%-1rem)] md:overflow-y-auto"
+		class="default-scrollbar-thin absolute bottom-0 left-0 z-10 h-full w-full rounded-sm md:bottom-16 md:h-fit md:max-h-[50vh] md:w-[calc(100%-1rem)] md:overflow-y-auto"
 		class:hidden={!responsive.isMobile && !search}
 	>
 		<div class="flex h-full flex-col">
@@ -579,7 +582,7 @@
 		{@render toolInfo(tool)}
 		{#if val}
 			<div class="mr-4 flex items-center">
-				<div class="pill">Remove</div>
+				<div class="remove-pill">Remove</div>
 			</div>
 		{/if}
 	</button>
@@ -597,7 +600,7 @@
 				{@render toolInfo(subTool)}
 				{#if val || subToolVal}
 					<div class="mr-4 flex items-center">
-						<div class="pill">Remove</div>
+						<div class="remove-pill">Remove</div>
 					</div>
 				{/if}
 			</button>
@@ -620,7 +623,7 @@
 		animation: bounce-x 1s infinite ease-in-out;
 	}
 
-	.pill {
+	.remove-pill {
 		font-size: var(--text-xs);
 		padding: 0.25rem 0.75rem;
 		border-radius: var(--radius-2xl);
