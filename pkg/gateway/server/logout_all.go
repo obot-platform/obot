@@ -9,7 +9,7 @@ import (
 	"strings"
 
 	"github.com/obot-platform/obot/pkg/api"
-	kcontext "github.com/obot-platform/obot/pkg/gateway/context"
+	gcontext "github.com/obot-platform/obot/pkg/gateway/context"
 	"github.com/obot-platform/obot/pkg/proxy"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
@@ -17,7 +17,7 @@ import (
 )
 
 func (s *Server) logoutAll(apiContext api.Context) error {
-	logger := kcontext.GetLogger(apiContext.Context())
+	logger := gcontext.GetLogger(apiContext.Context())
 
 	sessionID, sessionIDFound := getSessionID(apiContext.Request)
 

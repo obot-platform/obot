@@ -17,8 +17,8 @@ var verifiedAuthProviders = []string{
 	"default/github-auth-provider",
 }
 
-func (c *Client) FindIdentitiesForUser(ctx context.Context, userID uint) ([]*types.Identity, error) {
-	var identities []*types.Identity
+func (c *Client) FindIdentitiesForUser(ctx context.Context, userID uint) ([]types.Identity, error) {
+	var identities []types.Identity
 	if err := c.db.WithContext(ctx).Where("user_id = ?", userID).Find(&identities).Error; err != nil {
 		return nil, err
 	}

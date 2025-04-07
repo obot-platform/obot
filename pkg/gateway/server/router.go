@@ -25,6 +25,7 @@ func (s *Server) AddRoutes(mux *server.Server) {
 	}))
 	// All the routes served by the API will start with `/api`
 	mux.HandleFunc("GET /api/me", wrap(s.getCurrentUser))
+	mux.HandleFunc("POST /api/logout-all", wrap(s.logoutAll))
 	mux.HandleFunc("GET /api/users", wrap(s.getUsers))
 	mux.HandleFunc("GET /api/users/{username_or_id}", wrap(s.getUser))
 	mux.HandleFunc("GET /api/users/{user_id}/activities", wrap(s.activitiesByUser))
@@ -61,6 +62,4 @@ func (s *Server) AddRoutes(mux *server.Server) {
 
 	// LLM proxy
 	mux.HandleFunc("POST /api/llm-proxy/{path...}", s.llmProxy)
-
-	mux.HandleFunc("POST /api/logout-all", wrap(s.logoutAll))
 }
