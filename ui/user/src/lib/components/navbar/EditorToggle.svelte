@@ -11,6 +11,7 @@
 </script>
 
 <button
+	data-testid="obot-editor-btn"
 	onmouseenter={() => (hover = true)}
 	onmouseleave={() => (hover = false)}
 	onclick={() => {
