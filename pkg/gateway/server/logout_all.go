@@ -1,7 +1,6 @@
 package server
 
 import (
-	"crypto/sha256"
 	"encoding/base64"
 	"errors"
 	"fmt"
@@ -10,6 +9,7 @@ import (
 
 	"github.com/obot-platform/obot/pkg/api"
 	gcontext "github.com/obot-platform/obot/pkg/gateway/context"
+	"github.com/obot-platform/obot/pkg/hash"
 	"github.com/obot-platform/obot/pkg/proxy"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
@@ -17,6 +17,11 @@ import (
 )
 
 func (s *Server) logoutAll(apiContext api.Context) error {
+	// Logout all sessions is only supported when using PostgreSQL.
+	if s.db.WithContext(apiContext.Context()).Dialector.Name() != "postgres" {
+		return fmt.Errorf("logout all is not supported in the current configuration")
+	}
+
 	logger := gcontext.GetLogger(apiContext.Context())
 
 	sessionID, sessionIDFound := getSessionID(apiContext.Request)
@@ -48,8 +53,8 @@ func (s *Server) logoutAll(apiContext api.Context) error {
 			user = identity.ProviderUsername
 		}
 
-		emailHash := sha256.Sum256([]byte(identity.Email))
-		userHash := sha256.Sum256([]byte(user))
+		emailHash := hash.String(identity.Email)
+		userHash := hash.String(user)
 
 		logger.Debug("deleting sessions for provider", "provider", identity.AuthProviderName)
 
@@ -58,9 +63,9 @@ func (s *Server) logoutAll(apiContext api.Context) error {
 			if tablePrefix != "" {
 				var err error
 				if sessionIDFound {
-					err = s.db.WithContext(apiContext.Context()).Exec("DELETE FROM "+tablePrefix+"sessions WHERE key NOT LIKE ? AND \"user\" = decode(?, 'hex') AND \"email\" = decode(?, 'hex')", sessionID+"%", fmt.Sprintf("%x", userHash), fmt.Sprintf("%x", emailHash)).Error
+					err = s.client.DeleteSessionsForUserExceptCurrent(apiContext.Context(), emailHash, userHash, tablePrefix, sessionID)
 				} else {
-					err = s.db.WithContext(apiContext.Context()).Exec("DELETE FROM "+tablePrefix+"sessions WHERE \"user\" = decode(?, 'hex') AND \"email\" = decode(?, 'hex')", fmt.Sprintf("%x", userHash), fmt.Sprintf("%x", emailHash)).Error
+					err = s.client.DeleteSessionsForUser(apiContext.Context(), emailHash, userHash, tablePrefix)
 				}
 
 				if err != nil {
