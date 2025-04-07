@@ -3,12 +3,22 @@
 	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
+		collapse?: boolean;
 		onChange: (value: string) => void;
 		class?: string;
+		placeholder?: string;
+		onMouseDown?: (e: MouseEvent) => void;
 	}
 
-	let { onChange, class: klass }: Props = $props();
+	let {
+		onChange,
+		class: klass,
+		placeholder = 'Search Obots...',
+		onMouseDown,
+		collapse
+	}: Props = $props();
 	let searchTimeout: ReturnType<typeof setTimeout>;
+	let input = $state<HTMLInputElement | null>(null);
 
 	function search(e: Event) {
 		const value = (e.target as HTMLInputElement).value;
@@ -23,15 +33,22 @@
 	}
 </script>
 
-<div class="relative mb-8 w-full">
+<div class="relative w-full">
 	<input
+		bind:this={input}
 		type="text"
-		placeholder="Search Obots..."
+		{placeholder}
 		class={twMerge(
-			'peer bg-surface1 w-full rounded-xl border-none px-2.5 py-4 pl-12 ring-2 ring-transparent transition-all duration-200 hover:ring-2 hover:ring-blue-500 focus:ring-2 focus:ring-blue-500 focus:outline-hidden',
+			'peer bg-surface1 w-full rounded-xl border-none px-2.5 py-3 pl-12 ring-2 ring-transparent transition-all duration-200 hover:ring-2 hover:ring-blue-500 focus:w-full focus:ring-2 focus:ring-blue-500 focus:outline-hidden',
 			klass
 		)}
 		oninput={search}
+		onmousedown={onMouseDown}
 	/>
-	<SearchIcon class="text-gray absolute top-1/2 left-4 -translate-y-1/2 peer-focus:text-blue-500" />
+	<button
+		class="text-gray absolute top-1/2 left-4 -translate-y-1/2 peer-focus:text-blue-500"
+		onclick={() => input?.focus()}
+	>
+		<SearchIcon />
+	</button>
 </div>

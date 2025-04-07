@@ -3,6 +3,7 @@
 	import { ChatService, type AssistantTool, type Project, type Thread } from '$lib/services';
 	import { tools as toolsStore } from '$lib/stores';
 	import ToolCatalog from '../edit/ToolCatalog.svelte';
+	import { clickOutside } from '$lib/actions/clickoutside';
 
 	interface Prop {
 		project: Project;
@@ -71,6 +72,7 @@
 
 <dialog
 	bind:this={catalog}
+	use:clickOutside={() => catalog?.close()}
 	class="h-full max-h-[100vh] w-full max-w-[100vw] rounded-none md:h-fit md:w-[1200px] md:rounded-xl"
 >
 	{#if loading}
@@ -84,7 +86,7 @@
 				catalog?.close();
 			}}
 			maxTools={toolsStore.current.maxTools}
-			title="Thread Tools"
+			title="Thread Tool Catalog"
 			{tools}
 		/>
 	{/if}
