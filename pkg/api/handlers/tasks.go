@@ -650,7 +650,7 @@ func (t *TaskHandler) updateCron(req api.Context, workflow *v1.Workflow, task ty
 }
 
 func (t *TaskHandler) updateSlack(req api.Context, workflow *v1.Workflow, task types.TaskManifest) error {
-	err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+	return retry.RetryOnConflict(retry.DefaultBackoff, func() error {
 		if err := req.Storage.Get(req.Context(), kclient.ObjectKeyFromObject(workflow), workflow); err != nil {
 			return err
 		}
@@ -661,7 +661,6 @@ func (t *TaskHandler) updateSlack(req api.Context, workflow *v1.Workflow, task t
 		}
 		return req.Update(workflow)
 	})
-	return err
 }
 
 func (t *TaskHandler) getThreadAndManifestFromRequest(req api.Context) (*v1.Thread, types.WorkflowManifest, types.TaskManifest, error) {

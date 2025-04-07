@@ -116,7 +116,7 @@
 <CollapsePane header="Slack Integration">
 	<div class="flex flex-col gap-2 p-4">
 		<p class="text-gray text-sm">
-			Enable this to trigger tasks from slack messages that mention the slack bot you configured
+			Enable this to trigger tasks from Slack messages that mention the slack bot you configured
 			with Obot.
 		</p>
 		<div class="flex items-center justify-end">
@@ -124,8 +124,8 @@
 				<div class="flex items-center gap-2">
 					<Settings size={16} />
 					Configure
-				</div></button
-			>
+				</div>
+			</button>
 		</div>
 	</div>
 </CollapsePane>
