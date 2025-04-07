@@ -3,16 +3,7 @@
 	import type { AssistantTool, ToolReference } from '$lib/services/chat/types';
 	import CollapsePane from './CollapsePane.svelte';
 	import { responsive } from '$lib/stores';
-	import {
-		ChevronRight,
-		ChevronsLeft,
-		ChevronsRight,
-		Minus,
-		Search,
-		SquareMinus,
-		Wrench,
-		X
-	} from 'lucide-svelte';
+	import { ChevronRight, ChevronsLeft, ChevronsRight, Search, Wrench, X } from 'lucide-svelte';
 	import { onMount } from 'svelte';
 	import { fly } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';

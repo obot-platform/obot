@@ -3,20 +3,13 @@
 	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
-		collapse?: boolean;
 		onChange: (value: string) => void;
 		class?: string;
 		placeholder?: string;
 		onMouseDown?: (e: MouseEvent) => void;
 	}
 
-	let {
-		onChange,
-		class: klass,
-		placeholder = 'Search Obots...',
-		onMouseDown,
-		collapse
-	}: Props = $props();
+	let { onChange, class: klass, placeholder = 'Search Obots...', onMouseDown }: Props = $props();
 	let searchTimeout: ReturnType<typeof setTimeout>;
 	let input = $state<HTMLInputElement | null>(null);
 
