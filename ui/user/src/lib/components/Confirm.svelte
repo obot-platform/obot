@@ -46,7 +46,7 @@
 			</button>
 			<div class="p-4 text-center md:p-5">
 				<CircleAlert class="mx-auto mb-4 h-12 w-12 text-gray-400 dark:text-gray-100" />
-				<h3 class="mb-5 text-lg font-normal text-black dark:text-gray-100">{msg}</h3>
+				<h3 class="mb-5 text-lg font-normal break-words text-black dark:text-gray-100">{msg}</h3>
 				<button
 					onclick={onsuccess}
 					type="button"
