@@ -28,12 +28,19 @@ func (i *Invoker) Step(ctx context.Context, c kclient.WithWatch, step *v1.Workfl
 		return nil, err
 	}
 
+	var extraEnv []string
+	if wfe.Spec.TaskBreakCrumb != "" {
+		extraEnv = []string{"OBOT_TASK_BREAD_CRUMB=" + wfe.Spec.TaskBreakCrumb}
+	}
+
 	return i.Thread(ctx, c, &thread, input, Options{
+		WorkflowName:          wfe.Spec.WorkflowName,
 		WorkflowStepName:      step.Name,
 		WorkflowStepID:        step.Spec.Step.ID,
 		WorkflowExecutionName: wfe.Name,
 		PreviousRunName:       opt.PreviousRunName,
 		ForceNoResume:         opt.PreviousRunName == "",
+		ExtraEnv:              extraEnv,
 	})
 }
 

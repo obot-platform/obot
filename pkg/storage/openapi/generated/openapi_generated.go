@@ -10118,6 +10118,13 @@ func schema_storage_apis_obotobotai_v1_WorkflowExecutionSpec(ref common.Referenc
 							Format:      "",
 						},
 					},
+					"taskBreakCrumb": {
+						SchemaProps: spec.SchemaProps{
+							Description: "TaskBreadCrumb is a comma-delimited list of taskID calls made to execute this task. This helps to prevent cycles when tasks call tasks.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 				},
 			},
 		},

@@ -176,6 +176,7 @@ type Options struct {
 	EphemeralThread       bool
 	ThreadName            string
 	ParentThreadName      string
+	WorkflowName          string
 	WorkflowStepName      string
 	WorkflowStepID        string
 	WorkflowExecutionName string
@@ -185,6 +186,7 @@ type Options struct {
 	CredentialContextIDs  []string
 	UserUID               string
 	GenerateName          string
+	ExtraEnv              []string
 }
 
 func (i *Invoker) getChatState(ctx context.Context, c kclient.Client, run *v1.Run) (result string, _ error) {
@@ -377,8 +379,9 @@ func (i *Invoker) Agent(ctx context.Context, c kclient.WithWatch, agent *v1.Agen
 
 	return i.createRun(ctx, c, thread, tools, input, runOptions{
 		Synchronous:           opt.Synchronous,
+		WorkflowName:          opt.WorkflowName,
 		AgentName:             agent.Name,
-		Env:                   extraEnv,
+		Env:                   append(extraEnv, opt.ExtraEnv...),
 		CredentialContextIDs:  credContextIDs,
 		WorkflowStepName:      opt.WorkflowStepName,
 		WorkflowStepID:        opt.WorkflowStepID,

@@ -60,7 +60,7 @@ func (h *Handler) RunInvoke(req router.Request, _ router.Response) error {
 func (h *Handler) setStepStateFromRun(step *v1.WorkflowStep, run *v1.Run) error {
 	switch run.Status.State {
 	case v1.Finished:
-		step.Status.State = types.WorkflowStateBlocked
+		step.Status.State = types.WorkflowStateError
 		step.Status.LastRunName = step.Status.RunNames[0]
 		step.Status.Error = "Aborted"
 	case v1.Continue:

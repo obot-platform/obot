@@ -73,6 +73,9 @@ type WorkflowExecutionSpec struct {
 	RunUntilStep       string `json:"runUntilStep,omitempty"`
 	// The Run that started this execution
 	RunName string `json:"runName,omitempty"`
+	// TaskBreadCrumb is a comma-delimited list of taskID calls made to execute this task.
+	// This helps to prevent cycles when tasks call tasks.
+	TaskBreakCrumb string `json:"taskBreakCrumb,omitempty"`
 }
 
 func (in *WorkflowExecution) DeleteRefs() []Ref {

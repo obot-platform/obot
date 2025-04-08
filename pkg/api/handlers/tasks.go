@@ -10,6 +10,7 @@ import (
 	"github.com/gptscript-ai/go-gptscript"
 	"github.com/obot-platform/nah/pkg/name"
 	"github.com/obot-platform/nah/pkg/randomtoken"
+	"github.com/obot-platform/obot/apiclient"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/events"
@@ -305,6 +306,7 @@ func (t *TaskHandler) RunFromScope(req api.Context) error {
 func (t *TaskHandler) run(req api.Context, workflow *v1.Workflow, threadName string) error {
 	stepID := req.PathValue("step_id")
 	runID := req.PathValue("run_id")
+	taskBreadCrumb := req.Request.Header.Get(apiclient.TaskBreadCrumbHeader)
 
 	input, err := req.Body()
 	if err != nil {
@@ -335,11 +337,12 @@ func (t *TaskHandler) run(req api.Context, workflow *v1.Workflow, threadName str
 				Namespace:    req.Namespace(),
 			},
 			Spec: v1.WorkflowExecutionSpec{
-				Input:        string(input),
-				ThreadName:   threadName,
-				WorkflowName: workflow.Name,
-				RunUntilStep: req.URL.Query().Get("stepID"),
-				RunName:      getRunIDFromUser(req),
+				Input:          string(input),
+				ThreadName:     threadName,
+				WorkflowName:   workflow.Name,
+				RunUntilStep:   req.URL.Query().Get("stepID"),
+				RunName:        getRunIDFromUser(req),
+				TaskBreakCrumb: taskBreadCrumb,
 			},
 		}
 		if err := req.Create(wfe); err != nil {

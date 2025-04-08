@@ -9,6 +9,8 @@ import (
 	"github.com/obot-platform/obot/apiclient/types"
 )
 
+const TaskBreadCrumbHeader = "X-Obt-Task-Bread-Crumb"
+
 type ListTasksOptions struct {
 	ThreadID    string
 	AssistantID string
@@ -117,8 +119,9 @@ func (c *Client) ListTaskRuns(ctx context.Context, taskID string, opts ListTaskR
 }
 
 type TaskRunOptions struct {
-	ThreadID    string
-	AssistantID string
+	ThreadID       string
+	AssistantID    string
+	TaskBreadCrumb string
 }
 
 func (c *Client) RunTask(ctx context.Context, taskID string, input string, opts TaskRunOptions) (*types.TaskRun, error) {
@@ -129,7 +132,7 @@ func (c *Client) RunTask(ctx context.Context, taskID string, input string, opts 
 		url = fmt.Sprintf("/assistants/%s/tasks/%s/run", opts.AssistantID, taskID)
 	}
 
-	_, resp, err := c.postJSON(ctx, url, input)
+	_, resp, err := c.postJSON(ctx, url, input, TaskBreadCrumbHeader, opts.TaskBreadCrumb)
 	if err != nil {
 		return nil, err
 	}
