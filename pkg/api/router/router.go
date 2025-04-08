@@ -32,7 +32,7 @@ func Router(services *services.Services) (http.Handler, error) {
 	prompt := handlers.NewPromptHandler(services.GPTClient)
 	emailReceiver := handlers.NewEmailReceiverHandler(services.EmailServerName)
 	defaultModelAliases := handlers.NewDefaultModelAliasHandler()
-	version := handlers.NewVersionHandler(services.EmailServerName, services.SupportDocker, services.AuthEnabled)
+	version := handlers.NewVersionHandler(services.EmailServerName, services.PostgresDSN, services.SupportDocker, services.AuthEnabled)
 	tables := handlers.NewTableHandler(services.GPTClient)
 	projects := handlers.NewProjectsHandler(services.Router.Backend(), services.Invoker, services.GPTClient)
 	projectShare := handlers.NewProjectShareHandler()

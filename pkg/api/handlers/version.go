@@ -11,19 +11,35 @@ import (
 	"sigs.k8s.io/yaml"
 )
 
+type SessionStore string
+
+const (
+	SessionStoreDB     SessionStore = "db"
+	SessionStoreCookie SessionStore = "cookie"
+)
+
+func sessionStoreFromPostgresDSN(postgresDSN string) SessionStore {
+	if postgresDSN != "" {
+		return SessionStoreDB
+	}
+	return SessionStoreCookie
+}
+
 type VersionHandler struct {
 	gptscriptVersion string
 	emailDomain      string
 	supportDocker    bool
 	authEnabled      bool
+	sessionStore     SessionStore
 }
 
-func NewVersionHandler(emailDomain string, supportDocker, authEnabled bool) *VersionHandler {
+func NewVersionHandler(emailDomain, postgresDSN string, supportDocker, authEnabled bool) *VersionHandler {
 	return &VersionHandler{
 		emailDomain:      emailDomain,
 		gptscriptVersion: getGPTScriptVersion(),
 		supportDocker:    supportDocker,
 		authEnabled:      authEnabled,
+		sessionStore:     sessionStoreFromPostgresDSN(postgresDSN),
 	}
 }
 
@@ -44,6 +60,7 @@ func (v *VersionHandler) getVersionResponse() map[string]any {
 	values["emailDomain"] = v.emailDomain
 	values["dockerSupported"] = v.supportDocker
 	values["authEnabled"] = v.authEnabled
+	values["sessionStore"] = v.sessionStore
 	return values
 }
 

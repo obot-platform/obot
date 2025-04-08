@@ -7,6 +7,7 @@
 	import { twMerge } from 'tailwind-merge';
 	import Confirm from '$lib/components/Confirm.svelte';
 	import { success } from '$lib/stores/success';
+	import { version } from '$lib/stores';
 
 	let showLogoutAllConfirm = $state(false);
 
@@ -108,9 +109,11 @@
 				<a href="/oauth2/sign_out?rd=/" rel="external" role="menuitem" class="link"
 					><LogOut class="size-4" /> Log out</a
 				>
-				<button onclick={() => (showLogoutAllConfirm = true)} class="link text-red-500">
-					<LogOut class="size-4" /> Log out all other sessions
-				</button>
+				{#if version.current.sessionStore === 'db'}
+					<button onclick={() => (showLogoutAllConfirm = true)} class="link text-red-500">
+						<LogOut class="size-4" /> Log out all other sessions
+					</button>
+				{/if}
 			{/if}
 		</div>
 	{/snippet}

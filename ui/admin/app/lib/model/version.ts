@@ -4,4 +4,5 @@ export type Version = {
 	dockerSupported?: boolean;
 	emailDomain: string;
 	gptscript: string;
+	sessionStore: string;
 };

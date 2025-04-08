@@ -137,6 +137,7 @@ export interface Messages {
 export interface Version {
 	emailDomain?: string;
 	dockerSupported?: boolean;
+	sessionStore?: string;
 }
 
 export interface Profile {

@@ -6,4 +6,5 @@ export const mockedVersion: Version = {
 	emailDomain: "",
 	gptscript: "v0.9.5",
 	obot: "v0.0.0-dev",
+	sessionStore: "db",
 };
