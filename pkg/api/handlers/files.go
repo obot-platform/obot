@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -293,6 +294,9 @@ func getFileInWorkspace(ctx context.Context, req api.Context, gClient *gptscript
 
 	data, err := gClient.ReadFileInWorkspace(ctx, prefix+file, gptscript.ReadFileInWorkspaceOptions{WorkspaceID: workspaceID})
 	if err != nil {
+		if nfe := (*gptscript.NotFoundInWorkspaceError)(nil); errors.As(err, &nfe) {
+			return types.NewErrNotFound("file %q not found", file)
+		}
 		return fmt.Errorf("failed to get file %q to workspace %q: %w", file, workspaceID, err)
 	}
 
