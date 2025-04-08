@@ -146,8 +146,8 @@ func (s *Server) deleteUser(apiContext api.Context) error {
 
 	if err = apiContext.Create(&v1.UserDelete{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      system.UserDeletePrefix,
-			Namespace: apiContext.Namespace(),
+			GenerateName: system.UserDeletePrefix,
+			Namespace:    apiContext.Namespace(),
 		},
 		Spec: v1.UserDeleteSpec{
 			UserID: existingUser.ID,

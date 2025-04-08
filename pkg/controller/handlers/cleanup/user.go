@@ -23,8 +23,8 @@ func NewUserCleanup(gatewayClient *gclient.Client) *UserCleanup {
 
 func (u *UserCleanup) Cleanup(req router.Request, _ router.Response) error {
 	userDelete := req.Object.(*v1.UserDelete)
-	var projects v1.ThreadList
-	if err := req.List(&projects, &kclient.ListOptions{
+	var threads v1.ThreadList
+	if err := req.List(&threads, &kclient.ListOptions{
 		Namespace: req.Namespace,
 		FieldSelector: fields.SelectorFromSet(map[string]string{
 			"spec.userUID": strconv.FormatUint(uint64(userDelete.Spec.UserID), 10),
@@ -33,9 +33,9 @@ func (u *UserCleanup) Cleanup(req router.Request, _ router.Response) error {
 		return err
 	}
 
-	for _, project := range projects.Items {
-		if project.Spec.Project {
-			if err := req.Delete(&project); err != nil {
+	for _, thread := range threads.Items {
+		if thread.Spec.Project {
+			if err := req.Delete(&thread); err != nil {
 				return err
 			}
 		}
