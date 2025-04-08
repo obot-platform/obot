@@ -11,7 +11,10 @@ import (
 	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/gateway/types"
+	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
+	"github.com/obot-platform/obot/pkg/system"
 	"gorm.io/gorm"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 var pkgLog = mvl.Package()
@@ -129,11 +132,32 @@ func (s *Server) updateUser(apiContext api.Context) error {
 func (s *Server) deleteUser(apiContext api.Context) error {
 	username := apiContext.PathValue("username")
 	if username == "" {
-		return types2.NewErrHTTP(http.StatusBadRequest, "username path parameter is required")
+		// This is the "delete me" API
+		username = apiContext.User.GetName()
+	}
+
+	existingUser, err := apiContext.GatewayClient.User(apiContext.Context(), username)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return types2.NewErrNotFound("user %s not found", username)
+		}
+		return fmt.Errorf("failed to get user: %v", err)
+	}
+
+	if err = apiContext.Create(&v1.UserDelete{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      system.UserDeletePrefix,
+			Namespace: apiContext.Namespace(),
+		},
+		Spec: v1.UserDeleteSpec{
+			UserID: existingUser.ID,
+		},
+	}); err != nil {
+		return fmt.Errorf("failed to start deletion of user owned objects: %v", err)
 	}
 
 	status := http.StatusInternalServerError
-	existingUser, err := apiContext.GatewayClient.DeleteUser(apiContext.Context(), username)
+	_, err = apiContext.GatewayClient.DeleteUser(apiContext.Context(), username)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			status = http.StatusNotFound

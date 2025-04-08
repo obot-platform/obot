@@ -198,6 +198,9 @@ func (c *Controller) setupRoutes() error {
 	// SlackTrigger
 	root.Type(&v1.SlackTrigger{}).HandlerFunc(cleanup.Cleanup)
 
+	// User Cleanup
+	root.Type(&v1.UserDelete{}).HandlerFunc(cleanup.User)
+
 	c.toolRefHandler = toolRef
 	return nil
 }
