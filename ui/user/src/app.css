@@ -196,12 +196,6 @@
 		&:focus {
 			outline: none;
 		}
-		&.bg-gray-100 {
-			background-color: var(--color-gray-100);
-			&:hover {
-				background-color: var(--surface3);
-			}
-		}
 		.dark & {
 			color: var(--color-gray-400);
 		}
