@@ -27,10 +27,8 @@ func New(invoker *invoke.Invoker) *Handler {
 }
 
 func (h *Handler) UpdateRun(req router.Request, _ router.Response) error {
-	var (
-		we = req.Object.(*v1.WorkflowExecution)
-	)
-	if !(we.Status.State == types.WorkflowStateComplete && we.Spec.RunName != "") {
+	we := req.Object.(*v1.WorkflowExecution)
+	if we.Status.State != types.WorkflowStateComplete && we.Status.State != types.WorkflowStateError || we.Spec.RunName == "" {
 		return nil
 	}
 
@@ -49,9 +47,13 @@ func (h *Handler) UpdateRun(req router.Request, _ router.Response) error {
 	}
 
 	if run.Status.ExternalCall != nil && run.Status.ExternalCall.ID == we.Name {
+		data := we.Status.Output
+		if we.Status.Error != "" {
+			data = we.Status.Error
+		}
 		run.Spec.ExternalCallResults = append(run.Spec.ExternalCallResults, v1.ExternalCallResult{
 			ID:   we.Name,
-			Data: we.Status.Output,
+			Data: data,
 		})
 		return req.Client.Update(req.Ctx, &run)
 	}

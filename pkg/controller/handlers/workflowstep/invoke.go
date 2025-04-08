@@ -54,15 +54,20 @@ func (h *Handler) RunInvoke(req router.Request, _ router.Response) error {
 		}
 	}
 
-	return h.setStepStateFromRun(step, &run)
+	h.setStepStateFromRun(step, &run)
+
+	return nil
 }
 
-func (h *Handler) setStepStateFromRun(step *v1.WorkflowStep, run *v1.Run) error {
+func (h *Handler) setStepStateFromRun(step *v1.WorkflowStep, run *v1.Run) {
 	switch run.Status.State {
 	case v1.Finished:
 		step.Status.State = types.WorkflowStateError
 		step.Status.LastRunName = step.Status.RunNames[0]
 		step.Status.Error = "Aborted"
+		if run.Status.Output != "" {
+			step.Status.Error += ": " + run.Status.Output
+		}
 	case v1.Continue:
 		step.Status.State = types.WorkflowStateComplete
 		step.Status.LastRunName = step.Status.RunNames[0]
@@ -72,5 +77,4 @@ func (h *Handler) setStepStateFromRun(step *v1.WorkflowStep, run *v1.Run) error 
 		step.Status.LastRunName = step.Status.RunNames[0]
 		step.Status.Error = run.Status.Error
 	}
-	return nil
 }
