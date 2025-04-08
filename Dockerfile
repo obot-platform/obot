@@ -1,7 +1,7 @@
 ARG TOOLS_IMAGE=obot-platform/obot/oss-tools
 FROM cgr.dev/chainguard/wolfi-base AS base
 
-RUN apk add --no-cache go make git npm pnpm
+RUN apk add --no-cache go make git nodejs npm pnpm
 
 FROM base AS bin
 WORKDIR /app
