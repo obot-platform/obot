@@ -86,13 +86,14 @@ func New(ctx context.Context, serverURL string, c *client.Client, g *gptscript.G
 		gatewayClient:        c,
 	}
 
-	bootstrapEnabled, err := b.bootstrapEnabled(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to check if bootstrap is enabled: %w", err)
-	}
-
-	if shouldPrintToken && bootstrapEnabled {
-		printToken(token)
+	if shouldPrintToken {
+		bootstrapEnabled, err := b.bootstrapEnabled(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("failed to check if bootstrap is enabled: %w", err)
+		}
+		if bootstrapEnabled {
+			printToken(token)
+		}
 	}
 
 	return b, nil
