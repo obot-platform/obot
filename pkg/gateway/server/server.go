@@ -9,6 +9,7 @@ import (
 	"github.com/obot-platform/obot/pkg/gateway/server/dispatcher"
 	"github.com/obot-platform/obot/pkg/jwt"
 	"k8s.io/apiserver/pkg/server/options/encryptionconfig"
+	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type Options struct {
@@ -24,17 +25,19 @@ type Server struct {
 	tokenService   *jwt.TokenService
 	dispatcher     *dispatcher.Dispatcher
 	gptClient      *gptscript.GPTScript
+	storageClient  kclient.Client
 }
 
-func New(ctx context.Context, g *gptscript.GPTScript, db *db.DB, tokenService *jwt.TokenService, modelProviderDispatcher *dispatcher.Dispatcher, encryptionConfig *encryptionconfig.EncryptionConfiguration, adminEmails []string, opts Options) (*Server, error) {
+func New(ctx context.Context, storageClient kclient.Client, g *gptscript.GPTScript, db *db.DB, tokenService *jwt.TokenService, modelProviderDispatcher *dispatcher.Dispatcher, encryptionConfig *encryptionconfig.EncryptionConfiguration, adminEmails []string, opts Options) (*Server, error) {
 	s := &Server{
-		db:           db,
-		client:       client.New(db, encryptionConfig, adminEmails),
-		baseURL:      opts.Hostname,
-		uiURL:        opts.UIHostname,
-		tokenService: tokenService,
-		dispatcher:   modelProviderDispatcher,
-		gptClient:    g,
+		db:            db,
+		client:        client.New(db, encryptionConfig, adminEmails),
+		baseURL:       opts.Hostname,
+		uiURL:         opts.UIHostname,
+		tokenService:  tokenService,
+		dispatcher:    modelProviderDispatcher,
+		gptClient:     g,
+		storageClient: storageClient,
 	}
 
 	go s.autoCleanupTokens(ctx)

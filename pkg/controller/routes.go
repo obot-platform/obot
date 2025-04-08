@@ -53,6 +53,7 @@ func (c *Controller) setupRoutes() error {
 	credentialCleanup := cleanup.NewCredentials(c.services.GPTClient)
 	projects := projects.NewHandler()
 	runstates := runstates.NewHandler(c.services.GatewayClient)
+	userCleanup := cleanup.NewUserCleanup(c.services.GatewayClient)
 
 	// Runs
 	root.Type(&v1.Run{}).FinalizeFunc(v1.RunFinalizer, runs.DeleteRunState)
@@ -199,7 +200,7 @@ func (c *Controller) setupRoutes() error {
 	root.Type(&v1.SlackTrigger{}).HandlerFunc(cleanup.Cleanup)
 
 	// User Cleanup
-	root.Type(&v1.UserDelete{}).HandlerFunc(cleanup.User)
+	root.Type(&v1.UserDelete{}).HandlerFunc(userCleanup.Cleanup)
 
 	c.toolRefHandler = toolRef
 	return nil

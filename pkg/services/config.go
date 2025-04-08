@@ -366,6 +366,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 
 	gatewayServer, err := gserver.New(
 		ctx,
+		storageClient,
 		gptscriptClient,
 		gatewayDB,
 		tokenServer,
