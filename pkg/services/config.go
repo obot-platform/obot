@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/adrg/xdg"
 	"github.com/gptscript-ai/go-gptscript"
@@ -86,7 +87,8 @@ type Config struct {
 	AuthAdminEmails            []string `usage:"Emails of admin users"`
 	AgentsDir                  string   `usage:"The directory to auto load agents on start (default $XDG_CONFIG_HOME/.obot/agents)"`
 	StaticDir                  string   `usage:"The directory to serve static files from"`
-
+	RetentionPolicy            string   `usage:"The retention policy for the system" default:"2160h"` // default 90 days
+	RetentionFrequency         string   `usage:"The frequency to check for retention. Retention is always checked at startup, and by default every 10h. Maximum value is 10h." default:"10h"`
 	// Sendgrid webhook
 	SendgridWebhookUsername string `usage:"The username for the sendgrid webhook to authenticate with"`
 	SendgridWebhookPassword string `usage:"The password for the sendgrid webhook to authenticate with"`
@@ -128,7 +130,7 @@ type Services struct {
 	Otel                       *Otel
 	AuditLogger                audit.Logger
 	PostgresDSN                string
-
+	RetentionPolicy            time.Duration
 	// Use basic auth for sendgrid webhook, if being set
 	SendgridWebhookUsername string
 	SendgridWebhookPassword string
@@ -471,6 +473,11 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		return nil, fmt.Errorf("failed to create rate limiter: %w", err)
 	}
 
+	retentionPolicy, err := time.ParseDuration(config.RetentionPolicy)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse retention policy: %w", err)
+	}
+
 	// For now, always auto-migrate the gateway database
 	return &Services{
 		WorkspaceProviderType: config.WorkspaceProviderType,
@@ -511,6 +518,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		Otel:                       otel,
 		AuditLogger:                auditLogger,
 		PostgresDSN:                postgresDSN,
+		RetentionPolicy:            retentionPolicy,
 	}, nil
 }
 

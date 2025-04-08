@@ -7,6 +7,7 @@ import (
 
 	"github.com/obot-platform/nah/pkg/router"
 	"github.com/obot-platform/obot/apiclient/types"
+	"github.com/obot-platform/obot/pkg/controller/handlers/retention"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/obot-platform/obot/pkg/wait"
@@ -160,6 +161,9 @@ func (i *Invoker) rerunThread(ctx context.Context, c kclient.WithWatch, wf *v1.W
 	if thread.Status.CurrentRunName != "" || thread.Status.LastRunName != "" {
 		thread.Status.CurrentRunName = ""
 		thread.Status.LastRunName = ""
+		if err := retention.SetLastUsedTime(ctx, c, &thread); err != nil {
+			return nil, nil, err
+		}
 		if err := c.Status().Update(ctx, &thread); err != nil {
 			return nil, nil, err
 		}

@@ -16,6 +16,7 @@ import (
 	"github.com/obot-platform/nah/pkg/router"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/logger"
+	"github.com/obot-platform/obot/pkg/controller/handlers/retention"
 	"github.com/obot-platform/obot/pkg/events"
 	"github.com/obot-platform/obot/pkg/gateway/client"
 	gtypes "github.com/obot-platform/obot/pkg/gateway/types"
@@ -482,6 +483,9 @@ func (i *Invoker) createRun(ctx context.Context, c kclient.WithWatch, thread *v1
 				return err
 			}
 			thread.Status.CurrentRunName = run.Name
+			if err := retention.SetLastUsedTime(ctx, c, thread); err != nil {
+				return err
+			}
 			return c.Status().Update(ctx, thread)
 		})
 		if err != nil {
@@ -887,6 +891,10 @@ func (i *Invoker) doSaveState(ctx context.Context, c kclient.Client, thread *v1.
 
 		if final && thread.Status.LastRunName != run.Name {
 			thread.Status.CurrentRunName = ""
+			if err := retention.SetLastUsedTime(ctx, c, thread); err != nil {
+				return err
+			}
+
 			thread.Status.LastRunName = run.Name
 			thread.Status.LastRunState = run.Status.State
 			if workflowState != "" {

@@ -142,6 +142,7 @@ type ThreadStatus struct {
 	LastRunName            string              `json:"lastRunName,omitempty"`
 	CurrentRunName         string              `json:"currentRunName,omitempty"`
 	LastRunState           RunStateState       `json:"lastRunState,omitempty"`
+	LastUsedTime           metav1.Time         `json:"lastUsedTime,omitempty"`
 	WorkflowState          types.WorkflowState `json:"workflowState,omitempty"`
 	WorkspaceID            string              `json:"workspaceID,omitempty"`
 	WorkspaceName          string              `json:"workspaceName,omitempty"`
