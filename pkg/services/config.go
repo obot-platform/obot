@@ -40,7 +40,6 @@ import (
 	"github.com/obot-platform/obot/pkg/invoke"
 	"github.com/obot-platform/obot/pkg/jwt"
 	"github.com/obot-platform/obot/pkg/proxy"
-	"github.com/obot-platform/obot/pkg/retention"
 	"github.com/obot-platform/obot/pkg/smtp"
 	"github.com/obot-platform/obot/pkg/storage"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
@@ -87,10 +86,6 @@ type Config struct {
 	AuthAdminEmails            []string `usage:"Emails of admin users"`
 	AgentsDir                  string   `usage:"The directory to auto load agents on start (default $XDG_CONFIG_HOME/.obot/agents)"`
 	StaticDir                  string   `usage:"The directory to serve static files from"`
-
-	// Retention
-	RetentionPolicy       string `usage:"The retention policy for the system" default:"2160h"` // default 90 days
-	RetentionRunFrequency string `usage:"The frequency to run the retention policy" default:"24h"`
 
 	// Sendgrid webhook
 	SendgridWebhookUsername string `usage:"The username for the sendgrid webhook to authenticate with"`
@@ -261,12 +256,6 @@ func New(ctx context.Context, config Config) (*Services, error) {
 	if err != nil {
 		return nil, err
 	}
-
-	retentionManager, err := retention.NewRetentionManager(config.RetentionPolicy, config.RetentionRunFrequency, storageClient)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create retention manager: %w", err)
-	}
-	go retentionManager.Start(ctx)
 
 	// For now, always auto-migrate.
 	gatewayDB, err := db.New(dbAccess.DB, dbAccess.SQLDB, true)
