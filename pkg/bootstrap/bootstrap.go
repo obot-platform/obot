@@ -69,7 +69,6 @@ func New(ctx context.Context, serverURL string, c *client.Client, g *gptscript.G
 			if err := saveTokenToCredential(ctx, token, g); err != nil {
 				return nil, err
 			}
-
 		}
 		shouldPrintToken = true
 	}
