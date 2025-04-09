@@ -25,7 +25,7 @@ require (
 	github.com/liggitt/tabwriter v0.0.0-20181228230101-89fcab3d43de
 	github.com/mhale/smtpd v0.8.3
 	github.com/obot-platform/kinm v0.0.0-20250328185534-d9c9de49cc20
-	github.com/obot-platform/nah v0.0.0-20250409014534-74e4fc0d365b
+	github.com/obot-platform/nah v0.0.0-20250409224139-17b79ba23157
 	github.com/obot-platform/namegenerator v0.0.0-20241217121223-fc58bdb7dca2
 	github.com/obot-platform/obot/apiclient v0.0.0-00010101000000-000000000000
 	github.com/obot-platform/obot/logger v0.0.0-20241217130503-4004a5c69f32
