@@ -291,14 +291,7 @@
 	use:editor
 	onfocusin={() => (focused = true)}
 	onfocusout={() => (focused = false)}
-	class={twMerge(
-		'mx-2 mt-4 h-full border-l-2 border-gray-100 pr-[56px] dark:border-gray-900 dark:bg-[#0d1117]',
-		klass
-	)}
-></div>
-
-<div
-	class="boxshadow-sm absolute top-0 right-0 flex h-full w-[56px] border-b-15 border-l-2 border-gray-100 dark:border-[#202020] dark:bg-[#333338]"
+	class={twMerge('mx-2 mt-4 h-full border-l-2 border-gray-100 dark:border-gray-900', klass)}
 ></div>
 
 <div class="absolute flex">

@@ -37,13 +37,18 @@
 		{:else if [...(file?.file?.contents ?? '')].some((char) => char.charCodeAt(0) === 0)}
 			{@render unsupportedFile()}
 		{:else}
-			<Codemirror
-				{file}
-				{onFileChanged}
-				{onInvoke}
-				{items}
-				class="m-0 overflow-hidden rounded-b-2xl"
-			/>
+			<div class="h-full w-full">
+				<Codemirror
+					{file}
+					{onFileChanged}
+					{onInvoke}
+					{items}
+					class="m-0 overflow-hidden rounded-b-2xl pr-[56px] dark:bg-[#0d1117]"
+				/>
+				<div
+					class="boxshadow-sm absolute top-0 right-0 flex h-full w-[56px] border-b-15 border-l-2 border-gray-100 dark:border-[#202020] dark:bg-[#333338]"
+				></div>
+			</div>
 		{/if}
 	</div>
 {/each}
