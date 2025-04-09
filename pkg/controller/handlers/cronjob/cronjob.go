@@ -32,9 +32,11 @@ func GetScheduleAndTimezone(cronJob v1.CronJob) (string, string) {
 		case "weekly":
 			schedule = fmt.Sprintf("%d %d * * %d", cronJob.Spec.TaskSchedule.Minute, cronJob.Spec.TaskSchedule.Hour, cronJob.Spec.TaskSchedule.Weekday)
 		case "monthly":
-			if cronJob.Spec.TaskSchedule.Day == -1 {
+			if cronJob.Spec.TaskSchedule.Day < 0 {
 				// The day being -1 means the last day of the month. The cron parsing package we use uses `L` for this.
 				schedule = fmt.Sprintf("%d %d L * *", cronJob.Spec.TaskSchedule.Minute, cronJob.Spec.TaskSchedule.Hour)
+			} else if cronJob.Spec.TaskSchedule.Day == 0 {
+				schedule = fmt.Sprintf("%d %d 1 * *", cronJob.Spec.TaskSchedule.Minute, cronJob.Spec.TaskSchedule.Hour)
 			} else {
 				schedule = fmt.Sprintf("%d %d %d * *", cronJob.Spec.TaskSchedule.Minute, cronJob.Spec.TaskSchedule.Hour, cronJob.Spec.TaskSchedule.Day)
 			}
