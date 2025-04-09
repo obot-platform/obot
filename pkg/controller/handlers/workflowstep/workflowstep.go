@@ -3,6 +3,7 @@ package workflowstep
 import (
 	"context"
 	"regexp"
+	"slices"
 	"strings"
 
 	"github.com/obot-platform/nah/pkg/name"
@@ -103,6 +104,14 @@ func (h *Handler) checkPreconditions(req router.Request, _ router.Response) (pro
 			return false, nil
 		}
 		// When terminal we no longer process anything
+		return false, nil
+	}
+
+	if slices.Contains(step.Status.RunNames, "") {
+		step.Status.RunNames = slices.DeleteFunc(step.Status.RunNames, func(v string) bool {
+			return v == ""
+		})
+		// Invalid state, we need to remove the empty run names
 		return false, nil
 	}
 
