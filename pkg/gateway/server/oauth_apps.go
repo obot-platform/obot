@@ -430,6 +430,20 @@ func (s *Server) refreshOAuthApp(apiContext api.Context) error {
 			return fmt.Errorf("failed to parse token response: %w", err)
 		}
 		tokenResp.RefreshToken = refreshToken
+	case types2.OAuthAppTypeGitLab:
+		// For GitLab, decode the standard token response and then add the base URL to extras
+		if err := json.NewDecoder(resp.Body).Decode(tokenResp); err != nil {
+			return fmt.Errorf("failed to parse token response: %w", err)
+		}
+		tokenResp.RefreshToken = refreshToken
+
+		// Add GitLab base URL to extras if it's a custom instance
+		if app.Spec.Manifest.GitLabBaseURL != "" {
+			if tokenResp.Extras == nil {
+				tokenResp.Extras = map[string]string{}
+			}
+			tokenResp.Extras["GPTSCRIPT_GITLAB_BASEURL"] = app.Spec.Manifest.GitLabBaseURL
+		}
 	default:
 		if err := json.NewDecoder(resp.Body).Decode(tokenResp); err != nil {
 			return fmt.Errorf("failed to parse token response: %w", err)
@@ -616,6 +630,21 @@ func (s *Server) callbackOAuthApp(apiContext api.Context) error {
 			Extras: map[string]string{
 				"GPTSCRIPT_SALESFORCE_URL": salesforceTokenResp.InstanceURL,
 			},
+		}
+	case types2.OAuthAppTypeGitLab:
+		// For GitLab, decode the standard token response and then add the base URL to extras
+		if err := json.NewDecoder(resp.Body).Decode(tokenResp); err != nil {
+			return fmt.Errorf("failed to parse token response: %w", err)
+		}
+		tokenResp.State = state
+		tokenResp.CreatedAt = time.Now()
+
+		// Add GitLab base URL to extras if it's a custom instance
+		if app.Spec.Manifest.GitLabBaseURL != "" {
+			if tokenResp.Extras == nil {
+				tokenResp.Extras = map[string]string{}
+			}
+			tokenResp.Extras["GPTSCRIPT_GITLAB_BASEURL"] = app.Spec.Manifest.GitLabBaseURL
 		}
 	default:
 		if err := json.NewDecoder(resp.Body).Decode(tokenResp); err != nil {

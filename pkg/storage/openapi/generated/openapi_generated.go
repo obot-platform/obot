@@ -2694,6 +2694,13 @@ func schema_obot_platform_obot_apiclient_types_OAuthAppManifest(ref common.Refer
 							Format:      "",
 						},
 					},
+					"gitlabBaseURL": {
+						SchemaProps: spec.SchemaProps{
+							Description: "This field is used for GitLab enterprise instances",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 				},
 				Required: []string{"Metadata", "type", "clientID"},
 			},

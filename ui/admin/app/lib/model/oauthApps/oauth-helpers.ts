@@ -5,6 +5,7 @@ import { ApiUrl } from "~/lib/routers/baseRouter";
 export const OAuthProvider = {
 	Atlassian: "atlassian",
 	GitHub: "github",
+	GitLab: "gitlab",
 	Google: "google",
 	HubSpot: "hubspot",
 	Microsoft365: "microsoft365",

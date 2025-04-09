@@ -4,6 +4,7 @@ import {
 } from "~/lib/model/oauthApps/oauth-helpers";
 import { AtlassianOAuthApp } from "~/lib/model/oauthApps/providers/atlassian";
 import { GitHubOAuthApp } from "~/lib/model/oauthApps/providers/github";
+import { GitLabOAuthApp } from "~/lib/model/oauthApps/providers/gitlab";
 import { GoogleOAuthApp } from "~/lib/model/oauthApps/providers/google";
 import { HubSpotOAuthApp } from "~/lib/model/oauthApps/providers/hubspot";
 import { LinkedInOAuthApp } from "~/lib/model/oauthApps/providers/linkedin";
@@ -29,6 +30,7 @@ export const OAuthAppSpecMap = {
 	[OAuthProvider.LinkedIn]: LinkedInOAuthApp,
 	[OAuthProvider.PagerDuty]: PagerDutyOAuthApp,
 	[OAuthProvider.SmartThings]: SmartThingsOAuthApp,
+	[OAuthProvider.GitLab]: GitLabOAuthApp,
 	// Custom OAuth apps are intentionally omitted from the map.
 	// They are handled separately
 } as const;
@@ -53,6 +55,8 @@ export type OAuthAppParams = {
 	alias: string;
 	// This field is only needed for Salesforce OAuth apps
 	instanceURL?: string;
+	// This field is used for GitLab enterprise instances
+	gitlabBaseURL?: string;
 };
 
 export type OAuthAppBase = OAuthAppParams & {
