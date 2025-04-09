@@ -67,6 +67,32 @@ func (c *Client) EnsureIdentityWithRole(ctx context.Context, id *types.Identity,
 	return user, nil
 }
 
+// EncryptIdentities will pull all identities out of the database and ensure they are encrypted.
+func (c *Client) EncryptIdentities(ctx context.Context) error {
+	return c.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var identities []types.Identity
+		if err := tx.Find(&identities).Error; err != nil {
+			return err
+		}
+
+		for i := range identities {
+			if identities[i].Encrypted {
+				continue
+			}
+
+			if err := c.encryptIdentity(ctx, &identities[i]); err != nil {
+				return fmt.Errorf("failed to encrypt identity: %w", err)
+			}
+
+			if err := tx.Updates(identities[i]).Error; err != nil {
+				return err
+			}
+		}
+
+		return nil
+	})
+}
+
 // ensureIdentity ensures that the given identity exists in the database, and returns the user associated with it.
 func (c *Client) ensureIdentity(ctx context.Context, tx *gorm.DB, id *types.Identity, timezone string, role types2.Role) (*types.User, error) {
 	verified := slices.Contains(verifiedAuthProviders, fmt.Sprintf("%s/%s", id.AuthProviderNamespace, id.AuthProviderName))

@@ -28,7 +28,7 @@ func (s *Server) AddRoutes(mux *server.Server) {
 	mux.HandleFunc("DELETE /api/me", wrap(s.deleteUser))
 	mux.HandleFunc("POST /api/logout-all", wrap(s.logoutAll))
 	mux.HandleFunc("GET /api/users", wrap(s.getUsers))
-	mux.HandleFunc("POST /api/encrypt-all-users", wrap(s.encryptAllUsers))
+	mux.HandleFunc("POST /api/encrypt-all-users", wrap(s.encryptAllUsersAndIdentities))
 	mux.HandleFunc("GET /api/users/{username_or_id}", wrap(s.getUser))
 	mux.HandleFunc("GET /api/users/{user_id}/activities", wrap(s.activitiesByUser))
 	mux.HandleFunc("PATCH /api/users/{username}", wrap(s.updateUser))
