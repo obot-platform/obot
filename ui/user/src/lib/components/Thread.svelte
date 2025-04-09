@@ -181,7 +181,7 @@
 
 <div
 	id="main-input"
-	class="thread-container default-scrollbar-thin flex w-full grow justify-center overflow-y-auto"
+	class="default-scrollbar-thin thread-container flex w-full grow justify-center overflow-y-auto"
 	class:scroll-smooth={scrollSmooth}
 	use:stickToBottom={{
 		contentEl: messagesDiv,
@@ -300,8 +300,10 @@
 			content: '';
 			position: absolute;
 			top: 0;
-			left: 0;
-			width: 100%;
+			left: 50%;
+			transform: translateX(-50%);
+			width: calc(100% - 2rem);
+			max-width: 900px;
 			height: 3.5rem;
 			background: linear-gradient(to top, transparent, var(--background));
 		}
@@ -311,8 +313,10 @@
 			content: '';
 			position: absolute;
 			bottom: 9rem;
-			left: 0;
-			width: 100%;
+			left: 50%;
+			transform: translateX(-50%);
+			width: calc(100% - 2rem);
+			max-width: 900px;
 			height: 3.5rem;
 			background: linear-gradient(to bottom, transparent, var(--background));
 		}
