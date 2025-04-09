@@ -18,6 +18,7 @@
 	import EditIcon from './edit/EditIcon.svelte';
 	import { DEFAULT_PROJECT_DESCRIPTION, DEFAULT_PROJECT_NAME } from '$lib/constants';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
+	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
 		id?: string;
@@ -32,6 +33,22 @@
 	let thread = $state<Thread>();
 	let scrollSmooth = $state(false);
 	let editBasicDetails = $state(false);
+	let threadContainer = $state<HTMLDivElement>();
+	let fadeBarWidth = $state<number>(0);
+
+	$effect(() => {
+		if (threadContainer) {
+			const resizeObserver = new ResizeObserver((entries) => {
+				fadeBarWidth = entries[0].contentRect.width - 20; // scrollbar width
+			});
+
+			resizeObserver.observe(threadContainer);
+
+			return () => {
+				resizeObserver.disconnect();
+			};
+		}
+	});
 
 	$effect(() => {
 		// Close and recreate thread if id changes
@@ -181,14 +198,26 @@
 
 <div
 	id="main-input"
-	class="default-scrollbar-thin thread-container flex w-full grow justify-center overflow-y-auto"
+	class="default-scrollbar-thin flex w-full grow justify-center overflow-y-auto"
 	class:scroll-smooth={scrollSmooth}
 	use:stickToBottom={{
 		contentEl: messagesDiv,
 		setControls: (controls) => (scrollControls = controls)
 	}}
 	onscrollend={onScrollEnd}
+	bind:this={threadContainer}
 >
+	<div
+		class={twMerge('top-fade-bar', layout.fileEditorOpen ? 'left-5' : 'left-1/2 -translate-x-1/2')}
+		style="width: {fadeBarWidth}px"
+	></div>
+	<div
+		class={twMerge(
+			'bottom-fade-bar',
+			layout.fileEditorOpen ? 'left-5' : 'left-1/2 -translate-x-1/2'
+		)}
+		style="width: {fadeBarWidth}px"
+	></div>
 	<div class="relative flex w-full max-w-[900px] flex-col">
 		<div
 			in:fade|global
@@ -294,31 +323,21 @@
 </div>
 
 <style lang="postcss">
-	.thread-container {
-		&::before {
-			z-index: 20;
-			content: '';
-			position: absolute;
-			top: 0;
-			left: 50%;
-			transform: translateX(-50%);
-			width: calc(100% - 2rem);
-			max-width: 900px;
-			height: 3.5rem;
-			background: linear-gradient(to top, transparent, var(--background));
-		}
+	.bottom-fade-bar {
+		z-index: 20;
+		position: absolute;
+		bottom: 9rem;
+		height: 3.5rem;
+		max-width: 900px;
+		background: linear-gradient(to bottom, transparent, var(--background));
+	}
 
-		&::after {
-			z-index: 20;
-			content: '';
-			position: absolute;
-			bottom: 9rem;
-			left: 50%;
-			transform: translateX(-50%);
-			width: calc(100% - 2rem);
-			max-width: 900px;
-			height: 3.5rem;
-			background: linear-gradient(to bottom, transparent, var(--background));
-		}
+	.top-fade-bar {
+		z-index: 20;
+		position: absolute;
+		top: 0;
+		height: 3.5rem;
+		max-width: 900px;
+		background: linear-gradient(to top, transparent, var(--background));
 	}
 </style>

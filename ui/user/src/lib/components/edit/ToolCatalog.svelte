@@ -284,7 +284,7 @@
 			>
 				<h4 class="bg-surface1 flex px-4 py-2 text-base font-semibold">Selected Tools</h4>
 				<div
-					class="default-scrollbar-thin h-inherit flex min-h-0 flex-1 grow flex-col overflow-y-auto"
+					class="default-scrollbar-thin h-inherit flex min-h-0 flex-1 grow flex-col overflow-x-hidden overflow-y-auto"
 				>
 					{#each enabledTools as enabledCatalogItem (enabledCatalogItem.tool.id)}
 						<div transition:fly={{ x: 250, duration: 300 }}>
