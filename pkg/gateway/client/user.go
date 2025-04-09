@@ -348,5 +348,5 @@ func (c *Client) decryptUser(ctx context.Context, user *types.User) error {
 }
 
 func userDataCtx(user *types.User) value.Context {
-	return value.DefaultContext(fmt.Sprintf("%s/%s/%d", userGroupResource.String(), user.Username, user.ID))
+	return value.DefaultContext(fmt.Sprintf("%s/%s/%d", userGroupResource.String(), user.HashedUsername, user.ID))
 }

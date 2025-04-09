@@ -389,5 +389,5 @@ func (c *Client) decryptIdentity(ctx context.Context, identity *types.Identity) 
 }
 
 func identityDataCtx(identity *types.Identity) value.Context {
-	return value.DefaultContext(fmt.Sprintf("%s/%s/%s/%s", identityGroupResource.String(), identity.AuthProviderNamespace, identity.AuthProviderName, identity.ProviderUserID))
+	return value.DefaultContext(fmt.Sprintf("%s/%s/%s/%s", identityGroupResource.String(), identity.AuthProviderNamespace, identity.AuthProviderName, identity.HashedProviderUserID))
 }
