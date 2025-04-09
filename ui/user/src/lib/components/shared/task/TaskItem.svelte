@@ -25,6 +25,7 @@
 		taskActions?: Snippet;
 		classes?: {
 			title?: string;
+			taskItemAction?: string;
 		};
 	}
 
@@ -117,13 +118,20 @@
 												taskRun.taskRunID
 											)
 										);
+
+										if (responsive.isMobile) {
+											layout.sidebarOpen = false;
+										}
 									}
 								}}
 							>
 								{formatTime(taskRun.created)}
 							</button>
 							<button
-								class="p-0 pr-4 opacity-0 transition-opacity duration-200 group-hover:opacity-100"
+								class={twMerge(
+									'p-0 pr-4 opacity-0 transition-opacity duration-200 group-hover:opacity-100',
+									classes?.taskItemAction
+								)}
 								onclick={() => deleteTaskRun(taskRun)}
 								use:tooltip={'Delete Run'}
 							>
