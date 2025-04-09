@@ -13,6 +13,7 @@ import {
 import { ListFilterIcon } from "lucide-react";
 import { useState } from "react";
 import { DateRange } from "react-day-picker";
+import { FaCaretDown, FaCaretUp } from "react-icons/fa";
 import { useNavigate } from "react-router";
 
 import { cn } from "~/lib/utils";
@@ -60,13 +61,15 @@ export function DataTable<TData, TValue>({
 	onCtrlClick,
 	groupBy,
 }: DataTableProps<TData, TValue>) {
+	const [sorting, setSorting] = useState<SortingState>(sort ?? []);
 	const table = useReactTable({
 		enableColumnResizing: true,
 		columnResizeMode: "onChange",
 		columnResizeDirection: "ltr",
 		data,
 		columns,
-		state: { sorting: sort, expanded },
+		state: { sorting: sorting, expanded },
+		onSortingChange: setSorting,
 		getSubRows: groupBy,
 		getCoreRowModel: getCoreRowModel(),
 		getSortedRowModel: getSortedRowModel(),
@@ -87,10 +90,38 @@ export function DataTable<TData, TValue>({
 								>
 									<div className="flex h-full w-full items-center justify-between">
 										{header.isPlaceholder ? null : (
-											<div className="w-full px-2">
+											<div className="flex w-full items-center justify-between px-2">
 												{flexRender(
 													header.column.columnDef.header,
 													header.getContext()
+												)}
+												{header.column.id === "actions" ? null : (
+													<button
+														className="ml-2 flex-col items-center justify-center"
+														onClick={() =>
+															setSorting([
+																{
+																	id: header.column.id,
+																	desc: !sorting[0]?.desc,
+																},
+															])
+														}
+													>
+														<FaCaretUp
+															className={
+																header.column.getIsSorted() === "asc"
+																	? "opacity-100"
+																	: "opacity-20"
+															}
+														/>
+														<FaCaretDown
+															className={
+																header.column.getIsSorted() === "desc"
+																	? "opacity-100"
+																	: "opacity-20"
+															}
+														/>
+													</button>
 												)}
 											</div>
 										)}
@@ -115,8 +146,8 @@ export function DataTable<TData, TValue>({
 			</TableHeader>
 
 			<TableBody>
-				{table.getRowModel().rows?.length ? (
-					table.getRowModel().rows.map((row) => (
+				{table.getSortedRowModel().rows?.length ? (
+					table.getSortedRowModel().rows.map((row) => (
 						<TableRow
 							key={row.id}
 							data-state={row.getIsSelected() && "selected"}
