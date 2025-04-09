@@ -145,8 +145,8 @@
 				editorCtx = ctx;
 
 				const listener = ctx.get(listenerCtx);
-				listener.markdownUpdated((ctx, markdown, prevMarkdown) => {
-					if (markdown === prevMarkdown) {
+				listener.markdownUpdated((_ctx, markdown, prevMarkdown) => {
+					if (markdown === prevMarkdown || markdown === lastSetValue) {
 						return;
 					}
 

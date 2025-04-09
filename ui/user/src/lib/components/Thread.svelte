@@ -92,7 +92,10 @@
 				// false means don't reconnect
 				return false;
 			},
-			items: layout.items
+			items: layout.items,
+			onItemsChanged: (items) => {
+				layout.items = items;
+			}
 		});
 
 		messages = {

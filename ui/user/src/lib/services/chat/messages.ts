@@ -2,6 +2,13 @@ import { ABORTED_BY_USER_MESSAGE, ABORTED_THREAD_MESSAGE } from '$lib/constants'
 import type { EditorItem } from '$lib/services/editor/index.svelte';
 import type { CitationSource, Explain, InputMessage, Message, Messages, Progress } from './types';
 
+type AdditionalOptions = {
+	threadID?: string;
+	taskID?: string;
+	runID?: string;
+	onItemsChanged?: (items: EditorItem[]) => void;
+};
+
 const errorIcon = 'Error';
 const assistantIcon = 'Assistant';
 const profileIcon = 'Profile';
@@ -23,13 +30,10 @@ function setFileContent(
 	name: string,
 	content: string,
 	full: boolean = false,
-	opts: {
-		threadID?: string;
-		taskID?: string;
-		runID?: string;
-	} = {}
+	opts: AdditionalOptions = {}
 ) {
 	const id = opts.runID ? `${opts.taskID}/${opts.runID}/${name}` : `${opts.threadID}/${name}`;
+
 	const existing = items.find((f) => f.id === id);
 	if (existing && existing.file) {
 		if (full) {
@@ -54,6 +58,10 @@ function setFileContent(
 	items.forEach((f) => {
 		f.selected = f.name === name;
 	});
+
+	if (opts.onItemsChanged) {
+		opts.onItemsChanged(items);
+	}
 }
 
 function reformatInputMessage(msg: Message) {
@@ -127,11 +135,7 @@ function reformatWriteMessage(
 	items: EditorItem[],
 	msg: Message,
 	last: boolean,
-	opts: {
-		threadID?: string;
-		taskID?: string;
-		runID?: string;
-	} = {}
+	opts: AdditionalOptions = {}
 ) {
 	msg.icon = 'Pencil';
 	msg.done = !last || msg.toolCall !== undefined;
@@ -161,11 +165,7 @@ function reformatWriteMessage(
 export function buildMessagesFromProgress(
 	items: EditorItem[],
 	progresses: Progress[],
-	opts: {
-		threadID?: string;
-		taskID?: string;
-		runID?: string;
-	}
+	opts: AdditionalOptions
 ): Messages {
 	const messages = toMessages(progresses);
 

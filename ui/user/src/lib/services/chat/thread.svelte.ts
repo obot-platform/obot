@@ -30,7 +30,7 @@ export class Thread {
 		tools?: string[];
 	};
 	readonly #items: EditorItem[] = [];
-
+	readonly #onItemsChanged?: (items: EditorItem[]) => void;
 	constructor(
 		project: Project,
 		opts?: {
@@ -46,6 +46,7 @@ export class Thread {
 			onError?: (error: Error) => void;
 			// Return true to reconnect, false to close
 			onClose?: () => boolean;
+			onItemsChanged?: (items: EditorItem[]) => void;
 			items?: EditorItem[];
 		}
 	) {
@@ -59,6 +60,9 @@ export class Thread {
 		this.#es = this.#reconnect();
 		if (opts?.items) {
 			this.#items = opts.items;
+		}
+		if (opts?.onItemsChanged) {
+			this.#onItemsChanged = opts.onItemsChanged;
 		}
 	}
 
@@ -168,7 +172,8 @@ export class Thread {
 				buildMessagesFromProgress(this.#items, msgs, {
 					taskID: this.#task?.id,
 					runID: this.runID,
-					threadID: this.threadID
+					threadID: this.threadID,
+					onItemsChanged: this.#onItemsChanged
 				})
 			);
 		}
@@ -181,7 +186,8 @@ export class Thread {
 				buildMessagesFromProgress(this.#items, this.#progresses, {
 					taskID: this.#task?.id,
 					runID: this.runID,
-					threadID: this.threadID
+					threadID: this.threadID,
+					onItemsChanged: this.#onItemsChanged
 				})
 			);
 			this.#handleSteps();
