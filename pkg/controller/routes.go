@@ -57,6 +57,7 @@ func (c *Controller) setupRoutes() error {
 	projects := projects.NewHandler()
 	runstates := runstates.NewHandler(c.services.GatewayClient)
 	userCleanup := cleanup.NewUserCleanup(c.services.GatewayClient)
+	discord := workflow.NewDiscordController(c.services.GPTClient)
 
 	// Runs
 	root.Type(&v1.Run{}).FinalizeFunc(v1.RunFinalizer, runs.DeleteRunState)
@@ -94,6 +95,7 @@ func (c *Controller) setupRoutes() error {
 	root.Type(&v1.Workflow{}).HandlerFunc(threads.EnsureShared)
 	root.Type(&v1.Workflow{}).HandlerFunc(cleanup.Cleanup)
 	root.Type(&v1.Workflow{}).FinalizeFunc(v1.WorkflowFinalizer, credentialCleanup.Remove)
+	root.Type(&v1.Workflow{}).HandlerFunc(discord.SubscribeToDiscord)
 
 	// WorkflowExecutions
 	root.Type(&v1.WorkflowExecution{}).HandlerFunc(cleanup.Cleanup)

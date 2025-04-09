@@ -60,6 +60,9 @@
 		if (task.onSlackMessage) {
 			return 'slack';
 		}
+		if (task.onDiscordMessage) {
+			return 'discord';
+		}
 		return 'onDemand';
 	}
 </script>
@@ -97,6 +100,17 @@
 				<div class="flex gap-2">
 					<p class="text-sm text-gray-600 dark:text-gray-400">
 						This task will be triggered when you mention the bot in any Slack channel
+					</p>
+				</div>
+			</div>
+		</div>
+	{/if}
+	{#if selectedTrigger() === 'discord'}
+		<div class="flex grow flex-col gap-4">
+			<div class="flex items-center justify-between">
+				<div class="flex gap-2">
+					<p class="text-sm text-gray-600 dark:text-gray-400">
+						This task will be triggered when you mention the bot in any Discord channel
 					</p>
 				</div>
 			</div>

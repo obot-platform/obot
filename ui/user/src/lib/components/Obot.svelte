@@ -37,8 +37,8 @@
 	let editor: HTMLDivElement | undefined = $state();
 
 	let credentials = $state<ProjectCredential[]>([]);
-	let credDialog: HTMLDialogElement;
-	let credAuth: ReturnType<typeof CredentialAuth>;
+	let authDialog: ReturnType<typeof CredentialAuth> | undefined = $state();
+	let credToAuth = $state<ProjectCredential | undefined>();
 	let configDialog: HTMLDialogElement;
 	let shortcutsDialog: HTMLDialogElement;
 	let nav = $state<HTMLDivElement>();
@@ -64,8 +64,12 @@
 	}
 
 	$effect(() => {
-		ChatService.listProjectLocalCredentials(project.assistantID, project.id).then((creds) => {
+		ChatService.listProjectCredentials(project.assistantID, project.id).then((creds) => {
 			credentials = creds.items;
+			credToAuth = credentials.find((c) => c.toolID === 'slack-bot-bundle');
+			if (credToAuth) {
+				credToAuth.exists = false;
+			}
 			if (
 				project.capabilities?.onSlackMessage &&
 				!credentials.find((c) => c.toolID === 'slack-bot-bundle')?.exists
@@ -279,8 +283,7 @@
 							class="button"
 							onclick={() => {
 								configDialog?.close();
-								credDialog?.showModal();
-								credAuth?.show();
+								authDialog?.show();
 							}}
 						>
 							Configure Now
@@ -289,23 +292,16 @@
 				</div>
 			</dialog>
 
-			<dialog
-				bind:this={credDialog}
-				class="max-h-[90vh] min-h-[300px] w-1/3 min-w-[300px] overflow-visible p-5"
-			>
-				<div class="flex h-full flex-col">
-					<button class="absolute top-0 right-0 p-3" onclick={() => credDialog?.close()}>
-						<X class="icon-default" />
-					</button>
-					<CredentialAuth
-						bind:this={credAuth}
-						{project}
-						local
-						toolID="slack-bot-bundle"
-						onClose={() => credDialog?.close()}
-					/>
-				</div>
-			</dialog>
+			<CredentialAuth
+				bind:this={authDialog}
+				credential={credToAuth}
+				{project}
+				local={false}
+				toolID="slack-bot-bundle"
+				onClose={() => {
+					credToAuth = undefined;
+				}}
+			/>
 
 			<dialog
 				bind:this={shortcutsDialog}

@@ -10,6 +10,7 @@
 	import ProjectMcpConfig from '$lib/components/mcp/ProjectMcpConfig.svelte';
 	import { createProjectMcp, updateProjectMcp } from '$lib/services/chat/mcp';
 	import { getProjectMCPs } from '$lib/context/projectMcps.svelte';
+	import Discord from './discord/Discord.svelte';
 
 	interface Props {
 		project: Project;
@@ -59,6 +60,8 @@
 				}}
 			/>
 		{/key}
+	{:else if layout.sidebarConfig === 'discord'}
+		<Discord {project} />
 	{:else if layout.sidebarConfig === 'custom-tool' && layout.customToolId && toEdit}
 		{#key layout.customToolId}
 			<CustomTool

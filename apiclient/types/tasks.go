@@ -11,17 +11,21 @@ type Task struct {
 type TaskList List[Task]
 
 type TaskManifest struct {
-	Name           string              `json:"name"`
-	Description    string              `json:"description"`
-	Steps          []TaskStep          `json:"steps"`
-	Schedule       *Schedule           `json:"schedule"`
-	Webhook        *TaskWebhook        `json:"webhook"`
-	Email          *TaskEmail          `json:"email"`
-	OnDemand       *TaskOnDemand       `json:"onDemand"`
-	OnSlackMessage *TaskOnSlackMessage `json:"onSlackMessage"`
+	Name             string                `json:"name"`
+	Description      string                `json:"description"`
+	Steps            []TaskStep            `json:"steps"`
+	Schedule         *Schedule             `json:"schedule"`
+	Webhook          *TaskWebhook          `json:"webhook"`
+	Email            *TaskEmail            `json:"email"`
+	OnDemand         *TaskOnDemand         `json:"onDemand"`
+	OnSlackMessage   *TaskOnSlackMessage   `json:"onSlackMessage"`
+	OnDiscordMessage *TaskOnDiscordMessage `json:"onDiscordMessage"`
 }
 
 type TaskOnSlackMessage struct {
+}
+
+type TaskOnDiscordMessage struct {
 }
 
 type TaskOnDemand struct {

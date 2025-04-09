@@ -499,6 +499,9 @@ func validate(task types.TaskManifest) error {
 	if task.OnSlackMessage != nil {
 		count++
 	}
+	if task.OnDiscordMessage != nil {
+		count++
+	}
 	if count > 1 {
 		return types.NewErrBadRequest("only one trigger is allowed, schedule, webhook, onDemand, onSlackMessage, or email")
 	}
@@ -525,6 +528,10 @@ func (t *TaskHandler) updateTrigger(req api.Context, workflow *v1.Workflow, task
 	}
 
 	if err := t.updateSlack(req, workflow, task); err != nil {
+		return nil, err
+	}
+
+	if err := t.updateDiscord(req, workflow, task); err != nil {
 		return nil, err
 	}
 
@@ -661,6 +668,20 @@ func (t *TaskHandler) updateSlack(req api.Context, workflow *v1.Workflow, task t
 			workflow.Spec.Manifest.OnSlackMessage = nil
 		} else {
 			workflow.Spec.Manifest.OnSlackMessage = &types.TaskOnSlackMessage{}
+		}
+		return req.Update(workflow)
+	})
+}
+
+func (t *TaskHandler) updateDiscord(req api.Context, workflow *v1.Workflow, task types.TaskManifest) error {
+	return retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+		if err := req.Storage.Get(req.Context(), kclient.ObjectKeyFromObject(workflow), workflow); err != nil {
+			return err
+		}
+		if task.OnDiscordMessage == nil {
+			workflow.Spec.Manifest.OnDiscordMessage = nil
+		} else {
+			workflow.Spec.Manifest.OnDiscordMessage = &types.TaskOnDiscordMessage{}
 		}
 		return req.Update(workflow)
 	})
@@ -964,10 +985,11 @@ func ConvertTaskManifest(manifest *types.WorkflowManifest) types.TaskManifest {
 		return types.TaskManifest{}
 	}
 	return types.TaskManifest{
-		Name:           manifest.Name,
-		Description:    manifest.Description,
-		Steps:          toTaskSteps(manifest.Steps),
-		OnSlackMessage: manifest.OnSlackMessage,
+		Name:             manifest.Name,
+		Description:      manifest.Description,
+		Steps:            toTaskSteps(manifest.Steps),
+		OnSlackMessage:   manifest.OnSlackMessage,
+		OnDiscordMessage: manifest.OnDiscordMessage,
 	}
 }
 

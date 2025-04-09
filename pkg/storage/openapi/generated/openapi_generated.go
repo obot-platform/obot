@@ -123,6 +123,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/apiclient/types.TaskList":                                     schema_obot_platform_obot_apiclient_types_TaskList(ref),
 		"github.com/obot-platform/obot/apiclient/types.TaskManifest":                                 schema_obot_platform_obot_apiclient_types_TaskManifest(ref),
 		"github.com/obot-platform/obot/apiclient/types.TaskOnDemand":                                 schema_obot_platform_obot_apiclient_types_TaskOnDemand(ref),
+		"github.com/obot-platform/obot/apiclient/types.TaskOnDiscordMessage":                         schema_obot_platform_obot_apiclient_types_TaskOnDiscordMessage(ref),
 		"github.com/obot-platform/obot/apiclient/types.TaskOnSlackMessage":                           schema_obot_platform_obot_apiclient_types_TaskOnSlackMessage(ref),
 		"github.com/obot-platform/obot/apiclient/types.TaskRun":                                      schema_obot_platform_obot_apiclient_types_TaskRun(ref),
 		"github.com/obot-platform/obot/apiclient/types.TaskRunList":                                  schema_obot_platform_obot_apiclient_types_TaskRunList(ref),
@@ -4854,12 +4855,17 @@ func schema_obot_platform_obot_apiclient_types_TaskManifest(ref common.Reference
 							Ref: ref("github.com/obot-platform/obot/apiclient/types.TaskOnSlackMessage"),
 						},
 					},
+					"onDiscordMessage": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.TaskOnDiscordMessage"),
+						},
+					},
 				},
-				Required: []string{"name", "description", "steps", "schedule", "webhook", "email", "onDemand", "onSlackMessage"},
+				Required: []string{"name", "description", "steps", "schedule", "webhook", "email", "onDemand", "onSlackMessage", "onDiscordMessage"},
 			},
 		},
 		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.Schedule", "github.com/obot-platform/obot/apiclient/types.TaskEmail", "github.com/obot-platform/obot/apiclient/types.TaskOnDemand", "github.com/obot-platform/obot/apiclient/types.TaskOnSlackMessage", "github.com/obot-platform/obot/apiclient/types.TaskStep", "github.com/obot-platform/obot/apiclient/types.TaskWebhook"},
+			"github.com/obot-platform/obot/apiclient/types.Schedule", "github.com/obot-platform/obot/apiclient/types.TaskEmail", "github.com/obot-platform/obot/apiclient/types.TaskOnDemand", "github.com/obot-platform/obot/apiclient/types.TaskOnDiscordMessage", "github.com/obot-platform/obot/apiclient/types.TaskOnSlackMessage", "github.com/obot-platform/obot/apiclient/types.TaskStep", "github.com/obot-platform/obot/apiclient/types.TaskWebhook"},
 	}
 }
 
@@ -4885,6 +4891,16 @@ func schema_obot_platform_obot_apiclient_types_TaskOnDemand(ref common.Reference
 						},
 					},
 				},
+			},
+		},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_TaskOnDiscordMessage(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
 			},
 		},
 	}
@@ -6519,12 +6535,17 @@ func schema_obot_platform_obot_apiclient_types_WorkflowManifest(ref common.Refer
 							Ref: ref("github.com/obot-platform/obot/apiclient/types.TaskOnSlackMessage"),
 						},
 					},
+					"onDiscordMessage": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.TaskOnDiscordMessage"),
+						},
+					},
 				},
 				Required: []string{"alias", "steps", "output"},
 			},
 		},
 		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.Step", "github.com/obot-platform/obot/apiclient/types.TaskOnSlackMessage"},
+			"github.com/obot-platform/obot/apiclient/types.Step", "github.com/obot-platform/obot/apiclient/types.TaskOnDiscordMessage", "github.com/obot-platform/obot/apiclient/types.TaskOnSlackMessage"},
 	}
 }
 

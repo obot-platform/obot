@@ -4,6 +4,7 @@
 	import Message from '$lib/components/messages/Message.svelte';
 	import { X } from 'lucide-svelte';
 	import { responsive } from '$lib/stores';
+	import ChatService from '$lib/services/chat';
 
 	interface Props {
 		toolID: string;
@@ -17,11 +18,15 @@
 	let authMessages = $state<Messages>();
 	let thread = $state<Thread>();
 	let authDialog: HTMLDialogElement | undefined = $state();
+	let inProgress = $state(false);
 
 	export function show() {
 		authCancel(true);
 		auth(toolID);
 		authDialog?.showModal();
+		authDialog?.addEventListener('close', () => {
+			authMessages = undefined;
+		});
 	}
 
 	function auth(toolID: string) {
@@ -34,7 +39,10 @@
 				// ignore the error. This is so it doesn't get globally printed
 			},
 			onClose: () => {
-				authCancel();
+				// if last message is an error, don't close the dialog
+				let skipClose = (authMessages?.messages ?? []).find((msg) => msg.icon === 'Error');
+				authCancel(skipClose ? true : false);
+
 				// false means don't reconnect
 				return false;
 			}
@@ -48,7 +56,7 @@
 	function authCancel(skipClose?: boolean) {
 		thread?.abort();
 		thread?.close();
-		// only clear message if nothing failed
+		inProgress = false;
 		if (!(authMessages?.messages ?? []).find((msg) => msg.icon === 'Error')) {
 			authMessages = undefined;
 		}
@@ -87,10 +95,23 @@
 					<X class="size-5" />
 				</button>
 			</h4>
-			{#if authMessages}
+			{#if inProgress}
+				<div class="flex flex-col gap-5 p-5 md:m-5 md:mt-0">
+					<p class="text-center">Sending credentials...</p>
+				</div>
+			{:else if authMessages}
 				<div class="flex flex-col gap-5 p-5 md:m-5 md:mt-0">
 					{#each authMessages.messages as msg}
-						<Message {msg} {project} clearable onSendCredentialsCancel={() => authCancel()} />
+						<Message
+							{msg}
+							{project}
+							clearable
+							onSendCredentialsCancel={() => authCancel()}
+							onSendCredentials={(id: string, credentials: Record<string, string>) => {
+								ChatService.sendCredentials(id, credentials);
+								inProgress = true;
+							}}
+						/>
 					{/each}
 				</div>
 			{/if}
