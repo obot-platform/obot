@@ -53,9 +53,6 @@ lint-admin:
 	pnpm run format && \
 	pnpm run lint
 
-package-tools:
-	./tools/package-tools.sh
-
 tidy:
 	go mod tidy
 

@@ -1,4 +1,4 @@
-ARG TOOLS_IMAGE=obot-platform/obot/oss-tools
+ARG TOOLS_IMAGE=obot-platform/tools
 FROM cgr.dev/chainguard/wolfi-base AS base
 
 RUN apk add --no-cache go make git nodejs npm pnpm
