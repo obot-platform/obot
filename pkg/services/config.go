@@ -78,6 +78,7 @@ type Config struct {
 	EnvKeys                    []string `usage:"The environment keys to pass through to the GPTScript server" env:"OBOT_ENV_KEYS"`
 	KnowledgeSetIngestionLimit int      `usage:"The maximum number of files to ingest into a knowledge set" default:"3000" name:"knowledge-set-ingestion-limit"`
 	KnowledgeFileWorkers       int      `usage:"The number of workers to process knowledge files" default:"5"`
+	RunWorkers                 int      `usage:"The number of workers to process runs" default:"1000"`
 	EnableAuthentication       bool     `usage:"Enable authentication" default:"false"`
 	ForceEnableBootstrap       bool     `usage:"Enables the bootstrap user even if other admin users have been created" default:"false"`
 	AuthAdminEmails            []string `usage:"Emails of admin users"`
@@ -329,6 +330,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		HealthzPort:    -1,
 		GVKThreadiness: map[schema.GroupVersionKind]int{
 			v1.SchemeGroupVersion.WithKind("KnowledgeFile"): config.KnowledgeFileWorkers,
+			v1.SchemeGroupVersion.WithKind("Run"):           config.RunWorkers,
 		},
 		GVKQueueSplitters: map[schema.GroupVersionKind]runtime.WorkerQueueSplitter{
 			v1.SchemeGroupVersion.WithKind("Run"): (*runQueueSplitter)(nil),
