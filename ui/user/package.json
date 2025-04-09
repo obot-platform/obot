@@ -48,6 +48,7 @@
 		"@uiw/codemirror-theme-github": "^4.23.8",
 		"@xterm/addon-fit": "^0.10.0",
 		"@xterm/xterm": "^5.5.0",
+		"dompurify": "^3.2.5",
 		"eslint": "^9.21.0",
 		"eslint-config-prettier": "^9.1.0",
 		"eslint-plugin-svelte": "^2.46.1",
