@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 FROM cgr.dev/chainguard/wolfi-base AS base
 
-RUN apk add --no-cache go make git npm pnpm
+RUN apk add --no-cache go make git node npm pnpm
 
 FROM base AS tools
 ARG TOOL_REGISTRY_REPOS='github.com/obot-platform/tools'
