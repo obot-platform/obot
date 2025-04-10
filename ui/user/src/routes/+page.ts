@@ -1,10 +1,19 @@
-import { browser } from '$app/environment';
+import { browser, building } from '$app/environment';
 import { ChatService, type Project } from '$lib/services';
 import { sortByFeaturedNameOrder } from '$lib/sort';
 import type { PageLoad } from './$types';
 import { redirect } from '@sveltejs/kit';
 
+export const ssr = true;
+
 export const load: PageLoad = async ({ fetch }) => {
+	if (building) {
+		return {
+			authProviders: [],
+			featuredProjectShares: [],
+			tools: new Map()
+		};
+	}
 	const authProviders = await ChatService.listAuthProviders({ fetch });
 	const featuredProjectShares = (await ChatService.listProjectShares({ fetch })).items
 		.filter(
