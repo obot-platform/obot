@@ -330,6 +330,9 @@
 		.ͼ2 .cm-tooltip {
 			border: none;
 		}
+		.ͼ14 {
+			background-color: #000000 !important;
+		}
 		.cm-focused {
 			outline-style: none !important;
 		}

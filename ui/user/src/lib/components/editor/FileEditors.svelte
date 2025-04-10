@@ -32,7 +32,7 @@
 	{:else}
 		<div
 			class:hidden={!file.selected}
-			class="default-scrollbar-thin h-full flex-1 pr-[56px] dark:bg-[#0d1117]"
+			class="default-scrollbar-thin mr-[56px] h-full flex-1"
 			bind:clientHeight={height}
 		>
 			{#if file.name.toLowerCase().endsWith('.md')}
