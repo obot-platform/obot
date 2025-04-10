@@ -87,7 +87,7 @@ type Config struct {
 	AuthAdminEmails            []string `usage:"Emails of admin users"`
 	AgentsDir                  string   `usage:"The directory to auto load agents on start (default $XDG_CONFIG_HOME/.obot/agents)"`
 	StaticDir                  string   `usage:"The directory to serve static files from"`
-	RetentionPolicy            string   `usage:"The retention policy for the system" default:"2160h"` // default 90 days
+	RetentionPolicyHours       int      `usage:"The retention policy for the system. Set to 0 to disable retention." default:"2160"` // default 90 days
 	// Sendgrid webhook
 	SendgridWebhookUsername string `usage:"The username for the sendgrid webhook to authenticate with"`
 	SendgridWebhookPassword string `usage:"The password for the sendgrid webhook to authenticate with"`
@@ -472,10 +472,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		return nil, fmt.Errorf("failed to create rate limiter: %w", err)
 	}
 
-	retentionPolicy, err := time.ParseDuration(config.RetentionPolicy)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse retention policy: %w", err)
-	}
+	retentionPolicy := time.Duration(config.RetentionPolicyHours) * time.Hour
 
 	// For now, always auto-migrate the gateway database
 	return &Services{

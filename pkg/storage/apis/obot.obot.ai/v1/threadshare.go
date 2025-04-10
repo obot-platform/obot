@@ -43,13 +43,15 @@ func (in *ThreadShare) Get(field string) (value string) {
 		return in.Spec.UserID
 	case "spec.featured":
 		return fmt.Sprint(in.Spec.Featured)
+	case "spec.projectThreadName":
+		return in.Spec.ProjectThreadName
 	default:
 		return ""
 	}
 }
 
 func (in *ThreadShare) FieldNames() []string {
-	return []string{"spec.publicID", "spec.userID", "spec.featured"}
+	return []string{"spec.publicID", "spec.userID", "spec.featured", "spec.projectThreadName"}
 }
 
 type ThreadShareSpec struct {
