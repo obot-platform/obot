@@ -178,6 +178,9 @@ export default function TaskRuns() {
 
 	function getColumns(): ColumnDef<(typeof data)[0], string>[] {
 		return [
+			columnHelper.accessor("id", {
+				header: "ID",
+			}),
 			columnHelper.accessor((thread) => thread.parentName, {
 				id: "Obot",
 				header: ({ column }) => (
