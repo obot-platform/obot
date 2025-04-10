@@ -417,6 +417,10 @@
 
 {#snippet promptAuth()}
 	{#if msg.fields && !credentialsSubmitted}
+		{@const isAuthMethodSelectionPrompt =
+			msg.fields.length === 1 &&
+			msg.fields[0].name === 'Authentication Method' &&
+			msg.fields[0].options}
 		<form
 			class="flex flex-col gap-2"
 			onsubmit={(e) => {
@@ -429,45 +433,72 @@
 		>
 			{@html toHTMLFromMarkdown(msg.message.join('\n'))}
 
-			{#each msg.fields as field}
-				<div class="flex flex-col gap-1">
-					<label for={field.name} class="mt-1 text-sm font-medium">{field.name}</label>
-					{#if field.options}
-						<div class="flex flex-col gap-2">
-							{#each field.options as option}
-								<button class="button" onclick={() => (promptCredentials[field.name] = option)}>
+			{#if isAuthMethodSelectionPrompt && msg.fields && msg.fields[0].options}
+				<div class="flex flex-col">
+					<div class="flex w-full flex-col items-center gap-2">
+						<div class="inline-flex flex-col gap-2">
+							{#each msg.fields[0].options as option}
+								<button
+									class="button whitespace-nowrap"
+									onclick={() => (promptCredentials[msg.fields![0].name] = option)}
+								>
 									{option}
 								</button>
 							{/each}
+							{#if onSendCredentialsCancel}
+								<button
+									class="button-secondary whitespace-nowrap"
+									type="button"
+									onclick={() => onSendCredentialsCancel(msg.promptId ?? '')}
+								>
+									Never mind, don't authenticate
+								</button>
+							{/if}
 						</div>
-					{:else}
-						<input
-							class="rounded-lg bg-white p-2 outline-hidden dark:bg-gray-900"
-							type={field.sensitive ? 'password' : 'text'}
-							name={field.name}
-							bind:value={promptCredentials[field.name]}
-						/>
-					{/if}
-					{#if field.description}
-						<p class="text-sm text-gray-500">{field.description}</p>
-					{/if}
+					</div>
 				</div>
-			{/each}
+			{:else}
+				{#each msg.fields as field}
+					<div class="flex flex-col gap-1">
+						<label for={field.name} class="mt-1 text-sm font-medium">{field.name}</label>
+						{#if field.options}
+							<div class="flex flex-col gap-2">
+								{#each field.options as option}
+									<button class="button" onclick={() => (promptCredentials[field.name] = option)}>
+										{option}
+									</button>
+								{/each}
+							</div>
+						{:else}
+							<input
+								class="rounded-lg bg-white p-2 outline-hidden dark:bg-gray-900"
+								type={field.sensitive ? 'password' : 'text'}
+								name={field.name}
+								bind:value={promptCredentials[field.name]}
+							/>
+						{/if}
+						{#if field.description}
+							<p class="text-sm text-gray-500">{field.description}</p>
+						{/if}
+					</div>
+				{/each}
 
-			<div class="item-center flex gap-2 self-end">
-				{#if onSendCredentialsCancel}
-					<button
-						class="button-secondary"
-						type="button"
-						onclick={() => onSendCredentialsCancel(msg.promptId ?? '')}
-						>Cancel
-					</button>
-				{/if}
-				<button class="button-primary" type="submit">Submit</button>
-			</div>
-			<span class="text-gray mt-1 flex grow items-end self-end text-sm"
-				>*The submitted contents are not visible to AI.</span
-			>
+				<div class="item-center flex gap-2 self-end">
+					{#if onSendCredentialsCancel}
+						<button
+							class="button-secondary"
+							type="button"
+							onclick={() => onSendCredentialsCancel(msg.promptId ?? '')}
+						>
+							Cancel
+						</button>
+					{/if}
+					<button class="button-primary" type="submit">Submit</button>
+				</div>
+				<span class="text-gray mt-1 flex grow items-end self-end text-sm">
+					*The submitted contents are not visible to AI.
+				</span>
+			{/if}
 		</form>
 	{/if}
 {/snippet}
