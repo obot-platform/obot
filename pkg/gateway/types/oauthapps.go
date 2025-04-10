@@ -40,6 +40,9 @@ const (
 
 	SmartThingsAuthorizeURL = "https://api.smartthings.com/oauth/authorize"
 	SmartThingsTokenURL     = "https://auth-global.api.smartthings.com/oauth/token"
+
+	GitLabAuthorizeURL = "https://gitlab.com/oauth/authorize"
+	GitLabTokenURL     = "https://gitlab.com/oauth/token"
 )
 
 var (
@@ -123,6 +126,31 @@ func ValidateAndSetDefaultsOAuthAppManifest(r *types.OAuthAppManifest, create bo
 				errs = append(errs, err)
 			}
 		}
+	case types.OAuthAppTypeGitLab:
+		gitlabAuthorizeFragment := "/oauth/authorize"
+		gitlabTokenFragment := "/oauth/token"
+
+		// Default to public GitLab if no base URL is provided
+		baseURL := "https://gitlab.com"
+		if r.GitLabBaseURL != "" {
+			u, err := url.Parse(r.GitLabBaseURL)
+			if err != nil {
+				errs = append(errs, err)
+				break
+			}
+			if u.Scheme == "" {
+				u.Scheme = "https"
+			}
+			baseURL = u.String()
+		}
+
+		var err error
+		if r.AuthURL, err = url.JoinPath(baseURL, gitlabAuthorizeFragment); err != nil {
+			errs = append(errs, err)
+		}
+		if r.TokenURL, err = url.JoinPath(baseURL, gitlabTokenFragment); err != nil {
+			errs = append(errs, err)
+		}
 	}
 
 	if r.AuthURL == "" {
@@ -176,10 +204,12 @@ func MergeOAuthAppManifests(r, other types.OAuthAppManifest) types.OAuthAppManif
 	if other.ClientSecret != "" {
 		retVal.ClientSecret = other.ClientSecret
 	}
-	if other.AuthURL != "" {
+	if other.AuthURL != "" && other.GitLabBaseURL == "" {
+		// Only keep custom auth URL if GitLabBaseURL isn't changing
 		retVal.AuthURL = other.AuthURL
 	}
-	if other.TokenURL != "" {
+	if other.TokenURL != "" && other.GitLabBaseURL == "" {
+		// Only keep custom token URL if GitLabBaseURL isn't changing
 		retVal.TokenURL = other.TokenURL
 	}
 	if other.Type != "" {
@@ -205,6 +235,12 @@ func MergeOAuthAppManifests(r, other types.OAuthAppManifest) types.OAuthAppManif
 	}
 	if other.InstanceURL != "" {
 		retVal.InstanceURL = other.InstanceURL
+	}
+	if other.GitLabBaseURL != "" {
+		retVal.GitLabBaseURL = other.GitLabBaseURL
+		//Will reset during validation
+		retVal.AuthURL = ""
+		retVal.TokenURL = ""
 	}
 
 	return retVal

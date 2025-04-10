@@ -13,6 +13,7 @@ const (
 	OAuthAppTypeLinkedIn     OAuthAppType = "linkedin"
 	OAuthAppTypePagerDuty    OAuthAppType = "pagerduty"
 	OAuthAppTypeSmartThings  OAuthAppType = "smartthings"
+	OAuthAppTypeGitLab       OAuthAppType = "gitlab"
 	OAuthAppTypeCustom       OAuthAppType = "custom"
 )
 
@@ -43,6 +44,8 @@ type OAuthAppManifest struct {
 	Global *bool `json:"global,omitempty"`
 	// This field is only used by Salesforce
 	InstanceURL string `json:"instanceURL,omitempty"`
+	// This field is used for GitLab enterprise instances
+	GitLabBaseURL string `json:"gitlabBaseURL,omitempty"`
 }
 
 type OAuthAppList List[OAuthApp]

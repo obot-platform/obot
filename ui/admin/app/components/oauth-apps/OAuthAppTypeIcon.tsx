@@ -4,6 +4,7 @@ import { BiLogoZoom } from "react-icons/bi";
 import {
 	FaAtlassian,
 	FaGithub,
+	FaGitlab,
 	FaGoogle,
 	FaHubspot,
 	FaLinkedin,
@@ -30,6 +31,7 @@ const IconMap = {
 	[OAuthProvider.PagerDuty]: SiPagerduty,
 	[OAuthProvider.SmartThings]: SiSmartthings,
 	[OAuthProvider.Custom]: KeyIcon,
+	[OAuthProvider.GitLab]: FaGitlab,
 };
 
 export function OAuthAppTypeIcon({

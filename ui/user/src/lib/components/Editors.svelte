@@ -118,7 +118,7 @@
 
 		{#if downloadable}
 			<button
-				class="icon-button absolute top-5 right-5"
+				class="icon-button absolute top-2 right-2"
 				onclick={() => {
 					const selected = layout.items.find((item) => item.selected);
 					if (selected) {

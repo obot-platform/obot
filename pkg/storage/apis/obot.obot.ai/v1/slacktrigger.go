@@ -25,7 +25,6 @@ type SlackTrigger struct {
 func (in *SlackTrigger) DeleteRefs() []Ref {
 	return []Ref{
 		{ObjType: new(Thread), Name: in.Spec.ThreadName},
-		{ObjType: new(SlackReceiver), Name: in.Spec.SlackReceiverName},
 	}
 }
 
@@ -48,10 +47,9 @@ func (in *SlackTrigger) FieldNames() []string {
 }
 
 type SlackTriggerSpec struct {
-	AppID             string `json:"appID,omitempty"`
-	TeamID            string `json:"teamID,omitempty"`
-	ThreadName        string `json:"threadName,omitempty"`
-	SlackReceiverName string `json:"slackReceiverName,omitempty"`
+	AppID      string `json:"appID,omitempty"`
+	TeamID     string `json:"teamID,omitempty"`
+	ThreadName string `json:"threadName,omitempty"`
 }
 
 type SlackTriggerStatus struct {

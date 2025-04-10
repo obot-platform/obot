@@ -1,2 +1,4 @@
+import { dev } from '$app/environment';
+
 export const prerender = 'auto';
-export const ssr = true;
+export const ssr = dev;
