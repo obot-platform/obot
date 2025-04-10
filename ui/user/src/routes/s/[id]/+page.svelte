@@ -2,7 +2,7 @@
 	import { profile, responsive } from '$lib/stores';
 	import { type PageProps } from './$types';
 	import { goto } from '$app/navigation';
-	import { ChatService, type Project } from '$lib/services';
+	import { ChatService } from '$lib/services';
 	import { onMount } from 'svelte';
 	import Profile from '$lib/components/navbar/Profile.svelte';
 	import { LoaderCircle } from 'lucide-svelte';
