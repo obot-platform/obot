@@ -68,6 +68,7 @@ type Config struct {
 	HTTPListenPort             int      `usage:"HTTP port to listen on" default:"8080" name:"http-listen-port"`
 	DevMode                    bool     `usage:"Enable development mode" default:"false" name:"dev-mode" env:"OBOT_DEV_MODE"`
 	DevUIPort                  int      `usage:"The port on localhost running the dev instance of the UI" default:"5173"`
+	UserUIPort                 int      `usage:"The port on localhost running the user production instance of the UI" env:"OBOT_SERVER_USER_UI_PORT"`
 	AllowedOrigin              string   `usage:"Allowed origin for CORS"`
 	ToolRegistries             []string `usage:"The remote tool references to the set of tool registries to use" default:"github.com/obot-platform/tools" split:"true"`
 	WorkspaceProviderType      string   `usage:"The type of workspace provider to use for non-knowledge workspaces" default:"directory" env:"OBOT_WORKSPACE_PROVIDER_TYPE"`
@@ -105,6 +106,7 @@ type Services struct {
 	ServerURL                  string
 	EmailServerName            string
 	DevUIPort                  int
+	UserUIPort                 int
 	Events                     *events.Emitter
 	StorageClient              storage.Client
 	Router                     *router.Router
@@ -474,6 +476,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		WorkspaceProviderType: config.WorkspaceProviderType,
 		ServerURL:             config.Hostname,
 		DevUIPort:             devPort,
+		UserUIPort:            config.UserUIPort,
 		ToolRegistryURLs:      config.ToolRegistries,
 		Events:                events,
 		StorageClient:         storageClient,

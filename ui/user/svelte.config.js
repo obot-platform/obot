@@ -1,3 +1,4 @@
+import nodeAdapter from '@sveltejs/adapter-node';
 import adapter from '@sveltejs/adapter-static';
 import { vitePreprocess } from '@sveltejs/vite-plugin-svelte';
 
@@ -15,5 +16,11 @@ const config = {
 		})
 	}
 };
+
+if (process.env.BUILD === 'node') {
+	config.kit.adapter = nodeAdapter({
+		out: 'build-node'
+	});
+}
 
 export default config;

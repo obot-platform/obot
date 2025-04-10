@@ -6,7 +6,7 @@ default: build
 all: ui
 	$(MAKE) build
 
-ui: ui-admin ui-user
+ui: ui-admin ui-user ui-user-node
 
 ui-admin:
 	cd ui/admin && \
@@ -17,6 +17,11 @@ ui-user:
 	cd ui/user && \
 	pnpm install && \
 	pnpm run build
+
+ui-user-node:
+	cd ui/user && \
+	pnpm install && \
+	BUILD=node pnpm run build
 
 clean:
 	rm -rf ui/admin/build

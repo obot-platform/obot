@@ -19,13 +19,21 @@ import (
 //go:embed all:admin/*build all:user/*build
 var embedded embed.FS
 
-func Handler(devPort int, client kclient.Client) http.Handler {
+func Handler(devPort, userOnlyPort int, client kclient.Client) http.Handler {
 	server := &uiServer{
 		client: client,
 		lock:   new(sync.RWMutex),
 	}
 
-	if devPort != 0 {
+	if userOnlyPort != 0 {
+		server.rp = &httputil.ReverseProxy{
+			Director: func(r *http.Request) {
+				r.URL.Scheme = "http"
+				r.URL.Host = fmt.Sprintf("localhost:%d", userOnlyPort)
+			},
+		}
+		server.userOnly = true
+	} else if devPort != 0 {
 		server.rp = &httputil.ReverseProxy{
 			Director: func(r *http.Request) {
 				r.URL.Scheme = "http"
@@ -46,6 +54,7 @@ type uiServer struct {
 	configured bool
 	client     kclient.Client
 	rp         *httputil.ReverseProxy
+	userOnly   bool
 }
 
 func (s *uiServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -56,7 +65,7 @@ func (s *uiServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if s.rp != nil {
+	if s.rp != nil && (!s.userOnly || !strings.HasPrefix(r.URL.Path, "/admin")) {
 		s.rp.ServeHTTP(w, r)
 		return
 	}

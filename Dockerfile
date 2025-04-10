@@ -33,7 +33,7 @@ ENV PGDATA=/data/postgresql
 COPY --from=build-pgvector /usr/lib/postgresql17/vector.so /usr/lib/postgresql17/
 COPY --from=build-pgvector /usr/share/postgresql17/extension/vector* /usr/share/postgresql17/extension/
 
-RUN apk add --no-cache git python-3.13 py3.13-pip npm bash tini procps libreoffice docker perl-utils sqlite sqlite-dev curl kubectl
+RUN apk add --no-cache git python-3.13 py3.13-pip npm nodejs bash tini procps libreoffice docker perl-utils sqlite sqlite-dev curl kubectl
 COPY --chmod=0755 /tools/package-chrome.sh /
 
 RUN /package-chrome.sh && rm /package-chrome.sh
@@ -45,6 +45,7 @@ COPY --chmod=0755 run.sh /bin/run.sh
 COPY --link --from=tools /app/obot-tools /obot-tools
 COPY --from=tools /bin/*-encryption-provider /bin/
 COPY --from=bin /app/bin/obot /bin/
+COPY --from=bin --link /app/ui/user/build-node /ui
 
 # libreoffice executables
 ENV PATH=$PATH:/usr/lib/libreoffice/program
