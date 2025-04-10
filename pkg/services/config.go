@@ -437,10 +437,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 	var geminiClient *gemini.Client
 	if config.GeminiAPIKey != "" {
 		// Enable gemini-powered image generation
-		geminiClient, err = gemini.NewClient(ctx, gemini.Config{
-			GeminiAPIKey:               config.GeminiAPIKey,
-			GeminiImageGenerationModel: config.GeminiImageGenerationModel,
-		})
+		geminiClient, err = gemini.NewClient(ctx, gemini.Config(config.GeminiConfig))
 		if err != nil {
 			return nil, fmt.Errorf("failed to create gemini client: %w", err)
 		}
