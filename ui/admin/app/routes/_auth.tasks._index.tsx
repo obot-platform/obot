@@ -197,6 +197,9 @@ export default function Tasks() {
 
 	function getColumns(): ColumnDef<(typeof tasks)[0], string>[] {
 		return [
+			columnHelper.accessor("id", {
+				header: "ID",
+			}),
 			columnHelper.accessor("name", {
 				id: "Task",
 				header: ({ column }) => (

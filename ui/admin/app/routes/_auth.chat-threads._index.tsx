@@ -66,6 +66,7 @@ export default function TaskRuns() {
 			: $path("/chat-threads/:id", { id: value.id })
 	);
 	const {
+		threadId,
 		agentId,
 		userId,
 		createdStart,
@@ -84,6 +85,12 @@ export default function TaskRuns() {
 		let filteredThreads = getThreads.data.filter(
 			(thread) => thread.assistantID && !thread.deleted && !thread.project
 		);
+
+		if (threadId) {
+			filteredThreads = filteredThreads.filter(
+				(thread) => thread.id === threadId
+			);
+		}
 
 		if (agentId) {
 			filteredThreads = filteredThreads.filter(
@@ -112,8 +119,20 @@ export default function TaskRuns() {
 		}
 
 		return filteredThreads;
-	}, [getThreads.data, agentId, obotId, userId, createdStart, createdEnd]);
+	}, [
+		getThreads.data,
+		threadId,
+		agentId,
+		obotId,
+		userId,
+		createdStart,
+		createdEnd,
+	]);
 
+	const threadMap = useMemo(
+		() => new Map(getThreads.data?.map((thread) => [thread.id, thread])),
+		[getThreads.data]
+	);
 	const agentMap = useMemo(
 		() => new Map(getAgents.data?.map((agent) => [agent.id, agent])),
 		[getAgents.data]
@@ -144,7 +163,9 @@ export default function TaskRuns() {
 		? data.filter(
 				(item) =>
 					item.parentName.toLowerCase().includes(search.toLowerCase()) ||
-					item.userName.toLowerCase().includes(search.toLowerCase())
+					item.userName.toLowerCase().includes(search.toLowerCase()) ||
+					item.id.toLowerCase().includes(search.toLowerCase()) ||
+					(item.name?.toLowerCase() ?? "").includes(search.toLowerCase())
 			)
 		: data;
 
@@ -159,6 +180,7 @@ export default function TaskRuns() {
 			</div>
 
 			<Filters
+				threadMap={threadMap}
 				userMap={userMap}
 				agentMap={agentMap}
 				projectMap={projectMap}
@@ -178,8 +200,67 @@ export default function TaskRuns() {
 
 	function getColumns(): ColumnDef<(typeof data)[0], string>[] {
 		return [
-			columnHelper.accessor("id", {
-				header: "ID",
+			columnHelper.accessor((thread) => thread.parentName, {
+				id: "ID",
+				header: ({ column }) => (
+					<DataTableFilter
+						key={column.id}
+						field="ID"
+						values={
+							getThreads.data
+								?.filter((thread) => !!thread?.userID)
+								.map((thread) => ({
+									id: thread.id,
+									name: thread.id ?? "Untitled",
+								})) ?? []
+						}
+						onSelect={(value) => {
+							navigate.internal(
+								$path("/chat-threads", {
+									threadId: value,
+									...(userId && { userId }),
+									...(createdStart && { createdStart }),
+									...(createdEnd && { createdEnd }),
+								})
+							);
+						}}
+					/>
+				),
+				cell: (info) => (
+					<div className="flex items-center gap-2">{info.row.original.id}</div>
+				),
+			}),
+			columnHelper.accessor((thread) => thread.parentName, {
+				id: "Name",
+				header: ({ column }) => (
+					<DataTableFilter
+						key={column.id}
+						field="Thread Name"
+						values={
+							getThreads.data
+								?.filter((thread) => !!thread?.userID)
+								?.map((thread) => ({
+									id: thread.id,
+									name: thread.name ?? "Untitled",
+								})) ?? []
+						}
+						onSelect={(value) => {
+							navigate.internal(
+								$path("/chat-threads", {
+									threadId: value,
+									...(userId && { userId }),
+									...(createdStart && { createdStart }),
+									...(createdEnd && { createdEnd }),
+								})
+							);
+						}}
+					/>
+				),
+				cell: (info) => (
+					<div className="flex items-center gap-2 text-primary">
+						{info.row.original.name}
+					</div>
+				),
 			}),
 			columnHelper.accessor((thread) => thread.parentName, {
 				id: "Obot",

@@ -250,6 +250,9 @@ export default function ProjectsPage() {
 
 	function getColumns(): ColumnDef<Project, string>[] {
 		return [
+			columnHelper.accessor("id", {
+				header: "ID",
+			}),
 			columnHelper.accessor("name", {
 				header: "Name",
 				cell: ({ row }) => <p>{row.original.name ?? "Untitled"}</p>,

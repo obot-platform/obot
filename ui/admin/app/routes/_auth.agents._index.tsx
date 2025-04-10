@@ -112,6 +112,9 @@ export default function Agents() {
 
 	function getColumns(): ColumnDef<AgentWithCounts, string>[] {
 		return [
+			columnHelper.accessor("id", {
+				header: "ID",
+			}),
 			columnHelper.accessor("name", {
 				header: "Name",
 			}),

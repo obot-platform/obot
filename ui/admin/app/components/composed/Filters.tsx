@@ -6,12 +6,14 @@ import { $path, Routes } from "safe-routes";
 import { Agent } from "~/lib/model/agents";
 import { Project, ShareStatus, getShareStatusLabel } from "~/lib/model/project";
 import { Task } from "~/lib/model/tasks";
+import { Thread } from "~/lib/model/threads";
 import { User } from "~/lib/model/users";
 import { RouteService } from "~/lib/service/routeService";
 
 import { Button } from "~/components/ui/button";
 
 type QueryParams = {
+	threadId?: string;
 	agentId?: string;
 	userId?: string;
 	taskId?: string;
@@ -23,12 +25,14 @@ type QueryParams = {
 };
 
 export function Filters({
+	threadMap,
 	agentMap,
 	userMap,
 	taskMap,
 	projectMap,
 	url,
 }: {
+	threadMap?: Map<string, Thread>;
 	agentMap?: Map<string, Agent>;
 	userMap?: Map<string, User>;
 	taskMap?: Map<string, Task>;
@@ -60,6 +64,18 @@ export function Filters({
 		};
 
 		return [
+			"threadId" in filters &&
+				filters.threadId &&
+				threadMap && {
+					key: "threadId",
+					label: "Thread",
+					value: threadMap.get(filters.threadId)?.id
+						? threadMap.get(filters.threadId)?.id +
+							(threadMap.get(filters.threadId)?.name ? " - " : "") +
+							threadMap.get(filters.threadId)?.name
+						: filters.threadId,
+					onRemove: () => deleteFilters("threadId"),
+				},
 			"agentId" in filters &&
 				filters.agentId &&
 				agentMap && {
@@ -116,7 +132,16 @@ export function Filters({
 					onRemove: () => deleteFilters("shared"),
 				},
 		].filter((x) => !!x);
-	}, [url, searchParams, agentMap, userMap, taskMap, projectMap, navigate]);
+	}, [
+		url,
+		searchParams,
+		threadMap,
+		agentMap,
+		userMap,
+		taskMap,
+		projectMap,
+		navigate,
+	]);
 
 	return (
 		<div className="flex gap-2 pb-2">
