@@ -88,7 +88,6 @@ type Config struct {
 	AgentsDir                  string   `usage:"The directory to auto load agents on start (default $XDG_CONFIG_HOME/.obot/agents)"`
 	StaticDir                  string   `usage:"The directory to serve static files from"`
 	RetentionPolicy            string   `usage:"The retention policy for the system" default:"2160h"` // default 90 days
-	RetentionFrequency         string   `usage:"The frequency to check for retention. Retention is always checked at startup, and by default every 10h. Maximum value is 10h." default:"10h"`
 	// Sendgrid webhook
 	SendgridWebhookUsername string `usage:"The username for the sendgrid webhook to authenticate with"`
 	SendgridWebhookPassword string `usage:"The password for the sendgrid webhook to authenticate with"`
