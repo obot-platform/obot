@@ -80,6 +80,7 @@ func Router(services *services.Services) (http.Handler, error) {
 	mux.HandleFunc("PUT /api/assistants/{assistant_id}/projects/{project_id}/featured", projectShare.SetFeatured)
 	mux.HandleFunc("GET /api/shares", projectShare.ListShares)
 	mux.HandleFunc("POST /api/shares/{share_public_id}", projectShare.CreateProjectFromShare)
+	mux.HandleFunc("GET /api/shares/{share_public_id}", projectShare.GetShareFromShareID)
 
 	// Assistants
 	mux.HandleFunc("GET /api/assistants", assistants.List)
