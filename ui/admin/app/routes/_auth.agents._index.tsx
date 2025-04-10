@@ -13,6 +13,7 @@ import { TaskService } from "~/lib/service/api/taskService";
 import { generateRandomName } from "~/lib/service/nameGenerator";
 import { pluralize, timeSince } from "~/lib/utils";
 
+import { DefaultAgent } from "~/components/agent/DefaultAgent";
 import { DeleteAgent } from "~/components/agent/DeleteAgent";
 import { DataTable, useRowNavigate } from "~/components/composed/DataTable";
 import { Button } from "~/components/ui/button";
@@ -78,24 +79,27 @@ export default function Agents() {
 				<div className="flex-auto overflow-hidden">
 					<div className="width-full mb-8 flex justify-between space-x-2">
 						<h2>Agents</h2>
-						<Button
-							variant="outline"
-							className="justify-start"
-							onClick={() => {
-								AgentService.createAgent({
-									agent: {
-										name: generateRandomName(),
-										tools: CapabilityTools,
-									} as Agent,
-								}).then((agent) => {
-									AgentService.getAgents.revalidate();
-									navigate.internal(agent);
-								});
-							}}
-						>
-							<PlusIcon className="mr-2 h-4 w-4" />
-							New Agent
-						</Button>
+						<div className="flex items-center gap-4">
+							<DefaultAgent agents={agents} />
+							<Button
+								variant="outline"
+								className="justify-start"
+								onClick={() => {
+									AgentService.createAgent({
+										agent: {
+											name: generateRandomName(),
+											tools: CapabilityTools,
+										} as Agent,
+									}).then((agent) => {
+										AgentService.getAgents.revalidate();
+										navigate.internal(agent);
+									});
+								}}
+							>
+								<PlusIcon className="h-4 w-4" />
+								New Agent
+							</Button>
+						</div>
 					</div>
 
 					<DataTable
