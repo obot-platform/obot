@@ -70,6 +70,6 @@ export const GitLabOAuthApp = {
 	alias: "gitlab",
 	type: "gitlab",
 	displayName: "GitLab",
-	logo: assetUrl("assets/gitlab_logo.png"),
+	logo: assetUrl("assets/gitlab_logo.svg"),
 	steps,
 } satisfies OAuthAppSpec;
