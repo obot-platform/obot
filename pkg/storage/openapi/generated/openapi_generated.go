@@ -8573,12 +8573,6 @@ func schema_storage_apis_obotobotai_v1_SlackTriggerSpec(ref common.ReferenceCall
 							Format: "",
 						},
 					},
-					"slackReceiverName": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
 				},
 			},
 		},
