@@ -326,6 +326,10 @@
 			}
 		}
 
+		.milkdown .operation-item {
+			display: none;
+		}
+
 		.dark .milkdown {
 			--crepe-color-background: #000000;
 			--crepe-color-on-background: #e6e6e6;
