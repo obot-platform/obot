@@ -207,7 +207,6 @@ func convertProjectShare(threadShare v1.ThreadShare) types.ProjectShare {
 		Tools:                threadShare.Status.Tools,
 	}
 }
-
 func (h *ProjectShareHandler) CreateProjectFromShare(req api.Context) error {
 	var (
 		shareID         = req.PathValue("share_public_id")
@@ -256,4 +255,24 @@ func (h *ProjectShareHandler) CreateProjectFromShare(req api.Context) error {
 	}
 
 	return req.Write(convertProject(newProject, nil))
+}
+
+func (h *ProjectShareHandler) GetShareFromShareID(req api.Context) error {
+	var (
+		shareID         = req.PathValue("share_public_id")
+		threadShareList v1.ThreadShareList
+	)
+
+	if err := req.List(&threadShareList, kclient.InNamespace(req.Namespace()), kclient.MatchingFields{
+		"spec.publicID": shareID,
+	}); err != nil {
+		return err
+	}
+
+	if len(threadShareList.Items) == 0 {
+		return types.NewErrNotFound("share not found %s", shareID)
+	}
+
+	threadShare := threadShareList.Items[0]
+	return req.Write(convertProjectShare(threadShare))
 }

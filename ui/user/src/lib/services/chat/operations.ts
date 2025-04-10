@@ -858,6 +858,13 @@ export async function listProjectShares(opts?: { fetch?: Fetcher }): Promise<Pro
 	return list;
 }
 
+export async function getProjectShareByPublicID(
+	publicID: string,
+	opts?: { fetch?: Fetcher }
+): Promise<ProjectShare> {
+	return (await doGet(`/shares/${publicID}`, opts)) as ProjectShare;
+}
+
 export async function copyProject(assistantID: string, projectID: string): Promise<Project> {
 	return (await doPost(`/assistants/${assistantID}/projects/${projectID}/copy`, {})) as Project;
 }
