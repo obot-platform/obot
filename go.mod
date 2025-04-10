@@ -21,7 +21,7 @@ require (
 	github.com/gptscript-ai/chat-completion-client v0.0.0-20250224164718-139cb4507b1d
 	github.com/gptscript-ai/cmd v0.0.0-20250324222528-f16f18548238
 	github.com/gptscript-ai/go-gptscript v0.9.6-0.20250331192455-415de950d72d
-	github.com/gptscript-ai/gptscript v0.9.6-0.20250328194144-ce3b7262ed0e
+	github.com/gptscript-ai/gptscript v0.9.6-0.20250410153509-c519c63e1d4f
 	github.com/liggitt/tabwriter v0.0.0-20181228230101-89fcab3d43de
 	github.com/mhale/smtpd v0.8.3
 	github.com/obot-platform/kinm v0.0.0-20250328185534-d9c9de49cc20
@@ -62,6 +62,11 @@ require (
 	k8s.io/kubectl v0.29.0
 	sigs.k8s.io/controller-runtime v0.19.0
 	sigs.k8s.io/yaml v1.4.0
+)
+
+require (
+	github.com/pkoukk/tiktoken-go v0.1.7 // indirect
+	github.com/pkoukk/tiktoken-go-loader v0.0.2-0.20240522064338-c17e8bc0f699 // indirect
 )
 
 require (
