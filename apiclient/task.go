@@ -14,6 +14,7 @@ const TaskBreadCrumbHeader = "X-Obt-Task-Bread-Crumb"
 type ListTasksOptions struct {
 	ThreadID    string
 	AssistantID string
+	ProjectID   string
 }
 
 func (c *Client) ListTasks(ctx context.Context, opts ListTasksOptions) (result types.TaskList, err error) {
@@ -23,15 +24,21 @@ func (c *Client) ListTasks(ctx context.Context, opts ListTasksOptions) (result t
 		})
 	}()
 
-	if opts.ThreadID == "" && opts.AssistantID == "" {
-		return result, fmt.Errorf("either threadID or assistantID must be provided")
+	if (opts.ThreadID == "" && opts.AssistantID == "") || (opts.ProjectID == "" && opts.AssistantID == "") {
+		return result, fmt.Errorf("either threadID, assistantID or projectID must be provided")
 	}
+
 	var url string
-	if opts.ThreadID != "" {
+
+	// If ProjectID is provided and AssistantID is provided, use the project tasks endpoint
+	if opts.ProjectID != "" && opts.AssistantID != "" {
+		url = fmt.Sprintf("/assistants/%s/projects/%s/tasks", opts.AssistantID, opts.ProjectID)
+	} else if opts.ThreadID != "" {
 		url = fmt.Sprintf("/threads/%s/tasks", opts.ThreadID)
 	} else {
 		url = fmt.Sprintf("/assistants/%s/tasks", opts.AssistantID)
 	}
+
 	_, resp, err := c.doRequest(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return result, err
@@ -89,6 +96,7 @@ func (c *Client) CreateTask(ctx context.Context, manifest types.TaskManifest, op
 type ListTaskRunsOptions struct {
 	ThreadID    string
 	AssistantID string
+	ProjectID   string
 }
 
 func (c *Client) ListTaskRuns(ctx context.Context, taskID string, opts ListTaskRunsOptions) (result types.TaskRunList, err error) {
@@ -104,6 +112,8 @@ func (c *Client) ListTaskRuns(ctx context.Context, taskID string, opts ListTaskR
 	var url string
 	if opts.ThreadID != "" {
 		url = fmt.Sprintf("/threads/%s/tasks/%s/runs", opts.ThreadID, taskID)
+	} else if opts.ProjectID != "" {
+		url = fmt.Sprintf("/assistants/%s/projects/%s/tasks/%s/runs", opts.AssistantID, opts.ProjectID, taskID)
 	} else {
 		url = fmt.Sprintf("/assistants/%s/tasks/%s/runs", opts.AssistantID, taskID)
 	}
@@ -139,4 +149,23 @@ func (c *Client) RunTask(ctx context.Context, taskID string, input string, opts 
 	defer resp.Body.Close()
 
 	return toObject(resp, &types.TaskRun{})
+}
+
+// ListProjectTasks lists tasks using the assistants API
+func (c *Client) ListProjectTasks(ctx context.Context, assistantID, projectID string) (result types.TaskList, err error) {
+	defer func() {
+		sort.Slice(result.Items, func(i, j int) bool {
+			return result.Items[i].Metadata.Created.Time.Before(result.Items[j].Metadata.Created.Time)
+		})
+	}()
+
+	url := fmt.Sprintf("/assistants/%s/projects/%s/tasks", assistantID, projectID)
+	_, resp, err := c.doRequest(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return result, err
+	}
+	defer resp.Body.Close()
+
+	_, err = toObject(resp, &result)
+	return
 }
