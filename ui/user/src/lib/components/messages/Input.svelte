@@ -116,7 +116,6 @@
 				id="chat"
 				rows="1"
 				bind:value
-				readonly={readonly || pending}
 				onkeydown={onKey}
 				bind:this={chat}
 				onfocus={onFocus}
