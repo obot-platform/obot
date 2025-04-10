@@ -4,6 +4,7 @@
 	import type { Project } from '$lib/services';
 	import { fade } from 'svelte/transition';
 	import { autoHeight } from '$lib/actions/textarea';
+	import { errors } from '$lib/stores';
 
 	interface Props {
 		project: Project;
@@ -15,6 +16,7 @@
 	let { project = $bindable() }: Props = $props();
 	let isGenerating = $state(false);
 	let isCustomPrompt = $state(false);
+	let filteredImageError = $state<string | null>(null);
 	let customPrompt = $state(
 		project.description ? DEFAULT_PROMPT.replace('{description}', project.description) : ''
 	);
@@ -41,6 +43,7 @@
 		if (!project.description && !useCustomPrompt) return;
 
 		isGenerating = true;
+		filteredImageError = null; // Clear the error before each attempt
 		try {
 			const prompt = useCustomPrompt
 				? customPrompt
@@ -51,10 +54,22 @@
 				project.icons = { icon: result.imageUrl, iconDark: undefined };
 			}
 		} catch (error) {
-			console.error('Error generating image:', error);
+			if (error instanceof Error && error.message.includes('generated image was filtered')) {
+				filteredImageError =
+					'The generated image was filtered due to content policy. Please try a different prompt.';
+				isCustomPrompt = true;
+			} else {
+				errors.append(error);
+			}
 		} finally {
 			isGenerating = false;
 		}
+	}
+
+	function focusTextarea(node: HTMLTextAreaElement) {
+		setTimeout(() => {
+			node.focus();
+		}, 0);
 	}
 </script>
 
@@ -92,10 +107,16 @@
 			<textarea
 				bind:value={customPrompt}
 				use:autoHeight
+				use:focusTextarea
 				placeholder="Enter custom prompt for image generation..."
 				class="w-full resize-none rounded-lg bg-white p-2 text-sm outline-hidden dark:bg-black dark:text-gray-50"
 				rows="3"
 			></textarea>
+		</div>
+	{/if}
+	{#if filteredImageError}
+		<div in:fade class="mt-2 rounded-lg bg-red-100/75 p-3 dark:bg-red-900/75">
+			<p class="text-sm text-red-700 dark:text-red-100">{filteredImageError}</p>
 		</div>
 	{/if}
 </div>

@@ -208,7 +208,7 @@ function remove(items: EditorItem[], id: string): boolean {
 }
 
 async function generateImage(prompt: string): Promise<ImageResponse> {
-	return (await doPost('/image/generate', { prompt })) as ImageResponse;
+	return (await doPost('/image/generate', { prompt }, { dontLogErrors: true })) as ImageResponse;
 }
 
 async function uploadImage(file: File): Promise<ImageResponse> {
