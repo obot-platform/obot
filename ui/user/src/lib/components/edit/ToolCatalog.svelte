@@ -8,6 +8,7 @@
 	import { fly } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';
 	import SearchInput from '../Search.svelte';
+	import { IGNORED_BUILTIN_TOOLS } from '$lib/constants';
 
 	interface Props {
 		onSelectTools: (tools: AssistantTool[]) => void;
@@ -81,17 +82,8 @@
 	});
 
 	const builtInTools = $derived.by(() => {
-		const ignore = new Set([
-			'workspace-files',
-			'tasks',
-			'knowledge',
-			'database',
-			'time',
-			'threads',
-			'github-com-obot-platform-tools-search-tavily-websiteknowl-d2d96'
-		]);
 		const builtInToolMap = new Map<string, AssistantTool>(
-			tools.filter((t) => t.builtin && !ignore.has(t.id)).map((t) => [t.id, t])
+			tools.filter((t) => t.builtin && !IGNORED_BUILTIN_TOOLS.has(t.id)).map((t) => [t.id, t])
 		);
 		return Array.from(getToolBundleMap().values()).reduce<ToolCatalog>(
 			(acc, { tool, bundleTools }) => {
