@@ -68,7 +68,7 @@ func (c *Client) EnsureIdentityWithRole(ctx context.Context, id *types.Identity,
 }
 
 // EncryptIdentities will pull all identities out of the database and ensure they are encrypted.
-func (c *Client) EncryptIdentities(ctx context.Context) error {
+func (c *Client) EncryptIdentities(ctx context.Context, force bool) error {
 	return c.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		var identities []types.Identity
 		if err := tx.Find(&identities).Error; err != nil {
@@ -76,7 +76,7 @@ func (c *Client) EncryptIdentities(ctx context.Context) error {
 		}
 
 		for i := range identities {
-			if identities[i].Encrypted {
+			if !force && identities[i].Encrypted {
 				continue
 			}
 

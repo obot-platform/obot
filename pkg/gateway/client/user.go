@@ -312,7 +312,18 @@ func (c *Client) decryptUser(ctx context.Context, user *types.User) error {
 	n, err = base64.StdEncoding.Decode(decoded, []byte(user.Username))
 	if err == nil {
 		if out, _, err = transformer.TransformFromStorage(ctx, decoded[:n], dataCtx); err != nil {
-			errs = append(errs, err)
+			if strings.Contains(err.Error(), "cipher: message authentication failed") {
+				// If we get this error, then that means that the user is encrypted with the old data context.
+				// Try with that context.
+				dataCtx = oldUserDataCtx(user)
+				if out, _, err = transformer.TransformFromStorage(ctx, decoded[:n], dataCtx); err != nil {
+					errs = append(errs, err)
+				} else {
+					user.Username = string(out)
+				}
+			} else {
+				errs = append(errs, err)
+			}
 		} else {
 			user.Username = string(out)
 		}
@@ -348,5 +359,9 @@ func (c *Client) decryptUser(ctx context.Context, user *types.User) error {
 }
 
 func userDataCtx(user *types.User) value.Context {
+	return value.DefaultContext(fmt.Sprintf("%s/%s", userGroupResource.String(), user.HashedUsername))
+}
+
+func oldUserDataCtx(user *types.User) value.Context {
 	return value.DefaultContext(fmt.Sprintf("%s/%s/%d", userGroupResource.String(), user.HashedUsername, user.ID))
 }
