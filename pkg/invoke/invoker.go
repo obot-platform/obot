@@ -531,10 +531,11 @@ func (i *Invoker) createRun(ctx context.Context, c kclient.WithWatch, thread *v1
 func (i *Invoker) Resume(ctx context.Context, c kclient.WithWatch, thread *v1.Thread, run *v1.Run) (err error) {
 	defer func() {
 		if err != nil {
+			errStr, _, _ := strings.Cut(err.Error(), ": exit status")
 			i.events.SubmitProgress(run, types.Progress{
 				RunID: run.Name,
 				Time:  types.NewTime(time.Now()),
-				Error: err.Error(),
+				Error: errStr,
 			})
 		}
 		i.events.Done(run)
@@ -715,13 +716,22 @@ func (i *Invoker) saveState(ctx context.Context, c kclient.Client, thread *v1.Th
 			return retErr
 		}
 		if !apierror.IsConflict(err) {
+			if err.Error() == retErr.Error() {
+				return err
+			}
 			return errors.Join(err, retErr)
 		}
 		// reload
 		if err = c.Get(ctx, router.Key(run.Namespace, run.Name), run); err != nil {
+			if err.Error() == retErr.Error() {
+				return err
+			}
 			return errors.Join(err, retErr)
 		}
 		if err = c.Get(ctx, router.Key(thread.Namespace, thread.Name), thread); err != nil {
+			if err.Error() == retErr.Error() {
+				return err
+			}
 			return errors.Join(err, retErr)
 		}
 		time.Sleep(500 * time.Millisecond)
