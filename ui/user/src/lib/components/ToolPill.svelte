@@ -17,7 +17,7 @@
 
 <div
 	use:ref
-	class="bg-surface2 flex w-fit cursor-help items-center gap-1 rounded-2xl p-2 dark:bg-gray-500 dark:text-black"
+	class="bg-surface2 flex size-8 cursor-help items-center gap-1 rounded-full p-2 dark:bg-gray-500 dark:text-black"
 >
 	{#if tool}
 		{#if tool?.metadata?.icon}
