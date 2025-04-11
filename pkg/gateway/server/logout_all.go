@@ -12,12 +12,12 @@ import (
 func (s *Server) logoutAll(apiContext api.Context) error {
 	sessionID := getSessionID(apiContext.Request)
 
-	identities, err := s.client.FindIdentitiesForUser(apiContext.Context(), apiContext.UserID())
+	identities, err := apiContext.GatewayClient.FindIdentitiesForUser(apiContext.Context(), apiContext.UserID())
 	if err != nil {
 		return err
 	}
 
-	return s.client.DeleteSessionsForUser(apiContext.Context(), s.storageClient, identities, sessionID)
+	return apiContext.GatewayClient.DeleteSessionsForUser(apiContext.Context(), s.storageClient, identities, sessionID)
 }
 
 func getSessionID(req *http.Request) string {

@@ -67,13 +67,13 @@ func (s *Server) encryptAllUsersAndIdentities(apiContext api.Context) error {
 
 	for _, user := range users {
 		if !user.Encrypted {
-			if _, err = s.client.UpdateUser(apiContext.Context(), apiContext.UserIsAdmin(), &user, user.Username); err != nil {
+			if _, err = apiContext.GatewayClient.UpdateUser(apiContext.Context(), apiContext.UserIsAdmin(), &user, user.Username); err != nil {
 				return fmt.Errorf("failed to encrypt user with id %d: %v", user.ID, err)
 			}
 		}
 	}
 
-	if err = s.client.EncryptIdentities(apiContext.Context()); err != nil {
+	if err = apiContext.GatewayClient.EncryptIdentities(apiContext.Context()); err != nil {
 		return fmt.Errorf("failed to encrypt identities: %v", err)
 	}
 
@@ -150,11 +150,17 @@ func (s *Server) updateUser(apiContext api.Context) error {
 	return apiContext.Write(types.ConvertUser(existingUser, apiContext.GatewayClient.IsExplicitAdmin(existingUser.Email), ""))
 }
 
-func (s *Server) deleteUser(apiContext api.Context) error {
+func (s *Server) deleteUser(apiContext api.Context) (err error) {
 	username := apiContext.PathValue("username")
 	if username == "" {
 		// This is the "delete me" API
 		username = apiContext.User.GetName()
+		defer func() {
+			if err == nil {
+				// If everything was successful, remove the cookie so the user isn't authenticated again.
+				apiContext.ResponseWriter.Header().Set("Set-Cookie", "")
+			}
+		}()
 	}
 
 	existingUser, err := apiContext.GatewayClient.User(apiContext.Context(), username)

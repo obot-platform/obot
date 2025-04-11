@@ -17,7 +17,7 @@ func (s *Server) activeUsers(apiContext api.Context) error {
 		return err
 	}
 
-	activeUsers, err := s.client.ActiveUsersByDate(apiContext.Context(), start, end)
+	activeUsers, err := apiContext.GatewayClient.ActiveUsersByDate(apiContext.Context(), start, end)
 	if err != nil {
 		return err
 	}
@@ -42,7 +42,7 @@ func (s *Server) activitiesByUser(apiContext api.Context) error {
 		return err
 	}
 
-	activities, err := s.client.ActivitiesByUser(apiContext.Context(), userID, start, end)
+	activities, err := apiContext.GatewayClient.ActivitiesByUser(apiContext.Context(), userID, start, end)
 	if err != nil {
 		return err
 	}

@@ -82,7 +82,7 @@ func (c *Client) UserByID(ctx context.Context, id string) (*types.User, error) {
 func (c *Client) DeleteUser(ctx context.Context, username string) (*types.User, error) {
 	existingUser := new(types.User)
 	if err := c.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		if err := tx.Where("username = ?", username).First(existingUser).Error; err != nil {
+		if err := tx.Where("hashed_username = ?", hash.String(username)).First(existingUser).Error; err != nil {
 			return err
 		}
 
