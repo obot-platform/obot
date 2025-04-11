@@ -1,6 +1,7 @@
 import { browser, building } from '$app/environment';
 import { ChatService, type Project } from '$lib/services';
 import { sortByFeaturedNameOrder } from '$lib/sort';
+import { qIsSet } from '$lib/url';
 import type { PageLoad } from './$types';
 import { redirect } from '@sveltejs/kit';
 
@@ -30,9 +31,10 @@ export const load: PageLoad = async ({ fetch }) => {
 	}
 
 	if (browser) {
+		const redirectSet = qIsSet('rd');
 		const lastVisitedObot = localStorage.getItem('lastVisitedObot');
 		const matchingProject = editorProjects.find((p) => p.id === lastVisitedObot);
-		if (lastVisitedObot && matchingProject) {
+		if (lastVisitedObot && matchingProject && !redirectSet) {
 			throw redirect(303, `/o/${matchingProject.id}`);
 		}
 	}

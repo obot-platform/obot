@@ -11,7 +11,7 @@
 	import Logo from './navbar/Logo.svelte';
 	import Tables from '$lib/components/sidebar/Tables.svelte';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
-	import { tools } from '$lib/stores';
+	import { getProjectTools } from '$lib/context/projectTools.svelte';
 
 	interface Props {
 		project: Project;
@@ -22,6 +22,7 @@
 	let credentials = $state<ReturnType<typeof Credentials>>();
 	let projectsOpen = $state(false);
 	const layout = getLayout();
+	const projectTools = getProjectTools();
 </script>
 
 <div class="bg-surface1 relative flex size-full flex-col">
@@ -58,7 +59,7 @@
 	<div class="default-scrollbar-thin flex w-full grow flex-col gap-2 px-3 pb-5">
 		<Threads {project} bind:currentThreadID />
 		<Tasks {project} bind:currentThreadID />
-		{#if hasTool(tools.current.tools, 'database')}
+		{#if hasTool(projectTools.tools, 'database')}
 			<Tables {project} />
 		{/if}
 	</div>

@@ -4,22 +4,24 @@
 	import { type AssistantTool } from '$lib/services';
 	import ToolCatalog from './ToolCatalog.svelte';
 	import { Plus, X } from 'lucide-svelte/icons';
-	import { tools as toolsStore } from '$lib/stores';
+	import { getProjectTools } from '$lib/context/projectTools.svelte';
 
 	interface Props {
 		onNewTools: (tools: AssistantTool[]) => Promise<void>;
 	}
 
 	let { onNewTools }: Props = $props();
+	const projectTools = getProjectTools();
+
 	let enabledList = $derived(
-		toolsStore.current.tools.filter((t) => !t.builtin && t.enabled && t.id && !t.toolType)
+		projectTools.tools.filter((t) => !t.builtin && t.enabled && t.id && !t.toolType)
 	);
 
 	async function remove(tool: AssistantTool) {
 		if (tool.toolType) {
-			toolsStore.setTools(toolsStore.current.tools.filter((t) => t.id !== tool.id));
+			projectTools.tools = projectTools.tools.filter((t) => t.id !== tool.id);
 		} else {
-			await onNewTools(toolsStore.current.tools.filter((t) => t.id !== tool.id));
+			onNewTools(projectTools.tools.filter((t) => t.id !== tool.id));
 		}
 	}
 
@@ -82,7 +84,7 @@
 	<ToolCatalog
 		onSelectTools={onNewTools}
 		onSubmit={() => toolCatalog?.close()}
-		tools={toolsStore.current.tools}
-		maxTools={toolsStore.current.maxTools}
+		tools={projectTools.tools}
+		maxTools={projectTools.maxTools}
 	/>
 </dialog>

@@ -5,26 +5,27 @@
 	import { popover } from '$lib/actions';
 	import { fade } from 'svelte/transition';
 	import CredentialAuth from '$lib/components/edit/CredentialAuth.svelte';
-	import { tools } from '$lib/stores';
+	import { getProjectTools } from '$lib/context/projectTools.svelte';
 
 	interface Props {
 		project: Project;
 		local?: boolean;
 	}
 
+	const projectTools = getProjectTools();
 	let { project, local }: Props = $props();
 	let { ref, tooltip, toggle } = popover();
 	let credentials = $state<ProjectCredential[]>();
 	let credentialsAvailable = $derived.by(() => {
 		return credentials?.filter((cred) => {
-			return tools.current.tools.find((tool) => {
+			return projectTools.tools.find((tool) => {
 				return tool.enabled && cred.toolID === tool.id && !cred.exists;
 			});
 		});
 	});
 	let credentialsExists = $derived.by(() => {
 		return credentials?.filter((cred) => {
-			return tools.current.tools.find((tool) => {
+			return projectTools.tools.find((tool) => {
 				return tool.enabled && cred.toolID === tool.id && cred.exists;
 			});
 		});

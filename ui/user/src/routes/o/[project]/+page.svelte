@@ -5,8 +5,9 @@
 	import { initLayout } from '$lib/context/layout.svelte';
 	import { initToolReferences } from '$lib/context/toolReferences.svelte';
 	import { browser } from '$app/environment';
-	import { profile, responsive, tools } from '$lib/stores';
+	import { profile, responsive } from '$lib/stores';
 	import { qIsSet } from '$lib/url';
+	import { initProjectTools } from '$lib/context/projectTools.svelte.js';
 
 	let { data } = $props();
 	let project = $state(data.project);
@@ -17,11 +18,23 @@
 	let title = $derived(project?.name || 'Obot');
 
 	initToolReferences(data.toolReferences ?? []);
-
 	initialLayout();
 
-	tools.setTools(data.tools ?? []);
-	tools.setMaxTools(data.assistant?.maxTools ?? 5);
+	// Initialize project tools immediately
+	initProjectTools({
+		tools: data.tools ?? [],
+		maxTools: data.assistant?.maxTools ?? 5
+	});
+
+	// Update project tools when data changes
+	$effect(() => {
+		if (data.tools || data.assistant) {
+			initProjectTools({
+				tools: data.tools ?? [],
+				maxTools: data.assistant?.maxTools ?? 5
+			});
+		}
+	});
 
 	$effect(() => {
 		if (navigating) {

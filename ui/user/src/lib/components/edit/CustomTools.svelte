@@ -9,16 +9,18 @@
 	} from '$lib/services';
 	import CustomTool from '$lib/components/edit/CustomTool.svelte';
 	import { Plus, SquarePen } from 'lucide-svelte/icons';
-	import { responsive, tools as toolsStore } from '$lib/stores';
+	import { responsive } from '$lib/stores';
 	import { twMerge } from 'tailwind-merge';
+	import { getProjectTools } from '$lib/context/projectTools.svelte';
 
 	interface Props {
 		project: Project;
 	}
 
+	const projectTools = getProjectTools();
 	let { project }: Props = $props();
 	let enabledList = $derived(
-		toolsStore.current.tools.filter((t) => !t.builtin && t.enabled && t.id && t.toolType)
+		projectTools.tools.filter((t) => !t.builtin && t.enabled && t.id && t.toolType)
 	);
 	let typeSelectionTT = popover();
 	let customToolDialog = $state<HTMLDialogElement>();
@@ -36,7 +38,7 @@
 			toolType: type
 		});
 
-		toolsStore.setTools([...toolsStore.current.tools, newTool]);
+		projectTools.tools.push(newTool);
 		toEdit = newTool;
 		customToolDialog?.showModal();
 		typeSelectionTT.toggle(false);
@@ -150,10 +152,10 @@
 					bind:tool={toEdit}
 					{project}
 					onSave={async (tool) => {
-						toolsStore.setTools(toolsStore.current.tools.map((t) => (t.id === tool.id ? tool : t)));
+						projectTools.tools = projectTools.tools.map((t) => (t.id === tool.id ? tool : t));
 					}}
 					onDelete={async (tool) => {
-						toolsStore.setTools(toolsStore.current.tools.filter((t) => t.id !== tool.id));
+						projectTools.tools = projectTools.tools.filter((t) => t.id !== tool.id);
 						toEdit = undefined;
 						customToolDialog?.close();
 					}}

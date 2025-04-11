@@ -1,9 +1,9 @@
 <script lang="ts">
 	import { LoaderCircle, Wrench } from 'lucide-svelte/icons';
 	import { ChatService, type AssistantTool, type Project, type Thread } from '$lib/services';
-	import { tools as toolsStore } from '$lib/stores';
 	import ToolCatalog from '../edit/ToolCatalog.svelte';
 	import { clickOutside } from '$lib/actions/clickoutside';
+	import { getProjectTools } from '$lib/context/projectTools.svelte';
 
 	interface Prop {
 		project: Project;
@@ -11,6 +11,7 @@
 		thread?: boolean;
 	}
 
+	const projectTools = getProjectTools();
 	let { project, currentThreadID = $bindable(), thread }: Prop = $props();
 	let catalog = $state<HTMLDialogElement | undefined>();
 	let tools = $state<AssistantTool[]>([]);
@@ -85,7 +86,7 @@
 			onSubmit={() => {
 				catalog?.close();
 			}}
-			maxTools={toolsStore.current.maxTools}
+			maxTools={projectTools.maxTools}
 			title="Thread Tool Catalog"
 			{tools}
 		/>

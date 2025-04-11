@@ -3,4 +3,3 @@ export { default as profile } from './profile.svelte';
 export { default as errors } from './errors.svelte';
 export { default as responsive } from './responsive.svelte';
 export { default as version } from './version.svelte';
-export { default as tools } from './tools.svelte';

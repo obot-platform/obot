@@ -27,10 +27,11 @@
 	import Projects from './navbar/Projects.svelte';
 	import { goto } from '$app/navigation';
 	import Sites from '$lib/components/edit/Sites.svelte';
-	import { errors, responsive, tools, version } from '$lib/stores';
+	import { errors, responsive, version } from '$lib/stores';
 	import { twMerge } from 'tailwind-merge';
 	import Slack from '$lib/components/slack/Slack.svelte';
 	import CustomTools from './edit/CustomTools.svelte';
+	import { getProjectTools } from '$lib/context/projectTools.svelte';
 	interface Props {
 		project: Project;
 		currentThreadID?: string;
@@ -45,6 +46,7 @@
 	let nav = $state<HTMLDivElement>();
 	let toDelete = $state(false);
 	let showAdvanced = $state(false);
+	const projectTools = getProjectTools();
 
 	async function updateProject() {
 		if (JSON.stringify(project) === projectSaved) {
@@ -59,13 +61,10 @@
 	}
 
 	async function onNewTools(newTools: AssistantTool[]) {
-		tools.setTools(
-			(
-				await ChatService.updateProjectTools(project.assistantID, project.id, {
-					items: newTools
-				})
-			).items
-		);
+		const response = await ChatService.updateProjectTools(project.assistantID, project.id, {
+			items: newTools
+		});
+		projectTools.tools = response.items;
 	}
 
 	async function loadProject() {
