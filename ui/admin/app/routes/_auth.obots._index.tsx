@@ -95,6 +95,7 @@ export default function ProjectsPage() {
 			createdStart,
 			createdEnd,
 			agentId,
+			userId,
 		} = pageQuery.params ?? {};
 
 		if (createdStart) {
@@ -131,6 +132,10 @@ export default function ProjectsPage() {
 
 		if (!showChildren) {
 			filtered = filtered.filter((p) => !p.parentID);
+		}
+
+		if (userId) {
+			filtered = filtered.filter((p) => p.userID === userId);
 		}
 
 		return filtered;
