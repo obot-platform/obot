@@ -54,9 +54,20 @@ const handleGetUser = createFetcher(
 	() => ApiRoutes.users.getOne(":username").path
 );
 
+async function deleteUser(username: string) {
+	const { data } = await request<User>({
+		url: ApiRoutes.users.deleteUser(username).url,
+		method: "DELETE",
+		errorMessage: "Failed to delete user",
+	});
+
+	return data;
+}
+
 export const UserService = {
 	getMe,
 	getUsers: handleGetUsers,
 	updateUser,
 	getUser: handleGetUser,
+	deleteUser,
 };
