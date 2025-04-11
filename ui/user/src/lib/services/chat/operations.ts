@@ -44,6 +44,10 @@ export async function getProfile(): Promise<Profile> {
 	return obj;
 }
 
+export async function deleteProfile() {
+	return doDelete(`/me`);
+}
+
 export async function getVersion(): Promise<Version> {
 	return (await doGet('/version')) as Version;
 }

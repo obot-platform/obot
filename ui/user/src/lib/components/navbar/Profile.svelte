@@ -2,7 +2,7 @@
 	import ProfileIcon from '$lib/components/profile/ProfileIcon.svelte';
 	import { errors, profile, responsive } from '$lib/stores';
 	import Menu from '$lib/components/navbar/Menu.svelte';
-	import { Book, LayoutDashboard, LogOut, Moon, Sun } from 'lucide-svelte/icons';
+	import { Book, LayoutDashboard, User, LogOut, Moon, Sun } from 'lucide-svelte/icons';
 	import { darkMode } from '$lib/stores';
 	import { twMerge } from 'tailwind-merge';
 	import Confirm from '$lib/components/Confirm.svelte';
@@ -106,6 +106,9 @@
 				</a>
 			{/if}
 			{#if profile.current.email}
+				<a href="/profile" rel="external" role="menuitem" class="link"
+					><User class="size-4" /> My Account</a
+				>
 				<a href="/oauth2/sign_out?rd=/" rel="external" role="menuitem" class="link"
 					><LogOut class="size-4" /> Log out</a
 				>
