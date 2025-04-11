@@ -16,7 +16,7 @@ import { ThreadsService } from "~/lib/service/api/threadsService";
 import { UserService } from "~/lib/service/api/userService";
 import { RouteHandle } from "~/lib/service/routeHandles";
 import { RouteQueryParams, RouteService } from "~/lib/service/routeService";
-import { timeSince } from "~/lib/utils";
+import { formatTime } from "~/lib/utils";
 import { filterByCreatedRange } from "~/lib/utils/filter";
 
 import {
@@ -225,29 +225,6 @@ export default function TaskRuns() {
 					</div>
 				),
 			}),
-			columnHelper.accessor((thread) => thread.userName, {
-				id: "User",
-				header: ({ column }) => (
-					<DataTableFilter
-						key={column.id}
-						field="User"
-						values={
-							getUsers.data?.map((user) => ({
-								id: user.id,
-								name: user.email,
-							})) ?? []
-						}
-						onSelect={(value) => {
-							navigate.internal(
-								$path("/task-runs", {
-									userId: value,
-									...(taskId && { taskId }),
-								})
-							);
-						}}
-					/>
-				),
-			}),
 			columnHelper.accessor("created", {
 				id: "created",
 				header: ({ column }) => (
@@ -271,7 +248,7 @@ export default function TaskRuns() {
 					/>
 				),
 				cell: (info) => (
-					<p>{timeSince(new Date(info.row.original.created))} ago</p>
+					<p>{formatTime(new Date(info.row.original.created))}</p>
 				),
 				sortingFn: "datetime",
 			}),
