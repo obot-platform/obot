@@ -509,9 +509,7 @@ func convertProject(thread *v1.Thread, req api.Context) types.Project {
 	if thread.Spec.ParentThreadName != "" {
 		var parentThread v1.Thread
 		if err := req.Get(&parentThread, thread.Spec.ParentThreadName); err == nil {
-			for _, tool := range parentThread.Spec.Manifest.Tools {
-				p.Tools = append(p.Tools, tool)
-			}
+			p.Tools = append(p.Tools, parentThread.Spec.Manifest.Tools...)
 		}
 	}
 
