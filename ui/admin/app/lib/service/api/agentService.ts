@@ -205,6 +205,17 @@ async function downloadWorkspaceFile(agentId: string, fileName: string) {
 	);
 }
 
+const setDefaultAgent = createMutator(
+	async ({ agentId }: { agentId: string }, { signal }) => {
+		await request({
+			url: ApiRoutes.agents.setDefault(agentId).url,
+			method: "PUT",
+			errorMessage: "Failed to set default agent",
+			signal,
+		});
+	}
+);
+
 export const AgentService = {
 	getAgents: getAgents,
 	getAgentById: getAgentById,
@@ -219,4 +230,5 @@ export const AgentService = {
 	uploadWorkspaceFile: uploadWorkspaceFile,
 	deleteWorkspaceFile: deleteWorkspaceFile,
 	downloadWorkspaceFile: downloadWorkspaceFile,
+	setDefaultAgent,
 };

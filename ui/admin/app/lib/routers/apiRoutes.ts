@@ -151,6 +151,7 @@ export const ApiRoutes = {
 			buildUrl(`/agents/${agentId}/file/${fileName}`),
 		getThreadsForAgent: (agentId: string) =>
 			buildUrl(`/agents/${agentId}/threads`),
+		setDefault: (agentId: string) => buildUrl(`/agents/${agentId}/setdefault`),
 	},
 	tasks: {
 		base: () => buildUrl("/tasks"),

@@ -40,6 +40,7 @@ export type AgentOAuthStatus = {
 export type Agent = EntityMeta &
 	AgentBase & {
 		authStatus?: Record<string, AgentOAuthStatus>;
+		default?: boolean;
 	};
 
 export type CreateAgent = AgentBase;
