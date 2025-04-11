@@ -13,7 +13,12 @@ import (
 var log = logger.Package()
 
 func RunRetention(policy time.Duration) func(req router.Request, resp router.Response) error {
-	log.Infof("retention policy: %s", policy)
+	if policy == 0 {
+		log.Infof("retention policy: disabled")
+	} else {
+		log.Infof("retention policy: %s", policy)
+	}
+
 	return func(req router.Request, resp router.Response) error {
 		if policy == 0 {
 			return nil
