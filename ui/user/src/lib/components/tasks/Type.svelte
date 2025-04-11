@@ -27,6 +27,7 @@
 		}
 		// assigned later so it's rendered last
 		options['onDemand'] = 'on demand';
+		options['discord'] = 'on discord';
 		return options;
 	});
 
@@ -42,6 +43,9 @@
 		}
 		if (task?.onSlackMessage) {
 			return 'slack';
+		}
+		if (task?.onDiscordMessage) {
+			return 'discord';
 		}
 		return 'onDemand';
 	}
@@ -63,6 +67,7 @@
 			task.email = undefined;
 			task.onDemand = undefined;
 			task.onSlackMessage = undefined;
+			task.onDiscordMessage = undefined;
 		}
 		if (value === 'webhook') {
 			task.schedule = undefined;
@@ -70,6 +75,7 @@
 			task.email = undefined;
 			task.onDemand = undefined;
 			task.onSlackMessage = undefined;
+			task.onDiscordMessage = undefined;
 		}
 		if (value === 'email') {
 			task.schedule = undefined;
@@ -77,6 +83,7 @@
 			task.onDemand = undefined;
 			task.email = {};
 			task.onSlackMessage = undefined;
+			task.onDiscordMessage = undefined;
 		}
 		if (value === 'onDemand') {
 			task.schedule = undefined;
@@ -84,6 +91,7 @@
 			task.email = undefined;
 			task.onDemand = undefined;
 			task.onSlackMessage = undefined;
+			task.onDiscordMessage = undefined;
 		}
 		if (value === 'slack') {
 			task.schedule = undefined;
@@ -91,6 +99,15 @@
 			task.email = undefined;
 			task.onDemand = undefined;
 			task.onSlackMessage = {};
+			task.onDiscordMessage = undefined;
+		}
+		if (value === 'discord') {
+			task.schedule = undefined;
+			task.webhook = undefined;
+			task.email = undefined;
+			task.onDemand = undefined;
+			task.onSlackMessage = undefined;
+			task.onDiscordMessage = {};
 		}
 	}
 </script>
@@ -108,6 +125,6 @@
 	</div>
 
 	{#if task}
-		<Trigger bind:task {readOnly} />
+		<Trigger bind:task {readOnly} {project} />
 	{/if}
 </div>

@@ -5,13 +5,16 @@
 	import CopyButton from '$lib/components/CopyButton.svelte';
 	import { slide } from 'svelte/transition';
 	import { version } from '$lib/stores';
+	import type { Project } from '$lib/services';
+	import Discord from './Discord.svelte';
 
 	interface Props {
 		task: Task;
 		readOnly?: boolean;
+		project: Project;
 	}
 
-	let { task = $bindable(), readOnly }: Props = $props();
+	let { task = $bindable(), readOnly, project }: Props = $props();
 
 	let email = $derived.by(() => {
 		if (version.current.emailDomain && task.alias) {
@@ -60,6 +63,9 @@
 		if (task.onSlackMessage) {
 			return 'slack';
 		}
+		if (task.onDiscordMessage) {
+			return 'discord';
+		}
 		return 'onDemand';
 	}
 </script>
@@ -101,5 +107,17 @@
 				</div>
 			</div>
 		</div>
+	{/if}
+	{#if selectedTrigger() === 'discord'}
+		<div class="flex grow flex-col gap-4">
+			<div class="flex items-center justify-between">
+				<div class="flex gap-2">
+					<p class="text-sm text-gray-600 dark:text-gray-400">
+						This task will be triggered when you mention the bot in any Discord channel
+					</p>
+				</div>
+			</div>
+		</div>
+		<Discord {task} {project} />
 	{/if}
 </div>
