@@ -29,7 +29,7 @@ const steps: OAuthFormStep<typeof schema.shape>[] = [
 		type: "markdown",
 		text:
 			"### Step 2: Create a new GitLab OAuth application\n" +
-			"1. Go to your GitLab account, navigate to **Settings > Applications**\n" +
+			"1. Go to your GitLab account, navigate to **Preferences > Applications**\n" +
 			'2. Enter a **Name** for your application (e.g. "Obot Integration")\n' +
 			"3. Fill in the **Redirect URI** with the link below\n",
 	},
@@ -41,9 +41,9 @@ const steps: OAuthFormStep<typeof schema.shape>[] = [
 		type: "markdown",
 		text:
 			"4. Select the required scopes:\n" +
-			"   - `read_api` - for accessing GitLab API resources\n" +
+			"   - `api` - for accessing GitLab API resources\n" +
 			"   - `read_user` - for accessing user information\n" +
-			"   - `read_repository` - for accessing repository information\n",
+			"   - `email - access user email information\n",
 	},
 	{
 		type: "markdown",
