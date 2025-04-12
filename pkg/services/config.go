@@ -408,6 +408,10 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		authenticators = union.New(authenticators, tokenServer)
 		// Add bootstrap auth
 		authenticators = union.New(authenticators, bootstrapper)
+		if config.BearerToken != "" {
+			// Add otel metrics auth
+			authenticators = union.New(authenticators, authn.NewToken(config.BearerToken, "metrics", authz.MetricsGroup))
+		}
 		// Add anonymous user authenticator
 		authenticators = union.New(authenticators, authn.Anonymous{})
 

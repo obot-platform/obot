@@ -8,10 +8,9 @@ import (
 	"k8s.io/apiserver/pkg/authentication/user"
 )
 
-type Anonymous struct {
-}
+type Anonymous struct{}
 
-func (n Anonymous) AuthenticateRequest(*http.Request) (*authenticator.Response, bool, error) {
+func (Anonymous) AuthenticateRequest(*http.Request) (*authenticator.Response, bool, error) {
 	return &authenticator.Response{
 		User: &user.DefaultInfo{
 			UID:    "anonymous",

@@ -12,6 +12,7 @@ import (
 const (
 	AdminGroup           = "admin"
 	AuthenticatedGroup   = "authenticated"
+	MetricsGroup         = "metrics"
 	UnauthenticatedGroup = "unauthenticated"
 
 	// anyGroup is an internal group that allows access to any group
@@ -47,7 +48,6 @@ var staticRules = map[string][]string{
 		"POST /api/sendgrid",
 
 		"GET /api/healthz",
-		"GET /debug/metrics",
 
 		"GET /api/auth-providers",
 		"GET /api/auth-providers/{id}",
@@ -72,6 +72,9 @@ var staticRules = map[string][]string{
 		"POST /api/image/generate",
 		"POST /api/image/upload",
 		"POST /api/logout-all",
+	},
+	MetricsGroup: {
+		"/debug/metrics",
 	},
 }
 
