@@ -28,6 +28,7 @@ import { Link } from "~/components/ui/link";
 import { useQueryInfo } from "~/hooks/useRouteInfo";
 
 type TableTask = Task & {
+	id: string;
 	agent: string;
 	agentID: string;
 	threadCount: number;
@@ -117,8 +118,12 @@ export default function Tasks() {
 	const data = useMemo(() => {
 		let filteredTasks = tasks;
 
-		const { agentId, userId, taskId, createdStart, createdEnd, obotId } =
+		const { id, agentId, userId, taskId, createdStart, createdEnd, obotId } =
 			pageQuery.params ?? {};
+
+		if (id) {
+			filteredTasks = filteredTasks.filter((item) => item.id === id);
+		}
 
 		if (obotId) {
 			filteredTasks = filteredTasks.filter((item) => item.projectID === obotId);
@@ -147,6 +152,7 @@ export default function Tasks() {
 		filteredTasks = search
 			? filteredTasks.filter(
 					(item) =>
+						item.id.toLowerCase().includes(search.toLowerCase()) ||
 						item.name.toLowerCase().includes(search.toLowerCase()) ||
 						item.agent.toLowerCase().includes(search.toLowerCase()) ||
 						item.user.toLowerCase().includes(search.toLowerCase())
@@ -176,6 +182,7 @@ export default function Tasks() {
 					</div>
 
 					<Filters
+						idMap={taskMap}
 						userMap={userMap}
 						agentMap={agentMap}
 						taskMap={taskMap}
@@ -198,7 +205,20 @@ export default function Tasks() {
 	function getColumns(): ColumnDef<(typeof tasks)[0], string>[] {
 		return [
 			columnHelper.accessor("id", {
-				header: "ID",
+				id: "ID",
+				header: ({ column }) => (
+					<DataTableFilter
+						key={column.id}
+						field="ID"
+						values={
+							data?.map((task) => ({
+								id: task.id,
+								name: task.id,
+							})) ?? []
+						}
+						onSelect={(value) => pageQuery.update("id", value)}
+					/>
+				),
 			}),
 			columnHelper.accessor("name", {
 				id: "Task",

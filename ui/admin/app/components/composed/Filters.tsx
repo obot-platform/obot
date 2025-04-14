@@ -13,6 +13,7 @@ import { RouteService } from "~/lib/service/routeService";
 import { Button } from "~/components/ui/button";
 
 type QueryParams = {
+	id?: string;
 	threadId?: string;
 	agentId?: string;
 	userId?: string;
@@ -25,6 +26,7 @@ type QueryParams = {
 };
 
 export function Filters({
+	idMap,
 	threadMap,
 	agentMap,
 	userMap,
@@ -32,6 +34,7 @@ export function Filters({
 	projectMap,
 	url,
 }: {
+	idMap?: Map<string, Task>;
 	threadMap?: Map<string, Thread>;
 	agentMap?: Map<string, Agent>;
 	userMap?: Map<string, User>;
@@ -63,78 +66,97 @@ export function Filters({
 			return navigate($path(url, cleanQuery));
 		};
 
-		return [
-			"threadId" in filters &&
-				filters.threadId &&
-				threadMap && {
-					key: "threadId",
-					label: "Thread",
-					value: threadMap.get(filters.threadId)?.id
-						? threadMap.get(filters.threadId)?.id +
-							(threadMap.get(filters.threadId)?.name ? " - " : "") +
-							threadMap.get(filters.threadId)?.name
-						: filters.threadId,
-					onRemove: () => deleteFilters("threadId"),
-				},
-			"agentId" in filters &&
-				filters.agentId &&
-				agentMap && {
-					key: "agentId",
-					label: "Base Agent",
-					value: agentMap.get(filters.agentId)?.name ?? filters.agentId,
-					onRemove: () => deleteFilters("agentId"),
-				},
-			"userId" in filters &&
-				filters.userId &&
-				userMap && {
-					key: "userId",
-					label: "User",
-					value: userMap.get(filters.userId)?.email ?? filters.userId,
-					onRemove: () => deleteFilters("userId"),
-				},
-			"taskId" in filters &&
-				filters.taskId &&
-				taskMap && {
-					key: "taskId",
-					label: "Task",
-					value: taskMap?.get(filters.taskId)?.name ?? filters.taskId,
-					onRemove: () => deleteFilters("taskId"),
-				},
-			"createdStart" in filters &&
-				filters.createdStart && {
-					key: "createdStart",
-					label: "Created",
-					value: `${new Date(filters.createdStart).toLocaleDateString()} ${filters.createdEnd ? `- ${new Date(filters.createdEnd).toLocaleDateString()}` : ""}`,
-					onRemove: () => deleteFilters("createdStart", "createdEnd"),
-				},
-			"obotId" in filters &&
-				filters.obotId &&
-				projectMap && {
-					key: "obotId",
-					label: "Obot",
-					value: projectMap.get(filters.obotId)?.name ?? filters.obotId,
-					onRemove: () => deleteFilters("obotId"),
-				},
-			"parentObotId" in filters &&
-				filters.parentObotId &&
-				projectMap && {
-					key: "parentObotId",
-					label: "Spawned from",
-					value:
-						projectMap.get(filters.parentObotId)?.name ?? filters.parentObotId,
-					onRemove: () => deleteFilters("parentObotId"),
-				},
-			"shared" in filters &&
-				filters.shared && {
-					key: "shared",
-					label: "Shared",
-					value: getShareStatusLabel(filters.shared),
-					onRemove: () => deleteFilters("shared"),
-				},
-		].filter((x) => !!x);
+		return (
+			[
+				"id" in filters &&
+					filters.id &&
+					idMap && {
+						key: "id",
+						label: "ID",
+						value: idMap.get(String(filters.id))?.id
+							? (idMap.get(String(filters.id))?.id ?? filters.id)
+							: filters.id,
+						onRemove: () => deleteFilters("id"),
+					},
+				"threadId" in filters &&
+					filters.threadId &&
+					threadMap && {
+						key: "threadId",
+						label: "Thread",
+						value: threadMap.get(filters.threadId)?.id
+							? threadMap.get(filters.threadId)?.id +
+								(threadMap.get(filters.threadId)?.name ? " - " : "") +
+								threadMap.get(filters.threadId)?.name
+							: filters.threadId,
+						onRemove: () => deleteFilters("threadId"),
+					},
+				"agentId" in filters &&
+					filters.agentId &&
+					agentMap && {
+						key: "agentId",
+						label: "Base Agent",
+						value: agentMap.get(filters.agentId)?.name ?? filters.agentId,
+						onRemove: () => deleteFilters("agentId"),
+					},
+				"userId" in filters &&
+					filters.userId &&
+					userMap && {
+						key: "userId",
+						label: "User",
+						value: userMap.get(filters.userId)?.email ?? filters.userId,
+						onRemove: () => deleteFilters("userId"),
+					},
+				"taskId" in filters &&
+					filters.taskId &&
+					taskMap && {
+						key: "taskId",
+						label: "Task",
+						value: taskMap?.get(filters.taskId)?.name ?? filters.taskId,
+						onRemove: () => deleteFilters("taskId"),
+					},
+				"createdStart" in filters &&
+					filters.createdStart && {
+						key: "createdStart",
+						label: "Created",
+						value: `${new Date(filters.createdStart).toLocaleDateString()} ${filters.createdEnd ? `- ${new Date(filters.createdEnd).toLocaleDateString()}` : ""}`,
+						onRemove: () => deleteFilters("createdStart", "createdEnd"),
+					},
+				"obotId" in filters &&
+					filters.obotId &&
+					projectMap && {
+						key: "obotId",
+						label: "Obot",
+						value: projectMap.get(filters.obotId)?.name ?? filters.obotId,
+						onRemove: () => deleteFilters("obotId"),
+					},
+				"parentObotId" in filters &&
+					filters.parentObotId &&
+					projectMap && {
+						key: "parentObotId",
+						label: "Spawned from",
+						value:
+							projectMap.get(filters.parentObotId)?.name ??
+							filters.parentObotId,
+						onRemove: () => deleteFilters("parentObotId"),
+					},
+				"shared" in filters &&
+					filters.shared && {
+						key: "shared",
+						label: "Shared",
+						value: getShareStatusLabel(filters.shared),
+						onRemove: () => deleteFilters("shared"),
+					},
+			] as {
+				key: string;
+				label: string;
+				value: string;
+				onRemove: () => void;
+			}[]
+		).filter((x) => !!x);
 	}, [
 		url,
 		searchParams,
+		idMap,
 		threadMap,
 		agentMap,
 		userMap,

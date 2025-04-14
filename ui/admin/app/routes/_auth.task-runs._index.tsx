@@ -64,7 +64,7 @@ export default function TaskRuns() {
 			? value
 			: $path("/task-runs/:id", { id: value.id })
 	);
-	const { taskId, userId, createdStart, createdEnd } =
+	const { id, taskId, userId, createdStart, createdEnd } =
 		useLoaderData<typeof clientLoader>();
 
 	const getThreads = useSWR(...ThreadsService.getThreads.swr({}));
@@ -121,6 +121,10 @@ export default function TaskRuns() {
 	const data = useMemo(() => {
 		let filteredThreads = threads;
 
+		if (id) {
+			filteredThreads = threads.filter((thread) => thread.id === id);
+		}
+
 		if (taskId) {
 			filteredThreads = threads.filter((thread) => thread.taskID === taskId);
 		}
@@ -138,7 +142,7 @@ export default function TaskRuns() {
 		}
 
 		return filteredThreads;
-	}, [threads, taskId, userId, createdStart, createdEnd]);
+	}, [threads, id, taskId, userId, createdStart, createdEnd]);
 
 	const namesCount = useMemo(() => {
 		return (
@@ -152,6 +156,7 @@ export default function TaskRuns() {
 	const itemsToDisplay = search
 		? data.filter(
 				(item) =>
+					item.id.toLowerCase().includes(search.toLowerCase()) ||
 					item.parentName.toLowerCase().includes(search.toLowerCase()) ||
 					item.userName.toLowerCase().includes(search.toLowerCase())
 			)
@@ -167,7 +172,12 @@ export default function TaskRuns() {
 				/>
 			</div>
 
-			<Filters userMap={userMap} taskMap={taskMap} url="/task-runs" />
+			<Filters
+				idMap={taskMap}
+				userMap={userMap}
+				taskMap={taskMap}
+				url="/task-runs"
+			/>
 
 			<DataTable
 				columns={getColumns()}
@@ -183,7 +193,27 @@ export default function TaskRuns() {
 	function getColumns(): ColumnDef<(typeof data)[0], string>[] {
 		return [
 			columnHelper.accessor("id", {
-				header: "ID",
+				id: "ID",
+				header: ({ column }) => (
+					<DataTableFilter
+						key={column.id}
+						field="ID"
+						values={
+							data?.map((task) => ({
+								id: task.id,
+								name: task.id,
+							})) ?? []
+						}
+						onSelect={(value) => {
+							navigate.internal(
+								$path("/task-runs", {
+									id: value,
+									...(userId && { userId }),
+								})
+							);
+						}}
+					/>
+				),
 			}),
 			columnHelper.accessor((thread) => thread.parentName, {
 				id: "Task",

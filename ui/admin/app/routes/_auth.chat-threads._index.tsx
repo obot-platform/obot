@@ -58,7 +58,7 @@ export async function clientLoader({
 	return query ?? {};
 }
 
-export default function ChatThreads() {
+export default function TaskRuns() {
 	const [search, setSearch] = useState("");
 	const navigate = useRowNavigate((value: Thread | string) =>
 		typeof value === "string"
@@ -83,11 +83,7 @@ export default function ChatThreads() {
 		if (!getThreads.data) return [];
 
 		let filteredThreads = getThreads.data.filter(
-			(thread) =>
-				thread.assistantID &&
-				!thread.deleted &&
-				!thread.project &&
-				!thread.taskID
+			(thread) => thread.assistantID && !thread.deleted && !thread.project
 		);
 
 		if (threadId) {

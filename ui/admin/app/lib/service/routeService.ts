@@ -15,6 +15,7 @@ const QuerySchemas = {
 		from: z.string().nullish(),
 	}),
 	threadsListSchema: z.object({
+		id: z.string().nullish(),
 		threadId: z.string().nullish(),
 		agentId: z.string().nullish(),
 		userId: z.string().nullish(),
@@ -28,6 +29,7 @@ const QuerySchemas = {
 		threadId: z.string().nullish(),
 	}),
 	tasksSchema: z.object({
+		id: z.string().nullish(),
 		obotId: z.string().nullish(),
 		agentId: z.string().nullish(),
 		userId: z.string().nullish(),
