@@ -220,7 +220,7 @@ func (h *ProjectShareHandler) CreateProjectFromShare(req api.Context) error {
 	if err := req.Get(&baseProject, id); err != nil && !apierrors.IsNotFound(err) {
 		return err
 	} else if err == nil {
-		return req.Write(convertProject(&baseProject, req))
+		return req.Write(convertProject(&baseProject, nil))
 	}
 
 	if err := req.List(&threadShareList, kclient.InNamespace(req.Namespace()), kclient.MatchingFields{
@@ -238,7 +238,7 @@ func (h *ProjectShareHandler) CreateProjectFromShare(req api.Context) error {
 	}
 
 	if baseProject.Spec.UserID == req.User.GetUID() && !create {
-		return req.Write(convertProject(&baseProject, req))
+		return req.Write(convertProject(&baseProject, nil))
 	}
 
 	if !baseProject.Spec.Project || baseProject.Spec.ParentThreadName != "" {
@@ -250,10 +250,10 @@ func (h *ProjectShareHandler) CreateProjectFromShare(req api.Context) error {
 		if err := req.Get(&baseProject, id); err != nil {
 			return err
 		}
-		return req.Write(convertProject(&baseProject, req))
+		return req.Write(convertProject(&baseProject, nil))
 	} else if err != nil {
 		return err
 	}
 
-	return req.Write(convertProject(newProject, req))
+	return req.Write(convertProject(newProject, nil))
 }
