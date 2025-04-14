@@ -304,6 +304,12 @@
 							<CopyButton text="im:write" />
 							im:write
 						</div>
+						<div
+							class="flex max-w-fit items-center gap-2 rounded-full bg-gray-100 px-3 py-1 dark:bg-gray-800"
+						>
+							<CopyButton text="assistant:write" />
+							assistant:write
+						</div>
 					</div>
 				</div>
 			</div>
