@@ -173,10 +173,7 @@
 							class="icon-button-small invisible ms-2 group-hover:visible"
 							onclick={() => {
 								fileToDelete = file.name;
-								const element = document.querySelector('#click-catch');
-								if (element instanceof HTMLElement) {
-									element.click();
-								}
+								menu?.toggle(false);
 							}}
 						>
 							<Trash class="text-gray h-5 w-5" />
