@@ -5,7 +5,7 @@
 	import { profile, responsive } from '$lib/stores';
 	import { goto } from '$app/navigation';
 	import Notifications from '$lib/components/Notifications.svelte';
-	import Confirm from '$lib/components/Confirm.svelte';
+	import ConfirmDeleteAccount from '$lib/components/ConfirmDeleteAccount.svelte';
 
 	let toDelete = false;
 </script>
@@ -64,7 +64,7 @@
 				>
 					<h3 class="flex flex-shrink-0 text-2xl font-semibold">My Account</h3>
 				</div>
-				<div class="mx-auto max-w-sm rounded-xl bg-white p-6 shadow-md">
+				<div class="bg-surface1 mx-auto max-w-sm rounded-xl p-6 shadow-md">
 					<img
 						src={profile.current.iconURL}
 						alt=""
@@ -72,7 +72,7 @@
 					/>
 					<div class="flex flex-row py-4">
 						<div class="w-1/2">Display Name:</div>
-						<div class="w-1/2">{profile.current.getDisplayName?.()}</div>
+						<div class="w-1/2 break-words">{profile.current.getDisplayName?.()}</div>
 					</div>
 					<hr />
 					<div class="flex flex-row py-2">
@@ -82,20 +82,22 @@
 					<hr />
 					<div class="flex flex-row py-2">
 						<div class="w-1/2">Username:</div>
-						<div class="w-1/2">{profile.current.username}</div>
+						<div class="w-1/2 break-words">{profile.current.username}</div>
 					</div>
 					<hr />
 					<div class="flex flex-row py-2">
 						<div class="w-1/2">Role:</div>
-						<div class="w-1/2">{profile.current.role === 1 ? 'Admin' : 'User'}</div>
+						<div class="w-1/2 break-words">{profile.current.role === 1 ? 'Admin' : 'User'}</div>
 					</div>
 					<hr />
 					<div class="flex flex-row py-2">
 						<div class="w-1/2">AuthProvider:</div>
-						<div class="w-1/2">{profile.current.currentAuthProvider?.split('-')[0]}</div>
+						<div class="w-1/2 break-words">
+							{profile.current.currentAuthProvider?.split('-')[0]}
+						</div>
 					</div>
 					<hr />
-					<div class="flex flex-row py-2">
+					<div class="mt-2 flex flex-row py-2">
 						<button
 							class="ml-auto rounded bg-red-600 px-4 py-2 font-medium text-white hover:bg-red-700"
 							onclick={(e) => {
@@ -112,8 +114,8 @@
 	<Notifications />
 </div>
 
-<Confirm
-	msg={`Delete your account?`}
+<ConfirmDeleteAccount
+	username={profile.current.username}
 	show={!!toDelete}
 	onsuccess={async () => {
 		if (!toDelete) return;
