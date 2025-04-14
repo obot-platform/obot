@@ -21,13 +21,16 @@
 <dialog
 	bind:this={dialog}
 	use:clickOutside={() => dialog?.close()}
-	class="max-h-[90vh] min-h-[300px] w-1/3 min-w-[300px] overflow-visible p-5"
+	class="max-h-[90vh] min-h-[300px] w-1/3 min-w-[300px] overflow-visible p-5 pt-2"
 >
-	<div class="flex h-full flex-col">
-		<button class="absolute top-0 right-0 p-3" onclick={() => dialog?.close()}>
-			<X class="icon-default" />
-		</button>
-		<h1 class="mb-10 text-xl font-semibold">Credentials</h1>
+	<div class="flex min-h-[300px] grow flex-col">
+		<h1 class="mb-2 flex items-center justify-between text-xl font-semibold">
+			Credentials
+			<button class="icon-button translate-x-2" onclick={() => dialog?.close()}>
+				<X class="icon-default" />
+			</button>
+		</h1>
+		<p class="text-sm text-gray-500">These credentials are used by all threads in this Obot.</p>
 		<Credentials bind:this={credentials} {project} local />
 	</div>
 </dialog>

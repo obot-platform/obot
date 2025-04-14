@@ -489,10 +489,14 @@
 							/>
 						{/if}
 						{#if field.description}
-							<p class="text-sm text-gray-500">{field.description}</p>
+							<p class="text-xs text-gray-500">{field.description}</p>
 						{/if}
 					</div>
 				{/each}
+
+				<span class="text-gray mt-1 flex grow items-end self-end text-sm">
+					*The submitted contents are not visible to AI.
+				</span>
 
 				<div class="item-center flex gap-2 self-end">
 					{#if onSendCredentialsCancel}
@@ -506,9 +510,6 @@
 					{/if}
 					<button class="button-primary" type="submit">Submit</button>
 				</div>
-				<span class="text-gray mt-1 flex grow items-end self-end text-sm">
-					*The submitted contents are not visible to AI.
-				</span>
 			{/if}
 		</form>
 	{/if}
