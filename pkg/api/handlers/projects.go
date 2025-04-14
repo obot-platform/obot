@@ -310,6 +310,13 @@ func (h *ProjectsHandler) GetProject(req api.Context) error {
 	if err := req.Get(&thread, projectID); err != nil {
 		return err
 	}
+
+	var parentThread v1.Thread
+	if thread.Spec.ParentThreadName != "" {
+		if err := req.Get(&parentThread, thread.Spec.ParentThreadName); err == nil {
+			return req.Write(convertProject(&thread, &parentThread))
+		}
+	}
 	return req.Write(convertProject(&thread, nil))
 }
 
