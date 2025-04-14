@@ -270,7 +270,7 @@
 	>
 		{#if clearable}
 			<button
-				class="absolute top-2 right-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+				class="absolute top-0 right-0 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
 				aria-label="Clear message"
 				onclick={() => (msg.ignore = true)}
 			>
