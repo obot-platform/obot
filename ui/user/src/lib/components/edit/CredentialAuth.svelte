@@ -55,7 +55,7 @@
 {#if authMessages}
 	<div class="flex flex-col gap-5 p-5">
 		{#each authMessages.messages as msg}
-			<Message {msg} {project} onSendCredentialsCancel={() => authCancel()} />
+			<Message {msg} {project} clearable onSendCredentialsCancel={() => authCancel()} />
 		{/each}
 	</div>
 {/if}

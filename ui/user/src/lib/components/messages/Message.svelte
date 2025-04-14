@@ -1,6 +1,6 @@
 <script lang="ts">
 	import MessageIcon from '$lib/components/messages/MessageIcon.svelte';
-	import { FileText, Pencil, Copy, Edit, Info } from 'lucide-svelte/icons';
+	import { FileText, Pencil, Copy, Edit, Info, X } from 'lucide-svelte/icons';
 	import { Tween } from 'svelte/motion';
 	import { ChatService, type Message, type Project } from '$lib/services';
 	import highlight from 'highlight.js';
@@ -22,6 +22,7 @@
 		onSendCredentials?: (id: string, credentials: Record<string, string>) => void;
 		onSendCredentialsCancel?: (id: string) => void;
 		disableMessageToEditor?: boolean;
+		clearable?: boolean;
 	}
 
 	let {
@@ -31,7 +32,8 @@
 		onLoadFile = () => {},
 		onSendCredentials = ChatService.sendCredentials,
 		onSendCredentialsCancel,
-		disableMessageToEditor
+		disableMessageToEditor,
+		clearable = false
 	}: Props = $props();
 
 	let content = $derived(
@@ -266,6 +268,15 @@
 		class:message-content={renderMarkdown}
 		class="bg-gray-70 flex w-full flex-col rounded-2xl px-6 py-3 text-black dark:bg-gray-950 dark:text-white"
 	>
+		{#if clearable}
+			<button
+				class="absolute right-2 top-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+				aria-label="Clear message"
+				onclick={() => msg.ignore = true}
+			>
+				<X class="icon-default" />
+			</button>
+		{/if}
 		{#if msg.oauthURL}
 			{@render oauth()}
 		{:else if msg.toolCall}
