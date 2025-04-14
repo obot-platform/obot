@@ -22,11 +22,9 @@ import {
 import { useAsync } from "~/hooks/useAsync";
 
 export function DefaultAgent({
-	// onSuccess,
 	agents,
 	disabled,
 }: {
-	// onSuccess?: () => void;
 	agents: Agent[];
 	disabled?: boolean;
 }) {
