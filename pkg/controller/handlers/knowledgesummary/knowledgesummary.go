@@ -89,18 +89,32 @@ func (k *Handler) toAllContent(req router.Request, allFiles []v1.KnowledgeFile) 
 
 		var content contentData
 		if err := json.Unmarshal(data, &content); err == nil {
-			if len(content.Documents) > 0 && content.Documents[0].Content != "" {
+			if len(content.Documents) > 0 {
 				var (
-					toAdd   = content.Documents[0].Content
-					partial bool
+					combinedContent string
+					partial         bool
 				)
-				if len(toAdd) > 3000 {
-					toAdd = toAdd[:3000]
-					partial = true
+
+				// Accumulate content from documents until we have at least 3000 characters
+				for _, doc := range content.Documents {
+					if doc.Content == "" {
+						continue
+					}
+					combinedContent += doc.Content
+					if len(combinedContent) >= 3000 {
+						break
+					}
 				}
-				allContent.Files[file.Spec.FileName] = summaryData{
-					Content: toAdd,
-					Partial: partial,
+
+				if combinedContent != "" {
+					if len(combinedContent) > 3000 {
+						combinedContent = combinedContent[:3000]
+						partial = true
+					}
+					allContent.Files[file.Spec.FileName] = summaryData{
+						Content: combinedContent,
+						Partial: partial,
+					}
 				}
 			}
 		}
