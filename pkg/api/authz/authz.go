@@ -72,7 +72,6 @@ var staticRules = map[string][]string{
 		"POST /api/image/generate",
 		"POST /api/image/upload",
 		"POST /api/logout-all",
-		"GET /api/shares/{share_public_id}",
 	},
 	MetricsGroup: {
 		"/debug/metrics",

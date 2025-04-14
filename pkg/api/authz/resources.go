@@ -108,6 +108,7 @@ var apiResources = []string{
 	"POST   /api/prompt",
 	"GET    /api/shares",
 	"POST   /api/shares/{share_public_id}",
+	"GET    /api/shares/{share_public_id}",
 	"DELETE /api/threads/{thread_id}",
 	"GET    /api/threads/{thread_id}",
 	"PUT    /api/threads/{thread_id}",
