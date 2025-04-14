@@ -5,7 +5,6 @@ import { ToolReference } from "~/lib/model/toolReferences";
 import { cn } from "~/lib/utils";
 
 import { ToolOauthConfig } from "~/components/tools//ToolOauthConfig";
-import { SelectToolAuth } from "~/components/tools/SelectToolAuth";
 import { ToolIcon } from "~/components/tools/ToolIcon";
 import { ToolTooltip } from "~/components/tools/ToolTooltip";
 import { Badge } from "~/components/ui/badge";
@@ -45,22 +44,7 @@ export function ToolItem({
 	const available = configured || isPATSupported;
 
 	const handleSelect = () => {
-		if (oAuthMetadata && isPATSupported && !isSelected) {
-			setToolOAuthDialogOpen(true);
-		} else {
-			onSelect(configured && oAuthMetadata ? oAuthMetadata : undefined);
-		}
-	};
-
-	const handleOAuthSelect = () => {
-		if (!oAuthMetadata) return;
-		setToolOAuthDialogOpen(false);
-		onSelect(tool.metadata!.oauth);
-	};
-
-	const handlePATSelect = () => {
-		setToolOAuthDialogOpen(false);
-		onSelect();
+		onSelect(configured && oAuthMetadata ? oAuthMetadata : undefined);
 	};
 
 	return (
@@ -116,16 +100,6 @@ export function ToolItem({
 					</div>
 				</ToolTooltip>
 			</CommandItem>
-			{oAuthMetadata && isPATSupported && (
-				<SelectToolAuth
-					alias={oAuthMetadata}
-					configured={configured}
-					open={toolOAuthDialogOpen}
-					onOpenChange={setToolOAuthDialogOpen}
-					onOAuthSelect={handleOAuthSelect}
-					onPATSelect={handlePATSelect}
-				/>
-			)}
 			{oAuthMetadata && !isPATSupported && (
 				<ToolOauthConfig
 					tool={tool}
