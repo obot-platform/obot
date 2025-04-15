@@ -470,11 +470,18 @@
 
 		{#snippet endContent()}
 			{#if toggleValue && !readOnly}
-				<div
+				<button
+					onclick={() => {
+						if (bundleTools) {
+							toggleBundle(tool.id, !toggleValue, bundleTools);
+						} else {
+							toggleTool(tool.id, true);
+						}
+					}}
 					class="w-0 opacity-0 transition-all duration-200 group-hover:w-8 group-hover:opacity-100"
 				>
 					{@render chevronAction(toggleValue, 'translate-x-2')}
-				</div>
+				</button>
 			{/if}
 		{/snippet}
 	</CollapsePane>
