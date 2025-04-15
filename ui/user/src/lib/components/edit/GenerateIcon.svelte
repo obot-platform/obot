@@ -54,7 +54,11 @@
 				project.icons = { icon: result.imageUrl, iconDark: undefined };
 			}
 		} catch (error) {
-			if (error instanceof Error && error.message.includes('generated image was filtered')) {
+			if (
+				error instanceof Error &&
+				(error.message.includes('generated image was filtered') ||
+					error.message.includes('images were filtered out'))
+			) {
 				filteredImageError =
 					'The generated image was filtered due to content policy. Please try a different prompt.';
 				isCustomPrompt = true;
