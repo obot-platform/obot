@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { type Project } from '$lib/services';
 	import Credentials from '$lib/components/edit/Credentials.svelte';
-	import { X } from 'lucide-svelte/icons';
 	import { clickOutside } from '$lib/actions/clickoutside';
+	import { responsive } from '$lib/stores';
 
 	interface Props {
 		project: Project;
@@ -21,16 +21,10 @@
 <dialog
 	bind:this={dialog}
 	use:clickOutside={() => dialog?.close()}
-	class="max-h-[90vh] min-h-[300px] w-1/3 min-w-[300px] overflow-visible p-5 pt-2"
+	class="max-h-full min-h-[300px] w-full max-w-full overflow-visible p-5 pt-2 md:max-h-[90vh] md:w-sm"
+	class:mobile-screen-dialog={responsive.isMobile}
 >
-	<div class="flex min-h-[300px] grow flex-col">
-		<h1 class="mb-2 flex items-center justify-between text-xl font-semibold">
-			Credentials
-			<button class="icon-button translate-x-2" onclick={() => dialog?.close()}>
-				<X class="icon-default" />
-			</button>
-		</h1>
-		<p class="text-sm text-gray-500">These credentials are used by all threads in this Obot.</p>
-		<Credentials bind:this={credentials} {project} local />
+	<div class="flex h-full grow flex-col gap-4 md:h-auto md:min-h-[300px]">
+		<Credentials bind:this={credentials} {project} local onClose={() => dialog?.close()} />
 	</div>
 </dialog>

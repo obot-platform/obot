@@ -4,6 +4,7 @@
 	import Message from '$lib/components/messages/Message.svelte';
 	import { X } from 'lucide-svelte';
 	import { responsive } from '$lib/stores';
+	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
 		toolID: string;
@@ -19,7 +20,7 @@
 	let authDialog: HTMLDialogElement | undefined = $state();
 
 	export function show() {
-		authCancel();
+		authCancel(true);
 		auth(toolID);
 		authDialog?.showModal();
 	}
@@ -35,7 +36,6 @@
 			},
 			onClose: () => {
 				authCancel();
-				onClose?.();
 				// false means don't reconnect
 				return false;
 			}
@@ -46,7 +46,7 @@
 		thread = t;
 	}
 
-	function authCancel() {
+	function authCancel(skipClose?: boolean) {
 		thread?.abort();
 		thread?.close();
 		// only clear message if nothing failed
@@ -54,15 +54,34 @@
 			authMessages = undefined;
 		}
 		thread = undefined;
-		authDialog?.close();
+		if (!skipClose) {
+			authDialog?.close();
+			onClose?.();
+		}
 	}
 </script>
 
-<dialog bind:this={authDialog} class:mobile-screen-dialog={responsive.isMobile} class="md:max-w-lg">
-	<div class="flex flex-col">
-		{#if credential}
+{#if local}
+	{@render content()}
+{:else}
+	<dialog
+		bind:this={authDialog}
+		class:mobile-screen-dialog={responsive.isMobile}
+		class="md:max-w-sm"
+	>
+		{@render content()}
+	</dialog>
+{/if}
+
+{#snippet content()}
+	{#if credential}
+		<div class="flex flex-col">
 			<h4
-				class="default-dialog-title py-2 text-base md:pr-2 md:pl-5"
+				class={twMerge(
+					'default-dialog-title text-base',
+					!local && 'py-2 md:pr-2 md:pl-5',
+					local && 'mb-4'
+				)}
 				class:default-dialog-mobile-title={responsive.isMobile}
 			>
 				<span class="flex items-center gap-2">
@@ -74,20 +93,20 @@
 					{credential.toolName}
 				</span>
 				<button
-					class="icon-button"
+					class={twMerge('icon-button', local && 'translate-x-2')}
 					class:mobile-header-button={responsive.isMobile}
 					onclick={() => authCancel()}
 				>
 					<X class="size-5" />
 				</button>
 			</h4>
-		{/if}
-		{#if authMessages}
-			<div class="flex flex-col gap-5 p-5 md:m-5 md:mt-0">
-				{#each authMessages.messages as msg}
-					<Message {msg} {project} clearable onSendCredentialsCancel={() => authCancel()} />
-				{/each}
-			</div>
-		{/if}
-	</div>
-</dialog>
+			{#if authMessages}
+				<div class={twMerge('flex flex-col gap-5 p-5', !local && 'md:m-5 md:mt-0')}>
+					{#each authMessages.messages as msg}
+						<Message {msg} {project} clearable onSendCredentialsCancel={() => authCancel()} />
+					{/each}
+				</div>
+			{/if}
+		</div>
+	{/if}
+{/snippet}

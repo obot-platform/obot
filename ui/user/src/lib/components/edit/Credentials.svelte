@@ -11,10 +11,11 @@
 	interface Props {
 		project: Project;
 		local?: boolean;
+		onClose?: () => void;
 	}
 
 	const projectTools = getProjectTools();
-	let { project, local }: Props = $props();
+	let { project, local, onClose }: Props = $props();
 	let { ref, tooltip, toggle } = popover();
 	let credentials = $state<ProjectCredential[]>();
 	let credentialsAvailable = $derived.by(() => {
@@ -31,8 +32,9 @@
 			});
 		});
 	});
-	let authDialog: ReturnType<typeof CredentialAuth>;
+	let authDialog: ReturnType<typeof CredentialAuth> | undefined = $state();
 	let credToAuth = $state<ProjectCredential | undefined>();
+	let showAuthInline = $state(false);
 
 	export async function reload() {
 		if (local) {
@@ -54,8 +56,11 @@
 	}
 
 	async function addCred(cred: ProjectCredential) {
+		if (local) {
+			showAuthInline = true;
+		}
 		credToAuth = cred;
-		toggle();
+		toggle(false);
 		authDialog?.show();
 	}
 </script>
@@ -120,14 +125,6 @@
 		>
 			{@render credentialList(credentialsAvailable ?? [], false)}
 		</div>
-		<CredentialAuth
-			bind:this={authDialog}
-			toolID={credToAuth?.toolID ?? ''}
-			credential={credToAuth}
-			{project}
-			onClose={() => reload()}
-			{local}
-		/>
 
 		{#if credentialsAvailable && credentialsAvailable.length > 0}
 			<div class="self-end" in:fade>
@@ -140,11 +137,40 @@
 	</div>
 {/snippet}
 
+<CredentialAuth
+	bind:this={authDialog}
+	toolID={credToAuth?.toolID ?? ''}
+	credential={credToAuth}
+	{project}
+	onClose={() => {
+		console.log('onClose');
+		showAuthInline = false;
+		credToAuth = undefined;
+		reload();
+	}}
+	{local}
+/>
 {#if local}
-	{@render body()}
+	{#if !showAuthInline}
+		<h1
+			class="default-dialog-title flex items-center text-xl font-semibold md:justify-between"
+			class:default-dialog-mobile-title={responsive.isMobile}
+		>
+			Credentials
+			<button
+				class="icon-button translate-x-2"
+				class:mobile-header-button={responsive.isMobile}
+				onclick={() => onClose?.()}
+			>
+				<X class="icon-default" />
+			</button>
+		</h1>
+		<p class="text-sm text-gray-500">These credentials are used by all threads in this Obot.</p>
+		{@render body()}
+	{/if}
 {:else}
 	<CollapsePane header="Credentials" onOpen={() => reload()}>
-		<p class="text-sm text-gray-500">
+		<p class="mb-4 text-sm text-gray-500">
 			Anyone who has access to the Obot, such as shared users, will use these credentials.
 		</p>
 		{@render body()}
