@@ -2,11 +2,11 @@ items:
   - apiVersion: obot.obot.ai/v1
     kind: Model
     metadata:
-      name: gpt-4o
+      name: gpt-4.1
       namespace: default
     spec:
       manifest:
-        targetModel: gpt-4o
+        targetModel: gpt-4.1
         modelProvider: openai-model-provider
         active: true
         usage: llm
@@ -57,11 +57,11 @@ items:
   - apiVersion: obot.obot.ai/v1
     kind: Model
     metadata:
-      name: gpt-4o-mini
+      name: gpt-4.1-mini
       namespace: default
     spec:
       manifest:
-        targetModel: gpt-4o-mini
+        targetModel: gpt-4.1-mini
         modelProvider: openai-model-provider
         active: true
         usage: llm
