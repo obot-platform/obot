@@ -8,6 +8,7 @@
 	import { browser } from '$app/environment';
 	import Menu from '$lib/components/navbar/Menu.svelte';
 	import FeaturedObotCard from '$lib/components/FeaturedObotCard.svelte';
+	import { clickOutside } from '$lib/actions/clickoutside';
 
 	let { data }: PageProps = $props();
 	let { authProviders, featuredProjectShares, tools } = data;
@@ -144,6 +145,7 @@
 	<!-- Login Modal -->
 	<dialog
 		bind:this={loginDialog}
+		use:clickOutside={() => loginDialog?.close()}
 		class="fixed top-1/2 left-1/2 m-0 h-dvh max-h-none w-full max-w-none -translate-x-1/2 -translate-y-1/2 rounded-none p-4 shadow-lg backdrop:bg-black/50 md:max-h-fit md:max-w-md md:rounded-3xl"
 	>
 		<div class="flex w-full justify-end">

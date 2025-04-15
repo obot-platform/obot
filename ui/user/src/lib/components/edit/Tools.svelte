@@ -7,6 +7,7 @@
 	import { getProjectTools } from '$lib/context/projectTools.svelte';
 	import { IGNORED_BUILTIN_TOOLS } from '$lib/constants';
 	import { twMerge } from 'tailwind-merge';
+	import { clickOutside } from '$lib/actions/clickoutside';
 
 	interface Props {
 		onNewTools: (tools: AssistantTool[]) => Promise<void>;
@@ -93,6 +94,7 @@
 <dialog
 	bind:this={toolCatalog}
 	class="h-full max-h-[100vh] w-full max-w-[100vw] rounded-none md:h-fit md:w-[1200px] md:rounded-xl"
+	use:clickOutside={() => toolCatalog?.close()}
 >
 	<ToolCatalog
 		onSelectTools={onNewTools}

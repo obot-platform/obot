@@ -53,6 +53,7 @@ printf "The current temperature in %s is %.2f°F.\\n" "$CITY" "$RANDOM_TEMPERATU
 	import { responsive } from '$lib/stores';
 	import { fade } from 'svelte/transition';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
+	import { clickOutside } from '$lib/actions/clickoutside';
 
 	interface Props {
 		tool: AssistantTool;
@@ -354,6 +355,7 @@ printf "The current temperature in %s is %.2f°F.\\n" "$CITY" "$RANDOM_TEMPERATU
 
 <dialog
 	bind:this={dialog}
+	use:clickOutside={() => dialog?.close()}
 	class="max-w-full md:min-w-md"
 	class:p-4={!responsive.isMobile}
 	class:mobile-screen-dialog={responsive.isMobile}

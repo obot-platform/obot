@@ -9,6 +9,7 @@
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import DotDotDot from '../DotDotDot.svelte';
 	import Input from '../tasks/Input.svelte';
+	import { clickOutside } from '$lib/actions/clickoutside';
 
 	interface Props {
 		project: Project;
@@ -131,6 +132,7 @@
 
 <dialog
 	bind:this={inputDialog}
+	use:clickOutside={() => inputDialog?.close()}
 	class="max-w-full md:min-w-md"
 	class:p-4={!responsive.isMobile}
 	class:mobile-screen-dialog={responsive.isMobile}

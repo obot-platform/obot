@@ -22,6 +22,7 @@
 	import ChatInput from '../messages/Input.svelte';
 	import Input from './Input.svelte';
 	import Tools from '../navbar/Tools.svelte';
+	import { clickOutside } from '$lib/actions/clickoutside';
 	interface Props {
 		task: Task;
 		project: Project;
@@ -397,6 +398,7 @@
 
 		<dialog
 			bind:this={inputDialog}
+			use:clickOutside={() => inputDialog?.close()}
 			class="max-w-full md:min-w-md"
 			class:p-4={!responsive.isMobile}
 			class:mobile-screen-dialog={responsive.isMobile}

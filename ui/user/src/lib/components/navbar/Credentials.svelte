@@ -2,6 +2,7 @@
 	import { type Project } from '$lib/services';
 	import Credentials from '$lib/components/edit/Credentials.svelte';
 	import { X } from 'lucide-svelte/icons';
+	import { clickOutside } from '$lib/actions/clickoutside';
 
 	interface Props {
 		project: Project;
@@ -19,6 +20,7 @@
 
 <dialog
 	bind:this={dialog}
+	use:clickOutside={() => dialog?.close()}
 	class="max-h-[90vh] min-h-[300px] w-1/3 min-w-[300px] overflow-visible p-5"
 >
 	<div class="flex h-full flex-col">

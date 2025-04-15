@@ -12,6 +12,7 @@
 	import { responsive } from '$lib/stores';
 	import { twMerge } from 'tailwind-merge';
 	import { getProjectTools } from '$lib/context/projectTools.svelte';
+	import { clickOutside } from '$lib/actions/clickoutside';
 
 	interface Props {
 		project: Project;
@@ -144,6 +145,10 @@
 			)}
 			bind:this={customToolDialog}
 			onclose={() => {
+				toEdit = undefined;
+			}}
+			use:clickOutside={() => {
+				customToolDialog?.close();
 				toEdit = undefined;
 			}}
 		>

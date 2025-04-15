@@ -17,6 +17,7 @@
 	import { X } from 'lucide-svelte';
 	import CredentialAuth from '$lib/components/edit/CredentialAuth.svelte';
 	import type { ProjectCredential } from '$lib/services';
+	import { clickOutside } from '$lib/actions/clickoutside';
 
 	interface Props {
 		project: Project;
@@ -159,7 +160,11 @@
 				</div>
 			</div>
 
-			<dialog bind:this={configDialog} class="default-dialog">
+			<dialog
+				bind:this={configDialog}
+				class="default-dialog"
+				use:clickOutside={() => configDialog?.close()}
+			>
 				<div class="p-6">
 					<button class="absolute top-0 right-0 p-3" onclick={() => configDialog?.close()}>
 						<X class="icon-default" />

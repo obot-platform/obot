@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { clickOutside } from '$lib/actions/clickoutside';
 	import { CircleAlert, X } from 'lucide-svelte/icons';
 
 	interface Props {
@@ -10,32 +11,21 @@
 
 	let { show = false, msg = 'OK?', onsuccess, oncancel }: Props = $props();
 
-	let div: HTMLDivElement | undefined = $state();
+	let dialog: HTMLDialogElement | undefined = $state();
 
 	$effect(() => {
-		if (show && div) {
-			div.focus();
+		if (show) {
+			dialog?.showModal();
+			dialog?.focus();
+		} else {
+			dialog?.close();
 		}
 	});
 </script>
 
-<div
-	bind:this={div}
-	tabIndex="-1"
-	class:hidden={!show}
-	class:flex={show}
-	class="fixed top-0 right-0 left-0 z-50 h-[calc(100%-1rem)] max-h-full w-full items-center
- justify-center overflow-x-hidden overflow-y-auto bg-black/50 md:inset-0"
-	role="none"
-	onkeydown={(e) => {
-		if (e.key === 'Escape') {
-			oncancel();
-		}
-		e.stopPropagation();
-	}}
->
-	<div role="dialog" class="relative max-h-full w-full max-w-md p-4">
-		<div class="relative rounded-3xl bg-gray-50 dark:bg-gray-950">
+<dialog bind:this={dialog} use:clickOutside={() => oncancel()} class="bg-gray-50 dark:bg-gray-950">
+	<div role="dialog" class="relative max-h-full w-full max-w-md">
+		<div class="relative">
 			<button
 				type="button"
 				onclick={oncancel}
@@ -44,7 +34,7 @@
 				<X class="h-5 w-5" />
 				<span class="sr-only">Close modal</span>
 			</button>
-			<div class="p-4 text-center md:p-5">
+			<div class="p-4 text-center md:p-8">
 				<CircleAlert class="mx-auto mb-4 h-12 w-12 text-gray-400 dark:text-gray-100" />
 				<h3 class="mb-5 text-lg font-normal break-words text-black dark:text-gray-100">{msg}</h3>
 				<button
@@ -63,4 +53,4 @@
 			</div>
 		</div>
 	</div>
-</div>
+</dialog>

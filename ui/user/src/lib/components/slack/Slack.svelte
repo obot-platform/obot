@@ -12,6 +12,7 @@
 	import { getLayout } from '$lib/context/layout.svelte';
 	import { responsive } from '$lib/stores';
 	import { getProjectTools } from '$lib/context/projectTools.svelte';
+	import { clickOutside } from '$lib/actions/clickoutside';
 	interface Props {
 		project: Project;
 	}
@@ -154,6 +155,7 @@
 
 <dialog
 	bind:this={dialog}
+	use:clickOutside={() => dialog?.close()}
 	class="default-dialog md:w-1/2"
 	class:mobile-screen-dialog={responsive.isMobile}
 >
@@ -399,7 +401,7 @@
 	</div>
 </dialog>
 
-<dialog bind:this={confirmDisable} class="modal">
+<dialog bind:this={confirmDisable} class="modal" use:clickOutside={() => confirmDisable?.close()}>
 	<div class="modal-box">
 		<div class="p-4">
 			<h3 class="text-lg font-medium">Disable Slack Integration</h3>
