@@ -51,18 +51,20 @@
 				<div class="flex max-w-sm grow flex-col gap-4 text-center md:grow-0">
 					<h2 class="border-surface3 border-b pb-4 text-xl font-semibold">Shared Obot</h2>
 					<p class="text-md">
-						You are about to access a shared Obot that was created by a third party. As you are not
-						the owner of this Obot, you may not have access to all of its features.
+						This obot was published by a third-party user and may include prompts or tools not
+						reviewed or verified by our team. It could interact with external systems, access
+						additional data sources, or behave in unexpected ways.
 					</p>
 					<p class="text-md">
-						Consider extra precautions when interacting with an Obot that you did not create.
+						By continuing, you acknowledge that you understand the risks and choose to proceed at
+						your own discretion.
 					</p>
 					{#if responsive.isMobile}
 						<div class="flex grow"></div>
 					{/if}
 				</div>
 
-				<button class="button-primary mt-2 w-full" onclick={createProject}> Go to Obot </button>
+				<button class="button-primary mt-2 w-full" onclick={createProject}>I Understand</button>
 				<button class="button w-full" onclick={() => goto('/home')}>Go Home</button>
 			</div>
 		</div>
