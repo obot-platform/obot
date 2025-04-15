@@ -18,7 +18,7 @@ const steps: OAuthFormStep<typeof schema.shape>[] = [
 		type: "markdown",
 		text:
 			"### Step 1: Choose your GitLab instance\n" +
-			"The default instance is the public GitLab.com. If you're using a self-hosted or enterprise GitLab instance, enter its base URL below:\n",
+			"The default instance is the public gitlab.com site. If you're using a self-hosted or enterprise GitLab instance, enter its base URL below:\n",
 	},
 	{
 		type: "input",
@@ -29,9 +29,10 @@ const steps: OAuthFormStep<typeof schema.shape>[] = [
 		type: "markdown",
 		text:
 			"### Step 2: Create a new GitLab OAuth application\n" +
-			"1. Go to your GitLab account, navigate to **Preferences > Applications**\n" +
-			'2. Enter a **Name** for your application (e.g. "Obot Integration")\n' +
-			"3. Fill in the **Redirect URI** with the link below\n",
+			"- Go to your GitLab account, navigate to **Preferences > Applications**\n" +
+			"- Click on **Add new application**\n" +
+			'- Enter a **Name** for your application (e.g. "Obot Integration")\n' +
+			"- Fill in the **Redirect URI** with the link below\n",
 	},
 	{
 		type: "copy",
@@ -40,22 +41,22 @@ const steps: OAuthFormStep<typeof schema.shape>[] = [
 	{
 		type: "markdown",
 		text:
-			"4. Select the required scopes:\n" +
+			"- Select the required scopes:\n" +
 			"   - `api` - for accessing GitLab API resources\n" +
 			"   - `read_user` - for accessing user information\n" +
-			"   - `email - access user email information\n",
+			"   - `email` - access user email information\n" +
+			"- Click **Save application** to create the OAuth app\n",
 	},
 	{
 		type: "markdown",
 		text:
-			"5. Click **Save application** to create the OAuth app\n" +
 			"### Step 3: Register GitLab OAuth in Obot\n" +
-			"1. Copy the **Application ID** from your GitLab OAuth app into the field below:\n",
+			"- Copy the **Application ID** from your GitLab OAuth app into the field below:\n",
 	},
 	{ type: "input", input: "clientID", label: "Application ID" },
 	{
 		type: "markdown",
-		text: "2. Copy the **Secret** from your GitLab OAuth app into the field below:\n",
+		text: "- Copy the **Secret** from your GitLab OAuth app into the field below:\n",
 	},
 	{
 		type: "input",
