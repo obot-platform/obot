@@ -1,4 +1,4 @@
-package availablemodels
+package dispatcher
 
 import (
 	"context"
@@ -8,11 +8,10 @@ import (
 	"net/http"
 
 	openai "github.com/gptscript-ai/chat-completion-client"
-	"github.com/obot-platform/obot/pkg/gateway/server/dispatcher"
 )
 
-func ForProvider(ctx context.Context, dispatcher *dispatcher.Dispatcher, modelProviderNamespace, modelProviderName string) (*openai.ModelsList, error) {
-	u, token, err := dispatcher.URLForModelProvider(ctx, modelProviderNamespace, modelProviderName)
+func (d *Dispatcher) ForProvider(ctx context.Context, modelProviderNamespace, modelProviderName string) (*openai.ModelsList, error) {
+	u, err := d.urlForModelProvider(ctx, modelProviderNamespace, modelProviderName)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get URL for model provider %q: %w", modelProviderName, err)
 	}
@@ -20,10 +19,6 @@ func ForProvider(ctx context.Context, dispatcher *dispatcher.Dispatcher, modelPr
 	r, err := http.NewRequestWithContext(ctx, http.MethodGet, u.String()+"/v1/models", nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request to model provider %q: %w", modelProviderName, err)
-	}
-
-	if token != "" {
-		r.Header.Set("Authorization", "Bearer "+token)
 	}
 
 	resp, err := http.DefaultClient.Do(r)

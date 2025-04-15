@@ -62,6 +62,10 @@ func (s *Server) AddRoutes(mux *server.Server) {
 	mux.HandleFunc("GET /api/app-oauth/get-token", wrap(s.getTokenOAuthApp))
 	mux.HandleFunc("GET /api/app-oauth/get-token/{id}", wrap(s.getTokenOAuthApp))
 
+	// Handle updates to the file scanner configuration
+	mux.HandleFunc("GET /api/file-scanner-config", wrap(s.getFileScannerConfig))
+	mux.HandleFunc("PUT /api/file-scanner-config", wrap(s.updateFileScannerConfig))
+
 	// LLM proxy
 	mux.HandleFunc("POST /api/llm-proxy/{path...}", s.llmProxy)
 }

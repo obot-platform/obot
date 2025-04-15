@@ -11,7 +11,6 @@ import (
 	"github.com/gptscript-ai/go-gptscript"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
-	"github.com/obot-platform/obot/pkg/availablemodels"
 	"github.com/obot-platform/obot/pkg/gateway/server/dispatcher"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
@@ -70,7 +69,7 @@ func (a *AvailableModelsHandler) List(req api.Context) error {
 			continue
 		}
 
-		m, err := availablemodels.ForProvider(req.Context(), a.dispatcher, modelProvider.Namespace, modelProvider.Name)
+		m, err := a.dispatcher.ForProvider(req.Context(), modelProvider.Namespace, modelProvider.Name)
 		if err != nil {
 			return err
 		}
@@ -122,7 +121,7 @@ func (a *AvailableModelsHandler) ListForModelProvider(req api.Context) error {
 		return types.NewErrBadRequest("model provider %s is not configured, missing configuration parameters: %s", modelProviderReference.Name, strings.Join(modelProvider.MissingConfigurationParameters, ", "))
 	}
 
-	oModels, err := availablemodels.ForProvider(req.Context(), a.dispatcher, modelProviderReference.Namespace, modelProviderReference.Name)
+	oModels, err := a.dispatcher.ForProvider(req.Context(), modelProviderReference.Namespace, modelProviderReference.Name)
 	if err != nil {
 		return err
 	}

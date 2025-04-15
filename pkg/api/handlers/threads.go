@@ -10,6 +10,7 @@ import (
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/events"
+	"github.com/obot-platform/obot/pkg/gateway/server/dispatcher"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -18,14 +19,16 @@ import (
 const DefaultMaxUserThreadTools = 100
 
 type ThreadHandler struct {
-	gptscript *gptscript.GPTScript
-	events    *events.Emitter
+	gptscript  *gptscript.GPTScript
+	dispatcher *dispatcher.Dispatcher
+	events     *events.Emitter
 }
 
-func NewThreadHandler(gClient *gptscript.GPTScript, events *events.Emitter) *ThreadHandler {
+func NewThreadHandler(dispatcher *dispatcher.Dispatcher, gClient *gptscript.GPTScript, events *events.Emitter) *ThreadHandler {
 	return &ThreadHandler{
-		gptscript: gClient,
-		events:    events,
+		gptscript:  gClient,
+		dispatcher: dispatcher,
+		events:     events,
 	}
 }
 
@@ -247,7 +250,7 @@ func (a *ThreadHandler) UploadKnowledge(req api.Context) error {
 		return err
 	}
 
-	return uploadKnowledgeToWorkspace(req, a.gptscript, ws, "", thread.Name, thread.Status.SharedKnowledgeSetName)
+	return uploadKnowledgeToWorkspace(req, a.dispatcher, a.gptscript, ws, "", thread.Name, thread.Status.SharedKnowledgeSetName)
 }
 
 func (a *ThreadHandler) DeleteKnowledge(req api.Context) error {

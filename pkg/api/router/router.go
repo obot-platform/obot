@@ -14,13 +14,13 @@ import (
 func Router(services *services.Services) (http.Handler, error) {
 	mux := services.APIServer
 
-	agents := handlers.NewAgentHandler(services.GPTClient, services.Invoker, services.ServerURL)
+	agents := handlers.NewAgentHandler(services.ProviderDispatcher, services.GPTClient, services.Invoker, services.ServerURL)
 	auths := handlers.NewAuthorizationHandler(services.GatewayClient)
-	assistants := handlers.NewAssistantHandler(services.Invoker, services.Events, services.GPTClient, services.Router.Backend())
+	assistants := handlers.NewAssistantHandler(services.ProviderDispatcher, services.Invoker, services.Events, services.GPTClient, services.Router.Backend())
 	tools := handlers.NewToolHandler(services.GPTClient, services.Invoker)
 	tasks := handlers.NewTaskHandler(services.Invoker, services.Events, services.GPTClient, services.ServerURL)
 	invoker := handlers.NewInvokeHandler(services.Invoker)
-	threads := handlers.NewThreadHandler(services.GPTClient, services.Events)
+	threads := handlers.NewThreadHandler(services.ProviderDispatcher, services.GPTClient, services.Events)
 	runs := handlers.NewRunHandler(services.Events)
 	toolRefs := handlers.NewToolReferenceHandler(services.GPTClient)
 	webhooks := handlers.NewWebhookHandler()
@@ -29,6 +29,7 @@ func Router(services *services.Services) (http.Handler, error) {
 	availableModels := handlers.NewAvailableModelsHandler(services.GPTClient, services.ProviderDispatcher)
 	modelProviders := handlers.NewModelProviderHandler(services.GPTClient, services.ProviderDispatcher, services.Invoker)
 	authProviders := handlers.NewAuthProviderHandler(services.GPTClient, services.ProviderDispatcher, services.PostgresDSN)
+	fileScannerProviders := handlers.NewFileScannerProviderHandler(services.GPTClient, services.ProviderDispatcher, services.Invoker)
 	prompt := handlers.NewPromptHandler(services.GPTClient)
 	emailReceiver := handlers.NewEmailReceiverHandler(services.EmailServerName)
 	defaultModelAliases := handlers.NewDefaultModelAliasHandler()
@@ -36,7 +37,7 @@ func Router(services *services.Services) (http.Handler, error) {
 	tables := handlers.NewTableHandler(services.GPTClient)
 	projects := handlers.NewProjectsHandler(services.Router.Backend(), services.Invoker, services.GPTClient)
 	projectShare := handlers.NewProjectShareHandler()
-	files := handlers.NewFilesHandler(services.GPTClient)
+	files := handlers.NewFilesHandler(services.ProviderDispatcher, services.GPTClient)
 	memories := handlers.NewMemorySetHandler()
 	workflows := handlers.NewWorkflowHandler(services.GPTClient, services.ServerURL, services.Invoker)
 	slackEventHandler := handlers.NewSlackEventHandler(services.GPTClient)
@@ -391,6 +392,14 @@ func Router(services *services.Services) (http.Handler, error) {
 	mux.HandleFunc("POST /api/auth-providers/{id}/configure", authProviders.Configure)
 	mux.HandleFunc("POST /api/auth-providers/{id}/deconfigure", authProviders.Deconfigure)
 	mux.HandleFunc("POST /api/auth-providers/{id}/reveal", authProviders.Reveal)
+
+	// File scanner providers
+	mux.HandleFunc("GET /api/file-scanner-providers", fileScannerProviders.List)
+	mux.HandleFunc("GET /api/file-scanner-providers/{id}", fileScannerProviders.ByID)
+	mux.HandleFunc("POST /api/file-scanner-providers/{id}/configure", fileScannerProviders.Configure)
+	mux.HandleFunc("POST /api/file-scanner-providers/{id}/deconfigure", fileScannerProviders.Deconfigure)
+	mux.HandleFunc("POST /api/file-scanner-providers/{id}/reveal", fileScannerProviders.Reveal)
+	mux.HandleFunc("POST /api/file-scanner-providers/{id}/validate", fileScannerProviders.Validate)
 
 	// Bootstrap
 	mux.HandleFunc("GET /api/bootstrap", services.Bootstrapper.IsEnabled)

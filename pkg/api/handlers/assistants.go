@@ -14,6 +14,7 @@ import (
 	"github.com/obot-platform/obot/pkg/alias"
 	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/events"
+	"github.com/obot-platform/obot/pkg/gateway/server/dispatcher"
 	"github.com/obot-platform/obot/pkg/invoke"
 	"github.com/obot-platform/obot/pkg/projects"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
@@ -29,14 +30,16 @@ type AssistantHandler struct {
 	invoker      *invoke.Invoker
 	events       *events.Emitter
 	gptScript    *gptscript.GPTScript
+	dispatcher   *dispatcher.Dispatcher
 	cachedClient kclient.WithWatch
 }
 
-func NewAssistantHandler(invoker *invoke.Invoker, events *events.Emitter, gptScript *gptscript.GPTScript, cachedClient kclient.WithWatch) *AssistantHandler {
+func NewAssistantHandler(dispatcher *dispatcher.Dispatcher, invoker *invoke.Invoker, events *events.Emitter, gptScript *gptscript.GPTScript, cachedClient kclient.WithWatch) *AssistantHandler {
 	return &AssistantHandler{
 		invoker:      invoker,
 		events:       events,
 		gptScript:    gptScript,
+		dispatcher:   dispatcher,
 		cachedClient: cachedClient,
 	}
 }
@@ -343,7 +346,7 @@ func (a *AssistantHandler) UploadKnowledge(req api.Context) error {
 		return err
 	}
 
-	return uploadKnowledgeToWorkspace(req, a.gptScript, ws, "", thread.Name, thread.Status.KnowledgeSetNames[0])
+	return uploadKnowledgeToWorkspace(req, a.dispatcher, a.gptScript, ws, "", thread.Name, thread.Status.KnowledgeSetNames[0])
 }
 
 func (a *AssistantHandler) DeleteKnowledge(req api.Context) error {

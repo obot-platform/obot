@@ -19,7 +19,6 @@ import (
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/logger"
 	"github.com/obot-platform/obot/pkg/api/handlers/providers"
-	"github.com/obot-platform/obot/pkg/availablemodels"
 	"github.com/obot-platform/obot/pkg/controller/creds"
 	"github.com/obot-platform/obot/pkg/gateway/server/dispatcher"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
@@ -49,6 +48,7 @@ type index struct {
 	System                   map[string]indexEntry `json:"system,omitempty"`
 	ModelProviders           map[string]indexEntry `json:"modelProviders,omitempty"`
 	AuthProviders            map[string]indexEntry `json:"authProviders,omitempty"`
+	FileScanners             map[string]indexEntry `json:"fileScanners,omitempty"`
 }
 
 type Handler struct {
@@ -133,6 +133,7 @@ func (h *Handler) readFromRegistry(ctx context.Context, c client.Client) error {
 		toAdd = append(toAdd, h.toolsToToolReferences(ctx, types.ToolReferenceTypeSystem, registryURL, index.System)...)
 		toAdd = append(toAdd, h.toolsToToolReferences(ctx, types.ToolReferenceTypeModelProvider, registryURL, index.ModelProviders)...)
 		toAdd = append(toAdd, h.toolsToToolReferences(ctx, types.ToolReferenceTypeAuthProvider, registryURL, index.AuthProviders)...)
+		toAdd = append(toAdd, h.toolsToToolReferences(ctx, types.ToolReferenceTypeFileScannerProvider, registryURL, index.FileScanners)...)
 		toAdd = append(toAdd, h.toolsToToolReferences(ctx, types.ToolReferenceTypeTool, registryURL, index.Tools)...)
 		toAdd = append(toAdd, h.toolsToToolReferences(ctx, types.ToolReferenceTypeKnowledgeDataSource, registryURL, index.KnowledgeDataSources)...)
 		toAdd = append(toAdd, h.toolsToToolReferences(ctx, types.ToolReferenceTypeKnowledgeDocumentLoader, registryURL, index.KnowledgeDocumentLoaders)...)
@@ -362,7 +363,7 @@ func (h *Handler) BackPopulateModels(req router.Request, _ router.Response) erro
 		}
 	}
 
-	availableModels, err := availablemodels.ForProvider(req.Ctx, h.dispatcher, req.Namespace, req.Name)
+	availableModels, err := h.dispatcher.ForProvider(req.Ctx, req.Namespace, req.Name)
 	if err != nil {
 		// Don't error and retry because it will likely fail again. Log the error, and the user can re-sync manually.
 		// Also, the toolRef.Status.Error field will bubble up to the user in the UI.

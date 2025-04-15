@@ -17,6 +17,7 @@ import (
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/alias"
 	"github.com/obot-platform/obot/pkg/api/handlers/providers"
+	"github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/invoke"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
@@ -30,28 +31,36 @@ type Dispatcher struct {
 	invoker                     *invoke.Invoker
 	gptscript                   *gptscript.GPTScript
 	client                      kclient.Client
-	modelLock                   *sync.RWMutex
-	modelUrls                   map[string]*url.URL
+	gatewayClient               *client.Client
 	authLock                    *sync.RWMutex
-	authUrls                    map[string]*url.URL
+	authURLs                    map[string]url.URL
+	authProviderExtraEnv        []string
+	modelLock                   *sync.RWMutex
+	modelURLs                   map[string]url.URL
+	fileScannerLock             *sync.RWMutex
+	fileScannerURLs             map[string]url.URL
 	configuredAuthProvidersLock *sync.RWMutex
 	configuredAuthProviders     []string
-	openAICred                  string
-	postgresDSN                 string
 }
 
-func New(ctx context.Context, invoker *invoke.Invoker, c kclient.Client, gClient *gptscript.GPTScript, postgresDSN string) *Dispatcher {
+func New(ctx context.Context, invoker *invoke.Invoker, c kclient.Client, gClient *gptscript.GPTScript, gatewayClient *client.Client, postgresDSN string) *Dispatcher {
 	d := &Dispatcher{
 		invoker:                     invoker,
 		gptscript:                   gClient,
 		client:                      c,
+		gatewayClient:               gatewayClient,
 		modelLock:                   new(sync.RWMutex),
-		modelUrls:                   make(map[string]*url.URL),
+		modelURLs:                   make(map[string]url.URL),
 		authLock:                    new(sync.RWMutex),
-		authUrls:                    make(map[string]*url.URL),
+		authURLs:                    make(map[string]url.URL),
+		fileScannerLock:             new(sync.RWMutex),
+		fileScannerURLs:             make(map[string]url.URL),
 		configuredAuthProvidersLock: new(sync.RWMutex),
 		configuredAuthProviders:     make([]string, 0),
-		postgresDSN:                 postgresDSN,
+	}
+
+	if postgresDSN != "" {
+		d.authProviderExtraEnv = []string{"POSTGRES_DSN=" + postgresDSN}
 	}
 
 	d.UpdateConfiguredAuthProviders(ctx)
@@ -59,100 +68,159 @@ func New(ctx context.Context, invoker *invoke.Invoker, c kclient.Client, gClient
 	return d
 }
 
-func (d *Dispatcher) URLForAuthProvider(ctx context.Context, namespace, authProviderName string) (*url.URL, error) {
-	key := namespace + "/" + authProviderName
-	// Check the map with the read lock.
-	d.authLock.RLock()
-	u, ok := d.authUrls[key]
-	d.authLock.RUnlock()
-	if ok && engine.IsDaemonRunning(u.String()) {
-		return u, nil
-	}
-
-	d.authLock.Lock()
-	defer d.authLock.Unlock()
-
-	// If we didn't find anything with the read lock, check with the write lock.
-	// It could be that another thread beat us to the write lock and added the auth provider we desire.
-	u, ok = d.authUrls[key]
-	if ok && engine.IsDaemonRunning(u.String()) {
-		return u, nil
-	}
-
-	// We didn't find the auth provider (or the daemon stopped for some reason), so start it and add it to the map.
-	u, err := d.startAuthProvider(ctx, namespace, authProviderName)
+func (d *Dispatcher) URLForAuthProvider(ctx context.Context, namespace, authProviderName string) (url.URL, error) {
+	u, err := d.urlForProvider(ctx, types.ToolReferenceTypeAuthProvider, namespace, authProviderName, d.authURLs, d.authLock, d.authProviderExtraEnv...)
 	if err != nil {
-		return nil, err
+		return url.URL{}, fmt.Errorf("failed to get auth provider url: %w", err)
 	}
-
-	d.authUrls[key] = u
 	return u, nil
 }
 
-func (d *Dispatcher) URLForModelProvider(ctx context.Context, namespace, modelProviderName string) (*url.URL, string, error) {
-	key := namespace + "/" + modelProviderName
+func (d *Dispatcher) urlForModelProvider(ctx context.Context, namespace, modelProviderName string) (url.URL, error) {
+	u, err := d.urlForProvider(ctx, types.ToolReferenceTypeModelProvider, namespace, modelProviderName, d.modelURLs, d.modelLock)
+	if err != nil {
+		return url.URL{}, fmt.Errorf("failed to get model provider url: %w", err)
+	}
+	return u, nil
+}
+
+func (d *Dispatcher) urlForFileScannerProvider(ctx context.Context, namespace, fileScannerProviderName string) (url.URL, error) {
+	u, err := d.urlForProvider(ctx, types.ToolReferenceTypeFileScannerProvider, namespace, fileScannerProviderName, d.fileScannerURLs, d.fileScannerLock)
+	if err != nil {
+		return url.URL{}, fmt.Errorf("failed to get file scanner provider url: %w", err)
+	}
+	return u, nil
+}
+
+var providerTypeToGenericCredContext = map[types.ToolReferenceType]string{
+	types.ToolReferenceTypeModelProvider:       system.GenericModelProviderCredentialContext,
+	types.ToolReferenceTypeAuthProvider:        system.GenericAuthProviderCredentialContext,
+	types.ToolReferenceTypeFileScannerProvider: system.GenericFileScannerProviderCredentialContext,
+}
+
+func (d *Dispatcher) urlForProvider(ctx context.Context, providerType types.ToolReferenceType, namespace, name string, urlMap map[string]url.URL, lock *sync.RWMutex, extraEnv ...string) (url.URL, error) {
+	key := namespace + "/" + name
 	// Check the map with the read lock.
-	d.modelLock.RLock()
-	u, ok := d.modelUrls[key]
-	d.modelLock.RUnlock()
+	lock.RLock()
+	u, ok := urlMap[key]
+	lock.RUnlock()
 	if ok && (u.Hostname() != "127.0.0.1" || engine.IsDaemonRunning(u.String())) {
-		if u.Host == "api.openai.com" {
-			return u, d.openAICred, nil
-		}
-		return u, "", nil
+		return u, nil
 	}
 
-	d.modelLock.Lock()
-	defer d.modelLock.Unlock()
+	lock.Lock()
+	defer lock.Unlock()
 
 	// If we didn't find anything with the read lock, check with the write lock.
 	// It could be that another thread beat us to the write lock and added the model provider we desire.
-	u, ok = d.modelUrls[key]
+	u, ok = urlMap[key]
 	if ok && (u.Hostname() != "127.0.0.1" || engine.IsDaemonRunning(u.String())) {
-		if u.Host == "api.openai.com" {
-			return u, d.openAICred, nil
-		}
-		return u, "", nil
+		return u, nil
 	}
 
 	// We didn't find the model provider (or the daemon stopped for some reason), so start it and add it to the map.
-	u, err := d.startModelProvider(ctx, namespace, modelProviderName)
+	u, err := d.startProvider(ctx, providerType, namespace, name, extraEnv...)
 	if err != nil {
-		return nil, "", err
+		return url.URL{}, err
 	}
 
-	d.modelUrls[key] = u
-	if u.Host == "api.openai.com" {
-		return u, d.openAICred, nil
+	urlMap[key] = u
+	return u, nil
+}
+
+func (d *Dispatcher) startProvider(ctx context.Context, providerType types.ToolReferenceType, namespace, providerName string, extraEnv ...string) (url.URL, error) {
+	thread := &v1.Thread{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      system.ThreadPrefix + providerName,
+			Namespace: namespace,
+		},
+		Spec: v1.ThreadSpec{
+			SystemTask: true,
+		},
 	}
 
-	return u, "", nil
+	if err := d.client.Get(ctx, kclient.ObjectKey{Namespace: thread.Namespace, Name: thread.Name}, thread); apierrors.IsNotFound(err) {
+		if err = d.client.Create(ctx, thread); err != nil {
+			return url.URL{}, fmt.Errorf("failed to create thread: %w", err)
+		}
+	} else if err != nil {
+		return url.URL{}, fmt.Errorf("failed to get thread: %w", err)
+	}
+
+	var providerToolRef v1.ToolReference
+	if err := d.client.Get(ctx, kclient.ObjectKey{Namespace: namespace, Name: providerName}, &providerToolRef); err != nil || providerToolRef.Spec.Type != providerType {
+		return url.URL{}, fmt.Errorf("failed to get model provider: %w", err)
+	}
+
+	credCtx := []string{string(providerToolRef.UID), providerTypeToGenericCredContext[providerType]}
+	if providerToolRef.Status.Tool == nil {
+		return url.URL{}, fmt.Errorf("model provider %q has not been resolved", providerName)
+	}
+
+	// Ensure that the model provider has been configured so that we don't get stuck waiting on a prompt.
+	mps, err := providers.ConvertProviderTooRef(providerToolRef, nil)
+	if err != nil {
+		return url.URL{}, fmt.Errorf("failed to convert model provider: %w", err)
+	}
+	if len(mps.RequiredConfigurationParameters) > 0 {
+		cred, err := d.gptscript.RevealCredential(ctx, credCtx, providerName)
+		if err != nil {
+			return url.URL{}, fmt.Errorf("model provider is not configured: %w", err)
+		}
+
+		mps, err = providers.ConvertProviderTooRef(providerToolRef, cred.Env)
+		if err != nil {
+			return url.URL{}, fmt.Errorf("failed to convert model provider: %w", err)
+		}
+
+		if len(mps.MissingConfigurationParameters) > 0 {
+			return url.URL{}, fmt.Errorf("model provider is not configured: missing configuration parameters %s", strings.Join(mps.MissingConfigurationParameters, ", "))
+		}
+	}
+
+	task, err := d.invoker.SystemTask(ctx, thread, providerName, "", invoke.SystemTaskOptions{
+		CredentialContextIDs: credCtx,
+		Env:                  extraEnv,
+	})
+	if err != nil {
+		return url.URL{}, err
+	}
+
+	result, err := task.Result(ctx)
+	if err != nil {
+		return url.URL{}, err
+	}
+
+	u, err := url.Parse(strings.TrimSpace(result.Output))
+	if err != nil {
+		return url.URL{}, err
+	}
+	return *u, nil
 }
 
 func (d *Dispatcher) StopModelProvider(namespace, modelProviderName string) {
-	key := namespace + "/" + modelProviderName
-	d.modelLock.Lock()
-	defer d.modelLock.Unlock()
-
-	u := d.modelUrls[key]
-	if u != nil && u.Hostname() == "127.0.0.1" && engine.IsDaemonRunning(u.String()) {
-		engine.StopDaemon(u.String())
-	}
-
-	delete(d.modelUrls, key)
+	stopProvider(namespace, modelProviderName, d.modelURLs, d.modelLock)
 }
 
 func (d *Dispatcher) StopAuthProvider(namespace, authProviderName string) {
-	key := namespace + "/" + authProviderName
-	d.authLock.Lock()
-	defer d.authLock.Unlock()
+	stopProvider(namespace, authProviderName, d.authURLs, d.authLock)
+}
 
-	u := d.authUrls[key]
-	if u != nil && u.Hostname() == "127.0.0.1" && engine.IsDaemonRunning(u.String()) {
+func (d *Dispatcher) StopFileScannerProvider(namespace, fileScannerProviderName string) {
+	stopProvider(namespace, fileScannerProviderName, d.fileScannerURLs, d.fileScannerLock)
+}
+
+func stopProvider(namespace, name string, urlMap map[string]url.URL, lock *sync.RWMutex) {
+	key := namespace + "/" + name
+	lock.Lock()
+	defer lock.Unlock()
+
+	u, ok := urlMap[key]
+	if ok && u.Hostname() == "127.0.0.1" && engine.IsDaemonRunning(u.String()) {
 		engine.StopDaemon(u.String())
 	}
 
-	delete(d.authUrls, key)
+	delete(urlMap, key)
 }
 
 func (d *Dispatcher) TransformRequest(req *http.Request, namespace string) error {
@@ -171,12 +239,12 @@ func (d *Dispatcher) TransformRequest(req *http.Request, namespace string) error
 		return fmt.Errorf("failed to get model: %w", err)
 	}
 
-	u, token, err := d.URLForModelProvider(req.Context(), namespace, model.Spec.Manifest.ModelProvider)
+	u, err := d.urlForModelProvider(req.Context(), namespace, model.Spec.Manifest.ModelProvider)
 	if err != nil {
 		return fmt.Errorf("failed to get model provider: %w", err)
 	}
 
-	return d.transformRequest(req, *u, body, model.Spec.Manifest.TargetModel, token)
+	return d.transformRequest(req, u, body, model.Spec.Manifest.TargetModel)
 }
 
 func (d *Dispatcher) getModelProviderForModel(ctx context.Context, namespace, model string) (*v1.Model, error) {
@@ -211,76 +279,7 @@ func (d *Dispatcher) getModelProviderForModel(ctx context.Context, namespace, mo
 	return nil, fmt.Errorf("model %q not found", model)
 }
 
-func (d *Dispatcher) startModelProvider(ctx context.Context, namespace, modelProviderName string) (*url.URL, error) {
-	thread := &v1.Thread{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      system.ThreadPrefix + modelProviderName,
-			Namespace: namespace,
-		},
-		Spec: v1.ThreadSpec{
-			SystemTask: true,
-		},
-	}
-
-	if err := d.client.Get(ctx, kclient.ObjectKey{Namespace: thread.Namespace, Name: thread.Name}, thread); apierrors.IsNotFound(err) {
-		if err = d.client.Create(ctx, thread); err != nil {
-			return nil, fmt.Errorf("failed to create thread: %w", err)
-		}
-	} else if err != nil {
-		return nil, fmt.Errorf("failed to get thread: %w", err)
-	}
-
-	var modelProvider v1.ToolReference
-	if err := d.client.Get(ctx, kclient.ObjectKey{Namespace: namespace, Name: modelProviderName}, &modelProvider); err != nil || modelProvider.Spec.Type != types.ToolReferenceTypeModelProvider {
-		return nil, fmt.Errorf("failed to get model provider: %w", err)
-	}
-
-	credCtx := []string{string(modelProvider.UID), system.GenericModelProviderCredentialContext}
-	if modelProvider.Status.Tool == nil {
-		return nil, fmt.Errorf("model provider %q has not been resolved", modelProviderName)
-	}
-
-	// Ensure that the model provider has been configured so that we don't get stuck waiting on a prompt.
-	mps, err := providers.ConvertModelProviderToolRef(modelProvider, nil)
-	if err != nil {
-		return nil, fmt.Errorf("failed to convert model provider: %w", err)
-	}
-	if len(mps.RequiredConfigurationParameters) > 0 {
-		cred, err := d.gptscript.RevealCredential(ctx, credCtx, modelProviderName)
-		if err != nil {
-			return nil, fmt.Errorf("model provider is not configured: %w", err)
-		}
-
-		mps, err = providers.ConvertModelProviderToolRef(modelProvider, cred.Env)
-		if err != nil {
-			return nil, fmt.Errorf("failed to convert model provider: %w", err)
-		}
-
-		if len(mps.MissingConfigurationParameters) > 0 {
-			return nil, fmt.Errorf("model provider is not configured: missing configuration parameters %s", strings.Join(mps.MissingConfigurationParameters, ", "))
-		}
-
-		if modelProvider.Name == "openai-model-provider" {
-			d.openAICred = cred.Env["OBOT_OPENAI_MODEL_PROVIDER_API_KEY"]
-		}
-	}
-
-	task, err := d.invoker.SystemTask(ctx, thread, modelProviderName, "", invoke.SystemTaskOptions{
-		CredentialContextIDs: credCtx,
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	result, err := task.Result(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	return url.Parse(strings.TrimSpace(result.Output))
-}
-
-func (d *Dispatcher) transformRequest(req *http.Request, u url.URL, body map[string]any, targetModel, token string) error {
+func (d *Dispatcher) transformRequest(req *http.Request, u url.URL, body map[string]any, targetModel string) error {
 	if u.Path == "" {
 		u.Path = "/v1"
 	}
@@ -297,9 +296,6 @@ func (d *Dispatcher) transformRequest(req *http.Request, u url.URL, body map[str
 	req.Body = io.NopCloser(bytes.NewReader(b))
 	req.ContentLength = int64(len(b))
 
-	if token != "" {
-		req.Header.Set("Authorization", "Bearer "+token)
-	}
 	return nil
 }
 
@@ -311,74 +307,6 @@ func readBody(r *http.Request) (map[string]any, error) {
 	}
 
 	return m, nil
-}
-
-func (d *Dispatcher) startAuthProvider(ctx context.Context, namespace, authProviderName string) (*url.URL, error) {
-	thread := &v1.Thread{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      system.ThreadPrefix + authProviderName,
-			Namespace: namespace,
-		},
-		Spec: v1.ThreadSpec{
-			SystemTask: true,
-		},
-	}
-
-	if err := d.client.Get(ctx, kclient.ObjectKey{Namespace: thread.Namespace, Name: thread.Name}, thread); apierrors.IsNotFound(err) {
-		if err = d.client.Create(ctx, thread); err != nil {
-			return nil, fmt.Errorf("failed to create thread: %w", err)
-		}
-	} else if err != nil {
-		return nil, fmt.Errorf("failed to get thread: %w", err)
-	}
-
-	var authProvider v1.ToolReference
-	if err := d.client.Get(ctx, kclient.ObjectKey{Namespace: namespace, Name: authProviderName}, &authProvider); err != nil || authProvider.Spec.Type != types.ToolReferenceTypeAuthProvider {
-		return nil, fmt.Errorf("failed to get auth provider: %w", err)
-	}
-
-	credCtx := []string{string(authProvider.UID), system.GenericAuthProviderCredentialContext}
-	if authProvider.Status.Tool == nil {
-		return nil, fmt.Errorf("auth provider %q has not been resolved", authProviderName)
-	}
-
-	// Ensure that the auth provider has been configured so that we don't get stuck waiting on a prompt.
-	aps, err := providers.ConvertAuthProviderToolRef(authProvider, nil)
-	if err != nil {
-		return nil, fmt.Errorf("failed to convert auth provider: %w", err)
-	}
-	if len(aps.RequiredConfigurationParameters) > 0 {
-		isConfigured, missingEnvVars, err := d.isAuthProviderConfigured(ctx, credCtx, authProvider)
-		if err != nil {
-			return nil, fmt.Errorf("failed to check auth provider configuration: %w", err)
-		} else if !isConfigured {
-			if len(missingEnvVars) > 0 {
-				return nil, fmt.Errorf("auth provider is not configured: missing configuration parameters %s", strings.Join(missingEnvVars, ", "))
-			}
-			return nil, fmt.Errorf("auth provider is not configured: %w", err)
-		}
-	}
-
-	// Set up the Postgres connection string if it is available.
-	var envs []string
-	if d.postgresDSN != "" {
-		envs = append(envs, providers.PostgresConnectionEnvVar+"="+d.postgresDSN)
-	}
-
-	task, err := d.invoker.SystemTask(ctx, thread, authProviderName, "", invoke.SystemTaskOptions{
-		CredentialContextIDs: credCtx,
-		Env:                  envs,
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	result, err := task.Result(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	return url.Parse(strings.TrimSpace(result.Output))
 }
 
 func (d *Dispatcher) ListConfiguredAuthProviders(namespace string) []string {
@@ -410,7 +338,7 @@ func (d *Dispatcher) UpdateConfiguredAuthProviders(ctx context.Context) {
 
 	var result []string
 	for _, authProvider := range authProviders.Items {
-		if isConfigured, _, _ := d.isAuthProviderConfigured(ctx, []string{string(authProvider.UID), system.GenericAuthProviderCredentialContext}, authProvider); isConfigured {
+		if d.isAuthProviderConfigured(ctx, []string{string(authProvider.UID), system.GenericAuthProviderCredentialContext}, authProvider) {
 			result = append(result, authProvider.Name)
 		}
 	}
@@ -419,21 +347,22 @@ func (d *Dispatcher) UpdateConfiguredAuthProviders(ctx context.Context) {
 }
 
 // isAuthProviderConfigured checks an auth provider to see if all of its required environment variables are set.
-// Returns: isConfigured (bool), missingEnvVars ([]string), error
-func (d *Dispatcher) isAuthProviderConfigured(ctx context.Context, credCtx []string, toolRef v1.ToolReference) (bool, []string, error) {
+// Errors are ignored and reported as the auth provider is not configured.
+// Returns: isConfigured (bool)
+func (d *Dispatcher) isAuthProviderConfigured(ctx context.Context, credCtx []string, toolRef v1.ToolReference) bool {
 	if toolRef.Status.Tool == nil {
-		return false, nil, nil
+		return false
 	}
 
 	cred, err := d.gptscript.RevealCredential(ctx, credCtx, toolRef.Name)
 	if err != nil {
-		return false, nil, err
+		return false
 	}
 
 	aps, err := providers.ConvertAuthProviderToolRef(toolRef, cred.Env)
 	if err != nil {
-		return false, nil, err
+		return false
 	}
 
-	return aps.Configured, aps.MissingConfigurationParameters, nil
+	return aps.Configured
 }

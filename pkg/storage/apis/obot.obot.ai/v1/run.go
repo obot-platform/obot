@@ -17,10 +17,11 @@ const (
 	AgentFinalizer           = "obot.obot.ai/agent"
 	WorkflowFinalizer        = "obot.obot.ai/workflow"
 
-	ModelProviderSyncAnnotation = "obot.ai/model-provider-sync"
-	WorkflowSyncAnnotation      = "obot.ai/workflow-sync"
-	AgentSyncAnnotation         = "obot.ai/agent-sync"
-	AuthProviderSyncAnnotation  = "obot.ai/auth-provider-sync"
+	ModelProviderSyncAnnotation       = "obot.ai/model-provider-sync"
+	WorkflowSyncAnnotation            = "obot.ai/workflow-sync"
+	AgentSyncAnnotation               = "obot.ai/agent-sync"
+	AuthProviderSyncAnnotation        = "obot.ai/auth-provider-sync"
+	FileScannerProviderSyncAnnotation = "obot.ai/file-scanner-provider-sync"
 )
 
 var (

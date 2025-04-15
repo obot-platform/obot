@@ -15,6 +15,7 @@ import (
 	"github.com/obot-platform/obot/pkg/alias"
 	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/controller/creds"
+	"github.com/obot-platform/obot/pkg/gateway/server/dispatcher"
 	"github.com/obot-platform/obot/pkg/invoke"
 	"github.com/obot-platform/obot/pkg/render"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
@@ -27,16 +28,18 @@ import (
 )
 
 type AgentHandler struct {
-	gptscript *gptscript.GPTScript
-	invoker   *invoke.Invoker
-	serverURL string
+	gptscript  *gptscript.GPTScript
+	invoker    *invoke.Invoker
+	dispatcher *dispatcher.Dispatcher
+	serverURL  string
 }
 
-func NewAgentHandler(gClient *gptscript.GPTScript, invoker *invoke.Invoker, serverURL string) *AgentHandler {
+func NewAgentHandler(dispatcher *dispatcher.Dispatcher, gClient *gptscript.GPTScript, invoker *invoke.Invoker, serverURL string) *AgentHandler {
 	return &AgentHandler{
-		serverURL: serverURL,
-		gptscript: gClient,
-		invoker:   invoker,
+		serverURL:  serverURL,
+		gptscript:  gClient,
+		invoker:    invoker,
+		dispatcher: dispatcher,
 	}
 }
 
@@ -377,7 +380,7 @@ func (a *AgentHandler) UploadFile(req api.Context) error {
 		return fmt.Errorf("failed to get workspace with id %s: %w", workspaceName, err)
 	}
 
-	if _, err := uploadFileToWorkspace(req.Context(), req, a.gptscript, ws.Status.WorkspaceID, "files/", api.BodyOptions{
+	if _, err := uploadFileToWorkspace(req.Context(), req, a.dispatcher, a.gptscript, ws.Status.WorkspaceID, "files/", api.BodyOptions{
 		// 100MB
 		MaxBytes: 100 * 1024 * 1024,
 	}); err != nil {
@@ -455,7 +458,7 @@ func (a *AgentHandler) UploadKnowledgeFile(req api.Context) error {
 		return err
 	}
 
-	return uploadKnowledgeToWorkspace(req, a.gptscript, ws, agentName, "", knowledgeSetNames[0])
+	return uploadKnowledgeToWorkspace(req, a.dispatcher, a.gptscript, ws, agentName, "", knowledgeSetNames[0])
 }
 
 func (a *AgentHandler) ApproveKnowledgeFile(req api.Context) error {

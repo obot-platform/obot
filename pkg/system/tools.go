@@ -23,6 +23,7 @@ const (
 
 	ModelProviderCredential = "sys.model.provider.credential"
 
-	GenericModelProviderCredentialContext = "model-provider"
-	GenericAuthProviderCredentialContext  = "auth-provider"
+	GenericModelProviderCredentialContext       = "model-provider"
+	GenericAuthProviderCredentialContext        = "auth-provider"
+	GenericFileScannerProviderCredentialContext = "file-scanner-provider"
 )

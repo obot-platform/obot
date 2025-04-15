@@ -13,6 +13,7 @@ import (
 	"github.com/gptscript-ai/go-gptscript"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
+	"github.com/obot-platform/obot/pkg/gateway/server/dispatcher"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/storage/selectors"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -22,12 +23,14 @@ import (
 )
 
 type FilesHandler struct {
-	gptScript *gptscript.GPTScript
+	gptScript  *gptscript.GPTScript
+	dispatcher *dispatcher.Dispatcher
 }
 
-func NewFilesHandler(gClient *gptscript.GPTScript) *FilesHandler {
+func NewFilesHandler(dispatcher *dispatcher.Dispatcher, gClient *gptscript.GPTScript) *FilesHandler {
 	return &FilesHandler{
-		gptScript: gClient,
+		gptScript:  gClient,
+		dispatcher: dispatcher,
 	}
 }
 
@@ -72,7 +75,7 @@ func (f *FilesHandler) UploadFile(req api.Context) error {
 		return types.NewErrNotFound("no workspace found")
 	}
 
-	_, err = uploadFileToWorkspace(req.Context(), req, f.gptScript, thread.Status.WorkspaceID, "files/", api.BodyOptions{
+	_, err = uploadFileToWorkspace(req.Context(), req, f.dispatcher, f.gptScript, thread.Status.WorkspaceID, "files/", api.BodyOptions{
 		// 100MB
 		MaxBytes: 100 * 1024 * 1024,
 	})
@@ -216,10 +219,10 @@ func listKnowledgeFiles(req api.Context, agentName, threadName, knowledgeSetName
 	return req.Write(types.KnowledgeFileList{Items: resp})
 }
 
-func uploadKnowledgeToWorkspace(req api.Context, gClient *gptscript.GPTScript, ws *v1.Workspace, agentName, threadName, knowledgeSetName string) error {
+func uploadKnowledgeToWorkspace(req api.Context, dispatcher *dispatcher.Dispatcher, gClient *gptscript.GPTScript, ws *v1.Workspace, agentName, threadName, knowledgeSetName string) error {
 	filename := req.PathValue("file")
 
-	size, err := uploadFileToWorkspace(req.Context(), req, gClient, ws.Status.WorkspaceID, "", api.BodyOptions{
+	size, err := uploadFileToWorkspace(req.Context(), req, dispatcher, gClient, ws.Status.WorkspaceID, "", api.BodyOptions{
 		// 100MB
 		MaxBytes: 100 * 1024 * 1024,
 	})
@@ -306,18 +309,26 @@ func getFileInWorkspace(ctx context.Context, req api.Context, gClient *gptscript
 	return err
 }
 
-func uploadFileToWorkspace(ctx context.Context, req api.Context, gClient *gptscript.GPTScript, workspaceID, prefix string, opts ...api.BodyOptions) (int, error) {
+func uploadFileToWorkspace(ctx context.Context, req api.Context, dispatcher *dispatcher.Dispatcher, gClient *gptscript.GPTScript, workspaceID, prefix string, opts ...api.BodyOptions) (int, error) {
 	file := req.PathValue("file")
 	if file == "" {
 		return 0, fmt.Errorf("file path parameter is required")
 	}
+	file = prefix + file
 
 	contents, err := req.Body(opts...)
 	if err != nil {
 		return 0, fmt.Errorf("failed to read request body: %w", err)
 	}
 
-	if err = gClient.WriteFileInWorkspace(ctx, prefix+file, contents, gptscript.WriteFileInWorkspaceOptions{WorkspaceID: workspaceID}); err != nil {
+	if fromProvider, err := dispatcher.ScanFile(ctx, contents); err != nil {
+		if fromProvider {
+			return 0, types.NewErrBadRequest("file is infected with virus: %v", err)
+		}
+		return 0, fmt.Errorf("failed to scan file %q: %w", file, err)
+	}
+
+	if err = gClient.WriteFileInWorkspace(ctx, file, contents, gptscript.WriteFileInWorkspaceOptions{WorkspaceID: workspaceID}); err != nil {
 		return 0, fmt.Errorf("failed to upload file %q to workspace %q: %w", file, workspaceID, err)
 	}
 
