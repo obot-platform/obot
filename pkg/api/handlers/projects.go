@@ -623,18 +623,12 @@ func (h *ProjectsHandler) ListProjectThreads(req api.Context) error {
 		})
 	}
 
-	var selector kclient.ListOption
-	if req.UserIsAdmin() {
-		selector = kclient.MatchingFields{
-			"spec.project":          "false",
-			"spec.parentThreadName": projectThread.Name,
-		}
-	} else {
-		selector = kclient.MatchingFields{
-			"spec.project":          "false",
-			"spec.parentThreadName": projectThread.Name,
-			"spec.userUID":          req.User.GetUID(),
-		}
+	selector := kclient.MatchingFields{
+		"spec.project":          "false",
+		"spec.parentThreadName": projectThread.Name,
+	}
+	if !req.UserIsAdmin() {
+		selector["spec.userUID"] = req.User.GetUID()
 	}
 
 	if err := req.List(&threads, selector); err != nil {
