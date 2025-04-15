@@ -64,7 +64,7 @@ func RunRetention(policy time.Duration) func(req router.Request, resp router.Res
 }
 
 // Migrate sets the last used time of the thread to the current time if it is not set.
-func Migrate(req router.Request, resp router.Response) error {
+func Migrate(req router.Request, _ router.Response) error {
 	thread := req.Object.(*v1.Thread)
 
 	if thread.Spec.SystemTask {
