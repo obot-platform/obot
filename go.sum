@@ -347,8 +347,8 @@ github.com/gptscript-ai/cmd v0.0.0-20250324222528-f16f18548238 h1:Yr06/SdIkHL7dx
 github.com/gptscript-ai/cmd v0.0.0-20250324222528-f16f18548238/go.mod h1:DJAo1xTht1LDkNYFNydVjTHd576TC7MlpsVRl3oloVw=
 github.com/gptscript-ai/go-gptscript v0.9.6-0.20250331192455-415de950d72d h1:S9gfdnk0VK3dSFOHn/rhPWBbbOoC64uy38rRKIPLLcQ=
 github.com/gptscript-ai/go-gptscript v0.9.6-0.20250331192455-415de950d72d/go.mod h1:QvGPZoRuAiA8P5EzPI05kTrs+LZ0ipHywUGsKruSknw=
-github.com/gptscript-ai/gptscript v0.9.6-0.20250410153509-c519c63e1d4f h1:V5ESr4yW9vhMSkpptygFYI3oGP0k0GZCYL6U7YbI/YQ=
-github.com/gptscript-ai/gptscript v0.9.6-0.20250410153509-c519c63e1d4f/go.mod h1:CxS/D8RCZv1E3ZrLpgyv8Bl5iEd6FcOrzf+AB/22lrc=
+github.com/gptscript-ai/gptscript v0.9.6-0.20250415004047-4b87a83c9191 h1:EtQT/XNTdwYkokxM1kBUN+xZtXMIUMTkP381z99mqMQ=
+github.com/gptscript-ai/gptscript v0.9.6-0.20250415004047-4b87a83c9191/go.mod h1:CxS/D8RCZv1E3ZrLpgyv8Bl5iEd6FcOrzf+AB/22lrc=
 github.com/gptscript-ai/tui v0.0.0-20250204145344-33cd15de4cee h1:70PHW6Xw70yNNZ5aX936XqcMLwNmfMZpCV3FCOGKpxE=
 github.com/gptscript-ai/tui v0.0.0-20250204145344-33cd15de4cee/go.mod h1:iwHxuueg2paOak7zIg0ESBWx7A0wIHGopAratbgaPNY=
 github.com/gregjones/httpcache v0.0.0-20180305231024-9cad4c3443a7 h1:pdN6V1QBWetyv/0+wjACpqVH+eVULgEjkurDLq3goeM=
