@@ -66,6 +66,7 @@ func (c *Controller) setupRoutes() error {
 	root.Type(&v1.RunState{}).HandlerFunc(runstates.Migrate)
 
 	// Threads
+	root.Type(&v1.Thread{}).HandlerFunc(retention.Migrate)
 	root.Type(&v1.Thread{}).HandlerFunc(retention.RunRetention(c.services.RetentionPolicy))
 	root.Type(&v1.Thread{}).HandlerFunc(cleanup.Cleanup)
 	root.Type(&v1.Thread{}).HandlerFunc(threads.CreateWorkspaces)

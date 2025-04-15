@@ -6,6 +6,7 @@ import (
 	"github.com/obot-platform/nah/pkg/router"
 	"github.com/obot-platform/obot/logger"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -60,4 +61,20 @@ func RunRetention(policy time.Duration) func(req router.Request, resp router.Res
 
 		return nil
 	}
+}
+
+// Migrate sets the last used time of the thread to the current time if it is not set.
+func Migrate(req router.Request, resp router.Response) error {
+	thread := req.Object.(*v1.Thread)
+
+	if thread.Spec.SystemTask {
+		return nil
+	}
+
+	if thread.Status.LastUsedTime.IsZero() {
+		thread.Status.LastUsedTime = metav1.NewTime(time.Now())
+		return req.Client.Status().Update(req.Ctx, thread)
+	}
+
+	return nil
 }
