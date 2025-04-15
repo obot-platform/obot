@@ -393,7 +393,7 @@
 	{/if}
 {/snippet}
 
-{#snippet toolInfo(tool: ToolReference, headerLabel?: string)}
+{#snippet toolInfo(tool: ToolReference, headerLabel?: string, headerLabelClass?: string)}
 	{#if tool.metadata?.icon}
 		<img
 			class="size-8 flex-shrink-0 rounded-md bg-white p-1 dark:bg-gray-600"
@@ -404,10 +404,10 @@
 		<Wrench class="size-8 flex-shrink-0 rounded-md bg-gray-100 p-1 text-black" />
 	{/if}
 	<span class="flex grow flex-col px-2 text-left">
-		<span>
+		<span class="flex items-center gap-1">
 			{tool.name}
 			{#if headerLabel}
-				<span class="text-xs text-gray-500">{headerLabel}</span>
+				<span class={twMerge('text-xs text-gray-500', headerLabelClass)}>{headerLabel}</span>
 			{/if}
 		</span>
 		<span class="text-gray text-xs font-normal dark:text-gray-300">
@@ -596,7 +596,7 @@
 			searchPopover?.close();
 		}}
 	>
-		{@render toolInfo(tool)}
+		{@render toolInfo(tool, 'Bundle', 'text-[9px] px-2 py-0.5 border border-gray-500 rounded-full')}
 		{#if val}
 			<div class="mr-4 flex items-center">
 				<div class="remove-pill">Remove</div>
@@ -638,14 +638,5 @@
 
 	:global(.animate-bounce-x) {
 		animation: bounce-x 1s infinite ease-in-out;
-	}
-
-	.remove-pill {
-		font-size: var(--text-xs);
-		padding: 0.25rem 0.75rem;
-		border-radius: var(--radius-2xl);
-		background-color: var(--surface3);
-		color: var(--text-primary);
-		font-weight: 200;
 	}
 </style>
