@@ -9286,6 +9286,12 @@ func schema_storage_apis_obotobotai_v1_ThreadStatus(ref common.ReferenceCallback
 							Format: "",
 						},
 					},
+					"copiedTasksFromParent": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
+						},
+					},
 					"created": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"boolean"},

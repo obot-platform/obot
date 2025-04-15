@@ -481,6 +481,10 @@ func (t *Handler) CopyTasksFromParent(req router.Request, _ router.Response) err
 		return nil
 	}
 
+	if thread.Status.CopiedTasksFromParent {
+		return nil
+	}
+
 	var parentThread v1.Thread
 	if err := req.Get(&parentThread, thread.Namespace, thread.Spec.ParentThreadName); apierrors.IsNotFound(err) {
 		return nil
@@ -538,7 +542,8 @@ func (t *Handler) CopyTasksFromParent(req router.Request, _ router.Response) err
 		}
 	}
 
-	return nil
+	thread.Status.CopiedTasksFromParent = true
+	return req.Client.Status().Update(req.Ctx, thread)
 }
 
 func (t *Handler) RemoveOldFinalizers(req router.Request, _ router.Response) error {

@@ -149,10 +149,11 @@ type ThreadStatus struct {
 	KnowledgeSetNames      []string            `json:"knowledgeSetNames,omitempty"`
 	SharedKnowledgeSetName string              `json:"sharedKnowledgeSetName,omitempty"`
 	// SharedWorkspaceName is used primarily to store the database content and is scoped to the project and shared across threads
-	SharedWorkspaceName string `json:"sharedWorkspaceName,omitempty"`
-	CopiedTasks         bool   `json:"copiedTasks,omitempty"`
-	CopiedTools         bool   `json:"copiedTools,omitempty"`
-	Created             bool   `json:"created,omitempty"`
+	SharedWorkspaceName   string `json:"sharedWorkspaceName,omitempty"`
+	CopiedTasks           bool   `json:"copiedTasks,omitempty"`
+	CopiedTools           bool   `json:"copiedTools,omitempty"`
+	CopiedTasksFromParent bool   `json:"copiedTasksFromParent,omitempty"`
+	Created               bool   `json:"created,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
