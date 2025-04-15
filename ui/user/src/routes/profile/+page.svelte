@@ -64,34 +64,34 @@
 				>
 					<h3 class="flex flex-shrink-0 text-2xl font-semibold">My Account</h3>
 				</div>
-				<div class="bg-surface1 mx-auto max-w-sm rounded-xl p-6 shadow-md">
+				<div class="bg-surface1 mx-auto w-full max-w-lg rounded-xl p-6 shadow-md">
 					<img
 						src={profile.current.iconURL}
 						alt=""
-						class="mx-auto h-28 w-28 rounded-full object-cover"
+						class="mx-auto mb-3 h-28 w-28 rounded-full object-cover"
 					/>
 					<div class="flex flex-row py-4">
-						<div class="w-1/2">Display Name:</div>
+						<div class="w-1/2 max-w-[150px]">Display Name:</div>
 						<div class="w-1/2 break-words">{profile.current.getDisplayName?.()}</div>
 					</div>
 					<hr />
 					<div class="flex flex-row py-2">
-						<div class="w-1/2">Email:</div>
+						<div class="w-1/2 max-w-[150px]">Email:</div>
 						<div class="w-1/2 break-words">{profile.current.email}</div>
 					</div>
 					<hr />
 					<div class="flex flex-row py-2">
-						<div class="w-1/2">Username:</div>
+						<div class="w-1/2 max-w-[150px]">Username:</div>
 						<div class="w-1/2 break-words">{profile.current.username}</div>
 					</div>
 					<hr />
 					<div class="flex flex-row py-2">
-						<div class="w-1/2">Role:</div>
+						<div class="w-1/2 max-w-[150px]">Role:</div>
 						<div class="w-1/2 break-words">{profile.current.role === 1 ? 'Admin' : 'User'}</div>
 					</div>
 					<hr />
 					<div class="flex flex-row py-2">
-						<div class="w-1/2">AuthProvider:</div>
+						<div class="w-1/2 max-w-[150px]">AuthProvider:</div>
 						<div class="w-1/2 break-words">
 							{profile.current.currentAuthProvider?.split('-')[0]}
 						</div>
@@ -99,7 +99,7 @@
 					<hr />
 					<div class="mt-2 flex flex-row py-2">
 						<button
-							class="ml-auto rounded bg-red-600 px-4 py-2 font-medium text-white hover:bg-red-700"
+							class="ml-auto rounded-3xl bg-red-600 px-4 py-2 font-medium text-white hover:bg-red-700"
 							onclick={(e) => {
 								e.preventDefault();
 								toDelete = !toDelete;

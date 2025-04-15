@@ -52,7 +52,7 @@
 				<h3 class="mb-5 text-lg font-normal break-words text-black dark:text-gray-100">
 					Delete {username}?
 				</h3>
-				<div class="mb-5">
+				<div class="mb-4">
 					<p class="mb-3 text-sm font-normal text-black dark:text-gray-100">
 						To confirm, type <strong>{username}</strong> in the box below
 					</p>
@@ -60,23 +60,17 @@
 						type="text"
 						bind:value={username2}
 						oninput={(e) => (username2 = (e.target as HTMLInputElement).value)}
-						class="mt-1 block w-full rounded-lg border border-gray-300 px-4 py-2 transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+						class="mt-1 block w-full rounded-3xl border border-gray-300 px-4 py-2 transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500 focus:outline-none"
 					/>
 				</div>
 				<button
 					disabled={username2 === '' || username2 !== username}
 					onclick={onsuccess}
 					type="button"
-					class="inline-flex items-center rounded-3xl bg-red-600 px-5 py-2.5 text-center text-sm font-medium text-white hover:bg-red-800 disabled:cursor-not-allowed disabled:opacity-50"
+					class="inline-flex w-full items-center justify-center rounded-3xl bg-red-600 px-5 py-2.5 text-center text-sm font-medium text-white hover:bg-red-800 disabled:cursor-not-allowed disabled:opacity-50"
 				>
 					Delete my account
 				</button>
-				<button
-					onclick={oncancel}
-					type="button"
-					class="ms-3 rounded-3xl bg-gray-100 px-5 py-2.5 text-sm font-medium text-black hover:bg-gray-200 dark:bg-gray-800
-					 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-white">Cancel</button
-				>
 			</div>
 		</div>
 	</div>
