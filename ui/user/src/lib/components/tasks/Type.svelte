@@ -52,7 +52,7 @@
 		}
 		if (value === 'schedule') {
 			task.schedule = {
-				interval: 'hourly',
+				interval: 'daily',
 				hour: 0,
 				minute: 0,
 				day: 0,
