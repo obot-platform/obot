@@ -81,7 +81,22 @@ func (c *Client) deleteSessionsForUser(ctx context.Context, db *gorm.DB, storage
 	return errors.Join(errs...)
 }
 
+func (c *Client) tableExists(db *gorm.DB, tableName string) (bool, error) {
+	var exists bool
+	if err := db.Raw("SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = ?)", tableName).Scan(&exists).Error; err != nil {
+		return false, err
+	}
+	return exists, nil
+}
+
 func (c *Client) deleteAllSessionsForUser(db *gorm.DB, emailHash, userHash, tablePrefix string) error {
+	exists, err := c.tableExists(db, tablePrefix+"sessions")
+	if err != nil {
+		return err
+	}
+	if !exists {
+		return nil
+	}
 	return db.Exec(
 		"DELETE FROM "+tablePrefix+"sessions WHERE \"user\" = decode(?, 'hex') AND \"email\" = decode(?, 'hex')",
 		userHash,
@@ -90,6 +105,13 @@ func (c *Client) deleteAllSessionsForUser(db *gorm.DB, emailHash, userHash, tabl
 }
 
 func (c *Client) deleteSessionsForUserExceptCurrent(db *gorm.DB, emailHash, userHash, tablePrefix, currentSessionID string) error {
+	exists, err := c.tableExists(db, tablePrefix+"sessions")
+	if err != nil {
+		return err
+	}
+	if !exists {
+		return nil
+	}
 	return db.Exec(
 		"DELETE FROM "+tablePrefix+"sessions WHERE key NOT LIKE ? AND \"user\" = decode(?, 'hex') AND \"email\" = decode(?, 'hex')",
 		currentSessionID+"%",
