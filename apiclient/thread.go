@@ -1,6 +1,7 @@
 package apiclient
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"net/http"
@@ -81,4 +82,22 @@ func (c *Client) ListThreads(ctx context.Context, opts ListThreadsOptions) (resu
 
 	_, err = toObject(resp, &result)
 	return
+}
+
+func (c *Client) UploadThreadFile(ctx context.Context, projectID string, threadID string, assistantID string, filename string, fileContent []byte) error {
+	_, resp, err := c.doRequest(ctx, http.MethodPost, fmt.Sprintf("/assistants/%s/projects/%s/threads/%s/files/%s", assistantID, projectID, threadID, filename), bytes.NewReader(fileContent))
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	return nil
+}
+
+func (c *Client) UploadKnowledgeFile(ctx context.Context, projectID string, threadID string, assistantID string, filename string, fileContent []byte) error {
+	_, resp, err := c.doRequest(ctx, http.MethodPost, fmt.Sprintf("/assistants/%s/projects/%s/threads/%s/knowledge-files/%s", assistantID, projectID, threadID, filename), bytes.NewReader(fileContent))
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	return nil
 }

@@ -635,6 +635,7 @@ func (i *Invoker) Resume(ctx context.Context, c kclient.WithWatch, thread *v1.Th
 				"OBOT_TOKEN="+token,
 				"OBOT_RUN_ID="+run.Name,
 				"OBOT_THREAD_ID="+thread.Name,
+				"OBOT_PROJECT_ID="+thread.Spec.ParentThreadName,
 				"OBOT_WORKFLOW_ID="+run.Spec.WorkflowName,
 				"OBOT_WORKFLOW_STEP_ID="+run.Spec.WorkflowStepID,
 				"OBOT_AGENT_ID="+run.Spec.AgentName,

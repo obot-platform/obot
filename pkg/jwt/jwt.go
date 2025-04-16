@@ -44,6 +44,7 @@ func (t *TokenService) AuthenticateRequest(req *http.Request) (*authenticator.Re
 	}
 	return &authenticator.Response{
 		User: &user.DefaultInfo{
+			UID:  tokenContext.UserID,
 			Name: tokenContext.Scope,
 			Groups: []string{
 				authz.AuthenticatedGroup,
