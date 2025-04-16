@@ -82,44 +82,31 @@ export default function ChatThreads() {
 	const threads = useMemo(() => {
 		if (!getThreads.data) return [];
 
-		let filteredThreads = getThreads.data.filter(
-			(thread) =>
+		const filteredThreads = [];
+		for (let i = 0; i < getThreads.data.length; i++) {
+			const thread = getThreads.data[i];
+
+			// Check the common conditions
+			if (
 				thread.assistantID &&
 				!thread.deleted &&
 				!thread.project &&
 				!thread.taskID
-		);
+			) {
+				// Apply additional filters based on parameters
+				if (threadId && thread.id !== threadId) continue;
+				if (agentId && thread.assistantID !== agentId) continue;
+				if (obotId && thread.projectID !== obotId) continue;
+				if (userId && thread.userID !== userId) continue;
+				if (
+					createdStart &&
+					!filterByCreatedRange([thread], createdStart, createdEnd).length
+				)
+					continue;
 
-		if (threadId) {
-			filteredThreads = filteredThreads.filter(
-				(thread) => thread.id === threadId
-			);
-		}
-
-		if (agentId) {
-			filteredThreads = filteredThreads.filter(
-				(thread) => thread.assistantID === agentId
-			);
-		}
-
-		if (obotId) {
-			filteredThreads = filteredThreads.filter(
-				(thread) => thread.projectID === obotId
-			);
-		}
-
-		if (userId) {
-			filteredThreads = filteredThreads.filter(
-				(thread) => thread.userID === userId
-			);
-		}
-
-		if (createdStart) {
-			filteredThreads = filterByCreatedRange(
-				filteredThreads,
-				createdStart,
-				createdEnd
-			);
+				// If all conditions are passed, add the thread to the result
+				filteredThreads.push(thread);
+			}
 		}
 
 		return filteredThreads;
