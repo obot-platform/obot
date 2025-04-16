@@ -261,6 +261,8 @@ func (h *ProjectShareHandler) GetShareFromShareID(req api.Context) error {
 	var (
 		shareID         = req.PathValue("share_public_id")
 		threadShareList v1.ThreadShareList
+		baseProject     v1.Thread
+		id              = name.SafeHashConcatName(system.ThreadPrefix, req.User.GetUID(), shareID)
 	)
 
 	if err := req.List(&threadShareList, kclient.InNamespace(req.Namespace()), kclient.MatchingFields{
@@ -274,5 +276,12 @@ func (h *ProjectShareHandler) GetShareFromShareID(req api.Context) error {
 	}
 
 	threadShare := threadShareList.Items[0]
+
+	// Checking if user has a project created from this share
+	if err := req.Get(&baseProject, id); err == nil {
+		// User does have a project instance, include its ID in the response
+		threadShare.Spec.ProjectThreadName = id
+	}
+
 	return req.Write(convertProjectShare(threadShare))
 }
