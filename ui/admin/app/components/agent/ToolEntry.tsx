@@ -30,7 +30,7 @@ export function ToolEntry({
 	return (
 		<div className="flex flex-col">
 			<div className="mt-1 flex items-center justify-between space-x-2">
-				<div className="flex w-full items-center justify-between gap-2 rounded-md p-2 px-3 text-sm">
+				<div className="flex w-full items-center justify-between gap-2 rounded-md p-2 px-0 text-sm">
 					<div className="flex items-center gap-2">
 						{toolInfo.icon}
 

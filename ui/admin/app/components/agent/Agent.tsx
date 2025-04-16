@@ -87,7 +87,12 @@ export function Agent() {
 					access when using the agent.
 				</CardDescription>
 
-				<AgentCapabilityForm entity={agentUpdates} onChange={partialSetAgent} />
+				<AgentCapabilityForm
+					entity={agentUpdates}
+					onChange={({ tools, oauthApps }) =>
+						partialSetAgent(convertTools(tools, oauthApps))
+					}
+				/>
 			</div>
 
 			<div className="m-4 space-y-4 p-4">
@@ -182,7 +187,7 @@ export function Agent() {
 }
 
 function convertTools(
-	tools: { tool: string; variant: "fixed" | "default" | "available" }[],
+	tools: { tool: string; variant: "fixed" | "default" | "available" | "off" }[],
 	oauthApps: string[]
 ) {
 	type ToolObj = Pick<

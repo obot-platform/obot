@@ -29,12 +29,13 @@ import {
 import { useSlideInOut } from "~/hooks/animate/useSlideInOut";
 import { useCapabilityTools } from "~/hooks/tools/useCapabilityTools";
 
-const ToolVariant = {
+export const ToolVariant = {
 	FIXED: "fixed",
 	DEFAULT: "default",
 	AVAILABLE: "available",
+	OFF: "off",
 } as const;
-type ToolVariant = (typeof ToolVariant)[keyof typeof ToolVariant];
+export type ToolVariant = (typeof ToolVariant)[keyof typeof ToolVariant];
 const formSchema = z.object({
 	tools: z.array(
 		z.object({
@@ -43,6 +44,7 @@ const formSchema = z.object({
 				ToolVariant.FIXED,
 				ToolVariant.DEFAULT,
 				ToolVariant.AVAILABLE,
+				ToolVariant.OFF,
 			] as const),
 		})
 	),

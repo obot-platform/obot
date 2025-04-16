@@ -63,7 +63,6 @@ export async function clientLoader() {
 const CapabilityTools = [
 	CapabilityTool.Knowledge,
 	CapabilityTool.WorkspaceFiles,
-	CapabilityTool.Database,
 	CapabilityTool.Tasks,
 ];
 export default function Agents() {
@@ -89,6 +88,7 @@ export default function Agents() {
 										agent: {
 											name: generateRandomName(),
 											tools: CapabilityTools,
+											availableThreadTools: [CapabilityTool.Database],
 										} as Agent,
 									}).then((agent) => {
 										AgentService.getAgents.revalidate();
