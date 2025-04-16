@@ -17,6 +17,11 @@ func (h *Handler) RunInvoke(req router.Request, _ router.Response) error {
 		lastRunName string
 	)
 
+	if step.Spec.Step.Loop != nil {
+		// This will get picked up by the loop handler.
+		return nil
+	}
+
 	if step.Spec.AfterWorkflowStepName != "" {
 		var previousStep v1.WorkflowStep
 		if err := client.Get(ctx, router.Key(step.Namespace, step.Spec.AfterWorkflowStepName), &previousStep); err != nil {

@@ -68,6 +68,7 @@ require (
 	cloud.google.com/go/auth v0.9.3 // indirect
 	github.com/google/s2a-go v0.1.8 // indirect
 	github.com/googleapis/enterprise-certificate-proxy v0.3.4 // indirect
+	github.com/gptscript-ai/datasets v0.0.0-20241125193827-31ce6c3c682b // indirect
 	github.com/pkoukk/tiktoken-go v0.1.7 // indirect
 	github.com/pkoukk/tiktoken-go-loader v0.0.2-0.20240522064338-c17e8bc0f699 // indirect
 	go.opencensus.io v0.24.0 // indirect

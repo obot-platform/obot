@@ -760,7 +760,7 @@ func toParams(manifest types.TaskManifest) map[string]string {
 func toWorkflowSteps(steps []types.TaskStep) []types.Step {
 	workflowSteps := make([]types.Step, 0, len(steps))
 	for _, step := range steps {
-		workflowSteps = append(workflowSteps, types.Step(step))
+		workflowSteps = append(workflowSteps, step.AsWorkflowStep())
 	}
 	return workflowSteps
 }
@@ -1000,7 +1000,7 @@ func convertTask(workflow v1.Workflow, trigger *triggers) types.Task {
 func toTaskSteps(steps []types.Step) []types.TaskStep {
 	taskSteps := make([]types.TaskStep, 0, len(steps))
 	for _, step := range steps {
-		taskSteps = append(taskSteps, types.TaskStep(step))
+		taskSteps = append(taskSteps, step.AsTaskStep())
 	}
 	return taskSteps
 }

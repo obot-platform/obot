@@ -30,6 +30,23 @@ type EnvVar struct {
 type Step struct {
 	ID   string `json:"id,omitempty"`
 	Step string `json:"step,omitempty"`
+	Loop []Step `json:"loop,omitempty"`
+}
+
+func (s Step) AsTaskStep() TaskStep {
+	taskStep := TaskStep{
+		ID:   s.ID,
+		Step: s.Step,
+	}
+
+	if len(s.Loop) > 0 {
+		taskStep.Loop = make([]TaskStep, 0, len(s.Loop))
+		for _, loopStep := range s.Loop {
+			taskStep.Loop = append(taskStep.Loop, loopStep.AsTaskStep())
+		}
+	}
+
+	return taskStep
 }
 
 func (s Step) Display() string {
