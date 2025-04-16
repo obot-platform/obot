@@ -37,7 +37,7 @@ func (c *DeleteObot) Run(cmd *cobra.Command, args []string) error {
 
 	for _, id := range args {
 		// Check if ID has the project prefix (both p1- format and p1* format)
-		if !strings.HasPrefix(id, system.ProjectPrefix+"-") && !strings.HasPrefix(id, system.ProjectPrefix) {
+		!strings.HasPrefix(id, system.ProjectPrefix) {
 			errs = append(errs, fmt.Errorf("%s is not a valid obot ID (should start with p1)", id))
 			continue
 		}
