@@ -102,34 +102,27 @@
 						alt=""
 						class="mx-auto mb-3 h-28 w-28 rounded-full object-cover"
 					/>
-					<div class="flex flex-row py-4">
+					<div class="flex flex-row py-3">
 						<div class="w-1/2 max-w-[150px]">Display Name:</div>
 						<div class="w-1/2 break-words">{profile.current.getDisplayName?.()}</div>
 					</div>
 					<hr />
-					<div class="flex flex-row py-2">
+					<div class="flex flex-row py-3">
 						<div class="w-1/2 max-w-[150px]">Email:</div>
 						<div class="w-1/2 break-words">{profile.current.email}</div>
 					</div>
 					<hr />
-					<div class="flex flex-row py-2">
+					<div class="flex flex-row py-3">
 						<div class="w-1/2 max-w-[150px]">Username:</div>
 						<div class="w-1/2 break-words">{profile.current.username}</div>
 					</div>
 					<hr />
-					<div class="flex flex-row py-2">
+					<div class="flex flex-row py-3">
 						<div class="w-1/2 max-w-[150px]">Role:</div>
 						<div class="w-1/2 break-words">{profile.current.role === 1 ? 'Admin' : 'User'}</div>
 					</div>
 					<hr />
-					<div class="flex flex-row py-2">
-						<div class="w-1/2 max-w-[150px]">AuthProvider:</div>
-						<div class="w-1/2 break-words">
-							{profile.current.currentAuthProvider?.split('-')[0]}
-						</div>
-					</div>
-					<hr />
-					<div class="mt-2 flex flex-col gap-4 py-2">
+					<div class="mt-2 flex flex-col gap-4 py-3">
 						{#if version.current.sessionStore === 'db'}
 							<button
 								class="w-full rounded-3xl border-2 border-red-600 px-4 py-2 font-medium text-red-600 hover:border-red-700 hover:text-red-700"
