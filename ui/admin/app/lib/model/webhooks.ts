@@ -6,7 +6,7 @@ export type WebhookBase = {
 	name: string;
 	description: string;
 	alias?: Nullish<string>;
-	workflow: string;
+	workflowName: string;
 	headers?: Nullish<string[]>;
 	secret?: string;
 	validationHeader: string;
@@ -33,7 +33,7 @@ export const WebhookSchema = z.object({
 	name: z.string().min(1, "Name is required").default(""),
 	description: z.string().default(""),
 	alias: z.string().default(""),
-	workflow: z.string().min(1, "Workflow is required").default(""),
+	workflowName: z.string().min(1, "workflowName is required").default(""),
 	headers: z.array(z.string()).default([]),
 	secret: z.string().default(""),
 	validationHeader: z.string().default(""),

@@ -79,7 +79,7 @@ export function WebhookFormContent({ hideTitle }: WebhookFormContentProps) {
 
 				<ControlledCustomInput
 					control={control}
-					name="workflow"
+					name="workflowName"
 					label="Workflow"
 					description="The workflow that will be triggered when the webhook is called."
 				>
@@ -173,7 +173,7 @@ export function WebhookFormContent({ hideTitle }: WebhookFormContentProps) {
 	);
 
 	function getWorkflowOptions() {
-		const workflow = watch("workflow");
+		const workflow = watch("workflowName");
 
 		if (getTasks.isLoading)
 			return (

@@ -75,7 +75,7 @@ export function TaskScheduleTab({ taskId }: { taskId: string }) {
 				onClick={() =>
 					createCronJob.execute({
 						...defaultSchedule,
-						workflow: taskId,
+						workflowName: taskId,
 					})
 				}
 			>

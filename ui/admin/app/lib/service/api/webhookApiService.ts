@@ -15,7 +15,7 @@ async function getWebhooks(filters?: WebhookFilters) {
 
 	if (!taskId) return data.items ?? [];
 
-	return data.items?.filter((item) => item.workflow === taskId) ?? [];
+	return data.items?.filter((item) => item.workflowName === taskId) ?? [];
 }
 getWebhooks.key = (filters: WebhookFilters = {}) => ({
 	url: ApiRoutes.webhooks.getWebhooks().path,

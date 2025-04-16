@@ -29,7 +29,7 @@ const formSchema = z.object({
 	name: z.string().min(1, "Name is required"),
 	description: z.string(),
 	alias: z.string(),
-	workflow: z.string().min(1, "Workflow is required"),
+	workflowName: z.string().min(1, "WorkflowName is required"),
 	allowedSenders: z.array(z.string()).optional(),
 });
 
@@ -66,7 +66,7 @@ export function EmailReceiverForm({
 			name: emailReceiver?.name || "",
 			description: emailReceiver?.description || "",
 			alias: emailReceiver?.alias || "",
-			workflow: emailReceiver?.workflow || "",
+			workflowName: emailReceiver?.workflowName || "",
 			allowedSenders: emailReceiver?.allowedSenders || [],
 		},
 	});
@@ -132,7 +132,7 @@ export function EmailReceiverForm({
 
 					<ControlledCustomInput
 						control={form.control}
-						name="workflow"
+						name="workflowName"
 						label="Workflow"
 						description="The workflow that will be called when an email is received."
 					>
@@ -165,7 +165,7 @@ export function EmailReceiverForm({
 	);
 
 	function getWorkflowOptions() {
-		const workflow = form.watch("workflow");
+		const workflow = form.watch("workflowName");
 
 		if (getTasks.isLoading)
 			return (

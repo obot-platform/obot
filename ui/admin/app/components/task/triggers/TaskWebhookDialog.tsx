@@ -52,7 +52,7 @@ export function TaskWebhookDialog({
 					<WebhookForm
 						hideTitle
 						onContinue={() => setOpen(false)}
-						webhook={{ workflow: taskId, ...webhook } as Webhook}
+						webhook={{ workflowName: taskId, ...webhook } as Webhook}
 					/>
 				</ScrollArea>
 			</DialogContent>

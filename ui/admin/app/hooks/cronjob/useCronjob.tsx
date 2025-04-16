@@ -12,7 +12,7 @@ export function useCronjob(taskId?: string) {
 	);
 
 	const cronJobs = getCronJobs.data
-		?.filter((cronJob) => cronJob.workflow === taskId)
+		?.filter((cronJob) => cronJob.workflowName === taskId)
 		.sort((cronJobA, cronJobB) => cronJobA.id.localeCompare(cronJobB.id));
 
 	const createCronJob = useAsync(CronJobApiService.createCronJob, {

@@ -20,7 +20,7 @@ async function getEmailReceivers(filters?: EmailReceiverFilters) {
 
 	if (!taskId) return data.items ?? [];
 
-	return data.items?.filter((item) => item.workflow === taskId) ?? [];
+	return data.items?.filter((item) => item.workflowName === taskId) ?? [];
 }
 getEmailReceivers.key = (filters: EmailReceiverFilters = {}) => ({
 	url: ApiRoutes.emailReceivers.getEmailReceivers().path,

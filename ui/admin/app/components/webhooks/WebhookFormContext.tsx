@@ -52,7 +52,7 @@ export function WebhookFormContextProvider({
 			name: webhook?.name ?? "",
 			description: webhook?.description ?? "",
 			alias: webhook?.alias ?? "",
-			workflow: webhook?.workflow ?? "",
+			workflowName: webhook?.workflowName ?? "",
 			headers: webhook?.headers ?? [],
 			validationHeader: webhook?.validationHeader ?? "",
 			secret: "",

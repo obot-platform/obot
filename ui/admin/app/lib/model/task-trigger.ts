@@ -27,16 +27,19 @@ const objectHasAllKeys = <T extends object = object>(
 function isEmailReceiver(entity: TaskTriggerEntity): entity is EmailReceiver {
 	return (
 		entity.type === "emailreceiver" &&
-		objectHasAllKeys<EmailReceiver>(entity, ["workflow"])
+		objectHasAllKeys<EmailReceiver>(entity, ["workflowName"])
 	);
 }
 
 function isWebhook(entity: TaskTriggerEntity): entity is Webhook {
-	return objectHasAllKeys<Webhook>(entity, ["workflow", "validationHeader"]);
+	return objectHasAllKeys<Webhook>(entity, [
+		"workflowName",
+		"validationHeader",
+	]);
 }
 
 function isCronJob(entity: TaskTriggerEntity): entity is CronJob {
-	return objectHasAllKeys<CronJob>(entity, ["workflow", "schedule"]);
+	return objectHasAllKeys<CronJob>(entity, ["workflowName", "schedule"]);
 }
 
 function convertToTaskTrigger(entity: TaskTriggerEntity): TaskTrigger | null {
@@ -46,21 +49,21 @@ function convertToTaskTrigger(entity: TaskTriggerEntity): TaskTrigger | null {
 				id: entity.id,
 				type: "email",
 				name: entity.name,
-				task: entity.workflow,
+				task: entity.workflowName,
 			};
 		case isWebhook(entity):
 			return {
 				id: entity.id,
 				type: "webhook",
 				name: entity.name,
-				task: entity.workflow,
+				task: entity.workflowName,
 			};
 		case isCronJob(entity):
 			return {
 				id: entity.id,
 				type: "schedule",
 				name: entity.id,
-				task: entity.workflow,
+				task: entity.workflowName,
 			};
 		default:
 			console.error("Unknown entity type", entity);

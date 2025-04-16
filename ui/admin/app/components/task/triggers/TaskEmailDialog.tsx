@@ -53,7 +53,7 @@ export function TaskEmailDialog({
 				<ScrollArea className="max-h-[60vh]">
 					<EmailReceiverForm
 						onContinue={() => setOpen(false)}
-						emailReceiver={emailReceiver ?? { workflow: taskId }}
+						emailReceiver={emailReceiver ?? { workflowName: taskId }}
 						hideTitle
 					/>
 				</ScrollArea>

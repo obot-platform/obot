@@ -4,7 +4,7 @@ type EmailReceiverBase = {
 	name: string;
 	description: string;
 	alias?: string;
-	workflow: string;
+	workflowName: string;
 	allowedSenders?: string[];
 };
 
