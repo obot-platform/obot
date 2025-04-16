@@ -56,7 +56,7 @@ func Graph(value int) (string, error) {
 	builder := &strings.Builder{}
 	for i := 0; i < bars; i++ {
 		if i == bars-1 {
-			builder.WriteString(fmt.Sprintf("> %v", value))
+			_, _ = fmt.Fprintf(builder, "> %v", value)
 			break
 		}
 		builder.WriteString("=")
@@ -90,7 +90,7 @@ func FormatCreated(obj any) string {
 }
 
 func FormatUntil(data metav1.Time) string {
-	return duration.HumanDuration(time.Until(data.Time.UTC())) + " from now"
+	return duration.HumanDuration(time.Until(data.UTC())) + " from now"
 }
 
 func FormatJSON(data any) (string, error) {

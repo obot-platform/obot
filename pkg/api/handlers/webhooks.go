@@ -52,8 +52,8 @@ func (a *WebhookHandler) Update(req api.Context) error {
 		return err
 	}
 
-	if webhookReq.WebhookManifest.ValidationHeader != "" && webhookReq.WebhookManifest.Secret == "" {
-		webhookReq.WebhookManifest.Secret = wh.Spec.Secret
+	if webhookReq.ValidationHeader != "" && webhookReq.Secret == "" {
+		webhookReq.Secret = wh.Spec.Secret
 	}
 
 	if err := validateManifest(req, webhookReq.WebhookManifest); err != nil {
@@ -266,7 +266,7 @@ func (a *WebhookHandler) Execute(req api.Context) error {
 	}
 
 	var workflow v1.Workflow
-	if err := req.Get(&workflow, webhook.Spec.WebhookManifest.WorkflowName); err != nil {
+	if err := req.Get(&workflow, webhook.Spec.WorkflowName); err != nil {
 		return err
 	}
 

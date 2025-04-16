@@ -45,19 +45,19 @@ func logRequest(h api.HandlerFunc) api.HandlerFunc {
 
 func addRequestID(next api.HandlerFunc) api.HandlerFunc {
 	return func(apiContext api.Context) error {
-		apiContext.Request = apiContext.Request.WithContext(context.WithNewRequestID(apiContext.Request.Context()))
+		apiContext.Request = apiContext.WithContext(context.WithNewRequestID(apiContext.Context()))
 		return next(apiContext)
 	}
 }
 
 func addLogger(next api.HandlerFunc) api.HandlerFunc {
 	return func(apiContext api.Context) error {
-		logger := log.NewWithID(context.GetRequestID(apiContext.Request.Context()))
+		logger := log.NewWithID(context.GetRequestID(apiContext.Context()))
 		if apiContext.User != nil {
 			logger = logger.With("username", apiContext.User.GetName())
 		}
-		apiContext.Request = apiContext.Request.WithContext(context.WithLogger(
-			apiContext.Request.Context(),
+		apiContext.Request = apiContext.WithContext(context.WithLogger(
+			apiContext.Context(),
 			logger,
 		))
 		return next(apiContext)

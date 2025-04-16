@@ -149,7 +149,7 @@ func (r *Context) write(obj any, code int) error {
 		return err
 	}
 	r.ResponseWriter.Header().Set("Content-Type", "application/json")
-	r.ResponseWriter.WriteHeader(code)
+	r.WriteHeader(code)
 	return json.NewEncoder(r.ResponseWriter).Encode(obj)
 }
 
@@ -207,7 +207,7 @@ func Watch[T client.Object](r Context, list client.ObjectList, opts ...client.Li
 			ResourceVersion: list.GetResourceVersion(),
 		},
 	}}, opts...)
-	w, err := r.Storage.Watch(r.Request.Context(), list, watchOpts...)
+	w, err := r.Storage.Watch(r.Context(), list, watchOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -235,7 +235,7 @@ func Watch[T client.Object](r Context, list client.ObjectList, opts ...client.Li
 
 func (r *Context) List(obj client.ObjectList, opts ...client.ListOption) error {
 	namespace := r.Namespace()
-	return r.Storage.List(r.Request.Context(), obj, slices.Concat([]client.ListOption{
+	return r.Storage.List(r.Context(), obj, slices.Concat([]client.ListOption{
 		&client.ListOptions{
 			Namespace: namespace,
 		},
@@ -243,7 +243,7 @@ func (r *Context) List(obj client.ObjectList, opts ...client.ListOption) error {
 }
 
 func (r *Context) Delete(obj client.Object) error {
-	err := r.Storage.Delete(r.Request.Context(), obj)
+	err := r.Storage.Delete(r.Context(), obj)
 	if apierrors.IsNotFound(err) {
 		return nil
 	}
@@ -252,15 +252,15 @@ func (r *Context) Delete(obj client.Object) error {
 
 func (r *Context) Get(obj client.Object, name string) error {
 	namespace := r.Namespace()
-	return r.Storage.Get(r.Request.Context(), client.ObjectKey{Namespace: namespace, Name: name}, obj)
+	return r.Storage.Get(r.Context(), client.ObjectKey{Namespace: namespace, Name: name}, obj)
 }
 
 func (r *Context) Create(obj client.Object) error {
-	return r.Storage.Create(r.Request.Context(), obj)
+	return r.Storage.Create(r.Context(), obj)
 }
 
 func (r *Context) Update(obj client.Object) error {
-	return r.Storage.Update(r.Request.Context(), obj)
+	return r.Storage.Update(r.Context(), obj)
 }
 
 func (r *Context) Namespace() string {

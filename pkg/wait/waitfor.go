@@ -118,13 +118,14 @@ func For[T kclient.Object](ctx context.Context, c kclient.WithWatch, obj T, cond
 				Resource: gvk.Kind,
 			}, obj.GetName())
 		}
-		if event.Type == watch.Added || event.Type == watch.Modified {
+		switch event.Type {
+		case watch.Added, watch.Modified:
 			if ok, err := condition(event.Object.(T)); err != nil {
 				return def, err
 			} else if ok {
 				return event.Object.(T), nil
 			}
-		} else if event.Type == watch.Error {
+		case watch.Error:
 			return def, apierrors.FromObject(event.Object)
 		}
 	}

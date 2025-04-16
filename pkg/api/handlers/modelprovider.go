@@ -330,7 +330,7 @@ func (mp *ModelProviderHandler) RefreshModels(req api.Context) error {
 		return err
 	}
 	if !modelProvider.Configured {
-		return types.NewErrBadRequest("model provider %s is not configured, missing configuration parameters: %s", modelProvider.ModelProviderManifest.Name, strings.Join(modelProvider.MissingConfigurationParameters, ", "))
+		return types.NewErrBadRequest("model provider %s is not configured, missing configuration parameters: %s", modelProvider.Name, strings.Join(modelProvider.MissingConfigurationParameters, ", "))
 	}
 
 	if ref.Annotations[v1.ModelProviderSyncAnnotation] == "" {

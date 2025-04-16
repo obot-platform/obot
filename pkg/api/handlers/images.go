@@ -76,7 +76,7 @@ func (h *ImageHandler) GenerateImage(req api.Context) error {
 }
 
 func (h *ImageHandler) UploadImage(req api.Context) error {
-	file, header, err := req.Request.FormFile("image")
+	file, header, err := req.FormFile("image")
 	if err != nil {
 		return apierrors.NewBadRequest("failed to retrieve image file")
 	}

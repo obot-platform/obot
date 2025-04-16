@@ -38,7 +38,7 @@ func (db *DB) AutoMigrate() (err error) {
 	}()
 
 	// Only run PostgreSQL-specific migrations if using PostgreSQL
-	if db.gormDB.Dialector.Name() == "postgres" {
+	if db.gormDB.Name() == "postgres" {
 		if err = addAuthProviderNameAndNamespace(tx); err != nil {
 			return fmt.Errorf("failed to add auth provider name and namespace: %w", err)
 		}

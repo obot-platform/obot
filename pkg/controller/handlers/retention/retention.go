@@ -55,7 +55,7 @@ func RunRetention(policy time.Duration) func(req router.Request, resp router.Res
 		}
 
 		if since := time.Since(thread.Status.LastUsedTime.Time); policy-since < 10*time.Hour {
-			resp.RetryAfter(time.Until(thread.Status.LastUsedTime.Time.Add(policy)))
+			resp.RetryAfter(time.Until(thread.Status.LastUsedTime.Add(policy)))
 		}
 
 		return nil

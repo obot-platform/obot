@@ -156,9 +156,10 @@ func (h *Handler) Run(req router.Request, _ router.Response) error {
 		return apply.New(req.Client).Apply(req.Ctx, req.Object, steps...)
 	}
 
-	if newState == types.WorkflowStateComplete {
+	switch newState {
+	case types.WorkflowStateComplete:
 		we.Status.Output = output
-	} else if newState == types.WorkflowStateError {
+	case types.WorkflowStateError:
 		we.Status.Error = output
 	}
 

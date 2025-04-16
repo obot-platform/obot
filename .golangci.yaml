@@ -1,19 +1,35 @@
+version: "2"
 run:
   timeout: 5m
-
 linters:
-  disable-all: true
+  default: none
   enable:
     - errcheck
-    - gofmt
-    - gosimple
     - govet
     - ineffassign
+    - revive
     - staticcheck
-    - typecheck
     - thelper
     - unused
-    - goimports
     - whitespace
-    - revive
-  fast: false
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
+formatters:
+  enable:
+    - gofmt
+    - goimports
+  exclusions:
+    generated: lax
+    paths:
+      - third_party$
+      - builtin$
+      - examples$

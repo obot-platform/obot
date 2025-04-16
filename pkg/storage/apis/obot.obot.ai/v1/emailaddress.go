@@ -44,7 +44,7 @@ func (in *EmailReceiver) FieldNames() []string {
 }
 
 func (in *EmailReceiver) GetAliasName() string {
-	return in.Spec.EmailReceiverManifest.Alias
+	return in.Spec.Alias
 }
 
 func (in *EmailReceiver) SetAssigned(assigned bool) {

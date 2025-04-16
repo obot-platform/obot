@@ -168,7 +168,7 @@ func convertAssistant(agent v1.Agent) types.Assistant {
 		Name:                agent.Spec.Manifest.Name,
 		Default:             agent.Spec.Manifest.Default,
 		Description:         agent.Spec.Manifest.Description,
-		EntityID:            agent.ObjectMeta.Name,
+		EntityID:            agent.Name,
 		StarterMessages:     agent.Spec.Manifest.StarterMessages,
 		IntroductionMessage: agent.Spec.Manifest.IntroductionMessage,
 		Icons:               icons,

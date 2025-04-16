@@ -59,7 +59,7 @@ func (h *Handler) Run(req router.Request, resp router.Response) error {
 	}
 	if lastRun.IsZero() {
 		if location != nil {
-			lastRun = &metav1.Time{Time: cj.CreationTimestamp.Time.In(location)}
+			lastRun = &metav1.Time{Time: cj.CreationTimestamp.In(location)}
 		} else {
 			lastRun = &metav1.Time{Time: cj.CreationTimestamp.Time}
 		}

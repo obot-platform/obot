@@ -44,7 +44,7 @@ func (w *Webhook) Get(field string) (value string) {
 }
 
 func (w *Webhook) GetAliasName() string {
-	return w.Spec.WebhookManifest.Alias
+	return w.Spec.Alias
 }
 
 func (w *Webhook) SetAssigned(assigned bool) {

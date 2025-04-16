@@ -24,7 +24,7 @@ func NewInboundWebhookHandler(c kclient.Client, hostname string, username, passw
 
 func (h *InboundWebhookHandler) InboundWebhookHandler(req api.Context) error {
 	if h.username != "" && h.password != "" {
-		username, password, ok := req.Request.BasicAuth()
+		username, password, ok := req.BasicAuth()
 		if !ok || username != h.username || password != h.password {
 			return types.NewErrHTTP(http.StatusUnauthorized, "Invalid credentials")
 		}

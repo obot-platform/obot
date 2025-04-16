@@ -22,7 +22,7 @@ func (e LogoutAllErr) Error() string {
 
 func (c *Client) DeleteSessionsForUser(ctx context.Context, storageClient kclient.Client, identities []types.Identity, sessionID string) error {
 	// Logout all sessions is only supported when using PostgreSQL.
-	if c.db.WithContext(ctx).Dialector.Name() != "postgres" {
+	if c.db.WithContext(ctx).Name() != "postgres" {
 		return LogoutAllErr{}
 	}
 
