@@ -150,11 +150,16 @@ func (l *Tasks) Run(cmd *cobra.Command, args []string) error {
 		<-doneChan
 
 		// Check for errors (non-blocking)
-		select {
-		case err := <-errChan:
-			debugPrint("Warning: Some project tasks could not be fetched: %v", err)
-		default:
-			// No errors
+		var errs []error
+		for err := range errChan {
+			errs = append(errs, err)
+		}
+
+		if len(errs) > 0 {
+			debugPrint("Warning: Some project tasks could not be fetched (%d errors):", len(errs))
+			for i, err := range errs {
+				debugPrint("  Error %d: %v", i+1, err)
+			}
 		}
 
 		debugPrint("Fetched a total of %d tasks from %d projects in %.2f seconds",
