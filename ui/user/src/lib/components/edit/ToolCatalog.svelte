@@ -81,10 +81,12 @@
 		};
 	});
 
-	const builtInTools = $derived.by(() => {
-		const builtInToolMap = new Map<string, AssistantTool>(
+	const builtInToolMap = $derived(
+		new Map<string, AssistantTool>(
 			tools.filter((t) => t.builtin && !IGNORED_BUILTIN_TOOLS.has(t.id)).map((t) => [t.id, t])
-		);
+		)
+	);
+	const builtInTools = $derived.by(() => {
 		return Array.from(getToolBundleMap().values()).reduce<ToolCatalog>(
 			(acc, { tool, bundleTools }) => {
 				if (builtInToolMap.has(tool.id)) {
@@ -95,22 +97,38 @@
 				const builtInSubtools =
 					bundleTools?.filter((subtool) => builtInToolMap.has(subtool.id)) ?? [];
 				if (builtInSubtools.length > 0) {
-					acc.push({
-						tool,
-						bundleTools: builtInSubtools,
-						total: builtInSubtools.length
-					});
+					for (const subtool of builtInSubtools) {
+						acc.push({
+							tool: subtool,
+							bundleTools: undefined
+						});
+					}
 				}
 				return acc;
 			},
 			[]
 		);
 	});
+
 	const bundles: ToolCatalog = $derived.by(() => {
 		if (toolSelection) {
 			return Array.from(getToolBundleMap().values()).reduce<ToolCatalog>(
 				(acc, { tool, bundleTools }) => {
-					if (!toolSelection[tool.id]) return acc;
+					if (!toolSelection[tool.id]) {
+						// case of the bundle wasn't enabled, but some subtools were enabled
+						// they should be added as standalone tools
+						if (bundleTools && bundleTools.length > 0 && !builtInToolMap.has(tool.id)) {
+							for (const subtool of bundleTools) {
+								if (toolSelection[subtool.id]) {
+									acc.push({
+										tool: subtool,
+										bundleTools: undefined
+									});
+								}
+							}
+						}
+						return acc;
+					}
 					acc.push({
 						tool,
 						bundleTools: bundleTools?.filter((subtool) => toolSelection[subtool.id])
@@ -154,7 +172,7 @@
 	}
 
 	function getEnabledTools() {
-		return bundles.reduce<ToolCatalog>((acc, { tool, bundleTools }) => {
+		const response = bundles.reduce<ToolCatalog>((acc, { tool, bundleTools }) => {
 			if (!tool) return acc;
 			if (bundleTools) {
 				const bundleEnabled = toolSelection[tool.id]?.enabled;
@@ -173,6 +191,7 @@
 
 			return acc;
 		}, []);
+		return response;
 	}
 
 	function getDisabledTools() {
@@ -401,7 +420,7 @@
 {#snippet catalogItem(item: ToolCatalog[0], toggleValue: boolean, readOnly?: boolean)}
 	{@const { tool, bundleTools, total: subtoolsTotal } = item}
 	<CollapsePane
-		showDropdown={bundleTools && bundleTools.length > 0}
+		showDropdown={bundleTools ? bundleTools.length > 0 : false}
 		classes={{
 			header: twMerge(
 				'group py-0 pl-0 pr-3',
@@ -428,7 +447,7 @@
 					if (bundleTools) {
 						toggleBundle(tool.id, !toggleValue, bundleTools);
 					} else {
-						toggleTool(tool.id, true);
+						toggleTool(tool.id, !toggleValue);
 					}
 				}}
 				class="flex grow items-center justify-between gap-2 rounded-lg p-2 px-4 disabled:cursor-not-allowed"
