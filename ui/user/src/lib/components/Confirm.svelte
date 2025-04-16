@@ -39,7 +39,7 @@
 			<button
 				type="button"
 				onclick={oncancel}
-				class="absolute end-2.5 top-3 ms-auto inline-flex h-8 w-8 items-center justify-center rounded-lg bg-transparent text-sm text-white hover:bg-gray-200 dark:hover:bg-gray-600"
+				class="absolute end-2.5 top-3 ms-auto inline-flex h-8 w-8 items-center justify-center rounded-lg bg-transparent text-sm text-black hover:bg-gray-200 dark:text-white dark:hover:bg-gray-600"
 			>
 				<X class="h-5 w-5" />
 				<span class="sr-only">Close modal</span>

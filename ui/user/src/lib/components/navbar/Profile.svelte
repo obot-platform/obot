@@ -1,33 +1,9 @@
 <script lang="ts">
 	import ProfileIcon from '$lib/components/profile/ProfileIcon.svelte';
-	import { errors, profile, responsive } from '$lib/stores';
+	import { profile, responsive, darkMode } from '$lib/stores';
 	import Menu from '$lib/components/navbar/Menu.svelte';
 	import { Book, LayoutDashboard, User, LogOut, Moon, Sun } from 'lucide-svelte/icons';
-	import { darkMode } from '$lib/stores';
 	import { twMerge } from 'tailwind-merge';
-	import Confirm from '$lib/components/Confirm.svelte';
-	import { success } from '$lib/stores/success';
-	import { version } from '$lib/stores';
-
-	let showLogoutAllConfirm = $state(false);
-
-	async function logoutAll() {
-		try {
-			const response = await fetch('/api/logout-all', {
-				method: 'POST',
-				headers: {
-					'Content-Type': 'application/json'
-				}
-			});
-			if (response.ok) {
-				success.add('Successfully logged out of all other sessions');
-				showLogoutAllConfirm = false;
-			}
-		} catch (error) {
-			console.error('Failed to logout all sessions:', error);
-			errors.items.push(new Error('Failed to log out of other sessions'));
-		}
-	}
 </script>
 
 <Menu
@@ -112,22 +88,10 @@
 				<a href="/oauth2/sign_out?rd=/" rel="external" role="menuitem" class="link"
 					><LogOut class="size-4" /> Log out</a
 				>
-				{#if version.current.sessionStore === 'db'}
-					<button onclick={() => (showLogoutAllConfirm = true)} class="link text-red-500">
-						<LogOut class="size-4" /> Log out all other sessions
-					</button>
-				{/if}
 			{/if}
 		</div>
 	{/snippet}
 </Menu>
-
-<Confirm
-	show={showLogoutAllConfirm}
-	msg="Are you sure you want to log out of all other sessions? This will sign you out of all other devices and browsers, except for this one."
-	onsuccess={logoutAll}
-	oncancel={() => (showLogoutAllConfirm = false)}
-/>
 
 <style lang="postcss">
 	.link {

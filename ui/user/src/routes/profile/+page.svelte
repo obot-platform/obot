@@ -1,13 +1,45 @@
 <script lang="ts">
-	import { darkMode } from '$lib/stores';
 	import Profile from '$lib/components/navbar/Profile.svelte';
 	import { ChatService } from '$lib/services';
-	import { profile, responsive } from '$lib/stores';
+	import { darkMode, profile, responsive, errors, version } from '$lib/stores';
 	import { goto } from '$app/navigation';
 	import Notifications from '$lib/components/Notifications.svelte';
 	import ConfirmDeleteAccount from '$lib/components/ConfirmDeleteAccount.svelte';
+	import { success } from '$lib/stores/success';
+	import Confirm from '$lib/components/Confirm.svelte';
 
-	let toDelete = false;
+	let toDelete = $state(false);
+	let toRevoke = $state(false);
+
+	async function logoutAll() {
+		try {
+			const response = await fetch('/api/logout-all', {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json'
+				}
+			});
+			if (response.ok) {
+				success.add('Successfully logged out of all other sessions');
+				toRevoke = false;
+			}
+		} catch (error) {
+			console.error('Failed to logout all sessions:', error);
+			errors.items.push(new Error('Failed to log out of other sessions'));
+		}
+	}
+
+	async function deleteAccount() {
+		try {
+			await ChatService.deleteProfile();
+			goto('/oauth2/sign_out?rd=/');
+		} catch (error) {
+			console.error('Failed to delete account:', error);
+			errors.items.push(new Error('Failed to delete account'));
+		} finally {
+			toDelete = false;
+		}
+	}
 </script>
 
 <div class="flex h-full flex-col items-center">
@@ -97,9 +129,18 @@
 						</div>
 					</div>
 					<hr />
-					<div class="mt-2 flex flex-row py-2">
+					<div class="mt-2 flex flex-col gap-4 py-2">
+						{#if version.current.sessionStore === 'db'}
+							<button
+								class="w-full rounded-3xl border-2 border-red-600 px-4 py-2 font-medium text-red-600 hover:border-red-700 hover:text-red-700"
+								onclick={(e) => {
+									e.preventDefault();
+									toRevoke = !toRevoke;
+								}}>Log out all other sessions</button
+							>
+						{/if}
 						<button
-							class="ml-auto rounded-3xl bg-red-600 px-4 py-2 font-medium text-white hover:bg-red-700"
+							class="w-full rounded-3xl bg-red-600 px-4 py-2 font-medium text-white hover:bg-red-700"
 							onclick={(e) => {
 								e.preventDefault();
 								toDelete = !toDelete;
@@ -114,18 +155,19 @@
 	<Notifications />
 </div>
 
+<Confirm
+	show={toRevoke}
+	msg="Are you sure you want to log out of all other sessions? This will sign you out of all other devices and browsers, except for this one."
+	onsuccess={logoutAll}
+	oncancel={() => (toRevoke = false)}
+/>
+
 <ConfirmDeleteAccount
+	msg="Are you sure you want to delete your account?"
 	username={profile.current.username}
 	show={!!toDelete}
-	onsuccess={async () => {
-		if (!toDelete) return;
-		try {
-			await ChatService.deleteProfile();
-			goto('/oauth2/sign_out?rd=/');
-		} finally {
-			toDelete = false;
-		}
-	}}
+	buttonText="Delete my account"
+	onsuccess={deleteAccount}
 	oncancel={() => (toDelete = false)}
 />
 
