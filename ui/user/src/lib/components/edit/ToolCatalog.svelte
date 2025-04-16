@@ -172,7 +172,7 @@
 	}
 
 	function getEnabledTools() {
-		const response = bundles.reduce<ToolCatalog>((acc, { tool, bundleTools }) => {
+		return bundles.reduce<ToolCatalog>((acc, { tool, bundleTools }) => {
 			if (!tool) return acc;
 			if (bundleTools) {
 				const bundleEnabled = toolSelection[tool.id]?.enabled;
@@ -191,7 +191,6 @@
 
 			return acc;
 		}, []);
-		return response;
 	}
 
 	function getDisabledTools() {
