@@ -24,16 +24,12 @@ func (c *Client) ListTasks(ctx context.Context, opts ListTasksOptions) (result t
 		})
 	}()
 
-	if (opts.ThreadID == "" && opts.AssistantID == "") || (opts.ProjectID == "" && opts.AssistantID == "") {
-		return result, fmt.Errorf("either threadID, assistantID or projectID must be provided")
+	if opts.ThreadID == "" && opts.AssistantID == "" {
+		return result, fmt.Errorf("either threadID or assistantID must be provided")
 	}
 
 	var url string
-
-	// If ProjectID is provided and AssistantID is provided, use the project tasks endpoint
-	if opts.ProjectID != "" && opts.AssistantID != "" {
-		url = fmt.Sprintf("/assistants/%s/projects/%s/tasks", opts.AssistantID, opts.ProjectID)
-	} else if opts.ThreadID != "" {
+	if opts.ThreadID != "" {
 		url = fmt.Sprintf("/threads/%s/tasks", opts.ThreadID)
 	} else {
 		url = fmt.Sprintf("/assistants/%s/tasks", opts.AssistantID)

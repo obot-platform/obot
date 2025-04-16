@@ -23,13 +23,10 @@ func (c *DeleteObot) Customize(cmd *cobra.Command) {
 	cmd.Short = "Delete one or more obots"
 	cmd.Long = "Delete one or more obots by ID"
 	cmd.Aliases = []string{"remove", "delete"}
+	cmd.Args = cobra.MinimumNArgs(1)
 }
 
 func (c *DeleteObot) Run(cmd *cobra.Command, args []string) error {
-	if len(args) == 0 {
-		return errors.New("at least one obot ID must be provided")
-	}
-
 	// Collect valid IDs first and validate them
 	var validIDs []string
 	var validProjects []*types.Project
@@ -37,7 +34,7 @@ func (c *DeleteObot) Run(cmd *cobra.Command, args []string) error {
 
 	for _, id := range args {
 		// Check if ID has the project prefix (both p1- format and p1* format)
-		!strings.HasPrefix(id, system.ProjectPrefix) {
+		if !strings.HasPrefix(id, system.ProjectPrefix) {
 			errs = append(errs, fmt.Errorf("%s is not a valid obot ID (should start with p1)", id))
 			continue
 		}

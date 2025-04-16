@@ -86,7 +86,7 @@ func (l *Tasks) Run(cmd *cobra.Command, args []string) error {
 		// Otherwise aggregate tasks from all accessible projects
 		taskChan := make(chan types.Task)
 		errChan := make(chan error, len(projects.Items))
-		doneChan := make(chan bool)
+		doneChan := make(chan struct{})
 
 		// Keep track of how many goroutines we've started
 		var wg sync.WaitGroup
@@ -96,7 +96,7 @@ func (l *Tasks) Run(cmd *cobra.Command, args []string) error {
 			for task := range taskChan {
 				allTasks.Items = append(allTasks.Items, task)
 			}
-			doneChan <- true
+			close(doneChan)
 		}()
 
 		// Browser-like connection limit
