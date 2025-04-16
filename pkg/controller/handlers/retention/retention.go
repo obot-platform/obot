@@ -72,7 +72,7 @@ func Migrate(req router.Request, _ router.Response) error {
 	}
 
 	if thread.Status.LastUsedTime.IsZero() {
-		thread.Status.LastUsedTime = metav1.NewTime(time.Now())
+		thread.Status.LastUsedTime = metav1.Now()
 		return req.Client.Status().Update(req.Ctx, thread)
 	}
 
