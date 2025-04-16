@@ -1,10 +1,12 @@
 <script lang="ts">
 	import AssistantIcon from '$lib/icons/AssistantIcon.svelte';
-	import { ChatService, type Project } from '$lib/services';
-	import { Check, ChevronDown } from 'lucide-svelte/icons';
+	import { ChatService, EditorService, type Project } from '$lib/services';
+	import { Check, ChevronDown, Plus } from 'lucide-svelte/icons';
 	import { popover } from '$lib/actions';
 	import { twMerge } from 'tailwind-merge';
 	import { DEFAULT_PROJECT_NAME } from '$lib/constants';
+	import { goto } from '$app/navigation';
+	import { errors } from '$lib/stores';
 
 	interface Props {
 		project: Project;
@@ -15,6 +17,7 @@
 			tooltip?: string;
 		};
 		onlyEditable?: boolean;
+		showCreate?: boolean;
 	}
 
 	let {
@@ -22,7 +25,8 @@
 		onOpenChange: onProjectOpenChange,
 		disabled,
 		classes,
-		onlyEditable
+		onlyEditable,
+		showCreate
 	}: Props = $props();
 
 	let projects = $state<Project[]>([]);
@@ -40,6 +44,15 @@
 
 	function loadMore() {
 		limit += 10;
+	}
+
+	async function createNew() {
+		try {
+			const project = await EditorService.createObot();
+			await goto(`/o/${project.id}`);
+		} catch (error) {
+			errors.append((error as Error).message);
+		}
 	}
 </script>
 
@@ -85,11 +98,22 @@
 		{@render LoadMoreButton(projects.length, limit)}
 		<a
 			href={`/catalog?from=${encodeURIComponent(window.location.pathname)}`}
-			class="text-gray hover:bg-surface3 mt-3 flex items-center justify-center gap-2 rounded-xl px-2 py-4"
+			class="text-gray hover:bg-surface3 mt-3 flex items-center justify-center gap-2 rounded-full px-2 py-4"
 		>
 			<img src="/user/images/obot-icon-blue.svg" class="h-5" alt="Obot icon" />
 			<span class="text-gray text-sm">View Obot Catalog</span>
 		</a>
+		{#if showCreate}
+			<div class="grow"></div>
+			<div class="sticky bottom-0 flex justify-center bg-inherit py-3">
+				<button
+					onclick={createNew}
+					class="button-small flex w-full items-center justify-center gap-1 py-3 text-sm"
+				>
+					<Plus class="size-5" /> Create New Obot
+				</button>
+			</div>
+		{/if}
 	</div>
 {/if}
 
