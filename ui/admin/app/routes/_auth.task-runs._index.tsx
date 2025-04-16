@@ -9,6 +9,7 @@ import {
 import { $path } from "safe-routes";
 import useSWR, { preload } from "swr";
 
+import { Task } from "~/lib/model/tasks";
 import { Thread } from "~/lib/model/threads";
 import { AgentService } from "~/lib/service/api/agentService";
 import { TaskService } from "~/lib/service/api/taskService";
@@ -16,7 +17,7 @@ import { ThreadsService } from "~/lib/service/api/threadsService";
 import { UserService } from "~/lib/service/api/userService";
 import { RouteHandle } from "~/lib/service/routeHandles";
 import { RouteQueryParams, RouteService } from "~/lib/service/routeService";
-import { formatTime } from "~/lib/utils";
+import { formatDateTime } from "~/lib/utils";
 import { filterByCreatedRange } from "~/lib/utils/filter";
 
 import {
@@ -118,9 +119,21 @@ export default function TaskRuns() {
 		);
 	}, [getThreads.data, userMap, taskMap, threadMap]);
 
+	const taskList = useMemo(() => {
+		const _tasks: Task[] = [];
+		if (taskMap) {
+			for (const thread of threads) {
+				const task = taskMap.get(thread.taskID!);
+				if (task && !task.deleted && !_tasks.includes(task)) {
+					_tasks.push(task);
+				}
+			}
+		}
+		return _tasks;
+	}, [taskMap, threads]);
+
 	const data = useMemo(() => {
 		let filteredThreads = threads;
-
 		if (id) {
 			filteredThreads = threads.filter((thread) => thread.id === id);
 		}
@@ -222,7 +235,7 @@ export default function TaskRuns() {
 						key={column.id}
 						field="Task"
 						values={
-							getTasks.data?.map((task) => ({
+							taskList?.map((task) => ({
 								id: task.id,
 								name: task.name,
 								sublabel:
@@ -278,7 +291,7 @@ export default function TaskRuns() {
 					/>
 				),
 				cell: (info) => (
-					<p>{formatTime(new Date(info.row.original.created))}</p>
+					<p>{formatDateTime(new Date(info.row.original.created))}</p>
 				),
 				sortingFn: "datetime",
 			}),

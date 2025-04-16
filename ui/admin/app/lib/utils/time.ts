@@ -77,3 +77,15 @@ export const formatTime = (time: Date | string) => {
 		minute: "numeric",
 	});
 };
+
+export const formatDateTime = (time: Date | string) => {
+	if (typeof time === "string") {
+		time = new Date(time);
+	}
+	return time.toLocaleDateString(undefined, {
+		month: "short",
+		day: "numeric",
+		hour: "numeric",
+		minute: "numeric",
+	});
+};
