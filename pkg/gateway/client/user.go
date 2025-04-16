@@ -17,6 +17,7 @@ import (
 	"gorm.io/gorm"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apiserver/pkg/storage/value"
+	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 var (
@@ -79,7 +80,7 @@ func (c *Client) UserByID(ctx context.Context, id string) (*types.User, error) {
 	return u, c.decryptUser(ctx, u)
 }
 
-func (c *Client) DeleteUser(ctx context.Context, username string) (*types.User, error) {
+func (c *Client) DeleteUser(ctx context.Context, storageClient kclient.Client, username string) (*types.User, error) {
 	existingUser := new(types.User)
 	if err := c.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		if err := tx.Where("hashed_username = ?", hash.String(username)).First(existingUser).Error; err != nil {
@@ -96,6 +97,15 @@ func (c *Client) DeleteUser(ctx context.Context, username string) (*types.User, 
 			if adminCount <= 1 {
 				return new(LastAdminError)
 			}
+		}
+
+		var identities []types.Identity
+		if err := tx.Where("user_id = ?", existingUser.ID).Find(&identities).Error; err != nil {
+			return err
+		}
+
+		if err := c.deleteSessionsForUser(ctx, tx, storageClient, identities, ""); err != nil && !errors.Is(err, LogoutAllErr{}) {
+			return err
 		}
 
 		if err := tx.Where("user_id = ?", existingUser.ID).Delete(new(types.Identity)).Error; err != nil {

@@ -173,6 +173,17 @@ func (s *Server) deleteUser(apiContext api.Context) (err error) {
 		return fmt.Errorf("failed to get user: %v", err)
 	}
 
+	status := http.StatusInternalServerError
+	_, err = apiContext.GatewayClient.DeleteUser(apiContext.Context(), apiContext.Storage, username)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			status = http.StatusNotFound
+		} else if lae := (*client.LastAdminError)(nil); errors.As(err, &lae) {
+			status = http.StatusBadRequest
+		}
+		return types2.NewErrHTTP(status, fmt.Sprintf("failed to delete user: %v", err))
+	}
+
 	if err = apiContext.Create(&v1.UserDelete{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: system.UserDeletePrefix,
@@ -183,17 +194,6 @@ func (s *Server) deleteUser(apiContext api.Context) (err error) {
 		},
 	}); err != nil {
 		return fmt.Errorf("failed to start deletion of user owned objects: %v", err)
-	}
-
-	status := http.StatusInternalServerError
-	_, err = apiContext.GatewayClient.DeleteUser(apiContext.Context(), username)
-	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			status = http.StatusNotFound
-		} else if lae := (*client.LastAdminError)(nil); errors.As(err, &lae) {
-			status = http.StatusBadRequest
-		}
-		return types2.NewErrHTTP(status, fmt.Sprintf("failed to delete user: %v", err))
 	}
 
 	return apiContext.Write(types.ConvertUser(existingUser, apiContext.GatewayClient.IsExplicitAdmin(existingUser.Email), ""))

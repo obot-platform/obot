@@ -11,6 +11,7 @@ import (
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/tidwall/gjson"
+	"gorm.io/gorm"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -21,8 +22,12 @@ func (e LogoutAllErr) Error() string {
 }
 
 func (c *Client) DeleteSessionsForUser(ctx context.Context, storageClient kclient.Client, identities []types.Identity, sessionID string) error {
+	return c.deleteSessionsForUser(ctx, c.db.WithContext(ctx), storageClient, identities, sessionID)
+}
+
+func (c *Client) deleteSessionsForUser(ctx context.Context, db *gorm.DB, storageClient kclient.Client, identities []types.Identity, sessionID string) error {
 	// Logout all sessions is only supported when using PostgreSQL.
-	if c.db.WithContext(ctx).Name() != "postgres" {
+	if db.Name() != "postgres" {
 		return LogoutAllErr{}
 	}
 
@@ -59,9 +64,9 @@ func (c *Client) DeleteSessionsForUser(ctx context.Context, storageClient kclien
 			if tablePrefix != "" {
 				var err error
 				if sessionID != "" {
-					err = c.deleteSessionsForUserExceptCurrent(ctx, emailHash, userHash, tablePrefix, sessionID)
+					err = c.deleteSessionsForUserExceptCurrent(db, emailHash, userHash, tablePrefix, sessionID)
 				} else {
-					err = c.deleteSessionsForUser(ctx, emailHash, userHash, tablePrefix)
+					err = c.deleteAllSessionsForUser(db, emailHash, userHash, tablePrefix)
 				}
 
 				if err != nil {
@@ -76,16 +81,16 @@ func (c *Client) DeleteSessionsForUser(ctx context.Context, storageClient kclien
 	return errors.Join(errs...)
 }
 
-func (c *Client) deleteSessionsForUser(ctx context.Context, emailHash, userHash, tablePrefix string) error {
-	return c.db.WithContext(ctx).Exec(
+func (c *Client) deleteAllSessionsForUser(db *gorm.DB, emailHash, userHash, tablePrefix string) error {
+	return db.Exec(
 		"DELETE FROM "+tablePrefix+"sessions WHERE \"user\" = decode(?, 'hex') AND \"email\" = decode(?, 'hex')",
 		userHash,
 		emailHash,
 	).Error
 }
 
-func (c *Client) deleteSessionsForUserExceptCurrent(ctx context.Context, emailHash, userHash, tablePrefix, currentSessionID string) error {
-	return c.db.WithContext(ctx).Exec(
+func (c *Client) deleteSessionsForUserExceptCurrent(db *gorm.DB, emailHash, userHash, tablePrefix, currentSessionID string) error {
+	return db.Exec(
 		"DELETE FROM "+tablePrefix+"sessions WHERE key NOT LIKE ? AND \"user\" = decode(?, 'hex') AND \"email\" = decode(?, 'hex')",
 		currentSessionID+"%",
 		userHash,
