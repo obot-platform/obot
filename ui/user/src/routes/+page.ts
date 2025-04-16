@@ -40,6 +40,7 @@ export const load: PageLoad = async ({ fetch }) => {
 	}
 
 	return {
+		isNew: editorProjects.length === 0,
 		authProviders,
 		featuredProjectShares,
 		tools

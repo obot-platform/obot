@@ -11,11 +11,11 @@
 	import { clickOutside } from '$lib/actions/clickoutside';
 
 	let { data }: PageProps = $props();
-	let { authProviders, featuredProjectShares, tools } = data;
+	let { authProviders, featuredProjectShares, tools, isNew } = data;
 	let loginDialog = $state<HTMLDialogElement>();
 	let projectShareRedirect = $state<string | null>(null);
 
-	onMount(async () => {
+	onMount(() => {
 		if (browser && new URL(window.location.href).searchParams.get('rd')) {
 			loginDialog?.showModal();
 		}
@@ -36,7 +36,7 @@
 
 	$effect(() => {
 		if (profile.current.loaded) {
-			goto(`/home`, { replaceState: true });
+			goto(`/catalog${isNew ? '?new' : ''}`, { replaceState: true });
 		}
 	});
 </script>

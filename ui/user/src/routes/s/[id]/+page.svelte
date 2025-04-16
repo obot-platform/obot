@@ -36,7 +36,9 @@
 		class="bg-surface1 relative z-40 flex h-16 w-full items-center justify-between gap-4 p-3 shadow-md md:gap-8"
 	>
 		<div class="flex shrink-0 items-center gap-2">
-			<a href="/home"><img src="/user/images/obot-icon-blue.svg" class="h-8" alt="Obot icon" /></a>
+			<a href="/catalog"
+				><img src="/user/images/obot-icon-blue.svg" class="h-8" alt="Obot icon" /></a
+			>
 		</div>
 		<div class="flex items-center">
 			<Profile />
@@ -65,7 +67,7 @@
 				</div>
 
 				<button class="button-primary mt-2 w-full" onclick={createProject}>I Understand</button>
-				<button class="button w-full" onclick={() => goto('/home')}>Go Home</button>
+				<button class="button w-full" onclick={() => goto('/catalog')}>Go Back</button>
 			</div>
 		</div>
 	{:else}

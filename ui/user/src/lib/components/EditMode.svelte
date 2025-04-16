@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { GripVertical, Plus, Trash2 } from 'lucide-svelte';
+	import { GripVertical, Plus, Trash2, X } from 'lucide-svelte';
 	import General from '$lib/components/edit/General.svelte';
 	import {
 		type Project,
@@ -103,7 +103,8 @@
 			transition:slide
 		>
 			<div class="flex shrink-0 items-center gap-2">
-				<a href="/home"><img src="/user/images/obot-icon-blue.svg" class="h-8" alt="Obot icon" /></a
+				<a href="/catalog"
+					><img src="/user/images/obot-icon-blue.svg" class="h-8" alt="Obot icon" /></a
 				>
 				{#if !responsive.isMobile}
 					<h1 class="text-xl font-semibold">Obot Editor</h1>
@@ -197,8 +198,12 @@
 							toDelete = true;
 						}}
 					>
-						<Trash2 class="icon-default" />
-						<span>Delete</span>
+						{#if project.editor}
+							<Trash2 class="icon-default" />
+						{:else}
+							<X class="icon-default" />
+						{/if}
+						<span>{project.editor ? 'Delete' : 'Remove'}</span>
 					</button>
 				</div>
 			</div>
@@ -230,11 +235,11 @@
 </div>
 
 <Confirm
-	msg="Delete the current Obot?"
+	msg={`${project.editor ? 'Delete' : 'Remove'} the current Obot?`}
 	show={toDelete}
 	onsuccess={async () => {
 		await ChatService.deleteProject(project.assistantID, project.id);
-		window.location.href = '/home';
+		window.location.href = '/catalog';
 	}}
 	oncancel={() => (toDelete = false)}
 />
