@@ -17,7 +17,6 @@
 	import { autoHeight } from '$lib/actions/textarea';
 	import EditIcon from './edit/EditIcon.svelte';
 	import { DEFAULT_PROJECT_DESCRIPTION, DEFAULT_PROJECT_NAME } from '$lib/constants';
-	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
@@ -293,12 +292,8 @@
 					bind:items={layout.items}
 				>
 					<div class="flex w-fit items-center gap-1">
-						<div use:tooltip={'Files'}>
-							<Files thread {project} bind:currentThreadID={id} />
-						</div>
-						<div use:tooltip={'Tools'}>
-							<Tools {project} bind:currentThreadID={id} thread />
-						</div>
+						<Files thread {project} bind:currentThreadID={id} />
+						<Tools {project} bind:currentThreadID={id} thread />
 					</div>
 				</Input>
 				<div

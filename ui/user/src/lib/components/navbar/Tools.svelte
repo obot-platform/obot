@@ -4,6 +4,7 @@
 	import ToolCatalog from '../edit/ToolCatalog.svelte';
 	import { clickOutside } from '$lib/actions/clickoutside';
 	import { getProjectTools } from '$lib/context/projectTools.svelte';
+	import { tooltip } from '$lib/actions/tooltip.svelte';
 
 	interface Prop {
 		project: Project;
@@ -67,7 +68,7 @@
 	}
 </script>
 
-<button class="button-icon-primary" onclick={handleClick}>
+<button use:tooltip={'Tools'} class="button-icon-primary" onclick={handleClick}>
 	<Wrench class="h-5 w-5" />
 </button>
 

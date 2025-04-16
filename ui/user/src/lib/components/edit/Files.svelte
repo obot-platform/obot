@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { overflowToolTip } from '$lib/actions/overflow';
+	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import Confirm from '$lib/components/Confirm.svelte';
 	import CollapsePane from '$lib/components/edit/CollapsePane.svelte';
 	import FileEditors from '$lib/components/editor/FileEditors.svelte';
@@ -200,31 +201,33 @@
 	</div>
 {/snippet}
 
-{#if thread}
-	<Menu
-		{body}
-		bind:this={menu}
-		title="Files"
-		description="Content available to AI."
-		onLoad={loadFiles}
-		classes={{
-			button: primary ? 'button-icon-primary' : '',
-			dialog: responsive.isMobile
-				? 'rounded-none max-h-[calc(100vh-64px)] left-0 bottom-0 w-full'
-				: ''
-		}}
-		slide={responsive.isMobile ? 'up' : undefined}
-		fixed={responsive.isMobile}
-	>
-		{#snippet icon()}
-			<FileText class="h-5 w-5" />
-		{/snippet}
-	</Menu>
-{:else}
-	<CollapsePane header="Files" onOpen={loadFiles}>
-		{@render body()}
-	</CollapsePane>
-{/if}
+<div use:tooltip={'Files'}>
+	{#if thread}
+		<Menu
+			{body}
+			bind:this={menu}
+			title="Files"
+			description="Content available to AI."
+			onLoad={loadFiles}
+			classes={{
+				button: primary ? 'button-icon-primary' : '',
+				dialog: responsive.isMobile
+					? 'rounded-none max-h-[calc(100vh-64px)] left-0 bottom-0 w-full'
+					: ''
+			}}
+			slide={responsive.isMobile ? 'up' : undefined}
+			fixed={responsive.isMobile}
+		>
+			{#snippet icon()}
+				<FileText class="h-5 w-5" />
+			{/snippet}
+		</Menu>
+	{:else}
+		<CollapsePane header="Files" onOpen={loadFiles}>
+			{@render body()}
+		</CollapsePane>
+	{/if}
+</div>
 
 <dialog bind:this={editorDialog} class="relative h-full w-full md:w-4/5">
 	<button
