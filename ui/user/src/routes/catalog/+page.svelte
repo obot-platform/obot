@@ -1,21 +1,32 @@
 <script lang="ts">
-	import { darkMode } from '$lib/stores';
+	import { darkMode, errors } from '$lib/stores';
 	import Profile from '$lib/components/navbar/Profile.svelte';
-	import { type ProjectShare } from '$lib/services';
+	import { EditorService, type ProjectShare } from '$lib/services';
 	import { responsive } from '$lib/stores';
 	import Notifications from '$lib/components/Notifications.svelte';
 	import type { PageProps } from './$types';
 	import ObotCard from '$lib/components/ObotCard.svelte';
 	import { q, qIsSet } from '$lib/url';
-	import { ChevronLeft } from 'lucide-svelte';
+	import { ChevronLeft, Plus, UserPen } from 'lucide-svelte';
 	import FeaturedObotCard from '$lib/components/FeaturedObotCard.svelte';
 	import { sortByFeaturedNameOrder } from '$lib/sort';
+	import { goto } from '$app/navigation';
+	import { DEFAULT_PROJECT_DESCRIPTION, DEFAULT_PROJECT_NAME } from '$lib/constants';
 
 	let { data }: PageProps = $props();
 	let featured = $state<ProjectShare[]>(
 		data.shares.filter((s) => s.featured).sort(sortByFeaturedNameOrder)
 	);
 	let tools = $state(new Map(data.tools.map((t) => [t.id, t])));
+
+	async function createNew() {
+		try {
+			const project = await EditorService.createObot();
+			await goto(`/o/${project.id}`);
+		} catch (error) {
+			errors.append((error as Error).message);
+		}
+	}
 </script>
 
 <div class="flex h-full flex-col items-center">
@@ -93,6 +104,37 @@
 						{#each featured.slice(0, 4) as featuredShare}
 							<FeaturedObotCard project={featuredShare} {tools} />
 						{/each}
+						<FeaturedObotCard
+							project={{
+								id: 'new',
+								name: 'Create New Obot',
+								icons: {
+									icon: ''
+								},
+								featured: true,
+								publicID: 'new',
+								projectID: 'new',
+								public: true
+							}}
+							onclick={createNew}
+						>
+							{#snippet icon()}
+								<div class="relative">
+									<Plus
+										class="absolute top-1/2 left-1/2 z-10 size-16 -translate-x-1/2 -translate-y-1/2 text-white opacity-90 dark:opacity-75"
+									/>
+									<img
+										alt="obot create placeholder logo"
+										src="/agent/images/obot_placeholder.webp"
+										class="flex size-24 flex-shrink-0 rounded-full opacity-65 shadow-md shadow-gray-500 dark:shadow-black"
+									/>
+								</div>
+							{/snippet}
+							{#snippet description()}
+								Couldn't find what you were looking for? <br />
+								Click here & create your own!
+							{/snippet}
+						</FeaturedObotCard>
 					</div>
 				</div>
 			</div>

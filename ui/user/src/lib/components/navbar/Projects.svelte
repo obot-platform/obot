@@ -105,6 +105,16 @@
 			{@render ProjectItem(p, onlyEditable)}
 		{/each}
 		{@render LoadMoreButton(projects.length, limit)}
+		{#if showCreate}
+			<div class="flex p-2">
+				<button
+					onclick={createNew}
+					class="button-small flex w-full items-center justify-center gap-1 py-3 text-sm"
+				>
+					<Plus class="size-5" /> Create New Obot
+				</button>
+			</div>
+		{/if}
 		<a
 			href={`/catalog?from=${encodeURIComponent(window.location.pathname)}`}
 			class="text-gray hover:bg-surface3 flex items-center justify-center gap-2 px-2 py-4 transition-colors"
@@ -112,17 +122,6 @@
 			<img src="/user/images/obot-icon-blue.svg" class="h-5" alt="Obot icon" />
 			<span class="text-gray text-sm">View Obot Catalog</span>
 		</a>
-		{#if showCreate}
-			<div class="grow"></div>
-			<div class="sticky bottom-0 flex justify-center bg-inherit py-3">
-				<button
-					onclick={createNew}
-					class="button-small mx-2 flex w-full items-center justify-center gap-1 py-3 text-sm"
-				>
-					<Plus class="size-5" /> Create New Obot
-				</button>
-			</div>
-		{/if}
 	</div>
 {/if}
 

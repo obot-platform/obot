@@ -5,15 +5,25 @@
 	import { darkMode, responsive } from '$lib/stores';
 	import { twMerge } from 'tailwind-merge';
 	import ToolPill from './ToolPill.svelte';
+	import type { Snippet } from 'svelte';
 
 	interface Props {
 		project: Project | ProjectShare;
-		tools: Map<string, ToolReference>;
+		tools?: Map<string, ToolReference>;
 		onclick?: () => void;
 		class?: string;
+		description?: Snippet;
+		icon?: Snippet;
 	}
 
-	const { project, tools, onclick, class: klass }: Props = $props();
+	const {
+		project,
+		tools,
+		onclick,
+		class: klass,
+		description: overrideDescription,
+		icon: overrideIcon
+	}: Props = $props();
 </script>
 
 {#snippet content()}
@@ -23,12 +33,16 @@
 			klass
 		)}
 	>
-		<img
-			alt="obot logo"
-			src={getProjectImage(project, darkMode.isDark)}
-			class="flex size-24 flex-shrink-0 rounded-full shadow-md shadow-gray-500 dark:shadow-black"
-		/>
-		<div class="flex flex-col gap-2 pl-4">
+		{#if overrideIcon}
+			{@render overrideIcon()}
+		{:else}
+			<img
+				alt="obot logo"
+				src={getProjectImage(project, darkMode.isDark)}
+				class="flex size-24 flex-shrink-0 rounded-full shadow-md shadow-gray-500 dark:shadow-black"
+			/>
+		{/if}
+		<div class="flex grow flex-col gap-2 pl-4">
 			<h4 class="line-clamp-2 text-left text-base leading-5.5 font-semibold md:text-lg">
 				{project.name || DEFAULT_PROJECT_NAME}
 			</h4>
@@ -36,12 +50,16 @@
 			<p
 				class="line-clamp-3 flex text-left text-xs leading-4.5 font-light text-gray-500 md:text-sm"
 			>
-				{project.description || ''}
+				{#if overrideDescription}
+					{@render overrideDescription()}
+				{:else}
+					{project.description || ''}
+				{/if}
 			</p>
 
-			{#if 'tools' in project && project.tools}
+			{#if 'tools' in project && project.tools && tools}
 				{@const maxToolsToShow = responsive.isMobile ? 2 : 3}
-				<div class="flex flex-wrap items-center justify-start gap-2">
+				<div class="flex flex-wrap items-center justify-end gap-2">
 					{#each project.tools.slice(0, maxToolsToShow) as tool}
 						{@const toolData = tools.get(tool)}
 						{#if toolData}

@@ -44,7 +44,7 @@
 
 <div class="flex h-full flex-col items-center">
 	<div class="flex h-16 w-full items-center p-4 md:p-5">
-		<div class="relative flex items-end">
+		<a href="/catalog" class="relative flex items-end">
 			{#if darkMode.isDark}
 				<img src="/user/images/obot-logo-blue-white-text.svg" class="h-12" alt="Obot logo" />
 			{:else}
@@ -57,7 +57,7 @@
 					BETA
 				</span>
 			</div>
-		</div>
+		</a>
 		<div class="grow"></div>
 		<div class="flex items-center gap-1">
 			{#if !responsive.isMobile}
