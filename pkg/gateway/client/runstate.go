@@ -34,9 +34,9 @@ func (c *Client) RunState(ctx context.Context, namespace, name string) (*types.R
 
 func (c *Client) CreateRunState(ctx context.Context, runState *types.RunState) error {
 	// Copy the run state to avoid modifying the original
-	r := runState
+	r := *runState
 
-	if err := c.encryptRunState(ctx, r); err != nil {
+	if err := c.encryptRunState(ctx, &r); err != nil {
 		return err
 	}
 
@@ -46,7 +46,7 @@ func (c *Client) CreateRunState(ctx context.Context, runState *types.RunState) e
 		if err := tx.Where("name = ?", runState.Name).Where("namespace = ?", runState.Namespace).First(r).Error; err == nil {
 			return apierrors.NewAlreadyExists(runStatesGroupResource, runState.Name)
 		}
-		return tx.Create(r).Error
+		return tx.Create(&r).Error
 	}); err != nil {
 		return err
 	}
@@ -58,14 +58,14 @@ func (c *Client) CreateRunState(ctx context.Context, runState *types.RunState) e
 
 func (c *Client) UpdateRunState(ctx context.Context, runState *types.RunState) error {
 	// Copy the run state to avoid modifying the original
-	r := runState
+	r := *runState
 
-	if err := c.encryptRunState(ctx, r); err != nil {
+	if err := c.encryptRunState(ctx, &r); err != nil {
 		return err
 	}
 
 	// Explicitly update the done, so that it is always set to the value that is sent by the caller.
-	if err := c.db.WithContext(ctx).Updates(r).Update("done", runState.Done).Error; errors.Is(err, gorm.ErrRecordNotFound) {
+	if err := c.db.WithContext(ctx).Updates(&r).Update("done", runState.Done).Error; errors.Is(err, gorm.ErrRecordNotFound) {
 		return apierrors.NewNotFound(runStatesGroupResource, runState.Name)
 	} else if err != nil {
 		return err
