@@ -45,25 +45,9 @@ type Schedule struct {
 }
 
 type TaskStep struct {
-	ID   string     `json:"id,omitempty"`
-	Step string     `json:"step,omitempty"`
-	Loop []TaskStep `json:"loop,omitempty"`
-}
-
-func (s TaskStep) AsWorkflowStep() Step {
-	step := Step{
-		ID:   s.ID,
-		Step: s.Step,
-	}
-
-	if len(s.Loop) > 0 {
-		step.Loop = make([]Step, 0, len(s.Loop))
-		for _, loopStep := range s.Loop {
-			step.Loop = append(step.Loop, loopStep.AsWorkflowStep())
-		}
-	}
-
-	return step
+	ID   string   `json:"id,omitempty"`
+	Step string   `json:"step,omitempty"`
+	Loop []string `json:"loop,omitempty"`
 }
 
 type TaskRun struct {

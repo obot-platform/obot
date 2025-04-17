@@ -118,11 +118,13 @@ func defineLoop(elementIndex int, element string, dataStepName string, rootStep 
 
 		if i == 0 {
 			// For the very first step, we need to add the element to the prompt.
-			s.Step = elementPrompt(element, s.Step)
+			s = elementPrompt(element, s)
 		}
 
-		s.ID = fmt.Sprintf("%s{element=%d}{index=%d}", s.ID, elementIndex, i)
-		newStep := NewStep(rootStep.Namespace, rootStep.Spec.WorkflowExecutionName, afterStepName, rootStep.Spec.WorkflowGeneration, s)
+		newStep := NewStep(rootStep.Namespace, rootStep.Spec.WorkflowExecutionName, afterStepName, rootStep.Spec.WorkflowGeneration, types.Step{
+			ID:   fmt.Sprintf("%s{element=%d}{step=%d}", rootStep.Spec.Step.ID, elementIndex, i),
+			Step: s,
+		})
 		result = append(result, newStep)
 		lastStepName = newStep.Name
 	}
