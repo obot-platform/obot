@@ -20,6 +20,7 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/gptscript-ai/chat-completion-client v0.0.0-20250224164718-139cb4507b1d
 	github.com/gptscript-ai/cmd v0.0.0-20250324222528-f16f18548238
+	github.com/gptscript-ai/datasets v0.0.0-20241125193827-31ce6c3c682b
 	github.com/gptscript-ai/go-gptscript v0.9.6-0.20250331192455-415de950d72d
 	github.com/gptscript-ai/gptscript v0.9.6-0.20250415004047-4b87a83c9191
 	github.com/liggitt/tabwriter v0.0.0-20181228230101-89fcab3d43de
@@ -68,7 +69,6 @@ require (
 	cloud.google.com/go/auth v0.9.3 // indirect
 	github.com/google/s2a-go v0.1.8 // indirect
 	github.com/googleapis/enterprise-certificate-proxy v0.3.4 // indirect
-	github.com/gptscript-ai/datasets v0.0.0-20241125193827-31ce6c3c682b // indirect
 	github.com/pkoukk/tiktoken-go v0.1.7 // indirect
 	github.com/pkoukk/tiktoken-go-loader v0.0.2-0.20240522064338-c17e8bc0f699 // indirect
 	go.opencensus.io v0.24.0 // indirect
