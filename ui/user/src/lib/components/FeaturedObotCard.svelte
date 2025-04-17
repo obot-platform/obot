@@ -1,11 +1,12 @@
 <script lang="ts">
-	import { DEFAULT_PROJECT_NAME } from '$lib/constants';
+	import { DEFAULT_PROJECT_NAME, IGNORED_BUILTIN_TOOLS } from '$lib/constants';
 	import { getProjectImage } from '$lib/image';
 	import type { Project, ProjectShare, ToolReference } from '$lib/services';
 	import { darkMode, responsive } from '$lib/stores';
 	import { twMerge } from 'tailwind-merge';
 	import ToolPill from './ToolPill.svelte';
 	import type { Snippet } from 'svelte';
+	import { sortShownToolsPriority } from '$lib/sort';
 
 	interface Props {
 		project: Project | ProjectShare;
@@ -24,6 +25,10 @@
 		description: overrideDescription,
 		icon: overrideIcon
 	}: Props = $props();
+
+	const toolsToShow = $derived(
+		(project.tools ?? []).filter((t) => !IGNORED_BUILTIN_TOOLS.has(t)).sort(sortShownToolsPriority)
+	);
 </script>
 
 {#snippet content()}
@@ -60,15 +65,15 @@
 			{#if 'tools' in project && project.tools && tools}
 				{@const maxToolsToShow = responsive.isMobile ? 2 : 3}
 				<div class="flex flex-wrap items-center justify-end gap-2">
-					{#each project.tools.slice(0, maxToolsToShow) as tool}
+					{#each toolsToShow.slice(0, maxToolsToShow) as tool}
 						{@const toolData = tools.get(tool)}
 						{#if toolData}
 							<ToolPill tool={toolData} />
 						{/if}
 					{/each}
-					{#if project.tools.length > maxToolsToShow}
+					{#if toolsToShow.length > maxToolsToShow}
 						<ToolPill
-							tools={project.tools
+							tools={toolsToShow
 								.slice(maxToolsToShow)
 								.map((t) => tools.get(t))
 								.filter((t): t is ToolReference => !!t)}

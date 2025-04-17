@@ -10,3 +10,16 @@ export const sortByFeaturedNameOrder = (a: ProjectShare, b: ProjectShare) => {
 	if (bIndex === -1) return -1;
 	return aIndex - bIndex;
 };
+
+export const sortShownToolsPriority = (a: string, b: string) => {
+	const lastPriorityTools = new Set([
+		'images-analyze-images',
+		'images-generate-images',
+		'obot-search'
+	]);
+	const aIsLastPriority = lastPriorityTools.has(a);
+	const bIsLastPriority = lastPriorityTools.has(b);
+	if (aIsLastPriority && !bIsLastPriority) return 1;
+	if (!aIsLastPriority && bIsLastPriority) return -1;
+	return 0;
+};

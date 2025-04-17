@@ -6,6 +6,7 @@
 	import { DEFAULT_PROJECT_NAME, IGNORED_BUILTIN_TOOLS } from '$lib/constants';
 	import type { Snippet } from 'svelte';
 	import { UserPen } from 'lucide-svelte';
+	import { sortShownToolsPriority } from '$lib/sort';
 
 	interface Props {
 		project: Project | ProjectShare;
@@ -13,7 +14,9 @@
 		actionContent?: Snippet;
 	}
 	let { project, tools, actionContent }: Props = $props();
-	const toolsToShow = $derived((project.tools ?? []).filter((t) => !IGNORED_BUILTIN_TOOLS.has(t)));
+	const toolsToShow = $derived(
+		(project.tools ?? []).filter((t) => !IGNORED_BUILTIN_TOOLS.has(t)).sort(sortShownToolsPriority)
+	);
 </script>
 
 <a
