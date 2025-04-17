@@ -1,6 +1,10 @@
 import { EllipsisVerticalIcon } from "lucide-react";
 
-import { AuthProvider, ModelProvider } from "~/lib/model/providers";
+import {
+	AuthProvider,
+	FileScannerProvider,
+	ModelProvider,
+} from "~/lib/model/providers";
 
 import { ProviderDeconfigure } from "~/components/auth-and-model-providers/ProviderDeconfigure";
 import { Button } from "~/components/ui/button";
@@ -14,7 +18,7 @@ import {
 export function ProviderMenu({
 	provider,
 }: {
-	provider: ModelProvider | AuthProvider;
+	provider: ModelProvider | AuthProvider | FileScannerProvider;
 }) {
 	return (
 		<DropdownMenu>

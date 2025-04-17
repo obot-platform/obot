@@ -2,13 +2,18 @@ import { useEffect, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import useSWR, { mutate } from "swr";
 
-import { AuthProvider, ModelProvider } from "~/lib/model/providers";
+import {
+	AuthProvider,
+	FileScannerProvider,
+	ModelProvider,
+} from "~/lib/model/providers";
 import {
 	ForbiddenError,
 	NotFoundError,
 	UnauthorizedError,
 } from "~/lib/service/api/apiErrors";
 import { AuthProviderApiService } from "~/lib/service/api/authProviderApiService";
+import { FileScannerProviderApiService } from "~/lib/service/api/fileScannerProviderApiService";
 import { ModelApiService } from "~/lib/service/api/modelApiService";
 import { ModelProviderApiService } from "~/lib/service/api/modelProviderApiService";
 
@@ -28,7 +33,7 @@ import {
 } from "~/components/ui/dialog";
 
 type ProviderConfigureProps = {
-	provider: ModelProvider | AuthProvider;
+	provider: ModelProvider | AuthProvider | FileScannerProvider;
 };
 
 export function ProviderConfigure({ provider }: ProviderConfigureProps) {
@@ -125,13 +130,15 @@ export function ProviderConfigureContent({
 	provider,
 	onSuccess,
 }: {
-	provider: ModelProvider | AuthProvider;
+	provider: ModelProvider | AuthProvider | FileScannerProvider;
 	onSuccess: () => void;
 }) {
 	const revealByIdFunc =
 		provider.type === "modelprovider"
 			? ModelProviderApiService.revealModelProviderById
-			: AuthProviderApiService.revealAuthProviderById;
+			: provider.type === "authprovider"
+				? AuthProviderApiService.revealAuthProviderById
+				: FileScannerProviderApiService.revealFileScannerProviderById;
 
 	const revealProvider = useSWR(
 		revealByIdFunc.key(provider.id),

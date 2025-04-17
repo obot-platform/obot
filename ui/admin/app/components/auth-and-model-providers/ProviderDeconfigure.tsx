@@ -2,8 +2,13 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { mutate } from "swr";
 
-import { AuthProvider, ModelProvider } from "~/lib/model/providers";
+import {
+	AuthProvider,
+	FileScannerProvider,
+	ModelProvider,
+} from "~/lib/model/providers";
 import { AuthProviderApiService } from "~/lib/service/api/authProviderApiService";
+import { FileScannerProviderApiService } from "~/lib/service/api/fileScannerProviderApiService";
 import { ModelApiService } from "~/lib/service/api/modelApiService";
 import { ModelProviderApiService } from "~/lib/service/api/modelProviderApiService";
 
@@ -24,7 +29,7 @@ import { useAsync } from "~/hooks/useAsync";
 export function ProviderDeconfigure({
 	provider,
 }: {
-	provider: ModelProvider | AuthProvider;
+	provider: ModelProvider | AuthProvider | FileScannerProvider;
 }) {
 	const [open, setOpen] = useState(false);
 	const handleDeconfigure = async () => {
@@ -34,14 +39,18 @@ export function ProviderDeconfigure({
 	const deconfigure = useAsync(
 		provider.type === "modelprovider"
 			? ModelProviderApiService.deconfigureModelProviderById
-			: AuthProviderApiService.deconfigureAuthProviderById,
+			: provider.type === "authprovider"
+				? AuthProviderApiService.deconfigureAuthProviderById
+				: FileScannerProviderApiService.deconfigureFileScannerProviderById,
 		{
 			onSuccess: () => {
 				toast.success(`${provider.name} deconfigured.`);
 				mutate(
 					provider.type === "modelprovider"
 						? ModelProviderApiService.getModelProviders.key()
-						: AuthProviderApiService.getAuthProviders.key()
+						: provider.type === "authprovider"
+							? AuthProviderApiService.getAuthProviders.key()
+							: FileScannerProviderApiService.getFileScannerProviders.key()
 				);
 				mutate(
 					provider.type === "modelprovider"
@@ -106,5 +115,7 @@ function warningMessage(t?: string): string | undefined {
 			return "Deconfiguring this model provider will remove all models associated with it and reset it to its unconfigured state. You will need to set up the model provider once again to use it.";
 		case "authprovider":
 			return "Deconfiguring this auth provider will sign out all users who are using it and reset it to its unconfigured state. You will need to set up the auth provider once again to use it.";
+		case "filescannerprovider":
+			return "Deconfiguring this file scanner provider will remove its configuration. If this file scanner provider is currently configured to be used by the system, then file uploads will fail.";
 	}
 }

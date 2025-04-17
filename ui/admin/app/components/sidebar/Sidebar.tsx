@@ -3,6 +3,7 @@ import {
 	BotMessageSquareIcon,
 	BoxesIcon,
 	CpuIcon,
+	FileScanIcon,
 	InfoIcon,
 	LockIcon,
 	MessageSquare,
@@ -87,6 +88,12 @@ const items = [
 		title: "Auth Providers",
 		url: $path("/auth-providers"),
 		icon: LockIcon,
+		requiresAuth: true,
+	},
+	{
+		title: "File Scanner Providers",
+		url: $path("/file-scanner-providers"),
+		icon: FileScanIcon,
 		requiresAuth: true,
 	},
 ];

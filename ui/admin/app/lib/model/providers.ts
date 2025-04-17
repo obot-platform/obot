@@ -34,3 +34,5 @@ export type ModelProvider = Provider & {
 };
 
 export type AuthProvider = Provider;
+
+export type FileScannerProvider = Provider;

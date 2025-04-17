@@ -7,11 +7,13 @@ import { z } from "zod";
 
 import {
 	AuthProvider,
+	FileScannerProvider,
 	ModelProvider,
 	ProviderConfig,
 	ProviderConfigurationParameter,
 } from "~/lib/model/providers";
 import { AuthProviderApiService } from "~/lib/service/api/authProviderApiService";
+import { FileScannerProviderApiService } from "~/lib/service/api/fileScannerProviderApiService";
 import { ModelApiService } from "~/lib/service/api/modelApiService";
 import { ModelProviderApiService } from "~/lib/service/api/modelProviderApiService";
 
@@ -88,7 +90,7 @@ export function ProviderForm({
 	requiredParameters,
 	optionalParameters,
 }: {
-	provider: ModelProvider | AuthProvider;
+	provider: ModelProvider | AuthProvider | FileScannerProvider;
 	onSuccess: () => void;
 	parameters: ProviderConfig;
 	requiredParameters: ProviderConfigurationParameter[];
@@ -138,6 +140,39 @@ export function ProviderForm({
 					ModelProviderApiService.revealModelProviderById.key(provider.id)
 				);
 				await fetchAvailableModels.execute(provider.id);
+			},
+		}
+	);
+
+	const validateAndConfigureFileScannerProvider = useAsync(
+		FileScannerProviderApiService.validateFileScannerProviderById,
+		{
+			onSuccess: async (data, params) => {
+				// Only configure the model provider if validation was successful
+				const [fileScannerProviderId, configParams] = params;
+				await configureFileScannerProvider.execute(
+					fileScannerProviderId,
+					configParams
+				);
+			},
+			onError: (error) => {
+				// Handle validation errors
+				console.error("Validation failed:", error);
+			},
+		}
+	);
+
+	const configureFileScannerProvider = useAsync(
+		FileScannerProviderApiService.configureFileScannerProviderById,
+		{
+			onSuccess: async () => {
+				onSuccess();
+				mutate(FileScannerProviderApiService.getFileScannerProviders.key());
+				mutate(
+					FileScannerProviderApiService.revealFileScannerProviderById.key(
+						provider.id
+					)
+				);
 			},
 		}
 	);
@@ -202,6 +237,12 @@ export function ProviderForm({
 				case "authprovider":
 					await configureAuthProvider.execute(provider.id, allConfigParams);
 					break;
+				case "filescannerprovider":
+					await validateAndConfigureFileScannerProvider.execute(
+						provider.id,
+						allConfigParams
+					);
+					break;
 			}
 		}
 	);
@@ -231,6 +272,28 @@ export function ProviderForm({
 										"object" &&
 										"message" in validateAndConfigureModelProvider.error &&
 										(validateAndConfigureModelProvider.error
+											.message as string)) ??
+										"Unknown error"}
+								</strong>
+							</AlertDescription>
+						</Alert>
+					</div>
+				)}
+			{provider.type === "filescannerprovider" &&
+				validateAndConfigureFileScannerProvider.error !== null && (
+					<div className="px-4">
+						<Alert variant="destructive">
+							<CircleAlertIcon className="h-4 w-4" />
+							<AlertTitle>An error occurred!</AlertTitle>
+							<AlertDescription>
+								Your configuration could not be saved, because it failed
+								validation:{" "}
+								<strong>
+									{(typeof validateAndConfigureFileScannerProvider.error ===
+										"object" &&
+										"message" in
+											validateAndConfigureFileScannerProvider.error &&
+										(validateAndConfigureFileScannerProvider.error
 											.message as string)) ??
 										"Unknown error"}
 								</strong>

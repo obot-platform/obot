@@ -42,7 +42,7 @@ const validateModelProviderById = async (
 		method: "POST",
 		data: modelProviderConfig,
 		errorMessage:
-			"Failed to validate configuration values on the requested modal provider.",
+			"Failed to validate configuration values on the requested model provider.",
 	});
 
 	return res.data;
@@ -68,7 +68,7 @@ const revealModelProviderById = async (providerKey: string) => {
 		url: ApiRoutes.modelProviders.revealModelProviderById(providerKey).url,
 		method: "POST",
 		errorMessage:
-			"Failed to reveal configuration values on the requested modal provider.",
+			"Failed to reveal configuration values on the requested model provider.",
 		toastError: false,
 	});
 
