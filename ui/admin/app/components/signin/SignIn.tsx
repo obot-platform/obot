@@ -2,9 +2,9 @@ import { useState } from "react";
 
 import { cn } from "~/lib/utils";
 
+import { ObotLogo } from "~/components/branding/ObotLogo";
 import { BootstrapForm } from "~/components/providers/BootstrapForm";
 import { ProviderIcon } from "~/components/providers/ProviderIcon";
-import { ObotLogo } from "~/components/branding/ObotLogo";
 import { Button } from "~/components/ui/button";
 import { Card, CardDescription, CardHeader } from "~/components/ui/card";
 import { useAuthProviders } from "~/hooks/auth-providers/useAuthProviders";

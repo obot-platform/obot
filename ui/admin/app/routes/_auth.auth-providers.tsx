@@ -5,8 +5,8 @@ import { AuthProvider } from "~/lib/model/providers";
 import { VersionApiService } from "~/lib/service/api/versionApiService";
 import { RouteHandle } from "~/lib/service/routeHandles";
 
-import { AuthProviderList } from "~/components/providers/AuthProviderLists";
 import { WarningAlert } from "~/components/composed/WarningAlert";
+import { AuthProviderList } from "~/components/providers/AuthProviderLists";
 import { useAuthProviders } from "~/hooks/auth-providers/useAuthProviders";
 
 export async function clientLoader() {

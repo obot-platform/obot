@@ -134,6 +134,11 @@ export const RouteHelperMap = {
 		path: "/model-providers",
 		schema: z.null(),
 	},
+	"/file-scanner-providers": {
+		regex: exactRegex($path("/file-scanner-providers")),
+		path: "/file-scanner-providers",
+		schema: z.null(),
+	},
 	"/tools": {
 		regex: exactRegex($path("/tools")),
 		path: "/tools",

@@ -45,6 +45,7 @@ type ComboBoxProps<T extends BaseOption> = {
 	renderOption?: (option: T) => ReactNode;
 	validateCreate?: (value: string) => boolean;
 	value?: T | null;
+	width?: string;
 	classNames?: {
 		command?: string;
 	};
@@ -56,6 +57,7 @@ export function ComboBox<T extends BaseOption>({
 	placeholder,
 	value,
 	renderOption,
+	width,
 	...props
 }: {
 	disabled?: boolean;
@@ -67,11 +69,16 @@ export function ComboBox<T extends BaseOption>({
 		return (
 			<Popover modal={true} open={open} onOpenChange={setOpen}>
 				<PopoverTrigger asChild>{renderButtonContent()}</PopoverTrigger>
-				<PopoverContent className="w-full p-0" align="start">
+				<PopoverContent
+					className={cn("p-0", width ? "" : "w-full")}
+					style={width ? { width } : undefined}
+					align="start"
+				>
 					<ComboBoxList
 						setOpen={setOpen}
 						renderOption={renderOption}
 						value={value}
+						width={width}
 						{...props}
 					/>
 				</PopoverContent>
@@ -88,6 +95,7 @@ export function ComboBox<T extends BaseOption>({
 						setOpen={setOpen}
 						renderOption={renderOption}
 						value={value}
+						width={width}
 						{...props}
 					/>
 				</div>
@@ -101,7 +109,11 @@ export function ComboBox<T extends BaseOption>({
 				disabled={disabled}
 				endContent={<ChevronsUpDownIcon />}
 				variant="outline"
-				className="w-full justify-start rounded-sm px-3 font-normal"
+				className={cn(
+					"justify-start rounded-sm px-3 font-normal",
+					width ? "" : "w-full"
+				)}
+				style={width ? { width } : undefined}
 				classNames={{
 					content: "w-full justify-between",
 				}}
@@ -132,6 +144,7 @@ function ComboBoxList<T extends BaseOption>({
 	emptyLabel = "No results found.",
 	closeOnSelect = true,
 	classNames,
+	width,
 }: { setOpen: (open: boolean) => void } & ComboBoxProps<T>) {
 	const [filteredOptions, setFilteredOptions] =
 		useState<typeof options>(options);
@@ -181,9 +194,11 @@ function ComboBoxList<T extends BaseOption>({
 		<Command
 			shouldFilter={false}
 			className={cn(
-				"max-h-[50vh] w-[var(--radix-popper-anchor-width)]",
+				"max-h-[50vh]",
+				width ? "" : "w-[var(--radix-popper-anchor-width)]",
 				classNames?.command
 			)}
+			style={width ? { width } : undefined}
 		>
 			<CommandInput
 				placeholder={placeholder}

@@ -154,6 +154,7 @@ export function FileScannerConfigForm() {
 										onChange={handleProviderChange}
 										options={providerOptions}
 										value={selectedOption}
+										width="200px"
 									/>
 								</FormControl>
 							</div>
