@@ -82,7 +82,7 @@
 			</button>
 		{/if}
 
-		<Credentials bind:this={credentials} {project} />
+		<Credentials bind:this={credentials} {project} {currentThreadID} />
 		<MemoriesDialog bind:this={memories} {project} />
 		{#if !project.editor}
 			<Clone {project} />

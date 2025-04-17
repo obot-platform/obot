@@ -7,34 +7,59 @@
 	import CredentialAuth from '$lib/components/edit/CredentialAuth.svelte';
 	import { getProjectTools } from '$lib/context/projectTools.svelte';
 	import { responsive } from '$lib/stores';
+	import type { AssistantTool } from '$lib/services';
 
 	interface Props {
 		project: Project;
 		local?: boolean;
 		onClose?: () => void;
+		currentThreadID?: string;
 	}
 
 	const projectTools = getProjectTools();
-	let { project, local, onClose }: Props = $props();
+	let { project, local, onClose, currentThreadID }: Props = $props();
+
 	let { ref, tooltip, toggle } = popover();
+	let threadTools = $state<AssistantTool[]>([]);
 	let credentials = $state<ProjectCredential[]>();
 	let credentialsAvailable = $derived.by(() => {
 		return credentials?.filter((cred) => {
-			return projectTools.tools.find((tool) => {
-				return tool.enabled && cred.toolID === tool.id && !cred.exists;
-			});
+			return (
+				(projectTools.tools.find((tool) => {
+					return tool.enabled && cred.toolID === tool.id;
+				}) ||
+					threadTools.find((tool) => tool.enabled && tool.id === cred.toolID)) &&
+				!cred.exists
+			);
 		});
 	});
 	let credentialsExists = $derived.by(() => {
 		return credentials?.filter((cred) => {
-			return projectTools.tools.find((tool) => {
-				return tool.enabled && cred.toolID === tool.id && cred.exists;
-			});
+			return (
+				(projectTools.tools.find((tool) => {
+					return tool.enabled && cred.toolID === tool.id;
+				}) ||
+					threadTools.find((tool) => tool.enabled && tool.id === cred.toolID)) &&
+				cred.exists
+			);
 		});
 	});
 	let authDialog: ReturnType<typeof CredentialAuth> | undefined = $state();
 	let credToAuth = $state<ProjectCredential | undefined>();
 	let showAuthInline = $state(false);
+
+	$effect(() => {
+		if (currentThreadID) {
+			fetchThreadTools();
+		}
+	});
+
+	async function fetchThreadTools() {
+		if (!currentThreadID) return;
+		threadTools =
+			(await ChatService.listProjectThreadTools(project.assistantID, project.id, currentThreadID))
+				?.items ?? [];
+	}
 
 	export async function reload() {
 		if (local) {

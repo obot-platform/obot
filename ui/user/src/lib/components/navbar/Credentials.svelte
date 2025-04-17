@@ -6,9 +6,10 @@
 
 	interface Props {
 		project: Project;
+		currentThreadID?: string;
 	}
 
-	let { project }: Props = $props();
+	let { project, currentThreadID }: Props = $props();
 	let dialog = $state<HTMLDialogElement>();
 	let credentials = $state<ReturnType<typeof Credentials>>();
 
@@ -25,6 +26,12 @@
 	class:mobile-screen-dialog={responsive.isMobile}
 >
 	<div class="flex h-full grow flex-col gap-4 md:h-auto md:min-h-[300px]">
-		<Credentials bind:this={credentials} {project} local onClose={() => dialog?.close()} />
+		<Credentials
+			bind:this={credentials}
+			{project}
+			local
+			onClose={() => dialog?.close()}
+			{currentThreadID}
+		/>
 	</div>
 </dialog>
