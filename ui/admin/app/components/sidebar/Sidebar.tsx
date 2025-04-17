@@ -91,7 +91,7 @@ const items = [
 		requiresAuth: true,
 	},
 	{
-		title: "File Scanner Providers",
+		title: "File Scanners",
 		url: $path("/file-scanner-providers"),
 		icon: FileScanIcon,
 		requiresAuth: true,

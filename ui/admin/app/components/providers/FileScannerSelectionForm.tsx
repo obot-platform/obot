@@ -146,7 +146,7 @@ export function FileScannerConfigForm() {
 					name="provider"
 					render={() => (
 						<FormItem className="flex items-center justify-between gap-2 space-y-0">
-							<FormLabel>Current Provider</FormLabel>
+							<FormLabel>Enabled Scanner</FormLabel>
 							<div className="flex flex-col">
 								<FormControl>
 									<ComboBox
