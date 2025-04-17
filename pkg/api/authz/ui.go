@@ -8,6 +8,7 @@ var uiResources = []string{
 	"GET /{$}",
 	"GET /admin/",
 	"GET /agent/images/",
+	"GET /landing/images/",
 	"GET /_app/",
 	"GET /{assistant}",
 	"GET /o/",

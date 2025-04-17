@@ -28,7 +28,9 @@ import {
 	type ToolReferenceList,
 	type SlackConfig,
 	type SlackReceiver,
-	type MemorySet
+	type MemorySet,
+	type MCPList,
+	type MCP
 } from './types';
 
 export type Fetcher = typeof fetch;
@@ -942,4 +944,9 @@ export async function deleteMemory(
 	memoryID: string
 ): Promise<void> {
 	await doDelete(`/assistants/${assistantID}/projects/${projectID}/memories/${memoryID}`);
+}
+
+export async function listMCPs(opts?: { fetch?: Fetcher }): Promise<MCP[]> {
+	const response = (await doGet('/mcp/catalog', opts)) as MCPList;
+	return response.items;
 }
