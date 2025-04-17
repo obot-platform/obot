@@ -27,14 +27,18 @@ func (s *Server) updateFileScannerConfig(apiContext api.Context) error {
 	if config.ProviderName != "" && config.ProviderNamespace == "" {
 		// The provider namespace should be the system namespace in this case
 		config.ProviderNamespace = system.DefaultNamespace
+	} else if config.ProviderName == "" && config.ProviderNamespace != "" {
+		config.ProviderNamespace = ""
 	}
 
-	// Ensure this provider exists
-	var ref v1.ToolReference
-	if err := apiContext.Storage.Get(apiContext.Context(), kclient.ObjectKey{Namespace: config.ProviderNamespace, Name: config.ProviderName}, &ref); err != nil {
-		return err
-	} else if ref.Spec.Type != types2.ToolReferenceTypeFileScannerProvider {
-		return types2.NewErrBadRequest("%q is not a file scanner provider", ref.Name)
+	if config.ProviderName != "" {
+		// Ensure this provider exists
+		var ref v1.ToolReference
+		if err := apiContext.Storage.Get(apiContext.Context(), kclient.ObjectKey{Namespace: config.ProviderNamespace, Name: config.ProviderName}, &ref); err != nil {
+			return err
+		} else if ref.Spec.Type != types2.ToolReferenceTypeFileScannerProvider {
+			return types2.NewErrBadRequest("%q is not a file scanner provider", ref.Name)
+		}
 	}
 
 	if err := s.client.UpdateVirusScannerConfig(apiContext.Context(), &config); err != nil {

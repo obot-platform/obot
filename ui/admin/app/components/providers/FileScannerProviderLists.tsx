@@ -3,9 +3,9 @@ import { Link } from "react-router";
 
 import { FileScannerProvider } from "~/lib/model/providers";
 
-import { ProviderConfigure } from "~/components/auth-and-model-providers/ProviderConfigure";
-import { ProviderIcon } from "~/components/auth-and-model-providers/ProviderIcon";
-import { ProviderMenu } from "~/components/auth-and-model-providers/ProviderMenu";
+import { ProviderConfigure } from "~/components/providers/ProviderConfigure";
+import { ProviderIcon } from "~/components/providers/ProviderIcon";
+import { ProviderMenu } from "~/components/providers/ProviderMenu";
 import { Badge } from "~/components/ui/badge";
 import { Card, CardContent, CardHeader } from "~/components/ui/card";
 

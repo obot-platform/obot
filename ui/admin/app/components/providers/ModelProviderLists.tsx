@@ -3,11 +3,11 @@ import { Link } from "react-router";
 
 import { ModelProvider } from "~/lib/model/providers";
 
-import { ModelProvidersModels } from "~/components/auth-and-model-providers/ModelProviderModels";
-import { ProviderConfigure } from "~/components/auth-and-model-providers/ProviderConfigure";
-import { ProviderIcon } from "~/components/auth-and-model-providers/ProviderIcon";
-import { ProviderMenu } from "~/components/auth-and-model-providers/ProviderMenu";
-import { RecommendedModelProviders } from "~/components/auth-and-model-providers/constants";
+import { ModelProvidersModels } from "~/components/providers/ModelProviderModels";
+import { ProviderConfigure } from "~/components/providers/ProviderConfigure";
+import { ProviderIcon } from "~/components/providers/ProviderIcon";
+import { ProviderMenu } from "~/components/providers/ProviderMenu";
+import { RecommendedModelProviders } from "~/components/providers/constants";
 import { Badge } from "~/components/ui/badge";
 import { Card, CardContent, CardHeader } from "~/components/ui/card";
 

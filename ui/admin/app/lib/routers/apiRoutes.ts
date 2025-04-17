@@ -355,6 +355,11 @@ export const ApiRoutes = {
 		deconfigureFileScannerProviderById: (fileScannerProviderKey: string) =>
 			buildUrl(`/file-scanner-providers/${fileScannerProviderKey}/deconfigure`),
 	},
+	fileScannerConfig: {
+		base: () => buildUrl("/file-scanner-config"),
+		getFileScannerConfig: () => buildUrl("/file-scanner-config"),
+		updateFileScannerConfig: () => buildUrl("/file-scanner-config"),
+	},
 };
 
 /** revalidates the cache for all routes that match the filter callback

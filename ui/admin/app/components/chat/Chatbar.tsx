@@ -3,7 +3,7 @@ import { useState } from "react";
 
 import { cn } from "~/lib/utils";
 
-import { ModelProviderTooltip } from "~/components/auth-and-model-providers/ModelProviderTooltip";
+import { ModelProviderTooltip } from "~/components/providers/ModelProviderTooltip";
 import { ChatActions } from "~/components/chat/ChatActions";
 import { useChat } from "~/components/chat/ChatContext";
 import { ChatRunInfo } from "~/components/chat/ChatRunInfo";

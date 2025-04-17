@@ -5,7 +5,7 @@ import { AuthProvider } from "~/lib/model/providers";
 import { VersionApiService } from "~/lib/service/api/versionApiService";
 import { RouteHandle } from "~/lib/service/routeHandles";
 
-import { AuthProviderList } from "~/components/auth-and-model-providers/AuthProviderLists";
+import { AuthProviderList } from "~/components/providers/AuthProviderLists";
 import { WarningAlert } from "~/components/composed/WarningAlert";
 import { useAuthProviders } from "~/hooks/auth-providers/useAuthProviders";
 

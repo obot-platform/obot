@@ -17,8 +17,8 @@ import { FileScannerProviderApiService } from "~/lib/service/api/fileScannerProv
 import { ModelApiService } from "~/lib/service/api/modelApiService";
 import { ModelProviderApiService } from "~/lib/service/api/modelProviderApiService";
 
-import { ProviderForm } from "~/components/auth-and-model-providers/ProviderForm";
-import { ProviderIcon } from "~/components/auth-and-model-providers/ProviderIcon";
+import { ProviderForm } from "~/components/providers/ProviderForm";
+import { ProviderIcon } from "~/components/providers/ProviderIcon";
 import { CopyText } from "~/components/composed/CopyText";
 import { DefaultModelAliasForm } from "~/components/model/DefaultModelAliasForm";
 import { LoadingSpinner } from "~/components/ui/LoadingSpinner";

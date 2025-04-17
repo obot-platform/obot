@@ -2,8 +2,8 @@ import { useState } from "react";
 
 import { cn } from "~/lib/utils";
 
-import { BootstrapForm } from "~/components/auth-and-model-providers/BootstrapForm";
-import { ProviderIcon } from "~/components/auth-and-model-providers/ProviderIcon";
+import { BootstrapForm } from "~/components/providers/BootstrapForm";
+import { ProviderIcon } from "~/components/providers/ProviderIcon";
 import { ObotLogo } from "~/components/branding/ObotLogo";
 import { Button } from "~/components/ui/button";
 import { Card, CardDescription, CardHeader } from "~/components/ui/card";

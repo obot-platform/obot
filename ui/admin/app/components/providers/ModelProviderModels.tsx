@@ -7,7 +7,7 @@ import { Model, ModelUsage, getModelUsageLabel } from "~/lib/model/models";
 import { ModelProvider } from "~/lib/model/providers";
 import { ModelApiService } from "~/lib/service/api/modelApiService";
 
-import { ProviderIcon } from "~/components/auth-and-model-providers/ProviderIcon";
+import { ProviderIcon } from "~/components/providers/ProviderIcon";
 import { DataTable } from "~/components/composed/DataTable";
 import { UpdateModelActive } from "~/components/model/UpdateModelActive";
 import { UpdateModelUsage } from "~/components/model/UpdateModelUsage";
