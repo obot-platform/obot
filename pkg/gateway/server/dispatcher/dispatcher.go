@@ -112,13 +112,13 @@ func (d *Dispatcher) urlForProvider(ctx context.Context, providerType types.Tool
 	defer lock.Unlock()
 
 	// If we didn't find anything with the read lock, check with the write lock.
-	// It could be that another thread beat us to the write lock and added the model provider we desire.
+	// It could be that another thread beat us to the write lock and added the provider we desire.
 	u, ok = urlMap[key]
 	if ok && (u.Hostname() != "127.0.0.1" || engine.IsDaemonRunning(u.String())) {
 		return u, nil
 	}
 
-	// We didn't find the model provider (or the daemon stopped for some reason), so start it and add it to the map.
+	// We didn't find the provider (or the daemon stopped for some reason), so start it and add it to the map.
 	u, err := d.startProvider(ctx, providerType, namespace, name, extraEnv...)
 	if err != nil {
 		return url.URL{}, err
@@ -154,11 +154,11 @@ func (d *Dispatcher) startProvider(ctx context.Context, providerType types.ToolR
 
 	credCtx := []string{string(providerToolRef.UID), providerTypeToGenericCredContext[providerType]}
 	if providerToolRef.Status.Tool == nil {
-		return url.URL{}, fmt.Errorf("model provider %q has not been resolved", providerName)
+		return url.URL{}, fmt.Errorf("provider tool reference %q has not been resolved", providerName)
 	}
 
-	// Ensure that the model provider has been configured so that we don't get stuck waiting on a prompt.
-	mps, err := providers.ConvertProviderTooRef(providerToolRef, nil)
+	// Ensure that the provider has been configured so that we don't get stuck waiting on a prompt.
+	mps, err := providers.ConvertProviderToolRef(providerToolRef, nil)
 	if err != nil {
 		return url.URL{}, fmt.Errorf("failed to convert model provider: %w", err)
 	}
@@ -168,7 +168,7 @@ func (d *Dispatcher) startProvider(ctx context.Context, providerType types.ToolR
 			return url.URL{}, fmt.Errorf("model provider is not configured: %w", err)
 		}
 
-		mps, err = providers.ConvertProviderTooRef(providerToolRef, cred.Env)
+		mps, err = providers.ConvertProviderToolRef(providerToolRef, cred.Env)
 		if err != nil {
 			return url.URL{}, fmt.Errorf("failed to convert model provider: %w", err)
 		}

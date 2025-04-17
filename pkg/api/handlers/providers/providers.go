@@ -8,7 +8,7 @@ import (
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 )
 
-func ConvertProviderTooRef(toolRef v1.ToolReference, cred map[string]string) (*types.CommonProviderStatus, error) {
+func ConvertProviderToolRef(toolRef v1.ToolReference, cred map[string]string) (*types.CommonProviderStatus, error) {
 	var (
 		providerMeta   ProviderMeta
 		missingEnvVars []string

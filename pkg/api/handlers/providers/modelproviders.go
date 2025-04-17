@@ -12,7 +12,7 @@ type ProviderMeta struct {
 }
 
 func ConvertModelProviderToolRef(toolRef v1.ToolReference, cred map[string]string) (*types.ModelProviderStatus, error) {
-	commonProviderStatus, err := ConvertProviderTooRef(toolRef, cred)
+	commonProviderStatus, err := ConvertProviderToolRef(toolRef, cred)
 	if err != nil {
 		return nil, err
 	}

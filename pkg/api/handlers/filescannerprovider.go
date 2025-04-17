@@ -285,7 +285,7 @@ func (f *FileScannerProviderHandler) Reveal(req api.Context) error {
 	}
 
 	if ref.Spec.Type != types.ToolReferenceTypeFileScannerProvider {
-		return types.NewErrBadRequest("%q is not a model provider", ref.Name)
+		return types.NewErrBadRequest("%q is not a file scanner provider", ref.Name)
 	}
 
 	cred, err := f.gptscript.RevealCredential(req.Context(), []string{string(ref.UID), system.GenericFileScannerProviderCredentialContext}, ref.Name)

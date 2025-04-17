@@ -11,7 +11,7 @@ const (
 )
 
 func ConvertAuthProviderToolRef(toolRef v1.ToolReference, cred map[string]string) (*types.AuthProviderStatus, error) {
-	providerStatus, err := ConvertProviderTooRef(toolRef, cred)
+	providerStatus, err := ConvertProviderToolRef(toolRef, cred)
 	if err != nil {
 		return nil, err
 	}
