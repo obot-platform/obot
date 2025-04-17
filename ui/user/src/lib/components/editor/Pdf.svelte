@@ -20,7 +20,7 @@
 	});
 </script>
 
-<div>
+<div class="h-full">
 	{#if blobUrl}
 		<embed src={blobUrl} width="100%" {height} />
 	{/if}
