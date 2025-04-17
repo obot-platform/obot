@@ -292,7 +292,7 @@
 					bind:items={layout.items}
 				>
 					<div class="flex w-fit items-center gap-1">
-						<Files thread {project} bind:currentThreadID={id} />
+						<Files thread {project} bind:currentThreadID={id} helperText={'Files'} />
 						<Tools {project} bind:currentThreadID={id} thread />
 					</div>
 				</Input>

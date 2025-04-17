@@ -29,9 +29,16 @@
 		thread?: boolean;
 		currentThreadID?: string;
 		primary?: boolean;
+		helperText?: string;
 	}
 
-	let { project, currentThreadID = $bindable(), thread = false, primary = true }: Props = $props();
+	let {
+		project,
+		currentThreadID = $bindable(),
+		thread = false,
+		primary = true,
+		helperText = 'Files'
+	}: Props = $props();
 
 	const knowledgeExtensions = [
 		'.pdf',
@@ -201,7 +208,7 @@
 	</div>
 {/snippet}
 
-<div use:tooltip={'Files'}>
+<div use:tooltip={helperText}>
 	{#if thread}
 		<Menu
 			{body}

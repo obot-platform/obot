@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { overflowToolTip } from '$lib/actions/overflow';
-	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import Controls from '$lib/components/editor/Controls.svelte';
 	import FileEditors from '$lib/components/editor/FileEditors.svelte';
 	import { getLayout } from '$lib/context/layout.svelte';
@@ -66,8 +65,8 @@
 	{#if layout.items.length > 1 || (!layout.items[0]?.table && !layout.items[0]?.generic)}
 		<div class="file-tabs relative flex items-center pt-1">
 			{#if currentThreadID}
-				<div use:tooltip={'Browse Files'} class="pb-1 pl-1">
-					<Files {project} thread {currentThreadID} primary={false} />
+				<div class="pb-1 pl-1">
+					<Files {project} thread {currentThreadID} primary={false} helperText={'Browse Files'} />
 				</div>
 			{/if}
 			<ul
