@@ -33,6 +33,10 @@
 	let toolSelection = $state<Record<string, AssistantTool>>({});
 	let maxExceeded = $state(false);
 
+	export function getSelectedTools() {
+		return Object.values(toolSelection);
+	}
+
 	function getSelectionMap() {
 		return tools
 			.filter((t) => !t.builtin)
