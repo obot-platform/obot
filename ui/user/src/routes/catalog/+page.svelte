@@ -7,11 +7,10 @@
 	import type { PageProps } from './$types';
 	import ObotCard from '$lib/components/ObotCard.svelte';
 	import { q, qIsSet } from '$lib/url';
-	import { ChevronLeft, Plus, UserPen } from 'lucide-svelte';
+	import { ChevronLeft, Plus } from 'lucide-svelte';
 	import FeaturedObotCard from '$lib/components/FeaturedObotCard.svelte';
 	import { sortByFeaturedNameOrder } from '$lib/sort';
 	import { goto } from '$app/navigation';
-	import { DEFAULT_PROJECT_DESCRIPTION, DEFAULT_PROJECT_NAME } from '$lib/constants';
 
 	let { data }: PageProps = $props();
 	let featured = $state<ProjectShare[]>(
