@@ -15,15 +15,16 @@ import (
 )
 
 func (h *Handler) RunLoop(req router.Request, _ router.Response) (err error) {
-	step := req.Object.(*v1.WorkflowStep)
+	rootStep := req.Object.(*v1.WorkflowStep)
 
-	if len(step.Spec.Step.Loop) == 0 {
+	if len(rootStep.Spec.Step.Loop) == 0 {
 		return nil
 	}
 
 	var (
 		completeResponse bool
 		objects          []kclient.Object
+		lastRunName      string
 	)
 	defer func() {
 		apply := apply.New(req.Client)
@@ -35,37 +36,32 @@ func (h *Handler) RunLoop(req router.Request, _ router.Response) (err error) {
 		}
 	}()
 
-	var (
-		// lastStep    *v1.WorkflowStep
-		lastRunName string
-	)
-
 	// reset
-	step.Status.Error = ""
+	rootStep.Status.Error = ""
 
-	dataStep := defineDataStep(step)
+	dataStep := defineDataStep(rootStep)
 	objects = append(objects, dataStep)
 
-	if _, errMsg, state, err := GetStateFromSteps(req.Ctx, req.Client, step.Spec.WorkflowGeneration, dataStep); err != nil {
+	if _, errMsg, state, err := GetStateFromSteps(req.Ctx, req.Client, rootStep.Spec.WorkflowGeneration, dataStep); err != nil {
 		return err
 	} else if state.IsBlocked() {
-		step.Status.State = state
-		step.Status.Error = errMsg
+		rootStep.Status.State = state
+		rootStep.Status.Error = errMsg
 		return nil
 	}
 
-	runName, datasetID, wait, err := getDataStepResult(req.Ctx, req.Client, step, dataStep)
+	runName, datasetID, wait, err := getDataStepResult(req.Ctx, req.Client, rootStep, dataStep)
 	if err != nil {
 		return err
 	}
 	lastRunName = runName
 
 	if wait {
-		step.Status.State = types.WorkflowStateRunning
+		rootStep.Status.State = types.WorkflowStateRunning
 		return nil
 	}
 
-	workspaceID, err := getWorkspaceID(req.Ctx, req.Client, step)
+	workspaceID, err := getWorkspaceID(req.Ctx, req.Client, rootStep)
 	if err != nil {
 		return err
 	}
@@ -80,19 +76,74 @@ func (h *Handler) RunLoop(req router.Request, _ router.Response) (err error) {
 		return err
 	}
 
-	for _, element := range dataset.Elements {
+	for elementIndex, element := range dataset.GetAllElements() {
+		steps, err := defineLoop(elementIndex, element.Contents, dataStep.Name, rootStep)
+		if err != nil {
+			return err
+		}
 
+		objects = append(objects, steps...)
+
+		runName, errMsg, newState, err := GetStateFromSteps(req.Ctx, req.Client, rootStep.Spec.WorkflowGeneration, steps...)
+		if err != nil {
+			return err
+		}
+		lastRunName = runName
+
+		if newState.IsBlocked() {
+			rootStep.Status.State = newState
+			rootStep.Status.Error = errMsg
+			return nil
+		}
+
+		if newState != types.WorkflowStateComplete {
+			rootStep.Status.State = newState
+			return nil
+		}
 	}
 
-	step.Status.State = types.WorkflowStateComplete
-	step.Status.LastRunName = lastRunName
+	completeResponse = true
+	rootStep.Status.State = types.WorkflowStateComplete
+	rootStep.Status.LastRunName = lastRunName
 	return nil
 }
 
-func defineDataStep(step *v1.WorkflowStep) *v1.WorkflowStep {
-	return NewStep(step.Namespace, step.Spec.WorkflowExecutionName, step.Spec.AfterWorkflowStepName, step.Spec.WorkflowGeneration, types.Step{
-		ID:   step.Spec.Step.ID + "-loopdata",
-		Step: dataPrompt(step.Spec.Step.Step),
+func defineLoop(elementIndex int, element string, dataStepName string, rootStep *v1.WorkflowStep) (result []kclient.Object, _ error) {
+	var lastStepName string
+	for i, s := range rootStep.Spec.Step.Loop {
+		afterStepName := dataStepName
+		if i > 0 {
+			afterStepName = lastStepName
+		}
+
+		if i == 0 {
+			// For the very first step, we need to add the element to the prompt.
+			s.Step = elementPrompt(element, s.Step)
+		}
+
+		s.ID = fmt.Sprintf("%s{element=%d}{index=%d}", s.ID, elementIndex, i)
+		newStep := NewStep(rootStep.Namespace, rootStep.Spec.WorkflowExecutionName, afterStepName, rootStep.Spec.WorkflowGeneration, s)
+		result = append(result, newStep)
+		lastStepName = newStep.Name
+	}
+
+	return result, nil
+}
+
+func elementPrompt(element, prompt string) string {
+	return fmt.Sprintf(`
+	Based on the data, follow the instructions below.
+
+	Data: %s
+
+	Instructions: %s
+	`, element, prompt)
+}
+
+func defineDataStep(rootStep *v1.WorkflowStep) *v1.WorkflowStep {
+	return NewStep(rootStep.Namespace, rootStep.Spec.WorkflowExecutionName, rootStep.Spec.AfterWorkflowStepName, rootStep.Spec.WorkflowGeneration, types.Step{
+		ID:   rootStep.Spec.Step.ID + "-loopdata",
+		Step: dataPrompt(rootStep.Spec.Step.Step),
 	})
 }
 
@@ -104,11 +155,11 @@ func dataPrompt(description string) string {
 	If the data is not already available in the chat history, call any tools you need in order to find it.
 	You are looking for a dataset ID, which has the prefix gds://.
 	If you found the dataset ID, return exactly the dataset ID (including the gds:// prefix) and nothing else.
-	If you did not find it, simply return "false" and nothing else.
+	If you did not find it, simply return "false" without quotes and nothing else.
 	`, description)
 }
 
-func getDataStepResult(ctx context.Context, client kclient.Client, step *v1.WorkflowStep, dataStep *v1.WorkflowStep) (runName string, datasetID string, wait bool, err error) {
+func getDataStepResult(ctx context.Context, client kclient.Client, parentStep *v1.WorkflowStep, dataStep *v1.WorkflowStep) (runName string, datasetID string, wait bool, err error) {
 	var checkStep v1.WorkflowStep
 	if err := client.Get(ctx, router.Key(dataStep.Namespace, dataStep.Name), &checkStep); apierrors.IsNotFound(err) {
 		return "", "", true, nil
@@ -127,7 +178,9 @@ func getDataStepResult(ctx context.Context, client kclient.Client, step *v1.Work
 
 	datasetID = getDatasetID(run.Status.Output)
 	if datasetID == "" {
-		return run.Name, "", false, fmt.Errorf("no dataset ID found in output: %q", run.Status.Output)
+		parentStep.Status.Error = "no dataset ID found in output"
+		parentStep.Status.State = types.WorkflowStateError
+		return "", "", true, nil
 	}
 
 	return run.Name, datasetID, false, nil
