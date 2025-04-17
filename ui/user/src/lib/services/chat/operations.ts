@@ -27,7 +27,8 @@ import {
 	type ProjectShare,
 	type ToolReferenceList,
 	type SlackConfig,
-	type SlackReceiver
+	type SlackReceiver,
+	type MemorySet
 } from './types';
 
 export type Fetcher = typeof fetch;
@@ -923,4 +924,22 @@ export async function getProjectSlack(assistantID: string, projectID: string) {
 
 export async function disableProjectSlack(assistantID: string, projectID: string) {
 	return doDelete(`/assistants/${assistantID}/projects/${projectID}/slack`);
+}
+
+export async function getMemories(assistantID: string, projectID: string): Promise<MemorySet> {
+	return doGet(`/assistants/${assistantID}/projects/${projectID}/memories`, {
+		dontLogErrors: true
+	}) as Promise<MemorySet>;
+}
+
+export async function deleteAllMemories(assistantID: string, projectID: string): Promise<void> {
+	await doDelete(`/assistants/${assistantID}/projects/${projectID}/memories`);
+}
+
+export async function deleteMemory(
+	assistantID: string,
+	projectID: string,
+	memoryID: string
+): Promise<void> {
+	await doDelete(`/assistants/${assistantID}/projects/${projectID}/memories/${memoryID}`);
 }

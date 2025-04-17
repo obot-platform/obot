@@ -431,3 +431,14 @@ export interface SlackReceiver {
 	appId: string;
 	clientId: string;
 }
+
+export interface Memory {
+	id: string;
+	content: string;
+	createdAt: string;
+}
+
+export interface MemorySet {
+	id?: string;
+	memories: Memory[];
+}

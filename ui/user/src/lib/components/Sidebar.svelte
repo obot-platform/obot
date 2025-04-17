@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { type Project } from '$lib/services';
-	import { KeyRound, SidebarClose } from 'lucide-svelte';
+	import { KeyRound, SidebarClose, Brain } from 'lucide-svelte';
 	import Threads from '$lib/components/sidebar/Threads.svelte';
 	import Clone from '$lib/components/navbar/Clone.svelte';
 	import { hasTool } from '$lib/tools';
@@ -12,6 +12,7 @@
 	import Tables from '$lib/components/sidebar/Tables.svelte';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import { getProjectTools } from '$lib/context/projectTools.svelte';
+	import MemoriesDialog from '$lib/components/MemoriesDialog.svelte';
 
 	interface Props {
 		project: Project;
@@ -20,6 +21,7 @@
 
 	let { project, currentThreadID = $bindable() }: Props = $props();
 	let credentials = $state<ReturnType<typeof Credentials>>();
+	let memories = $state<ReturnType<typeof MemoriesDialog>>();
 	let projectsOpen = $state(false);
 	const layout = getLayout();
 	const projectTools = getProjectTools();
@@ -69,7 +71,19 @@
 			<KeyRound class="icon-default" />
 		</button>
 
+		{#if hasTool(projectTools.tools, 'memory')}
+			<button
+				class="icon-button"
+				onclick={() => memories?.show()}
+				use:tooltip={'Memories'}
+				data-memories-btn
+			>
+				<Brain class="icon-default" />
+			</button>
+		{/if}
+
 		<Credentials bind:this={credentials} {project} />
+		<MemoriesDialog bind:this={memories} {project} />
 		{#if !project.editor}
 			<Clone {project} />
 		{/if}
