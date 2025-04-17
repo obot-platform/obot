@@ -66,6 +66,8 @@ func (h *Handler) RunLoop(req router.Request, _ router.Response) (err error) {
 		return err
 	}
 
+	// We use the dataset package rather than making SDK calls because it is more direct and more performant.
+	// All that the SDK calls do is call out to a daemon tool that runs the same library code that we are referencing here.
 	datasetManager, err := dataset.NewManager(workspaceID)
 	if err != nil {
 		return err
