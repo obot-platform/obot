@@ -14,7 +14,6 @@ const TaskBreadCrumbHeader = "X-Obt-Task-Bread-Crumb"
 type ListTasksOptions struct {
 	ThreadID    string
 	AssistantID string
-	ProjectID   string
 }
 
 func (c *Client) ListTasks(ctx context.Context, opts ListTasksOptions) (result types.TaskList, err error) {

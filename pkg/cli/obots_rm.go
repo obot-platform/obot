@@ -1,13 +1,12 @@
 package cli
 
 import (
-	"bufio"
 	"errors"
 	"fmt"
-	"os"
 	"strings"
 
 	"github.com/obot-platform/obot/apiclient/types"
+	"github.com/obot-platform/obot/pkg/cli/textio"
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/spf13/cobra"
 )
@@ -61,9 +60,7 @@ func (c *DeleteObot) Run(cmd *cobra.Command, args []string) error {
 			fmt.Printf("  %s: %s\n", validIDs[i], project.Name)
 		}
 
-		fmt.Print("\nAre you sure you want to delete these obots? [y/N] ")
-		reader := bufio.NewReader(os.Stdin)
-		response, err := reader.ReadString('\n')
+		response, err := textio.Ask("Confirm deletion [y/N]", "")
 		if err != nil {
 			return fmt.Errorf("failed to read confirmation: %w", err)
 		}

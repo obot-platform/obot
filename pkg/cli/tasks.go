@@ -104,7 +104,7 @@ func (l *Tasks) Run(cmd *cobra.Command, args []string) error {
 		sem := make(chan struct{}, 8)
 
 		// Filter out projects without assistantID to avoid unnecessary API calls
-		validProjects := 0
+		var validProjects int
 		for _, project := range projects.Items {
 			if project.AssistantID == "" {
 				debugPrint("Skipping project %s (no assistant ID)", project.ID)
@@ -140,20 +140,19 @@ func (l *Tasks) Run(cmd *cobra.Command, args []string) error {
 		}
 
 		// Wait for all fetches to complete, then close channels
-		go func() {
+		func() {
 			wg.Wait()
 			close(taskChan)
 			close(errChan)
 		}()
 
-		// Wait for collector to finish
-		<-doneChan
-
-		// Check for errors (non-blocking)
 		var errs []error
 		for err := range errChan {
 			errs = append(errs, err)
 		}
+
+		// Wait for collector to finish
+		<-doneChan
 
 		if len(errs) > 0 {
 			debugPrint("Warning: Some project tasks could not be fetched (%d errors):", len(errs))
