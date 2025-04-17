@@ -24,7 +24,6 @@ func (h *Handler) RunLoop(req router.Request, _ router.Response) (err error) {
 	var (
 		completeResponse bool
 		objects          []kclient.Object
-		lastRunName      string
 	)
 	defer func() {
 		apply := apply.New(req.Client)
@@ -50,11 +49,10 @@ func (h *Handler) RunLoop(req router.Request, _ router.Response) (err error) {
 		return nil
 	}
 
-	runName, datasetID, wait, err := getDataStepResult(req.Ctx, req.Client, rootStep, dataStep)
+	_, datasetID, wait, err := getDataStepResult(req.Ctx, req.Client, rootStep, dataStep)
 	if err != nil {
 		return err
 	}
-	lastRunName = runName
 
 	if wait {
 		rootStep.Status.State = types.WorkflowStateRunning
@@ -78,35 +76,39 @@ func (h *Handler) RunLoop(req router.Request, _ router.Response) (err error) {
 		return err
 	}
 
+	lastStepName := dataStep.Name
 	for elementIndex, element := range dataset.GetAllElements() {
-		steps, err := defineLoop(elementIndex, element.Contents, dataStep.Name, rootStep)
+		steps, err := defineLoop(elementIndex, element.Contents, lastStepName, rootStep)
 		if err != nil {
 			return err
 		}
 
 		objects = append(objects, steps...)
 
-		runName, errMsg, newState, err := GetStateFromSteps(req.Ctx, req.Client, rootStep.Spec.WorkflowGeneration, steps...)
-		if err != nil {
-			return err
+		if len(steps) > 0 {
+			lastStepName = steps[len(steps)-1].(*v1.WorkflowStep).Name
 		}
-		lastRunName = runName
+	}
 
-		if newState.IsBlocked() {
-			rootStep.Status.State = newState
-			rootStep.Status.Error = errMsg
-			return nil
-		}
+	runName, errMsg, newState, err := GetStateFromSteps(req.Ctx, req.Client, rootStep.Spec.WorkflowGeneration, objects...)
+	if err != nil {
+		return err
+	}
 
-		if newState != types.WorkflowStateComplete {
-			rootStep.Status.State = newState
-			return nil
-		}
+	if newState.IsBlocked() {
+		rootStep.Status.State = newState
+		rootStep.Status.Error = errMsg
+		return nil
+	}
+
+	if newState != types.WorkflowStateComplete {
+		rootStep.Status.State = newState
+		return nil
 	}
 
 	completeResponse = true
 	rootStep.Status.State = types.WorkflowStateComplete
-	rootStep.Status.LastRunName = lastRunName
+	rootStep.Status.LastRunName = runName
 	return nil
 }
 
