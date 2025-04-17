@@ -17,6 +17,9 @@ func getValidUserIDs(user user.Info) []string {
 	if attr := user.GetExtra()["email"]; len(attr) > 0 {
 		keys = append(keys, attr...)
 	}
+	if attr := user.GetExtra()["obot:userID"]; len(attr) > 0 {
+		keys = append(keys, attr...)
+	}
 	return keys
 }
 

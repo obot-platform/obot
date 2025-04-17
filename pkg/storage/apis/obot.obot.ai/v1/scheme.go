@@ -67,6 +67,8 @@ func AddToSchemeWithGV(scheme *runtime.Scheme, schemeGroupVersion schema.GroupVe
 		&ModelList{},
 		&DefaultModelAlias{},
 		&DefaultModelAliasList{},
+		&MemorySet{},
+		&MemorySetList{},
 		&Tool{},
 		&ToolList{},
 		&ThreadShare{},
