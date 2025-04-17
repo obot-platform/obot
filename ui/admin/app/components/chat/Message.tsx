@@ -343,16 +343,40 @@ export function PromptAuthForm({
 	return (
 		<Form {...form}>
 			<form onSubmit={handleSubmit} className="flex flex-col gap-4">
-				{prompt.fields?.map((field) => (
-					<ControlledInput
-						key={field.name}
-						control={form.control}
-						name={field.name}
-						label={field.name}
-						description={field.description || ""}
-						type={prompt.sensitive || !!field.sensitive ? "password" : "text"}
-					/>
-				))}
+				{prompt.fields?.map((field) =>
+					field.options?.length ? (
+						<div className="flex flex-col gap-1" key={field.name}>
+							{field.options?.length > 1 ? (
+								<label
+									htmlFor={field.name}
+									className="mt-1 text-sm font-medium"
+								>
+									{field.name}
+								</label>
+							) : null}
+							{field.options?.map((option) => (
+								<Button
+									key={option}
+									className="button"
+									type="button"
+									variant="secondary"
+									onClick={() => form.setValue(field.name, option)}
+								>
+									{option}
+								</Button>
+							))}
+						</div>
+					) : (
+						<ControlledInput
+							key={field.name}
+							control={form.control}
+							name={field.name}
+							label={field.name}
+							description={field.description || ""}
+							type={prompt.sensitive || !!field.sensitive ? "password" : "text"}
+						/>
+					)
+				)}
 
 				<Button
 					disabled={authenticate.isLoading}
