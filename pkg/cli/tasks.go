@@ -139,12 +139,9 @@ func (l *Tasks) Run(cmd *cobra.Command, args []string) error {
 			}(project)
 		}
 
-		// Wait for all fetches to complete, then close channels
-		func() {
-			wg.Wait()
-			close(taskChan)
-			close(errChan)
-		}()
+		wg.Wait()
+		close(taskChan)
+		close(errChan)
 
 		var errs []error
 		for err := range errChan {
