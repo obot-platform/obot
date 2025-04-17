@@ -204,7 +204,7 @@ func (l *Tasks) Run(cmd *cobra.Command, args []string) error {
 	}
 
 	// Fetch run counts for each task if needed
-	runCounts := make(map[string]int)
+	runCounts := make(map[string]int, len(taskList.Items))
 	if !l.NoRuns {
 		debugPrint("Fetching run counts for tasks...")
 		startRunCounts := time.Now()
