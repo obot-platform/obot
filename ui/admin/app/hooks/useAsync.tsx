@@ -57,7 +57,7 @@ export function useAsync<TData, TParams extends unknown[]>(
 					// unpack that error field's value into the error message
 					if (error.response && typeof error.response.data === "string") {
 						const errorMessageMatch =
-							error.response.data.match(/{"error":\s+"(.*?)"}/);
+							error.response.data.match(/{"error":\s*"(.*?)"}/);
 						if (errorMessageMatch) {
 							const errorMessage = JSON.parse(errorMessageMatch[0]).error;
 							error.message = errorMessage;

@@ -119,11 +119,11 @@ func (mp *ModelProviderHandler) List(req api.Context) error {
 	return req.Write(types.ModelProviderList{Items: resp})
 }
 
-type ValidationError struct {
+type modelProviderValidationError struct {
 	Err string `json:"error"`
 }
 
-func (ve *ValidationError) Error() string {
+func (ve *modelProviderValidationError) Error() string {
 	return fmt.Sprintf("model-provider credentials validation failed: {\"error\": \"%s\"}", ve.Err)
 }
 
@@ -182,7 +182,7 @@ func (mp *ModelProviderHandler) Validate(req api.Context) error {
 		return types.NewErrHTTP(http.StatusUnprocessableEntity, strings.Trim(err.Error(), "\"'"))
 	}
 
-	var validationError ValidationError
+	var validationError modelProviderValidationError
 	if json.Unmarshal([]byte(res.Output), &validationError) == nil && validationError.Err != "" {
 		return types.NewErrHTTP(http.StatusUnprocessableEntity, validationError.Error())
 	}

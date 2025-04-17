@@ -250,6 +250,7 @@ export function ProviderForm({
 	const FORM_ID = "model-provider-form";
 
 	const loading =
+		validateAndConfigureFileScannerProvider.isLoading ||
 		validateAndConfigureModelProvider.isLoading ||
 		fetchAvailableModels.isLoading ||
 		configureModelProvider.isLoading ||

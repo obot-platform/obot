@@ -119,6 +119,14 @@ func (f *FileScannerProviderHandler) List(req api.Context) error {
 	return req.Write(types.FileScannerProviderList{Items: resp})
 }
 
+type fileScannerProviderValidationError struct {
+	Err string `json:"error"`
+}
+
+func (ve *fileScannerProviderValidationError) Error() string {
+	return fmt.Sprintf("file scanner provider credentials validation failed: {\"error\": \"%s\"}", ve.Err)
+}
+
 func (f *FileScannerProviderHandler) Validate(req api.Context) error {
 	var ref v1.ToolReference
 	if err := req.Get(&ref, req.PathValue("id")); err != nil {
@@ -174,7 +182,7 @@ func (f *FileScannerProviderHandler) Validate(req api.Context) error {
 		return types.NewErrHTTP(http.StatusUnprocessableEntity, strings.Trim(err.Error(), "\"'"))
 	}
 
-	var validationError ValidationError
+	var validationError fileScannerProviderValidationError
 	if json.Unmarshal([]byte(res.Output), &validationError) == nil && validationError.Err != "" {
 		return types.NewErrHTTP(http.StatusUnprocessableEntity, validationError.Error())
 	}
