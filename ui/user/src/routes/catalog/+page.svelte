@@ -84,56 +84,55 @@
 				</a>
 			</div>
 		{/if}
-		{#if qIsSet('new')}
-			<div
-				class="flex w-full max-w-(--breakpoint-xl) flex-col items-center justify-center gap-2 px-4 py-4"
-			>
+		<div
+			class="flex w-full max-w-(--breakpoint-xl) flex-col items-center justify-center gap-2 px-4 py-4"
+		>
+			{#if qIsSet('new')}
 				<h2 class="text-3xl font-semibold md:text-4xl">Welcome To Obot</h2>
-				<p class="text-md mb-4 max-w-full text-center md:max-w-md">
-					Check out our featured obots below, or browse all obots to find the perfect one for you.
-					Or if you're feeling adventurous, get started and create your own obot!
-				</p>
-			</div>
-		{/if}
+			{:else}
+				<h2 class="text-3xl font-semibold md:text-4xl">Obot Catalog</h2>
+			{/if}
+			<p class="mb-4 max-w-full text-center text-base font-light md:max-w-md">
+				Check out our featured obots below, or browse all obots to find the perfect one for you. Or
+				if you're feeling adventurous, get started and create your own obot!
+			</p>
+		</div>
 		{#if featured.length > 0}
 			<div class="mb-4 flex w-full flex-col items-center justify-center">
 				<div class="flex w-full max-w-(--breakpoint-xl) flex-col gap-4 px-4 md:px-12">
-					<h3 class="mt-8 text-2xl font-semibold md:text-3xl">Featured</h3>
+					<h3 class="text-2xl font-semibold md:text-3xl">Featured</h3>
 					<div class="featured-card-layout gap-x-4 gap-y-6 sm:gap-y-8">
 						{#each featured.slice(0, 4) as featuredShare}
 							<FeaturedObotCard project={featuredShare} {tools} />
 						{/each}
-						<FeaturedObotCard
-							project={{
-								id: 'new',
-								name: 'Create New Obot',
-								icons: {
-									icon: ''
-								},
-								featured: true,
-								publicID: 'new',
-								projectID: 'new',
-								public: true
-							}}
+					</div>
+
+					<p class="text-center text-lg font-light">Couldn't find what you were looking for?</p>
+
+					<div class="mb-8 flex w-full items-center justify-center">
+						<button
+							class="bg-surface1 hover:bg-surface2 rounded-xl p-4 shadow-md transition-all duration-300"
 							onclick={createNew}
 						>
-							{#snippet icon()}
-								<div class="relative">
+							<div class="flex w-full items-center gap-3">
+								<div class="relative flex-shrink-0">
 									<Plus
-										class="absolute top-1/2 left-1/2 z-10 size-16 -translate-x-1/2 -translate-y-1/2 text-white opacity-90 dark:opacity-75"
+										class="absolute top-1/2 left-1/2 z-10 size-12 -translate-x-1/2 -translate-y-1/2 text-white opacity-90 dark:opacity-75"
 									/>
 									<img
 										alt="obot create placeholder logo"
 										src="/agent/images/obot_placeholder.webp"
-										class="flex size-24 flex-shrink-0 rounded-full opacity-65 shadow-md shadow-gray-500 dark:shadow-black"
+										class="flex size-16 flex-shrink-0 rounded-full opacity-65 shadow-md shadow-gray-500 dark:shadow-black"
 									/>
 								</div>
-							{/snippet}
-							{#snippet description()}
-								Couldn't find what you were looking for? <br />
-								Click here & create your own!
-							{/snippet}
-						</FeaturedObotCard>
+								<div class="flex flex-col gap-1 text-left">
+									<h4 class="text-lg font-semibold">Create New Obot</h4>
+									<p class="text-gray text-sm leading-4 font-light">
+										Make an Obot that fits your needs!
+									</p>
+								</div>
+							</div>
+						</button>
 					</div>
 				</div>
 			</div>

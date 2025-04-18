@@ -13,18 +13,10 @@
 		tools?: Map<string, ToolReference>;
 		onclick?: () => void;
 		class?: string;
-		description?: Snippet;
-		icon?: Snippet;
+		content?: Snippet;
 	}
 
-	const {
-		project,
-		tools,
-		onclick,
-		class: klass,
-		description: overrideDescription,
-		icon: overrideIcon
-	}: Props = $props();
+	const { project, tools, onclick, class: klass, content: overrideContent }: Props = $props();
 
 	const toolsToShow = $derived(
 		(project.tools ?? []).filter((t) => !IGNORED_BUILTIN_TOOLS.has(t)).sort(sortShownToolsPriority)
@@ -38,53 +30,49 @@
 			klass
 		)}
 	>
-		{#if overrideIcon}
-			{@render overrideIcon()}
+		{#if overrideContent}
+			{@render overrideContent()}
 		{:else}
 			<img
 				alt="obot logo"
 				src={getProjectImage(project, darkMode.isDark)}
 				class="flex size-24 flex-shrink-0 rounded-full shadow-md shadow-gray-500 dark:shadow-black"
 			/>
-		{/if}
-		<div class="flex grow flex-col gap-2 pl-4">
-			<h4 class="line-clamp-2 text-left text-base leading-5.5 font-semibold md:text-lg">
-				{project.name || DEFAULT_PROJECT_NAME}
-			</h4>
+			<div class="flex grow flex-col gap-2 pl-4">
+				<h4 class="line-clamp-2 text-left text-base leading-5.5 font-semibold md:text-lg">
+					{project.name || DEFAULT_PROJECT_NAME}
+				</h4>
 
-			<p
-				class="line-clamp-3 flex text-left text-xs leading-4.5 font-light text-gray-500 md:text-sm"
-			>
-				{#if overrideDescription}
-					{@render overrideDescription()}
-				{:else}
+				<p
+					class="line-clamp-3 flex text-left text-xs leading-4.5 font-light text-gray-500 md:text-sm"
+				>
 					{project.description || ''}
-				{/if}
-			</p>
+				</p>
 
-			{#if 'tools' in project && project.tools && tools}
-				{@const maxToolsToShow = responsive.isMobile ? 2 : 3}
-				<div class="flex flex-wrap items-center justify-end gap-2">
-					{#each toolsToShow.slice(0, maxToolsToShow) as tool}
-						{@const toolData = tools.get(tool)}
-						{#if toolData}
-							<ToolPill tool={toolData} />
+				{#if 'tools' in project && project.tools && tools}
+					{@const maxToolsToShow = responsive.isMobile ? 2 : 3}
+					<div class="flex flex-wrap items-center justify-end gap-2">
+						{#each toolsToShow.slice(0, maxToolsToShow) as tool}
+							{@const toolData = tools.get(tool)}
+							{#if toolData}
+								<ToolPill tool={toolData} />
+							{/if}
+						{/each}
+						{#if toolsToShow.length > maxToolsToShow}
+							<ToolPill
+								tools={toolsToShow
+									.slice(maxToolsToShow)
+									.map((t) => tools.get(t))
+									.filter((t): t is ToolReference => !!t)}
+							/>
 						{/if}
-					{/each}
-					{#if toolsToShow.length > maxToolsToShow}
-						<ToolPill
-							tools={toolsToShow
-								.slice(maxToolsToShow)
-								.map((t) => tools.get(t))
-								.filter((t): t is ToolReference => !!t)}
-						/>
-					{/if}
-				</div>
-			{:else}
-				<div class="min-h-2"></div>
-				<!-- placeholder -->
-			{/if}
-		</div>
+					</div>
+				{:else}
+					<div class="min-h-2"></div>
+					<!-- placeholder -->
+				{/if}
+			</div>
+		{/if}
 	</div>
 {/snippet}
 
