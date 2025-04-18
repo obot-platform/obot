@@ -166,7 +166,10 @@
 							{#if version.current.dockerSupported}
 								<CustomTools {project} />
 							{/if}
-							<Files {project} />
+							<Files
+								{project}
+								placeholder="A copy of each starter file will be added to every chat thread and task run when they're created."
+							/>
 							<Tasks {project} bind:currentThreadID />
 							<Slack {project} />
 							<Interface bind:project />

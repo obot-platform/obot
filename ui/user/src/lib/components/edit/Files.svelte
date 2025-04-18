@@ -30,6 +30,7 @@
 		currentThreadID?: string;
 		primary?: boolean;
 		helperText?: string;
+		placeholder?: string;
 	}
 
 	let {
@@ -37,7 +38,8 @@
 		currentThreadID = $bindable(),
 		thread = false,
 		primary = true,
-		helperText = ''
+		helperText = '',
+		placeholder = ''
 	}: Props = $props();
 
 	const knowledgeExtensions = [
@@ -151,8 +153,7 @@
 {#snippet body()}
 	{#if files.length === 0}
 		<p class="text-gray pt-6 pb-3 text-center text-sm font-light dark:text-gray-300">
-			A copy of each starter file will be added to every chat thread and task run when they're
-			created.
+			{placeholder ? placeholder : 'No files'}
 		</p>
 	{:else}
 		<ul class="max-h-[60vh] space-y-4 overflow-y-auto py-6 ps-3 text-sm">
@@ -211,58 +212,40 @@
 	</div>
 {/snippet}
 
+{#snippet menuBody()}
+	{#if thread}
+		<Menu
+			{body}
+			bind:this={menu}
+			title="Files"
+			description="Content available to AI."
+			onLoad={loadFiles}
+			classes={{
+				button: primary ? 'button-icon-primary' : '',
+				dialog: responsive.isMobile
+					? 'rounded-none max-h-[calc(100vh-64px)] left-0 bottom-0 w-full'
+					: ''
+			}}
+			slide={responsive.isMobile ? 'up' : undefined}
+			fixed={responsive.isMobile}
+		>
+			{#snippet icon()}
+				<FileText class="h-5 w-5" />
+			{/snippet}
+		</Menu>
+	{:else}
+		<CollapsePane header="Starter Files" onOpen={loadFiles}>
+			{@render body()}
+		</CollapsePane>
+	{/if}
+{/snippet}
+
 {#if helperText}
 	<div use:tooltip={helperText}>
-		{#if thread}
-			<Menu
-				{body}
-				bind:this={menu}
-				title="Files"
-				description="Content available to AI."
-				onLoad={loadFiles}
-				classes={{
-					button: primary ? 'button-icon-primary' : '',
-					dialog: responsive.isMobile
-						? 'rounded-none max-h-[calc(100vh-64px)] left-0 bottom-0 w-full'
-						: ''
-				}}
-				slide={responsive.isMobile ? 'up' : undefined}
-				fixed={responsive.isMobile}
-			>
-				{#snippet icon()}
-					<FileText class="h-5 w-5" />
-				{/snippet}
-			</Menu>
-		{:else}
-			<CollapsePane header="Starter Files" onOpen={loadFiles}>
-				{@render body()}
-			</CollapsePane>
-		{/if}
+		{@render menuBody()}
 	</div>
-{:else if thread}
-	<Menu
-		{body}
-		bind:this={menu}
-		title="Files"
-		description="Content available to AI."
-		onLoad={loadFiles}
-		classes={{
-			button: primary ? 'button-icon-primary' : '',
-			dialog: responsive.isMobile
-				? 'rounded-none max-h-[calc(100vh-64px)] left-0 bottom-0 w-full'
-				: ''
-		}}
-		slide={responsive.isMobile ? 'up' : undefined}
-		fixed={responsive.isMobile}
-	>
-		{#snippet icon()}
-			<FileText class="h-5 w-5" />
-		{/snippet}
-	</Menu>
 {:else}
-	<CollapsePane header="Starter Files" onOpen={loadFiles}>
-		{@render body()}
-	</CollapsePane>
+	{@render menuBody()}
 {/if}
 
 <dialog bind:this={editorDialog} class="relative h-full w-full md:w-4/5">
