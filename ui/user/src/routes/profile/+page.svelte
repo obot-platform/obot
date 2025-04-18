@@ -7,6 +7,7 @@
 	import ConfirmDeleteAccount from '$lib/components/ConfirmDeleteAccount.svelte';
 	import { success } from '$lib/stores/success';
 	import Confirm from '$lib/components/Confirm.svelte';
+	import { ArrowLeft } from 'lucide-svelte/icons';
 
 	let toDelete = $state(false);
 	let toRevoke = $state(false);
@@ -96,44 +97,59 @@
 				>
 					<h3 class="flex flex-shrink-0 text-2xl font-semibold">My Account</h3>
 				</div>
-				<div class="bg-surface1 mx-auto w-full max-w-lg rounded-xl p-6 shadow-md">
-					<img
-						src={profile.current.iconURL}
-						alt=""
-						class="mx-auto mb-3 h-28 w-28 rounded-full object-cover"
-					/>
-					<div class="flex flex-row py-3">
-						<div class="w-1/2 max-w-[150px]">Display Name:</div>
-						<div class="w-1/2 break-words">{profile.current.getDisplayName?.()}</div>
-					</div>
-					<hr />
-					<div class="flex flex-row py-3">
-						<div class="w-1/2 max-w-[150px]">Email:</div>
-						<div class="w-1/2 break-words">{profile.current.email}</div>
-					</div>
-					<hr />
-					<div class="flex flex-row py-3">
-						<div class="w-1/2 max-w-[150px]">Role:</div>
-						<div class="w-1/2 break-words">{profile.current.role === 1 ? 'Admin' : 'User'}</div>
-					</div>
-					<hr />
-					<div class="mt-2 flex flex-col gap-4 py-3">
-						{#if version.current.sessionStore === 'db'}
-							<button
-								class="w-full rounded-3xl border-2 border-red-600 px-4 py-2 font-medium text-red-600 hover:border-red-700 hover:text-red-700"
-								onclick={(e) => {
-									e.preventDefault();
-									toRevoke = !toRevoke;
-								}}>Log out all other sessions</button
-							>
-						{/if}
-						<button
-							class="w-full rounded-3xl bg-red-600 px-4 py-2 font-medium text-white hover:bg-red-700"
-							onclick={(e) => {
-								e.preventDefault();
-								toDelete = !toDelete;
-							}}>Delete my account</button
-						>
+				<div class="bg-surface1 mx-auto w-full max-w-4xl rounded-xl p-6 shadow-md">
+					<a href="/home" class="mb-2 flex items-center gap-2 text-blue-500 hover:text-blue-600">
+						<ArrowLeft class="size-4" />Go Home
+					</a>
+					<div class="flex flex-col-reverse sm:flex-row">
+						<div class="w-full sm:w-1/2">
+							<div class="flex flex-row py-3 2xl:flex-col">
+								<div class="w-1/2 max-w-[150px] 2xl:w-full 2xl:py-2">Display Name:</div>
+								<div class="w-1/2 break-words 2xl:w-full 2xl:py-2 2xl:text-xl">
+									{profile.current.getDisplayName?.()}
+								</div>
+							</div>
+							<hr />
+							<div class="flex flex-row py-3 2xl:flex-col">
+								<div class="w-1/2 max-w-[150px] 2xl:w-full 2xl:py-2">Email:</div>
+								<div class="w-1/2 break-words 2xl:w-full 2xl:py-2 2xl:text-xl">
+									{profile.current.email}
+								</div>
+							</div>
+							<hr />
+							<div class="flex flex-row py-3 2xl:flex-col">
+								<div class="w-1/2 max-w-[150px] 2xl:w-full 2xl:py-2">Role:</div>
+								<div class="w-1/2 break-words 2xl:w-full 2xl:py-2 2xl:text-xl">
+									{profile.current.role === 1 ? 'Admin' : 'User'}
+								</div>
+							</div>
+							<hr />
+							<div class="mt-2 flex flex-col gap-4 py-3">
+								{#if version.current.sessionStore === 'db'}
+									<button
+										class="w-full rounded-3xl border-2 border-red-600 px-4 py-2 font-medium text-red-600 hover:border-red-700 hover:text-red-700 2xl:rounded-4xl 2xl:py-3 2xl:text-lg"
+										onclick={(e) => {
+											e.preventDefault();
+											toRevoke = !toRevoke;
+										}}>Log out all other sessions</button
+									>
+								{/if}
+								<button
+									class="w-full rounded-3xl bg-red-600 px-4 py-2 font-medium text-white hover:bg-red-700 2xl:rounded-4xl 2xl:py-3 2xl:text-lg"
+									onclick={(e) => {
+										e.preventDefault();
+										toDelete = !toDelete;
+									}}>Delete my account</button
+								>
+							</div>
+						</div>
+						<div class="w-full sm:w-1/2">
+							<img
+								src={profile.current.iconURL}
+								alt=""
+								class="mx-auto mb-3 h-28 w-28 rounded-full object-cover sm:my-3 sm:h-48 sm:w-48"
+							/>
+						</div>
 					</div>
 				</div>
 			</div>
