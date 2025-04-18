@@ -71,7 +71,12 @@
 		{#if !uploadInProgress}
 			<Upload class="size-4" />
 		{/if}
-		Upload (.pdf, .pptx, .txt)
-		<input bind:files type="file" class="hidden" accept=".pdf, .txt, .doc, .docx" />
+		Upload
+		<input
+			bind:files
+			type="file"
+			class="hidden"
+			accept=".pdf, .txt, .doc, .docx, .md, .html, .odt, .rtf, .csv, .ipynb, .json, .pptx, .ppt, .pages"
+		/>
 	</label>
 </div>
