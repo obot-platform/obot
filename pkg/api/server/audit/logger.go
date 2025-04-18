@@ -158,6 +158,9 @@ func (l *persistentLogger) persist() error {
 	l.lock.Unlock()
 
 	if err := l.store.Persist(buf); err != nil {
+		l.lock.Lock()
+		l.buffer = append(buf, l.buffer...)
+		l.lock.Unlock()
 		return err
 	}
 
