@@ -4,6 +4,9 @@ apiVersion: v1
 metadata:
   name: {{ .Release.Name }}-pvc
 spec:
+  {{- if .Values.persistence.storageClass }}
+  storageClassName: {{ .Values.persistence.storageClass }}
+  {{- end }}
   accessModes:
   {{- range .Values.persistence.accessModes }}
     - {{ . | quote }}
