@@ -8,7 +8,7 @@
 		type TaskStep
 	} from '$lib/services';
 	import Message from '$lib/components/messages/Message.svelte';
-	import { Eye, EyeClosed, Plus, Trash2 } from 'lucide-svelte/icons';
+	import { Eye, EyeClosed, Plus, Trash2, Repeat } from 'lucide-svelte/icons';
 	import { LoaderCircle, OctagonX, Play, RefreshCcw } from 'lucide-svelte';
 	import { tick } from 'svelte';
 	import { autoHeight } from '$lib/actions/textarea.js';
@@ -49,6 +49,7 @@
 	let stale: boolean = $derived(parentStale || !parentMatches());
 	let toDelete = $state<boolean>();
 	let showOutput = $state(true);
+	let isLoopStep = $derived(step.loop && step.loop.length > 0);
 
 	$effect(() => {
 		if (parentShowOutput !== undefined) {
@@ -112,6 +113,14 @@
 		}
 		await run?.(step);
 	}
+
+	async function toggleLoop() {
+		if (isLoopStep) {
+			step.loop = undefined;
+		} else {
+			step.loop = [''];
+		}
+	}
 </script>
 
 {#snippet outputVisibilityButton()}
@@ -135,21 +144,69 @@
 {/snippet}
 
 <li class="ms-4">
-	<div class="flex items-center justify-between gap-6">
-		<textarea
-			{onkeydown}
-			rows="1"
-			placeholder="Instructions..."
-			use:autoHeight
-			id={'step' + step.id}
-			bind:value={step.step}
-			class="ghost-input border-surface2 ml-1 grow resize-none"
-			disabled={readOnly}
-		></textarea>
-		<div class="flex">
+	<div class="flex items-start justify-between gap-6">
+		<div class="flex grow flex-col gap-2">
+			<div class="flex items-center gap-2">
+				<textarea
+					{onkeydown}
+					rows="1"
+					placeholder={isLoopStep ? "Instructions for each iteration..." : "Instructions..."}
+					use:autoHeight
+					id={'step' + step.id}
+					bind:value={step.step}
+					class="ghost-input border-surface2 ml-1 grow resize-none"
+					disabled={readOnly}
+				></textarea>
+			</div>
+			{#if isLoopStep}
+				<div class="flex flex-col gap-2 pl-6">
+					{#each step.loop! as _, i}
+						<div class="flex items-center gap-2">
+							<textarea
+								{onkeydown}
+								rows="1"
+								placeholder="Instructions..."
+								use:autoHeight
+								bind:value={step.loop![i]}
+								class="ghost-input border-surface2 grow resize-none"
+								disabled={readOnly}
+							></textarea>
+							{#if !readOnly}
+								<button
+									class="icon-button"
+									onclick={() => step.loop!.splice(i, 1)}
+									use:tooltip={'Remove step from loop'}
+								>
+									<Trash2 class="size-4" />
+								</button>
+							{/if}
+						</div>
+					{/each}
+					{#if !readOnly}
+						<button
+							class="icon-button self-start"
+							onclick={() => step.loop!.push('')}
+							use:tooltip={'Add step to loop'}
+						>
+							<Plus class="size-4" />
+						</button>
+					{/if}
+				</div>
+			{/if}
+		</div>
+		<div class="flex shrink-0">
 			{#if readOnly}
 				{@render outputVisibilityButton()}
 			{:else}
+				<button
+					class="icon-button"
+					class:text-blue={isLoopStep}
+					data-testid="step-loop-btn"
+					onclick={toggleLoop}
+					use:tooltip={isLoopStep ? 'Convert to regular step' : 'Convert to loop step'}
+				>
+					<Repeat class="size-4" />
+				</button>
 				<button
 					class="icon-button"
 					data-testid="step-run-btn"

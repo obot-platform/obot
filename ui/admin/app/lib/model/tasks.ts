@@ -28,6 +28,7 @@ export type Task = EntityMeta & TaskBase;
 export type Step = {
 	id: string;
 	step?: string;
+	loop?: string[];
 };
 
 export const getDefaultStep = (id?: string): Step => ({

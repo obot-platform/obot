@@ -260,6 +260,7 @@ export interface CredentialList {
 export interface TaskStep {
 	id: string;
 	step?: string;
+	loop?: string[];
 }
 
 export interface Task {
