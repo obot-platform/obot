@@ -57,6 +57,7 @@ type persistentLogger struct {
 	kickPersist      chan struct{}
 	store            store.Store
 	buffer           []byte
+	bufferSize       int
 }
 
 func New(ctx context.Context, options Options) (Logger, error) {
@@ -90,8 +91,9 @@ func New(ctx context.Context, options Options) (Logger, error) {
 	l := &persistentLogger{
 		lock:             sync.Mutex{},
 		persistSemaphore: make(chan struct{}, 1),
-		kickPersist:      make(chan struct{}, 1),
+		kickPersist:      make(chan struct{}),
 		store:            s,
+		bufferSize:       options.AuditLogsMaxFileSize * 2,
 		buffer:           make([]byte, 0, options.AuditLogsMaxFileSize*2),
 	}
 
@@ -159,13 +161,12 @@ func (l *persistentLogger) persist() error {
 
 	l.lock.Lock()
 	if len(l.buffer) == 0 {
+		l.lock.Unlock()
 		return nil
 	}
 
-	buf := make([]byte, len(l.buffer))
-	copy(buf, l.buffer)
-	l.buffer = l.buffer[:0]
-
+	buf := l.buffer
+	l.buffer = make([]byte, 0, l.bufferSize)
 	l.lock.Unlock()
 
 	if err := l.store.Persist(buf); err != nil {
