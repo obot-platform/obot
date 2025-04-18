@@ -149,7 +149,7 @@ func (d *Dispatcher) startProvider(ctx context.Context, providerType types.ToolR
 
 	var providerToolRef v1.ToolReference
 	if err := d.client.Get(ctx, kclient.ObjectKey{Namespace: namespace, Name: providerName}, &providerToolRef); err != nil || providerToolRef.Spec.Type != providerType {
-		return url.URL{}, fmt.Errorf("failed to get model provider: %w", err)
+		return url.URL{}, fmt.Errorf("failed to get provider: %w", err)
 	}
 
 	credCtx := []string{string(providerToolRef.UID), providerTypeToGenericCredContext[providerType]}
@@ -160,21 +160,21 @@ func (d *Dispatcher) startProvider(ctx context.Context, providerType types.ToolR
 	// Ensure that the provider has been configured so that we don't get stuck waiting on a prompt.
 	mps, err := providers.ConvertProviderToolRef(providerToolRef, nil)
 	if err != nil {
-		return url.URL{}, fmt.Errorf("failed to convert model provider: %w", err)
+		return url.URL{}, fmt.Errorf("failed to convert provider: %w", err)
 	}
 	if len(mps.RequiredConfigurationParameters) > 0 {
 		cred, err := d.gptscript.RevealCredential(ctx, credCtx, providerName)
 		if err != nil {
-			return url.URL{}, fmt.Errorf("model provider is not configured: %w", err)
+			return url.URL{}, fmt.Errorf("provider is not configured: %w", err)
 		}
 
 		mps, err = providers.ConvertProviderToolRef(providerToolRef, cred.Env)
 		if err != nil {
-			return url.URL{}, fmt.Errorf("failed to convert model provider: %w", err)
+			return url.URL{}, fmt.Errorf("failed to convert provider: %w", err)
 		}
 
 		if len(mps.MissingConfigurationParameters) > 0 {
-			return url.URL{}, fmt.Errorf("model provider is not configured: missing configuration parameters %s", strings.Join(mps.MissingConfigurationParameters, ", "))
+			return url.URL{}, fmt.Errorf("provider is not configured: missing configuration parameters %s", strings.Join(mps.MissingConfigurationParameters, ", "))
 		}
 	}
 

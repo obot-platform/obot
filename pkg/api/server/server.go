@@ -58,7 +58,7 @@ func NewServer(storageClient storage.Client, gatewayClient *gclient.Client, gptC
 }
 
 func (s *Server) HandleFunc(pattern string, f api.HandlerFunc) {
-	s.mux.Handle(pattern, http.HandlerFunc(s.wrap(f)))
+	s.mux.Handle(pattern, s.wrap(f))
 }
 
 func (s *Server) HTTPHandle(pattern string, f http.Handler) {

@@ -110,7 +110,7 @@ func (f *FileScannerProviderHandler) List(req api.Context) error {
 		}
 		fileScannerProvider, err := convertToolReferenceToFileScannerProvider(ref, env)
 		if err != nil {
-			log.Errorf("failed to convert model provider %q: %v", ref.Name, err)
+			log.Errorf("failed to convert file scanner provider %q: %v", ref.Name, err)
 			continue
 		}
 		resp = append(resp, fileScannerProvider)
