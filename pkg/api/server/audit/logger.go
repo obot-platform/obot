@@ -52,12 +52,11 @@ type Logger interface {
 }
 
 type persistentLogger struct {
-	lock             sync.Mutex
-	persistSemaphore chan struct{}
-	kickPersist      chan struct{}
-	store            store.Store
-	buffer           []byte
-	bufferSize       int
+	lock        sync.Mutex
+	kickPersist chan struct{}
+	store       store.Store
+	buffer      []byte
+	bufferSize  int
 }
 
 func New(ctx context.Context, options Options) (Logger, error) {
@@ -89,12 +88,11 @@ func New(ctx context.Context, options Options) (Logger, error) {
 	}
 
 	l := &persistentLogger{
-		lock:             sync.Mutex{},
-		persistSemaphore: make(chan struct{}, 1),
-		kickPersist:      make(chan struct{}),
-		store:            s,
-		bufferSize:       options.AuditLogsMaxFileSize * 2,
-		buffer:           make([]byte, 0, options.AuditLogsMaxFileSize*2),
+		lock:        sync.Mutex{},
+		kickPersist: make(chan struct{}),
+		store:       s,
+		bufferSize:  options.AuditLogsMaxFileSize * 2,
+		buffer:      make([]byte, 0, options.AuditLogsMaxFileSize*2),
 	}
 
 	go l.startPersistenceLoop(ctx, time.Duration(options.AuditLogsMaxFlushInterval)*time.Second)
@@ -149,16 +147,6 @@ func (l *persistentLogger) startPersistenceLoop(ctx context.Context, flushInterv
 }
 
 func (l *persistentLogger) persist() error {
-	// Allow only one persistence operation at a time.
-	// That way, if the ticker or the file size exceeds the limit, only one
-	// persistence operation will be triggered.
-	select {
-	case l.persistSemaphore <- struct{}{}:
-		defer func() { <-l.persistSemaphore }()
-	default:
-		return nil
-	}
-
 	l.lock.Lock()
 	if len(l.buffer) == 0 {
 		l.lock.Unlock()
