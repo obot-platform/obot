@@ -14,6 +14,8 @@ import (
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+var datasetIDRegex = regexp.MustCompile(`gds://[a-z0-9]+`)
+
 func (h *Handler) RunLoop(req router.Request, _ router.Response) (err error) {
 	rootStep := req.Object.(*v1.WorkflowStep)
 
@@ -113,11 +115,11 @@ func (h *Handler) RunLoop(req router.Request, _ router.Response) (err error) {
 }
 
 func defineLoop(elementIndex int, element string, dataStepName string, rootStep *v1.WorkflowStep) (result []kclient.Object, _ error) {
-	var lastStepName string
+	var previousStepName string
 	for i, s := range rootStep.Spec.Step.Loop {
 		afterStepName := dataStepName
 		if i > 0 {
-			afterStepName = lastStepName
+			afterStepName = previousStepName
 		} else {
 			// For the very first step, we need to add the element to the prompt.
 			s = elementPrompt(element, s)
@@ -128,7 +130,7 @@ func defineLoop(elementIndex int, element string, dataStepName string, rootStep 
 			Step: s,
 		})
 		result = append(result, newStep)
-		lastStepName = newStep.Name
+		previousStepName = newStep.Name
 	}
 
 	return result, nil
@@ -191,7 +193,7 @@ func getDataStepResult(ctx context.Context, client kclient.Client, parentStep *v
 }
 
 func getDatasetID(output string) string {
-	return regexp.MustCompile(`gds://[a-z0-9]+`).FindString(output)
+	return datasetIDRegex.FindString(output)
 }
 
 func getWorkspaceID(ctx context.Context, client kclient.Client, step *v1.WorkflowStep) (string, error) {
