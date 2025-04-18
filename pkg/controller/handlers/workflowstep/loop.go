@@ -86,7 +86,7 @@ func (h *Handler) RunLoop(req router.Request, _ router.Response) (err error) {
 		objects = append(objects, steps...)
 
 		if len(steps) > 0 {
-			lastStepName = steps[len(steps)-1].(*v1.WorkflowStep).Name
+			lastStepName = steps[len(steps)-1].GetName()
 		}
 	}
 
