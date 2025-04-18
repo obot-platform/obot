@@ -56,6 +56,8 @@
 	--color-blue-900: #203188;
 	--color-blue-950: #182153;
 	--color-blue: #4f7ef3;
+	--tw-prose-pre-code: #e5e7eb;
+	--tw-prose-pre-bg: #1f2937;
 
 	--text-md: 0.9375rem;
 
@@ -161,6 +163,33 @@
 
 	button {
 		cursor: pointer;
+	}
+
+	pre {
+		overflow-wrap: break-word;
+		white-space: pre-wrap;
+		color: var(--tw-prose-pre-code);
+		background-color: var(--tw-prose-pre-bg);
+		overflow-x: auto;
+		font-weight: 400;
+		font-size: 0.875em;
+		line-height: 1.7142857;
+		margin-top: 1.7142857em;
+		margin-bottom: 1.7142857em;
+		border-radius: 0.375rem;
+	}
+
+	code,
+	code * {
+		background-color: transparent !important;
+		color: var(--tw-prose-pre-code) !important;
+		border-width: 0;
+		border-radius: 0;
+		padding: 0;
+		font-weight: inherit;
+		font-size: inherit;
+		font-family: inherit;
+		line-height: inherit;
 	}
 }
 
