@@ -113,11 +113,6 @@
 					</div>
 					<hr />
 					<div class="flex flex-row py-3">
-						<div class="w-1/2 max-w-[150px]">Username:</div>
-						<div class="w-1/2 break-words">{profile.current.username}</div>
-					</div>
-					<hr />
-					<div class="flex flex-row py-3">
 						<div class="w-1/2 max-w-[150px]">Role:</div>
 						<div class="w-1/2 break-words">{profile.current.role === 1 ? 'Admin' : 'User'}</div>
 					</div>
