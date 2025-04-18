@@ -68,6 +68,7 @@ func (c *Client) deleteSessionsForUser(ctx context.Context, db *gorm.DB, storage
 				} else {
 					err = c.deleteAllSessionsForUser(db, emailHash, userHash, tablePrefix)
 				}
+
 				if err != nil {
 					errs = append(errs, fmt.Errorf("failed to delete sessions for provider %q: %w", identity.AuthProviderName, err))
 				} else {
@@ -82,7 +83,7 @@ func (c *Client) deleteSessionsForUser(ctx context.Context, db *gorm.DB, storage
 
 func (c *Client) deleteAllSessionsForUser(db *gorm.DB, emailHash, userHash, tablePrefix string) error {
 	return db.Exec(
-		"DELETE FROM "+tablePrefix+"sessions WHERE user = decode(?, 'hex') AND email = decode(?, 'hex')",
+		"DELETE FROM "+tablePrefix+"sessions WHERE \"user\" = decode(?, 'hex') AND \"email\" = decode(?, 'hex')",
 		userHash,
 		emailHash,
 	).Error
@@ -90,7 +91,7 @@ func (c *Client) deleteAllSessionsForUser(db *gorm.DB, emailHash, userHash, tabl
 
 func (c *Client) deleteSessionsForUserExceptCurrent(db *gorm.DB, emailHash, userHash, tablePrefix, currentSessionID string) error {
 	return db.Exec(
-		"DELETE FROM "+tablePrefix+"sessions WHERE key NOT LIKE ? AND user = decode(?, 'hex') AND email = decode(?, 'hex')",
+		"DELETE FROM "+tablePrefix+"sessions WHERE key NOT LIKE ? AND \"user\" = decode(?, 'hex') AND \"email\" = decode(?, 'hex')",
 		currentSessionID+"%",
 		userHash,
 		emailHash,
