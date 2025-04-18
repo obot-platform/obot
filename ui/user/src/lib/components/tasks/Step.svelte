@@ -44,12 +44,33 @@
 		readOnly
 	}: Props = $props();
 
-	let messages = $derived(stepMessages?.get(step.id)?.messages ?? []);
 	let running = $derived(stepMessages?.get(step.id)?.inProgress ?? false);
 	let stale: boolean = $derived(parentStale || !parentMatches());
 	let toDelete = $state<boolean>();
 	let showOutput = $state(true);
 	let isLoopStep = $derived(step.loop && step.loop.length > 0);
+	let messages = $derived(stepMessages?.get(step.id)?.messages ?? []);
+	let loopDataMessages = $derived(stepMessages?.get(step.id+"{loopdata}")?.messages ?? []);
+
+	// substepMessages is an array of the most recent messages for each substep of the loop, if this is a loop step.
+	let substepMessages = $derived(step.loop?.map((_, i) => {
+		// Find all keys that match the pattern step.id + "{element=*}" + "{step=i}"
+		const pattern = new RegExp(`^${step.id}{element=(\\d+)}{step=${i}}$`);
+		const matchingKeys = Array.from(stepMessages?.keys() ?? []).filter((key) => pattern.test(key));
+
+		// Find the key with the highest element number
+		const highestElementKey = matchingKeys.reduce((highest, key) => {
+			const match = key.match(pattern);
+			if (!match) return highest;
+			const elementNum = parseInt(match[1]);
+			if (!highest) return key;
+			const highestMatch = highest.match(pattern)!;
+			return elementNum > parseInt(highestMatch[1]) ? key : highest;
+		}, '');
+
+		// Get messages for the highest element key
+		return highestElementKey ? stepMessages?.get(highestElementKey)?.messages ?? [] : [];
+	}) ?? []);
 
 	$effect(() => {
 		if (parentShowOutput !== undefined) {
@@ -150,7 +171,7 @@
 				<textarea
 					{onkeydown}
 					rows="1"
-					placeholder={isLoopStep ? "Instructions for each iteration..." : "Instructions..."}
+					placeholder={isLoopStep ? "Description of the data to loop over..." : "Instructions..."}
 					use:autoHeight
 					id={'step' + step.id}
 					bind:value={step.step}
@@ -159,26 +180,66 @@
 				></textarea>
 			</div>
 			{#if isLoopStep}
+				{#if loopDataMessages.length > 0 && showOutput}
+					<div
+						class="relative my-3 -ml-4 flex min-h-[150px] flex-col gap-4 rounded-lg bg-white p-5 transition-transform dark:bg-black"
+						class:border-2={running}
+						class:border-blue={running}
+						transition:slide
+					>
+						{#each loopDataMessages as msg}
+							{#if !msg.sent}
+								<Message {msg} {project} disableMessageToEditor />
+							{/if}
+						{/each}
+						{#if stale}
+							<div
+								class="absolute inset-0 h-full w-full rounded-3xl bg-white opacity-80 dark:bg-black"
+							></div>
+						{/if}
+					</div>
+				{/if}
 				<div class="flex flex-col gap-2 pl-6">
 					{#each step.loop! as _, i}
-						<div class="flex items-center gap-2">
-							<textarea
-								{onkeydown}
-								rows="1"
-								placeholder="Instructions..."
-								use:autoHeight
-								bind:value={step.loop![i]}
-								class="ghost-input border-surface2 grow resize-none"
-								disabled={readOnly}
-							></textarea>
-							{#if !readOnly}
-								<button
-									class="icon-button"
-									onclick={() => step.loop!.splice(i, 1)}
-									use:tooltip={'Remove step from loop'}
+						<div class="flex flex-col gap-2">
+							<div class="flex items-center gap-2">
+								<textarea
+									{onkeydown}
+									rows="1"
+									placeholder="Instructions..."
+									use:autoHeight
+									bind:value={step.loop![i]}
+									class="ghost-input border-surface2 grow resize-none"
+									disabled={readOnly}
+								></textarea>
+								{#if !readOnly}
+									<button
+										class="icon-button"
+										onclick={() => step.loop!.splice(i, 1)}
+										use:tooltip={'Remove step from loop'}
+									>
+										<Trash2 class="size-4" />
+									</button>
+								{/if}
+							</div>
+							{#if substepMessages[i]?.length > 0 && showOutput}
+								<div
+									class="relative my-3 -ml-4 flex min-h-[150px] flex-col gap-4 rounded-lg bg-white p-5 transition-transform dark:bg-black"
+									class:border-2={running}
+									class:border-blue={running}
+									transition:slide
 								>
-									<Trash2 class="size-4" />
-								</button>
+									{#each substepMessages[i] as msg}
+										{#if !msg.sent}
+											<Message {msg} {project} disableMessageToEditor />
+										{/if}
+									{/each}
+									{#if stale}
+										<div
+											class="absolute inset-0 h-full w-full rounded-3xl bg-white opacity-80 dark:bg-black"
+										></div>
+									{/if}
+								</div>
 							{/if}
 						</div>
 					{/each}
@@ -262,7 +323,7 @@
 			{/if}
 		</div>
 	</div>
-	{#if messages.length > 0}
+	{#if !isLoopStep && messages.length > 0}
 		{#if showOutput}
 			<div
 				class="relative my-3 -ml-4 flex min-h-[150px] flex-col gap-4 rounded-lg bg-white p-5 transition-transform dark:bg-black"

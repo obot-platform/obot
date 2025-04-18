@@ -148,7 +148,7 @@ func elementPrompt(element, prompt string) string {
 
 func defineDataStep(rootStep *v1.WorkflowStep) *v1.WorkflowStep {
 	return NewStep(rootStep.Namespace, rootStep.Spec.WorkflowExecutionName, rootStep.Spec.AfterWorkflowStepName, rootStep.Spec.WorkflowGeneration, types.Step{
-		ID:   rootStep.Spec.Step.ID + "-loopdata",
+		ID:   rootStep.Spec.Step.ID + "{loopdata}",
 		Step: dataPrompt(rootStep.Spec.Step.Step),
 	})
 }
