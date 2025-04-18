@@ -153,16 +153,25 @@ export class Thread {
 	#handleSteps() {
 		const newMessages = new Map<string, Progress[]>();
 		let stepID: string | undefined;
+		let fullStepID: string | undefined;
 		for (const progress of this.#progresses) {
 			if (progress.step?.id) {
 				stepID = progress.step?.id.split('{')[0];
+				fullStepID = progress.step?.id;
 				newMessages.delete(stepID);
+				newMessages.delete(fullStepID);
 			}
 			if (stepID) {
 				if (!newMessages.has(stepID)) {
 					newMessages.set(stepID, []);
 				}
 				newMessages.get(stepID)?.push(progress);
+				if (fullStepID && fullStepID !== stepID) {
+					if (!newMessages.has(fullStepID)) {
+						newMessages.set(fullStepID, []);
+					}
+					newMessages.get(fullStepID)?.push(progress);
+				}
 			}
 		}
 
