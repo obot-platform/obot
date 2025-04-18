@@ -68,7 +68,6 @@ func (c *Client) deleteSessionsForUser(ctx context.Context, db *gorm.DB, storage
 				} else {
 					err = c.deleteAllSessionsForUser(db, emailHash, userHash, tablePrefix)
 				}
-
 				if err != nil {
 					errs = append(errs, fmt.Errorf("failed to delete sessions for provider %q: %w", identity.AuthProviderName, err))
 				} else {

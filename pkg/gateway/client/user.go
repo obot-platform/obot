@@ -104,6 +104,13 @@ func (c *Client) DeleteUser(ctx context.Context, storageClient kclient.Client, u
 			return err
 		}
 
+		for i, id := range identities {
+			if err := c.decryptIdentity(ctx, &id); err != nil {
+				return err
+			}
+			identities[i] = id
+		}
+
 		if err := c.deleteSessionsForUser(ctx, tx, storageClient, identities, ""); err != nil && !errors.Is(err, LogoutAllErr{}) {
 			return err
 		}
