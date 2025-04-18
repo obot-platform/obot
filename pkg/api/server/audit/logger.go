@@ -54,6 +54,7 @@ type Logger interface {
 type persistentLogger struct {
 	lock             sync.Mutex
 	persistSemaphore chan struct{}
+	kickPersist      chan struct{}
 	store            store.Store
 	buffer           []byte
 }
@@ -89,6 +90,7 @@ func New(ctx context.Context, options Options) (Logger, error) {
 	l := &persistentLogger{
 		lock:             sync.Mutex{},
 		persistSemaphore: make(chan struct{}, 1),
+		kickPersist:      make(chan struct{}, 1),
 		store:            s,
 		buffer:           make([]byte, 0, options.AuditLogsMaxFileSize*2),
 	}
@@ -104,14 +106,16 @@ func (l *persistentLogger) LogEntry(entry LogEntry) error {
 	}
 
 	l.lock.Lock()
+	defer l.lock.Unlock()
 
 	l.buffer = append(l.buffer, b...)
 	if len(l.buffer) >= cap(l.buffer)/2 {
-		l.lock.Unlock()
-		return l.persist()
+		select {
+		case l.kickPersist <- struct{}{}:
+		default:
+		}
 	}
 
-	l.lock.Unlock()
 	return nil
 }
 
@@ -128,6 +132,12 @@ func (l *persistentLogger) startPersistenceLoop(ctx context.Context, flushInterv
 		select {
 		case <-ctx.Done():
 			return
+		case <-l.kickPersist:
+			ticker.Stop()
+			if err = l.persist(); err != nil {
+				log.Errorf("Failed to persist audit log: %v", err)
+			}
+			ticker.Reset(flushInterval)
 		case <-ticker.C:
 			if err = l.persist(); err != nil {
 				log.Errorf("Failed to persist audit log: %v", err)
@@ -148,16 +158,20 @@ func (l *persistentLogger) persist() error {
 	}
 
 	l.lock.Lock()
-	defer l.lock.Unlock()
 	if len(l.buffer) == 0 {
 		return nil
 	}
 
-	if err := l.store.Persist(l.buffer); err != nil {
+	buf := make([]byte, len(l.buffer))
+	copy(buf, l.buffer)
+	l.buffer = l.buffer[:0]
+
+	l.lock.Unlock()
+
+	if err := l.store.Persist(buf); err != nil {
 		return err
 	}
 
-	l.buffer = l.buffer[:0]
 	return nil
 }
 
