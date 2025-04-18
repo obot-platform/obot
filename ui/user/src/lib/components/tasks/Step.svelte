@@ -50,27 +50,31 @@
 	let showOutput = $state(true);
 	let isLoopStep = $derived(step.loop && step.loop.length > 0);
 	let messages = $derived(stepMessages?.get(step.id)?.messages ?? []);
-	let loopDataMessages = $derived(stepMessages?.get(step.id+"{loopdata}")?.messages ?? []);
+	let loopDataMessages = $derived(stepMessages?.get(step.id + '{loopdata}')?.messages ?? []);
 
 	// substepMessages is an array of the most recent messages for each substep of the loop, if this is a loop step.
-	let substepMessages = $derived(step.loop?.map((_, i) => {
-		// Find all keys that match the pattern step.id + "{element=*}" + "{step=i}"
-		const pattern = new RegExp(`^${step.id}{element=(\\d+)}{step=${i}}$`);
-		const matchingKeys = Array.from(stepMessages?.keys() ?? []).filter((key) => pattern.test(key));
+	let substepMessages = $derived(
+		step.loop?.map((_, i) => {
+			// Find all keys that match the pattern step.id + "{element=*}" + "{step=i}"
+			const pattern = new RegExp(`^${step.id}{element=(\\d+)}{step=${i}}$`);
+			const matchingKeys = Array.from(stepMessages?.keys() ?? []).filter((key) =>
+				pattern.test(key)
+			);
 
-		// Find the key with the highest element number
-		const highestElementKey = matchingKeys.reduce((highest, key) => {
-			const match = key.match(pattern);
-			if (!match) return highest;
-			const elementNum = parseInt(match[1]);
-			if (!highest) return key;
-			const highestMatch = highest.match(pattern)!;
-			return elementNum > parseInt(highestMatch[1]) ? key : highest;
-		}, '');
+			// Find the key with the highest element number
+			const highestElementKey = matchingKeys.reduce((highest, key) => {
+				const match = key.match(pattern);
+				if (!match) return highest;
+				const elementNum = parseInt(match[1]);
+				if (!highest) return key;
+				const highestMatch = highest.match(pattern)!;
+				return elementNum > parseInt(highestMatch[1]) ? key : highest;
+			}, '');
 
-		// Get messages for the highest element key
-		return highestElementKey ? stepMessages?.get(highestElementKey)?.messages ?? [] : [];
-	}) ?? []);
+			// Get messages for the highest element key
+			return highestElementKey ? (stepMessages?.get(highestElementKey)?.messages ?? []) : [];
+		}) ?? []
+	);
 
 	$effect(() => {
 		if (parentShowOutput !== undefined) {
@@ -171,7 +175,7 @@
 				<textarea
 					{onkeydown}
 					rows="1"
-					placeholder={isLoopStep ? "Description of the data to loop over..." : "Instructions..."}
+					placeholder={isLoopStep ? 'Description of the data to loop over...' : 'Instructions...'}
 					use:autoHeight
 					id={'step' + step.id}
 					bind:value={step.step}
