@@ -210,6 +210,7 @@ export interface AssistantTool {
 	icon?: string;
 	enabled?: boolean;
 	builtin?: boolean;
+	capability?: boolean;
 	toolType?: AssistantToolType;
 	image?: string;
 	instructions?: string;
@@ -240,6 +241,7 @@ export interface ToolReference {
 	metadata?: {
 		icon?: string;
 		oath: string;
+		category?: string;
 	};
 }
 

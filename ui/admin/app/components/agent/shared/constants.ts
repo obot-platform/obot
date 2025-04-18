@@ -8,6 +8,7 @@ const CapabilityToolOrder = {
 	[CapabilityTool.Tasks]: 3,
 	[CapabilityTool.Projects]: 4,
 	[CapabilityTool.Threads]: 5,
+	[CapabilityTool.Memory]: 6,
 } satisfies Record<CapabilityTool, number>;
 
 export const getCapabilityToolOrder = (tool: string) => {

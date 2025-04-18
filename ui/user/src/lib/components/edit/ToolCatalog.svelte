@@ -16,6 +16,7 @@
 		tools: AssistantTool[];
 		maxTools: number;
 		title?: string;
+		isThreadScoped?: boolean;
 	}
 
 	type ToolCatalog = {
@@ -24,7 +25,14 @@
 		total?: number;
 	}[];
 
-	let { onSelectTools, onSubmit, tools, maxTools, title = 'Tool Catalog' }: Props = $props();
+	let {
+		onSelectTools,
+		onSubmit,
+		tools,
+		maxTools,
+		title = 'Tool Catalog',
+		isThreadScoped
+	}: Props = $props();
 
 	let searchPopover = $state<HTMLDialogElement>();
 	let search = $state('');
@@ -34,13 +42,30 @@
 	let maxExceeded = $state(false);
 
 	function getSelectionMap() {
+		const toolBundleMap = getToolBundleMap();
 		return tools
 			.filter((t) => !t.builtin)
 			.reduce<Record<string, AssistantTool>>((acc, tool) => {
-				acc[tool.id] = { ...tool };
+				// Find the corresponding ToolReference for this AssistantTool
+				const toolRef = toolBundleMap.get(tool.id)?.tool;
+
+				// Set capability flag based on ToolReference metadata category
+				const isCapability = toolRef?.metadata?.category === 'Capability';
+
+				// Skip capability tools in thread-scoped pickers
+				if (isThreadScoped && isCapability) {
+					return acc;
+				}
+
+				acc[tool.id] = {
+					...tool,
+					capability: isCapability
+				};
 				return acc;
 			}, {});
 	}
+
+	// Ensure we update tool selection when tools or thread scope changes
 	$effect(() => {
 		toolSelection = getSelectionMap();
 	});
@@ -81,11 +106,12 @@
 		};
 	});
 
-	const builtInToolMap = $derived(
-		new Map<string, AssistantTool>(
+	const builtInToolMap = $derived.by(() => {
+		return new Map<string, AssistantTool>(
 			tools.filter((t) => t.builtin && !IGNORED_BUILTIN_TOOLS.has(t.id)).map((t) => [t.id, t])
-		)
-	);
+		);
+	});
+
 	const builtInTools = $derived.by(() => {
 		return Array.from(getToolBundleMap().values()).reduce<ToolCatalog>(
 			(acc, { tool, bundleTools }) => {
@@ -174,10 +200,22 @@
 	function getEnabledTools() {
 		return bundles.reduce<ToolCatalog>((acc, { tool, bundleTools }) => {
 			if (!tool) return acc;
+
+			// Skip capability tools in thread-scoped pickers
+			if (isThreadScoped && toolSelection[tool.id]?.capability) {
+				return acc;
+			}
+
 			if (bundleTools) {
 				const bundleEnabled = toolSelection[tool.id]?.enabled;
 				const total = bundleTools.length;
-				const enabledSubtools = bundleTools.filter((t) => toolSelection[t.id].enabled);
+				const enabledSubtools = bundleTools.filter((t) => {
+					// Skip capability subtools in thread-scoped pickers
+					if (isThreadScoped && toolSelection[t.id]?.capability) {
+						return false;
+					}
+					return toolSelection[t.id].enabled;
+				});
 				if (!bundleEnabled && !enabledSubtools.length) return acc;
 
 				acc.push({
@@ -196,12 +234,24 @@
 	function getDisabledTools() {
 		return bundles.reduce<ToolCatalog>((acc, { tool, bundleTools }) => {
 			if (!tool) return acc;
+
+			// Skip capability tools in thread-scoped pickers
+			if (isThreadScoped && toolSelection[tool.id]?.capability) {
+				return acc;
+			}
+
 			if (bundleTools) {
 				const bundleEnabled = toolSelection[tool.id].enabled;
 				if (bundleEnabled) return acc;
 
 				const total = bundleTools.length;
-				const disabledSubtools = bundleTools.filter((t) => !toolSelection[t.id].enabled);
+				const disabledSubtools = bundleTools.filter((t) => {
+					// Skip capability subtools in thread-scoped pickers
+					if (isThreadScoped && toolSelection[t.id]?.capability) {
+						return false;
+					}
+					return !toolSelection[t.id].enabled;
+				});
 				acc.push({ tool, bundleTools: disabledSubtools, total });
 			} else if (!toolSelection[tool.id].enabled) {
 				acc.push({ tool, bundleTools: undefined });

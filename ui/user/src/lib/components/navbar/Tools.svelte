@@ -1,9 +1,16 @@
 <script lang="ts">
 	import { LoaderCircle, Wrench } from 'lucide-svelte/icons';
-	import { ChatService, type AssistantTool, type Project, type Thread } from '$lib/services';
+	import {
+		ChatService,
+		type AssistantTool,
+		type Project,
+		type Thread,
+		type ToolReference
+	} from '$lib/services';
 	import ToolCatalog from '../edit/ToolCatalog.svelte';
 	import { clickOutside } from '$lib/actions/clickoutside';
 	import { getProjectTools } from '$lib/context/projectTools.svelte';
+	import { getToolReferences } from '$lib/context/toolReferences.svelte';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 
 	interface Prop {
@@ -38,9 +45,26 @@
 
 	async function fetchThreadTools() {
 		if (!currentThreadID) return;
-		tools =
-			(await ChatService.listProjectThreadTools(project.assistantID, project.id, currentThreadID))
-				?.items ?? [];
+
+		// Get tool references from context and thread tools from API
+		const toolReferences = getToolReferences();
+		const threadTools = await ChatService.listProjectThreadTools(
+			project.assistantID,
+			project.id,
+			currentThreadID
+		);
+
+		// Create a map of tool references by ID for faster lookup
+		const toolReferenceMap = new Map<string, ToolReference>();
+		for (const reference of toolReferences) {
+			toolReferenceMap.set(reference.id, reference);
+		}
+
+		// Enhance each tool with capability information
+		tools = (threadTools?.items || []).map((tool) => ({
+			...tool,
+			capability: toolReferenceMap.get(tool.id)?.metadata?.category === 'Capability'
+		}));
 	}
 
 	async function sleep(ms: number): Promise<void> {
@@ -90,6 +114,7 @@
 			maxTools={projectTools.maxTools}
 			title="Thread Tool Catalog"
 			{tools}
+			isThreadScoped
 		/>
 	{/if}
 </dialog>

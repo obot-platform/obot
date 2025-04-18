@@ -53,6 +53,7 @@ export const CapabilityTool = {
 	Tasks: "tasks",
 	Projects: "projects",
 	Threads: "threads",
+	Memory: "memory",
 } as const;
 export type CapabilityTool =
 	(typeof CapabilityTool)[keyof typeof CapabilityTool];
