@@ -24,6 +24,7 @@ type User struct {
 	Timezone       string      `json:"timezone"`
 	// LastActiveDay is the time of the last request made by this user, currently at the 24 hour granularity.
 	LastActiveDay time.Time `json:"lastActiveDay"`
+	Internal      bool      `json:"internal" gorm:"default:false"`
 	Encrypted     bool      `json:"encrypted"`
 }
 
@@ -45,6 +46,7 @@ func ConvertUser(u *User, roleFixed bool, authProviderName string) *types2.User 
 		Timezone:            u.Timezone,
 		CurrentAuthProvider: authProviderName,
 		LastActiveDay:       *types2.NewTime(u.LastActiveDay),
+		Internal:            u.Internal,
 	}
 }
 

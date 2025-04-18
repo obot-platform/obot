@@ -33,6 +33,7 @@ func (c *Client) ActiveUsersByDate(ctx context.Context, start, end time.Time) ([
 	if err := c.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		var ids []string
 		if err := tx.Model(new(types.APIActivity)).
+			Distinct("user_id").
 			Where("date >= ? AND date < ?", start, end).
 			Where("user_id != ?", "bootstrap").
 			Where("user_id != ?", "anonymous").
@@ -40,7 +41,7 @@ func (c *Client) ActiveUsersByDate(ctx context.Context, start, end time.Time) ([
 			Pluck("user_id", &ids).Error; err != nil {
 			return err
 		}
-		return tx.Where("id IN (?)", ids).Find(&users).Error
+		return tx.Where("id IN (?) AND NOT internal", ids).Find(&users).Error
 	}); err != nil {
 		return nil, err
 	}

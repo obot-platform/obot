@@ -24,6 +24,7 @@ type User struct {
 	Timezone            string `json:"timezone,omitempty"`
 	CurrentAuthProvider string `json:"currentAuthProvider,omitempty"`
 	LastActiveDay       Time   `json:"lastActiveDay,omitzero"`
+	Internal            bool   `json:"internal,omitempty"`
 }
 
 type UserList List[User]

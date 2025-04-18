@@ -159,7 +159,7 @@ func (c *Client) UpdateUser(ctx context.Context, actingUserIsAdmin bool, updated
 			if updatedUser.Role > 0 && existingUser.Role.HasRole(types2.RoleAdmin) && !updatedUser.Role.HasRole(types2.RoleAdmin) {
 				// If this user has been explicitly marked as an admin, then don't allow changing the role.
 				if c.IsExplicitAdmin(existingUser.Email) {
-					return &ExplicitAdminError{email: string(existingUser.Email)}
+					return &ExplicitAdminError{email: existingUser.Email}
 				}
 				// If the role is being changed from admin to non-admin, then ensure that this isn't the last admin.
 				// We filter out empty email users here, because that is the bootstrap user.
@@ -184,6 +184,10 @@ func (c *Client) UpdateUser(ctx context.Context, actingUserIsAdmin bool, updated
 
 		return tx.Updates(u).Error
 	})
+}
+
+func (c *Client) UpdateUserInternalStatus(ctx context.Context, username string, internal bool) error {
+	return c.db.WithContext(ctx).Model(new(types.User)).Where("hashed_username = ?", hash.String(username)).Update("internal", internal).Error
 }
 
 func (c *Client) UpdateProfileIconIfNeeded(ctx context.Context, user *types.User, authProviderName, authProviderNamespace, authProviderURL string) error {

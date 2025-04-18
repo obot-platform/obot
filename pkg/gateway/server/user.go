@@ -152,6 +152,30 @@ func (s *Server) updateUser(apiContext api.Context) error {
 	return apiContext.Write(types.ConvertUser(existingUser, apiContext.GatewayClient.IsExplicitAdmin(existingUser.Email), ""))
 }
 
+func (s *Server) markUserInternal(apiContext api.Context) error {
+	return s.changeUserInternalStatus(apiContext, true)
+}
+
+func (s *Server) markUserExternal(apiContext api.Context) error {
+	return s.changeUserInternalStatus(apiContext, false)
+}
+
+func (s *Server) changeUserInternalStatus(apiContext api.Context, internal bool) error {
+	username := apiContext.PathValue("username")
+	if username == "" {
+		return types2.NewErrHTTP(http.StatusBadRequest, "username path parameter is required")
+	}
+
+	if err := apiContext.GatewayClient.UpdateUserInternalStatus(apiContext.Context(), username, internal); err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return types2.NewErrNotFound("user %s not found", username)
+		}
+		return types2.NewErrHTTP(http.StatusInternalServerError, fmt.Sprintf("failed to update user: %v", err))
+	}
+
+	return nil
+}
+
 func (s *Server) deleteUser(apiContext api.Context) (err error) {
 	username := apiContext.PathValue("username")
 	if username == "" {
