@@ -39,7 +39,7 @@ func (e LogEntry) bytes() ([]byte, error) {
 type Options struct {
 	AuditLogsMode             string `usage:"Enable audit logging" default:"off"`
 	AuditLogsMaxFileSize      int    `usage:"Audit log max file size in bytes, logs will be flushed when this size is exceeded" default:"1073741824"`
-	AuditLogsMaxFlushInterval int    `usage:"Audit log flush interval in seconds regardless of buffer size" default:"30"`
+	AuditLogsMaxFlushInterval int    `usage:"Audit log flush interval in seconds regardless of buffer size" default:"120"`
 	AuditLogsCompressFile     bool   `usage:"Compress audit log files" default:"true"`
 
 	store.DiskStoreOptions
@@ -104,12 +104,14 @@ func (l *persistentLogger) LogEntry(entry LogEntry) error {
 	}
 
 	l.lock.Lock()
-	defer l.lock.Unlock()
 
 	l.buffer = append(l.buffer, b...)
 	if len(l.buffer) >= cap(l.buffer)/2 {
+		l.lock.Unlock()
 		return l.persist()
 	}
+
+	l.lock.Unlock()
 	return nil
 }
 
