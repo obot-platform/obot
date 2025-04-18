@@ -98,7 +98,7 @@ func (s *Server) wrap(f api.HandlerFunc) http.HandlerFunc {
 			log.Warnf("Failed to apply rate limits: %v", err)
 		}
 
-		if strings.HasPrefix(req.URL.Path, "/api/") {
+		if strings.HasPrefix(req.URL.Path, "/api/") && req.URL.Path != "/api/healthz" {
 			// Setup a new response writer for audit logging.
 			rw = &responseWriter{
 				ResponseWriter: rw,
