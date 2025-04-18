@@ -97,6 +97,31 @@
 				if you're feeling adventurous, get started and create your own obot!
 			</p>
 		</div>
+		<div class="mb-8 flex w-full items-center justify-center px-4">
+			<button
+				class="bg-surface1 hover:bg-surface2 w-full rounded-xl p-4 shadow-md transition-colors duration-300 md:w-lg"
+				onclick={createNew}
+			>
+				<div class="flex w-full items-center gap-3">
+					<div class="relative flex-shrink-0">
+						<Plus
+							class="absolute top-1/2 left-1/2 z-10 size-12 -translate-x-1/2 -translate-y-1/2 text-white opacity-90 dark:opacity-75"
+						/>
+						<img
+							alt="obot create placeholder logo"
+							src="/agent/images/obot_placeholder.webp"
+							class="flex size-16 flex-shrink-0 rounded-full opacity-65 shadow-md shadow-gray-500 dark:shadow-black"
+						/>
+					</div>
+					<div class="flex -translate-y-1 flex-col gap-1 text-left">
+						<h4 class="text-lg font-semibold">Create New Obot</h4>
+						<p class="text-gray text-sm leading-4 font-light">
+							Create your Obot that fits your needs!
+						</p>
+					</div>
+				</div>
+			</button>
+		</div>
 		{#if featured.length > 0}
 			<div class="mb-4 flex w-full flex-col items-center justify-center">
 				<div class="flex w-full max-w-(--breakpoint-xl) flex-col gap-4 px-4 md:px-12">
@@ -105,34 +130,6 @@
 						{#each featured.slice(0, 4) as featuredShare}
 							<FeaturedObotCard project={featuredShare} {tools} />
 						{/each}
-					</div>
-
-					<p class="text-center text-lg font-light">Couldn't find what you were looking for?</p>
-
-					<div class="mb-8 flex w-full items-center justify-center">
-						<button
-							class="bg-surface1 hover:bg-surface2 rounded-xl p-4 shadow-md transition-all duration-300"
-							onclick={createNew}
-						>
-							<div class="flex w-full items-center gap-3">
-								<div class="relative flex-shrink-0">
-									<Plus
-										class="absolute top-1/2 left-1/2 z-10 size-12 -translate-x-1/2 -translate-y-1/2 text-white opacity-90 dark:opacity-75"
-									/>
-									<img
-										alt="obot create placeholder logo"
-										src="/agent/images/obot_placeholder.webp"
-										class="flex size-16 flex-shrink-0 rounded-full opacity-65 shadow-md shadow-gray-500 dark:shadow-black"
-									/>
-								</div>
-								<div class="flex flex-col gap-1 text-left">
-									<h4 class="text-lg font-semibold">Create New Obot</h4>
-									<p class="text-gray text-sm leading-4 font-light">
-										Make an Obot that fits your needs!
-									</p>
-								</div>
-							</div>
-						</button>
 					</div>
 				</div>
 			</div>
