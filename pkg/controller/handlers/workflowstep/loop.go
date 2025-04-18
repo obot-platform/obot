@@ -118,9 +118,7 @@ func defineLoop(elementIndex int, element string, dataStepName string, rootStep 
 		afterStepName := dataStepName
 		if i > 0 {
 			afterStepName = lastStepName
-		}
-
-		if i == 0 {
+		} else {
 			// For the very first step, we need to add the element to the prompt.
 			s = elementPrompt(element, s)
 		}
