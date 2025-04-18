@@ -60,7 +60,7 @@ func New(ctx context.Context, invoker *invoke.Invoker, c kclient.Client, gClient
 	}
 
 	if postgresDSN != "" {
-		d.authProviderExtraEnv = []string{"POSTGRES_DSN=" + postgresDSN}
+		d.authProviderExtraEnv = []string{providers.PostgresConnectionEnvVar + "=" + postgresDSN}
 	}
 
 	d.UpdateConfiguredAuthProviders(ctx)
