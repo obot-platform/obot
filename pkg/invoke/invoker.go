@@ -721,20 +721,20 @@ func (i *Invoker) saveState(ctx context.Context, c kclient.Client, thread *v1.Th
 			return retErr
 		}
 		if !apierror.IsConflict(err) {
-			if err.Error() == retErr.Error() {
+			if retErr != nil && err.Error() == retErr.Error() {
 				return err
 			}
 			return errors.Join(err, retErr)
 		}
 		// reload
 		if err = c.Get(ctx, router.Key(run.Namespace, run.Name), run); err != nil {
-			if err.Error() == retErr.Error() {
+			if retErr != nil && err.Error() == retErr.Error() {
 				return err
 			}
 			return errors.Join(err, retErr)
 		}
 		if err = c.Get(ctx, router.Key(thread.Namespace, thread.Name), thread); err != nil {
-			if err.Error() == retErr.Error() {
+			if retErr != nil && err.Error() == retErr.Error() {
 				return err
 			}
 			return errors.Join(err, retErr)
