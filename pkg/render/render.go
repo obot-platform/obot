@@ -460,8 +460,9 @@ func addTasks(ctx context.Context, db kclient.Client, thread *v1.Thread, mainToo
 }
 
 func manifestToTool(manifest types.WorkflowManifest, taskInvoke, id string) gptscript.ToolDef {
+	taskName := strings.TrimSpace(manifest.Name)
 	toolDef := gptscript.ToolDef{
-		Name:        "Task " + manifest.Name,
+		Name:        "Task " + taskName,
 		Description: "Task: " + manifest.Description,
 		Arguments:   types.GetParams(manifest.Params),
 		Tools: []string{
@@ -470,7 +471,7 @@ func manifestToTool(manifest types.WorkflowManifest, taskInvoke, id string) gpts
 		Chat: true,
 	}
 	if manifest.Description == "" {
-		toolDef.Description = fmt.Sprintf("Invokes task named %s", manifest.Name)
+		toolDef.Description = fmt.Sprintf("Invokes task named %s", taskName)
 	}
 	toolDef.Instructions = fmt.Sprintf(`#!sys.call %s
 %s`, taskInvoke, id)
