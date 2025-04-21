@@ -58,7 +58,10 @@ var staticRules = map[string][]string{
 		// This is used in the unauthenticated landing page
 		"GET /api/shares",
 		"GET /api/tool-references",
+		"GET /api/mcp/catalog",
+		"GET /api/mcp/catalog/{id}",
 	},
+
 	AuthenticatedGroup: {
 		"/api/oauth/redirect/{namespace}/{name}",
 		"/api/assistants",

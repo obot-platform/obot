@@ -206,6 +206,12 @@ func (c *Controller) setupRoutes() error {
 	// User Cleanup
 	root.Type(&v1.UserDelete{}).HandlerFunc(userCleanup.Cleanup)
 
+	// MCPServer
+	root.Type(&v1.MCPServer{}).HandlerFunc(cleanup.Cleanup)
+
+	// MCPServerCatalogEntry
+	root.Type(&v1.MCPServerCatalogEntry{}).HandlerFunc(cleanup.Cleanup)
+
 	c.toolRefHandler = toolRef
 	return nil
 }

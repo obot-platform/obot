@@ -24,6 +24,7 @@ import (
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/obot-platform/obot/pkg/tools"
+	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -49,6 +50,7 @@ type index struct {
 	ModelProviders           map[string]indexEntry `json:"modelProviders,omitempty"`
 	AuthProviders            map[string]indexEntry `json:"authProviders,omitempty"`
 	FileScanners             map[string]indexEntry `json:"fileScanners,omitempty"`
+	MCPServers               map[string]indexEntry `json:"mcpServers,omitempty"`
 }
 
 type Handler struct {
@@ -73,6 +75,69 @@ func New(gptClient *gptscript.GPTScript,
 		lastChecks:     make(map[string]time.Time),
 		lastChecksLock: new(sync.RWMutex),
 	}
+}
+
+func (h *Handler) mcpServers(ctx context.Context, registryURL string, entries map[string]indexEntry) (result []client.Object) {
+	for _, entry := range entries {
+		if ref, ok := strings.CutPrefix(entry.Reference, "./"); ok {
+			entry.Reference = registryURL + "/" + ref
+		}
+
+		run, err := h.gptClient.Run(ctx, entry.Reference, gptscript.Options{})
+		if err != nil {
+			log.Errorf("Failed to run %s: %v", entry.Reference, err)
+		}
+		out, err := run.Text()
+		if err != nil {
+			log.Errorf("Failed to get text for run %s: %v", entry.Reference, err)
+			continue
+		}
+
+		for _, filename := range strings.Split(strings.TrimSpace(out), "\n") {
+			filename = strings.TrimSpace(filename)
+			if filename == "" || !strings.HasSuffix(filename, ".yaml") {
+				continue
+			}
+
+			input, _ := json.Marshal(map[string]interface{}{
+				"name": filename,
+			})
+
+			out, err := h.gptClient.Run(ctx, "read from "+entry.Reference, gptscript.Options{
+				Input: string(input),
+			})
+			if err != nil {
+				log.Errorf("Failed to get contents of %s: %v", filename, err)
+				continue
+			}
+
+			text, err := out.Text()
+			if err != nil {
+				log.Errorf("Failed to get server text for %s: %v", filename, err)
+				continue
+			}
+
+			var manifest types.MCPServerManifest
+			if err := yaml.Unmarshal([]byte(text), &manifest); err != nil {
+				log.Errorf("Failed to decode manifest for %s: %v", filename, err)
+				continue
+			}
+
+			result = append(result, &v1.MCPServerCatalogEntry{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      strings.TrimSuffix(filename, ".yaml"),
+					Namespace: system.DefaultNamespace,
+				},
+				Spec: v1.MCPServerCatalogEntrySpec{
+					Manifest: types.MCPServerCatalogEntryManifest{
+						Server: manifest,
+					},
+				},
+			})
+		}
+	}
+
+	return
 }
 
 func (h *Handler) toolsToToolReferences(ctx context.Context, toolType types.ToolReferenceType, registryURL string, entries map[string]indexEntry) (result []client.Object) {
@@ -137,6 +202,7 @@ func (h *Handler) readFromRegistry(ctx context.Context, c client.Client) error {
 		toAdd = append(toAdd, h.toolsToToolReferences(ctx, types.ToolReferenceTypeTool, registryURL, index.Tools)...)
 		toAdd = append(toAdd, h.toolsToToolReferences(ctx, types.ToolReferenceTypeKnowledgeDataSource, registryURL, index.KnowledgeDataSources)...)
 		toAdd = append(toAdd, h.toolsToToolReferences(ctx, types.ToolReferenceTypeKnowledgeDocumentLoader, registryURL, index.KnowledgeDocumentLoaders)...)
+		toAdd = append(toAdd, h.mcpServers(ctx, registryURL, index.MCPServers)...)
 	}
 
 	if len(errs) > 0 {
@@ -233,12 +299,69 @@ func (h *Handler) Populate(req router.Request, resp router.Response) error {
 		}
 	}
 
+	if err := h.createMCPServerCatalog(req, toolRef); err != nil {
+		toolRef.Status.Error = err.Error()
+		return nil
+	}
+
 	toolRef.Status.Tool.Credentials, toolRef.Status.Tool.CredentialNames, err = creds.DetermineCredsAndCredNames(prg, tool, toolRef.Spec.Reference)
 	if err != nil {
 		toolRef.Status.Error = err.Error()
 	}
 
 	return nil
+}
+
+func (h *Handler) createMCPServerCatalog(req router.Request, toolRef *v1.ToolReference) error {
+	if toolRef.Spec.Type != types.ToolReferenceTypeTool || toolRef.Spec.BundleToolName != "" {
+		return nil
+	}
+
+	if toolRef.Status.Tool == nil {
+		return nil
+	}
+
+	if toolRef.Spec.Active != nil && !*toolRef.Spec.Active {
+		err := req.Client.Delete(req.Ctx, &v1.MCPServerCatalogEntry{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      toolRef.Name,
+				Namespace: system.DefaultNamespace,
+			},
+		})
+		return client.IgnoreNotFound(err)
+	}
+
+	serverManifest := types.MCPServerManifest{
+		Name:        toolRef.Name,
+		Description: toolRef.Status.Tool.Description,
+		Icon:        toolRef.Status.Tool.Metadata["icon"],
+	}
+
+	var mcpCatalogEntry v1.MCPServerCatalogEntry
+	if err := req.Client.Get(req.Ctx, router.Key(system.DefaultNamespace, toolRef.Name), &mcpCatalogEntry); client.IgnoreNotFound(err) != nil {
+		return err
+	} else if err == nil {
+		if equality.Semantic.DeepEqual(mcpCatalogEntry.Spec.Manifest.Server, serverManifest) &&
+			mcpCatalogEntry.Spec.ToolReferenceName == toolRef.Name {
+			return nil
+		}
+		mcpCatalogEntry.Spec.Manifest.Server = serverManifest
+		mcpCatalogEntry.Spec.ToolReferenceName = toolRef.Name
+		return req.Client.Update(req.Ctx, &mcpCatalogEntry)
+	}
+
+	return req.Client.Create(req.Ctx, &v1.MCPServerCatalogEntry{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      toolRef.Name,
+			Namespace: system.DefaultNamespace,
+		},
+		Spec: v1.MCPServerCatalogEntrySpec{
+			Manifest: types.MCPServerCatalogEntryManifest{
+				Server: serverManifest,
+			},
+			ToolReferenceName: toolRef.Name,
+		},
+	})
 }
 
 func (h *Handler) EnsureOpenAIEnvCredentialAndDefaults(ctx context.Context, c client.Client) error {

@@ -29,6 +29,7 @@ const (
 	SlackReceiverPrefix       = "sr1"
 	SlackTriggerPrefix        = "st1"
 	UserDeletePrefix          = "ud1"
+	MCPServerPrefix           = "ms1"
 )
 
 func IsThreadID(id string) bool {

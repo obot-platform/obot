@@ -43,6 +43,11 @@ var apiResources = []string{
 	"GET    /api/assistants/{assistant_id}/projects/{project_id}/memories",
 	"DELETE /api/assistants/{assistant_id}/projects/{project_id}/memories",
 	"DELETE /api/assistants/{assistant_id}/projects/{project_id}/memories/{memory_id}",
+	"GET    /api/assistants/{assistant_id}/projects/{project_id}/mcpservers",
+	"POST   /api/assistants/{assistant_id}/projects/{project_id}/mcpservers",
+	"DELETE /api/assistants/{assistant_id}/projects/{project_id}/mcpservers/{mcpserver_id}",
+	"GET    /api/assistants/{assistant_id}/projects/{project_id}/mcpservers/{mcpserver_id}",
+	"PUT    /api/assistants/{assistant_id}/projects/{project_id}/mcpservers/{mcpserver_id}",
 	"DELETE /api/assistants/{assistant_id}/projects/{project_id}/share",
 	"GET    /api/assistants/{assistant_id}/projects/{project_id}/share",
 	"POST   /api/assistants/{assistant_id}/projects/{project_id}/share",
@@ -151,6 +156,7 @@ type Resources struct {
 	ThreadID               string
 	ThreadShareID          string
 	TaskID                 string
+	MCPServerID            string
 	RunID                  string
 	WorkflowID             string
 	PendingAuthorizationID string
@@ -164,6 +170,7 @@ type ResourcesAuthorized struct {
 	Thread               *v1.Thread
 	ThreadShare          *v1.ThreadShare
 	Task                 *v1.Workflow
+	MCPServer            *v1.MCPServer
 	Run                  *v1.WorkflowExecution
 	Workflow             *v1.Workflow
 	Tool                 *v1.Tool
@@ -178,6 +185,7 @@ func (a *Authorizer) evaluateResources(req *http.Request, vars GetVar, user user
 		TaskID:                 vars("task_id"),
 		RunID:                  vars("run_id"),
 		WorkflowID:             vars("workflow_id"),
+		MCPServerID:            vars("mcpserver_id"),
 		PendingAuthorizationID: vars("pending_authorization_id"),
 		ThreadShareID:          vars("share_public_id"),
 		ToolID:                 vars("tool_id"),
@@ -200,6 +208,10 @@ func (a *Authorizer) evaluateResources(req *http.Request, vars GetVar, user user
 	}
 
 	if ok, err := a.checkTask(req, &resources, user); !ok || err != nil {
+		return false, err
+	}
+
+	if ok, err := a.checkMCPServer(req, &resources, user); !ok || err != nil {
 		return false, err
 	}
 
