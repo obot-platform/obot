@@ -5,6 +5,4 @@ type APIActivity struct {
 	Date   Time   `json:"date"`
 }
 
-type APIActivityList struct {
-	Items []APIActivity `json:"items"`
-}
+type APIActivityList List[APIActivity]

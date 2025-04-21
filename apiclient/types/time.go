@@ -6,6 +6,10 @@ type Time struct {
 	Time time.Time
 }
 
+func (t *Time) IsZero() bool {
+	return t == nil || t.Time.IsZero()
+}
+
 func (t *Time) GetTime() time.Time {
 	if t == nil {
 		return time.Time{}

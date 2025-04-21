@@ -753,11 +753,17 @@ func (i *Invoker) doSaveState(ctx context.Context, c kclient.Client, thread *v1.
 		extCall      *v1.ExternalCall
 		runChanged   bool
 		err          error
+
+		usage = runResp.Usage()
 	)
 
 	runStateSpec.Name = run.Name
 	runStateSpec.Namespace = run.Namespace
+	runStateSpec.UserID = thread.Spec.UserID
 	runStateSpec.ThreadName = run.Spec.ThreadName
+	runStateSpec.PromptTokens = usage.PromptTokens
+	runStateSpec.CompletionTokens = usage.CompletionTokens
+	runStateSpec.TotalTokens = usage.TotalTokens
 	runStateSpec.Done = runResp.State().IsTerminal() || runResp.State() == gptscript.Continue
 	if retErr != nil {
 		runStateSpec.Error = retErr.Error()
@@ -800,17 +806,21 @@ func (i *Invoker) doSaveState(ctx context.Context, c kclient.Client, thread *v1.
 	runState, err := i.gatewayClient.RunState(ctx, run.Namespace, run.Name)
 	if apierror.IsNotFound(err) {
 		runState = &gtypes.RunState{
-			Name:       run.Name,
-			Namespace:  run.Namespace,
-			ThreadName: runStateSpec.ThreadName,
-			Program:    runStateSpec.Program,
-			ChatState:  runStateSpec.ChatState,
-			CallFrame:  runStateSpec.CallFrame,
-			Output:     runStateSpec.Output,
-			Done:       runStateSpec.Done,
-			Error:      runStateSpec.Error,
+			UserID:           thread.Spec.UserID,
+			Name:             run.Name,
+			Namespace:        run.Namespace,
+			ThreadName:       runStateSpec.ThreadName,
+			Program:          runStateSpec.Program,
+			ChatState:        runStateSpec.ChatState,
+			CallFrame:        runStateSpec.CallFrame,
+			Output:           runStateSpec.Output,
+			Done:             runStateSpec.Done,
+			Error:            runStateSpec.Error,
+			PromptTokens:     runStateSpec.PromptTokens,
+			CompletionTokens: runStateSpec.CompletionTokens,
+			TotalTokens:      runStateSpec.TotalTokens,
 		}
-		if err := i.gatewayClient.CreateRunState(ctx, runState); err != nil {
+		if err = i.gatewayClient.CreateRunState(ctx, runState); err != nil {
 			return err
 		}
 	} else if err != nil {
@@ -819,9 +829,12 @@ func (i *Invoker) doSaveState(ctx context.Context, c kclient.Client, thread *v1.
 		if !bytes.Equal(runState.CallFrame, runStateSpec.CallFrame) ||
 			!bytes.Equal(runState.ChatState, runStateSpec.ChatState) ||
 			runState.Done != runStateSpec.Done ||
-			runState.Error != runStateSpec.Error {
+			runState.Error != runStateSpec.Error ||
+			runState.PromptTokens != runStateSpec.PromptTokens ||
+			runState.CompletionTokens != runStateSpec.CompletionTokens ||
+			runState.TotalTokens != runStateSpec.TotalTokens {
 			*runState = runStateSpec
-			if err := i.gatewayClient.UpdateRunState(ctx, runState); err != nil {
+			if err = i.gatewayClient.UpdateRunState(ctx, runState); err != nil {
 				return err
 			}
 		}

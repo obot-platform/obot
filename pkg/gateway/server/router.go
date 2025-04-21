@@ -31,11 +31,16 @@ func (s *Server) AddRoutes(mux *server.Server) {
 	mux.HandleFunc("POST /api/encrypt-all-users", wrap(s.encryptAllUsersAndIdentities))
 	mux.HandleFunc("GET /api/users/{username_or_id}", wrap(s.getUser))
 	mux.HandleFunc("GET /api/users/{user_id}/activities", wrap(s.activitiesByUser))
+	mux.HandleFunc("GET /api/users/{user_id}/usage", wrap(s.usageForUser))
+	mux.HandleFunc("GET /api/users/{user_id}/total-usage", wrap(s.totalUsageForUser))
 	mux.HandleFunc("PATCH /api/users/{username}", wrap(s.updateUser))
 	mux.HandleFunc("POST /api/users/{username}/internal", wrap(s.markUserInternal))
 	mux.HandleFunc("POST /api/users/{username}/external", wrap(s.markUserExternal))
 	mux.HandleFunc("DELETE /api/users/{username}", wrap(s.deleteUser))
 	mux.HandleFunc("GET /api/active-users", wrap(s.activeUsers))
+
+	mux.HandleFunc("GET /api/token-usage", wrap(s.systemTokenUsageByUser))
+	mux.HandleFunc("GET /api/total-token-usage", wrap(s.totalSystemTokenUsage))
 
 	mux.HandleFunc("POST /api/token-request", s.tokenRequest)
 	mux.HandleFunc("GET /api/token-request/{id}", s.checkForToken)

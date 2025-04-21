@@ -18,6 +18,7 @@ func (s *Server) llmProxy(req api.Context) error {
 	}
 
 	if err = s.db.WithContext(req.Context()).Create(&types.LLMProxyActivity{
+		UserID:         token.UserID,
 		WorkflowID:     token.WorkflowID,
 		WorkflowStepID: token.WorkflowStepID,
 		AgentID:        token.AgentID,

@@ -69,9 +69,12 @@ func (a *RunHandler) Debug(req api.Context) error {
 		"frames": frames,
 		"status": run.Status,
 		"runState": map[string]any{
-			"output": runState.Output,
-			"error":  runState.Error,
-			"done":   runState.Done,
+			"output":           runState.Output,
+			"error":            runState.Error,
+			"done":             runState.Done,
+			"promptTokens":     runState.PromptTokens,
+			"completionTokens": runState.CompletionTokens,
+			"totalTokens":      runState.TotalTokens,
 		},
 	})
 }

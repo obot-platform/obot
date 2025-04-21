@@ -135,6 +135,8 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/apiclient/types.ThreadManifest":                               schema_obot_platform_obot_apiclient_types_ThreadManifest(ref),
 		"github.com/obot-platform/obot/apiclient/types.ThreadManifestManagedFields":                  schema_obot_platform_obot_apiclient_types_ThreadManifestManagedFields(ref),
 		"github.com/obot-platform/obot/apiclient/types.Time":                                         schema_obot_platform_obot_apiclient_types_Time(ref),
+		"github.com/obot-platform/obot/apiclient/types.TokenUsage":                                   schema_obot_platform_obot_apiclient_types_TokenUsage(ref),
+		"github.com/obot-platform/obot/apiclient/types.TokenUsageList":                               schema_obot_platform_obot_apiclient_types_TokenUsageList(ref),
 		"github.com/obot-platform/obot/apiclient/types.ToolCall":                                     schema_obot_platform_obot_apiclient_types_ToolCall(ref),
 		"github.com/obot-platform/obot/apiclient/types.ToolInfo":                                     schema_obot_platform_obot_apiclient_types_ToolInfo(ref),
 		"github.com/obot-platform/obot/apiclient/types.ToolInput":                                    schema_obot_platform_obot_apiclient_types_ToolInput(ref),
@@ -5097,6 +5099,93 @@ func schema_obot_platform_obot_apiclient_types_Time(ref common.ReferenceCallback
 	}
 }
 
+func schema_obot_platform_obot_apiclient_types_TokenUsage(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"userID": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"runCount": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"integer"},
+							Format: "int32",
+						},
+					},
+					"runName": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"promptTokens": {
+						SchemaProps: spec.SchemaProps{
+							Default: 0,
+							Type:    []string{"integer"},
+							Format:  "int32",
+						},
+					},
+					"completionTokens": {
+						SchemaProps: spec.SchemaProps{
+							Default: 0,
+							Type:    []string{"integer"},
+							Format:  "int32",
+						},
+					},
+					"totalTokens": {
+						SchemaProps: spec.SchemaProps{
+							Default: 0,
+							Type:    []string{"integer"},
+							Format:  "int32",
+						},
+					},
+					"date": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.Time"),
+						},
+					},
+				},
+				Required: []string{"promptTokens", "completionTokens", "totalTokens", "date"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.Time"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_TokenUsageList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/obot-platform/obot/apiclient/types.TokenUsage"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"items"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.TokenUsage"},
+	}
+}
+
 func schema_obot_platform_obot_apiclient_types_ToolCall(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -5530,6 +5619,12 @@ func schema_obot_platform_obot_apiclient_types_User(ref common.ReferenceCallback
 					"lastActiveDay": {
 						SchemaProps: spec.SchemaProps{
 							Ref: ref("github.com/obot-platform/obot/apiclient/types.Time"),
+						},
+					},
+					"internal": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
 						},
 					},
 				},
