@@ -10,6 +10,7 @@
 	import { fade } from 'svelte/transition';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import errors from '$lib/stores/errors.svelte';
+	import Confirm from './Confirm.svelte';
 
 	interface Props {
 		project?: Project;
@@ -20,6 +21,7 @@
 	let memories = $state<Memory[]>([]);
 	let loading = $state(false);
 	let error = $state<string | null>(null);
+	let toDeleteAll = $state(false);
 
 	export function show(projectToUse?: Project) {
 		if (projectToUse) {
@@ -58,9 +60,6 @@
 
 	async function deleteAll() {
 		if (!project) return;
-		if (!confirm('Are you sure you want to delete all memories?')) {
-			return;
-		}
 
 		loading = true;
 		error = null;
@@ -72,6 +71,7 @@
 			error = 'Failed to delete all memories';
 		} finally {
 			loading = false;
+			toDeleteAll = false;
 		}
 	}
 
@@ -125,7 +125,7 @@
 				</button>
 				<button
 					class="button-small bg-red-500 hover:bg-red-600 disabled:cursor-not-allowed disabled:opacity-50"
-					onclick={deleteAll}
+					onclick={() => (toDeleteAll = true)}
 					disabled={loading || memories.length === 0}
 				>
 					<Trash2 class="size-4" />
@@ -185,3 +185,10 @@
 		</div>
 	</div>
 </dialog>
+
+<Confirm
+	msg={'Are you sure you want to delete all memories?'}
+	show={toDeleteAll}
+	onsuccess={deleteAll}
+	oncancel={() => (toDeleteAll = false)}
+/>
