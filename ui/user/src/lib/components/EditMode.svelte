@@ -44,7 +44,7 @@
 	let projectSaved = '';
 	let timer: number = 0;
 	let nav = $state<HTMLDivElement>();
-	let toDelete = $state(false);
+	let toDelete = $state<Project>();
 	let showAdvanced = $state(false);
 	const projectTools = getProjectTools();
 
@@ -198,7 +198,7 @@
 					<button
 						class="button-destructive"
 						onclick={() => {
-							toDelete = true;
+							toDelete = project;
 						}}
 					>
 						{#if project.editor}
@@ -239,10 +239,20 @@
 
 <Confirm
 	msg={`${project.editor ? 'Delete' : 'Remove'} the current Obot?`}
-	show={toDelete}
+	show={!!toDelete}
 	onsuccess={async () => {
-		await ChatService.deleteProject(project.assistantID, project.id);
-		window.location.href = '/catalog';
+		if (!toDelete) return;
+		try {
+			await ChatService.deleteProject(toDelete.assistantID, toDelete.id);
+		} finally {
+			const projects = (await ChatService.listProjects()).items;
+			if (projects.length > 0) {
+				await goto(`/o/${projects[0].id}`);
+			} else {
+				await goto('/catalog');
+			}
+			toDelete = undefined;
+		}
 	}}
-	oncancel={() => (toDelete = false)}
+	oncancel={() => (toDelete = undefined)}
 />
