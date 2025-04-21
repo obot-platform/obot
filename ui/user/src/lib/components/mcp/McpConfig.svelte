@@ -106,5 +106,21 @@
 {/snippet}
 
 {#snippet editContent()}
-	<div class="flex w-full grow flex-col">TODO</div>
+	<!-- <div class="border-surface2 dark:border-surface3 relative w-full rounded-lg border-2 p-5 pt-2">
+		<h4
+			class="dark:bg-surface2 absolute top-0 left-3 w-fit -translate-y-3.5 bg-white px-2 text-base font-semibold"
+		>
+			Set Up Your MCP
+		</h4>
+		<div class="mt-4 flex flex-col items-baseline gap-4">
+			<div class="flex w-full flex-col gap-1">
+				<label for="from" class="text-sm font-light">Foobar API Key</label>
+				<input id="from" class="text-input-filled" placeholder="" />
+			</div>
+			<div class="flex w-full flex-col gap-1">
+				<label for="from" class="text-sm font-light">Biz API Key</label>
+				<input id="from" class="text-input-filled" placeholder="" />
+			</div>
+		</div>
+	</div> -->
 {/snippet}

@@ -562,11 +562,11 @@
 		width: 100%;
 		gap: 0.5rem;
 		border-radius: 0.75rem;
-		background-color: var(--surface1);
+		background-color: var(--surface2);
 		transition-property: all;
 		transition-duration: 300ms;
 		&:hover {
-			transform: translateY(-0.5rem);
+			transform: translateY(-0.35rem);
 			box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
 		}
 	}

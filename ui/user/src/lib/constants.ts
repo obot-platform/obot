@@ -14,13 +14,6 @@ export const IGNORED_BUILTIN_TOOLS = new Set([
 	'github-com-obot-platform-tools-search-tavily-websiteknowl-d2d96'
 ]);
 
-export const FEATURED_PROJECT_ORDER = [
-	'google productivity assistant',
-	'microsoft productivity assistant',
-	'github productivity assistant',
-	'wordpress blog assistant'
-];
-
 export const MCP_LIST_ORDER = [
 	'google-search-bundle',
 	'outlook-mail-bundle',
