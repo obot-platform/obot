@@ -69,9 +69,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/apiclient/types.MCPServerList":                                schema_obot_platform_obot_apiclient_types_MCPServerList(ref),
 		"github.com/obot-platform/obot/apiclient/types.MCPServerManifest":                            schema_obot_platform_obot_apiclient_types_MCPServerManifest(ref),
 		"github.com/obot-platform/obot/apiclient/types.Memory":                                       schema_obot_platform_obot_apiclient_types_Memory(ref),
-		"github.com/obot-platform/obot/apiclient/types.MemorySet":                                    schema_obot_platform_obot_apiclient_types_MemorySet(ref),
-		"github.com/obot-platform/obot/apiclient/types.MemorySetList":                                schema_obot_platform_obot_apiclient_types_MemorySetList(ref),
-		"github.com/obot-platform/obot/apiclient/types.MemorySetManifest":                            schema_obot_platform_obot_apiclient_types_MemorySetManifest(ref),
+		"github.com/obot-platform/obot/apiclient/types.MemoryList":                                   schema_obot_platform_obot_apiclient_types_MemoryList(ref),
 		"github.com/obot-platform/obot/apiclient/types.Metadata":                                     schema_obot_platform_obot_apiclient_types_Metadata(ref),
 		"github.com/obot-platform/obot/apiclient/types.Model":                                        schema_obot_platform_obot_apiclient_types_Model(ref),
 		"github.com/obot-platform/obot/apiclient/types.ModelList":                                    schema_obot_platform_obot_apiclient_types_ModelList(ref),
@@ -2482,7 +2480,8 @@ func schema_obot_platform_obot_apiclient_types_Memory(ref common.ReferenceCallba
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Type: []string{"object"},
+				Description: "Memory represents a single memory item",
+				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"id": {
 						SchemaProps: spec.SchemaProps{
@@ -2509,11 +2508,12 @@ func schema_obot_platform_obot_apiclient_types_Memory(ref common.ReferenceCallba
 	}
 }
 
-func schema_obot_platform_obot_apiclient_types_MemorySet(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_obot_platform_obot_apiclient_types_MemoryList(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Type: []string{"object"},
+				Description: "MemoryList represents a list of memories",
+				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"Metadata": {
 						SchemaProps: spec.SchemaProps{
@@ -2521,57 +2521,7 @@ func schema_obot_platform_obot_apiclient_types_MemorySet(ref common.ReferenceCal
 							Ref:     ref("github.com/obot-platform/obot/apiclient/types.Metadata"),
 						},
 					},
-					"MemorySetManifest": {
-						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref("github.com/obot-platform/obot/apiclient/types.MemorySetManifest"),
-						},
-					},
-				},
-				Required: []string{"Metadata", "MemorySetManifest"},
-			},
-		},
-		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.MemorySetManifest", "github.com/obot-platform/obot/apiclient/types.Metadata"},
-	}
-}
-
-func schema_obot_platform_obot_apiclient_types_MemorySetList(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Type: []string{"object"},
-				Properties: map[string]spec.Schema{
 					"items": {
-						SchemaProps: spec.SchemaProps{
-							Type: []string{"array"},
-							Items: &spec.SchemaOrArray{
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref("github.com/obot-platform/obot/apiclient/types.MemorySet"),
-									},
-								},
-							},
-						},
-					},
-				},
-				Required: []string{"items"},
-			},
-		},
-		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.MemorySet"},
-	}
-}
-
-func schema_obot_platform_obot_apiclient_types_MemorySetManifest(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Description: "SlackReceiverManifest defines the configuration for a Slack receiver",
-				Type:        []string{"object"},
-				Properties: map[string]spec.Schema{
-					"memories": {
 						SchemaProps: spec.SchemaProps{
 							Type: []string{"array"},
 							Items: &spec.SchemaOrArray{
@@ -2585,10 +2535,11 @@ func schema_obot_platform_obot_apiclient_types_MemorySetManifest(ref common.Refe
 						},
 					},
 				},
+				Required: []string{"Metadata", "items"},
 			},
 		},
 		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.Memory"},
+			"github.com/obot-platform/obot/apiclient/types.Memory", "github.com/obot-platform/obot/apiclient/types.Metadata"},
 	}
 }
 
@@ -8320,17 +8271,24 @@ func schema_storage_apis_obotobotai_v1_MemorySetSpec(ref common.ReferenceCallbac
 							Format: "",
 						},
 					},
-					"manifest": {
+					"memories": {
 						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref("github.com/obot-platform/obot/apiclient/types.MemorySetManifest"),
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/obot-platform/obot/apiclient/types.Memory"),
+									},
+								},
+							},
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.MemorySetManifest"},
+			"github.com/obot-platform/obot/apiclient/types.Memory"},
 	}
 }
 

@@ -38,7 +38,7 @@ func Router(services *services.Services) (http.Handler, error) {
 	projects := handlers.NewProjectsHandler(services.Router.Backend(), services.Invoker, services.GPTClient)
 	projectShare := handlers.NewProjectShareHandler()
 	files := handlers.NewFilesHandler(services.ProviderDispatcher, services.GPTClient)
-	memories := handlers.NewMemorySetHandler()
+	memories := handlers.NewMemoryHandler()
 	workflows := handlers.NewWorkflowHandler(services.GPTClient, services.ServerURL, services.Invoker)
 	slackEventHandler := handlers.NewSlackEventHandler(services.GPTClient)
 	sendgridWebhookHandler := sendgrid.NewInboundWebhookHandler(services.StorageClient, services.EmailServerName, services.SendgridWebhookUsername, services.SendgridWebhookPassword)
@@ -215,8 +215,9 @@ func Router(services *services.Services) (http.Handler, error) {
 	mux.HandleFunc("GET /api/assistants/{assistant_id}/projects/{project_id}/tables/{table_name}/rows", tables.GetRows)
 
 	// Project Memories
-	mux.HandleFunc("POST /api/assistants/{assistant_id}/projects/{project_id}/memories", memories.AddMemories)
-	mux.HandleFunc("GET /api/assistants/{assistant_id}/projects/{project_id}/memories", memories.GetMemories)
+	mux.HandleFunc("POST /api/assistants/{assistant_id}/projects/{project_id}/memories", memories.CreateMemory)
+	mux.HandleFunc("PUT /api/assistants/{assistant_id}/projects/{project_id}/memories/{memory_id}", memories.UpdateMemory)
+	mux.HandleFunc("GET /api/assistants/{assistant_id}/projects/{project_id}/memories", memories.ListMemories)
 	mux.HandleFunc("DELETE /api/assistants/{assistant_id}/projects/{project_id}/memories", memories.DeleteMemories)
 	mux.HandleFunc("DELETE /api/assistants/{assistant_id}/projects/{project_id}/memories/{memory_id}", memories.DeleteMemories)
 

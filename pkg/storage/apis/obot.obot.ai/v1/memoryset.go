@@ -16,8 +16,8 @@ type MemorySet struct {
 }
 
 type MemorySetSpec struct {
-	ThreadName string                  `json:"threadName,omitempty"`
-	Manifest   types.MemorySetManifest `json:"manifest,omitempty"`
+	ThreadName string         `json:"threadName,omitempty"`
+	Memories   []types.Memory `json:"memories,omitempty"`
 }
 
 func (in *MemorySet) DeleteRefs() []Ref {
