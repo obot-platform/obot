@@ -83,26 +83,16 @@ func (s *Server) encryptAllUsersAndIdentities(apiContext api.Context) error {
 }
 
 func (s *Server) getUser(apiContext api.Context) error {
-	var (
-		getByID      = apiContext.URL.Query().Get("by-id") == "true"
-		usernameOrID = apiContext.PathValue("username_or_id")
-		user         *types.User
-	)
+	userID := apiContext.PathValue("user_id")
 
-	if usernameOrID == "" {
-		return types2.NewErrHTTP(http.StatusBadRequest, "username path parameter is required")
+	if userID == "" {
+		return types2.NewErrHTTP(http.StatusBadRequest, "user_id path parameter is required")
 	}
 
-	var err error
-	if getByID {
-		user, err = apiContext.GatewayClient.UserByID(apiContext.Context(), usernameOrID)
-	} else {
-		user, err = apiContext.GatewayClient.User(apiContext.Context(), usernameOrID)
-	}
-
+	user, err := apiContext.GatewayClient.UserByID(apiContext.Context(), userID)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return types2.NewErrNotFound("user %s not found", usernameOrID)
+			return types2.NewErrNotFound("user %s not found", userID)
 		}
 		return fmt.Errorf("failed to get user: %v", err)
 	}
@@ -111,16 +101,9 @@ func (s *Server) getUser(apiContext api.Context) error {
 }
 
 func (s *Server) updateUser(apiContext api.Context) error {
-	requestingUsername := apiContext.User.GetName()
-	actingUserIsAdmin := apiContext.UserIsAdmin()
-
-	username := apiContext.PathValue("username")
-	if username == "" {
-		return types2.NewErrHTTP(http.StatusBadRequest, "username path parameter is required")
-	}
-
-	if !actingUserIsAdmin && requestingUsername != username {
-		return types2.NewErrHTTP(http.StatusForbidden, "only admins can update other users")
+	userID := apiContext.PathValue("user_id")
+	if userID == "" {
+		return types2.NewErrHTTP(http.StatusBadRequest, "user_id path parameter is required")
 	}
 
 	user := new(types.User)
@@ -135,7 +118,7 @@ func (s *Server) updateUser(apiContext api.Context) error {
 	}
 
 	status := http.StatusInternalServerError
-	existingUser, err := apiContext.GatewayClient.UpdateUser(apiContext.Context(), actingUserIsAdmin, user, username)
+	existingUser, err := apiContext.GatewayClient.UpdateUser(apiContext.Context(), apiContext.UserIsAdmin(), user, userID)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			status = http.StatusNotFound
@@ -161,14 +144,14 @@ func (s *Server) markUserExternal(apiContext api.Context) error {
 }
 
 func (s *Server) changeUserInternalStatus(apiContext api.Context, internal bool) error {
-	username := apiContext.PathValue("username")
-	if username == "" {
-		return types2.NewErrHTTP(http.StatusBadRequest, "username path parameter is required")
+	userID := apiContext.PathValue("user_id")
+	if userID == "" {
+		return types2.NewErrHTTP(http.StatusBadRequest, "user_id path parameter is required")
 	}
 
-	if err := apiContext.GatewayClient.UpdateUserInternalStatus(apiContext.Context(), username, internal); err != nil {
+	if err := apiContext.GatewayClient.UpdateUserInternalStatus(apiContext.Context(), userID, internal); err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return types2.NewErrNotFound("user %s not found", username)
+			return types2.NewErrNotFound("user %s not found", userID)
 		}
 		return types2.NewErrHTTP(http.StatusInternalServerError, fmt.Sprintf("failed to update user: %v", err))
 	}
@@ -177,10 +160,10 @@ func (s *Server) changeUserInternalStatus(apiContext api.Context, internal bool)
 }
 
 func (s *Server) deleteUser(apiContext api.Context) (err error) {
-	username := apiContext.PathValue("username")
-	if username == "" {
+	userID := apiContext.PathValue("user_id")
+	if userID == "" {
 		// This is the "delete me" API
-		username = apiContext.User.GetName()
+		userID = apiContext.User.GetUID()
 		defer func() {
 			if err == nil {
 				// If everything was successful, remove the cookie so the user isn't authenticated again.
@@ -189,16 +172,16 @@ func (s *Server) deleteUser(apiContext api.Context) (err error) {
 		}()
 	}
 
-	existingUser, err := apiContext.GatewayClient.User(apiContext.Context(), username)
+	existingUser, err := apiContext.GatewayClient.UserByID(apiContext.Context(), userID)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return types2.NewErrNotFound("user %s not found", username)
+			return types2.NewErrNotFound("user %s not found", userID)
 		}
 		return fmt.Errorf("failed to get user: %v", err)
 	}
 
 	status := http.StatusInternalServerError
-	_, err = apiContext.GatewayClient.DeleteUser(apiContext.Context(), apiContext.Storage, username)
+	_, err = apiContext.GatewayClient.DeleteUser(apiContext.Context(), apiContext.Storage, userID)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			status = http.StatusNotFound

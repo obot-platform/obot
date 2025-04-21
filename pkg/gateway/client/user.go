@@ -80,10 +80,10 @@ func (c *Client) UserByID(ctx context.Context, id string) (*types.User, error) {
 	return u, c.decryptUser(ctx, u)
 }
 
-func (c *Client) DeleteUser(ctx context.Context, storageClient kclient.Client, username string) (*types.User, error) {
+func (c *Client) DeleteUser(ctx context.Context, storageClient kclient.Client, userID string) (*types.User, error) {
 	existingUser := new(types.User)
 	if err := c.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		if err := tx.Where("hashed_username = ?", hash.String(username)).First(existingUser).Error; err != nil {
+		if err := tx.Where("id = ?", userID).First(existingUser).Error; err != nil {
 			return err
 		}
 
@@ -127,10 +127,10 @@ func (c *Client) DeleteUser(ctx context.Context, storageClient kclient.Client, u
 	return existingUser, c.decryptUser(ctx, existingUser)
 }
 
-func (c *Client) UpdateUser(ctx context.Context, actingUserIsAdmin bool, updatedUser *types.User, username string) (*types.User, error) {
+func (c *Client) UpdateUser(ctx context.Context, actingUserIsAdmin bool, updatedUser *types.User, userID string) (*types.User, error) {
 	existingUser := new(types.User)
 	return existingUser, c.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		if err := tx.Where("hashed_username = ?", hash.String(username)).First(existingUser).Error; err != nil {
+		if err := tx.Where("id = ?", userID).First(existingUser).Error; err != nil {
 			return err
 		}
 
@@ -186,8 +186,8 @@ func (c *Client) UpdateUser(ctx context.Context, actingUserIsAdmin bool, updated
 	})
 }
 
-func (c *Client) UpdateUserInternalStatus(ctx context.Context, username string, internal bool) error {
-	return c.db.WithContext(ctx).Model(new(types.User)).Where("hashed_username = ?", hash.String(username)).Update("internal", internal).Error
+func (c *Client) UpdateUserInternalStatus(ctx context.Context, userID string, internal bool) error {
+	return c.db.WithContext(ctx).Model(new(types.User)).Where("id = ?", userID).Update("internal", internal).Error
 }
 
 func (c *Client) UpdateProfileIconIfNeeded(ctx context.Context, user *types.User, authProviderName, authProviderNamespace, authProviderURL string) error {

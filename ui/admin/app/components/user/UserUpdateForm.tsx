@@ -91,7 +91,7 @@ export function UserUpdateForm({
 		) {
 			setBootstrapDialogOpen(true);
 		} else {
-			updateUser.execute(user.username, data);
+			updateUser.execute(user.id, data);
 		}
 	});
 
@@ -176,9 +176,7 @@ export function UserUpdateForm({
 						<Button
 							loading={updateUser.isLoading}
 							disabled={updateUser.isLoading}
-							onClick={() =>
-								updateUser.execute(user.username, form.getValues())
-							}
+							onClick={() => updateUser.execute(user.id, form.getValues())}
 						>
 							Confirm
 						</Button>

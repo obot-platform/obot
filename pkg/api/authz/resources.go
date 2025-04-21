@@ -148,6 +148,11 @@ var apiResources = []string{
 	"GET    /api/tool-references",
 	"GET    /api/tool-references/{id}",
 	"GET    /{ui}/projects/{id}",
+	"GET    /api/users/{user_id}",
+	"PATCH  /api/users/{user_id}",
+	"GET    /api/users/{user_id}/activities",
+	"GET    /api/users/{user_id}/usage",
+	"GET    /api/users/{user_id}/total-usage",
 }
 
 type Resources struct {
@@ -189,6 +194,10 @@ func (a *Authorizer) evaluateResources(req *http.Request, vars GetVar, user user
 		PendingAuthorizationID: vars("pending_authorization_id"),
 		ThreadShareID:          vars("share_public_id"),
 		ToolID:                 vars("tool_id"),
+	}
+
+	if !a.checkUser(user, vars("user_id")) {
+		return false, nil
 	}
 
 	if ok, err := a.checkAssistant(req, &resources, user); !ok || err != nil {

@@ -45,13 +45,13 @@ async function updateUser(username: string, user: Partial<User>) {
 }
 
 const handleGetUser = createFetcher(
-	z.object({ username: z.string() }),
-	async ({ username }, { signal }) => {
-		const { url } = ApiRoutes.users.getOne(username);
+	z.object({ userId: z.string() }),
+	async ({ userId }, { signal }) => {
+		const { url } = ApiRoutes.users.getOne(userId);
 		const { data } = await request<User>({ url, signal });
 		return data;
 	},
-	() => ApiRoutes.users.getOne(":username").path
+	() => ApiRoutes.users.getOne(":userId").path
 );
 
 async function deleteUser(username: string) {

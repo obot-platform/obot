@@ -107,7 +107,7 @@ export function ThreadMeta({
 	} = useThreadTasks(isAgent ? thread.id : undefined);
 
 	const { data: user } = useSWR(
-		...UserService.getUser.swr({ username: thread.userID })
+		...UserService.getUser.swr({ userId: thread.userID })
 	);
 
 	const { dialogProps, interceptAsync } = useConfirmationDialog();

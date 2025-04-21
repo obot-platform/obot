@@ -94,7 +94,7 @@ export function UserActionsDropdown({ user }: { user: User }) {
 						<Button
 							type="button"
 							variant="destructive"
-							onClick={() => deleteUser.execute(user.username)}
+							onClick={() => deleteUser.execute(user.id)}
 						>
 							Delete
 						</Button>

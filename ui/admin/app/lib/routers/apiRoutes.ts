@@ -228,10 +228,9 @@ export const ApiRoutes = {
 	},
 	users: {
 		base: () => buildUrl("/users"),
-		updateUser: (username: string) => buildUrl(`/users/${username}`),
-		deleteUser: (username: string) => buildUrl(`/users/${username}`),
-		getOne: (username: string) =>
-			buildUrl(`/users/${username}`, { "by-id": true }),
+		updateUser: (userId: string) => buildUrl(`/users/${userId}`),
+		deleteUser: (userId: string) => buildUrl(`/users/${userId}`),
+		getOne: (userId: string) => buildUrl(`/users/${userId}`),
 	},
 	workspace: {
 		getTables: (namespace: TableNamespace, entityId: string) =>
