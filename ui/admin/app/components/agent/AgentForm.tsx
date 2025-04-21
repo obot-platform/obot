@@ -100,7 +100,9 @@ export function AgentForm({
 						</h4>
 
 						<CardDescription>
-							Give the agent instructions on how to behave and respond to input.
+							Set the base instructions for how Obots created from this agent
+							should behave and respond. These instructions define the tone,
+							personality, and response style.
 						</CardDescription>
 
 						<ControlledAutosizeTextarea

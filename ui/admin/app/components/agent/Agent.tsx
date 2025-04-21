@@ -8,7 +8,6 @@ import { AssistantNamespace } from "~/lib/model/assistants";
 import { AgentAlias } from "~/components/agent/AgentAlias";
 import { useAgent } from "~/components/agent/AgentContext";
 import { AgentForm } from "~/components/agent/AgentForm";
-import { AgentIntroForm } from "~/components/agent/AgentIntroForm";
 import { ToolForm } from "~/components/agent/ToolForm";
 import { AgentCapabilityForm } from "~/components/agent/shared/AgentCapabilityForm";
 import { AgentModelSelect } from "~/components/agent/shared/AgentModelSelect";
@@ -69,10 +68,6 @@ export function Agent() {
 
 			<div className="m-4 p-4">
 				<AgentForm agent={agentUpdates} onChange={partialSetAgent} />
-			</div>
-
-			<div className="m-4 p-4">
-				<AgentIntroForm agent={agentUpdates} onChange={partialSetAgent} />
 			</div>
 
 			<div className="m-4 space-y-4 p-4">
