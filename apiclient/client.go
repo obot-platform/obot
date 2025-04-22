@@ -61,6 +61,16 @@ func (c *Client) WithCookie(cookie *http.Cookie) *Client {
 	return &n
 }
 
+func (c *Client) GetToken(ctx context.Context) (string, error) {
+	if c.Token != "" {
+		return c.Token, nil
+	}
+	if c.tokenFetcher != nil {
+		return c.tokenFetcher(ctx, c.BaseURL)
+	}
+	return "", fmt.Errorf("no token or token fetcher")
+}
+
 func (c *Client) putJSON(ctx context.Context, path string, obj any, headerKV ...string) (*http.Request, *http.Response, error) {
 	data, err := json.Marshal(obj)
 	if err != nil {
@@ -124,7 +134,7 @@ func (c *Client) doRequest(ctx context.Context, method, path string, body io.Rea
 	}
 
 	if c.Token == "" && c.tokenFetcher != nil {
-		token, err := c.tokenFetcher(ctx, c.BaseURL)
+		token, err := c.GetToken(ctx)
 		if err != nil {
 			return nil, nil, fmt.Errorf("failed to fetch token: %w", err)
 		}

@@ -61,6 +61,7 @@ func New() *cobra.Command {
 			&ToolRegister{root: root},
 			&ToolUpdate{root: root}),
 		&Server{},
+		&Token{root: root},
 		&Version{},
 	)
 }
