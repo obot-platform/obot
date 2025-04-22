@@ -127,7 +127,13 @@ func Agent(ctx context.Context, db kclient.Client, agent *v1.Agent, oauthServerU
 		}
 
 		if strings.HasSuffix(opts.WorkflowStepID, "{loopdata}") {
-			toolNames = append(toolNames, loopDataToolName)
+			name, err := resolveToolReferenceWithMetadata(ctx, db, types.ToolReferenceTypeSystem, agent.Namespace, loopDataToolName)
+			if err != nil {
+				return nil, nil, err
+			}
+			if name != "" {
+				mainTool.Tools = append(mainTool.Tools, name)
+			}
 		}
 
 		for _, t := range toolNames {
