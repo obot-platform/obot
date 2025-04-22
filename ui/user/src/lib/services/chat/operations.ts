@@ -28,7 +28,8 @@ import {
 	type ToolReferenceList,
 	type SlackConfig,
 	type SlackReceiver,
-	type MemorySet,
+	type MemoryList,
+	type Memory,
 	type MCPList,
 	type MCP
 } from './types';
@@ -928,10 +929,10 @@ export async function disableProjectSlack(assistantID: string, projectID: string
 	return doDelete(`/assistants/${assistantID}/projects/${projectID}/slack`);
 }
 
-export async function getMemories(assistantID: string, projectID: string): Promise<MemorySet> {
+export async function getMemories(assistantID: string, projectID: string): Promise<MemoryList> {
 	return doGet(`/assistants/${assistantID}/projects/${projectID}/memories`, {
 		dontLogErrors: true
-	}) as Promise<MemorySet>;
+	}) as Promise<MemoryList>;
 }
 
 export async function deleteAllMemories(assistantID: string, projectID: string): Promise<void> {
@@ -944,6 +945,27 @@ export async function deleteMemory(
 	memoryID: string
 ): Promise<void> {
 	await doDelete(`/assistants/${assistantID}/projects/${projectID}/memories/${memoryID}`);
+}
+
+export async function createMemory(
+	assistantID: string,
+	projectID: string,
+	content: string
+): Promise<Memory> {
+	return doPost(`/assistants/${assistantID}/projects/${projectID}/memories`, {
+		content
+	}) as Promise<Memory>;
+}
+
+export async function updateMemory(
+	assistantID: string,
+	projectID: string,
+	memoryID: string,
+	content: string
+): Promise<Memory> {
+	return doPut(`/assistants/${assistantID}/projects/${projectID}/memories/${memoryID}`, {
+		content
+	}) as Promise<Memory>;
 }
 
 export async function listMCPs(opts?: { fetch?: Fetcher }): Promise<MCP[]> {

@@ -4,9 +4,10 @@
 		type Memory,
 		getMemories,
 		deleteAllMemories,
-		deleteMemory
+		deleteMemory,
+		updateMemory
 	} from '$lib/services';
-	import { X, Trash2, RefreshCcw } from 'lucide-svelte/icons';
+	import { X, Trash2, RefreshCcw, Edit, Check, X as XIcon } from 'lucide-svelte/icons';
 	import { fade } from 'svelte/transition';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import errors from '$lib/stores/errors.svelte';
@@ -22,6 +23,8 @@
 	let loading = $state(false);
 	let error = $state<string | null>(null);
 	let toDeleteAll = $state(false);
+	let editingMemoryId = $state<string | null>(null);
+	let editContent = $state('');
 
 	export function show(projectToUse?: Project) {
 		if (projectToUse) {
@@ -43,7 +46,7 @@
 		error = null;
 		try {
 			const result = await getMemories(project.assistantID, project.id);
-			memories = result.memories || [];
+			memories = result.items || [];
 		} catch (err) {
 			// Ignore 404 errors (memory tool not configured or no memories)
 			if (err instanceof Error && err.message.includes('404')) {
@@ -86,6 +89,40 @@
 		} catch (err) {
 			errors.append(err);
 			error = 'Failed to delete memory';
+		} finally {
+			loading = false;
+		}
+	}
+
+	function startEdit(memory: Memory) {
+		editingMemoryId = memory.id;
+		editContent = memory.content;
+	}
+
+	function cancelEdit() {
+		editingMemoryId = null;
+		editContent = '';
+	}
+
+	async function saveEdit() {
+		if (!project || !editingMemoryId) return;
+
+		loading = true;
+		error = null;
+		try {
+			const updatedMemory = await updateMemory(
+				project.assistantID,
+				project.id,
+				editingMemoryId,
+				editContent
+			);
+			// Update the memory in the list
+			memories = memories.map((memory) => (memory.id === editingMemoryId ? updatedMemory : memory));
+			editingMemoryId = null;
+			editContent = '';
+		} catch (err) {
+			errors.append(err);
+			error = 'Failed to update memory';
 		} finally {
 			loading = false;
 		}
@@ -164,17 +201,54 @@
 									<td
 										class="text-text1 max-w-[450px] py-3 pr-4 text-sm break-words break-all hyphens-auto"
 									>
-										{memory.content}
+										{#if editingMemoryId === memory.id}
+											<textarea
+												bind:value={editContent}
+												class="border-surface3 bg-surface2 text-text1 min-h-[80px] w-full rounded border p-2"
+												rows="3"
+											></textarea>
+										{:else}
+											{memory.content}
+										{/if}
 									</td>
-									<td class="py-3">
-										<button
-											class="icon-button"
-											onclick={() => deleteOne(memory.id)}
-											disabled={loading}
-											use:tooltip={'Delete memory'}
-										>
-											<Trash2 class="h-4 w-4" />
-										</button>
+									<td class="py-3 whitespace-nowrap">
+										{#if editingMemoryId === memory.id}
+											<div class="flex gap-2">
+												<button
+													class="icon-button text-green-500"
+													onclick={saveEdit}
+													use:tooltip={'Save changes'}
+												>
+													<Check class="h-4 w-4" />
+												</button>
+												<button
+													class="icon-button text-red-500"
+													onclick={cancelEdit}
+													use:tooltip={'Cancel'}
+												>
+													<XIcon class="h-4 w-4" />
+												</button>
+											</div>
+										{:else}
+											<div class="flex gap-2">
+												<button
+													class="icon-button"
+													onclick={() => startEdit(memory)}
+													disabled={loading}
+													use:tooltip={'Edit memory'}
+												>
+													<Edit class="h-4 w-4" />
+												</button>
+												<button
+													class="icon-button"
+													onclick={() => deleteOne(memory.id)}
+													disabled={loading}
+													use:tooltip={'Delete memory'}
+												>
+													<Trash2 class="h-4 w-4" />
+												</button>
+											</div>
+										{/if}
 									</td>
 								</tr>
 							{/each}

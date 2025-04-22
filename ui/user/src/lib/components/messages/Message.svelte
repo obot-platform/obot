@@ -66,11 +66,11 @@
 	let showToolInputDetails = $state(false);
 	let showToolOutputDetails = $state(false);
 
-	// Check if this is an Add Memory message
+	// Check if this is an Memory tool message
 	let isMemoryTool = $derived(
-		msg.sourceName === 'Add Memory' ||
-			msg.toolCall?.name?.toLowerCase() === 'addmemory' ||
-			msg.toolCall?.name?.toLowerCase() === 'add_memory'
+		msg.sourceName === 'Create Memory' ||
+			msg.sourceName === 'Update Memory' ||
+			msg.sourceName === 'Delete Memory'
 	);
 
 	$effect(() => {

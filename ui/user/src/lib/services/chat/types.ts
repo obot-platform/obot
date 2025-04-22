@@ -456,7 +456,6 @@ export interface Memory {
 	createdAt: string;
 }
 
-export interface MemorySet {
-	id?: string;
-	memories: Memory[];
+export interface MemoryList {
+	items: Memory[];
 }
