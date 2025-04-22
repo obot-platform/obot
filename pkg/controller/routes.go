@@ -33,7 +33,7 @@ func (c *Controller) setupRoutes() error {
 	root := c.router
 
 	workflowExecution := workflowexecution.New(c.services.Invoker)
-	workflowStep := workflowstep.New(c.services.Invoker)
+	workflowStep := workflowstep.New(c.services.Invoker, c.services.GPTClient)
 	toolRef := toolreference.New(
 		c.services.GPTClient,
 		c.services.ProviderDispatcher,

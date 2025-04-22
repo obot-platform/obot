@@ -2,13 +2,16 @@ package workflowstep
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"regexp"
 
 	"github.com/gptscript-ai/datasets/pkg/dataset"
+	"github.com/gptscript-ai/go-gptscript"
 	"github.com/obot-platform/nah/pkg/apply"
 	"github.com/obot-platform/nah/pkg/router"
 	"github.com/obot-platform/obot/apiclient/types"
+	"github.com/obot-platform/obot/pkg/hash"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
@@ -40,7 +43,8 @@ func (h *Handler) RunLoop(req router.Request, _ router.Response) (err error) {
 	// reset
 	rootStep.Status.Error = ""
 
-	dataStep := defineDataStep(rootStep)
+	fileName := hash.String(rootStep.Spec.Step.ID)[:8]
+	dataStep := defineDataStep(rootStep, fileName)
 	objects = append(objects, dataStep)
 
 	if _, errMsg, state, err := GetStateFromSteps(req.Ctx, req.Client, rootStep.Spec.WorkflowGeneration, dataStep); err != nil {
@@ -51,7 +55,7 @@ func (h *Handler) RunLoop(req router.Request, _ router.Response) (err error) {
 		return nil
 	}
 
-	_, datasetID, wait, err := getDataStepResult(req.Ctx, req.Client, rootStep, dataStep)
+	workspaceID, data, wait, err := h.getDataStepResult(req.Ctx, req.Client, dataStep, fileName)
 	if err != nil {
 		return err
 	}
@@ -61,26 +65,9 @@ func (h *Handler) RunLoop(req router.Request, _ router.Response) (err error) {
 		return nil
 	}
 
-	workspaceID, err := getWorkspaceID(req.Ctx, req.Client, rootStep)
-	if err != nil {
-		return err
-	}
-
-	// We use the dataset package rather than making SDK calls because it is more direct and more performant.
-	// All that the SDK calls do is call out to a daemon tool that runs the same library code that we are referencing here.
-	datasetManager, err := dataset.NewManager(workspaceID)
-	if err != nil {
-		return err
-	}
-
-	dataset, err := datasetManager.GetDataset(req.Ctx, datasetID)
-	if err != nil {
-		return err
-	}
-
 	lastStepName := dataStep.Name
-	for elementIndex, element := range dataset.GetAllElements() {
-		steps, err := defineLoop(elementIndex, element.Contents, lastStepName, rootStep)
+	for elementIndex, element := range data {
+		steps, err := defineLoop(elementIndex, element, lastStepName, rootStep)
 		if err != nil {
 			return err
 		}
@@ -111,6 +98,10 @@ func (h *Handler) RunLoop(req router.Request, _ router.Response) (err error) {
 	completeResponse = true
 	rootStep.Status.State = types.WorkflowStateComplete
 	rootStep.Status.LastRunName = runName
+
+	_ = h.gptscriptClient.DeleteFileInWorkspace(req.Ctx, fileName, gptscript.DeleteFileInWorkspaceOptions{
+		WorkspaceID: workspaceID,
+	})
 	return nil
 }
 
@@ -146,66 +137,80 @@ func elementPrompt(element, prompt string) string {
 	`, element, prompt)
 }
 
-func defineDataStep(rootStep *v1.WorkflowStep) *v1.WorkflowStep {
+func defineDataStep(rootStep *v1.WorkflowStep, fileName string) *v1.WorkflowStep {
 	return NewStep(rootStep.Namespace, rootStep.Spec.WorkflowExecutionName, rootStep.Spec.AfterWorkflowStepName, rootStep.Spec.WorkflowGeneration, types.Step{
-		ID:   rootStep.Spec.Step.ID + "-loopdata",
-		Step: dataPrompt(rootStep.Spec.Step.Step),
+		ID:   rootStep.Spec.Step.ID + "{loopdata}",
+		Step: dataPrompt(rootStep.Spec.Step.Step, fileName),
 	})
 }
 
-func dataPrompt(description string) string {
+func dataPrompt(description, fileName string) string {
 	return fmt.Sprintf(`
 	Based on the following description, find the data requested by the user:
 	%q
 
 	If the data is not already available in the chat history, call any tools you need in order to find it.
-	You are looking for a dataset ID, which has the prefix gds://.
-	If you found the dataset ID, return exactly the dataset ID (including the gds:// prefix) and nothing else.
-	If you did not find it, simply return "false" without quotes and nothing else.
-	`, description)
+	If you find a dataset ID (begins with gds://), call the loop-data tool with it as the dataset_id argument.
+	If you do not find a dataset ID, create a JSON list of strings and call the loop-data tool with it as the data_list argument.
+
+	When you call the loop-data tool, include %s as the file_name argument.
+	`, description, fileName)
 }
 
-func getDataStepResult(ctx context.Context, client kclient.Client, parentStep *v1.WorkflowStep, dataStep *v1.WorkflowStep) (runName string, datasetID string, wait bool, err error) {
+func (h *Handler) getDataStepResult(ctx context.Context, client kclient.Client, dataStep *v1.WorkflowStep, fileName string) (workspaceID string, data []string, wait bool, err error) {
 	var checkStep v1.WorkflowStep
 	if err := client.Get(ctx, router.Key(dataStep.Namespace, dataStep.Name), &checkStep); apierrors.IsNotFound(err) {
-		return "", "", true, nil
+		return "", nil, true, nil
 	} else if err != nil {
-		return "", "", false, err
+		return "", nil, false, err
 	}
 
 	if checkStep.Status.State != types.WorkflowStateComplete || checkStep.Status.LastRunName == "" {
-		return "", "", true, nil
+		return "", nil, true, nil
 	}
 
 	var run v1.Run
-	if err := client.Get(ctx, router.Key(dataStep.Namespace, checkStep.Status.LastRunName), &run); err != nil {
-		return "", "", false, err
-	}
-
-	datasetID = getDatasetID(run.Status.Output)
-	if datasetID == "" {
-		parentStep.Status.Error = "no dataset ID found in output"
-		parentStep.Status.State = types.WorkflowStateError
-		return "", "", true, nil
-	}
-
-	return run.Name, datasetID, false, nil
-}
-
-func getDatasetID(output string) string {
-	return datasetIDRegex.FindString(output)
-}
-
-func getWorkspaceID(ctx context.Context, client kclient.Client, step *v1.WorkflowStep) (string, error) {
-	var workflowExecution v1.WorkflowExecution
-	if err := client.Get(ctx, router.Key(step.Namespace, step.Spec.WorkflowExecutionName), &workflowExecution); err != nil {
-		return "", err
+	if err := client.Get(ctx, router.Key(checkStep.Namespace, checkStep.Status.LastRunName), &run); err != nil {
+		return "", nil, false, err
 	}
 
 	var thread v1.Thread
-	if err := client.Get(ctx, router.Key(step.Namespace, workflowExecution.Status.ThreadName), &thread); err != nil {
-		return "", err
+	if err := client.Get(ctx, router.Key(run.Namespace, run.Spec.ThreadName), &thread); err != nil {
+		return "", nil, false, err
 	}
 
-	return thread.Status.WorkspaceID, nil
+	content, err := h.gptscriptClient.ReadFileInWorkspace(ctx, fileName, gptscript.ReadFileInWorkspaceOptions{
+		WorkspaceID: thread.Status.WorkspaceID,
+	})
+	if err != nil {
+		return "", nil, false, err
+	}
+
+	if isDatasetID(string(content)) {
+		// We use the dataset package rather than making SDK calls because it is more direct and more performant.
+		// All that the SDK calls do is call out to a daemon tool that runs the same library code that we are referencing here.
+		datasetManager, err := dataset.NewManager(thread.Status.WorkspaceID)
+		if err != nil {
+			return "", nil, false, err
+		}
+
+		dataset, err := datasetManager.GetDataset(ctx, string(content))
+		if err != nil {
+			return "", nil, false, err
+		}
+
+		for _, element := range dataset.GetAllElements() {
+			data = append(data, fmt.Sprintf("%s: %s", element.Name, element.Contents))
+		}
+	} else {
+		if err := json.Unmarshal(content, &data); err != nil {
+			return "", nil, false, err
+		}
+	}
+
+	return thread.Status.WorkspaceID, data, false, nil
+}
+
+func isDatasetID(output string) bool {
+	return datasetIDRegex.MatchString(output)
 }

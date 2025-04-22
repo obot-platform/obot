@@ -6,6 +6,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/gptscript-ai/go-gptscript"
 	"github.com/obot-platform/nah/pkg/name"
 	"github.com/obot-platform/nah/pkg/router"
 	"github.com/obot-platform/obot/apiclient/types"
@@ -18,12 +19,14 @@ import (
 )
 
 type Handler struct {
-	invoker *invoke.Invoker
+	invoker         *invoke.Invoker
+	gptscriptClient *gptscript.GPTScript
 }
 
-func New(invoker *invoke.Invoker) *Handler {
+func New(invoker *invoke.Invoker, gptscriptClient *gptscript.GPTScript) *Handler {
 	return &Handler{
-		invoker: invoker,
+		invoker:         invoker,
+		gptscriptClient: gptscriptClient,
 	}
 }
 
