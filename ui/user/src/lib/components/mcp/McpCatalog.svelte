@@ -19,7 +19,7 @@
 	let { inline = false, mcps, onSubmitMcp, submitText, selectedMcpIds }: Props = $props();
 	let dialog: HTMLDialogElement | undefined = $state();
 
-	const ITEMS_PER_PAGE = 30;
+	const ITEMS_PER_PAGE = 36;
 	let currentPage = $state(1);
 	const totalPages = $derived(Math.ceil(mcps.length / ITEMS_PER_PAGE));
 	const paginatedMcps = $derived(
@@ -74,13 +74,18 @@
 	const categories = [
 		'Popular',
 		'Featured',
+		'Cloud Platforms',
+		'Security & Compliance',
+		'Developer Tools',
+		'TypeScript',
+		'Python',
+		'Go',
+		'Art & Culture',
 		'Analytics & Data',
 		'E-commerce',
 		'Marketing & Social Media',
 		'Productivity',
-		'Education',
-		'Health & Fitness',
-		'Security & Compliance'
+		'Education'
 	];
 </script>
 
@@ -100,7 +105,7 @@
 		<div class="mt-4 flex w-full flex-col items-center justify-center gap-2 px-4 py-4">
 			<h2 class="text-3xl font-semibold md:text-4xl">MCP Servers</h2>
 			<p class="mb-8 max-w-full text-center text-base font-light md:max-w-md">
-				Browse over evergrowing catalog of MCP servers and find the perfect one to set up your Obot
+				Browse over evergrowing catalog of MCP servers and find the perfect one to set up your agent
 				with.
 			</p>
 		</div>
@@ -132,7 +137,7 @@
 					onChange={(val) => {
 						search = val;
 					}}
-					placeholder="Search toolsets..."
+					placeholder="Search MCP Servers..."
 				/>
 				<button
 					class="icon-button flex-shrink-0"

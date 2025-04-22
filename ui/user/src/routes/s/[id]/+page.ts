@@ -13,9 +13,9 @@ export const load: PageLoad = async ({ params, fetch }) => {
 	}
 
 	// If the user received projectID containing the params.id / shareID,
-	// they're receiving their obot instance project ID
+	// they're receiving their agent instance project ID
 	if (share?.projectID.split('-').includes(params.id)) {
-		// redirect to their obot instance project
+		// redirect to their agent instance project
 		throw redirect(303, `/o/${share?.projectID}`);
 	}
 

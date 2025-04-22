@@ -2,7 +2,17 @@
 	import ProfileIcon from '$lib/components/profile/ProfileIcon.svelte';
 	import { profile, responsive, darkMode } from '$lib/stores';
 	import Menu from '$lib/components/navbar/Menu.svelte';
-	import { Book, LayoutDashboard, User, LogOut, Moon, Sun } from 'lucide-svelte/icons';
+	import {
+		Book,
+		LayoutDashboard,
+		User,
+		LogOut,
+		Moon,
+		Sun,
+		MessageCircle,
+		Server,
+		Bot
+	} from 'lucide-svelte/icons';
 	import { twMerge } from 'tailwind-merge';
 </script>
 
@@ -51,6 +61,11 @@
 	{/snippet}
 	{#snippet body()}
 		<div class="flex flex-col gap-2 px-2 pb-4">
+			{#if responsive.isMobile && profile.current.email}
+				<button class="link"><MessageCircle class="size-4" /> Chat</button>
+				<a class="link" href="/agents"><Bot class="size-4" /> Agent Catalog</a>
+				<a class="link" href="/catalog"><Server class="size-4" /> MCP Servers</a>
+			{/if}
 			{#if profile.current.role === 1}
 				<a href="/admin/" rel="external" role="menuitem" class="link"
 					><LayoutDashboard class="size-4" />Admin Dashboard</a

@@ -1,13 +1,7 @@
 <script lang="ts">
-	import { GripVertical, Plus, Trash2, X } from 'lucide-svelte';
+	import { GripVertical, Trash2, X } from 'lucide-svelte';
 	import General from '$lib/components/edit/General.svelte';
-	import {
-		type Project,
-		ChatService,
-		type AssistantTool,
-		type Assistant,
-		EditorService
-	} from '$lib/services';
+	import { type Project, ChatService, type AssistantTool, type Assistant } from '$lib/services';
 	import { onDestroy, onMount } from 'svelte';
 	import Instructions from '$lib/components/edit/Instructions.svelte';
 	import Interface from '$lib/components/edit/Interface.svelte';
@@ -22,12 +16,11 @@
 	import { slide } from 'svelte/transition';
 	import Files from '$lib/components/edit/Files.svelte';
 	import Tasks from '$lib/components/edit/Tasks.svelte';
-	import Profile from './navbar/Profile.svelte';
 	import EditorToggle from './navbar/EditorToggle.svelte';
 	import Projects from './navbar/Projects.svelte';
 	import { goto } from '$app/navigation';
 	import Sites from '$lib/components/edit/Sites.svelte';
-	import { errors, responsive, version } from '$lib/stores';
+	import { responsive, version } from '$lib/stores';
 	import { twMerge } from 'tailwind-merge';
 	import Slack from '$lib/components/slack/Slack.svelte';
 	import CustomTools from './edit/CustomTools.svelte';
@@ -45,7 +38,6 @@
 	let timer: number = 0;
 	let nav = $state<HTMLDivElement>();
 	let toDelete = $state<Project>();
-	let showAdvanced = $state(false);
 	const projectTools = getProjectTools();
 
 	async function updateProject() {
@@ -72,15 +64,6 @@
 		projectSaved = JSON.stringify(project);
 	}
 
-	async function createNew() {
-		try {
-			const project = await EditorService.createObot();
-			await goto(`/o/${project.id}?edit`);
-		} catch (error) {
-			errors.append((error as Error).message);
-		}
-	}
-
 	onDestroy(() => clearInterval(timer));
 
 	onMount(() => {
@@ -96,22 +79,17 @@
 </script>
 
 <div class="bg-surface1 flex size-full flex-col">
-	{#if layout.projectEditorOpen}
-		<!-- Header -->
-		<div
-			class="bg-surface1 relative z-40 flex h-16 w-full items-center justify-between gap-4 p-3 shadow-md md:gap-8"
-			transition:slide
-		>
-			<div class="flex shrink-0 items-center gap-2">
-				<a href="/catalog"
-					><img src="/user/images/obot-icon-blue.svg" class="h-8" alt="Obot icon" /></a
+	<div class="flex grow overflow-auto">
+		{#if layout.projectEditorOpen}
+			<!-- Left Nav -->
+			<div
+				bind:this={nav}
+				class="flex h-full w-screen flex-col overflow-hidden inset-shadow-xs md:w-1/4 md:min-w-[320px]"
+				transition:slide={responsive.isMobile ? { axis: 'y' } : { axis: 'x' }}
+			>
+				<div
+					class="bg-surface1 relative z-40 flex h-16 w-full items-center justify-between gap-4 p-3 pr-0 shadow-md"
 				>
-				{#if !responsive.isMobile}
-					<h1 class="text-xl font-semibold">Obot Editor</h1>
-				{/if}
-			</div>
-			<div class="flex grow items-center justify-center gap-2">
-				<div class="relative flex max-w-48 grow md:max-w-xs">
 					<Projects
 						{project}
 						onlyEditable={true}
@@ -124,72 +102,30 @@
 							)
 						}}
 					/>
+					<div class="flex items-center">
+						<EditorToggle />
+					</div>
 				</div>
-				<button
-					onclick={createNew}
-					class={twMerge(
-						!responsive.isMobile && 'button-small flex items-center gap-1 text-xs',
-						responsive.isMobile && 'icon-button bg-surface3'
-					)}
-				>
-					<Plus class="size-5" />
-					{responsive.isMobile ? '' : 'Create New Obot'}
-				</button>
-			</div>
-			<div class="flex items-center">
-				<EditorToggle />
-				{#if !responsive.isMobile}
-					<Profile />
-				{/if}
-			</div>
-		</div>
-	{/if}
-
-	<div class="flex grow overflow-auto">
-		{#if layout.projectEditorOpen}
-			<!-- Left Nav -->
-			<div
-				bind:this={nav}
-				class="flex h-full w-screen flex-col overflow-hidden inset-shadow-xs md:w-1/4 md:min-w-[320px]"
-				transition:slide={responsive.isMobile ? { axis: 'y' } : { axis: 'x' }}
-			>
 				<div class="default-scrollbar-thin flex grow flex-col">
 					<General bind:project />
 					<Instructions bind:project />
 					<Tools {onNewTools} />
 					<Knowledge {project} />
-
-					{#if showAdvanced}
-						<div class="flex flex-col" transition:slide>
-							{#if assistant?.websiteKnowledge?.siteTool}
-								<Sites {project} />
-							{/if}
-							{#if version.current.dockerSupported}
-								<CustomTools {project} />
-							{/if}
-							<Files
-								{project}
-								placeholder="A copy of each starter file will be added to every chat thread and task run when they're created."
-							/>
-							<Tasks {project} bind:currentThreadID />
-							<Slack {project} />
-							<Interface bind:project />
-							<Credentials {project} />
-							<Share {project} />
-						</div>
+					{#if assistant?.websiteKnowledge?.siteTool}
+						<Sites {project} />
 					{/if}
-
-					{#if project.editor}
-						<div class="mt-auto">
-							<button class="button-text" onclick={() => (showAdvanced = !showAdvanced)}>
-								<span
-									>{showAdvanced
-										? 'Collapse Advanced Options...'
-										: 'Show Advanced Options...'}</span
-								>
-							</button>
-						</div>
+					{#if version.current.dockerSupported}
+						<CustomTools {project} />
 					{/if}
+					<Files
+						{project}
+						placeholder="A copy of each starter file will be added to every chat thread and task run when they're created."
+					/>
+					<Tasks {project} bind:currentThreadID />
+					<Slack {project} />
+					<Interface bind:project />
+					<Credentials {project} />
+					<Share {project} />
 				</div>
 				<div class="bg-surface1 flex justify-between p-2">
 					<button class="button flex items-center gap-1 text-sm" onclick={() => copy()}>
@@ -238,7 +174,7 @@
 </div>
 
 <Confirm
-	msg={`${project.editor ? 'Delete' : 'Remove'} the current Obot?`}
+	msg={`${project.editor ? 'Delete' : 'Remove'} the current agent?`}
 	show={!!toDelete}
 	onsuccess={async () => {
 		if (!toDelete) return;

@@ -9,11 +9,13 @@ export const load: PageLoad = async ({ fetch }) => {
 		return {
 			authProviders: [],
 			tools: [],
-			mcps: []
+			mcps: [],
+			featuredAgents: []
 		};
 	}
 
 	const authProviders = await ChatService.listAuthProviders({ fetch });
+	const featuredAgents = (await ChatService.listProjectShares({ fetch })).items;
 	const mcps = await ChatService.listMCPs({ fetch });
 	let editorProjects: Project[] = [];
 
@@ -35,6 +37,7 @@ export const load: PageLoad = async ({ fetch }) => {
 	return {
 		isNew: editorProjects.length === 0,
 		authProviders,
-		mcps
+		mcps,
+		featuredAgents
 	};
 };

@@ -64,8 +64,8 @@
 				</div>
 			{/if}
 			<p class="text-sm">
-				<b>Anyone with this link</b> can use this Obot, which includes <b>any credentials</b> assigned
-				to this Obot.
+				<b>Anyone with this link</b> can use this agent, which includes <b>any credentials</b> assigned
+				to this agent.
 			</p>
 			<div class="flex gap-1">
 				<CopyButton text={url} />

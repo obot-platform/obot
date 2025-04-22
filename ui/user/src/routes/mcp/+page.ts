@@ -1,4 +1,4 @@
-import { EditorService, type Project } from '$lib/services';
+import { ChatService, EditorService, type Project } from '$lib/services';
 import type { PageLoad } from './$types';
 import { redirect } from '@sveltejs/kit';
 
@@ -7,9 +7,11 @@ export const load: PageLoad = async ({ url, fetch }) => {
 	let project: Project;
 	try {
 		project = await EditorService.createObot({ fetch });
-		// Redirect to the new Obot with the mcp parameter if provided
-		const redirectUrl = mcpId ? `/o/${project.id}?mcp=${mcpId}` : `/o/${project.id}`;
-		throw redirect(303, redirectUrl);
+
+		if (mcpId) {
+			await ChatService.configureProjectMCP(project.assistantID, project.id, mcpId, { fetch });
+		}
+		throw redirect(303, `/o/${project.id}`);
 	} catch (err) {
 		if (!(err instanceof Error)) {
 			throw err;

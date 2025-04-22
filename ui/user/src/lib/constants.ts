@@ -20,3 +20,11 @@ export const MCP_LIST_ORDER = [
 	'wordpress-bundle',
 	'github-bundle'
 ];
+
+export const FEATURED_AGENT_PREFERRED_ORDER = [
+	'google productivity assistant',
+	'microsoft productivity assistant',
+	'github productivity assistant',
+	'wordpress blog assistant',
+	'smartthings helper'
+];
