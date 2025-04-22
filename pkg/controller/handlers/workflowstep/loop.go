@@ -150,8 +150,8 @@ func dataPrompt(description, fileName string) string {
 	%q
 
 	If the data is not already available in the chat history, call any tools you need in order to find it.
-	If you find a dataset ID (begins with gds://), call the loop-data tool with it as the dataset_id argument.
-	If you do not find a dataset ID, create a JSON list of strings and call the loop-data tool with it as the data_list argument.
+	If the data includes a dataset ID (begins with gds://), call the loop-data tool with it as the dataset_id argument.
+	If you do not find a dataset ID, create a JSON list of strings with the relevant data and call the loop-data tool with it as the data_list argument.
 
 	When you call the loop-data tool, include %s as the file_name argument.
 	`, description, fileName)
