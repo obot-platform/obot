@@ -47,7 +47,6 @@
 			: ''
 	);
 	let fullWidth = !msg.sent && !msg.oauthURL && !msg.tool;
-	let showBubble = msg.sent;
 	let isPrompt = msg.fields && msg.promptId;
 	let renderMarkdown = !msg.sent && !msg.oauthURL && !msg.tool;
 	let shell = $state({
@@ -289,10 +288,8 @@
 
 {#snippet messageBody()}
 	<div
-		class:flex={showBubble}
-		class:contents={!showBubble}
 		class:message-content={renderMarkdown}
-		class="bg-gray-70 flex w-full flex-col rounded-2xl px-6 py-3 text-black dark:bg-gray-950 dark:text-white"
+		class="bg-gray-70 flex max-h-[50vh] w-full flex-col overflow-auto rounded-2xl px-6 py-3 text-black dark:bg-gray-950 dark:text-white"
 	>
 		{#if clearable}
 			<button
