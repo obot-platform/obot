@@ -175,7 +175,7 @@
 			</div>
 			<div class="grid grid-cols-1 gap-4 px-4 pt-2 md:grid-cols-2 md:px-12 xl:grid-cols-3">
 				{#if search}
-					{#each searchResults as mcp}
+					{#each searchResults as mcp (mcp.id)}
 						<McpCard
 							{mcp}
 							onSubmit={() => onSubmitMcp?.(mcp)}
@@ -184,7 +184,7 @@
 						/>
 					{/each}
 				{:else}
-					{#each paginatedMcps as mcp}
+					{#each paginatedMcps as mcp (mcp.id)}
 						<McpCard
 							{mcp}
 							onSubmit={() => onSubmitMcp?.(mcp)}
@@ -202,7 +202,7 @@
 						onclick={prevPage}
 					>
 						<ChevronLeft class="size-4" />
-						<span>Previous</span>
+						Previous
 					</button>
 					<span class="text-sm">
 						Page {currentPage} of {totalPages}
@@ -212,7 +212,7 @@
 						disabled={currentPage === totalPages}
 						onclick={nextPage}
 					>
-						<span>Next</span>
+						Next
 						<ChevronRight class="size-4" />
 					</button>
 				</div>
