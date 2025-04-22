@@ -99,6 +99,8 @@ func (h *Handler) RunLoop(req router.Request, _ router.Response) (err error) {
 	rootStep.Status.State = types.WorkflowStateComplete
 	rootStep.Status.LastRunName = runName
 
+	// We ignore the error here because it does not really matter if we fail to delete the file.
+	// We're just making a best effort to clean up after ourselves.
 	_ = h.gptscriptClient.DeleteFileInWorkspace(req.Ctx, fileName, gptscript.DeleteFileInWorkspaceOptions{
 		WorkspaceID: workspaceID,
 	})
@@ -186,7 +188,7 @@ func (h *Handler) getDataStepResult(ctx context.Context, client kclient.Client, 
 		return "", nil, false, err
 	}
 
-	if isDatasetID(string(content)) {
+	if isDatasetID(content) {
 		// We use the dataset package rather than making SDK calls because it is more direct and more performant.
 		// All that the SDK calls do is call out to a daemon tool that runs the same library code that we are referencing here.
 		datasetManager, err := dataset.NewManager(thread.Status.WorkspaceID)
@@ -211,6 +213,6 @@ func (h *Handler) getDataStepResult(ctx context.Context, client kclient.Client, 
 	return thread.Status.WorkspaceID, data, false, nil
 }
 
-func isDatasetID(output string) bool {
-	return datasetIDRegex.MatchString(output)
+func isDatasetID(output []byte) bool {
+	return datasetIDRegex.Match(output)
 }
