@@ -332,7 +332,7 @@ func (h *Handler) createMCPServerCatalog(req router.Request, toolRef *v1.ToolRef
 	}
 
 	serverManifest := types.MCPServerManifest{
-		Name:        toolRef.Name,
+		Name:        toolRef.Status.Tool.Name,
 		Description: toolRef.Status.Tool.Description,
 		Icon:        toolRef.Status.Tool.Metadata["icon"],
 	}
