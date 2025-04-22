@@ -5,11 +5,21 @@ import (
 	"time"
 
 	"github.com/obot-platform/obot/pkg/gateway/types"
+	"gorm.io/gorm"
 )
+
+func (c *Client) UpsertTokenUsage(ctx context.Context, activity *types.RunTokenActivity) error {
+	return c.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if activity.ID == 0 {
+			return tx.Create(activity).Error
+		}
+		return tx.Updates(activity).Error
+	})
+}
 
 func (c *Client) TokenUsageForUser(ctx context.Context, userID string, start, end time.Time) ([]types.RunTokenActivity, error) {
 	var activities []types.RunTokenActivity
-	return activities, c.db.WithContext(ctx).Model(new(types.RunState)).Where("user_id = ?", userID).Where("created_at >= ? AND created_at < ?", start, end).Order("created_at DESC").Find(&activities).Error
+	return activities, c.db.WithContext(ctx).Where("user_id = ?", userID).Where("created_at >= ? AND created_at < ?", start, end).Order("created_at DESC").Find(&activities).Error
 }
 
 func (c *Client) TotalTokenUsageForUser(ctx context.Context, userID string, start, end time.Time) (types.TokenActivity, error) {
@@ -31,8 +41,8 @@ func (c *Client) TokenUsageByUser(ctx context.Context, start, end time.Time) ([]
 
 func (c *Client) tokenUsageByUser(ctx context.Context, userID string, start, end time.Time) ([]types.TokenActivity, error) {
 	var activities []types.TokenActivity
-	db := c.db.WithContext(ctx).Model(new(types.RunState)).
-		Select("user_id, COUNT(name) as run_count, SUM(prompt_tokens) as prompt_tokens, SUM(completion_tokens) as completion_tokens, SUM(total_tokens) as total_tokens, MIN(created_at) as created_at").
+	db := c.db.WithContext(ctx).Model(new(types.RunTokenActivity)).
+		Select("user_id, COUNT(name) as run_count, SUM(prompt_tokens) as prompt_tokens, SUM(completion_tokens) as completion_tokens, SUM(total_tokens) as total_tokens").
 		Where("created_at >= ? AND created_at < ?", start, end)
 	if userID != "" {
 		db = db.Where("user_id = ?", userID)

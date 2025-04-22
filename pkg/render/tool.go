@@ -101,7 +101,7 @@ END INSTRUCTIONS: TOOL %q`, tool.Spec.Manifest.Name, tool.Spec.Manifest.Context,
 
 func tool(ctx context.Context, c client.Client, ns, name string) (string, []gptscript.ToolDef, error) {
 	if !system.IsToolID(name) {
-		name, err := resolveToolReferenceWithMetadata(ctx, c, types.ToolReferenceTypeTool, ns, name)
+		name, err := ResolveToolReference(ctx, c, types.ToolReferenceTypeTool, ns, name)
 		return name, nil, err
 	}
 

@@ -35,6 +35,7 @@ func ConvertAPIActivity(a APIActivity) types2.APIActivity {
 }
 
 type RunTokenActivity struct {
+	ID               uint
 	CreatedAt        time.Time
 	Name             string
 	UserID           string

@@ -55,11 +55,6 @@ func IsValidToolType(toolType types.ToolType) error {
 }
 
 func ResolveToolReference(ctx context.Context, c kclient.Client, toolRefType types.ToolReferenceType, ns, name string) (string, error) {
-	name, err := resolveToolReferenceWithMetadata(ctx, c, toolRefType, ns, name)
-	return name, err
-}
-
-func resolveToolReferenceWithMetadata(ctx context.Context, c kclient.Client, toolRefType types.ToolReferenceType, ns, name string) (string, error) {
 	if IsExternalTool(name) {
 		return name, nil
 	}

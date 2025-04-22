@@ -64,6 +64,7 @@ func (db *DB) AutoMigrate() (err error) {
 		types.Image{},
 		types.RunState{},
 		types.FileScannerConfig{},
+		types.RunTokenActivity{},
 	)
 }
 

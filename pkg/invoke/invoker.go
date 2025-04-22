@@ -709,40 +709,37 @@ func (i *Invoker) Resume(ctx context.Context, c kclient.WithWatch, thread *v1.Th
 	return i.stream(ctx, c, thread, run, runResp)
 }
 
-func (i *Invoker) saveState(ctx context.Context, c kclient.Client, thread *v1.Thread, run *v1.Run, runResp *gptscript.Run, retErr error) error {
+func (i *Invoker) saveState(ctx context.Context, c kclient.Client, thread *v1.Thread, run *v1.Run, runResp *gptscript.Run, tokenStats *gtypes.RunTokenActivity, retErr error) error {
+	errs := []error{retErr}
+
+	if err := i.saveTokenStats(ctx, tokenStats, runResp); err != nil {
+		errs = append(errs, err)
+	}
+
 	if isEphemeral(run) {
 		// Ephemeral run, don't save state
-		return retErr
+		return errors.Join(errs...)
 	}
 
 	var err error
 	for j := 0; j < 3; j++ {
 		err = i.doSaveState(ctx, c, thread, run, runResp, retErr)
 		if err == nil {
-			return retErr
+			return errors.Join(errs...)
 		}
 		if !apierror.IsConflict(err) {
-			if retErr != nil && err.Error() == retErr.Error() {
-				return err
-			}
-			return errors.Join(err, retErr)
+			return errors.Join(append(errs, err)...)
 		}
 		// reload
 		if err = c.Get(ctx, router.Key(run.Namespace, run.Name), run); err != nil {
-			if retErr != nil && err.Error() == retErr.Error() {
-				return err
-			}
-			return errors.Join(err, retErr)
+			return errors.Join(append(errs, err)...)
 		}
 		if err = c.Get(ctx, router.Key(thread.Namespace, thread.Name), thread); err != nil {
-			if retErr != nil && err.Error() == retErr.Error() {
-				return err
-			}
-			return errors.Join(err, retErr)
+			return errors.Join(append(errs, err)...)
 		}
 		time.Sleep(500 * time.Millisecond)
 	}
-	if combinedError := errors.Join(err, retErr); combinedError != nil {
+	if combinedError := errors.Join(append(errs, err)...); combinedError != nil {
 		return fmt.Errorf("failed to save state after 3 retries: %w", combinedError)
 	}
 	return retErr
@@ -754,17 +751,12 @@ func (i *Invoker) doSaveState(ctx context.Context, c kclient.Client, thread *v1.
 		extCall      *v1.ExternalCall
 		runChanged   bool
 		err          error
-
-		usage = runResp.Usage()
 	)
 
 	runStateSpec.Name = run.Name
 	runStateSpec.Namespace = run.Namespace
 	runStateSpec.UserID = thread.Spec.UserID
 	runStateSpec.ThreadName = run.Spec.ThreadName
-	runStateSpec.PromptTokens = usage.PromptTokens
-	runStateSpec.CompletionTokens = usage.CompletionTokens
-	runStateSpec.TotalTokens = usage.TotalTokens
 	runStateSpec.Done = runResp.State().IsTerminal() || runResp.State() == gptscript.Continue
 	if retErr != nil {
 		runStateSpec.Error = retErr.Error()
@@ -807,19 +799,16 @@ func (i *Invoker) doSaveState(ctx context.Context, c kclient.Client, thread *v1.
 	runState, err := i.gatewayClient.RunState(ctx, run.Namespace, run.Name)
 	if apierror.IsNotFound(err) {
 		runState = &gtypes.RunState{
-			UserID:           thread.Spec.UserID,
-			Name:             run.Name,
-			Namespace:        run.Namespace,
-			ThreadName:       runStateSpec.ThreadName,
-			Program:          runStateSpec.Program,
-			ChatState:        runStateSpec.ChatState,
-			CallFrame:        runStateSpec.CallFrame,
-			Output:           runStateSpec.Output,
-			Done:             runStateSpec.Done,
-			Error:            runStateSpec.Error,
-			PromptTokens:     runStateSpec.PromptTokens,
-			CompletionTokens: runStateSpec.CompletionTokens,
-			TotalTokens:      runStateSpec.TotalTokens,
+			UserID:     thread.Spec.UserID,
+			Name:       run.Name,
+			Namespace:  run.Namespace,
+			ThreadName: runStateSpec.ThreadName,
+			Program:    runStateSpec.Program,
+			ChatState:  runStateSpec.ChatState,
+			CallFrame:  runStateSpec.CallFrame,
+			Output:     runStateSpec.Output,
+			Done:       runStateSpec.Done,
+			Error:      runStateSpec.Error,
 		}
 		if err = i.gatewayClient.CreateRunState(ctx, runState); err != nil {
 			return err
@@ -830,10 +819,7 @@ func (i *Invoker) doSaveState(ctx context.Context, c kclient.Client, thread *v1.
 		if !bytes.Equal(runState.CallFrame, runStateSpec.CallFrame) ||
 			!bytes.Equal(runState.ChatState, runStateSpec.ChatState) ||
 			runState.Done != runStateSpec.Done ||
-			runState.Error != runStateSpec.Error ||
-			runState.PromptTokens != runStateSpec.PromptTokens ||
-			runState.CompletionTokens != runStateSpec.CompletionTokens ||
-			runState.TotalTokens != runStateSpec.TotalTokens {
+			runState.Error != runStateSpec.Error {
 			*runState = runStateSpec
 			if err = i.gatewayClient.UpdateRunState(ctx, runState); err != nil {
 				return err
@@ -935,8 +921,25 @@ func (i *Invoker) doSaveState(ctx context.Context, c kclient.Client, thread *v1.
 		}
 	}
 
-	return retErr
+	return nil
 }
+
+func (i *Invoker) saveTokenStats(ctx context.Context, tokenStats *gtypes.RunTokenActivity, runResp *gptscript.Run) error {
+	usage := runResp.Usage()
+	if tokenStats.ID == 0 ||
+		tokenStats.PromptTokens != usage.PromptTokens ||
+		tokenStats.CompletionTokens != usage.CompletionTokens ||
+		tokenStats.TotalTokens != usage.TotalTokens {
+		tokenStats.PromptTokens = usage.PromptTokens
+		tokenStats.CompletionTokens = usage.CompletionTokens
+		tokenStats.TotalTokens = usage.TotalTokens
+
+		return i.gatewayClient.UpsertTokenUsage(ctx, tokenStats)
+	}
+
+	return nil
+}
+
 func toExternalCall(output string) *v1.ExternalCall {
 	var call v1.ExternalCall
 	if err := json.Unmarshal([]byte(strings.TrimSpace(output)), &call); err != nil || call.Type != "obotExternalCall" || call.ID == "" {
@@ -966,11 +969,16 @@ func (i *Invoker) stream(ctx context.Context, c kclient.WithWatch, thread *v1.Th
 	thread = thread.DeepCopyObject().(*v1.Thread)
 	run = run.DeepCopyObject().(*v1.Run)
 
+	tokenStats := &gtypes.RunTokenActivity{
+		UserID: thread.Spec.UserID,
+		Name:   run.Name,
+	}
+
 	defer func() {
 		// Don't use parent context because it may be canceled and we still want to save the state
 		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 		defer cancel()
-		retErr = i.saveState(ctx, c, thread, run, runResp, retErr)
+		retErr = i.saveState(ctx, c, thread, run, runResp, tokenStats, retErr)
 		if retErr != nil {
 			log.Errorf("failed to save state: %v", retErr)
 		}
@@ -989,7 +997,7 @@ func (i *Invoker) stream(ctx context.Context, c kclient.WithWatch, thread *v1.Th
 			case <-saveCtx.Done():
 				return
 			case <-time.After(time.Second):
-				_ = i.saveState(ctx, c, thread, run, runResp, nil)
+				_ = i.saveState(ctx, c, thread, run, runResp, tokenStats, nil)
 			}
 		}
 	}()
