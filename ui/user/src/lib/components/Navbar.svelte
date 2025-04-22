@@ -30,7 +30,9 @@
 				<EditorToggle />
 			{/if}
 			{#if !layout.projectEditorOpen}
-				<Profile />
+				<div>
+					<Profile />
+				</div>
 			{/if}
 		</div>
 	</div>
