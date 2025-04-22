@@ -66,7 +66,9 @@
 						mcpConfigDialog?.open();
 					}}
 				>
-					<img src={mcp.icon} class="size-4" alt={mcp.name} />
+					<div class="rounded-md bg-gray-50 p-1 dark:bg-gray-600">
+						<img src={mcp.icon} class="size-4" alt={mcp.name} />
+					</div>
 					<p class="w-[calc(100%-24px)] truncate text-left text-xs font-light">{mcp.name}</p>
 				</button>
 				<button

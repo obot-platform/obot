@@ -49,7 +49,7 @@
 			if (disableOutsideClick) return;
 			dialog?.close();
 		}}
-		class="default-dialog default-scrollbar-thin w-full p-4 sm:max-w-lg md:p-8"
+		class="default-dialog default-scrollbar-thin w-full p-4 sm:max-w-lg md:p-6"
 		class:mobile-screen-dialog={responsive.isMobile}
 	>
 		{#if !hideCloseButton}
@@ -62,12 +62,14 @@
 			</button>
 		{/if}
 		<div class="flex h-full flex-col">
-			<div class="flex max-w-sm gap-4">
-				<img
-					src={'server' in mcp ? mcp.server.icon : mcp.icon}
-					alt={'server' in mcp ? mcp.server.name : mcp.name}
-					class="size-8"
-				/>
+			<div class="flex max-w-sm gap-3">
+				<div class="rounded-md bg-gray-50 p-1 dark:bg-gray-600">
+					<img
+						src={'server' in mcp ? mcp.server.icon : mcp.icon}
+						alt={'server' in mcp ? mcp.server.name : mcp.name}
+						class="size-6"
+					/>
+				</div>
 				<div class="flex flex-col justify-center">
 					<h3 class="text-lg font-semibold">{'server' in mcp ? mcp.server.name : mcp.name}</h3>
 					<!--

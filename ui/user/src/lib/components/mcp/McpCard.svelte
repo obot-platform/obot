@@ -38,7 +38,9 @@
 	>
 		<div class="flex h-fit w-full flex-col gap-2 p-4 md:h-auto md:grow">
 			<div class="flex w-full items-center gap-2">
-				<img alt="obot logo" src={mcp.server.icon} class="size-6" />
+				<div class="rounded-md bg-gray-50 p-1 dark:bg-gray-600">
+					<img alt="obot logo" src={mcp.server.icon} class="size-6" />
+				</div>
 				<h4 class="text-sm font-semibold">
 					{mcp.server.name}
 				</h4>
