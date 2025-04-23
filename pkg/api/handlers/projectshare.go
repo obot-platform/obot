@@ -278,11 +278,6 @@ func (h *ProjectShareHandler) GetShareFromShareID(req api.Context) error {
 
 	threadShare := threadShareList.Items[0]
 
-	// Get the original project to check ownership
-	if err := req.Get(&baseProject, threadShare.Spec.ProjectThreadName); err != nil {
-		return err
-	}
-
 	// Checking if user has a project created from this share
 	if err := req.Get(&baseProject, id); err == nil {
 		// User does have a project instance, include its ID in the response
