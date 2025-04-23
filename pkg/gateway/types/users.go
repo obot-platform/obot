@@ -23,9 +23,11 @@ type User struct {
 	IconURL        string      `json:"iconURL"`
 	Timezone       string      `json:"timezone"`
 	// LastActiveDay is the time of the last request made by this user, currently at the 24 hour granularity.
-	LastActiveDay time.Time `json:"lastActiveDay"`
-	Internal      bool      `json:"internal" gorm:"default:false"`
-	Encrypted     bool      `json:"encrypted"`
+	LastActiveDay              time.Time `json:"lastActiveDay"`
+	Internal                   bool      `json:"internal" gorm:"default:false"`
+	DailyPromptTokensLimit     int       `json:"dailyPromptTokensLimit"`
+	DailyCompletionTokensLimit int       `json:"dailyCompletionTokensLimit"`
+	Encrypted                  bool      `json:"encrypted"`
 }
 
 func ConvertUser(u *User, roleFixed bool, authProviderName string) *types2.User {
@@ -38,15 +40,17 @@ func ConvertUser(u *User, roleFixed bool, authProviderName string) *types2.User 
 			ID:      fmt.Sprint(u.ID),
 			Created: *types2.NewTime(u.CreatedAt),
 		},
-		Username:            u.Username,
-		Email:               u.Email,
-		Role:                u.Role,
-		ExplicitAdmin:       roleFixed,
-		IconURL:             u.IconURL,
-		Timezone:            u.Timezone,
-		CurrentAuthProvider: authProviderName,
-		LastActiveDay:       *types2.NewTime(u.LastActiveDay),
-		Internal:            u.Internal,
+		Username:                   u.Username,
+		Email:                      u.Email,
+		Role:                       u.Role,
+		ExplicitAdmin:              roleFixed,
+		IconURL:                    u.IconURL,
+		Timezone:                   u.Timezone,
+		CurrentAuthProvider:        authProviderName,
+		LastActiveDay:              *types2.NewTime(u.LastActiveDay),
+		Internal:                   u.Internal,
+		DailyPromptTokensLimit:     u.DailyPromptTokensLimit,
+		DailyCompletionTokensLimit: u.DailyCompletionTokensLimit,
 	}
 }
 

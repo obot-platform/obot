@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	types2 "github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/gateway/types"
 	"gorm.io/gorm"
 )
@@ -37,6 +38,53 @@ func (c *Client) TotalTokenUsageForUser(ctx context.Context, userID string, star
 
 func (c *Client) TokenUsageByUser(ctx context.Context, start, end time.Time) ([]types.TokenActivity, error) {
 	return c.tokenUsageByUser(ctx, "", start, end)
+}
+
+func (c *Client) RemainingTokenUsageForUser(ctx context.Context, userID string, period time.Duration, promptTokenLimit, completionTokenLimit int) (int, int, error) {
+	// Check if both "limits" are less than or equal to 0. If so, then the user has unlimited tokens.
+	if promptTokenLimit <= 0 && completionTokenLimit <= 0 {
+		return 1, 1, nil
+	}
+
+	user, err := c.UserByID(ctx, userID)
+	if err != nil {
+		return 0, 0, err
+	}
+
+	if user.Role.HasRole(types2.RoleAdmin) {
+		// Admins always have unlimited tokens.
+		return promptTokenLimit, completionTokenLimit, nil
+	}
+
+	// If the user has unlimited tokens (specified by a negative limit on the user object),
+	// then set the limit to 0 here. The logic below will make it such that the user will always
+	// have available tokens.
+	if user.DailyPromptTokensLimit < 0 {
+		promptTokenLimit = 0
+	}
+	if user.DailyCompletionTokensLimit < 0 {
+		completionTokenLimit = 0
+	}
+
+	// If both "limits" are less than or equal to 0. If so, then the user has unlimited tokens.
+	if promptTokenLimit <= 0 && completionTokenLimit <= 0 {
+		return 1, 1, nil
+	}
+
+	end := time.Now()
+	activity, err := c.tokenUsageByUser(ctx, userID, end.Add(-period), end)
+	if err != nil || len(activity) == 0 {
+		return promptTokenLimit, completionTokenLimit, err
+	}
+
+	if promptTokenLimit == 0 {
+		promptTokenLimit = activity[0].PromptTokens + 1
+	}
+	if completionTokenLimit == 0 {
+		completionTokenLimit = activity[0].CompletionTokens + 1
+	}
+
+	return promptTokenLimit - activity[0].PromptTokens, completionTokenLimit - activity[0].CompletionTokens, nil
 }
 
 func (c *Client) tokenUsageByUser(ctx context.Context, userID string, start, end time.Time) ([]types.TokenActivity, error) {

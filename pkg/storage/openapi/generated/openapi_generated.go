@@ -5584,6 +5584,18 @@ func schema_obot_platform_obot_apiclient_types_User(ref common.ReferenceCallback
 							Format: "",
 						},
 					},
+					"dailyPromptTokensLimit": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"integer"},
+							Format: "int32",
+						},
+					},
+					"dailyCompletionTokensLimit": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"integer"},
+							Format: "int32",
+						},
+					},
 				},
 				Required: []string{"Metadata", "lastActiveDay"},
 			},
