@@ -382,7 +382,7 @@
 		<p class="p-0 text-xs font-semibold">{title}</p>
 		<pre
 			transition:slide={{ duration: 300 }}
-			class="default-scrollbar-thin bg-surface1 max-h-[300px] w-fit max-w-full overflow-auto rounded-lg px-4 py-2 text-xs break-all whitespace-pre-wrap">{@html formatJson(
+			class="default-scrollbar-thin bg-surface1 max-h-[300px] w-fit max-w-full overflow-auto rounded-lg px-4 py-2 text-xs break-all whitespace-pre-wrap text-black dark:text-white">{@html formatJson(
 				stringifiedJson ?? ''
 			)}</pre>
 	</div>
