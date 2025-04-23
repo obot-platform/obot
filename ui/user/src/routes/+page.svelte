@@ -218,22 +218,14 @@
 						{#each sortedFeaturedAgents.slice(0, 5) as project}
 							{@render featuredAgentCard(project)}
 						{/each}
-						<button
-							class="button-text w-full text-center transition-colors duration-300 hover:text-inherit"
-						>
-							Browse All Agents
-						</button>
+						{@render browseAllAgents()}
 					</div>
 					<div class="flex flex-col gap-3">
 						<h3 class="self-center text-lg font-semibold">MCP Servers</h3>
 						{#each sortedMcps.slice(0, 10) as mcp}
 							{@render featuredMcpCard(mcp)}
 						{/each}
-						<button
-							class="button-text w-full text-center transition-colors duration-300 hover:text-inherit"
-						>
-							Browse All MCP Servers
-						</button>
+						{@render browseAllMcpServers()}
 					</div>
 				</div>
 			{:else}
@@ -246,9 +238,7 @@
 									{@render featuredAgentCard(project)}
 								{/each}
 							</div>
-							<button class="button-text transition-colors duration-300 hover:text-inherit">
-								Browse All Agents
-							</button>
+							{@render browseAllAgents()}
 						</div>
 						<div class="flex flex-1 flex-col items-center gap-4 pt-12 lg:flex-2">
 							<h3 class="flex w-full justify-center text-lg font-semibold">MCP Servers</h3>
@@ -264,9 +254,7 @@
 									{/each}
 								</div>
 							</div>
-							<button class="button-text transition-colors duration-300 hover:text-inherit">
-								Browse All MCP Servers
-							</button>
+							{@render browseAllMcpServers()}
 						</div>
 					</div>
 				</div>
@@ -338,6 +326,30 @@
 		</div>
 	</dialog>
 </div>
+
+{#snippet browseAllAgents()}
+	<button
+		onclick={() => {
+			overrideRedirect = `/agents`;
+			loginDialog?.showModal();
+		}}
+		class="button-text w-full text-center transition-colors duration-300 hover:text-inherit"
+	>
+		Browse All Agents
+	</button>
+{/snippet}
+
+{#snippet browseAllMcpServers()}
+	<button
+		onclick={() => {
+			overrideRedirect = `/catalog`;
+			loginDialog?.showModal();
+		}}
+		class="button-text w-full text-center transition-colors duration-300 hover:text-inherit"
+	>
+		Browse All MCP Servers
+	</button>
+{/snippet}
 
 {#snippet featuredAgentCard(project: ProjectShare)}
 	<button
