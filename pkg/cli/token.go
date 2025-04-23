@@ -20,6 +20,6 @@ func (t *Token) Run(cmd *cobra.Command, _ []string) error {
 	if err != nil {
 		return err
 	}
-	fmt.Printf("Your token: %s\n", token)
+	fmt.Println(token)
 	return nil
 }
