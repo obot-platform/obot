@@ -216,6 +216,7 @@
 					{#each step.loop! as _, i}
 						<div class="flex flex-col gap-2">
 							<div class="flex items-center gap-2">
+								{index + 1}.{i + 1}
 								<textarea
 									{onkeydown}
 									rows="1"
@@ -271,48 +272,46 @@
 											class="absolute inset-0 h-full w-full rounded-3xl bg-white opacity-80 dark:bg-black"
 										></div>
 									{/if}
-									{#if substepMessages[i].length > 1}
-										<div
-											class="absolute right-2 bottom-2 mb-2 flex items-center justify-end gap-1 p-2"
+									<div
+										class="absolute right-2 bottom-2 mb-2 flex items-center justify-end gap-1 p-2"
+									>
+										<button
+											onclick={() =>
+												paginationArr &&
+												(paginationArr[i] =
+													(paginationArr[i] - 1 + substepMessages[i].length) %
+													substepMessages[i].length)}
+											disabled={(paginationArr?.[i] ?? 0) === 0}
+											class="rounded-md p-1 opacity-100 hover:bg-gray-300 disabled:opacity-50"
 										>
-											<button
-												onclick={() =>
-													paginationArr &&
-													(paginationArr[i] =
-														(paginationArr[i] - 1 + substepMessages[i].length) %
-														substepMessages[i].length)}
-												disabled={(paginationArr?.[i] ?? 0) === 0}
-												class="rounded-md p-1 opacity-100 hover:bg-gray-300 disabled:opacity-50"
-											>
-												<ArrowLeft class="size-4" />
-											</button>
-											<select
-												onchange={(e) => {
-													if (e.target)
-														(paginationArr ??= [])[i] = Number(
-															(e.target as HTMLSelectElement).value
-														);
-												}}
-												class="flex appearance-none items-center justify-center border px-2 text-sm"
-												value={paginationArr?.[i]}
-											>
-												{#each substepMessages[i] as _, index}
-													<option value={index}>
-														{index + 1}
-													</option>
-												{/each}
-											</select>
-											<button
-												onclick={() =>
-													((paginationArr ??= [])[i] =
-														((paginationArr[i] ?? 0) + 1) % substepMessages[i].length)}
-												disabled={(paginationArr?.[i] ?? 0) === substepMessages[i].length - 1}
-												class="rounded-md p-1 opacity-100 hover:bg-gray-300 disabled:opacity-50"
-											>
-												<ArrowRight class="size-4" />
-											</button>
-										</div>
-									{/if}
+											<ArrowLeft class="size-4" />
+										</button>
+										<select
+											onchange={(e) => {
+												if (e.target)
+													(paginationArr ??= [])[i] = Number(
+														(e.target as HTMLSelectElement).value
+													);
+											}}
+											class="flex appearance-none items-center justify-center border px-2 text-sm"
+											value={paginationArr?.[i]}
+										>
+											{#each substepMessages[i] as _, index}
+												<option value={index}>
+													{index + 1}
+												</option>
+											{/each}
+										</select>
+										<button
+											onclick={() =>
+												((paginationArr ??= [])[i] =
+													((paginationArr[i] ?? 0) + 1) % substepMessages[i].length)}
+											disabled={(paginationArr?.[i] ?? 0) === substepMessages[i].length - 1}
+											class="rounded-md p-1 opacity-100 hover:bg-gray-300 disabled:opacity-50"
+										>
+											<ArrowRight class="size-4" />
+										</button>
+									</div>
 								</div>
 							{/if}
 						</div>
