@@ -8,6 +8,7 @@ permissions:
   security-events: write
 
 on:
+  workflow_dispatch:
   push:
     branches:
       - main
@@ -16,6 +17,7 @@ on:
     paths-ignore:
       - docs/**
       - chart/**
+      - .github/workflows/**
 
 jobs:
   oss-build:
