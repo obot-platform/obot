@@ -1,5 +1,4 @@
 <script lang="ts">
-	import CollapsePane from '$lib/components/edit/CollapsePane.svelte';
 	import type { Project } from '$lib/services';
 	import CopyButton from '$lib/components/CopyButton.svelte';
 	import {
@@ -13,6 +12,10 @@
 	import { responsive } from '$lib/stores';
 	import { getProjectTools } from '$lib/context/projectTools.svelte';
 	import { clickOutside } from '$lib/actions/clickoutside';
+	import Toggle from '../Toggle.svelte';
+	import { fade } from 'svelte/transition';
+	import { tooltip } from '$lib/actions/tooltip.svelte';
+	import { onMount } from 'svelte';
 	interface Props {
 		project: Project;
 	}
@@ -36,10 +39,8 @@
 	let dialog: HTMLDialogElement;
 	let confirmDisable: HTMLDialogElement;
 	let addSlackBotTool: HTMLDialogElement;
-	let redirectUrl = $derived(
-		`${window.location.protocol}//${window.location.host}/api/app-oauth/callback/oa1t1${project.id.slice(2, 8)}`
-	);
-	let eventUrl = `${window.location.protocol}//${window.location.host}/api/slack/events`;
+	let redirectUrl = $state('');
+	let eventUrl = $state('');
 	let config = $state({
 		appId: '',
 		clientId: '',
@@ -48,6 +49,11 @@
 	});
 	let slackEnabled = $derived(project.capabilities?.onSlackMessage);
 	let errorMessage = $state('');
+
+	$effect(() => {
+		redirectUrl = `${window.location.protocol}//${window.location.host}/api/app-oauth/callback/oa1t1${project.id.slice(2, 8)}`;
+		eventUrl = `${window.location.protocol}//${window.location.host}/api/slack/events`;
+	});
 
 	async function getSlackConfig() {
 		if (slackEnabled) {
@@ -62,7 +68,9 @@
 	}
 
 	$effect(() => {
-		getSlackConfig();
+		if (project) {
+			getSlackConfig();
+		}
 	});
 
 	async function handleSubmit() {
@@ -128,30 +136,39 @@
 	}
 </script>
 
-<CollapsePane header="Slack Integration">
-	<div class="flex w-full flex-col gap-4">
-		<p class="text-gray text-sm">
-			Enable this to trigger tasks from Slack messages that mention the slack bot you configured
-			with Obot.
-		</p>
-		<button
-			class="button flex items-center gap-1 self-end text-sm"
-			onclick={() => dialog.showModal()}
-		>
-			<div class="flex items-center gap-2">
-				{#if slackEnabled}
-					<div class="flex items-center gap-2 text-green-500">
-						<CheckCircle size={16} />
-						<span>Enabled</span>
-					</div>
-				{:else}
-					<Settings size={16} />
-					<span>Configure</span>
-				{/if}
-			</div>
-		</button>
+<div class="flex flex-col gap-2">
+	<div class="mb-1 flex items-center justify-between">
+		<div class="flex h-7 items-center gap-1">
+			<p class="grow text-sm font-semibold">Slack Integration</p>
+			{#if slackEnabled}
+				<button
+					class="icon-button min-h-auto min-w-auto p-1"
+					onclick={() => dialog.showModal()}
+					use:tooltip={'Modify Slack Integration'}
+					transition:fade
+				>
+					<Settings class="size-5" />
+				</button>
+			{/if}
+		</div>
+		<Toggle
+			label="Toggle Slack Integration"
+			checked={!!slackEnabled}
+			onChange={() => {
+				if (!slackEnabled) {
+					dialog.showModal();
+				} else {
+					disableSlack();
+				}
+			}}
+		/>
 	</div>
-</CollapsePane>
+	<!-- 
+	<p class="text-xs text-gray-500">
+		Enable this to trigger tasks from Slack messages that mention the slack bot you configured with
+		Obot.
+	</p> -->
+</div>
 
 <dialog
 	bind:this={dialog}

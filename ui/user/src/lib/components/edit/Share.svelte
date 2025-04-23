@@ -40,9 +40,9 @@
 		<div class="flex flex-col gap-4" in:fade>
 			<div class="flex items-center gap-2">
 				<span>Shared</span>
-				<Check class="h-5 w-5" />
+				<Check class="size-5" />
 				<button class="button" onclick={() => unShare()}>
-					<Trash2 class="h-4 w-4" />
+					<Trash2 class="size-4" />
 				</button>
 			</div>
 			{#if profile.current.isAdmin?.()}

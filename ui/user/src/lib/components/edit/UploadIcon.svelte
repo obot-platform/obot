@@ -29,7 +29,7 @@
 	});
 </script>
 
-<label class="icon-button flex flex-1 cursor-pointer items-center justify-center gap-2 py-2">
+<label class="icon-button flex cursor-pointer items-center justify-center gap-2 px-4 py-2">
 	{#await uploadInProgress}
 		<Loading class="h-5 w-5" />
 	{:catch error}

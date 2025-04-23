@@ -16,7 +16,7 @@
 
 <CollapsePane open>
 	{#snippet header()}
-		<span class="flex grow items-center gap-2 text-start text-base font-extralight">
+		<span class="flex grow items-center gap-2 text-start text-sm font-semibold">
 			General
 			{#if !project.editor}
 				<div use:tooltip={'Only the owner can modify this section.'}>

@@ -8,6 +8,7 @@
 
 	interface Props {
 		project: Project;
+		class?: string;
 	}
 
 	const DEFAULT_PROMPT =
@@ -80,7 +81,7 @@
 <div class="relative mt-2 flex flex-col gap-2">
 	<div class="border-surface3 flex rounded-lg border">
 		<button
-			class="icon-button border-surface3 flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-l-lg rounded-r-none border-r py-2"
+			class="icon-button border-surface3 dark:bg-surface1 hover:bg-surface2 flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-l-lg rounded-r-none border-r bg-white py-2"
 			onclick={() => (isCustomPrompt ? generateIcon(true) : generateIcon())}
 			disabled={isGenerating || (!project.description && !isCustomPrompt)}
 		>
@@ -95,7 +96,7 @@
 			{/if}
 		</button>
 		<button
-			class="icon-button flex items-center rounded-l-none rounded-r-lg px-2"
+			class="icon-button hover:bg-surface2 dark:bg-surface1 flex items-center rounded-l-none rounded-r-lg bg-white px-2 hover:shadow-inner"
 			onclick={() => (isCustomPrompt = !isCustomPrompt)}
 			disabled={isGenerating}
 		>
@@ -107,13 +108,13 @@
 		</button>
 	</div>
 	{#if isCustomPrompt}
-		<div in:fade class="border-surface3 bg-surface2 flex flex-col gap-2 border-b px-3 pt-4 pb-6">
+		<div in:fade class="border-surface3 flex flex-col gap-2 border-b pt-2 pb-4">
 			<textarea
 				bind:value={customPrompt}
 				use:autoHeight
 				use:focusTextarea
 				placeholder="Enter custom prompt for image generation..."
-				class="w-full resize-none rounded-lg bg-white p-2 text-sm outline-hidden dark:bg-black dark:text-gray-50"
+				class="dark:bg-surface1 w-full resize-none rounded-lg bg-white p-2 text-sm outline-hidden dark:text-gray-50"
 				rows="3"
 			></textarea>
 		</div>

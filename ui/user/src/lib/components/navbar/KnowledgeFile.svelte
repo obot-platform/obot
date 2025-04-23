@@ -1,7 +1,7 @@
 <script lang="ts">
 	import Loading from '$lib/icons/Loading.svelte';
 	import { type KnowledgeFile } from '$lib/services';
-	import { CircleX, FileText, Trash } from 'lucide-svelte/icons';
+	import { CircleX, FileText, Trash2 } from 'lucide-svelte/icons';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 
 	interface Props {
@@ -18,8 +18,8 @@
 		class="flex flex-1 items-center truncate"
 		use:tooltip={isError ? (file.error ?? 'Failed') : file.fileName}
 	>
-		<FileText class="size-5 min-w-fit" />
-		<span class="ms-3 truncate">{file.fileName}</span>
+		<FileText class="size-4 min-w-fit" />
+		<span class="ms-3 truncate text-sm">{file.fileName}</span>
 		{#if file.state === 'error' || file.state === 'failed'}
 			<CircleX class="ms-2 h-4 text-red-500" />
 		{:else if file.state === 'pending' || file.state === 'ingesting'}
@@ -35,6 +35,6 @@
 			}
 		}}
 	>
-		<Trash class="text-gray h-5 w-5" />
+		<Trash2 class="text-gray size-5" />
 	</button>
 </div>
