@@ -10,6 +10,7 @@ type ProjectShare struct {
 	Icons       *AgentIcons `json:"icons"`
 	Featured    bool        `json:"featured,omitempty"`
 	Tools       []string    `json:"tools,omitempty"`
+	Editor      bool        `json:"editor,omitempty"`
 }
 
 type ProjectShareManifest struct {

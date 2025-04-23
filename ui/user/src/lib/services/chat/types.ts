@@ -402,6 +402,7 @@ export interface ProjectShare {
 	icons?: AssistantIcons;
 	featured?: boolean;
 	tools?: string[];
+	editor?: boolean;
 }
 
 export interface ProjectShareList {

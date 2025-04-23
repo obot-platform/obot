@@ -205,6 +205,7 @@ func convertProjectShare(threadShare v1.ThreadShare) types.ProjectShare {
 		Description:          threadShare.Status.Description,
 		Icons:                threadShare.Status.Icons,
 		Tools:                threadShare.Status.Tools,
+		Editor:               threadShare.Spec.Editor,
 	}
 }
 func (h *ProjectShareHandler) CreateProjectFromShare(req api.Context) error {
@@ -277,11 +278,19 @@ func (h *ProjectShareHandler) GetShareFromShareID(req api.Context) error {
 
 	threadShare := threadShareList.Items[0]
 
+	// Get the original project to check ownership
+	if err := req.Get(&baseProject, threadShare.Spec.ProjectThreadName); err != nil {
+		return err
+	}
+
 	// Checking if user has a project created from this share
 	if err := req.Get(&baseProject, id); err == nil {
 		// User does have a project instance, include its ID in the response
 		threadShare.Spec.ProjectThreadName = id
 	}
+
+	// Set editor flag if user is the project owner
+	threadShare.Spec.Editor = baseProject.Spec.UserID == req.User.GetUID()
 
 	return req.Write(convertProjectShare(threadShare))
 }

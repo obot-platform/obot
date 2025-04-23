@@ -60,6 +60,7 @@ type ThreadShareSpec struct {
 	UserID            string                     `json:"userID,omitempty"`
 	ProjectThreadName string                     `json:"projectThreadName,omitempty"`
 	Featured          bool                       `json:"featured,omitempty"`
+	Editor            bool                       `json:"editor,omitempty"`
 }
 
 type ThreadShareStatus struct {

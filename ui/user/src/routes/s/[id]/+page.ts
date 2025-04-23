@@ -1,5 +1,5 @@
 import { handleRouteError } from '$lib/errors';
-import { ChatService, type Project, type ProjectShare } from '$lib/services';
+import { ChatService, type ProjectShare } from '$lib/services';
 import { profile } from '$lib/stores';
 import type { PageLoad } from './$types';
 import { redirect } from '@sveltejs/kit';
@@ -18,19 +18,9 @@ export const load: PageLoad = async ({ params, fetch }) => {
 		// redirect to their agent instance project
 		throw redirect(303, `/o/${share?.projectID}`);
 	}
-
-	let project: Project | null = null;
-	if (share?.projectID) {
-		try {
-			project = await ChatService.getProject(share.projectID, { fetch });
-		} catch (_error) {
-			// do nothing
-		}
-	}
-
 	return {
 		id: params.id,
 		featured: share?.featured ?? false,
-		isOwner: project?.editor ?? false
+		isOwner: share?.editor ?? false
 	};
 };
