@@ -16,6 +16,7 @@ import (
 	"github.com/obot-platform/nah/pkg/router"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/logger"
+	"github.com/obot-platform/obot/pkg/api/authz"
 	"github.com/obot-platform/obot/pkg/controller/handlers/retention"
 	"github.com/obot-platform/obot/pkg/events"
 	"github.com/obot-platform/obot/pkg/gateway/client"
@@ -596,6 +597,7 @@ func (i *Invoker) Resume(ctx context.Context, c kclient.WithWatch, thread *v1.Th
 	}
 
 	var userID, userName, userEmail, userTimezone string
+	var userGroups []string
 	if thread.Spec.UserID != "" && thread.Spec.UserID != "anonymous" && thread.Spec.UserID != "nobody" {
 		u, err := i.gatewayClient.UserByID(ctx, thread.Spec.UserID)
 		if err != nil {
@@ -603,6 +605,12 @@ func (i *Invoker) Resume(ctx context.Context, c kclient.WithWatch, thread *v1.Th
 		}
 
 		userID, userName, userEmail, userTimezone = thread.Spec.UserID, u.Username, u.Email, u.Timezone
+
+		// Add groups based on user's role
+		if u.Role.HasRole(types.RoleAdmin) {
+			userGroups = []string{authz.AdminGroup}
+		}
+		// Note: AuthenticatedGroup is added by default in the token service
 	}
 
 	token, err := i.tokenService.NewToken(jwt.TokenContext{
@@ -616,6 +624,7 @@ func (i *Invoker) Resume(ctx context.Context, c kclient.WithWatch, thread *v1.Th
 		UserID:         userID,
 		UserName:       userName,
 		UserEmail:      userEmail,
+		UserGroups:     userGroups,
 	})
 	if err != nil {
 		return err

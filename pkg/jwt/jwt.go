@@ -2,6 +2,7 @@ package jwt
 
 import (
 	"net/http"
+	"slices"
 	"strings"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -32,6 +33,7 @@ type TokenContext struct {
 	UserID         string
 	UserName       string
 	UserEmail      string
+	UserGroups     []string
 }
 
 type TokenService struct{}
@@ -42,13 +44,13 @@ func (t *TokenService) AuthenticateRequest(req *http.Request) (*authenticator.Re
 	if err != nil {
 		return nil, false, nil
 	}
+
+	groups := append([]string{authz.AuthenticatedGroup}, tokenContext.UserGroups...)
 	return &authenticator.Response{
 		User: &user.DefaultInfo{
-			UID:  tokenContext.UserID,
-			Name: tokenContext.Scope,
-			Groups: []string{
-				authz.AuthenticatedGroup,
-			},
+			UID:    tokenContext.UserID,
+			Name:   tokenContext.Scope,
+			Groups: groups,
 			Extra: map[string][]string{
 				"obot:runID":     {tokenContext.RunID},
 				"obot:threadID":  {tokenContext.ThreadID},
@@ -72,7 +74,11 @@ func (t *TokenService) DecodeToken(token string) (*TokenContext, error) {
 	if !ok {
 		return nil, err
 	}
-	return &TokenContext{
+
+	groups := strings.Split(claims["UserGroups"].(string), ",")
+	groups = slices.DeleteFunc(groups, func(s string) bool { return s == "" })
+
+	context := &TokenContext{
 		Namespace:      claims["Namespace"].(string),
 		RunID:          claims["RunID"].(string),
 		ThreadID:       claims["ThreadID"].(string),
@@ -83,11 +89,14 @@ func (t *TokenService) DecodeToken(token string) (*TokenContext, error) {
 		UserID:         claims["UserID"].(string),
 		UserName:       claims["UserName"].(string),
 		UserEmail:      claims["UserEmail"].(string),
-	}, nil
+		UserGroups:     groups,
+	}
+
+	return context, nil
 }
 
 func (t *TokenService) NewToken(context TokenContext) (string, error) {
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+	claims := jwt.MapClaims{
 		"Namespace":      context.Namespace,
 		"RunID":          context.RunID,
 		"ThreadID":       context.ThreadID,
@@ -98,6 +107,9 @@ func (t *TokenService) NewToken(context TokenContext) (string, error) {
 		"UserID":         context.UserID,
 		"UserName":       context.UserName,
 		"UserEmail":      context.UserEmail,
-	})
+		"UserGroups":     strings.Join(context.UserGroups, ","),
+	}
+
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	return token.SignedString([]byte(secret))
 }
