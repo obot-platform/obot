@@ -24,7 +24,7 @@ This section describes the configuration of the workspace provider.
 
 ## S3 Provider Configuration
 
-To use the S3 provider create an S3 bucket or the equivalent in a compatible provider. Ensure the bucket configuration does not allow public access.
+To use the S3 provider, create an S3 bucket or the equivalent in a compatible provider. Ensure the bucket configuration does not allow public access.
 
 | Environment Variable | Required | Description |
 |----------------------|----------|-------------|
