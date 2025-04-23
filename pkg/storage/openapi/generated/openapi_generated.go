@@ -3546,6 +3546,12 @@ func schema_obot_platform_obot_apiclient_types_ProjectShare(ref common.Reference
 							},
 						},
 					},
+					"editor": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
+						},
+					},
 				},
 				Required: []string{"Metadata", "ProjectShareManifest", "icons"},
 			},
@@ -9930,6 +9936,12 @@ func schema_storage_apis_obotobotai_v1_ThreadShareSpec(ref common.ReferenceCallb
 						},
 					},
 					"featured": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
+						},
+					},
+					"editor": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"boolean"},
 							Format: "",
