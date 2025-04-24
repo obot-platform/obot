@@ -994,16 +994,11 @@ export async function listProjectMCPs(
 export async function configureProjectMCP(
 	assistantID: string,
 	projectID: string,
-	mcpId: string,
-	opts?: { fetch?: Fetcher }
+	mcpId: string
 ): Promise<ProjectMCP> {
-	return (await doPost(
-		`/assistants/${assistantID}/projects/${projectID}/mcpservers`,
-		{
-			catalogID: mcpId
-		},
-		opts
-	)) as ProjectMCP;
+	return (await doPost(`/assistants/${assistantID}/projects/${projectID}/mcpservers`, {
+		catalogID: mcpId
+	})) as ProjectMCP;
 }
 
 export async function updateProjectMCP(

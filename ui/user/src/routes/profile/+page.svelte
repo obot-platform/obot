@@ -1,12 +1,12 @@
 <script lang="ts">
+	import Profile from '$lib/components/navbar/Profile.svelte';
 	import { ChatService } from '$lib/services';
-	import { profile, errors, version } from '$lib/stores';
+	import { darkMode, profile, responsive, errors, version } from '$lib/stores';
 	import { goto } from '$app/navigation';
 	import Notifications from '$lib/components/Notifications.svelte';
 	import ConfirmDeleteAccount from '$lib/components/ConfirmDeleteAccount.svelte';
 	import { success } from '$lib/stores/success';
 	import Confirm from '$lib/components/Confirm.svelte';
-	import Navbar from '$lib/components/Navbar.svelte';
 
 	let toDelete = $state(false);
 	let toRevoke = $state(false);
@@ -43,7 +43,48 @@
 </script>
 
 <div class="flex h-full flex-col items-center">
-	<Navbar />
+	<div class="flex h-16 w-full items-center p-4 md:p-5">
+		<a href="/catalog" class="relative flex items-end">
+			{#if darkMode.isDark}
+				<img src="/user/images/obot-logo-blue-white-text.svg" class="h-12" alt="Obot logo" />
+			{:else}
+				<img src="/user/images/obot-logo-blue-black-text.svg" class="h-12" alt="Obot logo" />
+			{/if}
+			<div class="ml-1.5 -translate-y-1">
+				<span
+					class="rounded-full border-2 border-blue-400 px-1.5 py-[1px] text-[10px] font-bold text-blue-400 dark:border-blue-400 dark:text-blue-400"
+				>
+					BETA
+				</span>
+			</div>
+		</a>
+		<div class="grow"></div>
+		<div class="flex items-center gap-1">
+			{#if !responsive.isMobile}
+				<a href="https://docs.obot.ai" rel="external" target="_blank" class="icon-button">Docs</a>
+				<a href="https://discord.gg/9sSf4UyAMC" rel="external" target="_blank" class="icon-button">
+					{#if darkMode.isDark}
+						<img src="/user/images/discord-mark/discord-mark-white.svg" alt="Discord" class="h-6" />
+					{:else}
+						<img src="/user/images/discord-mark/discord-mark.svg" alt="Discord" class="h-6" />
+					{/if}
+				</a>
+				<a
+					href="https://github.com/obot-platform/obot"
+					rel="external"
+					target="_blank"
+					class="icon-button"
+				>
+					{#if darkMode.isDark}
+						<img src="/user/images/github-mark/github-mark-white.svg" alt="GitHub" class="h-6" />
+					{:else}
+						<img src="/user/images/github-mark/github-mark.svg" alt="GitHub" class="h-6" />
+					{/if}
+				</a>
+			{/if}
+			<Profile />
+		</div>
+	</div>
 
 	<main
 		class="colors-background relative flex w-full max-w-(--breakpoint-2xl) flex-col justify-center md:pb-12"

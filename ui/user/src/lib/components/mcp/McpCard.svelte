@@ -27,7 +27,7 @@
 
 <div class="relative h-full w-full">
 	{#if selected}
-		<CircleCheckBig class="absolute top-3 right-3 z-25 size-5 text-blue-500" />
+		<CircleCheckBig class="absolute top-4 right-4 z-25 size-5 text-blue-500" />
 	{/if}
 	<button
 		onclick={() => dialog?.open()}
@@ -38,18 +38,16 @@
 	>
 		<div class="flex h-fit w-full flex-col gap-2 p-4 md:h-auto md:grow">
 			<div class="flex w-full items-center gap-2">
-				<div class="flex-shrink-0 rounded-md bg-gray-50 p-1 dark:bg-gray-600">
+				<div class="rounded-md bg-gray-50 p-1 dark:bg-gray-600">
 					<img alt="obot logo" src={mcp.server.icon} class="size-6" />
 				</div>
-				<div class="flex flex-col text-left">
-					<h4 class="text-sm font-semibold">
-						{mcp.server.name}
-					</h4>
-					<p class="line-clamp-1 grow text-left text-xs font-light text-gray-500">
-						{mcp.server.description}
-					</p>
-				</div>
+				<h4 class="text-sm font-semibold">
+					{mcp.server.name}
+				</h4>
 			</div>
+			<p class="line-clamp-3 grow text-left text-xs font-light text-gray-500">
+				{mcp.server.description}
+			</p>
 		</div>
 	</button>
 </div>

@@ -90,7 +90,7 @@
 			</div>
 			{#if selected}
 				<div class="mt-8 flex items-center gap-2 self-end">
-					<p class="text-md text-gray-500">Server already added!</p>
+					<p class="text-md text-gray-500">Server added to Obot</p>
 					<CircleCheckBig class="size-5 text-blue-500" />
 				</div>
 			{:else if !hideSubmitButton}
@@ -98,7 +98,7 @@
 					onclick={handleSubmit}
 					class="button-primary mt-8 flex w-full items-center justify-center gap-1 self-end md:w-fit"
 				>
-					{submitText ?? 'Create agent with server'}
+					{submitText ?? 'Chat with this server'}
 					<ChevronsRight class="size-4" />
 				</button>
 			{/if}

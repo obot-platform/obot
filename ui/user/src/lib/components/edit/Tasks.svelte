@@ -52,7 +52,7 @@
 
 <CollapsePane header="Tasks">
 	<div class="flex w-full flex-col gap-4">
-		<p class="text-gray text-sm">The following tasks will be shared with users of this agent.</p>
+		<p class="text-gray text-sm">The following tasks will be shared with users of this Obot.</p>
 		<div class="flex flex-col">
 			{#if layout.tasks}
 				<ul>

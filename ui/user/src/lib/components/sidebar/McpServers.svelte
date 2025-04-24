@@ -49,7 +49,7 @@
 		<div class="grow"></div>
 		<McpCatalog
 			{mcps}
-			submitText="Add Server To Agent"
+			submitText="Add Server To Obot"
 			onSubmitMcp={handleMcpSubmit}
 			{selectedMcpIds}
 		/>

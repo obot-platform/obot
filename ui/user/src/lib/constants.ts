@@ -15,22 +15,8 @@ export const IGNORED_BUILTIN_TOOLS = new Set([
 ]);
 
 export const MCP_LIST_ORDER = [
-	'github-bundle',
-	'gitlab-bundle',
-	'firecrawl',
-	'postgres',
-	'atlassian-jira-bundle',
-	'aws-ec2-bundle',
-	'pagerduty-bundle',
+	'google-search-bundle',
+	'outlook-mail-bundle',
 	'wordpress-bundle',
-	'obot-search',
-	'slack-bundle'
-];
-
-export const FEATURED_AGENT_PREFERRED_ORDER = [
-	'google productivity assistant',
-	'microsoft productivity assistant',
-	'github productivity assistant',
-	'wordpress blog assistant',
-	'smartthings helper'
+	'github-bundle'
 ];
