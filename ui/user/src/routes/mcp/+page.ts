@@ -10,18 +10,7 @@ export const load: PageLoad = async ({ url, fetch }) => {
 
 		if (mcpId) {
 			await ChatService.configureProjectMCP(project.assistantID, project.id, mcpId, { fetch });
-
-			// TEMP: add the mcpID as a bundle to the project tools
-			const tools = (await ChatService.listTools(project.assistantID, project.id, { fetch })).items;
-			const matchingIndex = tools.findIndex((tool) => tool.id === mcpId);
-			if (matchingIndex !== -1) {
-				tools[matchingIndex].enabled = true;
-				await ChatService.updateProjectTools(project.assistantID, project.id, {
-					items: tools
-				});
-			}
 		}
-
 		throw redirect(303, `/o/${project.id}`);
 	} catch (err) {
 		if (!(err instanceof Error)) {
