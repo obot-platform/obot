@@ -12,6 +12,8 @@ on:
   push:
     branches:
       - main
+      - prototype
+      - prod
     tags:
       - 'v*'
     paths-ignore:
