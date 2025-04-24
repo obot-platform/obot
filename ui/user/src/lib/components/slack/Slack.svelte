@@ -318,7 +318,7 @@
 			</div>
 
 			<div>
-				<h4 class="font-medium">Step 5: Register OAuth App in your agent</h4>
+				<h4 class="font-medium">Step 5: Register OAuth App in Obot</h4>
 				<p class="text-sm text-gray-600">
 					Click the Basic Information section in the side nav, locate the Client ID and Client
 					Secret fields, copy/paste them into the form below, and click Submit.
@@ -438,7 +438,7 @@
 		<div class="space-y-4">
 			<p class="text-sm text-gray-600">
 				We'll add the Slack Bot tool to your project and automatically create a task that can be
-				triggered from Slack messages. This will allow your agent to:
+				triggered from Slack messages. This will allow your Obot to:
 			</p>
 			<ul class="list-disc pl-6 text-sm text-gray-600">
 				<li>Automatically respond when mentioned in Slack</li>

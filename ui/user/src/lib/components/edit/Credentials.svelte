@@ -168,6 +168,7 @@
 	credential={credToAuth}
 	{project}
 	onClose={() => {
+		console.log('onClose');
 		showAuthInline = false;
 		credToAuth = undefined;
 		reload();
@@ -189,13 +190,13 @@
 				<X class="icon-default" />
 			</button>
 		</h1>
-		<p class="text-sm text-gray-500">These credentials are used by all threads in this agent.</p>
+		<p class="text-sm text-gray-500">These credentials are used by all threads in this Obot.</p>
 		{@render body()}
 	{/if}
 {:else}
 	<CollapsePane header="Credentials" onOpen={() => reload()}>
 		<p class="mb-4 text-sm text-gray-500">
-			Anyone who has access to the agent, such as shared users, will use these credentials.
+			Anyone who has access to the Obot, such as shared users, will use these credentials.
 		</p>
 		{@render body()}
 	</CollapsePane>

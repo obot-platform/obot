@@ -29,11 +29,7 @@ import {
 	type SlackConfig,
 	type SlackReceiver,
 	type MemoryList,
-	type Memory,
-	type MCPList,
-	type MCP,
-	type ProjectMCP,
-	type ProjectMCPList
+	type Memory
 } from './types';
 
 export type Fetcher = typeof fetch;
@@ -968,56 +964,4 @@ export async function updateMemory(
 	return doPut(`/assistants/${assistantID}/projects/${projectID}/memories/${memoryID}`, {
 		content
 	}) as Promise<Memory>;
-}
-
-export async function listMCPs(opts?: { fetch?: Fetcher }): Promise<MCP[]> {
-	const response = (await doGet('/mcp/catalog', opts)) as MCPList;
-	return response.items;
-}
-
-export async function getMCP(id: string, opts?: { fetch?: Fetcher }): Promise<MCP> {
-	return (await doGet(`/mcp/catalog/${id}`, opts)) as MCP;
-}
-
-export async function listProjectMCPs(
-	assistantID: string,
-	projectID: string,
-	opts?: { fetch?: Fetcher }
-): Promise<ProjectMCP[]> {
-	const response = (await doGet(
-		`/assistants/${assistantID}/projects/${projectID}/mcpservers`,
-		opts
-	)) as ProjectMCPList;
-	return response.items ?? [];
-}
-
-export async function configureProjectMCP(
-	assistantID: string,
-	projectID: string,
-	mcpId: string,
-	opts?: { fetch?: Fetcher }
-): Promise<ProjectMCP> {
-	return (await doPost(
-		`/assistants/${assistantID}/projects/${projectID}/mcpservers`,
-		{
-			catalogID: mcpId
-		},
-		opts
-	)) as ProjectMCP;
-}
-
-export async function updateProjectMCP(
-	assistantID: string,
-	projectID: string,
-	mcpId: string,
-	mcp: ProjectMCP
-) {
-	return (await doPut(
-		`/assistants/${assistantID}/projects/${projectID}/mcpservers/${mcpId}`,
-		mcp
-	)) as ProjectMCP;
-}
-
-export async function deleteProjectMCP(assistantID: string, projectID: string, mcpId: string) {
-	return doDelete(`/assistants/${assistantID}/projects/${projectID}/mcpservers/${mcpId}`);
 }

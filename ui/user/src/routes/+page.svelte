@@ -2,21 +2,18 @@
 	import { profile, responsive } from '$lib/stores';
 	import { goto } from '$app/navigation';
 	import { darkMode } from '$lib/stores';
-	import { ChevronsRight, MenuIcon, X } from 'lucide-svelte';
+	import { MenuIcon, X } from 'lucide-svelte';
 	import { onMount } from 'svelte';
 	import { type PageProps } from './$types';
 	import { browser } from '$app/environment';
 	import Menu from '$lib/components/navbar/Menu.svelte';
+	import FeaturedObotCard from '$lib/components/FeaturedObotCard.svelte';
 	import { clickOutside } from '$lib/actions/clickoutside';
-	import Footer from '$lib/components/Footer.svelte';
-	import { sortByFeaturedNameOrder, sortByPreferredMcpOrder } from '$lib/sort';
-	import type { MCP, ProjectShare } from '$lib/services';
 
 	let { data }: PageProps = $props();
-	let { authProviders, isNew, mcps, featuredAgents } = data;
+	let { authProviders, featuredProjectShares, tools, isNew } = data;
 	let loginDialog = $state<HTMLDialogElement>();
-	let overrideRedirect = $state<string | null>(null);
-	let signUp = $state(true);
+	let projectShareRedirect = $state<string | null>(null);
 
 	onMount(() => {
 		if (browser && new URL(window.location.href).searchParams.get('rd')) {
@@ -24,8 +21,6 @@
 		}
 	});
 
-	let sortedMcps = $derived(mcps.sort(sortByPreferredMcpOrder));
-	let sortedFeaturedAgents = $derived(featuredAgents.sort(sortByFeaturedNameOrder));
 	let rd = $derived.by(() => {
 		if (browser) {
 			const rd = new URL(window.location.href).searchParams.get('rd');
@@ -33,8 +28,8 @@
 				return rd;
 			}
 		}
-		if (overrideRedirect !== null) {
-			return overrideRedirect;
+		if (projectShareRedirect !== null) {
+			return projectShareRedirect;
 		}
 		return '/';
 	});
@@ -44,32 +39,11 @@
 			goto(`/catalog${isNew ? '?new' : ''}`, { replaceState: true });
 		}
 	});
-
-	function closeLoginDialog() {
-		loginDialog?.close();
-		signUp = true;
-	}
 </script>
 
 {#snippet navLinks()}
-	<a
-		href="https://docs.obot.ai"
-		class={responsive.isMobile ? 'icon-button' : 'nav-link'}
-		rel="external"
-		target="_blank">Docs</a
-	>
-	<a
-		href="https://docs.obot.ai/blog"
-		class={responsive.isMobile ? 'icon-button' : 'nav-link'}
-		rel="external"
-		target="_blank">Blog</a
-	>
-	<a
-		href="https://discord.gg/9sSf4UyAMC"
-		class={responsive.isMobile ? 'icon-button' : 'nav-link'}
-		rel="external"
-		target="_blank"
-	>
+	<a href="https://docs.obot.ai" class="icon-button" rel="external" target="_blank">Docs</a>
+	<a href="https://discord.gg/9sSf4UyAMC" class="icon-button" rel="external" target="_blank">
 		{#if darkMode.isDark}
 			<img src="/user/images/discord-mark/discord-mark-white.svg" alt="Discord" class="h-6" />
 		{:else}
@@ -78,7 +52,7 @@
 	</a>
 	<a
 		href="https://github.com/obot-platform/obot"
-		class={responsive.isMobile ? 'icon-button' : 'nav-link'}
+		class="icon-button"
 		rel="external"
 		target="_blank"
 	>
@@ -94,10 +68,10 @@
 	<title>Obot - Do more with AI</title>
 </svelte:head>
 
-<div class="relative w-full flex-col text-black dark:text-white">
+<div class="relative h-dvh w-full flex-col text-black dark:text-white">
 	<!-- Header with logo and navigation -->
-	<div class="colors-background sticky top-0 z-30 flex h-16 w-full items-center">
-		<div class="relative flex items-end p-5">
+	<div class="colors-background flex h-16 w-full items-center p-5">
+		<div class="relative flex items-end">
 			{#if darkMode.isDark}
 				<img src="/user/images/obot-logo-blue-white-text.svg" class="h-12" alt="Obot logo" />
 			{:else}
@@ -112,27 +86,11 @@
 			</div>
 		</div>
 		<div class="grow"></div>
-		<div class="flex items-center gap-4 px-5">
+		<div class="flex items-center gap-4">
 			{#if !responsive.isMobile}
 				{@render navLinks()}
 			{/if}
-			{#if !responsive.isMobile}
-				<button
-					class="icon-button"
-					onclick={() => {
-						loginDialog?.showModal();
-					}}>Sign Up</button
-				>
-			{/if}
-			<button
-				class="button-primary py-1 text-sm"
-				onclick={() => {
-					signUp = false;
-					loginDialog?.showModal();
-				}}
-			>
-				Login
-			</button>
+			<button class="icon-button" onclick={() => loginDialog?.showModal()}>Login</button>
 			{#if responsive.isMobile}
 				<Menu
 					slide="left"
@@ -157,120 +115,46 @@
 	</div>
 
 	<main
-		class="colors-background mx-auto flex w-full flex-col items-center justify-center gap-18 pb-6 md:gap-24 md:pb-12"
+		class="colors-background mx-auto flex w-full max-w-(--breakpoint-2xl) flex-col items-center justify-center px-4 pb-12 md:px-12"
 	>
-		<div
-			class="from-surface1 to-surface2 bg-surface1 flex w-full items-center justify-center bg-radial-[at_25%_25%] to-75%"
-		>
-			<div class="well my-8 flex w-full flex-col gap-4 md:max-w-(--breakpoint-2xl)">
-				{#if responsive.isMobile}
-					<div class="w-full">
-						{@render newsPill()}
-					</div>
-				{/if}
-				<div class="relative flex h-auto w-full flex-col md:flex-row">
-					<div class="relative z-10 flex grow flex-col justify-center pr-8 md:gap-16">
-						{#if !responsive.isMobile}
-							{@render newsPill()}
-						{/if}
-
-						<div class="flex flex-col">
-							<h1 class="text-2xl font-bold md:text-3xl lg:text-5xl xl:text-6xl">
-								Introducing Obot:
-							</h1>
-							<h1 class="text-2xl font-bold md:text-3xl lg:text-5xl xl:text-6xl">
-								{#if responsive.isMobile}
-									Build AI agents with MCP
-								{:else}
-									Build AI agents <br /> with MCP
-								{/if}
-							</h1>
-						</div>
-					</div>
-					<div
-						class="mt-8 flex w-full flex-shrink-0 grow rounded-xl bg-white p-4 shadow-md md:mt-0 md:w-[390px] lg:w-[600px] xl:w-[775px] dark:bg-black"
-					>
-						<img
-							src="/landing/images/landing.webp"
-							alt="landing"
-							class="rounded-xl object-contain"
-						/>
-					</div>
-				</div>
-			</div>
+		<div class="mt-16 mb-8 flex flex-col items-center text-center">
+			<h1 class="text-2xl font-bold md:text-3xl">Do more with AI</h1>
+			<p class="mt-4 max-w-full text-base md:max-w-2xl md:text-xl">
+				Introducing Obot, a free platform for creating and sharing AI agents.
+			</p>
 		</div>
-		<div
-			class="well mb-12 flex w-full max-w-(--breakpoint-2xl) flex-col items-center overflow-hidden"
-		>
-			<div class="relative flex w-full max-w-(--breakpoint-xl) items-center justify-center">
-				<div
-					class="bg-surface3 absolute top-1/2 left-1/2 h-[1px] w-full -translate-x-1/2 -translate-y-1/2"
-				></div>
-				<h2 class="relative z-10 bg-white px-4 text-xl font-semibold dark:bg-black">
-					Top Picks For This Week
-				</h2>
-			</div>
 
-			{#if responsive.isMobile}
-				<div class="mt-12 flex w-full flex-col items-center justify-center gap-6">
-					<div class="flex flex-col gap-3">
-						<h3 class="self-center text-lg font-semibold">Agents</h3>
-						{#each sortedFeaturedAgents.slice(0, 5) as project}
-							{@render featuredAgentCard(project)}
-						{/each}
-						{@render browseAllAgents()}
-					</div>
-					<div class="flex flex-col gap-3">
-						<h3 class="self-center text-lg font-semibold">MCP Servers</h3>
-						{#each sortedMcps.slice(0, 10) as mcp}
-							{@render featuredMcpCard(mcp)}
-						{/each}
-						{@render browseAllMcpServers()}
-					</div>
-				</div>
-			{:else}
-				<div class="flex w-full flex-col items-center justify-center">
-					<div class="flex w-full max-w-(--breakpoint-xl) flex-wrap md:flex-nowrap">
-						<div class=" flex flex-1 flex-col items-center gap-4 pt-12 pr-4">
-							<h3 class="text-lg font-semibold">Agents</h3>
-							<div class="border-surface2 flex flex-col items-center gap-3 border-r-2 pr-4">
-								{#each sortedFeaturedAgents.slice(0, 5) as project}
-									{@render featuredAgentCard(project)}
-								{/each}
-							</div>
-							{@render browseAllAgents()}
-						</div>
-						<div class="flex flex-1 flex-col items-center gap-4 pt-12 lg:flex-2">
-							<h3 class="flex w-full justify-center text-lg font-semibold">MCP Servers</h3>
-							<div class="flex w-full gap-3">
-								<div class="flex flex-1 flex-col items-center gap-3">
-									{#each sortedMcps.slice(0, 5) as mcp}
-										{@render featuredMcpCard(mcp)}
-									{/each}
-								</div>
-								<div class="hidden flex-1 flex-col items-center gap-3 lg:flex">
-									{#each sortedMcps.slice(5, 10) as mcp}
-										{@render featuredMcpCard(mcp)}
-									{/each}
-								</div>
-							</div>
-							{@render browseAllMcpServers()}
-						</div>
-					</div>
-				</div>
-			{/if}
-		</div>
+		{#if featuredProjectShares.length > 0}
+			<div class="featured-card-layout my-4 max-w-4xl gap-x-4 gap-y-6 md:gap-y-8">
+				{#each featuredProjectShares as projectShare}
+					<FeaturedObotCard
+						project={projectShare}
+						{tools}
+						onclick={() => {
+							if (browser) {
+								projectShareRedirect = `/s/${projectShare.publicID}`;
+								loginDialog?.showModal();
+							}
+						}}
+					/>
+				{/each}
+			</div>
+		{/if}
 	</main>
-	<Footer />
 
 	<!-- Login Modal -->
 	<dialog
 		bind:this={loginDialog}
-		use:clickOutside={closeLoginDialog}
+		use:clickOutside={() => loginDialog?.close()}
 		class="fixed top-1/2 left-1/2 m-0 h-dvh max-h-none w-full max-w-none -translate-x-1/2 -translate-y-1/2 rounded-none p-4 shadow-lg backdrop:bg-black/50 md:max-h-fit md:max-w-md md:rounded-3xl"
 	>
 		<div class="flex w-full justify-end">
-			<button type="button" class="icon-button" onclick={closeLoginDialog} aria-label="Close">
+			<button
+				type="button"
+				class="icon-button"
+				onclick={() => loginDialog?.close()}
+				aria-label="Close"
+			>
 				<X size={24} />
 			</button>
 		</div>
@@ -280,17 +164,10 @@
 			{:else}
 				<img src="/user/images/obot-logo-blue-black-text.svg" class="h-12" alt="Obot logo" />
 			{/if}
-			<p class="text-md px-8 text-center font-light text-gray-500 md:px-8 dark:text-gray-300">
-				{#if signUp}
-					You're almost there! Create an account and you'll be on our way to building and
-					interacting with your own Obot agent.
-				{:else}
-					Welcome back! Log back in to start creating or interacting with your Obot agent again.
-				{/if}
+			<p class="px-8 text-center text-sm font-light text-gray-500 md:px-12 dark:text-gray-300">
+				You're almost there! Log in to start creating or interacting with your Obot.
 			</p>
-			<h3 class="dark:bg-surface2 bg-white px-2 text-lg font-semibold">
-				{signUp ? 'Sign Up With Obot' : 'Sign in to Your Account'}
-			</h3>
+			<h3 class="dark:bg-surface2 bg-white px-2 text-lg font-semibold">Sign in to Your Account</h3>
 		</div>
 
 		<div
@@ -299,8 +176,8 @@
 			{#each authProviders as provider}
 				<a
 					rel="external"
-					href="/oauth2/start?rd={overrideRedirect !== null
-						? overrideRedirect
+					href="/oauth2/start?rd={projectShareRedirect !== null
+						? projectShareRedirect
 						: rd}&obot-auth-provider={provider.namespace}/{provider.id}"
 					class="group bg-surface1 hover:bg-surface2 dark:bg-surface1 dark:hover:bg-surface3 flex w-full items-center justify-center gap-1.5 rounded-full p-2 px-8 text-lg font-semibold"
 					onclick={(e) => {
@@ -326,100 +203,3 @@
 		</div>
 	</dialog>
 </div>
-
-{#snippet browseAllAgents()}
-	<button
-		onclick={() => {
-			overrideRedirect = `/agents`;
-			loginDialog?.showModal();
-		}}
-		class="button-text w-full text-center transition-colors duration-300 hover:text-inherit"
-	>
-		Browse All Agents
-	</button>
-{/snippet}
-
-{#snippet browseAllMcpServers()}
-	<button
-		onclick={() => {
-			overrideRedirect = `/catalog`;
-			loginDialog?.showModal();
-		}}
-		class="button-text w-full text-center transition-colors duration-300 hover:text-inherit"
-	>
-		Browse All MCP Servers
-	</button>
-{/snippet}
-
-{#snippet featuredAgentCard(project: ProjectShare)}
-	<button
-		class="bg-surface1 flex w-full items-center gap-3 rounded-xl p-3"
-		onclick={() => {
-			overrideRedirect = `/s/${project.publicID}`;
-			loginDialog?.showModal();
-		}}
-	>
-		<div class="h-fit w-fit flex-shrink-0 rounded-md bg-gray-50 p-1 dark:bg-gray-600">
-			<img src={project.icons?.icon} alt={project.name} class="size-6" />
-		</div>
-		<div class="flex flex-col text-left">
-			<h4 class="line-clamp-1 text-sm font-semibold">{project.name}</h4>
-			<p class="line-clamp-1 text-xs font-light">
-				{project.description}
-			</p>
-		</div>
-	</button>
-{/snippet}
-
-{#snippet featuredMcpCard(mcp: MCP)}
-	<button
-		class="bg-surface2 flex w-full items-center gap-3 rounded-xl p-3"
-		onclick={() => {
-			overrideRedirect = `/mcp?id=${mcp.id}`;
-			loginDialog?.showModal();
-		}}
-	>
-		<div class="h-fit w-fit flex-shrink-0 rounded-md bg-gray-50 p-1 dark:bg-gray-600">
-			<img src={mcp.server.icon} alt={`${mcp.server.name} logo`} class="size-6" />
-		</div>
-		<div class="flex flex-col text-left">
-			<h4 class="line-clamp-1 text-sm font-semibold">{mcp.server.name}</h4>
-			<p class="line-clamp-1 text-xs font-light">
-				{mcp.server.description}
-			</p>
-		</div>
-	</button>
-{/snippet}
-
-{#snippet newsPill()}
-	<div
-		class="border-surface2 flex w-fit items-center gap-4 rounded-full border bg-white px-4 py-2 text-xs font-light text-gray-500 lg:text-sm dark:bg-black dark:text-gray-300"
-	>
-		<span class="flex grow truncate"
-			><b class="font-semibold">News</b>: Obot 0.8.2 released today...</span
-		>
-		<a
-			href="https://blog.obot.ai"
-			class="text-blue flex flex-shrink-0 items-center gap-1 font-semibold"
-		>
-			Read More <ChevronsRight class="size-3" />
-		</a>
-	</div>
-{/snippet}
-
-<style lang="postcss">
-	:global {
-		.well {
-			padding-left: 1rem;
-			padding-right: 1rem;
-			@media (min-width: 1024px) {
-				padding-left: 4rem;
-				padding-right: 4rem;
-			}
-			@media (min-width: 768px) {
-				padding-left: 2rem;
-				padding-right: 2rem;
-			}
-		}
-	}
-</style>

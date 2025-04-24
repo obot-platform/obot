@@ -250,35 +250,6 @@ export interface ToolReferenceList {
 	items: ToolReference[];
 }
 
-export interface MCPList {
-	items: MCP[];
-}
-
-export interface MCPServer {
-	description: string;
-	icon: string;
-	name: string;
-}
-
-export interface MCP {
-	id: string;
-	created: string;
-	server: MCPServer;
-}
-
-export interface ProjectMCPList {
-	items: ProjectMCP[];
-}
-
-export interface ProjectMCP {
-	id: string;
-	created: string;
-	catalogID: string;
-	description: string;
-	icon: string;
-	name: string;
-}
-
 export interface Credential {
 	toolName: string;
 	icon: string;

@@ -1,32 +1,48 @@
 <script lang="ts">
 	import { Pencil, X } from 'lucide-svelte';
 	import { getLayout } from '$lib/context/layout.svelte';
-	import { tooltip } from '$lib/actions/tooltip.svelte';
+	import { responsive } from '$lib/stores';
+	import { fade, fly, slide } from 'svelte/transition';
+	import { twMerge } from 'tailwind-merge';
 
 	const layout = getLayout();
+
+	let hover = $state(false);
 </script>
 
-{#if layout.projectEditorOpen}
-	<button
-		data-testid="obot-editor-btn"
-		onclick={() => {
+<button
+	data-testid="obot-editor-btn"
+	onmouseenter={() => (hover = true)}
+	onmouseleave={() => (hover = false)}
+	onclick={() => {
+		if (layout.projectEditorOpen) {
 			layout.projectEditorOpen = false;
-		}}
-		use:tooltip={'Close Advanced Editor'}
-		class="border-blue bg-blue relative flex items-center rounded-full border p-2 text-xs text-white transition-[background-color] duration-200"
-	>
-		<X class="size-5" />
-	</button>
-{:else}
-	<button
-		data-testid="obot-editor-btn"
-		use:tooltip={'Advanced Editor'}
-		onclick={() => {
-			layout.projectEditorOpen = true;
-			layout.sidebarOpen = false;
-		}}
-		class="text-gray hover:bg-surface3 border-surface3 relative flex items-center rounded-full border bg-transparent p-2 text-xs opacity-50 transition-[background-color] duration-200 hover:opacity-100"
-	>
-		<Pencil class="size-5" />
-	</button>
-{/if}
+			return;
+		}
+
+		layout.projectEditorOpen = true;
+		layout.sidebarOpen = false;
+	}}
+	class={twMerge(
+		'group text-gray relative mr-1 flex items-center rounded-full border p-2 text-xs transition-[background-color] duration-200',
+		layout.projectEditorOpen
+			? 'border-blue bg-blue text-white md:px-4'
+			: 'border-surface3 hover:bg-blue bg-transparent hover:px-4 hover:text-white active:bg-blue-700'
+	)}
+	transition:fade
+>
+	{#if layout.projectEditorOpen}
+		<X class="h-5 w-5" />
+	{:else}
+		<Pencil class="h-5 w-5" />
+	{/if}
+	{#if layout.projectEditorOpen && !responsive.isMobile}
+		<span class="ml-1">Exit Editor</span>
+	{:else if hover && !responsive.isMobile}
+		<span class="flex h-5 items-center" transition:slide={{ axis: 'x' }}>
+			<span class="ms-2 inline-block text-nowrap delay-250" transition:fly={{ x: 50 }}>
+				Obot Editor
+			</span>
+		</span>
+	{/if}
+</button>

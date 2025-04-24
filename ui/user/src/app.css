@@ -275,7 +275,7 @@
 		padding: 0.5rem 1.25rem;
 		background-color: var(--surface3);
 		border-width: 0;
-		transition-property: color, background-color;
+		transition-property: color;
 		transition-duration: 200ms;
 		&:hover {
 			background-color: rgb(229 231 235 / 0.5);
@@ -295,7 +295,7 @@
 		padding: 0.5rem 1.25rem;
 		background-color: var(--surface3);
 		border-width: 0;
-		transition-property: color, background-color;
+		transition-property: color;
 		transition-duration: 200ms;
 
 		&:hover {
@@ -311,8 +311,6 @@
 		border-width: 2px; /* border-2 */
 		padding: 0.5rem 1.25rem; /* px-5 py-2 */
 		border-color: var(--color-gray-100);
-		transition-property: all;
-		transition-duration: 300ms;
 		&:hover {
 			border-color: var(--color-gray-200);
 			background-color: var(--color-gray-200);
@@ -333,8 +331,6 @@
 		border-color: var(--color-blue);
 		background-color: var(--color-blue);
 		color: white;
-		transition-property: all;
-		transition-duration: 300ms;
 		&:hover {
 			border-color: var(--color-blue-400);
 			background-color: var(--color-blue-400);
@@ -562,11 +558,11 @@
 		width: 100%;
 		gap: 0.5rem;
 		border-radius: 0.75rem;
-		background-color: var(--surface2);
+		background-color: var(--surface1);
 		transition-property: all;
 		transition-duration: 300ms;
 		&:hover {
-			transform: translateY(-0.35rem);
+			transform: translateY(-0.5rem);
 			box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
 		}
 	}
@@ -587,6 +583,39 @@
 		}
 		.dark &:hover {
 			background-color: rgb(17 24 39 / 0.75);
+		}
+	}
+
+	.featured-card-layout {
+		margin-bottom: 2rem;
+		display: grid;
+		width: 100%;
+		gap: 1rem;
+		grid-template-columns: repeat(1, minmax(0, 1fr));
+		@media (min-width: 640px) {
+			grid-template-columns: repeat(2, minmax(0, 1fr));
+		}
+		@media (min-width: 1024px) {
+			grid-template-columns: repeat(2, minmax(0, 1fr));
+		}
+		@media (min-width: 1536px) {
+			grid-template-columns: repeat(2, minmax(0, 1fr));
+		}
+	}
+
+	.card-layout {
+		margin-bottom: 2rem;
+		display: grid;
+		gap: 1rem;
+		grid-template-columns: repeat(1, minmax(0, 1fr));
+		@media (min-width: 640px) {
+			grid-template-columns: repeat(2, minmax(0, 1fr));
+		}
+		@media (min-width: 1024px) {
+			grid-template-columns: repeat(3, minmax(0, 1fr));
+		}
+		@media (min-width: 1536px) {
+			grid-template-columns: repeat(3, minmax(0, 1fr));
 		}
 	}
 
@@ -650,27 +679,6 @@
 		.dark {
 			background-color: var(--color-black);
 			color: var(--color-gray-300);
-		}
-	}
-
-	.nav-link {
-		position: relative;
-		height: 100%;
-		display: inline-block;
-		padding: 1.25rem 0.5rem;
-		&::after {
-			content: '';
-			position: absolute;
-			bottom: 0;
-			left: 0;
-			width: 100%;
-			height: 4px;
-			background-color: var(--color-blue);
-			opacity: 0;
-			transition: opacity 0.3s ease;
-		}
-		&:hover::after {
-			opacity: 1;
 		}
 	}
 }

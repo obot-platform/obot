@@ -9,7 +9,7 @@
 		onMouseDown?: (e: MouseEvent) => void;
 	}
 
-	let { onChange, class: klass, placeholder = 'Search Agents...', onMouseDown }: Props = $props();
+	let { onChange, class: klass, placeholder = 'Search Obots...', onMouseDown }: Props = $props();
 	let searchTimeout: ReturnType<typeof setTimeout>;
 	let input = $state<HTMLInputElement | null>(null);
 

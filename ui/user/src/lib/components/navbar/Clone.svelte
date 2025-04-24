@@ -30,7 +30,7 @@
 			<Copy class="icon-default" />
 		</div>
 
-		<p class="text-sm">Create a personal copy of this agent that you can customize.</p>
+		<p class="text-sm">Create a personal copy of this Obot that you can customize.</p>
 
 		<div class="mt-5 flex items-center gap-2 self-end">
 			<button class="button-secondary" onclick={() => dialog?.close()}> Cancel </button>

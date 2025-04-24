@@ -13,7 +13,6 @@
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import { getProjectTools } from '$lib/context/projectTools.svelte';
 	import MemoriesDialog from '$lib/components/MemoriesDialog.svelte';
-	import McpServers from './sidebar/McpServers.svelte';
 
 	interface Props {
 		project: Project;
@@ -29,9 +28,9 @@
 </script>
 
 <div class="bg-surface1 relative flex size-full flex-col">
-	<div class="flex h-16 items-center justify-between px-3">
+	<div class="flex h-[76px] items-center justify-between p-3">
 		<div
-			class="flex items-center transition-all duration-300"
+			class="flex h-[52px] items-center transition-all duration-300"
 			class:w-full={projectsOpen}
 			class:w-[calc(100%-42px)]={!projectsOpen}
 		>
@@ -44,6 +43,7 @@
 					tooltip:
 						'md:min-w-[250px] md:w-1/6 md:-translate-x-14 -translate-x-1 border-t-[1px] border-surface3 bg-surface2 shadow-inner max-h-[calc(100vh-66px)] overflow-y-auto default-scrollbar-thin pb-0'
 				}}
+				showCreate
 				showDelete
 			/>
 		</div>
@@ -61,7 +61,6 @@
 	</div>
 
 	<div class="default-scrollbar-thin flex w-full grow flex-col gap-2 px-3 pb-5">
-		<McpServers {project} />
 		<Threads {project} bind:currentThreadID />
 		<Tasks {project} bind:currentThreadID />
 		{#if hasTool(projectTools.tools, 'database')}
