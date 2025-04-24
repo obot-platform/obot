@@ -11,7 +11,7 @@ on:
   workflow_dispatch:
   push:
     branches:
-      - main
+      - prototype
     tags:
       - 'v*'
     paths-ignore:
