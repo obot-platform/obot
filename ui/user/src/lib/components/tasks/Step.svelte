@@ -1,5 +1,4 @@
 <script lang="ts">
-	import Self from './Step.svelte';
 	import {
 		ChatService,
 		type Message as MessageType,
@@ -9,7 +8,16 @@
 		type TaskStep
 	} from '$lib/services';
 	import Message from '$lib/components/messages/Message.svelte';
-	import { Eye, EyeClosed, Plus, Trash2, Repeat, ArrowLeft, ArrowRight } from 'lucide-svelte/icons';
+	import {
+		Eye,
+		EyeClosed,
+		Plus,
+		Trash2,
+		Repeat,
+		ArrowLeft,
+		ArrowRight,
+		GripVertical
+	} from 'lucide-svelte/icons';
 	import { LoaderCircle, OctagonX, Play, RefreshCcw } from 'lucide-svelte';
 	import { tick } from 'svelte';
 	import { autoHeight } from '$lib/actions/textarea.js';
@@ -386,6 +394,11 @@
 					</div>
 					{@render outputVisibilityButton()}
 				</div>
+				<div
+					class="flex items-center justify-center rounded-full p-2 text-gray-500 hover:cursor-grab hover:bg-gray-200 active:cursor-grabbing"
+				>
+					<GripVertical class="size-6" />
+				</div>
 			{/if}
 		</div>
 	</div>
@@ -411,24 +424,6 @@
 		{/if}
 	{/if}
 </li>
-
-{#if task.steps.length > index + 1}
-	{#key task.steps[index + 1].id}
-		<Self
-			{run}
-			{runID}
-			{pending}
-			{task}
-			index={index + 1}
-			bind:step={task.steps[index + 1]}
-			{stepMessages}
-			parentStale={stale}
-			{project}
-			showOutput={parentShowOutput}
-			{readOnly}
-		/>
-	{/key}
-{/if}
 
 <Confirm
 	show={toDelete !== undefined}

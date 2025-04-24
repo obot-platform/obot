@@ -31,6 +31,41 @@
 		error,
 		readOnly
 	}: Props = $props();
+
+	// Drag, Drop
+
+	let draggingIndex = $state<number | null>(null);
+	let hoveredIndex = $state<number | null>(null);
+
+	function handleDragStart(i: number) {
+		draggingIndex = i;
+	}
+
+	function handleDragOver(e: DragEvent, i: number) {
+		e.preventDefault();
+		hoveredIndex = i;
+		if (draggingIndex !== null && draggingIndex !== i) {
+			hoveredIndex = i;
+		}
+	}
+
+	function handleDrop() {
+		if (draggingIndex !== null && hoveredIndex !== null && draggingIndex !== hoveredIndex) {
+			const moved = task.steps[draggingIndex];
+			task.steps.splice(draggingIndex, 1);
+			task.steps.splice(hoveredIndex, 0, moved);
+		}
+		resetDragState();
+	}
+
+	function handleDragEnd() {
+		resetDragState();
+	}
+
+	function resetDragState() {
+		draggingIndex = null;
+		hoveredIndex = null;
+	}
 </script>
 
 <div class="rounded-lg bg-gray-50 p-5 dark:bg-gray-950">
@@ -52,20 +87,33 @@
 
 	<ol class="list-decimal pt-2 opacity-100">
 		{#if task.steps.length > 0}
-			{#key task.steps[0].id}
-				<Step
-					{run}
-					{runID}
-					bind:task
-					bind:step={task.steps[0]}
-					index={0}
-					{stepMessages}
-					{pending}
-					{project}
-					showOutput={showAllOutput}
-					{readOnly}
-				/>
-			{/key}
+			{#each task.steps as step, index (step.id)}
+				<div
+					class:drop-target={hoveredIndex === index && draggingIndex !== index}
+					class:dragging={draggingIndex === index}
+					class:dragging-over={hoveredIndex === index}
+					class:dragging-into={draggingIndex !== null && draggingIndex !== index}
+					draggable={!readOnly}
+					role="listitem"
+					ondragstart={() => handleDragStart(index)}
+					ondragover={(e) => handleDragOver(e, index)}
+					ondrop={() => handleDrop()}
+					ondragend={handleDragEnd}
+				>
+					<Step
+						{run}
+						{runID}
+						bind:task
+						bind:step={task.steps[index]}
+						{index}
+						{stepMessages}
+						{pending}
+						{project}
+						showOutput={showAllOutput}
+						{readOnly}
+					/>
+				</div>
+			{/each}
 		{/if}
 	</ol>
 
@@ -77,3 +125,15 @@
 {#if runID}
 	<Files taskID={task.id} {runID} running={running || pending} {project} />
 {/if}
+
+<style>
+	.drop-target {
+		background-color: var(--color-gray-100);
+	}
+	.dragging {
+		background-color: var(--color-gray-200);
+	}
+	.dragging-over {
+		background-color: var(--color-gray-300);
+	}
+</style>
