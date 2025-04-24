@@ -22,9 +22,15 @@ func (c *Credentials) Remove(req router.Request, _ router.Response) error {
 	if err != nil {
 		return err
 	}
+	localCreds, err := c.gClient.ListCredentials(req.Ctx, gptscript.ListCredentialsOptions{
+		CredentialContexts: []string{req.Object.GetName() + "-local"},
+	})
+	if err != nil {
+		return err
+	}
 
-	for _, cred := range creds {
-		if err := c.gClient.DeleteCredential(req.Ctx, req.Object.GetName(), cred.ToolName); err != nil {
+	for _, cred := range append(creds, localCreds...) {
+		if err := c.gClient.DeleteCredential(req.Ctx, cred.Context, cred.ToolName); err != nil {
 			return err
 		}
 	}
