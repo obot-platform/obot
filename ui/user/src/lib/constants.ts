@@ -32,5 +32,5 @@ export const FEATURED_AGENT_PREFERRED_ORDER = [
 	'microsoft productivity assistant',
 	'github productivity assistant',
 	'wordpress blog assistant',
-	'linkedin research assistant'
+	'smartthings helper'
 ];
