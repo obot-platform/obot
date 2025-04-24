@@ -1,6 +1,16 @@
 <script lang="ts">
 	import MessageIcon from '$lib/components/messages/MessageIcon.svelte';
-	import { FileText, Pencil, Copy, Edit, Info, X, Brain } from 'lucide-svelte/icons';
+	import {
+		FileText,
+		Pencil,
+		Copy,
+		Edit,
+		Info,
+		X,
+		Brain,
+		Expand,
+		Minimize
+	} from 'lucide-svelte/icons';
 	import { Tween } from 'svelte/motion';
 	import { ChatService, type Message, type Project } from '$lib/services';
 	import highlight from 'highlight.js';
@@ -40,6 +50,8 @@
 		clearable = false,
 		maxHeight
 	}: Props = $props();
+
+	let isFullHeight = $state(false);
 
 	let content = $derived(
 		msg.message
@@ -291,8 +303,10 @@
 {#snippet messageBody()}
 	<div
 		class:message-content={renderMarkdown}
-		class:overflow-auto={!!maxHeight}
-		class="bg-gray-70 flex max-h-[{maxHeight}] w-full flex-col rounded-2xl px-6 py-3 text-black dark:bg-gray-950 dark:text-white"
+		class:overflow-auto={!!maxHeight && !isFullHeight}
+		class="bg-gray-70 flex max-h-[{isFullHeight
+			? '100%'
+			: maxHeight}] w-full flex-col rounded-2xl px-6 py-3 text-black dark:bg-gray-950 dark:text-white"
 	>
 		{#if clearable}
 			<button
@@ -616,6 +630,18 @@
 									onclick={() => openContentInEditor()}
 								>
 									<Edit class="h-4 w-4" />
+								</button>
+							</div>
+						{/if}
+
+						{#if maxHeight}
+							<div>
+								<button class="icon-button-small" onclick={() => (isFullHeight = !isFullHeight)}>
+									{#if isFullHeight}
+										<Minimize class="h-4 w-4" />
+									{:else}
+										<Expand class="h-4 w-4" />
+									{/if}
 								</button>
 							</div>
 						{/if}
