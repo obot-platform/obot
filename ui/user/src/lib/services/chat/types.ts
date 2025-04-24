@@ -130,6 +130,7 @@ export interface InputMessage {
 
 export interface Messages {
 	lastRunID?: string;
+	parentRunID?: string;
 	messages: Message[];
 	inProgress: boolean;
 }

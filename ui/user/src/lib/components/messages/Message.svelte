@@ -46,8 +46,8 @@
 					.replace(new RegExp(`${ABORTED_BY_USER_MESSAGE}|${ABORTED_THREAD_MESSAGE}`, 'g'), '')
 			: ''
 	);
-	let fullWidth = !msg.sent && !msg.oauthURL && !msg.tool;
-	let showBubble = msg.sent;
+	let fullWidth = $derived(!msg.sent && !msg.oauthURL && !msg.tool);
+	let showBubble = $derived(msg.sent);
 	let isPrompt = msg.fields && msg.promptId;
 	let renderMarkdown = !msg.sent && !msg.oauthURL && !msg.tool;
 	let shell = $state({

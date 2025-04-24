@@ -735,6 +735,8 @@ export function newMessageEventSource(
 			id: string;
 		};
 		runID?: string;
+		follow?: boolean;
+		history?: boolean;
 	}
 ): EventSource {
 	if (opts?.authenticate?.tools) {
@@ -748,8 +750,21 @@ export function newMessageEventSource(
 		const url = `/assistants/${assistantID}/projects/${projectID}/tasks/${opts.task.id}/runs/${opts.runID}/events`;
 		return new EventSource(baseURL + `${url}`);
 	}
+	const queryParams = [];
+	if (opts?.follow) {
+		queryParams.push(`follow=${String(opts.follow)}`);
+	}
+	if (opts?.runID) {
+		queryParams.push(`runID=${opts.runID}`);
+	}
+	if (opts?.history) {
+		queryParams.push(`history=${String(opts.history)}`);
+	}
+
+	const queryString = queryParams.length > 0 ? `?${queryParams.join('&')}` : '';
 	return new EventSource(
-		baseURL + `/assistants/${assistantID}/projects/${projectID}/threads/${opts?.threadID}/events`
+		baseURL +
+			`/assistants/${assistantID}/projects/${projectID}/threads/${opts?.threadID}/events${queryString}`
 	);
 }
 

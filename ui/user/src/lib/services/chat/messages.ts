@@ -200,9 +200,18 @@ function toMessages(progresses: Progress[]): Messages {
 	let lastRunID: string | undefined;
 	let lastStepID: string | undefined;
 	let parentRunID: string | undefined;
+	let firstParentRunID: string | undefined;
 	let inProgress = false;
 
 	let sources: CitationSource[] = [];
+
+	// Track runIDs present in the current progresses
+	const currentRunIDs = new Set<string>();
+	for (const progress of progresses) {
+		if (progress.runID) {
+			currentRunIDs.add(progress.runID);
+		}
+	}
 
 	for (const progress of progresses) {
 		if (progress.error) {
@@ -228,10 +237,16 @@ function toMessages(progresses: Progress[]): Messages {
 		}
 
 		if (progress.parentRunID) {
-			if (progress.runID === lastRunID) {
-				parentRunID = progress.parentRunID;
-			} else {
-				parentRunID = undefined;
+			parentRunID = progress.parentRunID;
+
+			// If this is the first parentRunID we've seen and it doesn't match any current runID
+			// AND the parentRunID isn't empty or null
+			if (
+				!firstParentRunID &&
+				!currentRunIDs.has(progress.parentRunID) &&
+				progress.parentRunID.trim() !== ''
+			) {
+				firstParentRunID = progress.parentRunID;
 			}
 		}
 
@@ -331,6 +346,7 @@ function toMessages(progresses: Progress[]): Messages {
 
 	return {
 		lastRunID,
+		parentRunID: firstParentRunID,
 		messages,
 		inProgress
 	};

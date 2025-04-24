@@ -242,17 +242,23 @@ func (a *AssistantHandler) ListCredentials(req api.Context) error {
 
 func (a *AssistantHandler) Events(req api.Context) error {
 	var (
-		runID  = req.Request.Header.Get("Last-Event-ID")
-		thread v1.Thread
+		follow  = req.URL.Query().Get("follow") == "true"
+		history = req.URL.Query().Get("history") == "true"
+		runID   = req.URL.Query().Get("runID")
+		thread  v1.Thread
 	)
+
+	if runID == "" {
+		runID = req.Request.Header.Get("Last-Event-ID")
+	}
 
 	if err := req.Get(&thread, req.PathValue("thread_id")); err != nil {
 		return err
 	}
 
 	_, events, err := a.events.Watch(req.Context(), req.Namespace(), events.WatchOptions{
-		Follow:        true,
-		History:       runID == "",
+		Follow:        follow,
+		History:       history,
 		LastRunName:   strings.TrimSuffix(runID, ":after"),
 		MaxRuns:       10,
 		After:         strings.HasSuffix(runID, ":after"),

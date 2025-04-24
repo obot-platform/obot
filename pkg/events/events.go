@@ -252,6 +252,7 @@ func (e *Emitter) printRun(ctx context.Context, state *printState, run v1.Run, r
 	defer func() {
 		result <- types.Progress{
 			RunID:       run.Name,
+			ParentRunID: run.Spec.PreviousRunName,
 			Time:        types.NewTime(time.Now()),
 			RunComplete: true,
 		}
@@ -339,7 +340,10 @@ func (e *Emitter) printRun(ctx context.Context, state *printState, run v1.Run, r
 				}
 
 				if toPrint.Progress != nil {
-					result <- *toPrint.Progress
+					// Add ParentRunID to every progress event
+					progress := *toPrint.Progress
+					progress.ParentRunID = run.Spec.PreviousRunName
+					result <- progress
 				} else {
 					if err := e.callToEvents(run, toPrint.Prg, *toPrint.Frames, state, result); err != nil {
 						return err
@@ -399,9 +403,10 @@ func (e *Emitter) printRun(ctx context.Context, state *printState, run v1.Run, r
 			if runState.Done {
 				if runState.Error != "" {
 					result <- types.Progress{
-						RunID: run.Name,
-						Time:  types.NewTime(time.Now()),
-						Error: runState.Error,
+						RunID:       run.Name,
+						ParentRunID: run.Spec.PreviousRunName,
+						Time:        types.NewTime(time.Now()),
+						Error:       runState.Error,
 					}
 				}
 				return nil

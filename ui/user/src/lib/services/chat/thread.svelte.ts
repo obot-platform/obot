@@ -31,6 +31,7 @@ export class Thread {
 	};
 	readonly #items: EditorItem[] = [];
 	readonly #onItemsChanged?: (items: EditorItem[]) => void;
+	readonly #follow?: boolean;
 	constructor(
 		project: Project,
 		opts?: {
@@ -48,6 +49,7 @@ export class Thread {
 			onClose?: () => boolean;
 			onItemsChanged?: (items: EditorItem[]) => void;
 			items?: EditorItem[];
+			follow?: boolean;
 		}
 	) {
 		this.threadID = opts?.threadID;
@@ -57,6 +59,7 @@ export class Thread {
 		this.#authenticate = opts?.authenticate;
 		this.#onError = opts?.onError;
 		this.#onClose = opts?.onClose;
+		this.#follow = opts?.follow ?? true;
 		this.#es = this.#reconnect();
 		if (opts?.items) {
 			this.#items = opts.items;
@@ -75,7 +78,9 @@ export class Thread {
 			threadID: this.threadID,
 			task: this.#task,
 			runID: this.runID,
-			authenticate: this.#authenticate
+			authenticate: this.#authenticate,
+			follow: this.#follow,
+			history: true
 		});
 		es.onmessage = (e) => {
 			this.handleMessage(e);

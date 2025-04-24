@@ -34,6 +34,8 @@
 	let editBasicDetails = $state(false);
 	let threadContainer = $state<HTMLDivElement>();
 	let fadeBarWidth = $state<number>(0);
+	let loadingOlderMessages = $state(false);
+	let showLoadOlderButton = $state(false);
 
 	$effect(() => {
 		if (threadContainer) {
@@ -71,6 +73,23 @@
 	$effect(() => {
 		if (editBasicDetails) {
 			setTimeout(() => nameInput?.focus(), 0);
+		}
+	});
+
+	$effect(() => {
+		// Only update if messages change
+		const messages_copy = messages; // Create a local reference
+
+		if (messages_copy.messages.length === 0) {
+			if (showLoadOlderButton) showLoadOlderButton = false;
+			return;
+		}
+
+		const shouldShow = !!messages_copy.parentRunID;
+
+		// Only update state if it needs to change
+		if (shouldShow !== showLoadOlderButton) {
+			showLoadOlderButton = shouldShow;
 		}
 	});
 
@@ -136,6 +155,93 @@
 
 	function onSendCredentials(id: string, credentials: Record<string, string>) {
 		thread?.sendCredentials(id, credentials);
+	}
+
+	async function loadOlderMessages() {
+		if (!messages.lastRunID || !messages.messages.length || loadingOlderMessages) return;
+
+		// Use the parentRunID from the messages object if available
+		const previousRunID = messages.parentRunID;
+		if (!previousRunID) {
+			// No older messages, bail out
+			return;
+		}
+
+		loadingOlderMessages = true;
+
+		// Store current scroll position to anchor the view when older messages are loaded
+		const scrollTop = threadContainer?.scrollTop || 0;
+		const scrollHeight = threadContainer?.scrollHeight || 0;
+
+		try {
+			// Load older messages
+			const oldThread = new Thread(project, {
+				threadID: id,
+				runID: previousRunID,
+				follow: false,
+				onError: () => {
+					// Ignore errors
+				}
+			});
+
+			// Wait for the thread to load the previous messages
+			const prevMessages = await new Promise<Messages>((resolve) => {
+				let resolved = false;
+				oldThread.onMessages = (newMessages) => {
+					if (oldThread.replayComplete && !resolved) {
+						resolved = true;
+						resolve(newMessages);
+					}
+				};
+
+				// Set a timeout in case replayComplete is never triggered
+				setTimeout(() => {
+					if (!resolved) {
+						resolved = true;
+						resolve({ messages: [], inProgress: false });
+					}
+				}, 10000);
+			});
+
+			// Close the temporary thread
+			oldThread.close();
+
+			// Merge the previous messages with the current ones
+			if (prevMessages.messages.length > 0) {
+				const existingRunIDs = new Set(messages.messages.map((msg) => msg.runID));
+				const newMessages = prevMessages.messages.filter((msg) => !existingRunIDs.has(msg.runID));
+
+				// Update messages
+				messages = {
+					...messages,
+					parentRunID: prevMessages.parentRunID,
+					messages: [...newMessages, ...messages.messages]
+				};
+
+				// After the DOM updates, adjust the scroll position based on the actual height change
+				scrollSmooth = false;
+				requestAnimationFrame(() => {
+					if (threadContainer) {
+						const newScrollHeight = threadContainer.scrollHeight;
+						const addedHeight = newScrollHeight - scrollHeight;
+						threadContainer.scrollTop = scrollTop + addedHeight;
+					}
+				});
+			} else {
+				messages = {
+					...messages,
+					parentRunID: undefined
+				};
+			}
+		} catch (error) {
+			console.error('Error loading older messages:', error);
+			messages = {
+				...messages,
+				parentRunID: undefined
+			};
+		} finally {
+			loadingOlderMessages = false;
+		}
 	}
 </script>
 
@@ -262,6 +368,29 @@
 					{/each}
 				</div>
 			{/if}
+
+			{#if showLoadOlderButton}
+				<div class="mb-4 flex justify-center">
+					<button
+						class="border-surface3 hover:bg-surface2 rounded-full border bg-white px-4 py-2 text-sm font-light transition-all duration-300 dark:bg-black"
+						onclick={loadOlderMessages}
+						disabled={loadingOlderMessages}
+					>
+						{#if loadingOlderMessages}
+							<div
+								class="inline-block h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent"
+								role="status"
+							>
+								<span class="sr-only">Loading...</span>
+							</div>
+							<span class="ml-2">Loading...</span>
+						{:else}
+							Load older messages
+						{/if}
+					</button>
+				</div>
+			{/if}
+
 			{#each messages.messages as msg}
 				<Message
 					{project}
