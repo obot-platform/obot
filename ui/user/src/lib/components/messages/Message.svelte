@@ -26,6 +26,7 @@
 		onSendCredentialsCancel?: (id: string) => void;
 		disableMessageToEditor?: boolean;
 		clearable?: boolean;
+		maxHeight?: string;
 	}
 
 	let {
@@ -36,7 +37,8 @@
 		onSendCredentials = ChatService.sendCredentials,
 		onSendCredentialsCancel,
 		disableMessageToEditor,
-		clearable = false
+		clearable = false,
+		maxHeight
 	}: Props = $props();
 
 	let content = $derived(
@@ -289,7 +291,8 @@
 {#snippet messageBody()}
 	<div
 		class:message-content={renderMarkdown}
-		class="bg-gray-70 flex max-h-[50vh] w-full flex-col overflow-auto rounded-2xl px-6 py-3 text-black dark:bg-gray-950 dark:text-white"
+		class:overflow-auto={!!maxHeight}
+		class="bg-gray-70 flex max-h-[{maxHeight}] w-full flex-col rounded-2xl px-6 py-3 text-black dark:bg-gray-950 dark:text-white"
 	>
 		{#if clearable}
 			<button

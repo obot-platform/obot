@@ -273,7 +273,7 @@
 								>
 									{#each substepMessages[i] as msg, index}
 										{#if !msg.sent && paginationArr[i] === index}
-											<Message {msg} {project} disableMessageToEditor />
+											<Message {msg} {project} disableMessageToEditor maxHeight={'300px'} />
 										{/if}
 									{/each}
 									<div
