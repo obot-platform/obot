@@ -49,7 +49,7 @@
 	let stale: boolean = $derived(parentStale || !parentMatches());
 	let toDelete = $state<boolean>();
 	let showOutput = $state(true);
-	let isLoopStep = $state<boolean>(false);
+	let isLoopStep = $derived<boolean>(step.loop !== undefined);
 	let messages = $derived(stepMessages?.get(step.id)?.messages ?? []);
 	let loopDataMessages = $derived(stepMessages?.get(step.id + '{loopdata}')?.messages ?? []);
 
@@ -57,7 +57,6 @@
 		step: number;
 		messages: MessageType[];
 	};
-
 	function groupByStepAsArray(
 		messagesMap: Map<string, { messages: MessageType[] }>
 	): GroupedMessages[] {
@@ -83,7 +82,11 @@
 	let substepMessages = $derived(
 		groupByStepAsArray(stepMessages ?? new Map()).map((msg) =>
 			msg.messages.filter(
-				(m: MessageType) => !m.sent && m.message.length > 0 && m.message.join('').trim() !== ''
+				(m: MessageType) =>
+					m.stepID?.includes(step.id) &&
+					!m.sent &&
+					m.message.length > 0 &&
+					m.message.join('').trim() !== ''
 			)
 		)
 	);
@@ -153,7 +156,26 @@
 	}
 
 	async function toggleLoop() {
-		isLoopStep = !isLoopStep;
+		if (!isLoopStep) {
+			step.loop = step.loop ?? [''];
+			paginationArr.push(0);
+		} else {
+			step.loop = undefined;
+			paginationArr = [];
+		}
+	}
+
+	function removeSubStep(i: number) {
+		step.loop!.splice(i, 1);
+		paginationArr.splice(i, 1);
+		substepMessages[i].forEach((msg) => {
+			stepMessages?.delete(msg.stepID ?? '');
+		});
+	}
+	function addSubStep(i: number) {
+		step.loop!.splice(i + 1, 0, '');
+		paginationArr.splice(i + 1, 0, 0);
+		substepMessages.splice(i + 1, 0, []);
 	}
 </script>
 
@@ -205,11 +227,6 @@
 								<Message {msg} {project} disableMessageToEditor />
 							{/if}
 						{/each}
-						{#if stale}
-							<div
-								class="absolute inset-0 h-full w-full rounded-3xl bg-white opacity-80 dark:bg-black"
-							></div>
-						{/if}
 					</div>
 				{/if}
 				<div class="flex flex-col gap-2 pl-6">
@@ -230,11 +247,7 @@
 									<div class="flex items-center">
 										<button
 											class="icon-button"
-											onclick={() => {
-												step.loop!.splice(i, 1);
-												substepMessages.splice(i, 1);
-												paginationArr.splice(i, 1);
-											}}
+											onclick={() => removeSubStep(i)}
 											use:tooltip={'Remove step from loop'}
 										>
 											<Trash2 class="size-4" />
@@ -242,11 +255,7 @@
 										{#if i === step.loop!.length - 1}
 											<button
 												class="icon-button self-start"
-												onclick={() => {
-													step.loop!.splice(i + 1, 0, '');
-													substepMessages.splice(i + 1, 0, []);
-													paginationArr.splice(i + 1, 0, 0);
-												}}
+												onclick={() => addSubStep(i)}
 												use:tooltip={'Add step to loop'}
 											>
 												<Plus class="size-4" />
@@ -267,11 +276,6 @@
 											<Message {msg} {project} disableMessageToEditor />
 										{/if}
 									{/each}
-									{#if stale}
-										<div
-											class="absolute inset-0 h-full w-full rounded-3xl bg-white opacity-80 dark:bg-black"
-										></div>
-									{/if}
 									<div
 										class="absolute right-2 bottom-2 mb-2 flex items-center justify-end gap-1 p-2"
 									>
@@ -289,9 +293,7 @@
 										<select
 											onchange={(e) => {
 												if (e.target)
-													(paginationArr ??= [])[i] = Number(
-														(e.target as HTMLSelectElement).value
-													);
+													(paginationArr ??= [])[i] = Number((e.target as HTMLSelectElement).value);
 											}}
 											class="flex appearance-none items-center justify-center border px-2 text-sm"
 											value={paginationArr?.[i]}
