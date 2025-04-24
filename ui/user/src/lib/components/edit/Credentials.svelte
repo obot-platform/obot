@@ -168,6 +168,7 @@
 	credential={credToAuth}
 	{project}
 	onClose={() => {
+		console.log('onClose');
 		showAuthInline = false;
 		credToAuth = undefined;
 		reload();

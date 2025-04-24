@@ -311,8 +311,6 @@
 		border-width: 2px; /* border-2 */
 		padding: 0.5rem 1.25rem; /* px-5 py-2 */
 		border-color: var(--color-gray-100);
-		transition-property: all;
-		transition-duration: 300ms;
 		&:hover {
 			border-color: var(--color-gray-200);
 			background-color: var(--color-gray-200);
@@ -333,8 +331,6 @@
 		border-color: var(--color-blue);
 		background-color: var(--color-blue);
 		color: white;
-		transition-property: all;
-		transition-duration: 300ms;
 		&:hover {
 			border-color: var(--color-blue-400);
 			background-color: var(--color-blue-400);
@@ -603,7 +599,7 @@
 			grid-template-columns: repeat(2, minmax(0, 1fr));
 		}
 		@media (min-width: 1536px) {
-			grid-template-columns: repeat(3, minmax(0, 1fr));
+			grid-template-columns: repeat(2, minmax(0, 1fr));
 		}
 	}
 

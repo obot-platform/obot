@@ -1,4 +1,4 @@
-import type { Fetcher, Project } from '$lib/services';
+import type { Project } from '$lib/services';
 import ChatService from '../chat';
 import { doPost } from '../chat/http';
 
@@ -218,8 +218,8 @@ async function uploadImage(file: File): Promise<ImageResponse> {
 	return (await doPost('/image/upload', formData)) as ImageResponse;
 }
 
-async function createObot(opts?: { fetch?: Fetcher }) {
-	const assistants = (await ChatService.listAssistants(opts)).items;
+async function createObot() {
+	const assistants = (await ChatService.listAssistants()).items;
 	let defaultAssistant = assistants.find((a) => a.default);
 	if (!defaultAssistant && assistants.length == 1) {
 		defaultAssistant = assistants[0];
@@ -228,7 +228,7 @@ async function createObot(opts?: { fetch?: Fetcher }) {
 		throw new Error('failed to find default assistant');
 	}
 
-	return await ChatService.createProject(defaultAssistant.id, opts);
+	return await ChatService.createProject(defaultAssistant.id);
 }
 
 export default {
