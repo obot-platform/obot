@@ -292,7 +292,7 @@
 				</p>
 			</div>
 			<div class="grid w-full grid-cols-1 gap-8 pb-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
-				{#each sortedMcps.slice(4, 16) as mcp}
+				{#each sortedMcps.slice(4, 12) as mcp}
 					<FeaturedMcpCard
 						{mcp}
 						onSubmit={() => {

@@ -13,7 +13,6 @@
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import { getProjectTools } from '$lib/context/projectTools.svelte';
 	import MemoriesDialog from '$lib/components/MemoriesDialog.svelte';
-	import McpServers from './sidebar/McpServers.svelte';
 
 	interface Props {
 		project: Project;
@@ -35,7 +34,7 @@
 			class:w-full={projectsOpen}
 			class:w-[calc(100%-42px)]={!projectsOpen}
 		>
-			<span class="shrink-0"><Logo class="ml-0" includeFrom /></span>
+			<span class="shrink-0"><Logo class="ml-0" /></span>
 			<Projects
 				{project}
 				onOpenChange={(open) => (projectsOpen = open)}
@@ -62,7 +61,6 @@
 	</div>
 
 	<div class="default-scrollbar-thin flex w-full grow flex-col gap-2 px-3 pb-5">
-		<McpServers {project} />
 		<Threads {project} bind:currentThreadID />
 		<Tasks {project} bind:currentThreadID />
 		{#if hasTool(projectTools.tools, 'database')}
