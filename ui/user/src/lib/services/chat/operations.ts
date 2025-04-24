@@ -29,7 +29,7 @@ import {
 	type SlackConfig,
 	type SlackReceiver,
 	type MemoryList,
-	type Memory,
+	type Memory
 } from './types';
 
 export type Fetcher = typeof fetch;
