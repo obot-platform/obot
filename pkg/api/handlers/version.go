@@ -8,7 +8,6 @@ import (
 	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/version"
 	"golang.org/x/mod/module"
-	"sigs.k8s.io/yaml"
 )
 
 type SessionStore string
@@ -51,8 +50,18 @@ func (v *VersionHandler) getVersionResponse() map[string]any {
 	values := make(map[string]any)
 	versions := os.Getenv("OBOT_SERVER_VERSIONS")
 	if versions != "" {
-		if err := yaml.Unmarshal([]byte(versions), &values); err != nil {
-			values["error"] = err.Error()
+		pairs := strings.Split(versions, ",")
+		for _, pair := range pairs {
+			if pair == "" {
+				continue
+			}
+			parts := strings.SplitN(pair, "=", 2)
+			if len(parts) != 2 {
+				continue
+			}
+			key := strings.TrimSpace(parts[0])
+			value := strings.TrimSpace(parts[1])
+			values[key] = value
 		}
 	}
 	values["obot"] = version.Get().String()

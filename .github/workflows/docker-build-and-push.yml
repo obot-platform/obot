@@ -53,8 +53,6 @@ jobs:
           push: true
           pull: true
           platforms: linux/amd64,linux/arm64
-          secrets: |
-            GITHUB_TOKEN=${{ secrets.GHCR_TOKEN }}
           tags: |
             ghcr.io/${{ github.repository }}:${{ github.ref_name }}
             ${{ github.ref_type == 'tag' && !contains(github.ref_name, '-rc') && format('docker.io/obot/{0}:{1}', github.event.repository.name, github.ref_name) || '' }}
@@ -88,7 +86,7 @@ jobs:
 
   oss-image-scan:
     runs-on: depot-ubuntu-22.04
-    needs: enterprise-build
+    needs: oss-build
 
     steps:
       - name: Checkout code
@@ -152,10 +150,8 @@ jobs:
           platforms: linux/amd64,linux/arm64
           tags: |
             ghcr.io/${{ github.repository }}-enterprise:${{ github.ref_name }}
-          secrets: |
-            GITHUB_TOKEN=${{ secrets.GHCR_TOKEN }}
           build-args: |
-            TOOLS_IMAGE=obot-platform/enterprise-tools
+            ENTERPRISE_IMAGE=ghcr.io/obot-platform/enterprise-tools:latest
 
       - name: Install Cosign
         uses: sigstore/cosign-installer@v3.8.1
