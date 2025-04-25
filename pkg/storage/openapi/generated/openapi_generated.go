@@ -5145,12 +5145,6 @@ func schema_obot_platform_obot_apiclient_types_TokenUsage(ref common.ReferenceCa
 							Format: "",
 						},
 					},
-					"runCount": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"integer"},
-							Format: "int32",
-						},
-					},
 					"runName": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},

@@ -25,7 +25,7 @@ func (s *Server) usageForUser(apiContext api.Context) error {
 
 	convertedActivities := make([]types2.TokenUsage, 0, len(activities))
 	for _, activity := range activities {
-		convertedActivities = append(convertedActivities, types.ConvertTokenActivity(types.TokenActivity{RunTokenActivity: activity}))
+		convertedActivities = append(convertedActivities, types.ConvertTokenActivity(activity))
 	}
 
 	return apiContext.Write(types2.TokenUsageList{Items: convertedActivities})
@@ -99,12 +99,11 @@ func (s *Server) totalSystemTokenUsage(apiContext api.Context) error {
 		return err
 	}
 
-	var activity types.TokenActivity
+	var activity types.RunTokenActivity
 	for _, a := range activities {
 		activity.PromptTokens += a.PromptTokens
 		activity.CompletionTokens += a.CompletionTokens
 		activity.TotalTokens += a.TotalTokens
-		activity.RunCount += a.RunCount
 	}
 
 	return apiContext.Write(types.ConvertTokenActivity(activity))

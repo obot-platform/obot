@@ -718,12 +718,8 @@ func (i *Invoker) Resume(ctx context.Context, c kclient.WithWatch, thread *v1.Th
 	return i.stream(ctx, c, thread, run, runResp)
 }
 
-func (i *Invoker) saveState(ctx context.Context, c kclient.Client, thread *v1.Thread, run *v1.Run, runResp *gptscript.Run, tokenStats *gtypes.RunTokenActivity, retErr error) error {
+func (i *Invoker) saveState(ctx context.Context, c kclient.Client, thread *v1.Thread, run *v1.Run, runResp *gptscript.Run, retErr error) error {
 	errs := []error{retErr}
-
-	if err := i.saveTokenStats(ctx, tokenStats, runResp); err != nil {
-		errs = append(errs, err)
-	}
 
 	if isEphemeral(run) {
 		// Ephemeral run, don't save state
@@ -933,22 +929,6 @@ func (i *Invoker) doSaveState(ctx context.Context, c kclient.Client, thread *v1.
 	return nil
 }
 
-func (i *Invoker) saveTokenStats(ctx context.Context, tokenStats *gtypes.RunTokenActivity, runResp *gptscript.Run) error {
-	usage := runResp.Usage()
-	if tokenStats.ID == 0 ||
-		tokenStats.PromptTokens != usage.PromptTokens ||
-		tokenStats.CompletionTokens != usage.CompletionTokens ||
-		tokenStats.TotalTokens != usage.TotalTokens {
-		tokenStats.PromptTokens = usage.PromptTokens
-		tokenStats.CompletionTokens = usage.CompletionTokens
-		tokenStats.TotalTokens = usage.TotalTokens
-
-		return i.gatewayClient.UpsertTokenUsage(ctx, tokenStats)
-	}
-
-	return nil
-}
-
 func toExternalCall(output string) *v1.ExternalCall {
 	var call v1.ExternalCall
 	if err := json.Unmarshal([]byte(strings.TrimSpace(output)), &call); err != nil || call.Type != "obotExternalCall" || call.ID == "" {
@@ -978,16 +958,11 @@ func (i *Invoker) stream(ctx context.Context, c kclient.WithWatch, thread *v1.Th
 	thread = thread.DeepCopyObject().(*v1.Thread)
 	run = run.DeepCopyObject().(*v1.Run)
 
-	tokenStats := &gtypes.RunTokenActivity{
-		UserID: thread.Spec.UserID,
-		Name:   run.Name,
-	}
-
 	defer func() {
 		// Don't use parent context because it may be canceled and we still want to save the state
 		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 		defer cancel()
-		retErr = i.saveState(ctx, c, thread, run, runResp, tokenStats, retErr)
+		retErr = i.saveState(ctx, c, thread, run, runResp, retErr)
 		if retErr != nil {
 			log.Errorf("failed to save state: %v", retErr)
 		}
@@ -1006,7 +981,7 @@ func (i *Invoker) stream(ctx context.Context, c kclient.WithWatch, thread *v1.Th
 			case <-saveCtx.Done():
 				return
 			case <-time.After(time.Second):
-				_ = i.saveState(ctx, c, thread, run, runResp, tokenStats, nil)
+				_ = i.saveState(ctx, c, thread, run, runResp, nil)
 			}
 		}
 	}()

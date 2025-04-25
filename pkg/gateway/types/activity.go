@@ -44,17 +44,11 @@ type RunTokenActivity struct {
 	TotalTokens      int
 }
 
-type TokenActivity struct {
-	RunTokenActivity
-	RunCount int
-}
-
-func ConvertTokenActivity(a TokenActivity) types2.TokenUsage {
+func ConvertTokenActivity(a RunTokenActivity) types2.TokenUsage {
 	return types2.TokenUsage{
 		UserID:           a.UserID,
 		RunName:          a.Name,
 		Date:             *types2.NewTime(a.CreatedAt),
-		RunCount:         a.RunCount,
 		PromptTokens:     a.PromptTokens,
 		CompletionTokens: a.CompletionTokens,
 		TotalTokens:      a.TotalTokens,
