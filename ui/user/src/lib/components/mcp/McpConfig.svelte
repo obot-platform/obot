@@ -1,15 +1,29 @@
 <script lang="ts">
 	import { clickOutside } from '$lib/actions/clickoutside';
-	import type { MCP } from '$lib/services';
+	import type { MCP, ProjectMCP } from '$lib/services';
 	import { responsive } from '$lib/stores';
-	import { ChevronRight, ChevronsRight, X } from 'lucide-svelte';
+	import { ChevronRight, ChevronsRight, CircleCheckBig, X } from 'lucide-svelte';
 
 	interface Props {
-		mcp: MCP;
-		onSubmit: () => void;
+		mcp: MCP | ProjectMCP;
+		disableOutsideClick?: boolean;
+		hideCloseButton?: boolean;
+		hideSubmitButton?: boolean;
+		onSubmit?: (values?: Record<string, string>) => void;
 		readonly?: boolean;
+		selected?: boolean;
+		submitText?: string;
 	}
-	let { mcp, readonly, onSubmit }: Props = $props();
+	let {
+		mcp,
+		disableOutsideClick,
+		hideCloseButton,
+		hideSubmitButton,
+		onSubmit,
+		selected,
+		submitText,
+		readonly
+	}: Props = $props();
 	let dialog: HTMLDialogElement | undefined = $state();
 
 	export function open() {
@@ -19,49 +33,78 @@
 	export function close() {
 		dialog?.close();
 	}
+
+	function handleSubmit() {
+		const values = {}; // TODO: get values from inputs
+		onSubmit?.(readonly ? undefined : values);
+		dialog?.close();
+	}
 </script>
 
-<dialog
-	bind:this={dialog}
-	use:clickOutside={() => close()}
-	class="default-dialog default-scrollbar-thin w-full p-4 sm:max-w-lg md:p-8"
-	class:mobile-screen-dialog={responsive.isMobile}
->
-	<button class="icon-button absolute top-4 right-4" onclick={() => close()}>
-		{#if responsive.isMobile}
-			<ChevronRight class="size-6" />
-		{:else}
-			<X class="size-6" />
+{#if mcp}
+	<dialog
+		bind:this={dialog}
+		use:clickOutside={() => {
+			if (disableOutsideClick) return;
+			dialog?.close();
+		}}
+		class="default-dialog default-scrollbar-thin w-full p-4 sm:max-w-lg md:p-6"
+		class:mobile-screen-dialog={responsive.isMobile}
+	>
+		{#if !hideCloseButton}
+			<button class="icon-button absolute top-4 right-4" onclick={() => dialog?.close()}>
+				{#if responsive.isMobile}
+					<ChevronRight class="size-6" />
+				{:else}
+					<X class="size-6" />
+				{/if}
+			</button>
 		{/if}
-	</button>
-	<div class="flex h-full flex-col">
-		<div class="flex max-w-sm gap-4">
-			<img src={mcp.server.icon} alt={mcp.server.name} class="size-12" />
-			<div class="flex flex-col justify-center">
-				<h3 class="text-lg font-semibold">{mcp.server.name}</h3>
-				<!--
+		<div class="flex h-full flex-col">
+			<div class="flex max-w-sm gap-3">
+				<div class="rounded-md bg-gray-50 p-1 dark:bg-gray-600">
+					<img
+						src={'server' in mcp ? mcp.server.icon : mcp.icon}
+						alt={'server' in mcp ? mcp.server.name : mcp.name}
+						class="size-6"
+					/>
+				</div>
+				<div class="flex flex-col justify-center">
+					<h3 class="text-lg font-semibold">{'server' in mcp ? mcp.server.name : mcp.name}</h3>
+					<!--
                 <p class="flex items-center gap-1 font-light">
                     <Star class="size-4" /> 50.5k
                 </p>
             -->
+				</div>
 			</div>
-		</div>
-		<div class="flex grow flex-col gap-8 pt-8">
-			<p class="md:text-md text-sm font-light text-gray-500">{mcp.server.description}</p>
-			{#if readonly}
-				{@render readOnlyContent()}
-			{:else}
-				{@render editContent()}
+			<div class="flex grow flex-col gap-8 pt-4">
+				<p class="md:text-md text-sm font-light text-gray-500">
+					{'server' in mcp ? mcp.server.description : mcp.description}
+				</p>
+				{#if readonly}
+					{@render readOnlyContent()}
+				{:else}
+					{@render editContent()}
+				{/if}
+			</div>
+			{#if selected}
+				<div class="mt-8 flex items-center gap-2 self-end">
+					<p class="text-md text-gray-500">Server added to Obot</p>
+					<CircleCheckBig class="size-5 text-blue-500" />
+				</div>
+			{:else if !hideSubmitButton}
+				<button
+					onclick={handleSubmit}
+					class="button-primary mt-8 flex w-full items-center justify-center gap-1 self-end md:w-fit"
+				>
+					{submitText ?? 'Chat with this server'}
+					<ChevronsRight class="size-4" />
+				</button>
 			{/if}
 		</div>
-		<button
-			onclick={() => onSubmit()}
-			class="button-primary mt-8 flex w-full items-center justify-center gap-1 self-end md:w-fit"
-		>
-			Chat with this server <ChevronsRight class="size-4" />
-		</button>
-	</div>
-</dialog>
+	</dialog>
+{/if}
 
 {#snippet readOnlyContent()}
 	<!-- temporarily commented out, need data from endpoint
@@ -106,5 +149,21 @@
 {/snippet}
 
 {#snippet editContent()}
-	<div class="flex w-full grow flex-col">TODO</div>
+	<!-- <div class="border-surface2 dark:border-surface3 relative w-full rounded-lg border-2 p-5 pt-2">
+		<h4
+			class="dark:bg-surface2 absolute top-0 left-3 w-fit -translate-y-3.5 bg-white px-2 text-base font-semibold"
+		>
+			Set Up Your MCP
+		</h4>
+		<div class="mt-4 flex flex-col items-baseline gap-4">
+			<div class="flex w-full flex-col gap-1">
+				<label for="from" class="text-sm font-light">Foobar API Key</label>
+				<input id="from" class="text-input-filled" placeholder="" />
+			</div>
+			<div class="flex w-full flex-col gap-1">
+				<label for="from" class="text-sm font-light">Biz API Key</label>
+				<input id="from" class="text-input-filled" placeholder="" />
+			</div>
+		</div>
+	</div> -->
 {/snippet}
