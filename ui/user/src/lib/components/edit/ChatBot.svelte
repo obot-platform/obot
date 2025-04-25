@@ -1,9 +1,7 @@
 <script lang="ts">
 	import { ChatService, EditorService, type Project, type ProjectShare } from '$lib/services';
 	import CopyButton from '$lib/components/CopyButton.svelte';
-	import { fade, slide } from 'svelte/transition';
 	import Toggle from '../Toggle.svelte';
-	import { Bot } from 'lucide-svelte';
 
 	interface Props {
 		project: Project;
@@ -65,8 +63,8 @@
 		<Toggle label="Toggle ChatBot" checked={!!share} onChange={handleChange} />
 	</div>
 
-	<!-- {#if share}
-		<div in:slide={{ axis: 'x' }} out:fade class="bg-surface2 flex flex-col gap-2 rounded-xl p-3">
+	{#if share}
+		<div class="bg-surface2 flex flex-col gap-2 rounded-xl p-3">
 			<p class="text-xs text-gray-500">
 				<b>Anyone with this link</b> can use this agent, which includes <b>any credentials</b> assigned
 				to this agent.
@@ -76,11 +74,5 @@
 				<a href={url} class="overflow-hidden text-sm text-ellipsis hover:underline">{url}</a>
 			</div>
 		</div>
-	{/if} -->
-
-	{#if share}
-		<button class="button-small" onclick={handleAgentTemplate}>
-			<Bot class="size-4" /> Create Agent Template
-		</button>
 	{/if}
 </div>
