@@ -8,6 +8,7 @@
 	import { IGNORED_BUILTIN_TOOLS } from '$lib/constants';
 	import { twMerge } from 'tailwind-merge';
 	import { clickOutside } from '$lib/actions/clickoutside';
+	import { tooltip } from '$lib/actions/tooltip.svelte';
 
 	interface Props {
 		onNewTools: (tools: AssistantTool[]) => Promise<void>;
@@ -41,7 +42,7 @@
 
 			<div
 				class={twMerge(
-					'bg-surface1 flex w-full cursor-pointer items-start justify-between gap-1 rounded-md p-2',
+					'flex w-full cursor-pointer items-start justify-between gap-1 rounded-md bg-white p-2 shadow-sm',
 					tool.builtin && 'bg-surface1/70 cursor-default'
 				)}
 				use:tt.ref
@@ -51,12 +52,12 @@
 						<div class="flex items-center gap-2">
 							{#if tool.icon}
 								<div class="bg-surface1 flex-shrink-0 rounded-md p-1 dark:bg-gray-200">
-									<img src={tool.icon} class="size-6" alt="tool {tool.name} icon" />
+									<img src={tool.icon} class="size-4" alt="tool {tool.name} icon" />
 								</div>
 							{/if}
 							<div class="flex flex-col">
-								<p class="line-clamp-1">{tool.name || 'Untitled'}</p>
-								<span class="line-clamp-2 text-xs font-light text-gray-500">{tool.description}</span
+								<p class="line-clamp-1 text-xs">{tool.name || 'Untitled'}</p>
+								<span class="line-clamp-1 text-xs font-light text-gray-500">{tool.description}</span
 								>
 							</div>
 						</div>
@@ -77,19 +78,24 @@
 	</ul>
 {/snippet}
 
-<CollapsePane header="Tools">
-	<p class="pb-4 text-sm text-gray-500">Tools added here are available to all threads.</p>
+<div class="flex flex-col gap-2">
+	<div class="mb-1 flex items-center justify-between">
+		<p class="grow text-sm font-semibold">Tools</p>
+		<button
+			class="icon-button"
+			onclick={() => toolCatalog?.showModal()}
+			use:tooltip={'Modify Tools'}
+		>
+			<Plus class="size-5" />
+		</button>
+	</div>
+
+	<p class="text-xs text-gray-500">Tools added here are available to all threads.</p>
 	<div class="flex flex-col gap-2">
 		{@render toolList(enabledList)}
 		{@render toolList(builtInList)}
-		<div class="self-end">
-			<button
-				class="button flex items-center gap-1 text-sm"
-				onclick={() => toolCatalog?.showModal()}><Plus class="size-4" /> Tools</button
-			>
-		</div>
 	</div>
-</CollapsePane>
+</div>
 
 <dialog
 	bind:this={toolCatalog}

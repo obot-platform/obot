@@ -20,7 +20,7 @@
 	} from '$lib/services';
 	import type { EditorItem } from '$lib/services/editor/index.svelte';
 	import { responsive } from '$lib/stores';
-	import { Download, Image } from 'lucide-svelte';
+	import { Download, Image, Plus } from 'lucide-svelte';
 	import { FileText, Trash, Upload, X } from 'lucide-svelte/icons';
 	import { onMount } from 'svelte';
 
@@ -30,7 +30,7 @@
 		currentThreadID?: string;
 		primary?: boolean;
 		helperText?: string;
-		placeholder?: string;
+		compact?: boolean;
 	}
 
 	let {
@@ -39,7 +39,7 @@
 		thread = false,
 		primary = true,
 		helperText = '',
-		placeholder = ''
+		compact
 	}: Props = $props();
 
 	const knowledgeExtensions = [
@@ -150,12 +150,8 @@
 	}
 </script>
 
-{#snippet body()}
-	{#if files.length === 0}
-		<p class="text-gray pt-6 pb-3 text-center text-sm font-light dark:text-gray-300">
-			{placeholder ? placeholder : 'No files'}
-		</p>
-	{:else}
+{#snippet content()}
+	{#if files && files.length > 0}
 		<ul class="max-h-[60vh] space-y-4 overflow-y-auto py-6 ps-3 text-sm">
 			{#each files as file}
 				<li class="group">
@@ -178,7 +174,7 @@
 								EditorService.download([], project, file.name, apiOpts);
 							}}
 						>
-							<Download class="text-gray h-5 w-5" />
+							<Download class="text-gray size-5" />
 						</button>
 
 						<button
@@ -188,34 +184,34 @@
 								menu?.toggle(false);
 							}}
 						>
-							<Trash class="text-gray h-5 w-5" />
+							<Trash class="text-gray size-5" />
 						</button>
 					</div>
 				</li>
 			{/each}
 		</ul>
 	{/if}
-
-	<div class="flex justify-end">
-		<label class="button mt-3 -mr-3 -mb-3 flex items-center justify-end gap-1 text-sm">
-			{#await uploadInProgress}
-				<Loading class="size-4" />
-			{:catch error}
-				<Error {error} />
-			{/await}
-			{#if !uploadInProgress}
-				<Upload class="size-4" />
-			{/if}
-			Upload
-			<input bind:files={fileList} type="file" class="hidden" {accept} />
-		</label>
-	</div>
+	{#if !compact}
+		<div class="flex justify-end">
+			<label class="button mt-3 -mr-3 -mb-3 flex items-center justify-end gap-1 text-sm">
+				{#await uploadInProgress}
+					<Loading class="size-4" />
+				{:catch error}
+					<Error {error} />
+				{/await}
+				{#if !uploadInProgress}
+					<Upload class="size-4" />
+				{/if}
+				Upload
+				<input bind:files={fileList} type="file" class="hidden" {accept} />
+			</label>
+		</div>
+	{/if}
 {/snippet}
 
 {#snippet menuBody()}
 	{#if thread}
 		<Menu
-			{body}
 			bind:this={menu}
 			title="Files"
 			description="Content available to AI."
@@ -229,14 +225,35 @@
 			slide={responsive.isMobile ? 'up' : undefined}
 			fixed={responsive.isMobile}
 		>
+			{#snippet body()}
+				{@render content()}
+			{/snippet}
 			{#snippet icon()}
 				<FileText class="h-5 w-5" />
 			{/snippet}
 		</Menu>
 	{:else}
-		<CollapsePane header="Starter Files" onOpen={loadFiles}>
-			{@render body()}
-		</CollapsePane>
+		<div class="flex flex-col gap-2" id="sidebar-starter-files">
+			<div class="mb-1 flex items-center justify-between">
+				<p class="grow text-sm font-semibold">Starter Files</p>
+				<div class="flex justify-end" use:tooltip={'Add Starter File'}>
+					<label class="icon-button flex cursor-pointer items-center justify-end gap-1 text-sm">
+						{#await uploadInProgress}
+							<Loading class="size-5" />
+						{:catch error}
+							<Error {error} />
+						{/await}
+						{#if !uploadInProgress}
+							<Plus class="size-5" />
+						{/if}
+						<input bind:files={fileList} type="file" class="hidden" {accept} />
+					</label>
+				</div>
+			</div>
+			<div class="flex flex-col gap-2">
+				{@render content()}
+			</div>
+		</div>
 	{/if}
 {/snippet}
 

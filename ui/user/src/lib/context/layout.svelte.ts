@@ -12,6 +12,19 @@ export interface Layout {
 	items: EditorItem[];
 	projectEditorOpen?: boolean;
 	fileEditorOpen?: boolean;
+	sidebarConfigOpen?: boolean;
+	sidebarConfig?:
+		| 'interfaces'
+		| 'introduction'
+		| 'system-prompt'
+		| 'members'
+		| 'slack'
+		| 'chatbot'
+		| 'discord'
+		| 'sms'
+		| 'email'
+		| 'webhook'
+		| 'template';
 }
 
 export function isSomethingSelected(layout: Layout) {
@@ -31,6 +44,18 @@ export function openTask(layout: Layout, taskID?: string) {
 export function openTaskRun(layout: Layout, taskRun?: TaskRun) {
 	closeAll(layout);
 	layout.displayTaskRun = taskRun;
+}
+
+export function openSidebarConfig(layout: Layout, config: Layout['sidebarConfig']) {
+	closeAll(layout);
+	layout.fileEditorOpen = false;
+	layout.sidebarConfigOpen = true;
+	layout.sidebarConfig = config;
+}
+
+export function closeSidebarConfig(layout: Layout) {
+	layout.sidebarConfigOpen = false;
+	layout.sidebarConfig = undefined;
 }
 
 export function initLayout(layout: Layout) {

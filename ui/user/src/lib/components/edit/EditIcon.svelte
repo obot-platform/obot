@@ -10,9 +10,10 @@
 	interface Props {
 		project: Project;
 		onSubmit?: () => void;
+		inline?: boolean;
 	}
 
-	let { project = $bindable(), onSubmit }: Props = $props();
+	let { project = $bindable(), onSubmit, inline }: Props = $props();
 
 	let urlIcon:
 		| {
@@ -31,32 +32,43 @@
 	});
 </script>
 
-<div class="flex w-full items-center justify-center">
-	<button
-		class="icon-button group relative flex items-center gap-2 p-0 shadow-md"
-		class:cursor-default={!project.editor}
-		use:ref
-		onclick={() => toggle()}
-		disabled={!project.editor}
-	>
-		<AssistantIcon {project} class="size-24" />
+{#if inline}
+	<div class="flex flex-col gap-4">
+		{@render content()}
+	</div>
+{:else}
+	<div class="flex w-full items-center justify-center">
+		<button
+			class="icon-button group relative flex items-center gap-2 p-0 shadow-md"
+			class:cursor-default={!project.editor}
+			use:ref
+			onclick={() => toggle()}
+			disabled={!project.editor}
+		>
+			<AssistantIcon {project} class="size-24" />
 
-		{#if project.editor}
-			<div
-				class="bg-surface1 group-hover:bg-surface3 absolute -right-1 bottom-0 rounded-full p-2 shadow-md transition-all duration-200"
-			>
-				<Pencil class="size-4" />
-			</div>
-		{/if}
-	</button>
-</div>
-<div
-	use:tooltip={{
-		slide: responsive.isMobile ? 'left' : undefined,
-		fixed: responsive.isMobile ? true : false
-	}}
-	class="default-dialog top-16 left-0 z-40 flex h-[calc(100vh-64px)] w-screen flex-col px-4 md:top-auto md:left-auto md:h-auto md:w-[350px] md:py-6"
->
+			{#if project.editor}
+				<div
+					class="bg-surface1 group-hover:bg-surface3 absolute -right-1 bottom-0 rounded-full p-2 shadow-md transition-all duration-200"
+				>
+					<Pencil class="size-4" />
+				</div>
+			{/if}
+		</button>
+	</div>
+	<div
+		use:tooltip={{
+			slide: responsive.isMobile ? 'left' : undefined,
+			fixed: responsive.isMobile ? true : false,
+			disablePortal: true
+		}}
+		class="default-dialog bg-surface1 top-16 left-0 z-40 flex h-[calc(100vh-64px)] w-screen flex-col px-4 md:top-auto md:left-auto md:h-auto md:w-[350px] md:py-6 dark:bg-black"
+	>
+		{@render content()}
+	</div>
+{/if}
+
+{#snippet content()}
 	{#if responsive.isMobile}
 		<div class="border-surface3 relative mb-6 flex items-center justify-center border-b py-4">
 			<h4 class="text-lg font-medium">Edit Icon</h4>
@@ -107,9 +119,7 @@
 
 			<GenerateIcon {project} />
 
-			<div
-				class="mt-4 flex w-full flex-col items-center justify-between gap-4 md:flex-row md:gap-0"
-			>
+			<div class="mt-4 flex w-full flex-col items-center justify-center gap-4 md:flex-row">
 				<UploadIcon
 					label="Upload Icon"
 					onUpload={(imageUrl: string) => {
@@ -122,7 +132,7 @@
 				/>
 
 				<button
-					class="icon-button flex items-center justify-center gap-2 py-2"
+					class="icon-button flex items-center justify-center gap-2 px-4 py-2"
 					onclick={() => {
 						project.icons = undefined;
 						onSubmit?.();
@@ -134,4 +144,4 @@
 			</div>
 		</div>
 	{/if}
-</div>
+{/snippet}

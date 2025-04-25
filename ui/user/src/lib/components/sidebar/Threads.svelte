@@ -199,16 +199,13 @@
 </script>
 
 {#if isOpen}
-	<div class="flex flex-col">
+	<div class="flex flex-col" id="sidebar-threads">
 		<div class="mb-1 flex items-center justify-between">
 			<p class="grow text-sm font-semibold">Threads</p>
 			<button class="icon-button" onclick={createThread} use:tooltip={'Start New Thread'}>
 				<Plus class="h-5 w-5" />
 			</button>
 		</div>
-		{#if layout.threads?.length === 0}
-			<p class="text-gray p-6 text-center text-sm dark:text-gray-300">No threads</p>
-		{/if}
 		<ul transition:fade>
 			{#each (layout.threads ?? []).slice(0, displayCount) as thread (thread.id)}
 				<li

@@ -14,9 +14,10 @@
 		onSubmitMcp?: (mcp: MCP) => void;
 		submitText?: string;
 		selectedMcpIds?: Set<string>;
+		hideLogo?: boolean;
 	}
 
-	let { inline = false, mcps, onSubmitMcp, submitText, selectedMcpIds }: Props = $props();
+	let { inline = false, mcps, onSubmitMcp, submitText, selectedMcpIds, hideLogo }: Props = $props();
 	let dialog: HTMLDialogElement | undefined = $state();
 
 	const ITEMS_PER_PAGE = 36;
@@ -66,7 +67,7 @@
 	}
 
 	$effect(() => {
-		if (browseAllTitleElement) {
+		if (browseAllTitleElement && !hideLogo) {
 			setupObserver();
 		}
 	});
@@ -125,14 +126,16 @@
 		class="sticky top-0 left-0 z-30 h-20 w-full max-w-(--breakpoint-2xl) bg-white py-4 dark:bg-black"
 	>
 		<div class="flex w-full">
-			<div class="flex w-xs pl-4">
-				{#if !isBrowseAllVisible && !responsive.isMobile}
-					<div transition:fade={{ duration: 200 }} class="w-full">
-						{@render logo()}
-					</div>
-				{/if}
-			</div>
-			<div class="flex w-full items-center gap-4 px-12">
+			{#if !hideLogo}
+				<div class="hidden w-xs pl-4 md:flex">
+					{#if !isBrowseAllVisible && !responsive.isMobile}
+						<div transition:fade={{ duration: 200 }} class="w-full">
+							{@render logo()}
+						</div>
+					{/if}
+				</div>
+			{/if}
+			<div class="flex w-full items-center gap-4 px-4 md:px-12">
 				<Search
 					onChange={(val) => {
 						search = val;

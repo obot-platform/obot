@@ -11,7 +11,7 @@
 	let { project }: Props = $props();
 </script>
 
-<CollapsePane header="Website Knowledge">
+<CollapsePane header="Website Knowledge" compact>
 	<p class="text-gray mb-4 text-xs">Add websites to your agent's knowledge base.</p>
 	<div class="flex flex-col gap-2">
 		{#if project.websiteKnowledge?.sites}

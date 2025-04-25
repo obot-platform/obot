@@ -3,28 +3,13 @@
 	import { fade } from 'svelte/transition';
 	import type { Snippet } from 'svelte';
 	import { darkMode, errors, responsive } from '$lib/stores';
-	import { goto } from '$app/navigation';
-	import { EditorService } from '$lib/services';
+	import { Home } from 'lucide-svelte';
 
 	interface Props {
 		leftContent?: Snippet;
 	}
 
 	let { leftContent }: Props = $props();
-
-	async function handleChatLink() {
-		const lastVisitedObot = localStorage.getItem('lastVisitedObot');
-		if (lastVisitedObot) {
-			goto(`/o/${lastVisitedObot}`);
-		} else {
-			try {
-				const project = await EditorService.createObot();
-				await goto(`/o/${project.id}`);
-			} catch (error) {
-				errors.append((error as Error).message);
-			}
-		}
-	}
 </script>
 
 <nav class="flex h-16 w-full items-center bg-white px-3 dark:bg-black" in:fade|global>
@@ -50,10 +35,9 @@
 		<div class="grow"></div>
 		<div class="flex items-center gap-4">
 			{#if !responsive.isMobile}
-				<button onclick={handleChatLink} class="nav-link">Chat</button>
-				<a class="nav-link" href="/agents">Agent Catalog</a>
-				<a class="nav-link" href="/catalog">MCP Servers</a>
-				<a href="https://docs.obot.ai" rel="external" target="_blank" class="nav-link">Docs</a>
+				<a class="nav-link" href="/agents" id="navbar-home-link">
+					<Home class="size-6" />
+				</a>
 				<a href="https://discord.gg/9sSf4UyAMC" rel="external" target="_blank" class="nav-link">
 					{#if darkMode.isDark}
 						<img src="/user/images/discord-mark/discord-mark-white.svg" alt="Discord" class="h-6" />

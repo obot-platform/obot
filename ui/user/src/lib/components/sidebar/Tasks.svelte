@@ -88,16 +88,14 @@
 	let taskToDelete = $state<Task>();
 </script>
 
-<div class="flex w-full flex-col">
+<div class="flex w-full flex-col" id="sidebar-tasks">
 	<div class="mb-1 flex items-center gap-1">
 		<p class="grow text-sm font-semibold">Tasks</p>
 		<button class="icon-button" onclick={() => newTask()} use:tooltip={'Create New Task'}>
 			<Plus class="icon-default" />
 		</button>
 	</div>
-	{#if !layout.tasks || layout.tasks.length === 0}
-		<p class="text-gray p-6 text-center text-sm dark:text-gray-300">No tasks</p>
-	{:else}
+	{#if layout.tasks && layout.tasks.length > 0}
 		<ul>
 			{#each layout.tasks as task, i (task.id)}
 				<TaskItem

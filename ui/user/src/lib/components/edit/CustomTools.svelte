@@ -81,7 +81,7 @@
 	</ul>
 {/snippet}
 
-<CollapsePane header="Custom Tools">
+<CollapsePane header="Custom Tools" compact>
 	<p class="pb-4 text-sm text-gray-500">Custom tools added here are available to all threads.</p>
 	<div class="flex flex-col gap-2">
 		{@render toolList(enabledList)}

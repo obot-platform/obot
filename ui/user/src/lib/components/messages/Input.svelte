@@ -7,6 +7,7 @@
 	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
+		id?: string;
 		onFocus?: () => void;
 		onSubmit?: (input: InvokeInput) => void | Promise<void>;
 		onAbort?: () => Promise<void>;
@@ -18,6 +19,7 @@
 	}
 
 	let {
+		id,
 		onFocus,
 		onSubmit,
 		onAbort,
@@ -105,7 +107,7 @@
 	</button>
 {/snippet}
 
-<div class="w-full px-5">
+<div class="w-full px-5" {id}>
 	<label for="chat" class="sr-only">Your messages</label>
 	<div
 		class="bg-surface1 focus-within:ring-blue relative flex flex-col items-center rounded-2xl focus-within:shadow-md focus-within:ring-1"

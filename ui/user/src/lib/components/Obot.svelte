@@ -16,18 +16,19 @@
 	import { columnResize } from '$lib/actions/resize';
 	import { X } from 'lucide-svelte';
 	import CredentialAuth from '$lib/components/edit/CredentialAuth.svelte';
-	import type { ProjectCredential } from '$lib/services';
+	import type { Assistant, ProjectCredential } from '$lib/services';
 	import { clickOutside } from '$lib/actions/clickoutside';
-	import EditorToggle from './navbar/EditorToggle.svelte';
 	import { goto } from '$app/navigation';
+	import SidebarConfig from './SidebarConfig.svelte';
 
 	interface Props {
+		assistant?: Assistant;
 		project: Project;
 		items?: EditorItem[];
 		currentThreadID?: string;
 	}
 
-	let { project = $bindable(), currentThreadID = $bindable() }: Props = $props();
+	let { project = $bindable(), currentThreadID = $bindable(), assistant }: Props = $props();
 	let layout = getLayout();
 	let editor: HTMLDivElement | undefined = $state();
 
@@ -76,8 +77,11 @@
 		class:border={layout.sidebarOpen && !layout.fileEditorOpen}
 	>
 		{#if layout.sidebarOpen && !layout.fileEditorOpen}
-			<div class="w-screen min-w-screen md:w-1/6 md:min-w-[250px]" transition:slide={{ axis: 'x' }}>
-				<Sidebar {project} bind:currentThreadID />
+			<div
+				class="bg-surface1 w-screen min-w-screen md:w-1/6 md:min-w-[275px]"
+				transition:slide={{ axis: 'x' }}
+			>
+				<Sidebar {assistant} bind:project bind:currentThreadID />
 			</div>
 		{/if}
 
@@ -114,7 +118,7 @@
 					{/snippet}
 				</Navbar>
 			</div>
-			{#if !layout.projectEditorOpen && !layout.fileEditorOpen}
+			{#if !layout.projectEditorOpen && !layout.fileEditorOpen && !layout.sidebarConfigOpen}
 				<div class="absolute top-[76px] right-5 z-30 flex flex-col gap-4" in:fade={{ delay: 300 }}>
 					<button
 						use:tooltip={'New Agent'}
@@ -123,7 +127,6 @@
 					>
 						<Plus class="size-5" />
 					</button>
-					<EditorToggle />
 				</div>
 			{/if}
 
@@ -155,6 +158,8 @@
 								runID={layout.displayTaskRun.id}
 							/>
 						{/key}
+					{:else if layout.sidebarConfigOpen}
+						<SidebarConfig bind:project />
 					{:else}
 						<Thread bind:id={currentThreadID} bind:project />
 					{/if}

@@ -1,18 +1,20 @@
 <script lang="ts">
-	import { Upload } from 'lucide-svelte/icons';
+	import { Plus, Upload } from 'lucide-svelte/icons';
 	import { ChatService, type Project } from '$lib/services';
 	import type { KnowledgeFile } from '$lib/services';
 	import Loading from '$lib/icons/Loading.svelte';
 	import Error from '$lib/components/Error.svelte';
+	import { tooltip } from '$lib/actions/tooltip.svelte';
 
 	interface Props {
 		onUpload?: () => void | Promise<void>;
 		project: Project;
 		thread?: boolean;
 		currentThreadID?: string;
+		compact?: boolean;
 	}
 
-	let { onUpload, project, thread, currentThreadID }: Props = $props();
+	let { onUpload, project, thread, currentThreadID, compact }: Props = $props();
 
 	let files = $state<FileList>();
 	let uploadInProgress = $state<Promise<KnowledgeFile>>();
@@ -61,17 +63,37 @@
 	});
 </script>
 
-<div class="flex justify-end">
-	<label class="button flex items-center justify-end gap-1 text-sm">
+{#if compact}
+	<div class="flex justify-end" use:tooltip={'Upload Knowledge File'}>
+		{@render content()}
+	</div>
+{:else}
+	<div class="flex justify-end">
+		{@render content()}
+	</div>
+{/if}
+
+{#snippet content()}
+	<label
+		class={compact
+			? 'icon-button cursor-pointer'
+			: 'button flex items-center justify-end gap-1 text-sm'}
+	>
 		{#await uploadInProgress}
-			<Loading class="size-4" />
+			<Loading class="size-5" />
 		{:catch error}
 			<Error {error} />
 		{/await}
 		{#if !uploadInProgress}
-			<Upload class="size-4" />
+			{#if compact}
+				<Plus class="size-5" />
+			{:else}
+				<Upload class="size-5" />
+			{/if}
 		{/if}
-		Upload
+		{#if !compact}
+			Upload
+		{/if}
 		<input
 			bind:files
 			type="file"
@@ -79,4 +101,4 @@
 			accept=".pdf, .txt, .doc, .docx, .md, .html, .odt, .rtf, .csv, .ipynb, .json, .pptx, .ppt, .pages"
 		/>
 	</label>
-</div>
+{/snippet}

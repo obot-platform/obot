@@ -32,8 +32,8 @@
 	<button
 		onclick={() => dialog?.open()}
 		class={twMerge(
-			'card group from-surface2 to-surface1 relative z-20 h-full w-full flex-col overflow-hidden bg-radial-[at_25%_25%] to-75% shadow-md',
-			selected && 'transform-none opacity-50'
+			'card group from-surface2 to-surface1 relative z-20 h-full w-full flex-col overflow-hidden border border-transparent bg-radial-[at_25%_25%] to-75% shadow-md',
+			selected && 'transform-none border border-blue-500 opacity-50'
 		)}
 	>
 		<div class="flex h-fit w-full flex-col gap-2 p-4 md:h-auto md:grow">
