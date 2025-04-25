@@ -65,10 +65,10 @@ func DetermineCredsAndCredNames(prg *gptscript.Program, tool gptscript.Tool, nam
 
 func determineCredentialNames(prg *gptscript.Program, tool gptscript.Tool, credToolName string, noAuth map[string]struct{}) ([]string, error) {
 	var subTool string
-	parsedToolName, alias, args, err := gtypes.ParseCredentialArgs(credToolName, "")
+	parsedToolName, alias, _, args, err := gtypes.ParseCredentialArgs(credToolName, "")
 	if err != nil {
 		parsedToolName, subTool = gtypes.SplitToolRef(credToolName)
-		parsedToolName, alias, args, err = gtypes.ParseCredentialArgs(parsedToolName, "")
+		parsedToolName, alias, _, args, err = gtypes.ParseCredentialArgs(parsedToolName, "")
 		if err != nil {
 			return nil, err
 		}
