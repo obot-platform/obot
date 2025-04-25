@@ -8,6 +8,4 @@
 	let { class: klass }: Props = $props();
 </script>
 
-<a href="/catalog">
-	<img src="/user/images/obot-icon-blue.svg" class={twMerge('mx-2 h-8', klass)} alt="Obot icon" />
-</a>
+<img src="/user/images/obot-icon-blue.svg" class={twMerge('mx-2 h-8', klass)} alt="Obot icon" />

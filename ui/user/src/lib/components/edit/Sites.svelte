@@ -12,7 +12,7 @@
 </script>
 
 <CollapsePane header="Website Knowledge">
-	<p class="text-gray mb-4 text-xs">Add websites to your Obot's knowledge base.</p>
+	<p class="text-gray mb-4 text-xs">Add websites to your agent's knowledge base.</p>
 	<div class="flex flex-col gap-2">
 		{#if project.websiteKnowledge?.sites}
 			<table class="w-full text-left">

@@ -8,6 +8,7 @@
 	import { profile, responsive } from '$lib/stores';
 	import { qIsSet } from '$lib/url';
 	import { initProjectTools } from '$lib/context/projectTools.svelte.js';
+	import { initProjectMCPs } from '$lib/context/projectMcps.svelte.js';
 
 	let { data } = $props();
 	let project = $state(data.project);
@@ -18,6 +19,7 @@
 	let title = $derived(project?.name || 'Obot');
 
 	initToolReferences(data.toolReferences ?? []);
+	initProjectMCPs(data.mcps ?? []);
 	initialLayout();
 
 	// Initialize project tools immediately

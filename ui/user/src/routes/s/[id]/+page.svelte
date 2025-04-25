@@ -36,9 +36,7 @@
 		class="bg-surface1 relative z-40 flex h-16 w-full items-center justify-between gap-4 p-3 shadow-md md:gap-8"
 	>
 		<div class="flex shrink-0 items-center gap-2">
-			<a href="/catalog"
-				><img src="/user/images/obot-icon-blue.svg" class="h-8" alt="Obot icon" /></a
-			>
+			<img src="/user/images/obot-icon-blue.svg" class="h-8" alt="Obot icon" />
 		</div>
 		<div class="flex items-center">
 			<Profile />
@@ -51,9 +49,9 @@
 				class="bg-surface1 dark:bg-surface2 flex h-full w-full flex-col items-center justify-center gap-4 p-5 md:h-fit md:max-w-md md:rounded-xl"
 			>
 				<div class="flex max-w-sm grow flex-col gap-4 text-center md:grow-0">
-					<h2 class="border-surface3 border-b pb-4 text-xl font-semibold">Shared Obot</h2>
+					<h2 class="border-surface3 border-b pb-4 text-xl font-semibold">Shared Agent</h2>
 					<p class="text-md">
-						This obot was published by a third-party user and may include prompts or tools not
+						This agent was published by a third-party user and may include prompts or tools not
 						reviewed or verified by our team. It could interact with external systems, access
 						additional data sources, or behave in unexpected ways.
 					</p>

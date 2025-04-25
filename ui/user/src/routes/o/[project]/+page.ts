@@ -35,9 +35,10 @@ export const load: PageLoad = async ({ params, fetch }) => {
 			ChatService.listAllTools({ fetch })
 		]);
 
-		const [tools, assistant] = await Promise.all([
+		const [tools, assistant, mcps] = await Promise.all([
 			ChatService.listTools(project.assistantID, project.id, { fetch }),
-			ChatService.getAssistant(project.assistantID, { fetch })
+			ChatService.getAssistant(project.assistantID, { fetch }),
+			ChatService.listProjectMCPs(project.assistantID, project.id, { fetch })
 		]);
 
 		if (browser) {
@@ -51,7 +52,8 @@ export const load: PageLoad = async ({ params, fetch }) => {
 			project,
 			tools: enhancedTools,
 			toolReferences: toolReferences.items,
-			assistant
+			assistant,
+			mcps
 		};
 	} catch (e) {
 		handleRouteError(e, `/o/${params.project}`, profile.current);
