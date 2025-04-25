@@ -1,5 +1,6 @@
 import type { Task, TaskRun, Thread } from '$lib/services';
 import type { EditorItem } from '$lib/services/editor/index.svelte';
+import { responsive } from '$lib/stores';
 import { getContext, hasContext, setContext } from 'svelte';
 
 export interface Layout {
@@ -12,7 +13,6 @@ export interface Layout {
 	items: EditorItem[];
 	projectEditorOpen?: boolean;
 	fileEditorOpen?: boolean;
-	sidebarConfigOpen?: boolean;
 	sidebarConfig?:
 		| 'interfaces'
 		| 'introduction'
@@ -24,7 +24,10 @@ export interface Layout {
 		| 'sms'
 		| 'email'
 		| 'webhook'
-		| 'template';
+		| 'template'
+		| 'knowledge'
+		| 'custom-tool';
+	customToolId?: string;
 }
 
 export function isSomethingSelected(layout: Layout) {
@@ -34,8 +37,8 @@ export function isSomethingSelected(layout: Layout) {
 export function closeAll(layout: Layout) {
 	layout.editTaskID = undefined;
 	layout.displayTaskRun = undefined;
-	layout.sidebarConfigOpen = undefined;
 	layout.sidebarConfig = undefined;
+	layout.customToolId = undefined;
 }
 
 export function openTask(layout: Layout, taskID?: string) {
@@ -51,13 +54,25 @@ export function openTaskRun(layout: Layout, taskRun?: TaskRun) {
 export function openSidebarConfig(layout: Layout, config: Layout['sidebarConfig']) {
 	closeAll(layout);
 	layout.fileEditorOpen = false;
-	layout.sidebarConfigOpen = true;
 	layout.sidebarConfig = config;
+	if (responsive.isMobile) {
+		layout.sidebarOpen = false;
+	}
+}
+
+export function openCustomTool(layout: Layout, customToolId: string) {
+	closeAll(layout);
+	layout.fileEditorOpen = false;
+	layout.sidebarConfig = 'custom-tool';
+	layout.customToolId = customToolId;
+	if (responsive.isMobile) {
+		layout.sidebarOpen = false;
+	}
 }
 
 export function closeSidebarConfig(layout: Layout) {
-	layout.sidebarConfigOpen = false;
 	layout.sidebarConfig = undefined;
+	layout.customToolId = undefined;
 }
 
 export function initLayout(layout: Layout) {

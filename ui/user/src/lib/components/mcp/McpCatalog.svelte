@@ -3,10 +3,11 @@
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import { darkMode, responsive } from '$lib/stores';
 	import { ChevronLeft, ChevronRight, ListFilter, Plus, X } from 'lucide-svelte';
-	import Search from '../Search.svelte';
+	import McpCard from '$lib/components/mcp/McpCard.svelte';
+	import Search from '$lib/components/Search.svelte';
 	import { type MCP } from '$lib/services';
 	import { fade } from 'svelte/transition';
-	import McpCard from './McpCard.svelte';
+	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
 		inline?: boolean;
@@ -93,8 +94,8 @@
 {#if inline}
 	{@render body()}
 {:else}
-	<button class="icon-button" onclick={() => dialog?.showModal()} use:tooltip={'Add MCP Server'}>
-		<Plus class="size-5" />
+	<button class="button flex items-center gap-1 text-xs" onclick={() => dialog?.showModal()}>
+		<Plus class="size-4" /> Add MCP Server
 	</button>
 
 	<dialog
@@ -103,6 +104,13 @@
 		class="default-dialog h-full w-full bg-white pb-4 dark:bg-black"
 		class:mobile-screen-dialog={responsive.isMobile}
 	>
+		<button
+			class="icon-button sticky top-4 right-4 float-right self-end"
+			onclick={() => dialog?.close()}
+			use:tooltip={{ disablePortal: true, text: 'Close MCP Servers Catalog' }}
+		>
+			<X class="size-7" />
+		</button>
 		<div class="mt-4 flex w-full flex-col items-center justify-center gap-2 px-4 py-4">
 			<h2 class="text-3xl font-semibold md:text-4xl">MCP Servers</h2>
 			<p class="mb-8 max-w-full text-center text-base font-light md:max-w-md">
@@ -110,13 +118,6 @@
 				with.
 			</p>
 		</div>
-		<button
-			class="icon-button absolute top-4 right-4"
-			onclick={() => dialog?.close()}
-			use:tooltip={{ disablePortal: true, text: 'Close MCP Servers Catalog' }}
-		>
-			<X class="size-7" />
-		</button>
 		{@render body()}
 	</dialog>
 {/if}
@@ -154,7 +155,9 @@
 
 	<div class="relative flex w-full max-w-(--breakpoint-2xl)">
 		{#if !responsive.isMobile}
-			<div class="sticky top-20 left-0 w-xs p-4" style="height: calc(100vh - 9rem);">
+			<div
+				class={twMerge('sticky top-20 left-0 h-[calc(100vh-9rem)] w-xs p-4', inline && 'h-[50dvh]')}
+			>
 				<div class="flex flex-col gap-4">
 					<h3 class="text-2xl font-semibold">Categories</h3>
 					<ul class="flex flex-col">

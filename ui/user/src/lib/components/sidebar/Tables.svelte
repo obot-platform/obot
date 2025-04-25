@@ -5,16 +5,18 @@
 	import { fade } from 'svelte/transition';
 	import { overflowToolTip } from '$lib/actions/overflow';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
+	import CollapsePane from '$lib/components/edit/CollapsePane.svelte';
 
 	interface Props {
 		project: Project;
+		editor?: boolean;
 	}
 
 	async function loadTables() {
 		loadingTables = ChatService.listTables(project.assistantID, project.id);
 	}
 
-	let { project }: Props = $props();
+	let { project, editor }: Props = $props();
 
 	let loadingTables = $state<Promise<TableList>>();
 	let loaded = $state(false);
@@ -28,21 +30,41 @@
 	});
 </script>
 
-<div class="flex w-full flex-col">
-	<div class="mb-1 flex items-center gap-1">
-		<p class="text-sm font-semibold">Tables</p>
-		<div class="grow"></div>
-		<button class="icon-button" onclick={() => loadTables()} use:tooltip={'Refresh Tables'}>
-			<RefreshCcw class="size-4" />
-		</button>
+{#if editor}
+	<CollapsePane classes={{ header: 'pl-3 py-2', content: 'p-2' }} iconSize={5}>
+		{#snippet header()}
+			<span class="flex grow items-center gap-2 text-start text-sm font-extralight"> Tables </span>
+		{/snippet}
+		<div class="flex flex-col gap-4">
+			{@render content()}
+			<div class="flex justify-end">
+				<button class="button flex items-center gap-1 text-xs" onclick={() => loadTables()}>
+					<RefreshCcw class="size-4" /> Refresh
+				</button>
+			</div>
+		</div>
+	</CollapsePane>
+{:else}
+	<div class="flex w-full flex-col px-3">
+		<div class="mb-1 flex items-center gap-1">
+			<p class="text-sm font-semibold">Tables</p>
+			<div class="grow"></div>
+			<button class="icon-button" onclick={() => loadTables()} use:tooltip={'Refresh Tables'}>
+				<RefreshCcw class="size-4" />
+			</button>
+		</div>
+		{@render content()}
 	</div>
-	<div>
+{/if}
+
+{#snippet content()}
+	<div class="flex flex-col gap-4">
 		{#if loadingTables}
 			{#await loadingTables}
-				<p in:fade class="text-gray pt-6 pb-3 text-center text-sm dark:text-gray-300">Loading...</p>
+				<p in:fade class="text-gray text-center text-sm dark:text-gray-300">Loading...</p>
 			{:then tables}
 				{#if !tables.tables || tables.tables.length === 0}
-					<p class="text-gray pt-6 pb-3 text-center text-sm dark:text-gray-300">No tables</p>
+					<p class="text-gray py-4 text-center text-sm font-light dark:text-gray-300">No tables</p>
 				{:else}
 					<ul>
 						{#each tables.tables as table (table.name)}
@@ -64,4 +86,4 @@
 			{/await}
 		{/if}
 	</div>
-</div>
+{/snippet}

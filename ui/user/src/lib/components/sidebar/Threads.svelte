@@ -9,13 +9,15 @@
 	import DotDotDot from '../DotDotDot.svelte';
 	import { responsive } from '$lib/stores';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
+	import CollapsePane from '../edit/CollapsePane.svelte';
 
 	interface Props {
 		currentThreadID?: string;
 		project: Project;
+		editor?: boolean;
 	}
 
-	let { currentThreadID = $bindable(), project }: Props = $props();
+	let { currentThreadID = $bindable(), project, editor }: Props = $props();
 
 	let input = $state<HTMLInputElement>();
 	let editMode = $state(false);
@@ -199,81 +201,98 @@
 </script>
 
 {#if isOpen}
-	<div class="flex flex-col" id="sidebar-threads">
-		<div class="mb-1 flex items-center justify-between">
-			<p class="grow text-sm font-semibold">Threads</p>
-			<button class="icon-button" onclick={createThread} use:tooltip={'Start New Thread'}>
-				<Plus class="h-5 w-5" />
-			</button>
+	{#if editor}
+		<CollapsePane classes={{ header: 'pl-3 py-2', content: 'p-2' }} iconSize={5}>
+			{#snippet header()}
+				<span class="flex grow items-center gap-2 text-start text-sm font-extralight">
+					Threads
+				</span>
+			{/snippet}
+			<div class="flex flex-col gap-4 text-xs">
+				{@render content()}
+			</div>
+		</CollapsePane>
+	{:else}
+		<div class="flex flex-col px-3 text-xs">
+			<div class="mb-1 flex items-center justify-between">
+				<p class="grow text-sm font-semibold">Threads</p>
+				<button class="icon-button" onclick={createThread} use:tooltip={'Start New Thread'}>
+					<Plus class="h-5 w-5" />
+				</button>
+			</div>
+			{@render content()}
 		</div>
-		<ul transition:fade>
-			{#each (layout.threads ?? []).slice(0, displayCount) as thread (thread.id)}
-				<li
-					class:bg-surface2={isCurrentThread(thread)}
-					class="group hover:bg-surface3 flex min-h-9 items-center gap-3 rounded-md text-xs font-light"
-				>
-					{#if editMode && isCurrentThread(thread)}
-						<input
-							bind:value={name}
-							bind:this={input}
-							onkeyup={(e) => {
-								switch (e.key) {
-									case 'Escape':
-										editMode = false;
-										break;
-									case 'Enter':
-										saveName();
-										break;
-								}
-							}}
-							class="mx-2 w-0 grow border-none bg-transparent ring-0 outline-hidden dark:text-white"
-							placeholder="Enter name"
-							type="text"
-						/>
-					{:else}
-						<button
-							use:overflowToolTip
-							class:font-normal={isCurrentThread(thread)}
-							class="h-full grow p-2 text-start"
-							onclick={() => selectThread(thread.id)}
-						>
-							{thread.name || 'New Thread'}
-						</button>
-					{/if}
-					{#if isCurrentThread(thread) && editMode}
-						<button class="list-button-primary" onclick={() => (editMode = false)}>
-							<CircleX class="h-4 w-4" />
-						</button>
-						<button class="list-button-primary" onclick={saveName}>
-							<Save class="mr-2 h-4 w-4" />
-						</button>
-					{:else}
-						<DotDotDot
-							class="p-0 pr-2.5 transition-opacity duration-200 group-hover:opacity-100 md:opacity-0"
-						>
-							<div class="default-dialog flex min-w-max flex-col p-2">
-								<button
-									class="menu-button"
-									onclick={() => {
-										selectThread(thread.id);
-										startEditName();
-									}}
-								>
-									<Pen class="h-4 w-4" /> Rename
-								</button>
-								<button class="menu-button" onclick={() => deleteThread(thread.id)}>
-									<Trash2 class="h-4 w-4" /> Delete
-								</button>
-							</div>
-						</DotDotDot>
-					{/if}
-				</li>
-			{/each}
-			{#if layout.threads?.length && layout.threads?.length > displayCount}
-				<li class="hover:bg-surface3 flex w-full justify-center rounded-md p-2">
-					<button class="w-full text-xs" onclick={loadMore}> Show More </button>
-				</li>
-			{/if}
-		</ul>
-	</div>
+	{/if}
 {/if}
+
+{#snippet content()}
+	<ul transition:fade>
+		{#each (layout.threads ?? []).slice(0, displayCount) as thread (thread.id)}
+			<li
+				class:bg-surface2={isCurrentThread(thread)}
+				class="group hover:bg-surface3 flex min-h-9 items-center gap-3 rounded-md font-light"
+			>
+				{#if editMode && isCurrentThread(thread)}
+					<input
+						bind:value={name}
+						bind:this={input}
+						onkeyup={(e) => {
+							switch (e.key) {
+								case 'Escape':
+									editMode = false;
+									break;
+								case 'Enter':
+									saveName();
+									break;
+							}
+						}}
+						class="mx-2 w-0 grow border-none bg-transparent ring-0 outline-hidden dark:text-white"
+						placeholder="Enter name"
+						type="text"
+					/>
+				{:else}
+					<button
+						use:overflowToolTip
+						class:font-normal={isCurrentThread(thread)}
+						class="h-full grow p-2 text-start"
+						onclick={() => selectThread(thread.id)}
+					>
+						{thread.name || 'New Thread'}
+					</button>
+				{/if}
+				{#if isCurrentThread(thread) && editMode}
+					<button class="list-button-primary" onclick={() => (editMode = false)}>
+						<CircleX class="h-4 w-4" />
+					</button>
+					<button class="list-button-primary" onclick={saveName}>
+						<Save class="mr-2 h-4 w-4" />
+					</button>
+				{:else}
+					<DotDotDot
+						class="p-0 pr-2.5 transition-opacity duration-200 group-hover:opacity-100 md:opacity-0"
+					>
+						<div class="default-dialog flex min-w-max flex-col p-2">
+							<button
+								class="menu-button"
+								onclick={() => {
+									selectThread(thread.id);
+									startEditName();
+								}}
+							>
+								<Pen class="h-4 w-4" /> Rename
+							</button>
+							<button class="menu-button" onclick={() => deleteThread(thread.id)}>
+								<Trash2 class="h-4 w-4" /> Delete
+							</button>
+						</div>
+					</DotDotDot>
+				{/if}
+			</li>
+		{/each}
+		{#if layout.threads?.length && layout.threads?.length > displayCount}
+			<li class="hover:bg-surface3 flex w-full justify-center rounded-md p-2">
+				<button class="w-full text-xs" onclick={loadMore}> Show More </button>
+			</li>
+		{/if}
+	</ul>
+{/snippet}

@@ -8,7 +8,7 @@
 	import type { EditorItem } from '$lib/services/editor/index.svelte';
 	import { errors, responsive } from '$lib/stores';
 	import { closeAll, getLayout } from '$lib/context/layout.svelte';
-	import { GripVertical, Plus, SidebarOpen } from 'lucide-svelte';
+	import { GripVertical, MessageCirclePlus, Plus } from 'lucide-svelte';
 	import { fade, slide } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';
 	import Logo from './navbar/Logo.svelte';
@@ -16,7 +16,8 @@
 	import { columnResize } from '$lib/actions/resize';
 	import { X } from 'lucide-svelte';
 	import CredentialAuth from '$lib/components/edit/CredentialAuth.svelte';
-	import type { ProjectCredential } from '$lib/services';
+	import Projects from '$lib/components/navbar/Projects.svelte';
+	import type { Assistant, ProjectCredential } from '$lib/services';
 	import { clickOutside } from '$lib/actions/clickoutside';
 	import { goto } from '$app/navigation';
 	import SidebarConfig from './SidebarConfig.svelte';
@@ -24,12 +25,14 @@
 	import { browser } from '$app/environment';
 
 	interface Props {
+		assistant?: Assistant;
 		project: Project;
 		items?: EditorItem[];
 		currentThreadID?: string;
+		shared?: boolean;
 	}
 
-	let { project = $bindable(), currentThreadID = $bindable() }: Props = $props();
+	let { project = $bindable(), currentThreadID = $bindable(), assistant, shared }: Props = $props();
 	let layout = getLayout();
 	let editor: HTMLDivElement | undefined = $state();
 
@@ -38,6 +41,7 @@
 	let credAuth: ReturnType<typeof CredentialAuth>;
 	let configDialog: HTMLDialogElement;
 	let shortcutsDialog: HTMLDialogElement;
+	let nav = $state<HTMLDivElement>();
 
 	async function createNewThread() {
 		const thread = await ChatService.createThread(project.assistantID, project.id);
@@ -113,11 +117,19 @@
 	>
 		{#if layout.sidebarOpen && !layout.fileEditorOpen}
 			<div
-				class="bg-surface1 w-screen min-w-screen md:w-1/6 md:min-w-[275px]"
+				class="bg-surface1 w-screen min-w-screen flex-shrink-0 md:w-1/4 md:max-w-1/2 md:min-w-[320px] lg:max-w-7/12"
 				transition:slide={{ axis: 'x' }}
+				bind:this={nav}
 			>
-				<Sidebar bind:project bind:currentThreadID />
+				<Sidebar bind:project bind:currentThreadID {shared} />
 			</div>
+			{#if !responsive.isMobile}
+				<div
+					role="none"
+					class="relative h-full w-1 cursor-col-resize"
+					use:columnResize={{ column: nav }}
+				></div>
+			{/if}
 		{/if}
 
 		<main
@@ -126,34 +138,53 @@
 			class:hidden={layout.sidebarOpen && responsive.isMobile}
 		>
 			<div class="w-full">
-				<Navbar>
+				<Navbar hideSocial>
 					{#snippet leftContent()}
 						{#if !layout.sidebarOpen || layout.fileEditorOpen}
-							<Logo class="ml-0" />
 							<button
-								class="icon-button"
-								in:fade={{ delay: 400 }}
+								in:fade={{ delay: 350, duration: 0 }}
 								onclick={() => {
 									layout.sidebarOpen = true;
 									layout.fileEditorOpen = false;
 								}}
 								use:tooltip={'Open Sidebar'}
 							>
-								<SidebarOpen class="icon-default" />
+								<Logo class="ml-0" />
 							</button>
 							<button
-								class="icon-button"
-								in:fade={{ delay: 400 }}
+								class="icon-button p-0.5"
+								in:fade={{ delay: 350, duration: 0 }}
 								use:tooltip={'Start New Thread'}
 								onclick={() => createNewThread()}
 							>
-								<Plus class="icon-default" />
+								<MessageCirclePlus class="size-6" />
 							</button>
+						{/if}
+					{/snippet}
+					{#snippet centerContent()}
+						{#if !responsive.isMobile}
+							<div class="relative flex w-full items-center justify-center gap-4 px-8">
+								<div class=" flex max-w-xs grow">
+									<Projects {project} />
+								</div>
+								{#if responsive.isMobile}
+									<button class="icon-button flex-shrink-0" onclick={() => createNewAgent()}>
+										<Plus class="size-5" />
+									</button>
+								{:else}
+									<button
+										class="button flex flex-shrink-0 items-center gap-1 text-xs"
+										onclick={() => createNewAgent()}
+									>
+										<Plus class="size-4" /> Create New Agent
+									</button>
+								{/if}
+							</div>
 						{/if}
 					{/snippet}
 				</Navbar>
 			</div>
-			{#if !layout.projectEditorOpen && !layout.fileEditorOpen && !layout.sidebarConfigOpen}
+			<!-- {#if !layout.projectEditorOpen && !layout.fileEditorOpen && !layout.sidebarConfig}
 				<div class="absolute top-[76px] right-5 z-30 flex flex-col gap-4" in:fade={{ delay: 300 }}>
 					<button
 						use:tooltip={'New Agent'}
@@ -163,7 +194,7 @@
 						<Plus class="size-5" />
 					</button>
 				</div>
-			{/if}
+			{/if} -->
 
 			<div class="relative flex h-[calc(100%-76px)] max-w-full grow">
 				{#if !responsive.isMobile || (responsive.isMobile && !layout.fileEditorOpen)}
@@ -193,10 +224,10 @@
 								runID={layout.displayTaskRun.id}
 							/>
 						{/key}
-					{:else if layout.sidebarConfigOpen}
-						<SidebarConfig bind:project />
+					{:else if layout.sidebarConfig}
+						<SidebarConfig bind:project bind:currentThreadID {assistant} />
 					{:else}
-						<Thread bind:id={currentThreadID} bind:project />
+						<Thread bind:id={currentThreadID} bind:project {shared} />
 					{/if}
 				{/if}
 

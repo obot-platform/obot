@@ -3,9 +3,7 @@
 	import CollapsePane from '$lib/components/edit/CollapsePane.svelte';
 	import { autoHeight } from '$lib/actions/textarea';
 	import { reactiveLabel } from '$lib/actions/reactiveLabel.svelte';
-	import EditIcon from './EditIcon.svelte';
-	import { Info } from 'lucide-svelte';
-	import { tooltip } from '$lib/actions/tooltip.svelte';
+	import EditIcon from '$lib/components/edit/EditIcon.svelte';
 
 	interface Props {
 		project: Project;
@@ -14,19 +12,14 @@
 	let { project = $bindable() }: Props = $props();
 </script>
 
-<CollapsePane open>
+<CollapsePane classes={{ header: 'pl-3 py-2 text-md', content: 'p-2' }} iconSize={5}>
 	{#snippet header()}
-		<span class="flex grow items-center gap-2 text-start text-sm font-semibold">
-			General
-			{#if !project.editor}
-				<div use:tooltip={'Only the owner can modify this section.'}>
-					<Info class="size-4 text-gray-500 dark:text-gray-300" />
-				</div>
-			{/if}
+		<span class="flex grow items-center gap-2 text-start text-sm font-extralight">
+			Name & Description
 		</span>
 	{/snippet}
-	<div class="flex flex-col gap-4">
-		<div class="flex items-center gap-5">
+	<div class="flex flex-col gap-3 text-sm">
+		<div class="mt-2 flex items-center">
 			<EditIcon bind:project />
 		</div>
 		<div class="flex flex-col">
@@ -36,7 +29,7 @@
 				disabled={!project.editor}
 				type="text"
 				placeholder="Name"
-				class="bg-surface grow rounded-lg p-2"
+				class="dark:border-surface3 grow rounded-lg bg-white p-2 shadow-sm dark:border dark:bg-black"
 				bind:value={project.name}
 			/>
 		</div>
@@ -46,7 +39,7 @@
 			</label>
 			<textarea
 				id="project-desc"
-				class="bg-surface grow resize-none rounded-lg p-2"
+				class="bg-surface dark:border-surface3 grow resize-none rounded-lg p-2 shadow-sm dark:border dark:bg-black"
 				disabled={!project.editor}
 				rows="1"
 				placeholder="Description"

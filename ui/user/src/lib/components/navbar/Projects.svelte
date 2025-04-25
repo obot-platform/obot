@@ -18,7 +18,6 @@
 			button?: string;
 			tooltip?: string;
 		};
-		onlyEditable?: boolean;
 		showDelete?: boolean;
 	}
 
@@ -27,7 +26,6 @@
 		onOpenChange: onProjectOpenChange,
 		disabled,
 		classes,
-		onlyEditable,
 		showDelete
 	}: Props = $props();
 
@@ -57,7 +55,7 @@
 <button
 	bind:this={buttonElement}
 	class={twMerge(
-		'relative z-10 flex grow items-center justify-between gap-2 truncate rounded-xl p-2',
+		'bg-surface1 dark:border-surface3 relative z-10 flex grow items-center justify-between gap-2 truncate rounded-xl p-2 shadow-inner transition-colors duration-200 dark:border dark:bg-black',
 		classes?.button
 	)}
 	class:hover:bg-surface2={!disabled}
@@ -76,7 +74,7 @@
 		toggle();
 	}}
 >
-	<span class="text-md text-on-background max-w-[100%-24px] truncate font-semibold">
+	<span class="text-on-background max-w-[100%-24px] truncate text-sm font-semibold">
 		{project.name || DEFAULT_PROJECT_NAME}
 	</span>
 	{#if !disabled}
@@ -88,32 +86,30 @@
 
 {#if open}
 	<div
-		use:buttonPopover
-		class={twMerge('flex h-full w-full flex-col', classes?.tooltip)}
+		use:buttonPopover={{ disablePortal: true }}
+		class={twMerge(
+			'border-surface3 dark:bg-surface1 flex grow flex-col overflow-hidden rounded-md border bg-white',
+			classes?.tooltip
+		)}
 		role="none"
 		onclick={() => toggle(false)}
-		style={onlyEditable ? `width: ${buttonElement?.clientWidth}px` : ''}
 	>
 		{#each projects.slice(0, limit) as p}
-			{@render ProjectItem(p, onlyEditable)}
+			{@render ProjectItem(p)}
 		{/each}
 		{@render LoadMoreButton(projects.length, limit)}
 	</div>
 {/if}
 
-{#snippet ProjectItem(p: Project, isEditable = false)}
+{#snippet ProjectItem(p: Project)}
 	{@const isActive = p.id === project.id}
 	<div
 		class={twMerge(
-			'group flex items-center rounded-none p-2 transition-colors hover:bg-gray-300 dark:hover:bg-gray-700',
-			isActive && 'bg-surface3'
+			'group hover:bg-surface2 dark:hover:bg-surface3 flex items-center p-2 transition-colors',
+			isActive && 'bg-surface1 dark:bg-surface2'
 		)}
 	>
-		<a
-			href="/o/{p.id}{isEditable ? '?edit' : ''}"
-			rel="external"
-			class="flex grow items-center gap-2"
-		>
+		<a href="/o/{p.id}" rel="external" class="flex grow items-center gap-2">
 			<AssistantIcon project={p} class="shrink-0" />
 			<div class="flex grow flex-col">
 				<span class="text-on-background text-sm font-semibold"

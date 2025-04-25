@@ -9,7 +9,7 @@
 	import { X } from 'lucide-svelte/icons';
 	import { slide } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';
-	import Files from './edit/Files.svelte';
+	import Files from '$lib/components/edit/Files.svelte';
 
 	interface Props {
 		project: Project;

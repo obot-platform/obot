@@ -95,7 +95,9 @@
 	}
 </script>
 
-<div class="flex grow flex-col overflow-visible rounded-2xl bg-gray-50 p-5 dark:bg-gray-950">
+<div
+	class="dark:bg-surface1 dark:border-surface3 flex grow flex-col overflow-visible rounded-2xl bg-white p-5 shadow-sm dark:border"
+>
 	<div class="border-surface3 mb-4 flex items-center justify-between gap-4 border-b pb-4">
 		<h3 class="text-lg font-semibold">Trigger Type</h3>
 		<Dropdown

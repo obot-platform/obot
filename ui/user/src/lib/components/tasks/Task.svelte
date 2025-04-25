@@ -252,104 +252,115 @@
 {/snippet}
 
 <div class="flex h-full w-full grow flex-col">
-	<div class={twMerge('default-scrollbar-thin flex w-full grow justify-center overflow-y-auto')}>
+	<div
+		class={twMerge(
+			'default-scrollbar-thin flex w-full grow justify-center overflow-y-auto px-4 md:px-8'
+		)}
+	>
 		<!-- div in div is needed for the scrollbar to work so that space outside the max-width is still scrollable -->
 		<div
 			role="none"
 			onkeydown={(e) => e.stopPropagation()}
-			class="relative flex w-full max-w-full flex-col gap-4 rounded-s-3xl md:max-w-[1200px]"
+			class="relative flex w-full flex-col gap-4"
 		>
-			<div class="flex w-full justify-between gap-8 px-6 py-5 pb-0 md:px-8 md:py-5">
-				<div class="border-blue flex grow flex-col gap-1 border-l-4 pl-4">
-					<strong class="text-blue text-xs">TASK</strong>
+			<div class="w-full self-center md:max-w-[1200px]">
+				<div class="my-8 flex w-full justify-between gap-8 pb-0">
+					<div class="border-blue flex grow flex-col gap-1 border-l-4 pl-4">
+						<strong class="text-blue text-xs">TASK</strong>
 
-					{#if readOnly}
-						<h1 class="my-2 border-b border-transparent text-2xl font-semibold">{task.name}</h1>
-					{:else}
-						<input class="ghost-input text-2xl font-semibold" bind:value={task.name} />
-					{/if}
-
-					{#if readOnly}
-						{#if task.description}
-							<p class="text-gray py-2 text-base dark:text-gray-300">
-								{task.description}
-							</p>
+						{#if readOnly}
+							<h1 class="my-2 border-b border-transparent text-2xl font-semibold">{task.name}</h1>
+						{:else}
+							<input class="ghost-input text-2xl font-semibold" bind:value={task.name} />
 						{/if}
-					{:else}
-						<input
-							class="ghost-input"
-							bind:value={task.description}
-							placeholder="Enter description..."
-						/>
+
+						{#if readOnly}
+							{#if task.description}
+								<p class="text-gray py-2 text-base dark:text-gray-300">
+									{task.description}
+								</p>
+							{/if}
+						{:else}
+							<input
+								class="ghost-input"
+								bind:value={task.description}
+								placeholder="Enter description..."
+							/>
+						{/if}
+					</div>
+
+					{#if !responsive.isMobile}
+						<div
+							bind:this={taskHeaderActionDiv}
+							class="flex h-full flex-col items-end justify-center gap-4 md:justify-between"
+						>
+							{#if !readOnly}
+								<button class="button-destructive p-4" onclick={() => (toDelete = true)}>
+									<Trash2 class="size-4" />
+								</button>
+							{/if}
+							{@render mainActions()}
+						</div>
 					{/if}
 				</div>
-
-				{#if !responsive.isMobile}
-					<div
-						bind:this={taskHeaderActionDiv}
-						class="flex h-full flex-col items-end justify-center gap-4 md:justify-between"
-					>
+				{#if responsive.isMobile}
+					<div bind:this={taskHeaderActionDiv} class="flex w-full justify-between px-4">
 						{#if !readOnly}
 							<button class="button-destructive p-4" onclick={() => (toDelete = true)}>
 								<Trash2 class="size-4" />
 							</button>
+						{:else}
+							<!-- placeholder -->
+							<div class="size-4"></div>
 						{/if}
-						{@render mainActions()}
+						<div class="flex">
+							{@render mainActions()}
+						</div>
 					</div>
 				{/if}
-			</div>
-			{#if responsive.isMobile}
-				<div bind:this={taskHeaderActionDiv} class="flex w-full justify-between px-6 md:px-8">
-					{#if !readOnly}
-						<button class="button-destructive p-4" onclick={() => (toDelete = true)}>
-							<Trash2 class="size-4" />
-						</button>
-					{:else}
-						<!-- placeholder -->
-						<div class="size-4"></div>
-					{/if}
-					<div class="flex">
+				<div
+					class="sticky top-0 left-0 z-40 flex h-0 flex-col items-center justify-center bg-white opacity-0 transition-all duration-200 dark:bg-black"
+					class:opacity-100={!isTaskInfoVisible}
+					class:h-16={!isTaskInfoVisible}
+				>
+					<div class="flex h-16 w-full items-center justify-between gap-8 px-4 md:max-w-[1200px]">
+						<h4 class="border-blue grow truncate border-l-4 pl-2 text-lg font-semibold md:text-xl">
+							{task.name}
+						</h4>
 						{@render mainActions()}
 					</div>
 				</div>
-			{/if}
-			<div
-				class="sticky top-0 left-0 z-40 flex h-0 flex-col items-center justify-center bg-white opacity-0 transition-all duration-200 dark:bg-black"
-				class:opacity-100={!isTaskInfoVisible}
-				class:h-16={!isTaskInfoVisible}
-			>
-				<div
-					class="flex h-16 w-full items-center justify-between gap-8 px-6 md:max-w-[1200px] md:px-8"
-				>
-					<h4 class="border-blue grow truncate border-l-4 pl-2 text-lg font-semibold md:text-xl">
-						{task.name}
-					</h4>
-					{@render mainActions()}
-				</div>
 			</div>
-			<div class="flex flex-col gap-8 px-6">
-				<Steps
-					bind:task
-					bind:showAllOutput
-					{project}
-					{run}
-					{runID}
-					{stepMessages}
-					{pending}
-					{running}
-					{error}
-					{readOnly}
-				/>
+			<div class="flex w-full justify-center">
+				<div
+					class="flex w-full flex-col gap-4 rounded-xl bg-gray-50 p-4 shadow-inner md:max-w-[1200px] dark:bg-black"
+				>
+					<div class="flex flex-col gap-4">
+						<Steps
+							bind:task
+							bind:showAllOutput
+							{project}
+							{run}
+							{runID}
+							{stepMessages}
+							{pending}
+							{running}
+							{error}
+							{readOnly}
+						/>
+					</div>
+
+					{#if showAdvancedOptions}
+						<div transition:fade>
+							<Type bind:task {readOnly} {project} />
+						</div>
+					{/if}
+				</div>
 			</div>
 
-			{#if showAdvancedOptions}
-				<div class="p-6" transition:fade>
-					<Type bind:task {readOnly} {project} />
-				</div>
-			{/if}
 			<div class="grow"></div>
 
-			<div class="flex w-full items-center justify-between gap-4 p-6 pb-8">
+			<div class="flex w-full items-center justify-between gap-4 self-center p-4 md:max-w-[1200px]">
 				<button
 					class="button-text p-0"
 					onclick={() => (showAdvancedOptions = !showAdvancedOptions)}

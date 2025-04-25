@@ -7,34 +7,42 @@
 	interface Props {
 		onDelete?: () => void;
 		file: KnowledgeFile;
+		iconSize?: number;
+		classes?: {
+			delete?: string;
+		};
 	}
 
-	const { onDelete, file }: Props = $props();
+	const { onDelete, file, iconSize = 4, classes }: Props = $props();
 	let isError = $derived(file.state === 'error' || file.state === 'failed');
 </script>
 
-<div class="space-between group flex gap-2">
+<div class="space-between group flex items-center gap-2">
 	<button
-		class="flex flex-1 items-center truncate"
+		class="flex flex-1 items-center gap-1 truncate"
 		use:tooltip={isError ? (file.error ?? 'Failed') : file.fileName}
 	>
-		<FileText class="size-4 min-w-fit" />
-		<span class="ms-3 truncate text-sm">{file.fileName}</span>
+		<div class="flex items-center gap-1">
+			<FileText class={`size-${iconSize} min-w-fit`} />
+			<span class="truncate">{file.fileName}</span>
+		</div>
 		{#if file.state === 'error' || file.state === 'failed'}
-			<CircleX class="ms-2 h-4 text-red-500" />
+			<CircleX class={`ms-2 size-${iconSize} text-red-500`} />
 		{:else if file.state === 'pending' || file.state === 'ingesting'}
 			<Loading class="mx-1.5" />
 		{/if}
 	</button>
 
-	<button
-		class="hidden group-hover:block"
-		onclick={() => {
-			if (file.state === 'ingested') {
-				onDelete?.();
-			}
-		}}
-	>
-		<Trash2 class="text-gray size-5" />
-	</button>
+	{#if onDelete}
+		<button
+			class={classes?.delete}
+			onclick={() => {
+				if (file.state === 'ingested') {
+					onDelete();
+				}
+			}}
+		>
+			<Trash2 class={`size-${iconSize} text-gray`} />
+		</button>
+	{/if}
 </div>

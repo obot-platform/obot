@@ -33,7 +33,7 @@
 	}: Props = $props();
 </script>
 
-<div class="rounded-lg bg-gray-50 p-5 dark:bg-gray-950">
+<div class="dark:bg-surface1 dark:border-surface3 rounded-lg bg-white p-5 shadow-sm dark:border">
 	<div class="flex w-full items-center justify-between">
 		<h4 class="text-lg font-semibold">Steps</h4>
 		<button

@@ -1,13 +1,13 @@
 <script lang="ts">
 	import { getToolBundleMap } from '$lib/context/toolReferences.svelte';
 	import type { AssistantTool, ToolReference } from '$lib/services/chat/types';
-	import CollapsePane from './CollapsePane.svelte';
+	import CollapsePane from '$lib/components/edit/CollapsePane.svelte';
+	import SearchInput from '$lib/components/Search.svelte';
 	import { responsive } from '$lib/stores';
 	import { ChevronRight, ChevronsLeft, ChevronsRight, Search, Wrench, X } from 'lucide-svelte';
 	import { onMount } from 'svelte';
 	import { fly } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';
-	import SearchInput from '../Search.svelte';
 	import { IGNORED_BUILTIN_TOOLS } from '$lib/constants';
 
 	interface Props {

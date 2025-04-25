@@ -3,8 +3,8 @@
 	import AssistantIcon from '$lib/icons/AssistantIcon.svelte';
 	import type { Project } from '$lib/services';
 	import { responsive } from '$lib/stores';
-	import GenerateIcon from './GenerateIcon.svelte';
-	import UploadIcon from './UploadIcon.svelte';
+	import GenerateIcon from '$lib/components/edit/GenerateIcon.svelte';
+	import UploadIcon from '$lib/components/edit/UploadIcon.svelte';
 	import { ChevronRight, CircleX, Pencil } from 'lucide-svelte';
 
 	interface Props {

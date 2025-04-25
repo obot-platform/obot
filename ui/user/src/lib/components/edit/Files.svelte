@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { clickOutside } from '$lib/actions/clickoutside';
 	import { overflowToolTip } from '$lib/actions/overflow';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import Confirm from '$lib/components/Confirm.svelte';
@@ -20,8 +21,9 @@
 	import type { EditorItem } from '$lib/services/editor/index.svelte';
 	import { responsive } from '$lib/stores';
 	import { Download, Image, Plus } from 'lucide-svelte';
-	import { FileText, Trash, Upload, X } from 'lucide-svelte/icons';
+	import { FileText, Trash2, Upload, X } from 'lucide-svelte/icons';
 	import { onMount } from 'svelte';
+	import CollapsePane from './CollapsePane.svelte';
 
 	interface Props {
 		project: Project;
@@ -29,7 +31,9 @@
 		currentThreadID?: string;
 		primary?: boolean;
 		helperText?: string;
-		compact?: boolean;
+		classes?: {
+			list?: string;
+		};
 	}
 
 	let {
@@ -38,7 +42,7 @@
 		thread = false,
 		primary = true,
 		helperText = '',
-		compact
+		classes
 	}: Props = $props();
 
 	const knowledgeExtensions = [
@@ -67,9 +71,13 @@
 	let uploadInProgress = $state<Promise<Files>>();
 	let menu = $state<ReturnType<typeof Menu>>();
 
-	if (!thread) {
-		onMount(() => fileMonitor.start());
-	}
+	onMount(() => {
+		if (!thread) {
+			fileMonitor.start();
+			console.log('b');
+			loadFiles();
+		}
+	});
 
 	$effect(() => {
 		if (!fileList?.length) {
@@ -151,46 +159,46 @@
 
 {#snippet content()}
 	{#if files && files.length > 0}
-		<ul class="max-h-[60vh] space-y-4 overflow-y-auto py-6 ps-3 text-sm">
+		<ul class={classes?.list}>
 			{#each files as file}
 				<li class="group">
 					<div class="flex">
 						<button
-							class="flex w-4/5 flex-1 items-center truncate text-start"
+							class="flex w-4/5 flex-1 items-center gap-1 truncate text-start"
 							onclick={() => editFile(file)}
 						>
 							{#if isImage(file.name)}
-								<Image class="size-5 min-w-fit" />
+								<Image class="size-4 min-w-fit" />
 							{:else}
-								<FileText class="size-5 min-w-fit" />
+								<FileText class="size-4 min-w-fit" />
 							{/if}
 							<span use:overflowToolTip>{file.name}</span>
 						</button>
 
 						<button
-							class="icon-button-small invisible ms-2 group-hover:visible"
+							class="icon-button-small ms-2 opacity-0 transition-all duration-200 group-hover:opacity-100"
 							onclick={() => {
 								EditorService.download([], project, file.name, apiOpts);
 							}}
 						>
-							<Download class="text-gray size-5" />
+							<Download class="text-gray size-4" />
 						</button>
 
 						<button
-							class="icon-button-small invisible ms-2 group-hover:visible"
+							class="icon-button-small ms-2 opacity-0 transition-all duration-200 group-hover:opacity-100"
 							onclick={() => {
 								fileToDelete = file.name;
 								menu?.toggle(false);
 							}}
 						>
-							<Trash class="text-gray size-5" />
+							<Trash2 class="text-gray size-4" />
 						</button>
 					</div>
 				</li>
 			{/each}
 		</ul>
 	{/if}
-	{#if !compact}
+	{#if thread}
 		<div class="flex justify-end">
 			<label class="button mt-3 -mr-3 -mb-3 flex items-center justify-end gap-1 text-sm">
 				{#await uploadInProgress}
@@ -232,27 +240,30 @@
 			{/snippet}
 		</Menu>
 	{:else}
-		<div class="flex flex-col gap-2" id="sidebar-starter-files">
-			<div class="mb-1 flex items-center justify-between">
-				<p class="grow text-sm font-semibold">Starter Files</p>
-				<div class="flex justify-end" use:tooltip={'Add Starter File'}>
-					<label class="icon-button flex cursor-pointer items-center justify-end gap-1 text-sm">
+		<CollapsePane classes={{ header: 'pl-3 py-2', content: 'p-2' }} iconSize={5}>
+			{#snippet header()}
+				<span class="flex grow items-center gap-2 text-start text-sm font-extralight">
+					Starter Files
+				</span>
+			{/snippet}
+			<div class="flex flex-col gap-4">
+				{@render content()}
+				<div class="flex justify-end">
+					<label class="button flex cursor-pointer items-center justify-end gap-1 text-xs">
 						{#await uploadInProgress}
-							<Loading class="size-5" />
+							<Loading class="size-4" />
 						{:catch error}
 							<Error {error} />
 						{/await}
 						{#if !uploadInProgress}
-							<Plus class="size-5" />
+							<Plus class="size-4" />
 						{/if}
+						Add File
 						<input bind:files={fileList} type="file" class="hidden" {accept} />
 					</label>
 				</div>
 			</div>
-			<div class="flex flex-col gap-2">
-				{@render content()}
-			</div>
-		</div>
+		</CollapsePane>
 	{/if}
 {/snippet}
 
@@ -264,23 +275,27 @@
 	{@render menuBody()}
 {/if}
 
-<dialog bind:this={editorDialog} class="relative h-full w-full md:w-4/5">
+<dialog
+	bind:this={editorDialog}
+	class="relative h-full max-h-dvh w-full max-w-dvw rounded-none md:w-4/5 md:rounded-xl"
+	use:clickOutside={() => editorDialog?.close()}
+>
 	<button
-		class="button-icon-primary absolute top-2 right-2 z-10"
+		class="button-icon-primary absolute top-1 right-1 z-10"
 		onclick={async () => {
 			await fileMonitor.save();
 			editorDialog?.close();
 		}}
 	>
-		<X class="icon-default" />
+		<X class="size-6 md:size-8" />
 	</button>
 	<div class="flex h-full flex-col p-5">
 		{#each items as item}
 			{#if item.selected}
-				<h2 class="ml-2 pr-12 text-2xl font-semibold break-words">{item.name}</h2>
+				<h2 class="ml-2 pr-12 text-base font-semibold break-words md:text-xl">{item.name}</h2>
 			{/if}
 		{/each}
-		<div class="h-full overflow-y-auto rounded-sm border-t-2">
+		<div class="h-full overflow-y-auto">
 			<FileEditors {project} onFileChanged={fileMonitor.onFileChange} bind:items />
 		</div>
 	</div>

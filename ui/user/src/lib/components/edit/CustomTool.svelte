@@ -41,7 +41,7 @@ printf "The current temperature in %s is %.2f°F.\\n" "$CITY" "$RANDOM_TEMPERATU
 
 <script lang="ts">
 	import { autoHeight } from '$lib/actions/textarea.js';
-	import { Container, X, ChevronRight, Trash2, SquarePen } from 'lucide-svelte';
+	import { Container, X, ChevronRight, Trash2 } from 'lucide-svelte';
 	import { type AssistantTool, ChatService, type Project } from '$lib/services';
 	import Confirm from '$lib/components/Confirm.svelte';
 	import Env from '$lib/components/edit/customtool/Env.svelte';
@@ -54,13 +54,13 @@ printf "The current temperature in %s is %.2f°F.\\n" "$CITY" "$RANDOM_TEMPERATU
 	import { fade } from 'svelte/transition';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import { clickOutside } from '$lib/actions/clickoutside';
+	import { closeSidebarConfig, getLayout } from '$lib/context/layout.svelte';
 
 	interface Props {
 		tool: AssistantTool;
 		project: Project;
 		onSave: (tool: AssistantTool) => Promise<void>;
 		onDelete: (tool: AssistantTool) => Promise<void>;
-		onClose?: () => void;
 	}
 
 	interface SaveState {
@@ -68,7 +68,7 @@ printf "The current temperature in %s is %.2f°F.\\n" "$CITY" "$RANDOM_TEMPERATU
 		env: Record<string, string>;
 	}
 
-	let { tool = $bindable(), project, onSave, onDelete, onClose }: Props = $props();
+	let { tool = $bindable(), project, onSave, onDelete }: Props = $props();
 	let envs = $state<{ key: string; value: string; editing: string }[]>([]);
 	let params = $state<{ key: string; value: string }[]>([]);
 	let input = $state<{ key: string; value: string }[]>([]);
@@ -183,163 +183,162 @@ printf "The current temperature in %s is %.2f°F.\\n" "$CITY" "$RANDOM_TEMPERATU
 		await onDelete(tool);
 		requestDelete = false;
 	}
+
+	const layout = getLayout();
 </script>
 
-<div class="flex h-full flex-col">
-	{#if responsive.isMobile}
-		<h3 class="default-dialog-title" class:default-dialog-mobile-title={responsive.isMobile}>
-			<input
-				bind:value={tool.name}
-				placeholder="Enter Name"
-				class="w-full bg-inherit text-center text-xl font-semibold outline-none"
-			/>
-			<button class="icon-button mobile-header-button" onclick={() => onClose?.()}>
-				<ChevronRight class="size-6" />
-			</button>
-			<div class="absolute top-1/2 left-5 -z-10 -translate-y-1/2">
-				<SquarePen class="size-5 text-gray-500" />
-			</div>
-		</h3>
-	{/if}
-
-	{#if !responsive.isMobile}
-		<div class="flex items-center justify-between gap-8 p-5 pr-3">
-			<input
-				bind:value={tool.name}
-				placeholder="Enter Name"
-				class="ghost-input dark:hover:border-surface3 w-full bg-inherit text-xl font-semibold outline-none"
-			/>
-			<div class="flex gap-2">
-				{@render deleteButton()}
-				<button class="icon-button h-fit" onclick={() => onClose?.()}>
-					<X class="size-5" />
-				</button>
-			</div>
-		</div>
-	{/if}
-
-	<div class="default-scrollbar-thin relative flex grow flex-col gap-5 overflow-y-auto p-5 pt-0">
-		<div class="flex w-full justify-between gap-4">
-			<textarea
-				use:autoHeight
-				rows="1"
-				bind:value={tool.description}
-				placeholder="Enter description (a good one is very helpful)"
-				class="ghost-input dark:hover:border-surface3 w-full resize-none bg-inherit outline-none"
-			></textarea>
-			{#if responsive.isMobile}
-				{@render deleteButton()}
-			{/if}
-		</div>
-
-		<Params bind:params />
-
-		<div
-			class="bg-surface1 flex flex-col rounded-lg pb-1"
-			class:pb-5={tool.toolType === 'container'}
-		>
-			<div class="flex items-center">
-				<span class="flex-1 px-5 py-4 text-lg font-semibold">
-					{#if tool.toolType === 'container'}
-						Image
-					{:else if tool.toolType === 'script'}
-						Script
-					{:else}
-						Code
-					{/if}
-				</span>
-			</div>
-			<div class="flex w-full items-center gap-2" class:px-5={tool.toolType === 'container'}>
-				{#if tool.toolType === 'container'}
-					<Container class="size-5" />
+<div class="flex h-full w-full flex-col">
+	<div class="flex min-h-0 grow flex-col">
+		<div class="default-scrollbar-thin relative flex grow flex-col gap-8 overflow-y-auto">
+			<div class="flex w-full flex-col gap-4 self-center px-4 pt-8 md:max-w-[1200px]">
+				<div class="flex items-center justify-between gap-8">
 					<input
-						bind:value={tool.image}
-						class="text-input-filled w-full"
-						placeholder="Container image name"
+						bind:value={tool.name}
+						placeholder="Enter Name"
+						class="ghost-input dark:hover:border-surface3 w-full bg-inherit text-xl font-semibold outline-none"
 					/>
-				{:else}
-					<Codemirror
-						items={[]}
-						class="default-scrollbar-thin m-0 max-h-[50vh] w-full overflow-y-auto border-r-2"
-						file={editorFile}
-						onFileChanged={(_, c) => {
-							tool.instructions = c;
-						}}
-					/>
-				{/if}
-			</div>
-		</div>
-
-		{#if testOutput}
-			<div class="bg-surface1 relative flex flex-col gap-4 rounded-lg p-5" transition:fade>
-				<div class="absolute top-0 right-0 flex p-5">
-					<button onclick={() => (testOutput = undefined)}>
-						<X class="size-5" />
-					</button>
+					<div class="flex gap-2">
+						{@render deleteButton()}
+						<button class="icon-button" onclick={() => closeSidebarConfig(layout)}>
+							<X class="size-6" />
+						</button>
+					</div>
 				</div>
-				<h4 class="mb-4 text-xl font-semibold">Output</h4>
-				<Params bind:params bind:input classes={{ header: 'bg-surface1' }} />
-				<div class="font-mono text-sm whitespace-pre-wrap">
-					{#await testOutput}
-						Running...
-					{:then output}
-						<div class="rounded-lg bg-white p-5 font-mono whitespace-pre-wrap dark:bg-black">
-							{output.output}
-						</div>
-					{:catch error}
-						{error}
-					{/await}
-				</div>
-			</div>
-		{/if}
-		{#if advanced}
-			<div transition:fade class="flex flex-col gap-5">
-				<Env bind:envs />
-
-				<div class="bg-surface1 flex flex-col gap-2 rounded-lg p-5">
-					<h4 class="text-lg font-semibold">Calling Instructions</h4>
+				<div class="flex w-full justify-between gap-4">
 					<textarea
-						bind:value={tool.context}
 						use:autoHeight
 						rows="1"
-						class="text-input-filled resize-none"
-						placeholder="(optional) More information on how or when AI should invoke this tool."
+						bind:value={tool.description}
+						placeholder="Enter description (a good one is very helpful)"
+						class="ghost-input dark:hover:border-surface3 w-full resize-none bg-inherit outline-none"
 					></textarea>
+					{#if responsive.isMobile}
+						{@render deleteButton()}
+					{/if}
 				</div>
+			</div>
 
-				{#if tool.toolType !== 'container'}
-					<div class="bg-surface1 flex flex-col gap-4 rounded-lg p-5">
-						<h4 class="text-lg font-semibold">Runtime Docker Image</h4>
-						<div class="flex items-center gap-2">
-							<Container class="size-5" />
-							<input
-								bind:value={tool.image}
-								class="text-input-filled"
-								placeholder="Container image name"
-							/>
+			<div class="flex grow justify-center">
+				<div
+					class="flex w-full flex-col gap-4 rounded-md bg-gray-50 p-4 shadow-inner md:max-w-[1200px] dark:bg-black"
+				>
+					<Params bind:params />
+
+					<div
+						class="dark:bg-surface1 dark:border-surface3 flex flex-col rounded-lg bg-white pb-1 shadow-sm dark:border"
+						class:pb-5={tool.toolType === 'container'}
+					>
+						<div class="border-surface2 dark:border-surface3 flex items-center border-b">
+							<span class="flex-1 px-5 py-4 text-lg font-semibold">
+								{#if tool.toolType === 'container'}
+									Image
+								{:else if tool.toolType === 'script'}
+									Script
+								{:else}
+									Code
+								{/if}
+							</span>
+						</div>
+						<div class="flex w-full items-center gap-2" class:px-5={tool.toolType === 'container'}>
+							{#if tool.toolType === 'container'}
+								<Container class="size-5" />
+								<input
+									bind:value={tool.image}
+									class="text-input-filled w-full"
+									placeholder="Container image name"
+								/>
+							{:else}
+								<Codemirror
+									items={[]}
+									class="default-scrollbar-thin m-0 max-h-[50vh] w-full overflow-y-auto border-r-0 border-l-0"
+									file={editorFile}
+									onFileChanged={(_, c) => {
+										tool.instructions = c;
+									}}
+								/>
+							{/if}
 						</div>
 					</div>
-				{/if}
+
+					{#if testOutput}
+						<div class="bg-surface1 relative flex flex-col gap-4 rounded-lg p-5" transition:fade>
+							<div class="absolute top-0 right-0 flex p-5">
+								<button onclick={() => (testOutput = undefined)}>
+									<X class="size-5" />
+								</button>
+							</div>
+							<h4 class="mb-4 text-xl font-semibold">Output</h4>
+							<Params bind:params bind:input classes={{ header: 'bg-surface1' }} />
+							<div class="font-mono text-sm whitespace-pre-wrap">
+								{#await testOutput}
+									Running...
+								{:then output}
+									<div class="rounded-lg bg-white p-5 font-mono whitespace-pre-wrap dark:bg-black">
+										{output.output}
+									</div>
+								{:catch error}
+									{error}
+								{/await}
+							</div>
+						</div>
+					{/if}
+					{#if advanced}
+						<div transition:fade class="flex flex-col gap-5">
+							<Env bind:envs />
+
+							<div
+								class="dark:border-surface3 dark:bg-surface1 flex flex-col gap-2 rounded-lg bg-white p-5 shadow-sm dark:border"
+							>
+								<h4 class="text-lg font-semibold">Calling Instructions</h4>
+								<textarea
+									bind:value={tool.context}
+									use:autoHeight
+									rows="1"
+									class="text-input-filled bg-surface1 dark:bg-surface2 resize-none"
+									placeholder="(optional) More information on how or when AI should invoke this tool."
+								></textarea>
+							</div>
+
+							{#if tool.toolType !== 'container'}
+								<div
+									class="dark:border-surface3 dark:bg-surface1 flex flex-col gap-4 rounded-lg bg-white p-5 shadow-sm dark:border"
+								>
+									<h4 class="text-lg font-semibold">Runtime Docker Image</h4>
+									<div class="flex items-center gap-2">
+										<Container class="size-5" />
+										<input
+											bind:value={tool.image}
+											class="text-input-filled bg-surface1 dark:bg-surface2"
+											placeholder="Container image name"
+										/>
+									</div>
+								</div>
+							{/if}
+						</div>
+					{/if}
+				</div>
 			</div>
-		{/if}
-	</div>
+		</div>
 
-	<div class="flex w-full flex-col items-center justify-between gap-4 p-5 md:flex-row">
-		<button
-			class="button-text flex items-center gap-2 p-0 text-xs md:text-sm"
-			onclick={() => (advanced = !advanced)}
+		<div
+			class="flex w-full flex-col items-center justify-between gap-4 self-center p-4 md:max-w-[1200px] md:flex-row"
 		>
-			<span>{advanced ? 'Collapse' : 'Show'} Advanced Options...</span>
-		</button>
+			<button
+				class="button-text flex items-center gap-2 p-0 text-xs md:text-sm"
+				onclick={() => (advanced = !advanced)}
+			>
+				<span>{advanced ? 'Collapse' : 'Show'} Advanced Options...</span>
+			</button>
 
-		<button
-			onclick={() => {
-				test(true);
-			}}
-			class="button-primary w-full md:w-fit md:min-w-36"
-		>
-			Test
-		</button>
+			<button
+				onclick={() => {
+					test(true);
+				}}
+				class="button-primary w-full md:w-fit md:min-w-36"
+			>
+				Test
+			</button>
+		</div>
 	</div>
 </div>
 

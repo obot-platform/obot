@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { type MCP } from '$lib/services';
 	import { twMerge } from 'tailwind-merge';
-	import McpConfig from './McpConfig.svelte';
+	import McpConfig from '$lib/components/mcp/McpConfig.svelte';
 	import { CircleCheckBig } from 'lucide-svelte';
 
 	interface Props {

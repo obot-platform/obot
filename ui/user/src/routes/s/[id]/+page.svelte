@@ -2,48 +2,80 @@
 	import { profile, responsive } from '$lib/stores';
 	import { type PageProps } from './$types';
 	import { goto } from '$app/navigation';
-	import { ChatService } from '$lib/services';
+	import { type Assistant, ChatService, type Project } from '$lib/services';
 	import { onMount } from 'svelte';
 	import Profile from '$lib/components/navbar/Profile.svelte';
 	import { LoaderCircle } from 'lucide-svelte';
+	import { initLayout } from '$lib/context/layout.svelte';
+	import Obot from '$lib/components/Obot.svelte';
+	import { browser } from '$app/environment';
+	import { initProjectTools } from '$lib/context/projectTools.svelte';
 
 	let { data }: PageProps = $props();
 	let showWarning = $state(false);
+	let project = $state<Project>();
+	let assistant = $state<Assistant>();
+	let currentThreadID = $state<string | undefined>(
+		(browser && new URL(window.location.href).searchParams.get('thread')) || undefined
+	);
+
+	initLayout({
+		sidebarOpen: true,
+		projectEditorOpen: false,
+		items: []
+	});
+
+	initProjectTools({
+		tools: [],
+		maxTools: 5
+	});
+
+	async function loadProject() {
+		if (!project) return;
+		assistant = await ChatService.getAssistant(project.assistantID);
+		localStorage.setItem('lastVisitedObot', project.id);
+		const tools = await ChatService.listTools(project.assistantID, project.id);
+
+		initProjectTools({
+			tools: tools.items,
+			maxTools: assistant?.maxTools ?? 5
+		});
+	}
 
 	onMount(async () => {
 		if (profile.current.unauthorized) {
 			// Redirect to the main page to log in.
 			window.location.href = `/?rd=${window.location.pathname}`;
-		} else if (data.featured || data.isOwner) {
-			createProject();
-		} else {
+		} else if (!data.projectID) {
 			showWarning = true;
+		} else {
+			project = await ChatService.getProject(data.projectID);
+			loadProject();
 		}
 	});
 
 	async function createProject() {
 		const urlParams = new URLSearchParams(window.location.search);
-		const project = await ChatService.createProjectFromShare(data.id, {
+		project = await ChatService.createProjectFromShare(data.id, {
 			create: urlParams.has('create')
 		});
-		goto(`/o/${project.id}`, { replaceState: true });
+		loadProject();
 	}
 </script>
 
 <!-- Header -->
 <div class="flex h-screen w-screen flex-col">
-	<div
-		class="bg-surface1 relative z-40 flex h-16 w-full items-center justify-between gap-4 p-3 shadow-md md:gap-8"
-	>
-		<div class="flex shrink-0 items-center gap-2">
-			<img src="/user/images/obot-icon-blue.svg" class="h-8" alt="Obot icon" />
-		</div>
-		<div class="flex items-center">
-			<Profile />
-		</div>
-	</div>
-
 	{#if showWarning}
+		<div
+			class="bg-surface1 relative z-40 flex h-16 w-full items-center justify-between gap-4 p-3 shadow-md md:gap-8"
+		>
+			<div class="flex shrink-0 items-center gap-2">
+				<img src="/user/images/obot-icon-blue.svg" class="h-8" alt="Obot icon" />
+			</div>
+			<div class="flex items-center">
+				<Profile />
+			</div>
+		</div>
 		<div class="flex grow items-center justify-center">
 			<div
 				class="bg-surface1 dark:bg-surface2 flex h-full w-full flex-col items-center justify-center gap-4 p-5 md:h-fit md:max-w-md md:rounded-xl"
@@ -66,6 +98,16 @@
 
 				<button class="button-primary mt-2 w-full" onclick={createProject}>I Understand</button>
 				<button class="button w-full" onclick={() => goto('/catalog')}>Go Back</button>
+			</div>
+		</div>
+	{:else if project}
+		<div class="bg-surface1 flex size-full flex-col">
+			<div class="flex grow overflow-auto">
+				<div class="contents h-full grow border-r-0">
+					<div class="size-full overflow-clip rounded-none transition-all">
+						<Obot bind:project bind:currentThreadID {assistant} shared />
+					</div>
+				</div>
 			</div>
 		</div>
 	{:else}

@@ -39,6 +39,12 @@
 	});
 
 	$effect(() => {
+		if (data.mcps) {
+			initProjectMCPs(data.mcps);
+		}
+	});
+
+	$effect(() => {
 		if (navigating) {
 			initialLayout();
 		}

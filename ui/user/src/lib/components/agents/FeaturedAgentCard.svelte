@@ -4,7 +4,7 @@
 	import type { Project, ProjectShare, ToolReference } from '$lib/services';
 	import { darkMode, responsive } from '$lib/stores';
 	import { twMerge } from 'tailwind-merge';
-	import ToolPill from './ToolPill.svelte';
+	import ToolPill from '$lib/components/ToolPill.svelte';
 	import type { Snippet } from 'svelte';
 	import { sortShownToolsPriority } from '$lib/sort';
 

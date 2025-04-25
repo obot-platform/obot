@@ -19,7 +19,7 @@
 
 <div
 	class={twMerge(
-		'bg-surface1 mt-5 flex flex-col gap-4 rounded-lg p-5 md:mt-0',
+		'dark:border-surface3 dark:bg-surface1 mt-5 flex flex-col gap-4 rounded-lg bg-white p-5 shadow-sm md:mt-0 dark:border',
 		input &&
 			'border-surface2 dark:border-surface3 relative w-full rounded-lg border-2 bg-transparent'
 	)}

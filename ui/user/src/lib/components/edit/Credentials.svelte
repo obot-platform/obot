@@ -121,11 +121,6 @@
 				</button>
 			{/key}
 		{/each}
-		{#if !creds || creds.length === 0}
-			<span class="text-gray place-self-center self-center pt-6 pb-4 text-sm font-light"
-				>No credentials found.</span
-			>
-		{/if}
 	</div>
 {/snippet}
 
@@ -136,7 +131,7 @@
 		{/if}
 		{#if credentialsExists && credentialsAvailable}
 			{#if credentialsExists.length === 0 && credentialsAvailable.length === 0}
-				<span class="text-sm">No tools require credentials.</span>
+				<span class="text-xs">No tools require credentials.</span>
 			{/if}
 		{/if}
 
@@ -193,8 +188,17 @@
 		{@render body()}
 	{/if}
 {:else}
-	<CollapsePane header="Credentials" onOpen={() => reload()}>
-		<p class="mb-4 text-sm text-gray-500">
+	<CollapsePane
+		classes={{ header: 'pl-3 py-2 text-md', content: 'p-2' }}
+		onOpen={() => reload()}
+		iconSize={5}
+	>
+		{#snippet header()}
+			<span class="flex grow items-center gap-2 text-start text-sm font-extralight">
+				Credentials
+			</span>
+		{/snippet}
+		<p class="py-2 text-xs text-gray-500">
 			Anyone who has access to the agent, such as shared users, will use these credentials.
 		</p>
 		{@render body()}

@@ -7,9 +7,11 @@
 
 	interface Props {
 		leftContent?: Snippet;
+		centerContent?: Snippet;
+		hideSocial?: boolean;
 	}
 
-	let { leftContent }: Props = $props();
+	let { leftContent, centerContent, hideSocial }: Props = $props();
 </script>
 
 <nav class="flex h-16 w-full items-center bg-white px-3 dark:bg-black" in:fade|global>
@@ -32,12 +34,16 @@
 				</div>
 			</div>
 		{/if}
-		<div class="grow"></div>
+		<div class="flex grow items-center justify-center">
+			{#if centerContent}
+				{@render centerContent()}
+			{/if}
+		</div>
 		<div class="flex items-center gap-4">
-			{#if !responsive.isMobile}
-				<a class="nav-link" href="/agents" id="navbar-home-link">
-					<Home class="size-6" />
-				</a>
+			<a class="nav-link" href="/agents" id="navbar-home-link">
+				<Home class="size-6" />
+			</a>
+			{#if !responsive.isMobile && !hideSocial}
 				<a href="https://discord.gg/9sSf4UyAMC" rel="external" target="_blank" class="nav-link">
 					{#if darkMode.isDark}
 						<img src="/user/images/discord-mark/discord-mark-white.svg" alt="Discord" class="h-6" />

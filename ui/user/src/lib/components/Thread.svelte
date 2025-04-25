@@ -15,16 +15,17 @@
 	import { responsive } from '$lib/stores';
 	import { Bug, Pencil, X } from 'lucide-svelte';
 	import { autoHeight } from '$lib/actions/textarea';
-	import EditIcon from './edit/EditIcon.svelte';
+	import EditIcon from '$lib/components/edit/EditIcon.svelte';
 	import { DEFAULT_PROJECT_DESCRIPTION, DEFAULT_PROJECT_NAME } from '$lib/constants';
 	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
 		id?: string;
 		project: Project;
+		shared?: boolean;
 	}
 
-	let { id = $bindable(), project = $bindable() }: Props = $props();
+	let { id = $bindable(), project = $bindable(), shared }: Props = $props();
 
 	let messagesDiv = $state<HTMLDivElement>();
 	let nameInput: HTMLInputElement;
@@ -233,7 +234,7 @@
 				<div class="message-content mt-4 w-fit self-center border-2 border-transparent pt-4">
 					{@render basicSection()}
 				</div>
-			{:else}
+			{:else if project.editor && !shared}
 				<button
 					class="message-content group hover:bg-surface1 hover:border-surface2 relative mt-4 w-fit self-center rounded-md border-2 border-dashed border-transparent pt-4 transition-all duration-200"
 					onclick={() => (editBasicDetails = true)}
@@ -241,6 +242,8 @@
 				>
 					{@render basicSection()}
 				</button>
+			{:else}
+				{@render basicSection()}
 			{/if}
 			{#if project?.introductionMessage}
 				<div class="message-content w-full self-center">
@@ -294,8 +297,14 @@
 					bind:items={layout.items}
 				>
 					<div class="flex w-fit items-center gap-1">
-						<Files thread {project} bind:currentThreadID={id} helperText={'Files'} />
-						{#if project.editor}
+						<Files
+							thread
+							{project}
+							bind:currentThreadID={id}
+							helperText={'Files'}
+							classes={{ list: 'max-h-[60vh] space-y-4 overflow-y-auto pt-2 pb-6 text-sm' }}
+						/>
+						{#if project.editor && !shared}
 							<Tools {project} bind:currentThreadID={id} thread />
 						{/if}
 					</div>

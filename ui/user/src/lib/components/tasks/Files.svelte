@@ -70,7 +70,7 @@
 </script>
 
 {#if files && files.items.length > 0}
-	<div class="rounded-3xl bg-gray-50 p-5 dark:bg-gray-950">
+	<div class="dark:bg-surface1 dark:border-surface3 rounded-3xl bg-white p-5 shadow-md dark:border">
 		<div class="mb-3 flex items-center justify-between">
 			<h4 class="text-xl font-semibold">Files</h4>
 			<button onclick={loadFiles} use:tooltip={'Refresh Files'}>

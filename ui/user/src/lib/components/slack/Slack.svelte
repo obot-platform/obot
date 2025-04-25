@@ -8,13 +8,14 @@
 	} from '$lib/services/chat/operations';
 	import { ChatService, type AssistantTool } from '$lib/services';
 	import { Settings, X } from 'lucide-svelte';
-	import { getLayout } from '$lib/context/layout.svelte';
+	import { closeSidebarConfig, getLayout } from '$lib/context/layout.svelte';
 	import { responsive } from '$lib/stores';
 	import { getProjectTools } from '$lib/context/projectTools.svelte';
 	import { clickOutside } from '$lib/actions/clickoutside';
-	import Toggle from '../Toggle.svelte';
-	import { fade } from 'svelte/transition';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
+	import CollapsePane from '$lib/components/edit/CollapsePane.svelte';
+	import Toggle from '$lib/components/Toggle.svelte';
+	import { fade } from 'svelte/transition';
 
 	interface Props {
 		project: Project;
@@ -50,6 +51,7 @@
 	});
 	let slackEnabled = $derived(project.capabilities?.onSlackMessage);
 	let errorMessage = $state('');
+	let showSteps = $state(!project.capabilities?.onSlackMessage);
 
 	$effect(() => {
 		redirectUrl = `${window.location.protocol}//${window.location.host}/api/app-oauth/callback/oa1t1${project.id.slice(2, 8)}`;
@@ -165,14 +167,45 @@
 				}}
 			/>
 		</div>
-		<!-- 
-	<p class="text-xs text-gray-500">
-		Enable this to trigger tasks from Slack messages that mention the slack bot you configured with
-		Obot.
-	</p> -->
+
+		<p class="text-xs text-gray-500">
+			Enable this to trigger tasks from Slack messages that mention the slack bot you configured
+			with Obot.
+		</p>
 	</div>
 {:else}
-	{@render content()}
+	<div class="flex w-full flex-col">
+		<div class="flex w-full justify-center px-4 py-4 md:px-8">
+			<div class="flex w-full flex-col gap-4 md:max-w-[1200px]">
+				<div class="flex w-full items-center justify-between">
+					<h4 class="text-xl font-semibold">Slack</h4>
+					<button
+						onclick={() => closeSidebarConfig(layout)}
+						class="icon-button"
+						use:tooltip={'Exit Slack Configuration'}
+					>
+						<X class="size-6" />
+					</button>
+				</div>
+
+				<div class="pr-2.5">
+					<CollapsePane
+						header="Configure Slack Integration"
+						open={showSteps}
+						classes={{
+							header: 'font-semibold px-0',
+							content: 'bg-transparent px-0 shadow-none'
+						}}
+					>
+						{@render steps()}
+					</CollapsePane>
+					<div class="w-full">
+						{@render form()}
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
 {/if}
 
 <dialog
@@ -182,7 +215,17 @@
 	class:mobile-screen-dialog={responsive.isMobile}
 >
 	<div class="p-6">
-		{@render content()}
+		<div class="flex flex-col gap-2">
+			<button class="absolute top-0 right-0 p-3" onclick={() => dialog?.close()}>
+				<X class="icon-default" />
+			</button>
+			<h3 class="mb-4 text-lg font-semibold">Configure Slack OAuth App</h3>
+			{@render steps()}
+
+			<div>
+				{@render form()}
+			</div>
+		</div>
 	</div>
 </dialog>
 
@@ -238,247 +281,241 @@
 	</div>
 </dialog>
 
-{#snippet content()}
-	<div class="flex flex-col gap-2">
-		{#if !inline}
-			<button class="absolute top-0 right-0 p-3" onclick={() => dialog?.close()}>
-				<X class="icon-default" />
-			</button>
-		{/if}
-		<h3 class="mb-4 text-lg font-semibold">Configure Slack OAuth App</h3>
-		<div class="space-y-6">
-			<p class="text-sm text-gray-600">All steps will be performed on the Slack API Dashboard.</p>
+{#snippet steps()}
+	<div class="space-y-6">
+		<p class="text-sm text-gray-600">All steps will be performed on the Slack API Dashboard.</p>
 
-			<div class="space-y-4">
-				<div>
-					<h4 class="font-medium">Step 1: Create a Slack App</h4>
-					<p class="text-sm text-gray-600">
-						If you've already created a Slack app, you can skip this step.
-					</p>
-				</div>
+		<div class="space-y-4">
+			<div>
+				<h4 class="font-medium">Step 1: Create a Slack App</h4>
+				<p class="text-sm text-gray-600">
+					If you've already created a Slack app, you can skip this step.
+				</p>
+			</div>
 
-				<div>
-					<h4 class="font-medium">Step 2: Add the Redirect URL</h4>
-					<p class="text-sm text-gray-600">
-						From the Slack API Dashboard, click on your app and select "OAuth & Permissions"
-					</p>
-					<p class="text-sm text-gray-600">
-						In the "Redirect URLs" section, click "Add New Redirect URL"
-					</p>
-					<div
-						class="mt-2 flex max-w-fit items-center gap-2 rounded bg-gray-100 p-2 dark:bg-gray-800"
-					>
-						<CopyButton text={redirectUrl} />
-						{redirectUrl}
-					</div>
-				</div>
-
-				<div>
-					<h4 class="font-medium">Step 3: Enable Events</h4>
-					<p class="text-sm text-gray-600">
-						Navigate to the "Event Subscriptions" tab from the sidebar
-					</p>
-					<p class="text-sm text-gray-600">Enable events and add the Request URL below:</p>
-					<div
-						class="mt-2 flex max-w-fit items-center gap-2 rounded bg-gray-100 p-2 dark:bg-gray-800"
-					>
-						<CopyButton text={eventUrl} />
-						{eventUrl}
-					</div>
-					<p class="mt-2 text-sm text-gray-600">
-						Under "Subscribe to bot events", add the following events:
-					</p>
-					<div
-						class="mt-2 flex max-w-fit items-center gap-2 rounded bg-gray-100 p-2 dark:bg-gray-800"
-					>
-						<CopyButton text={'app_mention'} />
-						app_mention
-					</div>
-				</div>
-
-				<div>
-					<h4 class="font-medium">Step 4: Add Bot Scopes</h4>
-					<p class="text-sm text-gray-600">
-						Navigate to the "OAuth & Permissions" tab from the sidebar
-					</p>
-					<p class="text-sm text-gray-600">
-						Locate the "Bot Token Scopes" section and add the following scopes:
-					</p>
-					<div class="mt-2 flex flex-wrap gap-1">
-						<div
-							class="flex max-w-fit items-center gap-2 rounded-full bg-gray-100 px-3 py-1 dark:bg-gray-800"
-						>
-							<CopyButton text="channels:history" />
-							channels:history
-						</div>
-						<div
-							class="flex max-w-fit items-center gap-2 rounded-full bg-gray-100 px-3 py-1 dark:bg-gray-800"
-						>
-							<CopyButton text="groups:history" />
-							groups:history
-						</div>
-						<div
-							class="flex max-w-fit items-center gap-2 rounded-full bg-gray-100 px-3 py-1 dark:bg-gray-800"
-						>
-							<CopyButton text="im:history" />
-							im:history
-						</div>
-						<div
-							class="flex max-w-fit items-center gap-2 rounded-full bg-gray-100 px-3 py-1 dark:bg-gray-800"
-						>
-							<CopyButton text="mpim:history" />
-							mpim:history
-						</div>
-						<div
-							class="flex max-w-fit items-center gap-2 rounded-full bg-gray-100 px-3 py-1 dark:bg-gray-800"
-						>
-							<CopyButton text="channels:read" />
-							channels:read
-						</div>
-						<div
-							class="flex max-w-fit items-center gap-2 rounded-full bg-gray-100 px-3 py-1 dark:bg-gray-800"
-						>
-							<CopyButton text="files:read" />
-							files:read
-						</div>
-						<div
-							class="flex max-w-fit items-center gap-2 rounded-full bg-gray-100 px-3 py-1 dark:bg-gray-800"
-						>
-							<CopyButton text="im:read" />
-							im:read
-						</div>
-						<div
-							class="flex max-w-fit items-center gap-2 rounded-full bg-gray-100 px-3 py-1 dark:bg-gray-800"
-						>
-							<CopyButton text="team:read" />
-							team:read
-						</div>
-						<div
-							class="flex max-w-fit items-center gap-2 rounded-full bg-gray-100 px-3 py-1 dark:bg-gray-800"
-						>
-							<CopyButton text="users:read" />
-							users:read
-						</div>
-						<div
-							class="flex max-w-fit items-center gap-2 rounded-full bg-gray-100 px-3 py-1 dark:bg-gray-800"
-						>
-							<CopyButton text="groups:read" />
-							groups:read
-						</div>
-						<div
-							class="flex max-w-fit items-center gap-2 rounded-full bg-gray-100 px-3 py-1 dark:bg-gray-800"
-						>
-							<CopyButton text="chat:write" />
-							chat:write
-						</div>
-						<div
-							class="flex max-w-fit items-center gap-2 rounded-full bg-gray-100 px-3 py-1 dark:bg-gray-800"
-						>
-							<CopyButton text="groups:write" />
-							groups:write
-						</div>
-						<div
-							class="flex max-w-fit items-center gap-2 rounded-full bg-gray-100 px-3 py-1 dark:bg-gray-800"
-						>
-							<CopyButton text="mpim:write" />
-							mpim:write
-						</div>
-						<div
-							class="flex max-w-fit items-center gap-2 rounded-full bg-gray-100 px-3 py-1 dark:bg-gray-800"
-						>
-							<CopyButton text="im:write" />
-							im:write
-						</div>
-						<div
-							class="flex max-w-fit items-center gap-2 rounded-full bg-gray-100 px-3 py-1 dark:bg-gray-800"
-						>
-							<CopyButton text="assistant:write" />
-							assistant:write
-						</div>
-					</div>
+			<div>
+				<h4 class="font-medium">Step 2: Add the Redirect URL</h4>
+				<p class="text-sm text-gray-600">
+					From the Slack API Dashboard, click on your app and select "OAuth & Permissions"
+				</p>
+				<p class="text-sm text-gray-600">
+					In the "Redirect URLs" section, click "Add New Redirect URL"
+				</p>
+				<div
+					class="mt-2 flex max-w-fit items-center gap-2 rounded bg-gray-100 p-2 dark:bg-gray-800"
+				>
+					<CopyButton text={redirectUrl} />
+					{redirectUrl}
 				</div>
 			</div>
 
 			<div>
-				<h4 class="font-medium">Step 5: Register OAuth App in your agent</h4>
+				<h4 class="font-medium">Step 3: Enable Events</h4>
 				<p class="text-sm text-gray-600">
-					Click the Basic Information section in the side nav, locate the Client ID and Client
-					Secret fields, copy/paste them into the form below, and click Submit.
+					Navigate to the "Event Subscriptions" tab from the sidebar
 				</p>
-
-				<div class="mt-4 space-y-3">
-					<div>
-						<label for="appId" class="text-sm font-medium">App ID</label>
-						<input
-							type="text"
-							id="appId"
-							class="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
-							placeholder="Enter App ID"
-							bind:value={config.appId}
-							oninput={(e) => (config.appId = e.currentTarget.value)}
-						/>
-					</div>
-
-					<div>
-						<label for="clientId" class="text-sm font-medium">Client ID</label>
-						<input
-							type="text"
-							id="clientId"
-							class="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
-							placeholder="Enter Client ID"
-							bind:value={config.clientId}
-							oninput={(e) => (config.clientId = e.currentTarget.value)}
-						/>
-					</div>
-
-					<form>
-						<label for="clientSecret" class="text-sm font-medium">Client Secret</label>
-						<input
-							type="password"
-							id="clientSecret"
-							class="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
-							placeholder={slackEnabled ? '***********' : 'Enter Client Secret'}
-							autocomplete="off"
-							bind:value={config.clientSecret}
-							oninput={(e) => (config.clientSecret = e.currentTarget.value)}
-						/>
-					</form>
-
-					<form>
-						<label for="signingSecret" class="text-sm font-medium">Signing Secret</label>
-						<input
-							type="password"
-							id="signingSecret"
-							class="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
-							placeholder={slackEnabled ? '***********' : 'Enter Signing Secret'}
-							autocomplete="off"
-							bind:value={config.signingSecret}
-							oninput={(e) => (config.signingSecret = e.currentTarget.value)}
-						/>
-					</form>
+				<p class="text-sm text-gray-600">Enable events and add the Request URL below:</p>
+				<div
+					class="mt-2 flex max-w-fit items-center gap-2 rounded bg-gray-100 p-2 dark:bg-gray-800"
+				>
+					<CopyButton text={eventUrl} />
+					{eventUrl}
+				</div>
+				<p class="mt-2 text-sm text-gray-600">
+					Under "Subscribe to bot events", add the following events:
+				</p>
+				<div
+					class="mt-2 flex max-w-fit items-center gap-2 rounded bg-gray-100 p-2 dark:bg-gray-800"
+				>
+					<CopyButton text={'app_mention'} />
+					app_mention
 				</div>
 			</div>
 
-			<div class="mt-6 flex justify-end gap-3">
-				{#if project.capabilities?.onSlackMessage}
-					<button
-						class="button bg-red-500 text-white hover:bg-red-600"
-						onclick={() => {
-							dialog.close();
-							confirmDisable?.showModal();
-						}}
+			<div>
+				<h4 class="font-medium">Step 4: Add Bot Scopes</h4>
+				<p class="text-sm text-gray-600">
+					Navigate to the "OAuth & Permissions" tab from the sidebar
+				</p>
+				<p class="text-sm text-gray-600">
+					Locate the "Bot Token Scopes" section and add the following scopes:
+				</p>
+				<div class="mt-2 flex flex-wrap gap-1">
+					<div
+						class="flex max-w-fit items-center gap-2 rounded-full bg-gray-100 px-3 py-1 dark:bg-gray-800"
 					>
-						Remove Configuration
-					</button>
-				{/if}
-				<button class="button" onclick={handleSubmit}> Configure </button>
-			</div>
-
-			<div class="mt-4 flex justify-end">
-				{#if errorMessage}
-					<p class="text-red-500">{errorMessage}</p>
-				{/if}
+						<CopyButton text="channels:history" />
+						channels:history
+					</div>
+					<div
+						class="flex max-w-fit items-center gap-2 rounded-full bg-gray-100 px-3 py-1 dark:bg-gray-800"
+					>
+						<CopyButton text="groups:history" />
+						groups:history
+					</div>
+					<div
+						class="flex max-w-fit items-center gap-2 rounded-full bg-gray-100 px-3 py-1 dark:bg-gray-800"
+					>
+						<CopyButton text="im:history" />
+						im:history
+					</div>
+					<div
+						class="flex max-w-fit items-center gap-2 rounded-full bg-gray-100 px-3 py-1 dark:bg-gray-800"
+					>
+						<CopyButton text="mpim:history" />
+						mpim:history
+					</div>
+					<div
+						class="flex max-w-fit items-center gap-2 rounded-full bg-gray-100 px-3 py-1 dark:bg-gray-800"
+					>
+						<CopyButton text="channels:read" />
+						channels:read
+					</div>
+					<div
+						class="flex max-w-fit items-center gap-2 rounded-full bg-gray-100 px-3 py-1 dark:bg-gray-800"
+					>
+						<CopyButton text="files:read" />
+						files:read
+					</div>
+					<div
+						class="flex max-w-fit items-center gap-2 rounded-full bg-gray-100 px-3 py-1 dark:bg-gray-800"
+					>
+						<CopyButton text="im:read" />
+						im:read
+					</div>
+					<div
+						class="flex max-w-fit items-center gap-2 rounded-full bg-gray-100 px-3 py-1 dark:bg-gray-800"
+					>
+						<CopyButton text="team:read" />
+						team:read
+					</div>
+					<div
+						class="flex max-w-fit items-center gap-2 rounded-full bg-gray-100 px-3 py-1 dark:bg-gray-800"
+					>
+						<CopyButton text="users:read" />
+						users:read
+					</div>
+					<div
+						class="flex max-w-fit items-center gap-2 rounded-full bg-gray-100 px-3 py-1 dark:bg-gray-800"
+					>
+						<CopyButton text="groups:read" />
+						groups:read
+					</div>
+					<div
+						class="flex max-w-fit items-center gap-2 rounded-full bg-gray-100 px-3 py-1 dark:bg-gray-800"
+					>
+						<CopyButton text="chat:write" />
+						chat:write
+					</div>
+					<div
+						class="flex max-w-fit items-center gap-2 rounded-full bg-gray-100 px-3 py-1 dark:bg-gray-800"
+					>
+						<CopyButton text="groups:write" />
+						groups:write
+					</div>
+					<div
+						class="flex max-w-fit items-center gap-2 rounded-full bg-gray-100 px-3 py-1 dark:bg-gray-800"
+					>
+						<CopyButton text="mpim:write" />
+						mpim:write
+					</div>
+					<div
+						class="flex max-w-fit items-center gap-2 rounded-full bg-gray-100 px-3 py-1 dark:bg-gray-800"
+					>
+						<CopyButton text="im:write" />
+						im:write
+					</div>
+					<div
+						class="flex max-w-fit items-center gap-2 rounded-full bg-gray-100 px-3 py-1 dark:bg-gray-800"
+					>
+						<CopyButton text="assistant:write" />
+						assistant:write
+					</div>
+				</div>
 			</div>
 		</div>
+
+		<div>
+			<h4 class="font-medium">Step 5: Register OAuth App in your agent</h4>
+			<p class="text-sm text-gray-600">
+				Click the Basic Information section in the side nav, locate the Client ID and Client Secret
+				fields, copy/paste them into the form below, and click Submit.
+			</p>
+		</div>
+	</div>
+{/snippet}
+
+{#snippet form()}
+	<div class="space-y-3">
+		<div>
+			<label for="appId" class="text-sm font-medium">App ID</label>
+			<input
+				type="text"
+				id="appId"
+				class="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+				placeholder="Enter App ID"
+				bind:value={config.appId}
+				oninput={(e) => (config.appId = e.currentTarget.value)}
+			/>
+		</div>
+
+		<div>
+			<label for="clientId" class="text-sm font-medium">Client ID</label>
+			<input
+				type="text"
+				id="clientId"
+				class="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+				placeholder="Enter Client ID"
+				bind:value={config.clientId}
+				oninput={(e) => (config.clientId = e.currentTarget.value)}
+			/>
+		</div>
+
+		<form>
+			<label for="clientSecret" class="text-sm font-medium">Client Secret</label>
+			<input
+				type="password"
+				id="clientSecret"
+				class="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+				placeholder={slackEnabled ? '***********' : 'Enter Client Secret'}
+				autocomplete="off"
+				bind:value={config.clientSecret}
+				oninput={(e) => (config.clientSecret = e.currentTarget.value)}
+			/>
+		</form>
+
+		<form>
+			<label for="signingSecret" class="text-sm font-medium">Signing Secret</label>
+			<input
+				type="password"
+				id="signingSecret"
+				class="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+				placeholder={slackEnabled ? '***********' : 'Enter Signing Secret'}
+				autocomplete="off"
+				bind:value={config.signingSecret}
+				oninput={(e) => (config.signingSecret = e.currentTarget.value)}
+			/>
+		</form>
+
+		<div class="mt-6 flex justify-end gap-3">
+			{#if project.capabilities?.onSlackMessage}
+				<button
+					class="button bg-red-500 text-white hover:bg-red-600"
+					onclick={() => {
+						dialog.close();
+						confirmDisable?.showModal();
+					}}
+				>
+					Remove Configuration
+				</button>
+			{/if}
+			<button class="button" onclick={handleSubmit}> Configure </button>
+		</div>
+
+		{#if errorMessage}
+			<div class="mt-4 flex justify-end">
+				<p class="text-red-500">{errorMessage}</p>
+			</div>
+		{/if}
 	</div>
 {/snippet}

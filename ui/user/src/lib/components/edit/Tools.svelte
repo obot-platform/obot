@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { popover } from '$lib/actions';
 	import { type AssistantTool } from '$lib/services';
-	import ToolCatalog from './ToolCatalog.svelte';
 	import { Plus, X } from 'lucide-svelte/icons';
+	import ToolCatalog from '$lib/components/edit/ToolCatalog.svelte';
 	import { getProjectTools } from '$lib/context/projectTools.svelte';
 	import { IGNORED_BUILTIN_TOOLS } from '$lib/constants';
 	import { twMerge } from 'tailwind-merge';

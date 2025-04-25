@@ -12,7 +12,9 @@
 	const masked = '•••••••';
 </script>
 
-<div class="bg-surface1 flex flex-col gap-4 rounded-lg p-5">
+<div
+	class="dark:border-surface3 dark:bg-surface1 flex flex-col gap-4 rounded-lg bg-white p-5 shadow-sm dark:border"
+>
 	<div class="flex min-h-10 items-center">
 		<h4 class="flex-1 text-lg font-semibold">Additional Environment Variables</h4>
 		{#if envs.length === 0}
@@ -44,7 +46,7 @@
 							<textarea
 								use:autoHeight
 								placeholder="Enter value"
-								class="text-input-filled resize-none align-bottom"
+								class="text-input-filled dark:bg-surface2 bg-surface1 resize-none align-bottom"
 								rows="1"
 								onfocus={(e) => {
 									if (e.target instanceof HTMLTextAreaElement) {

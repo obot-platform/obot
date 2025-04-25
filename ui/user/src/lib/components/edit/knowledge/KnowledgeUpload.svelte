@@ -1,20 +1,22 @@
 <script lang="ts">
-	import { Plus, Upload } from 'lucide-svelte/icons';
+	import { Upload } from 'lucide-svelte/icons';
 	import { ChatService, type Project } from '$lib/services';
 	import type { KnowledgeFile } from '$lib/services';
 	import Loading from '$lib/icons/Loading.svelte';
 	import Error from '$lib/components/Error.svelte';
-	import { tooltip } from '$lib/actions/tooltip.svelte';
+	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
 		onUpload?: () => void | Promise<void>;
 		project: Project;
 		thread?: boolean;
 		currentThreadID?: string;
-		compact?: boolean;
+		classes?: {
+			button?: string;
+		};
 	}
 
-	let { onUpload, project, thread, currentThreadID, compact }: Props = $props();
+	let { onUpload, project, thread, currentThreadID, classes }: Props = $props();
 
 	let files = $state<FileList>();
 	let uploadInProgress = $state<Promise<KnowledgeFile>>();
@@ -63,42 +65,20 @@
 	});
 </script>
 
-{#if compact}
-	<div class="flex justify-end" use:tooltip={'Upload Knowledge File'}>
-		{@render content()}
-	</div>
-{:else}
-	<div class="flex justify-end">
-		{@render content()}
-	</div>
-{/if}
-
-{#snippet content()}
-	<label
-		class={compact
-			? 'icon-button cursor-pointer'
-			: 'button flex items-center justify-end gap-1 text-sm'}
-	>
-		{#await uploadInProgress}
-			<Loading class="size-5" />
-		{:catch error}
-			<Error {error} />
-		{/await}
-		{#if !uploadInProgress}
-			{#if compact}
-				<Plus class="size-5" />
-			{:else}
-				<Upload class="size-5" />
-			{/if}
-		{/if}
-		{#if !compact}
-			Upload
-		{/if}
-		<input
-			bind:files
-			type="file"
-			class="hidden"
-			accept=".pdf, .txt, .doc, .docx, .md, .html, .odt, .rtf, .csv, .ipynb, .json, .pptx, .ppt, .pages"
-		/>
-	</label>
-{/snippet}
+<label class={twMerge('button flex items-center justify-end gap-1 text-sm', classes?.button)}>
+	{#await uploadInProgress}
+		<Loading class="size-4" />
+	{:catch error}
+		<Error {error} />
+	{/await}
+	{#if !uploadInProgress}
+		<Upload class="size-4" />
+	{/if}
+	Upload
+	<input
+		bind:files
+		type="file"
+		class="hidden"
+		accept=".pdf, .txt, .doc, .docx, .md, .html, .odt, .rtf, .csv, .ipynb, .json, .pptx, .ppt, .pages"
+	/>
+</label>
