@@ -1,11 +1,24 @@
-import { FEATURED_PROJECT_ORDER } from './constants';
-import type { ProjectShare } from './services';
+import { FEATURED_PROJECT_ORDER, MCP_LIST_ORDER } from './constants';
+import type { MCP, ProjectShare } from './services';
 
 export const sortByFeaturedNameOrder = (a: ProjectShare, b: ProjectShare) => {
 	const aName = (a.name?.toLowerCase() ?? '').trim();
 	const bName = (b.name?.toLowerCase() ?? '').trim();
 	const aIndex = FEATURED_PROJECT_ORDER.indexOf(aName);
 	const bIndex = FEATURED_PROJECT_ORDER.indexOf(bName);
+	if (aIndex === -1 && bIndex === -1) return 0;
+	if (aIndex === -1) return 1;
+	if (bIndex === -1) return -1;
+	return aIndex - bIndex;
+};
+
+export const sortByPreferredMcpOrder = (a: MCP, b: MCP) => {
+	const aId = (a.id?.toLowerCase() ?? '').trim();
+	const bId = (b.id?.toLowerCase() ?? '').trim();
+	const aIndex = MCP_LIST_ORDER.indexOf(aId);
+	const bIndex = MCP_LIST_ORDER.indexOf(bId);
+
+	if (aIndex === -1 && bIndex === -1) return 0;
 	if (aIndex === -1) return 1;
 	if (bIndex === -1) return -1;
 	return aIndex - bIndex;

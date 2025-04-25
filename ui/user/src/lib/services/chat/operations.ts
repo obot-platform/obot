@@ -30,6 +30,8 @@ import {
 	type SlackReceiver,
 	type MemoryList,
 	type Memory,
+	type MCPList,
+	type MCP
 } from './types';
 
 export type Fetcher = typeof fetch;
@@ -964,4 +966,9 @@ export async function updateMemory(
 	return doPut(`/assistants/${assistantID}/projects/${projectID}/memories/${memoryID}`, {
 		content
 	}) as Promise<Memory>;
+}
+
+export async function listMCPs(opts?: { fetch?: Fetcher }): Promise<MCP[]> {
+	const response = (await doGet('/mcp/catalog', opts)) as MCPList;
+	return response.items;
 }
