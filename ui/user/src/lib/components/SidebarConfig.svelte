@@ -7,6 +7,7 @@
 	import { twMerge } from 'tailwind-merge';
 	import EditIcon from './edit/EditIcon.svelte';
 	import Slack from './slack/Slack.svelte';
+	import ChatBot from './edit/ChatBot.svelte';
 
 	interface Props {
 		project: Project;
@@ -15,7 +16,7 @@
 	let { project = $bindable() }: Props = $props();
 	const layout = getLayout();
 
-	const agentViews = ['system-prompt', 'introduction', 'template'];
+	const agentViews = ['introduction', 'template'];
 	const interfaceViews = ['chatbot', 'slack', 'discord', 'sms', 'email', 'webhook', 'interfaces'];
 
 	const isAgentConfigView = $derived(
@@ -29,30 +30,12 @@
 <div class="flex w-full" in:fade>
 	{#if isAgentConfigView}
 		{@const agentTabs = [
-			{ label: 'System Prompt', value: 'system-prompt' },
 			{ label: 'Introduction & Starter Messages', value: 'introduction' },
 			{ label: 'Create Agent Template', value: 'template' }
 		]}
 		{@render tabs(agentTabs)}
-		<div class="w-3xl overflow-visible p-8">
-			{#if layout.sidebarConfig === 'system-prompt'}
-				<h4 class="mb-8 text-lg font-semibold">System Prompt</h4>
-				<div class="flex flex-col gap-4">
-					<div class="text-md flex flex-col">
-						<p class="text-md mb-4 font-light text-gray-500">
-							Describe your agent's personality, goals, and any other relevant information.
-						</p>
-
-						<textarea
-							id="project-instructions"
-							class="dark:bg-surface1 grow resize-none rounded-lg bg-white p-4 shadow-sm"
-							rows="3"
-							use:autoHeight
-							bind:value={project.prompt}
-						></textarea>
-					</div>
-				</div>
-			{:else if layout.sidebarConfig === 'introduction'}
+		<div class="w-full overflow-visible p-8">
+			{#if layout.sidebarConfig === 'introduction'}
 				<h4 class="mb-8 text-lg font-semibold">Introduction & Starter Messages</h4>
 				<div class="text-md flex w-full gap-4">
 					<EditIcon bind:project inline />
@@ -149,22 +132,51 @@
 			{ label: 'Webhook', value: 'webhook' }
 		]}
 		{@render tabs(interfacesTabs)}
-		{#if layout.sidebarConfig === 'slack'}
-			<div class="default-scrollbar-thin flex flex-col gap-4 overflow-y-auto p-8">
+		<div class="default-scrollbar-thin flex grow flex-col gap-4 overflow-y-auto p-8">
+			{#if layout.sidebarConfig === 'slack'}
 				<Slack {project} inline />
+			{:else if layout.sidebarConfig === 'chatbot'}
+				<ChatBot {project} />
+			{:else}
+				<div class="p-8">
+					{@render underConstruction()}
+				</div>
+			{/if}
+		</div>
+	{:else if layout.sidebarConfig === 'system-prompt'}
+		<div class="flex w-full flex-col gap-4 p-8 pt-4">
+			<button
+				onclick={() => closeSidebarConfig(layout)}
+				class="mb-4 flex w-fit items-center gap-1 rounded-full pr-6 font-light"
+			>
+				<ChevronsLeft class="size-6" /> Go Back
+			</button>
+			<h4 class="text-lg font-semibold">System Prompt</h4>
+			<div class="flex flex-col gap-4">
+				<div class="text-md flex flex-col">
+					<p class="text-md mb-4 font-light text-gray-500">
+						Describe your agent's personality, goals, and any other relevant information.
+					</p>
+
+					<textarea
+						id="project-instructions"
+						class="dark:bg-surface1 grow resize-none rounded-lg bg-white p-4 shadow-sm"
+						rows="3"
+						use:autoHeight
+						bind:value={project.prompt}
+					></textarea>
+				</div>
 			</div>
-		{:else}
-			<div class="p-8">
-				{@render underConstruction()}
-			</div>
-		{/if}
+		</div>
 	{:else if layout.sidebarConfig === 'members'}
 		<div></div>
 	{/if}
 </div>
 
 {#snippet tabs(tabs: { label: string; value: string }[])}
-	<div class="text-md border-surface2 mb-8 flex w-xs flex-col border-r-1 px-8 font-light">
+	<div
+		class="text-md border-surface2 mb-8 flex w-xs flex-shrink-0 flex-col border-r-1 px-8 font-light"
+	>
 		<button
 			onclick={() => closeSidebarConfig(layout)}
 			class="mb-4 flex w-full items-center gap-1 py-4"
@@ -186,5 +198,10 @@
 {/snippet}
 
 {#snippet underConstruction()}
-	<div class="flex w-full font-light">Under Construction</div>
+	<div class="flex w-full flex-col items-center justify-center font-light">
+		<img src="/user/images/under-construction.webp" alt="under construction" class="size-32" />
+		<p class="text-sm font-light text-gray-500">
+			This section is under construction. Please check back later.
+		</p>
+	</div>
 {/snippet}
