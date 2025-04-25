@@ -1,5 +1,4 @@
 <script lang="ts">
-	import CollapsePane from '$lib/components/edit/CollapsePane.svelte';
 	import type { Project } from '$lib/services';
 	import CopyButton from '$lib/components/CopyButton.svelte';
 	import {
@@ -13,8 +12,13 @@
 	import { responsive } from '$lib/stores';
 	import { getProjectTools } from '$lib/context/projectTools.svelte';
 	import { clickOutside } from '$lib/actions/clickoutside';
+	import Toggle from '../Toggle.svelte';
+	import { fade } from 'svelte/transition';
+	import { tooltip } from '$lib/actions/tooltip.svelte';
+
 	interface Props {
 		project: Project;
+		inline?: boolean;
 	}
 
 	const projectTools = getProjectTools();
@@ -32,14 +36,12 @@
 
 	toolSelection = getSelectionMap();
 
-	let { project = $bindable() }: Props = $props();
+	let { project = $bindable(), inline }: Props = $props();
 	let dialog: HTMLDialogElement;
 	let confirmDisable: HTMLDialogElement;
 	let addSlackBotTool: HTMLDialogElement;
-	let redirectUrl = $derived(
-		`${window.location.protocol}//${window.location.host}/api/app-oauth/callback/oa1t1${project.id.slice(2, 8)}`
-	);
-	let eventUrl = `${window.location.protocol}//${window.location.host}/api/slack/events`;
+	let redirectUrl = $state('');
+	let eventUrl = $state('');
 	let config = $state({
 		appId: '',
 		clientId: '',
@@ -48,6 +50,11 @@
 	});
 	let slackEnabled = $derived(project.capabilities?.onSlackMessage);
 	let errorMessage = $state('');
+
+	$effect(() => {
+		redirectUrl = `${window.location.protocol}//${window.location.host}/api/app-oauth/callback/oa1t1${project.id.slice(2, 8)}`;
+		eventUrl = `${window.location.protocol}//${window.location.host}/api/slack/events`;
+	});
 
 	async function getSlackConfig() {
 		if (slackEnabled) {
@@ -62,7 +69,9 @@
 	}
 
 	$effect(() => {
-		getSlackConfig();
+		if (project) {
+			getSlackConfig();
+		}
 	});
 
 	async function handleSubmit() {
@@ -128,30 +137,43 @@
 	}
 </script>
 
-<CollapsePane header="Slack Integration">
-	<div class="flex w-full flex-col gap-4">
-		<p class="text-gray text-sm">
-			Enable this to trigger tasks from Slack messages that mention the slack bot you configured
-			with Obot.
-		</p>
-		<button
-			class="button flex items-center gap-1 self-end text-sm"
-			onclick={() => dialog.showModal()}
-		>
-			<div class="flex items-center gap-2">
+{#if !inline}
+	<div class="flex flex-col gap-2">
+		<div class="mb-1 flex items-center justify-between">
+			<div class="flex h-7 items-center gap-1">
+				<p class="grow text-sm font-semibold">Slack Integration</p>
 				{#if slackEnabled}
-					<div class="flex items-center gap-2 text-green-500">
-						<CheckCircle size={16} />
-						<span>Enabled</span>
-					</div>
-				{:else}
-					<Settings size={16} />
-					<span>Configure</span>
+					<button
+						class="icon-button min-h-auto min-w-auto p-1"
+						onclick={() => dialog.showModal()}
+						use:tooltip={'Modify Slack Integration'}
+						transition:fade
+					>
+						<Settings class="size-5" />
+					</button>
 				{/if}
 			</div>
-		</button>
+			<Toggle
+				label="Toggle Slack Integration"
+				checked={!!slackEnabled}
+				onChange={() => {
+					if (!slackEnabled) {
+						dialog.showModal();
+					} else {
+						disableSlack();
+					}
+				}}
+			/>
+		</div>
+		<!-- 
+	<p class="text-xs text-gray-500">
+		Enable this to trigger tasks from Slack messages that mention the slack bot you configured with
+		Obot.
+	</p> -->
 	</div>
-</CollapsePane>
+{:else}
+	{@render content()}
+{/if}
 
 <dialog
 	bind:this={dialog}
@@ -160,9 +182,69 @@
 	class:mobile-screen-dialog={responsive.isMobile}
 >
 	<div class="p-6">
-		<button class="absolute top-0 right-0 p-3" onclick={() => dialog?.close()}>
-			<X class="icon-default" />
-		</button>
+		{@render content()}
+	</div>
+</dialog>
+
+<dialog bind:this={confirmDisable} class="modal" use:clickOutside={() => confirmDisable?.close()}>
+	<div class="modal-box">
+		<div class="p-4">
+			<h3 class="text-lg font-medium">Disable Slack Integration</h3>
+			<p class="mt-2 text-sm text-gray-500">
+				Are you sure you want to disable Slack integration? This will remove the Slack trigger from
+				this project.
+			</p>
+
+			<div class="mt-6 flex justify-end gap-3">
+				<button
+					class="button"
+					onclick={() => {
+						confirmDisable.close();
+					}}
+				>
+					Cancel
+				</button>
+				<button
+					class="button bg-red-500 text-white hover:bg-red-600"
+					onclick={async () => {
+						await disableSlack();
+					}}
+				>
+					Disable
+				</button>
+			</div>
+		</div>
+	</div>
+</dialog>
+
+<dialog bind:this={addSlackBotTool} class="default-dialog">
+	<div class="p-6">
+		<h3 class="mb-4 text-lg font-semibold">Next Steps</h3>
+		<div class="space-y-4">
+			<p class="text-sm text-gray-600">
+				We'll add the Slack Bot tool to your project and automatically create a task that can be
+				triggered from Slack messages. This will allow your agent to:
+			</p>
+			<ul class="list-disc pl-6 text-sm text-gray-600">
+				<li>Automatically respond when mentioned in Slack</li>
+				<li>Process messages and take actions</li>
+				<li>Send responses back to the Slack conversation</li>
+			</ul>
+
+			<div class="mt-6 flex justify-end gap-3">
+				<button class="button-primary" onclick={configureSlackTool}> Continue </button>
+			</div>
+		</div>
+	</div>
+</dialog>
+
+{#snippet content()}
+	<div class="flex flex-col gap-2">
+		{#if !inline}
+			<button class="absolute top-0 right-0 p-3" onclick={() => dialog?.close()}>
+				<X class="icon-default" />
+			</button>
+		{/if}
 		<h3 class="mb-4 text-lg font-semibold">Configure Slack OAuth App</h3>
 		<div class="space-y-6">
 			<p class="text-sm text-gray-600">All steps will be performed on the Slack API Dashboard.</p>
@@ -399,56 +481,4 @@
 			</div>
 		</div>
 	</div>
-</dialog>
-
-<dialog bind:this={confirmDisable} class="modal" use:clickOutside={() => confirmDisable?.close()}>
-	<div class="modal-box">
-		<div class="p-4">
-			<h3 class="text-lg font-medium">Disable Slack Integration</h3>
-			<p class="mt-2 text-sm text-gray-500">
-				Are you sure you want to disable Slack integration? This will remove the Slack trigger from
-				this project.
-			</p>
-
-			<div class="mt-6 flex justify-end gap-3">
-				<button
-					class="button"
-					onclick={() => {
-						confirmDisable.close();
-					}}
-				>
-					Cancel
-				</button>
-				<button
-					class="button bg-red-500 text-white hover:bg-red-600"
-					onclick={async () => {
-						await disableSlack();
-					}}
-				>
-					Disable
-				</button>
-			</div>
-		</div>
-	</div>
-</dialog>
-
-<dialog bind:this={addSlackBotTool} class="default-dialog">
-	<div class="p-6">
-		<h3 class="mb-4 text-lg font-semibold">Next Steps</h3>
-		<div class="space-y-4">
-			<p class="text-sm text-gray-600">
-				We'll add the Slack Bot tool to your project and automatically create a task that can be
-				triggered from Slack messages. This will allow your agent to:
-			</p>
-			<ul class="list-disc pl-6 text-sm text-gray-600">
-				<li>Automatically respond when mentioned in Slack</li>
-				<li>Process messages and take actions</li>
-				<li>Send responses back to the Slack conversation</li>
-			</ul>
-
-			<div class="mt-6 flex justify-end gap-3">
-				<button class="button-primary" onclick={configureSlackTool}> Continue </button>
-			</div>
-		</div>
-	</div>
-</dialog>
+{/snippet}

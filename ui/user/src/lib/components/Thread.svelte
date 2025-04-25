@@ -237,6 +237,7 @@
 				<button
 					class="message-content group hover:bg-surface1 hover:border-surface2 relative mt-4 w-fit self-center rounded-md border-2 border-dashed border-transparent pt-4 transition-all duration-200"
 					onclick={() => (editBasicDetails = true)}
+					id="edit-basic-details-button"
 				>
 					{@render basicSection()}
 				</button>
@@ -278,6 +279,7 @@
 		<div class="sticky bottom-0 z-30 flex justify-center bg-white pb-2 dark:bg-black">
 			<div class="w-full max-w-[1000px]">
 				<Input
+					id="thread-input"
 					readonly={messages.inProgress}
 					pending={thread?.pending}
 					onAbort={async () => {
@@ -299,7 +301,9 @@
 							helperText={'Files'}
 							placeholder={'No files'}
 						/>
-						<Tools {project} bind:currentThreadID={id} thread />
+						{#if project.editor}
+							<Tools {project} bind:currentThreadID={id} thread />
+						{/if}
 					</div>
 				</Input>
 				<div
