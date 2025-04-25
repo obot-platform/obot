@@ -21,11 +21,11 @@ func (s *Server) llmProxy(req api.Context) error {
 	}
 
 	if token.UserID != "" {
-		promptTokensRemaining, completionTokensRemaining, err := s.client.RemainingTokenUsageForUser(req.Context(), token.UserID, tokenUsageTimePeriod, s.dailyUserTokenPromptTokenLimit, s.dailyUserTokenCompletionTokenLimit)
+		remainingUsage, err := s.client.RemainingTokenUsageForUser(req.Context(), token.UserID, tokenUsageTimePeriod, s.dailyUserTokenPromptTokenLimit, s.dailyUserTokenCompletionTokenLimit)
 		if err != nil {
 			return err
-		} else if promptTokensRemaining <= 0 || completionTokensRemaining <= 0 {
-			return types2.NewErrHTTP(http.StatusTooManyRequests, fmt.Sprintf("no tokens remaining (prompt tokens: %d, completion tokens: %d)", promptTokensRemaining, completionTokensRemaining))
+		} else if !remainingUsage.UnlimitedPromptTokens && remainingUsage.PromptTokens <= 0 || !remainingUsage.UnlimitedCompletionTokens && remainingUsage.CompletionTokens <= 0 {
+			return types2.NewErrHTTP(http.StatusTooManyRequests, fmt.Sprintf("no tokens remaining (prompt tokens: %d, completion tokens: %d)", remainingUsage.PromptTokens, remainingUsage.CompletionTokens))
 		}
 	}
 

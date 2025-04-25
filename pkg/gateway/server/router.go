@@ -33,6 +33,7 @@ func (s *Server) AddRoutes(mux *server.Server) {
 	mux.HandleFunc("GET /api/users/{user_id}/activities", wrap(s.activitiesByUser))
 	mux.HandleFunc("GET /api/users/{user_id}/token-usage", wrap(s.usageForUser))
 	mux.HandleFunc("GET /api/users/{user_id}/total-token-usage", wrap(s.totalUsageForUser))
+	mux.HandleFunc("GET /api/users/{user_id}/remaining-token-usage", wrap(s.remainingUsageForUser))
 	mux.HandleFunc("PATCH /api/users/{user_id}", wrap(s.updateUser))
 	mux.HandleFunc("POST /api/users/{user_id}/internal", wrap(s.markUserInternal))
 	mux.HandleFunc("POST /api/users/{user_id}/external", wrap(s.markUserExternal))

@@ -11,3 +11,13 @@ type TokenUsage struct {
 }
 
 type TokenUsageList List[TokenUsage]
+
+type RemainingTokenUsage struct {
+	UserID                    string `json:"userID,omitempty"`
+	PromptTokens              int    `json:"promptTokens"`
+	CompletionTokens          int    `json:"completionTokens"`
+	UnlimitedPromptTokens     bool   `json:"unlimitedPromptTokens"`
+	UnlimitedCompletionTokens bool   `json:"unlimitedCompletionTokens"`
+}
+
+type RemainingTokenUsageList List[RemainingTokenUsage]
