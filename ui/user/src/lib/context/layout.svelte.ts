@@ -34,6 +34,8 @@ export function isSomethingSelected(layout: Layout) {
 export function closeAll(layout: Layout) {
 	layout.editTaskID = undefined;
 	layout.displayTaskRun = undefined;
+	layout.sidebarConfigOpen = undefined;
+	layout.sidebarConfig = undefined;
 }
 
 export function openTask(layout: Layout, taskID?: string) {

@@ -45,7 +45,7 @@
 
 <div class="flex flex-col gap-2" id="sidebar-knowledge">
 	<div class="mb-1 flex items-center justify-between">
-		<p class="grow text-sm font-semibold">File Knowledge</p>
+		<p class="grow text-sm font-semibold">Knowledge</p>
 		<KnowledgeUpload onUpload={() => reload()} {project} compact />
 	</div>
 	<div class="flex flex-col gap-4">
