@@ -29,13 +29,13 @@
 </script>
 
 <div class="bg-surface1 relative flex size-full flex-col">
-	<div class="flex h-[76px] items-center justify-between p-3">
+	<div class="flex h-16 items-center justify-between px-3">
 		<div
-			class="flex h-[52px] items-center transition-all duration-300"
+			class="flex items-center transition-all duration-300"
 			class:w-full={projectsOpen}
 			class:w-[calc(100%-42px)]={!projectsOpen}
 		>
-			<span class="shrink-0"><Logo class="ml-0" includeFrom /></span>
+			<span class="shrink-0"><Logo class="ml-0" /></span>
 			<Projects
 				{project}
 				onOpenChange={(open) => (projectsOpen = open)}
@@ -44,7 +44,6 @@
 					tooltip:
 						'md:min-w-[250px] md:w-1/6 md:-translate-x-14 -translate-x-1 border-t-[1px] border-surface3 bg-surface2 shadow-inner max-h-[calc(100vh-66px)] overflow-y-auto default-scrollbar-thin pb-0'
 				}}
-				showCreate
 				showDelete
 			/>
 		</div>

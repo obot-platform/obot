@@ -1,12 +1,12 @@
 <script lang="ts">
 	import AssistantIcon from '$lib/icons/AssistantIcon.svelte';
-	import { ChatService, EditorService, type Project } from '$lib/services';
-	import { ChevronDown, Plus, Trash2, X } from 'lucide-svelte/icons';
+	import { ChatService, type Project } from '$lib/services';
+	import { ChevronDown, Trash2, X } from 'lucide-svelte/icons';
 	import { popover } from '$lib/actions';
 	import { twMerge } from 'tailwind-merge';
 	import { DEFAULT_PROJECT_NAME } from '$lib/constants';
 	import { goto } from '$app/navigation';
-	import { errors, responsive } from '$lib/stores';
+	import { responsive } from '$lib/stores';
 	import Confirm from '../Confirm.svelte';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 
@@ -19,7 +19,6 @@
 			tooltip?: string;
 		};
 		onlyEditable?: boolean;
-		showCreate?: boolean;
 		showDelete?: boolean;
 	}
 
@@ -29,7 +28,6 @@
 		disabled,
 		classes,
 		onlyEditable,
-		showCreate,
 		showDelete
 	}: Props = $props();
 
@@ -53,15 +51,6 @@
 
 	function loadMore() {
 		limit += 10;
-	}
-
-	async function createNew() {
-		try {
-			const project = await EditorService.createObot();
-			await goto(`/o/${project.id}`);
-		} catch (error) {
-			errors.append((error as Error).message);
-		}
 	}
 </script>
 
@@ -105,23 +94,6 @@
 			{@render ProjectItem(p, onlyEditable)}
 		{/each}
 		{@render LoadMoreButton(projects.length, limit)}
-		{#if showCreate}
-			<div class="flex p-2">
-				<button
-					onclick={createNew}
-					class="button-small flex w-full items-center justify-center gap-1 py-3 text-sm"
-				>
-					<Plus class="size-5" /> Create New Obot
-				</button>
-			</div>
-		{/if}
-		<a
-			href={`/catalog?from=${encodeURIComponent(window.location.pathname)}`}
-			class="text-gray hover:bg-surface3 flex items-center justify-center gap-2 px-2 py-4 transition-colors"
-		>
-			<img src="/user/images/obot-icon-blue.svg" class="h-5" alt="Obot icon" />
-			<span class="text-gray text-sm">View Obot Catalog</span>
-		</a>
 	</div>
 {/if}
 
@@ -155,7 +127,7 @@
 				onclick={() => (toDelete = p)}
 				use:tooltip={{
 					disablePortal: true,
-					text: p.editor ? 'Delete Obot' : 'Remove Obot'
+					text: p.editor ? 'Delete agent' : 'Remove agent'
 				}}
 			>
 				{#if p.editor}
@@ -184,8 +156,8 @@
 
 <Confirm
 	msg={toDelete?.editor
-		? `Delete the Obot ${toDelete?.name || DEFAULT_PROJECT_NAME}?`
-		: `Remove recently used Obot ${toDelete?.name || DEFAULT_PROJECT_NAME}?`}
+		? `Delete the agent ${toDelete?.name || DEFAULT_PROJECT_NAME}?`
+		: `Remove recently used agent ${toDelete?.name || DEFAULT_PROJECT_NAME}?`}
 	show={!!toDelete}
 	onsuccess={async () => {
 		if (!toDelete) return;

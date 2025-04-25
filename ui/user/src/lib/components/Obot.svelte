@@ -4,9 +4,9 @@
 	import Sidebar from '$lib/components/Sidebar.svelte';
 	import Task from '$lib/components/tasks/Task.svelte';
 	import Thread from '$lib/components/Thread.svelte';
-	import { ChatService, type Project } from '$lib/services';
+	import { ChatService, EditorService, type Project } from '$lib/services';
 	import type { EditorItem } from '$lib/services/editor/index.svelte';
-	import { responsive } from '$lib/stores';
+	import { errors, responsive } from '$lib/stores';
 	import { closeAll, getLayout } from '$lib/context/layout.svelte';
 	import { GripVertical, Plus, SidebarOpen } from 'lucide-svelte';
 	import { fade, slide } from 'svelte/transition';
@@ -18,6 +18,8 @@
 	import CredentialAuth from '$lib/components/edit/CredentialAuth.svelte';
 	import type { ProjectCredential } from '$lib/services';
 	import { clickOutside } from '$lib/actions/clickoutside';
+	import EditorToggle from './navbar/EditorToggle.svelte';
+	import { goto } from '$app/navigation';
 
 	interface Props {
 		project: Project;
@@ -43,6 +45,15 @@
 
 		closeAll(layout);
 		currentThreadID = thread.id;
+	}
+
+	async function createNewAgent() {
+		try {
+			const project = await EditorService.createObot();
+			await goto(`/o/${project.id}`);
+		} catch (error) {
+			errors.append((error as Error).message);
+		}
 	}
 
 	$effect(() => {
@@ -75,32 +86,46 @@
 			class="flex max-w-full grow flex-col overflow-hidden"
 			class:hidden={layout.sidebarOpen && responsive.isMobile}
 		>
-			<div class="h-[76px] w-full">
-				<Navbar showEditorButton={!layout.projectEditorOpen} {project}>
-					{#if !layout.sidebarOpen || layout.fileEditorOpen}
-						<Logo />
-						<button
-							class="icon-button"
-							in:fade={{ delay: 400 }}
-							onclick={() => {
-								layout.sidebarOpen = true;
-								layout.fileEditorOpen = false;
-							}}
-							use:tooltip={'Open Sidebar'}
-						>
-							<SidebarOpen class="icon-default" />
-						</button>
-						<button
-							class="icon-button"
-							in:fade={{ delay: 400 }}
-							use:tooltip={'Start New Thread'}
-							onclick={() => createNewThread()}
-						>
-							<Plus class="icon-default" />
-						</button>
-					{/if}
+			<div class="w-full">
+				<Navbar>
+					{#snippet leftContent()}
+						{#if !layout.sidebarOpen || layout.fileEditorOpen}
+							<Logo class="ml-0" />
+							<button
+								class="icon-button"
+								in:fade={{ delay: 400 }}
+								onclick={() => {
+									layout.sidebarOpen = true;
+									layout.fileEditorOpen = false;
+								}}
+								use:tooltip={'Open Sidebar'}
+							>
+								<SidebarOpen class="icon-default" />
+							</button>
+							<button
+								class="icon-button"
+								in:fade={{ delay: 400 }}
+								use:tooltip={'Start New Thread'}
+								onclick={() => createNewThread()}
+							>
+								<Plus class="icon-default" />
+							</button>
+						{/if}
+					{/snippet}
 				</Navbar>
 			</div>
+			{#if !layout.projectEditorOpen && !layout.fileEditorOpen}
+				<div class="absolute top-[76px] right-5 z-30 flex flex-col gap-4" in:fade={{ delay: 300 }}>
+					<button
+						use:tooltip={'New Agent'}
+						class="icon-button border-surface3 border p-2"
+						onclick={() => createNewAgent()}
+					>
+						<Plus class="size-5" />
+					</button>
+					<EditorToggle />
+				</div>
+			{/if}
 
 			<div class="relative flex h-[calc(100%-76px)] max-w-full grow">
 				{#if !responsive.isMobile || (responsive.isMobile && !layout.fileEditorOpen)}

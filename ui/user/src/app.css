@@ -275,7 +275,7 @@
 		padding: 0.5rem 1.25rem;
 		background-color: var(--surface3);
 		border-width: 0;
-		transition-property: color;
+		transition-property: color, background-color;
 		transition-duration: 200ms;
 		&:hover {
 			background-color: rgb(229 231 235 / 0.5);
@@ -295,7 +295,7 @@
 		padding: 0.5rem 1.25rem;
 		background-color: var(--surface3);
 		border-width: 0;
-		transition-property: color;
+		transition-property: color, background-color;
 		transition-duration: 200ms;
 
 		&:hover {
@@ -590,39 +590,6 @@
 		}
 	}
 
-	.featured-card-layout {
-		margin-bottom: 2rem;
-		display: grid;
-		width: 100%;
-		gap: 1rem;
-		grid-template-columns: repeat(1, minmax(0, 1fr));
-		@media (min-width: 640px) {
-			grid-template-columns: repeat(2, minmax(0, 1fr));
-		}
-		@media (min-width: 1024px) {
-			grid-template-columns: repeat(2, minmax(0, 1fr));
-		}
-		@media (min-width: 1536px) {
-			grid-template-columns: repeat(3, minmax(0, 1fr));
-		}
-	}
-
-	.card-layout {
-		margin-bottom: 2rem;
-		display: grid;
-		gap: 1rem;
-		grid-template-columns: repeat(1, minmax(0, 1fr));
-		@media (min-width: 640px) {
-			grid-template-columns: repeat(2, minmax(0, 1fr));
-		}
-		@media (min-width: 1024px) {
-			grid-template-columns: repeat(3, minmax(0, 1fr));
-		}
-		@media (min-width: 1536px) {
-			grid-template-columns: repeat(3, minmax(0, 1fr));
-		}
-	}
-
 	.tooltip {
 		border-radius: 0.5rem;
 		border: 1px solid var(--surface3);
@@ -683,6 +650,27 @@
 		.dark {
 			background-color: var(--color-black);
 			color: var(--color-gray-300);
+		}
+	}
+
+	.nav-link {
+		position: relative;
+		height: 100%;
+		display: inline-block;
+		padding: 1.25rem 0.5rem;
+		&::after {
+			content: '';
+			position: absolute;
+			bottom: 0;
+			left: 0;
+			width: 100%;
+			height: 4px;
+			background-color: var(--color-blue);
+			opacity: 0;
+			transition: opacity 0.3s ease;
+		}
+		&:hover::after {
+			opacity: 1;
 		}
 	}
 }
