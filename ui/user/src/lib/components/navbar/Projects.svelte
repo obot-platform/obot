@@ -68,7 +68,11 @@
 			toggle(false);
 			return;
 		}
-		projects = (await ChatService.listProjects()).items;
+		projects = (await ChatService.listProjects()).items.sort((a, b) => {
+			if (a.id === project.id) return -1;
+			if (b.id === project.id) return 1;
+			return b.created.localeCompare(a.created);
+		});
 		toggle();
 	}}
 >
