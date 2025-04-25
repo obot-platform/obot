@@ -6,6 +6,7 @@
 	import { fade } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';
 	import EditIcon from './edit/EditIcon.svelte';
+	import Slack from './slack/Slack.svelte';
 
 	interface Props {
 		project: Project;
@@ -148,15 +149,15 @@
 			{ label: 'Webhook', value: 'webhook' }
 		]}
 		{@render tabs(interfacesTabs)}
-		<div class="p-8">
-			{#if layout.sidebarConfig === 'slack'}
-				<div></div>
-			{:else if layout.sidebarConfig === 'chatbot'}
-				<div></div>
-			{:else}
+		{#if layout.sidebarConfig === 'slack'}
+			<div class="default-scrollbar-thin flex flex-col gap-4 overflow-y-auto p-8">
+				<Slack {project} inline />
+			</div>
+		{:else}
+			<div class="p-8">
 				{@render underConstruction()}
-			{/if}
-		</div>
+			</div>
+		{/if}
 	{:else if layout.sidebarConfig === 'members'}
 		<div></div>
 	{/if}
