@@ -1,29 +1,20 @@
 <script lang="ts">
 	import {
 		ChatService,
-		type Message as MessageType,
 		type Messages,
 		type Project,
 		type Task,
 		type TaskStep
 	} from '$lib/services';
 	import Message from '$lib/components/messages/Message.svelte';
-	import {
-		Eye,
-		EyeClosed,
-		Plus,
-		Trash2,
-		Repeat,
-		ArrowLeft,
-		ArrowRight,
-		GripVertical
-	} from 'lucide-svelte/icons';
+	import { Eye, EyeClosed, Plus, Trash2, Repeat, GripVertical } from 'lucide-svelte/icons';
 	import { LoaderCircle, OctagonX, Play, RefreshCcw } from 'lucide-svelte';
 	import { tick } from 'svelte';
 	import { autoHeight } from '$lib/actions/textarea.js';
 	import Confirm from '$lib/components/Confirm.svelte';
 	import { fade, slide } from 'svelte/transition';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
+	import SubSteps from './SubSteps.svelte';
 
 	interface Props {
 		parentStale?: boolean;
@@ -60,45 +51,6 @@
 	let isLoopStep = $derived<boolean>(step.loop !== undefined);
 	let messages = $derived(stepMessages?.get(step.id)?.messages ?? []);
 	let loopDataMessages = $derived(stepMessages?.get(step.id + '{loopdata}')?.messages ?? []);
-
-	type GroupedMessages = {
-		step: number;
-		messages: MessageType[];
-	};
-	function groupByStepAsArray(
-		messagesMap: Map<string, { messages: MessageType[] }>
-	): GroupedMessages[] {
-		const grouped: Record<number, MessageType[]> = {};
-
-		for (const [key, value] of messagesMap.entries()) {
-			const match = key.match(/\{step=(\d+)\}/);
-			if (match) {
-				const step = Number(match[1]);
-				if (!grouped[step]) {
-					grouped[step] = [];
-				}
-				grouped[step].push(...value.messages);
-			}
-		}
-
-		// Convert to array of { step, messages }
-		return Object.entries(grouped).map(([step, messages]) => ({
-			step: Number(step),
-			messages
-		}));
-	}
-	let substepMessages = $derived(
-		groupByStepAsArray(stepMessages ?? new Map()).map((msg) =>
-			msg.messages.filter(
-				(m: MessageType) =>
-					m.stepID?.includes(step.id) &&
-					!m.sent &&
-					m.message.length > 0 &&
-					m.message.join('').trim() !== ''
-			)
-		)
-	);
-	let paginationArr = $state(step.loop?.map((_) => 0) ?? []);
 
 	$effect(() => {
 		if (parentShowOutput !== undefined) {
@@ -166,24 +118,9 @@
 	async function toggleLoop() {
 		if (!isLoopStep) {
 			step.loop = step.loop ?? [''];
-			paginationArr.push(0);
 		} else {
 			step.loop = undefined;
-			paginationArr = [];
 		}
-	}
-
-	function removeSubStep(i: number) {
-		step.loop!.splice(i, 1);
-		paginationArr.splice(i, 1);
-		substepMessages[i].forEach((msg) => {
-			stepMessages?.delete(msg.stepID ?? '');
-		});
-	}
-	function addSubStep(i: number) {
-		step.loop!.splice(i + 1, 0, '');
-		paginationArr.splice(i + 1, 0, 0);
-		substepMessages.splice(i + 1, 0, []);
 	}
 </script>
 
@@ -238,94 +175,19 @@
 					</div>
 				{/if}
 				<div class="flex flex-col gap-2 pl-6">
-					{#each step.loop! as _, i}
-						<div class="flex flex-col gap-2">
-							<div class="flex items-center gap-2">
-								{index + 1}.{i + 1}
-								<textarea
-									{onkeydown}
-									rows="1"
-									placeholder="Instructions..."
-									use:autoHeight
-									bind:value={step.loop![i]}
-									class="ghost-input border-surface2 grow resize-none"
-									disabled={readOnly}
-								></textarea>
-								{#if !readOnly}
-									<div class="flex items-center">
-										<button
-											class="icon-button"
-											onclick={() => removeSubStep(i)}
-											use:tooltip={'Remove step from loop'}
-										>
-											<Trash2 class="size-4" />
-										</button>
-										{#if i === step.loop!.length - 1}
-											<button
-												class="icon-button self-start"
-												onclick={() => addSubStep(i)}
-												use:tooltip={'Add step to loop'}
-											>
-												<Plus class="size-4" />
-											</button>
-										{/if}
-									</div>
-								{/if}
-							</div>
-							{#if substepMessages[i]?.length > 0 && showOutput}
-								<div
-									class="relative my-3 -ml-4 flex min-h-[150px] flex-col gap-4 rounded-lg bg-white p-5 transition-transform dark:bg-black"
-									class:border-2={running}
-									class:border-blue={running}
-									transition:slide
-								>
-									{#each substepMessages[i] as msg, index}
-										{#if !msg.sent && paginationArr[i] === index}
-											<Message {msg} {project} disableMessageToEditor maxHeight={'300px'} />
-										{/if}
-									{/each}
-									<div
-										class="absolute right-2 bottom-2 mb-2 flex items-center justify-end gap-1 p-2"
-									>
-										<button
-											onclick={() =>
-												paginationArr &&
-												(paginationArr[i] =
-													(paginationArr[i] - 1 + substepMessages[i].length) %
-													substepMessages[i].length)}
-											disabled={(paginationArr?.[i] ?? 0) === 0}
-											class="rounded-md p-1 opacity-100 hover:bg-gray-300 disabled:opacity-50"
-										>
-											<ArrowLeft class="size-4" />
-										</button>
-										<select
-											onchange={(e) => {
-												if (e.target)
-													(paginationArr ??= [])[i] = Number((e.target as HTMLSelectElement).value);
-											}}
-											class="flex appearance-none items-center justify-center border px-2 text-sm"
-											value={paginationArr?.[i]}
-										>
-											{#each substepMessages[i] as _, index}
-												<option value={index}>
-													{index + 1}
-												</option>
-											{/each}
-										</select>
-										<button
-											onclick={() =>
-												((paginationArr ??= [])[i] =
-													((paginationArr[i] ?? 0) + 1) % substepMessages[i].length)}
-											disabled={(paginationArr?.[i] ?? 0) === substepMessages[i].length - 1}
-											class="rounded-md p-1 opacity-100 hover:bg-gray-300 disabled:opacity-50"
-										>
-											<ArrowRight class="size-4" />
-										</button>
-									</div>
-								</div>
-							{/if}
-						</div>
-					{/each}
+					<SubSteps
+						pIndex={index}
+						{step}
+						loop={step.loop}
+						{onkeydown}
+						{showOutput}
+						stepMessages={new Map(
+							Array.from(stepMessages ?? []).filter(([key]) => key.includes(step.id))
+						)}
+						{readOnly}
+						{running}
+						{project}
+					/>
 				</div>
 			{/if}
 		</div>
