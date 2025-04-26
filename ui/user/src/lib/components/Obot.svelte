@@ -20,6 +20,8 @@
 	import { clickOutside } from '$lib/actions/clickoutside';
 	import { goto } from '$app/navigation';
 	import SidebarConfig from './SidebarConfig.svelte';
+	import { onMount, onDestroy } from 'svelte';
+	import { browser } from '$app/environment';
 
 	interface Props {
 		assistant?: Assistant;
@@ -36,6 +38,7 @@
 	let credDialog: HTMLDialogElement;
 	let credAuth: ReturnType<typeof CredentialAuth>;
 	let configDialog: HTMLDialogElement;
+	let shortcutsDialog: HTMLDialogElement;
 
 	async function createNewThread() {
 		const thread = await ChatService.createThread(project.assistantID, project.id);
@@ -68,6 +71,39 @@
 				return;
 			}
 		});
+	});
+
+	function handleKeydown(event: KeyboardEvent) {
+		// Ctrl + E for edit mode
+		if (event.ctrlKey && event.key === 'e') {
+			event.preventDefault();
+			layout.projectEditorOpen = !layout.projectEditorOpen;
+		}
+
+		// Ctrl + T for thread panel
+		if (event.ctrlKey && event.key === 't') {
+			event.preventDefault();
+			layout.sidebarOpen = !layout.sidebarOpen;
+			layout.fileEditorOpen = false;
+		}
+
+		// Ctrl + H for keyboard shortcuts help
+		if (event.ctrlKey && event.key === 'h') {
+			event.preventDefault();
+			shortcutsDialog?.showModal();
+		}
+	}
+
+	onMount(() => {
+		if (browser) {
+			window.addEventListener('keydown', handleKeydown);
+		}
+	});
+
+	onDestroy(() => {
+		if (browser) {
+			window.removeEventListener('keydown', handleKeydown);
+		}
 	});
 </script>
 
@@ -233,6 +269,31 @@
 						toolID="slack-bot-bundle"
 						onClose={() => credDialog?.close()}
 					/>
+				</div>
+			</dialog>
+
+			<dialog
+				bind:this={shortcutsDialog}
+				class="default-dialog"
+				use:clickOutside={() => shortcutsDialog?.close()}
+			>
+				<div class="p-6">
+					<button class="absolute top-0 right-0 p-3" onclick={() => shortcutsDialog?.close()}>
+						<X class="icon-default" />
+					</button>
+					<h3 class="mb-4 text-lg font-semibold">Keyboard Shortcuts</h3>
+					<div class="space-y-4">
+						<div class="grid grid-cols-2 gap-2">
+							<div class="font-medium">Ctrl + E</div>
+							<div>Toggle Edit Mode</div>
+
+							<div class="font-medium">Ctrl + T</div>
+							<div>Toggle Thread Panel</div>
+
+							<div class="font-medium">Ctrl + H</div>
+							<div>Show Keyboard Shortcuts</div>
+						</div>
+					</div>
 				</div>
 			</dialog>
 		</main>
