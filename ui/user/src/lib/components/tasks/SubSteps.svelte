@@ -30,8 +30,6 @@
 		project
 	}: Props = $props();
 
-	console.log('--- SubSteps ---', loop?.length, stepMessages);
-
 	let paginationArr = $state(loop?.map((_) => 0) ?? []);
 	let substepMessages = $state(formatedArray(loop, stepMessages));
 
