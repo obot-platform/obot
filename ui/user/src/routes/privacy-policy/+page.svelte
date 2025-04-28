@@ -204,11 +204,11 @@
 				<p>
 					If you, or the company you represent, have entered into the Acorn Obot.ai SaaS Agreement
 					(https://obot.ai/terms-of-service), or a negotiated a custom agreement, to use the
-					Software-as-a-Service platform located at https://obot.ai (the “Services”), this
-					Notice is made part of, and integrated into, that document (each an “Acorn Obot.ai SaaS
-					Agreement”). By continuing to use our Sites or the Services, you agree to this Privacy
-					Notice. Capitalized terms not defined herein have the meaning set for in Acorn Obot.ai
-					SaaS Agreement.
+					Software-as-a-Service platform located at https://obot.ai (the “Services”), this Notice is
+					made part of, and integrated into, that document (each an “Acorn Obot.ai SaaS Agreement”).
+					By continuing to use our Sites or the Services, you agree to this Privacy Notice.
+					Capitalized terms not defined herein have the meaning set for in Acorn Obot.ai SaaS
+					Agreement.
 				</p>
 
 				<ol>
@@ -216,9 +216,9 @@
 						<h2 class="text-lg font-semibold" id={sectionHeaders[1].id}>SCOPE OF THIS NOTICE</h2>
 						<p>
 							This Notice describes Acorn’s privacy practices for Personal Data collected by Acorn
-							websites (acorn.io and obot.ai , including any and all of subdomains,
-							together the “Site(s)”) and the Services, as well as other activities where you may
-							share personal data with Acorn.
+							websites (acorn.io and obot.ai , including any and all of subdomains, together the
+							“Site(s)”) and the Services, as well as other activities where you may share personal
+							data with Acorn.
 						</p>
 						<p>
 							Please read this Notice in full. By using our Sites, using the Services, or
