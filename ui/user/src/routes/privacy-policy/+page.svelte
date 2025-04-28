@@ -216,7 +216,7 @@
 						<h2 class="text-lg font-semibold" id={sectionHeaders[1].id}>SCOPE OF THIS NOTICE</h2>
 						<p>
 							This Notice describes Acorn’s privacy practices for Personal Data collected by Acorn
-							websites (www.Acorn.com and www.obot.ai , including any and all of subdomains,
+							websites (acorn.io and obot.ai , including any and all of subdomains,
 							together the “Site(s)”) and the Services, as well as other activities where you may
 							share personal data with Acorn.
 						</p>
