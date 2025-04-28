@@ -1,3 +1,4 @@
+import { UNAUTHORIZED_PATHS } from '$lib/constants';
 import { profile } from '$lib/stores';
 import errors from '$lib/stores/errors.svelte';
 
@@ -25,8 +26,8 @@ function handle401Redirect() {
 	}
 
 	// Not logged in, so if the user is
-	// not already on login page, redirect to it
-	if (currentPath !== '/') {
+	// not already on an unauthorized page, redirect to it
+	if (!UNAUTHORIZED_PATHS.has(currentPath)) {
 		window.location.href = `/?rd=${encodeURIComponent(currentPath)}`;
 	}
 }

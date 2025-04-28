@@ -34,3 +34,5 @@ export const FEATURED_AGENT_PREFERRED_ORDER = [
 	'wordpress blog assistant',
 	'linkedin research assistant'
 ];
+
+export const UNAUTHORIZED_PATHS = new Set(['/', '/privacy-policy', '/terms-of-service']);

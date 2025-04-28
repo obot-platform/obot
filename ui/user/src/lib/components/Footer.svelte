@@ -51,8 +51,8 @@
 		<div class="mt-8 flex flex-col gap-2 md:mt-0">
 			<p class="self-center text-[11px] md:self-end">© 2025 Acorn. All rights reserved.</p>
 			<div class="flex gap-4">
-				<a href="/">Privacy Policy</a> |
-				<a href="/">Terms of Service</a>
+				<a href="/privacy-policy">Privacy Policy</a> |
+				<a href="/terms-of-service">Terms of Service</a>
 			</div>
 		</div>
 	</div>
