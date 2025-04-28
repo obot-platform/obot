@@ -767,7 +767,7 @@
 
 					<li>
 						<b>Software</b> means Acorn, Inc.'s obot.ai branded software-as-service platform located
-						at www.obot.ai, including any applicable subdomains of each, and any web browser extension
+						at obot.ai, including any applicable subdomains of each, and any web browser extension
 						obtained for use thereon.
 					</li>
 
