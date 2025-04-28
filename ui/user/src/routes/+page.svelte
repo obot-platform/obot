@@ -9,6 +9,7 @@
 	import Menu from '$lib/components/navbar/Menu.svelte';
 	import FeaturedObotCard from '$lib/components/FeaturedObotCard.svelte';
 	import { clickOutside } from '$lib/actions/clickoutside';
+	import Footer from '$lib/components/Footer.svelte';
 
 	let { data }: PageProps = $props();
 	let { authProviders, featuredProjectShares, tools, isNew } = data;
@@ -68,7 +69,7 @@
 	<title>Obot - Do more with AI</title>
 </svelte:head>
 
-<div class="relative h-dvh w-full flex-col text-black dark:text-white">
+<div class="relative flex h-dvh w-full flex-col text-black dark:text-white">
 	<!-- Header with logo and navigation -->
 	<div class="colors-background flex h-16 w-full items-center p-5">
 		<div class="relative flex items-end">
@@ -115,7 +116,7 @@
 	</div>
 
 	<main
-		class="colors-background mx-auto flex w-full max-w-(--breakpoint-2xl) flex-col items-center justify-center px-4 pb-12 md:px-12"
+		class="colors-background mx-auto flex w-full max-w-(--breakpoint-2xl) grow flex-col items-center justify-center px-4 pb-12 md:px-12"
 	>
 		<div class="mt-16 mb-8 flex flex-col items-center text-center">
 			<h1 class="text-2xl font-bold md:text-3xl">Do more with AI</h1>
@@ -141,6 +142,7 @@
 			</div>
 		{/if}
 	</main>
+	<Footer />
 
 	<!-- Login Modal -->
 	<dialog
