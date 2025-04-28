@@ -204,7 +204,7 @@
 				<p>
 					If you, or the company you represent, have entered into the Acorn Obot.ai SaaS Agreement
 					(https://www.obot.ai/terms), or a negotiated a custom agreement, to use the
-					Software-as-a-Service platform located at https://www.obot.ai (the “Services”), this
+					Software-as-a-Service platform located at https://obot.ai (the “Services”), this
 					Notice is made part of, and integrated into, that document (each an “Acorn Obot.ai SaaS
 					Agreement”). By continuing to use our Sites or the Services, you agree to this Privacy
 					Notice. Capitalized terms not defined herein have the meaning set for in Acorn Obot.ai
