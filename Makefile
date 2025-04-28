@@ -69,6 +69,9 @@ lint-go: setup-env
 generate:
 	go generate
 
+test:
+	go test -v -cover ./...
+
 # Runs Go linters and validates that all generated code is committed.
 validate-go-code: tidy generate lint-go no-changes
 
