@@ -19,8 +19,7 @@ export PATH=$TOOLS_VENV_BIN:$PATH
 
 # double echo to remove trailing whitespace
 export OBOT_SERVER_VERSIONS="$(cat <<VERSIONS
-"chrome": "$(echo $(/opt/google/chrome/chrome --version))"
-${OBOT_SERVER_VERSIONS}
+chrome=$(echo $(/opt/google/chrome/chrome --version)),${OBOT_SERVER_VERSIONS}
 VERSIONS
 )"
 
