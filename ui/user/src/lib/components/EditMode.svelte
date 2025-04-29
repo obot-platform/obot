@@ -1,25 +1,23 @@
 <script lang="ts">
-	import { type Project, ChatService, type AssistantTool, type Assistant } from '$lib/services';
+	import { type Project, ChatService, type Assistant } from '$lib/services';
 	import { onDestroy, onMount } from 'svelte';
 	import Confirm from '$lib/components/Confirm.svelte';
 	import Obot from '$lib/components/Obot.svelte';
 	import { getLayout } from '$lib/context/layout.svelte';
 	import { goto } from '$app/navigation';
 	import { responsive } from '$lib/stores';
-	import { getProjectTools } from '$lib/context/projectTools.svelte';
 	interface Props {
 		project: Project;
 		currentThreadID?: string;
 		assistant?: Assistant;
 	}
 
-	let { project = $bindable(), currentThreadID = $bindable(), assistant }: Props = $props();
+	let { project = $bindable(), currentThreadID = $bindable() }: Props = $props();
 
 	const layout = getLayout();
 	let projectSaved = '';
 	let timer: number = 0;
 	let toDelete = $state<Project>();
-	const projectTools = getProjectTools();
 
 	async function updateProject() {
 		if (JSON.stringify(project) === projectSaved) {
@@ -31,13 +29,6 @@
 		if (oldProject === JSON.stringify(project)) {
 			project = newProject;
 		}
-	}
-
-	async function onNewTools(newTools: AssistantTool[]) {
-		const response = await ChatService.updateProjectTools(project.assistantID, project.id, {
-			items: newTools
-		});
-		projectTools.tools = response.items;
 	}
 
 	async function loadProject() {
@@ -65,7 +56,7 @@
 				class="size-full overflow-clip transition-all"
 				class:rounded-none={!layout.projectEditorOpen}
 			>
-				<Obot bind:project bind:currentThreadID {assistant} />
+				<Obot bind:project bind:currentThreadID />
 			</div>
 		</div>
 	</div>

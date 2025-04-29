@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { popover } from '$lib/actions';
-	import CollapsePane from '$lib/components/edit/CollapsePane.svelte';
 	import { type AssistantTool } from '$lib/services';
 	import ToolCatalog from './ToolCatalog.svelte';
 	import { Plus, X } from 'lucide-svelte/icons';

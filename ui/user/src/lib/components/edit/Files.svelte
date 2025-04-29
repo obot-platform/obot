@@ -2,7 +2,6 @@
 	import { overflowToolTip } from '$lib/actions/overflow';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import Confirm from '$lib/components/Confirm.svelte';
-	import CollapsePane from '$lib/components/edit/CollapsePane.svelte';
 	import FileEditors from '$lib/components/editor/FileEditors.svelte';
 	import Error from '$lib/components/Error.svelte';
 	import Menu from '$lib/components/navbar/Menu.svelte';

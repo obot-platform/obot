@@ -9,7 +9,6 @@
 	import { qIsSet } from '$lib/url';
 	import { initProjectTools } from '$lib/context/projectTools.svelte.js';
 	import { initProjectMCPs } from '$lib/context/projectMcps.svelte.js';
-	import Tutorial from '$lib/components/Tutorial.svelte';
 
 	let { data } = $props();
 	let project = $state(data.project);

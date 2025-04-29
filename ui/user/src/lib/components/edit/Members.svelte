@@ -1,16 +1,9 @@
 <script lang="ts">
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import { getLayout, openSidebarConfig } from '$lib/context/layout.svelte';
-	import type { Project } from '$lib/services';
 	import { Plus, X } from 'lucide-svelte';
 
-	interface Props {
-		project: Project;
-	}
-
-	let { project }: Props = $props();
 	let layout = getLayout();
-	let toDelete = $state('');
 	const mockMembers = [
 		{
 			email: 'johndoe@gmail.com',
@@ -48,7 +41,7 @@
 				</button>
 				<button
 					class="py-2 pr-3 transition-opacity duration-200 group-hover:opacity-100 md:opacity-0"
-					onclick={() => (toDelete = member.email)}
+					onclick={() => {}}
 				>
 					<X class="size-4" />
 				</button>

@@ -16,7 +16,7 @@
 	import { columnResize } from '$lib/actions/resize';
 	import { X } from 'lucide-svelte';
 	import CredentialAuth from '$lib/components/edit/CredentialAuth.svelte';
-	import type { Assistant, ProjectCredential } from '$lib/services';
+	import type { ProjectCredential } from '$lib/services';
 	import { clickOutside } from '$lib/actions/clickoutside';
 	import { goto } from '$app/navigation';
 	import SidebarConfig from './SidebarConfig.svelte';
@@ -24,13 +24,12 @@
 	import { browser } from '$app/environment';
 
 	interface Props {
-		assistant?: Assistant;
 		project: Project;
 		items?: EditorItem[];
 		currentThreadID?: string;
 	}
 
-	let { project = $bindable(), currentThreadID = $bindable(), assistant }: Props = $props();
+	let { project = $bindable(), currentThreadID = $bindable() }: Props = $props();
 	let layout = getLayout();
 	let editor: HTMLDivElement | undefined = $state();
 
@@ -117,7 +116,7 @@
 				class="bg-surface1 w-screen min-w-screen md:w-1/6 md:min-w-[275px]"
 				transition:slide={{ axis: 'x' }}
 			>
-				<Sidebar {assistant} bind:project bind:currentThreadID />
+				<Sidebar bind:project bind:currentThreadID />
 			</div>
 		{/if}
 

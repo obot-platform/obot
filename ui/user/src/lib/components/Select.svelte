@@ -5,7 +5,6 @@
 	interface Option {
 		id: string | number;
 		label: string;
-		[key: string]: any;
 	}
 
 	interface Props {

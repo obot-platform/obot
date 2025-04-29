@@ -1,17 +1,14 @@
 <script lang="ts">
-	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import { getLayout, openSidebarConfig, type Layout } from '$lib/context/layout.svelte';
-	import type { Project } from '$lib/services';
 	import { Settings } from 'lucide-svelte';
 	import DotDotDot from '../DotDotDot.svelte';
 
 	interface Props {
-		project: Project;
 		selected?: string[];
 	}
 
 	const mockSelected = ['chatbot', 'slack'];
-	let { project, selected = mockSelected }: Props = $props();
+	let { selected = mockSelected }: Props = $props();
 	let layout = getLayout();
 
 	const options = [

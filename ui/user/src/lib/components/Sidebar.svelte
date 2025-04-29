@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { type Assistant, type Project } from '$lib/services';
+	import { type Project } from '$lib/services';
 	import { KeyRound, SidebarClose, Brain, Settings } from 'lucide-svelte';
 	import Threads from '$lib/components/sidebar/Threads.svelte';
 	import { hasTool } from '$lib/tools';
@@ -13,26 +13,17 @@
 	import { getProjectTools } from '$lib/context/projectTools.svelte';
 	import MemoriesDialog from '$lib/components/MemoriesDialog.svelte';
 	import McpServers from './sidebar/McpServers.svelte';
-	// import Instructions from './edit/Instructions.svelte';
 	import Knowledge from './edit/Knowledge.svelte';
-	import Sites from './edit/Sites.svelte';
-	import CustomTools from './edit/CustomTools.svelte';
 	import Files from './edit/Files.svelte';
-	import Slack from './slack/Slack.svelte';
-	import { version } from '$lib/stores';
-	import { browser } from '$app/environment';
-	import ChatBot from './edit/ChatBot.svelte';
-	import Introduction from './edit/Introduction.svelte';
 	import Members from './edit/Members.svelte';
 	import Interfaces from './edit/Interfaces.svelte';
 
 	interface Props {
 		project: Project;
 		currentThreadID?: string;
-		assistant?: Assistant;
 	}
 
-	let { project = $bindable(), currentThreadID = $bindable(), assistant }: Props = $props();
+	let { project = $bindable(), currentThreadID = $bindable() }: Props = $props();
 	let credentials = $state<ReturnType<typeof Credentials>>();
 	let memories = $state<ReturnType<typeof MemoriesDialog>>();
 	let projectsOpen = $state(false);
@@ -103,14 +94,8 @@
 				<CustomTools {project} />
 			{/if} -->
 			<Files {project} compact />
-			<Members {project} />
-			<!--
-			<Instructions bind:project />
-			<Introduction bind:project />
-			<Slack {project} />
-			<ChatBot {project} />
-			 -->
-			<Interfaces {project} />
+			<Members />
+			<Interfaces />
 			{#each sidebarConfigValues as config}
 				<div class="flex flex-col gap-2">
 					<div class="mb-1 flex items-center justify-between">

@@ -7,7 +7,7 @@
 		getProjectSlack
 	} from '$lib/services/chat/operations';
 	import { ChatService, type AssistantTool } from '$lib/services';
-	import { Settings, X, CheckCircle } from 'lucide-svelte';
+	import { Settings, X } from 'lucide-svelte';
 	import { getLayout } from '$lib/context/layout.svelte';
 	import { responsive } from '$lib/stores';
 	import { getProjectTools } from '$lib/context/projectTools.svelte';

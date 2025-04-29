@@ -2,7 +2,7 @@
 	import { autoHeight } from '$lib/actions/textarea';
 	import { closeSidebarConfig, getLayout, type Layout } from '$lib/context/layout.svelte';
 	import type { Project } from '$lib/services';
-	import { ChevronsLeft, Plus, Trash2, X } from 'lucide-svelte';
+	import { ChevronsLeft, Plus, Trash2 } from 'lucide-svelte';
 	import { fade } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';
 	import EditIcon from './edit/EditIcon.svelte';

@@ -294,13 +294,7 @@
 					bind:items={layout.items}
 				>
 					<div class="flex w-fit items-center gap-1">
-						<Files
-							thread
-							{project}
-							bind:currentThreadID={id}
-							helperText={'Files'}
-							placeholder={'No files'}
-						/>
+						<Files thread {project} bind:currentThreadID={id} helperText={'Files'} />
 						{#if project.editor}
 							<Tools {project} bind:currentThreadID={id} thread />
 						{/if}

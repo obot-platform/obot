@@ -10,7 +10,7 @@
 	import { ListFilter, Plus, Trash2, X } from 'lucide-svelte';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import { autoHeight } from '$lib/actions/textarea';
-	import { fade, fly, slide } from 'svelte/transition';
+	import { fade, fly } from 'svelte/transition';
 	import { faker } from '@faker-js/faker';
 	import Select from '$lib/components/Select.svelte';
 	import McpCatalog from '$lib/components/mcp/McpCatalog.svelte';
@@ -36,7 +36,6 @@
 		})
 	);
 	let mcpsMap = $derived(new Map(data.mcps.map((mcp) => [mcp.id, mcp])));
-	let toolsMap = $derived(new Map(data.tools.map((tool) => [tool.id, tool])));
 	let selectedMcps = $derived(new Set(createAgent?.mcps ?? []));
 
 	let toDelete = $state<Project>();
@@ -280,7 +279,7 @@
 							</button>
 						</div>
 						<div class="bg-surface2 grid grid-cols-2 gap-2 rounded-lg p-2 shadow-inner">
-							{#each createAgent.mcps as mcpId, index (mcpId)}
+							{#each createAgent.mcps as mcpId (mcpId)}
 								{@const mcp = mcpsMap.get(mcpId)}
 								{#if mcp}
 									<div

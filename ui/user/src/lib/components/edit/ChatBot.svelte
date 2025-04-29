@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { ChatService, EditorService, type Project, type ProjectShare } from '$lib/services';
+	import { ChatService, type Project, type ProjectShare } from '$lib/services';
 	import CopyButton from '$lib/components/CopyButton.svelte';
 	import Toggle from '../Toggle.svelte';
 
@@ -33,27 +33,6 @@
 			await ChatService.deleteProjectShare(project.assistantID, project.id);
 			share = undefined;
 		}
-	}
-	async function handleAgentTemplate() {
-		// MOCK
-		const agentTemplateProject = await ChatService.copyProject(project.assistantID, project.id);
-		setTimeout(async () => {
-			await ChatService.updateProject({
-				...agentTemplateProject,
-				name: `${project.name} Template`
-			});
-			setTimeout(async () => {
-				await ChatService.createProjectShare(
-					agentTemplateProject.assistantID,
-					agentTemplateProject.id
-				);
-				await ChatService.setFeatured(
-					agentTemplateProject.assistantID,
-					agentTemplateProject.id,
-					true
-				);
-			}, 500);
-		}, 500);
 	}
 </script>
 
