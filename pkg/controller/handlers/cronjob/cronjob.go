@@ -48,26 +48,9 @@ func GetScheduleAndTimezone(cronJob v1.CronJob) (string, string) {
 
 func (h *Handler) Run(req router.Request, resp router.Response) error {
 	cj := req.Object.(*v1.CronJob)
-	lastRun := cj.Status.LastRunStartedAt
-	schedule, timezone := GetScheduleAndTimezone(*cj)
-	var location *time.Location
-	if timezone != "" {
-		loc, err := time.LoadLocation(timezone)
-		if err == nil {
-			location = loc
-		}
-	}
-	if lastRun.IsZero() {
-		if location != nil {
-			lastRun = &metav1.Time{Time: cj.CreationTimestamp.In(location)}
-		} else {
-			lastRun = &metav1.Time{Time: cj.CreationTimestamp.Time}
-		}
-	}
-
-	next, err := gronx.NextTickAfter(schedule, lastRun.Time, false)
+	next, err := calculateNextRunTime(*cj)
 	if err != nil {
-		return fmt.Errorf("failed to parse schedule: %w", err)
+		return fmt.Errorf("failed to calculate next run time: %w", err)
 	}
 
 	if until := time.Until(next); until > 0 {
@@ -101,6 +84,32 @@ func (h *Handler) Run(req router.Request, resp router.Response) error {
 
 	cj.Status.LastRunStartedAt = &[]metav1.Time{metav1.Now()}[0]
 	return nil
+}
+
+func calculateNextRunTime(cronJob v1.CronJob) (time.Time, error) {
+	lastRun := cronJob.Status.LastRunStartedAt
+	if lastRun.IsZero() {
+		lastRun = &metav1.Time{Time: cronJob.CreationTimestamp.Time}
+	}
+
+	schedule, timezone := GetScheduleAndTimezone(cronJob)
+	var location *time.Location
+	if timezone != "" {
+		loc, err := time.LoadLocation(timezone)
+		if err == nil {
+			location = loc
+		}
+	}
+	if location != nil {
+		lastRun = &metav1.Time{Time: lastRun.In(location)}
+	}
+
+	next, err := gronx.NextTickAfter(schedule, lastRun.Time, false)
+	if err != nil {
+		return time.Time{}, fmt.Errorf("failed to parse schedule: %w", err)
+	}
+
+	return next, nil
 }
 
 func (h *Handler) SetSuccessRunTime(req router.Request, _ router.Response) error {
