@@ -57,21 +57,21 @@ func (c *Client) deleteSessionsForUser(ctx context.Context, db *gorm.DB, storage
 		emailHash := hash.String(identity.Email)
 		userHash := hash.String(user)
 
-		logger.Debug("deleting sessions for provider", "provider", identity.AuthProviderName)
+		logger.Info("deleting sessions", "provider", identity.AuthProviderName, "emailHash", emailHash, "userHash", userHash)
 
 		if meta, ok := ref.Status.Tool.Metadata["providerMeta"]; ok {
 			tablePrefix := gjson.Get(meta, "postgresTablePrefix").String()
 			if tablePrefix != "" {
 				var err error
 				if sessionID != "" {
-					err = c.deleteSessionsForUserExceptCurrent(db, emailHash, userHash, tablePrefix, sessionID)
+					err = c.deleteSessionsForUserExceptCurrent(ctx, db, emailHash, userHash, tablePrefix, sessionID)
 				} else {
-					err = c.deleteAllSessionsForUser(db, emailHash, userHash, tablePrefix)
+					err = c.deleteAllSessionsForUser(ctx, db, emailHash, userHash, tablePrefix)
 				}
 				if err != nil {
 					errs = append(errs, fmt.Errorf("failed to delete sessions for provider %q: %w", identity.AuthProviderName, err))
 				} else {
-					logger.Debug("deleted sessions for provider", "provider", identity.AuthProviderName)
+					logger.Info("deleted sessions", "provider", identity.AuthProviderName, "emailHash", emailHash, "userHash", userHash)
 				}
 			}
 		}
@@ -84,8 +84,9 @@ func (c *Client) tableExists(db *gorm.DB, tableName string) bool {
 	return db.Migrator().HasTable(tableName)
 }
 
-func (c *Client) deleteAllSessionsForUser(db *gorm.DB, emailHash, userHash, tablePrefix string) error {
+func (c *Client) deleteAllSessionsForUser(ctx context.Context, db *gorm.DB, emailHash, userHash, tablePrefix string) error {
 	if !c.tableExists(db, tablePrefix+"sessions") {
+		gcontext.GetLogger(ctx).Info("table does not exist", "table", tablePrefix+"sessions")
 		return nil
 	}
 
@@ -96,8 +97,9 @@ func (c *Client) deleteAllSessionsForUser(db *gorm.DB, emailHash, userHash, tabl
 	).Error
 }
 
-func (c *Client) deleteSessionsForUserExceptCurrent(db *gorm.DB, emailHash, userHash, tablePrefix, currentSessionID string) error {
+func (c *Client) deleteSessionsForUserExceptCurrent(ctx context.Context, db *gorm.DB, emailHash, userHash, tablePrefix, currentSessionID string) error {
 	if !c.tableExists(db, tablePrefix+"sessions") {
+		gcontext.GetLogger(ctx).Info("table does not exist", "table", tablePrefix+"sessions")
 		return nil
 	}
 
