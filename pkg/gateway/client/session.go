@@ -64,7 +64,7 @@ func (c *Client) deleteSessionsForUser(ctx context.Context, db *gorm.DB, storage
 			if tablePrefix != "" {
 				var err error
 				if sessionID != "" {
-					err = c.deleteSessionsForUserExceptCurrent(db, emailHash, userHash, tablePrefix, sessionID)
+					err = c.deleteSessionsForUserExceptCurrent(ctx, db, emailHash, userHash, tablePrefix, sessionID)
 				} else {
 					err = c.deleteAllSessionsForUser(ctx, db, emailHash, userHash, tablePrefix)
 				}
