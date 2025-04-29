@@ -57,6 +57,8 @@ func (c *Client) RemainingTokenUsageForUser(ctx context.Context, userID string, 
 
 	if user.Role.HasRole(types2.RoleAdmin) {
 		// Admins always have unlimited tokens.
+		r.UnlimitedPromptTokens = true
+		r.UnlimitedCompletionTokens = true
 		return r, nil
 	}
 
