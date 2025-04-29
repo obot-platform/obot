@@ -152,8 +152,9 @@ var apiResources = []string{
 	"GET    /api/users/{user_id}",
 	"PATCH  /api/users/{user_id}",
 	"GET    /api/users/{user_id}/activities",
-	"GET    /api/users/{user_id}/usage",
-	"GET    /api/users/{user_id}/total-usage",
+	"GET    /api/users/{user_id}/token-usage",
+	"GET    /api/users/{user_id}/total-token-usage",
+	"GET    /api/users/{user_id}/remaining-token-usage",
 }
 
 type Resources struct {

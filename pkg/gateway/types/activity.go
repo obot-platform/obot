@@ -60,3 +60,20 @@ func ConvertTokenActivity(a TokenActivity) types2.TokenUsage {
 		TotalTokens:      a.TotalTokens,
 	}
 }
+
+type RemainingTokenUsage struct {
+	PromptTokens              int
+	CompletionTokens          int
+	UnlimitedPromptTokens     bool
+	UnlimitedCompletionTokens bool
+}
+
+func ConvertRemainingTokenUsage(userID string, r *RemainingTokenUsage) types2.RemainingTokenUsage {
+	return types2.RemainingTokenUsage{
+		UserID:                    userID,
+		PromptTokens:              r.PromptTokens,
+		CompletionTokens:          r.CompletionTokens,
+		UnlimitedPromptTokens:     r.UnlimitedPromptTokens,
+		UnlimitedCompletionTokens: r.UnlimitedCompletionTokens,
+	}
+}
