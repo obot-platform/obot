@@ -20,3 +20,5 @@ export const IGNORED_BUILTIN_TOOLS = new Set([
 	'threads',
 	'github-com-obot-platform-tools-search-tavily-websiteknowl-d2d96'
 ]);
+
+export const UNAUTHORIZED_PATHS = new Set(['/', '/privacy-policy', '/terms-of-service']);
