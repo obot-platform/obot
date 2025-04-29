@@ -41,7 +41,7 @@ func (s *Server) totalUsageForUser(apiContext api.Context) error {
 		return err
 	}
 
-	activity, err := apiContext.GatewayClient.TotalTokenUsageForUser(apiContext.Context(), userID, start, end)
+	activity, err := apiContext.GatewayClient.TotalTokenUsageForUser(apiContext.Context(), userID, start, end, apiContext.Request.URL.Query().Get("include-personal-token") == "true")
 	if err != nil {
 		return err
 	}
@@ -71,7 +71,7 @@ func (s *Server) systemTokenUsageByUser(apiContext api.Context) error {
 		return err
 	}
 
-	activities, err := apiContext.GatewayClient.TokenUsageByUser(apiContext.Context(), start, end)
+	activities, err := apiContext.GatewayClient.TokenUsageByUser(apiContext.Context(), start, end, apiContext.Request.URL.Query().Get("include-personal-token") == "true")
 	if err != nil {
 		return err
 	}
@@ -94,7 +94,7 @@ func (s *Server) totalSystemTokenUsage(apiContext api.Context) error {
 		return err
 	}
 
-	activities, err := apiContext.GatewayClient.TokenUsageByUser(apiContext.Context(), start, end)
+	activities, err := apiContext.GatewayClient.TokenUsageByUser(apiContext.Context(), start, end, apiContext.Request.URL.Query().Get("include-personal-token") == "true")
 	if err != nil {
 		return err
 	}

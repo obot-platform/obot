@@ -23,8 +23,8 @@ func (c *Client) TokenUsageForUser(ctx context.Context, userID string, start, en
 	return activities, c.db.WithContext(ctx).Where("user_id = ?", userID).Where("created_at >= ? AND created_at < ?", start, end).Order("created_at DESC").Find(&activities).Error
 }
 
-func (c *Client) TotalTokenUsageForUser(ctx context.Context, userID string, start, end time.Time) (types.RunTokenActivity, error) {
-	activity, err := c.tokenUsageByUser(ctx, userID, start, end)
+func (c *Client) TotalTokenUsageForUser(ctx context.Context, userID string, start, end time.Time, includePersonalTokenUsage bool) (types.RunTokenActivity, error) {
+	activity, err := c.tokenUsageByUser(ctx, userID, start, end, includePersonalTokenUsage)
 	if err != nil || len(activity) == 0 {
 		return types.RunTokenActivity{
 			UserID: userID,
@@ -34,8 +34,8 @@ func (c *Client) TotalTokenUsageForUser(ctx context.Context, userID string, star
 	return activity[0], nil
 }
 
-func (c *Client) TokenUsageByUser(ctx context.Context, start, end time.Time) ([]types.RunTokenActivity, error) {
-	return c.tokenUsageByUser(ctx, "", start, end)
+func (c *Client) TokenUsageByUser(ctx context.Context, start, end time.Time, includePersonalTokenUsage bool) ([]types.RunTokenActivity, error) {
+	return c.tokenUsageByUser(ctx, "", start, end, includePersonalTokenUsage)
 }
 
 func (c *Client) RemainingTokenUsageForUser(ctx context.Context, userID string, period time.Duration, promptTokenLimit, completionTokenLimit int) (*types.RemainingTokenUsage, error) {
@@ -73,7 +73,7 @@ func (c *Client) RemainingTokenUsageForUser(ctx context.Context, userID string, 
 	r.CompletionTokens = completionTokenLimit
 
 	end := time.Now()
-	activity, err := c.tokenUsageByUser(ctx, userID, end.Add(-period), end)
+	activity, err := c.tokenUsageByUser(ctx, userID, end.Add(-period), end, false)
 	if err != nil || len(activity) == 0 {
 		return r, err
 	}
@@ -84,11 +84,14 @@ func (c *Client) RemainingTokenUsageForUser(ctx context.Context, userID string, 
 	return r, nil
 }
 
-func (c *Client) tokenUsageByUser(ctx context.Context, userID string, start, end time.Time) ([]types.RunTokenActivity, error) {
+func (c *Client) tokenUsageByUser(ctx context.Context, userID string, start, end time.Time, includePersonalTokenUsage bool) ([]types.RunTokenActivity, error) {
 	var activities []types.RunTokenActivity
 	db := c.db.WithContext(ctx).Model(new(types.RunTokenActivity)).
 		Select("user_id, SUM(prompt_tokens) as prompt_tokens, SUM(completion_tokens) as completion_tokens, SUM(total_tokens) as total_tokens").
 		Where("created_at >= ? AND created_at < ?", start, end)
+	if !includePersonalTokenUsage {
+		db.Where("personal_token IS NULL OR NOT personal_token")
+	}
 	if userID != "" {
 		db = db.Where("user_id = ?", userID)
 	} else {

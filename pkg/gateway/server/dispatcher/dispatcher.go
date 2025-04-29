@@ -1,11 +1,8 @@
 package dispatcher
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"net/url"
 	"path"
@@ -15,7 +12,6 @@ import (
 	"github.com/gptscript-ai/go-gptscript"
 	"github.com/gptscript-ai/gptscript/pkg/engine"
 	"github.com/obot-platform/obot/apiclient/types"
-	"github.com/obot-platform/obot/pkg/alias"
 	"github.com/obot-platform/obot/pkg/api/handlers/providers"
 	"github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/invoke"
@@ -76,7 +72,7 @@ func (d *Dispatcher) URLForAuthProvider(ctx context.Context, namespace, authProv
 	return u, nil
 }
 
-func (d *Dispatcher) urlForModelProvider(ctx context.Context, namespace, modelProviderName string) (url.URL, error) {
+func (d *Dispatcher) URLForModelProvider(ctx context.Context, namespace, modelProviderName string) (url.URL, error) {
 	u, err := d.urlForProvider(ctx, types.ToolReferenceTypeModelProvider, namespace, modelProviderName, d.modelURLs, d.modelLock)
 	if err != nil {
 		return url.URL{}, fmt.Errorf("failed to get model provider url: %w", err)
@@ -152,34 +148,8 @@ func (d *Dispatcher) startProvider(ctx context.Context, providerType types.ToolR
 		return url.URL{}, fmt.Errorf("failed to get provider: %w", err)
 	}
 
-	credCtx := []string{string(providerToolRef.UID), providerTypeToGenericCredContext[providerType]}
-	if providerToolRef.Status.Tool == nil {
-		return url.URL{}, fmt.Errorf("provider tool reference %q has not been resolved", providerName)
-	}
-
-	// Ensure that the provider has been configured so that we don't get stuck waiting on a prompt.
-	mps, err := providers.ConvertProviderToolRef(providerToolRef, nil)
-	if err != nil {
-		return url.URL{}, fmt.Errorf("failed to convert provider: %w", err)
-	}
-	if len(mps.RequiredConfigurationParameters) > 0 {
-		cred, err := d.gptscript.RevealCredential(ctx, credCtx, providerName)
-		if err != nil {
-			return url.URL{}, fmt.Errorf("provider is not configured: %w", err)
-		}
-
-		mps, err = providers.ConvertProviderToolRef(providerToolRef, cred.Env)
-		if err != nil {
-			return url.URL{}, fmt.Errorf("failed to convert provider: %w", err)
-		}
-
-		if len(mps.MissingConfigurationParameters) > 0 {
-			return url.URL{}, fmt.Errorf("provider is not configured: missing configuration parameters %s", strings.Join(mps.MissingConfigurationParameters, ", "))
-		}
-	}
-
 	task, err := d.invoker.SystemTask(ctx, thread, providerName, "", invoke.SystemTaskOptions{
-		CredentialContextIDs: credCtx,
+		CredentialContextIDs: []string{string(providerToolRef.UID), providerTypeToGenericCredContext[providerType]},
 		Env:                  extraEnv,
 	})
 	if err != nil {
@@ -195,6 +165,7 @@ func (d *Dispatcher) startProvider(ctx context.Context, providerType types.ToolR
 	if err != nil {
 		return url.URL{}, err
 	}
+
 	return *u, nil
 }
 
@@ -223,90 +194,17 @@ func stopProvider(namespace, name string, urlMap map[string]url.URL, lock *sync.
 	delete(urlMap, key)
 }
 
-func (d *Dispatcher) TransformRequest(req *http.Request, namespace string) error {
-	body, err := readBody(req)
-	if err != nil {
-		return fmt.Errorf("failed to read body: %w", err)
-	}
-
-	modelStr, ok := body["model"].(string)
-	if !ok {
-		return fmt.Errorf("missing model in body")
-	}
-
-	model, err := d.getModelProviderForModel(req.Context(), namespace, modelStr)
-	if err != nil {
-		return fmt.Errorf("failed to get model: %w", err)
-	}
-
-	u, err := d.urlForModelProvider(req.Context(), namespace, model.Spec.Manifest.ModelProvider)
-	if err != nil {
-		return fmt.Errorf("failed to get model provider: %w", err)
-	}
-
-	return d.transformRequest(req, u, body, model.Spec.Manifest.TargetModel)
-}
-
-func (d *Dispatcher) getModelProviderForModel(ctx context.Context, namespace, model string) (*v1.Model, error) {
-	m, err := alias.GetFromScope(ctx, d.client, "Model", namespace, model)
-	if err != nil {
-		return nil, err
-	}
-
-	var respModel *v1.Model
-	switch m := m.(type) {
-	case *v1.DefaultModelAlias:
-		if m.Spec.Manifest.Model == "" {
-			return nil, fmt.Errorf("default model alias %q is not configured", model)
+func (d *Dispatcher) TransformRequest(u url.URL, credEnv map[string]string) func(req *http.Request) {
+	return func(req *http.Request) {
+		if u.Path == "" {
+			u.Path = "/v1"
 		}
-		var model v1.Model
-		if err := alias.Get(ctx, d.client, &model, namespace, m.Spec.Manifest.Model); err != nil {
-			return nil, err
-		}
-		respModel = &model
-	case *v1.Model:
-		respModel = m
+		u.Path = path.Join(u.Path, req.PathValue("path"))
+		req.URL = &u
+		req.Host = u.Host
+
+		addCredHeaders(req, credEnv)
 	}
-
-	if respModel != nil {
-		if !respModel.Spec.Manifest.Active {
-			return nil, fmt.Errorf("model %q is not active", respModel.Spec.Manifest.Name)
-		}
-
-		return respModel, nil
-	}
-
-	return nil, fmt.Errorf("model %q not found", model)
-}
-
-func (d *Dispatcher) transformRequest(req *http.Request, u url.URL, body map[string]any, targetModel string) error {
-	if u.Path == "" {
-		u.Path = "/v1"
-	}
-	u.Path = path.Join(u.Path, req.PathValue("path"))
-	req.URL = &u
-	req.Host = u.Host
-
-	body["model"] = targetModel
-	b, err := json.Marshal(body)
-	if err != nil {
-		return err
-	}
-
-	req.Body = io.NopCloser(bytes.NewReader(b))
-	req.ContentLength = int64(len(b))
-
-	return nil
-}
-
-func readBody(r *http.Request) (map[string]any, error) {
-	defer r.Body.Close()
-	var m map[string]any
-	if err := json.NewDecoder(r.Body).Decode(&m); err != nil {
-		return nil, err
-	}
-
-	return m, nil
 }
 
 func (d *Dispatcher) ListConfiguredAuthProviders(namespace string) []string {

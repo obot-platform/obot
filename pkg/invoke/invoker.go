@@ -363,9 +363,17 @@ func (i *Invoker) Agent(ctx context.Context, c kclient.WithWatch, agent *v1.Agen
 		}
 	}
 
+	project, err := projects.GetFirst(ctx, c, thread, func(thread *v1.Thread) (bool, error) {
+		return thread.Spec.ModelProvider != "" && thread.Spec.Model != "", nil
+	})
+	if err != nil {
+		return nil, err
+	}
+
 	tools, extraEnv, err := render.Agent(ctx, c, agent, i.serverURL, render.AgentOptions{
 		Thread:         thread,
 		WorkflowStepID: opt.WorkflowStepID,
+		Model:          project.Spec.Model,
 	})
 	if err != nil {
 		return nil, err
@@ -392,6 +400,7 @@ func (i *Invoker) Agent(ctx context.Context, c kclient.WithWatch, agent *v1.Agen
 		PreviousRunName:       opt.PreviousRunName,
 		ForceNoResume:         opt.ForceNoResume,
 		GenerateName:          opt.GenerateName,
+		DefaultModel:          project.Spec.Model,
 	})
 }
 
@@ -417,6 +426,7 @@ type runOptions struct {
 	CredentialContextIDs  []string
 	Timeout               time.Duration
 	Ephemeral             bool
+	DefaultModel          string
 }
 
 func isEphemeral(run *v1.Run) bool {
@@ -447,6 +457,11 @@ func (i *Invoker) createRun(ctx context.Context, c kclient.WithWatch, thread *v1
 		generateName = system.RunPrefix
 	}
 
+	defaultModel := opts.DefaultModel
+	if defaultModel == "" {
+		defaultModel = string(types.DefaultModelAliasTypeLLM)
+	}
+
 	run := v1.Run{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: generateName,
@@ -466,7 +481,7 @@ func (i *Invoker) createRun(ctx context.Context, c kclient.WithWatch, thread *v1
 			Tool:                  string(toolData),
 			Env:                   opts.Env,
 			CredentialContextIDs:  opts.CredentialContextIDs,
-			DefaultModel:          string(types.DefaultModelAliasTypeLLM),
+			DefaultModel:          defaultModel,
 			Timeout:               metav1.Duration{Duration: opts.Timeout},
 		},
 	}
@@ -613,24 +628,37 @@ func (i *Invoker) Resume(ctx context.Context, c kclient.WithWatch, thread *v1.Th
 		// Note: AuthenticatedGroup is added by default in the token service
 	}
 
-	token, err := i.tokenService.NewToken(jwt.TokenContext{
-		Namespace:      run.Namespace,
-		RunID:          run.Name,
-		ThreadID:       thread.Name,
-		AgentID:        run.Spec.AgentName,
-		WorkflowID:     run.Spec.WorkflowName,
-		WorkflowStepID: run.Spec.WorkflowStepID,
-		Scope:          thread.Namespace,
-		UserID:         userID,
-		UserName:       userName,
-		UserEmail:      userEmail,
-		UserGroups:     userGroups,
+	var modelProvider, model string
+	_, err = projects.GetFirst(ctx, c, thread, func(thread *v1.Thread) (bool, error) {
+		modelProvider = thread.Spec.ModelProvider
+		model = thread.Spec.Model
+		return modelProvider != "" && model != "", nil
 	})
 	if err != nil {
 		return err
 	}
 
-	modelProvider, err := render.ResolveToolReference(ctx, c, types.ToolReferenceTypeSystem, thread.Namespace, system.ModelProviderTool)
+	token, err := i.tokenService.NewToken(jwt.TokenContext{
+		Namespace:            run.Namespace,
+		RunID:                run.Name,
+		ThreadID:             thread.Name,
+		ProjectID:            thread.Spec.ParentThreadName,
+		ProjectModelProvider: modelProvider,
+		ProjectModel:         model,
+		AgentID:              run.Spec.AgentName,
+		WorkflowID:           run.Spec.WorkflowName,
+		WorkflowStepID:       run.Spec.WorkflowStepID,
+		Scope:                thread.Namespace,
+		UserID:               userID,
+		UserName:             userName,
+		UserEmail:            userEmail,
+		UserGroups:           userGroups,
+	})
+	if err != nil {
+		return err
+	}
+
+	modelProvider, err = render.ResolveToolReference(ctx, c, types.ToolReferenceTypeSystem, thread.Namespace, system.ModelProviderTool)
 	if err != nil {
 		return fmt.Errorf("failed to resolve model provider: %w", err)
 	}
@@ -649,7 +677,7 @@ func (i *Invoker) Resume(ctx context.Context, c kclient.WithWatch, thread *v1.Th
 				"OBOT_WORKFLOW_ID="+run.Spec.WorkflowName,
 				"OBOT_WORKFLOW_STEP_ID="+run.Spec.WorkflowStepID,
 				"OBOT_AGENT_ID="+run.Spec.AgentName,
-				"OBOT_DEFAULT_LLM_MODEL="+string(types.DefaultModelAliasTypeLLM),
+				"OBOT_DEFAULT_LLM_MODEL="+run.Spec.DefaultModel,
 				"OBOT_DEFAULT_LLM_MINI_MODEL="+string(types.DefaultModelAliasTypeLLMMini),
 				"OBOT_DEFAULT_TEXT_EMBEDDING_MODEL="+string(types.DefaultModelAliasTypeTextEmbedding),
 				"OBOT_DEFAULT_IMAGE_GENERATION_MODEL="+string(types.DefaultModelAliasTypeImageGeneration),

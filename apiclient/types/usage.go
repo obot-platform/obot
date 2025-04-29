@@ -7,6 +7,7 @@ type TokenUsage struct {
 	CompletionTokens int    `json:"completionTokens"`
 	TotalTokens      int    `json:"totalTokens"`
 	Date             Time   `json:"date,omitzero"`
+	PersonalToken    bool   `json:"personalToken"`
 }
 
 type TokenUsageList List[TokenUsage]

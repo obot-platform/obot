@@ -99,6 +99,12 @@ type ThreadSpec struct {
 	SystemTools []string `json:"systemTools,omitempty"`
 	// Capabilities are the capabilities of this thread
 	Capabilities ThreadCapabilities `json:"capabilities,omitempty"`
+	// ModelProvider is the model provider the user has chosen for this thread.
+	// Currently, only supported for projects.
+	ModelProvider string `json:"modelProvider,omitempty"`
+	// Model is the model the user has chosen for this thread.
+	// Currently, only supported for projects
+	Model string `json:"model,omitempty"`
 
 	// Owners
 

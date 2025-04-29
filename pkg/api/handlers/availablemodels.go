@@ -3,6 +3,7 @@ package handlers
 import (
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/obot-platform/obot/pkg/api/handlers/providers"
@@ -69,7 +70,7 @@ func (a *AvailableModelsHandler) List(req api.Context) error {
 			continue
 		}
 
-		m, err := a.dispatcher.ForProvider(req.Context(), modelProvider.Namespace, modelProvider.Name)
+		m, err := a.dispatcher.ModelsForProvider(req.Context(), modelProvider.Namespace, modelProvider.Name)
 		if err != nil {
 			return err
 		}
@@ -87,8 +88,23 @@ func (a *AvailableModelsHandler) List(req api.Context) error {
 }
 
 func (a *AvailableModelsHandler) ListForModelProvider(req api.Context) error {
+	assistantID := req.PathValue("assistant_id")
+	projectID := req.PathValue("project_id")
+	modelProviderID := req.PathValue("model_provider_id")
+	if assistantID != "" {
+		// Ensure that this agent allows this model provider.
+		agent, err := getAssistant(req, assistantID)
+		if err != nil {
+			return fmt.Errorf("failed to get assistant: %w", err)
+		}
+
+		if !slices.Contains(agent.Spec.Manifest.AllowedModelProviders, modelProviderID) {
+			return types.NewErrBadRequest("model provider %q is not allowed for assistant %q", modelProviderID, agent.Name)
+		}
+	}
+
 	var modelProviderReference v1.ToolReference
-	if err := req.Get(&modelProviderReference, req.PathValue("model_provider")); err != nil {
+	if err := req.Get(&modelProviderReference, modelProviderID); err != nil {
 		return err
 	}
 
@@ -101,10 +117,15 @@ func (a *AvailableModelsHandler) ListForModelProvider(req api.Context) error {
 		return err
 	}
 
+	credCtxs := []string{string(modelProviderReference.UID), system.GenericModelProviderCredentialContext}
+	if projectID != "" {
+		credCtxs = []string{fmt.Sprintf("%s-%s", projectID, modelProviderReference.Name)}
+	}
+
 	var credEnvVars map[string]string
 	if modelProviderReference.Status.Tool != nil {
 		if len(modelProvider.RequiredConfigurationParameters) > 0 {
-			cred, err := a.gptscript.RevealCredential(req.Context(), []string{string(modelProviderReference.UID), system.GenericModelProviderCredentialContext}, modelProviderReference.Name)
+			cred, err := a.gptscript.RevealCredential(req.Context(), credCtxs, modelProviderReference.Name)
 			if err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
 				return fmt.Errorf("failed to reveal credential for model provider %q: %w", modelProviderReference.Name, err)
 			} else if err == nil {
@@ -121,7 +142,13 @@ func (a *AvailableModelsHandler) ListForModelProvider(req api.Context) error {
 		return types.NewErrBadRequest("model provider %s is not configured, missing configuration parameters: %s", modelProviderReference.Name, strings.Join(modelProvider.MissingConfigurationParameters, ", "))
 	}
 
-	oModels, err := a.dispatcher.ForProvider(req.Context(), modelProviderReference.Namespace, modelProviderReference.Name)
+	var oModels *openai.ModelsList
+	if assistantID != "" {
+		// If this is a request for obot-based models, then send the credential environment variables with the request so the model provider uses the correct credentials.
+		oModels, err = a.dispatcher.ModelsForProviderWithEnv(req.Context(), modelProviderReference.Namespace, modelProviderReference.Name, credEnvVars)
+	} else {
+		oModels, err = a.dispatcher.ModelsForProvider(req.Context(), modelProviderReference.Namespace, modelProviderReference.Name)
+	}
 	if err != nil {
 		return err
 	}

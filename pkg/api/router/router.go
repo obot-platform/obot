@@ -221,6 +221,14 @@ func Router(services *services.Services) (http.Handler, error) {
 	mux.HandleFunc("DELETE /api/assistants/{assistant_id}/projects/{project_id}/memories", memories.DeleteMemories)
 	mux.HandleFunc("DELETE /api/assistants/{assistant_id}/projects/{project_id}/memories/{memory_id}", memories.DeleteMemories)
 
+	// Project model providers
+	mux.HandleFunc("GET /api/assistants/{assistant_id}/projects/{project_id}/model-providers", modelProviders.List)
+	mux.HandleFunc("POST /api/assistants/{assistant_id}/projects/{project_id}/model-providers/{model_provider_id}/configure", modelProviders.Configure)
+	mux.HandleFunc("POST /api/assistants/{assistant_id}/projects/{project_id}/model-providers/{model_provider_id}/deconfigure", modelProviders.Deconfigure)
+	mux.HandleFunc("POST /api/assistants/{assistant_id}/projects/{project_id}/model-providers/{model_provider_id}/reveal", modelProviders.Reveal)
+	mux.HandleFunc("POST /api/assistants/{assistant_id}/projects/{project_id}/model-providers/{model_provider_id}/validate", modelProviders.Validate)
+	mux.HandleFunc("GET /api/assistants/{assistant_id}/projects/{project_id}/model-providers/{model_provider_id}/available-models", availableModels.ListForModelProvider)
+
 	// Agent files
 	mux.HandleFunc("GET /api/agents/{id}/file/{file...}", agents.GetFile)
 	mux.HandleFunc("GET /api/agents/{id}/files/{file...}", agents.GetFile)
@@ -428,7 +436,7 @@ func Router(services *services.Services) (http.Handler, error) {
 
 	// Available Models
 	mux.HandleFunc("GET /api/available-models", availableModels.List)
-	mux.HandleFunc("GET /api/available-models/{model_provider}", availableModels.ListForModelProvider)
+	mux.HandleFunc("GET /api/available-models/{model_provider_id}", availableModels.ListForModelProvider)
 
 	// Default Model Aliases
 	mux.HandleFunc("POST /api/default-model-aliases", defaultModelAliases.Create)

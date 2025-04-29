@@ -42,27 +42,28 @@ type WebsiteDefinition struct {
 }
 
 type AgentManifest struct {
-	Name                 string            `json:"name"`
-	Icons                *AgentIcons       `json:"icons"`
-	Description          string            `json:"description"`
-	Default              bool              `json:"default"`
-	Temperature          *float32          `json:"temperature"`
-	Cache                *bool             `json:"cache"`
-	Alias                string            `json:"alias"`
-	Prompt               string            `json:"prompt"`
-	KnowledgeDescription string            `json:"knowledgeDescription"`
-	Tools                []string          `json:"tools"`
-	AvailableThreadTools []string          `json:"availableThreadTools"`
-	DefaultThreadTools   []string          `json:"defaultThreadTools"`
-	OAuthApps            []string          `json:"oauthApps"`
-	IntroductionMessage  string            `json:"introductionMessage"`
-	StarterMessages      []string          `json:"starterMessages"`
-	MaxThreadTools       int               `json:"maxThreadTools"`
-	Params               map[string]string `json:"params"`
-	Model                string            `json:"model"`
-	Env                  []EnvVar          `json:"env"`
-	Credentials          []string          `json:"credentials"`
-	WebsiteKnowledge     *WebsiteKnowledge `json:"websiteKnowledge,omitempty"`
+	Name                  string            `json:"name"`
+	Icons                 *AgentIcons       `json:"icons"`
+	Description           string            `json:"description"`
+	Default               bool              `json:"default"`
+	Temperature           *float32          `json:"temperature"`
+	Cache                 *bool             `json:"cache"`
+	Alias                 string            `json:"alias"`
+	Prompt                string            `json:"prompt"`
+	KnowledgeDescription  string            `json:"knowledgeDescription"`
+	Tools                 []string          `json:"tools"`
+	AvailableThreadTools  []string          `json:"availableThreadTools"`
+	DefaultThreadTools    []string          `json:"defaultThreadTools"`
+	OAuthApps             []string          `json:"oauthApps"`
+	IntroductionMessage   string            `json:"introductionMessage"`
+	StarterMessages       []string          `json:"starterMessages"`
+	MaxThreadTools        int               `json:"maxThreadTools"`
+	Params                map[string]string `json:"params"`
+	Model                 string            `json:"model"`
+	Env                   []EnvVar          `json:"env"`
+	Credentials           []string          `json:"credentials"`
+	WebsiteKnowledge      *WebsiteKnowledge `json:"websiteKnowledge,omitempty"`
+	AllowedModelProviders []string          `json:"allowedModelProviders"`
 }
 
 func GetParams(params map[string]string) *openapi3.Schema {

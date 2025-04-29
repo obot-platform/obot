@@ -795,8 +795,22 @@ func schema_obot_platform_obot_apiclient_types_AgentManifest(ref common.Referenc
 							Ref: ref("github.com/obot-platform/obot/apiclient/types.WebsiteKnowledge"),
 						},
 					},
+					"allowedModelProviders": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
 				},
-				Required: []string{"name", "icons", "description", "default", "temperature", "cache", "alias", "prompt", "knowledgeDescription", "tools", "availableThreadTools", "defaultThreadTools", "oauthApps", "introductionMessage", "starterMessages", "maxThreadTools", "params", "model", "env", "credentials"},
+				Required: []string{"name", "icons", "description", "default", "temperature", "cache", "alias", "prompt", "knowledgeDescription", "tools", "availableThreadTools", "defaultThreadTools", "oauthApps", "introductionMessage", "starterMessages", "maxThreadTools", "params", "model", "env", "credentials", "allowedModelProviders"},
 			},
 		},
 		Dependencies: []string{
@@ -3472,6 +3486,18 @@ func schema_obot_platform_obot_apiclient_types_ProjectManifest(ref common.Refere
 							Ref:     ref("github.com/obot-platform/obot/apiclient/types.ThreadManifest"),
 						},
 					},
+					"modelProvider": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"model": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
 				},
 				Required: []string{"ThreadManifest"},
 			},
@@ -5177,8 +5203,15 @@ func schema_obot_platform_obot_apiclient_types_TokenUsage(ref common.ReferenceCa
 							Ref: ref("github.com/obot-platform/obot/apiclient/types.Time"),
 						},
 					},
+					"personalToken": {
+						SchemaProps: spec.SchemaProps{
+							Default: false,
+							Type:    []string{"boolean"},
+							Format:  "",
+						},
+					},
 				},
-				Required: []string{"promptTokens", "completionTokens", "totalTokens", "date"},
+				Required: []string{"promptTokens", "completionTokens", "totalTokens", "date", "personalToken"},
 			},
 		},
 		Dependencies: []string{
@@ -10193,6 +10226,20 @@ func schema_storage_apis_obotobotai_v1_ThreadSpec(ref common.ReferenceCallback) 
 							Description: "Capabilities are the capabilities of this thread",
 							Default:     map[string]interface{}{},
 							Ref:         ref("github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ThreadCapabilities"),
+						},
+					},
+					"modelProvider": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ModelProvider is the model provider the user has chosen for this thread. Currently, only supported for projects.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"model": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Model is the model the user has chosen for this thread. Currently, only supported for projects",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
 					"workflowName": {

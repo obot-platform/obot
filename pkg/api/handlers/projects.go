@@ -231,7 +231,7 @@ func (h *ProjectsHandler) ListAuthorizations(req api.Context) error {
 func (h *ProjectsHandler) UpdateProject(req api.Context) error {
 	var (
 		projectID = req.PathValue("project_id")
-		project   types.ThreadManifest
+		project   types.ProjectManifest
 	)
 
 	if err := req.Read(&project); err != nil {
@@ -243,10 +243,21 @@ func (h *ProjectsHandler) UpdateProject(req api.Context) error {
 		return err
 	}
 
+	agent, err := getAssistant(req, thread.Spec.AgentName)
+	if err != nil {
+		return err
+	}
+
 	project.Tools = thread.Spec.Manifest.Tools
 
 	if !equality.Semantic.DeepEqual(thread.Spec.Manifest, project) {
-		thread.Spec.Manifest = project
+		if project.ModelProvider != "" && !slices.Contains(agent.Spec.Manifest.AllowedModelProviders, project.ModelProvider) {
+			return types.NewErrBadRequest("model provider %s is not allowed for agent %s", project.ModelProvider, agent.Name)
+		}
+
+		thread.Spec.Manifest = project.ThreadManifest
+		thread.Spec.ModelProvider = project.ModelProvider
+		thread.Spec.Model = project.Model
 		if err := req.Update(&thread); err != nil {
 			return err
 		}
@@ -286,6 +297,7 @@ func (h *ProjectsHandler) CopyProject(req api.Context) error {
 			SourceThreadName: thread.Name,
 			Project:          true,
 			UserID:           req.User.GetUID(),
+			// Explicit ignoring model provider and model here. The user will have to provide their own credentials.
 		},
 	}
 
@@ -398,6 +410,10 @@ func (h *ProjectsHandler) CreateProject(req api.Context) error {
 		return err
 	}
 
+	if project.ModelProvider != "" && !slices.Contains(agent.Spec.Manifest.AllowedModelProviders, project.ModelProvider) {
+		return types.NewErrBadRequest("model provider %s is not allowed for agent %s", project.ModelProvider, agent.Name)
+	}
+
 	thread := &v1.Thread{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: system.ThreadPrefix,
@@ -412,9 +428,11 @@ func (h *ProjectsHandler) CreateProject(req api.Context) error {
 					Description: project.Description,
 				},
 			},
-			AgentName: agent.Name,
-			Project:   true,
-			UserID:    req.User.GetUID(),
+			AgentName:     agent.Name,
+			Project:       true,
+			UserID:        req.User.GetUID(),
+			ModelProvider: project.ModelProvider,
+			Model:         project.Model,
 		},
 	}
 
@@ -518,6 +536,8 @@ func convertProject(thread *v1.Thread, parentThread *v1.Thread) types.Project {
 		Metadata: MetadataFrom(thread),
 		ProjectManifest: types.ProjectManifest{
 			ThreadManifest: thread.Spec.Manifest,
+			ModelProvider:  thread.Spec.ModelProvider,
+			Model:          thread.Spec.Model,
 		},
 		ParentID:        strings.Replace(thread.Spec.ParentThreadName, system.ThreadPrefix, system.ProjectPrefix, 1),
 		SourceProjectID: strings.Replace(thread.Spec.SourceThreadName, system.ThreadPrefix, system.ProjectPrefix, 1),

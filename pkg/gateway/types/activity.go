@@ -7,18 +7,16 @@ import (
 )
 
 type LLMProxyActivity struct {
-	ID               uint
-	UserID           string
-	CreatedAt        time.Time
-	WorkflowID       string
-	WorkflowStepID   string
-	AgentID          string
-	ThreadID         string
-	RunID            string
-	Path             string
-	PromptTokens     int
-	CompletionTokens int
-	TotalTokens      int
+	ID             uint
+	UserID         string
+	CreatedAt      time.Time
+	WorkflowID     string
+	WorkflowStepID string
+	AgentID        string
+	ProjectID      string
+	ThreadID       string
+	RunID          string
+	Path           string
 }
 
 type APIActivity struct {
@@ -42,6 +40,7 @@ type RunTokenActivity struct {
 	PromptTokens     int
 	CompletionTokens int
 	TotalTokens      int
+	PersonalToken    bool
 }
 
 func ConvertTokenActivity(a RunTokenActivity) types2.TokenUsage {
@@ -52,6 +51,7 @@ func ConvertTokenActivity(a RunTokenActivity) types2.TokenUsage {
 		PromptTokens:     a.PromptTokens,
 		CompletionTokens: a.CompletionTokens,
 		TotalTokens:      a.TotalTokens,
+		PersonalToken:    a.PersonalToken,
 	}
 }
 

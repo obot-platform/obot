@@ -33,6 +33,7 @@ var DefaultAgentParams = []string{
 type AgentOptions struct {
 	Thread         *v1.Thread
 	WorkflowStepID string
+	Model          string
 }
 
 func stringAppend(first string, second ...string) string {
@@ -50,6 +51,10 @@ func Agent(ctx context.Context, db kclient.Client, agent *v1.Agent, oauthServerU
 		sort.Strings(extraEnv)
 	}()
 
+	model := opts.Model
+	if model == "" {
+		model = agent.Spec.Manifest.Model
+	}
 	mainTool := gptscript.ToolDef{
 		Name:         agent.Spec.Manifest.Name,
 		Description:  agent.Spec.Manifest.Description,
@@ -59,7 +64,7 @@ func Agent(ctx context.Context, db kclient.Client, agent *v1.Agent, oauthServerU
 		Temperature:  agent.Spec.Manifest.Temperature,
 		Cache:        agent.Spec.Manifest.Cache,
 		Type:         "agent",
-		ModelName:    agent.Spec.Manifest.Model,
+		ModelName:    model,
 		Credentials:  agent.Spec.Manifest.Credentials,
 	}
 
