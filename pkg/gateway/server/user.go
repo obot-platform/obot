@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/gptscript-ai/gptscript/pkg/mvl"
@@ -69,7 +70,7 @@ func (s *Server) encryptAllUsersAndIdentities(apiContext api.Context) error {
 
 	for _, user := range users {
 		if force || !user.Encrypted {
-			if _, err = apiContext.GatewayClient.UpdateUser(apiContext.Context(), apiContext.UserIsAdmin(), &user, user.Username); err != nil {
+			if _, err = apiContext.GatewayClient.UpdateUser(apiContext.Context(), apiContext.UserIsAdmin(), &user, strconv.FormatUint(uint64(user.ID), 10)); err != nil {
 				return fmt.Errorf("failed to encrypt user with id %d: %v", user.ID, err)
 			}
 		}

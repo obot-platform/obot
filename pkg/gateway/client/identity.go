@@ -80,6 +80,10 @@ func (c *Client) EncryptIdentities(ctx context.Context, force bool) error {
 				continue
 			}
 
+			if err := c.decryptIdentity(ctx, &identities[i]); err != nil {
+				return fmt.Errorf("failed to decrypt identity: %w", err)
+			}
+
 			if err := c.encryptIdentity(ctx, &identities[i]); err != nil {
 				return fmt.Errorf("failed to encrypt identity: %w", err)
 			}
@@ -98,6 +102,7 @@ func (c *Client) ensureIdentity(ctx context.Context, tx *gorm.DB, id *types.Iden
 	verified := slices.Contains(verifiedAuthProviders, fmt.Sprintf("%s/%s", id.AuthProviderNamespace, id.AuthProviderName))
 
 	email := id.Email
+	providerUserID := id.ProviderUserID
 
 	if id.ProviderUserID != "" {
 		id.HashedProviderUserID = hash.String(id.ProviderUserID)
@@ -253,15 +258,21 @@ func (c *Client) ensureIdentity(ctx context.Context, tx *gorm.DB, id *types.Iden
 	}
 
 	// Update the user ID saved on the identity if needed.
-	if id.Email != email || id.UserID != user.ID {
+	// This also corrects the provider user ID to correct a bug introduced when re-encrypting all users and identities
+	if id.Email != email || id.UserID != user.ID || id.ProviderUserID != providerUserID {
 		id.Email = email
 		id.UserID = user.ID
+		id.ProviderUserID = providerUserID
+		id.HashedProviderUserID = hash.String(id.ProviderUserID)
 
-		if err := c.encryptIdentity(ctx, id); err != nil {
+		// Copy so we don't have to decrypt again
+		i := *id
+
+		if err := c.encryptIdentity(ctx, &i); err != nil {
 			return nil, fmt.Errorf("failed to encrypt identity: %w", err)
 		}
 
-		if err := tx.Updates(id).Error; err != nil {
+		if err := tx.Updates(&i).Error; err != nil {
 			return nil, err
 		}
 	}

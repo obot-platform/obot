@@ -57,7 +57,7 @@ func (c *Client) deleteSessionsForUser(ctx context.Context, db *gorm.DB, storage
 		emailHash := hash.String(identity.Email)
 		userHash := hash.String(user)
 
-		logger.Info("deleting sessions", "provider", identity.AuthProviderName, "emailHash", emailHash, "userHash", userHash, "user", user, "email", identity.Email)
+		logger.Debug("deleting sessions", "provider", identity.AuthProviderName, "emailHash", emailHash, "userHash", userHash)
 
 		if meta, ok := ref.Status.Tool.Metadata["providerMeta"]; ok {
 			tablePrefix := gjson.Get(meta, "postgresTablePrefix").String()
