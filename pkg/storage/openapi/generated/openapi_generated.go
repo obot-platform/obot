@@ -8451,13 +8451,22 @@ func schema_storage_apis_obotobotai_v1_MemorySetSpec(ref common.ReferenceCallbac
 				Properties: map[string]spec.Schema{
 					"threadName": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
+							Description: "ThreadName is the name of the thread that the MemorySet belongs to.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"nextMemoryID": {
+						SchemaProps: spec.SchemaProps{
+							Description: "NextMemoryID is a string representation of a monotonically increasing positive integer used to generate unique IDs for new memories. This field MUST be used as the ID of the next memory added to the MemorySet. This field MUST be incremented by 1 when a new memory is added to the MemorySet.",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
 					"memories": {
 						SchemaProps: spec.SchemaProps{
-							Type: []string{"array"},
+							Description: "Memories contains the list of memories in the MemorySet.",
+							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{

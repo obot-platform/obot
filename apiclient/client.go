@@ -230,6 +230,12 @@ func toObject[T any](resp *http.Response, obj T) (def T, _ error) {
 	return obj, nil
 }
 
+func decodeResponse[T any](resp *http.Response) (*T, error) {
+	var result T
+	_, err := toObject(resp, &result)
+	return &result, err
+}
+
 func (c *Client) runURLFromOpts(opts ListRunsOptions) string {
 	url := "/runs"
 	if opts.AgentID != "" && opts.ThreadID != "" {
