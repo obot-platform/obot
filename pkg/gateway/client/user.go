@@ -177,12 +177,12 @@ func (c *Client) UpdateUser(ctx context.Context, actingUserIsAdmin bool, updated
 		}
 
 		// Copy the user object that is returned to the caller so they don't get the encrypted values
-		u := existingUser
-		if err := c.encryptUser(ctx, u); err != nil {
+		u := *existingUser
+		if err := c.encryptUser(ctx, &u); err != nil {
 			return fmt.Errorf("failed to encrypt user: %w", err)
 		}
 
-		return tx.Updates(u).Error
+		return tx.Updates(&u).Error
 	})
 }
 
