@@ -64,7 +64,7 @@
 				<p in:fade class="text-gray text-center text-sm dark:text-gray-300">Loading...</p>
 			{:then tables}
 				{#if !tables.tables || tables.tables.length === 0}
-					<p class="text-gray py-4 text-center text-sm font-light dark:text-gray-300">No tables</p>
+					<p class="text-gray py-4 text-center text-xs font-light dark:text-gray-300">No tables</p>
 				{:else}
 					<ul>
 						{#each tables.tables as table (table.name)}

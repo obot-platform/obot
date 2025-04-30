@@ -31,24 +31,17 @@
 		}
 	}
 
-	async function loadFiles() {
-		if (!currentThreadID) {
-			return;
-		}
-		knowledgeFiles = (
-			await ChatService.listKnowledgeFiles(project.assistantID, project.id, {
-				threadID: currentThreadID
-			})
-		).items;
-	}
-
 	async function remove(file: KnowledgeFileType) {
 		await ChatService.deleteKnowledgeFile(project.assistantID, project.id, file.fileName);
 		return reload();
 	}
 </script>
 
-<CollapsePane classes={{ header: 'pl-3 py-2', content: 'p-2' }} iconSize={5}>
+<CollapsePane
+	classes={{ header: 'pl-3 py-2', content: 'p-2' }}
+	iconSize={5}
+	onOpen={() => reload()}
+>
 	{#snippet header()}
 		<span class="flex grow items-center gap-2 text-start text-sm font-extralight"> Knowledge </span>
 	{/snippet}
@@ -73,70 +66,72 @@
 
 		<div class="flex justify-end">
 			<KnowledgeUpload
-				onUpload={loadFiles}
+				onUpload={() => reload()}
 				{project}
 				{currentThreadID}
 				classes={{ button: 'w-fit text-xs' }}
 			/>
 		</div>
 
-		{#if assistant?.websiteKnowledge?.siteTool}
-			<p class="text-md font-semibold">Websites</p>
+		<!-- {#if assistant?.websiteKnowledge?.siteTool} -->
+		<p class="text-sm font-medium">Websites</p>
 
-			<div class="flex flex-col gap-4">
-				{@render websiteKnowledgeList()}
-			</div>
-		{/if}
+		<div class="flex flex-col gap-4">
+			{@render websiteKnowledgeList()}
+		</div>
+		<!-- {/if} -->
 	</div>
 </CollapsePane>
 
 {#snippet websiteKnowledgeList()}
 	<div class="flex flex-col gap-2">
 		{#if project.websiteKnowledge?.sites}
-			<table class="w-full text-left">
-				<thead class="text-sm">
-					<tr>
-						<th class="font-light">Website Address</th>
-						<th class="font-light">Description</th>
-					</tr>
-				</thead>
-				<tbody>
-					{#each project.websiteKnowledge.sites as _, i (i)}
-						<tr class="group">
-							<td>
+			<div class="flex flex-col gap-2">
+				{#each project.websiteKnowledge.sites as _, i (i)}
+					<div class="group flex gap-2 rounded-md bg-white p-2 text-xs shadow-sm">
+						<div class="flex grow flex-col gap-2">
+							<div>
+								<label for={`website-address-${i}`} class="text-xs font-light"
+									>Website Address</label
+								>
 								<input
+									id={`website-address-${i}`}
 									bind:value={project.websiteKnowledge.sites[i].site}
 									placeholder="example.com"
-									class="ghost-input border-surface2 w-3/4"
+									class="ghost-input border-surface2 w-full"
 								/>
-							</td>
-							<td>
+							</div>
+							<div>
+								<label for={`website-description-${i}`} class="text-xs font-light"
+									>Description</label
+								>
 								<textarea
-									class="ghost-input border-surface2 w-5/6 resize-none"
+									id={`website-description-${i}`}
+									class="ghost-input border-surface2 w-full resize-none"
 									bind:value={project.websiteKnowledge.sites[i].description}
 									rows="1"
 									placeholder="Description"
 									use:autoHeight
 								></textarea>
-							</td>
-							<td class="flex justify-end">
-								<button
-									class="icon-button"
-									onclick={() => {
-										project.websiteKnowledge?.sites?.splice(i, 1);
-									}}
-								>
-									<Trash2 class="size-5" />
-								</button>
-							</td>
-						</tr>
-					{/each}
-				</tbody>
-			</table>
+							</div>
+						</div>
+						<div class="flex items-center justify-end">
+							<button
+								class="icon-button size-fit"
+								onclick={() => {
+									project.websiteKnowledge?.sites?.splice(i, 1);
+								}}
+							>
+								<Trash2 class="size-4" />
+							</button>
+						</div>
+					</div>
+				{/each}
+			</div>
 		{/if}
 		<div class="self-end">
 			<button
-				class="button-small"
+				class="button-small text-xs"
 				onclick={() => {
 					if (!project.websiteKnowledge) {
 						project.websiteKnowledge = {

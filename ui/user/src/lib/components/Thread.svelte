@@ -183,7 +183,7 @@
 {/snippet}
 
 {#snippet basicSection()}
-	<div class="flex flex-col items-center justify-center text-center">
+	<div class="flex flex-col items-center justify-center gap-1 text-center">
 		<AssistantIcon {project} class="h-24 w-24 shadow-lg" />
 		<h4 class="mb-1!">{project.name || DEFAULT_PROJECT_NAME}</h4>
 		<p class="text-gray w-sm font-light md:w-md">
@@ -230,7 +230,7 @@
 		>
 			{#if editBasicDetails}
 				{@render editBasicSection()}
-			{:else if layout.projectEditorOpen || !project.editor}
+			{:else if layout.projectEditorOpen || !project.editor || shared}
 				<div class="message-content mt-4 w-fit self-center border-2 border-transparent pt-4">
 					{@render basicSection()}
 				</div>
@@ -242,8 +242,6 @@
 				>
 					{@render basicSection()}
 				</button>
-			{:else}
-				{@render basicSection()}
 			{/if}
 			{#if project?.introductionMessage}
 				<div class="message-content w-full self-center">

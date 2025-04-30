@@ -211,6 +211,13 @@
 			<div class="flex flex-col gap-4 text-xs">
 				{@render content()}
 			</div>
+			{#if (layout.threads?.length ?? 0) === 0}
+				<div class="flex justify-end" in:fade>
+					<button class="button flex items-center gap-1 text-xs" onclick={() => createThread()}>
+						<Plus class="size-4" /> Start New Thread
+					</button>
+				</div>
+			{/if}
 		</CollapsePane>
 	{:else}
 		<div class="flex flex-col px-3 text-xs">

@@ -5,13 +5,7 @@
 	import { formatTime } from '$lib/time';
 	import { getProjectImage } from '$lib/image';
 	import { Origami, Plus, Scroll, Trash2, X } from 'lucide-svelte';
-	import {
-		ChatService,
-		deleteProject,
-		EditorService,
-		type Project,
-		type ProjectShare
-	} from '$lib/services';
+	import { ChatService, EditorService, type Project, type ProjectShare } from '$lib/services';
 	import Confirm from '$lib/components/Confirm.svelte';
 	import { sortByFeaturedNameOrder } from '$lib/sort';
 	import { clickOutside } from '$lib/actions/clickoutside';
@@ -196,7 +190,9 @@
 >
 	<div class="sticky top-0 right-0 flex w-full justify-end">
 		<button
-			onclick={() => {}}
+			onclick={() => {
+				catalogDialog?.close();
+			}}
 			class="text-gray-500 transition-colors duration-300 hover:text-black"
 		>
 			<X class="size-8" />
@@ -228,9 +224,7 @@
 		{/if}
 
 		<div class="flex w-full max-w-(--breakpoint-xl) flex-col">
-			<div
-				class="sticky top-0 z-30 flex items-center gap-4 bg-white px-4 pt-4 pb-2 md:px-12 dark:bg-black"
-			>
+			<div class="flex items-center gap-4 px-4 pt-4 pb-2 md:px-12">
 				<h3 class="text-2xl font-semibold">More Obots</h3>
 			</div>
 			<div class="grid grid-cols-1 px-4 pt-2 md:grid-cols-2 md:px-12 lg:grid-cols-3">

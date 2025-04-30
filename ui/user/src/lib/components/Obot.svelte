@@ -117,7 +117,12 @@
 	>
 		{#if layout.sidebarOpen && !layout.fileEditorOpen}
 			<div
-				class="bg-surface1 w-screen min-w-screen flex-shrink-0 md:w-1/4 md:max-w-1/2 md:min-w-[320px] lg:max-w-7/12"
+				class={twMerge(
+					'bg-surface1 w-screen min-w-screen flex-shrink-0 ',
+					shared
+						? 'md:w-1/6 md:min-w-[250px]'
+						: 'md:w-1/4 md:max-w-1/2 md:min-w-[320px] lg:max-w-7/12'
+				)}
 				transition:slide={{ axis: 'x' }}
 				bind:this={nav}
 			>

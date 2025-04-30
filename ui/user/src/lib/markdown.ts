@@ -9,5 +9,10 @@ export function toHTMLFromMarkdown(markdown: string): string {
 		allowDangerousHtml: true
 	});
 
-	return DOMPurify.sanitize(html);
+	if (typeof window !== 'undefined') {
+		// DOMPurify requires browser, errors in SSR
+		return DOMPurify.sanitize(html);
+	}
+
+	return html;
 }

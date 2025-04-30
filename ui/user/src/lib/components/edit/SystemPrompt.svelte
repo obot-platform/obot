@@ -16,14 +16,12 @@
 			System Prompt
 		</span>
 	{/snippet}
-	<div class="flex flex-col gap-4 text-sm">
-		<textarea
-			id="project-instructions"
-			class="dark:border-surface3 grow resize-none rounded-lg bg-white p-4 shadow-sm dark:border dark:bg-black"
-			rows="12"
-			use:autoHeight
-			bind:value={project.prompt}
-			placeholder="Describe your agent's personality, goals, and any other relevant information."
-		></textarea>
-	</div>
+	<textarea
+		id="project-instructions"
+		class="dark:border-surface3 grow resize-none rounded-lg bg-white p-2 text-sm shadow-sm dark:border dark:bg-black"
+		rows="12"
+		use:autoHeight
+		bind:value={project.prompt}
+		placeholder="Describe your agent's personality, goals, and any other relevant information."
+	></textarea>
 </CollapsePane>
