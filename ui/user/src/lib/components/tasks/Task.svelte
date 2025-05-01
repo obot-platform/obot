@@ -99,13 +99,6 @@
 			observer.observe(taskHeaderActionDiv);
 		}
 	}
-
-	$effect(() => {
-		if (taskHeaderActionDiv) {
-			setupObserver();
-		}
-	});
-
 	onDestroy(() => {
 		if (!readOnly) {
 			saver.stop();
@@ -113,10 +106,20 @@
 		closeThread();
 	});
 
+	$effect(() => {
+		if (taskHeaderActionDiv) {
+			setupObserver();
+		}
+	});
+
 	onMount(async () => {
 		task = await ChatService.getTask(project.assistantID, project.id, task.id);
 		if (!readOnly) {
 			saver.start();
+		}
+
+		if (taskHeaderActionDiv) {
+			setupObserver();
 		}
 	});
 
@@ -253,11 +256,11 @@
 
 <div class="flex h-full w-full grow flex-col">
 	<div
-		class="sticky top-0 left-0 z-40 flex h-0 flex-col items-center justify-center bg-white opacity-0 transition-all duration-200 dark:bg-black"
+		class="sticky top-0 left-0 z-40 flex h-0 flex-col items-center justify-center bg-white px-4 opacity-0 transition-all duration-200 md:px-8 dark:bg-black"
 		class:opacity-100={!isTaskInfoVisible}
 		class:h-16={!isTaskInfoVisible}
 	>
-		<div class="flex h-16 w-full items-center justify-between gap-8 px-4 md:max-w-[1200px] md:px-0">
+		<div class="flex h-16 w-full items-center justify-between gap-8 md:max-w-[1200px]">
 			<h4 class="border-blue grow truncate border-l-4 pl-2 text-lg font-semibold md:text-xl">
 				{task.name}
 			</h4>
