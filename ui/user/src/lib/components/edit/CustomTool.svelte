@@ -189,8 +189,10 @@ printf "The current temperature in %s is %.2f°F.\\n" "$CITY" "$RANDOM_TEMPERATU
 
 <div class="flex h-full w-full flex-col">
 	<div class="flex min-h-0 grow flex-col">
-		<div class="default-scrollbar-thin relative flex grow flex-col gap-8 overflow-y-auto">
-			<div class="flex w-full flex-col gap-4 self-center px-4 pt-8 md:max-w-[1200px]">
+		<div
+			class="default-scrollbar-thin relative flex grow flex-col gap-8 overflow-y-auto px-4 md:px-8"
+		>
+			<div class="flex w-full flex-col gap-2 self-center pt-8 md:max-w-[1200px]">
 				<div class="flex items-center justify-between gap-8">
 					<input
 						bind:value={tool.name}
@@ -212,13 +214,10 @@ printf "The current temperature in %s is %.2f°F.\\n" "$CITY" "$RANDOM_TEMPERATU
 						placeholder="Enter description (a good one is very helpful)"
 						class="ghost-input dark:hover:border-surface3 w-full resize-none bg-inherit outline-none"
 					></textarea>
-					{#if responsive.isMobile}
-						{@render deleteButton()}
-					{/if}
 				</div>
 			</div>
 
-			<div class="flex grow justify-center">
+			<div class="flex justify-center">
 				<div
 					class="flex w-full flex-col gap-4 rounded-md bg-gray-50 p-4 shadow-inner md:max-w-[1200px] dark:bg-black"
 				>
@@ -321,7 +320,7 @@ printf "The current temperature in %s is %.2f°F.\\n" "$CITY" "$RANDOM_TEMPERATU
 		</div>
 
 		<div
-			class="flex w-full flex-col items-center justify-between gap-4 self-center p-4 md:max-w-[1200px] md:flex-row"
+			class="flex w-full flex-col items-center justify-between gap-4 self-center px-4 py-4 md:max-w-[1200px] md:flex-row md:px-8"
 		>
 			<button
 				class="button-text flex items-center gap-2 p-0 text-xs md:text-sm"

@@ -33,13 +33,13 @@
 	}
 </script>
 
-<CollapsePane classes={{ header: 'pl-3 text-md', content: 'p-3' }}>
+<CollapsePane classes={{ header: 'pl-3 text-md', content: 'p-2' }} iconSize={5}>
 	{#snippet header()}
-		<span class="text-md flex grow items-center gap-2 text-start font-extralight">
+		<span class="flex grow items-center gap-2 text-start text-sm font-extralight">
 			Custom Tools
 		</span>
 	{/snippet}
-	<div class="text-md flex flex-col gap-4">
+	<div class="text-md flex flex-col gap-2">
 		{#if enabledCustomTools.length > 0}
 			<div class="flex flex-col">
 				{#each enabledCustomTools as customTool}
@@ -54,7 +54,7 @@
 								</div>
 							{/if}
 							<div class="flex min-w-0 flex-col text-left">
-								<p class="truncate text-left text-sm font-light">
+								<p class="truncate text-left text-xs">
 									{customTool.name || 'Untitled'}
 								</p>
 								<span class="truncate text-xs text-gray-500">{customTool.description}</span>
@@ -72,7 +72,7 @@
 
 		<div class="flex justify-end">
 			<button
-				class="button flex items-center gap-1 text-sm"
+				class="button flex items-center gap-1 text-xs"
 				onclick={() => typeSelectionTT.toggle(true)}
 				use:tooltip={'Add Custom Tool'}
 				use:typeSelectionTT.ref

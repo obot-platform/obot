@@ -280,7 +280,7 @@
 			class="relative flex w-full flex-col gap-4"
 		>
 			<div class="w-full self-center md:max-w-[1200px]">
-				<div class="my-8 flex w-full justify-between gap-8 pb-0">
+				<div class="mt-8 mb-4 flex w-full justify-between gap-8 pb-0">
 					<div class="border-blue flex grow flex-col gap-1 border-l-4 pl-4">
 						<strong class="text-blue text-xs">TASK</strong>
 
