@@ -73,13 +73,13 @@
 			/>
 		</div>
 
-		<!-- {#if assistant?.websiteKnowledge?.siteTool} -->
-		<p class="text-sm font-medium">Websites</p>
+		{#if assistant?.websiteKnowledge?.siteTool}
+			<p class="text-sm font-medium">Websites</p>
 
-		<div class="flex flex-col gap-4">
-			{@render websiteKnowledgeList()}
-		</div>
-		<!-- {/if} -->
+			<div class="flex flex-col gap-4">
+				{@render websiteKnowledgeList()}
+			</div>
+		{/if}
 	</div>
 </CollapsePane>
 
