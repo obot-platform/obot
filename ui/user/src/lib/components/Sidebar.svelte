@@ -90,8 +90,8 @@
 						</span>
 					{/snippet}
 					<General bind:project />
-					<Introduction bind:project />
 					<SystemPrompt bind:project />
+					<Introduction bind:project />
 					<Knowledge {project} />
 					<Files {project} classes={{ list: 'text-sm flex flex-col gap-2' }} />
 					{#if version.current.dockerSupported}

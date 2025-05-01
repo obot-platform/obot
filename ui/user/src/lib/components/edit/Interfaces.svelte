@@ -1,9 +1,11 @@
 <script lang="ts">
 	import CollapsePane from '$lib/components/edit/CollapsePane.svelte';
-	import { ChevronRight, Smartphone, Webhook, Mail } from 'lucide-svelte';
+	import { ChevronRight, Smartphone, Webhook, Mail, Construction } from 'lucide-svelte';
 	import { getLayout, openSidebarConfig, type Layout } from '$lib/context/layout.svelte';
 	import type { SvelteComponent } from 'svelte';
 	import type { IconProps } from 'lucide-svelte';
+	import { twMerge } from 'tailwind-merge';
+	import { tooltip } from '$lib/actions/tooltip.svelte';
 
 	const layout = getLayout();
 
@@ -12,6 +14,7 @@
 		label: string;
 		icon: string | typeof SvelteComponent<IconProps>;
 		type: 'image' | 'lucide';
+		unavailable?: boolean;
 	};
 
 	const options: Option[] = [
@@ -31,7 +34,8 @@
 			id: 'sms',
 			label: 'SMS',
 			icon: Smartphone,
-			type: 'lucide'
+			type: 'lucide',
+			unavailable: true
 		},
 		{
 			id: 'webhook',
@@ -58,8 +62,12 @@
 	<div class="flex flex-col p-2">
 		{#each options as option}
 			<button
-				class="hover:bg-surface3 flex min-h-9 items-center justify-between rounded-md bg-transparent p-2 pr-3 text-xs transition-colors duration-200"
+				class={twMerge(
+					'flex min-h-9 items-center justify-between rounded-md bg-transparent p-2 pr-3 text-xs transition-colors duration-200',
+					option.unavailable ? 'cursor-auto opacity-50' : 'hover:bg-surface3'
+				)}
 				onclick={() => {
+					if (option.unavailable) return;
 					openSidebarConfig(layout, option.id as Layout['sidebarConfig']);
 				}}
 			>
@@ -76,7 +84,13 @@
 
 					{option.label}
 				</span>
-				<ChevronRight class="size-4" />
+				{#if !option.unavailable}
+					<ChevronRight class="size-4" />
+				{:else}
+					<div use:tooltip={'Coming Soon!'}>
+						<Construction class="size-4" />
+					</div>
+				{/if}
 			</button>
 		{/each}
 	</div>

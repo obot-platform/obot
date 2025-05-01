@@ -12,6 +12,8 @@
 		readonly?: boolean;
 		selected?: boolean;
 		submitText?: string;
+		cancelText?: string;
+		disabled?: boolean;
 	}
 	let {
 		mcp,
@@ -20,20 +22,30 @@
 		onSubmit,
 		readonly,
 		selected,
-		submitText
+		submitText,
+		cancelText,
+		disabled
 	}: Props = $props();
 	let dialog = $state<ReturnType<typeof McpConfig>>();
 </script>
 
 <div class="relative h-full w-full">
-	{#if selected}
+	{#if selected && !disabled}
 		<CircleCheckBig class="absolute top-3 right-3 z-25 size-5 text-blue-500" />
 	{/if}
 	<button
-		onclick={() => dialog?.open()}
+		onclick={(e) => {
+			if (e.shiftKey) {
+				e.preventDefault();
+				onSubmit();
+			} else if (!disabled) {
+				dialog?.open();
+			}
+		}}
 		class={twMerge(
-			'card group from-surface2 to-surface1 relative z-20 h-full w-full flex-col overflow-hidden border border-transparent bg-radial-[at_25%_25%] to-75% shadow-md',
-			selected && 'transform-none border border-blue-500 opacity-50'
+			'card group from-surface2 to-surface1 relative z-20 h-full w-full flex-col overflow-hidden border border-transparent bg-radial-[at_25%_25%] to-75% shadow-md select-none',
+			selected && !disabled && 'transform-none border border-blue-500',
+			disabled && 'cursor-not-allowed opacity-50'
 		)}
 	>
 		<div class="flex h-fit w-full flex-col gap-2 p-4 md:h-auto md:grow">
@@ -63,4 +75,5 @@
 	{readonly}
 	{selected}
 	{submitText}
+	{cancelText}
 />

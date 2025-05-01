@@ -13,6 +13,7 @@
 		readonly?: boolean;
 		selected?: boolean;
 		submitText?: string;
+		cancelText?: string;
 	}
 	let {
 		mcp,
@@ -22,6 +23,7 @@
 		onSubmit,
 		selected,
 		submitText,
+		cancelText,
 		readonly
 	}: Props = $props();
 	let dialog: HTMLDialogElement | undefined = $state();
@@ -89,16 +91,19 @@
 				{/if}
 			</div>
 			{#if selected}
-				<div class="mt-8 flex items-center gap-2 self-end">
-					<p class="text-md text-gray-500">Server already added!</p>
-					<CircleCheckBig class="size-5 text-blue-500" />
-				</div>
+				<button
+					onclick={handleSubmit}
+					class="button-secondary mt-8 flex w-full items-center justify-center gap-1 self-end md:w-fit"
+				>
+					{cancelText ?? 'Deselect Server'}
+					<ChevronsRight class="size-4" />
+				</button>
 			{:else if !hideSubmitButton}
 				<button
 					onclick={handleSubmit}
 					class="button-primary mt-8 flex w-full items-center justify-center gap-1 self-end md:w-fit"
 				>
-					{submitText ?? 'Create agent with server'}
+					{submitText ?? 'Select Server'}
 					<ChevronsRight class="size-4" />
 				</button>
 			{/if}

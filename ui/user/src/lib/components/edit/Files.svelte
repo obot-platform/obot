@@ -74,7 +74,6 @@
 	onMount(() => {
 		if (!thread) {
 			fileMonitor.start();
-			console.log('b');
 			loadFiles();
 		}
 	});

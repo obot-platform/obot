@@ -32,7 +32,6 @@
 	let createAgent = $state<CreateAgent>();
 
 	let mcpsMap = $derived(new Map(mcps.map((mcp) => [mcp.id, mcp])));
-	let selectedMcps = $derived(new Set(createAgent?.mcps ?? []));
 
 	const mockAgents = [
 		{
@@ -342,13 +341,13 @@
 							<McpCatalog
 								inline
 								{mcps}
-								selectedMcpIds={selectedMcps}
-								submitText="Add this server"
-								onSubmitMcp={(mcp) => {
+								selectedMcpIds={createAgent?.mcps}
+								submitText="Add server"
+								onSubmitMcp={(mcpId) => {
 									if (!createAgent) return;
 									createAgent = {
 										...createAgent,
-										mcps: [...createAgent.mcps, mcp.id]
+										mcps: [...createAgent.mcps, mcpId]
 									};
 								}}
 							/>

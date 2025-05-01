@@ -12,8 +12,8 @@
 	let { data }: PageProps = $props();
 	const mcps = $derived(data.mcps.sort(sortByPreferredMcpOrder));
 
-	function handleSelectMcp(mcp: MCP) {
-		goto(`/mcp?id=${mcp.id}`);
+	function handleSelectMcp(mcpId: string) {
+		goto(`/mcp?id=${mcpId}`);
 	}
 </script>
 
@@ -47,7 +47,7 @@
 			</p>
 		</div>
 
-		<McpCatalog {mcps} inline onSubmitMcp={handleSelectMcp} />
+		<McpCatalog {mcps} inline onSubmitMcp={handleSelectMcp} submitText="Create agent with server" />
 	</main>
 
 	<Notifications />

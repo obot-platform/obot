@@ -36,3 +36,7 @@ export const sortShownToolsPriority = (a: string, b: string) => {
 	if (!aIsLastPriority && bIsLastPriority) return -1;
 	return 0;
 };
+
+export const sortByCreatedDate = <T extends { created: string }>(a: T, b: T) => {
+	return new Date(b.created).getTime() - new Date(a.created).getTime();
+};

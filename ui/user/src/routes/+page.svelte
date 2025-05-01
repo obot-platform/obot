@@ -41,7 +41,7 @@
 
 	$effect(() => {
 		if (profile.current.loaded) {
-			goto(`/catalog${isNew ? '?new' : ''}`, { replaceState: true });
+			goto('/agents', { replaceState: true });
 		}
 	});
 
@@ -57,12 +57,6 @@
 		class={responsive.isMobile ? 'icon-button' : 'nav-link'}
 		rel="external"
 		target="_blank">Docs</a
-	>
-	<a
-		href="https://docs.obot.ai/blog"
-		class={responsive.isMobile ? 'icon-button' : 'nav-link'}
-		rel="external"
-		target="_blank">Blog</a
 	>
 	<a
 		href="https://discord.gg/9sSf4UyAMC"
@@ -91,7 +85,7 @@
 {/snippet}
 
 <svelte:head>
-	<title>Obot - Do more with AI</title>
+	<title>Obot - Build AI agents with MCP</title>
 </svelte:head>
 
 <div class="relative w-full flex-col text-black dark:text-white">
@@ -207,7 +201,7 @@
 					class="bg-surface3 absolute top-1/2 left-1/2 h-[1px] w-full -translate-x-1/2 -translate-y-1/2"
 				></div>
 				<h2 class="relative z-10 bg-white px-4 text-xl font-semibold dark:bg-black">
-					Top Picks For This Week
+					Getting Started
 				</h2>
 			</div>
 

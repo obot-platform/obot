@@ -8,9 +8,6 @@
 	}
 
 	let { label, checked, onChange }: Props = $props();
-	$effect(() => {
-		console.log(checked);
-	});
 </script>
 
 <label class="relative flex h-4.5 w-8.25" use:tooltip={label}>

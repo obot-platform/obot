@@ -61,11 +61,6 @@
 	{/snippet}
 	{#snippet body()}
 		<div class="flex flex-col gap-2 px-2 pb-4">
-			{#if responsive.isMobile && profile.current.email}
-				<button class="link"><MessageCircle class="size-4" /> Chat</button>
-				<a class="link" href="/agents"><Bot class="size-4" /> Agent Catalog</a>
-				<a class="link" href="/catalog"><Server class="size-4" /> MCP Servers</a>
-			{/if}
 			{#if profile.current.role === 1}
 				<a href="/admin/" rel="external" role="menuitem" class="link"
 					><LayoutDashboard class="size-4" />Admin Dashboard</a
@@ -75,26 +70,6 @@
 				<a href="https://docs.obot.ai" rel="external" target="_blank" class="link"
 					><Book class="size-4" />Docs</a
 				>
-				<a href="https://discord.gg/9sSf4UyAMC" rel="external" target="_blank" class="link">
-					{#if darkMode.isDark}
-						<img
-							src="/user/images/discord-mark/discord-mark-white.svg"
-							alt="Discord"
-							class="size-4"
-						/>
-					{:else}
-						<img src="/user/images/discord-mark/discord-mark.svg" alt="Discord" class="size-4" />
-					{/if}
-					Discord
-				</a>
-				<a href="https://github.com/obot-platform/obot" rel="external" target="_blank" class="link">
-					{#if darkMode.isDark}
-						<img src="/user/images/github-mark/github-mark-white.svg" alt="GitHub" class="size-4" />
-					{:else}
-						<img src="/user/images/github-mark/github-mark.svg" alt="GitHub" class="size-4" />
-					{/if}
-					Github
-				</a>
 			{/if}
 			{#if profile.current.email}
 				<a href="/profile" rel="external" role="menuitem" class="link"

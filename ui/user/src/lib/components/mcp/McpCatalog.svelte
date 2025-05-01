@@ -1,24 +1,34 @@
 <script lang="ts">
 	import { clickOutside } from '$lib/actions/clickoutside';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
-	import { darkMode, responsive } from '$lib/stores';
-	import { ChevronLeft, ChevronRight, ListFilter, Plus, X } from 'lucide-svelte';
+	import { responsive } from '$lib/stores';
+	import { ChevronLeft, ChevronRight, ChevronsRight, X } from 'lucide-svelte';
 	import McpCard from '$lib/components/mcp/McpCard.svelte';
 	import Search from '$lib/components/Search.svelte';
 	import { type MCP } from '$lib/services';
-	import { fade } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
 		inline?: boolean;
 		mcps: MCP[];
-		onSubmitMcp?: (mcp: MCP) => void;
+		onSubmitMcp?: (mcpId: string) => void;
+		onSubmitMcps?: (mcpIds: string[]) => void;
 		submitText?: string;
-		selectedMcpIds?: Set<string>;
-		hideLogo?: boolean;
+		cancelText?: string;
+		selectedMcpIds?: string[];
+		subtitle?: string;
 	}
 
-	let { inline = false, mcps, onSubmitMcp, submitText, selectedMcpIds, hideLogo }: Props = $props();
+	let {
+		inline = false,
+		mcps,
+		onSubmitMcp,
+		onSubmitMcps,
+		submitText,
+		cancelText,
+		selectedMcpIds,
+		subtitle
+	}: Props = $props();
 	let dialog: HTMLDialogElement | undefined = $state();
 
 	const ITEMS_PER_PAGE = 36;
@@ -35,9 +45,14 @@
 		mcps.filter((mcp) => mcp.server.name.toLowerCase().includes(search.toLowerCase()))
 	);
 
+	let selected = $state<string[]>([]);
+	const preselected = $derived(new Set(selectedMcpIds ?? []));
+
 	let browseAllTitleElement: HTMLDivElement | undefined = $state<HTMLDivElement>();
-	let observer: IntersectionObserver;
-	let isBrowseAllVisible = $state(true);
+
+	export function open() {
+		dialog?.showModal();
+	}
 
 	function nextPage() {
 		if (currentPage < totalPages) {
@@ -50,28 +65,6 @@
 			currentPage--;
 		}
 	}
-
-	function setupObserver() {
-		// Always disconnect existing observer before setting up new one
-		observer?.disconnect();
-
-		observer = new IntersectionObserver(
-			([entry]) => {
-				isBrowseAllVisible = entry.isIntersecting;
-			},
-			{ threshold: 0 }
-		);
-
-		if (browseAllTitleElement) {
-			observer.observe(browseAllTitleElement);
-		}
-	}
-
-	$effect(() => {
-		if (browseAllTitleElement && !hideLogo) {
-			setupObserver();
-		}
-	});
 
 	const categories = [
 		'Popular',
@@ -94,69 +87,61 @@
 {#if inline}
 	{@render body()}
 {:else}
-	<button class="button flex items-center gap-1 text-xs" onclick={() => dialog?.showModal()}>
-		<Plus class="size-4" /> Add MCP Server
-	</button>
-
 	<dialog
 		bind:this={dialog}
 		use:clickOutside={() => dialog?.close()}
-		class="default-dialog h-full w-full bg-white pb-4 dark:bg-black"
+		class="default-dialog h-full w-full max-w-(--breakpoint-2xl) bg-white p-0 dark:bg-black"
 		class:mobile-screen-dialog={responsive.isMobile}
 	>
-		<button
-			class="icon-button sticky top-4 right-4 float-right self-end"
-			onclick={() => dialog?.close()}
-			use:tooltip={{ disablePortal: true, text: 'Close MCP Servers Catalog' }}
-		>
-			<X class="size-7" />
-		</button>
-		<div class="mt-4 flex w-full flex-col items-center justify-center gap-2 px-4 py-4">
-			<h2 class="text-3xl font-semibold md:text-4xl">MCP Servers</h2>
-			<p class="mb-8 max-w-full text-center text-base font-light md:max-w-md">
-				Browse over evergrowing catalog of MCP servers and find the perfect one to set up your agent
-				with.
-			</p>
+		<div class="default-scrollbar-thin relative mx-auto h-full min-h-0 w-full overflow-y-auto">
+			<button
+				class="icon-button sticky top-3 right-2 z-40 float-right self-end"
+				onclick={() => dialog?.close()}
+				use:tooltip={{ disablePortal: true, text: 'Close MCP Servers Catalog' }}
+			>
+				<X class="size-7" />
+			</button>
+			<div class="mt-4 flex w-full flex-col items-center justify-center gap-2 px-4 py-4">
+				<h2 class="text-3xl font-semibold md:text-4xl">MCP Servers</h2>
+				<p class="mb-8 max-w-full text-center text-base font-light md:max-w-md">
+					{subtitle ||
+						'Browse over evergrowing catalog of MCP servers and find the perfect one to set up your agent with.'}
+				</p>
+			</div>
+			<div class="pr-12 pb-4">
+				{@render body()}
+			</div>
+			{#if onSubmitMcps}
+				<div class="sticky bottom-0 left-0 z-40 w-full bg-white p-4 dark:bg-black">
+					<div class="space-between flex items-center justify-end gap-4">
+						<span class="text-xs text-gray-300"> Shift+click to quick add</span>
+						<button
+							class="button-primary flex items-center gap-1"
+							onclick={() => onSubmitMcps(selected)}
+							disabled={selected.length === 0}
+						>
+							{#if selected.length <= 1}
+								Add server
+							{:else}
+								Add {selected.length} servers
+							{/if}
+							<ChevronsRight class="size-4" />
+						</button>
+					</div>
+				</div>
+			{/if}
 		</div>
-		{@render body()}
 	</dialog>
 {/if}
 
 {#snippet body()}
-	<div
-		class="sticky top-0 left-0 z-30 h-20 w-full max-w-(--breakpoint-2xl) bg-white py-4 dark:bg-black"
-	>
-		<div class="flex w-full">
-			{#if !hideLogo}
-				<div class="hidden w-xs pl-4 md:flex">
-					{#if !isBrowseAllVisible && !responsive.isMobile}
-						<div transition:fade={{ duration: 200 }} class="w-full">
-							{@render logo()}
-						</div>
-					{/if}
-				</div>
-			{/if}
-			<div class="flex w-full items-center gap-4 px-4 md:px-12">
-				<Search
-					onChange={(val) => {
-						search = val;
-					}}
-					placeholder="Search MCP Servers..."
-				/>
-				<button
-					class="icon-button flex-shrink-0"
-					use:tooltip={{ disablePortal: true, text: 'Filter' }}
-				>
-					<ListFilter class="size-6" />
-				</button>
-			</div>
-		</div>
-	</div>
-
 	<div class="relative flex w-full max-w-(--breakpoint-2xl)">
 		{#if !responsive.isMobile}
 			<div
-				class={twMerge('sticky top-20 left-0 h-[calc(100vh-9rem)] w-xs p-4', inline && 'h-[50dvh]')}
+				class={twMerge(
+					'sticky top-0 left-0 h-[calc(100vh-9rem)] w-xs flex-shrink-0 p-4',
+					inline && 'h-[50dvh]'
+				)}
 			>
 				<div class="flex flex-col gap-4">
 					<h3 class="text-2xl font-semibold">Categories</h3>
@@ -179,29 +164,29 @@
 			</div>
 		{/if}
 		<div class="flex w-full flex-col">
-			<div class="flex items-center gap-4 px-4 pt-4 pb-2 md:px-12">
+			<div class="sticky top-0 left-0 z-30 w-full">
+				<div class="flex grow bg-white p-4 dark:bg-black">
+					<Search
+						onChange={(val) => {
+							search = val;
+						}}
+						placeholder="Search MCP Servers..."
+					/>
+				</div>
+			</div>
+			<div class="flex items-center gap-4 px-4 pt-4 pb-2">
 				<h4 bind:this={browseAllTitleElement} class="text-xl font-semibold">
 					{search ? 'Search Results' : 'Browse All'}
 				</h4>
 			</div>
-			<div class="grid grid-cols-1 gap-4 px-4 pt-2 md:grid-cols-2 md:px-12 xl:grid-cols-3">
+			<div class="grid grid-cols-1 gap-4 px-4 pt-2 md:grid-cols-2 xl:grid-cols-3">
 				{#if search}
 					{#each searchResults as mcp (mcp.id)}
-						<McpCard
-							{mcp}
-							onSubmit={() => onSubmitMcp?.(mcp)}
-							{submitText}
-							selected={selectedMcpIds?.has(mcp.id)}
-						/>
+						{@render mcpCard(mcp)}
 					{/each}
 				{:else}
 					{#each paginatedMcps as mcp (mcp.id)}
-						<McpCard
-							{mcp}
-							onSubmit={() => onSubmitMcp?.(mcp)}
-							{submitText}
-							selected={selectedMcpIds?.has(mcp.id)}
-						/>
+						{@render mcpCard(mcp)}
 					{/each}
 				{/if}
 			</div>
@@ -232,19 +217,21 @@
 	</div>
 {/snippet}
 
-{#snippet logo()}
-	<div class="relative flex items-end">
-		{#if darkMode.isDark}
-			<img src="/user/images/obot-logo-blue-white-text.svg" class="h-12" alt="Obot logo" />
-		{:else}
-			<img src="/user/images/obot-logo-blue-black-text.svg" class="h-12" alt="Obot logo" />
-		{/if}
-		<div class="ml-1.5 -translate-y-1">
-			<span
-				class="rounded-full border-2 border-blue-400 px-1.5 py-[1px] text-[10px] font-bold text-blue-400 dark:border-blue-400 dark:text-blue-400"
-			>
-				BETA
-			</span>
-		</div>
-	</div>
+{#snippet mcpCard(mcp: MCP)}
+	<McpCard
+		{mcp}
+		onSubmit={() => {
+			if (onSubmitMcp) {
+				onSubmitMcp(mcp.id);
+			} else if (selected.includes(mcp.id)) {
+				selected = selected.filter((id) => id !== mcp.id);
+			} else {
+				selected.push(mcp.id);
+			}
+		}}
+		{submitText}
+		{cancelText}
+		selected={selected.includes(mcp.id)}
+		disabled={preselected.has(mcp.id)}
+	/>
 {/snippet}
