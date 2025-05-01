@@ -17,7 +17,6 @@ export interface Layout {
 		| 'interfaces'
 		| 'introduction'
 		| 'system-prompt'
-		| 'members'
 		| 'slack'
 		| 'chatbot'
 		| 'discord'
@@ -26,7 +25,8 @@ export interface Layout {
 		| 'webhook'
 		| 'template'
 		| 'knowledge'
-		| 'custom-tool';
+		| 'custom-tool'
+		| 'invitations';
 	customToolId?: string;
 }
 

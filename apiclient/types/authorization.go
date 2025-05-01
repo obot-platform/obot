@@ -23,13 +23,28 @@ type ThreadAuthorizationManifest struct {
 
 type ThreadAuthorizationList List[ThreadAuthorization]
 
-type ProjectAuthorization struct {
-	Project  *Project `json:"project,omitempty"`
-	Target   string   `json:"target,omitempty"`
-	Accepted bool     `json:"accepted,omitempty"`
+type ProjectInvitationManifest struct {
+	Code    string                  `json:"code,omitempty"`
+	Project *Project                `json:"project,omitempty"`
+	Status  ProjectInvitationStatus `json:"status,omitempty"`
+	Created string                  `json:"created,omitempty"`
 }
 
-type ProjectAuthorizationList List[ProjectAuthorization]
+type ProjectInvitationStatus string
+
+const (
+	ProjectInvitationStatusPending  ProjectInvitationStatus = "pending"
+	ProjectInvitationStatusAccepted ProjectInvitationStatus = "accepted"
+	ProjectInvitationStatusRejected ProjectInvitationStatus = "rejected"
+	ProjectInvitationStatusExpired  ProjectInvitationStatus = "expired"
+)
+
+type ProjectMember struct {
+	UserID  string `json:"userID,omitempty"`
+	IconURL string `json:"iconURL,omitempty"`
+	Email   string `json:"email,omitempty"`
+	IsOwner bool   `json:"isOwner,omitempty"`
+}
 
 type TemplateAuthorization struct {
 	TemplateAuthorizationManifest

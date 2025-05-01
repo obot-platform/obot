@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -14,6 +15,7 @@ import (
 	"github.com/obot-platform/obot/pkg/accesstoken"
 	"github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/hash"
+	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"gorm.io/gorm"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apiserver/pkg/storage/value"
@@ -111,6 +113,10 @@ func (c *Client) DeleteUser(ctx context.Context, storageClient kclient.Client, u
 			identities[i] = id
 		}
 
+		if err := c.deleteThreadAuthorizationsForUser(ctx, storageClient, strconv.FormatUint(uint64(existingUser.ID), 10)); err != nil {
+			return err
+		}
+
 		if err := c.deleteSessionsForUser(ctx, tx, storageClient, identities, ""); err != nil && !errors.Is(err, LogoutAllErr{}) {
 			return err
 		}
@@ -125,6 +131,23 @@ func (c *Client) DeleteUser(ctx context.Context, storageClient kclient.Client, u
 	}
 
 	return existingUser, c.decryptUser(ctx, existingUser)
+}
+
+func (c *Client) deleteThreadAuthorizationsForUser(ctx context.Context, storageClient kclient.Client, userID string) error {
+	var memberships v1.ThreadAuthorizationList
+	if err := storageClient.List(ctx, &memberships, kclient.MatchingFields{
+		"spec.userID": userID,
+	}); err != nil {
+		return err
+	}
+
+	for _, membership := range memberships.Items {
+		if err := storageClient.Delete(ctx, &membership); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func (c *Client) UpdateUser(ctx context.Context, actingUserIsAdmin bool, updatedUser *types.User, userID string) (*types.User, error) {

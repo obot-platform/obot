@@ -62,7 +62,6 @@ func (a *Authorizer) projectIsAuthorized(ctx context.Context, agentID string, th
 		err := a.storage.List(ctx, &access, kclient.InNamespace(system.DefaultNamespace), kclient.MatchingFields{
 			"spec.userID":   userID,
 			"spec.threadID": thread.Name,
-			"spec.accepted": "true",
 		})
 		if err == nil && len(access.Items) == 1 {
 			return true

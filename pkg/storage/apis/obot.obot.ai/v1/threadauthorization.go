@@ -2,7 +2,6 @@ package v1
 
 import (
 	"slices"
-	"strconv"
 
 	"github.com/obot-platform/nah/pkg/fields"
 	"github.com/obot-platform/obot/apiclient/types"
@@ -33,6 +32,15 @@ func (in *ThreadAuthorization) DeleteRefs() []Ref {
 	}
 }
 
+func (in *ThreadAuthorization) GetColumns() [][]string {
+	return [][]string{
+		{"Name", "Name"},
+		{"User ID", "Spec.UserID"},
+		{"Thread ID", "Spec.ThreadID"},
+		{"Created", "{{ago .CreationTimestamp}}"},
+	}
+}
+
 func (in *ThreadAuthorization) Has(field string) (exists bool) {
 	return slices.Contains(in.FieldNames(), field)
 }
@@ -43,19 +51,16 @@ func (in *ThreadAuthorization) Get(field string) (value string) {
 		return in.Spec.UserID
 	case "spec.threadID":
 		return in.Spec.ThreadID
-	case "spec.accepted":
-		return strconv.FormatBool(in.Spec.Accepted)
 	}
 	return ""
 }
 
 func (in *ThreadAuthorization) FieldNames() []string {
-	return []string{"spec.userID", "spec.threadID", "spec.accepted"}
+	return []string{"spec.userID", "spec.threadID"}
 }
 
 type ThreadAuthorizationSpec struct {
 	types.ThreadAuthorizationManifest
-	Accepted bool `json:"accepted,omitempty"`
 }
 
 type ThreadAuthorizationStatus struct {

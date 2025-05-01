@@ -33,7 +33,9 @@ import {
 	type MCPList,
 	type MCP,
 	type ProjectMCP,
-	type ProjectMCPList
+	type ProjectMCPList,
+	type ProjectMember,
+	type ProjectInvitation
 } from './types';
 
 export type Fetcher = typeof fetch;
@@ -1035,4 +1037,65 @@ export async function updateProjectMCP(
 
 export async function deleteProjectMCP(assistantID: string, projectID: string, mcpId: string) {
 	return doDelete(`/assistants/${assistantID}/projects/${projectID}/mcpservers/${mcpId}`);
+}
+
+export async function listProjectMembers(
+	assistantID: string,
+	projectID: string,
+	opts?: { fetch?: Fetcher }
+): Promise<ProjectMember[]> {
+	return (await doGet(
+		`/assistants/${assistantID}/projects/${projectID}/members`,
+		opts
+	)) as ProjectMember[];
+}
+
+export async function deleteProjectMember(
+	assistantID: string,
+	projectID: string,
+	memberID: string
+) {
+	return doDelete(`/assistants/${assistantID}/projects/${projectID}/members/${memberID}`);
+}
+
+export async function createProjectInvitation(
+	assistantID: string,
+	projectID: string
+): Promise<ProjectInvitation> {
+	return (await doPost(
+		`/assistants/${assistantID}/projects/${projectID}/invitations`,
+		{}
+	)) as ProjectInvitation;
+}
+
+export async function listProjectInvitations(
+	assistantID: string,
+	projectID: string
+): Promise<ProjectInvitation[]> {
+	return (await doGet(
+		`/assistants/${assistantID}/projects/${projectID}/invitations`
+	)) as ProjectInvitation[];
+}
+
+export async function deleteProjectInvitation(
+	assistantID: string,
+	projectID: string,
+	code: string
+) {
+	return doDelete(`/assistants/${assistantID}/projects/${projectID}/invitations/${code}`);
+}
+
+export async function getProjectInvitation(
+	code: string,
+	opts?: { fetch?: Fetcher }
+): Promise<ProjectInvitation> {
+	return (await doGet(`/projectinvitations/${code}`, opts)) as ProjectInvitation;
+}
+
+export async function acceptProjectInvitation(code: string): Promise<ProjectInvitation> {
+	return (await doPost(`/projectinvitations/${code}`, {})) as ProjectInvitation;
+}
+
+export async function rejectProjectInvitation(code: string): Promise<void> {
+	return doDelete(`/projectinvitations/${code}`) as unknown as Promise<void>;
 }

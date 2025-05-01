@@ -15,6 +15,7 @@ async function init() {
 	} catch (e) {
 		if (e instanceof Error && (e.message.startsWith('403') || e.message.startsWith('401'))) {
 			store.current = {
+				id: '',
 				email: '',
 				iconURL: '',
 				role: 0,

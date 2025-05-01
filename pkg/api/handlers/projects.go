@@ -8,6 +8,7 @@ import (
 	"github.com/gptscript-ai/go-gptscript"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
+	gateway "github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/invoke"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
@@ -18,214 +19,108 @@ import (
 )
 
 type ProjectsHandler struct {
-	cachedClient kclient.Client
-	invoker      *invoke.Invoker
-	gptScript    *gptscript.GPTScript
+	cachedClient  kclient.Client
+	invoker       *invoke.Invoker
+	gptScript     *gptscript.GPTScript
+	gatewayClient *gateway.Client
 }
 
-func NewProjectsHandler(cachedClient kclient.Client, invoker *invoke.Invoker, gptScript *gptscript.GPTScript) *ProjectsHandler {
+func NewProjectsHandler(cachedClient kclient.Client, invoker *invoke.Invoker, gptScript *gptscript.GPTScript, gatewayClient *gateway.Client) *ProjectsHandler {
 	return &ProjectsHandler{
-		cachedClient: cachedClient,
-		invoker:      invoker,
-		gptScript:    gptScript,
+		cachedClient:  cachedClient,
+		invoker:       invoker,
+		gptScript:     gptScript,
+		gatewayClient: gatewayClient,
 	}
 }
 
-func (h *ProjectsHandler) UpdateAuthorizations(req api.Context) error {
-	var (
-		projectID = req.PathValue("project_id")
-		threadID  = strings.Replace(projectID, system.ProjectPrefix, system.ThreadPrefix, 1)
-		auths     types.ProjectAuthorizationList
-		existing  = map[string]struct{}{}
-	)
-
-	if err := req.Read(&auths); err != nil {
+func (h *ProjectsHandler) ListMembers(req api.Context) error {
+	thread, err := getProjectThread(req)
+	if err != nil {
 		return err
 	}
 
 	var threadAuths v1.ThreadAuthorizationList
 	if err := req.List(&threadAuths, kclient.MatchingFields{
-		"spec.threadID": threadID,
+		"spec.threadID": thread.Name,
 	}); err != nil {
 		return err
 	}
 
+	result := make([]types.ProjectMember, 0, len(threadAuths.Items)+1)
 	for _, threadAuth := range threadAuths.Items {
-		existing[threadAuth.Spec.UserID] = struct{}{}
-	}
-
-	for _, auth := range auths.Items {
-		if strings.TrimSpace(auth.Target) == "" {
-			continue
-		}
-		if _, ok := existing[auth.Target]; !ok {
-			err := req.Create(&v1.ThreadAuthorization{
-				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: system.ThreadAuthorizationPrefix,
-					Namespace:    req.Namespace(),
-				},
-				Spec: v1.ThreadAuthorizationSpec{
-					ThreadAuthorizationManifest: types.ThreadAuthorizationManifest{
-						ThreadID: threadID,
-						UserID:   auth.Target,
-					},
-				},
-			})
-			if err != nil {
-				return err
-			}
-		} else {
-			delete(existing, auth.Target)
-		}
-	}
-
-	for target := range existing {
-		for _, threadAuth := range threadAuths.Items {
-			if threadAuth.Spec.UserID == target {
-				if err := req.Delete(&threadAuth); err != nil {
-					return err
-				}
-			}
-		}
-	}
-
-	return h.ListAuthorizations(req)
-}
-
-func (h *ProjectsHandler) RejectPendingAuthorization(req api.Context) error {
-	var (
-		projectID = req.PathValue("project_id")
-		threadID  = strings.Replace(projectID, system.ProjectPrefix, system.ThreadPrefix, 1)
-		auths     v1.ThreadAuthorizationList
-		thread    v1.Thread
-	)
-
-	email, ok := getEmail(req)
-	if !ok {
-		return types.NewErrBadRequest("email is required")
-	}
-
-	if err := req.Get(&thread, threadID); err != nil {
-		return err
-	}
-
-	err := req.List(&auths, kclient.MatchingFields{
-		"spec.threadID": threadID,
-		"spec.userID":   email,
-	})
-	if err != nil {
-		return err
-	}
-
-	for _, auth := range auths.Items {
-		if err := req.Delete(&auth); err != nil {
+		user, err := h.gatewayClient.UserByID(req.Context(), threadAuth.Spec.UserID)
+		if err != nil {
 			return err
 		}
-	}
 
-	return nil
-}
-
-func (h *ProjectsHandler) AcceptPendingAuthorization(req api.Context) error {
-	var (
-		projectID = req.PathValue("project_id")
-		threadID  = strings.Replace(projectID, system.ProjectPrefix, system.ThreadPrefix, 1)
-		auths     v1.ThreadAuthorizationList
-		thread    v1.Thread
-	)
-
-	email, ok := getEmail(req)
-	if !ok {
-		return types.NewErrBadRequest("email is required")
-	}
-
-	if err := req.Get(&thread, threadID); err != nil {
-		return err
-	}
-
-	err := req.List(&auths, kclient.MatchingFields{
-		"spec.threadID": threadID,
-		"spec.userID":   email,
-	})
-	if err != nil {
-		return err
-	}
-
-	if len(auths.Items) == 0 {
-		return nil
-	}
-
-	auth := auths.Items[0]
-	if !auth.Spec.Accepted {
-		auth.Spec.Accepted = true
-		return req.Update(&auth)
-	}
-
-	return nil
-}
-
-func (h *ProjectsHandler) ListPendingAuthorizations(req api.Context) error {
-	var (
-		assistantID = req.PathValue("assistant_id")
-		result      types.ProjectAuthorizationList
-	)
-
-	email, ok := getEmail(req)
-	if !ok {
-		return req.Write(result)
-	}
-
-	agent, err := getAssistant(req, assistantID)
-	if err != nil {
-		return err
-	}
-
-	var threadAuths v1.ThreadAuthorizationList
-	if err := req.List(&threadAuths, kclient.MatchingFields{
-		"spec.userID":   email,
-		"spec.accepted": "false",
-	}); err != nil {
-		return err
-	}
-
-	for _, threadAuth := range threadAuths.Items {
-		var thread v1.Thread
-		if err := req.Get(&thread, threadAuth.Spec.ThreadID); err != nil {
-			return err
-		}
-		if thread.Spec.AgentName == agent.Name {
-			project := convertProject(&thread, nil)
-			result.Items = append(result.Items, types.ProjectAuthorization{
-				Project: &project,
-				Target:  threadAuth.Spec.UserID,
-			})
-		}
-	}
-
-	return req.Write(result)
-}
-
-func (h *ProjectsHandler) ListAuthorizations(req api.Context) error {
-	var (
-		projectID = req.PathValue("project_id")
-		result    types.ProjectAuthorizationList
-	)
-
-	var threadAuths v1.ThreadAuthorizationList
-	if err := req.List(&threadAuths, kclient.MatchingFields{
-		"spec.threadID": strings.Replace(projectID, system.ProjectPrefix, system.ThreadPrefix, 1),
-	}); err != nil {
-		return err
-	}
-
-	for _, threadAuth := range threadAuths.Items {
-		result.Items = append(result.Items, types.ProjectAuthorization{
-			Target:   threadAuth.Spec.UserID,
-			Accepted: threadAuth.Spec.Accepted,
+		result = append(result, types.ProjectMember{
+			UserID:  threadAuth.Spec.UserID,
+			IconURL: user.IconURL,
+			Email:   user.Email,
+			IsOwner: false,
 		})
 	}
 
+	// Also get the details of the project owner.
+	owner, err := h.gatewayClient.UserByID(req.Context(), thread.Spec.UserID)
+	if err != nil {
+		return err
+	}
+
+	result = append(result, types.ProjectMember{
+		UserID:  thread.Spec.UserID,
+		IconURL: owner.IconURL,
+		Email:   owner.Email,
+		IsOwner: true,
+	})
+
 	return req.Write(result)
+}
+
+func (h *ProjectsHandler) DeleteMember(req api.Context) error {
+	memberID := req.PathValue("member_id")
+
+	thread, err := getProjectThread(req)
+	if err != nil {
+		return err
+	}
+
+	if !thread.Spec.Project {
+		return types.NewErrBadRequest("only projects can have members")
+	}
+
+	// Only the project creator can remove members
+	if thread.Spec.UserID != req.User.GetUID() {
+		return types.NewErrBadRequest("only the project creator can remove members")
+	}
+
+	// Cannot remove the project creator
+	if memberID == thread.Spec.UserID {
+		return types.NewErrBadRequest("cannot remove the project creator")
+	}
+
+	// Find the member's authorization
+	var memberships v1.ThreadAuthorizationList
+	if err := req.List(&memberships, kclient.MatchingFields{
+		"spec.threadID": thread.Name,
+		"spec.userID":   memberID,
+	}); err != nil {
+		return err
+	}
+
+	if len(memberships.Items) == 0 {
+		return types.NewErrNotFound("user is not a member of this project")
+	}
+
+	// Delete all authorizations for this user and thread
+	for _, membership := range memberships.Items {
+		if err := req.Delete(&membership); err != nil {
+			return err
+		}
+	}
+
+	return req.Write(nil)
 }
 
 func (h *ProjectsHandler) UpdateProject(req api.Context) error {
@@ -443,13 +338,6 @@ func (h *ProjectsHandler) CreateProject(req api.Context) error {
 	return req.WriteCreated(convertProject(thread, nil))
 }
 
-func getEmail(req api.Context) (string, bool) {
-	if attr := req.User.GetExtra()["email"]; len(attr) > 0 {
-		return attr[0], true
-	}
-	return "", false
-}
-
 func (h *ProjectsHandler) getProjects(req api.Context, agent *v1.Agent, all bool) (result types.ProjectList, err error) {
 	var (
 		threads v1.ThreadList
@@ -487,45 +375,43 @@ func (h *ProjectsHandler) getProjects(req api.Context, agent *v1.Agent, all bool
 		result.Items = append(result.Items, convertProject(&thread, nil))
 	}
 
-	if email, ok := getEmail(req); ok {
-		err = req.List(&auths, kclient.MatchingFields{
-			"spec.userID": email,
-		})
-		if err != nil {
+	// Check if the user is a member of any other projects.
+	if err = req.List(&auths, kclient.MatchingFields{
+		"spec.userID": req.User.GetUID(),
+	}); err != nil {
+		return result, err
+	}
+
+	for _, auth := range auths.Items {
+		if seen[auth.Spec.ThreadID] {
+			continue
+		}
+		var thread v1.Thread
+		if err := h.cachedClient.Get(req.Context(), kclient.ObjectKey{Namespace: req.Namespace(), Name: auth.Spec.ThreadID}, &thread); err != nil {
+			if apierrors.IsNotFound(err) {
+				continue
+			}
 			return result, err
 		}
 
-		for _, auth := range auths.Items {
-			if seen[auth.Spec.ThreadID] || !auth.Spec.Accepted {
-				continue
-			}
-			var thread v1.Thread
-			if err := h.cachedClient.Get(req.Context(), kclient.ObjectKey{Namespace: req.Namespace(), Name: auth.Spec.ThreadID}, &thread); err != nil {
-				if apierrors.IsNotFound(err) {
-					continue
-				}
-				return result, err
-			}
-
-			if !thread.Spec.Project || thread.Spec.AgentName != agent.Name {
-				continue
-			}
-
-			if agent != nil && thread.Spec.AgentName != agent.Name {
-				continue
-			}
-
-			var parentThread v1.Thread
-			if thread.Spec.ParentThreadName != "" {
-				if err := req.Get(&parentThread, thread.Spec.ParentThreadName); err == nil {
-					result.Items = append(result.Items, convertProject(&thread, &parentThread))
-					seen[auth.Spec.ThreadID] = true
-					continue
-				}
-			}
-			result.Items = append(result.Items, convertProject(&thread, nil))
-			seen[auth.Spec.ThreadID] = true
+		if !thread.Spec.Project {
+			continue
 		}
+
+		if agent != nil && thread.Spec.AgentName != agent.Name {
+			continue
+		}
+
+		var parentThread v1.Thread
+		if thread.Spec.ParentThreadName != "" {
+			if err := req.Get(&parentThread, thread.Spec.ParentThreadName); err == nil {
+				result.Items = append(result.Items, convertProject(&thread, &parentThread))
+				seen[auth.Spec.ThreadID] = true
+				continue
+			}
+		}
+		result.Items = append(result.Items, convertProject(&thread, nil))
+		seen[auth.Spec.ThreadID] = true
 	}
 
 	return result, nil

@@ -35,7 +35,7 @@ func Router(services *services.Services) (http.Handler, error) {
 	defaultModelAliases := handlers.NewDefaultModelAliasHandler()
 	version := handlers.NewVersionHandler(services.EmailServerName, services.PostgresDSN, services.SupportDocker, services.AuthEnabled)
 	tables := handlers.NewTableHandler(services.GPTClient)
-	projects := handlers.NewProjectsHandler(services.Router.Backend(), services.Invoker, services.GPTClient)
+	projects := handlers.NewProjectsHandler(services.Router.Backend(), services.Invoker, services.GPTClient, services.GatewayClient)
 	projectShare := handlers.NewProjectShareHandler()
 	files := handlers.NewFilesHandler(services.ProviderDispatcher, services.GPTClient)
 	memories := handlers.NewMemoryHandler()
@@ -45,6 +45,7 @@ func Router(services *services.Services) (http.Handler, error) {
 	images := handlers.NewImageHandler(services.GatewayClient, services.GeminiClient)
 	slackHandler := handlers.NewSlackHandler(services.GPTClient)
 	mcp := handlers.NewMCPHandler(services.GPTClient, services.MCPLoader)
+	projectInvitations := handlers.NewProjectInvitationHandler()
 
 	// Version
 	mux.HandleFunc("GET /api/version", version.GetVersion)
@@ -191,16 +192,11 @@ func Router(services *services.Services) (http.Handler, error) {
 	mux.HandleFunc("GET /api/threads/{thread_id}/tasks/{id}/runs/{run_id}", tasks.GetRunFromScope)
 
 	// Projects in Project
-	mux.HandleFunc("GET /api/assistants/{assistant_id}/pending-authorizations", projects.ListPendingAuthorizations)
-	mux.HandleFunc("PUT /api/assistants/{assistant_id}/pending-authorizations/{project_id}", projects.AcceptPendingAuthorization)
-	mux.HandleFunc("DELETE /api/assistants/{assistant_id}/pending-authorizations/{project_id}", projects.RejectPendingAuthorization)
 	mux.HandleFunc("POST /api/assistants/{assistant_id}/projects", projects.CreateProject)
 	mux.HandleFunc("GET /api/assistants/{assistant_id}/projects", projects.ListProjects)
 	mux.HandleFunc("DELETE /api/assistants/{assistant_id}/projects/{project_id}", projects.DeleteProject)
 	mux.HandleFunc("GET /api/assistants/{assistant_id}/projects/{project_id}", projects.GetProject)
 	mux.HandleFunc("PUT /api/assistants/{assistant_id}/projects/{project_id}", projects.UpdateProject)
-	mux.HandleFunc("GET /api/assistants/{assistant_id}/projects/{project_id}/authorizations", projects.ListAuthorizations)
-	mux.HandleFunc("PUT /api/assistants/{assistant_id}/projects/{project_id}/authorizations", projects.UpdateAuthorizations)
 	mux.HandleFunc("POST /api/assistants/{assistant_id}/projects/{project_id}/copy", projects.CopyProject)
 
 	// Project Threads
@@ -209,6 +205,18 @@ func Router(services *services.Services) (http.Handler, error) {
 	mux.HandleFunc("GET /api/assistants/{assistant_id}/projects/{project_id}/threads/{id}", projects.GetProjectThread)
 	mux.HandleFunc("PUT /api/assistants/{assistant_id}/projects/{project_id}/threads/{id}", threads.Update)
 	mux.HandleFunc("DELETE /api/assistants/{assistant_id}/projects/{project_id}/threads/{thread_id}", projects.DeleteProjectThread)
+
+	// Project Members
+	mux.HandleFunc("GET /api/assistants/{assistant_id}/projects/{project_id}/members", projects.ListMembers)
+	mux.HandleFunc("DELETE /api/assistants/{assistant_id}/projects/{project_id}/members/{member_id}", projects.DeleteMember)
+
+	// Project Invitations
+	mux.HandleFunc("POST /api/assistants/{assistant_id}/projects/{project_id}/invitations", projectInvitations.CreateInvitationForProject)
+	mux.HandleFunc("GET /api/assistants/{assistant_id}/projects/{project_id}/invitations", projectInvitations.ListInvitationsForProject)
+	mux.HandleFunc("DELETE /api/assistants/{assistant_id}/projects/{project_id}/invitations/{code}", projectInvitations.DeleteInvitationForProject)
+	mux.HandleFunc("GET /api/projectinvitations/{code}", projectInvitations.GetInvitation)
+	mux.HandleFunc("POST /api/projectinvitations/{code}", projectInvitations.AcceptInvitation)
+	mux.HandleFunc("DELETE /api/projectinvitations/{code}", projectInvitations.RejectInvitation)
 
 	// Project Tables
 	mux.HandleFunc("GET /api/assistants/{assistant_id}/projects/{project_id}/tables", tables.ListTables)

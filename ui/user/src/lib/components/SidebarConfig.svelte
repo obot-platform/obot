@@ -4,6 +4,7 @@
 	import { fade } from 'svelte/transition';
 	import Slack from './slack/Slack.svelte';
 	import CustomTool from './edit/CustomTool.svelte';
+	import ProjectInvitations from './edit/ProjectInvitations.svelte';
 	import { getProjectTools } from '$lib/context/projectTools.svelte';
 
 	interface Props {
@@ -28,6 +29,8 @@
 <div class="default-scrollbar-thin relative flex w-full justify-center overflow-y-auto" in:fade>
 	{#if layout.sidebarConfig === 'slack'}
 		<Slack {project} inline />
+	{:else if layout.sidebarConfig === 'invitations'}
+		<ProjectInvitations {project} inline />
 	{:else if layout.sidebarConfig === 'custom-tool' && layout.customToolId && toEdit}
 		{#key layout.customToolId}
 			<CustomTool

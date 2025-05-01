@@ -77,6 +77,8 @@ func AddToSchemeWithGV(scheme *runtime.Scheme, schemeGroupVersion schema.GroupVe
 		&ToolList{},
 		&ThreadShare{},
 		&ThreadShareList{},
+		&ProjectInvitation{},
+		&ProjectInvitationList{},
 		&SlackTrigger{},
 		&SlackTriggerList{},
 		&SlackReceiver{},

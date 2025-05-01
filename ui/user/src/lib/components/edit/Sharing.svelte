@@ -1,54 +1,58 @@
 <script lang="ts">
-	import { X } from 'lucide-svelte';
+	import { Crown, Plus, Trash2 } from 'lucide-svelte';
 	import Confirm from '$lib/components/Confirm.svelte';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
-	import SearchDropdown from '$lib/components/SearchDropdown.svelte';
+	import { openSidebarConfig, getLayout } from '$lib/context/layout.svelte';
 	import CollapsePane from '$lib/components/edit/CollapsePane.svelte';
 	import Toggle from '$lib/components/Toggle.svelte';
 	import CopyButton from '$lib/components/CopyButton.svelte';
 	import { browser } from '$app/environment';
-	import { ChatService, type Project, type ProjectShare } from '$lib/services';
+	import { ChatService, type Project, type ProjectShare, type ProjectMember } from '$lib/services';
+	import { profile } from '$lib/stores';
 	import { HELPER_TEXTS } from '$lib/context/helperMode.svelte';
 
 	let toDelete = $state('');
+	let ownerID = $state<string>('');
+	let isOwner = $derived(profile.current.id === ownerID);
 
 	interface Props {
 		project: Project;
 	}
 
 	let { project }: Props = $props();
-
-	const mockMembers = [
-		{
-			id: '1',
-			name: 'johndoe@gmail.com',
-			email: 'johndoe@gmail.com',
-			iconURL:
-				'https://fastly.picsum.photos/id/453/200/200.jpg?hmac=IO3u3eOcKSOUCe8J1IlvctdxPKLTh5wFXvBT4O3BNs4'
-		},
-		{
-			id: '2',
-			name: 'janedoe@gmail.com',
-			email: 'janedoe@gmail.com',
-			iconURL:
-				'https://fastly.picsum.photos/id/348/200/200.jpg?hmac=3DFdqMmDkl3bpk6cV1tumcDAzASPQUSbXHXWZIbIvks'
-		}
-	];
-
+	let members = $state<ProjectMember[]>([]);
 	let share = $state<ProjectShare>();
 	let url = $derived(
 		browser && share?.publicID
 			? `${window.location.protocol}//${window.location.host}/s/${share.publicID}`
 			: ''
 	);
+	const layout = getLayout();
+
+	async function loadMembers() {
+		members = await ChatService.listProjectMembers(project.assistantID, project.id);
+	}
+
+	async function deleteMember(memberId: string) {
+		if (!isOwner) return;
+		await ChatService.deleteProjectMember(project.assistantID, project.id, memberId);
+		await loadMembers();
+	}
 
 	async function updateShare() {
 		share = await ChatService.getProjectShare(project.assistantID, project.id);
 	}
 
+	function manageInvitations() {
+		if (!isOwner) return;
+		openSidebarConfig(layout, 'invitations');
+	}
+
 	$effect(() => {
 		if (project) {
+			ownerID = project.userID;
 			updateShare();
+			loadMembers();
 		}
 	});
 
@@ -80,39 +84,52 @@
 			helpText={HELPER_TEXTS.members}
 		>
 			<div class="flex flex-col gap-2 text-sm">
-				<p class="py-2 text-xs font-light text-gray-500">
-					Modify who has access to collaborate on your agent.
-				</p>
-				<SearchDropdown
-					items={mockMembers}
-					onSearch={() => {}}
-					selected={[]}
-					placeholder="Search members..."
-					compact
-				/>
-
 				<div class="flex flex-col">
-					{#each mockMembers as member}
-						<div class="group flex w-full items-center rounded-md transition-colors duration-300">
-							<button class="flex grow items-center gap-2" onclick={() => {}}>
+					<div class="mb-2 flex items-center justify-between">
+						<span class="text-sm font-medium">Project Members</span>
+						{#if isOwner}
+							<div class="flex gap-2">
+								<button
+									class="bg-surface3 hover:bg-surface4 rounded-full p-1 transition-colors"
+									onclick={manageInvitations}
+									use:tooltip={'Manage invitations'}
+								>
+									<Plus class="size-4" />
+								</button>
+							</div>
+						{/if}
+					</div>
+					{#each members as member}
+						<div
+							class="group flex h-[36px] w-full items-center rounded-md transition-colors duration-300"
+						>
+							<div class="flex grow items-center gap-2">
 								<div class="size-6 overflow-hidden rounded-full bg-gray-50 dark:bg-gray-600">
 									<img
 										src={member.iconURL}
 										class="h-full w-full object-cover"
 										alt="agent member icon"
+										referrerpolicy="no-referrer"
 									/>
 								</div>
 								<p class="truncate text-left text-sm font-light">
 									{member.email}
 								</p>
-							</button>
-							<button
-								class="icon-button"
-								onclick={() => (toDelete = member.email)}
-								use:tooltip={'Remove member'}
-							>
-								<X class="size-4" />
-							</button>
+								{#if member.isOwner}
+									<span use:tooltip={'Project Owner'}>
+										<Crown class="size-4" />
+									</span>
+								{/if}
+							</div>
+							{#if isOwner && profile.current.email !== member.email && !member.isOwner}
+								<button
+									class="bg-surface3 hover:bg-surface4 rounded-full p-1 transition-colors"
+									onclick={() => (toDelete = member.email)}
+									use:tooltip={'Remove member'}
+								>
+									<Trash2 class="size-4" />
+								</button>
+							{/if}
 						</div>
 					{/each}
 				</div>
@@ -179,7 +196,10 @@
 	onsuccess={async () => {
 		if (!toDelete) return;
 		try {
-			// TODO: remove member from project
+			const memberToDelete = members.find((m) => m.email === toDelete);
+			if (memberToDelete) {
+				await deleteMember(memberToDelete.userID);
+			}
 		} finally {
 			toDelete = '';
 		}

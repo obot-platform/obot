@@ -11,16 +11,11 @@ import (
 var apiResources = []string{
 	"GET    /api/assistants",
 	"GET    /api/assistants/{assistant_id}",
-	"GET    /api/assistants/{assistant_id}/pending-authorizations",
-	"DELETE /api/assistants/{assistant_id}/pending-authorizations/{pending_authorization_id}",
-	"PUT    /api/assistants/{assistant_id}/pending-authorizations/{pending_authorization_id}",
 	"GET    /api/assistants/{assistant_id}/projects",
 	"POST   /api/assistants/{assistant_id}/projects",
 	"DELETE /api/assistants/{assistant_id}/projects/{project_id}",
 	"GET    /api/assistants/{assistant_id}/projects/{project_id}",
 	"PUT    /api/assistants/{assistant_id}/projects/{project_id}",
-	"GET    /api/assistants/{assistant_id}/projects/{project_id}/authorizations",
-	"PUT    /api/assistants/{assistant_id}/projects/{project_id}/authorizations",
 	"POST   /api/assistants/{assistant_id}/projects/{project_id}/copy",
 	"GET    /api/assistants/{assistant_id}/projects/{project_id}/credentials",
 	"DELETE /api/assistants/{assistant_id}/projects/{project_id}/credentials/{credential_id}",
@@ -33,12 +28,17 @@ var apiResources = []string{
 	"DELETE /api/assistants/{assistant_id}/projects/{project_id}/files/{file...}",
 	"GET    /api/assistants/{assistant_id}/projects/{project_id}/files/{file...}",
 	"POST   /api/assistants/{assistant_id}/projects/{project_id}/files/{file...}",
+	"POST   /api/assistants/{assistant_id}/projects/{project_id}/invitations",
+	"GET    /api/assistants/{assistant_id}/projects/{project_id}/invitations",
+	"DELETE /api/assistants/{assistant_id}/projects/{project_id}/invitations/{code}",
 	"GET    /api/assistants/{assistant_id}/projects/{project_id}/knowledge",
 	"DELETE /api/assistants/{assistant_id}/projects/{project_id}/knowledge/{file...}",
 	"GET    /api/assistants/{assistant_id}/projects/{project_id}/knowledge/{file...}",
 	"POST   /api/assistants/{assistant_id}/projects/{project_id}/knowledge/{file}",
 	"GET    /api/assistants/{assistant_id}/projects/{project_id}/local-credentials",
 	"DELETE /api/assistants/{assistant_id}/projects/{project_id}/local-credentials/{credential_id}",
+	"GET    /api/assistants/{assistant_id}/projects/{project_id}/members",
+	"DELETE /api/assistants/{assistant_id}/projects/{project_id}/members/{member_id}",
 	"POST   /api/assistants/{assistant_id}/projects/{project_id}/memories",
 	"PUT /api/assistants/{assistant_id}/projects/{project_id}/memories/{memory_id}",
 	"GET    /api/assistants/{assistant_id}/projects/{project_id}/memories",
@@ -172,16 +172,15 @@ type Resources struct {
 }
 
 type ResourcesAuthorized struct {
-	Assistant            *v1.Agent
-	Project              *v1.Thread
-	Thread               *v1.Thread
-	ThreadShare          *v1.ThreadShare
-	Task                 *v1.Workflow
-	MCPServer            *v1.MCPServer
-	Run                  *v1.WorkflowExecution
-	Workflow             *v1.Workflow
-	Tool                 *v1.Tool
-	PendingAuthorization *v1.ThreadAuthorization
+	Assistant   *v1.Agent
+	Project     *v1.Thread
+	Thread      *v1.Thread
+	ThreadShare *v1.ThreadShare
+	Task        *v1.Workflow
+	MCPServer   *v1.MCPServer
+	Run         *v1.WorkflowExecution
+	Workflow    *v1.Workflow
+	Tool        *v1.Tool
 }
 
 func (a *Authorizer) evaluateResources(req *http.Request, vars GetVar, user user.Info) (bool, error) {
@@ -235,10 +234,6 @@ func (a *Authorizer) evaluateResources(req *http.Request, vars GetVar, user user
 	}
 
 	if ok, err := a.checkTools(req, &resources, user); !ok || err != nil {
-		return false, err
-	}
-
-	if ok, err := a.checkPendingAuthorization(req, &resources, user); !ok || err != nil {
 		return false, err
 	}
 

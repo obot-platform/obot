@@ -90,13 +90,13 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/apiclient/types.OneDriveConfig":                               schema_obot_platform_obot_apiclient_types_OneDriveConfig(ref),
 		"github.com/obot-platform/obot/apiclient/types.Progress":                                     schema_obot_platform_obot_apiclient_types_Progress(ref),
 		"github.com/obot-platform/obot/apiclient/types.Project":                                      schema_obot_platform_obot_apiclient_types_Project(ref),
-		"github.com/obot-platform/obot/apiclient/types.ProjectAuthorization":                         schema_obot_platform_obot_apiclient_types_ProjectAuthorization(ref),
-		"github.com/obot-platform/obot/apiclient/types.ProjectAuthorizationList":                     schema_obot_platform_obot_apiclient_types_ProjectAuthorizationList(ref),
 		"github.com/obot-platform/obot/apiclient/types.ProjectCapabilities":                          schema_obot_platform_obot_apiclient_types_ProjectCapabilities(ref),
 		"github.com/obot-platform/obot/apiclient/types.ProjectCredential":                            schema_obot_platform_obot_apiclient_types_ProjectCredential(ref),
 		"github.com/obot-platform/obot/apiclient/types.ProjectCredentialList":                        schema_obot_platform_obot_apiclient_types_ProjectCredentialList(ref),
+		"github.com/obot-platform/obot/apiclient/types.ProjectInvitationManifest":                    schema_obot_platform_obot_apiclient_types_ProjectInvitationManifest(ref),
 		"github.com/obot-platform/obot/apiclient/types.ProjectList":                                  schema_obot_platform_obot_apiclient_types_ProjectList(ref),
 		"github.com/obot-platform/obot/apiclient/types.ProjectManifest":                              schema_obot_platform_obot_apiclient_types_ProjectManifest(ref),
+		"github.com/obot-platform/obot/apiclient/types.ProjectMember":                                schema_obot_platform_obot_apiclient_types_ProjectMember(ref),
 		"github.com/obot-platform/obot/apiclient/types.ProjectShare":                                 schema_obot_platform_obot_apiclient_types_ProjectShare(ref),
 		"github.com/obot-platform/obot/apiclient/types.ProjectShareList":                             schema_obot_platform_obot_apiclient_types_ProjectShareList(ref),
 		"github.com/obot-platform/obot/apiclient/types.ProjectShareManifest":                         schema_obot_platform_obot_apiclient_types_ProjectShareManifest(ref),
@@ -230,6 +230,10 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.OAuthAppLoginSpec":           schema_storage_apis_obotobotai_v1_OAuthAppLoginSpec(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.OAuthAppLoginStatus":         schema_storage_apis_obotobotai_v1_OAuthAppLoginStatus(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.OAuthAppSpec":                schema_storage_apis_obotobotai_v1_OAuthAppSpec(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ProjectInvitation":           schema_storage_apis_obotobotai_v1_ProjectInvitation(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ProjectInvitationList":       schema_storage_apis_obotobotai_v1_ProjectInvitationList(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ProjectInvitationSpec":       schema_storage_apis_obotobotai_v1_ProjectInvitationSpec(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ProjectInvitationStatus":     schema_storage_apis_obotobotai_v1_ProjectInvitationStatus(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.Ref":                         schema_storage_apis_obotobotai_v1_Ref(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.Run":                         schema_storage_apis_obotobotai_v1_Run(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.RunList":                     schema_storage_apis_obotobotai_v1_RunList(ref),
@@ -3600,65 +3604,6 @@ func schema_obot_platform_obot_apiclient_types_Project(ref common.ReferenceCallb
 	}
 }
 
-func schema_obot_platform_obot_apiclient_types_ProjectAuthorization(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Type: []string{"object"},
-				Properties: map[string]spec.Schema{
-					"project": {
-						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/obot-platform/obot/apiclient/types.Project"),
-						},
-					},
-					"target": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-					"accepted": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"boolean"},
-							Format: "",
-						},
-					},
-				},
-			},
-		},
-		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.Project"},
-	}
-}
-
-func schema_obot_platform_obot_apiclient_types_ProjectAuthorizationList(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Type: []string{"object"},
-				Properties: map[string]spec.Schema{
-					"items": {
-						SchemaProps: spec.SchemaProps{
-							Type: []string{"array"},
-							Items: &spec.SchemaOrArray{
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref("github.com/obot-platform/obot/apiclient/types.ProjectAuthorization"),
-									},
-								},
-							},
-						},
-					},
-				},
-				Required: []string{"items"},
-			},
-		},
-		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.ProjectAuthorization"},
-	}
-}
-
 func schema_obot_platform_obot_apiclient_types_ProjectCapabilities(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -3743,6 +3688,43 @@ func schema_obot_platform_obot_apiclient_types_ProjectCredentialList(ref common.
 	}
 }
 
+func schema_obot_platform_obot_apiclient_types_ProjectInvitationManifest(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"code": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"project": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.Project"),
+						},
+					},
+					"status": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"created": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.Project"},
+	}
+}
+
 func schema_obot_platform_obot_apiclient_types_ProjectList(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -3801,6 +3783,42 @@ func schema_obot_platform_obot_apiclient_types_ProjectManifest(ref common.Refere
 		},
 		Dependencies: []string{
 			"github.com/obot-platform/obot/apiclient/types.ThreadManifest"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_ProjectMember(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"userID": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"iconURL": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"email": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"isOwner": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
+						},
+					},
+				},
+			},
+		},
 	}
 }
 
@@ -9241,6 +9259,144 @@ func schema_storage_apis_obotobotai_v1_OAuthAppSpec(ref common.ReferenceCallback
 	}
 }
 
+func schema_storage_apis_obotobotai_v1_ProjectInvitation(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"),
+						},
+					},
+					"spec": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ProjectInvitationSpec"),
+						},
+					},
+					"status": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ProjectInvitationStatus"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ProjectInvitationSpec", "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ProjectInvitationStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
+	}
+}
+
+func schema_storage_apis_obotobotai_v1_ProjectInvitationList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"),
+						},
+					},
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ProjectInvitation"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"items"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ProjectInvitation", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
+	}
+}
+
+func schema_storage_apis_obotobotai_v1_ProjectInvitationSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"status": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"threadID": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func schema_storage_apis_obotobotai_v1_ProjectInvitationStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"respondedTime": {
+						SchemaProps: spec.SchemaProps{
+							Description: "RespondedTime is the time the invitation was accepted, rejected, or marked as expired.",
+							Ref:         ref("k8s.io/apimachinery/pkg/apis/meta/v1.Time"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/apimachinery/pkg/apis/meta/v1.Time"},
+	}
+}
+
 func schema_storage_apis_obotobotai_v1_Ref(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -10136,12 +10292,6 @@ func schema_storage_apis_obotobotai_v1_ThreadAuthorizationSpec(ref common.Refere
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
 							Ref:     ref("github.com/obot-platform/obot/apiclient/types.ThreadAuthorizationManifest"),
-						},
-					},
-					"accepted": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"boolean"},
-							Format: "",
 						},
 					},
 				},

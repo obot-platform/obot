@@ -74,7 +74,15 @@ var staticRules = map[string][]string{
 		"POST /api/image/generate",
 		"POST /api/image/upload",
 		"POST /api/logout-all",
+
+		// Allow authenticated users to read and accept/reject project invitations.
+		// The security depends on the code being an unguessable UUID string,
+		// which is the project owner shares with the user that they are inviting.
+		"GET /api/projectinvitations/{code}",
+		"POST /api/projectinvitations/{code}",
+		"DELETE /api/projectinvitations/{code}",
 	},
+
 	MetricsGroup: {
 		"/debug/metrics",
 	},

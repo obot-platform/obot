@@ -12,6 +12,7 @@ import (
 	"github.com/obot-platform/obot/pkg/controller/handlers/knowledgesource"
 	"github.com/obot-platform/obot/pkg/controller/handlers/knowledgesummary"
 	"github.com/obot-platform/obot/pkg/controller/handlers/oauthapp"
+	"github.com/obot-platform/obot/pkg/controller/handlers/projectinvitation"
 	"github.com/obot-platform/obot/pkg/controller/handlers/projects"
 	"github.com/obot-platform/obot/pkg/controller/handlers/retention"
 	"github.com/obot-platform/obot/pkg/controller/handlers/runs"
@@ -213,6 +214,12 @@ func (c *Controller) setupRoutes() error {
 
 	// MCPServerCatalogEntry
 	root.Type(&v1.MCPServerCatalogEntry{}).HandlerFunc(cleanup.Cleanup)
+
+	// ProjectInvitations
+	root.Type(&v1.ProjectInvitation{}).HandlerFunc(projectinvitation.SetRespondedTime)
+	root.Type(&v1.ProjectInvitation{}).HandlerFunc(projectinvitation.Expiration)
+	root.Type(&v1.ProjectInvitation{}).HandlerFunc(projectinvitation.Cleanup)
+	root.Type(&v1.ProjectInvitation{}).HandlerFunc(cleanup.Cleanup)
 
 	c.toolRefHandler = toolRef
 	return nil

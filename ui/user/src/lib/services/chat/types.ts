@@ -142,6 +142,7 @@ export interface Version {
 }
 
 export interface Profile {
+	id: string;
 	email: string;
 	iconURL: string;
 	role: number;
@@ -393,6 +394,21 @@ export interface Project {
 	capabilities: {
 		onSlackMessage?: boolean;
 	};
+	userID: string;
+}
+
+export interface ProjectMember {
+	userID: string;
+	email: string;
+	iconURL: string;
+	isOwner: boolean;
+}
+
+export interface ProjectInvitation {
+	code: string;
+	project?: Project;
+	status: 'pending' | 'accepted' | 'rejected' | 'expired';
+	created?: string;
 }
 
 export interface ProjectList {
