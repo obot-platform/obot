@@ -43,28 +43,29 @@
 
 		projectTools.tools = tools.items;
 		projectTools.maxTools = assistant?.maxTools ?? 5;
+
+		// Close out the warning if the project is successfully loaded
+		showWarning = false;
 	}
 
 	onMount(async () => {
 		if (profile.current.unauthorized) {
 			// Redirect to the main page to log in.
 			window.location.href = `/?rd=${window.location.pathname}`;
-		} else if (data.projectID) {
-			// If the user received projectID containing the params.id / shareID,
-			// they're receiving their obot instance project ID
-			if (data.projectID.split('-').includes(data.id) || data.isOwner) {
-				project = await ChatService.getProject(data.projectID);
-				loadProject();
-			} else {
-				showWarning = true;
-			}
 		}
+
+		if (data.projectID && data.isOwner) {
+			project = await ChatService.getProject(data.projectID);
+			loadProject();
+			return;
+		}
+
+		showWarning = true;
 	});
 
 	async function createProject() {
-		const urlParams = new URLSearchParams(window.location.search);
 		project = await ChatService.createProjectFromShare(data.id, {
-			create: urlParams.has('create')
+			create: true
 		});
 		loadProject();
 	}
