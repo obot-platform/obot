@@ -101,7 +101,7 @@
 				</div>
 
 				<button class="button-primary mt-2 w-full" onclick={createProject}>I Understand</button>
-				<button class="button w-full" onclick={() => goto('/catalog')}>Go Back</button>
+				<button class="button w-full" onclick={() => goto('/agents')}>Go Back</button>
 			</div>
 		</div>
 	{:else if project}

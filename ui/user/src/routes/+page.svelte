@@ -324,7 +324,7 @@
 {#snippet browseAllAgents()}
 	<button
 		onclick={() => {
-			overrideRedirect = `/agents`;
+			overrideRedirect = `/catalog?type=agents`;
 			loginDialog?.showModal();
 		}}
 		class="button-text w-full text-center transition-colors duration-300 hover:text-inherit"
@@ -336,7 +336,7 @@
 {#snippet browseAllMcpServers()}
 	<button
 		onclick={() => {
-			overrideRedirect = `/catalog`;
+			overrideRedirect = `/catalog?type=mcps`;
 			loginDialog?.showModal();
 		}}
 		class="button-text w-full text-center transition-colors duration-300 hover:text-inherit"
