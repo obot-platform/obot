@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/google/uuid"
@@ -279,12 +280,13 @@ func (h *ProjectShareHandler) GetShareFromShareID(req api.Context) error {
 	threadShare := threadShareList.Items[0]
 
 	// Checking if user has a project created from this share
-	if err := req.Get(&baseProject, id); err == nil {
+	if req.Get(&baseProject, id) == nil {
 		// User does have a project instance, include its ID in the response
 		threadShare.Spec.ProjectThreadName = id
+	} else if req.Get(&baseProject, threadShare.Spec.ProjectThreadName) != nil {
+		return apierrors.NewInternalError(fmt.Errorf("unable to find base project"))
 	}
 
-	// Set editor flag if user is the project owner
 	threadShare.Spec.Editor = baseProject.Spec.UserID == req.User.GetUID()
 
 	return req.Write(convertProjectShare(threadShare))
