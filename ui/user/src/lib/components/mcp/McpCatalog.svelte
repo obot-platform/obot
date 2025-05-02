@@ -117,7 +117,11 @@
 						<span class="text-xs text-gray-300"> Shift+click to quick add</span>
 						<button
 							class="button-primary flex items-center gap-1"
-							onclick={() => onSubmitMcps(selected)}
+							onclick={() => {
+								onSubmitMcps(selected);
+								selected = [];
+								dialog?.close();
+							}}
 							disabled={selected.length === 0}
 						>
 							{#if selected.length <= 1}
