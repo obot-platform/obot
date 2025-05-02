@@ -127,9 +127,7 @@
 				label="Toggle Help"
 				labelInline
 				checked={helperMode.isEnabled}
-				onChange={(checked) => {
-					helperMode.isEnabled = !helperMode.isEnabled;
-				}}
+				onChange={() => (helperMode.isEnabled = !helperMode.isEnabled)}
 			/>
 		</div>
 	</div>
