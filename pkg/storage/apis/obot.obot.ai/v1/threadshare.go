@@ -39,10 +39,14 @@ func (in *ThreadShare) Get(field string) (value string) {
 	switch field {
 	case "spec.publicID":
 		return in.Spec.PublicID
+	case "spec.public":
+		return fmt.Sprintf("%t", in.Spec.Manifest.Public)
 	case "spec.userID":
 		return in.Spec.UserID
+	case "spec.template":
+		return fmt.Sprintf("%t", in.Spec.Template)
 	case "spec.featured":
-		return fmt.Sprint(in.Spec.Featured)
+		return fmt.Sprintf("%t", in.Spec.Featured)
 	case "spec.projectThreadName":
 		return in.Spec.ProjectThreadName
 	default:
@@ -51,7 +55,7 @@ func (in *ThreadShare) Get(field string) (value string) {
 }
 
 func (in *ThreadShare) FieldNames() []string {
-	return []string{"spec.publicID", "spec.userID", "spec.featured", "spec.projectThreadName"}
+	return []string{"spec.publicID", "spec.public", "spec.userID", "spec.featured", "spec.projectThreadName", "spec.template"}
 }
 
 type ThreadShareSpec struct {
@@ -59,6 +63,7 @@ type ThreadShareSpec struct {
 	PublicID          string                     `json:"publicID,omitempty"`
 	UserID            string                     `json:"userID,omitempty"`
 	ProjectThreadName string                     `json:"projectThreadName,omitempty"`
+	Template          bool                       `json:"template,omitempty"`
 	Featured          bool                       `json:"featured,omitempty"`
 	Editor            bool                       `json:"editor,omitempty"`
 }
@@ -68,6 +73,9 @@ type ThreadShareStatus struct {
 	Description string            `json:"description,omitempty"`
 	Icons       *types.AgentIcons `json:"icons"`
 	Tools       []string          `json:"tools,omitempty"`
+
+	// MCPServers contains the MCP server catalog IDs of the MCP servers that have been added to the project thread being shared.
+	MCPServers []string `json:"mcpServers,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

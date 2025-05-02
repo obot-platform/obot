@@ -13,6 +13,7 @@ var uiResources = []string{
 	"GET /{assistant}",
 	"GET /o/",
 	"GET /s/",
+	"GET /t/",
 	"GET /i/{code}",
 	"GET /user/images/",
 	"GET /api/image/{id}",

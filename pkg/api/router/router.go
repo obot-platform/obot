@@ -37,6 +37,7 @@ func Router(services *services.Services) (http.Handler, error) {
 	tables := handlers.NewTableHandler(services.GPTClient)
 	projects := handlers.NewProjectsHandler(services.Router.Backend(), services.Invoker, services.GPTClient, services.GatewayClient)
 	projectShare := handlers.NewProjectShareHandler()
+	templates := handlers.NewTemplateHandler()
 	files := handlers.NewFilesHandler(services.ProviderDispatcher, services.GPTClient)
 	memories := handlers.NewMemoryHandler()
 	workflows := handlers.NewWorkflowHandler(services.GPTClient, services.ServerURL, services.Invoker)
@@ -228,6 +229,16 @@ func Router(services *services.Services) (http.Handler, error) {
 	mux.HandleFunc("GET /api/assistants/{assistant_id}/projects/{project_id}/memories", memories.ListMemories)
 	mux.HandleFunc("DELETE /api/assistants/{assistant_id}/projects/{project_id}/memories", memories.DeleteMemories)
 	mux.HandleFunc("DELETE /api/assistants/{assistant_id}/projects/{project_id}/memories/{memory_id}", memories.DeleteMemories)
+
+	// Project Templates
+	mux.HandleFunc("POST /api/assistants/{assistant_id}/projects/{project_id}/templates", templates.CreateProjectTemplate)
+	mux.HandleFunc("GET /api/assistants/{assistant_id}/projects/{project_id}/templates", templates.ListProjectTemplates)
+	mux.HandleFunc("GET /api/assistants/{assistant_id}/projects/{project_id}/templates/{template_id}", templates.GetProjectTemplate)
+	mux.HandleFunc("PUT /api/assistants/{assistant_id}/projects/{project_id}/templates/{template_id}", templates.UpdateProjectTemplate)
+	mux.HandleFunc("DELETE /api/assistants/{assistant_id}/projects/{project_id}/templates/{template_id}", templates.DeleteProjectTemplate)
+	mux.HandleFunc("GET /api/templates", templates.ListTemplates)
+	mux.HandleFunc("GET /api/templates/{template_public_id}", templates.GetTemplate)
+	mux.HandleFunc("POST /api/templates/{template_public_id}", templates.CopyTemplate)
 
 	// Project model providers
 	mux.HandleFunc("GET /api/assistants/{assistant_id}/projects/{project_id}/model-providers", modelProviders.List)

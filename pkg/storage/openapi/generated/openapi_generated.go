@@ -102,6 +102,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/apiclient/types.ProjectShareManifest":                         schema_obot_platform_obot_apiclient_types_ProjectShareManifest(ref),
 		"github.com/obot-platform/obot/apiclient/types.ProjectTemplate":                              schema_obot_platform_obot_apiclient_types_ProjectTemplate(ref),
 		"github.com/obot-platform/obot/apiclient/types.ProjectTemplateList":                          schema_obot_platform_obot_apiclient_types_ProjectTemplateList(ref),
+		"github.com/obot-platform/obot/apiclient/types.ProjectTemplateManifest":                      schema_obot_platform_obot_apiclient_types_ProjectTemplateManifest(ref),
 		"github.com/obot-platform/obot/apiclient/types.Prompt":                                       schema_obot_platform_obot_apiclient_types_Prompt(ref),
 		"github.com/obot-platform/obot/apiclient/types.PromptResponse":                               schema_obot_platform_obot_apiclient_types_PromptResponse(ref),
 		"github.com/obot-platform/obot/apiclient/types.ProviderConfigurationParameter":               schema_obot_platform_obot_apiclient_types_ProviderConfigurationParameter(ref),
@@ -3976,20 +3977,27 @@ func schema_obot_platform_obot_apiclient_types_ProjectTemplate(ref common.Refere
 							Ref:     ref("github.com/obot-platform/obot/apiclient/types.Metadata"),
 						},
 					},
-					"ThreadManifest": {
+					"ProjectTemplateManifest": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/obot-platform/obot/apiclient/types.ProjectTemplateManifest"),
+						},
+					},
+					"projectSnapshot": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
 							Ref:     ref("github.com/obot-platform/obot/apiclient/types.ThreadManifest"),
 						},
 					},
-					"tasks": {
+					"mcpServers": {
 						SchemaProps: spec.SchemaProps{
 							Type: []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref("github.com/obot-platform/obot/apiclient/types.TaskManifest"),
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
 									},
 								},
 							},
@@ -4020,11 +4028,11 @@ func schema_obot_platform_obot_apiclient_types_ProjectTemplate(ref common.Refere
 						},
 					},
 				},
-				Required: []string{"Metadata", "ThreadManifest"},
+				Required: []string{"Metadata", "ProjectTemplateManifest"},
 			},
 		},
 		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.Metadata", "github.com/obot-platform/obot/apiclient/types.TaskManifest", "github.com/obot-platform/obot/apiclient/types.ThreadManifest"},
+			"github.com/obot-platform/obot/apiclient/types.Metadata", "github.com/obot-platform/obot/apiclient/types.ProjectTemplateManifest", "github.com/obot-platform/obot/apiclient/types.ThreadManifest"},
 	}
 }
 
@@ -4053,6 +4061,36 @@ func schema_obot_platform_obot_apiclient_types_ProjectTemplateList(ref common.Re
 		},
 		Dependencies: []string{
 			"github.com/obot-platform/obot/apiclient/types.ProjectTemplate"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_ProjectTemplateManifest(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"public": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
+						},
+					},
+					"featured": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
+						},
+					},
+				},
+			},
+		},
 	}
 }
 
@@ -10505,6 +10543,12 @@ func schema_storage_apis_obotobotai_v1_ThreadShareSpec(ref common.ReferenceCallb
 							Format: "",
 						},
 					},
+					"template": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
+						},
+					},
 					"featured": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"boolean"},
@@ -10551,6 +10595,21 @@ func schema_storage_apis_obotobotai_v1_ThreadShareStatus(ref common.ReferenceCal
 					"tools": {
 						SchemaProps: spec.SchemaProps{
 							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+					"mcpServers": {
+						SchemaProps: spec.SchemaProps{
+							Description: "MCPServers contains the MCP server catalog IDs of the MCP servers that have been added to the project thread being shared.",
+							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
@@ -10634,7 +10693,14 @@ func schema_storage_apis_obotobotai_v1_ThreadSpec(ref common.ReferenceCallback) 
 					},
 					"project": {
 						SchemaProps: spec.SchemaProps{
-							Description: "This thread is a project thread which essentially used as a scope and not really used as a thread to chat with",
+							Description: "Project determines whether this thread is a project thread which essentially used as a scope and not really used as a thread to chat with",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"template": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Template determines whether this thread is a project template, an immutable point-in-time snapshot of another project thread",
 							Type:        []string{"boolean"},
 							Format:      "",
 						},
@@ -10841,12 +10907,6 @@ func schema_storage_apis_obotobotai_v1_ThreadStatus(ref common.ReferenceCallback
 						},
 					},
 					"copiedTools": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"boolean"},
-							Format: "",
-						},
-					},
-					"copiedTasksFromParent": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"boolean"},
 							Format: "",

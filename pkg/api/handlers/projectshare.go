@@ -95,8 +95,10 @@ func (h *ProjectShareHandler) GetShare(req api.Context) error {
 func (h *ProjectShareHandler) ListShares(req api.Context) error {
 	var (
 		threadShareList v1.ThreadShareList
-		fields          = kclient.MatchingFields{}
-		all             = req.UserIsAdmin() && req.URL.Query().Get("all") == "true"
+		fields          = kclient.MatchingFields{
+			"spec.template": "false",
+		}
+		all = req.UserIsAdmin() && req.URL.Query().Get("all") == "true"
 	)
 
 	if !all {
@@ -225,6 +227,7 @@ func (h *ProjectShareHandler) CreateProjectFromShare(req api.Context) error {
 
 	if err := req.List(&threadShareList, kclient.InNamespace(req.Namespace()), kclient.MatchingFields{
 		"spec.publicID": shareID,
+		"spec.template": "false", // Ignore template shares
 	}); err != nil {
 		return err
 	}
@@ -268,6 +271,7 @@ func (h *ProjectShareHandler) GetShareFromShareID(req api.Context) error {
 
 	if err := req.List(&threadShareList, kclient.InNamespace(req.Namespace()), kclient.MatchingFields{
 		"spec.publicID": shareID,
+		"spec.template": "false", // Ignore template shares
 	}); err != nil {
 		return err
 	}

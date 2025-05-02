@@ -23,11 +23,15 @@ func (in *Thread) IsProjectBased() bool {
 }
 
 func (in *Thread) IsUserThread() bool {
-	return in.IsProjectBased() && !in.Spec.Project && in.Spec.ParentThreadName != ""
+	return in.IsProjectBased() && !in.Spec.Project && !in.Spec.Template && in.Spec.ParentThreadName != ""
 }
 
 func (in *Thread) IsProjectThread() bool {
 	return in.Spec.Project
+}
+
+func (in *Thread) IsTemplate() bool {
+	return in.Spec.Template
 }
 
 func (in *Thread) IsEditor() bool {
@@ -47,15 +51,19 @@ func (in *Thread) Get(field string) string {
 			return in.Spec.UserID
 		case "spec.project":
 			return strconv.FormatBool(in.Spec.Project)
+		case "spec.template":
+			return strconv.FormatBool(in.Spec.Template)
 		case "spec.parentThreadName":
 			return in.Spec.ParentThreadName
+		case "spec.sourceThreadName":
+			return in.Spec.SourceThreadName
 		}
 	}
 	return ""
 }
 
 func (in *Thread) FieldNames() []string {
-	return []string{"spec.userUID", "spec.project", "spec.agentName", "spec.parentThreadName"}
+	return []string{"spec.userUID", "spec.project", "spec.template", "spec.agentName", "spec.parentThreadName", "spec.sourceThreadName"}
 }
 
 func (in *Thread) GetColumns() [][]string {
@@ -89,8 +97,10 @@ type ThreadSpec struct {
 	SystemTask bool `json:"systemTask,omitempty"`
 	// Abort means that this thread should be aborted immediately
 	Abort bool `json:"abort,omitempty"`
-	// This thread is a project thread which essentially used as a scope and not really used as a thread to chat with
+	// Project determines whether this thread is a project thread which essentially used as a scope and not really used as a thread to chat with
 	Project bool `json:"project,omitempty"`
+	// Template determines whether this thread is a project template, an immutable point-in-time snapshot of another project thread
+	Template bool `json:"template,omitempty"`
 	// Env is the environment variable keys that expected to be set in the credential that matches the thread.Name
 	Env []types.EnvVar `json:"env,omitempty"`
 	// Ephemeral means that this thread is used once and then can be deleted after an interval
@@ -155,11 +165,10 @@ type ThreadStatus struct {
 	KnowledgeSetNames      []string            `json:"knowledgeSetNames,omitempty"`
 	SharedKnowledgeSetName string              `json:"sharedKnowledgeSetName,omitempty"`
 	// SharedWorkspaceName is used primarily to store the database content and is scoped to the project and shared across threads
-	SharedWorkspaceName   string `json:"sharedWorkspaceName,omitempty"`
-	CopiedTasks           bool   `json:"copiedTasks,omitempty"`
-	CopiedTools           bool   `json:"copiedTools,omitempty"`
-	CopiedTasksFromParent bool   `json:"copiedTasksFromParent,omitempty"`
-	Created               bool   `json:"created,omitempty"`
+	SharedWorkspaceName string `json:"sharedWorkspaceName,omitempty"`
+	CopiedTasks         bool   `json:"copiedTasks,omitempty"`
+	CopiedTools         bool   `json:"copiedTools,omitempty"`
+	Created             bool   `json:"created,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

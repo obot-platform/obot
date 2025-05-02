@@ -216,6 +216,10 @@ func (h *ProjectsHandler) GetProject(req api.Context) error {
 		return err
 	}
 
+	if thread.Spec.Template {
+		return types.NewErrBadRequest("template projects are not supported")
+	}
+
 	var parentThread v1.Thread
 	if thread.Spec.ParentThreadName != "" {
 		if err := req.Get(&parentThread, thread.Spec.ParentThreadName); err == nil {
@@ -342,7 +346,8 @@ func (h *ProjectsHandler) getProjects(req api.Context, agent *v1.Agent, all bool
 		auths   v1.ThreadAuthorizationList
 		seen    = make(map[string]bool)
 		fields  = kclient.MatchingFields{
-			"spec.project": "true",
+			"spec.project":  "true",
+			"spec.template": "false",
 		}
 	)
 

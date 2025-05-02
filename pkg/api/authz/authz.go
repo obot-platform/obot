@@ -57,6 +57,7 @@ var staticRules = map[string][]string{
 		// Allow public access to read display info for featured Obots
 		// This is used in the unauthenticated landing page
 		"GET /api/shares",
+		"GET /api/templates",
 		"GET /api/tool-references",
 		"GET /api/mcp/catalog",
 		"GET /api/mcp/catalog/{id}",

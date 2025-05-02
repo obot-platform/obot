@@ -15,7 +15,6 @@ import (
 	"github.com/obot-platform/obot/pkg/invoke"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
-	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
@@ -479,90 +478,22 @@ func (t *Handler) CopyToolsFromSource(req router.Request, _ router.Response) err
 	}
 
 	for _, mcp := range mcpList.Items {
-		newTool := v1.MCPServer{
+		newMCP := v1.MCPServer{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      name.SafeHashConcatName(mcp.Name, thread.Name),
 				Namespace: thread.Namespace,
 			},
 			Spec: mcp.Spec,
 		}
-		if err := create.IfNotExists(req.Ctx, req.Client, &newTool); err != nil {
+		newMCP.Spec.ThreadName = thread.Name
+		newMCP.Spec.UserID = thread.Spec.UserID
+
+		if err := create.IfNotExists(req.Ctx, req.Client, &newMCP); err != nil {
 			return err
 		}
 	}
 
 	thread.Status.CopiedTools = true
-	return req.Client.Status().Update(req.Ctx, thread)
-}
-
-func (t *Handler) CopyTasksFromParent(req router.Request, _ router.Response) error {
-	thread := req.Object.(*v1.Thread)
-	if !thread.Spec.Project || thread.Spec.ParentThreadName == "" {
-		return nil
-	}
-
-	if thread.Status.CopiedTasksFromParent {
-		return nil
-	}
-
-	var parentThread v1.Thread
-	if err := req.Get(&parentThread, thread.Namespace, thread.Spec.ParentThreadName); apierrors.IsNotFound(err) {
-		return nil
-	} else if err != nil {
-		return fmt.Errorf("failed to get parent thread %s: %w", thread.Spec.ParentThreadName, err)
-	}
-
-	for _, taskID := range parentThread.Spec.Manifest.SharedTasks {
-		var wf v1.Workflow
-		if err := req.Get(&wf, thread.Namespace, taskID); apierrors.IsNotFound(err) {
-			continue
-		} else if err != nil {
-			return fmt.Errorf("failed to get workflow %s: %w", taskID, err)
-		} else if wf.Spec.ThreadName != parentThread.Name {
-			continue
-		}
-
-		var (
-			targetWFName = name.SafeHashConcatName(wf.Name, thread.Name)
-			targetWF     v1.Workflow
-			newManifest  = wf.Spec.Manifest
-		)
-		if err := req.Get(&targetWF, thread.Namespace, targetWFName); apierrors.IsNotFound(err) {
-			newManifest.Alias, err = randomtoken.Generate()
-			if err != nil {
-				return err
-			}
-
-			err := req.Client.Create(req.Ctx, &v1.Workflow{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      targetWFName,
-					Namespace: thread.Namespace,
-				},
-				Spec: v1.WorkflowSpec{
-					ThreadName:         thread.Name,
-					Manifest:           newManifest,
-					Managed:            true,
-					SourceThreadName:   parentThread.Name,
-					SourceWorkflowName: wf.Name,
-				},
-			})
-			if err != nil {
-				return err
-			}
-		} else if err != nil {
-			return err
-		} else {
-			newManifest.Alias = targetWF.Spec.Manifest.Alias
-			if !equality.Semantic.DeepEqual(targetWF.Spec.Manifest, newManifest) {
-				targetWF.Spec.Manifest = newManifest
-				if err := req.Client.Update(req.Ctx, &targetWF); err != nil {
-					return fmt.Errorf("failed to update workflow %s: %w", targetWF.Name, err)
-				}
-			}
-		}
-	}
-
-	thread.Status.CopiedTasksFromParent = true
 	return req.Client.Status().Update(req.Ctx, thread)
 }
 

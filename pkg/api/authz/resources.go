@@ -81,6 +81,11 @@ var apiResources = []string{
 	"GET    /api/assistants/{assistant_id}/projects/{project_id}/tasks/{task_id}/runs/{run_id}/files/{file...}",
 	"POST   /api/assistants/{assistant_id}/projects/{project_id}/tasks/{task_id}/runs/{run_id}/files/{file...}",
 	"POST   /api/assistants/{assistant_id}/projects/{project_id}/tasks/{task_id}/runs/{run_id}/steps/{step_id}/run",
+	"PUT    /api/assistants/{assistant_id}/projects/{project_id}/templates/{template_id}",
+	"DELETE /api/assistants/{assistant_id}/projects/{project_id}/templates/{template_id}",
+	"GET    /api/assistants/{assistant_id}/projects/{project_id}/templates/{template_id}",
+	"POST   /api/assistants/{assistant_id}/projects/{project_id}/templates",
+	"GET    /api/assistants/{assistant_id}/projects/{project_id}/templates",
 	"GET    /api/assistants/{assistant_id}/projects/{project_id}/threads",
 	"POST   /api/assistants/{assistant_id}/projects/{project_id}/threads",
 	"DELETE /api/assistants/{assistant_id}/projects/{project_id}/threads/{thread_id}",
@@ -122,6 +127,9 @@ var apiResources = []string{
 	"GET    /api/shares",
 	"POST   /api/shares/{share_public_id}",
 	"GET    /api/shares/{share_public_id}",
+	"GET    /api/templates",
+	"GET    /api/templates/{template_public_id}",
+	"POST   /api/templates/{template_public_id}",
 	"DELETE /api/threads/{thread_id}",
 	"GET    /api/threads/{thread_id}",
 	"PUT    /api/threads/{thread_id}",
@@ -165,6 +173,7 @@ type Resources struct {
 	ProjectID              string
 	ThreadID               string
 	ThreadShareID          string
+	TemplateID             string
 	TaskID                 string
 	MCPServerID            string
 	RunID                  string
@@ -213,6 +222,10 @@ func (a *Authorizer) evaluateResources(req *http.Request, vars GetVar, user user
 	}
 
 	if ok, err := a.checkThreadShare(req, &resources, user); !ok || err != nil {
+		return false, err
+	}
+
+	if ok, err := a.checkTemplate(req, &resources); !ok || err != nil {
 		return false, err
 	}
 
