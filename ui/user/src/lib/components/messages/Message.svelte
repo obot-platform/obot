@@ -253,7 +253,7 @@
 	<div class="mb-1 flex items-center space-x-2">
 		{#if msg.sourceName}
 			<span class="text-sm font-semibold"
-				>{msg.sourceName === 'Assistant' ? project?.name || 'Obot' : msg.sourceName}</span
+				>{msg.sourceName === 'Assistant' ? project?.name || 'Agent' : msg.sourceName}</span
 			>
 		{/if}
 		{#if msg.time}

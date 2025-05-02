@@ -26,8 +26,7 @@
 <div class="flex flex-col items-center justify-center gap-4">
 	<h2 class="px-12 text-2xl font-semibold md:text-4xl">Agent Catalog</h2>
 	<p class="mb-4 max-w-full px-4 text-center text-sm font-light md:max-w-xl md:px-12 md:text-base">
-		Check out our agents below to find the perfect one for you. Or if you're feeling adventurous,
-		get started and create your own obot!
+		Check out our agents below to find the perfect one for you.
 	</p>
 	{#if featured.length > 0}
 		<div class="mb-4 flex w-full flex-col items-center justify-center px-4 md:px-12">

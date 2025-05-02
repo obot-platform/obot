@@ -152,7 +152,7 @@
 			<input
 				id="project-name"
 				type="text"
-				placeholder="Obot Name"
+				placeholder="Agent Name"
 				class="ghost-input border-b-surface1 mb-[1px] w-full pt-4 pb-0 text-center text-base font-bold"
 				bind:value={project.name}
 				bind:this={nameInput}
@@ -161,7 +161,7 @@
 				id="project-desc"
 				class="ghost-input border-b-surface1 text-md scrollbar-none mb-4 w-full grow resize-none pt-0.5 pb-0 text-center font-light"
 				rows="1"
-				placeholder="A short description of your Obot"
+				placeholder="A short description of your agent"
 				use:autoHeight
 				bind:value={project.description}
 			></textarea>
@@ -311,7 +311,7 @@
 					class="mt-3 grid grid-cols-[auto_auto] items-center justify-center gap-x-2 px-5 text-xs font-light"
 				>
 					<span class="text-gray dark:text-gray-400"
-						>Obots aren't perfect. Double check their work.</span
+						>Agents aren't perfect. Double check their work.</span
 					>
 					<a
 						href="https://github.com/obot-platform/obot/issues/new?template=bug_report.md"

@@ -170,7 +170,7 @@
 
 		<p class="text-xs text-gray-500">
 			Enable this to trigger tasks from Slack messages that mention the slack bot you configured
-			with Obot.
+			with your agent.
 		</p>
 	</div>
 {:else}
