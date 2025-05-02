@@ -815,7 +815,7 @@ func (a *AgentHandler) Script(req api.Context) error {
 		}
 	}
 
-	tools, extraEnv, err := render.Agent(req.Context(), req.Storage, &agent, a.serverURL, render.AgentOptions{
+	tools, extraEnv, err := render.Agent(req.Context(), req.Storage, req.GPTClient, &agent, a.serverURL, render.AgentOptions{
 		Thread: thread,
 	})
 	if err != nil {

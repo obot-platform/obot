@@ -44,7 +44,7 @@ func Router(services *services.Services) (http.Handler, error) {
 	sendgridWebhookHandler := sendgrid.NewInboundWebhookHandler(services.StorageClient, services.EmailServerName, services.SendgridWebhookUsername, services.SendgridWebhookPassword)
 	images := handlers.NewImageHandler(services.GatewayClient, services.GeminiClient)
 	slackHandler := handlers.NewSlackHandler(services.GPTClient)
-	mcp := handlers.NewMCPHandler()
+	mcp := handlers.NewMCPHandler(services.GPTClient, services.MCPLoader)
 
 	// Version
 	mux.HandleFunc("GET /api/version", version.GetVersion)
@@ -378,9 +378,11 @@ func Router(services *services.Services) (http.Handler, error) {
 	// MCP Servers
 	mux.HandleFunc("GET /api/assistants/{assistant_id}/projects/{project_id}/mcpservers", mcp.ListServer)
 	mux.HandleFunc("POST /api/assistants/{assistant_id}/projects/{project_id}/mcpservers", mcp.CreateServer)
-	mux.HandleFunc("PUT /api/assistants/{assistant_id}/projects/{project_id}/mcpservers/{id}", mcp.UpdateServer)
-	mux.HandleFunc("GET /api/assistants/{assistant_id}/projects/{project_id}/mcpservers/{id}", mcp.GetServer)
-	mux.HandleFunc("DELETE /api/assistants/{assistant_id}/projects/{project_id}/mcpservers/{id}", mcp.DeleteServer)
+	mux.HandleFunc("PUT /api/assistants/{assistant_id}/projects/{project_id}/mcpservers/{mcp_server_id}", mcp.UpdateServer)
+	mux.HandleFunc("GET /api/assistants/{assistant_id}/projects/{project_id}/mcpservers/{mcp_server_id}", mcp.GetServer)
+	mux.HandleFunc("DELETE /api/assistants/{assistant_id}/projects/{project_id}/mcpservers/{mcp_server_id}", mcp.DeleteServer)
+	mux.HandleFunc("POST /api/assistants/{assistant_id}/projects/{project_id}/mcpservers/{mcp_server_id}/configure", mcp.ConfigureServer)
+	mux.HandleFunc("POST /api/assistants/{assistant_id}/projects/{project_id}/mcpservers/{mcp_server_id}/deconfigure", mcp.DeconfigureServer)
 
 	// Debug
 	mux.HTTPHandle("GET /debug/pprof/", http.DefaultServeMux)

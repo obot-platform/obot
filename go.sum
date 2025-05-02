@@ -349,10 +349,8 @@ github.com/gptscript-ai/datasets v0.0.0-20241125193827-31ce6c3c682b h1:IXgx6Y+g0
 github.com/gptscript-ai/datasets v0.0.0-20241125193827-31ce6c3c682b/go.mod h1:gMAaxAbeIvHtQoj/SKuqvoSGeywqc61/Yw9pusrT/R4=
 github.com/gptscript-ai/go-gptscript v0.9.6-0.20250424204937-af453989e88f h1:JG/uszEGS99hQeajV+h87M2vfQtIONhbdVCC8dpL50E=
 github.com/gptscript-ai/go-gptscript v0.9.6-0.20250424204937-af453989e88f/go.mod h1:QvGPZoRuAiA8P5EzPI05kTrs+LZ0ipHywUGsKruSknw=
-github.com/gptscript-ai/gptscript v0.9.6-0.20250424201734-5ff654398726 h1:38LMWuczXf9EOIBEub0h0cacB1MZ4SFpyoqAAcpIOQ8=
-github.com/gptscript-ai/gptscript v0.9.6-0.20250424201734-5ff654398726/go.mod h1:CxS/D8RCZv1E3ZrLpgyv8Bl5iEd6FcOrzf+AB/22lrc=
-github.com/gptscript-ai/tui v0.0.0-20250204145344-33cd15de4cee h1:70PHW6Xw70yNNZ5aX936XqcMLwNmfMZpCV3FCOGKpxE=
-github.com/gptscript-ai/tui v0.0.0-20250204145344-33cd15de4cee/go.mod h1:iwHxuueg2paOak7zIg0ESBWx7A0wIHGopAratbgaPNY=
+github.com/gptscript-ai/tui v0.0.0-20250419050840-5e79e16786c9 h1:wQC8sKyeGA50WnCEG+Jo5FNRIkuX3HX8d3ubyWCCoI8=
+github.com/gptscript-ai/tui v0.0.0-20250419050840-5e79e16786c9/go.mod h1:iwHxuueg2paOak7zIg0ESBWx7A0wIHGopAratbgaPNY=
 github.com/gregjones/httpcache v0.0.0-20180305231024-9cad4c3443a7 h1:pdN6V1QBWetyv/0+wjACpqVH+eVULgEjkurDLq3goeM=
 github.com/gregjones/httpcache v0.0.0-20180305231024-9cad4c3443a7/go.mod h1:FecbI9+v66THATjSRHfNgh1IVFe/9kFxbXtjV0ctIMA=
 github.com/grpc-ecosystem/go-grpc-middleware v1.3.0 h1:+9834+KizmvFV7pXQGSXQTsaWhq2GjuNUt0aUU0YBYw=
@@ -447,6 +445,8 @@ github.com/lucasb-eyer/go-colorful v1.2.0 h1:1nnpGOrhyZZuNyfu1QjKiUICQ74+3FNCN69
 github.com/lucasb-eyer/go-colorful v1.2.0/go.mod h1:R4dSotOR9KMtayYi1e77YzuveK+i7ruzyGqttikkLy0=
 github.com/mailru/easyjson v0.9.0 h1:PrnmzHw7262yW8sTBwxi1PdJA3Iw/EKBa8psRf7d9a4=
 github.com/mailru/easyjson v0.9.0/go.mod h1:1+xMtQp2MRNVL/V1bOzuP3aP8VNwRW55fQUto+XFtTU=
+github.com/mark3labs/mcp-go v0.21.1 h1:7Ek6KPIIbMhEYHRiRIg6K6UAgNZCJaHKQp926MNr6V0=
+github.com/mark3labs/mcp-go v0.21.1/go.mod h1:KmJndYv7GIgcPVwEKJjNcbhVQ+hJGJhrCCB/9xITzpE=
 github.com/mattn/go-colorable v0.1.2/go.mod h1:U0ppj6V5qS13XJ6of8GYAs25YV2eR4EVcfRqFIhoBtE=
 github.com/mattn/go-colorable v0.1.14 h1:9A9LHSqF/7dyVVX6g0U9cwm9pG3kP9gSzcuIPHPsaIE=
 github.com/mattn/go-colorable v0.1.14/go.mod h1:6LmQG8QLFO4G5z1gPvYEzlUgJ2wF+stgPZH1UqBm1s8=
@@ -504,8 +504,8 @@ github.com/oasdiff/yaml3 v0.0.0-20241210130736-a94c01f36349 h1:t05Ww3DxZutOqbMN+
 github.com/oasdiff/yaml3 v0.0.0-20241210130736-a94c01f36349/go.mod h1:y5+oSEHCPT/DGrS++Wc/479ERge0zTFxaF8PbGKcg2o=
 github.com/obot-platform/kinm v0.0.0-20250328185534-d9c9de49cc20 h1:fESfGLFRnkdVhlAj2O7gsMSzq1htH6QLhG+BlcFr/ZQ=
 github.com/obot-platform/kinm v0.0.0-20250328185534-d9c9de49cc20/go.mod h1:uIt/q4bSrRWxjnX9wGn9i+LfBvN04g0b/c4h5imPCOI=
-github.com/obot-platform/nah v0.0.0-20250409224139-17b79ba23157 h1:QfKnfacLBhE/vjheXmrFVrEuWCZy61nHyxcgnJfHYdU=
-github.com/obot-platform/nah v0.0.0-20250409224139-17b79ba23157/go.mod h1:AUP8EhWbz+tBQn1QMYcBY8EPFN8LFNZvKhOxpt4hafA=
+github.com/obot-platform/nah v0.0.0-20250418220644-1b9278409317 h1:yUEiybfv/VpPf4Ct73cIBIDi++V0x5vzFH79pAXWgL0=
+github.com/obot-platform/nah v0.0.0-20250418220644-1b9278409317/go.mod h1:AUP8EhWbz+tBQn1QMYcBY8EPFN8LFNZvKhOxpt4hafA=
 github.com/obot-platform/namegenerator v0.0.0-20241217121223-fc58bdb7dca2 h1:jiyBM/TYxU6UNVS9ff8Y8n55DOKDYohKkIZjfHpjfTY=
 github.com/obot-platform/namegenerator v0.0.0-20241217121223-fc58bdb7dca2/go.mod h1:isbKX6EfvvG/ojjFB2ZLyz27+2xoG3yRmpTSE+ytWEs=
 github.com/olekukonko/tablewriter v0.0.6-0.20230925090304-df64c4bbad77 h1:3bMMZ1f+GPXFQ1uNaYbO/uECWvSfqEA+ZEXn1rFAT88=
@@ -650,6 +650,8 @@ github.com/xo/terminfo v0.0.0-20220910002029-abceb7e1c41e h1:JVG44RsyaB9T2KIHavM
 github.com/xo/terminfo v0.0.0-20220910002029-abceb7e1c41e/go.mod h1:RbqR21r5mrJuqunuUZ/Dhy/avygyECGrLceyNeo4LiM=
 github.com/xyproto/randomstring v1.0.5 h1:YtlWPoRdgMu3NZtP45drfy1GKoojuR7hmRcnhZqKjWU=
 github.com/xyproto/randomstring v1.0.5/go.mod h1:rgmS5DeNXLivK7YprL0pY+lTuhNQW3iGxZ18UQApw/E=
+github.com/yosida95/uritemplate/v3 v3.0.2 h1:Ed3Oyj9yrmi9087+NczuL5BwkIc4wvTb5zIM+UJPGz4=
+github.com/yosida95/uritemplate/v3 v3.0.2/go.mod h1:ILOh0sOhIJR3+L/8afwt/kE++YT040gmv5BQTMR2HP4=
 github.com/yuin/goldmark v1.1.27/go.mod h1:3hX8gzYuyVAZsxl0MRgGTJEmQBFcNTphYh9decYSb74=
 github.com/yuin/goldmark v1.2.1/go.mod h1:3hX8gzYuyVAZsxl0MRgGTJEmQBFcNTphYh9decYSb74=
 github.com/yuin/goldmark v1.4.13/go.mod h1:6yULJ656Px+3vBD8DxQVa3kxgyrAnzto9xy5taEt/CY=

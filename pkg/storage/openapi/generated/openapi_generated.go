@@ -62,12 +62,14 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/apiclient/types.KnowledgeSourceInput":                         schema_obot_platform_obot_apiclient_types_KnowledgeSourceInput(ref),
 		"github.com/obot-platform/obot/apiclient/types.KnowledgeSourceList":                          schema_obot_platform_obot_apiclient_types_KnowledgeSourceList(ref),
 		"github.com/obot-platform/obot/apiclient/types.KnowledgeSourceManifest":                      schema_obot_platform_obot_apiclient_types_KnowledgeSourceManifest(ref),
+		"github.com/obot-platform/obot/apiclient/types.MCPEnv":                                       schema_obot_platform_obot_apiclient_types_MCPEnv(ref),
 		"github.com/obot-platform/obot/apiclient/types.MCPServer":                                    schema_obot_platform_obot_apiclient_types_MCPServer(ref),
 		"github.com/obot-platform/obot/apiclient/types.MCPServerCatalogEntry":                        schema_obot_platform_obot_apiclient_types_MCPServerCatalogEntry(ref),
 		"github.com/obot-platform/obot/apiclient/types.MCPServerCatalogEntryList":                    schema_obot_platform_obot_apiclient_types_MCPServerCatalogEntryList(ref),
 		"github.com/obot-platform/obot/apiclient/types.MCPServerCatalogEntryManifest":                schema_obot_platform_obot_apiclient_types_MCPServerCatalogEntryManifest(ref),
 		"github.com/obot-platform/obot/apiclient/types.MCPServerList":                                schema_obot_platform_obot_apiclient_types_MCPServerList(ref),
 		"github.com/obot-platform/obot/apiclient/types.MCPServerManifest":                            schema_obot_platform_obot_apiclient_types_MCPServerManifest(ref),
+		"github.com/obot-platform/obot/apiclient/types.MCPServerTool":                                schema_obot_platform_obot_apiclient_types_MCPServerTool(ref),
 		"github.com/obot-platform/obot/apiclient/types.Memory":                                       schema_obot_platform_obot_apiclient_types_Memory(ref),
 		"github.com/obot-platform/obot/apiclient/types.MemoryList":                                   schema_obot_platform_obot_apiclient_types_MemoryList(ref),
 		"github.com/obot-platform/obot/apiclient/types.Metadata":                                     schema_obot_platform_obot_apiclient_types_Metadata(ref),
@@ -2323,6 +2325,54 @@ func schema_obot_platform_obot_apiclient_types_KnowledgeSourceManifest(ref commo
 	}
 }
 
+func schema_obot_platform_obot_apiclient_types_MCPEnv(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"description": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"sensitive": {
+						SchemaProps: spec.SchemaProps{
+							Default: false,
+							Type:    []string{"boolean"},
+							Format:  "",
+						},
+					},
+					"required": {
+						SchemaProps: spec.SchemaProps{
+							Default: false,
+							Type:    []string{"boolean"},
+							Format:  "",
+						},
+					},
+					"file": {
+						SchemaProps: spec.SchemaProps{
+							Default: false,
+							Type:    []string{"boolean"},
+							Format:  "",
+						},
+					},
+				},
+				Required: []string{"name", "description", "sensitive", "required", "file"},
+			},
+		},
+	}
+}
+
 func schema_obot_platform_obot_apiclient_types_MCPServer(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -2341,6 +2391,27 @@ func schema_obot_platform_obot_apiclient_types_MCPServer(ref common.ReferenceCal
 							Ref:     ref("github.com/obot-platform/obot/apiclient/types.MCPServerManifest"),
 						},
 					},
+					"configured": {
+						SchemaProps: spec.SchemaProps{
+							Default: false,
+							Type:    []string{"boolean"},
+							Format:  "",
+						},
+					},
+					"missingRequiredEnvVars": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
 					"catalogID": {
 						SchemaProps: spec.SchemaProps{
 							Default: "",
@@ -2348,12 +2419,25 @@ func schema_obot_platform_obot_apiclient_types_MCPServer(ref common.ReferenceCal
 							Format:  "",
 						},
 					},
+					"tools": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/obot-platform/obot/apiclient/types.MCPServerTool"),
+									},
+								},
+							},
+						},
+					},
 				},
-				Required: []string{"Metadata", "MCPServerManifest", "catalogID"},
+				Required: []string{"Metadata", "MCPServerManifest", "configured", "catalogID"},
 			},
 		},
 		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.MCPServerManifest", "github.com/obot-platform/obot/apiclient/types.Metadata"},
+			"github.com/obot-platform/obot/apiclient/types.MCPServerManifest", "github.com/obot-platform/obot/apiclient/types.MCPServerTool", "github.com/obot-platform/obot/apiclient/types.Metadata"},
 	}
 }
 
@@ -2487,8 +2571,99 @@ func schema_obot_platform_obot_apiclient_types_MCPServerManifest(ref common.Refe
 							Format:  "",
 						},
 					},
+					"env": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/obot-platform/obot/apiclient/types.MCPEnv"),
+									},
+								},
+							},
+						},
+					},
+					"command": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"args": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
 				},
 				Required: []string{"name", "description", "icon"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.MCPEnv"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_MCPServerTool(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"description": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"object"},
+							AdditionalProperties: &spec.SchemaOrBool{
+								Allows: true,
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+					"params": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"object"},
+							AdditionalProperties: &spec.SchemaOrBool{
+								Allows: true,
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"name"},
 			},
 		},
 	}

@@ -15,12 +15,34 @@ type MCPServerManifest struct {
 	Name        string `json:"name"`
 	Description string `json:"description"`
 	Icon        string `json:"icon"`
+
+	Env     []MCPEnv `json:"env,omitempty"`
+	Command string   `json:"command,omitempty"`
+	Args    []string `json:"args,omitempty"`
+}
+
+type MCPEnv struct {
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	Sensitive   bool   `json:"sensitive"`
+	Required    bool   `json:"required"`
+	File        bool   `json:"file"`
 }
 
 type MCPServer struct {
 	Metadata
 	MCPServerManifest
-	CatalogID string `json:"catalogID"`
+	Configured             bool            `json:"configured"`
+	MissingRequiredEnvVars []string        `json:"missingRequiredEnvVars,omitempty"`
+	CatalogID              string          `json:"catalogID"`
+	Tools                  []MCPServerTool `json:"tools,omitempty"`
 }
 
 type MCPServerList List[MCPServer]
+
+type MCPServerTool struct {
+	Name        string            `json:"name"`
+	Description string            `json:"description,omitempty"`
+	Metadata    map[string]string `json:"metadata,omitempty"`
+	Params      map[string]string `json:"params,omitempty"`
+}

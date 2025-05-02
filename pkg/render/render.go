@@ -46,7 +46,7 @@ func stringAppend(first string, second ...string) string {
 	return strings.Join(append([]string{first}, second...), "\n\n")
 }
 
-func Agent(ctx context.Context, db kclient.Client, agent *v1.Agent, oauthServerURL string, opts AgentOptions) (_ []gptscript.ToolDef, extraEnv []string, _ error) {
+func Agent(ctx context.Context, db kclient.Client, gptClient *gptscript.GPTScript, agent *v1.Agent, oauthServerURL string, opts AgentOptions) (_ []gptscript.ToolDef, extraEnv []string, _ error) {
 	defer func() {
 		sort.Strings(extraEnv)
 	}()
@@ -164,7 +164,7 @@ func Agent(ctx context.Context, db kclient.Client, agent *v1.Agent, oauthServerU
 		}
 
 		var customTools v1.ToolList
-		if err := db.List(ctx, &customTools, kclient.InNamespace(topMost.Namespace), kclient.MatchingFields{
+		if err = db.List(ctx, &customTools, kclient.InNamespace(topMost.Namespace), kclient.MatchingFields{
 			"spec.threadName": topMost.Name,
 		}); err != nil {
 			return nil, nil, err
@@ -179,6 +179,29 @@ func Agent(ctx context.Context, db kclient.Client, agent *v1.Agent, oauthServerU
 				mainTool.Tools = append(mainTool.Tools, toolDef.Name)
 				otherTools = append(otherTools, toolDef)
 			}
+		}
+
+		var mcpServers v1.MCPServerList
+		if err = db.List(ctx, &mcpServers, kclient.InNamespace(topMost.Namespace), kclient.MatchingFields{
+			"spec.threadName": topMost.Name,
+		}); err != nil {
+			return nil, nil, err
+		}
+
+		for _, mcpServer := range mcpServers.Items {
+			if mcpServer.Spec.Manifest.Command == "" {
+				// This is for backwards compatibility. We add tool bundles are MCP servers so they show up in the UI.
+				// Ignore them here.
+				continue
+			}
+
+			toolDef, err := mcpServerTool(ctx, gptClient, mcpServer)
+			if err != nil {
+				return nil, nil, err
+			}
+
+			mainTool.Tools = append(mainTool.Tools, toolDef.Name)
+			otherTools = append(otherTools, toolDef)
 		}
 
 		credTool, err := ResolveToolReference(ctx, db, types.ToolReferenceTypeSystem, opts.Thread.Namespace, system.ExistingCredTool)

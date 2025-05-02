@@ -3,6 +3,7 @@ module github.com/obot-platform/obot
 go 1.24.0
 
 replace (
+	github.com/gptscript-ai/gptscript => ../gptscript
 	github.com/obot-platform/obot/apiclient => ./apiclient
 	github.com/obot-platform/obot/logger => ./logger
 )
@@ -26,7 +27,7 @@ require (
 	github.com/liggitt/tabwriter v0.0.0-20181228230101-89fcab3d43de
 	github.com/mhale/smtpd v0.8.3
 	github.com/obot-platform/kinm v0.0.0-20250328185534-d9c9de49cc20
-	github.com/obot-platform/nah v0.0.0-20250409224139-17b79ba23157
+	github.com/obot-platform/nah v0.0.0-20250418220644-1b9278409317
 	github.com/obot-platform/namegenerator v0.0.0-20241217121223-fc58bdb7dca2
 	github.com/obot-platform/obot/apiclient v0.0.0-00010101000000-000000000000
 	github.com/obot-platform/obot/logger v0.0.0-20241217130503-4004a5c69f32
@@ -70,9 +71,11 @@ require (
 	cloud.google.com/go/auth v0.9.3 // indirect
 	github.com/google/s2a-go v0.1.8 // indirect
 	github.com/googleapis/enterprise-certificate-proxy v0.3.4 // indirect
+	github.com/mark3labs/mcp-go v0.21.1 // indirect
 	github.com/pkoukk/tiktoken-go v0.1.7 // indirect
 	github.com/pkoukk/tiktoken-go-loader v0.0.2-0.20240522064338-c17e8bc0f699 // indirect
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
+	github.com/yosida95/uritemplate/v3 v3.0.2 // indirect
 	go.opencensus.io v0.24.0 // indirect
 )
 
@@ -170,7 +173,7 @@ require (
 	github.com/gorilla/css v1.0.1 // indirect
 	github.com/gorilla/websocket v1.5.3 // indirect
 	github.com/gptscript-ai/broadcaster v0.0.0-20240625175512-c43682019b86 // indirect
-	github.com/gptscript-ai/tui v0.0.0-20250204145344-33cd15de4cee // indirect
+	github.com/gptscript-ai/tui v0.0.0-20250419050840-5e79e16786c9 // indirect
 	github.com/gregjones/httpcache v0.0.0-20180305231024-9cad4c3443a7 // indirect
 	github.com/grpc-ecosystem/go-grpc-prometheus v1.2.0 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.26.1 // indirect
