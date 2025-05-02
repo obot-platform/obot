@@ -43,7 +43,7 @@
 			}
 		}}
 		class={twMerge(
-			'card group from-surface2 to-surface1 relative z-20 h-full w-full flex-col overflow-hidden border border-transparent bg-radial-[at_25%_25%] to-75% shadow-md select-none',
+			'card group from-surface2 to-surface1 relative z-20 h-full w-full flex-col overflow-hidden border border-transparent bg-radial-[at_25%_25%] to-75% shadow-sm select-none',
 			selected && !disabled && 'transform-none border border-blue-500',
 			disabled && 'cursor-not-allowed opacity-50'
 		)}
