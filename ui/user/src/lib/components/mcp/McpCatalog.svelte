@@ -13,6 +13,7 @@
 		mcps: MCP[];
 		onSubmitMcp?: (mcpId: string) => void;
 		onSubmitMcps?: (mcpIds: string[]) => void;
+		selectText?: string;
 		submitText?: string;
 		cancelText?: string;
 		selectedMcpIds?: string[];
@@ -24,6 +25,7 @@
 		mcps,
 		onSubmitMcp,
 		onSubmitMcps,
+		selectText,
 		submitText,
 		cancelText,
 		selectedMcpIds,
@@ -52,6 +54,10 @@
 
 	export function open() {
 		dialog?.showModal();
+	}
+
+	export function getSelectedCount() {
+		return selected.length;
 	}
 
 	function nextPage() {
@@ -125,9 +131,9 @@
 							disabled={selected.length === 0}
 						>
 							{#if selected.length <= 1}
-								Add server
+								{submitText || 'Add server'}
 							{:else}
-								Add {selected.length} servers
+								{submitText || `Add ${selected.length} servers`}
 							{/if}
 							<ChevronsRight class="size-4" />
 						</button>
@@ -233,7 +239,7 @@
 				selected.push(mcp.id);
 			}
 		}}
-		{submitText}
+		{selectText}
 		{cancelText}
 		selected={selected.includes(mcp.id)}
 		disabled={preselected.has(mcp.id)}

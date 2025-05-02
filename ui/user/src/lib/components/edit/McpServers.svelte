@@ -126,8 +126,6 @@
 			<McpCatalog
 				bind:this={mcpCatalog}
 				{mcps}
-				submitText="Select server"
-				cancelText="Deselect server"
 				onSubmitMcps={handleMcpsSubmit}
 				subtitle="Extend your agent's capabilities by adding multiple MCP servers from our evergrowing catalog."
 				{selectedMcpIds}

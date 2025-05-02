@@ -342,12 +342,11 @@
 								inline
 								{mcps}
 								selectedMcpIds={createAgent?.mcps}
-								submitText="Add server"
-								onSubmitMcp={(mcpId) => {
+								onSubmitMcps={(mcpIds) => {
 									if (!createAgent) return;
 									createAgent = {
 										...createAgent,
-										mcps: [...createAgent.mcps, mcpId]
+										mcps: [...createAgent.mcps, ...mcpIds]
 									};
 								}}
 							/>

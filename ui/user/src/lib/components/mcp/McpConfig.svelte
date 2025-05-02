@@ -12,7 +12,7 @@
 		onSubmit?: (values?: Record<string, string>) => void;
 		readonly?: boolean;
 		selected?: boolean;
-		submitText?: string;
+		selectText?: string;
 		cancelText?: string;
 	}
 	let {
@@ -22,7 +22,7 @@
 		hideSubmitButton,
 		onSubmit,
 		selected,
-		submitText,
+		selectText,
 		cancelText,
 		readonly
 	}: Props = $props();
@@ -103,7 +103,7 @@
 					onclick={handleSubmit}
 					class="button-primary mt-8 flex w-full items-center justify-center gap-1 self-end md:w-fit"
 				>
-					{submitText ?? 'Select Server'}
+					{selectText ?? 'Select Server'}
 					<ChevronsRight class="size-4" />
 				</button>
 			{/if}

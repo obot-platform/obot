@@ -11,7 +11,7 @@
 		onSubmit: () => void;
 		readonly?: boolean;
 		selected?: boolean;
-		submitText?: string;
+		selectText?: string;
 		cancelText?: string;
 		disabled?: boolean;
 	}
@@ -22,7 +22,7 @@
 		onSubmit,
 		readonly,
 		selected,
-		submitText,
+		selectText,
 		cancelText,
 		disabled
 	}: Props = $props();
@@ -74,6 +74,6 @@
 	{onSubmit}
 	{readonly}
 	{selected}
-	{submitText}
+	{selectText}
 	{cancelText}
 />

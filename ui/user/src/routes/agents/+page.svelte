@@ -33,6 +33,30 @@
 			errors.append((error as Error).message);
 		}
 	}
+
+	async function createAgentFromMcps(mcpIds: string[]) {
+		const project = await EditorService.createObot();
+
+		if (mcpIds.length > 0) {
+			const tools = (await ChatService.listTools(project.assistantID, project.id)).items;
+
+			const updatedTools = [...tools];
+			for (const mcpId of mcpIds) {
+				await ChatService.configureProjectMCP(project.assistantID, project.id, mcpId);
+
+				const matchingIndex = updatedTools.findIndex((tool) => tool.id === mcpId);
+				if (matchingIndex !== -1) {
+					updatedTools[matchingIndex].enabled = true;
+				}
+			}
+
+			await ChatService.updateProjectTools(project.assistantID, project.id, {
+				items: updatedTools
+			});
+		}
+
+		goto(`/o/${project.id}`);
+	}
 </script>
 
 <div class="flex min-h-dvh flex-col items-center">
@@ -281,10 +305,10 @@
 <McpCatalog
 	bind:this={mcpCatalog}
 	mcps={data.mcps}
-	onSubmitMcp={(mcpId) => {
-		goto(`/mcp?id=${mcpId}`);
-	}}
-	submitText="Create agent with server"
+	onSubmitMcps={createAgentFromMcps}
+	submitText={(mcpCatalog?.getSelectedCount() ?? 0) <= 1
+		? 'Create agent with server'
+		: `Create agent with ${mcpCatalog?.getSelectedCount()} servers`}
 />
 
 <svelte:head>
