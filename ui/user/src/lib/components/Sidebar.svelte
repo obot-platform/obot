@@ -128,7 +128,6 @@
 				labelInline
 				checked={helperMode.isEnabled}
 				onChange={(checked) => {
-					console.log('onchange', checked);
 					helperMode.isEnabled = !helperMode.isEnabled;
 				}}
 			/>

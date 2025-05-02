@@ -2,7 +2,7 @@
 	import Profile from '$lib/components/navbar/Profile.svelte';
 	import { fade } from 'svelte/transition';
 	import type { Snippet } from 'svelte';
-	import { darkMode, responsive } from '$lib/stores';
+	import { darkMode } from '$lib/stores';
 	import { Home } from 'lucide-svelte';
 
 	interface Props {

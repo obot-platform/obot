@@ -13,7 +13,7 @@
 	import type { MCP, ProjectShare } from '$lib/services';
 
 	let { data }: PageProps = $props();
-	let { authProviders, isNew, mcps, featuredAgents } = data;
+	let { authProviders, mcps, featuredAgents } = data;
 	let loginDialog = $state<HTMLDialogElement>();
 	let overrideRedirect = $state<string | null>(null);
 	let signUp = $state(true);

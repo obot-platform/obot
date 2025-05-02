@@ -2,7 +2,7 @@
 	import { clickOutside } from '$lib/actions/clickoutside';
 	import type { MCP, ProjectMCP } from '$lib/services';
 	import { responsive } from '$lib/stores';
-	import { ChevronRight, ChevronsRight, CircleCheckBig, X } from 'lucide-svelte';
+	import { ChevronRight, ChevronsRight, X } from 'lucide-svelte';
 
 	interface Props {
 		mcp: MCP | ProjectMCP;

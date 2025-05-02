@@ -36,10 +36,18 @@
 	const bundles: ToolCatalog = $derived.by(() => {
 		return Array.from(getToolBundleMap().values()).reduce<ToolCatalog>(
 			(acc, { tool, bundleTools }) => {
-				console.log(tool);
-				if (mcps.has(tool.id)) {
+				const mcp = mcps.get(tool.id);
+				if (mcp) {
 					acc.push({
-						tool,
+						tool: {
+							...tool,
+							name: mcp.name,
+							description: mcp.description,
+							metadata: {
+								...tool.metadata,
+								icon: mcp.icon || tool.metadata?.icon
+							}
+						},
 						bundleTools
 					});
 				}

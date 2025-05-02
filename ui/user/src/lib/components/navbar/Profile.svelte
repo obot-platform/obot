@@ -2,17 +2,7 @@
 	import ProfileIcon from '$lib/components/profile/ProfileIcon.svelte';
 	import { profile, responsive, darkMode } from '$lib/stores';
 	import Menu from '$lib/components/navbar/Menu.svelte';
-	import {
-		Book,
-		LayoutDashboard,
-		User,
-		LogOut,
-		Moon,
-		Sun,
-		MessageCircle,
-		Server,
-		Bot
-	} from 'lucide-svelte/icons';
+	import { Book, LayoutDashboard, User, LogOut, Moon, Sun } from 'lucide-svelte/icons';
 	import { twMerge } from 'tailwind-merge';
 </script>
 

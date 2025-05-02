@@ -7,7 +7,6 @@
 	import McpCatalog from '$lib/components/mcp/McpCatalog.svelte';
 	import Navbar from '$lib/components/Navbar.svelte';
 	import { goto } from '$app/navigation';
-	import type { MCP } from '$lib/services';
 
 	let { data }: PageProps = $props();
 	const mcps = $derived(data.mcps.sort(sortByPreferredMcpOrder));
