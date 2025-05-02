@@ -7,6 +7,7 @@
 	import { getLayout, openCustomTool } from '$lib/context/layout.svelte';
 	import { getProjectTools } from '$lib/context/projectTools.svelte';
 	import CollapsePane from '$lib/components/edit/CollapsePane.svelte';
+	import { HELPER_TEXTS } from '$lib/context/helperMode.svelte';
 
 	interface Props {
 		project: Project;
@@ -33,12 +34,12 @@
 	}
 </script>
 
-<CollapsePane classes={{ header: 'pl-3 text-md', content: 'p-2' }} iconSize={5}>
-	{#snippet header()}
-		<span class="flex grow items-center gap-2 text-start text-sm font-extralight">
-			Custom Tools
-		</span>
-	{/snippet}
+<CollapsePane
+	classes={{ header: 'pl-3 text-md', content: 'p-2' }}
+	iconSize={5}
+	header="Custom Tools"
+	helpText={HELPER_TEXTS.customTools}
+>
 	<div class="text-md flex flex-col gap-2">
 		{#if enabledCustomTools.length > 0}
 			<div class="flex flex-col">

@@ -194,7 +194,8 @@
 						open={showSteps}
 						classes={{
 							header: 'font-semibold px-0',
-							content: 'bg-transparent px-0 shadow-none'
+							content: 'bg-transparent px-0 shadow-none',
+							headerText: 'text-base font-normal'
 						}}
 					>
 						{@render steps()}

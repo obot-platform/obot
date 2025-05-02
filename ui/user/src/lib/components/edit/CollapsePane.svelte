@@ -2,7 +2,9 @@
 	import { onMount, type Snippet } from 'svelte';
 	import { ChevronDown } from 'lucide-svelte/icons';
 	import { twMerge } from 'tailwind-merge';
-	import { slide } from 'svelte/transition';
+	import { fade, slide } from 'svelte/transition';
+	import { getHelperMode } from '$lib/context/helperMode.svelte';
+	import InfoTooltip from '$lib/components/InfoTooltip.svelte';
 
 	interface Props {
 		endContent?: Snippet;
@@ -10,9 +12,10 @@
 		children: Snippet;
 		open?: boolean;
 		onOpen?: () => void | Promise<void>;
-		classes?: { header?: string; content?: string; root?: string };
+		classes?: { header?: string; headerText?: string; content?: string; root?: string };
 		showDropdown?: boolean;
 		iconSize?: number;
+		helpText?: string;
 	}
 
 	onMount(() => {
@@ -29,7 +32,8 @@
 		onOpen,
 		classes = {},
 		showDropdown = true,
-		iconSize = 6
+		iconSize = 6,
+		helpText
 	}: Props = $props();
 </script>
 
@@ -45,8 +49,18 @@
 			}}
 		>
 			{#if typeof header === 'string'}
-				<span class="grow text-start text-base">
+				<span
+					class={twMerge(
+						'flex grow items-center gap-1 text-start text-sm font-extralight',
+						classes?.headerText
+					)}
+				>
 					{header}
+					{#if getHelperMode().isEnabled && helpText}
+						<div in:fade>
+							<InfoTooltip text={helpText} />
+						</div>
+					{/if}
 				</span>
 			{:else}
 				{@render header()}

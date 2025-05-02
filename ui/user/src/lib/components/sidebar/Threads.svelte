@@ -6,10 +6,11 @@
 	import { closeAll, getLayout, isSomethingSelected } from '$lib/context/layout.svelte.js';
 	import { fade } from 'svelte/transition';
 	import { overflowToolTip } from '$lib/actions/overflow.js';
-	import DotDotDot from '../DotDotDot.svelte';
+	import DotDotDot from '$lib/components/DotDotDot.svelte';
 	import { responsive } from '$lib/stores';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
-	import CollapsePane from '../edit/CollapsePane.svelte';
+	import CollapsePane from '$lib/components/edit/CollapsePane.svelte';
+	import { HELPER_TEXTS } from '$lib/context/helperMode.svelte';
 
 	interface Props {
 		currentThreadID?: string;
@@ -202,12 +203,12 @@
 
 {#if isOpen}
 	{#if editor}
-		<CollapsePane classes={{ header: 'pl-3 py-2', content: 'p-2' }} iconSize={5}>
-			{#snippet header()}
-				<span class="flex grow items-center gap-2 text-start text-sm font-extralight">
-					Threads
-				</span>
-			{/snippet}
+		<CollapsePane
+			classes={{ header: 'pl-3 py-2', content: 'p-2' }}
+			iconSize={5}
+			header="Threads"
+			helpText={HELPER_TEXTS.threads}
+		>
 			<div class="flex flex-col gap-4 text-xs">
 				{@render content()}
 			</div>

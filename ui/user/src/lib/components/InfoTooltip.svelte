@@ -1,23 +1,10 @@
 <script lang="ts">
+	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import { CircleHelpIcon } from 'lucide-svelte';
-	import type { Snippet } from 'svelte';
-	import { popover } from '$lib/actions';
 
-	let { children }: { children: Snippet } = $props();
-	let { ref, tooltip } = popover({
-		placement: 'right',
-		offset: 0
-	});
+	let { text }: { text: string } = $props();
 </script>
 
-<div use:ref class="w-4">
-	<CircleHelpIcon class="text-gray h-4 w-4" />
-</div>
-
-<div use:tooltip={{ hover: true }} class="m-4">
-	<p
-		class="rounded-lg bg-gray-800 p-2 text-sm text-gray-50 shadow-sm dark:bg-gray-100 dark:text-black"
-	>
-		{@render children()}
-	</p>
+<div class="size-3" use:tooltip={text}>
+	<CircleHelpIcon class="text-gray size-3" />
 </div>

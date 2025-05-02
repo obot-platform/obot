@@ -24,6 +24,7 @@
 	import { FileText, Trash2, Upload, X } from 'lucide-svelte/icons';
 	import { onMount } from 'svelte';
 	import CollapsePane from './CollapsePane.svelte';
+	import { HELPER_TEXTS } from '$lib/context/helperMode.svelte';
 
 	interface Props {
 		project: Project;
@@ -239,12 +240,12 @@
 			{/snippet}
 		</Menu>
 	{:else}
-		<CollapsePane classes={{ header: 'pl-3 py-2', content: 'p-2' }} iconSize={5}>
-			{#snippet header()}
-				<span class="flex grow items-center gap-2 text-start text-sm font-extralight">
-					Starter Files
-				</span>
-			{/snippet}
+		<CollapsePane
+			classes={{ header: 'pl-3 py-2', content: 'p-2' }}
+			iconSize={5}
+			header="Starter Files"
+			helpText={HELPER_TEXTS.starterFiles}
+		>
 			<div class="flex flex-col gap-4">
 				{@render content()}
 				<div class="flex justify-end">

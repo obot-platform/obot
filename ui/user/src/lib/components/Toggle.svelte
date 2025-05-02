@@ -3,14 +3,29 @@
 
 	interface Props {
 		label: string;
+		labelInline?: boolean;
 		checked: boolean;
 		onChange: (checked: boolean) => void;
 	}
 
-	let { label, checked, onChange }: Props = $props();
+	let { label, labelInline, checked, onChange }: Props = $props();
 </script>
 
-<label class="relative flex h-4.5 w-8.25" use:tooltip={label}>
+{#if label && !labelInline}
+	<label class="relative flex h-4.5 w-8.25" use:tooltip={label}>
+		<span class="size-0 opacity-0">{label}</span>
+		{@render input()}
+	</label>
+{:else}
+	<label class="flex items-center gap-1">
+		<span class="text-xs text-gray-500">{label}</span>
+		<div class="relative flex h-4.5 w-8.25">
+			{@render input()}
+		</div>
+	</label>
+{/if}
+
+{#snippet input()}
 	<input
 		type="checkbox"
 		{checked}
@@ -22,7 +37,7 @@
 		}}
 	/>
 	<span class="slider rounded-2xl" class:checked></span>
-</label>
+{/snippet}
 
 <style lang="postcss">
 	/* The slider */

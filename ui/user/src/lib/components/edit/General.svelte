@@ -4,6 +4,7 @@
 	import { autoHeight } from '$lib/actions/textarea';
 	import { reactiveLabel } from '$lib/actions/reactiveLabel.svelte';
 	import EditIcon from '$lib/components/edit/EditIcon.svelte';
+	import { HELPER_TEXTS } from '$lib/context/helperMode.svelte';
 
 	interface Props {
 		project: Project;
@@ -12,12 +13,12 @@
 	let { project = $bindable() }: Props = $props();
 </script>
 
-<CollapsePane classes={{ header: 'pl-3 py-2 text-md', content: 'p-2' }} iconSize={5}>
-	{#snippet header()}
-		<span class="flex grow items-center gap-2 text-start text-sm font-extralight">
-			Name & Description
-		</span>
-	{/snippet}
+<CollapsePane
+	classes={{ header: 'pl-3 py-2 text-md', content: 'p-2' }}
+	iconSize={5}
+	header="Name & Description"
+	helpText={HELPER_TEXTS.general}
+>
 	<div class="flex flex-col gap-3 text-sm">
 		<div class="mt-2 flex items-center">
 			<EditIcon bind:project />

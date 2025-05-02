@@ -9,6 +9,7 @@
 	import { qIsSet } from '$lib/url';
 	import { initProjectTools } from '$lib/context/projectTools.svelte.js';
 	import { initProjectMCPs } from '$lib/context/projectMcps.svelte.js';
+	import { initHelperMode } from '$lib/context/helperMode.svelte.js';
 
 	let { data } = $props();
 	let project = $state(data.project);
@@ -21,6 +22,7 @@
 	initToolReferences(data.toolReferences ?? []);
 	initProjectMCPs(data.mcps ?? []);
 	initialLayout();
+	initHelperMode();
 
 	// Initialize project tools immediately
 	initProjectTools({

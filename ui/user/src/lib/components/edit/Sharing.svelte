@@ -8,6 +8,7 @@
 	import CopyButton from '$lib/components/CopyButton.svelte';
 	import { browser } from '$app/environment';
 	import { ChatService, type Project, type ProjectShare } from '$lib/services';
+	import { HELPER_TEXTS } from '$lib/context/helperMode.svelte';
 
 	let toDelete = $state('');
 
@@ -61,21 +62,23 @@
 	}
 </script>
 
-<CollapsePane classes={{ header: 'pl-3 py-2 text-md', content: 'p-0' }} iconSize={5}>
-	{#snippet header()}
-		<span class="flex grow items-center gap-2 text-start text-sm font-extralight"> Sharing </span>
-	{/snippet}
+<CollapsePane
+	classes={{ header: 'pl-3 py-2 text-md', content: 'p-0' }}
+	iconSize={5}
+	header="Sharing"
+	helpText={HELPER_TEXTS.sharing}
+>
 	<div class="flex flex-col">
 		<CollapsePane
 			classes={{
 				header: 'pl-3 pr-5.5 py-2 border-surface3 border-b',
-				content: 'p-3 border-b border-surface3'
+				content: 'p-3 border-b border-surface3',
+				headerText: 'text-sm font-normal'
 			}}
 			iconSize={4}
+			header="Members"
+			helpText={HELPER_TEXTS.members}
 		>
-			{#snippet header()}
-				<p class="w-full text-left text-sm font-normal">Members</p>
-			{/snippet}
 			<div class="flex flex-col gap-2 text-sm">
 				<p class="py-2 text-xs font-light text-gray-500">
 					Modify who has access to collaborate on your agent.
@@ -119,13 +122,13 @@
 		<CollapsePane
 			classes={{
 				header: 'pl-3 pr-5.5 py-2 border-surface3 border-b',
-				content: 'p-3 border-b border-surface3'
+				content: 'p-3 border-b border-surface3',
+				headerText: 'text-sm font-normal'
 			}}
 			iconSize={4}
+			header="ChatBot"
+			helpText={HELPER_TEXTS.chatbot}
 		>
-			{#snippet header()}
-				<p class="w-full text-left text-sm font-normal">ChatBot</p>
-			{/snippet}
 			<div class="flex flex-col gap-3">
 				<div class="flex w-full items-center justify-between gap-4">
 					<p class="flex grow text-sm">Enable ChatBot</p>
@@ -156,13 +159,13 @@
 		<CollapsePane
 			classes={{
 				header: 'pl-3 pr-5.5 py-2 border-surface3 border-b',
-				content: 'p-3 border-b border-surface3'
+				content: 'p-3 border-b border-surface3',
+				headerText: 'text-sm font-normal'
 			}}
 			iconSize={4}
+			header="Agent Template"
+			helpText={HELPER_TEXTS.agentTemplate}
 		>
-			{#snippet header()}
-				<p class="w-full text-left text-sm font-normal">Agent Template</p>
-			{/snippet}
 			<div class="flex flex-col gap-3">
 				<p class="text-xs text-gray-500">Under construction</p>
 			</div>

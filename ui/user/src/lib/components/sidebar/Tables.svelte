@@ -6,6 +6,7 @@
 	import { overflowToolTip } from '$lib/actions/overflow';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import CollapsePane from '$lib/components/edit/CollapsePane.svelte';
+	import { HELPER_TEXTS } from '$lib/context/helperMode.svelte';
 
 	interface Props {
 		project: Project;
@@ -31,10 +32,12 @@
 </script>
 
 {#if editor}
-	<CollapsePane classes={{ header: 'pl-3 py-2', content: 'p-2' }} iconSize={5}>
-		{#snippet header()}
-			<span class="flex grow items-center gap-2 text-start text-sm font-extralight"> Tables </span>
-		{/snippet}
+	<CollapsePane
+		classes={{ header: 'pl-3 py-2', content: 'p-2' }}
+		iconSize={5}
+		header="Tables"
+		helpText={HELPER_TEXTS.tables}
+	>
 		<div class="flex flex-col gap-4">
 			{@render content()}
 			<div class="flex justify-end">

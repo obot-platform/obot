@@ -6,6 +6,7 @@
 	import { autoHeight } from '$lib/actions/textarea';
 	import KnowledgeUpload from '$lib/components/edit/knowledge/KnowledgeUpload.svelte';
 	import CollapsePane from '$lib/components/edit/CollapsePane.svelte';
+	import { HELPER_TEXTS } from '$lib/context/helperMode.svelte';
 
 	interface Props {
 		project: Project;
@@ -41,10 +42,9 @@
 	classes={{ header: 'pl-3 py-2', content: 'p-2' }}
 	iconSize={5}
 	onOpen={() => reload()}
+	header="Knowledge"
+	helpText={HELPER_TEXTS.knowledge}
 >
-	{#snippet header()}
-		<span class="flex grow items-center gap-2 text-start text-sm font-extralight"> Knowledge </span>
-	{/snippet}
 	<div class="flex flex-col gap-2">
 		<p class="py-2 text-xs font-light text-gray-500">
 			Add files or websites to your agent's knowledge base.

@@ -6,6 +6,7 @@
 	import type { IconProps } from 'lucide-svelte';
 	import { twMerge } from 'tailwind-merge';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
+	import { HELPER_TEXTS } from '$lib/context/helperMode.svelte';
 
 	const layout = getLayout();
 
@@ -52,13 +53,12 @@
 	];
 </script>
 
-<CollapsePane classes={{ header: 'pl-3 py-2 text-md', content: 'p-0' }} iconSize={5}>
-	{#snippet header()}
-		<span class="flex grow items-center gap-2 text-start text-sm font-extralight">
-			External Interfaces
-		</span>
-	{/snippet}
-
+<CollapsePane
+	classes={{ header: 'pl-3 py-2 text-md', content: 'p-0' }}
+	iconSize={5}
+	header="External Interfaces"
+	helpText={HELPER_TEXTS.interfaces}
+>
 	<div class="flex flex-col p-2">
 		{#each options as option}
 			<button

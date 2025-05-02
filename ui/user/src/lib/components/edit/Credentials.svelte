@@ -8,6 +8,7 @@
 	import { getProjectTools } from '$lib/context/projectTools.svelte';
 	import { responsive } from '$lib/stores';
 	import type { AssistantTool } from '$lib/services';
+	import { HELPER_TEXTS } from '$lib/context/helperMode.svelte';
 
 	interface Props {
 		project: Project;
@@ -190,14 +191,11 @@
 {:else}
 	<CollapsePane
 		classes={{ header: 'pl-3 py-2 text-md', content: 'p-2' }}
+		header="Credentials"
+		helpText={HELPER_TEXTS.credentials}
 		onOpen={() => reload()}
 		iconSize={5}
 	>
-		{#snippet header()}
-			<span class="flex grow items-center gap-2 text-start text-sm font-extralight">
-				Credentials
-			</span>
-		{/snippet}
 		<p class="py-2 text-xs text-gray-500">
 			Anyone who has access to the agent, such as shared users, will use these credentials.
 		</p>

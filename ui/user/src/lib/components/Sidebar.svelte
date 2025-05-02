@@ -22,6 +22,8 @@
 	import { version } from '$lib/stores';
 	import Logo from '$lib/components/navbar/Logo.svelte';
 	import CollapsePane from '$lib/components/edit/CollapsePane.svelte';
+	import { getHelperMode, HELPER_TEXTS } from '$lib/context/helperMode.svelte';
+	import Toggle from '$lib/components/Toggle.svelte';
 
 	interface Props {
 		project: Project;
@@ -33,6 +35,7 @@
 	let memories = $state<ReturnType<typeof MemoriesDialog>>();
 	const layout = getLayout();
 	const projectTools = getProjectTools();
+	const helperMode = getHelperMode();
 
 	async function createNewThread() {
 		const thread = await ChatService.createThread(project.assistantID, project.id);
@@ -80,15 +83,13 @@
 				<CollapsePane
 					classes={{
 						header: 'pl-3 border-y border-surface2 dark:border-surface3 py-2',
-						content: 'p-0 bg-transparent dark:bg-transparent shadow-none'
+						content: 'p-0 bg-transparent dark:bg-transparent shadow-none',
+						headerText: 'text-sm font-medium'
 					}}
+					header="Configuration"
+					helpText={HELPER_TEXTS.configuration}
 					iconSize={5}
 				>
-					{#snippet header()}
-						<span class="flex grow items-center gap-2 text-start text-sm font-medium">
-							Configuration
-						</span>
-					{/snippet}
 					<General bind:project />
 					<SystemPrompt bind:project />
 					<Introduction bind:project />
@@ -106,17 +107,31 @@
 		{/if}
 	</div>
 
-	{#if hasTool(projectTools.tools, 'memory')}
-		<div class="flex gap-1 px-3 py-2">
-			<button
-				class="icon-button"
-				onclick={() => memories?.show()}
-				use:tooltip={'Memories'}
-				data-memories-btn
-			>
-				<Brain class="icon-default" />
-			</button>
-			<MemoriesDialog bind:this={memories} {project} />
+	<div class="flex items-center justify-between px-3 py-2">
+		<div class="flex items-center gap-1">
+			{#if hasTool(projectTools.tools, 'memory')}
+				<button
+					class="icon-button"
+					onclick={() => memories?.show()}
+					use:tooltip={'Memories'}
+					data-memories-btn
+				>
+					<Brain class="icon-default" />
+				</button>
+				<MemoriesDialog bind:this={memories} {project} />
+			{/if}
 		</div>
-	{/if}
+
+		<div class="flex items-center gap-1">
+			<Toggle
+				label="Toggle Help"
+				labelInline
+				checked={helperMode.isEnabled}
+				onChange={(checked) => {
+					console.log('onchange', checked);
+					helperMode.isEnabled = !helperMode.isEnabled;
+				}}
+			/>
+		</div>
+	</div>
 </div>
