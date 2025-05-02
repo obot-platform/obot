@@ -10,6 +10,7 @@
 	import Obot from '$lib/components/Obot.svelte';
 	import { browser } from '$app/environment';
 	import { initProjectTools, getProjectTools } from '$lib/context/projectTools.svelte';
+	import { initHelperMode } from '$lib/context/helperMode.svelte';
 
 	let { data }: PageProps = $props();
 	let showWarning = $state(false);
@@ -29,6 +30,8 @@
 		tools: [],
 		maxTools: 5
 	});
+
+	initHelperMode();
 
 	const projectTools = getProjectTools();
 
