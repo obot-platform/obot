@@ -19,14 +19,21 @@ type MCPServerManifest struct {
 	Env     []MCPEnv `json:"env,omitempty"`
 	Command string   `json:"command,omitempty"`
 	Args    []string `json:"args,omitempty"`
+
+	URL     string      `json:"url,omitempty"`
+	Headers []MCPHeader `json:"headers,omitempty"`
 }
 
-type MCPEnv struct {
+type MCPHeader struct {
 	Name        string `json:"name"`
 	Description string `json:"description"`
 	Sensitive   bool   `json:"sensitive"`
 	Required    bool   `json:"required"`
-	File        bool   `json:"file"`
+}
+
+type MCPEnv struct {
+	MCPHeader `json:",inline"`
+	File      bool `json:"file"`
 }
 
 type MCPServer struct {
@@ -34,6 +41,7 @@ type MCPServer struct {
 	MCPServerManifest
 	Configured             bool            `json:"configured"`
 	MissingRequiredEnvVars []string        `json:"missingRequiredEnvVars,omitempty"`
+	MissingRequiredHeaders []string        `json:"missingRequiredHeader,omitempty"`
 	CatalogID              string          `json:"catalogID"`
 	Tools                  []MCPServerTool `json:"tools,omitempty"`
 }

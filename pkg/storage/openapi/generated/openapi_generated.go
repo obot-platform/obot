@@ -63,6 +63,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/apiclient/types.KnowledgeSourceList":                          schema_obot_platform_obot_apiclient_types_KnowledgeSourceList(ref),
 		"github.com/obot-platform/obot/apiclient/types.KnowledgeSourceManifest":                      schema_obot_platform_obot_apiclient_types_KnowledgeSourceManifest(ref),
 		"github.com/obot-platform/obot/apiclient/types.MCPEnv":                                       schema_obot_platform_obot_apiclient_types_MCPEnv(ref),
+		"github.com/obot-platform/obot/apiclient/types.MCPHeader":                                    schema_obot_platform_obot_apiclient_types_MCPHeader(ref),
 		"github.com/obot-platform/obot/apiclient/types.MCPServer":                                    schema_obot_platform_obot_apiclient_types_MCPServer(ref),
 		"github.com/obot-platform/obot/apiclient/types.MCPServerCatalogEntry":                        schema_obot_platform_obot_apiclient_types_MCPServerCatalogEntry(ref),
 		"github.com/obot-platform/obot/apiclient/types.MCPServerCatalogEntryList":                    schema_obot_platform_obot_apiclient_types_MCPServerCatalogEntryList(ref),
@@ -2373,6 +2374,47 @@ func schema_obot_platform_obot_apiclient_types_MCPEnv(ref common.ReferenceCallba
 	}
 }
 
+func schema_obot_platform_obot_apiclient_types_MCPHeader(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"description": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"sensitive": {
+						SchemaProps: spec.SchemaProps{
+							Default: false,
+							Type:    []string{"boolean"},
+							Format:  "",
+						},
+					},
+					"required": {
+						SchemaProps: spec.SchemaProps{
+							Default: false,
+							Type:    []string{"boolean"},
+							Format:  "",
+						},
+					},
+				},
+				Required: []string{"name", "description", "sensitive", "required"},
+			},
+		},
+	}
+}
+
 func schema_obot_platform_obot_apiclient_types_MCPServer(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -2399,6 +2441,20 @@ func schema_obot_platform_obot_apiclient_types_MCPServer(ref common.ReferenceCal
 						},
 					},
 					"missingRequiredEnvVars": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+					"missingRequiredHeader": {
 						SchemaProps: spec.SchemaProps{
 							Type: []string{"array"},
 							Items: &spec.SchemaOrArray{
@@ -2604,12 +2660,31 @@ func schema_obot_platform_obot_apiclient_types_MCPServerManifest(ref common.Refe
 							},
 						},
 					},
+					"url": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"headers": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/obot-platform/obot/apiclient/types.MCPHeader"),
+									},
+								},
+							},
+						},
+					},
 				},
 				Required: []string{"name", "description", "icon"},
 			},
 		},
 		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.MCPEnv"},
+			"github.com/obot-platform/obot/apiclient/types.MCPEnv", "github.com/obot-platform/obot/apiclient/types.MCPHeader"},
 	}
 }
 

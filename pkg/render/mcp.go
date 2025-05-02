@@ -3,6 +3,7 @@ package render
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 
 	"github.com/gptscript-ai/go-gptscript"
@@ -13,9 +14,9 @@ import (
 
 func mcpServerTool(ctx context.Context, gptClient *gptscript.GPTScript, mcpServer v1.MCPServer) (gptscript.ToolDef, error) {
 	var credEnv map[string]string
-	if len(mcpServer.Spec.Manifest.Env) != 0 {
+	if len(mcpServer.Spec.Manifest.Env) != 0 || len(mcpServer.Spec.Manifest.Headers) != 0 {
 		cred, err := gptClient.RevealCredential(ctx, []string{fmt.Sprintf("%s-%s", mcpServer.Spec.ThreadName, mcpServer.Name)}, mcpServer.Name)
-		if err != nil {
+		if err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
 			return gptscript.ToolDef{}, fmt.Errorf("MCP Server %s missing required credential: %w", mcpServer.Spec.Manifest.Name, err)
 		}
 
@@ -31,6 +32,8 @@ func MCPServerToolWithCreds(mcpServer v1.MCPServer, credEnv map[string]string) (
 		Command:            mcpServer.Spec.Manifest.Command,
 		Args:               mcpServer.Spec.Manifest.Args,
 		Env:                make([]string, 0, len(mcpServer.Spec.Manifest.Env)),
+		URL:                mcpServer.Spec.Manifest.URL,
+		Headers:            make([]string, 0, len(mcpServer.Spec.Manifest.Headers)),
 		Scope:              mcpServer.Spec.ThreadName,
 	}
 
@@ -41,6 +44,15 @@ func MCPServerToolWithCreds(mcpServer v1.MCPServer, credEnv map[string]string) (
 		}
 
 		serverConfig.Env = append(serverConfig.Env, fmt.Sprintf("%s=%s", env.Name, val))
+	}
+
+	for _, header := range mcpServer.Spec.Manifest.Headers {
+		val, ok := credEnv[header.Name]
+		if !ok && header.Required {
+			return gptscript.ToolDef{}, fmt.Errorf("MCP Server %s missing required header %s", mcpServer.Spec.Manifest.Name, header.Name)
+		}
+
+		serverConfig.Headers = append(serverConfig.Headers, fmt.Sprintf("%s=%s", header.Name, val))
 	}
 
 	b, err := json.Marshal(serverConfig)

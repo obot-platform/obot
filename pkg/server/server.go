@@ -75,7 +75,9 @@ func Run(ctx context.Context, c services.Config) error {
 		Handler: allowEverything.Handler(handler),
 	}
 
+	shutdown := make(chan struct{})
 	context.AfterFunc(ctx, func() {
+		defer close(shutdown)
 		// Shutdown services after controller and web server are done.
 		defer servicesCancel()
 
@@ -91,17 +93,23 @@ func Run(ctx context.Context, c services.Config) error {
 		}
 
 		log.Infof("Shutting down server")
-		if err := s.Shutdown(ctx); err != nil && !errors.Is(err, http.ErrServerClosed) {
+		if err := s.Shutdown(ctx); err != nil {
 			log.Errorf("Failed to gracefully shutdown server: %v", err)
 		}
 
 		// Ensure that the audit logs are persisted.
 		svcs.AuditLogger.Close()
+
+		log.Infof("Shutting down MCP servers")
+		// Shutdown all MCP servers
+		svcs.MCPLoader.Close()
 	})
 
-	if err = s.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+	if err = s.ListenAndServe(); !errors.Is(err, http.ErrServerClosed) {
 		return err
 	}
+
+	<-shutdown
 
 	return nil
 }

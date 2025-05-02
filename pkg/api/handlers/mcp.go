@@ -101,7 +101,7 @@ func (m *MCPHandler) ListServer(req api.Context) error {
 			// If we want to get the tools, then we have to reveal the credentials
 			// so we know what the values are and not only which values are set.
 			c, err := m.gptscript.RevealCredential(req.Context(), []string{fmt.Sprintf("%s-%s", server.Spec.ThreadName, server.Name)}, server.Name)
-			if err != nil {
+			if err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
 				return fmt.Errorf("failed to find credential: %w", err)
 			}
 
@@ -321,7 +321,7 @@ func (m *MCPHandler) toolsForServer(ctx context.Context, server v1.MCPServer, cr
 }
 
 func convertMCPServer(server v1.MCPServer, tools []gtypes.Tool, credEnv map[string]string) types.MCPServer {
-	var missingEnvVars []string
+	var missingEnvVars, missingHeaders []string
 	for _, env := range server.Spec.Manifest.Env {
 		if !env.Required {
 			continue
@@ -329,6 +329,15 @@ func convertMCPServer(server v1.MCPServer, tools []gtypes.Tool, credEnv map[stri
 
 		if _, ok := credEnv[env.Name]; !ok {
 			missingEnvVars = append(missingEnvVars, env.Name)
+		}
+	}
+	for _, header := range server.Spec.Manifest.Headers {
+		if !header.Required {
+			continue
+		}
+
+		if _, ok := credEnv[header.Name]; !ok {
+			missingHeaders = append(missingHeaders, header.Name)
 		}
 	}
 
@@ -357,7 +366,8 @@ func convertMCPServer(server v1.MCPServer, tools []gtypes.Tool, credEnv map[stri
 	return types.MCPServer{
 		Metadata:               MetadataFrom(&server),
 		MissingRequiredEnvVars: missingEnvVars,
-		Configured:             len(missingEnvVars) == 0,
+		MissingRequiredHeaders: missingHeaders,
+		Configured:             len(missingEnvVars) == 0 && len(missingHeaders) == 0,
 		MCPServerManifest:      server.Spec.Manifest,
 		CatalogID:              server.Spec.MCPServerCatalogEntryName,
 		Tools:                  mcpTools,

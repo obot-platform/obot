@@ -189,7 +189,7 @@ func Agent(ctx context.Context, db kclient.Client, gptClient *gptscript.GPTScrip
 		}
 
 		for _, mcpServer := range mcpServers.Items {
-			if mcpServer.Spec.Manifest.Command == "" {
+			if mcpServer.Spec.ToolReferenceName != "" {
 				// This is for backwards compatibility. We add tool bundles are MCP servers so they show up in the UI.
 				// Ignore them here.
 				continue

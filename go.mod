@@ -3,7 +3,7 @@ module github.com/obot-platform/obot
 go 1.24.0
 
 replace (
-	github.com/gptscript-ai/gptscript => ../gptscript
+	github.com/gptscript-ai/gptscript => github.com/thedadams/gptscript v0.0.0-20250502183632-2591aff6ee6c
 	github.com/obot-platform/obot/apiclient => ./apiclient
 	github.com/obot-platform/obot/logger => ./logger
 )
@@ -71,10 +71,11 @@ require (
 	cloud.google.com/go/auth v0.9.3 // indirect
 	github.com/google/s2a-go v0.1.8 // indirect
 	github.com/googleapis/enterprise-certificate-proxy v0.3.4 // indirect
-	github.com/mark3labs/mcp-go v0.21.1 // indirect
+	github.com/mark3labs/mcp-go v0.25.0 // indirect
 	github.com/pkoukk/tiktoken-go v0.1.7 // indirect
 	github.com/pkoukk/tiktoken-go-loader v0.0.2-0.20240522064338-c17e8bc0f699 // indirect
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
+	github.com/spf13/cast v1.7.1 // indirect
 	github.com/yosida95/uritemplate/v3 v3.0.2 // indirect
 	go.opencensus.io v0.24.0 // indirect
 )
