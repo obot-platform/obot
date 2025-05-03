@@ -327,8 +327,8 @@ func convertMCPServer(server v1.MCPServer, tools []gtypes.Tool, credEnv map[stri
 			continue
 		}
 
-		if _, ok := credEnv[env.Name]; !ok {
-			missingEnvVars = append(missingEnvVars, env.Name)
+		if _, ok := credEnv[env.Key]; !ok {
+			missingEnvVars = append(missingEnvVars, env.Key)
 		}
 	}
 	for _, header := range server.Spec.Manifest.Headers {
@@ -336,8 +336,8 @@ func convertMCPServer(server v1.MCPServer, tools []gtypes.Tool, credEnv map[stri
 			continue
 		}
 
-		if _, ok := credEnv[header.Name]; !ok {
-			missingHeaders = append(missingHeaders, header.Name)
+		if _, ok := credEnv[header.Key]; !ok {
+			missingHeaders = append(missingHeaders, header.Key)
 		}
 	}
 

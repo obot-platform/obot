@@ -26,6 +26,7 @@ type MCPServerManifest struct {
 
 type MCPHeader struct {
 	Name        string `json:"name"`
+	Key         string `json:"key"`
 	Description string `json:"description"`
 	Sensitive   bool   `json:"sensitive"`
 	Required    bool   `json:"required"`

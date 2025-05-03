@@ -2339,6 +2339,13 @@ func schema_obot_platform_obot_apiclient_types_MCPEnv(ref common.ReferenceCallba
 							Format:  "",
 						},
 					},
+					"key": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
 					"description": {
 						SchemaProps: spec.SchemaProps{
 							Default: "",
@@ -2368,7 +2375,7 @@ func schema_obot_platform_obot_apiclient_types_MCPEnv(ref common.ReferenceCallba
 						},
 					},
 				},
-				Required: []string{"name", "description", "sensitive", "required", "file"},
+				Required: []string{"name", "key", "description", "sensitive", "required", "file"},
 			},
 		},
 	}
@@ -2381,6 +2388,13 @@ func schema_obot_platform_obot_apiclient_types_MCPHeader(ref common.ReferenceCal
 				Type: []string{"object"},
 				Properties: map[string]spec.Schema{
 					"name": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"key": {
 						SchemaProps: spec.SchemaProps{
 							Default: "",
 							Type:    []string{"string"},
@@ -2409,7 +2423,7 @@ func schema_obot_platform_obot_apiclient_types_MCPHeader(ref common.ReferenceCal
 						},
 					},
 				},
-				Required: []string{"name", "description", "sensitive", "required"},
+				Required: []string{"name", "key", "description", "sensitive", "required"},
 			},
 		},
 	}

@@ -39,6 +39,7 @@ func (c *Controller) setupRoutes() error {
 		c.services.ProviderDispatcher,
 		c.services.ToolRegistryURLs,
 		c.services.SupportDocker,
+		c.services.MCPCatalog,
 	)
 	workspace := workspace.New(c.services.GPTClient, c.services.WorkspaceProviderType)
 	knowledgeset := knowledgeset.New(c.services.Invoker)

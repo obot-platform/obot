@@ -45,7 +45,7 @@ func (c *Controller) PreStart(ctx context.Context) error {
 }
 
 func (c *Controller) PostStart(ctx context.Context, client kclient.Client) {
-	go c.toolRefHandler.PollRegistries(ctx, client)
+	go c.toolRefHandler.PollRegistriesAndCatalogs(ctx, client)
 	var err error
 	for range 3 {
 		err = c.toolRefHandler.EnsureOpenAIEnvCredentialAndDefaults(ctx, client)

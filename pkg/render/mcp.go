@@ -38,21 +38,21 @@ func MCPServerToolWithCreds(mcpServer v1.MCPServer, credEnv map[string]string) (
 	}
 
 	for _, env := range mcpServer.Spec.Manifest.Env {
-		val, ok := credEnv[env.Name]
+		val, ok := credEnv[env.Key]
 		if !ok && env.Required {
-			return gptscript.ToolDef{}, fmt.Errorf("MCP Server %s missing required environment variable %s", mcpServer.Spec.Manifest.Name, env.Name)
+			return gptscript.ToolDef{}, fmt.Errorf("MCP Server %s missing required environment variable %s", mcpServer.Spec.Manifest.Name, env.Key)
 		}
 
-		serverConfig.Env = append(serverConfig.Env, fmt.Sprintf("%s=%s", env.Name, val))
+		serverConfig.Env = append(serverConfig.Env, fmt.Sprintf("%s=%s", env.Key, val))
 	}
 
 	for _, header := range mcpServer.Spec.Manifest.Headers {
-		val, ok := credEnv[header.Name]
+		val, ok := credEnv[header.Key]
 		if !ok && header.Required {
-			return gptscript.ToolDef{}, fmt.Errorf("MCP Server %s missing required header %s", mcpServer.Spec.Manifest.Name, header.Name)
+			return gptscript.ToolDef{}, fmt.Errorf("MCP Server %s missing required header %s", mcpServer.Spec.Manifest.Name, header.Key)
 		}
 
-		serverConfig.Headers = append(serverConfig.Headers, fmt.Sprintf("%s=%s", header.Name, val))
+		serverConfig.Headers = append(serverConfig.Headers, fmt.Sprintf("%s=%s", header.Key, val))
 	}
 
 	b, err := json.Marshal(serverConfig)

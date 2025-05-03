@@ -1,16 +1,22 @@
 package toolreference
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
+	"net/http"
 	"os"
 	"regexp"
+	"slices"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
+	"unicode"
 
 	"github.com/gptscript-ai/go-gptscript"
 	"github.com/obot-platform/nah/pkg/apply"
@@ -58,6 +64,7 @@ type Handler struct {
 	dispatcher     *dispatcher.Dispatcher
 	supportDocker  bool
 	registryURLs   []string
+	mcpCatalogs    []string
 	lastChecksLock *sync.RWMutex
 	lastChecks     map[string]time.Time
 }
@@ -66,11 +73,13 @@ func New(gptClient *gptscript.GPTScript,
 	dispatcher *dispatcher.Dispatcher,
 	registryURLs []string,
 	supportDocker bool,
+	mcpCatalogs []string,
 ) *Handler {
 	return &Handler{
 		gptClient:      gptClient,
 		dispatcher:     dispatcher,
 		registryURLs:   registryURLs,
+		mcpCatalogs:    mcpCatalogs,
 		supportDocker:  supportDocker,
 		lastChecks:     make(map[string]time.Time),
 		lastChecksLock: new(sync.RWMutex),
@@ -210,7 +219,7 @@ func (h *Handler) readFromRegistry(ctx context.Context, c client.Client) error {
 		return errors.Join(errs...)
 	}
 
-	if len(toAdd) < 1 {
+	if len(toAdd) == 0 {
 		// Don't accidentally delete all the tool references
 		return nil
 	}
@@ -218,8 +227,160 @@ func (h *Handler) readFromRegistry(ctx context.Context, c client.Client) error {
 	return apply.New(c).WithOwnerSubContext("toolreferences").Apply(ctx, nil, toAdd...)
 }
 
-func (h *Handler) PollRegistries(ctx context.Context, c client.Client) {
-	if len(h.registryURLs) < 1 {
+func (h *Handler) readMCPCatalog(catalog string) ([]client.Object, error) {
+	var (
+		contents []byte
+		err      error
+	)
+	if strings.HasPrefix(catalog, "http://") || strings.HasPrefix(catalog, "https://") {
+		var resp *http.Response
+		resp, err = http.Get(catalog)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read catalog %s: %w", catalog, err)
+		}
+		defer resp.Body.Close()
+
+		contents, err = io.ReadAll(resp.Body)
+		if resp.StatusCode != http.StatusOK {
+			return nil, fmt.Errorf("unexpected status when reading catalog %s: %s", catalog, string(contents))
+		}
+	} else {
+		// Assume it is a local file.
+		contents, err = os.ReadFile(catalog)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to read catalog %s: %w", catalog, err)
+	}
+
+	var entries []catalogEntryInfo
+	if err = json.Unmarshal(contents, &entries); err != nil {
+		return nil, fmt.Errorf("failed to decode catalog %s: %w", catalog, err)
+	}
+
+	objs := make([]client.Object, 0, len(entries))
+
+	for _, entry := range entries {
+		entry.FullName = string(slices.DeleteFunc(bytes.ToLower([]byte(entry.FullName)), func(r byte) bool {
+			return r != '/' && !unicode.IsLetter(rune(r)) && !unicode.IsNumber(rune(r))
+		}))
+		catalogEntry := v1.MCPServerCatalogEntry{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      name.SafeHashConcatName(strings.Split(entry.FullName, "/")...),
+				Namespace: system.DefaultNamespace,
+			},
+		}
+
+		var manifests []mcpServerConfig
+		if err = json.Unmarshal([]byte(entry.Manifest), &manifests); err != nil {
+			// It wasn't an array, see if it is a single object
+			var manifest mcpServerManifest
+			if err = json.Unmarshal([]byte(entry.Manifest), &manifest); err != nil {
+				return nil, fmt.Errorf("failed to decode manifest for %s: %w", entry.DisplayName, err)
+			}
+			manifests = append(manifests, manifest.Configs...)
+		}
+
+		for i, c := range manifests {
+			displayName := entry.DisplayName
+			if c.Command != "" {
+				switch c.Command {
+				case "docker", "npx", "uvx":
+				default:
+					log.Debugf("Ignoring MCP catalog entry %s: unsupported command %s", entry.DisplayName, c.Command)
+					continue
+				}
+				displayName += " with " + c.Command
+			} else if c.URL != "" {
+				displayName += " with SSE"
+			}
+
+			e := catalogEntry
+			if i > 0 {
+				e.Name = name.SafeHashConcatName(e.Name, strconv.Itoa(i))
+			}
+
+			e.Spec.Manifest = types.MCPServerCatalogEntryManifest{
+				Server: types.MCPServerManifest{
+					Name:        displayName,
+					Description: entry.Description,
+					Icon:        entry.Icon,
+					Env:         c.Env,
+					Command:     c.Command,
+					Args:        c.Args,
+					URL:         c.URL,
+					Headers:     c.HTTPHeaders,
+				},
+			}
+
+			objs = append(objs, &e)
+		}
+	}
+
+	return objs, nil
+}
+
+func (h *Handler) readFromMCPCatalogs(ctx context.Context, c client.Client) error {
+	var (
+		toAdd []client.Object
+		errs  []error
+	)
+	for _, catalog := range h.mcpCatalogs {
+		entries, err := h.readMCPCatalog(catalog)
+		if err != nil {
+			errs = append(errs, fmt.Errorf("failed to read MCP catalog %s: %w", catalog, err))
+			continue
+		}
+
+		toAdd = append(toAdd, entries...)
+	}
+
+	if len(errs) > 0 {
+		// Don't accidentally delete tool entries for catalogs that failed to be read.
+		return errors.Join(errs...)
+	}
+
+	if len(toAdd) == 0 {
+		// Don't accidentally delete all the catalog entries
+		return nil
+	}
+
+	return apply.New(c).WithOwnerSubContext("mcpcatalogentries").Apply(ctx, nil, toAdd...)
+}
+
+type catalogEntryInfo struct {
+	ID              int    `json:"id"`
+	Path            string `json:"path"`
+	DisplayName     string `json:"displayName"`
+	FullName        string `json:"fullName"`
+	URL             string `json:"url"`
+	Description     string `json:"description"`
+	Stars           int    `json:"stars"`
+	ReadmeContent   string `json:"readmeContent"`
+	Language        string `json:"language"`
+	Metadata        string `json:"metadata"`
+	License         string `json:"license"`
+	Icon            string `json:"icon"`
+	Manifest        string `json:"manifest"`
+	ToolDefinitions string `json:"toolDefinitions"`
+}
+
+type mcpServerManifest struct {
+	Name        string            `json:"name"`
+	Description string            `json:"description"`
+	Category    string            `json:"category"`
+	Configs     []mcpServerConfig `json:"configs"`
+}
+
+type mcpServerConfig struct {
+	Env         []types.MCPEnv    `json:"env"`
+	Command     string            `json:"command,omitempty"`
+	Args        []string          `json:"args,omitempty"`
+	HTTPHeaders []types.MCPHeader `json:"httpHeaders,omitempty"`
+	URL         string            `json:"url,omitempty"`
+}
+
+func (h *Handler) PollRegistriesAndCatalogs(ctx context.Context, c client.Client) {
+	if len(h.registryURLs) == 0 && len(h.mcpCatalogs) == 0 {
 		return
 	}
 
@@ -228,6 +389,9 @@ func (h *Handler) PollRegistries(ctx context.Context, c client.Client) {
 	for {
 		if err := h.readFromRegistry(ctx, c); err != nil {
 			log.Errorf("Failed to read from registries: %v", err)
+		}
+		if err := h.readFromMCPCatalogs(ctx, c); err != nil {
+			log.Errorf("Failed to read from MCP catalogs: %v", err)
 		}
 
 		select {
