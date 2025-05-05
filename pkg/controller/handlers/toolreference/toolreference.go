@@ -12,7 +12,6 @@ import (
 	"os"
 	"regexp"
 	"slices"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -290,39 +289,66 @@ func (h *Handler) readMCPCatalog(catalog string) ([]client.Object, error) {
 			manifests = append(manifests, manifest.Configs...)
 		}
 
-		for i, c := range manifests {
+		var (
+			preferredFound, commandFound, urlFound bool
+
+			e    = catalogEntry
+			urlE = catalogEntry
+		)
+		for _, c := range manifests {
 			displayName := entry.DisplayName
 			if c.Command != "" {
+				if preferredFound {
+					continue
+				}
 				switch c.Command {
 				case "docker", "npx", "uvx":
 				default:
 					log.Debugf("Ignoring MCP catalog entry %s: unsupported command %s", entry.DisplayName, c.Command)
 					continue
 				}
+
+				preferredFound = c.Preferred
+				if !preferredFound && !isCommandPreferred(e.Spec.Manifest.Server.Command, c.Command) {
+					continue
+				}
+
+				commandFound = true
 				displayName += " with " + c.Command
+				e.Spec.Manifest = types.MCPServerCatalogEntryManifest{
+					Server: types.MCPServerManifest{
+						Name:        displayName,
+						Description: entry.Description,
+						Icon:        entry.Icon,
+						Env:         c.Env,
+						Command:     c.Command,
+						Args:        c.Args,
+						URL:         c.URL,
+						Headers:     c.HTTPHeaders,
+					},
+				}
+
 			} else if c.URL != "" {
+				urlFound = true
 				displayName += " with SSE"
+				urlE.Name = name.SafeHashConcatName(e.Name, "sse")
+				urlE.Spec.Manifest = types.MCPServerCatalogEntryManifest{
+					Server: types.MCPServerManifest{
+						Name:        displayName,
+						Description: entry.Description,
+						Icon:        entry.Icon,
+						URL:         c.URL,
+						Headers:     c.HTTPHeaders,
+					},
+				}
 			}
+		}
 
-			e := catalogEntry
-			if i > 0 {
-				e.Name = name.SafeHashConcatName(e.Name, strconv.Itoa(i))
-			}
-
-			e.Spec.Manifest = types.MCPServerCatalogEntryManifest{
-				Server: types.MCPServerManifest{
-					Name:        displayName,
-					Description: entry.Description,
-					Icon:        entry.Icon,
-					Env:         c.Env,
-					Command:     c.Command,
-					Args:        c.Args,
-					URL:         c.URL,
-					Headers:     c.HTTPHeaders,
-				},
-			}
-
+		if commandFound {
 			objs = append(objs, &e)
+		}
+		if urlFound {
+			objs = append(objs, &urlE)
 		}
 	}
 
@@ -357,6 +383,22 @@ func (h *Handler) readFromMCPCatalogs(ctx context.Context, c client.Client) erro
 	return apply.New(c).WithOwnerSubContext("mcpcatalogentries").Apply(ctx, nil, toAdd...)
 }
 
+func isCommandPreferred(existing, newer string) bool {
+	if existing == "" {
+		return true
+	}
+	if newer == "" || existing == "npx" {
+		return false
+	}
+
+	if existing == "uvx" {
+		return newer == "npx"
+	}
+
+	// This would mean that existing is docker and newer is either npx or uvx.
+	return true
+}
+
 type catalogEntryInfo struct {
 	ID              int    `json:"id"`
 	Path            string `json:"path"`
@@ -388,6 +430,7 @@ type mcpServerConfig struct {
 	HTTPHeaders    []types.MCPHeader `json:"httpHeaders,omitempty"`
 	URL            string            `json:"url,omitempty"`
 	URLDescription string            `json:"urlDescription,omitempty"`
+	Preferred      bool              `json:"preferred,omitempty"`
 }
 
 func (h *Handler) PollRegistriesAndCatalogs(ctx context.Context, c client.Client) {
