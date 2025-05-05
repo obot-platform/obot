@@ -201,7 +201,7 @@
 					class="bg-surface3 absolute top-1/2 left-1/2 h-[1px] w-full -translate-x-1/2 -translate-y-1/2"
 				></div>
 				<h2 class="relative z-10 bg-white px-4 text-xl font-semibold dark:bg-black">
-					Getting Started
+					Get Started with One-Click
 				</h2>
 			</div>
 

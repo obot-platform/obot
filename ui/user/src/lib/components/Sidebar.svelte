@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { ChatService, type Project } from '$lib/services';
-	import { Brain, MessageCirclePlus } from 'lucide-svelte';
+	import { MessageCirclePlus, SidebarClose } from 'lucide-svelte';
 	import { hasTool } from '$lib/tools';
 	import { closeAll, getLayout } from '$lib/context/layout.svelte';
 	import Credentials from '$lib/components/edit/Credentials.svelte';
@@ -14,16 +14,16 @@
 	import CustomTools from '$lib/components/edit/CustomTools.svelte';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import { getProjectTools } from '$lib/context/projectTools.svelte';
-	import MemoriesDialog from '$lib/components/MemoriesDialog.svelte';
 	import Threads from '$lib/components/sidebar/Threads.svelte';
 	import Tables from '$lib/components/sidebar/Tables.svelte';
 	import SystemPrompt from '$lib/components/edit/SystemPrompt.svelte';
 	import Introduction from '$lib/components/edit/Introduction.svelte';
-	import { version } from '$lib/stores';
+	import { responsive, version } from '$lib/stores';
 	import Logo from '$lib/components/navbar/Logo.svelte';
 	import CollapsePane from '$lib/components/edit/CollapsePane.svelte';
 	import { getHelperMode, HELPER_TEXTS } from '$lib/context/helperMode.svelte';
 	import Toggle from '$lib/components/Toggle.svelte';
+	import Memories from '$lib/components/edit/Memories.svelte';
 
 	interface Props {
 		project: Project;
@@ -32,7 +32,6 @@
 	}
 
 	let { project = $bindable(), currentThreadID = $bindable(), shared }: Props = $props();
-	let memories = $state<ReturnType<typeof MemoriesDialog>>();
 	const layout = getLayout();
 	const projectTools = getProjectTools();
 	const helperMode = getHelperMode();
@@ -69,16 +68,23 @@
 				<MessageCirclePlus class="size-6" />
 			</button>
 		{/if}
+		{#if responsive.isMobile}
+			{@render closeSidebar()}
+		{/if}
 	</div>
 	<div class="default-scrollbar-thin flex w-full grow flex-col">
 		{#if project.editor && !shared}
-			<McpServers {project} />
 			<Threads {project} bind:currentThreadID editor />
 			<Tasks {project} bind:currentThreadID />
+			<McpServers {project} />
+			<Credentials {project} local />
+			{#if hasTool(projectTools.tools, 'memory')}
+				<Memories {project} />
+			{/if}
+
 			{#if hasTool(projectTools.tools, 'database')}
 				<Tables {project} editor />
 			{/if}
-			<Credentials {project} />
 			<div class="mt-auto flex flex-col">
 				<CollapsePane
 					classes={{
@@ -109,20 +115,6 @@
 
 	<div class="flex items-center justify-between px-3 py-2">
 		<div class="flex items-center gap-1">
-			{#if hasTool(projectTools.tools, 'memory')}
-				<button
-					class="icon-button"
-					onclick={() => memories?.show()}
-					use:tooltip={'Memories'}
-					data-memories-btn
-				>
-					<Brain class="icon-default" />
-				</button>
-				<MemoriesDialog bind:this={memories} {project} />
-			{/if}
-		</div>
-
-		<div class="flex items-center gap-1">
 			<Toggle
 				label="Toggle Help"
 				labelInline
@@ -130,5 +122,15 @@
 				onChange={() => (helperMode.isEnabled = !helperMode.isEnabled)}
 			/>
 		</div>
+
+		{#if !responsive.isMobile}
+			{@render closeSidebar()}
+		{/if}
 	</div>
 </div>
+
+{#snippet closeSidebar()}
+	<button class="icon-button" onclick={() => (layout.sidebarOpen = false)}>
+		<SidebarClose class="size-6" />
+	</button>
+{/snippet}

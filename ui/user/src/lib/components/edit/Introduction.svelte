@@ -33,7 +33,7 @@
 		</div>
 
 		<div class="flex flex-col gap-2">
-			<p class="font-medium">Starter Messages</p>
+			<p class="font-medium">Conversation Starters</p>
 			<p class="text-xs font-light text-gray-500">
 				These messages are conversation options that are provided to the user. Help break the ice
 				with your agent by providing a few different options!

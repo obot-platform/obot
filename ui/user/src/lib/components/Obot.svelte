@@ -8,7 +8,7 @@
 	import type { EditorItem } from '$lib/services/editor/index.svelte';
 	import { errors, responsive } from '$lib/stores';
 	import { closeAll, getLayout } from '$lib/context/layout.svelte';
-	import { GripVertical, MessageCirclePlus, Plus } from 'lucide-svelte';
+	import { GripVertical, MessageCirclePlus, Plus, SidebarOpen } from 'lucide-svelte';
 	import { fade, slide } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';
 	import Logo from './navbar/Logo.svelte';
@@ -165,6 +165,9 @@
 								<MessageCirclePlus class="size-6" />
 							</button>
 						{/if}
+						{#if !layout.sidebarOpen && responsive.isMobile}
+							{@render openSidebar()}
+						{/if}
 					{/snippet}
 					{#snippet centerContent()}
 						{#if !responsive.isMobile}
@@ -189,19 +192,16 @@
 					{/snippet}
 				</Navbar>
 			</div>
-			<!-- {#if !layout.projectEditorOpen && !layout.fileEditorOpen && !layout.sidebarConfig}
-				<div class="absolute top-[76px] right-5 z-30 flex flex-col gap-4" in:fade={{ delay: 300 }}>
-					<button
-						use:tooltip={'New Agent'}
-						class="icon-button border-surface3 border p-2"
-						onclick={() => createNewAgent()}
-					>
-						<Plus class="size-5" />
-					</button>
+			{#if !layout.sidebarOpen && !responsive.isMobile}
+				<div class="absolute bottom-2 left-2 z-30" in:fade={{ delay: 300 }}>
+					{@render openSidebar()}
 				</div>
-			{/if} -->
+			{/if}
 
-			<div class="relative flex h-[calc(100%-76px)] max-w-full grow">
+			<div
+				class="relative flex h-[calc(100%-76px)] max-w-full grow"
+				class:pl-12={!layout.sidebarOpen && !responsive.isMobile}
+			>
 				{#if !responsive.isMobile || (responsive.isMobile && !layout.fileEditorOpen)}
 					{#if layout.editTaskID && layout.tasks}
 						{#each layout.tasks as task, i}
@@ -334,3 +334,9 @@
 		</main>
 	</div>
 </div>
+
+{#snippet openSidebar()}
+	<button class="icon-button" onclick={() => (layout.sidebarOpen = true)}>
+		<SidebarOpen class="size-6" />
+	</button>
+{/snippet}

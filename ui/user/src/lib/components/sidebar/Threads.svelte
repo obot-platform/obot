@@ -208,6 +208,7 @@
 			iconSize={5}
 			header="Threads"
 			helpText={HELPER_TEXTS.threads}
+			open={(layout.threads?.length ?? 0) > 0}
 		>
 			<div class="flex flex-col gap-4 text-xs">
 				{@render content()}
@@ -261,7 +262,7 @@
 				{:else}
 					<button
 						use:overflowToolTip
-						class:font-normal={isCurrentThread(thread)}
+						class:font-medium={isCurrentThread(thread)}
 						class="h-full grow p-2 text-start"
 						onclick={() => selectThread(thread.id)}
 					>

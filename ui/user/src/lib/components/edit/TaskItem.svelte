@@ -75,7 +75,7 @@
 			</button>
 			<button
 				use:overflowToolTip
-				class:font-normal={layout.editTaskID === task.id}
+				class:font-medium={layout.editTaskID === task.id}
 				class={twMerge('grow py-2 pr-2 text-left text-xs font-light', classes?.title)}
 				onclick={async () => {
 					if (responsive.isMobile) {

@@ -18,7 +18,7 @@
 	}
 
 	const projectTools = getProjectTools();
-	let { project, local, onClose, currentThreadID }: Props = $props();
+	let { project, local, currentThreadID }: Props = $props();
 
 	let { ref, tooltip, toggle } = popover();
 	let threadTools = $state<AssistantTool[]>([]);
@@ -47,7 +47,6 @@
 	});
 	let authDialog: ReturnType<typeof CredentialAuth> | undefined = $state();
 	let credToAuth = $state<ProjectCredential | undefined>();
-	let showAuthInline = $state(false);
 
 	$effect(() => {
 		if (currentThreadID) {
@@ -82,9 +81,6 @@
 	}
 
 	async function addCred(cred: ProjectCredential) {
-		if (local) {
-			showAuthInline = true;
-		}
 		credToAuth = cred;
 		toggle(false);
 		authDialog?.show();
@@ -111,7 +107,7 @@
 									alt="credential {cred.toolName} icon"
 								/>
 							{/if}
-							<span class="text-sm font-medium">{cred.toolName}</span>
+							<span class="text-xs font-light">{cred.toolName}</span>
 						</div>
 					</div>
 					{#if remove}
@@ -151,7 +147,7 @@
 			<div class="self-end" in:fade>
 				<button use:ref class="button flex items-center gap-1" onclick={() => toggle()}>
 					<Plus class="h-4 w-4" />
-					<span class="text-sm">Credential</span>
+					<span class="text-xs">Credential</span>
 				</button>
 			</div>
 		{/if}
@@ -164,41 +160,18 @@
 	credential={credToAuth}
 	{project}
 	onClose={() => {
-		showAuthInline = false;
 		credToAuth = undefined;
 		reload();
 	}}
 	{local}
 />
-{#if local}
-	{#if !showAuthInline}
-		<h1
-			class="default-dialog-title flex items-center text-xl font-semibold md:justify-between"
-			class:default-dialog-mobile-title={responsive.isMobile}
-		>
-			Credentials
-			<button
-				class="icon-button translate-x-2"
-				class:mobile-header-button={responsive.isMobile}
-				onclick={() => onClose?.()}
-			>
-				<X class="icon-default" />
-			</button>
-		</h1>
-		<p class="text-sm text-gray-500">These credentials are used by all threads in this agent.</p>
-		{@render body()}
-	{/if}
-{:else}
-	<CollapsePane
-		classes={{ header: 'pl-3 py-2 text-md', content: 'p-2' }}
-		header="Credentials"
-		helpText={HELPER_TEXTS.credentials}
-		onOpen={() => reload()}
-		iconSize={5}
-	>
-		<p class="py-2 text-xs text-gray-500">
-			Anyone who has access to the agent, such as shared users, will use these credentials.
-		</p>
-		{@render body()}
-	</CollapsePane>
-{/if}
+
+<CollapsePane
+	classes={{ header: 'pl-3 py-2 text-md', content: 'p-2' }}
+	header="Credentials"
+	helpText={HELPER_TEXTS.credentials}
+	onOpen={() => reload()}
+	iconSize={5}
+>
+	{@render body()}
+</CollapsePane>

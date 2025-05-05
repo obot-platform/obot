@@ -89,6 +89,7 @@
 	iconSize={5}
 	header="MCP Servers"
 	helpText={HELPER_TEXTS.mcpServers}
+	open={projectMCPs.items.length > 0}
 >
 	<div class="flex flex-col gap-2">
 		{#if projectMCPs.items.length > 0}

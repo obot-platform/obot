@@ -192,17 +192,19 @@
 
 {#snippet chatbotsSection()}
 	<h1 class="text-2xl font-semibold">Chatbots</h1>
-	{@render table(chatbots)}
+	{@render table(chatbots, true)}
 {/snippet}
 
-{#snippet table(projects: Project[])}
+{#snippet table(projects: Project[], displayOwner?: boolean)}
 	<div class="dark:bg-surface2 w-full overflow-hidden rounded-md bg-white shadow-sm">
 		<table class="w-full border-collapse">
 			<thead class="dark:bg-surface1 bg-surface2">
 				<tr>
 					<th class="text-md w-1/2 px-4 py-2 text-left font-medium text-gray-500">Name</th>
 					{#if !responsive.isMobile}
-						<th class="text-md w-1/4 px-4 py-2 text-left font-medium text-gray-500">Owner</th>
+						{#if displayOwner}
+							<th class="text-md w-1/4 px-4 py-2 text-left font-medium text-gray-500">Owner</th>
+						{/if}
 						<th class="text-md w-1/4 px-4 py-2 text-left font-medium text-gray-500">Created</th>
 					{/if}
 					<th class="text-md float-right w-auto px-4 py-2 text-left font-medium text-gray-500"
@@ -219,7 +221,7 @@
 	</div>
 {/snippet}
 
-{#snippet row(project: Project)}
+{#snippet row(project: Project, displayOwner?: boolean)}
 	<tr class="border-surface2 dark:border-surface2 border-t shadow-xs">
 		<td>
 			<a href={`/o/${project.id}`}>
@@ -241,9 +243,11 @@
 			</a>
 		</td>
 		{#if !responsive.isMobile}
-			<td class="text-sm font-light">
-				<a class="flex h-full w-full px-4 py-2" href={`/o/${project.id}`}>Unspecified</a>
-			</td>
+			{#if displayOwner}
+				<td class="text-sm font-light">
+					<a class="flex h-full w-full px-4 py-2" href={`/o/${project.id}`}>Unspecified</a>
+				</td>
+			{/if}
 			<td class="text-sm font-light">
 				<a class="flex h-full w-full px-4 py-2" href={`/o/${project.id}`}
 					>{formatTime(project.created)}</a

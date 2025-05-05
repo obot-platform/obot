@@ -94,6 +94,7 @@
 	iconSize={5}
 	header="Tasks"
 	helpText={HELPER_TEXTS.tasks}
+	open={(layout.tasks?.length ?? 0) > 0}
 >
 	<div class="flex flex-col gap-4">
 		{#if layout.tasks && layout.tasks.length > 0}
