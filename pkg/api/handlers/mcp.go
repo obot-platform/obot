@@ -201,6 +201,10 @@ func (m *MCPHandler) CreateServer(req api.Context) error {
 		server.Spec.ToolReferenceName = catalogEntry.Spec.ToolReferenceName
 	}
 
+	if input.URL != "" {
+		server.Spec.Manifest.URL = input.URL
+	}
+
 	if err = req.Create(&server); err != nil {
 		return err
 	}
