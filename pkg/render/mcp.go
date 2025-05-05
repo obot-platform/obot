@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/gptscript-ai/go-gptscript"
 	gmcp "github.com/gptscript-ai/gptscript/pkg/mcp"
@@ -12,12 +13,21 @@ import (
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 )
 
+type UnconfiguredMCPError struct {
+	MCPName string
+	Missing []string
+}
+
+func (e *UnconfiguredMCPError) Error() string {
+	return fmt.Sprintf("MCP server %s missing required configuration parameters: %s", e.MCPName, strings.Join(e.Missing, ", "))
+}
+
 func mcpServerTool(ctx context.Context, gptClient *gptscript.GPTScript, mcpServer v1.MCPServer) (gptscript.ToolDef, error) {
 	var credEnv map[string]string
 	if len(mcpServer.Spec.Manifest.Env) != 0 || len(mcpServer.Spec.Manifest.Headers) != 0 {
 		cred, err := gptClient.RevealCredential(ctx, []string{fmt.Sprintf("%s-%s", mcpServer.Spec.ThreadName, mcpServer.Name)}, mcpServer.Name)
 		if err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
-			return gptscript.ToolDef{}, fmt.Errorf("MCP Server %s missing required credential: %w", mcpServer.Spec.Manifest.Name, err)
+			return gptscript.ToolDef{}, fmt.Errorf("failed to reveal credential for MCP server %s: %w", mcpServer.Spec.Manifest.Name, err)
 		}
 
 		credEnv = cred.Env
@@ -37,10 +47,16 @@ func MCPServerToolWithCreds(mcpServer v1.MCPServer, credEnv map[string]string) (
 		Scope:              mcpServer.Spec.ThreadName,
 	}
 
+	var missingRequiredNames []string
 	for _, env := range mcpServer.Spec.Manifest.Env {
 		val, ok := credEnv[env.Key]
 		if !ok && env.Required {
-			return gptscript.ToolDef{}, fmt.Errorf("MCP Server %s missing required environment variable %s", mcpServer.Spec.Manifest.Name, env.Key)
+			name := env.Name
+			if name == "" {
+				name = env.Key
+			}
+			missingRequiredNames = append(missingRequiredNames, name)
+			continue
 		}
 
 		serverConfig.Env = append(serverConfig.Env, fmt.Sprintf("%s=%s", env.Key, val))
@@ -49,10 +65,22 @@ func MCPServerToolWithCreds(mcpServer v1.MCPServer, credEnv map[string]string) (
 	for _, header := range mcpServer.Spec.Manifest.Headers {
 		val, ok := credEnv[header.Key]
 		if !ok && header.Required {
-			return gptscript.ToolDef{}, fmt.Errorf("MCP Server %s missing required header %s", mcpServer.Spec.Manifest.Name, header.Key)
+			name := header.Name
+			if name == "" {
+				name = header.Key
+			}
+			missingRequiredNames = append(missingRequiredNames, name)
+			continue
 		}
 
 		serverConfig.Headers = append(serverConfig.Headers, fmt.Sprintf("%s=%s", header.Key, val))
+	}
+
+	if len(missingRequiredNames) > 0 {
+		return gptscript.ToolDef{}, &UnconfiguredMCPError{
+			MCPName: mcpServer.Spec.Manifest.Name,
+			Missing: missingRequiredNames,
+		}
 	}
 
 	b, err := json.Marshal(serverConfig)

@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"errors"
 	"maps"
 	"net/http"
 	"slices"
@@ -17,6 +18,7 @@ import (
 	"github.com/obot-platform/obot/pkg/gateway/server/dispatcher"
 	"github.com/obot-platform/obot/pkg/invoke"
 	"github.com/obot-platform/obot/pkg/projects"
+	"github.com/obot-platform/obot/pkg/render"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -98,6 +100,9 @@ func (a *AssistantHandler) Invoke(req api.Context) error {
 		UserUID:      req.User.GetUID(),
 	})
 	if err != nil {
+		if u := (*render.UnconfiguredMCPError)(nil); errors.As(err, &u) {
+			return types.NewErrHTTP(http.StatusBadRequest, u.Error())
+		}
 		return err
 	}
 	defer resp.Close()
