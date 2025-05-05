@@ -25,7 +25,10 @@ func (in *MCPServerCatalogEntry) DeleteRefs() []Ref {
 
 type MCPServerCatalogEntrySpec struct {
 	Manifest          types.MCPServerCatalogEntryManifest `json:"manifest,omitempty"`
+	URL               string                              `json:"url,omitempty"`
 	ToolReferenceName string                              `json:"toolReferenceName,omitempty"`
+	GitHubStars       int                                 `json:"githubStars,omitempty"`
+	Metadata          map[string]string                   `json:"metadata,omitempty"`
 }
 
 type MCPServerCatalogEntryStatus struct {

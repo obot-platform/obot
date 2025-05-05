@@ -263,10 +263,20 @@ func (h *Handler) readMCPCatalog(catalog string) ([]client.Object, error) {
 		entry.FullName = string(slices.DeleteFunc(bytes.ToLower([]byte(entry.FullName)), func(r byte) bool {
 			return r != '/' && !unicode.IsLetter(rune(r)) && !unicode.IsNumber(rune(r))
 		}))
+
+		var m map[string]string
+		// Best effort to parse metadata
+		_ = json.Unmarshal([]byte(entry.Metadata), &m)
+
 		catalogEntry := v1.MCPServerCatalogEntry{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      name.SafeHashConcatName(strings.Split(entry.FullName, "/")...),
 				Namespace: system.DefaultNamespace,
+			},
+			Spec: v1.MCPServerCatalogEntrySpec{
+				URL:         entry.URL,
+				GitHubStars: entry.Stars,
+				Metadata:    m,
 			},
 		}
 
@@ -372,11 +382,12 @@ type mcpServerManifest struct {
 }
 
 type mcpServerConfig struct {
-	Env         []types.MCPEnv    `json:"env"`
-	Command     string            `json:"command,omitempty"`
-	Args        []string          `json:"args,omitempty"`
-	HTTPHeaders []types.MCPHeader `json:"httpHeaders,omitempty"`
-	URL         string            `json:"url,omitempty"`
+	Env            []types.MCPEnv    `json:"env"`
+	Command        string            `json:"command,omitempty"`
+	Args           []string          `json:"args,omitempty"`
+	HTTPHeaders    []types.MCPHeader `json:"httpHeaders,omitempty"`
+	URL            string            `json:"url,omitempty"`
+	URLDescription string            `json:"urlDescription,omitempty"`
 }
 
 func (h *Handler) PollRegistriesAndCatalogs(ctx context.Context, c client.Client) {
