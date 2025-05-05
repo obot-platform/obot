@@ -180,13 +180,8 @@ func (h *Handler) checkPreconditions(req router.Request, _ router.Response) (pro
 	return true, nil
 }
 
-func normalizeStepID(stepID string) string {
-	id, _, _ := strings.Cut(stepID, "{")
-	return id
-}
-
 func matchesStepID(step *v1.WorkflowStep, stepID string) bool {
-	return normalizeStepID(step.Spec.Step.ID) == normalizeStepID(stepID)
+	return step.Spec.Step.ID == stepID
 }
 
 func GetStateFromSteps[T kclient.Object](ctx context.Context, client kclient.Client, generation int64, steps ...T) (lastRun string, output string, _ types.WorkflowState, _ error) {
