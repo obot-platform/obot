@@ -168,6 +168,16 @@ func (h *ProjectInvitationHandler) GetInvitation(req api.Context) error {
 		return err
 	}
 
+	// If the invitation is not pending, return the invitation status, but no project information.
+	if invitation.Spec.Status != string(types.ProjectInvitationStatusPending) {
+		return req.Write(types.ProjectInvitationManifest{
+			Code:    invitation.Name,
+			Project: nil,
+			Status:  types.ProjectInvitationStatus(invitation.Spec.Status),
+			Created: invitation.CreationTimestamp.Format(time.RFC3339),
+		})
+	}
+
 	var thread v1.Thread
 	if err := req.Get(&thread, invitation.Spec.ThreadID); err != nil {
 		return err
