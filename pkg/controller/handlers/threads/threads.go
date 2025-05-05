@@ -471,6 +471,26 @@ func (t *Handler) CopyToolsFromSource(req router.Request, _ router.Response) err
 		}
 	}
 
+	var mcpList v1.MCPServerList
+	if err := req.Client.List(req.Ctx, &mcpList, kclient.InNamespace(thread.Namespace), kclient.MatchingFields{
+		"spec.threadName": thread.Spec.SourceThreadName,
+	}); err != nil {
+		return err
+	}
+
+	for _, mcp := range mcpList.Items {
+		newTool := v1.MCPServer{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      name.SafeHashConcatName(mcp.Name, thread.Name),
+				Namespace: thread.Namespace,
+			},
+			Spec: mcp.Spec,
+		}
+		if err := create.IfNotExists(req.Ctx, req.Client, &newTool); err != nil {
+			return err
+		}
+	}
+
 	thread.Status.CopiedTools = true
 	return req.Client.Status().Update(req.Ctx, thread)
 }
