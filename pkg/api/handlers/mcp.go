@@ -199,10 +199,10 @@ func (m *MCPHandler) CreateServer(req api.Context) error {
 			return err
 		}
 
-		if catalogEntry.Spec.CommandManifest.Server.Command != "" {
-			server.Spec.Manifest = catalogEntry.Spec.CommandManifest.Server
-		} else {
+		if catalogEntry.Spec.CommandManifest.Server.URL != "" {
 			server.Spec.Manifest = catalogEntry.Spec.URLManifest.Server
+		} else {
+			server.Spec.Manifest = catalogEntry.Spec.CommandManifest.Server
 		}
 		server.Spec.ToolReferenceName = catalogEntry.Spec.ToolReferenceName
 	}
