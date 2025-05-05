@@ -1,6 +1,7 @@
 package cleanup
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
@@ -65,6 +66,24 @@ func (c *Credentials) Remove(req router.Request, _ router.Response) error {
 
 	for _, cred := range creds {
 		if err := c.gClient.DeleteCredential(req.Ctx, cred.Context, cred.ToolName); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (c *Credentials) RemoveMCPCredentials(req router.Request, _ router.Response) error {
+	mcp := req.Object.(*v1.MCPServer)
+	creds, err := c.gClient.ListCredentials(req.Ctx, gptscript.ListCredentialsOptions{
+		CredentialContexts: []string{fmt.Sprintf("%s-%s", mcp.Spec.ThreadName, mcp.Name)},
+	})
+	if err != nil {
+		return err
+	}
+
+	for _, cred := range creds {
+		if err = c.gClient.DeleteCredential(req.Ctx, cred.Context, cred.ToolName); err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
 			return err
 		}
 	}
