@@ -6,7 +6,10 @@ type MCPServerCatalogEntry struct {
 }
 
 type MCPServerCatalogEntryManifest struct {
-	Server MCPServerManifest `json:"server,omitempty"`
+	Server      MCPServerManifest `json:"server,omitempty"`
+	URL         string            `json:"url,omitempty"`
+	GitHubStars int               `json:"githubStars,omitempty"`
+	Metadata    map[string]string `json:"metadata,omitempty"`
 }
 
 type MCPServerCatalogEntryList List[MCPServerCatalogEntry]

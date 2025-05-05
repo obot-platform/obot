@@ -272,11 +272,6 @@ func (h *Handler) readMCPCatalog(catalog string) ([]client.Object, error) {
 				Name:      name.SafeHashConcatName(strings.Split(entry.FullName, "/")...),
 				Namespace: system.DefaultNamespace,
 			},
-			Spec: v1.MCPServerCatalogEntrySpec{
-				URL:         entry.URL,
-				GitHubStars: entry.Stars,
-				Metadata:    m,
-			},
 		}
 
 		var manifests []mcpServerConfig
@@ -316,6 +311,9 @@ func (h *Handler) readMCPCatalog(catalog string) ([]client.Object, error) {
 				commandFound = true
 				displayName += " with " + c.Command
 				e.Spec.Manifest = types.MCPServerCatalogEntryManifest{
+					URL:         entry.URL,
+					GitHubStars: entry.Stars,
+					Metadata:    m,
 					Server: types.MCPServerManifest{
 						Name:        displayName,
 						Description: entry.Description,
@@ -333,6 +331,9 @@ func (h *Handler) readMCPCatalog(catalog string) ([]client.Object, error) {
 				displayName += " with SSE"
 				urlE.Name = name.SafeHashConcatName(e.Name, "sse")
 				urlE.Spec.Manifest = types.MCPServerCatalogEntryManifest{
+					URL:         entry.URL,
+					GitHubStars: entry.Stars,
+					Metadata:    m,
 					Server: types.MCPServerManifest{
 						Name:        displayName,
 						Description: entry.Description,
