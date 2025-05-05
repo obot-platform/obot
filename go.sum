@@ -351,6 +351,8 @@ github.com/gptscript-ai/datasets v0.0.0-20241125193827-31ce6c3c682b h1:IXgx6Y+g0
 github.com/gptscript-ai/datasets v0.0.0-20241125193827-31ce6c3c682b/go.mod h1:gMAaxAbeIvHtQoj/SKuqvoSGeywqc61/Yw9pusrT/R4=
 github.com/gptscript-ai/go-gptscript v0.9.6-0.20250424204937-af453989e88f h1:JG/uszEGS99hQeajV+h87M2vfQtIONhbdVCC8dpL50E=
 github.com/gptscript-ai/go-gptscript v0.9.6-0.20250424204937-af453989e88f/go.mod h1:QvGPZoRuAiA8P5EzPI05kTrs+LZ0ipHywUGsKruSknw=
+github.com/gptscript-ai/gptscript v0.9.6-0.20250505222305-ed2fc20a9f10 h1:qgMcdFkB0eEr0QqkIbLb3/cyLkDgwvHAWQZk/Qkv9zk=
+github.com/gptscript-ai/gptscript v0.9.6-0.20250505222305-ed2fc20a9f10/go.mod h1:bUFjEZjEjKTuIVOvqmSMMXBJ3rztBFxxA5Z32X339aU=
 github.com/gptscript-ai/tui v0.0.0-20250419050840-5e79e16786c9 h1:wQC8sKyeGA50WnCEG+Jo5FNRIkuX3HX8d3ubyWCCoI8=
 github.com/gptscript-ai/tui v0.0.0-20250419050840-5e79e16786c9/go.mod h1:iwHxuueg2paOak7zIg0ESBWx7A0wIHGopAratbgaPNY=
 github.com/gregjones/httpcache v0.0.0-20180305231024-9cad4c3443a7 h1:pdN6V1QBWetyv/0+wjACpqVH+eVULgEjkurDLq3goeM=
@@ -618,8 +620,6 @@ github.com/stretchr/testify v1.10.0 h1:Xv5erBjTwe/5IxqUQTdXv5kgmIvbHo3QQyRwhJsOf
 github.com/stretchr/testify v1.10.0/go.mod h1:r2ic/lqez/lEtzL7wO/rwa5dbSLXVDPFyf8C91i36aY=
 github.com/tetratelabs/wazero v1.9.0 h1:IcZ56OuxrtaEz8UYNRHBrUa9bYeX9oVY93KspZZBf/I=
 github.com/tetratelabs/wazero v1.9.0/go.mod h1:TSbcXCfFP0L2FGkRPxHphadXPjo1T6W+CseNNY7EkjM=
-github.com/thedadams/gptscript v0.0.0-20250502192802-b1c1bc3808b2 h1:ibcJTDMI0iyYWkaxz1Wbw3uGbrMvwSJuOUglDRU8ITQ=
-github.com/thedadams/gptscript v0.0.0-20250502192802-b1c1bc3808b2/go.mod h1:bUFjEZjEjKTuIVOvqmSMMXBJ3rztBFxxA5Z32X339aU=
 github.com/therootcompany/xz v1.0.1 h1:CmOtsn1CbtmyYiusbfmhmkpAAETj0wBIH6kCYaX+xzw=
 github.com/therootcompany/xz v1.0.1/go.mod h1:3K3UH1yCKgBneZYhuQUvJ9HPD19UEXEI0BWbMn8qNMY=
 github.com/tidwall/gjson v1.18.0 h1:FIDeeyB800efLX89e5a8Y0BNH+LOngJyGrIWxG2FKQY=

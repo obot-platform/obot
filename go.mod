@@ -3,7 +3,6 @@ module github.com/obot-platform/obot
 go 1.24.0
 
 replace (
-	github.com/gptscript-ai/gptscript => github.com/thedadams/gptscript v0.0.0-20250502192802-b1c1bc3808b2
 	github.com/obot-platform/obot/apiclient => ./apiclient
 	github.com/obot-platform/obot/logger => ./logger
 )
@@ -23,7 +22,7 @@ require (
 	github.com/gptscript-ai/cmd v0.0.0-20250324222528-f16f18548238
 	github.com/gptscript-ai/datasets v0.0.0-20241125193827-31ce6c3c682b
 	github.com/gptscript-ai/go-gptscript v0.9.6-0.20250424204937-af453989e88f
-	github.com/gptscript-ai/gptscript v0.9.6-0.20250424201734-5ff654398726
+	github.com/gptscript-ai/gptscript v0.9.6-0.20250505222305-ed2fc20a9f10
 	github.com/liggitt/tabwriter v0.0.0-20181228230101-89fcab3d43de
 	github.com/mhale/smtpd v0.8.3
 	github.com/obot-platform/kinm v0.0.0-20250328185534-d9c9de49cc20
