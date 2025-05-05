@@ -120,7 +120,7 @@ func (h *ProjectsHandler) DeleteMember(req api.Context) error {
 		}
 	}
 
-	return req.Write(nil)
+	return nil
 }
 
 func (h *ProjectsHandler) UpdateProject(req api.Context) error {

@@ -9,7 +9,6 @@ import (
 	"github.com/obot-platform/obot/pkg/api"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -137,9 +136,6 @@ func (h *ProjectInvitationHandler) DeleteInvitationForProject(req api.Context) e
 
 	var invitation v1.ProjectInvitation
 	if err := req.Get(&invitation, code); err != nil {
-		if apierrors.IsNotFound(err) {
-			return types.NewErrNotFound("invitation not found")
-		}
 		return err
 	}
 
@@ -148,11 +144,7 @@ func (h *ProjectInvitationHandler) DeleteInvitationForProject(req api.Context) e
 		return types.NewErrBadRequest("invitation does not belong to this project")
 	}
 
-	if err := req.Delete(&invitation); err != nil {
-		return err
-	}
-
-	return req.Write(nil)
+	return req.Delete(&invitation)
 }
 
 func (h *ProjectInvitationHandler) GetInvitation(req api.Context) error {
@@ -162,9 +154,6 @@ func (h *ProjectInvitationHandler) GetInvitation(req api.Context) error {
 	)
 
 	if err := req.Get(&invitation, code); err != nil {
-		if apierrors.IsNotFound(err) {
-			return types.NewErrNotFound("invitation not found")
-		}
 		return err
 	}
 
@@ -210,9 +199,6 @@ func (h *ProjectInvitationHandler) AcceptInvitation(req api.Context) error {
 	)
 
 	if err := req.Get(&invitation, code); err != nil {
-		if apierrors.IsNotFound(err) {
-			return types.NewErrNotFound("invitation not found")
-		}
 		return err
 	}
 
@@ -291,9 +277,6 @@ func (h *ProjectInvitationHandler) RejectInvitation(req api.Context) error {
 	)
 
 	if err := req.Get(&invitation, code); err != nil {
-		if apierrors.IsNotFound(err) {
-			return types.NewErrNotFound("invitation not found")
-		}
 		return err
 	}
 

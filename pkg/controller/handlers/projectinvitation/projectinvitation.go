@@ -36,7 +36,11 @@ func Expiration(req router.Request, resp router.Response) error {
 		invitation.Status.RespondedTime = &metav1.Time{Time: time.Now()}
 		return req.Client.Status().Update(req.Ctx, invitation)
 	}
-	resp.RetryAfter(7*24*time.Hour - time.Since(invitation.CreationTimestamp.Time))
+
+	expiresIn := 7*24*time.Hour - time.Since(invitation.CreationTimestamp.Time)
+	if expiresIn < 10*time.Hour {
+		resp.RetryAfter(expiresIn)
+	}
 
 	return nil
 }
@@ -49,7 +53,11 @@ func Cleanup(req router.Request, resp router.Response) error {
 		if time.Since(invitation.Status.RespondedTime.Time) > 7*24*time.Hour {
 			return req.Client.Delete(req.Ctx, invitation)
 		}
-		resp.RetryAfter(7*24*time.Hour - time.Since(invitation.Status.RespondedTime.Time))
+
+		cleanupIn := 7*24*time.Hour - time.Since(invitation.Status.RespondedTime.Time)
+		if cleanupIn < 10*time.Hour {
+			resp.RetryAfter(cleanupIn)
+		}
 	}
 
 	return nil
