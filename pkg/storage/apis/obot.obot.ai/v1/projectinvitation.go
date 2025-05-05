@@ -3,6 +3,7 @@ package v1
 import (
 	"slices"
 
+	"github.com/obot-platform/obot/apiclient/types"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -53,8 +54,8 @@ func (pi *ProjectInvitation) FieldNames() []string {
 }
 
 type ProjectInvitationSpec struct {
-	Status   string `json:"status,omitempty"`
-	ThreadID string `json:"threadID,omitempty"`
+	Status   types.ProjectInvitationStatus `json:"status,omitempty"`
+	ThreadID string                        `json:"threadID,omitempty"`
 }
 
 type ProjectInvitationStatus struct {

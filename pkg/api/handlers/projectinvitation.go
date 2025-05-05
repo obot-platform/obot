@@ -54,7 +54,7 @@ func (h *ProjectInvitationHandler) CreateInvitationForProject(req api.Context) e
 			Namespace: req.Namespace(),
 		},
 		Spec: v1.ProjectInvitationSpec{
-			Status:   string(types.ProjectInvitationStatusPending),
+			Status:   types.ProjectInvitationStatusPending,
 			ThreadID: thread.Name,
 		},
 	}
@@ -169,7 +169,7 @@ func (h *ProjectInvitationHandler) GetInvitation(req api.Context) error {
 	}
 
 	// If the invitation is not pending, return the invitation status, but no project information.
-	if invitation.Spec.Status != string(types.ProjectInvitationStatusPending) {
+	if invitation.Spec.Status != types.ProjectInvitationStatusPending {
 		return req.Write(types.ProjectInvitationManifest{
 			Code:    invitation.Name,
 			Project: nil,
@@ -216,7 +216,7 @@ func (h *ProjectInvitationHandler) AcceptInvitation(req api.Context) error {
 		return err
 	}
 
-	if invitation.Spec.Status != string(types.ProjectInvitationStatusPending) {
+	if invitation.Spec.Status != types.ProjectInvitationStatusPending {
 		return types.NewErrBadRequest("invitation is no longer valid")
 	}
 
@@ -242,7 +242,7 @@ func (h *ProjectInvitationHandler) AcceptInvitation(req api.Context) error {
 	}
 
 	// Update invitation status to accepted
-	invitation.Spec.Status = string(types.ProjectInvitationStatusAccepted)
+	invitation.Spec.Status = types.ProjectInvitationStatusAccepted
 	if err := req.Update(&invitation); err != nil {
 		return err
 	}
@@ -297,7 +297,7 @@ func (h *ProjectInvitationHandler) RejectInvitation(req api.Context) error {
 		return err
 	}
 
-	if invitation.Spec.Status != string(types.ProjectInvitationStatusPending) {
+	if invitation.Spec.Status != types.ProjectInvitationStatusPending {
 		return types.NewErrBadRequest("invitation is no longer valid")
 	}
 
@@ -307,7 +307,7 @@ func (h *ProjectInvitationHandler) RejectInvitation(req api.Context) error {
 	}
 
 	// Update invitation status to rejected
-	invitation.Spec.Status = string(types.ProjectInvitationStatusRejected)
+	invitation.Spec.Status = types.ProjectInvitationStatusRejected
 	if err := req.Update(&invitation); err != nil {
 		return err
 	}

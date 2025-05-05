@@ -13,7 +13,7 @@ func SetRespondedTime(req router.Request, _ router.Response) error {
 	invitation := req.Object.(*v1.ProjectInvitation)
 
 	switch invitation.Spec.Status {
-	case string(types.ProjectInvitationStatusAccepted), string(types.ProjectInvitationStatusRejected):
+	case types.ProjectInvitationStatusAccepted, types.ProjectInvitationStatusRejected:
 		if invitation.Status.RespondedTime.IsZero() {
 			invitation.Status.RespondedTime = &metav1.Time{Time: time.Now()}
 			return req.Client.Status().Update(req.Ctx, invitation)
@@ -27,12 +27,12 @@ func SetRespondedTime(req router.Request, _ router.Response) error {
 func Expiration(req router.Request, resp router.Response) error {
 	invitation := req.Object.(*v1.ProjectInvitation)
 
-	if invitation.Spec.Status != string(types.ProjectInvitationStatusPending) {
+	if invitation.Spec.Status != types.ProjectInvitationStatusPending {
 		return nil
 	}
 
 	if time.Since(invitation.CreationTimestamp.Time) > 7*24*time.Hour {
-		invitation.Spec.Status = string(types.ProjectInvitationStatusExpired)
+		invitation.Spec.Status = types.ProjectInvitationStatusExpired
 		invitation.Status.RespondedTime = &metav1.Time{Time: time.Now()}
 		return req.Client.Status().Update(req.Ctx, invitation)
 	}
