@@ -130,18 +130,21 @@ func (h *Handler) mcpServers(ctx context.Context, registryURL string, entries ma
 				log.Errorf("Failed to decode manifest for %s: %v", filename, err)
 				continue
 			}
-
-			result = append(result, &v1.MCPServerCatalogEntry{
+			catalogEntry := &v1.MCPServerCatalogEntry{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      strings.TrimSuffix(filename, ".yaml"),
 					Namespace: system.DefaultNamespace,
 				},
-				Spec: v1.MCPServerCatalogEntrySpec{
-					Manifest: types.MCPServerCatalogEntryManifest{
-						Server: manifest,
-					},
-				},
-			})
+			}
+
+			if manifest.Command != "" {
+				catalogEntry.Spec.CommandManifest.Server = manifest
+			} else if manifest.URL != "" {
+				catalogEntry.Spec.URLManifest.Server = manifest
+			} else {
+				continue
+			}
+			result = append(result, catalogEntry)
 		}
 	}
 
@@ -284,14 +287,8 @@ func (h *Handler) readMCPCatalog(catalog string) ([]client.Object, error) {
 			manifests = append(manifests, manifest.Configs...)
 		}
 
-		var (
-			preferredFound, commandFound, urlFound bool
-
-			e    = catalogEntry
-			urlE = catalogEntry
-		)
+		var preferredFound, addEntry bool
 		for _, c := range manifests {
-			displayName := entry.DisplayName
 			if c.Command != "" {
 				if preferredFound {
 					continue
@@ -304,18 +301,17 @@ func (h *Handler) readMCPCatalog(catalog string) ([]client.Object, error) {
 				}
 
 				preferredFound = c.Preferred
-				if !preferredFound && !isCommandPreferred(e.Spec.Manifest.Server.Command, c.Command) {
+				if !preferredFound && !isCommandPreferred(catalogEntry.Spec.CommandManifest.Server.Command, c.Command) {
 					continue
 				}
 
-				commandFound = true
-				displayName += " with " + c.Command
-				e.Spec.Manifest = types.MCPServerCatalogEntryManifest{
+				addEntry = true
+				catalogEntry.Spec.CommandManifest = types.MCPServerCatalogEntryManifest{
 					URL:         entry.URL,
 					GitHubStars: entry.Stars,
 					Metadata:    m,
 					Server: types.MCPServerManifest{
-						Name:        displayName,
+						Name:        entry.DisplayName,
 						Description: entry.Description,
 						Icon:        entry.Icon,
 						Env:         c.Env,
@@ -325,17 +321,14 @@ func (h *Handler) readMCPCatalog(catalog string) ([]client.Object, error) {
 						Headers:     c.HTTPHeaders,
 					},
 				}
-
 			} else if c.URL != "" {
-				urlFound = true
-				displayName += " with SSE"
-				urlE.Name = name.SafeHashConcatName(e.Name, "sse")
-				urlE.Spec.Manifest = types.MCPServerCatalogEntryManifest{
+				addEntry = true
+				catalogEntry.Spec.URLManifest = types.MCPServerCatalogEntryManifest{
 					URL:         entry.URL,
 					GitHubStars: entry.Stars,
 					Metadata:    m,
 					Server: types.MCPServerManifest{
-						Name:        displayName,
+						Name:        entry.DisplayName,
 						Description: entry.Description,
 						Icon:        entry.Icon,
 						URL:         c.URL,
@@ -345,11 +338,8 @@ func (h *Handler) readMCPCatalog(catalog string) ([]client.Object, error) {
 			}
 		}
 
-		if commandFound {
-			objs = append(objs, &e)
-		}
-		if urlFound {
-			objs = append(objs, &urlE)
+		if addEntry {
+			objs = append(objs, &catalogEntry)
 		}
 	}
 
@@ -560,11 +550,11 @@ func (h *Handler) createMCPServerCatalog(req router.Request, toolRef *v1.ToolRef
 	if err := req.Client.Get(req.Ctx, router.Key(system.DefaultNamespace, toolRef.Name), &mcpCatalogEntry); client.IgnoreNotFound(err) != nil {
 		return err
 	} else if err == nil {
-		if equality.Semantic.DeepEqual(mcpCatalogEntry.Spec.Manifest.Server, serverManifest) &&
+		if equality.Semantic.DeepEqual(mcpCatalogEntry.Spec.CommandManifest.Server, serverManifest) &&
 			mcpCatalogEntry.Spec.ToolReferenceName == toolRef.Name {
 			return nil
 		}
-		mcpCatalogEntry.Spec.Manifest.Server = serverManifest
+		mcpCatalogEntry.Spec.CommandManifest.Server = serverManifest
 		mcpCatalogEntry.Spec.ToolReferenceName = toolRef.Name
 		return req.Client.Update(req.Ctx, &mcpCatalogEntry)
 	}
@@ -575,7 +565,7 @@ func (h *Handler) createMCPServerCatalog(req router.Request, toolRef *v1.ToolRef
 			Namespace: system.DefaultNamespace,
 		},
 		Spec: v1.MCPServerCatalogEntrySpec{
-			Manifest: types.MCPServerCatalogEntryManifest{
+			CommandManifest: types.MCPServerCatalogEntryManifest{
 				Server: serverManifest,
 			},
 			ToolReferenceName: toolRef.Name,

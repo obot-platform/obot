@@ -1,11 +1,11 @@
 <script lang="ts">
 	import { clickOutside } from '$lib/actions/clickoutside';
-	import type { MCP, ProjectMCP } from '$lib/services';
+	import type { MCPManifest, ProjectMCP } from '$lib/services';
 	import { responsive } from '$lib/stores';
 	import { ChevronRight, ChevronsRight, X } from 'lucide-svelte';
 
 	interface Props {
-		mcp: MCP | ProjectMCP;
+		manifest: MCPManifest | ProjectMCP;
 		disableOutsideClick?: boolean;
 		hideCloseButton?: boolean;
 		hideSubmitButton?: boolean;
@@ -16,7 +16,7 @@
 		cancelText?: string;
 	}
 	let {
-		mcp,
+		manifest,
 		disableOutsideClick,
 		hideCloseButton,
 		hideSubmitButton,
@@ -43,7 +43,7 @@
 	}
 </script>
 
-{#if mcp}
+{#if manifest}
 	<dialog
 		bind:this={dialog}
 		use:clickOutside={() => {
@@ -66,13 +66,15 @@
 			<div class="flex max-w-sm gap-3">
 				<div class="rounded-md bg-gray-50 p-1 dark:bg-gray-600">
 					<img
-						src={'server' in mcp ? mcp.server.icon : mcp.icon}
-						alt={'server' in mcp ? mcp.server.name : mcp.name}
+						src={'server' in manifest ? manifest.server.icon : manifest.icon}
+						alt={'server' in manifest ? manifest.server.name : manifest.name}
 						class="size-6"
 					/>
 				</div>
 				<div class="flex flex-col justify-center">
-					<h3 class="text-lg font-semibold">{'server' in mcp ? mcp.server.name : mcp.name}</h3>
+					<h3 class="text-lg font-semibold">
+						{'server' in manifest ? manifest.server.name : manifest.name}
+					</h3>
 					<!--
                 <p class="flex items-center gap-1 font-light">
                     <Star class="size-4" /> 50.5k
@@ -82,7 +84,7 @@
 			</div>
 			<div class="flex grow flex-col gap-8 pt-4">
 				<p class="md:text-md text-sm font-light text-gray-500">
-					{'server' in mcp ? mcp.server.description : mcp.description}
+					{'server' in manifest ? manifest.server.description : manifest.description}
 				</p>
 				{#if readonly}
 					{@render readOnlyContent()}

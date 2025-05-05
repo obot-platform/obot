@@ -58,8 +58,9 @@ func (m *MCPHandler) ListCatalog(req api.Context) error {
 
 func convertMCPServerCatalogEntry(entry v1.MCPServerCatalogEntry) types.MCPServerCatalogEntry {
 	return types.MCPServerCatalogEntry{
-		Metadata:                      MetadataFrom(&entry),
-		MCPServerCatalogEntryManifest: entry.Spec.Manifest,
+		Metadata:        MetadataFrom(&entry),
+		CommandManifest: entry.Spec.CommandManifest,
+		URLManifest:     entry.Spec.URLManifest,
 	}
 }
 
@@ -197,7 +198,12 @@ func (m *MCPHandler) CreateServer(req api.Context) error {
 		if err := req.Get(&catalogEntry, input.CatalogID); err != nil {
 			return err
 		}
-		server.Spec.Manifest = catalogEntry.Spec.Manifest.Server
+
+		if catalogEntry.Spec.CommandManifest.Server.Command != "" {
+			server.Spec.Manifest = catalogEntry.Spec.CommandManifest.Server
+		} else {
+			server.Spec.Manifest = catalogEntry.Spec.URLManifest.Server
+		}
 		server.Spec.ToolReferenceName = catalogEntry.Spec.ToolReferenceName
 	}
 

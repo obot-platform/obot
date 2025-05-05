@@ -10,7 +10,7 @@
 	import { clickOutside } from '$lib/actions/clickoutside';
 	import Footer from '$lib/components/Footer.svelte';
 	import { sortByFeaturedNameOrder, sortByPreferredMcpOrder } from '$lib/sort';
-	import type { MCP, ProjectShare } from '$lib/services';
+	import type { MCPManifest, ProjectShare } from '$lib/services';
 
 	let { data }: PageProps = $props();
 	let { authProviders, mcps, featuredAgents } = data;
@@ -217,7 +217,12 @@
 					<div class="flex flex-col gap-3">
 						<h3 class="self-center text-lg font-semibold">MCP Servers</h3>
 						{#each sortedMcps.slice(0, 10) as mcp}
-							{@render featuredMcpCard(mcp)}
+							{#if mcp.commandManifest}
+								{@render featuredMcpCard(mcp.id, mcp.commandManifest)}
+							{/if}
+							{#if mcp.urlManifest}
+								{@render featuredMcpCard(mcp.id, mcp.urlManifest)}
+							{/if}
 						{/each}
 						{@render browseAllMcpServers()}
 					</div>
@@ -239,12 +244,22 @@
 							<div class="flex w-full gap-3">
 								<div class="flex flex-1 flex-col items-center gap-3">
 									{#each sortedMcps.slice(0, 5) as mcp}
-										{@render featuredMcpCard(mcp)}
+										{#if mcp.commandManifest}
+											{@render featuredMcpCard(mcp.id, mcp.commandManifest)}
+										{/if}
+										{#if mcp.urlManifest}
+											{@render featuredMcpCard(mcp.id, mcp.urlManifest)}
+										{/if}
 									{/each}
 								</div>
 								<div class="hidden flex-1 flex-col items-center gap-3 lg:flex">
 									{#each sortedMcps.slice(5, 10) as mcp}
-										{@render featuredMcpCard(mcp)}
+										{#if mcp.commandManifest}
+											{@render featuredMcpCard(mcp.id, mcp.commandManifest)}
+										{/if}
+										{#if mcp.urlManifest}
+											{@render featuredMcpCard(mcp.id, mcp.urlManifest)}
+										{/if}
 									{/each}
 								</div>
 							</div>
@@ -365,11 +380,11 @@
 	</button>
 {/snippet}
 
-{#snippet featuredMcpCard(mcp: MCP)}
+{#snippet featuredMcpCard(id: string, mcp: MCPManifest)}
 	<button
 		class="bg-surface2 flex w-full items-center gap-3 rounded-xl p-3"
 		onclick={() => {
-			overrideRedirect = `/mcp?id=${mcp.id}`;
+			overrideRedirect = `/mcp?id=${id}`;
 			loginDialog?.showModal();
 		}}
 	>

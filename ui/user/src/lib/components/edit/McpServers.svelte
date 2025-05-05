@@ -135,7 +135,7 @@
 </CollapsePane>
 
 {#if mcpToShow}
-	<McpConfig bind:this={mcpConfigDialog} mcp={mcpToShow} hideSubmitButton />
+	<McpConfig bind:this={mcpConfigDialog} manifest={mcpToShow} hideSubmitButton />
 {/if}
 
 <Confirm

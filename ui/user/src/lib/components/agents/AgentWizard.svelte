@@ -205,52 +205,66 @@
 							{#each createAgent.mcps as mcpId (mcpId)}
 								{@const mcp = mcpsMap.get(mcpId)}
 								{#if mcp}
-									{#if !showMcpCatalog}
-										<div
-											class="dark:bg-surface1 border-surface2 flex items-center gap-2 rounded-lg bg-white p-2 shadow-sm"
-										>
-											<div class="flex grow items-center gap-2">
-												<img src={mcp.server.icon} class="size-5" alt={mcp.server.name} />
-												<div class="flex flex-col">
-													<p class="line-clamp-1 text-sm font-medium">{mcp.server.name}</p>
-													<p class="line-clamp-1 text-xs font-light">{mcp.server.description}</p>
+									{#each [mcp.commandManifest, mcp.urlManifest] as manifest (manifest)}
+										{#if manifest}
+											{#if !showMcpCatalog}
+												<div
+													class="dark:bg-surface1 border-surface2 flex items-center gap-2 rounded-lg bg-white p-2 shadow-sm"
+												>
+													<div class="flex grow items-center gap-2">
+														<img
+															src={manifest.server.icon}
+															class="size-5"
+															alt={manifest.server.name}
+														/>
+														<div class="flex flex-col">
+															<p class="line-clamp-1 text-sm font-medium">{manifest.server.name}</p>
+															<p class="line-clamp-1 text-xs font-light">
+																{manifest.server.description}
+															</p>
+														</div>
+													</div>
+													<button
+														class="icon-button min-h-fit p-0 hover:bg-transparent"
+														onclick={() => {
+															if (!createAgent) return;
+															createAgent = {
+																...createAgent,
+																mcps: createAgent.mcps.filter((mcpId) => mcpId !== mcp.id)
+															};
+														}}
+													>
+														<X class="size-4" />
+													</button>
 												</div>
-											</div>
-											<button
-												class="icon-button min-h-fit p-0 hover:bg-transparent"
-												onclick={() => {
-													if (!createAgent) return;
-													createAgent = {
-														...createAgent,
-														mcps: createAgent.mcps.filter((mcpId) => mcpId !== mcp.id)
-													};
-												}}
-											>
-												<X class="size-4" />
-											</button>
-										</div>
-									{:else}
-										<div class="flex items-center gap-2">
-											<div class="flex grow items-center gap-2">
-												<img src={mcp.server.icon} class="size-5" alt={mcp.server.name} />
-												<div class="flex flex-col">
-													<p class="line-clamp-1 text-sm font-medium">{mcp.server.name}</p>
+											{:else}
+												<div class="flex items-center gap-2">
+													<div class="flex grow items-center gap-2">
+														<img
+															src={manifest.server.icon}
+															class="size-5"
+															alt={manifest.server.name}
+														/>
+														<div class="flex flex-col">
+															<p class="line-clamp-1 text-sm font-medium">{manifest.server.name}</p>
+														</div>
+													</div>
+													<button
+														class="icon-button min-h-fit p-0 hover:bg-transparent"
+														onclick={() => {
+															if (!createAgent) return;
+															createAgent = {
+																...createAgent,
+																mcps: createAgent.mcps.filter((mcpId) => mcpId !== mcp.id)
+															};
+														}}
+													>
+														<X class="size-5" />
+													</button>
 												</div>
-											</div>
-											<button
-												class="icon-button min-h-fit p-0 hover:bg-transparent"
-												onclick={() => {
-													if (!createAgent) return;
-													createAgent = {
-														...createAgent,
-														mcps: createAgent.mcps.filter((mcpId) => mcpId !== mcp.id)
-													};
-												}}
-											>
-												<X class="size-5" />
-											</button>
-										</div>
-									{/if}
+											{/if}
+										{/if}
+									{/each}
 								{/if}
 							{/each}
 						</div>

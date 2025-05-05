@@ -264,7 +264,14 @@ export interface MCPServer {
 export interface MCP {
 	id: string;
 	created: string;
+	commandManifest?: MCPManifest;
+	urlManifest?: MCPManifest;
+}
+
+export interface MCPManifest {
 	server: MCPServer;
+	githubStars: number;
+	metadata: Record<string, string>;
 }
 
 export interface ProjectMCPList {

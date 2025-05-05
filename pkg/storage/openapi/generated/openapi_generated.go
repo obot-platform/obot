@@ -2523,14 +2523,20 @@ func schema_obot_platform_obot_apiclient_types_MCPServerCatalogEntry(ref common.
 							Ref:     ref("github.com/obot-platform/obot/apiclient/types.Metadata"),
 						},
 					},
-					"MCPServerCatalogEntryManifest": {
+					"commandManifest": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/obot-platform/obot/apiclient/types.MCPServerCatalogEntryManifest"),
+						},
+					},
+					"urlManifest": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
 							Ref:     ref("github.com/obot-platform/obot/apiclient/types.MCPServerCatalogEntryManifest"),
 						},
 					},
 				},
-				Required: []string{"Metadata", "MCPServerCatalogEntryManifest"},
+				Required: []string{"Metadata", "commandManifest", "urlManifest"},
 			},
 		},
 		Dependencies: []string{
@@ -8500,7 +8506,13 @@ func schema_storage_apis_obotobotai_v1_MCPServerCatalogEntrySpec(ref common.Refe
 			SchemaProps: spec.SchemaProps{
 				Type: []string{"object"},
 				Properties: map[string]spec.Schema{
-					"manifest": {
+					"commandManifest": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/obot-platform/obot/apiclient/types.MCPServerCatalogEntryManifest"),
+						},
+					},
+					"urlManifest": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
 							Ref:     ref("github.com/obot-platform/obot/apiclient/types.MCPServerCatalogEntryManifest"),
@@ -8513,6 +8525,7 @@ func schema_storage_apis_obotobotai_v1_MCPServerCatalogEntrySpec(ref common.Refe
 						},
 					},
 				},
+				Required: []string{"commandManifest", "urlManifest"},
 			},
 		},
 		Dependencies: []string{

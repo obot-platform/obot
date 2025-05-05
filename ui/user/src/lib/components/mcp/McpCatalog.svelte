@@ -44,7 +44,9 @@
 	let selectedCategory = $state('Popular');
 
 	const searchResults = $derived(
-		mcps.filter((mcp) => mcp.server.name.toLowerCase().includes(search.toLowerCase()))
+		mcps.filter((mcp) =>
+			mcp.commandManifest?.server.name.toLowerCase().includes(search.toLowerCase())
+		)
 	);
 
 	let selected = $state<string[]>([]);
@@ -228,20 +230,24 @@
 {/snippet}
 
 {#snippet mcpCard(mcp: MCP)}
-	<McpCard
-		{mcp}
-		onSubmit={() => {
-			if (onSubmitMcp) {
-				onSubmitMcp(mcp.id);
-			} else if (selected.includes(mcp.id)) {
-				selected = selected.filter((id) => id !== mcp.id);
-			} else {
-				selected.push(mcp.id);
-			}
-		}}
-		{selectText}
-		{cancelText}
-		selected={selected.includes(mcp.id)}
-		disabled={preselected.has(mcp.id)}
-	/>
+	{#each [mcp.commandManifest, mcp.urlManifest] as manifest (manifest)}
+		{#if manifest}
+			<McpCard
+				{manifest}
+				onSubmit={() => {
+					if (onSubmitMcp) {
+						onSubmitMcp(mcp.id);
+					} else if (selected.includes(mcp.id)) {
+						selected = selected.filter((id) => id !== mcp.id);
+					} else {
+						selected.push(mcp.id);
+					}
+				}}
+				{selectText}
+				{cancelText}
+				selected={selected.includes(mcp.id)}
+				disabled={preselected.has(mcp.id)}
+			/>
+		{/if}
+	{/each}
 {/snippet}
