@@ -35,7 +35,9 @@ export const HELPER_TEXTS = {
 	configuration:
 		'Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.',
 	memories:
-		'Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.'
+		'Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.',
+	modelProviders:
+		'Configure the model providers (OpenAI, Anthropic, etc.) that you want to use for your agent.'
 };
 
 const HELPER_MODE_CONTEXT_NAME = 'helper-mode';

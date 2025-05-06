@@ -201,6 +201,7 @@ export interface Assistant {
 	introductionMessage?: string;
 	maxTools?: number;
 	websiteKnowledge?: Sites;
+	allowedModelProviders?: string[];
 }
 
 export type AssistantToolType = 'javascript' | 'python' | 'script' | 'container' | undefined;
@@ -383,6 +384,8 @@ export interface Thread {
 	ready?: boolean;
 	taskID?: string;
 	taskRunID?: string;
+	modelProvider?: string;
+	model?: string;
 }
 
 export interface ThreadList {
@@ -408,6 +411,9 @@ export interface Project {
 	capabilities: {
 		onSlackMessage?: boolean;
 	};
+	defaultModelProvider?: string;
+	defaultModel?: string;
+	models?: Record<string, string[]>;
 	userID: string;
 }
 
@@ -555,4 +561,41 @@ export interface ProjectTemplate {
 
 export interface ProjectTemplateList {
 	items: ProjectTemplate[];
+}
+
+export interface ModelProvider {
+	id: string;
+	name: string;
+	description?: string;
+	icon?: string;
+	iconDark?: string;
+	configured: boolean;
+	requiredConfigurationParameters?: Array<{
+		name: string;
+		friendlyName?: string;
+		description?: string;
+		sensitive?: boolean;
+		hidden?: boolean;
+	}>;
+	missingConfigurationParameters?: string[];
+}
+
+export interface ModelProviderList {
+	items: ModelProvider[];
+}
+
+export interface Model {
+	created: number;
+	id: string;
+	object: string;
+	owned_by: string;
+	root: string;
+	parent: string;
+	metadata: {
+		usage: string;
+	};
+}
+
+export interface ModelList {
+	data: Model[];
 }

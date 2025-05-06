@@ -113,12 +113,16 @@ type ThreadSpec struct {
 	SystemTools []string `json:"systemTools,omitempty"`
 	// Capabilities are the capabilities of this thread
 	Capabilities ThreadCapabilities `json:"capabilities,omitempty"`
-	// ModelProvider is the model provider the user has chosen for this thread.
-	// Currently, only supported for projects.
-	ModelProvider string `json:"modelProvider,omitempty"`
-	// Model is the model the user has chosen for this thread.
-	// Currently, only supported for projects
-	Model string `json:"model,omitempty"`
+
+	// Project Model Settings
+
+	// DefaultModelProvider is the provider for the default model for the project.
+	DefaultModelProvider string `json:"defaultModelProvider,omitempty"`
+	// DefaultModel is the default model for the project.
+	DefaultModel string `json:"defaultModel,omitempty"`
+	// Models is the list of models that users of the project may choose from.
+	// It is a map of model provider to models.
+	Models map[string][]string `json:"models,omitempty"`
 
 	// Owners
 

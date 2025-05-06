@@ -53,6 +53,8 @@ type ThreadManifest struct {
 	ThreadManifestManagedFields `json:",inline"`
 
 	Tools           []string            `json:"tools,omitempty"`
+	ModelProvider   string              `json:"modelProvider,omitempty"`
+	Model           string              `json:"model,omitempty"`
 	Prompt          string              `json:"prompt"`
 	SharedTasks     []string            `json:"sharedTasks,omitempty"`
 	AllowedMCPTools map[string][]string `json:"allowedMCPTools,omitempty"`

@@ -172,15 +172,16 @@ func convertAssistant(agent v1.Agent) types.Assistant {
 		icons = *agent.Spec.Manifest.Icons
 	}
 	assistant := types.Assistant{
-		Metadata:            MetadataFrom(&agent),
-		Name:                agent.Spec.Manifest.Name,
-		Default:             agent.Spec.Manifest.Default,
-		Description:         agent.Spec.Manifest.Description,
-		EntityID:            agent.Name,
-		StarterMessages:     agent.Spec.Manifest.StarterMessages,
-		IntroductionMessage: agent.Spec.Manifest.IntroductionMessage,
-		Icons:               icons,
-		WebsiteKnowledge:    agent.Spec.Manifest.WebsiteKnowledge,
+		Metadata:              MetadataFrom(&agent),
+		Name:                  agent.Spec.Manifest.Name,
+		Default:               agent.Spec.Manifest.Default,
+		Description:           agent.Spec.Manifest.Description,
+		EntityID:              agent.Name,
+		StarterMessages:       agent.Spec.Manifest.StarterMessages,
+		IntroductionMessage:   agent.Spec.Manifest.IntroductionMessage,
+		Icons:                 icons,
+		WebsiteKnowledge:      agent.Spec.Manifest.WebsiteKnowledge,
+		AllowedModelProviders: agent.Spec.Manifest.AllowedModelProviders,
 	}
 	if agent.Spec.Manifest.MaxThreadTools == 0 {
 		assistant.MaxTools = DefaultMaxUserThreadTools

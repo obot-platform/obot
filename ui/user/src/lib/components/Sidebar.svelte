@@ -16,6 +16,7 @@
 	import { getProjectTools } from '$lib/context/projectTools.svelte';
 	import Threads from '$lib/components/sidebar/Threads.svelte';
 	import Tables from '$lib/components/sidebar/Tables.svelte';
+	import ModelProviders from '$lib/components/sidebar/ModelProviders.svelte';
 	import SystemPrompt from '$lib/components/edit/SystemPrompt.svelte';
 	import Introduction from '$lib/components/edit/Introduction.svelte';
 	import { responsive, version } from '$lib/stores';
@@ -101,6 +102,7 @@
 					<Introduction bind:project />
 					<Knowledge {project} />
 					<Files {project} classes={{ list: 'text-sm flex flex-col gap-2' }} />
+					<ModelProviders bind:project />
 					{#if version.current.dockerSupported}
 						<CustomTools {project} />
 					{/if}

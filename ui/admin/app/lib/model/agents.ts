@@ -28,6 +28,7 @@ export type AgentBase = {
 	introductionMessage?: string;
 	icons: AgentIcons | null;
 	oauthApps?: string[] | null;
+	allowedModelProviders?: string[];
 };
 
 export type AgentOAuthStatus = {

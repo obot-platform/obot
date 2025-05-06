@@ -145,13 +145,28 @@ func (h *ProjectsHandler) UpdateProject(req api.Context) error {
 	project.AllowedMCPTools = thread.Spec.Manifest.AllowedMCPTools
 
 	if !equality.Semantic.DeepEqual(thread.Spec.Manifest, project) {
-		if project.ModelProvider != "" && !slices.Contains(agent.Spec.Manifest.AllowedModelProviders, project.ModelProvider) {
-			return types.NewErrBadRequest("model provider %s is not allowed for agent %s", project.ModelProvider, agent.Name)
+		// Make sure that the default model provider and model are also on the models map.
+		if project.DefaultModelProvider != "" {
+			if project.Models == nil {
+				project.Models = map[string][]string{}
+			}
+
+			if !slices.Contains(project.Models[project.DefaultModelProvider], project.DefaultModel) {
+				project.Models[project.DefaultModelProvider] = append(project.Models[project.DefaultModelProvider], project.DefaultModel)
+			}
+		}
+
+		// Make sure that all the specified model providers are allowed.
+		for provider := range project.Models {
+			if !slices.Contains(agent.Spec.Manifest.AllowedModelProviders, provider) {
+				return types.NewErrBadRequest("model provider %s is not allowed for agent %s", provider, agent.Name)
+			}
 		}
 
 		thread.Spec.Manifest = project.ThreadManifest
-		thread.Spec.ModelProvider = project.ModelProvider
-		thread.Spec.Model = project.Model
+		thread.Spec.DefaultModelProvider = project.DefaultModelProvider
+		thread.Spec.DefaultModel = project.DefaultModel
+		thread.Spec.Models = project.Models
 		if err := req.Update(&thread); err != nil {
 			return err
 		}
@@ -312,8 +327,14 @@ func (h *ProjectsHandler) CreateProject(req api.Context) error {
 		return err
 	}
 
-	if project.ModelProvider != "" && !slices.Contains(agent.Spec.Manifest.AllowedModelProviders, project.ModelProvider) {
-		return types.NewErrBadRequest("model provider %s is not allowed for agent %s", project.ModelProvider, agent.Name)
+	if project.DefaultModelProvider != "" && !slices.Contains(agent.Spec.Manifest.AllowedModelProviders, project.DefaultModelProvider) {
+		return types.NewErrBadRequest("model provider %s is not allowed for agent %s", project.DefaultModelProvider, agent.Name)
+	}
+
+	for provider := range project.Models {
+		if !slices.Contains(agent.Spec.Manifest.AllowedModelProviders, provider) {
+			return types.NewErrBadRequest("model provider %s is not allowed for agent %s", provider, agent.Name)
+		}
 	}
 
 	thread := &v1.Thread{
@@ -330,11 +351,12 @@ func (h *ProjectsHandler) CreateProject(req api.Context) error {
 					Description: project.Description,
 				},
 			},
-			AgentName:     agent.Name,
-			Project:       true,
-			UserID:        req.User.GetUID(),
-			ModelProvider: project.ModelProvider,
-			Model:         project.Model,
+			AgentName:            agent.Name,
+			Project:              true,
+			UserID:               req.User.GetUID(),
+			DefaultModelProvider: project.DefaultModelProvider,
+			DefaultModel:         project.DefaultModel,
+			Models:               project.Models,
 		},
 	}
 
@@ -429,9 +451,10 @@ func convertProject(thread *v1.Thread, parentThread *v1.Thread) types.Project {
 	p := types.Project{
 		Metadata: MetadataFrom(thread),
 		ProjectManifest: types.ProjectManifest{
-			ThreadManifest: thread.Spec.Manifest,
-			ModelProvider:  thread.Spec.ModelProvider,
-			Model:          thread.Spec.Model,
+			ThreadManifest:       thread.Spec.Manifest,
+			DefaultModelProvider: thread.Spec.DefaultModelProvider,
+			DefaultModel:         thread.Spec.DefaultModel,
+			Models:               thread.Spec.Models,
 		},
 		ParentID:        strings.Replace(thread.Spec.ParentThreadName, system.ThreadPrefix, system.ProjectPrefix, 1),
 		SourceProjectID: strings.Replace(thread.Spec.SourceThreadName, system.ThreadPrefix, system.ProjectPrefix, 1),

@@ -911,6 +911,20 @@ func schema_obot_platform_obot_apiclient_types_Assistant(ref common.ReferenceCal
 							Ref: ref("github.com/obot-platform/obot/apiclient/types.WebsiteKnowledge"),
 						},
 					},
+					"allowedModelProviders": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
 				},
 				Required: []string{"Metadata", "name", "default", "description", "icons", "introductionMessage", "starterMessages", "entityID"},
 			},
@@ -3795,16 +3809,38 @@ func schema_obot_platform_obot_apiclient_types_ProjectManifest(ref common.Refere
 							Ref:     ref("github.com/obot-platform/obot/apiclient/types.ThreadManifest"),
 						},
 					},
-					"modelProvider": {
+					"defaultModelProvider": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
 							Format: "",
 						},
 					},
-					"model": {
+					"defaultModel": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
 							Format: "",
+						},
+					},
+					"models": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"object"},
+							AdditionalProperties: &spec.SchemaOrBool{
+								Allows: true,
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type: []string{"array"},
+										Items: &spec.SchemaOrArray{
+											Schema: &spec.Schema{
+												SchemaProps: spec.SchemaProps{
+													Default: "",
+													Type:    []string{"string"},
+													Format:  "",
+												},
+											},
+										},
+									},
+								},
+							},
 						},
 					},
 				},
@@ -5454,6 +5490,18 @@ func schema_obot_platform_obot_apiclient_types_ThreadManifest(ref common.Referen
 									},
 								},
 							},
+						},
+					},
+					"modelProvider": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"model": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
 						},
 					},
 					"prompt": {
@@ -9749,12 +9797,6 @@ func schema_storage_apis_obotobotai_v1_RunSpec(ref common.ReferenceCallback) com
 							},
 						},
 					},
-					"defaultModel": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
 					"timeout": {
 						SchemaProps: spec.SchemaProps{
 							Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.Duration"),
@@ -10819,18 +10861,41 @@ func schema_storage_apis_obotobotai_v1_ThreadSpec(ref common.ReferenceCallback) 
 							Ref:         ref("github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ThreadCapabilities"),
 						},
 					},
-					"modelProvider": {
+					"defaultModelProvider": {
 						SchemaProps: spec.SchemaProps{
-							Description: "ModelProvider is the model provider the user has chosen for this thread. Currently, only supported for projects.",
+							Description: "DefaultModelProvider is the provider for the default model for the project.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
 					},
-					"model": {
+					"defaultModel": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Model is the model the user has chosen for this thread. Currently, only supported for projects",
+							Description: "DefaultModel is the default model for the project.",
 							Type:        []string{"string"},
 							Format:      "",
+						},
+					},
+					"models": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Models is the list of models that users of the project may choose from. It is a map of model provider to models.",
+							Type:        []string{"object"},
+							AdditionalProperties: &spec.SchemaOrBool{
+								Allows: true,
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type: []string{"array"},
+										Items: &spec.SchemaOrArray{
+											Schema: &spec.Schema{
+												SchemaProps: spec.SchemaProps{
+													Default: "",
+													Type:    []string{"string"},
+													Format:  "",
+												},
+											},
+										},
+									},
+								},
+							},
 						},
 					},
 					"workflowName": {

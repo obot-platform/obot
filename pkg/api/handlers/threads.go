@@ -13,6 +13,8 @@ import (
 	"github.com/obot-platform/obot/pkg/gateway/server/dispatcher"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
+	threadmodel "github.com/obot-platform/obot/pkg/thread"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -358,4 +360,51 @@ func (a *ThreadHandler) TableRows(req api.Context) error {
 	}
 
 	return listTableRows(req, a.gptscript, wsID, tableName)
+}
+
+func (a *ThreadHandler) GetDefaultModelForThread(req api.Context) error {
+	var thread v1.Thread
+	if err := req.Get(&thread, req.PathValue("id")); err != nil {
+		return fmt.Errorf("failed to get thread with id %s: %w", req.PathValue("id"), err)
+	}
+
+	// We wipe out the model spec on the thread so that it tries to fetch the default model instead.
+	thread.Spec.Manifest.Model = ""
+	thread.Spec.Manifest.ModelProvider = ""
+
+	model, modelProvider, err := threadmodel.GetModelAndModelProviderForThread(req.Context(), req.Storage, &thread)
+	if err != nil {
+		return fmt.Errorf("failed to get model and model provider for thread %s: %w", req.PathValue("id"), err)
+	}
+
+	if model == string(types.DefaultModelAliasTypeLLM) {
+		var alias v1.DefaultModelAlias
+		if err := req.Get(&alias, string(types.DefaultModelAliasTypeLLM)); apierrors.IsNotFound(err) {
+			// If the default model alias is not found, then nothing is configured, and we should just return nothing.
+			return req.Write(map[string]string{
+				"model":         "",
+				"modelProvider": "",
+			})
+		} else if err != nil {
+			return fmt.Errorf("failed to get default model alias for thread %s: %w", req.PathValue("id"), err)
+		}
+
+		// This model has the system.ModelPrefix on it, so we set it and then let the next if statement take care of it.
+		model = alias.Spec.Manifest.Model
+	}
+
+	if strings.HasPrefix(model, system.ModelPrefix) {
+		var modelObj v1.Model
+		if err := req.Get(&modelObj, model); err != nil {
+			return fmt.Errorf("failed to get model with id %s: %w", model, err)
+		}
+
+		model = modelObj.Spec.Manifest.Name
+		modelProvider = modelObj.Spec.Manifest.ModelProvider
+	}
+
+	return req.Write(map[string]string{
+		"model":         model,
+		"modelProvider": modelProvider,
+	})
 }

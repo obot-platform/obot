@@ -92,10 +92,16 @@ func (mp *ModelProviderHandler) List(req api.Context) error {
 			return fmt.Errorf("failed to get project: %w", err)
 		}
 
-		if project.Spec.ModelProvider != "" && !slices.Contains(allowedModelProviders, project.Spec.ModelProvider) {
-			// If the project has a model provider on it, add it to the list of it isn't already.
-			// This protects against the agent changing allowed model providers, but the project is already configured with one that is removed.
-			allowedModelProviders = append(allowedModelProviders, project.Spec.ModelProvider)
+		// Add any model providers on the project to the allowed list if they aren't already on there.
+		// This protects against the agent changing allowed model providers, but the project is already configured with one that is removed.
+		if project.Spec.DefaultModelProvider != "" && !slices.Contains(allowedModelProviders, project.Spec.DefaultModelProvider) {
+			allowedModelProviders = append(allowedModelProviders, project.Spec.DefaultModelProvider)
+		}
+
+		for modelProvider := range project.Spec.Models {
+			if modelProvider != "" && !slices.Contains(allowedModelProviders, modelProvider) {
+				allowedModelProviders = append(allowedModelProviders, modelProvider)
+			}
 		}
 
 		if len(allowedModelProviders) == 0 {

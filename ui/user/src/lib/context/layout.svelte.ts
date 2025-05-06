@@ -27,7 +27,8 @@ export interface Layout {
 		| 'knowledge'
 		| 'custom-tool'
 		| 'invitations'
-		| 'custom-mcp';
+		| 'custom-mcp'
+		| 'model-providers';
 	customToolId?: string;
 	editProjectMcp?: ProjectMCP;
 	template?: ProjectTemplate;

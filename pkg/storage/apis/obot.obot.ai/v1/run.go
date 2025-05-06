@@ -88,7 +88,6 @@ type RunSpec struct {
 	Tool                  string                  `json:"tool,omitempty"`
 	ToolReferenceType     types.ToolReferenceType `json:"toolReferenceType,omitempty"`
 	CredentialContextIDs  []string                `json:"credentialContextIDs,omitempty"`
-	DefaultModel          string                  `json:"defaultModel,omitempty"`
 	Timeout               metav1.Duration         `json:"timeout,omitempty"`
 	ExternalCallResults   []ExternalCallResult    `json:"externalCallResults,omitempty"`
 }

@@ -28,6 +28,7 @@ import (
 	"github.com/obot-platform/obot/pkg/render"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
+	threadmodel "github.com/obot-platform/obot/pkg/thread"
 	"github.com/obot-platform/obot/pkg/wait"
 	apierror "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -363,17 +364,9 @@ func (i *Invoker) Agent(ctx context.Context, c kclient.WithWatch, agent *v1.Agen
 		}
 	}
 
-	project, err := projects.GetFirst(ctx, c, thread, func(thread *v1.Thread) (bool, error) {
-		return thread.Spec.ModelProvider != "" && thread.Spec.Model != "", nil
-	})
-	if err != nil {
-		return nil, err
-	}
-
 	tools, extraEnv, err := render.Agent(ctx, c, i.gptClient, agent, i.serverURL, render.AgentOptions{
 		Thread:         thread,
 		WorkflowStepID: opt.WorkflowStepID,
-		Model:          project.Spec.Model,
 	})
 	if err != nil {
 		return nil, err
@@ -400,7 +393,6 @@ func (i *Invoker) Agent(ctx context.Context, c kclient.WithWatch, agent *v1.Agen
 		PreviousRunName:       opt.PreviousRunName,
 		ForceNoResume:         opt.ForceNoResume,
 		GenerateName:          opt.GenerateName,
-		DefaultModel:          project.Spec.Model,
 	})
 }
 
@@ -426,7 +418,6 @@ type runOptions struct {
 	CredentialContextIDs  []string
 	Timeout               time.Duration
 	Ephemeral             bool
-	DefaultModel          string
 }
 
 func isEphemeral(run *v1.Run) bool {
@@ -457,11 +448,6 @@ func (i *Invoker) createRun(ctx context.Context, c kclient.WithWatch, thread *v1
 		generateName = system.RunPrefix
 	}
 
-	defaultModel := opts.DefaultModel
-	if defaultModel == "" {
-		defaultModel = string(types.DefaultModelAliasTypeLLM)
-	}
-
 	run := v1.Run{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: generateName,
@@ -481,7 +467,6 @@ func (i *Invoker) createRun(ctx context.Context, c kclient.WithWatch, thread *v1
 			Tool:                  string(toolData),
 			Env:                   opts.Env,
 			CredentialContextIDs:  opts.CredentialContextIDs,
-			DefaultModel:          defaultModel,
 			Timeout:               metav1.Duration{Duration: opts.Timeout},
 		},
 	}
@@ -608,7 +593,7 @@ func (i *Invoker) Resume(ctx context.Context, c kclient.WithWatch, thread *v1.Th
 
 	chatState, err := i.getChatState(ctx, c, run)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to get chat state: %w", err)
 	}
 
 	var userID, userName, userEmail, userTimezone string
@@ -628,31 +613,26 @@ func (i *Invoker) Resume(ctx context.Context, c kclient.WithWatch, thread *v1.Th
 		// Note: AuthenticatedGroup is added by default in the token service
 	}
 
-	var modelProvider, model string
-	_, err = projects.GetFirst(ctx, c, thread, func(thread *v1.Thread) (bool, error) {
-		modelProvider = thread.Spec.ModelProvider
-		model = thread.Spec.Model
-		return modelProvider != "" && model != "", nil
-	})
+	model, modelProvider, err := threadmodel.GetModelAndModelProviderForThread(ctx, c, thread)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to get model and model provider: %w", err)
 	}
 
 	token, err := i.tokenService.NewToken(jwt.TokenContext{
-		Namespace:            run.Namespace,
-		RunID:                run.Name,
-		ThreadID:             thread.Name,
-		ProjectID:            thread.Spec.ParentThreadName,
-		ProjectModelProvider: modelProvider,
-		ProjectModel:         model,
-		AgentID:              run.Spec.AgentName,
-		WorkflowID:           run.Spec.WorkflowName,
-		WorkflowStepID:       run.Spec.WorkflowStepID,
-		Scope:                thread.Namespace,
-		UserID:               userID,
-		UserName:             userName,
-		UserEmail:            userEmail,
-		UserGroups:           userGroups,
+		Namespace:      run.Namespace,
+		RunID:          run.Name,
+		ThreadID:       thread.Name,
+		ProjectID:      thread.Spec.ParentThreadName,
+		ModelProvider:  modelProvider,
+		Model:          model,
+		AgentID:        run.Spec.AgentName,
+		WorkflowID:     run.Spec.WorkflowName,
+		WorkflowStepID: run.Spec.WorkflowStepID,
+		Scope:          thread.Namespace,
+		UserID:         userID,
+		UserName:       userName,
+		UserEmail:      userEmail,
+		UserGroups:     userGroups,
 	})
 	if err != nil {
 		return err
@@ -677,7 +657,7 @@ func (i *Invoker) Resume(ctx context.Context, c kclient.WithWatch, thread *v1.Th
 				"OBOT_WORKFLOW_ID="+run.Spec.WorkflowName,
 				"OBOT_WORKFLOW_STEP_ID="+run.Spec.WorkflowStepID,
 				"OBOT_AGENT_ID="+run.Spec.AgentName,
-				"OBOT_DEFAULT_LLM_MODEL="+run.Spec.DefaultModel,
+				"OBOT_DEFAULT_LLM_MODEL="+model,
 				"OBOT_DEFAULT_LLM_MINI_MODEL="+string(types.DefaultModelAliasTypeLLMMini),
 				"OBOT_DEFAULT_TEXT_EMBEDDING_MODEL="+string(types.DefaultModelAliasTypeTextEmbedding),
 				"OBOT_DEFAULT_IMAGE_GENERATION_MODEL="+string(types.DefaultModelAliasTypeImageGeneration),
@@ -688,7 +668,7 @@ func (i *Invoker) Resume(ctx context.Context, c kclient.WithWatch, thread *v1.Th
 				"OBOT_USER_TIMEZONE="+userTimezone,
 				"GPTSCRIPT_HTTP_ENV=OBOT_TOKEN,OBOT_RUN_ID,OBOT_THREAD_ID,OBOT_PROJECT_ID,OBOT_WORKFLOW_ID,OBOT_WORKFLOW_STEP_ID,OBOT_AGENT_ID",
 			),
-			DefaultModel:         run.Spec.DefaultModel,
+			DefaultModel:         model,
 			DefaultModelProvider: modelProvider,
 		},
 		Input:              input,
@@ -717,11 +697,11 @@ func (i *Invoker) Resume(ctx context.Context, c kclient.WithWatch, thread *v1.Th
 		}
 		toolRef, err := render.ResolveToolReference(ctx, c, run.Spec.ToolReferenceType, run.Namespace, toolString)
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to resolve tool reference: %w", err)
 		}
 		runResp, err = i.gptClient.Run(ctx, toolRef, options)
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to run tool: %w", err)
 		}
 	case '[':
 		if err := json.Unmarshal([]byte(run.Spec.Tool), &toolDefs); err != nil {
@@ -729,7 +709,7 @@ func (i *Invoker) Resume(ctx context.Context, c kclient.WithWatch, thread *v1.Th
 		}
 		runResp, err = i.gptClient.Evaluate(ctx, options, toolDefs...)
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to evaluate tool: %w", err)
 		}
 	case '{':
 		if err := json.Unmarshal([]byte(run.Spec.Tool), &toolDef); err != nil {
@@ -737,13 +717,17 @@ func (i *Invoker) Resume(ctx context.Context, c kclient.WithWatch, thread *v1.Th
 		}
 		runResp, err = i.gptClient.Evaluate(ctx, options, toolDef)
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to evaluate tool: %w", err)
 		}
 	default:
 		return fmt.Errorf("invalid tool definition: %s", run.Spec.Tool)
 	}
 
-	return i.stream(ctx, c, thread, run, runResp)
+	if err := i.stream(ctx, c, thread, run, runResp); err != nil {
+		return fmt.Errorf("failed to stream: %w", err)
+	}
+
+	return nil
 }
 
 func (i *Invoker) saveState(ctx context.Context, c kclient.Client, thread *v1.Thread, run *v1.Run, runResp *gptscript.Run, retErr error) error {

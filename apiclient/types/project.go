@@ -17,8 +17,9 @@ type ProjectCapabilities struct {
 
 type ProjectManifest struct {
 	ThreadManifest
-	ModelProvider string `json:"modelProvider,omitempty"`
-	Model         string `json:"model,omitempty"`
+	DefaultModelProvider string              `json:"defaultModelProvider,omitempty"`
+	DefaultModel         string              `json:"defaultModel,omitempty"`
+	Models               map[string][]string `json:"models,omitempty"`
 }
 
 type ProjectList List[Project]

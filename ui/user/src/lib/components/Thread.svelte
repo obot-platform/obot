@@ -5,7 +5,7 @@
 	import { Thread } from '$lib/services/chat/thread.svelte';
 	import { ChatService, EditorService, type Messages, type Project } from '$lib/services';
 	import { fade } from 'svelte/transition';
-	import { onDestroy } from 'svelte';
+	import { onDestroy, onMount } from 'svelte';
 	import { toHTMLFromMarkdown } from '$lib/markdown';
 	import { getLayout } from '$lib/context/layout.svelte';
 	import Files from '$lib/components/edit/Files.svelte';
@@ -18,6 +18,9 @@
 	import EditIcon from '$lib/components/edit/EditIcon.svelte';
 	import { DEFAULT_PROJECT_DESCRIPTION, DEFAULT_PROJECT_NAME } from '$lib/constants';
 	import { twMerge } from 'tailwind-merge';
+	import { getThread } from '$lib/services/chat/operations';
+	import type { Thread as ThreadType } from '$lib/services/chat/types';
+	import ThreadModelSelector from '$lib/components/edit/ThreadModelSelector.svelte';
 
 	interface Props {
 		id?: string;
@@ -37,6 +40,9 @@
 	let fadeBarWidth = $state<number>(0);
 	let loadingOlderMessages = $state(false);
 	let showLoadOlderButton = $state(false);
+
+	// Model selector state
+	let threadDetails = $state<ThreadType | null>(null);
 
 	$effect(() => {
 		if (threadContainer) {
@@ -244,6 +250,42 @@
 			loadingOlderMessages = false;
 		}
 	}
+
+	// Function to fetch thread details
+	async function fetchThreadDetails() {
+		if (!id) return;
+
+		try {
+			const thread = await getThread(project.assistantID, project.id, id);
+			threadDetails = thread;
+		} catch (err) {
+			console.error('Error fetching thread details:', err);
+		}
+	}
+
+	onMount(() => {
+		if (id) {
+			fetchThreadDetails();
+		}
+	});
+
+	$effect(() => {
+		if (id && !threadDetails) {
+			fetchThreadDetails();
+		}
+	});
+
+	// Handle model change in the thread
+	function handleModelChanged() {
+		// Close and recreate the thread to use the new model settings
+		if (thread) {
+			// Close the current thread
+			thread.close();
+
+			// Recreate the thread (this will use the updated model settings)
+			constructThread();
+		}
+	}
 </script>
 
 {#snippet editBasicSection()}
@@ -423,16 +465,21 @@
 					}}
 					bind:items={layout.items}
 				>
-					<div class="flex w-fit items-center gap-1">
-						<Files
-							thread
-							{project}
-							bind:currentThreadID={id}
-							helperText={'Files'}
-							classes={{ list: 'max-h-[60vh] space-y-4 overflow-y-auto pt-2 pb-6 text-sm' }}
-						/>
-						{#if project.editor && !shared}
-							<Tools {project} />
+					<div class="flex w-full items-center justify-between">
+						<div class="flex items-center gap-1">
+							<Files
+								thread
+								{project}
+								bind:currentThreadID={id}
+								helperText={'Files'}
+								classes={{ list: 'max-h-[60vh] space-y-4 overflow-y-auto pt-2 pb-6 text-sm' }}
+							/>
+							{#if project.editor && !shared}
+								<Tools {project} />
+							{/if}
+						</div>
+						{#if id}
+							<ThreadModelSelector threadId={id} {project} onModelChanged={handleModelChanged} />
 						{/if}
 					</div>
 				</Input>

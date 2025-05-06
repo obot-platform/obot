@@ -10,6 +10,7 @@ import { useAgent } from "~/components/agent/AgentContext";
 import { AgentForm } from "~/components/agent/AgentForm";
 import { ToolForm } from "~/components/agent/ToolForm";
 import { AgentCapabilityForm } from "~/components/agent/shared/AgentCapabilityForm";
+import { AgentModelProviderSelect } from "~/components/agent/shared/AgentModelProviderSelect";
 import { AgentModelSelect } from "~/components/agent/shared/AgentModelSelect";
 import { EnvironmentVariableSection } from "~/components/agent/shared/EnvironmentVariableSection";
 import { ToolAuthenticationStatus } from "~/components/agent/shared/ToolAuthenticationStatus";
@@ -157,6 +158,24 @@ export function Agent() {
 								onChange={(updates) => partialSetAgent(updates)}
 							/>
 						</div>
+
+						<hr className="my-4 border-t border-border" />
+
+						<div className="flex flex-col gap-4">
+							<h4>Allowed Model Providers</h4>
+
+							<CardDescription>
+								Select which model providers are allowed to be used with this
+								agent.
+							</CardDescription>
+
+							<AgentModelProviderSelect
+								entity={agentUpdates}
+								onChange={(updates) => partialSetAgent(updates)}
+							/>
+						</div>
+
+						<hr className="my-4 border-t border-border" />
 
 						<EnvironmentVariableSection
 							entity={agent}

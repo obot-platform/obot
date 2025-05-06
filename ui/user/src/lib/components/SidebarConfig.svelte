@@ -11,6 +11,7 @@
 	import { createProjectMcp, updateProjectMcp } from '$lib/services/chat/mcp';
 	import { getProjectMCPs } from '$lib/context/projectMcps.svelte';
 	import Discord from './discord/Discord.svelte';
+	import ModelProviders from './ModelProviders.svelte';
 
 	interface Props {
 		project: Project;
@@ -80,6 +81,8 @@
 		{#key layout.template.id}
 			<TemplateConfig bind:template={layout.template} />
 		{/key}
+	{:else if layout.sidebarConfig === 'model-providers'}
+		<ModelProviders bind:project />
 	{:else}
 		<div class="p-8">
 			{@render underConstruction()}

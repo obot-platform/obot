@@ -23,20 +23,20 @@ func init() {
 }
 
 type TokenContext struct {
-	Namespace            string
-	RunID                string
-	ThreadID             string
-	ProjectID            string
-	ProjectModelProvider string
-	ProjectModel         string
-	AgentID              string
-	WorkflowID           string
-	WorkflowStepID       string
-	Scope                string
-	UserID               string
-	UserName             string
-	UserEmail            string
-	UserGroups           []string
+	Namespace      string
+	RunID          string
+	ThreadID       string
+	ProjectID      string
+	ModelProvider  string
+	Model          string
+	AgentID        string
+	WorkflowID     string
+	WorkflowStepID string
+	Scope          string
+	UserID         string
+	UserName       string
+	UserEmail      string
+	UserGroups     []string
 }
 
 type TokenService struct{}
@@ -83,20 +83,20 @@ func (t *TokenService) DecodeToken(token string) (*TokenContext, error) {
 	groups = slices.DeleteFunc(groups, func(s string) bool { return s == "" })
 
 	context := &TokenContext{
-		Namespace:            claims["Namespace"].(string),
-		RunID:                claims["RunID"].(string),
-		ThreadID:             claims["ThreadID"].(string),
-		ProjectID:            claims["ProjectID"].(string),
-		ProjectModelProvider: claims["ProjectModelProvider"].(string),
-		ProjectModel:         claims["ProjectModel"].(string),
-		AgentID:              claims["AgentID"].(string),
-		Scope:                claims["Scope"].(string),
-		WorkflowID:           claims["WorkflowID"].(string),
-		WorkflowStepID:       claims["WorkflowStepID"].(string),
-		UserID:               claims["UserID"].(string),
-		UserName:             claims["UserName"].(string),
-		UserEmail:            claims["UserEmail"].(string),
-		UserGroups:           groups,
+		Namespace:      claims["Namespace"].(string),
+		RunID:          claims["RunID"].(string),
+		ThreadID:       claims["ThreadID"].(string),
+		ProjectID:      claims["ProjectID"].(string),
+		ModelProvider:  claims["ModelProvider"].(string),
+		Model:          claims["Model"].(string),
+		AgentID:        claims["AgentID"].(string),
+		Scope:          claims["Scope"].(string),
+		WorkflowID:     claims["WorkflowID"].(string),
+		WorkflowStepID: claims["WorkflowStepID"].(string),
+		UserID:         claims["UserID"].(string),
+		UserName:       claims["UserName"].(string),
+		UserEmail:      claims["UserEmail"].(string),
+		UserGroups:     groups,
 	}
 
 	return context, nil
@@ -104,20 +104,20 @@ func (t *TokenService) DecodeToken(token string) (*TokenContext, error) {
 
 func (t *TokenService) NewToken(context TokenContext) (string, error) {
 	claims := jwt.MapClaims{
-		"Namespace":            context.Namespace,
-		"RunID":                context.RunID,
-		"ThreadID":             context.ThreadID,
-		"ProjectID":            context.ProjectID,
-		"ProjectModelProvider": context.ProjectModelProvider,
-		"ProjectModel":         context.ProjectModel,
-		"AgentID":              context.AgentID,
-		"Scope":                context.Scope,
-		"WorkflowID":           context.WorkflowID,
-		"WorkflowStepID":       context.WorkflowStepID,
-		"UserID":               context.UserID,
-		"UserName":             context.UserName,
-		"UserEmail":            context.UserEmail,
-		"UserGroups":           strings.Join(context.UserGroups, ","),
+		"Namespace":      context.Namespace,
+		"RunID":          context.RunID,
+		"ThreadID":       context.ThreadID,
+		"ProjectID":      context.ProjectID,
+		"ModelProvider":  context.ModelProvider,
+		"Model":          context.Model,
+		"AgentID":        context.AgentID,
+		"Scope":          context.Scope,
+		"WorkflowID":     context.WorkflowID,
+		"WorkflowStepID": context.WorkflowStepID,
+		"UserID":         context.UserID,
+		"UserName":       context.UserName,
+		"UserEmail":      context.UserEmail,
+		"UserGroups":     strings.Join(context.UserGroups, ","),
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)

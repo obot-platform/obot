@@ -36,8 +36,8 @@ func (s *Server) llmProxy(req api.Context) error {
 	var (
 		credEnv       map[string]string
 		personalToken bool
-		model         = token.ProjectModel
-		modelProvider = token.ProjectModelProvider
+		model         = token.Model
+		modelProvider = token.ModelProvider
 	)
 
 	body, err := readBody(req.Request)
@@ -52,7 +52,7 @@ func (s *Server) llmProxy(req api.Context) error {
 
 	// If the model string is different from the model, then we need to look up the model in our database to get the
 	// correct model and model provider information.
-	if modelStr != token.ProjectModel {
+	if modelProvider == "" || modelStr != token.Model {
 		// First, check that the user has token usage available for this request.
 		if token.UserID != "" {
 			remainingUsage, err := s.client.RemainingTokenUsageForUser(req.Context(), token.UserID, tokenUsageTimePeriod, s.dailyUserTokenPromptTokenLimit, s.dailyUserTokenCompletionTokenLimit)
@@ -72,7 +72,7 @@ func (s *Server) llmProxy(req api.Context) error {
 		model = m.Spec.Manifest.TargetModel
 	} else {
 		// If this request is using a user-specific credential, then get it.
-		cred, err := req.GPTClient.RevealCredential(req.Context(), []string{fmt.Sprintf("%s-%s", strings.Replace(token.ProjectID, system.ThreadPrefix, system.ProjectPrefix, 1), token.ProjectModelProvider)}, token.ProjectModelProvider)
+		cred, err := req.GPTClient.RevealCredential(req.Context(), []string{fmt.Sprintf("%s-%s", strings.Replace(token.ProjectID, system.ThreadPrefix, system.ProjectPrefix, 1), token.ModelProvider)}, token.ModelProvider)
 		if err != nil {
 			return fmt.Errorf("model provider not configured, failed to get credential: %w", err)
 		}

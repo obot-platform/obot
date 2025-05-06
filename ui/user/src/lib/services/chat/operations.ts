@@ -39,7 +39,9 @@ import {
 	type ProjectInvitation,
 	type ProjectTemplate,
 	type ProjectTemplateList,
-	type ProjectTemplateManifest
+	type ProjectTemplateManifest,
+	type ModelList,
+	type ModelProviderList
 } from './types';
 
 export type Fetcher = typeof fetch;
@@ -706,10 +708,11 @@ export async function deleteProject(assistantID: string, id: string) {
 }
 
 export async function updateProject(project: Project): Promise<Project> {
-	return (await doPut(
+	const result = (await doPut(
 		`/assistants/${project.assistantID}/projects/${project.id}`,
 		project
 	)) as Project;
+	return result;
 }
 
 export async function listProjects(opts?: {
@@ -1204,4 +1207,74 @@ export async function getTemplate(
 
 export async function copyTemplate(publicID: string, opts?: { fetch?: Fetcher }): Promise<Project> {
 	return (await doPost(`/templates/${publicID}`, {}, opts)) as Project;
+}
+
+export async function listAvailableModels(
+	assistantID: string,
+	projectID: string,
+	providerId: string
+): Promise<ModelList> {
+	return (await doGet(
+		`/assistants/${assistantID}/projects/${projectID}/model-providers/${providerId}/available-models`
+	)) as ModelList;
+}
+
+// Model provider operations
+export async function listModelProviders(
+	assistantID: string,
+	projectID: string
+): Promise<ModelProviderList> {
+	return (await doGet(
+		`/assistants/${assistantID}/projects/${projectID}/model-providers`
+	)) as ModelProviderList;
+}
+
+export async function configureModelProvider(
+	assistantID: string,
+	projectID: string,
+	providerId: string,
+	config: Record<string, string>
+): Promise<void> {
+	return doPost(
+		`/assistants/${assistantID}/projects/${projectID}/model-providers/${providerId}/configure`,
+		config
+	) as Promise<void>;
+}
+
+export async function deconfigureModelProvider(
+	assistantID: string,
+	projectID: string,
+	providerId: string
+): Promise<void> {
+	return doPost(
+		`/assistants/${assistantID}/projects/${projectID}/model-providers/${providerId}/deconfigure`,
+		{}
+	) as Promise<void>;
+}
+
+export async function getModelProviderConfig(
+	assistantID: string,
+	projectID: string,
+	providerId: string
+): Promise<Record<string, string>> {
+	return doPost(
+		`/assistants/${assistantID}/projects/${projectID}/model-providers/${providerId}/reveal`,
+		{},
+		{ dontLogErrors: true }
+	) as Promise<Record<string, string>>;
+}
+
+export async function getDefaultModelForThread(
+	assistantID: string,
+	projectID: string,
+	threadID: string
+): Promise<{ model: string; modelProvider: string }> {
+	try {
+		return (await doGet(
+			`/assistants/${assistantID}/projects/${projectID}/threads/${threadID}/default-model`,
+			{ dontLogErrors: true }
+		)) as { model: string; modelProvider: string };
+	} catch (err) {
+		return { model: '', modelProvider: '' };
+	}
 }
