@@ -91,7 +91,7 @@ func (h *ProjectsHandler) DeleteMember(req api.Context) error {
 	}
 
 	// Only the project creator can remove members
-	if thread.Spec.UserID != req.User.GetUID() {
+	if !req.UserIsAdmin() && thread.Spec.UserID != req.User.GetUID() {
 		return types.NewErrBadRequest("only the project creator can remove members")
 	}
 

@@ -29,7 +29,7 @@ func (h *ProjectInvitationHandler) CreateInvitationForProject(req api.Context) e
 		return types.NewErrBadRequest("only projects can have invitations")
 	}
 
-	if thread.Spec.UserID != req.User.GetUID() {
+	if !req.UserIsAdmin() && thread.Spec.UserID != req.User.GetUID() {
 		return types.NewErrForbidden("only the project creator can create invitations")
 	}
 
@@ -80,7 +80,7 @@ func (h *ProjectInvitationHandler) ListInvitationsForProject(req api.Context) er
 		return types.NewErrBadRequest("only projects can have invitations")
 	}
 
-	if thread.Spec.UserID != req.User.GetUID() {
+	if !req.UserIsAdmin() && thread.Spec.UserID != req.User.GetUID() {
 		return types.NewErrForbidden("only the project creator can list invitations")
 	}
 
@@ -130,7 +130,7 @@ func (h *ProjectInvitationHandler) DeleteInvitationForProject(req api.Context) e
 		return types.NewErrBadRequest("only projects can have invitations")
 	}
 
-	if thread.Spec.UserID != req.User.GetUID() {
+	if !req.UserIsAdmin() && thread.Spec.UserID != req.User.GetUID() {
 		return types.NewErrForbidden("only the project creator can delete invitations")
 	}
 
