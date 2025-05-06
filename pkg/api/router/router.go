@@ -410,12 +410,12 @@ func Router(services *services.Services) (http.Handler, error) {
 
 	// Model providers
 	mux.HandleFunc("GET /api/model-providers", modelProviders.List)
-	mux.HandleFunc("GET /api/model-providers/{id}", modelProviders.ByID)
-	mux.HandleFunc("POST /api/model-providers/{id}/configure", modelProviders.Configure)
-	mux.HandleFunc("POST /api/model-providers/{id}/deconfigure", modelProviders.Deconfigure)
-	mux.HandleFunc("POST /api/model-providers/{id}/refresh-models", modelProviders.RefreshModels)
-	mux.HandleFunc("POST /api/model-providers/{id}/reveal", modelProviders.Reveal)
-	mux.HandleFunc("POST /api/model-providers/{id}/validate", modelProviders.Validate)
+	mux.HandleFunc("GET /api/model-providers/{model_provider_id}", modelProviders.ByID)
+	mux.HandleFunc("POST /api/model-providers/{model_provider_id}/configure", modelProviders.Configure)
+	mux.HandleFunc("POST /api/model-providers/{model_provider_id}/deconfigure", modelProviders.Deconfigure)
+	mux.HandleFunc("POST /api/model-providers/{model_provider_id}/refresh-models", modelProviders.RefreshModels)
+	mux.HandleFunc("POST /api/model-providers/{model_provider_id}/reveal", modelProviders.Reveal)
+	mux.HandleFunc("POST /api/model-providers/{model_provider_id}/validate", modelProviders.Validate)
 
 	// Auth providers
 	mux.HandleFunc("GET /api/auth-providers", authProviders.List)

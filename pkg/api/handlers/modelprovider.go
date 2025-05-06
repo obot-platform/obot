@@ -38,7 +38,7 @@ func NewModelProviderHandler(gClient *gptscript.GPTScript, dispatcher *dispatche
 
 func (mp *ModelProviderHandler) ByID(req api.Context) error {
 	var ref v1.ToolReference
-	if err := req.Get(&ref, req.PathValue("id")); err != nil {
+	if err := req.Get(&ref, req.PathValue("model_provider_id")); err != nil {
 		return err
 	}
 
@@ -422,7 +422,7 @@ func (mp *ModelProviderHandler) Reveal(req api.Context) error {
 
 func (mp *ModelProviderHandler) RefreshModels(req api.Context) error {
 	var ref v1.ToolReference
-	if err := req.Get(&ref, req.PathValue("id")); err != nil {
+	if err := req.Get(&ref, req.PathValue("model_provider_id")); err != nil {
 		return err
 	}
 
