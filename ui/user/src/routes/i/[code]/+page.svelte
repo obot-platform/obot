@@ -138,7 +138,7 @@
 				</div>
 				<div class="flex justify-center gap-4">
 					<button
-						class="flex items-center gap-2 rounded-md bg-green-600 px-4 py-2 text-white hover:bg-green-700 disabled:opacity-50"
+						class="bg-primary text-primary-foreground hover:bg-primary/90 flex items-center gap-2 rounded-md px-4 py-2 disabled:opacity-50"
 						disabled={isProcessing}
 						onclick={acceptInvitation}
 					>

@@ -531,9 +531,6 @@ func (h *ProjectsHandler) ListProjectThreads(req api.Context) error {
 		"spec.project":          "false",
 		"spec.parentThreadName": projectThread.Name,
 	}
-	if !req.UserIsAdmin() {
-		selector["spec.userUID"] = req.User.GetUID()
-	}
 
 	if err := req.List(&threads, selector); err != nil {
 		return err
