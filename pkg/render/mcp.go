@@ -10,6 +10,7 @@ import (
 	"github.com/gptscript-ai/go-gptscript"
 	gmcp "github.com/gptscript-ai/gptscript/pkg/mcp"
 	"github.com/gptscript-ai/gptscript/pkg/types"
+	"github.com/obot-platform/obot/pkg/mcp"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 )
 
@@ -44,15 +45,17 @@ func mcpServerTool(ctx context.Context, gptClient *gptscript.GPTScript, mcpServe
 }
 
 func MCPServerToolWithCreds(mcpServer v1.MCPServer, projectThreadName string, credEnv map[string]string, allowedTools ...string) (gptscript.ToolDef, error) {
-	serverConfig := gmcp.ServerConfig{
-		DisableInstruction: false,
-		Command:            mcpServer.Spec.Manifest.Command,
-		Args:               mcpServer.Spec.Manifest.Args,
-		Env:                make([]string, 0, len(mcpServer.Spec.Manifest.Env)),
-		URL:                mcpServer.Spec.Manifest.URL,
-		Headers:            make([]string, 0, len(mcpServer.Spec.Manifest.Headers)),
-		Scope:              projectThreadName,
-		AllowedTools:       allowedTools,
+	serverConfig := mcp.ServerConfig{
+			ServerConfig: gmcp.ServerConfig{
+			DisableInstruction: false,
+			Command:            mcpServer.Spec.Manifest.Command,
+			Args:               mcpServer.Spec.Manifest.Args,
+			Env:                make([]string, 0, len(mcpServer.Spec.Manifest.Env)),
+			URL:                mcpServer.Spec.Manifest.URL,
+			Headers:            make([]string, 0, len(mcpServer.Spec.Manifest.Headers)),
+			Scope:              projectThreadName,
+			AllowedTools:       allowedTools,
+		},
 	}
 
 	var missingRequiredNames []string
@@ -67,7 +70,15 @@ func MCPServerToolWithCreds(mcpServer v1.MCPServer, projectThreadName string, cr
 			continue
 		}
 
-		serverConfig.Env = append(serverConfig.Env, fmt.Sprintf("%s=%s", env.Key, val))
+		if !env.File {
+			serverConfig.Env = append(serverConfig.Env, fmt.Sprintf("%s=%s", env.Key, val))
+			continue
+		}
+
+		serverConfig.Files = append(serverConfig.Files, mcp.File{
+			Data:   val,
+			EnvKey: env.Key,
+		})
 	}
 
 	for _, header := range mcpServer.Spec.Manifest.Headers {
