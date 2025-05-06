@@ -87,6 +87,11 @@ func (sm *SessionManager) Load(ctx context.Context, tool types.Tool) (result []t
 	}
 
 	for _, server := range servers.MCPServers {
+		if server.Command == "" {
+			// This is a URL-based MCP server, so we don't have to do any deployments.
+			return sm.local.LoadSession(ctx, server.ServerConfig, tool.Name)
+		}
+
 		id := "mcp" + hash.Digest(server)[:60]
 
 		var objs []kclient.Object
