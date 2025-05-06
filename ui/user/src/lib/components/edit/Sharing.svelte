@@ -13,7 +13,7 @@
 
 	let toDelete = $state('');
 	let ownerID = $state<string>('');
-	let isOwner = $derived(profile.current.id === ownerID);
+	let isOwnerOrAdmin = $derived(profile.current.id === ownerID || profile.current.role === 1);
 
 	interface Props {
 		project: Project;
@@ -34,7 +34,7 @@
 	}
 
 	async function deleteMember(memberId: string) {
-		if (!isOwner) return;
+		if (!isOwnerOrAdmin) return;
 		await ChatService.deleteProjectMember(project.assistantID, project.id, memberId);
 		await loadMembers();
 	}
@@ -44,7 +44,7 @@
 	}
 
 	function manageInvitations() {
-		if (!isOwner) return;
+		if (!isOwnerOrAdmin) return;
 		openSidebarConfig(layout, 'invitations');
 	}
 
@@ -87,7 +87,7 @@
 				<div class="flex flex-col">
 					<div class="mb-2 flex items-center justify-between">
 						<span class="text-sm font-medium">Project Members</span>
-						{#if isOwner}
+						{#if isOwnerOrAdmin}
 							<div class="flex gap-2">
 								<button
 									class="bg-surface3 hover:bg-surface4 rounded-full p-1 transition-colors"
@@ -121,7 +121,7 @@
 									</span>
 								{/if}
 							</div>
-							{#if isOwner && profile.current.email !== member.email && !member.isOwner}
+							{#if isOwnerOrAdmin && profile.current.email !== member.email && !member.isOwner}
 								<button
 									class="bg-surface3 hover:bg-surface4 rounded-full p-1 transition-colors"
 									onclick={() => (toDelete = member.email)}

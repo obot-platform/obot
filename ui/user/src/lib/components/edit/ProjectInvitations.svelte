@@ -19,7 +19,7 @@
 	let isLoading = $state(false);
 	let isCreating = $state(false);
 	let ownerID = $state<string>('');
-	let isOwner = $derived(profile.current.id === ownerID);
+	let isOwnerOrAdmin = $derived(profile.current.id === ownerID || profile.current.role === 1);
 	let invitationUrl = $derived(
 		browser && invitation?.code
 			? `${window.location.protocol}//${window.location.host}/i/${invitation.code}`
@@ -28,7 +28,7 @@
 	let deleteInvitationCode = $state('');
 
 	async function createInvitation() {
-		if (!isOwner || isCreating) return;
+		if (!isOwnerOrAdmin || isCreating) return;
 
 		isCreating = true;
 		try {
@@ -42,7 +42,7 @@
 	}
 
 	async function loadInvitations() {
-		if (!isOwner) {
+		if (!isOwnerOrAdmin) {
 			invitations = [];
 			return;
 		}
@@ -59,7 +59,7 @@
 	}
 
 	async function deleteInvitation(code: string) {
-		if (!isOwner) return;
+		if (!isOwnerOrAdmin) return;
 		try {
 			await ChatService.deleteProjectInvitation(project.assistantID, project.id, code);
 			await loadInvitations();
@@ -95,7 +95,7 @@
 	$effect(() => {
 		if (project) {
 			ownerID = project.userID;
-			if (isOwner) {
+			if (isOwnerOrAdmin) {
 				loadInvitations();
 			}
 		}
@@ -105,7 +105,7 @@
 <div class="flex h-full w-full flex-col overflow-hidden p-4 {inline ? '' : 'mx-auto max-w-3xl'}">
 	<div class="mb-6 flex items-center justify-between">
 		<h2 class="text-xl font-medium">Project Invitations</h2>
-		{#if isOwner}
+		{#if isOwnerOrAdmin}
 			<button
 				class="bg-surface3 hover:bg-surface4 flex items-center gap-1 rounded-md px-3 py-1.5 text-sm font-medium transition-colors"
 				onclick={createInvitation}
@@ -117,7 +117,7 @@
 		{/if}
 	</div>
 
-	{#if !isOwner}
+	{#if !isOwnerOrAdmin}
 		<p class="p-4 text-center text-gray-500">Only project owners can manage invitations.</p>
 	{:else if isLoading}
 		<div class="flex grow items-center justify-center">
