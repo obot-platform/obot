@@ -61,27 +61,15 @@
 	}
 </script>
 
-{#if local}
+<dialog bind:this={authDialog} class:mobile-screen-dialog={responsive.isMobile} class="md:max-w-sm">
 	{@render content()}
-{:else}
-	<dialog
-		bind:this={authDialog}
-		class:mobile-screen-dialog={responsive.isMobile}
-		class="md:max-w-sm"
-	>
-		{@render content()}
-	</dialog>
-{/if}
+</dialog>
 
 {#snippet content()}
 	{#if credential}
 		<div class="flex flex-col">
 			<h4
-				class={twMerge(
-					'default-dialog-title text-base',
-					!local && 'py-2 md:pr-2 md:pl-5',
-					local && 'mb-4'
-				)}
+				class="default-dialog-title py-2 text-base md:pr-2 md:pl-5"
 				class:default-dialog-mobile-title={responsive.isMobile}
 			>
 				<span class="flex items-center gap-2">
@@ -93,7 +81,7 @@
 					{credential.toolName}
 				</span>
 				<button
-					class={twMerge('icon-button', local && 'translate-x-2')}
+					class="icon-button"
 					class:mobile-header-button={responsive.isMobile}
 					onclick={() => authCancel()}
 				>
@@ -101,7 +89,7 @@
 				</button>
 			</h4>
 			{#if authMessages}
-				<div class={twMerge('flex flex-col gap-5 p-5', !local && 'md:m-5 md:mt-0')}>
+				<div class="flex flex-col gap-5 p-5 md:m-5 md:mt-0">
 					{#each authMessages.messages as msg}
 						<Message {msg} {project} clearable onSendCredentialsCancel={() => authCancel()} />
 					{/each}

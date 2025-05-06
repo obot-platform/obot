@@ -17,5 +17,5 @@
 	header="Memories"
 	helpText={HELPER_TEXTS.memories}
 >
-	<MemoryContent {project} inline />
+	<MemoryContent {project} showPreview />
 </CollapsePane>

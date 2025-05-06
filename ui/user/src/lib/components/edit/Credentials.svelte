@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { ChatService, type Project, type ProjectCredential } from '$lib/services';
 	import CollapsePane from '$lib/components/edit/CollapsePane.svelte';
-	import { Plus, X } from 'lucide-svelte/icons';
+	import { Plus, RefreshCcw, X } from 'lucide-svelte/icons';
 	import { popover } from '$lib/actions';
 	import { fade } from 'svelte/transition';
 	import CredentialAuth from '$lib/components/edit/CredentialAuth.svelte';
@@ -9,6 +9,7 @@
 	import { responsive } from '$lib/stores';
 	import type { AssistantTool } from '$lib/services';
 	import { HELPER_TEXTS } from '$lib/context/helperMode.svelte';
+	import { tooltip } from '$lib/actions/tooltip.svelte';
 
 	interface Props {
 		project: Project;
@@ -20,7 +21,7 @@
 	const projectTools = getProjectTools();
 	let { project, local, currentThreadID }: Props = $props();
 
-	let { ref, tooltip, toggle } = popover();
+	let { ref, tooltip: popoverTooltip, toggle } = popover();
 	let threadTools = $state<AssistantTool[]>([]);
 	let credentials = $state<ProjectCredential[]>();
 	let credentialsAvailable = $derived.by(() => {
@@ -123,17 +124,28 @@
 
 {#snippet body()}
 	<div class="flex grow flex-col gap-2">
+		<div class="flex items-center justify-between">
+			{#if credentialsExists && credentialsAvailable}
+				<span class="text-xs">
+					{#if credentialsExists.length === 0 && credentialsAvailable.length === 0}
+						No tools require credentials.
+					{:else}
+						{credentialsExists?.length || 0} credentials
+					{/if}
+				</span>
+			{/if}
+			<div class="flex gap-2">
+				<button class="icon-button" onclick={() => reload()} use:tooltip={'Refresh Credentials'}>
+					<RefreshCcw class="size-4" />
+				</button>
+			</div>
+		</div>
 		{#if credentialsExists}
 			{@render credentialList(credentialsExists, true)}
 		{/if}
-		{#if credentialsExists && credentialsAvailable}
-			{#if credentialsExists.length === 0 && credentialsAvailable.length === 0}
-				<span class="text-xs">No tools require credentials.</span>
-			{/if}
-		{/if}
 
 		<div
-			use:tooltip={{
+			use:popoverTooltip={{
 				disablePortal: true,
 				fixed: responsive.isMobile,
 				slide: responsive.isMobile ? 'up' : undefined
