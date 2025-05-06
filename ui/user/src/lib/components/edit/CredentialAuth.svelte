@@ -4,7 +4,6 @@
 	import Message from '$lib/components/messages/Message.svelte';
 	import { X } from 'lucide-svelte';
 	import { responsive } from '$lib/stores';
-	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
 		toolID: string;
