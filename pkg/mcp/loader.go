@@ -12,6 +12,7 @@ import (
 	gmcp "github.com/gptscript-ai/gptscript/pkg/mcp"
 	"github.com/gptscript-ai/gptscript/pkg/types"
 	"github.com/obot-platform/nah/pkg/name"
+	"github.com/obot-platform/obot/pkg/wait"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -25,18 +26,18 @@ import (
 const mcpNamespace = "obot-mcp"
 
 type SessionManager struct {
-	client    kclient.Client
-	local     *gmcp.Local
-	baseImage string
+	client                      kclient.WithWatch
+	local                       *gmcp.Local
+	baseImage, mcpClusterDomain string
 }
 
-func NewSessionManager(ctx context.Context, baseImage string) (*SessionManager, error) {
+func NewSessionManager(ctx context.Context, baseImage, mcpClusterDomain string) (*SessionManager, error) {
 	config, err := buildConfig()
 	if err != nil {
 		return nil, err
 	}
 
-	client, err := kclient.New(config, kclient.Options{})
+	client, err := kclient.NewWithWatch(config, kclient.Options{})
 	if err != nil {
 		return nil, err
 	}
@@ -50,9 +51,10 @@ func NewSessionManager(ctx context.Context, baseImage string) (*SessionManager, 
 	}
 
 	return &SessionManager{
-		client:    client,
-		local:     new(gmcp.Local),
-		baseImage: baseImage,
+		client:           client,
+		local:            new(gmcp.Local),
+		baseImage:        baseImage,
+		mcpClusterDomain: mcpClusterDomain,
 	}, nil
 }
 
@@ -90,7 +92,7 @@ func (sm *SessionManager) Load(ctx context.Context, tool types.Tool) (result []t
 	for _, server := range servers.MCPServers {
 		if server.Command == "" {
 			// This is a URL-based MCP server, so we don't have to do any deployments.
-			return sm.local.LoadSession(ctx, server.ServerConfig, tool.Name)
+			return sm.local.LoadTools(ctx, server.ServerConfig, tool.Name)
 		}
 
 		id := "mcp" + hash.Digest(server)[:60]
@@ -146,7 +148,8 @@ func (sm *SessionManager) Load(ctx context.Context, tool types.Tool) (result []t
 			args = append(args, server.Command)
 			args = append(args, server.Args...)
 		}
-		objs = append(objs, &appsv1.Deployment{
+
+		dep := &appsv1.Deployment{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      id,
 				Namespace: mcpNamespace,
@@ -198,7 +201,8 @@ func (sm *SessionManager) Load(ctx context.Context, tool types.Tool) (result []t
 					},
 				},
 			},
-		})
+		}
+		objs = append(objs, dep)
 
 		objs = append(objs, &corev1.Service{
 			ObjectMeta: metav1.ObjectMeta{
@@ -229,7 +233,13 @@ func (sm *SessionManager) Load(ctx context.Context, tool types.Tool) (result []t
 			}
 		}
 
-		return sm.local.LoadSession(ctx, gmcp.ServerConfig{URL: fmt.Sprintf("%s.%s.svc.cluster.local", id, mcpNamespace)}, tool.Name)
+		if _, err := wait.For(ctx, sm.client, dep, func(dep *appsv1.Deployment) (bool, error) {
+			return dep.Status.UpdatedReplicas > 0 && dep.Status.ReadyReplicas > 0, nil
+		}); err != nil {
+			return nil, fmt.Errorf("failed to wait for deployment %s: %w", id, err)
+		}
+
+		return sm.local.LoadTools(ctx, gmcp.ServerConfig{URL: fmt.Sprintf("%s.%s.svc.%s", id, mcpNamespace, sm.mcpClusterDomain)}, tool.Name)
 	}
 
 	return nil, fmt.Errorf("no MCP server configuration found in tool instructions: %s", configData)
