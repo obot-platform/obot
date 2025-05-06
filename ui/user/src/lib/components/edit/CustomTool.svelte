@@ -293,7 +293,7 @@ printf "The current temperature in %s is %.2f°F.\\n" "$CITY" "$RANDOM_TEMPERATU
 									bind:value={tool.context}
 									use:autoHeight
 									rows="1"
-									class="text-input-filled bg-surface1 dark:bg-surface2 resize-none"
+									class="text-input-filled dark:bg-surface2 resize-none"
 									placeholder="(optional) More information on how or when AI should invoke this tool."
 								></textarea>
 							</div>
@@ -307,7 +307,7 @@ printf "The current temperature in %s is %.2f°F.\\n" "$CITY" "$RANDOM_TEMPERATU
 										<Container class="size-5" />
 										<input
 											bind:value={tool.image}
-											class="text-input-filled bg-surface1 dark:bg-surface2"
+											class="text-input-filled dark:bg-surface2"
 											placeholder="Container image name"
 										/>
 									</div>

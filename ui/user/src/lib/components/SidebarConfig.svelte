@@ -2,10 +2,13 @@
 	import { closeSidebarConfig, getLayout } from '$lib/context/layout.svelte';
 	import type { Assistant, AssistantTool, Project } from '$lib/services';
 	import { fade } from 'svelte/transition';
-	import Slack from './slack/Slack.svelte';
-	import CustomTool from './edit/CustomTool.svelte';
-	import ProjectInvitations from './edit/ProjectInvitations.svelte';
+	import Slack from '$lib/components/slack/Slack.svelte';
+	import CustomTool from '$lib/components/edit/CustomTool.svelte';
+	import ProjectInvitations from '$lib/components/edit/ProjectInvitations.svelte';
 	import { getProjectTools } from '$lib/context/projectTools.svelte';
+	import ProjectMcpConfig from '$lib/components/mcp/ProjectMcpConfig.svelte';
+	import { createProjectMcp, updateProjectMcp } from '$lib/services/chat/mcp';
+	import { getProjectMCPs } from '$lib/context/projectMcps.svelte';
 
 	interface Props {
 		project: Project;
@@ -17,6 +20,7 @@
 	const layout = getLayout();
 
 	const projectTools = getProjectTools();
+	const projectMCPs = getProjectMCPs();
 	let toEdit = $state<AssistantTool>();
 
 	$effect(() => {
@@ -31,6 +35,29 @@
 		<Slack {project} inline />
 	{:else if layout.sidebarConfig === 'invitations'}
 		<ProjectInvitations {project} inline />
+	{:else if layout.sidebarConfig === 'custom-mcp'}
+		{#key layout.editProjectMcp?.id}
+			<ProjectMcpConfig
+				projectMcp={layout.editProjectMcp}
+				onCreate={async (customMcpConfig) => {
+					const newProjectMcp = await createProjectMcp(customMcpConfig, project);
+					projectMCPs.items.push(newProjectMcp);
+					closeSidebarConfig(layout);
+				}}
+				onUpdate={async (customMcpConfig) => {
+					if (!layout.editProjectMcp) return;
+					const updatedProjectMcp = await updateProjectMcp(
+						customMcpConfig,
+						layout.editProjectMcp.id,
+						project
+					);
+					projectMCPs.items = projectMCPs.items.map((mcp) =>
+						mcp.id === layout.editProjectMcp!.id ? updatedProjectMcp : mcp
+					);
+					closeSidebarConfig(layout);
+				}}
+			/>
+		{/key}
 	{:else if layout.sidebarConfig === 'custom-tool' && layout.customToolId && toEdit}
 		{#key layout.customToolId}
 			<CustomTool

@@ -35,7 +35,8 @@ import {
 	type ProjectMCP,
 	type ProjectMCPList,
 	type ProjectMember,
-	type ProjectInvitation
+	type ProjectInvitation,
+	type MCPServer
 } from './types';
 
 export type Fetcher = typeof fetch;
@@ -1008,17 +1009,16 @@ export async function listProjectMCPs(
 	return response.items ?? [];
 }
 
-export async function configureProjectMCP(
+export async function createProjectMCP(
 	assistantID: string,
 	projectID: string,
-	mcpId: string,
+	mcpServerManifest?: MCPServer,
+	catalogID?: string,
 	opts?: { fetch?: Fetcher }
 ): Promise<ProjectMCP> {
 	return (await doPost(
 		`/assistants/${assistantID}/projects/${projectID}/mcpservers`,
-		{
-			catalogID: mcpId
-		},
+		catalogID ? { catalogID } : { ...mcpServerManifest },
 		opts
 	)) as ProjectMCP;
 }
@@ -1026,17 +1026,44 @@ export async function configureProjectMCP(
 export async function updateProjectMCP(
 	assistantID: string,
 	projectID: string,
-	mcpId: string,
-	mcp: ProjectMCP
+	mcpServerId: string,
+	mcpServerManifest: MCPServer
 ) {
 	return (await doPut(
-		`/assistants/${assistantID}/projects/${projectID}/mcpservers/${mcpId}`,
-		mcp
+		`/assistants/${assistantID}/projects/${projectID}/mcpservers/${mcpServerId}`,
+		mcpServerManifest
 	)) as ProjectMCP;
 }
 
-export async function deleteProjectMCP(assistantID: string, projectID: string, mcpId: string) {
-	return doDelete(`/assistants/${assistantID}/projects/${projectID}/mcpservers/${mcpId}`);
+export async function deleteProjectMCP(
+	assistantID: string,
+	projectID: string,
+	mcpServerId: string
+) {
+	return doDelete(`/assistants/${assistantID}/projects/${projectID}/mcpservers/${mcpServerId}`);
+}
+
+export async function configureProjectMCPEnvHeaders(
+	assistantID: string,
+	projectID: string,
+	mcpServerId: string,
+	envHeadersToConfigure: Record<string, string>
+) {
+	return doPost(
+		`/assistants/${assistantID}/projects/${projectID}/mcpservers/${mcpServerId}/configure`,
+		envHeadersToConfigure
+	);
+}
+
+export async function deconfigureProjectMCP(
+	assistantID: string,
+	projectID: string,
+	mcpServerId: string
+) {
+	return doPost(
+		`/assistants/${assistantID}/projects/${projectID}/mcpservers/${mcpServerId}/deconfigure`,
+		{}
+	);
 }
 
 export async function listProjectMembers(

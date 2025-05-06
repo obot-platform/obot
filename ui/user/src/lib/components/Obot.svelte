@@ -131,7 +131,7 @@
 			{#if !responsive.isMobile}
 				<div
 					role="none"
-					class="relative h-full w-1 cursor-col-resize"
+					class="relative -ml-1 h-full w-1 cursor-col-resize"
 					use:columnResize={{ column: nav }}
 				></div>
 			{/if}
@@ -200,7 +200,7 @@
 
 			<div
 				class="relative flex h-[calc(100%-76px)] max-w-full grow"
-				class:pl-12={!layout.sidebarOpen && !responsive.isMobile}
+				class:pl-12={!layout.sidebarOpen && !responsive.isMobile && !layout.sidebarConfig}
 			>
 				{#if !responsive.isMobile || (responsive.isMobile && !layout.fileEditorOpen)}
 					{#if layout.editTaskID && layout.tasks}

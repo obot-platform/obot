@@ -1,13 +1,11 @@
 <script lang="ts">
 	import { autoHeight } from '$lib/actions/textarea';
 	import { fade, fly } from 'svelte/transition';
-	import { faker } from '@faker-js/faker';
 	import Select from '$lib/components/Select.svelte';
 	import McpCatalog from '$lib/components/mcp/McpCatalog.svelte';
 	import { twMerge } from 'tailwind-merge';
-	import { ChatService, EditorService, type MCP, type ProjectShare } from '$lib/services';
-	import { darkMode, errors } from '$lib/stores';
-	import { goto } from '$app/navigation';
+	import { type MCP, type ProjectShare } from '$lib/services';
+	import { darkMode } from '$lib/stores';
 	import { Plus, Trash2, X } from 'lucide-svelte';
 	import { getProjectImage } from '$lib/image';
 
@@ -49,33 +47,7 @@
 	];
 
 	async function createNew() {
-		// TEMPORARY:
-		try {
-			const project = await EditorService.createObot();
-			await ChatService.updateProject({
-				...project,
-				prompt: createAgent?.prompt ?? ''
-			});
-
-			const tools = (await ChatService.listTools(project.assistantID, project.id)).items;
-			for (const mcpId of createAgent?.mcps ?? []) {
-				const mcp = mcpsMap.get(mcpId);
-				if (mcp) {
-					await ChatService.configureProjectMCP(project.assistantID, project.id, mcpId);
-					const matchingToolIndex = tools.findIndex((tool) => tool.id === mcpId);
-					if (matchingToolIndex !== -1) {
-						tools[matchingToolIndex].enabled = true;
-					}
-				}
-			}
-
-			await ChatService.updateProjectTools(project.assistantID, project.id, {
-				items: tools
-			});
-			await goto(`/o/${project.id}`);
-		} catch (error) {
-			errors.append((error as Error).message);
-		}
+		// TODO: update when/if we get back to agent wizard
 	}
 </script>
 
@@ -84,10 +56,11 @@
 	onclick={() => {
 		createDialog?.showModal();
 		createAgent = {
+			// TODO: update when/if we get back to agent wizard
 			prompt: '',
 			mcps: ['google-search-bundle', 'google-calendar-bundle', 'firecrawl'],
-			systemPrompt: faker.lorem.paragraph(),
-			tasks: [faker.lorem.sentence(), faker.lorem.sentence(), faker.lorem.sentence()],
+			systemPrompt: '',
+			tasks: [],
 			model: '1'
 		};
 	}}
@@ -352,18 +325,8 @@
 						<div
 							class="h-inherit default-scrollbar-thin flex w-full grow flex-col overflow-y-auto pr-4"
 						>
-							<McpCatalog
-								inline
-								{mcps}
-								selectedMcpIds={createAgent?.mcps}
-								onSubmitMcps={(mcpIds) => {
-									if (!createAgent) return;
-									createAgent = {
-										...createAgent,
-										mcps: [...createAgent.mcps, ...mcpIds]
-									};
-								}}
-							/>
+							<!-- todo: update when agent wizard gets used-->
+							<McpCatalog inline {mcps} selectedMcpIds={createAgent?.mcps} />
 						</div>
 					</div>
 				{/if}

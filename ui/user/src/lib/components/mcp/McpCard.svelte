@@ -1,32 +1,16 @@
 <script lang="ts">
 	import { type MCPManifest } from '$lib/services';
 	import { twMerge } from 'tailwind-merge';
-	import McpConfig from '$lib/components/mcp/McpConfig.svelte';
-	import { CircleCheckBig } from 'lucide-svelte';
-
+	import { CircleCheckBig, Star } from 'lucide-svelte';
+	import { formatNumber } from '$lib/format';
 	interface Props {
 		manifest: MCPManifest;
-		disableOutsideClick?: boolean;
-		hideCloseButton?: boolean;
-		onSubmit: () => void;
-		readonly?: boolean;
+		onSelect: (manifest: MCPManifest) => void;
 		selected?: boolean;
-		selectText?: string;
-		cancelText?: string;
 		disabled?: boolean;
+		tags?: string[];
 	}
-	let {
-		manifest,
-		disableOutsideClick,
-		hideCloseButton,
-		onSubmit,
-		readonly,
-		selected,
-		selectText,
-		cancelText,
-		disabled
-	}: Props = $props();
-	let dialog = $state<ReturnType<typeof McpConfig>>();
+	let { manifest, selected, disabled, tags, onSelect }: Props = $props();
 </script>
 
 <div class="relative h-full w-full">
@@ -35,11 +19,8 @@
 	{/if}
 	<button
 		onclick={(e) => {
-			if (e.shiftKey) {
-				e.preventDefault();
-				onSubmit();
-			} else if (!disabled) {
-				dialog?.open();
+			if (!disabled) {
+				onSelect(manifest);
 			}
 		}}
 		class={twMerge(
@@ -49,13 +30,13 @@
 		)}
 	>
 		{#if manifest}
-			<div class="flex h-fit w-full flex-col gap-2 p-4 md:h-auto md:grow">
+			<div class="flex h-fit w-full flex-col gap-2 p-3 md:h-auto md:grow">
 				<div class="flex w-full items-center gap-2">
 					<div class="flex-shrink-0 rounded-md bg-gray-50 p-1 dark:bg-gray-600">
 						<img alt="obot logo" src={manifest.server.icon} class="size-6" />
 					</div>
 					<div class="flex flex-col text-left">
-						<h4 class="text-sm font-semibold">
+						<h4 class="line-clamp-1 text-sm font-semibold">
 							{manifest.server.name}
 						</h4>
 						<p class="line-clamp-1 grow text-left text-xs font-light text-gray-500">
@@ -63,19 +44,28 @@
 						</p>
 					</div>
 				</div>
+				<div class="flex w-full grow justify-between gap-2 text-xs">
+					<div class="flex flex-wrap gap-1">
+						{#if tags}
+							{#each tags as tag}
+								<span
+									class="border-surface3 dark:border-surface3 flex h-fit items-center gap-1 rounded-md border px-1 text-[11px] text-gray-500"
+								>
+									{tag}
+								</span>
+							{/each}
+						{/if}
+					</div>
+					{#if manifest.githubStars > 0}
+						<span
+							class="dark:bg-surface2 mt-auto flex h-fit items-center gap-1 rounded-md bg-gray-50 px-1 text-xs text-gray-500"
+						>
+							<Star class="size-3" />
+							{formatNumber(manifest.githubStars)}
+						</span>
+					{/if}
+				</div>
 			</div>
 		{/if}
 	</button>
 </div>
-
-<McpConfig
-	bind:this={dialog}
-	{manifest}
-	{disableOutsideClick}
-	{hideCloseButton}
-	{onSubmit}
-	{readonly}
-	{selected}
-	{selectText}
-	{cancelText}
-/>

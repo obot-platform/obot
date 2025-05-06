@@ -6,17 +6,15 @@
 	import { sortByFeaturedNameOrder, sortByPreferredMcpOrder } from '$lib/sort';
 	import McpCatalog from '$lib/components/mcp/McpCatalog.svelte';
 	import Navbar from '$lib/components/Navbar.svelte';
-	import { goto } from '$app/navigation';
 	import AgentCatalog from '$lib/components/agents/AgentCatalog.svelte';
+	import { EditorService, type MCPManifest } from '$lib/services';
+	import { createProjectMcp } from '$lib/services/chat/mcp';
+	import { goto } from '$app/navigation';
+	import { errors } from '$lib/stores';
 
 	let { data }: PageProps = $props();
 	const mcps = $derived(data.mcps.sort(sortByPreferredMcpOrder));
 	const shares = $derived(data.shares.sort(sortByFeaturedNameOrder));
-
-	function handleSelectMcp(mcpId: string) {
-		goto(`/mcp?id=${mcpId}`);
-	}
-
 	const type = q('type');
 </script>
 
@@ -60,7 +58,15 @@
 			<McpCatalog
 				{mcps}
 				inline
-				onSubmitMcp={handleSelectMcp}
+				onSetupMcp={async (mcpId, mcpServerInfo) => {
+					try {
+						const project = await EditorService.createObot();
+						await createProjectMcp(mcpServerInfo, project, mcpId);
+						await goto(`/o/${project.id}`);
+					} catch (error) {
+						errors.append((error as Error).message);
+					}
+				}}
 				submitText="Create agent with server"
 			/>
 		</main>

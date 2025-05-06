@@ -46,7 +46,7 @@
 							<textarea
 								use:autoHeight
 								placeholder="Enter value"
-								class="text-input-filled dark:bg-surface2 bg-surface1 resize-none align-bottom"
+								class="text-input-filled dark:bg-surface2 resize-none align-bottom"
 								rows="1"
 								onfocus={(e) => {
 									if (e.target instanceof HTMLTextAreaElement) {

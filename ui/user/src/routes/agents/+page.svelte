@@ -13,6 +13,7 @@
 	import { goto } from '$app/navigation';
 	import McpCatalog from '$lib/components/mcp/McpCatalog.svelte';
 	import AgentCatalog from '$lib/components/agents/AgentCatalog.svelte';
+	import { createProjectMcp } from '$lib/services/chat/mcp';
 
 	let { data }: PageProps = $props();
 
@@ -32,30 +33,6 @@
 		} catch (error) {
 			errors.append((error as Error).message);
 		}
-	}
-
-	async function createAgentFromMcps(mcpIds: string[]) {
-		const project = await EditorService.createObot();
-
-		if (mcpIds.length > 0) {
-			const tools = (await ChatService.listTools(project.assistantID, project.id)).items;
-
-			const updatedTools = [...tools];
-			for (const mcpId of mcpIds) {
-				await ChatService.configureProjectMCP(project.assistantID, project.id, mcpId);
-
-				const matchingIndex = updatedTools.findIndex((tool) => tool.id === mcpId);
-				if (matchingIndex !== -1) {
-					updatedTools[matchingIndex].enabled = true;
-				}
-			}
-
-			await ChatService.updateProjectTools(project.assistantID, project.id, {
-				items: updatedTools
-			});
-		}
-
-		goto(`/o/${project.id}`);
 	}
 </script>
 
@@ -163,7 +140,7 @@
 						class="text-md button hover:bg-surface1 dark:hover:bg-surface3 flex w-full items-center gap-2 rounded-sm bg-transparent px-2 font-light"
 						onclick={createNewAgent}
 					>
-						<Scroll class="size-4" /> Start From Scratch
+						<Scroll class="size-4" /> Create From Scratch
 					</button>
 					<button
 						class="text-md button hover:bg-surface1 dark:hover:bg-surface3 flex w-full items-center gap-2 rounded-sm bg-transparent px-2 font-light"
@@ -181,7 +158,7 @@
 							createDropdown?.close();
 						}}
 					>
-						<Server class="size-4" /> Browse MCP Catalog
+						<Server class="size-4" /> Create From MCP Catalog
 					</button>
 				</div>
 			</dialog>
@@ -309,10 +286,16 @@
 <McpCatalog
 	bind:this={mcpCatalog}
 	mcps={data.mcps}
-	onSubmitMcps={createAgentFromMcps}
-	submitText={(mcpCatalog?.getSelectedCount() ?? 0) <= 1
-		? 'Create agent with server'
-		: `Create agent with ${mcpCatalog?.getSelectedCount()} servers`}
+	onSetupMcp={async (mcpId, mcpServerInfo) => {
+		try {
+			const project = await EditorService.createObot();
+			await createProjectMcp(mcpServerInfo, project, mcpId);
+			await goto(`/o/${project.id}`);
+		} catch (error) {
+			errors.append((error as Error).message);
+		}
+	}}
+	submitText="Create agent with server"
 />
 
 <svelte:head>
