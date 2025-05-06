@@ -266,7 +266,7 @@
 			rows="3"
 		></textarea>
 	{:else}
-		<p>
+		<p class="flex grow">
 			{memory.content}
 		</p>
 	{/if}
