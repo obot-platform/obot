@@ -11,6 +11,7 @@ import (
 	"github.com/gptscript-ai/gptscript/pkg/hash"
 	gmcp "github.com/gptscript-ai/gptscript/pkg/mcp"
 	"github.com/gptscript-ai/gptscript/pkg/types"
+	"github.com/obot-platform/nah/pkg/name"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -97,21 +98,21 @@ func (sm *SessionManager) Load(ctx context.Context, tool types.Tool) (result []t
 		var objs []kclient.Object
 
 		secretStringData := make(map[string]string, len(server.Env)+len(server.Headers)+4)
-		configMapData := make(map[string]string, len(server.Files))
+		secretVolumeStringData := make(map[string]string, len(server.Files))
 		for _, file := range server.Files {
 			name := fmt.Sprintf("%s-%s", id, hash.Digest(file))
-			configMapData[name] = file.Data
+			secretVolumeStringData[name] = file.Data
 			if file.EnvKey != "" {
 				secretStringData[file.EnvKey] = name
 			}
 		}
 
-		objs = append(objs, &corev1.ConfigMap{
+		objs = append(objs, &corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      id,
+				Name:      name.SafeConcatName(id, "files"),
 				Namespace: mcpNamespace,
 			},
-			Data: configMapData,
+			StringData: secretVolumeStringData,
 		})
 
 		secretStringData["SERVER"] = server.Server
@@ -166,6 +167,14 @@ func (sm *SessionManager) Load(ctx context.Context, tool types.Tool) (result []t
 						},
 					},
 					Spec: corev1.PodSpec{
+						Volumes: []corev1.Volume{{
+							Name: "files",
+							VolumeSource: corev1.VolumeSource{
+								Secret: &corev1.SecretVolumeSource{
+									SecretName: id,
+								},
+							},
+						}},
 						Containers: []corev1.Container{{
 							Name:  "mcp",
 							Image: sm.baseImage,
@@ -180,6 +189,10 @@ func (sm *SessionManager) Load(ctx context.Context, tool types.Tool) (result []t
 										Name: id,
 									},
 								},
+							}},
+							VolumeMounts: []corev1.VolumeMount{{
+								Name:      "files",
+								MountPath: "/files",
 							}},
 						}},
 					},
