@@ -571,7 +571,7 @@ func (t *Handler) RemoveOldFinalizers(req router.Request, _ router.Response) err
 
 	finalizerCount := len(thread.Finalizers)
 	thread.Finalizers = slices.DeleteFunc(thread.Finalizers, func(finalizer string) bool {
-		return finalizer == v1.ThreadFinalizer+"-child-cleanup"
+		return finalizer == v1.ThreadFinalizer+"-child-cleanup" || finalizer == v1.MCPServerFinalizer
 	})
 
 	if finalizerCount != len(thread.Finalizers) {
