@@ -23,7 +23,11 @@
 
 	export function load() {
 		ChatService.listProjectMCPs(project.assistantID, project.id).then((response) => {
-			mcps = new Map(response.map((mcp) => [mcp.catalogID, mcp]));
+			mcps = new Map(
+				response
+					.filter((mcp): mcp is ProjectMCP & { catalogID: string } => !!mcp.catalogID)
+					.map((mcp) => [mcp.catalogID, mcp])
+			);
 		});
 	}
 

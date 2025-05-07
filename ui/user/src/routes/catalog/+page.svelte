@@ -7,7 +7,7 @@
 	import McpCatalog from '$lib/components/mcp/McpCatalog.svelte';
 	import Navbar from '$lib/components/Navbar.svelte';
 	import AgentCatalog from '$lib/components/agents/AgentCatalog.svelte';
-	import { EditorService, type MCPManifest } from '$lib/services';
+	import { EditorService } from '$lib/services';
 	import { createProjectMcp } from '$lib/services/chat/mcp';
 	import { goto } from '$app/navigation';
 	import { errors } from '$lib/stores';

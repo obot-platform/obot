@@ -18,7 +18,7 @@
 		<CircleCheckBig class="absolute top-3 right-3 z-25 size-5 text-blue-500" />
 	{/if}
 	<button
-		onclick={(e) => {
+		onclick={() => {
 			if (!disabled) {
 				onSelect(manifest);
 			}
