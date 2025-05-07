@@ -10,6 +10,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"path/filepath"
 	"regexp"
 	"slices"
 	"strings"
@@ -305,6 +306,22 @@ func (h *Handler) readMCPCatalog(catalog string) ([]client.Object, error) {
 					continue
 				}
 
+				// Sanitize the environment variables
+				for i, env := range c.Env {
+					if env.Key == "" {
+						env.Key = env.Name
+					}
+
+					if filepath.Ext(env.Key) != "" {
+						env.Key = strings.ReplaceAll(env.Key, ".", "_")
+						env.File = true
+					}
+
+					env.Key = strings.ReplaceAll(strings.ToUpper(env.Key), "-", "_")
+
+					c.Env[i] = env
+				}
+
 				addEntry = true
 				catalogEntry.Spec.CommandManifest = types.MCPServerCatalogEntryManifest{
 					URL:         entry.URL,
@@ -322,6 +339,17 @@ func (h *Handler) readMCPCatalog(catalog string) ([]client.Object, error) {
 					},
 				}
 			} else if c.URL != "" {
+				// Sanitize the headers
+				for i, header := range c.HTTPHeaders {
+					if header.Key == "" {
+						header.Key = header.Name
+					}
+
+					header.Key = strings.ReplaceAll(strings.ToUpper(header.Key), "_", "-")
+
+					c.HTTPHeaders[i] = header
+				}
+
 				addEntry = true
 				catalogEntry.Spec.URLManifest = types.MCPServerCatalogEntryManifest{
 					URL:         entry.URL,
