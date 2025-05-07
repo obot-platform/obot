@@ -391,6 +391,7 @@ func Router(services *services.Services) (http.Handler, error) {
 	mux.HandleFunc("DELETE /api/assistants/{assistant_id}/projects/{project_id}/mcpservers/{mcp_server_id}", mcp.DeleteServer)
 	mux.HandleFunc("POST /api/assistants/{assistant_id}/projects/{project_id}/mcpservers/{mcp_server_id}/configure", mcp.ConfigureServer)
 	mux.HandleFunc("POST /api/assistants/{assistant_id}/projects/{project_id}/mcpservers/{mcp_server_id}/deconfigure", mcp.DeconfigureServer)
+	mux.HandleFunc("POST /api/assistants/{assistant_id}/projects/{project_id}/mcpservers/{mcp_server_id}/reveal", mcp.Reveal)
 
 	// Debug
 	mux.HTTPHandle("GET /debug/pprof/", http.DefaultServeMux)

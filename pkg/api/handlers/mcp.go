@@ -312,6 +312,23 @@ func (m *MCPHandler) DeconfigureServer(req api.Context) error {
 	return req.Write(convertMCPServer(mcpServer, nil, nil))
 }
 
+func (m *MCPHandler) Reveal(req api.Context) error {
+	var mcpServer v1.MCPServer
+	if err := req.Get(&mcpServer, req.PathValue("mcp_server_id")); err != nil {
+		return err
+	}
+
+	// Allow for updating credentials. The only way to update a credential is to delete the existing one and recreate it.
+	cred, err := m.gptscript.RevealCredential(req.Context(), []string{fmt.Sprintf("%s-%s", mcpServer.Spec.ThreadName, mcpServer.Name)}, mcpServer.Name)
+	if err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
+		return fmt.Errorf("failed to find credential: %w", err)
+	} else if err == nil {
+		return req.Write(cred.Env)
+	}
+
+	return types.NewErrNotFound("no credential found for %q", mcpServer.Name)
+}
+
 func (m *MCPHandler) toolsForServer(ctx context.Context, server v1.MCPServer, credEnv map[string]string) ([]gtypes.Tool, error) {
 	tool, err := render.MCPServerToolWithCreds(server, credEnv)
 	if err != nil {

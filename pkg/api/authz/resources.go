@@ -51,6 +51,7 @@ var apiResources = []string{
 	"PUT    /api/assistants/{assistant_id}/projects/{project_id}/mcpservers/{mcpserver_id}",
 	"POST    /api/assistants/{assistant_id}/projects/{project_id}/mcpservers/{mcpserver_id}/configure",
 	"POST    /api/assistants/{assistant_id}/projects/{project_id}/mcpservers/{mcpserver_id}/deconfigure",
+	"POST    /api/assistants/{assistant_id}/projects/{project_id}/mcpservers/{mcpserver_id}/reveal",
 	"DELETE /api/assistants/{assistant_id}/projects/{project_id}/share",
 	"GET    /api/assistants/{assistant_id}/projects/{project_id}/share",
 	"POST   /api/assistants/{assistant_id}/projects/{project_id}/share",
