@@ -21,6 +21,15 @@
 		subtitle?: string;
 	}
 
+	type TransformedMcp = {
+		id: string;
+		catalogId: string;
+		categories: string[];
+		manifest: MCPManifest;
+		githubStars: number;
+		name: string;
+	};
+
 	let {
 		inline = false,
 		mcps: refMcps,
@@ -32,27 +41,73 @@
 	let dialog: HTMLDialogElement | undefined = $state();
 	let configDialog = $state<ReturnType<typeof McpInfoConfig>>();
 	let selectedMcpManifest = $state<MCPManifest>();
-	let selectedMcp = $state<MCP>();
 
 	const ITEMS_PER_PAGE = 36;
 	let currentPage = $state(1);
-	let mcps = $derived(
-		refMcps.map((mcp) => ({
-			...mcp,
-			categories: mcp.commandManifest?.metadata?.categories
-				? mcp.commandManifest.metadata.categories.split(',').map((cat) => cat.trim())
-				: []
-		}))
-	);
+
+	function transformMcp(
+		mcp: MCP,
+		manifestType: 'command' | 'url',
+		manifest: MCPManifest
+	): TransformedMcp {
+		return {
+			id: `${mcp.id}-${manifestType}`,
+			catalogId: mcp.id,
+			categories: manifest.metadata?.categories?.split(',').map((cat) => cat.trim()) || [],
+			manifest,
+			githubStars: Number(manifest.githubStars) || 0,
+			name: manifest.server?.name ?? ''
+		};
+	}
 
 	let search = $state('');
 	let selectedCategory = $state(BROWSE_ALL_CATEGORY);
+	let selectedMcp = $state<TransformedMcp>();
 
-	// Memoize categories to avoid recalculating on every render
+	let transformedMcps: TransformedMcp[] = $derived(
+		refMcps
+			.flatMap((mcp) => {
+				const { commandManifest, urlManifest } = mcp;
+				const results: TransformedMcp[] = [];
+
+				if (commandManifest) {
+					results.push(transformMcp(mcp, 'command', commandManifest));
+				}
+				if (urlManifest) {
+					results.push(transformMcp(mcp, 'url', urlManifest));
+				}
+				return results;
+			})
+			.sort((a, b) => b.githubStars - a.githubStars)
+	);
+
+	let filteredMcps: TransformedMcp[] = $derived(
+		selectedCategory === BROWSE_ALL_CATEGORY && !search
+			? transformedMcps
+			: transformedMcps.filter((mcp) => {
+					const searchLower = search.toLowerCase();
+					const isBrowseAll = selectedCategory === BROWSE_ALL_CATEGORY;
+
+					if (!isBrowseAll && !mcp.categories?.includes(selectedCategory)) {
+						return false;
+					}
+					return !search || mcp.name.toLowerCase().includes(searchLower);
+				})
+	);
+
+	const totalPages = $derived(Math.ceil(filteredMcps.length / ITEMS_PER_PAGE));
+
+	let paginatedMcps: TransformedMcp[] = $derived(
+		filteredMcps.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE)
+	);
+
+	let selected = $state<string[]>([]);
+	const preselected = $derived(new Set(selectedMcpIds ?? []));
+
 	const categories = $derived(
 		Array.from(
 			new Set(
-				mcps.reduce<string[]>(
+				transformedMcps.reduce<string[]>(
 					(acc, mcp) => {
 						if (mcp.categories?.length) {
 							acc.push(...mcp.categories);
@@ -64,33 +119,6 @@
 			)
 		)
 	);
-
-	const searchResults = $derived(() => {
-		const searchLower = search.toLowerCase();
-		const isBrowseAll = selectedCategory === BROWSE_ALL_CATEGORY;
-
-		return mcps.filter((mcp) => {
-			if (!isBrowseAll && !mcp.categories?.includes(selectedCategory)) {
-				return false;
-			}
-
-			return !search || mcp.commandManifest?.server.name.toLowerCase().includes(searchLower);
-		});
-	});
-
-	const isFiltered = $derived(search || selectedCategory !== BROWSE_ALL_CATEGORY);
-	const totalPages = $derived(
-		Math.ceil((isFiltered ? searchResults().length : mcps.length) / ITEMS_PER_PAGE)
-	);
-	const paginatedMcps = $derived(
-		(isFiltered ? searchResults() : mcps).slice(
-			(currentPage - 1) * ITEMS_PER_PAGE,
-			currentPage * ITEMS_PER_PAGE
-		)
-	);
-
-	let selected = $state<string[]>([]);
-	const preselected = $derived(new Set(selectedMcpIds ?? []));
 
 	let browseAllTitleElement: HTMLDivElement | undefined = $state<HTMLDivElement>();
 
@@ -221,22 +249,20 @@
 	</div>
 {/snippet}
 
-{#snippet mcpCard(mcp: (typeof mcps)[0])}
-	{#each [mcp.commandManifest, mcp.urlManifest] as manifest (manifest)}
-		{#if manifest}
-			<McpCard
-				tags={mcp.categories}
-				{manifest}
-				onSelect={(manifest) => {
-					selectedMcp = mcp;
-					selectedMcpManifest = manifest;
-					configDialog?.open();
-				}}
-				selected={selected.includes(mcp.id)}
-				disabled={preselected.has(mcp.id)}
-			/>
-		{/if}
-	{/each}
+{#snippet mcpCard(mcp: (typeof transformedMcps)[0])}
+	{#if mcp.manifest}
+		<McpCard
+			tags={mcp.categories}
+			manifest={mcp.manifest}
+			onSelect={(manifest) => {
+				selectedMcp = mcp;
+				selectedMcpManifest = manifest;
+				configDialog?.open();
+			}}
+			selected={selected.includes(mcp.id)}
+			disabled={preselected.has(mcp.id)}
+		/>
+	{/if}
 {/snippet}
 
 <McpInfoConfig
@@ -244,7 +270,7 @@
 	manifest={selectedMcpManifest}
 	onUpdate={(mcpServerInfo) => {
 		if (selectedMcp && selectedMcpManifest) {
-			onSetupMcp?.(selectedMcp.id, mcpServerInfo);
+			onSetupMcp?.(selectedMcp.catalogId, mcpServerInfo);
 		}
 	}}
 	{submitText}

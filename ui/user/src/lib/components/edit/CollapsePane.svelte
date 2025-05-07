@@ -56,7 +56,7 @@
 					)}
 				>
 					{header}
-					{#if getHelperMode().isEnabled && helpText}
+					{#if helpText && getHelperMode().isEnabled}
 						<div in:fade>
 							<InfoTooltip text={helpText} />
 						</div>

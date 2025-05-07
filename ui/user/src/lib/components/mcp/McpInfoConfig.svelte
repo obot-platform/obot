@@ -2,7 +2,7 @@
 	import { clickOutside } from '$lib/actions/clickoutside';
 	import { formatNumber } from '$lib/format';
 	import type { MCPManifest, ProjectMCP } from '$lib/services';
-	import { responsive } from '$lib/stores';
+	import { darkMode, responsive } from '$lib/stores';
 	import { ChevronRight, ChevronsRight, Server, Star, X } from 'lucide-svelte';
 	import { fade } from 'svelte/transition';
 	import { isValidMcpConfig, type MCPServerInfo } from '$lib/services/chat/mcp';
@@ -133,15 +133,31 @@
 						{/if}
 					</div>
 					<div class="flex flex-col gap-1">
-						<h3 class="text-lg leading-4.5 font-semibold">
+						<h3 class="text-lg leading-5.5 font-semibold">
 							{name}
+							{#if manifest.url}
+								<a
+									href={manifest.url}
+									target="_blank"
+									rel="noopener noreferrer"
+									class="ml-1 inline-block align-middle"
+								>
+									<img
+										src={darkMode.isDark
+											? '/user/images/github-mark/github-mark-white.svg'
+											: '/user/images/github-mark/github-mark.svg'}
+										alt="github logo"
+										class="size-4 -translate-y-0.25"
+									/>
+								</a>
+							{/if}
 						</h3>
 
 						{#if 'githubStars' in manifest}
-							<p class="text-md flex h-fit w-fit items-center gap-1 font-light text-gray-500">
+							<span class="text-md flex h-fit w-fit items-center gap-1 font-light text-gray-500">
 								<Star class="size-4" />
 								{formatNumber(manifest.githubStars)}
-							</p>
+							</span>
 						{/if}
 					</div>
 				</div>

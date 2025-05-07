@@ -287,6 +287,7 @@ export interface MCPManifest {
 	server: MCPServer;
 	githubStars: number;
 	metadata: Record<string, string>;
+	url?: string;
 }
 
 export interface ProjectMCPList {

@@ -2,7 +2,7 @@
 	import type { MCPServerInfo } from '$lib/services/chat/mcp';
 	import { Plus, Trash2 } from 'lucide-svelte';
 	import InfoTooltip from '$lib/components/InfoTooltip.svelte';
-	import { slide } from 'svelte/transition';
+
 	interface Props {
 		config: MCPServerInfo;
 		showSubmitError: boolean;
@@ -17,7 +17,7 @@
 </script>
 
 {#if config.env}
-	<div class="flex flex-col gap-4">
+	<div class="flex flex-col gap-1">
 		<h4 class="text-base font-semibold">Environment Variables</h4>
 		{#each config.env as env, i}
 			<div class="flex w-full items-center gap-2">
@@ -44,9 +44,11 @@
 						bind:value={env.value}
 						type={env.sensitive ? 'password' : 'text'}
 					/>
-					{#if showSubmitError && !env.value && env.required}
-						<div class="text-xs text-red-500" in:slide={{ axis: 'y' }}>This field is required.</div>
-					{/if}
+					<div class="min-h-4 text-xs text-red-500">
+						{#if showSubmitError && !env.value && env.required}
+							This field is required.
+						{/if}
+					</div>
 				</div>
 				{#if env.custom}
 					<button class="icon-button" onclick={() => config.env?.splice(i, 1)}>
