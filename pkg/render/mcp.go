@@ -22,7 +22,7 @@ func (e *UnconfiguredMCPError) Error() string {
 	return fmt.Sprintf("MCP server %s missing required configuration parameters: %s", e.MCPName, strings.Join(e.Missing, ", "))
 }
 
-func mcpServerTool(ctx context.Context, gptClient *gptscript.GPTScript, mcpServer v1.MCPServer) (gptscript.ToolDef, error) {
+func mcpServerTool(ctx context.Context, gptClient *gptscript.GPTScript, mcpServer v1.MCPServer, allowTools []string) (gptscript.ToolDef, error) {
 	var credEnv map[string]string
 	if len(mcpServer.Spec.Manifest.Env) != 0 || len(mcpServer.Spec.Manifest.Headers) != 0 {
 		cred, err := gptClient.RevealCredential(ctx, []string{fmt.Sprintf("%s-%s", mcpServer.Spec.ThreadName, mcpServer.Name)}, mcpServer.Name)
@@ -33,10 +33,10 @@ func mcpServerTool(ctx context.Context, gptClient *gptscript.GPTScript, mcpServe
 		credEnv = cred.Env
 	}
 
-	return MCPServerToolWithCreds(mcpServer, credEnv)
+	return MCPServerToolWithCreds(mcpServer, credEnv, allowTools...)
 }
 
-func MCPServerToolWithCreds(mcpServer v1.MCPServer, credEnv map[string]string) (gptscript.ToolDef, error) {
+func MCPServerToolWithCreds(mcpServer v1.MCPServer, credEnv map[string]string, allowedTools ...string) (gptscript.ToolDef, error) {
 	serverConfig := gmcp.ServerConfig{
 		DisableInstruction: false,
 		Command:            mcpServer.Spec.Manifest.Command,
@@ -45,6 +45,7 @@ func MCPServerToolWithCreds(mcpServer v1.MCPServer, credEnv map[string]string) (
 		URL:                mcpServer.Spec.Manifest.URL,
 		Headers:            make([]string, 0, len(mcpServer.Spec.Manifest.Headers)),
 		Scope:              mcpServer.Spec.ThreadName,
+		AllowedTools:       allowedTools,
 	}
 
 	var missingRequiredNames []string

@@ -139,7 +139,6 @@ func (h *TemplateHandler) UpdateProjectTemplate(req api.Context) error {
 	case !equality.Semantic.DeepEqual(templateThreadShare.Spec, updated.Spec):
 		err = req.Update(updated)
 	}
-
 	if err != nil {
 		return err
 	}

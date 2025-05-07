@@ -194,6 +194,8 @@ func (a *ThreadHandler) Update(req api.Context) error {
 
 	// Don't allow update of tools here, do it with the /tools endpoint
 	newThread.Tools = existing.Spec.Manifest.Tools
+	// Don't allow update of allowed MCP tools here, do it with the mcpservers/{mcp_server_id}/tools endpoint
+	newThread.AllowedMCPTools = existing.Spec.Manifest.AllowedMCPTools
 
 	existing.Spec.Manifest = newThread
 	if err := req.Update(&existing); err != nil {

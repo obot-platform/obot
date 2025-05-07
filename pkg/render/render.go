@@ -124,6 +124,56 @@ func Agent(ctx context.Context, db kclient.Client, gptClient *gptscript.GPTScrip
 	}
 
 	if opts.Thread != nil {
+		topMost, err := projects.GetRoot(ctx, db, opts.Thread)
+		if err != nil {
+			return nil, nil, err
+		}
+
+		allowedToolsPerMCP := maps.Clone(topMost.Spec.Manifest.AllowedMCPTools)
+		for key, val := range opts.Thread.Spec.Manifest.AllowedMCPTools {
+			// Copy the thread allowed tools over the project allowed tools.
+			allowedToolsPerMCP[key] = val
+		}
+
+		var mcpServers v1.MCPServerList
+		if err = db.List(ctx, &mcpServers, kclient.InNamespace(topMost.Namespace), kclient.MatchingFields{
+			"spec.threadName": topMost.Name,
+		}); err != nil {
+			return nil, nil, err
+		}
+
+		var allowedTools []string
+		for _, mcpServer := range mcpServers.Items {
+			allowedTools = allowedToolsPerMCP[mcpServer.Name]
+			if mcpServer.Spec.ToolReferenceName != "" {
+				// This is a "fake" MCP server really referencing our tools.
+				if len(allowedTools) == 0 || slices.Contains(allowedTools, "*") {
+					allowedTools = []string{mcpServer.Spec.ToolReferenceName}
+				}
+
+				for _, t := range allowedTools {
+					name, tools, err := tool(ctx, db, agent.Namespace, t)
+					if err != nil {
+						return nil, nil, err
+					}
+
+					if name != "" {
+						mainTool.Tools = append(mainTool.Tools, name)
+						otherTools = append(otherTools, tools...)
+					}
+				}
+				continue
+			}
+
+			toolDef, err := mcpServerTool(ctx, gptClient, mcpServer, allowedTools)
+			if err != nil {
+				return nil, nil, err
+			}
+
+			mainTool.Tools = append(mainTool.Tools, toolDef.Name)
+			otherTools = append(otherTools, toolDef)
+		}
+
 		toolNames, err := projects.GetStrings(ctx, db, opts.Thread, func(thread *v1.Thread) []string {
 			return thread.Spec.Manifest.Tools
 		})
@@ -152,15 +202,13 @@ func Agent(ctx context.Context, db kclient.Client, gptClient *gptscript.GPTScrip
 			if err != nil {
 				return nil, nil, err
 			}
-			if name != "" {
-				mainTool.Tools = append(mainTool.Tools, name)
-			}
-			otherTools = append(otherTools, tools...)
-		}
 
-		topMost, err := projects.GetRoot(ctx, db, opts.Thread)
-		if err != nil {
-			return nil, nil, err
+			// Only add the tool here if it wasn't already added above via the MCP server.
+			// The MCP server logic covers enabling/disabling tools, so it takes precedence.
+			if name != "" && !slices.Contains(mainTool.Tools, name) {
+				mainTool.Tools = append(mainTool.Tools, name)
+				otherTools = append(otherTools, tools...)
+			}
 		}
 
 		var customTools v1.ToolList
@@ -179,29 +227,6 @@ func Agent(ctx context.Context, db kclient.Client, gptClient *gptscript.GPTScrip
 				mainTool.Tools = append(mainTool.Tools, toolDef.Name)
 				otherTools = append(otherTools, toolDef)
 			}
-		}
-
-		var mcpServers v1.MCPServerList
-		if err = db.List(ctx, &mcpServers, kclient.InNamespace(topMost.Namespace), kclient.MatchingFields{
-			"spec.threadName": topMost.Name,
-		}); err != nil {
-			return nil, nil, err
-		}
-
-		for _, mcpServer := range mcpServers.Items {
-			if mcpServer.Spec.ToolReferenceName != "" {
-				// This is for backwards compatibility. We add tool bundles are MCP servers so they show up in the UI.
-				// Ignore them here.
-				continue
-			}
-
-			toolDef, err := mcpServerTool(ctx, gptClient, mcpServer)
-			if err != nil {
-				return nil, nil, err
-			}
-
-			mainTool.Tools = append(mainTool.Tools, toolDef.Name)
-			otherTools = append(otherTools, toolDef)
 		}
 
 		credTool, err := ResolveToolReference(ctx, db, types.ToolReferenceTypeSystem, opts.Thread.Namespace, system.ExistingCredTool)

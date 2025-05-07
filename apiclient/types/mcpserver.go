@@ -54,8 +54,11 @@ type MCPServer struct {
 type MCPServerList List[MCPServer]
 
 type MCPServerTool struct {
+	ID          string            `json:"id"`
 	Name        string            `json:"name"`
 	Description string            `json:"description,omitempty"`
 	Metadata    map[string]string `json:"metadata,omitempty"`
 	Params      map[string]string `json:"params,omitempty"`
+	Credentials []string          `json:"credentials,omitempty"`
+	Enabled     bool              `json:"enabled"`
 }

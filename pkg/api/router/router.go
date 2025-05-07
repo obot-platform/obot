@@ -403,6 +403,10 @@ func Router(services *services.Services) (http.Handler, error) {
 	mux.HandleFunc("POST /api/assistants/{assistant_id}/projects/{project_id}/mcpservers/{mcp_server_id}/configure", mcp.ConfigureServer)
 	mux.HandleFunc("POST /api/assistants/{assistant_id}/projects/{project_id}/mcpservers/{mcp_server_id}/deconfigure", mcp.DeconfigureServer)
 	mux.HandleFunc("POST /api/assistants/{assistant_id}/projects/{project_id}/mcpservers/{mcp_server_id}/reveal", mcp.Reveal)
+	mux.HandleFunc("GET /api/assistants/{assistant_id}/projects/{project_id}/mcpservers/{mcp_server_id}/tools", mcp.GetServerWithTools)
+	mux.HandleFunc("PUT /api/assistants/{assistant_id}/projects/{project_id}/mcpservers/{mcp_server_id}/tools", mcp.SetTools)
+	mux.HandleFunc("GET /api/assistants/{assistant_id}/projects/{project_id}/mcpservers/{mcp_server_id}/tools/{thread_id}", mcp.GetServerWithTools)
+	mux.HandleFunc("PUT /api/assistants/{assistant_id}/projects/{project_id}/mcpservers/{mcp_server_id}/tools/{thread_id}", mcp.SetTools)
 
 	// Debug
 	mux.HTTPHandle("GET /debug/pprof/", http.DefaultServeMux)

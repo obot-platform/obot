@@ -52,7 +52,8 @@ type ThreadManifestManagedFields struct {
 type ThreadManifest struct {
 	ThreadManifestManagedFields `json:",inline"`
 
-	Tools       []string `json:"tools,omitempty"`
-	Prompt      string   `json:"prompt"`
-	SharedTasks []string `json:"sharedTasks,omitempty"`
+	Tools           []string            `json:"tools,omitempty"`
+	Prompt          string              `json:"prompt"`
+	SharedTasks     []string            `json:"sharedTasks,omitempty"`
+	AllowedMCPTools map[string][]string `json:"allowedMCPTools,omitempty"`
 }

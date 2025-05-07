@@ -142,6 +142,7 @@ func (h *ProjectsHandler) UpdateProject(req api.Context) error {
 	}
 
 	project.Tools = thread.Spec.Manifest.Tools
+	project.AllowedMCPTools = thread.Spec.Manifest.AllowedMCPTools
 
 	if !equality.Semantic.DeepEqual(thread.Spec.Manifest, project) {
 		if project.ModelProvider != "" && !slices.Contains(agent.Spec.Manifest.AllowedModelProviders, project.ModelProvider) {

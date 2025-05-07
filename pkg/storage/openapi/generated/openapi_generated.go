@@ -2747,6 +2747,13 @@ func schema_obot_platform_obot_apiclient_types_MCPServerTool(ref common.Referenc
 			SchemaProps: spec.SchemaProps{
 				Type: []string{"object"},
 				Properties: map[string]spec.Schema{
+					"id": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
 					"name": {
 						SchemaProps: spec.SchemaProps{
 							Default: "",
@@ -2790,8 +2797,29 @@ func schema_obot_platform_obot_apiclient_types_MCPServerTool(ref common.Referenc
 							},
 						},
 					},
+					"credentials": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+					"enabled": {
+						SchemaProps: spec.SchemaProps{
+							Default: false,
+							Type:    []string{"boolean"},
+							Format:  "",
+						},
+					},
 				},
-				Required: []string{"name"},
+				Required: []string{"id", "name", "enabled"},
 			},
 		},
 	}
@@ -5444,6 +5472,28 @@ func schema_obot_platform_obot_apiclient_types_ThreadManifest(ref common.Referen
 										Default: "",
 										Type:    []string{"string"},
 										Format:  "",
+									},
+								},
+							},
+						},
+					},
+					"allowedMCPTools": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"object"},
+							AdditionalProperties: &spec.SchemaOrBool{
+								Allows: true,
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type: []string{"array"},
+										Items: &spec.SchemaOrArray{
+											Schema: &spec.Schema{
+												SchemaProps: spec.SchemaProps{
+													Default: "",
+													Type:    []string{"string"},
+													Format:  "",
+												},
+											},
+										},
 									},
 								},
 							},

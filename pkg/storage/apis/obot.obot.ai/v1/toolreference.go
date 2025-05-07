@@ -29,6 +29,8 @@ func (in *ToolReference) Get(field string) string {
 		switch field {
 		case "spec.type":
 			return string(in.Spec.Type)
+		case "spec.bundleToolName":
+			return in.Spec.BundleToolName
 		}
 	}
 
@@ -36,7 +38,7 @@ func (in *ToolReference) Get(field string) string {
 }
 
 func (in *ToolReference) FieldNames() []string {
-	return []string{"spec.type"}
+	return []string{"spec.type", "spec.bundleToolName"}
 }
 
 func (in *ToolReference) GetColumns() [][]string {

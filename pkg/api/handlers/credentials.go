@@ -16,7 +16,6 @@ func ListCredentials(req api.Context) error {
 		context = req.Namespace()
 	}
 	creds, err := req.GPTClient.ListCredentials(req.Context(), gptscript.ListCredentialsOptions{
-		// context = project
 		CredentialContexts: []string{context},
 	})
 	if err != nil {

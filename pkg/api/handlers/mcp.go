@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 
 	"github.com/gptscript-ai/go-gptscript"
 	"github.com/gptscript-ai/gptscript/pkg/loader"
@@ -95,7 +96,7 @@ func (m *MCPHandler) ListServer(req api.Context) error {
 		credMap[cred.ToolName] = cred.Env
 	}
 
-	var tools []gtypes.Tool
+	var tools []types.MCPServerTool
 	items := make([]types.MCPServer, 0, len(servers.Items))
 	for _, server := range servers.Items {
 		if withTools {
@@ -106,7 +107,12 @@ func (m *MCPHandler) ListServer(req api.Context) error {
 				return fmt.Errorf("failed to find credential: %w", err)
 			}
 
-			tools, err = m.toolsForServer(req.Context(), server, c.Env)
+			thread, err := getThreadForScope(req)
+			if err != nil {
+				return err
+			}
+
+			tools, err = m.toolsForServer(req.Context(), req.Storage, server, thread.Spec.Manifest.AllowedMCPTools[server.Name], c.Env)
 			if err != nil {
 				return fmt.Errorf("failed to render tools: %w", err)
 			}
@@ -119,10 +125,17 @@ func (m *MCPHandler) ListServer(req api.Context) error {
 }
 
 func (m *MCPHandler) GetServer(req api.Context) error {
+	return m.getServer(req, req.URL.Query().Get("tools") == "true")
+}
+
+func (m *MCPHandler) GetServerWithTools(req api.Context) error {
+	return m.getServer(req, true)
+}
+
+func (m *MCPHandler) getServer(req api.Context, withTools bool) error {
 	var (
-		server    v1.MCPServer
-		id        = req.PathValue("mcp_server_id")
-		withTools = req.URL.Query().Get("tools") == "true"
+		server v1.MCPServer
+		id     = req.PathValue("mcp_server_id")
 	)
 
 	if err := req.Get(&server, id); err != nil {
@@ -130,15 +143,29 @@ func (m *MCPHandler) GetServer(req api.Context) error {
 	}
 
 	cred, err := m.gptscript.RevealCredential(req.Context(), []string{fmt.Sprintf("%s-%s", server.Spec.ThreadName, server.Name)}, server.Name)
-	if err != nil {
-		if !errors.As(err, &gptscript.ErrNotFound{}) {
-			return fmt.Errorf("failed to find credential: %w", err)
-		}
+	if err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
+		return fmt.Errorf("failed to find credential: %w", err)
 	}
 
-	var tools []gtypes.Tool
+	var tools []types.MCPServerTool
 	if withTools {
-		tools, err = m.toolsForServer(req.Context(), server, cred.Env)
+		thread, err := getThreadForScope(req)
+		if err != nil {
+			return err
+		}
+
+		allowedTools := thread.Spec.Manifest.AllowedMCPTools[server.Name]
+		if len(allowedTools) == 0 && !thread.Spec.Project {
+			// If there is no information about allowed tools on the thread, then check the project.
+			project, err := getProjectThread(req)
+			if err != nil {
+				return err
+			}
+
+			allowedTools = project.Spec.Manifest.AllowedMCPTools[server.Name]
+		}
+
+		tools, err = m.toolsForServer(req.Context(), req.Storage, server, allowedTools, cred.Env)
 		if err != nil {
 			return fmt.Errorf("failed to render tools: %w", err)
 		}
@@ -216,10 +243,8 @@ func (m *MCPHandler) CreateServer(req api.Context) error {
 	}
 
 	cred, err := m.gptscript.RevealCredential(req.Context(), []string{fmt.Sprintf("%s-%s", server.Spec.ThreadName, server.Name)}, server.Name)
-	if err != nil {
-		if !errors.As(err, &gptscript.ErrNotFound{}) {
-			return fmt.Errorf("failed to find credential: %w", err)
-		}
+	if err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
+		return fmt.Errorf("failed to find credential: %w", err)
 	}
 
 	return req.WriteCreated(convertMCPServer(server, nil, cred.Env))
@@ -246,10 +271,8 @@ func (m *MCPHandler) UpdateServer(req api.Context) error {
 	}
 
 	cred, err := m.gptscript.RevealCredential(req.Context(), []string{fmt.Sprintf("%s-%s", existing.Spec.ThreadName, existing.Name)}, existing.Name)
-	if err != nil {
-		if !errors.As(err, &gptscript.ErrNotFound{}) {
-			return fmt.Errorf("failed to find credential: %w", err)
-		}
+	if err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
+		return fmt.Errorf("failed to find credential: %w", err)
 	}
 
 	return req.Write(convertMCPServer(existing, nil, cred.Env))
@@ -329,15 +352,95 @@ func (m *MCPHandler) Reveal(req api.Context) error {
 	return types.NewErrNotFound("no credential found for %q", mcpServer.Name)
 }
 
-func (m *MCPHandler) toolsForServer(ctx context.Context, server v1.MCPServer, credEnv map[string]string) ([]gtypes.Tool, error) {
+func (m *MCPHandler) SetTools(req api.Context) error {
+	thread, err := getThreadForScope(req)
+	if err != nil {
+		return err
+	}
+
+	var mcpServer v1.MCPServer
+	if err = req.Get(&mcpServer, req.PathValue("mcp_server_id")); err != nil {
+		return err
+	}
+
+	var tools []string
+	if err = req.Read(&tools); err != nil {
+		return err
+	}
+
+	cred, err := m.gptscript.RevealCredential(req.Context(), []string{fmt.Sprintf("%s-%s", mcpServer.Spec.ThreadName, mcpServer.Name)}, mcpServer.Name)
+	if err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
+		return fmt.Errorf("failed to find credential: %w", err)
+	}
+
+	mcpTools, err := m.toolsForServer(req.Context(), req.Storage, mcpServer, thread.Spec.Manifest.AllowedMCPTools[mcpServer.Name], cred.Env)
+	if err != nil {
+		return fmt.Errorf("failed to render tools: %w", err)
+	}
+
+	if len(tools) == 0 {
+		delete(thread.Spec.Manifest.AllowedMCPTools, mcpServer.Name)
+	} else {
+		if thread.Spec.Manifest.AllowedMCPTools == nil {
+			thread.Spec.Manifest.AllowedMCPTools = make(map[string][]string)
+		}
+
+		if slices.Contains(tools, "*") {
+			thread.Spec.Manifest.AllowedMCPTools[mcpServer.Name] = []string{"*"}
+		} else {
+			for _, t := range tools {
+				if !slices.ContainsFunc(mcpTools, func(tool types.MCPServerTool) bool {
+					return tool.ID == t
+				}) {
+					return types.NewErrBadRequest("tool %q is not a recognized tool for MCP server %q", t, mcpServer.Name)
+				}
+			}
+
+			thread.Spec.Manifest.AllowedMCPTools[mcpServer.Name] = tools
+		}
+	}
+
+	if err = req.Update(thread); err != nil {
+		return fmt.Errorf("failed to update thread: %w", err)
+	}
+
+	return nil
+}
+
+func (m *MCPHandler) toolsForServer(ctx context.Context, client kclient.Client, server v1.MCPServer, allowedTools []string, credEnv map[string]string) ([]types.MCPServerTool, error) {
+	allTools := slices.Contains(allowedTools, "*")
+	if server.Spec.ToolReferenceName != "" {
+		var toolReferences v1.ToolReferenceList
+		if err := client.List(ctx, &toolReferences, kclient.MatchingFields{
+			"spec.bundleToolName": server.Spec.ToolReferenceName,
+		}); err != nil {
+			return nil, err
+		}
+
+		tools := make([]types.MCPServerTool, 0, len(toolReferences.Items))
+		for _, ref := range toolReferences.Items {
+			if ref.Status.Tool != nil {
+				tools = append(tools, types.MCPServerTool{
+					ID:          ref.Name,
+					Name:        ref.Spec.Reference,
+					Description: ref.Status.Tool.Description,
+					Metadata:    ref.Status.Tool.Metadata,
+					Params:      ref.Status.Tool.Params,
+					Credentials: ref.Status.Tool.Credentials,
+					Enabled:     allTools || len(allowedTools) == 0 || slices.Contains(allowedTools, ref.Name),
+				})
+			}
+		}
+
+		return tools, nil
+	}
+
 	tool, err := render.MCPServerToolWithCreds(server, credEnv)
 	if err != nil {
 		return nil, err
 	}
 
-	// Instead of converting the whole tool type from the Go SDK type to the GPTScript type,
-	// only convert the parts we need: Name and Instructions.
-	return m.mcpLoader.Load(ctx, gtypes.Tool{
+	gTools, err := m.mcpLoader.Load(ctx, gtypes.Tool{
 		ToolDef: gtypes.ToolDef{
 			Parameters: gtypes.Parameters{
 				Name: tool.Name,
@@ -345,9 +448,37 @@ func (m *MCPHandler) toolsForServer(ctx context.Context, server v1.MCPServer, cr
 			Instructions: tool.Instructions,
 		},
 	})
+	if err != nil {
+		return nil, err
+	}
+
+	// Exclude the first tool because it is the "bundle" tool, and we aren't concerned with that.
+	tools := make([]types.MCPServerTool, 0, len(gTools)-1)
+	for _, t := range gTools[1:] {
+		mcpTool := types.MCPServerTool{
+			ID:          t.Name,
+			Name:        t.Name,
+			Description: t.Description,
+			Metadata:    t.MetaData,
+			Enabled:     allTools || len(allowedTools) == 0 || slices.Contains(allowedTools, t.Name),
+		}
+
+		if t.Arguments != nil {
+			mcpTool.Params = make(map[string]string, len(t.Arguments.Properties))
+			for name, param := range t.Arguments.Properties {
+				if param.Value != nil {
+					mcpTool.Params[name] = param.Value.Description
+				}
+			}
+		}
+
+		tools = append(tools, mcpTool)
+	}
+
+	return tools, nil
 }
 
-func convertMCPServer(server v1.MCPServer, tools []gtypes.Tool, credEnv map[string]string) types.MCPServer {
+func convertMCPServer(server v1.MCPServer, tools []types.MCPServerTool, credEnv map[string]string) types.MCPServer {
 	var missingEnvVars, missingHeaders []string
 	for _, env := range server.Spec.Manifest.Env {
 		if !env.Required {
@@ -368,28 +499,6 @@ func convertMCPServer(server v1.MCPServer, tools []gtypes.Tool, credEnv map[stri
 		}
 	}
 
-	var mcpTools []types.MCPServerTool
-	if len(tools) > 0 {
-		mcpTools = make([]types.MCPServerTool, 0, len(tools))
-		for _, t := range tools {
-			tool := types.MCPServerTool{
-				Name:        t.Name,
-				Description: t.Description,
-				Metadata:    t.MetaData,
-			}
-
-			if t.Arguments != nil {
-				tool.Params = make(map[string]string, len(t.Arguments.Properties))
-				for name, param := range t.Arguments.Properties {
-					if param.Value != nil {
-						tool.Params[name] = param.Value.Description
-					}
-				}
-			}
-			mcpTools = append(mcpTools, tool)
-		}
-	}
-
 	return types.MCPServer{
 		Metadata:               MetadataFrom(&server),
 		MissingRequiredEnvVars: missingEnvVars,
@@ -397,6 +506,6 @@ func convertMCPServer(server v1.MCPServer, tools []gtypes.Tool, credEnv map[stri
 		Configured:             len(missingEnvVars) == 0 && len(missingHeaders) == 0,
 		MCPServerManifest:      server.Spec.Manifest,
 		CatalogID:              server.Spec.MCPServerCatalogEntryName,
-		Tools:                  mcpTools,
+		Tools:                  tools,
 	}
 }
