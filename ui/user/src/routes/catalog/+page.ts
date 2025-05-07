@@ -3,19 +3,16 @@ import type { PageLoad } from './$types';
 
 export const load: PageLoad = async ({ fetch }) => {
 	try {
-		const shares = (await ChatService.listProjectShares({ fetch })).items;
-		const tools = (await ChatService.listAllTools({ fetch })).items;
+		const templates = (await ChatService.listTemplates({ fetch })).items;
 		const mcps = await ChatService.listMCPs({ fetch });
 
 		return {
-			shares,
-			tools,
+			templates,
 			mcps
 		};
 	} catch {
 		return {
-			shares: [],
-			tools: [],
+			templates: [],
 			mcps: []
 		};
 	}

@@ -399,6 +399,7 @@ export interface Project {
 	introductionMessage?: string;
 	prompt?: string;
 	editor?: boolean;
+	sourceProjectID?: string;
 	tools?: string[];
 	sharedTasks?: string[];
 	websiteKnowledge?: Sites;
@@ -507,4 +508,49 @@ export interface Memory {
 
 export interface MemoryList {
 	items: Memory[];
+}
+
+export interface ThreadManifest {
+	name: string;
+	description?: string;
+	icons?: AssistantIcons;
+	introductionMessage?: string;
+	starterMessages?: string[];
+	websiteKnowledge?: Sites;
+	tools?: string[];
+	prompt?: string;
+	sharedTasks?: string[];
+}
+
+export interface ProjectTemplateManifest {
+	name?: string;
+	public?: boolean;
+	featured?: boolean;
+}
+
+export interface ProjectTemplate {
+	// Metadata fields
+	id: string;
+	created: string;
+	deleted?: string;
+
+	// ThreadManifest fields
+	projectSnapshot: ThreadManifest;
+
+	name: string;
+
+	// ProjectTemplateManifest fields
+	public?: boolean;
+	featured?: boolean;
+
+	// Explicit fields from ProjectTemplate struct
+	mcpServers: string[];
+	assistantID: string;
+	projectID: string;
+	publicID?: string;
+	ready?: boolean;
+}
+
+export interface ProjectTemplateList {
+	items: ProjectTemplate[];
 }

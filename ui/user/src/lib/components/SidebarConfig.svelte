@@ -5,6 +5,7 @@
 	import Slack from '$lib/components/slack/Slack.svelte';
 	import CustomTool from '$lib/components/edit/CustomTool.svelte';
 	import ProjectInvitations from '$lib/components/edit/ProjectInvitations.svelte';
+	import TemplateConfig from '$lib/components/templates/TemplateConfig.svelte';
 	import { getProjectTools } from '$lib/context/projectTools.svelte';
 	import ProjectMcpConfig from '$lib/components/mcp/ProjectMcpConfig.svelte';
 	import { createProjectMcp, updateProjectMcp } from '$lib/services/chat/mcp';
@@ -71,6 +72,10 @@
 					closeSidebarConfig(layout);
 				}}
 			/>
+		{/key}
+	{:else if layout.sidebarConfig === 'template' && layout.template}
+		{#key layout.template.id}
+			<TemplateConfig bind:template={layout.template} />
 		{/key}
 	{:else}
 		<div class="p-8">

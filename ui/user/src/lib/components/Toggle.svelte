@@ -5,10 +5,11 @@
 		label: string;
 		labelInline?: boolean;
 		checked: boolean;
+		disabled?: boolean;
 		onChange: (checked: boolean) => void;
 	}
 
-	let { label, labelInline, checked, onChange }: Props = $props();
+	let { label, labelInline, checked, disabled = false, onChange }: Props = $props();
 </script>
 
 {#if label && !labelInline}
@@ -29,14 +30,17 @@
 	<input
 		type="checkbox"
 		{checked}
+		{disabled}
 		class="opacity-0"
 		readonly
 		onchange={(e) => {
 			e.preventDefault();
-			onChange(!checked);
+			if (!disabled) {
+				onChange(!checked);
+			}
 		}}
 	/>
-	<span class="slider rounded-2xl" class:checked></span>
+	<span class="slider rounded-2xl" class:checked class:disabled></span>
 {/snippet}
 
 <style lang="postcss">
@@ -58,6 +62,11 @@
 					background-color: var(--color-surface1);
 				}
 			}
+		}
+
+		.slider.disabled {
+			cursor: not-allowed;
+			opacity: 0.6;
 		}
 
 		.slider:before {

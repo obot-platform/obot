@@ -16,7 +16,7 @@
 <CollapsePane
 	classes={{ header: 'pl-3 py-2 text-md', content: 'p-2' }}
 	iconSize={5}
-	header="Introduction & Starter Messages"
+	header="Introduction & Conversation Starters"
 	helpText={HELPER_TEXTS.introductions}
 >
 	<div class="flex flex-col gap-4 text-sm">

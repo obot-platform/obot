@@ -3,7 +3,11 @@
 	import type { PageProps } from './$types';
 	import { q, qIsSet } from '$lib/url';
 	import { ChevronLeft } from 'lucide-svelte';
-	import { sortByFeaturedNameOrder, sortByPreferredMcpOrder } from '$lib/sort';
+	import {
+		sortByCreatedDate,
+		sortTemplatesByFeaturedNameOrder,
+		sortByPreferredMcpOrder
+	} from '$lib/sort';
 	import McpCatalog from '$lib/components/mcp/McpCatalog.svelte';
 	import Navbar from '$lib/components/Navbar.svelte';
 	import AgentCatalog from '$lib/components/agents/AgentCatalog.svelte';
@@ -14,7 +18,10 @@
 
 	let { data }: PageProps = $props();
 	const mcps = $derived(data.mcps.sort(sortByPreferredMcpOrder));
-	const shares = $derived(data.shares.sort(sortByFeaturedNameOrder));
+	const templates = $derived(
+		data.templates?.sort(sortByCreatedDate).sort(sortTemplatesByFeaturedNameOrder)
+	);
+
 	const type = q('type');
 </script>
 
@@ -23,7 +30,7 @@
 	{#if type === 'agents'}
 		<main class="colors-background relative flex w-full flex-col items-center justify-center py-12">
 			<div class="flex w-full max-w-(--breakpoint-2xl) flex-col items-center justify-center">
-				<AgentCatalog {shares} tools={data.tools} />
+				<AgentCatalog {templates} {mcps} />
 			</div>
 		</main>
 	{:else}

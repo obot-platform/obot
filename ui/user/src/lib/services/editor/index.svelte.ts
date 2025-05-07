@@ -1,4 +1,4 @@
-import type { Fetcher, Project } from '$lib/services';
+import type { Fetcher, Project, ProjectTemplate } from '$lib/services';
 import ChatService from '../chat';
 import { doPost } from '../chat/http';
 
@@ -87,7 +87,7 @@ async function genericLoad(items: EditorItem[], id: string) {
 
 async function save(
 	item: EditorItem,
-	project: Project,
+	project: Project | ProjectTemplate,
 	opts?: {
 		taskID?: string;
 		threadID?: string;
@@ -109,7 +109,7 @@ async function save(
 
 async function download(
 	items: EditorItem[],
-	project: Project,
+	project: Project | ProjectTemplate,
 	name: string,
 	opts?: {
 		taskID?: string;

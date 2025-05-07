@@ -32,11 +32,14 @@ import {
 	type Memory,
 	type MCPList,
 	type MCP,
+	type MCPServer,
 	type ProjectMCP,
 	type ProjectMCPList,
 	type ProjectMember,
 	type ProjectInvitation,
-	type MCPServer
+	type ProjectTemplate,
+	type ProjectTemplateList,
+	type ProjectTemplateManifest
 } from './types';
 
 export type Fetcher = typeof fetch;
@@ -1125,4 +1128,80 @@ export async function acceptProjectInvitation(code: string): Promise<ProjectInvi
 
 export async function rejectProjectInvitation(code: string): Promise<void> {
 	return doDelete(`/projectinvitations/${code}`) as unknown as Promise<void>;
+}
+
+export async function createProjectTemplate(
+	assistantID: string,
+	projectID: string
+): Promise<ProjectTemplate> {
+	return (await doPost(
+		`/assistants/${assistantID}/projects/${projectID}/templates`,
+		{}
+	)) as ProjectTemplate;
+}
+
+export async function getProjectTemplate(
+	assistantID: string,
+	projectID: string,
+	templateID: string
+): Promise<ProjectTemplate> {
+	return (await doGet(
+		`/assistants/${assistantID}/projects/${projectID}/templates/${templateID}`
+	)) as ProjectTemplate;
+}
+
+export async function listProjectTemplates(
+	assistantID: string,
+	projectID: string
+): Promise<ProjectTemplateList> {
+	const list = (await doGet(
+		`/assistants/${assistantID}/projects/${projectID}/templates`
+	)) as ProjectTemplateList;
+	if (!list.items) {
+		list.items = [];
+	}
+	return list;
+}
+
+export async function updateProjectTemplate(
+	assistantID: string,
+	projectID: string,
+	templateID: string,
+	template: ProjectTemplateManifest
+): Promise<ProjectTemplate> {
+	return (await doPut(
+		`/assistants/${assistantID}/projects/${projectID}/templates/${templateID}`,
+		template
+	)) as ProjectTemplate;
+}
+
+export async function deleteProjectTemplate(
+	assistantID: string,
+	projectID: string,
+	templateID: string
+) {
+	return doDelete(`/assistants/${assistantID}/projects/${projectID}/templates/${templateID}`);
+}
+
+export async function listTemplates(opts?: {
+	all?: boolean;
+	fetch?: Fetcher;
+}): Promise<ProjectTemplateList> {
+	const queryParams = opts?.all ? '?all=true' : '';
+	const list = (await doGet(`/templates${queryParams}`, opts)) as ProjectTemplateList;
+	if (!list.items) {
+		list.items = [];
+	}
+	return list;
+}
+
+export async function getTemplate(
+	publicID: string,
+	opts?: { fetch?: Fetcher }
+): Promise<ProjectTemplate> {
+	return (await doGet(`/templates/${publicID}`, opts)) as ProjectTemplate;
+}
+
+export async function copyTemplate(publicID: string, opts?: { fetch?: Fetcher }): Promise<Project> {
+	return (await doPost(`/templates/${publicID}`, {}, opts)) as Project;
 }

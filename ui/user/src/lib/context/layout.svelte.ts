@@ -1,4 +1,4 @@
-import type { ProjectMCP, Task, TaskRun, Thread } from '$lib/services';
+import type { ProjectMCP, ProjectTemplate, Task, TaskRun, Thread } from '$lib/services';
 import type { EditorItem } from '$lib/services/editor/index.svelte';
 import { responsive } from '$lib/stores';
 import { getContext, hasContext, setContext } from 'svelte';
@@ -30,6 +30,7 @@ export interface Layout {
 		| 'custom-mcp';
 	customToolId?: string;
 	editProjectMcp?: ProjectMCP;
+	template?: ProjectTemplate;
 }
 
 export function isSomethingSelected(layout: Layout) {
@@ -42,6 +43,7 @@ export function closeAll(layout: Layout) {
 	layout.sidebarConfig = undefined;
 	layout.customToolId = undefined;
 	layout.editProjectMcp = undefined;
+	layout.template = undefined;
 }
 
 export function openTask(layout: Layout, taskID?: string) {
@@ -52,6 +54,12 @@ export function openTask(layout: Layout, taskID?: string) {
 export function openTaskRun(layout: Layout, taskRun?: TaskRun) {
 	closeAll(layout);
 	layout.displayTaskRun = taskRun;
+}
+
+export function openTemplate(layout: Layout, template: ProjectTemplate) {
+	closeAll(layout);
+	layout.sidebarConfig = 'template';
+	layout.template = template;
 }
 
 export function openSidebarConfig(layout: Layout, config: Layout['sidebarConfig']) {
@@ -87,6 +95,7 @@ export function closeSidebarConfig(layout: Layout) {
 	layout.sidebarConfig = undefined;
 	layout.customToolId = undefined;
 	layout.editProjectMcp = undefined;
+	layout.template = undefined;
 }
 
 export function initLayout(layout: Layout) {

@@ -1,44 +1,196 @@
 <script lang="ts">
-	import { ChatService, type ProjectShare, type ToolReference } from '$lib/services';
-	import FeaturedAgentCard from '$lib/components/agents/FeaturedAgentCard.svelte';
-	import { sortByFeaturedNameOrder } from '$lib/sort';
-	import { goto } from '$app/navigation';
+	import { type ProjectTemplate, type MCP } from '$lib/services';
+	import AgentCard from '$lib/components/agents/AgentCard.svelte';
+	import AgentCopy from '$lib/components/agents/AgentCopy.svelte';
+	import { sortTemplatesByFeaturedNameOrder } from '$lib/sort';
+	import { X, ChevronLeft, ChevronRight } from 'lucide-svelte';
+	import { clickOutside } from '$lib/actions/clickoutside';
+	import { tooltip } from '$lib/actions/tooltip.svelte';
+	import { responsive } from '$lib/stores';
+	import Search from '$lib/components/Search.svelte';
 
 	interface Props {
-		shares: ProjectShare[];
-		tools: ToolReference[];
+		templates: ProjectTemplate[];
+		mcps: MCP[];
 	}
 
-	let { shares, tools: referencedTools }: Props = $props();
+	let { templates, mcps: referencedMcps }: Props = $props();
+	let dialog: HTMLDialogElement | undefined = $state();
+	let agentCopy: ReturnType<typeof AgentCopy> | undefined = $state();
 
-	let tools = $derived(new Map(referencedTools.map((t) => [t.id, t])));
-	let featured = $derived(shares.sort(sortByFeaturedNameOrder));
+	const ITEMS_PER_PAGE = 36;
+	let currentPage = $state(1);
 
-	async function makeCopyFromShare(project: ProjectShare) {
-		// TEMPORARY HACK TO FAKE COPY
-		const response = await ChatService.createProjectFromShare(project.publicID);
-		const copy = await ChatService.copyProject(response.assistantID, response.id);
-		await ChatService.deleteProject(response.assistantID, response.id);
-		await goto(`/o/${copy.id}`);
+	// Define selectedCategory before using it in filteredTemplates
+	let search = $state('');
+	let selectedCategory = $state('Featured');
+
+	// Precompute sorted lists for each category
+	const categories = ['All', 'Featured', 'Community'];
+	const allTemplates = templates.sort(sortTemplatesByFeaturedNameOrder);
+	const featuredTemplates = allTemplates.filter((t) => t.featured === true);
+	const communityTemplates = allTemplates.filter((t) => !t.featured);
+
+	// Get the appropriate list based on selected category
+	const categoryTemplates = $derived(
+		selectedCategory === 'Featured'
+			? featuredTemplates
+			: selectedCategory === 'Community'
+				? communityTemplates
+				: allTemplates
+	);
+
+	const totalPages = $derived(Math.ceil(categoryTemplates.length / ITEMS_PER_PAGE));
+	const paginatedTemplates = $derived(
+		categoryTemplates.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE)
+	);
+
+	const searchResults = $derived(
+		categoryTemplates.filter(
+			(t) =>
+				t.name?.toLowerCase().includes(search.toLowerCase()) ||
+				t.projectSnapshot.name?.toLowerCase().includes(search.toLowerCase()) ||
+				t.projectSnapshot.description?.toLowerCase().includes(search.toLowerCase())
+		)
+	);
+
+	let browseAllTitleElement: HTMLDivElement | undefined = $state<HTMLDivElement>();
+
+	export function open() {
+		console.log(`opening agent catalog. num templates: ${categoryTemplates.length}`);
+		dialog?.showModal();
 	}
+
+	function nextPage() {
+		if (currentPage < totalPages) {
+			currentPage++;
+		}
+	}
+
+	function prevPage() {
+		if (currentPage > 1) {
+			currentPage--;
+		}
+	}
+
+	let mcps = $derived(new Map(referencedMcps.map((m) => [m.id, m])));
 </script>
 
-<div class="flex flex-col items-center justify-center gap-4">
-	<h2 class="px-12 text-2xl font-semibold md:text-4xl">Agent Catalog</h2>
-	<p class="mb-4 max-w-full px-4 text-center text-sm font-light md:max-w-xl md:px-12 md:text-base">
-		Check out our agents below to find the perfect one for you.
-	</p>
-	{#if featured.length > 0}
-		<div class="mb-4 flex w-full flex-col items-center justify-center px-4 md:px-12">
-			<div class="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-				{#each featured.slice(0, 4) as featuredShare}
-					<FeaturedAgentCard
-						project={featuredShare}
-						{tools}
-						onclick={() => makeCopyFromShare(featuredShare)}
-					/>
-				{/each}
-			</div>
+<dialog
+	bind:this={dialog}
+	use:clickOutside={() => dialog?.close()}
+	class="default-dialog h-full w-full max-w-(--breakpoint-2xl) bg-white p-0 dark:bg-black"
+	class:mobile-screen-dialog={responsive.isMobile}
+>
+	<div class="default-scrollbar-thin relative mx-auto h-full min-h-0 w-full overflow-y-auto">
+		<button
+			class="icon-button sticky top-3 right-2 z-40 float-right self-end"
+			onclick={() => dialog?.close()}
+			use:tooltip={{ disablePortal: true, text: 'Close Agent Catalog' }}
+		>
+			<X class="size-7" />
+		</button>
+		<div class="mt-4 flex w-full flex-col items-center justify-center gap-2 px-4 py-4">
+			<h2 class="text-3xl font-semibold md:text-4xl">Agent Catalog</h2>
+			<p class="mb-8 max-w-full text-center text-base font-light md:max-w-md">
+				Copy an existing agent to jumpstart your journey
+			</p>
 		</div>
-	{/if}
-</div>
+		<div class="pr-12 pb-4">
+			{@render body()}
+		</div>
+		<AgentCopy bind:this={agentCopy} />
+	</div>
+</dialog>
+
+{#snippet body()}
+	<div class="relative flex w-full max-w-(--breakpoint-2xl)">
+		{#if !responsive.isMobile}
+			<div class={'sticky top-0 left-0 h-[calc(100vh-9rem)] w-xs flex-shrink-0 p-4'}>
+				<div class="flex flex-col gap-4">
+					<h3 class="text-2xl font-semibold">Categories</h3>
+					<ul class="flex flex-col">
+						{#each categories as category}
+							<li>
+								<button
+									class="text-md border-l-3 border-gray-100 px-4 py-2 text-left font-light transition-colors duration-300 dark:border-gray-900"
+									class:!border-blue-500={category === selectedCategory}
+									onclick={() => {
+										selectedCategory = category;
+										currentPage = 1;
+									}}
+								>
+									{category}
+								</button>
+							</li>
+						{/each}
+					</ul>
+				</div>
+			</div>
+		{/if}
+		<div class="flex w-full flex-col">
+			<div class="sticky top-0 left-0 z-30 w-full">
+				<div class="flex grow bg-white p-4 dark:bg-black">
+					<Search
+						onChange={(val) => {
+							search = val;
+						}}
+						placeholder="Search Agents..."
+					/>
+				</div>
+			</div>
+			<div class="flex items-center gap-4 px-4 pt-4 pb-2">
+				<h4 bind:this={browseAllTitleElement} class="text-xl font-semibold">
+					{search ? 'Search Results' : `Browse ${selectedCategory}`}
+				</h4>
+			</div>
+			<div class="grid grid-cols-1 gap-4 px-4 pt-2 md:grid-cols-2 xl:grid-cols-3">
+				{#if search}
+					{#each searchResults as template (template.id)}
+						{@render agentCard(template)}
+					{/each}
+				{:else}
+					{#each paginatedTemplates as template (template.id)}
+						{@render agentCard(template)}
+					{/each}
+				{/if}
+			</div>
+			{#if !search && totalPages > 1}
+				<div class="mt-8 flex grow items-center justify-center gap-2">
+					<button
+						class="button-text flex items-center gap-1 disabled:opacity-50"
+						disabled={currentPage === 1}
+						onclick={prevPage}
+					>
+						<ChevronLeft class="size-4" />
+						Previous
+					</button>
+					<span class="text-sm">
+						Page {currentPage} of {totalPages}
+					</span>
+					<button
+						class="button-text flex items-center gap-1 disabled:opacity-50"
+						disabled={currentPage === totalPages}
+						onclick={nextPage}
+					>
+						Next
+						<ChevronRight class="size-4" />
+					</button>
+				</div>
+			{/if}
+		</div>
+	</div>
+{/snippet}
+
+{#snippet agentCard(template: ProjectTemplate)}
+	{@const templateMcps =
+		(template.mcpServers?.map((id) => mcps.get(id)).filter(Boolean) as MCP[]) || []}
+
+	<AgentCard
+		{template}
+		mcps={templateMcps}
+		onclick={() => {
+			agentCopy?.open(template, templateMcps);
+		}}
+	/>
+{/snippet}

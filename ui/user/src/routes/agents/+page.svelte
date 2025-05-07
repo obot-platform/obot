@@ -4,7 +4,7 @@
 	import { darkMode, errors, responsive } from '$lib/stores';
 	import { formatTime } from '$lib/time';
 	import { getProjectImage } from '$lib/image';
-	import { Origami, Plus, Scroll, Server, Trash2, X } from 'lucide-svelte';
+	import { Origami, Plus, Scroll, Server, Trash2 } from 'lucide-svelte';
 	import { ChatService, EditorService, type Project } from '$lib/services';
 	import Confirm from '$lib/components/Confirm.svelte';
 	import { sortByCreatedDate } from '$lib/sort';
@@ -15,15 +15,19 @@
 	import AgentCatalog from '$lib/components/agents/AgentCatalog.svelte';
 	import { createProjectMcp } from '$lib/services/chat/mcp';
 
+	import { initHelperMode } from '$lib/context/helperMode.svelte';
 	let { data }: PageProps = $props();
 
+	initHelperMode();
 	let agents = $state(data.projects.filter((p) => p.editor).sort(sortByCreatedDate));
-	let chatbots = $state(data.projects.filter((p) => !p.editor).sort(sortByCreatedDate));
+	let chatbots = $state(
+		data.projects.filter((p) => !p.editor && !p.sourceProjectID).sort(sortByCreatedDate)
+	);
 
 	let toDelete = $state<Project>();
 	let createDropdown = $state<HTMLDialogElement>();
 
-	let agentCatalog = $state<HTMLDialogElement>();
+	let agentCatalog = $state<ReturnType<typeof AgentCatalog>>();
 	let mcpCatalog = $state<ReturnType<typeof McpCatalog>>();
 
 	async function createNewAgent() {
@@ -77,7 +81,7 @@
 					<button
 						class="flex flex-col justify-start gap-2 text-left"
 						onclick={() => {
-							agentCatalog?.showModal();
+							agentCatalog?.open();
 						}}
 					>
 						<img
@@ -145,7 +149,8 @@
 					<button
 						class="text-md button hover:bg-surface1 dark:hover:bg-surface3 flex w-full items-center gap-2 rounded-sm bg-transparent px-2 font-light"
 						onclick={() => {
-							agentCatalog?.showModal();
+							console.log(`opening agent catalog. num templates: ${data.templates?.length}`);
+							agentCatalog?.open();
 							createDropdown?.close();
 						}}
 					>
@@ -261,27 +266,7 @@
 	oncancel={() => (toDelete = undefined)}
 />
 
-<dialog
-	bind:this={agentCatalog}
-	class="default-dialog h-full w-full max-w-(--breakpoint-2xl) bg-white p-0 dark:bg-black"
-	class:mobile-screen-dialog={responsive.isMobile}
-	use:clickOutside={() => {
-		agentCatalog?.close();
-	}}
->
-	<div class="default-scrollbar-thin relative mx-auto h-full min-h-0 w-full overflow-y-auto">
-		<div class="flex w-full justify-end py-2">
-			<button
-				class="icon-button sticky top-2 right-2 z-40"
-				onclick={() => agentCatalog?.close()}
-				use:tooltip={{ disablePortal: true, text: 'Close MCP Servers Catalog' }}
-			>
-				<X class="size-7" />
-			</button>
-		</div>
-		<AgentCatalog shares={data.shares} tools={data.tools} />
-	</div>
-</dialog>
+<AgentCatalog bind:this={agentCatalog} templates={data.templates} mcps={data.mcps} />
 
 <McpCatalog
 	bind:this={mcpCatalog}
