@@ -1274,7 +1274,7 @@ export async function getDefaultModelForThread(
 			`/assistants/${assistantID}/projects/${projectID}/threads/${threadID}/default-model`,
 			{ dontLogErrors: true }
 		)) as { model: string; modelProvider: string };
-	} catch (err) {
+	} catch {
 		return { model: '', modelProvider: '' };
 	}
 }
