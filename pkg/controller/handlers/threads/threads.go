@@ -104,12 +104,8 @@ func (t *Handler) CreateSharedWorkspace(req router.Request, _ router.Response) e
 		return nil
 	}
 
-	var (
-		parentThread       v1.Thread
-		fromWorkspaceNames []string
-	)
-
-	if thread.Spec.ParentThreadName != "" {
+	var parentThread v1.Thread
+	if thread.IsUserThread() {
 		if err := req.Client.Get(req.Ctx, router.Key(thread.Namespace, thread.Spec.ParentThreadName), &parentThread); err != nil {
 			return err
 		}
@@ -117,10 +113,7 @@ func (t *Handler) CreateSharedWorkspace(req router.Request, _ router.Response) e
 			// Wait to be created
 			return nil
 		}
-		fromWorkspaceNames = append(fromWorkspaceNames, parentThread.Status.SharedWorkspaceName)
-	}
 
-	if thread.IsUserThread() {
 		thread.Status.SharedWorkspaceName = parentThread.Status.SharedWorkspaceName
 		return req.Client.Status().Update(req.Ctx, thread)
 	}
@@ -137,8 +130,7 @@ func (t *Handler) CreateSharedWorkspace(req router.Request, _ router.Response) e
 			Finalizers:   []string{v1.WorkspaceFinalizer},
 		},
 		Spec: v1.WorkspaceSpec{
-			ThreadName:         thread.Name,
-			FromWorkspaceNames: fromWorkspaceNames,
+			ThreadName: thread.Name,
 		},
 	}
 

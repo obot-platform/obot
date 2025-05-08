@@ -23,7 +23,11 @@ func (in *Thread) IsProjectBased() bool {
 }
 
 func (in *Thread) IsUserThread() bool {
-	return in.IsProjectBased() && !in.Spec.Project && !in.Spec.Template && in.Spec.ParentThreadName != ""
+	return !in.Spec.Project && !in.Spec.Template && in.Spec.ParentThreadName != ""
+}
+
+func (in *Thread) IsSharedProject() bool {
+	return in.Spec.Project && in.Spec.ParentThreadName != ""
 }
 
 func (in *Thread) IsProjectThread() bool {
