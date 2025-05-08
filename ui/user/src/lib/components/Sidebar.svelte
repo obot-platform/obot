@@ -102,7 +102,7 @@
 					<Introduction bind:project />
 					<Knowledge {project} />
 					<Files {project} classes={{ list: 'text-sm flex flex-col gap-2' }} />
-					<ModelProviders bind:project />
+					<ModelProviders {project} />
 					{#if version.current.dockerSupported}
 						<CustomTools {project} />
 					{/if}
