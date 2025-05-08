@@ -356,16 +356,13 @@
 		max-width: calc(100% - 30px);
 	}
 
-	.dark .memory {
+	:global(.dark) .memory {
 		color: white;
 		background-color: var(--color-surface2);
 	}
 
-	.dark .memory::before {
-		background-color: var(--color-surface2);
-	}
-
-	.dark .memory::after {
+	:global(.dark) .memory::before,
+	:global(.dark) .memory::after {
 		background-color: var(--color-surface2);
 	}
 

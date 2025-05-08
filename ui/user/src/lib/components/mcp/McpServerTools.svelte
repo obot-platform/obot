@@ -3,7 +3,6 @@
 	import { ChevronsRight, LoaderCircle, Server } from 'lucide-svelte';
 	import Toggle from '../Toggle.svelte';
 	import { onMount, type Snippet } from 'svelte';
-	import { twMerge } from 'tailwind-merge';
 	import { fade } from 'svelte/transition';
 
 	interface Props {
