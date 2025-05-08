@@ -287,6 +287,10 @@ func (h *ProjectsHandler) DeleteProject(req api.Context) error {
 		return err
 	}
 
+	if !req.UserIsAdmin() && project.Spec.UserID != req.User.GetUID() {
+		return types.NewErrBadRequest("only the project creator can delete this project")
+	}
+
 	return req.Delete(project)
 }
 

@@ -14,6 +14,7 @@
 	import McpCatalog from '$lib/components/mcp/McpCatalog.svelte';
 	import AgentCatalog from '$lib/components/agents/AgentCatalog.svelte';
 	import { createProjectMcp } from '$lib/services/chat/mcp';
+	import { profile } from '$lib/stores';
 
 	import { initHelperMode } from '$lib/context/helperMode.svelte';
 	let { data }: PageProps = $props();
@@ -236,11 +237,17 @@
 				>
 			</td>
 		{/if}
-		<td class="flex justify-end px-4 py-2 text-sm font-light">
-			<button class="icon-button" onclick={() => (toDelete = project)} use:tooltip={'Delete agent'}>
-				<Trash2 class="size-4" />
-			</button>
-		</td>
+		{#if project.userID === profile.current.id}
+			<td class="flex justify-end px-4 py-2 text-sm font-light">
+				<button
+					class="icon-button"
+					onclick={() => (toDelete = project)}
+					use:tooltip={'Delete agent'}
+				>
+					<Trash2 class="size-4" />
+				</button>
+			</td>
+		{/if}
 	</tr>
 {/snippet}
 
