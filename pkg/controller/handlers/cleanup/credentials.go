@@ -8,6 +8,7 @@ import (
 	"github.com/gptscript-ai/go-gptscript"
 	"github.com/obot-platform/nah/pkg/router"
 	"github.com/obot-platform/obot/apiclient/types"
+	"github.com/obot-platform/obot/pkg/mcp"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	"k8s.io/apimachinery/pkg/fields"
@@ -15,12 +16,14 @@ import (
 )
 
 type Credentials struct {
-	gClient *gptscript.GPTScript
+	gClient           *gptscript.GPTScript
+	mcpSessionManager *mcp.SessionManager
 }
 
-func NewCredentials(gClient *gptscript.GPTScript) *Credentials {
+func NewCredentials(gClient *gptscript.GPTScript, mcpSessionManager *mcp.SessionManager) *Credentials {
 	return &Credentials{
-		gClient: gClient,
+		gClient:           gClient,
+		mcpSessionManager: mcpSessionManager,
 	}
 }
 
@@ -74,11 +77,11 @@ func (c *Credentials) Remove(req router.Request, _ router.Response) error {
 }
 
 func (c *Credentials) RemoveMCPCredentials(req router.Request, _ router.Response) error {
-	mcp := req.Object.(*v1.MCPServer)
+	mcpServer := req.Object.(*v1.MCPServer)
 	creds, err := c.gClient.ListCredentials(req.Ctx, gptscript.ListCredentialsOptions{
 		CredentialContexts: []string{
-			fmt.Sprintf("%s-%s", mcp.Spec.ThreadName, mcp.Name),
-			fmt.Sprintf("%s-%s-shared", mcp.Spec.ThreadName, mcp.Name),
+			fmt.Sprintf("%s-%s", mcpServer.Spec.ThreadName, mcpServer.Name),
+			fmt.Sprintf("%s-%s-shared", mcpServer.Spec.ThreadName, mcpServer.Name),
 		},
 	})
 	if err != nil {
@@ -86,10 +89,24 @@ func (c *Credentials) RemoveMCPCredentials(req router.Request, _ router.Response
 	}
 
 	for _, cred := range creds {
+		// Have to reveal the credential to get the values
+		cred, err = c.gClient.RevealCredential(req.Ctx, []string{cred.Context}, cred.ToolName)
+		if err != nil {
+			return err
+		}
+
+		// Shutdown the server
+		serverConfig, _ := mcp.ToServerConfig(*mcpServer, mcpServer.Spec.ThreadName, cred.Env, nil)
+		if err = c.mcpSessionManager.ShutdownServer(req.Ctx, serverConfig); err != nil {
+			return fmt.Errorf("failed to shutdown server: %w", err)
+		}
+
 		if err = c.gClient.DeleteCredential(req.Ctx, cred.Context, cred.ToolName); err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
 			return err
 		}
 	}
 
-	return nil
+	// Shutdown a potential server running without any configuration. We wouldn't detect its existence with a credential.
+	serverConfig, _ := mcp.ToServerConfig(*mcpServer, mcpServer.Spec.ThreadName, nil, nil)
+	return c.mcpSessionManager.ShutdownServer(req.Ctx, serverConfig)
 }

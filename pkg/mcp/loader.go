@@ -32,22 +32,25 @@ type SessionManager struct {
 }
 
 func NewSessionManager(ctx context.Context, baseImage, mcpClusterDomain string) (*SessionManager, error) {
-	config, err := buildConfig()
-	if err != nil {
-		return nil, err
-	}
+	var client kclient.WithWatch
+	if baseImage != "" {
+		config, err := buildConfig()
+		if err != nil {
+			return nil, err
+		}
 
-	client, err := kclient.NewWithWatch(config, kclient.Options{})
-	if err != nil {
-		return nil, err
-	}
+		client, err = kclient.NewWithWatch(config, kclient.Options{})
+		if err != nil {
+			return nil, err
+		}
 
-	if err = kclient.IgnoreAlreadyExists(client.Create(ctx, &corev1.Namespace{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: mcpNamespace,
-		},
-	})); err != nil {
-		return nil, err
+		if err = kclient.IgnoreAlreadyExists(client.Create(ctx, &corev1.Namespace{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: mcpNamespace,
+			},
+		})); err != nil {
+			return nil, err
+		}
 	}
 
 	return &SessionManager{
@@ -63,7 +66,57 @@ func (sm *SessionManager) Close() error {
 	return sm.local.Close()
 }
 
+// ShutdownServer will close the connections to the MCP server and remove the Kubernetes objects.
+func (sm *SessionManager) ShutdownServer(ctx context.Context, server ServerConfig) error {
+	if sm.client == nil || server.Command == "" {
+		return sm.local.ShutdownServer(server.ServerConfig)
+	}
+
+	id := sessionID(server)
+
+	err := sm.local.ShutdownServer(gmcp.ServerConfig{URL: fmt.Sprintf("%s.%s.svc.%s", id, mcpNamespace, sm.mcpClusterDomain)})
+	if err != nil {
+		return err
+	}
+
+	for _, obj := range []kclient.Object{
+		&appsv1.Deployment{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      id,
+				Namespace: mcpNamespace,
+			},
+		},
+		&corev1.Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      id,
+				Namespace: mcpNamespace,
+			},
+		},
+		&corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      name.SafeConcatName(id, "files"),
+				Namespace: mcpNamespace,
+			},
+		},
+		&corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      name.SafeConcatName(id, "config"),
+				Namespace: mcpNamespace,
+			},
+		},
+	} {
+		if err = kclient.IgnoreNotFound(sm.client.Delete(ctx, obj)); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (sm *SessionManager) Load(ctx context.Context, tool types.Tool) (result []types.Tool, _ error) {
+	if sm.client == nil {
+		return sm.local.Load(ctx, tool)
+	}
+
 	_, configData, _ := strings.Cut(tool.Instructions, "\n")
 
 	var servers Config
@@ -95,7 +148,7 @@ func (sm *SessionManager) Load(ctx context.Context, tool types.Tool) (result []t
 			return sm.local.LoadTools(ctx, server.ServerConfig, tool.Name)
 		}
 
-		id := "mcp" + hash.Digest(server)[:60]
+		id := sessionID(server)
 
 		var objs []kclient.Object
 
@@ -136,7 +189,7 @@ func (sm *SessionManager) Load(ctx context.Context, tool types.Tool) (result []t
 
 		objs = append(objs, &corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      id,
+				Name:      name.SafeConcatName(id, "config"),
 				Namespace: mcpNamespace,
 			},
 			StringData: secretStringData,
@@ -243,6 +296,12 @@ func (sm *SessionManager) Load(ctx context.Context, tool types.Tool) (result []t
 	}
 
 	return nil, fmt.Errorf("no MCP server configuration found in tool instructions: %s", configData)
+}
+
+func sessionID(server ServerConfig) string {
+	// The allowed tools aren't part of the session ID.
+	server.AllowedTools = nil
+	return "mcp" + hash.Digest(server)[:60]
 }
 
 func buildConfig() (*rest.Config, error) {

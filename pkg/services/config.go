@@ -142,10 +142,10 @@ type Services struct {
 	SendgridWebhookPassword string
 
 	MCPCatalog []string
+
 	// Used for loading and running MCP servers with GPTScript.
-	// These are just the defaults now, but could change in the future based on needs
-	MCPLoader loader.MCPLoader
 	MCPRunner engine.MCPRunner
+	MCPLoader *mcp.SessionManager
 }
 
 const (
@@ -321,14 +321,11 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		config.UIHostname = "https://" + config.UIHostname
 	}
 
-	var mcpLoader loader.MCPLoader = gmcp.DefaultLoader
-	if config.MCPBaseImage != "" {
-		mcpLoader, err = mcp.NewSessionManager(ctx, config.MCPBaseImage, config.MCPClusterDomain)
-		if err != nil {
-			return nil, err
-		}
-	}
 	mcpRunner := gmcp.DefaultRunner
+	mcpLoader, err := mcp.NewSessionManager(ctx, config.MCPBaseImage, config.MCPClusterDomain)
+	if err != nil {
+		return nil, err
+	}
 
 	gptscriptClient, err := newGPTScript(ctx, config.EnvKeys, credStore, credStoreEnv, mcpLoader, mcpRunner)
 	if err != nil {

@@ -7,10 +7,10 @@ import (
 	"slices"
 
 	"github.com/gptscript-ai/go-gptscript"
-	"github.com/gptscript-ai/gptscript/pkg/loader"
 	gtypes "github.com/gptscript-ai/gptscript/pkg/types"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
+	"github.com/obot-platform/obot/pkg/mcp"
 	"github.com/obot-platform/obot/pkg/projects"
 	"github.com/obot-platform/obot/pkg/render"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
@@ -20,14 +20,14 @@ import (
 )
 
 type MCPHandler struct {
-	gptscript *gptscript.GPTScript
-	mcpLoader loader.MCPLoader
+	gptscript         *gptscript.GPTScript
+	mcpSessionManager *mcp.SessionManager
 }
 
-func NewMCPHandler(gptscript *gptscript.GPTScript, mcpLoader loader.MCPLoader) *MCPHandler {
+func NewMCPHandler(gptscript *gptscript.GPTScript, mcpLoader *mcp.SessionManager) *MCPHandler {
 	return &MCPHandler{
-		gptscript: gptscript,
-		mcpLoader: mcpLoader,
+		gptscript:         gptscript,
+		mcpSessionManager: mcpLoader,
 	}
 }
 
@@ -412,8 +412,10 @@ func (m *MCPHandler) ConfigureSharedServer(req api.Context) error {
 		if !errors.As(err, &gptscript.ErrNotFound{}) {
 			return fmt.Errorf("failed to find credential: %w", err)
 		}
-	} else if err = m.gptscript.DeleteCredential(req.Context(), cred.Context, mcpServer.Name); err != nil {
-		return fmt.Errorf("failed to remove existing credential: %w", err)
+
+		if err = m.gptscript.DeleteCredential(req.Context(), cred.Context, mcpServer.Name); err != nil {
+			return fmt.Errorf("failed to remove existing credential: %w", err)
+		}
 	}
 
 	for key, val := range envVars {
@@ -477,8 +479,10 @@ func (m *MCPHandler) DeconfigureSharedServer(req api.Context) error {
 		if !errors.As(err, &gptscript.ErrNotFound{}) {
 			return fmt.Errorf("failed to find credential: %w", err)
 		}
-	} else if err = m.gptscript.DeleteCredential(req.Context(), cred.Context, mcpServer.Name); err != nil {
-		return fmt.Errorf("failed to remove existing credential: %w", err)
+
+		if err = m.gptscript.DeleteCredential(req.Context(), cred.Context, mcpServer.Name); err != nil {
+			return fmt.Errorf("failed to remove existing credential: %w", err)
+		}
 	}
 
 	return req.Write(convertMCPServer(mcpServer, nil, nil))
@@ -622,7 +626,7 @@ func (m *MCPHandler) toolsForServer(ctx context.Context, client kclient.Client, 
 		return nil, err
 	}
 
-	gTools, err := m.mcpLoader.Load(ctx, gtypes.Tool{
+	gTools, err := m.mcpSessionManager.Load(ctx, gtypes.Tool{
 		ToolDef: gtypes.ToolDef{
 			Parameters: gtypes.Parameters{
 				Name: tool.Name,
