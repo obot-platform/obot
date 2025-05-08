@@ -392,7 +392,7 @@ func Router(services *services.Services) (http.Handler, error) {
 
 	// MCP Catalog
 	mux.HandleFunc("GET /api/mcp/catalog", mcp.ListCatalog)
-	mux.HandleFunc("GET /api/mcp/catalog/{id}", mcp.GetCatalogEntry)
+	mux.HandleFunc("GET /api/mcp/catalog/{mcp_server_id}", mcp.GetCatalogEntry)
 
 	// MCP Servers
 	mux.HandleFunc("GET /api/assistants/{assistant_id}/projects/{project_id}/mcpservers", mcp.ListServer)

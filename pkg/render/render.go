@@ -3,6 +3,7 @@ package render
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"maps"
 	"slices"
@@ -167,6 +168,10 @@ func Agent(ctx context.Context, db kclient.Client, gptClient *gptscript.GPTScrip
 
 			toolDef, err := mcpServerTool(ctx, gptClient, mcpServer, allowedTools)
 			if err != nil {
+				if uc := (*UnconfiguredMCPError)(nil); errors.As(err, &uc) {
+					// Leave out un-configured MCP servers.
+					continue
+				}
 				return nil, nil, err
 			}
 

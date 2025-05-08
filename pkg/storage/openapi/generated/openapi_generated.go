@@ -2541,8 +2541,15 @@ func schema_obot_platform_obot_apiclient_types_MCPServerCatalogEntry(ref common.
 							Ref:     ref("github.com/obot-platform/obot/apiclient/types.MCPServerCatalogEntryManifest"),
 						},
 					},
+					"toolReferenceName": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
 				},
-				Required: []string{"Metadata", "commandManifest", "urlManifest"},
+				Required: []string{"Metadata", "commandManifest", "urlManifest", "toolReferenceName"},
 			},
 		},
 		Dependencies: []string{

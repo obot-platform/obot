@@ -59,9 +59,10 @@ func (m *MCPHandler) ListCatalog(req api.Context) error {
 
 func convertMCPServerCatalogEntry(entry v1.MCPServerCatalogEntry) types.MCPServerCatalogEntry {
 	return types.MCPServerCatalogEntry{
-		Metadata:        MetadataFrom(&entry),
-		CommandManifest: entry.Spec.CommandManifest,
-		URLManifest:     entry.Spec.URLManifest,
+		Metadata:          MetadataFrom(&entry),
+		CommandManifest:   entry.Spec.CommandManifest,
+		URLManifest:       entry.Spec.URLManifest,
+		ToolReferenceName: entry.Spec.ToolReferenceName,
 	}
 }
 
@@ -114,6 +115,10 @@ func (m *MCPHandler) ListServer(req api.Context) error {
 
 			tools, err = m.toolsForServer(req.Context(), req.Storage, server, thread.Spec.Manifest.AllowedMCPTools[server.Name], c.Env)
 			if err != nil {
+				if uc := (*render.UnconfiguredMCPError)(nil); errors.As(err, &uc) {
+					// Leave out tools for un-configured MCP servers
+					continue
+				}
 				return fmt.Errorf("failed to render tools: %w", err)
 			}
 		}

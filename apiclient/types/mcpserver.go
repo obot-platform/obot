@@ -2,8 +2,9 @@ package types
 
 type MCPServerCatalogEntry struct {
 	Metadata
-	CommandManifest MCPServerCatalogEntryManifest `json:"commandManifest,omitzero"`
-	URLManifest     MCPServerCatalogEntryManifest `json:"urlManifest,omitzero"`
+	CommandManifest   MCPServerCatalogEntryManifest `json:"commandManifest,omitzero"`
+	URLManifest       MCPServerCatalogEntryManifest `json:"urlManifest,omitzero"`
+	ToolReferenceName string                        `json:"toolReferenceName,omitzero"`
 }
 
 type MCPServerCatalogEntryManifest struct {
