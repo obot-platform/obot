@@ -120,8 +120,8 @@
 		</div>
 	{/if}
 	{#if filteredImageError}
-		<div in:fade class="mt-2 rounded-lg bg-red-100/75 p-3 dark:bg-red-900/75">
-			<p class="text-sm text-red-700 dark:text-red-100">{filteredImageError}</p>
+		<div in:fade class="notification-error mt-2">
+			<p class="text-sm">{filteredImageError}</p>
 		</div>
 	{/if}
 </div>

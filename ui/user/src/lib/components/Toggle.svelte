@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { tooltip } from '$lib/actions/tooltip.svelte';
+	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
 		label: string;
@@ -7,19 +8,26 @@
 		checked: boolean;
 		disabled?: boolean;
 		onChange: (checked: boolean) => void;
+		classes?: {
+			label?: string;
+			input?: string;
+		};
 	}
 
-	let { label, labelInline, checked, disabled = false, onChange }: Props = $props();
+	let { label, labelInline, checked, disabled = false, onChange, classes }: Props = $props();
 </script>
 
 {#if label && !labelInline}
-	<label class="relative flex h-4.5 w-8.25" use:tooltip={label}>
+	<label
+		class={twMerge('relative flex h-4.5 w-8.25', classes?.label)}
+		use:tooltip={{ text: label, disablePortal: true }}
+	>
 		<span class="size-0 opacity-0">{label}</span>
 		{@render input()}
 	</label>
 {:else}
-	<label class="flex items-center gap-1">
-		<span class="text-xs text-gray-500">{label}</span>
+	<label class={twMerge('flex items-center gap-1 text-xs', classes?.label)}>
+		<span class="text-gray-500">{label}</span>
 		<div class="relative flex h-4.5 w-8.25">
 			{@render input()}
 		</div>
@@ -31,7 +39,7 @@
 		type="checkbox"
 		{checked}
 		{disabled}
-		class="opacity-0"
+		class={twMerge('opacity-0', classes?.input)}
 		readonly
 		onchange={(e) => {
 			e.preventDefault();

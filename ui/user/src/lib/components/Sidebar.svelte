@@ -25,6 +25,7 @@
 	import { getHelperMode, HELPER_TEXTS } from '$lib/context/helperMode.svelte';
 	import Toggle from '$lib/components/Toggle.svelte';
 	import Memories from '$lib/components/edit/Memories.svelte';
+	import McpTools from '$lib/components/edit/McpTools.svelte';
 
 	interface Props {
 		project: Project;
@@ -86,6 +87,7 @@
 			{#if hasTool(projectTools.tools, 'database')}
 				<Tables {project} editor />
 			{/if}
+			<McpTools {project} />
 			<div class="mt-auto flex flex-col">
 				<CollapsePane
 					classes={{

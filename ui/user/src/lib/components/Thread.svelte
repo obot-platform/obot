@@ -475,7 +475,7 @@
 								classes={{ list: 'max-h-[60vh] space-y-4 overflow-y-auto pt-2 pb-6 text-sm' }}
 							/>
 							{#if project.editor && !shared}
-								<Tools {project} />
+								<Tools {project} bind:currentThreadID={id} />
 							{/if}
 						</div>
 						{#if id}

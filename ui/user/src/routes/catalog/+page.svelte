@@ -8,13 +8,10 @@
 		sortTemplatesByFeaturedNameOrder,
 		sortByPreferredMcpOrder
 	} from '$lib/sort';
-	import McpCatalog from '$lib/components/mcp/McpCatalog.svelte';
 	import Navbar from '$lib/components/Navbar.svelte';
 	import AgentCatalog from '$lib/components/agents/AgentCatalog.svelte';
-	import { EditorService } from '$lib/services';
-	import { createProjectMcp } from '$lib/services/chat/mcp';
 	import { goto } from '$app/navigation';
-	import { errors } from '$lib/stores';
+	import McpSetupWizard from '$lib/components/mcp/McpSetupWizard.svelte';
 
 	let { data }: PageProps = $props();
 	const mcps = $derived(data.mcps.sort(sortByPreferredMcpOrder));
@@ -62,19 +59,13 @@
 				</p>
 			</div>
 
-			<McpCatalog
+			<McpSetupWizard
 				{mcps}
 				inline
-				onSetupMcp={async (mcpId, mcpServerInfo) => {
-					try {
-						const project = await EditorService.createObot();
-						await createProjectMcp(mcpServerInfo, project, mcpId);
-						await goto(`/o/${project.id}`);
-					} catch (error) {
-						errors.append((error as Error).message);
-					}
+				catalogDescription="Extend your agent's capabilities by adding multiple MCP servers from our evergrowing catalog."
+				onFinish={async (_, project) => {
+					await goto(`/o/${project?.id}`);
 				}}
-				submitText="Create agent with server"
 			/>
 		</main>
 	{/if}

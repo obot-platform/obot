@@ -145,7 +145,7 @@
 	<dialog
 		bind:this={dialog}
 		use:clickOutside={() => dialog?.close()}
-		class="default-dialog h-full w-full max-w-(--breakpoint-2xl) bg-white p-0 dark:bg-black"
+		class="default-dialog max-w-(calc(100svw - 2em)) h-full w-(--breakpoint-2xl) bg-white p-0 dark:bg-black"
 		class:mobile-screen-dialog={responsive.isMobile}
 	>
 		<div class="default-scrollbar-thin relative mx-auto h-full min-h-0 w-full overflow-y-auto">
@@ -176,7 +176,7 @@
 			<div
 				class={twMerge(
 					'sticky top-0 left-0 h-[calc(100vh-6rem)] w-xs flex-shrink-0',
-					inline && 'h-[50dvh]'
+					inline && 'h-[50svh]'
 				)}
 			>
 				<div class="flex h-full flex-col gap-4">
@@ -271,6 +271,7 @@
 	onUpdate={(mcpServerInfo) => {
 		if (selectedMcp && selectedMcpManifest) {
 			onSetupMcp?.(selectedMcp.catalogId, mcpServerInfo);
+			dialog?.close();
 		}
 	}}
 	{submitText}

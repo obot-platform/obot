@@ -1,4 +1,4 @@
-import { ChatService, type MCPSubField, type Project, type ProjectMCP } from '..';
+import { ChatService, type MCPManifest, type MCPSubField, type Project, type ProjectMCP } from '..';
 
 export interface MCPServerInfo extends Omit<ProjectMCP, 'id'> {
 	id?: string;
@@ -34,14 +34,14 @@ export async function createProjectMcp(
 	// now configure the env/header values
 	const keyValuePairs = getKeyValuePairs(mcpServerInfo);
 
-	await ChatService.configureProjectMCPEnvHeaders(
+	const configuredProjectMcp = await ChatService.configureProjectMCPEnvHeaders(
 		project.assistantID,
 		project.id,
 		newProjectMcp.id,
 		keyValuePairs
 	);
 
-	return newProjectMcp;
+	return configuredProjectMcp;
 }
 
 export async function updateProjectMcp(
@@ -73,4 +73,27 @@ export function isValidMcpConfig(mcpConfig: MCPServerInfo) {
 		mcpConfig.env?.every((env) => !env.required || env.value) &&
 		mcpConfig.headers?.every((header) => !header.required || header.value)
 	);
+}
+
+export function initConfigFromManifest(manifest?: MCPManifest | ProjectMCP): MCPServerInfo {
+	if (manifest && 'server' in manifest) {
+		return {
+			...manifest.server,
+			env: manifest.server.env?.map((e) => ({ ...e, value: '', custom: false })) ?? [],
+			args: manifest.server.args ? [...manifest.server.args] : [],
+			command: manifest.server.command ?? '',
+			headers: manifest.server.headers?.map((e) => ({ ...e, value: '', custom: false })) ?? []
+		};
+	}
+
+	return {
+		...manifest,
+		name: manifest?.name ?? '',
+		description: manifest?.description ?? '',
+		icon: manifest?.icon ?? '',
+		env: manifest?.env?.map((e) => ({ ...e, value: '', custom: false })) ?? [],
+		args: manifest?.args ? [...manifest.args] : [],
+		command: manifest?.command ?? '',
+		headers: manifest?.headers?.map((e) => ({ ...e, value: '', custom: false })) ?? []
+	};
 }

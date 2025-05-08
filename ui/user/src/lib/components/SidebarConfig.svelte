@@ -10,8 +10,10 @@
 	import ProjectMcpConfig from '$lib/components/mcp/ProjectMcpConfig.svelte';
 	import { createProjectMcp, updateProjectMcp } from '$lib/services/chat/mcp';
 	import { getProjectMCPs } from '$lib/context/projectMcps.svelte';
-	import Discord from './discord/Discord.svelte';
+	import Discord from '$lib/components/discord/Discord.svelte';
+	import McpServerTools from '$lib/components/mcp/McpServerTools.svelte';
 	import ModelProviders from './ModelProviders.svelte';
+	import { X } from 'lucide-svelte';
 
 	interface Props {
 		project: Project;
@@ -60,6 +62,28 @@
 					closeSidebarConfig(layout);
 				}}
 			/>
+		{/key}
+	{:else if layout.sidebarConfig === 'mcp-server-tools' && layout.mcpServer}
+		{#key layout.mcpServer.id}
+			<div class="flex w-full justify-center px-4 py-4 md:px-8">
+				<div class="flex w-full flex-col gap-4 md:max-w-[1200px]">
+					<McpServerTools
+						{project}
+						mcpServer={layout.mcpServer}
+						onSubmit={() => closeSidebarConfig(layout)}
+						submitText="Update"
+					>
+						{#snippet header()}
+							<h2 class="flex items-center justify-between text-xl font-semibold">
+								Modify Tools
+								<button onclick={() => closeSidebarConfig(layout)} class="icon-button">
+									<X class="size-6" />
+								</button>
+							</h2>
+						{/snippet}
+					</McpServerTools>
+				</div>
+			</div>
 		{/key}
 	{:else if layout.sidebarConfig === 'discord'}
 		<Discord {project} />

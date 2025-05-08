@@ -284,6 +284,16 @@ export interface MCPServer {
 	headers?: MCPSubField[];
 }
 
+export interface MCPServerTool {
+	id: string;
+	name: string;
+	description?: string;
+	metadata?: Record<string, string>;
+	params?: Record<string, string>;
+	credentials?: string[];
+	enabled?: boolean;
+}
+
 export interface MCPManifest {
 	server: MCPServer;
 	githubStars: number;
@@ -298,6 +308,7 @@ export interface ProjectMCPList {
 export interface ProjectMCP extends MCPServer {
 	id: string;
 	catalogID?: string;
+	configured?: boolean;
 }
 
 export interface Credential {

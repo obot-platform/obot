@@ -41,7 +41,8 @@ import {
 	type ProjectTemplateList,
 	type ProjectTemplateManifest,
 	type ModelList,
-	type ModelProviderList
+	type ModelProviderList,
+	type MCPServerTool
 } from './types';
 
 export type Fetcher = typeof fetch;
@@ -1055,10 +1056,10 @@ export async function configureProjectMCPEnvHeaders(
 	mcpServerId: string,
 	envHeadersToConfigure: Record<string, string>
 ) {
-	return doPost(
+	return (await doPost(
 		`/assistants/${assistantID}/projects/${projectID}/mcpservers/${mcpServerId}/configure`,
 		envHeadersToConfigure
-	);
+	)) as ProjectMCP;
 }
 
 export async function deconfigureProjectMCP(
@@ -1069,6 +1070,61 @@ export async function deconfigureProjectMCP(
 	return doPost(
 		`/assistants/${assistantID}/projects/${projectID}/mcpservers/${mcpServerId}/deconfigure`,
 		{}
+	);
+}
+
+export async function listProjectMCPServerTools(
+	assistantID: string,
+	projectID: string,
+	projectMcpServerId: string
+): Promise<MCPServerTool[]> {
+	const response = (await doGet(
+		`/assistants/${assistantID}/projects/${projectID}/mcpservers/${projectMcpServerId}/tools`,
+		{
+			dontLogErrors: true
+		}
+	)) as { tools: MCPServerTool[] };
+	return response.tools;
+}
+
+export async function configureProjectMcpServerTools(
+	assistantID: string,
+	projectID: string,
+	projectMcpServerId: string,
+	toolIds?: string[]
+) {
+	// tools array sent are the enabled tools
+	// send [] to disable all tools or [*] to enable all tools
+	return doPut(
+		`/assistants/${assistantID}/projects/${projectID}/mcpservers/${projectMcpServerId}/tools`,
+		toolIds ? toolIds : ['*']
+	);
+}
+
+export async function listProjectThreadMcpServerTools(
+	assistantID: string,
+	projectID: string,
+	projectMcpServerId: string,
+	threadID: string
+): Promise<MCPServerTool[]> {
+	const response = (await doGet(
+		`/assistants/${assistantID}/projects/${projectID}/mcpservers/${projectMcpServerId}/tools/${threadID}`
+	)) as { tools: MCPServerTool[] };
+	return response.tools;
+}
+
+export async function configureProjectThreadMcpServerTools(
+	assistantID: string,
+	projectID: string,
+	projectMcpServerId: string,
+	threadID: string,
+	toolIds?: string[]
+) {
+	// tools array sent are the enabled tools
+	// send [] to disable all tools or [*] to enable all tools
+	return doPut(
+		`/assistants/${assistantID}/projects/${projectID}/mcpservers/${projectMcpServerId}/tools/${threadID}`,
+		toolIds ? toolIds : ['*']
 	);
 }
 

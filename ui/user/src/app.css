@@ -693,6 +693,14 @@
 			opacity: 1;
 		}
 	}
+
+	.notification-error {
+		border-radius: 0.5rem;
+		border: 1px solid var(--color-red-500);
+		background-color: rgb(239 68 68 / 0.15); 
+		padding: 0.5rem 1rem;
+		color: var(--color-red-500);
+	}
 }
 
 .dark {

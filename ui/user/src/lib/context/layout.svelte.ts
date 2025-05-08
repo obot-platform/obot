@@ -28,10 +28,12 @@ export interface Layout {
 		| 'custom-tool'
 		| 'invitations'
 		| 'custom-mcp'
-		| 'model-providers';
+		| 'model-providers'
+		| 'mcp-server-tools';
 	customToolId?: string;
 	editProjectMcp?: ProjectMCP;
 	template?: ProjectTemplate;
+	mcpServer?: ProjectMCP;
 }
 
 export function isSomethingSelected(layout: Layout) {
@@ -45,6 +47,7 @@ export function closeAll(layout: Layout) {
 	layout.customToolId = undefined;
 	layout.editProjectMcp = undefined;
 	layout.template = undefined;
+	layout.mcpServer = undefined;
 }
 
 export function openTask(layout: Layout, taskID?: string) {
@@ -72,6 +75,13 @@ export function openSidebarConfig(layout: Layout, config: Layout['sidebarConfig'
 	}
 }
 
+export function openMCPServerTools(layout: Layout, mcpServer: ProjectMCP) {
+	closeAll(layout);
+	layout.fileEditorOpen = false;
+	layout.sidebarConfig = 'mcp-server-tools';
+	layout.mcpServer = mcpServer;
+}
+
 export function openCustomTool(layout: Layout, customToolId: string) {
 	closeAll(layout);
 	layout.fileEditorOpen = false;
@@ -97,6 +107,7 @@ export function closeSidebarConfig(layout: Layout) {
 	layout.customToolId = undefined;
 	layout.editProjectMcp = undefined;
 	layout.template = undefined;
+	layout.mcpServer = undefined;
 }
 
 export function initLayout(layout: Layout) {

@@ -11,12 +11,11 @@
 	import { clickOutside } from '$lib/actions/clickoutside';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import { goto } from '$app/navigation';
-	import McpCatalog from '$lib/components/mcp/McpCatalog.svelte';
 	import AgentCatalog from '$lib/components/agents/AgentCatalog.svelte';
-	import { createProjectMcp } from '$lib/services/chat/mcp';
 	import { profile } from '$lib/stores';
 
 	import { initHelperMode } from '$lib/context/helperMode.svelte';
+	import McpSetupWizard from '$lib/components/mcp/McpSetupWizard.svelte';
 	let { data }: PageProps = $props();
 
 	initHelperMode();
@@ -29,7 +28,7 @@
 	let createDropdown = $state<HTMLDialogElement>();
 
 	let agentCatalog = $state<ReturnType<typeof AgentCatalog>>();
-	let mcpCatalog = $state<ReturnType<typeof McpCatalog>>();
+	let mcpSetupWizard = $state<ReturnType<typeof McpSetupWizard>>();
 
 	async function createNewAgent() {
 		try {
@@ -100,7 +99,7 @@
 
 					<button
 						class="flex flex-col justify-start gap-2 text-left"
-						onclick={() => mcpCatalog?.open()}
+						onclick={() => mcpSetupWizard?.open()}
 					>
 						<img
 							src="/agent/images/create-from-mcp.webp"
@@ -160,7 +159,7 @@
 					<button
 						class="text-md button hover:bg-surface1 dark:hover:bg-surface3 flex w-full items-center gap-2 rounded-sm bg-transparent px-2 font-light"
 						onclick={() => {
-							mcpCatalog?.open();
+							mcpSetupWizard?.open();
 							createDropdown?.close();
 						}}
 					>
@@ -275,19 +274,14 @@
 
 <AgentCatalog bind:this={agentCatalog} templates={data.templates} mcps={data.mcps} />
 
-<McpCatalog
-	bind:this={mcpCatalog}
+<McpSetupWizard
+	bind:this={mcpSetupWizard}
 	mcps={data.mcps}
-	onSetupMcp={async (mcpId, mcpServerInfo) => {
-		try {
-			const project = await EditorService.createObot();
-			await createProjectMcp(mcpServerInfo, project, mcpId);
-			await goto(`/o/${project.id}`);
-		} catch (error) {
-			errors.append((error as Error).message);
-		}
+	catalogDescription="Extend your agent's capabilities by adding multiple MCP servers from our evergrowing catalog."
+	catalogSubmitText="Create agent with server"
+	onFinish={async (_, project) => {
+		await goto(`/o/${project?.id}`);
 	}}
-	submitText="Create agent with server"
 />
 
 <svelte:head>

@@ -1,27 +1,72 @@
 <script lang="ts">
 	import { clickOutside } from '$lib/actions/clickoutside';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
-	import McpTools from '$lib/components/edit/McpTools.svelte';
-	import type { Project } from '$lib/services';
-	import { Wrench } from 'lucide-svelte';
+	import { getProjectMCPs } from '$lib/context/projectMcps.svelte';
+	import { ChatService, type Project, type ProjectMCP, type Thread } from '$lib/services';
+	import { Server, Wrench } from 'lucide-svelte';
+	import McpServerTools from '$lib/components/mcp/McpServerTools.svelte';
+	import DotDotDot from '$lib/components/DotDotDot.svelte';
 
-	interface Prop {
+	interface Props {
 		project: Project;
+		currentThreadID?: string;
 	}
 
-	let { project }: Prop = $props();
+	let { project, currentThreadID = $bindable() }: Props = $props();
 	let dialog = $state<HTMLDialogElement | undefined>();
-	let mcpToolsCatalog = $state<ReturnType<typeof McpTools> | undefined>();
+	let selectedProjectMcp = $state<ProjectMCP>();
+	const projectMCPs = getProjectMCPs();
 
-	async function handleClick() {
-		mcpToolsCatalog?.load();
-		dialog?.showModal();
+	$effect(() => {
+		console.log(currentThreadID);
+	});
+
+	async function sleep(ms: number): Promise<void> {
+		return new Promise((resolve) => setTimeout(resolve, ms));
+	}
+
+	async function createThread(): Promise<Thread> {
+		let thread = await ChatService.createThread(project.assistantID, project.id);
+		while (!thread.ready) {
+			await sleep(1000);
+			thread = await ChatService.getThread(project.assistantID, project.id, thread.id);
+		}
+		return thread;
 	}
 </script>
 
-<button use:tooltip={'Tools'} class="button-icon-primary" onclick={handleClick}>
-	<Wrench class="h-5 w-5" />
-</button>
+<div use:tooltip={'Tools'}>
+	<DotDotDot>
+		{#snippet icon()}
+			<Wrench class="h-5 w-5" />
+		{/snippet}
+		<div class="default-dialog flex min-w-max flex-col p-2">
+			{#each projectMCPs.items as projectMcp}
+				<button
+					class="menu-button"
+					onclick={async () => {
+						selectedProjectMcp = projectMcp;
+
+						if (!currentThreadID) {
+							const thread = await createThread();
+							currentThreadID = thread.id;
+						}
+						dialog?.showModal();
+					}}
+				>
+					<div class="flex-shrink-0 rounded-md bg-gray-50 p-1 dark:bg-gray-600">
+						{#if projectMcp.icon}
+							<img src={projectMcp.icon} alt={projectMcp.name} class="size-4" />
+						{:else}
+							<Server class="size-4" />
+						{/if}
+					</div>
+					{projectMcp.name}
+				</button>
+			{/each}
+		</div>
+	</DotDotDot>
+</div>
 
 <dialog
 	bind:this={dialog}
@@ -30,5 +75,15 @@
 	}}
 	class="h-full max-h-[100vh] w-full max-w-[100vw] rounded-none md:h-fit md:w-2xl md:rounded-xl"
 >
-	<McpTools {project} bind:this={mcpToolsCatalog} onClose={() => dialog?.close()} />
+	{#if selectedProjectMcp}
+		{#key selectedProjectMcp.id}
+			<McpServerTools
+				{currentThreadID}
+				{project}
+				mcpServer={selectedProjectMcp}
+				onSubmit={() => dialog?.close()}
+				submitText="Update"
+			/>
+		{/key}
+	{/if}
 </dialog>
