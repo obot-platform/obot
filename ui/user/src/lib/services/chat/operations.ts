@@ -1050,6 +1050,20 @@ export async function deleteProjectMCP(
 	return doDelete(`/assistants/${assistantID}/projects/${projectID}/mcpservers/${mcpServerId}`);
 }
 
+export async function revealProjectMCPEnvHeaders(
+	assistantID: string,
+	projectID: string,
+	mcpServerId: string
+) {
+	return (await doPost(
+		`/assistants/${assistantID}/projects/${projectID}/mcpservers/${mcpServerId}/reveal`,
+		{},
+		{
+			dontLogErrors: true
+		}
+	)) as Record<string, string>;
+}
+
 export async function configureProjectMCPEnvHeaders(
 	assistantID: string,
 	projectID: string,

@@ -43,6 +43,7 @@
 	{:else if layout.sidebarConfig === 'custom-mcp'}
 		{#key layout.editProjectMcp?.id}
 			<ProjectMcpConfig
+				{project}
 				projectMcp={layout.editProjectMcp}
 				onCreate={async (customMcpConfig) => {
 					const newProjectMcp = await createProjectMcp(customMcpConfig, project);

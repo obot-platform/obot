@@ -1,17 +1,20 @@
 <script lang="ts">
 	import { closeSidebarConfig, getLayout } from '$lib/context/layout.svelte';
-	import type { ProjectMCP } from '$lib/services';
+	import { ChatService, type Project, type ProjectMCP } from '$lib/services';
 	import { isValidMcpConfig, type MCPServerInfo } from '$lib/services/chat/mcp';
 	import { ChevronsRight, PencilLine, Plus, Server, Trash2, X } from 'lucide-svelte';
 	import { twMerge } from 'tailwind-merge';
 	import HostedMcpForm from './HostedMcpForm.svelte';
+	import { onMount } from 'svelte';
+	import { errors } from '$lib/stores';
 
 	interface Props {
 		projectMcp?: ProjectMCP;
+		project?: Project;
 		onCreate?: (customMcpServerInfo: MCPServerInfo) => void;
 		onUpdate?: (customMcpServerInfo: MCPServerInfo) => void;
 	}
-	let { projectMcp, onCreate, onUpdate }: Props = $props();
+	let { projectMcp, project, onCreate, onUpdate }: Props = $props();
 
 	function isObotHosted(projectMcp: ProjectMCP) {
 		return (
@@ -50,6 +53,36 @@
 	let showObotHosted = $state(projectMcp ? isObotHosted(projectMcp) : true);
 	let showSubmitError = $state(false);
 	const layout = getLayout();
+
+	onMount(() => {
+		if (projectMcp && project) {
+			ChatService.revealProjectMCPEnvHeaders(project.assistantID, project.id, projectMcp.id)
+				.then((response) => {
+					if (config.env) {
+						config.env = config.env.map((env) => ({
+							...env,
+							value: response?.[env.key] ?? env.value
+						}));
+					}
+					if (config.headers) {
+						config.headers = config.headers.map((header) => ({
+							...header,
+							value: response?.[header.key] ?? header.value
+						}));
+					}
+				})
+				.catch((err) => {
+					// if 404, that's expected for reveal -- means no credentials were set
+					if (
+						(err instanceof Error && err.message.includes('404')) ||
+						(typeof err === 'string' && err.includes('404'))
+					) {
+						return;
+					}
+					errors.append(err);
+				});
+		}
+	});
 
 	function init(isRemote?: boolean) {
 		config = {
