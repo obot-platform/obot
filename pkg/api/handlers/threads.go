@@ -364,8 +364,8 @@ func (a *ThreadHandler) TableRows(req api.Context) error {
 
 func (a *ThreadHandler) GetDefaultModelForThread(req api.Context) error {
 	var thread v1.Thread
-	if err := req.Get(&thread, req.PathValue("id")); err != nil {
-		return fmt.Errorf("failed to get thread with id %s: %w", req.PathValue("id"), err)
+	if err := req.Get(&thread, req.PathValue("thread_id")); err != nil {
+		return fmt.Errorf("failed to get thread with id %s: %w", req.PathValue("thread_id"), err)
 	}
 
 	// We wipe out the model spec on the thread so that it tries to fetch the default model instead.
@@ -374,7 +374,7 @@ func (a *ThreadHandler) GetDefaultModelForThread(req api.Context) error {
 
 	model, modelProvider, err := threadmodel.GetModelAndModelProviderForThread(req.Context(), req.Storage, &thread)
 	if err != nil {
-		return fmt.Errorf("failed to get model and model provider for thread %s: %w", req.PathValue("id"), err)
+		return fmt.Errorf("failed to get model and model provider for thread %s: %w", req.PathValue("thread_id"), err)
 	}
 
 	if model == string(types.DefaultModelAliasTypeLLM) {
@@ -386,7 +386,7 @@ func (a *ThreadHandler) GetDefaultModelForThread(req api.Context) error {
 				"modelProvider": "",
 			})
 		} else if err != nil {
-			return fmt.Errorf("failed to get default model alias for thread %s: %w", req.PathValue("id"), err)
+			return fmt.Errorf("failed to get default model alias for thread %s: %w", req.PathValue("thread_id"), err)
 		}
 
 		// This model has the system.ModelPrefix on it, so we set it and then let the next if statement take care of it.
