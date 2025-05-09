@@ -16,6 +16,7 @@
 	import { responsive } from '$lib/stores';
 	import { clickOutside } from '$lib/actions/clickoutside';
 	import { fade } from 'svelte/transition';
+	import { getToolBundleMap } from '$lib/context/toolReferences.svelte';
 
 	interface Props {
 		mcps: MCP[];
@@ -44,6 +45,13 @@
 	let mcpCatalog = $state<ReturnType<typeof McpCatalog>>();
 	let mcpInfoConfig = $state<ReturnType<typeof McpInfoConfig>>();
 	let projectMcpServerToolsDialog = $state<HTMLDialogElement>();
+
+	const toolBundleMap = getToolBundleMap();
+	let legacyBundleId = $derived(
+		projectMcp?.catalogID && toolBundleMap.get(projectMcp.catalogID)
+			? projectMcp.catalogID
+			: undefined
+	);
 
 	let processing = $state(false);
 
@@ -119,11 +127,12 @@
 	disableOutsideClick
 	hideCloseButton
 	manifest={projectMcp}
+	{project}
+	{legacyBundleId}
 	prefilledConfig={projectMcpServerInfo}
 	onUpdate={async (mcpServerInfo) => {
 		setup(mcpServerInfo);
 	}}
-	showConfigOnly
 	submitText="Retry"
 >
 	{#snippet leftActionContent()}

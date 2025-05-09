@@ -3,7 +3,6 @@
 	import { MessageCirclePlus, SidebarClose } from 'lucide-svelte';
 	import { hasTool } from '$lib/tools';
 	import { closeAll, getLayout } from '$lib/context/layout.svelte';
-	import Credentials from '$lib/components/edit/Credentials.svelte';
 	import Tasks from '$lib/components/edit/Tasks.svelte';
 	import General from '$lib/components/edit/General.svelte';
 	import McpServers from '$lib/components/edit/McpServers.svelte';
@@ -78,7 +77,6 @@
 			<Threads {project} bind:currentThreadID editor />
 			<Tasks {project} bind:currentThreadID />
 			<McpServers {project} />
-			<Credentials {project} local />
 			{#if hasTool(projectTools.tools, 'memory')}
 				<Memories {project} />
 			{/if}

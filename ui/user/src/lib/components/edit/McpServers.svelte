@@ -68,8 +68,13 @@
 						<button
 							class="flex grow items-center gap-1 py-2 pl-1.5"
 							onclick={() => {
-								mcpToShow = mcp;
-								mcpConfigDialog?.open();
+								const isLegacyBundleServer = mcp.catalogID && toolBundleMap.get(mcp.catalogID);
+								if (isLegacyBundleServer) {
+									mcpToShow = mcp;
+									mcpConfigDialog?.open();
+								} else {
+									openEditProjectMcp(layout, mcp);
+								}
 							}}
 						>
 							<div class="rounded-md bg-gray-50 p-1 dark:bg-gray-600">
@@ -134,15 +139,10 @@
 <McpInfoConfig
 	bind:this={mcpConfigDialog}
 	manifest={mcpToShow}
-	onConfigure={() => {
-		if (mcpToShow) {
-			openEditProjectMcp(layout, mcpToShow);
-			mcpConfigDialog?.close();
-		}
-	}}
 	{project}
 	{legacyBundleId}
-	configureText={legacyBundleId ? 'Reauthenticate' : 'Modify server'}
+	submitText={legacyBundleId ? 'Reauthenticate' : 'Modify server'}
+	legacyAuthText="This server support OAuth authentication. You will be prompted to login again to reauthenticate."
 />
 
 <Confirm

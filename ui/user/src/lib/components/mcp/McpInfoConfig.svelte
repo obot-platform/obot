@@ -27,15 +27,13 @@
 		disableOutsideClick?: boolean;
 		hideCloseButton?: boolean;
 		onUpdate?: (manifest: MCPServerInfo) => void;
-		onConfigure?: () => void;
 		selected?: boolean;
 		submitText?: string;
-		configureText?: string;
-		showConfigOnly?: boolean;
 		leftActionContent?: Snippet;
 		children?: Snippet;
 		legacyBundleId?: string;
 		project?: Project;
+		legacyAuthText?: string;
 	}
 	let {
 		manifest,
@@ -43,17 +41,14 @@
 		disableOutsideClick,
 		hideCloseButton,
 		onUpdate,
-		onConfigure,
 		selected,
 		submitText,
-		configureText,
-		showConfigOnly,
 		leftActionContent,
 		children,
 		legacyBundleId,
+		legacyAuthText,
 		project = $bindable()
 	}: Props = $props();
-	let infoDialog = $state<HTMLDialogElement>();
 	let configDialog = $state<HTMLDialogElement>();
 	let authDialog = $state<HTMLDialogElement>();
 
@@ -62,11 +57,7 @@
 	let loadingCredential = $state<Promise<ProjectCredential | undefined>>();
 	export function open() {
 		reset();
-		if (showConfigOnly) {
-			configDialog?.showModal();
-		} else {
-			infoDialog?.showModal();
-		}
+		configDialog?.showModal();
 	}
 
 	function reset() {
@@ -75,7 +66,6 @@
 	}
 
 	export function close() {
-		infoDialog?.close();
 		configDialog?.close();
 	}
 
@@ -142,7 +132,7 @@
 </script>
 
 <dialog
-	bind:this={infoDialog}
+	bind:this={configDialog}
 	class="default-dialog w-full sm:max-w-lg"
 	class:mobile-screen-dialog={responsive.isMobile}
 	use:clickOutside={() => {
@@ -154,90 +144,18 @@
 	<div class="grid h-fit max-h-[calc(100vh-4rem)] grid-rows-[auto_1fr_auto]">
 		{@render basicInfo()}
 		<div class="default-scrollbar-thin min-h-0 w-full overflow-y-auto px-4 py-1 md:px-6">
-			{#if manifest && 'server' in manifest && manifest.server.env?.some((env) => env.required)}
-				<div
-					class="border-surface2 dark:border-surface3 relative mt-2 w-full rounded-lg border-2 p-5 pt-2"
-				>
-					<h4
-						class="dark:bg-surface2 absolute top-0 left-3 w-fit -translate-y-3.5 bg-white px-2 text-base font-semibold"
-					>
-						What You'll Need
-					</h4>
-					<ul class="mt-4 flex flex-col items-baseline gap-4">
-						{#each manifest.server.env.filter((env) => env.required) as env}
-							<li class="flex w-full flex-col">
-								<div class="text-sm font-semibold capitalize">{env.name}</div>
-								<div class="text-xs font-light text-gray-500">{env.description}</div>
-							</li>
-						{/each}
-					</ul>
-				</div>
-				<!-- display tools part of the mcp server here once it's implemented-->
-			{/if}
-		</div>
-		<div class="flex items-center justify-between gap-2 px-4 py-4 md:px-6">
-			<div>
-				{#if leftActionContent}
-					{@render leftActionContent()}
-				{/if}
-			</div>
-			<div class="flex-shrink-0">
-				<button
-					onclick={() => {
-						if (legacyBundleId) {
-							if (project && isAuthRequiredBundle(legacyBundleId)) {
-								loadingCredential = getProjectCredential();
-								infoDialog?.close();
-								authDialog?.showModal();
-							} else if (!isAuthRequiredBundle(legacyBundleId)) {
-								handleSubmit();
-							} else {
-								infoDialog?.close();
-								configDialog?.showModal();
-							}
-						} else if (onConfigure) {
-							onConfigure();
-						} else {
-							infoDialog?.close();
-							configDialog?.showModal();
-						}
-					}}
-					class="button-primary flex w-full items-center justify-center gap-1 self-end md:w-fit"
-				>
-					{#if legacyBundleId && !isAuthRequiredBundle(legacyBundleId)}
-						{submitText ?? 'Add to Agent'}
-					{:else}
-						{configureText ?? 'Configure'}
-					{/if}
-					<ChevronsRight class="size-4" />
-				</button>
-			</div>
-		</div>
-	</div>
-</dialog>
-
-<dialog
-	bind:this={configDialog}
-	class="default-dialog w-full sm:max-w-lg"
-	class:mobile-screen-dialog={responsive.isMobile}
-	use:clickOutside={() => {
-		if (disableOutsideClick) return;
-		close();
-	}}
-	use:dialogAnimation={{ type: showConfigOnly ? 'fade' : 'slide' }}
->
-	<div class="grid h-fit max-h-[calc(100vh-4rem)] grid-rows-[auto_1fr_auto]">
-		{@render basicInfo()}
-		<div class="default-scrollbar-thin min-h-0 w-full overflow-y-auto px-4 py-1 md:px-6">
 			{#if legacyBundleId}
-				<div class="notification-info mb-4 p-3 text-sm font-light">
-					<div class="flex items-center gap-3">
-						<Info class="size-6" />
-						<p>
-							This server support OAuth authentication. You'll be prompted to login after launching.
-						</p>
+				{#if isAuthRequiredBundle(legacyBundleId)}
+					<div class="notification-info mb-4 p-3 text-sm font-light">
+						<div class="flex items-center gap-3">
+							<Info class="size-6" />
+							<p>
+								{legacyAuthText ??
+									"This server support OAuth authentication. You'll be prompted to login after launching."}
+							</p>
+						</div>
 					</div>
-				</div>
+				{/if}
 			{:else}
 				<div class="flex w-full flex-col gap-4">
 					<HostedMcpForm bind:config {showSubmitError} />
