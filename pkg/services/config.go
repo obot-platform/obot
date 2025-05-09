@@ -43,6 +43,7 @@ import (
 	"github.com/obot-platform/obot/pkg/hash"
 	"github.com/obot-platform/obot/pkg/invoke"
 	"github.com/obot-platform/obot/pkg/jwt"
+	"github.com/obot-platform/obot/pkg/mcp"
 	"github.com/obot-platform/obot/pkg/proxy"
 	"github.com/obot-platform/obot/pkg/smtp"
 	"github.com/obot-platform/obot/pkg/storage"
@@ -92,6 +93,8 @@ type Config struct {
 	StaticDir                  string   `usage:"The directory to serve static files from"`
 	RetentionPolicyHours       int      `usage:"The retention policy for the system. Set to 0 to disable retention." default:"2160"` // default 90 days
 	MCPCatalogs                []string `usage:"Load MCP catalogs, these can be files or URLs" split:"true"`
+	MCPBaseImage               string   `usage:"The base image to use for MCP containers" hidden:"true"`
+	MCPClusterDomain           string   `usage:"The cluster domain to use for MCP containers" default:"cluster.local" hidden:"true"`
 	// Sendgrid webhook
 	SendgridWebhookUsername string `usage:"The username for the sendgrid webhook to authenticate with"`
 	SendgridWebhookPassword string `usage:"The password for the sendgrid webhook to authenticate with"`
@@ -139,10 +142,10 @@ type Services struct {
 	SendgridWebhookPassword string
 
 	MCPCatalog []string
+
 	// Used for loading and running MCP servers with GPTScript.
-	// These are just the defaults now, but could change in the future based on needs
-	MCPLoader loader.MCPLoader
 	MCPRunner engine.MCPRunner
+	MCPLoader *mcp.SessionManager
 }
 
 const (
@@ -318,8 +321,11 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		config.UIHostname = "https://" + config.UIHostname
 	}
 
-	mcpLoader := gmcp.DefaultLoader
 	mcpRunner := gmcp.DefaultRunner
+	mcpLoader, err := mcp.NewSessionManager(ctx, mcpRunner, config.MCPBaseImage, config.MCPClusterDomain)
+	if err != nil {
+		return nil, err
+	}
 
 	gptscriptClient, err := newGPTScript(ctx, config.EnvKeys, credStore, credStoreEnv, mcpLoader, mcpRunner)
 	if err != nil {
