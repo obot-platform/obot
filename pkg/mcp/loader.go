@@ -31,7 +31,7 @@ type SessionManager struct {
 	baseImage, mcpClusterDomain string
 }
 
-func NewSessionManager(ctx context.Context, baseImage, mcpClusterDomain string) (*SessionManager, error) {
+func NewSessionManager(ctx context.Context, defaultLoader *gmcp.Local, baseImage, mcpClusterDomain string) (*SessionManager, error) {
 	var client kclient.WithWatch
 	if baseImage != "" {
 		config, err := buildConfig()
@@ -55,7 +55,7 @@ func NewSessionManager(ctx context.Context, baseImage, mcpClusterDomain string) 
 
 	return &SessionManager{
 		client:           client,
-		local:            new(gmcp.Local),
+		local:            defaultLoader,
 		baseImage:        baseImage,
 		mcpClusterDomain: mcpClusterDomain,
 	}, nil

@@ -322,7 +322,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 	}
 
 	mcpRunner := gmcp.DefaultRunner
-	mcpLoader, err := mcp.NewSessionManager(ctx, config.MCPBaseImage, config.MCPClusterDomain)
+	mcpLoader, err := mcp.NewSessionManager(ctx, mcpRunner, config.MCPBaseImage, config.MCPClusterDomain)
 	if err != nil {
 		return nil, err
 	}
