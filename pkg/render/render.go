@@ -160,7 +160,7 @@ func Agent(ctx context.Context, db kclient.Client, gptClient *gptscript.GPTScrip
 				continue
 			}
 
-			toolDef, err := mcpServerTool(ctx, gptClient, mcpServer, allowedTools)
+			toolDef, err := mcpServerTool(ctx, opts.Thread, gptClient, mcpServer, allowedTools)
 			if err != nil {
 				if uc := (*UnconfiguredMCPError)(nil); errors.As(err, &uc) {
 					// Leave out un-configured MCP servers.

@@ -22,10 +22,26 @@ func (e *UnconfiguredMCPError) Error() string {
 	return fmt.Sprintf("MCP server %s missing required configuration parameters: %s", e.MCPName, strings.Join(e.Missing, ", "))
 }
 
-func mcpServerTool(ctx context.Context, gptClient *gptscript.GPTScript, mcpServer v1.MCPServer, allowTools []string) (gptscript.ToolDef, error) {
+func mcpServerTool(ctx context.Context, thread *v1.Thread, gptClient *gptscript.GPTScript, mcpServer v1.MCPServer, allowTools []string) (gptscript.ToolDef, error) {
 	var credEnv map[string]string
 	if len(mcpServer.Spec.Manifest.Env) != 0 || len(mcpServer.Spec.Manifest.Headers) != 0 {
-		cred, err := gptClient.RevealCredential(ctx, []string{fmt.Sprintf("%s-%s", mcpServer.Spec.ThreadName, mcpServer.Name)}, mcpServer.Name)
+		var credCtxs []string
+		// Add any local MCP credentials from the thread scope.
+		credCtxs = append(credCtxs, fmt.Sprintf("%s-%s", thread.Name, mcpServer.Name))
+
+		if parent := thread.Spec.ParentThreadName; parent != "" {
+			// Add any local MCP credentials from the parent project scope.
+			// For non-project child threads of an agent project, this will include local credentials from the agent project.
+			// For non-project child threads of a chatbot project, this will include local credentials from the chatbot project.
+			credCtxs = append(credCtxs, fmt.Sprintf("%s-%s", parent, mcpServer.Name))
+
+			if parent != mcpServer.Spec.ThreadName {
+				// Add shared MCP credentials from the agent project to chatbot threads.
+				credCtxs = append(credCtxs, fmt.Sprintf("%s-%s-shared", mcpServer.Spec.ThreadName, mcpServer.Name))
+			}
+		}
+
+		cred, err := gptClient.RevealCredential(ctx, credCtxs, mcpServer.Name)
 		if err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
 			return gptscript.ToolDef{}, fmt.Errorf("failed to reveal credential for MCP server %s: %w", mcpServer.Spec.Manifest.Name, err)
 		}

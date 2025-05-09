@@ -33,10 +33,11 @@ func (a *Authorizer) checkMCPServer(req *http.Request, resources *Resources, _ u
 		return false, nil
 	}
 
-	if resources.Authorizated.Project.Name != mcpServer.Spec.ThreadName {
-		return false, nil
+	if resources.Authorizated.Project.Name == mcpServer.Spec.ThreadName ||
+		resources.Authorizated.Project.Spec.ParentThreadName == mcpServer.Spec.ThreadName {
+		resources.Authorizated.MCPServer = &mcpServer
+		return true, nil
 	}
 
-	resources.Authorizated.MCPServer = &mcpServer
-	return true, nil
+	return false, nil
 }

@@ -76,7 +76,10 @@ func (c *Credentials) Remove(req router.Request, _ router.Response) error {
 func (c *Credentials) RemoveMCPCredentials(req router.Request, _ router.Response) error {
 	mcp := req.Object.(*v1.MCPServer)
 	creds, err := c.gClient.ListCredentials(req.Ctx, gptscript.ListCredentialsOptions{
-		CredentialContexts: []string{fmt.Sprintf("%s-%s", mcp.Spec.ThreadName, mcp.Name)},
+		CredentialContexts: []string{
+			fmt.Sprintf("%s-%s", mcp.Spec.ThreadName, mcp.Name),
+			fmt.Sprintf("%s-%s-shared", mcp.Spec.ThreadName, mcp.Name),
+		},
 	})
 	if err != nil {
 		return err

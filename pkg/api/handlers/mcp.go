@@ -11,6 +11,7 @@ import (
 	gtypes "github.com/gptscript-ai/gptscript/pkg/types"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
+	"github.com/obot-platform/obot/pkg/projects"
 	"github.com/obot-platform/obot/pkg/render"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
@@ -73,16 +74,30 @@ func (m *MCPHandler) ListServer(req api.Context) error {
 		return err
 	}
 
+	topMost, err := projects.GetRoot(req.Context(), req.Storage, t)
+	if err != nil {
+		return err
+	}
+
 	var servers v1.MCPServerList
 	if err := req.List(&servers, kclient.MatchingFields{
-		"spec.threadName": t.Name,
+		"spec.threadName": topMost.Name,
 	}); err != nil {
 		return nil
 	}
 
+	project, err := getProjectThread(req)
+	if err != nil {
+		return err
+	}
+
 	credCtxs := make([]string, 0, len(servers.Items))
 	for _, server := range servers.Items {
-		credCtxs = append(credCtxs, fmt.Sprintf("%s-%s", server.Spec.ThreadName, server.Name))
+		credCtxs = append(credCtxs, fmt.Sprintf("%s-%s", project.Name, server.Name))
+		if project.IsSharedProject() {
+			// Add default credentials shared by the agent for this MCP server if available.
+			credCtxs = append(credCtxs, fmt.Sprintf("%s-%s-shared", server.Spec.ThreadName, server.Name))
+		}
 	}
 
 	creds, err := m.gptscript.ListCredentials(req.Context(), gptscript.ListCredentialsOptions{
@@ -94,16 +109,23 @@ func (m *MCPHandler) ListServer(req api.Context) error {
 
 	credMap := make(map[string]map[string]string, len(creds))
 	for _, cred := range creds {
-		credMap[cred.ToolName] = cred.Env
+		if _, ok := credMap[cred.ToolName]; !ok {
+			credMap[cred.ToolName] = cred.Env
+		}
 	}
 
 	var tools []types.MCPServerTool
 	items := make([]types.MCPServer, 0, len(servers.Items))
 	for _, server := range servers.Items {
 		if withTools {
+			credCtxs := []string{fmt.Sprintf("%s-%s", project.Name, server.Name)}
+			if project.IsSharedProject() {
+				credCtxs = append(credCtxs, fmt.Sprintf("%s-%s-shared", server.Spec.ThreadName, server.Name))
+			}
+
 			// If we want to get the tools, then we have to reveal the credentials
 			// so we know what the values are and not only which values are set.
-			c, err := m.gptscript.RevealCredential(req.Context(), []string{fmt.Sprintf("%s-%s", server.Spec.ThreadName, server.Name)}, server.Name)
+			c, err := m.gptscript.RevealCredential(req.Context(), credCtxs, server.Name)
 			if err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
 				return fmt.Errorf("failed to find credential: %w", err)
 			}
@@ -147,7 +169,20 @@ func (m *MCPHandler) getServer(req api.Context, withTools bool) error {
 		return err
 	}
 
-	cred, err := m.gptscript.RevealCredential(req.Context(), []string{fmt.Sprintf("%s-%s", server.Spec.ThreadName, server.Name)}, server.Name)
+	project, err := getProjectThread(req)
+	if err != nil {
+		return err
+	}
+
+	credCtxs := []string{
+		fmt.Sprintf("%s-%s", project.Name, server.Name),
+	}
+	if project.IsSharedProject() {
+		// Add default credentials shared by the agent for this MCP server if available.
+		credCtxs = append(credCtxs, fmt.Sprintf("%s-%s-shared", server.Spec.ThreadName, server.Name))
+	}
+
+	cred, err := m.gptscript.RevealCredential(req.Context(), credCtxs, server.Name)
 	if err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
 		return fmt.Errorf("failed to find credential: %w", err)
 	}
@@ -162,11 +197,6 @@ func (m *MCPHandler) getServer(req api.Context, withTools bool) error {
 		allowedTools := thread.Spec.Manifest.AllowedMCPTools[server.Name]
 		if len(allowedTools) == 0 && !thread.Spec.Project {
 			// If there is no information about allowed tools on the thread, then check the project.
-			project, err := getProjectThread(req)
-			if err != nil {
-				return err
-			}
-
 			allowedTools = project.Spec.Manifest.AllowedMCPTools[server.Name]
 		}
 
@@ -185,6 +215,20 @@ func (m *MCPHandler) DeleteServer(req api.Context) error {
 		id     = req.PathValue("mcp_server_id")
 	)
 
+	project, err := getProjectThread(req)
+	if err != nil {
+		return err
+	}
+
+	// Ensure that the MCP server is in the same project as the request before deleting it.
+	// This prevents chatbot users from deleting MCP servers from the agent.
+	// This is necessary because in order to enable MCP servers to be shared across projects,
+	// the standard authz middleware allows access to all MCP server endpoints from any "child" project
+	// of the one the MCP server belongs to.
+	if project.Name != server.Spec.ThreadName {
+		return types.NewErrForbidden("cannot delete MCP server from this project")
+	}
+
 	if err := req.Get(&server, id); err != nil {
 		return err
 	}
@@ -202,13 +246,12 @@ func (m *MCPHandler) DeleteServer(req api.Context) error {
 
 func (m *MCPHandler) CreateServer(req api.Context) error {
 	var input types.MCPServer
-
-	t, err := getThreadForScope(req)
-	if err != nil {
+	if err := req.Read(&input); err != nil {
 		return err
 	}
 
-	if err = req.Read(&input); err != nil {
+	t, err := getThreadForScope(req)
+	if err != nil {
 		return err
 	}
 
@@ -266,6 +309,20 @@ func (m *MCPHandler) UpdateServer(req api.Context) error {
 		return err
 	}
 
+	project, err := getProjectThread(req)
+	if err != nil {
+		return err
+	}
+
+	// Ensure that the MCP server being updated is in the project referenced by the request.
+	// This prevents chatbot users from editing MCP servers in the agent.
+	// This is necessary because in order to enable MCP servers to be shared across projects,
+	// the standard authz middleware allows access to all MCP server endpoints from any "child" project
+	// of the one the MCP server belongs to.
+	if project.Name != existing.Spec.ThreadName {
+		return types.NewErrForbidden("cannot edit MCP server from this project")
+	}
+
 	if err := req.Read(&updated); err != nil {
 		return err
 	}
@@ -289,13 +346,19 @@ func (m *MCPHandler) ConfigureServer(req api.Context) error {
 		return err
 	}
 
+	project, err := getProjectThread(req)
+	if err != nil {
+		return err
+	}
+
 	var envVars map[string]string
 	if err := req.Read(&envVars); err != nil {
 		return err
 	}
 
 	// Allow for updating credentials. The only way to update a credential is to delete the existing one and recreate it.
-	cred, err := m.gptscript.RevealCredential(req.Context(), []string{fmt.Sprintf("%s-%s", mcpServer.Spec.ThreadName, mcpServer.Name)}, mcpServer.Name)
+	credCtx := fmt.Sprintf("%s-%s", project.Name, mcpServer.Name)
+	cred, err := m.gptscript.RevealCredential(req.Context(), []string{credCtx}, mcpServer.Name)
 	if err != nil {
 		if !errors.As(err, &gptscript.ErrNotFound{}) {
 			return fmt.Errorf("failed to find credential: %w", err)
@@ -311,7 +374,56 @@ func (m *MCPHandler) ConfigureServer(req api.Context) error {
 	}
 
 	if err := m.gptscript.CreateCredential(req.Context(), gptscript.Credential{
-		Context:  fmt.Sprintf("%s-%s", mcpServer.Spec.ThreadName, mcpServer.Name),
+		Context:  credCtx,
+		ToolName: mcpServer.Name,
+		Type:     gptscript.CredentialTypeTool,
+		Env:      envVars,
+	}); err != nil {
+		return fmt.Errorf("failed to create credential: %w", err)
+	}
+
+	return req.Write(convertMCPServer(mcpServer, nil, envVars))
+}
+
+func (m *MCPHandler) ConfigureSharedServer(req api.Context) error {
+	var mcpServer v1.MCPServer
+	if err := req.Get(&mcpServer, req.PathValue("mcp_server_id")); err != nil {
+		return err
+	}
+
+	project, err := getProjectThread(req)
+	if err != nil {
+		return err
+	}
+
+	if project.Name != mcpServer.Spec.ThreadName {
+		return types.NewErrForbidden("cannot edit shared MCP server from this project")
+	}
+
+	var envVars map[string]string
+	if err := req.Read(&envVars); err != nil {
+		return err
+	}
+
+	// Allow for updating credentials. The only way to update a credential is to delete the existing one and recreate it.
+	credCtx := fmt.Sprintf("%s-%s-shared", mcpServer.Spec.ThreadName, mcpServer.Name)
+	cred, err := m.gptscript.RevealCredential(req.Context(), []string{credCtx}, mcpServer.Name)
+	if err != nil {
+		if !errors.As(err, &gptscript.ErrNotFound{}) {
+			return fmt.Errorf("failed to find credential: %w", err)
+		}
+	} else if err = m.gptscript.DeleteCredential(req.Context(), cred.Context, mcpServer.Name); err != nil {
+		return fmt.Errorf("failed to remove existing credential: %w", err)
+	}
+
+	for key, val := range envVars {
+		if val == "" {
+			delete(envVars, key)
+		}
+	}
+
+	if err := m.gptscript.CreateCredential(req.Context(), gptscript.Credential{
+		Context:  credCtx,
 		ToolName: mcpServer.Name,
 		Type:     gptscript.CredentialTypeTool,
 		Env:      envVars,
@@ -328,7 +440,39 @@ func (m *MCPHandler) DeconfigureServer(req api.Context) error {
 		return err
 	}
 
-	cred, err := m.gptscript.RevealCredential(req.Context(), []string{fmt.Sprintf("%s-%s", mcpServer.Spec.ThreadName, mcpServer.Name)}, mcpServer.Name)
+	project, err := getProjectThread(req)
+	if err != nil {
+		return err
+	}
+
+	cred, err := m.gptscript.RevealCredential(req.Context(), []string{fmt.Sprintf("%s-%s", project.Name, mcpServer.Name)}, mcpServer.Name)
+	if err != nil {
+		if !errors.As(err, &gptscript.ErrNotFound{}) {
+			return fmt.Errorf("failed to find credential: %w", err)
+		}
+	} else if err = m.gptscript.DeleteCredential(req.Context(), cred.Context, mcpServer.Name); err != nil {
+		return fmt.Errorf("failed to remove existing credential: %w", err)
+	}
+
+	return req.Write(convertMCPServer(mcpServer, nil, nil))
+}
+
+func (m *MCPHandler) DeconfigureSharedServer(req api.Context) error {
+	var mcpServer v1.MCPServer
+	if err := req.Get(&mcpServer, req.PathValue("mcp_server_id")); err != nil {
+		return err
+	}
+
+	project, err := getProjectThread(req)
+	if err != nil {
+		return err
+	}
+
+	if project.Name != mcpServer.Spec.ThreadName {
+		return types.NewErrForbidden("cannot edit shared MCP server from this project")
+	}
+
+	cred, err := m.gptscript.RevealCredential(req.Context(), []string{fmt.Sprintf("%s-%s-shared", project.Name, mcpServer.Name)}, mcpServer.Name)
 	if err != nil {
 		if !errors.As(err, &gptscript.ErrNotFound{}) {
 			return fmt.Errorf("failed to find credential: %w", err)
@@ -346,8 +490,28 @@ func (m *MCPHandler) Reveal(req api.Context) error {
 		return err
 	}
 
-	// Allow for updating credentials. The only way to update a credential is to delete the existing one and recreate it.
-	cred, err := m.gptscript.RevealCredential(req.Context(), []string{fmt.Sprintf("%s-%s", mcpServer.Spec.ThreadName, mcpServer.Name)}, mcpServer.Name)
+	project, err := getProjectThread(req)
+	if err != nil {
+		return err
+	}
+
+	cred, err := m.gptscript.RevealCredential(req.Context(), []string{fmt.Sprintf("%s-%s", project.Name, mcpServer.Name)}, mcpServer.Name)
+	if err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
+		return fmt.Errorf("failed to find credential: %w", err)
+	} else if err == nil {
+		return req.Write(cred.Env)
+	}
+
+	return types.NewErrNotFound("no credential found for %q", mcpServer.Name)
+}
+
+func (m *MCPHandler) RevealSharedServer(req api.Context) error {
+	var mcpServer v1.MCPServer
+	if err := req.Get(&mcpServer, req.PathValue("mcp_server_id")); err != nil {
+		return err
+	}
+
+	cred, err := m.gptscript.RevealCredential(req.Context(), []string{fmt.Sprintf("%s-%s-shared", mcpServer.Spec.ThreadName, mcpServer.Name)}, mcpServer.Name)
 	if err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
 		return fmt.Errorf("failed to find credential: %w", err)
 	} else if err == nil {
@@ -373,7 +537,20 @@ func (m *MCPHandler) SetTools(req api.Context) error {
 		return err
 	}
 
-	cred, err := m.gptscript.RevealCredential(req.Context(), []string{fmt.Sprintf("%s-%s", mcpServer.Spec.ThreadName, mcpServer.Name)}, mcpServer.Name)
+	project, err := getProjectThread(req)
+	if err != nil {
+		return err
+	}
+
+	credCtxs := []string{
+		fmt.Sprintf("%s-%s", project.Name, mcpServer.Name),
+	}
+	if project.IsSharedProject() {
+		// Add default credentials shared by the agent for this MCP server if available.
+		credCtxs = append(credCtxs, fmt.Sprintf("%s-%s-shared", mcpServer.Spec.ThreadName, mcpServer.Name))
+	}
+
+	cred, err := m.gptscript.RevealCredential(req.Context(), credCtxs, mcpServer.Name)
 	if err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
 		return fmt.Errorf("failed to find credential: %w", err)
 	}
