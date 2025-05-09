@@ -131,7 +131,7 @@
 								messageActions: 'hidden',
 								root: 'w-full',
 								container: 'grow',
-								oauth: 'border border-blue-500 bg-blue-500/30',
+								oauth: 'border border-blue-500 bg-blue-500/30 text-inherit',
 								prompt: 'm-0'
 							}}
 						/>
