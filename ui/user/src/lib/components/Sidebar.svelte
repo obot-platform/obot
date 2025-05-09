@@ -112,6 +112,9 @@
 			</div>
 		{:else}
 			<Threads {project} bind:currentThreadID />
+			{#if hasTool(projectTools.tools, 'memory')}
+				<Memories {project} />
+			{/if}
 		{/if}
 	</div>
 
