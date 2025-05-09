@@ -4,6 +4,7 @@
 	import Toggle from '../Toggle.svelte';
 	import { onMount, type Snippet } from 'svelte';
 	import { fade, slide } from 'svelte/transition';
+	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
 		mcpServer: ProjectMCP;
@@ -14,6 +15,9 @@
 		currentThreadID?: string;
 		tools?: MCPServerTool[];
 		isNew?: boolean;
+		classes?: {
+			actions?: string;
+		};
 	}
 
 	const {
@@ -24,7 +28,8 @@
 		currentThreadID,
 		tools: refTools,
 		submitText = 'Continue',
-		isNew
+		isNew,
+		classes
 	}: Props = $props();
 
 	let tools = $state<MCPServerTool[]>(refTools ?? []);
@@ -32,7 +37,7 @@
 	let allToolsEnabled = $derived(selected[0] === '*' || selected.length === tools.length);
 	let loading = $state(false);
 	let expandedDescriptions = $state<Record<string, boolean>>({});
-
+	let allDescriptionsEnabled = $state(false);
 	$effect(() => {
 		if (refTools) {
 			tools = refTools;
@@ -93,8 +98,8 @@
 				{currentThreadID ? 'Modify Thread Tools' : 'Modify Server Tools'}
 			</h2>
 		{/if}
-		<div class="flex flex-col gap-1">
-			<div class="flex max-w-sm items-center gap-2">
+		<div class="mb-4 flex flex-col gap-1">
+			<div class="flex items-center gap-2">
 				<div class="h-fit flex-shrink-0 self-start rounded-md bg-gray-50 p-1 dark:bg-gray-600">
 					{#if mcpServer.icon}
 						<img src={mcpServer.icon} alt={mcpServer.name} class="size-6" />
@@ -119,7 +124,22 @@
 			</div>
 		{:else}
 			<div in:fade class="flex flex-col gap-2">
-				<div class="flex justify-end border-r border-transparent pr-3">
+				<div class="flex justify-end gap-4 border-r border-transparent pr-3">
+					<Toggle
+						checked={allDescriptionsEnabled}
+						onChange={(checked) => {
+							allDescriptionsEnabled = checked;
+							expandedDescriptions = {};
+						}}
+						label="Enable All Descriptions"
+						labelInline
+						classes={{
+							label: 'text-sm gap-2'
+						}}
+					/>
+
+					<div class="bg-surface3 h-5 w-0.5"></div>
+
 					<Toggle
 						checked={allToolsEnabled}
 						onChange={(checked) => {
@@ -134,7 +154,9 @@
 				</div>
 				<div class="flex flex-col gap-2 overflow-hidden">
 					{#each tools as tool}
-						<div class="border-surface2 flex flex-col gap-2 rounded-md border p-3">
+						<div
+							class="border-surface2 dark:border-surface3 flex flex-col gap-2 rounded-md border p-3"
+						>
 							<div class="flex items-center justify-between gap-2">
 								<p class="text-md font-semibold">{tool.name}</p>
 								<div class="flex flex-shrink-0 items-center gap-2">
@@ -178,7 +200,12 @@
 		{/if}
 	</div>
 	<div class="flex grow"></div>
-	<div class="dark:bg-surface2 sticky bottom-0 left-0 flex w-full justify-end bg-white p-4">
+	<div
+		class={twMerge(
+			'dark:bg-surface2 sticky bottom-0 left-0 flex w-full justify-end bg-white p-4',
+			classes?.actions
+		)}
+	>
 		<button class="button-primary flex items-center gap-1" onclick={handleSubmit}>
 			{submitText}
 			<ChevronsRight class="size-4" />
