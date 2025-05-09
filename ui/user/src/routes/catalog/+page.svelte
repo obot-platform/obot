@@ -11,8 +11,11 @@
 	import Navbar from '$lib/components/Navbar.svelte';
 	import AgentCatalog from '$lib/components/agents/AgentCatalog.svelte';
 	import McpSetupWizard from '$lib/components/mcp/McpSetupWizard.svelte';
+	import { initToolReferences } from '$lib/context/toolReferences.svelte';
 
 	let { data }: PageProps = $props();
+
+	initToolReferences(data.tools);
 	const mcps = $derived(data.mcps.sort(sortByPreferredMcpOrder));
 	const templates = $derived(
 		data.templates?.sort(sortByCreatedDate).sort(sortTemplatesByFeaturedNameOrder)

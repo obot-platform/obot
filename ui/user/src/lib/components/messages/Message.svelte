@@ -17,6 +17,7 @@
 	import { getProjectTools } from '$lib/context/projectTools.svelte';
 	import MemoriesDialog from '$lib/components/MemoriesDialog.svelte';
 	import { linear } from 'svelte/easing';
+	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
 		msg: Message;
@@ -29,6 +30,17 @@
 		clearable?: boolean;
 		expandable?: boolean;
 		expanded?: boolean;
+		noMemoryTool?: boolean;
+		classes?: {
+			container?: string;
+			messageActions?: string;
+			messageBody?: string;
+			messageIcon?: string;
+			nameAndTime?: string;
+			oauth?: string;
+			root?: string;
+			prompt?: string;
+		};
 	}
 
 	let {
@@ -39,7 +51,9 @@
 		onSendCredentials = ChatService.sendCredentials,
 		onSendCredentialsCancel,
 		disableMessageToEditor,
-		clearable = false
+		noMemoryTool,
+		clearable = false,
+		classes
 	}: Props = $props();
 
 	let content = $derived(
@@ -242,7 +256,7 @@
 		}
 	}
 
-	const projectTools = getProjectTools();
+	const projectTools = noMemoryTool ? { tools: [] } : getProjectTools();
 	let memoriesDialog = $state<ReturnType<typeof MemoriesDialog>>();
 </script>
 
@@ -253,7 +267,7 @@
 {/snippet}
 
 {#snippet nameAndTime()}
-	<div class="mb-1 flex items-center space-x-2">
+	<div class={twMerge('mb-1 flex items-center space-x-2', classes?.nameAndTime)}>
 		{#if msg.sourceName}
 			<span class="text-sm font-semibold"
 				>{msg.sourceName === 'Assistant' ? project?.name || 'Agent' : msg.sourceName}</span
@@ -295,7 +309,10 @@
 		class:flex={showBubble}
 		class:contents={!showBubble}
 		class:message-content={renderMarkdown}
-		class="bg-gray-70 flex w-full flex-col rounded-2xl px-6 py-3 text-black dark:bg-gray-950 dark:text-white"
+		class={twMerge(
+			'bg-gray-70 flex w-full flex-col rounded-2xl px-6 py-3 text-black dark:bg-gray-950 dark:text-white',
+			classes?.messageBody
+		)}
 	>
 		{#if clearable}
 			<button
@@ -448,13 +465,14 @@
 {#snippet oauth()}
 	<a
 		href={msg.oauthURL}
-		class="bg-blue rounded-3xl
-						p-4
-						text-white
-					  hover:bg-blue-400"
+		class={twMerge(
+			'bg-blue rounded-xl p-4 text-center text-white transition-colors duration-300 hover:bg-blue-400',
+			classes?.oauth
+		)}
 		target="_blank"
-		>Authentication is required
-		<span class="underline">click here</span> to log-in using OAuth
+	>
+		<p>Authentication is required.</p>
+		<p><span class="underline">Click here</span> to log-in using OAuth.</p>
 	</a>
 {/snippet}
 
@@ -580,17 +598,20 @@
 		msg.message.at(-1)?.toLowerCase().endsWith(ABORTED_BY_USER_MESSAGE) ||
 		msg.message.at(-1)?.toLowerCase().endsWith(ABORTED_THREAD_MESSAGE)}
 	<div
-		class="group relative flex items-start gap-3 {isPrompt
-			? '-m-5 rounded-3xl bg-gray-100 p-5 dark:bg-gray-950'
-			: ''}"
+		class={twMerge(
+			'group relative flex items-start gap-3',
+			isPrompt && '-m-5 rounded-3xl bg-gray-100 p-5 dark:bg-gray-950',
+			isPrompt && classes?.prompt,
+			classes?.root
+		)}
 		class:justify-end={msg.sent}
 		class:opacity-30={msg.aborted || isAbortedContent}
 	>
 		{#if !msg.sent}
-			<MessageIcon {msg} />
+			<MessageIcon class={classes?.messageIcon} {msg} />
 		{/if}
 
-		<div class="flex w-full flex-col" class:w-full={fullWidth}>
+		<div class={twMerge('flex flex-col', classes?.container)} class:w-full={fullWidth}>
 			{#if isPrompt}
 				{@render promptAuth()}
 			{:else}
@@ -603,7 +624,7 @@
 				{/if}
 
 				{#if !msg.sent && msg.done && !msg.toolCall && msg.time && content && !animating && content.length > 0}
-					<div class="mt-2 -ml-1 flex gap-2">
+					<div class={twMerge('mt-2 -ml-1 flex gap-2', classes?.messageActions)}>
 						<div>
 							<button
 								use:tooltip={'Copy message to clipboard'}

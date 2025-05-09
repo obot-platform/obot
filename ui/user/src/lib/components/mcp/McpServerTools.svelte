@@ -188,7 +188,7 @@
 									/>
 								</div>
 							</div>
-							{#if expandedDescriptions[tool.id]}
+							{#if expandedDescriptions[tool.id] || allDescriptionsEnabled}
 								<p in:slide={{ axis: 'y' }} class="text-sm font-light text-gray-500">
 									{tool.description}
 								</p>

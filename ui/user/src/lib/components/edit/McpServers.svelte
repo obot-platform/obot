@@ -10,6 +10,7 @@
 	import DotDotDot from '$lib/components/DotDotDot.svelte';
 	import { getLayout, openEditProjectMcp, openMCPServerTools } from '$lib/context/layout.svelte';
 	import McpSetupWizard from '$lib/components/mcp/McpSetupWizard.svelte';
+	import { getToolBundleMap } from '$lib/context/toolReferences.svelte';
 
 	interface Props {
 		project: Project;
@@ -24,6 +25,11 @@
 	let mcpSetupWizard = $state<ReturnType<typeof McpSetupWizard>>();
 
 	const projectMCPs = getProjectMCPs();
+	const toolBundleMap = getToolBundleMap();
+	let legacyBundleId = $derived(
+		mcpToShow?.catalogID && toolBundleMap.get(mcpToShow.catalogID) ? mcpToShow.catalogID : undefined
+	);
+
 	const selectedMcpIds = $derived(
 		projectMCPs.items.reduce<string[]>((acc, mcp) => {
 			if (mcp.catalogID !== undefined) acc.push(mcp.catalogID);
@@ -110,7 +116,7 @@
 			<McpSetupWizard
 				bind:this={mcpSetupWizard}
 				catalogDescription="Extend your agent's capabilities by adding multiple MCP servers from our evergrowing catalog."
-				catalogSubmitText="Create agent with server"
+				catalogSubmitText="Add to agent"
 				{selectedMcpIds}
 				{project}
 				{mcps}
@@ -134,7 +140,9 @@
 			mcpConfigDialog?.close();
 		}
 	}}
-	configureText="Modify server"
+	{project}
+	{legacyBundleId}
+	configureText={legacyBundleId ? 'Reauthenticate' : 'Modify server'}
 />
 
 <Confirm

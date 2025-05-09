@@ -3,12 +3,14 @@
 	import type { Message } from '$lib/services';
 	import { Pencil } from 'lucide-svelte/icons';
 	import { AlertCircle } from 'lucide-svelte';
+	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
 		msg: Message;
+		class?: string;
 	}
 
-	let { msg }: Props = $props();
+	let { msg, class: klass }: Props = $props();
 </script>
 
 {#if !msg.icon}
@@ -16,7 +18,7 @@
 {:else if msg.icon === 'Assistant'}
 	<!-- Nothing -->
 {:else}
-	<div class="shrink-0">
+	<div class={twMerge('shrink-0', klass)}>
 		{#if msg.icon === 'Pencil'}
 			<Pencil class="size-4 md:size-6" />
 		{:else if msg.icon === 'Assistant'}

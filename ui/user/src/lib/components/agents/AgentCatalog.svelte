@@ -57,7 +57,6 @@
 	let browseAllTitleElement: HTMLDivElement | undefined = $state<HTMLDivElement>();
 
 	export function open() {
-		console.log(`opening agent catalog. num templates: ${categoryTemplates.length}`);
 		dialog?.showModal();
 	}
 

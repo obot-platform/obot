@@ -2,9 +2,16 @@
 	import { clickOutside } from '$lib/actions/clickoutside';
 	import { dialogAnimation } from '$lib/actions/dialogAnimation';
 	import { formatNumber } from '$lib/format';
-	import type { MCPManifest, ProjectMCP } from '$lib/services';
+	import {
+		ChatService,
+		type ProjectCredential,
+		type MCPManifest,
+		type Project,
+		type ProjectMCP,
+		EditorService
+	} from '$lib/services';
 	import { darkMode, responsive } from '$lib/stores';
-	import { ChevronRight, ChevronsRight, Server, Star, X } from 'lucide-svelte';
+	import { ChevronRight, ChevronsRight, Info, LoaderCircle, Server, Star, X } from 'lucide-svelte';
 	import {
 		initConfigFromManifest,
 		isValidMcpConfig,
@@ -12,6 +19,7 @@
 	} from '$lib/services/chat/mcp';
 	import HostedMcpForm from '$lib/components/mcp/HostedMcpForm.svelte';
 	import type { Snippet } from 'svelte';
+	import CredentialAuth from '$lib/components/edit/CredentialAuth.svelte';
 
 	interface Props {
 		manifest?: MCPManifest | ProjectMCP;
@@ -26,6 +34,8 @@
 		showConfigOnly?: boolean;
 		leftActionContent?: Snippet;
 		children?: Snippet;
+		legacyBundleId?: string;
+		project?: Project;
 	}
 	let {
 		manifest,
@@ -39,36 +49,85 @@
 		configureText,
 		showConfigOnly,
 		leftActionContent,
-		children
+		children,
+		legacyBundleId,
+		project = $bindable()
 	}: Props = $props();
-	let dialog: HTMLDialogElement | undefined = $state();
-	let config = $state<MCPServerInfo>(prefilledConfig ?? initConfigFromManifest(manifest));
-	let showConfig = $state(false);
-	let showSubmitError = $state(false);
+	let infoDialog = $state<HTMLDialogElement>();
+	let configDialog = $state<HTMLDialogElement>();
+	let authDialog = $state<HTMLDialogElement>();
 
+	let config = $state<MCPServerInfo>(prefilledConfig ?? initConfigFromManifest(manifest));
+	let showSubmitError = $state(false);
+	let loadingCredential = $state<Promise<ProjectCredential | undefined>>();
 	export function open() {
 		reset();
-		dialog?.showModal();
 		if (showConfigOnly) {
-			showConfig = true;
+			configDialog?.showModal();
+		} else {
+			infoDialog?.showModal();
 		}
 	}
 
 	function reset() {
-		if (!showConfigOnly) {
-			showConfig = false;
-		}
 		showSubmitError = false;
 		config = prefilledConfig ?? initConfigFromManifest(manifest);
 	}
 
 	export function close() {
-		dialog?.close();
+		infoDialog?.close();
+		configDialog?.close();
+	}
+
+	function isAuthRequiredBundle(bundleId?: string) {
+		if (!bundleId) return false;
+		const nonRequiredAuthBundles = [
+			'browser-bundle',
+			'images-bundle',
+			'memory',
+			'obot-search',
+			'time',
+			'database',
+			'die-roller',
+			'proxycurl-bundle' // linkedin search bundle
+		];
+		return !nonRequiredAuthBundles.includes(bundleId);
+	}
+
+	async function getProjectCredential() {
+		if (!legacyBundleId) return;
+
+		if (!project) {
+			project = await EditorService.createObot();
+		}
+
+		const response = (
+			await ChatService.listProjectLocalCredentials(project.assistantID, project.id)
+		).items;
+		const credential = response.find((cred) => cred.toolID === legacyBundleId);
+
+		if (credential?.exists) {
+			// delete the credential if it exists
+			// user is choosing to re-authenticate
+			await ChatService.deleteProjectLocalCredential(
+				project.assistantID,
+				project.id,
+				credential.toolID
+			);
+		}
+
+		return credential
+			? {
+					...credential,
+					exists: false
+				}
+			: undefined;
 	}
 
 	function handleSubmit() {
 		if (!manifest) return;
-		if (!isValidMcpConfig(config)) {
+
+		if (!legacyBundleId && !isValidMcpConfig(config)) {
 			showSubmitError = true;
 			return;
 		}
@@ -78,26 +137,167 @@
 		} else {
 			onUpdate?.(config);
 		}
-		dialog?.close();
+		close();
 	}
 </script>
 
 <dialog
-	bind:this={dialog}
+	bind:this={infoDialog}
 	class="default-dialog w-full sm:max-w-lg"
 	class:mobile-screen-dialog={responsive.isMobile}
 	use:clickOutside={() => {
 		if (disableOutsideClick) return;
 		close();
 	}}
-	use:dialogAnimation={{ type: showConfig && !showConfigOnly ? 'slide' : 'fade' }}
+	use:dialogAnimation={{ type: 'fade' }}
 >
 	<div class="grid h-fit max-h-[calc(100vh-4rem)] grid-rows-[auto_1fr_auto]">
-		{@render content()}
+		{@render basicInfo()}
+		<div class="default-scrollbar-thin min-h-0 w-full overflow-y-auto px-4 py-1 md:px-6">
+			{#if manifest && 'server' in manifest && manifest.server.env?.some((env) => env.required)}
+				<div
+					class="border-surface2 dark:border-surface3 relative mt-2 w-full rounded-lg border-2 p-5 pt-2"
+				>
+					<h4
+						class="dark:bg-surface2 absolute top-0 left-3 w-fit -translate-y-3.5 bg-white px-2 text-base font-semibold"
+					>
+						What You'll Need
+					</h4>
+					<ul class="mt-4 flex flex-col items-baseline gap-4">
+						{#each manifest.server.env.filter((env) => env.required) as env}
+							<li class="flex w-full flex-col">
+								<div class="text-sm font-semibold capitalize">{env.name}</div>
+								<div class="text-xs font-light text-gray-500">{env.description}</div>
+							</li>
+						{/each}
+					</ul>
+				</div>
+				<!-- display tools part of the mcp server here once it's implemented-->
+			{/if}
+		</div>
+		<div class="flex items-center justify-between gap-2 px-4 py-4 md:px-6">
+			<div>
+				{#if leftActionContent}
+					{@render leftActionContent()}
+				{/if}
+			</div>
+			<div class="flex-shrink-0">
+				<button
+					onclick={() => {
+						if (legacyBundleId) {
+							if (project && isAuthRequiredBundle(legacyBundleId)) {
+								loadingCredential = getProjectCredential();
+								infoDialog?.close();
+								authDialog?.showModal();
+							} else if (!isAuthRequiredBundle(legacyBundleId)) {
+								handleSubmit();
+							} else {
+								infoDialog?.close();
+								configDialog?.showModal();
+							}
+						} else if (onConfigure) {
+							onConfigure();
+						} else {
+							infoDialog?.close();
+							configDialog?.showModal();
+						}
+					}}
+					class="button-primary flex w-full items-center justify-center gap-1 self-end md:w-fit"
+				>
+					{#if legacyBundleId && !isAuthRequiredBundle(legacyBundleId)}
+						{submitText ?? 'Add to Agent'}
+					{:else}
+						{configureText ?? 'Configure'}
+					{/if}
+					<ChevronsRight class="size-4" />
+				</button>
+			</div>
+		</div>
 	</div>
 </dialog>
 
-{#snippet content()}
+<dialog
+	bind:this={configDialog}
+	class="default-dialog w-full sm:max-w-lg"
+	class:mobile-screen-dialog={responsive.isMobile}
+	use:clickOutside={() => {
+		if (disableOutsideClick) return;
+		close();
+	}}
+	use:dialogAnimation={{ type: showConfigOnly ? 'fade' : 'slide' }}
+>
+	<div class="grid h-fit max-h-[calc(100vh-4rem)] grid-rows-[auto_1fr_auto]">
+		{@render basicInfo()}
+		<div class="default-scrollbar-thin min-h-0 w-full overflow-y-auto px-4 py-1 md:px-6">
+			{#if legacyBundleId}
+				<div class="notification-info mb-4 p-3 text-sm font-light">
+					<div class="flex items-center gap-3">
+						<Info class="size-6" />
+						<p>
+							This server support OAuth authentication. You'll be prompted to login after launching.
+						</p>
+					</div>
+				</div>
+			{:else}
+				<div class="flex w-full flex-col gap-4">
+					<HostedMcpForm bind:config {showSubmitError} />
+				</div>
+			{/if}
+		</div>
+		<div class="flex items-center justify-between gap-2 px-4 py-4 md:px-6">
+			<div>
+				{#if leftActionContent}
+					{@render leftActionContent()}
+				{/if}
+			</div>
+			<div class="flex-shrink-0">
+				<button
+					onclick={() => {
+						if (legacyBundleId && isAuthRequiredBundle(legacyBundleId)) {
+							loadingCredential = getProjectCredential();
+							configDialog?.close();
+							authDialog?.showModal();
+						} else {
+							handleSubmit();
+						}
+					}}
+					class="button-primary flex w-full items-center justify-center gap-1 self-end md:w-fit"
+				>
+					{selected ? 'Update' : (submitText ?? 'Add to Agent')}
+					<ChevronsRight class="size-4" />
+				</button>
+			</div>
+		</div>
+	</div>
+</dialog>
+
+<dialog
+	bind:this={authDialog}
+	class="default-dialog w-full sm:max-w-lg"
+	use:dialogAnimation={{ type: 'fade' }}
+>
+	{#await loadingCredential}
+		<div class="flex w-full items-center justify-center">
+			<LoaderCircle class="size-6 animate-spin" />
+		</div>
+	{:then credential}
+		{#if project && legacyBundleId && credential}
+			<CredentialAuth
+				inline
+				local
+				toolID={legacyBundleId}
+				{project}
+				{credential}
+				onClose={() => {
+					handleSubmit();
+					authDialog?.close();
+				}}
+			/>
+		{/if}
+	{/await}
+</dialog>
+
+{#snippet basicInfo()}
 	{#if !hideCloseButton}
 		<button class="icon-button absolute top-4 right-4" onclick={() => close()}>
 			{#if responsive.isMobile}
@@ -156,69 +356,5 @@
 				{@render children()}
 			{/if}
 		</div>
-		<div class="default-scrollbar-thin min-h-0 w-full overflow-y-auto px-4 py-1 md:px-6">
-			{#if showConfig}
-				<div class="flex w-full flex-col gap-4">
-					<HostedMcpForm bind:config {showSubmitError} />
-				</div>
-			{:else}
-				{@render readOnlyView()}
-			{/if}
-		</div>
-		<div class="flex items-center justify-between gap-2 px-4 py-4 md:px-6">
-			<div>
-				{#if leftActionContent}
-					{@render leftActionContent()}
-				{/if}
-			</div>
-			<div class="flex-shrink-0">
-				{#if showConfig}
-					<button
-						onclick={handleSubmit}
-						class="button-primary flex w-full items-center justify-center gap-1 self-end md:w-fit"
-					>
-						{selected ? 'Update' : (submitText ?? 'Add to Agent')}
-						<ChevronsRight class="size-4" />
-					</button>
-				{:else}
-					<button
-						onclick={() => {
-							if (onConfigure) {
-								onConfigure();
-							} else {
-								showConfig = true;
-							}
-						}}
-						class="button-primary flex w-full items-center justify-center gap-1 self-end md:w-fit"
-					>
-						{configureText ?? 'Configure'}
-						<ChevronsRight class="size-4" />
-					</button>
-				{/if}
-			</div>
-		</div>
-	{/if}
-{/snippet}
-
-{#snippet readOnlyView()}
-	{#if manifest && 'server' in manifest && manifest.server.env?.some((env) => env.required)}
-		<div
-			class="border-surface2 dark:border-surface3 relative mt-2 w-full rounded-lg border-2 p-5 pt-2"
-		>
-			<h4
-				class="dark:bg-surface2 absolute top-0 left-3 w-fit -translate-y-3.5 bg-white px-2 text-base font-semibold"
-			>
-				What You'll Need
-			</h4>
-			<ul class="mt-4 flex flex-col items-baseline gap-4">
-				{#each manifest.server.env.filter((env) => env.required) as env}
-					<li class="flex w-full flex-col">
-						<div class="text-sm font-semibold capitalize">{env.name}</div>
-						<div class="text-xs font-light text-gray-500">{env.description}</div>
-					</li>
-				{/each}
-			</ul>
-		</div>
-		<!-- display tools part of the mcp server here once it's implemented-->
 	{/if}
 {/snippet}

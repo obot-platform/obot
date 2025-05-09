@@ -94,6 +94,7 @@
 
 <McpCatalog
 	bind:this={mcpCatalog}
+	bind:project
 	{inline}
 	{mcps}
 	subtitle={catalogDescription}

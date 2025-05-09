@@ -135,7 +135,7 @@
 			{#if !responsive.isMobile}
 				<div
 					role="none"
-					class="relative -ml-1 h-full w-1 cursor-col-resize"
+					class="relative -ml-3 h-full w-3 cursor-col-resize"
 					use:columnResize={{ column: nav }}
 				></div>
 			{/if}

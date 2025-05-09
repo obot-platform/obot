@@ -5,16 +5,18 @@
 	import { X } from 'lucide-svelte';
 	import { responsive } from '$lib/stores';
 	import ChatService from '$lib/services/chat';
+	import { onMount } from 'svelte';
 
 	interface Props {
 		toolID: string;
-		onClose?: () => void | Promise<void>;
+		onClose?: (error?: boolean) => void | Promise<void>;
 		project: Project;
 		local?: boolean;
 		credential?: ProjectCredential;
+		inline?: boolean;
 	}
 
-	let { toolID, onClose, project, local, credential }: Props = $props();
+	let { toolID, onClose, project, local, credential, inline }: Props = $props();
 	let authMessages = $state<Messages>();
 	let thread = $state<Thread>();
 	let authDialog: HTMLDialogElement | undefined = $state();
@@ -28,6 +30,12 @@
 			authMessages = undefined;
 		});
 	}
+
+	onMount(() => {
+		if (inline) {
+			auth(toolID);
+		}
+	});
 
 	function auth(toolID: string) {
 		const t = new Thread(project, {
@@ -68,9 +76,15 @@
 	}
 </script>
 
-<dialog bind:this={authDialog} class:mobile-screen-dialog={responsive.isMobile} class="md:max-w-sm">
-	{@render content()}
-</dialog>
+{#if inline}
+	<div class="flex flex-col gap-2">
+		{@render content()}
+	</div>
+{:else}
+	<dialog bind:this={authDialog} class="default-dialog w-full sm:max-w-lg">
+		{@render content()}
+	</dialog>
+{/if}
 
 {#snippet content()}
 	{#if credential}
@@ -96,20 +110,29 @@
 				</button>
 			</h4>
 			{#if inProgress}
-				<div class="flex flex-col gap-5 p-5 md:m-5 md:mt-0">
+				<div class="flex flex-col gap-5 p-4 md:m-5 md:mt-0 md:p-0">
 					<p class="text-center">Sending credentials...</p>
 				</div>
 			{:else if authMessages}
-				<div class="flex flex-col gap-5 p-5 md:m-5 md:mt-0">
+				<div class="flex flex-col gap-5 p-4 md:m-5 md:mt-0 md:p-0">
 					{#each authMessages.messages as msg}
 						<Message
 							{msg}
 							{project}
-							clearable
 							onSendCredentialsCancel={() => authCancel()}
 							onSendCredentials={(id: string, credentials: Record<string, string>) => {
 								ChatService.sendCredentials(id, credentials);
 								inProgress = true;
+							}}
+							noMemoryTool
+							classes={{
+								messageIcon: 'hidden',
+								nameAndTime: 'hidden',
+								messageActions: 'hidden',
+								root: 'w-full',
+								container: 'grow',
+								oauth: 'border border-blue-500 bg-blue-500/30',
+								prompt: 'm-0'
 							}}
 						/>
 					{/each}

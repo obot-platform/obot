@@ -701,6 +701,23 @@
 		padding: 0.5rem 1rem;
 		color: var(--color-red-500);
 	}
+
+	.notification-info {
+		border-radius: 0.5rem;
+		border: 1px solid var(--color-blue-500);
+		background-color: rgb(59 130 246 / 0.15);
+		padding: 0.5rem 1rem;
+
+		svg {
+			color: var(--color-blue-600);
+		}
+
+		.dark & {
+			svg {
+				color: var(--color-blue-400);
+			}
+		}
+	}
 }
 
 .dark {

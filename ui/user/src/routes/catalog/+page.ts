@@ -5,15 +5,18 @@ export const load: PageLoad = async ({ fetch }) => {
 	try {
 		const templates = (await ChatService.listTemplates({ fetch })).items;
 		const mcps = await ChatService.listMCPs({ fetch });
+		const tools = (await ChatService.listAllTools({ fetch })).items;
 
 		return {
 			templates,
-			mcps
+			mcps,
+			tools
 		};
 	} catch {
 		return {
 			templates: [],
-			mcps: []
+			mcps: [],
+			tools: []
 		};
 	}
 };

@@ -54,7 +54,6 @@
 			}
 
 			providerNames = names;
-			console.log('Model providers loaded:', providerNames);
 		} catch (error) {
 			console.error('Failed to load model providers:', error);
 		} finally {

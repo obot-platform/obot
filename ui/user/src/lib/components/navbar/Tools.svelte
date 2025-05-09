@@ -17,10 +17,6 @@
 	let selectedProjectMcp = $state<ProjectMCP>();
 	const projectMCPs = getProjectMCPs();
 
-	$effect(() => {
-		console.log(currentThreadID);
-	});
-
 	async function sleep(ms: number): Promise<void> {
 		return new Promise((resolve) => setTimeout(resolve, ms));
 	}

@@ -16,9 +16,12 @@
 
 	import { initHelperMode } from '$lib/context/helperMode.svelte';
 	import McpSetupWizard from '$lib/components/mcp/McpSetupWizard.svelte';
+	import { initToolReferences } from '$lib/context/toolReferences.svelte';
 	let { data }: PageProps = $props();
 
 	initHelperMode();
+	initToolReferences(data.tools);
+
 	let agents = $state(data.projects.filter((p) => p.editor).sort(sortByCreatedDate));
 	let chatbots = $state(
 		data.projects.filter((p) => !p.editor && !p.sourceProjectID).sort(sortByCreatedDate)
@@ -149,7 +152,6 @@
 					<button
 						class="text-md button hover:bg-surface1 dark:hover:bg-surface3 flex w-full items-center gap-2 rounded-sm bg-transparent px-2 font-light"
 						onclick={() => {
-							console.log(`opening agent catalog. num templates: ${data.templates?.length}`);
 							agentCatalog?.open();
 							createDropdown?.close();
 						}}
