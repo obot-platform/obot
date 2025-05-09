@@ -3,7 +3,6 @@ module github.com/obot-platform/obot
 go 1.24.0
 
 replace (
-	github.com/gptscript-ai/gptscript => github.com/thedadams/gptscript v0.0.0-20250509005844-a4900c4379d6
 	github.com/obot-platform/obot/apiclient => ./apiclient
 	github.com/obot-platform/obot/logger => ./logger
 )
