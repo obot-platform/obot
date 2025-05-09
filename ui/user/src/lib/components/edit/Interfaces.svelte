@@ -1,6 +1,6 @@
 <script lang="ts">
 	import CollapsePane from '$lib/components/edit/CollapsePane.svelte';
-	import { ChevronRight, Smartphone, Webhook, Mail, Construction } from 'lucide-svelte';
+	import { ChevronRight, Smartphone, Webhook, Mail, Construction, Server } from 'lucide-svelte';
 	import { getLayout, openSidebarConfig, type Layout } from '$lib/context/layout.svelte';
 	import type { SvelteComponent } from 'svelte';
 	import type { IconProps } from 'lucide-svelte';
@@ -32,13 +32,6 @@
 			type: 'image'
 		},
 		{
-			id: 'sms',
-			label: 'SMS',
-			icon: Smartphone,
-			type: 'lucide',
-			unavailable: true
-		},
-		{
 			id: 'webhook',
 			label: 'Webhook',
 			icon: Webhook,
@@ -49,6 +42,20 @@
 			label: 'Email',
 			icon: Mail,
 			type: 'lucide'
+		},
+		{
+			id: 'mcpserver-interface',
+			label: 'MCP Server',
+			icon: Server,
+			type: 'lucide',
+			unavailable: true
+		},
+		{
+			id: 'sms',
+			label: 'SMS',
+			icon: Smartphone,
+			type: 'lucide',
+			unavailable: true
 		}
 	];
 </script>

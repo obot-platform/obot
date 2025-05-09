@@ -14,7 +14,6 @@ export interface Layout {
 	projectEditorOpen?: boolean;
 	fileEditorOpen?: boolean;
 	sidebarConfig?:
-		| 'interfaces'
 		| 'introduction'
 		| 'system-prompt'
 		| 'slack'
@@ -29,7 +28,8 @@ export interface Layout {
 		| 'invitations'
 		| 'custom-mcp'
 		| 'model-providers'
-		| 'mcp-server-tools';
+		| 'mcp-server-tools'
+		| 'mcpserver-interface';
 	customToolId?: string;
 	editProjectMcp?: ProjectMCP;
 	template?: ProjectTemplate;
