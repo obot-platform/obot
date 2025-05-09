@@ -131,7 +131,7 @@
 							allDescriptionsEnabled = checked;
 							expandedDescriptions = {};
 						}}
-						label="Enable All Descriptions"
+						label="Show All Descriptions"
 						labelInline
 						classes={{
 							label: 'text-sm gap-2'
