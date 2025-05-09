@@ -56,6 +56,9 @@ spec:
           envFrom:
             - secretRef:
                 name: {{ if .Values.config.existingSecret }}{{ .Values.config.existingSecret }}{{ else }}{{ include "obot.config.secretName" . }}{{- end }}
+          {{- with .Values.extraEnvFrom }}
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
       {{- if and (eq .Values.config.OBOT_WORKSPACE_PROVIDER_TYPE "directory") .Values.persistence.enabled }}

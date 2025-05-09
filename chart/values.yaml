@@ -125,6 +125,9 @@ config:
 # extraEnv -- A map of additional environment variables to set
 extraEnv: { }
 
+# extraEnvFrom -- A list of additional environment variables to set from a secret
+extraEnvFrom: [ ]
+
 # resources -- Resource requests and limits to use for Obot
 resources: { }
 
