@@ -2,6 +2,7 @@
 	import type { MCPServerInfo } from '$lib/services/chat/mcp';
 	import { Plus, Trash2 } from 'lucide-svelte';
 	import InfoTooltip from '$lib/components/InfoTooltip.svelte';
+	import SensitiveInput from '$lib/components/SensitiveInput.svelte';
 
 	interface Props {
 		config: MCPServerInfo;
@@ -35,15 +36,20 @@
 							<InfoTooltip text={env.description} />
 						</label>
 					{/if}
-					<input
-						data-1p-ignore
-						id={env.name}
-						name={env.name}
-						class="text-input-filled w-full"
-						class:error={showSubmitError && !env.value && env.required}
-						bind:value={env.value}
-						type={env.sensitive ? 'password' : 'text'}
-					/>
+					{#if env.sensitive}
+						<SensitiveInput name={env.name} bind:value={env.value} />
+					{:else}
+						<input
+							data-1p-ignore
+							id={env.name}
+							name={env.name}
+							class="text-input-filled w-full"
+							class:error={showSubmitError && !env.value && env.required}
+							bind:value={env.value}
+							type="text"
+						/>
+					{/if}
+
 					<div class="min-h-4 text-xs text-red-500">
 						{#if showSubmitError && !env.value && env.required}
 							This field is required.

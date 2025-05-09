@@ -4,9 +4,10 @@
 	import { isValidMcpConfig, type MCPServerInfo } from '$lib/services/chat/mcp';
 	import { ChevronsRight, PencilLine, Plus, Server, Trash2, X } from 'lucide-svelte';
 	import { twMerge } from 'tailwind-merge';
-	import HostedMcpForm from './HostedMcpForm.svelte';
 	import { onMount } from 'svelte';
 	import { errors } from '$lib/stores';
+	import HostedMcpForm from '$lib/components/mcp/HostedMcpForm.svelte';
+	import SensitiveInput from '$lib/components/SensitiveInput.svelte';
 
 	interface Props {
 		projectMcp?: ProjectMCP;
@@ -223,14 +224,18 @@
 							placeholder="Key (ex. API_KEY)"
 							use:focusOnAdd={i === config.headers.length - 1}
 						/>
-						<input
-							data-1p-ignore
-							id={header.name}
-							name={header.name}
-							class="text-input-filled w-full"
-							bind:value={header.value}
-							type={header.sensitive ? 'password' : 'text'}
-						/>
+						{#if header.sensitive}
+							<SensitiveInput name={header.name} bind:value={header.value} />
+						{:else}
+							<input
+								data-1p-ignore
+								id={header.name}
+								name={header.name}
+								class="text-input-filled w-full"
+								bind:value={header.value}
+								type="text"
+							/>
+						{/if}
 					</div>
 					<button class="icon-button" onclick={() => config.headers?.splice(i, 1)}>
 						<Trash2 class="size-4" />
