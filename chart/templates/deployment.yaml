@@ -41,10 +41,15 @@ spec:
               port: http
             failureThreshold: 5
             periodSeconds: 10
-          {{- if and (eq .Values.config.OBOT_WORKSPACE_PROVIDER_TYPE "directory") .Values.persistence.enabled }}
+          {{- if or .Values.extraVolumeMounts (and (eq .Values.config.OBOT_WORKSPACE_PROVIDER_TYPE "directory") .Values.persistence.enabled) }}
           volumeMounts:
+            {{- if .Values.extraVolumeMounts }}
+            {{- toYaml .Values.extraVolumeMounts | nindent 12 }}
+            {{- end }}
+            {{- if and (eq .Values.config.OBOT_WORKSPACE_PROVIDER_TYPE "directory") .Values.persistence.enabled }}
             - mountPath: {{ .Values.persistence.path }}
               name: data
+            {{- end }}
           {{- end }}
           {{- if .Values.extraEnv }}
           env:
@@ -61,9 +66,14 @@ spec:
           {{- end }}
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
-      {{- if and (eq .Values.config.OBOT_WORKSPACE_PROVIDER_TYPE "directory") .Values.persistence.enabled }}
+      {{- if or .Values.extraVolumes (and (eq .Values.config.OBOT_WORKSPACE_PROVIDER_TYPE "directory") .Values.persistence.enabled) }}
       volumes:
+        {{- if .Values.extraVolumes }}
+        {{- toYaml .Values.extraVolumes | nindent 8 }}
+        {{- end }}
+        {{- if and (eq .Values.config.OBOT_WORKSPACE_PROVIDER_TYPE "directory") .Values.persistence.enabled }}
         - name: data
           persistentVolumeClaim:
             claimName: {{ ternary .Values.persistence.existingClaim (print .Release.Name "-pvc") (ne .Values.persistence.existingClaim "") }}
+        {{- end }}
       {{- end }}

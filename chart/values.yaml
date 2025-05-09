@@ -148,6 +148,12 @@ persistence:
   size: 8Gi
   existingClaim: ""
 
+# extraVolumes -- A list of additional volumes to create
+extraVolumes: [ ]
+
+# extraVolumeMounts -- A list of additional volume mounts to create
+extraVolumeMounts: [ ]
+
 serviceAccount:
   # serviceAccount.create - Specifies whether a service account should be created
   create: false
