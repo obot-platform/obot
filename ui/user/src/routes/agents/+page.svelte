@@ -279,9 +279,6 @@
 	mcps={data.mcps}
 	catalogDescription="Extend your agent's capabilities by adding multiple MCP servers from our evergrowing catalog."
 	catalogSubmitText="Create agent with server"
-	onFinish={async (_, project) => {
-		await goto(`/o/${project?.id}`);
-	}}
 />
 
 <svelte:head>

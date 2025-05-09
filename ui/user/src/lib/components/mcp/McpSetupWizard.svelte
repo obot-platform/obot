@@ -15,6 +15,7 @@
 	import McpServerTools from './McpServerTools.svelte';
 	import { responsive } from '$lib/stores';
 	import { clickOutside } from '$lib/actions/clickoutside';
+	import { fade } from 'svelte/transition';
 
 	interface Props {
 		mcps: MCP[];
@@ -55,24 +56,22 @@
 		projectMcpServerToolsDialog?.close();
 	}
 
-	function showMcpServerConfig() {
-		processing = false;
-		mcpInfoConfig?.open();
-	}
-
 	async function setup(mcpServerInfo: MCPServerInfo, mcpId?: string) {
 		processing = true;
 		try {
 			if (!project) {
 				project = await EditorService.createObot();
 			}
+
 			projectMcpServerInfo = mcpServerInfo;
 			projectMcp = projectMcp
 				? await updateProjectMcp(mcpServerInfo, projectMcp.id, project)
 				: await createProjectMcp(mcpServerInfo, project, mcpId);
 
 			if (!projectMcp.configured) {
-				showMcpServerConfig();
+				processing = false;
+				await new Promise((resolve) => setTimeout(resolve, 200));
+				mcpInfoConfig?.open();
 				return;
 			}
 
@@ -82,13 +81,13 @@
 				projectMcp.id
 			);
 
+			processing = false;
 			projectMcpServerToolsDialog?.showModal();
 		} catch (error) {
 			console.error('error occurred during agent mcp server setup', error);
-			showMcpServerConfig();
-			return;
-		} finally {
 			processing = false;
+			await new Promise((resolve) => setTimeout(resolve, 200));
+			mcpInfoConfig?.open();
 		}
 	}
 </script>
@@ -106,7 +105,10 @@
 />
 
 {#if processing}
-	<div class="fixed top-0 left-0 z-50 flex h-svh w-svw items-center justify-center bg-black/50">
+	<div
+		in:fade={{ duration: 200 }}
+		class="fixed top-0 left-0 z-50 flex h-svh w-svw items-center justify-center bg-black/50"
+	>
 		<LoaderCircle class="size-10 animate-spin" />
 	</div>
 {/if}
@@ -129,8 +131,8 @@
 			onclick={async () => {
 				if (onFinish) {
 					onFinish();
-				} else {
-					await goto(`/o/${project?.id}`);
+				} else if (project) {
+					await goto(`/o/${project.id}`);
 				}
 			}}
 		>
@@ -158,8 +160,8 @@
 			onSubmit={async () => {
 				if (onFinish) {
 					onFinish(projectMcp, project);
-				} else {
-					await goto(`/o/${project?.id}`);
+				} else if (project) {
+					await goto(`/o/${project.id}`);
 				}
 			}}
 			isNew

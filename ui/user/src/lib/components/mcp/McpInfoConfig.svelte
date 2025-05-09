@@ -63,9 +63,7 @@
 	}
 
 	export function close() {
-		if (dialog) {
-			dialog.close();
-		}
+		dialog?.close();
 	}
 
 	function handleSubmit() {

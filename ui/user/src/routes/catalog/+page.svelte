@@ -63,9 +63,6 @@
 				{mcps}
 				inline
 				catalogDescription="Extend your agent's capabilities by adding multiple MCP servers from our evergrowing catalog."
-				onFinish={async (_, project) => {
-					await goto(`/o/${project?.id}`);
-				}}
 			/>
 		</main>
 	{/if}
