@@ -10,7 +10,6 @@
 	} from '$lib/sort';
 	import Navbar from '$lib/components/Navbar.svelte';
 	import AgentCatalog from '$lib/components/agents/AgentCatalog.svelte';
-	import { goto } from '$app/navigation';
 	import McpSetupWizard from '$lib/components/mcp/McpSetupWizard.svelte';
 
 	let { data }: PageProps = $props();
