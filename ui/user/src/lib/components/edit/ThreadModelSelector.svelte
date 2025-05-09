@@ -87,10 +87,6 @@
 	}
 
 	onMount(() => {
-		if (threadId) {
-			fetchThreadDetails();
-		}
-
 		// Close model selector when clicking outside
 		const handleClickOutside = (event: MouseEvent) => {
 			if (
@@ -112,7 +108,7 @@
 	});
 
 	$effect(() => {
-		if (threadId && !threadDetails) {
+		if (threadId) {
 			fetchThreadDetails().then(() => {
 				if (threadDetails && threadDetails.model && threadDetails.modelProvider) {
 					// Make sure that the thread model is available on the project, and replace it with default if not.
