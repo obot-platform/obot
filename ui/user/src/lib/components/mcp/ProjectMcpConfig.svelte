@@ -110,11 +110,12 @@
 						<PencilLine class="size-5" /> Create MCP Config
 					</h3>
 				{/if}
-				<div class="flex gap-2">
-					<button class="icon-button" onclick={() => closeSidebarConfig(layout)}>
-						<X class="size-6" />
-					</button>
-				</div>
+				<button
+					class="icon-button h-fit w-fit flex-shrink-0 self-start"
+					onclick={() => closeSidebarConfig(layout)}
+				>
+					<X class="size-6" />
+				</button>
 			</div>
 		</div>
 	</div>

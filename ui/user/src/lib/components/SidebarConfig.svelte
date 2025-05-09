@@ -75,7 +75,7 @@
 					>
 						{#snippet header()}
 							<h2 class="flex items-center justify-between text-xl font-semibold">
-								Modify Tools
+								Manage Tools
 								<button onclick={() => closeSidebarConfig(layout)} class="icon-button">
 									<X class="size-6" />
 								</button>
