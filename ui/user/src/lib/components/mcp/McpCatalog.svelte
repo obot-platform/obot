@@ -44,6 +44,7 @@
 	let dialog: HTMLDialogElement | undefined = $state();
 	let configDialog = $state<ReturnType<typeof McpInfoConfig>>();
 	let selectedMcpManifest = $state<MCPManifest>();
+	let searchInput = $state<ReturnType<typeof Search>>();
 
 	const toolBundleMap = getToolBundleMap();
 
@@ -129,6 +130,7 @@
 	);
 
 	export function open() {
+		searchInput?.clear();
 		dialog?.showModal();
 	}
 
@@ -210,6 +212,7 @@
 			<div class="sticky top-0 left-0 z-30 w-full">
 				<div class="flex grow bg-white p-4 dark:bg-black">
 					<Search
+						bind:this={searchInput}
 						onChange={(val) => {
 							search = val;
 							currentPage = 1;

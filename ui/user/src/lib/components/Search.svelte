@@ -31,6 +31,13 @@
 			onChange(value);
 		}, 300);
 	}
+
+	export function clear() {
+		if (input) {
+			input.value = '';
+		}
+		onChange('');
+	}
 </script>
 
 <div class="relative w-full">
