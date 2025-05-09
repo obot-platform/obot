@@ -358,6 +358,10 @@ func (h *ProjectsHandler) CreateProject(req api.Context) error {
 			DefaultModel:         project.DefaultModel,
 			Models:               project.Models,
 		},
+		// Set the last used time to now, so that the project will get cleaned up by retention, even if it is never used.
+		Status: v1.ThreadStatus{
+			LastUsedTime: metav1.Now(),
+		},
 	}
 
 	if err := req.Create(thread); err != nil {
