@@ -1,14 +1,14 @@
 <script lang="ts">
 	import { getProjectMCPs } from '$lib/context/projectMcps.svelte';
 	import { ChatService, type MCP, type Project, type ProjectMCP } from '$lib/services';
-	import { PencilLine, Plus, Server, Trash2 } from 'lucide-svelte/icons';
+	import { PencilLine, Plus, Server, Trash2, Wrench } from 'lucide-svelte/icons';
 	import McpInfoConfig from '$lib/components/mcp/McpInfoConfig.svelte';
 	import Confirm from '$lib/components/Confirm.svelte';
 	import { onMount } from 'svelte';
 	import CollapsePane from '$lib/components/edit/CollapsePane.svelte';
 	import { HELPER_TEXTS } from '$lib/context/helperMode.svelte';
 	import DotDotDot from '$lib/components/DotDotDot.svelte';
-	import { getLayout, openEditProjectMcp } from '$lib/context/layout.svelte';
+	import { getLayout, openEditProjectMcp, openMCPServerTools } from '$lib/context/layout.svelte';
 	import McpSetupWizard from '$lib/components/mcp/McpSetupWizard.svelte';
 
 	interface Props {
@@ -77,12 +77,18 @@
 								{mcp.name || 'My Custom Server'}
 							</p>
 						</button>
-						<button
-							class="py-2 pr-3 transition-opacity duration-200 group-hover:opacity-100 md:opacity-0"
-							onclick={() => (toDelete = mcp)}
+						<DotDotDot
+							class="p-0 pr-2.5 transition-opacity duration-200 group-hover:opacity-100 md:opacity-0"
 						>
-							<Trash2 class="size-4" />
-						</button>
+							<div class="default-dialog flex min-w-max flex-col p-2">
+								<button class="menu-button" onclick={() => openMCPServerTools(layout, mcp)}>
+									<Wrench class="size-4" /> Manage Tools
+								</button>
+								<button class="menu-button" onclick={() => (toDelete = mcp)}>
+									<Trash2 class="size-4" /> Delete
+								</button>
+							</div>
+						</DotDotDot>
 					</div>
 				{/each}
 			</div>
