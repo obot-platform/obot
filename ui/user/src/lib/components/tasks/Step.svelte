@@ -16,6 +16,7 @@
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import LoopStep from './LoopStep.svelte';
 	import { transitionParentHeight } from '$lib/actions/size.svelte';
+	import { linear } from 'svelte/easing';
 
 	interface Props {
 		parentStale?: boolean;
@@ -258,10 +259,10 @@
 				{#if loopDataMessages.length > 0 && showOutput}
 					<!-- Show step message -->
 					<div
-						class="transition-height relative my-3 -ml-4 box-content flex min-h-11 flex-col gap-4 overflow-hidden rounded-lg bg-white p-5 dark:bg-black"
+						class="transition-height relative my-3 -ml-4 box-content flex min-h-6 flex-col gap-4 overflow-hidden rounded-lg bg-white p-5 dark:bg-black"
 						class:outline-2={isRunning}
 						class:outline-blue={isRunning}
-						transition:slide
+						transition:slide={{ duration: !readOnly ? 200 : 0, easing: linear }}
 					>
 						<div
 							class="message-container flex w-full flex-col gap-4"
@@ -295,7 +296,7 @@
 									</div>
 								</div>
 
-								{#each step.loop! as _, j}
+								{#each step.loop! as _, j (j)}
 									<!-- Get the current step messages array -->
 									{@const stepMessages = messages[j] ?? []}
 
@@ -314,6 +315,7 @@
 										{stale}
 										onKeydown={onkeydown}
 										onDelete={() => step.loop!.splice(j, 1)}
+										index={j}
 									/>
 								{/each}
 							</div>
@@ -354,8 +356,8 @@
 			{/if}
 		</div>
 
-		<div class="flex items-start">
-			{#if !readOnly}
+		{#if !readOnly}
+			<div class="flex items-start">
 				<button
 					class="icon-button"
 					class:text-blue={isLoopStep}
@@ -417,18 +419,18 @@
 						{/if}
 					</div>
 				</div>
-			{/if}
-		</div>
+			</div>
+		{/if}
 	</div>
 </li>
 
 <!-- This code section is responsible for showing messages in a !loop task -->
 {#if !isLoopStep && messages.length > 0 && showOutput}
 	<div
-		class="transition-height relative my-3 box-content flex min-h-11 flex-col gap-4 overflow-hidden rounded-lg bg-white p-5 dark:bg-black"
+		class="transition-height relative my-3 box-content flex min-h-6 flex-col gap-4 overflow-hidden rounded-lg bg-white p-5 dark:bg-black"
 		class:outline-2={isRunning}
 		class:outline-blue={isRunning}
-		transition:slide
+		transition:slide={{ duration: !readOnly ? 200 : 0, easing: linear }}
 	>
 		<div
 			class="messages-container flex w-full flex-col gap-4"

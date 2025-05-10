@@ -7,6 +7,7 @@
 	import type { KeyboardEventHandler } from 'svelte/elements';
 	import { transitionParentHeight } from '$lib/actions/size.svelte';
 	import { slide } from 'svelte/transition';
+	import { linear } from 'svelte/easing';
 
 	type Props = {
 		value: string;
@@ -18,6 +19,7 @@
 		isReadOnly?: boolean;
 		shouldShowOutput?: boolean;
 		stale?: boolean;
+		index?: number;
 		onKeydown?: KeyboardEventHandler<HTMLTextAreaElement>;
 		onDelete?: () => void;
 		onAdd?: () => void;
@@ -33,6 +35,7 @@
 		isReadOnly = false,
 		shouldShowOutput = false,
 		stale = false,
+		index = 0,
 		onKeydown = undefined,
 		onDelete = undefined,
 		onAdd = undefined
@@ -40,7 +43,7 @@
 </script>
 
 <div
-	class="iteration-step flex flex-col gap-2 transition-opacity duration-100"
+	class="iteration-step flex w-full flex-col gap-2 transition-opacity duration-100"
 	class:opacity-50={isStepRunning && !isLoopStepRunning}
 >
 	<div class="flex items-center gap-2 overflow-hidden">
@@ -69,10 +72,19 @@
 
 	{#if (isStepRunning || isStepRunned) && shouldShowOutput}
 		<div
-			class="transition-height relative -ml-4 box-content flex min-h-11 flex-col gap-4 overflow-hidden rounded-lg bg-white p-5 duration-200 dark:bg-black"
+			class="transition-height relative -ml-4 box-content flex min-h-6 flex-col gap-4 overflow-hidden rounded-lg bg-white p-5 duration-200 dark:bg-black"
 			class:outline-2={isStepRunning && isLoopStepRunning}
 			class:outline-blue={isStepRunning && isLoopStepRunning}
-			transition:slide
+			in:slide|global={{
+				duration: !isReadOnly ? 200 : 0,
+				delay: isStepRunning && !isReadOnly ? index * 190 : 0,
+				easing: linear
+			}}
+			out:slide={{
+				duration: 200,
+				delay: 0,
+				easing: linear
+			}}
 		>
 			<div
 				class="messages-list flex h-fit w-full flex-col gap-4"
