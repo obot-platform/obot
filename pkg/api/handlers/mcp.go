@@ -220,6 +220,10 @@ func (m *MCPHandler) DeleteServer(req api.Context) error {
 		return err
 	}
 
+	if err := req.Get(&server, id); err != nil {
+		return err
+	}
+
 	// Ensure that the MCP server is in the same project as the request before deleting it.
 	// This prevents chatbot users from deleting MCP servers from the agent.
 	// This is necessary because in order to enable MCP servers to be shared across projects,
@@ -227,10 +231,6 @@ func (m *MCPHandler) DeleteServer(req api.Context) error {
 	// of the one the MCP server belongs to.
 	if project.Name != server.Spec.ThreadName {
 		return types.NewErrForbidden("cannot delete MCP server from this project")
-	}
-
-	if err := req.Get(&server, id); err != nil {
-		return err
 	}
 
 	if err := m.gptscript.DeleteCredential(req.Context(), fmt.Sprintf("%s-%s", server.Spec.ThreadName, server.Name), server.Name); err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
