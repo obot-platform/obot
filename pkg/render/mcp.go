@@ -49,10 +49,10 @@ func mcpServerTool(ctx context.Context, thread *v1.Thread, gptClient *gptscript.
 		credEnv = cred.Env
 	}
 
-	return MCPServerToolWithCreds(mcpServer, credEnv, allowTools...)
+	return MCPServerToolWithCreds(mcpServer, thread.Name, credEnv, allowTools...)
 }
 
-func MCPServerToolWithCreds(mcpServer v1.MCPServer, credEnv map[string]string, allowedTools ...string) (gptscript.ToolDef, error) {
+func MCPServerToolWithCreds(mcpServer v1.MCPServer, projectThreadName string, credEnv map[string]string, allowedTools ...string) (gptscript.ToolDef, error) {
 	serverConfig := gmcp.ServerConfig{
 		DisableInstruction: false,
 		Command:            mcpServer.Spec.Manifest.Command,
@@ -60,7 +60,7 @@ func MCPServerToolWithCreds(mcpServer v1.MCPServer, credEnv map[string]string, a
 		Env:                make([]string, 0, len(mcpServer.Spec.Manifest.Env)),
 		URL:                mcpServer.Spec.Manifest.URL,
 		Headers:            make([]string, 0, len(mcpServer.Spec.Manifest.Headers)),
-		Scope:              mcpServer.Spec.ThreadName,
+		Scope:              projectThreadName,
 		AllowedTools:       allowedTools,
 	}
 

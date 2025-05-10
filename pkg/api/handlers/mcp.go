@@ -135,7 +135,7 @@ func (m *MCPHandler) ListServer(req api.Context) error {
 				return err
 			}
 
-			tools, err = m.toolsForServer(req.Context(), req.Storage, server, thread.Spec.Manifest.AllowedMCPTools[server.Name], c.Env)
+			tools, err = m.toolsForServer(req.Context(), req.Storage, project.Name, server, thread.Spec.Manifest.AllowedMCPTools[server.Name], c.Env)
 			if err != nil {
 				if uc := (*render.UnconfiguredMCPError)(nil); errors.As(err, &uc) {
 					// Leave out tools for un-configured MCP servers
@@ -200,7 +200,7 @@ func (m *MCPHandler) getServer(req api.Context, withTools bool) error {
 			allowedTools = project.Spec.Manifest.AllowedMCPTools[server.Name]
 		}
 
-		tools, err = m.toolsForServer(req.Context(), req.Storage, server, allowedTools, cred.Env)
+		tools, err = m.toolsForServer(req.Context(), req.Storage, project.Name, server, allowedTools, cred.Env)
 		if err != nil {
 			return fmt.Errorf("failed to render tools: %w", err)
 		}
@@ -555,7 +555,7 @@ func (m *MCPHandler) SetTools(req api.Context) error {
 		return fmt.Errorf("failed to find credential: %w", err)
 	}
 
-	mcpTools, err := m.toolsForServer(req.Context(), req.Storage, mcpServer, thread.Spec.Manifest.AllowedMCPTools[mcpServer.Name], cred.Env)
+	mcpTools, err := m.toolsForServer(req.Context(), req.Storage, project.Name, mcpServer, thread.Spec.Manifest.AllowedMCPTools[mcpServer.Name], cred.Env)
 	if err != nil {
 		return fmt.Errorf("failed to render tools: %w", err)
 	}
@@ -589,7 +589,7 @@ func (m *MCPHandler) SetTools(req api.Context) error {
 	return nil
 }
 
-func (m *MCPHandler) toolsForServer(ctx context.Context, client kclient.Client, server v1.MCPServer, allowedTools []string, credEnv map[string]string) ([]types.MCPServerTool, error) {
+func (m *MCPHandler) toolsForServer(ctx context.Context, client kclient.Client, projectThreadName string, server v1.MCPServer, allowedTools []string, credEnv map[string]string) ([]types.MCPServerTool, error) {
 	allTools := slices.Contains(allowedTools, "*")
 	if server.Spec.ToolReferenceName != "" {
 		var toolReferences v1.ToolReferenceList
@@ -617,7 +617,7 @@ func (m *MCPHandler) toolsForServer(ctx context.Context, client kclient.Client, 
 		return tools, nil
 	}
 
-	tool, err := render.MCPServerToolWithCreds(server, credEnv)
+	tool, err := render.MCPServerToolWithCreds(server, projectThreadName, credEnv)
 	if err != nil {
 		return nil, err
 	}
