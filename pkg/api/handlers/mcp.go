@@ -604,7 +604,7 @@ func (m *MCPHandler) toolsForServer(ctx context.Context, client kclient.Client, 
 			if ref.Status.Tool != nil {
 				tools = append(tools, types.MCPServerTool{
 					ID:          ref.Name,
-					Name:        ref.Spec.Reference,
+					Name:        ref.Status.Tool.Name,
 					Description: ref.Status.Tool.Description,
 					Metadata:    ref.Status.Tool.Metadata,
 					Params:      ref.Status.Tool.Params,
