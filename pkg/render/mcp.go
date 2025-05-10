@@ -105,8 +105,13 @@ func MCPServerToolWithCreds(mcpServer v1.MCPServer, credEnv map[string]string, a
 		return gptscript.ToolDef{}, fmt.Errorf("failed to marshal MCP Server %s config: %w", mcpServer.Spec.Manifest.Name, err)
 	}
 
+	name := mcpServer.Spec.Manifest.Name
+	if name == "" {
+		name = mcpServer.Name
+	}
+
 	return gptscript.ToolDef{
-		Name:         mcpServer.Spec.Manifest.Name,
+		Name:         name,
 		Instructions: fmt.Sprintf("%s\n%s", types.MCPPrefix, string(b)),
 	}, nil
 }
