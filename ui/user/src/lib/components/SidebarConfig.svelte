@@ -2,7 +2,7 @@
 	import { closeSidebarConfig, getLayout } from '$lib/context/layout.svelte';
 	import type { Assistant, AssistantTool, Project } from '$lib/services';
 	import { fade } from 'svelte/transition';
-	import Slack from '$lib/components/slack/Slack.svelte';
+	import Slack from '$lib/components/integrations/slack/Slack.svelte';
 	import CustomTool from '$lib/components/edit/CustomTool.svelte';
 	import ProjectInvitations from '$lib/components/edit/ProjectInvitations.svelte';
 	import TemplateConfig from '$lib/components/templates/TemplateConfig.svelte';
@@ -10,10 +10,12 @@
 	import ProjectMcpConfig from '$lib/components/mcp/ProjectMcpConfig.svelte';
 	import { createProjectMcp, updateProjectMcp } from '$lib/services/chat/mcp';
 	import { getProjectMCPs } from '$lib/context/projectMcps.svelte';
-	import Discord from '$lib/components/discord/Discord.svelte';
 	import McpServerTools from '$lib/components/mcp/McpServerTools.svelte';
 	import ModelProviders from './ModelProviders.svelte';
 	import { X } from 'lucide-svelte';
+	import Discord from './integrations/discord/Discord.svelte';
+	import Webhook from './integrations/webhook/Webhook.svelte';
+	import Email from './integrations/email/Email.svelte';
 
 	interface Props {
 		project: Project;
@@ -89,6 +91,10 @@
 		{/key}
 	{:else if layout.sidebarConfig === 'discord'}
 		<Discord {project} />
+	{:else if layout.sidebarConfig === 'webhook'}
+		<Webhook {project} />
+	{:else if layout.sidebarConfig === 'email'}
+		<Email {project} />
 	{:else if layout.sidebarConfig === 'custom-tool' && layout.customToolId && toEdit}
 		{#key layout.customToolId}
 			<CustomTool

@@ -338,6 +338,7 @@ export interface Task {
 	onSlackMessage?: object;
 	onDiscordMessage?: object;
 	alias?: string;
+	managed?: boolean;
 }
 
 export interface OnDemand {
@@ -421,11 +422,25 @@ export interface Project {
 	websiteKnowledge?: Sites;
 	capabilities: {
 		onSlackMessage?: boolean;
+		onDiscordMessage?: boolean;
+		onEmail?: EmailManifest;
+		onWebhook?: WebhookManifest;
 	};
 	defaultModelProvider?: string;
 	defaultModel?: string;
 	models?: Record<string, string[]>;
 	userID: string;
+	workflowNameFromIntegration?: string;
+}
+
+export interface WebhookManifest {
+	headers: string[];
+	secret: string;
+	validationHeader: string;
+}
+
+export interface EmailManifest {
+	allowedSenders?: string[];
 }
 
 export interface ProjectMember {

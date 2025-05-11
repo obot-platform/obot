@@ -296,7 +296,7 @@
 				bind:this={authDialog}
 				credential={credToAuth}
 				{project}
-				local={false}
+				local={true}
 				toolID="slack-bot-bundle"
 				onClose={() => {
 					credToAuth = undefined;

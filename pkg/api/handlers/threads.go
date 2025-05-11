@@ -73,6 +73,7 @@ func convertThread(thread v1.Thread) types.Thread {
 			env = append(env, fmt.Sprintf("%s=%s", e.Name, e.Value))
 		}
 	}
+
 	return types.Thread{
 		Metadata:        MetadataFrom(&thread),
 		ThreadManifest:  thread.Spec.Manifest,

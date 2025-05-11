@@ -82,7 +82,10 @@ func (in *Thread) GetColumns() [][]string {
 }
 
 type ThreadCapabilities struct {
-	OnSlackMessage bool `json:"onSlackMessage"`
+	OnSlackMessage   bool             `json:"onSlackMessage"`
+	OnDiscordMessage bool             `json:"onDiscordMessage"`
+	OnEmail          *types.OnEmail   `json:"onEmail"`
+	OnWebhook        *types.OnWebhook `json:"onWebhook"`
 }
 
 type ThreadSpec struct {
@@ -177,6 +180,8 @@ type ThreadStatus struct {
 	CopiedTasks         bool   `json:"copiedTasks,omitempty"`
 	CopiedTools         bool   `json:"copiedTools,omitempty"`
 	Created             bool   `json:"created,omitempty"`
+	// WorkflowNameFromIntegration is the workflow name created from external integration, like slack, discord..
+	WorkflowNameFromIntegration string `json:"workflowNameFromIntegration,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

@@ -6,6 +6,7 @@ import (
 	"github.com/gptscript-ai/go-gptscript"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
+	"github.com/obot-platform/obot/pkg/controller/handlers/task"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -34,6 +35,10 @@ func (s *SlackHandler) Create(req api.Context) error {
 	}
 
 	if err := validateSlackInput(input, false); err != nil {
+		return err
+	}
+
+	if err := task.Validate(thread, true); err != nil {
 		return err
 	}
 

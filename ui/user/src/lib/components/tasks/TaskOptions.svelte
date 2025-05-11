@@ -69,31 +69,33 @@
 	<div
 		class="dark:bg-surface1 dark:border-surface3 flex grow flex-col overflow-visible rounded-lg bg-white p-5 shadow-sm dark:border"
 	>
-		<div class="border-surface3 mb-4 flex flex-col gap-4 border-b pb-4">
-			<div
-				class="flex w-full flex-col justify-start gap-4 lg:flex-row lg:items-center lg:justify-between"
-			>
-				<h3 class="text-lg font-semibold">How do you want to run this task?</h3>
-				<Dropdown
-					class="bg-surface2 xl:min-w-sm"
-					selected={selectedTrigger()}
-					values={options}
-					onSelected={selected}
-					disabled={readOnly}
-				/>
+		{#if task?.schedule || task?.onDemand}
+			<div class="border-surface3 mb-4 flex flex-col gap-4 border-b pb-4">
+				<div
+					class="flex w-full flex-col justify-start gap-4 lg:flex-row lg:items-center lg:justify-between"
+				>
+					<h3 class="text-lg font-semibold">How do you want to run this task?</h3>
+					<Dropdown
+						class="bg-surface2 xl:min-w-sm"
+						selected={selectedTrigger()}
+						values={options}
+						onSelected={selected}
+						disabled={readOnly}
+					/>
+				</div>
+				<p class="text-gray text-sm">
+					{#if triggerType === 'onDemand'}
+						On demands tasks can be ran manually from the UI or invoked by your agent from chat
+						threads or even other tasks. Just tell it to invoke them by name like this: “Call the
+						Webpage Summarizer task.”
+					{:else}
+						Scheduled tasks will be ran autonomously on your specified interval. Like on demand
+						tasks, they can also be invoked from the UI or by your agent, but you cannot add
+						arguments to a scheduled task.
+					{/if}
+				</p>
 			</div>
-			<p class="text-gray text-sm">
-				{#if triggerType === 'onDemand'}
-					On demands tasks can be ran manually from the UI or invoked by your agent from chat
-					threads or even other tasks. Just tell it to invoke them by name like this: “Call the
-					Webpage Summarizer task.”
-				{:else}
-					Scheduled tasks will be ran autonomously on your specified interval. Like on demand tasks,
-					they can also be invoked from the UI or by your agent, but you cannot add arguments to a
-					scheduled task.
-				{/if}
-			</p>
-		</div>
+		{/if}
 
 		{#if task}
 			<Trigger bind:task {readOnly} />

@@ -8,6 +8,7 @@ import (
 	"github.com/gptscript-ai/go-gptscript"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
+	"github.com/obot-platform/obot/pkg/controller/handlers/task"
 	gateway "github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/invoke"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
@@ -131,6 +132,10 @@ func (h *ProjectsHandler) UpdateProject(req api.Context) error {
 		return err
 	}
 
+	if err := h.validateProject(&project); err != nil {
+		return err
+	}
+
 	var thread v1.Thread
 	if err := req.Get(&thread, strings.Replace(projectID, system.ProjectPrefix, system.ThreadPrefix, 1)); err != nil {
 		return err
@@ -163,10 +168,12 @@ func (h *ProjectsHandler) UpdateProject(req api.Context) error {
 			}
 		}
 
+		thread.Spec.Capabilities = v1.ThreadCapabilities(*project.Capabilities)
 		thread.Spec.Manifest = project.ThreadManifest
 		thread.Spec.DefaultModelProvider = project.DefaultModelProvider
 		thread.Spec.DefaultModel = project.DefaultModel
 		thread.Spec.Models = project.Models
+		thread.Spec.Manifest.Capabilities = nil
 		if err := req.Update(&thread); err != nil {
 			return err
 		}
@@ -337,6 +344,10 @@ func (h *ProjectsHandler) CreateProject(req api.Context) error {
 		}
 	}
 
+	if err := h.validateProject(&project); err != nil {
+		return err
+	}
+
 	thread := &v1.Thread{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: system.ThreadPrefix,
@@ -359,12 +370,39 @@ func (h *ProjectsHandler) CreateProject(req api.Context) error {
 			Models:               project.Models,
 		},
 	}
+	if project.Capabilities != nil {
+		thread.Spec.Capabilities = v1.ThreadCapabilities(*project.Capabilities)
+	}
 
 	if err := req.Create(thread); err != nil {
 		return err
 	}
 
 	return req.WriteCreated(convertProject(thread, nil))
+}
+
+func (h *ProjectsHandler) validateProject(project *types.ProjectManifest) error {
+	if project.Capabilities == nil {
+		return nil
+	}
+	var count int
+
+	if project.Capabilities.OnSlackMessage {
+		count++
+	}
+	if project.Capabilities.OnDiscordMessage {
+		count++
+	}
+	if project.Capabilities.OnEmail != nil {
+		count++
+	}
+	if project.Capabilities.OnWebhook != nil {
+		count++
+	}
+	if count > 1 {
+		return task.ErrorValidating
+	}
+	return nil
 }
 
 func (h *ProjectsHandler) getProjects(req api.Context, agent *v1.Agent, all bool) (result types.ProjectList, err error) {
@@ -456,12 +494,13 @@ func convertProject(thread *v1.Thread, parentThread *v1.Thread) types.Project {
 			DefaultModel:         thread.Spec.DefaultModel,
 			Models:               thread.Spec.Models,
 		},
-		ParentID:        strings.Replace(thread.Spec.ParentThreadName, system.ThreadPrefix, system.ProjectPrefix, 1),
-		SourceProjectID: strings.Replace(thread.Spec.SourceThreadName, system.ThreadPrefix, system.ProjectPrefix, 1),
-		AssistantID:     thread.Spec.AgentName,
-		Editor:          thread.IsEditor(),
-		UserID:          thread.Spec.UserID,
-		Capabilities:    types.ProjectCapabilities(thread.Spec.Capabilities),
+		ParentID:                    strings.Replace(thread.Spec.ParentThreadName, system.ThreadPrefix, system.ProjectPrefix, 1),
+		SourceProjectID:             strings.Replace(thread.Spec.SourceThreadName, system.ThreadPrefix, system.ProjectPrefix, 1),
+		AssistantID:                 thread.Spec.AgentName,
+		Editor:                      thread.IsEditor(),
+		UserID:                      thread.Spec.UserID,
+		Capabilities:                convertProjectCapabilities(thread.Spec.Capabilities),
+		WorkflowNameFromIntegration: thread.Status.WorkflowNameFromIntegration,
 	}
 
 	// Include tools from parent project
@@ -472,6 +511,21 @@ func convertProject(thread *v1.Thread, parentThread *v1.Thread) types.Project {
 	p.Type = "project"
 	p.ID = strings.Replace(p.ID, system.ThreadPrefix, system.ProjectPrefix, 1)
 	return p
+}
+
+func convertProjectCapabilities(capabilities v1.ThreadCapabilities) types.ProjectCapabilities {
+	result := types.ProjectCapabilities{
+		OnSlackMessage:   capabilities.OnSlackMessage,
+		OnDiscordMessage: capabilities.OnDiscordMessage,
+		OnEmail:          capabilities.OnEmail,
+	}
+	if capabilities.OnWebhook != nil {
+		result.OnWebhook = &types.OnWebhook{}
+		result.OnWebhook.ValidationHeader = capabilities.OnWebhook.ValidationHeader
+		result.OnWebhook.Headers = capabilities.OnWebhook.Headers
+		result.OnWebhook.Secret = "********"
+	}
+	return result
 }
 
 func (h *ProjectsHandler) DeleteProjectThread(req api.Context) error {

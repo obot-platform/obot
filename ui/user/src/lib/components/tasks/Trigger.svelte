@@ -80,6 +80,9 @@
 				<CopyButton text={webhook} />
 				{webhook}
 			</div>
+			<p class="text-sm text-gray-600 dark:text-gray-400">
+				You can send webhooks to this URL to trigger the task.
+			</p>
 		</div>
 	{/if}
 	{#if selectedTrigger() === 'email' && email}
@@ -89,6 +92,9 @@
 				<CopyButton text={email} />
 				{email}
 			</div>
+			<p class="text-sm text-gray-600 dark:text-gray-400">
+				You can send emails to this address to trigger the task.
+			</p>
 		</div>
 	{/if}
 	{#if selectedTrigger() === 'onDemand'}

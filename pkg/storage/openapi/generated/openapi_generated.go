@@ -87,6 +87,8 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/apiclient/types.OAuthAppList":                                 schema_obot_platform_obot_apiclient_types_OAuthAppList(ref),
 		"github.com/obot-platform/obot/apiclient/types.OAuthAppLoginAuthStatus":                      schema_obot_platform_obot_apiclient_types_OAuthAppLoginAuthStatus(ref),
 		"github.com/obot-platform/obot/apiclient/types.OAuthAppManifest":                             schema_obot_platform_obot_apiclient_types_OAuthAppManifest(ref),
+		"github.com/obot-platform/obot/apiclient/types.OnEmail":                                      schema_obot_platform_obot_apiclient_types_OnEmail(ref),
+		"github.com/obot-platform/obot/apiclient/types.OnWebhook":                                    schema_obot_platform_obot_apiclient_types_OnWebhook(ref),
 		"github.com/obot-platform/obot/apiclient/types.OneDriveConfig":                               schema_obot_platform_obot_apiclient_types_OneDriveConfig(ref),
 		"github.com/obot-platform/obot/apiclient/types.Progress":                                     schema_obot_platform_obot_apiclient_types_Progress(ref),
 		"github.com/obot-platform/obot/apiclient/types.Project":                                      schema_obot_platform_obot_apiclient_types_Project(ref),
@@ -3436,6 +3438,129 @@ func schema_obot_platform_obot_apiclient_types_OAuthAppManifest(ref common.Refer
 	}
 }
 
+func schema_obot_platform_obot_apiclient_types_OnEmail(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"description": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"alias": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"workflowName": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"allowedSenders": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"name", "description", "workflowName"},
+			},
+		},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_OnWebhook(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"description": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"alias": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"workflowName": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"headers": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+					"secret": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"validationHeader": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+				},
+				Required: []string{"name", "description", "alias", "workflowName", "headers", "secret", "validationHeader"},
+			},
+		},
+	}
+}
+
 func schema_obot_platform_obot_apiclient_types_OneDriveConfig(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -3646,6 +3771,12 @@ func schema_obot_platform_obot_apiclient_types_Project(ref common.ReferenceCallb
 							Ref:     ref("github.com/obot-platform/obot/apiclient/types.ProjectCapabilities"),
 						},
 					},
+					"workflowNameFromIntegration": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
 				},
 				Required: []string{"Metadata", "ProjectManifest", "editor", "capabilities"},
 			},
@@ -3667,9 +3798,27 @@ func schema_obot_platform_obot_apiclient_types_ProjectCapabilities(ref common.Re
 							Format: "",
 						},
 					},
+					"onDiscordMessage": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
+						},
+					},
+					"onEmail": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.OnEmail"),
+						},
+					},
+					"onWebhook": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.OnWebhook"),
+						},
+					},
 				},
 			},
 		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.OnEmail", "github.com/obot-platform/obot/apiclient/types.OnWebhook"},
 	}
 }
 
@@ -5485,6 +5634,11 @@ func schema_obot_platform_obot_apiclient_types_ThreadManifest(ref common.Referen
 							Ref: ref("github.com/obot-platform/obot/apiclient/types.WebsiteKnowledge"),
 						},
 					},
+					"capabilities": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.ProjectCapabilities"),
+						},
+					},
 					"tools": {
 						SchemaProps: spec.SchemaProps{
 							Type: []string{"array"},
@@ -5559,7 +5713,7 @@ func schema_obot_platform_obot_apiclient_types_ThreadManifest(ref common.Referen
 			},
 		},
 		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.AgentIcons", "github.com/obot-platform/obot/apiclient/types.WebsiteKnowledge"},
+			"github.com/obot-platform/obot/apiclient/types.AgentIcons", "github.com/obot-platform/obot/apiclient/types.ProjectCapabilities", "github.com/obot-platform/obot/apiclient/types.WebsiteKnowledge"},
 	}
 }
 
@@ -5613,12 +5767,17 @@ func schema_obot_platform_obot_apiclient_types_ThreadManifestManagedFields(ref c
 							Ref: ref("github.com/obot-platform/obot/apiclient/types.WebsiteKnowledge"),
 						},
 					},
+					"capabilities": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.ProjectCapabilities"),
+						},
+					},
 				},
 				Required: []string{"name", "icons", "introductionMessage", "starterMessages"},
 			},
 		},
 		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.AgentIcons", "github.com/obot-platform/obot/apiclient/types.WebsiteKnowledge"},
+			"github.com/obot-platform/obot/apiclient/types.AgentIcons", "github.com/obot-platform/obot/apiclient/types.ProjectCapabilities", "github.com/obot-platform/obot/apiclient/types.WebsiteKnowledge"},
 	}
 }
 
@@ -10484,10 +10643,29 @@ func schema_storage_apis_obotobotai_v1_ThreadCapabilities(ref common.ReferenceCa
 							Format:  "",
 						},
 					},
+					"onDiscordMessage": {
+						SchemaProps: spec.SchemaProps{
+							Default: false,
+							Type:    []string{"boolean"},
+							Format:  "",
+						},
+					},
+					"onEmail": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.OnEmail"),
+						},
+					},
+					"onWebhook": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.OnWebhook"),
+						},
+					},
 				},
-				Required: []string{"onSlackMessage"},
+				Required: []string{"onSlackMessage", "onDiscordMessage", "onEmail", "onWebhook"},
 			},
 		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.OnEmail", "github.com/obot-platform/obot/apiclient/types.OnWebhook"},
 	}
 }
 
@@ -11059,6 +11237,13 @@ func schema_storage_apis_obotobotai_v1_ThreadStatus(ref common.ReferenceCallback
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"boolean"},
 							Format: "",
+						},
+					},
+					"workflowNameFromIntegration": {
+						SchemaProps: spec.SchemaProps{
+							Description: "WorkflowNameFromIntegration is the workflow name created from external integration, like slack, discord..",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
 				},

@@ -118,9 +118,11 @@
 									<button class="menu-button" onclick={() => runTask(task)}>
 										<Play class="size-4" /> Run Task
 									</button>
-									<button class="menu-button" onclick={() => (taskToDelete = task)}>
-										<Trash2 class="size-4" /> Delete
-									</button>
+									{#if task.id !== project.workflowNameFromIntegration}
+										<button class="menu-button" onclick={() => (taskToDelete = task)}>
+											<Trash2 class="size-4" /> Delete
+										</button>
+									{/if}
 								</div>
 							</DotDotDot>
 						{/snippet}

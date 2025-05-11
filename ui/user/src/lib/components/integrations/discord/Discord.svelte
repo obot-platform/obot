@@ -6,20 +6,23 @@
 	import CredentialAuth from '$lib/components/edit/CredentialAuth.svelte';
 	import { getProjectTools } from '$lib/context/projectTools.svelte';
 	import type { AssistantTool } from '$lib/services';
-	import { closeSidebarConfig, getLayout } from '$lib/context/layout.svelte';
+	import { closeSidebarConfig, getLayout, openTask } from '$lib/context/layout.svelte';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
-	import { CheckCircle } from 'lucide-svelte/icons';
+	import type { Task } from '$lib/services';
 
 	interface Props {
 		project: Project;
 	}
 
-	let { project }: Props = $props();
-	let credentials = $state<ProjectCredential[]>([]);
+	let { project = $bindable() }: Props = $props();
 	let authDialog: ReturnType<typeof CredentialAuth> | undefined = $state();
 	let credToAuth = $state<ProjectCredential | undefined>();
 	let toolSelection = $state<Record<string, AssistantTool>>({});
-	let discordEnabled = $state(false);
+	let confirmRemove: HTMLDialogElement | undefined = $state();
+	let credentials = $state<ProjectCredential[]>([]);
+	let task = $state<Task | undefined>();
+	let taskDialog: HTMLDialogElement | undefined = $state();
+	const discordEnabled = $derived(project.capabilities?.onDiscordMessage);
 	const layout = getLayout();
 
 	const projectTools = getProjectTools();
@@ -35,17 +38,55 @@
 	}
 
 	$effect(() => {
-		ChatService.listProjectCredentials(project.assistantID, project.id).then((creds) => {
+		ChatService.listProjectLocalCredentials(project.assistantID, project.id).then((creds) => {
 			credentials = creds.items;
 			credToAuth = credentials.find((c) => c.toolID === 'discord-bundle');
-			if (
-				credentials.find((c) => c.toolID === 'discord-bundle')?.exists &&
-				toolSelection['discord-bundle']?.enabled
-			) {
-				discordEnabled = true;
-			}
 		});
 	});
+
+	async function configureDiscord() {
+		if (toolSelection['discord-bundle'] && !toolSelection['discord-bundle'].enabled) {
+			toolSelection['discord-bundle'].enabled = true;
+			projectTools.tools = Object.values(toolSelection);
+			await ChatService.updateProjectTools(project.assistantID, project.id, {
+				items: Object.values(toolSelection)
+			});
+		}
+		if (!credToAuth?.exists) {
+			authDialog?.show();
+		}
+		if (!project.capabilities) {
+			project.capabilities = {};
+		}
+
+		if (!project.capabilities.onDiscordMessage) {
+			project.capabilities.onDiscordMessage = true;
+			try {
+				await ChatService.updateProject(project);
+			} catch (error) {
+				project.capabilities.onDiscordMessage = false;
+				throw error;
+			}
+		}
+
+		let maxAttempts = 30;
+		let attempts = 0;
+
+		while (attempts < maxAttempts) {
+			attempts++;
+			project = await ChatService.getProject(project.id);
+			if (project.workflowNameFromIntegration) {
+				layout.tasks = (await ChatService.listTasks(project.assistantID, project.id)).items;
+				task = layout.tasks.find((t) => t.id === project.workflowNameFromIntegration);
+				if (task) {
+					taskDialog?.showModal();
+				}
+				break;
+			}
+
+			await new Promise((resolve) => setTimeout(resolve, 1000));
+		}
+	}
 </script>
 
 <div class="flex w-full flex-col">
@@ -124,39 +165,92 @@
 
 				<div class="mt-6 flex justify-end gap-3">
 					{#if !discordEnabled}
-						<button
-							class="button"
-							onclick={async () => {
-								if (toolSelection['discord-bundle'] && !toolSelection['discord-bundle'].enabled) {
-									toolSelection['discord-bundle'].enabled = true;
-									projectTools.tools = Object.values(toolSelection);
-									await ChatService.updateProjectTools(project.assistantID, project.id, {
-										items: Object.values(toolSelection)
-									});
-								}
-								authDialog?.show();
-							}}
-						>
-							Configure Now
-						</button>
+						<button class="button" onclick={configureDiscord}> Configure Now </button>
 					{/if}
 					{#if discordEnabled}
-						<CheckCircle class="size-6 text-green-500" />
-						<span class="text-sm text-gray-600">Configured</span>
+						<div class="flex items-center gap-2">
+							<button
+								class="button bg-red-500 text-white hover:bg-red-600"
+								onclick={() => {
+									confirmRemove?.showModal();
+								}}
+							>
+								Remove Configuration
+							</button>
+							<button class="button" onclick={configureDiscord}> Configure </button>
+						</div>
 					{/if}
 				</div>
 			</div>
+
+			<dialog bind:this={confirmRemove}>
+				<div class="modal-box">
+					<div class="p-4">
+						<h3 class="text-lg font-medium">Remove Discord Configuration</h3>
+						<p class="mt-2 text-sm text-gray-500">
+							Are you sure you want to remove the Discord configuration? This will also remove the
+							associated task.
+						</p>
+
+						<div class="mt-6 flex justify-end gap-3">
+							<button
+								class="button"
+								onclick={() => {
+									confirmRemove?.close();
+								}}
+							>
+								Cancel
+							</button>
+							<button
+								class="button bg-red-500 text-white hover:bg-red-600"
+								onclick={async () => {
+									if (project.capabilities) {
+										project.capabilities.onDiscordMessage = false;
+										project = await ChatService.updateProject(project);
+									}
+									confirmRemove?.close();
+								}}
+							>
+								Remove
+							</button>
+						</div>
+					</div>
+				</div>
+			</dialog>
 
 			<CredentialAuth
 				bind:this={authDialog}
 				credential={credToAuth}
 				{project}
-				local={false}
+				local={true}
 				toolID="discord-bundle"
 				onClose={() => {
 					credToAuth = undefined;
 				}}
 			/>
+
+			<dialog bind:this={taskDialog}>
+				<div class="modal-box">
+					<div class="p-4">
+						<h3 class="text-lg font-medium">Task Created</h3>
+						<p class="mt-2 text-sm text-gray-500">
+							Task "{task?.name}" has been created from the Discord integration.
+						</p>
+
+						<div class="mt-6 flex justify-end gap-3">
+							<button
+								class="button"
+								onclick={() => {
+									taskDialog?.close();
+									openTask(layout, task?.id);
+								}}
+							>
+								Go to Task
+							</button>
+						</div>
+					</div>
+				</div>
+			</dialog>
 		</div>
 	</div>
 </div>

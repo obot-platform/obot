@@ -18,6 +18,7 @@ import (
 	"github.com/obot-platform/obot/pkg/controller/handlers/runs"
 	"github.com/obot-platform/obot/pkg/controller/handlers/runstates"
 	"github.com/obot-platform/obot/pkg/controller/handlers/slackreceiver"
+	"github.com/obot-platform/obot/pkg/controller/handlers/task"
 	"github.com/obot-platform/obot/pkg/controller/handlers/threads"
 	"github.com/obot-platform/obot/pkg/controller/handlers/threadshare"
 	"github.com/obot-platform/obot/pkg/controller/handlers/toolinfo"
@@ -58,6 +59,7 @@ func (c *Controller) setupRoutes() error {
 	runstates := runstates.NewHandler(c.services.GatewayClient)
 	userCleanup := cleanup.NewUserCleanup(c.services.GatewayClient)
 	discord := workflow.NewDiscordController(c.services.GPTClient)
+	taskHandler := task.NewHandler()
 
 	// Runs
 	root.Type(&v1.Run{}).FinalizeFunc(v1.RunFinalizer, runs.DeleteRunState)
@@ -84,6 +86,7 @@ func (c *Controller) setupRoutes() error {
 	root.Type(&v1.Thread{}).HandlerFunc(threads.CopyToolsFromSource)
 	root.Type(&v1.Thread{}).HandlerFunc(threads.SetCreated)
 	root.Type(&v1.Thread{}).HandlerFunc(threads.SlackCapability)
+	root.Type(&v1.Thread{}).HandlerFunc(taskHandler.HandleTaskCreationForCapabilities)
 	root.Type(&v1.Thread{}).HandlerFunc(threads.RemoveOldFinalizers)
 	root.Type(&v1.Thread{}).FinalizeFunc(v1.ThreadFinalizer, credentialCleanup.Remove)
 

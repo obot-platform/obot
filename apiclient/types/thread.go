@@ -42,12 +42,13 @@ type Thread struct {
 type ThreadList List[Thread]
 
 type ThreadManifestManagedFields struct {
-	Name                string            `json:"name"`
-	Description         string            `json:"description,omitempty"`
-	Icons               *AgentIcons       `json:"icons"`
-	IntroductionMessage string            `json:"introductionMessage"`
-	StarterMessages     []string          `json:"starterMessages"`
-	WebsiteKnowledge    *WebsiteKnowledge `json:"websiteKnowledge,omitempty"`
+	Name                string               `json:"name"`
+	Description         string               `json:"description,omitempty"`
+	Icons               *AgentIcons          `json:"icons"`
+	IntroductionMessage string               `json:"introductionMessage"`
+	StarterMessages     []string             `json:"starterMessages"`
+	WebsiteKnowledge    *WebsiteKnowledge    `json:"websiteKnowledge,omitempty"`
+	Capabilities        *ProjectCapabilities `json:"capabilities,omitempty"`
 }
 type ThreadManifest struct {
 	ThreadManifestManagedFields `json:",inline"`

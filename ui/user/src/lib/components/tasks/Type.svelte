@@ -42,6 +42,7 @@
 			schedule: 'on interval',
 			webhook: 'on webhook'
 		};
+		console.log(project);
 		if (version.current.emailDomain) {
 			options['email'] = 'on email';
 		}
