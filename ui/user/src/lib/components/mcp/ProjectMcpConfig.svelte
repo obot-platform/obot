@@ -209,7 +209,7 @@
 {#snippet remoteHostedConfig()}
 	<div class="flex items-center gap-4">
 		<h4 class="w-24 text-base font-semibold">URL</h4>
-		<input class="text-input-filled flex grow" bind:value={config.command} />
+		<input class="text-input-filled flex grow" bind:value={config.url} />
 	</div>
 	<div class="flex flex-col gap-2">
 		<h4 class="text-base font-semibold">Headers</h4>
