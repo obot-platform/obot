@@ -63,7 +63,7 @@
 	header="Built-In Capabilities"
 	helpText={HELPER_TEXTS.general}
 >
-	<div class="flex flex-col p-2">
+	<div class="flex flex-col overflow-x-hidden p-2">
 		{#each builtInTools.sort(sortBuiltInLast) as tool (tool.id)}
 			{@const toolReference = toolReferences.get(tool.id)}
 			<div
