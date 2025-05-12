@@ -73,6 +73,7 @@
 		if (!bundleId) return false;
 		const nonRequiredAuthBundles = [
 			'browser-bundle',
+			'google-search-bundle',
 			'images-bundle',
 			'memory',
 			'obot-search',
