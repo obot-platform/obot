@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import { Eye, EyeOff } from 'lucide-svelte';
 
 	interface Props {
@@ -36,6 +37,7 @@
 	<button
 		class="absolute top-1/2 right-4 z-10 -translate-y-1/2 cursor-pointer"
 		onclick={toggleVisibility}
+		use:tooltip={{ disablePortal: true, text: showSensitive ? 'Hide' : 'Reveal' }}
 	>
 		{#if showSensitive}
 			<EyeOff class="size-4" />
