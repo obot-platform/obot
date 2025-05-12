@@ -57,6 +57,7 @@
 		});
 		t.onMessages = (messages) => {
 			authMessages = messages;
+			inProgress = false;
 		};
 		thread = t;
 	}
@@ -111,7 +112,7 @@
 			</h4>
 			{#if inProgress}
 				<div class="flex flex-col gap-5 p-4 md:m-5 md:mt-0 md:p-0">
-					<p class="text-center">Sending credentials...</p>
+					<p class="text-center">Saving credentials...</p>
 				</div>
 			{:else if authMessages}
 				<div class="flex flex-col gap-5 p-4 md:m-5 md:mt-0 md:p-0">
