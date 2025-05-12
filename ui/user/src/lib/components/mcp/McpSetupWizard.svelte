@@ -17,7 +17,6 @@
 	import { clickOutside } from '$lib/actions/clickoutside';
 	import { fade } from 'svelte/transition';
 	import { getToolBundleMap } from '$lib/context/toolReferences.svelte';
-	import { onMount } from 'svelte';
 
 	interface Props {
 		mcps: MCP[];
