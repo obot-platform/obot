@@ -582,13 +582,26 @@ func (h *Handler) createMCPServerCatalog(req router.Request, toolRef *v1.ToolRef
 	if err := req.Client.Get(req.Ctx, router.Key(system.DefaultNamespace, toolRef.Name), &mcpCatalogEntry); client.IgnoreNotFound(err) != nil {
 		return err
 	} else if err == nil {
+		// Migration: add the obot-official metadata key to the command manifest if it isn't there.
+		var shouldUpdate bool
+		if mcpCatalogEntry.Spec.CommandManifest.Metadata[obotOfficialMetadataKey] == "" {
+			if mcpCatalogEntry.Spec.CommandManifest.Metadata == nil {
+				mcpCatalogEntry.Spec.CommandManifest.Metadata = make(map[string]string)
+			}
+			mcpCatalogEntry.Spec.CommandManifest.Metadata[obotOfficialMetadataKey] = "true"
+			shouldUpdate = true
+		}
+
 		if equality.Semantic.DeepEqual(mcpCatalogEntry.Spec.CommandManifest.Server, serverManifest) &&
 			mcpCatalogEntry.Spec.ToolReferenceName == toolRef.Name {
-			return nil
+			shouldUpdate = true
 		}
-		mcpCatalogEntry.Spec.CommandManifest.Server = serverManifest
-		mcpCatalogEntry.Spec.ToolReferenceName = toolRef.Name
-		return req.Client.Update(req.Ctx, &mcpCatalogEntry)
+
+		if shouldUpdate {
+			mcpCatalogEntry.Spec.CommandManifest.Server = serverManifest
+			mcpCatalogEntry.Spec.ToolReferenceName = toolRef.Name
+			return req.Client.Update(req.Ctx, &mcpCatalogEntry)
+		}
 	}
 
 	return req.Client.Create(req.Ctx, &v1.MCPServerCatalogEntry{
