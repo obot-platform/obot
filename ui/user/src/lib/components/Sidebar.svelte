@@ -52,14 +52,7 @@
 
 <div class="bg-surface1 dark:bg-surface2 relative flex size-full flex-col">
 	<div class="flex h-16 w-full flex-shrink-0 items-center px-3">
-		<button
-			onclick={() => {
-				layout.sidebarOpen = false;
-			}}
-			use:tooltip={'Close Sidebar'}
-		>
-			<Logo class="ml-0" />
-		</button>
+		<Logo class="ml-0" />
 		<div class="flex grow"></div>
 		{#if !shared}
 			<button

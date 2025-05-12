@@ -18,7 +18,7 @@
 		{#if leftContent}
 			{@render leftContent()}
 		{:else}
-			<div class="relative flex items-end">
+			<a href="/agents" class="relative flex items-end">
 				{#if darkMode.isDark}
 					<img src="/user/images/obot-logo-blue-white-text.svg" class="h-12" alt="Obot logo" />
 				{:else}
@@ -31,7 +31,7 @@
 						BETA
 					</span>
 				</div>
-			</div>
+			</a>
 		{/if}
 		<div class="flex grow items-center justify-center">
 			{#if centerContent}
