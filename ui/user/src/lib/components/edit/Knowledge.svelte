@@ -2,19 +2,27 @@
 	import { ChatService, type Project } from '$lib/services';
 	import { type KnowledgeFile as KnowledgeFileType } from '$lib/services';
 	import KnowledgeFile from '$lib/components/edit/knowledge/KnowledgeFile.svelte';
-	import { Plus, Trash2 } from 'lucide-svelte';
+	import { Plus, Trash2, TriangleAlert } from 'lucide-svelte';
 	import { autoHeight } from '$lib/actions/textarea';
 	import KnowledgeUpload from '$lib/components/edit/knowledge/KnowledgeUpload.svelte';
 	import CollapsePane from '$lib/components/edit/CollapsePane.svelte';
 	import { HELPER_TEXTS } from '$lib/context/helperMode.svelte';
+	import { hasTool } from '$lib/tools';
+	import { getProjectTools } from '$lib/context/projectTools.svelte';
+	import { tooltip } from '$lib/actions/tooltip.svelte';
+	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
 		project: Project;
 		currentThreadID?: string;
 	}
 
+	const projectTools = getProjectTools();
 	let { project, currentThreadID = $bindable() }: Props = $props();
 	let knowledgeFiles = $state<KnowledgeFileType[]>([]);
+	let hasKnowledgeCapability = $derived(
+		!!(hasTool(projectTools.tools, 'knowledge') || project.websiteKnowledge)
+	);
 	$effect(() => {
 		if (project) {
 			reload();
@@ -38,39 +46,61 @@
 </script>
 
 <CollapsePane
-	classes={{ header: 'pl-3 py-2', content: 'p-2' }}
+	classes={{
+		header: 'pl-3 py-2',
+		content: 'p-2'
+	}}
 	iconSize={5}
 	onOpen={() => reload()}
-	header="Knowledge"
 	helpText={HELPER_TEXTS.knowledge}
 >
-	<div class="flex flex-col gap-2">
-		<p class="py-2 text-xs font-light text-gray-500">
-			Add files or websites to your agent's knowledge base.
-		</p>
-
-		<p class="text-sm font-medium">Files</p>
-
-		<div class="flex flex-col gap-2 pr-3">
-			{#if knowledgeFiles.length > 0}
-				<div class="flex flex-col gap-4 text-sm">
-					{#each knowledgeFiles as file}
-						{#key file.fileName}
-							<KnowledgeFile {file} onDelete={() => remove(file)} iconSize={4} />
-						{/key}
-					{/each}
+	{#snippet header()}
+		<span
+			class={twMerge(
+				'flex grow items-center justify-between gap-1 text-sm',
+				!hasKnowledgeCapability && 'text-gray-400 dark:text-gray-600'
+			)}
+		>
+			Knowledge
+			{#if !hasKnowledgeCapability}
+				<div use:tooltip={'Capability Required'}>
+					<TriangleAlert class="size-4" />
 				</div>
 			{/if}
-		</div>
+		</span>
+	{/snippet}
+	<div class="flex flex-col gap-2">
+		{#if !hasKnowledgeCapability}
+			<p class="flex items-center gap-1 text-xs font-light text-gray-500">
+				<span>
+					Enable the Knowledge or Website Knowledge capability to add knowledge to your agent.
+				</span>
+			</p>
+		{/if}
+		{#if hasTool(projectTools.tools, 'knowledge')}
+			<p class="text-sm font-medium">Files</p>
 
-		<div class="flex justify-end">
-			<KnowledgeUpload
-				onUpload={() => reload()}
-				{project}
-				{currentThreadID}
-				classes={{ button: 'w-fit text-xs' }}
-			/>
-		</div>
+			<div class="flex flex-col gap-2 pr-3">
+				{#if knowledgeFiles.length > 0}
+					<div class="flex flex-col gap-4 text-sm">
+						{#each knowledgeFiles as file}
+							{#key file.fileName}
+								<KnowledgeFile {file} onDelete={() => remove(file)} iconSize={4} />
+							{/key}
+						{/each}
+					</div>
+				{/if}
+			</div>
+
+			<div class="flex justify-end">
+				<KnowledgeUpload
+					onUpload={() => reload()}
+					{project}
+					{currentThreadID}
+					classes={{ button: 'w-fit text-xs' }}
+				/>
+			</div>
+		{/if}
 
 		{#if project.websiteKnowledge}
 			<p class="text-sm font-medium">Websites</p>
