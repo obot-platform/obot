@@ -328,33 +328,21 @@ func (m *MCPHandler) UpdateServer(req api.Context) error {
 		return err
 	}
 
-	existing.Spec.Manifest = updated
-	if err := req.Update(&existing); err != nil {
+	// Shutdown any server that is using the default credentials.
+	cred, err := m.gptscript.RevealCredential(req.Context(), []string{fmt.Sprintf("%s-%s", existing.Spec.ThreadName, existing.Name)}, existing.Name)
+	if err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
+		return fmt.Errorf("failed to find credential: %w", err)
+	}
+
+	// Shutdown the server, even if there is no credential
+	if err = m.removeMCPServer(req.Context(), existing, project.Name, cred.Env); err != nil {
 		return err
 	}
 
 	// Shutdown the MCP server using any shared credentials.
-	cred, err := m.gptscript.RevealCredential(req.Context(), []string{fmt.Sprintf("%s-%s-shared", existing.Spec.ThreadName, existing.Name)}, existing.Name)
+	cred, err = m.gptscript.RevealCredential(req.Context(), []string{fmt.Sprintf("%s-%s-shared", existing.Spec.ThreadName, existing.Name)}, existing.Name)
 	if err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
 		return fmt.Errorf("failed to find credential: %w", err)
-	}
-
-	// Shutdown the server, even if there is no credential
-	serverConfig, _ := mcp.ToServerConfig(existing, cred.Env, nil)
-	if err = m.mcpSessionManager.ShutdownServer(req.Context(), serverConfig); err != nil {
-		return fmt.Errorf("failed to shutdown server: %w", err)
-	}
-
-	// Shutdown any server that is using the default credentials.
-	cred, err = m.gptscript.RevealCredential(req.Context(), []string{fmt.Sprintf("%s-%s", existing.Spec.ThreadName, existing.Name)}, existing.Name)
-	if err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
-		return fmt.Errorf("failed to find credential: %w", err)
-	}
-
-	// Shutdown the server, even if there is no credential
-	serverConfig, _ = mcp.ToServerConfig(existing, cred.Env, nil)
-	if err = m.mcpSessionManager.ShutdownServer(req.Context(), serverConfig); err != nil {
-		return fmt.Errorf("failed to shutdown server: %w", err)
 	}
 
 	var chatBots v1.ThreadList
@@ -362,6 +350,7 @@ func (m *MCPHandler) UpdateServer(req api.Context) error {
 		Namespace: project.Namespace,
 		FieldSelector: fields.SelectorFromSet(map[string]string{
 			"spec.parentThreadName": project.Name,
+			"spec.project":          "true",
 		}),
 	}); err != nil {
 		return fmt.Errorf("failed to list child projects: %w", err)
@@ -373,15 +362,19 @@ func (m *MCPHandler) UpdateServer(req api.Context) error {
 		if err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
 			return fmt.Errorf("failed to find credential: %w", err)
 		} else if err != nil {
-			// Use the parent credential if we didn't find the chatbot's credential.
+			// Use the shared parent credential if we didn't find the chatbot's credential.
 			childCred = cred
 		}
 
 		// Shutdown the server, even if there is no credential
-		serverConfig, _ := mcp.ToServerConfig(existing, childCred.Env, nil)
-		if err = m.mcpSessionManager.ShutdownServer(req.Context(), serverConfig); err != nil {
-			return fmt.Errorf("failed to shutdown server: %w", err)
+		if err = m.removeMCPServer(req.Context(), existing, chatBot.Name, childCred.Env); err != nil {
+			return err
 		}
+	}
+
+	existing.Spec.Manifest = updated
+	if err := req.Update(&existing); err != nil {
+		return err
 	}
 
 	return req.Write(convertMCPServer(existing, nil, cred.Env))
@@ -405,7 +398,7 @@ func (m *MCPHandler) ConfigureServer(req api.Context) error {
 
 	// Allow for updating credentials. The only way to update a credential is to delete the existing one and recreate it.
 	credCtx := fmt.Sprintf("%s-%s", project.Name, mcpServer.Name)
-	if err = m.removeMCPServerCred(req.Context(), mcpServer, []string{credCtx}); err != nil {
+	if err = m.removeMCPServerAndCred(req.Context(), mcpServer, project.Name, []string{credCtx}); err != nil {
 		return err
 	}
 
@@ -443,13 +436,36 @@ func (m *MCPHandler) ConfigureSharedServer(req api.Context) error {
 	}
 
 	var envVars map[string]string
-	if err := req.Read(&envVars); err != nil {
+	if err = req.Read(&envVars); err != nil {
 		return err
 	}
 
-	// Allow for updating credentials. The only way to update a credential is to delete the existing one and recreate it.
+	var chatBots v1.ThreadList
+	if err = req.List(&chatBots, &kclient.ListOptions{
+		Namespace: project.Namespace,
+		FieldSelector: fields.SelectorFromSet(map[string]string{
+			"spec.parentThreadName": project.Name,
+			"spec.project":          "true",
+		}),
+	}); err != nil {
+		return fmt.Errorf("failed to list child projects: %w", err)
+	}
+
 	credCtx := fmt.Sprintf("%s-%s-shared", mcpServer.Spec.ThreadName, mcpServer.Name)
-	if err = m.removeMCPServerCred(req.Context(), mcpServer, []string{credCtx}); err != nil {
+	cred, err := m.gptscript.RevealCredential(req.Context(), []string{credCtx}, mcpServer.Name)
+	if err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
+		return fmt.Errorf("failed to find credential: %w", err)
+	}
+
+	// Remove the MCP server for all chatbots using this credential.
+	for _, chatBot := range chatBots.Items {
+		if err = m.removeMCPServer(req.Context(), mcpServer, chatBot.Name, cred.Env); err != nil {
+			return err
+		}
+	}
+
+	// Remove the top-level MCP server if it exists and remove the credential.
+	if err = m.removeMCPServerAndCred(req.Context(), mcpServer, project.Name, []string{credCtx}); err != nil {
 		return err
 	}
 
@@ -482,7 +498,7 @@ func (m *MCPHandler) DeconfigureServer(req api.Context) error {
 		return err
 	}
 
-	if err = m.removeMCPServerCred(req.Context(), mcpServer, []string{fmt.Sprintf("%s-%s", project.Name, mcpServer.Name)}); err != nil {
+	if err = m.removeMCPServerAndCred(req.Context(), mcpServer, project.Name, []string{fmt.Sprintf("%s-%s", project.Name, mcpServer.Name)}); err != nil {
 		return err
 	}
 
@@ -504,7 +520,32 @@ func (m *MCPHandler) DeconfigureSharedServer(req api.Context) error {
 		return types.NewErrForbidden("cannot edit shared MCP server from this project")
 	}
 
-	if err = m.removeMCPServerCred(req.Context(), mcpServer, []string{fmt.Sprintf("%s-%s-shared", project.Name, mcpServer.Name)}); err != nil {
+	var chatBots v1.ThreadList
+	if err = req.List(&chatBots, &kclient.ListOptions{
+		Namespace: project.Namespace,
+		FieldSelector: fields.SelectorFromSet(map[string]string{
+			"spec.parentThreadName": project.Name,
+			"spec.project":          "true",
+		}),
+	}); err != nil {
+		return fmt.Errorf("failed to list child projects: %w", err)
+	}
+
+	credCtx := []string{fmt.Sprintf("%s-%s-shared", mcpServer.Spec.ThreadName, mcpServer.Name)}
+
+	cred, err := m.gptscript.RevealCredential(req.Context(), credCtx, mcpServer.Name)
+	if err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
+		return fmt.Errorf("failed to find credential: %w", err)
+	}
+
+	for _, chatBot := range chatBots.Items {
+		if err = m.removeMCPServer(req.Context(), mcpServer, chatBot.Name, cred.Env); err != nil {
+			return err
+		}
+	}
+
+	// Remove the top-level MCP server if it exists and remove the credential.
+	if err = m.removeMCPServerAndCred(req.Context(), mcpServer, project.Name, credCtx); err != nil {
 		return err
 	}
 
@@ -687,16 +728,23 @@ func (m *MCPHandler) toolsForServer(ctx context.Context, client kclient.Client, 
 	return tools, nil
 }
 
-func (m *MCPHandler) removeMCPServerCred(ctx context.Context, mcpServer v1.MCPServer, credCtx []string) error {
+func (m *MCPHandler) removeMCPServer(ctx context.Context, mcpServer v1.MCPServer, projectName string, credEnv map[string]string) error {
+	serverConfig, _ := mcp.ToServerConfig(mcpServer, projectName, credEnv, nil)
+	if err := m.mcpSessionManager.ShutdownServer(ctx, serverConfig); err != nil {
+		return fmt.Errorf("failed to shutdown server: %w", err)
+	}
+
+	return nil
+}
+
+func (m *MCPHandler) removeMCPServerAndCred(ctx context.Context, mcpServer v1.MCPServer, projectName string, credCtx []string) error {
 	cred, err := m.gptscript.RevealCredential(ctx, credCtx, mcpServer.Name)
 	if err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
 		return fmt.Errorf("failed to find credential: %w", err)
 	}
 
 	// Shutdown the server, even if there is no credential
-	serverConfig, _ := mcp.ToServerConfig(mcpServer, cred.Env, nil)
-	// Purposefully shadowing the err variable here.
-	if err := m.mcpSessionManager.ShutdownServer(ctx, serverConfig); err != nil {
+	if err := m.removeMCPServer(ctx, mcpServer, projectName, cred.Env); err != nil {
 		return fmt.Errorf("failed to shutdown server: %w", err)
 	}
 
