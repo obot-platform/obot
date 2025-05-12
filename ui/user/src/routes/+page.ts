@@ -15,7 +15,9 @@ export const load: PageLoad = async ({ fetch }) => {
 	}
 
 	const authProviders = await ChatService.listAuthProviders({ fetch });
-	const templates = (await ChatService.listTemplates({ fetch })).items;
+	const templates = (await ChatService.listTemplates({ fetch })).items.filter(
+		(template) => template.featured
+	);
 	const mcps = await ChatService.listMCPs({ fetch });
 	let editorProjects: Project[] = [];
 
