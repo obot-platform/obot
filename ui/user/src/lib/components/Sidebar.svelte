@@ -25,6 +25,7 @@
 	import Toggle from '$lib/components/Toggle.svelte';
 	import Memories from '$lib/components/edit/Memories.svelte';
 	import { scrollFocus } from '$lib/actions/scrollFocus.svelte';
+	import BuiltInCapabilities from '$lib/components/edit/BuiltInCapabilities.svelte';
 
 	interface Props {
 		project: Project;
@@ -78,6 +79,7 @@
 			<Threads {project} bind:currentThreadID editor />
 			<Tasks {project} bind:currentThreadID />
 			<McpServers {project} />
+			<BuiltInCapabilities bind:project />
 			{#if hasTool(projectTools.tools, 'memory')}
 				<Memories {project} />
 			{/if}

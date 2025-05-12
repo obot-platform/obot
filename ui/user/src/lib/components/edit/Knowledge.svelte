@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { ChatService, type Assistant, type Project } from '$lib/services';
+	import { ChatService, type Project } from '$lib/services';
 	import { type KnowledgeFile as KnowledgeFileType } from '$lib/services';
 	import KnowledgeFile from '$lib/components/edit/knowledge/KnowledgeFile.svelte';
 	import { Plus, Trash2 } from 'lucide-svelte';
@@ -11,10 +11,9 @@
 	interface Props {
 		project: Project;
 		currentThreadID?: string;
-		assistant?: Assistant;
 	}
 
-	let { project, currentThreadID = $bindable(), assistant }: Props = $props();
+	let { project, currentThreadID = $bindable() }: Props = $props();
 	let knowledgeFiles = $state<KnowledgeFileType[]>([]);
 	$effect(() => {
 		if (project) {
@@ -73,7 +72,7 @@
 			/>
 		</div>
 
-		{#if assistant?.websiteKnowledge?.siteTool}
+		{#if project.websiteKnowledge}
 			<p class="text-sm font-medium">Websites</p>
 
 			<div class="flex flex-col gap-4">
@@ -88,7 +87,9 @@
 		{#if project.websiteKnowledge?.sites}
 			<div class="flex flex-col gap-2">
 				{#each project.websiteKnowledge.sites as _, i (i)}
-					<div class="group flex gap-2 rounded-md bg-white p-2 text-xs shadow-sm">
+					<div
+						class="group dark:border-surface3 flex gap-2 rounded-md bg-white p-2 text-xs shadow-sm dark:border dark:bg-black"
+					>
 						<div class="flex grow flex-col gap-2">
 							<div>
 								<label for={`website-address-${i}`} class="text-xs font-light"
@@ -133,15 +134,8 @@
 			<button
 				class="button-small text-xs"
 				onclick={() => {
-					if (!project.websiteKnowledge) {
-						project.websiteKnowledge = {
-							sites: [{}]
-						};
-					} else if (!project.websiteKnowledge.sites) {
-						project.websiteKnowledge.sites = [{}];
-					} else {
-						project.websiteKnowledge.sites.push({});
-					}
+					if (!project.websiteKnowledge?.sites) return;
+					project.websiteKnowledge.sites.push({});
 				}}
 			>
 				<Plus class="size-4" />

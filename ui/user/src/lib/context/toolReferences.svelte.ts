@@ -19,6 +19,11 @@ export function getToolReferences() {
 	return getContext<ToolReferenceContext>(Key).items;
 }
 
+export function getToolReferenceMap() {
+	const toolReferences = getToolReferences();
+	return new Map(toolReferences.map((x) => [x.id, x]));
+}
+
 type ToolBundleItem = {
 	tool: ToolReference;
 	bundleTools: ToolReference[];

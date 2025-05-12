@@ -37,7 +37,9 @@ export const HELPER_TEXTS = {
 	memories:
 		'Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.',
 	modelProviders:
-		'Configure the model providers (OpenAI, Anthropic, etc.) that you want to use for your agent.'
+		'Configure the model providers (OpenAI, Anthropic, etc.) that you want to use for your agent.',
+	builtInCapabilities:
+		'Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.'
 };
 
 const HELPER_MODE_CONTEXT_NAME = 'helper-mode';
