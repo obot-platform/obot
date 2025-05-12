@@ -61,6 +61,7 @@
 	$effect(() => {
 		// Close and recreate thread if id changes
 		if (thread && thread.threadID !== id) {
+			scrollControls?.stickToBottom();
 			scrollSmooth = false;
 			thread?.close?.();
 			thread = undefined;
