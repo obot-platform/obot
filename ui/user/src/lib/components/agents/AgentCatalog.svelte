@@ -14,9 +14,10 @@
 		templates: ProjectTemplate[];
 		mcps: MCP[];
 		preselected?: string;
+		inline?: boolean;
 	}
 
-	let { templates, mcps: referencedMcps, preselected }: Props = $props();
+	let { templates, mcps: referencedMcps, preselected, inline }: Props = $props();
 	let dialog: HTMLDialogElement | undefined = $state();
 	let agentCopy: ReturnType<typeof AgentCopy> | undefined = $state();
 
@@ -88,32 +89,41 @@
 	let mcps = $derived(new Map(referencedMcps.map((m) => [m.id, m])));
 </script>
 
-<dialog
-	bind:this={dialog}
-	use:clickOutside={() => dialog?.close()}
-	class="default-dialog h-full w-full max-w-(--breakpoint-2xl) bg-white p-0 dark:bg-black"
-	class:mobile-screen-dialog={responsive.isMobile}
->
-	<div class="default-scrollbar-thin relative mx-auto h-full min-h-0 w-full overflow-y-auto">
-		<button
-			class="icon-button sticky top-3 right-2 z-40 float-right self-end"
-			onclick={() => dialog?.close()}
-			use:tooltip={{ disablePortal: true, text: 'Close Agent Catalog' }}
-		>
-			<X class="size-7" />
-		</button>
-		<div class="mt-4 flex w-full flex-col items-center justify-center gap-2 px-4 py-4">
-			<h2 class="text-3xl font-semibold md:text-4xl">Agent Catalog</h2>
-			<p class="mb-8 max-w-full text-center text-base font-light md:max-w-md">
-				Copy an existing agent to jumpstart your journey
-			</p>
+{#if inline}
+	{@render content()}
+{:else}
+	<dialog
+		bind:this={dialog}
+		use:clickOutside={() => dialog?.close()}
+		class="default-dialog h-full w-full max-w-(--breakpoint-2xl) bg-white p-0 dark:bg-black"
+		class:mobile-screen-dialog={responsive.isMobile}
+	>
+		<div class="default-scrollbar-thin relative mx-auto h-full min-h-0 w-full overflow-y-auto">
+			<button
+				class="icon-button sticky top-3 right-2 z-40 float-right self-end"
+				onclick={() => dialog?.close()}
+				use:tooltip={{ disablePortal: true, text: 'Close Agent Catalog' }}
+			>
+				<X class="size-7" />
+			</button>
+
+			{@render content()}
 		</div>
-		<div class="pr-12 pb-4">
-			{@render body()}
-		</div>
-		<AgentCopy bind:this={agentCopy} />
+	</dialog>
+{/if}
+
+{#snippet content()}
+	<div class="mt-4 flex w-full flex-col items-center justify-center gap-2 px-4 py-4">
+		<h2 class="text-3xl font-semibold md:text-4xl">Agent Catalog</h2>
+		<p class="mb-8 max-w-full text-center text-base font-light md:max-w-md">
+			Copy an existing agent to jumpstart your journey
+		</p>
 	</div>
-</dialog>
+	<div class="pr-12 pb-4">
+		{@render body()}
+	</div>
+	<AgentCopy bind:this={agentCopy} />
+{/snippet}
 
 {#snippet body()}
 	<div class="relative flex w-full max-w-(--breakpoint-2xl)">

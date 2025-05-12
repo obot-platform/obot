@@ -30,7 +30,7 @@
 	{#if type === 'agents'}
 		<main class="colors-background relative flex w-full flex-col items-center justify-center py-12">
 			<div class="flex w-full max-w-(--breakpoint-2xl) flex-col items-center justify-center">
-				<AgentCatalog {templates} {mcps} {preselected} />
+				<AgentCatalog inline {templates} {mcps} {preselected} />
 			</div>
 		</main>
 	{:else}
