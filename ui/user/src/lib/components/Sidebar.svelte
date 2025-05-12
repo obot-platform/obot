@@ -24,6 +24,7 @@
 	import { getHelperMode, HELPER_TEXTS } from '$lib/context/helperMode.svelte';
 	import Toggle from '$lib/components/Toggle.svelte';
 	import Memories from '$lib/components/edit/Memories.svelte';
+	import { scrollFocus } from '$lib/actions/scrollFocus.svelte';
 
 	interface Props {
 		project: Project;
@@ -72,7 +73,7 @@
 			{@render closeSidebar()}
 		{/if}
 	</div>
-	<div class="default-scrollbar-thin flex w-full grow flex-col">
+	<div class="default-scrollbar-thin flex w-full grow flex-col" use:scrollFocus>
 		{#if project.editor && !shared}
 			<Threads {project} bind:currentThreadID editor />
 			<Tasks {project} bind:currentThreadID />
