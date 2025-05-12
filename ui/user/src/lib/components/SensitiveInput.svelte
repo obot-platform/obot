@@ -9,7 +9,6 @@
 
 	let { name, value = $bindable('') }: Props = $props();
 	let showSensitive = $state(false);
-	let focused = $state(false);
 
 	function handleInput(event: Event) {
 		const input = event.target as HTMLInputElement;
@@ -30,8 +29,6 @@
 		{value}
 		type={showSensitive ? 'text' : 'password'}
 		oninput={handleInput}
-		onfocus={() => (focused = true)}
-		onblur={() => (focused = false)}
 	/>
 
 	<button
