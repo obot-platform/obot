@@ -25,7 +25,7 @@
 	);
 
 	// Get project details
-	let projectName = $derived(invitation.project?.name || 'Unnamed Project');
+	let projectName = $derived(invitation.project?.name || 'My Agent');
 	let projectDescription = $derived(invitation.project?.description || 'No description available');
 
 	async function acceptInvitation() {
