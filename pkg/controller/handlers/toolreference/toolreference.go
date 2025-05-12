@@ -42,7 +42,10 @@ var (
 	jsonErrRegexp = regexp.MustCompile(`(?s)\{.*"error":.*}`)
 )
 
-const toolRecheckPeriod = time.Hour
+const (
+	toolRecheckPeriod       = time.Hour
+	obotOfficialMetadataKey = "obot-official"
+)
 
 type indexEntry struct {
 	Reference string `json:"reference,omitempty"`
@@ -270,6 +273,7 @@ func (h *Handler) readMCPCatalog(catalog string) ([]client.Object, error) {
 		var m map[string]string
 		// Best effort to parse metadata
 		_ = json.Unmarshal([]byte(entry.Metadata), &m)
+		delete(m, obotOfficialMetadataKey) // Remove the obot-official metadata key, in case it is somehow set.
 
 		catalogEntry := v1.MCPServerCatalogEntry{
 			ObjectMeta: metav1.ObjectMeta{
@@ -594,7 +598,8 @@ func (h *Handler) createMCPServerCatalog(req router.Request, toolRef *v1.ToolRef
 		},
 		Spec: v1.MCPServerCatalogEntrySpec{
 			CommandManifest: types.MCPServerCatalogEntryManifest{
-				Server: serverManifest,
+				Server:   serverManifest,
+				Metadata: map[string]string{obotOfficialMetadataKey: "true"},
 			},
 			ToolReferenceName: toolRef.Name,
 		},

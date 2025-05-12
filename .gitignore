@@ -49,3 +49,6 @@ obot*.db*
 
 # Ignore http dir for http client files
 http/
+
+# Ignore the catalog.json file downloaded from the MCP registry
+catalog.json
