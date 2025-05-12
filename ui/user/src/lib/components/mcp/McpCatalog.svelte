@@ -10,6 +10,7 @@
 	import McpInfoConfig from '$lib/components/mcp/McpInfoConfig.svelte';
 	import type { MCPServerInfo } from '$lib/services/chat/mcp';
 	import { getToolBundleMap } from '$lib/context/toolReferences.svelte';
+	import { onMount } from 'svelte';
 
 	const BROWSE_ALL_CATEGORY = 'Browse All';
 
@@ -21,6 +22,7 @@
 		selectedMcpIds?: string[];
 		subtitle?: string;
 		project?: Project;
+		preselectedMcp?: string;
 	}
 
 	type TransformedMcp = {
@@ -39,7 +41,8 @@
 		submitText,
 		selectedMcpIds,
 		subtitle,
-		project = $bindable()
+		project = $bindable(),
+		preselectedMcp
 	}: Props = $props();
 	let dialog: HTMLDialogElement | undefined = $state();
 	let configDialog = $state<ReturnType<typeof McpInfoConfig>>();
@@ -128,6 +131,16 @@
 			)
 		)
 	);
+
+	onMount(() => {
+		const preselectedManifest =
+			preselectedMcp && transformedMcps.find((mcp) => mcp.catalogId === preselectedMcp);
+		if (preselectedManifest) {
+			selectedMcp = preselectedManifest;
+			selectedMcpManifest = preselectedManifest.manifest;
+			configDialog?.open();
+		}
+	});
 
 	export function open() {
 		searchInput?.clear();

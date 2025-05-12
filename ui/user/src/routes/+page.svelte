@@ -9,11 +9,15 @@
 	import Menu from '$lib/components/navbar/Menu.svelte';
 	import { clickOutside } from '$lib/actions/clickoutside';
 	import Footer from '$lib/components/Footer.svelte';
-	import { sortByFeaturedNameOrder, sortByPreferredMcpOrder } from '$lib/sort';
-	import type { MCPManifest, ProjectShare } from '$lib/services';
+	import {
+		sortByCreatedDate,
+		sortByPreferredMcpOrder,
+		sortTemplatesByFeaturedNameOrder
+	} from '$lib/sort';
+	import type { MCPManifest, ProjectTemplate } from '$lib/services';
 
 	let { data }: PageProps = $props();
-	let { authProviders, mcps, featuredAgents } = data;
+	let { authProviders, mcps, templates } = data;
 	let loginDialog = $state<HTMLDialogElement>();
 	let overrideRedirect = $state<string | null>(null);
 	let signUp = $state(true);
@@ -25,7 +29,9 @@
 	});
 
 	let sortedMcps = $derived(mcps.sort(sortByPreferredMcpOrder));
-	let sortedFeaturedAgents = $derived(featuredAgents.sort(sortByFeaturedNameOrder));
+	const sortedTemplates = $derived(
+		templates?.sort(sortByCreatedDate).sort(sortTemplatesByFeaturedNameOrder)
+	);
 	let rd = $derived.by(() => {
 		if (browser) {
 			const rd = new URL(window.location.href).searchParams.get('rd');
@@ -209,8 +215,8 @@
 				<div class="mt-12 flex w-full flex-col items-center justify-center gap-6">
 					<div class="flex flex-col gap-3">
 						<h3 class="self-center text-lg font-semibold">Agents</h3>
-						{#each sortedFeaturedAgents.slice(0, 5) as project}
-							{@render featuredAgentCard(project)}
+						{#each sortedTemplates.slice(0, 5) as project}
+							{@render featuredAgentTemplateCard(project)}
 						{/each}
 						{@render browseAllAgents()}
 					</div>
@@ -233,8 +239,8 @@
 						<div class=" flex flex-1 flex-col items-center gap-4 pt-12 pr-4">
 							<h3 class="text-lg font-semibold">Agents</h3>
 							<div class="border-surface2 flex flex-col items-center gap-3 border-r-2 pr-4">
-								{#each sortedFeaturedAgents.slice(0, 5) as project}
-									{@render featuredAgentCard(project)}
+								{#each sortedTemplates.slice(0, 5) as project}
+									{@render featuredAgentTemplateCard(project)}
 								{/each}
 							</div>
 							{@render browseAllAgents()}
@@ -308,9 +314,9 @@
 			{#each authProviders as provider}
 				<a
 					rel="external"
-					href="/oauth2/start?rd={overrideRedirect !== null
-						? overrideRedirect
-						: rd}&obot-auth-provider={provider.namespace}/{provider.id}"
+					href="/oauth2/start?rd={encodeURIComponent(
+						overrideRedirect !== null ? overrideRedirect : rd
+					)}&obot-auth-provider={provider.namespace}/{provider.id}"
 					class="group bg-surface1 hover:bg-surface2 dark:bg-surface1 dark:hover:bg-surface3 flex w-full items-center justify-center gap-1.5 rounded-full p-2 px-8 text-lg font-semibold"
 					onclick={(e) => {
 						console.log(`post-auth redirect ${e.target}`);
@@ -360,21 +366,21 @@
 	</button>
 {/snippet}
 
-{#snippet featuredAgentCard(project: ProjectShare)}
+{#snippet featuredAgentTemplateCard(template: ProjectTemplate)}
 	<button
 		class="bg-surface1 flex w-full items-center gap-3 rounded-xl p-3"
 		onclick={() => {
-			overrideRedirect = `/s/${project.publicID}`;
+			overrideRedirect = `/catalog?type=agents&id=${template.id}`;
 			loginDialog?.showModal();
 		}}
 	>
 		<div class="h-fit w-fit flex-shrink-0 rounded-md bg-gray-50 p-1 dark:bg-gray-600">
-			<img src={project.icons?.icon} alt={project.name} class="size-6" />
+			<img src={template.projectSnapshot.icons?.icon} alt={template.name} class="size-6" />
 		</div>
 		<div class="flex flex-col text-left">
-			<h4 class="line-clamp-1 text-sm font-semibold">{project.name}</h4>
+			<h4 class="line-clamp-1 text-sm font-semibold">{template.name}</h4>
 			<p class="line-clamp-1 text-xs font-light">
-				{project.description}
+				{template.projectSnapshot.description}
 			</p>
 		</div>
 	</button>
@@ -384,7 +390,7 @@
 	<button
 		class="bg-surface2 flex w-full items-center gap-3 rounded-xl p-3"
 		onclick={() => {
-			overrideRedirect = `/mcp?id=${id}`;
+			overrideRedirect = `/catalog?type=mcps&id=${id}`;
 			loginDialog?.showModal();
 		}}
 	>

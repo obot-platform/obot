@@ -17,6 +17,7 @@
 	import { clickOutside } from '$lib/actions/clickoutside';
 	import { fade } from 'svelte/transition';
 	import { getToolBundleMap } from '$lib/context/toolReferences.svelte';
+	import { onMount } from 'svelte';
 
 	interface Props {
 		mcps: MCP[];
@@ -26,6 +27,7 @@
 		onFinish?: (projectMcp?: ProjectMCP, project?: Project) => void;
 		project?: Project;
 		selectedMcpIds?: string[];
+		preselected?: string;
 	}
 
 	let {
@@ -35,7 +37,8 @@
 		inline,
 		onFinish,
 		project: refProject,
-		selectedMcpIds
+		selectedMcpIds,
+		preselected
 	}: Props = $props();
 	let project = $state(refProject);
 	let projectMcp = $state<ProjectMCP>();
@@ -111,6 +114,7 @@
 	}}
 	{selectedMcpIds}
 	submitText={catalogSubmitText}
+	preselectedMcp={preselected}
 />
 
 {#if processing}

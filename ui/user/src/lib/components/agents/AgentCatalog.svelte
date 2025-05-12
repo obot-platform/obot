@@ -8,13 +8,15 @@
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import { responsive } from '$lib/stores';
 	import Search from '$lib/components/Search.svelte';
+	import { onMount } from 'svelte';
 
 	interface Props {
 		templates: ProjectTemplate[];
 		mcps: MCP[];
+		preselected?: string;
 	}
 
-	let { templates, mcps: referencedMcps }: Props = $props();
+	let { templates, mcps: referencedMcps, preselected }: Props = $props();
 	let dialog: HTMLDialogElement | undefined = $state();
 	let agentCopy: ReturnType<typeof AgentCopy> | undefined = $state();
 
@@ -71,6 +73,17 @@
 			currentPage--;
 		}
 	}
+
+	onMount(() => {
+		const preselectedTemplate = preselected && templates.find((t) => t.id === preselected);
+		if (preselectedTemplate) {
+			const templateMcps =
+				(preselectedTemplate?.mcpServers?.map((id) => mcps.get(id)).filter(Boolean) as MCP[]) || [];
+
+			dialog?.showModal();
+			agentCopy?.open(preselectedTemplate, templateMcps);
+		}
+	});
 
 	let mcps = $derived(new Map(referencedMcps.map((m) => [m.id, m])));
 </script>

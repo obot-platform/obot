@@ -22,6 +22,7 @@
 	);
 
 	const type = q('type');
+	const preselected = q('id');
 </script>
 
 <div class="flex h-full flex-col items-center">
@@ -29,7 +30,7 @@
 	{#if type === 'agents'}
 		<main class="colors-background relative flex w-full flex-col items-center justify-center py-12">
 			<div class="flex w-full max-w-(--breakpoint-2xl) flex-col items-center justify-center">
-				<AgentCatalog {templates} {mcps} />
+				<AgentCatalog {templates} {mcps} {preselected} />
 			</div>
 		</main>
 	{:else}
@@ -65,6 +66,7 @@
 				{mcps}
 				inline
 				catalogDescription="Extend your agent's capabilities by adding multiple MCP servers from our evergrowing catalog."
+				{preselected}
 			/>
 		</main>
 	{/if}
