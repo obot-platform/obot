@@ -31,25 +31,7 @@
 			type: 'toolReference' as const,
 			builtin: false,
 			...projectToolsMap.get(tool)
-		})),
-		{
-			id: 'website-knowledge',
-			type: 'custom' as const,
-			icon: Cable,
-			builtin: false,
-			enabled: !!project.websiteKnowledge,
-			onChange: (checked: boolean) => {
-				if (checked) {
-					project.websiteKnowledge = {
-						sites: [{}]
-					};
-				} else {
-					project.websiteKnowledge = undefined;
-				}
-			},
-			name: 'Website Knowledge',
-			description: 'Obtain knowledge from provided website links'
-		}
+		}))
 	]);
 
 	function sortBuiltInLast<T extends { builtin: boolean }>(a: T, b: T) {
@@ -71,16 +53,11 @@
 			>
 				<span class="flex items-center gap-2" class:opacity-50={tool.builtin}>
 					<div class="bg-surface1 flex-shrink-0 rounded-sm p-1 dark:bg-gray-600">
-						{#if typeof tool.icon !== 'string'}
-							{@const Icon = tool.icon}
-							<Icon class="size-4 text-black" />
-						{:else}
-							<img
-								src={tool?.icon ?? toolReference?.metadata?.icon}
-								class="size-4"
-								alt={toolReference?.name}
-							/>
-						{/if}
+						<img
+							src={tool?.icon ?? toolReference?.metadata?.icon}
+							class="size-4"
+							alt={toolReference?.name}
+						/>
 					</div>
 
 					<div class="flex flex-col">
@@ -105,11 +82,6 @@
 							label="Toggle Capability"
 							checked={!!tool.enabled}
 							onChange={async (checked) => {
-								if (tool.type === 'custom' && tool.onChange) {
-									tool.onChange(checked);
-									return;
-								}
-
 								const matchingIndex = projectTools.tools.findIndex(
 									(tool) => tool.id === toolReference?.id
 								);

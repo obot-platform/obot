@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { ChatService, type Project } from '$lib/services';
+	import { ChatService, type Assistant, type Project } from '$lib/services';
 	import { type KnowledgeFile as KnowledgeFileType } from '$lib/services';
 	import KnowledgeFile from '$lib/components/edit/knowledge/KnowledgeFile.svelte';
 	import { Plus, Trash2, TriangleAlert } from 'lucide-svelte';
@@ -15,13 +15,14 @@
 	interface Props {
 		project: Project;
 		currentThreadID?: string;
+		assistant?: Assistant;
 	}
 
 	const projectTools = getProjectTools();
-	let { project, currentThreadID = $bindable() }: Props = $props();
+	let { project, currentThreadID = $bindable(), assistant }: Props = $props();
 	let knowledgeFiles = $state<KnowledgeFileType[]>([]);
 	let hasKnowledgeCapability = $derived(
-		!!(hasTool(projectTools.tools, 'knowledge') || project.websiteKnowledge)
+		!!(hasTool(projectTools.tools, 'knowledge') || assistant?.websiteKnowledge?.siteTool)
 	);
 	$effect(() => {
 		if (project) {
@@ -72,9 +73,7 @@
 	<div class="flex flex-col gap-2">
 		{#if !hasKnowledgeCapability}
 			<p class="flex items-center gap-1 text-xs font-light text-gray-500">
-				<span>
-					Enable the Knowledge or Website Knowledge capability to add knowledge to your agent.
-				</span>
+				<span> Enable Knowledge in "Built-In Capabilities" to add knowledge to your agent. </span>
 			</p>
 		{/if}
 		{#if hasTool(projectTools.tools, 'knowledge')}
@@ -102,7 +101,7 @@
 			</div>
 		{/if}
 
-		{#if project.websiteKnowledge}
+		{#if assistant?.websiteKnowledge?.siteTool}
 			<p class="text-sm font-medium">Websites</p>
 
 			<div class="flex flex-col gap-4">
@@ -164,8 +163,15 @@
 			<button
 				class="button-small text-xs"
 				onclick={() => {
-					if (!project.websiteKnowledge?.sites) return;
-					project.websiteKnowledge.sites.push({});
+					if (!project.websiteKnowledge) {
+						project.websiteKnowledge = {
+							sites: [{}]
+						};
+					} else if (!project.websiteKnowledge.sites) {
+						project.websiteKnowledge.sites = [{}];
+					} else {
+						project.websiteKnowledge.sites.push({});
+					}
 				}}
 			>
 				<Plus class="size-4" />
