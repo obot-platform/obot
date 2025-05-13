@@ -7,8 +7,9 @@
 	interface Props {
 		config: MCPServerInfo;
 		showSubmitError: boolean;
+		custom?: boolean;
 	}
-	let { config = $bindable(), showSubmitError }: Props = $props();
+	let { config = $bindable(), showSubmitError, custom }: Props = $props();
 
 	function focusOnAdd(node: HTMLInputElement, shouldFocus: boolean) {
 		if (shouldFocus) {
@@ -23,12 +24,12 @@
 		{#each config.env as env, i}
 			<div class="flex w-full items-center gap-2">
 				<div class="flex grow flex-col gap-1">
-					{#if env.custom}
+					{#if !env.required}
 						<input
 							class="ghost-input w-full py-0"
 							bind:value={env.key}
 							placeholder="Key (ex. API_KEY)"
-							use:focusOnAdd={i === config.env.length - 1 && env.custom}
+							use:focusOnAdd={i === config.env.length - 1}
 						/>
 					{:else}
 						<label for={env.name} class="flex items-center gap-1 text-sm font-light">
@@ -56,7 +57,7 @@
 						{/if}
 					</div>
 				</div>
-				{#if env.custom}
+				{#if !env.required || custom}
 					<button class="icon-button" onclick={() => config.env?.splice(i, 1)}>
 						<Trash2 class="size-4" />
 					</button>
@@ -74,8 +75,7 @@
 						sensitive: false,
 						required: false,
 						file: false,
-						value: '',
-						custom: true
+						value: ''
 					})}
 			>
 				<Plus class="size-4" /> Environment Variable

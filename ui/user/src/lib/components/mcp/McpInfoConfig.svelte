@@ -20,6 +20,7 @@
 	import HostedMcpForm from '$lib/components/mcp/HostedMcpForm.svelte';
 	import type { Snippet } from 'svelte';
 	import CredentialAuth from '$lib/components/edit/CredentialAuth.svelte';
+	import RemoteMcpForm from './RemoteMcpForm.svelte';
 
 	interface Props {
 		manifest?: MCPManifest | ProjectMCP;
@@ -34,6 +35,7 @@
 		legacyBundleId?: string;
 		project?: Project;
 		legacyAuthText?: string;
+		manifestType?: 'command' | 'url';
 	}
 	let {
 		manifest,
@@ -47,7 +49,8 @@
 		children,
 		legacyBundleId,
 		legacyAuthText,
-		project = $bindable()
+		project = $bindable(),
+		manifestType
 	}: Props = $props();
 	let configDialog = $state<HTMLDialogElement>();
 	let authDialog = $state<HTMLDialogElement>();
@@ -159,7 +162,11 @@
 				{/if}
 			{:else}
 				<div class="flex w-full flex-col gap-4">
-					<HostedMcpForm bind:config {showSubmitError} />
+					{#if manifestType === 'url'}
+						<RemoteMcpForm bind:config {showSubmitError} />
+					{:else}
+						<HostedMcpForm bind:config {showSubmitError} />
+					{/if}
 				</div>
 			{/if}
 		</div>

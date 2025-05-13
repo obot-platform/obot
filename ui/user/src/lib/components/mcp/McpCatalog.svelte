@@ -32,6 +32,7 @@
 		manifest: MCPManifest;
 		githubStars: number;
 		name: string;
+		manifestType: 'command' | 'url';
 	};
 
 	let {
@@ -65,7 +66,8 @@
 			categories: manifest.metadata?.categories?.split(',').map((cat) => cat.trim()) || [],
 			manifest,
 			githubStars: Number(manifest.githubStars) || 0,
-			name: manifest.server?.name ?? ''
+			name: manifest.server?.name ?? '',
+			manifestType
 		};
 	}
 
@@ -291,6 +293,7 @@
 	bind:this={configDialog}
 	bind:project
 	manifest={selectedMcpManifest}
+	manifestType={selectedMcp?.manifestType}
 	{legacyBundleId}
 	onUpdate={(mcpServerInfo) => {
 		if (selectedMcp && selectedMcpManifest) {

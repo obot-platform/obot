@@ -7,7 +7,7 @@
 	import { onMount } from 'svelte';
 	import { errors } from '$lib/stores';
 	import HostedMcpForm from '$lib/components/mcp/HostedMcpForm.svelte';
-	import SensitiveInput from '$lib/components/SensitiveInput.svelte';
+	import RemoteMcpForm from '$lib/components/mcp/RemoteMcpForm.svelte';
 
 	interface Props {
 		projectMcp?: ProjectMCP;
@@ -31,12 +31,12 @@
 				env:
 					projectMcp.env?.map((env) => ({
 						...env,
-						value: '' // TODO: update once Donnie gets the /reveal endpoint in
+						value: ''
 					})) ?? [],
 				headers:
 					projectMcp.headers?.map((header) => ({
 						...header,
-						value: '' // TODO: update once Donnie gets the /reveal endpoint in
+						value: ''
 					})) ?? []
 			}
 		: {
@@ -101,12 +101,6 @@
 			onUpdate?.(config);
 		} else {
 			onCreate?.(config);
-		}
-	}
-
-	function focusOnAdd(node: HTMLInputElement, shouldFocus: boolean) {
-		if (shouldFocus) {
-			node.focus();
 		}
 	}
 </script>
@@ -193,9 +187,9 @@
 			class="dark:bg-surface2 dark:border-surface3 flex w-full grow flex-col gap-4 self-center rounded-lg bg-white px-4 pt-12 pb-8 shadow-sm md:max-w-[900px] md:px-8 dark:border"
 		>
 			{#if showObotHosted}
-				<HostedMcpForm bind:config {showSubmitError} />
+				<HostedMcpForm bind:config {showSubmitError} custom={!projectMcp?.catalogID} />
 			{:else}
-				{@render remoteHostedConfig()}
+				<RemoteMcpForm bind:config {showSubmitError} custom={!projectMcp?.catalogID} />
 			{/if}
 		</div>
 
@@ -206,59 +200,3 @@
 		</div>
 	</div>
 </div>
-
-{#snippet remoteHostedConfig()}
-	<div class="flex items-center gap-4">
-		<h4 class="w-24 text-base font-semibold">URL</h4>
-		<input class="text-input-filled flex grow" bind:value={config.url} />
-	</div>
-	<div class="flex flex-col gap-2">
-		<h4 class="text-base font-semibold">Headers</h4>
-		{#if config.headers && config.headers.length > 0}
-			{#each config.headers as header, i}
-				<div class="flex w-full items-center gap-2">
-					<div class="flex grow flex-col gap-1">
-						<input
-							class="ghost-input w-full py-0 pl-1"
-							bind:value={header.key}
-							placeholder="Key (ex. API_KEY)"
-							use:focusOnAdd={i === config.headers.length - 1}
-						/>
-						{#if header.sensitive}
-							<SensitiveInput name={header.name} bind:value={header.value} />
-						{:else}
-							<input
-								data-1p-ignore
-								id={header.name}
-								name={header.name}
-								class="text-input-filled w-full"
-								bind:value={header.value}
-								type="text"
-							/>
-						{/if}
-					</div>
-					<button class="icon-button" onclick={() => config.headers?.splice(i, 1)}>
-						<Trash2 class="size-4" />
-					</button>
-				</div>
-			{/each}
-		{/if}
-		<div class="flex justify-end pt-2">
-			<button
-				class="button flex items-center gap-1 text-xs"
-				onclick={() =>
-					config.headers?.push({
-						name: '',
-						key: '',
-						description: '',
-						sensitive: false,
-						required: false,
-						file: false,
-						value: ''
-					})}
-			>
-				<Plus class="size-4" /> Header
-			</button>
-		</div>
-	</div>
-{/snippet}
