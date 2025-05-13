@@ -5,7 +5,6 @@
 	import Toggle from '$lib/components/Toggle.svelte';
 	import { getProjectTools } from '$lib/context/projectTools.svelte';
 	import { getToolReferenceMap } from '$lib/context/toolReferences.svelte';
-	import { Cable } from 'lucide-svelte';
 
 	interface Props {
 		project: Project;
