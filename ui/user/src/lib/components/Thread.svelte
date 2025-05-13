@@ -467,7 +467,7 @@
 					bind:items={layout.items}
 				>
 					<div class="flex w-full items-center justify-between">
-						<div class="flex items-center gap-1">
+						<div class="flex items-center">
 							<Files
 								thread
 								{project}
