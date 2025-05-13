@@ -29,9 +29,10 @@ type OnWebhook struct {
 
 type ProjectManifest struct {
 	ThreadManifest
-	DefaultModelProvider string              `json:"defaultModelProvider,omitempty"`
-	DefaultModel         string              `json:"defaultModel,omitempty"`
-	Models               map[string][]string `json:"models,omitempty"`
+	Capabilities         *ProjectCapabilities `json:"capabilities,omitempty"`
+	DefaultModelProvider string               `json:"defaultModelProvider,omitempty"`
+	DefaultModel         string               `json:"defaultModel,omitempty"`
+	Models               map[string][]string  `json:"models,omitempty"`
 }
 
 type ProjectList List[Project]

@@ -168,12 +168,13 @@ func (h *ProjectsHandler) UpdateProject(req api.Context) error {
 			}
 		}
 
-		thread.Spec.Capabilities = v1.ThreadCapabilities(*project.Capabilities)
+		if project.Capabilities != nil {
+			thread.Spec.Capabilities = v1.ThreadCapabilities(*project.Capabilities)
+		}
 		thread.Spec.Manifest = project.ThreadManifest
 		thread.Spec.DefaultModelProvider = project.DefaultModelProvider
 		thread.Spec.DefaultModel = project.DefaultModel
 		thread.Spec.Models = project.Models
-		thread.Spec.Manifest.Capabilities = nil
 		if err := req.Update(&thread); err != nil {
 			return err
 		}

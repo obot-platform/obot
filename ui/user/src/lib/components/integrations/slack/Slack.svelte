@@ -18,6 +18,8 @@
 	import { fade } from 'svelte/transition';
 	import { openTask } from '$lib/context/layout.svelte';
 	import type { Task } from '$lib/services';
+	import type { ProjectCredential } from '$lib/services/chat/types';
+	import CredentialAuth from '$lib/components/edit/CredentialAuth.svelte';
 
 	interface Props {
 		project: Project;
@@ -55,6 +57,16 @@
 	let showSteps = $state(!project.capabilities?.onSlackMessage);
 	let taskDialog: HTMLDialogElement | undefined = $state();
 	let task = $state<Task | undefined>();
+	let authDialog: ReturnType<typeof CredentialAuth> | undefined = $state();
+	let credToAuth = $state<ProjectCredential | undefined>();
+	let credentials = $state<ProjectCredential[]>([]);
+
+	$effect(() => {
+		ChatService.listProjectLocalCredentials(project.assistantID, project.id).then((creds) => {
+			credentials = creds.items;
+			credToAuth = credentials.find((c) => c.toolID === 'slack-bot-bundle');
+		});
+	});
 
 	$effect(() => {
 		redirectUrl = `${window.location.protocol}//${window.location.host}/api/app-oauth/callback/oa1t1${project.id.slice(2, 8)}`;
@@ -114,6 +126,7 @@
 				items: Object.values(toolSelection)
 			});
 		}
+
 		// Wait for the Slack workflow to be created
 		let maxAttempts = 30;
 		let attempts = 0;
@@ -126,7 +139,7 @@
 				layout.tasks = (await ChatService.listTasks(project.assistantID, project.id)).items;
 				task = layout.tasks.find((t) => t.id === project.workflowNameFromIntegration);
 				if (task) {
-					taskDialog?.showModal();
+					authDialog?.show();
 				}
 
 				if (!project.sharedTasks) {
@@ -310,6 +323,18 @@
 		</div>
 	</div>
 </dialog>
+
+<CredentialAuth
+	bind:this={authDialog}
+	credential={credToAuth}
+	{project}
+	local={true}
+	toolID="slack-bot-bundle"
+	onClose={() => {
+		credToAuth = undefined;
+		taskDialog?.showModal();
+	}}
+/>
 
 {#snippet steps()}
 	<div class="space-y-6">

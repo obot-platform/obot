@@ -1849,6 +1849,11 @@ func (in *ProjectList) DeepCopy() *ProjectList {
 func (in *ProjectManifest) DeepCopyInto(out *ProjectManifest) {
 	*out = *in
 	in.ThreadManifest.DeepCopyInto(&out.ThreadManifest)
+	if in.Capabilities != nil {
+		in, out := &in.Capabilities, &out.Capabilities
+		*out = new(ProjectCapabilities)
+		(*in).DeepCopyInto(*out)
+	}
 	if in.Models != nil {
 		in, out := &in.Models, &out.Models
 		*out = make(map[string][]string, len(*in))
@@ -2754,11 +2759,6 @@ func (in *ThreadManifestManagedFields) DeepCopyInto(out *ThreadManifestManagedFi
 	if in.WebsiteKnowledge != nil {
 		in, out := &in.WebsiteKnowledge, &out.WebsiteKnowledge
 		*out = new(WebsiteKnowledge)
-		(*in).DeepCopyInto(*out)
-	}
-	if in.Capabilities != nil {
-		in, out := &in.Capabilities, &out.Capabilities
-		*out = new(ProjectCapabilities)
 		(*in).DeepCopyInto(*out)
 	}
 }

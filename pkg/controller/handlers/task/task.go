@@ -9,7 +9,6 @@ import (
 	"github.com/obot-platform/obot/apiclient/types"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -123,12 +122,10 @@ func (t *Handler) UpdateTaskForSlack(thread *v1.Thread, req router.Request) erro
 		if err := req.Get(&workflow, workflow.Namespace, workflow.Name); kclient.IgnoreNotFound(err) != nil {
 			return err
 		} else if err == nil {
-			if err := req.Client.Delete(req.Ctx, &workflow); err != nil && !apierrors.IsNotFound(err) {
+			if err := req.Client.Delete(req.Ctx, &workflow); kclient.IgnoreNotFound(err) != nil {
 				return err
 			}
-			if thread.Status.WorkflowNameFromIntegration == workflow.Name {
-				thread.Status.WorkflowNameFromIntegration = ""
-			}
+			thread.Status.WorkflowNameFromIntegration = ""
 		}
 	}
 
@@ -178,12 +175,10 @@ func (t *Handler) UpdateTaskForDiscord(thread *v1.Thread, req router.Request) er
 		if err := req.Get(&workflow, workflow.Namespace, workflow.Name); kclient.IgnoreNotFound(err) != nil {
 			return err
 		} else if err == nil {
-			if err := req.Client.Delete(req.Ctx, &workflow); err != nil && !apierrors.IsNotFound(err) {
+			if err := req.Client.Delete(req.Ctx, &workflow); kclient.IgnoreNotFound(err) != nil {
 				return err
 			}
-			if thread.Status.WorkflowNameFromIntegration == workflow.Name {
-				thread.Status.WorkflowNameFromIntegration = ""
-			}
+			thread.Status.WorkflowNameFromIntegration = ""
 		}
 	}
 
@@ -259,7 +254,7 @@ func (t *Handler) UpdateTaskForEmail(thread *v1.Thread, req router.Request) erro
 		if err := req.Get(&emailReceiver, emailReceiver.Namespace, emailReceiver.Name); kclient.IgnoreNotFound(err) != nil {
 			return err
 		} else if err == nil {
-			if err := req.Client.Delete(req.Ctx, &emailReceiver); err != nil && !apierrors.IsNotFound(err) {
+			if err := req.Client.Delete(req.Ctx, &emailReceiver); kclient.IgnoreNotFound(err) != nil {
 				return err
 			}
 		}
@@ -267,12 +262,10 @@ func (t *Handler) UpdateTaskForEmail(thread *v1.Thread, req router.Request) erro
 		if err := req.Get(&workflow, workflow.Namespace, workflow.Name); kclient.IgnoreNotFound(err) != nil {
 			return err
 		} else if err == nil {
-			if err := req.Client.Delete(req.Ctx, &workflow); err != nil && !apierrors.IsNotFound(err) {
+			if err := req.Client.Delete(req.Ctx, &workflow); kclient.IgnoreNotFound(err) != nil {
 				return err
 			}
-			if thread.Status.WorkflowNameFromIntegration == workflow.Name {
-				thread.Status.WorkflowNameFromIntegration = ""
-			}
+			thread.Status.WorkflowNameFromIntegration = ""
 		}
 	}
 
@@ -352,7 +345,7 @@ func (t *Handler) UpdateTaskForWebhook(thread *v1.Thread, req router.Request) er
 		if err := req.Get(&webhook, webhook.Namespace, webhook.Name); kclient.IgnoreNotFound(err) != nil {
 			return err
 		} else if err == nil {
-			if err := req.Client.Delete(req.Ctx, &webhook); err != nil && !apierrors.IsNotFound(err) {
+			if err := req.Client.Delete(req.Ctx, &webhook); kclient.IgnoreNotFound(err) != nil {
 				return err
 			}
 		}
@@ -360,12 +353,10 @@ func (t *Handler) UpdateTaskForWebhook(thread *v1.Thread, req router.Request) er
 		if err := req.Get(&workflow, workflow.Namespace, workflow.Name); kclient.IgnoreNotFound(err) != nil {
 			return err
 		} else if err == nil {
-			if err := req.Client.Delete(req.Ctx, &workflow); err != nil && !apierrors.IsNotFound(err) {
+			if err := req.Client.Delete(req.Ctx, &workflow); kclient.IgnoreNotFound(err) != nil {
 				return err
 			}
-			if thread.Status.WorkflowNameFromIntegration == workflow.Name {
-				thread.Status.WorkflowNameFromIntegration = ""
-			}
+			thread.Status.WorkflowNameFromIntegration = ""
 		}
 	}
 

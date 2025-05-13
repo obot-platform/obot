@@ -3965,6 +3965,11 @@ func schema_obot_platform_obot_apiclient_types_ProjectManifest(ref common.Refere
 							Ref:     ref("github.com/obot-platform/obot/apiclient/types.ThreadManifest"),
 						},
 					},
+					"capabilities": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.ProjectCapabilities"),
+						},
+					},
 					"defaultModelProvider": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
@@ -4004,7 +4009,7 @@ func schema_obot_platform_obot_apiclient_types_ProjectManifest(ref common.Refere
 			},
 		},
 		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.ThreadManifest"},
+			"github.com/obot-platform/obot/apiclient/types.ProjectCapabilities", "github.com/obot-platform/obot/apiclient/types.ThreadManifest"},
 	}
 }
 
@@ -5634,11 +5639,6 @@ func schema_obot_platform_obot_apiclient_types_ThreadManifest(ref common.Referen
 							Ref: ref("github.com/obot-platform/obot/apiclient/types.WebsiteKnowledge"),
 						},
 					},
-					"capabilities": {
-						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/obot-platform/obot/apiclient/types.ProjectCapabilities"),
-						},
-					},
 					"tools": {
 						SchemaProps: spec.SchemaProps{
 							Type: []string{"array"},
@@ -5713,7 +5713,7 @@ func schema_obot_platform_obot_apiclient_types_ThreadManifest(ref common.Referen
 			},
 		},
 		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.AgentIcons", "github.com/obot-platform/obot/apiclient/types.ProjectCapabilities", "github.com/obot-platform/obot/apiclient/types.WebsiteKnowledge"},
+			"github.com/obot-platform/obot/apiclient/types.AgentIcons", "github.com/obot-platform/obot/apiclient/types.WebsiteKnowledge"},
 	}
 }
 
@@ -5767,17 +5767,12 @@ func schema_obot_platform_obot_apiclient_types_ThreadManifestManagedFields(ref c
 							Ref: ref("github.com/obot-platform/obot/apiclient/types.WebsiteKnowledge"),
 						},
 					},
-					"capabilities": {
-						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/obot-platform/obot/apiclient/types.ProjectCapabilities"),
-						},
-					},
 				},
 				Required: []string{"name", "icons", "introductionMessage", "starterMessages"},
 			},
 		},
 		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.AgentIcons", "github.com/obot-platform/obot/apiclient/types.ProjectCapabilities", "github.com/obot-platform/obot/apiclient/types.WebsiteKnowledge"},
+			"github.com/obot-platform/obot/apiclient/types.AgentIcons", "github.com/obot-platform/obot/apiclient/types.WebsiteKnowledge"},
 	}
 }
 
