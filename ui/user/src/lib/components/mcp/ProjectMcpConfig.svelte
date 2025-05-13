@@ -2,7 +2,7 @@
 	import { closeSidebarConfig, getLayout } from '$lib/context/layout.svelte';
 	import { ChatService, type Project, type ProjectMCP } from '$lib/services';
 	import { isValidMcpConfig, type MCPServerInfo } from '$lib/services/chat/mcp';
-	import { ChevronsRight, PencilLine, Plus, Server, Trash2, X } from 'lucide-svelte';
+	import { ChevronsRight, PencilLine, Server, X } from 'lucide-svelte';
 	import { twMerge } from 'tailwind-merge';
 	import { onMount } from 'svelte';
 	import { errors } from '$lib/stores';

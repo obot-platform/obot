@@ -133,7 +133,7 @@
 	{project}
 	{legacyBundleId}
 	prefilledConfig={projectMcpServerInfo}
-	manifestType={!!projectMcpServerInfo?.url ? 'url' : 'command'}
+	manifestType={projectMcpServerInfo?.url ? 'url' : 'command'}
 	onUpdate={async (mcpServerInfo) => {
 		setup(mcpServerInfo);
 	}}
