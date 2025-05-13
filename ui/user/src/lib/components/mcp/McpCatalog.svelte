@@ -13,6 +13,8 @@
 	import { onMount } from 'svelte';
 
 	const BROWSE_ALL_CATEGORY = 'Browse All';
+	const OFFICIAL_CATEGORY = 'Official';
+	const VERIFIED_CATEGORY = 'Verified';
 
 	interface Props {
 		inline?: boolean;
@@ -70,7 +72,7 @@
 	}
 
 	let search = $state('');
-	let selectedCategory = $state(BROWSE_ALL_CATEGORY);
+	let selectedCategory = $state(OFFICIAL_CATEGORY);
 	let selectedMcp = $state<TransformedMcp>();
 	let legacyBundleId = $derived(
 		selectedMcp && toolBundleMap.get(selectedMcp.catalogId) ? selectedMcp.catalogId : undefined
@@ -126,7 +128,7 @@
 						}
 						return acc;
 					},
-					[BROWSE_ALL_CATEGORY]
+					[OFFICIAL_CATEGORY, VERIFIED_CATEGORY, BROWSE_ALL_CATEGORY]
 				)
 			)
 		)
@@ -234,10 +236,19 @@
 					/>
 				</div>
 			</div>
-			<div class="flex items-center gap-4 px-4 pt-4 pb-2">
+
+			<div class="flex flex-col gap-1 px-4 pt-4 pb-2">
 				<h4 class="text-xl font-semibold">
 					{search ? 'Search Results' : selectedCategory}
 				</h4>
+				<p class="mb-2 text-sm font-light text-gray-500">
+					{#if selectedCategory === OFFICIAL_CATEGORY}
+						These servers are created and maintained by the Obot team.
+					{:else if selectedCategory === VERIFIED_CATEGORY}
+						These are open source community-servers that have been verified to launch and function
+						properly by the Obot team.
+					{/if}
+				</p>
 			</div>
 			<div class="grid grid-cols-1 gap-4 px-4 pt-2 md:grid-cols-2 xl:grid-cols-3">
 				{#each paginatedMcps as mcp (mcp.id)}

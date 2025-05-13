@@ -20,7 +20,11 @@ export function scrollFocus(node: HTMLElement) {
 		if (addedNodes.length === 0) return;
 
 		const lastAddedElement = addedNodes
-			.filter((node): node is Element => node instanceof Element)
+			.filter((node): node is Element => {
+				if (!(node instanceof Element)) return false;
+				// want to avoid scrolling nested dialog content
+				return !node.closest('dialog');
+			})
 			.pop();
 
 		if (lastAddedElement && isOutOfView(lastAddedElement)) {
