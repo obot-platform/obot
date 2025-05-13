@@ -72,7 +72,6 @@
 			<Threads {project} bind:currentThreadID editor />
 			<Tasks {project} bind:currentThreadID />
 			<McpServers {project} />
-			<BuiltInCapabilities bind:project />
 			{#if hasTool(projectTools.tools, 'memory')}
 				<Memories {project} />
 			{/if}
@@ -93,6 +92,7 @@
 				>
 					<General bind:project />
 					<SystemPrompt bind:project />
+					<BuiltInCapabilities bind:project />
 					<Introduction bind:project />
 					<Knowledge {project} />
 					<Files {project} classes={{ list: 'text-sm flex flex-col gap-2' }} />
