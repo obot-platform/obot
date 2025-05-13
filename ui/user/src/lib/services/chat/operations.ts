@@ -1066,6 +1066,20 @@ export async function revealProjectMCPEnvHeaders(
 	)) as Record<string, string>;
 }
 
+export async function revealSharedProjectMCP(
+	assistantID: string,
+	projectID: string,
+	mcpServerId: string
+) {
+	return (await doPost(
+		`/assistants/${assistantID}/projects/${projectID}/mcpservers/${mcpServerId}/reveal-shared`,
+		{},
+		{
+			dontLogErrors: true
+		}
+	)) as Record<string, string>;
+}
+
 export async function configureProjectMCPEnvHeaders(
 	assistantID: string,
 	projectID: string,
@@ -1085,6 +1099,29 @@ export async function deconfigureProjectMCP(
 ) {
 	return doPost(
 		`/assistants/${assistantID}/projects/${projectID}/mcpservers/${mcpServerId}/deconfigure`,
+		{}
+	);
+}
+
+export async function configureSharedProjectMCP(
+	assistantID: string,
+	projectID: string,
+	mcpServerId: string,
+	envHeadersToConfigure: Record<string, string>
+) {
+	return doPost(
+		`/assistants/${assistantID}/projects/${projectID}/mcpservers/${mcpServerId}/configure-shared`,
+		envHeadersToConfigure
+	);
+}
+
+export async function deconfigureSharedProjectMCP(
+	assistantID: string,
+	projectID: string,
+	mcpServerId: string
+) {
+	return doPost(
+		`/assistants/${assistantID}/projects/${projectID}/mcpservers/${mcpServerId}/deconfigure-shared`,
 		{}
 	);
 }

@@ -4,10 +4,7 @@
 	import Confirm from '$lib/components/Confirm.svelte';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import CollapsePane from '$lib/components/edit/CollapsePane.svelte';
-	import Toggle from '$lib/components/Toggle.svelte';
-	import CopyButton from '$lib/components/CopyButton.svelte';
-	import { browser } from '$app/environment';
-	import { ChatService, type Project, type ProjectShare, type ProjectMember } from '$lib/services';
+	import { ChatService, type Project, type ProjectMember } from '$lib/services';
 	import { profile } from '$lib/stores';
 	import { HELPER_TEXTS } from '$lib/context/helperMode.svelte';
 	import {
@@ -22,6 +19,8 @@
 		deleteProjectTemplate,
 		type ProjectTemplate
 	} from '$lib/services';
+	import { getHelperMode } from '$lib/context/helperMode.svelte';
+	import InfoTooltip from '$lib/components/InfoTooltip.svelte';
 
 	let toDelete = $state('');
 	let ownerID = $state<string>('');
@@ -35,12 +34,6 @@
 
 	let { project }: Props = $props();
 	let members = $state<ProjectMember[]>([]);
-	let share = $state<ProjectShare>();
-	let url = $derived(
-		browser && share?.publicID
-			? `${window.location.protocol}//${window.location.host}/s/${share.publicID}`
-			: ''
-	);
 	const layout = getLayout();
 
 	async function loadMembers() {
@@ -53,32 +46,22 @@
 		await loadMembers();
 	}
 
-	async function updateShare() {
-		share = await ChatService.getProjectShare(project.assistantID, project.id);
-	}
-
 	function manageInvitations() {
 		if (!isOwnerOrAdmin) return;
 		openSidebarConfig(layout, 'invitations');
 	}
 
+	function openChatbotConfig() {
+		openSidebarConfig(layout, 'chatbot');
+	}
+
 	$effect(() => {
 		if (project) {
 			ownerID = project.userID;
-			updateShare();
 			loadMembers();
 			loadTemplates();
 		}
 	});
-
-	async function handleChange(checked: boolean) {
-		if (checked) {
-			share = await ChatService.createProjectShare(project.assistantID, project.id);
-		} else {
-			await ChatService.deleteProjectShare(project.assistantID, project.id);
-			share = undefined;
-		}
-	}
 
 	async function loadTemplates() {
 		try {
@@ -214,42 +197,20 @@
 			</div>
 		</CollapsePane>
 
-		<CollapsePane
-			classes={{
-				header: 'pl-3 pr-5.5 py-2 border-surface3 border-b',
-				content: 'p-3 border-b border-surface3 overflow-x-hidden',
-				headerText: 'text-sm font-normal'
-			}}
-			iconSize={4}
-			header="ChatBot"
-			helpText={HELPER_TEXTS.chatbot}
+		<button
+			class="border-surface3 flex w-full items-center gap-2 border-b px-3 py-2 text-left"
+			onclick={openChatbotConfig}
 		>
-			<div class="flex flex-col gap-3">
-				<div class="flex w-full items-center justify-between gap-4">
-					<p class="flex grow text-sm">Enable ChatBot</p>
-					<Toggle label="Toggle ChatBot" checked={!!share?.publicID} onChange={handleChange} />
-				</div>
-
-				{#if share?.publicID}
-					<div
-						class="dark:bg-surface2 flex w-full flex-col gap-2 rounded-xl bg-white p-3 shadow-sm"
-					>
-						<p class="text-xs text-gray-500">
-							<b>Anyone with this link</b> can use this agent, which includes <b>any credentials</b>
-							assigned to this agent.
-						</p>
-						<div class="flex gap-1">
-							<CopyButton text={url} />
-							<a href={url} class="overflow-hidden text-sm text-ellipsis hover:underline">{url}</a>
-						</div>
+			<span class="flex grow items-center gap-1 text-sm font-normal">
+				ChatBot
+				{#if getHelperMode().isEnabled && HELPER_TEXTS.chatbot}
+					<div in:fade>
+						<InfoTooltip text={HELPER_TEXTS.chatbot} />
 					</div>
-				{:else}
-					<p class="text-xs text-gray-500">
-						Enable ChatBot to allow anyone with the link to use this agent.
-					</p>
 				{/if}
-			</div>
-		</CollapsePane>
+			</span>
+			<ChevronRight class="size-4" />
+		</button>
 
 		<CollapsePane
 			classes={{

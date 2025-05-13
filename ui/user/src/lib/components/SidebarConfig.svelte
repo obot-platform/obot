@@ -12,6 +12,7 @@
 	import { getProjectMCPs } from '$lib/context/projectMcps.svelte';
 	import McpServerTools from '$lib/components/mcp/McpServerTools.svelte';
 	import ModelProviders from './ModelProviders.svelte';
+	import ChatbotConfig from '$lib/components/edit/ChatbotConfig.svelte';
 	import { X } from 'lucide-svelte';
 	import Discord from './integrations/discord/Discord.svelte';
 	import Webhook from './integrations/webhook/Webhook.svelte';
@@ -109,6 +110,8 @@
 				}}
 			/>
 		{/key}
+	{:else if layout.sidebarConfig === 'chatbot'}
+		<ChatbotConfig {project} />
 	{:else if layout.sidebarConfig === 'template' && layout.template}
 		{#key layout.template.id}
 			<TemplateConfig bind:template={layout.template} />
