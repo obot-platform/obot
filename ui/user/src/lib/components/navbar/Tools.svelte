@@ -6,6 +6,7 @@
 	import { Server, Wrench } from 'lucide-svelte';
 	import McpServerTools from '$lib/components/mcp/McpServerTools.svelte';
 	import DotDotDot from '$lib/components/DotDotDot.svelte';
+	import { fade } from 'svelte/transition';
 
 	interface Props {
 		project: Project;
@@ -31,38 +32,40 @@
 	}
 </script>
 
-<div use:tooltip={'Tools'}>
-	<DotDotDot>
-		{#snippet icon()}
-			<Wrench class="h-5 w-5" />
-		{/snippet}
-		<div class="default-dialog flex min-w-max flex-col p-2">
-			{#each projectMCPs.items as projectMcp}
-				<button
-					class="menu-button"
-					onclick={async () => {
-						selectedProjectMcp = projectMcp;
+{#if projectMCPs.items.length > 0}
+	<div use:tooltip={'Tools'} in:fade>
+		<DotDotDot class="icon-button hover:bg-surface2 hover:text-blue-500">
+			{#snippet icon()}
+				<Wrench class="h-5 w-5" />
+			{/snippet}
+			<div class="default-dialog flex min-w-max flex-col p-2">
+				{#each projectMCPs.items as projectMcp}
+					<button
+						class="menu-button"
+						onclick={async () => {
+							selectedProjectMcp = projectMcp;
 
-						if (!currentThreadID) {
-							const thread = await createThread();
-							currentThreadID = thread.id;
-						}
-						dialog?.showModal();
-					}}
-				>
-					<div class="flex-shrink-0 rounded-md bg-gray-50 p-1 dark:bg-gray-600">
-						{#if projectMcp.icon}
-							<img src={projectMcp.icon} alt={projectMcp.name} class="size-4" />
-						{:else}
-							<Server class="size-4" />
-						{/if}
-					</div>
-					{projectMcp.name}
-				</button>
-			{/each}
-		</div>
-	</DotDotDot>
-</div>
+							if (!currentThreadID) {
+								const thread = await createThread();
+								currentThreadID = thread.id;
+							}
+							dialog?.showModal();
+						}}
+					>
+						<div class="flex-shrink-0 rounded-md bg-gray-50 p-1 dark:bg-gray-600">
+							{#if projectMcp.icon}
+								<img src={projectMcp.icon} alt={projectMcp.name} class="size-4" />
+							{:else}
+								<Server class="size-4" />
+							{/if}
+						</div>
+						{projectMcp.name}
+					</button>
+				{/each}
+			</div>
+		</DotDotDot>
+	</div>
+{/if}
 
 <dialog
 	bind:this={dialog}
