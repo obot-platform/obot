@@ -245,7 +245,7 @@
 					{#if selectedCategory === OFFICIAL_CATEGORY}
 						These servers are created and maintained by the Obot team.
 					{:else if selectedCategory === VERIFIED_CATEGORY}
-						These are open source community-servers that have been verified to launch and function
+						These are open source community servers that have been verified to launch and function
 						properly by the Obot team.
 					{/if}
 				</p>
