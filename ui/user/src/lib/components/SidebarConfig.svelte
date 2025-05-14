@@ -39,7 +39,7 @@
 	{#if layout.sidebarConfig === 'slack'}
 		<Slack {project} inline />
 	{:else if layout.sidebarConfig === 'invitations'}
-		<ProjectInvitations {project} inline />
+		<ProjectInvitations {project} />
 	{:else if layout.sidebarConfig === 'custom-mcp'}
 		{#key layout.editProjectMcp?.id}
 			<ProjectMcpConfig

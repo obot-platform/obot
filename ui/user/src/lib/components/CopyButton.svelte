@@ -1,41 +1,56 @@
 <script lang="ts">
+	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import { Copy } from 'lucide-svelte';
 	import { twMerge } from 'tailwind-merge';
-	import { popover } from '$lib/actions';
 
 	interface Props {
 		text?: string;
 		class?: string;
+		tooltipText?: string;
+		buttonText?: string;
+		disabled?: boolean;
+		classes?: {
+			button?: string;
+		};
 	}
 
-	let { text, class: clazz = '' }: Props = $props();
-	let message = $state<string>('Copy');
-	let { ref, tooltip } = popover({
-		placement: 'top-start',
-		offset: 1
-	});
+	let {
+		text,
+		class: clazz = '',
+		tooltipText = 'Copy',
+		buttonText,
+		disabled,
+		classes
+	}: Props = $props();
+	let message = $state<string>(tooltipText);
+	let buttonTextToShow = $state(buttonText);
+	const COPIED_TEXT = 'Copied!';
 
 	function copy() {
 		if (!text) return;
 		if (!navigator.clipboard) return;
 
 		navigator.clipboard.writeText(text);
-		message = 'Copied!';
+		message = COPIED_TEXT;
+		buttonTextToShow = COPIED_TEXT;
 		setTimeout(() => {
-			message = 'Copy';
+			message = tooltipText;
 		}, 750);
 	}
 </script>
 
 {#if text}
-	<div class="hidden" use:tooltip={{ hover: true }}>
-		<p
-			class="rounded-lg bg-gray-800 px-2 py-1 text-sm text-gray-50 shadow-sm dark:bg-gray-100 dark:text-black"
-		>
-			{message}
-		</p>
-	</div>
-	<button use:ref onclick={() => copy()}>
+	<button
+		use:tooltip={message}
+		onclick={() => copy()}
+		{disabled}
+		onmouseenter={() => (buttonTextToShow = buttonText)}
+		class={twMerge(
+			'button-small flex items-center gap-1 rounded-full border border-blue-500 bg-transparent px-4 py-2 text-blue-500 hover:bg-blue-500 hover:text-white disabled:bg-transparent disabled:text-blue-500 disabled:opacity-50',
+			classes?.button
+		)}
+	>
 		<Copy class={twMerge('h-4 w-4', clazz)} />
+		{buttonTextToShow}
 	</button>
 {/if}

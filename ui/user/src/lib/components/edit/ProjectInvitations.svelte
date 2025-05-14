@@ -1,19 +1,26 @@
 <script lang="ts">
-	import { Trash2, Plus, Clock, X } from 'lucide-svelte';
+	import { Trash2, Plus, Clock, X, Crown } from 'lucide-svelte';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import { browser } from '$app/environment';
-	import { ChatService, type Project, type ProjectInvitation } from '$lib/services';
-	import { profile } from '$lib/stores';
+	import {
+		ChatService,
+		type Project,
+		type ProjectInvitation,
+		type ProjectMember
+	} from '$lib/services';
+	import { profile, responsive } from '$lib/stores';
 	import { formatTimeAgo } from '$lib/time';
 	import CopyButton from '$lib/components/CopyButton.svelte';
 	import Confirm from '$lib/components/Confirm.svelte';
+	import { clickOutside } from '$lib/actions/clickoutside';
+	import { dialogAnimation } from '$lib/actions/dialogAnimation';
+	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
 		project: Project;
-		inline?: boolean;
 	}
 
-	let { project, inline = false }: Props = $props();
+	let { project }: Props = $props();
 	let invitations = $state<ProjectInvitation[]>([]);
 	let invitation = $state<ProjectInvitation | null>(null);
 	let isLoading = $state(false);
@@ -26,6 +33,9 @@
 			: ''
 	);
 	let deleteInvitationCode = $state('');
+	let invitationDialog = $state<HTMLDialogElement>();
+	let members = $state<ProjectMember[]>([]);
+	let toDelete = $state('');
 
 	async function createInvitation() {
 		if (!isOwnerOrAdmin || isCreating) return;
@@ -34,11 +44,16 @@
 		try {
 			invitation = await ChatService.createProjectInvitation(project.assistantID, project.id);
 			await loadInvitations();
+			invitationDialog?.showModal();
 		} catch (error) {
 			console.error('Error creating invitation:', error);
 		} finally {
 			isCreating = false;
 		}
+	}
+
+	async function loadMembers() {
+		members = await ChatService.listProjectMembers(project.assistantID, project.id);
 	}
 
 	async function loadInvitations() {
@@ -68,159 +83,195 @@
 		}
 	}
 
-	function getStatusStyle(status: string): { backgroundColor: string; color: string } {
-		const isDarkMode = document.documentElement.classList.contains('dark');
-
-		switch (status.toLowerCase()) {
-			case 'pending':
-				return isDarkMode
-					? { backgroundColor: '#713f12', color: '#fef08a' } // dark mode: yellow-900, yellow-300
-					: { backgroundColor: '#fef9c3', color: '#854d0e' }; // light mode: yellow-100, yellow-800
-			case 'accepted':
-				return isDarkMode
-					? { backgroundColor: '#14532d', color: '#86efac' } // dark mode: green-900, green-300
-					: { backgroundColor: '#dcfce7', color: '#166534' }; // light mode: green-100, green-800
-			case 'rejected':
-				return isDarkMode
-					? { backgroundColor: '#7f1d1d', color: '#fca5a5' } // dark mode: red-900, red-300
-					: { backgroundColor: '#fee2e2', color: '#991b1b' }; // light mode: red-100, red-800
-			case 'expired':
-			default:
-				return isDarkMode
-					? { backgroundColor: '#374151', color: '#d1d5db' } // dark mode: gray-700, gray-300
-					: { backgroundColor: '#f3f4f6', color: '#1f2937' }; // light mode: gray-100, gray-800
-		}
-	}
-
 	$effect(() => {
 		if (project) {
 			ownerID = project.userID;
 			if (isOwnerOrAdmin) {
 				loadInvitations();
+				loadMembers();
 			}
 		}
 	});
 </script>
 
-<div class="flex h-full w-full flex-col overflow-hidden p-4 {inline ? '' : 'mx-auto max-w-3xl'}">
-	<div class="mb-6 flex items-center justify-between">
-		<h2 class="text-xl font-medium">Project Invitations</h2>
-		{#if isOwnerOrAdmin}
-			<button
-				class="bg-surface3 hover:bg-surface4 flex items-center gap-1 rounded-md px-3 py-1.5 text-sm font-medium transition-colors"
-				onclick={createInvitation}
-				disabled={isCreating}
-			>
-				<Plus class="size-4" />
-				New Invitation
-			</button>
-		{/if}
-	</div>
+<div class="flex w-full flex-col items-center">
+	<div class="flex w-full items-center p-4">
+		<div class="mx-auto flex w-full flex-col gap-4 md:max-w-[1200px]">
+			<h1 class="text-2xl font-semibold">Manage Agent Members</h1>
 
-	{#if !isOwnerOrAdmin}
-		<p class="p-4 text-center text-gray-500">Only project owners can manage invitations.</p>
-	{:else if isLoading}
-		<div class="flex grow items-center justify-center">
-			<div
-				class="size-6 animate-spin rounded-full border-2 border-gray-300 border-t-blue-600"
-			></div>
-		</div>
-	{:else}
-		{#if invitation}
-			<div
-				class="dark:bg-surface2 mb-6 flex w-full flex-col gap-2 rounded-xl bg-white p-4 shadow-sm"
-			>
-				<div class="flex items-center justify-between">
-					<h3 class="text-sm font-medium">New Invitation Link</h3>
-					<button class="text-gray-500 hover:text-gray-700" onclick={() => (invitation = null)}>
-						<X class="size-4" />
-					</button>
-				</div>
-				<p class="text-xs text-gray-500">
-					Share this link with someone to invite them to join this project:
-				</p>
-				<div class="flex items-center gap-2">
-					<CopyButton text={invitationUrl} />
-					<div class="overflow-x-auto py-1 pr-2 text-sm break-all">
-						{invitationUrl}
+			<h2 class="text-xl font-semibold">Members</h2>
+			<div class="dark:bg-gray-980 flex flex-col gap-2 rounded-md bg-gray-50 p-2 shadow-inner">
+				{#each members as member}
+					<div
+						class="group dark:bg-surface1 dark:border-surface3 flex w-full items-center rounded-md bg-white p-2 shadow-sm dark:border"
+					>
+						<div class="flex grow items-center gap-2">
+							<div class="size-10 overflow-hidden rounded-full bg-gray-50 dark:bg-gray-600">
+								<img
+									src={member.iconURL}
+									class="h-full w-full object-cover"
+									alt="agent member icon"
+									referrerpolicy="no-referrer"
+								/>
+							</div>
+							<div class="flex flex-col">
+								<p class="flex items-center gap-1 truncate text-left text-base font-light">
+									{member.email}
+									{#if member.isOwner}
+										<Crown class="size-4" />
+									{/if}
+									{#if member.email === profile.current.email}
+										<span class="text-xs text-gray-500">(Me)</span>
+									{/if}
+								</p>
+								<span class="text-sm font-light text-gray-500">
+									{member.isOwner ? 'Owner' : 'Member'}
+								</span>
+							</div>
+						</div>
+						{#if isOwnerOrAdmin && profile.current.email !== member.email && !member.isOwner}
+							<button
+								class="button-destructive"
+								onclick={() => (toDelete = member.email)}
+								use:tooltip={'Remove member'}
+							>
+								<Trash2 class="size-4" />
+							</button>
+						{/if}
 					</div>
-				</div>
+				{/each}
 			</div>
-		{/if}
 
-		{#if invitations.length === 0}
-			<p class="p-4 text-center text-gray-500">No invitations found</p>
-		{:else}
-			<div
-				class="default-scrollbar-thin flex-1 overflow-y-auto rounded-md border border-gray-200 dark:border-gray-700"
-			>
-				<table class="w-full">
-					<thead class="dark:bg-surface2 sticky top-0 bg-gray-50">
-						<tr>
-							<th
-								class="w-2/3 px-4 py-2 text-left text-xs font-medium tracking-wider text-gray-500 uppercase"
-								>Invitation URL</th
-							>
-							<th
-								class="w-1/8 px-4 py-2 text-left text-xs font-medium tracking-wider text-gray-500 uppercase"
-								>Status</th
-							>
-							<th
-								class="w-1/8 px-4 py-2 text-left text-xs font-medium tracking-wider text-gray-500 uppercase"
-								>Created</th
-							>
-							<th
-								class="w-1/12 px-4 py-2 text-right text-xs font-medium tracking-wider text-gray-500 uppercase"
-							></th>
-						</tr>
-					</thead>
-					<tbody class="divide-y divide-gray-200 dark:divide-gray-700">
-						{#each invitations as invitation}
-							<tr class="dark:hover:bg-surface2 hover:bg-gray-50">
-								<td class="px-4 py-3">
-									<div class="flex items-center">
-										<CopyButton
-											text={`${window.location.protocol}//${window.location.host}/i/${invitation.code}`}
-										/>
-										<div class="ml-2 overflow-x-auto pr-2 text-sm font-medium break-all">
-											{`${window.location.protocol}//${window.location.host}/i/${invitation.code}`}
-										</div>
-									</div>
-								</td>
-								<td class="px-4 py-3 whitespace-nowrap">
+			<div class="mt-8 flex items-center justify-between">
+				<h2 class="text-xl font-semibold">Agent Invitations</h2>
+				{#if isOwnerOrAdmin}
+					<button
+						class="button flex items-center gap-1 text-sm"
+						onclick={createInvitation}
+						disabled={isCreating}
+					>
+						<Plus class="size-4" />
+						New Invite
+					</button>
+				{/if}
+			</div>
+		</div>
+	</div>
+	<div class="dark:bg-gray-980 flex w-full grow items-center bg-gray-50 p-4">
+		<div class="mx-auto flex w-full flex-col self-start md:max-w-[1200px]">
+			{#if !isOwnerOrAdmin}
+				<p class="p-4 text-center text-gray-500">Only project owners can manage invitations.</p>
+			{:else if isLoading}
+				<div class="flex grow items-center justify-center">
+					<div
+						class="size-6 animate-spin rounded-full border-2 border-gray-300 border-t-blue-600"
+					></div>
+				</div>
+			{:else if invitations.length === 0}
+				<p class="p-4 text-center text-gray-500">No invitations found</p>
+			{:else}
+				<ul class="flex flex-col gap-4">
+					{#each invitations as invitation}
+						<li
+							class="dark:bg-surface1 dark:border-surface3 flex items-center justify-between rounded-md bg-white p-4 shadow-sm dark:border"
+						>
+							<div class="flex grow flex-col gap-1">
+								<div class="overflow-x-auto text-sm font-medium break-all">
+									{invitation.code}
+								</div>
+								<div class="flex flex-shrink-0 gap-4">
 									<span
-										class="inline-flex rounded-full px-2 py-1 text-xs leading-5 font-semibold whitespace-nowrap capitalize"
-										style={`background-color: ${getStatusStyle(invitation.status).backgroundColor}; color: ${getStatusStyle(invitation.status).color};`}
+										class={twMerge(
+											'inline-flex rounded-lg border px-2 py-0.5 text-xs leading-5 font-semibold whitespace-nowrap capitalize dark:opacity-75',
+											invitation.status === 'pending' && 'border-yellow-500 text-yellow-500',
+											invitation.status === 'accepted' && 'border-green-500 text-green-500',
+											invitation.status === 'rejected' && 'border-red-500 text-red-500',
+											invitation.status === 'expired' && 'border-gray-500 text-gray-500'
+										)}
 									>
 										{invitation.status}
 									</span>
-								</td>
-								<td class="px-4 py-3 whitespace-nowrap">
-									<div
-										class="flex items-center gap-1 text-xs text-gray-500"
-										title={formatTimeAgo(invitation.created).fullDate}
-									>
+									<div class="bg-surface2 dark:bg-surface3 h-6 w-[1px]"></div>
+									<div class="flex items-center gap-2 text-xs text-gray-500">
 										<Clock class="size-3.5" />
 										<span>{formatTimeAgo(invitation.created).relativeTime}</span>
 									</div>
-								</td>
-								<td class="px-4 py-3 text-right whitespace-nowrap">
-									<button
-										class="p-1 text-red-600 hover:text-red-900"
-										onclick={() => (deleteInvitationCode = invitation.code)}
-										use:tooltip={'Delete invitation'}
-									>
-										<Trash2 class="size-4" />
-									</button>
-								</td>
-							</tr>
-						{/each}
-					</tbody>
-				</table>
-			</div>
-		{/if}
-	{/if}
+								</div>
+							</div>
+							<div class="flex flex-shrink-0 gap-4">
+								{#if invitation.status === 'pending'}
+									<CopyButton
+										text={`${window.location.protocol}//${window.location.host}/i/${invitation.code}`}
+										buttonText="Copy Invite Link"
+									/>
+								{/if}
+								<button
+									class="button-destructive flex-shrink-0"
+									onclick={() => (deleteInvitationCode = invitation.code)}
+								>
+									<Trash2 class="size-4" />
+								</button>
+							</div>
+						</li>
+					{/each}
+				</ul>
+			{/if}
+		</div>
+	</div>
 </div>
+
+<Confirm
+	msg={`Remove ${toDelete} from your agent?`}
+	show={!!toDelete}
+	onsuccess={async () => {
+		if (!toDelete) return;
+		try {
+			const memberToDelete = members.find((m) => m.email === toDelete);
+			if (memberToDelete && isOwnerOrAdmin) {
+				await ChatService.deleteProjectMember(
+					project.assistantID,
+					project.id,
+					memberToDelete.userID
+				);
+				await loadMembers();
+			}
+		} finally {
+			toDelete = '';
+		}
+	}}
+	oncancel={() => (toDelete = '')}
+/>
+
+<dialog
+	use:dialogAnimation={{ type: 'fade' }}
+	bind:this={invitationDialog}
+	use:clickOutside={() => invitationDialog?.close()}
+	class="default-dialog relative w-lg p-4 py-8"
+	class:mobile-screen-dialog={responsive.isMobile}
+>
+	<button
+		class="icon-button absolute top-2 right-2 z-40 float-right self-end"
+		onclick={() => invitationDialog?.close()}
+		use:tooltip={{ disablePortal: true, text: 'Close Agent Catalog' }}
+	>
+		<X class="size-7" />
+	</button>
+
+	<div class="flex flex-col items-center gap-4">
+		<img src="/user/images/sharing-agent.webp" alt="invitation" />
+		<h4 class="text-2xl font-semibold">Your Agent <i>Invite</i> Link</h4>
+		<p class="text-md leading-6 font-light">
+			Copy the invitation link below and share with your colleagues to get started collaborating on
+			this agent!
+		</p>
+		<CopyButton
+			text={invitationUrl}
+			buttonText="Copy Invite Link"
+			classes={{ button: 'text-md px-6 gap-2' }}
+		/>
+		<span class="text-xs text-gray-500">{invitationUrl}</span>
+	</div>
+</dialog>
 
 <Confirm
 	msg={`Delete this invitation?`}

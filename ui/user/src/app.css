@@ -87,6 +87,9 @@
 	--color-gray-970: hsl(0 0 calc(2.5 + 3));
 	--color-gray-980: hsl(0 0 calc(2.5 + 2));
 	--color-gray-990: hsl(0 0 calc(2.5 + 1));
+
+	--color-yellow-500: oklch(79.5% 0.184 86.047);
+	--color-green-500: oklch(72.3% 0.219 149.579);
 }
 
 /*

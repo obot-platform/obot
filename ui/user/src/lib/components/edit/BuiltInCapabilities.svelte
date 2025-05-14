@@ -36,11 +36,11 @@
 	header="Built-In Capabilities"
 	helpText={HELPER_TEXTS.general}
 >
-	<div class="flex flex-col overflow-x-hidden p-2">
+	<div class="flex flex-col gap-2 overflow-x-hidden p-2">
 		{#each builtInTools.sort(sortBuiltInLast) as tool (tool.id)}
 			{@const toolReference = toolReferences.get(tool.id)}
 			<div
-				class="flex min-h-9 items-center justify-between rounded-md bg-transparent p-2 pr-3 text-xs transition-colors duration-200"
+				class="flex min-h-9 items-center justify-between rounded-md bg-transparent text-xs transition-colors duration-200"
 			>
 				<span class="flex items-center gap-2" class:opacity-50={tool.builtin}>
 					<div class="bg-surface1 flex-shrink-0 rounded-sm p-1 dark:bg-gray-600">
@@ -67,7 +67,7 @@
 						>
 					</div>
 				</span>
-				<div class="w-9">
+				<div class="w-8">
 					{#if !tool.builtin}
 						<Toggle
 							label="Toggle Capability"

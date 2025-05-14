@@ -1147,10 +1147,15 @@ export async function listProjectMembers(
 	projectID: string,
 	opts?: { fetch?: Fetcher }
 ): Promise<ProjectMember[]> {
-	return (await doGet(
+	const response = (await doGet(
 		`/assistants/${assistantID}/projects/${projectID}/members`,
 		opts
 	)) as ProjectMember[];
+	return response.sort((a, b) => {
+		if (a.isOwner && !b.isOwner) return -1;
+		if (!a.isOwner && b.isOwner) return 1;
+		return 0;
+	});
 }
 
 export async function deleteProjectMember(

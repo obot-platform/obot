@@ -217,7 +217,7 @@
 		<CollapsePane
 			classes={{
 				header: 'pl-3 pr-5.5 py-2 border-surface3 border-b',
-				content: 'p-3 border-b border-surface3',
+				content: 'p-3 border-b border-surface3 overflow-x-hidden',
 				headerText: 'text-sm font-normal'
 			}}
 			iconSize={4}
@@ -262,13 +262,13 @@
 			helpText={HELPER_TEXTS.members}
 		>
 			<div class="flex flex-col gap-2 text-sm">
-				<div class="flex flex-col">
-					<div class="mb-2 flex items-center justify-between">
-						<span class="text-sm font-medium">Project Members</span>
+				<div class="flex flex-col gap-1">
+					<div class="flex items-center justify-between">
+						<span class="text-sm font-medium">Agent Members</span>
 						{#if isOwnerOrAdmin}
 							<div class="flex gap-2">
 								<button
-									class="bg-surface3 hover:bg-surface4 rounded-full p-1 transition-colors"
+									class="icon-button"
 									onclick={manageInvitations}
 									use:tooltip={'Manage invitations'}
 								>
@@ -278,9 +278,7 @@
 						{/if}
 					</div>
 					{#each members as member}
-						<div
-							class="group flex h-[36px] w-full items-center rounded-md transition-colors duration-300"
-						>
+						<div class="group flex w-full items-center rounded-md transition-colors duration-300">
 							<div class="flex grow items-center gap-2">
 								<div class="size-6 overflow-hidden rounded-full bg-gray-50 dark:bg-gray-600">
 									<img
@@ -301,7 +299,7 @@
 							</div>
 							{#if isOwnerOrAdmin && profile.current.email !== member.email && !member.isOwner}
 								<button
-									class="bg-surface3 hover:bg-surface4 rounded-full p-1 transition-colors"
+									class="icon-button"
 									onclick={() => (toDelete = member.email)}
 									use:tooltip={'Remove member'}
 								>
