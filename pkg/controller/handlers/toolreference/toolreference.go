@@ -603,6 +603,7 @@ func (h *Handler) createMCPServerCatalog(req router.Request, toolRef *v1.ToolRef
 			mcpCatalogEntry.Spec.ToolReferenceName = toolRef.Name
 			return req.Client.Update(req.Ctx, &mcpCatalogEntry)
 		}
+		return nil
 	}
 
 	return req.Client.Create(req.Ctx, &v1.MCPServerCatalogEntry{
