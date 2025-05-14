@@ -173,10 +173,10 @@
 				<ul class="flex flex-col gap-4">
 					{#each invitations as invitation}
 						<li
-							class="dark:bg-surface1 dark:border-surface3 flex items-center justify-between rounded-md bg-white p-4 shadow-sm dark:border"
+							class="dark:bg-surface1 dark:border-surface3 flex items-center justify-between gap-4 rounded-md bg-white p-4 shadow-sm dark:border"
 						>
-							<div class="flex grow flex-col gap-1">
-								<div class="overflow-x-auto text-sm font-medium break-all">
+							<div class="flex grow flex-col gap-2 md:gap-1">
+								<div class="line-clamp-1 overflow-x-auto text-sm font-medium break-all">
 									{invitation.code}
 								</div>
 								<div class="flex flex-shrink-0 gap-4">
@@ -197,9 +197,16 @@
 										<span>{formatTimeAgo(invitation.created).relativeTime}</span>
 									</div>
 								</div>
+								{#if invitation.status === 'pending' && responsive.isMobile}
+									<CopyButton
+										text={`${window.location.protocol}//${window.location.host}/i/${invitation.code}`}
+										buttonText="Copy Invite Link"
+										classes={{ button: 'w-fit' }}
+									/>
+								{/if}
 							</div>
-							<div class="flex flex-shrink-0 gap-4">
-								{#if invitation.status === 'pending'}
+							<div class="flex flex-shrink-0 gap-4 self-start md:self-center">
+								{#if invitation.status === 'pending' && !responsive.isMobile}
 									<CopyButton
 										text={`${window.location.protocol}//${window.location.host}/i/${invitation.code}`}
 										buttonText="Copy Invite Link"
@@ -260,7 +267,7 @@
 	<div class="flex flex-col items-center gap-4">
 		<img src="/user/images/sharing-agent.webp" alt="invitation" />
 		<h4 class="text-2xl font-semibold">Your Agent <i>Invite</i> Link</h4>
-		<p class="text-md leading-6 font-light">
+		<p class="text-md max-w-md text-center leading-6 font-light">
 			Copy the invitation link below and share with your colleagues to get started collaborating on
 			this agent!
 		</p>
@@ -269,7 +276,7 @@
 			buttonText="Copy Invite Link"
 			classes={{ button: 'text-md px-6 gap-2' }}
 		/>
-		<span class="text-xs text-gray-500">{invitationUrl}</span>
+		<span class="line-clamp-1 text-xs break-all text-gray-500">{invitationUrl}</span>
 	</div>
 </dialog>
 

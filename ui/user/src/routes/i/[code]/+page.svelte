@@ -129,9 +129,7 @@
 							>{projectName}</strong
 						>.
 					</h2>
-					<p class="text-md text-center leading-6 font-light">
-						We'll let the project owner know. Thank you for your response!
-					</p>
+					<p class="text-md text-center leading-6 font-light">Thank you for your response!</p>
 					<div class="mt-4 flex w-full justify-center">
 						<a href="/" class="button-primary w-full rounded-full p-2 px-6 text-center">
 							Go Home
