@@ -234,10 +234,6 @@ func (m *MCPHandler) DeleteServer(req api.Context) error {
 		return types.NewErrForbidden("cannot delete MCP server from this project")
 	}
 
-	if err := m.gptscript.DeleteCredential(req.Context(), fmt.Sprintf("%s-%s", server.Spec.ThreadName, server.Name), server.Name); err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
-		return fmt.Errorf("failed to delete credential: %w", err)
-	}
-
 	if err := req.Delete(&server); err != nil {
 		return err
 	}

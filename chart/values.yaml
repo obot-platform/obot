@@ -122,6 +122,13 @@ config:
   # config.OBOT_SERVER_AUDIT_LOGS_USE_PATH_STYLE -- Whether to use path style for S3
   OBOT_SERVER_AUDIT_LOGS_USE_PATH_STYLE: false
 
+  # config.OBOT_SERVER_MCPBASE_IMAGE -- Deploy MCP servers in the cluster using this base image. Setting this value will also create the necessary service account, role and rolebinding.
+  OBOT_SERVER_MCPBASE_IMAGE: ""
+  # config.OBOT_SERVER_MCPNAMESPACE -- The namespace in which to deploy the MCP servers. Will be created if the above image is set. Only matters if the above image is set.
+  OBOT_SERVER_MCPNAMESPACE: "obot-mcp"
+  # config.OBOT_SERVER_MCPCLUSTER_DOMAIN -- The cluster domain to use for MCP services. Defaults to cluster.local. Only matters if the above image is set.
+  OBOT_SERVER_MCPCLUSTER_DOMAIN: ""
+
 # extraEnv -- A map of additional environment variables to set
 extraEnv: { }
 

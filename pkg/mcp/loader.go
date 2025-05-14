@@ -4,34 +4,37 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/gptscript-ai/gptscript/pkg/hash"
 	gmcp "github.com/gptscript-ai/gptscript/pkg/mcp"
 	"github.com/gptscript-ai/gptscript/pkg/types"
+	"github.com/obot-platform/nah/pkg/apply"
 	"github.com/obot-platform/nah/pkg/name"
-	"github.com/obot-platform/obot/pkg/wait"
+	"github.com/obot-platform/obot/logger"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/util/homedir"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-const mcpNamespace = "obot-mcp"
+var log = logger.Package()
 
 type SessionManager struct {
-	client                      kclient.WithWatch
-	local                       *gmcp.Local
-	baseImage, mcpClusterDomain string
+	client                                    kclient.WithWatch
+	local                                     *gmcp.Local
+	baseImage, mcpNamespace, mcpClusterDomain string
 }
 
-func NewSessionManager(ctx context.Context, defaultLoader *gmcp.Local, baseImage, mcpClusterDomain string) (*SessionManager, error) {
+func NewSessionManager(ctx context.Context, defaultLoader *gmcp.Local, baseImage, mcpNamespace, mcpClusterDomain string) (*SessionManager, error) {
 	var client kclient.WithWatch
 	if baseImage != "" {
 		config, err := buildConfig()
@@ -49,7 +52,7 @@ func NewSessionManager(ctx context.Context, defaultLoader *gmcp.Local, baseImage
 				Name: mcpNamespace,
 			},
 		})); err != nil {
-			return nil, err
+			log.Warnf("failed to create MCP namespace, namespace must exist for MCP deployments to work: %v", err)
 		}
 	}
 
@@ -58,6 +61,7 @@ func NewSessionManager(ctx context.Context, defaultLoader *gmcp.Local, baseImage
 		local:            defaultLoader,
 		baseImage:        baseImage,
 		mcpClusterDomain: mcpClusterDomain,
+		mcpNamespace:     mcpNamespace,
 	}, nil
 }
 
@@ -74,40 +78,12 @@ func (sm *SessionManager) ShutdownServer(ctx context.Context, server ServerConfi
 
 	id := sessionID(server)
 
-	err := sm.local.ShutdownServer(gmcp.ServerConfig{URL: fmt.Sprintf("%s.%s.svc.%s", id, mcpNamespace, sm.mcpClusterDomain)})
+	err := sm.local.ShutdownServer(gmcp.ServerConfig{URL: fmt.Sprintf("http://%s.%s.svc.%s/sse", id, sm.mcpNamespace, sm.mcpClusterDomain)})
 	if err != nil {
 		return err
 	}
-
-	for _, obj := range []kclient.Object{
-		&appsv1.Deployment{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      id,
-				Namespace: mcpNamespace,
-			},
-		},
-		&corev1.Service{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      id,
-				Namespace: mcpNamespace,
-			},
-		},
-		&corev1.Secret{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      name.SafeConcatName(id, "files"),
-				Namespace: mcpNamespace,
-			},
-		},
-		&corev1.Secret{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      name.SafeConcatName(id, "config"),
-				Namespace: mcpNamespace,
-			},
-		},
-	} {
-		if err = kclient.IgnoreNotFound(sm.client.Delete(ctx, obj)); err != nil {
-			return err
-		}
+	if err = apply.New(sm.client).WithNamespace(sm.mcpNamespace).WithOwnerSubContext(id).WithPruneTypes(new(corev1.Secret), new(appsv1.Deployment), new(corev1.Service)).Apply(ctx, nil, nil); err != nil {
+		return fmt.Errorf("failed to delete MCP deployment %s: %w", id, err)
 	}
 	return nil
 }
@@ -152,7 +128,7 @@ func (sm *SessionManager) Load(ctx context.Context, tool types.Tool) (result []t
 
 		var objs []kclient.Object
 
-		secretStringData := make(map[string]string, len(server.Env)+len(server.Headers)+4)
+		secretStringData := make(map[string]string, len(server.Env)+len(server.Headers))
 		secretVolumeStringData := make(map[string]string, len(server.Files))
 		for _, file := range server.Files {
 			name := fmt.Sprintf("%s-%s", id, hash.Digest(file))
@@ -165,15 +141,11 @@ func (sm *SessionManager) Load(ctx context.Context, tool types.Tool) (result []t
 		objs = append(objs, &corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      name.SafeConcatName(id, "files"),
-				Namespace: mcpNamespace,
+				Namespace: sm.mcpNamespace,
 			},
 			StringData: secretVolumeStringData,
 		})
 
-		secretStringData["SERVER"] = server.Server
-		secretStringData["URL"] = server.URL
-		secretStringData["COMMAND"] = server.Command
-		secretStringData["BASE_URL"] = server.BaseURL
 		for _, env := range server.Env {
 			k, v, ok := strings.Cut(env, "=")
 			if ok {
@@ -190,22 +162,15 @@ func (sm *SessionManager) Load(ctx context.Context, tool types.Tool) (result []t
 		objs = append(objs, &corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      name.SafeConcatName(id, "config"),
-				Namespace: mcpNamespace,
+				Namespace: sm.mcpNamespace,
 			},
 			StringData: secretStringData,
 		})
 
-		var args []string
-		if server.Command != "" {
-			args = make([]string, 0, len(server.Args)+1)
-			args = append(args, server.Command)
-			args = append(args, server.Args...)
-		}
-
 		dep := &appsv1.Deployment{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      id,
-				Namespace: mcpNamespace,
+				Namespace: sm.mcpNamespace,
 				Labels: map[string]string{
 					"app": id,
 				},
@@ -227,7 +192,7 @@ func (sm *SessionManager) Load(ctx context.Context, tool types.Tool) (result []t
 							Name: "files",
 							VolumeSource: corev1.VolumeSource{
 								Secret: &corev1.SecretVolumeSource{
-									SecretName: id,
+									SecretName: name.SafeConcatName(id, "files"),
 								},
 							},
 						}},
@@ -236,13 +201,28 @@ func (sm *SessionManager) Load(ctx context.Context, tool types.Tool) (result []t
 							Image: sm.baseImage,
 							Ports: []corev1.ContainerPort{{
 								Name:          "http",
-								ContainerPort: 80,
+								ContainerPort: 8080,
 							}},
-							Args: args,
+							SecurityContext: &corev1.SecurityContext{
+								AllowPrivilegeEscalation: &[]bool{false}[0],
+								RunAsNonRoot:             &[]bool{true}[0],
+								RunAsUser:                &[]int64{1000}[0],
+								RunAsGroup:               &[]int64{1000}[0],
+							},
+							ReadinessProbe: &corev1.Probe{
+								ProbeHandler: corev1.ProbeHandler{
+									HTTPGet: &corev1.HTTPGetAction{
+										Path: "/healthz",
+										Port: intstr.FromInt32(8080),
+									},
+								},
+								InitialDelaySeconds: 3,
+							},
+							Args: []string{"--stdio", fmt.Sprintf("%s %s", server.Command, strings.Join(server.Args, " ")), "--port", "8080", "--healthEndpoint", "/healthz"},
 							EnvFrom: []corev1.EnvFromSource{{
 								SecretRef: &corev1.SecretEnvSource{
 									LocalObjectReference: corev1.LocalObjectReference{
-										Name: id,
+										Name: name.SafeConcatName(id, "config"),
 									},
 								},
 							}},
@@ -260,13 +240,14 @@ func (sm *SessionManager) Load(ctx context.Context, tool types.Tool) (result []t
 		objs = append(objs, &corev1.Service{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      id,
-				Namespace: mcpNamespace,
+				Namespace: sm.mcpNamespace,
 			},
 			Spec: corev1.ServiceSpec{
 				Ports: []corev1.ServicePort{
 					{
-						Name: "http",
-						Port: 80,
+						Name:       "http",
+						Port:       80,
+						TargetPort: intstr.FromInt32(8080),
 					},
 				},
 				Selector: map[string]string{
@@ -276,23 +257,17 @@ func (sm *SessionManager) Load(ctx context.Context, tool types.Tool) (result []t
 			},
 		})
 
-		for _, dep := range objs {
-			if err := sm.client.Get(ctx, kclient.ObjectKey{Name: id, Namespace: mcpNamespace}, dep); apierrors.IsNotFound(err) {
-				if err = sm.client.Create(ctx, dep); err != nil {
-					return nil, fmt.Errorf("failed to create %T: %w", dep, err)
-				}
-			} else if err != nil {
-				return nil, fmt.Errorf("failed to check for %T: %w", dep, err)
-			}
+		if err := apply.New(sm.client).WithNamespace(sm.mcpNamespace).WithOwnerSubContext(id).Apply(ctx, nil, objs...); err != nil {
+			return nil, fmt.Errorf("failed to create MCP deployment %s: %w", id, err)
 		}
 
-		if _, err := wait.For(ctx, sm.client, dep, func(dep *appsv1.Deployment) (bool, error) {
-			return dep.Status.UpdatedReplicas > 0 && dep.Status.ReadyReplicas > 0, nil
-		}); err != nil {
-			return nil, fmt.Errorf("failed to wait for deployment %s: %w", id, err)
+		url := fmt.Sprintf("http://%s.%s.svc.%s", id, sm.mcpNamespace, sm.mcpClusterDomain)
+
+		if err := pollMCPServer(ctx, url); err != nil {
+			return nil, err
 		}
 
-		return sm.local.LoadTools(ctx, gmcp.ServerConfig{URL: fmt.Sprintf("%s.%s.svc.%s", id, mcpNamespace, sm.mcpClusterDomain)}, tool.Name)
+		return sm.local.LoadTools(ctx, gmcp.ServerConfig{URL: fmt.Sprintf("%s/sse", url)}, tool.Name)
 	}
 
 	return nil, fmt.Errorf("no MCP server configuration found in tool instructions: %s", configData)
@@ -304,6 +279,25 @@ func sessionID(server ServerConfig) string {
 	return "mcp" + hash.Digest(server)[:60]
 }
 
+func pollMCPServer(ctx context.Context, url string) error {
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+
+	client := http.Client{
+		Timeout: time.Second,
+	}
+	for {
+		select {
+		case <-ctx.Done():
+			return fmt.Errorf("failed to start MCP server: %w", ctx.Err())
+		case <-time.After(100 * time.Millisecond):
+		}
+		resp, err := client.Get(fmt.Sprintf("%s/healthz", url))
+		if err == nil && resp.StatusCode == http.StatusOK {
+			return nil
+		}
+	}
+}
 func buildConfig() (*rest.Config, error) {
 	cfg, err := rest.InClusterConfig()
 	if err == nil {
