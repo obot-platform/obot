@@ -11275,6 +11275,12 @@ func schema_storage_apis_obotobotai_v1_ToolReferenceSpec(ref common.ReferenceCal
 							Format: "",
 						},
 					},
+					"isCapability": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
+						},
+					},
 					"reference": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
