@@ -37,7 +37,7 @@
 	let allToolsEnabled = $derived(selected[0] === '*' || selected.length === tools.length);
 	let loading = $state(false);
 	let expandedDescriptions = $state<Record<string, boolean>>({});
-	let allDescriptionsEnabled = $state(false);
+	let allDescriptionsEnabled = $state(true);
 	$effect(() => {
 		if (refTools) {
 			tools = refTools;
