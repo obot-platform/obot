@@ -593,7 +593,7 @@ func (h *Handler) createMCPServerCatalog(req router.Request, toolRef *v1.ToolRef
 			shouldUpdate = true
 		}
 
-		if equality.Semantic.DeepEqual(mcpCatalogEntry.Spec.CommandManifest.Server, serverManifest) &&
+		if !equality.Semantic.DeepEqual(mcpCatalogEntry.Spec.CommandManifest.Server, serverManifest) &&
 			mcpCatalogEntry.Spec.ToolReferenceName == toolRef.Name {
 			shouldUpdate = true
 		}
