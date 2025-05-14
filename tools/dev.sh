@@ -1,6 +1,8 @@
 #!/bin/bash
 
 set -e # Exit on any command failure
+# Create a new process group if supported
+set -m 2>/dev/null || true
 
 # Parse arguments for opening the user and admin UIs
 open_uis=false
@@ -44,10 +46,27 @@ open_browser_tabs() {
 }
 
 cleanup() {
-  kill $$
+  echo "Cleaning up processes..."
+
+  # Kill all go processes started by this script
+  pkill -f "go run main.go server" 2>/dev/null || true
+
+  # Kill npm/pnpm processes for the UI
+  pkill -f "npm run dev" 2>/dev/null || true
+  pkill -f "pnpm run dev" 2>/dev/null || true
+
+  # Kill monitoring processes
+  [[ -n "$server_ready_pid" ]] && kill $server_ready_pid 2>/dev/null || true
+  [[ -n "$admin_ui_ready_pid" ]] && kill $admin_ui_ready_pid 2>/dev/null || true
+  [[ -n "$user_ui_ready_pid" ]] && kill $user_ui_ready_pid 2>/dev/null || true
+
+  # Fallback to killing anything with the script's name in the command
+  pkill -f "$(basename $0)" 2>/dev/null || true
+
+  exit 0
 }
 
-trap cleanup EXIT # Handles script exit and Ctrl-C
+trap cleanup EXIT INT TERM
 
 # Start the otto server
 (
