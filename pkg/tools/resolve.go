@@ -40,10 +40,11 @@ func ResolveToolReferences(ctx context.Context, gptClient *gptscript.GPTScript, 
 			Annotations: annotations,
 		},
 		Spec: v1.ToolReferenceSpec{
-			Type:      toolType,
-			Reference: reference,
-			Builtin:   builtin,
-			Bundle:    isBundleTool,
+			Type:         toolType,
+			Reference:    reference,
+			Builtin:      builtin,
+			Bundle:       isBundleTool,
+			IsCapability: isCapability,
 		},
 	}
 	result = append(result, &entryTool)

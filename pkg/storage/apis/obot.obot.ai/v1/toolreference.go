@@ -59,6 +59,7 @@ func (in *ToolReference) DeleteRefs() []Ref {
 type ToolReferenceSpec struct {
 	Type           types.ToolReferenceType `json:"type,omitempty"`
 	Builtin        bool                    `json:"builtin,omitempty"`
+	IsCapability   bool                    `json:"isCapability,omitempty"`
 	Reference      string                  `json:"reference,omitempty"`
 	Active         *bool                   `json:"active,omitempty"`
 	Bundle         bool                    `json:"bundle,omitempty"`
