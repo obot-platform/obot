@@ -24,7 +24,7 @@ metadata:
   name: obot-mcp-rolebinding
 subjects:
   - kind: ServiceAccount
-    name: obot
+    name: {{ include "obot.serviceAccountName" . }}
     namespace: {{ .Release.Namespace }}
 roleRef:
   kind: Role
