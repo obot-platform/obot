@@ -96,6 +96,7 @@ type Config struct {
 	MCPBaseImage               string   `usage:"The base image to use for MCP containers"`
 	MCPNamespace               string   `usage:"The namespace to use for MCP containers" default:"obot-mcp"`
 	MCPClusterDomain           string   `usage:"The cluster domain to use for MCP containers" default:"cluster.local"`
+	AllowedMCPDockerImageRepos []string `usage:"The docker image repos to allow for MCP containers" split:"true"`
 	// Sendgrid webhook
 	SendgridWebhookUsername string `usage:"The username for the sendgrid webhook to authenticate with"`
 	SendgridWebhookPassword string `usage:"The password for the sendgrid webhook to authenticate with"`
@@ -323,7 +324,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 	}
 
 	mcpRunner := gmcp.DefaultRunner
-	mcpLoader, err := mcp.NewSessionManager(ctx, mcpRunner, config.MCPBaseImage, config.MCPNamespace, config.MCPClusterDomain)
+	mcpLoader, err := mcp.NewSessionManager(ctx, mcpRunner, config.MCPBaseImage, config.MCPNamespace, config.MCPClusterDomain, config.AllowedMCPDockerImageRepos)
 	if err != nil {
 		return nil, err
 	}

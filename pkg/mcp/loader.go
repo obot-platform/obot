@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"time"
 
@@ -32,9 +33,10 @@ type SessionManager struct {
 	client                                    kclient.WithWatch
 	local                                     *gmcp.Local
 	baseImage, mcpNamespace, mcpClusterDomain string
+	allowedDockerImageRepos                   []string
 }
 
-func NewSessionManager(ctx context.Context, defaultLoader *gmcp.Local, baseImage, mcpNamespace, mcpClusterDomain string) (*SessionManager, error) {
+func NewSessionManager(ctx context.Context, defaultLoader *gmcp.Local, baseImage, mcpNamespace, mcpClusterDomain string, allowedDockerImageRepos []string) (*SessionManager, error) {
 	var client kclient.WithWatch
 	if baseImage != "" {
 		config, err := buildConfig()
@@ -57,11 +59,12 @@ func NewSessionManager(ctx context.Context, defaultLoader *gmcp.Local, baseImage
 	}
 
 	return &SessionManager{
-		client:           client,
-		local:            defaultLoader,
-		baseImage:        baseImage,
-		mcpClusterDomain: mcpClusterDomain,
-		mcpNamespace:     mcpNamespace,
+		client:                  client,
+		local:                   defaultLoader,
+		baseImage:               baseImage,
+		mcpClusterDomain:        mcpClusterDomain,
+		mcpNamespace:            mcpNamespace,
+		allowedDockerImageRepos: allowedDockerImageRepos,
 	}, nil
 }
 
@@ -118,12 +121,28 @@ func (sm *SessionManager) Load(ctx context.Context, tool types.Tool) (result []t
 		return nil, fmt.Errorf("only a single MCP server definition is supported")
 	}
 
-	for _, server := range servers.MCPServers {
+	for key, server := range servers.MCPServers {
 		if server.Command == "" {
 			// This is a URL-based MCP server, so we don't have to do any deployments.
 			return sm.local.LoadTools(ctx, server.ServerConfig, tool.Name)
 		}
 
+		image := sm.baseImage
+		args := []string{"--stdio", fmt.Sprintf("%s %s", server.Command, strings.Join(server.Args, " ")), "--port", "8080", "--healthEndpoint", "/healthz"}
+		if server.Command == "docker" {
+			if len(server.Args) == 0 || !slices.ContainsFunc(sm.allowedDockerImageRepos, func(s string) bool {
+				return strings.HasPrefix(server.Args[0], s)
+			}) {
+				return nil, fmt.Errorf("docker MCP server must use an image from one of %s", strings.Join(sm.allowedDockerImageRepos, ", "))
+			}
+			image = server.Args[0]
+			args = nil
+		}
+
+		annotations := map[string]string{
+			"mcp-server-tool-name":   tool.Name,
+			"mcp-server-config-name": key,
+		}
 		id := sessionID(server)
 
 		var objs []kclient.Object
@@ -140,8 +159,9 @@ func (sm *SessionManager) Load(ctx context.Context, tool types.Tool) (result []t
 
 		objs = append(objs, &corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      name.SafeConcatName(id, "files"),
-				Namespace: sm.mcpNamespace,
+				Name:        name.SafeConcatName(id, "files"),
+				Namespace:   sm.mcpNamespace,
+				Annotations: annotations,
 			},
 			StringData: secretVolumeStringData,
 		})
@@ -161,16 +181,18 @@ func (sm *SessionManager) Load(ctx context.Context, tool types.Tool) (result []t
 
 		objs = append(objs, &corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      name.SafeConcatName(id, "config"),
-				Namespace: sm.mcpNamespace,
+				Name:        name.SafeConcatName(id, "config"),
+				Namespace:   sm.mcpNamespace,
+				Annotations: annotations,
 			},
 			StringData: secretStringData,
 		})
 
 		dep := &appsv1.Deployment{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      id,
-				Namespace: sm.mcpNamespace,
+				Name:        id,
+				Namespace:   sm.mcpNamespace,
+				Annotations: annotations,
 				Labels: map[string]string{
 					"app": id,
 				},
@@ -198,7 +220,7 @@ func (sm *SessionManager) Load(ctx context.Context, tool types.Tool) (result []t
 						}},
 						Containers: []corev1.Container{{
 							Name:            "mcp",
-							Image:           sm.baseImage,
+							Image:           image,
 							ImagePullPolicy: corev1.PullAlways,
 							Ports: []corev1.ContainerPort{{
 								Name:          "http",
@@ -219,7 +241,7 @@ func (sm *SessionManager) Load(ctx context.Context, tool types.Tool) (result []t
 								},
 								InitialDelaySeconds: 3,
 							},
-							Args: []string{"--stdio", fmt.Sprintf("%s %s", server.Command, strings.Join(server.Args, " ")), "--port", "8080", "--healthEndpoint", "/healthz"},
+							Args: args,
 							EnvFrom: []corev1.EnvFromSource{{
 								SecretRef: &corev1.SecretEnvSource{
 									LocalObjectReference: corev1.LocalObjectReference{
@@ -240,8 +262,9 @@ func (sm *SessionManager) Load(ctx context.Context, tool types.Tool) (result []t
 
 		objs = append(objs, &corev1.Service{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      id,
-				Namespace: sm.mcpNamespace,
+				Name:        id,
+				Namespace:   sm.mcpNamespace,
+				Annotations: annotations,
 			},
 			Spec: corev1.ServiceSpec{
 				Ports: []corev1.ServicePort{
