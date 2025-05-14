@@ -197,8 +197,9 @@ func (sm *SessionManager) Load(ctx context.Context, tool types.Tool) (result []t
 							},
 						}},
 						Containers: []corev1.Container{{
-							Name:  "mcp",
-							Image: sm.baseImage,
+							Name:            "mcp",
+							Image:           sm.baseImage,
+							ImagePullPolicy: corev1.PullAlways,
 							Ports: []corev1.ContainerPort{{
 								Name:          "http",
 								ContainerPort: 8080,
