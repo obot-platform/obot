@@ -52,7 +52,7 @@ ingress:
 
 # config - A key/value object containing configuration variables to configure on the obot deployment. Will be converted to a secret and used via envFrom.
 config:
-  # config.existingSecret -- The name of an existing secret to use for config instead of creating a new one. Must contain keys in env format, just like below.
+  # config.existingSecret -- The name of an existing secret to use for config instead of creating a new one. Must contain keys in env format, just like below. OBOT_SERVER_MCPNAMESPACE is automatically added to the secret if config.OBOT_SERVER_MCPBASE_IMAGE is set.
   existingSecret: ""
 
   # config.AWS_ACCESS_KEY_ID -- An AWS access key with permissions for AWS KMS, used for encryption
@@ -124,8 +124,6 @@ config:
 
   # config.OBOT_SERVER_MCPBASE_IMAGE -- Deploy MCP servers in the cluster using this base image. Setting this value will also create the necessary service account, role and rolebinding.
   OBOT_SERVER_MCPBASE_IMAGE: ""
-  # config.OBOT_SERVER_MCPNAMESPACE -- The namespace in which to deploy the MCP servers. Will be created if the above image is set. Only matters if the above image is set.
-  OBOT_SERVER_MCPNAMESPACE: "obot-mcp"
   # config.OBOT_SERVER_MCPCLUSTER_DOMAIN -- The cluster domain to use for MCP services. Defaults to cluster.local. Only matters if the above image is set.
   OBOT_SERVER_MCPCLUSTER_DOMAIN: ""
 
@@ -171,6 +169,8 @@ serviceAccount:
   name: ""
 
 mcpNamespace:
+  # mcpNamespace.name -- The namespace in which to deploy the MCP servers. Will only be created if config.OBOT_SERVER_MCPBASE_IMAGE image is set. Defaults to {{ .Release.Name }}-mcp
+  name: ""
   # mcpNamespace.annotation - Annotations to add to the mcp server namespace. Includes ArgoCD sync wave by default.
   annotations:
     argocd.argoproj.io/sync-wave: "-1"

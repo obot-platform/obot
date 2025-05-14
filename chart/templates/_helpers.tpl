@@ -64,3 +64,14 @@ Set name of secret to use for credentials
 {{ .Release.Name }}-config
 {{- end -}}
 {{- end -}}
+
+{{/*
+Set name of namespace to use for mcp servers
+*/}}
+{{- define "obot.config.mcpNamespace" -}}
+{{- if .Values.mcpNamespace.name -}}
+{{- .Values.mcpNamespace.name -}}
+{{- else -}}
+{{ .Release.Name }}-mcp
+{{- end -}}
+{{- end -}}
