@@ -169,3 +169,9 @@ serviceAccount:
   # serviceAccount.name - The name of the service account to use.
   # If not set and create is true, a name is generated using the fullname template
   name: ""
+
+mcpNamespace:
+  # mcpNamespace.annotation - Annotations to add to the mcp server namespace. Includes ArgoCD sync wave by default.
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+  
