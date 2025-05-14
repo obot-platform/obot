@@ -79,7 +79,7 @@
 			'google-search-bundle',
 			'images-bundle',
 			'memory',
-			'obot-search',
+			'obot-search-bundle',
 			'time',
 			'database',
 			'die-roller',
