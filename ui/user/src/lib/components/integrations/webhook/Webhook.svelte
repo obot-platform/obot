@@ -85,7 +85,6 @@
 		project.capabilities = {
 			onWebhook: undefined
 		};
-		console.log(project);
 		project = await ChatService.updateProject(project);
 		confirmDisable.close();
 		config.headers = [];

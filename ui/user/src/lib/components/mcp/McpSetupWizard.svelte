@@ -82,23 +82,19 @@
 			projectMcp = projectMcp
 				? await updateProjectMcp(mcpServerInfo, projectMcp.id, project)
 				: await createProjectMcp(mcpServerInfo, project, mcpId);
-			console.log('b');
 
 			if (!projectMcp.configured) {
-				console.log('c');
 				processing = false;
 				await new Promise((resolve) => setTimeout(resolve, 200));
 				mcpInfoConfig?.open();
 				return;
 			}
 
-			console.log('test', project.assistantID, project.id, projectMcp.id, projectMcp);
 			projectMcpServerTools = await ChatService.listProjectMCPServerTools(
 				project.assistantID,
 				project.id,
 				projectMcp.id
 			);
-			console.log(projectMcpServerTools);
 
 			processing = false;
 			projectMcpServerToolsDialog?.showModal();
