@@ -494,13 +494,13 @@ func convertProject(thread *v1.Thread, parentThread *v1.Thread) types.Project {
 			DefaultModelProvider: thread.Spec.DefaultModelProvider,
 			DefaultModel:         thread.Spec.DefaultModel,
 			Models:               thread.Spec.Models,
+			Capabilities:         convertProjectCapabilities(thread.Spec.Capabilities),
 		},
 		ParentID:                    strings.Replace(thread.Spec.ParentThreadName, system.ThreadPrefix, system.ProjectPrefix, 1),
 		SourceProjectID:             strings.Replace(thread.Spec.SourceThreadName, system.ThreadPrefix, system.ProjectPrefix, 1),
 		AssistantID:                 thread.Spec.AgentName,
 		Editor:                      thread.IsEditor(),
 		UserID:                      thread.Spec.UserID,
-		Capabilities:                convertProjectCapabilities(thread.Spec.Capabilities),
 		WorkflowNameFromIntegration: thread.Status.WorkflowNameFromIntegration,
 	}
 
@@ -514,7 +514,7 @@ func convertProject(thread *v1.Thread, parentThread *v1.Thread) types.Project {
 	return p
 }
 
-func convertProjectCapabilities(capabilities v1.ThreadCapabilities) types.ProjectCapabilities {
+func convertProjectCapabilities(capabilities v1.ThreadCapabilities) *types.ProjectCapabilities {
 	result := types.ProjectCapabilities{
 		OnSlackMessage:   capabilities.OnSlackMessage,
 		OnDiscordMessage: capabilities.OnDiscordMessage,
@@ -526,7 +526,7 @@ func convertProjectCapabilities(capabilities v1.ThreadCapabilities) types.Projec
 		result.OnWebhook.Headers = capabilities.OnWebhook.Headers
 		result.OnWebhook.Secret = "********"
 	}
-	return result
+	return &result
 }
 
 func (h *ProjectsHandler) DeleteProjectThread(req api.Context) error {

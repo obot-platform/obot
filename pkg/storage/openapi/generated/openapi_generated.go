@@ -3765,12 +3765,6 @@ func schema_obot_platform_obot_apiclient_types_Project(ref common.ReferenceCallb
 							Format: "",
 						},
 					},
-					"capabilities": {
-						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref("github.com/obot-platform/obot/apiclient/types.ProjectCapabilities"),
-						},
-					},
 					"workflowNameFromIntegration": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
@@ -3778,11 +3772,11 @@ func schema_obot_platform_obot_apiclient_types_Project(ref common.ReferenceCallb
 						},
 					},
 				},
-				Required: []string{"Metadata", "ProjectManifest", "editor", "capabilities"},
+				Required: []string{"Metadata", "ProjectManifest", "editor"},
 			},
 		},
 		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.Metadata", "github.com/obot-platform/obot/apiclient/types.ProjectCapabilities", "github.com/obot-platform/obot/apiclient/types.ProjectManifest"},
+			"github.com/obot-platform/obot/apiclient/types.Metadata", "github.com/obot-platform/obot/apiclient/types.ProjectManifest"},
 	}
 }
 
