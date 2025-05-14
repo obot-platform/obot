@@ -142,7 +142,7 @@
 	{project}
 	{legacyBundleId}
 	submitText={legacyBundleId ? 'Reauthenticate' : 'Modify server'}
-	legacyAuthText="This server support OAuth authentication. You will be prompted to login again to reauthenticate."
+	legacyAuthText="You will be prompted to login again to reauthenticate."
 />
 
 <Confirm
