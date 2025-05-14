@@ -278,7 +278,9 @@
 						{/if}
 					</div>
 					{#each members as member}
-						<div class="group flex w-full items-center rounded-md transition-colors duration-300">
+						<div
+							class="group flex min-h-9 w-full items-center rounded-md transition-colors duration-300"
+						>
 							<div class="flex grow items-center gap-2">
 								<div class="size-6 overflow-hidden rounded-full bg-gray-50 dark:bg-gray-600">
 									<img
