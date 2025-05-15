@@ -143,7 +143,8 @@ type Services struct {
 	SendgridWebhookUsername string
 	SendgridWebhookPassword string
 
-	MCPCatalog []string
+	MCPCatalog                 []string
+	AllowedMCPDockerImageRepos []string
 
 	// Used for loading and running MCP servers with GPTScript.
 	MCPRunner engine.MCPRunner
@@ -542,6 +543,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		PostgresDSN:                postgresDSN,
 		RetentionPolicy:            retentionPolicy,
 		MCPCatalog:                 config.MCPCatalogs,
+		AllowedMCPDockerImageRepos: config.AllowedMCPDockerImageRepos,
 		MCPLoader:                  mcpLoader,
 		MCPRunner:                  mcpRunner,
 	}, nil

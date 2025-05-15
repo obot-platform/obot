@@ -60,13 +60,14 @@ type index struct {
 }
 
 type Handler struct {
-	gptClient      *gptscript.GPTScript
-	dispatcher     *dispatcher.Dispatcher
-	supportDocker  bool
-	registryURLs   []string
-	mcpCatalogs    []string
-	lastChecksLock *sync.RWMutex
-	lastChecks     map[string]time.Time
+	gptClient               *gptscript.GPTScript
+	dispatcher              *dispatcher.Dispatcher
+	supportDockerTools      bool
+	registryURLs            []string
+	mcpCatalogs             []string
+	lastChecksLock          *sync.RWMutex
+	lastChecks              map[string]time.Time
+	allowedDockerImageRepos []string
 }
 
 func New(gptClient *gptscript.GPTScript,
@@ -74,15 +75,17 @@ func New(gptClient *gptscript.GPTScript,
 	registryURLs []string,
 	supportDocker bool,
 	mcpCatalogs []string,
+	allowedDockerImageRepos []string,
 ) *Handler {
 	return &Handler{
-		gptClient:      gptClient,
-		dispatcher:     dispatcher,
-		registryURLs:   registryURLs,
-		mcpCatalogs:    mcpCatalogs,
-		supportDocker:  supportDocker,
-		lastChecks:     make(map[string]time.Time),
-		lastChecksLock: new(sync.RWMutex),
+		gptClient:               gptClient,
+		dispatcher:              dispatcher,
+		registryURLs:            registryURLs,
+		mcpCatalogs:             mcpCatalogs,
+		allowedDockerImageRepos: allowedDockerImageRepos,
+		supportDockerTools:      supportDocker,
+		lastChecks:              make(map[string]time.Time),
+		lastChecksLock:          new(sync.RWMutex),
 	}
 }
 
@@ -157,7 +160,7 @@ func (h *Handler) toolsToToolReferences(ctx context.Context, toolType types.Tool
 		if ref, ok := strings.CutPrefix(entry.Reference, "./"); ok {
 			entry.Reference = registryURL + "/" + ref
 		}
-		if !h.supportDocker && name == system.ShellTool {
+		if !h.supportDockerTools && name == system.ShellTool {
 			continue
 		}
 
@@ -300,7 +303,14 @@ func (h *Handler) readMCPCatalog(catalog string) ([]client.Object, error) {
 					continue
 				}
 				switch c.Command {
-				case "docker", "npx", "uvx":
+				case "npx", "uvx":
+				case "docker":
+					// Only allow docker commands if the image name starts with one of the allowed repos.
+					if len(c.Args) == 0 || !slices.ContainsFunc(h.allowedDockerImageRepos, func(s string) bool {
+						return strings.HasPrefix(c.Args[0], s)
+					}) {
+						continue
+					}
 				default:
 					log.Debugf("Ignoring MCP catalog entry %s: unsupported command %s", entry.DisplayName, c.Command)
 					continue
