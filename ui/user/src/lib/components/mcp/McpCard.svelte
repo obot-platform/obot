@@ -1,16 +1,16 @@
 <script lang="ts">
-	import { type MCPManifest } from '$lib/services';
 	import { twMerge } from 'tailwind-merge';
 	import { CircleCheckBig, Star } from 'lucide-svelte';
 	import { formatNumber } from '$lib/format';
+	import type { TransformedMcp } from './McpCatalog.svelte';
 	interface Props {
-		manifest: MCPManifest;
-		onSelect: (manifest: MCPManifest) => void;
+		data: TransformedMcp;
+		onSelect: (data: TransformedMcp) => void;
 		selected?: boolean;
 		disabled?: boolean;
 		tags?: string[];
 	}
-	let { manifest, selected, disabled, tags, onSelect }: Props = $props();
+	let { data, selected, disabled, tags, onSelect }: Props = $props();
 </script>
 
 <div class="relative h-full w-full">
@@ -20,7 +20,7 @@
 	<button
 		onclick={() => {
 			if (!disabled) {
-				onSelect(manifest);
+				onSelect(data);
 			}
 		}}
 		class={twMerge(
@@ -29,18 +29,18 @@
 			disabled && 'cursor-not-allowed opacity-50'
 		)}
 	>
-		{#if manifest}
+		{#if data}
 			<div class="flex h-fit w-full flex-col gap-2 p-3 md:h-auto md:grow">
 				<div class="flex w-full items-center gap-2">
 					<div class="flex-shrink-0 rounded-md bg-gray-50 p-1 dark:bg-gray-600">
-						<img alt="obot logo" src={manifest.server.icon} class="size-6" />
+						<img alt="obot logo" src={data.icon} class="size-6" />
 					</div>
 					<div class="flex flex-col text-left">
 						<h4 class="line-clamp-1 text-sm font-semibold">
-							{manifest.server.name}
+							{data.name}
 						</h4>
 						<p class="line-clamp-1 grow text-left text-xs font-light text-gray-500">
-							{manifest.server.description}
+							{data.description}
 						</p>
 					</div>
 				</div>
@@ -56,12 +56,12 @@
 							{/each}
 						{/if}
 					</div>
-					{#if manifest.githubStars > 0}
+					{#if data.githubStars > 0}
 						<span
 							class="dark:bg-surface2 mt-auto flex h-fit items-center gap-1 rounded-md bg-gray-50 px-1 text-xs text-gray-500"
 						>
 							<Star class="size-3" />
-							{formatNumber(manifest.githubStars)}
+							{formatNumber(data.githubStars)}
 						</span>
 					{/if}
 				</div>

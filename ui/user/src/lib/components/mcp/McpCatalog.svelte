@@ -11,6 +11,7 @@
 	import type { MCPServerInfo } from '$lib/services/chat/mcp';
 	import { getToolBundleMap } from '$lib/context/toolReferences.svelte';
 	import { onMount } from 'svelte';
+	import { dialogAnimation } from '$lib/actions/dialogAnimation';
 
 	const BROWSE_ALL_CATEGORY = 'Browse All';
 	const OFFICIAL_CATEGORY = 'Official';
@@ -27,14 +28,16 @@
 		preselectedMcp?: string;
 	}
 
-	type TransformedMcp = {
+	export type TransformedMcp = {
 		id: string;
+		icon?: string;
+		description?: string;
 		catalogId: string;
 		categories: string[];
-		manifest: MCPManifest;
 		githubStars: number;
 		name: string;
-		manifestType: 'command' | 'url';
+		commandManifest?: MCPManifest;
+		urlManifest?: MCPManifest;
 	};
 
 	let {
@@ -51,30 +54,45 @@
 	let configDialog = $state<ReturnType<typeof McpInfoConfig>>();
 	let selectedMcpManifest = $state<MCPManifest>();
 	let searchInput = $state<ReturnType<typeof Search>>();
+	let selectManifestDialog = $state<HTMLDialogElement>();
 
 	const toolBundleMap = getToolBundleMap();
 
 	const ITEMS_PER_PAGE = 36;
 	let currentPage = $state(1);
 
-	function transformMcp(
-		mcp: MCP,
-		manifestType: 'command' | 'url',
-		manifest: MCPManifest
-	): TransformedMcp {
+	function transformMcp(mcp: MCP): TransformedMcp {
+		const { urlManifest, commandManifest } = mcp;
+		const githubStars = Math.max(
+			Number(commandManifest?.githubStars) || 0,
+			Number(urlManifest?.githubStars) || 0
+		);
+		const categories = Array.from(
+			new Set([
+				...(commandManifest?.metadata?.categories?.split(',').map((cat) => cat.trim()) || []),
+				...(urlManifest?.metadata?.categories?.split(',').map((cat) => cat.trim()) || [])
+			])
+		);
+		const name = commandManifest?.server?.name ?? urlManifest?.server?.name ?? '';
+		const icon = commandManifest?.server?.icon ?? urlManifest?.server?.icon ?? '';
+		const description =
+			commandManifest?.server?.description ?? urlManifest?.server?.description ?? '';
+
 		return {
-			id: `${mcp.id}-${manifestType}`,
+			id: mcp.id,
+			icon,
+			description,
 			catalogId: mcp.id,
-			categories: manifest.metadata?.categories?.split(',').map((cat) => cat.trim()) || [],
-			manifest,
-			githubStars: Number(manifest.githubStars) || 0,
-			name: manifest.server?.name ?? '',
-			manifestType
+			categories,
+			githubStars,
+			name,
+			commandManifest,
+			urlManifest
 		};
 	}
 
 	let search = $state('');
-	let selectedCategory = $state(OFFICIAL_CATEGORY);
+	let selectedCategory = $state(BROWSE_ALL_CATEGORY);
 	let selectedMcp = $state<TransformedMcp>();
 	let legacyBundleId = $derived(
 		selectedMcp && toolBundleMap.get(selectedMcp.catalogId) ? selectedMcp.catalogId : undefined
@@ -83,18 +101,20 @@
 	let transformedMcps: TransformedMcp[] = $derived(
 		refMcps
 			.flatMap((mcp) => {
-				const { commandManifest, urlManifest } = mcp;
 				const results: TransformedMcp[] = [];
 
-				if (commandManifest) {
-					results.push(transformMcp(mcp, 'command', commandManifest));
+				if (mcp.commandManifest && mcp.urlManifest) {
+					console.log(mcp);
 				}
-				if (urlManifest) {
-					results.push(transformMcp(mcp, 'url', urlManifest));
-				}
+				results.push(transformMcp(mcp));
 				return results;
 			})
-			.sort((a, b) => b.githubStars - a.githubStars)
+			.sort((a, b) => {
+				if (selectedCategory === OFFICIAL_CATEGORY) {
+					return a.name.localeCompare(b.name);
+				}
+				return b.githubStars - a.githubStars;
+			})
 	);
 
 	let filteredMcps: TransformedMcp[] = $derived(
@@ -130,7 +150,7 @@
 						}
 						return acc;
 					},
-					[OFFICIAL_CATEGORY, VERIFIED_CATEGORY, BROWSE_ALL_CATEGORY]
+					[BROWSE_ALL_CATEGORY, OFFICIAL_CATEGORY, VERIFIED_CATEGORY]
 				)
 			)
 		)
@@ -141,8 +161,17 @@
 			preselectedMcp && transformedMcps.find((mcp) => mcp.catalogId === preselectedMcp);
 		if (preselectedManifest) {
 			selectedMcp = preselectedManifest;
-			selectedMcpManifest = preselectedManifest.manifest;
-			configDialog?.open();
+			if (preselectedManifest.commandManifest && !preselectedManifest.urlManifest) {
+				selectedMcpManifest = preselectedManifest.commandManifest;
+			} else if (preselectedManifest.urlManifest && !preselectedManifest.commandManifest) {
+				selectedMcpManifest = preselectedManifest.urlManifest;
+			}
+
+			if (selectedMcpManifest) {
+				configDialog?.open();
+			} else {
+				selectManifestDialog?.showModal();
+			}
 		}
 	});
 
@@ -161,6 +190,14 @@
 		if (currentPage > 1) {
 			currentPage--;
 		}
+	}
+
+	function selectManifest(manifestType: 'command' | 'url') {
+		if (!selectedMcp) return;
+		selectedMcpManifest =
+			manifestType === 'command' ? selectedMcp?.commandManifest : selectedMcp?.urlManifest;
+		selectManifestDialog?.close();
+		configDialog?.open();
 	}
 </script>
 
@@ -284,27 +321,29 @@
 	</div>
 {/snippet}
 
-{#snippet mcpCard(mcp: (typeof transformedMcps)[0])}
-	{#if mcp.manifest}
-		<McpCard
-			tags={mcp.categories}
-			manifest={mcp.manifest}
-			onSelect={(manifest) => {
-				selectedMcp = mcp;
-				selectedMcpManifest = manifest;
+{#snippet mcpCard(mcp: TransformedMcp)}
+	<McpCard
+		tags={mcp.categories}
+		data={mcp}
+		onSelect={() => {
+			selectedMcp = mcp;
+			if (mcp.commandManifest && mcp.urlManifest) {
+				selectManifestDialog?.showModal();
+			} else {
+				selectedMcpManifest = mcp.commandManifest || mcp.urlManifest;
 				configDialog?.open();
-			}}
-			selected={selected.includes(mcp.id)}
-			disabled={preselected.has(mcp.id)}
-		/>
-	{/if}
+			}
+		}}
+		selected={selected.includes(mcp.id)}
+		disabled={preselected.has(mcp.id)}
+	/>
 {/snippet}
 
 <McpInfoConfig
 	bind:this={configDialog}
 	bind:project
 	manifest={selectedMcpManifest}
-	manifestType={selectedMcp?.manifestType}
+	manifestType={selectedMcpManifest?.server.command ? 'command' : 'url'}
 	{legacyBundleId}
 	onUpdate={(mcpServerInfo) => {
 		if (selectedMcp && selectedMcpManifest) {
@@ -314,3 +353,32 @@
 	}}
 	{submitText}
 />
+
+<dialog
+	class="w-full p-4 pt-0 md:max-w-lg md:p-6 md:pt-4"
+	class:mobile-screen-dialog={responsive.isMobile}
+	bind:this={selectManifestDialog}
+	use:dialogAnimation={{ type: 'fade' }}
+	use:clickOutside={() => selectManifestDialog?.close()}
+>
+	<div class="flex flex-col gap-4">
+		<h4
+			class="default-dialog-title py-0 text-base"
+			class:default-dialog-mobile-title={responsive.isMobile}
+		>
+			Select Setup Type
+			<button
+				class="icon-button md:translate-x-2"
+				class:mobile-header-button={responsive.isMobile}
+				onclick={() => selectManifestDialog?.close()}
+			>
+				<X class="size-5" />
+			</button>
+		</h4>
+		<p class="text-sm text-gray-500">
+			This MCP server supports setup by command or by URL. Please select the preferred method below.
+		</p>
+		<button class="button" onclick={() => selectManifest('command')}>By Command</button>
+		<button class="button" onclick={() => selectManifest('url')}>By URL</button>
+	</div>
+</dialog>
