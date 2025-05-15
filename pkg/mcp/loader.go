@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"os"
 	"path/filepath"
 	"slices"
@@ -303,13 +304,14 @@ func (sm *SessionManager) Load(ctx context.Context, tool types.Tool) (result []t
 			return nil, fmt.Errorf("failed to create MCP deployment %s: %w", id, err)
 		}
 
-		podName, err := sm.updatedMCPPodName(ctx, id)
+		url := fmt.Sprintf("http://%s.%s.svc.%s", id, sm.mcpNamespace, sm.mcpClusterDomain)
+		podName, err := sm.updatedMCPPodName(ctx, url, id)
 		if err != nil {
 			return nil, err
 		}
 
 		// Use the pod name as the scope, so we get a new session if the pod restarts. MCP sessions aren't persistent on the server side.
-		return sm.local.LoadTools(ctx, gmcp.ServerConfig{URL: fmt.Sprintf("http://%s.%s.svc.%s/sse", id, sm.mcpNamespace, sm.mcpClusterDomain), Scope: podName}, tool.Name)
+		return sm.local.LoadTools(ctx, gmcp.ServerConfig{URL: fmt.Sprintf("%s/sse", url), Scope: podName}, tool.Name)
 	}
 
 	return nil, fmt.Errorf("no MCP server configuration found in tool instructions: %s", configData)
@@ -321,13 +323,37 @@ func sessionID(server ServerConfig) string {
 	return "mcp" + hash.Digest(server)[:60]
 }
 
-func (sm *SessionManager) updatedMCPPodName(ctx context.Context, id string) (string, error) {
+func (sm *SessionManager) updatedMCPPodName(ctx context.Context, url, id string) (string, error) {
 	// Wait for the deployment to be updated.
 	_, err := wait.For(ctx, sm.client, &appsv1.Deployment{ObjectMeta: metav1.ObjectMeta{Name: id, Namespace: sm.mcpNamespace}}, func(dep *appsv1.Deployment) (bool, error) {
 		return dep.Status.Replicas == 1 && dep.Status.UpdatedReplicas == 1 && dep.Status.ReadyReplicas == 1 && dep.Status.AvailableReplicas == 1, nil
 	})
 	if err != nil {
 		return "", fmt.Errorf("failed to wait for MCP server to be ready: %w", err)
+	}
+
+	// Ensure we can actually hit the service URL.
+	ctx, cancel := context.WithTimeout(ctx, 20*time.Second)
+	defer cancel()
+	client := &http.Client{
+		Timeout: time.Second,
+	}
+
+	url = fmt.Sprintf("%s/healthz", url)
+	for {
+		select {
+		case <-ctx.Done():
+			return "", fmt.Errorf("timed out waiting for MCP server to be ready")
+		case <-time.After(100 * time.Millisecond):
+		}
+
+		resp, err := client.Get(url)
+		if err == nil {
+			resp.Body.Close()
+			if resp.StatusCode == 200 {
+				break
+			}
+		}
 	}
 
 	// Not get the pod name that is currently running, waiting for there to only be one pod.
