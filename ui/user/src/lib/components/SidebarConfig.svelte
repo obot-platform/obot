@@ -39,7 +39,7 @@
 
 <div class="default-scrollbar-thin relative flex w-full justify-center overflow-y-auto" in:fade>
 	{#if layout.sidebarConfig === 'slack'}
-		<Slack {project} inline />
+		<Slack {project} />
 	{:else if layout.sidebarConfig === 'invitations'}
 		<ProjectInvitations {project} />
 	{:else if layout.sidebarConfig === 'custom-mcp'}

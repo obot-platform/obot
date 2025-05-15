@@ -721,6 +721,17 @@
 			}
 		}
 	}
+
+	.text-link {
+		color: var(--color-blue);
+		text-decoration: underline;
+		font-weight: 500;
+		transition-property: all;
+		transition-duration: 300ms;
+		&:hover {
+			color: var(--color-blue-600);
+		}
+	}
 }
 
 .dark {

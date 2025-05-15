@@ -46,7 +46,8 @@
 		{disabled}
 		onmouseenter={() => (buttonTextToShow = buttonText)}
 		class={twMerge(
-			'button-small flex items-center gap-1 rounded-full border border-blue-500 bg-transparent px-4 py-2 text-blue-500 hover:bg-blue-500 hover:text-white disabled:bg-transparent disabled:text-blue-500 disabled:opacity-50',
+			buttonText &&
+				'button-small flex items-center gap-1 rounded-full border border-blue-500 bg-transparent px-4 py-2 text-blue-500 hover:bg-blue-500 hover:text-white disabled:bg-transparent disabled:text-blue-500 disabled:opacity-50',
 			classes?.button
 		)}
 	>

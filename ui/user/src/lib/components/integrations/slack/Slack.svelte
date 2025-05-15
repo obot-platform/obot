@@ -7,15 +7,12 @@
 		getProjectSlack
 	} from '$lib/services/chat/operations';
 	import { ChatService, type AssistantTool } from '$lib/services';
-	import { Settings, X } from 'lucide-svelte';
+	import { X } from 'lucide-svelte';
 	import { closeSidebarConfig, getLayout } from '$lib/context/layout.svelte';
 	import { responsive } from '$lib/stores';
 	import { getProjectTools } from '$lib/context/projectTools.svelte';
 	import { clickOutside } from '$lib/actions/clickoutside';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
-	import CollapsePane from '$lib/components/edit/CollapsePane.svelte';
-	import Toggle from '$lib/components/Toggle.svelte';
-	import { fade } from 'svelte/transition';
 	import { openTask } from '$lib/context/layout.svelte';
 	import type { Task } from '$lib/services';
 	import type { ProjectCredential } from '$lib/services/chat/types';
@@ -23,7 +20,6 @@
 
 	interface Props {
 		project: Project;
-		inline?: boolean;
 	}
 
 	const projectTools = getProjectTools();
@@ -41,7 +37,7 @@
 
 	toolSelection = getSelectionMap();
 
-	let { project = $bindable(), inline }: Props = $props();
+	let { project = $bindable() }: Props = $props();
 	let dialog: HTMLDialogElement;
 	let confirmDisable: HTMLDialogElement;
 	let addSlackBotTool: HTMLDialogElement;
@@ -54,7 +50,6 @@
 		signingSecret: ''
 	});
 	let slackEnabled = $derived(project.capabilities?.onSlackMessage);
-	let showSteps = $state(!project.capabilities?.onSlackMessage);
 	let taskDialog: HTMLDialogElement | undefined = $state();
 	let task = $state<Task | undefined>();
 	let authDialog: ReturnType<typeof CredentialAuth> | undefined = $state();
@@ -158,75 +153,50 @@
 	}
 </script>
 
-{#if !inline}
-	<div class="flex flex-col gap-2">
-		<div class="mb-1 flex items-center justify-between">
-			<div class="flex h-7 items-center gap-1">
-				<p class="grow text-sm font-semibold">Slack Integration</p>
-				{#if slackEnabled}
-					<button
-						class="icon-button min-h-auto min-w-auto p-1"
-						onclick={() => dialog.showModal()}
-						use:tooltip={'Modify Slack Integration'}
-						transition:fade
-					>
-						<Settings class="size-5" />
-					</button>
-				{/if}
+<div class="flex min-h-0 w-full grow flex-col items-center">
+	<div class="flex w-full items-center">
+		<div class="mx-auto flex w-full flex-col gap-4 p-4 md:max-w-[1200px]">
+			<div class="flex w-full items-center justify-between">
+				<h4 class="text-xl font-semibold">Slack</h4>
+				<button
+					onclick={() => closeSidebarConfig(layout)}
+					class="icon-button"
+					use:tooltip={'Exit Slack Configuration'}
+				>
+					<X class="size-6" />
+				</button>
 			</div>
-			<Toggle
-				label="Toggle Slack Integration"
-				checked={!!slackEnabled}
-				onChange={() => {
-					if (!slackEnabled) {
-						dialog.showModal();
-					} else {
-						disableSlack();
-					}
-				}}
-			/>
 		</div>
-
-		<p class="text-xs text-gray-500">
-			Enable this to trigger tasks from Slack messages that mention the slack bot you configured
-			with your agent.
-		</p>
 	</div>
-{:else}
-	<div class="flex w-full flex-col">
-		<div class="flex w-full justify-center px-4 py-4 md:px-8">
-			<div class="flex w-full flex-col gap-4 md:max-w-[1200px]">
-				<div class="flex w-full items-center justify-between">
-					<h4 class="text-xl font-semibold">Slack</h4>
-					<button
-						onclick={() => closeSidebarConfig(layout)}
-						class="icon-button"
-						use:tooltip={'Exit Slack Configuration'}
-					>
-						<X class="size-6" />
-					</button>
+	<div class="dark:bg-gray-980 flex w-full items-center bg-gray-50">
+		<div class="mx-auto flex h-full w-full flex-col gap-4 p-4 md:max-w-[1200px]">
+			<div class="flex flex-col gap-2">
+				<div class="flex flex-col gap-4 rounded-xl bg-white p-4 shadow-sm dark:bg-black">
+					<h3 class="text-lg font-semibold">Configure Slack Integration</h3>
+					{@render steps()}
 				</div>
-
-				<div class="pr-2.5">
-					<CollapsePane
-						header="Configure Slack Integration"
-						open={showSteps}
-						classes={{
-							header: 'font-semibold px-0',
-							content: 'bg-transparent px-0 shadow-none',
-							headerText: 'text-base font-normal'
+			</div>
+		</div>
+	</div>
+	<div class="flex w-full items-center bg-white dark:bg-black">
+		<div class="mx-auto flex h-full w-full flex-col gap-4 p-4 md:max-w-[1200px]">
+			<div class="flex justify-end gap-3">
+				{#if project.capabilities?.onSlackMessage}
+					<button
+						class="button bg-red-500 text-white hover:bg-red-600"
+						onclick={() => {
+							dialog.close();
+							confirmDisable?.showModal();
 						}}
 					>
-						{@render steps()}
-					</CollapsePane>
-					<div class="w-full">
-						{@render form()}
-					</div>
-				</div>
+						Remove Configuration
+					</button>
+				{/if}
+				<button class="button" onclick={handleSubmit}> Configure Now </button>
 			</div>
 		</div>
 	</div>
-{/if}
+</div>
 
 <dialog
 	bind:this={dialog}
@@ -338,177 +308,151 @@
 
 {#snippet steps()}
 	<div class="space-y-6">
-		<p class="text-sm text-gray-600">To message your agent from Slack, you'll need to create a Slack App and complete this configuration. You must be an administrator in your Slack Workspace.</p>
-		<div class="space-y-4">
-			<div>
-				<h4 class="font-medium">Step 1: Create a Slack App</h4>
-				<p class="text-sm text-gray-600">
-					From the <a href="https://api.slack.com/apps" class="link">Slack App page</a>, click the Create New App button and select "From Scratch" in Create an app modal.
-				</p>
-				<p class="text-sm text-gray-600">
-					Name the app and select the workspace you want your app to be available in.
-				</p>
+		<p class="text-sm font-light text-gray-500">
+			To message your agent from Slack, you'll need to create a Slack App and complete this
+			configuration. You must be an administrator in your Slack Workspace.
+		</p>
+		<div>
+			<h4 class="font-semibold">Step 1: Create a Slack App</h4>
+			<ul class="my-2 list-disc space-y-3 pl-4 text-sm font-light text-gray-500">
+				<li>
+					From the <a href="https://api.slack.com/apps" class="text-link">Slack App page</a>, click
+					the Create New App button and select "From Scratch" in Create an app modal.
+				</li>
+				<li>Name the app and select the workspace you want your app to be available in.</li>
+			</ul>
+		</div>
+
+		<div>
+			<h4 class="font-medium">Step 2: Copy App Credentials</h4>
+			<ul class="my-2 list-disc space-y-3 pl-4 text-sm font-light text-gray-500">
+				<li>
+					After completing the previous step, you'll be presented with your App Credentials under
+					the Basic Information section. Copy the values to the corresponding fields below.
+				</li>
+			</ul>
+			<div class="border-surface2 dark:border-surface3 rounded-lg border p-4">
+				{@render form()}
 			</div>
+		</div>
 
-			<div>
-				<h4 class="font-medium">Step 2: Copy App Credentials</h4>
-				<p class="text-sm text-gray-600">
-					After completing the previous step, you'll be presented with your App Credentials under the Basic Information section. Copy the values to the corresponding fields below.
-
-					TODO - MOVE THE FORM AT THE BOTTOM UP HERE.
-				</p>
-			</div>
-
-
-			<div>
-				<h4 class="font-medium">Step 3: Configure OAuth</h4>
-				<p class="text-sm text-gray-600">
+		<div>
+			<h4 class="font-medium">Step 3: Configure OAuth</h4>
+			<ul class="my-2 list-disc space-y-3 pl-4 text-sm font-light text-gray-500">
+				<li>
 					From the left navigation of your Slack App, navigate to the "OAuth & Permissions" section.
-				</p>
-				<p class="text-sm text-gray-600">
+				</li>
+				<li>
 					In the "Redirect URLs" section, click "Add New Redirect URL" and add the follow URL:
-				</p>
-				<div
-					class="mt-2 flex max-w-fit items-center gap-2 rounded bg-gray-100 p-2 dark:bg-gray-800"
-				>
-					<CopyButton text={redirectUrl} />
-					{redirectUrl}
-				</div>
-				<p class="text-sm text-gray-600">
+					<div class="copy-link">
+						<CopyButton text={redirectUrl} />
+						{redirectUrl}
+					</div>
+				</li>
+
+				<li>
 					Next, locate the "Bot Token Scopes" section and add the following scopes:
-				</p>
-				<div class="mt-2 flex flex-wrap gap-1">
-					<div
-							class="flex max-w-fit items-center gap-2 rounded-full bg-gray-100 px-3 py-1 dark:bg-gray-800"
-					>
-						<CopyButton text="channels:history" />
-						channels:history
+					<div class="mt-2 flex flex-wrap gap-2">
+						<div class="copy-pill">
+							<CopyButton text="channels:history" />
+							channels:history
+						</div>
+						<div class="copy-pill">
+							<CopyButton text="groups:history" />
+							groups:history
+						</div>
+						<div class="copy-pill">
+							<CopyButton text="im:history" />
+							im:history
+						</div>
+						<div class="copy-pill">
+							<CopyButton text="mpim:history" />
+							mpim:history
+						</div>
+						<div class="copy-pill">
+							<CopyButton text="channels:read" />
+							channels:read
+						</div>
+						<div class="copy-pill">
+							<CopyButton text="files:read" />
+							files:read
+						</div>
+						<div class="copy-pill">
+							<CopyButton text="im:read" />
+							im:read
+						</div>
+						<div class="copy-pill">
+							<CopyButton text="team:read" />
+							team:read
+						</div>
+						<div class="copy-pill">
+							<CopyButton text="users:read" />
+							users:read
+						</div>
+						<div class="copy-pill">
+							<CopyButton text="groups:read" />
+							groups:read
+						</div>
+						<div class="copy-pill">
+							<CopyButton text="chat:write" />
+							chat:write
+						</div>
+						<div class="copy-pill">
+							<CopyButton text="groups:write" />
+							groups:write
+						</div>
+						<div class="copy-pill">
+							<CopyButton text="mpim:write" />
+							mpim:write
+						</div>
+						<div class="copy-pill">
+							<CopyButton text="im:write" />
+							im:write
+						</div>
+						<div class="copy-pill">
+							<CopyButton text="assistant:write" />
+							assistant:write
+						</div>
 					</div>
-					<div
-							class="flex max-w-fit items-center gap-2 rounded-full bg-gray-100 px-3 py-1 dark:bg-gray-800"
-					>
-						<CopyButton text="groups:history" />
-						groups:history
-					</div>
-					<div
-							class="flex max-w-fit items-center gap-2 rounded-full bg-gray-100 px-3 py-1 dark:bg-gray-800"
-					>
-						<CopyButton text="im:history" />
-						im:history
-					</div>
-					<div
-							class="flex max-w-fit items-center gap-2 rounded-full bg-gray-100 px-3 py-1 dark:bg-gray-800"
-					>
-						<CopyButton text="mpim:history" />
-						mpim:history
-					</div>
-					<div
-							class="flex max-w-fit items-center gap-2 rounded-full bg-gray-100 px-3 py-1 dark:bg-gray-800"
-					>
-						<CopyButton text="channels:read" />
-						channels:read
-					</div>
-					<div
-							class="flex max-w-fit items-center gap-2 rounded-full bg-gray-100 px-3 py-1 dark:bg-gray-800"
-					>
-						<CopyButton text="files:read" />
-						files:read
-					</div>
-					<div
-							class="flex max-w-fit items-center gap-2 rounded-full bg-gray-100 px-3 py-1 dark:bg-gray-800"
-					>
-						<CopyButton text="im:read" />
-						im:read
-					</div>
-					<div
-							class="flex max-w-fit items-center gap-2 rounded-full bg-gray-100 px-3 py-1 dark:bg-gray-800"
-					>
-						<CopyButton text="team:read" />
-						team:read
-					</div>
-					<div
-							class="flex max-w-fit items-center gap-2 rounded-full bg-gray-100 px-3 py-1 dark:bg-gray-800"
-					>
-						<CopyButton text="users:read" />
-						users:read
-					</div>
-					<div
-							class="flex max-w-fit items-center gap-2 rounded-full bg-gray-100 px-3 py-1 dark:bg-gray-800"
-					>
-						<CopyButton text="groups:read" />
-						groups:read
-					</div>
-					<div
-							class="flex max-w-fit items-center gap-2 rounded-full bg-gray-100 px-3 py-1 dark:bg-gray-800"
-					>
-						<CopyButton text="chat:write" />
-						chat:write
-					</div>
-					<div
-							class="flex max-w-fit items-center gap-2 rounded-full bg-gray-100 px-3 py-1 dark:bg-gray-800"
-					>
-						<CopyButton text="groups:write" />
-						groups:write
-					</div>
-					<div
-							class="flex max-w-fit items-center gap-2 rounded-full bg-gray-100 px-3 py-1 dark:bg-gray-800"
-					>
-						<CopyButton text="mpim:write" />
-						mpim:write
-					</div>
-					<div
-							class="flex max-w-fit items-center gap-2 rounded-full bg-gray-100 px-3 py-1 dark:bg-gray-800"
-					>
-						<CopyButton text="im:write" />
-						im:write
-					</div>
-					<div
-							class="flex max-w-fit items-center gap-2 rounded-full bg-gray-100 px-3 py-1 dark:bg-gray-800"
-					>
-						<CopyButton text="assistant:write" />
-						assistant:write
-					</div>
-				</div>
+				</li>
+			</ul>
+		</div>
 
-
-			</div>
-
-			<div>
-				<h4 class="font-medium">Step 3: Enable Events</h4>
-				<p class="text-sm text-gray-600">
+		<div>
+			<h4 class="font-medium">Step 3: Enable Events</h4>
+			<ul class="my-2 list-disc space-y-3 pl-4 text-sm font-light text-gray-500">
+				<li>
 					From the left navigation of your Slack App, navigate to the "Event Subscriptions" section.
-				</p>
-				<p class="text-sm text-gray-600">Enable events and add the Request URL below:</p>
-				<div
-					class="mt-2 flex max-w-fit items-center gap-2 rounded bg-gray-100 p-2 dark:bg-gray-800"
-				>
-					<CopyButton text={eventUrl} />
-					{eventUrl}
-				</div>
-				<p class="mt-2 text-sm text-gray-600">
-					Next, expand the "Subscribe to bot events" section, click the "Add Bot User Event" button and add the following event:
-				</p>
-				<div
-					class="mt-2 flex max-w-fit items-center gap-2 rounded bg-gray-100 p-2 dark:bg-gray-800"
-				>
-					<CopyButton text={'app_mention'} />
-					app_mention
-				</div>
-			</div>
+				</li>
+				<li class="text-sm text-gray-600">
+					Enable events and add the Request URL below:
+					<div class="copy-link">
+						<CopyButton text={eventUrl} />
+						{eventUrl}
+					</div>
+				</li>
 
-
+				<li class="mt-2 text-sm text-gray-600">
+					Next, expand the "Subscribe to bot events" section, click the "Add Bot User Event" button
+					and add the following event:
+					<div class="copy-pill">
+						<CopyButton text={'app_mention'} />
+						app_mention
+					</div>
+				</li>
+			</ul>
 		</div>
 	</div>
 {/snippet}
 
 {#snippet form()}
-	<div class="space-y-3">
+	<div class="space-y-4">
 		<div>
 			<label for="appIdLabel" class="text-sm font-medium">App ID</label>
 			<input
 				type="text"
 				id="appId"
-				class="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+				class="text-input-filled mt-1 text-sm"
 				placeholder="Enter App ID"
 				bind:value={config.appId}
 				oninput={(e) => (config.appId = e.currentTarget.value)}
@@ -520,7 +464,7 @@
 			<input
 				type="text"
 				id="clientId"
-				class="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+				class="text-input-filled mt-1 text-sm"
 				placeholder="Enter Client ID"
 				bind:value={config.clientId}
 				oninput={(e) => (config.clientId = e.currentTarget.value)}
@@ -532,7 +476,7 @@
 			<input
 				type="password"
 				id="clientSecret"
-				class="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+				class="text-input-filled mt-1 text-sm"
 				placeholder={slackEnabled ? '***********' : 'Enter Client Secret'}
 				autocomplete="off"
 				bind:value={config.clientSecret}
@@ -545,27 +489,49 @@
 			<input
 				type="password"
 				id="signingSecret"
-				class="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+				class="text-input-filled mt-1 text-sm"
 				placeholder={slackEnabled ? '***********' : 'Enter Signing Secret'}
 				autocomplete="off"
 				bind:value={config.signingSecret}
 				oninput={(e) => (config.signingSecret = e.currentTarget.value)}
 			/>
 		</form>
-
-		<div class="mt-6 flex justify-end gap-3">
-			{#if project.capabilities?.onSlackMessage}
-				<button
-					class="button bg-red-500 text-white hover:bg-red-600"
-					onclick={() => {
-						dialog.close();
-						confirmDisable?.showModal();
-					}}
-				>
-					Remove Configuration
-				</button>
-			{/if}
-			<button class="button" onclick={handleSubmit}> Configure </button>
-		</div>
 	</div>
 {/snippet}
+
+<style lang="postcss">
+	.copy-link {
+		margin-top: 0.5rem;
+		display: flex;
+		max-width: fit-content;
+		align-items: center;
+		gap: 0.5rem;
+		border-radius: 0.25rem;
+		background-color: var(--color-surface1);
+		color: var(--color-black);
+		padding: 0.5rem;
+	}
+
+	:global(.dark) .copy-link {
+		background-color: var(--color-surface2);
+		color: var(--color-white);
+	}
+
+	.copy-pill {
+		margin-top: 0.5rem;
+		display: flex;
+		max-width: fit-content;
+		align-items: center;
+		gap: 0.5rem;
+		border-radius: calc(infinity * 1px);
+		background-color: var(--color-surface1);
+		padding: 0.5rem 1rem;
+		font-size: 0.75rem;
+		color: var(--color-black);
+	}
+
+	:global(.dark) .copy-pill {
+		background-color: var(--color-surface2);
+		color: var(--color-white);
+	}
+</style>
