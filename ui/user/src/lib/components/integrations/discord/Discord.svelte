@@ -52,7 +52,7 @@
 				items: Object.values(toolSelection)
 			});
 		}
-		
+
 		if (!project.capabilities) {
 			project.capabilities = {};
 		}
@@ -67,10 +67,6 @@
 			}
 		}
 
-		if (!credToAuth?.exists) {
-			authDialog?.show();
-		}
-
 		let maxAttempts = 30;
 		let attempts = 0;
 
@@ -80,8 +76,8 @@
 			if (project.workflowNameFromIntegration) {
 				layout.tasks = (await ChatService.listTasks(project.assistantID, project.id)).items;
 				task = layout.tasks.find((t) => t.id === project.workflowNameFromIntegration);
-				if (task) {
-					taskDialog?.showModal();
+				if (task && !credToAuth?.exists) {
+					authDialog?.show();
 				}
 				break;
 			}
@@ -228,6 +224,7 @@
 				toolID="discord-bundle"
 				onClose={() => {
 					credToAuth = undefined;
+					taskDialog?.showModal();
 				}}
 			/>
 

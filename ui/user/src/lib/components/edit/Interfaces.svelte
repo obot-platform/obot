@@ -7,6 +7,7 @@
 	import { twMerge } from 'tailwind-merge';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import { HELPER_TEXTS } from '$lib/context/helperMode.svelte';
+	import { version } from '$lib/stores';
 
 	const layout = getLayout();
 
@@ -18,7 +19,7 @@
 		unavailable?: boolean;
 	};
 
-	const options: Option[] = [
+	let options: Option[] = [
 		{
 			id: 'slack',
 			label: 'Slack',
@@ -58,6 +59,10 @@
 			unavailable: true
 		}
 	];
+
+	if (!version.current.emailDomain) {
+		options = options.filter((option) => option.id !== 'email');
+	}
 </script>
 
 <CollapsePane

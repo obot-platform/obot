@@ -236,7 +236,7 @@
 >
 	<div class="p-6">
 		<div class="flex flex-col gap-2">
-			<button class="absolute right-0 top-0 p-3" onclick={() => dialog?.close()}>
+			<button class="absolute top-0 right-0 p-3" onclick={() => dialog?.close()}>
 				<X class="icon-default" />
 			</button>
 			<h3 class="mb-4 text-lg font-semibold">Configure Slack OAuth App</h3>

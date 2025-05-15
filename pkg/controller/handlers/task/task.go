@@ -148,8 +148,9 @@ func (t *Handler) UpdateTaskForDiscord(thread *v1.Thread, req router.Request) er
 					},
 				},
 
-				Name:        "Discord Integration Task",
-				Description: "This task is used to integrate with Discord.",
+				Name:             "Discord Integration Task",
+				Description:      "This task is used to integrate with Discord.",
+				OnDiscordMessage: &types.TaskOnDiscordMessage{},
 			},
 		},
 	}

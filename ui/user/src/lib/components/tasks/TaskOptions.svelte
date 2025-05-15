@@ -28,6 +28,9 @@
 		if (task?.onSlackMessage) {
 			return 'slack';
 		}
+		if (task?.onDiscordMessage) {
+			return 'discord';
+		}
 		return 'onDemand';
 	}
 
