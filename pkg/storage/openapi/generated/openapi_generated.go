@@ -11443,13 +11443,22 @@ func schema_storage_apis_obotobotai_v1_ToolReferenceSpec(ref common.ReferenceCal
 							Format: "",
 						},
 					},
-					"builtin": {
+					"toolMetadata": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"boolean"},
-							Format: "",
+							Type: []string{"object"},
+							AdditionalProperties: &spec.SchemaOrBool{
+								Allows: true,
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
 						},
 					},
-					"isCapability": {
+					"builtin": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"boolean"},
 							Format: "",

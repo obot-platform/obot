@@ -41,10 +41,10 @@ func ResolveToolReferences(ctx context.Context, gptClient *gptscript.GPTScript, 
 		},
 		Spec: v1.ToolReferenceSpec{
 			Type:         toolType,
+			ToolMetadata: tool.MetaData,
 			Reference:    reference,
 			Builtin:      builtin,
 			Bundle:       isBundleTool,
-			IsCapability: isCapability,
 		},
 	}
 	result = append(result, &entryTool)
@@ -89,6 +89,7 @@ func ResolveToolReferences(ctx context.Context, gptClient *gptscript.GPTScript, 
 				},
 				Spec: v1.ToolReferenceSpec{
 					Type:           toolType,
+					ToolMetadata:   peerTool.MetaData,
 					Reference:      fmt.Sprintf("%s from %s", peerTool.Name, toolRef),
 					Builtin:        builtin,
 					BundleToolName: entryTool.Name,
