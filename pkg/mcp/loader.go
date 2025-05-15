@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"net/http"
 	"os"
 	"path/filepath"
 	"slices"
@@ -17,9 +16,11 @@ import (
 	"github.com/obot-platform/nah/pkg/apply"
 	"github.com/obot-platform/nah/pkg/name"
 	"github.com/obot-platform/obot/logger"
+	"github.com/obot-platform/obot/pkg/wait"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
@@ -81,10 +82,26 @@ func (sm *SessionManager) ShutdownServer(ctx context.Context, server ServerConfi
 
 	id := sessionID(server)
 
-	err := sm.local.ShutdownServer(gmcp.ServerConfig{URL: fmt.Sprintf("http://%s.%s.svc.%s/sse", id, sm.mcpNamespace, sm.mcpClusterDomain)})
+	var pods corev1.PodList
+	err := sm.client.List(ctx, &pods, &kclient.ListOptions{
+		Namespace: sm.mcpNamespace,
+		LabelSelector: labels.SelectorFromSet(map[string]string{
+			"app": id,
+		}),
+	})
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to list MCP pods: %w", err)
 	}
+
+	if len(pods.Items) != 0 {
+		// If the pod was removed, then this won't do anything. The session will only get cleaned up when the server restarts.
+		// That's better than the alternative of having unusable sessions that users are still trying to use.
+		err = sm.local.ShutdownServer(gmcp.ServerConfig{URL: fmt.Sprintf("http://%s.%s.svc.%s/sse", id, sm.mcpNamespace, sm.mcpClusterDomain), Scope: pods.Items[0].Name})
+		if err != nil {
+			return err
+		}
+	}
+
 	if err = apply.New(sm.client).WithNamespace(sm.mcpNamespace).WithOwnerSubContext(id).WithPruneTypes(new(corev1.Secret), new(appsv1.Deployment), new(corev1.Service)).Apply(ctx, nil, nil); err != nil {
 		return fmt.Errorf("failed to delete MCP deployment %s: %w", id, err)
 	}
@@ -142,6 +159,7 @@ func (sm *SessionManager) Load(ctx context.Context, tool types.Tool) (result []t
 		annotations := map[string]string{
 			"mcp-server-tool-name":   tool.Name,
 			"mcp-server-config-name": key,
+			"mcp-server-project":     server.Scope,
 		}
 		id := sessionID(server)
 
@@ -150,10 +168,10 @@ func (sm *SessionManager) Load(ctx context.Context, tool types.Tool) (result []t
 		secretStringData := make(map[string]string, len(server.Env)+len(server.Headers))
 		secretVolumeStringData := make(map[string]string, len(server.Files))
 		for _, file := range server.Files {
-			name := fmt.Sprintf("%s-%s", id, hash.Digest(file))
-			secretVolumeStringData[name] = file.Data
+			filename := fmt.Sprintf("%s-%s", id, hash.Digest(file))
+			secretVolumeStringData[filename] = file.Data
 			if file.EnvKey != "" {
-				secretStringData[file.EnvKey] = name
+				secretStringData[file.EnvKey] = filename
 			}
 		}
 
@@ -285,13 +303,13 @@ func (sm *SessionManager) Load(ctx context.Context, tool types.Tool) (result []t
 			return nil, fmt.Errorf("failed to create MCP deployment %s: %w", id, err)
 		}
 
-		url := fmt.Sprintf("http://%s.%s.svc.%s", id, sm.mcpNamespace, sm.mcpClusterDomain)
-
-		if err := pollMCPServer(ctx, url); err != nil {
+		podName, err := sm.updatedMCPPodName(ctx, id)
+		if err != nil {
 			return nil, err
 		}
 
-		return sm.local.LoadTools(ctx, gmcp.ServerConfig{URL: fmt.Sprintf("%s/sse", url)}, tool.Name)
+		// Use the pod name as the scope, so we get a new session if the pod restarts. MCP sessions aren't persistent on the server side.
+		return sm.local.LoadTools(ctx, gmcp.ServerConfig{URL: fmt.Sprintf("http://%s.%s.svc.%s/sse", id, sm.mcpNamespace, sm.mcpClusterDomain), Scope: podName}, tool.Name)
 	}
 
 	return nil, fmt.Errorf("no MCP server configuration found in tool instructions: %s", configData)
@@ -303,25 +321,37 @@ func sessionID(server ServerConfig) string {
 	return "mcp" + hash.Digest(server)[:60]
 }
 
-func pollMCPServer(ctx context.Context, url string) error {
-	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
-	defer cancel()
-
-	client := http.Client{
-		Timeout: time.Second,
+func (sm *SessionManager) updatedMCPPodName(ctx context.Context, id string) (string, error) {
+	// Wait for the deployment to be updated.
+	_, err := wait.For(ctx, sm.client, &appsv1.Deployment{ObjectMeta: metav1.ObjectMeta{Name: id, Namespace: sm.mcpNamespace}}, func(dep *appsv1.Deployment) (bool, error) {
+		return dep.Status.Replicas == 1 && dep.Status.UpdatedReplicas == 1 && dep.Status.ReadyReplicas == 1 && dep.Status.AvailableReplicas == 1, nil
+	})
+	if err != nil {
+		return "", fmt.Errorf("failed to wait for MCP server to be ready: %w", err)
 	}
-	for {
+
+	// Not get the pod name that is currently running, waiting for there to only be one pod.
+	var pods corev1.PodList
+	for len(pods.Items) != 1 || pods.Items[0].Status.Phase != corev1.PodRunning {
 		select {
 		case <-ctx.Done():
-			return fmt.Errorf("failed to start MCP server: %w", ctx.Err())
-		case <-time.After(100 * time.Millisecond):
+			return "", fmt.Errorf("timed out waiting for MCP server to be ready")
+		case <-time.After(time.Second):
 		}
-		resp, err := client.Get(fmt.Sprintf("%s/healthz", url))
-		if err == nil && resp.StatusCode == http.StatusOK {
-			return nil
+
+		if err = sm.client.List(ctx, &pods, &kclient.ListOptions{
+			Namespace: sm.mcpNamespace,
+			LabelSelector: labels.SelectorFromSet(map[string]string{
+				"app": id,
+			}),
+		}); err != nil {
+			return "", fmt.Errorf("failed to list MCP pods: %w", err)
 		}
 	}
+
+	return pods.Items[0].Name, nil
 }
+
 func buildConfig() (*rest.Config, error) {
 	cfg, err := rest.InClusterConfig()
 	if err == nil {
