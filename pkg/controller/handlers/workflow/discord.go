@@ -36,8 +36,10 @@ func (c *DiscordController) SubscribeToDiscord(req router.Request, _ router.Resp
 		return err
 	}
 
+	contextID := thread.Name + "-local"
+
 	creds, err := c.gptScript.ListCredentials(req.Ctx, gptscript.ListCredentialsOptions{
-		CredentialContexts: []string{thread.Name},
+		CredentialContexts: []string{contextID},
 	})
 	if err != nil {
 		return err
@@ -46,7 +48,7 @@ func (c *DiscordController) SubscribeToDiscord(req router.Request, _ router.Resp
 	var discordToken string
 	for _, cred := range creds {
 		if cred.ToolName == "discord" {
-			credValue, err := c.gptScript.RevealCredential(req.Ctx, []string{thread.Name}, cred.ToolName)
+			credValue, err := c.gptScript.RevealCredential(req.Ctx, []string{contextID}, cred.ToolName)
 			if err != nil {
 				return err
 			}

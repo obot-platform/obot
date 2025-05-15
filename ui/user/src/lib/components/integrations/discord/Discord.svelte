@@ -111,8 +111,11 @@
 					<div>
 						<h4 class="mb-2 font-medium">Step 1: Create a Discord Application</h4>
 						<p class="text-sm text-gray-600">
-							Go to the Discord Developer Portal and create a new application if you haven't
-							already.
+							Go to the Discord Developer Portal <a
+								href="https://discord.com/developers/applications/"
+								target="_blank"
+								class="text-blue-500">here</a
+							> and create a new application if you haven't already.
 						</p>
 					</div>
 
@@ -140,8 +143,8 @@
 					<div>
 						<h4 class="mb-2 font-medium">Step 4: Set Bot Permissions</h4>
 						<p class="text-sm text-gray-600">
-							In the Installations section, under "Default Install Settings", select "bot" and
-							enable these permissions:
+							In the Installations section, under "Default Install Settings", Add "bot" and enable
+							these permissions:
 						</p>
 						<div class="mt-2 space-y-1">
 							<div class="text-sm text-gray-600">• View Channels</div>
@@ -154,9 +157,8 @@
 					<div>
 						<h4 class="mb-2 font-medium">Step 5: Invite Bot to Server</h4>
 						<p class="text-sm text-gray-600">
-							Generate an invite URL in the OAuth2 section. Put the url in the browser and it will
-							open a new tab to invite the bot to your server. Use `Add to Server` button to invite
-							the bot to your server.
+							Go to installation section and copy the installation link from "Install link". Use the
+							discord provided one.
 						</p>
 					</div>
 				</div>
