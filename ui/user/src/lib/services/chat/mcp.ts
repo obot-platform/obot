@@ -6,7 +6,7 @@ export interface MCPServerInfo extends Omit<ProjectMCP, 'id'> {
 	headers?: (MCPSubField & { value: string; custom?: boolean })[];
 }
 
-function getKeyValuePairs(customMcpConfig: MCPServerInfo) {
+export function getKeyValuePairs(customMcpConfig: MCPServerInfo) {
 	return [...(customMcpConfig.env ?? []), ...(customMcpConfig.headers ?? [])].reduce<
 		Record<string, string>
 	>(

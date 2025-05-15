@@ -11,6 +11,8 @@
 	import { browser } from '$app/environment';
 	import { initProjectTools, getProjectTools } from '$lib/context/projectTools.svelte';
 	import { initHelperMode } from '$lib/context/helperMode.svelte';
+	import { initProjectMCPs } from '$lib/context/projectMcps.svelte';
+	import { initToolReferences } from '$lib/context/toolReferences.svelte';
 
 	let { data }: PageProps = $props();
 	let showWarning = $state(false);
@@ -25,6 +27,9 @@
 		projectEditorOpen: false,
 		items: []
 	});
+
+	initToolReferences(data.toolReferences || []);
+	initProjectMCPs(data.mcps || []);
 
 	initProjectTools({
 		tools: [],

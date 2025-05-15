@@ -34,6 +34,7 @@ export interface Layout {
 	editProjectMcp?: ProjectMCP;
 	template?: ProjectTemplate;
 	mcpServer?: ProjectMCP;
+	chatbotMcpEdit?: boolean;
 }
 
 export function isSomethingSelected(layout: Layout) {
@@ -48,6 +49,7 @@ export function closeAll(layout: Layout) {
 	layout.editProjectMcp = undefined;
 	layout.template = undefined;
 	layout.mcpServer = undefined;
+	layout.chatbotMcpEdit = undefined;
 }
 
 export function openTask(layout: Layout, taskID?: string) {
@@ -92,11 +94,12 @@ export function openCustomTool(layout: Layout, customToolId: string) {
 	}
 }
 
-export function openEditProjectMcp(layout: Layout, projectMcp?: ProjectMCP) {
+export function openEditProjectMcp(layout: Layout, projectMcp?: ProjectMCP, chatbot?: boolean) {
 	closeAll(layout);
 	layout.fileEditorOpen = false;
 	layout.sidebarConfig = 'custom-mcp';
 	layout.editProjectMcp = projectMcp;
+	layout.chatbotMcpEdit = chatbot;
 	if (responsive.isMobile) {
 		layout.sidebarOpen = false;
 	}
@@ -108,6 +111,7 @@ export function closeSidebarConfig(layout: Layout) {
 	layout.editProjectMcp = undefined;
 	layout.template = undefined;
 	layout.mcpServer = undefined;
+	layout.chatbotMcpEdit = undefined;
 }
 
 export function initLayout(layout: Layout) {

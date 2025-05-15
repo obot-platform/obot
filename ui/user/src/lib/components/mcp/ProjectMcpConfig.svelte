@@ -14,8 +14,9 @@
 		project?: Project;
 		onCreate?: (customMcpServerInfo: MCPServerInfo) => void;
 		onUpdate?: (customMcpServerInfo: MCPServerInfo) => void;
+		chatbot?: boolean;
 	}
-	let { projectMcp, project, onCreate, onUpdate }: Props = $props();
+	let { projectMcp, project, onCreate, onUpdate, chatbot = false }: Props = $props();
 
 	function isObotHosted(projectMcp: ProjectMCP) {
 		return (
@@ -148,7 +149,7 @@
 		</div>
 	</div>
 
-	{#if !projectMcp?.catalogID}
+	{#if !projectMcp?.catalogID && !chatbot}
 		<div
 			class="dark:bg-gray-980 mt-4 flex w-full flex-col gap-2 bg-gray-50 px-4 pt-4 pb-2 shadow-inner md:px-8"
 		>
@@ -187,9 +188,19 @@
 			class="dark:bg-surface2 dark:border-surface3 flex w-full grow flex-col gap-4 self-center rounded-lg bg-white px-4 pt-12 pb-8 shadow-sm md:max-w-[900px] md:px-8 dark:border"
 		>
 			{#if showObotHosted}
-				<HostedMcpForm bind:config {showSubmitError} custom={!projectMcp?.catalogID} />
+				<HostedMcpForm
+					bind:config
+					{showSubmitError}
+					custom={!projectMcp?.catalogID && !chatbot}
+					{chatbot}
+				/>
 			{:else}
-				<RemoteMcpForm bind:config {showSubmitError} custom={!projectMcp?.catalogID} />
+				<RemoteMcpForm
+					bind:config
+					{showSubmitError}
+					custom={!projectMcp?.catalogID && !chatbot}
+					{chatbot}
+				/>
 			{/if}
 		</div>
 

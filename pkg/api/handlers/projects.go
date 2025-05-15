@@ -676,8 +676,13 @@ func (h *ProjectsHandler) listCredentials(req api.Context, local bool) error {
 		credContextID = thread.Name + "-local"
 	}
 
+	credContexts := []string{credContextID}
+	if thread.Spec.ParentThreadName != "" && !local {
+		credContexts = append(credContexts, thread.Spec.ParentThreadName)
+	}
+
 	creds, err := req.GPTClient.ListCredentials(req.Context(), gptscript.ListCredentialsOptions{
-		CredentialContexts: []string{credContextID},
+		CredentialContexts: credContexts,
 	})
 	if err != nil {
 		return err

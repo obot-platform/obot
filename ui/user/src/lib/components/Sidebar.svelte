@@ -106,6 +106,7 @@
 			</div>
 		{:else}
 			<Threads {project} bind:currentThreadID />
+			<McpServers {project} chatbot={true} />
 			{#if hasTool(projectTools.tools, 'memory')}
 				<Memories {project} />
 			{/if}

@@ -8,7 +8,7 @@
 	import TemplateConfig from '$lib/components/templates/TemplateConfig.svelte';
 	import { getProjectTools } from '$lib/context/projectTools.svelte';
 	import ProjectMcpConfig from '$lib/components/mcp/ProjectMcpConfig.svelte';
-	import { createProjectMcp, updateProjectMcp } from '$lib/services/chat/mcp';
+	import { createProjectMcp, updateProjectMcp, getKeyValuePairs } from '$lib/services/chat/mcp';
 	import { getProjectMCPs } from '$lib/context/projectMcps.svelte';
 	import McpServerTools from '$lib/components/mcp/McpServerTools.svelte';
 	import ModelProviders from './ModelProviders.svelte';
@@ -17,6 +17,7 @@
 	import Discord from './integrations/discord/Discord.svelte';
 	import Webhook from './integrations/webhook/Webhook.svelte';
 	import Email from './integrations/email/Email.svelte';
+	import { ChatService } from '$lib/services';
 
 	interface Props {
 		project: Project;
@@ -48,6 +49,7 @@
 			<ProjectMcpConfig
 				{project}
 				projectMcp={layout.editProjectMcp}
+				chatbot={layout.chatbotMcpEdit}
 				onCreate={async (customMcpConfig) => {
 					const newProjectMcp = await createProjectMcp(customMcpConfig, project);
 					projectMCPs.items.push(newProjectMcp);
@@ -55,14 +57,36 @@
 				}}
 				onUpdate={async (customMcpConfig) => {
 					if (!layout.editProjectMcp) return;
-					const updatedProjectMcp = await updateProjectMcp(
-						customMcpConfig,
-						layout.editProjectMcp.id,
-						project
-					);
-					projectMCPs.items = projectMCPs.items.map((mcp) =>
-						mcp.id === layout.editProjectMcp!.id ? updatedProjectMcp : mcp
-					);
+
+					if (layout.chatbotMcpEdit) {
+						const keyValuePairs = getKeyValuePairs(customMcpConfig);
+
+						await ChatService.configureProjectMCPEnvHeaders(
+							project.assistantID,
+							project.id,
+							layout.editProjectMcp.id,
+							keyValuePairs
+						);
+
+						projectMCPs.items = projectMCPs.items.map((mcp) => {
+							if (mcp.id !== layout.editProjectMcp!.id) return mcp;
+							return {
+								...mcp,
+								env: customMcpConfig.env,
+								headers: customMcpConfig.headers
+							};
+						});
+					} else {
+						const updatedProjectMcp = await updateProjectMcp(
+							customMcpConfig,
+							layout.editProjectMcp.id,
+							project
+						);
+						projectMCPs.items = projectMCPs.items.map((mcp) =>
+							mcp.id === layout.editProjectMcp!.id ? updatedProjectMcp : mcp
+						);
+					}
+
 					closeSidebarConfig(layout);
 				}}
 			/>
