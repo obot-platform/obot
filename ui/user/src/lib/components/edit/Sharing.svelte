@@ -4,7 +4,7 @@
 	import Confirm from '$lib/components/Confirm.svelte';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import CollapsePane from '$lib/components/edit/CollapsePane.svelte';
-	import { ChatService, type Project, type ProjectMember } from '$lib/services';
+	import { ChatService, type Project, type ProjectMember, type ProjectShare } from '$lib/services';
 	import { profile } from '$lib/stores';
 	import { HELPER_TEXTS } from '$lib/context/helperMode.svelte';
 	import {
@@ -19,8 +19,6 @@
 		deleteProjectTemplate,
 		type ProjectTemplate
 	} from '$lib/services';
-	import { getHelperMode } from '$lib/context/helperMode.svelte';
-	import InfoTooltip from '$lib/components/InfoTooltip.svelte';
 
 	let toDelete = $state('');
 	let ownerID = $state<string>('');
@@ -197,20 +195,31 @@
 			</div>
 		</CollapsePane>
 
-		<button
-			class="border-surface3 flex w-full items-center gap-2 border-b px-3 py-2 text-left"
-			onclick={openChatbotConfig}
+		<CollapsePane
+			classes={{
+				header: 'pl-3 pr-5.5 py-2 border-surface3 border-b',
+				content: 'p-3 border-b border-surface3 overflow-x-hidden',
+				headerText: 'text-sm font-normal'
+			}}
+			iconSize={4}
+			header="ChatBot"
+			helpText={HELPER_TEXTS.chatbot}
 		>
-			<span class="flex grow items-center gap-1 text-sm font-normal">
-				ChatBot
-				{#if getHelperMode().isEnabled && HELPER_TEXTS.chatbot}
-					<div in:fade>
-						<InfoTooltip text={HELPER_TEXTS.chatbot} />
-					</div>
-				{/if}
-			</span>
-			<ChevronRight class="size-4" />
-		</button>
+			<div class="flex flex-col gap-3">
+				<p class="text-xs text-gray-500">
+					Configure ChatBot to produce a link that allows anyone to use this agent in a read-only
+					mode.
+				</p>
+				<div class="mt-2 flex justify-end" in:fade>
+					<button
+						class="button flex cursor-pointer items-center justify-end gap-1 text-xs"
+						onclick={openChatbotConfig}
+					>
+						<span>Configure ChatBot</span>
+					</button>
+				</div>
+			</div>
+		</CollapsePane>
 
 		<CollapsePane
 			classes={{

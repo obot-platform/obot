@@ -15,7 +15,8 @@
 	import {
 		initConfigFromManifest,
 		isValidMcpConfig,
-		type MCPServerInfo
+		type MCPServerInfo,
+		isAuthRequiredBundle
 	} from '$lib/services/chat/mcp';
 	import HostedMcpForm from '$lib/components/mcp/HostedMcpForm.svelte';
 	import type { Snippet } from 'svelte';
@@ -70,22 +71,6 @@
 
 	export function close() {
 		configDialog?.close();
-	}
-
-	function isAuthRequiredBundle(bundleId?: string) {
-		if (!bundleId) return false;
-		const nonRequiredAuthBundles = [
-			'browser-bundle',
-			'google-search-bundle',
-			'images-bundle',
-			'memory',
-			'obot-search-bundle',
-			'time',
-			'database',
-			'die-roller',
-			'proxycurl-bundle' // linkedin search bundle
-		];
-		return !nonRequiredAuthBundles.includes(bundleId);
 	}
 
 	async function getProjectCredential() {

@@ -13,7 +13,12 @@
 	} from '$lib/services/chat/operations';
 	import { onMount } from 'svelte';
 	import { clickOutside } from '$lib/actions/clickoutside';
-	import { isValidMcpConfig, type MCPServerInfo } from '$lib/services/chat/mcp';
+	import {
+		isValidMcpConfig,
+		type MCPServerInfo,
+		isAuthRequiredBundle,
+		initConfigFromManifest
+	} from '$lib/services/chat/mcp';
 	import CredentialAuth from '$lib/components/edit/CredentialAuth.svelte';
 	import { getToolBundleMap } from '$lib/context/toolReferences.svelte';
 	import Confirm from '$lib/components/Confirm.svelte';
@@ -48,6 +53,9 @@
 	let showDeconfigureConfirm = $state(false);
 	let serverToDeconfigure = $state<string | null>(null);
 
+	const configureForEveryone = 'Configure it for everyone';
+	const letUserConfigure = 'Let the user configure';
+
 	async function updateShare() {
 		share = await ChatService.getProjectShare(project.assistantID, project.id);
 	}
@@ -60,7 +68,7 @@
 			// Initialize default selections to "Let the user configure"
 			const initialSelections: Record<string, string> = {};
 			mcpServers.forEach((server) => {
-				initialSelections[server.id] = 'Let the user configure';
+				initialSelections[server.id] = letUserConfigure;
 			});
 			selectedMcpConfig = initialSelections;
 
@@ -91,13 +99,12 @@
 			if (hasSharedConfig) {
 				selectedMcpConfig = {
 					...selectedMcpConfig,
-					[mcpServerId]: 'Configure it for everyone'
+					[mcpServerId]: configureForEveryone
 				};
 			}
 
 			return result;
 		} catch (error) {
-			console.error('Failed to check shared configuration:', error);
 			sharedConfigs = { ...sharedConfigs, [mcpServerId]: false };
 			return null;
 		}
@@ -107,9 +114,7 @@
 		if (!server.catalogID) return;
 
 		try {
-			console.log(`Checking credentials for tool: ${server.name} (${server.catalogID})`);
 			const credentials = await ChatService.listProjectCredentials(project.assistantID, project.id);
-			console.log(`Found ${credentials.items.length} credentials`);
 
 			// Find credential with exact match for tool ID
 			const toolCredential = credentials.items.find(
@@ -121,7 +126,7 @@
 				sharedConfigs = { ...sharedConfigs, [server.id]: true };
 				selectedMcpConfig = {
 					...selectedMcpConfig,
-					[server.id]: 'Configure it for everyone'
+					[server.id]: configureForEveryone
 				};
 			}
 		} catch (error) {
@@ -136,17 +141,17 @@
 	function selectOption(serverId: string, option: string) {
 		dropdownOpen = { ...dropdownOpen, [serverId]: false };
 
-		if (option === 'Configure it for everyone') {
+		if (option === configureForEveryone) {
 			const server = mcpServers.find((s) => s.id === serverId);
 			if (server) {
 				openConfigDialog(server);
 			}
-		} else if (option === 'Let the user configure') {
+		} else if (option === letUserConfigure) {
 			const server = mcpServers.find((s) => s.id === serverId);
 			if (server) {
 				if (
 					sharedConfigs[serverId] ||
-					(server.catalogID && selectedMcpConfig[serverId] === 'Configure it for everyone')
+					(server.catalogID && selectedMcpConfig[serverId] === configureForEveryone)
 				) {
 					serverToDeconfigure = serverId;
 					showDeconfigureConfirm = true;
@@ -172,7 +177,7 @@
 		try {
 			const bundleId =
 				server.catalogID && toolBundleMap.get(server.catalogID) ? server.catalogID : null;
-			const isAuthTool = bundleId && isToolAuthRequired(bundleId);
+			const isAuthTool = bundleId && isAuthRequiredBundle(bundleId);
 
 			if (isAuthTool && server.catalogID) {
 				await ChatService.deleteProjectCredential(
@@ -188,7 +193,7 @@
 			sharedConfigs = { ...sharedConfigs, [serverToDeconfigure]: false };
 			selectedMcpConfig = {
 				...selectedMcpConfig,
-				[serverToDeconfigure]: 'Let the user configure'
+				[serverToDeconfigure]: letUserConfigure
 			};
 		} catch (error) {
 			console.error('Failed to deconfigure shared server or credential:', error);
@@ -208,18 +213,12 @@
 
 		const bundleId =
 			server.catalogID && toolBundleMap.get(server.catalogID) ? server.catalogID : null;
-		const isAuthTool = bundleId && isToolAuthRequired(bundleId);
+		const isAuthTool = bundleId && isAuthRequiredBundle(bundleId);
 
 		if (isAuthTool) {
 			handleToolAuth(server, bundleId);
 		} else {
-			mcpConfig = {
-				name: server.name || '',
-				description: server.description || '',
-				icon: server.icon || '',
-				env: server.env?.map((e) => ({ ...e, value: '', custom: false })) || [],
-				headers: server.headers?.map((h) => ({ ...h, value: '', custom: false })) || []
-			};
+			mcpConfig = initConfigFromManifest(server);
 			showConfigDialog = true;
 		}
 	}
@@ -248,22 +247,6 @@
 		showAuthDialog = true;
 	}
 
-	function isToolAuthRequired(bundleId: string) {
-		// List of bundle IDs that require authentication
-		const nonRequiredAuthBundles = [
-			'browser-bundle',
-			'google-search-bundle',
-			'images-bundle',
-			'memory',
-			'obot-search',
-			'time',
-			'database',
-			'die-roller',
-			'proxycurl-bundle'
-		];
-		return !nonRequiredAuthBundles.includes(bundleId);
-	}
-
 	function closeAuthDialog() {
 		showAuthDialog = false;
 		currentCredential = null;
@@ -281,7 +264,6 @@
 		processingConfig = true;
 
 		try {
-			// Extract key-value pairs from the config
 			const keyValues: Record<string, string> = {};
 
 			mcpConfig.env?.forEach((env) => {
@@ -296,7 +278,6 @@
 				}
 			});
 
-			// Send to configure-shared endpoint
 			await configureSharedProjectMCP(
 				project.assistantID,
 				project.id,
@@ -307,7 +288,7 @@
 			sharedConfigs = { ...sharedConfigs, [currentMcpServer.id]: true };
 			selectedMcpConfig = {
 				...selectedMcpConfig,
-				[currentMcpServer.id]: 'Configure it for everyone'
+				[currentMcpServer.id]: configureForEveryone
 			};
 
 			closeConfigDialog();
@@ -413,7 +394,7 @@
 									</div>
 
 									<div class="relative flex items-center gap-2">
-										{#if (sharedConfigs[server.id] || server.catalogID) && selectedMcpConfig[server.id] === 'Configure it for everyone'}
+										{#if (sharedConfigs[server.id] || server.catalogID) && selectedMcpConfig[server.id] === configureForEveryone}
 											<button
 												class="icon-button text-blue-500 hover:text-blue-700"
 												onclick={() => openConfigDialog(server)}
@@ -437,15 +418,15 @@
 												<div class="flex flex-col p-1">
 													<button
 														class="hover:bg-surface2 rounded px-3 py-2 text-left text-sm"
-														onclick={() => selectOption(server.id, 'Configure it for everyone')}
+														onclick={() => selectOption(server.id, configureForEveryone)}
 													>
-														Configure it for everyone
+														{configureForEveryone}
 													</button>
 													<button
 														class="hover:bg-surface2 rounded px-3 py-2 text-left text-sm"
-														onclick={() => selectOption(server.id, 'Let the user configure')}
+														onclick={() => selectOption(server.id, letUserConfigure)}
 													>
-														Let the user configure
+														{letUserConfigure}
 													</button>
 												</div>
 											</div>
@@ -634,7 +615,7 @@
 					sharedConfigs = { ...sharedConfigs, [currentMcpServer.id]: true };
 					selectedMcpConfig = {
 						...selectedMcpConfig,
-						[currentMcpServer.id]: 'Configure it for everyone'
+						[currentMcpServer.id]: configureForEveryone
 					};
 				}
 				closeAuthDialog();

@@ -97,3 +97,21 @@ export function initConfigFromManifest(manifest?: MCPManifest | ProjectMCP): MCP
 		headers: manifest?.headers?.map((e) => ({ ...e, value: '', custom: false })) ?? []
 	};
 }
+
+export function isAuthRequiredBundle(bundleId?: string): boolean {
+	if (!bundleId) return false;
+
+	// List of bundle IDs that don't require authentication
+	const nonRequiredAuthBundles = [
+		'browser-bundle',
+		'google-search-bundle',
+		'images-bundle',
+		'memory',
+		'obot-search-bundle',
+		'time',
+		'database',
+		'die-roller',
+		'proxycurl-bundle'
+	];
+	return !nonRequiredAuthBundles.includes(bundleId);
+}
