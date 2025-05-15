@@ -31,4 +31,3 @@ spec:
     - tasks
     defaultThreadTools:
     - images-bundle
-    - google-search-bundle
