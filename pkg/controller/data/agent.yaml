@@ -25,9 +25,10 @@ spec:
     alias: obot
     tools:
     - workspace-files
-    - time
-    - knowledge
-    - database
     - tasks
     defaultThreadTools:
     - images-bundle
+    - time
+    - knowledge
+    availableThreadTools:
+    - database
