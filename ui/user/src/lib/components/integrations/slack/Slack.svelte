@@ -338,23 +338,35 @@
 
 {#snippet steps()}
 	<div class="space-y-6">
-		<p class="text-sm text-gray-600">All steps will be performed on the Slack API Dashboard.</p>
-
+		<p class="text-sm text-gray-600">To message your agent from Slack, you'll need to create a Slack App and complete this configuration. You must be an administrator in your Slack Workspace.</p>
 		<div class="space-y-4">
 			<div>
 				<h4 class="font-medium">Step 1: Create a Slack App</h4>
 				<p class="text-sm text-gray-600">
-					If you've already created a Slack app, you can skip this step.
+					From the <a href="https://api.slack.com/apps" class="link">Slack App page</a>, click the Create New App button and select "From Scratch" in Create an app modal.
+				</p>
+				<p class="text-sm text-gray-600">
+					Name the app and select the workspace you want your app to be available in.
 				</p>
 			</div>
 
 			<div>
-				<h4 class="font-medium">Step 2: Add the Redirect URL</h4>
+				<h4 class="font-medium">Step 2: Copy App Credentials</h4>
 				<p class="text-sm text-gray-600">
-					From the Slack API Dashboard, click on your app and select "OAuth & Permissions"
+					After completing the previous step, you'll be presented with your App Credentials under the Basic Information section. Copy the values to the corresponding fields below.
+
+					TODO - MOVE THE FORM AT THE BOTTOM UP HERE.
+				</p>
+			</div>
+
+
+			<div>
+				<h4 class="font-medium">Step 3: Configure OAuth</h4>
+				<p class="text-sm text-gray-600">
+					From the left navigation of your Slack App, navigate to the "OAuth & Permissions" section.
 				</p>
 				<p class="text-sm text-gray-600">
-					In the "Redirect URLs" section, click "Add New Redirect URL"
+					In the "Redirect URLs" section, click "Add New Redirect URL" and add the follow URL:
 				</p>
 				<div
 					class="mt-2 flex max-w-fit items-center gap-2 rounded bg-gray-100 p-2 dark:bg-gray-800"
@@ -362,12 +374,109 @@
 					<CopyButton text={redirectUrl} />
 					{redirectUrl}
 				</div>
+				<p class="text-sm text-gray-600">
+					Next, locate the "Bot Token Scopes" section and add the following scopes:
+				</p>
+				<div class="mt-2 flex flex-wrap gap-1">
+					<div
+							class="flex max-w-fit items-center gap-2 rounded-full bg-gray-100 px-3 py-1 dark:bg-gray-800"
+					>
+						<CopyButton text="channels:history" />
+						channels:history
+					</div>
+					<div
+							class="flex max-w-fit items-center gap-2 rounded-full bg-gray-100 px-3 py-1 dark:bg-gray-800"
+					>
+						<CopyButton text="groups:history" />
+						groups:history
+					</div>
+					<div
+							class="flex max-w-fit items-center gap-2 rounded-full bg-gray-100 px-3 py-1 dark:bg-gray-800"
+					>
+						<CopyButton text="im:history" />
+						im:history
+					</div>
+					<div
+							class="flex max-w-fit items-center gap-2 rounded-full bg-gray-100 px-3 py-1 dark:bg-gray-800"
+					>
+						<CopyButton text="mpim:history" />
+						mpim:history
+					</div>
+					<div
+							class="flex max-w-fit items-center gap-2 rounded-full bg-gray-100 px-3 py-1 dark:bg-gray-800"
+					>
+						<CopyButton text="channels:read" />
+						channels:read
+					</div>
+					<div
+							class="flex max-w-fit items-center gap-2 rounded-full bg-gray-100 px-3 py-1 dark:bg-gray-800"
+					>
+						<CopyButton text="files:read" />
+						files:read
+					</div>
+					<div
+							class="flex max-w-fit items-center gap-2 rounded-full bg-gray-100 px-3 py-1 dark:bg-gray-800"
+					>
+						<CopyButton text="im:read" />
+						im:read
+					</div>
+					<div
+							class="flex max-w-fit items-center gap-2 rounded-full bg-gray-100 px-3 py-1 dark:bg-gray-800"
+					>
+						<CopyButton text="team:read" />
+						team:read
+					</div>
+					<div
+							class="flex max-w-fit items-center gap-2 rounded-full bg-gray-100 px-3 py-1 dark:bg-gray-800"
+					>
+						<CopyButton text="users:read" />
+						users:read
+					</div>
+					<div
+							class="flex max-w-fit items-center gap-2 rounded-full bg-gray-100 px-3 py-1 dark:bg-gray-800"
+					>
+						<CopyButton text="groups:read" />
+						groups:read
+					</div>
+					<div
+							class="flex max-w-fit items-center gap-2 rounded-full bg-gray-100 px-3 py-1 dark:bg-gray-800"
+					>
+						<CopyButton text="chat:write" />
+						chat:write
+					</div>
+					<div
+							class="flex max-w-fit items-center gap-2 rounded-full bg-gray-100 px-3 py-1 dark:bg-gray-800"
+					>
+						<CopyButton text="groups:write" />
+						groups:write
+					</div>
+					<div
+							class="flex max-w-fit items-center gap-2 rounded-full bg-gray-100 px-3 py-1 dark:bg-gray-800"
+					>
+						<CopyButton text="mpim:write" />
+						mpim:write
+					</div>
+					<div
+							class="flex max-w-fit items-center gap-2 rounded-full bg-gray-100 px-3 py-1 dark:bg-gray-800"
+					>
+						<CopyButton text="im:write" />
+						im:write
+					</div>
+					<div
+							class="flex max-w-fit items-center gap-2 rounded-full bg-gray-100 px-3 py-1 dark:bg-gray-800"
+					>
+						<CopyButton text="assistant:write" />
+						assistant:write
+					</div>
+				</div>
+
+
 			</div>
 
 			<div>
 				<h4 class="font-medium">Step 3: Enable Events</h4>
 				<p class="text-sm text-gray-600">
-					Navigate to the "Event Subscriptions" tab from the sidebar
+					From the left navigation of your Slack App, navigate to the "Event Subscriptions" section.
 				</p>
 				<p class="text-sm text-gray-600">Enable events and add the Request URL below:</p>
 				<div
@@ -377,7 +486,7 @@
 					{eventUrl}
 				</div>
 				<p class="mt-2 text-sm text-gray-600">
-					Under "Subscribe to bot events", add the following events:
+					Next, expand the "Subscribe to bot events" section, click the "Add Bot User Event" button and add the following event:
 				</p>
 				<div
 					class="mt-2 flex max-w-fit items-center gap-2 rounded bg-gray-100 p-2 dark:bg-gray-800"
@@ -387,115 +496,7 @@
 				</div>
 			</div>
 
-			<div>
-				<h4 class="font-medium">Step 4: Add Bot Scopes</h4>
-				<p class="text-sm text-gray-600">
-					Navigate to the "OAuth & Permissions" tab from the sidebar
-				</p>
-				<p class="text-sm text-gray-600">
-					Locate the "Bot Token Scopes" section and add the following scopes:
-				</p>
-				<div class="mt-2 flex flex-wrap gap-1">
-					<div
-						class="flex max-w-fit items-center gap-2 rounded-full bg-gray-100 px-3 py-1 dark:bg-gray-800"
-					>
-						<CopyButton text="channels:history" />
-						channels:history
-					</div>
-					<div
-						class="flex max-w-fit items-center gap-2 rounded-full bg-gray-100 px-3 py-1 dark:bg-gray-800"
-					>
-						<CopyButton text="groups:history" />
-						groups:history
-					</div>
-					<div
-						class="flex max-w-fit items-center gap-2 rounded-full bg-gray-100 px-3 py-1 dark:bg-gray-800"
-					>
-						<CopyButton text="im:history" />
-						im:history
-					</div>
-					<div
-						class="flex max-w-fit items-center gap-2 rounded-full bg-gray-100 px-3 py-1 dark:bg-gray-800"
-					>
-						<CopyButton text="mpim:history" />
-						mpim:history
-					</div>
-					<div
-						class="flex max-w-fit items-center gap-2 rounded-full bg-gray-100 px-3 py-1 dark:bg-gray-800"
-					>
-						<CopyButton text="channels:read" />
-						channels:read
-					</div>
-					<div
-						class="flex max-w-fit items-center gap-2 rounded-full bg-gray-100 px-3 py-1 dark:bg-gray-800"
-					>
-						<CopyButton text="files:read" />
-						files:read
-					</div>
-					<div
-						class="flex max-w-fit items-center gap-2 rounded-full bg-gray-100 px-3 py-1 dark:bg-gray-800"
-					>
-						<CopyButton text="im:read" />
-						im:read
-					</div>
-					<div
-						class="flex max-w-fit items-center gap-2 rounded-full bg-gray-100 px-3 py-1 dark:bg-gray-800"
-					>
-						<CopyButton text="team:read" />
-						team:read
-					</div>
-					<div
-						class="flex max-w-fit items-center gap-2 rounded-full bg-gray-100 px-3 py-1 dark:bg-gray-800"
-					>
-						<CopyButton text="users:read" />
-						users:read
-					</div>
-					<div
-						class="flex max-w-fit items-center gap-2 rounded-full bg-gray-100 px-3 py-1 dark:bg-gray-800"
-					>
-						<CopyButton text="groups:read" />
-						groups:read
-					</div>
-					<div
-						class="flex max-w-fit items-center gap-2 rounded-full bg-gray-100 px-3 py-1 dark:bg-gray-800"
-					>
-						<CopyButton text="chat:write" />
-						chat:write
-					</div>
-					<div
-						class="flex max-w-fit items-center gap-2 rounded-full bg-gray-100 px-3 py-1 dark:bg-gray-800"
-					>
-						<CopyButton text="groups:write" />
-						groups:write
-					</div>
-					<div
-						class="flex max-w-fit items-center gap-2 rounded-full bg-gray-100 px-3 py-1 dark:bg-gray-800"
-					>
-						<CopyButton text="mpim:write" />
-						mpim:write
-					</div>
-					<div
-						class="flex max-w-fit items-center gap-2 rounded-full bg-gray-100 px-3 py-1 dark:bg-gray-800"
-					>
-						<CopyButton text="im:write" />
-						im:write
-					</div>
-					<div
-						class="flex max-w-fit items-center gap-2 rounded-full bg-gray-100 px-3 py-1 dark:bg-gray-800"
-					>
-						<CopyButton text="assistant:write" />
-						assistant:write
-					</div>
-				</div>
-			</div>
-		</div>
 
-		<div>
-			<h4 class="font-medium">Step 5: Register OAuth App in your agent</h4>
-			<p class="text-sm text-gray-600">
-				Click the Basic Information section in the side nav, locate the Client ID and Client Secret
-				fields, copy/paste them into the form below, and click Submit.
-			</p>
 		</div>
 	</div>
 {/snippet}
