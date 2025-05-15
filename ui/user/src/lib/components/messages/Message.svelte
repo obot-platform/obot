@@ -437,6 +437,28 @@
 			{/if}
 		</div>
 	{/if}
+	{#if msg.toolCall?.output}
+		{@const parsedOutput = JSON.parse(msg.toolCall.output)}
+		{#if parsedOutput.content}
+			{#each parsedOutput.content as content}
+				{#if content.type === 'image' && content.mimeType && content.data}
+					<img
+						src={`data:${content.mimeType};base64,${content.data}`}
+						alt="tool output"
+						class="my-2 w-full max-w-md rounded-xl"
+						onerror={(e) => {
+							const img = e.currentTarget as HTMLImageElement;
+							img.style.display = 'none';
+							const fallbackDiv = document.createElement('div');
+							fallbackDiv.className = 'text-gray-500 text-xs';
+							fallbackDiv.textContent = '[Image Failed to Load.]';
+							img.parentNode?.insertBefore(fallbackDiv, img.nextSibling);
+						}}
+					/>
+				{/if}
+			{/each}
+		{/if}
+	{/if}
 	{#if shell.input && shell.output}
 		<div class="mt-1 rounded-3xl bg-gray-100 p-5 dark:bg-gray-900 dark:text-gray-50">
 			<div class="pb-1 font-mono">
