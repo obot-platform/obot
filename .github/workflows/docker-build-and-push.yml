@@ -56,6 +56,8 @@ jobs:
           tags: |
             ghcr.io/${{ github.repository }}:${{ github.ref_name }}
             ${{ github.ref_type == 'tag' && !contains(github.ref_name, '-rc') && format('docker.io/obot/{0}:{1}', github.event.repository.name, github.ref_name) || '' }}
+          build-args: |
+            CACHE_BUST=${{ github.run_number }}
 
       - name: Install Cosign
         uses: sigstore/cosign-installer@v3.8.1
@@ -152,6 +154,7 @@ jobs:
             ghcr.io/${{ github.repository }}-enterprise:${{ github.ref_name }}
           build-args: |
             ENTERPRISE_IMAGE=ghcr.io/obot-platform/enterprise-tools:latest
+            CACHE_BUST=${{ github.run_number }}
 
       - name: Install Cosign
         uses: sigstore/cosign-installer@v3.8.1

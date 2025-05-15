@@ -44,8 +44,10 @@ COPY --chmod=0755 /tools/package-chrome.sh /
 COPY --chmod=0755 /tools/package-mcp-catalog.sh /
 
 RUN /package-chrome.sh && rm /package-chrome.sh
-RUN /package-mcp-catalog.sh && rm /package-mcp-catalog.sh && mv catalog.json /catalog.json
+ARG CACHE_BUST=1
+RUN /package-mcp-catalog.sh && rm /package-mcp-catalog.sh && mv catalog.json /catalog.json && echo "CACHE_BUST: ${CACHE_BUST}"
 ENV OBOT_SERVER_MCPCATALOGS=/catalog.json
+
 COPY aws-encryption.yaml /
 COPY azure-encryption.yaml /
 COPY gcp-encryption.yaml /
