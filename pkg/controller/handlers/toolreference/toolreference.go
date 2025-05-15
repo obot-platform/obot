@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -306,7 +307,7 @@ func (h *Handler) readMCPCatalog(catalog string) ([]client.Object, error) {
 				case "npx", "uvx":
 				case "docker":
 					// Only allow docker commands if the image name starts with one of the allowed repos.
-					if len(c.Args) == 0 || !slices.ContainsFunc(h.allowedDockerImageRepos, func(s string) bool {
+					if len(c.Args) == 0 || len(h.allowedDockerImageRepos) > 0 && !slices.ContainsFunc(h.allowedDockerImageRepos, func(s string) bool {
 						return strings.HasPrefix(c.Args[0], s)
 					}) {
 						continue
@@ -354,6 +355,9 @@ func (h *Handler) readMCPCatalog(catalog string) ([]client.Object, error) {
 					},
 				}
 			} else if c.URL != "" {
+				if u, err := url.Parse(c.URL); err != nil || u.Hostname() == "localhost" || u.Hostname() == "127.0.0.1" {
+					continue
+				}
 				// Sanitize the headers
 				for i, header := range c.HTTPHeaders {
 					if header.Key == "" {
