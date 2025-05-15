@@ -2,8 +2,34 @@
 	import ProfileIcon from '$lib/components/profile/ProfileIcon.svelte';
 	import { profile, responsive, darkMode } from '$lib/stores';
 	import Menu from '$lib/components/navbar/Menu.svelte';
-	import { Book, LayoutDashboard, User, LogOut, Moon, Sun } from 'lucide-svelte/icons';
+	import {
+		Book,
+		LayoutDashboard,
+		User,
+		LogOut,
+		Moon,
+		Sun,
+		BadgeInfo,
+		X
+	} from 'lucide-svelte/icons';
 	import { twMerge } from 'tailwind-merge';
+	import { version } from '$lib/stores';
+	import { tooltip } from '$lib/actions/tooltip.svelte';
+
+	let versionDialog = $state<HTMLDialogElement>();
+
+	function getLink(key: string, value: string | boolean) {
+		if (typeof value !== 'string') return;
+
+		const repoMap: Record<string, string> = {
+			obot: 'https://github.com/obot-platform/obot'
+		};
+
+		const [, commit] = value.split('+');
+		if (!repoMap[key] || !commit) return;
+
+		return `${repoMap[key]}/commit/${commit}`;
+	}
 </script>
 
 <Menu
@@ -70,8 +96,57 @@
 				>
 			{/if}
 		</div>
+		{#if version.current.obot}
+			<div class="flex justify-end p-2 text-xs text-gray-500">
+				<div class="flex gap-2">
+					<a href={getLink('obot', version.current.obot)} target="_blank" rel="external">
+						{version.current.obot}
+					</a>
+					<button
+						use:tooltip={{ disablePortal: true, text: 'Versions' }}
+						onclick={() => {
+							versionDialog?.showModal();
+						}}
+					>
+						<BadgeInfo class="size-3" />
+					</button>
+				</div>
+			</div>
+		{/if}
 	{/snippet}
 </Menu>
+
+<dialog bind:this={versionDialog} class="z-50 max-w-lg min-w-sm p-4">
+	<div class="absolute top-2 right-2">
+		<button
+			onclick={() => {
+				versionDialog?.close();
+			}}
+			class="icon-button"
+		>
+			<X class="size-4" />
+		</button>
+	</div>
+	<h4 class="mb-4 text-base font-semibold">Version Information</h4>
+	<div class="flex flex-col gap-1 text-xs">
+		{#each Object.entries(version.current) as [key, value]}
+			{@const canDisplay = typeof value === 'string' && value && key !== 'sessionStore'}
+			{@const link = getLink(key, value)}
+			{#if canDisplay}
+				<div class="flex justify-between gap-8">
+					<span class="font-semibold">{key.replace('github.com/', '')}:</span>
+					{#if link}
+						<a href={link} target="_blank" rel="external">
+							{value}
+						</a>
+					{:else}
+						<span>{value}</span>
+					{/if}
+				</div>
+			{/if}
+		{/each}
+	</div>
+</dialog>
 
 <style lang="postcss">
 	.link {

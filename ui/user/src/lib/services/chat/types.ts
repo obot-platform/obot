@@ -139,6 +139,7 @@ export interface Version {
 	emailDomain?: string;
 	dockerSupported?: boolean;
 	sessionStore?: string;
+	obot?: string;
 }
 
 export interface Profile {
