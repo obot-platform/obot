@@ -102,10 +102,6 @@
 		refMcps
 			.flatMap((mcp) => {
 				const results: TransformedMcp[] = [];
-
-				if (mcp.commandManifest && mcp.urlManifest) {
-					console.log(mcp);
-				}
 				results.push(transformMcp(mcp));
 				return results;
 			})

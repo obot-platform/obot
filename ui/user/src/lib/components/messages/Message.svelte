@@ -325,7 +325,7 @@
 		{/if}
 		{#if msg.oauthURL}
 			{@render oauth()}
-		{:else if msg.toolCall}
+		{:else if msg.toolCall || msg.tool}
 			{@render toolContent()}
 		{:else if content}
 			{#if ['Abort Current Task', 'Loop Data', 'Search'].every((d) => d !== msg.sourceName)}
@@ -402,7 +402,7 @@
 		<p class="p-0 text-xs font-semibold">{title}</p>
 		<pre
 			transition:slide={{ duration: 300 }}
-			class="default-scrollbar-thin bg-surface1 max-h-[300px] w-fit max-w-full overflow-auto rounded-lg px-4 py-2 text-xs break-all whitespace-pre-wrap text-black dark:text-white">{@html formatJson(
+			class="default-scrollbar-thin bg-surface1 mt-0! max-h-[300px] w-fit max-w-full overflow-auto rounded-lg px-4 py-2 text-xs break-all whitespace-pre-wrap text-black dark:text-white">{@html formatJson(
 				stringifiedJson ?? ''
 			)}</pre>
 	</div>
@@ -438,8 +438,14 @@
 		</div>
 	{/if}
 	{#if msg.toolCall?.output}
-		{@const parsedOutput = JSON.parse(msg.toolCall.output)}
-		{#if parsedOutput.content}
+		{@const parsedOutput = (() => {
+			try {
+				return JSON.parse(msg.toolCall.output);
+			} catch {
+				return null;
+			}
+		})()}
+		{#if parsedOutput?.content}
 			{#each parsedOutput.content as content}
 				{#if content.type === 'image' && content.mimeType && content.data}
 					<img
@@ -825,6 +831,10 @@
 				@media (min-width: 768px) {
 					font-size: var(--text-md);
 				}
+			}
+
+			& hr {
+				margin: 1rem 0;
 			}
 		}
 
