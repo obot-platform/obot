@@ -52,9 +52,7 @@
 				items: Object.values(toolSelection)
 			});
 		}
-		if (!credToAuth?.exists) {
-			authDialog?.show();
-		}
+		
 		if (!project.capabilities) {
 			project.capabilities = {};
 		}
@@ -67,6 +65,10 @@
 				project.capabilities.onDiscordMessage = false;
 				throw error;
 			}
+		}
+
+		if (!credToAuth?.exists) {
+			authDialog?.show();
 		}
 
 		let maxAttempts = 30;

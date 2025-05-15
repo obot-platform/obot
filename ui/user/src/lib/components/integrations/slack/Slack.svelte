@@ -119,6 +119,7 @@
 	}
 
 	async function configureSlackTool() {
+		addSlackBotTool?.close();
 		if (toolSelection['slack-bot-bundle'] && !toolSelection['slack-bot-bundle'].enabled) {
 			toolSelection['slack-bot-bundle'].enabled = true;
 			projectTools.tools = Object.values(toolSelection);
@@ -154,7 +155,6 @@
 
 			await new Promise((resolve) => setTimeout(resolve, 1000));
 		}
-		addSlackBotTool?.close();
 	}
 </script>
 
@@ -236,7 +236,7 @@
 >
 	<div class="p-6">
 		<div class="flex flex-col gap-2">
-			<button class="absolute top-0 right-0 p-3" onclick={() => dialog?.close()}>
+			<button class="absolute right-0 top-0 p-3" onclick={() => dialog?.close()}>
 				<X class="icon-default" />
 			</button>
 			<h3 class="mb-4 text-lg font-semibold">Configure Slack OAuth App</h3>
