@@ -18,6 +18,7 @@ const (
 	ExistingCredTool        = "existing-credential"
 	KnowledgeCredID         = "knowledge"
 	TaskInvoke              = "task-invoke"
+	MCPJWTSigningCredID     = "mcp-jwt-signing"
 
 	DefaultNamespace = "default"
 

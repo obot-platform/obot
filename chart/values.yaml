@@ -126,6 +126,8 @@ config:
   OBOT_SERVER_MCPBASE_IMAGE: ""
   # config.OBOT_SERVER_MCPCLUSTER_DOMAIN -- The cluster domain to use for MCP services. Defaults to cluster.local. Only matters if the above image is set.
   OBOT_SERVER_MCPCLUSTER_DOMAIN: ""
+  # config.OBOT_SERVER_MCPOBOT_SERVICE_FQDN -- The FQDN MCP servers should use to call back to Obot. Defaults to localhost:8080
+  OBOT_SERVER_MCPOBOT_SERVICE_FQDN: ""
   # config.OBOT_SERVER_DISALLOW_LOCALHOST_MCP -- disallow MCP servers that try to connect to localhost. Defaults to false.
   OBOT_SERVER_DISALLOW_LOCALHOST_MCP: ""
 
