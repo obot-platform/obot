@@ -8,7 +8,6 @@ import { Agent } from "~/lib/model/agents";
 import { ConsumptionUrl } from "~/lib/routers/baseRouter";
 import { AssistantApiService } from "~/lib/service/api/assistantApiService";
 
-import { AgentAccessControl } from "~/components/agent/AgentAccessControl";
 import { DeleteAgent } from "~/components/agent/DeleteAgent";
 import { Publish } from "~/components/agent/Publish";
 import { CopyText } from "~/components/composed/CopyText";
@@ -82,7 +81,6 @@ export function AgentAlias({ agent, onChange }: AgentAliasProps) {
 						id={agent.id}
 						onPublish={(alias) => onChange({ alias })}
 					/>
-					<AgentAccessControl agent={agent} />
 					<DeleteAgent id={agent.id} onSuccess={() => navigate("/agents")} />
 				</div>
 			</div>

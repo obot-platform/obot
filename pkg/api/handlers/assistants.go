@@ -9,7 +9,6 @@ import (
 	"strings"
 
 	"github.com/gptscript-ai/go-gptscript"
-	"github.com/obot-platform/nah/pkg/router"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/logger"
 	"github.com/obot-platform/obot/pkg/alias"
@@ -128,38 +127,15 @@ func (a *AssistantHandler) Get(req api.Context) error {
 }
 
 func (a *AssistantHandler) List(req api.Context) error {
-	var (
-		keys   = make([]string, 0, 3)
-		result types.AssistantList
-		user   = req.User
-	)
-
-	keys = append(keys, "*", user.GetUID())
-	if attr := user.GetExtra()["email"]; len(attr) > 0 {
-		keys = append(keys, attr...)
+	var allAgents v1.AgentList
+	if err := a.cachedClient.List(req.Context(), &allAgents, kclient.InNamespace(req.Namespace())); err != nil {
+		return err
 	}
 
-	seen := map[string]struct{}{}
-	for _, key := range keys {
-		var access v1.AgentAuthorizationList
-		err := a.cachedClient.List(req.Context(), &access, kclient.InNamespace(req.Namespace()), kclient.MatchingFields{
-			"spec.userID": key,
-		})
-		if err != nil {
-			return err
-		}
-		for _, auth := range access.Items {
-			if _, ok := seen[auth.Spec.AgentID]; ok {
-				continue
-			}
-			var agent v1.Agent
-			if err := a.cachedClient.Get(req.Context(), router.Key(req.Namespace(), auth.Spec.AgentID), &agent); apierrors.IsNotFound(err) {
-				continue
-			} else if err != nil {
-				return err
-			}
+	var result types.AssistantList
+	for _, agent := range allAgents.Items {
+		if agent.Spec.Manifest.Default || req.UserIsAdmin() {
 			result.Items = append(result.Items, convertAssistant(agent))
-			seen[auth.Spec.AgentID] = struct{}{}
 		}
 	}
 
