@@ -67,6 +67,7 @@ type (
 	AuditConfig       audit.Options
 	RateLimiterConfig ratelimiter.Options
 	EncryptionConfig  encryption.Options
+	MCPConfig         mcp.Options
 )
 
 type Config struct {
@@ -93,10 +94,6 @@ type Config struct {
 	StaticDir                  string   `usage:"The directory to serve static files from"`
 	RetentionPolicyHours       int      `usage:"The retention policy for the system. Set to 0 to disable retention." default:"2160"` // default 90 days
 	MCPCatalogs                []string `usage:"Load MCP catalogs, these can be files or URLs" split:"true"`
-	MCPBaseImage               string   `usage:"The base image to use for MCP containers"`
-	MCPNamespace               string   `usage:"The namespace to use for MCP containers" default:"obot-mcp"`
-	MCPClusterDomain           string   `usage:"The cluster domain to use for MCP containers" default:"cluster.local"`
-	AllowedMCPDockerImageRepos []string `usage:"The docker image repos to allow for MCP containers" split:"true"`
 	// Sendgrid webhook
 	SendgridWebhookUsername string `usage:"The username for the sendgrid webhook to authenticate with"`
 	SendgridWebhookPassword string `usage:"The password for the sendgrid webhook to authenticate with"`
@@ -107,6 +104,7 @@ type Config struct {
 	OtelOptions
 	AuditConfig
 	RateLimiterConfig
+	MCPConfig
 	services.Config
 }
 
@@ -325,7 +323,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 	}
 
 	mcpRunner := gmcp.DefaultRunner
-	mcpLoader, err := mcp.NewSessionManager(ctx, mcpRunner, config.MCPBaseImage, config.MCPNamespace, config.MCPClusterDomain, config.AllowedMCPDockerImageRepos)
+	mcpLoader, err := mcp.NewSessionManager(ctx, mcpRunner, mcp.Options(config.MCPConfig))
 	if err != nil {
 		return nil, err
 	}

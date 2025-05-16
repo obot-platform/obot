@@ -4,7 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"slices"
@@ -31,16 +33,25 @@ import (
 
 var log = logger.Package()
 
+type Options struct {
+	MCPBaseImage               string   `usage:"The base image to use for MCP containers"`
+	MCPNamespace               string   `usage:"The namespace to use for MCP containers" default:"obot-mcp"`
+	MCPClusterDomain           string   `usage:"The cluster domain to use for MCP containers" default:"cluster.local"`
+	AllowedMCPDockerImageRepos []string `usage:"The docker image repos to allow for MCP containers" split:"true"`
+	DisallowLocalhostMCP       bool     `usage:"Allow MCP containers to run on localhost"`
+}
+
 type SessionManager struct {
 	client                                    kclient.WithWatch
 	local                                     *gmcp.Local
 	baseImage, mcpNamespace, mcpClusterDomain string
 	allowedDockerImageRepos                   []string
+	allowLocalhostMCP                         bool
 }
 
-func NewSessionManager(ctx context.Context, defaultLoader *gmcp.Local, baseImage, mcpNamespace, mcpClusterDomain string, allowedDockerImageRepos []string) (*SessionManager, error) {
+func NewSessionManager(ctx context.Context, defaultLoader *gmcp.Local, opts Options) (*SessionManager, error) {
 	var client kclient.WithWatch
-	if baseImage != "" {
+	if opts.MCPBaseImage != "" {
 		config, err := buildConfig()
 		if err != nil {
 			return nil, err
@@ -53,7 +64,7 @@ func NewSessionManager(ctx context.Context, defaultLoader *gmcp.Local, baseImage
 
 		if err = kclient.IgnoreAlreadyExists(client.Create(ctx, &corev1.Namespace{
 			ObjectMeta: metav1.ObjectMeta{
-				Name: mcpNamespace,
+				Name: opts.MCPNamespace,
 			},
 		})); err != nil {
 			log.Warnf("failed to create MCP namespace, namespace must exist for MCP deployments to work: %v", err)
@@ -63,10 +74,11 @@ func NewSessionManager(ctx context.Context, defaultLoader *gmcp.Local, baseImage
 	return &SessionManager{
 		client:                  client,
 		local:                   defaultLoader,
-		baseImage:               baseImage,
-		mcpClusterDomain:        mcpClusterDomain,
-		mcpNamespace:            mcpNamespace,
-		allowedDockerImageRepos: allowedDockerImageRepos,
+		baseImage:               opts.MCPBaseImage,
+		mcpClusterDomain:        opts.MCPClusterDomain,
+		mcpNamespace:            opts.MCPNamespace,
+		allowedDockerImageRepos: opts.AllowedMCPDockerImageRepos,
+		allowLocalhostMCP:       !opts.DisallowLocalhostMCP,
 	}, nil
 }
 
@@ -110,10 +122,6 @@ func (sm *SessionManager) ShutdownServer(ctx context.Context, server ServerConfi
 }
 
 func (sm *SessionManager) Load(ctx context.Context, tool types.Tool) (result []types.Tool, _ error) {
-	if sm.client == nil {
-		return sm.local.Load(ctx, tool)
-	}
-
 	_, configData, _ := strings.Cut(tool.Instructions, "\n")
 
 	var servers Config
@@ -140,8 +148,27 @@ func (sm *SessionManager) Load(ctx context.Context, tool types.Tool) (result []t
 	}
 
 	for key, server := range servers.MCPServers {
-		if server.Command == "" {
-			// This is a URL-based MCP server, so we don't have to do any deployments.
+		if server.Command == "" || sm.client == nil {
+			if !sm.allowLocalhostMCP && server.URL != "" {
+				// Ensure the URL is not a localhost URL.
+				u, err := url.Parse(server.URL)
+				if err != nil {
+					return nil, fmt.Errorf("failed to parse MCP server URL: %w", err)
+				}
+
+				// LookupHost will properly detect IP addresses.
+				addrs, err := net.LookupHost(u.Hostname())
+				if err != nil {
+					return nil, fmt.Errorf("failed to resolve MCP server URL hostname: %w", err)
+				}
+
+				for _, addr := range addrs {
+					if ip := net.ParseIP(addr); ip != nil && ip.IsLoopback() {
+						return nil, fmt.Errorf("MCP server URL must not be a localhost URL: %s", server.URL)
+					}
+				}
+			}
+			// Either we aren't deploying to Kubernetes, or this is a URL-based MCP server (so there is nothing to deploy to Kubernetes).
 			return sm.local.LoadTools(ctx, server.ServerConfig, tool.Name)
 		}
 
