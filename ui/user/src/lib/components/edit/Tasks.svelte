@@ -55,6 +55,14 @@
 		layout.tasks = (await ChatService.listTasks(project.assistantID, project.id)).items;
 	}
 
+	function isTaskFromIntegration(task: Task) {
+		return (
+			task.id === project.workflowNamesFromIntegration?.slackWorkflowName ||
+			task.id === project.workflowNamesFromIntegration?.discordWorkflowName ||
+			task.id === project.workflowNamesFromIntegration?.emailWorkflowName ||
+			task.id === project.workflowNamesFromIntegration?.webhookWorkflowName
+		);
+	}
 	async function runTask(task?: Task) {
 		if (!task) return;
 
@@ -111,20 +119,20 @@
 						}}
 					>
 						{#snippet taskActions()}
-							<DotDotDot
-								class="p-2 pr-2.5 transition-opacity duration-200 group-hover:opacity-100 md:opacity-0"
-							>
-								<div class="default-dialog flex min-w-max flex-col p-2">
-									<button class="menu-button" onclick={() => runTask(task)}>
-										<Play class="size-4" /> Run Task
-									</button>
-									{#if task.id !== project.workflowNameFromIntegration}
+							{#if !isTaskFromIntegration(task)}
+								<DotDotDot
+									class="p-2 pr-2.5 transition-opacity duration-200 group-hover:opacity-100 md:opacity-0"
+								>
+									<div class="default-dialog flex min-w-max flex-col p-2">
+										<button class="menu-button" onclick={() => runTask(task)}>
+											<Play class="size-4" /> Run Task
+										</button>
 										<button class="menu-button" onclick={() => (taskToDelete = task)}>
 											<Trash2 class="size-4" /> Delete
 										</button>
-									{/if}
-								</div>
-							</DotDotDot>
+									</div>
+								</DotDotDot>
+							{/if}
 						{/snippet}
 					</TaskItem>
 				{/each}

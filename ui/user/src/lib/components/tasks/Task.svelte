@@ -206,6 +206,14 @@
 		};
 	}
 
+	function isTaskFromIntegration(task: Task) {
+		return (
+			task.id === project.workflowNamesFromIntegration?.slackWorkflowName ||
+			task.id === project.workflowNamesFromIntegration?.discordWorkflowName ||
+			task.id === project.workflowNamesFromIntegration?.emailWorkflowName ||
+			task.id === project.workflowNamesFromIntegration?.webhookWorkflowName
+		);
+	}
 	async function click() {
 		error = '';
 
@@ -284,7 +292,7 @@
 				{/if}
 			</button>
 		{/if}
-		{#if !readOnly}
+		{#if !readOnly && !isTaskFromIntegration(task)}
 			<button
 				class="bg-blue flex items-center justify-center gap-2 rounded-2xl px-12 py-2 text-white transition-all duration-200 hover:bg-blue-400"
 				onclick={click}
@@ -362,7 +370,7 @@
 							bind:this={taskHeaderActionDiv}
 							class="flex h-full flex-col items-end justify-center gap-4 md:justify-between"
 						>
-							{#if !readOnly}
+							{#if !readOnly && !isTaskFromIntegration(task)}
 								<button class="button-destructive p-4" onclick={() => (toDelete = true)}>
 									<Trash2 class="size-4" />
 								</button>
@@ -373,7 +381,7 @@
 				</div>
 				{#if responsive.isMobile}
 					<div bind:this={taskHeaderActionDiv} class="flex w-full justify-between px-4">
-						{#if !readOnly}
+						{#if !readOnly && !isTaskFromIntegration(task)}
 							<button class="button-destructive p-4" onclick={() => (toDelete = true)}>
 								<Trash2 class="size-4" />
 							</button>

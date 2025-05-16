@@ -1,8 +1,6 @@
 package task
 
 import (
-	"errors"
-
 	"github.com/obot-platform/nah/pkg/name"
 	"github.com/obot-platform/nah/pkg/randomtoken"
 	"github.com/obot-platform/nah/pkg/router"
@@ -12,8 +10,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
-
-var ErrorValidating = errors.New("found existing external interface, only one external interface can be set")
 
 type Handler struct {
 }
@@ -27,10 +23,6 @@ func (t *Handler) HandleTaskCreationForCapabilities(req router.Request, _ router
 
 	if !thread.Spec.Project {
 		return nil
-	}
-
-	if err := Validate(thread, false); err != nil {
-		return err
 	}
 
 	if err := t.UpdateTaskForSlack(thread, req); err != nil {
@@ -49,34 +41,6 @@ func (t *Handler) HandleTaskCreationForCapabilities(req router.Request, _ router
 		return err
 	}
 
-	return nil
-}
-
-func Validate(thread *v1.Thread, forSlack bool) error {
-	if forSlack {
-		if thread.Spec.Capabilities.OnDiscordMessage || thread.Spec.Capabilities.OnEmail != nil || thread.Spec.Capabilities.OnWebhook != nil {
-			return ErrorValidating
-		}
-	}
-	var count int
-	if thread.Spec.Capabilities.OnSlackMessage {
-		count++
-	}
-	if thread.Spec.Capabilities.OnDiscordMessage {
-		count++
-	}
-	if thread.Spec.Capabilities.OnEmail != nil {
-		if forSlack {
-			count++
-		}
-		count++
-	}
-	if thread.Spec.Capabilities.OnWebhook != nil {
-		count++
-	}
-	if count > 1 {
-		return ErrorValidating
-	}
 	return nil
 }
 
@@ -116,7 +80,7 @@ func (t *Handler) UpdateTaskForSlack(thread *v1.Thread, req router.Request) erro
 			if err := req.Client.Create(req.Ctx, &workflow); err != nil {
 				return err
 			}
-			thread.Status.WorkflowNameFromIntegration = workflow.Name
+			thread.Status.WorkflowNamesFromIntegration.SlackWorkflowName = workflow.Name
 		}
 	} else {
 		if err := req.Get(&workflow, workflow.Namespace, workflow.Name); kclient.IgnoreNotFound(err) != nil {
@@ -125,7 +89,7 @@ func (t *Handler) UpdateTaskForSlack(thread *v1.Thread, req router.Request) erro
 			if err := req.Client.Delete(req.Ctx, &workflow); kclient.IgnoreNotFound(err) != nil {
 				return err
 			}
-			thread.Status.WorkflowNameFromIntegration = ""
+			thread.Status.WorkflowNamesFromIntegration.SlackWorkflowName = ""
 		}
 	}
 
@@ -170,7 +134,7 @@ func (t *Handler) UpdateTaskForDiscord(thread *v1.Thread, req router.Request) er
 			if err := req.Client.Create(req.Ctx, &workflow); err != nil {
 				return err
 			}
-			thread.Status.WorkflowNameFromIntegration = workflow.Name
+			thread.Status.WorkflowNamesFromIntegration.DiscordWorkflowName = workflow.Name
 		}
 	} else {
 		if err := req.Get(&workflow, workflow.Namespace, workflow.Name); kclient.IgnoreNotFound(err) != nil {
@@ -179,7 +143,7 @@ func (t *Handler) UpdateTaskForDiscord(thread *v1.Thread, req router.Request) er
 			if err := req.Client.Delete(req.Ctx, &workflow); kclient.IgnoreNotFound(err) != nil {
 				return err
 			}
-			thread.Status.WorkflowNameFromIntegration = ""
+			thread.Status.WorkflowNamesFromIntegration.DiscordWorkflowName = ""
 		}
 	}
 
@@ -249,7 +213,7 @@ func (t *Handler) UpdateTaskForEmail(thread *v1.Thread, req router.Request) erro
 			if err := req.Client.Create(req.Ctx, &workflow); err != nil {
 				return err
 			}
-			thread.Status.WorkflowNameFromIntegration = workflow.Name
+			thread.Status.WorkflowNamesFromIntegration.EmailWorkflowName = workflow.Name
 		}
 	} else {
 		if err := req.Get(&emailReceiver, emailReceiver.Namespace, emailReceiver.Name); kclient.IgnoreNotFound(err) != nil {
@@ -266,7 +230,7 @@ func (t *Handler) UpdateTaskForEmail(thread *v1.Thread, req router.Request) erro
 			if err := req.Client.Delete(req.Ctx, &workflow); kclient.IgnoreNotFound(err) != nil {
 				return err
 			}
-			thread.Status.WorkflowNameFromIntegration = ""
+			thread.Status.WorkflowNamesFromIntegration.EmailWorkflowName = ""
 		}
 	}
 
@@ -330,7 +294,7 @@ func (t *Handler) UpdateTaskForWebhook(thread *v1.Thread, req router.Request) er
 				return err
 			}
 
-			thread.Status.WorkflowNameFromIntegration = workflow.Name
+			thread.Status.WorkflowNamesFromIntegration.WebhookWorkflowName = workflow.Name
 		}
 
 		if err := req.Get(&webhook, webhook.Namespace, webhook.Name); kclient.IgnoreNotFound(err) != nil {
@@ -355,7 +319,7 @@ func (t *Handler) UpdateTaskForWebhook(thread *v1.Thread, req router.Request) er
 			if err := req.Client.Delete(req.Ctx, &workflow); kclient.IgnoreNotFound(err) != nil {
 				return err
 			}
-			thread.Status.WorkflowNameFromIntegration = ""
+			thread.Status.WorkflowNamesFromIntegration.WebhookWorkflowName = ""
 		}
 	}
 

@@ -432,7 +432,14 @@ export interface Project {
 	defaultModel?: string;
 	models?: Record<string, string[]>;
 	userID: string;
-	workflowNameFromIntegration?: string;
+	workflowNamesFromIntegration?: WorkflowNamesFromIntegration;
+}
+
+export interface WorkflowNamesFromIntegration {
+	slackWorkflowName?: string;
+	discordWorkflowName?: string;
+	emailWorkflowName?: string;
+	webhookWorkflowName?: string;
 }
 
 export interface WebhookManifest {

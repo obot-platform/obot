@@ -180,8 +180,8 @@ type ThreadStatus struct {
 	CopiedTasks         bool   `json:"copiedTasks,omitempty"`
 	CopiedTools         bool   `json:"copiedTools,omitempty"`
 	Created             bool   `json:"created,omitempty"`
-	// WorkflowNameFromIntegration is the workflow name created from external integration, like slack, discord..
-	WorkflowNameFromIntegration string `json:"workflowNameFromIntegration,omitempty"`
+	// WorkflowNamesFromIntegration is the workflow names created from external integration, like slack, discord..
+	WorkflowNamesFromIntegration types.WorkflowNamesFromIntegration `json:"workflowNamesFromIntegration,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
