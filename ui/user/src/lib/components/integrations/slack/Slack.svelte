@@ -316,8 +316,12 @@
 			<h4 class="font-semibold">Step 1: Create a Slack App</h4>
 			<ul class="my-2 list-disc space-y-3 pl-4 text-sm font-light text-gray-500">
 				<li>
-					From the <a href="https://api.slack.com/apps" class="text-link">Slack App page</a>, click
-					the Create New App button and select "From Scratch" in Create an app modal.
+					From the <a
+						href="https://api.slack.com/apps"
+						target="_blank"
+						rel="external"
+						class="text-link">Slack App page</a
+					>, click the Create New App button and select "From Scratch" in Create an app modal.
 				</li>
 				<li>Name the app and select the workspace you want your app to be available in.</li>
 			</ul>
