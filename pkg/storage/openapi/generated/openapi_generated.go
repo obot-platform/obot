@@ -19,8 +19,6 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/apiclient/types.APIActivity":                                  schema_obot_platform_obot_apiclient_types_APIActivity(ref),
 		"github.com/obot-platform/obot/apiclient/types.APIActivityList":                              schema_obot_platform_obot_apiclient_types_APIActivityList(ref),
 		"github.com/obot-platform/obot/apiclient/types.Agent":                                        schema_obot_platform_obot_apiclient_types_Agent(ref),
-		"github.com/obot-platform/obot/apiclient/types.AgentAuthorization":                           schema_obot_platform_obot_apiclient_types_AgentAuthorization(ref),
-		"github.com/obot-platform/obot/apiclient/types.AgentAuthorizationManifest":                   schema_obot_platform_obot_apiclient_types_AgentAuthorizationManifest(ref),
 		"github.com/obot-platform/obot/apiclient/types.AgentIcons":                                   schema_obot_platform_obot_apiclient_types_AgentIcons(ref),
 		"github.com/obot-platform/obot/apiclient/types.AgentList":                                    schema_obot_platform_obot_apiclient_types_AgentList(ref),
 		"github.com/obot-platform/obot/apiclient/types.AgentManifest":                                schema_obot_platform_obot_apiclient_types_AgentManifest(ref),
@@ -32,7 +30,6 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/apiclient/types.AuthProviderList":                             schema_obot_platform_obot_apiclient_types_AuthProviderList(ref),
 		"github.com/obot-platform/obot/apiclient/types.AuthProviderManifest":                         schema_obot_platform_obot_apiclient_types_AuthProviderManifest(ref),
 		"github.com/obot-platform/obot/apiclient/types.AuthProviderStatus":                           schema_obot_platform_obot_apiclient_types_AuthProviderStatus(ref),
-		"github.com/obot-platform/obot/apiclient/types.AuthorizationList":                            schema_obot_platform_obot_apiclient_types_AuthorizationList(ref),
 		"github.com/obot-platform/obot/apiclient/types.CommonProviderMetadata":                       schema_obot_platform_obot_apiclient_types_CommonProviderMetadata(ref),
 		"github.com/obot-platform/obot/apiclient/types.CommonProviderStatus":                         schema_obot_platform_obot_apiclient_types_CommonProviderStatus(ref),
 		"github.com/obot-platform/obot/apiclient/types.Credential":                                   schema_obot_platform_obot_apiclient_types_Credential(ref),
@@ -165,10 +162,6 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/apiclient/types.WorkflowList":                                 schema_obot_platform_obot_apiclient_types_WorkflowList(ref),
 		"github.com/obot-platform/obot/apiclient/types.WorkflowManifest":                             schema_obot_platform_obot_apiclient_types_WorkflowManifest(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.Agent":                       schema_storage_apis_obotobotai_v1_Agent(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.AgentAuthorization":          schema_storage_apis_obotobotai_v1_AgentAuthorization(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.AgentAuthorizationList":      schema_storage_apis_obotobotai_v1_AgentAuthorizationList(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.AgentAuthorizationSpec":      schema_storage_apis_obotobotai_v1_AgentAuthorizationSpec(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.AgentAuthorizationStatus":    schema_storage_apis_obotobotai_v1_AgentAuthorizationStatus(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.AgentList":                   schema_storage_apis_obotobotai_v1_AgentList(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.AgentSpec":                   schema_storage_apis_obotobotai_v1_AgentSpec(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.AgentStatus":                 schema_storage_apis_obotobotai_v1_AgentStatus(ref),
@@ -481,56 +474,6 @@ func schema_obot_platform_obot_apiclient_types_Agent(ref common.ReferenceCallbac
 		},
 		Dependencies: []string{
 			"github.com/obot-platform/obot/apiclient/types.AgentManifest", "github.com/obot-platform/obot/apiclient/types.Metadata", "github.com/obot-platform/obot/apiclient/types.OAuthAppLoginAuthStatus", "github.com/obot-platform/obot/apiclient/types.ToolInfo"},
-	}
-}
-
-func schema_obot_platform_obot_apiclient_types_AgentAuthorization(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Type: []string{"object"},
-				Properties: map[string]spec.Schema{
-					"AgentAuthorizationManifest": {
-						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref("github.com/obot-platform/obot/apiclient/types.AgentAuthorizationManifest"),
-						},
-					},
-					"user": {
-						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/obot-platform/obot/apiclient/types.User"),
-						},
-					},
-				},
-				Required: []string{"AgentAuthorizationManifest"},
-			},
-		},
-		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.AgentAuthorizationManifest", "github.com/obot-platform/obot/apiclient/types.User"},
-	}
-}
-
-func schema_obot_platform_obot_apiclient_types_AgentAuthorizationManifest(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Type: []string{"object"},
-				Properties: map[string]spec.Schema{
-					"userID": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-					"agentId": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-				},
-			},
-		},
 	}
 }
 
@@ -1144,34 +1087,6 @@ func schema_obot_platform_obot_apiclient_types_AuthProviderStatus(ref common.Ref
 		},
 		Dependencies: []string{
 			"github.com/obot-platform/obot/apiclient/types.CommonProviderStatus"},
-	}
-}
-
-func schema_obot_platform_obot_apiclient_types_AuthorizationList(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Type: []string{"object"},
-				Properties: map[string]spec.Schema{
-					"items": {
-						SchemaProps: spec.SchemaProps{
-							Type: []string{"array"},
-							Items: &spec.SchemaOrArray{
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref("github.com/obot-platform/obot/apiclient/types.AgentAuthorization"),
-									},
-								},
-							},
-						},
-					},
-				},
-				Required: []string{"items"},
-			},
-		},
-		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.AgentAuthorization"},
 	}
 }
 
@@ -6845,131 +6760,6 @@ func schema_storage_apis_obotobotai_v1_Agent(ref common.ReferenceCallback) commo
 		},
 		Dependencies: []string{
 			"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.AgentSpec", "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.AgentStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
-	}
-}
-
-func schema_storage_apis_obotobotai_v1_AgentAuthorization(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Type: []string{"object"},
-				Properties: map[string]spec.Schema{
-					"kind": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"apiVersion": {
-						SchemaProps: spec.SchemaProps{
-							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"metadata": {
-						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"),
-						},
-					},
-					"spec": {
-						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref("github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.AgentAuthorizationSpec"),
-						},
-					},
-					"status": {
-						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref("github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.AgentAuthorizationStatus"),
-						},
-					},
-				},
-			},
-		},
-		Dependencies: []string{
-			"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.AgentAuthorizationSpec", "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.AgentAuthorizationStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
-	}
-}
-
-func schema_storage_apis_obotobotai_v1_AgentAuthorizationList(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Type: []string{"object"},
-				Properties: map[string]spec.Schema{
-					"kind": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"apiVersion": {
-						SchemaProps: spec.SchemaProps{
-							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"metadata": {
-						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"),
-						},
-					},
-					"items": {
-						SchemaProps: spec.SchemaProps{
-							Type: []string{"array"},
-							Items: &spec.SchemaOrArray{
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref("github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.AgentAuthorization"),
-									},
-								},
-							},
-						},
-					},
-				},
-				Required: []string{"items"},
-			},
-		},
-		Dependencies: []string{
-			"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.AgentAuthorization", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
-	}
-}
-
-func schema_storage_apis_obotobotai_v1_AgentAuthorizationSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Type: []string{"object"},
-				Properties: map[string]spec.Schema{
-					"AgentAuthorizationManifest": {
-						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref("github.com/obot-platform/obot/apiclient/types.AgentAuthorizationManifest"),
-						},
-					},
-				},
-				Required: []string{"AgentAuthorizationManifest"},
-			},
-		},
-		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.AgentAuthorizationManifest"},
-	}
-}
-
-func schema_storage_apis_obotobotai_v1_AgentAuthorizationStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Type: []string{"object"},
-			},
-		},
 	}
 }
 

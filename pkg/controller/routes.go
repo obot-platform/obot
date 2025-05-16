@@ -197,9 +197,6 @@ func (c *Controller) setupRoutes() error {
 	root.Type(&v1.WorkflowStep{}).Middleware(workflowStep.Preconditions).HandlerFunc(workflowStep.RunInvoke)
 	root.Type(&v1.WorkflowStep{}).Middleware(workflowStep.Preconditions).HandlerFunc(workflowStep.RunLoop)
 
-	// AgentAuthorizations
-	root.Type(&v1.AgentAuthorization{}).HandlerFunc(cleanup.Cleanup)
-
 	// Tools
 	root.Type(&v1.Tool{}).HandlerFunc(cleanup.Cleanup)
 

@@ -15,7 +15,6 @@ import (
 	"github.com/adrg/xdg"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/alias"
-	"github.com/obot-platform/obot/pkg/api/handlers"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -117,20 +116,6 @@ func addDefaultAgent(ctx context.Context, k kclient.Client, agentDir string) err
 		}
 
 		if err := k.Create(ctx, &agent); err != nil {
-			return err
-		}
-		if err := k.Create(ctx, &v1.AgentAuthorization{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      handlers.AgentAuthorizationName(agent.Name, "*"),
-				Namespace: system.DefaultNamespace,
-			},
-			Spec: v1.AgentAuthorizationSpec{
-				AgentAuthorizationManifest: types.AgentAuthorizationManifest{
-					UserID:  "*",
-					AgentID: agent.Name,
-				},
-			},
-		}); kclient.IgnoreAlreadyExists(err) != nil {
 			return err
 		}
 		existing = agent
