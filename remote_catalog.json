@@ -1,0 +1,12 @@
+[
+    {
+        "id": 1,
+        "displayName": "Zapier",
+        "fullName": "Zapier MCP Server",
+        "url": "https://mcp.zapier.com",
+        "description": "Connect to Zapier MCP servers",
+        "metadata": "{\"categories\": \"SaaS & API Integrations\"}",
+        "icon": "https://cdn.jsdelivr.net/npm/simple-icons@v13/icons/zapier.svg",
+        "manifest": "[{\"url\": \"\", \"remote\": true}]"
+    }
+]
