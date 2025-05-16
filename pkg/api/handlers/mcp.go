@@ -241,30 +241,30 @@ func (m *MCPHandler) DeleteServer(req api.Context) error {
 	return req.Write(convertMCPServer(server, nil, nil))
 }
 
-func mergeMCPServerManifests(existing types.MCPServerManifest, new types.MCPServerManifest) types.MCPServerManifest {
-	if new.Name != "" {
-		existing.Name = new.Name
+func mergeMCPServerManifests(existing types.MCPServerManifest, override types.MCPServerManifest) types.MCPServerManifest {
+	if override.Name != "" {
+		existing.Name = override.Name
 	}
-	if new.Description != "" {
-		existing.Description = new.Description
+	if override.Description != "" {
+		existing.Description = override.Description
 	}
-	if new.Icon != "" {
-		existing.Icon = new.Icon
+	if override.Icon != "" {
+		existing.Icon = override.Icon
 	}
-	if len(new.Env) > 0 {
-		existing.Env = new.Env
+	if len(override.Env) > 0 {
+		existing.Env = override.Env
 	}
-	if new.Command != "" {
-		existing.Command = new.Command
+	if override.Command != "" {
+		existing.Command = override.Command
 	}
-	if len(new.Args) > 0 {
-		existing.Args = new.Args
+	if len(override.Args) > 0 {
+		existing.Args = override.Args
 	}
-	if new.URL != "" {
-		existing.URL = new.URL
+	if override.URL != "" {
+		existing.URL = override.URL
 	}
-	if len(new.Headers) > 0 {
-		existing.Headers = new.Headers
+	if len(override.Headers) > 0 {
+		existing.Headers = override.Headers
 	}
 
 	return existing
@@ -307,7 +307,7 @@ func (m *MCPHandler) CreateServer(req api.Context) error {
 		}
 		server.Spec.ToolReferenceName = catalogEntry.Spec.ToolReferenceName
 
-		// Overwrite the defaults from the catalog with the values from the request.
+		// Override the defaults from the catalog with the values from the request.
 		server.Spec.Manifest = mergeMCPServerManifests(server.Spec.Manifest, input.MCPServerManifest)
 	}
 
