@@ -56,6 +56,26 @@
 	const configureForEveryone = 'Configure it for everyone';
 	const letUserConfigure = 'Let the user configure';
 
+	const getBundleId = (server: ProjectMCP) =>
+		server.catalogID && toolBundleMap.get(server.catalogID) ? server.catalogID : null;
+
+	const setShared = (serverId: string) => {
+		sharedConfigs = { ...sharedConfigs, [serverId]: true };
+		selectedMcpConfig = { ...selectedMcpConfig, [serverId]: configureForEveryone };
+	};
+
+	const markUnshared = (serverId: string) => {
+		sharedConfigs = { ...sharedConfigs, [serverId]: false };
+		selectedMcpConfig = { ...selectedMcpConfig, [serverId]: letUserConfigure };
+	};
+
+	const resetConfigDialogState = () => {
+		showConfigDialog = false;
+		currentMcpServer = null;
+		mcpConfig = null;
+		showSubmitError = false;
+	};
+
 	async function updateShare() {
 		share = await ChatService.getProjectShare(project.assistantID, project.id);
 	}
@@ -65,21 +85,16 @@
 		try {
 			mcpServers = await listProjectMCPs(project.assistantID, project.id);
 
-			// Initialize default selections to "Let the user configure"
-			const initialSelections: Record<string, string> = {};
-			mcpServers.forEach((server) => {
-				initialSelections[server.id] = letUserConfigure;
-			});
-			selectedMcpConfig = initialSelections;
+			selectedMcpConfig = Object.fromEntries(
+				mcpServers.map((server) => [server.id, letUserConfigure])
+			);
 
-			const toolServers = mcpServers.filter((server) => server.catalogID);
-			for (const server of toolServers) {
-				await checkToolCredentials(server);
-			}
-
-			for (const server of mcpServers) {
-				await checkSharedConfig(server.id);
-			}
+			await Promise.all(
+				mcpServers.map(async (server) => {
+					if (server.catalogID) await checkToolCredentials(server);
+					await checkSharedConfig(server.id);
+				})
+			);
 		} catch (error) {
 			console.error('Failed to load MCP servers:', error);
 		} finally {
@@ -90,45 +105,22 @@
 	async function checkSharedConfig(mcpServerId: string) {
 		try {
 			const result = await revealSharedProjectMCP(project.assistantID, project.id, mcpServerId);
-
-			// If we get a non-empty result, there's a shared configuration
-			const hasSharedConfig = result && Object.keys(result).length > 0;
-			sharedConfigs = { ...sharedConfigs, [mcpServerId]: hasSharedConfig };
-
-			// If there's a shared config, set the dropdown selection to "Configure it for everyone"
-			if (hasSharedConfig) {
-				selectedMcpConfig = {
-					...selectedMcpConfig,
-					[mcpServerId]: configureForEveryone
-				};
-			}
-
+			if (result && Object.keys(result).length > 0) setShared(mcpServerId);
+			else sharedConfigs = { ...sharedConfigs, [mcpServerId]: false };
 			return result;
-		} catch (error) {
+		} catch {
 			sharedConfigs = { ...sharedConfigs, [mcpServerId]: false };
 			return null;
 		}
 	}
 
 	async function checkToolCredentials(server: ProjectMCP) {
-		if (!server.catalogID) return;
-
 		try {
 			const credentials = await ChatService.listProjectCredentials(project.assistantID, project.id);
-
-			// Find credential with exact match for tool ID
 			const toolCredential = credentials.items.find(
 				(cred) => cred.toolID === server.catalogID && cred.exists
 			);
-
-			if (toolCredential) {
-				// If credential exists for this tool, update the UI
-				sharedConfigs = { ...sharedConfigs, [server.id]: true };
-				selectedMcpConfig = {
-					...selectedMcpConfig,
-					[server.id]: configureForEveryone
-				};
-			}
+			if (toolCredential) setShared(server.id);
 		} catch (error) {
 			console.error('Failed to check tool credentials:', error);
 		}
@@ -140,43 +132,34 @@
 
 	function selectOption(serverId: string, option: string) {
 		dropdownOpen = { ...dropdownOpen, [serverId]: false };
+		const server = mcpServers.find((s) => s.id === serverId);
+		if (!server) return;
 
 		if (option === configureForEveryone) {
-			const server = mcpServers.find((s) => s.id === serverId);
-			if (server) {
-				openConfigDialog(server);
-			}
-		} else if (option === letUserConfigure) {
-			const server = mcpServers.find((s) => s.id === serverId);
-			if (server) {
-				if (
-					sharedConfigs[serverId] ||
-					(server.catalogID && selectedMcpConfig[serverId] === configureForEveryone)
-				) {
-					serverToDeconfigure = serverId;
-					showDeconfigureConfirm = true;
-				} else {
-					// If no shared config or credential, just update the selection
-					selectedMcpConfig = {
-						...selectedMcpConfig,
-						[serverId]: option
-					};
-				}
-			}
-		} else {
-			selectedMcpConfig = { ...selectedMcpConfig, [serverId]: option };
+			openConfigDialog(server);
+			return;
 		}
+
+		if (
+			option === letUserConfigure &&
+			(sharedConfigs[serverId] ||
+				(server.catalogID && selectedMcpConfig[serverId] === configureForEveryone))
+		) {
+			serverToDeconfigure = serverId;
+			showDeconfigureConfirm = true;
+			return;
+		}
+
+		selectedMcpConfig = { ...selectedMcpConfig, [serverId]: option };
 	}
 
 	async function deconfigureSharedServer() {
 		if (!serverToDeconfigure) return;
-
 		const server = mcpServers.find((s) => s.id === serverToDeconfigure);
 		if (!server) return;
 
 		try {
-			const bundleId =
-				server.catalogID && toolBundleMap.get(server.catalogID) ? server.catalogID : null;
+			const bundleId = getBundleId(server);
 			const isAuthTool = bundleId && isAuthRequiredBundle(bundleId);
 
 			if (isAuthTool && server.catalogID) {
@@ -189,12 +172,7 @@
 				await deconfigureSharedProjectMCP(project.assistantID, project.id, server.id);
 			}
 
-			// Update UI state
-			sharedConfigs = { ...sharedConfigs, [serverToDeconfigure]: false };
-			selectedMcpConfig = {
-				...selectedMcpConfig,
-				[serverToDeconfigure]: letUserConfigure
-			};
+			markUnshared(server.id);
 		} catch (error) {
 			console.error('Failed to deconfigure shared server or credential:', error);
 		} finally {
@@ -210,11 +188,8 @@
 
 	function openConfigDialog(server: ProjectMCP) {
 		currentMcpServer = server;
-
-		const bundleId =
-			server.catalogID && toolBundleMap.get(server.catalogID) ? server.catalogID : null;
+		const bundleId = getBundleId(server);
 		const isAuthTool = bundleId && isAuthRequiredBundle(bundleId);
-
 		if (isAuthTool) {
 			handleToolAuth(server, bundleId);
 		} else {
@@ -224,16 +199,12 @@
 	}
 
 	async function handleToolAuth(server: ProjectMCP, bundleId: string) {
-		// Get or create a credential for the tool
 		const credentials = await ChatService.listProjectCredentials(project.assistantID, project.id);
 		let credential = credentials.items.find((cred) => cred.toolID === bundleId);
-
 		if (credential?.exists) {
-			// If credential exists, delete it so we can re-authenticate
 			await ChatService.deleteProjectCredential(project.assistantID, project.id, bundleId);
 			credential.exists = false;
 		}
-
 		if (!credential) {
 			credential = {
 				toolID: bundleId,
@@ -242,7 +213,6 @@
 				exists: false
 			};
 		}
-
 		currentCredential = credential;
 		showAuthDialog = true;
 	}
@@ -254,7 +224,6 @@
 
 	async function handleConfigSubmit() {
 		if (!currentMcpServer || !mcpConfig) return;
-
 		if (!isValidMcpConfig(mcpConfig)) {
 			showSubmitError = true;
 			return;
@@ -262,21 +231,11 @@
 
 		showSubmitError = false;
 		processingConfig = true;
-
 		try {
 			const keyValues: Record<string, string> = {};
-
-			mcpConfig.env?.forEach((env) => {
-				if (env.key && env.value) {
-					keyValues[env.key] = env.value;
-				}
-			});
-
-			mcpConfig.headers?.forEach((header) => {
-				if (header.key && header.value) {
-					keyValues[header.key] = header.value;
-				}
-			});
+			for (const item of [...(mcpConfig.env || []), ...(mcpConfig.headers || [])]) {
+				if (item.key && item.value) keyValues[item.key] = item.value;
+			}
 
 			await configureSharedProjectMCP(
 				project.assistantID,
@@ -285,13 +244,8 @@
 				keyValues
 			);
 
-			sharedConfigs = { ...sharedConfigs, [currentMcpServer.id]: true };
-			selectedMcpConfig = {
-				...selectedMcpConfig,
-				[currentMcpServer.id]: configureForEveryone
-			};
-
-			closeConfigDialog();
+			setShared(currentMcpServer.id);
+			resetConfigDialogState();
 		} catch (error) {
 			console.error('Failed to configure shared configuration:', error);
 		} finally {
@@ -299,21 +253,7 @@
 		}
 	}
 
-	function closeConfigDialog() {
-		showConfigDialog = false;
-		currentMcpServer = null;
-		mcpConfig = null;
-		showSubmitError = false;
-	}
-
 	onMount(() => {
-		if (project) {
-			updateShare();
-			loadMcpServers();
-		}
-	});
-
-	$effect(() => {
 		if (project) {
 			updateShare();
 			loadMcpServers();
@@ -443,7 +383,7 @@
 </div>
 
 {#if showConfigDialog && currentMcpServer && mcpConfig}
-	<dialog open class="default-dialog w-full max-w-xl p-6" use:clickOutside={closeConfigDialog}>
+	<dialog open class="default-dialog w-full max-w-xl p-6" use:clickOutside={resetConfigDialogState}>
 		<div class="flex flex-col gap-4">
 			<div class="flex items-center justify-between">
 				<div class="flex items-center gap-2">
@@ -458,7 +398,7 @@
 						Configure {currentMcpServer.name || 'MCP Server'}
 					</h3>
 				</div>
-				<button class="icon-button" onclick={closeConfigDialog}>
+				<button class="icon-button" onclick={resetConfigDialogState}>
 					<X class="size-6" />
 				</button>
 			</div>
@@ -589,7 +529,7 @@
 			</div>
 
 			<div class="flex justify-end gap-2 pt-2">
-				<button class="button-secondary" onclick={closeConfigDialog}>Cancel</button>
+				<button class="button-secondary" onclick={resetConfigDialogState}>Cancel</button>
 				<button class="button-primary" onclick={handleConfigSubmit} disabled={processingConfig}>
 					{#if processingConfig}
 						<span class="animate-spin">⟳</span> Saving...

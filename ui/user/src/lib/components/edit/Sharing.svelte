@@ -4,7 +4,7 @@
 	import Confirm from '$lib/components/Confirm.svelte';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import CollapsePane from '$lib/components/edit/CollapsePane.svelte';
-	import { ChatService, type Project, type ProjectMember, type ProjectShare } from '$lib/services';
+	import { ChatService, type Project, type ProjectMember } from '$lib/services';
 	import { profile } from '$lib/stores';
 	import { HELPER_TEXTS } from '$lib/context/helperMode.svelte';
 	import {
