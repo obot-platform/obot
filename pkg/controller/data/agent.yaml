@@ -27,7 +27,7 @@ spec:
     - workspace-files
     - tasks
     defaultThreadTools:
-    - images-bundle
+    - memory
     - time
     - knowledge
     availableThreadTools:
