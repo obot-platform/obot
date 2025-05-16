@@ -241,7 +241,7 @@ func (m *MCPHandler) DeleteServer(req api.Context) error {
 	return req.Write(convertMCPServer(server, nil, nil))
 }
 
-func mergeMCPServerManifests(existing types.MCPServerManifest, override types.MCPServerManifest) types.MCPServerManifest {
+func mergeMCPServerManifests(existing, override types.MCPServerManifest) types.MCPServerManifest {
 	if override.Name != "" {
 		existing.Name = override.Name
 	}
