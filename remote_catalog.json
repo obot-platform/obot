@@ -8,5 +8,15 @@
         "metadata": "{\"categories\": \"SaaS & API Integrations\"}",
         "icon": "https://cdn.jsdelivr.net/npm/simple-icons@v13/icons/zapier.svg",
         "manifest": "[{\"url\": \"\", \"remote\": true}]"
+    },
+    {
+        "id": 2,
+        "displayName": "GitMCP",
+        "fullName": "GitMCP",
+        "url": "https://gitmcp.io",
+        "description": "Get instant context for any GitHub repository",
+        "metadata": "{\"categories\": \"Developer Tools,SaaS & API Integrations\"}",
+        "icon": "https://avatars.githubusercontent.com/u/182288589?v=4",
+        "manifest": "[{\"url\": \"https://gitmcp.io/<username>/<repository>\"}]"
     }
 ]
