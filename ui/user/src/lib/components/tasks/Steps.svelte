@@ -1,13 +1,15 @@
 <script lang="ts">
+	import { tick, untrack } from 'svelte';
+	import { fade } from 'svelte/transition';
+	import { flip } from 'svelte/animate';
+	import { linear } from 'svelte/easing';
+	import { twMerge } from 'tailwind-merge';
 	import { type Messages, type Project, type Task, type TaskStep } from '$lib/services';
 	import Step from '$lib/components/tasks/Step.svelte';
 	import Files from '$lib/components/tasks/Files.svelte';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import { Eye, EyeClosed, UsersRound, ArrowBigDown } from 'lucide-svelte';
-	import { tick, untrack } from 'svelte';
-	import { twMerge } from 'tailwind-merge';
-	import { fade } from 'svelte/transition';
-	import { linear } from 'svelte/easing';
+	import { DraggableList } from '../primitives/draggable';
 
 	interface Props {
 		task: Task;
@@ -41,7 +43,7 @@
 		lastStepId
 	}: Props = $props();
 
-	const steps = $derived(taskRun?.steps ?? task?.steps ?? []);
+	let orderedSteps = $state(readOnly && taskRun ? taskRun?.steps : (task?.steps ?? []));
 
 	// Capture the steps element
 	let element: HTMLElement | undefined = $state();
@@ -218,6 +220,29 @@
 			behavior: isTaskRunning && shouldFollowTaskRun ? 'instant' : 'smooth'
 		});
 	}
+
+	function createStep(): TaskStep {
+		return { id: Math.random().toString(36).substring(7), step: '' };
+	}
+
+	function onAddStep(index: number) {
+		return async () => {
+			const newStep = createStep();
+			task.steps.splice(index + 1, 0, newStep);
+
+			orderedSteps = [...task.steps];
+
+			await tick();
+			document.getElementById('step' + newStep.id)?.focus();
+		};
+	}
+
+	function onDeleteStep(step: TaskStep) {
+		return () => {
+			task.steps = task.steps.filter((s) => s.id !== step.id);
+			orderedSteps = [...task.steps];
+		};
+	}
 </script>
 
 <div
@@ -231,8 +256,6 @@
 			data-testid="steps-toggle-output-btn"
 			onclick={async () => {
 				if (showAllOutput) {
-					requestAnimationFrame(() => {});
-
 					const scrollableElement = element?.closest('[data-scrollable="true"]');
 
 					if (scrollableElement) {
@@ -255,42 +278,49 @@
 		</button>
 	</div>
 
-	<ol class="flex list-decimal flex-col gap-2 pt-2 opacity-100">
-		{#each steps as step, i (step.id)}
-			<!-- step & loop steps are calculated based on wheter the user is consulting a task or a task run, hence readOnly or not -->
-			<Step
-				{run}
-				{runID}
-				bind:task
-				bind:step={
-					() => (readOnly && taskRun ? taskRun?.steps[i] : steps[i]),
-					(v) => {
-						// do not change value on read-only mode
+	<DraggableList
+		class="flex list-decimal flex-col gap-2 pt-2 pl-4 opacity-100"
+		as="ol"
+		order={orderedSteps.map((d) => d.id)}
+		disabled={showAllOutput && (readOnly || isTaskRunning || pending || !!runID)}
+		onChange={(items) => {
+			// Update order
+			orderedSteps = items as TaskStep[];
+
+			// Sync new ordered steps with task steps
+			untrack(() => {
+				task.steps = items.map((d) => $state.snapshot(d));
+			});
+		}}
+	>
+		{#each orderedSteps as step, i (step.id)}
+			<div class="flip-item relative w-full" animate:flip={{ duration: 200 }}>
+				<Step
+					{run}
+					{runID}
+					{task}
+					{step}
+					loopSteps={step.loop}
+					index={i}
+					{stepMessages}
+					{pending}
+					{project}
+					showOutput={showAllOutput}
+					{readOnly}
+					{lastStepId}
+					{isTaskRunning}
+					onAdd={onAddStep(i)}
+					onDelete={onDeleteStep(step)}
+					onChange={(step) => {
 						if (readOnly) return;
 
-						task.steps[i] = v;
-					}
-				}
-				bind:loopSteps={
-					() => (readOnly && taskRun ? taskRun?.steps[i]?.loop : steps[i]?.loop) ?? [],
-					(v) => {
-						// do not change value on read-only mode
-						if (readOnly) return;
-
-						step.loop = v;
-					}
-				}
-				index={i}
-				{stepMessages}
-				{pending}
-				{project}
-				showOutput={showAllOutput}
-				{readOnly}
-				{lastStepId}
-				{isTaskRunning}
-			/>
+						orderedSteps[i] = step;
+						task.steps = $state.snapshot(orderedSteps);
+					}}
+				/>
+			</div>
 		{/each}
-	</ol>
+	</DraggableList>
 
 	{#if error}
 		<div class="mt-2 text-red-500">{error}</div>
