@@ -15,7 +15,6 @@ func Router(services *services.Services) (http.Handler, error) {
 	mux := services.APIServer
 
 	agents := handlers.NewAgentHandler(services.ProviderDispatcher, services.GPTClient, services.Invoker, services.ServerURL)
-	auths := handlers.NewAuthorizationHandler(services.GatewayClient)
 	assistants := handlers.NewAssistantHandler(services.ProviderDispatcher, services.Invoker, services.Events, services.GPTClient, services.Router.Backend())
 	tools := handlers.NewToolHandler(services.GPTClient, services.Invoker)
 	tasks := handlers.NewTaskHandler(services.Invoker, services.Events, services.GPTClient, services.ServerURL)
@@ -67,11 +66,6 @@ func Router(services *services.Services) (http.Handler, error) {
 	mux.HandleFunc("GET /api/agents/{id}/threads/{thread_id}/script", agents.Script)
 	mux.HandleFunc("GET /api/agents/{id}/threads/{thread_id}/script.gpt", agents.Script)
 	mux.HandleFunc("GET /api/agents/{id}/threads/{thread_id}/script/tool.gpt", agents.Script)
-
-	// Agent Authorizations
-	mux.HandleFunc("GET /api/agents/{id}/authorizations", auths.ListAgentAuthorizations)
-	mux.HandleFunc("POST /api/agents/{id}/authorizations/add", auths.AddAgentAuthorization)
-	mux.HandleFunc("POST /api/agents/{id}/authorizations/remove", auths.RemoveAgentAuthorization)
 
 	// Top Level Projects
 	mux.HandleFunc("GET /api/projects", projects.ListProjects)
