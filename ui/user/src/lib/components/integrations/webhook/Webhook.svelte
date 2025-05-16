@@ -68,9 +68,11 @@
 			attempts++;
 			project = await ChatService.getProject(project.id);
 
-			if (project.workflowNameFromIntegration) {
+			if (project.workflowNamesFromIntegration?.webhookWorkflowName) {
 				layout.tasks = (await ChatService.listTasks(project.assistantID, project.id)).items;
-				task = layout.tasks.find((t) => t.id === project.workflowNameFromIntegration);
+				task = layout.tasks.find(
+					(t) => t.id === project.workflowNamesFromIntegration?.webhookWorkflowName
+				);
 				if (task) {
 					taskDialog?.showModal();
 				}
