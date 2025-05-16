@@ -2,8 +2,8 @@ import { ChatService, type MCPManifest, type MCPSubField, type Project, type Pro
 
 export interface MCPServerInfo extends Omit<ProjectMCP, 'id'> {
 	id?: string;
-	env?: (MCPSubField & { value: string; custom?: boolean })[];
-	headers?: (MCPSubField & { value: string; custom?: boolean })[];
+	env?: (MCPSubField & { value: string; custom?: string })[];
+	headers?: (MCPSubField & { value: string; custom?: string })[];
 }
 
 export function getKeyValuePairs(customMcpConfig: MCPServerInfo) {
@@ -79,10 +79,10 @@ export function initConfigFromManifest(manifest?: MCPManifest | ProjectMCP): MCP
 	if (manifest && 'server' in manifest) {
 		return {
 			...manifest.server,
-			env: manifest.server.env?.map((e) => ({ ...e, value: '', custom: false })) ?? [],
+			env: manifest.server.env?.map((e) => ({ ...e, value: '' })) ?? [],
 			args: manifest.server.args ? [...manifest.server.args] : [],
 			command: manifest.server.command ?? '',
-			headers: manifest.server.headers?.map((e) => ({ ...e, value: '', custom: false })) ?? []
+			headers: manifest.server.headers?.map((e) => ({ ...e, value: '' })) ?? []
 		};
 	}
 
@@ -91,10 +91,10 @@ export function initConfigFromManifest(manifest?: MCPManifest | ProjectMCP): MCP
 		name: manifest?.name ?? '',
 		description: manifest?.description ?? '',
 		icon: manifest?.icon ?? '',
-		env: manifest?.env?.map((e) => ({ ...e, value: '', custom: false })) ?? [],
+		env: manifest?.env?.map((e) => ({ ...e, value: '' })) ?? [],
 		args: manifest?.args ? [...manifest.args] : [],
 		command: manifest?.command ?? '',
-		headers: manifest?.headers?.map((e) => ({ ...e, value: '', custom: false })) ?? []
+		headers: manifest?.headers?.map((e) => ({ ...e, value: '' })) ?? []
 	};
 }
 

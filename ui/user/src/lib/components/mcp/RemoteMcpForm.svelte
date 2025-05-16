@@ -2,14 +2,23 @@
 	import type { MCPServerInfo } from '$lib/services/chat/mcp';
 	import { Plus, Trash2 } from 'lucide-svelte';
 	import SensitiveInput from '$lib/components/SensitiveInput.svelte';
+	import { tooltip } from '$lib/actions/tooltip.svelte';
+	import { fade, slide } from 'svelte/transition';
 
 	interface Props {
 		config: MCPServerInfo;
 		showSubmitError: boolean;
 		custom?: boolean;
+		showAdvancedOptions?: boolean;
 		chatbot?: boolean;
 	}
-	let { config = $bindable(), showSubmitError, custom, chatbot = false }: Props = $props();
+	let {
+		config = $bindable(),
+		showSubmitError,
+		custom,
+		chatbot,
+		showAdvancedOptions = $bindable(false)
+	}: Props = $props();
 
 	function focusOnAdd(node: HTMLInputElement, shouldFocus: boolean) {
 		if (shouldFocus) {
@@ -18,22 +27,90 @@
 	}
 </script>
 
-{#if !chatbot}
-	<div class="flex items-center gap-4">
-		<h4 class="w-24 text-base font-semibold">URL</h4>
+<div class="flex items-center gap-4">
+	<h4 class="w-24 text-base font-semibold">URL</h4>
+	{#if showAdvancedOptions || custom || !config.url}
 		<input class="text-input-filled flex grow" bind:value={config.url} />
-	</div>
-{:else if config.url}
-	<div class="flex items-center gap-4">
-		<h4 class="w-24 text-base font-semibold">URL</h4>
-		<div class="text-input-filled flex grow opacity-75">{config.url}</div>
+	{:else}
+		<p
+			class="line-clamp-1 -translate-x-2 break-all"
+			use:tooltip={{ text: config.url ?? '', disablePortal: true }}
+		>
+			{config.url}
+		</p>
+	{/if}
+</div>
+
+{#if custom || chatbot}
+	<div class="flex flex-col gap-1">
+		<h4 class="text-base font-semibold">Headers Configuration</h4>
+		{@render showConfigHeaders('all')}
+		{@render addHeaderButton()}
 	</div>
 {/if}
 
-<div class="flex flex-col gap-2">
-	<h4 class="text-base font-semibold">Headers</h4>
-	{#if config.headers && config.headers.length > 0}
-		{#each config.headers as header, i}
+{#if !custom && (config.headers ?? []).length > 0}
+	<div class="flex flex-col gap-1">
+		<h4 class="text-base font-semibold">Headers Configuration</h4>
+		{@render showConfigHeaders('default')}
+	</div>
+{/if}
+
+{#if showAdvancedOptions}
+	<div class="flex flex-col gap-4" in:fade out:slide={{ axis: 'y' }}>
+		{#if !custom}
+			<div class="flex flex-col gap-1">
+				<h4 class="text-base font-semibold">Custom Headers Configuration</h4>
+				{@render showConfigHeaders('custom')}
+				{@render addHeaderButton()}
+			</div>
+		{/if}
+	</div>
+{/if}
+
+{#if !custom}
+	<div class="flex grow justify-start">
+		<button
+			class="mt-auto text-xs font-light text-gray-500 transition-colors hover:text-black dark:hover:text-white"
+			onclick={() => (showAdvancedOptions = !showAdvancedOptions)}
+		>
+			{showAdvancedOptions ? 'Hide Advanced Options...' : 'Show Advanced Options...'}
+		</button>
+	</div>
+{/if}
+
+{#snippet addHeaderButton()}
+	{#if !chatbot}
+		<div class="flex justify-end">
+			<button
+				class="button flex items-center gap-1 text-xs"
+				onclick={() =>
+					config.headers?.push({
+						name: '',
+						key: '',
+						description: '',
+						sensitive: false,
+						required: false,
+						file: false,
+						value: '',
+						custom: crypto.randomUUID()
+					})}
+			>
+				<Plus class="size-4" /> Header
+			</button>
+		</div>
+	{/if}
+{/snippet}
+
+{#snippet showConfigHeaders(type: 'all' | 'default' | 'custom')}
+	{@const headersToShow =
+		type === 'all'
+			? (config.headers ?? [])
+			: type === 'default'
+				? (config.headers?.filter((header) => !header.custom) ?? [])
+				: (config.headers?.filter((header) => header.custom) ?? [])}
+	{#if headersToShow.length > 0}
+		{#each headersToShow as header, i}
 			<div class="flex w-full items-center gap-2">
 				<div class="flex grow flex-col gap-1">
 					{#if !chatbot}
@@ -41,10 +118,10 @@
 							class="ghost-input w-full py-0 pl-1"
 							bind:value={header.key}
 							placeholder="Key (ex. API_KEY)"
-							use:focusOnAdd={i === config.headers.length - 1}
+							use:focusOnAdd={i === headersToShow.length - 1}
 						/>
 					{:else}
-						<div class="ghost-input w-full py-0 pl-1">{header.key}</div>
+						<div class="ghost-input w-full py-0 pl-1">{header.name || header.key}</div>
 					{/if}
 					{#if header.sensitive}
 						<SensitiveInput name={header.name} bind:value={header.value} />
@@ -65,30 +142,20 @@
 					</div>
 				</div>
 				{#if (!header.required || custom) && !chatbot}
-					<button class="icon-button" onclick={() => config.headers?.splice(i, 1)}>
+					<button
+						class="icon-button"
+						onclick={() => {
+							const matchingIndex = config.headers?.findIndex((e) =>
+								e.key ? e.key === header.key : e.custom === header.custom
+							);
+							if (typeof matchingIndex !== 'number') return;
+							config.headers?.splice(matchingIndex, 1);
+						}}
+					>
 						<Trash2 class="size-4" />
 					</button>
 				{/if}
 			</div>
 		{/each}
 	{/if}
-	{#if !chatbot}
-		<div class="flex justify-end">
-			<button
-				class="button flex items-center gap-1 text-xs"
-				onclick={() =>
-					config.headers?.push({
-						key: '',
-						name: '',
-						value: '',
-						description: '',
-						sensitive: false,
-						required: false,
-						file: false
-					})}
-			>
-				<Plus class="size-4" /> Header
-			</button>
-		</div>
-	{/if}
-</div>
+{/snippet}

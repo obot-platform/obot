@@ -19,6 +19,7 @@
 	import { getLayout, openEditProjectMcp, openMCPServerTools } from '$lib/context/layout.svelte';
 	import McpSetupWizard from '$lib/components/mcp/McpSetupWizard.svelte';
 	import { getToolBundleMap } from '$lib/context/toolReferences.svelte';
+	import { DEFAULT_CUSTOM_SERVER_NAME } from '$lib/constants';
 
 	interface Props {
 		project: Project;
@@ -174,7 +175,7 @@
 							<p
 								class="flex w-[calc(100%-24px)] items-center truncate text-left text-xs font-light"
 							>
-								{mcp.name || 'My Custom Server'}
+								{mcp.name || DEFAULT_CUSTOM_SERVER_NAME}
 								{#if chatbot && shouldShowWarning(mcp)}
 									<span class="ml-1" use:tooltip={'Configuration Required'}>
 										<TriangleAlert

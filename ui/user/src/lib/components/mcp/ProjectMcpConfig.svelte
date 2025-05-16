@@ -1,22 +1,37 @@
 <script lang="ts">
 	import { closeSidebarConfig, getLayout } from '$lib/context/layout.svelte';
-	import { ChatService, type Project, type ProjectMCP } from '$lib/services';
-	import { isValidMcpConfig, type MCPServerInfo } from '$lib/services/chat/mcp';
-	import { ChevronsRight, PencilLine, Server, X } from 'lucide-svelte';
+	import { ChatService, type MCPServerTool, type Project, type ProjectMCP } from '$lib/services';
+	import {
+		createProjectMcp,
+		isValidMcpConfig,
+		updateProjectMcp,
+		type MCPServerInfo
+	} from '$lib/services/chat/mcp';
+	import { ChevronsRight, LoaderCircle, PencilLine, Server, X } from 'lucide-svelte';
 	import { twMerge } from 'tailwind-merge';
 	import { onMount } from 'svelte';
-	import { errors } from '$lib/stores';
+	import { errors, responsive } from '$lib/stores';
 	import HostedMcpForm from '$lib/components/mcp/HostedMcpForm.svelte';
 	import RemoteMcpForm from '$lib/components/mcp/RemoteMcpForm.svelte';
+	import { clickOutside } from '$lib/actions/clickoutside';
+	import McpServerTools from './McpServerTools.svelte';
+	import PageLoading from '$lib/components/PageLoading.svelte';
+	import { DEFAULT_CUSTOM_SERVER_NAME } from '$lib/constants';
+	import { fade } from 'svelte/transition';
+	import { getProjectMCPs } from '$lib/context/projectMcps.svelte';
 
 	interface Props {
 		projectMcp?: ProjectMCP;
 		project?: Project;
-		onCreate?: (customMcpServerInfo: MCPServerInfo) => void;
-		onUpdate?: (customMcpServerInfo: MCPServerInfo) => void;
+		onCreate?: (newProjectMcp: ProjectMCP) => void;
+		onUpdate?: (updatedProjectConfig: MCPServerInfo) => void;
 		chatbot?: boolean;
 	}
-	let { projectMcp, project, onCreate, onUpdate, chatbot = false }: Props = $props();
+	let { projectMcp, project, onCreate, onUpdate, chatbot }: Props = $props();
+	let projectMcpServerToolsDialog = $state<HTMLDialogElement>();
+	let projectMcpServerTools = $state<MCPServerTool[]>([]);
+	let processing = $state(false);
+	let savedProjectMcp = $state<ProjectMCP>();
 
 	function isObotHosted(projectMcp: ProjectMCP) {
 		return (
@@ -54,7 +69,9 @@
 	let config = $state<MCPServerInfo>({ ...initConfig });
 	let showObotHosted = $state(projectMcp ? isObotHosted(projectMcp) : true);
 	let showSubmitError = $state(false);
+	let showMcpError = $state(false);
 	const layout = getLayout();
+	const projectMCPs = getProjectMCPs();
 
 	onMount(() => {
 		if (projectMcp && project) {
@@ -98,10 +115,32 @@
 			showSubmitError = true;
 			return;
 		}
+		if (!project) return;
 		if (projectMcp) {
 			onUpdate?.(config);
 		} else {
-			onCreate?.(config);
+			processing = true;
+			showMcpError = false;
+			try {
+				const newProjectMcp = savedProjectMcp
+					? await updateProjectMcp(config, savedProjectMcp.id, project)
+					: await createProjectMcp(config, project);
+				if (!savedProjectMcp) {
+					savedProjectMcp = newProjectMcp;
+					projectMCPs.items.push(newProjectMcp);
+				}
+				projectMcpServerTools = await ChatService.listProjectMCPServerTools(
+					project.assistantID,
+					project.id,
+					newProjectMcp.id
+				);
+				processing = false;
+				projectMcpServerToolsDialog?.showModal();
+			} catch (error) {
+				console.error(error);
+				processing = false;
+				showMcpError = true;
+			}
 		}
 	}
 </script>
@@ -124,7 +163,7 @@
 							</div>
 							<div class="flex flex-col gap-1">
 								<h3 class="text-lg leading-4.5 font-semibold">
-									{projectMcp.name || 'My Custom Server'}
+									{projectMcp.name || DEFAULT_CUSTOM_SERVER_NAME}
 								</h3>
 							</div>
 						</div>
@@ -181,33 +220,68 @@
 	{/if}
 
 	<div
-		class="dark:bg-gray-980 relative flex grow flex-col gap-4 bg-gray-50 px-4 pb-4 md:px-8"
+		class="dark:bg-gray-980 relative flex flex-col gap-4 bg-gray-50 px-4 pb-4 md:px-8"
 		class:pt-4={projectMcp?.catalogID}
 	>
 		<div
-			class="dark:bg-surface2 dark:border-surface3 flex w-full grow flex-col gap-4 self-center rounded-lg bg-white px-4 pt-12 pb-8 shadow-sm md:max-w-[900px] md:px-8 dark:border"
+			class="dark:bg-surface2 dark:border-surface3 flex w-full flex-col gap-4 self-center rounded-lg bg-white px-4 py-8 shadow-sm md:max-w-[900px] md:px-8 dark:border"
 		>
+			{#if showMcpError}
+				<p class="notification-error" in:fade>
+					Failed to get tools, please check your configuration and try again.
+				</p>
+			{/if}
 			{#if showObotHosted}
-				<HostedMcpForm
-					bind:config
-					{showSubmitError}
-					custom={!projectMcp?.catalogID && !chatbot}
-					{chatbot}
-				/>
+				<HostedMcpForm bind:config {showSubmitError} custom {chatbot} />
 			{:else}
-				<RemoteMcpForm
-					bind:config
-					{showSubmitError}
-					custom={!projectMcp?.catalogID && !chatbot}
-					{chatbot}
-				/>
+				<RemoteMcpForm bind:config {showSubmitError} custom {chatbot} />
 			{/if}
 		</div>
+	</div>
 
-		<div class="flex w-full flex-col gap-2 self-center md:max-w-[900px]">
-			<button class="button-primary flex items-center gap-1 self-end" onclick={handleSubmit}>
-				{projectMcp ? 'Update' : 'Configure'} server <ChevronsRight class="size-4" />
+	<div class="flex grow"></div>
+
+	<div class="flex w-full flex-col gap-2 self-center md:max-w-[900px]">
+		<div class="flex justify-end p-4 md:p-8">
+			<button
+				disabled={processing}
+				class="button-primary flex items-center gap-1"
+				onclick={handleSubmit}
+			>
+				{#if processing}
+					<LoaderCircle class="size-4 animate-spin" />
+				{:else}
+					{projectMcp ? 'Update' : 'Configure'} server <ChevronsRight class="size-4" />
+				{/if}
 			</button>
 		</div>
 	</div>
 </div>
+
+<PageLoading show={processing} text="Launching and testing MCP server..." />
+
+<dialog
+	bind:this={projectMcpServerToolsDialog}
+	class="default-dialog w-full max-w-(--breakpoint-xl) p-4 pb-0"
+	class:mobile-screen-dialog={responsive.isMobile}
+	use:clickOutside={() => {
+		projectMcpServerToolsDialog?.close();
+	}}
+>
+	{#if savedProjectMcp && project}
+		{#key savedProjectMcp.id}
+			<McpServerTools
+				tools={projectMcpServerTools}
+				mcpServer={savedProjectMcp}
+				{project}
+				onSubmit={async () => {
+					if (savedProjectMcp) {
+						projectMcpServerToolsDialog?.close();
+						onCreate?.(savedProjectMcp);
+					}
+				}}
+				isNew
+			/>
+		{/key}
+	{/if}
+</dialog>

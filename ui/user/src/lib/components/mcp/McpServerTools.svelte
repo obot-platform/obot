@@ -5,6 +5,7 @@
 	import { onMount, type Snippet } from 'svelte';
 	import { fade, slide } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';
+	import { DEFAULT_CUSTOM_SERVER_NAME } from '$lib/constants';
 
 	interface Props {
 		mcpServer: ProjectMCP;
@@ -109,7 +110,7 @@
 				</div>
 				<div class="flex flex-col gap-1">
 					<h3 class="text-lg leading-5.5 font-semibold">
-						{mcpServer.name}
+						{mcpServer.name || DEFAULT_CUSTOM_SERVER_NAME}
 					</h3>
 				</div>
 			</div>

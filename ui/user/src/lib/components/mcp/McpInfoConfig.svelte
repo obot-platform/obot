@@ -22,6 +22,7 @@
 	import type { Snippet } from 'svelte';
 	import CredentialAuth from '$lib/components/edit/CredentialAuth.svelte';
 	import RemoteMcpForm from './RemoteMcpForm.svelte';
+	import { DEFAULT_CUSTOM_SERVER_NAME } from '$lib/constants';
 
 	interface Props {
 		manifest?: MCPManifest | ProjectMCP;
@@ -58,6 +59,7 @@
 
 	let config = $state<MCPServerInfo>(prefilledConfig ?? initConfigFromManifest(manifest));
 	let showSubmitError = $state(false);
+	let showAdvancedOptions = $state(false);
 	let loadingCredential = $state<Promise<ProjectCredential | undefined>>();
 	export function open() {
 		reset();
@@ -71,6 +73,7 @@
 
 	export function close() {
 		configDialog?.close();
+		showAdvancedOptions = false;
 	}
 
 	async function getProjectCredential() {
@@ -149,7 +152,7 @@
 					{#if manifestType === 'url'}
 						<RemoteMcpForm bind:config {showSubmitError} />
 					{:else}
-						<HostedMcpForm bind:config {showSubmitError} />
+						<HostedMcpForm bind:config {showSubmitError} bind:showAdvancedOptions />
 					{/if}
 				</div>
 			{/if}
@@ -220,7 +223,7 @@
 	{#if manifest}
 		{@const icon = 'server' in manifest ? manifest.server.icon : manifest.icon}
 		{@const name =
-			('server' in manifest ? manifest.server.name : manifest.name) || 'My Custom Server'}
+			('server' in manifest ? manifest.server.name : manifest.name) || DEFAULT_CUSTOM_SERVER_NAME}
 		<div class="flex flex-col gap-4 p-4 md:p-6">
 			<div class="flex max-w-sm items-center gap-2">
 				<div class="h-fit flex-shrink-0 self-start rounded-md bg-gray-50 p-1 dark:bg-gray-600">

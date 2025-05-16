@@ -113,9 +113,38 @@
 			})
 	);
 
+	function getBrowseAllMcps() {
+		const { officialMcps, verifiedMcps, rest } = transformedMcps.reduce<{
+			officialMcps: TransformedMcp[];
+			verifiedMcps: TransformedMcp[];
+			rest: TransformedMcp[];
+		}>(
+			(acc, mcp) => {
+				if (mcp.categories?.includes(OFFICIAL_CATEGORY)) {
+					acc.officialMcps.push(mcp);
+				} else if (mcp.categories?.includes(VERIFIED_CATEGORY)) {
+					acc.verifiedMcps.push(mcp);
+				} else {
+					acc.rest.push(mcp);
+				}
+				return acc;
+			},
+			{
+				officialMcps: [],
+				verifiedMcps: [],
+				rest: []
+			}
+		);
+		return [
+			...officialMcps.sort((a, b) => a.name.localeCompare(b.name)),
+			...verifiedMcps.sort((a, b) => b.githubStars - a.githubStars),
+			...rest.sort((a, b) => b.githubStars - a.githubStars)
+		];
+	}
+
 	let filteredMcps: TransformedMcp[] = $derived(
 		selectedCategory === BROWSE_ALL_CATEGORY && !search
-			? transformedMcps
+			? getBrowseAllMcps()
 			: transformedMcps.filter((mcp) => {
 					const searchLower = search.toLowerCase();
 					const isBrowseAll = selectedCategory === BROWSE_ALL_CATEGORY;
@@ -362,7 +391,7 @@
 			class="default-dialog-title py-0 text-base"
 			class:default-dialog-mobile-title={responsive.isMobile}
 		>
-			Select Setup Type
+			Choose How to Connect
 			<button
 				class="icon-button md:translate-x-2"
 				class:mobile-header-button={responsive.isMobile}
@@ -372,9 +401,28 @@
 			</button>
 		</h4>
 		<p class="text-sm text-gray-500">
-			This MCP server supports setup by command or by URL. Please select the preferred method below.
+			You can either run this MCP server on Obot or connect to an externally hosted instance.
 		</p>
-		<button class="button" onclick={() => selectManifest('command')}>By Command</button>
-		<button class="button" onclick={() => selectManifest('url')}>By URL</button>
+		<div class="flex flex-col items-center justify-center gap-1">
+			<button class="button w-full" onclick={() => selectManifest('command')}>Run on Obot</button>
+			<span class="text-xs font-light text-gray-500">Let Obot manage the MCP server for you. </span>
+		</div>
+		{#if selectedMcp?.urlManifest}
+			{@const hostname = selectedMcp.urlManifest.server.url?.split('://')[1].split('/')[0]}
+			<div class="flex flex-col items-center justify-center gap-1">
+				<button class="button w-full" onclick={() => selectManifest('url')}
+					>Connect to External Server</button
+				>
+				<span class="text-xs font-light text-gray-500">
+					{#if selectedMcp.urlManifest.server.url}
+						Use the preconfigured external server: <b
+							class="font-semibold text-black dark:text-white">{hostname}</b
+						>
+					{:else}
+						You'll be asked to specify your MCP URL on the next screen
+					{/if}
+				</span>
+			</div>
+		{/if}
 	</div>
 </dialog>

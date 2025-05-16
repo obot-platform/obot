@@ -23,6 +23,7 @@
 	import { getToolBundleMap } from '$lib/context/toolReferences.svelte';
 	import Confirm from '$lib/components/Confirm.svelte';
 	import type { ProjectCredential } from '$lib/services/chat/types';
+	import { DEFAULT_CUSTOM_SERVER_NAME } from '$lib/constants';
 
 	interface Props {
 		project: Project;
@@ -330,7 +331,7 @@
 												<Server class="size-4" />
 											{/if}
 										</div>
-										<span class="text-sm">{server.name || 'My Custom Server'}</span>
+										<span class="text-sm">{server.name || DEFAULT_CUSTOM_SERVER_NAME}</span>
 									</div>
 
 									<div class="relative flex items-center gap-2">
@@ -426,8 +427,8 @@
 											{:else}
 												<label for={env.name} class="flex items-center gap-1 text-sm font-light">
 													{env.required
-														? `${env.name ?? env.key}*`
-														: `${env.name ?? env.key} (optional)`}
+														? `${env.name || env.key}*`
+														: `${env.name || env.key} (optional)`}
 													{#if env.description}
 														<span class="text-xs text-gray-500" title={env.description}>ⓘ</span>
 													{/if}
@@ -481,8 +482,8 @@
 											{:else}
 												<label for={header.name} class="flex items-center gap-1 text-sm font-light">
 													{header.required
-														? `${header.name ?? header.key}*`
-														: `${header.name ?? header.key} (optional)`}
+														? `${header.name || header.key}*`
+														: `${header.name || header.key} (optional)`}
 													{#if header.description}
 														<span class="text-xs text-gray-500" title={header.description}>ⓘ</span>
 													{/if}

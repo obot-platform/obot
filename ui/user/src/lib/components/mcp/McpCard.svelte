@@ -45,7 +45,7 @@
 					</div>
 				</div>
 				<div class="flex w-full grow justify-between gap-2 text-xs">
-					<div class="flex flex-wrap gap-1">
+					<div class="flex h-fit flex-wrap gap-1">
 						{#if tags}
 							{#each tags as tag}
 								<span

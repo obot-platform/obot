@@ -8,7 +8,7 @@
 	import TemplateConfig from '$lib/components/templates/TemplateConfig.svelte';
 	import { getProjectTools } from '$lib/context/projectTools.svelte';
 	import ProjectMcpConfig from '$lib/components/mcp/ProjectMcpConfig.svelte';
-	import { createProjectMcp, updateProjectMcp, getKeyValuePairs } from '$lib/services/chat/mcp';
+	import { updateProjectMcp, getKeyValuePairs } from '$lib/services/chat/mcp';
 	import { getProjectMCPs } from '$lib/context/projectMcps.svelte';
 	import McpServerTools from '$lib/components/mcp/McpServerTools.svelte';
 	import ModelProviders from './ModelProviders.svelte';
@@ -50,8 +50,7 @@
 				{project}
 				projectMcp={layout.editProjectMcp}
 				chatbot={layout.chatbotMcpEdit}
-				onCreate={async (customMcpConfig) => {
-					const newProjectMcp = await createProjectMcp(customMcpConfig, project);
+				onCreate={async (newProjectMcp) => {
 					projectMCPs.items.push(newProjectMcp);
 					closeSidebarConfig(layout);
 				}}

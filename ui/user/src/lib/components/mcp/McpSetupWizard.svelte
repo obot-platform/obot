@@ -8,15 +8,14 @@
 		type ProjectMCP
 	} from '$lib/services';
 	import { createProjectMcp, type MCPServerInfo, updateProjectMcp } from '$lib/services/chat/mcp';
-	import { LoaderCircle } from 'lucide-svelte';
 	import McpCatalog from './McpCatalog.svelte';
 	import McpInfoConfig from '$lib/components/mcp/McpInfoConfig.svelte';
 	import { goto } from '$app/navigation';
 	import McpServerTools from './McpServerTools.svelte';
 	import { responsive } from '$lib/stores';
 	import { clickOutside } from '$lib/actions/clickoutside';
-	import { fade } from 'svelte/transition';
 	import { getToolBundleMap } from '$lib/context/toolReferences.svelte';
+	import PageLoading from '$lib/components/PageLoading.svelte';
 
 	interface Props {
 		mcps: MCP[];
@@ -121,14 +120,7 @@
 	preselectedMcp={preselected}
 />
 
-{#if processing}
-	<div
-		in:fade={{ duration: 200 }}
-		class="fixed top-0 left-0 z-50 flex h-svh w-svw items-center justify-center bg-black/50"
-	>
-		<LoaderCircle class="size-10 animate-spin" />
-	</div>
-{/if}
+<PageLoading show={processing} text="Launching and testing MCP server..." />
 
 <McpInfoConfig
 	bind:this={mcpInfoConfig}
@@ -149,7 +141,7 @@
 			class="button-secondary"
 			onclick={async () => {
 				if (onFinish) {
-					onFinish();
+					onFinish(projectMcp, project);
 				} else if (project) {
 					await goto(`/o/${project.id}`);
 				}

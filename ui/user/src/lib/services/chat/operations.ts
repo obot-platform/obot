@@ -1027,7 +1027,7 @@ export async function createProjectMCP(
 ): Promise<ProjectMCP> {
 	return (await doPost(
 		`/assistants/${assistantID}/projects/${projectID}/mcpservers`,
-		catalogID ? { catalogID } : { ...mcpServerManifest },
+		catalogID ? { catalogID, ...(mcpServerManifest || {}) } : mcpServerManifest || {},
 		opts
 	)) as ProjectMCP;
 }

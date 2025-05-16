@@ -7,6 +7,7 @@
 	import McpServerTools from '$lib/components/mcp/McpServerTools.svelte';
 	import DotDotDot from '$lib/components/DotDotDot.svelte';
 	import { fade } from 'svelte/transition';
+	import { DEFAULT_CUSTOM_SERVER_NAME } from '$lib/constants';
 
 	interface Props {
 		project: Project;
@@ -59,7 +60,7 @@
 								<Server class="size-4" />
 							{/if}
 						</div>
-						{projectMcp.name}
+						{projectMcp.name || DEFAULT_CUSTOM_SERVER_NAME}
 					</button>
 				{/each}
 			</div>
