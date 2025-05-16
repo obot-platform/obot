@@ -3,12 +3,19 @@ package types
 type Project struct {
 	Metadata
 	ProjectManifest
-	AssistantID                 string `json:"assistantID,omitempty"`
-	Editor                      bool   `json:"editor"`
-	ParentID                    string `json:"parentID,omitempty"`
-	SourceProjectID             string `json:"sourceProjectID,omitempty"`
-	UserID                      string `json:"userID,omitempty"`
-	WorkflowNameFromIntegration string `json:"workflowNameFromIntegration,omitempty"`
+	AssistantID                  string                       `json:"assistantID,omitempty"`
+	Editor                       bool                         `json:"editor"`
+	ParentID                     string                       `json:"parentID,omitempty"`
+	SourceProjectID              string                       `json:"sourceProjectID,omitempty"`
+	UserID                       string                       `json:"userID,omitempty"`
+	WorkflowNamesFromIntegration WorkflowNamesFromIntegration `json:"workflowNamesFromIntegration,omitempty"`
+}
+
+type WorkflowNamesFromIntegration struct {
+	SlackWorkflowName   string `json:"slackWorkflowName,omitempty"`
+	DiscordWorkflowName string `json:"discordWorkflowName,omitempty"`
+	EmailWorkflowName   string `json:"emailWorkflowName,omitempty"`
+	WebhookWorkflowName string `json:"webhookWorkflowName,omitempty"`
 }
 
 type ProjectCapabilities struct {

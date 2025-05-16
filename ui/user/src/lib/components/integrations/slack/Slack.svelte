@@ -131,9 +131,11 @@
 			attempts++;
 			project = await ChatService.getProject(project.id);
 
-			if (project.workflowNameFromIntegration) {
+			if (project.workflowNamesFromIntegration?.slackWorkflowName) {
 				layout.tasks = (await ChatService.listTasks(project.assistantID, project.id)).items;
-				task = layout.tasks.find((t) => t.id === project.workflowNameFromIntegration);
+				task = layout.tasks.find(
+					(t) => t.id === project.workflowNamesFromIntegration?.slackWorkflowName
+				);
 				if (task) {
 					authDialog?.show();
 				}
@@ -141,8 +143,10 @@
 				if (!project.sharedTasks) {
 					project.sharedTasks = [];
 				}
-				if (!project.sharedTasks.includes(project.workflowNameFromIntegration)) {
-					project.sharedTasks.push(project.workflowNameFromIntegration);
+				if (
+					!project.sharedTasks.includes(project.workflowNamesFromIntegration?.slackWorkflowName)
+				) {
+					project.sharedTasks.push(project.workflowNamesFromIntegration?.slackWorkflowName);
 					project = await ChatService.updateProject(project);
 				}
 				break;
