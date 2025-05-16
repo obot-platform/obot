@@ -42,11 +42,12 @@ COPY --from=build-pgvector /usr/share/postgresql17/extension/vector* /usr/share/
 RUN apk add --no-cache git python-3.13 py3.13-pip npm nodejs bash tini procps libreoffice docker perl-utils sqlite sqlite-dev curl kubectl jq
 COPY --chmod=0755 /tools/package-chrome.sh /
 COPY --chmod=0755 /tools/package-mcp-catalog.sh /
+COPY --chmod=0444 /remote_catalog.json /remote_catalog.json
 
 RUN /package-chrome.sh && rm /package-chrome.sh
 ARG CACHE_BUST=1
 RUN /package-mcp-catalog.sh && rm /package-mcp-catalog.sh && mv catalog.json /catalog.json && echo "CACHE_BUST: ${CACHE_BUST}"
-ENV OBOT_SERVER_MCPCATALOGS=/catalog.json
+ENV OBOT_SERVER_MCPCATALOGS=/catalog.json,/remote_catalog.json
 
 COPY aws-encryption.yaml /
 COPY azure-encryption.yaml /
