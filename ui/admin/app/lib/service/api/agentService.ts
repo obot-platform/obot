@@ -1,11 +1,6 @@
 import { z } from "zod";
 
-import {
-	Agent,
-	AgentAuthorization,
-	CreateAgent,
-	UpdateAgent,
-} from "~/lib/model/agents";
+import { Agent, CreateAgent, UpdateAgent } from "~/lib/model/agents";
 import { EntityList } from "~/lib/model/primitives";
 import { WorkspaceFile } from "~/lib/model/workspace";
 import { ApiRoutes } from "~/lib/routers/apiRoutes";
@@ -98,54 +93,6 @@ const getAuthUrlForAgent = createFetcher(
 	() => ApiRoutes.agents.getAuthUrlForAgent(":agentId", ":toolRef").path
 );
 
-const getAgentAuthorizations = createFetcher(
-	z.object({ agentId: z.string() }),
-	async ({ agentId }, { signal }) => {
-		const res = await request<{ items: AgentAuthorization[] }>({
-			url: ApiRoutes.agents.getAuthorizations(agentId).url,
-			errorMessage: "Failed to fetch agent authorizations",
-			signal,
-		});
-
-		return res.data.items;
-	},
-	() => ApiRoutes.agents.getAuthorizations(":agentId").path
-);
-
-type AddAgentAuthorizationParams = {
-	agentId: string;
-	userId: string;
-};
-
-const addAgentAuthorization = createMutator(
-	async ({ agentId, userId }: AddAgentAuthorizationParams, { signal }) => {
-		await request({
-			url: ApiRoutes.agents.addAuthorization(agentId).url,
-			method: "POST",
-			data: { userId },
-			errorMessage: "Failed to add agent authorization",
-			signal,
-		});
-	}
-);
-
-type RemoveAgentAuthorizationParams = {
-	agentId: string;
-	userId: string;
-};
-
-const removeAgentAuthorization = createMutator(
-	async ({ agentId, userId }: RemoveAgentAuthorizationParams, { signal }) => {
-		await request({
-			url: ApiRoutes.agents.removeAuthorization(agentId).url,
-			method: "POST",
-			data: { userId },
-			errorMessage: "Failed to remove agent authorization",
-			signal,
-		});
-	}
-);
-
 const getWorkspaceFiles = createFetcher(
 	z.object({ agentId: z.string() }),
 	async ({ agentId }, { signal }) => {
@@ -223,9 +170,6 @@ export const AgentService = {
 	updateAgent: updateAgent,
 	deleteAgent: deleteAgent,
 	getAuthUrlForAgent: getAuthUrlForAgent,
-	getAgentAuthorizations: getAgentAuthorizations,
-	addAgentAuthorization: addAgentAuthorization,
-	removeAgentAuthorization: removeAgentAuthorization,
 	getWorkspaceFiles: getWorkspaceFiles,
 	uploadWorkspaceFile: uploadWorkspaceFile,
 	deleteWorkspaceFile: deleteWorkspaceFile,
