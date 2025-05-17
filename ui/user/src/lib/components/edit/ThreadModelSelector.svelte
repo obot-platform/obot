@@ -4,6 +4,7 @@
 	import type { Thread as ThreadType } from '$lib/services/chat/types';
 	import type { Project } from '$lib/services';
 	import { getThread, updateThread, getDefaultModelForThread } from '$lib/services/chat/operations';
+	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
 		threadId: string | undefined;
@@ -19,6 +20,12 @@
 	let modelSelectorRef = $state<HTMLDivElement>();
 	let modelButtonRef = $state<HTMLButtonElement>();
 	let defaultModel = $state<{ model: string; modelProvider: string } | null>(null);
+
+	let modelsEntries = $derived(Object.entries(project.models || {}));
+
+	const isDefaultModelSelected = $derived(
+		threadDetails && defaultModel?.model !== '' && defaultModel?.model === threadDetails?.model
+	);
 
 	// Function to fetch thread details including model
 	async function fetchThreadDetails() {
@@ -57,6 +64,7 @@
 		}
 
 		isUpdatingModel = true;
+
 		try {
 			const updatedThread = await updateThread(project.assistantID, project.id, {
 				...threadDetails,
@@ -125,9 +133,13 @@
 	});
 </script>
 
-<div class="relative pr-2">
+<!-- TODO: Refactor this to use a dropdown component either third-party in internally crafted -->
+<div class="relative mr-2 md:mr-6 lg:mr-8">
 	<button
-		class="hover:bg-surface1 focus:ring-blue flex items-center gap-1 rounded-md border border-[--color-border] bg-transparent px-2 py-1 text-sm focus:ring-1 focus:outline-none"
+		class={twMerge(
+			'hover:bg-surface2/50 active:bg-surface2/80 flex h-10 items-center gap-3 rounded-full px-2  py-1 text-xs text-gray-600 md:px-4 lg:px-6',
+			isDefaultModelSelected && 'text-blue hover:bg-blue/10 active:bg-blue/15 bg-transparent'
+		)}
 		onclick={(e) => {
 			e.stopPropagation();
 			showModelSelector = !showModelSelector;
@@ -136,20 +148,23 @@
 		aria-haspopup="listbox"
 		aria-expanded={showModelSelector}
 		id="thread-model-button"
-		title="Select model for this thread"
+		title={isDefaultModelSelected
+			? 'Default model is selected'
+			: threadDetails?.model
+				? ''
+				: 'Select model for this thread'}
 		bind:this={modelButtonRef}
 	>
-		<span>
+		<div class="max-w-40 truncate sm:max-w-60 md:max-w-96 lg:max-w-none">
 			{#if threadDetails?.modelProvider && threadDetails?.model}
 				{threadDetails.model}
 			{:else if defaultModel?.model && defaultModel.model !== ''}
-				Default ({defaultModel.model})
-			{:else if defaultModel?.model === '' && defaultModel?.modelProvider === ''}
-				No Default Model
+				{defaultModel.model}
 			{:else}
-				Default Model
+				No Default Model
 			{/if}
-		</span>
+		</div>
+
 		<ChevronDown class="h-4 w-4" />
 	</button>
 
@@ -158,7 +173,7 @@
 			role="listbox"
 			tabindex="-1"
 			aria-labelledby="thread-model-button"
-			class="absolute bottom-full z-10 mb-1 max-h-60 w-60 overflow-auto rounded-md border border-[--color-border] bg-white p-1 shadow-lg dark:bg-black"
+			class="available-models-popover default-scrollbar-thin border-surface1 dark:bg-surface2 absolute right-0 bottom-full z-10 mb-1 max-h-60 w-max max-w-sm overflow-hidden overflow-y-auto rounded-md border bg-white p-2 shadow-lg md:max-w-md lg:max-w-lg"
 			onclick={(e) => e.stopPropagation()}
 			onkeydown={(e) => {
 				if (e.key === 'Escape') {
@@ -168,55 +183,51 @@
 			}}
 			bind:this={modelSelectorRef}
 		>
-			<button
-				role="option"
-				aria-selected={!threadDetails?.modelProvider && !threadDetails?.model}
-				class="hover:bg-surface1 focus:bg-surface1 w-full rounded px-2 py-1.5 text-left text-sm focus:outline-none"
-				onclick={() => setThreadModel('', '')}
-				tabindex="0"
-				disabled={defaultModel?.model === '' && defaultModel?.modelProvider === ''}
-				class:opacity-50={defaultModel?.model === '' && defaultModel?.modelProvider === ''}
-			>
-				Default
-				{#if defaultModel?.model && defaultModel.model !== ''}
-					<span class="text-xs text-gray-500">({defaultModel.model})</span>
-				{:else if defaultModel?.model === '' && defaultModel?.modelProvider === ''}
-					<span class="text-xs text-red-500">(No default model available)</span>
-				{/if}
-				{#if !threadDetails?.modelProvider && !threadDetails?.model}
-					<span class="ml-1 text-xs text-green-500">✓</span>
-				{/if}
-			</button>
+			{#if modelsEntries.length}
+				{#each modelsEntries as [providerId, models] (providerId)}
+					{#if Array.isArray(models) && models.length > 0 && providerId}
+						{#each models as model (model)}
+							<button
+								role="option"
+								aria-selected={threadDetails?.modelProvider === providerId &&
+									threadDetails?.model === model}
+								class={twMerge(
+									'hover:bg-surface1 focus:bg-surface1 w-full rounded px-2 py-1.5 text-left text-sm focus:outline-none',
+									defaultModel?.model === model && 'text-blue hover:bg-blue/10 active:bg-blue/15'
+								)}
+								onclick={() => setThreadModel(model, providerId)}
+								tabindex="0"
+							>
+								{model}
+								{#if threadDetails?.modelProvider === providerId && threadDetails?.model === model}
+									<span class="ml-1 text-xs text-green-500">✓</span>
+								{/if}
+							</button>
+						{/each}
+					{/if}
+				{/each}
 
-			{#each Object.entries(project.models || {}) as [providerId, models]}
-				{#if Array.isArray(models) && models.length > 0 && providerId}
-					{#each models as model}
-						<button
-							role="option"
-							aria-selected={threadDetails?.modelProvider === providerId &&
-								threadDetails?.model === model}
-							class="hover:bg-surface1 focus:bg-surface1 w-full rounded px-2 py-1.5 text-left text-sm focus:outline-none"
-							onclick={() => setThreadModel(model, providerId)}
-							tabindex="0"
-						>
-							{model}
-							{#if threadDetails?.modelProvider === providerId && threadDetails?.model === model}
-								<span class="ml-1 text-xs text-green-500">✓</span>
-							{/if}
-						</button>
-					{/each}
+				{#if isUpdatingModel}
+					<div class="flex justify-center p-2">
+						<div
+							class="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent"
+							aria-hidden="true"
+						></div>
+						<span class="sr-only">Loading...</span>
+					</div>
 				{/if}
-			{/each}
-
-			{#if isUpdatingModel}
-				<div class="flex justify-center p-2">
-					<div
-						class="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent"
-						aria-hidden="true"
-					></div>
-					<span class="sr-only">Loading...</span>
-				</div>
+			{:else}
+				<p class="truncate text-sm text-gray-400">
+					You can add additional models under the Model Providers tab in the Configuration section.
+				</p>
 			{/if}
 		</div>
 	{/if}
 </div>
+
+<style>
+	.available-models-popover {
+		display: grid;
+		grid-template-columns: minmax(fit-content, auto);
+	}
+</style>

@@ -39,7 +39,10 @@
 	});
 </script>
 
-<div class="default-scrollbar-thin relative flex w-full justify-center overflow-y-auto" in:fade>
+<div
+	class="default-scrollbar-thin relative flex w-full justify-center overflow-y-auto px-4 lg:px-32"
+	in:fade
+>
 	{#if layout.sidebarConfig === 'slack'}
 		<Slack {project} />
 	{:else if layout.sidebarConfig === 'invitations'}
