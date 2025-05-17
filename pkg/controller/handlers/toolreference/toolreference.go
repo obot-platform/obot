@@ -354,10 +354,13 @@ func (h *Handler) readMCPCatalog(catalog string) ([]client.Object, error) {
 						Headers:     c.HTTPHeaders,
 					},
 				}
-			} else if c.URL != "" {
-				if u, err := url.Parse(c.URL); err != nil || u.Hostname() == "localhost" || u.Hostname() == "127.0.0.1" {
-					continue
+			} else if c.URL != "" || c.Remote {
+				if c.URL != "" {
+					if u, err := url.Parse(c.URL); err != nil || u.Hostname() == "localhost" || u.Hostname() == "127.0.0.1" {
+						continue
+					}
 				}
+
 				// Sanitize the headers
 				for i, header := range c.HTTPHeaders {
 					if header.Key == "" {
@@ -467,6 +470,7 @@ type mcpServerConfig struct {
 	Args           []string          `json:"args,omitempty"`
 	HTTPHeaders    []types.MCPHeader `json:"httpHeaders,omitempty"`
 	URL            string            `json:"url,omitempty"`
+	Remote         bool              `json:"remote,omitempty"`
 	URLDescription string            `json:"urlDescription,omitempty"`
 	Preferred      bool              `json:"preferred,omitempty"`
 }
