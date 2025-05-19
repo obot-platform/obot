@@ -29,7 +29,7 @@
 
 {#if custom || chatbot}
 	<div class="flex flex-col gap-1">
-		<h4 class="text-base font-semibold">Configurations</h4>
+		<h4 class="text-base font-semibold">Configuration</h4>
 		{@render showConfigEnv('all')}
 		{@render addEnvButton()}
 	</div>
@@ -37,7 +37,7 @@
 
 {#if !custom && (config.env ?? []).length > 0}
 	<div class="flex flex-col gap-1">
-		<h4 class="text-base font-semibold">Configurations</h4>
+		<h4 class="text-base font-semibold">Configuration</h4>
 		{@render showConfigEnv('default')}
 	</div>
 {/if}
