@@ -38,7 +38,9 @@
 	let allToolsEnabled = $derived(selected[0] === '*' || selected.length === tools.length);
 	let loading = $state(false);
 	let expandedDescriptions = $state<Record<string, boolean>>({});
+	let expandedParams = $state<Record<string, boolean>>({});
 	let allDescriptionsEnabled = $state(true);
+	let allParamsEnabled = $state(true);
 	$effect(() => {
 		if (refTools) {
 			tools = refTools;
@@ -142,6 +144,21 @@
 					<div class="bg-surface3 h-5 w-0.5"></div>
 
 					<Toggle
+						checked={allParamsEnabled}
+						onChange={(checked) => {
+							allParamsEnabled = checked;
+							expandedParams = {};
+						}}
+						label="Show All Parameters"
+						labelInline
+						classes={{
+							label: 'text-sm gap-2'
+						}}
+					/>
+
+					<div class="bg-surface3 h-5 w-0.5"></div>
+
+					<Toggle
 						checked={allToolsEnabled}
 						onChange={(checked) => {
 							selected = checked ? ['*'] : [];
@@ -193,6 +210,27 @@
 								<p in:slide={{ axis: 'y' }} class="text-sm font-light text-gray-500">
 									{tool.description}
 								</p>
+								{#if Object.keys(tool.params ?? {}).length > 0}
+									{#if expandedParams[tool.id] || allParamsEnabled}
+										<div
+											class={'dark:bg-surface3 flex w-fit flex-shrink-0 rounded-full bg-gray-50 px-4 py-2 text-xs font-semibold text-gray-500'}
+										>
+											Available Parameters
+										</div>
+										<div class="flex flex-col px-4 text-xs" in:slide={{ axis: 'y' }}>
+											<div class="flex flex-col gap-2">
+												{#each Object.keys(tool.params ?? {}) as paramKey}
+													<div class="flex items-center gap-2">
+														<p class="min-w-xs self-start font-semibold text-gray-500">
+															{paramKey}
+														</p>
+														<p class="font-light text-gray-500">{tool.params?.[paramKey]}</p>
+													</div>
+												{/each}
+											</div>
+										</div>
+									{/if}
+								{/if}
 							{/if}
 						</div>
 					{/each}
