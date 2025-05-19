@@ -14,7 +14,7 @@
 		sortByPreferredMcpOrder,
 		sortTemplatesByFeaturedNameOrder
 	} from '$lib/sort';
-	import { ChatService, type MCP, type MCPManifest, type ProjectTemplate } from '$lib/services';
+	import { ChatService, type MCP, type MCPInfo, type ProjectTemplate } from '$lib/services';
 	import Logo from '$lib/components/navbar/Logo.svelte';
 	import { q } from '$lib/url';
 
@@ -423,7 +423,7 @@
 	</button>
 {/snippet}
 
-{#snippet featuredMcpCard(id: string, mcp: MCPManifest)}
+{#snippet featuredMcpCard(id: string, mcp: MCPInfo)}
 	<button
 		class="bg-surface2 flex w-full items-center gap-3 rounded-xl p-3"
 		onclick={() => {
