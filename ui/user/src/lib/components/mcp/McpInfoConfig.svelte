@@ -11,7 +11,16 @@
 		EditorService
 	} from '$lib/services';
 	import { darkMode, responsive } from '$lib/stores';
-	import { ChevronRight, ChevronsRight, Info, LoaderCircle, Server, Star, X } from 'lucide-svelte';
+	import {
+		ChevronRight,
+		ChevronsRight,
+		Info,
+		Link,
+		LoaderCircle,
+		Server,
+		Star,
+		X
+	} from 'lucide-svelte';
 	import {
 		initConfigFromManifest,
 		isValidMcpConfig,
@@ -243,13 +252,7 @@
 								rel="noopener noreferrer"
 								class="ml-1 inline-block align-middle"
 							>
-								<img
-									src={darkMode.isDark
-										? '/user/images/github-mark/github-mark-white.svg'
-										: '/user/images/github-mark/github-mark.svg'}
-									alt="github logo"
-									class="size-4 -translate-y-0.25"
-								/>
+								<Link class="size-4 -translate-y-0.25" />
 							</a>
 						{/if}
 					</h3>
