@@ -8,6 +8,7 @@
 	import DotDotDot from '$lib/components/DotDotDot.svelte';
 	import { fade } from 'svelte/transition';
 	import { DEFAULT_CUSTOM_SERVER_NAME } from '$lib/constants';
+	import { responsive } from '$lib/stores';
 
 	interface Props {
 		project: Project;
@@ -73,7 +74,8 @@
 	use:clickOutside={() => {
 		dialog?.close();
 	}}
-	class="h-full max-h-[100vh] w-full max-w-[100vw] rounded-none md:h-fit md:w-2xl md:rounded-xl"
+	class="default-dialog w-full max-w-(--breakpoint-xl) p-4 pb-0"
+	class:mobile-screen-dialog={responsive.isMobile}
 >
 	{#if selectedProjectMcp}
 		{#key selectedProjectMcp.id}
