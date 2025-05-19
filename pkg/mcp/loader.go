@@ -148,6 +148,16 @@ func (sm *SessionManager) Load(ctx context.Context, tool types.Tool) (result []t
 	}
 
 	for key, server := range servers.MCPServers {
+		image := sm.baseImage
+		if server.Command == "docker" {
+			if len(server.Args) == 0 || !slices.ContainsFunc(sm.allowedDockerImageRepos, func(s string) bool {
+				return strings.HasPrefix(server.Args[len(server.Args)-1], s)
+			}) {
+				return nil, fmt.Errorf("docker MCP server must use an image from one of %s", strings.Join(sm.allowedDockerImageRepos, ", "))
+			}
+			image = server.Args[len(server.Args)-1]
+		}
+
 		if server.Command == "" || sm.client == nil {
 			if !sm.allowLocalhostMCP && server.URL != "" {
 				// Ensure the URL is not a localhost URL.
@@ -172,18 +182,7 @@ func (sm *SessionManager) Load(ctx context.Context, tool types.Tool) (result []t
 			return sm.local.LoadTools(ctx, server.ServerConfig, tool.Name)
 		}
 
-		image := sm.baseImage
 		args := []string{"--stdio", fmt.Sprintf("%s %s", server.Command, strings.Join(server.Args, " ")), "--port", "8080", "--healthEndpoint", "/healthz"}
-		if server.Command == "docker" {
-			if len(server.Args) == 0 || !slices.ContainsFunc(sm.allowedDockerImageRepos, func(s string) bool {
-				return strings.HasPrefix(server.Args[0], s)
-			}) {
-				return nil, fmt.Errorf("docker MCP server must use an image from one of %s", strings.Join(sm.allowedDockerImageRepos, ", "))
-			}
-			image = server.Args[0]
-			args = nil
-		}
-
 		annotations := map[string]string{
 			"mcp-server-tool-name":   tool.Name,
 			"mcp-server-config-name": key,
@@ -193,7 +192,7 @@ func (sm *SessionManager) Load(ctx context.Context, tool types.Tool) (result []t
 
 		var objs []kclient.Object
 
-		secretStringData := make(map[string]string, len(server.Env)+len(server.Headers))
+		secretStringData := make(map[string]string, len(server.Env)+len(server.Headers)+1)
 		secretVolumeStringData := make(map[string]string, len(server.Files))
 		for _, file := range server.Files {
 			filename := fmt.Sprintf("%s-%s", id, hash.Digest(file))
@@ -224,6 +223,10 @@ func (sm *SessionManager) Load(ctx context.Context, tool types.Tool) (result []t
 				secretStringData[k] = v
 			}
 		}
+
+		// Set an environment variable to indicate that the MCP server is running in Kubernetes.
+		// This is something that our special images read and react to.
+		secretStringData["OBOT_KUBERNETES_MODE"] = "true"
 
 		objs = append(objs, &corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{

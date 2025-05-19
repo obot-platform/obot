@@ -308,7 +308,7 @@ func (h *Handler) readMCPCatalog(catalog string) ([]client.Object, error) {
 				case "docker":
 					// Only allow docker commands if the image name starts with one of the allowed repos.
 					if len(c.Args) == 0 || len(h.allowedDockerImageRepos) > 0 && !slices.ContainsFunc(h.allowedDockerImageRepos, func(s string) bool {
-						return strings.HasPrefix(c.Args[0], s)
+						return strings.HasPrefix(c.Args[len(c.Args)-1], s)
 					}) {
 						continue
 					}
