@@ -1,6 +1,16 @@
 <script lang="ts">
 	import MessageIcon from '$lib/components/messages/MessageIcon.svelte';
-	import { FileText, Pencil, Copy, Edit, Info, X, Brain } from 'lucide-svelte/icons';
+	import {
+		FileText,
+		Pencil,
+		Copy,
+		Edit,
+		Info,
+		X,
+		Brain,
+		FileSymlink,
+		Download
+	} from 'lucide-svelte/icons';
 	import { Tween } from 'svelte/motion';
 	import { ChatService, type Message, type Project } from '$lib/services';
 	import highlight from 'highlight.js';
@@ -235,14 +245,24 @@
 		}
 	}
 
-	async function openContentInEditor() {
+	async function checkFileExists(filename: string) {
 		try {
-			const filename = `obot-response-${msg.time?.getTime()}.md`;
 			const files = await ChatService.listFiles(project.assistantID, project.id, {
 				threadID: currentThreadID
 			});
 
 			const fileExists = files.items.some((file) => file.name === filename);
+			return fileExists;
+		} catch (err) {
+			console.error('Failed to check if file exists:', err);
+			return false;
+		}
+	}
+
+	async function openContentInEditor() {
+		try {
+			const filename = `obot-response-${msg.time?.getTime()}.md`;
+			const fileExists = await checkFileExists(filename);
 			if (!fileExists) {
 				const file = new File([content], filename, { type: 'text/plain' });
 				await ChatService.saveFile(project.assistantID, project.id, file, {
@@ -253,6 +273,25 @@
 			onLoadFile(filename);
 		} catch (err) {
 			console.error('Failed to create or open file:', err);
+		}
+	}
+
+	async function addImageContentInEditor({ mimeType, data }: { mimeType: string; data: string }) {
+		try {
+			const filename = `obot-image-${msg.time?.getTime()}.${mimeType.split('/')[1]}`;
+			const fileExists = await checkFileExists(filename);
+			if (!fileExists) {
+				console.log(content);
+				const blob = await fetch(`data:${mimeType};base64,${data}`).then((r) => r.blob());
+				const file = new File([blob], filename, { type: mimeType });
+				await ChatService.saveFile(project.assistantID, project.id, file, {
+					threadID: currentThreadID
+				});
+			}
+
+			onLoadFile(filename);
+		} catch (err) {
+			console.error('Failed to create or open image file:', err);
 		}
 	}
 
@@ -448,19 +487,44 @@
 		{#if parsedOutput?.content}
 			{#each parsedOutput.content as content}
 				{#if content.type === 'image' && content.mimeType && content.data}
-					<img
-						src={`data:${content.mimeType};base64,${content.data}`}
-						alt="tool output"
-						class="my-2 w-full max-w-md rounded-xl"
-						onerror={(e) => {
-							const img = e.currentTarget as HTMLImageElement;
-							img.style.display = 'none';
-							const fallbackDiv = document.createElement('div');
-							fallbackDiv.className = 'text-gray-500 text-xs';
-							fallbackDiv.textContent = '[Image Failed to Load.]';
-							img.parentNode?.insertBefore(fallbackDiv, img.nextSibling);
-						}}
-					/>
+					<div class="flex flex-col gap-2">
+						<img
+							src={`data:${content.mimeType};base64,${content.data}`}
+							alt="tool output"
+							class="mt-2 w-full max-w-md rounded-xl"
+							onerror={(e) => {
+								const img = e.currentTarget as HTMLImageElement;
+								img.style.display = 'none';
+								const fallbackDiv = document.createElement('div');
+								fallbackDiv.className = 'text-gray-500 text-xs';
+								fallbackDiv.textContent = '[Image Failed to Load.]';
+								img.parentNode?.insertBefore(fallbackDiv, img.nextSibling);
+							}}
+						/>
+						<div class="flex gap-2">
+							<button
+								class="icon-button-small"
+								use:tooltip={'Add to Workspace Files'}
+								onclick={() => addImageContentInEditor(content)}
+							>
+								<FileSymlink class="size-4" />
+							</button>
+							<button
+								class="icon-button-small"
+								use:tooltip={'Download'}
+								onclick={() => {
+									const link = document.createElement('a');
+									link.href = `data:${content.mimeType};base64,${content.data}`;
+									link.download = `image-${Date.now()}.${content.mimeType.split('/')[1]}`;
+									document.body.appendChild(link);
+									link.click();
+									document.body.removeChild(link);
+								}}
+							>
+								<Download class="size-4" />
+							</button>
+						</div>
+					</div>
 				{/if}
 			{/each}
 		{/if}
