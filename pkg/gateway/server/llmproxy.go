@@ -28,7 +28,7 @@ import (
 const tokenUsageTimePeriod = 24 * time.Hour
 
 func (s *Server) llmProxy(req api.Context) error {
-	token, err := s.tokenService.DecodeToken(strings.TrimPrefix(req.Request.Header.Get("Authorization"), "Bearer "))
+	token, err := s.tokenService.DecodeToken(req.Context(), strings.TrimPrefix(req.Request.Header.Get("Authorization"), "Bearer "))
 	if err != nil {
 		return types2.NewErrHTTP(http.StatusUnauthorized, fmt.Sprintf("invalid token: %v", err))
 	}

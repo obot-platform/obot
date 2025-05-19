@@ -23,6 +23,7 @@ import (
 	"github.com/obot-platform/nah"
 	"github.com/obot-platform/nah/pkg/apply"
 	"github.com/obot-platform/nah/pkg/leader"
+	"github.com/obot-platform/nah/pkg/randomtoken"
 	"github.com/obot-platform/nah/pkg/router"
 	"github.com/obot-platform/nah/pkg/runtime"
 	"github.com/obot-platform/obot/pkg/api/authn"
@@ -322,8 +323,12 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		config.UIHostname = "https://" + config.UIHostname
 	}
 
+	// There is a circular dependency here, so we need to create the token server and setup the gptscript client.
+	// After creating the gptscript client, then we can reveal the credential for the long-lived token signing.
+	// The token is revealed right after the GPTScript client is created and the token is set for the token server.
+	tokenServer := jwt.NewTokenService(storageClient)
 	mcpRunner := gmcp.DefaultRunner
-	mcpLoader, err := mcp.NewSessionManager(ctx, mcpRunner, mcp.Options(config.MCPConfig))
+	mcpLoader, err := mcp.NewSessionManager(ctx, storageClient, tokenServer, mcpRunner, mcp.Options(config.MCPConfig))
 	if err != nil {
 		return nil, err
 	}
@@ -332,6 +337,31 @@ func New(ctx context.Context, config Config) (*Services, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	// Look for a JWT signing secret credential. If one doesn't exist, generate a random key and store it.
+	cred, err := gptscriptClient.RevealCredential(ctx, []string{system.DefaultNamespace}, system.MCPJWTSigningCredID)
+	if errors.As(err, &gptscript.ErrNotFound{}) {
+		token, err := randomtoken.Generate()
+		if err != nil {
+			return nil, fmt.Errorf("failed to generate random token for MCP signing: %w", err)
+		}
+
+		cred = gptscript.Credential{
+			Context:  system.DefaultNamespace,
+			ToolName: system.MCPJWTSigningCredID,
+			Type:     gptscript.CredentialTypeTool,
+			Env: map[string]string{
+				"JWT_SIGNING_KEY": token,
+			},
+		}
+		if err = gptscriptClient.CreateCredential(ctx, cred); err != nil {
+			return nil, fmt.Errorf("failed to create MCP signing credential: %w", err)
+		}
+	} else if err != nil {
+		return nil, fmt.Errorf("failed to reveal MCP signing credential: %w", err)
+	}
+
+	tokenServer.SetLongLivedSigningToken(cred.Env["JWT_SIGNING_KEY"])
 
 	if strings.HasPrefix(config.DSN, "postgres://") {
 		if err := gptscriptClient.CreateCredential(ctx, gptscript.Credential{
@@ -383,7 +413,6 @@ func New(ctx context.Context, config Config) (*Services, error) {
 	}
 
 	var (
-		tokenServer   = &jwt.TokenService{}
 		gatewayClient = client.New(gatewayDB, encryptionConfig, config.AuthAdminEmails)
 		events        = events.NewEmitter(storageClient, gatewayClient)
 		invoker       = invoke.NewInvoker(

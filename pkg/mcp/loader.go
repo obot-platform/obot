@@ -19,6 +19,8 @@ import (
 	"github.com/obot-platform/nah/pkg/apply"
 	"github.com/obot-platform/nah/pkg/name"
 	"github.com/obot-platform/obot/logger"
+	"github.com/obot-platform/obot/pkg/jwt"
+	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/wait"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -39,17 +41,20 @@ type Options struct {
 	MCPClusterDomain           string   `usage:"The cluster domain to use for MCP containers" default:"cluster.local"`
 	AllowedMCPDockerImageRepos []string `usage:"The docker image repos to allow for MCP containers" split:"true"`
 	DisallowLocalhostMCP       bool     `usage:"Allow MCP containers to run on localhost"`
+	MCPObotServiceFQDN         string   `usage:"The FQDN of the Obot service to use for MCP containers" default:"localhost:8080"`
 }
 
 type SessionManager struct {
-	client                                    kclient.WithWatch
-	local                                     *gmcp.Local
-	baseImage, mcpNamespace, mcpClusterDomain string
-	allowedDockerImageRepos                   []string
-	allowLocalhostMCP                         bool
+	client, storage                   kclient.WithWatch
+	tokenService                      *jwt.TokenService
+	local                             *gmcp.Local
+	baseImage, mcpNamespace           string
+	mcpClusterDomain, obotServiceFQDN string
+	allowedDockerImageRepos           []string
+	allowLocalhostMCP                 bool
 }
 
-func NewSessionManager(ctx context.Context, defaultLoader *gmcp.Local, opts Options) (*SessionManager, error) {
+func NewSessionManager(ctx context.Context, storage kclient.WithWatch, tokenService *jwt.TokenService, defaultLoader *gmcp.Local, opts Options) (*SessionManager, error) {
 	var client kclient.WithWatch
 	if opts.MCPBaseImage != "" {
 		config, err := buildConfig()
@@ -73,9 +78,12 @@ func NewSessionManager(ctx context.Context, defaultLoader *gmcp.Local, opts Opti
 
 	return &SessionManager{
 		client:                  client,
+		storage:                 storage,
+		tokenService:            tokenService,
 		local:                   defaultLoader,
 		baseImage:               opts.MCPBaseImage,
 		mcpClusterDomain:        opts.MCPClusterDomain,
+		obotServiceFQDN:         opts.MCPObotServiceFQDN,
 		mcpNamespace:            opts.MCPNamespace,
 		allowedDockerImageRepos: opts.AllowedMCPDockerImageRepos,
 		allowLocalhostMCP:       !opts.DisallowLocalhostMCP,
@@ -168,6 +176,7 @@ func (sm *SessionManager) Load(ctx context.Context, tool types.Tool) (result []t
 					}
 				}
 			}
+
 			// Either we aren't deploying to Kubernetes, or this is a URL-based MCP server (so there is nothing to deploy to Kubernetes).
 			return sm.local.LoadTools(ctx, server.ServerConfig, tool.Name)
 		}
@@ -184,6 +193,24 @@ func (sm *SessionManager) Load(ctx context.Context, tool types.Tool) (result []t
 			args = nil
 		}
 
+		var projectThread v1.Thread
+		projectNamespace, projectName, _ := strings.Cut(server.Scope, "/")
+		if err := sm.storage.Get(ctx, kclient.ObjectKey{Namespace: projectNamespace, Name: projectName}, &projectThread); err != nil {
+			return nil, fmt.Errorf("failed to get project thread: %w", err)
+		}
+
+		token, err := sm.tokenService.NewToken(jwt.TokenContext{
+			Namespace:   projectNamespace,
+			ProjectID:   projectName,
+			AgentID:     projectThread.Spec.AgentName,
+			Scope:       projectNamespace,
+			MCPServerID: tool.Name,
+			UserID:      projectThread.Spec.UserID,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("failed to create MCP server token: %w", err)
+		}
+
 		annotations := map[string]string{
 			"mcp-server-tool-name":   tool.Name,
 			"mcp-server-config-name": key,
@@ -193,7 +220,9 @@ func (sm *SessionManager) Load(ctx context.Context, tool types.Tool) (result []t
 
 		var objs []kclient.Object
 
-		secretStringData := make(map[string]string, len(server.Env)+len(server.Headers))
+		secretStringData := make(map[string]string, len(server.Env)+len(server.Headers)+2)
+		secretStringData["GPTSCRIPT_MODEL_PROVIDER_PROXY_URL"] = fmt.Sprintf("http://%s/api/llm-proxy", sm.obotServiceFQDN)
+		secretStringData["GPTSCRIPT_MODEL_PROVIDER_PROXY_TOKEN"] = token
 		secretVolumeStringData := make(map[string]string, len(server.Files))
 		for _, file := range server.Files {
 			filename := fmt.Sprintf("%s-%s", id, hash.Digest(file))
@@ -254,6 +283,7 @@ func (sm *SessionManager) Load(ctx context.Context, tool types.Tool) (result []t
 						Labels: map[string]string{
 							"app": id,
 						},
+						Annotations: annotations,
 					},
 					Spec: corev1.PodSpec{
 						Volumes: []corev1.Volume{{
