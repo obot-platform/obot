@@ -116,7 +116,7 @@
 	preselectedMcp={preselected}
 />
 
-<PageLoading show={processing} text="Launching and testing MCP server..." />
+<PageLoading show={processing} text="Launching and connecting to MCP server..." />
 
 <McpInfoConfig
 	bind:this={mcpInfoConfig}

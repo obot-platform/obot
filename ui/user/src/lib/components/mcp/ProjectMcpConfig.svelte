@@ -258,7 +258,7 @@
 	</div>
 </div>
 
-<PageLoading show={processing} text="Launching and testing MCP server..." />
+<PageLoading show={processing} text="Launching and connecting to MCP server..." />
 
 <dialog
 	bind:this={projectMcpServerToolsDialog}
