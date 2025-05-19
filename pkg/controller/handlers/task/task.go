@@ -276,6 +276,13 @@ func (t *Handler) UpdateTaskForEmail(thread *v1.Thread, req router.Request) erro
 func (t *Handler) UpdateTaskForWebhook(thread *v1.Thread, req router.Request) error {
 	workflowName := name.SafeHashConcatName(system.WorkflowPrefix, "webhook", thread.Name)
 	webhookName := name.SafeHashConcatName(system.WebhookPrefix, workflowName)
+	alias, err := randomtoken.Generate()
+	if err != nil {
+		return err
+	}
+	if len(alias) > 12 {
+		alias = alias[:12]
+	}
 
 	workflow := v1.Workflow{
 		ObjectMeta: metav1.ObjectMeta{
@@ -285,6 +292,7 @@ func (t *Handler) UpdateTaskForWebhook(thread *v1.Thread, req router.Request) er
 		Spec: v1.WorkflowSpec{
 			ThreadName: thread.Name,
 			Manifest: types.WorkflowManifest{
+				Alias: alias,
 				Steps: []types.Step{
 					{
 						Step: "Inspect the webhook content and print the summary of the webhook",
@@ -303,18 +311,27 @@ func (t *Handler) UpdateTaskForWebhook(thread *v1.Thread, req router.Request) er
 		},
 		Spec: v1.WebhookSpec{
 			WebhookManifest: types.WebhookManifest{
-				Alias:        workflow.Spec.Manifest.Alias,
-				WorkflowName: workflow.Name,
+				Alias:        alias,
+				WorkflowName: workflowName,
 			},
 			ThreadName: thread.Name,
 		},
 	}
 
 	if thread.Spec.Capabilities.OnWebhook != nil {
-		webhook.Spec.WorkflowName = thread.Spec.Capabilities.OnWebhook.WorkflowName
 		webhook.Spec.Headers = thread.Spec.Capabilities.OnWebhook.Headers
 		webhook.Spec.Secret = thread.Spec.Capabilities.OnWebhook.Secret
 		webhook.Spec.ValidationHeader = thread.Spec.Capabilities.OnWebhook.ValidationHeader
+
+		if err := req.Get(&workflow, workflow.Namespace, workflow.Name); kclient.IgnoreNotFound(err) != nil {
+			return err
+		} else if err != nil {
+			if err := req.Client.Create(req.Ctx, &workflow); err != nil {
+				return err
+			}
+
+			thread.Status.WorkflowNameFromIntegration = workflow.Name
+		}
 
 		if err := req.Get(&webhook, webhook.Namespace, webhook.Name); kclient.IgnoreNotFound(err) != nil {
 			return err
@@ -322,25 +339,6 @@ func (t *Handler) UpdateTaskForWebhook(thread *v1.Thread, req router.Request) er
 			if err := req.Client.Create(req.Ctx, &webhook); err != nil {
 				return err
 			}
-		}
-
-		if err := req.Get(&workflow, workflow.Namespace, workflow.Name); kclient.IgnoreNotFound(err) != nil {
-			return err
-		} else if err != nil {
-			alias, err := randomtoken.Generate()
-			if err != nil {
-				return err
-			}
-			if len(alias) > 12 {
-				alias = alias[:12]
-			}
-			workflow.Spec.Manifest.Alias = alias
-
-			if err := req.Client.Create(req.Ctx, &workflow); err != nil {
-				return err
-			}
-
-			thread.Status.WorkflowNameFromIntegration = workflow.Name
 		}
 	} else {
 		if err := req.Get(&webhook, webhook.Namespace, webhook.Name); kclient.IgnoreNotFound(err) != nil {
