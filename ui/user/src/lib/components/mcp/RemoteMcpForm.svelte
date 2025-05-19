@@ -35,7 +35,7 @@
 		<input
 			class="text-input-filled flex grow"
 			bind:value={config.url}
-			onchange={() => (keepEditable = true)}
+			onkeydown={() => (keepEditable = true)}
 		/>
 	{:else}
 		<p
