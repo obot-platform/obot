@@ -4,8 +4,8 @@
         "displayName": "Zapier",
         "fullName": "Zapier MCP Server",
         "url": "https://mcp.zapier.com",
-        "description": "Connect to Zapier MCP servers",
-        "metadata": "{\"categories\": \"SaaS & API Integrations\"}",
+        "description": "Connect to Zapier MCP servers. Visit https://mcp.zapier.com to generate your unique MCP server link and paste it below.",
+        "metadata": "{\"categories\": \"SaaS & API Integrations,Verified\"}",
         "icon": "https://cdn.jsdelivr.net/npm/simple-icons@v13/icons/zapier.svg",
         "manifest": "[{\"url\": \"\", \"remote\": true}]"
     },
@@ -14,9 +14,9 @@
         "displayName": "GitMCP",
         "fullName": "GitMCP",
         "url": "https://gitmcp.io",
-        "description": "Get instant context for any GitHub repository",
-        "metadata": "{\"categories\": \"Developer Tools,SaaS & API Integrations\"}",
+        "description": "Get instant context for any GitHub repository. Visit https://gitmcp.io to generate your repo's MCP server link and paste it below.",
+        "metadata": "{\"categories\": \"Developer Tools,Verified\"}",
         "icon": "https://avatars.githubusercontent.com/u/182288589?v=4",
-        "manifest": "[{\"url\": \"https://gitmcp.io/<username>/<repository>\"}]"
+        "manifest": "[{\"url\": \"\", \"remote\": true}]"
     }
 ]
