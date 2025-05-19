@@ -29,7 +29,7 @@ func ToServerConfig(mcpServer v1.MCPServer, projectThreadName string, credEnv ma
 			Env:          make([]string, 0, len(mcpServer.Spec.Manifest.Env)),
 			URL:          mcpServer.Spec.Manifest.URL,
 			Headers:      make([]string, 0, len(mcpServer.Spec.Manifest.Headers)),
-			Scope:        projectThreadName,
+			Scope:        fmt.Sprintf("%s-%s", mcpServer.Name, projectThreadName),
 			AllowedTools: allowedTools,
 		},
 	}

@@ -187,7 +187,7 @@ func (sm *SessionManager) Load(ctx context.Context, tool types.Tool) (result []t
 		annotations := map[string]string{
 			"mcp-server-tool-name":   tool.Name,
 			"mcp-server-config-name": key,
-			"mcp-server-project":     server.Scope,
+			"mcp-server-scope":       server.Scope,
 		}
 		id := sessionID(server)
 
