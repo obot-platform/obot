@@ -2,7 +2,6 @@
 	import { getProjectMCPs } from '$lib/context/projectMcps.svelte';
 	import {
 		ChatService,
-		type MCP,
 		type Project,
 		type ProjectMCP,
 		type ProjectCredential
@@ -29,7 +28,6 @@
 	let { project, chatbot = false }: Props = $props();
 	let mcpToShow = $state<ProjectMCP>();
 	let toDelete = $state<ProjectMCP>();
-	let mcps = $state<MCP[]>([]);
 	let localCredentials = $state<ProjectCredential[]>([]);
 	let regularCredentials = $state<ProjectCredential[]>([]);
 
@@ -43,7 +41,9 @@
 	export async function refreshMcpList() {
 		if (!project?.assistantID || !project.id) return;
 
-		projectMCPs.items = await ChatService.listProjectMCPs(project.assistantID, project.id);
+		projectMCPs.items = (await ChatService.listProjectMCPs(project.assistantID, project.id)).filter(
+			(projectMcp) => !projectMcp.deleted
+		);
 		if (chatbot) {
 			await fetchCredentials();
 		}
@@ -108,10 +108,6 @@
 	}
 
 	onMount(() => {
-		ChatService.listMCPs().then((response) => {
-			mcps = response;
-		});
-
 		if (project?.assistantID && project.id && chatbot) {
 			fetchCredentials();
 		}
@@ -231,7 +227,6 @@
 					catalogSubmitText="Add to agent"
 					{selectedMcpIds}
 					{project}
-					{mcps}
 					onFinish={(newProjectMcp) => {
 						if (newProjectMcp) {
 							projectMCPs.items.push(newProjectMcp);

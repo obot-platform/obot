@@ -2,10 +2,10 @@
 	import { clickOutside } from '$lib/actions/clickoutside';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import { responsive } from '$lib/stores';
-	import { ChevronLeft, ChevronRight, X } from 'lucide-svelte';
+	import { ChevronLeft, ChevronRight, LoaderCircle, X } from 'lucide-svelte';
 	import McpCard from '$lib/components/mcp/McpCard.svelte';
 	import Search from '$lib/components/Search.svelte';
-	import { type MCP, type MCPManifest, type Project } from '$lib/services';
+	import { ChatService, type MCP, type MCPManifest, type Project } from '$lib/services';
 	import { twMerge } from 'tailwind-merge';
 	import McpInfoConfig from '$lib/components/mcp/McpInfoConfig.svelte';
 	import type { MCPServerInfo } from '$lib/services/chat/mcp';
@@ -19,7 +19,6 @@
 
 	interface Props {
 		inline?: boolean;
-		mcps: MCP[];
 		onSetupMcp?: (mcpId: string, serverInfo: MCPServerInfo) => void;
 		submitText?: string;
 		selectedMcpIds?: string[];
@@ -42,7 +41,6 @@
 
 	let {
 		inline = false,
-		mcps: refMcps,
 		onSetupMcp,
 		submitText,
 		selectedMcpIds,
@@ -55,6 +53,9 @@
 	let selectedMcpManifest = $state<MCPManifest>();
 	let searchInput = $state<ReturnType<typeof Search>>();
 	let selectManifestDialog = $state<HTMLDialogElement>();
+
+	let mcps = $state<MCP[]>([]);
+	let loadingMcps = $state(true);
 
 	const toolBundleMap = getToolBundleMap();
 
@@ -99,7 +100,7 @@
 	);
 
 	let transformedMcps: TransformedMcp[] = $derived(
-		refMcps
+		mcps
 			.flatMap((mcp) => {
 				const results: TransformedMcp[] = [];
 				results.push(transformMcp(mcp));
@@ -203,6 +204,12 @@
 	export function open() {
 		searchInput?.clear();
 		dialog?.showModal();
+
+		loadingMcps = true;
+		ChatService.listMCPs().then((results) => {
+			mcps = results;
+			loadingMcps = false;
+		});
 	}
 
 	function nextPage() {
@@ -314,11 +321,17 @@
 					{/if}
 				</p>
 			</div>
-			<div class="grid grid-cols-1 gap-4 px-4 pt-2 md:grid-cols-2 xl:grid-cols-3">
-				{#each paginatedMcps as mcp (mcp.id)}
-					{@render mcpCard(mcp)}
-				{/each}
-			</div>
+			{#if loadingMcps}
+				<div class="flex items-center justify-center px-4 pt-2">
+					<LoaderCircle class="size-6 animate-spin" />
+				</div>
+			{:else}
+				<div class="grid grid-cols-1 gap-4 px-4 pt-2 md:grid-cols-2 xl:grid-cols-3">
+					{#each paginatedMcps as mcp (mcp.id)}
+						{@render mcpCard(mcp)}
+					{/each}
+				</div>
+			{/if}
 			{#if !search && totalPages > 1}
 				<div class="mt-8 flex grow items-center justify-center gap-2">
 					<button

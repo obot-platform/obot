@@ -310,6 +310,7 @@ export interface ProjectMCP extends MCPServer {
 	id: string;
 	catalogID?: string;
 	configured?: boolean;
+	deleted?: boolean;
 }
 
 export interface Credential {

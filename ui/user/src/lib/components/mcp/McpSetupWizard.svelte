@@ -2,7 +2,6 @@
 	import {
 		ChatService,
 		EditorService,
-		type MCP,
 		type MCPServerTool,
 		type Project,
 		type ProjectMCP
@@ -18,7 +17,6 @@
 	import PageLoading from '$lib/components/PageLoading.svelte';
 
 	interface Props {
-		mcps: MCP[];
 		catalogDescription?: string;
 		catalogSubmitText?: string;
 		inline?: boolean;
@@ -29,7 +27,6 @@
 	}
 
 	let {
-		mcps,
 		catalogDescription,
 		catalogSubmitText,
 		inline,
@@ -110,7 +107,6 @@
 	bind:this={mcpCatalog}
 	bind:project
 	{inline}
-	{mcps}
 	subtitle={catalogDescription}
 	onSetupMcp={(mcpId, mcpServerInfo) => {
 		setup(mcpServerInfo, mcpId);

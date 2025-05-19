@@ -3,11 +3,7 @@
 	import type { PageProps } from './$types';
 	import { q, qIsSet } from '$lib/url';
 	import { ChevronLeft } from 'lucide-svelte';
-	import {
-		sortByCreatedDate,
-		sortTemplatesByFeaturedNameOrder,
-		sortByPreferredMcpOrder
-	} from '$lib/sort';
+	import { sortByCreatedDate, sortTemplatesByFeaturedNameOrder } from '$lib/sort';
 	import Navbar from '$lib/components/Navbar.svelte';
 	import AgentCatalog from '$lib/components/agents/AgentCatalog.svelte';
 	import McpSetupWizard from '$lib/components/mcp/McpSetupWizard.svelte';
@@ -16,7 +12,6 @@
 	let { data }: PageProps = $props();
 
 	initToolReferences(data.tools);
-	const mcps = $derived(data.mcps.sort(sortByPreferredMcpOrder));
 	const templates = $derived(
 		data.templates?.sort(sortByCreatedDate).sort(sortTemplatesByFeaturedNameOrder)
 	);
@@ -30,7 +25,7 @@
 	{#if type === 'agents'}
 		<main class="colors-background relative flex w-full flex-col items-center justify-center py-12">
 			<div class="flex w-full max-w-(--breakpoint-2xl) flex-col items-center justify-center">
-				<AgentCatalog inline {templates} {mcps} {preselected} />
+				<AgentCatalog inline {templates} {preselected} />
 			</div>
 		</main>
 	{:else}
@@ -63,7 +58,6 @@
 			</div>
 
 			<McpSetupWizard
-				{mcps}
 				inline
 				catalogDescription="Extend your agent's capabilities by adding multiple MCP servers from our evergrowing catalog."
 				{preselected}

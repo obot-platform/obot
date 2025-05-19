@@ -274,11 +274,10 @@
 	oncancel={() => (toDelete = undefined)}
 />
 
-<AgentCatalog bind:this={agentCatalog} templates={data.templates} mcps={data.mcps} />
+<AgentCatalog bind:this={agentCatalog} templates={data.templates} />
 
 <McpSetupWizard
 	bind:this={mcpSetupWizard}
-	mcps={data.mcps}
 	catalogDescription="Extend your agent's capabilities by adding multiple MCP servers from our evergrowing catalog."
 	catalogSubmitText="Create agent with server"
 />

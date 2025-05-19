@@ -7,14 +7,11 @@ export const load: PageLoad = async ({ fetch }) => {
 		const templates = (await ChatService.listTemplates({ fetch })).items;
 		const shares = (await ChatService.listProjectShares({ fetch })).items;
 		const tools = (await ChatService.listAllTools({ fetch })).items;
-		const mcps = await ChatService.listMCPs({ fetch });
 
 		return {
 			projects,
 			templates,
-			// templates: [],
 			shares,
-			mcps,
 			tools
 		};
 	} catch {
@@ -22,7 +19,6 @@ export const load: PageLoad = async ({ fetch }) => {
 			projects: [],
 			templates: [],
 			shares: [],
-			mcps: [],
 			tools: []
 		};
 	}

@@ -47,8 +47,8 @@ import {
 
 export type Fetcher = typeof fetch;
 
-export async function getProfile(): Promise<Profile> {
-	const obj = (await doGet('/me')) as Profile;
+export async function getProfile(opts?: { fetch?: Fetcher }): Promise<Profile> {
+	const obj = (await doGet('/me', opts)) as Profile;
 	obj.isAdmin = () => {
 		return obj.role === 1;
 	};

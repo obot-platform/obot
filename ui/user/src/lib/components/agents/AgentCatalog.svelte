@@ -1,9 +1,9 @@
 <script lang="ts">
-	import { type ProjectTemplate, type MCP } from '$lib/services';
+	import { type ProjectTemplate, type MCP, ChatService } from '$lib/services';
 	import AgentCard from '$lib/components/agents/AgentCard.svelte';
 	import AgentCopy from '$lib/components/agents/AgentCopy.svelte';
 	import { sortTemplatesByFeaturedNameOrder } from '$lib/sort';
-	import { X, ChevronLeft, ChevronRight } from 'lucide-svelte';
+	import { X, ChevronLeft, ChevronRight, LoaderCircle } from 'lucide-svelte';
 	import { clickOutside } from '$lib/actions/clickoutside';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import { responsive } from '$lib/stores';
@@ -12,14 +12,16 @@
 
 	interface Props {
 		templates: ProjectTemplate[];
-		mcps: MCP[];
 		preselected?: string;
 		inline?: boolean;
 	}
 
-	let { templates, mcps: referencedMcps, preselected, inline }: Props = $props();
+	let { templates, preselected, inline }: Props = $props();
 	let dialog: HTMLDialogElement | undefined = $state();
 	let agentCopy: ReturnType<typeof AgentCopy> | undefined = $state();
+
+	let mcps = $state<MCP[]>([]);
+	let loadingMcps = $state(true);
 
 	const ITEMS_PER_PAGE = 36;
 	let currentPage = $state(1);
@@ -61,6 +63,12 @@
 
 	export function open() {
 		dialog?.showModal();
+
+		loadingMcps = true;
+		ChatService.listMCPs().then((results) => {
+			mcps = results;
+			loadingMcps = false;
+		});
 	}
 
 	function nextPage() {
@@ -79,14 +87,15 @@
 		const preselectedTemplate = preselected && templates.find((t) => t.id === preselected);
 		if (preselectedTemplate) {
 			const templateMcps =
-				(preselectedTemplate?.mcpServers?.map((id) => mcps.get(id)).filter(Boolean) as MCP[]) || [];
+				(preselectedTemplate?.mcpServers?.map((id) => mcpsMap.get(id)).filter(Boolean) as MCP[]) ||
+				[];
 
 			dialog?.showModal();
 			agentCopy?.open(preselectedTemplate, templateMcps);
 		}
 	});
 
-	let mcps = $derived(new Map(referencedMcps.map((m) => [m.id, m])));
+	let mcpsMap = $derived(new Map(mcps.map((m) => [m.id, m])));
 </script>
 
 {#if inline}
@@ -166,17 +175,23 @@
 					{search ? 'Search Results' : `Browse ${selectedCategory}`}
 				</h4>
 			</div>
-			<div class="grid grid-cols-1 gap-4 px-4 pt-2 md:grid-cols-2 xl:grid-cols-3">
-				{#if search}
-					{#each searchResults as template (template.id)}
-						{@render agentCard(template)}
-					{/each}
-				{:else}
-					{#each paginatedTemplates as template (template.id)}
-						{@render agentCard(template)}
-					{/each}
-				{/if}
-			</div>
+			{#if loadingMcps}
+				<div class="flex items-center justify-center px-4 pt-2">
+					<LoaderCircle class="size-6 animate-spin" />
+				</div>
+			{:else}
+				<div class="grid grid-cols-1 gap-4 px-4 pt-2 md:grid-cols-2 xl:grid-cols-3">
+					{#if search}
+						{#each searchResults as template (template.id)}
+							{@render agentCard(template)}
+						{/each}
+					{:else}
+						{#each paginatedTemplates as template (template.id)}
+							{@render agentCard(template)}
+						{/each}
+					{/if}
+				</div>
+			{/if}
 			{#if !search && totalPages > 1}
 				<div class="mt-8 flex grow items-center justify-center gap-2">
 					<button
@@ -206,7 +221,7 @@
 
 {#snippet agentCard(template: ProjectTemplate)}
 	{@const templateMcps =
-		(template.mcpServers?.map((id) => mcps.get(id)).filter(Boolean) as MCP[]) || []}
+		(template.mcpServers?.map((id) => mcpsMap.get(id)).filter(Boolean) as MCP[]) || []}
 
 	<AgentCard
 		{template}

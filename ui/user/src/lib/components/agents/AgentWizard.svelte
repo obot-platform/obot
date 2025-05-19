@@ -326,7 +326,7 @@
 							class="h-inherit default-scrollbar-thin flex w-full grow flex-col overflow-y-auto pr-4"
 						>
 							<!-- todo: update when agent wizard gets used-->
-							<McpCatalog inline {mcps} selectedMcpIds={createAgent?.mcps} />
+							<McpCatalog inline selectedMcpIds={createAgent?.mcps} />
 						</div>
 					</div>
 				{/if}
