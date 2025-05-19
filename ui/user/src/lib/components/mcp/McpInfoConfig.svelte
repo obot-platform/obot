@@ -10,7 +10,7 @@
 		type ProjectMCP,
 		EditorService
 	} from '$lib/services';
-	import { darkMode, responsive } from '$lib/stores';
+	import { responsive } from '$lib/stores';
 	import {
 		ChevronRight,
 		ChevronsRight,
