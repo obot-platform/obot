@@ -494,7 +494,7 @@
 	<a
 		href={msg.oauthURL}
 		class={twMerge(
-			'bg-blue rounded-xl p-4 text-center text-white transition-colors duration-300 hover:bg-blue-400',
+			'bg-blue rounded-xl p-4 text-center text-white transition-colors duration-300 hover:bg-blue-400 hover:text-white',
 			classes?.oauth
 		)}
 		target="_blank"
@@ -528,7 +528,7 @@
 						<div class="inline-flex flex-col gap-2">
 							{#each msg.fields[0].options as option}
 								<button
-									class="button whitespace-nowrap"
+									class="button-primary"
 									onclick={() => (promptCredentials[msg.fields![0].name] = option)}
 								>
 									{option}
@@ -536,7 +536,7 @@
 							{/each}
 							{#if onSendCredentialsCancel}
 								<button
-									class="button-secondary whitespace-nowrap"
+									class="button-secondary hover:bg-surface3 border-transparent"
 									type="button"
 									onclick={() => onSendCredentialsCancel(msg.promptId ?? '')}
 								>
