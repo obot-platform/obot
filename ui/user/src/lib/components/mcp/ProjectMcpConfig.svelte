@@ -43,9 +43,7 @@
 			return false;
 		}
 		// If neither command nor URL is present, fall back to checking other properties
-		return (
-			(projectMcp.args?.length ?? 0) > 0
-		);
+		return (projectMcp.args?.length ?? 0) > 0;
 	}
 
 	const initConfig: MCPServerInfo = projectMcp

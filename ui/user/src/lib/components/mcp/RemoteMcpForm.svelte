@@ -47,6 +47,16 @@
 	{/if}
 </div>
 
+{#if custom || chatbot || (config.env ?? []).some((env) => env.required)}
+	<div class="flex flex-col gap-1">
+		<h4 class="text-base font-semibold">Environment Variables</h4>
+		{@render showConfigEnvVars('all')}
+		{#if (custom || showAdvancedOptions) && !chatbot}
+			{@render addEnvVarButton()}
+		{/if}
+	</div>
+{/if}
+
 {#if custom || chatbot}
 	<div class="flex flex-col gap-1">
 		<h4 class="text-base font-semibold">Headers Configuration</h4>
@@ -105,6 +115,85 @@
 				<Plus class="size-4" /> Header
 			</button>
 		</div>
+	{/if}
+{/snippet}
+
+{#snippet addEnvVarButton()}
+	<div class="flex justify-end">
+		<button
+			class="button flex items-center gap-1 text-xs"
+			onclick={() =>
+				config.env?.push({
+					name: '',
+					key: '',
+					description: '',
+					sensitive: false,
+					required: false,
+					file: false,
+					value: '',
+					custom: crypto.randomUUID()
+				})}
+		>
+			<Plus class="size-4" /> Environment Variable
+		</button>
+	</div>
+{/snippet}
+
+{#snippet showConfigEnvVars(type: 'all' | 'default' | 'custom')}
+	{@const envsToShow =
+		type === 'all'
+			? (config.env ?? [])
+			: type === 'default'
+				? (config.env?.filter((env) => !env.custom && env.required) ?? [])
+				: (config.env?.filter((env) => env.custom || (!custom && showAdvancedOptions)) ?? [])}
+	{#if envsToShow.length > 0}
+		{#each envsToShow as env, i}
+			<div class="flex w-full items-center gap-2">
+				<div class="flex grow flex-col gap-1">
+					{#if !chatbot}
+						<input
+							class="ghost-input w-full py-0 pl-1"
+							bind:value={env.key}
+							placeholder="Key (ex. API_KEY)"
+							use:focusOnAdd={i === envsToShow.length - 1}
+						/>
+					{:else}
+						<div class="ghost-input w-full py-0 pl-1">{env.name || env.key}</div>
+					{/if}
+					{#if env.sensitive}
+						<SensitiveInput name={env.name} bind:value={env.value} />
+					{:else}
+						<input
+							data-1p-ignore
+							id={env.name}
+							name={env.name}
+							class="text-input-filled w-full"
+							bind:value={env.value}
+							type="text"
+						/>
+					{/if}
+					<div class="min-h-4 text-xs text-red-500">
+						{#if showSubmitError && !env.value && env.required}
+							This field is required.
+						{/if}
+					</div>
+				</div>
+				{#if (!env.required || custom) && !chatbot}
+					<button
+						class="icon-button"
+						onclick={() => {
+							const matchingIndex = config.env?.findIndex((e) =>
+								e.key ? e.key === env.key : e.custom === env.custom
+							);
+							if (typeof matchingIndex !== 'number') return;
+							config.env?.splice(matchingIndex, 1);
+						}}
+					>
+						<Trash2 class="size-4" />
+					</button>
+				{/if}
+			</div>
+		{/each}
 	{/if}
 {/snippet}
 
