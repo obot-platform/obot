@@ -20,6 +20,8 @@
 		showAdvancedOptions = $bindable(false)
 	}: Props = $props();
 
+	let keepEditable = $state(false);
+
 	function focusOnAdd(node: HTMLInputElement, shouldFocus: boolean) {
 		if (shouldFocus) {
 			node.focus();
@@ -29,8 +31,12 @@
 
 <div class="flex items-center gap-4">
 	<h4 class="w-24 text-base font-semibold">URL</h4>
-	{#if showAdvancedOptions || custom || !config.url}
-		<input class="text-input-filled flex grow" bind:value={config.url} />
+	{#if showAdvancedOptions || custom || !config.url || keepEditable}
+		<input
+			class="text-input-filled flex grow"
+			bind:value={config.url}
+			onchange={() => (keepEditable = true)}
+		/>
 	{:else}
 		<p
 			class="line-clamp-1 -translate-x-2 break-all"
