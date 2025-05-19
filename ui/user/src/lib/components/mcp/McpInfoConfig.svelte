@@ -5,10 +5,10 @@
 	import {
 		ChatService,
 		type ProjectCredential,
-		type MCPManifest,
 		type Project,
 		type ProjectMCP,
-		EditorService
+		EditorService,
+		type MCPServer
 	} from '$lib/services';
 	import { responsive } from '$lib/stores';
 	import {
@@ -22,7 +22,7 @@
 		X
 	} from 'lucide-svelte';
 	import {
-		initConfigFromManifest,
+		initMCPConfig,
 		isValidMcpConfig,
 		type MCPServerInfo,
 		isAuthRequiredBundle
@@ -34,7 +34,7 @@
 	import { DEFAULT_CUSTOM_SERVER_NAME } from '$lib/constants';
 
 	interface Props {
-		manifest?: MCPManifest | ProjectMCP;
+		manifest?: MCPServer | ProjectMCP;
 		prefilledConfig?: MCPServerInfo;
 		disableOutsideClick?: boolean;
 		hideCloseButton?: boolean;
@@ -47,6 +47,10 @@
 		project?: Project;
 		legacyAuthText?: string;
 		manifestType?: 'command' | 'url';
+		info?: {
+			githubStars?: number;
+			githubUrl?: string;
+		};
 	}
 	let {
 		manifest,
@@ -61,12 +65,13 @@
 		legacyBundleId,
 		legacyAuthText,
 		project = $bindable(),
-		manifestType
+		manifestType,
+		info
 	}: Props = $props();
 	let configDialog = $state<HTMLDialogElement>();
 	let authDialog = $state<HTMLDialogElement>();
 
-	let config = $state<MCPServerInfo>(prefilledConfig ?? initConfigFromManifest(manifest));
+	let config = $state<MCPServerInfo>(prefilledConfig ?? initMCPConfig(manifest));
 	let showSubmitError = $state(false);
 	let showAdvancedOptions = $state(false);
 	let loadingCredential = $state<Promise<ProjectCredential | undefined>>();
@@ -77,7 +82,7 @@
 
 	function reset() {
 		showSubmitError = false;
-		config = prefilledConfig ?? initConfigFromManifest(manifest);
+		config = prefilledConfig ?? initMCPConfig(manifest);
 	}
 
 	export function close() {
@@ -230,14 +235,12 @@
 		</button>
 	{/if}
 	{#if manifest}
-		{@const icon = 'server' in manifest ? manifest.server.icon : manifest.icon}
-		{@const name =
-			('server' in manifest ? manifest.server.name : manifest.name) || DEFAULT_CUSTOM_SERVER_NAME}
+		{@const name = manifest.name || DEFAULT_CUSTOM_SERVER_NAME}
 		<div class="flex flex-col gap-4 p-4 md:p-6">
 			<div class="flex max-w-sm items-center gap-2">
 				<div class="h-fit flex-shrink-0 self-start rounded-md bg-gray-50 p-1 dark:bg-gray-600">
-					{#if icon}
-						<img src={icon} alt={name} class="size-6" />
+					{#if manifest.icon}
+						<img src={manifest.icon} alt={name} class="size-6" />
 					{:else}
 						<Server class="size-6" />
 					{/if}
@@ -245,9 +248,9 @@
 				<div class="flex flex-col gap-1">
 					<h3 class="text-lg leading-5.5 font-semibold">
 						{name}
-						{#if manifest.url}
+						{#if info?.githubUrl}
 							<a
-								href={manifest.url}
+								href={info.githubUrl}
 								target="_blank"
 								rel="noopener noreferrer"
 								class="ml-1 inline-block align-middle"
@@ -257,16 +260,16 @@
 						{/if}
 					</h3>
 
-					{#if 'githubStars' in manifest}
+					{#if info?.githubStars}
 						<span class="text-md flex h-fit w-fit items-center gap-1 font-light text-gray-500">
 							<Star class="size-4" />
-							{formatNumber(manifest.githubStars)}
+							{formatNumber(info.githubStars)}
 						</span>
 					{/if}
 				</div>
 			</div>
 			<p class="text-sm font-light text-gray-500">
-				{'server' in manifest ? manifest.server.description : manifest.description}
+				{manifest.description}
 			</p>
 			{#if children}
 				{@render children()}

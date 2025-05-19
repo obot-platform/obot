@@ -17,7 +17,7 @@
 		isValidMcpConfig,
 		type MCPServerInfo,
 		isAuthRequiredBundle,
-		initConfigFromManifest
+		initMCPConfig
 	} from '$lib/services/chat/mcp';
 	import CredentialAuth from '$lib/components/edit/CredentialAuth.svelte';
 	import { getToolBundleMap } from '$lib/context/toolReferences.svelte';
@@ -194,7 +194,7 @@
 		if (isAuthTool) {
 			handleToolAuth(server, bundleId);
 		} else {
-			mcpConfig = initConfigFromManifest(server);
+			mcpConfig = initMCPConfig(server);
 			showConfigDialog = true;
 		}
 	}

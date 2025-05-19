@@ -5,7 +5,7 @@
 	import { ChevronLeft, ChevronRight, LoaderCircle, X } from 'lucide-svelte';
 	import McpCard from '$lib/components/mcp/McpCard.svelte';
 	import Search from '$lib/components/Search.svelte';
-	import { ChatService, type MCP, type MCPManifest, type Project } from '$lib/services';
+	import { ChatService, type MCP, type MCPInfo, type MCPServer, type Project } from '$lib/services';
 	import { twMerge } from 'tailwind-merge';
 	import McpInfoConfig from '$lib/components/mcp/McpInfoConfig.svelte';
 	import type { MCPServerInfo } from '$lib/services/chat/mcp';
@@ -19,7 +19,7 @@
 
 	interface Props {
 		inline?: boolean;
-		onSetupMcp?: (mcpId: string, serverInfo: MCPServerInfo) => void;
+		onSetupMcp?: (mcp: TransformedMcp, serverInfo: MCPServerInfo) => void;
 		submitText?: string;
 		selectedMcpIds?: string[];
 		subtitle?: string;
@@ -34,9 +34,10 @@
 		catalogId: string;
 		categories: string[];
 		githubStars: number;
+		githubUrl?: string;
 		name: string;
-		commandManifest?: MCPManifest;
-		urlManifest?: MCPManifest;
+		commandManifest?: MCPInfo;
+		urlManifest?: MCPInfo;
 	};
 
 	let {
@@ -50,7 +51,7 @@
 	}: Props = $props();
 	let dialog: HTMLDialogElement | undefined = $state();
 	let configDialog = $state<ReturnType<typeof McpInfoConfig>>();
-	let selectedMcpManifest = $state<MCPManifest>();
+	let selectedMcpManifest = $state<MCPServer>();
 	let searchInput = $state<ReturnType<typeof Search>>();
 	let selectManifestDialog = $state<HTMLDialogElement>();
 
@@ -68,6 +69,7 @@
 			Number(commandManifest?.githubStars) || 0,
 			Number(urlManifest?.githubStars) || 0
 		);
+		const githubUrl = commandManifest?.url ?? urlManifest?.url;
 		const categories = Array.from(
 			new Set([
 				...(commandManifest?.metadata?.categories?.split(',').map((cat) => cat.trim()) || []),
@@ -86,6 +88,7 @@
 			catalogId: mcp.id,
 			categories,
 			githubStars,
+			githubUrl,
 			name,
 			commandManifest,
 			urlManifest
@@ -188,9 +191,9 @@
 		if (preselectedManifest) {
 			selectedMcp = preselectedManifest;
 			if (preselectedManifest.commandManifest && !preselectedManifest.urlManifest) {
-				selectedMcpManifest = preselectedManifest.commandManifest;
+				selectedMcpManifest = preselectedManifest.commandManifest.server;
 			} else if (preselectedManifest.urlManifest && !preselectedManifest.commandManifest) {
-				selectedMcpManifest = preselectedManifest.urlManifest;
+				selectedMcpManifest = preselectedManifest.urlManifest.server;
 			}
 
 			if (selectedMcpManifest) {
@@ -227,7 +230,9 @@
 	function selectManifest(manifestType: 'command' | 'url') {
 		if (!selectedMcp) return;
 		selectedMcpManifest =
-			manifestType === 'command' ? selectedMcp?.commandManifest : selectedMcp?.urlManifest;
+			manifestType === 'command'
+				? selectedMcp?.commandManifest?.server
+				: selectedMcp?.urlManifest?.server;
 		selectManifestDialog?.close();
 		configDialog?.open();
 	}
@@ -368,7 +373,7 @@
 			if (mcp.commandManifest && mcp.urlManifest) {
 				selectManifestDialog?.showModal();
 			} else {
-				selectedMcpManifest = mcp.commandManifest || mcp.urlManifest;
+				selectedMcpManifest = mcp.commandManifest?.server || mcp.urlManifest?.server;
 				configDialog?.open();
 			}
 		}}
@@ -381,14 +386,15 @@
 	bind:this={configDialog}
 	bind:project
 	manifest={selectedMcpManifest}
-	manifestType={selectedMcpManifest?.server.command ? 'command' : 'url'}
+	manifestType={selectedMcpManifest?.command ? 'command' : 'url'}
 	{legacyBundleId}
 	onUpdate={(mcpServerInfo) => {
-		if (selectedMcp && selectedMcpManifest) {
-			onSetupMcp?.(selectedMcp.catalogId, mcpServerInfo);
+		if (selectedMcp) {
+			onSetupMcp?.(selectedMcp, mcpServerInfo);
 			dialog?.close();
 		}
 	}}
+	info={selectedMcp}
 	{submitText}
 />
 
@@ -427,7 +433,7 @@
 					>Connect to External Server</button
 				>
 				<span class="text-xs font-light text-gray-500">
-					{#if selectedMcp.urlManifest.server.url}
+					{#if selectedMcp.urlManifest.url}
 						Use the preconfigured external server: <b
 							class="font-semibold text-black dark:text-white">{hostname}</b
 						>

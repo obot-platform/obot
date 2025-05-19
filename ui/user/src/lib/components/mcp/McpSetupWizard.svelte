@@ -7,7 +7,7 @@
 		type ProjectMCP
 	} from '$lib/services';
 	import { createProjectMcp, type MCPServerInfo, updateProjectMcp } from '$lib/services/chat/mcp';
-	import McpCatalog from './McpCatalog.svelte';
+	import McpCatalog, { type TransformedMcp } from '$lib/components/mcp/McpCatalog.svelte';
 	import McpInfoConfig from '$lib/components/mcp/McpInfoConfig.svelte';
 	import { goto } from '$app/navigation';
 	import McpServerTools from './McpServerTools.svelte';
@@ -36,6 +36,7 @@
 		preselected
 	}: Props = $props();
 	let project = $state(refProject);
+	let selectedMcp = $state<TransformedMcp>();
 	let projectMcp = $state<ProjectMCP>();
 	let projectMcpServerInfo = $state<MCPServerInfo>();
 	let projectMcpServerTools = $state<MCPServerTool[]>([]);
@@ -108,8 +109,9 @@
 	bind:project
 	{inline}
 	subtitle={catalogDescription}
-	onSetupMcp={(mcpId, mcpServerInfo) => {
-		setup(mcpServerInfo, mcpId);
+	onSetupMcp={(mcp, mcpServerInfo) => {
+		selectedMcp = mcp;
+		setup(mcpServerInfo, mcp.catalogId);
 	}}
 	{selectedMcpIds}
 	submitText={catalogSubmitText}
@@ -131,6 +133,7 @@
 		setup(mcpServerInfo);
 	}}
 	submitText="Retry"
+	info={selectedMcp}
 >
 	{#snippet leftActionContent()}
 		<button

@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { DEFAULT_PROJECT_NAME } from '$lib/constants';
 	import AssistantIcon from '$lib/icons/AssistantIcon.svelte';
-	import type { ProjectTemplate, MCP, MCPManifest } from '$lib/services';
+	import type { ProjectTemplate, MCP, MCPInfo } from '$lib/services';
 	import { twMerge } from 'tailwind-merge';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import { Star } from 'lucide-svelte';
@@ -66,7 +66,7 @@
 	</button>
 </div>
 
-{#snippet mcpPill(mcp: MCPManifest)}
+{#snippet mcpPill(mcp: MCPInfo)}
 	<div class="h-fit w-fit flex-shrink-0 rounded-md bg-gray-50 p-1 dark:bg-gray-600">
 		<img
 			use:tooltip={mcp.server.name}

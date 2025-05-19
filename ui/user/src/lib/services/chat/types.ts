@@ -266,8 +266,8 @@ export interface MCPSubField {
 export interface MCP {
 	id: string;
 	created: string;
-	commandManifest?: MCPManifest;
-	urlManifest?: MCPManifest;
+	commandManifest?: MCPInfo;
+	urlManifest?: MCPInfo;
 }
 
 export interface MCPList {
@@ -295,7 +295,7 @@ export interface MCPServerTool {
 	enabled?: boolean;
 }
 
-export interface MCPManifest {
+export interface MCPInfo {
 	server: MCPServer;
 	githubStars: number;
 	metadata: Record<string, string>;

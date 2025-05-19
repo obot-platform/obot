@@ -1,4 +1,11 @@
-import { ChatService, type MCPManifest, type MCPSubField, type Project, type ProjectMCP } from '..';
+import {
+	ChatService,
+	type MCPInfo,
+	type MCPServer,
+	type MCPSubField,
+	type Project,
+	type ProjectMCP
+} from '..';
 
 export interface MCPServerInfo extends Omit<ProjectMCP, 'id'> {
 	id?: string;
@@ -75,7 +82,7 @@ export function isValidMcpConfig(mcpConfig: MCPServerInfo) {
 	);
 }
 
-export function initConfigFromManifest(manifest?: MCPManifest | ProjectMCP): MCPServerInfo {
+export function initMCPConfig(manifest?: MCPInfo | ProjectMCP | MCPServer): MCPServerInfo {
 	if (manifest && 'server' in manifest) {
 		return {
 			...manifest.server,
