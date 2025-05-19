@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { twMerge } from 'tailwind-merge';
-	import { CircleCheckBig, Star } from 'lucide-svelte';
+	import { CircleCheckBig, Server, Star } from 'lucide-svelte';
 	import { formatNumber } from '$lib/format';
 	import type { TransformedMcp } from './McpCatalog.svelte';
 	interface Props {
@@ -33,7 +33,11 @@
 			<div class="flex h-fit w-full flex-col gap-2 p-3 md:h-auto md:grow">
 				<div class="flex w-full items-center gap-2">
 					<div class="flex-shrink-0 rounded-md bg-gray-50 p-1 dark:bg-gray-600">
-						<img alt="obot logo" src={data.icon} class="size-6" />
+						{#if data.icon}
+							<img alt="obot logo" src={data.icon} class="size-6" />
+						{:else}
+							<Server class="size-4" />
+						{/if}
 					</div>
 					<div class="flex flex-col text-left">
 						<h4 class="line-clamp-1 text-sm font-semibold">
