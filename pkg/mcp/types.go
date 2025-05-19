@@ -2,6 +2,7 @@ package mcp
 
 import (
 	"fmt"
+	"regexp"
 
 	gmcp "github.com/gptscript-ai/gptscript/pkg/mcp"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
@@ -21,13 +22,39 @@ type File struct {
 	EnvKey string `json:"envKey"`
 }
 
+var envVarRegex = regexp.MustCompile(`\${([^}]+)}`)
+
+// expandEnvVars replaces ${VAR} patterns with values from credEnv
+func expandEnvVars(text string, credEnv map[string]string) string {
+	if credEnv == nil {
+		return text
+	}
+
+	return envVarRegex.ReplaceAllStringFunc(text, func(match string) string {
+		varName := match[2 : len(match)-1] // Remove ${ and }
+		if val, ok := credEnv[varName]; ok {
+			return val
+		}
+		return match // Return original if not found
+	})
+}
+
 func ToServerConfig(mcpServer v1.MCPServer, projectThreadName string, credEnv map[string]string, allowedTools []string) (ServerConfig, []string) {
+	// Expand environment variables in command, args, and URL
+	command := expandEnvVars(mcpServer.Spec.Manifest.Command, credEnv)
+	url := expandEnvVars(mcpServer.Spec.Manifest.URL, credEnv)
+
+	args := make([]string, len(mcpServer.Spec.Manifest.Args))
+	for i, arg := range mcpServer.Spec.Manifest.Args {
+		args[i] = expandEnvVars(arg, credEnv)
+	}
+
 	serverConfig := ServerConfig{
 		ServerConfig: gmcp.ServerConfig{
-			Command:      mcpServer.Spec.Manifest.Command,
-			Args:         mcpServer.Spec.Manifest.Args,
+			Command:      command,
+			Args:         args,
 			Env:          make([]string, 0, len(mcpServer.Spec.Manifest.Env)),
-			URL:          mcpServer.Spec.Manifest.URL,
+			URL:          url,
 			Headers:      make([]string, 0, len(mcpServer.Spec.Manifest.Headers)),
 			Scope:        fmt.Sprintf("%s-%s", mcpServer.Name, projectThreadName),
 			AllowedTools: allowedTools,

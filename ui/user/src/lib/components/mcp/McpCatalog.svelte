@@ -386,7 +386,11 @@
 	bind:this={configDialog}
 	bind:project
 	manifest={selectedMcpManifest}
-	manifestType={selectedMcpManifest?.command ? 'command' : 'url'}
+	manifestType={
+		!selectedMcpManifest?.command || selectedMcpManifest?.command === ''
+			? 'url'
+			: 'command'
+	}
 	{legacyBundleId}
 	onUpdate={(mcpServerInfo) => {
 		if (selectedMcp) {
