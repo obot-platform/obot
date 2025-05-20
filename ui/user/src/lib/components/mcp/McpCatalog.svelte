@@ -185,7 +185,7 @@
 		)
 	);
 
-	onMount(() => {
+	function showPreselectedMcp() {
 		const preselectedManifest =
 			preselectedMcp && transformedMcps.find((mcp) => mcp.catalogId === preselectedMcp);
 		if (preselectedManifest) {
@@ -202,17 +202,31 @@
 				selectManifestDialog?.showModal();
 			}
 		}
+	}
+
+	function fetchMcps() {
+		loadingMcps = true;
+		ChatService.listMCPs().then((results) => {
+			mcps = results;
+			loadingMcps = false;
+
+			if (preselectedMcp) {
+				showPreselectedMcp();
+			}
+		});
+	}
+
+	onMount(() => {
+		if (inline) {
+			fetchMcps();
+		}
 	});
 
 	export function open() {
 		searchInput?.clear();
 		dialog?.showModal();
 
-		loadingMcps = true;
-		ChatService.listMCPs().then((results) => {
-			mcps = results;
-			loadingMcps = false;
-		});
+		fetchMcps();
 	}
 
 	function nextPage() {
