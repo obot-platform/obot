@@ -157,7 +157,7 @@
 			>
 				<div class="well my-8 flex w-full flex-col gap-4 md:max-w-(--breakpoint-2xl)">
 					<div class="relative flex h-auto w-full flex-col md:flex-row">
-						<div class="relative z-10 flex grow flex-col justify-center pr-8 md:gap-16">
+						<div class="relative z-10 flex grow flex-col justify-center pr-8">
 							<div class="flex flex-col">
 								<h1 class="text-2xl font-bold md:text-3xl lg:text-5xl xl:text-6xl">
 									Introducing Obot:
@@ -174,11 +174,19 @@
 						<div
 							class="mt-8 flex w-full flex-shrink-0 grow rounded-xl bg-white p-4 shadow-md md:mt-0 md:w-[390px] lg:w-[600px] xl:w-[775px] dark:bg-black"
 						>
-							<img
-								src="/landing/images/landing.webp"
-								alt="landing"
-								class="rounded-xl object-contain"
-							/>
+							{#if darkMode.isDark}
+								<img
+									src="/landing/images/landing_dark.webp"
+									alt="landing"
+									class="rounded-xl object-contain"
+								/>
+							{:else}
+								<img
+									src="/landing/images/landing.webp"
+									alt="landing"
+									class="rounded-xl object-contain"
+								/>
+							{/if}
 						</div>
 					</div>
 				</div>
