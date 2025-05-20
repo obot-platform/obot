@@ -161,6 +161,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/apiclient/types.WorkflowExecutionList":                        schema_obot_platform_obot_apiclient_types_WorkflowExecutionList(ref),
 		"github.com/obot-platform/obot/apiclient/types.WorkflowList":                                 schema_obot_platform_obot_apiclient_types_WorkflowList(ref),
 		"github.com/obot-platform/obot/apiclient/types.WorkflowManifest":                             schema_obot_platform_obot_apiclient_types_WorkflowManifest(ref),
+		"github.com/obot-platform/obot/apiclient/types.WorkflowNamesFromIntegration":                 schema_obot_platform_obot_apiclient_types_WorkflowNamesFromIntegration(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.Agent":                       schema_storage_apis_obotobotai_v1_Agent(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.AgentList":                   schema_storage_apis_obotobotai_v1_AgentList(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.AgentSpec":                   schema_storage_apis_obotobotai_v1_AgentSpec(ref),
@@ -3680,10 +3681,10 @@ func schema_obot_platform_obot_apiclient_types_Project(ref common.ReferenceCallb
 							Format: "",
 						},
 					},
-					"workflowNameFromIntegration": {
+					"workflowNamesFromIntegration": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/obot-platform/obot/apiclient/types.WorkflowNamesFromIntegration"),
 						},
 					},
 				},
@@ -3691,7 +3692,7 @@ func schema_obot_platform_obot_apiclient_types_Project(ref common.ReferenceCallb
 			},
 		},
 		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.Metadata", "github.com/obot-platform/obot/apiclient/types.ProjectManifest"},
+			"github.com/obot-platform/obot/apiclient/types.Metadata", "github.com/obot-platform/obot/apiclient/types.ProjectManifest", "github.com/obot-platform/obot/apiclient/types.WorkflowNamesFromIntegration"},
 	}
 }
 
@@ -6714,6 +6715,42 @@ func schema_obot_platform_obot_apiclient_types_WorkflowManifest(ref common.Refer
 		},
 		Dependencies: []string{
 			"github.com/obot-platform/obot/apiclient/types.Step", "github.com/obot-platform/obot/apiclient/types.TaskOnDiscordMessage", "github.com/obot-platform/obot/apiclient/types.TaskOnSlackMessage"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_WorkflowNamesFromIntegration(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"slackWorkflowName": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"discordWorkflowName": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"emailWorkflowName": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"webhookWorkflowName": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+				},
+			},
+		},
 	}
 }
 
@@ -11018,18 +11055,18 @@ func schema_storage_apis_obotobotai_v1_ThreadStatus(ref common.ReferenceCallback
 							Format: "",
 						},
 					},
-					"workflowNameFromIntegration": {
+					"workflowNamesFromIntegration": {
 						SchemaProps: spec.SchemaProps{
-							Description: "WorkflowNameFromIntegration is the workflow name created from external integration, like slack, discord..",
-							Type:        []string{"string"},
-							Format:      "",
+							Description: "WorkflowNamesFromIntegration is the workflow names created from external integration, like slack, discord..",
+							Default:     map[string]interface{}{},
+							Ref:         ref("github.com/obot-platform/obot/apiclient/types.WorkflowNamesFromIntegration"),
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"k8s.io/apimachinery/pkg/apis/meta/v1.Time"},
+			"github.com/obot-platform/obot/apiclient/types.WorkflowNamesFromIntegration", "k8s.io/apimachinery/pkg/apis/meta/v1.Time"},
 	}
 }
 
