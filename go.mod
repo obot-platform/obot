@@ -21,8 +21,8 @@ require (
 	github.com/gptscript-ai/chat-completion-client v0.0.0-20250224164718-139cb4507b1d
 	github.com/gptscript-ai/cmd v0.0.0-20250324222528-f16f18548238
 	github.com/gptscript-ai/datasets v0.0.0-20241125193827-31ce6c3c682b
-	github.com/gptscript-ai/go-gptscript v0.9.6-0.20250424204937-af453989e88f
-	github.com/gptscript-ai/gptscript v0.9.6-0.20250516144834-20f384dedc5e
+	github.com/gptscript-ai/go-gptscript v0.9.6-0.20250520154649-f1616a06f1b0
+	github.com/gptscript-ai/gptscript v0.9.6-0.20250520205554-559876f843c0
 	github.com/liggitt/tabwriter v0.0.0-20181228230101-89fcab3d43de
 	github.com/mhale/smtpd v0.8.3
 	github.com/obot-platform/kinm v0.0.0-20250328185534-d9c9de49cc20
@@ -68,6 +68,7 @@ require (
 
 require (
 	cloud.google.com/go/auth v0.9.3 // indirect
+	github.com/danielgtaylor/huma/v2 v2.32.0 // indirect
 	github.com/google/s2a-go v0.1.8 // indirect
 	github.com/googleapis/enterprise-certificate-proxy v0.3.4 // indirect
 	github.com/mark3labs/mcp-go v0.25.0 // indirect
@@ -148,7 +149,7 @@ require (
 	github.com/felixge/httpsnoop v1.0.4 // indirect
 	github.com/fsnotify/fsnotify v1.7.0 // indirect
 	github.com/fxamacker/cbor/v2 v2.7.0 // indirect
-	github.com/getkin/kin-openapi v0.129.0 // indirect
+	github.com/getkin/kin-openapi v0.132.0 // indirect
 	github.com/glebarez/go-sqlite v1.21.2 // indirect
 	github.com/glebarez/sqlite v1.11.0 // indirect
 	github.com/go-errors/errors v1.4.2 // indirect
@@ -222,8 +223,8 @@ require (
 	github.com/mxk/go-flowrate v0.0.0-20140419014527-cca7078d478f // indirect
 	github.com/nwaples/rardecode/v2 v2.1.0 // indirect
 	github.com/nxadm/tail v1.4.11 // indirect
-	github.com/oasdiff/yaml v0.0.0-20241210131133-6b86fb107d80 // indirect
-	github.com/oasdiff/yaml3 v0.0.0-20241210130736-a94c01f36349 // indirect
+	github.com/oasdiff/yaml v0.0.0-20250309154309-f31be36b4037 // indirect
+	github.com/oasdiff/yaml3 v0.0.0-20250309153720-d2182401db90 // indirect
 	github.com/olekukonko/tablewriter v0.0.6-0.20230925090304-df64c4bbad77 // indirect
 	github.com/onsi/ginkgo/v2 v2.20.2 // indirect
 	github.com/perimeterx/marshmallow v1.1.5 // indirect

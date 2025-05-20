@@ -4,7 +4,7 @@ import (
 	"maps"
 	"slices"
 
-	"github.com/getkin/kin-openapi/openapi3"
+	humav2 "github.com/danielgtaylor/huma/v2"
 	"github.com/gptscript-ai/go-gptscript"
 )
 
@@ -66,7 +66,7 @@ type AgentManifest struct {
 	AllowedModelProviders []string          `json:"allowedModelProviders"`
 }
 
-func GetParams(params map[string]string) *openapi3.Schema {
+func GetParams(params map[string]string) *humav2.Schema {
 	var args []string
 	for _, k := range slices.Sorted(maps.Keys(params)) {
 		args = append(args, k)
@@ -76,7 +76,7 @@ func GetParams(params map[string]string) *openapi3.Schema {
 	return gptscript.ObjectSchema(args...)
 }
 
-func (m AgentManifest) GetParams() *openapi3.Schema {
+func (m AgentManifest) GetParams() *humav2.Schema {
 	return GetParams(m.Params)
 }
 

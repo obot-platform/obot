@@ -64,7 +64,7 @@ func MCPServerToolWithCreds(mcpServer v1.MCPServer, projectThreadName string, cr
 	}
 
 	return gptscript.ToolDef{
-		Name:         name,
+		Name:         name + "-bundle",
 		Instructions: fmt.Sprintf("%s\n%s", types.MCPPrefix, string(b)),
 	}, nil
 }

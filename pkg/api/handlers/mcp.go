@@ -779,8 +779,8 @@ func (m *MCPHandler) toolsForServer(ctx context.Context, client kclient.Client, 
 		if t.Arguments != nil {
 			mcpTool.Params = make(map[string]string, len(t.Arguments.Properties))
 			for name, param := range t.Arguments.Properties {
-				if param.Value != nil {
-					mcpTool.Params[name] = param.Value.Description
+				if param != nil {
+					mcpTool.Params[name] = param.Description
 				}
 			}
 		}

@@ -559,8 +559,8 @@ func (h *Handler) Populate(req router.Request, resp router.Response) error {
 	}
 	if tool.Arguments != nil {
 		for name, param := range tool.Arguments.Properties {
-			if param.Value != nil {
-				toolRef.Status.Tool.Params[name] = param.Value.Description
+			if param != nil {
+				toolRef.Status.Tool.Params[name] = param.Description
 			}
 		}
 	}
