@@ -34,7 +34,7 @@
 	}: Props = $props();
 
 	let tools = $state<MCPServerTool[]>(refTools ?? []);
-	let selected = $state<string[]>(['*']);
+	let selected = $state<string[]>([]);
 	let allToolsEnabled = $derived(selected[0] === '*' || selected.length === tools.length);
 	let loading = $state(false);
 	let expandedDescriptions = $state<Record<string, boolean>>({});
@@ -42,7 +42,7 @@
 	$effect(() => {
 		if (refTools) {
 			tools = refTools;
-			selected = isNew ? ['*'] : tools.filter((t) => t.enabled).map((t) => t.id);
+			selected = tools.filter((t) => t.enabled).map((t) => t.id);
 		}
 	});
 
@@ -50,7 +50,9 @@
 		loading = true;
 		if (refTools) {
 			tools = refTools;
-		} else if (!refTools && project && mcpServer) {
+		}
+		if ((isNew || !refTools) && project && mcpServer) {
+			// Fetch the tools so we can figure out which ones should be enabled or not.
 			tools = currentThreadID
 				? await ChatService.listProjectThreadMcpServerTools(
 						project.assistantID,
@@ -63,8 +65,9 @@
 						project.id,
 						mcpServer.id
 					);
+			console.log('tools', tools)
 		}
-		selected = isNew ? ['*'] : tools.filter((t) => t.enabled).map((t) => t.id);
+		selected = tools.filter((t) => t.enabled).map((t) => t.id);
 		loading = false;
 	});
 

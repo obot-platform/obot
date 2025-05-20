@@ -287,6 +287,11 @@ func (h *Handler) readMCPCatalog(catalog string) ([]client.Object, error) {
 			},
 		}
 
+		// Check the metadata for default disabled tools.
+		if m["defaultDisabledTools"] != "" {
+			catalogEntry.Spec.DefaultDisabledTools = strings.Split(m["defaultDisabledTools"], ",")
+		}
+
 		var manifests []mcpServerConfig
 		if err = json.Unmarshal([]byte(entry.Manifest), &manifests); err != nil {
 			// It wasn't an array, see if it is a single object

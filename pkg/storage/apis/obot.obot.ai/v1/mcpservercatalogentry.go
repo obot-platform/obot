@@ -24,9 +24,10 @@ func (in *MCPServerCatalogEntry) DeleteRefs() []Ref {
 }
 
 type MCPServerCatalogEntrySpec struct {
-	CommandManifest   types.MCPServerCatalogEntryManifest `json:"commandManifest,omitzero"`
-	URLManifest       types.MCPServerCatalogEntryManifest `json:"urlManifest,omitzero"`
-	ToolReferenceName string                              `json:"toolReferenceName,omitempty"`
+	CommandManifest      types.MCPServerCatalogEntryManifest `json:"commandManifest,omitzero"`
+	URLManifest          types.MCPServerCatalogEntryManifest `json:"urlManifest,omitzero"`
+	ToolReferenceName    string                              `json:"toolReferenceName,omitempty"`
+	DefaultDisabledTools []string                            `json:"defaultDisabledTools,omitempty"`
 }
 
 type MCPServerCatalogEntryStatus struct {
