@@ -119,41 +119,34 @@
 				results.push(transformMcp(mcp));
 				return results;
 			})
-			.sort((a, b) => {
-				if (selectedCategory === OFFICIAL_CATEGORY) {
-					return a.name.localeCompare(b.name);
-				}
-				return b.githubStars - a.githubStars;
-			})
+			.sort((a, b) => a.name.localeCompare(b.name))
 	);
 
 	function getBrowseAllMcps() {
-		const { officialMcps, verifiedMcps, rest } = transformedMcps.reduce<{
-			officialMcps: TransformedMcp[];
-			verifiedMcps: TransformedMcp[];
-			rest: TransformedMcp[];
-		}>(
-			(acc, mcp) => {
-				if (mcp.categories?.includes(OFFICIAL_CATEGORY)) {
-					acc.officialMcps.push(mcp);
-				} else if (mcp.categories?.includes(COMMUNITY_CATEGORY)) {
-					acc.verifiedMcps.push(mcp);
-				} else {
-					acc.rest.push(mcp);
+		const { officialMcps, verifiedMcps, rest } = transformedMcps
+			.sort((a, b) => a.name.localeCompare(b.name))
+			.reduce<{
+				officialMcps: TransformedMcp[];
+				verifiedMcps: TransformedMcp[];
+				rest: TransformedMcp[];
+			}>(
+				(acc, mcp) => {
+					if (mcp.categories?.includes(OFFICIAL_CATEGORY)) {
+						acc.officialMcps.push(mcp);
+					} else if (mcp.categories?.includes(COMMUNITY_CATEGORY)) {
+						acc.verifiedMcps.push(mcp);
+					} else {
+						acc.rest.push(mcp);
+					}
+					return acc;
+				},
+				{
+					officialMcps: [],
+					verifiedMcps: [],
+					rest: []
 				}
-				return acc;
-			},
-			{
-				officialMcps: [],
-				verifiedMcps: [],
-				rest: []
-			}
-		);
-		return [
-			...officialMcps.sort((a, b) => a.name.localeCompare(b.name)),
-			...verifiedMcps.sort((a, b) => b.githubStars - a.githubStars),
-			...rest.sort((a, b) => b.githubStars - a.githubStars)
-		];
+			);
+		return [...officialMcps, ...verifiedMcps, ...rest];
 	}
 
 	let filteredMcps: TransformedMcp[] = $derived(
@@ -192,7 +185,18 @@
 					[BROWSE_ALL_CATEGORY, OFFICIAL_CATEGORY, COMMUNITY_CATEGORY]
 				)
 			)
-		)
+		).sort((a, b) => {
+			const priorityOrder = [BROWSE_ALL_CATEGORY, OFFICIAL_CATEGORY, COMMUNITY_CATEGORY];
+			const aIndex = priorityOrder.indexOf(a);
+			const bIndex = priorityOrder.indexOf(b);
+
+			if (aIndex !== -1 && bIndex !== -1) {
+				return aIndex - bIndex;
+			}
+			if (aIndex !== -1) return -1;
+			if (bIndex !== -1) return 1;
+			return a.localeCompare(b);
+		})
 	);
 
 	function showPreselectedMcp() {
