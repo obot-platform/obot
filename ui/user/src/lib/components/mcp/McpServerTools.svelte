@@ -65,7 +65,7 @@
 						project.id,
 						mcpServer.id
 					);
-			console.log('tools', tools)
+			console.log('tools', tools);
 		}
 		selected = tools.filter((t) => t.enabled).map((t) => t.id);
 		loading = false;
