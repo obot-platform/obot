@@ -41,7 +41,7 @@
 	let expandedDescriptions = $state<Record<string, boolean>>({});
 	let expandedParams = $state<Record<string, boolean>>({});
 	let allDescriptionsEnabled = $state(true);
-	let allParamsEnabled = $state(true);
+	let allParamsEnabled = $state(false);
 	$effect(() => {
 		if (refTools) {
 			tools = refTools;
@@ -70,6 +70,28 @@
 		selected = isNew ? ['*'] : tools.filter((t) => t.enabled).map((t) => t.id);
 		loading = false;
 	});
+
+	function handleToggleDescription(toolId: string) {
+		if (allDescriptionsEnabled) {
+			allDescriptionsEnabled = false;
+			for (const { id: refToolId } of tools) {
+				if (toolId !== refToolId) {
+					expandedDescriptions[refToolId] = true;
+				}
+			}
+			expandedDescriptions[toolId] = false;
+		} else {
+			expandedDescriptions[toolId] = !expandedDescriptions[toolId];
+		}
+
+		const expandedDescriptionValues = Object.values(expandedDescriptions);
+		if (
+			expandedDescriptionValues.length === tools.length &&
+			expandedDescriptionValues.every((v) => v)
+		) {
+			allDescriptionsEnabled = true;
+		}
+	}
 
 	async function handleSubmit() {
 		if (currentThreadID) {
@@ -185,9 +207,7 @@
 								<div class="flex flex-shrink-0 items-center gap-2">
 									<button
 										class="icon-button h-fit min-h-auto w-fit min-w-auto flex-shrink-0 p-1"
-										onclick={() => {
-											expandedDescriptions[tool.id] = !expandedDescriptions[tool.id];
-										}}
+										onclick={() => handleToggleDescription(tool.id)}
 									>
 										{#if expandedDescriptions[tool.id]}
 											<ChevronUp class="size-4" />
@@ -220,7 +240,7 @@
 										<div
 											class={'from-surface2 dark:from-surface3 flex w-full flex-shrink-0 bg-linear-to-r to-transparent px-4 py-2 text-xs font-semibold text-gray-500 md:w-sm'}
 										>
-											Available Parameters
+											Parameters
 										</div>
 										<div class="flex flex-col px-4 text-xs" in:slide={{ axis: 'y' }}>
 											<div class="flex flex-col gap-2">
