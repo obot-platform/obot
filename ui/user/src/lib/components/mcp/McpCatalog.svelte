@@ -87,8 +87,8 @@
 		const description =
 			commandManifest?.server?.description ?? urlManifest?.server?.description ?? '';
 		const allowsMultiple =
-			(commandManifest?.metadata && 'allow-multiple' in commandManifest.metadata) ||
-			(urlManifest?.metadata && 'allow-multiple' in urlManifest.metadata);
+			(commandManifest?.metadata && commandManifest.metadata['allow-multiple'] === 'true') ||
+			(urlManifest?.metadata && urlManifest.metadata['allow-multiple'] === 'true');
 
 		return {
 			id: mcp.id,
