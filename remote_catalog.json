@@ -5,7 +5,7 @@
         "fullName": "Zapier MCP Server",
         "url": "https://mcp.zapier.com",
         "description": "Connect to Zapier MCP servers. Visit https://mcp.zapier.com to generate your unique MCP server link and paste it below.",
-        "metadata": "{\"categories\": \"SaaS & API Integrations,Verified\"}",
+        "metadata": "{\"categories\": \"Automation & Browsers,Verified\"}",
         "icon": "https://cdn.jsdelivr.net/npm/simple-icons@v13/icons/zapier.svg",
         "manifest": "[{\"url\": \"\", \"remote\": true}]"
     },
