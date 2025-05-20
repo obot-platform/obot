@@ -4,7 +4,7 @@
         "displayName": "Zapier",
         "fullName": "Zapier MCP Server",
         "url": "https://mcp.zapier.com",
-        "description": "Connect to Zapier MCP servers. Visit https://mcp.zapier.com to generate your unique MCP server link and paste it below.",
+        "description": "Connect to Zapier MCP servers. Visit [Zapier's MCP Platform](https://mcp.zapier.com/) to generate your unique MCP server link and paste it below.\n\nWhen creating your MCP server, choose \"Other\" for MCP client and on the Connect page, select the \"Server URL\" option (OAuth is not yet supported).",
         "metadata": "{\"categories\": \"Automation & Browsers,Verified\", \"allow-multiple\": \"true\"}",
         "icon": "https://cdn.jsdelivr.net/npm/simple-icons@v13/icons/zapier.svg",
         "manifest": "[{\"url\": \"\", \"remote\": true}]"
@@ -14,7 +14,7 @@
         "displayName": "GitMCP",
         "fullName": "GitMCP",
         "url": "https://gitmcp.io",
-        "description": "Get instant context for any GitHub repository. Visit https://gitmcp.io to generate your repo's MCP server link and paste it below.",
+        "description": "Get instant contextual knowledge for any GitHub repository.\n\nVisit [gitmcp.io](https://gitmcp.io) to generate your repo's MCP server link and paste it below.",
         "metadata": "{\"categories\": \"Developer Tools,Verified\"}",
         "icon": "https://avatars.githubusercontent.com/u/182288589?v=4",
         "manifest": "[{\"url\": \"\", \"remote\": true}]"
