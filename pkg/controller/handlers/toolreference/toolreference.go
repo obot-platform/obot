@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"maps"
 	"net/http"
 	"net/url"
 	"os"
@@ -611,16 +612,15 @@ func (h *Handler) createMCPServerCatalog(req router.Request, toolRef *v1.ToolRef
 	if err := req.Client.Get(req.Ctx, router.Key(system.DefaultNamespace, toolRef.Name), &mcpCatalogEntry); client.IgnoreNotFound(err) != nil {
 		return err
 	} else if err == nil {
-		// Migration: add the obot-official metadata key to the command manifest if it isn't there.
 		var shouldUpdate bool
-		if mcpCatalogEntry.Spec.CommandManifest.Metadata["categories"] == "" {
-			if mcpCatalogEntry.Spec.CommandManifest.Metadata == nil {
-				mcpCatalogEntry.Spec.CommandManifest.Metadata = make(map[string]string)
-			}
-			mcpCatalogEntry.Spec.CommandManifest.Metadata["categories"] = "Official"
+
+		// Check if the metadata has changed.
+		if !maps.Equal(mcpCatalogEntry.Spec.CommandManifest.Metadata, toolRef.Spec.ToolMetadata) {
+			maps.Copy(mcpCatalogEntry.Spec.CommandManifest.Metadata, toolRef.Spec.ToolMetadata)
 			shouldUpdate = true
 		}
 
+		// Check if the server manifest has changed.
 		if !equality.Semantic.DeepEqual(mcpCatalogEntry.Spec.CommandManifest.Server, serverManifest) &&
 			mcpCatalogEntry.Spec.ToolReferenceName == toolRef.Name {
 			shouldUpdate = true
@@ -642,7 +642,7 @@ func (h *Handler) createMCPServerCatalog(req router.Request, toolRef *v1.ToolRef
 		Spec: v1.MCPServerCatalogEntrySpec{
 			CommandManifest: types.MCPServerCatalogEntryManifest{
 				Server:   serverManifest,
-				Metadata: map[string]string{"categories": "Official"},
+				Metadata: maps.Clone(toolRef.Spec.ToolMetadata),
 			},
 			ToolReferenceName: toolRef.Name,
 		},
