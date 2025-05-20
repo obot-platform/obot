@@ -2758,13 +2758,12 @@ func schema_obot_platform_obot_apiclient_types_MCPServerTool(ref common.Referenc
 					},
 					"unsupported": {
 						SchemaProps: spec.SchemaProps{
-							Default: false,
-							Type:    []string{"boolean"},
-							Format:  "",
+							Type:   []string{"boolean"},
+							Format: "",
 						},
 					},
 				},
-				Required: []string{"id", "name", "enabled", "unsupported"},
+				Required: []string{"id", "name", "enabled"},
 			},
 		},
 	}
