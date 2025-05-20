@@ -3,6 +3,7 @@
 	import { CircleCheckBig, Server, Star } from 'lucide-svelte';
 	import { formatNumber } from '$lib/format';
 	import type { TransformedMcp } from './McpCatalog.svelte';
+	import { toHTMLFromMarkdown } from '$lib/markdown';
 	interface Props {
 		data: TransformedMcp;
 		onSelect: (data: TransformedMcp) => void;
@@ -43,9 +44,11 @@
 						<h4 class="line-clamp-1 text-sm font-semibold">
 							{data.name}
 						</h4>
-						<p class="line-clamp-1 grow text-left text-xs font-light text-gray-500">
-							{data.description}
-						</p>
+						{#if data.description}
+							<div class="card-description-content message-content line-clamp-1 grow text-left">
+								{@html toHTMLFromMarkdown(data.description)}
+							</div>
+						{/if}
 					</div>
 				</div>
 				<div class="flex w-full grow justify-between gap-2 text-xs">
@@ -73,3 +76,23 @@
 		{/if}
 	</button>
 </div>
+
+<style lang="postcss">
+	:global {
+		.card-description-content.message-content {
+			/** override some message-content styles that don't fit for description section */
+			& p {
+				color: var(--color-gray-500);
+				font-size: var(--text-xs);
+				font-weight: var(--font-weight-light);
+			}
+
+			& a {
+				color: var(--color-blue-600);
+				.dark & {
+					color: var(--color-blue-400);
+				}
+			}
+		}
+	}
+</style>
