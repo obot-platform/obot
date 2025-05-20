@@ -32,6 +32,7 @@
 	import CredentialAuth from '$lib/components/edit/CredentialAuth.svelte';
 	import RemoteMcpForm from './RemoteMcpForm.svelte';
 	import { DEFAULT_CUSTOM_SERVER_NAME } from '$lib/constants';
+	import { toHTMLFromMarkdown } from '$lib/markdown';
 
 	interface Props {
 		manifest?: MCPServer | ProjectMCP;
@@ -268,12 +269,32 @@
 					{/if}
 				</div>
 			</div>
-			<p class="text-sm font-light text-gray-500">
-				{manifest.description}
-			</p>
+			<div class="markdown-description-content message-content">
+				{@html toHTMLFromMarkdown(manifest.description)}
+			</div>
 			{#if children}
 				{@render children()}
 			{/if}
 		</div>
 	{/if}
 {/snippet}
+
+<style lang="postcss">
+	:global {
+		.markdown-description-content.message-content {
+			/** override some message-content styles that don't fit for description section */
+			& p {
+				color: var(--color-gray-500);
+				font-size: var(--text-sm);
+				font-weight: var(--font-weight-light);
+			}
+
+			& a {
+				color: var(--color-blue-600);
+				.dark & {
+					color: var(--color-blue-400);
+				}
+			}
+		}
+	}
+</style>
