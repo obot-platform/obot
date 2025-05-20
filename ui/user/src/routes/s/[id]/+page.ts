@@ -17,20 +17,15 @@ export const load: PageLoad = async ({ params, fetch }) => {
 
 	try {
 		share = await ChatService.getProjectShareByPublicID(params.id, { fetch });
+		toolReferences = await ChatService.listAllTools({ fetch });
 
-		if (share?.projectID) {
+		if (share?.projectID && share.editor) {
 			// Get the project data
 			project = await ChatService.getProject(share.projectID, { fetch });
 
 			// Get tool references and MCPs in parallel
 			if (project && project.assistantID) {
-				const [toolRefsResponse, mcpsResponse] = await Promise.all([
-					ChatService.listAllTools({ fetch }),
-					ChatService.listProjectMCPs(project.assistantID, project.id, { fetch })
-				]);
-
-				toolReferences = toolRefsResponse;
-				mcps = mcpsResponse;
+				mcps = await ChatService.listProjectMCPs(project.assistantID, project.id, { fetch });
 			}
 		}
 	} catch (e) {
