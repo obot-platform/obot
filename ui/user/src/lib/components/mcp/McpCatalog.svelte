@@ -16,15 +16,16 @@
 	const BROWSE_ALL_CATEGORY = 'Browse All';
 	const OFFICIAL_CATEGORY = 'Official';
 	const VERIFIED_CATEGORY = 'Verified';
+	const COMMUNITY_CATEGORY = 'Community';
 
 	interface Props {
 		inline?: boolean;
 		onSetupMcp?: (mcp: TransformedMcp, serverInfo: MCPServerInfo) => void;
 		submitText?: string;
-		selectedMcpIds?: string[];
 		subtitle?: string;
 		project?: Project;
 		preselectedMcp?: string;
+		selectedMcpIds?: string[];
 	}
 
 	export type TransformedMcp = {
@@ -38,13 +39,14 @@
 		name: string;
 		commandManifest?: MCPInfo;
 		urlManifest?: MCPInfo;
+		allowsMultiple?: boolean;
 	};
 
 	let {
 		inline = false,
 		onSetupMcp,
-		submitText,
 		selectedMcpIds,
+		submitText,
 		subtitle,
 		project = $bindable(),
 		preselectedMcp
@@ -64,6 +66,10 @@
 	let currentPage = $state(1);
 
 	function transformMcp(mcp: MCP): TransformedMcp {
+		const toCategory = (cat: string) => {
+			const trimmed = cat.trim();
+			return trimmed === VERIFIED_CATEGORY ? 'Community' : trimmed;
+		};
 		const { urlManifest, commandManifest } = mcp;
 		const githubStars = Math.max(
 			Number(commandManifest?.githubStars) || 0,
@@ -72,14 +78,17 @@
 		const githubUrl = commandManifest?.url ?? urlManifest?.url;
 		const categories = Array.from(
 			new Set([
-				...(commandManifest?.metadata?.categories?.split(',').map((cat) => cat.trim()) || []),
-				...(urlManifest?.metadata?.categories?.split(',').map((cat) => cat.trim()) || [])
+				...(commandManifest?.metadata?.categories?.split(',').map(toCategory) || []),
+				...(urlManifest?.metadata?.categories?.split(',').map(toCategory) || [])
 			])
 		);
 		const name = commandManifest?.server?.name ?? urlManifest?.server?.name ?? '';
 		const icon = commandManifest?.server?.icon ?? urlManifest?.server?.icon ?? '';
 		const description =
 			commandManifest?.server?.description ?? urlManifest?.server?.description ?? '';
+		const allowsMultiple =
+			(commandManifest?.metadata && 'allow-multiple' in commandManifest.metadata) ||
+			(urlManifest?.metadata && 'allow-multiple' in urlManifest.metadata);
 
 		return {
 			id: mcp.id,
@@ -91,7 +100,8 @@
 			githubUrl,
 			name,
 			commandManifest,
-			urlManifest
+			urlManifest,
+			allowsMultiple
 		};
 	}
 
@@ -126,7 +136,7 @@
 			(acc, mcp) => {
 				if (mcp.categories?.includes(OFFICIAL_CATEGORY)) {
 					acc.officialMcps.push(mcp);
-				} else if (mcp.categories?.includes(VERIFIED_CATEGORY)) {
+				} else if (mcp.categories?.includes(COMMUNITY_CATEGORY)) {
 					acc.verifiedMcps.push(mcp);
 				} else {
 					acc.rest.push(mcp);
@@ -179,7 +189,7 @@
 						}
 						return acc;
 					},
-					[BROWSE_ALL_CATEGORY, OFFICIAL_CATEGORY, VERIFIED_CATEGORY]
+					[BROWSE_ALL_CATEGORY, OFFICIAL_CATEGORY, COMMUNITY_CATEGORY]
 				)
 			)
 		)
@@ -334,7 +344,7 @@
 				<p class="mb-2 text-sm font-light text-gray-500">
 					{#if selectedCategory === OFFICIAL_CATEGORY}
 						These servers are created and maintained by the Obot team.
-					{:else if selectedCategory === VERIFIED_CATEGORY}
+					{:else if selectedCategory === COMMUNITY_CATEGORY}
 						These are open source community servers that have been verified to launch and function
 						properly by the Obot team.
 					{/if}
@@ -392,7 +402,7 @@
 			}
 		}}
 		selected={selected.includes(mcp.id)}
-		disabled={preselected.has(mcp.id)}
+		disabled={preselected.has(mcp.id) && !mcp.allowsMultiple}
 	/>
 {/snippet}
 
