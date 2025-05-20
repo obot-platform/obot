@@ -618,21 +618,27 @@ func (i *Invoker) Resume(ctx context.Context, c kclient.WithWatch, thread *v1.Th
 		return fmt.Errorf("failed to get model and model provider: %w", err)
 	}
 
+	project, err := projects.GetRoot(ctx, c, thread)
+	if err != nil {
+		return fmt.Errorf("failed to get root project: %w", err)
+	}
+
 	token, err := i.tokenService.NewToken(jwt.TokenContext{
-		Namespace:      run.Namespace,
-		RunID:          run.Name,
-		ThreadID:       thread.Name,
-		ProjectID:      thread.Spec.ParentThreadName,
-		ModelProvider:  modelProvider,
-		Model:          model,
-		AgentID:        run.Spec.AgentName,
-		WorkflowID:     run.Spec.WorkflowName,
-		WorkflowStepID: run.Spec.WorkflowStepID,
-		Scope:          thread.Namespace,
-		UserID:         userID,
-		UserName:       userName,
-		UserEmail:      userEmail,
-		UserGroups:     userGroups,
+		Namespace:         run.Namespace,
+		RunID:             run.Name,
+		ThreadID:          thread.Name,
+		ProjectID:         thread.Spec.ParentThreadName,
+		TopLevelProjectID: project.Name,
+		ModelProvider:     modelProvider,
+		Model:             model,
+		AgentID:           run.Spec.AgentName,
+		WorkflowID:        run.Spec.WorkflowName,
+		WorkflowStepID:    run.Spec.WorkflowStepID,
+		Scope:             thread.Namespace,
+		UserID:            userID,
+		UserName:          userName,
+		UserEmail:         userEmail,
+		UserGroups:        userGroups,
 	})
 	if err != nil {
 		return err

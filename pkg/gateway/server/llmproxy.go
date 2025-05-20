@@ -72,7 +72,7 @@ func (s *Server) llmProxy(req api.Context) error {
 		model = m.Spec.Manifest.TargetModel
 	} else {
 		// If this request is using a user-specific credential, then get it.
-		cred, err := req.GPTClient.RevealCredential(req.Context(), []string{fmt.Sprintf("%s-%s", strings.Replace(token.ProjectID, system.ThreadPrefix, system.ProjectPrefix, 1), token.ModelProvider)}, token.ModelProvider)
+		cred, err := req.GPTClient.RevealCredential(req.Context(), []string{fmt.Sprintf("%s-%s", strings.Replace(token.TopLevelProjectID, system.ThreadPrefix, system.ProjectPrefix, 1), token.ModelProvider)}, token.ModelProvider)
 		if err != nil {
 			return fmt.Errorf("model provider not configured, failed to get credential: %w", err)
 		}
