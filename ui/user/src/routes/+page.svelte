@@ -2,7 +2,7 @@
 	import { responsive } from '$lib/stores';
 	import { goto } from '$app/navigation';
 	import { darkMode } from '$lib/stores';
-	import { ChevronsRight, LoaderCircle, MenuIcon, X } from 'lucide-svelte';
+	import { LoaderCircle, MenuIcon, X } from 'lucide-svelte';
 	import { onMount } from 'svelte';
 	import { type PageProps } from './$types';
 	import { browser } from '$app/environment';
@@ -156,17 +156,8 @@
 				class="from-surface1 to-surface2 bg-surface1 flex w-full items-center justify-center bg-radial-[at_25%_25%] to-75%"
 			>
 				<div class="well my-8 flex w-full flex-col gap-4 md:max-w-(--breakpoint-2xl)">
-					{#if responsive.isMobile}
-						<div class="w-full">
-							{@render newsPill()}
-						</div>
-					{/if}
 					<div class="relative flex h-auto w-full flex-col md:flex-row">
 						<div class="relative z-10 flex grow flex-col justify-center pr-8 md:gap-16">
-							{#if !responsive.isMobile}
-								{@render newsPill()}
-							{/if}
-
 							<div class="flex flex-col">
 								<h1 class="text-2xl font-bold md:text-3xl lg:text-5xl xl:text-6xl">
 									Introducing Obot:
@@ -200,7 +191,7 @@
 						class="bg-surface3 absolute top-1/2 left-1/2 h-[1px] w-full -translate-x-1/2 -translate-y-1/2"
 					></div>
 					<h2 class="relative z-10 bg-white px-4 text-xl font-semibold dark:bg-black">
-						Get Started with One-Click
+						Get Started
 					</h2>
 				</div>
 
@@ -441,22 +432,6 @@
 			</p>
 		</div>
 	</button>
-{/snippet}
-
-{#snippet newsPill()}
-	<div
-		class="border-surface2 flex w-fit items-center gap-4 rounded-full border bg-white px-4 py-2 text-xs font-light text-gray-500 lg:text-sm dark:bg-black dark:text-gray-300"
-	>
-		<span class="flex grow truncate"
-			><b class="font-semibold">News</b>: Obot 0.8.2 released today...</span
-		>
-		<a
-			href="https://blog.obot.ai"
-			class="text-blue flex flex-shrink-0 items-center gap-1 font-semibold"
-		>
-			Read More <ChevronsRight class="size-3" />
-		</a>
-	</div>
 {/snippet}
 
 <style lang="postcss">
