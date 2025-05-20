@@ -293,6 +293,7 @@ export interface MCPServerTool {
 	params?: Record<string, string>;
 	credentials?: string[];
 	enabled?: boolean;
+	unsupported?: boolean;
 }
 
 export interface MCPManifest {

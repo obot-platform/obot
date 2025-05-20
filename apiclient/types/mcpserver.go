@@ -62,4 +62,5 @@ type MCPServerTool struct {
 	Params      map[string]string `json:"params,omitempty"`
 	Credentials []string          `json:"credentials,omitempty"`
 	Enabled     bool              `json:"enabled"`
+	Unsupported bool              `json:"unsupported"`
 }

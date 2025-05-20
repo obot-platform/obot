@@ -50,8 +50,8 @@ func (in *MCPServer) DeleteRefs() []Ref {
 
 type MCPServerSpec struct {
 	Manifest types.MCPServerManifest `json:"manifest,omitempty"`
-	// List of tool names that will be disabled by default.
-	DefaultDisabledTools []string `json:"defaultDisabledTools,omitempty"`
+	// List of tool names that are known to not work well in Obot.
+	UnsupportedTools []string `json:"unsupportedTools,omitempty"`
 	// The project or thread that owns this server.
 	ThreadName                string `json:"threadName,omitempty"`
 	UserID                    string `json:"userID,omitempty"`

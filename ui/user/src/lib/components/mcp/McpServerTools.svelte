@@ -162,7 +162,14 @@
 							class="border-surface2 dark:border-surface3 flex flex-col gap-2 rounded-md border p-3"
 						>
 							<div class="flex items-center justify-between gap-2">
-								<p class="text-md font-semibold">{tool.name}</p>
+								<p class="text-md font-semibold">
+									{tool.name}
+									{#if tool.unsupported}
+										<span class="ml-3 text-sm text-gray-500">
+											⚠️ Not yet fully supported in Obot
+										</span>
+									{/if}
+								</p>
 								<div class="flex flex-shrink-0 items-center gap-2">
 									<button
 										class="icon-button h-fit min-h-auto w-fit min-w-auto flex-shrink-0 p-1"

@@ -1067,8 +1067,8 @@ func (in *MCPServerCatalogEntrySpec) DeepCopyInto(out *MCPServerCatalogEntrySpec
 	*out = *in
 	in.CommandManifest.DeepCopyInto(&out.CommandManifest)
 	in.URLManifest.DeepCopyInto(&out.URLManifest)
-	if in.DefaultDisabledTools != nil {
-		in, out := &in.DefaultDisabledTools, &out.DefaultDisabledTools
+	if in.UnsupportedTools != nil {
+		in, out := &in.UnsupportedTools, &out.UnsupportedTools
 		*out = make([]string, len(*in))
 		copy(*out, *in)
 	}
@@ -1150,8 +1150,8 @@ func (in *MCPServerMetadata) DeepCopy() *MCPServerMetadata {
 func (in *MCPServerSpec) DeepCopyInto(out *MCPServerSpec) {
 	*out = *in
 	in.Manifest.DeepCopyInto(&out.Manifest)
-	if in.DefaultDisabledTools != nil {
-		in, out := &in.DefaultDisabledTools, &out.DefaultDisabledTools
+	if in.UnsupportedTools != nil {
+		in, out := &in.UnsupportedTools, &out.UnsupportedTools
 		*out = make([]string, len(*in))
 		copy(*out, *in)
 	}

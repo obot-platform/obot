@@ -288,8 +288,8 @@ func (h *Handler) readMCPCatalog(catalog string) ([]client.Object, error) {
 		}
 
 		// Check the metadata for default disabled tools.
-		if m["defaultDisabledTools"] != "" {
-			catalogEntry.Spec.DefaultDisabledTools = strings.Split(m["defaultDisabledTools"], ",")
+		if m["unsupportedTools"] != "" {
+			catalogEntry.Spec.UnsupportedTools = strings.Split(m["unsupportedTools"], ",")
 		}
 
 		var manifests []mcpServerConfig
