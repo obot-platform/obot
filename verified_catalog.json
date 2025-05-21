@@ -348,7 +348,8 @@
     "description": "Automate browser interactions and extract web page content using Playwright",
     "stars": 10068,
     "metadata": {
-      "categories": "Automation & Browsers,Verified"
+      "categories": "Automation & Browsers,Verified",
+      "unsupportedTools": "browser_snapshot,browser_take_screenshot,browser_screen_capture,browser_pdf_save,browser_install"
     },
     "icon": "https://avatars.githubusercontent.com/u/6154722?v=4",
     "manifest": [
@@ -1248,5 +1249,91 @@
         "preferred": true
       }
     ]
-  }
+  },
+  {
+    "id": 15,
+    "path": "browserbase/README.md",
+    "displayName": "Browserbase",
+    "fullName": "browserbase/mcp-server-browserbase/browserbase",
+    "url": "https://github.com/browserbase/mcp-server-browserbase/tree/main/browserbase",
+    "description": "Automate browser actions and interact with web pages using Browserbase.",
+    "stars": 1678,
+    "metadata": {
+      "categories": "Automation & Browsers,Verified"
+    },
+    "icon": "https://avatars.githubusercontent.com/u/158221360?v=4",
+    "manifest": [
+      {
+        "env": [
+          {
+            "key": "BROWSERBASE_API_KEY",
+            "name": "Browserbase API Key",
+            "value": "<browserbase_api_key>",
+            "required": true,
+            "sensitive": true,
+            "description": "Your Browserbase API key."
+          },
+          {
+            "key": "BROWSERBASE_PROJECT_ID",
+            "name": "Browserbase Project ID",
+            "value": "<browserbase_project_id>",
+            "required": true,
+            "sensitive": false,
+            "description": "Your Browserbase project ID."
+          }
+        ],
+        "args": [
+          "@browserbasehq/mcp"
+        ],
+        "command": "npx",
+        "preferred": true
+      }
+    ]
+  },
+  {
+    "id": 161,
+    "path": "src/slack/README.md",
+    "displayName": "Slack",
+    "fullName": "modelcontextprotocol/servers/src/slack",
+    "url": "https://github.com/modelcontextprotocol/servers/tree/main/src/slack",
+    "description": "Send messages and interact with channels in Slack workspaces",
+    "stars": 47323,
+    "metadata": {
+      "categories": "Communication & Messaging,Verified"
+    },
+    "icon": "https://avatars.githubusercontent.com/u/182288589?v=4",
+    "manifest": [
+      {
+        "env": [
+          {
+            "key": "SLACK_BOT_TOKEN",
+            "name": "Slack Bot Token",
+            "required": true,
+            "sensitive": true,
+            "description": "The Bot User OAuth Token starting with xoxb-."
+          },
+          {
+            "key": "SLACK_TEAM_ID",
+            "name": "Slack Team ID",
+            "required": true,
+            "sensitive": false,
+            "description": "Your Slack workspace ID starting with T."
+          },
+          {
+            "key": "SLACK_CHANNEL_IDS",
+            "name": "Slack Channel IDs",
+            "required": false,
+            "sensitive": false,
+            "description": "Comma-separated list of channel IDs to limit channel access. If not set, all public channels will be listed."
+          }
+        ],
+        "args": [
+          "-y",
+          "@modelcontextprotocol/server-slack"
+        ],
+        "command": "npx",
+        "preferred": true
+      }
+    ]
+  }  
 ]
