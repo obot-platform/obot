@@ -32,7 +32,7 @@
 	import CredentialAuth from '$lib/components/edit/CredentialAuth.svelte';
 	import RemoteMcpForm from './RemoteMcpForm.svelte';
 	import { DEFAULT_CUSTOM_SERVER_NAME } from '$lib/constants';
-	import { toHTMLFromMarkdown } from '$lib/markdown';
+	import { toHTMLFromMarkdownWithNewTabLinks } from '$lib/markdown';
 
 	interface Props {
 		manifest?: MCPServer | ProjectMCP;
@@ -270,7 +270,7 @@
 				</div>
 			</div>
 			<div class="markdown-description-content message-content">
-				{@html toHTMLFromMarkdown(manifest.description)}
+				{@html toHTMLFromMarkdownWithNewTabLinks(manifest.description)}
 			</div>
 			{#if children}
 				{@render children()}

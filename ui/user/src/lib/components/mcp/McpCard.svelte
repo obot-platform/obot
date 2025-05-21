@@ -3,7 +3,7 @@
 	import { CircleCheckBig, Server, Star } from 'lucide-svelte';
 	import { formatNumber } from '$lib/format';
 	import type { TransformedMcp } from './McpCatalog.svelte';
-	import { toHTMLFromMarkdown } from '$lib/markdown';
+	import { toHTMLFromMarkdownWithNewTabLinks } from '$lib/markdown';
 	interface Props {
 		data: TransformedMcp;
 		onSelect: (data: TransformedMcp) => void;
@@ -46,7 +46,7 @@
 						</h4>
 						{#if data.description}
 							<div class="card-description-content message-content line-clamp-1 grow text-left">
-								{@html toHTMLFromMarkdown(data.description)}
+								{@html toHTMLFromMarkdownWithNewTabLinks(data.description)}
 							</div>
 						{/if}
 					</div>
