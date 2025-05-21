@@ -272,12 +272,8 @@ func (h *Handler) readMCPCatalog(catalog string) ([]client.Object, error) {
 			return r != '/' && !unicode.IsLetter(rune(r)) && !unicode.IsNumber(rune(r))
 		}))
 
-		var m map[string]string
-		// Best effort to parse metadata
-		_ = json.Unmarshal([]byte(entry.Metadata), &m)
-
-		if m["categories"] == "Official" {
-			delete(m, "categories") // This shouldn't happen, but do this just in case.
+		if entry.Metadata["categories"] == "Official" {
+			delete(entry.Metadata, "categories") // This shouldn't happen, but do this just in case.
 			// We don't want to mark random MCP servers from the catalog as official.
 		}
 
@@ -289,22 +285,12 @@ func (h *Handler) readMCPCatalog(catalog string) ([]client.Object, error) {
 		}
 
 		// Check the metadata for default disabled tools.
-		if m["unsupportedTools"] != "" {
-			catalogEntry.Spec.UnsupportedTools = strings.Split(m["unsupportedTools"], ",")
-		}
-
-		var manifests []mcpServerConfig
-		if err = json.Unmarshal([]byte(entry.Manifest), &manifests); err != nil {
-			// It wasn't an array, see if it is a single object
-			var manifest mcpServerManifest
-			if err = json.Unmarshal([]byte(entry.Manifest), &manifest); err != nil {
-				return nil, fmt.Errorf("failed to decode manifest for %s: %w", entry.DisplayName, err)
-			}
-			manifests = append(manifests, manifest.Configs...)
+		if entry.Metadata["unsupportedTools"] != "" {
+			catalogEntry.Spec.UnsupportedTools = strings.Split(entry.Metadata["unsupportedTools"], ",")
 		}
 
 		var preferredFound, addEntry bool
-		for _, c := range manifests {
+		for _, c := range entry.Manifest {
 			if c.Command != "" {
 				if preferredFound {
 					continue
@@ -348,7 +334,7 @@ func (h *Handler) readMCPCatalog(catalog string) ([]client.Object, error) {
 				catalogEntry.Spec.CommandManifest = types.MCPServerCatalogEntryManifest{
 					URL:         entry.URL,
 					GitHubStars: entry.Stars,
-					Metadata:    m,
+					Metadata:    entry.Metadata,
 					Server: types.MCPServerManifest{
 						Name:        entry.DisplayName,
 						Description: entry.Description,
@@ -382,7 +368,7 @@ func (h *Handler) readMCPCatalog(catalog string) ([]client.Object, error) {
 				catalogEntry.Spec.URLManifest = types.MCPServerCatalogEntryManifest{
 					URL:         entry.URL,
 					GitHubStars: entry.Stars,
-					Metadata:    m,
+					Metadata:    entry.Metadata,
 					Server: types.MCPServerManifest{
 						Name:        entry.DisplayName,
 						Description: entry.Description,
@@ -447,20 +433,20 @@ func isCommandPreferred(existing, newer string) bool {
 }
 
 type catalogEntryInfo struct {
-	ID              int    `json:"id"`
-	Path            string `json:"path"`
-	DisplayName     string `json:"displayName"`
-	FullName        string `json:"fullName"`
-	URL             string `json:"url"`
-	Description     string `json:"description"`
-	Stars           int    `json:"stars"`
-	ReadmeContent   string `json:"readmeContent"`
-	Language        string `json:"language"`
-	Metadata        string `json:"metadata"`
-	License         string `json:"license"`
-	Icon            string `json:"icon"`
-	Manifest        string `json:"manifest"`
-	ToolDefinitions string `json:"toolDefinitions"`
+	ID              int               `json:"id"`
+	Path            string            `json:"path"`
+	DisplayName     string            `json:"displayName"`
+	FullName        string            `json:"fullName"`
+	URL             string            `json:"url"`
+	Description     string            `json:"description"`
+	Stars           int               `json:"stars"`
+	ReadmeContent   string            `json:"readmeContent"`
+	Language        string            `json:"language"`
+	Metadata        map[string]string `json:"metadata"`
+	License         string            `json:"license"`
+	Icon            string            `json:"icon"`
+	Manifest        []mcpServerConfig `json:"manifest"`
+	ToolDefinitions string            `json:"toolDefinitions"`
 }
 
 type mcpServerManifest struct {

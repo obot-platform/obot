@@ -2,314 +2,1466 @@
   {
     "id": 166,
     "path": "src/time/README.md",
-    "displayName": "mcp-server-time",
+    "displayName": "Time",
     "fullName": "modelcontextprotocol/servers/src/time",
     "url": "https://github.com/modelcontextprotocol/servers/tree/main/src/time",
-    "description": "A Model Context Protocol server that provides current time and timezone conversion capabilities using IANA timezone names. Useful for LLMs to retrieve current time or perform time-related operations.",
+    "description": "Get current time and convert between timezones using IANA timezone names",
     "stars": 47323,
-    "language": "JavaScript",
-    "metadata": "{\"categories\": \"Time & Scheduling,Verified\"}",
+    "metadata": {
+      "categories": "Time & Scheduling,Verified"
+    },
     "icon": "https://avatars.githubusercontent.com/u/182288589?v=4",
-    "manifest": "[{\"env\": [], \"args\": [\"mcp-server-time\"], \"command\": \"uvx\", \"preferred\": true}, {\"env\": [], \"args\": [\"-m\", \"mcp_server_time\"], \"command\": \"python\"}, {\"env\": [], \"args\": [\"run\", \"-i\", \"--rm\", \"mcp/time\"], \"command\": \"docker\"}]"
+    "manifest": [
+      {
+        "env": [],
+        "args": [
+          "mcp-server-time"
+        ],
+        "command": "uvx",
+        "preferred": true
+      },
+      {
+        "env": [],
+        "args": [
+          "-m",
+          "mcp_server_time"
+        ],
+        "command": "python"
+      },
+      {
+        "env": [],
+        "args": [
+          "run",
+          "-i",
+          "--rm",
+          "mcp/time"
+        ],
+        "command": "docker"
+      }
+    ]
   },
   {
     "id": 164,
     "path": "src/aws-kb-retrieval-server/README.md",
-    "displayName": "aws-kb-retrieval",
+    "displayName": "AWS Knowledge Base Retrieval",
     "fullName": "modelcontextprotocol/servers/src/aws-kb-retrieval-server",
     "url": "https://github.com/modelcontextprotocol/servers/tree/main/src/aws-kb-retrieval-server",
-    "description": "An MCP server for retrieval-augmented generation (RAG) using AWS Knowledge Base via Bedrock Agent Runtime.",
+    "description": "Search and retrieve information from AWS Knowledge Base using Bedrock Agent Runtime",
     "stars": 47323,
-    "metadata": "{\"categories\": \"Retrieval & Search, SaaS & API Integrations,Verified\"}",
+    "metadata": {
+      "categories": "Retrieval & Search, SaaS & API Integrations,Verified"
+    },
     "icon": "https://avatars.githubusercontent.com/u/182288589?v=4",
-    "manifest": "[{\"env\": [{\"key\": \"AWS_ACCESS_KEY_ID\", \"name\": \"aws access key id\", \"required\": true, \"sensitive\": true, \"description\": \"Your AWS Access Key ID with permissions for Bedrock Agent Runtime.\"}, {\"key\": \"AWS_SECRET_ACCESS_KEY\", \"name\": \"aws secret access key\", \"required\": true, \"sensitive\": true, \"description\": \"Your AWS Secret Access Key with permissions for Bedrock Agent Runtime.\"}, {\"key\": \"AWS_REGION\", \"name\": \"aws region\", \"required\": true, \"sensitive\": false, \"description\": \"The AWS region to use for Bedrock Agent Runtime operations.\"}], \"args\": [\"run\", \"-i\", \"--rm\", \"-e\", \"AWS_ACCESS_KEY_ID\", \"-e\", \"AWS_SECRET_ACCESS_KEY\", \"-e\", \"AWS_REGION\", \"mcp/aws-kb-retrieval-server\"], \"command\": \"docker\"}, {\"env\": [{\"key\": \"AWS_ACCESS_KEY_ID\", \"name\": \"aws access key id\", \"required\": true, \"sensitive\": true, \"description\": \"Your AWS Access Key ID with permissions for Bedrock Agent Runtime.\"}, {\"key\": \"AWS_SECRET_ACCESS_KEY\", \"name\": \"aws secret access key\", \"required\": true, \"sensitive\": true, \"description\": \"Your AWS Secret Access Key with permissions for Bedrock Agent Runtime.\"}, {\"key\": \"AWS_REGION\", \"name\": \"aws region\", \"required\": true, \"sensitive\": false, \"description\": \"The AWS region to use for Bedrock Agent Runtime operations.\"}], \"args\": [\"-y\", \"@modelcontextprotocol/server-aws-kb-retrieval\"], \"command\": \"npx\", \"preferred\": true}]"
+    "manifest": [
+      {
+        "env": [
+          {
+            "key": "AWS_ACCESS_KEY_ID",
+            "name": "aws access key id",
+            "required": true,
+            "sensitive": true,
+            "description": "Your AWS Access Key ID with permissions for Bedrock Agent Runtime."
+          },
+          {
+            "key": "AWS_SECRET_ACCESS_KEY",
+            "name": "aws secret access key",
+            "required": true,
+            "sensitive": true,
+            "description": "Your AWS Secret Access Key with permissions for Bedrock Agent Runtime."
+          },
+          {
+            "key": "AWS_REGION",
+            "name": "aws region",
+            "required": true,
+            "sensitive": false,
+            "description": "The AWS region to use for Bedrock Agent Runtime operations."
+          }
+        ],
+        "args": [
+          "run",
+          "-i",
+          "--rm",
+          "-e",
+          "AWS_ACCESS_KEY_ID",
+          "-e",
+          "AWS_SECRET_ACCESS_KEY",
+          "-e",
+          "AWS_REGION",
+          "mcp/aws-kb-retrieval-server"
+        ],
+        "command": "docker"
+      },
+      {
+        "env": [
+          {
+            "key": "AWS_ACCESS_KEY_ID",
+            "name": "aws access key id",
+            "required": true,
+            "sensitive": true,
+            "description": "Your AWS Access Key ID with permissions for Bedrock Agent Runtime."
+          },
+          {
+            "key": "AWS_SECRET_ACCESS_KEY",
+            "name": "aws secret access key",
+            "required": true,
+            "sensitive": true,
+            "description": "Your AWS Secret Access Key with permissions for Bedrock Agent Runtime."
+          },
+          {
+            "key": "AWS_REGION",
+            "name": "aws region",
+            "required": true,
+            "sensitive": false,
+            "description": "The AWS region to use for Bedrock Agent Runtime operations."
+          }
+        ],
+        "args": [
+          "-y",
+          "@modelcontextprotocol/server-aws-kb-retrieval"
+        ],
+        "command": "npx",
+        "preferred": true
+      }
+    ]
   },
   {
     "id": 147,
     "path": "src/google-maps/README.md",
-    "displayName": "google-maps",
+    "displayName": "Google Maps",
     "fullName": "modelcontextprotocol/servers/src/google-maps",
     "url": "https://github.com/modelcontextprotocol/servers/tree/main/src/google-maps",
-    "description": "MCP server providing access to Google Maps API features including geocoding, search, places, directions, and more.",
+    "description": "Access Google Maps features including geocoding, places, directions, and search",
     "stars": 47323,
-    "metadata": "{\"categories\": \"Maps & Location,Verified\"}",
+    "metadata": {
+      "categories": "Maps & Location,Verified"
+    },
     "icon": "https://avatars.githubusercontent.com/u/182288589?v=4",
-    "manifest": "[{\"env\": [{\"key\": \"GOOGLE_MAPS_API_KEY\", \"name\": \"Google Maps API Key\", \"required\": true, \"sensitive\": true, \"description\": \"Your Google Maps Platform API key. Obtain it from the Google Cloud Console as described in the documentation.\"}], \"args\": [\"-y\", \"@modelcontextprotocol/server-google-maps\"], \"command\": \"npx\"}]"
+    "manifest": [
+      {
+        "env": [
+          {
+            "key": "GOOGLE_MAPS_API_KEY",
+            "name": "Google Maps API Key",
+            "required": true,
+            "sensitive": true,
+            "description": "Your Google Maps Platform API key. Obtain it from the Google Cloud Console as described in the documentation."
+          }
+        ],
+        "args": [
+          "-y",
+          "@modelcontextprotocol/server-google-maps"
+        ],
+        "command": "npx"
+      }
+    ]
   },
   {
     "id": 157,
     "path": "src/postgres/README.md",
-    "displayName": "PostgreSQL MCP Server",
+    "displayName": "PostgreSQL",
     "fullName": "modelcontextprotocol/servers/src/postgres",
     "url": "https://github.com/modelcontextprotocol/servers/tree/main/src/postgres",
-    "description": "A Model Context Protocol server providing read-only access for inspecting schemas and executing queries against PostgreSQL databases.",
+    "description": "Inspect schemas and execute read-only queries against PostgreSQL databases",
     "stars": 47323,
-    "metadata": "{\"categories\": \"Databases,Verified\"}",
+    "metadata": {
+      "categories": "Databases,Verified"
+    },
     "icon": "https://avatars.githubusercontent.com/u/182288589?v=4",
-    "manifest": "[{\"env\": [{\"key\": \"POSTGRES_DSN\", \"name\": \"Postgres DSN\", \"required\": true, \"sensitive\": false, \"description\": \"The DSN used to connect to the Postgres database; e.g. postgres://<user>:<password>@<server>:<port>/<db>\"}], \"args\": [\"-y\", \"@modelcontextprotocol/server-postgres\", \"${POSTGRES_DSN}\"], \"command\": \"npx\"}]"
+    "manifest": [
+      {
+        "env": [
+          {
+            "key": "POSTGRES_DSN",
+            "name": "Postgres DSN",
+            "required": true,
+            "sensitive": false,
+            "description": "The DSN used to connect to the Postgres database; e.g. postgres://<user>:<password>@<server>:<port>/<db>"
+          }
+        ],
+        "args": [
+          "-y",
+          "@modelcontextprotocol/server-postgres",
+          "${POSTGRES_DSN}"
+        ],
+        "command": "npx"
+      }
+    ]
   },
   {
     "id": 171,
     "path": "src/puppeteer/README.md",
-    "displayName": "puppeteer",
+    "displayName": "Puppeteer",
     "fullName": "modelcontextprotocol/servers/src/puppeteer",
     "url": "https://github.com/modelcontextprotocol/servers/tree/main/src/puppeteer",
-    "description": "A Model Context Protocol server for automating browsers using Puppeteer, providing navigation, screenshot, console, and web interaction tools for LLMs.",
+    "description": "Automate browser actions including navigation, screenshots, and web interactions",
     "stars": 47323,
-    "metadata": "{\"categories\": \"Automation & Browsers,Verified\"}",
+    "metadata": {
+      "categories": "Automation & Browsers,Verified",
+      "unsupportedTools": "puppeteer_screenshot"
+    },
     "icon": "https://avatars.githubusercontent.com/u/182288589?v=4",
-    "manifest": "[{\"env\": [{\"key\": \"PUPPETEER_LAUNCH_OPTIONS\", \"name\": \"Puppeteer Launch Options\", \"required\": false, \"sensitive\": false, \"description\": \"JSON-encoded string to customize Puppeteer browser launch parameters, such as headless mode, executable path, and browser args.\"}, {\"key\": \"ALLOW_DANGEROUS\", \"name\": \"Allow Dangerous\", \"required\": false, \"sensitive\": false, \"description\": \"If set to 'true', allows dangerous launch options (e.g., --no-sandbox) that reduce security.\"}], \"args\": [\"-y\", \"@modelcontextprotocol/server-puppeteer\"], \"command\": \"npx\", \"metadata\": \"[\\\"unsupportedTools\\\": \\\"puppeteer_screenshot\\\"]\", \"preferred\": true}]"
+    "manifest": [
+      {
+        "env": [
+          {
+            "key": "PUPPETEER_LAUNCH_OPTIONS",
+            "name": "Puppeteer Launch Options",
+            "required": false,
+            "sensitive": false,
+            "description": "JSON-encoded string to customize Puppeteer browser launch parameters, such as headless mode, executable path, and browser args."
+          },
+          {
+            "key": "ALLOW_DANGEROUS",
+            "name": "Allow Dangerous",
+            "required": false,
+            "sensitive": false,
+            "description": "If set to 'true', allows dangerous launch options (e.g., --no-sandbox) that reduce security."
+          }
+        ],
+        "args": [
+          "-y",
+          "@modelcontextprotocol/server-puppeteer"
+        ],
+        "command": "npx",
+        "preferred": true
+      }
+    ]
   },
   {
     "id": 169,
     "path": "src/redis/README.md",
-    "displayName": "Redis MCP Server",
+    "displayName": "Redis",
     "fullName": "modelcontextprotocol/servers/src/redis",
     "url": "https://github.com/modelcontextprotocol/servers/tree/main/src/redis",
-    "description": "A Model Context Protocol server that provides LLM access to Redis key-value databases via standardized tools.",
+    "description": "Access and manage Redis key-value databases",
     "stars": 47322,
-    "metadata": "{\"categories\": \"Databases,Verified\"}",
+    "metadata": {
+      "categories": "Databases,Verified"
+    },
     "icon": "https://avatars.githubusercontent.com/u/182288589?v=4",
-    "manifest": "[{\"env\": [{\"key\": \"REDIS_URL\", \"name\": \"Redis URL\", \"required\": true, \"sensitive\": false, \"description\": \"URL for connecting to the Redis instance (e.g. redis://localhost:6379).\"}], \"args\": [\"-y\", \"@modelcontextprotocol/server-redis\", \"${REDIS_URL}\"], \"command\": \"npx\", \"preferred\": true}]"
+    "manifest": [
+      {
+        "env": [
+          {
+            "key": "REDIS_URL",
+            "name": "Redis URL",
+            "required": true,
+            "sensitive": false,
+            "description": "URL for connecting to the Redis instance (e.g. redis://localhost:6379)."
+          }
+        ],
+        "args": [
+          "-y",
+          "@modelcontextprotocol/server-redis",
+          "${REDIS_URL}"
+        ],
+        "command": "npx",
+        "preferred": true
+      }
+    ]
   },
   {
     "id": 616,
     "path": "apps/mcp/README.md",
-    "displayName": "Karakeep MCP Server",
+    "displayName": "Karakeep",
     "fullName": "karakeep-app/karakeep/apps/mcp",
     "url": "https://github.com/karakeep-app/karakeep/tree/main/apps/mcp",
-    "description": "An MCP server to interact with Karakeep for bookmark management, lists, and tags.",
+    "description": "Manage bookmarks, lists, and tags in Karakeep",
     "stars": 16375,
-    "metadata": "{\"categories\": \"Retrieval & Search,Verified\"}",
+    "metadata": {
+      "categories": "Retrieval & Search,Verified"
+    },
     "icon": "https://avatars.githubusercontent.com/u/202258986?v=4",
-    "manifest": "[{\"env\": [{\"key\": \"KARAKEEP_API_ADDR\", \"name\": \"karakeep api address\", \"required\": true, \"sensitive\": false, \"description\": \"The URL address for your Karakeep server\"}, {\"key\": \"KARAKEEP_API_KEY\", \"name\": \"karakeep api key\", \"required\": true, \"sensitive\": true, \"description\": \"Your Karakeep API access token\"}], \"args\": [\"@karakeep/mcp\"], \"command\": \"npx\", \"preferred\": true}, {\"env\": [{\"key\": \"KARAKEEP_API_ADDR\", \"name\": \"karakeep api address\", \"required\": true, \"sensitive\": false, \"description\": \"The URL address for your Karakeep server\"}, {\"key\": \"KARAKEEP_API_KEY\", \"name\": \"karakeep api key\", \"required\": true, \"sensitive\": true, \"description\": \"Your Karakeep API access token\"}], \"args\": [\"run\", \"-e\", \"KARAKEEP_API_ADDR=https://<YOUR_SERVER_ADDR>\", \"-e\", \"KARAKEEP_API_KEY=<YOUR_TOKEN>\", \"ghcr.io/karakeep-app/karakeep-mcp:latest\"], \"command\": \"docker\"}]"
+    "manifest": [
+      {
+        "env": [
+          {
+            "key": "KARAKEEP_API_ADDR",
+            "name": "karakeep api address",
+            "required": true,
+            "sensitive": false,
+            "description": "The URL address for your Karakeep server"
+          },
+          {
+            "key": "KARAKEEP_API_KEY",
+            "name": "karakeep api key",
+            "required": true,
+            "sensitive": true,
+            "description": "Your Karakeep API access token"
+          }
+        ],
+        "args": [
+          "@karakeep/mcp"
+        ],
+        "command": "npx",
+        "preferred": true
+      },
+      {
+        "env": [
+          {
+            "key": "KARAKEEP_API_ADDR",
+            "name": "karakeep api address",
+            "required": true,
+            "sensitive": false,
+            "description": "The URL address for your Karakeep server"
+          },
+          {
+            "key": "KARAKEEP_API_KEY",
+            "name": "karakeep api key",
+            "required": true,
+            "sensitive": true,
+            "description": "Your Karakeep API access token"
+          }
+        ],
+        "args": [
+          "run",
+          "-e",
+          "KARAKEEP_API_ADDR=https://<YOUR_SERVER_ADDR>",
+          "-e",
+          "KARAKEEP_API_KEY=<YOUR_TOKEN>",
+          "ghcr.io/karakeep-app/karakeep-mcp:latest"
+        ],
+        "command": "docker"
+      }
+    ]
   },
   {
     "id": 1955,
     "path": "README.md",
-    "displayName": "github",
+    "displayName": "GitHub",
     "fullName": "github/github-mcp-server",
     "url": "https://github.com/github/github-mcp-server",
-    "description": "MCP server providing Model Context Protocol access to the GitHub API, enabling automation and advanced GitHub operations for developers and AI tools.",
+    "description": "Manage issues, pull requests, repositories, and more on GitHub",
     "stars": 13876,
-    "metadata": "{\"categories\": \"Developer Tools,Verified\"}",
+    "metadata": {
+      "categories": "Developer Tools,Verified",
+      "unsupportedTools": "create_or_update_file,push_files"
+    },
     "icon": "https://avatars.githubusercontent.com/u/9919?v=4",
-    "manifest": "[{\"env\": [{\"key\": \"GITHUB_PERSONAL_ACCESS_TOKEN\", \"name\": \"GitHub Personal Access Token\", \"required\": true, \"sensitive\": true, \"description\": \"GitHub Personal Access Token used to authenticate with the GitHub API. Required for all GitHub operations.\"}, {\"key\": \"GITHUB_TOOLSETS\", \"name\": \"Toolsets\", \"required\": false, \"sensitive\": false, \"description\": \"Comma-separated list of enabled GitHub toolsets (e.g. repos,issues,pull_requests,code_security,experiments,all). Optional, defaults to all.\"}, {\"key\": \"GITHUB_DYNAMIC_TOOLSETS\", \"name\": \"Dynamic Toolsets\", \"required\": false, \"sensitive\": false, \"description\": \"Set to 1 to enable dynamic tool discovery. Optional.\"}, {\"key\": \"GITHUB_HOST\", \"name\": \"GitHub Enterprise Host\", \"required\": false, \"sensitive\": false, \"description\": \"GitHub Enterprise Server hostname (e.g. https://ghes.example.com). Optional, for GitHub Enterprise integration.\"}], \"args\": [\"run\", \"-i\", \"--rm\", \"-e\", \"GITHUB_PERSONAL_ACCESS_TOKEN\", \"ghcr.io/obot-platform/mcp-images-github:main\"], \"command\": \"docker\", \"metadata\": \"[\\\"unsupportedTools\\\": \\\"create_or_update_file,push_files\\\"]\", \"preferred\": true}]"
+    "manifest": [
+      {
+        "env": [
+          {
+            "key": "GITHUB_PERSONAL_ACCESS_TOKEN",
+            "name": "GitHub Personal Access Token",
+            "required": true,
+            "sensitive": true,
+            "description": "GitHub Personal Access Token used to authenticate with the GitHub API. Required for all GitHub operations."
+          },
+          {
+            "key": "GITHUB_TOOLSETS",
+            "name": "Toolsets",
+            "required": false,
+            "sensitive": false,
+            "description": "Comma-separated list of enabled GitHub toolsets (e.g. repos,issues,pull_requests,code_security,experiments,all). Optional, defaults to all."
+          },
+          {
+            "key": "GITHUB_DYNAMIC_TOOLSETS",
+            "name": "Dynamic Toolsets",
+            "required": false,
+            "sensitive": false,
+            "description": "Set to 1 to enable dynamic tool discovery. Optional."
+          },
+          {
+            "key": "GITHUB_HOST",
+            "name": "GitHub Enterprise Host",
+            "required": false,
+            "sensitive": false,
+            "description": "GitHub Enterprise Server hostname (e.g. https://ghes.example.com). Optional, for GitHub Enterprise integration."
+          }
+        ],
+        "args": [
+          "run",
+          "-i",
+          "--rm",
+          "-e",
+          "GITHUB_PERSONAL_ACCESS_TOKEN",
+          "ghcr.io/obot-platform/mcp-images-github:main"
+        ],
+        "command": "docker",
+        "preferred": true
+      }
+    ]
   },
   {
     "id": 144,
     "path": "README.md",
-    "displayName": "Playwright MCP",
+    "displayName": "Playwright",
     "fullName": "microsoft/playwright-mcp",
     "url": "https://github.com/microsoft/playwright-mcp",
-    "description": "A Model Context Protocol (MCP) server that uses Playwright for browser automation, enabling LLMs and agents to interact with web pages through structured accessibility snapshots without vision models.",
+    "description": "Automate browser interactions and extract web page content using Playwright",
     "stars": 10068,
-    "metadata": "{\"categories\": \"Automation & Browsers,Verified\"}",
+    "metadata": {
+      "categories": "Automation & Browsers,Verified"
+    },
     "icon": "https://avatars.githubusercontent.com/u/6154722?v=4",
-    "manifest": "[{\"env\": [], \"args\": [\"@playwright/mcp@latest\"], \"command\": \"npx\", \"preferred\": true}, {\"env\": [], \"args\": [\"run\", \"-i\", \"--rm\", \"--init\", \"--pull=always\", \"mcr.microsoft.com/playwright/mcp\"], \"command\": \"docker\"}]"
+    "manifest": [
+      {
+        "env": [],
+        "args": [
+          "@playwright/mcp@latest"
+        ],
+        "command": "npx",
+        "preferred": true
+      },
+      {
+        "env": [],
+        "args": [
+          "run",
+          "-i",
+          "--rm",
+          "--init",
+          "--pull=always",
+          "mcr.microsoft.com/playwright/mcp"
+        ],
+        "command": "docker"
+      }
+    ]
   },
   {
     "id": 2311,
     "path": "README.md",
-    "displayName": "Context7 MCP",
+    "displayName": "Context7",
     "fullName": "upstash/context7",
     "url": "https://github.com/upstash/context7",
-    "description": "Pulls up-to-date, version-specific documentation and code examples for any library directly into your LLM prompt.",
+    "description": "Access documentation and code examples for any library in real-time",
     "stars": 7231,
-    "metadata": "{\"categories\": \"Developer Tools,Verified\"}",
+    "metadata": {
+      "categories": "Developer Tools,Verified"
+    },
     "icon": "https://avatars.githubusercontent.com/u/74989412?v=4",
-    "manifest": "[{\"env\": [{\"key\": \"DEFAULT_MINIMUM_TOKENS\", \"name\": \"default minimum tokens\", \"required\": false, \"sensitive\": false, \"description\": \"Set the minimum token count for documentation retrieval (default: 10000).\"}], \"args\": [\"-y\", \"@upstash/context7-mcp@latest\"], \"command\": \"npx\", \"preferred\": true}, {\"env\": [{\"key\": \"DEFAULT_MINIMUM_TOKENS\", \"name\": \"default minimum tokens\", \"required\": false, \"sensitive\": false, \"description\": \"Set the minimum token count for documentation retrieval (default: 10000).\"}], \"args\": [\"-y\", \"@upstash/context7-mcp@latest\"], \"command\": \"bunx\"}, {\"env\": [{\"key\": \"DEFAULT_MINIMUM_TOKENS\", \"name\": \"default minimum tokens\", \"required\": false, \"sensitive\": false, \"description\": \"Set the minimum token count for documentation retrieval (default: 10000).\"}], \"args\": [\"run\", \"--allow-env\", \"--allow-net\", \"npm:@upstash/context7-mcp\"], \"command\": \"deno\"}, {\"env\": [{\"key\": \"DEFAULT_MINIMUM_TOKENS\", \"name\": \"default minimum tokens\", \"required\": false, \"sensitive\": false, \"description\": \"Set the minimum token count for documentation retrieval (default: 10000).\"}], \"args\": [\"run\", \"-i\", \"--rm\", \"context7-mcp\"], \"command\": \"docker\"}]"
+    "manifest": [
+      {
+        "env": [
+          {
+            "key": "DEFAULT_MINIMUM_TOKENS",
+            "name": "default minimum tokens",
+            "required": false,
+            "sensitive": false,
+            "description": "Set the minimum token count for documentation retrieval (default: 10000)."
+          }
+        ],
+        "args": [
+          "-y",
+          "@upstash/context7-mcp@latest"
+        ],
+        "command": "npx",
+        "preferred": true
+      },
+      {
+        "env": [
+          {
+            "key": "DEFAULT_MINIMUM_TOKENS",
+            "name": "default minimum tokens",
+            "required": false,
+            "sensitive": false,
+            "description": "Set the minimum token count for documentation retrieval (default: 10000)."
+          }
+        ],
+        "args": [
+          "-y",
+          "@upstash/context7-mcp@latest"
+        ],
+        "command": "bunx"
+      },
+      {
+        "env": [
+          {
+            "key": "DEFAULT_MINIMUM_TOKENS",
+            "name": "default minimum tokens",
+            "required": false,
+            "sensitive": false,
+            "description": "Set the minimum token count for documentation retrieval (default: 10000)."
+          }
+        ],
+        "args": [
+          "run",
+          "--allow-env",
+          "--allow-net",
+          "npm:@upstash/context7-mcp"
+        ],
+        "command": "deno"
+      },
+      {
+        "env": [
+          {
+            "key": "DEFAULT_MINIMUM_TOKENS",
+            "name": "default minimum tokens",
+            "required": false,
+            "sensitive": false,
+            "description": "Set the minimum token count for documentation retrieval (default: 10000)."
+          }
+        ],
+        "args": [
+          "run",
+          "-i",
+          "--rm",
+          "context7-mcp"
+        ],
+        "command": "docker"
+      }
+    ]
   },
   {
     "id": 77,
     "path": "README.md",
-    "displayName": "Firecrawl MCP Server",
+    "displayName": "Firecrawl",
     "fullName": "mendableai/firecrawl-mcp-server",
     "url": "https://github.com/mendableai/firecrawl-mcp-server",
-    "description": "An MCP server that integrates Firecrawl web scraping, crawling, research, and batch extraction tools into the MCP ecosystem.",
+    "description": "Scrape websites, crawl pages, and extract data using Firecrawl",
     "stars": 3136,
-    "metadata": "{\"categories\": \"Retrieval & Search,Automation & Browsers,Science & Research,Verified\"}",
+    "metadata": {
+      "categories": "Retrieval & Search,Automation & Browsers,Science & Research,Verified"
+    },
     "icon": "https://avatars.githubusercontent.com/u/135057108?v=4",
-    "manifest": "[{\"env\": [{\"key\": \"FIRECRAWL_API_KEY\", \"name\": \"Firecrawl API Key\", \"required\": false, \"sensitive\": true, \"description\": \"Your Firecrawl API key for authenticating with the Firecrawl cloud API. You can generate it from https://www.firecrawl.dev/app/api-keys. Required unless using only self-hosted API without authentication.\"}, {\"key\": \"FIRECRAWL_API_URL\", \"name\": \"Firecrawl API URL\", \"required\": false, \"sensitive\": false, \"description\": \"Custom API endpoint URL for self-hosted Firecrawl instance. Example: https://firecrawl.your-domain.com. Optional; if not set, cloud API is used.\"}, {\"key\": \"FIRECRAWL_RETRY_MAX_ATTEMPTS\", \"name\": \"Retry Max Attempts\", \"required\": false, \"sensitive\": false, \"description\": \"Maximum number of retry attempts for failed requests (rate limits/transient errors). Default: 3.\"}, {\"key\": \"FIRECRAWL_RETRY_INITIAL_DELAY\", \"name\": \"Retry Initial Delay (ms)\", \"required\": false, \"sensitive\": false, \"description\": \"Initial delay in milliseconds before first retry. Default: 1000.\"}, {\"key\": \"FIRECRAWL_RETRY_MAX_DELAY\", \"name\": \"Retry Max Delay (ms)\", \"required\": false, \"sensitive\": false, \"description\": \"Maximum delay in milliseconds between retries. Default: 10000.\"}, {\"key\": \"FIRECRAWL_RETRY_BACKOFF_FACTOR\", \"name\": \"Retry Backoff Factor\", \"required\": false, \"sensitive\": false, \"description\": \"Exponential backoff multiplier for retry delays. Default: 2.\"}, {\"key\": \"FIRECRAWL_CREDIT_WARNING_THRESHOLD\", \"name\": \"Credit Warning Threshold\", \"required\": false, \"sensitive\": false, \"description\": \"Credit usage warning threshold. Default: 1000 credits.\"}, {\"key\": \"FIRECRAWL_CREDIT_CRITICAL_THRESHOLD\", \"name\": \"Credit Critical Threshold\", \"required\": false, \"sensitive\": false, \"description\": \"Credit usage critical threshold. Default: 100 credits.\"}, {\"key\": \"SSE_LOCAL\", \"name\": \"SSE Local Mode\", \"required\": false, \"sensitive\": false, \"description\": \"Set to true to run with SSE local server mode (serves on http://localhost:3000/sse instead of stdio).\"}], \"args\": [\"-y\", \"firecrawl-mcp\"], \"command\": \"npx\", \"preferred\": true}]"
+    "manifest": [
+      {
+        "env": [
+          {
+            "key": "FIRECRAWL_API_KEY",
+            "name": "Firecrawl API Key",
+            "required": false,
+            "sensitive": true,
+            "description": "Your Firecrawl API key for authenticating with the Firecrawl cloud API. You can generate it from https://www.firecrawl.dev/app/api-keys. Required unless using only self-hosted API without authentication."
+          },
+          {
+            "key": "FIRECRAWL_API_URL",
+            "name": "Firecrawl API URL",
+            "required": false,
+            "sensitive": false,
+            "description": "Custom API endpoint URL for self-hosted Firecrawl instance. Example: https://firecrawl.your-domain.com. Optional; if not set, cloud API is used."
+          },
+          {
+            "key": "FIRECRAWL_RETRY_MAX_ATTEMPTS",
+            "name": "Retry Max Attempts",
+            "required": false,
+            "sensitive": false,
+            "description": "Maximum number of retry attempts for failed requests (rate limits/transient errors). Default: 3."
+          },
+          {
+            "key": "FIRECRAWL_RETRY_INITIAL_DELAY",
+            "name": "Retry Initial Delay (ms)",
+            "required": false,
+            "sensitive": false,
+            "description": "Initial delay in milliseconds before first retry. Default: 1000."
+          },
+          {
+            "key": "FIRECRAWL_RETRY_MAX_DELAY",
+            "name": "Retry Max Delay (ms)",
+            "required": false,
+            "sensitive": false,
+            "description": "Maximum delay in milliseconds between retries. Default: 10000."
+          },
+          {
+            "key": "FIRECRAWL_RETRY_BACKOFF_FACTOR",
+            "name": "Retry Backoff Factor",
+            "required": false,
+            "sensitive": false,
+            "description": "Exponential backoff multiplier for retry delays. Default: 2."
+          },
+          {
+            "key": "FIRECRAWL_CREDIT_WARNING_THRESHOLD",
+            "name": "Credit Warning Threshold",
+            "required": false,
+            "sensitive": false,
+            "description": "Credit usage warning threshold. Default: 1000 credits."
+          },
+          {
+            "key": "FIRECRAWL_CREDIT_CRITICAL_THRESHOLD",
+            "name": "Credit Critical Threshold",
+            "required": false,
+            "sensitive": false,
+            "description": "Credit usage critical threshold. Default: 100 credits."
+          },
+          {
+            "key": "SSE_LOCAL",
+            "name": "SSE Local Mode",
+            "required": false,
+            "sensitive": false,
+            "description": "Set to true to run with SSE local server mode (serves on http://localhost:3000/sse instead of stdio)."
+          }
+        ],
+        "args": [
+          "-y",
+          "firecrawl-mcp"
+        ],
+        "command": "npx",
+        "preferred": true
+      }
+    ]
   },
   {
     "id": 414,
     "path": "README.md",
-    "displayName": "Notion MCP Server",
+    "displayName": "Notion",
     "fullName": "makenotion/notion-mcp-server",
     "url": "https://github.com/makenotion/notion-mcp-server",
-    "description": "MCP server for interacting with Notion workspaces and pages via the Notion API.",
+    "description": "Create, read, and manage pages and databases in Notion workspaces",
     "stars": 1772,
-    "metadata": "{\"categories\": \"SaaS & API Integrations,Databases,Verified\"}",
+    "metadata": {
+      "categories": "SaaS & API Integrations,Databases,Verified"
+    },
     "icon": "https://avatars.githubusercontent.com/u/4792552?v=4",
-    "manifest": "[{\"env\": [{\"key\": \"OPENAPI_MCP_HEADERS\", \"name\": \"openapi mcp headers\", \"required\": true, \"sensitive\": true, \"description\": \"JSON-encoded HTTP headers for MCP requests, e.g., {\\\"Authorization\\\": \\\"Bearer ntn_****\\\", \\\"Notion-Version\\\": \\\"2022-06-28\\\"}. The Notion Integration token (ntn_****) is required.\"}], \"args\": [\"-y\", \"@notionhq/notion-mcp-server\"], \"command\": \"npx\", \"preferred\": true}, {\"env\": [{\"key\": \"OPENAPI_MCP_HEADERS\", \"name\": \"openapi mcp headers\", \"required\": true, \"sensitive\": true, \"description\": \"JSON-encoded HTTP headers for MCP requests, e.g., {\\\"Authorization\\\": \\\"Bearer ntn_****\\\", \\\"Notion-Version\\\": \\\"2022-06-28\\\"}. The Notion Integration token (ntn_****) is required.\"}], \"args\": [\"run\", \"--rm\", \"-i\", \"-e\", \"OPENAPI_MCP_HEADERS\", \"mcp/notion\"], \"command\": \"docker\"}, {\"env\": [], \"args\": [\"run\", \"--rm\", \"-i\", \"-e\", \"OPENAPI_MCP_HEADERS={\\\"Authorization\\\": \\\"Bearer ntn_****\\\", \\\"Notion-Version\\\": \\\"2022-06-28\\\"}\", \"notion-mcp-server\"], \"command\": \"docker\"}]"
+    "manifest": [
+      {
+        "env": [
+          {
+            "key": "OPENAPI_MCP_HEADERS",
+            "name": "openapi mcp headers",
+            "required": true,
+            "sensitive": true,
+            "description": "JSON-encoded HTTP headers for MCP requests, e.g., {\"Authorization\": \"Bearer ntn_****\", \"Notion-Version\": \"2022-06-28\"}. The Notion Integration token (ntn_****) is required."
+          }
+        ],
+        "args": [
+          "-y",
+          "@notionhq/notion-mcp-server"
+        ],
+        "command": "npx",
+        "preferred": true
+      },
+      {
+        "env": [
+          {
+            "key": "OPENAPI_MCP_HEADERS",
+            "name": "openapi mcp headers",
+            "required": true,
+            "sensitive": true,
+            "description": "JSON-encoded HTTP headers for MCP requests, e.g., {\"Authorization\": \"Bearer ntn_****\", \"Notion-Version\": \"2022-06-28\"}. The Notion Integration token (ntn_****) is required."
+          }
+        ],
+        "args": [
+          "run",
+          "--rm",
+          "-i",
+          "-e",
+          "OPENAPI_MCP_HEADERS",
+          "mcp/notion"
+        ],
+        "command": "docker"
+      },
+      {
+        "env": [],
+        "args": [
+          "run",
+          "--rm",
+          "-i",
+          "-e",
+          "OPENAPI_MCP_HEADERS={\"Authorization\": \"Bearer ntn_****\", \"Notion-Version\": \"2022-06-28\"}",
+          "notion-mcp-server"
+        ],
+        "command": "docker"
+      }
+    ]
   },
   {
     "id": 39,
     "path": "README.md",
-    "displayName": "Exa MCP Server",
+    "displayName": "Exa Search",
     "fullName": "exa-labs/exa-mcp-server",
     "url": "https://github.com/exa-labs/exa-mcp-server",
-    "description": "Model Context Protocol (MCP) server that allows AI assistants such as Claude to perform real-time web, academic, company, and code searches via the Exa AI Search API.",
+    "description": "Perform real-time web, academic, company, and code searches via Exa AI Search",
     "stars": 1601,
-    "metadata": "{\"categories\": \"Retrieval & Search,Science & Research,Developer Tools,Verified\"}",
+    "metadata": {
+      "categories": "Retrieval & Search,Science & Research,Developer Tools,Verified"
+    },
     "icon": "https://avatars.githubusercontent.com/u/77906174?v=4",
-    "manifest": "[{\"env\": [{\"key\": \"EXA_API_KEY\", \"name\": \"Exa API key\", \"required\": true, \"sensitive\": true, \"description\": \"Your Exa API key for authenticating requests to the Exa AI Search API. Get it from https://dashboard.exa.ai/api-keys\"}], \"args\": [\"/path/to/exa-mcp-server/build/index.js\", \"--tools=web_search_exa,research_paper_search,company_research,crawling,competitor_finder,linkedin_search,wikipedia_search_exa,github_search\"], \"command\": \"npx\", \"preferred\": true}]"
+    "manifest": [
+      {
+        "env": [
+          {
+            "key": "EXA_API_KEY",
+            "name": "Exa API key",
+            "required": true,
+            "sensitive": true,
+            "description": "Your Exa API key for authenticating requests to the Exa AI Search API. Get it from https://dashboard.exa.ai/api-keys"
+          }
+        ],
+        "args": [
+          "/path/to/exa-mcp-server/build/index.js",
+          "--tools=web_search_exa,research_paper_search,company_research,crawling,competitor_finder,linkedin_search,wikipedia_search_exa,github_search"
+        ],
+        "command": "npx",
+        "preferred": true
+      }
+    ]
   },
   {
     "id": 128,
     "path": "README.md",
-    "displayName": "mcp-atlassian",
+    "displayName": "Atlassian",
     "fullName": "sooperset/mcp-atlassian",
     "url": "https://github.com/sooperset/mcp-atlassian",
-    "description": "MCP server for integrating Atlassian Confluence & Jira (Cloud and Server/DC) with AI assistants via the Model Context Protocol.",
+    "description": "Manage Confluence pages and Jira issues in Atlassian products",
     "stars": 1534,
-    "metadata": "{\"categories\": \"Developer Tools,Verified\"}",
+    "metadata": {
+      "categories": "Developer Tools,Verified"
+    },
     "icon": "https://avatars.githubusercontent.com/u/32061883?v=4",
-    "manifest": "[{\"env\": [{\"key\": \"CONFLUENCE_URL\", \"name\": \"Confluence Instance URL\", \"required\": false, \"sensitive\": false, \"description\": \"Base URL for your Confluence instance (Cloud or Server/DC). Example: https://your-company.atlassian.net/wiki or https://confluence.your-company.com\"}, {\"key\": \"CONFLUENCE_USERNAME\", \"name\": \"Confluence Username (Cloud)\", \"required\": false, \"sensitive\": false, \"description\": \"Email/username for Confluence Cloud login. Ignored for Server/DC.\"}, {\"key\": \"CONFLUENCE_API_TOKEN\", \"name\": \"Confluence API Token (Cloud)\", \"required\": false, \"sensitive\": true, \"description\": \"API token for Confluence Cloud authentication. Generate at Atlassian security settings.\"}, {\"key\": \"JIRA_URL\", \"name\": \"Jira Instance URL\", \"required\": false, \"sensitive\": false, \"description\": \"Base URL for your Jira instance (Cloud or Server/DC). Example: https://your-company.atlassian.net or https://jira.your-company.com\"}, {\"key\": \"JIRA_USERNAME\", \"name\": \"Jira Username (Cloud)\", \"required\": false, \"sensitive\": false, \"description\": \"Email/username for Jira Cloud login. Ignored for Server/DC.\"}, {\"key\": \"JIRA_API_TOKEN\", \"name\": \"Jira API Token (Cloud)\", \"required\": false, \"sensitive\": true, \"description\": \"API token for Jira Cloud authentication. Generate at Atlassian security settings.\"}, {\"key\": \"READ_ONLY_MODE\", \"name\": \"Read-Only Mode\", \"required\": false, \"sensitive\": false, \"description\": \"Set to 'true' to disable all write operations.\"}, {\"key\": \"ENABLED_TOOLS\", \"name\": \"Enabled Tools\", \"required\": false, \"sensitive\": false, \"description\": \"Comma-separated list of enabled tool names (e.g., confluence_search,jira_get_issue).\"}], \"args\": [\"run\", \"-i\", \"--rm\", \"-e\", \"CONFLUENCE_URL\", \"-e\", \"CONFLUENCE_USERNAME\", \"-e\", \"CONFLUENCE_API_TOKEN\", \"-e\", \"JIRA_URL\", \"-e\", \"JIRA_USERNAME\", \"-e\", \"JIRA_API_TOKEN\", \"ghcr.io/obot-platform/mcp-images-atlassian:main\"], \"command\": \"docker\", \"preferred\": true}]"
+    "manifest": [
+      {
+        "env": [
+          {
+            "key": "CONFLUENCE_URL",
+            "name": "Confluence Instance URL",
+            "required": false,
+            "sensitive": false,
+            "description": "Base URL for your Confluence instance (Cloud or Server/DC). Example: https://your-company.atlassian.net/wiki or https://confluence.your-company.com"
+          },
+          {
+            "key": "CONFLUENCE_USERNAME",
+            "name": "Confluence Username (Cloud)",
+            "required": false,
+            "sensitive": false,
+            "description": "Email/username for Confluence Cloud login. Ignored for Server/DC."
+          },
+          {
+            "key": "CONFLUENCE_API_TOKEN",
+            "name": "Confluence API Token (Cloud)",
+            "required": false,
+            "sensitive": true,
+            "description": "API token for Confluence Cloud authentication. Generate at Atlassian security settings."
+          },
+          {
+            "key": "JIRA_URL",
+            "name": "Jira Instance URL",
+            "required": false,
+            "sensitive": false,
+            "description": "Base URL for your Jira instance (Cloud or Server/DC). Example: https://your-company.atlassian.net or https://jira.your-company.com"
+          },
+          {
+            "key": "JIRA_USERNAME",
+            "name": "Jira Username (Cloud)",
+            "required": false,
+            "sensitive": false,
+            "description": "Email/username for Jira Cloud login. Ignored for Server/DC."
+          },
+          {
+            "key": "JIRA_API_TOKEN",
+            "name": "Jira API Token (Cloud)",
+            "required": false,
+            "sensitive": true,
+            "description": "API token for Jira Cloud authentication. Generate at Atlassian security settings."
+          },
+          {
+            "key": "READ_ONLY_MODE",
+            "name": "Read-Only Mode",
+            "required": false,
+            "sensitive": false,
+            "description": "Set to 'true' to disable all write operations."
+          },
+          {
+            "key": "ENABLED_TOOLS",
+            "name": "Enabled Tools",
+            "required": false,
+            "sensitive": false,
+            "description": "Comma-separated list of enabled tool names (e.g., confluence_search,jira_get_issue)."
+          }
+        ],
+        "args": [
+          "run",
+          "-i",
+          "--rm",
+          "-e",
+          "CONFLUENCE_URL",
+          "-e",
+          "CONFLUENCE_USERNAME",
+          "-e",
+          "CONFLUENCE_API_TOKEN",
+          "-e",
+          "JIRA_URL",
+          "-e",
+          "JIRA_USERNAME",
+          "-e",
+          "JIRA_API_TOKEN",
+          "ghcr.io/obot-platform/mcp-images-atlassian:main"
+        ],
+        "command": "docker",
+        "preferred": true
+      }
+    ]
   },
   {
     "id": 228,
     "path": "README.md",
-    "displayName": "MySQL MCP Server",
+    "displayName": "MySQL",
     "fullName": "designcomputer/mysql_mcp_server",
     "url": "https://github.com/designcomputer/mysql_mcp_server",
-    "description": "A Model Context Protocol (MCP) server for secure exploration and querying of MySQL databases via AI apps.",
+    "description": "Explore and query MySQL databases securely",
     "stars": 510,
-    "metadata": "{\"categories\": \"Databases,Data & Analytics,Verified\"}",
+    "metadata": {
+      "categories": "Databases,Data & Analytics,Verified"
+    },
     "icon": "https://avatars.githubusercontent.com/u/25017723?v=4",
-    "manifest": "[{\"env\": [{\"key\": \"MYSQL_HOST\", \"name\": \"MySQL host\", \"required\": true, \"sensitive\": false, \"description\": \"The hostname or IP address of the MySQL database server.\"}, {\"key\": \"MYSQL_PORT\", \"name\": \"MySQL port\", \"required\": false, \"sensitive\": false, \"description\": \"The MySQL database server port, defaults to 3306 if not specified.\"}, {\"key\": \"MYSQL_USER\", \"name\": \"MySQL user\", \"required\": true, \"sensitive\": false, \"description\": \"The username for authenticating with the MySQL database.\"}, {\"key\": \"MYSQL_PASSWORD\", \"name\": \"MySQL password\", \"required\": true, \"sensitive\": true, \"description\": \"The password for the specified MySQL database user.\"}, {\"key\": \"MYSQL_DATABASE\", \"name\": \"MySQL database\", \"required\": true, \"sensitive\": false, \"description\": \"The name of the MySQL database to connect to.\"}], \"args\": [\"--directory\", \"path/to/mysql_mcp_server\", \"run\", \"mysql_mcp_server\"], \"command\": \"uv\"}, {\"env\": [{\"key\": \"MYSQL_HOST\", \"name\": \"MySQL host\", \"required\": true, \"sensitive\": false, \"description\": \"The hostname or IP address of the MySQL database server.\"}, {\"key\": \"MYSQL_PORT\", \"name\": \"MySQL port\", \"required\": false, \"sensitive\": false, \"description\": \"The MySQL database server port, defaults to 3306 if not specified.\"}, {\"key\": \"MYSQL_USER\", \"name\": \"MySQL user\", \"required\": true, \"sensitive\": false, \"description\": \"The username for authenticating with the MySQL database.\"}, {\"key\": \"MYSQL_PASSWORD\", \"name\": \"MySQL password\", \"required\": true, \"sensitive\": true, \"description\": \"The password for the specified MySQL database user.\"}, {\"key\": \"MYSQL_DATABASE\", \"name\": \"MySQL database\", \"required\": true, \"sensitive\": false, \"description\": \"The name of the MySQL database to connect to.\"}], \"args\": [\"--from\", \"mysql-mcp-server\", \"mysql_mcp_server\"], \"command\": \"uvx\"}, {\"env\": [{\"key\": \"MYSQL_HOST\", \"name\": \"MySQL host\", \"required\": true, \"sensitive\": false, \"description\": \"The hostname or IP address of the MySQL database server.\"}, {\"key\": \"MYSQL_PORT\", \"name\": \"MySQL port\", \"required\": false, \"sensitive\": false, \"description\": \"The MySQL database server port, defaults to 3306 if not specified.\"}, {\"key\": \"MYSQL_USER\", \"name\": \"MySQL user\", \"required\": true, \"sensitive\": false, \"description\": \"The username for authenticating with the MySQL database.\"}, {\"key\": \"MYSQL_PASSWORD\", \"name\": \"MySQL password\", \"required\": true, \"sensitive\": true, \"description\": \"The password for the specified MySQL database user.\"}, {\"key\": \"MYSQL_DATABASE\", \"name\": \"MySQL database\", \"required\": true, \"sensitive\": false, \"description\": \"The name of the MySQL database to connect to.\"}], \"args\": [\"-y\", \"@smithery/cli\", \"install\", \"mysql-mcp-server\", \"--client\", \"claude\"], \"command\": \"npx\", \"preferred\": true}]"
+    "manifest": [
+      {
+        "env": [
+          {
+            "key": "MYSQL_HOST",
+            "name": "MySQL host",
+            "required": true,
+            "sensitive": false,
+            "description": "The hostname or IP address of the MySQL database server."
+          },
+          {
+            "key": "MYSQL_PORT",
+            "name": "MySQL port",
+            "required": false,
+            "sensitive": false,
+            "description": "The MySQL database server port, defaults to 3306 if not specified."
+          },
+          {
+            "key": "MYSQL_USER",
+            "name": "MySQL user",
+            "required": true,
+            "sensitive": false,
+            "description": "The username for authenticating with the MySQL database."
+          },
+          {
+            "key": "MYSQL_PASSWORD",
+            "name": "MySQL password",
+            "required": true,
+            "sensitive": true,
+            "description": "The password for the specified MySQL database user."
+          },
+          {
+            "key": "MYSQL_DATABASE",
+            "name": "MySQL database",
+            "required": true,
+            "sensitive": false,
+            "description": "The name of the MySQL database to connect to."
+          }
+        ],
+        "args": [
+          "--directory",
+          "path/to/mysql_mcp_server",
+          "run",
+          "mysql_mcp_server"
+        ],
+        "command": "uv"
+      },
+      {
+        "env": [
+          {
+            "key": "MYSQL_HOST",
+            "name": "MySQL host",
+            "required": true,
+            "sensitive": false,
+            "description": "The hostname or IP address of the MySQL database server."
+          },
+          {
+            "key": "MYSQL_PORT",
+            "name": "MySQL port",
+            "required": false,
+            "sensitive": false,
+            "description": "The MySQL database server port, defaults to 3306 if not specified."
+          },
+          {
+            "key": "MYSQL_USER",
+            "name": "MySQL user",
+            "required": true,
+            "sensitive": false,
+            "description": "The username for authenticating with the MySQL database."
+          },
+          {
+            "key": "MYSQL_PASSWORD",
+            "name": "MySQL password",
+            "required": true,
+            "sensitive": true,
+            "description": "The password for the specified MySQL database user."
+          },
+          {
+            "key": "MYSQL_DATABASE",
+            "name": "MySQL database",
+            "required": true,
+            "sensitive": false,
+            "description": "The name of the MySQL database to connect to."
+          }
+        ],
+        "args": [
+          "--from",
+          "mysql-mcp-server",
+          "mysql_mcp_server"
+        ],
+        "command": "uvx"
+      },
+      {
+        "env": [
+          {
+            "key": "MYSQL_HOST",
+            "name": "MySQL host",
+            "required": true,
+            "sensitive": false,
+            "description": "The hostname or IP address of the MySQL database server."
+          },
+          {
+            "key": "MYSQL_PORT",
+            "name": "MySQL port",
+            "required": false,
+            "sensitive": false,
+            "description": "The MySQL database server port, defaults to 3306 if not specified."
+          },
+          {
+            "key": "MYSQL_USER",
+            "name": "MySQL user",
+            "required": true,
+            "sensitive": false,
+            "description": "The username for authenticating with the MySQL database."
+          },
+          {
+            "key": "MYSQL_PASSWORD",
+            "name": "MySQL password",
+            "required": true,
+            "sensitive": true,
+            "description": "The password for the specified MySQL database user."
+          },
+          {
+            "key": "MYSQL_DATABASE",
+            "name": "MySQL database",
+            "required": true,
+            "sensitive": false,
+            "description": "The name of the MySQL database to connect to."
+          }
+        ],
+        "args": [
+          "-y",
+          "@smithery/cli",
+          "install",
+          "mysql-mcp-server",
+          "--client",
+          "claude"
+        ],
+        "command": "npx",
+        "preferred": true
+      }
+    ]
   },
   {
     "id": 121,
     "path": "README.md",
-    "displayName": "Tavily MCP Server",
+    "displayName": "Tavily Search",
     "fullName": "tavily-ai/tavily-mcp",
     "url": "https://github.com/tavily-ai/tavily-mcp",
-    "description": "MCP server providing real-time web search, extraction, crawling, and site mapping tools powered by the Tavily API.",
+    "description": "Search the web and extract content using Tavily's AI-powered search",
     "stars": 391,
-    "metadata": "{\"categories\": \"Retrieval & Search, SaaS & API Integrations, Developer Tools,Verified\"}",
+    "metadata": {
+      "categories": "Retrieval & Search, SaaS & API Integrations, Developer Tools,Verified"
+    },
     "icon": "https://avatars.githubusercontent.com/u/170207473?v=4",
-    "manifest": "[{\"env\": [{\"key\": \"TAVILY_API_KEY\", \"name\": \"tavily API key\", \"required\": true, \"sensitive\": true, \"description\": \"Your Tavily API key. Get one at https://app.tavily.com/home\"}], \"args\": [\"-y\", \"tavily-mcp@0.2.1\"], \"command\": \"npx\", \"preferred\": true}, {\"env\": [{\"key\": \"TAVILY_API_KEY\", \"name\": \"tavily API key\", \"required\": true, \"sensitive\": true, \"description\": \"Your Tavily API key. Get one at https://app.tavily.com/home\"}], \"args\": [\"/path/to/tavily-mcp/build/index.js\"], \"command\": \"npx\"}]"
+    "manifest": [
+      {
+        "env": [
+          {
+            "key": "TAVILY_API_KEY",
+            "name": "tavily API key",
+            "required": true,
+            "sensitive": true,
+            "description": "Your Tavily API key. Get one at https://app.tavily.com/home"
+          }
+        ],
+        "args": [
+          "-y",
+          "tavily-mcp@0.2.1"
+        ],
+        "command": "npx",
+        "preferred": true
+      },
+      {
+        "env": [
+          {
+            "key": "TAVILY_API_KEY",
+            "name": "tavily API key",
+            "required": true,
+            "sensitive": true,
+            "description": "Your Tavily API key. Get one at https://app.tavily.com/home"
+          }
+        ],
+        "args": [
+          "/path/to/tavily-mcp/build/index.js"
+        ],
+        "command": "npx"
+      }
+    ]
   },
   {
     "id": 216,
     "path": "README.md",
-    "displayName": "mcp-server-chart",
+    "displayName": "AntV Charts",
     "fullName": "antvis/mcp-server-chart",
     "url": "https://github.com/antvis/mcp-server-chart",
-    "description": "A Model Context Protocol (MCP) server for generating various types of charts using AntV, returning image URLs, configurable for private deployment.",
+    "description": "Generate various types of charts and visualizations using AntV",
     "stars": 275,
-    "metadata": "{\"categories\": \"Data & Analytics,Verified\"}",
+    "metadata": {
+      "categories": "Data & Analytics,Verified"
+    },
     "icon": "https://avatars.githubusercontent.com/u/19199542?v=4",
-    "manifest": "[{\"env\": [{\"key\": \"VIS_REQUEST_SERVER\", \"name\": \"Vis Request Server\", \"value\": \"<YOUR_VIS_REQUEST_SERVER>\", \"required\": false, \"sensitive\": false, \"description\": \"Override the default chart image rendering endpoint with your own private/deployed chart generation service URL, e.g., from GPT-Vis-SSR.\"}], \"args\": [\"-y\", \"@antv/mcp-server-chart\"], \"command\": \"npx\", \"preferred\": true}]"
+    "manifest": [
+      {
+        "env": [
+          {
+            "key": "VIS_REQUEST_SERVER",
+            "name": "Vis Request Server",
+            "value": "<YOUR_VIS_REQUEST_SERVER>",
+            "required": false,
+            "sensitive": false,
+            "description": "Override the default chart image rendering endpoint with your own private/deployed chart generation service URL, e.g., from GPT-Vis-SSR."
+          }
+        ],
+        "args": [
+          "-y",
+          "@antv/mcp-server-chart"
+        ],
+        "command": "npx",
+        "preferred": true
+      }
+    ]
   },
   {
     "id": 1214,
     "path": "README.md",
-    "displayName": "Neon MCP Server",
+    "displayName": "Neon Database",
     "fullName": "neondatabase-labs/mcp-server-neon",
     "url": "https://github.com/neondatabase-labs/mcp-server-neon",
-    "description": "Enables natural language management of Neon Postgres databases via Model Context Protocol (MCP) for database tasks, queries, projects, and migrations.",
+    "description": "Manage Neon Postgres databases, projects, and run queries",
     "stars": 230,
-    "metadata": "{\"categories\": \"Databases,Verified\"}",
+    "metadata": {
+      "categories": "Databases,Verified"
+    },
     "icon": "https://avatars.githubusercontent.com/u/183852044?v=4",
-    "manifest": "[{\"env\": [{\"key\": \"NEON_API_KEY\", \"name\": \"Neon API Key\", \"required\": true, \"sensitive\": true, \"description\": \"The Neon API key\"}], \"args\": [\"-y\", \"@neondatabase/mcp-server-neon\", \"start\", \"${NEON_API_KEY}\"], \"command\": \"npx\", \"preferred\": true}]"
+    "manifest": [
+      {
+        "env": [
+          {
+            "key": "NEON_API_KEY",
+            "name": "Neon API Key",
+            "required": true,
+            "sensitive": true,
+            "description": "The Neon API key"
+          }
+        ],
+        "args": [
+          "-y",
+          "@neondatabase/mcp-server-neon",
+          "start",
+          "${NEON_API_KEY}"
+        ],
+        "command": "npx",
+        "preferred": true
+      }
+    ]
   },
   {
     "id": 40,
     "path": "README.md",
-    "displayName": "Elasticsearch MCP Server",
+    "displayName": "Elasticsearch",
     "fullName": "elastic/mcp-server-elasticsearch",
     "url": "https://github.com/elastic/mcp-server-elasticsearch",
-    "description": "MCP Server to access and query Elasticsearch data and metadata directly from any MCP client via natural language requests.",
+    "description": "Query and manage Elasticsearch data and metadata",
     "stars": 195,
-    "metadata": "{\"categories\": \"Databases,Verified\"}",
+    "metadata": {
+      "categories": "Databases,Verified"
+    },
     "icon": "https://avatars.githubusercontent.com/u/6764390?v=4",
-    "manifest": "[{\"env\": [{\"key\": \"ES_URL\", \"name\": \"Elasticsearch URL\", \"required\": true, \"sensitive\": false, \"description\": \"Your Elasticsearch instance URL\"}, {\"key\": \"ES_API_KEY\", \"name\": \"Elasticsearch API Key\", \"required\": false, \"sensitive\": true, \"description\": \"Elasticsearch API key for authentication\"}, {\"key\": \"ES_USERNAME\", \"name\": \"Elasticsearch Username\", \"required\": false, \"sensitive\": true, \"description\": \"Elasticsearch username for basic authentication\"}, {\"key\": \"ES_PASSWORD\", \"name\": \"Elasticsearch Password\", \"required\": false, \"sensitive\": true, \"description\": \"Elasticsearch password for basic authentication\"}], \"args\": [\"-y\", \"@elastic/mcp-server-elasticsearch\"], \"command\": \"npx\", \"preferred\": true}]"
+    "manifest": [
+      {
+        "env": [
+          {
+            "key": "ES_URL",
+            "name": "Elasticsearch URL",
+            "required": true,
+            "sensitive": false,
+            "description": "Your Elasticsearch instance URL"
+          },
+          {
+            "key": "ES_API_KEY",
+            "name": "Elasticsearch API Key",
+            "required": false,
+            "sensitive": true,
+            "description": "Elasticsearch API key for authentication"
+          },
+          {
+            "key": "ES_USERNAME",
+            "name": "Elasticsearch Username",
+            "required": false,
+            "sensitive": true,
+            "description": "Elasticsearch username for basic authentication"
+          },
+          {
+            "key": "ES_PASSWORD",
+            "name": "Elasticsearch Password",
+            "required": false,
+            "sensitive": true,
+            "description": "Elasticsearch password for basic authentication"
+          }
+        ],
+        "args": [
+          "-y",
+          "@elastic/mcp-server-elasticsearch"
+        ],
+        "command": "npx",
+        "preferred": true
+      }
+    ]
   },
   {
     "id": 1319,
     "path": "README.md",
-    "displayName": "DuckDuckGo Search MCP Server",
+    "displayName": "DuckDuckGo Search",
     "fullName": "nickclyde/duckduckgo-mcp-server",
     "url": "https://github.com/nickclyde/duckduckgo-mcp-server",
-    "description": "An MCP server providing DuckDuckGo web search and webpage content extraction with rate limiting and LLM-friendly output.",
+    "description": "Search the web and extract content using DuckDuckGo",
     "stars": 163,
-    "metadata": "{\"categories\": \"Retrieval & Search, SaaS & API Integrations,Verified\"}",
+    "metadata": {
+      "categories": "Retrieval & Search, SaaS & API Integrations,Verified"
+    },
     "icon": "https://avatars.githubusercontent.com/u/9121162?v=4",
-    "manifest": "[{\"env\": [], \"args\": [\"duckduckgo-mcp-server\"], \"command\": \"uvx\", \"preferred\": true}]"
+    "manifest": [
+      {
+        "env": [],
+        "args": [
+          "duckduckgo-mcp-server"
+        ],
+        "command": "uvx",
+        "preferred": true
+      }
+    ]
   },
   {
     "id": 122,
     "path": "README.md",
-    "displayName": "Airbnb MCP Server",
+    "displayName": "Airbnb",
     "fullName": "openbnb-org/mcp-server-airbnb",
     "url": "https://github.com/openbnb-org/mcp-server-airbnb",
-    "description": "MCP server for searching Airbnb listings and retrieving detailed listing information.",
+    "description": "Search and retrieve information about Airbnb listings",
     "stars": 141,
-    "metadata": "{\"categories\": \"Retrieval & Search, SaaS & API Integrations, Maps & Location,Verified\"}",
+    "metadata": {
+      "categories": "Retrieval & Search, SaaS & API Integrations, Maps & Location,Verified"
+    },
     "icon": "https://avatars.githubusercontent.com/u/202564951?v=4",
-    "manifest": "[{\"env\": [], \"args\": [\"-y\", \"@openbnb/mcp-server-airbnb\"], \"command\": \"npx\", \"preferred\": true}, {\"env\": [], \"args\": [\"-y\", \"@openbnb/mcp-server-airbnb\", \"--ignore-robots-txt\"], \"command\": \"npx\"}]"
+    "manifest": [
+      {
+        "env": [],
+        "args": [
+          "-y",
+          "@openbnb/mcp-server-airbnb"
+        ],
+        "command": "npx",
+        "preferred": true
+      },
+      {
+        "env": [],
+        "args": [
+          "-y",
+          "@openbnb/mcp-server-airbnb",
+          "--ignore-robots-txt"
+        ],
+        "command": "npx"
+      }
+    ]
   },
   {
     "id": 2425,
     "path": "README.md",
-    "displayName": "@zereight/mcp-gitlab",
+    "displayName": "GitLab",
     "fullName": "zereight/gitlab-mcp",
     "url": "https://github.com/zereight/gitlab-mcp",
-    "description": "An enhanced GitLab Model Context Protocol (MCP) server enabling programmatic access to GitLab repositories, issues, merge requests, labels, wikis, and namespaces.",
+    "description": "Manage repositories, merge requests, issues, and wikis on GitLab",
     "stars": 105,
-    "metadata": "{\"categories\": \"Developer Tools,TypeScript,Cloud Platforms,Productivity,Verified\"}",
+    "metadata": {
+      "categories": "Developer Tools,TypeScript,Cloud Platforms,Productivity,Verified",
+      "unsupportedTools": "create_or_update_file,push_files"
+    },
     "icon": "https://avatars.githubusercontent.com/u/42544600?v=4",
-    "manifest": "[{\"env\": [{\"key\": \"GITLAB_PERSONAL_ACCESS_TOKEN\", \"name\": \"Gitlab Personal Access Token\", \"required\": true, \"sensitive\": true, \"description\": \"Your GitLab personal access token (required)\"}, {\"key\": \"GITLAB_API_URL\", \"name\": \"Gitlab API URL\", \"required\": false, \"sensitive\": false, \"description\": \"Base URL for GitLab API (optional, defaults to https://gitlab.com/api/v4)\"}, {\"key\": \"USE_GITLAB_WIKI\", \"name\": \"use gitlab wiki\", \"required\": false, \"sensitive\": false, \"description\": \"Enables the wiki-related tools if set to 'true'.\"}, {\"key\": \"GITLAB_READ_ONLY_MODE\", \"name\": \"gitlab read only mode\", \"required\": false, \"sensitive\": false, \"description\": \"Restricts the server to only expose read-only operations when set to 'true'. Useful for security or when write access is not needed.\"}], \"args\": [\"-y\", \"@zereight/mcp-gitlab\"], \"command\": \"npx\", \"metadata\": \"[\\\"unsupportedTools\\\": \\\"create_or_update_file,push_files\\\"]\", \"preferred\": true}]"
+    "manifest": [
+      {
+        "env": [
+          {
+            "key": "GITLAB_PERSONAL_ACCESS_TOKEN",
+            "name": "Gitlab Personal Access Token",
+            "required": true,
+            "sensitive": true,
+            "description": "Your GitLab personal access token (required)"
+          },
+          {
+            "key": "GITLAB_API_URL",
+            "name": "Gitlab API URL",
+            "required": false,
+            "sensitive": false,
+            "description": "Base URL for GitLab API (optional, defaults to https://gitlab.com/api/v4)"
+          },
+          {
+            "key": "USE_GITLAB_WIKI",
+            "name": "use gitlab wiki",
+            "required": false,
+            "sensitive": false,
+            "description": "Enables the wiki-related tools if set to 'true'."
+          },
+          {
+            "key": "GITLAB_READ_ONLY_MODE",
+            "name": "gitlab read only mode",
+            "required": false,
+            "sensitive": false,
+            "description": "Restricts the server to only expose read-only operations when set to 'true'. Useful for security or when write access is not needed."
+          }
+        ],
+        "args": [
+          "-y",
+          "@zereight/mcp-gitlab"
+        ],
+        "command": "npx",
+        "preferred": true
+      }
+    ]
   },
   {
     "id": 2242,
     "path": "README.md",
-    "displayName": "Square Model Context Protocol (MCP) Server",
+    "displayName": "Square",
     "fullName": "square/square-mcp-server",
     "url": "https://github.com/square/square-mcp-server",
-    "description": "Enables AI assistants to interact with Square's complete API ecosystem via the Model Context Protocol, supporting both local and remote (OAuth) operation modes.",
+    "description": "Interact with Square's API for payments, orders, and business management",
     "stars": 50,
-    "metadata": "{\"categories\": \"E-commerce,Verified\"}",
+    "metadata": {
+      "categories": "E-commerce,Verified"
+    },
     "icon": "https://avatars.githubusercontent.com/u/82592?v=4",
-    "manifest": "[{\"env\": [{\"key\": \"ACCESS_TOKEN\", \"name\": \"Square API Access Token\", \"required\": true, \"sensitive\": true, \"description\": \"Your Square API access token used for authenticating requests to Square.\"}, {\"key\": \"SANDBOX\", \"name\": \"Use Square Sandbox\", \"required\": false, \"sensitive\": false, \"description\": \"Set to 'true' to use the Square sandbox (test) environment.\"}, {\"key\": \"PRODUCTION\", \"name\": \"Use Square Production\", \"required\": false, \"sensitive\": false, \"description\": \"Set to 'true' to use the Square production environment.\"}, {\"key\": \"DISALLOW_WRITES\", \"name\": \"Disallow Writes\", \"required\": false, \"sensitive\": false, \"description\": \"If set to 'true', restricts API to read-only operations.\"}, {\"key\": \"SQUARE_VERSION\", \"name\": \"Square API Version\", \"required\": false, \"sensitive\": false, \"description\": \"Specify the Square API version to use (e.g., 2025-04-16).\"}], \"args\": [\"square-mcp-server\", \"start\"], \"command\": \"npx\", \"preferred\": true}]"
+    "manifest": [
+      {
+        "env": [
+          {
+            "key": "ACCESS_TOKEN",
+            "name": "Square API Access Token",
+            "required": true,
+            "sensitive": true,
+            "description": "Your Square API access token used for authenticating requests to Square."
+          },
+          {
+            "key": "SANDBOX",
+            "name": "Use Square Sandbox",
+            "required": false,
+            "sensitive": false,
+            "description": "Set to 'true' to use the Square sandbox (test) environment."
+          },
+          {
+            "key": "PRODUCTION",
+            "name": "Use Square Production",
+            "required": false,
+            "sensitive": false,
+            "description": "Set to 'true' to use the Square production environment."
+          },
+          {
+            "key": "DISALLOW_WRITES",
+            "name": "Disallow Writes",
+            "required": false,
+            "sensitive": false,
+            "description": "If set to 'true', restricts API to read-only operations."
+          },
+          {
+            "key": "SQUARE_VERSION",
+            "name": "Square API Version",
+            "required": false,
+            "sensitive": false,
+            "description": "Specify the Square API version to use (e.g., 2025-04-16)."
+          }
+        ],
+        "args": [
+          "square-mcp-server",
+          "start"
+        ],
+        "command": "npx",
+        "preferred": true
+      }
+    ]
   },
   {
     "id": 67,
     "path": "README.md",
-    "displayName": "Heroku Platform MCP Server",
+    "displayName": "Heroku",
     "fullName": "heroku/heroku-mcp-server",
     "url": "https://github.com/heroku/heroku-mcp-server",
-    "description": "Provides LLM-driven access and management of Heroku Platform resources, including apps, pipelines, add-ons, dynos, teams, and databases.",
+    "description": "Manage Heroku apps, add-ons, dynos, and platform resources",
     "stars": 42,
-    "metadata": "{\"categories\": \"Infrastructure & DevOps,Developer Tools,Verified\"}",
+    "metadata": {
+      "categories": "Infrastructure & DevOps,Developer Tools,Verified"
+    },
     "icon": "https://avatars.githubusercontent.com/u/23211?v=4",
-    "manifest": "[{\"env\": [{\"key\": \"HEROKU_API_KEY\", \"name\": \"Heroku API Key\", \"required\": true, \"sensitive\": true, \"description\": \"Heroku platform authorization token required for authenticated API access. Generate this token via Heroku CLI or the Heroku Dashboard.\"}], \"args\": [\"-y\", \"@heroku/mcp-server\"], \"command\": \"npx\", \"preferred\": true}]"
+    "manifest": [
+      {
+        "env": [
+          {
+            "key": "HEROKU_API_KEY",
+            "name": "Heroku API Key",
+            "required": true,
+            "sensitive": true,
+            "description": "Heroku platform authorization token required for authenticated API access. Generate this token via Heroku CLI or the Heroku Dashboard."
+          }
+        ],
+        "args": [
+          "-y",
+          "@heroku/mcp-server"
+        ],
+        "command": "npx",
+        "preferred": true
+      }
+    ]
   },
   {
     "id": 1140,
     "path": "README.md",
-    "displayName": "Datadog MCP Server",
+    "displayName": "Datadog",
     "fullName": "GeLi2001/datadog-mcp-server",
     "url": "https://github.com/GeLi2001/datadog-mcp-server",
-    "description": "A Model Context Protocol (MCP) CLI server for interacting with Datadog APIs, supporting monitoring, metrics, dashboards, events, logs, and incidents.",
+    "description": "Monitor metrics, logs, incidents, and more in Datadog",
     "stars": 34,
-    "metadata": "{\"categories\": \"Developer Tools,Verified\"}",
+    "metadata": {
+      "categories": "Developer Tools,Verified"
+    },
     "icon": "https://avatars.githubusercontent.com/u/77590974?v=4",
-    "manifest": "[{\"env\": [{\"key\": \"DD_API_KEY\", \"name\": \"Datadog API Key\", \"required\": true, \"sensitive\": true, \"description\": \"Your Datadog API key, obtainable from Organization Settings > API Keys.\"}, {\"key\": \"DD_APP_KEY\", \"name\": \"Datadog Application Key\", \"required\": true, \"sensitive\": true, \"description\": \"Your Datadog Application key, obtainable from Organization Settings > Application Keys.\"}, {\"key\": \"DD_SITE\", \"name\": \"Datadog Site Domain\", \"required\": true, \"sensitive\": false, \"description\": \"Datadog site domain for API calls (e.g., datadoghq.com, datadoghq.eu).\"}, {\"key\": \"DD_LOGS_SITE\", \"name\": \"Datadog Logs Endpoint\", \"required\": false, \"sensitive\": false, \"description\": \"Optional. If using different endpoint for logs API; defaults to DD_SITE.\"}, {\"key\": \"DD_METRICS_SITE\", \"name\": \"Datadog Metrics Endpoint\", \"required\": false, \"sensitive\": false, \"description\": \"Optional. If using different endpoint for metrics API; defaults to DD_SITE.\"}], \"args\": [\"datadog-mcp-server\", \"--apiKey\", \"<YOUR_API_KEY>\", \"--appKey\", \"<YOUR_APP_KEY>\", \"--site\", \"<YOUR_DD_SITE>\"], \"command\": \"npx\", \"preferred\": true}, {\"env\": [{\"key\": \"DD_API_KEY\", \"name\": \"Datadog API Key\", \"required\": true, \"sensitive\": true, \"description\": \"Your Datadog API key, obtainable from Organization Settings > API Keys.\"}, {\"key\": \"DD_APP_KEY\", \"name\": \"Datadog Application Key\", \"required\": true, \"sensitive\": true, \"description\": \"Your Datadog Application key, obtainable from Organization Settings > Application Keys.\"}, {\"key\": \"DD_SITE\", \"name\": \"Datadog Site Domain\", \"required\": true, \"sensitive\": false, \"description\": \"Datadog site domain for API calls (e.g., datadoghq.com, datadoghq.eu).\"}, {\"key\": \"DD_LOGS_SITE\", \"name\": \"Datadog Logs Endpoint\", \"required\": false, \"sensitive\": false, \"description\": \"Optional. If using different endpoint for logs API; defaults to DD_SITE.\"}, {\"key\": \"DD_METRICS_SITE\", \"name\": \"Datadog Metrics Endpoint\", \"required\": false, \"sensitive\": false, \"description\": \"Optional. If using different endpoint for metrics API; defaults to DD_SITE.\"}], \"args\": [\"datadog-mcp-server\", \"--apiKey\", \"<YOUR_API_KEY>\", \"--appKey\", \"<YOUR_APP_KEY>\", \"--site\", \"<YOUR_DD_SITE>\", \"--logsSite\", \"<YOUR_LOGS_SITE>\", \"--metricsSite\", \"<YOUR_METRICS_SITE>\"], \"command\": \"npx\"}]"
+    "manifest": [
+      {
+        "env": [
+          {
+            "key": "DD_API_KEY",
+            "name": "Datadog API Key",
+            "required": true,
+            "sensitive": true,
+            "description": "Your Datadog API key, obtainable from Organization Settings > API Keys."
+          },
+          {
+            "key": "DD_APP_KEY",
+            "name": "Datadog Application Key",
+            "required": true,
+            "sensitive": true,
+            "description": "Your Datadog Application key, obtainable from Organization Settings > Application Keys."
+          },
+          {
+            "key": "DD_SITE",
+            "name": "Datadog Site Domain",
+            "required": true,
+            "sensitive": false,
+            "description": "Datadog site domain for API calls (e.g., datadoghq.com, datadoghq.eu)."
+          },
+          {
+            "key": "DD_LOGS_SITE",
+            "name": "Datadog Logs Endpoint",
+            "required": false,
+            "sensitive": false,
+            "description": "Optional. If using different endpoint for logs API; defaults to DD_SITE."
+          },
+          {
+            "key": "DD_METRICS_SITE",
+            "name": "Datadog Metrics Endpoint",
+            "required": false,
+            "sensitive": false,
+            "description": "Optional. If using different endpoint for metrics API; defaults to DD_SITE."
+          }
+        ],
+        "args": [
+          "datadog-mcp-server",
+          "--apiKey",
+          "<YOUR_API_KEY>",
+          "--appKey",
+          "<YOUR_APP_KEY>",
+          "--site",
+          "<YOUR_DD_SITE>"
+        ],
+        "command": "npx",
+        "preferred": true
+      },
+      {
+        "env": [
+          {
+            "key": "DD_API_KEY",
+            "name": "Datadog API Key",
+            "required": true,
+            "sensitive": true,
+            "description": "Your Datadog API key, obtainable from Organization Settings > API Keys."
+          },
+          {
+            "key": "DD_APP_KEY",
+            "name": "Datadog Application Key",
+            "required": true,
+            "sensitive": true,
+            "description": "Your Datadog Application key, obtainable from Organization Settings > Application Keys."
+          },
+          {
+            "key": "DD_SITE",
+            "name": "Datadog Site Domain",
+            "required": true,
+            "sensitive": false,
+            "description": "Datadog site domain for API calls (e.g., datadoghq.com, datadoghq.eu)."
+          },
+          {
+            "key": "DD_LOGS_SITE",
+            "name": "Datadog Logs Endpoint",
+            "required": false,
+            "sensitive": false,
+            "description": "Optional. If using different endpoint for logs API; defaults to DD_SITE."
+          },
+          {
+            "key": "DD_METRICS_SITE",
+            "name": "Datadog Metrics Endpoint",
+            "required": false,
+            "sensitive": false,
+            "description": "Optional. If using different endpoint for metrics API; defaults to DD_SITE."
+          }
+        ],
+        "args": [
+          "datadog-mcp-server",
+          "--apiKey",
+          "<YOUR_API_KEY>",
+          "--appKey",
+          "<YOUR_APP_KEY>",
+          "--site",
+          "<YOUR_DD_SITE>",
+          "--logsSite",
+          "<YOUR_LOGS_SITE>",
+          "--metricsSite",
+          "<YOUR_METRICS_SITE>"
+        ],
+        "command": "npx"
+      }
+    ]
   },
   {
     "id": 1513,
     "path": "README.md",
-    "displayName": "argocd-mcp",
+    "displayName": "Argo CD",
     "fullName": "akuity/argocd-mcp",
     "url": "https://github.com/akuity/argocd-mcp",
-    "description": "MCP server for interacting with Argo CD through natural language and AI assistants, supporting both stdio and SSE transport for clients like VS Code, Cursor, and Claude Desktop.",
+    "description": "Manage applications and deployments in Argo CD",
     "stars": 14,
-    "metadata": "{\"categories\": \"Developer Tools,Infrastructure & DevOps,Verified\"}",
+    "metadata": {
+      "categories": "Developer Tools,Infrastructure & DevOps,Verified"
+    },
     "icon": "https://avatars.githubusercontent.com/u/84434210?v=4",
-    "manifest": "[{\"env\": [{\"key\": \"ARGOCD_BASE_URL\", \"name\": \"ArgoCD Base URL\", \"value\": \"<argocd_url>\", \"required\": true, \"sensitive\": false, \"description\": \"Base URL of your Argo CD instance (e.g., https://argocd.example.com).\"}, {\"key\": \"ARGOCD_API_TOKEN\", \"name\": \"ArgoCD API Token\", \"value\": \"<argocd_token>\", \"required\": true, \"sensitive\": true, \"description\": \"API token with access permissions for the Argo CD instance.\"}], \"args\": [\"argocd-mcp@latest\", \"stdio\"], \"command\": \"npx\", \"preferred\": true}]"
+    "manifest": [
+      {
+        "env": [
+          {
+            "key": "ARGOCD_BASE_URL",
+            "name": "ArgoCD Base URL",
+            "value": "<argocd_url>",
+            "required": true,
+            "sensitive": false,
+            "description": "Base URL of your Argo CD instance (e.g., https://argocd.example.com)."
+          },
+          {
+            "key": "ARGOCD_API_TOKEN",
+            "name": "ArgoCD API Token",
+            "value": "<argocd_token>",
+            "required": true,
+            "sensitive": true,
+            "description": "API token with access permissions for the Argo CD instance."
+          }
+        ],
+        "args": [
+          "argocd-mcp@latest",
+          "stdio"
+        ],
+        "command": "npx",
+        "preferred": true
+      }
+    ]
   }
 ]
