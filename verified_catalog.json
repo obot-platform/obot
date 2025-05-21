@@ -57,21 +57,21 @@
         "env": [
           {
             "key": "AWS_ACCESS_KEY_ID",
-            "name": "aws access key id",
+            "name": "AWS Access Key ID",
             "required": true,
             "sensitive": true,
             "description": "Your AWS Access Key ID with permissions for Bedrock Agent Runtime."
           },
           {
             "key": "AWS_SECRET_ACCESS_KEY",
-            "name": "aws secret access key",
+            "name": "AWS Secret Access Key",
             "required": true,
             "sensitive": true,
             "description": "Your AWS Secret Access Key with permissions for Bedrock Agent Runtime."
           },
           {
             "key": "AWS_REGION",
-            "name": "aws region",
+            "name": "AWS Region",
             "required": true,
             "sensitive": false,
             "description": "The AWS region to use for Bedrock Agent Runtime operations."
@@ -95,21 +95,21 @@
         "env": [
           {
             "key": "AWS_ACCESS_KEY_ID",
-            "name": "aws access key id",
+            "name": "AWS Access Key ID",
             "required": true,
             "sensitive": true,
             "description": "Your AWS Access Key ID with permissions for Bedrock Agent Runtime."
           },
           {
             "key": "AWS_SECRET_ACCESS_KEY",
-            "name": "aws secret access key",
+            "name": "AWS Secret Access Key",
             "required": true,
             "sensitive": true,
             "description": "Your AWS Secret Access Key with permissions for Bedrock Agent Runtime."
           },
           {
             "key": "AWS_REGION",
-            "name": "aws region",
+            "name": "AWS Region",
             "required": true,
             "sensitive": false,
             "description": "The AWS region to use for Bedrock Agent Runtime operations."
@@ -277,14 +277,14 @@
         "env": [
           {
             "key": "KARAKEEP_API_ADDR",
-            "name": "karakeep api address",
+            "name": "Karakeep API Address",
             "required": true,
             "sensitive": false,
             "description": "The URL address for your Karakeep server"
           },
           {
             "key": "KARAKEEP_API_KEY",
-            "name": "karakeep api key",
+            "name": "Karakeep API Key",
             "required": true,
             "sensitive": true,
             "description": "Your Karakeep API access token"
@@ -300,14 +300,14 @@
         "env": [
           {
             "key": "KARAKEEP_API_ADDR",
-            "name": "karakeep api address",
+            "name": "Karakeep API Address",
             "required": true,
             "sensitive": false,
             "description": "The URL address for your Karakeep server"
           },
           {
             "key": "KARAKEEP_API_KEY",
-            "name": "karakeep api key",
+            "name": "Karakeep API Key",
             "required": true,
             "sensitive": true,
             "description": "Your Karakeep API access token"
@@ -435,7 +435,7 @@
         "env": [
           {
             "key": "DEFAULT_MINIMUM_TOKENS",
-            "name": "default minimum tokens",
+            "name": "Default Minimum Tokens",
             "required": false,
             "sensitive": false,
             "description": "Set the minimum token count for documentation retrieval (default: 10000)."
@@ -452,7 +452,7 @@
         "env": [
           {
             "key": "DEFAULT_MINIMUM_TOKENS",
-            "name": "default minimum tokens",
+            "name": "Default Minimum Tokens",
             "required": false,
             "sensitive": false,
             "description": "Set the minimum token count for documentation retrieval (default: 10000)."
@@ -468,7 +468,7 @@
         "env": [
           {
             "key": "DEFAULT_MINIMUM_TOKENS",
-            "name": "default minimum tokens",
+            "name": "Default Minimum Tokens",
             "required": false,
             "sensitive": false,
             "description": "Set the minimum token count for documentation retrieval (default: 10000)."
@@ -486,7 +486,7 @@
         "env": [
           {
             "key": "DEFAULT_MINIMUM_TOKENS",
-            "name": "default minimum tokens",
+            "name": "Default Minimum Tokens",
             "required": false,
             "sensitive": false,
             "description": "Set the minimum token count for documentation retrieval (default: 10000)."
@@ -607,7 +607,7 @@
         "env": [
           {
             "key": "OPENAPI_MCP_HEADERS",
-            "name": "openapi mcp headers",
+            "name": "OpenAPI MCP Headers",
             "required": true,
             "sensitive": true,
             "description": "JSON-encoded HTTP headers for MCP requests, e.g., {\"Authorization\": \"Bearer ntn_****\", \"Notion-Version\": \"2022-06-28\"}. The Notion Integration token (ntn_****) is required."
@@ -624,7 +624,7 @@
         "env": [
           {
             "key": "OPENAPI_MCP_HEADERS",
-            "name": "openapi mcp headers",
+            "name": "OpenAPI MCP Headers",
             "required": true,
             "sensitive": true,
             "description": "JSON-encoded HTTP headers for MCP requests, e.g., {\"Authorization\": \"Bearer ntn_****\", \"Notion-Version\": \"2022-06-28\"}. The Notion Integration token (ntn_****) is required."
@@ -798,35 +798,35 @@
         "env": [
           {
             "key": "MYSQL_HOST",
-            "name": "MySQL host",
+            "name": "MySQL Host",
             "required": true,
             "sensitive": false,
             "description": "The hostname or IP address of the MySQL database server."
           },
           {
             "key": "MYSQL_PORT",
-            "name": "MySQL port",
+            "name": "MySQL Port",
             "required": false,
             "sensitive": false,
             "description": "The MySQL database server port, defaults to 3306 if not specified."
           },
           {
             "key": "MYSQL_USER",
-            "name": "MySQL user",
+            "name": "MySQL User",
             "required": true,
             "sensitive": false,
             "description": "The username for authenticating with the MySQL database."
           },
           {
             "key": "MYSQL_PASSWORD",
-            "name": "MySQL password",
+            "name": "MySQL Password",
             "required": true,
             "sensitive": true,
             "description": "The password for the specified MySQL database user."
           },
           {
             "key": "MYSQL_DATABASE",
-            "name": "MySQL database",
+            "name": "MySQL Database",
             "required": true,
             "sensitive": false,
             "description": "The name of the MySQL database to connect to."
@@ -844,35 +844,35 @@
         "env": [
           {
             "key": "MYSQL_HOST",
-            "name": "MySQL host",
+            "name": "MySQL Host",
             "required": true,
             "sensitive": false,
             "description": "The hostname or IP address of the MySQL database server."
           },
           {
             "key": "MYSQL_PORT",
-            "name": "MySQL port",
+            "name": "MySQL Port",
             "required": false,
             "sensitive": false,
             "description": "The MySQL database server port, defaults to 3306 if not specified."
           },
           {
             "key": "MYSQL_USER",
-            "name": "MySQL user",
+            "name": "MySQL User",
             "required": true,
             "sensitive": false,
             "description": "The username for authenticating with the MySQL database."
           },
           {
             "key": "MYSQL_PASSWORD",
-            "name": "MySQL password",
+            "name": "MySQL Password",
             "required": true,
             "sensitive": true,
             "description": "The password for the specified MySQL database user."
           },
           {
             "key": "MYSQL_DATABASE",
-            "name": "MySQL database",
+            "name": "MySQL Database",
             "required": true,
             "sensitive": false,
             "description": "The name of the MySQL database to connect to."
@@ -889,35 +889,35 @@
         "env": [
           {
             "key": "MYSQL_HOST",
-            "name": "MySQL host",
+            "name": "MySQL Host",
             "required": true,
             "sensitive": false,
             "description": "The hostname or IP address of the MySQL database server."
           },
           {
             "key": "MYSQL_PORT",
-            "name": "MySQL port",
+            "name": "MySQL Port",
             "required": false,
             "sensitive": false,
             "description": "The MySQL database server port, defaults to 3306 if not specified."
           },
           {
             "key": "MYSQL_USER",
-            "name": "MySQL user",
+            "name": "MySQL User",
             "required": true,
             "sensitive": false,
             "description": "The username for authenticating with the MySQL database."
           },
           {
             "key": "MYSQL_PASSWORD",
-            "name": "MySQL password",
+            "name": "MySQL Password",
             "required": true,
             "sensitive": true,
             "description": "The password for the specified MySQL database user."
           },
           {
             "key": "MYSQL_DATABASE",
-            "name": "MySQL database",
+            "name": "MySQL Database",
             "required": true,
             "sensitive": false,
             "description": "The name of the MySQL database to connect to."
@@ -953,7 +953,7 @@
         "env": [
           {
             "key": "TAVILY_API_KEY",
-            "name": "tavily API key",
+            "name": "Tavily API Key",
             "required": true,
             "sensitive": true,
             "description": "Your Tavily API key. Get one at https://app.tavily.com/home"
@@ -970,7 +970,7 @@
         "env": [
           {
             "key": "TAVILY_API_KEY",
-            "name": "tavily API key",
+            "name": "Tavily API Key",
             "required": true,
             "sensitive": true,
             "description": "Your Tavily API key. Get one at https://app.tavily.com/home"
