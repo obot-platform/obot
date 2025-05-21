@@ -19,24 +19,6 @@
         ],
         "command": "uvx",
         "preferred": true
-      },
-      {
-        "env": [],
-        "args": [
-          "-m",
-          "mcp_server_time"
-        ],
-        "command": "python"
-      },
-      {
-        "env": [],
-        "args": [
-          "run",
-          "-i",
-          "--rm",
-          "mcp/time"
-        ],
-        "command": "docker"
       }
     ]
   },
@@ -58,65 +40,37 @@
           {
             "key": "AWS_ACCESS_KEY_ID",
             "name": "AWS Access Key ID",
+            "value": "<aws_access_key_id>",
             "required": true,
             "sensitive": true,
-            "description": "Your AWS Access Key ID with permissions for Bedrock Agent Runtime."
+            "description": "AWS Access Key ID"
           },
           {
             "key": "AWS_SECRET_ACCESS_KEY",
             "name": "AWS Secret Access Key",
+            "value": "<aws_secret_access_key>",
             "required": true,
             "sensitive": true,
-            "description": "Your AWS Secret Access Key with permissions for Bedrock Agent Runtime."
+            "description": "AWS Secret Access Key"
+          },
+          {
+            "key": "AWS_SESSION_TOKEN",
+            "name": "AWS Session Token",
+            "value": "<aws_session_token>",
+            "required": false,
+            "sensitive": true,
+            "description": "AWS Session Token"
           },
           {
             "key": "AWS_REGION",
             "name": "AWS Region",
+            "value": "<aws_region>",
             "required": true,
             "sensitive": false,
-            "description": "The AWS region to use for Bedrock Agent Runtime operations."
+            "description": "AWS Region"
           }
         ],
         "args": [
-          "run",
-          "-i",
-          "--rm",
-          "-e",
-          "AWS_ACCESS_KEY_ID",
-          "-e",
-          "AWS_SECRET_ACCESS_KEY",
-          "-e",
-          "AWS_REGION",
-          "mcp/aws-kb-retrieval-server"
-        ],
-        "command": "docker"
-      },
-      {
-        "env": [
-          {
-            "key": "AWS_ACCESS_KEY_ID",
-            "name": "AWS Access Key ID",
-            "required": true,
-            "sensitive": true,
-            "description": "Your AWS Access Key ID with permissions for Bedrock Agent Runtime."
-          },
-          {
-            "key": "AWS_SECRET_ACCESS_KEY",
-            "name": "AWS Secret Access Key",
-            "required": true,
-            "sensitive": true,
-            "description": "Your AWS Secret Access Key with permissions for Bedrock Agent Runtime."
-          },
-          {
-            "key": "AWS_REGION",
-            "name": "AWS Region",
-            "required": true,
-            "sensitive": false,
-            "description": "The AWS region to use for Bedrock Agent Runtime operations."
-          }
-        ],
-        "args": [
-          "-y",
           "@modelcontextprotocol/server-aws-kb-retrieval"
         ],
         "command": "npx",
@@ -278,16 +232,18 @@
           {
             "key": "KARAKEEP_API_ADDR",
             "name": "Karakeep API Address",
+            "value": "<karakeep_api_addr>",
             "required": true,
             "sensitive": false,
-            "description": "The URL address for your Karakeep server"
+            "description": "The base address of your Karakeep instance (e.g., https://karakeep.example.com)."
           },
           {
             "key": "KARAKEEP_API_KEY",
             "name": "Karakeep API Key",
+            "value": "<karakeep_api_key>",
             "required": true,
             "sensitive": true,
-            "description": "Your Karakeep API access token"
+            "description": "An API key for your Karakeep instance."
           }
         ],
         "args": [
@@ -403,18 +359,6 @@
         ],
         "command": "npx",
         "preferred": true
-      },
-      {
-        "env": [],
-        "args": [
-          "run",
-          "-i",
-          "--rm",
-          "--init",
-          "--pull=always",
-          "mcr.microsoft.com/playwright/mcp"
-        ],
-        "command": "docker"
       }
     ]
   },
@@ -520,65 +464,10 @@
           {
             "key": "FIRECRAWL_API_KEY",
             "name": "Firecrawl API Key",
-            "required": false,
+            "value": "<firecrawl_api_key>",
+            "required": true,
             "sensitive": true,
-            "description": "Your Firecrawl API key for authenticating with the Firecrawl cloud API. You can generate it from https://www.firecrawl.dev/app/api-keys. Required unless using only self-hosted API without authentication."
-          },
-          {
-            "key": "FIRECRAWL_API_URL",
-            "name": "Firecrawl API URL",
-            "required": false,
-            "sensitive": false,
-            "description": "Custom API endpoint URL for self-hosted Firecrawl instance. Example: https://firecrawl.your-domain.com. Optional; if not set, cloud API is used."
-          },
-          {
-            "key": "FIRECRAWL_RETRY_MAX_ATTEMPTS",
-            "name": "Retry Max Attempts",
-            "required": false,
-            "sensitive": false,
-            "description": "Maximum number of retry attempts for failed requests (rate limits/transient errors). Default: 3."
-          },
-          {
-            "key": "FIRECRAWL_RETRY_INITIAL_DELAY",
-            "name": "Retry Initial Delay (ms)",
-            "required": false,
-            "sensitive": false,
-            "description": "Initial delay in milliseconds before first retry. Default: 1000."
-          },
-          {
-            "key": "FIRECRAWL_RETRY_MAX_DELAY",
-            "name": "Retry Max Delay (ms)",
-            "required": false,
-            "sensitive": false,
-            "description": "Maximum delay in milliseconds between retries. Default: 10000."
-          },
-          {
-            "key": "FIRECRAWL_RETRY_BACKOFF_FACTOR",
-            "name": "Retry Backoff Factor",
-            "required": false,
-            "sensitive": false,
-            "description": "Exponential backoff multiplier for retry delays. Default: 2."
-          },
-          {
-            "key": "FIRECRAWL_CREDIT_WARNING_THRESHOLD",
-            "name": "Credit Warning Threshold",
-            "required": false,
-            "sensitive": false,
-            "description": "Credit usage warning threshold. Default: 1000 credits."
-          },
-          {
-            "key": "FIRECRAWL_CREDIT_CRITICAL_THRESHOLD",
-            "name": "Credit Critical Threshold",
-            "required": false,
-            "sensitive": false,
-            "description": "Credit usage critical threshold. Default: 100 credits."
-          },
-          {
-            "key": "SSE_LOCAL",
-            "name": "SSE Local Mode",
-            "required": false,
-            "sensitive": false,
-            "description": "Set to true to run with SSE local server mode (serves on http://localhost:3000/sse instead of stdio)."
+            "description": "Your Firecrawl API key."
           }
         ],
         "args": [
@@ -671,14 +560,16 @@
         "env": [
           {
             "key": "EXA_API_KEY",
-            "name": "Exa API key",
+            "name": "Exa API Key",
+            "value": "<exa_api_key>",
             "required": true,
             "sensitive": true,
-            "description": "Your Exa API key for authenticating requests to the Exa AI Search API. Get it from https://dashboard.exa.ai/api-keys"
+            "description": "Your Exa API key."
           }
         ],
         "args": [
-          "/path/to/exa-mcp-server/build/index.js",
+          "-y",
+          "exa-mcp-server",
           "--tools=web_search_exa,research_paper_search,company_research,crawling,competitor_finder,linkedin_search,wikipedia_search_exa,github_search"
         ],
         "command": "npx",
@@ -799,139 +690,41 @@
           {
             "key": "MYSQL_HOST",
             "name": "MySQL Host",
+            "value": "<mysql_host>",
             "required": true,
             "sensitive": false,
-            "description": "The hostname or IP address of the MySQL database server."
+            "description": "The hostname or IP address of your MySQL database."
           },
           {
             "key": "MYSQL_PORT",
             "name": "MySQL Port",
+            "value": "<mysql_port>",
             "required": false,
             "sensitive": false,
-            "description": "The MySQL database server port, defaults to 3306 if not specified."
+            "description": "The port number of your MySQL database. Defaults to 3306."
           },
           {
             "key": "MYSQL_USER",
             "name": "MySQL User",
+            "value": "<mysql_user>",
             "required": true,
             "sensitive": false,
-            "description": "The username for authenticating with the MySQL database."
+            "description": "The username for your MySQL database."
           },
           {
             "key": "MYSQL_PASSWORD",
             "name": "MySQL Password",
+            "value": "<mysql_password>",
             "required": true,
             "sensitive": true,
-            "description": "The password for the specified MySQL database user."
-          },
-          {
-            "key": "MYSQL_DATABASE",
-            "name": "MySQL Database",
-            "required": true,
-            "sensitive": false,
-            "description": "The name of the MySQL database to connect to."
-          }
-        ],
-        "args": [
-          "--directory",
-          "path/to/mysql_mcp_server",
-          "run",
-          "mysql_mcp_server"
-        ],
-        "command": "uv"
-      },
-      {
-        "env": [
-          {
-            "key": "MYSQL_HOST",
-            "name": "MySQL Host",
-            "required": true,
-            "sensitive": false,
-            "description": "The hostname or IP address of the MySQL database server."
-          },
-          {
-            "key": "MYSQL_PORT",
-            "name": "MySQL Port",
-            "required": false,
-            "sensitive": false,
-            "description": "The MySQL database server port, defaults to 3306 if not specified."
-          },
-          {
-            "key": "MYSQL_USER",
-            "name": "MySQL User",
-            "required": true,
-            "sensitive": false,
-            "description": "The username for authenticating with the MySQL database."
-          },
-          {
-            "key": "MYSQL_PASSWORD",
-            "name": "MySQL Password",
-            "required": true,
-            "sensitive": true,
-            "description": "The password for the specified MySQL database user."
-          },
-          {
-            "key": "MYSQL_DATABASE",
-            "name": "MySQL Database",
-            "required": true,
-            "sensitive": false,
-            "description": "The name of the MySQL database to connect to."
-          }
-        ],
-        "args": [
-          "--from",
-          "mysql-mcp-server",
-          "mysql_mcp_server"
-        ],
-        "command": "uvx"
-      },
-      {
-        "env": [
-          {
-            "key": "MYSQL_HOST",
-            "name": "MySQL Host",
-            "required": true,
-            "sensitive": false,
-            "description": "The hostname or IP address of the MySQL database server."
-          },
-          {
-            "key": "MYSQL_PORT",
-            "name": "MySQL Port",
-            "required": false,
-            "sensitive": false,
-            "description": "The MySQL database server port, defaults to 3306 if not specified."
-          },
-          {
-            "key": "MYSQL_USER",
-            "name": "MySQL User",
-            "required": true,
-            "sensitive": false,
-            "description": "The username for authenticating with the MySQL database."
-          },
-          {
-            "key": "MYSQL_PASSWORD",
-            "name": "MySQL Password",
-            "required": true,
-            "sensitive": true,
-            "description": "The password for the specified MySQL database user."
-          },
-          {
-            "key": "MYSQL_DATABASE",
-            "name": "MySQL Database",
-            "required": true,
-            "sensitive": false,
-            "description": "The name of the MySQL database to connect to."
+            "description": "The password for your MySQL database."
           }
         ],
         "args": [
           "-y",
-          "@smithery/cli",
-          "install",
-          "mysql-mcp-server",
-          "--client",
-          "claude"
+          "mysql-mcp-server"
         ],
-        "command": "npx",
+        "command": "uvx",
         "preferred": true
       }
     ]
@@ -1147,15 +940,6 @@
         ],
         "command": "npx",
         "preferred": true
-      },
-      {
-        "env": [],
-        "args": [
-          "-y",
-          "@openbnb/mcp-server-airbnb",
-          "--ignore-robots-txt"
-        ],
-        "command": "npx"
       }
     ]
   },
@@ -1191,14 +975,14 @@
           },
           {
             "key": "USE_GITLAB_WIKI",
-            "name": "use gitlab wiki",
+            "name": "Use Gitlab Wiki",
             "required": false,
             "sensitive": false,
             "description": "Enables the wiki-related tools if set to 'true'."
           },
           {
             "key": "GITLAB_READ_ONLY_MODE",
-            "name": "gitlab read only mode",
+            "name": "Gitlab Read Only Mode",
             "required": false,
             "sensitive": false,
             "description": "Restricts the server to only expose read-only operations when set to 'true'. Useful for security or when write access is not needed."
@@ -1291,9 +1075,10 @@
           {
             "key": "HEROKU_API_KEY",
             "name": "Heroku API Key",
+            "value": "<heroku_api_key>",
             "required": true,
             "sensitive": true,
-            "description": "Heroku platform authorization token required for authenticated API access. Generate this token via Heroku CLI or the Heroku Dashboard."
+            "description": "Your Heroku API key."
           }
         ],
         "args": [
