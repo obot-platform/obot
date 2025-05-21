@@ -3,13 +3,19 @@ import popover from '$lib/actions/popover.svelte';
 interface TooltipOptions {
 	text: string;
 	disablePortal?: boolean;
+	maxWidthClass?: string;
 }
 
 export function tooltip(node: HTMLElement, opts: TooltipOptions | string | undefined) {
 	const tt = popover({ placement: 'top', delay: 300 });
 
 	const p = document.createElement('p');
-	p.classList.add('hidden', 'tooltip', 'max-w-64');
+	p.classList.add(
+		'hidden',
+		'tooltip',
+		'text-left',
+		typeof opts === 'object' ? (opts.maxWidthClass ?? 'max-w-64') : 'max-w-64'
+	);
 
 	const update = (opts: TooltipOptions | string | undefined) => {
 		if (typeof opts === 'string') {

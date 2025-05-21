@@ -34,7 +34,7 @@
 	classes={{ header: 'pl-3 py-2 text-md', content: 'p-0' }}
 	iconSize={5}
 	header="Built-In Capabilities"
-	helpText={HELPER_TEXTS.general}
+	helpText={HELPER_TEXTS.builtInCapabilities}
 >
 	<div class="flex flex-col gap-2 overflow-x-hidden p-2">
 		{#each builtInTools.sort(sortBuiltInLast) as tool (tool.id)}

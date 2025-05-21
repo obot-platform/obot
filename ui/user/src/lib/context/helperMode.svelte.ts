@@ -1,45 +1,34 @@
 import { getContext, hasContext, setContext } from 'svelte';
 
 export const HELPER_TEXTS = {
-	mcpServers:
-		'Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.',
-	threads:
-		'Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.',
+	mcpServers: 'Incorporate MCP Servers to add tools/extend actions the agent can perform.',
+	threads: 'These are current or prior conversations that have been made with the agent.',
 	tasks:
-		'Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.',
+		'Automated or one-off workflows that an agent can perform for the user. Incorporate variables to make them dynamic or make them simple enough to meet your needs.',
 	tables:
-		'Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.',
-	credentials:
-		'Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.',
-	general:
-		'Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.',
+		'Stored information in a table-like format that have been created by and utilized by the agent.',
+	general: 'Modify basic displayable information of the agent such as name, description, and icon.',
 	prompt:
 		'Describe how your agent should behave, what it should aim to do, and any special instructions it should follow.',
 	introductions:
-		'Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.',
+		'Begin every conversation with an introduction and default options that a user can choose from.',
 	knowledge:
-		'Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.',
+		'Add a collection of information (from documents to websites) that the agent can use to answer questions or perform tasks.',
 	customTools:
-		'Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.',
-	starterFiles:
-		'Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.',
-	interfaces:
-		'Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.',
+		'Custom tools are a way to extend the capabilities of the agent. They can be used to perform actions that are not already available in the catalog.',
+	starterFiles: 'Add files that are available to use/view by a user with every conversation.',
+	interfaces: 'Hook up an agent to third party services to automate tasks and workflows.',
 	sharing:
-		'Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.',
+		'Collaborate, share a simplified version to interact with, or make a template of the agent.',
 	members: 'Modify who has access to collaborate on your agent.',
-	chatbot:
-		'Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.',
-	agentTemplate:
-		'Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.',
-	configuration:
-		'Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.',
-	memories:
-		'Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.',
+	chatbot: 'Share a simplified version of the agent for other users to interact with.',
+	agentTemplate: 'Create a template to allow users to create their own version of the agent.',
+	configuration: 'Make use of advanced features such as knowledge, custom tools, and more.',
+	memories: 'Information stored by the agent to remember things mentioned in conversations.',
 	modelProviders:
-		'Configure the model providers (OpenAI, Anthropic, etc.) that you want to use for your agent.',
+		'Configure popular model providers (OpenAI, Anthropic, etc.) and set a default model for the agent.',
 	builtInCapabilities:
-		'Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.'
+		'Obot provided capabilities such as storing information into tables (Database), using provided documents to expand information it has access to (Knowledge), or to remember things a user has requested in conversation (Memory).'
 };
 
 const HELPER_MODE_CONTEXT_NAME = 'helper-mode';

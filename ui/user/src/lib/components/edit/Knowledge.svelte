@@ -6,11 +6,13 @@
 	import { autoHeight } from '$lib/actions/textarea';
 	import KnowledgeUpload from '$lib/components/edit/knowledge/KnowledgeUpload.svelte';
 	import CollapsePane from '$lib/components/edit/CollapsePane.svelte';
-	import { HELPER_TEXTS } from '$lib/context/helperMode.svelte';
+	import { getHelperMode, HELPER_TEXTS } from '$lib/context/helperMode.svelte';
 	import { hasTool } from '$lib/tools';
 	import { getProjectTools } from '$lib/context/projectTools.svelte';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import { twMerge } from 'tailwind-merge';
+	import { fade } from 'svelte/transition';
+	import InfoTooltip from '../InfoTooltip.svelte';
 
 	interface Props {
 		project: Project;
@@ -53,19 +55,22 @@
 	}}
 	iconSize={5}
 	onOpen={() => reload()}
-	helpText={HELPER_TEXTS.knowledge}
 >
 	{#snippet header()}
 		<span
 			class={twMerge(
-				'flex grow items-center justify-between gap-1 text-sm',
-				!hasKnowledgeCapability && 'text-gray-400 dark:text-gray-600'
+				'flex grow items-center gap-1 text-sm',
+				!hasKnowledgeCapability && 'justify-between text-gray-400 dark:text-gray-600'
 			)}
 		>
 			Knowledge
 			{#if !hasKnowledgeCapability}
 				<div use:tooltip={'Capability Required'}>
 					<TriangleAlert class="size-4" />
+				</div>
+			{:else if getHelperMode().isEnabled}
+				<div in:fade>
+					<InfoTooltip text={HELPER_TEXTS.knowledge} />
 				</div>
 			{/if}
 		</span>
