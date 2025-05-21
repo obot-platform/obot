@@ -5,14 +5,7 @@
 	import { ChevronLeft, ChevronRight, LoaderCircle, X } from 'lucide-svelte';
 	import McpCard from '$lib/components/mcp/McpCard.svelte';
 	import Search from '$lib/components/Search.svelte';
-	import {
-		ChatService,
-		type AssistantToolList,
-		type MCP,
-		type MCPInfo,
-		type MCPServer,
-		type Project
-	} from '$lib/services';
+	import { ChatService, type MCP, type MCPInfo, type MCPServer, type Project } from '$lib/services';
 	import { twMerge } from 'tailwind-merge';
 	import McpInfoConfig from '$lib/components/mcp/McpInfoConfig.svelte';
 	import type { MCPServerInfo } from '$lib/services/chat/mcp';
