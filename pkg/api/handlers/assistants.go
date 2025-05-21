@@ -158,6 +158,9 @@ func convertAssistant(agent v1.Agent) types.Assistant {
 		Icons:                 icons,
 		WebsiteKnowledge:      agent.Spec.Manifest.WebsiteKnowledge,
 		AllowedModelProviders: agent.Spec.Manifest.AllowedModelProviders,
+		AvailableThreadTools:  agent.Spec.Manifest.AvailableThreadTools,
+		DefaultThreadTools:    agent.Spec.Manifest.DefaultThreadTools,
+		Tools:                 agent.Spec.Manifest.Tools,
 	}
 	if agent.Spec.Manifest.MaxThreadTools == 0 {
 		assistant.MaxTools = DefaultMaxUserThreadTools
