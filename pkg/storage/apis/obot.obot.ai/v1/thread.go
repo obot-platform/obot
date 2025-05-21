@@ -162,6 +162,14 @@ func (in *Thread) DeleteRefs() []Ref {
 		{ObjType: &OAuthAppLogin{}, Name: in.Spec.OAuthAppLoginName},
 		{ObjType: &Thread{}, Name: in.Spec.ParentThreadName},
 	}
+
+	if in.Spec.Template {
+		refs = append(refs, Ref{
+			ObjType: &Thread{},
+			Name:    in.Spec.SourceThreadName,
+		})
+	}
+
 	return refs
 }
 
