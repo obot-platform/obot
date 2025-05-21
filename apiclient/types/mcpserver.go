@@ -45,11 +45,10 @@ type MCPEnv struct {
 type MCPServer struct {
 	Metadata
 	MCPServerManifest
-	Configured             bool            `json:"configured"`
-	MissingRequiredEnvVars []string        `json:"missingRequiredEnvVars,omitempty"`
-	MissingRequiredHeaders []string        `json:"missingRequiredHeader,omitempty"`
-	CatalogID              string          `json:"catalogID"`
-	Tools                  []MCPServerTool `json:"tools,omitempty"`
+	Configured             bool     `json:"configured"`
+	MissingRequiredEnvVars []string `json:"missingRequiredEnvVars,omitempty"`
+	MissingRequiredHeaders []string `json:"missingRequiredHeader,omitempty"`
+	CatalogID              string   `json:"catalogID"`
 }
 
 type MCPServerList List[MCPServer]

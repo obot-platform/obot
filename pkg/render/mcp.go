@@ -22,7 +22,7 @@ func (e *UnconfiguredMCPError) Error() string {
 	return fmt.Sprintf("MCP server %s missing required configuration parameters: %s", e.MCPName, strings.Join(e.Missing, ", "))
 }
 
-func mcpServerTool(ctx context.Context, gptClient *gptscript.GPTScript, mcpServer v1.MCPServer, projectName string, allowTools []string) (gptscript.ToolDef, error) {
+func mcpServerTool(ctx context.Context, gptClient *gptscript.GPTScript, mcpServer v1.MCPServer, projectName string, allowedTools []string) (gptscript.ToolDef, error) {
 	var credEnv map[string]string
 	if len(mcpServer.Spec.Manifest.Env) != 0 || len(mcpServer.Spec.Manifest.Headers) != 0 {
 		// Add the credential context for the direct parent to pick up credentials specifically for this project.
@@ -40,11 +40,7 @@ func mcpServerTool(ctx context.Context, gptClient *gptscript.GPTScript, mcpServe
 		credEnv = cred.Env
 	}
 
-	return MCPServerToolWithCreds(mcpServer, projectName, credEnv, allowTools...)
-}
-
-func MCPServerToolWithCreds(mcpServer v1.MCPServer, projectThreadName string, credEnv map[string]string, allowedTools ...string) (gptscript.ToolDef, error) {
-	serverConfig, missingRequiredNames := mcp.ToServerConfig(mcpServer, projectThreadName, credEnv, allowedTools)
+	serverConfig, missingRequiredNames := mcp.ToServerConfig(mcpServer, projectName, credEnv, allowedTools...)
 
 	if len(missingRequiredNames) > 0 {
 		return gptscript.ToolDef{}, &UnconfiguredMCPError{
@@ -52,7 +48,10 @@ func MCPServerToolWithCreds(mcpServer v1.MCPServer, projectThreadName string, cr
 			Missing: missingRequiredNames,
 		}
 	}
+	return MCPServerToolWithCreds(mcpServer, serverConfig)
+}
 
+func MCPServerToolWithCreds(mcpServer v1.MCPServer, serverConfig mcp.ServerConfig) (gptscript.ToolDef, error) {
 	b, err := json.Marshal(serverConfig)
 	if err != nil {
 		return gptscript.ToolDef{}, fmt.Errorf("failed to marshal MCP Server %s config: %w", mcpServer.Spec.Manifest.Name, err)

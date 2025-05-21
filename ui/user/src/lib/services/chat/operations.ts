@@ -1,48 +1,48 @@
 import { baseURL, doDelete, doGet, doPost, doPut } from './http';
 import {
-	type AuthProvider,
-	type AuthProviderList,
-	type AssistantToolList,
-	type AssistantTool,
 	type Assistant,
 	type Assistants,
+	type AssistantTool,
+	type AssistantToolList,
+	type AuthProvider,
+	type AuthProviderList,
 	type Files,
 	type InvokeInput,
 	type KnowledgeFile,
 	type KnowledgeFiles,
+	type MCP,
+	type MCPList,
+	type MCPServer,
+	type MCPServerTool,
+	type Memory,
+	type MemoryList,
+	type ModelList,
+	type ModelProviderList,
 	type Profile,
+	type Project,
+	type ProjectAuthorizationList,
+	type ProjectCredentialList,
+	type ProjectInvitation,
+	type ProjectList,
+	type ProjectMCP,
+	type ProjectMCPList,
+	type ProjectMember,
+	type ProjectShare,
+	type ProjectShareList,
+	type ProjectTemplate,
+	type ProjectTemplateList,
+	type ProjectTemplateManifest,
+	type Rows,
+	type SlackConfig,
+	type SlackReceiver,
+	type TableList,
 	type Task,
 	type TaskList,
 	type TaskRun,
 	type Thread,
 	type ThreadList,
-	type Version,
-	type TableList,
-	type Rows,
-	type ProjectList,
-	type Project,
-	type ProjectShareList,
-	type ProjectAuthorizationList,
-	type ProjectCredentialList,
-	type ProjectShare,
 	type ToolReferenceList,
-	type SlackConfig,
-	type SlackReceiver,
-	type MemoryList,
-	type Memory,
-	type MCPList,
-	type MCP,
-	type MCPServer,
-	type ProjectMCP,
-	type ProjectMCPList,
-	type ProjectMember,
-	type ProjectInvitation,
-	type ProjectTemplate,
-	type ProjectTemplateList,
-	type ProjectTemplateManifest,
-	type ModelList,
-	type ModelProviderList,
-	type MCPServerTool
+	type Version
 } from './types';
 
 export type Fetcher = typeof fetch;
@@ -1131,13 +1131,12 @@ export async function listProjectMCPServerTools(
 	projectID: string,
 	projectMcpServerId: string
 ): Promise<MCPServerTool[]> {
-	const response = (await doGet(
+	return (await doGet(
 		`/assistants/${assistantID}/projects/${projectID}/mcpservers/${projectMcpServerId}/tools`,
 		{
 			dontLogErrors: true
 		}
-	)) as { tools: MCPServerTool[] };
-	return response.tools;
+	)) as MCPServerTool[];
 }
 
 export async function configureProjectMcpServerTools(
@@ -1160,13 +1159,12 @@ export async function listProjectThreadMcpServerTools(
 	projectMcpServerId: string,
 	threadID: string
 ): Promise<MCPServerTool[]> {
-	const response = (await doGet(
+	return (await doGet(
 		`/assistants/${assistantID}/projects/${projectID}/mcpservers/${projectMcpServerId}/tools/${threadID}`,
 		{
 			dontLogErrors: true
 		}
-	)) as { tools: MCPServerTool[] };
-	return response.tools;
+	)) as MCPServerTool[];
 }
 
 export async function configureProjectThreadMcpServerTools(

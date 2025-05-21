@@ -116,7 +116,7 @@ func (c *Credentials) RemoveMCPCredentials(req router.Request, _ router.Response
 			}
 
 			// Shutdown the server
-			serverConfig, _ := mcp.ToServerConfig(*mcpServer, projectName, cred.Env, nil)
+			serverConfig, _ := mcp.ToServerConfig(*mcpServer, projectName, cred.Env)
 			if err = c.mcpSessionManager.ShutdownServer(req.Ctx, serverConfig); err != nil {
 				return fmt.Errorf("failed to shutdown server: %w", err)
 			}
@@ -127,7 +127,7 @@ func (c *Credentials) RemoveMCPCredentials(req router.Request, _ router.Response
 		}
 
 		// Shutdown a potential server running without any configuration. We wouldn't detect its existence with a credential.
-		serverConfig, _ := mcp.ToServerConfig(*mcpServer, projectName, nil, nil)
+		serverConfig, _ := mcp.ToServerConfig(*mcpServer, projectName, nil)
 		if err = c.mcpSessionManager.ShutdownServer(req.Ctx, serverConfig); err != nil {
 			return fmt.Errorf("failed to shutdown server: %w", err)
 		}

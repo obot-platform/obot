@@ -402,10 +402,14 @@ func Router(services *services.Services) (http.Handler, error) {
 	mux.HandleFunc("POST /api/assistants/{assistant_id}/projects/{project_id}/mcpservers/{mcp_server_id}/configure-shared", mcp.ConfigureSharedServer)
 	mux.HandleFunc("POST /api/assistants/{assistant_id}/projects/{project_id}/mcpservers/{mcp_server_id}/deconfigure-shared", mcp.DeconfigureSharedServer)
 	mux.HandleFunc("POST /api/assistants/{assistant_id}/projects/{project_id}/mcpservers/{mcp_server_id}/reveal-shared", mcp.RevealSharedServer)
-	mux.HandleFunc("GET /api/assistants/{assistant_id}/projects/{project_id}/mcpservers/{mcp_server_id}/tools", mcp.GetServerWithTools)
+	mux.HandleFunc("GET /api/assistants/{assistant_id}/projects/{project_id}/mcpservers/{mcp_server_id}/tools", mcp.GetTools)
 	mux.HandleFunc("PUT /api/assistants/{assistant_id}/projects/{project_id}/mcpservers/{mcp_server_id}/tools", mcp.SetTools)
-	mux.HandleFunc("GET /api/assistants/{assistant_id}/projects/{project_id}/mcpservers/{mcp_server_id}/tools/{thread_id}", mcp.GetServerWithTools)
+	mux.HandleFunc("GET /api/assistants/{assistant_id}/projects/{project_id}/mcpservers/{mcp_server_id}/tools/{thread_id}", mcp.GetTools)
 	mux.HandleFunc("PUT /api/assistants/{assistant_id}/projects/{project_id}/mcpservers/{mcp_server_id}/tools/{thread_id}", mcp.SetTools)
+	mux.HandleFunc("GET /api/assistants/{assistant_id}/projects/{project_id}/mcpservers/{mcp_server_id}/resources", mcp.GetResources)
+	mux.HandleFunc("GET /api/assistants/{assistant_id}/projects/{project_id}/mcpservers/{mcp_server_id}/resources/{resource_uri}", mcp.ReadResource)
+	mux.HandleFunc("GET /api/assistants/{assistant_id}/projects/{project_id}/mcpservers/{mcp_server_id}/prompts", mcp.GetPrompts)
+	mux.HandleFunc("POST /api/assistants/{assistant_id}/projects/{project_id}/mcpservers/{mcp_server_id}/prompts/{prompt_name}", mcp.GetPrompt)
 
 	// Debug
 	mux.HTTPHandle("GET /debug/pprof/", http.DefaultServeMux)
