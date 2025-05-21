@@ -1,12 +1,20 @@
 <script lang="ts">
 	import { ChatService, type MCPServerTool, type Project, type ProjectMCP } from '$lib/services';
-	import { ChevronDown, ChevronsRight, ChevronUp, LoaderCircle, Server } from 'lucide-svelte';
+	import {
+		AlertCircle,
+		ChevronDown,
+		ChevronsRight,
+		ChevronUp,
+		LoaderCircle,
+		Server
+	} from 'lucide-svelte';
 	import Toggle from '../Toggle.svelte';
 	import { onMount, type Snippet } from 'svelte';
 	import { fade, slide } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';
 	import { DEFAULT_CUSTOM_SERVER_NAME } from '$lib/constants';
 	import { responsive } from '$lib/stores';
+	import { parseErrorContent } from '$lib/errors';
 
 	interface Props {
 		mcpServer: ProjectMCP;
@@ -42,6 +50,8 @@
 	let expandedParams = $state<Record<string, boolean>>({});
 	let allDescriptionsEnabled = $state(true);
 	let allParamsEnabled = $state(false);
+	let error = $state('');
+
 	$effect(() => {
 		if (refTools) {
 			tools = refTools;
@@ -56,19 +66,24 @@
 		}
 		if ((isNew || !refTools) && project && mcpServer) {
 			// Fetch the tools so we can figure out which ones should be enabled or not.
-			tools = currentThreadID
-				? await ChatService.listProjectThreadMcpServerTools(
-						project.assistantID,
-						project.id,
-						mcpServer.id,
-						currentThreadID
-					)
-				: await ChatService.listProjectMCPServerTools(
-						project.assistantID,
-						project.id,
-						mcpServer.id
-					);
-			console.log('tools', tools);
+			try {
+				tools = currentThreadID
+					? await ChatService.listProjectThreadMcpServerTools(
+							project.assistantID,
+							project.id,
+							mcpServer.id,
+							currentThreadID
+						)
+					: await ChatService.listProjectMCPServerTools(
+							project.assistantID,
+							project.id,
+							mcpServer.id
+						);
+			} catch (e) {
+				const { message } = parseErrorContent(e);
+				error = message;
+				loading = false;
+			}
 		}
 		selected = tools.filter((t) => t.enabled).map((t) => t.id);
 		loading = false;
@@ -153,53 +168,66 @@
 			</div>
 		{:else}
 			<div in:fade class="flex flex-col gap-2">
-				<div class="flex flex-wrap justify-end gap-4 border-r border-transparent pr-3">
-					<Toggle
-						checked={allDescriptionsEnabled}
-						onChange={(checked) => {
-							allDescriptionsEnabled = checked;
-							expandedDescriptions = {};
-						}}
-						label="Show All Descriptions"
-						labelInline
-						classes={{
-							label: 'text-sm gap-2'
-						}}
-					/>
+				{#if !error}
+					<div class="flex flex-wrap justify-end gap-4 border-r border-transparent pr-3">
+						<Toggle
+							checked={allDescriptionsEnabled}
+							onChange={(checked) => {
+								allDescriptionsEnabled = checked;
+								expandedDescriptions = {};
+							}}
+							label="Show All Descriptions"
+							labelInline
+							classes={{
+								label: 'text-sm gap-2'
+							}}
+						/>
 
-					{#if !responsive.isMobile}
-						<div class="bg-surface3 h-5 w-0.5"></div>
-					{/if}
+						{#if !responsive.isMobile}
+							<div class="bg-surface3 h-5 w-0.5"></div>
+						{/if}
 
-					<Toggle
-						checked={allParamsEnabled}
-						onChange={(checked) => {
-							allParamsEnabled = checked;
-							expandedParams = {};
-						}}
-						label="Show All Parameters"
-						labelInline
-						classes={{
-							label: 'text-sm gap-2'
-						}}
-					/>
+						<Toggle
+							checked={allParamsEnabled}
+							onChange={(checked) => {
+								allParamsEnabled = checked;
+								expandedParams = {};
+							}}
+							label="Show All Parameters"
+							labelInline
+							classes={{
+								label: 'text-sm gap-2'
+							}}
+						/>
 
-					{#if !responsive.isMobile}
-						<div class="bg-surface3 h-5 w-0.5"></div>
-					{/if}
+						{#if !responsive.isMobile}
+							<div class="bg-surface3 h-5 w-0.5"></div>
+						{/if}
 
-					<Toggle
-						checked={allToolsEnabled}
-						onChange={(checked) => {
-							selected = checked ? ['*'] : [];
-						}}
-						label="Enable All Tools"
-						labelInline
-						classes={{
-							label: 'text-sm gap-2'
-						}}
-					/>
-				</div>
+						<Toggle
+							checked={allToolsEnabled}
+							onChange={(checked) => {
+								selected = checked ? ['*'] : [];
+							}}
+							label="Enable All Tools"
+							labelInline
+							classes={{
+								label: 'text-sm gap-2'
+							}}
+						/>
+					</div>
+				{:else}
+					<div class="notification-error flex items-center gap-2" in:fade>
+						<AlertCircle class="size-4" />
+						<div class="flex flex-col">
+							<p class="text-sm font-semibold">Unable to retrieve the server's tools</p>
+							<p class="text-sm font-light">
+								{error}
+							</p>
+						</div>
+					</div>
+				{/if}
+
 				<div class="flex flex-col gap-2 overflow-hidden">
 					{#each tools as tool}
 						<div

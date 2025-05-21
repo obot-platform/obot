@@ -281,7 +281,6 @@
 			const filename = `obot-image-${msg.time?.getTime()}.${mimeType.split('/')[1]}`;
 			const fileExists = await checkFileExists(filename);
 			if (!fileExists) {
-				console.log(content);
 				const blob = await fetch(`data:${mimeType};base64,${data}`).then((r) => r.blob());
 				const file = new File([blob], filename, { type: mimeType });
 				await ChatService.saveFile(project.assistantID, project.id, file, {

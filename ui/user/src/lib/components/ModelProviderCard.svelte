@@ -1,6 +1,5 @@
 <script module>
 	function sortGptModels(models: string[]) {
-		console.log('gpt models....');
 		const query = 'gpt';
 
 		return [...models].sort((m1, m2) => {
@@ -238,7 +237,7 @@
 
 			models = array;
 		} catch (err) {
-			console.log(err);
+			console.error(err);
 			provider.configured = false;
 		} finally {
 			isModelsLoading = false;

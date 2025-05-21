@@ -118,7 +118,27 @@
 	preselectedMcp={preselected}
 />
 
-<PageLoading show={processing} text="Launching and connecting to MCP server..." />
+<PageLoading show={processing} text="Launching and connecting to MCP server...">
+	{#snippet longLoadContent()}
+		<p class="text-sm">
+			This may take a while...
+			<button
+				class="button-link font-semibold text-blue-500"
+				onclick={() => {
+					processing = false;
+					if (onFinish) {
+						onFinish(projectMcp, project);
+					} else if (project) {
+						goto(`/o/${project.id}`);
+					}
+				}}
+			>
+				Click here
+			</button>
+			{refProject ? 'to return to your agent.' : 'to continue to your agent.'}
+		</p>
+	{/snippet}
+</PageLoading>
 
 <McpInfoConfig
 	bind:this={mcpInfoConfig}

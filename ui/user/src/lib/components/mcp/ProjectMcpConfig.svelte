@@ -263,7 +263,25 @@
 	</div>
 </div>
 
-<PageLoading show={processing} text="Launching and connecting to MCP server..." />
+<PageLoading show={processing} text="Launching and connecting to MCP server...">
+	{#snippet longLoadContent()}
+		<p class="text-sm">
+			This may take a while...
+			<button
+				class="button-link font-semibold text-blue-500"
+				onclick={() => {
+					processing = false;
+					if (savedProjectMcp) {
+						onCreate?.(savedProjectMcp);
+					}
+				}}
+			>
+				Click here
+			</button>
+			to return to your agent.
+		</p>
+	{/snippet}
+</PageLoading>
 
 <dialog
 	bind:this={projectMcpServerToolsDialog}

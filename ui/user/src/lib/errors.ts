@@ -23,3 +23,17 @@ export function handleRouteError(e: unknown, path: string, profile?: Profile) {
 
 	throw error(500, e.message);
 }
+
+export function parseErrorContent(e: unknown) {
+	if (!(e instanceof Error)) {
+		return { status: 500, message: 'Unknown error occurred' };
+	}
+
+	// Match format i.e. "400 /path/to/resource: message"
+	const errorMatch = e.message.match(/^(\d+)(?:\s+\/[^:]+)?:\s+(.*)/);
+
+	const [, statusCode, messageContent] = errorMatch || [];
+	const status = parseInt(statusCode);
+
+	return { status: status || 500, message: messageContent || 'Unknown error occurred' };
+}
