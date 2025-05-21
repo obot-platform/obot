@@ -288,7 +288,6 @@ func (sm *SessionManager) Load(ctx context.Context, tool types.Tool) (result []t
 										Port: intstr.FromInt32(8080),
 									},
 								},
-								InitialDelaySeconds: 3,
 							},
 							Args: args,
 							EnvFrom: []corev1.EnvFromSource{{
