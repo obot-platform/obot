@@ -43,6 +43,7 @@
 	let configDialog: HTMLDialogElement;
 	let shortcutsDialog: HTMLDialogElement;
 	let nav = $state<HTMLDivElement>();
+	let bannerRef = $state<ReturnType<typeof Banner>>();
 
 	async function createNewThread() {
 		const thread = await ChatService.createThread(project.assistantID, project.id);
@@ -112,7 +113,11 @@
 	});
 </script>
 
-<div class="colors-background relative flex h-full flex-col overflow-hidden">
+<Banner bind:this={bannerRef} />
+<div
+	class="colors-background relative flex h-full flex-col overflow-hidden"
+	style={`height: calc(100% - ${bannerRef?.height() || 0}px)`}
+>
 	<div
 		class="border-surface1 relative flex h-full"
 		class:border={layout.sidebarOpen && !layout.fileEditorOpen}
@@ -194,8 +199,6 @@
 					{/snippet}
 				</Navbar>
 			</div>
-
-			<Banner />
 
 			{#if !layout.sidebarOpen && !responsive.isMobile}
 				<div class="absolute bottom-2 left-2 z-30" in:fade={{ delay: 300 }}>

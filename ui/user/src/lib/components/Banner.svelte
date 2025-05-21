@@ -18,6 +18,10 @@
 			showBanner = true;
 		}
 	});
+
+	export function height() {
+		return banner?.clientHeight;
+	}
 </script>
 
 {#if showBanner}
