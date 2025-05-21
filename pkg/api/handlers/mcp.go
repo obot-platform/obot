@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"regexp"
 	"slices"
+	"strings"
 
 	"github.com/gptscript-ai/go-gptscript"
 	gtypes "github.com/gptscript-ai/gptscript/pkg/types"
@@ -219,6 +220,9 @@ func (m *MCPHandler) getServer(req api.Context, withTools bool) error {
 
 		tools, err = m.toolsForServer(req.Context(), req.Storage, project.Name, server, allowedTools, cred.Env)
 		if err != nil {
+			if uc := (*render.UnconfiguredMCPError)(nil); errors.As(err, &uc) {
+				return types.NewErrBadRequest("MCP server %s is missing required parameters: %s", uc.MCPName, strings.Join(uc.Missing, ", "))
+			}
 			return fmt.Errorf("failed to render tools: %w", err)
 		}
 	}
@@ -687,6 +691,9 @@ func (m *MCPHandler) SetTools(req api.Context) error {
 
 	mcpTools, err := m.toolsForServer(req.Context(), req.Storage, project.Name, mcpServer, thread.Spec.Manifest.AllowedMCPTools[mcpServer.Name], cred.Env)
 	if err != nil {
+		if uc := (*render.UnconfiguredMCPError)(nil); errors.As(err, &uc) {
+			return types.NewErrBadRequest("MCP server %s is missing required parameters: %s", uc.MCPName, strings.Join(uc.Missing, ", "))
+		}
 		return fmt.Errorf("failed to render tools: %w", err)
 	}
 
