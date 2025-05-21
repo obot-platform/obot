@@ -35,5 +35,8 @@ export function parseErrorContent(e: unknown) {
 	const [, statusCode, messageContent] = errorMatch || [];
 	const status = parseInt(statusCode);
 
-	return { status: status || 500, message: messageContent || 'Unknown error occurred' };
+	return {
+		status: Number.isInteger(status) ? status : 500,
+		message: messageContent || 'Unknown error occurred'
+	};
 }
