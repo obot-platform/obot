@@ -17,6 +17,7 @@
 	import { initHelperMode } from '$lib/context/helperMode.svelte';
 	import McpSetupWizard from '$lib/components/mcp/McpSetupWizard.svelte';
 	import { initToolReferences } from '$lib/context/toolReferences.svelte';
+	import Banner from '$lib/components/Banner.svelte';
 	let { data }: PageProps = $props();
 
 	initHelperMode();
@@ -45,6 +46,7 @@
 
 <div class="flex min-h-dvh flex-col items-center">
 	<Navbar />
+	<Banner />
 	<main
 		class="bg-surface1 relative flex w-full grow flex-col items-center justify-center p-4 dark:bg-black"
 	>

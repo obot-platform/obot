@@ -154,6 +154,7 @@ export interface Profile {
 	username: string;
 	currentAuthProvider?: string;
 	expired?: boolean;
+	created?: string;
 }
 
 export interface Files {

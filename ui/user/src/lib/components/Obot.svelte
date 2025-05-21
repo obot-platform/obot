@@ -23,6 +23,7 @@
 	import SidebarConfig from './SidebarConfig.svelte';
 	import { onMount, onDestroy } from 'svelte';
 	import { browser } from '$app/environment';
+	import Banner from './Banner.svelte';
 
 	interface Props {
 		assistant?: Assistant;
@@ -193,6 +194,9 @@
 					{/snippet}
 				</Navbar>
 			</div>
+
+			<Banner />
+
 			{#if !layout.sidebarOpen && !responsive.isMobile}
 				<div class="absolute bottom-2 left-2 z-30" in:fade={{ delay: 300 }}>
 					{@render openSidebar()}
