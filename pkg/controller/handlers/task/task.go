@@ -180,7 +180,6 @@ func (t *Handler) UpdateTaskForEmail(thread *v1.Thread, req router.Request) erro
 		},
 		Spec: v1.EmailReceiverSpec{
 			EmailReceiverManifest: types.EmailReceiverManifest{
-				Alias:        workflow.Spec.Manifest.Alias,
 				WorkflowName: workflow.Name,
 			},
 			ThreadName: thread.Name,
@@ -188,17 +187,6 @@ func (t *Handler) UpdateTaskForEmail(thread *v1.Thread, req router.Request) erro
 	}
 
 	if thread.Spec.Capabilities.OnEmail != nil {
-		emailReceiver.Spec.AllowedSenders = thread.Spec.Capabilities.OnEmail.AllowedSenders
-		emailReceiver.Spec.Description = thread.Spec.Capabilities.OnEmail.Description
-		emailReceiver.Spec.Name = thread.Spec.Capabilities.OnEmail.Name
-		if err := req.Get(&emailReceiver, emailReceiver.Namespace, emailReceiver.Name); kclient.IgnoreNotFound(err) != nil {
-			return err
-		} else if err != nil {
-			if err := req.Client.Create(req.Ctx, &emailReceiver); err != nil {
-				return err
-			}
-		}
-
 		if err := req.Get(&workflow, workflow.Namespace, workflow.Name); kclient.IgnoreNotFound(err) != nil {
 			return err
 		} else if err != nil {
@@ -214,6 +202,18 @@ func (t *Handler) UpdateTaskForEmail(thread *v1.Thread, req router.Request) erro
 				return err
 			}
 			thread.Status.WorkflowNamesFromIntegration.EmailWorkflowName = workflow.Name
+		}
+
+		emailReceiver.Spec.Alias = workflow.Spec.Manifest.Alias
+		emailReceiver.Spec.AllowedSenders = thread.Spec.Capabilities.OnEmail.AllowedSenders
+		emailReceiver.Spec.Description = thread.Spec.Capabilities.OnEmail.Description
+		emailReceiver.Spec.Name = thread.Spec.Capabilities.OnEmail.Name
+		if err := req.Get(&emailReceiver, emailReceiver.Namespace, emailReceiver.Name); kclient.IgnoreNotFound(err) != nil {
+			return err
+		} else if err != nil {
+			if err := req.Client.Create(req.Ctx, &emailReceiver); err != nil {
+				return err
+			}
 		}
 	} else {
 		if err := req.Get(&emailReceiver, emailReceiver.Namespace, emailReceiver.Name); kclient.IgnoreNotFound(err) != nil {
