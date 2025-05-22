@@ -1161,7 +1161,10 @@ export async function listProjectThreadMcpServerTools(
 	threadID: string
 ): Promise<MCPServerTool[]> {
 	const response = (await doGet(
-		`/assistants/${assistantID}/projects/${projectID}/mcpservers/${projectMcpServerId}/tools/${threadID}`
+		`/assistants/${assistantID}/projects/${projectID}/mcpservers/${projectMcpServerId}/tools/${threadID}`,
+		{
+			dontLogErrors: true
+		}
 	)) as { tools: MCPServerTool[] };
 	return response.tools;
 }

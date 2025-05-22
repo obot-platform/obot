@@ -132,7 +132,7 @@
 	});
 </script>
 
-<div class="flex w-full flex-col pt-10 pb-10">
+<div class="flex w-full flex-col px-4 pt-10 pb-10 lg:px-32">
 	<div class="mb-4 flex items-center justify-between">
 		<div class="flex flex-col">
 			<h3 class="text-lg font-semibold">Model Providers</h3>

@@ -15,6 +15,8 @@
 	import { DEFAULT_CUSTOM_SERVER_NAME } from '$lib/constants';
 	import { responsive } from '$lib/stores';
 	import { parseErrorContent } from '$lib/errors';
+	import { getLayout, openEditProjectMcp } from '$lib/context/layout.svelte';
+	import { getToolBundleMap } from '$lib/context/toolReferences.svelte';
 
 	interface Props {
 		mcpServer: ProjectMCP;
@@ -51,6 +53,9 @@
 	let allDescriptionsEnabled = $state(true);
 	let allParamsEnabled = $state(false);
 	let error = $state('');
+	let requiresConfiguration = $state(false);
+	const toolBundleMap = getToolBundleMap();
+	const layout = !isNew ? getLayout() : null;
 
 	$effect(() => {
 		if (refTools) {
@@ -80,7 +85,10 @@
 							mcpServer.id
 						);
 			} catch (e) {
-				const { message } = parseErrorContent(e);
+				const { message, status } = parseErrorContent(e);
+				if (status === 400) {
+					requiresConfiguration = true;
+				}
 				error = message;
 				loading = false;
 			}
@@ -224,6 +232,23 @@
 							<p class="text-sm font-light">
 								{error}
 							</p>
+							{#if requiresConfiguration && layout && !isNew}
+								<p class="text-sm font-light">
+									<button
+										class="button-link font-semibold text-blue-500 hover:text-blue-600"
+										onclick={() => {
+											const isLegacyBundleServer =
+												mcpServer.catalogID && toolBundleMap.get(mcpServer.catalogID);
+											if (!isLegacyBundleServer) {
+												openEditProjectMcp(layout, mcpServer);
+											}
+										}}
+									>
+										Click Here
+									</button>
+									to configure the server.
+								</p>
+							{/if}
 						</div>
 					</div>
 				{/if}
@@ -304,15 +329,18 @@
 		{/if}
 	</div>
 	<div class="flex grow"></div>
+
 	<div
 		class={twMerge(
 			'dark:bg-surface2 sticky bottom-0 left-0 flex w-full justify-end bg-white py-4 md:px-4',
 			classes?.actions
 		)}
 	>
-		<button class="button-primary flex items-center gap-1" onclick={handleSubmit}>
-			{submitText}
-			<ChevronsRight class="size-4" />
-		</button>
+		{#if !requiresConfiguration}
+			<button class="button-primary flex items-center gap-1" onclick={handleSubmit}>
+				{submitText}
+				<ChevronsRight class="size-4" />
+			</button>
+		{/if}
 	</div>
 </div>
