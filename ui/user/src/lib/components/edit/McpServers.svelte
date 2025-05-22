@@ -19,6 +19,7 @@
 	import McpSetupWizard from '$lib/components/mcp/McpSetupWizard.svelte';
 	import { getToolBundleMap } from '$lib/context/toolReferences.svelte';
 	import { DEFAULT_CUSTOM_SERVER_NAME } from '$lib/constants';
+	import { errors } from '$lib/stores';
 
 	interface Props {
 		project: Project;
@@ -29,7 +30,8 @@
 	let mcpToShow = $state<ProjectMCP>();
 	let toDelete = $state<ProjectMCP>();
 	let localCredentials = $state<ProjectCredential[]>([]);
-	let regularCredentials = $state<ProjectCredential[]>([]);
+	let inheritedCredentials = $state<ProjectCredential[]>([]);
+	let localConfigurations = $state<Record<string, boolean>>({});
 
 	let mcpConfigDialog = $state<ReturnType<typeof McpInfoConfig>>();
 	let mcpSetupWizard = $state<ReturnType<typeof McpSetupWizard>>();
@@ -37,17 +39,6 @@
 	const projectMCPs = getProjectMCPs();
 	const toolBundleMap = getToolBundleMap();
 	const layout = getLayout();
-
-	export async function refreshMcpList() {
-		if (!project?.assistantID || !project.id) return;
-
-		projectMCPs.items = (await ChatService.listProjectMCPs(project.assistantID, project.id)).filter(
-			(projectMcp) => !projectMcp.deleted
-		);
-		if (chatbot) {
-			await fetchCredentials();
-		}
-	}
 
 	// Refresh MCP list whenever sidebar config changes (and we're not currently editing an MCP)
 	$effect(() => {
@@ -57,6 +48,21 @@
 			setTimeout(() => refreshMcpList(), 100);
 		}
 	});
+
+	onMount(() => {
+		if (project?.assistantID && project.id && chatbot) {
+			fetchCredentials();
+		}
+	});
+
+	export async function refreshMcpList() {
+		if (!project?.assistantID || !project.id) return;
+
+		projectMCPs.items = (await ChatService.listProjectMCPs(project.assistantID, project.id)).filter(
+			(projectMcp) => !projectMcp.deleted
+		);
+		await fetchCredentials();
+	}
 
 	let legacyBundleId = $derived(
 		mcpToShow?.catalogID && toolBundleMap.get(mcpToShow.catalogID) ? mcpToShow.catalogID : undefined
@@ -69,12 +75,6 @@
 		}, [])
 	);
 
-	$effect(() => {
-		if (project?.assistantID && project.id && chatbot) {
-			fetchCredentials();
-		}
-	});
-
 	async function fetchCredentials() {
 		if (!project?.assistantID || !project.id) return;
 
@@ -83,12 +83,42 @@
 				await ChatService.listProjectLocalCredentials(project.assistantID, project.id)
 			).items;
 
-			regularCredentials = (
+			inheritedCredentials = (
 				await ChatService.listProjectCredentials(project.assistantID, project.id)
 			).items;
+
+			localConfigurations = {};
+			for (const mcp of projectMCPs.items) {
+				localConfigurations[mcp.id] = await hasLocalConfig(mcp);
+			}
 		} catch (error) {
 			console.error('Failed to fetch credentials:', error);
 		}
+	}
+
+	async function hasLocalConfig(mcp: ProjectMCP): Promise<boolean> {
+		// Handle legacy tool bundles
+		if (mcp.catalogID && toolBundleMap.get(mcp.catalogID)) {
+			return localCredentials.some((cred) => cred.toolID === mcp.catalogID && cred.exists === true);
+		}
+
+		// Real MCP server, reveal any configured env headers
+		let envHeaders: Record<string, string> = {};
+		try {
+			envHeaders = await ChatService.revealProjectMCPEnvHeaders(
+				project.assistantID,
+				project.id,
+				mcp.id
+			);
+		} catch (err) {
+			if (err instanceof Error && err.message.includes('404')) {
+				return false;
+			}
+
+			errors.append(err);
+		}
+
+		return Object.keys(envHeaders).length > 0;
 	}
 
 	function shouldShowWarning(mcp: ProjectMCP) {
@@ -96,22 +126,24 @@
 			return mcp.configured !== true;
 		}
 
-		const hasLocalCredential = localCredentials.some(
-			(cred) => cred.toolID === mcp.catalogID && cred.exists === true
-		);
+		const localCredential = localCredentials.find((cred) => cred.toolID === mcp.catalogID);
 
-		const hasRegularCredential = regularCredentials.some(
-			(cred) => cred.toolID === mcp.catalogID && cred.exists === true
-		);
-
-		return !(hasLocalCredential || hasRegularCredential);
-	}
-
-	onMount(() => {
-		if (project?.assistantID && project.id && chatbot) {
-			fetchCredentials();
+		if (localCredential === undefined) {
+			// When there's no entry in this list, it means the tool does not require credentials.
+			return false;
 		}
-	});
+
+		const hasLocalCredential = localCredential.exists;
+		if (chatbot) {
+			return !hasLocalCredential;
+		}
+
+		const hasInheritedCredential = inheritedCredentials.some(
+			(cred) => cred.toolID === mcp.catalogID && cred.exists === true
+		);
+
+		return !(hasLocalCredential || hasInheritedCredential);
+	}
 
 	async function handleRemoveMcp() {
 		if (!project?.assistantID || !project.id || !toDelete) return;
@@ -140,7 +172,7 @@
 	iconSize={5}
 	header="MCP Servers"
 	helpText={HELPER_TEXTS.mcpServers}
-	open={chatbot ? projectMCPs.items.some(shouldShowWarning) : projectMCPs.items.length > 0}
+	open={projectMCPs.items.some(shouldShowWarning) || (!chatbot && projectMCPs.items.length > 0)}
 >
 	<div class="flex flex-col gap-2">
 		{#if projectMCPs.items.length > 0}
@@ -172,7 +204,7 @@
 								class="flex w-[calc(100%-24px)] items-center truncate text-left text-xs font-light"
 							>
 								{mcp.name || DEFAULT_CUSTOM_SERVER_NAME}
-								{#if chatbot && shouldShowWarning(mcp)}
+								{#if shouldShowWarning(mcp)}
 									<span class="ml-1" use:tooltip={'Configuration Required'}>
 										<TriangleAlert
 											class="size-4"
@@ -184,24 +216,30 @@
 								{/if}
 							</p>
 						</button>
-						<DotDotDot
-							class="p-0 pr-2.5 transition-opacity duration-200 group-hover:opacity-100 md:opacity-0"
-						>
-							<div class="default-dialog flex min-w-max flex-col p-2">
-								{#if !chatbot}
+						{#if !chatbot}
+							<DotDotDot
+								class="p-0 pr-2.5 transition-opacity duration-200 group-hover:opacity-100 md:opacity-0"
+							>
+								<div class="default-dialog flex min-w-max flex-col p-2">
 									<button class="menu-button" onclick={() => openMCPServerTools(layout, mcp)}>
 										<Wrench class="size-4" /> Manage Tools
 									</button>
-								{/if}
-								<button class="menu-button" onclick={() => (toDelete = mcp)}>
-									{#if !chatbot}
+									<button class="menu-button" onclick={() => (toDelete = mcp)}>
 										<Trash2 class="size-4" /> Delete
-									{:else}
+									</button>
+								</div>
+							</DotDotDot>
+						{:else if localConfigurations[mcp.id]}
+							<DotDotDot
+								class="p-0 pr-2.5 transition-opacity duration-200 group-hover:opacity-100 md:opacity-0"
+							>
+								<div class="default-dialog flex min-w-max flex-col p-2">
+									<button class="menu-button" onclick={() => (toDelete = mcp)}>
 										<Trash2 class="size-4" /> Delete My Configuration
-									{/if}
-								</button>
-							</div>
-						</DotDotDot>
+									</button>
+								</div>
+							</DotDotDot>
+						{/if}
 					</div>
 				{/each}
 			</div>
