@@ -16,7 +16,7 @@
 		config = $bindable(),
 		showSubmitError,
 		custom,
-		chatbot,
+		chatbot = false,
 		showAdvancedOptions = $bindable(false)
 	}: Props = $props();
 
@@ -42,9 +42,9 @@
 	</div>
 {/if}
 
-{#if showAdvancedOptions || custom}
+{#if showAdvancedOptions || custom || chatbot}
 	<div class="flex flex-col gap-4" in:fade out:slide={{ axis: 'y' }}>
-		{#if !custom}
+		{#if !custom && !chatbot}
 			<div class="flex flex-col gap-1">
 				<h4 class="text-base font-semibold">Custom Configurations</h4>
 				{@render showConfigEnv('custom')}
@@ -54,7 +54,7 @@
 
 		<div class="flex items-center gap-4">
 			<h4 class="text-base font-semibold">Command</h4>
-			<input class="text-input-filled w-full" bind:value={config.command} />
+			<input class="text-input-filled w-full" bind:value={config.command} disabled={chatbot} />
 		</div>
 
 		{#if config.args}
@@ -63,21 +63,29 @@
 				<div class="flex grow flex-col gap-4">
 					{#each config.args as _arg, i}
 						<div class="flex items-center gap-2">
-							<input class="text-input-filled w-full" bind:value={config.args[i]} />
-							<button class="icon-button" onclick={() => config.args?.splice(i, 1)}>
-								<Trash2 class="size-4" />
-							</button>
+							<input
+								class="text-input-filled w-full"
+								bind:value={config.args[i]}
+								disabled={chatbot}
+							/>
+							{#if !chatbot}
+								<button class="icon-button" onclick={() => config.args?.splice(i, 1)}>
+									<Trash2 class="size-4" />
+								</button>
+							{/if}
 						</div>
 					{/each}
 
-					<div class="flex justify-end">
-						<button
-							class="button flex items-center gap-1 text-xs"
-							onclick={() => config.args?.push('')}
-						>
-							<Plus class="size-4" /> Argument
-						</button>
-					</div>
+					{#if !chatbot}
+						<div class="flex justify-end">
+							<button
+								class="button flex items-center gap-1 text-xs"
+								onclick={() => config.args?.push('')}
+							>
+								<Plus class="size-4" /> Argument
+							</button>
+						</div>
+					{/if}
 				</div>
 			</div>
 		{/if}
@@ -96,24 +104,26 @@
 {/if}
 
 {#snippet addEnvButton()}
-	<div class="flex justify-end">
-		<button
-			class="button flex items-center gap-1 text-xs"
-			onclick={() =>
-				config.env?.push({
-					name: '',
-					key: '',
-					description: '',
-					sensitive: false,
-					required: false,
-					file: false,
-					value: '',
-					custom: crypto.randomUUID()
-				})}
-		>
-			<Plus class="size-4" /> Environment Variable
-		</button>
-	</div>
+	{#if !chatbot}
+		<div class="flex justify-end">
+			<button
+				class="button flex items-center gap-1 text-xs"
+				onclick={() =>
+					config.env?.push({
+						name: '',
+						key: '',
+						description: '',
+						sensitive: false,
+						required: false,
+						file: false,
+						value: '',
+						custom: crypto.randomUUID()
+					})}
+			>
+				<Plus class="size-4" /> Environment Variable
+			</button>
+		</div>
+	{/if}
 {/snippet}
 
 {#snippet showConfigEnv(type: 'all' | 'default' | 'custom')}
@@ -126,7 +136,7 @@
 	{#each envsToShow as env, i}
 		<div class="flex w-full items-center gap-2">
 			<div class="flex grow flex-col gap-1">
-				{#if env.custom && !chatbot}
+				{#if env.custom}
 					<input
 						class="ghost-input w-full py-0"
 						bind:value={env.key}

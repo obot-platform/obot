@@ -16,7 +16,7 @@
 		config = $bindable(),
 		showSubmitError,
 		custom,
-		chatbot,
+		chatbot = false,
 		showAdvancedOptions = $bindable(false)
 	}: Props = $props();
 
@@ -36,6 +36,7 @@
 			class="text-input-filled flex grow"
 			bind:value={config.url}
 			onkeydown={() => (keepEditable = true)}
+			disabled={chatbot}
 		/>
 	{:else}
 		<p
@@ -51,7 +52,7 @@
 	<div class="flex flex-col gap-1">
 		<h4 class="text-base font-semibold">Environment Variables</h4>
 		{@render showConfigEnvVars('all')}
-		{#if (custom || showAdvancedOptions) && !chatbot}
+		{#if custom || showAdvancedOptions}
 			{@render addEnvVarButton()}
 		{/if}
 	</div>
@@ -119,24 +120,26 @@
 {/snippet}
 
 {#snippet addEnvVarButton()}
-	<div class="flex justify-end">
-		<button
-			class="button flex items-center gap-1 text-xs"
-			onclick={() =>
-				config.env?.push({
-					name: '',
-					key: '',
-					description: '',
-					sensitive: false,
-					required: false,
-					file: false,
-					value: '',
-					custom: crypto.randomUUID()
-				})}
-		>
-			<Plus class="size-4" /> Environment Variable
-		</button>
-	</div>
+	{#if !chatbot}
+		<div class="flex justify-end">
+			<button
+				class="button flex items-center gap-1 text-xs"
+				onclick={() =>
+					config.env?.push({
+						name: '',
+						key: '',
+						description: '',
+						sensitive: false,
+						required: false,
+						file: false,
+						value: '',
+						custom: crypto.randomUUID()
+					})}
+			>
+				<Plus class="size-4" /> Environment Variable
+			</button>
+		</div>
+	{/if}
 {/snippet}
 
 {#snippet showConfigEnvVars(type: 'all' | 'default' | 'custom')}
@@ -150,16 +153,13 @@
 		{#each envsToShow as env, i}
 			<div class="flex w-full items-center gap-2">
 				<div class="flex grow flex-col gap-1">
-					{#if !chatbot}
-						<input
-							class="ghost-input w-full py-0 pl-1"
-							bind:value={env.key}
-							placeholder="Key (ex. API_KEY)"
-							use:focusOnAdd={i === envsToShow.length - 1}
-						/>
-					{:else}
-						<div class="ghost-input w-full py-0 pl-1">{env.name || env.key}</div>
-					{/if}
+					<input
+						class="ghost-input w-full py-0 pl-1"
+						bind:value={env.key}
+						placeholder="Key (ex. API_KEY)"
+						use:focusOnAdd={i === envsToShow.length - 1}
+						disabled={chatbot}
+					/>
 					{#if env.sensitive}
 						<SensitiveInput name={env.name} bind:value={env.value} />
 					{:else}
@@ -208,16 +208,13 @@
 		{#each headersToShow as header, i}
 			<div class="flex w-full items-center gap-2">
 				<div class="flex grow flex-col gap-1">
-					{#if !chatbot}
-						<input
-							class="ghost-input w-full py-0 pl-1"
-							bind:value={header.key}
-							placeholder="Key (ex. API_KEY)"
-							use:focusOnAdd={i === headersToShow.length - 1}
-						/>
-					{:else}
-						<div class="ghost-input w-full py-0 pl-1">{header.name || header.key}</div>
-					{/if}
+					<input
+						class="ghost-input w-full py-0 pl-1"
+						bind:value={header.key}
+						placeholder="Key (ex. API_KEY)"
+						use:focusOnAdd={i === headersToShow.length - 1}
+						disabled={chatbot}
+					/>
 					{#if header.sensitive}
 						<SensitiveInput name={header.name} bind:value={header.value} />
 					{:else}
