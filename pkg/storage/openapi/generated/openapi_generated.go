@@ -3769,8 +3769,15 @@ func schema_obot_platform_obot_apiclient_types_ProjectCredential(ref common.Refe
 							Format:  "",
 						},
 					},
+					"baseAgent": {
+						SchemaProps: spec.SchemaProps{
+							Default: false,
+							Type:    []string{"boolean"},
+							Format:  "",
+						},
+					},
 				},
-				Required: []string{"exists"},
+				Required: []string{"exists", "baseAgent"},
 			},
 		},
 	}

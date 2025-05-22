@@ -616,7 +616,7 @@ func (h *ProjectsHandler) ListCredentials(req api.Context) error {
 func (h *ProjectsHandler) listCredentials(req api.Context, local bool) error {
 	var (
 		tools               = make(map[string]struct{})
-		existingCredentials = make(map[string]struct{})
+		existingCredentials = make(map[string]string)
 		result              types.ProjectCredentialList
 	)
 
@@ -647,6 +647,7 @@ func (h *ProjectsHandler) listCredentials(req api.Context, local bool) error {
 	if thread.Spec.ParentThreadName != "" && !local {
 		credContexts = append(credContexts, thread.Spec.ParentThreadName)
 	}
+	credContexts = append(credContexts, thread.Spec.AgentName)
 
 	creds, err := req.GPTClient.ListCredentials(req.Context(), gptscript.ListCredentialsOptions{
 		CredentialContexts: credContexts,
@@ -656,7 +657,7 @@ func (h *ProjectsHandler) listCredentials(req api.Context, local bool) error {
 	}
 
 	for _, cred := range creds {
-		existingCredentials[cred.ToolName] = struct{}{}
+		existingCredentials[cred.ToolName] = cred.Context
 	}
 
 	for tool := range tools {
@@ -672,18 +673,22 @@ func (h *ProjectsHandler) listCredentials(req api.Context, local bool) error {
 		}
 
 		exists := true
+		baseAgentCred := false
 		for _, credName := range toolRef.Status.Tool.CredentialNames {
-			if _, ok := existingCredentials[credName]; !ok {
+			credCtx, ok := existingCredentials[credName]
+			baseAgentCred = credCtx == thread.Spec.AgentName
+			if !ok {
 				exists = false
 				break
 			}
 		}
 
 		result.Items = append(result.Items, types.ProjectCredential{
-			ToolID:   toolRef.Name,
-			ToolName: toolRef.Status.Tool.Name,
-			Icon:     toolRef.Status.Tool.Metadata["icon"],
-			Exists:   exists,
+			ToolID:    toolRef.Name,
+			ToolName:  toolRef.Status.Tool.Name,
+			Icon:      toolRef.Status.Tool.Metadata["icon"],
+			Exists:    exists,
+			BaseAgent: baseAgentCred,
 		})
 	}
 
