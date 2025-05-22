@@ -261,7 +261,7 @@
 		onclick={() => invitationDialog?.close()}
 		use:tooltip={{ disablePortal: true, text: 'Close Agent Catalog' }}
 	>
-		<X class="size-7" />
+		<X class="size-6" />
 	</button>
 
 	<div class="flex flex-col items-center gap-4">
