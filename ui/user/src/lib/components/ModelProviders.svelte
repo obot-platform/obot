@@ -9,6 +9,7 @@
 	import { ChevronDown, Loader2 } from 'lucide-svelte';
 	import ModelProviderCard from './ModelProviderCard.svelte';
 	import { twMerge } from 'tailwind-merge';
+	import { fade } from 'svelte/transition';
 
 	let { project = $bindable() }: { project: Project } = $props();
 
@@ -134,22 +135,27 @@
 
 <div class="flex w-full flex-col px-4 pt-10 pb-10 lg:px-32">
 	<div class="mb-4 flex items-center justify-between">
-		<div class="flex flex-col">
-			<h3 class="text-lg font-semibold">Model Providers</h3>
+		<div class="flex w-full flex-col">
+			<div class="flex justify-between">
+				<h3 class="text-lg font-semibold">Model Providers</h3>
+				{#if isSaving}
+					<div
+						class="text-muted flex items-center gap-1 text-xs"
+						in:fade={{ duration: 200 }}
+						out:fade={{ duration: 200, delay: 300 }}
+					>
+						<div
+							class="size-3 animate-spin rounded-full border-2 border-current border-t-transparent"
+						></div>
+						<span>Saving...</span>
+					</div>
+				{/if}
+			</div>
 			<p class="text-gray text-xs">
 				Configure model providers and select models to make them available to all threads and tasks.
 				The default model will be used in place of Obot’s built-in model.
 			</p>
 		</div>
-
-		{#if isSaving}
-			<div class="text-muted flex items-center gap-1 text-sm">
-				<div
-					class="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent"
-				></div>
-				<span>Saving...</span>
-			</div>
-		{/if}
 	</div>
 
 	{#if error}
