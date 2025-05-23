@@ -187,7 +187,8 @@
 	<button
 		class={twMerge(
 			'hover:bg-surface2/50 active:bg-surface2/80 flex h-10 items-center gap-3 rounded-full px-2  py-1 text-xs text-gray-600 md:px-4 lg:px-6',
-			isDefaultModelSelected && 'text-blue hover:bg-blue/10 active:bg-blue/15 bg-transparent'
+			(isDefaultModelSelected || (!threadDetails?.model && defaultModel?.model)) &&
+				'text-blue hover:bg-blue/10 active:bg-blue/15 bg-transparent'
 		)}
 		onclick={(e) => {
 			e.stopPropagation();
@@ -232,8 +233,8 @@
 			}}
 			bind:this={modelSelectorRef}
 			use:scrollIntoSelectedModel={{
-				providerId: threadDetails?.modelProvider,
-				modelId: threadDetails?.model
+				providerId: threadDetails?.modelProvider ?? defaultModel?.modelProvider,
+				modelId: threadDetails?.model ?? defaultModel?.model
 			}}
 		>
 			{#if modelsEntries.length}
