@@ -84,6 +84,7 @@
 				{project}
 				mcpServer={selectedProjectMcp}
 				onSubmit={() => dialog?.close()}
+				onClose={() => dialog?.close()}
 				submitText="Update"
 			/>
 		{/key}

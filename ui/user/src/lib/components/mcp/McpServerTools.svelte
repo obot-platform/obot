@@ -6,7 +6,8 @@
 		ChevronsRight,
 		ChevronUp,
 		LoaderCircle,
-		Server
+		Server,
+		X
 	} from 'lucide-svelte';
 	import Toggle from '../Toggle.svelte';
 	import { onMount, type Snippet } from 'svelte';
@@ -22,6 +23,7 @@
 		mcpServer: ProjectMCP;
 		project: Project;
 		header?: Snippet;
+		onClose?: () => void;
 		onSubmit?: (selected: string[]) => void;
 		submitText?: string;
 		currentThreadID?: string;
@@ -36,6 +38,7 @@
 		mcpServer,
 		project,
 		header,
+		onClose,
 		onSubmit,
 		currentThreadID,
 		tools: refTools,
@@ -149,6 +152,11 @@
 			<h2 class="flex text-xl font-semibold">
 				{currentThreadID ? 'Modify Thread Tools' : 'Modify Server Tools'}
 			</h2>
+		{/if}
+		{#if currentThreadID && onClose}
+			<button class="icon-button absolute top-0 right-0" onclick={() => onClose()}>
+				<X class="size-6" />
+			</button>
 		{/if}
 		<div class="mb-4 flex flex-col gap-1">
 			<div class="flex items-center gap-2">
