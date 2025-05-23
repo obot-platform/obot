@@ -8,7 +8,7 @@
 	import type { EditorItem } from '$lib/services/editor/index.svelte';
 	import { errors, responsive } from '$lib/stores';
 	import { closeAll, getLayout } from '$lib/context/layout.svelte';
-	import { GripVertical, MessageCirclePlus, Plus, SidebarOpen } from 'lucide-svelte';
+	import { GripVertical, MessageCirclePlus, Plus, Server, SidebarOpen } from 'lucide-svelte';
 	import { fade, slide } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';
 	import Logo from './navbar/Logo.svelte';
@@ -24,6 +24,8 @@
 	import { onMount, onDestroy } from 'svelte';
 	import { browser } from '$app/environment';
 	import Banner from './Banner.svelte';
+	import { getProjectMCPs } from '$lib/context/projectMcps.svelte';
+	import McpConfigMultiple from './mcp/McpConfigMultiple.svelte';
 
 	interface Props {
 		assistant?: Assistant;
@@ -40,7 +42,7 @@
 	let credentials = $state<ProjectCredential[]>([]);
 	let authDialog: ReturnType<typeof CredentialAuth> | undefined = $state();
 	let credToAuth = $state<ProjectCredential | undefined>();
-	let configDialog: HTMLDialogElement;
+	let slackConfigDialog: HTMLDialogElement;
 	let shortcutsDialog: HTMLDialogElement;
 	let nav = $state<HTMLDivElement>();
 	let bannerRef = $state<ReturnType<typeof Banner>>();
@@ -73,7 +75,7 @@
 				project.capabilities?.onSlackMessage &&
 				!credentials.find((c) => c.toolID === 'slack-bot-bundle')?.exists
 			) {
-				configDialog?.showModal();
+				slackConfigDialog?.showModal();
 				return;
 			}
 		});
@@ -270,12 +272,12 @@
 			</div>
 
 			<dialog
-				bind:this={configDialog}
+				bind:this={slackConfigDialog}
 				class="default-dialog"
-				use:clickOutside={() => configDialog?.close()}
+				use:clickOutside={() => slackConfigDialog?.close()}
 			>
 				<div class="p-6">
-					<button class="absolute top-0 right-0 p-3" onclick={() => configDialog?.close()}>
+					<button class="absolute top-0 right-0 p-3" onclick={() => slackConfigDialog?.close()}>
 						<X class="icon-default" />
 					</button>
 					<h3 class="mb-4 text-lg font-semibold">Configure Slack</h3>
@@ -286,7 +288,7 @@
 						<button
 							class="button"
 							onclick={() => {
-								configDialog?.close();
+								slackConfigDialog?.close();
 								authDialog?.show();
 							}}
 						>
@@ -295,6 +297,8 @@
 					</div>
 				</div>
 			</dialog>
+
+			<McpConfigMultiple {project} chatbot={shared} />
 
 			<CredentialAuth
 				bind:this={authDialog}

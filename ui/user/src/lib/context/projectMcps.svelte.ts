@@ -5,6 +5,8 @@ const Key = Symbol('mcps');
 
 export interface ProjectMCPContext {
 	items: ProjectMCP[];
+	configured: Record<string, boolean>;
+	requiresConfiguration: Record<string, ProjectMCP>;
 }
 
 export function getProjectMCPs() {
@@ -15,6 +17,10 @@ export function getProjectMCPs() {
 }
 
 export function initProjectMCPs(mcps: ProjectMCP[]) {
-	const data = $state<ProjectMCPContext>({ items: mcps });
+	const data = $state<ProjectMCPContext>({
+		items: mcps,
+		configured: {},
+		requiresConfiguration: {}
+	});
 	setContext(Key, data);
 }
