@@ -218,16 +218,33 @@
 		}
 	}
 
-	function fetchMcps() {
+	async function fetchMcps() {
 		loadingMcps = true;
-		ChatService.listMCPs().then((results) => {
-			mcps = results;
-			loadingMcps = false;
+		const assistants = await ChatService.listAssistants();
+		const defaultAssistant = assistants.items.find((assistant) => assistant.default);
+		const results = await ChatService.listMCPs();
 
-			if (preselectedMcp) {
-				showPreselectedMcp();
-			}
-		});
+		if (defaultAssistant) {
+			const allToolsOnDefaultAssistant = new Set([
+				...(defaultAssistant.tools ?? []),
+				...(defaultAssistant.availableThreadTools ?? []),
+				...(defaultAssistant.defaultThreadTools ?? [])
+			]);
+			mcps = results.filter((mcp) => {
+				if (toolBundleMap.get(mcp.id)) {
+					return allToolsOnDefaultAssistant.has(mcp.id);
+				}
+				return true;
+			});
+		} else {
+			mcps = results;
+		}
+
+		loadingMcps = false;
+
+		if (preselectedMcp) {
+			showPreselectedMcp();
+		}
 	}
 
 	onMount(() => {

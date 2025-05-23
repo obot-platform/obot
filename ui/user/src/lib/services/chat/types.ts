@@ -204,6 +204,9 @@ export interface Assistant {
 	maxTools?: number;
 	websiteKnowledge?: Sites;
 	allowedModelProviders?: string[];
+	tools?: string[];
+	availableThreadTools?: string[];
+	defaultThreadTools?: string[];
 }
 
 export type AssistantToolType = 'javascript' | 'python' | 'script' | 'container' | undefined;

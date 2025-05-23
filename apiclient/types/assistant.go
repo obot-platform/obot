@@ -13,6 +13,9 @@ type Assistant struct {
 	MaxTools              int               `json:"maxTools,omitempty"`
 	WebsiteKnowledge      *WebsiteKnowledge `json:"websiteKnowledge,omitempty"`
 	AllowedModelProviders []string          `json:"allowedModelProviders,omitempty"`
+	AvailableThreadTools  []string          `json:"availableThreadTools,omitempty"`
+	DefaultThreadTools    []string          `json:"defaultThreadTools,omitempty"`
+	Tools                 []string          `json:"tools,omitempty"`
 }
 
 type AssistantList List[Assistant]
