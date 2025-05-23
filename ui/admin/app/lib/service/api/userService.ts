@@ -1,8 +1,9 @@
 import { z } from "zod";
 
 import { EntityList } from "~/lib/model/primitives";
-import { User } from "~/lib/model/users";
+import { Role, User } from "~/lib/model/users";
 import { ApiRoutes } from "~/lib/routers/apiRoutes";
+import { UnauthorizedError } from "~/lib/service/api/apiErrors";
 import { request } from "~/lib/service/api/primitives";
 import { createFetcher } from "~/lib/service/api/service-primitives";
 
@@ -26,7 +27,8 @@ const handleGetUsers = createFetcher(
 async function getMe() {
 	const res = await request<User>({
 		url: ApiRoutes.me().url,
-		errorMessage: "Failed to fetch agents",
+		errorMessage: "Failed to fetch user info.",
+		toastError: false,
 	});
 
 	return res.data;
@@ -64,10 +66,18 @@ async function deleteUser(username: string) {
 	return data;
 }
 
+async function requireAdminEnabled() {
+	const { explicitAdmin, role } = await getMe();
+	if (!explicitAdmin || role !== Role.Admin) {
+		throw new UnauthorizedError("Unauthorized, you must be an admin.");
+	}
+}
+
 export const UserService = {
 	getMe,
 	getUsers: handleGetUsers,
 	updateUser,
 	getUser: handleGetUser,
 	deleteUser,
+	requireAdminEnabled,
 };
