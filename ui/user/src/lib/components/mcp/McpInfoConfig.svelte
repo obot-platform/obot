@@ -52,6 +52,7 @@
 			githubStars?: number;
 			githubUrl?: string;
 		};
+		animation?: 'slide' | 'fade';
 	}
 	let {
 		manifest,
@@ -67,7 +68,8 @@
 		legacyAuthText,
 		project = $bindable(),
 		manifestType,
-		info
+		info,
+		animation
 	}: Props = $props();
 	let configDialog = $state<HTMLDialogElement>();
 	let authDialog = $state<HTMLDialogElement>();
@@ -146,7 +148,7 @@
 		if (disableOutsideClick) return;
 		close();
 	}}
-	use:dialogAnimation={{ type: 'fade' }}
+	use:dialogAnimation={{ type: animation || 'slide' }}
 >
 	<div class="grid h-fit max-h-[calc(100vh-4rem)] grid-rows-[auto_1fr_auto]">
 		{@render basicInfo()}

@@ -6,7 +6,7 @@
 		type ProjectMCP,
 		type ProjectCredential
 	} from '$lib/services';
-	import { type MCPServerInfo } from '$lib/services/chat/mcp';
+	import { fetchConfigurationStatuses, type MCPServerInfo } from '$lib/services/chat/mcp';
 	import { PencilLine, Plus, Server, Trash2, Wrench, TriangleAlert } from 'lucide-svelte/icons';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import McpInfoConfig from '$lib/components/mcp/McpInfoConfig.svelte';
@@ -19,7 +19,6 @@
 	import McpSetupWizard from '$lib/components/mcp/McpSetupWizard.svelte';
 	import { getToolBundleMap } from '$lib/context/toolReferences.svelte';
 	import { DEFAULT_CUSTOM_SERVER_NAME } from '$lib/constants';
-	import { errors } from '$lib/stores';
 
 	interface Props {
 		project: Project;
@@ -29,9 +28,6 @@
 	let { project, chatbot = false }: Props = $props();
 	let mcpToShow = $state<ProjectMCP>();
 	let toDelete = $state<ProjectMCP>();
-	let localCredentials = $state<ProjectCredential[]>([]);
-	let inheritedCredentials = $state<ProjectCredential[]>([]);
-	let localConfigurations = $state<Record<string, boolean>>({});
 
 	let mcpConfigDialog = $state<ReturnType<typeof McpInfoConfig>>();
 	let mcpSetupWizard = $state<ReturnType<typeof McpSetupWizard>>();
@@ -49,19 +45,21 @@
 		}
 	});
 
-	onMount(() => {
-		if (project?.assistantID && project.id && chatbot) {
-			fetchCredentials();
-		}
-	});
-
 	export async function refreshMcpList() {
 		if (!project?.assistantID || !project.id) return;
 
 		projectMCPs.items = (await ChatService.listProjectMCPs(project.assistantID, project.id)).filter(
 			(projectMcp) => !projectMcp.deleted
 		);
-		await fetchCredentials();
+
+		const response = await fetchConfigurationStatuses(
+			project,
+			projectMCPs.items,
+			toolBundleMap,
+			chatbot
+		);
+		projectMCPs.configured = response?.configured || {};
+		projectMCPs.requiresConfiguration = response?.requiresConfiguration || {};
 	}
 
 	let legacyBundleId = $derived(
@@ -74,76 +72,6 @@
 			return acc;
 		}, [])
 	);
-
-	async function fetchCredentials() {
-		if (!project?.assistantID || !project.id) return;
-
-		try {
-			localCredentials = (
-				await ChatService.listProjectLocalCredentials(project.assistantID, project.id)
-			).items;
-
-			inheritedCredentials = (
-				await ChatService.listProjectCredentials(project.assistantID, project.id)
-			).items;
-
-			localConfigurations = {};
-			for (const mcp of projectMCPs.items) {
-				localConfigurations[mcp.id] = await hasLocalConfig(mcp);
-			}
-		} catch (error) {
-			console.error('Failed to fetch credentials:', error);
-		}
-	}
-
-	async function hasLocalConfig(mcp: ProjectMCP): Promise<boolean> {
-		// Handle legacy tool bundles
-		if (mcp.catalogID && toolBundleMap.get(mcp.catalogID)) {
-			return localCredentials.some((cred) => cred.toolID === mcp.catalogID && cred.exists === true);
-		}
-
-		// Real MCP server, reveal any configured env headers
-		let envHeaders: Record<string, string> = {};
-		try {
-			envHeaders = await ChatService.revealProjectMCPEnvHeaders(
-				project.assistantID,
-				project.id,
-				mcp.id
-			);
-		} catch (err) {
-			if (err instanceof Error && err.message.includes('404')) {
-				return false;
-			}
-
-			errors.append(err);
-		}
-
-		return Object.keys(envHeaders).length > 0;
-	}
-
-	function shouldShowWarning(mcp: ProjectMCP) {
-		if (!mcp.catalogID || !toolBundleMap.get(mcp.catalogID)) {
-			return mcp.configured !== true;
-		}
-
-		const localCredential = localCredentials.find((cred) => cred.toolID === mcp.catalogID);
-
-		if (localCredential === undefined) {
-			// When there's no entry in this list, it means the tool does not require credentials.
-			return false;
-		}
-
-		const hasLocalCredential = localCredential.exists;
-		if (chatbot) {
-			return !hasLocalCredential;
-		}
-
-		const hasInheritedCredential = inheritedCredentials.some(
-			(cred) => cred.toolID === mcp.catalogID && cred.exists === true
-		);
-
-		return !(hasLocalCredential || hasInheritedCredential);
-	}
 
 	async function handleRemoveMcp() {
 		if (!project?.assistantID || !project.id || !toDelete) return;
@@ -172,7 +100,8 @@
 	iconSize={5}
 	header="MCP Servers"
 	helpText={HELPER_TEXTS.mcpServers}
-	open={projectMCPs.items.some(shouldShowWarning) || (!chatbot && projectMCPs.items.length > 0)}
+	open={Object.keys(projectMCPs.requiresConfiguration).length > 0 ||
+		(!chatbot && projectMCPs.items.length > 0)}
 >
 	<div class="flex flex-col gap-2">
 		{#if projectMCPs.items.length > 0}
@@ -204,7 +133,7 @@
 								class="flex w-[calc(100%-24px)] items-center truncate text-left text-xs font-light"
 							>
 								{mcp.name || DEFAULT_CUSTOM_SERVER_NAME}
-								{#if shouldShowWarning(mcp)}
+								{#if projectMCPs.requiresConfiguration[mcp.id]}
 									<span class="ml-1" use:tooltip={'Configuration Required'}>
 										<TriangleAlert
 											class="size-4"
@@ -229,7 +158,7 @@
 									</button>
 								</div>
 							</DotDotDot>
-						{:else if localConfigurations[mcp.id]}
+						{:else if projectMCPs.configured[mcp.id]}
 							<DotDotDot
 								class="p-0 pr-2.5 transition-opacity duration-200 group-hover:opacity-100 md:opacity-0"
 							>
