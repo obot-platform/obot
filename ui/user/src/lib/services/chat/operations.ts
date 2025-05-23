@@ -1243,7 +1243,11 @@ export async function getProjectInvitation(
 }
 
 export async function acceptProjectInvitation(code: string): Promise<ProjectInvitation> {
-	return (await doPost(`/projectinvitations/${code}`, {})) as ProjectInvitation;
+	return (await doPost(
+		`/projectinvitations/${code}`,
+		{},
+		{ dontLogErrors: true }
+	)) as ProjectInvitation;
 }
 
 export async function rejectProjectInvitation(code: string): Promise<void> {

@@ -18,7 +18,7 @@
 	let isProcessing = $state(false);
 	let responseMessage = $state('');
 	let responseError = $state(false);
-	let showRejected = $state(false);
+	let view = $state<'rejected' | 'joined'>();
 	// Format the invitation date nicely
 	let invitationDate = $derived(
 		invitation.created ? formatTimeAgo(invitation.created).fullDate : 'Unknown date'
@@ -44,9 +44,16 @@
 				goto('/');
 			}
 		} catch (error) {
-			console.error('Error accepting invitation:', error);
-			responseError = true;
-			responseMessage = 'Failed to accept invitation. Please try again.';
+			if (
+				error instanceof Error &&
+				error.message.includes('you are already a member of this project')
+			) {
+				view = 'joined';
+			} else {
+				console.error('Error accepting invitation:', error);
+				responseError = true;
+				responseMessage = 'Failed to accept invitation. Please try again.';
+			}
 		} finally {
 			isProcessing = false;
 		}
@@ -62,7 +69,7 @@
 		try {
 			await ChatService.rejectProjectInvitation(page.params.code);
 			responseMessage = 'Invitation rejected.';
-			showRejected = true;
+			view = 'rejected';
 		} catch (error) {
 			console.error('Error rejecting invitation:', error);
 			responseError = true;
@@ -117,7 +124,7 @@
 					</div>
 				</div>
 			</div>
-		{:else if showRejected}
+		{:else if view === 'rejected'}
 			<div
 				class="dark:bg-surface1 dark:border-surface3 w-full max-w-lg rounded-xl bg-white p-8 shadow-md dark:border"
 			>
@@ -134,6 +141,33 @@
 						<a href="/" class="button-primary w-full rounded-full p-2 px-6 text-center">
 							Go Home
 						</a>
+					</div>
+				</div>
+			</div>
+		{:else if view === 'joined'}
+			<div
+				class="dark:bg-surface1 dark:border-surface3 w-full max-w-lg rounded-xl bg-white p-8 shadow-md dark:border"
+			>
+				<div class="flex flex-col items-center gap-4">
+					<img src="/user/images/sharing-agent.webp" alt="invitation" />
+					<h1 class="text-2xl font-semibold">Your Agent <i>Invitation</i> Link</h1>
+					<h2 class="w-sm text-center text-lg font-extralight">
+						You're already a member of <strong class="font-semibold">{projectName}</strong>!
+					</h2>
+					<p class="text-md text-center leading-6 font-light">
+						Good news! You already have access! Click the link below to get started on or continue
+						collaborating on this agent.
+					</p>
+					<div class="mt-4 flex w-full justify-center">
+						<a
+							href="/o/{invitation.project?.id}"
+							class="button-primary w-full rounded-full p-2 px-6 text-center"
+						>
+							Go To Agent
+						</a>
+					</div>
+					<div class="flex w-full justify-center">
+						<a href="/agents" class="button w-full rounded-full p-2 px-6 text-center"> Go Home </a>
 					</div>
 				</div>
 			</div>
