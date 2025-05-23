@@ -364,7 +364,7 @@
 </script>
 
 <div
-	class="model-provider-card border-surface2 flex max-h-[514px] min-h-fit w-full flex-col rounded-md border py-4 shadow-sm 2xl:mb-4 2xl:min-h-[514px] 2xl:last:mb-0"
+	class="model-provider-card border-surface2 flex max-h-[600px] min-h-fit w-full flex-col rounded-md border py-4 shadow-sm 2xl:mb-4 2xl:min-h-[514px] 2xl:last:mb-0"
 	data-provider-id={provider.id}
 >
 	<div class="flex flex-col px-4">
@@ -467,7 +467,7 @@
 						{/if}
 					</div>
 
-					<div class="relative flex min-h-[180px] flex-1 flex-col">
+					<div class="md:mi relative flex min-h-[180px] flex-1 flex-col lg:min-h-[120px]">
 						<div
 							class="default-scrollbar-thin scrollbar-track-rounded-full absolute inset-0 flex h-full max-h-full flex-col overflow-y-auto px-2"
 						>
