@@ -10,6 +10,7 @@ import { CapabilityTool } from "~/lib/model/toolReferences";
 import { AgentService } from "~/lib/service/api/agentService";
 import { ProjectApiService } from "~/lib/service/api/projectApiService";
 import { TaskService } from "~/lib/service/api/taskService";
+import { UserService } from "~/lib/service/api/userService";
 import { generateRandomName } from "~/lib/service/nameGenerator";
 import { pluralize, timeSince } from "~/lib/utils";
 
@@ -25,6 +26,7 @@ import {
 } from "~/components/ui/tooltip";
 
 export async function clientLoader() {
+	await UserService.requireAdminEnabled();
 	const [baseAgents, tasks, projects] = await Promise.all([
 		preload(...AgentService.getAgents.swr({})),
 		preload(...TaskService.getTasks.swr({})),

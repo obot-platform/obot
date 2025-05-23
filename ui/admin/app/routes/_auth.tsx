@@ -2,6 +2,7 @@ import { AxiosError } from "axios";
 import { Outlet, isRouteErrorResponse, useRouteError } from "react-router";
 import { preload } from "swr";
 
+import { Role, User } from "~/lib/model/users";
 import { ForbiddenError, UnauthorizedError } from "~/lib/service/api/apiErrors";
 import { AuthProviderApiService } from "~/lib/service/api/authProviderApiService";
 import { ModelProviderApiService } from "~/lib/service/api/modelProviderApiService";
@@ -15,19 +16,22 @@ import { Sidebar } from "~/components/sidebar";
 import { SignIn } from "~/components/signin/SignIn";
 
 export async function clientLoader() {
-	const promises = await Promise.all([
-		preload(UserService.getMe.key(), UserService.getMe),
-		preload(
-			ModelProviderApiService.getModelProviders.key(),
-			ModelProviderApiService.getModelProviders
-		),
-		preload(
+	let me: User | undefined;
+	try {
+		me = await preload(UserService.getMe.key(), UserService.getMe);
+		if (me.role === Role.Admin) {
+			await preload(
+				ModelProviderApiService.getModelProviders.key(),
+				ModelProviderApiService.getModelProviders
+			);
+		}
+	} catch (error) {
+		await preload(
 			AuthProviderApiService.getAuthProviders.key(),
 			AuthProviderApiService.getAuthProviders
-		),
-	]);
-	const me = promises[0];
-
+		);
+		throw error;
+	}
 	return { me };
 }
 

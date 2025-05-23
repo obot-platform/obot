@@ -7,6 +7,7 @@ async function getVersion() {
 	const res = await request<Version>({
 		url: ApiRoutes.version().url,
 		errorMessage: "Failed to fetch app version.",
+		toastError: false,
 	});
 
 	return res.data;
