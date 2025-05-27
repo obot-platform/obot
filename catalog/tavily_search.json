@@ -1,0 +1,47 @@
+{
+  "id": 121,
+  "path": "README.md",
+  "displayName": "Tavily Search",
+  "fullName": "tavily-ai/tavily-mcp",
+  "url": "https://github.com/tavily-ai/tavily-mcp",
+  "description": "Search the web and extract content using Tavily's AI-powered search",
+  "stars": 391,
+  "metadata": {
+    "categories": "Retrieval & Search, SaaS & API Integrations, Developer Tools,Verified"
+  },
+  "icon": "https://avatars.githubusercontent.com/u/170207473?v=4",
+  "manifest": [
+    {
+      "env": [
+        {
+          "key": "TAVILY_API_KEY",
+          "name": "Tavily API Key",
+          "required": true,
+          "sensitive": true,
+          "description": "Your Tavily API key. Get one at https://app.tavily.com/home"
+        }
+      ],
+      "args": [
+        "-y",
+        "tavily-mcp@0.2.1"
+      ],
+      "command": "npx",
+      "preferred": true
+    },
+    {
+      "env": [
+        {
+          "key": "TAVILY_API_KEY",
+          "name": "Tavily API Key",
+          "required": true,
+          "sensitive": true,
+          "description": "Your Tavily API key. Get one at https://app.tavily.com/home"
+        }
+      ],
+      "args": [
+        "/path/to/tavily-mcp/build/index.js"
+      ],
+      "command": "npx"
+    }
+  ]
+}

@@ -1,0 +1,58 @@
+{
+  "id": 1955,
+  "path": "README.md",
+  "displayName": "GitHub",
+  "fullName": "github/github-mcp-server",
+  "url": "https://github.com/github/github-mcp-server",
+  "description": "Manage issues, pull requests, repositories, and more on GitHub",
+  "stars": 13876,
+  "metadata": {
+    "categories": "Developer Tools,Verified",
+    "unsupportedTools": "create_or_update_file,push_files"
+  },
+  "icon": "https://avatars.githubusercontent.com/u/9919?v=4",
+  "manifest": [
+    {
+      "env": [
+        {
+          "key": "GITHUB_PERSONAL_ACCESS_TOKEN",
+          "name": "GitHub Personal Access Token",
+          "required": true,
+          "sensitive": true,
+          "description": "GitHub Personal Access Token used to authenticate with the GitHub API. Required for all GitHub operations."
+        },
+        {
+          "key": "GITHUB_TOOLSETS",
+          "name": "Toolsets",
+          "required": false,
+          "sensitive": false,
+          "description": "Comma-separated list of enabled GitHub toolsets (e.g. repos,issues,pull_requests,code_security,experiments,all). Optional, defaults to all."
+        },
+        {
+          "key": "GITHUB_DYNAMIC_TOOLSETS",
+          "name": "Dynamic Toolsets",
+          "required": false,
+          "sensitive": false,
+          "description": "Set to 1 to enable dynamic tool discovery. Optional."
+        },
+        {
+          "key": "GITHUB_HOST",
+          "name": "GitHub Enterprise Host",
+          "required": false,
+          "sensitive": false,
+          "description": "GitHub Enterprise Server hostname (e.g. https://ghes.example.com). Optional, for GitHub Enterprise integration."
+        }
+      ],
+      "args": [
+        "run",
+        "-i",
+        "--rm",
+        "-e",
+        "GITHUB_PERSONAL_ACCESS_TOKEN",
+        "ghcr.io/obot-platform/mcp-images-github:main"
+      ],
+      "command": "docker",
+      "preferred": true
+    }
+  ]
+}

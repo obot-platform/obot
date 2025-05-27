@@ -1,0 +1,40 @@
+{
+  "id": 15,
+  "path": "browserbase/README.md",
+  "displayName": "Browserbase",
+  "fullName": "browserbase/mcp-server-browserbase/browserbase",
+  "url": "https://github.com/browserbase/mcp-server-browserbase/tree/main/browserbase",
+  "description": "Automate browser actions and interact with web pages using Browserbase.",
+  "stars": 1678,
+  "metadata": {
+    "categories": "Automation & Browsers,Verified"
+  },
+  "icon": "https://avatars.githubusercontent.com/u/158221360?v=4",
+  "manifest": [
+    {
+      "env": [
+        {
+          "key": "BROWSERBASE_API_KEY",
+          "name": "Browserbase API Key",
+          "value": "<browserbase_api_key>",
+          "required": true,
+          "sensitive": true,
+          "description": "Your Browserbase API key."
+        },
+        {
+          "key": "BROWSERBASE_PROJECT_ID",
+          "name": "Browserbase Project ID",
+          "value": "<browserbase_project_id>",
+          "required": true,
+          "sensitive": false,
+          "description": "Your Browserbase project ID."
+        }
+      ],
+      "args": [
+        "@browserbasehq/mcp"
+      ],
+      "command": "npx",
+      "preferred": true
+    }
+  ]
+}

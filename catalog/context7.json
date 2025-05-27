@@ -1,0 +1,84 @@
+{
+  "id": 2311,
+  "path": "README.md",
+  "displayName": "Context7",
+  "fullName": "upstash/context7",
+  "url": "https://github.com/upstash/context7",
+  "description": "Access documentation and code examples for any library in real-time",
+  "stars": 7231,
+  "metadata": {
+    "categories": "Developer Tools,Verified"
+  },
+  "icon": "https://avatars.githubusercontent.com/u/74989412?v=4",
+  "manifest": [
+    {
+      "env": [
+        {
+          "key": "DEFAULT_MINIMUM_TOKENS",
+          "name": "Default Minimum Tokens",
+          "required": false,
+          "sensitive": false,
+          "description": "Set the minimum token count for documentation retrieval (default: 10000)."
+        }
+      ],
+      "args": [
+        "-y",
+        "@upstash/context7-mcp@latest"
+      ],
+      "command": "npx",
+      "preferred": true
+    },
+    {
+      "env": [
+        {
+          "key": "DEFAULT_MINIMUM_TOKENS",
+          "name": "Default Minimum Tokens",
+          "required": false,
+          "sensitive": false,
+          "description": "Set the minimum token count for documentation retrieval (default: 10000)."
+        }
+      ],
+      "args": [
+        "-y",
+        "@upstash/context7-mcp@latest"
+      ],
+      "command": "bunx"
+    },
+    {
+      "env": [
+        {
+          "key": "DEFAULT_MINIMUM_TOKENS",
+          "name": "Default Minimum Tokens",
+          "required": false,
+          "sensitive": false,
+          "description": "Set the minimum token count for documentation retrieval (default: 10000)."
+        }
+      ],
+      "args": [
+        "run",
+        "--allow-env",
+        "--allow-net",
+        "npm:@upstash/context7-mcp"
+      ],
+      "command": "deno"
+    },
+    {
+      "env": [
+        {
+          "key": "DEFAULT_MINIMUM_TOKENS",
+          "name": "Default Minimum Tokens",
+          "required": false,
+          "sensitive": false,
+          "description": "Set the minimum token count for documentation retrieval (default: 10000)."
+        }
+      ],
+      "args": [
+        "run",
+        "-i",
+        "--rm",
+        "context7-mcp"
+      ],
+      "command": "docker"
+    }
+  ]
+}

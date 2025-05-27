@@ -1,0 +1,24 @@
+{
+  "id": 122,
+  "path": "README.md",
+  "displayName": "Airbnb",
+  "fullName": "openbnb-org/mcp-server-airbnb",
+  "url": "https://github.com/openbnb-org/mcp-server-airbnb",
+  "description": "Search and retrieve information about Airbnb listings",
+  "stars": 141,
+  "metadata": {
+    "categories": "Retrieval & Search, SaaS & API Integrations, Maps & Location,Verified"
+  },
+  "icon": "https://avatars.githubusercontent.com/u/202564951?v=4",
+  "manifest": [
+    {
+      "env": [],
+      "args": [
+        "-y",
+        "@openbnb/mcp-server-airbnb"
+      ],
+      "command": "npx",
+      "preferred": true
+    }
+  ]
+}

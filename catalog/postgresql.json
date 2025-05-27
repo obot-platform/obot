@@ -1,0 +1,32 @@
+{
+  "id": 157,
+  "path": "src/postgres/README.md",
+  "displayName": "PostgreSQL",
+  "fullName": "modelcontextprotocol/servers/src/postgres",
+  "url": "https://github.com/modelcontextprotocol/servers/tree/main/src/postgres",
+  "description": "Inspect schemas and execute read-only queries against PostgreSQL databases",
+  "stars": 47323,
+  "metadata": {
+    "categories": "Databases,Verified"
+  },
+  "icon": "https://avatars.githubusercontent.com/u/182288589?v=4",
+  "manifest": [
+    {
+      "env": [
+        {
+          "key": "POSTGRES_DSN",
+          "name": "Postgres DSN",
+          "required": true,
+          "sensitive": false,
+          "description": "The DSN used to connect to the Postgres database; e.g. postgres://<user>:<password>@<server>:<port>/<db>"
+        }
+      ],
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-postgres",
+        "${POSTGRES_DSN}"
+      ],
+      "command": "npx"
+    }
+  ]
+}

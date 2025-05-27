@@ -93,7 +93,7 @@ type Config struct {
 	AgentsDir                  string   `usage:"The directory to auto load agents on start (default $XDG_CONFIG_HOME/.obot/agents)"`
 	StaticDir                  string   `usage:"The directory to serve static files from"`
 	RetentionPolicyHours       int      `usage:"The retention policy for the system. Set to 0 to disable retention." default:"2160"` // default 90 days
-	MCPCatalogs                []string `usage:"Load MCP catalogs, these can be files or URLs" split:"true"`
+	MCPCatalogs                []string `usage:"Load MCP catalogs, these can be files, directories, or URLs" split:"true"`
 	// Sendgrid webhook
 	SendgridWebhookUsername string `usage:"The username for the sendgrid webhook to authenticate with"`
 	SendgridWebhookPassword string `usage:"The password for the sendgrid webhook to authenticate with"`

@@ -1,0 +1,41 @@
+{
+  "id": 1513,
+  "path": "README.md",
+  "displayName": "Argo CD",
+  "fullName": "akuity/argocd-mcp",
+  "url": "https://github.com/akuity/argocd-mcp",
+  "description": "Manage applications and deployments in Argo CD",
+  "stars": 14,
+  "metadata": {
+    "categories": "Developer Tools,Infrastructure & DevOps,Verified"
+  },
+  "icon": "https://avatars.githubusercontent.com/u/84434210?v=4",
+  "manifest": [
+    {
+      "env": [
+        {
+          "key": "ARGOCD_BASE_URL",
+          "name": "ArgoCD Base URL",
+          "value": "<argocd_url>",
+          "required": true,
+          "sensitive": false,
+          "description": "Base URL of your Argo CD instance (e.g., https://argocd.example.com)."
+        },
+        {
+          "key": "ARGOCD_API_TOKEN",
+          "name": "ArgoCD API Token",
+          "value": "<argocd_token>",
+          "required": true,
+          "sensitive": true,
+          "description": "API token with access permissions for the Argo CD instance."
+        }
+      ],
+      "args": [
+        "argocd-mcp@latest",
+        "stdio"
+      ],
+      "command": "npx",
+      "preferred": true
+    }
+  ]
+}

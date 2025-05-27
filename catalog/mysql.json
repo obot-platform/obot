@@ -1,0 +1,57 @@
+{
+  "id": 228,
+  "path": "README.md",
+  "displayName": "MySQL",
+  "fullName": "designcomputer/mysql_mcp_server",
+  "url": "https://github.com/designcomputer/mysql_mcp_server",
+  "description": "Explore and query MySQL databases securely",
+  "stars": 510,
+  "metadata": {
+    "categories": "Databases,Data & Analytics,Verified"
+  },
+  "icon": "https://avatars.githubusercontent.com/u/25017723?v=4",
+  "manifest": [
+    {
+      "env": [
+        {
+          "key": "MYSQL_HOST",
+          "name": "MySQL Host",
+          "value": "<mysql_host>",
+          "required": true,
+          "sensitive": false,
+          "description": "The hostname or IP address of your MySQL database."
+        },
+        {
+          "key": "MYSQL_PORT",
+          "name": "MySQL Port",
+          "value": "<mysql_port>",
+          "required": false,
+          "sensitive": false,
+          "description": "The port number of your MySQL database. Defaults to 3306."
+        },
+        {
+          "key": "MYSQL_USER",
+          "name": "MySQL User",
+          "value": "<mysql_user>",
+          "required": true,
+          "sensitive": false,
+          "description": "The username for your MySQL database."
+        },
+        {
+          "key": "MYSQL_PASSWORD",
+          "name": "MySQL Password",
+          "value": "<mysql_password>",
+          "required": true,
+          "sensitive": true,
+          "description": "The password for your MySQL database."
+        }
+      ],
+      "args": [
+        "-y",
+        "mysql-mcp-server"
+      ],
+      "command": "uvx",
+      "preferred": true
+    }
+  ]
+}

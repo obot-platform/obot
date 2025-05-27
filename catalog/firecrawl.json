@@ -1,0 +1,33 @@
+{
+  "id": 77,
+  "path": "README.md",
+  "displayName": "Firecrawl",
+  "fullName": "mendableai/firecrawl-mcp-server",
+  "url": "https://github.com/mendableai/firecrawl-mcp-server",
+  "description": "Scrape websites, crawl pages, and extract data using Firecrawl",
+  "stars": 3136,
+  "metadata": {
+    "categories": "Retrieval & Search,Automation & Browsers,Science & Research,Verified"
+  },
+  "icon": "https://avatars.githubusercontent.com/u/135057108?v=4",
+  "manifest": [
+    {
+      "env": [
+        {
+          "key": "FIRECRAWL_API_KEY",
+          "name": "Firecrawl API Key",
+          "value": "<firecrawl_api_key>",
+          "required": true,
+          "sensitive": true,
+          "description": "Your Firecrawl API key."
+        }
+      ],
+      "args": [
+        "-y",
+        "firecrawl-mcp"
+      ],
+      "command": "npx",
+      "preferred": true
+    }
+  ]
+}

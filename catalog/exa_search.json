@@ -1,0 +1,34 @@
+{
+  "id": 39,
+  "path": "README.md",
+  "displayName": "Exa Search",
+  "fullName": "exa-labs/exa-mcp-server",
+  "url": "https://github.com/exa-labs/exa-mcp-server",
+  "description": "Perform real-time web, academic, company, and code searches via Exa AI Search",
+  "stars": 1601,
+  "metadata": {
+    "categories": "Retrieval & Search,Science & Research,Developer Tools,Verified"
+  },
+  "icon": "https://avatars.githubusercontent.com/u/77906174?v=4",
+  "manifest": [
+    {
+      "env": [
+        {
+          "key": "EXA_API_KEY",
+          "name": "Exa API Key",
+          "value": "<exa_api_key>",
+          "required": true,
+          "sensitive": true,
+          "description": "Your Exa API key."
+        }
+      ],
+      "args": [
+        "-y",
+        "exa-mcp-server",
+        "--tools=web_search_exa,research_paper_search,company_research,crawling,competitor_finder,linkedin_search,wikipedia_search_exa,github_search"
+      ],
+      "command": "npx",
+      "preferred": true
+    }
+  ]
+}

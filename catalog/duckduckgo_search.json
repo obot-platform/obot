@@ -1,0 +1,23 @@
+{
+  "id": 1319,
+  "path": "README.md",
+  "displayName": "DuckDuckGo Search",
+  "fullName": "nickclyde/duckduckgo-mcp-server",
+  "url": "https://github.com/nickclyde/duckduckgo-mcp-server",
+  "description": "Search the web and extract content using DuckDuckGo",
+  "stars": 163,
+  "metadata": {
+    "categories": "Retrieval & Search, SaaS & API Integrations,Verified"
+  },
+  "icon": "https://avatars.githubusercontent.com/u/9121162?v=4",
+  "manifest": [
+    {
+      "env": [],
+      "args": [
+        "duckduckgo-mcp-server"
+      ],
+      "command": "uvx",
+      "preferred": true
+    }
+  ]
+}

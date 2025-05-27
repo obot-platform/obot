@@ -1,0 +1,54 @@
+{
+  "id": 2425,
+  "path": "README.md",
+  "displayName": "GitLab",
+  "fullName": "zereight/gitlab-mcp",
+  "url": "https://github.com/zereight/gitlab-mcp",
+  "description": "Manage repositories, merge requests, issues, and wikis on GitLab",
+  "stars": 105,
+  "metadata": {
+    "categories": "Developer Tools,TypeScript,Cloud Platforms,Productivity,Verified",
+    "unsupportedTools": "create_or_update_file,push_files"
+  },
+  "icon": "https://avatars.githubusercontent.com/u/42544600?v=4",
+  "manifest": [
+    {
+      "env": [
+        {
+          "key": "GITLAB_PERSONAL_ACCESS_TOKEN",
+          "name": "Gitlab Personal Access Token",
+          "required": true,
+          "sensitive": true,
+          "description": "Your GitLab personal access token (required)"
+        },
+        {
+          "key": "GITLAB_API_URL",
+          "name": "Gitlab API URL",
+          "required": false,
+          "sensitive": false,
+          "description": "Base URL for GitLab API (optional, defaults to https://gitlab.com/api/v4)"
+        },
+        {
+          "key": "USE_GITLAB_WIKI",
+          "name": "Use Gitlab Wiki",
+          "required": false,
+          "sensitive": false,
+          "description": "Enables the wiki-related tools if set to 'true'."
+        },
+        {
+          "key": "GITLAB_READ_ONLY_MODE",
+          "name": "Gitlab Read Only Mode",
+          "required": false,
+          "sensitive": false,
+          "description": "Restricts the server to only expose read-only operations when set to 'true'. Useful for security or when write access is not needed."
+        }
+      ],
+      "args": [
+        "-y",
+        "@zereight/mcp-gitlab"
+      ],
+      "command": "npx",
+      "preferred": true
+    }
+  ]
+}

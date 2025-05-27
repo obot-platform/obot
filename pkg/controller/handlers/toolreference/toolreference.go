@@ -236,33 +236,48 @@ func (h *Handler) readFromRegistry(ctx context.Context, c client.Client) error {
 }
 
 func (h *Handler) readMCPCatalog(catalog string) ([]client.Object, error) {
-	var (
-		contents []byte
-		err      error
-	)
+	var entries []catalogEntryInfo
+
 	if strings.HasPrefix(catalog, "http://") || strings.HasPrefix(catalog, "https://") {
-		var resp *http.Response
-		resp, err = http.Get(catalog)
+		resp, err := http.Get(catalog)
 		if err != nil {
 			return nil, fmt.Errorf("failed to read catalog %s: %w", catalog, err)
 		}
 		defer resp.Body.Close()
 
-		contents, err = io.ReadAll(resp.Body)
+		contents, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read catalog %s: %w", catalog, err)
+		}
+
 		if resp.StatusCode != http.StatusOK {
 			return nil, fmt.Errorf("unexpected status when reading catalog %s: %s", catalog, string(contents))
 		}
-	} else {
-		// Assume it is a local file.
-		contents, err = os.ReadFile(catalog)
-	}
-	if err != nil {
-		return nil, fmt.Errorf("failed to read catalog %s: %w", catalog, err)
-	}
 
-	var entries []catalogEntryInfo
-	if err = json.Unmarshal(contents, &entries); err != nil {
-		return nil, fmt.Errorf("failed to decode catalog %s: %w", catalog, err)
+		if err = json.Unmarshal(contents, &entries); err != nil {
+			return nil, fmt.Errorf("failed to decode catalog %s: %w", catalog, err)
+		}
+	} else {
+		fileInfo, err := os.Stat(catalog)
+		if err != nil {
+			return nil, fmt.Errorf("failed to stat catalog %s: %w", catalog, err)
+		}
+
+		if fileInfo.IsDir() {
+			entries, err = h.readMCPCatalogDirectory(catalog)
+			if err != nil {
+				return nil, fmt.Errorf("failed to read catalog %s: %w", catalog, err)
+			}
+		} else {
+			contents, err := os.ReadFile(catalog)
+			if err != nil {
+				return nil, fmt.Errorf("failed to read catalog %s: %w", catalog, err)
+			}
+
+			if err = json.Unmarshal(contents, &entries); err != nil {
+				return nil, fmt.Errorf("failed to decode catalog %s: %w", catalog, err)
+			}
+		}
 	}
 
 	objs := make([]client.Object, 0, len(entries))
@@ -386,6 +401,37 @@ func (h *Handler) readMCPCatalog(catalog string) ([]client.Object, error) {
 	}
 
 	return objs, nil
+}
+
+func (h *Handler) readMCPCatalogDirectory(catalog string) ([]catalogEntryInfo, error) {
+	files, err := os.ReadDir(catalog)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read catalog %s: %w", catalog, err)
+	}
+
+	var entries []catalogEntryInfo
+	for _, file := range files {
+		if file.IsDir() {
+			nestedEntries, err := h.readMCPCatalogDirectory(filepath.Join(catalog, file.Name()))
+			if err != nil {
+				return nil, fmt.Errorf("failed to read nested catalog %s: %w", file.Name(), err)
+			}
+			entries = append(entries, nestedEntries...)
+		} else {
+			contents, err := os.ReadFile(filepath.Join(catalog, file.Name()))
+			if err != nil {
+				return nil, fmt.Errorf("failed to read catalog %s: %w", file.Name(), err)
+			}
+
+			var entry catalogEntryInfo
+			if err = json.Unmarshal(contents, &entry); err != nil {
+				return nil, fmt.Errorf("failed to decode catalog %s: %w", file.Name(), err)
+			}
+			entries = append(entries, entry)
+		}
+	}
+
+	return entries, nil
 }
 
 func (h *Handler) readFromMCPCatalogs(ctx context.Context, c client.Client) error {

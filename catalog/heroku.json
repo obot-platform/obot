@@ -1,0 +1,33 @@
+{
+  "id": 67,
+  "path": "README.md",
+  "displayName": "Heroku",
+  "fullName": "heroku/heroku-mcp-server",
+  "url": "https://github.com/heroku/heroku-mcp-server",
+  "description": "Manage Heroku apps, add-ons, dynos, and platform resources",
+  "stars": 42,
+  "metadata": {
+    "categories": "Infrastructure & DevOps,Developer Tools,Verified"
+  },
+  "icon": "https://avatars.githubusercontent.com/u/23211?v=4",
+  "manifest": [
+    {
+      "env": [
+        {
+          "key": "HEROKU_API_KEY",
+          "name": "Heroku API Key",
+          "value": "<heroku_api_key>",
+          "required": true,
+          "sensitive": true,
+          "description": "Your Heroku API key."
+        }
+      ],
+      "args": [
+        "-y",
+        "@heroku/mcp-server"
+      ],
+      "command": "npx",
+      "preferred": true
+    }
+  ]
+}
