@@ -340,7 +340,7 @@ func (sm *SessionManager) Load(ctx context.Context, tool types.Tool) (result []t
 		}
 
 		// Use the pod name as the scope, so we get a new session if the pod restarts. MCP sessions aren't persistent on the server side.
-		return sm.local.LoadTools(ctx, gmcp.ServerConfig{URL: fmt.Sprintf("%s/sse", url), Scope: podName}, tool.Name)
+		return sm.local.LoadTools(ctx, gmcp.ServerConfig{URL: fmt.Sprintf("%s/sse", url), Scope: podName, AllowedTools: server.AllowedTools}, tool.Name)
 	}
 
 	return nil, fmt.Errorf("no MCP server configuration found in tool instructions: %s", configData)
