@@ -544,7 +544,7 @@ func (h *ProjectsHandler) CreateProjectThread(req api.Context) error {
 		}
 
 		// Make sure that this model and model provider are valid on the project.
-		if (thread.Spec.DefaultModel != "" || thread.Spec.DefaultModelProvider != "") &&
+		if (bodyContents.Model != "" || bodyContents.ModelProvider != "") &&
 			!slices.Contains(projectThread.Spec.Models[bodyContents.ModelProvider], bodyContents.Model) {
 			return types.NewErrBadRequest("model %q from model provider %q is not configured for this project", bodyContents.Model, bodyContents.ModelProvider)
 		}
