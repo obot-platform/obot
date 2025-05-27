@@ -543,13 +543,12 @@ func (h *ProjectsHandler) CreateProjectThread(req api.Context) error {
 			return fmt.Errorf("failed to unmarshal request body: %w", err)
 		}
 
-		if bodyContents.Model != "" && bodyContents.ModelProvider != "" {
-			// Make sure that this model and model provider are valid on the project.
-			if slices.Contains(projectThread.Spec.Models[bodyContents.ModelProvider], bodyContents.Model) {
-				thread.Spec.Manifest.Model = bodyContents.Model
-				thread.Spec.Manifest.ModelProvider = bodyContents.ModelProvider
-			}
+		// Make sure that this model and model provider are valid on the project.
+		if !slices.Contains(projectThread.Spec.Models[bodyContents.ModelProvider], bodyContents.Model) {
+			return types.NewErrBadRequest("model %s from model provider %s is not configured for this project", bodyContents.Model, bodyContents.ModelProvider)
 		}
+		thread.Spec.DefaultModel = bodyContents.Model
+		thread.Spec.DefaultModelProvider = bodyContents.ModelProvider
 	}
 
 	if err := req.Create(&thread); err != nil {
