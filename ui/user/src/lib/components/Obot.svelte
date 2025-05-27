@@ -8,7 +8,7 @@
 	import type { EditorItem } from '$lib/services/editor/index.svelte';
 	import { errors, responsive } from '$lib/stores';
 	import { closeAll, getLayout } from '$lib/context/layout.svelte';
-	import { GripVertical, MessageCirclePlus, Plus, Server, SidebarOpen } from 'lucide-svelte';
+	import { GripVertical, MessageCirclePlus, Plus, SidebarOpen } from 'lucide-svelte';
 	import { fade, slide } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';
 	import Logo from './navbar/Logo.svelte';
@@ -24,7 +24,6 @@
 	import { onMount, onDestroy } from 'svelte';
 	import { browser } from '$app/environment';
 	import Banner from './Banner.svelte';
-	import { getProjectMCPs } from '$lib/context/projectMcps.svelte';
 	import McpConfigMultiple from './mcp/McpConfigMultiple.svelte';
 
 	interface Props {

@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { clickOutside } from '$lib/actions/clickoutside';
-	import { type ProjectMCP, type Project, ChatService } from '$lib/services';
+	import { type Project, ChatService } from '$lib/services';
 	import { fetchConfigurationStatuses, getKeyValuePairs } from '$lib/services/chat/mcp';
 	import { Server, X } from 'lucide-svelte';
 	import McpInfoConfig from './McpInfoConfig.svelte';
@@ -24,7 +24,7 @@
 
 	let dialogs = $state<ReturnType<typeof McpInfoConfig>[]>();
 
-	async function initRequiresConfiguration(mcps: ProjectMCP[]) {
+	async function initRequiresConfiguration() {
 		const response = await fetchConfigurationStatuses(
 			project,
 			projectMcps.items,
@@ -45,7 +45,7 @@
 	}
 
 	onMount(() => {
-		initRequiresConfiguration(projectMcps.items);
+		initRequiresConfiguration();
 	});
 </script>
 
