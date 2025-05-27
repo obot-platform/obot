@@ -1,17 +1,11 @@
 <script lang="ts">
 	import { getProjectMCPs } from '$lib/context/projectMcps.svelte';
-	import {
-		ChatService,
-		type Project,
-		type ProjectMCP,
-		type ProjectCredential
-	} from '$lib/services';
+	import { ChatService, type Project, type ProjectMCP } from '$lib/services';
 	import { fetchConfigurationStatuses, type MCPServerInfo } from '$lib/services/chat/mcp';
 	import { PencilLine, Plus, Server, Trash2, Wrench, TriangleAlert } from 'lucide-svelte/icons';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import McpInfoConfig from '$lib/components/mcp/McpInfoConfig.svelte';
 	import Confirm from '$lib/components/Confirm.svelte';
-	import { onMount } from 'svelte';
 	import CollapsePane from '$lib/components/edit/CollapsePane.svelte';
 	import { HELPER_TEXTS } from '$lib/context/helperMode.svelte';
 	import DotDotDot from '$lib/components/DotDotDot.svelte';
