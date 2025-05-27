@@ -406,7 +406,7 @@ func (h *Handler) readMCPCatalog(catalog string) ([]client.Object, error) {
 func (h *Handler) readMCPCatalogDirectory(catalog string) ([]catalogEntryInfo, error) {
 	files, err := os.ReadDir(catalog)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read catalog %s: %w", catalog, err)
+		return nil, fmt.Errorf("failed to read catalog directory %s: %w", catalog, err)
 	}
 
 	var entries []catalogEntryInfo
@@ -414,18 +414,18 @@ func (h *Handler) readMCPCatalogDirectory(catalog string) ([]catalogEntryInfo, e
 		if file.IsDir() {
 			nestedEntries, err := h.readMCPCatalogDirectory(filepath.Join(catalog, file.Name()))
 			if err != nil {
-				return nil, fmt.Errorf("failed to read nested catalog %s: %w", file.Name(), err)
+				return nil, fmt.Errorf("failed to read nested catalog directory %s: %w", file.Name(), err)
 			}
 			entries = append(entries, nestedEntries...)
 		} else {
 			contents, err := os.ReadFile(filepath.Join(catalog, file.Name()))
 			if err != nil {
-				return nil, fmt.Errorf("failed to read catalog %s: %w", file.Name(), err)
+				return nil, fmt.Errorf("failed to read catalog file %s: %w", file.Name(), err)
 			}
 
 			var entry catalogEntryInfo
 			if err = json.Unmarshal(contents, &entry); err != nil {
-				return nil, fmt.Errorf("failed to decode catalog %s: %w", file.Name(), err)
+				return nil, fmt.Errorf("failed to decode catalog file %s: %w", file.Name(), err)
 			}
 			entries = append(entries, entry)
 		}
