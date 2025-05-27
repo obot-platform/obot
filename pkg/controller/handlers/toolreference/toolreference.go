@@ -449,13 +449,6 @@ type catalogEntryInfo struct {
 	ToolDefinitions string            `json:"toolDefinitions"`
 }
 
-type mcpServerManifest struct {
-	Name        string            `json:"name"`
-	Description string            `json:"description"`
-	Category    string            `json:"category"`
-	Configs     []mcpServerConfig `json:"configs"`
-}
-
 type mcpServerConfig struct {
 	Env            []types.MCPEnv    `json:"env"`
 	Command        string            `json:"command,omitempty"`
