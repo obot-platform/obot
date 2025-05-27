@@ -26,6 +26,12 @@ func (a *Authorizer) checkThreadShare(req *http.Request, resources *Resources, u
 		return false, err
 	}
 
+	if len(threadShareList.Items) < 1 {
+		// The user is referencing a thread share that doesn't exist, allow access so the user gets a
+		// 404 instead of 403 "unauthorized".
+		return true, nil
+	}
+
 	validUserIDs := getValidUserIDs(user)
 	for _, threadShare := range threadShareList.Items {
 		if threadShare.Spec.UserID == user.GetUID() {
