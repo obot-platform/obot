@@ -19,6 +19,7 @@ var apiResources = []string{
 	"POST   /api/assistants/{assistant_id}/projects/{project_id}/copy",
 	"GET    /api/assistants/{assistant_id}/projects/{project_id}/credentials",
 	"DELETE /api/assistants/{assistant_id}/projects/{project_id}/credentials/{credential_id}",
+	"GET    /api/assistants/{assistant_id}/projects/{project_id}/default-model",
 	"GET    /api/assistants/{assistant_id}/projects/{project_id}/env",
 	"PUT    /api/assistants/{assistant_id}/projects/{project_id}/env",
 	"DELETE /api/assistants/{assistant_id}/projects/{project_id}/file/{file...}",

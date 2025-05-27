@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"errors"
+	"fmt"
 	"slices"
 	"strings"
 
@@ -12,6 +13,7 @@ import (
 	"github.com/obot-platform/obot/pkg/invoke"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
+	threadmodel "github.com/obot-platform/obot/pkg/thread"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -769,4 +771,54 @@ func (h *ProjectsHandler) deAuthenticate(req api.Context, local bool) error {
 
 	errs := removeToolCredentials(req.Context(), req.Storage, h.gptScript, credContext, agent.Namespace, tools)
 	return errors.Join(errs...)
+}
+
+func (h *ProjectsHandler) GetDefaultModelForProject(req api.Context) error {
+	var project v1.Thread
+	projectID := req.PathValue("project_id")
+	threadID := strings.Replace(projectID, system.ProjectPrefix, system.ThreadPrefix, 1)
+
+	if err := req.Get(&project, threadID); err != nil {
+		return fmt.Errorf("failed to get project with id %s: %w", projectID, err)
+	}
+
+	if !project.Spec.Project {
+		return types.NewErrBadRequest("thread %s is not a project", threadID)
+	}
+
+	model, modelProvider, err := threadmodel.GetModelAndModelProviderForProject(req.Context(), req.Storage, &project)
+	if err != nil {
+		return fmt.Errorf("failed to get model and model provider for project %s: %w", projectID, err)
+	}
+
+	if model == string(types.DefaultModelAliasTypeLLM) {
+		var alias v1.DefaultModelAlias
+		if err := req.Get(&alias, string(types.DefaultModelAliasTypeLLM)); apierrors.IsNotFound(err) {
+			// If the default model alias is not found, then nothing is configured, and we should just return nothing.
+			return req.Write(map[string]string{
+				"model":         "",
+				"modelProvider": "",
+			})
+		} else if err != nil {
+			return fmt.Errorf("failed to get default model alias for project %s: %w", projectID, err)
+		}
+
+		// This model has the system.ModelPrefix on it, so we set it and then let the next if statement take care of it.
+		model = alias.Spec.Manifest.Model
+	}
+
+	if strings.HasPrefix(model, system.ModelPrefix) {
+		var modelObj v1.Model
+		if err := req.Get(&modelObj, model); err != nil {
+			return fmt.Errorf("failed to get model with id %s: %w", model, err)
+		}
+
+		model = modelObj.Spec.Manifest.Name
+		modelProvider = modelObj.Spec.Manifest.ModelProvider
+	}
+
+	return req.Write(map[string]string{
+		"model":         model,
+		"modelProvider": modelProvider,
+	})
 }

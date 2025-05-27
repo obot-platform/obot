@@ -12,6 +12,37 @@ import (
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+func GetModelAndModelProviderForProject(ctx context.Context, c kclient.Client, project *v1.Thread) (string, string, error) {
+	if !project.Spec.Project {
+		return "", "", fmt.Errorf("thread %s is not a project", project.Name)
+	}
+
+	if project.Spec.DefaultModelProvider != "" && project.Spec.DefaultModel != "" {
+		return project.Spec.DefaultModel, project.Spec.DefaultModelProvider, nil
+	}
+
+	var (
+		agent v1.Agent
+		model string
+	)
+
+	// Check the base agent for a default model.
+	if project.Spec.AgentName != "" {
+		if err := c.Get(ctx, router.Key(project.Namespace, project.Spec.AgentName), &agent); err != nil {
+			return "", "", err
+		}
+
+		model = agent.Spec.Manifest.Model
+	}
+
+	// If there wasn't one, just use the system default model.
+	if model == "" {
+		model = string(types.DefaultModelAliasTypeLLM)
+	}
+
+	return model, "", nil
+}
+
 func GetModelAndModelProviderForThread(ctx context.Context, c kclient.Client, thread *v1.Thread) (string, string, error) {
 	modelProvider := thread.Spec.Manifest.ModelProvider
 	model := thread.Spec.Manifest.Model
