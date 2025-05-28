@@ -358,12 +358,12 @@ func (m *MCPHandler) GetPrompts(req api.Context) error {
 		return types.NewErrHTTP(http.StatusFailedDependency, "MCP server does not support prompts")
 	}
 
-	resources, err := m.mcpSessionManager.ListPrompts(req.Context(), serverConfig)
+	prompts, err := m.mcpSessionManager.ListPrompts(req.Context(), serverConfig)
 	if err != nil {
-		return fmt.Errorf("failed to list resources: %w", err)
+		return fmt.Errorf("failed to list prompts: %w", err)
 	}
 
-	return req.Write(resources)
+	return req.Write(prompts)
 }
 
 func (m *MCPHandler) GetPrompt(req api.Context) error {
