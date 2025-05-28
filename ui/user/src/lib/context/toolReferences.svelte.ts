@@ -24,7 +24,7 @@ export function getToolReferenceMap() {
 	return new Map(toolReferences.map((x) => [x.id, x]));
 }
 
-type ToolBundleItem = {
+export type ToolBundleItem = {
 	tool: ToolReference;
 	bundleTools: ToolReference[];
 };

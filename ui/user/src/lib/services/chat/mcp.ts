@@ -1,9 +1,11 @@
+import type { ToolBundleItem } from '$lib/context/toolReferences.svelte';
 import {
 	ChatService,
 	type MCPInfo,
 	type MCPServer,
 	type MCPSubField,
 	type Project,
+	type ProjectCredential,
 	type ProjectMCP
 } from '..';
 
@@ -121,4 +123,109 @@ export function isAuthRequiredBundle(bundleId?: string): boolean {
 		'proxycurl-bundle'
 	];
 	return !nonRequiredAuthBundles.includes(bundleId);
+}
+
+async function hasLocalConfig(
+	mcp: ProjectMCP,
+	project: Project,
+	localCredentials: ProjectCredential[],
+	toolBundleMap: Map<string, ToolBundleItem>
+): Promise<boolean> {
+	// Handle legacy tool bundles
+	if (mcp.catalogID && toolBundleMap.get(mcp.catalogID)) {
+		return localCredentials.some((cred) => cred.toolID === mcp.catalogID && cred.exists === true);
+	}
+
+	// Real MCP server, reveal any configured env headers
+	let envHeaders: Record<string, string> = {};
+	try {
+		envHeaders = await ChatService.revealProjectMCPEnvHeaders(
+			project.assistantID,
+			project.id,
+			mcp.id
+		);
+	} catch (err) {
+		if (err instanceof Error && err.message.includes('404')) {
+			return false;
+		}
+	}
+
+	return Object.keys(envHeaders).length > 0;
+}
+
+function isNotConfigured(
+	mcp: ProjectMCP,
+	localCredentials: ProjectCredential[],
+	inheritedCredentials: ProjectCredential[],
+	toolBundleMap: Map<string, ToolBundleItem>,
+	chatbot: boolean
+) {
+	if (!mcp.catalogID || !toolBundleMap.get(mcp.catalogID)) {
+		return mcp.configured !== true;
+	}
+
+	const localCredential = localCredentials.find((cred) => cred.toolID === mcp.catalogID);
+
+	if (localCredential === undefined) {
+		// When there's no entry in this list, it means the tool does not require credentials.
+		return false;
+	}
+
+	const hasLocalCredential = localCredential.exists;
+	if (chatbot) {
+		return !hasLocalCredential;
+	}
+
+	const hasInheritedCredential = inheritedCredentials.some(
+		(cred) => cred.toolID === mcp.catalogID && cred.exists === true
+	);
+
+	return !(hasLocalCredential || hasInheritedCredential);
+}
+
+export async function fetchConfigurationStatuses(
+	project: Project,
+	projectMCPs: ProjectMCP[],
+	toolBundleMap: Map<string, ToolBundleItem>,
+	chatbot: boolean
+) {
+	if (!project?.assistantID || !project.id) return;
+
+	try {
+		const localCredentials = (
+			await ChatService.listProjectLocalCredentials(project.assistantID, project.id)
+		).items;
+
+		const inheritedCredentials = (
+			await ChatService.listProjectCredentials(project.assistantID, project.id)
+		).items;
+
+		const localConfigurations: Record<string, boolean> = {};
+		for (const mcp of projectMCPs) {
+			localConfigurations[mcp.id] = await hasLocalConfig(
+				mcp,
+				project,
+				localCredentials,
+				toolBundleMap
+			);
+		}
+
+		const requiresConfiguration: Record<string, ProjectMCP> = {};
+		for (const mcp of projectMCPs) {
+			if (isNotConfigured(mcp, localCredentials, inheritedCredentials, toolBundleMap, chatbot)) {
+				requiresConfiguration[mcp.id] = mcp;
+			}
+		}
+
+		return {
+			configured: localConfigurations,
+			requiresConfiguration: requiresConfiguration
+		};
+	} catch (error) {
+		console.error('Failed to fetch credentials:', error);
+		return {
+			configured: {},
+			requiresConfiguration: {}
+		};
+	}
 }
