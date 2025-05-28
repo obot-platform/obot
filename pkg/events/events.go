@@ -532,7 +532,7 @@ func (e *Emitter) getNextWorkflowRun(ctx context.Context, run v1.Run) (*v1.Run, 
 			runName = thread.Status.CurrentRunName
 			return true, nil
 		}
-		if thread.Status.LastRunName != "" && thread.Status.LastRunName != run.Name {
+		if thread.Status.LastRunName != "" && thread.Status.LastRunName != run.Name && thread.Status.LastRunName != run.Spec.PreviousRunName {
 			runName = thread.Status.LastRunName
 			return true, nil
 		}
