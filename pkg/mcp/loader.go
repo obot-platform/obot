@@ -351,6 +351,7 @@ func (sm *SessionManager) ensureDeployment(ctx context.Context, server ServerCon
 		return gmcp.ServerConfig{}, err
 	}
 
+	// Use the pod name as the scope, so we get a new session if the pod restarts. MCP sessions aren't persistent on the server side.
 	return gmcp.ServerConfig{URL: fmt.Sprintf("%s/sse", u), Scope: podName, AllowedTools: server.AllowedTools}, nil
 }
 
