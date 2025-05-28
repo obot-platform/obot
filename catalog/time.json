@@ -14,6 +14,7 @@
     {
       "env": [],
       "args": [
+        "run",
         "mcp-server-time"
       ],
       "command": "uvx",
