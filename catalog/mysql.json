@@ -47,9 +47,9 @@
         }
       ],
       "args": [
-        "run",
-        "-y",
-        "mysql-mcp-server"
+        "--from",
+        "mysql-mcp-server",
+        "mysql_mcp_server"
       ],
       "command": "uvx",
       "preferred": true
