@@ -21,6 +21,7 @@
 	import { getProjectDefaultModel, getThread } from '$lib/services/chat/operations';
 	import type { Thread as ThreadType } from '$lib/services/chat/types';
 	import ThreadModelSelector from '$lib/components/edit/ThreadModelSelector.svelte';
+	import McpPrompts from './mcp/McpPrompts.svelte';
 
 	interface Props {
 		id?: string;
@@ -40,6 +41,7 @@
 	let fadeBarWidth = $state<number>(0);
 	let loadingOlderMessages = $state(false);
 	let showLoadOlderButton = $state(false);
+	let showPromptOptions = $state(false);
 
 	// Model selector state
 	let threadDetails = $state<ThreadType | null>(null);
@@ -324,6 +326,12 @@
 			e.focus();
 		}
 	}
+
+	function handleSlashCommand(value: string) {
+		if (value.startsWith('/')) {
+			showPromptOptions = true;
+		}
+	}
 </script>
 
 {#snippet editBasicSection()}
@@ -501,10 +509,12 @@
 						scrollControls?.stickToBottom();
 						await thread?.invoke(i);
 					}}
+					onChange={handleSlashCommand}
 					bind:items={layout.items}
 				>
 					<div class="flex w-full items-center justify-between">
 						<div class="flex items-center">
+							<McpPrompts {project} variant="button" />
 							<Files
 								thread
 								{project}
@@ -527,6 +537,9 @@
 							/>
 						{/if}
 					</div>
+					{#snippet inputPopover(value: string)}
+						<McpPrompts {project} variant="popover" filterText={value} />
+					{/snippet}
 				</Input>
 				<div
 					class="mt-3 grid grid-cols-[auto_auto] items-center justify-center gap-x-2 px-5 text-xs font-light"

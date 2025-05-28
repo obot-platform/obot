@@ -13,6 +13,7 @@ import {
 	type MCP,
 	type MCPList,
 	type MCPServer,
+	type MCPServerPrompt,
 	type MCPServerTool,
 	type Memory,
 	type MemoryList,
@@ -1194,6 +1195,48 @@ export async function configureProjectThreadMcpServerTools(
 		`/assistants/${assistantID}/projects/${projectID}/mcpservers/${projectMcpServerId}/tools/${threadID}`,
 		toolIds ? toolIds : ['*']
 	);
+}
+
+export async function listProjectMcpServerPrompts(
+	assistantID: string,
+	projectID: string,
+	projectMcpServerId: string
+): Promise<MCPServerPrompt[]> {
+	const response = (await doGet(
+		`/assistants/${assistantID}/projects/${projectID}/mcpservers/${projectMcpServerId}/prompts`,
+		{
+			dontLogErrors: true
+		}
+	)) as MCPServerPrompt[];
+	console.log('listProjectMcpServerPrompts', response);
+	return response;
+}
+
+export async function generateProjectMcpServerPrompt(
+	assistantID: string,
+	projectID: string,
+	projectMcpServerId: string,
+	promptName: string,
+	promptParams: Record<string, string>
+) {
+	const response = await doPost(
+		`/assistants/${assistantID}/projects/${projectID}/mcpservers/${projectMcpServerId}/prompts/${promptName}`,
+		promptParams
+	);
+	console.log('generated prompt', response);
+	return response;
+}
+
+export async function listProjectMcpServerResources(
+	assistantID: string,
+	projectID: string,
+	projectMcpServerId: string
+) {
+	const response = await doGet(
+		`/assistants/${assistantID}/projects/${projectID}/mcpservers/${projectMcpServerId}/resources`
+	);
+	console.log('listProjectMcpServerResources', response);
+	return response;
 }
 
 export async function listProjectMembers(

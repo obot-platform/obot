@@ -300,6 +300,16 @@ export interface MCPServerTool {
 	unsupported?: boolean;
 }
 
+export interface MCPServerPrompt {
+	name: string;
+	description: string;
+	arguments?: {
+		description: string;
+		name: string;
+		required: boolean;
+	}[];
+}
+
 export interface MCPInfo {
 	server: MCPServer;
 	githubStars: number;
