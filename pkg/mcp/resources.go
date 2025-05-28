@@ -5,10 +5,16 @@ import (
 	"fmt"
 
 	"github.com/mark3labs/mcp-go/mcp"
+	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 )
 
-func (sm *SessionManager) ListResources(ctx context.Context, server ServerConfig) ([]mcp.Resource, error) {
-	client, err := sm.local.Client(server.ServerConfig)
+func (sm *SessionManager) ListResources(ctx context.Context, mcpServer v1.MCPServer, serverConfig ServerConfig) ([]mcp.Resource, error) {
+	config, err := sm.transformServerConfig(ctx, mcpServer, serverConfig)
+	if err != nil {
+		return nil, err
+	}
+
+	client, err := sm.local.Client(config)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create MCP client: %w", err)
 	}
@@ -21,8 +27,13 @@ func (sm *SessionManager) ListResources(ctx context.Context, server ServerConfig
 	return resp.Resources, nil
 }
 
-func (sm *SessionManager) ReadResource(ctx context.Context, server ServerConfig, uri string) ([]mcp.ResourceContents, error) {
-	client, err := sm.local.Client(server.ServerConfig)
+func (sm *SessionManager) ReadResource(ctx context.Context, mcpServer v1.MCPServer, serverConfig ServerConfig, uri string) ([]mcp.ResourceContents, error) {
+	config, err := sm.transformServerConfig(ctx, mcpServer, serverConfig)
+	if err != nil {
+		return nil, err
+	}
+
+	client, err := sm.local.Client(config)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create MCP client: %w", err)
 	}

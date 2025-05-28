@@ -2,13 +2,11 @@ package render
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
 
 	"github.com/gptscript-ai/go-gptscript"
-	"github.com/gptscript-ai/gptscript/pkg/types"
 	"github.com/obot-platform/obot/pkg/mcp"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 )
@@ -48,22 +46,5 @@ func mcpServerTool(ctx context.Context, gptClient *gptscript.GPTScript, mcpServe
 			Missing: missingRequiredNames,
 		}
 	}
-	return MCPServerToolWithCreds(mcpServer, serverConfig)
-}
-
-func MCPServerToolWithCreds(mcpServer v1.MCPServer, serverConfig mcp.ServerConfig) (gptscript.ToolDef, error) {
-	b, err := json.Marshal(serverConfig)
-	if err != nil {
-		return gptscript.ToolDef{}, fmt.Errorf("failed to marshal MCP Server %s config: %w", mcpServer.Spec.Manifest.Name, err)
-	}
-
-	name := mcpServer.Spec.Manifest.Name
-	if name == "" {
-		name = mcpServer.Name
-	}
-
-	return gptscript.ToolDef{
-		Name:         name + "-bundle",
-		Instructions: fmt.Sprintf("%s\n%s", types.MCPPrefix, string(b)),
-	}, nil
+	return mcp.ServerToolWithCreds(mcpServer, serverConfig)
 }

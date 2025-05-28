@@ -5,10 +5,16 @@ import (
 	"fmt"
 
 	"github.com/mark3labs/mcp-go/mcp"
+	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 )
 
-func (sm *SessionManager) ListPrompts(ctx context.Context, server ServerConfig) ([]mcp.Prompt, error) {
-	client, err := sm.local.Client(server.ServerConfig)
+func (sm *SessionManager) ListPrompts(ctx context.Context, mcpServer v1.MCPServer, serverConfig ServerConfig) ([]mcp.Prompt, error) {
+	config, err := sm.transformServerConfig(ctx, mcpServer, serverConfig)
+	if err != nil {
+		return nil, err
+	}
+
+	client, err := sm.local.Client(config)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create MCP client: %w", err)
 	}
@@ -21,8 +27,13 @@ func (sm *SessionManager) ListPrompts(ctx context.Context, server ServerConfig) 
 	return resp.Prompts, nil
 }
 
-func (sm *SessionManager) GetPrompt(ctx context.Context, server ServerConfig, name string, args map[string]string) ([]mcp.PromptMessage, string, error) {
-	client, err := sm.local.Client(server.ServerConfig)
+func (sm *SessionManager) GetPrompt(ctx context.Context, mcpServer v1.MCPServer, serverConfig ServerConfig, name string, args map[string]string) ([]mcp.PromptMessage, string, error) {
+	config, err := sm.transformServerConfig(ctx, mcpServer, serverConfig)
+	if err != nil {
+		return nil, "", err
+	}
+
+	client, err := sm.local.Client(config)
 	if err != nil {
 		return nil, "", fmt.Errorf("failed to create MCP client: %w", err)
 	}

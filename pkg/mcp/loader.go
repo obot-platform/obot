@@ -19,6 +19,7 @@ import (
 	"github.com/obot-platform/nah/pkg/apply"
 	"github.com/obot-platform/nah/pkg/name"
 	"github.com/obot-platform/obot/logger"
+	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/wait"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -148,202 +149,225 @@ func (sm *SessionManager) Load(ctx context.Context, tool types.Tool) (result []t
 	}
 
 	for key, server := range servers.MCPServers {
-		image := sm.baseImage
-		if server.Command == "docker" {
-			if len(server.Args) == 0 || !slices.ContainsFunc(sm.allowedDockerImageRepos, func(s string) bool {
-				return strings.HasPrefix(server.Args[len(server.Args)-1], s)
-			}) {
-				return nil, fmt.Errorf("docker MCP server must use an image from one of %s", strings.Join(sm.allowedDockerImageRepos, ", "))
-			}
-			image = server.Args[len(server.Args)-1]
-		}
-
-		if server.Command == "" || sm.client == nil {
-			if !sm.allowLocalhostMCP && server.URL != "" {
-				// Ensure the URL is not a localhost URL.
-				u, err := url.Parse(server.URL)
-				if err != nil {
-					return nil, fmt.Errorf("failed to parse MCP server URL: %w", err)
-				}
-
-				// LookupHost will properly detect IP addresses.
-				addrs, err := net.LookupHost(u.Hostname())
-				if err != nil {
-					return nil, fmt.Errorf("failed to resolve MCP server URL hostname: %w", err)
-				}
-
-				for _, addr := range addrs {
-					if ip := net.ParseIP(addr); ip != nil && ip.IsLoopback() {
-						return nil, fmt.Errorf("MCP server URL must not be a localhost URL: %s", server.URL)
-					}
-				}
-			}
-			// Either we aren't deploying to Kubernetes, or this is a URL-based MCP server (so there is nothing to deploy to Kubernetes).
-			return sm.local.LoadTools(ctx, server.ServerConfig, tool.Name)
-		}
-
-		args := []string{"--stdio", fmt.Sprintf("%s %s", server.Command, strings.Join(server.Args, " ")), "--port", "8080", "--healthEndpoint", "/healthz"}
-		annotations := map[string]string{
-			"mcp-server-tool-name":   tool.Name,
-			"mcp-server-config-name": key,
-			"mcp-server-scope":       server.Scope,
-		}
-		id := sessionID(server)
-
-		var objs []kclient.Object
-
-		secretStringData := make(map[string]string, len(server.Env)+len(server.Headers)+1)
-		secretVolumeStringData := make(map[string]string, len(server.Files))
-		for _, file := range server.Files {
-			filename := fmt.Sprintf("%s-%s", id, hash.Digest(file))
-			secretVolumeStringData[filename] = file.Data
-			if file.EnvKey != "" {
-				secretStringData[file.EnvKey] = filename
-			}
-		}
-
-		objs = append(objs, &corev1.Secret{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:        name.SafeConcatName(id, "files"),
-				Namespace:   sm.mcpNamespace,
-				Annotations: annotations,
-			},
-			StringData: secretVolumeStringData,
-		})
-
-		for _, env := range server.Env {
-			k, v, ok := strings.Cut(env, "=")
-			if ok {
-				secretStringData[k] = v
-			}
-		}
-		for _, header := range server.Headers {
-			k, v, ok := strings.Cut(header, "=")
-			if ok {
-				secretStringData[k] = v
-			}
-		}
-
-		// Set an environment variable to indicate that the MCP server is running in Kubernetes.
-		// This is something that our special images read and react to.
-		secretStringData["OBOT_KUBERNETES_MODE"] = "true"
-
-		objs = append(objs, &corev1.Secret{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:        name.SafeConcatName(id, "config"),
-				Namespace:   sm.mcpNamespace,
-				Annotations: annotations,
-			},
-			StringData: secretStringData,
-		})
-
-		dep := &appsv1.Deployment{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:        id,
-				Namespace:   sm.mcpNamespace,
-				Annotations: annotations,
-				Labels: map[string]string{
-					"app": id,
-				},
-			},
-			Spec: appsv1.DeploymentSpec{
-				Selector: &metav1.LabelSelector{
-					MatchLabels: map[string]string{
-						"app": id,
-					},
-				},
-				Template: corev1.PodTemplateSpec{
-					ObjectMeta: metav1.ObjectMeta{
-						Labels: map[string]string{
-							"app": id,
-						},
-					},
-					Spec: corev1.PodSpec{
-						Volumes: []corev1.Volume{{
-							Name: "files",
-							VolumeSource: corev1.VolumeSource{
-								Secret: &corev1.SecretVolumeSource{
-									SecretName: name.SafeConcatName(id, "files"),
-								},
-							},
-						}},
-						Containers: []corev1.Container{{
-							Name:            "mcp",
-							Image:           image,
-							ImagePullPolicy: corev1.PullAlways,
-							Ports: []corev1.ContainerPort{{
-								Name:          "http",
-								ContainerPort: 8080,
-							}},
-							SecurityContext: &corev1.SecurityContext{
-								AllowPrivilegeEscalation: &[]bool{false}[0],
-								RunAsNonRoot:             &[]bool{true}[0],
-								RunAsUser:                &[]int64{1000}[0],
-								RunAsGroup:               &[]int64{1000}[0],
-							},
-							ReadinessProbe: &corev1.Probe{
-								ProbeHandler: corev1.ProbeHandler{
-									HTTPGet: &corev1.HTTPGetAction{
-										Path: "/healthz",
-										Port: intstr.FromInt32(8080),
-									},
-								},
-							},
-							Args: args,
-							EnvFrom: []corev1.EnvFromSource{{
-								SecretRef: &corev1.SecretEnvSource{
-									LocalObjectReference: corev1.LocalObjectReference{
-										Name: name.SafeConcatName(id, "config"),
-									},
-								},
-							}},
-							VolumeMounts: []corev1.VolumeMount{{
-								Name:      "files",
-								MountPath: "/files",
-							}},
-						}},
-					},
-				},
-			},
-		}
-		objs = append(objs, dep)
-
-		objs = append(objs, &corev1.Service{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:        id,
-				Namespace:   sm.mcpNamespace,
-				Annotations: annotations,
-			},
-			Spec: corev1.ServiceSpec{
-				Ports: []corev1.ServicePort{
-					{
-						Name:       "http",
-						Port:       80,
-						TargetPort: intstr.FromInt32(8080),
-					},
-				},
-				Selector: map[string]string{
-					"app": id,
-				},
-				Type: corev1.ServiceTypeClusterIP,
-			},
-		})
-
-		if err := apply.New(sm.client).WithNamespace(sm.mcpNamespace).WithOwnerSubContext(id).Apply(ctx, nil, objs...); err != nil {
-			return nil, fmt.Errorf("failed to create MCP deployment %s: %w", id, err)
-		}
-
-		url := fmt.Sprintf("http://%s.%s.svc.%s", id, sm.mcpNamespace, sm.mcpClusterDomain)
-		podName, err := sm.updatedMCPPodName(ctx, url, id)
+		config, err := sm.ensureDeployment(ctx, server, key, tool)
 		if err != nil {
 			return nil, err
 		}
-
-		// Use the pod name as the scope, so we get a new session if the pod restarts. MCP sessions aren't persistent on the server side.
-		return sm.local.LoadTools(ctx, gmcp.ServerConfig{URL: fmt.Sprintf("%s/sse", url), Scope: podName, AllowedTools: server.AllowedTools}, tool.Name)
+		return sm.local.LoadTools(ctx, config, tool.Name)
 	}
 
 	return nil, fmt.Errorf("no MCP server configuration found in tool instructions: %s", configData)
+}
+
+func (sm *SessionManager) ensureDeployment(ctx context.Context, server ServerConfig, key string, tool types.Tool) (gmcp.ServerConfig, error) {
+	image := sm.baseImage
+	if server.Command == "docker" {
+		if len(server.Args) == 0 || !slices.ContainsFunc(sm.allowedDockerImageRepos, func(s string) bool {
+			return strings.HasPrefix(server.Args[len(server.Args)-1], s)
+		}) {
+			return gmcp.ServerConfig{}, fmt.Errorf("docker MCP server must use an image from one of %s", strings.Join(sm.allowedDockerImageRepos, ", "))
+		}
+		image = server.Args[len(server.Args)-1]
+	}
+
+	if server.Command == "" || sm.client == nil {
+		if !sm.allowLocalhostMCP && server.URL != "" {
+			// Ensure the URL is not a localhost URL.
+			u, err := url.Parse(server.URL)
+			if err != nil {
+				return gmcp.ServerConfig{}, fmt.Errorf("failed to parse MCP server URL: %w", err)
+			}
+
+			// LookupHost will properly detect IP addresses.
+			addrs, err := net.LookupHost(u.Hostname())
+			if err != nil {
+				return gmcp.ServerConfig{}, fmt.Errorf("failed to resolve MCP server URL hostname: %w", err)
+			}
+
+			for _, addr := range addrs {
+				if ip := net.ParseIP(addr); ip != nil && ip.IsLoopback() {
+					return gmcp.ServerConfig{}, fmt.Errorf("MCP server URL must not be a localhost URL: %s", server.URL)
+				}
+			}
+		}
+		// Either we aren't deploying to Kubernetes, or this is a URL-based MCP server (so there is nothing to deploy to Kubernetes).
+		return server.ServerConfig, nil
+	}
+
+	args := []string{"--stdio", fmt.Sprintf("%s %s", server.Command, strings.Join(server.Args, " ")), "--port", "8080", "--healthEndpoint", "/healthz"}
+	annotations := map[string]string{
+		"mcp-server-tool-name":   tool.Name,
+		"mcp-server-config-name": key,
+		"mcp-server-scope":       server.Scope,
+	}
+	id := sessionID(server)
+
+	var objs []kclient.Object
+
+	secretStringData := make(map[string]string, len(server.Env)+len(server.Headers)+1)
+	secretVolumeStringData := make(map[string]string, len(server.Files))
+	for _, file := range server.Files {
+		filename := fmt.Sprintf("%s-%s", id, hash.Digest(file))
+		secretVolumeStringData[filename] = file.Data
+		if file.EnvKey != "" {
+			secretStringData[file.EnvKey] = filename
+		}
+	}
+
+	objs = append(objs, &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        name.SafeConcatName(id, "files"),
+			Namespace:   sm.mcpNamespace,
+			Annotations: annotations,
+		},
+		StringData: secretVolumeStringData,
+	})
+
+	for _, env := range server.Env {
+		k, v, ok := strings.Cut(env, "=")
+		if ok {
+			secretStringData[k] = v
+		}
+	}
+	for _, header := range server.Headers {
+		k, v, ok := strings.Cut(header, "=")
+		if ok {
+			secretStringData[k] = v
+		}
+	}
+
+	// Set an environment variable to indicate that the MCP server is running in Kubernetes.
+	// This is something that our special images read and react to.
+	secretStringData["OBOT_KUBERNETES_MODE"] = "true"
+
+	objs = append(objs, &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        name.SafeConcatName(id, "config"),
+			Namespace:   sm.mcpNamespace,
+			Annotations: annotations,
+		},
+		StringData: secretStringData,
+	})
+
+	dep := &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        id,
+			Namespace:   sm.mcpNamespace,
+			Annotations: annotations,
+			Labels: map[string]string{
+				"app": id,
+			},
+		},
+		Spec: appsv1.DeploymentSpec{
+			Selector: &metav1.LabelSelector{
+				MatchLabels: map[string]string{
+					"app": id,
+				},
+			},
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: map[string]string{
+						"app": id,
+					},
+				},
+				Spec: corev1.PodSpec{
+					Volumes: []corev1.Volume{{
+						Name: "files",
+						VolumeSource: corev1.VolumeSource{
+							Secret: &corev1.SecretVolumeSource{
+								SecretName: name.SafeConcatName(id, "files"),
+							},
+						},
+					}},
+					Containers: []corev1.Container{{
+						Name:            "mcp",
+						Image:           image,
+						ImagePullPolicy: corev1.PullAlways,
+						Ports: []corev1.ContainerPort{{
+							Name:          "http",
+							ContainerPort: 8080,
+						}},
+						SecurityContext: &corev1.SecurityContext{
+							AllowPrivilegeEscalation: &[]bool{false}[0],
+							RunAsNonRoot:             &[]bool{true}[0],
+							RunAsUser:                &[]int64{1000}[0],
+							RunAsGroup:               &[]int64{1000}[0],
+						},
+						ReadinessProbe: &corev1.Probe{
+							ProbeHandler: corev1.ProbeHandler{
+								HTTPGet: &corev1.HTTPGetAction{
+									Path: "/healthz",
+									Port: intstr.FromInt32(8080),
+								},
+							},
+						},
+						Args: args,
+						EnvFrom: []corev1.EnvFromSource{{
+							SecretRef: &corev1.SecretEnvSource{
+								LocalObjectReference: corev1.LocalObjectReference{
+									Name: name.SafeConcatName(id, "config"),
+								},
+							},
+						}},
+						VolumeMounts: []corev1.VolumeMount{{
+							Name:      "files",
+							MountPath: "/files",
+						}},
+					}},
+				},
+			},
+		},
+	}
+	objs = append(objs, dep)
+
+	objs = append(objs, &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        id,
+			Namespace:   sm.mcpNamespace,
+			Annotations: annotations,
+		},
+		Spec: corev1.ServiceSpec{
+			Ports: []corev1.ServicePort{
+				{
+					Name:       "http",
+					Port:       80,
+					TargetPort: intstr.FromInt32(8080),
+				},
+			},
+			Selector: map[string]string{
+				"app": id,
+			},
+			Type: corev1.ServiceTypeClusterIP,
+		},
+	})
+
+	if err := apply.New(sm.client).WithNamespace(sm.mcpNamespace).WithOwnerSubContext(id).Apply(ctx, nil, objs...); err != nil {
+		return gmcp.ServerConfig{}, fmt.Errorf("failed to create MCP deployment %s: %w", id, err)
+	}
+
+	u := fmt.Sprintf("http://%s.%s.svc.%s", id, sm.mcpNamespace, sm.mcpClusterDomain)
+	podName, err := sm.updatedMCPPodName(ctx, u, id)
+	if err != nil {
+		return gmcp.ServerConfig{}, err
+	}
+
+	return gmcp.ServerConfig{URL: fmt.Sprintf("%s/sse", u), Scope: podName, AllowedTools: server.AllowedTools}, nil
+}
+
+func (sm *SessionManager) transformServerConfig(ctx context.Context, mcpServer v1.MCPServer, serverConfig ServerConfig) (gmcp.ServerConfig, error) {
+	tool, err := ServerToolWithCreds(mcpServer, serverConfig)
+	if err != nil {
+		return gmcp.ServerConfig{}, err
+	}
+
+	return sm.ensureDeployment(ctx, serverConfig, "default", types.Tool{
+		ToolDef: types.ToolDef{
+			Parameters: types.Parameters{
+				Name: tool.Name,
+			},
+			Instructions: tool.Instructions,
+		},
+	})
 }
 
 func sessionID(server ServerConfig) string {

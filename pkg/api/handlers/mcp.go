@@ -313,7 +313,7 @@ func (m *MCPHandler) SetTools(req api.Context) error {
 }
 
 func (m *MCPHandler) GetResources(req api.Context) error {
-	_, serverConfig, caps, err := m.serverForAction(req)
+	mcpServer, serverConfig, caps, err := m.serverForAction(req)
 	if err != nil {
 		return err
 	}
@@ -322,7 +322,7 @@ func (m *MCPHandler) GetResources(req api.Context) error {
 		return types.NewErrHTTP(http.StatusFailedDependency, "MCP server does not support resources")
 	}
 
-	resources, err := m.mcpSessionManager.ListResources(req.Context(), serverConfig)
+	resources, err := m.mcpSessionManager.ListResources(req.Context(), mcpServer, serverConfig)
 	if err != nil {
 		return fmt.Errorf("failed to list resources: %w", err)
 	}
@@ -331,7 +331,7 @@ func (m *MCPHandler) GetResources(req api.Context) error {
 }
 
 func (m *MCPHandler) ReadResource(req api.Context) error {
-	_, serverConfig, caps, err := m.serverForAction(req)
+	mcpServer, serverConfig, caps, err := m.serverForAction(req)
 	if err != nil {
 		return err
 	}
@@ -340,7 +340,7 @@ func (m *MCPHandler) ReadResource(req api.Context) error {
 		return types.NewErrHTTP(http.StatusFailedDependency, "MCP server does not support resources")
 	}
 
-	contents, err := m.mcpSessionManager.ReadResource(req.Context(), serverConfig, req.PathValue("resource_uri"))
+	contents, err := m.mcpSessionManager.ReadResource(req.Context(), mcpServer, serverConfig, req.PathValue("resource_uri"))
 	if err != nil {
 		return fmt.Errorf("failed to list resources: %w", err)
 	}
@@ -349,7 +349,7 @@ func (m *MCPHandler) ReadResource(req api.Context) error {
 }
 
 func (m *MCPHandler) GetPrompts(req api.Context) error {
-	_, serverConfig, caps, err := m.serverForAction(req)
+	mcpServer, serverConfig, caps, err := m.serverForAction(req)
 	if err != nil {
 		return err
 	}
@@ -358,7 +358,7 @@ func (m *MCPHandler) GetPrompts(req api.Context) error {
 		return types.NewErrHTTP(http.StatusFailedDependency, "MCP server does not support prompts")
 	}
 
-	prompts, err := m.mcpSessionManager.ListPrompts(req.Context(), serverConfig)
+	prompts, err := m.mcpSessionManager.ListPrompts(req.Context(), mcpServer, serverConfig)
 	if err != nil {
 		return fmt.Errorf("failed to list prompts: %w", err)
 	}
@@ -367,7 +367,7 @@ func (m *MCPHandler) GetPrompts(req api.Context) error {
 }
 
 func (m *MCPHandler) GetPrompt(req api.Context) error {
-	_, serverConfig, caps, err := m.serverForAction(req)
+	mcpServer, serverConfig, caps, err := m.serverForAction(req)
 	if err != nil {
 		return err
 	}
@@ -381,7 +381,7 @@ func (m *MCPHandler) GetPrompt(req api.Context) error {
 		return fmt.Errorf("failed to read args: %w", err)
 	}
 
-	messages, description, err := m.mcpSessionManager.GetPrompt(req.Context(), serverConfig, req.PathValue("prompt_name"), args)
+	messages, description, err := m.mcpSessionManager.GetPrompt(req.Context(), mcpServer, serverConfig, req.PathValue("prompt_name"), args)
 	if err != nil {
 		return fmt.Errorf("failed to get prompt: %w", err)
 	}
@@ -438,7 +438,7 @@ func (m *MCPHandler) serverForAction(req api.Context) (v1.MCPServer, mcp.ServerC
 		return server, mcp.ServerConfig{}, gmcp.ServerCapabilities{}, types.NewErrBadRequest("missing required config: %s", strings.Join(missingConfig, ", "))
 	}
 
-	caps, err := m.mcpSessionManager.ServerCapabilities(serverConfig)
+	caps, err := m.mcpSessionManager.ServerCapabilities(req.Context(), server, serverConfig)
 	return server, serverConfig, caps, err
 }
 
@@ -861,7 +861,7 @@ func (m *MCPHandler) toolsForServer(ctx context.Context, client kclient.Client, 
 		return tools, nil
 	}
 
-	tool, err := render.MCPServerToolWithCreds(server, serverConfig)
+	tool, err := mcp.ServerToolWithCreds(server, serverConfig)
 	if err != nil {
 		return nil, err
 	}
