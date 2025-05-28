@@ -1383,6 +1383,19 @@ export async function getModelProviderConfig(
 	) as Promise<Record<string, string>>;
 }
 
+export async function validateModelProviderConfig(
+	assistantID: string,
+	projectID: string,
+	providerId: string,
+	config: Record<string, string>
+): Promise<void> {
+	return doPost(
+		`/assistants/${assistantID}/projects/${projectID}/model-providers/${providerId}/validate`,
+		config,
+		{ dontLogErrors: true }
+	) as Promise<void>;
+}
+
 export async function getDefaultModelForThread(
 	assistantID: string,
 	projectID: string,
