@@ -33,9 +33,7 @@
 		configureModelProvider,
 		deconfigureModelProvider,
 		getModelProviderConfig,
-
 		validateModelProviderConfig
-
 	} from '$lib/services/chat/operations';
 	import { twMerge } from 'tailwind-merge';
 	import { fade, slide } from 'svelte/transition';
@@ -195,13 +193,16 @@
 			} catch (err) {
 				console.error(err);
 
-				let message = err instanceof Error ? err.message : 'Validation failed. Please check your configuration.';
+				let message =
+					err instanceof Error
+						? err.message
+						: 'Validation failed. Please check your configuration.';
 				const parts = message.split(' logger=')[0].split('ERROR');
-				message = parts[parts.length - 1].trim() || 'Validation failed. Please check your configuration.';
+				message =
+					parts[parts.length - 1].trim() || 'Validation failed. Please check your configuration.';
 
 				// If there is an error JSON string in there, extract it and use that as the message instead.
-				const errorMessageMatch =
-					err instanceof Error && err.message.match(/{"error":\s*"(.*?)"}/);
+				const errorMessageMatch = err instanceof Error && err.message.match(/{"error":\s*"(.*?)"}/);
 				if (errorMessageMatch) {
 					message = JSON.parse(errorMessageMatch[0]).error;
 				}
@@ -249,7 +250,7 @@
 
 		try {
 			isModelsLoading = true;
-			if (!await handleConfigureModelProvider(provider, configuration)) {
+			if (!(await handleConfigureModelProvider(provider, configuration))) {
 				isModelsLoading = false;
 				return;
 			}
@@ -587,8 +588,8 @@
 					{/each}
 
 					{#if validationError}
-						<div 
-							class="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 px-4 py-3 rounded-md text-sm"
+						<div
+							class="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-800 dark:bg-red-900/20 dark:text-red-300"
 							transition:slide={{ duration: 200 }}
 						>
 							<div class="flex items-center gap-2">
