@@ -1,8 +1,10 @@
 #!/bin/bash
 
-set -e # Exit on any command failure
-# Create a new process group if supported
-set -m 2>/dev/null || true
+# Exit on any command failure
+set -e
+
+# Disable job control notifications
+set +m
 
 # Parse arguments for opening the user and admin UIs
 open_uis=false
@@ -19,8 +21,9 @@ print_with_color() {
   local color_code=$1
   local color_message=$2
   local uncolored_message=$3
+  local formatted_message="\033[38;5;${color_code}m${color_message}\033[0m${uncolored_message}"
 
-  echo -e "\033[38;5;${color_code}m${color_message}\033[0m${uncolored_message}"
+  printf "$formatted_message\n"
 }
 
 print_section_header() {
@@ -45,30 +48,44 @@ open_browser_tabs() {
   print_with_color 120 "UIs are accessible at: $(printf '%s ' "$@")"
 }
 
+cleanup_count=0
 cleanup() {
-  echo "Cleaning up processes..."
+  kill_signal="-TERM"
+  case $cleanup_count in
+    0)
+      print_section_header 196 "Gracefully killing all services..."
+      ;;
+    *)
+      kill_signal="-INT"
+      print_section_header 196 "Agressively killing all services..."
+      ;;
+  esac
+  ((cleanup_count++))
 
-  # Kill all go processes started by this script
-  pkill -f "go run main.go server" 2>/dev/null || true
+  # Kill monitoring process groups
+  [[ -n "$server_ready_pid" ]] && kill "${kill_signal}" "-${server_ready_pid}" 2>/dev/null || true
+  [[ -n "$admin_ui_ready_pid" ]] && kill "${kill_signal}" "-${admin_ui_ready_pid}" 2>/dev/null || true
+  [[ -n "$user_ui_ready_pid" ]] && kill "${kill_signal}" "-${user_ui_ready_pid}" 2>/dev/null || true
 
-  # Kill npm/pnpm processes for the UI
-  pkill -f "npm run dev" 2>/dev/null || true
-  pkill -f "pnpm run dev" 2>/dev/null || true
+  # Kill service process groups
+  [[ -n "$server_pid" ]] && kill "${kill_signal}" "-${server_pid}" 2>/dev/null || true
+  [[ -n "$admin_ui_pid" ]] && kill "${kill_signal}" "-${admin_ui_pid}" 2>/dev/null || true
+  [[ -n "$user_ui_pid" ]] && kill "${kill_signal}" "-${user_ui_pid}" 2>/dev/null || true
 
-  # Kill monitoring processes
-  [[ -n "$server_ready_pid" ]] && kill $server_ready_pid 2>/dev/null || true
-  [[ -n "$admin_ui_ready_pid" ]] && kill $admin_ui_ready_pid 2>/dev/null || true
-  [[ -n "$user_ui_ready_pid" ]] && kill $user_ui_ready_pid 2>/dev/null || true
+  if [[ "$cleanup_count" -lt 2 ]]; then
+    print_section_header 196 "Waiting for services to exit (PIDs: ${server_pid}, ${admin_ui_pid}, ${user_ui_pid})..."
+    while kill -0 "${server_pid}" 2>/dev/null || kill -0 "${admin_ui_pid}" 2>/dev/null || kill -0 "${user_ui_pid}" 2>/dev/null; do
+      sleep 0.5
+    done
 
-  # Fallback to killing anything with the script's name in the command
-  pkill -f "$(basename $0)" 2>/dev/null || true
+    print_section_header 120 "All services stopped!"
+    pkill -f "$(basename "$0")" 2>/dev/null || true
+  fi
 
   exit 0
 }
+trap cleanup INT TERM
 
-trap cleanup EXIT INT TERM
-
-# Start the otto server
 (
   print_section_header 183 "Starting server..."
 
@@ -77,6 +94,7 @@ trap cleanup EXIT INT TERM
   done
 ) &
 server_pid=$!
+
 
 (
   source .envrc.dev
@@ -90,13 +108,13 @@ server_pid=$!
   done
 
   print_section_header 196 "Timeout waiting for server to start"
-  cleanup
 ) &
 server_ready_pid=$!
 
 (
   print_section_header 153 "Starting admin UI..."
   cd ui/admin
+
   pnpm i --ignore-scripts 2>&1 | while IFS= read -r line; do
     print_with_color 153 "[admin-ui](install)" " $line"
   done
@@ -117,14 +135,13 @@ admin_ui_pid=$!
   done
 
   print_section_header 196 "Timeout waiting for admin UI to start"
-  cleanup
 ) &
 admin_ui_ready_pid=$!
 
 (
   print_section_header 217 "Starting user UI..."
-
   cd ui/user
+
   pnpm i 2>&1 | while IFS= read -r line; do
     print_with_color 217 "[user-ui](install)" " $line"
   done
@@ -145,13 +162,15 @@ user_ui_pid=$!
   done
 
   print_section_header 196 "Timeout waiting for user UI to start"
-  cleanup
 ) &
 user_ui_ready_pid=$!
 
+# Wait for all services to be ready
 wait "${server_ready_pid}" "${admin_ui_ready_pid}" "${user_ui_ready_pid}"
-print_section_header 120 "All components ready!"
 
+# Services ready, open browser tabs if requested
+print_section_header 120 "All components ready!"
 open_browser_tabs http://localhost:8080/
 
+# Wait for services to exit
 wait "${server_pid}" "${admin_ui_pid}" "${user_ui_pid}"
