@@ -193,19 +193,26 @@
 			} catch (err) {
 				console.error(err);
 
-				let message =
-					err instanceof Error
-						? err.message
-						: 'Validation failed. Please check your configuration.';
-				const parts = message.split(' logger=')[0].split('ERROR');
-				message =
-					parts[parts.length - 1].trim() || 'Validation failed. Please check your configuration.';
+				let message = 'Validation failed. Please check your configuration.';
 
-				// If there is an error JSON string in there, extract it and use that as the message instead.
-				const errorMessageMatch = err instanceof Error && err.message.match(/{"error":\s*"(.*?)"}/);
-				if (errorMessageMatch) {
-					message = JSON.parse(errorMessageMatch[0]).error;
+				if (err instanceof Error) {
+					// Look for a nested JSON error first.
+					const errorMessageMatch = err.message.match(/{"error":\s*"(.*?)"}/);
+					if (errorMessageMatch) {
+						message = JSON.parse(errorMessageMatch[0]).error;
+					} else {
+						// Just use the error message, and try to clean it up if we can.
+						message = err.message;
+
+						// Clean up the error message.
+						const parts = message.split(' logger=')[0].split('ERROR');
+						const lastPart = parts[parts.length - 1].trim();
+						if (lastPart) {
+							message = lastPart;
+						}
+					}
 				}
+
 				validationError = message;
 				return false;
 			}
@@ -618,6 +625,7 @@
 						class="button hover:bg-surface1 rounded-full px-4 py-2 text-sm transition-colors duration-100"
 						onclick={() => {
 							configuration = $state.snapshot(oldConfiguration);
+							validationError = null;
 						}}
 					>
 						Reset
