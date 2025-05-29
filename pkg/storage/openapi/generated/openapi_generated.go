@@ -87,6 +87,8 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/apiclient/types.OAuthAppList":                                  schema_obot_platform_obot_apiclient_types_OAuthAppList(ref),
 		"github.com/obot-platform/obot/apiclient/types.OAuthAppLoginAuthStatus":                       schema_obot_platform_obot_apiclient_types_OAuthAppLoginAuthStatus(ref),
 		"github.com/obot-platform/obot/apiclient/types.OAuthAppManifest":                              schema_obot_platform_obot_apiclient_types_OAuthAppManifest(ref),
+		"github.com/obot-platform/obot/apiclient/types.OAuthClient":                                   schema_obot_platform_obot_apiclient_types_OAuthClient(ref),
+		"github.com/obot-platform/obot/apiclient/types.OAuthClientManifest":                           schema_obot_platform_obot_apiclient_types_OAuthClientManifest(ref),
 		"github.com/obot-platform/obot/apiclient/types.OnEmail":                                       schema_obot_platform_obot_apiclient_types_OnEmail(ref),
 		"github.com/obot-platform/obot/apiclient/types.OnWebhook":                                     schema_obot_platform_obot_apiclient_types_OnWebhook(ref),
 		"github.com/obot-platform/obot/apiclient/types.OneDriveConfig":                                schema_obot_platform_obot_apiclient_types_OneDriveConfig(ref),
@@ -233,6 +235,10 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.OAuthAppLoginSpec":            schema_storage_apis_obotobotai_v1_OAuthAppLoginSpec(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.OAuthAppLoginStatus":          schema_storage_apis_obotobotai_v1_OAuthAppLoginStatus(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.OAuthAppSpec":                 schema_storage_apis_obotobotai_v1_OAuthAppSpec(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.OAuthClient":                  schema_storage_apis_obotobotai_v1_OAuthClient(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.OAuthClientList":              schema_storage_apis_obotobotai_v1_OAuthClientList(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.OAuthClientSpec":              schema_storage_apis_obotobotai_v1_OAuthClientSpec(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.OAuthClientStatus":            schema_storage_apis_obotobotai_v1_OAuthClientStatus(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ProjectInvitation":            schema_storage_apis_obotobotai_v1_ProjectInvitation(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ProjectInvitationList":        schema_storage_apis_obotobotai_v1_ProjectInvitationList(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ProjectInvitationSpec":        schema_storage_apis_obotobotai_v1_ProjectInvitationSpec(ref),
@@ -3625,6 +3631,225 @@ func schema_obot_platform_obot_apiclient_types_OAuthAppManifest(ref common.Refer
 		},
 		Dependencies: []string{
 			"github.com/obot-platform/obot/apiclient/types.Metadata"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_OAuthClient(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"Metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/obot-platform/obot/apiclient/types.Metadata"),
+						},
+					},
+					"OAuthClientManifest": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/obot-platform/obot/apiclient/types.OAuthClientManifest"),
+						},
+					},
+					"registration_access_token": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"registration_client_uri": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"client_id": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"client_secret": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"client_secret_issued_at": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.Time"),
+						},
+					},
+					"client_secret_expires_at": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.Time"),
+						},
+					},
+				},
+				Required: []string{"Metadata", "OAuthClientManifest", "registration_client_uri", "client_id", "client_secret_issued_at", "client_secret_expires_at"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.Metadata", "github.com/obot-platform/obot/apiclient/types.OAuthClientManifest", "github.com/obot-platform/obot/apiclient/types.Time"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_OAuthClientManifest(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"redirect_uri": {
+						SchemaProps: spec.SchemaProps{
+							Description: "RedirectURI is a single redirection URI string Maintained for backward compatibility\n\nDeprecated: use RedirectURIs instead",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"redirect_uris": {
+						SchemaProps: spec.SchemaProps{
+							Description: "RedirectURIs is an array of redirection URI strings for use in redirect-based flows such as the authorization code and implicit flows. As required by Section 2 of OAuth 2.0 [RFC6749], clients using flows with redirection MUST register their redirection URI values. Required for redirect-based flows.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+					"token_endpoint_auth_method": {
+						SchemaProps: spec.SchemaProps{
+							Description: "TokenEndpointAuthMethod is a string indicator of the requested authentication method for the token endpoint. Values defined include: \"none\", \"client_secret_post\", \"client_secret_basic\". If unspecified or omitted, the default is \"client_secret_basic\". Optional.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"grant_types": {
+						SchemaProps: spec.SchemaProps{
+							Description: "GrantTypes is an array of OAuth 2.0 grant type strings that the client can use at the token endpoint. If omitted, the default behavior is that the client will use only the \"authorization_code\" Grant Type. Optional.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+					"response_types": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ResponseTypes is an array of the OAuth 2.0 response type strings that the client can use at the authorization endpoint. If omitted, the default is that the client will use only the \"code\" response type. Optional.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+					"client_name": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ClientName is a human-readable string name of the client to be presented to the end-user during authorization. If omitted, the authorization server MAY display the raw \"client_id\" value to the end-user instead. It is RECOMMENDED that clients always send this field. Optional.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"client_uri": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ClientURI is a URL string of a web page providing information about the client. If present, the server SHOULD display this URL to the end-user in a clickable fashion. It is RECOMMENDED that clients always send this field. Optional.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"logo_uri": {
+						SchemaProps: spec.SchemaProps{
+							Description: "LogoURI is a URL string that references a logo for the client. If present, the server SHOULD display this image to the end-user during approval. Optional.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"scope": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Scope is a string containing a space-separated list of scope values that the client can use when requesting access tokens. If omitted, an authorization server MAY register a client with a default set of scopes. Optional.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"contacts": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Contacts is an array of strings representing ways to contact people responsible for this client, typically email addresses. Optional.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+					"tos_uri": {
+						SchemaProps: spec.SchemaProps{
+							Description: "TOSURI is a URL string that points to a human-readable terms of service document for the client. Optional.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"policy_uri": {
+						SchemaProps: spec.SchemaProps{
+							Description: "PolicyURI is a URL string that points to a human-readable privacy policy document. Optional.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"jwks_uri": {
+						SchemaProps: spec.SchemaProps{
+							Description: "JWKSURI is a URL string referencing the client's JSON Web Key (JWK) Set document, which contains the client's public keys. The \"jwks_uri\" and \"jwks\" parameters MUST NOT both be present in the same request or response. Optional.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"jwks": {
+						SchemaProps: spec.SchemaProps{
+							Description: "JWKS is the client's JSON Web Key Set document value, which contains the client's public keys. This parameter is intended to be used by clients that cannot use the \"jwks_uri\" parameter. The \"jwks_uri\" and \"jwks\" parameters MUST NOT both be present in the same request or response. Optional.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"software_id": {
+						SchemaProps: spec.SchemaProps{
+							Description: "SoftwareID is a unique identifier string assigned by the client developer or software publisher used by registration endpoints to identify the client software to be dynamically registered. Optional.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"software_version": {
+						SchemaProps: spec.SchemaProps{
+							Description: "SoftwareVersion is a version identifier string for the client software identified by \"software_id\". Optional.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+			},
+		},
 	}
 }
 
@@ -9870,6 +10095,163 @@ func schema_storage_apis_obotobotai_v1_OAuthAppSpec(ref common.ReferenceCallback
 		},
 		Dependencies: []string{
 			"github.com/obot-platform/obot/apiclient/types.OAuthAppManifest"},
+	}
+}
+
+func schema_storage_apis_obotobotai_v1_OAuthClient(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"),
+						},
+					},
+					"spec": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.OAuthClientSpec"),
+						},
+					},
+					"status": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.OAuthClientStatus"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.OAuthClientSpec", "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.OAuthClientStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
+	}
+}
+
+func schema_storage_apis_obotobotai_v1_OAuthClientList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"),
+						},
+					},
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.OAuthClient"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"items"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.OAuthClient", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
+	}
+}
+
+func schema_storage_apis_obotobotai_v1_OAuthClientSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"manifest": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/obot-platform/obot/apiclient/types.OAuthClientManifest"),
+						},
+					},
+					"clientSecretHash": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "byte",
+						},
+					},
+					"client_secret_issued_at": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.Time"),
+						},
+					},
+					"client_secret_expires_at": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.Time"),
+						},
+					},
+					"registrationTokenHash": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "byte",
+						},
+					},
+					"registration_token_issued_at": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.Time"),
+						},
+					},
+					"registration_token_expires_at": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.Time"),
+						},
+					},
+				},
+				Required: []string{"manifest", "clientSecretHash", "client_secret_issued_at", "client_secret_expires_at", "registrationTokenHash", "registration_token_issued_at", "registration_token_expires_at"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.OAuthClientManifest", "k8s.io/apimachinery/pkg/apis/meta/v1.Time"},
+	}
+}
+
+func schema_storage_apis_obotobotai_v1_OAuthClientStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+			},
+		},
 	}
 }
 
