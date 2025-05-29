@@ -60,7 +60,13 @@ var staticRules = map[string][]string{
 		"GET /api/templates",
 		"GET /api/tool-references",
 
+		"GET /api/mcp/catalog",
+		"GET /api/mcp/catalog/{id}",
+
 		"/api/mcp/{mcp_server_id}",
+
+		"GET /.well-known/",
+		"POST /oauth/register",
 	},
 
 	AuthenticatedGroup: {
@@ -133,11 +139,7 @@ func (a *Authorizer) Authorize(req *http.Request, user user.Info) bool {
 		}
 	}
 
-	if a.authorizeAPIResources(req, user) {
-		return true
-	}
-
-	return a.checkUI(req)
+	return a.authorizeAPIResources(req, user) || a.checkOAuthClient(req) || a.checkUI(req)
 }
 
 type rule struct {
