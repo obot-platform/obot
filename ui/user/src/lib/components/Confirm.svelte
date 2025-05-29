@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { clickOutside } from '$lib/actions/clickoutside';
 	import { CircleAlert, X } from 'lucide-svelte/icons';
+	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
 		show: boolean;
@@ -26,7 +27,10 @@
 <dialog
 	bind:this={dialog}
 	use:clickOutside={() => oncancel()}
-	class="max-h-full w-full max-w-md bg-gray-50 dark:bg-gray-950"
+	class={twMerge(
+		'pointer-events-none max-h-full w-full max-w-md bg-gray-50 dark:bg-gray-950',
+		show && 'pointer-events-auto'
+	)}
 >
 	<div class="relative">
 		<button

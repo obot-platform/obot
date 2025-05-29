@@ -68,7 +68,7 @@
 </script>
 
 <div transition:slide>
-	<div class="flex items-center justify-between">
+	<div class="flex items-center justify-between gap-4">
 		{#if selectedTrigger() === 'schedule'}
 			<Schedule bind:schedule={task.schedule} {readOnly} />
 		{/if}
